@@ -18,6 +18,21 @@ export const insertUserSchema = createInsertSchema(users).pick({
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
+// Role management
+export type Role = {
+  id: string;
+  name: string;
+  permissions: {
+    viewOrders: boolean;
+    editOrders: boolean;
+    exportData: boolean;
+    viewAnalytics: boolean;
+    manageUsers: boolean;
+    manageRoles: boolean;
+    manageSettings: boolean;
+  };
+};
+
 // Order types for Shopware integration
 export type OrderStatus = "open" | "in_progress" | "completed" | "cancelled";
 

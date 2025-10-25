@@ -7,11 +7,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import type { User } from "@shared/schema";
+import type { User, Role } from "@shared/schema";
 
 const editUserSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
-  role: z.enum(["employee", "admin"]),
+  roleId: z.string().min(1, "Please select a role"),
   password: z.string().optional(),
   confirmPassword: z.string().optional(),
 }).refine((data) => {
@@ -27,20 +27,21 @@ const editUserSchema = z.object({
 type EditUserFormData = z.infer<typeof editUserSchema>;
 
 interface EditUserDialogProps {
-  user: User | null;
+  user: (User & { roleId: string }) | null;
   open: boolean;
   onClose: () => void;
   onUpdateUser: (id: string, data: EditUserFormData) => void;
+  availableRoles: Role[];
 }
 
-export default function EditUserDialog({ user, open, onClose, onUpdateUser }: EditUserDialogProps) {
+export default function EditUserDialog({ user, open, onClose, onUpdateUser, availableRoles }: EditUserDialogProps) {
   const { toast } = useToast();
 
   const form = useForm<EditUserFormData>({
     resolver: zodResolver(editUserSchema),
     values: user ? {
       username: user.username,
-      role: user.role as "employee" | "admin",
+      roleId: user.roleId,
       password: "",
       confirmPassword: "",
     } : undefined,
@@ -84,7 +85,7 @@ export default function EditUserDialog({ user, open, onClose, onUpdateUser }: Ed
             
             <FormField
               control={form.control}
-              name="role"
+              name="roleId"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="font-medium">Role</FormLabel>
@@ -95,8 +96,11 @@ export default function EditUserDialog({ user, open, onClose, onUpdateUser }: Ed
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="employee">Employee</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
+                      {availableRoles.map((role) => (
+                        <SelectItem key={role.id} value={role.id}>
+                          {role.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormMessage />

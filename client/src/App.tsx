@@ -10,6 +10,7 @@ import OrdersPage from "@/pages/OrdersPage";
 import ExportPage from "@/pages/ExportPage";
 import AnalyticsPage from "@/pages/AnalyticsPage";
 import UsersPage from "@/pages/UsersPage";
+import RolesPage from "@/pages/RolesPage";
 import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/not-found";
 
@@ -20,6 +21,7 @@ function Router({ userRole }: { userRole: "employee" | "admin" }) {
       <Route path="/export" component={ExportPage} />
       <Route path="/analytics" component={AnalyticsPage} />
       <Route path="/users" component={UsersPage} />
+      <Route path="/roles" component={RolesPage} />
       <Route path="/settings" component={SettingsPage} />
       <Route component={NotFound} />
     </Switch>

@@ -9,12 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { UserPlus } from "lucide-react";
 import { useState } from "react";
+import type { Role } from "@shared/schema";
 
 const addUserSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   confirmPassword: z.string(),
-  role: z.enum(["employee", "admin"]),
+  roleId: z.string().min(1, "Please select a role"),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
@@ -24,9 +25,10 @@ type AddUserFormData = z.infer<typeof addUserSchema>;
 
 interface AddUserDialogProps {
   onAddUser: (user: Omit<AddUserFormData, "confirmPassword">) => void;
+  availableRoles: Role[];
 }
 
-export default function AddUserDialog({ onAddUser }: AddUserDialogProps) {
+export default function AddUserDialog({ onAddUser, availableRoles }: AddUserDialogProps) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
 
@@ -36,7 +38,7 @@ export default function AddUserDialog({ onAddUser }: AddUserDialogProps) {
       username: "",
       password: "",
       confirmPassword: "",
-      role: "employee",
+      roleId: "",
     },
   });
 
@@ -110,19 +112,22 @@ export default function AddUserDialog({ onAddUser }: AddUserDialogProps) {
             
             <FormField
               control={form.control}
-              name="role"
+              name="roleId"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="font-medium">Role</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger data-testid="select-user-role">
                         <SelectValue placeholder="Select a role" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="employee">Employee</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
+                      {availableRoles.map((role) => (
+                        <SelectItem key={role.id} value={role.id}>
+                          {role.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormMessage />

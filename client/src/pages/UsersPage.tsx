@@ -17,41 +17,97 @@ import {
 import AddUserDialog from "@/components/AddUserDialog";
 import EditUserDialog from "@/components/EditUserDialog";
 import { useToast } from "@/hooks/use-toast";
-import type { User } from "@shared/schema";
+import type { User, Role } from "@shared/schema";
 
 // TODO: Remove mock data - this is for prototype only
-const mockUsers: User[] = [
+const mockRoles: Role[] = [
+  {
+    id: "1",
+    name: "Administrator",
+    permissions: {
+      viewOrders: true,
+      editOrders: true,
+      exportData: true,
+      viewAnalytics: true,
+      manageUsers: true,
+      manageRoles: true,
+      manageSettings: true,
+    },
+  },
+  {
+    id: "2",
+    name: "Employee",
+    permissions: {
+      viewOrders: true,
+      editOrders: true,
+      exportData: false,
+      viewAnalytics: false,
+      manageUsers: false,
+      manageRoles: false,
+      manageSettings: false,
+    },
+  },
+  {
+    id: "3",
+    name: "Warehouse Manager",
+    permissions: {
+      viewOrders: true,
+      editOrders: true,
+      exportData: true,
+      viewAnalytics: true,
+      manageUsers: false,
+      manageRoles: false,
+      manageSettings: false,
+    },
+  },
+];
+
+type UserWithRole = User & { roleId: string; roleName: string };
+
+const mockUsers: UserWithRole[] = [
   {
     id: "1",
     username: "admin",
     password: "***",
     role: "admin",
+    roleId: "1",
+    roleName: "Administrator",
   },
   {
     id: "2",
     username: "john_doe",
     password: "***",
     role: "employee",
+    roleId: "2",
+    roleName: "Employee",
   },
   {
     id: "3",
     username: "jane_smith",
     password: "***",
     role: "employee",
+    roleId: "3",
+    roleName: "Warehouse Manager",
   },
 ];
 
 export default function UsersPage() {
   const { toast } = useToast();
-  const [users, setUsers] = useState<User[]>(mockUsers);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [users, setUsers] = useState<UserWithRole[]>(mockUsers);
+  const [roles] = useState<Role[]>(mockRoles);
+  const [editingUser, setEditingUser] = useState<UserWithRole | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [deletingUser, setDeletingUser] = useState<User | null>(null);
+  const [deletingUser, setDeletingUser] = useState<UserWithRole | null>(null);
 
-  const handleAddUser = (userData: { username: string; password: string; role: string }) => {
-    const newUser: User = {
+  const handleAddUser = (userData: { username: string; password: string; roleId: string }) => {
+    const role = roles.find(r => r.id === userData.roleId);
+    const newUser: UserWithRole = {
       id: String(users.length + 1),
-      ...userData,
+      username: userData.username,
+      password: userData.password,
+      role: role?.name.toLowerCase() === "administrator" ? "admin" : "employee",
+      roleId: userData.roleId,
+      roleName: role?.name || "",
     };
     setUsers([...users, newUser]);
     console.log("User added:", newUser);
@@ -59,16 +115,23 @@ export default function UsersPage() {
   };
 
   const handleUpdateUser = (id: string, data: any) => {
+    const role = roles.find(r => r.id === data.roleId);
     setUsers(users.map(user => 
       user.id === id 
-        ? { ...user, username: data.username, role: data.role }
+        ? { 
+            ...user, 
+            username: data.username, 
+            roleId: data.roleId,
+            roleName: role?.name || "",
+            role: role?.name.toLowerCase() === "administrator" ? "admin" : "employee"
+          }
         : user
     ));
     console.log("User updated:", id, data);
     // TODO: Implement API call to update user
   };
 
-  const handleDeleteUser = (user: User) => {
+  const handleDeleteUser = (user: UserWithRole) => {
     setUsers(users.filter(u => u.id !== user.id));
     toast({
       title: "User deleted",
@@ -79,7 +142,7 @@ export default function UsersPage() {
     // TODO: Implement API call to delete user
   };
 
-  const handleEditClick = (user: User) => {
+  const handleEditClick = (user: UserWithRole) => {
     setEditingUser(user);
     setIsEditDialogOpen(true);
   };
@@ -90,10 +153,10 @@ export default function UsersPage() {
         <div>
           <h1 className="text-2xl font-semibold mb-1">User Management</h1>
           <p className="text-sm text-muted-foreground">
-            Manage users and their roles
+            Manage users and assign roles
           </p>
         </div>
-        <AddUserDialog onAddUser={handleAddUser} />
+        <AddUserDialog onAddUser={handleAddUser} availableRoles={roles} />
       </div>
 
       <Card>
@@ -114,10 +177,10 @@ export default function UsersPage() {
                 </TableCell>
                 <TableCell>
                   <Badge 
-                    variant={user.role === "admin" ? "default" : "secondary"}
+                    variant={user.roleName === "Administrator" ? "default" : "secondary"}
                     data-testid={`badge-role-${user.id}`}
                   >
-                    {user.role === "admin" ? "Admin" : "Employee"}
+                    {user.roleName}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground font-mono">
@@ -157,6 +220,7 @@ export default function UsersPage() {
           setEditingUser(null);
         }}
         onUpdateUser={handleUpdateUser}
+        availableRoles={roles}
       />
 
       <AlertDialog open={!!deletingUser} onOpenChange={() => setDeletingUser(null)}>

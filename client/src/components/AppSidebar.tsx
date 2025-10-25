@@ -1,4 +1,4 @@
-import { Package, Download, BarChart3, Settings, Users } from "lucide-react";
+import { Package, Download, BarChart3, Settings, Users, Shield } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -41,6 +41,12 @@ export default function AppSidebar({ userRole }: AppSidebarProps) {
       title: "Users",
       url: "/users",
       icon: Users,
+      roles: ["admin"],
+    },
+    {
+      title: "Roles",
+      url: "/roles",
+      icon: Shield,
       roles: ["admin"],
     },
     {
