@@ -28,6 +28,12 @@ export default function AppSidebar({ userRole }: AppSidebarProps) {
       roles: ["employee", "admin"],
     },
     {
+      titleKey: "nav.products",
+      url: "/products",
+      icon: Package,
+      roles: ["employee", "admin"],
+    },
+    {
       titleKey: "nav.export",
       url: "/export",
       icon: Download,

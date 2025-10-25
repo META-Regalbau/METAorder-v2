@@ -7,6 +7,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/AppSidebar";
 import TopBar from "@/components/TopBar";
 import OrdersPage from "@/pages/OrdersPage";
+import ProductsPage from "@/pages/ProductsPage";
 import ExportPage from "@/pages/ExportPage";
 import AnalyticsPage from "@/pages/AnalyticsPage";
 import UsersPage from "@/pages/UsersPage";
@@ -25,6 +26,7 @@ function Router({
   return (
     <Switch>
       <Route path="/" component={() => <OrdersPage userRole={userRole} userSalesChannelIds={userSalesChannelIds} />} />
+      <Route path="/products" component={ProductsPage} />
       <Route path="/export" component={ExportPage} />
       <Route path="/analytics" component={AnalyticsPage} />
       <Route path="/users" component={UsersPage} />

@@ -23,6 +23,7 @@
   },
   "nav": {
     "orders": "Bestellungen",
+    "products": "Produkte",
     "export": "Export & Berichte",
     "analytics": "Analytik",
     "users": "Benutzer",
@@ -205,5 +206,23 @@
     "selectedChannelsCount": "{{count}} Kanal ausgewählt",
     "selectedChannelsCount_plural": "{{count}} Kanäle ausgewählt",
     "salesChannelHelp": "Leer lassen für Zugriff auf alle Kanäle (nur Admin)"
+  },
+  "products": {
+    "title": "Produkte",
+    "subtitle": "Verwaltung der Shopartikel",
+    "totalProducts": "Produkte gesamt",
+    "searchPlaceholder": "Produkte suchen...",
+    "noProducts": "Keine Produkte gefunden",
+    "noProductsDescription": "Es wurden keine Produkte gefunden, die Ihren Suchkriterien entsprechen.",
+    "available": "Verfügbar",
+    "notAvailable": "Nicht verfügbar",
+    "stock": "Lagerbestand",
+    "unit": "Einheit",
+    "graduatedPricing": "Staffelpreise verfügbar"
+  },
+  "common": {
+    "previous": "Zurück",
+    "next": "Weiter",
+    "pageInfo": "Seite {{current}} von {{total}}"
   }
 }
