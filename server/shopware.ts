@@ -36,7 +36,7 @@ export class ShopwareClient {
 
       const data = await response.json();
       this.accessToken = data.access_token;
-      return this.accessToken;
+      return this.accessToken as string;
     } catch (error) {
       console.error('Shopware authentication error:', error);
       throw new Error('Failed to authenticate with Shopware API');
