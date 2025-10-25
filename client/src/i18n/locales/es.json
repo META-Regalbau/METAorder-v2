@@ -117,9 +117,12 @@
   "shipping": {
     "carrier": "Transportista",
     "carrierPlaceholder": "ej., DHL, UPS, FedEx",
+    "carrierRequired": "El transportista es obligatorio",
     "trackingNumber": "Número de Seguimiento",
     "trackingPlaceholder": "Ingrese el número de seguimiento",
-    "shippedDate": "Fecha de Envío"
+    "trackingRequired": "El número de seguimiento es obligatorio",
+    "shippedDate": "Fecha de Envío",
+    "shippedDateRequired": "La fecha de envío es obligatoria"
   },
   "adminDocuments": {
     "invoiceNumber": "Número de Factura",
@@ -145,5 +148,10 @@
     "notConfiguredDescription": "Por favor, vaya a Configuración y configure su conexión de Shopware para comenzar a ver pedidos.",
     "goToSettings": "Ir a Configuración",
     "loadFailed": "Error al cargar pedidos"
+  },
+  "language": {
+    "english": "Inglés",
+    "german": "Alemán",
+    "spanish": "Español"
   }
 }

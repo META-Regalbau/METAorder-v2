@@ -12,7 +12,7 @@ interface OrdersTableProps {
 }
 
 export default function OrdersTable({ orders, onViewOrder, isLoading }: OrdersTableProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   
   if (isLoading) {
     return (
@@ -63,7 +63,7 @@ export default function OrdersTable({ orders, onViewOrder, isLoading }: OrdersTa
                 </div>
               </TableCell>
               <TableCell className="text-sm">
-                {new Date(order.orderDate).toLocaleDateString('en-US', {
+                {new Date(order.orderDate).toLocaleDateString(i18n.language, {
                   year: 'numeric',
                   month: 'short',
                   day: 'numeric',

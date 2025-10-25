@@ -28,7 +28,7 @@ export default function OrderDetailModal({
   onUpdateShipping,
   onUpdateDocuments,
 }: OrderDetailModalProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
 
   if (!order) return null;
@@ -104,7 +104,7 @@ export default function OrderDetailModal({
                 <div>
                   <p className="text-sm text-muted-foreground">{t('orderDetail.orderDate')}</p>
                   <p className="font-medium">
-                    {new Date(order.orderDate).toLocaleDateString('en-US', {
+                    {new Date(order.orderDate).toLocaleDateString(i18n.language, {
                       year: 'numeric',
                       month: 'long',
                       day: 'numeric',

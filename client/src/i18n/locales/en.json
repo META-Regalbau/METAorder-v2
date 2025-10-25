@@ -117,9 +117,12 @@
   "shipping": {
     "carrier": "Carrier",
     "carrierPlaceholder": "e.g., DHL, UPS, FedEx",
+    "carrierRequired": "Carrier is required",
     "trackingNumber": "Tracking Number",
     "trackingPlaceholder": "Enter tracking number",
-    "shippedDate": "Shipped Date"
+    "trackingRequired": "Tracking number is required",
+    "shippedDate": "Shipped Date",
+    "shippedDateRequired": "Shipped date is required"
   },
   "adminDocuments": {
     "invoiceNumber": "Invoice Number",
@@ -145,5 +148,10 @@
     "notConfiguredDescription": "Please go to Settings and configure your Shopware connection to start viewing orders.",
     "goToSettings": "Go to Settings",
     "loadFailed": "Failed to load orders"
+  },
+  "language": {
+    "english": "English",
+    "german": "Deutsch",
+    "spanish": "Español"
   }
 }

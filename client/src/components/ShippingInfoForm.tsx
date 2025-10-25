@@ -7,13 +7,17 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 
-const shippingInfoSchema = z.object({
-  carrier: z.string().min(1, "Carrier is required"),
-  trackingNumber: z.string().min(1, "Tracking number is required"),
-  shippedDate: z.string().min(1, "Shipped date is required"),
+const createShippingInfoSchema = (t: (key: string) => string) => z.object({
+  carrier: z.string().min(1, t('shipping.carrierRequired')),
+  trackingNumber: z.string().min(1, t('shipping.trackingRequired')),
+  shippedDate: z.string().min(1, t('shipping.shippedDateRequired')),
 });
 
-type ShippingInfoFormData = z.infer<typeof shippingInfoSchema>;
+type ShippingInfoFormData = {
+  carrier: string;
+  trackingNumber: string;
+  shippedDate: string;
+};
 
 interface ShippingInfoFormProps {
   defaultValues?: Partial<ShippingInfoFormData>;
@@ -24,6 +28,8 @@ interface ShippingInfoFormProps {
 export default function ShippingInfoForm({ defaultValues, onSubmit, onCancel }: ShippingInfoFormProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
+  
+  const shippingInfoSchema = createShippingInfoSchema(t);
   
   const form = useForm<ShippingInfoFormData>({
     resolver: zodResolver(shippingInfoSchema),

@@ -117,9 +117,12 @@
   "shipping": {
     "carrier": "Versanddienstleister",
     "carrierPlaceholder": "z.B. DHL, UPS, FedEx",
+    "carrierRequired": "Versanddienstleister ist erforderlich",
     "trackingNumber": "Sendungsnummer",
     "trackingPlaceholder": "Sendungsnummer eingeben",
-    "shippedDate": "Versanddatum"
+    "trackingRequired": "Sendungsnummer ist erforderlich",
+    "shippedDate": "Versanddatum",
+    "shippedDateRequired": "Versanddatum ist erforderlich"
   },
   "adminDocuments": {
     "invoiceNumber": "Rechnungsnummer",
@@ -145,5 +148,10 @@
     "notConfiguredDescription": "Bitte gehen Sie zu Einstellungen und konfigurieren Sie Ihre Shopware-Verbindung, um Bestellungen anzuzeigen.",
     "goToSettings": "Zu Einstellungen",
     "loadFailed": "Bestellungen konnten nicht geladen werden"
+  },
+  "language": {
+    "english": "Englisch",
+    "german": "Deutsch",
+    "spanish": "Spanisch"
   }
 }

@@ -7,13 +7,17 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 
-const adminDocumentSchema = z.object({
+const createAdminDocumentSchema = () => z.object({
   invoiceNumber: z.string().optional(),
   deliveryNoteNumber: z.string().optional(),
   erpNumber: z.string().optional(),
 });
 
-type AdminDocumentFormData = z.infer<typeof adminDocumentSchema>;
+type AdminDocumentFormData = {
+  invoiceNumber?: string;
+  deliveryNoteNumber?: string;
+  erpNumber?: string;
+};
 
 interface AdminDocumentFormProps {
   defaultValues?: Partial<AdminDocumentFormData>;
@@ -24,6 +28,8 @@ interface AdminDocumentFormProps {
 export default function AdminDocumentForm({ defaultValues, onSubmit, onCancel }: AdminDocumentFormProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
+  
+  const adminDocumentSchema = createAdminDocumentSchema();
   
   const form = useForm<AdminDocumentFormData>({
     resolver: zodResolver(adminDocumentSchema),
