@@ -332,82 +332,66 @@ export class ShopwareClient {
 
   async downloadInvoicePdf(orderId: string): Promise<Blob> {
     try {
-      // Step 1: Generate/get the invoice document
-      const createResponse = await this.makeAuthenticatedRequest(
-        `${this.baseUrl}/api/_action/order/${orderId}/document/invoice`,
+      // Step 1: Get existing invoice documents for this order
+      const docsResponse = await this.makeAuthenticatedRequest(
+        `${this.baseUrl}/api/search/document`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            config: {
-              documentNumber: '',
-              documentComment: '',
-              documentDate: new Date().toISOString(),
+            filter: [
+              {
+                type: 'equals',
+                field: 'orderId',
+                value: orderId,
+              },
+              {
+                type: 'equals',
+                field: 'documentType.technicalName',
+                value: 'invoice',
+              },
+            ],
+            limit: 1,
+            associations: {
+              documentMediaFile: {},
             },
           }),
         }
       );
 
-      if (!createResponse.ok) {
-        const errorText = await createResponse.text();
-        throw new Error(`Failed to generate invoice: ${createResponse.statusText} - ${errorText}`);
+      if (!docsResponse.ok) {
+        const errorText = await docsResponse.text();
+        throw new Error(`Failed to retrieve invoice document: ${docsResponse.statusText} - ${errorText}`);
       }
 
-      // Handle both JSON response (new document) and 204 No Content (existing document)
-      let documentId: string;
+      const docsData = await docsResponse.json();
+      if (!docsData.data || docsData.data.length === 0) {
+        throw new Error('No invoice document found for this order. Please generate the invoice in Shopware first.');
+      }
+
+      const document = docsData.data[0];
       
-      if (createResponse.status === 204) {
-        // Document already exists, we need to fetch it differently
-        // Try to get existing documents for this order
-        const docsResponse = await this.makeAuthenticatedRequest(
-          `${this.baseUrl}/api/search/document`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              filter: [
-                {
-                  type: 'equals',
-                  field: 'orderId',
-                  value: orderId,
-                },
-                {
-                  type: 'equals',
-                  field: 'documentType.technicalName',
-                  value: 'invoice',
-                },
-              ],
-              limit: 1,
-            }),
-          }
-        );
+      const documentId = document.id;
+      // The deepLinkCode is in the extensions.foreignKeys object
+      const foreignKeys = document.extensions?.foreignKeys;
+      const deepLinkCode = foreignKeys?.deepLinkCode;
 
-        if (!docsResponse.ok) {
-          throw new Error('Failed to retrieve existing invoice document');
-        }
+      console.log('Document ID:', documentId);
+      console.log('Deep Link Code:', deepLinkCode);
+      console.log('Foreign Keys object:', JSON.stringify(foreignKeys, null, 2));
 
-        const docsData = await docsResponse.json();
-        if (!docsData.data || docsData.data.length === 0) {
-          throw new Error('No invoice document found for this order');
-        }
-
-        documentId = docsData.data[0].id;
-      } else {
-        const createData = await createResponse.json();
-        documentId = createData.data?.documentId || createData.documentId;
-
-        if (!documentId) {
-          throw new Error('No document ID returned from Shopware');
-        }
+      if (!documentId || !deepLinkCode) {
+        console.error('Missing document fields - documentId:', documentId, 'deepLinkCode:', deepLinkCode);
+        throw new Error(`Document ID or deep link code missing - documentId: ${documentId}, deepLinkCode: ${deepLinkCode}`);
       }
 
-      // Step 2: Download the generated document
+      console.log(`Downloading invoice: documentId=${documentId}, deepLinkCode=${deepLinkCode}`);
+
+      // Step 2: Download the PDF using the correct Shopware 6 endpoint
       const downloadResponse = await this.makeAuthenticatedRequest(
-        `${this.baseUrl}/api/_action/document/${documentId}`,
+        `${this.baseUrl}/api/_action/document/${documentId}/${deepLinkCode}?download=1`,
         {
           method: 'GET',
           headers: {
