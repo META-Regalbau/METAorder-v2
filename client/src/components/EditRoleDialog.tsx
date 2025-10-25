@@ -6,11 +6,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { SalesChannelMultiSelect } from "@/components/SalesChannelMultiSelect";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 import type { Role } from "@shared/schema";
 
 const editRoleSchema = z.object({
   name: z.string().min(2, "Role name must be at least 2 characters"),
+  salesChannelIds: z.array(z.string()),
   permissions: z.object({
     viewOrders: z.boolean(),
     editOrders: z.boolean(),
@@ -43,11 +46,13 @@ const permissionLabels = {
 
 export default function EditRoleDialog({ role, open, onClose, onUpdateRole }: EditRoleDialogProps) {
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   const form = useForm<EditRoleFormData>({
     resolver: zodResolver(editRoleSchema),
     values: role ? {
       name: role.name,
+      salesChannelIds: role.salesChannelIds || [],
       permissions: role.permissions,
     } : undefined,
   });
@@ -88,6 +93,23 @@ export default function EditRoleDialog({ role, open, onClose, onUpdateRole }: Ed
               )}
             />
             
+            <FormField
+              control={form.control}
+              name="salesChannelIds"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="font-medium">{t('roles.salesChannels')}</FormLabel>
+                  <FormControl>
+                    <SalesChannelMultiSelect
+                      value={field.value}
+                      onChange={field.onChange}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <div className="space-y-3">
               <h3 className="text-sm font-medium">Permissions</h3>
               <div className="space-y-3 pl-2">
@@ -122,10 +144,10 @@ export default function EditRoleDialog({ role, open, onClose, onUpdateRole }: Ed
             
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={onClose} data-testid="button-cancel-edit-role">
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button type="submit" data-testid="button-submit-edit-role">
-                Update Role
+                {t('roles.updateRole')}
               </Button>
             </div>
           </form>
