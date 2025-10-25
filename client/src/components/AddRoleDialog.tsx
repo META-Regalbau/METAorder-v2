@@ -6,12 +6,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { SalesChannelMultiSelect } from "@/components/SalesChannelMultiSelect";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 import { Shield } from "lucide-react";
 import { useState } from "react";
 
 const addRoleSchema = z.object({
   name: z.string().min(2, "Role name must be at least 2 characters"),
+  salesChannelIds: z.array(z.string()),
   permissions: z.object({
     viewOrders: z.boolean(),
     editOrders: z.boolean(),
@@ -41,12 +44,14 @@ const permissionLabels = {
 
 export default function AddRoleDialog({ onAddRole }: AddRoleDialogProps) {
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
   const form = useForm<AddRoleFormData>({
     resolver: zodResolver(addRoleSchema),
     defaultValues: {
       name: "",
+      salesChannelIds: [],
       permissions: {
         viewOrders: true,
         editOrders: false,
@@ -98,6 +103,23 @@ export default function AddRoleDialog({ onAddRole }: AddRoleDialogProps) {
               )}
             />
             
+            <FormField
+              control={form.control}
+              name="salesChannelIds"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="font-medium">{t('roles.salesChannels')}</FormLabel>
+                  <FormControl>
+                    <SalesChannelMultiSelect
+                      value={field.value}
+                      onChange={field.onChange}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <div className="space-y-3">
               <h3 className="text-sm font-medium">Permissions</h3>
               <div className="space-y-3 pl-2">
@@ -132,10 +154,10 @@ export default function AddRoleDialog({ onAddRole }: AddRoleDialogProps) {
             
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)} data-testid="button-cancel-add-role">
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button type="submit" data-testid="button-submit-add-role">
-                Create Role
+                {t('roles.createRole')}
               </Button>
             </div>
           </form>

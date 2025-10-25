@@ -23,6 +23,7 @@ export type User = typeof users.$inferSelect;
 export type Role = {
   id: string;
   name: string;
+  salesChannelIds?: string[]; // null/empty = all channels
   permissions: {
     viewOrders: boolean;
     editOrders: boolean;
