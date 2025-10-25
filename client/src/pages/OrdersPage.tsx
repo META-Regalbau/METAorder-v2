@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Download, RefreshCw } from "lucide-react";
+import { Download, RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import TopBar from "@/components/TopBar";
 import OrderFilters from "@/components/OrderFilters";
 import OrdersTable from "@/components/OrdersTable";
 import OrderDetailModal from "@/components/OrderDetailModal";
@@ -93,7 +93,11 @@ const mockOrders: Order[] = [
   }
 ];
 
-export default function OrdersPage() {
+interface OrdersPageProps {
+  userRole: "employee" | "admin";
+}
+
+export default function OrdersPage({ userRole }: OrdersPageProps) {
   const [searchValue, setSearchValue] = useState("");
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">("all");
   const [dateFrom, setDateFrom] = useState("");
@@ -102,10 +106,6 @@ export default function OrdersPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [itemsPerPage, setItemsPerPage] = useState("25");
   const [isLoading, setIsLoading] = useState(false);
-
-  // TODO: Remove mock user role - will be fetched from auth
-  const userRole: "employee" | "admin" = "admin";
-  const username = "Admin User";
 
   // Filter orders based on search and filters
   const filteredOrders = mockOrders.filter((order) => {
@@ -157,87 +157,91 @@ export default function OrdersPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-background">
-      <TopBar
-        userRole={userRole}
-        username={username}
-        onSearchChange={setSearchValue}
-        searchValue={searchValue}
-      />
-
-      <div className="flex-1 overflow-auto">
-        <div className="max-w-screen-2xl mx-auto p-6">
-          <div className="flex gap-6">
-            {/* Filters Sidebar */}
-            <aside className="w-64 flex-shrink-0">
-              <OrderFilters
-                statusFilter={statusFilter}
-                onStatusFilterChange={(value) => setStatusFilter(value as OrderStatus | "all")}
-                dateFrom={dateFrom}
-                dateTo={dateTo}
-                onDateFromChange={setDateFrom}
-                onDateToChange={setDateTo}
-                onClearFilters={() => {
-                  setStatusFilter("all");
-                  setDateFrom("");
-                  setDateTo("");
-                }}
-                activeFiltersCount={activeFiltersCount}
+    <div className="flex gap-6">
+      {/* Filters Sidebar */}
+      <aside className="w-64 flex-shrink-0">
+        <div className="sticky top-6">
+          <div className="mb-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search orders..."
+                className="pl-9"
+                value={searchValue}
+                onChange={(e) => setSearchValue(e.target.value)}
+                data-testid="input-search-orders"
               />
-            </aside>
+            </div>
+          </div>
+          
+          <OrderFilters
+            statusFilter={statusFilter}
+            onStatusFilterChange={(value) => setStatusFilter(value as OrderStatus | "all")}
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onDateFromChange={setDateFrom}
+            onDateToChange={setDateTo}
+            onClearFilters={() => {
+              setStatusFilter("all");
+              setDateFrom("");
+              setDateTo("");
+              setSearchValue("");
+            }}
+            activeFiltersCount={activeFiltersCount}
+          />
+        </div>
+      </aside>
 
-            {/* Main Content */}
-            <main className="flex-1 min-w-0">
-              <div className="mb-6 flex items-center justify-between gap-4">
-                <div>
-                  <h1 className="text-2xl font-semibold mb-1">Orders</h1>
-                  <p className="text-sm text-muted-foreground">
-                    Showing {filteredOrders.length} of {mockOrders.length} orders
-                  </p>
-                </div>
+      {/* Main Content */}
+      <main className="flex-1 min-w-0">
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold mb-1">Orders</h1>
+            <p className="text-sm text-muted-foreground">
+              Showing {filteredOrders.length} of {mockOrders.length} orders
+            </p>
+          </div>
 
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" onClick={handleRefresh} data-testid="button-refresh-orders">
-                    <RefreshCw className="h-4 w-4 mr-1" />
-                    Refresh
-                  </Button>
-                  <Button onClick={handleExport} data-testid="button-export-orders">
-                    <Download className="h-4 w-4 mr-1" />
-                    Export
-                  </Button>
-                </div>
-              </div>
-
-              <OrdersTable
-                orders={filteredOrders}
-                onViewOrder={handleViewOrder}
-                isLoading={isLoading}
-              />
-
-              <div className="mt-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Items per page:</span>
-                  <Select value={itemsPerPage} onValueChange={setItemsPerPage}>
-                    <SelectTrigger className="w-20" data-testid="select-items-per-page">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="25">25</SelectItem>
-                      <SelectItem value="50">50</SelectItem>
-                      <SelectItem value="100">100</SelectItem>
-                      <SelectItem value="200">200</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <p className="text-sm text-muted-foreground">
-                  Last updated: {new Date().toLocaleTimeString()}
-                </p>
-              </div>
-            </main>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={handleRefresh} data-testid="button-refresh-orders">
+              <RefreshCw className="h-4 w-4 mr-1" />
+              Refresh
+            </Button>
+            <Button onClick={handleExport} data-testid="button-export-orders">
+              <Download className="h-4 w-4 mr-1" />
+              Export
+            </Button>
           </div>
         </div>
-      </div>
+
+        <OrdersTable
+          orders={filteredOrders}
+          onViewOrder={handleViewOrder}
+          isLoading={isLoading}
+        />
+
+        <div className="mt-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Items per page:</span>
+            <Select value={itemsPerPage} onValueChange={setItemsPerPage}>
+              <SelectTrigger className="w-20" data-testid="select-items-per-page">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="25">25</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+                <SelectItem value="200">200</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <p className="text-sm text-muted-foreground">
+            Last updated: {new Date().toLocaleTimeString()}
+          </p>
+        </div>
+      </main>
 
       <OrderDetailModal
         order={selectedOrder}

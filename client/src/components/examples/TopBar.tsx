@@ -1,15 +1,13 @@
-import { useState } from 'react';
 import TopBar from '../TopBar';
+import { SidebarProvider } from '@/components/ui/sidebar';
 
 export default function TopBarExample() {
-  const [searchValue, setSearchValue] = useState('');
-  
   return (
-    <TopBar 
-      userRole="admin" 
-      username="John Doe" 
-      onSearchChange={setSearchValue}
-      searchValue={searchValue}
-    />
+    <SidebarProvider>
+      <TopBar 
+        userRole="admin" 
+        username="John Doe" 
+      />
+    </SidebarProvider>
   );
 }
