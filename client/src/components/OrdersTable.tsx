@@ -1,0 +1,101 @@
+import { Eye, Package } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import StatusBadge from "./StatusBadge";
+import type { Order } from "@shared/schema";
+
+interface OrdersTableProps {
+  orders: Order[];
+  onViewOrder: (order: Order) => void;
+  isLoading?: boolean;
+}
+
+export default function OrdersTable({ orders, onViewOrder, isLoading }: OrdersTableProps) {
+  if (isLoading) {
+    return (
+      <div className="border rounded-lg">
+        <div className="p-8 text-center text-muted-foreground">
+          <div className="animate-pulse">Loading orders...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (orders.length === 0) {
+    return (
+      <div className="border rounded-lg">
+        <div className="p-12 text-center">
+          <Package className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+          <p className="text-muted-foreground">No orders found</p>
+          <p className="text-sm text-muted-foreground mt-1">Try adjusting your filters</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border rounded-lg overflow-hidden">
+      <Table>
+        <TableHeader>
+          <TableRow className="bg-muted/50">
+            <TableHead className="font-medium">Order Number</TableHead>
+            <TableHead className="font-medium">Customer</TableHead>
+            <TableHead className="font-medium">Date</TableHead>
+            <TableHead className="font-medium">Status</TableHead>
+            <TableHead className="font-medium text-right">Total</TableHead>
+            <TableHead className="font-medium">Tracking</TableHead>
+            <TableHead className="font-medium text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {orders.map((order) => (
+            <TableRow key={order.id} className="hover-elevate" data-testid={`row-order-${order.id}`}>
+              <TableCell className="font-mono font-medium" data-testid={`text-order-number-${order.id}`}>
+                {order.orderNumber}
+              </TableCell>
+              <TableCell>
+                <div>
+                  <div className="font-medium">{order.customerName}</div>
+                  <div className="text-sm text-muted-foreground">{order.customerEmail}</div>
+                </div>
+              </TableCell>
+              <TableCell className="text-sm">
+                {new Date(order.orderDate).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                })}
+              </TableCell>
+              <TableCell>
+                <StatusBadge status={order.status} />
+              </TableCell>
+              <TableCell className="text-right font-medium">
+                ${order.totalAmount.toFixed(2)}
+              </TableCell>
+              <TableCell>
+                {order.shippingInfo?.trackingNumber ? (
+                  <span className="text-sm font-mono" data-testid={`text-tracking-${order.id}`}>
+                    {order.shippingInfo.trackingNumber}
+                  </span>
+                ) : (
+                  <span className="text-sm text-muted-foreground">—</span>
+                )}
+              </TableCell>
+              <TableCell className="text-right">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onViewOrder(order)}
+                  data-testid={`button-view-order-${order.id}`}
+                >
+                  <Eye className="h-4 w-4 mr-1" />
+                  View
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
