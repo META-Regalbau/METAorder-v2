@@ -78,9 +78,9 @@
     "invoiceNumber": "Rechnungsnummer",
     "downloadInvoice": "Rechnung als PDF herunterladen",
     "downloadStarted": "Download gestartet",
-    "downloadSuccess": "Rechnungs-PDF für Bestellung {{orderNumber}} wird heruntergeladen.",
+    "downloadSuccess": "Dokument-PDF für Bestellung {{orderNumber}} wird heruntergeladen.",
     "downloadFailed": "Download fehlgeschlagen",
-    "downloadError": "Die Rechnung konnte nicht heruntergeladen werden. Bitte versuchen Sie es erneut.",
+    "downloadError": "Das Dokument konnte nicht heruntergeladen werden. Bitte versuchen Sie es erneut.",
     "orderItems": "Bestellartikel",
     "quantity": "Menge",
     "each": "Stück",
@@ -90,7 +90,22 @@
     "shippingSuccess": "Versandinformationen wurden gespeichert.",
     "documentNumbers": "Dokumentnummern (Nur Admin)",
     "documentsUpdated": "Dokumente aktualisiert",
-    "documentsSuccess": "Dokumentnummern wurden gespeichert."
+    "documentsSuccess": "Dokumentnummern wurden gespeichert.",
+    "allDocuments": "Alle Dokumente",
+    "noDocuments": "Keine Dokumente verfügbar",
+    "loadingDocuments": "Dokumente werden geladen...",
+    "documentType": "Typ",
+    "documentNumber": "Nummer",
+    "downloadDocument": "Herunterladen",
+    "downloadUnavailable": "Download nicht verfügbar",
+    "documentsError": "Dokumente konnten nicht geladen werden. Bitte versuchen Sie es erneut."
+  },
+  "documentTypes": {
+    "invoice": "Rechnung",
+    "delivery_note": "Lieferschein",
+    "credit_note": "Gutschrift",
+    "cancellation": "Storno",
+    "unknown": "Unbekannt"
   },
   "status": {
     "open": "Offen",

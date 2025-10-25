@@ -78,9 +78,9 @@
     "invoiceNumber": "Número de Factura",
     "downloadInvoice": "Descargar Factura en PDF",
     "downloadStarted": "Descarga iniciada",
-    "downloadSuccess": "El PDF de la factura para el pedido {{orderNumber}} se está descargando.",
+    "downloadSuccess": "El PDF del documento para el pedido {{orderNumber}} se está descargando.",
     "downloadFailed": "Descarga fallida",
-    "downloadError": "No se pudo descargar la factura. Inténtelo de nuevo.",
+    "downloadError": "No se pudo descargar el documento. Inténtelo de nuevo.",
     "orderItems": "Artículos del Pedido",
     "quantity": "Cantidad",
     "each": "cada uno",
@@ -90,7 +90,22 @@
     "shippingSuccess": "La información de envío se ha guardado.",
     "documentNumbers": "Números de Documento (Solo Admin)",
     "documentsUpdated": "Documentos actualizados",
-    "documentsSuccess": "Los números de documento se han guardado."
+    "documentsSuccess": "Los números de documento se han guardado.",
+    "allDocuments": "Todos los Documentos",
+    "noDocuments": "No hay documentos disponibles",
+    "loadingDocuments": "Cargando documentos...",
+    "documentType": "Tipo",
+    "documentNumber": "Número",
+    "downloadDocument": "Descargar",
+    "downloadUnavailable": "Descarga no disponible",
+    "documentsError": "No se pudieron cargar los documentos. Inténtelo de nuevo."
+  },
+  "documentTypes": {
+    "invoice": "Factura",
+    "delivery_note": "Nota de Entrega",
+    "credit_note": "Nota de Crédito",
+    "cancellation": "Anulación",
+    "unknown": "Desconocido"
   },
   "status": {
     "open": "Abierto",

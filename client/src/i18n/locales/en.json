@@ -78,9 +78,9 @@
     "invoiceNumber": "Invoice Number",
     "downloadInvoice": "Download Invoice PDF",
     "downloadStarted": "Download started",
-    "downloadSuccess": "Invoice PDF for order {{orderNumber}} is being downloaded.",
+    "downloadSuccess": "Document PDF for order {{orderNumber}} is being downloaded.",
     "downloadFailed": "Download failed",
-    "downloadError": "Could not download the invoice. Please try again.",
+    "downloadError": "Could not download the document. Please try again.",
     "orderItems": "Order Items",
     "quantity": "Quantity",
     "each": "each",
@@ -90,7 +90,22 @@
     "shippingSuccess": "Shipping information has been saved.",
     "documentNumbers": "Document Numbers (Admin Only)",
     "documentsUpdated": "Documents updated",
-    "documentsSuccess": "Document numbers have been saved."
+    "documentsSuccess": "Document numbers have been saved.",
+    "allDocuments": "All Documents",
+    "noDocuments": "No documents available",
+    "loadingDocuments": "Loading documents...",
+    "documentType": "Type",
+    "documentNumber": "Number",
+    "downloadDocument": "Download",
+    "downloadUnavailable": "Download unavailable",
+    "documentsError": "Could not load documents. Please try again."
+  },
+  "documentTypes": {
+    "invoice": "Invoice",
+    "delivery_note": "Delivery Note",
+    "credit_note": "Credit Note",
+    "cancellation": "Cancellation",
+    "unknown": "Unknown"
   },
   "status": {
     "open": "Open",

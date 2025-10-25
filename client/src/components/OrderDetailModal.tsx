@@ -1,13 +1,15 @@
-import { X, FileDown } from "lucide-react";
+import { X, FileDown, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import StatusBadge from "./StatusBadge";
 import ShippingInfoForm from "./ShippingInfoForm";
 import AdminDocumentForm from "./AdminDocumentForm";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
 import type { Order } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 
@@ -31,23 +33,32 @@ export default function OrderDetailModal({
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
 
+  // Fetch documents for this order - must be before early return
+  const { data: documents, isLoading: documentsLoading, error: documentsError } = useQuery<Array<{
+    id: string;
+    type: string;
+    number: string;
+    deepLinkCode: string;
+  }>>({
+    queryKey: ['/api/orders', order?.id, 'documents'],
+    enabled: isOpen && !!order?.id,
+  });
+
   if (!order) return null;
 
-  const handleDownloadInvoice = async () => {
+  const handleDownloadDocument = async (documentId: string, deepLinkCode: string, documentNumber: string) => {
     try {
-      console.log("Downloading invoice PDF for order:", order.orderNumber);
-      
-      const response = await fetch(`/api/orders/${order.id}/invoice`);
+      const response = await fetch(`/api/orders/${order.id}/document/${documentId}/${deepLinkCode}`);
       
       if (!response.ok) {
-        throw new Error('Failed to download invoice');
+        throw new Error('Failed to download document');
       }
       
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `invoice-${order.orderNumber}.pdf`;
+      a.download = `${documentNumber || documentId}.pdf`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -120,22 +131,65 @@ export default function OrderDetailModal({
               </div>
             </Card>
 
-            {order.invoiceNumber && (
-              <Card className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-medium uppercase tracking-wide mb-1">{t('orderDetail.invoiceDocument')}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {t('orderDetail.invoiceNumber')}: <span className="font-mono font-medium text-foreground">{order.invoiceNumber}</span>
-                    </p>
-                  </div>
-                  <Button onClick={handleDownloadInvoice} data-testid="button-download-invoice">
-                    <FileDown className="h-4 w-4 mr-1" />
-                    {t('orderDetail.downloadInvoice')}
-                  </Button>
+            <Card className="p-6">
+              <h3 className="text-sm font-medium uppercase tracking-wide mb-4">{t('orderDetail.allDocuments')}</h3>
+              {documentsError ? (
+                <div className="text-center py-8">
+                  <p className="text-destructive text-sm font-medium mb-2">{t('errors.loadFailed')}</p>
+                  {documentsError instanceof Error && documentsError.message.includes('Shopware settings not configured') ? (
+                    <p className="text-muted-foreground text-sm">{t('errors.notConfiguredDescription')}</p>
+                  ) : (
+                    <p className="text-muted-foreground text-sm">{t('orderDetail.documentsError')}</p>
+                  )}
                 </div>
-              </Card>
-            )}
+              ) : documentsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-sm text-muted-foreground">{t('orderDetail.loadingDocuments')}</span>
+                </div>
+              ) : documents && documents.length > 0 ? (
+                <div className="space-y-2">
+                  {documents.map((doc) => {
+                    const canDownload = !!doc.deepLinkCode;
+                    return (
+                      <div
+                        key={doc.id}
+                        className="flex items-center justify-between p-3 border rounded-lg hover-elevate"
+                        data-testid={`document-${doc.id}`}
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant="secondary" data-testid={`badge-type-${doc.type}`}>
+                              {t(`documentTypes.${doc.type}`)}
+                            </Badge>
+                            {doc.number && (
+                              <span className="font-mono text-sm font-medium" data-testid={`text-number-${doc.id}`}>
+                                {doc.number}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {t('orderDetail.documentType')}: {t(`documentTypes.${doc.type}`)}
+                            {!canDownload && <span className="ml-2 text-destructive">({t('orderDetail.downloadUnavailable')})</span>}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => handleDownloadDocument(doc.id, doc.deepLinkCode, doc.number)}
+                          disabled={!canDownload}
+                          data-testid={`button-download-${doc.id}`}
+                        >
+                          <FileDown className="h-4 w-4 mr-1" />
+                          {t('orderDetail.downloadDocument')}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-center py-8">{t('orderDetail.noDocuments')}</p>
+              )}
+            </Card>
           </TabsContent>
 
           <TabsContent value="items" className="pt-6">
