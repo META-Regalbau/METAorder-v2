@@ -32,7 +32,15 @@
   },
   "roles": {
     "admin": "Admin",
-    "employee": "Empleado"
+    "employee": "Empleado",
+    "title": "Gestión de Roles",
+    "description": "Crear y gestionar roles con permisos personalizados y canales de ventas",
+    "roleName": "Nombre del Rol",
+    "salesChannels": "Canales de Ventas",
+    "permissions": "Permisos",
+    "allChannels": "Todos los Canales",
+    "createRole": "Crear Rol",
+    "updateRole": "Actualizar Rol"
   },
   "orders": {
     "title": "Pedidos",

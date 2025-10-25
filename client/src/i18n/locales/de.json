@@ -32,7 +32,15 @@
   },
   "roles": {
     "admin": "Admin",
-    "employee": "Mitarbeiter"
+    "employee": "Mitarbeiter",
+    "title": "Rollenverwaltung",
+    "description": "Rollen erstellen und verwalten sowie Verkaufskanäle zuweisen",
+    "roleName": "Rollenname",
+    "salesChannels": "Verkaufskanäle",
+    "permissions": "Berechtigungen",
+    "allChannels": "Alle Kanäle",
+    "createRole": "Rolle erstellen",
+    "updateRole": "Rolle aktualisieren"
   },
   "orders": {
     "title": "Bestellungen",

@@ -32,7 +32,15 @@
   },
   "roles": {
     "admin": "Admin",
-    "employee": "Employee"
+    "employee": "Employee",
+    "title": "Role Management",
+    "description": "Create and manage roles with custom permissions and sales channels",
+    "roleName": "Role Name",
+    "salesChannels": "Sales Channels",
+    "permissions": "Permissions",
+    "allChannels": "All Channels",
+    "createRole": "Create Role",
+    "updateRole": "Update Role"
   },
   "orders": {
     "title": "Orders",

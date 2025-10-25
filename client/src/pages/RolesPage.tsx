@@ -17,13 +17,16 @@ import {
 import AddRoleDialog from "@/components/AddRoleDialog";
 import EditRoleDialog from "@/components/EditRoleDialog";
 import { useToast } from "@/hooks/use-toast";
-import type { Role } from "@shared/schema";
+import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
+import type { Role, SalesChannel } from "@shared/schema";
 
 // TODO: Remove mock data - this is for prototype only
 const mockRoles: Role[] = [
   {
     id: "1",
     name: "Administrator",
+    salesChannelIds: [],
     permissions: {
       viewOrders: true,
       editOrders: true,
@@ -37,6 +40,7 @@ const mockRoles: Role[] = [
   {
     id: "2",
     name: "Employee",
+    salesChannelIds: [],
     permissions: {
       viewOrders: true,
       editOrders: true,
@@ -50,6 +54,7 @@ const mockRoles: Role[] = [
   {
     id: "3",
     name: "Warehouse Manager",
+    salesChannelIds: ["0190b599291076e3beecdfca3d1b1b30", "0193595640017e1ab0b5ae3313b4181c"],
     permissions: {
       viewOrders: true,
       editOrders: true,
@@ -64,12 +69,17 @@ const mockRoles: Role[] = [
 
 export default function RolesPage() {
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [roles, setRoles] = useState<Role[]>(mockRoles);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [deletingRole, setDeletingRole] = useState<Role | null>(null);
 
-  const handleAddRole = (roleData: { name: string; permissions: Role["permissions"] }) => {
+  const { data: salesChannels = [] } = useQuery<SalesChannel[]>({
+    queryKey: ['/api/sales-channels'],
+  });
+
+  const handleAddRole = (roleData: { name: string; salesChannelIds: string[]; permissions: Role["permissions"] }) => {
     const newRole: Role = {
       id: String(roles.length + 1),
       ...roleData,
@@ -82,7 +92,7 @@ export default function RolesPage() {
   const handleUpdateRole = (id: string, data: any) => {
     setRoles(roles.map(role => 
       role.id === id 
-        ? { ...role, name: data.name, permissions: data.permissions }
+        ? { ...role, name: data.name, salesChannelIds: data.salesChannelIds, permissions: data.permissions }
         : role
     ));
     console.log("Role updated:", id, data);
@@ -113,9 +123,9 @@ export default function RolesPage() {
     <div className="max-w-7xl">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold mb-1">Role Management</h1>
+          <h1 className="text-2xl font-semibold mb-1">{t('roles.title')}</h1>
           <p className="text-sm text-muted-foreground">
-            Create and manage roles with custom permissions
+            {t('roles.description')}
           </p>
         </div>
         <AddRoleDialog onAddRole={handleAddRole} />
@@ -125,79 +135,40 @@ export default function RolesPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="font-medium">Role Name</TableHead>
-              <TableHead className="font-medium">Permissions</TableHead>
-              <TableHead className="font-medium">View Orders</TableHead>
-              <TableHead className="font-medium">Edit Orders</TableHead>
-              <TableHead className="font-medium">Export Data</TableHead>
-              <TableHead className="font-medium">Analytics</TableHead>
-              <TableHead className="font-medium">Manage Users</TableHead>
-              <TableHead className="font-medium">Manage Roles</TableHead>
-              <TableHead className="font-medium">Settings</TableHead>
-              <TableHead className="font-medium text-right">Actions</TableHead>
+              <TableHead className="font-medium">{t('roles.roleName')}</TableHead>
+              <TableHead className="font-medium">{t('roles.salesChannels')}</TableHead>
+              <TableHead className="font-medium">{t('roles.permissions')}</TableHead>
+              <TableHead className="font-medium text-right">{t('common.actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {roles.map((role) => (
-              <TableRow key={role.id} className="hover-elevate" data-testid={`row-role-${role.id}`}>
-                <TableCell className="font-medium" data-testid={`text-role-name-${role.id}`}>
-                  {role.name}
-                </TableCell>
-                <TableCell>
-                  <Badge variant="secondary">
-                    {permissionCount(role.permissions)} of 7
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-center">
-                  {role.permissions.viewOrders ? (
-                    <Check className="h-4 w-4 text-green-600 dark:text-green-400 mx-auto" />
-                  ) : (
-                    <X className="h-4 w-4 text-muted-foreground mx-auto" />
-                  )}
-                </TableCell>
-                <TableCell className="text-center">
-                  {role.permissions.editOrders ? (
-                    <Check className="h-4 w-4 text-green-600 dark:text-green-400 mx-auto" />
-                  ) : (
-                    <X className="h-4 w-4 text-muted-foreground mx-auto" />
-                  )}
-                </TableCell>
-                <TableCell className="text-center">
-                  {role.permissions.exportData ? (
-                    <Check className="h-4 w-4 text-green-600 dark:text-green-400 mx-auto" />
-                  ) : (
-                    <X className="h-4 w-4 text-muted-foreground mx-auto" />
-                  )}
-                </TableCell>
-                <TableCell className="text-center">
-                  {role.permissions.viewAnalytics ? (
-                    <Check className="h-4 w-4 text-green-600 dark:text-green-400 mx-auto" />
-                  ) : (
-                    <X className="h-4 w-4 text-muted-foreground mx-auto" />
-                  )}
-                </TableCell>
-                <TableCell className="text-center">
-                  {role.permissions.manageUsers ? (
-                    <Check className="h-4 w-4 text-green-600 dark:text-green-400 mx-auto" />
-                  ) : (
-                    <X className="h-4 w-4 text-muted-foreground mx-auto" />
-                  )}
-                </TableCell>
-                <TableCell className="text-center">
-                  {role.permissions.manageRoles ? (
-                    <Check className="h-4 w-4 text-green-600 dark:text-green-400 mx-auto" />
-                  ) : (
-                    <X className="h-4 w-4 text-muted-foreground mx-auto" />
-                  )}
-                </TableCell>
-                <TableCell className="text-center">
-                  {role.permissions.manageSettings ? (
-                    <Check className="h-4 w-4 text-green-600 dark:text-green-400 mx-auto" />
-                  ) : (
-                    <X className="h-4 w-4 text-muted-foreground mx-auto" />
-                  )}
-                </TableCell>
-                <TableCell className="text-right">
+            {roles.map((role) => {
+              const roleChannels = salesChannels.filter(c => role.salesChannelIds?.includes(c.id));
+              
+              return (
+                <TableRow key={role.id} className="hover-elevate" data-testid={`row-role-${role.id}`}>
+                  <TableCell className="font-medium" data-testid={`text-role-name-${role.id}`}>
+                    {role.name}
+                  </TableCell>
+                  <TableCell>
+                    {!role.salesChannelIds || role.salesChannelIds.length === 0 ? (
+                      <span className="text-sm text-muted-foreground">{t('roles.allChannels')}</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {roleChannels.map(channel => (
+                          <Badge key={channel.id} variant="outline" className="text-xs">
+                            {channel.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">
+                      {permissionCount(role.permissions)} of 7
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
                     <Button
                       variant="ghost"
@@ -218,7 +189,8 @@ export default function RolesPage() {
                   </div>
                 </TableCell>
               </TableRow>
-            ))}
+            );
+            })}
           </TableBody>
         </Table>
       </Card>
