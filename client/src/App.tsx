@@ -13,6 +13,7 @@ import UsersPage from "@/pages/UsersPage";
 import RolesPage from "@/pages/RolesPage";
 import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/not-found";
+import "./i18n/config";
 
 function Router({ userRole }: { userRole: "employee" | "admin" }) {
   return (

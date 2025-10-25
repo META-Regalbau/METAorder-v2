@@ -1,5 +1,6 @@
 import { Package, Download, BarChart3, Settings, Users, Shield } from "lucide-react";
 import { Link, useLocation } from "wouter";
+import { useTranslation } from "react-i18next";
 import {
   Sidebar,
   SidebarContent,
@@ -17,40 +18,41 @@ interface AppSidebarProps {
 
 export default function AppSidebar({ userRole }: AppSidebarProps) {
   const [location] = useLocation();
+  const { t } = useTranslation();
 
   const menuItems = [
     {
-      title: "Orders",
+      titleKey: "nav.orders",
       url: "/",
       icon: Package,
       roles: ["employee", "admin"],
     },
     {
-      title: "Export & Reports",
+      titleKey: "Export & Reports",
       url: "/export",
       icon: Download,
       roles: ["employee", "admin"],
     },
     {
-      title: "Analytics",
+      titleKey: "nav.analytics",
       url: "/analytics",
       icon: BarChart3,
       roles: ["admin"],
     },
     {
-      title: "Users",
+      titleKey: "nav.users",
       url: "/users",
       icon: Users,
       roles: ["admin"],
     },
     {
-      title: "Roles",
+      titleKey: "nav.roles",
       url: "/roles",
       icon: Shield,
       roles: ["admin"],
     },
     {
-      title: "Settings",
+      titleKey: "nav.settings",
       url: "/settings",
       icon: Settings,
       roles: ["admin"],
@@ -68,16 +70,20 @@ export default function AppSidebar({ userRole }: AppSidebarProps) {
           <SidebarGroupLabel>METAorder</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {filteredItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={location === item.url}>
-                    <Link href={item.url} data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {filteredItems.map((item) => {
+                const title = item.titleKey.startsWith('nav.') ? t(item.titleKey) : item.titleKey;
+                const testId = item.titleKey.replace(/\./g, '-').toLowerCase();
+                return (
+                  <SidebarMenuItem key={item.titleKey}>
+                    <SidebarMenuButton asChild isActive={location === item.url}>
+                      <Link href={item.url} data-testid={`link-${testId}`}>
+                        <item.icon className="h-4 w-4" />
+                        <span>{title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
