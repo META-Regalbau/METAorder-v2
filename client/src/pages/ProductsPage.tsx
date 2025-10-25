@@ -1,18 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Package, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Package, Search, ChevronLeft, ChevronRight, Info } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
 import type { Product } from "@shared/schema";
+import ProductDetailModal from "@/components/ProductDetailModal";
 
 export default function ProductsPage() {
   const { t } = useTranslation();
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const limit = 50;
 
   // Debounce search input
@@ -175,6 +177,18 @@ export default function ProductsPage() {
                       {t('products.unit')}: {product.packagingUnit}
                     </div>
                   )}
+
+                  {/* View Details Button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-2"
+                    onClick={() => setSelectedProduct(product)}
+                    data-testid={`button-view-details-${product.id}`}
+                  >
+                    <Info className="h-4 w-4 mr-2" />
+                    {t('products.viewDetails')}
+                  </Button>
                 </div>
               </Card>
             ))}
@@ -210,6 +224,13 @@ export default function ProductsPage() {
           )}
         </>
       )}
+
+      {/* Product Detail Modal */}
+      <ProductDetailModal
+        product={selectedProduct}
+        open={!!selectedProduct}
+        onClose={() => setSelectedProduct(null)}
+      />
     </div>
   );
 }

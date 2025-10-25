@@ -218,11 +218,47 @@
     "notAvailable": "Not available",
     "stock": "Stock",
     "unit": "Unit",
-    "graduatedPricing": "Graduated pricing available"
+    "graduatedPricing": "Graduated pricing available",
+    "viewDetails": "View Details",
+    "productNumber": "Product Number",
+    "price": "Price",
+    "availability": "Availability",
+    "dimensions": "Dimensions",
+    "height": "Height",
+    "width": "Width",
+    "depth": "Depth",
+    "description": "Description"
+  },
+  "crossSelling": {
+    "title": "Cross-Selling",
+    "manage": "Manage Cross-Selling",
+    "products": "Products",
+    "productsLinked": "products linked",
+    "noLinkedProducts": "No cross-selling products linked yet",
+    "productDetails": "Product details and cross-selling",
+    "manageTitle": "Manage Cross-Selling",
+    "manageDescription": "Manage cross-selling products for {{product}}",
+    "createGroup": "Create New Cross-Selling Group",
+    "groupNamePlaceholder": "e.g. Matching Add-On Shelves, Accessories...",
+    "existingGroups": "Existing Cross-Selling Groups",
+    "noGroups": "No cross-selling groups yet",
+    "selectProducts": "Select Products",
+    "productsSelected": "products selected",
+    "groupCreated": "Group Created",
+    "groupCreatedDescription": "The cross-selling group was created successfully",
+    "groupCreateError": "Error creating group",
+    "updated": "Cross-Selling Updated",
+    "updatedDescription": "Cross-selling assignments were updated successfully",
+    "updateError": "Error updating",
+    "deleted": "Group Deleted",
+    "deletedDescription": "The cross-selling group was deleted successfully",
+    "deleteError": "Error deleting"
   },
   "common": {
     "previous": "Previous",
     "next": "Next",
-    "pageInfo": "Page {{current}} of {{total}}"
+    "pageInfo": "Page {{current}} of {{total}}",
+    "more": "more",
+    "create": "Create"
   }
 }

@@ -168,6 +168,134 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Cross-Selling routes
+  app.get("/api/products/:productId/cross-selling", async (req, res) => {
+    try {
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const client = new ShopwareClient(settings);
+      const { productId } = req.params;
+      
+      const crossSellings = await client.fetchProductCrossSelling(productId);
+      
+      // Fetch products for each cross-selling group
+      const crossSellingsWithProducts = await Promise.all(
+        crossSellings.map(async (cs) => {
+          const products = await client.fetchCrossSellingProducts(productId, cs.id);
+          return { ...cs, products };
+        })
+      );
+      
+      res.json({ crossSellings: crossSellingsWithProducts });
+    } catch (error: any) {
+      console.error("Error fetching cross-selling:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch cross-selling" });
+    }
+  });
+
+  app.post("/api/products/:productId/cross-selling", async (req, res) => {
+    try {
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      // Validate request body
+      const createSchema = z.object({
+        name: z.string().min(1, "Name is required"),
+        productIds: z.array(z.string()).default([]),
+      });
+
+      const validation = createSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: validation.error.errors[0].message });
+      }
+
+      const client = new ShopwareClient(settings);
+      const { productId } = req.params;
+      const { name, productIds } = validation.data;
+      
+      // Create cross-selling group
+      const crossSellingId = await client.createProductCrossSelling(productId, name);
+      
+      // Assign products to the group
+      if (productIds.length > 0) {
+        await client.assignProductsToCrossSelling(crossSellingId, productIds);
+      }
+      
+      res.json({ id: crossSellingId, message: "Cross-selling created successfully" });
+    } catch (error: any) {
+      console.error("Error creating cross-selling:", error);
+      res.status(500).json({ error: error.message || "Failed to create cross-selling" });
+    }
+  });
+
+  app.put("/api/products/:productId/cross-selling/:crossSellingId", async (req, res) => {
+    try {
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      // Validate request body
+      const updateSchema = z.object({
+        productIds: z.array(z.string()),
+      });
+
+      const validation = updateSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: validation.error.errors[0].message });
+      }
+
+      const client = new ShopwareClient(settings);
+      const { productId, crossSellingId } = req.params;
+      const { productIds } = validation.data;
+      
+      // Get current products to determine what to add/remove
+      const currentProducts = await client.fetchCrossSellingProducts(productId, crossSellingId);
+      const currentProductIds = currentProducts.map(p => p.id);
+      
+      // Determine which products to add and remove
+      const toAdd = productIds.filter(id => !currentProductIds.includes(id));
+      const toRemove = currentProductIds.filter(id => !productIds.includes(id));
+      
+      // Update assignments
+      if (toRemove.length > 0) {
+        await client.removeProductsFromCrossSelling(crossSellingId, toRemove);
+      }
+      if (toAdd.length > 0) {
+        await client.assignProductsToCrossSelling(crossSellingId, toAdd);
+      }
+      
+      res.json({ message: "Cross-selling updated successfully" });
+    } catch (error: any) {
+      console.error("Error updating cross-selling:", error);
+      res.status(500).json({ error: error.message || "Failed to update cross-selling" });
+    }
+  });
+
+  app.delete("/api/products/:productId/cross-selling/:crossSellingId", async (req, res) => {
+    try {
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const client = new ShopwareClient(settings);
+      const { crossSellingId } = req.params;
+      
+      await client.deleteProductCrossSelling(crossSellingId);
+      
+      res.json({ message: "Cross-selling deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting cross-selling:", error);
+      res.status(500).json({ error: error.message || "Failed to delete cross-selling" });
+    }
+  });
+
   app.get("/api/orders/:orderId/invoice", async (req, res) => {
     try {
       const settings = await storage.getShopwareSettings();

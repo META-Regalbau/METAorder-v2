@@ -160,3 +160,86 @@ export type Product = {
   createdAt?: string;
   updatedAt?: string;
 };
+
+// Cross-Selling types
+export type CrossSellingProduct = {
+  id: string;
+  productNumber: string;
+  name: string;
+  price: number;
+  imageUrl?: string;
+  stock: number;
+  available: boolean;
+};
+
+export type CrossSellingGroup = {
+  id: string;
+  name: string;
+  type: "productList" | "productStream"; // Shopware supports both
+  active: boolean;
+  products: CrossSellingProduct[];
+};
+
+// Rule-based cross-selling system
+export type RuleConditionOperator = "equals" | "notEquals" | "contains" | "notContains" | "greaterThan" | "lessThan" | "greaterThanOrEqual" | "lessThanOrEqual" | "matchesDimensions";
+
+export type RuleCondition = {
+  field: string; // e.g., "categoryNames", "dimensions.height", "customFields.regalSystem"
+  operator: RuleConditionOperator;
+  value: string | number | string[] | number[];
+};
+
+export type RuleTargetCriteria = {
+  field: string; // e.g., "categoryNames", "dimensions"
+  matchType: "exact" | "contains" | "sameDimensions" | "sameProperty";
+  value?: string | number | string[];
+};
+
+export type CrossSellingRule = {
+  id: string;
+  name: string;
+  description?: string;
+  active: boolean;
+  
+  // When to apply this rule - conditions on the source product
+  sourceConditions: RuleCondition[];
+  
+  // What products to suggest - criteria for target products
+  targetCriteria: RuleTargetCriteria[];
+  
+  // Metadata
+  createdAt: string;
+  updatedAt: string;
+};
+
+// Database table for cross-selling rules
+export const crossSellingRules = pgTable("cross_selling_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  active: integer("active").notNull().default(1), // 1 = active, 0 = inactive
+  sourceConditions: text("source_conditions").notNull(), // JSON array of RuleCondition
+  targetCriteria: text("target_criteria").notNull(), // JSON array of RuleTargetCriteria
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertCrossSellingRuleSchema = createInsertSchema(crossSellingRules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  sourceConditions: z.array(z.object({
+    field: z.string(),
+    operator: z.enum(["equals", "notEquals", "contains", "notContains", "greaterThan", "lessThan", "greaterThanOrEqual", "lessThanOrEqual", "matchesDimensions"]),
+    value: z.union([z.string(), z.number(), z.array(z.string()), z.array(z.number())]),
+  })),
+  targetCriteria: z.array(z.object({
+    field: z.string(),
+    matchType: z.enum(["exact", "contains", "sameDimensions", "sameProperty"]),
+    value: z.union([z.string(), z.number(), z.array(z.string())]).optional(),
+  })),
+});
+
+export type InsertCrossSellingRule = z.infer<typeof insertCrossSellingRuleSchema>;
+export type SelectCrossSellingRule = typeof crossSellingRules.$inferSelect;

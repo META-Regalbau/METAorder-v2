@@ -1,4 +1,4 @@
-import type { Order, OrderStatus, OrderItem, ShopwareSettings, SalesChannel, Product, ProductPriceRule } from "@shared/schema";
+import type { Order, OrderStatus, OrderItem, ShopwareSettings, SalesChannel, Product, ProductPriceRule, CrossSellingGroup, CrossSellingProduct } from "@shared/schema";
 
 export class ShopwareClient {
   private baseUrl: string;
@@ -54,12 +54,17 @@ export class ShopwareClient {
   private async makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<Response> {
     let token = await this.authenticate();
 
+    // Ensure JSON headers are preserved
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...options.headers,
+      'Authorization': `Bearer ${token}`,
+    };
+
     const response = await fetch(url, {
       ...options,
-      headers: {
-        ...options.headers,
-        'Authorization': `Bearer ${token}`,
-      },
+      headers,
     });
 
     // If we get a 401, token might have expired - try once more with fresh token
@@ -68,12 +73,16 @@ export class ShopwareClient {
       this.tokenExpiry = 0;
       token = await this.authenticate();
       
+      const retryHeaders = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        ...options.headers,
+        'Authorization': `Bearer ${token}`,
+      };
+      
       return await fetch(url, {
         ...options,
-        headers: {
-          ...options.headers,
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: retryHeaders,
       });
     }
 
@@ -732,6 +741,228 @@ export class ShopwareClient {
       return { products, total };
     } catch (error) {
       console.error('Error fetching products from Shopware:', error);
+      throw error;
+    }
+  }
+
+  // Cross-Selling Methods
+  async fetchProductCrossSelling(productId: string): Promise<CrossSellingGroup[]> {
+    try {
+      const response = await this.makeAuthenticatedRequest(
+        `${this.baseUrl}/api/product/${productId}/cross-sellings`,
+        {
+          method: 'GET',
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch cross-selling: ${response.statusText} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      const crossSellings = data.data || [];
+
+      return crossSellings.map((cs: any) => ({
+        id: cs.id,
+        name: cs.name || cs.attributes?.name || 'Unnamed Group',
+        type: cs.type || cs.attributes?.type || 'productList',
+        active: cs.active !== undefined ? cs.active : (cs.attributes?.active || false),
+        products: [], // Will be populated separately if needed
+      }));
+    } catch (error) {
+      console.error('Error fetching cross-selling from Shopware:', error);
+      throw error;
+    }
+  }
+
+  async fetchCrossSellingProducts(productId: string, crossSellingId: string): Promise<CrossSellingProduct[]> {
+    try {
+      const response = await this.makeAuthenticatedRequest(
+        `${this.baseUrl}/api/product-cross-selling/${crossSellingId}/assigned-products`,
+        {
+          method: 'GET',
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch cross-selling products: ${response.statusText} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      const products = data.data || [];
+
+      return products.map((p: any) => ({
+        id: p.productId || p.id,
+        productNumber: p.product?.productNumber || p.attributes?.product?.productNumber || '',
+        name: p.product?.name || p.attributes?.product?.name || 'Unknown Product',
+        price: p.product?.price?.[0]?.gross || 0,
+        imageUrl: p.product?.cover?.media?.url || undefined,
+        stock: p.product?.stock || 0,
+        available: p.product?.available || false,
+      }));
+    } catch (error) {
+      console.error('Error fetching cross-selling products from Shopware:', error);
+      throw error;
+    }
+  }
+
+  async createProductCrossSelling(productId: string, name: string, type: 'productList' | 'productStream' = 'productList'): Promise<string> {
+    try {
+      const response = await this.makeAuthenticatedRequest(
+        `${this.baseUrl}/api/product-cross-selling`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            productId,
+            name,
+            type,
+            active: true,
+            position: 1,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to create cross-selling: ${response.statusText} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      // Shopware returns the created ID in different formats depending on API version
+      // Try data first (direct response), then data.data (wrapped response)
+      const createdId = data?.id || data?.data?.id;
+      if (!createdId) {
+        throw new Error('Failed to get cross-selling ID from response');
+      }
+      return createdId;
+    } catch (error) {
+      console.error('Error creating cross-selling in Shopware:', error);
+      throw error;
+    }
+  }
+
+  async assignProductsToCrossSelling(crossSellingId: string, productIds: string[]): Promise<void> {
+    try {
+      // Shopware expects assigned products to be created individually
+      const assignments = productIds.map((productId, index) => ({
+        productCrossSellingId: crossSellingId,
+        productId,
+        position: index + 1,
+      }));
+
+      const response = await this.makeAuthenticatedRequest(
+        `${this.baseUrl}/api/_action/sync`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            'write-product-cross-selling-assigned-products': {
+              entity: 'product_cross_selling_assigned_products',
+              action: 'upsert',
+              payload: assignments,
+            },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to assign products to cross-selling: ${response.statusText} - ${errorText}`);
+      }
+    } catch (error) {
+      console.error('Error assigning products to cross-selling in Shopware:', error);
+      throw error;
+    }
+  }
+
+  async removeProductsFromCrossSelling(crossSellingId: string, productIds: string[]): Promise<void> {
+    try {
+      // First, fetch existing assignments to get their IDs
+      const response = await this.makeAuthenticatedRequest(
+        `${this.baseUrl}/api/search/product-cross-selling-assigned-products`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            filter: [
+              {
+                type: 'equals',
+                field: 'productCrossSellingId',
+                value: crossSellingId,
+              },
+              {
+                type: 'equalsAny',
+                field: 'productId',
+                value: productIds,
+              },
+            ],
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch assignments for removal');
+      }
+
+      const data = await response.json();
+      const assignmentIds = (data.data || []).map((a: any) => a.id);
+
+      if (assignmentIds.length === 0) {
+        return; // Nothing to delete
+      }
+
+      // Delete assignments
+      const deleteResponse = await this.makeAuthenticatedRequest(
+        `${this.baseUrl}/api/_action/sync`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            'delete-assignments': {
+              entity: 'product_cross_selling_assigned_products',
+              action: 'delete',
+              payload: assignmentIds.map((id: string) => ({ id })),
+            },
+          }),
+        }
+      );
+
+      if (!deleteResponse.ok) {
+        const errorText = await deleteResponse.text();
+        throw new Error(`Failed to remove products from cross-selling: ${deleteResponse.statusText} - ${errorText}`);
+      }
+    } catch (error) {
+      console.error('Error removing products from cross-selling in Shopware:', error);
+      throw error;
+    }
+  }
+
+  async deleteProductCrossSelling(crossSellingId: string): Promise<void> {
+    try {
+      const response = await this.makeAuthenticatedRequest(
+        `${this.baseUrl}/api/product-cross-selling/${crossSellingId}`,
+        {
+          method: 'DELETE',
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to delete cross-selling: ${response.statusText} - ${errorText}`);
+      }
+    } catch (error) {
+      console.error('Error deleting cross-selling from Shopware:', error);
       throw error;
     }
   }

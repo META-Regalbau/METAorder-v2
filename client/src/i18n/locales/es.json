@@ -218,11 +218,47 @@
     "notAvailable": "No disponible",
     "stock": "Inventario",
     "unit": "Unidad",
-    "graduatedPricing": "Precios escalonados disponibles"
+    "graduatedPricing": "Precios escalonados disponibles",
+    "viewDetails": "Ver Detalles",
+    "productNumber": "Número de Producto",
+    "price": "Precio",
+    "availability": "Disponibilidad",
+    "dimensions": "Dimensiones",
+    "height": "Altura",
+    "width": "Ancho",
+    "depth": "Profundidad",
+    "description": "Descripción"
+  },
+  "crossSelling": {
+    "title": "Venta Cruzada",
+    "manage": "Gestionar Venta Cruzada",
+    "products": "Productos",
+    "productsLinked": "productos vinculados",
+    "noLinkedProducts": "Aún no hay productos de venta cruzada vinculados",
+    "productDetails": "Detalles del producto y venta cruzada",
+    "manageTitle": "Gestionar Venta Cruzada",
+    "manageDescription": "Gestionar productos de venta cruzada para {{product}}",
+    "createGroup": "Crear Nuevo Grupo de Venta Cruzada",
+    "groupNamePlaceholder": "ej. Estanterías Complementarias, Accesorios...",
+    "existingGroups": "Grupos de Venta Cruzada Existentes",
+    "noGroups": "Aún no hay grupos de venta cruzada",
+    "selectProducts": "Seleccionar Productos",
+    "productsSelected": "productos seleccionados",
+    "groupCreated": "Grupo Creado",
+    "groupCreatedDescription": "El grupo de venta cruzada se creó con éxito",
+    "groupCreateError": "Error al crear el grupo",
+    "updated": "Venta Cruzada Actualizada",
+    "updatedDescription": "Las asignaciones de venta cruzada se actualizaron con éxito",
+    "updateError": "Error al actualizar",
+    "deleted": "Grupo Eliminado",
+    "deletedDescription": "El grupo de venta cruzada se eliminó con éxito",
+    "deleteError": "Error al eliminar"
   },
   "common": {
     "previous": "Anterior",
     "next": "Siguiente",
-    "pageInfo": "Página {{current}} de {{total}}"
+    "pageInfo": "Página {{current}} de {{total}}",
+    "more": "más",
+    "create": "Crear"
   }
 }
