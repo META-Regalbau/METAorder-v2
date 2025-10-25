@@ -132,6 +132,30 @@ export default function OrderDetailModal({
             </Card>
 
             <Card className="p-6">
+              <h3 className="text-sm font-medium uppercase tracking-wide mb-4">{t('orderDetail.erpDocumentNumbers')}</h3>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">{t('orderDetail.erpOrderNumber')}</p>
+                  <p className="font-mono font-medium" data-testid="text-erp-order-number">
+                    {order.erpNumber || '-'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{t('orderDetail.erpDeliveryNoteNumber')}</p>
+                  <p className="font-mono font-medium" data-testid="text-erp-delivery-note-number">
+                    {order.deliveryNoteNumber || '-'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{t('orderDetail.erpInvoiceNumber')}</p>
+                  <p className="font-mono font-medium" data-testid="text-erp-invoice-number">
+                    {order.invoiceNumber || '-'}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-6">
               <h3 className="text-sm font-medium uppercase tracking-wide mb-4">{t('orderDetail.allDocuments')}</h3>
               {documentsError ? (
                 <div className="text-center py-8">

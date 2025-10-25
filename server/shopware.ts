@@ -171,7 +171,7 @@ export class ShopwareClient {
               },
             ],
             includes: {
-              order: ['id', 'orderNumber', 'orderDate', 'amountTotal', 'orderCustomer', 'lineItems', 'stateMachineState', 'salesChannelId', 'salesChannel'],
+              order: ['id', 'orderNumber', 'orderDate', 'amountTotal', 'orderCustomer', 'lineItems', 'stateMachineState', 'salesChannelId', 'salesChannel', 'customFields'],
               order_customer: ['firstName', 'lastName', 'email'],
               order_line_item: ['id', 'label', 'quantity', 'unitPrice', 'totalPrice'],
               state_machine_state: ['technicalName'],
@@ -304,6 +304,9 @@ export class ShopwareClient {
           }
         }
 
+        // Extract custom fields for ERP document numbers
+        const customFields = shopwareOrder.customFields || shopwareOrder.attributes?.customFields || {};
+        
         const order: Order = {
           id: shopwareOrder.id,
           orderNumber: shopwareOrder.orderNumber || shopwareOrder.attributes?.orderNumber || 'N/A',
@@ -317,9 +320,15 @@ export class ShopwareClient {
           items,
         };
 
-        // Add invoice number if available
-        if (shopwareOrder.invoiceNumber || shopwareOrder.attributes?.invoiceNumber) {
-          order.invoiceNumber = shopwareOrder.invoiceNumber || shopwareOrder.attributes?.invoiceNumber;
+        // Add ERP document numbers from custom fields
+        if (customFields.custom_order_numbers_order) {
+          order.erpNumber = customFields.custom_order_numbers_order;
+        }
+        if (customFields.custom_order_numbers_deliveryNo) {
+          order.deliveryNoteNumber = customFields.custom_order_numbers_deliveryNo;
+        }
+        if (customFields.custom_order_numbers_invoice) {
+          order.invoiceNumber = customFields.custom_order_numbers_invoice;
         }
 
         return order;

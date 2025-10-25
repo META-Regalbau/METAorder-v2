@@ -98,7 +98,11 @@
     "documentNumber": "Número",
     "downloadDocument": "Descargar",
     "downloadUnavailable": "Descarga no disponible",
-    "documentsError": "No se pudieron cargar los documentos. Inténtelo de nuevo."
+    "documentsError": "No se pudieron cargar los documentos. Inténtelo de nuevo.",
+    "erpDocumentNumbers": "Números de Documentos ERP",
+    "erpOrderNumber": "Número de Pedido",
+    "erpDeliveryNoteNumber": "Número de Albarán",
+    "erpInvoiceNumber": "Número de Factura"
   },
   "documentTypes": {
     "invoice": "Factura",

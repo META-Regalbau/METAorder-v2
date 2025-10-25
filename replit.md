@@ -152,3 +152,19 @@ Core data models:
   - Roles with no assigned channels have access to all channels (displayed as "All Channels")
   - Translation keys added for role sales channel features in German, English, and Spanish
   - Mock data updated with example roles having different sales channel assignments (e.g., Warehouse Manager assigned to Austria and Poland)
+- **Multi-Document Support with Download Functionality**: Implemented comprehensive document management for orders:
+  - Backend fetches all document types (invoices, delivery notes, credit notes, cancellations) from Shopware API
+  - Documents displayed in OrderDetailModal with individual download buttons
+  - Download functionality uses Shopware's deepLinkCode for secure PDF downloads
+  - Documents extracted from `doc.attributes.deepLinkCode` and `doc.attributes.documentNumber`
+  - Document types automatically detected from technicalName or number prefixes (RE-, LS-, GS-, ST-)
+  - Localized error handling with user-friendly messages (no raw backend errors)
+  - Loading, empty, and error states properly handled
+  - All UI elements fully translated in German, English, and Spanish
+- **ERP Document Numbers from Custom Fields**: Display ERP-generated document numbers in order details:
+  - Custom fields extracted from Shopware orders: `custom_order_numbers_order`, `custom_order_numbers_deliveryNo`, `custom_order_numbers_invoice`
+  - Mapped to `erpNumber`, `deliveryNoteNumber`, and `invoiceNumber` fields in Order schema
+  - New "ERP-Dokumentennummern" card in OrderDetailModal displays all three numbers
+  - Numbers displayed in monospace font for better readability
+  - Shows "-" when numbers are not available
+  - Fully translated in German, English, and Spanish

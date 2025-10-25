@@ -98,7 +98,11 @@
     "documentNumber": "Number",
     "downloadDocument": "Download",
     "downloadUnavailable": "Download unavailable",
-    "documentsError": "Could not load documents. Please try again."
+    "documentsError": "Could not load documents. Please try again.",
+    "erpDocumentNumbers": "ERP Document Numbers",
+    "erpOrderNumber": "Order Number",
+    "erpDeliveryNoteNumber": "Delivery Note Number",
+    "erpInvoiceNumber": "Invoice Number"
   },
   "documentTypes": {
     "invoice": "Invoice",
