@@ -24,6 +24,7 @@ export default function OrdersPage({ userRole }: OrdersPageProps) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [itemsPerPage, setItemsPerPage] = useState("25");
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Fetch orders from Shopware API
   const { data: orders = [], isLoading, error, refetch } = useQuery<Order[]>({
@@ -59,21 +60,33 @@ export default function OrdersPage({ userRole }: OrdersPageProps) {
     }
   }
 
-  // Filter orders based on search and filters
-  const filteredOrders = orders.filter((order) => {
-    const matchesSearch =
-      searchValue === "" ||
-      order.orderNumber.toLowerCase().includes(searchValue.toLowerCase()) ||
-      order.customerName.toLowerCase().includes(searchValue.toLowerCase()) ||
-      order.customerEmail.toLowerCase().includes(searchValue.toLowerCase());
+  // Filter and sort orders (newest first)
+  const filteredOrders = orders
+    .filter((order) => {
+      const matchesSearch =
+        searchValue === "" ||
+        order.orderNumber.toLowerCase().includes(searchValue.toLowerCase()) ||
+        order.customerName.toLowerCase().includes(searchValue.toLowerCase()) ||
+        order.customerEmail.toLowerCase().includes(searchValue.toLowerCase());
 
-    const matchesStatus = statusFilter === "all" || order.status === statusFilter;
+      const matchesStatus = statusFilter === "all" || order.status === statusFilter;
 
-    const matchesDateFrom = dateFrom === "" || new Date(order.orderDate) >= new Date(dateFrom);
-    const matchesDateTo = dateTo === "" || new Date(order.orderDate) <= new Date(dateTo);
+      const matchesDateFrom = dateFrom === "" || new Date(order.orderDate) >= new Date(dateFrom);
+      const matchesDateTo = dateTo === "" || new Date(order.orderDate) <= new Date(dateTo);
 
-    return matchesSearch && matchesStatus && matchesDateFrom && matchesDateTo;
-  });
+      return matchesSearch && matchesStatus && matchesDateFrom && matchesDateTo;
+    })
+    .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
+
+  // Pagination
+  const itemsPerPageNum = parseInt(itemsPerPage);
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPageNum);
+  const startIndex = (currentPage - 1) * itemsPerPageNum;
+  const endIndex = startIndex + itemsPerPageNum;
+  const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  const resetPage = () => setCurrentPage(1);
 
   const activeFiltersCount = [
     statusFilter !== "all",
@@ -161,6 +174,7 @@ export default function OrdersPage({ userRole }: OrdersPageProps) {
               setDateFrom("");
               setDateTo("");
               setSearchValue("");
+              resetPage();
             }}
             activeFiltersCount={activeFiltersCount}
           />
@@ -190,7 +204,7 @@ export default function OrdersPage({ userRole }: OrdersPageProps) {
         </div>
 
         <OrdersTable
-          orders={filteredOrders}
+          orders={paginatedOrders}
           onViewOrder={handleViewOrder}
           isLoading={isLoading}
         />
@@ -198,7 +212,10 @@ export default function OrdersPage({ userRole }: OrdersPageProps) {
         <div className="mt-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Show</span>
-            <Select value={itemsPerPage} onValueChange={setItemsPerPage}>
+            <Select value={itemsPerPage} onValueChange={(value) => {
+              setItemsPerPage(value);
+              setCurrentPage(1);
+            }}>
               <SelectTrigger className="w-20" data-testid="select-items-per-page">
                 <SelectValue />
               </SelectTrigger>
@@ -211,6 +228,52 @@ export default function OrdersPage({ userRole }: OrdersPageProps) {
             </Select>
             <span className="text-sm text-muted-foreground">items per page</span>
           </div>
+          
+          {totalPages > 1 && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+              </span>
+              <div className="flex gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  data-testid="button-first-page"
+                >
+                  First
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  data-testid="button-prev-page"
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  data-testid="button-next-page"
+                >
+                  Next
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  data-testid="button-last-page"
+                >
+                  Last
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         <OrderDetailModal
