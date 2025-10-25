@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { X, FileDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import StatusBadge from "./StatusBadge";
 import ShippingInfoForm from "./ShippingInfoForm";
 import AdminDocumentForm from "./AdminDocumentForm";
+import { useToast } from "@/hooks/use-toast";
 import type { Order } from "@shared/schema";
 
 interface OrderDetailModalProps {
@@ -26,7 +27,19 @@ export default function OrderDetailModal({
   onUpdateShipping,
   onUpdateDocuments,
 }: OrderDetailModalProps) {
+  const { toast } = useToast();
+
   if (!order) return null;
+
+  const handleDownloadInvoice = () => {
+    console.log("Downloading invoice PDF for order:", order.orderNumber);
+    toast({
+      title: "Downloading invoice",
+      description: `Invoice PDF for order ${order.orderNumber} is being downloaded.`,
+    });
+    // TODO: Implement actual invoice PDF download from Shopware API
+    // This would typically call an API endpoint that returns the PDF file
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -80,6 +93,23 @@ export default function OrderDetailModal({
                 </div>
               </div>
             </Card>
+
+            {order.invoiceNumber && (
+              <Card className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-medium uppercase tracking-wide mb-1">Invoice Document</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Invoice Number: <span className="font-mono font-medium text-foreground">{order.invoiceNumber}</span>
+                    </p>
+                  </div>
+                  <Button onClick={handleDownloadInvoice} data-testid="button-download-invoice">
+                    <FileDown className="h-4 w-4 mr-1" />
+                    Download Invoice PDF
+                  </Button>
+                </div>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="items" className="pt-6">
