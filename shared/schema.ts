@@ -33,6 +33,21 @@ export type Role = {
   };
 };
 
+// Shopware settings
+export type ShopwareSettings = {
+  shopwareUrl: string;
+  apiKey: string;
+  apiSecret: string;
+};
+
+export const shopwareSettingsSchema = z.object({
+  shopwareUrl: z.string().url("Please enter a valid URL"),
+  apiKey: z.string().min(1, "API key is required"),
+  apiSecret: z.string().min(1, "API secret is required"),
+});
+
+export type InsertShopwareSettings = z.infer<typeof shopwareSettingsSchema>;
+
 // Order types for Shopware integration
 export type OrderStatus = "open" | "in_progress" | "completed" | "cancelled";
 
