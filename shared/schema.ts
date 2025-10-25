@@ -8,6 +8,7 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
   role: text("role").notNull().default("employee"), // employee or admin
+  salesChannelIds: text("sales_channel_ids").array(), // null/empty = all channels (for admin)
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -31,6 +32,13 @@ export type Role = {
     manageRoles: boolean;
     manageSettings: boolean;
   };
+};
+
+// Sales Channel
+export type SalesChannel = {
+  id: string;
+  name: string;
+  active: boolean;
 };
 
 // Shopware settings
@@ -59,6 +67,8 @@ export type Order = {
   orderDate: string;
   totalAmount: number;
   status: OrderStatus;
+  salesChannelId: string;
+  salesChannelName?: string;
   shippingInfo?: {
     carrier?: string;
     trackingNumber?: string;

@@ -1,4 +1,4 @@
-import type { Order, OrderStatus, OrderItem, ShopwareSettings } from "@shared/schema";
+import type { Order, OrderStatus, OrderItem, ShopwareSettings, SalesChannel } from "@shared/schema";
 
 export class ShopwareClient {
   private baseUrl: string;
@@ -97,6 +97,44 @@ export class ShopwareClient {
     }
   }
 
+  async fetchSalesChannels(): Promise<SalesChannel[]> {
+    try {
+      const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/sales-channel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          limit: 100,
+          filter: [
+            {
+              type: 'equals',
+              field: 'active',
+              value: true,
+            },
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch sales channels: ${response.statusText} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      const channels = data.data || [];
+
+      return channels.map((channel: any) => ({
+        id: channel.id,
+        name: channel.name || channel.attributes?.name || 'Unknown Channel',
+        active: channel.active !== undefined ? channel.active : (channel.attributes?.active || true),
+      }));
+    } catch (error) {
+      console.error('Error fetching sales channels from Shopware:', error);
+      throw error;
+    }
+  }
+
   private mapShopwareStatus(shopwareStatus: string): OrderStatus {
     const statusMap: Record<string, OrderStatus> = {
       'open': 'open',
@@ -127,15 +165,17 @@ export class ShopwareClient {
             limit: limit,
             page: page,
             includes: {
-              order: ['id', 'orderNumber', 'orderDate', 'amountTotal', 'orderCustomer', 'lineItems', 'stateMachineState'],
+              order: ['id', 'orderNumber', 'orderDate', 'amountTotal', 'orderCustomer', 'lineItems', 'stateMachineState', 'salesChannelId', 'salesChannel'],
               order_customer: ['firstName', 'lastName', 'email'],
               order_line_item: ['id', 'label', 'quantity', 'unitPrice', 'totalPrice'],
               state_machine_state: ['technicalName'],
+              sales_channel: ['id', 'name'],
             },
             associations: {
               orderCustomer: {},
               lineItems: {},
               stateMachineState: {},
+              salesChannel: {},
             },
           }),
         });
@@ -231,6 +271,20 @@ export class ShopwareClient {
           }
         }
 
+        // Get sales channel data
+        let salesChannelId = shopwareOrder.salesChannelId || shopwareOrder.attributes?.salesChannelId || '';
+        let salesChannelName = '';
+        
+        if (shopwareOrder.salesChannel?.name) {
+          salesChannelName = shopwareOrder.salesChannel.name;
+        } else if (shopwareOrder.relationships?.salesChannel?.data?.id) {
+          const channelId = shopwareOrder.relationships.salesChannel.data.id;
+          const channel = includedMap.get(`sales_channel-${channelId}`);
+          if (channel?.attributes?.name) {
+            salesChannelName = channel.attributes.name;
+          }
+        }
+
         const order: Order = {
           id: shopwareOrder.id,
           orderNumber: shopwareOrder.orderNumber || shopwareOrder.attributes?.orderNumber || 'N/A',
@@ -239,6 +293,8 @@ export class ShopwareClient {
           orderDate: shopwareOrder.orderDate || shopwareOrder.attributes?.orderDate || shopwareOrder.createdAt || new Date().toISOString(),
           totalAmount: shopwareOrder.amountTotal || shopwareOrder.attributes?.amountTotal || 0,
           status,
+          salesChannelId,
+          salesChannelName,
           items,
         };
 

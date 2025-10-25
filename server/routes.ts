@@ -59,6 +59,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Sales channels routes
+  app.get("/api/sales-channels", async (req, res) => {
+    try {
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const client = new ShopwareClient(settings);
+      const salesChannels = await client.fetchSalesChannels();
+      
+      res.json(salesChannels);
+    } catch (error: any) {
+      console.error("Error fetching sales channels:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch sales channels" });
+    }
+  });
+
   // Orders routes
   app.get("/api/orders", async (req, res) => {
     try {
@@ -70,7 +88,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const client = new ShopwareClient(settings);
       const orders = await client.fetchOrders();
       
-      res.json(orders);
+      // Filter by sales channel if provided in query params
+      const salesChannelIds = req.query.salesChannelIds as string | undefined;
+      let filteredOrders = orders;
+      
+      if (salesChannelIds) {
+        const channelIdsArray = salesChannelIds.split(',');
+        filteredOrders = orders.filter(order => 
+          channelIdsArray.includes(order.salesChannelId)
+        );
+      }
+      
+      res.json(filteredOrders);
     } catch (error: any) {
       console.error("Error fetching orders:", error);
       res.status(500).json({ error: error.message || "Failed to fetch orders" });
