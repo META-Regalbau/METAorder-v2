@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Download, RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,17 +6,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import OrderFilters from "@/components/OrderFilters";
 import OrdersTable from "@/components/OrdersTable";
 import OrderDetailModal from "@/components/OrderDetailModal";
+import { SalesChannelSelector } from "@/components/SalesChannelSelector";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import type { Order, OrderStatus } from "@shared/schema";
+import type { Order, OrderStatus, SalesChannel } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 
 interface OrdersPageProps {
   userRole: "employee" | "admin";
+  userSalesChannelIds?: string[] | null;
 }
 
-export default function OrdersPage({ userRole }: OrdersPageProps) {
+export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPageProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const [searchValue, setSearchValue] = useState("");
@@ -27,11 +29,40 @@ export default function OrdersPage({ userRole }: OrdersPageProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [itemsPerPage, setItemsPerPage] = useState("25");
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
 
-  // Fetch orders from Shopware API
-  const { data: orders = [], isLoading, error, refetch } = useQuery<Order[]>({
-    queryKey: ['/api/orders'],
+  // Fetch sales channels to initialize selection
+  const { data: salesChannels = [] } = useQuery<SalesChannel[]>({
+    queryKey: ['/api/sales-channels'],
     retry: false,
+  });
+
+  // Initialize selected channels based on user permissions
+  useEffect(() => {
+    if (salesChannels.length > 0 && selectedChannelIds.length === 0) {
+      if (userRole === "admin" || !userSalesChannelIds) {
+        // Admin sees all channels by default
+        setSelectedChannelIds(salesChannels.map(c => c.id));
+      } else {
+        // Non-admin users see only their assigned channels
+        setSelectedChannelIds(userSalesChannelIds);
+      }
+    }
+  }, [salesChannels, userRole, userSalesChannelIds, selectedChannelIds.length]);
+
+  // Fetch orders from Shopware API with sales channel filtering
+  const salesChannelQuery = selectedChannelIds.length > 0 ? `?salesChannelIds=${selectedChannelIds.join(',')}` : '';
+  const { data: orders = [], isLoading, error, refetch } = useQuery<Order[]>({
+    queryKey: ['/api/orders', selectedChannelIds],
+    queryFn: async () => {
+      const response = await fetch(`/api/orders${salesChannelQuery}`);
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      return response.json();
+    },
+    retry: false,
+    enabled: selectedChannelIds.length > 0,
   });
 
   // Show error if Shopware is not configured
@@ -95,6 +126,11 @@ export default function OrdersPage({ userRole }: OrdersPageProps) {
     dateFrom !== "",
     dateTo !== "",
   ].filter(Boolean).length;
+
+  const handleChannelSelectionChange = (channelIds: string[]) => {
+    setSelectedChannelIds(channelIds);
+    resetPage();
+  };
 
   const handleViewOrder = (order: Order) => {
     setSelectedOrder(order);
@@ -194,6 +230,12 @@ export default function OrdersPage({ userRole }: OrdersPageProps) {
           </div>
 
           <div className="flex items-center gap-2">
+            <SalesChannelSelector
+              selectedChannelIds={selectedChannelIds}
+              onSelectionChange={handleChannelSelectionChange}
+              userAllowedChannelIds={userSalesChannelIds}
+              isAdmin={userRole === "admin"}
+            />
             <Button variant="outline" onClick={handleRefresh} disabled={isLoading} data-testid="button-refresh-orders">
               <RefreshCw className={`h-4 w-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
               {t('common.refresh')}
