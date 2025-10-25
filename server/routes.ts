@@ -420,7 +420,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Cross-Selling Suggestions endpoint (rule-based)
-  app.post("/api/products/:productId/cross-selling-suggestions", async (req, res) => {
+  app.get("/api/products/:productId/cross-selling-suggestions", async (req, res) => {
     try {
       const settings = await storage.getShopwareSettings();
       if (!settings) {
@@ -430,26 +430,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const client = new ShopwareClient(settings);
       const { productId } = req.params;
 
-      // Fetch the source product
-      const productsResult = await client.fetchProducts(1, 1, undefined);
-      const allProducts = productsResult.products;
-      const sourceProduct = allProducts.find(p => p.id === productId);
+      // Fetch all products to find the source product and for matching
+      // Shopware MAX_LIMIT is 500 products per request
+      const allProductsResult = await client.fetchProducts(500, 1, undefined);
+      const sourceProduct = allProductsResult.products.find(p => p.id === productId);
 
       if (!sourceProduct) {
         return res.status(404).json({ error: "Product not found" });
       }
 
-      // Fetch all products for matching
-      const allProductsResult = await client.fetchProducts(1000, 1, undefined);
-
       // Get all active rules
       const rules = await storage.getAllCrossSellingRules();
+      const activeRules = rules.filter(r => r.active === 1);
+
+      if (activeRules.length === 0) {
+        return res.json({ suggestions: [] });
+      }
 
       // Apply rules to find suggestions
       const ruleEngine = new RuleEngine();
       const suggestions = await ruleEngine.suggestCrossSelling(
         sourceProduct,
-        rules,
+        activeRules,
         allProductsResult.products
       );
 

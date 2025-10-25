@@ -293,20 +293,32 @@ export class RuleEngine {
   ): Promise<Product[]> {
     const suggestions = new Set<Product>();
     
-    // Filter to only active rules
-    const activeRules = rules.filter((rule) => rule.active);
+    // Filter to only active rules (active === 1)
+    const activeRules = rules.filter((rule) => rule.active === 1);
+    
+    console.log(`[RuleEngine] Processing ${activeRules.length} active rules for product ${product.name}`);
     
     for (const rule of activeRules) {
+      console.log(`[RuleEngine] Evaluating rule: ${rule.name}`);
+      console.log(`[RuleEngine] Source conditions:`, rule.sourceConditions);
+      
       // Check if this rule applies to the source product
       if (this.evaluateSourceConditions(product, rule.sourceConditions)) {
+        console.log(`[RuleEngine] Source conditions matched! Finding target products...`);
+        console.log(`[RuleEngine] Target criteria:`, rule.targetCriteria);
+        
         // Find products that match the target criteria
         const matches = this.findMatchingProducts(product, rule.targetCriteria, allProducts);
+        console.log(`[RuleEngine] Found ${matches.length} matching products`);
         
         // Add to suggestions
         matches.forEach((match) => suggestions.add(match));
+      } else {
+        console.log(`[RuleEngine] Source conditions did not match`);
       }
     }
     
+    console.log(`[RuleEngine] Total suggestions: ${suggestions.size}`);
     return Array.from(suggestions);
   }
 }

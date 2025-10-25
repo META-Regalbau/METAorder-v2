@@ -90,7 +90,7 @@ export class MemStorage implements IStorage {
       id,
       name: insertRule.name,
       description: insertRule.description || undefined,
-      active: Boolean(insertRule.active),
+      active: insertRule.active ?? 1,
       sourceConditions,
       targetCriteria,
       createdAt: now,
@@ -122,7 +122,7 @@ export class MemStorage implements IStorage {
       updated.description = updates.description || undefined;
     }
     if (updates.active !== undefined) {
-      updated.active = Boolean(updates.active);
+      updated.active = updates.active;
     }
     if (updates.sourceConditions) {
       updated.sourceConditions = typeof updates.sourceConditions === 'string'
