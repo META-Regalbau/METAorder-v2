@@ -5,29 +5,50 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Product } from "@shared/schema";
 
 export default function ProductsPage() {
   const { t } = useTranslation();
   const [page, setPage] = useState(1);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const limit = 50;
 
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchInput);
+      // Reset to page 1 when search changes
+      if (searchInput !== debouncedSearch) {
+        setPage(1);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
   const { data, isLoading, error } = useQuery<{ products: Product[], total: number }>({
-    queryKey: ['/api/products', { limit, page }],
+    queryKey: ['/api/products', page, debouncedSearch],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        limit: limit.toString(),
+        page: page.toString(),
+      });
+      if (debouncedSearch) {
+        params.set('search', debouncedSearch);
+      }
+      const response = await fetch(`/api/products?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch products');
+      }
+      return response.json();
+    },
   });
 
   const products = data?.products || [];
   const total = data?.total || 0;
   const totalPages = Math.ceil(total / limit);
-
-  // Filter products by search term
-  const filteredProducts = products.filter(product => 
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.productNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.manufacturerName?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   return (
     <div className="p-6 space-y-6">
@@ -50,8 +71,8 @@ export default function ProductsPage() {
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder={t('products.searchPlaceholder')}
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
           className="pl-10"
           data-testid="input-search-products"
         />
@@ -74,7 +95,7 @@ export default function ProductsPage() {
             </Card>
           ))}
         </div>
-      ) : filteredProducts.length === 0 ? (
+      ) : products.length === 0 ? (
         <Card className="p-12 text-center">
           <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <p className="text-lg font-medium">{t('products.noProducts')}</p>
@@ -83,7 +104,7 @@ export default function ProductsPage() {
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredProducts.map((product) => (
+            {products.map((product) => (
               <Card 
                 key={product.id} 
                 className="p-4 hover-elevate transition-all"

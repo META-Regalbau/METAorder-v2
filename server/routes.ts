@@ -154,11 +154,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const client = new ShopwareClient(settings);
       
-      // Get pagination parameters
+      // Get pagination and search parameters
       const limit = parseInt(req.query.limit as string) || 100;
       const page = parseInt(req.query.page as string) || 1;
+      const search = req.query.search as string | undefined;
       
-      const result = await client.fetchProducts(limit, page);
+      const result = await client.fetchProducts(limit, page, search);
       
       res.json(result);
     } catch (error: any) {

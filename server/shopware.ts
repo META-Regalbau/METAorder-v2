@@ -530,22 +530,31 @@ export class ShopwareClient {
     }
   }
 
-  async fetchProducts(limit: number = 100, page: number = 1): Promise<{ products: Product[], total: number }> {
+  async fetchProducts(limit: number = 100, page: number = 1, search?: string): Promise<{ products: Product[], total: number }> {
     try {
+      const requestBody: any = {
+        limit,
+        page,
+        sort: [
+          {
+            field: 'productNumber',
+            order: 'ASC',
+          },
+        ],
+      };
+
+      // Add search term if provided
+      if (search && search.trim()) {
+        requestBody.term = search.trim();
+      }
+
       const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/product`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          limit,
-          page,
-          sort: [
-            {
-              field: 'productNumber',
-              order: 'ASC',
-            },
-          ],
+          ...requestBody,
           includes: {
             product: [
               'id', 'productNumber', 'name', 'description', 'price', 
