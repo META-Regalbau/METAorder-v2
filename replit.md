@@ -180,3 +180,21 @@ Core data models:
   - Product availability badges and graduated pricing indicators
   - Full multi-language support in German, English, and Spanish
   - Products accessible to both employee and admin roles via sidebar navigation
+- **Cross-Selling Management (Manual)**: Implemented comprehensive manual cross-selling functionality:
+  - **Schema Extensions**: Added CrossSellingGroup, CrossSellingProduct, and CrossSellingRule types in shared/schema.ts
+  - **Backend API Integration**: 
+    - ShopwareClient methods: fetchProductCrossSelling, createProductCrossSelling, assignProductsToCrossSelling, removeProductsFromCrossSelling, deleteProductCrossSelling
+    - Fixed header preservation in makeAuthenticatedRequest to ensure JSON content-type persists during authentication
+    - Robust response parsing handling both `data.id` and `data.data.id` formats from Shopware
+  - **API Routes with Validation**:
+    - GET `/api/products/:productId/cross-selling` - Fetch cross-selling groups with products
+    - POST `/api/products/:productId/cross-selling` - Create new group with Zod validation
+    - PUT `/api/products/:productId/cross-selling/:crossSellingId` - Update product assignments with Zod validation
+    - DELETE `/api/products/:productId/cross-selling/:crossSellingId` - Delete group
+  - **Frontend Components**:
+    - ProductDetailModal: Displays product details, dimensions, and cross-selling groups with "Manage Cross-Selling" button
+    - CrossSellingManager: Full CRUD interface for managing cross-selling groups and product assignments
+    - Product selection dialog with search functionality and visual product cards
+  - **User Workflow**: Users can view product details → see linked cross-selling products → create new groups → add/remove products → delete groups
+  - Full multi-language support in German, English, and Spanish
+  - **Status**: Manual cross-selling management fully functional (architect-reviewed)

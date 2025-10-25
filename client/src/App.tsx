@@ -8,6 +8,7 @@ import AppSidebar from "@/components/AppSidebar";
 import TopBar from "@/components/TopBar";
 import OrdersPage from "@/pages/OrdersPage";
 import ProductsPage from "@/pages/ProductsPage";
+import CrossSellingRulesPage from "@/pages/CrossSellingRulesPage";
 import ExportPage from "@/pages/ExportPage";
 import AnalyticsPage from "@/pages/AnalyticsPage";
 import UsersPage from "@/pages/UsersPage";
@@ -27,6 +28,7 @@ function Router({
     <Switch>
       <Route path="/" component={() => <OrdersPage userRole={userRole} userSalesChannelIds={userSalesChannelIds} />} />
       <Route path="/products" component={ProductsPage} />
+      <Route path="/cross-selling-rules" component={CrossSellingRulesPage} />
       <Route path="/export" component={ExportPage} />
       <Route path="/analytics" component={AnalyticsPage} />
       <Route path="/users" component={UsersPage} />

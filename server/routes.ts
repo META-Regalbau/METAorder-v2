@@ -2,7 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { ShopwareClient } from "./shopware";
-import { shopwareSettingsSchema } from "@shared/schema";
+import { RuleEngine } from "./ruleEngine";
+import { shopwareSettingsSchema, insertCrossSellingRuleSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Shopware settings routes
@@ -293,6 +294,135 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error deleting cross-selling:", error);
       res.status(500).json({ error: error.message || "Failed to delete cross-selling" });
+    }
+  });
+
+  // Cross-Selling Rules routes
+  app.get("/api/cross-selling-rules", async (req, res) => {
+    try {
+      const rules = await storage.getAllCrossSellingRules();
+      res.json({ rules });
+    } catch (error: any) {
+      console.error("Error fetching cross-selling rules:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch rules" });
+    }
+  });
+
+  app.get("/api/cross-selling-rules/:id", async (req, res) => {
+    try {
+      const rule = await storage.getCrossSellingRule(req.params.id);
+      if (!rule) {
+        return res.status(404).json({ error: "Rule not found" });
+      }
+      res.json(rule);
+    } catch (error: any) {
+      console.error("Error fetching cross-selling rule:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch rule" });
+    }
+  });
+
+  app.post("/api/cross-selling-rules", async (req, res) => {
+    try {
+      // Validate request body
+      const validation = insertCrossSellingRuleSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: validation.error.errors[0].message });
+      }
+
+      // Convert arrays to JSON strings for storage
+      const ruleData = {
+        ...validation.data,
+        sourceConditions: JSON.stringify(validation.data.sourceConditions),
+        targetCriteria: JSON.stringify(validation.data.targetCriteria),
+      };
+
+      const rule = await storage.createCrossSellingRule(ruleData);
+      res.json(rule);
+    } catch (error: any) {
+      console.error("Error creating cross-selling rule:", error);
+      res.status(500).json({ error: error.message || "Failed to create rule" });
+    }
+  });
+
+  app.put("/api/cross-selling-rules/:id", async (req, res) => {
+    try {
+      // Validate request body (partial updates allowed)
+      const validation = insertCrossSellingRuleSchema.partial().safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ error: validation.error.errors[0].message });
+      }
+
+      // Convert arrays to JSON strings for storage
+      const updates: any = { ...validation.data };
+      if (updates.sourceConditions) {
+        updates.sourceConditions = JSON.stringify(updates.sourceConditions);
+      }
+      if (updates.targetCriteria) {
+        updates.targetCriteria = JSON.stringify(updates.targetCriteria);
+      }
+
+      const rule = await storage.updateCrossSellingRule(req.params.id, updates);
+      if (!rule) {
+        return res.status(404).json({ error: "Rule not found" });
+      }
+      res.json(rule);
+    } catch (error: any) {
+      console.error("Error updating cross-selling rule:", error);
+      res.status(500).json({ error: error.message || "Failed to update rule" });
+    }
+  });
+
+  app.delete("/api/cross-selling-rules/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteCrossSellingRule(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Rule not found" });
+      }
+      res.json({ message: "Rule deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting cross-selling rule:", error);
+      res.status(500).json({ error: error.message || "Failed to delete rule" });
+    }
+  });
+
+  // Cross-Selling Suggestions endpoint (rule-based)
+  app.post("/api/products/:productId/cross-selling-suggestions", async (req, res) => {
+    try {
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const client = new ShopwareClient(settings);
+      const { productId } = req.params;
+
+      // Fetch the source product
+      const productsResult = await client.fetchProducts(1, 1, undefined);
+      const allProducts = productsResult.products;
+      const sourceProduct = allProducts.find(p => p.id === productId);
+
+      if (!sourceProduct) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+
+      // Fetch all products for matching
+      const allProductsResult = await client.fetchProducts(1000, 1, undefined);
+
+      // Get all active rules
+      const rules = await storage.getAllCrossSellingRules();
+
+      // Apply rules to find suggestions
+      const ruleEngine = new RuleEngine();
+      const suggestions = await ruleEngine.suggestCrossSelling(
+        sourceProduct,
+        rules,
+        allProductsResult.products
+      );
+
+      res.json({ suggestions });
+    } catch (error: any) {
+      console.error("Error generating cross-selling suggestions:", error);
+      res.status(500).json({ error: error.message || "Failed to generate suggestions" });
     }
   });
 
