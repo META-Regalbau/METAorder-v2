@@ -404,12 +404,9 @@ export class ShopwareClient {
       }
 
       return documents.map((doc: any) => {
-        // Use the same approach as downloadInvoicePdf - extensions are at doc.extensions
-        const foreignKeys = doc.extensions?.foreignKeys || {};
-        
-        // Extract document number and deep link code from foreignKeys
-        const docNumber = foreignKeys.documentNumber || '';
-        const deepLink = foreignKeys.deepLinkCode || '';
+        // Extract document number and deep link code from attributes (Shopware API JSON format)
+        const docNumber = doc.attributes?.documentNumber || '';
+        const deepLink = doc.attributes?.deepLinkCode || '';
         
         // Get document type from the included data or from relationships or from document number
         let docType = 'unknown';
