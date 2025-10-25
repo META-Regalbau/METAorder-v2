@@ -198,3 +198,19 @@ Core data models:
   - **User Workflow**: Users can view product details → see linked cross-selling products → create new groups → add/remove products → delete groups
   - Full multi-language support in German, English, and Spanish
   - **Status**: Manual cross-selling management fully functional (architect-reviewed)
+- **Cross-Selling Rule Engine (Automated Suggestions)**: Implemented rule-based intelligent cross-selling system:
+  - **RuleEngine Backend** (server/ruleEngine.ts):
+    - Condition matching: equals, contains, greaterThan/lessThan for properties and categories
+    - Dimension matching: matchesDimensions (5% tolerance), sameDimensions (10% tolerance)
+    - Target criteria: property/category matching with same operators
+    - Evaluates products against rules to generate automated suggestions
+  - **Storage Interface**: CRUD operations for CrossSellingRule with JSON serialization for conditions/criteria arrays
+  - **API Routes**:
+    - GET/POST/PUT/DELETE `/api/cross-selling-rules` - Full CRUD with Zod validation
+    - GET `/api/products/:productId/cross-selling-suggestions` - Apply rules to generate suggestions
+  - **Frontend CrossSellingRulesPage**: Basic rule management UI with list, create, edit, delete, activate/deactivate
+  - **Rule Dialogs**: AddRuleDialog and EditRuleDialog for creating/editing rules (basic workflow)
+  - **Status**: Basic rule CRUD functional (architect-reviewed). Advanced features pending:
+    - RuleBuilder UI component for visual condition/criteria editing
+    - Integration of suggestions in CrossSellingManager
+    - E2E testing of rule-based suggestions workflow

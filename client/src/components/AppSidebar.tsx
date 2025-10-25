@@ -1,4 +1,4 @@
-import { Package, Download, BarChart3, Settings, Users, Shield } from "lucide-react";
+import { Package, Download, BarChart3, Settings, Users, Shield, Sparkles } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import {
@@ -55,6 +55,12 @@ export default function AppSidebar({ userRole }: AppSidebarProps) {
       titleKey: "nav.roles",
       url: "/roles",
       icon: Shield,
+      roles: ["admin"],
+    },
+    {
+      titleKey: "nav.rules",
+      url: "/cross-selling-rules",
+      icon: Sparkles,
       roles: ["admin"],
     },
     {
