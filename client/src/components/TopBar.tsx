@@ -1,6 +1,7 @@
-import { User, Menu } from "lucide-react";
+import { User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import ThemeToggle from "./ThemeToggle";
 
 interface TopBarProps {
   userRole: "employee" | "admin";
@@ -16,6 +17,7 @@ export default function TopBar({ userRole, username }: TopBarProps) {
       </div>
       
       <div className="flex items-center gap-3">
+        <ThemeToggle />
         <Badge variant={userRole === "admin" ? "default" : "secondary"} data-testid="badge-user-role">
           {userRole === "admin" ? "Admin" : "Employee"}
         </Badge>
