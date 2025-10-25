@@ -113,7 +113,7 @@ export default function OrderDetailModal({
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Total Amount</p>
-                  <p className="font-medium text-lg" data-testid="text-total-amount">${order.totalAmount.toFixed(2)}</p>
+                  <p className="font-medium text-lg" data-testid="text-total-amount">€{order.totalAmount.toFixed(2)}</p>
                 </div>
               </div>
             </Card>
@@ -148,8 +148,8 @@ export default function OrderDetailModal({
                         <p className="text-sm text-muted-foreground">Quantity: {item.quantity}</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-medium">${item.total.toFixed(2)}</p>
-                        <p className="text-sm text-muted-foreground">${item.price.toFixed(2)} each</p>
+                        <p className="font-medium">€{item.total.toFixed(2)}</p>
+                        <p className="text-sm text-muted-foreground">€{item.price.toFixed(2)} each</p>
                       </div>
                     </div>
                   ))}
