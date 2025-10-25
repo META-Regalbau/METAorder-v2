@@ -17,7 +17,9 @@ import {
 import AddUserDialog from "@/components/AddUserDialog";
 import EditUserDialog from "@/components/EditUserDialog";
 import { useToast } from "@/hooks/use-toast";
-import type { User, Role } from "@shared/schema";
+import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
+import type { User, Role, SalesChannel } from "@shared/schema";
 
 // TODO: Remove mock data - this is for prototype only
 const mockRoles: Role[] = [
@@ -72,6 +74,7 @@ const mockUsers: UserWithRole[] = [
     role: "admin",
     roleId: "1",
     roleName: "Administrator",
+    salesChannelIds: [],
   },
   {
     id: "2",
@@ -80,6 +83,7 @@ const mockUsers: UserWithRole[] = [
     role: "employee",
     roleId: "2",
     roleName: "Employee",
+    salesChannelIds: ["0190b599291076e3beecdfca3d1b1b30"],
   },
   {
     id: "3",
@@ -88,18 +92,24 @@ const mockUsers: UserWithRole[] = [
     role: "employee",
     roleId: "3",
     roleName: "Warehouse Manager",
+    salesChannelIds: ["0193595640017e1ab0b5ae3313b4181c", "018ec134507f703b82a76467791e7e61"],
   },
 ];
 
 export default function UsersPage() {
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [users, setUsers] = useState<UserWithRole[]>(mockUsers);
   const [roles] = useState<Role[]>(mockRoles);
   const [editingUser, setEditingUser] = useState<UserWithRole | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [deletingUser, setDeletingUser] = useState<UserWithRole | null>(null);
 
-  const handleAddUser = (userData: { username: string; password: string; roleId: string }) => {
+  const { data: salesChannels = [] } = useQuery<SalesChannel[]>({
+    queryKey: ['/api/sales-channels'],
+  });
+
+  const handleAddUser = (userData: { username: string; password: string; roleId: string; salesChannelIds: string[] }) => {
     const role = roles.find(r => r.id === userData.roleId);
     const newUser: UserWithRole = {
       id: String(users.length + 1),
@@ -108,6 +118,7 @@ export default function UsersPage() {
       role: role?.name.toLowerCase() === "administrator" ? "admin" : "employee",
       roleId: userData.roleId,
       roleName: role?.name || "",
+      salesChannelIds: userData.salesChannelIds,
     };
     setUsers([...users, newUser]);
     console.log("User added:", newUser);
@@ -123,7 +134,8 @@ export default function UsersPage() {
             username: data.username, 
             roleId: data.roleId,
             roleName: role?.name || "",
-            role: role?.name.toLowerCase() === "administrator" ? "admin" : "employee"
+            role: role?.name.toLowerCase() === "administrator" ? "admin" : "employee",
+            salesChannelIds: data.salesChannelIds
           }
         : user
     ));
@@ -151,9 +163,9 @@ export default function UsersPage() {
     <div className="max-w-6xl">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold mb-1">User Management</h1>
+          <h1 className="text-2xl font-semibold mb-1">{t('users.title')}</h1>
           <p className="text-sm text-muted-foreground">
-            Manage users and assign roles
+            {t('users.description')}
           </p>
         </div>
         <AddUserDialog onAddUser={handleAddUser} availableRoles={roles} />
@@ -163,30 +175,47 @@ export default function UsersPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="font-medium">Username</TableHead>
-              <TableHead className="font-medium">Role</TableHead>
-              <TableHead className="font-medium">User ID</TableHead>
-              <TableHead className="font-medium text-right">Actions</TableHead>
+              <TableHead className="font-medium">{t('users.username')}</TableHead>
+              <TableHead className="font-medium">{t('users.role')}</TableHead>
+              <TableHead className="font-medium">{t('users.salesChannels')}</TableHead>
+              <TableHead className="font-medium">{t('users.userId')}</TableHead>
+              <TableHead className="font-medium text-right">{t('common.actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users.map((user) => (
-              <TableRow key={user.id} className="hover-elevate" data-testid={`row-user-${user.id}`}>
-                <TableCell className="font-medium" data-testid={`text-username-${user.id}`}>
-                  {user.username}
-                </TableCell>
-                <TableCell>
-                  <Badge 
-                    variant={user.roleName === "Administrator" ? "default" : "secondary"}
-                    data-testid={`badge-role-${user.id}`}
-                  >
-                    {user.roleName}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground font-mono">
-                  {user.id}
-                </TableCell>
-                <TableCell className="text-right">
+            {users.map((user) => {
+              const userChannels = salesChannels.filter(c => user.salesChannelIds?.includes(c.id));
+              
+              return (
+                <TableRow key={user.id} className="hover-elevate" data-testid={`row-user-${user.id}`}>
+                  <TableCell className="font-medium" data-testid={`text-username-${user.id}`}>
+                    {user.username}
+                  </TableCell>
+                  <TableCell>
+                    <Badge 
+                      variant={user.roleName === "Administrator" ? "default" : "secondary"}
+                      data-testid={`badge-role-${user.id}`}
+                    >
+                      {user.roleName}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {!user.salesChannelIds || user.salesChannelIds.length === 0 ? (
+                      <span className="text-sm text-muted-foreground">{t('users.allChannels')}</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {userChannels.map(channel => (
+                          <Badge key={channel.id} variant="outline" className="text-xs">
+                            {channel.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground font-mono">
+                    {user.id}
+                  </TableCell>
+                  <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
                     <Button
                       variant="ghost"
@@ -207,7 +236,8 @@ export default function UsersPage() {
                   </div>
                 </TableCell>
               </TableRow>
-            ))}
+            );
+            })}
           </TableBody>
         </Table>
       </Card>
