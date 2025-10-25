@@ -92,9 +92,9 @@ export default function CrossSellingManager({
   // Create cross-selling group mutation
   const createGroupMutation = useMutation({
     mutationFn: async (name: string) => {
-      await apiRequest("POST", `/api/products/${product.id}/cross-selling`, {
-        name,
-        productIds: [],
+      await apiRequest(`/api/products/${product.id}/cross-selling`, {
+        method: "POST",
+        body: JSON.stringify({ name, productIds: [] }),
       });
     },
     onSuccess: () => {
@@ -124,9 +124,11 @@ export default function CrossSellingManager({
       productIds: string[];
     }) => {
       await apiRequest(
-        "PUT",
         `/api/products/${product.id}/cross-selling/${crossSellingId}`,
-        { productIds }
+        {
+          method: "PUT",
+          body: JSON.stringify({ productIds }),
+        }
       );
     },
     onSuccess: () => {
@@ -151,9 +153,10 @@ export default function CrossSellingManager({
   const deleteGroupMutation = useMutation({
     mutationFn: async (crossSellingId: string) => {
       await apiRequest(
-        "DELETE",
         `/api/products/${product.id}/cross-selling/${crossSellingId}`,
-        undefined
+        {
+          method: "DELETE",
+        }
       );
     },
     onSuccess: () => {
