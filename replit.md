@@ -145,3 +145,10 @@ Core data models:
   - Users with no assigned channels have access to all channels (Admin only)
   - Full multi-language support for all user management UI elements
   - Mock data includes example users with different sales channel assignments
+- **Role Management with Sales Channel Assignment**: Extended role management to support sales channel assignment at the role level:
+  - Role schema updated to include optional salesChannelIds field
+  - AddRoleDialog and EditRoleDialog now include SalesChannelMultiSelect component
+  - RolesPage displays assigned sales channels for each role in the table with visual badges
+  - Roles with no assigned channels have access to all channels (displayed as "All Channels")
+  - Translation keys added for role sales channel features in German, English, and Spanish
+  - Mock data updated with example roles having different sales channel assignments (e.g., Warehouse Manager assigned to Austria and Poland)
