@@ -144,6 +144,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Products routes
+  app.get("/api/products", async (req, res) => {
+    try {
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const client = new ShopwareClient(settings);
+      
+      // Get pagination parameters
+      const limit = parseInt(req.query.limit as string) || 100;
+      const page = parseInt(req.query.page as string) || 1;
+      
+      const result = await client.fetchProducts(limit, page);
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error fetching products:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch products" });
+    }
+  });
+
   app.get("/api/orders/:orderId/invoice", async (req, res) => {
     try {
       const settings = await storage.getShopwareSettings();

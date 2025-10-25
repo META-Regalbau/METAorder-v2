@@ -1,4 +1,4 @@
-import type { Order, OrderStatus, OrderItem, ShopwareSettings, SalesChannel } from "@shared/schema";
+import type { Order, OrderStatus, OrderItem, ShopwareSettings, SalesChannel, Product, ProductPriceRule } from "@shared/schema";
 
 export class ShopwareClient {
   private baseUrl: string;
@@ -526,6 +526,203 @@ export class ShopwareClient {
       return await downloadResponse.blob();
     } catch (error) {
       console.error('Error downloading invoice from Shopware:', error);
+      throw error;
+    }
+  }
+
+  async fetchProducts(limit: number = 100, page: number = 1): Promise<{ products: Product[], total: number }> {
+    try {
+      const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/product`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          limit,
+          page,
+          sort: [
+            {
+              field: 'productNumber',
+              order: 'ASC',
+            },
+          ],
+          includes: {
+            product: [
+              'id', 'productNumber', 'name', 'description', 'price', 
+              'stock', 'available', 'manufacturerNumber', 'ean',
+              'weight', 'width', 'height', 'length', 'packagingUnit',
+              'minPurchase', 'maxPurchase', 'purchaseUnit',
+              'customFields', 'createdAt', 'updatedAt',
+              'manufacturer', 'categories', 'cover', 'tax', 'prices'
+            ],
+            product_manufacturer: ['name'],
+            category: ['name'],
+            product_media: ['media'],
+            media: ['url'],
+            tax: ['taxRate'],
+            product_price: ['quantityStart', 'quantityEnd', 'price']
+          },
+          associations: {
+            manufacturer: {},
+            categories: {},
+            cover: {
+              associations: {
+                media: {}
+              }
+            },
+            media: {
+              associations: {
+                media: {}
+              }
+            },
+            tax: {},
+            prices: {}
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch products: ${response.statusText} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      const shopwareProducts = data.data || [];
+      const total = data.meta?.total || shopwareProducts.length;
+
+      // Build a map of included entities
+      const includedMap = new Map<string, any>();
+      if (data.included) {
+        data.included.forEach((item: any) => {
+          const key = `${item.type}-${item.id}`;
+          includedMap.set(key, item);
+        });
+      }
+
+      const products: Product[] = shopwareProducts.map((sp: any) => {
+        // Get manufacturer name
+        let manufacturerName = '';
+        if (sp.manufacturer?.name) {
+          manufacturerName = sp.manufacturer.name;
+        } else if (sp.relationships?.manufacturer?.data?.id) {
+          const manufacturer = includedMap.get(`product_manufacturer-${sp.relationships.manufacturer.data.id}`);
+          manufacturerName = manufacturer?.attributes?.name || '';
+        }
+
+        // Get categories
+        const categoryNames: string[] = [];
+        if (sp.categories) {
+          categoryNames.push(...sp.categories.map((cat: any) => cat.name || '').filter(Boolean));
+        } else if (sp.relationships?.categories?.data) {
+          sp.relationships.categories.data.forEach((catRef: any) => {
+            const category = includedMap.get(`category-${catRef.id}`);
+            if (category?.attributes?.name) {
+              categoryNames.push(category.attributes.name);
+            }
+          });
+        }
+
+        // Get cover image
+        let imageUrl = '';
+        if (sp.cover?.media?.url) {
+          imageUrl = sp.cover.media.url;
+        } else if (sp.relationships?.cover?.data?.id) {
+          const coverMedia = includedMap.get(`product_media-${sp.relationships.cover.data.id}`);
+          if (coverMedia?.relationships?.media?.data?.id) {
+            const media = includedMap.get(`media-${coverMedia.relationships.media.data.id}`);
+            imageUrl = media?.attributes?.url || '';
+          }
+        }
+
+        // Get tax rate
+        let taxRate = 19; // Default
+        if (sp.tax?.taxRate) {
+          taxRate = sp.tax.taxRate;
+        } else if (sp.relationships?.tax?.data?.id) {
+          const tax = includedMap.get(`tax-${sp.relationships.tax.data.id}`);
+          taxRate = tax?.attributes?.taxRate || 19;
+        }
+
+        // Get price - Shopware stores prices in a complex structure
+        let price = 0;
+        if (sp.price && Array.isArray(sp.price)) {
+          // Price is an array with currency-specific prices
+          const eurPrice = sp.price.find((p: any) => p.currencyId || true); // Take first price
+          if (eurPrice?.gross) {
+            price = eurPrice.gross;
+          }
+        } else if (sp.attributes?.price && Array.isArray(sp.attributes.price)) {
+          const eurPrice = sp.attributes.price.find((p: any) => p.currencyId || true);
+          if (eurPrice?.gross) {
+            price = eurPrice.gross;
+          }
+        }
+
+        // Get graduated prices for CPQ
+        const priceRules: ProductPriceRule[] = [];
+        if (sp.prices && Array.isArray(sp.prices)) {
+          sp.prices.forEach((priceRule: any) => {
+            const quantityStart = priceRule.quantityStart || 1;
+            const rulePrice = priceRule.price?.[0]?.gross || 0;
+            priceRules.push({
+              quantity: quantityStart,
+              price: rulePrice,
+            });
+          });
+        } else if (sp.relationships?.prices?.data) {
+          sp.relationships.prices.data.forEach((priceRef: any) => {
+            const priceRule = includedMap.get(`product_price-${priceRef.id}`);
+            if (priceRule) {
+              const quantityStart = priceRule.attributes?.quantityStart || 1;
+              const rulePrice = priceRule.attributes?.price?.[0]?.gross || 0;
+              priceRules.push({
+                quantity: quantityStart,
+                price: rulePrice,
+              });
+            }
+          });
+        }
+
+        const product: Product = {
+          id: sp.id,
+          productNumber: sp.productNumber || sp.attributes?.productNumber || '',
+          name: sp.name || sp.attributes?.name || 'Unknown Product',
+          description: sp.description || sp.attributes?.description,
+          price,
+          currency: 'EUR',
+          taxRate,
+          stock: sp.stock || sp.attributes?.stock || 0,
+          available: sp.available !== undefined ? sp.available : (sp.attributes?.available || false),
+          manufacturerName,
+          categoryNames: categoryNames.length > 0 ? categoryNames : undefined,
+          imageUrl: imageUrl || undefined,
+          ean: sp.ean || sp.attributes?.ean,
+          weight: sp.weight || sp.attributes?.weight,
+          packagingUnit: sp.packagingUnit || sp.attributes?.packagingUnit || sp.purchaseUnit || sp.attributes?.purchaseUnit,
+          minOrderQuantity: sp.minPurchase || sp.attributes?.minPurchase,
+          maxOrderQuantity: sp.maxPurchase || sp.attributes?.maxPurchase,
+          priceRules: priceRules.length > 0 ? priceRules : undefined,
+          customFields: sp.customFields || sp.attributes?.customFields,
+          createdAt: sp.createdAt || sp.attributes?.createdAt,
+          updatedAt: sp.updatedAt || sp.attributes?.updatedAt,
+        };
+
+        // Add dimensions if available
+        if (sp.width || sp.height || sp.length) {
+          product.dimensions = {
+            width: sp.width || sp.attributes?.width,
+            height: sp.height || sp.attributes?.height,
+            length: sp.length || sp.attributes?.length,
+            unit: 'cm',
+          };
+        }
+
+        return product;
+      });
+
+      return { products, total };
+    } catch (error) {
+      console.error('Error fetching products from Shopware:', error);
       throw error;
     }
   }
