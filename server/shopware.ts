@@ -151,11 +151,11 @@ export class ShopwareClient {
       const limit = 500; // Fetch 500 orders per request for efficiency
       let page = 1;
       let allOrders: any[] = [];
-      let totalOrders = 0;
       let allIncluded: any[] = [];
+      let hasMore = true;
 
-      // Fetch all orders with pagination
-      do {
+      // Fetch all orders with pagination - continue until we get no more results
+      while (hasMore) {
         const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/order`, {
           method: 'POST',
           headers: {
@@ -197,19 +197,32 @@ export class ShopwareClient {
         const orders = data.data || [];
         const included = data.included || [];
         
+        if (orders.length === 0) {
+          // No more orders to fetch
+          hasMore = false;
+          break;
+        }
+        
         allOrders = allOrders.concat(orders);
         allIncluded = allIncluded.concat(included);
         
-        // Get total from response
-        totalOrders = data.total || orders.length;
+        console.log(`Fetched page ${page}: ${orders.length} orders (total collected: ${allOrders.length})`);
         
-        console.log(`Fetched page ${page}: ${orders.length} orders, total in shop: ${totalOrders}`);
+        // Log first order number on first page for debugging
+        if (page === 1 && orders.length > 0) {
+          const firstOrder = orders[0];
+          console.log(`First order (newest): ${firstOrder.orderNumber || firstOrder.attributes?.orderNumber || 'N/A'}`);
+        }
         
-        // Continue if we haven't fetched all orders yet
+        // If we got fewer results than the limit, we're done
+        if (orders.length < limit) {
+          hasMore = false;
+        }
+        
         page++;
-      } while (allOrders.length < totalOrders && allOrders.length > 0);
+      }
 
-      console.log(`Total orders fetched: ${allOrders.length} of ${totalOrders}`);
+      console.log(`Total orders fetched: ${allOrders.length}`);
       
       // Shopware returns data and optionally included sections
       const orders = allOrders;
