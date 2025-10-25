@@ -298,6 +298,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Cross-Selling Rules routes
+  app.get("/api/cross-selling-rules/available-fields", async (req, res) => {
+    try {
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        // Return default fields if Shopware not configured
+        return res.json({
+          standardFields: [
+            { field: 'name', label: 'Product Name', description: 'The product name' },
+            { field: 'productNumber', label: 'Product Number', description: 'The unique product number/SKU' },
+            { field: 'manufacturerNumber', label: 'Manufacturer Number', description: 'Manufacturer\'s product number' },
+            { field: 'ean', label: 'EAN', description: 'European Article Number / Barcode' },
+            { field: 'stock', label: 'Stock', description: 'Current stock level' },
+            { field: 'available', label: 'Available', description: 'Product availability status' },
+            { field: 'price', label: 'Price', description: 'Product price' },
+            { field: 'weight', label: 'Weight', description: 'Product weight' },
+            { field: 'dimensions.width', label: 'Width', description: 'Product width dimension' },
+            { field: 'dimensions.height', label: 'Height', description: 'Product height dimension' },
+            { field: 'dimensions.length', label: 'Length', description: 'Product length/depth dimension' },
+            { field: 'categoryNames', label: 'Categories', description: 'Product categories (array)' },
+            { field: 'manufacturer.name', label: 'Manufacturer Name', description: 'Name of the manufacturer' },
+          ],
+          customFields: []
+        });
+      }
+
+      const shopware = new ShopwareClient(settings);
+      const fields = await shopware.fetchAvailableFields();
+      res.json(fields);
+    } catch (error: any) {
+      console.error("Error fetching available fields:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch available fields" });
+    }
+  });
+
   app.get("/api/cross-selling-rules", async (req, res) => {
     try {
       const rules = await storage.getAllCrossSellingRules();

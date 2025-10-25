@@ -966,4 +966,85 @@ export class ShopwareClient {
       throw error;
     }
   }
+
+  async fetchAvailableFields(): Promise<{
+    standardFields: Array<{ field: string; label: string; description: string }>;
+    customFields: Array<{ field: string; label: string; type: string }>;
+  }> {
+    try {
+      // Standard product fields that are commonly used in rules
+      const standardFields = [
+        { field: 'name', label: 'Product Name', description: 'The product name' },
+        { field: 'productNumber', label: 'Product Number', description: 'The unique product number/SKU' },
+        { field: 'manufacturerNumber', label: 'Manufacturer Number', description: 'Manufacturer\'s product number' },
+        { field: 'ean', label: 'EAN', description: 'European Article Number / Barcode' },
+        { field: 'stock', label: 'Stock', description: 'Current stock level' },
+        { field: 'available', label: 'Available', description: 'Product availability status' },
+        { field: 'price', label: 'Price', description: 'Product price' },
+        { field: 'weight', label: 'Weight', description: 'Product weight' },
+        { field: 'dimensions.width', label: 'Width', description: 'Product width dimension' },
+        { field: 'dimensions.height', label: 'Height', description: 'Product height dimension' },
+        { field: 'dimensions.length', label: 'Length', description: 'Product length/depth dimension' },
+        { field: 'categoryNames', label: 'Categories', description: 'Product categories (array)' },
+        { field: 'manufacturer.name', label: 'Manufacturer Name', description: 'Name of the manufacturer' },
+      ];
+
+      // Fetch custom fields from Shopware
+      const customFields: Array<{ field: string; label: string; type: string }> = [];
+      
+      try {
+        const response = await this.makeAuthenticatedRequest(
+          `${this.baseUrl}/api/search/custom-field`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              limit: 500, // Get many custom fields
+              filter: [
+                {
+                  type: 'equals',
+                  field: 'active',
+                  value: true,
+                },
+              ],
+            }),
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const fields = data.data || [];
+
+          fields.forEach((cf: any) => {
+            const fieldName = cf.name || cf.attributes?.name;
+            const fieldLabel = cf.config?.label?.['en-GB'] || cf.config?.label?.['de-DE'] || cf.attributes?.config?.label?.['en-GB'] || cf.attributes?.config?.label?.['de-DE'] || fieldName;
+            const fieldType = cf.type || cf.attributes?.type || 'text';
+
+            if (fieldName) {
+              customFields.push({
+                field: `customFields.${fieldName}`,
+                label: fieldLabel || fieldName,
+                type: fieldType,
+              });
+            }
+          });
+
+          console.log(`Fetched ${customFields.length} custom fields from Shopware`);
+        }
+      } catch (customFieldError) {
+        console.warn('Could not fetch custom fields from Shopware:', customFieldError);
+        // Continue with empty custom fields array
+      }
+
+      return {
+        standardFields,
+        customFields,
+      };
+    } catch (error) {
+      console.error('Error fetching available fields:', error);
+      throw error;
+    }
+  }
 }

@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import FieldSelector from "@/components/FieldSelector";
 import type { RuleCondition, RuleTargetCriteria, RuleConditionOperator } from "@shared/schema";
 
 interface RuleBuilderProps {
@@ -74,11 +75,11 @@ export default function RuleBuilder({
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <Label className="text-xs">{t('ruleBuilder.field')}</Label>
-                      <Input
+                      <FieldSelector
                         value={condition.field}
-                        onChange={(e) => updateSourceCondition(index, { field: e.target.value })}
-                        placeholder={t('ruleBuilder.fieldPlaceholder')}
-                        data-testid={`input-source-field-${index}`}
+                        onChange={(value) => updateSourceCondition(index, { field: value })}
+                        placeholder={t('ruleBuilder.selectField')}
+                        testId={`select-source-field-${index}`}
                       />
                     </div>
 
@@ -159,11 +160,11 @@ export default function RuleBuilder({
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <Label className="text-xs">{t('ruleBuilder.field')}</Label>
-                      <Input
+                      <FieldSelector
                         value={criterion.field}
-                        onChange={(e) => updateTargetCriterion(index, { field: e.target.value })}
-                        placeholder={t('ruleBuilder.fieldPlaceholder')}
-                        data-testid={`input-target-field-${index}`}
+                        onChange={(value) => updateTargetCriterion(index, { field: value })}
+                        placeholder={t('ruleBuilder.selectField')}
+                        testId={`select-target-field-${index}`}
                       />
                     </div>
 
