@@ -6,12 +6,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SalesChannelMultiSelect } from "@/components/SalesChannelMultiSelect";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 import type { User, Role } from "@shared/schema";
 
 const editUserSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
   roleId: z.string().min(1, "Please select a role"),
+  salesChannelIds: z.array(z.string()),
   password: z.string().optional(),
   confirmPassword: z.string().optional(),
 }).refine((data) => {
@@ -36,12 +39,14 @@ interface EditUserDialogProps {
 
 export default function EditUserDialog({ user, open, onClose, onUpdateUser, availableRoles }: EditUserDialogProps) {
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   const form = useForm<EditUserFormData>({
     resolver: zodResolver(editUserSchema),
     values: user ? {
       username: user.username,
       roleId: user.roleId,
+      salesChannelIds: user.salesChannelIds || [],
       password: "",
       confirmPassword: "",
     } : undefined,
@@ -88,11 +93,11 @@ export default function EditUserDialog({ user, open, onClose, onUpdateUser, avai
               name="roleId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="font-medium">Role</FormLabel>
+                  <FormLabel className="font-medium">{t('users.role')}</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger data-testid="select-edit-user-role">
-                        <SelectValue placeholder="Select a role" />
+                        <SelectValue placeholder={t('users.selectRole')} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -103,6 +108,23 @@ export default function EditUserDialog({ user, open, onClose, onUpdateUser, avai
                       ))}
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="salesChannelIds"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="font-medium">{t('users.salesChannels')}</FormLabel>
+                  <FormControl>
+                    <SalesChannelMultiSelect
+                      value={field.value}
+                      onChange={field.onChange}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -142,10 +164,10 @@ export default function EditUserDialog({ user, open, onClose, onUpdateUser, avai
             
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={onClose} data-testid="button-cancel-edit-user">
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button type="submit" data-testid="button-submit-edit-user">
-                Update User
+                {t('users.updateUser')}
               </Button>
             </div>
           </form>

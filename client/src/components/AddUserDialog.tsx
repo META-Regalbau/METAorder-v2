@@ -6,7 +6,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SalesChannelMultiSelect } from "@/components/SalesChannelMultiSelect";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 import { UserPlus } from "lucide-react";
 import { useState } from "react";
 import type { Role } from "@shared/schema";
@@ -16,6 +18,7 @@ const addUserSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
   confirmPassword: z.string(),
   roleId: z.string().min(1, "Please select a role"),
+  salesChannelIds: z.array(z.string()),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
@@ -30,6 +33,7 @@ interface AddUserDialogProps {
 
 export default function AddUserDialog({ onAddUser, availableRoles }: AddUserDialogProps) {
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
   const form = useForm<AddUserFormData>({
@@ -39,6 +43,7 @@ export default function AddUserDialog({ onAddUser, availableRoles }: AddUserDial
       password: "",
       confirmPassword: "",
       roleId: "",
+      salesChannelIds: [],
     },
   });
 
@@ -115,11 +120,11 @@ export default function AddUserDialog({ onAddUser, availableRoles }: AddUserDial
               name="roleId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="font-medium">Role</FormLabel>
+                  <FormLabel className="font-medium">{t('users.role')}</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger data-testid="select-user-role">
-                        <SelectValue placeholder="Select a role" />
+                        <SelectValue placeholder={t('users.selectRole')} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -134,13 +139,30 @@ export default function AddUserDialog({ onAddUser, availableRoles }: AddUserDial
                 </FormItem>
               )}
             />
+
+            <FormField
+              control={form.control}
+              name="salesChannelIds"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="font-medium">{t('users.salesChannels')}</FormLabel>
+                  <FormControl>
+                    <SalesChannelMultiSelect
+                      value={field.value}
+                      onChange={field.onChange}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)} data-testid="button-cancel-add-user">
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button type="submit" data-testid="button-submit-add-user">
-                Create User
+                {t('users.createUser')}
               </Button>
             </div>
           </form>
