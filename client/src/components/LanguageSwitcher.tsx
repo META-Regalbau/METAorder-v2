@@ -9,9 +9,9 @@ import {
 import { useTranslation } from "react-i18next";
 
 const languages = [
-  { code: 'en', name: 'English', flag: '🇬🇧' },
-  { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
-  { code: 'es', name: 'Español', flag: '🇪🇸' },
+  { code: 'en', name: 'English' },
+  { code: 'de', name: 'Deutsch' },
+  { code: 'es', name: 'Español' },
 ];
 
 export default function LanguageSwitcher() {
@@ -39,7 +39,7 @@ export default function LanguageSwitcher() {
             className={i18n.language === language.code ? 'bg-accent' : ''}
             data-testid={`menu-item-language-${language.code}`}
           >
-            <span className="mr-2">{language.flag}</span>
+            <span className="font-medium mr-2">{language.code.toUpperCase()}</span>
             {language.name}
           </DropdownMenuItem>
         ))}

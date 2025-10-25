@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import StatusBadge from "./StatusBadge";
 import type { Order } from "@shared/schema";
+import { useTranslation } from "react-i18next";
 
 interface OrdersTableProps {
   orders: Order[];
@@ -11,11 +12,13 @@ interface OrdersTableProps {
 }
 
 export default function OrdersTable({ orders, onViewOrder, isLoading }: OrdersTableProps) {
+  const { t } = useTranslation();
+  
   if (isLoading) {
     return (
       <div className="border rounded-lg">
         <div className="p-8 text-center text-muted-foreground">
-          <div className="animate-pulse">Loading orders...</div>
+          <div className="animate-pulse">{t('common.loading')}</div>
         </div>
       </div>
     );
@@ -26,8 +29,8 @@ export default function OrdersTable({ orders, onViewOrder, isLoading }: OrdersTa
       <div className="border rounded-lg">
         <div className="p-12 text-center">
           <Package className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-          <p className="text-muted-foreground">No orders found</p>
-          <p className="text-sm text-muted-foreground mt-1">Try adjusting your filters</p>
+          <p className="text-muted-foreground">{t('orders.noOrders')}</p>
+          <p className="text-sm text-muted-foreground mt-1">{t('orders.adjustFilters')}</p>
         </div>
       </div>
     );
@@ -38,13 +41,13 @@ export default function OrdersTable({ orders, onViewOrder, isLoading }: OrdersTa
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50">
-            <TableHead className="font-medium">Order Number</TableHead>
-            <TableHead className="font-medium">Customer</TableHead>
-            <TableHead className="font-medium">Date</TableHead>
-            <TableHead className="font-medium">Status</TableHead>
-            <TableHead className="font-medium text-right">Total</TableHead>
-            <TableHead className="font-medium">Tracking</TableHead>
-            <TableHead className="font-medium text-right">Actions</TableHead>
+            <TableHead className="font-medium">{t('orders.orderNumber')}</TableHead>
+            <TableHead className="font-medium">{t('orders.customer')}</TableHead>
+            <TableHead className="font-medium">{t('orders.date')}</TableHead>
+            <TableHead className="font-medium">{t('orders.status')}</TableHead>
+            <TableHead className="font-medium text-right">{t('orders.total')}</TableHead>
+            <TableHead className="font-medium">{t('orders.tracking')}</TableHead>
+            <TableHead className="font-medium text-right">{t('orders.actions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -89,7 +92,7 @@ export default function OrdersTable({ orders, onViewOrder, isLoading }: OrdersTa
                   data-testid={`button-view-order-${order.id}`}
                 >
                   <Eye className="h-4 w-4 mr-1" />
-                  View
+                  {t('orders.view')}
                 </Button>
               </TableCell>
             </TableRow>

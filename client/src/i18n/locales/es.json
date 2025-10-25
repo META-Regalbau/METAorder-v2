@@ -22,10 +22,16 @@
   },
   "nav": {
     "orders": "Pedidos",
+    "export": "Exportar e Informes",
     "analytics": "Analíticas",
     "users": "Usuarios",
     "roles": "Roles",
-    "settings": "Configuración"
+    "settings": "Configuración",
+    "appTitle": "METAorder"
+  },
+  "roles": {
+    "admin": "Admin",
+    "employee": "Empleado"
   },
   "orders": {
     "title": "Pedidos",

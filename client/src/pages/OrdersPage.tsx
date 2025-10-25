@@ -10,12 +10,14 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import type { Order, OrderStatus } from "@shared/schema";
+import { useTranslation } from "react-i18next";
 
 interface OrdersPageProps {
   userRole: "employee" | "admin";
 }
 
 export default function OrdersPage({ userRole }: OrdersPageProps) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [searchValue, setSearchValue] = useState("");
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">("all");
@@ -34,25 +36,25 @@ export default function OrdersPage({ userRole }: OrdersPageProps) {
 
   // Show error if Shopware is not configured
   if (error) {
-    const errorMessage = (error as any)?.message || 'Failed to load orders';
+    const errorMessage = (error as any)?.message || t('errors.loadFailed');
     if (errorMessage.includes('not configured')) {
       return (
         <div className="max-w-4xl">
           <div className="mb-6">
-            <h1 className="text-2xl font-semibold mb-1">Orders</h1>
+            <h1 className="text-2xl font-semibold mb-1">{t('orders.title')}</h1>
             <p className="text-sm text-muted-foreground">
-              Connect to Shopware to view orders
+              {t('errors.notConfiguredDescription')}
             </p>
           </div>
           <div className="bg-muted/50 border border-border rounded-lg p-8 text-center">
             <p className="text-muted-foreground mb-4">
-              Shopware API is not configured yet.
+              {t('errors.notConfigured')}
             </p>
             <p className="text-sm text-muted-foreground mb-4">
-              Please go to Settings and configure your Shopware connection to start viewing orders.
+              {t('errors.notConfiguredDescription')}
             </p>
             <Button onClick={() => window.location.href = '/settings'} data-testid="button-go-to-settings">
-              Go to Settings
+              {t('errors.goToSettings')}
             </Button>
           </div>
         </div>
@@ -104,13 +106,13 @@ export default function OrdersPage({ userRole }: OrdersPageProps) {
     try {
       await refetch();
       toast({
-        title: "Orders refreshed",
-        description: "Order list has been updated from Shopware.",
+        title: t('orders.refreshed'),
+        description: t('orders.refreshSuccess'),
       });
     } catch (error) {
       toast({
-        title: "Refresh failed",
-        description: "Could not refresh orders. Please try again.",
+        title: t('orders.refreshFailed'),
+        description: t('orders.refreshError'),
         variant: "destructive",
       });
     }
@@ -119,8 +121,8 @@ export default function OrdersPage({ userRole }: OrdersPageProps) {
   const handleExport = () => {
     console.log("Exporting orders...");
     toast({
-      title: "Export started",
-      description: "Your order export is being prepared.",
+      title: t('orders.exportStarted'),
+      description: t('orders.exportDescription'),
     });
     // TODO: Implement export functionality
   };
@@ -128,8 +130,8 @@ export default function OrdersPage({ userRole }: OrdersPageProps) {
   const handleUpdateShipping = (orderId: string, data: any) => {
     console.log("Update shipping for order:", orderId, data);
     toast({
-      title: "Shipping updated",
-      description: "Shipping information has been saved.",
+      title: t('orderDetail.shippingUpdated'),
+      description: t('orderDetail.shippingSuccess'),
     });
     // TODO: Implement API call to update shipping
   };
@@ -137,8 +139,8 @@ export default function OrdersPage({ userRole }: OrdersPageProps) {
   const handleUpdateDocuments = (orderId: string, data: any) => {
     console.log("Update documents for order:", orderId, data);
     toast({
-      title: "Documents updated",
-      description: "Document numbers have been saved.",
+      title: t('orderDetail.documentsUpdated'),
+      description: t('orderDetail.documentsSuccess'),
     });
     // TODO: Implement API call to update documents
   };
@@ -153,7 +155,7 @@ export default function OrdersPage({ userRole }: OrdersPageProps) {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="Search orders..."
+                placeholder={t('orders.searchPlaceholder')}
                 className="pl-9"
                 value={searchValue}
                 onChange={(e) => setSearchValue(e.target.value)}
@@ -185,20 +187,20 @@ export default function OrdersPage({ userRole }: OrdersPageProps) {
       <main className="flex-1 min-w-0">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold mb-1">Orders</h1>
+            <h1 className="text-2xl font-semibold mb-1">{t('orders.title')}</h1>
             <p className="text-sm text-muted-foreground">
-              {isLoading ? "Loading..." : `Showing ${filteredOrders.length} of ${orders.length} orders`}
+              {isLoading ? t('common.loading') : t('orders.showing', { count: filteredOrders.length, total: orders.length })}
             </p>
           </div>
 
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={handleRefresh} disabled={isLoading} data-testid="button-refresh-orders">
               <RefreshCw className={`h-4 w-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
+              {t('common.refresh')}
             </Button>
             <Button onClick={handleExport} data-testid="button-export-orders">
               <Download className="h-4 w-4 mr-1" />
-              Export
+              {t('common.export')}
             </Button>
           </div>
         </div>
@@ -211,7 +213,7 @@ export default function OrdersPage({ userRole }: OrdersPageProps) {
 
         <div className="mt-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Show</span>
+            <span className="text-sm text-muted-foreground">{t('common.show')}</span>
             <Select value={itemsPerPage} onValueChange={(value) => {
               setItemsPerPage(value);
               setCurrentPage(1);
@@ -226,13 +228,13 @@ export default function OrdersPage({ userRole }: OrdersPageProps) {
                 <SelectItem value="100">100</SelectItem>
               </SelectContent>
             </Select>
-            <span className="text-sm text-muted-foreground">items per page</span>
+            <span className="text-sm text-muted-foreground">{t('common.itemsPerPage')}</span>
           </div>
           
           {totalPages > 1 && (
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">
-                Page {currentPage} of {totalPages}
+                {t('common.page')} {currentPage} {t('common.of')} {totalPages}
               </span>
               <div className="flex gap-1">
                 <Button
@@ -242,7 +244,7 @@ export default function OrdersPage({ userRole }: OrdersPageProps) {
                   disabled={currentPage === 1}
                   data-testid="button-first-page"
                 >
-                  First
+                  {t('common.first')}
                 </Button>
                 <Button
                   variant="outline"
@@ -251,7 +253,7 @@ export default function OrdersPage({ userRole }: OrdersPageProps) {
                   disabled={currentPage === 1}
                   data-testid="button-prev-page"
                 >
-                  Previous
+                  {t('common.previous')}
                 </Button>
                 <Button
                   variant="outline"
@@ -260,7 +262,7 @@ export default function OrdersPage({ userRole }: OrdersPageProps) {
                   disabled={currentPage === totalPages}
                   data-testid="button-next-page"
                 >
-                  Next
+                  {t('common.next')}
                 </Button>
                 <Button
                   variant="outline"
@@ -269,7 +271,7 @@ export default function OrdersPage({ userRole }: OrdersPageProps) {
                   disabled={currentPage === totalPages}
                   data-testid="button-last-page"
                 >
-                  Last
+                  {t('common.last')}
                 </Button>
               </div>
             </div>

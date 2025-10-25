@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 
 const shippingInfoSchema = z.object({
   carrier: z.string().min(1, "Carrier is required"),
@@ -21,6 +22,7 @@ interface ShippingInfoFormProps {
 }
 
 export default function ShippingInfoForm({ defaultValues, onSubmit, onCancel }: ShippingInfoFormProps) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   
   const form = useForm<ShippingInfoFormData>({
@@ -36,8 +38,8 @@ export default function ShippingInfoForm({ defaultValues, onSubmit, onCancel }: 
     console.log("Shipping info submitted:", data);
     onSubmit(data);
     toast({
-      title: "Shipping information updated",
-      description: "The shipping details have been saved successfully.",
+      title: t('orderDetail.shippingUpdated'),
+      description: t('orderDetail.shippingSuccess'),
     });
   };
 
@@ -49,9 +51,9 @@ export default function ShippingInfoForm({ defaultValues, onSubmit, onCancel }: 
           name="carrier"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="font-medium">Carrier</FormLabel>
+              <FormLabel className="font-medium">{t('shipping.carrier')}</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., DHL, UPS, FedEx" {...field} data-testid="input-carrier" />
+                <Input placeholder={t('shipping.carrierPlaceholder')} {...field} data-testid="input-carrier" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -63,9 +65,9 @@ export default function ShippingInfoForm({ defaultValues, onSubmit, onCancel }: 
           name="trackingNumber"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="font-medium">Tracking Number</FormLabel>
+              <FormLabel className="font-medium">{t('shipping.trackingNumber')}</FormLabel>
               <FormControl>
-                <Input placeholder="Enter tracking number" className="font-mono" {...field} data-testid="input-tracking-number" />
+                <Input placeholder={t('shipping.trackingPlaceholder')} className="font-mono" {...field} data-testid="input-tracking-number" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -77,7 +79,7 @@ export default function ShippingInfoForm({ defaultValues, onSubmit, onCancel }: 
           name="shippedDate"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="font-medium">Shipped Date</FormLabel>
+              <FormLabel className="font-medium">{t('shipping.shippedDate')}</FormLabel>
               <FormControl>
                 <Input type="date" {...field} data-testid="input-shipped-date" />
               </FormControl>
@@ -89,11 +91,11 @@ export default function ShippingInfoForm({ defaultValues, onSubmit, onCancel }: 
         <div className="flex justify-end gap-2 pt-2">
           {onCancel && (
             <Button type="button" variant="outline" onClick={onCancel} data-testid="button-cancel-shipping">
-              Cancel
+              {t('common.cancel')}
             </Button>
           )}
           <Button type="submit" data-testid="button-save-shipping">
-            Save Shipping Info
+            {t('common.save')}
           </Button>
         </div>
       </form>

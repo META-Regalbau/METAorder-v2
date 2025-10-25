@@ -20,8 +20,9 @@ The application uses a **React SPA (Single Page Application)** architecture with
 - **State Management**: TanStack Query (React Query) for server state management with optimistic updates
 - **Form Handling**: React Hook Form with Zod for validation
 - **Design System**: Material Design principles with custom Roboto typography and information-dense layouts
-- **Internationalization**: i18next and react-i18next for multi-language support (English, German, Spanish)
+- **Internationalization**: i18next and react-i18next for multi-language support (German as default, English, Spanish)
 - **Currency**: Euro (€) as the primary currency for all monetary displays
+- **Default Language**: German (de)
 
 The frontend is built with Vite for fast development and optimized production builds. Components follow a strict separation between presentational components (in `components/`) and page-level components (in `pages/`).
 
@@ -123,8 +124,8 @@ Core data models:
 - **Pagination & Sorting**: Implemented proper pagination with page controls (First, Previous, Next, Last) and configurable items per page (10, 25, 50, 100). Orders are now sorted by date with newest orders displayed first.
 - **Currency**: Changed all currency displays from USD ($) to EUR (€) throughout the application.
 - **Multi-language Support**: Added internationalization support with i18next. Available languages:
-  - English (en) - Default
-  - German (de) - Deutsch
+  - German (de) - Deutsch (Default)
+  - English (en)
   - Spanish (es) - Español
   - Language switcher component added to the top navigation bar
   - All UI text, navigation items, and messages are now translatable

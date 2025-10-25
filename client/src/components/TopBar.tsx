@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import ThemeToggle from "./ThemeToggle";
 import LanguageSwitcher from "./LanguageSwitcher";
+import { useTranslation } from "react-i18next";
 
 interface TopBarProps {
   userRole: "employee" | "admin";
@@ -10,18 +11,20 @@ interface TopBarProps {
 }
 
 export default function TopBar({ userRole, username }: TopBarProps) {
+  const { t } = useTranslation();
+  
   return (
     <header className="h-16 border-b bg-card flex items-center justify-between px-6 gap-4 sticky top-0 z-50">
       <div className="flex items-center gap-4">
         <SidebarTrigger data-testid="button-sidebar-toggle" />
-        <h1 className="text-xl font-semibold">METAorder</h1>
+        <h1 className="text-xl font-semibold">{t('nav.appTitle')}</h1>
       </div>
       
       <div className="flex items-center gap-3">
         <LanguageSwitcher />
         <ThemeToggle />
         <Badge variant={userRole === "admin" ? "default" : "secondary"} data-testid="badge-user-role">
-          {userRole === "admin" ? "Admin" : "Employee"}
+          {t(`roles.${userRole}`)}
         </Badge>
         <div className="flex items-center gap-2">
           <User className="h-4 w-4" />

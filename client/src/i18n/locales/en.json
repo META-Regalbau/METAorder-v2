@@ -22,10 +22,16 @@
   },
   "nav": {
     "orders": "Orders",
+    "export": "Export & Reports",
     "analytics": "Analytics",
     "users": "Users",
     "roles": "Roles",
-    "settings": "Settings"
+    "settings": "Settings",
+    "appTitle": "METAorder"
+  },
+  "roles": {
+    "admin": "Admin",
+    "employee": "Employee"
   },
   "orders": {
     "title": "Orders",

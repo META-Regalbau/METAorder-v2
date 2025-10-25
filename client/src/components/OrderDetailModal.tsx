@@ -9,6 +9,7 @@ import ShippingInfoForm from "./ShippingInfoForm";
 import AdminDocumentForm from "./AdminDocumentForm";
 import { useToast } from "@/hooks/use-toast";
 import type { Order } from "@shared/schema";
+import { useTranslation } from "react-i18next";
 
 interface OrderDetailModalProps {
   order: Order | null;
@@ -27,6 +28,7 @@ export default function OrderDetailModal({
   onUpdateShipping,
   onUpdateDocuments,
 }: OrderDetailModalProps) {
+  const { t } = useTranslation();
   const { toast } = useToast();
 
   if (!order) return null;
@@ -52,14 +54,14 @@ export default function OrderDetailModal({
       document.body.removeChild(a);
       
       toast({
-        title: "Download started",
-        description: `Invoice PDF for order ${order.orderNumber} is being downloaded.`,
+        title: t('orderDetail.downloadStarted'),
+        description: t('orderDetail.downloadSuccess', { orderNumber: order.orderNumber }),
       });
     } catch (error) {
       console.error("Download failed:", error);
       toast({
-        title: "Download failed",
-        description: "Could not download the invoice. Please try again.",
+        title: t('orderDetail.downloadFailed'),
+        description: t('orderDetail.downloadError'),
         variant: "destructive",
       });
     }
@@ -71,7 +73,7 @@ export default function OrderDetailModal({
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="text-2xl font-semibold">
-              Order {order.orderNumber}
+              {t('orderDetail.title', { orderNumber: order.orderNumber })}
             </DialogTitle>
             <StatusBadge status={order.status} />
           </div>
@@ -79,28 +81,28 @@ export default function OrderDetailModal({
 
         <Tabs defaultValue="overview" className="mt-6">
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
-            <TabsTrigger value="items" data-testid="tab-items">Items</TabsTrigger>
-            <TabsTrigger value="shipping" data-testid="tab-shipping">Shipping</TabsTrigger>
+            <TabsTrigger value="overview" data-testid="tab-overview">{t('orderDetail.overview')}</TabsTrigger>
+            <TabsTrigger value="items" data-testid="tab-items">{t('orderDetail.items')}</TabsTrigger>
+            <TabsTrigger value="shipping" data-testid="tab-shipping">{t('orderDetail.shipping')}</TabsTrigger>
             {userRole === "admin" && (
-              <TabsTrigger value="documents" data-testid="tab-documents">Documents</TabsTrigger>
+              <TabsTrigger value="documents" data-testid="tab-documents">{t('orderDetail.documents')}</TabsTrigger>
             )}
           </TabsList>
 
           <TabsContent value="overview" className="pt-6 space-y-4">
             <Card className="p-6">
-              <h3 className="text-sm font-medium uppercase tracking-wide mb-4">Customer Information</h3>
+              <h3 className="text-sm font-medium uppercase tracking-wide mb-4">{t('orderDetail.customerInfo')}</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-muted-foreground">Name</p>
+                  <p className="text-sm text-muted-foreground">{t('orderDetail.name')}</p>
                   <p className="font-medium" data-testid="text-customer-name">{order.customerName}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Email</p>
+                  <p className="text-sm text-muted-foreground">{t('orderDetail.email')}</p>
                   <p className="font-medium" data-testid="text-customer-email">{order.customerEmail}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Order Date</p>
+                  <p className="text-sm text-muted-foreground">{t('orderDetail.orderDate')}</p>
                   <p className="font-medium">
                     {new Date(order.orderDate).toLocaleDateString('en-US', {
                       year: 'numeric',
@@ -112,7 +114,7 @@ export default function OrderDetailModal({
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Amount</p>
+                  <p className="text-sm text-muted-foreground">{t('orderDetail.totalAmount')}</p>
                   <p className="font-medium text-lg" data-testid="text-total-amount">€{order.totalAmount.toFixed(2)}</p>
                 </div>
               </div>
@@ -122,14 +124,14 @@ export default function OrderDetailModal({
               <Card className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-sm font-medium uppercase tracking-wide mb-1">Invoice Document</h3>
+                    <h3 className="text-sm font-medium uppercase tracking-wide mb-1">{t('orderDetail.invoiceDocument')}</h3>
                     <p className="text-sm text-muted-foreground">
-                      Invoice Number: <span className="font-mono font-medium text-foreground">{order.invoiceNumber}</span>
+                      {t('orderDetail.invoiceNumber')}: <span className="font-mono font-medium text-foreground">{order.invoiceNumber}</span>
                     </p>
                   </div>
                   <Button onClick={handleDownloadInvoice} data-testid="button-download-invoice">
                     <FileDown className="h-4 w-4 mr-1" />
-                    Download Invoice PDF
+                    {t('orderDetail.downloadInvoice')}
                   </Button>
                 </div>
               </Card>
@@ -138,31 +140,31 @@ export default function OrderDetailModal({
 
           <TabsContent value="items" className="pt-6">
             <Card className="p-6">
-              <h3 className="text-sm font-medium uppercase tracking-wide mb-4">Order Items</h3>
+              <h3 className="text-sm font-medium uppercase tracking-wide mb-4">{t('orderDetail.orderItems')}</h3>
               {order.items && order.items.length > 0 ? (
                 <div className="space-y-3">
                   {order.items.map((item) => (
                     <div key={item.id} className="flex justify-between items-center py-2 border-b last:border-0">
                       <div className="flex-1">
                         <p className="font-medium">{item.name}</p>
-                        <p className="text-sm text-muted-foreground">Quantity: {item.quantity}</p>
+                        <p className="text-sm text-muted-foreground">{t('orderDetail.quantity')}: {item.quantity}</p>
                       </div>
                       <div className="text-right">
                         <p className="font-medium">€{item.total.toFixed(2)}</p>
-                        <p className="text-sm text-muted-foreground">€{item.price.toFixed(2)} each</p>
+                        <p className="text-sm text-muted-foreground">€{item.price.toFixed(2)} {t('orderDetail.each')}</p>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-muted-foreground">No items available</p>
+                <p className="text-muted-foreground">{t('orderDetail.noItems')}</p>
               )}
             </Card>
           </TabsContent>
 
           <TabsContent value="shipping" className="pt-6">
             <Card className="p-6">
-              <h3 className="text-sm font-medium uppercase tracking-wide mb-4">Shipping Information</h3>
+              <h3 className="text-sm font-medium uppercase tracking-wide mb-4">{t('orderDetail.shippingInfo')}</h3>
               <ShippingInfoForm
                 defaultValues={{
                   carrier: order.shippingInfo?.carrier || "",
@@ -181,7 +183,7 @@ export default function OrderDetailModal({
           {userRole === "admin" && (
             <TabsContent value="documents" className="pt-6">
               <Card className="p-6">
-                <h3 className="text-sm font-medium uppercase tracking-wide mb-4">Document Numbers (Admin Only)</h3>
+                <h3 className="text-sm font-medium uppercase tracking-wide mb-4">{t('orderDetail.documentNumbers')}</h3>
                 <AdminDocumentForm
                   defaultValues={{
                     invoiceNumber: order.invoiceNumber || "",

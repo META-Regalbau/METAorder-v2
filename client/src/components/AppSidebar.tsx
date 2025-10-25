@@ -28,7 +28,7 @@ export default function AppSidebar({ userRole }: AppSidebarProps) {
       roles: ["employee", "admin"],
     },
     {
-      titleKey: "Export & Reports",
+      titleKey: "nav.export",
       url: "/export",
       icon: Download,
       roles: ["employee", "admin"],
@@ -67,7 +67,7 @@ export default function AppSidebar({ userRole }: AppSidebarProps) {
     <Sidebar>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>METAorder</SidebarGroupLabel>
+          <SidebarGroupLabel>{t('nav.appTitle')}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {filteredItems.map((item) => {

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 
 const adminDocumentSchema = z.object({
   invoiceNumber: z.string().optional(),
@@ -21,6 +22,7 @@ interface AdminDocumentFormProps {
 }
 
 export default function AdminDocumentForm({ defaultValues, onSubmit, onCancel }: AdminDocumentFormProps) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   
   const form = useForm<AdminDocumentFormData>({
@@ -36,8 +38,8 @@ export default function AdminDocumentForm({ defaultValues, onSubmit, onCancel }:
     console.log("Admin document info submitted:", data);
     onSubmit(data);
     toast({
-      title: "Document numbers updated",
-      description: "The document information has been saved successfully.",
+      title: t('orderDetail.documentsUpdated'),
+      description: t('orderDetail.documentsSuccess'),
     });
   };
 
@@ -49,9 +51,9 @@ export default function AdminDocumentForm({ defaultValues, onSubmit, onCancel }:
           name="invoiceNumber"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="font-medium">Invoice Number</FormLabel>
+              <FormLabel className="font-medium">{t('adminDocuments.invoiceNumber')}</FormLabel>
               <FormControl>
-                <Input placeholder="Enter invoice number" className="font-mono" {...field} data-testid="input-invoice-number" />
+                <Input placeholder={t('adminDocuments.invoiceNumberPlaceholder')} className="font-mono" {...field} data-testid="input-invoice-number" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -63,9 +65,9 @@ export default function AdminDocumentForm({ defaultValues, onSubmit, onCancel }:
           name="deliveryNoteNumber"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="font-medium">Delivery Note Number</FormLabel>
+              <FormLabel className="font-medium">{t('adminDocuments.deliveryNote')}</FormLabel>
               <FormControl>
-                <Input placeholder="Enter delivery note number" className="font-mono" {...field} data-testid="input-delivery-note-number" />
+                <Input placeholder={t('adminDocuments.deliveryNotePlaceholder')} className="font-mono" {...field} data-testid="input-delivery-note-number" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -77,9 +79,9 @@ export default function AdminDocumentForm({ defaultValues, onSubmit, onCancel }:
           name="erpNumber"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="font-medium">ERP Number</FormLabel>
+              <FormLabel className="font-medium">{t('adminDocuments.erpNumber')}</FormLabel>
               <FormControl>
-                <Input placeholder="Enter ERP number" className="font-mono" {...field} data-testid="input-erp-number" />
+                <Input placeholder={t('adminDocuments.erpNumberPlaceholder')} className="font-mono" {...field} data-testid="input-erp-number" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -89,11 +91,11 @@ export default function AdminDocumentForm({ defaultValues, onSubmit, onCancel }:
         <div className="flex justify-end gap-2 pt-2">
           {onCancel && (
             <Button type="button" variant="outline" onClick={onCancel} data-testid="button-cancel-documents">
-              Cancel
+              {t('common.cancel')}
             </Button>
           )}
           <Button type="submit" data-testid="button-save-documents">
-            Save Document Numbers
+            {t('common.save')}
           </Button>
         </div>
       </form>
