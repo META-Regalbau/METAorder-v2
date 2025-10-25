@@ -70,7 +70,7 @@ export default function OrdersTable({ orders, onViewOrder, isLoading }: OrdersTa
                 <StatusBadge status={order.status} />
               </TableCell>
               <TableCell className="text-right font-medium">
-                ${order.totalAmount.toFixed(2)}
+                ${(order.totalAmount || 0).toFixed(2)}
               </TableCell>
               <TableCell>
                 {order.shippingInfo?.trackingNumber ? (
