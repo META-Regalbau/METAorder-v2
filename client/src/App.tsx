@@ -52,12 +52,12 @@ function App() {
   // POLAND EMPLOYEE: Can only see Poland sales channel
   // const userRole: "employee" | "admin" = "employee";
   // const username = "Poland User";
-  // const userSalesChannelIds: string[] = ["POLAND_SALES_CHANNEL_ID"];
+  // const userSalesChannelIds: string[] = ["0193595640017e1ab0b5ae3313b4181c"];
   
   // GERMANY EMPLOYEE: Can only see Germany sales channel
   // const userRole: "employee" | "admin" = "employee";
   // const username = "Germany User";
-  // const userSalesChannelIds: string[] = ["GERMANY_SALES_CHANNEL_ID"];
+  // const userSalesChannelIds: string[] = ["018ec134507f703b82a76467791e7e61"];
 
   const style = {
     "--sidebar-width": "16rem",
