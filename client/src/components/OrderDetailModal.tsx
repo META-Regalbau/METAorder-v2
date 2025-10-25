@@ -31,14 +31,38 @@ export default function OrderDetailModal({
 
   if (!order) return null;
 
-  const handleDownloadInvoice = () => {
-    console.log("Downloading invoice PDF for order:", order.orderNumber);
-    toast({
-      title: "Downloading invoice",
-      description: `Invoice PDF for order ${order.orderNumber} is being downloaded.`,
-    });
-    // TODO: Implement actual invoice PDF download from Shopware API
-    // This would typically call an API endpoint that returns the PDF file
+  const handleDownloadInvoice = async () => {
+    try {
+      console.log("Downloading invoice PDF for order:", order.orderNumber);
+      
+      const response = await fetch(`/api/orders/${order.id}/invoice`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to download invoice');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `invoice-${order.orderNumber}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({
+        title: "Download started",
+        description: `Invoice PDF for order ${order.orderNumber} is being downloaded.`,
+      });
+    } catch (error) {
+      console.error("Download failed:", error);
+      toast({
+        title: "Download failed",
+        description: "Could not download the invoice. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

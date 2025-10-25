@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -13,28 +14,56 @@ export default function SettingsPage() {
   const [apiSecret, setApiSecret] = useState("");
   const [showSecret, setShowSecret] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleTestConnection = async () => {
     setIsTesting(true);
-    console.log("Testing connection to:", shopwareUrl);
-    
-    // TODO: Implement actual connection test
-    setTimeout(() => {
-      setIsTesting(false);
+    try {
+      const response = await apiRequest('POST', '/api/settings/shopware/test', {
+        shopwareUrl,
+        apiKey,
+        apiSecret,
+      });
+
       toast({
         title: "Connection successful",
         description: "Successfully connected to Shopware API.",
       });
-    }, 1500);
+    } catch (error: any) {
+      console.error("Connection test failed:", error);
+      toast({
+        title: "Connection failed",
+        description: error.message || "Could not connect to Shopware API. Please check your credentials.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTesting(false);
+    }
   };
 
-  const handleSave = () => {
-    console.log("Saving settings:", { shopwareUrl, apiKey: "***", apiSecret: "***" });
-    toast({
-      title: "Settings saved",
-      description: "Your Shopware connection settings have been updated.",
-    });
-    // TODO: Implement actual settings save to backend
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await apiRequest('POST', '/api/settings/shopware', {
+        shopwareUrl,
+        apiKey,
+        apiSecret,
+      });
+
+      toast({
+        title: "Settings saved",
+        description: "Your Shopware connection settings have been updated successfully.",
+      });
+    } catch (error: any) {
+      console.error("Save settings failed:", error);
+      toast({
+        title: "Save failed",
+        description: error.message || "Could not save settings. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -113,17 +142,17 @@ export default function SettingsPage() {
             <Button 
               variant="outline" 
               onClick={handleTestConnection}
-              disabled={isTesting || !shopwareUrl || !apiKey || !apiSecret}
+              disabled={isTesting || isSaving || !shopwareUrl || !apiKey || !apiSecret}
               data-testid="button-test-connection"
             >
               {isTesting ? "Testing..." : "Test Connection"}
             </Button>
             <Button 
               onClick={handleSave}
-              disabled={!shopwareUrl || !apiKey || !apiSecret}
+              disabled={isSaving || isTesting || !shopwareUrl || !apiKey || !apiSecret}
               data-testid="button-save-settings"
             >
-              Save Settings
+              {isSaving ? "Saving..." : "Save Settings"}
             </Button>
           </div>
         </div>

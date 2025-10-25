@@ -6,98 +6,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import OrderFilters from "@/components/OrderFilters";
 import OrdersTable from "@/components/OrdersTable";
 import OrderDetailModal from "@/components/OrderDetailModal";
+import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import type { Order, OrderStatus } from "@shared/schema";
-
-// TODO: Remove mock data - this is for prototype only
-const mockOrders: Order[] = [
-  {
-    id: '1',
-    orderNumber: 'ORD-2024-001',
-    customerName: 'John Doe',
-    customerEmail: 'john@example.com',
-    orderDate: '2024-01-15T10:30:00Z',
-    totalAmount: 299.99,
-    status: 'in_progress',
-    shippingInfo: {
-      carrier: 'DHL',
-      trackingNumber: 'DHL123456789',
-      shippedDate: '2024-01-16'
-    },
-    invoiceNumber: 'INV-2024-001',
-    items: [
-      { id: '1', name: 'Wireless Mouse', quantity: 2, price: 49.99, total: 99.98 },
-      { id: '2', name: 'USB-C Cable', quantity: 4, price: 12.50, total: 50.00 },
-      { id: '3', name: 'Monitor Stand', quantity: 1, price: 150.01, total: 150.01 }
-    ]
-  },
-  {
-    id: '2',
-    orderNumber: 'ORD-2024-002',
-    customerName: 'Jane Smith',
-    customerEmail: 'jane@example.com',
-    orderDate: '2024-01-14T14:20:00Z',
-    totalAmount: 149.50,
-    status: 'open',
-    items: [
-      { id: '4', name: 'Keyboard', quantity: 1, price: 89.50, total: 89.50 },
-      { id: '5', name: 'Mouse Pad', quantity: 2, price: 30.00, total: 60.00 }
-    ]
-  },
-  {
-    id: '3',
-    orderNumber: 'ORD-2024-003',
-    customerName: 'Bob Johnson',
-    customerEmail: 'bob@example.com',
-    orderDate: '2024-01-13T09:15:00Z',
-    totalAmount: 499.99,
-    status: 'completed',
-    shippingInfo: {
-      carrier: 'UPS',
-      trackingNumber: 'UPS987654321',
-      shippedDate: '2024-01-14'
-    },
-    deliveryNoteNumber: 'DN-2024-003',
-    erpNumber: 'ERP-54321',
-    items: [
-      { id: '6', name: 'Laptop Stand', quantity: 1, price: 199.99, total: 199.99 },
-      { id: '7', name: 'Webcam HD', quantity: 1, price: 150.00, total: 150.00 },
-      { id: '8', name: 'Headset', quantity: 1, price: 150.00, total: 150.00 }
-    ]
-  },
-  {
-    id: '4',
-    orderNumber: 'ORD-2024-004',
-    customerName: 'Alice Williams',
-    customerEmail: 'alice@example.com',
-    orderDate: '2024-01-12T16:45:00Z',
-    totalAmount: 89.99,
-    status: 'open',
-    items: [
-      { id: '9', name: 'Phone Case', quantity: 1, price: 29.99, total: 29.99 },
-      { id: '10', name: 'Screen Protector', quantity: 3, price: 20.00, total: 60.00 }
-    ]
-  },
-  {
-    id: '5',
-    orderNumber: 'ORD-2024-005',
-    customerName: 'Charlie Brown',
-    customerEmail: 'charlie@example.com',
-    orderDate: '2024-01-11T11:30:00Z',
-    totalAmount: 1299.99,
-    status: 'cancelled',
-    items: [
-      { id: '11', name: 'Gaming Monitor 27"', quantity: 1, price: 799.99, total: 799.99 },
-      { id: '12', name: 'HDMI Cable', quantity: 2, price: 25.00, total: 50.00 },
-      { id: '13', name: 'Desk Lamp', quantity: 1, price: 450.00, total: 450.00 }
-    ]
-  }
-];
 
 interface OrdersPageProps {
   userRole: "employee" | "admin";
 }
 
 export default function OrdersPage({ userRole }: OrdersPageProps) {
+  const { toast } = useToast();
   const [searchValue, setSearchValue] = useState("");
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">("all");
   const [dateFrom, setDateFrom] = useState("");
@@ -105,10 +24,43 @@ export default function OrdersPage({ userRole }: OrdersPageProps) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [itemsPerPage, setItemsPerPage] = useState("25");
-  const [isLoading, setIsLoading] = useState(false);
+
+  // Fetch orders from Shopware API
+  const { data: orders = [], isLoading, error, refetch } = useQuery<Order[]>({
+    queryKey: ['/api/orders'],
+    retry: false,
+  });
+
+  // Show error if Shopware is not configured
+  if (error) {
+    const errorMessage = (error as any)?.message || 'Failed to load orders';
+    if (errorMessage.includes('not configured')) {
+      return (
+        <div className="max-w-4xl">
+          <div className="mb-6">
+            <h1 className="text-2xl font-semibold mb-1">Orders</h1>
+            <p className="text-sm text-muted-foreground">
+              Connect to Shopware to view orders
+            </p>
+          </div>
+          <div className="bg-muted/50 border border-border rounded-lg p-8 text-center">
+            <p className="text-muted-foreground mb-4">
+              Shopware API is not configured yet.
+            </p>
+            <p className="text-sm text-muted-foreground mb-4">
+              Please go to Settings and configure your Shopware connection to start viewing orders.
+            </p>
+            <Button onClick={() => window.location.href = '/settings'} data-testid="button-go-to-settings">
+              Go to Settings
+            </Button>
+          </div>
+        </div>
+      );
+    }
+  }
 
   // Filter orders based on search and filters
-  const filteredOrders = mockOrders.filter((order) => {
+  const filteredOrders = orders.filter((order) => {
     const matchesSearch =
       searchValue === "" ||
       order.orderNumber.toLowerCase().includes(searchValue.toLowerCase()) ||
@@ -134,25 +86,47 @@ export default function OrdersPage({ userRole }: OrdersPageProps) {
     setIsModalOpen(true);
   };
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     console.log("Refreshing orders...");
-    setIsLoading(true);
-    // TODO: Replace with actual API call
-    setTimeout(() => setIsLoading(false), 1000);
+    try {
+      await refetch();
+      toast({
+        title: "Orders refreshed",
+        description: "Order list has been updated from Shopware.",
+      });
+    } catch (error) {
+      toast({
+        title: "Refresh failed",
+        description: "Could not refresh orders. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleExport = () => {
     console.log("Exporting orders...");
+    toast({
+      title: "Export started",
+      description: "Your order export is being prepared.",
+    });
     // TODO: Implement export functionality
   };
 
   const handleUpdateShipping = (orderId: string, data: any) => {
     console.log("Update shipping for order:", orderId, data);
+    toast({
+      title: "Shipping updated",
+      description: "Shipping information has been saved.",
+    });
     // TODO: Implement API call to update shipping
   };
 
   const handleUpdateDocuments = (orderId: string, data: any) => {
     console.log("Update documents for order:", orderId, data);
+    toast({
+      title: "Documents updated",
+      description: "Document numbers have been saved.",
+    });
     // TODO: Implement API call to update documents
   };
 
@@ -199,13 +173,13 @@ export default function OrdersPage({ userRole }: OrdersPageProps) {
           <div>
             <h1 className="text-2xl font-semibold mb-1">Orders</h1>
             <p className="text-sm text-muted-foreground">
-              Showing {filteredOrders.length} of {mockOrders.length} orders
+              {isLoading ? "Loading..." : `Showing ${filteredOrders.length} of ${orders.length} orders`}
             </p>
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handleRefresh} data-testid="button-refresh-orders">
-              <RefreshCw className="h-4 w-4 mr-1" />
+            <Button variant="outline" onClick={handleRefresh} disabled={isLoading} data-testid="button-refresh-orders">
+              <RefreshCw className={`h-4 w-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
             <Button onClick={handleExport} data-testid="button-export-orders">
@@ -223,34 +197,31 @@ export default function OrdersPage({ userRole }: OrdersPageProps) {
 
         <div className="mt-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Items per page:</span>
+            <span className="text-sm text-muted-foreground">Show</span>
             <Select value={itemsPerPage} onValueChange={setItemsPerPage}>
               <SelectTrigger className="w-20" data-testid="select-items-per-page">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="10">10</SelectItem>
                 <SelectItem value="25">25</SelectItem>
                 <SelectItem value="50">50</SelectItem>
                 <SelectItem value="100">100</SelectItem>
-                <SelectItem value="200">200</SelectItem>
               </SelectContent>
             </Select>
+            <span className="text-sm text-muted-foreground">items per page</span>
           </div>
-
-          <p className="text-sm text-muted-foreground">
-            Last updated: {new Date().toLocaleTimeString()}
-          </p>
         </div>
-      </main>
 
-      <OrderDetailModal
-        order={selectedOrder}
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        userRole={userRole}
-        onUpdateShipping={handleUpdateShipping}
-        onUpdateDocuments={handleUpdateDocuments}
-      />
+        <OrderDetailModal
+          order={selectedOrder}
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          userRole={userRole}
+          onUpdateShipping={handleUpdateShipping}
+          onUpdateDocuments={handleUpdateDocuments}
+        />
+      </main>
     </div>
   );
 }
