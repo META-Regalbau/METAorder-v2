@@ -164,6 +164,12 @@ export class ShopwareClient {
           body: JSON.stringify({
             limit: limit,
             page: page,
+            sort: [
+              {
+                field: 'orderDate',
+                order: 'DESC',
+              },
+            ],
             includes: {
               order: ['id', 'orderNumber', 'orderDate', 'amountTotal', 'orderCustomer', 'lineItems', 'stateMachineState', 'salesChannelId', 'salesChannel'],
               order_customer: ['firstName', 'lastName', 'email'],
