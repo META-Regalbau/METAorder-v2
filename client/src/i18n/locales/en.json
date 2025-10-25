@@ -303,5 +303,32 @@
     "createHint": "You can edit conditions and criteria after creating the rule",
     "conditionsSummary": "Conditions and Criteria",
     "editConditionsHint": "Use the advanced view to edit conditions and criteria"
+  },
+  "ruleBuilder": {
+    "basicTab": "Basics",
+    "conditionsTab": "Conditions & Criteria",
+    "sourceConditionsTitle": "Source Conditions",
+    "sourceConditionsDesc": "Define which products should trigger this rule",
+    "targetCriteriaTitle": "Target Criteria",
+    "targetCriteriaDesc": "Define which products should be suggested as cross-sells",
+    "noConditions": "No conditions defined yet",
+    "noCriteria": "No criteria defined yet",
+    "addCondition": "Add Condition",
+    "addCriterion": "Add Criterion",
+    "type": "Type",
+    "typeProperty": "Property",
+    "typeCategory": "Category",
+    "typeDimension": "Dimension",
+    "operator": "Operator",
+    "opEquals": "Equals",
+    "opContains": "Contains",
+    "opGreaterThan": "Greater Than",
+    "opLessThan": "Less Than",
+    "opMatchesDimensions": "Matching Dimensions (5%)",
+    "opSameDimensions": "Same Dimensions (10%)",
+    "key": "Key",
+    "keyPlaceholder": "e.g. Shelving-System",
+    "value": "Value",
+    "valuePlaceholder": "e.g. Base Shelf"
   }
 }

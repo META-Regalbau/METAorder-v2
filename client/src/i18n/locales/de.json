@@ -305,5 +305,32 @@
     "createHint": "Sie können die Bedingungen und Kriterien nach dem Erstellen bearbeiten",
     "conditionsSummary": "Bedingungen und Kriterien",
     "editConditionsHint": "Verwenden Sie die erweiterte Ansicht, um Bedingungen und Kriterien zu bearbeiten"
+  },
+  "ruleBuilder": {
+    "basicTab": "Grundlagen",
+    "conditionsTab": "Bedingungen & Kriterien",
+    "sourceConditionsTitle": "Quell-Bedingungen",
+    "sourceConditionsDesc": "Definieren Sie, welche Produkte diese Regel auslösen sollen",
+    "targetCriteriaTitle": "Ziel-Kriterien",
+    "targetCriteriaDesc": "Definieren Sie, welche Produkte als Cross-Selling-Vorschläge angezeigt werden sollen",
+    "noConditions": "Noch keine Bedingungen definiert",
+    "noCriteria": "Noch keine Kriterien definiert",
+    "addCondition": "Bedingung hinzufügen",
+    "addCriterion": "Kriterium hinzufügen",
+    "type": "Typ",
+    "typeProperty": "Eigenschaft",
+    "typeCategory": "Kategorie",
+    "typeDimension": "Abmessung",
+    "operator": "Operator",
+    "opEquals": "Gleich",
+    "opContains": "Enthält",
+    "opGreaterThan": "Größer als",
+    "opLessThan": "Kleiner als",
+    "opMatchesDimensions": "Passende Abmessungen (5%)",
+    "opSameDimensions": "Gleiche Abmessungen (10%)",
+    "key": "Schlüssel",
+    "keyPlaceholder": "z.B. Regal-System",
+    "value": "Wert",
+    "valuePlaceholder": "z.B. Grundregal"
   }
 }

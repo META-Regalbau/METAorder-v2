@@ -303,5 +303,32 @@
     "createHint": "Puede editar las condiciones y criterios después de crear la regla",
     "conditionsSummary": "Condiciones y Criterios",
     "editConditionsHint": "Use la vista avanzada para editar condiciones y criterios"
+  },
+  "ruleBuilder": {
+    "basicTab": "Básico",
+    "conditionsTab": "Condiciones y Criterios",
+    "sourceConditionsTitle": "Condiciones de Origen",
+    "sourceConditionsDesc": "Defina qué productos deben activar esta regla",
+    "targetCriteriaTitle": "Criterios de Destino",
+    "targetCriteriaDesc": "Defina qué productos deben sugerirse como ventas cruzadas",
+    "noConditions": "Aún no hay condiciones definidas",
+    "noCriteria": "Aún no hay criterios definidos",
+    "addCondition": "Agregar Condición",
+    "addCriterion": "Agregar Criterio",
+    "type": "Tipo",
+    "typeProperty": "Propiedad",
+    "typeCategory": "Categoría",
+    "typeDimension": "Dimensión",
+    "operator": "Operador",
+    "opEquals": "Igual",
+    "opContains": "Contiene",
+    "opGreaterThan": "Mayor que",
+    "opLessThan": "Menor que",
+    "opMatchesDimensions": "Dimensiones Coincidentes (5%)",
+    "opSameDimensions": "Mismas Dimensiones (10%)",
+    "key": "Clave",
+    "keyPlaceholder": "ej. Sistema-Estantería",
+    "value": "Valor",
+    "valuePlaceholder": "ej. Estantería Base"
   }
 }
