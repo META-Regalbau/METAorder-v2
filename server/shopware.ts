@@ -330,6 +330,118 @@ export class ShopwareClient {
     }
   }
 
+  async downloadDocumentPdf(documentId: string, deepLinkCode: string): Promise<Blob> {
+    try {
+      const response = await this.makeAuthenticatedRequest(
+        `${this.baseUrl}/api/_action/document/${documentId}/${deepLinkCode}?download=1`,
+        {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/pdf',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to download document: ${response.statusText} - ${errorText}`);
+      }
+
+      return await response.blob();
+    } catch (error) {
+      console.error('Error downloading document from Shopware:', error);
+      throw error;
+    }
+  }
+
+  async fetchOrderDocuments(orderId: string): Promise<Array<{id: string, type: string, number: string, deepLinkCode: string}>> {
+    try {
+      // Get all documents for this order - remove includes to get full data
+      const docsResponse = await this.makeAuthenticatedRequest(
+        `${this.baseUrl}/api/search/document`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            filter: [
+              {
+                type: 'equals',
+                field: 'orderId',
+                value: orderId,
+              },
+            ],
+            associations: {
+              documentType: {},
+            },
+          }),
+        }
+      );
+
+      if (!docsResponse.ok) {
+        const errorText = await docsResponse.text();
+        throw new Error(`Failed to retrieve documents: ${docsResponse.statusText} - ${errorText}`);
+      }
+
+      const docsData = await docsResponse.json();
+      
+      // Save full response to a file for debugging
+      const fs = await import('fs');
+      await fs.promises.writeFile('/tmp/shopware_docs_response.json', JSON.stringify(docsData, null, 2));
+      console.log('Saved full response to /tmp/shopware_docs_response.json');
+      
+      const documents = docsData.data || [];
+      
+      // Build a map of document types from the included section
+      const documentTypes = new Map();
+      if (docsData.included) {
+        for (const item of docsData.included) {
+          if (item.type === 'document_type') {
+            documentTypes.set(item.id, item.attributes?.technicalName || 'unknown');
+          }
+        }
+      }
+
+      return documents.map((doc: any) => {
+        // Use the same approach as downloadInvoicePdf - extensions are at doc.extensions
+        const foreignKeys = doc.extensions?.foreignKeys || {};
+        
+        // Extract document number and deep link code from foreignKeys
+        const docNumber = foreignKeys.documentNumber || '';
+        const deepLink = foreignKeys.deepLinkCode || '';
+        
+        // Get document type from the included data or from relationships or from document number
+        let docType = 'unknown';
+        const docTypeId = doc.relationships?.documentType?.data?.id;
+        if (docTypeId && documentTypes.has(docTypeId)) {
+          docType = documentTypes.get(docTypeId);
+        } else if (docNumber) {
+          // Fallback: determine type from document number prefix
+          if (docNumber.startsWith('RE-')) {
+            docType = 'invoice';
+          } else if (docNumber.startsWith('LS-')) {
+            docType = 'delivery_note';
+          } else if (docNumber.startsWith('GS-')) {
+            docType = 'credit_note';
+          } else if (docNumber.startsWith('ST-')) {
+            docType = 'cancellation';
+          }
+        }
+
+        return {
+          id: doc.id,
+          type: docType,
+          number: docNumber,
+          deepLinkCode: deepLink,
+        };
+      });
+    } catch (error) {
+      console.error('Error fetching documents from Shopware:', error);
+      throw error;
+    }
+  }
+
   async downloadInvoicePdf(orderId: string): Promise<Blob> {
     try {
       // Step 1: Get existing invoice documents for this order

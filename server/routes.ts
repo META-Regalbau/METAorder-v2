@@ -106,6 +106,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/orders/:orderId/documents", async (req, res) => {
+    try {
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const client = new ShopwareClient(settings);
+      const documents = await client.fetchOrderDocuments(req.params.orderId);
+      
+      res.json(documents);
+    } catch (error: any) {
+      console.error("Error fetching documents:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch documents" });
+    }
+  });
+
+  app.get("/api/orders/:orderId/document/:documentId/:deepLinkCode", async (req, res) => {
+    try {
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const { documentId, deepLinkCode } = req.params;
+      const client = new ShopwareClient(settings);
+      
+      const pdfBlob = await client.downloadDocumentPdf(documentId, deepLinkCode);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="document-${documentId}.pdf"`);
+      res.send(Buffer.from(await pdfBlob.arrayBuffer()));
+    } catch (error: any) {
+      console.error("Error downloading document:", error);
+      res.status(500).json({ error: error.message || "Failed to download document" });
+    }
+  });
+
   app.get("/api/orders/:orderId/invoice", async (req, res) => {
     try {
       const settings = await storage.getShopwareSettings();
