@@ -199,7 +199,7 @@ export type CrossSellingRule = {
   id: string;
   name: string;
   description?: string;
-  active: boolean;
+  active: number; // 1 = active, 0 = inactive (matching database integer type)
   
   // When to apply this rule - conditions on the source product
   sourceConditions: RuleCondition[];

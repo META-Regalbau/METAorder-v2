@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { z } from "zod";
 import { storage } from "./storage";
 import { ShopwareClient } from "./shopware";
 import { RuleEngine } from "./ruleEngine";
@@ -368,7 +369,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...validation.data,
         sourceConditions: JSON.stringify(validation.data.sourceConditions),
         targetCriteria: JSON.stringify(validation.data.targetCriteria),
-      };
+      } as any;
 
       const rule = await storage.createCrossSellingRule(ruleData);
       res.json(rule);
