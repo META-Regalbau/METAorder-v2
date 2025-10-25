@@ -47,7 +47,7 @@ function App() {
   // AUSTRIA EMPLOYEE: Can only see Austria sales channel
   // const userRole: "employee" | "admin" = "employee";
   // const username = "Austria User";
-  // const userSalesChannelIds: string[] = ["AUSTRIA_SALES_CHANNEL_ID"];
+  // const userSalesChannelIds: string[] = ["0190b599291076e3beecdfca3d1b1b30"];
   
   // POLAND EMPLOYEE: Can only see Poland sales channel
   // const userRole: "employee" | "admin" = "employee";
