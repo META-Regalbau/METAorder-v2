@@ -130,3 +130,10 @@ Core data models:
   - Language switcher component added to the top navigation bar
   - All UI text, navigation items, and messages are now translatable
   - User language preference stored in localStorage
+- **Sales Channel Filtering**: Implemented role-based sales channel filtering for orders:
+  - Admin users can see and filter orders from all sales channels
+  - Employee users are restricted to their assigned sales channels (e.g., Austria, Poland, Germany)
+  - New SalesChannelSelector component allows filtering orders by one or more sales channels
+  - Backend API fetches sales channels from Shopware and filters orders by channel ID
+  - Schema updated to include salesChannelId on orders and salesChannelIds array on users
+  - Fully translated UI for sales channel filtering in German, English, and Spanish
