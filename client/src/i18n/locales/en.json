@@ -7,6 +7,7 @@
     "cancel": "Cancel",
     "edit": "Edit",
     "delete": "Delete",
+    "actions": "Actions",
     "loading": "Loading...",
     "refresh": "Refresh",
     "export": "Export",
@@ -160,5 +161,22 @@
     "selectAll": "All",
     "clearAll": "None",
     "allChannels": "All Channels"
+  },
+  "users": {
+    "title": "User Management",
+    "description": "Manage users and assign sales channels",
+    "username": "Username",
+    "role": "Role",
+    "salesChannels": "Sales Channels",
+    "userId": "User ID",
+    "allChannels": "All Channels",
+    "selectRole": "Select a role",
+    "createUser": "Create User",
+    "updateUser": "Update User",
+    "noSalesChannels": "No sales channels available",
+    "allChannelsAccess": "All channels (Admin)",
+    "selectedChannelsCount": "{{count}} channel selected",
+    "selectedChannelsCount_plural": "{{count}} channels selected",
+    "salesChannelHelp": "Leave empty for access to all channels (Admin only)"
   }
 }

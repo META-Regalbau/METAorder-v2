@@ -7,6 +7,7 @@
     "cancel": "Cancelar",
     "edit": "Editar",
     "delete": "Eliminar",
+    "actions": "Acciones",
     "loading": "Cargando...",
     "refresh": "Actualizar",
     "export": "Exportar",
@@ -160,5 +161,22 @@
     "selectAll": "Todos",
     "clearAll": "Ninguno",
     "allChannels": "Todos los Canales"
+  },
+  "users": {
+    "title": "Gestión de Usuarios",
+    "description": "Administrar usuarios y asignar canales de ventas",
+    "username": "Nombre de Usuario",
+    "role": "Rol",
+    "salesChannels": "Canales de Ventas",
+    "userId": "ID de Usuario",
+    "allChannels": "Todos los Canales",
+    "selectRole": "Seleccione un rol",
+    "createUser": "Crear Usuario",
+    "updateUser": "Actualizar Usuario",
+    "noSalesChannels": "No hay canales de ventas disponibles",
+    "allChannelsAccess": "Todos los canales (Admin)",
+    "selectedChannelsCount": "{{count}} canal seleccionado",
+    "selectedChannelsCount_plural": "{{count}} canales seleccionados",
+    "salesChannelHelp": "Dejar vacío para acceso a todos los canales (solo Admin)"
   }
 }

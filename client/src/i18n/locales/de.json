@@ -7,6 +7,7 @@
     "cancel": "Abbrechen",
     "edit": "Bearbeiten",
     "delete": "Löschen",
+    "actions": "Aktionen",
     "loading": "Lädt...",
     "refresh": "Aktualisieren",
     "export": "Exportieren",
@@ -160,5 +161,22 @@
     "selectAll": "Alle",
     "clearAll": "Keine",
     "allChannels": "Alle Kanäle"
+  },
+  "users": {
+    "title": "Benutzerverwaltung",
+    "description": "Benutzer verwalten und Verkaufskanäle zuweisen",
+    "username": "Benutzername",
+    "role": "Rolle",
+    "salesChannels": "Verkaufskanäle",
+    "userId": "Benutzer-ID",
+    "allChannels": "Alle Kanäle",
+    "selectRole": "Wählen Sie eine Rolle",
+    "createUser": "Benutzer erstellen",
+    "updateUser": "Benutzer aktualisieren",
+    "noSalesChannels": "Keine Verkaufskanäle verfügbar",
+    "allChannelsAccess": "Alle Kanäle (Admin)",
+    "selectedChannelsCount": "{{count}} Kanal ausgewählt",
+    "selectedChannelsCount_plural": "{{count}} Kanäle ausgewählt",
+    "salesChannelHelp": "Leer lassen für Zugriff auf alle Kanäle (nur Admin)"
   }
 }
