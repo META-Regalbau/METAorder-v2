@@ -33,7 +33,7 @@ export default function EditRuleDialog({ rule, open, onClose }: EditRuleDialogPr
     if (rule) {
       setName(rule.name);
       setDescription(rule.description || "");
-      setActive(rule.active);
+      setActive(!!rule.active); // Convert 1/0 to true/false
       setSourceConditions(rule.sourceConditions || []);
       setTargetCriteria(rule.targetCriteria || []);
     }
@@ -41,10 +41,7 @@ export default function EditRuleDialog({ rule, open, onClose }: EditRuleDialogPr
 
   const updateMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest(`/api/cross-selling-rules/${rule!.id}`, {
-        method: "PUT",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("PUT", `/api/cross-selling-rules/${rule!.id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cross-selling-rules"] });
@@ -76,7 +73,7 @@ export default function EditRuleDialog({ rule, open, onClose }: EditRuleDialogPr
     updateMutation.mutate({
       name: name.trim(),
       description: description.trim() || undefined,
-      active: active,
+      active: active ? 1 : 0, // Convert true/false to 1/0
       sourceConditions,
       targetCriteria,
     });

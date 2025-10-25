@@ -22,10 +22,7 @@ export default function AddRuleDialog({ open, onClose }: AddRuleDialogProps) {
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest("/api/cross-selling-rules", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("POST", "/api/cross-selling-rules", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cross-selling-rules"] });
@@ -64,7 +61,7 @@ export default function AddRuleDialog({ open, onClose }: AddRuleDialogProps) {
     createMutation.mutate({
       name: name.trim(),
       description: description.trim() || undefined,
-      active: true,
+      active: 1, // 1 = active, 0 = inactive
       sourceConditions: [], // Empty for now - will be filled via Edit
       targetCriteria: [],   // Empty for now - will be filled via Edit
     });
