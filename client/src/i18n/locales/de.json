@@ -153,5 +153,12 @@
     "english": "Englisch",
     "german": "Deutsch",
     "spanish": "Spanisch"
+  },
+  "salesChannel": {
+    "filter": "Verkaufskanal",
+    "selectChannels": "Verkaufskanäle auswählen",
+    "selectAll": "Alle",
+    "clearAll": "Keine",
+    "allChannels": "Alle Kanäle"
   }
 }
