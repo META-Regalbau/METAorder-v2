@@ -110,37 +110,64 @@ export class ShopwareClient {
 
   async fetchOrders(): Promise<Order[]> {
     try {
-      const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/order`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          limit: 100,
-          includes: {
-            order: ['id', 'orderNumber', 'orderDate', 'amountTotal', 'orderCustomer', 'lineItems', 'stateMachineState'],
-            order_customer: ['firstName', 'lastName', 'email'],
-            order_line_item: ['id', 'label', 'quantity', 'unitPrice', 'totalPrice'],
-            state_machine_state: ['technicalName'],
-          },
-          associations: {
-            orderCustomer: {},
-            lineItems: {},
-            stateMachineState: {},
-          },
-        }),
-      });
+      const limit = 500; // Fetch 500 orders per request for efficiency
+      let page = 1;
+      let allOrders: any[] = [];
+      let totalOrders = 0;
+      let allIncluded: any[] = [];
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to fetch orders: ${response.statusText} - ${errorText}`);
-      }
+      // Fetch all orders with pagination
+      do {
+        const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/order`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            limit: limit,
+            page: page,
+            includes: {
+              order: ['id', 'orderNumber', 'orderDate', 'amountTotal', 'orderCustomer', 'lineItems', 'stateMachineState'],
+              order_customer: ['firstName', 'lastName', 'email'],
+              order_line_item: ['id', 'label', 'quantity', 'unitPrice', 'totalPrice'],
+              state_machine_state: ['technicalName'],
+            },
+            associations: {
+              orderCustomer: {},
+              lineItems: {},
+              stateMachineState: {},
+            },
+          }),
+        });
 
-      const data = await response.json();
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to fetch orders: ${response.statusText} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        
+        // Shopware returns data and optionally included sections
+        const orders = data.data || [];
+        const included = data.included || [];
+        
+        allOrders = allOrders.concat(orders);
+        allIncluded = allIncluded.concat(included);
+        
+        // Get total from response
+        totalOrders = data.total || orders.length;
+        
+        console.log(`Fetched page ${page}: ${orders.length} orders, total in shop: ${totalOrders}`);
+        
+        // Continue if we haven't fetched all orders yet
+        page++;
+      } while (allOrders.length < totalOrders && allOrders.length > 0);
+
+      console.log(`Total orders fetched: ${allOrders.length} of ${totalOrders}`);
       
       // Shopware returns data and optionally included sections
-      const orders = data.data || [];
-      const included = data.included || [];
+      const orders = allOrders;
+      const included = allIncluded;
       
       // Create a map of included entities by type and id for quick lookup
       const includedMap = new Map<string, any>();
