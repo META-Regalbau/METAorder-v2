@@ -137,3 +137,11 @@ Core data models:
   - Backend API fetches sales channels from Shopware and filters orders by channel ID
   - Schema updated to include salesChannelId on orders and salesChannelIds array on users
   - Fully translated UI for sales channel filtering in German, English, and Spanish
+  - Production sales channel IDs configured for Austria, Poland, and Germany
+- **User Management with Sales Channel Assignment**: Enhanced user management to allow sales channel assignment directly in the UI:
+  - New SalesChannelMultiSelect component for selecting multiple sales channels
+  - AddUserDialog and EditUserDialog now include sales channel selection
+  - UsersPage displays assigned sales channels for each user in the table
+  - Users with no assigned channels have access to all channels (Admin only)
+  - Full multi-language support for all user management UI elements
+  - Mock data includes example users with different sales channel assignments
