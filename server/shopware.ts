@@ -292,17 +292,17 @@ export class ShopwareClient {
         
         if (shopwareOrder.lineItems) {
           items = shopwareOrder.lineItems.map((item: any, idx: number) => {
-            const grossPrice = item.unitPrice || 0;
-            const grossTotal = item.totalPrice || 0;
+            const netPrice = item.unitPrice || 0;
+            const netTotal = item.totalPrice || 0;
             const quantity = item.quantity || 1;
             // Extract tax rate first
             const taxRate = item.price?.taxRules?.[0]?.taxRate || 19;
             
-            // Extract net prices from Shopware's price structure
-            // Shopware line items contain GROSS prices in unitPrice/totalPrice
-            // The net price must be calculated by subtracting the tax from calculatedTaxes
-            let netPrice = grossPrice;
-            let netTotal = grossTotal;
+            // Extract gross prices from Shopware's price structure
+            // Shopware line items contain NET prices in unitPrice/totalPrice
+            // The gross price is calculated by adding the tax from calculatedTaxes
+            let grossPrice = netPrice;
+            let grossTotal = netTotal;
             
             if (item.price && typeof item.price === 'object') {
               if (item.price.calculatedTaxes && Array.isArray(item.price.calculatedTaxes) && item.price.calculatedTaxes.length > 0) {
@@ -311,12 +311,12 @@ export class ShopwareClient {
                 const totalTax = item.price.calculatedTaxes.reduce((sum: number, taxEntry: any) => sum + (taxEntry.tax || 0), 0);
                 const unitTax = quantity > 0 ? totalTax / quantity : 0;
                 
-                netPrice = grossPrice - unitTax;
-                netTotal = grossTotal - totalTax;
+                grossPrice = netPrice + unitTax;
+                grossTotal = netTotal + totalTax;
               } else {
                 // Fallback: calculate from tax rate
-                netPrice = grossPrice / (1 + taxRate / 100);
-                netTotal = grossTotal / (1 + taxRate / 100);
+                grossPrice = netPrice * (1 + taxRate / 100);
+                grossTotal = netTotal * (1 + taxRate / 100);
               }
             }
             
@@ -334,14 +334,15 @@ export class ShopwareClient {
         } else if (shopwareOrder.relationships?.lineItems?.data) {
           items = shopwareOrder.relationships.lineItems.data.map((lineItemRef: any) => {
             const lineItem = includedMap.get(`order_line_item-${lineItemRef.id}`);
-            const grossPrice = lineItem?.attributes?.unitPrice || 0;
-            const grossTotal = lineItem?.attributes?.totalPrice || 0;
+            const netPrice = lineItem?.attributes?.unitPrice || 0;
+            const netTotal = lineItem?.attributes?.totalPrice || 0;
             const quantity = lineItem?.attributes?.quantity || 1;
             const taxRate = lineItem?.attributes?.price?.taxRules?.[0]?.taxRate || 19;
             
-            // Extract net prices from Shopware's price structure
-            let netPrice = grossPrice;
-            let netTotal = grossTotal;
+            // Extract gross prices from Shopware's price structure
+            // Shopware line items contain NET prices in unitPrice/totalPrice
+            let grossPrice = netPrice;
+            let grossTotal = netTotal;
             
             const priceObj = lineItem?.attributes?.price;
             if (priceObj && typeof priceObj === 'object') {
@@ -350,12 +351,12 @@ export class ShopwareClient {
                 const totalTax = priceObj.calculatedTaxes.reduce((sum: number, taxEntry: any) => sum + (taxEntry.tax || 0), 0);
                 const unitTax = quantity > 0 ? totalTax / quantity : 0;
                 
-                netPrice = grossPrice - unitTax;
-                netTotal = grossTotal - totalTax;
+                grossPrice = netPrice + unitTax;
+                grossTotal = netTotal + totalTax;
               } else {
                 // Fallback: calculate from tax rate
-                netPrice = grossPrice / (1 + taxRate / 100);
-                netTotal = grossTotal / (1 + taxRate / 100);
+                grossPrice = netPrice * (1 + taxRate / 100);
+                grossTotal = netTotal * (1 + taxRate / 100);
               }
             }
             
