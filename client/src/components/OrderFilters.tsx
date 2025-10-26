@@ -1,7 +1,7 @@
 import { Filter, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { useTranslation } from "react-i18next";
@@ -29,6 +29,18 @@ export default function OrderFilters({
   activeFiltersCount,
 }: OrderFiltersProps) {
   const { t } = useTranslation();
+  
+  // Convert string dates to Date objects for DatePicker
+  const dateFromObj = dateFrom ? new Date(dateFrom) : undefined;
+  const dateToObj = dateTo ? new Date(dateTo) : undefined;
+  
+  const handleDateFromChange = (date: Date | undefined) => {
+    onDateFromChange(date ? date.toISOString().split('T')[0] : '');
+  };
+  
+  const handleDateToChange = (date: Date | undefined) => {
+    onDateToChange(date ? date.toISOString().split('T')[0] : '');
+  };
   
   return (
     <Card className="p-6">
@@ -65,23 +77,23 @@ export default function OrderFilters({
           </Select>
         </div>
         
-        <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-3">
           <div>
             <Label className="text-sm font-medium mb-2">{t('filters.dateFrom')}</Label>
-            <Input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => onDateFromChange(e.target.value)}
-              data-testid="input-date-from"
+            <DatePicker
+              date={dateFromObj}
+              onDateChange={handleDateFromChange}
+              placeholder={t('filters.dateFrom')}
+              testId="date-picker-from"
             />
           </div>
           <div>
             <Label className="text-sm font-medium mb-2">{t('filters.dateTo')}</Label>
-            <Input
-              type="date"
-              value={dateTo}
-              onChange={(e) => onDateToChange(e.target.value)}
-              data-testid="input-date-to"
+            <DatePicker
+              date={dateToObj}
+              onDateChange={handleDateToChange}
+              placeholder={t('filters.dateTo')}
+              testId="date-picker-to"
             />
           </div>
         </div>

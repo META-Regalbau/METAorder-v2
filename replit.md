@@ -137,3 +137,17 @@ The UI adheres to **Material Design principles** with **Roboto typography** and 
 - **All Languages Updated**: Added filter translations to German, English, and Spanish locales
 - **Verified**: End-to-end testing confirms all UI elements display correctly in German (default language)
 
+### DatePicker Implementation - October 26, 2025
+- **Feature**: Replaced simple date input fields with interactive date picker components
+- **Implementation**:
+  - Created `DatePicker` component using Shadcn Calendar and Popover primitives
+  - Date display format: dd.MM.yyyy (German format)
+  - Calendar popover opens when clicking the date button with calendar icon
+  - Integrated with OrderFilters for "Datum von" and "Datum bis" selection
+  - Automatic conversion between Date objects and ISO string format for backend
+- **UX Improvements**: 
+  - Visual calendar for easier date selection
+  - Clear date display with calendar icon
+  - Proper placeholder text using i18n translations
+- **Dependencies**: Uses date-fns for date formatting and react-day-picker for calendar component
+
