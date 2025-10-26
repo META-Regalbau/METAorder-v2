@@ -18,146 +18,137 @@ import AddUserDialog from "@/components/AddUserDialog";
 import EditUserDialog from "@/components/EditUserDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { User, Role, SalesChannel } from "@shared/schema";
 
-// TODO: Remove mock data - this is for prototype only
-const mockRoles: Role[] = [
-  {
-    id: "1",
-    name: "Administrator",
-    permissions: {
-      viewOrders: true,
-      editOrders: true,
-      exportData: true,
-      viewAnalytics: true,
-      manageUsers: true,
-      manageRoles: true,
-      manageSettings: true,
-    },
-  },
-  {
-    id: "2",
-    name: "Employee",
-    permissions: {
-      viewOrders: true,
-      editOrders: true,
-      exportData: false,
-      viewAnalytics: false,
-      manageUsers: false,
-      manageRoles: false,
-      manageSettings: false,
-    },
-  },
-  {
-    id: "3",
-    name: "Warehouse Manager",
-    permissions: {
-      viewOrders: true,
-      editOrders: true,
-      exportData: true,
-      viewAnalytics: true,
-      manageUsers: false,
-      manageRoles: false,
-      manageSettings: false,
-    },
-  },
-];
-
 type UserWithRole = User & { roleId: string; roleName: string };
-
-const mockUsers: UserWithRole[] = [
-  {
-    id: "1",
-    username: "admin",
-    password: "***",
-    role: "admin",
-    roleId: "1",
-    roleName: "Administrator",
-    salesChannelIds: [],
-  },
-  {
-    id: "2",
-    username: "john_doe",
-    password: "***",
-    role: "employee",
-    roleId: "2",
-    roleName: "Employee",
-    salesChannelIds: ["0190b599291076e3beecdfca3d1b1b30"],
-  },
-  {
-    id: "3",
-    username: "jane_smith",
-    password: "***",
-    role: "employee",
-    roleId: "3",
-    roleName: "Warehouse Manager",
-    salesChannelIds: ["0193595640017e1ab0b5ae3313b4181c", "018ec134507f703b82a76467791e7e61"],
-  },
-];
 
 export default function UsersPage() {
   const { toast } = useToast();
   const { t } = useTranslation();
-  const [users, setUsers] = useState<UserWithRole[]>(mockUsers);
-  const [roles] = useState<Role[]>(mockRoles);
   const [editingUser, setEditingUser] = useState<UserWithRole | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [deletingUser, setDeletingUser] = useState<UserWithRole | null>(null);
+
+  const { data: users = [], isLoading: usersLoading } = useQuery<UserWithRole[]>({
+    queryKey: ['/api/users'],
+  });
+
+  const { data: roles = [], isLoading: rolesLoading } = useQuery<Role[]>({
+    queryKey: ['/api/roles'],
+  });
 
   const { data: salesChannels = [] } = useQuery<SalesChannel[]>({
     queryKey: ['/api/sales-channels'],
   });
 
+  const createUserMutation = useMutation({
+    mutationFn: async (userData: { username: string; password: string; roleId: string; salesChannelIds: string[] }) => {
+      const response = await apiRequest("POST", "/api/users", userData);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to create user");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      toast({
+        title: t('users.userCreated'),
+        description: t('users.userCreatedSuccess'),
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t('errors.failed'),
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateUserMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const response = await apiRequest("PATCH", `/api/users/${id}`, data);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to update user");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      toast({
+        title: t('users.userUpdated'),
+        description: t('users.userUpdatedSuccess'),
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t('errors.failed'),
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("DELETE", `/api/users/${id}`, {});
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to delete user");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      toast({
+        title: t('users.userDeleted'),
+        description: t('users.userDeletedSuccess'),
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t('errors.failed'),
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleAddUser = (userData: { username: string; password: string; roleId: string; salesChannelIds: string[] }) => {
-    const role = roles.find(r => r.id === userData.roleId);
-    const newUser: UserWithRole = {
-      id: String(users.length + 1),
-      username: userData.username,
-      password: userData.password,
-      role: role?.name.toLowerCase() === "administrator" ? "admin" : "employee",
-      roleId: userData.roleId,
-      roleName: role?.name || "",
-      salesChannelIds: userData.salesChannelIds,
-    };
-    setUsers([...users, newUser]);
-    console.log("User added:", newUser);
-    // TODO: Implement API call to create user
+    createUserMutation.mutate(userData);
   };
 
   const handleUpdateUser = (id: string, data: any) => {
-    const role = roles.find(r => r.id === data.roleId);
-    setUsers(users.map(user => 
-      user.id === id 
-        ? { 
-            ...user, 
-            username: data.username, 
-            roleId: data.roleId,
-            roleName: role?.name || "",
-            role: role?.name.toLowerCase() === "administrator" ? "admin" : "employee",
-            salesChannelIds: data.salesChannelIds
-          }
-        : user
-    ));
-    console.log("User updated:", id, data);
-    // TODO: Implement API call to update user
+    updateUserMutation.mutate({ id, data });
   };
 
   const handleDeleteUser = (user: UserWithRole) => {
-    setUsers(users.filter(u => u.id !== user.id));
-    toast({
-      title: "User deleted",
-      description: `User ${user.username} has been deleted.`,
-    });
+    deleteUserMutation.mutate(user.id);
     setDeletingUser(null);
-    console.log("User deleted:", user.id);
-    // TODO: Implement API call to delete user
   };
 
   const handleEditClick = (user: UserWithRole) => {
     setEditingUser(user);
     setIsEditDialogOpen(true);
   };
+
+  if (usersLoading || rolesLoading) {
+    return (
+      <div className="max-w-6xl">
+        <div className="mb-6">
+          <h1 className="text-2xl font-semibold mb-1">{t('users.title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('users.description')}</p>
+        </div>
+        <Card className="p-6">
+          <p className="text-center text-muted-foreground">{t('common.loading')}</p>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl">
@@ -216,27 +207,27 @@ export default function UsersPage() {
                     {user.id}
                   </TableCell>
                   <TableCell className="text-right">
-                  <div className="flex justify-end gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleEditClick(user)}
-                      data-testid={`button-edit-user-${user.id}`}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setDeletingUser(user)}
-                      data-testid={`button-delete-user-${user.id}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            );
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleEditClick(user)}
+                        data-testid={`button-edit-user-${user.id}`}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setDeletingUser(user)}
+                        data-testid={`button-delete-user-${user.id}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
             })}
           </TableBody>
         </Table>

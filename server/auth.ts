@@ -37,6 +37,29 @@ export function setupAuth(storage: IStorage) {
   passport.deserializeUser(async (id: string, done) => {
     try {
       const user = await storage.getUser(id);
+      if (!user) {
+        return done(null, false);
+      }
+      
+      // Enrich user with role details including permissions
+      const roleId = (user as any).roleId;
+      if (roleId) {
+        const role = await storage.getRole(roleId);
+        if (role) {
+          (user as any).roleDetails = role;
+        }
+      } else {
+        // Fallback for legacy users without roleId: find role by name
+        const allRoles = await storage.getAllRoles();
+        const legacyRoleName = user.role === "admin" ? "Administrator" : "Employee";
+        const fallbackRole = allRoles.find(r => r.name === legacyRoleName);
+        if (fallbackRole) {
+          (user as any).roleDetails = fallbackRole;
+          // Update user with roleId for future requests
+          await storage.updateUser(user.id, { roleId: fallbackRole.id });
+        }
+      }
+      
       done(null, user);
     } catch (error) {
       done(error);
@@ -54,7 +77,37 @@ export function requireAuth(req: any, res: any, next: any) {
   res.status(401).json({ error: "Not authenticated" });
 }
 
-// Middleware to check if user is admin
+// Middleware to check if user has a specific permission
+export function requirePermission(permission: string) {
+  return (req: any, res: any, next: any) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Unauthorized: Please login" });
+    }
+    
+    const user = req.user as any;
+    const roleDetails = user.roleDetails;
+    
+    if (!roleDetails) {
+      return res.status(403).json({ error: "Forbidden: No role assigned" });
+    }
+    
+    if (roleDetails.permissions && roleDetails.permissions[permission]) {
+      return next();
+    }
+    
+    res.status(403).json({ error: `Forbidden: ${permission} permission required` });
+  };
+}
+
+// Convenience middleware for common permission checks
+export const requireManageUsers = requirePermission("manageUsers");
+export const requireManageRoles = requirePermission("manageRoles");
+export const requireManageSettings = requirePermission("manageSettings");
+export const requireManageCrossSellingGroups = requirePermission("manageCrossSellingGroups");
+export const requireManageCrossSellingRules = requirePermission("manageCrossSellingRules");
+
+// Legacy middleware - kept for backwards compatibility
+// Prefer using permission-based checks (requireManageUsers, requireManageRoles, etc.)
 export function requireAdmin(req: any, res: any, next: any) {
   if (req.isAuthenticated() && req.user.role === "admin") {
     return next();

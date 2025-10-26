@@ -1,12 +1,13 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
+import bcrypt from "bcryptjs";
 import passport from "passport";
 import { storage } from "./storage";
 import { ShopwareClient } from "./shopware";
 import { RuleEngine } from "./ruleEngine";
-import { shopwareSettingsSchema, insertCrossSellingRuleSchema, type Product } from "@shared/schema";
-import { requireAuth, requireAdmin } from "./auth";
+import { shopwareSettingsSchema, insertCrossSellingRuleSchema, type Product, insertUserSchema, type Role } from "@shared/schema";
+import { requireAuth, requireManageUsers, requireManageRoles, requireManageSettings, requireManageCrossSellingGroups, requireManageCrossSellingRules } from "./auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
@@ -61,6 +62,226 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ user: userWithoutPassword });
     } else {
       res.status(401).json({ error: "Not authenticated" });
+    }
+  });
+
+  // User management routes (Requires manageUsers permission)
+  app.get("/api/users", requireManageUsers, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      const roles = await storage.getAllRoles();
+      
+      const usersWithRoles = users.map(user => {
+        const { password, ...userWithoutPassword } = user;
+        const role = roles.find(r => r.id === (user as any).roleId);
+        return {
+          ...userWithoutPassword,
+          roleId: (user as any).roleId || null,
+          roleName: role?.name || null,
+        };
+      });
+      
+      res.json(usersWithRoles);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  app.post("/api/users", requireManageUsers, async (req, res) => {
+    try {
+      const validated = insertUserSchema.extend({
+        roleId: z.string().min(1, "Role is required"),
+        salesChannelIds: z.array(z.string()).optional(),
+      }).parse(req.body);
+      
+      const hashedPassword = await bcrypt.hash(validated.password, 10);
+      
+      const user = await storage.createUser({
+        username: validated.username,
+        password: hashedPassword,
+      });
+      
+      const role = await storage.getRole(validated.roleId);
+      if (!role) {
+        await storage.deleteUser(user.id);
+        return res.status(400).json({ error: "Invalid role ID" });
+      }
+      
+      await storage.updateUser(user.id, {
+        role: role.name.toLowerCase() === "administrator" ? "admin" : "employee",
+        roleId: validated.roleId,
+        salesChannelIds: validated.salesChannelIds || null,
+      });
+      
+      const updatedUser = await storage.getUser(user.id);
+      const { password, ...userWithoutPassword } = updatedUser!;
+      
+      res.json({
+        ...userWithoutPassword,
+        roleId: validated.roleId,
+        roleName: role.name,
+      });
+    } catch (error: any) {
+      console.error("Error creating user:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: "Invalid user data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create user" });
+    }
+  });
+
+  app.patch("/api/users/:id", requireManageUsers, async (req, res) => {
+    try {
+      const updateSchema = z.object({
+        username: z.string().min(3).optional(),
+        password: z.string().min(6).optional(),
+        roleId: z.string().optional(),
+        salesChannelIds: z.array(z.string()).optional(),
+      });
+      
+      const validated = updateSchema.parse(req.body);
+      const updates: any = { ...validated };
+      
+      if (validated.password) {
+        updates.password = await bcrypt.hash(validated.password, 10);
+      }
+      
+      if (validated.roleId) {
+        const role = await storage.getRole(validated.roleId);
+        if (!role) {
+          return res.status(400).json({ error: "Invalid role ID" });
+        }
+        updates.role = role.name.toLowerCase() === "administrator" ? "admin" : "employee";
+      }
+      
+      const user = await storage.updateUser(req.params.id, updates);
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      const { password, ...userWithoutPassword } = user;
+      const role = validated.roleId ? await storage.getRole(validated.roleId) : null;
+      
+      res.json({
+        ...userWithoutPassword,
+        roleId: validated.roleId || (user as any).roleId,
+        roleName: role?.name || null,
+      });
+    } catch (error: any) {
+      console.error("Error updating user:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: "Invalid user data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update user" });
+    }
+  });
+
+  app.delete("/api/users/:id", requireManageUsers, async (req, res) => {
+    try {
+      const deleted = await storage.deleteUser(req.params.id);
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      res.json({ message: "User deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ error: "Failed to delete user" });
+    }
+  });
+
+  // Role management routes (Requires manageRoles permission)
+  app.get("/api/roles", requireManageRoles, async (req, res) => {
+    try {
+      const roles = await storage.getAllRoles();
+      res.json(roles);
+    } catch (error) {
+      console.error("Error fetching roles:", error);
+      res.status(500).json({ error: "Failed to fetch roles" });
+    }
+  });
+
+  app.post("/api/roles", requireManageRoles, async (req, res) => {
+    try {
+      const roleSchema = z.object({
+        name: z.string().min(2),
+        salesChannelIds: z.array(z.string()).optional(),
+        permissions: z.object({
+          viewOrders: z.boolean(),
+          editOrders: z.boolean(),
+          exportData: z.boolean(),
+          viewAnalytics: z.boolean(),
+          manageUsers: z.boolean(),
+          manageRoles: z.boolean(),
+          manageSettings: z.boolean(),
+          manageCrossSellingGroups: z.boolean(),
+          manageCrossSellingRules: z.boolean(),
+        }),
+      });
+      
+      const validated = roleSchema.parse(req.body);
+      const role = await storage.createRole(validated);
+      
+      res.json(role);
+    } catch (error: any) {
+      console.error("Error creating role:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: "Invalid role data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create role" });
+    }
+  });
+
+  app.patch("/api/roles/:id", requireManageRoles, async (req, res) => {
+    try {
+      const roleSchema = z.object({
+        name: z.string().min(2).optional(),
+        salesChannelIds: z.array(z.string()).optional(),
+        permissions: z.object({
+          viewOrders: z.boolean(),
+          editOrders: z.boolean(),
+          exportData: z.boolean(),
+          viewAnalytics: z.boolean(),
+          manageUsers: z.boolean(),
+          manageRoles: z.boolean(),
+          manageSettings: z.boolean(),
+          manageCrossSellingGroups: z.boolean(),
+          manageCrossSellingRules: z.boolean(),
+        }).optional(),
+      });
+      
+      const validated = roleSchema.parse(req.body);
+      const role = await storage.updateRole(req.params.id, validated);
+      
+      if (!role) {
+        return res.status(404).json({ error: "Role not found" });
+      }
+      
+      res.json(role);
+    } catch (error: any) {
+      console.error("Error updating role:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: "Invalid role data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update role" });
+    }
+  });
+
+  app.delete("/api/roles/:id", requireManageRoles, async (req, res) => {
+    try {
+      const deleted = await storage.deleteRole(req.params.id);
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "Role not found" });
+      }
+      
+      res.json({ message: "Role deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting role:", error);
+      res.status(500).json({ error: "Failed to delete role" });
     }
   });
   

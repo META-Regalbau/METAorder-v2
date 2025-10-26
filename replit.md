@@ -63,3 +63,24 @@ The UI adheres to **Material Design principles** with **Roboto typography** and 
 -   **nanoid**: Unique ID generation.
 -   **zod**: Runtime type validation and schema definition.
 -   **i18next + react-i18next**: Internationalization.
+## Latest Changes - October 26, 2025 (Continued)
+
+### User & Role Management Integration
+- **Complete Backend Integration**: Extended IStorage with User and Role CRUD operations, implemented in MemStorage with in-memory Maps
+- **Comprehensive API Routes**: Created full REST APIs for Users and Roles (GET, POST, PATCH, DELETE)
+- **Permission-Based Authorization**: Revolutionary upgrade from role-based to permission-based auth
+  - Created `requirePermission(permission)` factory function for fine-grained access control
+  - Convenience middleware: requireManageUsers, requireManageRoles, requireManageSettings, etc.
+  - deserializeUser enriches session with roleDetails (full role + permissions)
+  - Fallback mechanism for legacy users without roleId (auto-upgrades on first request)
+  - Custom roles with specific permissions can now access corresponding APIs
+
+- **Frontend Integration**: UsersPage and RolesPage now use real API data via TanStack Query
+  - Full CRUD functionality with mutations
+  - Loading states and error handling
+  - Optimistic updates and cache invalidation
+  - No more mock data!
+
+- **Seed Data Enhancement**: Creates 3 default roles first, then users properly linked via roleId
+- **Security**: Password hashing, session fixation protection, permission-based access control
+
