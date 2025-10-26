@@ -438,6 +438,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // DEBUG: Test endpoint to fetch a specific product by product number
+  app.get("/api/debug/product/:productNumber", async (req, res) => {
+    try {
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const client = new ShopwareClient(settings);
+      const { productNumber } = req.params;
+      
+      console.log(`[DEBUG] Fetching product with productNumber: ${productNumber}`);
+      
+      // Search for the specific product
+      const result = await client.fetchProducts(10, 1, productNumber);
+      
+      console.log(`[DEBUG] Found ${result.products.length} products, total: ${result.total}`);
+      if (result.products.length > 0) {
+        console.log(`[DEBUG] Product:`, JSON.stringify(result.products[0], null, 2));
+      }
+      
+      res.json({
+        found: result.products.length > 0,
+        total: result.total,
+        product: result.products[0] || null,
+      });
+    } catch (error: any) {
+      console.error("[DEBUG] Error fetching product:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Cross-Selling Suggestions endpoint (rule-based)
   app.get("/api/products/:productId/cross-selling-suggestions", async (req, res) => {
     try {
