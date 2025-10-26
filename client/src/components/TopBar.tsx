@@ -1,17 +1,54 @@
-import { User } from "lucide-react";
+import { User, LogOut } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import ThemeToggle from "./ThemeToggle";
 import LanguageSwitcher from "./LanguageSwitcher";
 import { useTranslation } from "react-i18next";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface TopBarProps {
   userRole: "employee" | "admin";
   username: string;
+  onLogout: () => void;
 }
 
-export default function TopBar({ userRole, username }: TopBarProps) {
+export default function TopBar({ userRole, username, onLogout }: TopBarProps) {
   const { t } = useTranslation();
+  const { toast } = useToast();
+  
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/auth/logout", {});
+      
+      if (!response.ok) {
+        throw new Error("Logout failed");
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.clear();
+      onLogout();
+      toast({
+        title: t("auth.logout"),
+        description: t("auth.logoutSuccess"),
+      });
+    },
+    onError: () => {
+      toast({
+        title: t("errors.failed"),
+        description: t("auth.logoutFailed"),
+        variant: "destructive",
+      });
+    },
+  });
+  
+  const handleLogout = () => {
+    logoutMutation.mutate();
+  };
   
   return (
     <header className="h-16 border-b bg-card flex items-center justify-between px-6 gap-4 sticky top-0 z-50">
@@ -30,6 +67,15 @@ export default function TopBar({ userRole, username }: TopBarProps) {
           <User className="h-4 w-4" />
           <span className="text-sm font-medium" data-testid="text-username">{username}</span>
         </div>
+        <Button 
+          variant="ghost" 
+          size="icon"
+          onClick={handleLogout}
+          disabled={logoutMutation.isPending}
+          data-testid="button-logout"
+        >
+          <LogOut className="h-4 w-4" />
+        </Button>
       </div>
     </header>
   );

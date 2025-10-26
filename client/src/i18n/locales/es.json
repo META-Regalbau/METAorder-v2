@@ -44,6 +44,8 @@
     "loginDescription": "Inicie sesión con su usuario y contraseña",
     "loginSuccess": "Inicio de sesión exitoso",
     "loginFailed": "Inicio de sesión fallido",
+    "logoutSuccess": "Cierre de sesión exitoso",
+    "logoutFailed": "Cierre de sesión fallido",
     "welcomeBack": "¡Bienvenido de nuevo!",
     "loggingIn": "Iniciando sesión...",
     "demoCredentials": "Credenciales de demostración:"

@@ -44,6 +44,8 @@
     "loginDescription": "Melden Sie sich mit Ihrem Benutzernamen und Passwort an",
     "loginSuccess": "Erfolgreich angemeldet",
     "loginFailed": "Anmeldung fehlgeschlagen",
+    "logoutSuccess": "Erfolgreich abgemeldet",
+    "logoutFailed": "Abmeldung fehlgeschlagen",
     "welcomeBack": "Willkommen zurück!",
     "loggingIn": "Wird angemeldet...",
     "demoCredentials": "Demo-Anmeldedaten:"

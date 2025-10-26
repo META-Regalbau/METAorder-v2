@@ -35,6 +35,8 @@ const mockRoles: Role[] = [
       manageUsers: true,
       manageRoles: true,
       manageSettings: true,
+      manageCrossSellingGroups: true,
+      manageCrossSellingRules: true,
     },
   },
   {
@@ -49,12 +51,14 @@ const mockRoles: Role[] = [
       manageUsers: false,
       manageRoles: false,
       manageSettings: false,
+      manageCrossSellingGroups: false,
+      manageCrossSellingRules: false,
     },
   },
   {
     id: "3",
     name: "Warehouse Manager",
-    salesChannelIds: ["0190b599291076e3beecdfca3d1b1b30", "0193595640017e1ab0b5ae3313b4181c"],
+    salesChannelIds: ["0190b599291076e3beecdfca3d1b1b1b30", "0193595640017e1ab0b5ae3313b4181c"],
     permissions: {
       viewOrders: true,
       editOrders: true,
@@ -63,6 +67,8 @@ const mockRoles: Role[] = [
       manageUsers: false,
       manageRoles: false,
       manageSettings: false,
+      manageCrossSellingGroups: true,
+      manageCrossSellingRules: true,
     },
   },
 ];

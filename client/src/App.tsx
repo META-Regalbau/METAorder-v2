@@ -1,6 +1,6 @@
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -14,8 +14,11 @@ import AnalyticsPage from "@/pages/AnalyticsPage";
 import UsersPage from "@/pages/UsersPage";
 import RolesPage from "@/pages/RolesPage";
 import SettingsPage from "@/pages/SettingsPage";
+import LoginPage from "@/pages/LoginPage";
 import NotFound from "@/pages/not-found";
+import type { User } from "@shared/schema";
 import "./i18n/config";
+import { useState } from "react";
 
 function Router({ 
   userRole, 
@@ -39,29 +42,35 @@ function Router({
   );
 }
 
-function App() {
-  // TODO: Replace with actual user role and sales channels from authentication
+function AuthenticatedApp() {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   
-  // Simulate different user types for testing:
-  // ADMIN: Can see all sales channels
-  const userRole: "employee" | "admin" = "admin";
-  const username = "Admin User";
-  const userSalesChannelIds: string[] | null = null; // null = all channels for admin
-  
-  // AUSTRIA EMPLOYEE: Can only see Austria sales channel
-  // const userRole: "employee" | "admin" = "employee";
-  // const username = "Austria User";
-  // const userSalesChannelIds: string[] = ["0190b599291076e3beecdfca3d1b1b30"];
-  
-  // POLAND EMPLOYEE: Can only see Poland sales channel
-  // const userRole: "employee" | "admin" = "employee";
-  // const username = "Poland User";
-  // const userSalesChannelIds: string[] = ["0193595640017e1ab0b5ae3313b4181c"];
-  
-  // GERMANY EMPLOYEE: Can only see Germany sales channel
-  // const userRole: "employee" | "admin" = "employee";
-  // const username = "Germany User";
-  // const userSalesChannelIds: string[] = ["018ec134507f703b82a76467791e7e61"];
+  // Check if user is authenticated
+  const { data, isLoading, refetch } = useQuery<{ user: User }>({
+    queryKey: ["/api/auth/me"],
+    retry: false,
+  });
+
+  // Handle login success
+  const handleLoginSuccess = (user: User) => {
+    setCurrentUser(user);
+    refetch();
+  };
+
+  // Show login page if not authenticated
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
+  }
+
+  const user = currentUser || data?.user;
+
+  if (!user) {
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
 
   const style = {
     "--sidebar-width": "16rem",
@@ -69,21 +78,34 @@ function App() {
   };
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <SidebarProvider style={style as React.CSSProperties}>
-          <div className="flex h-screen w-full">
-            <AppSidebar userRole={userRole} />
-            <div className="flex flex-col flex-1 overflow-hidden">
-              <TopBar userRole={userRole} username={username} />
-              <main className="flex-1 overflow-auto p-6 bg-background">
-                <Router userRole={userRole} userSalesChannelIds={userSalesChannelIds} />
-              </main>
-            </div>
+    <TooltipProvider>
+      <SidebarProvider style={style as React.CSSProperties}>
+        <div className="flex h-screen w-full">
+          <AppSidebar userRole={user.role as "employee" | "admin"} />
+          <div className="flex flex-col flex-1 overflow-hidden">
+            <TopBar 
+              userRole={user.role as "employee" | "admin"} 
+              username={user.username}
+              onLogout={() => setCurrentUser(null)}
+            />
+            <main className="flex-1 overflow-auto p-6 bg-background">
+              <Router 
+                userRole={user.role as "employee" | "admin"} 
+                userSalesChannelIds={user.salesChannelIds} 
+              />
+            </main>
           </div>
-        </SidebarProvider>
-        <Toaster />
-      </TooltipProvider>
+        </div>
+      </SidebarProvider>
+      <Toaster />
+    </TooltipProvider>
+  );
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthenticatedApp />
     </QueryClientProvider>
   );
 }

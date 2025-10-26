@@ -44,6 +44,8 @@
     "loginDescription": "Sign in with your username and password",
     "loginSuccess": "Login successful",
     "loginFailed": "Login failed",
+    "logoutSuccess": "Logout successful",
+    "logoutFailed": "Logout failed",
     "welcomeBack": "Welcome back!",
     "loggingIn": "Logging in...",
     "demoCredentials": "Demo credentials:"
