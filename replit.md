@@ -151,3 +151,36 @@ The UI adheres to **Material Design principles** with **Roboto typography** and 
   - Proper placeholder text using i18n translations
 - **Dependencies**: Uses date-fns for date formatting and react-day-picker for calendar component
 
+### Role-Based Order Export System - October 26, 2025
+- **Feature**: Complete order export functionality with role-based sales channel filtering
+- **Implementation**:
+  - **Backend Export Endpoint** (POST /api/orders/export):
+    - Supports CSV, Excel (XLSX), and JSON formats using xlsx library
+    - Input validation with Zod schema (format, columns, optional salesChannelIds, date range)
+    - Role-based filtering: Non-admin users automatically restricted to their assigned sales channels
+    - Admin users can optionally filter by specific sales channels or export all
+    - Date range filtering (optional dateFrom/dateTo parameters)
+    - Customizable column selection with proper data formatting (localized dates, currency)
+    - UTF-8 BOM for CSV files to ensure proper Excel compatibility
+    - Proper Content-Type and Content-Disposition headers for file downloads
+  - **Frontend Export Page**:
+    - Date range selector for filtering orders
+    - Format selector (CSV, Excel, JSON)
+    - Multi-column selection with checkboxes
+    - Admin-only sales channel filter (multi-select with badges)
+    - Fetches user role via /api/auth/me to determine admin status
+    - Conditionally loads sales channels only for admin users
+    - Blob-based file download with automatic filename extraction
+    - Success/error toast notifications
+    - Reset button to clear all filters
+- **Security**: 
+  - requireAuth middleware protects export endpoint
+  - Non-admin users cannot bypass sales channel restrictions
+  - Zod validation prevents invalid format or empty column selections
+- **User Experience**:
+  - Admin users see "Sales Channels (Optional)" section with multi-select
+  - Employee users automatically export only their assigned channels (no UI for selection)
+  - Clear feedback: "Selected: X channels" or "No channels selected - all channels will be exported"
+  - Selected channels displayed as badges for visual confirmation
+- **Dependencies**: Added xlsx library for Excel file generation
+
