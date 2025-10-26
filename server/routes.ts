@@ -390,12 +390,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Export orders endpoint
   app.post("/api/orders/export", requireAuth, async (req, res) => {
     try {
+      // Validate request body
+      const exportSchema = z.object({
+        dateFrom: z.string().optional(),
+        dateTo: z.string().optional(),
+        format: z.enum(['csv', 'xlsx', 'json']),
+        columns: z.array(z.string()).min(1, "At least one column must be selected"),
+      });
+
+      const validated = exportSchema.parse(req.body);
+      const { dateFrom, dateTo, format, columns } = validated;
+
       const settings = await storage.getShopwareSettings();
       if (!settings) {
         return res.status(400).json({ error: "Shopware settings not configured" });
       }
-
-      const { dateFrom, dateTo, format, columns } = req.body;
 
       const client = new ShopwareClient(settings);
       const allOrders = await client.fetchOrders();
@@ -483,6 +492,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error: any) {
       console.error("Error exporting orders:", error);
+      
+      // Handle Zod validation errors
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: error.errors[0]?.message || "Invalid request" });
+      }
+      
       res.status(500).json({ error: error.message || "Failed to export orders" });
     }
   });
