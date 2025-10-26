@@ -298,39 +298,25 @@ export class ShopwareClient {
             // Extract tax rate first
             const taxRate = item.price?.taxRules?.[0]?.taxRate || 19;
             
-            // Debug: Log first line item price structure to understand Shopware's format
-            if (idx === 0 && orders.length === 0) {
-              console.log('[DEBUG] Line Item Full Structure:', JSON.stringify({
-                unitPrice: item.unitPrice,
-                totalPrice: item.totalPrice,
-                quantity: item.quantity,
-                price: item.price,
-              }, null, 2));
-            }
-            
             // Extract net prices from Shopware's price structure
-            // Shopware stores prices as an array with currencyId-specific prices containing both gross and net
-            let netPrice = grossPrice / (1 + taxRate / 100); // Fallback calculation
-            let netTotal = grossTotal / (1 + taxRate / 100); // Fallback calculation
+            // Shopware line items contain GROSS prices in unitPrice/totalPrice
+            // The net price must be calculated by subtracting the tax from calculatedTaxes
+            let netPrice = grossPrice;
+            let netTotal = grossTotal;
             
             if (item.price && typeof item.price === 'object') {
-              // Check if price has a calculatedPrice object (common in Shopware)
-              if (item.price.calculatedPrice) {
-                netPrice = item.price.calculatedPrice.netPrice || netPrice;
-                netTotal = item.price.calculatedPrice.totalPrice || (netPrice * quantity);
-              }
-              // Or if price is directly an array with net/gross
-              else if (Array.isArray(item.price)) {
-                const priceObj = item.price[0];
-                if (priceObj?.net != null) {
-                  netPrice = priceObj.net;
-                  netTotal = priceObj.net * quantity;
-                }
-              }
-              // Or if price has direct net/gross properties
-              else if (item.price.net != null) {
-                netPrice = item.price.net;
-                netTotal = item.price.net * quantity;
+              if (item.price.calculatedTaxes && Array.isArray(item.price.calculatedTaxes) && item.price.calculatedTaxes.length > 0) {
+                // Shopware provides the exact tax amount in calculatedTaxes
+                // Sum all tax entries (can be multiple for mixed rates, cross-border, etc.)
+                const totalTax = item.price.calculatedTaxes.reduce((sum: number, taxEntry: any) => sum + (taxEntry.tax || 0), 0);
+                const unitTax = quantity > 0 ? totalTax / quantity : 0;
+                
+                netPrice = grossPrice - unitTax;
+                netTotal = grossTotal - totalTax;
+              } else {
+                // Fallback: calculate from tax rate
+                netPrice = grossPrice / (1 + taxRate / 100);
+                netTotal = grossTotal / (1 + taxRate / 100);
               }
             }
             
@@ -354,23 +340,22 @@ export class ShopwareClient {
             const taxRate = lineItem?.attributes?.price?.taxRules?.[0]?.taxRate || 19;
             
             // Extract net prices from Shopware's price structure
-            let netPrice = grossPrice / (1 + taxRate / 100);
-            let netTotal = grossTotal / (1 + taxRate / 100);
+            let netPrice = grossPrice;
+            let netTotal = grossTotal;
             
             const priceObj = lineItem?.attributes?.price;
             if (priceObj && typeof priceObj === 'object') {
-              if (priceObj.calculatedPrice) {
-                netPrice = priceObj.calculatedPrice.netPrice || netPrice;
-                netTotal = priceObj.calculatedPrice.totalPrice || (netPrice * quantity);
-              } else if (Array.isArray(priceObj)) {
-                const p = priceObj[0];
-                if (p?.net != null) {
-                  netPrice = p.net;
-                  netTotal = p.net * quantity;
-                }
-              } else if (priceObj.net != null) {
-                netPrice = priceObj.net;
-                netTotal = priceObj.net * quantity;
+              if (priceObj.calculatedTaxes && Array.isArray(priceObj.calculatedTaxes) && priceObj.calculatedTaxes.length > 0) {
+                // Sum all tax entries (can be multiple for mixed rates, cross-border, etc.)
+                const totalTax = priceObj.calculatedTaxes.reduce((sum: number, taxEntry: any) => sum + (taxEntry.tax || 0), 0);
+                const unitTax = quantity > 0 ? totalTax / quantity : 0;
+                
+                netPrice = grossPrice - unitTax;
+                netTotal = grossTotal - totalTax;
+              } else {
+                // Fallback: calculate from tax rate
+                netPrice = grossPrice / (1 + taxRate / 100);
+                netTotal = grossTotal / (1 + taxRate / 100);
               }
             }
             
