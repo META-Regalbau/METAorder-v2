@@ -71,7 +71,7 @@ export class RuleEngine {
     
     // For each criterion, generate a search query and fetch products from Shopware
     for (const criterion of criteria) {
-      const searchTerm = this.generateSearchTerm(criterion);
+      const searchTerm = this.generateSearchTerm(criterion, sourceProduct);
       
       if (searchTerm) {
         console.log(`[RuleEngine] Searching Shopware with term: "${searchTerm}" for field: ${criterion.field}`);
@@ -109,7 +109,7 @@ export class RuleEngine {
   /**
    * Generate a Shopware search term from a target criterion
    */
-  private generateSearchTerm(criterion: RuleTargetCriteria): string | null {
+  private generateSearchTerm(criterion: RuleTargetCriteria, sourceProduct: Product): string | null {
     switch (criterion.matchType) {
       case "exact":
         // For exact matches, use the value directly as search term
@@ -120,10 +120,19 @@ export class RuleEngine {
         // For contains matches, use the value as search term
         return String(criterion.value);
       
-      case "sameDimensions":
       case "sameProperty":
-        // These require the source product context and can't be pre-searched
-        // Return null to skip Shopware search for these criteria
+        // Get the value from the source product and use it as search term
+        const sourceValue = this.getFieldValue(sourceProduct, criterion.field);
+        if (sourceValue !== undefined && sourceValue !== null) {
+          console.log(`[RuleEngine] Using source product's ${criterion.field} value (${sourceValue}) for search`);
+          return String(sourceValue);
+        }
+        console.log(`[RuleEngine] Source product has no value for field: ${criterion.field}`);
+        return null;
+      
+      case "sameDimensions":
+        // For dimension matching, we can't use a simple search term
+        // We need to fetch products and filter them manually
         console.log(`[RuleEngine] Skipping Shopware search for criterion type: ${criterion.matchType}`);
         return null;
       
