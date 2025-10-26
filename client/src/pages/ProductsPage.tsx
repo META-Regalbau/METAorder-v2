@@ -149,11 +149,11 @@ export default function ProductsPage() {
                   {/* Price */}
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-lg font-bold" data-testid={`text-price-gross-${product.id}`}>
-                        €{product.price.toFixed(2)}
+                      <p className="text-lg font-bold" data-testid={`text-price-net-${product.id}`}>
+                        €{product.netPrice.toFixed(2)} <span className="text-sm font-normal text-muted-foreground">{t('orderDetail.net')}</span>
                       </p>
-                      <p className="text-sm text-muted-foreground" data-testid={`text-price-net-${product.id}`}>
-                        €{product.netPrice.toFixed(2)} <span className="text-xs">{t('orderDetail.net')}</span>
+                      <p className="text-sm text-muted-foreground" data-testid={`text-price-gross-${product.id}`}>
+                        €{product.price.toFixed(2)} <span className="text-xs text-muted-foreground">{t('orderDetail.gross')}</span>
                       </p>
                       {product.priceRules && product.priceRules.length > 0 && (
                         <p className="text-xs text-muted-foreground">

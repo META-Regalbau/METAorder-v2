@@ -103,11 +103,11 @@ export default function ProductDetailModal({
                   {t("products.price")}
                 </p>
                 <div className="space-y-1">
-                  <p className="font-bold text-lg" data-testid="text-price-gross">
-                    €{product.price.toFixed(2)} <span className="text-xs font-normal text-muted-foreground">{t('orderDetail.gross')}</span>
+                  <p className="font-bold text-lg" data-testid="text-price-net">
+                    €{product.netPrice.toFixed(2)} <span className="text-xs font-normal text-muted-foreground">{t('orderDetail.net')}</span>
                   </p>
-                  <p className="text-sm text-muted-foreground" data-testid="text-price-net">
-                    €{product.netPrice.toFixed(2)} <span className="text-xs">{t('orderDetail.net')}</span>
+                  <p className="text-sm text-muted-foreground" data-testid="text-price-gross">
+                    €{product.price.toFixed(2)} <span className="text-xs">{t('orderDetail.gross')}</span>
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {t('orderDetail.taxRate')}: {product.taxRate}%
