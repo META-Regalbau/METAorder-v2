@@ -1,10 +1,5 @@
 import type { Order, OrderStatus, PaymentStatus, OrderItem, ShopwareSettings, SalesChannel, Product, ProductPriceRule, CrossSellingGroup, CrossSellingProduct } from "@shared/schema";
 
-// Helper function to calculate net price from gross price and tax rate
-function calculateNetPrice(grossPrice: number, taxRate: number): number {
-  return grossPrice / (1 + taxRate / 100);
-}
-
 export class ShopwareClient {
   private baseUrl: string;
   private apiKey: string;
@@ -299,10 +294,11 @@ export class ShopwareClient {
           items = shopwareOrder.lineItems.map((item: any) => {
             const grossPrice = item.unitPrice || 0;
             const grossTotal = item.totalPrice || 0;
-            // Extract tax rate from price structure if available
-            const taxRate = item.price?.taxRules?.[0]?.taxRate || 19; // Default to 19% if not available
-            const netPrice = calculateNetPrice(grossPrice, taxRate);
-            const netTotal = calculateNetPrice(grossTotal, taxRate);
+            // Extract tax rate first
+            const taxRate = item.price?.taxRules?.[0]?.taxRate || 19;
+            // Extract net prices directly from Shopware - they have both gross and net
+            const netPrice = item.price?.unitPrice || grossPrice / (1 + taxRate / 100);
+            const netTotal = item.price?.totalPrice || grossTotal / (1 + taxRate / 100);
             
             return {
               id: item.id,
@@ -320,9 +316,11 @@ export class ShopwareClient {
             const lineItem = includedMap.get(`order_line_item-${lineItemRef.id}`);
             const grossPrice = lineItem?.attributes?.unitPrice || 0;
             const grossTotal = lineItem?.attributes?.totalPrice || 0;
+            // Extract tax rate first
             const taxRate = lineItem?.attributes?.price?.taxRules?.[0]?.taxRate || 19;
-            const netPrice = calculateNetPrice(grossPrice, taxRate);
-            const netTotal = calculateNetPrice(grossTotal, taxRate);
+            // Extract net prices directly from Shopware
+            const netPrice = lineItem?.attributes?.price?.unitPrice || grossPrice / (1 + taxRate / 100);
+            const netTotal = lineItem?.attributes?.price?.totalPrice || grossTotal / (1 + taxRate / 100);
             
             return {
               id: lineItemRef.id,
@@ -779,18 +777,21 @@ export class ShopwareClient {
           taxRate = tax?.attributes?.taxRate || 19;
         }
 
-        // Get price - Shopware stores prices in a complex structure
-        let price = 0;
+        // Get price - Shopware stores prices in a complex structure with both gross and net
+        let price = 0; // Gross price
+        let netPrice = 0;
         if (sp.price && Array.isArray(sp.price)) {
           // Price is an array with currency-specific prices
           const eurPrice = sp.price.find((p: any) => p.currencyId || true); // Take first price
           if (eurPrice?.gross) {
             price = eurPrice.gross;
+            netPrice = eurPrice.net || price / (1 + taxRate / 100);
           }
         } else if (sp.attributes?.price && Array.isArray(sp.attributes.price)) {
           const eurPrice = sp.attributes.price.find((p: any) => p.currencyId || true);
           if (eurPrice?.gross) {
             price = eurPrice.gross;
+            netPrice = eurPrice.net || price / (1 + taxRate / 100);
           }
         }
 
@@ -799,11 +800,13 @@ export class ShopwareClient {
         if (sp.prices && Array.isArray(sp.prices)) {
           sp.prices.forEach((priceRule: any) => {
             const quantityStart = priceRule.quantityStart || 1;
-            const rulePrice = priceRule.price?.[0]?.gross || 0;
+            const priceObj = priceRule.price?.[0];
+            const rulePrice = priceObj?.gross || 0;
+            const ruleNetPrice = priceObj?.net || rulePrice / (1 + taxRate / 100);
             priceRules.push({
               quantity: quantityStart,
               price: rulePrice,
-              netPrice: calculateNetPrice(rulePrice, taxRate),
+              netPrice: ruleNetPrice,
             });
           });
         } else if (sp.relationships?.prices?.data) {
@@ -811,11 +814,13 @@ export class ShopwareClient {
             const priceRule = includedMap.get(`product_price-${priceRef.id}`);
             if (priceRule) {
               const quantityStart = priceRule.attributes?.quantityStart || 1;
-              const rulePrice = priceRule.attributes?.price?.[0]?.gross || 0;
+              const priceObj = priceRule.attributes?.price?.[0];
+              const rulePrice = priceObj?.gross || 0;
+              const ruleNetPrice = priceObj?.net || rulePrice / (1 + taxRate / 100);
               priceRules.push({
                 quantity: quantityStart,
                 price: rulePrice,
-                netPrice: calculateNetPrice(rulePrice, taxRate),
+                netPrice: ruleNetPrice,
               });
             }
           });
@@ -827,7 +832,7 @@ export class ShopwareClient {
           name: sp.name || sp.attributes?.name || 'Unknown Product',
           description: sp.description || sp.attributes?.description,
           price,
-          netPrice: calculateNetPrice(price, taxRate),
+          netPrice,
           currency: 'EUR',
           taxRate,
           stock: sp.stock || sp.attributes?.stock || 0,
@@ -1000,14 +1005,16 @@ export class ShopwareClient {
 
       // Step 4: Map to CrossSellingProduct format
       const result = products.map((p: any) => {
-        const grossPrice = p.price?.[0]?.gross || 0;
-        const taxRate = p.tax?.taxRate || 19; // Default to 19% if not available
+        const priceObj = p.price?.[0];
+        const grossPrice = priceObj?.gross || 0;
+        const taxRate = p.tax?.taxRate || 19;
+        const netPrice = priceObj?.net || grossPrice / (1 + taxRate / 100);
         return {
           id: p.id,
           productNumber: p.productNumber || '',
           name: p.name || 'Unknown Product',
           price: grossPrice,
-          netPrice: calculateNetPrice(grossPrice, taxRate),
+          netPrice: netPrice,
           taxRate: taxRate,
           imageUrl: p.cover?.media?.url || undefined,
           stock: p.stock || 0,
