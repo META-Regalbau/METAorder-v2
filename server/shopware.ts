@@ -802,8 +802,8 @@ export class ShopwareClient {
     try {
       console.log(`Fetching products for cross-selling group ${crossSellingId}...`);
       
-      // Use search endpoint with associations to load product details
-      const response = await this.makeAuthenticatedRequest(
+      // Step 1: Get assigned product IDs
+      const assignmentsResponse = await this.makeAuthenticatedRequest(
         `${this.baseUrl}/api/search/product-cross-selling-assigned-products`,
         {
           method: 'POST',
@@ -818,35 +818,73 @@ export class ShopwareClient {
                 value: crossSellingId,
               },
             ],
+          }),
+        }
+      );
+
+      if (!assignmentsResponse.ok) {
+        const errorText = await assignmentsResponse.text();
+        throw new Error(`Failed to fetch cross-selling assignments: ${assignmentsResponse.statusText} - ${errorText}`);
+      }
+
+      const assignmentsData = await assignmentsResponse.json();
+      const assignments = assignmentsData.data || [];
+      
+      if (assignments.length === 0) {
+        console.log(`No products assigned to cross-selling group ${crossSellingId}`);
+        return [];
+      }
+
+      // Step 2: Extract product IDs
+      const productIds = assignments.map((a: any) => a.productId);
+      console.log(`Found ${productIds.length} assigned product IDs:`, productIds);
+
+      // Step 3: Fetch full product details
+      const productsResponse = await this.makeAuthenticatedRequest(
+        `${this.baseUrl}/api/search/product`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            filter: [
+              {
+                type: 'equalsAny',
+                field: 'id',
+                value: productIds,
+              },
+            ],
             associations: {
-              product: {},  // Load product association
-            },
-            includes: {
-              product_cross_selling_assigned_products: ['id', 'productId', 'crossSellingId', 'position', 'product'],
-              product: ['id', 'productNumber', 'name', 'price', 'stock', 'available', 'cover'],
+              cover: {
+                associations: {
+                  media: {},
+                },
+              },
             },
           }),
         }
       );
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to fetch cross-selling products: ${response.statusText} - ${errorText}`);
+      if (!productsResponse.ok) {
+        const errorText = await productsResponse.text();
+        throw new Error(`Failed to fetch product details: ${productsResponse.statusText} - ${errorText}`);
       }
 
-      const data = await response.json();
-      console.log(`Cross-Selling Products Response for ${crossSellingId}:`, JSON.stringify(data, null, 2));
+      const productsData = await productsResponse.json();
+      const products = productsData.data || [];
       
-      const products = data.data || [];
+      console.log(`Fetched ${products.length} product details`);
 
+      // Step 4: Map to CrossSellingProduct format
       const result = products.map((p: any) => ({
-        id: p.productId || p.id,
-        productNumber: p.product?.productNumber || p.attributes?.product?.productNumber || '',
-        name: p.product?.name || p.attributes?.product?.name || 'Unknown Product',
-        price: p.product?.price?.[0]?.gross || 0,
-        imageUrl: p.product?.cover?.media?.url || undefined,
-        stock: p.product?.stock || 0,
-        available: p.product?.available || false,
+        id: p.id,
+        productNumber: p.productNumber || '',
+        name: p.name || 'Unknown Product',
+        price: p.price?.[0]?.gross || 0,
+        imageUrl: p.cover?.media?.url || undefined,
+        stock: p.stock || 0,
+        available: p.available || false,
       }));
       
       console.log(`Found ${result.length} products in cross-selling group ${crossSellingId}`);
