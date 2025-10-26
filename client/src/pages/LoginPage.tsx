@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 
 const MetaLogo = () => (
-  <svg className="h-16 w-auto mx-auto mb-6" viewBox="0 0 200 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg className="h-16 w-auto mx-auto mb-6" viewBox="0 0 200 60" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
     <text x="100" y="40" fontFamily="Arial, sans-serif" fontSize="36" fontWeight="700" fill="currentColor" textAnchor="middle">
       META
     </text>
