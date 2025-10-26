@@ -5,6 +5,7 @@ import type {
   RuleTargetCriteria,
   RuleConditionOperator,
 } from "@shared/schema";
+import type { ShopwareClient } from "./shopware";
 
 export class RuleEngine {
   /**
@@ -57,45 +58,79 @@ export class RuleEngine {
   }
 
   /**
-   * Find products that match the target criteria of a rule
+   * Find products that match the target criteria of a rule using Shopware search
    */
-  findMatchingProducts(sourceProduct: Product, criteria: RuleTargetCriteria[], allProducts: Product[]): Product[] {
-    console.log(`[RuleEngine] Searching ${allProducts.length} products for matches...`);
+  async findMatchingProducts(
+    sourceProduct: Product, 
+    criteria: RuleTargetCriteria[], 
+    shopwareClient: ShopwareClient
+  ): Promise<Product[]> {
+    console.log(`[RuleEngine] Finding products using Shopware search for ${criteria.length} criteria...`);
     
-    // Debug: Check if specific product exists
-    const testProduct = allProducts.find(p => p.productNumber === '4026212441406');
-    if (testProduct) {
-      console.log(`[RuleEngine] Test product 4026212441406 found: "${testProduct.name}"`);
-    } else {
-      console.log(`[RuleEngine] Test product 4026212441406 NOT found in loaded products`);
-    }
+    const allMatches = new Set<Product>();
     
-    // Debug: Show products with "Holmebene" in name
-    const holmebeneProducts = allProducts.filter(p => 
-      p.name && p.name.toLowerCase().includes('holmebene')
-    );
-    console.log(`[RuleEngine] Products with "Holmebene" in name: ${holmebeneProducts.length}`);
-    if (holmebeneProducts.length > 0) {
-      console.log(`[RuleEngine] Sample "Holmebene" products:`, holmebeneProducts.slice(0, 3).map(p => 
-        `${p.productNumber} - ${p.name}`
-      ));
-    }
-    
-    const matches = allProducts.filter((targetProduct) => {
-      // Don't match the source product itself
-      if (targetProduct.id === sourceProduct.id) {
-        return false;
+    // For each criterion, generate a search query and fetch products from Shopware
+    for (const criterion of criteria) {
+      const searchTerm = this.generateSearchTerm(criterion);
+      
+      if (searchTerm) {
+        console.log(`[RuleEngine] Searching Shopware with term: "${searchTerm}" for field: ${criterion.field}`);
+        
+        // Fetch products from Shopware with search term
+        // Use a larger limit (100) to get more potential matches in one request
+        const result = await shopwareClient.fetchProducts(100, 1, searchTerm);
+        console.log(`[RuleEngine] Shopware returned ${result.products.length} products for search term "${searchTerm}"`);
+        
+        // Filter the results to only include exact matches based on criterion
+        const matches = result.products.filter((targetProduct) => {
+          // Don't match the source product itself
+          if (targetProduct.id === sourceProduct.id) {
+            return false;
+          }
+          
+          // Evaluate if this product matches the criterion
+          return this.evaluateTargetCriterion(sourceProduct, targetProduct, criterion);
+        });
+        
+        console.log(`[RuleEngine] ${matches.length} of ${result.products.length} products matched criterion`);
+        
+        // Add matches to the set
+        matches.forEach(match => allMatches.add(match));
+      } else {
+        console.log(`[RuleEngine] No search term generated for criterion:`, criterion);
       }
-
-      // All criteria must be satisfied (AND logic)
-      return criteria.every((criterion) => 
-        this.evaluateTargetCriterion(sourceProduct, targetProduct, criterion)
-      );
-    });
+    }
     
-    console.log(`[RuleEngine] Found ${matches.length} matching products`);
+    console.log(`[RuleEngine] Total matching products found: ${allMatches.size}`);
     
-    return matches;
+    return Array.from(allMatches);
+  }
+  
+  /**
+   * Generate a Shopware search term from a target criterion
+   */
+  private generateSearchTerm(criterion: RuleTargetCriteria): string | null {
+    switch (criterion.matchType) {
+      case "exact":
+        // For exact matches, use the value directly as search term
+        // Shopware will find products that contain this value in searchable fields
+        return String(criterion.value);
+      
+      case "contains":
+        // For contains matches, use the value as search term
+        return String(criterion.value);
+      
+      case "sameDimensions":
+      case "sameProperty":
+        // These require the source product context and can't be pre-searched
+        // Return null to skip Shopware search for these criteria
+        console.log(`[RuleEngine] Skipping Shopware search for criterion type: ${criterion.matchType}`);
+        return null;
+      
+      default:
+        console.warn(`[RuleEngine] Unknown match type for search: ${criterion.matchType}`);
+        return null;
+    }
   }
 
   /**
@@ -314,7 +349,7 @@ export class RuleEngine {
   async suggestCrossSelling(
     product: Product,
     rules: CrossSellingRule[],
-    allProducts: Product[]
+    shopwareClient: ShopwareClient
   ): Promise<Product[]> {
     const suggestions = new Set<Product>();
     
@@ -332,8 +367,8 @@ export class RuleEngine {
         console.log(`[RuleEngine] Source conditions matched! Finding target products...`);
         console.log(`[RuleEngine] Target criteria:`, rule.targetCriteria);
         
-        // Find products that match the target criteria
-        const matches = this.findMatchingProducts(product, rule.targetCriteria, allProducts);
+        // Find products that match the target criteria using Shopware search
+        const matches = await this.findMatchingProducts(product, rule.targetCriteria, shopwareClient);
         console.log(`[RuleEngine] Found ${matches.length} matching products`);
         
         // Add to suggestions

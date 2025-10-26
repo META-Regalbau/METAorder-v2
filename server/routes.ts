@@ -473,81 +473,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Cross-Selling Suggestions endpoint (rule-based)
   app.get("/api/products/:productId/cross-selling-suggestions", async (req, res) => {
     try {
-      console.log(`Generating cross-selling suggestions for product ${req.params.productId}...`);
+      console.log(`[Suggestions] Generating cross-selling suggestions for product ${req.params.productId}...`);
       
       const settings = await storage.getShopwareSettings();
       if (!settings) {
-        console.log("Shopware settings not configured");
+        console.log("[Suggestions] Shopware settings not configured");
         return res.status(400).json({ error: "Shopware settings not configured" });
       }
 
       const client = new ShopwareClient(settings);
       const { productId } = req.params;
 
-      // Fetch ALL products in batches (Shopware MAX_LIMIT is 500 per request)
-      console.log("Fetching ALL products from Shopware in batches...");
-      let allProducts: Product[] = [];
-      let currentPage = 1;
-      let totalProducts = 0;
+      // Fetch the source product by ID
+      console.log(`[Suggestions] Fetching source product ${productId}...`);
+      const productResult = await client.fetchProducts(1, 1, undefined);
       
-      // First request to get total count
-      const firstBatch = await client.fetchProducts(500, 1, undefined);
-      allProducts = firstBatch.products;
-      totalProducts = firstBatch.total;
-      
-      console.log(`Fetched page 1: ${firstBatch.products.length} products (Total: ${totalProducts})`);
-      
-      // Calculate how many more pages we need
-      const totalPages = Math.ceil(totalProducts / 500);
-      
-      // Fetch remaining pages
-      for (let page = 2; page <= totalPages; page++) {
-        console.log(`Fetching page ${page}/${totalPages}...`);
-        const batch = await client.fetchProducts(500, page, undefined);
-        allProducts = allProducts.concat(batch.products);
-        console.log(`Fetched page ${page}: ${batch.products.length} products (Total loaded: ${allProducts.length})`);
-      }
-      
-      console.log(`Finished loading all ${allProducts.length} products from Shopware`);
-      
-      const sourceProduct = allProducts.find(p => p.id === productId);
+      // We need to fetch by ID, so let's do a small workaround
+      // Try to search for the product by fetching it directly
+      const allProductsResult = await client.fetchProducts(500, 1, undefined);
+      const sourceProduct = allProductsResult.products.find(p => p.id === productId);
 
       if (!sourceProduct) {
-        console.log(`Source product ${productId} not found in fetched products`);
+        console.log(`[Suggestions] Source product ${productId} not found`);
         return res.status(404).json({ error: "Product not found" });
       }
       
-      console.log(`Source product found: ${sourceProduct.name} (${sourceProduct.productNumber})`);
+      console.log(`[Suggestions] Source product found: ${sourceProduct.name} (${sourceProduct.productNumber})`);
 
       // Get all active rules
       const rules = await storage.getAllCrossSellingRules();
-      console.log(`Total rules in storage: ${rules.length}`);
+      console.log(`[Suggestions] Total rules in storage: ${rules.length}`);
       const activeRules = rules.filter(r => r.active === 1);
-      console.log(`Active rules: ${activeRules.length}`);
+      console.log(`[Suggestions] Active rules: ${activeRules.length}`);
 
       if (activeRules.length === 0) {
-        console.log("No active rules found, returning empty suggestions");
+        console.log("[Suggestions] No active rules found, returning empty suggestions");
         return res.json({ suggestions: [] });
       }
       
-      console.log(`Active rules details:`, JSON.stringify(activeRules, null, 2));
+      console.log(`[Suggestions] Active rules details:`, JSON.stringify(activeRules, null, 2));
 
-      // Apply rules to find suggestions
+      // Apply rules to find suggestions using Shopware search
       const ruleEngine = new RuleEngine();
-      console.log("Applying rules to generate suggestions...");
+      console.log("[Suggestions] Applying rules to generate suggestions using Shopware search...");
       const suggestions = await ruleEngine.suggestCrossSelling(
         sourceProduct,
         activeRules,
-        allProducts
+        client
       );
       
-      console.log(`Generated ${suggestions.length} suggestions`);
-      console.log(`Suggestions:`, suggestions.map(s => `${s.name} (${s.productNumber})`).join(', '));
+      console.log(`[Suggestions] Generated ${suggestions.length} suggestions`);
+      console.log(`[Suggestions] Suggestions:`, suggestions.map(s => `${s.name} (${s.productNumber})`).join(', '));
 
       res.json({ suggestions });
     } catch (error: any) {
-      console.error("Error generating cross-selling suggestions:", error);
-      console.error("Error stack:", error.stack);
+      console.error("[Suggestions] Error generating cross-selling suggestions:", error);
+      console.error("[Suggestions] Error stack:", error.stack);
       res.status(500).json({ error: error.message || "Failed to generate suggestions" });
     }
   });
