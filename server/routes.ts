@@ -458,7 +458,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Products routes
-  app.get("/api/products", async (req, res) => {
+  app.get("/api/products", requireAuth, async (req, res) => {
     try {
       const settings = await storage.getShopwareSettings();
       if (!settings) {
@@ -472,7 +472,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const page = parseInt(req.query.page as string) || 1;
       const search = req.query.search as string | undefined;
       
-      const result = await client.fetchProducts(limit, page, search);
+      // Determine if user should only see active products
+      // Admin can see all products (active + inactive), others only see active
+      const user = req.user as any;
+      
+      // Check both roleDetails.name (new system) and user.role (legacy fallback)
+      const isAdmin = 
+        user?.roleDetails?.name === 'Administrator' || 
+        user?.role === 'admin';
+      const activeOnly = !isAdmin;
+      
+      console.log(`[/api/products] User: ${user?.username}, Role: ${user?.roleDetails?.name || user?.role}, isAdmin: ${isAdmin}, activeOnly: ${activeOnly}`);
+      
+      const result = await client.fetchProducts(limit, page, search, activeOnly);
       
       res.json(result);
     } catch (error: any) {

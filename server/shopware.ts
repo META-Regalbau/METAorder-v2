@@ -539,7 +539,7 @@ export class ShopwareClient {
     }
   }
 
-  async fetchProducts(limit: number = 100, page: number = 1, search?: string): Promise<{ products: Product[], total: number }> {
+  async fetchProducts(limit: number = 100, page: number = 1, search?: string, activeOnly: boolean = false): Promise<{ products: Product[], total: number }> {
     try {
       const requestBody: any = {
         limit,
@@ -550,9 +550,21 @@ export class ShopwareClient {
             order: 'ASC',
           },
         ],
-        // IMPORTANT: Load ALL products (active AND inactive) for cross-selling rule matching
-        // Without this filter, Shopware only returns active products by default
-        filter: [
+      };
+
+      // Filter by active status based on user role
+      if (activeOnly) {
+        // Non-admin users: Only show active products
+        requestBody.filter = [
+          {
+            type: 'equals',
+            field: 'active',
+            value: true,
+          },
+        ];
+      } else {
+        // Admin users: Load ALL products (active AND inactive) for cross-selling rule matching
+        requestBody.filter = [
           {
             type: 'multi',
             operator: 'OR',
@@ -569,8 +581,8 @@ export class ShopwareClient {
               },
             ],
           },
-        ],
-      };
+        ];
+      }
 
       // Add search term if provided
       if (search && search.trim()) {
