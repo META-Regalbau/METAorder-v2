@@ -99,3 +99,18 @@ The UI adheres to **Material Design principles** with **Roboto typography** and 
   - Cross-selling rules stored permanently
 - **Migration Process**: Used `npm run db:push` for schema synchronization (no manual SQL migrations)
 
+### Automatic Order Status Updates - October 26, 2025
+- **Shopware Integration Enhancement**: Entering shipping information now automatically updates order status in Shopware
+- **Implementation**:
+  - Extended `ShopwareClient` with `updateOrderShipping()` method that:
+    1. Fetches order to obtain delivery ID
+    2. Updates tracking codes via PATCH /api/order-delivery/{deliveryId}
+    3. Transitions delivery state to "shipped" via Shopware state machine API
+  - Created backend endpoint: PATCH /api/orders/:orderId/shipping (protected with requireAuth)
+  - Frontend mutation in OrdersPage uses TanStack Query for shipping updates
+  - Shows success toast with status confirmation message
+  - Automatically invalidates orders cache to refresh UI
+- **User Experience**: When shipping information is entered in OrderDetailModal, the order status is immediately updated to "shipped" in Shopware, eliminating manual status updates
+- **Translations**: Added "shippingSuccessWithStatus" messages in German and English
+- **Error Handling**: Proper error messages displayed via toast notifications if Shopware API calls fail
+
