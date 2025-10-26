@@ -34,6 +34,20 @@
     "settings": "Settings",
     "appTitle": "METAorder"
   },
+  "auth": {
+    "login": "Login",
+    "logout": "Logout",
+    "username": "Username",
+    "password": "Password",
+    "usernamePlaceholder": "Enter your username",
+    "passwordPlaceholder": "Enter your password",
+    "loginDescription": "Sign in with your username and password",
+    "loginSuccess": "Login successful",
+    "loginFailed": "Login failed",
+    "welcomeBack": "Welcome back!",
+    "loggingIn": "Logging in...",
+    "demoCredentials": "Demo credentials:"
+  },
   "roles": {
     "admin": "Admin",
     "employee": "Employee",

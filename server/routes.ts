@@ -1,12 +1,55 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
+import passport from "passport";
 import { storage } from "./storage";
 import { ShopwareClient } from "./shopware";
 import { RuleEngine } from "./ruleEngine";
 import { shopwareSettingsSchema, insertCrossSellingRuleSchema, type Product } from "@shared/schema";
+import { requireAuth, requireAdmin } from "./auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Authentication routes
+  app.post("/api/auth/login", (req, res, next) => {
+    passport.authenticate("local", (err: any, user: any, info: any) => {
+      if (err) {
+        return res.status(500).json({ error: "Internal server error" });
+      }
+      
+      if (!user) {
+        return res.status(401).json({ error: info?.message || "Invalid credentials" });
+      }
+      
+      req.logIn(user, (err) => {
+        if (err) {
+          return res.status(500).json({ error: "Failed to login" });
+        }
+        
+        // Don't send password to client
+        const { password, ...userWithoutPassword } = user;
+        return res.json({ user: userWithoutPassword });
+      });
+    })(req, res, next);
+  });
+  
+  app.post("/api/auth/logout", (req, res) => {
+    req.logout((err) => {
+      if (err) {
+        return res.status(500).json({ error: "Failed to logout" });
+      }
+      res.json({ message: "Logged out successfully" });
+    });
+  });
+  
+  app.get("/api/auth/me", requireAuth, (req, res) => {
+    if (req.user) {
+      const { password, ...userWithoutPassword } = req.user as any;
+      res.json({ user: userWithoutPassword });
+    } else {
+      res.status(401).json({ error: "Not authenticated" });
+    }
+  });
+  
   // Shopware settings routes
   app.get("/api/settings/shopware", async (req, res) => {
     try {

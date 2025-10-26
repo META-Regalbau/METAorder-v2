@@ -32,6 +32,8 @@ export type Role = {
     manageUsers: boolean;
     manageRoles: boolean;
     manageSettings: boolean;
+    manageCrossSellingGroups: boolean;
+    manageCrossSellingRules: boolean;
   };
 };
 

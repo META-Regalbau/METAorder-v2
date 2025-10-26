@@ -34,6 +34,20 @@
     "settings": "Configuración",
     "appTitle": "METAorder"
   },
+  "auth": {
+    "login": "Iniciar Sesión",
+    "logout": "Cerrar Sesión",
+    "username": "Usuario",
+    "password": "Contraseña",
+    "usernamePlaceholder": "Ingrese su usuario",
+    "passwordPlaceholder": "Ingrese su contraseña",
+    "loginDescription": "Inicie sesión con su usuario y contraseña",
+    "loginSuccess": "Inicio de sesión exitoso",
+    "loginFailed": "Inicio de sesión fallido",
+    "welcomeBack": "¡Bienvenido de nuevo!",
+    "loggingIn": "Iniciando sesión...",
+    "demoCredentials": "Credenciales de demostración:"
+  },
   "roles": {
     "admin": "Admin",
     "employee": "Empleado",

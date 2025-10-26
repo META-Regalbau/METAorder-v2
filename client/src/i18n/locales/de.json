@@ -34,6 +34,20 @@
     "settings": "Einstellungen",
     "appTitle": "METAorder"
   },
+  "auth": {
+    "login": "Anmelden",
+    "logout": "Abmelden",
+    "username": "Benutzername",
+    "password": "Passwort",
+    "usernamePlaceholder": "Geben Sie Ihren Benutzernamen ein",
+    "passwordPlaceholder": "Geben Sie Ihr Passwort ein",
+    "loginDescription": "Melden Sie sich mit Ihrem Benutzernamen und Passwort an",
+    "loginSuccess": "Erfolgreich angemeldet",
+    "loginFailed": "Anmeldung fehlgeschlagen",
+    "welcomeBack": "Willkommen zurück!",
+    "loggingIn": "Wird angemeldet...",
+    "demoCredentials": "Demo-Anmeldedaten:"
+  },
   "roles": {
     "admin": "Admin",
     "employee": "Mitarbeiter",
