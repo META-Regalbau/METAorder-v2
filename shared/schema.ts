@@ -86,7 +86,8 @@ export type Order = {
   customerName: string;
   customerEmail: string;
   orderDate: string;
-  totalAmount: number;
+  totalAmount: number; // Bruttogesamtbetrag (mit MwSt)
+  netTotalAmount: number; // Nettogesamtbetrag (ohne MwSt)
   status: OrderStatus;
   paymentStatus: PaymentStatus;
   salesChannelId: string;

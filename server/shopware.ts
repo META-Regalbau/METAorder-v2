@@ -197,9 +197,9 @@ export class ShopwareClient {
               },
             ],
             includes: {
-              order: ['id', 'orderNumber', 'orderDate', 'amountTotal', 'orderCustomer', 'lineItems', 'stateMachineState', 'salesChannelId', 'salesChannel', 'customFields', 'transactions'],
+              order: ['id', 'orderNumber', 'orderDate', 'amountTotal', 'amountNet', 'orderCustomer', 'lineItems', 'stateMachineState', 'salesChannelId', 'salesChannel', 'customFields', 'transactions', 'price'],
               order_customer: ['firstName', 'lastName', 'email'],
-              order_line_item: ['id', 'label', 'quantity', 'unitPrice', 'totalPrice'],
+              order_line_item: ['id', 'label', 'quantity', 'unitPrice', 'totalPrice', 'price'],
               state_machine_state: ['technicalName'],
               sales_channel: ['id', 'name'],
               order_transaction: ['stateMachineState'],
@@ -392,13 +392,18 @@ export class ShopwareClient {
         // Extract custom fields for ERP document numbers
         const customFields = shopwareOrder.customFields || shopwareOrder.attributes?.customFields || {};
         
+        // Extract gross and net total amounts from Shopware
+        const grossTotal = shopwareOrder.amountTotal || shopwareOrder.attributes?.amountTotal || 0;
+        const netTotal = shopwareOrder.amountNet || shopwareOrder.attributes?.amountNet || shopwareOrder.price?.netPrice || grossTotal / 1.19;
+
         const order: Order = {
           id: shopwareOrder.id,
           orderNumber: shopwareOrder.orderNumber || shopwareOrder.attributes?.orderNumber || 'N/A',
           customerName,
           customerEmail,
           orderDate: shopwareOrder.orderDate || shopwareOrder.attributes?.orderDate || shopwareOrder.createdAt || new Date().toISOString(),
-          totalAmount: shopwareOrder.amountTotal || shopwareOrder.attributes?.amountTotal || 0,
+          totalAmount: grossTotal,
+          netTotalAmount: netTotal,
           status,
           paymentStatus,
           salesChannelId,
