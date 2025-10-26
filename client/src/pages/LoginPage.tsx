@@ -10,13 +10,10 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
+import metaLogoUrl from "@assets/META-Logo.svg";
 
 const MetaLogo = () => (
-  <svg className="h-16 w-auto mx-auto mb-6" viewBox="0 0 200 60" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <text x="100" y="40" fontFamily="Arial, sans-serif" fontSize="36" fontWeight="700" fill="currentColor" textAnchor="middle">
-      META
-    </text>
-  </svg>
+  <img src={metaLogoUrl} alt="META" className="h-16 w-auto mx-auto mb-6" />
 );
 
 const loginSchema = z.object({
