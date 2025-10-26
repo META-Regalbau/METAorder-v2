@@ -66,7 +66,7 @@ The UI adheres to **Material Design principles** with **Roboto typography** and 
 ## Latest Changes - October 26, 2025 (Continued)
 
 ### User & Role Management Integration
-- **Complete Backend Integration**: Extended IStorage with User and Role CRUD operations, implemented in MemStorage with in-memory Maps
+- **Complete Backend Integration**: Extended IStorage with User and Role CRUD operations
 - **Comprehensive API Routes**: Created full REST APIs for Users and Roles (GET, POST, PATCH, DELETE)
 - **Permission-Based Authorization**: Revolutionary upgrade from role-based to permission-based auth
   - Created `requirePermission(permission)` factory function for fine-grained access control
@@ -83,4 +83,19 @@ The UI adheres to **Material Design principles** with **Roboto typography** and 
 
 - **Seed Data Enhancement**: Creates 3 default roles first, then users properly linked via roleId
 - **Security**: Password hashing, session fixation protection, permission-based access control
+
+### PostgreSQL Database Migration - October 26, 2025
+- **Complete Migration from MemStorage to PostgreSQL**: All data now persists across server restarts
+- **Database Schema**:
+  - `roles` table: Stores roles with JSONB permissions field
+  - `users` table: Stores users with foreign key to roles table
+  - `settings` table: Stores application settings (Shopware configuration) as JSONB
+  - `cross_selling_rules` table: Stores cross-selling rules with JSON conditions
+- **DbStorage Implementation**: Complete Drizzle ORM-based storage with SQL queries for all CRUD operations
+- **Drizzle Configuration**: Uses Neon PostgreSQL with WebSocket support
+- **Data Persistence Verified**: 
+  - User and Role data survives server restarts
+  - Shopware settings persist in database
+  - Cross-selling rules stored permanently
+- **Migration Process**: Used `npm run db:push` for schema synchronization (no manual SQL migrations)
 
