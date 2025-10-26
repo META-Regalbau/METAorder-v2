@@ -890,12 +890,26 @@ export class ShopwareClient {
 
   async assignProductsToCrossSelling(crossSellingId: string, productIds: string[]): Promise<void> {
     try {
+      console.log(`assignProductsToCrossSelling called with crossSellingId=${crossSellingId}, productIds=${JSON.stringify(productIds)}`);
+      
       // Shopware expects assigned products to be created individually
       const assignments = productIds.map((productId, index) => ({
         productCrossSellingId: crossSellingId,
         productId,
         position: index + 1,
       }));
+
+      console.log('Assignments to send to Shopware:', JSON.stringify(assignments, null, 2));
+
+      const requestBody = {
+        'write-product-cross-selling-assigned-products': {
+          entity: 'product_cross_selling_assigned_products',
+          action: 'upsert',
+          payload: assignments,
+        },
+      };
+      
+      console.log('Full request body:', JSON.stringify(requestBody, null, 2));
 
       const response = await this.makeAuthenticatedRequest(
         `${this.baseUrl}/api/_action/sync`,
@@ -904,20 +918,17 @@ export class ShopwareClient {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            'write-product-cross-selling-assigned-products': {
-              entity: 'product_cross_selling_assigned_products',
-              action: 'upsert',
-              payload: assignments,
-            },
-          }),
+          body: JSON.stringify(requestBody),
         }
       );
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error('Shopware sync error response:', errorText);
         throw new Error(`Failed to assign products to cross-selling: ${response.statusText} - ${errorText}`);
       }
+      
+      console.log('Products assigned successfully');
     } catch (error) {
       console.error('Error assigning products to cross-selling in Shopware:', error);
       throw error;

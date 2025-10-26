@@ -265,19 +265,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { productId, crossSellingId } = req.params;
       const { productIds } = validation.data;
       
+      console.log(`Updating cross-selling ${crossSellingId} for product ${productId}`);
+      console.log(`New product IDs: ${JSON.stringify(productIds)}`);
+      
       // Get current products to determine what to add/remove
       const currentProducts = await client.fetchCrossSellingProducts(productId, crossSellingId);
       const currentProductIds = currentProducts.map(p => p.id);
       
+      console.log(`Current product IDs: ${JSON.stringify(currentProductIds)}`);
+      
       // Determine which products to add and remove
       const toAdd = productIds.filter(id => !currentProductIds.includes(id));
       const toRemove = currentProductIds.filter(id => !productIds.includes(id));
+      
+      console.log(`Products to add: ${JSON.stringify(toAdd)}`);
+      console.log(`Products to remove: ${JSON.stringify(toRemove)}`);
       
       // Update assignments
       if (toRemove.length > 0) {
         await client.removeProductsFromCrossSelling(crossSellingId, toRemove);
       }
       if (toAdd.length > 0) {
+        console.log(`Calling assignProductsToCrossSelling with crossSellingId=${crossSellingId}, productIds=${JSON.stringify(toAdd)}`);
         await client.assignProductsToCrossSelling(crossSellingId, toAdd);
       }
       
