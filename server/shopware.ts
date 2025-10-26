@@ -390,16 +390,16 @@ export class ShopwareClient {
         let paymentStatus: PaymentStatus = 'open';
         
         if (shopwareOrder.transactions && shopwareOrder.transactions.length > 0) {
-          // Use the last transaction (most recent, already sorted by createdAt DESC)
-          const latestTransaction = shopwareOrder.transactions[shopwareOrder.transactions.length - 1];
+          // Use the FIRST transaction (most recent, sorted by createdAt DESC)
+          const latestTransaction = shopwareOrder.transactions[0];
           if (latestTransaction.stateMachineState?.technicalName) {
             paymentStatus = this.mapPaymentStatus(latestTransaction.stateMachineState.technicalName);
           } else {
             console.warn(`Order ${shopwareOrder.orderNumber || shopwareOrder.id}: Transaction exists but missing stateMachineState`);
           }
         } else if (shopwareOrder.relationships?.transactions?.data && shopwareOrder.relationships.transactions.data.length > 0) {
-          // Fallback to relationships
-          const latestTransactionRef = shopwareOrder.relationships.transactions.data[shopwareOrder.relationships.transactions.data.length - 1];
+          // Fallback to relationships - also use FIRST (sorted DESC)
+          const latestTransactionRef = shopwareOrder.relationships.transactions.data[0];
           const transaction = includedMap.get(`order_transaction-${latestTransactionRef.id}`);
           if (transaction?.relationships?.stateMachineState?.data?.id) {
             const paymentStateId = transaction.relationships.stateMachineState.data.id;
