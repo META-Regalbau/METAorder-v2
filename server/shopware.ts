@@ -776,7 +776,7 @@ export class ShopwareClient {
         });
       }
 
-      const products: Product[] = shopwareProducts.map((sp: any) => {
+      const products: Product[] = shopwareProducts.map((sp: any, index: number) => {
         // Get manufacturer name
         let manufacturerName = '';
         if (sp.manufacturer?.name) {
@@ -829,15 +829,6 @@ export class ShopwareClient {
           if (eurPrice) {
             price = eurPrice.gross || 0;
             netPrice = eurPrice.net || 0;
-            // Debug: Log first product price details
-            if (products.length === 0) {
-              console.log(`[DEBUG] Product Price Structure for ${sp.name}:`, {
-                gross: eurPrice.gross,
-                net: eurPrice.net,
-                taxRate,
-                fullPriceObj: JSON.stringify(eurPrice)
-              });
-            }
             // Fallback calculation if net price is missing
             if (!netPrice && price) {
               netPrice = price / (1 + taxRate / 100);
