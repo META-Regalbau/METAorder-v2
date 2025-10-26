@@ -60,7 +60,28 @@ export class RuleEngine {
    * Find products that match the target criteria of a rule
    */
   findMatchingProducts(sourceProduct: Product, criteria: RuleTargetCriteria[], allProducts: Product[]): Product[] {
-    return allProducts.filter((targetProduct) => {
+    console.log(`[RuleEngine] Searching ${allProducts.length} products for matches...`);
+    
+    // Debug: Check if specific product exists
+    const testProduct = allProducts.find(p => p.productNumber === '4026212441406');
+    if (testProduct) {
+      console.log(`[RuleEngine] Test product 4026212441406 found: "${testProduct.name}"`);
+    } else {
+      console.log(`[RuleEngine] Test product 4026212441406 NOT found in loaded products`);
+    }
+    
+    // Debug: Show products with "Holmebene" in name
+    const holmebeneProducts = allProducts.filter(p => 
+      p.name && p.name.toLowerCase().includes('holmebene')
+    );
+    console.log(`[RuleEngine] Products with "Holmebene" in name: ${holmebeneProducts.length}`);
+    if (holmebeneProducts.length > 0) {
+      console.log(`[RuleEngine] Sample "Holmebene" products:`, holmebeneProducts.slice(0, 3).map(p => 
+        `${p.productNumber} - ${p.name}`
+      ));
+    }
+    
+    const matches = allProducts.filter((targetProduct) => {
       // Don't match the source product itself
       if (targetProduct.id === sourceProduct.id) {
         return false;
@@ -71,6 +92,10 @@ export class RuleEngine {
         this.evaluateTargetCriterion(sourceProduct, targetProduct, criterion)
       );
     });
+    
+    console.log(`[RuleEngine] Found ${matches.length} matching products`);
+    
+    return matches;
   }
 
   /**
