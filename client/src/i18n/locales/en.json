@@ -83,6 +83,15 @@
     "exportStarted": "Export started",
     "exportDescription": "Your order export is being prepared."
   },
+  "filters": {
+    "title": "Filters",
+    "active": "active",
+    "clearAll": "Clear all",
+    "statusLabel": "Status",
+    "allStatuses": "All statuses",
+    "dateFrom": "Date From",
+    "dateTo": "Date To"
+  },
   "orderDetail": {
     "title": "Order {{orderNumber}}",
     "overview": "Overview",
@@ -189,17 +198,6 @@
     "deliveryNotePlaceholder": "Enter delivery note number",
     "erpNumber": "ERP Number",
     "erpNumberPlaceholder": "Enter ERP number"
-  },
-  "filters": {
-    "filters": "Filters",
-    "status": "Status",
-    "allStatuses": "All Statuses",
-    "dateRange": "Date Range",
-    "from": "From",
-    "to": "To",
-    "clearFilters": "Clear All Filters",
-    "activeFilters": "{{count}} active filter",
-    "activeFilters_plural": "{{count}} active filters"
   },
   "errors": {
     "notConfigured": "Shopware API is not configured yet.",

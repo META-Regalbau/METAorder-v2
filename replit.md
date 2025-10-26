@@ -128,3 +128,12 @@ The UI adheres to **Material Design principles** with **Roboto typography** and 
 - **User Experience**: Each order now shows both order processing status and payment status at a glance
 - **Badge Variants**: Payment status badges use different colors (paid=green, open=gray, cancelled/failed=red) for quick visual identification
 
+### Complete i18n Implementation - October 26, 2025
+- **Order Status Translation**: Updated `StatusBadge` component to use i18n instead of hardcoded English labels
+- **Filter Panel Translation**: Implemented full i18n support in `OrderFilters` component
+  - Filter title, status label, date labels, clear button, and active filter count all translated
+  - Status dropdown options use translated labels from status.* keys
+  - Fixed duplicate "filters" sections in locale JSON files that were preventing translations from loading
+- **All Languages Updated**: Added filter translations to German, English, and Spanish locales
+- **Verified**: End-to-end testing confirms all UI elements display correctly in German (default language)
+

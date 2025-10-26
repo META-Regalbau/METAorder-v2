@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
+import { useTranslation } from "react-i18next";
 import type { OrderStatus } from "@shared/schema";
 
 interface OrderFiltersProps {
@@ -27,44 +28,46 @@ export default function OrderFilters({
   onClearFilters,
   activeFiltersCount,
 }: OrderFiltersProps) {
+  const { t } = useTranslation();
+  
   return (
     <Card className="p-6">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4" />
-          <h2 className="text-sm font-medium uppercase tracking-wide">Filters</h2>
+          <h2 className="text-sm font-medium uppercase tracking-wide">{t('filters.title')}</h2>
           {activeFiltersCount > 0 && (
-            <span className="text-xs text-muted-foreground">({activeFiltersCount} active)</span>
+            <span className="text-xs text-muted-foreground">({activeFiltersCount} {t('filters.active')})</span>
           )}
         </div>
         {activeFiltersCount > 0 && (
           <Button variant="ghost" size="sm" onClick={onClearFilters} data-testid="button-clear-filters">
             <X className="h-3 w-3 mr-1" />
-            Clear all
+            {t('filters.clearAll')}
           </Button>
         )}
       </div>
       
       <div className="space-y-4">
         <div>
-          <Label className="text-sm font-medium mb-2">Status</Label>
+          <Label className="text-sm font-medium mb-2">{t('filters.statusLabel')}</Label>
           <Select value={statusFilter} onValueChange={onStatusFilterChange}>
             <SelectTrigger data-testid="select-status-filter">
-              <SelectValue placeholder="All statuses" />
+              <SelectValue placeholder={t('filters.allStatuses')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value="open">Open</SelectItem>
-              <SelectItem value="in_progress">In Progress</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
+              <SelectItem value="all">{t('filters.allStatuses')}</SelectItem>
+              <SelectItem value="open">{t('status.open')}</SelectItem>
+              <SelectItem value="in_progress">{t('status.in_progress')}</SelectItem>
+              <SelectItem value="completed">{t('status.completed')}</SelectItem>
+              <SelectItem value="cancelled">{t('status.cancelled')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
         
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <Label className="text-sm font-medium mb-2">Date From</Label>
+            <Label className="text-sm font-medium mb-2">{t('filters.dateFrom')}</Label>
             <Input
               type="date"
               value={dateFrom}
@@ -73,7 +76,7 @@ export default function OrderFilters({
             />
           </div>
           <div>
-            <Label className="text-sm font-medium mb-2">Date To</Label>
+            <Label className="text-sm font-medium mb-2">{t('filters.dateTo')}</Label>
             <Input
               type="date"
               value={dateTo}

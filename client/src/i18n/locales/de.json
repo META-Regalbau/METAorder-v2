@@ -83,6 +83,15 @@
     "exportStarted": "Export gestartet",
     "exportDescription": "Ihr Bestellungsexport wird vorbereitet."
   },
+  "filters": {
+    "title": "Filter",
+    "active": "aktiv",
+    "clearAll": "Alle löschen",
+    "statusLabel": "Status",
+    "allStatuses": "Alle Status",
+    "dateFrom": "Datum von",
+    "dateTo": "Datum bis"
+  },
   "orderDetail": {
     "title": "Bestellung {{orderNumber}}",
     "overview": "Übersicht",
@@ -189,17 +198,6 @@
     "deliveryNotePlaceholder": "Lieferscheinnummer eingeben",
     "erpNumber": "ERP-Nummer",
     "erpNumberPlaceholder": "ERP-Nummer eingeben"
-  },
-  "filters": {
-    "filters": "Filter",
-    "status": "Status",
-    "allStatuses": "Alle Status",
-    "dateRange": "Datumsbereich",
-    "from": "Von",
-    "to": "Bis",
-    "clearFilters": "Alle Filter löschen",
-    "activeFilters": "{{count}} aktiver Filter",
-    "activeFilters_plural": "{{count}} aktive Filter"
   },
   "errors": {
     "notConfigured": "Shopware-API ist noch nicht konfiguriert.",

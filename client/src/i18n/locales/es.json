@@ -83,6 +83,15 @@
     "exportStarted": "Exportación iniciada",
     "exportDescription": "Su exportación de pedidos se está preparando."
   },
+  "filters": {
+    "title": "Filtros",
+    "active": "activo",
+    "clearAll": "Borrar todo",
+    "statusLabel": "Estado",
+    "allStatuses": "Todos los estados",
+    "dateFrom": "Fecha desde",
+    "dateTo": "Fecha hasta"
+  },
   "orderDetail": {
     "title": "Pedido {{orderNumber}}",
     "overview": "Resumen",
@@ -188,17 +197,6 @@
     "deliveryNotePlaceholder": "Ingrese el número de nota de entrega",
     "erpNumber": "Número ERP",
     "erpNumberPlaceholder": "Ingrese el número ERP"
-  },
-  "filters": {
-    "filters": "Filtros",
-    "status": "Estado",
-    "allStatuses": "Todos los Estados",
-    "dateRange": "Rango de Fechas",
-    "from": "Desde",
-    "to": "Hasta",
-    "clearFilters": "Limpiar Todos los Filtros",
-    "activeFilters": "{{count}} filtro activo",
-    "activeFilters_plural": "{{count}} filtros activos"
   },
   "errors": {
     "notConfigured": "La API de Shopware aún no está configurada.",
