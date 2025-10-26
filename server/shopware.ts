@@ -832,13 +832,39 @@ export class ShopwareClient {
         throw new Error(`Failed to create cross-selling: ${response.statusText} - ${errorText}`);
       }
 
-      const data = await response.json();
-      // Shopware returns the created ID in different formats depending on API version
-      // Try data first (direct response), then data.data (wrapped response)
-      const createdId = data?.id || data?.data?.id;
-      if (!createdId) {
-        throw new Error('Failed to get cross-selling ID from response');
+      // Check if response has content
+      const contentLength = response.headers.get('content-length');
+      let createdId: string | null = null;
+
+      // Try to get ID from response body if there is content
+      if (contentLength && parseInt(contentLength) > 0) {
+        try {
+          const data = await response.json();
+          // Shopware returns the created ID in different formats depending on API version
+          // Try data first (direct response), then data.data (wrapped response)
+          createdId = data?.id || data?.data?.id;
+        } catch (jsonError) {
+          console.log('Response body is not valid JSON, checking headers...');
+        }
       }
+
+      // If no ID from body, try to extract from Location header
+      if (!createdId) {
+        const locationHeader = response.headers.get('location');
+        if (locationHeader) {
+          // Location header format: /api/product-cross-selling/{id}
+          const matches = locationHeader.match(/\/api\/product-cross-selling\/([a-f0-9]+)/i);
+          if (matches && matches[1]) {
+            createdId = matches[1];
+          }
+        }
+      }
+
+      if (!createdId) {
+        console.error('Response headers:', Object.fromEntries(response.headers.entries()));
+        throw new Error('Failed to get cross-selling ID from response (checked body and Location header)');
+      }
+
       return createdId;
     } catch (error) {
       console.error('Error creating cross-selling in Shopware:', error);
