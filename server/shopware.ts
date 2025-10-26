@@ -577,6 +577,9 @@ export class ShopwareClient {
         requestBody.term = search.trim();
       }
 
+      console.log(`[fetchProducts] Requesting products - page: ${page}, limit: ${limit}, search: ${search || 'none'}`);
+      console.log(`[fetchProducts] Request body filter:`, JSON.stringify(requestBody.filter, null, 2));
+
       const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/product`, {
         method: 'POST',
         headers: {
@@ -627,6 +630,9 @@ export class ShopwareClient {
       const data = await response.json();
       const shopwareProducts = data.data || [];
       const total = data.meta?.total || shopwareProducts.length;
+      
+      console.log(`[fetchProducts] Shopware API response - returned: ${shopwareProducts.length}, total in DB: ${total}`);
+      console.log(`[fetchProducts] Meta object:`, JSON.stringify(data.meta, null, 2));
 
       // Build a map of included entities
       const includedMap = new Map<string, any>();
