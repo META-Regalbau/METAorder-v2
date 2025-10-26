@@ -786,6 +786,8 @@ export class ShopwareClient {
 
   async fetchCrossSellingProducts(productId: string, crossSellingId: string): Promise<CrossSellingProduct[]> {
     try {
+      console.log(`Fetching products for cross-selling group ${crossSellingId}...`);
+      
       const response = await this.makeAuthenticatedRequest(
         `${this.baseUrl}/api/product-cross-selling/${crossSellingId}/assigned-products`,
         {
@@ -799,9 +801,11 @@ export class ShopwareClient {
       }
 
       const data = await response.json();
+      console.log(`Cross-Selling Products Response for ${crossSellingId}:`, JSON.stringify(data, null, 2));
+      
       const products = data.data || [];
 
-      return products.map((p: any) => ({
+      const result = products.map((p: any) => ({
         id: p.productId || p.id,
         productNumber: p.product?.productNumber || p.attributes?.product?.productNumber || '',
         name: p.product?.name || p.attributes?.product?.name || 'Unknown Product',
@@ -810,6 +814,10 @@ export class ShopwareClient {
         stock: p.product?.stock || 0,
         available: p.product?.available || false,
       }));
+      
+      console.log(`Found ${result.length} products in cross-selling group ${crossSellingId}`);
+      
+      return result;
     } catch (error) {
       console.error('Error fetching cross-selling products from Shopware:', error);
       throw error;

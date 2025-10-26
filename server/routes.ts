@@ -181,15 +181,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const client = new ShopwareClient(settings);
       const { productId } = req.params;
       
+      console.log(`Fetching cross-selling for product ${productId}...`);
       const crossSellings = await client.fetchProductCrossSelling(productId);
       
       // Fetch products for each cross-selling group
+      console.log(`Fetching products for ${crossSellings.length} cross-selling groups...`);
       const crossSellingsWithProducts = await Promise.all(
         crossSellings.map(async (cs) => {
           const products = await client.fetchCrossSellingProducts(productId, cs.id);
           return { ...cs, products };
         })
       );
+      
+      console.log('Final result:', JSON.stringify(crossSellingsWithProducts, null, 2));
+      
+      // Set cache headers to prevent 304 responses during debugging
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       
       res.json({ crossSellings: crossSellingsWithProducts });
     } catch (error: any) {
