@@ -748,10 +748,24 @@ export class ShopwareClient {
   // Cross-Selling Methods
   async fetchProductCrossSelling(productId: string): Promise<CrossSellingGroup[]> {
     try {
+      // Use search endpoint to get ALL cross-selling groups (both productList and productStream)
       const response = await this.makeAuthenticatedRequest(
-        `${this.baseUrl}/api/product/${productId}/cross-sellings`,
+        `${this.baseUrl}/api/search/product-cross-selling`,
         {
-          method: 'GET',
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            filter: [
+              {
+                type: 'equals',
+                field: 'productId',
+                value: productId,
+              },
+            ],
+            // No type filter - load both productList AND productStream
+          }),
         }
       );
 
@@ -775,7 +789,7 @@ export class ShopwareClient {
         products: [], // Will be populated separately if needed
       }));
       
-      console.log(`Found ${result.length} cross-selling groups for product ${productId}`);
+      console.log(`Found ${result.length} cross-selling groups (productList + productStream) for product ${productId}`);
       
       return result;
     } catch (error) {
@@ -894,7 +908,7 @@ export class ShopwareClient {
       
       // Shopware expects assigned products to be created individually
       const assignments = productIds.map((productId, index) => ({
-        productCrossSellingId: crossSellingId,
+        crossSellingId: crossSellingId, // Shopware expects 'crossSellingId', not 'productCrossSellingId'
         productId,
         position: index + 1,
       }));
