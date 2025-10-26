@@ -224,7 +224,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       const validated = roleSchema.parse(req.body);
-      const role = await storage.createRole(validated);
+      const role = await storage.createRole({
+        ...validated,
+        salesChannelIds: validated.salesChannelIds || null,
+      });
       
       res.json(role);
     } catch (error: any) {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Download, RefreshCw, Search } from "lucide-react";
+import { RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -154,15 +154,6 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
     }
   };
 
-  const handleExport = () => {
-    console.log("Exporting orders...");
-    toast({
-      title: t('orders.exportStarted'),
-      description: t('orders.exportDescription'),
-    });
-    // TODO: Implement export functionality
-  };
-
   // Mutation to update shipping information and set status to shipped in Shopware
   const updateShippingMutation = useMutation({
     mutationFn: async ({ orderId, shippingData }: { orderId: string; shippingData: any }) => {
@@ -256,10 +247,6 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
             <Button variant="outline" onClick={handleRefresh} disabled={isLoading} data-testid="button-refresh-orders">
               <RefreshCw className={`h-4 w-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
               {t('common.refresh')}
-            </Button>
-            <Button onClick={handleExport} data-testid="button-export-orders">
-              <Download className="h-4 w-4 mr-1" />
-              {t('common.export')}
             </Button>
           </div>
         </div>
