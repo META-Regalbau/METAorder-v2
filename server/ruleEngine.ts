@@ -174,7 +174,13 @@ export class RuleEngine {
         // Target must have same property value as source
         const sourceValue = this.getFieldValue(sourceProduct, criterion.field);
         const targetPropertyValue = this.getFieldValue(targetProduct, criterion.field);
-        return this.compareEquals(sourceValue, targetPropertyValue);
+        const match = this.compareEquals(sourceValue, targetPropertyValue);
+        
+        if (!match) {
+          console.log(`[RuleEngine] sameProperty mismatch: source=${sourceValue} (${typeof sourceValue}) vs target=${targetPropertyValue} (${typeof targetPropertyValue}) for field ${criterion.field} in product ${targetProduct.productNumber}`);
+        }
+        
+        return match;
       
       default:
         console.warn(`Unknown match type: ${criterion.matchType}`);
@@ -219,6 +225,16 @@ export class RuleEngine {
       return targetValue.includes(fieldValue);
     }
     
+    // Try numeric comparison first if both values are numeric
+    const numFieldValue = Number(fieldValue);
+    const numTargetValue = Number(targetValue);
+    
+    if (!isNaN(numFieldValue) && !isNaN(numTargetValue)) {
+      // Both are numbers (or can be converted to numbers)
+      return numFieldValue === numTargetValue;
+    }
+    
+    // Fall back to strict equality
     return fieldValue === targetValue;
   }
 
