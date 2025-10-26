@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useState } from "react";
-import type { Product, CrossSellingGroup } from "@shared/schema";
+import type { Product, CrossSellingGroup, User } from "@shared/schema";
 import CrossSellingManager from "./CrossSellingManager";
 
 interface ProductDetailModalProps {
@@ -29,6 +29,12 @@ export default function ProductDetailModal({
 }: ProductDetailModalProps) {
   const { t } = useTranslation();
   const [showCrossSellingManager, setShowCrossSellingManager] = useState(false);
+
+  // Get current user to check role
+  const { data: userData } = useQuery<{ user: User }>({
+    queryKey: ["/api/auth/me"],
+    retry: false,
+  });
 
   const { data: crossSellingData, refetch: refetchCrossSelling } = useQuery<{
     crossSellings: CrossSellingGroup[];
@@ -50,6 +56,9 @@ export default function ProductDetailModal({
     (sum, cs) => sum + (cs.products?.length || 0),
     0
   );
+  
+  // Check if user is admin
+  const isAdmin = userData?.user?.role === 'admin';
 
   return (
     <>
@@ -188,14 +197,16 @@ export default function ProductDetailModal({
                     </Badge>
                   )}
                 </div>
-                <Button
-                  onClick={() => setShowCrossSellingManager(true)}
-                  variant="outline"
-                  size="sm"
-                  data-testid="button-manage-cross-selling"
-                >
-                  {t("crossSelling.manage")}
-                </Button>
+                {isAdmin && (
+                  <Button
+                    onClick={() => setShowCrossSellingManager(true)}
+                    variant="outline"
+                    size="sm"
+                    data-testid="button-manage-cross-selling"
+                  >
+                    {t("crossSelling.manage")}
+                  </Button>
+                )}
               </div>
 
               {crossSellings.length === 0 ? (
