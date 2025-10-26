@@ -185,8 +185,9 @@ export class DbStorage implements IStorage {
         name: insertRule.name,
         description: insertRule.description,
         active: insertRule.active ?? 1,
-        sourceConditions: JSON.stringify(insertRule.sourceConditions),
-        targetCriteria: JSON.stringify(insertRule.targetCriteria),
+        // Data is already JSON stringified from routes.ts, don't stringify again
+        sourceConditions: insertRule.sourceConditions as any,
+        targetCriteria: insertRule.targetCriteria as any,
       })
       .returning();
     
@@ -217,10 +218,12 @@ export class DbStorage implements IStorage {
     if (updates.description !== undefined) updateData.description = updates.description;
     if (updates.active !== undefined) updateData.active = updates.active;
     if (updates.sourceConditions) {
-      updateData.sourceConditions = JSON.stringify(updates.sourceConditions);
+      // Data is already JSON stringified from routes.ts, don't stringify again
+      updateData.sourceConditions = updates.sourceConditions;
     }
     if (updates.targetCriteria) {
-      updateData.targetCriteria = JSON.stringify(updates.targetCriteria);
+      // Data is already JSON stringified from routes.ts, don't stringify again
+      updateData.targetCriteria = updates.targetCriteria;
     }
     
     const result = await db
