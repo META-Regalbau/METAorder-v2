@@ -1,30 +1,14 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, decimal, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, decimal, integer, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
+// Roles table
+export const roles = pgTable("roles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-  role: text("role").notNull().default("employee"), // employee or admin
-  salesChannelIds: text("sales_channel_ids").array(), // null/empty = all channels (for admin)
-});
-
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
-});
-
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
-
-// Role management
-export type Role = {
-  id: string;
-  name: string;
-  salesChannelIds?: string[]; // null/empty = all channels
-  permissions: {
+  name: text("name").notNull().unique(),
+  salesChannelIds: text("sales_channel_ids").array(),
+  permissions: jsonb("permissions").notNull().$type<{
     viewOrders: boolean;
     editOrders: boolean;
     exportData: boolean;
@@ -34,8 +18,41 @@ export type Role = {
     manageSettings: boolean;
     manageCrossSellingGroups: boolean;
     manageCrossSellingRules: boolean;
-  };
-};
+  }>(),
+});
+
+export const insertRoleSchema = createInsertSchema(roles).omit({
+  id: true,
+});
+
+export type InsertRole = z.infer<typeof insertRoleSchema>;
+export type Role = typeof roles.$inferSelect;
+
+// Users table
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  username: text("username").notNull().unique(),
+  password: text("password").notNull(),
+  role: text("role").notNull().default("employee"), // Legacy field for backward compatibility
+  roleId: varchar("role_id").references(() => roles.id),
+  salesChannelIds: text("sales_channel_ids").array(), // null/empty = all channels (for admin)
+});
+
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  role: true,
+});
+
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type User = typeof users.$inferSelect;
+
+// Settings table for Shopware configuration
+export const settings = pgTable("settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: text("key").notNull().unique(),
+  value: jsonb("value").notNull(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
 
 // Sales Channel
 export type SalesChannel = {
