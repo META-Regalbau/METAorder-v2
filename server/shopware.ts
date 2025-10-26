@@ -1198,4 +1198,82 @@ export class ShopwareClient {
       throw error;
     }
   }
+
+  /**
+   * Update order shipping information and set status to "shipped"
+   * This combines setting tracking codes and transitioning the delivery state
+   */
+  async updateOrderShipping(
+    orderId: string,
+    shippingInfo: {
+      carrier?: string;
+      trackingNumber?: string;
+      shippedDate?: string;
+    }
+  ): Promise<void> {
+    try {
+      // Step 1: Fetch order to get delivery ID
+      const response = await this.makeAuthenticatedRequest(
+        `${this.baseUrl}/api/order/${orderId}?associations[deliveries][]`,
+        {
+          method: 'GET',
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch order: ${response.statusText} - ${errorText}`);
+      }
+
+      const orderData = await response.json();
+      const deliveries = orderData.data?.deliveries || [];
+
+      if (deliveries.length === 0) {
+        throw new Error('Order has no deliveries');
+      }
+
+      // Get the first delivery (most orders have only one delivery)
+      const deliveryId = deliveries[0].id;
+
+      // Step 2: Update tracking codes if provided
+      if (shippingInfo.trackingNumber) {
+        const trackingCodes = [shippingInfo.trackingNumber];
+        
+        const updateResponse = await this.makeAuthenticatedRequest(
+          `${this.baseUrl}/api/order-delivery/${deliveryId}`,
+          {
+            method: 'PATCH',
+            body: JSON.stringify({
+              trackingCodes: trackingCodes,
+            }),
+          }
+        );
+
+        if (!updateResponse.ok) {
+          const errorText = await updateResponse.text();
+          console.warn(`Warning: Failed to update tracking codes: ${updateResponse.statusText} - ${errorText}`);
+          // Continue anyway - tracking codes are optional
+        }
+      }
+
+      // Step 3: Transition delivery state to "shipped"
+      const stateResponse = await this.makeAuthenticatedRequest(
+        `${this.baseUrl}/api/_action/order_delivery/${deliveryId}/state/ship`,
+        {
+          method: 'POST',
+          body: JSON.stringify({}),
+        }
+      );
+
+      if (!stateResponse.ok) {
+        const errorText = await stateResponse.text();
+        throw new Error(`Failed to set order to shipped: ${stateResponse.statusText} - ${errorText}`);
+      }
+
+      console.log(`Order ${orderId} marked as shipped in Shopware`);
+    } catch (error) {
+      console.error('Error updating order shipping:', error);
+      throw error;
+    }
+  }
 }
