@@ -44,6 +44,8 @@ export default function CrossSellingManager({
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [showCreateFromSuggestions, setShowCreateFromSuggestions] = useState(false);
+  const [newGroupFromSuggestionsName, setNewGroupFromSuggestionsName] = useState("");
 
   // Fetch cross-selling data
   const { data: crossSellingData, refetch: refetchCrossSelling } = useQuery<{
@@ -114,6 +116,49 @@ export default function CrossSellingManager({
       toast({
         title: t("errors.createFailed"),
         description: t("crossSelling.groupCreateError"),
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Create cross-selling group from suggestions mutation
+  const createGroupFromSuggestionsMutation = useMutation({
+    mutationFn: async ({ name, productIds }: { name: string; productIds: string[] }) => {
+      // Create the group
+      const createResponse = await apiRequest("POST", `/api/products/${product.id}/cross-selling`, { name, productIds: [] });
+      
+      if (!createResponse.ok) {
+        const error = await createResponse.json();
+        throw new Error(error.error || "Failed to create group");
+      }
+      
+      const newGroup = await createResponse.json();
+      
+      // Add all products to the group
+      if (productIds.length > 0) {
+        const updateResponse = await apiRequest("PUT", `/api/products/${product.id}/cross-selling/${newGroup.id}`, { productIds });
+        
+        if (!updateResponse.ok) {
+          const error = await updateResponse.json();
+          throw new Error(error.error || "Failed to add products to group");
+        }
+      }
+      
+      return newGroup;
+    },
+    onSuccess: () => {
+      toast({
+        title: t("crossSelling.groupCreated"),
+        description: t("crossSelling.groupFromSuggestionsCreated"),
+      });
+      setNewGroupFromSuggestionsName("");
+      setShowCreateFromSuggestions(false);
+      refetchCrossSelling();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t("errors.createFailed"),
+        description: error.message || t("crossSelling.groupCreateError"),
         variant: "destructive",
       });
     },
@@ -412,16 +457,29 @@ export default function CrossSellingManager({
           {/* Suggestions Tab */}
           <TabsContent value="suggestions" className="flex-1 overflow-y-auto space-y-4 mt-0">
             <div className="bg-primary/10 border border-primary/20 rounded-md p-4 mb-4">
-              <div className="flex gap-2">
-                <Sparkles className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-semibold text-sm mb-1">
-                    {t("crossSelling.suggestionsInfo")}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {t("crossSelling.suggestionsDesc")}
-                  </p>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex gap-2">
+                  <Sparkles className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-sm mb-1">
+                      {t("crossSelling.suggestionsInfo")}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {t("crossSelling.suggestionsDesc")}
+                    </p>
+                  </div>
                 </div>
+                {suggestions.length > 0 && (
+                  <Button
+                    onClick={() => setShowCreateFromSuggestions(true)}
+                    size="sm"
+                    data-testid="button-create-group-from-suggestions"
+                    className="shrink-0"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    {t("crossSelling.createFromSuggestions")}
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -477,6 +535,75 @@ export default function CrossSellingManager({
           </TabsContent>
         </Tabs>
       </DialogContent>
+
+      {/* Create Group from Suggestions Dialog */}
+      <Dialog open={showCreateFromSuggestions} onOpenChange={setShowCreateFromSuggestions}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("crossSelling.createFromSuggestionsTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("crossSelling.createFromSuggestionsDesc", { count: suggestions.length })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                {t("crossSelling.groupName")}
+              </label>
+              <Input
+                value={newGroupFromSuggestionsName}
+                onChange={(e) => setNewGroupFromSuggestionsName(e.target.value)}
+                placeholder={t("crossSelling.groupNamePlaceholder")}
+                data-testid="input-group-name-from-suggestions"
+              />
+            </div>
+            
+            <div className="bg-muted/50 rounded-md p-3">
+              <p className="text-sm font-medium mb-2">
+                {t("crossSelling.productsToAdd", { count: suggestions.length })}
+              </p>
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {suggestions.map((p) => (
+                  <div key={p.id} className="text-sm flex items-center gap-2">
+                    <CheckCircle2 className="h-3 w-3 text-primary" />
+                    <span className="truncate">{p.name}</span>
+                    <span className="text-muted-foreground font-mono text-xs ml-auto">
+                      {p.productNumber}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowCreateFromSuggestions(false)}
+                data-testid="button-cancel-create-from-suggestions"
+              >
+                {t("common.cancel")}
+              </Button>
+              <Button
+                onClick={() => {
+                  if (newGroupFromSuggestionsName.trim()) {
+                    const productIds = suggestions.map((p) => p.id);
+                    createGroupFromSuggestionsMutation.mutate({
+                      name: newGroupFromSuggestionsName,
+                      productIds,
+                    });
+                  }
+                }}
+                disabled={!newGroupFromSuggestionsName.trim() || createGroupFromSuggestionsMutation.isPending}
+                data-testid="button-confirm-create-from-suggestions"
+              >
+                {createGroupFromSuggestionsMutation.isPending
+                  ? t("common.creating")
+                  : t("common.create")}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
