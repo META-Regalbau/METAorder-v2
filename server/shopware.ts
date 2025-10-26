@@ -302,14 +302,18 @@ export class ShopwareClient {
               console.log('[DEBUG] Line Item Price Structure:', {
                 unitPrice: item.unitPrice,
                 totalPrice: item.totalPrice,
-                priceObject: JSON.stringify(item.price, null, 2),
-                taxRate
+                priceNetPrice: item.price?.netPrice,
+                priceTotalPrice: item.price?.totalPrice,
+                priceUnitPrice: item.price?.unitPrice,
+                taxRate,
+                calculatedNet: grossPrice / (1 + taxRate / 100)
               });
             }
             
-            // Extract net prices directly from Shopware - they have both gross and net
-            const netPrice = item.price?.unitPrice || grossPrice / (1 + taxRate / 100);
-            const netTotal = item.price?.totalPrice || grossTotal / (1 + taxRate / 100);
+            // Extract net prices: Shopware stores net prices in price.netPrice
+            // price.unitPrice and price.totalPrice are the GROSS prices!
+            const netPrice = (item.price?.netPrice != null) ? item.price.netPrice : grossPrice / (1 + taxRate / 100);
+            const netTotal = (item.price?.netPrice != null) ? item.price.netPrice * item.quantity : grossTotal / (1 + taxRate / 100);
             
             return {
               id: item.id,
@@ -327,16 +331,17 @@ export class ShopwareClient {
             const lineItem = includedMap.get(`order_line_item-${lineItemRef.id}`);
             const grossPrice = lineItem?.attributes?.unitPrice || 0;
             const grossTotal = lineItem?.attributes?.totalPrice || 0;
+            const quantity = lineItem?.attributes?.quantity || 1;
             // Extract tax rate first
             const taxRate = lineItem?.attributes?.price?.taxRules?.[0]?.taxRate || 19;
-            // Extract net prices directly from Shopware
-            const netPrice = lineItem?.attributes?.price?.unitPrice || grossPrice / (1 + taxRate / 100);
-            const netTotal = lineItem?.attributes?.price?.totalPrice || grossTotal / (1 + taxRate / 100);
+            // Extract net prices: Shopware stores net prices in price.netPrice
+            const netPrice = (lineItem?.attributes?.price?.netPrice != null) ? lineItem.attributes.price.netPrice : grossPrice / (1 + taxRate / 100);
+            const netTotal = (lineItem?.attributes?.price?.netPrice != null) ? lineItem.attributes.price.netPrice * quantity : grossTotal / (1 + taxRate / 100);
             
             return {
               id: lineItemRef.id,
               name: lineItem?.attributes?.label || 'Unknown Item',
-              quantity: lineItem?.attributes?.quantity || 1,
+              quantity,
               price: grossPrice,
               netPrice: netPrice,
               total: grossTotal,
