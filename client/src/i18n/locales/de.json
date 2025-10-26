@@ -108,6 +108,7 @@
     "shippingInfo": "Versandinformationen",
     "shippingUpdated": "Versand aktualisiert",
     "shippingSuccess": "Versandinformationen wurden gespeichert.",
+    "shippingSuccessWithStatus": "Versandinformationen wurden gespeichert und die Bestellung wurde auf 'Versendet' gesetzt.",
     "documentNumbers": "Dokumentnummern (Nur Admin)",
     "documentsUpdated": "Dokumente aktualisiert",
     "documentsSuccess": "Dokumentnummern wurden gespeichert.",

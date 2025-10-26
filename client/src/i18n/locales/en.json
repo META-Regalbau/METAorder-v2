@@ -108,6 +108,7 @@
     "shippingInfo": "Shipping Information",
     "shippingUpdated": "Shipping updated",
     "shippingSuccess": "Shipping information has been saved.",
+    "shippingSuccessWithStatus": "Shipping information has been saved and the order has been marked as shipped.",
     "documentNumbers": "Document Numbers (Admin Only)",
     "documentsUpdated": "Documents updated",
     "documentsSuccess": "Document numbers have been saved.",

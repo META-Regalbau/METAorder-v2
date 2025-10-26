@@ -8,8 +8,8 @@ import OrdersTable from "@/components/OrdersTable";
 import OrderDetailModal from "@/components/OrderDetailModal";
 import { SalesChannelSelector } from "@/components/SalesChannelSelector";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Order, OrderStatus, SalesChannel } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 
@@ -163,13 +163,30 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
     // TODO: Implement export functionality
   };
 
+  // Mutation to update shipping information and set status to shipped in Shopware
+  const updateShippingMutation = useMutation({
+    mutationFn: async ({ orderId, shippingData }: { orderId: string; shippingData: any }) => {
+      const response = await apiRequest("PATCH", `/api/orders/${orderId}/shipping`, shippingData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
+      toast({
+        title: t('orderDetail.shippingUpdated'),
+        description: t('orderDetail.shippingSuccessWithStatus'),
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t('errors.updateFailed'),
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleUpdateShipping = (orderId: string, data: any) => {
-    console.log("Update shipping for order:", orderId, data);
-    toast({
-      title: t('orderDetail.shippingUpdated'),
-      description: t('orderDetail.shippingSuccess'),
-    });
-    // TODO: Implement API call to update shipping
+    updateShippingMutation.mutate({ orderId, shippingData: data });
   };
 
   const handleUpdateDocuments = (orderId: string, data: any) => {
