@@ -8,6 +8,7 @@ import { ShopwareClient } from "./shopware";
 import { RuleEngine } from "./ruleEngine";
 import { shopwareSettingsSchema, insertCrossSellingRuleSchema, type Product, insertUserSchema, type Role } from "@shared/schema";
 import { requireAuth, requireManageUsers, requireManageRoles, requireManageSettings, requireManageCrossSellingGroups, requireManageCrossSellingRules } from "./auth";
+import * as XLSX from 'xlsx';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
@@ -383,6 +384,106 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error fetching orders:", error);
       res.status(500).json({ error: error.message || "Failed to fetch orders" });
+    }
+  });
+
+  // Export orders endpoint
+  app.post("/api/orders/export", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const { dateFrom, dateTo, format, columns } = req.body;
+
+      const client = new ShopwareClient(settings);
+      const allOrders = await client.fetchOrders();
+
+      // Filter by date range
+      let filteredOrders = allOrders;
+      if (dateFrom || dateTo) {
+        filteredOrders = allOrders.filter(order => {
+          const orderDate = new Date(order.orderDate);
+          if (dateFrom && orderDate < new Date(dateFrom)) return false;
+          if (dateTo && orderDate > new Date(dateTo)) return false;
+          return true;
+        });
+      }
+
+      // Extract only selected columns
+      const exportData = filteredOrders.map(order => {
+        const row: any = {};
+        columns.forEach((col: string) => {
+          switch (col) {
+            case 'orderNumber':
+              row['Order Number'] = order.orderNumber;
+              break;
+            case 'customerName':
+              row['Customer Name'] = order.customerName;
+              break;
+            case 'customerEmail':
+              row['Customer Email'] = order.customerEmail;
+              break;
+            case 'orderDate':
+              row['Order Date'] = new Date(order.orderDate).toLocaleDateString('de-DE');
+              break;
+            case 'status':
+              row['Status'] = order.status;
+              break;
+            case 'totalAmount':
+              row['Total Amount (Gross)'] = `€${order.totalAmount.toFixed(2)}`;
+              break;
+            case 'netTotalAmount':
+              row['Total Amount (Net)'] = `€${(order.netTotalAmount || 0).toFixed(2)}`;
+              break;
+            case 'carrier':
+              row['Carrier'] = order.shippingInfo?.carrier || '';
+              break;
+            case 'trackingNumber':
+              row['Tracking Number'] = order.shippingInfo?.trackingNumber || '';
+              break;
+            case 'invoiceNumber':
+              row['Invoice Number'] = order.invoiceNumber || '';
+              break;
+            case 'deliveryNoteNumber':
+              row['Delivery Note Number'] = order.deliveryNoteNumber || '';
+              break;
+            case 'erpNumber':
+              row['ERP Number'] = order.erpNumber || '';
+              break;
+          }
+        });
+        return row;
+      });
+
+      if (format === 'json') {
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Disposition', `attachment; filename="orders-export-${Date.now()}.json"`);
+        res.send(JSON.stringify(exportData, null, 2));
+      } else if (format === 'csv') {
+        const worksheet = XLSX.utils.json_to_sheet(exportData);
+        const csv = XLSX.utils.sheet_to_csv(worksheet);
+        
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="orders-export-${Date.now()}.csv"`);
+        res.send('\uFEFF' + csv); // BOM for proper UTF-8 encoding in Excel
+      } else if (format === 'xlsx') {
+        const worksheet = XLSX.utils.json_to_sheet(exportData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Orders');
+        
+        const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+        
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="orders-export-${Date.now()}.xlsx"`);
+        res.send(buffer);
+      } else {
+        res.status(400).json({ error: 'Invalid format' });
+      }
+    } catch (error: any) {
+      console.error("Error exporting orders:", error);
+      res.status(500).json({ error: error.message || "Failed to export orders" });
     }
   });
 

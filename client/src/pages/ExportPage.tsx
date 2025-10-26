@@ -43,13 +43,63 @@ export default function ExportPage() {
     );
   };
 
-  const handleExport = () => {
-    console.log("Exporting with:", { dateFrom, dateTo, format, selectedColumns });
-    toast({
-      title: "Export started",
-      description: `Your ${format.toUpperCase()} file is being generated...`,
-    });
-    // TODO: Implement actual export functionality
+  const handleExport = async () => {
+    try {
+      toast({
+        title: "Export started",
+        description: `Your ${format.toUpperCase()} file is being generated...`,
+      });
+
+      const response = await fetch('/api/orders/export', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          dateFrom,
+          dateTo,
+          format,
+          columns: selectedColumns,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+
+      // Get filename from Content-Disposition header or generate one
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `orders-export-${Date.now()}.${format}`;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      // Create blob and download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Export completed",
+        description: `Your ${format.toUpperCase()} file has been downloaded.`,
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: "Export failed",
+        description: "An error occurred while exporting the orders.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
