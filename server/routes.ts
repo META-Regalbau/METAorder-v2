@@ -20,14 +20,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: info?.message || "Invalid credentials" });
       }
       
-      req.logIn(user, (err) => {
+      // Prevent session fixation attacks by regenerating session ID
+      req.session.regenerate((err) => {
         if (err) {
-          return res.status(500).json({ error: "Failed to login" });
+          return res.status(500).json({ error: "Failed to create session" });
         }
         
-        // Don't send password to client
-        const { password, ...userWithoutPassword } = user;
-        return res.json({ user: userWithoutPassword });
+        req.logIn(user, (err) => {
+          if (err) {
+            return res.status(500).json({ error: "Failed to login" });
+          }
+          
+          // Don't send password to client
+          const { password, ...userWithoutPassword } = user;
+          return res.json({ user: userWithoutPassword });
+        });
       });
     })(req, res, next);
   });
@@ -37,7 +44,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (err) {
         return res.status(500).json({ error: "Failed to logout" });
       }
-      res.json({ message: "Logged out successfully" });
+      
+      // Destroy session for security
+      req.session.destroy((err) => {
+        if (err) {
+          return res.status(500).json({ error: "Failed to destroy session" });
+        }
+        res.json({ message: "Logged out successfully" });
+      });
     });
   });
   
