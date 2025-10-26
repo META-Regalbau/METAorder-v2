@@ -1,6 +1,7 @@
 import {
   type User,
   type InsertUser,
+  type Role,
   type ShopwareSettings,
   type InsertShopwareSettings,
   type CrossSellingRule,
@@ -11,10 +12,30 @@ import { randomUUID } from "crypto";
 // modify the interface with any CRUD methods
 // you might need
 
+export type InsertRole = Omit<Role, "id">;
+export type UpdateUser = {
+  username?: string;
+  password?: string;
+  role?: "employee" | "admin";
+  roleId?: string;
+  salesChannelIds?: string[] | null;
+};
+
 export interface IStorage {
+  // Users
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getAllUsers(): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, updates: UpdateUser): Promise<User | undefined>;
+  deleteUser(id: string): Promise<boolean>;
+  
+  // Roles
+  getRole(id: string): Promise<Role | undefined>;
+  getAllRoles(): Promise<Role[]>;
+  createRole(role: InsertRole): Promise<Role>;
+  updateRole(id: string, updates: Partial<InsertRole>): Promise<Role | undefined>;
+  deleteRole(id: string): Promise<boolean>;
   
   // Shopware settings
   getShopwareSettings(): Promise<ShopwareSettings | undefined>;
@@ -30,11 +51,13 @@ export interface IStorage {
 
 export class MemStorage implements IStorage {
   private users: Map<string, User>;
+  private roles: Map<string, Role>;
   private shopwareSettings: ShopwareSettings | undefined;
   private crossSellingRules: Map<string, CrossSellingRule>;
 
   constructor() {
     this.users = new Map();
+    this.roles = new Map();
     this.shopwareSettings = undefined;
     this.crossSellingRules = new Map();
   }
@@ -49,11 +72,64 @@ export class MemStorage implements IStorage {
     );
   }
 
+  async getAllUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
+  }
+
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = randomUUID();
     const user: User = { ...insertUser, id, role: "employee", salesChannelIds: null };
     this.users.set(id, user);
     return user;
+  }
+
+  async updateUser(id: string, updates: UpdateUser): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (!user) return undefined;
+
+    const updatedUser: User = {
+      ...user,
+      ...updates,
+    };
+    
+    this.users.set(id, updatedUser);
+    return updatedUser;
+  }
+
+  async deleteUser(id: string): Promise<boolean> {
+    return this.users.delete(id);
+  }
+
+  async getRole(id: string): Promise<Role | undefined> {
+    return this.roles.get(id);
+  }
+
+  async getAllRoles(): Promise<Role[]> {
+    return Array.from(this.roles.values());
+  }
+
+  async createRole(insertRole: InsertRole): Promise<Role> {
+    const id = randomUUID();
+    const role: Role = { id, ...insertRole };
+    this.roles.set(id, role);
+    return role;
+  }
+
+  async updateRole(id: string, updates: Partial<InsertRole>): Promise<Role | undefined> {
+    const role = this.roles.get(id);
+    if (!role) return undefined;
+
+    const updatedRole: Role = {
+      ...role,
+      ...updates,
+    };
+
+    this.roles.set(id, updatedRole);
+    return updatedRole;
+  }
+
+  async deleteRole(id: string): Promise<boolean> {
+    return this.roles.delete(id);
   }
 
   async getShopwareSettings(): Promise<ShopwareSettings | undefined> {
