@@ -441,8 +441,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Cross-Selling Suggestions endpoint (rule-based)
   app.get("/api/products/:productId/cross-selling-suggestions", async (req, res) => {
     try {
+      console.log(`Generating cross-selling suggestions for product ${req.params.productId}...`);
+      
       const settings = await storage.getShopwareSettings();
       if (!settings) {
+        console.log("Shopware settings not configured");
         return res.status(400).json({ error: "Shopware settings not configured" });
       }
 
@@ -451,32 +454,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Fetch all products to find the source product and for matching
       // Shopware MAX_LIMIT is 500 products per request
+      console.log("Fetching all products from Shopware (max 500)...");
       const allProductsResult = await client.fetchProducts(500, 1, undefined);
+      console.log(`Fetched ${allProductsResult.products.length} products from Shopware`);
+      
       const sourceProduct = allProductsResult.products.find(p => p.id === productId);
 
       if (!sourceProduct) {
+        console.log(`Source product ${productId} not found in fetched products`);
         return res.status(404).json({ error: "Product not found" });
       }
+      
+      console.log(`Source product found: ${sourceProduct.name} (${sourceProduct.productNumber})`);
 
       // Get all active rules
       const rules = await storage.getAllCrossSellingRules();
+      console.log(`Total rules in storage: ${rules.length}`);
       const activeRules = rules.filter(r => r.active === 1);
+      console.log(`Active rules: ${activeRules.length}`);
 
       if (activeRules.length === 0) {
+        console.log("No active rules found, returning empty suggestions");
         return res.json({ suggestions: [] });
       }
+      
+      console.log(`Active rules details:`, JSON.stringify(activeRules, null, 2));
 
       // Apply rules to find suggestions
       const ruleEngine = new RuleEngine();
+      console.log("Applying rules to generate suggestions...");
       const suggestions = await ruleEngine.suggestCrossSelling(
         sourceProduct,
         activeRules,
         allProductsResult.products
       );
+      
+      console.log(`Generated ${suggestions.length} suggestions`);
+      console.log(`Suggestions:`, suggestions.map(s => `${s.name} (${s.productNumber})`).join(', '));
 
       res.json({ suggestions });
     } catch (error: any) {
       console.error("Error generating cross-selling suggestions:", error);
+      console.error("Error stack:", error.stack);
       res.status(500).json({ error: error.message || "Failed to generate suggestions" });
     }
   });
