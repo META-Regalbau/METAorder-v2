@@ -761,15 +761,23 @@ export class ShopwareClient {
       }
 
       const data = await response.json();
-      const crossSellings = data.data || [];
+      
+      // Debug: Log the full response to understand Shopware's structure
+      console.log('Shopware Cross-Selling Response:', JSON.stringify(data, null, 2));
+      
+      const crossSellings = data.data || data || [];
 
-      return crossSellings.map((cs: any) => ({
+      const result = crossSellings.map((cs: any) => ({
         id: cs.id,
         name: cs.name || cs.attributes?.name || 'Unnamed Group',
         type: cs.type || cs.attributes?.type || 'productList',
         active: cs.active !== undefined ? cs.active : (cs.attributes?.active || false),
         products: [], // Will be populated separately if needed
       }));
+      
+      console.log(`Found ${result.length} cross-selling groups for product ${productId}`);
+      
+      return result;
     } catch (error) {
       console.error('Error fetching cross-selling from Shopware:', error);
       throw error;
