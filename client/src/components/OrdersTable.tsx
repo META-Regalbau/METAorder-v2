@@ -2,6 +2,7 @@ import { Eye, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import StatusBadge from "./StatusBadge";
+import PaymentStatusBadge from "./PaymentStatusBadge";
 import type { Order } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 
@@ -70,7 +71,10 @@ export default function OrdersTable({ orders, onViewOrder, isLoading }: OrdersTa
                 })}
               </TableCell>
               <TableCell>
-                <StatusBadge status={order.status} />
+                <div className="flex gap-1">
+                  <StatusBadge status={order.status} />
+                  <PaymentStatusBadge status={order.paymentStatus} orderId={order.id} />
+                </div>
               </TableCell>
               <TableCell className="text-right font-medium">
                 €{(order.totalAmount || 0).toFixed(2)}

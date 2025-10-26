@@ -1,4 +1,4 @@
-import type { Order, OrderStatus, OrderItem, ShopwareSettings, SalesChannel, Product, ProductPriceRule, CrossSellingGroup, CrossSellingProduct } from "@shared/schema";
+import type { Order, OrderStatus, PaymentStatus, OrderItem, ShopwareSettings, SalesChannel, Product, ProductPriceRule, CrossSellingGroup, CrossSellingProduct } from "@shared/schema";
 
 export class ShopwareClient {
   private baseUrl: string;
@@ -155,6 +155,23 @@ export class ShopwareClient {
     return statusMap[shopwareStatus] || 'open';
   }
 
+  private mapPaymentStatus(shopwarePaymentStatus: string): PaymentStatus {
+    const paymentStatusMap: Record<string, PaymentStatus> = {
+      'open': 'open',
+      'in_progress': 'open',
+      'paid': 'paid',
+      'paid_partially': 'partially_paid',
+      'partially_paid': 'partially_paid',
+      'refunded': 'refunded',
+      'refunded_partially': 'partially_paid',
+      'partially_refunded': 'partially_paid',
+      'cancelled': 'cancelled',
+      'reminded': 'reminded',
+      'failed': 'failed',
+    };
+    return paymentStatusMap[shopwarePaymentStatus] || 'open';
+  }
+
   async fetchOrders(): Promise<Order[]> {
     try {
       const limit = 500; // Fetch 500 orders per request for efficiency
@@ -180,17 +197,25 @@ export class ShopwareClient {
               },
             ],
             includes: {
-              order: ['id', 'orderNumber', 'orderDate', 'amountTotal', 'orderCustomer', 'lineItems', 'stateMachineState', 'salesChannelId', 'salesChannel', 'customFields'],
+              order: ['id', 'orderNumber', 'orderDate', 'amountTotal', 'orderCustomer', 'lineItems', 'stateMachineState', 'salesChannelId', 'salesChannel', 'customFields', 'transactions'],
               order_customer: ['firstName', 'lastName', 'email'],
               order_line_item: ['id', 'label', 'quantity', 'unitPrice', 'totalPrice'],
               state_machine_state: ['technicalName'],
               sales_channel: ['id', 'name'],
+              order_transaction: ['stateMachineState'],
             },
             associations: {
               orderCustomer: {},
               lineItems: {},
               stateMachineState: {},
               salesChannel: {},
+              transactions: {
+                limit: 10, // Fetch up to 10 transactions per order (usually only 1-2)
+                sort: [{ field: 'createdAt', order: 'DESC' }], // Latest transaction first
+                associations: {
+                  stateMachineState: {},
+                },
+              },
             },
           }),
         });
@@ -299,6 +324,33 @@ export class ShopwareClient {
           }
         }
 
+        // Get payment status from transactions (latest transaction)
+        let paymentStatus: PaymentStatus = 'open';
+        
+        if (shopwareOrder.transactions && shopwareOrder.transactions.length > 0) {
+          // Use the last transaction (most recent, already sorted by createdAt DESC)
+          const latestTransaction = shopwareOrder.transactions[shopwareOrder.transactions.length - 1];
+          if (latestTransaction.stateMachineState?.technicalName) {
+            paymentStatus = this.mapPaymentStatus(latestTransaction.stateMachineState.technicalName);
+          } else {
+            console.warn(`Order ${shopwareOrder.orderNumber || shopwareOrder.id}: Transaction exists but missing stateMachineState`);
+          }
+        } else if (shopwareOrder.relationships?.transactions?.data && shopwareOrder.relationships.transactions.data.length > 0) {
+          // Fallback to relationships
+          const latestTransactionRef = shopwareOrder.relationships.transactions.data[shopwareOrder.relationships.transactions.data.length - 1];
+          const transaction = includedMap.get(`order_transaction-${latestTransactionRef.id}`);
+          if (transaction?.relationships?.stateMachineState?.data?.id) {
+            const paymentStateId = transaction.relationships.stateMachineState.data.id;
+            const paymentState = includedMap.get(`state_machine_state-${paymentStateId}`);
+            if (paymentState?.attributes?.technicalName) {
+              paymentStatus = this.mapPaymentStatus(paymentState.attributes.technicalName);
+            }
+          }
+        } else {
+          // No transactions found - log warning
+          console.warn(`Order ${shopwareOrder.orderNumber || shopwareOrder.id}: No transactions found, payment status defaults to 'open'`);
+        }
+
         // Get sales channel data
         let salesChannelId = shopwareOrder.salesChannelId || shopwareOrder.attributes?.salesChannelId || '';
         let salesChannelName = '';
@@ -324,6 +376,7 @@ export class ShopwareClient {
           orderDate: shopwareOrder.orderDate || shopwareOrder.attributes?.orderDate || shopwareOrder.createdAt || new Date().toISOString(),
           totalAmount: shopwareOrder.amountTotal || shopwareOrder.attributes?.amountTotal || 0,
           status,
+          paymentStatus,
           salesChannelId,
           salesChannelName,
           items,

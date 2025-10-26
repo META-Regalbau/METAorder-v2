@@ -138,6 +138,15 @@
     "completed": "Abgeschlossen",
     "cancelled": "Storniert"
   },
+  "paymentStatus": {
+    "open": "Offen",
+    "paid": "Bezahlt",
+    "partially_paid": "Teilweise bezahlt",
+    "refunded": "Rückerstattet",
+    "cancelled": "Storniert",
+    "reminded": "Gemahnt",
+    "failed": "Fehlgeschlagen"
+  },
   "settings": {
     "title": "Einstellungen",
     "subtitle": "Konfigurieren Sie Ihre Anwendungseinstellungen",

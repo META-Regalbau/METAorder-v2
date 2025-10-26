@@ -137,6 +137,15 @@
     "completed": "Completado",
     "cancelled": "Cancelado"
   },
+  "paymentStatus": {
+    "open": "Abierto",
+    "paid": "Pagado",
+    "partially_paid": "Parcialmente Pagado",
+    "refunded": "Reembolsado",
+    "cancelled": "Cancelado",
+    "reminded": "Recordado",
+    "failed": "Fallido"
+  },
   "settings": {
     "title": "Configuración",
     "subtitle": "Configure los ajustes de su aplicación",

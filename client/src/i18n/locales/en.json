@@ -138,6 +138,15 @@
     "completed": "Completed",
     "cancelled": "Cancelled"
   },
+  "paymentStatus": {
+    "open": "Open",
+    "paid": "Paid",
+    "partially_paid": "Partially Paid",
+    "refunded": "Refunded",
+    "cancelled": "Cancelled",
+    "reminded": "Reminded",
+    "failed": "Failed"
+  },
   "settings": {
     "title": "Settings",
     "subtitle": "Configure your application settings",

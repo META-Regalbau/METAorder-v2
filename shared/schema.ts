@@ -78,6 +78,7 @@ export type InsertShopwareSettings = z.infer<typeof shopwareSettingsSchema>;
 
 // Order types for Shopware integration
 export type OrderStatus = "open" | "in_progress" | "completed" | "cancelled";
+export type PaymentStatus = "open" | "paid" | "partially_paid" | "refunded" | "cancelled" | "reminded" | "failed";
 
 export type Order = {
   id: string;
@@ -87,6 +88,7 @@ export type Order = {
   orderDate: string;
   totalAmount: number;
   status: OrderStatus;
+  paymentStatus: PaymentStatus;
   salesChannelId: string;
   salesChannelName?: string;
   shippingInfo?: {
