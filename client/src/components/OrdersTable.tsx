@@ -76,8 +76,11 @@ export default function OrdersTable({ orders, onViewOrder, isLoading }: OrdersTa
                   <PaymentStatusBadge status={order.paymentStatus} orderId={order.id} />
                 </div>
               </TableCell>
-              <TableCell className="text-right font-medium">
-                €{(order.totalAmount || 0).toFixed(2)}
+              <TableCell className="text-right">
+                <div>
+                  <p className="font-medium">€{(order.totalAmount || 0).toFixed(2)}</p>
+                  <p className="text-sm text-muted-foreground">€{(order.netTotalAmount || 0).toFixed(2)} <span className="text-xs">{t('orderDetail.net')}</span></p>
+                </div>
               </TableCell>
               <TableCell>
                 {order.shippingInfo?.trackingNumber ? (

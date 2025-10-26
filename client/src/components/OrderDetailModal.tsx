@@ -126,7 +126,10 @@ export default function OrderDetailModal({
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">{t('orderDetail.totalAmount')}</p>
-                  <p className="font-medium text-lg" data-testid="text-total-amount">€{order.totalAmount.toFixed(2)}</p>
+                  <div className="space-y-1">
+                    <p className="font-medium text-lg" data-testid="text-total-amount">€{order.totalAmount.toFixed(2)} <span className="text-xs text-muted-foreground">{t('orderDetail.gross')}</span></p>
+                    <p className="text-sm text-muted-foreground" data-testid="text-net-total-amount">€{order.netTotalAmount.toFixed(2)} <span className="text-xs">{t('orderDetail.net')}</span></p>
+                  </div>
                 </div>
               </div>
             </Card>
