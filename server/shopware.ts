@@ -422,9 +422,10 @@ export class ShopwareClient {
       }
 
       return documents.map((doc: any) => {
-        // Extract document number and deep link code from attributes (Shopware API JSON format)
-        const docNumber = doc.attributes?.documentNumber || '';
-        const deepLink = doc.attributes?.deepLinkCode || '';
+        // Extract document number and deep link code from root level (Shopware 6 API)
+        const docNumber = doc.documentNumber || doc.attributes?.documentNumber || '';
+        // deepLinkCode is directly on the root object in Shopware 6
+        const deepLink = doc.deepLinkCode || '';
         
         // Get document type from the included data or from relationships or from document number
         let docType = 'unknown';
