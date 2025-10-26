@@ -1,5 +1,10 @@
 import type { Order, OrderStatus, PaymentStatus, OrderItem, ShopwareSettings, SalesChannel, Product, ProductPriceRule, CrossSellingGroup, CrossSellingProduct } from "@shared/schema";
 
+// Helper function to calculate net price from gross price and tax rate
+function calculateNetPrice(grossPrice: number, taxRate: number): number {
+  return grossPrice / (1 + taxRate / 100);
+}
+
 export class ShopwareClient {
   private baseUrl: string;
   private apiKey: string;
@@ -291,22 +296,43 @@ export class ShopwareClient {
         let items: OrderItem[] = [];
         
         if (shopwareOrder.lineItems) {
-          items = shopwareOrder.lineItems.map((item: any) => ({
-            id: item.id,
-            name: item.label || 'Unknown Item',
-            quantity: item.quantity || 1,
-            price: item.unitPrice || 0,
-            total: item.totalPrice || 0,
-          }));
+          items = shopwareOrder.lineItems.map((item: any) => {
+            const grossPrice = item.unitPrice || 0;
+            const grossTotal = item.totalPrice || 0;
+            // Extract tax rate from price structure if available
+            const taxRate = item.price?.taxRules?.[0]?.taxRate || 19; // Default to 19% if not available
+            const netPrice = calculateNetPrice(grossPrice, taxRate);
+            const netTotal = calculateNetPrice(grossTotal, taxRate);
+            
+            return {
+              id: item.id,
+              name: item.label || 'Unknown Item',
+              quantity: item.quantity || 1,
+              price: grossPrice,
+              netPrice: netPrice,
+              total: grossTotal,
+              netTotal: netTotal,
+              taxRate: taxRate,
+            };
+          });
         } else if (shopwareOrder.relationships?.lineItems?.data) {
           items = shopwareOrder.relationships.lineItems.data.map((lineItemRef: any) => {
             const lineItem = includedMap.get(`order_line_item-${lineItemRef.id}`);
+            const grossPrice = lineItem?.attributes?.unitPrice || 0;
+            const grossTotal = lineItem?.attributes?.totalPrice || 0;
+            const taxRate = lineItem?.attributes?.price?.taxRules?.[0]?.taxRate || 19;
+            const netPrice = calculateNetPrice(grossPrice, taxRate);
+            const netTotal = calculateNetPrice(grossTotal, taxRate);
+            
             return {
               id: lineItemRef.id,
               name: lineItem?.attributes?.label || 'Unknown Item',
               quantity: lineItem?.attributes?.quantity || 1,
-              price: lineItem?.attributes?.unitPrice || 0,
-              total: lineItem?.attributes?.totalPrice || 0,
+              price: grossPrice,
+              netPrice: netPrice,
+              total: grossTotal,
+              netTotal: netTotal,
+              taxRate: taxRate,
             };
           });
         }
@@ -777,6 +803,7 @@ export class ShopwareClient {
             priceRules.push({
               quantity: quantityStart,
               price: rulePrice,
+              netPrice: calculateNetPrice(rulePrice, taxRate),
             });
           });
         } else if (sp.relationships?.prices?.data) {
@@ -788,6 +815,7 @@ export class ShopwareClient {
               priceRules.push({
                 quantity: quantityStart,
                 price: rulePrice,
+                netPrice: calculateNetPrice(rulePrice, taxRate),
               });
             }
           });
@@ -799,6 +827,7 @@ export class ShopwareClient {
           name: sp.name || sp.attributes?.name || 'Unknown Product',
           description: sp.description || sp.attributes?.description,
           price,
+          netPrice: calculateNetPrice(price, taxRate),
           currency: 'EUR',
           taxRate,
           stock: sp.stock || sp.attributes?.stock || 0,
@@ -953,6 +982,7 @@ export class ShopwareClient {
                   media: {},
                 },
               },
+              tax: {},
             },
           }),
         }
@@ -969,15 +999,21 @@ export class ShopwareClient {
       console.log(`Fetched ${products.length} product details`);
 
       // Step 4: Map to CrossSellingProduct format
-      const result = products.map((p: any) => ({
-        id: p.id,
-        productNumber: p.productNumber || '',
-        name: p.name || 'Unknown Product',
-        price: p.price?.[0]?.gross || 0,
-        imageUrl: p.cover?.media?.url || undefined,
-        stock: p.stock || 0,
-        available: p.available || false,
-      }));
+      const result = products.map((p: any) => {
+        const grossPrice = p.price?.[0]?.gross || 0;
+        const taxRate = p.tax?.taxRate || 19; // Default to 19% if not available
+        return {
+          id: p.id,
+          productNumber: p.productNumber || '',
+          name: p.name || 'Unknown Product',
+          price: grossPrice,
+          netPrice: calculateNetPrice(grossPrice, taxRate),
+          taxRate: taxRate,
+          imageUrl: p.cover?.media?.url || undefined,
+          stock: p.stock || 0,
+          available: p.available || false,
+        };
+      });
       
       console.log(`Found ${result.length} products in cross-selling group ${crossSellingId}`);
       

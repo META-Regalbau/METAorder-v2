@@ -443,7 +443,10 @@ export default function CrossSellingManager({
                                   {p.productNumber}
                                 </p>
                               </div>
-                              <p className="font-semibold">€{p.price.toFixed(2)}</p>
+                              <div className="text-right">
+                                <p className="font-semibold">€{p.price.toFixed(2)}</p>
+                                <p className="text-xs text-muted-foreground">€{p.netPrice.toFixed(2)} {t('orderDetail.net')}</p>
+                              </div>
                             </div>
                           </Card>
                         );

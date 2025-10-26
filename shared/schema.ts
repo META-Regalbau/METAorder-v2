@@ -106,8 +106,11 @@ export type OrderItem = {
   id: string;
   name: string;
   quantity: number;
-  price: number;
-  total: number;
+  price: number; // Bruttopreis (mit MwSt)
+  netPrice: number; // Nettopreis (ohne MwSt)
+  total: number; // Bruttosumme
+  netTotal: number; // Nettosumme
+  taxRate: number; // Steuersatz in Prozent
 };
 
 export type ShippingInfoInput = {
@@ -125,7 +128,8 @@ export type AdminDocumentInput = {
 // Product types for Shopware integration and CPQ
 export type ProductPriceRule = {
   quantity: number; // Minimum quantity for this price
-  price: number;
+  price: number; // Bruttopreis
+  netPrice: number; // Nettopreis
   discount?: number; // Percentage discount
 };
 
@@ -137,7 +141,8 @@ export type ProductVariant = {
     option: string;
     value?: string;
   }>;
-  price: number;
+  price: number; // Bruttopreis
+  netPrice: number; // Nettopreis
   stock: number;
   available: boolean;
 };
@@ -147,7 +152,8 @@ export type Product = {
   productNumber: string;
   name: string;
   description?: string;
-  price: number;
+  price: number; // Bruttopreis (mit MwSt)
+  netPrice: number; // Nettopreis (ohne MwSt)
   currency: string;
   taxRate: number;
   stock: number;
@@ -187,7 +193,9 @@ export type CrossSellingProduct = {
   id: string;
   productNumber: string;
   name: string;
-  price: number;
+  price: number; // Bruttopreis
+  netPrice: number; // Nettopreis
+  taxRate: number;
   imageUrl?: string;
   stock: number;
   available: boolean;

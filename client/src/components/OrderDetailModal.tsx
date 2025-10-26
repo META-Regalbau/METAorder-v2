@@ -222,14 +222,23 @@ export default function OrderDetailModal({
               {order.items && order.items.length > 0 ? (
                 <div className="space-y-3">
                   {order.items.map((item) => (
-                    <div key={item.id} className="flex justify-between items-center py-2 border-b last:border-0">
+                    <div key={item.id} className="flex justify-between items-center py-2 border-b last:border-0" data-testid={`orderitem-${item.id}`}>
                       <div className="flex-1">
                         <p className="font-medium">{item.name}</p>
                         <p className="text-sm text-muted-foreground">{t('orderDetail.quantity')}: {item.quantity}</p>
+                        <p className="text-xs text-muted-foreground">{t('orderDetail.taxRate')}: {item.taxRate}%</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-medium">€{item.total.toFixed(2)}</p>
-                        <p className="text-sm text-muted-foreground">€{item.price.toFixed(2)} {t('orderDetail.each')}</p>
+                        <div className="space-y-1">
+                          <div>
+                            <p className="font-medium">€{item.total.toFixed(2)} <span className="text-xs text-muted-foreground">{t('orderDetail.gross')}</span></p>
+                            <p className="text-sm text-muted-foreground">€{item.netTotal.toFixed(2)} <span className="text-xs">{t('orderDetail.net')}</span></p>
+                          </div>
+                          <div className="text-sm">
+                            <p className="text-muted-foreground">€{item.price.toFixed(2)} {t('orderDetail.each')} <span className="text-xs">({t('orderDetail.gross')})</span></p>
+                            <p className="text-xs text-muted-foreground">€{item.netPrice.toFixed(2)} {t('orderDetail.each')} ({t('orderDetail.net')})</p>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   ))}
