@@ -802,10 +802,30 @@ export class ShopwareClient {
     try {
       console.log(`Fetching products for cross-selling group ${crossSellingId}...`);
       
+      // Use search endpoint with associations to load product details
       const response = await this.makeAuthenticatedRequest(
-        `${this.baseUrl}/api/product-cross-selling/${crossSellingId}/assigned-products`,
+        `${this.baseUrl}/api/search/product-cross-selling-assigned-products`,
         {
-          method: 'GET',
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            filter: [
+              {
+                type: 'equals',
+                field: 'crossSellingId',
+                value: crossSellingId,
+              },
+            ],
+            associations: {
+              product: {},  // Load product association
+            },
+            includes: {
+              product_cross_selling_assigned_products: ['id', 'productId', 'crossSellingId', 'position', 'product'],
+              product: ['id', 'productNumber', 'name', 'price', 'stock', 'available', 'cover'],
+            },
+          }),
         }
       );
 
