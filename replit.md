@@ -114,3 +114,17 @@ The UI adheres to **Material Design principles** with **Roboto typography** and 
 - **Translations**: Added "shippingSuccessWithStatus" messages in German and English
 - **Error Handling**: Proper error messages displayed via toast notifications if Shopware API calls fail
 
+### Payment Status Display - October 26, 2025
+- **Feature**: Orders table now displays payment status alongside order status with dual badges
+- **Implementation**:
+  - **Schema Extension**: Added `PaymentStatus` type (open, paid, partially_paid, refunded, cancelled, reminded, failed) and `paymentStatus` field to Order schema
+  - **Shopware API**: Extended `fetchOrders()` to include transactions association with limit=10 and sort by createdAt DESC
+  - **Payment Status Mapping**: Created `mapPaymentStatus()` with comprehensive Shopware state coverage (open, in_progress, paid, paid_partially, refunded, refunded_partially, cancelled, reminded, failed)
+  - **Frontend Components**: 
+    - Created `PaymentStatusBadge` component with i18n support and unique test IDs per order
+    - Updated `OrdersTable` to display both badges horizontally (side-by-side)
+  - **Translations**: Added paymentStatus translations in all three languages (de, en, es)
+  - **Defensive Handling**: Added logging for missing transactions to detect API data issues
+- **User Experience**: Each order now shows both order processing status and payment status at a glance
+- **Badge Variants**: Payment status badges use different colors (paid=green, open=gray, cancelled/failed=red) for quick visual identification
+
