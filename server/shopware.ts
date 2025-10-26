@@ -291,11 +291,22 @@ export class ShopwareClient {
         let items: OrderItem[] = [];
         
         if (shopwareOrder.lineItems) {
-          items = shopwareOrder.lineItems.map((item: any) => {
+          items = shopwareOrder.lineItems.map((item: any, idx: number) => {
             const grossPrice = item.unitPrice || 0;
             const grossTotal = item.totalPrice || 0;
             // Extract tax rate first
             const taxRate = item.price?.taxRules?.[0]?.taxRate || 19;
+            
+            // Debug: Log first line item price structure
+            if (idx === 0 && orders.length === 0) {
+              console.log('[DEBUG] Line Item Price Structure:', {
+                unitPrice: item.unitPrice,
+                totalPrice: item.totalPrice,
+                priceObject: JSON.stringify(item.price, null, 2),
+                taxRate
+              });
+            }
+            
             // Extract net prices directly from Shopware - they have both gross and net
             const netPrice = item.price?.unitPrice || grossPrice / (1 + taxRate / 100);
             const netTotal = item.price?.totalPrice || grossTotal / (1 + taxRate / 100);
