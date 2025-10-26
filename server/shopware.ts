@@ -550,6 +550,26 @@ export class ShopwareClient {
             order: 'ASC',
           },
         ],
+        // IMPORTANT: Load ALL products (active AND inactive) for cross-selling rule matching
+        // Without this filter, Shopware only returns active products by default
+        filter: [
+          {
+            type: 'multi',
+            operator: 'OR',
+            queries: [
+              {
+                type: 'equals',
+                field: 'active',
+                value: true,
+              },
+              {
+                type: 'equals',
+                field: 'active',
+                value: false,
+              },
+            ],
+          },
+        ],
       };
 
       // Add search term if provided
