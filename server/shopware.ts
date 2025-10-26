@@ -788,15 +788,31 @@ export class ShopwareClient {
         if (sp.price && Array.isArray(sp.price)) {
           // Price is an array with currency-specific prices
           const eurPrice = sp.price.find((p: any) => p.currencyId || true); // Take first price
-          if (eurPrice?.gross) {
-            price = eurPrice.gross;
-            netPrice = eurPrice.net || price / (1 + taxRate / 100);
+          if (eurPrice) {
+            price = eurPrice.gross || 0;
+            netPrice = eurPrice.net || 0;
+            // Debug: Log first product price details
+            if (products.length === 0) {
+              console.log(`[DEBUG] Product Price Structure for ${sp.name}:`, {
+                gross: eurPrice.gross,
+                net: eurPrice.net,
+                taxRate,
+                fullPriceObj: JSON.stringify(eurPrice)
+              });
+            }
+            // Fallback calculation if net price is missing
+            if (!netPrice && price) {
+              netPrice = price / (1 + taxRate / 100);
+            }
           }
         } else if (sp.attributes?.price && Array.isArray(sp.attributes.price)) {
           const eurPrice = sp.attributes.price.find((p: any) => p.currencyId || true);
-          if (eurPrice?.gross) {
-            price = eurPrice.gross;
-            netPrice = eurPrice.net || price / (1 + taxRate / 100);
+          if (eurPrice) {
+            price = eurPrice.gross || 0;
+            netPrice = eurPrice.net || 0;
+            if (!netPrice && price) {
+              netPrice = price / (1 + taxRate / 100);
+            }
           }
         }
 
