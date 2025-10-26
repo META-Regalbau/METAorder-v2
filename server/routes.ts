@@ -396,10 +396,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         dateTo: z.string().optional(),
         format: z.enum(['csv', 'xlsx', 'json']),
         columns: z.array(z.string()).min(1, "At least one column must be selected"),
+        salesChannelIds: z.array(z.string()).optional(), // Admin can select specific channels
       });
 
       const validated = exportSchema.parse(req.body);
-      const { dateFrom, dateTo, format, columns } = validated;
+      const { dateFrom, dateTo, format, columns, salesChannelIds } = validated;
 
       const settings = await storage.getShopwareSettings();
       if (!settings) {
@@ -409,10 +410,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const client = new ShopwareClient(settings);
       const allOrders = await client.fetchOrders();
 
-      // Filter by date range
+      // Get user information
+      const user = req.user as any;
+      const isAdmin = 
+        user?.roleDetails?.name === 'Administrator' || 
+        user?.role === 'admin';
+
+      // Filter by sales channel based on role
       let filteredOrders = allOrders;
+      
+      if (!isAdmin) {
+        // Non-admin users: filter by their assigned sales channels
+        const userChannels = user?.salesChannelIds || [];
+        if (userChannels.length > 0) {
+          filteredOrders = allOrders.filter(order => 
+            userChannels.includes(order.salesChannelId)
+          );
+        } else {
+          // If no channels assigned, return empty result
+          filteredOrders = [];
+        }
+      } else if (salesChannelIds && salesChannelIds.length > 0) {
+        // Admin users: optionally filter by selected sales channels
+        filteredOrders = allOrders.filter(order => 
+          salesChannelIds.includes(order.salesChannelId)
+        );
+      }
+
+      // Filter by date range
       if (dateFrom || dateTo) {
-        filteredOrders = allOrders.filter(order => {
+        filteredOrders = filteredOrders.filter(order => {
           const orderDate = new Date(order.orderDate);
           if (dateFrom && orderDate < new Date(dateFrom)) return false;
           if (dateTo && orderDate > new Date(dateTo)) return false;
