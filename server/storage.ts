@@ -220,4 +220,11 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Import DbStorage and use it as the default storage implementation
+import { DbStorage } from "./dbStorage";
+
+// Export DbStorage as the default storage
+export const storage = new DbStorage();
+
+// Keep MemStorage available for testing/development if needed
+// export const storage = new MemStorage();
