@@ -424,6 +424,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update order shipping information and set status to shipped
+  app.patch("/api/orders/:orderId/shipping", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const { orderId } = req.params;
+      const shippingInfo = req.body;
+
+      // Validate shipping info
+      if (!shippingInfo.carrier && !shippingInfo.trackingNumber && !shippingInfo.shippedDate) {
+        return res.status(400).json({ error: "At least one shipping field is required" });
+      }
+
+      const client = new ShopwareClient(settings);
+      
+      // Update shipping info and set status to shipped in Shopware
+      await client.updateOrderShipping(orderId, shippingInfo);
+      
+      res.json({ 
+        success: true,
+        message: "Shipping information updated and order marked as shipped",
+        orderId,
+        shippingInfo
+      });
+    } catch (error: any) {
+      console.error("Error updating order shipping:", error);
+      res.status(500).json({ error: error.message || "Failed to update shipping information" });
+    }
+  });
+
   // Products routes
   app.get("/api/products", async (req, res) => {
     try {
