@@ -51,11 +51,19 @@ export default function CrossSellingManager({
   }>({
     queryKey: ["/api/products", product.id, "cross-selling"],
     queryFn: async () => {
-      const response = await fetch(`/api/products/${product.id}/cross-selling`);
+      const response = await fetch(`/api/products/${product.id}/cross-selling`, {
+        cache: 'no-cache', // Force fresh data, bypass browser cache
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+        },
+      });
       if (!response.ok) throw new Error("Failed to fetch cross-selling");
       return response.json();
     },
     enabled: open,
+    staleTime: 0, // Always consider data stale
+    gcTime: 0, // Don't cache in TanStack Query
   });
 
   // Fetch rule-based suggestions
