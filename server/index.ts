@@ -8,6 +8,11 @@ import { seedDatabase } from "./seedData";
 
 const app = express();
 
+// Trust proxy in production (Replit terminates TLS at reverse proxy)
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
+
 declare module 'http' {
   interface IncomingMessage {
     rawBody: unknown
@@ -28,6 +33,8 @@ app.use(
     saveUninitialized: false,
     cookie: {
       secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+      sameSite: "lax",
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },
   })
