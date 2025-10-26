@@ -4,7 +4,7 @@ import { z } from "zod";
 import { storage } from "./storage";
 import { ShopwareClient } from "./shopware";
 import { RuleEngine } from "./ruleEngine";
-import { shopwareSettingsSchema, insertCrossSellingRuleSchema } from "@shared/schema";
+import { shopwareSettingsSchema, insertCrossSellingRuleSchema, type Product } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Shopware settings routes
@@ -452,13 +452,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const client = new ShopwareClient(settings);
       const { productId } = req.params;
 
-      // Fetch all products to find the source product and for matching
-      // Shopware MAX_LIMIT is 500 products per request
-      console.log("Fetching all products from Shopware (max 500)...");
-      const allProductsResult = await client.fetchProducts(500, 1, undefined);
-      console.log(`Fetched ${allProductsResult.products.length} products from Shopware`);
+      // Fetch ALL products in batches (Shopware MAX_LIMIT is 500 per request)
+      console.log("Fetching ALL products from Shopware in batches...");
+      let allProducts: Product[] = [];
+      let currentPage = 1;
+      let totalProducts = 0;
       
-      const sourceProduct = allProductsResult.products.find(p => p.id === productId);
+      // First request to get total count
+      const firstBatch = await client.fetchProducts(500, 1, undefined);
+      allProducts = firstBatch.products;
+      totalProducts = firstBatch.total;
+      
+      console.log(`Fetched page 1: ${firstBatch.products.length} products (Total: ${totalProducts})`);
+      
+      // Calculate how many more pages we need
+      const totalPages = Math.ceil(totalProducts / 500);
+      
+      // Fetch remaining pages
+      for (let page = 2; page <= totalPages; page++) {
+        console.log(`Fetching page ${page}/${totalPages}...`);
+        const batch = await client.fetchProducts(500, page, undefined);
+        allProducts = allProducts.concat(batch.products);
+        console.log(`Fetched page ${page}: ${batch.products.length} products (Total loaded: ${allProducts.length})`);
+      }
+      
+      console.log(`Finished loading all ${allProducts.length} products from Shopware`);
+      
+      const sourceProduct = allProducts.find(p => p.id === productId);
 
       if (!sourceProduct) {
         console.log(`Source product ${productId} not found in fetched products`);
@@ -486,7 +506,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const suggestions = await ruleEngine.suggestCrossSelling(
         sourceProduct,
         activeRules,
-        allProductsResult.products
+        allProducts
       );
       
       console.log(`Generated ${suggestions.length} suggestions`);
