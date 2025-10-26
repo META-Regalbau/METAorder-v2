@@ -67,7 +67,12 @@ export class RuleEngine {
   ): Promise<Product[]> {
     console.log(`[RuleEngine] Finding products using Shopware search for ${criteria.length} criteria...`);
     
-    const allMatches = new Set<Product>();
+    if (criteria.length === 0) {
+      return [];
+    }
+    
+    // Collect all candidate products from Shopware searches
+    const candidateProducts = new Map<string, Product>();
     
     // For each criterion, generate a search query and fetch products from Shopware
     for (const criterion of criteria) {
@@ -77,33 +82,33 @@ export class RuleEngine {
         console.log(`[RuleEngine] Searching Shopware with term: "${searchTerm}" for field: ${criterion.field}`);
         
         // Fetch products from Shopware with search term
-        // Use a larger limit (100) to get more potential matches in one request
         const result = await shopwareClient.fetchProducts(100, 1, searchTerm);
         console.log(`[RuleEngine] Shopware returned ${result.products.length} products for search term "${searchTerm}"`);
         
-        // Filter the results to only include exact matches based on criterion
-        const matches = result.products.filter((targetProduct) => {
-          // Don't match the source product itself
-          if (targetProduct.id === sourceProduct.id) {
-            return false;
+        // Add all products to candidates (we'll filter later with AND logic)
+        result.products.forEach(product => {
+          if (product.id !== sourceProduct.id) {
+            candidateProducts.set(product.id, product);
           }
-          
-          // Evaluate if this product matches the criterion
-          return this.evaluateTargetCriterion(sourceProduct, targetProduct, criterion);
         });
-        
-        console.log(`[RuleEngine] ${matches.length} of ${result.products.length} products matched criterion`);
-        
-        // Add matches to the set
-        matches.forEach(match => allMatches.add(match));
-      } else {
-        console.log(`[RuleEngine] No search term generated for criterion:`, criterion);
       }
     }
     
-    console.log(`[RuleEngine] Total matching products found: ${allMatches.size}`);
+    console.log(`[RuleEngine] Total candidate products from Shopware: ${candidateProducts.size}`);
     
-    return Array.from(allMatches);
+    // Now filter candidates: they must match ALL criteria (AND logic)
+    const matches = Array.from(candidateProducts.values()).filter((targetProduct) => {
+      // Check if this product matches ALL criteria
+      const matchesAllCriteria = criteria.every((criterion) => {
+        return this.evaluateTargetCriterion(sourceProduct, targetProduct, criterion);
+      });
+      
+      return matchesAllCriteria;
+    });
+    
+    console.log(`[RuleEngine] ${matches.length} of ${candidateProducts.size} products matched ALL criteria`);
+    
+    return matches;
   }
   
   /**
