@@ -79,15 +79,45 @@ export default function AnalyticsPage() {
     dateFrom?: string;
     dateTo?: string;
   }>({
-    queryKey: ["/api/analytics/summary", { dateFrom, dateTo }],
+    queryKey: ["/api/analytics/summary", dateFrom, dateTo],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (dateFrom) params.append("dateFrom", dateFrom);
+      if (dateTo) params.append("dateTo", dateTo);
+      const response = await fetch(`/api/analytics/summary?${params}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      if (!response.ok) throw new Error("Failed to fetch summary");
+      return response.json();
+    },
   });
 
   const { data: orderStatus } = useQuery<Record<string, number>>({
-    queryKey: ["/api/analytics/order-status", { dateFrom, dateTo }],
+    queryKey: ["/api/analytics/order-status", dateFrom, dateTo],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (dateFrom) params.append("dateFrom", dateFrom);
+      if (dateTo) params.append("dateTo", dateTo);
+      const response = await fetch(`/api/analytics/order-status?${params}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      if (!response.ok) throw new Error("Failed to fetch order status");
+      return response.json();
+    },
   });
 
   const { data: paymentStatus } = useQuery<Record<string, number>>({
-    queryKey: ["/api/analytics/payment-status", { dateFrom, dateTo }],
+    queryKey: ["/api/analytics/payment-status", dateFrom, dateTo],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (dateFrom) params.append("dateFrom", dateFrom);
+      if (dateTo) params.append("dateTo", dateTo);
+      const response = await fetch(`/api/analytics/payment-status?${params}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      if (!response.ok) throw new Error("Failed to fetch payment status");
+      return response.json();
+    },
   });
 
   const { data: productOverview } = useQuery<{
@@ -96,10 +126,27 @@ export default function AnalyticsPage() {
     inactive: number;
   }>({
     queryKey: ["/api/analytics/product-overview"],
+    queryFn: async () => {
+      const response = await fetch("/api/analytics/product-overview", {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      if (!response.ok) throw new Error("Failed to fetch product overview");
+      return response.json();
+    },
   });
 
   const { data: categorySales } = useQuery<Array<{ name: string; revenue: number; netRevenue: number; quantity: number }>>({
-    queryKey: ["/api/analytics/category-sales", { dateFrom, dateTo }],
+    queryKey: ["/api/analytics/category-sales", dateFrom, dateTo],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (dateFrom) params.append("dateFrom", dateFrom);
+      if (dateTo) params.append("dateTo", dateTo);
+      const response = await fetch(`/api/analytics/category-sales?${params}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      if (!response.ok) throw new Error("Failed to fetch category sales");
+      return response.json();
+    },
   });
 
   const { data: productPerformance } = useQuery<{
@@ -118,7 +165,18 @@ export default function AnalyticsPage() {
       orderCount: number;
     }>;
   }>({
-    queryKey: ["/api/analytics/product-performance", { dateFrom, dateTo, minQuantity: 1 }],
+    queryKey: ["/api/analytics/product-performance", dateFrom, dateTo],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (dateFrom) params.append("dateFrom", dateFrom);
+      if (dateTo) params.append("dateTo", dateTo);
+      params.append("minQuantity", "1");
+      const response = await fetch(`/api/analytics/product-performance?${params}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      if (!response.ok) throw new Error("Failed to fetch product performance");
+      return response.json();
+    },
   });
 
   const { data: salesTrend } = useQuery<Array<{
@@ -127,7 +185,17 @@ export default function AnalyticsPage() {
     netRevenue: number;
     orderCount: number;
   }>>({
-    queryKey: ["/api/analytics/sales-trend", { dateFrom, dateTo }],
+    queryKey: ["/api/analytics/sales-trend", dateFrom, dateTo],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (dateFrom) params.append("dateFrom", dateFrom);
+      if (dateTo) params.append("dateTo", dateTo);
+      const response = await fetch(`/api/analytics/sales-trend?${params}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      if (!response.ok) throw new Error("Failed to fetch sales trend");
+      return response.json();
+    },
   });
 
   // Transform data for charts
