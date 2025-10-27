@@ -57,6 +57,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
   const [customDateFrom, setCustomDateFrom] = useState<Date>();
   const [customDateTo, setCustomDateTo] = useState<Date>();
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
+  const [productSortBy, setProductSortBy] = useState<"quantity" | "revenue">("quantity");
 
   // Fetch sales channels
   const { data: salesChannels = [] } = useQuery<SalesChannel[]>({
@@ -628,6 +629,28 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
       </Card>
 
       {/* Product Performance */}
+      <div className="mb-4 flex items-center gap-4">
+        <span className="text-sm font-medium">{t('analytics.sortBy')}:</span>
+        <div className="flex gap-2">
+          <Button
+            variant={productSortBy === "quantity" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setProductSortBy("quantity")}
+            data-testid="button-sort-quantity"
+          >
+            {t('analytics.sortByQuantity')}
+          </Button>
+          <Button
+            variant={productSortBy === "revenue" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setProductSortBy("revenue")}
+            data-testid="button-sort-revenue"
+          >
+            {t('analytics.sortByRevenue')}
+          </Button>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
@@ -638,7 +661,13 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {productPerformance?.topProducts?.slice(0, 10).map((product, index) => (
+              {productPerformance?.topProducts
+                ?.slice()
+                .sort((a, b) => productSortBy === "quantity" 
+                  ? b.totalQuantity - a.totalQuantity 
+                  : b.totalRevenue - a.totalRevenue)
+                .slice(0, 10)
+                .map((product, index) => (
                 <div key={index} className="flex items-center justify-between p-2 rounded hover-elevate" data-testid={`card-top-product-${index}`}>
                   <div className="flex-1">
                     <div className="font-medium text-sm">{product.name}</div>
@@ -664,7 +693,13 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {productPerformance?.bottomProducts?.slice(0, 10).map((product, index) => (
+              {productPerformance?.bottomProducts
+                ?.slice()
+                .sort((a, b) => productSortBy === "quantity" 
+                  ? a.totalQuantity - b.totalQuantity 
+                  : a.totalRevenue - b.totalRevenue)
+                .slice(0, 10)
+                .map((product, index) => (
                 <div key={index} className="flex items-center justify-between p-2 rounded hover-elevate" data-testid={`card-bottom-product-${index}`}>
                   <div className="flex-1">
                     <div className="font-medium text-sm">{product.name}</div>
