@@ -1,4 +1,4 @@
-import { Package, Download, BarChart3, Settings, Users, Shield, Sparkles } from "lucide-react";
+import { Package, Download, BarChart3, Settings, Users, Shield, Sparkles, AlertTriangle } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import {
@@ -25,6 +25,12 @@ export default function AppSidebar({ userRole }: AppSidebarProps) {
       titleKey: "nav.orders",
       url: "/",
       icon: Package,
+      roles: ["employee", "admin"],
+    },
+    {
+      titleKey: "nav.delayedOrders",
+      url: "/delayed",
+      icon: AlertTriangle,
       roles: ["employee", "admin"],
     },
     {

@@ -372,6 +372,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delayed orders route
+  app.get("/api/orders/delayed", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const client = new ShopwareClient(settings);
+      const orders = await client.fetchOrders();
+      
+      // Default threshold: 3 days
+      const daysThreshold = parseInt(req.query.days as string) || 3;
+      const now = new Date();
+      const thresholdDate = new Date(now.getTime() - daysThreshold * 24 * 60 * 60 * 1000);
+      
+      // Filter delayed orders: older than threshold and not completed/cancelled
+      const delayedOrders = orders
+        .filter(order => {
+          const orderDate = new Date(order.orderDate);
+          const isOld = orderDate < thresholdDate;
+          const isNotFinished = order.status !== 'completed' && order.status !== 'cancelled';
+          return isOld && isNotFinished;
+        })
+        .map(order => {
+          // Calculate days since order
+          const orderDate = new Date(order.orderDate);
+          const daysSinceOrder = Math.floor((now.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24));
+          
+          return {
+            ...order,
+            daysSinceOrder,
+          };
+        })
+        .sort((a, b) => b.daysSinceOrder - a.daysSinceOrder); // Sort by oldest first
+      
+      res.json(delayedOrders);
+    } catch (error: any) {
+      console.error("Error fetching delayed orders:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch delayed orders" });
+    }
+  });
+
   // Export orders endpoint
   app.post("/api/orders/export", requireAuth, async (req, res) => {
     try {

@@ -25,6 +25,7 @@
   },
   "nav": {
     "orders": "Bestellungen",
+    "delayedOrders": "Verspätete Bestellungen",
     "products": "Produkte",
     "export": "Export & Berichte",
     "analytics": "Analytik",
@@ -82,6 +83,16 @@
     "refreshError": "Bestellungen konnten nicht aktualisiert werden. Bitte versuchen Sie es erneut.",
     "exportStarted": "Export gestartet",
     "exportDescription": "Ihr Bestellungsexport wird vorbereitet."
+  },
+  "delayedOrders": {
+    "title": "Verspätete Bestellungen",
+    "description": "Bestellungen, die noch nicht abgeschlossen oder storniert wurden",
+    "totalDelayed": "Verspätete Bestellungen",
+    "olderThan": "Älter als {{days}} Tage",
+    "daysDelayed": "Tage verspätet",
+    "days": "Tage",
+    "searchPlaceholder": "Verspätete Bestellungen suchen...",
+    "noDelayed": "Keine verspäteten Bestellungen gefunden"
   },
   "filters": {
     "title": "Filter",

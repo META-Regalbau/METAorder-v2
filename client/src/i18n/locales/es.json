@@ -25,6 +25,7 @@
   },
   "nav": {
     "orders": "Pedidos",
+    "delayedOrders": "Pedidos Retrasados",
     "products": "Productos",
     "export": "Exportar e Informes",
     "analytics": "Analíticas",
@@ -82,6 +83,16 @@
     "refreshError": "No se pudieron actualizar los pedidos. Inténtelo de nuevo.",
     "exportStarted": "Exportación iniciada",
     "exportDescription": "Su exportación de pedidos se está preparando."
+  },
+  "delayedOrders": {
+    "title": "Pedidos Retrasados",
+    "description": "Pedidos que no han sido completados o cancelados",
+    "totalDelayed": "Pedidos Retrasados",
+    "olderThan": "Más de {{days}} días",
+    "daysDelayed": "Días de retraso",
+    "days": "días",
+    "searchPlaceholder": "Buscar pedidos retrasados...",
+    "noDelayed": "No se encontraron pedidos retrasados"
   },
   "filters": {
     "title": "Filtros",
