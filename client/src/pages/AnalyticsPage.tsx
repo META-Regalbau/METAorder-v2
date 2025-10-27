@@ -203,7 +203,7 @@ export default function AnalyticsPage() {
   const orderStatusData = useMemo(() => {
     if (!orderStatus) return [];
     return Object.entries(orderStatus).map(([name, value]) => ({
-      name: t(`orders.status.${name}`),
+      name: t(`status.${name}`),
       value,
     }));
   }, [orderStatus, t]);
@@ -211,7 +211,7 @@ export default function AnalyticsPage() {
   const paymentStatusData = useMemo(() => {
     if (!paymentStatus) return [];
     return Object.entries(paymentStatus).map(([name, value]) => ({
-      name: t(`orders.paymentStatus.${name}`),
+      name: t(`paymentStatus.${name}`),
       value,
     }));
   }, [paymentStatus, t]);
