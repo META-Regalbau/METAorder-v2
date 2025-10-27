@@ -99,6 +99,8 @@ export type Order = {
   customerEmail: string;
   customerPhone?: string;
   orderDate: string;
+  deliveryDateEarliest?: string;
+  deliveryDateLatest?: string;
   totalAmount: number; // Bruttogesamtbetrag (mit MwSt)
   netTotalAmount: number; // Nettogesamtbetrag (ohne MwSt)
   status: OrderStatus;
