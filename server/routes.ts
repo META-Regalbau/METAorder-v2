@@ -7,7 +7,7 @@ import { storage } from "./storage";
 import { ShopwareClient } from "./shopware";
 import { RuleEngine } from "./ruleEngine";
 import { shopwareSettingsSchema, insertCrossSellingRuleSchema, type Product, insertUserSchema, type Role } from "@shared/schema";
-import { requireAuth, requireManageUsers, requireManageRoles, requireManageSettings, requireManageCrossSellingGroups, requireManageCrossSellingRules } from "./auth";
+import { requireAuth, requireViewDelayedOrders, requireManageUsers, requireManageRoles, requireManageSettings, requireManageCrossSellingGroups, requireManageCrossSellingRules } from "./auth";
 import * as XLSX from 'xlsx';
 import { generateToken } from "./jwt";
 
@@ -380,7 +380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delayed orders route
-  app.get("/api/orders/delayed", requireAuth, async (req, res) => {
+  app.get("/api/orders/delayed", requireAuth, requireViewDelayedOrders, async (req, res) => {
     try {
       const settings = await storage.getShopwareSettings();
       if (!settings) {

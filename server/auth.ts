@@ -148,6 +148,7 @@ export function requirePermission(permission: string) {
 }
 
 // Convenience middleware for common permission checks
+export const requireViewDelayedOrders = requirePermission("viewDelayedOrders");
 export const requireManageUsers = requirePermission("manageUsers");
 export const requireManageRoles = requirePermission("manageRoles");
 export const requireManageSettings = requirePermission("manageSettings");
