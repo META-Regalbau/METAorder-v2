@@ -601,6 +601,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const search = req.query.search as string | undefined;
       const categoryId = req.query.categoryId as string | undefined;
       
+      // Get dimensions filter parameters
+      const width = req.query.width ? parseFloat(req.query.width as string) : undefined;
+      const height = req.query.height ? parseFloat(req.query.height as string) : undefined;
+      const depth = req.query.depth ? parseFloat(req.query.depth as string) : undefined;
+      
       // Determine if user should only see active products
       // Admin can see all products (active + inactive), others only see active
       const user = req.user as any;
@@ -611,9 +616,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         user?.role === 'admin';
       const activeOnly = !isAdmin;
       
-      console.log(`[/api/products] User: ${user?.username}, Role: ${user?.roleDetails?.name || user?.role}, isAdmin: ${isAdmin}, activeOnly: ${activeOnly}, categoryId: ${categoryId || 'all'}`);
+      // Admin-only: Check if user wants to see only inactive products
+      const showInactive = isAdmin && req.query.showInactive === 'true';
       
-      const result = await client.fetchProducts(limit, page, search, activeOnly, categoryId);
+      console.log(`[/api/products] User: ${user?.username}, Role: ${user?.roleDetails?.name || user?.role}, isAdmin: ${isAdmin}, activeOnly: ${activeOnly}, showInactive: ${showInactive}, categoryId: ${categoryId || 'all'}, width: ${width || 'any'}, height: ${height || 'any'}, depth: ${depth || 'any'}`);
+      
+      const result = await client.fetchProducts(limit, page, search, activeOnly, categoryId, showInactive, width, height, depth);
       
       res.json(result);
     } catch (error: any) {
