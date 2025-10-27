@@ -1183,6 +1183,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const dateFrom = req.query.dateFrom as string | undefined;
       const dateTo = req.query.dateTo as string | undefined;
+      const salesChannelIdsParam = req.query.salesChannelIds as string | undefined;
+      const salesChannelIds = salesChannelIdsParam ? salesChannelIdsParam.split(',') : undefined;
 
       const settings = await storage.getShopwareSettings();
       if (!settings) {
@@ -1190,7 +1192,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const client = new ShopwareClient(settings);
-      const orders = await client.fetchOrdersForAnalytics(dateFrom, dateTo);
+      const orders = await client.fetchOrdersForAnalytics(dateFrom, dateTo, salesChannelIds);
 
       // Calculate summary metrics
       const totalOrders = orders.length;
@@ -1222,6 +1224,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const dateFrom = req.query.dateFrom as string | undefined;
       const dateTo = req.query.dateTo as string | undefined;
+      const salesChannelIdsParam = req.query.salesChannelIds as string | undefined;
+      const salesChannelIds = salesChannelIdsParam ? salesChannelIdsParam.split(',') : undefined;
 
       const settings = await storage.getShopwareSettings();
       if (!settings) {
@@ -1229,7 +1233,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const client = new ShopwareClient(settings);
-      const orders = await client.fetchOrdersForAnalytics(dateFrom, dateTo);
+      const orders = await client.fetchOrdersForAnalytics(dateFrom, dateTo, salesChannelIds);
 
       // Group by order status
       const statusDistribution: Record<string, number> = {};
@@ -1248,6 +1252,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const dateFrom = req.query.dateFrom as string | undefined;
       const dateTo = req.query.dateTo as string | undefined;
+      const salesChannelIdsParam = req.query.salesChannelIds as string | undefined;
+      const salesChannelIds = salesChannelIdsParam ? salesChannelIdsParam.split(',') : undefined;
 
       const settings = await storage.getShopwareSettings();
       if (!settings) {
@@ -1255,7 +1261,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const client = new ShopwareClient(settings);
-      const orders = await client.fetchOrdersForAnalytics(dateFrom, dateTo);
+      const orders = await client.fetchOrdersForAnalytics(dateFrom, dateTo, salesChannelIds);
 
       // Group by payment status
       const paymentDistribution: Record<string, number> = {};
@@ -1303,6 +1309,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const dateFrom = req.query.dateFrom as string | undefined;
       const dateTo = req.query.dateTo as string | undefined;
+      const salesChannelIdsParam = req.query.salesChannelIds as string | undefined;
+      const salesChannelIds = salesChannelIdsParam ? salesChannelIdsParam.split(',') : undefined;
 
       const settings = await storage.getShopwareSettings();
       if (!settings) {
@@ -1310,7 +1318,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const client = new ShopwareClient(settings);
-      const orders = await client.fetchOrdersForAnalytics(dateFrom, dateTo);
+      const orders = await client.fetchOrdersForAnalytics(dateFrom, dateTo, salesChannelIds);
 
       // Calculate sales by category
       const categorySales: Record<string, { revenue: number; netRevenue: number; quantity: number }> = {};
@@ -1347,6 +1355,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const dateFrom = req.query.dateFrom as string | undefined;
       const dateTo = req.query.dateTo as string | undefined;
+      const salesChannelIdsParam = req.query.salesChannelIds as string | undefined;
+      const salesChannelIds = salesChannelIdsParam ? salesChannelIdsParam.split(',') : undefined;
       const minQuantity = parseInt(req.query.minQuantity as string) || 1;
 
       const settings = await storage.getShopwareSettings();
@@ -1355,7 +1365,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const client = new ShopwareClient(settings);
-      const orders = await client.fetchOrdersForAnalytics(dateFrom, dateTo);
+      const orders = await client.fetchOrdersForAnalytics(dateFrom, dateTo, salesChannelIds);
 
       // Calculate product performance
       const productPerformance: Record<string, {
@@ -1411,6 +1421,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const dateFrom = req.query.dateFrom as string | undefined;
       const dateTo = req.query.dateTo as string | undefined;
+      const salesChannelIdsParam = req.query.salesChannelIds as string | undefined;
+      const salesChannelIds = salesChannelIdsParam ? salesChannelIdsParam.split(',') : undefined;
 
       const settings = await storage.getShopwareSettings();
       if (!settings) {
@@ -1418,7 +1430,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const client = new ShopwareClient(settings);
-      const orders = await client.fetchOrdersForAnalytics(dateFrom, dateTo);
+      const orders = await client.fetchOrdersForAnalytics(dateFrom, dateTo, salesChannelIds);
 
       // Group by date
       const dailySales: Record<string, { date: string; revenue: number; netRevenue: number; orderCount: number }> = {};

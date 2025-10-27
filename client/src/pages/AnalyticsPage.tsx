@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { SalesChannelSelector } from "@/components/SalesChannelSelector";
 import { format, subDays } from "date-fns";
 import { de } from "date-fns/locale";
 import { useTranslation } from "react-i18next";
+import type { SalesChannel } from "@shared/schema";
 import {
   TrendingUp,
   Package,
@@ -43,12 +45,37 @@ type DateRangePreset = "7" | "30" | "90" | "custom";
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8", "#82CA9D"];
 
-export default function AnalyticsPage() {
+interface AnalyticsPageProps {
+  userRole: "employee" | "admin";
+  userSalesChannelIds?: string[] | null;
+}
+
+export default function AnalyticsPage({ userRole, userSalesChannelIds }: AnalyticsPageProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const [dateRange, setDateRange] = useState<DateRangePreset>("30");
   const [customDateFrom, setCustomDateFrom] = useState<Date>();
   const [customDateTo, setCustomDateTo] = useState<Date>();
+  const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
+
+  // Fetch sales channels
+  const { data: salesChannels = [] } = useQuery<SalesChannel[]>({
+    queryKey: ['/api/sales-channels'],
+    retry: false,
+  });
+
+  // Initialize selected channels based on user permissions
+  useEffect(() => {
+    if (salesChannels.length > 0 && selectedChannelIds.length === 0) {
+      if (userRole === "admin" || !userSalesChannelIds) {
+        // Admin sees all channels by default
+        setSelectedChannelIds(salesChannels.map(c => c.id));
+      } else {
+        // Non-admin users see only their assigned channels
+        setSelectedChannelIds(userSalesChannelIds);
+      }
+    }
+  }, [salesChannels, userRole, userSalesChannelIds, selectedChannelIds.length]);
 
   // Calculate date range based on preset
   const { dateFrom, dateTo } = useMemo(() => {
@@ -80,45 +107,51 @@ export default function AnalyticsPage() {
     dateFrom?: string;
     dateTo?: string;
   }>({
-    queryKey: ["/api/analytics/summary", dateFrom, dateTo],
+    queryKey: ["/api/analytics/summary", dateFrom, dateTo, selectedChannelIds],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (dateFrom) params.append("dateFrom", dateFrom);
       if (dateTo) params.append("dateTo", dateTo);
+      if (selectedChannelIds.length > 0) params.append("salesChannelIds", selectedChannelIds.join(','));
       const response = await fetch(`/api/analytics/summary?${params}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
       if (!response.ok) throw new Error("Failed to fetch summary");
       return response.json();
     },
+    enabled: selectedChannelIds.length > 0,
   });
 
   const { data: orderStatus } = useQuery<Record<string, number>>({
-    queryKey: ["/api/analytics/order-status", dateFrom, dateTo],
+    queryKey: ["/api/analytics/order-status", dateFrom, dateTo, selectedChannelIds],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (dateFrom) params.append("dateFrom", dateFrom);
       if (dateTo) params.append("dateTo", dateTo);
+      if (selectedChannelIds.length > 0) params.append("salesChannelIds", selectedChannelIds.join(','));
       const response = await fetch(`/api/analytics/order-status?${params}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
       if (!response.ok) throw new Error("Failed to fetch order status");
       return response.json();
     },
+    enabled: selectedChannelIds.length > 0,
   });
 
   const { data: paymentStatus } = useQuery<Record<string, number>>({
-    queryKey: ["/api/analytics/payment-status", dateFrom, dateTo],
+    queryKey: ["/api/analytics/payment-status", dateFrom, dateTo, selectedChannelIds],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (dateFrom) params.append("dateFrom", dateFrom);
       if (dateTo) params.append("dateTo", dateTo);
+      if (selectedChannelIds.length > 0) params.append("salesChannelIds", selectedChannelIds.join(','));
       const response = await fetch(`/api/analytics/payment-status?${params}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
       if (!response.ok) throw new Error("Failed to fetch payment status");
       return response.json();
     },
+    enabled: selectedChannelIds.length > 0,
   });
 
   const { data: productOverview } = useQuery<{
@@ -137,17 +170,19 @@ export default function AnalyticsPage() {
   });
 
   const { data: categorySales } = useQuery<Array<{ name: string; revenue: number; netRevenue: number; quantity: number }>>({
-    queryKey: ["/api/analytics/category-sales", dateFrom, dateTo],
+    queryKey: ["/api/analytics/category-sales", dateFrom, dateTo, selectedChannelIds],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (dateFrom) params.append("dateFrom", dateFrom);
       if (dateTo) params.append("dateTo", dateTo);
+      if (selectedChannelIds.length > 0) params.append("salesChannelIds", selectedChannelIds.join(','));
       const response = await fetch(`/api/analytics/category-sales?${params}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
       if (!response.ok) throw new Error("Failed to fetch category sales");
       return response.json();
     },
+    enabled: selectedChannelIds.length > 0,
   });
 
   const { data: productPerformance } = useQuery<{
@@ -166,11 +201,12 @@ export default function AnalyticsPage() {
       orderCount: number;
     }>;
   }>({
-    queryKey: ["/api/analytics/product-performance", dateFrom, dateTo],
+    queryKey: ["/api/analytics/product-performance", dateFrom, dateTo, selectedChannelIds],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (dateFrom) params.append("dateFrom", dateFrom);
       if (dateTo) params.append("dateTo", dateTo);
+      if (selectedChannelIds.length > 0) params.append("salesChannelIds", selectedChannelIds.join(','));
       params.append("minQuantity", "1");
       const response = await fetch(`/api/analytics/product-performance?${params}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
@@ -178,6 +214,7 @@ export default function AnalyticsPage() {
       if (!response.ok) throw new Error("Failed to fetch product performance");
       return response.json();
     },
+    enabled: selectedChannelIds.length > 0,
   });
 
   const { data: salesTrend } = useQuery<Array<{
@@ -186,17 +223,19 @@ export default function AnalyticsPage() {
     netRevenue: number;
     orderCount: number;
   }>>({
-    queryKey: ["/api/analytics/sales-trend", dateFrom, dateTo],
+    queryKey: ["/api/analytics/sales-trend", dateFrom, dateTo, selectedChannelIds],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (dateFrom) params.append("dateFrom", dateFrom);
       if (dateTo) params.append("dateTo", dateTo);
+      if (selectedChannelIds.length > 0) params.append("salesChannelIds", selectedChannelIds.join(','));
       const response = await fetch(`/api/analytics/sales-trend?${params}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
       if (!response.ok) throw new Error("Failed to fetch sales trend");
       return response.json();
     },
+    enabled: selectedChannelIds.length > 0,
   });
 
   // Transform data for charts
@@ -320,6 +359,16 @@ export default function AnalyticsPage() {
         <p className="text-sm text-muted-foreground">
           {t('analytics.subtitle')}
         </p>
+      </div>
+
+      {/* Sales Channel Filter */}
+      <div className="mb-6">
+        <SalesChannelSelector
+          selectedChannelIds={selectedChannelIds}
+          onSelectionChange={setSelectedChannelIds}
+          userAllowedChannelIds={userSalesChannelIds}
+          isAdmin={userRole === "admin"}
+        />
       </div>
 
       {/* Date Range Filter and Export */}

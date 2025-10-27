@@ -1637,9 +1637,9 @@ export class ShopwareClient {
   }
 
   /**
-   * Fetch orders for analytics with optional date filtering
+   * Fetch orders for analytics with optional date and sales channel filtering
    */
-  async fetchOrdersForAnalytics(dateFrom?: string, dateTo?: string): Promise<Order[]> {
+  async fetchOrdersForAnalytics(dateFrom?: string, dateTo?: string, salesChannelIds?: string[]): Promise<Order[]> {
     try {
       const limit = 500;
       let page = 1;
@@ -1668,6 +1668,14 @@ export class ShopwareClient {
             parameters: {
               lte: dateTo,
             },
+          });
+        }
+
+        if (salesChannelIds && salesChannelIds.length > 0) {
+          filters.push({
+            type: 'equalsAny',
+            field: 'salesChannelId',
+            value: salesChannelIds.join('|'),
           });
         }
 

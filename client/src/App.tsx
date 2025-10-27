@@ -35,7 +35,7 @@ function Router({
       <Route path="/products" component={ProductsPage} />
       <Route path="/cross-selling-rules" component={CrossSellingRulesPage} />
       <Route path="/export" component={ExportPage} />
-      <Route path="/analytics" component={AnalyticsPage} />
+      <Route path="/analytics" component={() => <AnalyticsPage userRole={userRole} userSalesChannelIds={userSalesChannelIds} />} />
       <Route path="/users" component={UsersPage} />
       <Route path="/roles" component={RolesPage} />
       <Route path="/settings" component={SettingsPage} />
