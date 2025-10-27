@@ -1231,11 +1231,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Fetch only count, not actual products - use limit 1 to minimize data transfer
       // Fetch active products count
       const activeResult = await client.fetchProducts(1, 1, undefined, undefined, false, undefined, undefined, undefined, false);
-      const activeCount = activeResult.total;
+      const activeCount = activeResult.total || 0;
       
       // Fetch inactive products count by setting showInactive=true (which gives only inactive)
       const inactiveResult = await client.fetchProducts(1, 1, undefined, undefined, true, undefined, undefined, undefined, false);
-      const inactiveCount = inactiveResult.total;
+      const inactiveCount = inactiveResult.total || 0;
 
       res.json({
         total: activeCount + inactiveCount,
