@@ -933,8 +933,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`[Bulk Execution] Executing ${rules.length} rule(s)...`);
 
-      // Fetch all products (limit to a reasonable amount)
-      const productsResult = await client.fetchProducts(500, 1, undefined);
+      // Fetch all products (limit to a reasonable amount for performance)
+      const productsResult = await client.fetchProducts(50, 1, undefined);
       const allProducts = productsResult.products;
       
       console.log(`[Bulk Execution] Processing ${allProducts.length} products...`);
