@@ -388,13 +388,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const now = new Date();
       const thresholdDate = new Date(now.getTime() - daysThreshold * 24 * 60 * 60 * 1000);
       
-      // Filter delayed orders: older than threshold and not completed/cancelled
+      // Filter delayed orders: older than threshold, not completed/cancelled, and payment is paid
       const delayedOrders = orders
         .filter(order => {
           const orderDate = new Date(order.orderDate);
           const isOld = orderDate < thresholdDate;
+          
+          // Must not be completed or cancelled
           const isNotFinished = order.status !== 'completed' && order.status !== 'cancelled';
-          return isOld && isNotFinished;
+          
+          // Payment must be paid (not failed, cancelled, or open)
+          const hasValidPayment = order.paymentStatus === 'paid';
+          
+          return isOld && isNotFinished && hasValidPayment;
         })
         .map(order => {
           // Calculate days since order
