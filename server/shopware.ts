@@ -1675,7 +1675,7 @@ export class ShopwareClient {
           filters.push({
             type: 'equalsAny',
             field: 'salesChannelId',
-            value: salesChannelIds.join('|'),
+            value: salesChannelIds,
           });
         }
 
