@@ -306,7 +306,7 @@ export default function AnalyticsPage() {
   if (summaryLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Loading analytics...</div>
+        <div className="text-lg">{t('common.loading')}</div>
       </div>
     );
   }
@@ -315,10 +315,10 @@ export default function AnalyticsPage() {
     <div className="max-w-7xl">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold mb-1" data-testid="text-page-title">
-          Analytics Dashboard
+          {t('analytics.title')}
         </h1>
         <p className="text-sm text-muted-foreground">
-          Umfassende Übersicht über Bestellungen, Umsätze und Produktperformance
+          {t('analytics.subtitle')}
         </p>
       </div>
 
@@ -326,13 +326,13 @@ export default function AnalyticsPage() {
       <div className="flex flex-wrap gap-4 mb-6">
         <Select value={dateRange} onValueChange={(value) => setDateRange(value as DateRangePreset)}>
           <SelectTrigger className="w-48" data-testid="select-date-range">
-            <SelectValue placeholder="Zeitraum auswählen" />
+            <SelectValue placeholder={t('analytics.dateRange')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="7" data-testid="select-item-7-days">Letzte 7 Tage</SelectItem>
-            <SelectItem value="30" data-testid="select-item-30-days">Letzte 30 Tage</SelectItem>
-            <SelectItem value="90" data-testid="select-item-90-days">Letzte 90 Tage</SelectItem>
-            <SelectItem value="custom" data-testid="select-item-custom">Benutzerdefiniert</SelectItem>
+            <SelectItem value="7" data-testid="select-item-7-days">{t('analytics.last7Days')}</SelectItem>
+            <SelectItem value="30" data-testid="select-item-30-days">{t('analytics.last30Days')}</SelectItem>
+            <SelectItem value="90" data-testid="select-item-90-days">{t('analytics.last90Days')}</SelectItem>
+            <SelectItem value="custom" data-testid="select-item-custom">{t('analytics.custom')}</SelectItem>
           </SelectContent>
         </Select>
 
@@ -342,7 +342,7 @@ export default function AnalyticsPage() {
               <PopoverTrigger asChild>
                 <Button variant="outline" className="w-48" data-testid="button-date-from">
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {customDateFrom ? format(customDateFrom, "PPP", { locale: de }) : "Von Datum"}
+                  {customDateFrom ? format(customDateFrom, "PPP", { locale: de }) : t('analytics.dateFrom')}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
@@ -354,7 +354,7 @@ export default function AnalyticsPage() {
               <PopoverTrigger asChild>
                 <Button variant="outline" className="w-48" data-testid="button-date-to">
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {customDateTo ? format(customDateTo, "PPP", { locale: de }) : "Bis Datum"}
+                  {customDateTo ? format(customDateTo, "PPP", { locale: de }) : t('analytics.dateTo')}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
@@ -384,7 +384,7 @@ export default function AnalyticsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Gesamtumsatz</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('analytics.totalRevenue')}</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -399,20 +399,20 @@ export default function AnalyticsPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Bestellungen</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('analytics.totalOrders')}</CardTitle>
             <ShoppingCart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-total-orders">
               {summary?.totalOrders?.toLocaleString("de-DE")}
             </div>
-            <p className="text-xs text-muted-foreground">Im ausgewählten Zeitraum</p>
+            <p className="text-xs text-muted-foreground">{t('analytics.inSelectedPeriod')}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ø Bestellwert</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('analytics.averageOrderValue')}</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -427,14 +427,14 @@ export default function AnalyticsPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Kunden</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('analytics.uniqueCustomers')}</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-unique-customers">
               {summary?.uniqueCustomers?.toLocaleString("de-DE")}
             </div>
-            <p className="text-xs text-muted-foreground">Einzigartige Kunden</p>
+            <p className="text-xs text-muted-foreground">{t('analytics.uniqueCustomersDetail')}</p>
           </CardContent>
         </Card>
       </div>
@@ -444,7 +444,7 @@ export default function AnalyticsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
-            Produktübersicht
+            {t('analytics.productOverview')}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -452,7 +452,7 @@ export default function AnalyticsPage() {
             <div className="text-center">
               <div className="flex items-center justify-center gap-2 mb-2">
                 <PackageCheck className="h-5 w-5 text-green-600" />
-                <span className="text-sm font-medium">Aktive Artikel</span>
+                <span className="text-sm font-medium">{t('analytics.activeProducts')}</span>
               </div>
               <div className="text-3xl font-bold text-green-600" data-testid="text-active-products">
                 {productOverview?.active?.toLocaleString("de-DE")}
@@ -461,7 +461,7 @@ export default function AnalyticsPage() {
             <div className="text-center">
               <div className="flex items-center justify-center gap-2 mb-2">
                 <PackageX className="h-5 w-5 text-red-600" />
-                <span className="text-sm font-medium">Inaktive Artikel</span>
+                <span className="text-sm font-medium">{t('analytics.inactiveProducts')}</span>
               </div>
               <div className="text-3xl font-bold text-red-600" data-testid="text-inactive-products">
                 {productOverview?.inactive?.toLocaleString("de-DE")}
@@ -470,7 +470,7 @@ export default function AnalyticsPage() {
             <div className="text-center">
               <div className="flex items-center justify-center gap-2 mb-2">
                 <Package className="h-5 w-5 text-muted-foreground" />
-                <span className="text-sm font-medium">Gesamt</span>
+                <span className="text-sm font-medium">{t('analytics.totalProducts')}</span>
               </div>
               <div className="text-3xl font-bold" data-testid="text-total-products">
                 {productOverview?.total?.toLocaleString("de-DE")}
@@ -486,7 +486,7 @@ export default function AnalyticsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ShoppingCart className="h-5 w-5" />
-              Bestellstatus-Verteilung
+              {t('analytics.orderStatusDistribution')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -509,7 +509,7 @@ export default function AnalyticsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CreditCard className="h-5 w-5" />
-              Zahlungsstatus-Verteilung
+              {t('analytics.paymentStatusDistribution')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -534,7 +534,7 @@ export default function AnalyticsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5" />
-            Umsatz-Entwicklung
+            {t('analytics.salesTrend')}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -546,8 +546,8 @@ export default function AnalyticsPage() {
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Line type="monotone" dataKey="revenue" stroke="#8884d8" name="Umsatz (€)" />
-                <Line type="monotone" dataKey="orderCount" stroke="#82ca9d" name="Bestellungen" />
+                <Line type="monotone" dataKey="revenue" stroke="#8884d8" name={t('analytics.revenue')} />
+                <Line type="monotone" dataKey="orderCount" stroke="#82ca9d" name={t('analytics.orders')} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -559,7 +559,7 @@ export default function AnalyticsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <BarChart3 className="h-5 w-5" />
-            Top 10 Kategorien nach Umsatz
+            {t('analytics.categorySales')}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -571,7 +571,7 @@ export default function AnalyticsPage() {
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="revenue" fill="#8884d8" name="Umsatz (€)" />
+                <Bar dataKey="revenue" fill="#8884d8" name={t('analytics.revenue')} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -584,7 +584,7 @@ export default function AnalyticsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-green-600">
               <TrendingUp className="h-5 w-5" />
-              Top 10 Renner (Bestseller)
+              {t('analytics.topProducts')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -594,7 +594,7 @@ export default function AnalyticsPage() {
                   <div className="flex-1">
                     <div className="font-medium text-sm">{product.name}</div>
                     <div className="text-xs text-muted-foreground">
-                      {product.totalQuantity} Stück • {product.orderCount} Bestellungen
+                      {product.totalQuantity} {t('analytics.pieces')} • {product.orderCount} {t('analytics.orders')}
                     </div>
                   </div>
                   <div className="text-right">
@@ -610,7 +610,7 @@ export default function AnalyticsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-red-600">
               <Package className="h-5 w-5" />
-              Top 10 Penner (Ladenhüter)
+              {t('analytics.bottomProducts')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -620,7 +620,7 @@ export default function AnalyticsPage() {
                   <div className="flex-1">
                     <div className="font-medium text-sm">{product.name}</div>
                     <div className="text-xs text-muted-foreground">
-                      {product.totalQuantity} Stück • {product.orderCount} Bestellungen
+                      {product.totalQuantity} {t('analytics.pieces')} • {product.orderCount} {t('analytics.orders')}
                     </div>
                   </div>
                   <div className="text-right">
