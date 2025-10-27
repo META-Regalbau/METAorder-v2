@@ -1,6 +1,7 @@
 import { Package, Download, BarChart3, Settings, Users, Shield, Sparkles, AlertTriangle } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
+import type { Role } from "@shared/schema";
 import {
   Sidebar,
   SidebarContent,
@@ -14,9 +15,10 @@ import {
 
 interface AppSidebarProps {
   userRole: "employee" | "admin";
+  permissions: Role['permissions'];
 }
 
-export default function AppSidebar({ userRole }: AppSidebarProps) {
+export default function AppSidebar({ userRole, permissions }: AppSidebarProps) {
   const [location] = useLocation();
   const { t } = useTranslation();
 
@@ -25,60 +27,60 @@ export default function AppSidebar({ userRole }: AppSidebarProps) {
       titleKey: "nav.orders",
       url: "/",
       icon: Package,
-      roles: ["employee", "admin"],
+      permission: "viewOrders" as keyof Role['permissions'],
     },
     {
       titleKey: "nav.delayedOrders",
       url: "/delayed",
       icon: AlertTriangle,
-      roles: ["employee", "admin"],
+      permission: "viewDelayedOrders" as keyof Role['permissions'],
     },
     {
       titleKey: "nav.products",
       url: "/products",
       icon: Package,
-      roles: ["employee", "admin"],
+      permission: "viewOrders" as keyof Role['permissions'], // Products visible to anyone who can view orders
     },
     {
       titleKey: "nav.export",
       url: "/export",
       icon: Download,
-      roles: ["employee", "admin"],
+      permission: "exportData" as keyof Role['permissions'],
     },
     {
       titleKey: "nav.analytics",
       url: "/analytics",
       icon: BarChart3,
-      roles: ["admin"],
+      permission: "viewAnalytics" as keyof Role['permissions'],
     },
     {
       titleKey: "nav.users",
       url: "/users",
       icon: Users,
-      roles: ["admin"],
+      permission: "manageUsers" as keyof Role['permissions'],
     },
     {
       titleKey: "nav.roles",
       url: "/roles",
       icon: Shield,
-      roles: ["admin"],
+      permission: "manageRoles" as keyof Role['permissions'],
     },
     {
       titleKey: "nav.rules",
       url: "/cross-selling-rules",
       icon: Sparkles,
-      roles: ["admin"],
+      permission: "manageCrossSellingRules" as keyof Role['permissions'],
     },
     {
       titleKey: "nav.settings",
       url: "/settings",
       icon: Settings,
-      roles: ["admin"],
+      permission: "manageSettings" as keyof Role['permissions'],
     },
   ];
 
   const filteredItems = menuItems.filter((item) =>
-    item.roles.includes(userRole)
+    permissions[item.permission]
   );
 
   return (

@@ -17,7 +17,11 @@ import RolesPage from "@/pages/RolesPage";
 import SettingsPage from "@/pages/SettingsPage";
 import LoginPage from "@/pages/LoginPage";
 import NotFound from "@/pages/not-found";
-import type { User } from "@shared/schema";
+import type { User, Role } from "@shared/schema";
+
+type UserWithPermissions = User & {
+  permissions: Role['permissions'];
+};
 import "./i18n/config";
 import { useState } from "react";
 
@@ -45,16 +49,16 @@ function Router({
 }
 
 function AuthenticatedApp() {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserWithPermissions | null>(null);
   
   // Check if user is authenticated
-  const { data, isLoading, refetch } = useQuery<{ user: User }>({
+  const { data, isLoading, refetch } = useQuery<{ user: UserWithPermissions }>({
     queryKey: ["/api/auth/me"],
     retry: false,
   });
 
   // Handle login success
-  const handleLoginSuccess = (user: User) => {
+  const handleLoginSuccess = (user: UserWithPermissions) => {
     setCurrentUser(user);
     refetch();
   };
@@ -83,7 +87,10 @@ function AuthenticatedApp() {
     <TooltipProvider>
       <SidebarProvider style={style as React.CSSProperties}>
         <div className="flex h-screen w-full">
-          <AppSidebar userRole={user.role as "employee" | "admin"} />
+          <AppSidebar 
+            userRole={user.role as "employee" | "admin"} 
+            permissions={user.permissions}
+          />
           <div className="flex flex-col flex-1 overflow-hidden">
             <TopBar 
               userRole={user.role as "employee" | "admin"} 
