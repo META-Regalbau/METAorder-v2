@@ -30,7 +30,8 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === "production",
+      // Replit always uses HTTPS, so cookies must be secure even in development
+      secure: true,
       httpOnly: true,
       sameSite: "lax",
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
