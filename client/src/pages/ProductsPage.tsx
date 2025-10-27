@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
 import type { Product } from "@shared/schema";
 import ProductDetailModal from "@/components/ProductDetailModal";
+import { getAuthHeaders } from "@/lib/queryClient";
 
 export default function ProductsPage() {
   const { t } = useTranslation();
@@ -40,7 +41,9 @@ export default function ProductsPage() {
       if (debouncedSearch) {
         params.set('search', debouncedSearch);
       }
-      const response = await fetch(`/api/products?${params.toString()}`);
+      const response = await fetch(`/api/products?${params.toString()}`, {
+        headers: getAuthHeaders(),
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch products');
       }
