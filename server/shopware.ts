@@ -204,7 +204,7 @@ export class ShopwareClient {
               sales_channel: ['id', 'name'],
               order_transaction: ['stateMachineState'],
               order_address: ['firstName', 'lastName', 'street', 'zipcode', 'city', 'country', 'company', 'phoneNumber'],
-              order_delivery: ['shippingOrderAddress'],
+              order_delivery: ['shippingOrderAddress', 'shippingDateEarliest', 'shippingDateLatest'],
             },
             associations: {
               orderCustomer: {},
@@ -334,10 +334,22 @@ export class ShopwareClient {
           }
         }
         
-        // Get shipping address
+        // Get shipping address and delivery dates
         let shippingAddress = undefined;
+        let deliveryDateEarliest = undefined;
+        let deliveryDateLatest = undefined;
+        
         if (shopwareOrder.deliveries && shopwareOrder.deliveries.length > 0) {
           const delivery = shopwareOrder.deliveries[0];
+          
+          // Extract delivery dates
+          if (delivery.shippingDateEarliest) {
+            deliveryDateEarliest = delivery.shippingDateEarliest;
+          }
+          if (delivery.shippingDateLatest) {
+            deliveryDateLatest = delivery.shippingDateLatest;
+          }
+          
           if (delivery.shippingOrderAddress) {
             const addr = delivery.shippingOrderAddress;
             shippingAddress = {
@@ -354,6 +366,15 @@ export class ShopwareClient {
         } else if (shopwareOrder.relationships?.deliveries?.data && shopwareOrder.relationships.deliveries.data.length > 0) {
           const deliveryId = shopwareOrder.relationships.deliveries.data[0].id;
           const delivery = includedMap.get(`order_delivery-${deliveryId}`);
+          
+          // Extract delivery dates from relationship
+          if (delivery?.attributes?.shippingDateEarliest) {
+            deliveryDateEarliest = delivery.attributes.shippingDateEarliest;
+          }
+          if (delivery?.attributes?.shippingDateLatest) {
+            deliveryDateLatest = delivery.attributes.shippingDateLatest;
+          }
+          
           if (delivery?.relationships?.shippingOrderAddress?.data?.id) {
             const addrId = delivery.relationships.shippingOrderAddress.data.id;
             const addr = includedMap.get(`order_address-${addrId}`);
@@ -526,6 +547,8 @@ export class ShopwareClient {
           customerEmail,
           customerPhone: customerPhone || undefined,
           orderDate: shopwareOrder.orderDate || shopwareOrder.attributes?.orderDate || shopwareOrder.createdAt || new Date().toISOString(),
+          deliveryDateEarliest,
+          deliveryDateLatest,
           totalAmount: grossTotal,
           netTotalAmount: netTotal,
           status,
