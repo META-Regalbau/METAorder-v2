@@ -344,7 +344,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Sales channels routes
-  app.get("/api/sales-channels", async (req, res) => {
+  app.get("/api/sales-channels", requireAuth, async (req, res) => {
     try {
       const settings = await storage.getShopwareSettings();
       if (!settings) {
@@ -362,7 +362,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Orders routes
-  app.get("/api/orders", async (req, res) => {
+  app.get("/api/orders", requireAuth, async (req, res) => {
     try {
       const settings = await storage.getShopwareSettings();
       if (!settings) {
@@ -532,7 +532,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/orders/:orderId/documents", async (req, res) => {
+  app.get("/api/orders/:orderId/documents", requireAuth, async (req, res) => {
     try {
       const settings = await storage.getShopwareSettings();
       if (!settings) {
@@ -549,7 +549,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/orders/:orderId/document/:documentId/:deepLinkCode", async (req, res) => {
+  app.get("/api/orders/:orderId/document/:documentId/:deepLinkCode", requireAuth, async (req, res) => {
     try {
       const settings = await storage.getShopwareSettings();
       if (!settings) {
