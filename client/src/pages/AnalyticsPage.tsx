@@ -249,10 +249,10 @@ export default function AnalyticsPage() {
             <SelectValue placeholder="Zeitraum auswählen" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="7">Letzte 7 Tage</SelectItem>
-            <SelectItem value="30">Letzte 30 Tage</SelectItem>
-            <SelectItem value="90">Letzte 90 Tage</SelectItem>
-            <SelectItem value="custom">Benutzerdefiniert</SelectItem>
+            <SelectItem value="7" data-testid="select-item-7-days">Letzte 7 Tage</SelectItem>
+            <SelectItem value="30" data-testid="select-item-30-days">Letzte 30 Tage</SelectItem>
+            <SelectItem value="90" data-testid="select-item-90-days">Letzte 90 Tage</SelectItem>
+            <SelectItem value="custom" data-testid="select-item-custom">Benutzerdefiniert</SelectItem>
           </SelectContent>
         </Select>
 
@@ -408,16 +408,18 @@ export default function AnalyticsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie data={orderStatusData} cx="50%" cy="50%" labelLine={false} label={(entry) => entry.name} outerRadius={80} fill="#8884d8" dataKey="value">
-                  {orderStatusData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            <div data-testid="chart-order-status">
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie data={orderStatusData} cx="50%" cy="50%" labelLine={false} label={(entry) => entry.name} outerRadius={80} fill="#8884d8" dataKey="value">
+                    {orderStatusData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
 
@@ -429,16 +431,18 @@ export default function AnalyticsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie data={paymentStatusData} cx="50%" cy="50%" labelLine={false} label={(entry) => entry.name} outerRadius={80} fill="#8884d8" dataKey="value">
-                  {paymentStatusData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            <div data-testid="chart-payment-status">
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie data={paymentStatusData} cx="50%" cy="50%" labelLine={false} label={(entry) => entry.name} outerRadius={80} fill="#8884d8" dataKey="value">
+                    {paymentStatusData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -452,17 +456,19 @@ export default function AnalyticsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={salesTrend}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="revenue" stroke="#8884d8" name="Umsatz (€)" />
-              <Line type="monotone" dataKey="orderCount" stroke="#82ca9d" name="Bestellungen" />
-            </LineChart>
-          </ResponsiveContainer>
+          <div data-testid="chart-sales-trend">
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={salesTrend}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="revenue" stroke="#8884d8" name="Umsatz (€)" />
+                <Line type="monotone" dataKey="orderCount" stroke="#82ca9d" name="Bestellungen" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </CardContent>
       </Card>
 
@@ -475,16 +481,18 @@ export default function AnalyticsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={categorySalesData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="revenue" fill="#8884d8" name="Umsatz (€)" />
-            </BarChart>
-          </ResponsiveContainer>
+          <div data-testid="chart-category-sales">
+            <ResponsiveContainer width="100%" height={400}>
+              <BarChart data={categorySalesData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="revenue" fill="#8884d8" name="Umsatz (€)" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </CardContent>
       </Card>
 
