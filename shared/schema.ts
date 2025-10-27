@@ -13,6 +13,7 @@ export const roles = pgTable("roles", {
     editOrders: boolean;
     exportData: boolean;
     viewAnalytics: boolean;
+    viewDelayedOrders: boolean;
     manageUsers: boolean;
     manageRoles: boolean;
     manageSettings: boolean;

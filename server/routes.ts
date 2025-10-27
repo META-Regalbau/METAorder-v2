@@ -44,8 +44,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/auth/me", requireAuth, (req, res) => {
     // req.user is set by requireAuth middleware
-    const { password, ...userWithoutPassword } = req.user as any;
-    res.json({ user: userWithoutPassword });
+    const { password, roleDetails, ...userWithoutPassword } = req.user as any;
+    res.json({ 
+      user: {
+        ...userWithoutPassword,
+        permissions: roleDetails?.permissions || {}
+      }
+    });
   });
 
   // User management routes (Requires manageUsers permission)
@@ -197,6 +202,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           editOrders: z.boolean(),
           exportData: z.boolean(),
           viewAnalytics: z.boolean(),
+          viewDelayedOrders: z.boolean(),
           manageUsers: z.boolean(),
           manageRoles: z.boolean(),
           manageSettings: z.boolean(),
@@ -231,6 +237,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           editOrders: z.boolean(),
           exportData: z.boolean(),
           viewAnalytics: z.boolean(),
+          viewDelayedOrders: z.boolean(),
           manageUsers: z.boolean(),
           manageRoles: z.boolean(),
           manageSettings: z.boolean(),
