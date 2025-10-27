@@ -599,6 +599,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const limit = parseInt(req.query.limit as string) || 100;
       const page = parseInt(req.query.page as string) || 1;
       const search = req.query.search as string | undefined;
+      const categoryId = req.query.categoryId as string | undefined;
       
       // Determine if user should only see active products
       // Admin can see all products (active + inactive), others only see active
@@ -610,14 +611,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         user?.role === 'admin';
       const activeOnly = !isAdmin;
       
-      console.log(`[/api/products] User: ${user?.username}, Role: ${user?.roleDetails?.name || user?.role}, isAdmin: ${isAdmin}, activeOnly: ${activeOnly}`);
+      console.log(`[/api/products] User: ${user?.username}, Role: ${user?.roleDetails?.name || user?.role}, isAdmin: ${isAdmin}, activeOnly: ${activeOnly}, categoryId: ${categoryId || 'all'}`);
       
-      const result = await client.fetchProducts(limit, page, search, activeOnly);
+      const result = await client.fetchProducts(limit, page, search, activeOnly, categoryId);
       
       res.json(result);
     } catch (error: any) {
       console.error("Error fetching products:", error);
       res.status(500).json({ error: error.message || "Failed to fetch products" });
+    }
+  });
+
+  // Categories route
+  app.get("/api/categories", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const client = new ShopwareClient(settings);
+      const categories = await client.fetchCategories();
+      res.json(categories);
+    } catch (error: any) {
+      console.error("Error fetching categories:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch categories" });
     }
   });
 
