@@ -39,7 +39,8 @@ The UI adheres to **Material Design principles** and **Roboto typography**, prio
 -   **Order Management**: View, track, and update order details, including shipping information which automatically updates Shopware. Displays dual status badges for order processing and payment status.
 -   **User & Role Management**: Comprehensive CRUD operations for users and roles with permission-based access control.
 -   **Order Export**: Role-based export functionality (CSV, Excel, JSON) with customizable columns, date range filtering, and sales channel restrictions.
--   **Internationalization**: Full i18n support across the application for order statuses, filter panels, and general UI elements in German, English, and Spanish.
+-   **Analytics Dashboard**: Admin-only comprehensive analytics dashboard with real-time KPIs, interactive charts (Recharts), date range filtering (7/30/90 days, custom), and export functionality. Displays order/payment status distribution, product overview, category sales, best/worst sellers, and sales trends.
+-   **Internationalization**: Full i18n support across the application for order statuses, filter panels, analytics, and general UI elements in German, English, and Spanish.
 
 ## External Dependencies
 

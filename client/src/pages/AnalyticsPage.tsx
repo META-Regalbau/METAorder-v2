@@ -176,31 +176,41 @@ export default function AnalyticsPage() {
         a.href = url;
         a.download = `analytics-${dateFrom}-${dateTo}.json`;
         a.click();
+        URL.revokeObjectURL(url);
       } else {
         const wb = XLSX.utils.book_new();
+        let sheetCount = 0;
 
         // Summary sheet
         if (summary) {
           const summarySheet = XLSX.utils.json_to_sheet([summary]);
           XLSX.utils.book_append_sheet(wb, summarySheet, "Summary");
+          sheetCount++;
         }
 
         // Category Sales sheet
-        if (categorySales) {
+        if (categorySales && categorySales.length > 0) {
           const categorySheet = XLSX.utils.json_to_sheet(categorySales);
           XLSX.utils.book_append_sheet(wb, categorySheet, "Category Sales");
+          sheetCount++;
         }
 
         // Top Products sheet
-        if (productPerformance?.topProducts) {
+        if (productPerformance?.topProducts && productPerformance.topProducts.length > 0) {
           const topProductsSheet = XLSX.utils.json_to_sheet(productPerformance.topProducts);
           XLSX.utils.book_append_sheet(wb, topProductsSheet, "Top Products");
+          sheetCount++;
         }
 
         // Sales Trend sheet
-        if (salesTrend) {
+        if (salesTrend && salesTrend.length > 0) {
           const trendSheet = XLSX.utils.json_to_sheet(salesTrend);
           XLSX.utils.book_append_sheet(wb, trendSheet, "Sales Trend");
+          sheetCount++;
+        }
+
+        if (sheetCount === 0) {
+          throw new Error("No data available to export");
         }
 
         if (format === "excel") {
@@ -211,13 +221,14 @@ export default function AnalyticsPage() {
       }
 
       toast({
-        title: "Export erfolgreich",
-        description: `Analytics-Daten wurden als ${format.toUpperCase()} exportiert.`,
+        title: t("analytics.exportSuccess"),
+        description: t("analytics.exportDescription", { format: format.toUpperCase() }),
       });
     } catch (error) {
+      console.error("Export error:", error);
       toast({
-        title: "Export fehlgeschlagen",
-        description: "Fehler beim Exportieren der Analytics-Daten.",
+        title: t("analytics.exportFailed"),
+        description: t("analytics.exportError"),
         variant: "destructive",
       });
     }

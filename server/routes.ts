@@ -1228,14 +1228,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const client = new ShopwareClient(settings);
       
-      // Fetch all products (active and inactive)
-      const allProducts = await client.fetchProducts(1000, 1, undefined, undefined, false, undefined, undefined, undefined, true);
+      // Fetch only count, not actual products - use limit 1 to minimize data transfer
+      // Fetch active products count
+      const activeResult = await client.fetchProducts(1, 1, undefined, undefined, false, undefined, undefined, undefined, false);
+      const activeCount = activeResult.total;
       
-      const activeCount = allProducts.products.filter(p => p.available).length;
-      const inactiveCount = allProducts.products.length - activeCount;
+      // Fetch inactive products count by setting showInactive=true (which gives only inactive)
+      const inactiveResult = await client.fetchProducts(1, 1, undefined, undefined, true, undefined, undefined, undefined, false);
+      const inactiveCount = inactiveResult.total;
 
       res.json({
-        total: allProducts.products.length,
+        total: activeCount + inactiveCount,
         active: activeCount,
         inactive: inactiveCount,
       });
