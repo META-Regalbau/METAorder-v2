@@ -71,6 +71,7 @@ export function setupAuth(storage: IStorage) {
 
 // Middleware to check if user is authenticated
 export function requireAuth(req: any, res: any, next: any) {
+  console.log("[requireAuth] Checking authentication - isAuth:", req.isAuthenticated(), "sessionID:", req.sessionID, "session:", !!req.session);
   if (req.isAuthenticated()) {
     return next();
   }

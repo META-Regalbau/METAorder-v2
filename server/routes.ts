@@ -15,29 +15,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/login", (req, res, next) => {
     passport.authenticate("local", (err: any, user: any, info: any) => {
       if (err) {
+        console.error("[Login] Authentication error:", err);
         return res.status(500).json({ error: "Internal server error" });
       }
       
       if (!user) {
+        console.log("[Login] Authentication failed:", info?.message);
         return res.status(401).json({ error: info?.message || "Invalid credentials" });
       }
+      
+      console.log("[Login] User authenticated:", user.username);
       
       // Prevent session fixation attacks by regenerating session ID
       req.session.regenerate((err) => {
         if (err) {
+          console.error("[Login] Session regenerate error:", err);
           return res.status(500).json({ error: "Failed to create session" });
         }
         
+        console.log("[Login] Session regenerated, new session ID:", req.sessionID);
+        
         req.logIn(user, (err) => {
           if (err) {
+            console.error("[Login] logIn error:", err);
             return res.status(500).json({ error: "Failed to login" });
           }
+          
+          console.log("[Login] User logged in, session authenticated:", req.isAuthenticated());
           
           // Save session before sending response to ensure it's persisted
           req.session.save((err) => {
             if (err) {
+              console.error("[Login] Session save error:", err);
               return res.status(500).json({ error: "Failed to save session" });
             }
+            
+            console.log("[Login] Session saved successfully");
             
             // Don't send password to client
             const { password, ...userWithoutPassword } = user;
@@ -65,6 +78,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   app.get("/api/auth/me", requireAuth, (req, res) => {
+    console.log("[Auth] /api/auth/me - isAuthenticated:", req.isAuthenticated(), "sessionID:", req.sessionID);
     if (req.user) {
       const { password, ...userWithoutPassword } = req.user as any;
       res.json({ user: userWithoutPassword });

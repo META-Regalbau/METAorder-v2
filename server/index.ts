@@ -33,7 +33,8 @@ app.use(
       // Replit always uses HTTPS, so cookies must be secure even in development
       secure: true,
       httpOnly: true,
-      sameSite: "lax",
+      // Use "none" for Replit iframe/preview contexts where app may be cross-origin
+      sameSite: "none",
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },
   })
