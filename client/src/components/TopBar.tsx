@@ -30,6 +30,9 @@ export default function TopBar({ userRole, username, onLogout }: TopBarProps) {
       return response.json();
     },
     onSuccess: () => {
+      // Clear JWT token from localStorage
+      localStorage.removeItem("auth_token");
+      
       queryClient.clear();
       onLogout();
       toast({

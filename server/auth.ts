@@ -3,6 +3,8 @@ import { Strategy as LocalStrategy } from "passport-local";
 import bcrypt from "bcryptjs";
 import type { IStorage } from "./storage";
 import type { User } from "@shared/schema";
+import { verifyToken } from "./jwt";
+import { storage } from "./storage";
 
 export function setupAuth(storage: IStorage) {
   // Configure passport local strategy
@@ -69,19 +71,64 @@ export function setupAuth(storage: IStorage) {
   return passport;
 }
 
-// Middleware to check if user is authenticated
-export function requireAuth(req: any, res: any, next: any) {
-  console.log("[requireAuth] Checking authentication - isAuth:", req.isAuthenticated(), "sessionID:", req.sessionID, "session:", !!req.session);
-  if (req.isAuthenticated()) {
-    return next();
+// Middleware to check if user is authenticated via JWT
+export async function requireAuth(req: any, res: any, next: any) {
+  try {
+    // Extract token from Authorization header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    
+    const token = authHeader.substring(7); // Remove "Bearer " prefix
+    
+    // Verify token
+    const payload = verifyToken(token);
+    if (!payload) {
+      return res.status(401).json({ error: "Invalid or expired token" });
+    }
+    
+    // Load user from database
+    const user = await storage.getUser(payload.userId);
+    if (!user) {
+      return res.status(401).json({ error: "User not found" });
+    }
+    
+    // Enrich user with role details including permissions
+    const roleId = (user as any).roleId;
+    if (roleId) {
+      const role = await storage.getRole(roleId);
+      if (role) {
+        (user as any).roleDetails = role;
+      }
+    } else {
+      // Fallback for legacy users without roleId: find role by name
+      const allRoles = await storage.getAllRoles();
+      const legacyRoleName = user.role === "admin" ? "Administrator" : "Employee";
+      const fallbackRole = allRoles.find(r => r.name === legacyRoleName);
+      if (fallbackRole) {
+        (user as any).roleDetails = fallbackRole;
+        // Update user with roleId for future requests
+        await storage.updateUser(user.id, { roleId: fallbackRole.id });
+      }
+    }
+    
+    // Set user on request object
+    req.user = user;
+    
+    next();
+  } catch (error) {
+    console.error("[requireAuth] Error:", error);
+    res.status(401).json({ error: "Authentication failed" });
   }
-  res.status(401).json({ error: "Not authenticated" });
 }
 
 // Middleware to check if user has a specific permission
+// Must be used after requireAuth middleware
 export function requirePermission(permission: string) {
-  return (req: any, res: any, next: any) => {
-    if (!req.isAuthenticated()) {
+  return async (req: any, res: any, next: any) => {
+    // First check authentication (requireAuth should have already run)
+    if (!req.user) {
       return res.status(401).json({ error: "Unauthorized: Please login" });
     }
     
@@ -110,7 +157,7 @@ export const requireManageCrossSellingRules = requirePermission("manageCrossSell
 // Legacy middleware - kept for backwards compatibility
 // Prefer using permission-based checks (requireManageUsers, requireManageRoles, etc.)
 export function requireAdmin(req: any, res: any, next: any) {
-  if (req.isAuthenticated() && req.user.role === "admin") {
+  if (req.user && req.user.role === "admin") {
     return next();
   }
   res.status(403).json({ error: "Forbidden: Admin access required" });

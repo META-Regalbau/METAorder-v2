@@ -9,86 +9,47 @@ import { RuleEngine } from "./ruleEngine";
 import { shopwareSettingsSchema, insertCrossSellingRuleSchema, type Product, insertUserSchema, type Role } from "@shared/schema";
 import { requireAuth, requireManageUsers, requireManageRoles, requireManageSettings, requireManageCrossSellingGroups, requireManageCrossSellingRules } from "./auth";
 import * as XLSX from 'xlsx';
+import { generateToken } from "./jwt";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
   app.post("/api/auth/login", (req, res, next) => {
     passport.authenticate("local", (err: any, user: any, info: any) => {
       if (err) {
-        console.error("[Login] Authentication error:", err);
         return res.status(500).json({ error: "Internal server error" });
       }
       
       if (!user) {
-        console.log("[Login] Authentication failed:", info?.message);
         return res.status(401).json({ error: info?.message || "Invalid credentials" });
       }
       
-      console.log("[Login] User authenticated:", user.username);
+      // Generate JWT token
+      const token = generateToken(user);
       
-      // Prevent session fixation attacks by regenerating session ID
-      req.session.regenerate((err) => {
-        if (err) {
-          console.error("[Login] Session regenerate error:", err);
-          return res.status(500).json({ error: "Failed to create session" });
-        }
-        
-        console.log("[Login] Session regenerated, new session ID:", req.sessionID);
-        
-        req.logIn(user, (err) => {
-          if (err) {
-            console.error("[Login] logIn error:", err);
-            return res.status(500).json({ error: "Failed to login" });
-          }
-          
-          console.log("[Login] User logged in, session authenticated:", req.isAuthenticated());
-          
-          // Save session before sending response to ensure it's persisted
-          req.session.save((err) => {
-            if (err) {
-              console.error("[Login] Session save error:", err);
-              return res.status(500).json({ error: "Failed to save session" });
-            }
-            
-            console.log("[Login] Session saved successfully");
-            
-            // Don't send password to client
-            const { password, ...userWithoutPassword } = user;
-            return res.json({ user: userWithoutPassword });
-          });
-        });
+      // Don't send password to client
+      const { password, ...userWithoutPassword } = user;
+      
+      return res.json({ 
+        user: userWithoutPassword,
+        token 
       });
     })(req, res, next);
   });
   
   app.post("/api/auth/logout", (req, res) => {
-    req.logout((err) => {
-      if (err) {
-        return res.status(500).json({ error: "Failed to logout" });
-      }
-      
-      // Destroy session for security
-      req.session.destroy((err) => {
-        if (err) {
-          return res.status(500).json({ error: "Failed to destroy session" });
-        }
-        res.json({ message: "Logged out successfully" });
-      });
-    });
+    // With JWT, logout is handled client-side by removing the token
+    // No server-side session to destroy
+    res.json({ message: "Logged out successfully" });
   });
   
   app.get("/api/auth/me", requireAuth, (req, res) => {
-    console.log("[Auth] /api/auth/me - isAuthenticated:", req.isAuthenticated(), "sessionID:", req.sessionID);
-    if (req.user) {
-      const { password, ...userWithoutPassword } = req.user as any;
-      res.json({ user: userWithoutPassword });
-    } else {
-      res.status(401).json({ error: "Not authenticated" });
-    }
+    // req.user is set by requireAuth middleware
+    const { password, ...userWithoutPassword } = req.user as any;
+    res.json({ user: userWithoutPassword });
   });
 
   // User management routes (Requires manageUsers permission)
-  app.get("/api/users", requireManageUsers, async (req, res) => {
+  app.get("/api/users", requireAuth, requireManageUsers, async (req, res) => {
     try {
       const users = await storage.getAllUsers();
       const roles = await storage.getAllRoles();
@@ -110,7 +71,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/users", requireManageUsers, async (req, res) => {
+  app.post("/api/users", requireAuth, requireManageUsers, async (req, res) => {
     try {
       const validated = insertUserSchema.extend({
         roleId: z.string().min(1, "Role is required"),
@@ -153,7 +114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/users/:id", requireManageUsers, async (req, res) => {
+  app.patch("/api/users/:id", requireAuth, requireManageUsers, async (req, res) => {
     try {
       const updateSchema = z.object({
         username: z.string().min(3).optional(),
@@ -200,7 +161,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/users/:id", requireManageUsers, async (req, res) => {
+  app.delete("/api/users/:id", requireAuth, requireManageUsers, async (req, res) => {
     try {
       const deleted = await storage.deleteUser(req.params.id);
       
@@ -216,7 +177,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Role management routes (Requires manageRoles permission)
-  app.get("/api/roles", requireManageRoles, async (req, res) => {
+  app.get("/api/roles", requireAuth, requireManageRoles, async (req, res) => {
     try {
       const roles = await storage.getAllRoles();
       res.json(roles);
@@ -226,7 +187,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/roles", requireManageRoles, async (req, res) => {
+  app.post("/api/roles", requireAuth, requireManageRoles, async (req, res) => {
     try {
       const roleSchema = z.object({
         name: z.string().min(2),
@@ -260,7 +221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/roles/:id", requireManageRoles, async (req, res) => {
+  app.patch("/api/roles/:id", requireAuth, requireManageRoles, async (req, res) => {
     try {
       const roleSchema = z.object({
         name: z.string().min(2).optional(),
@@ -295,7 +256,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/roles/:id", requireManageRoles, async (req, res) => {
+  app.delete("/api/roles/:id", requireAuth, requireManageRoles, async (req, res) => {
     try {
       const deleted = await storage.deleteRole(req.params.id);
       
@@ -311,7 +272,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Shopware settings routes
-  app.get("/api/settings/shopware", async (req, res) => {
+  app.get("/api/settings/shopware", requireAuth, requireManageSettings, async (req, res) => {
     try {
       const settings = await storage.getShopwareSettings();
       if (!settings) {
@@ -329,7 +290,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/settings/shopware", async (req, res) => {
+  app.post("/api/settings/shopware", requireAuth, requireManageSettings, async (req, res) => {
     try {
       const validated = shopwareSettingsSchema.parse(req.body);
       const settings = await storage.saveShopwareSettings(validated);
@@ -347,7 +308,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/settings/shopware/test", async (req, res) => {
+  app.post("/api/settings/shopware/test", requireAuth, requireManageSettings, async (req, res) => {
     try {
       const validated = shopwareSettingsSchema.parse(req.body);
       const client = new ShopwareClient(validated);
@@ -661,7 +622,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Cross-Selling routes
-  app.get("/api/products/:productId/cross-selling", async (req, res) => {
+  app.get("/api/products/:productId/cross-selling", requireAuth, requireManageCrossSellingGroups, async (req, res) => {
     try {
       const settings = await storage.getShopwareSettings();
       if (!settings) {
@@ -697,7 +658,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/products/:productId/cross-selling", async (req, res) => {
+  app.post("/api/products/:productId/cross-selling", requireAuth, requireManageCrossSellingGroups, async (req, res) => {
     try {
       const settings = await storage.getShopwareSettings();
       if (!settings) {
@@ -734,7 +695,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/products/:productId/cross-selling/:crossSellingId", async (req, res) => {
+  app.put("/api/products/:productId/cross-selling/:crossSellingId", requireAuth, requireManageCrossSellingGroups, async (req, res) => {
     try {
       const settings = await storage.getShopwareSettings();
       if (!settings) {
@@ -787,7 +748,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/products/:productId/cross-selling/:crossSellingId", async (req, res) => {
+  app.delete("/api/products/:productId/cross-selling/:crossSellingId", requireAuth, requireManageCrossSellingGroups, async (req, res) => {
     try {
       const settings = await storage.getShopwareSettings();
       if (!settings) {
@@ -807,7 +768,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Cross-Selling Rules routes
-  app.get("/api/cross-selling-rules/available-fields", async (req, res) => {
+  app.get("/api/cross-selling-rules/available-fields", requireAuth, requireManageCrossSellingGroups, async (req, res) => {
     try {
       const settings = await storage.getShopwareSettings();
       if (!settings) {
@@ -841,7 +802,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/cross-selling-rules", async (req, res) => {
+  app.get("/api/cross-selling-rules", requireAuth, requireManageCrossSellingRules, async (req, res) => {
     try {
       const rules = await storage.getAllCrossSellingRules();
       res.json({ rules });
@@ -851,7 +812,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/cross-selling-rules/:id", async (req, res) => {
+  app.get("/api/cross-selling-rules/:id", requireAuth, requireManageCrossSellingRules, async (req, res) => {
     try {
       const rule = await storage.getCrossSellingRule(req.params.id);
       if (!rule) {
@@ -864,7 +825,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/cross-selling-rules", async (req, res) => {
+  app.post("/api/cross-selling-rules", requireAuth, requireManageCrossSellingRules, async (req, res) => {
     try {
       // Validate request body
       const validation = insertCrossSellingRuleSchema.safeParse(req.body);
@@ -887,7 +848,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/cross-selling-rules/:id", async (req, res) => {
+  app.put("/api/cross-selling-rules/:id", requireAuth, requireManageCrossSellingRules, async (req, res) => {
     try {
       // Validate request body (partial updates allowed)
       const validation = insertCrossSellingRuleSchema.partial().safeParse(req.body);
@@ -915,7 +876,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/cross-selling-rules/:id", async (req, res) => {
+  app.delete("/api/cross-selling-rules/:id", requireAuth, requireManageCrossSellingRules, async (req, res) => {
     try {
       const deleted = await storage.deleteCrossSellingRule(req.params.id);
       if (!deleted) {
@@ -929,7 +890,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Bulk execution of cross-selling rules
-  app.post("/api/cross-selling-rules/execute-bulk", requireAuth, async (req, res) => {
+  app.post("/api/cross-selling-rules/execute-bulk", requireAuth, requireManageCrossSellingRules, async (req, res) => {
     try {
       const { ruleId } = req.body; // Optional: if provided, only execute this rule
       
