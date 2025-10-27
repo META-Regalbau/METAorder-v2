@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
+import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Play } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,12 +18,14 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import AddRuleDialog from "@/components/AddRuleDialog";
 import EditRuleDialog from "@/components/EditRuleDialog";
+import BulkExecutionDialog from "@/components/BulkExecutionDialog";
 
 export default function CrossSellingRulesPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingRule, setEditingRule] = useState<CrossSellingRule | null>(null);
+  const [showBulkDialog, setShowBulkDialog] = useState(false);
 
   // Fetch all rules
   const { data, isLoading } = useQuery<{ rules: CrossSellingRule[] }>({
@@ -35,9 +37,7 @@ export default function CrossSellingRulesPage() {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (ruleId: string) => {
-      return apiRequest(`/api/cross-selling-rules/${ruleId}`, {
-        method: "DELETE",
-      });
+      return apiRequest("DELETE", `/api/cross-selling-rules/${ruleId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cross-selling-rules"] });
@@ -58,10 +58,7 @@ export default function CrossSellingRulesPage() {
   // Toggle active mutation
   const toggleActiveMutation = useMutation({
     mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
-      return apiRequest(`/api/cross-selling-rules/${id}`, {
-        method: "PUT",
-        body: JSON.stringify({ active }),
-      });
+      return apiRequest("PUT", `/api/cross-selling-rules/${id}`, { active });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cross-selling-rules"] });
@@ -95,13 +92,24 @@ export default function CrossSellingRulesPage() {
           </h1>
           <p className="text-muted-foreground">{t('rules.subtitle')}</p>
         </div>
-        <Button
-          onClick={() => setShowAddDialog(true)}
-          data-testid="button-add-rule"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          {t('rules.createNew')}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowBulkDialog(true)}
+            disabled={rules.length === 0}
+            data-testid="button-execute-bulk"
+          >
+            <Play className="h-4 w-4 mr-2" />
+            {t('rules.executeBulk')}
+          </Button>
+          <Button
+            onClick={() => setShowAddDialog(true)}
+            data-testid="button-add-rule"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            {t('rules.createNew')}
+          </Button>
+        </div>
       </div>
 
       {/* Rules Table */}
@@ -199,6 +207,11 @@ export default function CrossSellingRulesPage() {
         rule={editingRule}
         open={!!editingRule}
         onClose={() => setEditingRule(null)}
+      />
+      <BulkExecutionDialog
+        open={showBulkDialog}
+        onClose={() => setShowBulkDialog(false)}
+        rules={rules}
       />
     </div>
   );
