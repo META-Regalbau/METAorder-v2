@@ -395,31 +395,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const now = new Date();
       const thresholdDate = new Date(now.getTime() - daysThreshold * 24 * 60 * 60 * 1000);
       
-      // Filter delayed orders: older than threshold, not completed/cancelled, and payment is paid
+      // Filter delayed orders: deliveryDateLatest passed or order old, not completed/cancelled, and payment is paid
       const delayedOrders = orders
         .filter(order => {
-          const orderDate = new Date(order.orderDate);
-          const isOld = orderDate < thresholdDate;
-          
           // Must not be completed or cancelled
           const isNotFinished = order.status !== 'completed' && order.status !== 'cancelled';
           
           // Payment must be paid (not failed, cancelled, or open)
           const hasValidPayment = order.paymentStatus === 'paid';
           
-          return isOld && isNotFinished && hasValidPayment;
+          if (!isNotFinished || !hasValidPayment) {
+            return false;
+          }
+          
+          // Check if delivery date is overdue or order is old
+          if (order.deliveryDateLatest) {
+            const deliveryDate = new Date(order.deliveryDateLatest);
+            const isOverdue = deliveryDate < thresholdDate;
+            return isOverdue;
+          } else {
+            // Fallback to order date if no delivery date
+            const orderDate = new Date(order.orderDate);
+            const isOld = orderDate < thresholdDate;
+            return isOld;
+          }
         })
         .map(order => {
-          // Calculate days since order
-          const orderDate = new Date(order.orderDate);
-          const daysSinceOrder = Math.floor((now.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24));
+          // Calculate days since expected delivery (or order date as fallback)
+          const referenceDate = order.deliveryDateLatest 
+            ? new Date(order.deliveryDateLatest)
+            : new Date(order.orderDate);
+          const daysSinceOrder = Math.floor((now.getTime() - referenceDate.getTime()) / (1000 * 60 * 60 * 24));
           
           return {
             ...order,
             daysSinceOrder,
           };
         })
-        .sort((a, b) => b.daysSinceOrder - a.daysSinceOrder); // Sort by oldest first
+        .sort((a, b) => {
+          // Sort by delivery date (latest delivery date first = most overdue)
+          const dateA = a.deliveryDateLatest ? new Date(a.deliveryDateLatest) : new Date(a.orderDate);
+          const dateB = b.deliveryDateLatest ? new Date(b.deliveryDateLatest) : new Date(b.orderDate);
+          return dateA.getTime() - dateB.getTime(); // Earliest date first (most overdue)
+        });
       
       res.json(delayedOrders);
     } catch (error: any) {
