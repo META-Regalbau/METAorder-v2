@@ -748,7 +748,17 @@ export class ShopwareClient {
     }
   }
 
-  async fetchProducts(limit: number = 100, page: number = 1, search?: string, activeOnly: boolean = false, categoryId?: string): Promise<{ products: Product[], total: number }> {
+  async fetchProducts(
+    limit: number = 100, 
+    page: number = 1, 
+    search?: string, 
+    activeOnly: boolean = false, 
+    categoryId?: string,
+    showInactive: boolean = false,
+    width?: number,
+    height?: number,
+    depth?: number
+  ): Promise<{ products: Product[], total: number }> {
     try {
       const requestBody: any = {
         limit,
@@ -764,8 +774,15 @@ export class ShopwareClient {
       // Build filter array
       const filters: any[] = [];
 
-      // Filter by active status based on user role
-      if (activeOnly) {
+      // Filter by active status
+      if (showInactive) {
+        // Admin only: Show only inactive products
+        filters.push({
+          type: 'equals',
+          field: 'active',
+          value: false,
+        });
+      } else if (activeOnly) {
         // Non-admin users: Only show active products
         filters.push({
           type: 'equals',
@@ -773,7 +790,7 @@ export class ShopwareClient {
           value: true,
         });
       } else {
-        // Admin users: Load ALL products (active AND inactive) for cross-selling rule matching
+        // Admin users: Load ALL products (active AND inactive)
         filters.push({
           type: 'multi',
           operator: 'OR',
@@ -801,6 +818,31 @@ export class ShopwareClient {
         });
       }
 
+      // Filter by dimensions if provided
+      if (width) {
+        filters.push({
+          type: 'equals',
+          field: 'width',
+          value: width,
+        });
+      }
+
+      if (height) {
+        filters.push({
+          type: 'equals',
+          field: 'height',
+          value: height,
+        });
+      }
+
+      if (depth) {
+        filters.push({
+          type: 'equals',
+          field: 'length', // Shopware uses 'length' for depth
+          value: depth,
+        });
+      }
+
       // Set the filters array
       requestBody.filter = filters;
 
@@ -809,7 +851,7 @@ export class ShopwareClient {
         requestBody.term = search.trim();
       }
 
-      console.log(`[fetchProducts] Requesting products - page: ${page}, limit: ${limit}, search: ${search || 'none'}, category: ${categoryId || 'all'}`);
+      console.log(`[fetchProducts] Requesting products - page: ${page}, limit: ${limit}, search: ${search || 'none'}, category: ${categoryId || 'all'}, showInactive: ${showInactive}, width: ${width || 'any'}, height: ${height || 'any'}, depth: ${depth || 'any'}`);
       console.log(`[fetchProducts] Request body filter:`, JSON.stringify(requestBody.filter, null, 2));
 
       const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/product`, {
@@ -1020,46 +1062,58 @@ export class ShopwareClient {
     }
   }
 
-  // Fetch all categories from Shopware
+  // Fetch categories that have products by extracting them from actual products
   async fetchCategories(): Promise<Array<{ id: string; name: string; parentId: string | null }>> {
     try {
-      console.log('[fetchCategories] Fetching categories from Shopware...');
+      console.log('[fetchCategories] Fetching categories with products from Shopware...');
       
-      const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/category`, {
+      // Step 1: Fetch products with their category information
+      const productsResponse = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/product`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          limit: 500, // Get all categories
+          limit: 500, // Get a large sample of products
           includes: {
-            category: ['id', 'name', 'parentId', 'level']
+            product: ['categories'],
+            category: ['id', 'name', 'parentId']
           },
-          sort: [
-            {
-              field: 'level',
-              order: 'ASC',
-            },
-            {
-              field: 'name',
-              order: 'ASC',
-            }
-          ]
+          associations: {
+            categories: {}
+          }
         }),
       });
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch categories: ${response.statusText}`);
+      if (!productsResponse.ok) {
+        throw new Error(`Failed to fetch products: ${productsResponse.statusText}`);
       }
 
-      const data = await response.json();
-      const categories = (data.data || []).map((cat: any) => ({
-        id: cat.id,
-        name: cat.name || cat.attributes?.name || 'Unnamed Category',
-        parentId: cat.parentId || cat.attributes?.parentId || null,
-      }));
+      const productsData = await productsResponse.json();
+      const products = productsData.data || [];
 
-      console.log(`[fetchCategories] Found ${categories.length} categories`);
+      // Step 2: Extract unique categories from products
+      const categoryMap = new Map<string, { id: string; name: string; parentId: string | null }>();
+      
+      products.forEach((product: any) => {
+        const categories = product.categories || product.attributes?.categories || [];
+        categories.forEach((cat: any) => {
+          if (cat.id && !categoryMap.has(cat.id)) {
+            categoryMap.set(cat.id, {
+              id: cat.id,
+              name: cat.name || cat.attributes?.name || 'Unnamed Category',
+              parentId: cat.parentId || cat.attributes?.parentId || null,
+            });
+          }
+        });
+      });
+
+      // Convert map to array and sort by name
+      const categories = Array.from(categoryMap.values()).sort((a, b) => 
+        a.name.localeCompare(b.name)
+      );
+
+      console.log(`[fetchCategories] Found ${categories.length} categories with products (from ${products.length} products)`);
       return categories;
     } catch (error) {
       console.error('Error fetching categories from Shopware:', error);
