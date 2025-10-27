@@ -257,9 +257,14 @@
     "price": "Precio",
     "availability": "Disponibilidad",
     "dimensions": "Dimensiones",
+    "dimensionsFilter": "Filtro de Dimensiones",
     "height": "Altura",
     "width": "Ancho",
     "depth": "Profundidad",
+    "anyWidth": "Cualquier ancho",
+    "anyHeight": "Cualquier altura",
+    "anyDepth": "Cualquier profundidad",
+    "showInactiveOnly": "Mostrar solo productos inactivos",
     "description": "Descripción"
   },
   "crossSelling": {

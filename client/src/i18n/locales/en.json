@@ -258,9 +258,14 @@
     "price": "Price",
     "availability": "Availability",
     "dimensions": "Dimensions",
+    "dimensionsFilter": "Dimensions Filter",
     "height": "Height",
     "width": "Width",
     "depth": "Depth",
+    "anyWidth": "Any width",
+    "anyHeight": "Any height",
+    "anyDepth": "Any depth",
+    "showInactiveOnly": "Show inactive products only",
     "description": "Description"
   },
   "crossSelling": {

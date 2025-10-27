@@ -38,7 +38,7 @@ export default function ProductsPage() {
   });
   
   const user = userData?.user;
-  const isAdmin = user?.role === 'admin' || user?.roleDetails?.name === 'Administrator';
+  const isAdmin = user?.role === 'admin';
 
   // Debounce search input
   useEffect(() => {
