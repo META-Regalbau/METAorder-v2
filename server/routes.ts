@@ -606,22 +606,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const height = req.query.height ? parseFloat(req.query.height as string) : undefined;
       const depth = req.query.depth ? parseFloat(req.query.depth as string) : undefined;
       
-      // Determine if user should only see active products
-      // Admin can see all products (active + inactive), others only see active
+      // Determine if user is admin
       const user = req.user as any;
       
       // Check both roleDetails.name (new system) and user.role (legacy fallback)
       const isAdmin = 
         user?.roleDetails?.name === 'Administrator' || 
         user?.role === 'admin';
-      const activeOnly = !isAdmin;
       
       // Admin-only: Check if user wants to see only inactive products
       const showInactive = isAdmin && req.query.showInactive === 'true';
       
-      console.log(`[/api/products] User: ${user?.username}, Role: ${user?.roleDetails?.name || user?.role}, isAdmin: ${isAdmin}, activeOnly: ${activeOnly}, showInactive: ${showInactive}, categoryId: ${categoryId || 'all'}, width: ${width || 'any'}, height: ${height || 'any'}, depth: ${depth || 'any'}`);
+      console.log(`[/api/products] User: ${user?.username}, Role: ${user?.roleDetails?.name || user?.role}, isAdmin: ${isAdmin}, showInactive: ${showInactive}, categoryId: ${categoryId || 'all'}, width: ${width || 'any'}, height: ${height || 'any'}, depth: ${depth || 'any'}`);
       
-      const result = await client.fetchProducts(limit, page, search, activeOnly, categoryId, showInactive, width, height, depth);
+      const result = await client.fetchProducts(limit, page, search, categoryId, showInactive, width, height, depth, false);
       
       res.json(result);
     } catch (error: any) {
@@ -941,8 +939,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`[Bulk Execution] Executing ${rules.length} rule(s)...`);
 
-      // Fetch all products (limit to a reasonable amount for performance)
-      const productsResult = await client.fetchProducts(50, 1, undefined);
+      // Fetch all products (limit to a reasonable amount for performance) - include inactive for rule matching
+      const productsResult = await client.fetchProducts(50, 1, undefined, undefined, false, undefined, undefined, undefined, true);
       const allProducts = productsResult.products;
       
       console.log(`[Bulk Execution] Processing ${allProducts.length} products...`);
@@ -1030,8 +1028,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[DEBUG] Fetching product with productNumber: ${productNumber}`);
       
-      // Search for the specific product
-      const result = await client.fetchProducts(10, 1, productNumber);
+      // Search for the specific product - include inactive for debugging
+      const result = await client.fetchProducts(10, 1, productNumber, undefined, false, undefined, undefined, undefined, true);
       
       console.log(`[DEBUG] Found ${result.products.length} products, total: ${result.total}`);
       if (result.products.length > 0) {
@@ -1063,13 +1061,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const client = new ShopwareClient(settings);
       const { productId } = req.params;
 
-      // Fetch the source product by ID
+      // Fetch the source product by ID - include inactive for suggestions
       console.log(`[Suggestions] Fetching source product ${productId}...`);
-      const productResult = await client.fetchProducts(1, 1, undefined);
+      const productResult = await client.fetchProducts(1, 1, undefined, undefined, false, undefined, undefined, undefined, true);
       
       // We need to fetch by ID, so let's do a small workaround
       // Try to search for the product by fetching it directly
-      const allProductsResult = await client.fetchProducts(500, 1, undefined);
+      const allProductsResult = await client.fetchProducts(500, 1, undefined, undefined, false, undefined, undefined, undefined, true);
       const sourceProduct = allProductsResult.products.find(p => p.id === productId);
 
       if (!sourceProduct) {

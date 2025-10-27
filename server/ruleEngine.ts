@@ -81,8 +81,8 @@ export class RuleEngine {
       if (searchTerm) {
         console.log(`[RuleEngine] Searching Shopware with term: "${searchTerm}" for field: ${criterion.field}`);
         
-        // Fetch products from Shopware with search term
-        const result = await shopwareClient.fetchProducts(100, 1, searchTerm);
+        // Fetch products from Shopware with search term - include inactive for rule matching
+        const result = await shopwareClient.fetchProducts(100, 1, searchTerm, undefined, false, undefined, undefined, undefined, true);
         console.log(`[RuleEngine] Shopware returned ${result.products.length} products for search term "${searchTerm}"`);
         
         // Add all products to candidates (we'll filter later with AND logic)

@@ -752,12 +752,12 @@ export class ShopwareClient {
     limit: number = 100, 
     page: number = 1, 
     search?: string, 
-    activeOnly: boolean = false, 
     categoryId?: string,
     showInactive: boolean = false,
     width?: number,
     height?: number,
-    depth?: number
+    depth?: number,
+    includeInactive: boolean = false
   ): Promise<{ products: Product[], total: number }> {
     try {
       const requestBody: any = {
@@ -782,15 +782,8 @@ export class ShopwareClient {
           field: 'active',
           value: false,
         });
-      } else if (activeOnly) {
-        // Non-admin users: Only show active products
-        filters.push({
-          type: 'equals',
-          field: 'active',
-          value: true,
-        });
-      } else {
-        // Admin users: Load ALL products (active AND inactive)
+      } else if (includeInactive) {
+        // Admin tools: Include both active and inactive products
         filters.push({
           type: 'multi',
           operator: 'OR',
@@ -806,6 +799,13 @@ export class ShopwareClient {
               value: false,
             },
           ],
+        });
+      } else {
+        // Default: Show only active products
+        filters.push({
+          type: 'equals',
+          field: 'active',
+          value: true,
         });
       }
 
