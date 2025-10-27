@@ -907,6 +907,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bulk execution of cross-selling rules
+  app.post("/api/cross-selling-rules/execute-bulk", requireAuth, async (req, res) => {
+    try {
+      const { ruleId } = req.body; // Optional: if provided, only execute this rule
+      
+      console.log(`[Bulk Execution] Starting bulk execution${ruleId ? ` for rule ${ruleId}` : ' for all rules'}...`);
+      
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const client = new ShopwareClient(settings);
+      const ruleEngine = new RuleEngine();
+
+      // Fetch rules to execute
+      const rules = ruleId 
+        ? await storage.getCrossSellingRule(ruleId).then(r => r ? [r] : [])
+        : await storage.getAllCrossSellingRules();
+      
+      if (rules.length === 0) {
+        return res.status(404).json({ error: "No rules found" });
+      }
+
+      console.log(`[Bulk Execution] Executing ${rules.length} rule(s)...`);
+
+      // Fetch all products (limit to a reasonable amount)
+      const productsResult = await client.fetchProducts(500, 1, undefined);
+      const allProducts = productsResult.products;
+      
+      console.log(`[Bulk Execution] Processing ${allProducts.length} products...`);
+
+      // Track results
+      const results = {
+        totalProducts: allProducts.length,
+        productsProcessed: 0,
+        crossSellingsCreated: 0,
+        productsSkipped: 0,
+        errors: [] as Array<{ productId: string; productName: string; error: string }>,
+      };
+
+      // Process each product
+      for (const product of allProducts) {
+        try {
+          console.log(`[Bulk Execution] Processing product: ${product.name} (${product.productNumber})`);
+          
+          // Get cross-selling suggestions for this product using rule engine
+          const suggestions = await ruleEngine.suggestCrossSelling(product, rules, client);
+          
+          if (suggestions.length === 0) {
+            console.log(`[Bulk Execution] No suggestions for product ${product.name}`);
+            results.productsSkipped++;
+            results.productsProcessed++;
+            continue;
+          }
+
+          console.log(`[Bulk Execution] Found ${suggestions.length} suggestions for product ${product.name}`);
+          
+          // Create or update cross-selling group in Shopware
+          const crossSellingName = `Auto Cross-Selling (${new Date().toLocaleDateString()})`;
+          
+          try {
+            // Create cross-selling group
+            const crossSellingId = await client.createProductCrossSelling(product.id, crossSellingName);
+            console.log(`[Bulk Execution] Created cross-selling group ${crossSellingId} for product ${product.name}`);
+            
+            // Assign suggested products
+            const suggestionIds = suggestions.map(s => s.id);
+            await client.assignProductsToCrossSelling(crossSellingId, suggestionIds);
+            console.log(`[Bulk Execution] Assigned ${suggestionIds.length} products to cross-selling group`);
+            
+            results.crossSellingsCreated++;
+          } catch (error: any) {
+            console.error(`[Bulk Execution] Error creating cross-selling for product ${product.name}:`, error);
+            results.errors.push({
+              productId: product.id,
+              productName: product.name,
+              error: error.message || 'Unknown error',
+            });
+          }
+          
+          results.productsProcessed++;
+        } catch (error: any) {
+          console.error(`[Bulk Execution] Error processing product ${product.name}:`, error);
+          results.errors.push({
+            productId: product.id,
+            productName: product.name,
+            error: error.message || 'Unknown error',
+          });
+          results.productsProcessed++;
+        }
+      }
+
+      console.log(`[Bulk Execution] Complete. Processed: ${results.productsProcessed}, Created: ${results.crossSellingsCreated}, Skipped: ${results.productsSkipped}, Errors: ${results.errors.length}`);
+      
+      res.json(results);
+    } catch (error: any) {
+      console.error("Error executing bulk cross-selling:", error);
+      res.status(500).json({ error: error.message || "Failed to execute bulk cross-selling" });
+    }
+  });
+
   // DEBUG: Test endpoint to fetch a specific product by product number
   app.get("/api/debug/product/:productNumber", async (req, res) => {
     try {
