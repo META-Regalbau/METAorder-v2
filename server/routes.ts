@@ -1129,6 +1129,271 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Analytics Endpoints
+  app.get("/api/analytics/summary", requireAuth, async (req, res) => {
+    try {
+      const dateFrom = req.query.dateFrom as string | undefined;
+      const dateTo = req.query.dateTo as string | undefined;
+
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const client = new ShopwareClient(settings);
+      const orders = await client.fetchOrdersForAnalytics(dateFrom, dateTo);
+
+      // Calculate summary metrics
+      const totalOrders = orders.length;
+      const totalRevenue = orders.reduce((sum, order) => sum + order.totalAmount, 0);
+      const totalNetRevenue = orders.reduce((sum, order) => sum + order.netTotalAmount, 0);
+      const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+      // Count unique customers
+      const uniqueCustomers = new Set(orders.map(o => o.customerEmail || o.customerName)).size;
+
+      res.json({
+        totalOrders,
+        totalRevenue,
+        totalNetRevenue,
+        averageOrderValue,
+        uniqueCustomers,
+        dateFrom,
+        dateTo,
+      });
+    } catch (error: any) {
+      console.error("Error fetching analytics summary:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch analytics summary" });
+    }
+  });
+
+  app.get("/api/analytics/order-status", requireAuth, async (req, res) => {
+    try {
+      const dateFrom = req.query.dateFrom as string | undefined;
+      const dateTo = req.query.dateTo as string | undefined;
+
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const client = new ShopwareClient(settings);
+      const orders = await client.fetchOrdersForAnalytics(dateFrom, dateTo);
+
+      // Group by order status
+      const statusDistribution: Record<string, number> = {};
+      orders.forEach(order => {
+        statusDistribution[order.status] = (statusDistribution[order.status] || 0) + 1;
+      });
+
+      res.json(statusDistribution);
+    } catch (error: any) {
+      console.error("Error fetching order status distribution:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch order status distribution" });
+    }
+  });
+
+  app.get("/api/analytics/payment-status", requireAuth, async (req, res) => {
+    try {
+      const dateFrom = req.query.dateFrom as string | undefined;
+      const dateTo = req.query.dateTo as string | undefined;
+
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const client = new ShopwareClient(settings);
+      const orders = await client.fetchOrdersForAnalytics(dateFrom, dateTo);
+
+      // Group by payment status
+      const paymentDistribution: Record<string, number> = {};
+      orders.forEach(order => {
+        paymentDistribution[order.paymentStatus] = (paymentDistribution[order.paymentStatus] || 0) + 1;
+      });
+
+      res.json(paymentDistribution);
+    } catch (error: any) {
+      console.error("Error fetching payment status distribution:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch payment status distribution" });
+    }
+  });
+
+  app.get("/api/analytics/product-overview", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const client = new ShopwareClient(settings);
+      
+      // Fetch all products (active and inactive)
+      const allProducts = await client.fetchProducts(1000, 1, undefined, undefined, false, undefined, undefined, undefined, true);
+      
+      const activeCount = allProducts.products.filter(p => p.available).length;
+      const inactiveCount = allProducts.products.length - activeCount;
+
+      res.json({
+        total: allProducts.products.length,
+        active: activeCount,
+        inactive: inactiveCount,
+      });
+    } catch (error: any) {
+      console.error("Error fetching product overview:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch product overview" });
+    }
+  });
+
+  app.get("/api/analytics/category-sales", requireAuth, async (req, res) => {
+    try {
+      const dateFrom = req.query.dateFrom as string | undefined;
+      const dateTo = req.query.dateTo as string | undefined;
+
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const client = new ShopwareClient(settings);
+      const orders = await client.fetchOrdersForAnalytics(dateFrom, dateTo);
+
+      // Calculate sales by category
+      const categorySales: Record<string, { revenue: number; netRevenue: number; quantity: number }> = {};
+      
+      orders.forEach(order => {
+        order.items.forEach(item => {
+          // Use product name as category if categoryNames not available
+          const categories = item.categoryNames || ['Uncategorized'];
+          
+          categories.forEach(category => {
+            if (!categorySales[category]) {
+              categorySales[category] = { revenue: 0, netRevenue: 0, quantity: 0 };
+            }
+            categorySales[category].revenue += item.total;
+            categorySales[category].netRevenue += item.netTotal;
+            categorySales[category].quantity += item.quantity;
+          });
+        });
+      });
+
+      // Convert to array and sort by revenue
+      const sortedCategories = Object.entries(categorySales)
+        .map(([name, data]) => ({ name, ...data }))
+        .sort((a, b) => b.revenue - a.revenue);
+
+      res.json(sortedCategories);
+    } catch (error: any) {
+      console.error("Error fetching category sales:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch category sales" });
+    }
+  });
+
+  app.get("/api/analytics/product-performance", requireAuth, async (req, res) => {
+    try {
+      const dateFrom = req.query.dateFrom as string | undefined;
+      const dateTo = req.query.dateTo as string | undefined;
+      const minQuantity = parseInt(req.query.minQuantity as string) || 1;
+
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const client = new ShopwareClient(settings);
+      const orders = await client.fetchOrdersForAnalytics(dateFrom, dateTo);
+
+      // Calculate product performance
+      const productPerformance: Record<string, {
+        name: string;
+        totalQuantity: number;
+        totalRevenue: number;
+        totalNetRevenue: number;
+        orderCount: number;
+      }> = {};
+
+      orders.forEach(order => {
+        order.items.forEach(item => {
+          const key = item.name;
+          if (!productPerformance[key]) {
+            productPerformance[key] = {
+              name: item.name,
+              totalQuantity: 0,
+              totalRevenue: 0,
+              totalNetRevenue: 0,
+              orderCount: 0,
+            };
+          }
+          productPerformance[key].totalQuantity += item.quantity;
+          productPerformance[key].totalRevenue += item.total;
+          productPerformance[key].totalNetRevenue += item.netTotal;
+          productPerformance[key].orderCount += 1;
+        });
+      });
+
+      // Filter by minimum quantity and sort by quantity
+      const topProducts = Object.values(productPerformance)
+        .filter(p => p.totalQuantity >= minQuantity)
+        .sort((a, b) => b.totalQuantity - a.totalQuantity)
+        .slice(0, 50); // Top 50 products
+
+      // Get bottom performers (Penner) - products with low sales
+      const bottomProducts = Object.values(productPerformance)
+        .filter(p => p.totalQuantity >= minQuantity)
+        .sort((a, b) => a.totalQuantity - b.totalQuantity)
+        .slice(0, 50); // Bottom 50 products
+
+      res.json({
+        topProducts,
+        bottomProducts,
+      });
+    } catch (error: any) {
+      console.error("Error fetching product performance:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch product performance" });
+    }
+  });
+
+  app.get("/api/analytics/sales-trend", requireAuth, async (req, res) => {
+    try {
+      const dateFrom = req.query.dateFrom as string | undefined;
+      const dateTo = req.query.dateTo as string | undefined;
+
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const client = new ShopwareClient(settings);
+      const orders = await client.fetchOrdersForAnalytics(dateFrom, dateTo);
+
+      // Group by date
+      const dailySales: Record<string, { date: string; revenue: number; netRevenue: number; orderCount: number }> = {};
+
+      orders.forEach(order => {
+        const date = order.orderDate.split('T')[0]; // Get date part only
+        if (!dailySales[date]) {
+          dailySales[date] = {
+            date,
+            revenue: 0,
+            netRevenue: 0,
+            orderCount: 0,
+          };
+        }
+        dailySales[date].revenue += order.totalAmount;
+        dailySales[date].netRevenue += order.netTotalAmount;
+        dailySales[date].orderCount += 1;
+      });
+
+      // Convert to array and sort by date
+      const trendData = Object.values(dailySales).sort((a, b) => a.date.localeCompare(b.date));
+
+      res.json(trendData);
+    } catch (error: any) {
+      console.error("Error fetching sales trend:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch sales trend" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

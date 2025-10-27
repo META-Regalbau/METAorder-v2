@@ -1635,4 +1635,233 @@ export class ShopwareClient {
       throw error;
     }
   }
+
+  /**
+   * Fetch orders for analytics with optional date filtering
+   */
+  async fetchOrdersForAnalytics(dateFrom?: string, dateTo?: string): Promise<Order[]> {
+    try {
+      const limit = 500;
+      let page = 1;
+      let allOrders: any[] = [];
+      let allIncluded: any[] = [];
+      let hasMore = true;
+
+      while (hasMore) {
+        // Build filter array
+        const filters: any[] = [];
+        
+        if (dateFrom) {
+          filters.push({
+            type: 'range',
+            field: 'orderDate',
+            parameters: {
+              gte: dateFrom,
+            },
+          });
+        }
+        
+        if (dateTo) {
+          filters.push({
+            type: 'range',
+            field: 'orderDate',
+            parameters: {
+              lte: dateTo,
+            },
+          });
+        }
+
+        const requestBody: any = {
+          limit,
+          page,
+          sort: [
+            {
+              field: 'orderDate',
+              order: 'DESC',
+            },
+          ],
+          includes: {
+            order: ['id', 'orderNumber', 'orderDate', 'amountTotal', 'amountNet', 'orderCustomer', 'lineItems', 'stateMachineState', 'salesChannelId', 'salesChannel', 'customFields', 'transactions', 'price'],
+            order_customer: ['firstName', 'lastName', 'email'],
+            order_line_item: ['id', 'label', 'quantity', 'unitPrice', 'totalPrice', 'price', 'productId', 'product'],
+            state_machine_state: ['technicalName'],
+            sales_channel: ['id', 'name'],
+            order_transaction: ['stateMachineState'],
+            product: ['id', 'productNumber', 'name', 'categories'],
+            category: ['id', 'name'],
+          },
+          associations: {
+            orderCustomer: {},
+            lineItems: {
+              associations: {
+                product: {
+                  associations: {
+                    categories: {},
+                  },
+                },
+              },
+            },
+            stateMachineState: {},
+            salesChannel: {},
+            transactions: {
+              limit: 10,
+              sort: [{ field: 'createdAt', order: 'DESC' }],
+              associations: {
+                stateMachineState: {},
+              },
+            },
+          },
+        };
+
+        if (filters.length > 0) {
+          requestBody.filter = filters;
+        }
+
+        const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/order`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Failed to fetch orders for analytics: ${response.statusText} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        const orders = data.data || [];
+        const included = data.included || [];
+
+        if (orders.length === 0) {
+          hasMore = false;
+          break;
+        }
+
+        allOrders = allOrders.concat(orders);
+        allIncluded = allIncluded.concat(included);
+
+        if (orders.length < limit) {
+          hasMore = false;
+        }
+
+        page++;
+      }
+
+      console.log(`[Analytics] Fetched ${allOrders.length} orders for analysis`);
+
+      // Create a map of included entities
+      const includedMap = new Map<string, any>();
+      allIncluded.forEach((item: any) => {
+        const key = `${item.type}-${item.id}`;
+        includedMap.set(key, item);
+      });
+
+      // Map to Order format (simplified for analytics)
+      return allOrders.map((shopwareOrder: any) => {
+        let customerName = 'Unknown Customer';
+        let customerEmail = '';
+
+        if (shopwareOrder.orderCustomer) {
+          const customer = shopwareOrder.orderCustomer;
+          customerName = `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'Unknown Customer';
+          customerEmail = customer.email || '';
+        } else if (shopwareOrder.relationships?.orderCustomer?.data?.id) {
+          const customerId = shopwareOrder.relationships.orderCustomer.data.id;
+          const customer = includedMap.get(`order_customer-${customerId}`);
+          if (customer) {
+            customerName = `${customer.attributes?.firstName || ''} ${customer.attributes?.lastName || ''}`.trim() || 'Unknown Customer';
+            customerEmail = customer.attributes?.email || '';
+          }
+        }
+
+        // Get order status
+        let orderStatus: OrderStatus = 'open';
+        if (shopwareOrder.stateMachineState?.technicalName) {
+          orderStatus = this.mapShopwareStatus(shopwareOrder.stateMachineState.technicalName);
+        } else if (shopwareOrder.relationships?.stateMachineState?.data?.id) {
+          const stateId = shopwareOrder.relationships.stateMachineState.data.id;
+          const state = includedMap.get(`state_machine_state-${stateId}`);
+          if (state?.attributes?.technicalName) {
+            orderStatus = this.mapShopwareStatus(state.attributes.technicalName);
+          }
+        }
+
+        // Get payment status
+        let paymentStatus: PaymentStatus = 'open';
+        if (shopwareOrder.transactions && shopwareOrder.transactions.length > 0) {
+          const latestTransaction = shopwareOrder.transactions[0];
+          if (latestTransaction.stateMachineState?.technicalName) {
+            paymentStatus = this.mapPaymentStatus(latestTransaction.stateMachineState.technicalName);
+          }
+        } else if (shopwareOrder.relationships?.transactions?.data && shopwareOrder.relationships.transactions.data.length > 0) {
+          const transactionId = shopwareOrder.relationships.transactions.data[0].id;
+          const transaction = includedMap.get(`order_transaction-${transactionId}`);
+          if (transaction?.relationships?.stateMachineState?.data?.id) {
+            const stateId = transaction.relationships.stateMachineState.data.id;
+            const state = includedMap.get(`state_machine_state-${stateId}`);
+            if (state?.attributes?.technicalName) {
+              paymentStatus = this.mapPaymentStatus(state.attributes.technicalName);
+            }
+          }
+        }
+
+        // Get line items with category information
+        const lineItems: OrderItem[] = [];
+        if (shopwareOrder.lineItems) {
+          shopwareOrder.lineItems.forEach((item: any) => {
+            const unitPrice = item.price?.unitPrice || 0;
+            const quantity = item.quantity || 0;
+            const taxRate = item.price?.taxRules?.[0]?.taxRate || 19; // Default to 19% if not specified
+            const netUnitPrice = unitPrice / (1 + taxRate / 100);
+            
+            const lineItem: OrderItem = {
+              id: item.id,
+              name: item.label || 'Unknown Product',
+              quantity,
+              price: unitPrice,
+              netPrice: netUnitPrice,
+              total: unitPrice * quantity,
+              netTotal: netUnitPrice * quantity,
+              taxRate,
+            };
+
+            lineItems.push(lineItem);
+          });
+        }
+
+        // Get sales channel
+        let salesChannelName = '';
+        if (shopwareOrder.salesChannel?.name) {
+          salesChannelName = shopwareOrder.salesChannel.name;
+        } else if (shopwareOrder.relationships?.salesChannel?.data?.id) {
+          const channelId = shopwareOrder.relationships.salesChannel.data.id;
+          const channel = includedMap.get(`sales_channel-${channelId}`);
+          if (channel?.attributes?.name) {
+            salesChannelName = channel.attributes.name;
+          }
+        }
+
+        return {
+          id: shopwareOrder.id,
+          orderNumber: shopwareOrder.orderNumber || 'N/A',
+          orderDate: shopwareOrder.orderDate || new Date().toISOString(),
+          customerName,
+          customerEmail,
+          customerPhone: '',
+          totalAmount: shopwareOrder.amountTotal || 0,
+          netTotalAmount: shopwareOrder.amountNet || 0,
+          status: orderStatus,
+          paymentStatus,
+          salesChannelId: shopwareOrder.salesChannelId || '',
+          salesChannelName,
+          items: lineItems,
+        } as Order;
+      });
+    } catch (error) {
+      console.error('Error fetching orders for analytics:', error);
+      throw error;
+    }
+  }
 }

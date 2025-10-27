@@ -126,6 +126,7 @@ export type OrderItem = {
   total: number; // Bruttosumme
   netTotal: number; // Nettosumme
   taxRate: number; // Steuersatz in Prozent
+  categoryNames?: string[]; // Für Analytics: Kategorie-Namen des Produkts
 };
 
 export type ShippingInfoInput = {
