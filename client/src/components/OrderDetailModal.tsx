@@ -112,6 +112,12 @@ export default function OrderDetailModal({
                   <p className="text-sm text-muted-foreground">{t('orderDetail.email')}</p>
                   <p className="font-medium" data-testid="text-customer-email">{order.customerEmail}</p>
                 </div>
+                {order.customerPhone && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">{t('orderDetail.phone')}</p>
+                    <p className="font-medium" data-testid="text-customer-phone">{order.customerPhone}</p>
+                  </div>
+                )}
                 <div>
                   <p className="text-sm text-muted-foreground">{t('orderDetail.orderDate')}</p>
                   <p className="font-medium">
@@ -133,6 +139,54 @@ export default function OrderDetailModal({
                 </div>
               </div>
             </Card>
+
+            {order.billingAddress && (
+              <Card className="p-6">
+                <h3 className="text-sm font-medium uppercase tracking-wide mb-4">{t('orderDetail.billingAddress')}</h3>
+                <div className="space-y-1">
+                  {order.billingAddress.company && (
+                    <p className="font-medium" data-testid="text-billing-company">{order.billingAddress.company}</p>
+                  )}
+                  <p className="font-medium" data-testid="text-billing-name">
+                    {order.billingAddress.firstName} {order.billingAddress.lastName}
+                  </p>
+                  <p className="text-sm" data-testid="text-billing-street">{order.billingAddress.street}</p>
+                  <p className="text-sm" data-testid="text-billing-city">
+                    {order.billingAddress.zipCode} {order.billingAddress.city}
+                  </p>
+                  <p className="text-sm" data-testid="text-billing-country">{order.billingAddress.country}</p>
+                  {order.billingAddress.phoneNumber && (
+                    <p className="text-sm mt-2" data-testid="text-billing-phone">
+                      <span className="text-muted-foreground">{t('orderDetail.phone')}:</span> {order.billingAddress.phoneNumber}
+                    </p>
+                  )}
+                </div>
+              </Card>
+            )}
+
+            {order.shippingAddress && (
+              <Card className="p-6">
+                <h3 className="text-sm font-medium uppercase tracking-wide mb-4">{t('orderDetail.shippingAddress')}</h3>
+                <div className="space-y-1">
+                  {order.shippingAddress.company && (
+                    <p className="font-medium" data-testid="text-shipping-company">{order.shippingAddress.company}</p>
+                  )}
+                  <p className="font-medium" data-testid="text-shipping-name">
+                    {order.shippingAddress.firstName} {order.shippingAddress.lastName}
+                  </p>
+                  <p className="text-sm" data-testid="text-shipping-street">{order.shippingAddress.street}</p>
+                  <p className="text-sm" data-testid="text-shipping-city">
+                    {order.shippingAddress.zipCode} {order.shippingAddress.city}
+                  </p>
+                  <p className="text-sm" data-testid="text-shipping-country">{order.shippingAddress.country}</p>
+                  {order.shippingAddress.phoneNumber && (
+                    <p className="text-sm mt-2" data-testid="text-shipping-phone">
+                      <span className="text-muted-foreground">{t('orderDetail.phone')}:</span> {order.shippingAddress.phoneNumber}
+                    </p>
+                  )}
+                </div>
+              </Card>
+            )}
 
             <Card className="p-6">
               <h3 className="text-sm font-medium uppercase tracking-wide mb-4">{t('orderDetail.erpDocumentNumbers')}</h3>

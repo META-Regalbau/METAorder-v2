@@ -197,18 +197,26 @@ export class ShopwareClient {
               },
             ],
             includes: {
-              order: ['id', 'orderNumber', 'orderDate', 'amountTotal', 'amountNet', 'orderCustomer', 'lineItems', 'stateMachineState', 'salesChannelId', 'salesChannel', 'customFields', 'transactions', 'price'],
+              order: ['id', 'orderNumber', 'orderDate', 'amountTotal', 'amountNet', 'orderCustomer', 'lineItems', 'stateMachineState', 'salesChannelId', 'salesChannel', 'customFields', 'transactions', 'price', 'billingAddress', 'deliveries'],
               order_customer: ['firstName', 'lastName', 'email'],
               order_line_item: ['id', 'label', 'quantity', 'unitPrice', 'totalPrice', 'price'],
               state_machine_state: ['technicalName'],
               sales_channel: ['id', 'name'],
               order_transaction: ['stateMachineState'],
+              order_address: ['firstName', 'lastName', 'street', 'zipcode', 'city', 'country', 'company', 'phoneNumber'],
+              order_delivery: ['shippingOrderAddress'],
             },
             associations: {
               orderCustomer: {},
               lineItems: {},
               stateMachineState: {},
               salesChannel: {},
+              billingAddress: {},
+              deliveries: {
+                associations: {
+                  shippingOrderAddress: {},
+                },
+              },
               transactions: {
                 limit: 10, // Fetch up to 10 transactions per order (usually only 1-2)
                 sort: [{ field: 'createdAt', order: 'DESC' }], // Latest transaction first
@@ -273,6 +281,7 @@ export class ShopwareClient {
         // Get customer data from relationships or direct inclusion
         let customerName = 'Unknown Customer';
         let customerEmail = '';
+        let customerPhone = '';
         
         if (shopwareOrder.orderCustomer) {
           const customer = shopwareOrder.orderCustomer;
@@ -284,6 +293,82 @@ export class ShopwareClient {
           if (customer) {
             customerName = `${customer.attributes?.firstName || ''} ${customer.attributes?.lastName || ''}`.trim() || 'Unknown Customer';
             customerEmail = customer.attributes?.email || '';
+          }
+        }
+        
+        // Get billing address
+        let billingAddress = undefined;
+        if (shopwareOrder.billingAddress) {
+          const addr = shopwareOrder.billingAddress;
+          billingAddress = {
+            firstName: addr.firstName || '',
+            lastName: addr.lastName || '',
+            street: addr.street || '',
+            zipCode: addr.zipcode || '',
+            city: addr.city || '',
+            country: addr.country?.name || '',
+            company: addr.company,
+            phoneNumber: addr.phoneNumber,
+          };
+          // Use billing address phone as customer phone if available
+          if (addr.phoneNumber) {
+            customerPhone = addr.phoneNumber;
+          }
+        } else if (shopwareOrder.relationships?.billingAddress?.data?.id) {
+          const addrId = shopwareOrder.relationships.billingAddress.data.id;
+          const addr = includedMap.get(`order_address-${addrId}`);
+          if (addr?.attributes) {
+            billingAddress = {
+              firstName: addr.attributes.firstName || '',
+              lastName: addr.attributes.lastName || '',
+              street: addr.attributes.street || '',
+              zipCode: addr.attributes.zipcode || '',
+              city: addr.attributes.city || '',
+              country: addr.attributes.country?.name || '',
+              company: addr.attributes.company,
+              phoneNumber: addr.attributes.phoneNumber,
+            };
+            if (addr.attributes.phoneNumber) {
+              customerPhone = addr.attributes.phoneNumber;
+            }
+          }
+        }
+        
+        // Get shipping address
+        let shippingAddress = undefined;
+        if (shopwareOrder.deliveries && shopwareOrder.deliveries.length > 0) {
+          const delivery = shopwareOrder.deliveries[0];
+          if (delivery.shippingOrderAddress) {
+            const addr = delivery.shippingOrderAddress;
+            shippingAddress = {
+              firstName: addr.firstName || '',
+              lastName: addr.lastName || '',
+              street: addr.street || '',
+              zipCode: addr.zipcode || '',
+              city: addr.city || '',
+              country: addr.country?.name || '',
+              company: addr.company,
+              phoneNumber: addr.phoneNumber,
+            };
+          }
+        } else if (shopwareOrder.relationships?.deliveries?.data && shopwareOrder.relationships.deliveries.data.length > 0) {
+          const deliveryId = shopwareOrder.relationships.deliveries.data[0].id;
+          const delivery = includedMap.get(`order_delivery-${deliveryId}`);
+          if (delivery?.relationships?.shippingOrderAddress?.data?.id) {
+            const addrId = delivery.relationships.shippingOrderAddress.data.id;
+            const addr = includedMap.get(`order_address-${addrId}`);
+            if (addr?.attributes) {
+              shippingAddress = {
+                firstName: addr.attributes.firstName || '',
+                lastName: addr.attributes.lastName || '',
+                street: addr.attributes.street || '',
+                zipCode: addr.attributes.zipcode || '',
+                city: addr.attributes.city || '',
+                country: addr.attributes.country?.name || '',
+                company: addr.attributes.company,
+                phoneNumber: addr.attributes.phoneNumber,
+              };
+            }
           }
         }
 
@@ -439,6 +524,7 @@ export class ShopwareClient {
           orderNumber: shopwareOrder.orderNumber || shopwareOrder.attributes?.orderNumber || 'N/A',
           customerName,
           customerEmail,
+          customerPhone: customerPhone || undefined,
           orderDate: shopwareOrder.orderDate || shopwareOrder.attributes?.orderDate || shopwareOrder.createdAt || new Date().toISOString(),
           totalAmount: grossTotal,
           netTotalAmount: netTotal,
@@ -446,6 +532,8 @@ export class ShopwareClient {
           paymentStatus,
           salesChannelId,
           salesChannelName,
+          billingAddress,
+          shippingAddress,
           items,
         };
 

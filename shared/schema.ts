@@ -80,11 +80,23 @@ export type InsertShopwareSettings = z.infer<typeof shopwareSettingsSchema>;
 export type OrderStatus = "open" | "in_progress" | "completed" | "cancelled";
 export type PaymentStatus = "open" | "paid" | "partially_paid" | "refunded" | "cancelled" | "reminded" | "failed";
 
+export type OrderAddress = {
+  firstName: string;
+  lastName: string;
+  street: string;
+  zipCode: string;
+  city: string;
+  country: string;
+  company?: string;
+  phoneNumber?: string;
+};
+
 export type Order = {
   id: string;
   orderNumber: string;
   customerName: string;
   customerEmail: string;
+  customerPhone?: string;
   orderDate: string;
   totalAmount: number; // Bruttogesamtbetrag (mit MwSt)
   netTotalAmount: number; // Nettogesamtbetrag (ohne MwSt)
@@ -92,6 +104,8 @@ export type Order = {
   paymentStatus: PaymentStatus;
   salesChannelId: string;
   salesChannelName?: string;
+  billingAddress?: OrderAddress;
+  shippingAddress?: OrderAddress;
   shippingInfo?: {
     carrier?: string;
     trackingNumber?: string;
