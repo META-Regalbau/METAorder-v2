@@ -22,7 +22,7 @@ export default function ProductsPage() {
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("all");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const limit = 50;
 
@@ -66,7 +66,8 @@ export default function ProductsPage() {
       if (debouncedSearch) {
         params.set('search', debouncedSearch);
       }
-      if (selectedCategoryId) {
+      // Only add categoryId if it's not "all" (which means show all categories)
+      if (selectedCategoryId && selectedCategoryId !== 'all') {
         params.set('categoryId', selectedCategoryId);
       }
       const response = await fetch(`/api/products?${params.toString()}`, {
@@ -126,7 +127,7 @@ export default function ProductsPage() {
               </div>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value=" " data-testid="option-all-categories">
+              <SelectItem value="all" data-testid="option-all-categories">
                 {t('products.allCategories')}
               </SelectItem>
               {categories.map((category) => (
