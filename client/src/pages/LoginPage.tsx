@@ -44,7 +44,7 @@ export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: (user: a
     onSuccess: (data) => {
       // Store JWT token in localStorage
       if (data.token) {
-        localStorage.setItem("auth_token", data.token);
+        localStorage.setItem("token", data.token);
       }
       
       onLoginSuccess(data.user);

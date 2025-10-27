@@ -8,7 +8,7 @@ async function throwIfResNotOk(res: Response) {
 }
 
 function getAuthHeaders(): Record<string, string> {
-  const token = localStorage.getItem("auth_token");
+  const token = localStorage.getItem("token");
   const headers: Record<string, string> = {};
   
   if (token) {
