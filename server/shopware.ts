@@ -748,7 +748,7 @@ export class ShopwareClient {
     }
   }
 
-  async fetchProducts(limit: number = 100, page: number = 1, search?: string, activeOnly: boolean = false): Promise<{ products: Product[], total: number }> {
+  async fetchProducts(limit: number = 100, page: number = 1, search?: string, activeOnly: boolean = false, categoryId?: string): Promise<{ products: Product[], total: number }> {
     try {
       const requestBody: any = {
         limit,
@@ -761,44 +761,55 @@ export class ShopwareClient {
         ],
       };
 
+      // Build filter array
+      const filters: any[] = [];
+
       // Filter by active status based on user role
       if (activeOnly) {
         // Non-admin users: Only show active products
-        requestBody.filter = [
-          {
-            type: 'equals',
-            field: 'active',
-            value: true,
-          },
-        ];
+        filters.push({
+          type: 'equals',
+          field: 'active',
+          value: true,
+        });
       } else {
         // Admin users: Load ALL products (active AND inactive) for cross-selling rule matching
-        requestBody.filter = [
-          {
-            type: 'multi',
-            operator: 'OR',
-            queries: [
-              {
-                type: 'equals',
-                field: 'active',
-                value: true,
-              },
-              {
-                type: 'equals',
-                field: 'active',
-                value: false,
-              },
-            ],
-          },
-        ];
+        filters.push({
+          type: 'multi',
+          operator: 'OR',
+          queries: [
+            {
+              type: 'equals',
+              field: 'active',
+              value: true,
+            },
+            {
+              type: 'equals',
+              field: 'active',
+              value: false,
+            },
+          ],
+        });
       }
+
+      // Filter by category if provided
+      if (categoryId) {
+        filters.push({
+          type: 'equals',
+          field: 'categoryIds',
+          value: categoryId,
+        });
+      }
+
+      // Set the filters array
+      requestBody.filter = filters;
 
       // Add search term if provided
       if (search && search.trim()) {
         requestBody.term = search.trim();
       }
 
-      console.log(`[fetchProducts] Requesting products - page: ${page}, limit: ${limit}, search: ${search || 'none'}`);
+      console.log(`[fetchProducts] Requesting products - page: ${page}, limit: ${limit}, search: ${search || 'none'}, category: ${categoryId || 'all'}`);
       console.log(`[fetchProducts] Request body filter:`, JSON.stringify(requestBody.filter, null, 2));
 
       const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/product`, {
@@ -1005,6 +1016,53 @@ export class ShopwareClient {
       return { products, total };
     } catch (error) {
       console.error('Error fetching products from Shopware:', error);
+      throw error;
+    }
+  }
+
+  // Fetch all categories from Shopware
+  async fetchCategories(): Promise<Array<{ id: string; name: string; parentId: string | null }>> {
+    try {
+      console.log('[fetchCategories] Fetching categories from Shopware...');
+      
+      const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/category`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          limit: 500, // Get all categories
+          includes: {
+            category: ['id', 'name', 'parentId', 'level']
+          },
+          sort: [
+            {
+              field: 'level',
+              order: 'ASC',
+            },
+            {
+              field: 'name',
+              order: 'ASC',
+            }
+          ]
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch categories: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const categories = (data.data || []).map((cat: any) => ({
+        id: cat.id,
+        name: cat.name || cat.attributes?.name || 'Unnamed Category',
+        parentId: cat.parentId || cat.attributes?.parentId || null,
+      }));
+
+      console.log(`[fetchCategories] Found ${categories.length} categories`);
+      return categories;
+    } catch (error) {
+      console.error('Error fetching categories from Shopware:', error);
       throw error;
     }
   }
