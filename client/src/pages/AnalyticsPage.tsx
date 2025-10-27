@@ -75,6 +75,7 @@ export default function AnalyticsPage() {
     totalRevenue: number;
     totalNetRevenue: number;
     averageOrderValue: number;
+    averageNetOrderValue: number;
     uniqueCustomers: number;
     dateFrom?: string;
     dateTo?: string;
@@ -388,10 +389,10 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-total-revenue">
-              {summary?.totalRevenue?.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+              {summary?.totalNetRevenue?.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
             </div>
             <p className="text-xs text-muted-foreground">
-              Netto: {summary?.totalNetRevenue?.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+              Brutto: {summary?.totalRevenue?.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
             </p>
           </CardContent>
         </Card>
@@ -416,9 +417,11 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-average-order-value">
-              {summary?.averageOrderValue?.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+              {summary?.averageNetOrderValue?.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
             </div>
-            <p className="text-xs text-muted-foreground">Pro Bestellung</p>
+            <p className="text-xs text-muted-foreground">
+              Brutto: {summary?.averageOrderValue?.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+            </p>
           </CardContent>
         </Card>
 

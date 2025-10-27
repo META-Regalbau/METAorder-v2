@@ -1197,6 +1197,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalRevenue = orders.reduce((sum, order) => sum + order.totalAmount, 0);
       const totalNetRevenue = orders.reduce((sum, order) => sum + order.netTotalAmount, 0);
       const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+      const averageNetOrderValue = totalOrders > 0 ? totalNetRevenue / totalOrders : 0;
 
       // Count unique customers
       const uniqueCustomers = new Set(orders.map(o => o.customerEmail || o.customerName)).size;
@@ -1206,6 +1207,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalRevenue,
         totalNetRevenue,
         averageOrderValue,
+        averageNetOrderValue,
         uniqueCustomers,
         dateFrom,
         dateTo,
