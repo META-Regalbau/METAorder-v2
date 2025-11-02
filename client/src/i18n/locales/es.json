@@ -540,6 +540,17 @@
     "tagPlaceholder": "Ingrese etiqueta...",
     "filterByTag": "Filtrar por etiqueta",
     "allTags": "Todas las etiquetas",
-    "noTags": "Sin etiquetas"
+    "noTags": "Sin etiquetas",
+    "activity": "Actividad",
+    "noActivity": "Sin actividad",
+    "activity.status_changed": "cambió el estado",
+    "activity.priority_changed": "cambió la prioridad",
+    "activity.category_changed": "cambió la categoría",
+    "activity.assigned": "asignó",
+    "activity.title_changed": "cambió el título",
+    "activity.description_changed": "cambió la descripción",
+    "activity.tags_changed": "cambió las etiquetas",
+    "activity.due_date_changed": "cambió la fecha de vencimiento",
+    "activity.empty": "Vacío"
   }
 }

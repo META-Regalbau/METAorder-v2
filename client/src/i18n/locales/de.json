@@ -530,6 +530,17 @@
     "tagPlaceholder": "Tag eingeben...",
     "filterByTag": "Nach Tag filtern",
     "allTags": "Alle Tags",
-    "noTags": "Keine Tags"
+    "noTags": "Keine Tags",
+    "activity": "Aktivität",
+    "noActivity": "Keine Aktivität",
+    "activity.status_changed": "hat den Status geändert",
+    "activity.priority_changed": "hat die Priorität geändert",
+    "activity.category_changed": "hat die Kategorie geändert",
+    "activity.assigned": "hat zugewiesen",
+    "activity.title_changed": "hat den Titel geändert",
+    "activity.description_changed": "hat die Beschreibung geändert",
+    "activity.tags_changed": "hat die Tags geändert",
+    "activity.due_date_changed": "hat das Fälligkeitsdatum geändert",
+    "activity.empty": "Leer"
   }
 }

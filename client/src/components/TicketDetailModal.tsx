@@ -52,6 +52,21 @@ export default function TicketDetailModal({
     enabled: isOpen && !!ticket?.id,
   });
 
+  // Fetch activity log for this ticket
+  const { data: activityLogs = [], isLoading: activityLoading } = useQuery<any[]>({
+    queryKey: ['/api/tickets', ticket?.id, 'activity'],
+    queryFn: async () => {
+      const response = await fetch(`/api/tickets/${ticket?.id}/activity`, {
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      return response.json();
+    },
+    enabled: isOpen && !!ticket?.id,
+  });
+
   // Fetch users for assignment (only if user can manage tickets)
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ['/api/tickets/assignees'],
@@ -217,9 +232,10 @@ export default function TicketDetailModal({
         </DialogHeader>
 
         <Tabs defaultValue="details" className="mt-6">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="details" data-testid="tab-details">{t('orderDetail.overview')}</TabsTrigger>
             <TabsTrigger value="comments" data-testid="tab-comments">{t('tickets.comments')}</TabsTrigger>
+            <TabsTrigger value="activity" data-testid="tab-activity">{t('tickets.activity')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="details" className="pt-6 space-y-6">
@@ -459,6 +475,99 @@ export default function TicketDetailModal({
                     </CardContent>
                   </Card>
                 ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="activity" className="pt-6 space-y-4">
+            {activityLoading ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">{t('common.loading')}</p>
+              </div>
+            ) : activityLogs.length === 0 ? (
+              <Card>
+                <CardContent className="py-8 text-center">
+                  <p className="text-muted-foreground">{t('tickets.noActivity')}</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {activityLogs.map((log: any) => {
+                  const actionKey = log.action.replace(/_/g, '.');
+                  const translateAction = (action: string) => {
+                    return t(`tickets.activity.${action}`, { defaultValue: action });
+                  };
+
+                  const formatValue = (value: string | null, fieldName: string) => {
+                    if (!value) return t('tickets.activity.empty');
+                    
+                    // Parse JSON arrays (tags)
+                    try {
+                      const parsed = JSON.parse(value);
+                      if (Array.isArray(parsed)) {
+                        return parsed.join(', ');
+                      }
+                    } catch {
+                      // Not JSON, proceed with normal formatting
+                    }
+
+                    // Format dates
+                    if (fieldName === 'dueDate' && value !== 'null') {
+                      try {
+                        return format(new Date(value), 'dd.MM.yyyy HH:mm');
+                      } catch {
+                        return value;
+                      }
+                    }
+
+                    // Translate status/priority/category
+                    if (fieldName === 'status') {
+                      return t(`tickets.status${value.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join('')}`);
+                    }
+                    if (fieldName === 'priority') {
+                      return t(`tickets.priority${value.charAt(0).toUpperCase() + value.slice(1)}`);
+                    }
+                    if (fieldName === 'category') {
+                      return t(`tickets.category${value.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join('')}`);
+                    }
+
+                    return value;
+                  };
+
+                  return (
+                    <Card key={log.id} data-testid={`activity-${log.id}`}>
+                      <CardContent className="pt-6">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium" data-testid={`activity-user-${log.id}`}>
+                                {log.username}
+                              </span>
+                              <span className="text-sm text-muted-foreground">
+                                {translateAction(log.action)}
+                              </span>
+                            </div>
+                            {log.oldValue !== null && log.newValue !== null && (
+                              <div className="text-sm text-muted-foreground">
+                                <span className="line-through">{formatValue(log.oldValue, log.fieldName)}</span>
+                                {' → '}
+                                <span className="font-medium text-foreground">{formatValue(log.newValue, log.fieldName)}</span>
+                              </div>
+                            )}
+                            {log.oldValue === null && log.newValue !== null && (
+                              <div className="text-sm text-muted-foreground">
+                                <span className="font-medium text-foreground">{formatValue(log.newValue, log.fieldName)}</span>
+                              </div>
+                            )}
+                          </div>
+                          <span className="text-sm text-muted-foreground whitespace-nowrap" data-testid={`activity-time-${log.id}`}>
+                            {format(new Date(log.createdAt), 'dd.MM.yyyy HH:mm')}
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </TabsContent>

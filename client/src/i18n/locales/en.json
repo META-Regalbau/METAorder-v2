@@ -541,6 +541,17 @@
     "tagPlaceholder": "Enter tag...",
     "filterByTag": "Filter by tag",
     "allTags": "All tags",
-    "noTags": "No tags"
+    "noTags": "No tags",
+    "activity": "Activity",
+    "noActivity": "No activity",
+    "activity.status_changed": "changed status",
+    "activity.priority_changed": "changed priority",
+    "activity.category_changed": "changed category",
+    "activity.assigned": "assigned",
+    "activity.title_changed": "changed title",
+    "activity.description_changed": "changed description",
+    "activity.tags_changed": "changed tags",
+    "activity.due_date_changed": "changed due date",
+    "activity.empty": "Empty"
   }
 }
