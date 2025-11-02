@@ -26,6 +26,8 @@ const addRoleSchema = z.object({
     manageSettings: z.boolean(),
     manageCrossSellingGroups: z.boolean(),
     manageCrossSellingRules: z.boolean(),
+    viewTickets: z.boolean(),
+    manageTickets: z.boolean(),
   }),
 });
 
@@ -46,6 +48,8 @@ const permissionLabels = {
   manageSettings: { label: "Manage Settings", description: "Can configure Shopware API and system settings" },
   manageCrossSellingGroups: { label: "Manage Cross-Selling Groups", description: "Can create and manage product cross-selling groups" },
   manageCrossSellingRules: { label: "Manage Cross-Selling Rules", description: "Can create and manage intelligent cross-selling rules" },
+  viewTickets: { label: "View Tickets", description: "Can view ticket list and details" },
+  manageTickets: { label: "Manage Tickets", description: "Can create, edit, assign, and delete tickets" },
 };
 
 export default function AddRoleDialog({ onAddRole }: AddRoleDialogProps) {
@@ -69,6 +73,8 @@ export default function AddRoleDialog({ onAddRole }: AddRoleDialogProps) {
         manageSettings: false,
         manageCrossSellingGroups: false,
         manageCrossSellingRules: false,
+        viewTickets: false,
+        manageTickets: false,
       },
     },
   });
