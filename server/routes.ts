@@ -1760,7 +1760,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/tickets/:id", requireAuth, requireManageTickets, async (req, res) => {
     try {
       const validated = insertTicketSchema.partial().parse(req.body);
-      const userId = req.session?.userId as string;
+      const userId = (req.user as any).id;
       
       // Get the old ticket to track changes
       const oldTicket = await storage.getTicket(req.params.id);
