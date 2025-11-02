@@ -21,7 +21,9 @@
     "page": "Página",
     "of": "de",
     "show": "Mostrar",
-    "itemsPerPage": "elementos por página"
+    "itemsPerPage": "elementos por página",
+    "accessDenied": "Acceso Denegado",
+    "noPermission": "No tiene permiso para acceder a esta página"
   },
   "nav": {
     "orders": "Pedidos",

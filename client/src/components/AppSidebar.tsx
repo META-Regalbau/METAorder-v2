@@ -86,7 +86,7 @@ export default function AppSidebar({ userRole, permissions }: AppSidebarProps) {
   ];
 
   const filteredItems = menuItems.filter((item) =>
-    permissions[item.permission]
+    permissions?.[item.permission]
   );
 
   return (

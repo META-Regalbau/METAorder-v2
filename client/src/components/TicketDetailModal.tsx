@@ -51,9 +51,9 @@ export default function TicketDetailModal({
     enabled: isOpen && !!ticket?.id,
   });
 
-  // Fetch users for assignment
+  // Fetch users for assignment (only if user can manage tickets)
   const { data: users = [] } = useQuery<User[]>({
-    queryKey: ['/api/users'],
+    queryKey: ['/api/tickets/assignees'],
     enabled: canManageTickets && isOpen,
   });
 

@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Search } from "lucide-react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -21,6 +22,7 @@ interface TicketsPageProps {
 export default function TicketsPage({ userPermissions }: TicketsPageProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [searchValue, setSearchValue] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
@@ -31,7 +33,20 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
+  const canViewTickets = userPermissions?.viewTickets || false;
   const canManageTickets = userPermissions?.manageTickets || false;
+
+  // Redirect if user doesn't have viewTickets permission (only after permissions are loaded)
+  useEffect(() => {
+    if (userPermissions && !canViewTickets) {
+      setLocation("/");
+      toast({
+        title: t('common.accessDenied'),
+        description: t('common.noPermission'),
+        variant: "destructive",
+      });
+    }
+  }, [userPermissions, canViewTickets, setLocation, toast, t]);
 
   // Fetch tickets
   const { data: tickets = [], isLoading } = useQuery<Ticket[]>({

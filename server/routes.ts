@@ -1489,6 +1489,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Ticket Management Routes
   // ============================================
 
+  // Get assignable users for tickets (requires manageTickets permission)
+  app.get("/api/tickets/assignees", requireAuth, requireManageTickets, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      const usersWithoutPasswords = users.map(({ password, ...user }) => user);
+      res.json(usersWithoutPasswords);
+    } catch (error) {
+      console.error("Error fetching ticket assignees:", error);
+      res.status(500).json({ error: "Failed to fetch assignees" });
+    }
+  });
+
   // Get all tickets (requires viewTickets permission)
   app.get("/api/tickets", requireAuth, requireViewTickets, async (req, res) => {
     try {

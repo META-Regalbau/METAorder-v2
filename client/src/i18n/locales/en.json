@@ -21,7 +21,9 @@
     "page": "Page",
     "of": "of",
     "show": "Show",
-    "itemsPerPage": "items per page"
+    "itemsPerPage": "items per page",
+    "accessDenied": "Access Denied",
+    "noPermission": "You do not have permission to access this page"
   },
   "nav": {
     "orders": "Orders",

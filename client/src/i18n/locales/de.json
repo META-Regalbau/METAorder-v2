@@ -21,7 +21,9 @@
     "page": "Seite",
     "of": "von",
     "show": "Zeige",
-    "itemsPerPage": "Einträge pro Seite"
+    "itemsPerPage": "Einträge pro Seite",
+    "accessDenied": "Zugriff verweigert",
+    "noPermission": "Sie haben keine Berechtigung, auf diese Seite zuzugreifen"
   },
   "nav": {
     "orders": "Bestellungen",
