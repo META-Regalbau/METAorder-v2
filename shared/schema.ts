@@ -19,6 +19,8 @@ export const roles = pgTable("roles", {
     manageSettings: boolean;
     manageCrossSellingGroups: boolean;
     manageCrossSellingRules: boolean;
+    viewTickets: boolean;
+    manageTickets: boolean;
   }>(),
 });
 
@@ -291,3 +293,76 @@ export const insertCrossSellingRuleSchema = createInsertSchema(crossSellingRules
 
 export type InsertCrossSellingRule = z.infer<typeof insertCrossSellingRuleSchema>;
 export type SelectCrossSellingRule = typeof crossSellingRules.$inferSelect;
+
+// Ticket System
+export type TicketStatus = "open" | "in_progress" | "waiting_for_customer" | "waiting_for_internal" | "resolved" | "closed";
+export type TicketPriority = "low" | "normal" | "high" | "urgent";
+export type TicketCategory = "general" | "order_issue" | "product_inquiry" | "technical_support" | "complaint" | "feature_request" | "other";
+
+export const tickets = pgTable("tickets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ticketNumber: text("ticket_number").notNull().unique(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  status: text("status").notNull().default("open"),
+  priority: text("priority").notNull().default("normal"),
+  category: text("category").notNull().default("general"),
+  orderId: text("order_id"), // Optional link to order
+  orderNumber: text("order_number"), // Denormalized for display
+  assignedToUserId: varchar("assigned_to_user_id").references(() => users.id),
+  createdByUserId: varchar("created_by_user_id").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+  closedAt: timestamp("closed_at"),
+});
+
+export const ticketComments = pgTable("ticket_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ticketId: varchar("ticket_id").notNull().references(() => tickets.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  comment: text("comment").notNull(),
+  isInternal: integer("is_internal").notNull().default(0), // 0 = public, 1 = internal note
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const ticketAttachments = pgTable("ticket_attachments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ticketId: varchar("ticket_id").notNull().references(() => tickets.id, { onDelete: "cascade" }),
+  fileName: text("file_name").notNull(),
+  fileSize: integer("file_size").notNull(),
+  mimeType: text("mime_type").notNull(),
+  filePath: text("file_path").notNull(),
+  uploadedByUserId: varchar("uploaded_by_user_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertTicketSchema = createInsertSchema(tickets).omit({
+  id: true,
+  ticketNumber: true,
+  createdAt: true,
+  updatedAt: true,
+  resolvedAt: true,
+  closedAt: true,
+}).extend({
+  status: z.enum(["open", "in_progress", "waiting_for_customer", "waiting_for_internal", "resolved", "closed"]).default("open"),
+  priority: z.enum(["low", "normal", "high", "urgent"]).default("normal"),
+  category: z.enum(["general", "order_issue", "product_inquiry", "technical_support", "complaint", "feature_request", "other"]).default("general"),
+});
+
+export const insertTicketCommentSchema = createInsertSchema(ticketComments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertTicketAttachmentSchema = createInsertSchema(ticketAttachments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertTicket = z.infer<typeof insertTicketSchema>;
+export type Ticket = typeof tickets.$inferSelect;
+export type InsertTicketComment = z.infer<typeof insertTicketCommentSchema>;
+export type TicketComment = typeof ticketComments.$inferSelect;
+export type InsertTicketAttachment = z.infer<typeof insertTicketAttachmentSchema>;
+export type TicketAttachment = typeof ticketAttachments.$inferSelect;
