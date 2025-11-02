@@ -221,127 +221,139 @@ export default function TicketDetailModal({
             <TabsTrigger value="comments" data-testid="tab-comments">{t('tickets.comments')}</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="details" className="pt-6 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">{t('tickets.description')}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="whitespace-pre-wrap" data-testid="text-description">{ticket.description}</p>
-              </CardContent>
-            </Card>
-
-            {canManageTickets && (
+          <TabsContent value="details" className="pt-6 space-y-6">
+            {/* Prominente Beschreibung */}
+            <div className="space-y-3">
+              <h3 className="text-base font-medium">{t('tickets.description')}</h3>
               <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">{t('common.actions')}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>{t('tickets.status')}</Label>
-                    <Select value={ticket.status} onValueChange={handleUpdateStatus}>
-                      <SelectTrigger data-testid="select-status">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="open">{t('tickets.statusOpen')}</SelectItem>
-                        <SelectItem value="in_progress">{t('tickets.statusInProgress')}</SelectItem>
-                        <SelectItem value="waiting_for_customer">{t('tickets.statusWaitingForCustomer')}</SelectItem>
-                        <SelectItem value="waiting_for_internal">{t('tickets.statusWaitingForInternal')}</SelectItem>
-                        <SelectItem value="resolved">{t('tickets.statusResolved')}</SelectItem>
-                        <SelectItem value="closed">{t('tickets.statusClosed')}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>{t('tickets.priority')}</Label>
-                    <Select value={ticket.priority} onValueChange={handleUpdatePriority}>
-                      <SelectTrigger data-testid="select-priority">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">{t('tickets.priorityLow')}</SelectItem>
-                        <SelectItem value="normal">{t('tickets.priorityNormal')}</SelectItem>
-                        <SelectItem value="high">{t('tickets.priorityHigh')}</SelectItem>
-                        <SelectItem value="urgent">{t('tickets.priorityUrgent')}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>{t('tickets.assignToUser')}</Label>
-                    <Select 
-                      value={ticket.assignedToUserId || "unassigned"} 
-                      onValueChange={handleUpdateAssignee}
-                    >
-                      <SelectTrigger data-testid="select-assignee">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="unassigned">{t('tickets.unassigned')}</SelectItem>
-                        {users.map((user) => (
-                          <SelectItem key={user.id} value={user.id}>
-                            {user.username}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <CardContent className="pt-6">
+                  <p className="whitespace-pre-wrap text-base leading-relaxed" data-testid="text-description">
+                    {ticket.description}
+                  </p>
                 </CardContent>
               </Card>
+            </div>
+
+            {/* Aktionen in 3 Spalten */}
+            {canManageTickets && (
+              <div className="space-y-3">
+                <h3 className="text-base font-medium">{t('common.actions')}</h3>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label>{t('tickets.status')}</Label>
+                        <Select value={ticket.status} onValueChange={handleUpdateStatus}>
+                          <SelectTrigger data-testid="select-status">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="open">{t('tickets.statusOpen')}</SelectItem>
+                            <SelectItem value="in_progress">{t('tickets.statusInProgress')}</SelectItem>
+                            <SelectItem value="waiting_for_customer">{t('tickets.statusWaitingForCustomer')}</SelectItem>
+                            <SelectItem value="waiting_for_internal">{t('tickets.statusWaitingForInternal')}</SelectItem>
+                            <SelectItem value="resolved">{t('tickets.statusResolved')}</SelectItem>
+                            <SelectItem value="closed">{t('tickets.statusClosed')}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>{t('tickets.priority')}</Label>
+                        <Select value={ticket.priority} onValueChange={handleUpdatePriority}>
+                          <SelectTrigger data-testid="select-priority">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="low">{t('tickets.priorityLow')}</SelectItem>
+                            <SelectItem value="normal">{t('tickets.priorityNormal')}</SelectItem>
+                            <SelectItem value="high">{t('tickets.priorityHigh')}</SelectItem>
+                            <SelectItem value="urgent">{t('tickets.priorityUrgent')}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>{t('tickets.assignToUser')}</Label>
+                        <Select 
+                          value={ticket.assignedToUserId || "unassigned"} 
+                          onValueChange={handleUpdateAssignee}
+                        >
+                          <SelectTrigger data-testid="select-assignee">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="unassigned">{t('tickets.unassigned')}</SelectItem>
+                            {users.map((user) => (
+                              <SelectItem key={user.id} value={user.id}>
+                                {user.username}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             )}
 
+            {/* Zusätzliche Informationen */}
+            <div className="space-y-3">
+              <h3 className="text-base font-medium">{t('tickets.relatedOrder')}</h3>
+              <Card>
+                <CardContent className="pt-6">
+                  {ticket.orderId ? (
+                    <div className="flex items-center gap-2">
+                      <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                      <span data-testid="text-order-link">
+                        {ticket.orderNumber || ticket.orderId}
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground" data-testid="text-no-order">
+                      {t('tickets.noOrderLinked')}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Zeitstempel */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">{t('tickets.relatedOrder')}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {ticket.orderId ? (
-                  <div className="flex items-center gap-2">
-                    <LinkIcon className="h-4 w-4 text-muted-foreground" />
-                    <span data-testid="text-order-link">
-                      {ticket.orderNumber || ticket.orderId}
-                    </span>
+              <CardContent className="pt-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground mb-1">{t('tickets.createdAt')}</p>
+                    <p className="font-medium" data-testid="text-created-at">
+                      {format(new Date(ticket.createdAt), 'dd.MM.yyyy HH:mm')}
+                    </p>
                   </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground" data-testid="text-no-order">
-                    {t('tickets.noOrderLinked')}
-                  </p>
-                )}
+                  <div>
+                    <p className="text-muted-foreground mb-1">{t('tickets.updatedAt')}</p>
+                    <p className="font-medium" data-testid="text-updated-at">
+                      {format(new Date(ticket.updatedAt), 'dd.MM.yyyy HH:mm')}
+                    </p>
+                  </div>
+                  {ticket.resolvedAt && (
+                    <div>
+                      <p className="text-muted-foreground mb-1">{t('tickets.resolvedAt')}</p>
+                      <p className="font-medium" data-testid="text-resolved-at">
+                        {format(new Date(ticket.resolvedAt), 'dd.MM.yyyy HH:mm')}
+                      </p>
+                    </div>
+                  )}
+                  {ticket.closedAt && (
+                    <div>
+                      <p className="text-muted-foreground mb-1">{t('tickets.closedAt')}</p>
+                      <p className="font-medium" data-testid="text-closed-at">
+                        {format(new Date(ticket.closedAt), 'dd.MM.yyyy HH:mm')}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
-
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-muted-foreground">{t('tickets.createdAt')}</p>
-                <p className="font-medium" data-testid="text-created-at">
-                  {format(new Date(ticket.createdAt), 'dd.MM.yyyy HH:mm')}
-                </p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">{t('tickets.updatedAt')}</p>
-                <p className="font-medium" data-testid="text-updated-at">
-                  {format(new Date(ticket.updatedAt), 'dd.MM.yyyy HH:mm')}
-                </p>
-              </div>
-              {ticket.resolvedAt && (
-                <div>
-                  <p className="text-muted-foreground">{t('tickets.resolvedAt')}</p>
-                  <p className="font-medium" data-testid="text-resolved-at">
-                    {format(new Date(ticket.resolvedAt), 'dd.MM.yyyy HH:mm')}
-                  </p>
-                </div>
-              )}
-              {ticket.closedAt && (
-                <div>
-                  <p className="text-muted-foreground">{t('tickets.closedAt')}</p>
-                  <p className="font-medium" data-testid="text-closed-at">
-                    {format(new Date(ticket.closedAt), 'dd.MM.yyyy HH:mm')}
-                  </p>
-                </div>
-              )}
-            </div>
           </TabsContent>
 
           <TabsContent value="comments" className="pt-6 space-y-4">
