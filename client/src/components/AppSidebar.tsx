@@ -1,4 +1,4 @@
-import { Package, Download, BarChart3, Settings, Users, Shield, Sparkles, AlertTriangle } from "lucide-react";
+import { Package, Download, BarChart3, Settings, Users, Shield, Sparkles, AlertTriangle, Ticket } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import type { Role } from "@shared/schema";
@@ -40,6 +40,12 @@ export default function AppSidebar({ userRole, permissions }: AppSidebarProps) {
       url: "/products",
       icon: Package,
       permission: "viewOrders" as keyof Role['permissions'], // Products visible to anyone who can view orders
+    },
+    {
+      titleKey: "tickets.title",
+      url: "/tickets",
+      icon: Ticket,
+      permission: "viewTickets" as keyof Role['permissions'],
     },
     {
       titleKey: "nav.export",

@@ -9,6 +9,7 @@ import TopBar from "@/components/TopBar";
 import OrdersPage from "@/pages/OrdersPage";
 import DelayedOrdersPage from "@/pages/DelayedOrdersPage";
 import ProductsPage from "@/pages/ProductsPage";
+import TicketsPage from "@/pages/TicketsPage";
 import CrossSellingRulesPage from "@/pages/CrossSellingRulesPage";
 import ExportPage from "@/pages/ExportPage";
 import AnalyticsPage from "@/pages/AnalyticsPage";
@@ -37,6 +38,7 @@ function Router({
       <Route path="/" component={() => <OrdersPage userRole={userRole} userSalesChannelIds={userSalesChannelIds} />} />
       <Route path="/delayed" component={() => <DelayedOrdersPage userRole={userRole} />} />
       <Route path="/products" component={ProductsPage} />
+      <Route path="/tickets" component={TicketsPage} />
       <Route path="/cross-selling-rules" component={CrossSellingRulesPage} />
       <Route path="/export" component={ExportPage} />
       <Route path="/analytics" component={() => <AnalyticsPage userRole={userRole} userSalesChannelIds={userSalesChannelIds} />} />
