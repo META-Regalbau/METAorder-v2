@@ -28,6 +28,7 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
+  const [tagFilter, setTagFilter] = useState<string>("all");
   const [showMyTicketsOnly, setShowMyTicketsOnly] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(25);
@@ -76,6 +77,9 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
     retry: false,
   });
 
+  // Collect all unique tags from tickets
+  const allTags = Array.from(new Set(tickets.flatMap(ticket => ticket.tags || []))).sort();
+
   // Filter tickets
   const filteredTickets = tickets
     .filter((ticket) => {
@@ -94,9 +98,11 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
         (assigneeFilter === "unassigned" && !ticket.assignedToUserId) ||
         ticket.assignedToUserId === assigneeFilter;
 
+      const matchesTag = tagFilter === "all" || (ticket.tags && ticket.tags.includes(tagFilter));
+
       const matchesMyTickets = !showMyTicketsOnly || ticket.assignedToUserId === currentUser?.user?.id;
 
-      return matchesSearch && matchesStatus && matchesPriority && matchesCategory && matchesAssignee && matchesMyTickets;
+      return matchesSearch && matchesStatus && matchesPriority && matchesCategory && matchesAssignee && matchesTag && matchesMyTickets;
     })
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
@@ -113,6 +119,7 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
     priorityFilter !== "all",
     categoryFilter !== "all",
     assigneeFilter !== "all",
+    tagFilter !== "all",
     showMyTicketsOnly,
   ].filter(Boolean).length;
 
@@ -245,6 +252,22 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
             {t('tickets.myTickets')}
           </Button>
 
+          {allTags.length > 0 && (
+            <Select value={tagFilter} onValueChange={(value) => { setTagFilter(value); resetPage(); }}>
+              <SelectTrigger className="w-[180px]" data-testid="select-tag-filter">
+                <SelectValue placeholder={t('tickets.filterByTag')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('tickets.allTags')}</SelectItem>
+                {allTags.map((tag) => (
+                  <SelectItem key={tag} value={tag}>
+                    {tag}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
           {activeFiltersCount > 0 && (
             <Button
               variant="outline"
@@ -253,6 +276,7 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
                 setPriorityFilter("all");
                 setCategoryFilter("all");
                 setAssigneeFilter("all");
+                setTagFilter("all");
                 setShowMyTicketsOnly(false);
                 resetPage();
               }}
@@ -310,7 +334,7 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
                 </div>
               </CardHeader>
               <CardContent className="pt-0">
-                <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mb-2">
                   <span data-testid={`text-category-${ticket.id}`}>
                     {t(`tickets.category${ticket.category.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join('')}`)}
                   </span>
@@ -334,6 +358,15 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
                     {t('tickets.createdAt')}: {format(new Date(ticket.createdAt), 'dd.MM.yyyy HH:mm')}
                   </span>
                 </div>
+                {ticket.tags && ticket.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2" data-testid={`tags-${ticket.id}`}>
+                    {ticket.tags.map((tag) => (
+                      <Badge key={tag} variant="outline" className="text-xs" data-testid={`tag-${tag}-${ticket.id}`}>
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}

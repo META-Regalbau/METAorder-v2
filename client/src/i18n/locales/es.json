@@ -534,6 +534,12 @@
     "assignToUser": "Asignar a Usuario",
     "unassigned": "Sin asignar",
     "linkToOrder": "Vincular a Pedido",
-    "showing": "Mostrando {{count}} de {{total}} tickets"
+    "showing": "Mostrando {{count}} de {{total}} tickets",
+    "tags": "Etiquetas",
+    "addTag": "Agregar etiqueta",
+    "tagPlaceholder": "Ingrese etiqueta...",
+    "filterByTag": "Filtrar por etiqueta",
+    "allTags": "Todas las etiquetas",
+    "noTags": "Sin etiquetas"
   }
 }

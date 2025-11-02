@@ -16,6 +16,7 @@ import { queryClient, apiRequest, getAuthHeaders } from "@/lib/queryClient";
 import type { Ticket, TicketComment, User } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
+import TagInput from "@/components/TagInput";
 
 interface TicketDetailModalProps {
   ticket: Ticket | null;
@@ -230,6 +231,35 @@ export default function TicketDetailModal({
                   <p className="whitespace-pre-wrap text-base leading-relaxed" data-testid="text-description">
                     {ticket.description}
                   </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Tags */}
+            <div className="space-y-3">
+              <h3 className="text-base font-medium">{t('tickets.tags')}</h3>
+              <Card>
+                <CardContent className="pt-6">
+                  {canManageTickets ? (
+                    <TagInput
+                      tags={ticket.tags || []}
+                      onTagsChange={(tags) => updateTicketMutation.mutate({ tags })}
+                      placeholder={t('tickets.tagPlaceholder')}
+                      suggestions={['urgent', 'bug', 'feature', 'documentation', 'question', 'enhancement', 'customer-issue', 'internal']}
+                    />
+                  ) : (
+                    <div className="flex flex-wrap gap-2" data-testid="tags-readonly">
+                      {ticket.tags && ticket.tags.length > 0 ? (
+                        ticket.tags.map((tag) => (
+                          <Badge key={tag} variant="secondary" data-testid={`tag-${tag}`}>
+                            {tag}
+                          </Badge>
+                        ))
+                      ) : (
+                        <p className="text-sm text-muted-foreground">{t('tickets.noTags')}</p>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>

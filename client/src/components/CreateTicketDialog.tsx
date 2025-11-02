@@ -10,6 +10,7 @@ import { useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTranslation } from "react-i18next";
 import type { Order } from "@shared/schema";
+import TagInput from "@/components/TagInput";
 
 interface CreateTicketDialogProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ export default function CreateTicketDialog({
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("normal");
   const [category, setCategory] = useState("general");
+  const [tags, setTags] = useState<string[]>([]);
 
   const createTicketMutation = useMutation({
     mutationFn: async (data: {
@@ -36,6 +38,7 @@ export default function CreateTicketDialog({
       description: string;
       priority: string;
       category: string;
+      tags?: string[];
       orderId?: string;
       orderNumber?: string;
     }) => {
@@ -64,6 +67,7 @@ export default function CreateTicketDialog({
     setDescription("");
     setPriority("normal");
     setCategory("general");
+    setTags([]);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -83,6 +87,7 @@ export default function CreateTicketDialog({
       description: description.trim(),
       priority,
       category,
+      tags: tags.length > 0 ? tags : undefined,
       orderId: linkedOrder?.id,
       orderNumber: linkedOrder?.orderNumber,
     });
@@ -173,6 +178,16 @@ export default function CreateTicketDialog({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>{t('tickets.tags')}</Label>
+            <TagInput
+              tags={tags}
+              onTagsChange={setTags}
+              placeholder={t('tickets.tagPlaceholder')}
+              suggestions={['urgent', 'bug', 'feature', 'documentation', 'question', 'enhancement']}
+            />
           </div>
 
           <div className="flex justify-end gap-2 pt-4">

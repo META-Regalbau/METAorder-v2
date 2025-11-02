@@ -535,6 +535,12 @@
     "assignToUser": "Assign to User",
     "unassigned": "Unassigned",
     "linkToOrder": "Link to Order",
-    "showing": "Showing {{count}} of {{total}} tickets"
+    "showing": "Showing {{count}} of {{total}} tickets",
+    "tags": "Tags",
+    "addTag": "Add tag",
+    "tagPlaceholder": "Enter tag...",
+    "filterByTag": "Filter by tag",
+    "allTags": "All tags",
+    "noTags": "No tags"
   }
 }
