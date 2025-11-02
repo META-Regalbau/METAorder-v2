@@ -1635,10 +1635,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all tickets (requires viewTickets permission)
   app.get("/api/tickets", requireAuth, requireViewTickets, async (req, res) => {
     try {
+      const user = req.user as any;
+      const isAdmin = 
+        user?.roleDetails?.name === 'Administrator' || 
+        user?.role === 'admin';
+
       const tickets = await storage.getAllTickets();
       const users = await storage.getAllUsers();
       
-      const ticketsWithDetails = tickets.map(ticket => {
+      // Filter by sales channel based on role
+      let filteredTickets = tickets;
+      
+      if (!isAdmin) {
+        // Non-admin users: filter by their assigned sales channels
+        const userChannels = user?.salesChannelIds || [];
+        
+        if (userChannels.length > 0) {
+          // Get unique orderIds from all tickets
+          const uniqueOrderIds = Array.from(new Set(tickets.filter(t => t.orderId).map(t => t.orderId!)));
+          
+          // Fetch only the orders that are referenced by tickets
+          const settings = await storage.getShopwareSettings();
+          let ordersBySalesChannel: Map<string, string> = new Map(); // orderId -> salesChannelId
+          
+          if (settings && uniqueOrderIds.length > 0) {
+            try {
+              const client = new ShopwareClient(settings);
+              const ordersMap = await client.fetchOrdersByIds(uniqueOrderIds);
+              
+              // Convert to salesChannelId map
+              ordersMap.forEach((order, orderId) => {
+                ordersBySalesChannel.set(orderId, order.salesChannelId);
+              });
+            } catch (error) {
+              console.error("Error fetching orders for ticket filtering:", error);
+            }
+          }
+          
+          // Filter tickets: include if orderId matches user's sales channels, or if no orderId (standalone tickets)
+          filteredTickets = tickets.filter(ticket => {
+            // Tickets without orderId are visible to all (standalone tickets)
+            if (!ticket.orderId) {
+              return true;
+            }
+            
+            // Check if the order's sales channel matches user's assigned channels
+            const orderSalesChannel = ordersBySalesChannel.get(ticket.orderId);
+            return orderSalesChannel && userChannels.includes(orderSalesChannel);
+          });
+        } else {
+          // If no channels assigned, return empty result (except standalone tickets)
+          filteredTickets = tickets.filter(ticket => !ticket.orderId);
+        }
+      }
+      
+      const ticketsWithDetails = filteredTickets.map(ticket => {
         const assignedUser = ticket.assignedToUserId 
           ? users.find(u => u.id === ticket.assignedToUserId)
           : null;
@@ -1663,10 +1714,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get single ticket by ID
   app.get("/api/tickets/:id", requireAuth, requireViewTickets, async (req, res) => {
     try {
+      const user = req.user as any;
+      const isAdmin = 
+        user?.roleDetails?.name === 'Administrator' || 
+        user?.role === 'admin';
+
       const ticket = await storage.getTicket(req.params.id);
       if (!ticket) {
         return res.status(404).json({ error: "Ticket not found" });
       }
+      
+      // Check sales channel access for non-admin users
+      if (!isAdmin && ticket.orderId) {
+        const userChannels = user?.salesChannelIds || [];
+        
+        if (userChannels.length > 0) {
+          // Fetch the specific order to get salesChannelId
+          const settings = await storage.getShopwareSettings();
+          let hasAccess = false;
+          
+          if (settings && ticket.orderId) {
+            try {
+              const client = new ShopwareClient(settings);
+              const ordersMap = await client.fetchOrdersByIds([ticket.orderId]);
+              const order = ordersMap.get(ticket.orderId);
+              
+              if (order && userChannels.includes(order.salesChannelId)) {
+                hasAccess = true;
+              }
+            } catch (error) {
+              console.error("Error checking ticket access:", error);
+            }
+          }
+          
+          if (!hasAccess) {
+            return res.status(403).json({ error: "You don't have access to this ticket" });
+          }
+        } else {
+          // User has no sales channels assigned - no access to order-linked tickets
+          return res.status(403).json({ error: "You don't have access to this ticket" });
+        }
+      }
+      // Standalone tickets (no orderId) are accessible to all
       
       const users = await storage.getAllUsers();
       const assignedUser = ticket.assignedToUserId 
@@ -1701,10 +1790,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get ticket counts for all orders
   app.get("/api/orders/ticket-counts", requireAuth, async (req, res) => {
     try {
+      const user = req.user as any;
+      const isAdmin = 
+        user?.roleDetails?.name === 'Administrator' || 
+        user?.role === 'admin';
+
       const tickets = await storage.getAllTickets();
-      const ticketCounts: Record<string, number> = {};
       
-      tickets.forEach(ticket => {
+      // Filter tickets by sales channel if not admin
+      let filteredTickets = tickets;
+      
+      if (!isAdmin) {
+        const userChannels = user?.salesChannelIds || [];
+        
+        if (userChannels.length > 0) {
+          // Get unique orderIds from all tickets
+          const uniqueOrderIds = Array.from(new Set(tickets.filter(t => t.orderId).map(t => t.orderId!)));
+          
+          // Fetch only the orders that are referenced by tickets
+          const settings = await storage.getShopwareSettings();
+          let ordersBySalesChannel: Map<string, string> = new Map();
+          
+          if (settings && uniqueOrderIds.length > 0) {
+            try {
+              const client = new ShopwareClient(settings);
+              const allOrders = await client.fetchOrders(); // Get all orders
+              
+              // Build map only for orders that are referenced in tickets
+              uniqueOrderIds.forEach(orderId => {
+                const order = allOrders.find(o => o.id === orderId);
+                if (order) {
+                  ordersBySalesChannel.set(order.id, order.salesChannelId);
+                }
+              });
+            } catch (error) {
+              console.error("Error fetching orders for ticket count filtering:", error);
+            }
+          }
+          
+          // Filter tickets by sales channel
+          filteredTickets = tickets.filter(ticket => {
+            if (!ticket.orderId) return false; // Skip standalone tickets for counts
+            const orderSalesChannel = ordersBySalesChannel.get(ticket.orderId);
+            return orderSalesChannel && userChannels.includes(orderSalesChannel);
+          });
+        } else {
+          filteredTickets = [];
+        }
+      }
+      
+      const ticketCounts: Record<string, number> = {};
+      filteredTickets.forEach(ticket => {
         if (ticket.orderId) {
           ticketCounts[ticket.orderId] = (ticketCounts[ticket.orderId] || 0) + 1;
         }
@@ -2208,9 +2344,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/tickets/export", requireAuth, requireViewTickets, async (req, res) => {
     try {
       const { format, filters } = req.body; // format: 'csv' | 'excel', filters: optional
+      const user = req.user as any;
+      const isAdmin = 
+        user?.roleDetails?.name === 'Administrator' || 
+        user?.role === 'admin';
 
       // Get all tickets
       let tickets = await storage.getAllTickets();
+
+      // Filter by sales channel based on role
+      if (!isAdmin) {
+        const userChannels = user?.salesChannelIds || [];
+        
+        if (userChannels.length > 0) {
+          // Get unique orderIds from all tickets
+          const uniqueOrderIds = Array.from(new Set(tickets.filter(t => t.orderId).map(t => t.orderId!)));
+          
+          // Fetch only the orders that are referenced by tickets
+          const settings = await storage.getShopwareSettings();
+          let ordersBySalesChannel: Map<string, string> = new Map();
+          
+          if (settings && uniqueOrderIds.length > 0) {
+            try {
+              const client = new ShopwareClient(settings);
+              const allOrders = await client.fetchOrders(); // Get all orders
+              
+              // Build map only for orders that are referenced in tickets
+              uniqueOrderIds.forEach(orderId => {
+                const order = allOrders.find(o => o.id === orderId);
+                if (order) {
+                  ordersBySalesChannel.set(order.id, order.salesChannelId);
+                }
+              });
+            } catch (error) {
+              console.error("Error fetching orders for ticket export filtering:", error);
+            }
+          }
+          
+          // Filter tickets by sales channel (standalone tickets are included)
+          tickets = tickets.filter(ticket => {
+            if (!ticket.orderId) return true; // Include standalone tickets
+            const orderSalesChannel = ordersBySalesChannel.get(ticket.orderId);
+            return orderSalesChannel && userChannels.includes(orderSalesChannel);
+          });
+        } else {
+          // If no channels assigned, only standalone tickets
+          tickets = tickets.filter(ticket => !ticket.orderId);
+        }
+      }
 
       // Apply filters if provided
       if (filters) {
@@ -2354,6 +2535,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const jwt = await import("./jwt");
       const decoded = jwt.verifyToken(token);
+      if (!decoded) {
+        return res.status(401).json({ error: "Invalid token" });
+      }
       userId = decoded.userId;
     } catch (error) {
       return res.status(401).json({ error: "Invalid token" });

@@ -579,6 +579,59 @@ export class ShopwareClient {
     }
   }
 
+  // Fetch specific orders by their IDs (for ticket sales channel filtering)
+  async fetchOrdersByIds(orderIds: string[]): Promise<Map<string, { id: string; salesChannelId: string }>> {
+    try {
+      if (orderIds.length === 0) {
+        return new Map();
+      }
+
+      const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          limit: orderIds.length,
+          filter: [
+            {
+              type: 'equalsAny',
+              field: 'id',
+              value: orderIds.join('|'), // Shopware requires pipe-delimited string
+            },
+          ],
+          includes: {
+            order: ['id', 'salesChannelId'],
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Failed to fetch orders by IDs: ${response.statusText} - ${errorText}`);
+        return new Map(); // Return empty map on error to fail permissively
+      }
+
+      const data = await response.json();
+      const orders = data.data || [];
+      
+      const orderMap = new Map<string, { id: string; salesChannelId: string }>();
+      orders.forEach((order: any) => {
+        if (order.id && order.salesChannelId) {
+          orderMap.set(order.id, {
+            id: order.id,
+            salesChannelId: order.salesChannelId,
+          });
+        }
+      });
+
+      return orderMap;
+    } catch (error) {
+      console.error('Error fetching orders by IDs from Shopware:', error);
+      return new Map(); // Return empty map on error to fail permissively
+    }
+  }
+
   async downloadDocumentPdf(documentId: string, deepLinkCode: string): Promise<Blob> {
     try {
       const response = await this.makeAuthenticatedRequest(
