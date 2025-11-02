@@ -6,6 +6,12 @@ import {
   type InsertShopwareSettings,
   type CrossSellingRule,
   type InsertCrossSellingRule,
+  type Ticket,
+  type InsertTicket,
+  type TicketComment,
+  type InsertTicketComment,
+  type TicketAttachment,
+  type InsertTicketAttachment,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -47,6 +53,24 @@ export interface IStorage {
   createCrossSellingRule(rule: InsertCrossSellingRule): Promise<CrossSellingRule>;
   updateCrossSellingRule(id: string, rule: Partial<InsertCrossSellingRule>): Promise<CrossSellingRule | undefined>;
   deleteCrossSellingRule(id: string): Promise<boolean>;
+  
+  // Tickets
+  getAllTickets(): Promise<Ticket[]>;
+  getTicket(id: string): Promise<Ticket | undefined>;
+  getTicketsByOrderId(orderId: string): Promise<Ticket[]>;
+  createTicket(ticket: InsertTicket): Promise<Ticket>;
+  updateTicket(id: string, updates: Partial<InsertTicket>): Promise<Ticket | undefined>;
+  deleteTicket(id: string): Promise<boolean>;
+  
+  // Ticket Comments
+  getTicketComments(ticketId: string): Promise<TicketComment[]>;
+  createTicketComment(comment: InsertTicketComment): Promise<TicketComment>;
+  deleteTicketComment(id: string): Promise<boolean>;
+  
+  // Ticket Attachments
+  getTicketAttachments(ticketId: string): Promise<TicketAttachment[]>;
+  createTicketAttachment(attachment: InsertTicketAttachment): Promise<TicketAttachment>;
+  deleteTicketAttachment(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -54,12 +78,20 @@ export class MemStorage implements IStorage {
   private roles: Map<string, Role>;
   private shopwareSettings: ShopwareSettings | undefined;
   private crossSellingRules: Map<string, CrossSellingRule>;
+  private tickets: Map<string, Ticket>;
+  private ticketComments: Map<string, TicketComment>;
+  private ticketAttachments: Map<string, TicketAttachment>;
+  private ticketCounter: number;
 
   constructor() {
     this.users = new Map();
     this.roles = new Map();
     this.shopwareSettings = undefined;
     this.crossSellingRules = new Map();
+    this.tickets = new Map();
+    this.ticketComments = new Map();
+    this.ticketAttachments = new Map();
+    this.ticketCounter = 1000;
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -217,6 +249,115 @@ export class MemStorage implements IStorage {
 
   async deleteCrossSellingRule(id: string): Promise<boolean> {
     return this.crossSellingRules.delete(id);
+  }
+
+  async getAllTickets(): Promise<Ticket[]> {
+    return Array.from(this.tickets.values());
+  }
+
+  async getTicket(id: string): Promise<Ticket | undefined> {
+    return this.tickets.get(id);
+  }
+
+  async getTicketsByOrderId(orderId: string): Promise<Ticket[]> {
+    return Array.from(this.tickets.values()).filter(
+      (ticket) => ticket.orderId === orderId
+    );
+  }
+
+  async createTicket(insertTicket: InsertTicket): Promise<Ticket> {
+    const id = randomUUID();
+    const ticketNumber = `T-${this.ticketCounter++}`;
+    const now = new Date();
+    
+    const ticket: Ticket = {
+      id,
+      ticketNumber,
+      title: insertTicket.title,
+      description: insertTicket.description,
+      status: insertTicket.status || "open",
+      priority: insertTicket.priority || "normal",
+      category: insertTicket.category || "general",
+      orderId: insertTicket.orderId || null,
+      orderNumber: insertTicket.orderNumber || null,
+      assignedToUserId: insertTicket.assignedToUserId || null,
+      createdByUserId: insertTicket.createdByUserId || null,
+      createdAt: now,
+      updatedAt: now,
+      resolvedAt: null,
+      closedAt: null,
+    };
+    
+    this.tickets.set(id, ticket);
+    return ticket;
+  }
+
+  async updateTicket(id: string, updates: Partial<InsertTicket>): Promise<Ticket | undefined> {
+    const ticket = this.tickets.get(id);
+    if (!ticket) return undefined;
+
+    const now = new Date();
+    const updatedTicket: Ticket = {
+      ...ticket,
+      ...updates,
+      updatedAt: now,
+      resolvedAt: updates.status === "resolved" ? (ticket.resolvedAt || now) : ticket.resolvedAt,
+      closedAt: updates.status === "closed" ? (ticket.closedAt || now) : ticket.closedAt,
+    };
+    
+    this.tickets.set(id, updatedTicket);
+    return updatedTicket;
+  }
+
+  async deleteTicket(id: string): Promise<boolean> {
+    return this.tickets.delete(id);
+  }
+
+  async getTicketComments(ticketId: string): Promise<TicketComment[]> {
+    return Array.from(this.ticketComments.values()).filter(
+      (comment) => comment.ticketId === ticketId
+    );
+  }
+
+  async createTicketComment(insertComment: InsertTicketComment): Promise<TicketComment> {
+    const id = randomUUID();
+    const comment: TicketComment = {
+      id,
+      ticketId: insertComment.ticketId,
+      userId: insertComment.userId,
+      comment: insertComment.comment,
+      isInternal: insertComment.isInternal || 0,
+      createdAt: new Date(),
+    };
+    
+    this.ticketComments.set(id, comment);
+    return comment;
+  }
+
+  async deleteTicketComment(id: string): Promise<boolean> {
+    return this.ticketComments.delete(id);
+  }
+
+  async getTicketAttachments(ticketId: string): Promise<TicketAttachment[]> {
+    return Array.from(this.ticketAttachments.values()).filter(
+      (attachment) => attachment.ticketId === ticketId
+    );
+  }
+
+  async createTicketAttachment(insertAttachment: InsertTicketAttachment): Promise<TicketAttachment> {
+    const id = randomUUID();
+    const attachment: TicketAttachment = {
+      id,
+      ...insertAttachment,
+      createdAt: new Date(),
+    };
+    
+    this.ticketAttachments.set(id, attachment);
+    return attachment;
+  }
+
+  async deleteTicketAttachment(id: string): Promise<boolean> {
+    return this.ticketAttachments.delete(id);
   }
 }
 

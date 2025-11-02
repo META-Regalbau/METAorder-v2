@@ -1,10 +1,13 @@
-import { eq } from "drizzle-orm";
+import { eq, sql as drizzleSql } from "drizzle-orm";
 import { db } from "./db";
 import {
   users,
   roles,
   settings,
   crossSellingRules,
+  tickets,
+  ticketComments,
+  ticketAttachments,
   type User,
   type InsertUser,
   type Role,
@@ -12,6 +15,12 @@ import {
   type InsertShopwareSettings,
   type CrossSellingRule,
   type InsertCrossSellingRule,
+  type Ticket,
+  type InsertTicket,
+  type TicketComment,
+  type InsertTicketComment,
+  type TicketAttachment,
+  type InsertTicketAttachment,
 } from "@shared/schema";
 import type { IStorage, InsertRole, UpdateUser } from "./storage";
 
@@ -257,5 +266,115 @@ export class DbStorage implements IStorage {
       .where(eq(crossSellingRules.id, id))
       .returning();
     return result.length > 0;
+  }
+
+  // Tickets
+  async getAllTickets(): Promise<Ticket[]> {
+    return await db.select().from(tickets);
+  }
+
+  async getTicket(id: string): Promise<Ticket | undefined> {
+    const result = await db.select().from(tickets).where(eq(tickets.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getTicketsByOrderId(orderId: string): Promise<Ticket[]> {
+    return await db.select().from(tickets).where(eq(tickets.orderId, orderId));
+  }
+
+  async createTicket(insertTicket: InsertTicket): Promise<Ticket> {
+    const ticketNumber = await this.generateTicketNumber();
+    
+    const result = await db
+      .insert(tickets)
+      .values({
+        ...insertTicket,
+        ticketNumber,
+      })
+      .returning();
+    return result[0];
+  }
+
+  async updateTicket(id: string, updates: Partial<InsertTicket>): Promise<Ticket | undefined> {
+    const updateData: any = { ...updates, updatedAt: new Date() };
+    
+    if (updates.status === "resolved") {
+      const existing = await this.getTicket(id);
+      if (existing && !existing.resolvedAt) {
+        updateData.resolvedAt = new Date();
+      }
+    }
+    
+    if (updates.status === "closed") {
+      const existing = await this.getTicket(id);
+      if (existing && !existing.closedAt) {
+        updateData.closedAt = new Date();
+      }
+    }
+    
+    const result = await db
+      .update(tickets)
+      .set(updateData)
+      .where(eq(tickets.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteTicket(id: string): Promise<boolean> {
+    const result = await db.delete(tickets).where(eq(tickets.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Ticket Comments
+  async getTicketComments(ticketId: string): Promise<TicketComment[]> {
+    return await db.select().from(ticketComments).where(eq(ticketComments.ticketId, ticketId));
+  }
+
+  async createTicketComment(insertComment: InsertTicketComment): Promise<TicketComment> {
+    const result = await db
+      .insert(ticketComments)
+      .values(insertComment)
+      .returning();
+    
+    await db
+      .update(tickets)
+      .set({ updatedAt: new Date() })
+      .where(eq(tickets.id, insertComment.ticketId));
+    
+    return result[0];
+  }
+
+  async deleteTicketComment(id: string): Promise<boolean> {
+    const result = await db.delete(ticketComments).where(eq(ticketComments.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Ticket Attachments
+  async getTicketAttachments(ticketId: string): Promise<TicketAttachment[]> {
+    return await db.select().from(ticketAttachments).where(eq(ticketAttachments.ticketId, ticketId));
+  }
+
+  async createTicketAttachment(insertAttachment: InsertTicketAttachment): Promise<TicketAttachment> {
+    const result = await db
+      .insert(ticketAttachments)
+      .values(insertAttachment)
+      .returning();
+    return result[0];
+  }
+
+  async deleteTicketAttachment(id: string): Promise<boolean> {
+    const result = await db.delete(ticketAttachments).where(eq(ticketAttachments.id, id)).returning();
+    return result.length > 0;
+  }
+
+  private async generateTicketNumber(): Promise<string> {
+    const result = await db.execute(drizzleSql`
+      SELECT COALESCE(MAX(CAST(SUBSTRING(ticket_number FROM 3) AS INTEGER)), 999) + 1 AS next_number
+      FROM tickets
+      WHERE ticket_number LIKE 'T-%'
+    `);
+    
+    const nextNumber = (result.rows[0] as any).next_number || 1000;
+    return `T-${nextNumber}`;
   }
 }
