@@ -54,17 +54,17 @@ export default function TicketDetailModal({
   // Fetch users for assignment (only if user can manage tickets)
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ['/api/tickets/assignees'],
-    enabled: canManageTickets && isOpen,
+    enabled: canManageTickets && isOpen && !!ticket?.id,
   });
-
-  if (!ticket) return null;
 
   const addCommentMutation = useMutation({
     mutationFn: async (data: { comment: string; isInternal: number }) => {
+      if (!ticket?.id) throw new Error("No ticket ID");
       const response = await apiRequest("POST", `/api/tickets/${ticket.id}/comments`, data);
       return response.json();
     },
     onSuccess: () => {
+      if (!ticket?.id) return;
       queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticket.id, 'comments'] });
       setCommentText("");
       toast({
@@ -82,10 +82,12 @@ export default function TicketDetailModal({
 
   const updateTicketMutation = useMutation({
     mutationFn: async (data: Partial<Ticket>) => {
+      if (!ticket?.id) throw new Error("No ticket ID");
       const response = await apiRequest("PATCH", `/api/tickets/${ticket.id}`, data);
       return response.json();
     },
     onSuccess: () => {
+      if (!ticket?.id) return;
       queryClient.invalidateQueries({ queryKey: ['/api/tickets'] });
       queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticket.id] });
       toast({
@@ -103,6 +105,7 @@ export default function TicketDetailModal({
 
   const deleteTicketMutation = useMutation({
     mutationFn: async () => {
+      if (!ticket?.id) throw new Error("No ticket ID");
       const response = await apiRequest("DELETE", `/api/tickets/${ticket.id}`, {});
       return response.json();
     },
@@ -121,6 +124,8 @@ export default function TicketDetailModal({
       });
     },
   });
+
+  if (!ticket) return null;
 
   const handleAddComment = () => {
     if (!commentText.trim()) return;
