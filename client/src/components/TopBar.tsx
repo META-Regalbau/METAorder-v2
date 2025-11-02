@@ -34,6 +34,8 @@ export default function TopBar({ userRole, username, onLogout }: TopBarProps) {
       // Clear JWT token from localStorage
       localStorage.removeItem("token");
       
+      // Clear auth query data to trigger immediate redirect to login
+      queryClient.setQueryData(["/api/auth/me"], null);
       queryClient.clear();
       onLogout();
       toast({
