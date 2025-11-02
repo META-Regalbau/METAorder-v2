@@ -12,6 +12,8 @@ import {
   type InsertTicketComment,
   type TicketAttachment,
   type InsertTicketAttachment,
+  type TicketActivityLog,
+  type InsertTicketActivityLog,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -71,6 +73,10 @@ export interface IStorage {
   getTicketAttachments(ticketId: string): Promise<TicketAttachment[]>;
   createTicketAttachment(attachment: InsertTicketAttachment): Promise<TicketAttachment>;
   deleteTicketAttachment(id: string): Promise<boolean>;
+  
+  // Ticket Activity Log
+  getTicketActivityLog(ticketId: string): Promise<TicketActivityLog[]>;
+  createTicketActivityLog(log: InsertTicketActivityLog): Promise<TicketActivityLog>;
 }
 
 export class MemStorage implements IStorage {
@@ -81,6 +87,7 @@ export class MemStorage implements IStorage {
   private tickets: Map<string, Ticket>;
   private ticketComments: Map<string, TicketComment>;
   private ticketAttachments: Map<string, TicketAttachment>;
+  private ticketActivityLogs: Map<string, TicketActivityLog>;
   private ticketCounter: number;
 
   constructor() {
@@ -91,6 +98,7 @@ export class MemStorage implements IStorage {
     this.tickets = new Map();
     this.ticketComments = new Map();
     this.ticketAttachments = new Map();
+    this.ticketActivityLogs = new Map();
     this.ticketCounter = 1000;
   }
 
@@ -369,6 +377,22 @@ export class MemStorage implements IStorage {
 
   async deleteTicketAttachment(id: string): Promise<boolean> {
     return this.ticketAttachments.delete(id);
+  }
+
+  async getTicketActivityLog(ticketId: string): Promise<TicketActivityLog[]> {
+    return Array.from(this.ticketActivityLogs.values())
+      .filter(log => log.ticketId === ticketId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async createTicketActivityLog(log: InsertTicketActivityLog): Promise<TicketActivityLog> {
+    const newLog: TicketActivityLog = {
+      ...log,
+      id: randomUUID(),
+      createdAt: new Date(),
+    };
+    this.ticketActivityLogs.set(newLog.id, newLog);
+    return newLog;
   }
 }
 

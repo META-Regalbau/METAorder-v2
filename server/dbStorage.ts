@@ -8,6 +8,7 @@ import {
   tickets,
   ticketComments,
   ticketAttachments,
+  ticketActivityLog,
   type User,
   type InsertUser,
   type Role,
@@ -21,6 +22,8 @@ import {
   type InsertTicketComment,
   type TicketAttachment,
   type InsertTicketAttachment,
+  type TicketActivityLog,
+  type InsertTicketActivityLog,
 } from "@shared/schema";
 import type { IStorage, InsertRole, UpdateUser } from "./storage";
 
@@ -365,6 +368,19 @@ export class DbStorage implements IStorage {
   async deleteTicketAttachment(id: string): Promise<boolean> {
     const result = await db.delete(ticketAttachments).where(eq(ticketAttachments.id, id)).returning();
     return result.length > 0;
+  }
+
+  async getTicketActivityLog(ticketId: string): Promise<TicketActivityLog[]> {
+    return await db
+      .select()
+      .from(ticketActivityLog)
+      .where(eq(ticketActivityLog.ticketId, ticketId))
+      .orderBy(drizzleSql`${ticketActivityLog.createdAt} DESC`);
+  }
+
+  async createTicketActivityLog(log: InsertTicketActivityLog): Promise<TicketActivityLog> {
+    const result = await db.insert(ticketActivityLog).values(log).returning();
+    return result[0];
   }
 
   private async generateTicketNumber(): Promise<string> {

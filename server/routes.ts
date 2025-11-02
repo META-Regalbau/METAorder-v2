@@ -1623,10 +1623,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/tickets/:id", requireAuth, requireManageTickets, async (req, res) => {
     try {
       const validated = insertTicketSchema.partial().parse(req.body);
-      const updated = await storage.updateTicket(req.params.id, validated);
+      const userId = req.session?.userId as string;
       
+      // Get the old ticket to track changes
+      const oldTicket = await storage.getTicket(req.params.id);
+      if (!oldTicket) {
+        return res.status(404).json({ error: "Ticket not found" });
+      }
+
+      // Update the ticket
+      const updated = await storage.updateTicket(req.params.id, validated);
       if (!updated) {
         return res.status(404).json({ error: "Ticket not found" });
+      }
+
+      // Track changes in activity log
+      const trackChange = async (field: string, action: string, oldValue: any, newValue: any) => {
+        if (oldValue !== newValue) {
+          await storage.createTicketActivityLog({
+            ticketId: req.params.id,
+            userId,
+            action,
+            fieldName: field,
+            oldValue: oldValue != null ? String(oldValue) : null,
+            newValue: newValue != null ? String(newValue) : null,
+          });
+        }
+      };
+
+      // Track each field change
+      if (validated.status !== undefined) {
+        await trackChange('status', 'status_changed', oldTicket.status, validated.status);
+      }
+      if (validated.priority !== undefined) {
+        await trackChange('priority', 'priority_changed', oldTicket.priority, validated.priority);
+      }
+      if (validated.category !== undefined) {
+        await trackChange('category', 'category_changed', oldTicket.category, validated.category);
+      }
+      if (validated.assignedToUserId !== undefined) {
+        await trackChange('assignedToUserId', 'assigned', oldTicket.assignedToUserId, validated.assignedToUserId);
+      }
+      if (validated.title !== undefined) {
+        await trackChange('title', 'title_changed', oldTicket.title, validated.title);
+      }
+      if (validated.description !== undefined) {
+        await trackChange('description', 'description_changed', oldTicket.description, validated.description);
+      }
+      if (validated.tags !== undefined) {
+        const oldTags = oldTicket.tags ? JSON.stringify(oldTicket.tags.sort()) : '[]';
+        const newTags = validated.tags ? JSON.stringify(validated.tags.sort()) : '[]';
+        if (oldTags !== newTags) {
+          await storage.createTicketActivityLog({
+            ticketId: req.params.id,
+            userId,
+            action: 'tags_changed',
+            fieldName: 'tags',
+            oldValue: oldTags,
+            newValue: newTags,
+          });
+        }
+      }
+      if (validated.dueDate !== undefined) {
+        const oldDate = oldTicket.dueDate ? oldTicket.dueDate.toISOString() : null;
+        const newDate = validated.dueDate ? new Date(validated.dueDate).toISOString() : null;
+        await trackChange('dueDate', 'due_date_changed', oldDate, newDate);
       }
       
       res.json(updated);
@@ -1711,6 +1772,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting comment:", error);
       res.status(500).json({ error: "Failed to delete comment" });
+    }
+  });
+
+  // ============================================
+  // Ticket Activity Log Routes
+  // ============================================
+
+  // Get activity log for a ticket
+  app.get("/api/tickets/:ticketId/activity", requireAuth, requireViewTickets, async (req, res) => {
+    try {
+      const activityLogs = await storage.getTicketActivityLog(req.params.ticketId);
+      const users = await storage.getAllUsers();
+      
+      const logsWithUsernames = activityLogs.map(log => {
+        const user = users.find(u => u.id === log.userId);
+        return {
+          ...log,
+          username: user?.username || "Unknown",
+        };
+      });
+      
+      res.json(logsWithUsernames);
+    } catch (error) {
+      console.error("Error fetching ticket activity log:", error);
+      res.status(500).json({ error: "Failed to fetch activity log" });
     }
   });
 
