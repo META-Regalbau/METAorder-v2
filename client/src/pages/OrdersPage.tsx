@@ -67,6 +67,12 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
     enabled: selectedChannelIds.length > 0,
   });
 
+  // Fetch ticket counts for orders
+  const { data: ticketCounts = {} } = useQuery<Record<string, number>>({
+    queryKey: ['/api/orders/ticket-counts'],
+    retry: false,
+  });
+
   // Show error if Shopware is not configured
   if (error) {
     const errorMessage = (error as any)?.message || t('errors.loadFailed');
@@ -257,6 +263,7 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
           orders={paginatedOrders}
           onViewOrder={handleViewOrder}
           isLoading={isLoading}
+          ticketCounts={ticketCounts}
         />
 
         <div className="mt-4 flex items-center justify-between">

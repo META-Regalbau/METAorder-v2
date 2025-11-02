@@ -208,6 +208,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           manageSettings: z.boolean(),
           manageCrossSellingGroups: z.boolean(),
           manageCrossSellingRules: z.boolean(),
+          viewTickets: z.boolean(),
+          manageTickets: z.boolean(),
         }),
       });
       
@@ -243,6 +245,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           manageSettings: z.boolean(),
           manageCrossSellingGroups: z.boolean(),
           manageCrossSellingRules: z.boolean(),
+          viewTickets: z.boolean(),
+          manageTickets: z.boolean(),
         }).optional(),
       });
       

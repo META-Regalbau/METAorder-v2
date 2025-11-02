@@ -1,5 +1,6 @@
-import { Eye, Package } from "lucide-react";
+import { Eye, Package, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import StatusBadge from "./StatusBadge";
 import PaymentStatusBadge from "./PaymentStatusBadge";
@@ -10,9 +11,10 @@ interface OrdersTableProps {
   orders: Order[];
   onViewOrder: (order: Order) => void;
   isLoading?: boolean;
+  ticketCounts?: Record<string, number>;
 }
 
-export default function OrdersTable({ orders, onViewOrder, isLoading }: OrdersTableProps) {
+export default function OrdersTable({ orders, onViewOrder, isLoading, ticketCounts = {} }: OrdersTableProps) {
   const { t, i18n } = useTranslation();
   
   if (isLoading) {
@@ -71,9 +73,15 @@ export default function OrdersTable({ orders, onViewOrder, isLoading }: OrdersTa
                 })}
               </TableCell>
               <TableCell>
-                <div className="flex gap-1">
+                <div className="flex gap-1 flex-wrap">
                   <StatusBadge status={order.status} />
                   <PaymentStatusBadge status={order.paymentStatus} orderId={order.id} />
+                  {ticketCounts[order.id] > 0 && (
+                    <Badge variant="outline" className="gap-1" data-testid={`badge-tickets-${order.id}`}>
+                      <Ticket className="h-3 w-3" />
+                      {ticketCounts[order.id]}
+                    </Badge>
+                  )}
                 </div>
               </TableCell>
               <TableCell className="text-right">
