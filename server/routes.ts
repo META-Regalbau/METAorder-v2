@@ -87,6 +87,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const user = await storage.createUser({
         username: validated.username,
+        email: validated.email || null,
         password: hashedPassword,
       });
       
@@ -123,7 +124,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const updateSchema = z.object({
         username: z.string().min(3).optional(),
-        password: z.string().min(6).optional(),
+        email: z.string().email().optional().or(z.literal("")),
+        password: z.string().min(6).optional().or(z.literal("")),
         roleId: z.string().optional(),
         salesChannelIds: z.array(z.string()).optional(),
       });
@@ -131,8 +133,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validated = updateSchema.parse(req.body);
       const updates: any = { ...validated };
       
-      if (validated.password) {
+      // Remove empty strings
+      if (validated.email === "") {
+        delete updates.email;
+      }
+      
+      if (validated.password && validated.password !== "") {
         updates.password = await bcrypt.hash(validated.password, 10);
+      } else {
+        delete updates.password;
       }
       
       if (validated.roleId) {
