@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import passport from "passport";
+import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import { ShopwareClient } from "./shopware";
 import { RuleEngine } from "./ruleEngine";
@@ -12,6 +13,16 @@ import * as XLSX from 'xlsx';
 import { generateToken } from "./jwt";
 import { parseEmailFile } from "./emailParser";
 import { notificationEvents } from "./events";
+
+// Rate limiter for login endpoint - prevents brute force attacks
+const loginRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 login requests per windowMs
+  message: { error: "Too many login attempts. Please try again in 15 minutes." },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true, // Don't count successful logins against the limit
+});
 
 // Auto-assignment helper function
 async function assignTicketAutomatically(ticket: Ticket): Promise<string | null> {
@@ -116,7 +127,7 @@ async function assignTicketAutomatically(ticket: Ticket): Promise<string | null>
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
-  app.post("/api/auth/login", (req, res, next) => {
+  app.post("/api/auth/login", loginRateLimiter, (req, res, next) => {
     passport.authenticate("local", (err: any, user: any, info: any) => {
       if (err) {
         return res.status(500).json({ error: "Internal server error" });
@@ -129,19 +140,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate JWT token
       const token = generateToken(user);
       
+      // Generate CSRF token for Double-Submit Cookie Pattern
+      const crypto = require('crypto');
+      const csrfToken = crypto.randomBytes(32).toString('hex');
+      
+      // Set JWT token in httpOnly cookie (XSS-safe)
+      res.cookie('auth_token', token, {
+        httpOnly: true,  // Cannot be accessed by JavaScript
+        secure: true,    // HTTPS only (Replit always uses HTTPS)
+        sameSite: 'lax', // CSRF protection while allowing same-site navigation
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      });
+      
+      // Set CSRF token in non-httpOnly cookie (frontend can read it)
+      res.cookie('csrf_token', csrfToken, {
+        httpOnly: false, // Frontend must read and send in X-CSRF-Token header
+        secure: true,
+        sameSite: 'lax',
+        maxAge: 24 * 60 * 60 * 1000
+      });
+      
       // Don't send password to client
       const { password, ...userWithoutPassword } = user;
       
       return res.json({ 
-        user: userWithoutPassword,
-        token 
+        user: userWithoutPassword
+        // Token is now in cookie, not in response body
       });
     })(req, res, next);
   });
   
   app.post("/api/auth/logout", (req, res) => {
-    // With JWT, logout is handled client-side by removing the token
-    // No server-side session to destroy
+    // Clear the auth cookie
+    res.clearCookie('auth_token', {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax'
+    });
+    // Clear CSRF token cookie
+    res.clearCookie('csrf_token', {
+      httpOnly: false,
+      secure: true,
+      sameSite: 'lax'
+    });
     res.json({ message: "Logged out successfully" });
   });
   
@@ -154,6 +195,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         permissions: roleDetails?.permissions || {}
       }
     });
+  });
+  
+  // Get JWT token from cookie (for SSE initialization)
+  app.get("/api/auth/token", requireAuth, (req, res) => {
+    // Read token from cookie and return it for SSE usage
+    const token = req.cookies?.auth_token;
+    if (!token) {
+      return res.status(401).json({ error: "No token found" });
+    }
+    res.json({ token });
   });
 
   // Get assignable users (for ticket assignment - requires manageTickets permission)

@@ -71,16 +71,50 @@ export function setupAuth(storage: IStorage) {
   return passport;
 }
 
+// Middleware to validate CSRF token (Double-Submit Cookie Pattern)
+// Must be used after requireAuth for state-changing requests (POST/PUT/DELETE)
+export function requireCsrf(req: any, res: any, next: any) {
+  // Skip CSRF check for GET/HEAD/OPTIONS requests (they shouldn't modify state)
+  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
+    return next();
+  }
+  
+  // Get CSRF token from header
+  const csrfTokenFromHeader = req.headers['x-csrf-token'];
+  
+  // Get CSRF token from cookie
+  const csrfTokenFromCookie = req.cookies?.csrf_token;
+  
+  // Both must exist and match
+  if (!csrfTokenFromHeader || !csrfTokenFromCookie) {
+    return res.status(403).json({ error: "CSRF token missing" });
+  }
+  
+  if (csrfTokenFromHeader !== csrfTokenFromCookie) {
+    return res.status(403).json({ error: "CSRF token mismatch" });
+  }
+  
+  // CSRF token is valid
+  next();
+}
+
 // Middleware to check if user is authenticated via JWT
 export async function requireAuth(req: any, res: any, next: any) {
   try {
-    // Extract token from Authorization header
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Not authenticated" });
+    let token: string | null = null;
+    
+    // Try to get token from cookie first (primary auth method)
+    if (req.cookies && req.cookies.auth_token) {
+      token = req.cookies.auth_token;
+    }
+    // Fallback: Extract token from Authorization header (for SSE)
+    else if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
+      token = req.headers.authorization.substring(7); // Remove "Bearer " prefix
     }
     
-    const token = authHeader.substring(7); // Remove "Bearer " prefix
+    if (!token) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
     
     // Verify token
     const payload = verifyToken(token);

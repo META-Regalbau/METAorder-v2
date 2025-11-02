@@ -14,7 +14,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import type { Order } from "@shared/schema";
 import { useTranslation } from "react-i18next";
-import { getAuthHeaders } from "@/lib/queryClient";
 
 interface OrderDetailModalProps {
   order: Order | null;
@@ -52,9 +51,7 @@ export default function OrderDetailModal({
 
   const handleDownloadDocument = async (documentId: string, deepLinkCode: string, documentNumber: string) => {
     try {
-      const response = await fetch(`/api/orders/${order.id}/document/${documentId}/${deepLinkCode}`, {
-        headers: getAuthHeaders(),
-      });
+      const response = await fetch(`/api/orders/${order.id}/document/${documentId}/${deepLinkCode}`);
       
       if (!response.ok) {
         throw new Error('Failed to download document');

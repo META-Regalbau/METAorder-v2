@@ -32,6 +32,7 @@ import {
   type InsertNotification,
 } from "@shared/schema";
 import type { IStorage, InsertRole, UpdateUser } from "./storage";
+import { encrypt, decrypt } from "./encryption";
 
 export class DbStorage implements IStorage {
   // Users
@@ -120,10 +121,27 @@ export class DbStorage implements IStorage {
     
     if (!result[0]) return undefined;
     
-    return result[0].value as ShopwareSettings;
+    const shopwareSettings = result[0].value as ShopwareSettings;
+    
+    // Decrypt API credentials
+    if (shopwareSettings.apiKey) {
+      shopwareSettings.apiKey = decrypt(shopwareSettings.apiKey);
+    }
+    if (shopwareSettings.apiSecret) {
+      shopwareSettings.apiSecret = decrypt(shopwareSettings.apiSecret);
+    }
+    
+    return shopwareSettings;
   }
 
   async saveShopwareSettings(shopwareSettings: InsertShopwareSettings): Promise<ShopwareSettings> {
+    // Encrypt sensitive fields before storing
+    const encryptedSettings = {
+      ...shopwareSettings,
+      apiKey: shopwareSettings.apiKey ? encrypt(shopwareSettings.apiKey) : shopwareSettings.apiKey,
+      apiSecret: shopwareSettings.apiSecret ? encrypt(shopwareSettings.apiSecret) : shopwareSettings.apiSecret,
+    };
+    
     // Upsert: Update if exists, insert if not
     const existing = await db
       .select()
@@ -135,14 +153,14 @@ export class DbStorage implements IStorage {
       await db
         .update(settings)
         .set({
-          value: shopwareSettings,
+          value: encryptedSettings,
           updatedAt: new Date(),
         })
         .where(eq(settings.key, "shopware"));
     } else {
       await db.insert(settings).values({
         key: "shopware",
-        value: shopwareSettings,
+        value: encryptedSettings,
       });
     }
 

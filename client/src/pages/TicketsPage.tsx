@@ -16,7 +16,6 @@ import TicketDetailModal from "@/components/TicketDetailModal";
 import CreateTicketDialog from "@/components/CreateTicketDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
-import { getAuthHeaders } from "@/lib/queryClient";
 import type { Ticket, User, Role } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
@@ -63,7 +62,6 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
       const response = await fetch('/api/tickets/export', {
         method: 'POST',
         headers: {
-          ...getAuthHeaders(),
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ format, filters }),
@@ -126,9 +124,7 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
   const { data: tickets = [], isLoading } = useQuery<Ticket[]>({
     queryKey: ['/api/tickets'],
     queryFn: async () => {
-      const response = await fetch('/api/tickets', {
-        headers: getAuthHeaders(),
-      });
+      const response = await fetch('/api/tickets');
       if (!response.ok) {
         throw new Error(await response.text());
       }

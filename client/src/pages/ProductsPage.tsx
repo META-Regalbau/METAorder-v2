@@ -11,7 +11,6 @@ import { Label } from "@/components/ui/label";
 import { useState, useEffect } from "react";
 import type { Product, User } from "@shared/schema";
 import ProductDetailModal from "@/components/ProductDetailModal";
-import { getAuthHeaders } from "@/lib/queryClient";
 
 interface Category {
   id: string;
@@ -57,9 +56,7 @@ export default function ProductsPage() {
   const { data: categoriesData } = useQuery<Category[]>({
     queryKey: ['/api/categories'],
     queryFn: async () => {
-      const response = await fetch('/api/categories', {
-        headers: getAuthHeaders(),
-      });
+      const response = await fetch('/api/categories');
       if (!response.ok) {
         throw new Error('Failed to fetch categories');
       }
@@ -103,9 +100,7 @@ export default function ProductsPage() {
       if (isAdmin && showInactive) {
         params.set('showInactive', 'true');
       }
-      const response = await fetch(`/api/products?${params.toString()}`, {
-        headers: getAuthHeaders(),
-      });
+      const response = await fetch(`/api/products?${params.toString()}`);
       if (!response.ok) {
         throw new Error('Failed to fetch products');
       }

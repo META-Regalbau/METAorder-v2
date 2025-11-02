@@ -42,10 +42,7 @@ export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: (user: a
       return response.json();
     },
     onSuccess: (data) => {
-      // Store JWT token in localStorage
-      if (data.token) {
-        localStorage.setItem("token", data.token);
-      }
+      // Token is now stored in httpOnly cookie by backend, no client-side storage needed
       
       onLoginSuccess(data.user);
       toast({

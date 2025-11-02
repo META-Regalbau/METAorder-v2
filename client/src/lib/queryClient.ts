@@ -7,34 +7,38 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-export function getAuthHeaders(): Record<string, string> {
-  const token = localStorage.getItem("token");
-  const headers: Record<string, string> = {};
-  
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-  
-  return headers;
+// Helper to get CSRF token from cookie
+function getCsrfToken(): string | null {
+  const match = document.cookie.match(/csrf_token=([^;]+)/);
+  return match ? match[1] : null;
 }
 
+// Note: Auth is now cookie-based, no need for manual token headers
+// Cookies are automatically included with credentials: 'include'
 export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  const headers: Record<string, string> = {
-    ...getAuthHeaders(),
-  };
+  const headers: Record<string, string> = {};
   
   if (data) {
     headers["Content-Type"] = "application/json";
+  }
+  
+  // Add CSRF token for state-changing requests (POST/PUT/DELETE)
+  if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+    const csrfToken = getCsrfToken();
+    if (csrfToken) {
+      headers["X-CSRF-Token"] = csrfToken;
+    }
   }
   
   const res = await fetch(url, {
     method,
     headers,
     body: data ? JSON.stringify(data) : undefined,
+    credentials: 'include', // Include cookies in requests
   });
 
   await throwIfResNotOk(res);
@@ -48,7 +52,7 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
     const res = await fetch(queryKey.join("/") as string, {
-      headers: getAuthHeaders(),
+      credentials: 'include', // Include cookies in requests
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {

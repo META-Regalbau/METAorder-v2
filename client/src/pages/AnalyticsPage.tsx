@@ -115,7 +115,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
       if (dateTo) params.append("dateTo", dateTo);
       if (selectedChannelIds.length > 0) params.append("salesChannelIds", selectedChannelIds.join(','));
       const response = await fetch(`/api/analytics/summary?${params}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        credentials: 'include',
       });
       if (!response.ok) throw new Error("Failed to fetch summary");
       return response.json();
@@ -131,7 +131,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
       if (dateTo) params.append("dateTo", dateTo);
       if (selectedChannelIds.length > 0) params.append("salesChannelIds", selectedChannelIds.join(','));
       const response = await fetch(`/api/analytics/order-status?${params}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        credentials: 'include',
       });
       if (!response.ok) throw new Error("Failed to fetch order status");
       return response.json();
@@ -147,7 +147,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
       if (dateTo) params.append("dateTo", dateTo);
       if (selectedChannelIds.length > 0) params.append("salesChannelIds", selectedChannelIds.join(','));
       const response = await fetch(`/api/analytics/payment-status?${params}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        credentials: 'include',
       });
       if (!response.ok) throw new Error("Failed to fetch payment status");
       return response.json();
@@ -163,7 +163,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
     queryKey: ["/api/analytics/product-overview"],
     queryFn: async () => {
       const response = await fetch("/api/analytics/product-overview", {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        credentials: 'include',
       });
       if (!response.ok) throw new Error("Failed to fetch product overview");
       return response.json();
@@ -178,7 +178,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
       if (dateTo) params.append("dateTo", dateTo);
       if (selectedChannelIds.length > 0) params.append("salesChannelIds", selectedChannelIds.join(','));
       const response = await fetch(`/api/analytics/category-sales?${params}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        credentials: 'include',
       });
       if (!response.ok) throw new Error("Failed to fetch category sales");
       return response.json();
@@ -210,7 +210,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
       if (selectedChannelIds.length > 0) params.append("salesChannelIds", selectedChannelIds.join(','));
       params.append("minQuantity", "1");
       const response = await fetch(`/api/analytics/product-performance?${params}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        credentials: 'include',
       });
       if (!response.ok) throw new Error("Failed to fetch product performance");
       return response.json();
@@ -231,7 +231,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
       if (dateTo) params.append("dateTo", dateTo);
       if (selectedChannelIds.length > 0) params.append("salesChannelIds", selectedChannelIds.join(','));
       const response = await fetch(`/api/analytics/sales-trend?${params}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        credentials: 'include',
       });
       if (!response.ok) throw new Error("Failed to fetch sales trend");
       return response.json();

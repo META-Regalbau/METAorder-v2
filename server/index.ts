@@ -1,5 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
+import cookieParser from "cookie-parser";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { setupAuth } from "./auth";
@@ -22,8 +23,28 @@ app.use(express.json({
   }
 }));
 app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
 
-// Session configuration
+// Security Headers
+app.use((_req, res, next) => {
+  // Prevent clickjacking
+  res.setHeader("X-Frame-Options", "DENY");
+  // Prevent MIME type sniffing
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  // Enable XSS protection
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  // Referrer Policy
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  // Content Security Policy
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'"
+  );
+  next();
+});
+
+// Session configuration with configurable timeout
+const sessionTimeout = parseInt(process.env.SESSION_TIMEOUT || '86400000', 10); // Default: 24 hours
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "dev-secret-change-in-production",
@@ -33,9 +54,9 @@ app.use(
       // Replit always uses HTTPS, so cookies must be secure even in development
       secure: true,
       httpOnly: true,
-      // Use "none" for Replit iframe/preview contexts where app may be cross-origin
-      sameSite: "none",
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      // Use "lax" for CSRF protection while still allowing same-site navigation
+      sameSite: "lax",
+      maxAge: sessionTimeout, // Configurable via SESSION_TIMEOUT env var
     },
   })
 );
@@ -44,6 +65,18 @@ app.use(
 const passport = setupAuth(storage);
 app.use(passport.initialize());
 app.use(passport.session());
+
+// CSRF Protection Middleware (Double-Submit Cookie Pattern)
+// Apply to all state-changing requests except login
+import { requireCsrf } from "./auth";
+app.use((req, res, next) => {
+  // Skip CSRF for login endpoint (no token exists yet)
+  if (req.path === '/api/auth/login') {
+    return next();
+  }
+  // Apply CSRF validation to all other POST/PUT/DELETE requests
+  requireCsrf(req, res, next);
+});
 
 app.use((req, res, next) => {
   const start = Date.now();

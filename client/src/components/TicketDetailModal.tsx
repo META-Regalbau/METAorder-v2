@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest, getAuthHeaders } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Ticket, TicketComment, User } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
@@ -42,9 +42,7 @@ export default function TicketDetailModal({
   const { data: comments = [], isLoading: commentsLoading } = useQuery<TicketComment[]>({
     queryKey: ['/api/tickets', ticket?.id, 'comments'],
     queryFn: async () => {
-      const response = await fetch(`/api/tickets/${ticket?.id}/comments`, {
-        headers: getAuthHeaders(),
-      });
+      const response = await fetch(`/api/tickets/${ticket?.id}/comments`);
       if (!response.ok) {
         throw new Error(await response.text());
       }
@@ -57,9 +55,7 @@ export default function TicketDetailModal({
   const { data: activityLogs = [], isLoading: activityLoading } = useQuery<any[]>({
     queryKey: ['/api/tickets', ticket?.id, 'activity'],
     queryFn: async () => {
-      const response = await fetch(`/api/tickets/${ticket?.id}/activity`, {
-        headers: getAuthHeaders(),
-      });
+      const response = await fetch(`/api/tickets/${ticket?.id}/activity`);
       if (!response.ok) {
         throw new Error(await response.text());
       }

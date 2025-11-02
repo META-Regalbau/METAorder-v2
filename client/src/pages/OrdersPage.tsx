@@ -10,7 +10,7 @@ import OrderDetailModal from "@/components/OrderDetailModal";
 import { SalesChannelSelector } from "@/components/SalesChannelSelector";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest, getAuthHeaders } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Order, OrderStatus, SalesChannel } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 
@@ -57,9 +57,7 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
   const { data: orders = [], isLoading, error, refetch } = useQuery<Order[]>({
     queryKey: ['/api/orders', selectedChannelIds],
     queryFn: async () => {
-      const response = await fetch(`/api/orders${salesChannelQuery}`, {
-        headers: getAuthHeaders(),
-      });
+      const response = await fetch(`/api/orders${salesChannelQuery}`);
       if (!response.ok) {
         throw new Error(await response.text());
       }

@@ -36,9 +36,20 @@ export function useNotifications() {
       return;
     }
 
-    const token = localStorage.getItem("token");
-    if (!token) {
-      console.error("[Notifications] No auth token available");
+    // Get token from cookie via API (cookies not accessible in JS due to httpOnly)
+    let token: string;
+    try {
+      const tokenResponse = await fetch("/api/auth/token", {
+        credentials: 'include',
+      });
+      if (!tokenResponse.ok) {
+        console.error("[Notifications] Failed to get auth token");
+        return;
+      }
+      const tokenData = await tokenResponse.json();
+      token = tokenData.token;
+    } catch (error) {
+      console.error("[Notifications] Error fetching token:", error);
       return;
     }
 

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import OrderDetailModal from "@/components/OrderDetailModal";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest, getAuthHeaders } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Order } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
@@ -72,9 +72,7 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
   const { data: orders = [], isLoading, error, refetch } = useQuery<DelayedOrder[]>({
     queryKey: ['/api/orders/delayed', daysThreshold],
     queryFn: async () => {
-      const response = await fetch(`/api/orders/delayed?days=${daysThreshold}`, {
-        headers: getAuthHeaders(),
-      });
+      const response = await fetch(`/api/orders/delayed?days=${daysThreshold}`);
       if (!response.ok) {
         throw new Error(await response.text());
       }

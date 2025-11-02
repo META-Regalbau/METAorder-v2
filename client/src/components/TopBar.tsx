@@ -31,8 +31,7 @@ export default function TopBar({ userRole, username, onLogout }: TopBarProps) {
       return response.json();
     },
     onSuccess: () => {
-      // Clear JWT token from localStorage
-      localStorage.removeItem("token");
+      // Cookie is cleared by backend, no localStorage cleanup needed
       
       // Clear auth query data to trigger immediate redirect to login
       queryClient.setQueryData(["/api/auth/me"], null);
