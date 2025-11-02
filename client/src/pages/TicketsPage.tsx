@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, User as UserIcon } from "lucide-react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,8 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
+  const [showMyTicketsOnly, setShowMyTicketsOnly] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(25);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -47,6 +49,17 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
       });
     }
   }, [userPermissions, canViewTickets, setLocation, toast, t]);
+
+  // Fetch current user
+  const { data: currentUser } = useQuery<{ user: User & { permissions: Role['permissions'] } }>({
+    queryKey: ['/api/auth/me'],
+  });
+
+  // Fetch users for assignee filter
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ['/api/tickets/assignees'],
+    enabled: canManageTickets,
+  });
 
   // Fetch tickets
   const { data: tickets = [], isLoading } = useQuery<Ticket[]>({
@@ -75,8 +88,15 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
       const matchesStatus = statusFilter === "all" || ticket.status === statusFilter;
       const matchesPriority = priorityFilter === "all" || ticket.priority === priorityFilter;
       const matchesCategory = categoryFilter === "all" || ticket.category === categoryFilter;
+      
+      const matchesAssignee = 
+        assigneeFilter === "all" || 
+        (assigneeFilter === "unassigned" && !ticket.assignedToUserId) ||
+        ticket.assignedToUserId === assigneeFilter;
 
-      return matchesSearch && matchesStatus && matchesPriority && matchesCategory;
+      const matchesMyTickets = !showMyTicketsOnly || ticket.assignedToUserId === currentUser?.user?.id;
+
+      return matchesSearch && matchesStatus && matchesPriority && matchesCategory && matchesAssignee && matchesMyTickets;
     })
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
@@ -92,6 +112,8 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
     statusFilter !== "all",
     priorityFilter !== "all",
     categoryFilter !== "all",
+    assigneeFilter !== "all",
+    showMyTicketsOnly,
   ].filter(Boolean).length;
 
   const getStatusBadgeVariant = (status: string) => {
@@ -194,6 +216,35 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
             </SelectContent>
           </Select>
 
+          {canManageTickets && users.length > 0 && (
+            <Select value={assigneeFilter} onValueChange={(value) => { setAssigneeFilter(value); resetPage(); }}>
+              <SelectTrigger className="w-[200px]" data-testid="select-assignee-filter">
+                <SelectValue placeholder={t('tickets.filterByAssignee')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('tickets.allAssignees')}</SelectItem>
+                <SelectItem value="unassigned">{t('tickets.unassigned')}</SelectItem>
+                {users.map((user) => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.username}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          <Button
+            variant={showMyTicketsOnly ? "default" : "outline"}
+            onClick={() => {
+              setShowMyTicketsOnly(!showMyTicketsOnly);
+              resetPage();
+            }}
+            data-testid="button-my-tickets"
+          >
+            <UserIcon className="h-4 w-4 mr-2" />
+            {t('tickets.myTickets')}
+          </Button>
+
           {activeFiltersCount > 0 && (
             <Button
               variant="outline"
@@ -201,6 +252,8 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
                 setStatusFilter("all");
                 setPriorityFilter("all");
                 setCategoryFilter("all");
+                setAssigneeFilter("all");
+                setShowMyTicketsOnly(false);
                 resetPage();
               }}
               data-testid="button-clear-filters"
@@ -262,8 +315,14 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
                     {t(`tickets.category${ticket.category.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join('')}`)}
                   </span>
                   {ticket.assignedToUserId && (
-                    <span data-testid={`text-assigned-${ticket.id}`}>
-                      {t('tickets.assignedTo')}: {ticket.assignedToUserId}
+                    <span data-testid={`text-assigned-${ticket.id}`} className="flex items-center gap-1">
+                      <UserIcon className="h-3 w-3" />
+                      {(ticket as any).assignedToUsername || ticket.assignedToUserId}
+                    </span>
+                  )}
+                  {!ticket.assignedToUserId && (
+                    <span data-testid={`text-unassigned-${ticket.id}`} className="text-muted-foreground">
+                      {t('tickets.unassigned')}
                     </span>
                   )}
                   {ticket.orderId && (
