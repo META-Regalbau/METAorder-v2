@@ -15,6 +15,7 @@ import type { Role } from "@shared/schema";
 
 const addUserSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
+  email: z.string().email("Please enter a valid email address").optional().or(z.literal("")),
   password: z.string().min(6, "Password must be at least 6 characters"),
   confirmPassword: z.string(),
   roleId: z.string().min(1, "Please select a role"),
@@ -40,6 +41,7 @@ export default function AddUserDialog({ onAddUser, availableRoles }: AddUserDial
     resolver: zodResolver(addUserSchema),
     defaultValues: {
       username: "",
+      email: "",
       password: "",
       confirmPassword: "",
       roleId: "",
@@ -81,6 +83,20 @@ export default function AddUserDialog({ onAddUser, availableRoles }: AddUserDial
                   <FormLabel className="font-medium">Username</FormLabel>
                   <FormControl>
                     <Input placeholder="Enter username" {...field} data-testid="input-username" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="font-medium">{t('users.email')}</FormLabel>
+                  <FormControl>
+                    <Input type="email" placeholder="user@example.com" {...field} data-testid="input-email" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

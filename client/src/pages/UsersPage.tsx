@@ -44,7 +44,7 @@ export default function UsersPage() {
   });
 
   const createUserMutation = useMutation({
-    mutationFn: async (userData: { username: string; password: string; roleId: string; salesChannelIds: string[] }) => {
+    mutationFn: async (userData: { username: string; email?: string; password: string; roleId: string; salesChannelIds: string[] }) => {
       const response = await apiRequest("POST", "/api/users", userData);
       if (!response.ok) {
         const error = await response.json();
@@ -118,7 +118,7 @@ export default function UsersPage() {
     },
   });
 
-  const handleAddUser = (userData: { username: string; password: string; roleId: string; salesChannelIds: string[] }) => {
+  const handleAddUser = (userData: { username: string; email?: string; password: string; roleId: string; salesChannelIds: string[] }) => {
     createUserMutation.mutate(userData);
   };
 
@@ -167,9 +167,9 @@ export default function UsersPage() {
           <TableHeader>
             <TableRow className="bg-muted/50">
               <TableHead className="font-medium">{t('users.username')}</TableHead>
+              <TableHead className="font-medium">{t('users.email')}</TableHead>
               <TableHead className="font-medium">{t('users.role')}</TableHead>
               <TableHead className="font-medium">{t('users.salesChannels')}</TableHead>
-              <TableHead className="font-medium">{t('users.userId')}</TableHead>
               <TableHead className="font-medium text-right">{t('common.actions')}</TableHead>
             </TableRow>
           </TableHeader>
@@ -181,6 +181,9 @@ export default function UsersPage() {
                 <TableRow key={user.id} className="hover-elevate" data-testid={`row-user-${user.id}`}>
                   <TableCell className="font-medium" data-testid={`text-username-${user.id}`}>
                     {user.username}
+                  </TableCell>
+                  <TableCell className="text-sm" data-testid={`text-email-${user.id}`}>
+                    {user.email || <span className="text-muted-foreground italic">{t('users.noEmail')}</span>}
                   </TableCell>
                   <TableCell>
                     <Badge 
@@ -202,9 +205,6 @@ export default function UsersPage() {
                         ))}
                       </div>
                     )}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground font-mono">
-                    {user.id}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">

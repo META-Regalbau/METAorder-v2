@@ -13,6 +13,7 @@ import type { User, Role } from "@shared/schema";
 
 const editUserSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
+  email: z.string().email("Please enter a valid email address").optional().or(z.literal("")),
   roleId: z.string().min(1, "Please select a role"),
   salesChannelIds: z.array(z.string()),
   password: z.string().optional(),
@@ -45,6 +46,7 @@ export default function EditUserDialog({ user, open, onClose, onUpdateUser, avai
     resolver: zodResolver(editUserSchema),
     values: user ? {
       username: user.username,
+      email: user.email || "",
       roleId: user.roleId,
       salesChannelIds: user.salesChannelIds || [],
       password: "",
@@ -82,6 +84,20 @@ export default function EditUserDialog({ user, open, onClose, onUpdateUser, avai
                   <FormLabel className="font-medium">Username</FormLabel>
                   <FormControl>
                     <Input placeholder="Enter username" {...field} data-testid="input-edit-username" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="font-medium">{t('users.email')}</FormLabel>
+                  <FormControl>
+                    <Input type="email" placeholder="user@example.com" {...field} data-testid="input-edit-email" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
