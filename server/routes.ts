@@ -1567,6 +1567,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get ticket counts for all orders
+  app.get("/api/orders/ticket-counts", requireAuth, async (req, res) => {
+    try {
+      const tickets = await storage.getAllTickets();
+      const ticketCounts: Record<string, number> = {};
+      
+      tickets.forEach(ticket => {
+        if (ticket.orderId) {
+          ticketCounts[ticket.orderId] = (ticketCounts[ticket.orderId] || 0) + 1;
+        }
+      });
+      
+      res.json(ticketCounts);
+    } catch (error) {
+      console.error("Error fetching ticket counts:", error);
+      res.status(500).json({ error: "Failed to fetch ticket counts" });
+    }
+  });
+
   // Create new ticket (requires manageTickets permission)
   app.post("/api/tickets", requireAuth, requireManageTickets, async (req, res) => {
     try {
