@@ -6,8 +6,8 @@ import passport from "passport";
 import { storage } from "./storage";
 import { ShopwareClient } from "./shopware";
 import { RuleEngine } from "./ruleEngine";
-import { shopwareSettingsSchema, insertCrossSellingRuleSchema, type Product, insertUserSchema, type Role } from "@shared/schema";
-import { requireAuth, requireViewDelayedOrders, requireManageUsers, requireManageRoles, requireManageSettings, requireManageCrossSellingGroups, requireManageCrossSellingRules } from "./auth";
+import { shopwareSettingsSchema, insertCrossSellingRuleSchema, type Product, insertUserSchema, type Role, insertTicketSchema, insertTicketCommentSchema } from "@shared/schema";
+import { requireAuth, requireViewDelayedOrders, requireManageUsers, requireManageRoles, requireManageSettings, requireManageCrossSellingGroups, requireManageCrossSellingRules, requireViewTickets, requireManageTickets } from "./auth";
 import * as XLSX from 'xlsx';
 import { generateToken } from "./jwt";
 
@@ -1482,6 +1482,206 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error fetching sales trend:", error);
       res.status(500).json({ error: error.message || "Failed to fetch sales trend" });
+    }
+  });
+
+  // ============================================
+  // Ticket Management Routes
+  // ============================================
+
+  // Get all tickets (requires viewTickets permission)
+  app.get("/api/tickets", requireAuth, requireViewTickets, async (req, res) => {
+    try {
+      const tickets = await storage.getAllTickets();
+      const users = await storage.getAllUsers();
+      
+      const ticketsWithDetails = tickets.map(ticket => {
+        const assignedUser = ticket.assignedToUserId 
+          ? users.find(u => u.id === ticket.assignedToUserId)
+          : null;
+        const createdByUser = ticket.createdByUserId 
+          ? users.find(u => u.id === ticket.createdByUserId)
+          : null;
+        
+        return {
+          ...ticket,
+          assignedToUsername: assignedUser?.username || null,
+          createdByUsername: createdByUser?.username || null,
+        };
+      });
+      
+      res.json(ticketsWithDetails);
+    } catch (error) {
+      console.error("Error fetching tickets:", error);
+      res.status(500).json({ error: "Failed to fetch tickets" });
+    }
+  });
+
+  // Get single ticket by ID
+  app.get("/api/tickets/:id", requireAuth, requireViewTickets, async (req, res) => {
+    try {
+      const ticket = await storage.getTicket(req.params.id);
+      if (!ticket) {
+        return res.status(404).json({ error: "Ticket not found" });
+      }
+      
+      const users = await storage.getAllUsers();
+      const assignedUser = ticket.assignedToUserId 
+        ? users.find(u => u.id === ticket.assignedToUserId)
+        : null;
+      const createdByUser = ticket.createdByUserId 
+        ? users.find(u => u.id === ticket.createdByUserId)
+        : null;
+      
+      res.json({
+        ...ticket,
+        assignedToUsername: assignedUser?.username || null,
+        createdByUsername: createdByUser?.username || null,
+      });
+    } catch (error) {
+      console.error("Error fetching ticket:", error);
+      res.status(500).json({ error: "Failed to fetch ticket" });
+    }
+  });
+
+  // Get tickets by order ID
+  app.get("/api/orders/:orderId/tickets", requireAuth, async (req, res) => {
+    try {
+      const tickets = await storage.getTicketsByOrderId(req.params.orderId);
+      res.json(tickets);
+    } catch (error) {
+      console.error("Error fetching tickets for order:", error);
+      res.status(500).json({ error: "Failed to fetch tickets" });
+    }
+  });
+
+  // Create new ticket (requires manageTickets permission)
+  app.post("/api/tickets", requireAuth, requireManageTickets, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const validated = insertTicketSchema.parse({
+        ...req.body,
+        createdByUserId: userId,
+      });
+      
+      const ticket = await storage.createTicket(validated);
+      res.status(201).json(ticket);
+    } catch (error: any) {
+      console.error("Error creating ticket:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: "Invalid ticket data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create ticket" });
+    }
+  });
+
+  // Update ticket (requires manageTickets permission)
+  app.patch("/api/tickets/:id", requireAuth, requireManageTickets, async (req, res) => {
+    try {
+      const validated = insertTicketSchema.partial().parse(req.body);
+      const updated = await storage.updateTicket(req.params.id, validated);
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Ticket not found" });
+      }
+      
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating ticket:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: "Invalid ticket data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update ticket" });
+    }
+  });
+
+  // Delete ticket (requires manageTickets permission)
+  app.delete("/api/tickets/:id", requireAuth, requireManageTickets, async (req, res) => {
+    try {
+      const success = await storage.deleteTicket(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Ticket not found" });
+      }
+      res.json({ message: "Ticket deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting ticket:", error);
+      res.status(500).json({ error: "Failed to delete ticket" });
+    }
+  });
+
+  // ============================================
+  // Ticket Comments Routes
+  // ============================================
+
+  // Get comments for a ticket
+  app.get("/api/tickets/:ticketId/comments", requireAuth, requireViewTickets, async (req, res) => {
+    try {
+      const comments = await storage.getTicketComments(req.params.ticketId);
+      const users = await storage.getAllUsers();
+      
+      const commentsWithUsernames = comments.map(comment => {
+        const user = users.find(u => u.id === comment.userId);
+        return {
+          ...comment,
+          username: user?.username || "Unknown",
+        };
+      });
+      
+      res.json(commentsWithUsernames);
+    } catch (error) {
+      console.error("Error fetching ticket comments:", error);
+      res.status(500).json({ error: "Failed to fetch comments" });
+    }
+  });
+
+  // Create comment on a ticket
+  app.post("/api/tickets/:ticketId/comments", requireAuth, requireViewTickets, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const validated = insertTicketCommentSchema.parse({
+        ticketId: req.params.ticketId,
+        userId,
+        comment: req.body.comment,
+        isInternal: req.body.isInternal || 0,
+      });
+      
+      const comment = await storage.createTicketComment(validated);
+      res.status(201).json(comment);
+    } catch (error: any) {
+      console.error("Error creating comment:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: "Invalid comment data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create comment" });
+    }
+  });
+
+  // Delete comment (requires manageTickets permission)
+  app.delete("/api/tickets/:ticketId/comments/:commentId", requireAuth, requireManageTickets, async (req, res) => {
+    try {
+      const success = await storage.deleteTicketComment(req.params.commentId);
+      if (!success) {
+        return res.status(404).json({ error: "Comment not found" });
+      }
+      res.json({ message: "Comment deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      res.status(500).json({ error: "Failed to delete comment" });
+    }
+  });
+
+  // ============================================
+  // Ticket Attachments Routes
+  // ============================================
+
+  // Get attachments for a ticket
+  app.get("/api/tickets/:ticketId/attachments", requireAuth, requireViewTickets, async (req, res) => {
+    try {
+      const attachments = await storage.getTicketAttachments(req.params.ticketId);
+      res.json(attachments);
+    } catch (error) {
+      console.error("Error fetching ticket attachments:", error);
+      res.status(500).json({ error: "Failed to fetch attachments" });
     }
   });
 

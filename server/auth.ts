@@ -154,6 +154,8 @@ export const requireManageRoles = requirePermission("manageRoles");
 export const requireManageSettings = requirePermission("manageSettings");
 export const requireManageCrossSellingGroups = requirePermission("manageCrossSellingGroups");
 export const requireManageCrossSellingRules = requirePermission("manageCrossSellingRules");
+export const requireViewTickets = requirePermission("viewTickets");
+export const requireManageTickets = requirePermission("manageTickets");
 
 // Legacy middleware - kept for backwards compatibility
 // Prefer using permission-based checks (requireManageUsers, requireManageRoles, etc.)
