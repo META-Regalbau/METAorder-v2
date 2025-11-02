@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { RefreshCw, Search } from "lucide-react";
+import { RefreshCw, Search, ChevronDown, ChevronUp, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import OrderFilters from "@/components/OrderFilters";
 import OrdersTable from "@/components/OrdersTable";
 import OrderDetailModal from "@/components/OrderDetailModal";
@@ -30,6 +31,7 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
   const [itemsPerPage, setItemsPerPage] = useState("25");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Fetch sales channels to initialize selection
   const { data: salesChannels = [] } = useQuery<SalesChannel[]>({
@@ -198,12 +200,36 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
   };
 
   return (
-    <div className="flex gap-6">
-      {/* Filters Sidebar */}
-      <aside className="w-64 flex-shrink-0">
-        <div className="sticky top-6">
-          <div className="mb-4">
-            <div className="relative">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold mb-1">{t('orders.title')}</h1>
+          <p className="text-sm text-muted-foreground">
+            {isLoading ? t('common.loading') : t('orders.showing', { count: filteredOrders.length, total: orders.length })}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <SalesChannelSelector
+            selectedChannelIds={selectedChannelIds}
+            onSelectionChange={handleChannelSelectionChange}
+            userAllowedChannelIds={userSalesChannelIds}
+            isAdmin={userRole === "admin"}
+          />
+          <Button variant="outline" onClick={handleRefresh} disabled={isLoading} data-testid="button-refresh-orders">
+            <RefreshCw className={`h-4 w-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">{t('common.refresh')}</span>
+          </Button>
+        </div>
+      </div>
+
+      {/* Filters Section */}
+      <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <div className="space-y-4">
+          {/* Search Bar - Always Visible */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
@@ -214,50 +240,44 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
                 data-testid="input-search-orders"
               />
             </div>
-          </div>
-          
-          <OrderFilters
-            statusFilter={statusFilter}
-            onStatusFilterChange={(value) => setStatusFilter(value as OrderStatus | "all")}
-            dateFrom={dateFrom}
-            dateTo={dateTo}
-            onDateFromChange={setDateFrom}
-            onDateToChange={setDateTo}
-            onClearFilters={() => {
-              setStatusFilter("all");
-              setDateFrom("");
-              setDateTo("");
-              setSearchValue("");
-              resetPage();
-            }}
-            activeFiltersCount={activeFiltersCount}
-          />
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 min-w-0">
-        <div className="mb-6 flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold mb-1">{t('orders.title')}</h1>
-            <p className="text-sm text-muted-foreground">
-              {isLoading ? t('common.loading') : t('orders.showing', { count: filteredOrders.length, total: orders.length })}
-            </p>
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" className="gap-2" data-testid="button-toggle-filters">
+                <Filter className="h-4 w-4" />
+                <span className="hidden sm:inline">{t('common.filters')}</span>
+                {activeFiltersCount > 0 && (
+                  <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
+                    {activeFiltersCount}
+                  </span>
+                )}
+                {filtersOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+            </CollapsibleTrigger>
           </div>
 
-          <div className="flex items-center gap-2">
-            <SalesChannelSelector
-              selectedChannelIds={selectedChannelIds}
-              onSelectionChange={handleChannelSelectionChange}
-              userAllowedChannelIds={userSalesChannelIds}
-              isAdmin={userRole === "admin"}
+          {/* Collapsible Filter Panel */}
+          <CollapsibleContent>
+            <OrderFilters
+              statusFilter={statusFilter}
+              onStatusFilterChange={(value) => setStatusFilter(value as OrderStatus | "all")}
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={setDateFrom}
+              onDateToChange={setDateTo}
+              onClearFilters={() => {
+                setStatusFilter("all");
+                setDateFrom("");
+                setDateTo("");
+                setSearchValue("");
+                resetPage();
+              }}
+              activeFiltersCount={activeFiltersCount}
             />
-            <Button variant="outline" onClick={handleRefresh} disabled={isLoading} data-testid="button-refresh-orders">
-              <RefreshCw className={`h-4 w-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
-              {t('common.refresh')}
-            </Button>
-          </div>
+          </CollapsibleContent>
         </div>
+      </Collapsible>
+
+      {/* Orders Table */}
+      <div>
 
         <OrdersTable
           orders={paginatedOrders}
@@ -265,83 +285,88 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
           isLoading={isLoading}
           ticketCounts={ticketCounts}
         />
+      </div>
 
-        <div className="mt-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">{t('common.show')}</span>
-            <Select value={itemsPerPage} onValueChange={(value) => {
-              setItemsPerPage(value);
-              setCurrentPage(1);
-            }}>
-              <SelectTrigger className="w-20" data-testid="select-items-per-page">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="10">10</SelectItem>
-                <SelectItem value="25">25</SelectItem>
-                <SelectItem value="50">50</SelectItem>
-                <SelectItem value="100">100</SelectItem>
-              </SelectContent>
-            </Select>
-            <span className="text-sm text-muted-foreground">{t('common.itemsPerPage')}</span>
-          </div>
-          
-          {totalPages > 1 && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">
-                {t('common.page')} {currentPage} {t('common.of')} {totalPages}
-              </span>
-              <div className="flex gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(1)}
-                  disabled={currentPage === 1}
-                  data-testid="button-first-page"
-                >
-                  {t('common.first')}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  data-testid="button-prev-page"
-                >
-                  {t('common.previous')}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  data-testid="button-next-page"
-                >
-                  {t('common.next')}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(totalPages)}
-                  disabled={currentPage === totalPages}
-                  data-testid="button-last-page"
-                >
-                  {t('common.last')}
-                </Button>
-              </div>
-            </div>
-          )}
+      {/* Pagination */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">{t('common.show')}</span>
+          <Select value={itemsPerPage} onValueChange={(value) => {
+            setItemsPerPage(value);
+            setCurrentPage(1);
+          }}>
+            <SelectTrigger className="w-20" data-testid="select-items-per-page">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10">10</SelectItem>
+              <SelectItem value="25">25</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+              <SelectItem value="100">100</SelectItem>
+            </SelectContent>
+          </Select>
+          <span className="text-sm text-muted-foreground">{t('common.itemsPerPage')}</span>
         </div>
+        
+        {totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              {t('common.page')} {currentPage} {t('common.of')} {totalPages}
+            </span>
+            <div className="flex gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1}
+                data-testid="button-first-page"
+              >
+                <span className="hidden sm:inline">{t('common.first')}</span>
+                <span className="sm:hidden">«</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                data-testid="button-prev-page"
+              >
+                <span className="hidden sm:inline">{t('common.previous')}</span>
+                <span className="sm:hidden">‹</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                data-testid="button-next-page"
+              >
+                <span className="hidden sm:inline">{t('common.next')}</span>
+                <span className="sm:hidden">›</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages}
+                data-testid="button-last-page"
+              >
+                <span className="hidden sm:inline">{t('common.last')}</span>
+                <span className="sm:hidden">»</span>
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
 
-        <OrderDetailModal
-          order={selectedOrder}
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          userRole={userRole}
-          onUpdateShipping={handleUpdateShipping}
-          onUpdateDocuments={handleUpdateDocuments}
-        />
-      </main>
+      <OrderDetailModal
+        order={selectedOrder}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        userRole={userRole}
+        onUpdateShipping={handleUpdateShipping}
+        onUpdateDocuments={handleUpdateDocuments}
+      />
     </div>
   );
 }

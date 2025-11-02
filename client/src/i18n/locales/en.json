@@ -2,6 +2,7 @@
   "common": {
     "search": "Search",
     "filter": "Filter",
+    "filters": "Filters",
     "clear": "Clear",
     "save": "Save",
     "cancel": "Cancel",
