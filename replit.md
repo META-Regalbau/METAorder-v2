@@ -20,7 +20,7 @@ The backend is a **REST API** built with **Node.js**, **Express.js**, and **Type
 
 ### Database Design
 
-The system uses **PostgreSQL** with **Drizzle ORM** for schema definition and **Drizzle Kit** for migrations. The schema includes tables for Users, Roles, Settings, and Cross-Selling Rules, with JSONB fields for flexible data storage.
+The system uses **PostgreSQL** with **Drizzle ORM** for schema definition and **Drizzle Kit** for migrations. The schema includes tables for Users, Roles, Settings, Cross-Selling Rules, and the complete Ticketing System (Tickets, Ticket Comments, Ticket Attachments), with JSONB fields for flexible data storage.
 
 ### Authentication & Authorization
 
@@ -37,10 +37,11 @@ The UI adheres to **Material Design principles** and **Roboto typography**, prio
 ### Key Features
 
 -   **Order Management**: View, track, and update order details, including shipping information which automatically updates Shopware. Displays dual status badges for order processing and payment status.
+-   **Ticketing System**: Fully integrated ticketing system with permission-based access (viewTickets, manageTickets). Features include ticket creation (with optional order linking), status and priority management, user assignment, internal/public comments, filtering, search, and pagination. Tickets can be created directly from OrderDetailModal for seamless order-to-ticket workflows.
 -   **User & Role Management**: Comprehensive CRUD operations for users and roles with permission-based access control.
 -   **Order Export**: Role-based export functionality (CSV, Excel, JSON) with customizable columns, date range filtering, and sales channel restrictions.
 -   **Analytics Dashboard**: Admin-only comprehensive analytics dashboard with real-time KPIs, interactive charts (Recharts), date range filtering (7/30/90 days, custom), and export functionality. Displays order/payment status distribution, product overview, category sales, best/worst sellers, and sales trends.
--   **Internationalization**: Full i18n support across the application for order statuses, filter panels, analytics, and general UI elements in German, English, and Spanish.
+-   **Internationalization**: Full i18n support across the application for order statuses, filter panels, analytics, ticketing system, and general UI elements in German, English, and Spanish.
 
 ## External Dependencies
 
