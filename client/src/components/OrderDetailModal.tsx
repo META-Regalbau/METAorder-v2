@@ -1,4 +1,5 @@
-import { X, FileDown, Loader2 } from "lucide-react";
+import { X, FileDown, Loader2, Ticket } from "lucide-react";
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
@@ -8,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import StatusBadge from "./StatusBadge";
 import ShippingInfoForm from "./ShippingInfoForm";
 import AdminDocumentForm from "./AdminDocumentForm";
+import CreateTicketDialog from "./CreateTicketDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import type { Order } from "@shared/schema";
@@ -33,6 +35,7 @@ export default function OrderDetailModal({
 }: OrderDetailModalProps) {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
+  const [isCreateTicketDialogOpen, setIsCreateTicketDialogOpen] = useState(false);
 
   // Fetch documents for this order - must be before early return
   const { data: documents, isLoading: documentsLoading, error: documentsError } = useQuery<Array<{
@@ -85,11 +88,24 @@ export default function OrderDetailModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="modal-order-detail">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-2xl font-semibold">
-              {t('orderDetail.title', { orderNumber: order.orderNumber })}
-            </DialogTitle>
-            <StatusBadge status={order.status} />
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <DialogTitle className="text-2xl font-semibold">
+                {t('orderDetail.title', { orderNumber: order.orderNumber })}
+              </DialogTitle>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsCreateTicketDialogOpen(true)}
+                data-testid="button-create-ticket-from-order"
+              >
+                <Ticket className="h-4 w-4 mr-2" />
+                {t('tickets.createTicket')}
+              </Button>
+              <StatusBadge status={order.status} />
+            </div>
           </div>
         </DialogHeader>
 
@@ -348,6 +364,12 @@ export default function OrderDetailModal({
           )}
         </Tabs>
       </DialogContent>
+
+      <CreateTicketDialog
+        isOpen={isCreateTicketDialogOpen}
+        onClose={() => setIsCreateTicketDialogOpen(false)}
+        linkedOrder={order}
+      />
     </Dialog>
   );
 }
