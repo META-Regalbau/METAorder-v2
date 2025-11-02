@@ -5,14 +5,19 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import TicketDetailModal from "@/components/TicketDetailModal";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { getAuthHeaders } from "@/lib/queryClient";
-import type { Ticket } from "@shared/schema";
+import type { Ticket, User, Role } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
 
-export default function TicketsPage() {
+interface TicketsPageProps {
+  userPermissions: Role['permissions'];
+}
+
+export default function TicketsPage({ userPermissions }: TicketsPageProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const [searchValue, setSearchValue] = useState("");
@@ -21,6 +26,10 @@ export default function TicketsPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(25);
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+  const canManageTickets = userPermissions?.manageTickets || false;
 
   // Fetch tickets
   const { data: tickets = [], isLoading } = useQuery<Ticket[]>({
@@ -220,7 +229,10 @@ export default function TicketsPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => {/* TODO: Open ticket detail modal */}}
+                    onClick={() => {
+                      setSelectedTicket(ticket);
+                      setIsDetailModalOpen(true);
+                    }}
                     data-testid={`button-view-ticket-${ticket.id}`}
                   >
                     {t('tickets.viewDetails')}
@@ -299,6 +311,16 @@ export default function TicketsPage() {
           </div>
         </div>
       )}
+
+      <TicketDetailModal
+        ticket={selectedTicket}
+        isOpen={isDetailModalOpen}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedTicket(null);
+        }}
+        canManageTickets={canManageTickets}
+      />
     </div>
   );
 }

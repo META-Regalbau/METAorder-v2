@@ -28,17 +28,19 @@ import { useState } from "react";
 
 function Router({ 
   userRole, 
-  userSalesChannelIds 
+  userSalesChannelIds,
+  userPermissions 
 }: { 
   userRole: "employee" | "admin";
   userSalesChannelIds?: string[] | null;
+  userPermissions: Role['permissions'];
 }) {
   return (
     <Switch>
       <Route path="/" component={() => <OrdersPage userRole={userRole} userSalesChannelIds={userSalesChannelIds} />} />
       <Route path="/delayed" component={() => <DelayedOrdersPage userRole={userRole} />} />
       <Route path="/products" component={ProductsPage} />
-      <Route path="/tickets" component={TicketsPage} />
+      <Route path="/tickets" component={() => <TicketsPage userPermissions={userPermissions} />} />
       <Route path="/cross-selling-rules" component={CrossSellingRulesPage} />
       <Route path="/export" component={ExportPage} />
       <Route path="/analytics" component={() => <AnalyticsPage userRole={userRole} userSalesChannelIds={userSalesChannelIds} />} />
@@ -102,7 +104,8 @@ function AuthenticatedApp() {
             <main className="flex-1 overflow-auto p-6 bg-background">
               <Router 
                 userRole={user.role as "employee" | "admin"} 
-                userSalesChannelIds={user.salesChannelIds} 
+                userSalesChannelIds={user.salesChannelIds}
+                userPermissions={user.permissions}
               />
             </main>
           </div>
