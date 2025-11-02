@@ -4,6 +4,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import passport from "passport";
 import rateLimit from "express-rate-limit";
+import crypto from "crypto";
 import { storage } from "./storage";
 import { ShopwareClient } from "./shopware";
 import { RuleEngine } from "./ruleEngine";
@@ -128,20 +129,24 @@ async function assignTicketAutomatically(ticket: Ticket): Promise<string | null>
 export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
   app.post("/api/auth/login", loginRateLimiter, (req, res, next) => {
+    console.log('[LOGIN] Login request received', { username: req.body?.username });
     passport.authenticate("local", (err: any, user: any, info: any) => {
+      console.log('[LOGIN] Passport authenticate callback', { err: !!err, user: !!user, info });
       if (err) {
+        console.error('[LOGIN] Authentication error:', err);
         return res.status(500).json({ error: "Internal server error" });
       }
       
       if (!user) {
+        console.log('[LOGIN] No user found, invalid credentials');
         return res.status(401).json({ error: info?.message || "Invalid credentials" });
       }
       
+      console.log('[LOGIN] User authenticated successfully, generating tokens');
       // Generate JWT token
       const token = generateToken(user);
       
       // Generate CSRF token for Double-Submit Cookie Pattern
-      const crypto = require('crypto');
       const csrfToken = crypto.randomBytes(32).toString('hex');
       
       // Set JWT token in httpOnly cookie (XSS-safe)

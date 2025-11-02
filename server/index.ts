@@ -72,6 +72,7 @@ import { requireCsrf } from "./auth";
 app.use((req, res, next) => {
   // Skip CSRF for login endpoint (no token exists yet)
   if (req.path === '/api/auth/login') {
+    console.log('[CSRF] Skipping CSRF check for login endpoint');
     return next();
   }
   // Apply CSRF validation to all other POST/PUT/DELETE requests

@@ -71,12 +71,40 @@ export function setupAuth(storage: IStorage) {
   return passport;
 }
 
-// Middleware to validate CSRF token (Double-Submit Cookie Pattern)
+// Middleware to validate CSRF token (Double-Submit Cookie Pattern + Origin/Referer validation)
 // Must be used after requireAuth for state-changing requests (POST/PUT/DELETE)
 export function requireCsrf(req: any, res: any, next: any) {
   // Skip CSRF check for GET/HEAD/OPTIONS requests (they shouldn't modify state)
   if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
     return next();
+  }
+  
+  // Validate Origin or Referer header to prevent CSRF
+  const origin = req.headers.origin || req.headers.referer;
+  
+  // Extract hostname from origin/referer
+  let requestOrigin = origin;
+  if (origin) {
+    try {
+      const url = new URL(origin);
+      requestOrigin = `${url.protocol}//${url.host}`;
+    } catch (e) {
+      // If parsing fails, use as-is
+    }
+  }
+  
+  // Check if origin is allowed
+  // Allow: localhost, *.replit.dev, *.replit.app, or configured APP_URL
+  const isOriginAllowed = 
+    !requestOrigin || // No origin header (same-origin)
+    requestOrigin.includes('localhost') ||
+    requestOrigin.includes('.replit.dev') ||
+    requestOrigin.includes('.replit.app') ||
+    (process.env.APP_URL && requestOrigin.startsWith(process.env.APP_URL));
+  
+  if (!isOriginAllowed) {
+    console.warn(`[CSRF] Rejected request from origin: ${requestOrigin}`);
+    return res.status(403).json({ error: "Invalid origin" });
   }
   
   // Get CSRF token from header
