@@ -1,4 +1,4 @@
-import { X, Send, Trash2, Link as LinkIcon } from "lucide-react";
+import { X, Send, Trash2, Link as LinkIcon, Clock } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,6 +17,7 @@ import type { Ticket, TicketComment, User } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
 import TagInput from "@/components/TagInput";
+import { DatePicker } from "@/components/ui/date-picker";
 
 interface TicketDetailModalProps {
   ticket: Ticket | null;
@@ -338,6 +339,16 @@ export default function TicketDetailModal({
                           </SelectContent>
                         </Select>
                       </div>
+                    </div>
+
+                    <div className="space-y-2 mt-4">
+                      <Label>{t('tickets.dueDate')}</Label>
+                      <DatePicker
+                        date={ticket.dueDate ? new Date(ticket.dueDate) : undefined}
+                        onDateChange={(date) => updateTicketMutation.mutate({ dueDate: date })}
+                        placeholder={t('tickets.dueDatePlaceholder')}
+                        testId="input-due-date-edit"
+                      />
                     </div>
                   </CardContent>
                 </Card>

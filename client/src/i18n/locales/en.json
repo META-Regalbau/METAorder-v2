@@ -552,6 +552,11 @@
     "activity.description_changed": "changed description",
     "activity.tags_changed": "changed tags",
     "activity.due_date_changed": "changed due date",
-    "activity.empty": "Empty"
+    "activity.empty": "Empty",
+    "dueDate": "Due Date",
+    "dueDatePlaceholder": "Select due date",
+    "overdue": "Overdue",
+    "dueToday": "Due today",
+    "dueSoon": "Due soon"
   }
 }

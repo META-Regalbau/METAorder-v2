@@ -145,6 +145,24 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
     }
   };
 
+  const getDueDateInfo = (dueDate: Date | null) => {
+    if (!dueDate) return null;
+    
+    const now = new Date();
+    const due = new Date(dueDate);
+    const diffMs = due.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) {
+      return { label: t('tickets.overdue'), variant: 'destructive' as const };
+    } else if (diffDays === 0) {
+      return { label: t('tickets.dueToday'), variant: 'default' as const };
+    } else if (diffDays <= 3) {
+      return { label: t('tickets.dueSoon'), variant: 'outline' as const };
+    }
+    return null;
+  };
+
   return (
     <div className="max-w-7xl">
       <div className="mb-6">
@@ -315,6 +333,14 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
                       <Badge variant={getStatusBadgeVariant(ticket.status)} data-testid={`badge-status-${ticket.id}`}>
                         {t(`tickets.status${ticket.status.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join('')}`)}
                       </Badge>
+                      {(() => {
+                        const dueDateInfo = getDueDateInfo(ticket.dueDate);
+                        return dueDateInfo ? (
+                          <Badge variant={dueDateInfo.variant} data-testid={`badge-due-date-${ticket.id}`}>
+                            {dueDateInfo.label}
+                          </Badge>
+                        ) : null;
+                      })()}
                     </div>
                     <CardTitle className="text-base" data-testid={`text-subject-${ticket.id}`}>
                       {ticket.title}

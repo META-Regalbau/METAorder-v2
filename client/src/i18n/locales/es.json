@@ -551,6 +551,11 @@
     "activity.description_changed": "cambió la descripción",
     "activity.tags_changed": "cambió las etiquetas",
     "activity.due_date_changed": "cambió la fecha de vencimiento",
-    "activity.empty": "Vacío"
+    "activity.empty": "Vacío",
+    "dueDate": "Fecha de Vencimiento",
+    "dueDatePlaceholder": "Seleccionar fecha de vencimiento",
+    "overdue": "Vencido",
+    "dueToday": "Vence hoy",
+    "dueSoon": "Vence pronto"
   }
 }

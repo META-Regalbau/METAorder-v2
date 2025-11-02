@@ -541,6 +541,11 @@
     "activity.description_changed": "hat die Beschreibung geändert",
     "activity.tags_changed": "hat die Tags geändert",
     "activity.due_date_changed": "hat das Fälligkeitsdatum geändert",
-    "activity.empty": "Leer"
+    "activity.empty": "Leer",
+    "dueDate": "Fälligkeitsdatum",
+    "dueDatePlaceholder": "Fälligkeitsdatum auswählen",
+    "overdue": "Überfällig",
+    "dueToday": "Heute fällig",
+    "dueSoon": "Bald fällig"
   }
 }

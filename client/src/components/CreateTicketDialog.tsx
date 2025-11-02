@@ -11,6 +11,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTranslation } from "react-i18next";
 import type { Order } from "@shared/schema";
 import TagInput from "@/components/TagInput";
+import { DatePicker } from "@/components/ui/date-picker";
 
 interface CreateTicketDialogProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ export default function CreateTicketDialog({
   const [priority, setPriority] = useState("normal");
   const [category, setCategory] = useState("general");
   const [tags, setTags] = useState<string[]>([]);
+  const [dueDate, setDueDate] = useState<Date | undefined>();
 
   const createTicketMutation = useMutation({
     mutationFn: async (data: {
@@ -39,6 +41,7 @@ export default function CreateTicketDialog({
       priority: string;
       category: string;
       tags?: string[];
+      dueDate?: Date;
       orderId?: string;
       orderNumber?: string;
     }) => {
@@ -68,6 +71,7 @@ export default function CreateTicketDialog({
     setPriority("normal");
     setCategory("general");
     setTags([]);
+    setDueDate(undefined);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -88,6 +92,7 @@ export default function CreateTicketDialog({
       priority,
       category,
       tags: tags.length > 0 ? tags : undefined,
+      dueDate,
       orderId: linkedOrder?.id,
       orderNumber: linkedOrder?.orderNumber,
     });
@@ -187,6 +192,16 @@ export default function CreateTicketDialog({
               onTagsChange={setTags}
               placeholder={t('tickets.tagPlaceholder')}
               suggestions={['urgent', 'bug', 'feature', 'documentation', 'question', 'enhancement']}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>{t('tickets.dueDate')}</Label>
+            <DatePicker
+              date={dueDate}
+              onDateChange={setDueDate}
+              placeholder={t('tickets.dueDatePlaceholder')}
+              testId="input-due-date"
             />
           </div>
 
