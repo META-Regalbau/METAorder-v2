@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -100,6 +100,9 @@ export default function CreateTicketDialog({
       <DialogContent className="max-w-2xl" data-testid="dialog-create-ticket">
         <DialogHeader>
           <DialogTitle>{t('tickets.createTicket')}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {t('tickets.createTicket')}
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">

@@ -1,6 +1,6 @@
 import { X, Send, Trash2, Link as LinkIcon } from "lucide-react";
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -197,6 +197,9 @@ export default function TicketDetailModal({
               <DialogTitle className="text-2xl font-semibold" data-testid="text-ticket-title">
                 {ticket.title}
               </DialogTitle>
+              <DialogDescription className="sr-only">
+                {t('tickets.viewDetails')}
+              </DialogDescription>
             </div>
             {canManageTickets && (
               <Button
