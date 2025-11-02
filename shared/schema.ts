@@ -312,6 +312,10 @@ export const tickets = pgTable("tickets", {
   orderNumber: text("order_number"), // Denormalized for display
   assignedToUserId: varchar("assigned_to_user_id").references(() => users.id),
   createdByUserId: varchar("created_by_user_id").references(() => users.id),
+  dueDate: timestamp("due_date"), // Fälligkeitsdatum/SLA
+  tags: text("tags").array(), // Ticket tags/labels
+  emailSubject: text("email_subject"), // Original email subject if created from email
+  emailFrom: text("email_from"), // Original email sender if created from email
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   resolvedAt: timestamp("resolved_at"),
@@ -338,6 +342,30 @@ export const ticketAttachments = pgTable("ticket_attachments", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const ticketActivityLog = pgTable("ticket_activity_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ticketId: varchar("ticket_id").notNull().references(() => tickets.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  action: text("action").notNull(), // e.g., "status_changed", "assigned", "priority_changed", "tag_added"
+  fieldName: text("field_name"), // Which field was changed
+  oldValue: text("old_value"), // Previous value (as JSON string if complex)
+  newValue: text("new_value"), // New value (as JSON string if complex)
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const ticketAssignmentRules = pgTable("ticket_assignment_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  active: integer("active").notNull().default(1), // 1 = active, 0 = inactive
+  priority: integer("priority").notNull().default(0), // Higher number = higher priority
+  assignmentType: text("assignment_type").notNull(), // "round_robin" or "rule_based"
+  conditions: text("conditions"), // JSON string of conditions for rule_based
+  assignToUserId: varchar("assign_to_user_id").references(() => users.id), // For specific assignment
+  assignToRoleId: varchar("assign_to_role_id").references(() => roles.id), // For role-based assignment
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const insertTicketSchema = createInsertSchema(tickets).omit({
   id: true,
   ticketNumber: true,
@@ -361,9 +389,24 @@ export const insertTicketAttachmentSchema = createInsertSchema(ticketAttachments
   createdAt: true,
 });
 
+export const insertTicketActivityLogSchema = createInsertSchema(ticketActivityLog).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertTicketAssignmentRuleSchema = createInsertSchema(ticketAssignmentRules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export type InsertTicket = z.infer<typeof insertTicketSchema>;
 export type Ticket = typeof tickets.$inferSelect;
 export type InsertTicketComment = z.infer<typeof insertTicketCommentSchema>;
 export type TicketComment = typeof ticketComments.$inferSelect;
 export type InsertTicketAttachment = z.infer<typeof insertTicketAttachmentSchema>;
 export type TicketAttachment = typeof ticketAttachments.$inferSelect;
+export type InsertTicketActivityLog = z.infer<typeof insertTicketActivityLogSchema>;
+export type TicketActivityLog = typeof ticketActivityLog.$inferSelect;
+export type InsertTicketAssignmentRule = z.infer<typeof insertTicketAssignmentRuleSchema>;
+export type TicketAssignmentRule = typeof ticketAssignmentRules.$inferSelect;
