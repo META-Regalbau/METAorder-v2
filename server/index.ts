@@ -45,6 +45,17 @@ app.use((_req, res, next) => {
 
 // Session configuration with configurable timeout
 const sessionTimeout = parseInt(process.env.SESSION_TIMEOUT || '86400000', 10); // Default: 24 hours
+
+// Check for required secrets in production
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.SESSION_SECRET) {
+    console.error('[SECURITY WARNING] SESSION_SECRET not set! Using insecure default. Set SESSION_SECRET environment variable!');
+  }
+  if (!process.env.ENCRYPTION_KEY) {
+    console.error('[SECURITY WARNING] ENCRYPTION_KEY not set! Shopware credentials will be encrypted with default key. Set ENCRYPTION_KEY environment variable!');
+  }
+}
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "dev-secret-change-in-production",

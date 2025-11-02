@@ -2,7 +2,7 @@
 
 ## Overview
 
-METAorder is an internal order management system designed to streamline the processing and tracking of e-commerce orders originating from Shopware. Its primary purpose is to provide a centralized, efficient interface for employees and administrators to manage orders, update shipping information, handle document numbers, and monitor order statuses. The system aims to enhance operational efficiency through an information-dense, Material Design-inspired UI, capable of handling data-heavy workflows and supporting multi-language operations. Key capabilities include comprehensive order viewing, detailed product information display, management of cross-selling (both manual and automated), robust user and role management with granular permissions, and full internationalization support.
+METAorder is an internal order management system designed to streamline the processing and tracking of e-commerce orders originating from Shopware. Its primary purpose is to provide a centralized, efficient interface for employees and administrators to manage orders, update shipping information, handle document numbers, and monitor order statuses. The system aims to enhance operational efficiency through an information-dense, Material Design-inspired UI, capable of handling data-heavy workflows and supporting multi-language operations. Key capabilities include comprehensive order viewing, detailed product information display, management of cross-selling (both manual and automated), robust user and role management with granular permissions, full internationalization support, and comprehensive security features including cookie-based authentication, CSRF protection, and encryption-at-rest for API credentials.
 
 ## User Preferences
 
@@ -24,7 +24,14 @@ The system uses **PostgreSQL** with **Drizzle ORM** for schema definition and **
 
 ### Authentication & Authorization
 
-The system implements **Role-Based Access Control (RBAC)** with granular, permission-based authorization. Authentication is **JWT-based**, with tokens issued upon login and validated for all protected routes, ensuring secure access and addressing third-party cookie restrictions. User passwords are hashed using bcryptjs.
+The system implements **Role-Based Access Control (RBAC)** with granular, permission-based authorization. Authentication is **JWT-based with httpOnly cookies**, with tokens issued upon login (stored in secure, httpOnly cookies) and validated for all protected routes. The system features comprehensive security measures:
+- **Cookie-Based Auth**: JWT tokens in httpOnly cookies (XSS-safe, sameSite='lax')
+- **CSRF Protection**: Double-Submit Cookie Pattern with Origin/Referer validation
+- **Rate Limiting**: Login endpoint limited to 5 attempts per 15 minutes (IP-based)
+- **Encryption-at-Rest**: Shopware API credentials encrypted with AES-256-GCM
+- **Security Headers**: X-Frame-Options, X-Content-Type-Options, CSP, Referrer-Policy
+- **Session Timeout**: Configurable via SESSION_TIMEOUT env var (default: 24 hours)
+- User passwords are hashed using bcryptjs.
 
 ### Design Patterns
 
