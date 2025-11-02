@@ -14,6 +14,8 @@ import {
   type InsertTicketAttachment,
   type TicketActivityLog,
   type InsertTicketActivityLog,
+  type TicketAssignmentRule,
+  type InsertTicketAssignmentRule,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -77,6 +79,14 @@ export interface IStorage {
   // Ticket Activity Log
   getTicketActivityLog(ticketId: string): Promise<TicketActivityLog[]>;
   createTicketActivityLog(log: InsertTicketActivityLog): Promise<TicketActivityLog>;
+  
+  // Ticket Assignment Rules
+  getAllTicketAssignmentRules(): Promise<TicketAssignmentRule[]>;
+  getActiveTicketAssignmentRules(): Promise<TicketAssignmentRule[]>;
+  getTicketAssignmentRule(id: string): Promise<TicketAssignmentRule | undefined>;
+  createTicketAssignmentRule(rule: InsertTicketAssignmentRule): Promise<TicketAssignmentRule>;
+  updateTicketAssignmentRule(id: string, updates: Partial<InsertTicketAssignmentRule>): Promise<TicketAssignmentRule | undefined>;
+  deleteTicketAssignmentRule(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -88,6 +98,7 @@ export class MemStorage implements IStorage {
   private ticketComments: Map<string, TicketComment>;
   private ticketAttachments: Map<string, TicketAttachment>;
   private ticketActivityLogs: Map<string, TicketActivityLog>;
+  private ticketAssignmentRules: Map<string, TicketAssignmentRule>;
   private ticketCounter: number;
 
   constructor() {
@@ -99,6 +110,7 @@ export class MemStorage implements IStorage {
     this.ticketComments = new Map();
     this.ticketAttachments = new Map();
     this.ticketActivityLogs = new Map();
+    this.ticketAssignmentRules = new Map();
     this.ticketCounter = 1000;
   }
 
@@ -389,10 +401,63 @@ export class MemStorage implements IStorage {
     const newLog: TicketActivityLog = {
       ...log,
       id: randomUUID(),
+      fieldName: log.fieldName || null,
+      oldValue: log.oldValue || null,
+      newValue: log.newValue || null,
       createdAt: new Date(),
     };
     this.ticketActivityLogs.set(newLog.id, newLog);
     return newLog;
+  }
+
+  // Ticket Assignment Rules
+  async getAllTicketAssignmentRules(): Promise<TicketAssignmentRule[]> {
+    return Array.from(this.ticketAssignmentRules.values())
+      .sort((a, b) => b.priority - a.priority);
+  }
+
+  async getActiveTicketAssignmentRules(): Promise<TicketAssignmentRule[]> {
+    return Array.from(this.ticketAssignmentRules.values())
+      .filter(rule => rule.active === 1)
+      .sort((a, b) => b.priority - a.priority);
+  }
+
+  async getTicketAssignmentRule(id: string): Promise<TicketAssignmentRule | undefined> {
+    return this.ticketAssignmentRules.get(id);
+  }
+
+  async createTicketAssignmentRule(insertRule: InsertTicketAssignmentRule): Promise<TicketAssignmentRule> {
+    const id = randomUUID();
+    const rule: TicketAssignmentRule = {
+      id,
+      ...insertRule,
+      active: insertRule.active ?? 1,
+      priority: insertRule.priority ?? 0,
+      conditions: insertRule.conditions ?? null,
+      assignToUserId: insertRule.assignToUserId ?? null,
+      assignToRoleId: insertRule.assignToRoleId ?? null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.ticketAssignmentRules.set(id, rule);
+    return rule;
+  }
+
+  async updateTicketAssignmentRule(id: string, updates: Partial<InsertTicketAssignmentRule>): Promise<TicketAssignmentRule | undefined> {
+    const existing = this.ticketAssignmentRules.get(id);
+    if (!existing) return undefined;
+
+    const updated: TicketAssignmentRule = {
+      ...existing,
+      ...updates,
+      updatedAt: new Date(),
+    };
+    this.ticketAssignmentRules.set(id, updated);
+    return updated;
+  }
+
+  async deleteTicketAssignmentRule(id: string): Promise<boolean> {
+    return this.ticketAssignmentRules.delete(id);
   }
 }
 

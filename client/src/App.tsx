@@ -10,6 +10,7 @@ import OrdersPage from "@/pages/OrdersPage";
 import DelayedOrdersPage from "@/pages/DelayedOrdersPage";
 import ProductsPage from "@/pages/ProductsPage";
 import TicketsPage from "@/pages/TicketsPage";
+import TicketRulesPage from "@/pages/TicketRulesPage";
 import CrossSellingRulesPage from "@/pages/CrossSellingRulesPage";
 import ExportPage from "@/pages/ExportPage";
 import AnalyticsPage from "@/pages/AnalyticsPage";
@@ -41,6 +42,7 @@ function Router({
       <Route path="/delayed" component={() => <DelayedOrdersPage userRole={userRole} />} />
       <Route path="/products" component={ProductsPage} />
       <Route path="/tickets" component={() => <TicketsPage userPermissions={userPermissions} />} />
+      <Route path="/ticket-rules" component={TicketRulesPage} />
       <Route path="/cross-selling-rules" component={CrossSellingRulesPage} />
       <Route path="/export" component={ExportPage} />
       <Route path="/analytics" component={() => <AnalyticsPage userRole={userRole} userSalesChannelIds={userSalesChannelIds} />} />

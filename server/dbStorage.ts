@@ -1,4 +1,4 @@
-import { eq, sql as drizzleSql } from "drizzle-orm";
+import { eq, sql as drizzleSql, desc } from "drizzle-orm";
 import { db } from "./db";
 import {
   users,
@@ -9,6 +9,7 @@ import {
   ticketComments,
   ticketAttachments,
   ticketActivityLog,
+  ticketAssignmentRules,
   type User,
   type InsertUser,
   type Role,
@@ -24,6 +25,8 @@ import {
   type InsertTicketAttachment,
   type TicketActivityLog,
   type InsertTicketActivityLog,
+  type TicketAssignmentRule,
+  type InsertTicketAssignmentRule,
 } from "@shared/schema";
 import type { IStorage, InsertRole, UpdateUser } from "./storage";
 
@@ -381,6 +384,43 @@ export class DbStorage implements IStorage {
   async createTicketActivityLog(log: InsertTicketActivityLog): Promise<TicketActivityLog> {
     const result = await db.insert(ticketActivityLog).values(log).returning();
     return result[0];
+  }
+
+  // Ticket Assignment Rules
+  async getAllTicketAssignmentRules(): Promise<TicketAssignmentRule[]> {
+    return await db.select().from(ticketAssignmentRules).orderBy(desc(ticketAssignmentRules.priority));
+  }
+
+  async getActiveTicketAssignmentRules(): Promise<TicketAssignmentRule[]> {
+    return await db
+      .select()
+      .from(ticketAssignmentRules)
+      .where(eq(ticketAssignmentRules.active, 1))
+      .orderBy(desc(ticketAssignmentRules.priority));
+  }
+
+  async getTicketAssignmentRule(id: string): Promise<TicketAssignmentRule | undefined> {
+    const result = await db.select().from(ticketAssignmentRules).where(eq(ticketAssignmentRules.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createTicketAssignmentRule(insertRule: InsertTicketAssignmentRule): Promise<TicketAssignmentRule> {
+    const result = await db.insert(ticketAssignmentRules).values(insertRule).returning();
+    return result[0];
+  }
+
+  async updateTicketAssignmentRule(id: string, updates: Partial<InsertTicketAssignmentRule>): Promise<TicketAssignmentRule | undefined> {
+    const result = await db
+      .update(ticketAssignmentRules)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(ticketAssignmentRules.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteTicketAssignmentRule(id: string): Promise<boolean> {
+    const result = await db.delete(ticketAssignmentRules).where(eq(ticketAssignmentRules.id, id)).returning();
+    return result.length > 0;
   }
 
   private async generateTicketNumber(): Promise<string> {

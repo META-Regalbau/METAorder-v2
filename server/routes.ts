@@ -6,11 +6,112 @@ import passport from "passport";
 import { storage } from "./storage";
 import { ShopwareClient } from "./shopware";
 import { RuleEngine } from "./ruleEngine";
-import { shopwareSettingsSchema, insertCrossSellingRuleSchema, type Product, insertUserSchema, type Role, insertTicketSchema, insertTicketCommentSchema } from "@shared/schema";
+import { shopwareSettingsSchema, insertCrossSellingRuleSchema, type Product, insertUserSchema, type Role, insertTicketSchema, insertTicketCommentSchema, insertTicketAssignmentRuleSchema, type Ticket } from "@shared/schema";
 import { requireAuth, requireViewDelayedOrders, requireManageUsers, requireManageRoles, requireManageSettings, requireManageCrossSellingGroups, requireManageCrossSellingRules, requireViewTickets, requireManageTickets } from "./auth";
 import * as XLSX from 'xlsx';
 import { generateToken } from "./jwt";
 import { parseEmailFile } from "./emailParser";
+
+// Auto-assignment helper function
+async function assignTicketAutomatically(ticket: Ticket): Promise<string | null> {
+  try {
+    const rules = await storage.getActiveTicketAssignmentRules();
+    
+    if (rules.length === 0) {
+      return null; // No auto-assignment rules
+    }
+
+    // Sort by priority (highest first)
+    const sortedRules = rules.sort((a, b) => b.priority - a.priority);
+
+    for (const rule of sortedRules) {
+      if (rule.assignmentType === 'round_robin') {
+        // Round-robin: Find all users with manageTickets permission
+        const allUsers = await storage.getAllUsers();
+        const allRoles = await storage.getAllRoles();
+        
+        // Filter users with manageTickets permission
+        const eligibleUsers = allUsers.filter(user => {
+          if (user.roleId) {
+            const userRole = allRoles.find(r => r.id === user.roleId);
+            return userRole?.permissions?.manageTickets === true;
+          }
+          return false;
+        });
+
+        if (eligibleUsers.length === 0) continue;
+
+        // Get all tickets to calculate round-robin
+        const allTickets = await storage.getAllTickets();
+        const assignedCounts = new Map<string, number>();
+        
+        // Count assignments per user
+        eligibleUsers.forEach(user => assignedCounts.set(user.id, 0));
+        allTickets.forEach(t => {
+          if (t.assignedToUserId && assignedCounts.has(t.assignedToUserId)) {
+            assignedCounts.set(t.assignedToUserId, (assignedCounts.get(t.assignedToUserId) || 0) + 1);
+          }
+        });
+
+        // Find user with least assignments
+        let minAssignments = Infinity;
+        let selectedUserId: string | null = null;
+        
+        eligibleUsers.forEach(user => {
+          const count = assignedCounts.get(user.id) || 0;
+          if (count < minAssignments) {
+            minAssignments = count;
+            selectedUserId = user.id;
+          }
+        });
+
+        if (selectedUserId) {
+          return selectedUserId;
+        }
+      } else if (rule.assignmentType === 'rule_based' && rule.conditions) {
+        // Rule-based assignment
+        try {
+          const conditions = JSON.parse(rule.conditions);
+          
+          // Check if all conditions match
+          let conditionsMatch = true;
+          
+          if (conditions.priority && conditions.priority !== ticket.priority) {
+            conditionsMatch = false;
+          }
+          if (conditions.category && conditions.category !== ticket.category) {
+            conditionsMatch = false;
+          }
+          if (conditions.status && conditions.status !== ticket.status) {
+            conditionsMatch = false;
+          }
+          
+          if (conditionsMatch) {
+            // Assign to specified user or role
+            if (rule.assignToUserId) {
+              return rule.assignToUserId;
+            } else if (rule.assignToRoleId) {
+              // Find first user with this role
+              const allUsers = await storage.getAllUsers();
+              const userWithRole = allUsers.find(u => u.roleId === rule.assignToRoleId);
+              if (userWithRole) {
+                return userWithRole.id;
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Error parsing rule conditions:", error);
+          continue;
+        }
+      }
+    }
+
+    return null; // No matching rule
+  } catch (error) {
+    console.error("Error in auto-assignment:", error);
+    return null;
+  }
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
@@ -52,6 +153,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         permissions: roleDetails?.permissions || {}
       }
     });
+  });
+
+  // Get assignable users (for ticket assignment - requires manageTickets permission)
+  app.get("/api/users/assignable", requireAuth, requireManageTickets, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      
+      // Return only id + username for ticket assignment
+      const assignableUsers = users.map(({ id, username }) => ({ id, username }));
+      
+      res.json(assignableUsers);
+    } catch (error) {
+      console.error("Error fetching assignable users:", error);
+      res.status(500).json({ error: "Failed to fetch assignable users" });
+    }
   });
 
   // User management routes (Requires manageUsers permission)
@@ -1609,7 +1725,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdByUserId: userId,
       });
       
-      const ticket = await storage.createTicket(validated);
+      let ticket = await storage.createTicket(validated);
+      
+      // Auto-assign if no assignee specified
+      if (!ticket.assignedToUserId) {
+        const assigneeId = await assignTicketAutomatically(ticket);
+        if (assigneeId) {
+          const updated = await storage.updateTicket(ticket.id, { assignedToUserId: assigneeId });
+          if (updated) {
+            ticket = updated;
+            // Log auto-assignment
+            await storage.createTicketActivityLog({
+              ticketId: ticket.id,
+              userId,
+              action: 'auto_assigned',
+              fieldName: 'assignedToUserId',
+              newValue: assigneeId,
+            });
+          }
+        }
+      }
+      
       res.status(201).json(ticket);
     } catch (error: any) {
       console.error("Error creating ticket:", error);
@@ -1905,7 +2041,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         emailFrom: parsedEmail.from,
       });
 
-      const ticket = await storage.createTicket(ticketData);
+      let ticket = await storage.createTicket(ticketData);
+
+      // Auto-assign if no assignee specified
+      if (!ticket.assignedToUserId) {
+        const assigneeId = await assignTicketAutomatically(ticket);
+        if (assigneeId) {
+          const updated = await storage.updateTicket(ticket.id, { assignedToUserId: assigneeId });
+          if (updated) {
+            ticket = updated;
+            // Log auto-assignment
+            await storage.createTicketActivityLog({
+              ticketId: ticket.id,
+              userId: (req.user as any).id,
+              action: 'auto_assigned',
+              fieldName: 'assignedToUserId',
+              newValue: assigneeId,
+            });
+          }
+        }
+      }
 
       // Save attachments (PDFs and photos)
       for (const attachment of parsedEmail.attachments) {
@@ -1947,6 +2102,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid ticket data", details: error.errors });
       }
       res.status(500).json({ error: error.message || "Failed to create ticket from email" });
+    }
+  });
+
+  // ============================================
+  // Ticket Assignment Rules Routes
+  // ============================================
+
+  // Get all assignment rules
+  app.get("/api/ticket-assignment-rules", requireAuth, requireManageTickets, async (req, res) => {
+    try {
+      const rules = await storage.getAllTicketAssignmentRules();
+      res.json(rules);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch assignment rules" });
+    }
+  });
+
+  // Get single assignment rule
+  app.get("/api/ticket-assignment-rules/:id", requireAuth, requireManageTickets, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const rule = await storage.getTicketAssignmentRule(id);
+      
+      if (!rule) {
+        return res.status(404).json({ error: "Assignment rule not found" });
+      }
+      
+      res.json(rule);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch assignment rule" });
+    }
+  });
+
+  // Create assignment rule
+  app.post("/api/ticket-assignment-rules", requireAuth, requireManageTickets, async (req, res) => {
+    try {
+      const ruleData = insertTicketAssignmentRuleSchema.parse(req.body);
+      const rule = await storage.createTicketAssignmentRule(ruleData);
+      res.status(201).json(rule);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: "Invalid rule data", details: error.errors });
+      }
+      res.status(500).json({ error: error.message || "Failed to create assignment rule" });
+    }
+  });
+
+  // Update assignment rule
+  app.patch("/api/ticket-assignment-rules/:id", requireAuth, requireManageTickets, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      const updated = await storage.updateTicketAssignmentRule(id, updates);
+      
+      if (!updated) {
+        return res.status(404).json({ error: "Assignment rule not found" });
+      }
+      
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to update assignment rule" });
+    }
+  });
+
+  // Delete assignment rule
+  app.delete("/api/ticket-assignment-rules/:id", requireAuth, requireManageTickets, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const deleted = await storage.deleteTicketAssignmentRule(id);
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "Assignment rule not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to delete assignment rule" });
     }
   });
 
