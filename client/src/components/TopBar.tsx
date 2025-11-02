@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import ThemeToggle from "./ThemeToggle";
 import LanguageSwitcher from "./LanguageSwitcher";
+import { NotificationBell } from "./NotificationBell";
 import { useTranslation } from "react-i18next";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -62,6 +63,7 @@ export default function TopBar({ userRole, username, onLogout }: TopBarProps) {
       
       <div className="flex items-center gap-3">
         <LanguageSwitcher />
+        <NotificationBell />
         <ThemeToggle />
         <Badge variant={userRole === "admin" ? "default" : "secondary"} data-testid="badge-user-role">
           {t(`roles.${userRole}`)}

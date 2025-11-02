@@ -36,7 +36,19 @@
     "roles": "Roles",
     "rules": "Cross-Selling Rules",
     "settings": "Settings",
-    "appTitle": "METAorder"
+    "appTitle": "METAorder",
+    "notifications": "Notifications"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "noNotifications": "No notifications",
+    "markAllRead": "Mark all as read",
+    "viewAll": "View all",
+    "ticket_assigned": "Ticket assigned",
+    "ticket_updated": "Ticket updated",
+    "comment_added": "Comment added",
+    "due_date_warning": "Due date warning",
+    "ticket_status_changed": "Ticket status changed"
   },
   "auth": {
     "login": "Login",

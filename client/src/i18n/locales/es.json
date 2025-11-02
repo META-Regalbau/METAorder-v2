@@ -36,7 +36,19 @@
     "roles": "Roles",
     "rules": "Reglas de Venta Cruzada",
     "settings": "Configuración",
-    "appTitle": "METAorder"
+    "appTitle": "METAorder",
+    "notifications": "Notificaciones"
+  },
+  "notifications": {
+    "title": "Notificaciones",
+    "noNotifications": "Sin notificaciones",
+    "markAllRead": "Marcar todas como leídas",
+    "viewAll": "Ver todas",
+    "ticket_assigned": "Ticket asignado",
+    "ticket_updated": "Ticket actualizado",
+    "comment_added": "Comentario añadido",
+    "due_date_warning": "Advertencia de fecha de vencimiento",
+    "ticket_status_changed": "Estado del ticket cambiado"
   },
   "auth": {
     "login": "Iniciar Sesión",

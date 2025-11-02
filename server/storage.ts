@@ -16,6 +16,8 @@ import {
   type InsertTicketActivityLog,
   type TicketAssignmentRule,
   type InsertTicketAssignmentRule,
+  type Notification,
+  type InsertNotification,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -87,6 +89,14 @@ export interface IStorage {
   createTicketAssignmentRule(rule: InsertTicketAssignmentRule): Promise<TicketAssignmentRule>;
   updateTicketAssignmentRule(id: string, updates: Partial<InsertTicketAssignmentRule>): Promise<TicketAssignmentRule | undefined>;
   deleteTicketAssignmentRule(id: string): Promise<boolean>;
+  
+  // Notifications
+  getNotificationsByUserId(userId: string, limit?: number): Promise<Notification[]>;
+  getUnreadNotificationCount(userId: string): Promise<number>;
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  markNotificationAsRead(id: string): Promise<Notification | undefined>;
+  markAllNotificationsAsRead(userId: string): Promise<number>;
+  deleteNotification(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -99,6 +109,7 @@ export class MemStorage implements IStorage {
   private ticketAttachments: Map<string, TicketAttachment>;
   private ticketActivityLogs: Map<string, TicketActivityLog>;
   private ticketAssignmentRules: Map<string, TicketAssignmentRule>;
+  private notifications: Map<string, Notification>;
   private ticketCounter: number;
 
   constructor() {
@@ -111,6 +122,7 @@ export class MemStorage implements IStorage {
     this.ticketAttachments = new Map();
     this.ticketActivityLogs = new Map();
     this.ticketAssignmentRules = new Map();
+    this.notifications = new Map();
     this.ticketCounter = 1000;
   }
 
@@ -458,6 +470,62 @@ export class MemStorage implements IStorage {
 
   async deleteTicketAssignmentRule(id: string): Promise<boolean> {
     return this.ticketAssignmentRules.delete(id);
+  }
+
+  // Notifications
+  async getNotificationsByUserId(userId: string, limit?: number): Promise<Notification[]> {
+    const userNotifications = Array.from(this.notifications.values())
+      .filter(n => n.userId === userId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+    return limit ? userNotifications.slice(0, limit) : userNotifications;
+  }
+
+  async getUnreadNotificationCount(userId: string): Promise<number> {
+    return Array.from(this.notifications.values())
+      .filter(n => n.userId === userId && n.read === 0)
+      .length;
+  }
+
+  async createNotification(insertNotification: InsertNotification): Promise<Notification> {
+    const id = randomUUID();
+    const notification: Notification = {
+      id,
+      ...insertNotification,
+      ticketId: insertNotification.ticketId ?? null,
+      ticketNumber: insertNotification.ticketNumber ?? null,
+      createdAt: new Date(),
+    };
+    
+    this.notifications.set(id, notification);
+    return notification;
+  }
+
+  async markNotificationAsRead(id: string): Promise<Notification | undefined> {
+    const notification = this.notifications.get(id);
+    if (!notification) return undefined;
+
+    const updated: Notification = {
+      ...notification,
+      read: 1,
+    };
+    this.notifications.set(id, updated);
+    return updated;
+  }
+
+  async markAllNotificationsAsRead(userId: string): Promise<number> {
+    let count = 0;
+    for (const [id, notification] of this.notifications.entries()) {
+      if (notification.userId === userId && notification.read === 0) {
+        this.notifications.set(id, { ...notification, read: 1 });
+        count++;
+      }
+    }
+    return count;
+  }
+
+  async deleteNotification(id: string): Promise<boolean> {
+    return this.notifications.delete(id);
   }
 }
 

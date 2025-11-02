@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
@@ -6,11 +6,12 @@ import passport from "passport";
 import { storage } from "./storage";
 import { ShopwareClient } from "./shopware";
 import { RuleEngine } from "./ruleEngine";
-import { shopwareSettingsSchema, insertCrossSellingRuleSchema, type Product, insertUserSchema, type Role, insertTicketSchema, insertTicketCommentSchema, insertTicketAssignmentRuleSchema, type Ticket } from "@shared/schema";
+import { shopwareSettingsSchema, insertCrossSellingRuleSchema, type Product, insertUserSchema, type Role, insertTicketSchema, insertTicketCommentSchema, insertTicketAssignmentRuleSchema, type Ticket, insertNotificationSchema } from "@shared/schema";
 import { requireAuth, requireViewDelayedOrders, requireManageUsers, requireManageRoles, requireManageSettings, requireManageCrossSellingGroups, requireManageCrossSellingRules, requireViewTickets, requireManageTickets } from "./auth";
 import * as XLSX from 'xlsx';
 import { generateToken } from "./jwt";
 import { parseEmailFile } from "./emailParser";
+import { notificationEvents } from "./events";
 
 // Auto-assignment helper function
 async function assignTicketAutomatically(ticket: Ticket): Promise<string | null> {
@@ -1800,6 +1801,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       if (validated.assignedToUserId !== undefined) {
         await trackChange('assignedToUserId', 'assigned', oldTicket.assignedToUserId, validated.assignedToUserId);
+        
+        // Create notification if ticket is being assigned to someone
+        if (validated.assignedToUserId && validated.assignedToUserId !== oldTicket.assignedToUserId) {
+          const notification = await storage.createNotification({
+            userId: validated.assignedToUserId,
+            type: "ticket_assigned",
+            title: "New Ticket Assigned",
+            message: `Ticket ${updated.ticketNumber} "${updated.title}" has been assigned to you`,
+            ticketId: updated.id,
+            ticketNumber: updated.ticketNumber,
+            read: 0,
+          });
+          
+          // Emit event for SSE
+          notificationEvents.emitNotificationCreated(notification);
+        }
       }
       if (validated.title !== undefined) {
         await trackChange('title', 'title_changed', oldTicket.title, validated.title);
@@ -2289,6 +2306,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error exporting tickets:", error);
       res.status(500).json({ error: "Failed to export tickets" });
+    }
+  });
+
+  // ============================================
+  // NOTIFICATIONS
+  // ============================================
+
+  // Get user's notifications
+  app.get("/api/notifications", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).id;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      
+      const notifications = await storage.getNotificationsByUserId(userId, limit);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ error: "Failed to fetch notifications" });
+    }
+  });
+
+  // Get unread notification count
+  app.get("/api/notifications/unread-count", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).id;
+      const count = await storage.getUnreadNotificationCount(userId);
+      res.json({ count });
+    } catch (error) {
+      console.error("Error fetching unread count:", error);
+      res.status(500).json({ error: "Failed to fetch unread count" });
+    }
+  });
+
+  // Server-Sent Events stream for real-time notifications
+  app.get("/api/notifications/stream", async (req: Request, res: Response) => {
+    // Extract JWT from Authorization header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "No authorization header" });
+    }
+
+    const token = authHeader.substring(7); // Remove "Bearer " prefix
+
+    // Verify JWT token
+    let userId: string;
+    try {
+      const jwt = await import("./jwt");
+      const decoded = jwt.verifyToken(token);
+      userId = decoded.userId;
+    } catch (error) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+    
+    // Set SSE headers
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no"); // Disable nginx buffering
+    
+    // Send initial connection message
+    res.write(`data: ${JSON.stringify({ type: "connected" })}\n\n`);
+    
+    // Create notification listener
+    const notificationListener = async ({ notification }: { notification: any }) => {
+      // Only send notifications for this user
+      if (notification.userId === userId) {
+        res.write(`event: notification\n`);
+        res.write(`data: ${JSON.stringify(notification)}\n\n`);
+      }
+    };
+    
+    // Register listener
+    notificationEvents.onNotificationCreated(notificationListener);
+    
+    // Send heartbeat every 30 seconds to keep connection alive
+    const heartbeatInterval = setInterval(() => {
+      res.write(`:heartbeat\n\n`);
+    }, 30000);
+    
+    // Cleanup on connection close
+    req.on("close", () => {
+      clearInterval(heartbeatInterval);
+      notificationEvents.removeNotificationCreatedListener(notificationListener);
+    });
+  });
+
+  // Mark notification as read
+  app.patch("/api/notifications/:id/read", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const userId = (req.user as any).id;
+      
+      // Verify notification belongs to user
+      const notification = await storage.getNotificationsByUserId(userId);
+      const found = notification.find(n => n.id === id);
+      
+      if (!found) {
+        return res.status(404).json({ error: "Notification not found" });
+      }
+      
+      const updated = await storage.markNotificationAsRead(id);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      res.status(500).json({ error: "Failed to mark notification as read" });
+    }
+  });
+
+  // Mark all notifications as read
+  app.post("/api/notifications/mark-all-read", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as any).id;
+      const count = await storage.markAllNotificationsAsRead(userId);
+      res.json({ count });
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+      res.status(500).json({ error: "Failed to mark all notifications as read" });
     }
   });
 

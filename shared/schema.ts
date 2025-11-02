@@ -410,3 +410,28 @@ export type InsertTicketActivityLog = z.infer<typeof insertTicketActivityLogSche
 export type TicketActivityLog = typeof ticketActivityLog.$inferSelect;
 export type InsertTicketAssignmentRule = z.infer<typeof insertTicketAssignmentRuleSchema>;
 export type TicketAssignmentRule = typeof ticketAssignmentRules.$inferSelect;
+
+// Notifications for real-time user alerts
+export type NotificationType = "ticket_assigned" | "ticket_updated" | "comment_added" | "due_date_warning" | "ticket_status_changed";
+
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  type: text("type").notNull(), // NotificationType
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  ticketId: varchar("ticket_id").references(() => tickets.id, { onDelete: "cascade" }),
+  ticketNumber: text("ticket_number"), // Denormalized for quick access
+  read: integer("read").notNull().default(0), // 0 = unread, 1 = read
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  type: z.enum(["ticket_assigned", "ticket_updated", "comment_added", "due_date_warning", "ticket_status_changed"]),
+});
+
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type Notification = typeof notifications.$inferSelect;

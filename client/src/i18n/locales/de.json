@@ -36,7 +36,19 @@
     "roles": "Rollen",
     "rules": "Cross-Selling-Regeln",
     "settings": "Einstellungen",
-    "appTitle": "METAorder"
+    "appTitle": "METAorder",
+    "notifications": "Benachrichtigungen"
+  },
+  "notifications": {
+    "title": "Benachrichtigungen",
+    "noNotifications": "Keine Benachrichtigungen",
+    "markAllRead": "Alle als gelesen markieren",
+    "viewAll": "Alle anzeigen",
+    "ticket_assigned": "Ticket zugewiesen",
+    "ticket_updated": "Ticket aktualisiert",
+    "comment_added": "Kommentar hinzugefügt",
+    "due_date_warning": "Fälligkeitsdatum-Warnung",
+    "ticket_status_changed": "Ticket-Status geändert"
   },
   "auth": {
     "login": "Anmelden",
