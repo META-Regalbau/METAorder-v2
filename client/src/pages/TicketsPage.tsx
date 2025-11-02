@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import TicketDetailModal from "@/components/TicketDetailModal";
+import CreateTicketDialog from "@/components/CreateTicketDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { getAuthHeaders } from "@/lib/queryClient";
@@ -28,6 +29,7 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
   const [itemsPerPage] = useState(25);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
   const canManageTickets = userPermissions?.manageTickets || false;
 
@@ -124,7 +126,7 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
             />
           </div>
           <Button
-            onClick={() => {/* TODO: Open create ticket dialog */}}
+            onClick={() => setIsCreateDialogOpen(true)}
             data-testid="button-create-ticket"
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -320,6 +322,11 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
           setSelectedTicket(null);
         }}
         canManageTickets={canManageTickets}
+      />
+
+      <CreateTicketDialog
+        isOpen={isCreateDialogOpen}
+        onClose={() => setIsCreateDialogOpen(false)}
       />
     </div>
   );
