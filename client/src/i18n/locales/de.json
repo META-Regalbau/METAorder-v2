@@ -546,6 +546,23 @@
     "dueDatePlaceholder": "Fälligkeitsdatum auswählen",
     "overdue": "Überfällig",
     "dueToday": "Heute fällig",
-    "dueSoon": "Bald fällig"
+    "dueSoon": "Bald fällig",
+    "emailDropZone": {
+      "title": "E-Mail hierher ziehen oder klicken",
+      "subtitle": "Unterstützt .eml und .msg Dateien",
+      "browse": "Datei auswählen",
+      "processing": "E-Mail wird verarbeitet...",
+      "success": "E-Mail erfolgreich verarbeitet!",
+      "invalidFormat": "Nur .eml und .msg Dateien werden unterstützt",
+      "parseError": "Fehler beim Verarbeiten der E-Mail",
+      "readError": "Fehler beim Lesen der Datei"
+    },
+    "export": "Exportieren",
+    "exportCSV": "Als CSV exportieren",
+    "exportExcel": "Als Excel exportieren",
+    "exportSuccess": "Export erfolgreich",
+    "exportDescription": "Tickets wurden als {{format}} exportiert",
+    "exportFailed": "Export fehlgeschlagen",
+    "exportError": "Fehler beim Exportieren der Tickets"
   }
 }

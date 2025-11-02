@@ -10,6 +10,7 @@ import { shopwareSettingsSchema, insertCrossSellingRuleSchema, type Product, ins
 import { requireAuth, requireViewDelayedOrders, requireManageUsers, requireManageRoles, requireManageSettings, requireManageCrossSellingGroups, requireManageCrossSellingRules, requireViewTickets, requireManageTickets } from "./auth";
 import * as XLSX from 'xlsx';
 import { generateToken } from "./jwt";
+import { parseEmailFile } from "./emailParser";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
@@ -1812,6 +1813,249 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching ticket attachments:", error);
       res.status(500).json({ error: "Failed to fetch attachments" });
+    }
+  });
+
+  // ============================================
+  // Email Parser Routes
+  // ============================================
+
+  // Parse email file (.eml or .msg) and extract ticket data
+  app.post("/api/parse-email", requireAuth, requireManageTickets, async (req, res) => {
+    try {
+      const { filename, fileData } = req.body;
+
+      if (!filename || !fileData) {
+        return res.status(400).json({ error: "Filename and fileData are required" });
+      }
+
+      // Decode base64 file data
+      const buffer = Buffer.from(fileData, 'base64');
+
+      // Parse email
+      const parsedEmail = await parseEmailFile(buffer, filename);
+
+      res.json({
+        subject: parsedEmail.subject,
+        from: parsedEmail.from,
+        body: parsedEmail.body,
+        attachmentCount: parsedEmail.attachments.length,
+        orderNumber: parsedEmail.orderNumber,
+        attachments: parsedEmail.attachments.map(att => ({
+          filename: att.filename,
+          contentType: att.contentType,
+          size: att.size,
+          // Don't send full content, just metadata
+        })),
+      });
+    } catch (error: any) {
+      console.error("Error parsing email:", error);
+      res.status(500).json({ error: error.message || "Failed to parse email" });
+    }
+  });
+
+  // Create ticket from email (.eml or .msg file)
+  app.post("/api/tickets/from-email", requireAuth, requireManageTickets, async (req, res) => {
+    try {
+      const { filename, fileData, category, priority } = req.body;
+
+      if (!filename || !fileData) {
+        return res.status(400).json({ error: "Filename and fileData are required" });
+      }
+
+      // Decode base64 file data
+      const buffer = Buffer.from(fileData, 'base64');
+
+      // Parse email
+      const parsedEmail = await parseEmailFile(buffer, filename);
+
+      // Find order by order number (if extracted)
+      let orderId: string | undefined;
+      if (parsedEmail.orderNumber) {
+        try {
+          const settings = await storage.getShopwareSettings();
+          if (settings) {
+            const shopware = new ShopwareClient(settings);
+            const allOrders = await shopware.fetchOrders();
+            
+            // Find order by order number
+            const matchingOrder = allOrders.find(
+              order => order.orderNumber === parsedEmail.orderNumber
+            );
+
+            if (matchingOrder) {
+              orderId = matchingOrder.id;
+            }
+          }
+        } catch (error) {
+          console.warn("Could not find order:", parsedEmail.orderNumber, error);
+        }
+      }
+
+      // Create ticket
+      const ticketData = insertTicketSchema.parse({
+        title: parsedEmail.subject,
+        description: parsedEmail.body,
+        category: category || 'general',
+        priority: priority || 'normal',
+        status: 'open',
+        orderId,
+        orderNumber: parsedEmail.orderNumber, // Preserve order number even if order not found
+        emailSubject: parsedEmail.subject,
+        emailFrom: parsedEmail.from,
+      });
+
+      const ticket = await storage.createTicket(ticketData);
+
+      // Save attachments (PDFs and photos)
+      for (const attachment of parsedEmail.attachments) {
+        try {
+          // Store attachment as base64 in database
+          const base64Content = attachment.content.toString('base64');
+          
+          await storage.createTicketAttachment({
+            ticketId: ticket.id,
+            fileName: attachment.filename,
+            fileSize: attachment.size,
+            mimeType: attachment.contentType,
+            filePath: base64Content, // Store base64 content in filePath
+            uploadedByUserId: (req.user as any).id,
+          });
+        } catch (error) {
+          console.error("Error saving attachment:", error);
+        }
+      }
+
+      // Log activity
+      await storage.createTicketActivityLog({
+        ticketId: ticket.id,
+        userId: (req.user as any).id,
+        action: 'created',
+        fieldName: 'email_source',
+        newValue: parsedEmail.from,
+      });
+
+      res.json({
+        ticket,
+        attachmentsSaved: parsedEmail.attachments.length,
+        orderFound: !!orderId,
+        orderNumber: parsedEmail.orderNumber,
+      });
+    } catch (error: any) {
+      console.error("Error creating ticket from email:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: "Invalid ticket data", details: error.errors });
+      }
+      res.status(500).json({ error: error.message || "Failed to create ticket from email" });
+    }
+  });
+
+  // ============================================
+  // Ticket Export Routes
+  // ============================================
+
+  // Export tickets to CSV or Excel
+  app.post("/api/tickets/export", requireAuth, requireViewTickets, async (req, res) => {
+    try {
+      const { format, filters } = req.body; // format: 'csv' | 'excel', filters: optional
+
+      // Get all tickets
+      let tickets = await storage.getAllTickets();
+
+      // Apply filters if provided
+      if (filters) {
+        if (filters.status && filters.status !== 'all') {
+          tickets = tickets.filter(t => t.status === filters.status);
+        }
+        if (filters.priority && filters.priority !== 'all') {
+          tickets = tickets.filter(t => t.priority === filters.priority);
+        }
+        if (filters.category && filters.category !== 'all') {
+          tickets = tickets.filter(t => t.category === filters.category);
+        }
+        if (filters.assigneeId && filters.assigneeId !== 'all') {
+          tickets = tickets.filter(t => t.assignedToUserId === filters.assigneeId);
+        }
+        if (filters.tag && filters.tag !== 'all') {
+          tickets = tickets.filter(t => 
+            t.tags && t.tags.includes(filters.tag)
+          );
+        }
+        // Search filter
+        if (filters.search && filters.search.trim()) {
+          const searchLower = filters.search.toLowerCase();
+          tickets = tickets.filter(t =>
+            t.title.toLowerCase().includes(searchLower) ||
+            t.description.toLowerCase().includes(searchLower) ||
+            t.ticketNumber.toLowerCase().includes(searchLower)
+          );
+        }
+        // My Tickets filter
+        if (filters.showMyTicketsOnly && (req.user as any)?.id) {
+          const userId = (req.user as any).id;
+          tickets = tickets.filter(t => t.assignedToUserId === userId);
+        }
+      }
+
+      // Get all users for username lookup
+      const users = await storage.getAllUsers();
+
+      // Transform tickets to export format
+      const exportData = tickets.map(ticket => {
+        const assignedUser = users.find(u => u.id === ticket.assignedToUserId);
+        const createdByUser = users.find(u => u.id === ticket.createdByUserId);
+
+        return {
+          'Ticket Number': ticket.ticketNumber,
+          'Title': ticket.title,
+          'Status': ticket.status,
+          'Priority': ticket.priority,
+          'Category': ticket.category,
+          'Assigned To': assignedUser?.username || 'Unassigned',
+          'Created By': createdByUser?.username || 'Unknown',
+          'Order Number': (ticket as any).orderNumber || '',
+          'Tags': ticket.tags ? ticket.tags.join(', ') : '',
+          'Due Date': ticket.dueDate ? new Date(ticket.dueDate).toLocaleDateString() : '',
+          'Created At': new Date(ticket.createdAt).toLocaleString(),
+          'Updated At': ticket.updatedAt ? new Date(ticket.updatedAt).toLocaleString() : '',
+        };
+      });
+
+      if (format === 'csv') {
+        // Generate CSV
+        const headers = Object.keys(exportData[0] || {});
+        const csvRows = [
+          headers.join(','),
+          ...exportData.map(row =>
+            headers.map(header => {
+              const value = row[header as keyof typeof row] || '';
+              // Escape commas and quotes
+              return `"${String(value).replace(/"/g, '""')}"`;
+            }).join(',')
+          ),
+        ];
+        const csv = csvRows.join('\n');
+
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename=tickets-${Date.now()}.csv`);
+        res.send(csv);
+      } else if (format === 'excel') {
+        // Generate Excel using xlsx
+        const worksheet = XLSX.utils.json_to_sheet(exportData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Tickets');
+
+        const excelBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=tickets-${Date.now()}.xlsx`);
+        res.send(excelBuffer);
+      } else {
+        res.status(400).json({ error: 'Invalid format. Use "csv" or "excel".' });
+      }
+    } catch (error) {
+      console.error("Error exporting tickets:", error);
+      res.status(500).json({ error: "Failed to export tickets" });
     }
   });
 

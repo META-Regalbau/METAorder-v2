@@ -556,6 +556,23 @@
     "dueDatePlaceholder": "Seleccionar fecha de vencimiento",
     "overdue": "Vencido",
     "dueToday": "Vence hoy",
-    "dueSoon": "Vence pronto"
+    "dueSoon": "Vence pronto",
+    "emailDropZone": {
+      "title": "Arrastra el correo aquí o haz clic para buscar",
+      "subtitle": "Admite archivos .eml y .msg",
+      "browse": "Buscar archivos",
+      "processing": "Procesando correo...",
+      "success": "¡Correo procesado exitosamente!",
+      "invalidFormat": "Solo se admiten archivos .eml y .msg",
+      "parseError": "Error al procesar el correo",
+      "readError": "Error al leer el archivo"
+    },
+    "export": "Exportar",
+    "exportCSV": "Exportar como CSV",
+    "exportExcel": "Exportar como Excel",
+    "exportSuccess": "Exportación exitosa",
+    "exportDescription": "Tickets exportados como {{format}}",
+    "exportFailed": "Exportación fallida",
+    "exportError": "Error al exportar tickets"
   }
 }

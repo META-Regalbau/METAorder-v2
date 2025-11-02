@@ -1,11 +1,17 @@
 import { useState, useEffect } from "react";
-import { Plus, Search, User as UserIcon } from "lucide-react";
+import { Plus, Search, User as UserIcon, Download } from "lucide-react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import TicketDetailModal from "@/components/TicketDetailModal";
 import CreateTicketDialog from "@/components/CreateTicketDialog";
 import { useToast } from "@/hooks/use-toast";
@@ -35,9 +41,63 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const canViewTickets = userPermissions?.viewTickets || false;
   const canManageTickets = userPermissions?.manageTickets || false;
+
+  // Export function
+  const handleExport = async (format: 'csv' | 'excel') => {
+    setIsExporting(true);
+    try {
+      const filters = {
+        status: statusFilter,
+        priority: priorityFilter,
+        category: categoryFilter,
+        assigneeId: assigneeFilter,
+        tag: tagFilter,
+        search: searchValue,
+        showMyTicketsOnly,
+      };
+
+      const response = await fetch('/api/tickets/export', {
+        method: 'POST',
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ format, filters }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+
+      // Download file
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tickets-${Date.now()}.${format === 'csv' ? 'csv' : 'xlsx'}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: t('tickets.exportSuccess'),
+        description: t('tickets.exportDescription', { format: format.toUpperCase() }),
+      });
+    } catch (error) {
+      toast({
+        title: t('tickets.exportFailed'),
+        description: t('tickets.exportError'),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // Redirect if user doesn't have viewTickets permission (only after permissions are loaded)
   useEffect(() => {
@@ -194,6 +254,23 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
             <Plus className="h-4 w-4 mr-2" />
             {t('tickets.createTicket')}
           </Button>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" disabled={isExporting} data-testid="button-export-tickets">
+                <Download className="h-4 w-4 mr-2" />
+                {isExporting ? t('common.loading') : t('tickets.export')}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => handleExport('csv')} data-testid="menu-export-csv">
+                {t('tickets.exportCSV')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport('excel')} data-testid="menu-export-excel">
+                {t('tickets.exportExcel')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <div className="flex flex-wrap gap-2">

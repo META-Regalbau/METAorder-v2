@@ -12,6 +12,8 @@ import { useTranslation } from "react-i18next";
 import type { Order } from "@shared/schema";
 import TagInput from "@/components/TagInput";
 import { DatePicker } from "@/components/ui/date-picker";
+import { EmailDropZone } from "@/components/EmailDropZone";
+import { Separator } from "@/components/ui/separator";
 
 interface CreateTicketDialogProps {
   isOpen: boolean;
@@ -33,6 +35,9 @@ export default function CreateTicketDialog({
   const [category, setCategory] = useState("general");
   const [tags, setTags] = useState<string[]>([]);
   const [dueDate, setDueDate] = useState<Date | undefined>();
+  const [emailFrom, setEmailFrom] = useState("");
+  const [detectedOrderNumber, setDetectedOrderNumber] = useState<string | undefined>();
+  const [emailFileData, setEmailFileData] = useState<{ filename: string; fileData: string } | null>(null);
 
   const createTicketMutation = useMutation({
     mutationFn: async (data: {
@@ -72,9 +77,34 @@ export default function CreateTicketDialog({
     setCategory("general");
     setTags([]);
     setDueDate(undefined);
+    setEmailFrom("");
+    setDetectedOrderNumber(undefined);
+    setEmailFileData(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleEmailParsed = (data: {
+    subject: string;
+    from: string;
+    body: string;
+    orderNumber?: string;
+    attachmentCount: number;
+    filename: string;
+    fileData: string;
+  }) => {
+    // Auto-fill form with email data
+    setTitle(data.subject);
+    setDescription(data.body);
+    setEmailFrom(data.from);
+    setDetectedOrderNumber(data.orderNumber);
+    setEmailFileData({ filename: data.filename, fileData: data.fileData });
+
+    toast({
+      title: t('tickets.emailDropZone.success'),
+      description: `${data.attachmentCount} ${t('tickets.attachments')}`,
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!title.trim() || !description.trim()) {
@@ -86,16 +116,53 @@ export default function CreateTicketDialog({
       return;
     }
 
-    createTicketMutation.mutate({
-      title: title.trim(),
-      description: description.trim(),
-      priority,
-      category,
-      tags: tags.length > 0 ? tags : undefined,
-      dueDate,
-      orderId: linkedOrder?.id,
-      orderNumber: linkedOrder?.orderNumber,
-    });
+    // If email file data exists, use email-to-ticket API
+    if (emailFileData) {
+      try {
+        const response = await fetch('/api/tickets/from-email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          },
+          body: JSON.stringify({
+            filename: emailFileData.filename,
+            fileData: emailFileData.fileData,
+            category,
+            priority,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to create ticket from email');
+        }
+
+        queryClient.invalidateQueries({ queryKey: ['/api/tickets'] });
+        resetForm();
+        onClose();
+        toast({
+          title: t('tickets.createSuccess'),
+        });
+      } catch (error) {
+        toast({
+          title: t('tickets.createFailed'),
+          description: (error as Error).message,
+          variant: "destructive",
+        });
+      }
+    } else {
+      // Normal ticket creation
+      createTicketMutation.mutate({
+        title: title.trim(),
+        description: description.trim(),
+        priority,
+        category,
+        tags: tags.length > 0 ? tags : undefined,
+        dueDate,
+        orderId: linkedOrder?.id,
+        orderNumber: linkedOrder?.orderNumber,
+      });
+    }
   };
 
   const handleClose = () => {
@@ -116,6 +183,22 @@ export default function CreateTicketDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+          {/* Email Drop Zone */}
+          <EmailDropZone onEmailParsed={handleEmailParsed} />
+          
+          {(emailFrom || detectedOrderNumber) && (
+            <div className="p-3 bg-muted rounded-md text-sm space-y-1">
+              {emailFrom && (
+                <p><strong>{t('tickets.emailDropZone.from')}:</strong> {emailFrom}</p>
+              )}
+              {detectedOrderNumber && (
+                <p><strong>{t('orders.orderNumber')}:</strong> {detectedOrderNumber}</p>
+              )}
+            </div>
+          )}
+
+          <Separator />
+
           {linkedOrder && (
             <div className="p-3 bg-muted rounded-md">
               <p className="text-sm font-medium mb-1">{t('tickets.relatedOrder')}</p>

@@ -557,6 +557,23 @@
     "dueDatePlaceholder": "Select due date",
     "overdue": "Overdue",
     "dueToday": "Due today",
-    "dueSoon": "Due soon"
+    "dueSoon": "Due soon",
+    "emailDropZone": {
+      "title": "Drag email here or click to browse",
+      "subtitle": "Supports .eml and .msg files",
+      "browse": "Browse files",
+      "processing": "Processing email...",
+      "success": "Email processed successfully!",
+      "invalidFormat": "Only .eml and .msg files are supported",
+      "parseError": "Error processing email",
+      "readError": "Error reading file"
+    },
+    "export": "Export",
+    "exportCSV": "Export as CSV",
+    "exportExcel": "Export as Excel",
+    "exportSuccess": "Export successful",
+    "exportDescription": "Tickets exported as {{format}}",
+    "exportFailed": "Export failed",
+    "exportError": "Error exporting tickets"
   }
 }
