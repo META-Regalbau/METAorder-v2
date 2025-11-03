@@ -136,7 +136,7 @@ export default function RolesPage() {
 
   if (rolesLoading) {
     return (
-      <div className="max-w-7xl">
+      <div className="w-full max-w-7xl mx-auto">
         <div className="mb-6">
           <h1 className="text-2xl font-semibold mb-1">{t('roles.title')}</h1>
           <p className="text-sm text-muted-foreground">{t('roles.description')}</p>
@@ -149,7 +149,7 @@ export default function RolesPage() {
   }
 
   return (
-    <div className="max-w-7xl">
+    <div className="w-full max-w-7xl mx-auto">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold mb-1">{t('roles.title')}</h1>

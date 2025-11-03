@@ -352,7 +352,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
   }
 
   return (
-    <div className="max-w-7xl">
+    <div className="w-full max-w-7xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold mb-1" data-testid="text-page-title">
           {t('analytics.title')}

@@ -78,7 +78,7 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
     const errorMessage = (error as any)?.message || t('errors.loadFailed');
     if (errorMessage.includes('not configured')) {
       return (
-        <div className="max-w-4xl">
+        <div className="w-full max-w-4xl mx-auto">
           <div className="mb-6">
             <h1 className="text-2xl font-semibold mb-1">{t('orders.title')}</h1>
             <p className="text-sm text-muted-foreground">

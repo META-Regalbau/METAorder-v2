@@ -138,7 +138,7 @@ export default function UsersPage() {
 
   if (usersLoading || rolesLoading) {
     return (
-      <div className="max-w-6xl">
+      <div className="w-full max-w-6xl mx-auto">
         <div className="mb-6">
           <h1 className="text-2xl font-semibold mb-1">{t('users.title')}</h1>
           <p className="text-sm text-muted-foreground">{t('users.description')}</p>
@@ -151,7 +151,7 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="max-w-6xl">
+    <div className="w-full max-w-6xl mx-auto">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold mb-1">{t('users.title')}</h1>
