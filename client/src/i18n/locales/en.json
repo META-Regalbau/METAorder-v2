@@ -493,10 +493,10 @@
   },
   "shipping": {
     "title": "Shipping Dashboard",
-    "equipment": "Equipment",
+    "equipment": "Special Equipment",
     "mitnahmestapler": "Pallet Jack",
     "hebebuehne": "Lift Platform",
-    "noEquipment": "No Equipment",
+    "noEquipment": "None",
     "requiresEquipment": "Requires Equipment"
   },
   "bulkActions": {

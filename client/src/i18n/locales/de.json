@@ -482,10 +482,10 @@
   },
   "shipping": {
     "title": "Versand-Dashboard",
-    "equipment": "Ausrüstung",
+    "equipment": "Spezialausrüstung",
     "mitnahmestapler": "Mitnahmestapler",
     "hebebuehne": "Hebebühne",
-    "noEquipment": "Keine Ausrüstung",
+    "noEquipment": "Keine",
     "requiresEquipment": "Benötigt Ausrüstung"
   },
   "bulkActions": {

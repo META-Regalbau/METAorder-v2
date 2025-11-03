@@ -492,10 +492,10 @@
   },
   "shipping": {
     "title": "Panel de Envío",
-    "equipment": "Equipo",
+    "equipment": "Equipo Especial",
     "mitnahmestapler": "Transpaleta",
     "hebebuehne": "Plataforma Elevadora",
-    "noEquipment": "Sin Equipo",
+    "noEquipment": "Ninguno",
     "requiresEquipment": "Requiere Equipo"
   },
   "bulkActions": {
