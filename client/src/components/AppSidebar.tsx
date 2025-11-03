@@ -36,7 +36,7 @@ export default function AppSidebar({ userRole, permissions }: AppSidebarProps) {
       permission: "viewDelayedOrders" as keyof Role['permissions'],
     },
     {
-      titleKey: "shipping.title",
+      titleKey: "nav.shipping",
       url: "/shipping",
       icon: Truck,
       permission: "viewShipping" as keyof Role['permissions'],
@@ -54,13 +54,13 @@ export default function AppSidebar({ userRole, permissions }: AppSidebarProps) {
       permission: "viewTickets" as keyof Role['permissions'],
     },
     {
-      titleKey: "Ticket Rules",
+      titleKey: "nav.ticketRules",
       url: "/ticket-rules",
       icon: GitBranch,
       permission: "manageTickets" as keyof Role['permissions'],
     },
     {
-      titleKey: "templates.title",
+      titleKey: "nav.templates",
       url: "/templates",
       icon: FileText,
       permission: "manageTickets" as keyof Role['permissions'],
