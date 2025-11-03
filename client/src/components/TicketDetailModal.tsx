@@ -1,5 +1,5 @@
 import { X, Send, Trash2, Link as LinkIcon, Clock } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,6 +39,7 @@ export default function TicketDetailModal({
   const [commentText, setCommentText] = useState("");
   const [isInternalComment, setIsInternalComment] = useState(false);
   const [editingTicket, setEditingTicket] = useState(false);
+  const [activeTab, setActiveTab] = useState("details");
 
   // Fetch comments for this ticket
   const { data: comments = [], isLoading: commentsLoading } = useQuery<TicketComment[]>({
@@ -75,6 +76,12 @@ export default function TicketDetailModal({
   // Fetch attachments for this ticket
   const { data: attachments = [], isLoading: attachmentsLoading } = useQuery<TicketAttachment[]>({
     queryKey: ['/api/tickets', ticket?.id, 'attachments'],
+    enabled: isOpen && !!ticket?.id,
+  });
+
+  // Fetch unread counts for this ticket
+  const { data: unreadCounts } = useQuery<{ unreadComments: number; unreadAttachments: number }>({
+    queryKey: ['/api/tickets', ticket?.id, 'unread-counts'],
     enabled: isOpen && !!ticket?.id,
   });
 
@@ -190,6 +197,41 @@ export default function TicketDetailModal({
     },
   });
 
+  const markCommentsReadMutation = useMutation({
+    mutationFn: async () => {
+      if (!ticket?.id) throw new Error("No ticket ID");
+      const response = await apiRequest("POST", `/api/tickets/${ticket.id}/comments/mark-read`, {});
+      return response.json();
+    },
+    onSuccess: () => {
+      if (!ticket?.id) return;
+      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticket.id, 'unread-counts'] });
+    },
+  });
+
+  const markAttachmentsReadMutation = useMutation({
+    mutationFn: async () => {
+      if (!ticket?.id) throw new Error("No ticket ID");
+      const response = await apiRequest("POST", `/api/tickets/${ticket.id}/attachments/mark-read`, {});
+      return response.json();
+    },
+    onSuccess: () => {
+      if (!ticket?.id) return;
+      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticket.id, 'unread-counts'] });
+    },
+  });
+
+  // Auto mark-as-read when switching tabs (works with keyboard navigation too)
+  useEffect(() => {
+    if (!ticket?.id || !isOpen || !unreadCounts) return;
+    
+    if (activeTab === "comments" && unreadCounts.unreadComments > 0) {
+      markCommentsReadMutation.mutate();
+    } else if (activeTab === "attachments" && unreadCounts.unreadAttachments > 0) {
+      markAttachmentsReadMutation.mutate();
+    }
+  }, [activeTab, ticket?.id, isOpen, unreadCounts]);
+
   if (!ticket) return null;
 
   const handleAddComment = () => {
@@ -286,12 +328,44 @@ export default function TicketDetailModal({
           </div>
         </DialogHeader>
 
-        <Tabs defaultValue="details" className="mt-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="details" data-testid="tab-details">{t('orderDetail.overview')}</TabsTrigger>
-            <TabsTrigger value="comments" data-testid="tab-comments">{t('tickets.comments')}</TabsTrigger>
+            <TabsTrigger 
+              value="comments" 
+              data-testid="tab-comments"
+            >
+              <span className="flex items-center gap-2">
+                {t('tickets.comments')}
+                {comments.length > 0 && unreadCounts !== undefined && (
+                  <Badge 
+                    variant={unreadCounts.unreadComments > 0 ? "destructive" : undefined}
+                    className={unreadCounts.unreadComments === 0 ? "bg-green-500 hover:bg-green-600 text-white" : ""}
+                    data-testid="badge-comments-count"
+                  >
+                    {unreadCounts.unreadComments > 0 ? unreadCounts.unreadComments : "✓"}
+                  </Badge>
+                )}
+              </span>
+            </TabsTrigger>
             <TabsTrigger value="activity" data-testid="tab-activity">{t('tickets.activity')}</TabsTrigger>
-            <TabsTrigger value="attachments" data-testid="tab-attachments">{t('tickets.attachments')}</TabsTrigger>
+            <TabsTrigger 
+              value="attachments" 
+              data-testid="tab-attachments"
+            >
+              <span className="flex items-center gap-2">
+                {t('tickets.attachments')}
+                {attachments.length > 0 && unreadCounts !== undefined && (
+                  <Badge 
+                    variant={unreadCounts.unreadAttachments > 0 ? "destructive" : undefined}
+                    className={unreadCounts.unreadAttachments === 0 ? "bg-green-500 hover:bg-green-600 text-white" : ""}
+                    data-testid="badge-attachments-count"
+                  >
+                    {unreadCounts.unreadAttachments > 0 ? unreadCounts.unreadAttachments : "✓"}
+                  </Badge>
+                )}
+              </span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="details" className="pt-6 space-y-6">
