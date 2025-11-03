@@ -98,76 +98,78 @@ export default function AddRoleDialog({ onAddRole }: AddRoleDialogProps) {
           Add Role
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-xl" data-testid="dialog-add-role">
+      <DialogContent className="max-w-xl max-h-[90vh] flex flex-col" data-testid="dialog-add-role">
         <DialogHeader>
           <DialogTitle>Add New Role</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="font-medium">Role Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., Warehouse Manager" {...field} data-testid="input-role-name" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="salesChannelIds"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="font-medium">{t('roles.salesChannels')}</FormLabel>
-                  <FormControl>
-                    <SalesChannelMultiSelect
-                      value={field.value}
-                      onChange={field.onChange}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 min-h-0 gap-4">
+            <div className="space-y-4 overflow-y-auto pr-2">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-medium">Role Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Warehouse Manager" {...field} data-testid="input-role-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="salesChannelIds"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-medium">{t('roles.salesChannels')}</FormLabel>
+                    <FormControl>
+                      <SalesChannelMultiSelect
+                        value={field.value}
+                        onChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium">Permissions</h3>
-              <div className="space-y-3 pl-2">
-                {(Object.keys(permissionLabels) as Array<keyof typeof permissionLabels>).map((key) => (
-                  <FormField
-                    key={key}
-                    control={form.control}
-                    name={`permissions.${key}`}
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            data-testid={`checkbox-permission-${key}`}
-                          />
-                        </FormControl>
-                        <div className="space-y-0.5 leading-none">
-                          <FormLabel className="font-medium cursor-pointer">
-                            {permissionLabels[key].label}
-                          </FormLabel>
-                          <FormDescription className="text-xs">
-                            {permissionLabels[key].description}
-                          </FormDescription>
-                        </div>
-                      </FormItem>
-                    )}
-                  />
-                ))}
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium">Permissions</h3>
+                <div className="space-y-3 pl-2">
+                  {(Object.keys(permissionLabels) as Array<keyof typeof permissionLabels>).map((key) => (
+                    <FormField
+                      key={key}
+                      control={form.control}
+                      name={`permissions.${key}`}
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              data-testid={`checkbox-permission-${key}`}
+                            />
+                          </FormControl>
+                          <div className="space-y-0.5 leading-none">
+                            <FormLabel className="font-medium cursor-pointer">
+                              {permissionLabels[key].label}
+                            </FormLabel>
+                            <FormDescription className="text-xs">
+                              {permissionLabels[key].description}
+                            </FormDescription>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
             
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-2 pt-2 border-t">
               <Button type="button" variant="outline" onClick={() => setOpen(false)} data-testid="button-cancel-add-role">
                 {t('common.cancel')}
               </Button>
