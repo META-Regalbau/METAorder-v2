@@ -133,6 +133,22 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
     retry: false,
   });
 
+  // Handle ticketId query parameter from URL (e.g., from notifications)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ticketId = params.get('ticketId');
+    
+    if (ticketId && tickets.length > 0) {
+      const ticket = tickets.find(t => t.id === ticketId);
+      if (ticket) {
+        setSelectedTicket(ticket);
+        setIsDetailModalOpen(true);
+        // Clean up URL after opening modal
+        window.history.replaceState({}, '', '/tickets');
+      }
+    }
+  }, [tickets]);
+
   // Collect all unique tags from tickets
   const allTags = Array.from(new Set(tickets.flatMap(ticket => ticket.tags || []))).sort();
 
