@@ -69,7 +69,7 @@ export default function AddUserDialog({ onAddUser, availableRoles }: AddUserDial
           Add User
         </Button>
       </DialogTrigger>
-      <DialogContent data-testid="dialog-add-user">
+      <DialogContent className="max-h-[90vh] overflow-y-auto" data-testid="dialog-add-user">
         <DialogHeader>
           <DialogTitle>Add New User</DialogTitle>
         </DialogHeader>

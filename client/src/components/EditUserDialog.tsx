@@ -70,7 +70,7 @@ export default function EditUserDialog({ user, open, onClose, onUpdateUser, avai
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent data-testid="dialog-edit-user">
+      <DialogContent className="max-h-[90vh] overflow-y-auto" data-testid="dialog-edit-user">
         <DialogHeader>
           <DialogTitle>Edit User</DialogTitle>
         </DialogHeader>
