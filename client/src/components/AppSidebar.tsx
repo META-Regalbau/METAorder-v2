@@ -48,7 +48,7 @@ export default function AppSidebar({ userRole, permissions }: AppSidebarProps) {
       permission: "viewOrders" as keyof Role['permissions'], // Products visible to anyone who can view orders
     },
     {
-      titleKey: "tickets.title",
+      titleKey: "nav.tickets",
       url: "/tickets",
       icon: Ticket,
       permission: "viewTickets" as keyof Role['permissions'],
