@@ -1,4 +1,4 @@
-import { eq, sql as drizzleSql, desc, and } from "drizzle-orm";
+import { eq, sql as drizzleSql, desc, and, isNull } from "drizzle-orm";
 import { db } from "./db";
 import {
   users,
@@ -8,6 +8,8 @@ import {
   tickets,
   ticketComments,
   ticketAttachments,
+  ticketCommentViews,
+  ticketAttachmentViews,
   ticketActivityLog,
   ticketAssignmentRules,
   notifications,
@@ -397,6 +399,92 @@ export class DbStorage implements IStorage {
   async deleteTicketAttachment(id: string): Promise<boolean> {
     const result = await db.delete(ticketAttachments).where(eq(ticketAttachments.id, id)).returning();
     return result.length > 0;
+  }
+
+  // Ticket Views (Read/Unread tracking)
+  async markTicketCommentsAsRead(ticketId: string, userId: string): Promise<void> {
+    // Get all comments for the ticket
+    const comments = await db
+      .select({ id: ticketComments.id })
+      .from(ticketComments)
+      .where(eq(ticketComments.ticketId, ticketId));
+    
+    // Insert view records for each comment (ignore if already exists)
+    for (const comment of comments) {
+      await db
+        .insert(ticketCommentViews)
+        .values({
+          commentId: comment.id,
+          userId: userId,
+        })
+        .onConflictDoNothing();
+    }
+  }
+
+  async markTicketAttachmentsAsRead(ticketId: string, userId: string): Promise<void> {
+    // Get all attachments for the ticket
+    const attachments = await db
+      .select({ id: ticketAttachments.id })
+      .from(ticketAttachments)
+      .where(eq(ticketAttachments.ticketId, ticketId));
+    
+    // Insert view records for each attachment (ignore if already exists)
+    for (const attachment of attachments) {
+      await db
+        .insert(ticketAttachmentViews)
+        .values({
+          attachmentId: attachment.id,
+          userId: userId,
+        })
+        .onConflictDoNothing();
+    }
+  }
+
+  async getUnreadCounts(ticketId: string, userId: string): Promise<{ unreadComments: number; unreadAttachments: number }> {
+    // Count unread comments using LEFT JOIN
+    const unreadCommentsResult = await db
+      .select({
+        count: drizzleSql<number>`count(${ticketComments.id})::int`,
+      })
+      .from(ticketComments)
+      .leftJoin(
+        ticketCommentViews,
+        and(
+          eq(ticketComments.id, ticketCommentViews.commentId),
+          eq(ticketCommentViews.userId, userId)
+        )
+      )
+      .where(
+        and(
+          eq(ticketComments.ticketId, ticketId),
+          isNull(ticketCommentViews.id)
+        )
+      );
+    
+    // Count unread attachments using LEFT JOIN
+    const unreadAttachmentsResult = await db
+      .select({
+        count: drizzleSql<number>`count(${ticketAttachments.id})::int`,
+      })
+      .from(ticketAttachments)
+      .leftJoin(
+        ticketAttachmentViews,
+        and(
+          eq(ticketAttachments.id, ticketAttachmentViews.attachmentId),
+          eq(ticketAttachmentViews.userId, userId)
+        )
+      )
+      .where(
+        and(
+          eq(ticketAttachments.ticketId, ticketId),
+          isNull(ticketAttachmentViews.id)
+        )
+      );
+    
+    return {
+      unreadComments: unreadCommentsResult[0]?.count || 0,
+      unreadAttachments: unreadAttachmentsResult[0]?.count || 0,
+    };
   }
 
   async getTicketActivityLog(ticketId: string): Promise<TicketActivityLog[]> {

@@ -342,6 +342,20 @@ export const ticketAttachments = pgTable("ticket_attachments", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const ticketCommentViews = pgTable("ticket_comment_views", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  commentId: varchar("comment_id").notNull().references(() => ticketComments.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  viewedAt: timestamp("viewed_at").notNull().defaultNow(),
+});
+
+export const ticketAttachmentViews = pgTable("ticket_attachment_views", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  attachmentId: varchar("attachment_id").notNull().references(() => ticketAttachments.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  viewedAt: timestamp("viewed_at").notNull().defaultNow(),
+});
+
 export const ticketActivityLog = pgTable("ticket_activity_log", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   ticketId: varchar("ticket_id").notNull().references(() => tickets.id, { onDelete: "cascade" }),

@@ -2336,6 +2336,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get unread counts for a ticket (comments and attachments)
+  app.get("/api/tickets/:ticketId/unread-counts", requireAuth, requireViewTickets, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const ticketId = req.params.ticketId;
+
+      const counts = await storage.getUnreadCounts(ticketId, userId);
+      res.json(counts);
+    } catch (error) {
+      console.error("Error fetching unread counts:", error);
+      res.status(500).json({ error: "Failed to fetch unread counts" });
+    }
+  });
+
+  // Mark all comments in a ticket as read
+  app.post("/api/tickets/:ticketId/comments/mark-read", requireAuth, requireViewTickets, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const ticketId = req.params.ticketId;
+
+      await storage.markTicketCommentsAsRead(ticketId, userId);
+      res.json({ message: "Comments marked as read" });
+    } catch (error) {
+      console.error("Error marking comments as read:", error);
+      res.status(500).json({ error: "Failed to mark comments as read" });
+    }
+  });
+
+  // Mark all attachments in a ticket as read
+  app.post("/api/tickets/:ticketId/attachments/mark-read", requireAuth, requireViewTickets, async (req, res) => {
+    try {
+      const userId = (req.user as any).id;
+      const ticketId = req.params.ticketId;
+
+      await storage.markTicketAttachmentsAsRead(ticketId, userId);
+      res.json({ message: "Attachments marked as read" });
+    } catch (error) {
+      console.error("Error marking attachments as read:", error);
+      res.status(500).json({ error: "Failed to mark attachments as read" });
+    }
+  });
+
   // ============================================
   // Email Parser Routes
   // ============================================

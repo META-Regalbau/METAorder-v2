@@ -79,6 +79,11 @@ export interface IStorage {
   createTicketAttachment(attachment: InsertTicketAttachment): Promise<TicketAttachment>;
   deleteTicketAttachment(id: string): Promise<boolean>;
   
+  // Ticket Views (Read/Unread tracking)
+  markTicketCommentsAsRead(ticketId: string, userId: string): Promise<void>;
+  markTicketAttachmentsAsRead(ticketId: string, userId: string): Promise<void>;
+  getUnreadCounts(ticketId: string, userId: string): Promise<{ unreadComments: number; unreadAttachments: number }>;
+  
   // Ticket Activity Log
   getTicketActivityLog(ticketId: string): Promise<TicketActivityLog[]>;
   createTicketActivityLog(log: InsertTicketActivityLog): Promise<TicketActivityLog>;
@@ -406,6 +411,19 @@ export class MemStorage implements IStorage {
 
   async deleteTicketAttachment(id: string): Promise<boolean> {
     return this.ticketAttachments.delete(id);
+  }
+
+  async markTicketCommentsAsRead(ticketId: string, userId: string): Promise<void> {
+    // Stub implementation - not used in production (using DbStorage)
+  }
+
+  async markTicketAttachmentsAsRead(ticketId: string, userId: string): Promise<void> {
+    // Stub implementation - not used in production (using DbStorage)
+  }
+
+  async getUnreadCounts(ticketId: string, userId: string): Promise<{ unreadComments: number; unreadAttachments: number }> {
+    // Stub implementation - not used in production (using DbStorage)
+    return { unreadComments: 0, unreadAttachments: 0 };
   }
 
   async getTicketActivityLog(ticketId: string): Promise<TicketActivityLog[]> {
