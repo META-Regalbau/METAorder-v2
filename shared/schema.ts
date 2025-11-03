@@ -377,6 +377,12 @@ export const insertTicketSchema = createInsertSchema(tickets).omit({
   status: z.enum(["open", "in_progress", "waiting_for_customer", "waiting_for_internal", "resolved", "closed"]).default("open"),
   priority: z.enum(["low", "normal", "high", "urgent"]).default("normal"),
   category: z.enum(["general", "order_issue", "product_inquiry", "technical_support", "complaint", "feature_request", "other"]).default("general"),
+  dueDate: z.union([z.string(), z.date()]).transform((val) => {
+    if (typeof val === 'string') {
+      return new Date(val);
+    }
+    return val;
+  }).optional(),
 });
 
 export const insertTicketCommentSchema = createInsertSchema(ticketComments).omit({
