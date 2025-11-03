@@ -163,17 +163,18 @@ export default function UsersPage() {
       </div>
 
       <Card>
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/50">
-              <TableHead className="font-medium">{t('users.username')}</TableHead>
-              <TableHead className="font-medium">{t('users.email')}</TableHead>
-              <TableHead className="font-medium">{t('users.role')}</TableHead>
-              <TableHead className="font-medium">{t('users.salesChannels')}</TableHead>
-              <TableHead className="font-medium text-right">{t('common.actions')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50">
+                <TableHead className="font-medium">{t('users.username')}</TableHead>
+                <TableHead className="font-medium">{t('users.email')}</TableHead>
+                <TableHead className="font-medium">{t('users.role')}</TableHead>
+                <TableHead className="font-medium">{t('users.salesChannels')}</TableHead>
+                <TableHead className="font-medium text-right">{t('common.actions')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
             {users.map((user) => {
               const userChannels = salesChannels.filter(c => user.salesChannelIds?.includes(c.id));
               
@@ -229,8 +230,9 @@ export default function UsersPage() {
                 </TableRow>
               );
             })}
-          </TableBody>
-        </Table>
+            </TableBody>
+          </Table>
+        </div>
       </Card>
 
       <EditUserDialog
