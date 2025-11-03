@@ -178,9 +178,17 @@ export default function CreateTicketDialog({
               formData.append('files', file);
             });
             
+            // Get CSRF token from cookie
+            const csrfToken = document.cookie.match(/csrf_token=([^;]+)/)?.[1];
+            const headers: Record<string, string> = {};
+            if (csrfToken) {
+              headers['X-CSRF-Token'] = csrfToken;
+            }
+            
             const uploadResponse = await fetch(`/api/tickets/${createdTicketId}/attachments`, {
               method: 'POST',
               credentials: 'include',
+              headers,
               body: formData,
             });
             

@@ -154,8 +154,16 @@ export default function TicketDetailModal({
         formData.append('files', file);
       });
       
+      // Get CSRF token from cookie
+      const csrfToken = document.cookie.match(/csrf_token=([^;]+)/)?.[1];
+      const headers: Record<string, string> = {};
+      if (csrfToken) {
+        headers['X-CSRF-Token'] = csrfToken;
+      }
+      
       const response = await fetch(`/api/tickets/${ticket.id}/attachments`, {
         method: 'POST',
+        headers,
         body: formData,
         credentials: 'include',
       });
