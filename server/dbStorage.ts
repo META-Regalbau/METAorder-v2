@@ -13,6 +13,7 @@ import {
   ticketActivityLog,
   ticketAssignmentRules,
   notifications,
+  ticketTemplates,
   type User,
   type InsertUser,
   type Role,
@@ -32,6 +33,8 @@ import {
   type InsertTicketAssignmentRule,
   type Notification,
   type InsertNotification,
+  type TicketTemplate,
+  type InsertTicketTemplate,
 } from "@shared/schema";
 import type { IStorage, InsertRole, UpdateUser } from "./storage";
 import { encrypt, decrypt } from "./encryption";
@@ -594,6 +597,65 @@ export class DbStorage implements IStorage {
   async deleteNotification(id: string): Promise<boolean> {
     const result = await db.delete(notifications).where(eq(notifications.id, id)).returning();
     return result.length > 0;
+  }
+
+  // Ticket Templates
+  async getAllTicketTemplates(): Promise<TicketTemplate[]> {
+    return await db.select().from(ticketTemplates).orderBy(desc(ticketTemplates.createdAt));
+  }
+
+  async getTicketTemplate(id: string): Promise<TicketTemplate | undefined> {
+    const result = await db.select().from(ticketTemplates).where(eq(ticketTemplates.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createTicketTemplate(insertTemplate: InsertTicketTemplate): Promise<TicketTemplate> {
+    const result = await db.insert(ticketTemplates).values(insertTemplate).returning();
+    return result[0];
+  }
+
+  async updateTicketTemplate(id: string, updates: Partial<InsertTicketTemplate>): Promise<TicketTemplate | undefined> {
+    const result = await db
+      .update(ticketTemplates)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(ticketTemplates.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteTicketTemplate(id: string): Promise<boolean> {
+    const result = await db.delete(ticketTemplates).where(eq(ticketTemplates.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Settings (generic key-value store)
+  async getSetting(key: string): Promise<any | undefined> {
+    const result = await db
+      .select()
+      .from(settings)
+      .where(eq(settings.key, key))
+      .limit(1);
+    
+    if (!result[0]) return undefined;
+    
+    return result[0].value;
+  }
+
+  async saveSetting(key: string, value: any): Promise<void> {
+    const existing = await db
+      .select()
+      .from(settings)
+      .where(eq(settings.key, key))
+      .limit(1);
+
+    if (existing[0]) {
+      await db
+        .update(settings)
+        .set({ value, updatedAt: new Date() })
+        .where(eq(settings.key, key));
+    } else {
+      await db.insert(settings).values({ key, value });
+    }
   }
 
   private async generateTicketNumber(): Promise<string> {

@@ -18,6 +18,8 @@ import {
   type InsertTicketAssignmentRule,
   type Notification,
   type InsertNotification,
+  type TicketTemplate,
+  type InsertTicketTemplate,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -103,6 +105,17 @@ export interface IStorage {
   markNotificationAsRead(id: string): Promise<Notification | undefined>;
   markAllNotificationsAsRead(userId: string): Promise<number>;
   deleteNotification(id: string): Promise<boolean>;
+  
+  // Ticket Templates
+  getAllTicketTemplates(): Promise<TicketTemplate[]>;
+  getTicketTemplate(id: string): Promise<TicketTemplate | undefined>;
+  createTicketTemplate(template: InsertTicketTemplate): Promise<TicketTemplate>;
+  updateTicketTemplate(id: string, updates: Partial<InsertTicketTemplate>): Promise<TicketTemplate | undefined>;
+  deleteTicketTemplate(id: string): Promise<boolean>;
+  
+  // Settings (generic key-value store for AI settings etc.)
+  getSetting(key: string): Promise<any | undefined>;
+  saveSetting(key: string, value: any): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -517,6 +530,7 @@ export class MemStorage implements IStorage {
       ...insertNotification,
       ticketId: insertNotification.ticketId ?? null,
       ticketNumber: insertNotification.ticketNumber ?? null,
+      read: insertNotification.read ?? 0,
       createdAt: new Date(),
     };
     
@@ -538,7 +552,8 @@ export class MemStorage implements IStorage {
 
   async markAllNotificationsAsRead(userId: string): Promise<number> {
     let count = 0;
-    for (const [id, notification] of this.notifications.entries()) {
+    const entries = Array.from(this.notifications.entries());
+    for (const [id, notification] of entries) {
       if (notification.userId === userId && notification.read === 0) {
         this.notifications.set(id, { ...notification, read: 1 });
         count++;
@@ -549,6 +564,49 @@ export class MemStorage implements IStorage {
 
   async deleteNotification(id: string): Promise<boolean> {
     return this.notifications.delete(id);
+  }
+  
+  // Ticket Templates
+  async getAllTicketTemplates(): Promise<TicketTemplate[]> {
+    // Stub implementation - not used in production (using DbStorage)
+    return [];
+  }
+  
+  async getTicketTemplate(id: string): Promise<TicketTemplate | undefined> {
+    // Stub implementation - not used in production (using DbStorage)
+    return undefined;
+  }
+  
+  async createTicketTemplate(template: InsertTicketTemplate): Promise<TicketTemplate> {
+    // Stub implementation - not used in production (using DbStorage)
+    const newTemplate: TicketTemplate = {
+      ...template,
+      id: randomUUID(),
+      category: template.category ?? null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    return newTemplate;
+  }
+  
+  async updateTicketTemplate(id: string, updates: Partial<InsertTicketTemplate>): Promise<TicketTemplate | undefined> {
+    // Stub implementation - not used in production (using DbStorage)
+    return undefined;
+  }
+  
+  async deleteTicketTemplate(id: string): Promise<boolean> {
+    // Stub implementation - not used in production (using DbStorage)
+    return false;
+  }
+  
+  // Settings
+  async getSetting(key: string): Promise<any | undefined> {
+    // Stub implementation - not used in production (using DbStorage)
+    return undefined;
+  }
+  
+  async saveSetting(key: string, value: any): Promise<void> {
+    // Stub implementation - not used in production (using DbStorage)
   }
 }
 
