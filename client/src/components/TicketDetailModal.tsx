@@ -94,6 +94,8 @@ export default function TicketDetailModal({
     onSuccess: () => {
       if (!ticket?.id) return;
       queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticket.id, 'comments'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticket.id, 'activity'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticket.id, 'unread-counts'] });
       setCommentText("");
       toast({
         title: t('tickets.commentAdded'),
@@ -118,6 +120,7 @@ export default function TicketDetailModal({
       if (!ticket?.id) return;
       queryClient.invalidateQueries({ queryKey: ['/api/tickets'] });
       queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticket.id] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticket.id, 'activity'] });
       toast({
         title: t('tickets.updateSuccess'),
       });
@@ -184,6 +187,8 @@ export default function TicketDetailModal({
     onSuccess: () => {
       if (!ticket?.id) return;
       queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticket.id, 'attachments'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticket.id, 'activity'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticket.id, 'unread-counts'] });
       toast({
         title: t('tickets.uploadSuccess'),
       });

@@ -38,6 +38,8 @@ export function AttachmentsList({ ticketId, attachments, canDelete = false }: At
         title: t('tickets.attachmentDeleted'),
       });
       queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticketId, 'attachments'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticketId, 'activity'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticketId, 'unread-counts'] });
       setDeleteDialogOpen(false);
       setAttachmentToDelete(null);
     },
