@@ -174,7 +174,7 @@ export default function CreateTicketDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl" data-testid="dialog-create-ticket">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-create-ticket">
         <DialogHeader>
           <DialogTitle>{t('tickets.createTicket')}</DialogTitle>
           <DialogDescription className="sr-only">
