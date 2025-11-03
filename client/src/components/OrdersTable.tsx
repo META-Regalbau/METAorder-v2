@@ -1,6 +1,7 @@
 import { Eye, Package, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import StatusBadge from "./StatusBadge";
 import PaymentStatusBadge from "./PaymentStatusBadge";
@@ -12,10 +13,25 @@ interface OrdersTableProps {
   onViewOrder: (order: Order) => void;
   isLoading?: boolean;
   ticketCounts?: Record<string, number>;
+  selectedOrderIds?: string[];
+  onToggleOrder?: (orderId: string) => void;
+  onToggleAll?: () => void;
 }
 
-export default function OrdersTable({ orders, onViewOrder, isLoading, ticketCounts = {} }: OrdersTableProps) {
+export default function OrdersTable({ 
+  orders, 
+  onViewOrder, 
+  isLoading, 
+  ticketCounts = {},
+  selectedOrderIds = [],
+  onToggleOrder,
+  onToggleAll,
+}: OrdersTableProps) {
   const { t, i18n } = useTranslation();
+  
+  const showCheckboxes = !!onToggleOrder;
+  const allSelected = showCheckboxes && orders.length > 0 && orders.every(o => selectedOrderIds.includes(o.id));
+  const someSelected = showCheckboxes && selectedOrderIds.length > 0 && !allSelected;
   
   if (isLoading) {
     return (
@@ -44,6 +60,16 @@ export default function OrdersTable({ orders, onViewOrder, isLoading, ticketCoun
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50">
+            {showCheckboxes && (
+              <TableHead className="w-12">
+                <Checkbox
+                  checked={allSelected || someSelected}
+                  onCheckedChange={onToggleAll}
+                  aria-label="Select all orders"
+                  data-testid="checkbox-select-all"
+                />
+              </TableHead>
+            )}
             <TableHead className="font-medium">{t('orders.orderNumber')}</TableHead>
             <TableHead className="font-medium">{t('orders.customer')}</TableHead>
             <TableHead className="font-medium">{t('orders.date')}</TableHead>
@@ -56,6 +82,16 @@ export default function OrdersTable({ orders, onViewOrder, isLoading, ticketCoun
         <TableBody>
           {orders.map((order) => (
             <TableRow key={order.id} className="hover-elevate" data-testid={`row-order-${order.id}`}>
+              {showCheckboxes && (
+                <TableCell>
+                  <Checkbox
+                    checked={selectedOrderIds.includes(order.id)}
+                    onCheckedChange={() => onToggleOrder(order.id)}
+                    aria-label={`Select order ${order.orderNumber}`}
+                    data-testid={`checkbox-order-${order.id}`}
+                  />
+                </TableCell>
+              )}
               <TableCell className="font-mono font-medium" data-testid={`text-order-number-${order.id}`}>
                 {order.orderNumber}
               </TableCell>

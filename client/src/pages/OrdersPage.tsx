@@ -7,6 +7,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import OrderFilters from "@/components/OrderFilters";
 import OrdersTable from "@/components/OrdersTable";
 import OrderDetailModal from "@/components/OrderDetailModal";
+import BulkActionsBar from "@/components/BulkActionsBar";
+import BulkTrackingDialog from "@/components/BulkTrackingDialog";
 import { SalesChannelSelector } from "@/components/SalesChannelSelector";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -32,6 +34,8 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const [isBulkTrackingDialogOpen, setIsBulkTrackingDialogOpen] = useState(false);
 
   // Fetch sales channels to initialize selection
   const { data: salesChannels = [] } = useQuery<SalesChannel[]>({
@@ -202,6 +206,30 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
     // TODO: Implement API call to update documents
   };
 
+  const handleToggleOrder = (orderId: string) => {
+    setSelectedOrderIds(prev => 
+      prev.includes(orderId) 
+        ? prev.filter(id => id !== orderId)
+        : [...prev, orderId]
+    );
+  };
+
+  const handleToggleAll = () => {
+    if (selectedOrderIds.length === paginatedOrders.length) {
+      setSelectedOrderIds([]);
+    } else {
+      setSelectedOrderIds(paginatedOrders.map(order => order.id));
+    }
+  };
+
+  const handleCancelSelection = () => {
+    setSelectedOrderIds([]);
+  };
+
+  const handleBulkUpdateSuccess = () => {
+    setSelectedOrderIds([]);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -281,12 +309,14 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
 
       {/* Orders Table */}
       <div>
-
         <OrdersTable
           orders={paginatedOrders}
           onViewOrder={handleViewOrder}
           isLoading={isLoading}
           ticketCounts={ticketCounts}
+          selectedOrderIds={selectedOrderIds}
+          onToggleOrder={handleToggleOrder}
+          onToggleAll={handleToggleAll}
         />
       </div>
 
@@ -370,6 +400,19 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
         userPermissions={currentUser?.user?.permissions}
         onUpdateShipping={handleUpdateShipping}
         onUpdateDocuments={handleUpdateDocuments}
+      />
+
+      <BulkActionsBar
+        selectedCount={selectedOrderIds.length}
+        onUpdateTracking={() => setIsBulkTrackingDialogOpen(true)}
+        onCancel={handleCancelSelection}
+      />
+
+      <BulkTrackingDialog
+        isOpen={isBulkTrackingDialogOpen}
+        onClose={() => setIsBulkTrackingDialogOpen(false)}
+        selectedOrders={orders.filter(order => selectedOrderIds.includes(order.id))}
+        onSuccess={handleBulkUpdateSuccess}
       />
     </div>
   );

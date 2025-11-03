@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTranslation } from "react-i18next";
 import type { Order } from "@shared/schema";
@@ -15,6 +15,13 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { EmailDropZone } from "@/components/EmailDropZone";
 import { Separator } from "@/components/ui/separator";
 import { FileUpload } from "@/components/FileUpload";
+
+interface Template {
+  id: string;
+  title: string;
+  category?: string | null;
+  content: string;
+}
 
 interface CreateTicketDialogProps {
   isOpen: boolean;
@@ -40,6 +47,12 @@ export default function CreateTicketDialog({
   const [detectedOrderNumber, setDetectedOrderNumber] = useState<string | undefined>();
   const [emailFileData, setEmailFileData] = useState<{ filename: string; fileData: string } | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+
+  // Fetch templates
+  const { data: templates = [] } = useQuery<Template[]>({
+    queryKey: ['/api/templates'],
+    retry: false,
+  });
 
   const createTicketMutation = useMutation({
     mutationFn: async (data: {
@@ -284,6 +297,27 @@ export default function CreateTicketDialog({
 
           <div className="space-y-2">
             <Label htmlFor="description">{t('tickets.description')} *</Label>
+            {templates.length > 0 && (
+              <Select 
+                onValueChange={(templateId) => {
+                  const template = templates.find(t => t.id === templateId);
+                  if (template) {
+                    setDescription(template.content);
+                  }
+                }}
+              >
+                <SelectTrigger data-testid="select-template">
+                  <SelectValue placeholder={t('templates.useTemplate')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <Textarea
               id="description"
               value={description}

@@ -1,4 +1,4 @@
-import { X, Send, Trash2, Link as LinkIcon, Clock } from "lucide-react";
+import { X, Send, Trash2, Link as LinkIcon, Clock, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,6 +20,13 @@ import TagInput from "@/components/TagInput";
 import { DatePicker } from "@/components/ui/date-picker";
 import { FileUpload } from "@/components/FileUpload";
 import { AttachmentsList } from "@/components/AttachmentsList";
+
+interface Template {
+  id: string;
+  title: string;
+  category?: string | null;
+  content: string;
+}
 
 interface TicketDetailModalProps {
   ticketId: string | null;
@@ -96,6 +103,39 @@ export default function TicketDetailModal({
   const { data: unreadCounts } = useQuery<{ unreadComments: number; unreadAttachments: number }>({
     queryKey: ['/api/tickets', ticketId, 'unread-counts'],
     enabled: isOpen && !!ticketId,
+  });
+
+  // Fetch templates
+  const { data: templates = [] } = useQuery<Template[]>({
+    queryKey: ['/api/templates'],
+    retry: false,
+  });
+
+  // Fetch AI settings
+  const { data: aiSettings } = useQuery<{ enabled: boolean; hasApiKey: boolean }>({
+    queryKey: ['/api/settings/ai'],
+    retry: false,
+  });
+
+  const improveTextMutation = useMutation({
+    mutationFn: async (text: string) => {
+      const response = await apiRequest("POST", "/api/ai/improve-text", { text });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setCommentText(data.improvedText);
+      toast({
+        title: t('ai.textImproved'),
+        description: t('ai.textImprovedDesc'),
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t('ai.improveFailed'),
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const addCommentMutation = useMutation({
@@ -565,13 +605,50 @@ export default function TicketDetailModal({
                 <CardTitle className="text-sm">{t('tickets.addComment')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Textarea
-                  placeholder={t('tickets.addComment')}
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  rows={4}
-                  data-testid="input-comment"
-                />
+                {templates.length > 0 && (
+                  <Select 
+                    onValueChange={(templateId) => {
+                      const template = templates.find(t => t.id === templateId);
+                      if (template) {
+                        setCommentText(template.content);
+                      }
+                    }}
+                  >
+                    <SelectTrigger data-testid="select-template-comment">
+                      <SelectValue placeholder={t('templates.useTemplate')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {templates.map((template) => (
+                        <SelectItem key={template.id} value={template.id}>
+                          {template.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                <div className="relative">
+                  <Textarea
+                    placeholder={t('tickets.addComment')}
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    rows={4}
+                    data-testid="input-comment"
+                  />
+                  {aiSettings?.enabled && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute top-2 right-2"
+                      onClick={() => improveTextMutation.mutate(commentText)}
+                      disabled={!commentText.trim() || improveTextMutation.isPending}
+                      data-testid="button-improve-text"
+                      title={t('ai.improveText')}
+                    >
+                      <Sparkles className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
                 {canManageTickets && (
                   <div className="flex items-center gap-2">
                     <Switch

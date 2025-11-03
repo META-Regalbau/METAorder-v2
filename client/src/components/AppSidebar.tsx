@@ -1,4 +1,4 @@
-import { Package, Download, BarChart3, Settings, Users, Shield, Sparkles, AlertTriangle, Ticket, GitBranch } from "lucide-react";
+import { Package, Download, BarChart3, Settings, Users, Shield, Sparkles, AlertTriangle, Ticket, GitBranch, Truck, FileText } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import type { Role } from "@shared/schema";
@@ -36,6 +36,12 @@ export default function AppSidebar({ userRole, permissions }: AppSidebarProps) {
       permission: "viewDelayedOrders" as keyof Role['permissions'],
     },
     {
+      titleKey: "shipping.title",
+      url: "/shipping",
+      icon: Truck,
+      permission: "viewShipping" as keyof Role['permissions'],
+    },
+    {
       titleKey: "nav.products",
       url: "/products",
       icon: Package,
@@ -51,6 +57,12 @@ export default function AppSidebar({ userRole, permissions }: AppSidebarProps) {
       titleKey: "Ticket Rules",
       url: "/ticket-rules",
       icon: GitBranch,
+      permission: "manageTickets" as keyof Role['permissions'],
+    },
+    {
+      titleKey: "templates.title",
+      url: "/templates",
+      icon: FileText,
       permission: "manageTickets" as keyof Role['permissions'],
     },
     {

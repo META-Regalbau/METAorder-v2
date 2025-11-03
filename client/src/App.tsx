@@ -8,10 +8,12 @@ import AppSidebar from "@/components/AppSidebar";
 import TopBar from "@/components/TopBar";
 import OrdersPage from "@/pages/OrdersPage";
 import DelayedOrdersPage from "@/pages/DelayedOrdersPage";
+import ShippingPage from "@/pages/ShippingPage";
 import ProductsPage from "@/pages/ProductsPage";
 import TicketsPage from "@/pages/TicketsPage";
 import TicketRulesPage from "@/pages/TicketRulesPage";
 import CrossSellingRulesPage from "@/pages/CrossSellingRulesPage";
+import TemplatesPage from "@/pages/TemplatesPage";
 import ExportPage from "@/pages/ExportPage";
 import AnalyticsPage from "@/pages/AnalyticsPage";
 import UsersPage from "@/pages/UsersPage";
@@ -40,9 +42,11 @@ function Router({
     <Switch>
       <Route path="/" component={() => <OrdersPage userRole={userRole} userSalesChannelIds={userSalesChannelIds} />} />
       <Route path="/delayed" component={() => <DelayedOrdersPage userRole={userRole} />} />
+      <Route path="/shipping" component={() => <ShippingPage userRole={userRole} userPermissions={userPermissions} />} />
       <Route path="/products" component={ProductsPage} />
       <Route path="/tickets" component={() => <TicketsPage userPermissions={userPermissions} />} />
       <Route path="/ticket-rules" component={TicketRulesPage} />
+      <Route path="/templates" component={() => <TemplatesPage userPermissions={userPermissions} />} />
       <Route path="/cross-selling-rules" component={CrossSellingRulesPage} />
       <Route path="/export" component={ExportPage} />
       <Route path="/analytics" component={() => <AnalyticsPage userRole={userRole} userSalesChannelIds={userSalesChannelIds} />} />

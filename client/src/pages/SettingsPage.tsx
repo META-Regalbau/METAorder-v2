@@ -2,19 +2,62 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { useTranslation } from "react-i18next";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 
 export default function SettingsPage() {
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [shopwareUrl, setShopwareUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
   const [showSecret, setShowSecret] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const [openaiApiKey, setOpenaiApiKey] = useState("");
+  const [showOpenaiKey, setShowOpenaiKey] = useState(false);
+
+  // Fetch AI settings
+  const { data: aiSettings, isLoading: aiSettingsLoading } = useQuery<{ enabled: boolean; hasApiKey: boolean }>({
+    queryKey: ['/api/settings/ai'],
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (aiSettings) {
+      setAiEnabled(aiSettings.enabled);
+    }
+  }, [aiSettings]);
+
+  const saveAiSettingsMutation = useMutation({
+    mutationFn: async (data: { apiKey?: string; enabled: boolean }) => {
+      const response = await apiRequest("POST", "/api/settings/ai", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/settings/ai'] });
+      toast({
+        title: t('ai.settingsSaved'),
+        description: t('ai.settingsSavedDesc'),
+      });
+      setOpenaiApiKey("");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t('ai.settingsFailed'),
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleTestConnection = async () => {
     setIsTesting(true);
@@ -153,6 +196,71 @@ export default function SettingsPage() {
               data-testid="button-save-settings"
             >
               {isSaving ? "Saving..." : "Save Settings"}
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="p-6 mt-6">
+        <h2 className="text-sm font-medium uppercase tracking-wide mb-4">
+          {t('ai.aiIntegration')}
+        </h2>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">{t('ai.enableAi')}</Label>
+              <p className="text-xs text-muted-foreground">
+                {t('ai.enableAiDesc')}
+              </p>
+            </div>
+            <Switch
+              checked={aiEnabled}
+              onCheckedChange={setAiEnabled}
+              data-testid="switch-ai-enabled"
+            />
+          </div>
+
+          <div>
+            <Label className="text-sm font-medium mb-2">{t('ai.apiKey')}</Label>
+            <div className="relative">
+              <Input
+                type={showOpenaiKey ? "text" : "password"}
+                placeholder={aiSettings?.hasApiKey ? "••••••••••••••••••••" : t('ai.apiKeyPlaceholder')}
+                value={openaiApiKey}
+                onChange={(e) => setOpenaiApiKey(e.target.value)}
+                className="font-mono pr-10"
+                data-testid="input-openai-api-key"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full"
+                onClick={() => setShowOpenaiKey(!showOpenaiKey)}
+                data-testid="button-toggle-openai-key-visibility"
+              >
+                {showOpenaiKey ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {t('ai.apiKeyDesc')}
+            </p>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <Button 
+              onClick={() => saveAiSettingsMutation.mutate({ 
+                apiKey: openaiApiKey || undefined, 
+                enabled: aiEnabled 
+              })}
+              disabled={saveAiSettingsMutation.isPending}
+              data-testid="button-save-ai-settings"
+            >
+              {saveAiSettingsMutation.isPending ? t('common.saving') : t('common.save')}
             </Button>
           </div>
         </div>
