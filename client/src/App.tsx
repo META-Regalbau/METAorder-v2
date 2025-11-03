@@ -55,18 +55,15 @@ function Router({
 }
 
 function AuthenticatedApp() {
-  const [currentUser, setCurrentUser] = useState<UserWithPermissions | null>(null);
-  
   // Check if user is authenticated
-  const { data, isLoading, refetch } = useQuery<{ user: UserWithPermissions }>({
+  const { data, isLoading } = useQuery<{ user: UserWithPermissions }>({
     queryKey: ["/api/auth/me"],
     retry: false,
   });
 
-  // Handle login success
-  const handleLoginSuccess = (user: UserWithPermissions) => {
-    setCurrentUser(user);
-    refetch();
+  // Handle login success - invalidate query to refetch user data
+  const handleLoginSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
   };
 
   // Show login page if not authenticated
@@ -78,7 +75,7 @@ function AuthenticatedApp() {
     );
   }
 
-  const user = currentUser || data?.user;
+  const user = data?.user;
 
   if (!user) {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;
@@ -101,7 +98,7 @@ function AuthenticatedApp() {
             <TopBar 
               userRole={user.role as "employee" | "admin"} 
               username={user.username}
-              onLogout={() => setCurrentUser(null)}
+              onLogout={() => queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] })}
             />
             <main className="flex-1 overflow-auto p-6 bg-background">
               <Router 

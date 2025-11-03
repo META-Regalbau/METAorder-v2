@@ -23,7 +23,7 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
-export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: (user: any) => void }) {
+export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: () => void }) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -41,10 +41,10 @@ export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: (user: a
       const response = await apiRequest("POST", "/api/auth/login", data);
       return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       // Token is now stored in httpOnly cookie by backend, no client-side storage needed
-      
-      onLoginSuccess(data.user);
+      // Invalidate auth query to trigger re-fetch and show navigation
+      onLoginSuccess();
       toast({
         title: t("auth.loginSuccess"),
         description: t("auth.welcomeBack"),
