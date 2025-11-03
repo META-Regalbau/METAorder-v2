@@ -21,6 +21,7 @@ export const roles = pgTable("roles", {
     manageCrossSellingRules: boolean;
     viewTickets: boolean;
     manageTickets: boolean;
+    viewShipping: boolean;
   }>(),
 });
 
@@ -455,3 +456,23 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
 
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
+
+// Ticket Templates for quick responses
+export const ticketTemplates = pgTable("ticket_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  category: text("category"), // Optional category for organization
+  createdByUserId: varchar("created_by_user_id").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertTicketTemplateSchema = createInsertSchema(ticketTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertTicketTemplate = z.infer<typeof insertTicketTemplateSchema>;
+export type TicketTemplate = typeof ticketTemplates.$inferSelect;
