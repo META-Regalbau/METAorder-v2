@@ -294,38 +294,23 @@ export default function TicketDetailModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="modal-ticket-detail">
         <DialogHeader>
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-sm font-mono text-muted-foreground" data-testid="text-ticket-number">
-                  {ticket.ticketNumber}
-                </span>
-                <Badge variant={getPriorityBadgeVariant(ticket.priority)} data-testid="badge-priority">
-                  {t(`tickets.priority${ticket.priority.charAt(0).toUpperCase() + ticket.priority.slice(1)}`)}
-                </Badge>
-                <Badge variant={getStatusBadgeVariant(ticket.status)} data-testid="badge-status">
-                  {t(`tickets.status${ticket.status.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join('')}`)}
-                </Badge>
-              </div>
-              <DialogTitle className="text-2xl font-semibold" data-testid="text-ticket-title">
-                {ticket.title}
-              </DialogTitle>
-              <DialogDescription className="sr-only">
-                {t('tickets.viewDetails')}
-              </DialogDescription>
-            </div>
-            {canManageTickets && (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleDeleteTicket}
-                data-testid="button-delete-ticket"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                {t('tickets.deleteTicket')}
-              </Button>
-            )}
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-sm font-mono text-muted-foreground" data-testid="text-ticket-number">
+              {ticket.ticketNumber}
+            </span>
+            <Badge variant={getPriorityBadgeVariant(ticket.priority)} data-testid="badge-priority">
+              {t(`tickets.priority${ticket.priority.charAt(0).toUpperCase() + ticket.priority.slice(1)}`)}
+            </Badge>
+            <Badge variant={getStatusBadgeVariant(ticket.status)} data-testid="badge-status">
+              {t(`tickets.status${ticket.status.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join('')}`)}
+            </Badge>
           </div>
+          <DialogTitle className="text-2xl font-semibold" data-testid="text-ticket-title">
+            {ticket.title}
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            {t('tickets.viewDetails')}
+          </DialogDescription>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
@@ -540,6 +525,22 @@ export default function TicketDetailModal({
                 </div>
               </CardContent>
             </Card>
+
+            {/* Ticket löschen */}
+            {canManageTickets && (
+              <div className="pt-4">
+                <Button
+                  variant="destructive"
+                  size="default"
+                  onClick={handleDeleteTicket}
+                  data-testid="button-delete-ticket"
+                  className="w-full"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  {t('tickets.deleteTicket')}
+                </Button>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="comments" className="pt-6 space-y-4">
