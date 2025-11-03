@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Edit, Trash2, Check, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
@@ -249,7 +250,7 @@ export default function RolesPage() {
             <AlertDialogCancel data-testid="button-cancel-delete-role">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deletingRole && handleDeleteRole(deletingRole)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className={cn(buttonVariants({ variant: "destructive" }))}
               data-testid="button-confirm-delete-role"
             >
               Delete

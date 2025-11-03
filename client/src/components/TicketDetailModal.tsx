@@ -324,8 +324,7 @@ export default function TicketDetailModal({
                 {t('tickets.comments')}
                 {comments.length > 0 && unreadCounts !== undefined && (
                   <Badge 
-                    variant={unreadCounts.unreadComments > 0 ? "destructive" : undefined}
-                    className={unreadCounts.unreadComments === 0 ? "bg-green-500 hover:bg-green-600 text-white" : ""}
+                    variant={unreadCounts.unreadComments > 0 ? "destructive" : "success"}
                     data-testid="badge-comments-count"
                   >
                     {unreadCounts.unreadComments > 0 ? unreadCounts.unreadComments : "✓"}
@@ -342,8 +341,7 @@ export default function TicketDetailModal({
                 {t('tickets.attachments')}
                 {attachments.length > 0 && unreadCounts !== undefined && (
                   <Badge 
-                    variant={unreadCounts.unreadAttachments > 0 ? "destructive" : undefined}
-                    className={unreadCounts.unreadAttachments === 0 ? "bg-green-500 hover:bg-green-600 text-white" : ""}
+                    variant={unreadCounts.unreadAttachments > 0 ? "destructive" : "success"}
                     data-testid="badge-attachments-count"
                   >
                     {unreadCounts.unreadAttachments > 0 ? unreadCounts.unreadAttachments : "✓"}

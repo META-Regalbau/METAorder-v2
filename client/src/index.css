@@ -68,6 +68,10 @@
 
   --destructive-foreground: 0 5% 98%;
 
+  --success: 142 70% 40%;
+
+  --success-foreground: 142 5% 98%;
+
   --input: 210 10% 70%;
   --ring: 210 85% 42%;
   --chart-1: 210 82% 35%;
@@ -120,6 +124,10 @@
   /* Fallback for older browsers */
   --destructive-border: hsl(var(--destructive));
   --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Fallback for older browsers */
+  --success-border: hsl(var(--success));
+  --success-border: hsl(from hsl(var(--success)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
 
 .dark {
@@ -185,6 +193,10 @@
   --destructive: 0 68% 42%;
 
   --destructive-foreground: 0 5% 98%;
+
+  --success: 142 65% 45%;
+
+  --success-foreground: 142 5% 98%;
 
   --input: 210 10% 32%;
   --ring: 210 80% 45%;
