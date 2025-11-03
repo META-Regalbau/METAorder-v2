@@ -88,6 +88,7 @@
   "orders": {
     "title": "Orders",
     "orderNumber": "Order Number",
+    "company": "Company",
     "customer": "Customer",
     "date": "Date",
     "status": "Status",

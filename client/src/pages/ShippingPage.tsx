@@ -106,9 +106,9 @@ export default function ShippingPage({ userRole = "employee", userPermissions }:
             <TableHeader>
               <TableRow>
                 <TableHead data-testid="header-order-number">{t('orders.orderNumber')}</TableHead>
+                <TableHead data-testid="header-company">{t('orders.company')}</TableHead>
                 <TableHead data-testid="header-customer">{t('orders.customer')}</TableHead>
                 <TableHead data-testid="header-date">{t('orders.date')}</TableHead>
-                <TableHead data-testid="header-total">{t('orders.total')}</TableHead>
                 <TableHead data-testid="header-sales-channel">{t('salesChannel.filter')}</TableHead>
                 <TableHead data-testid="header-equipment">{t('shipping.equipment')}</TableHead>
                 <TableHead data-testid="header-actions">{t('common.actions')}</TableHead>
@@ -120,14 +120,14 @@ export default function ShippingPage({ userRole = "employee", userPermissions }:
                   <TableCell className="font-mono font-medium" data-testid={`text-order-number-${order.id}`}>
                     {order.orderNumber}
                   </TableCell>
+                  <TableCell data-testid={`text-company-${order.id}`}>
+                    {order.billingAddress?.company || order.shippingAddress?.company || '-'}
+                  </TableCell>
                   <TableCell data-testid={`text-customer-${order.id}`}>
-                    {order.customerFirstName} {order.customerLastName}
+                    {order.customerName}
                   </TableCell>
                   <TableCell data-testid={`text-date-${order.id}`}>
                     {format(new Date(order.orderDate), 'dd.MM.yyyy HH:mm')}
-                  </TableCell>
-                  <TableCell data-testid={`text-total-${order.id}`}>
-                    €{(order.amountTotal || 0).toFixed(2)}
                   </TableCell>
                   <TableCell data-testid={`text-sales-channel-${order.id}`}>
                     {order.salesChannelName || '-'}
