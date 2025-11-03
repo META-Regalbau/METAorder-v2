@@ -8,12 +8,15 @@ import crypto from "crypto";
 import { storage } from "./storage";
 import { ShopwareClient } from "./shopware";
 import { RuleEngine } from "./ruleEngine";
-import { shopwareSettingsSchema, insertCrossSellingRuleSchema, type Product, insertUserSchema, type Role, insertTicketSchema, insertTicketCommentSchema, insertTicketAssignmentRuleSchema, type Ticket, insertNotificationSchema } from "@shared/schema";
+import { shopwareSettingsSchema, insertCrossSellingRuleSchema, type Product, insertUserSchema, type Role, insertTicketSchema, insertTicketCommentSchema, insertTicketAssignmentRuleSchema, type Ticket, insertNotificationSchema, insertTicketAttachmentSchema } from "@shared/schema";
 import { requireAuth, requireViewDelayedOrders, requireManageUsers, requireManageRoles, requireManageSettings, requireManageCrossSellingGroups, requireManageCrossSellingRules, requireViewTickets, requireManageTickets } from "./auth";
 import * as XLSX from 'xlsx';
 import { generateToken } from "./jwt";
 import { parseEmailFile } from "./emailParser";
 import { notificationEvents } from "./events";
+import multer from "multer";
+import path from "path";
+import fs from "fs/promises";
 
 // Rate limiter for login endpoint - prevents brute force attacks
 const loginRateLimiter = rateLimit({
@@ -2152,6 +2155,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Ticket Attachments Routes
   // ============================================
 
+  // Configure multer for file uploads with strict security
+  const attachmentStorage = multer.diskStorage({
+    destination: async (req, file, cb) => {
+      const uploadPath = path.join(process.cwd(), 'uploads', 'ticket-attachments');
+      try {
+        await fs.mkdir(uploadPath, { recursive: true });
+        cb(null, uploadPath);
+      } catch (error) {
+        cb(error as Error, uploadPath);
+      }
+    },
+    filename: (req, file, cb) => {
+      // Generate unique filename: timestamp-randomstring-sanitized-original-name
+      const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+      const uniqueSuffix = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}`;
+      cb(null, `${uniqueSuffix}-${sanitizedName}`);
+    }
+  });
+
+  const attachmentUpload = multer({
+    storage: attachmentStorage,
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB limit
+      files: 10, // Max 10 files per upload
+    },
+    fileFilter: (req, file, cb) => {
+      // Only allow PNG, JPG, JPEG, PDF
+      const allowedMimeTypes = [
+        'image/png',
+        'image/jpeg',
+        'image/jpg',
+        'application/pdf'
+      ];
+      
+      if (allowedMimeTypes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error(`Invalid file type. Only PNG, JPG, JPEG, and PDF files are allowed. Received: ${file.mimetype}`));
+      }
+    }
+  });
+
   // Get attachments for a ticket
   app.get("/api/tickets/:ticketId/attachments", requireAuth, requireViewTickets, async (req, res) => {
     try {
@@ -2160,6 +2205,134 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching ticket attachments:", error);
       res.status(500).json({ error: "Failed to fetch attachments" });
+    }
+  });
+
+  // Upload attachment(s) to a ticket
+  app.post("/api/tickets/:ticketId/attachments", 
+    requireAuth, 
+    requireViewTickets,
+    attachmentUpload.array('files', 10),
+    async (req, res) => {
+      try {
+        const userId = (req.user as any).id;
+        const ticketId = req.params.ticketId;
+        const files = req.files as Express.Multer.File[];
+
+        if (!files || files.length === 0) {
+          return res.status(400).json({ error: "No files uploaded" });
+        }
+
+        // Verify ticket exists
+        const ticket = await storage.getTicket(ticketId);
+        if (!ticket) {
+          // Clean up uploaded files
+          for (const file of files) {
+            await fs.unlink(file.path).catch(() => {});
+          }
+          return res.status(404).json({ error: "Ticket not found" });
+        }
+
+        // Create attachment records for all uploaded files
+        const attachments = await Promise.all(
+          files.map(file => {
+            const attachmentData = {
+              ticketId,
+              fileName: file.filename,
+              fileSize: file.size,
+              mimeType: file.mimetype,
+              filePath: file.path,
+              uploadedByUserId: userId,
+            };
+            
+            return storage.createTicketAttachment(attachmentData);
+          })
+        );
+
+        res.status(201).json(attachments);
+      } catch (error: any) {
+        console.error("Error uploading attachments:", error);
+        
+        // Clean up any uploaded files in case of error
+        if (req.files) {
+          const files = req.files as Express.Multer.File[];
+          for (const file of files) {
+            await fs.unlink(file.path).catch(() => {});
+          }
+        }
+
+        if (error.message?.includes('Invalid file type')) {
+          return res.status(400).json({ error: error.message });
+        }
+        
+        res.status(500).json({ error: "Failed to upload attachments" });
+      }
+    }
+  );
+
+  // Download an attachment
+  app.get("/api/attachments/:attachmentId/download", requireAuth, requireViewTickets, async (req, res) => {
+    try {
+      const attachment = await storage.getTicketAttachment(req.params.attachmentId);
+      
+      if (!attachment) {
+        return res.status(404).json({ error: "Attachment not found" });
+      }
+
+      // Verify user has access to the ticket
+      const ticket = await storage.getTicket(attachment.ticketId);
+      if (!ticket) {
+        return res.status(404).json({ error: "Associated ticket not found" });
+      }
+
+      // Check if file exists
+      try {
+        await fs.access(attachment.filePath);
+      } catch {
+        return res.status(404).json({ error: "File not found on disk" });
+      }
+
+      // Set appropriate headers for download
+      res.setHeader('Content-Type', attachment.mimeType);
+      res.setHeader('Content-Disposition', `attachment; filename="${attachment.fileName}"`);
+      res.setHeader('Content-Length', attachment.fileSize);
+
+      // Stream the file
+      res.sendFile(path.resolve(attachment.filePath));
+    } catch (error) {
+      console.error("Error downloading attachment:", error);
+      res.status(500).json({ error: "Failed to download attachment" });
+    }
+  });
+
+  // Delete an attachment
+  app.delete("/api/attachments/:attachmentId", requireAuth, requireManageTickets, async (req, res) => {
+    try {
+      const attachment = await storage.getTicketAttachment(req.params.attachmentId);
+      
+      if (!attachment) {
+        return res.status(404).json({ error: "Attachment not found" });
+      }
+
+      // Delete file from disk
+      try {
+        await fs.unlink(attachment.filePath);
+      } catch (error) {
+        console.error("Error deleting file from disk:", error);
+        // Continue with database deletion even if file delete fails
+      }
+
+      // Delete from database
+      const success = await storage.deleteTicketAttachment(req.params.attachmentId);
+      
+      if (!success) {
+        return res.status(404).json({ error: "Attachment not found" });
+      }
+
+      res.json({ message: "Attachment deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting attachment:", error);
+      res.status(500).json({ error: "Failed to delete attachment" });
     }
   });
 

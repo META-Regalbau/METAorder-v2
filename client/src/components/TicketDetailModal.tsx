@@ -13,11 +13,13 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { Ticket, TicketComment, User } from "@shared/schema";
+import type { Ticket, TicketComment, User, TicketAttachment } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
 import TagInput from "@/components/TagInput";
 import { DatePicker } from "@/components/ui/date-picker";
+import { FileUpload } from "@/components/FileUpload";
+import { AttachmentsList } from "@/components/AttachmentsList";
 
 interface TicketDetailModalProps {
   ticket: Ticket | null;
@@ -68,6 +70,12 @@ export default function TicketDetailModal({
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ['/api/tickets/assignees'],
     enabled: canManageTickets && isOpen && !!ticket?.id,
+  });
+
+  // Fetch attachments for this ticket
+  const { data: attachments = [], isLoading: attachmentsLoading } = useQuery<TicketAttachment[]>({
+    queryKey: ['/api/tickets', ticket?.id, 'attachments'],
+    enabled: isOpen && !!ticket?.id,
   });
 
   const addCommentMutation = useMutation({
@@ -138,6 +146,42 @@ export default function TicketDetailModal({
     },
   });
 
+  const uploadAttachmentsMutation = useMutation({
+    mutationFn: async (files: File[]) => {
+      if (!ticket?.id) throw new Error("No ticket ID");
+      const formData = new FormData();
+      files.forEach((file) => {
+        formData.append('files', file);
+      });
+      
+      const response = await fetch(`/api/tickets/${ticket.id}/attachments`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      if (!ticket?.id) return;
+      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticket.id, 'attachments'] });
+      toast({
+        title: t('tickets.uploadSuccess'),
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t('tickets.uploadFailed'),
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   if (!ticket) return null;
 
   const handleAddComment = () => {
@@ -165,6 +209,12 @@ export default function TicketDetailModal({
   const handleDeleteTicket = () => {
     if (confirm(t('tickets.deleteConfirm'))) {
       deleteTicketMutation.mutate();
+    }
+  };
+
+  const handleFilesSelected = (files: File[]) => {
+    if (files.length > 0) {
+      uploadAttachmentsMutation.mutate(files);
     }
   };
 
@@ -229,10 +279,11 @@ export default function TicketDetailModal({
         </DialogHeader>
 
         <Tabs defaultValue="details" className="mt-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="details" data-testid="tab-details">{t('orderDetail.overview')}</TabsTrigger>
             <TabsTrigger value="comments" data-testid="tab-comments">{t('tickets.comments')}</TabsTrigger>
             <TabsTrigger value="activity" data-testid="tab-activity">{t('tickets.activity')}</TabsTrigger>
+            <TabsTrigger value="attachments" data-testid="tab-attachments">{t('tickets.attachments')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="details" className="pt-6 space-y-6">
@@ -577,6 +628,42 @@ export default function TicketDetailModal({
                 })}
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="attachments" className="pt-6 space-y-6">
+            {canManageTickets && (
+              <div className="space-y-3" data-testid="section-upload-attachments">
+                <h3 className="text-base font-medium">{t('tickets.uploadAttachments')}</h3>
+                <Card>
+                  <CardContent className="pt-6">
+                    <FileUpload
+                      onFilesSelected={handleFilesSelected}
+                      disabled={uploadAttachmentsMutation.isPending}
+                      maxFiles={10}
+                    />
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            <div className="space-y-3" data-testid="section-attachments-list">
+              <h3 className="text-base font-medium">{t('tickets.attachments')}</h3>
+              <Card>
+                <CardContent className="pt-6">
+                  {attachmentsLoading ? (
+                    <div className="text-center py-4">
+                      <p className="text-muted-foreground">{t('common.loading')}</p>
+                    </div>
+                  ) : (
+                    <AttachmentsList
+                      ticketId={ticket.id}
+                      attachments={attachments}
+                      canDelete={canManageTickets}
+                    />
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </DialogContent>

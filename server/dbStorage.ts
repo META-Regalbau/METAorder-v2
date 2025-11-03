@@ -381,6 +381,11 @@ export class DbStorage implements IStorage {
     return await db.select().from(ticketAttachments).where(eq(ticketAttachments.ticketId, ticketId));
   }
 
+  async getTicketAttachment(id: string): Promise<TicketAttachment | undefined> {
+    const result = await db.select().from(ticketAttachments).where(eq(ticketAttachments.id, id)).limit(1);
+    return result[0];
+  }
+
   async createTicketAttachment(insertAttachment: InsertTicketAttachment): Promise<TicketAttachment> {
     const result = await db
       .insert(ticketAttachments)

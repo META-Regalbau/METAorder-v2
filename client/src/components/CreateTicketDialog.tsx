@@ -14,6 +14,7 @@ import TagInput from "@/components/TagInput";
 import { DatePicker } from "@/components/ui/date-picker";
 import { EmailDropZone } from "@/components/EmailDropZone";
 import { Separator } from "@/components/ui/separator";
+import { FileUpload } from "@/components/FileUpload";
 
 interface CreateTicketDialogProps {
   isOpen: boolean;
@@ -38,6 +39,7 @@ export default function CreateTicketDialog({
   const [emailFrom, setEmailFrom] = useState("");
   const [detectedOrderNumber, setDetectedOrderNumber] = useState<string | undefined>();
   const [emailFileData, setEmailFileData] = useState<{ filename: string; fileData: string } | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   const createTicketMutation = useMutation({
     mutationFn: async (data: {
@@ -80,6 +82,7 @@ export default function CreateTicketDialog({
     setEmailFrom("");
     setDetectedOrderNumber(undefined);
     setEmailFileData(null);
+    setSelectedFiles([]);
   };
 
   const handleEmailParsed = (data: {
@@ -152,16 +155,67 @@ export default function CreateTicketDialog({
       }
     } else {
       // Normal ticket creation
-      createTicketMutation.mutate({
-        title: title.trim(),
-        description: description.trim(),
-        priority,
-        category,
-        tags: tags.length > 0 ? tags : undefined,
-        dueDate,
-        orderId: linkedOrder?.id,
-        orderNumber: linkedOrder?.orderNumber,
-      });
+      try {
+        const response = await apiRequest("POST", "/api/tickets", {
+          title: title.trim(),
+          description: description.trim(),
+          priority,
+          category,
+          tags: tags.length > 0 ? tags : undefined,
+          dueDate,
+          orderId: linkedOrder?.id,
+          orderNumber: linkedOrder?.orderNumber,
+        });
+        
+        const createdTicket = await response.json();
+        const createdTicketId = createdTicket.id;
+        
+        // Upload files if any were selected
+        if (selectedFiles.length > 0) {
+          try {
+            const formData = new FormData();
+            selectedFiles.forEach((file) => {
+              formData.append('files', file);
+            });
+            
+            const uploadResponse = await fetch(`/api/tickets/${createdTicketId}/attachments`, {
+              method: 'POST',
+              credentials: 'include',
+              body: formData,
+            });
+            
+            if (!uploadResponse.ok) {
+              throw new Error('Failed to upload attachments');
+            }
+            
+            toast({
+              title: t('tickets.createSuccess'),
+              description: `${selectedFiles.length} file(s) uploaded`,
+            });
+          } catch (uploadError) {
+            // Ticket was created, but upload failed
+            toast({
+              title: t('tickets.createSuccess'),
+              description: `Ticket created, but ${(uploadError as Error).message}`,
+              variant: "destructive",
+            });
+          }
+        } else {
+          toast({
+            title: t('tickets.createSuccess'),
+          });
+        }
+        
+        queryClient.invalidateQueries({ queryKey: ['/api/tickets'] });
+        resetForm();
+        onClose();
+      } catch (error) {
+        toast({
+          title: t('tickets.createFailed'),
+          description: (error as Error).message,
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -285,6 +339,14 @@ export default function CreateTicketDialog({
               onDateChange={setDueDate}
               placeholder={t('tickets.dueDatePlaceholder')}
               testId="input-due-date"
+            />
+          </div>
+
+          <div className="space-y-2" data-testid="section-upload-files">
+            <Label>{t('tickets.attachments')}</Label>
+            <FileUpload
+              onFilesSelected={setSelectedFiles}
+              maxFiles={10}
             />
           </div>
 

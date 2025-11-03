@@ -75,6 +75,7 @@ export interface IStorage {
   
   // Ticket Attachments
   getTicketAttachments(ticketId: string): Promise<TicketAttachment[]>;
+  getTicketAttachment(id: string): Promise<TicketAttachment | undefined>;
   createTicketAttachment(attachment: InsertTicketAttachment): Promise<TicketAttachment>;
   deleteTicketAttachment(id: string): Promise<boolean>;
   
@@ -385,6 +386,10 @@ export class MemStorage implements IStorage {
     return Array.from(this.ticketAttachments.values()).filter(
       (attachment) => attachment.ticketId === ticketId
     );
+  }
+
+  async getTicketAttachment(id: string): Promise<TicketAttachment | undefined> {
+    return this.ticketAttachments.get(id);
   }
 
   async createTicketAttachment(insertAttachment: InsertTicketAttachment): Promise<TicketAttachment> {
