@@ -22,14 +22,14 @@ import { FileUpload } from "@/components/FileUpload";
 import { AttachmentsList } from "@/components/AttachmentsList";
 
 interface TicketDetailModalProps {
-  ticket: Ticket | null;
+  ticketId: string | null;
   isOpen: boolean;
   onClose: () => void;
   canManageTickets: boolean;
 }
 
 export default function TicketDetailModal({
-  ticket,
+  ticketId,
   isOpen,
   onClose,
   canManageTickets,
@@ -41,61 +41,74 @@ export default function TicketDetailModal({
   const [editingTicket, setEditingTicket] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
 
-  // Fetch comments for this ticket
-  const { data: comments = [], isLoading: commentsLoading } = useQuery<TicketComment[]>({
-    queryKey: ['/api/tickets', ticket?.id, 'comments'],
+  // Fetch ticket data
+  const { data: ticket, isLoading: ticketLoading } = useQuery<Ticket>({
+    queryKey: ['/api/tickets', ticketId],
     queryFn: async () => {
-      const response = await fetch(`/api/tickets/${ticket?.id}/comments`);
+      const response = await fetch(`/api/tickets/${ticketId}`);
       if (!response.ok) {
         throw new Error(await response.text());
       }
       return response.json();
     },
-    enabled: isOpen && !!ticket?.id,
+    enabled: isOpen && !!ticketId,
+  });
+
+  // Fetch comments for this ticket
+  const { data: comments = [], isLoading: commentsLoading } = useQuery<TicketComment[]>({
+    queryKey: ['/api/tickets', ticketId, 'comments'],
+    queryFn: async () => {
+      const response = await fetch(`/api/tickets/${ticketId}/comments`);
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      return response.json();
+    },
+    enabled: isOpen && !!ticketId,
   });
 
   // Fetch activity log for this ticket
   const { data: activityLogs = [], isLoading: activityLoading } = useQuery<any[]>({
-    queryKey: ['/api/tickets', ticket?.id, 'activity'],
+    queryKey: ['/api/tickets', ticketId, 'activity'],
     queryFn: async () => {
-      const response = await fetch(`/api/tickets/${ticket?.id}/activity`);
+      const response = await fetch(`/api/tickets/${ticketId}/activity`);
       if (!response.ok) {
         throw new Error(await response.text());
       }
       return response.json();
     },
-    enabled: isOpen && !!ticket?.id,
+    enabled: isOpen && !!ticketId,
   });
 
   // Fetch users for assignment (only if user can manage tickets)
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ['/api/tickets/assignees'],
-    enabled: canManageTickets && isOpen && !!ticket?.id,
+    enabled: canManageTickets && isOpen && !!ticketId,
   });
 
   // Fetch attachments for this ticket
   const { data: attachments = [], isLoading: attachmentsLoading } = useQuery<TicketAttachment[]>({
-    queryKey: ['/api/tickets', ticket?.id, 'attachments'],
-    enabled: isOpen && !!ticket?.id,
+    queryKey: ['/api/tickets', ticketId, 'attachments'],
+    enabled: isOpen && !!ticketId,
   });
 
   // Fetch unread counts for this ticket
   const { data: unreadCounts } = useQuery<{ unreadComments: number; unreadAttachments: number }>({
-    queryKey: ['/api/tickets', ticket?.id, 'unread-counts'],
-    enabled: isOpen && !!ticket?.id,
+    queryKey: ['/api/tickets', ticketId, 'unread-counts'],
+    enabled: isOpen && !!ticketId,
   });
 
   const addCommentMutation = useMutation({
     mutationFn: async (data: { comment: string; isInternal: number }) => {
-      if (!ticket?.id) throw new Error("No ticket ID");
-      const response = await apiRequest("POST", `/api/tickets/${ticket.id}/comments`, data);
+      if (!ticketId) throw new Error("No ticket ID");
+      const response = await apiRequest("POST", `/api/tickets/${ticketId}/comments`, data);
       return response.json();
     },
     onSuccess: () => {
-      if (!ticket?.id) return;
-      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticket.id, 'comments'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticket.id, 'activity'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticket.id, 'unread-counts'] });
+      if (!ticketId) return;
+      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticketId, 'comments'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticketId, 'activity'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticketId, 'unread-counts'] });
       setCommentText("");
       toast({
         title: t('tickets.commentAdded'),
@@ -112,15 +125,15 @@ export default function TicketDetailModal({
 
   const updateTicketMutation = useMutation({
     mutationFn: async (data: Partial<Ticket>) => {
-      if (!ticket?.id) throw new Error("No ticket ID");
-      const response = await apiRequest("PATCH", `/api/tickets/${ticket.id}`, data);
+      if (!ticketId) throw new Error("No ticket ID");
+      const response = await apiRequest("PATCH", `/api/tickets/${ticketId}`, data);
       return response.json();
     },
     onSuccess: () => {
-      if (!ticket?.id) return;
+      if (!ticketId) return;
       queryClient.invalidateQueries({ queryKey: ['/api/tickets'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticket.id] });
-      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticket.id, 'activity'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticketId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticketId, 'activity'] });
       toast({
         title: t('tickets.updateSuccess'),
       });
@@ -136,8 +149,8 @@ export default function TicketDetailModal({
 
   const deleteTicketMutation = useMutation({
     mutationFn: async () => {
-      if (!ticket?.id) throw new Error("No ticket ID");
-      const response = await apiRequest("DELETE", `/api/tickets/${ticket.id}`, {});
+      if (!ticketId) throw new Error("No ticket ID");
+      const response = await apiRequest("DELETE", `/api/tickets/${ticketId}`, {});
       return response.json();
     },
     onSuccess: () => {
@@ -158,7 +171,7 @@ export default function TicketDetailModal({
 
   const uploadAttachmentsMutation = useMutation({
     mutationFn: async (files: File[]) => {
-      if (!ticket?.id) throw new Error("No ticket ID");
+      if (!ticketId) throw new Error("No ticket ID");
       const formData = new FormData();
       files.forEach((file) => {
         formData.append('files', file);
@@ -171,7 +184,7 @@ export default function TicketDetailModal({
         headers['X-CSRF-Token'] = csrfToken;
       }
       
-      const response = await fetch(`/api/tickets/${ticket.id}/attachments`, {
+      const response = await fetch(`/api/tickets/${ticketId}/attachments`, {
         method: 'POST',
         headers,
         body: formData,
@@ -185,10 +198,10 @@ export default function TicketDetailModal({
       return response.json();
     },
     onSuccess: () => {
-      if (!ticket?.id) return;
-      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticket.id, 'attachments'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticket.id, 'activity'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticket.id, 'unread-counts'] });
+      if (!ticketId) return;
+      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticketId, 'attachments'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticketId, 'activity'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticketId, 'unread-counts'] });
       toast({
         title: t('tickets.uploadSuccess'),
       });
@@ -204,40 +217,40 @@ export default function TicketDetailModal({
 
   const markCommentsReadMutation = useMutation({
     mutationFn: async () => {
-      if (!ticket?.id) throw new Error("No ticket ID");
-      const response = await apiRequest("POST", `/api/tickets/${ticket.id}/comments/mark-read`, {});
+      if (!ticketId) throw new Error("No ticket ID");
+      const response = await apiRequest("POST", `/api/tickets/${ticketId}/comments/mark-read`, {});
       return response.json();
     },
     onSuccess: () => {
-      if (!ticket?.id) return;
-      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticket.id, 'unread-counts'] });
+      if (!ticketId) return;
+      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticketId, 'unread-counts'] });
     },
   });
 
   const markAttachmentsReadMutation = useMutation({
     mutationFn: async () => {
-      if (!ticket?.id) throw new Error("No ticket ID");
-      const response = await apiRequest("POST", `/api/tickets/${ticket.id}/attachments/mark-read`, {});
+      if (!ticketId) throw new Error("No ticket ID");
+      const response = await apiRequest("POST", `/api/tickets/${ticketId}/attachments/mark-read`, {});
       return response.json();
     },
     onSuccess: () => {
-      if (!ticket?.id) return;
-      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticket.id, 'unread-counts'] });
+      if (!ticketId) return;
+      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticketId, 'unread-counts'] });
     },
   });
 
   // Auto mark-as-read when switching tabs (works with keyboard navigation too)
   useEffect(() => {
-    if (!ticket?.id || !isOpen || !unreadCounts) return;
+    if (!ticketId || !isOpen || !unreadCounts) return;
     
     if (activeTab === "comments" && unreadCounts.unreadComments > 0) {
       markCommentsReadMutation.mutate();
     } else if (activeTab === "attachments" && unreadCounts.unreadAttachments > 0) {
       markAttachmentsReadMutation.mutate();
     }
-  }, [activeTab, ticket?.id, isOpen, unreadCounts]);
+  }, [activeTab, ticketId, isOpen, unreadCounts]);
 
-  if (!ticket) return null;
+  if (!ticketId || ticketLoading || !ticket) return null;
 
   const handleAddComment = () => {
     if (!commentText.trim()) return;

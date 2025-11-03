@@ -37,7 +37,7 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
   const [showMyTicketsOnly, setShowMyTicketsOnly] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(25);
-  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -141,7 +141,7 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
     if (ticketId && tickets.length > 0) {
       const ticket = tickets.find(t => t.id === ticketId);
       if (ticket) {
-        setSelectedTicket(ticket);
+        setSelectedTicketId(ticket.id);
         setIsDetailModalOpen(true);
         // Clean up URL after opening modal
         window.history.replaceState({}, '', '/tickets');
@@ -439,7 +439,7 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      setSelectedTicket(ticket);
+                      setSelectedTicketId(ticket.id);
                       setIsDetailModalOpen(true);
                     }}
                     data-testid={`button-view-ticket-${ticket.id}`}
@@ -537,11 +537,11 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
       )}
 
       <TicketDetailModal
-        ticket={selectedTicket}
+        ticketId={selectedTicketId}
         isOpen={isDetailModalOpen}
         onClose={() => {
           setIsDetailModalOpen(false);
-          setSelectedTicket(null);
+          setSelectedTicketId(null);
         }}
         canManageTickets={canManageTickets}
       />

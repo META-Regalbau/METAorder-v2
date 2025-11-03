@@ -39,7 +39,7 @@ export default function OrderDetailModal({
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const [isCreateTicketDialogOpen, setIsCreateTicketDialogOpen] = useState(false);
-  const [selectedTicket, setSelectedTicket] = useState<TicketType | null>(null);
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [isTicketDetailOpen, setIsTicketDetailOpen] = useState(false);
 
   // Fetch documents for this order - must be before early return
@@ -60,7 +60,7 @@ export default function OrderDetailModal({
   });
 
   const handleTicketClick = (ticket: TicketType) => {
-    setSelectedTicket(ticket);
+    setSelectedTicketId(ticket.id);
     setIsTicketDetailOpen(true);
   };
 
@@ -413,11 +413,11 @@ export default function OrderDetailModal({
       />
 
       <TicketDetailModal
-        ticket={selectedTicket}
+        ticketId={selectedTicketId}
         isOpen={isTicketDetailOpen}
         onClose={() => {
           setIsTicketDetailOpen(false);
-          setSelectedTicket(null);
+          setSelectedTicketId(null);
         }}
         canManageTickets={userPermissions?.manageTickets || false}
       />
