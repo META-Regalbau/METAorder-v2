@@ -33,6 +33,7 @@ export default function BulkTrackingDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/shipping'] });
       toast({
         title: t('bulkActions.updateSuccess'),
       });
@@ -93,7 +94,7 @@ export default function BulkTrackingDialog({
               <ul className="space-y-1" data-testid="list-selected-orders">
                 {selectedOrders.map((order) => (
                   <li key={order.id} className="text-sm font-mono" data-testid={`item-order-${order.id}`}>
-                    {order.orderNumber} - {order.customerFirstName} {order.customerLastName}
+                    {order.orderNumber} - {order.customerName}
                   </li>
                 ))}
               </ul>

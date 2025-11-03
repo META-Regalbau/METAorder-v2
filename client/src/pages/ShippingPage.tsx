@@ -1,8 +1,12 @@
 import { useState } from "react";
-import { Truck, Forklift, Construction } from "lucide-react";
+import { Truck, Forklift, Construction, Search, Filter, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -12,8 +16,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import OrderDetailModal from "@/components/OrderDetailModal";
+import BulkActionsBar from "@/components/BulkActionsBar";
+import BulkTrackingDialog from "@/components/BulkTrackingDialog";
 import { useQuery } from "@tanstack/react-query";
-import type { Order, Role } from "@shared/schema";
+import type { Order, Role, SalesChannel } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
 
@@ -31,11 +37,22 @@ export default function ShippingPage({ userRole = "employee", userPermissions }:
   const { t } = useTranslation();
   const [selectedOrder, setSelectedOrder] = useState<ShippingOrder | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
+  const [selectedChannelId, setSelectedChannelId] = useState<string>("all");
+  const [equipmentFilter, setEquipmentFilter] = useState<string>("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const [isBulkTrackingDialogOpen, setIsBulkTrackingDialogOpen] = useState(false);
 
   const { data: orders = [], isLoading, error } = useQuery<ShippingOrder[]>({
     queryKey: ['/api/shipping'],
     retry: false,
     enabled: userPermissions?.viewShipping === true,
+  });
+
+  const { data: salesChannels = [] } = useQuery<SalesChannel[]>({
+    queryKey: ['/api/sales-channels'],
+    retry: false,
   });
 
   const handleViewDetails = (order: ShippingOrder) => {
@@ -47,6 +64,57 @@ export default function ShippingPage({ userRole = "employee", userPermissions }:
     setIsModalOpen(false);
     setSelectedOrder(null);
   };
+
+  const toggleOrderSelection = (orderId: string) => {
+    setSelectedOrderIds(prev =>
+      prev.includes(orderId)
+        ? prev.filter(id => id !== orderId)
+        : [...prev, orderId]
+    );
+  };
+
+  const toggleAllOrders = () => {
+    if (selectedOrderIds.length === filteredOrders.length) {
+      setSelectedOrderIds([]);
+    } else {
+      setSelectedOrderIds(filteredOrders.map(order => order.id));
+    }
+  };
+
+  const handleBulkTrackingSuccess = () => {
+    setSelectedOrderIds([]);
+  };
+
+  // Filter orders
+  const filteredOrders = orders
+    .filter((order) => {
+      const matchesSearch =
+        searchValue === "" ||
+        order.orderNumber.toLowerCase().includes(searchValue.toLowerCase()) ||
+        order.customerName.toLowerCase().includes(searchValue.toLowerCase()) ||
+        (order.billingAddress?.company && order.billingAddress.company.toLowerCase().includes(searchValue.toLowerCase())) ||
+        (order.shippingAddress?.company && order.shippingAddress.company.toLowerCase().includes(searchValue.toLowerCase()));
+
+      const matchesChannel =
+        selectedChannelId === "all" || order.salesChannelId === selectedChannelId;
+
+      const matchesEquipment =
+        equipmentFilter === "all" ||
+        (equipmentFilter === "mitnahmestapler" && order.requiresMitnahmestapler) ||
+        (equipmentFilter === "hebebuehne" && order.requiresHebebuehne) ||
+        (equipmentFilter === "none" && !order.requiresMitnahmestapler && !order.requiresHebebuehne);
+
+      return matchesSearch && matchesChannel && matchesEquipment;
+    })
+    .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
+
+  const selectedOrders = filteredOrders.filter(order => selectedOrderIds.includes(order.id));
+
+  const activeFiltersCount = [
+    searchValue !== "",
+    selectedChannelId !== "all",
+    equipmentFilter !== "all",
+  ].filter(Boolean).length;
 
   if (!userPermissions?.viewShipping) {
     return (
@@ -71,8 +139,110 @@ export default function ShippingPage({ userRole = "employee", userPermissions }:
           {t('shipping.title')}
         </h1>
         <p className="text-sm text-muted-foreground">
-          {t('orders.showing', { count: orders.length, total: orders.length })}
+          {t('orders.showing', { count: filteredOrders.length, total: orders.length })}
         </p>
+      </div>
+
+      {/* Search and Filters */}
+      <div className="mb-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder={t('orders.searchPlaceholder')}
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              className="pl-10"
+              data-testid="input-search"
+            />
+          </div>
+          <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" data-testid="button-toggle-filters">
+                <Filter className="h-4 w-4 mr-2" />
+                {t('filters.title')}
+                {activeFiltersCount > 0 && (
+                  <Badge variant="secondary" className="ml-2">
+                    {activeFiltersCount}
+                  </Badge>
+                )}
+                {filtersOpen ? (
+                  <ChevronUp className="h-4 w-4 ml-2" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 ml-2" />
+                )}
+              </Button>
+            </CollapsibleTrigger>
+          </Collapsible>
+        </div>
+
+        <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
+          <CollapsibleContent>
+            <Card className="p-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    {t('salesChannel.filter')}
+                  </label>
+                  <Select
+                    value={selectedChannelId}
+                    onValueChange={setSelectedChannelId}
+                  >
+                    <SelectTrigger data-testid="select-sales-channel">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t('filters.allStatuses')}</SelectItem>
+                      {salesChannels.map((channel) => (
+                        <SelectItem key={channel.id} value={channel.id}>
+                          {channel.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    {t('shipping.equipment')}
+                  </label>
+                  <Select
+                    value={equipmentFilter}
+                    onValueChange={setEquipmentFilter}
+                  >
+                    <SelectTrigger data-testid="select-equipment">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t('filters.allStatuses')}</SelectItem>
+                      <SelectItem value="mitnahmestapler">{t('shipping.mitnahmestapler')}</SelectItem>
+                      <SelectItem value="hebebuehne">{t('shipping.hebebuehne')}</SelectItem>
+                      <SelectItem value="none">{t('shipping.noEquipment')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {activeFiltersCount > 0 && (
+                <div className="mt-4 pt-4 border-t">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSearchValue("");
+                      setSelectedChannelId("all");
+                      setEquipmentFilter("all");
+                    }}
+                    data-testid="button-clear-filters"
+                  >
+                    {t('filters.clearAll')}
+                  </Button>
+                </div>
+              )}
+            </Card>
+          </CollapsibleContent>
+        </Collapsible>
       </div>
 
       {error ? (
@@ -91,12 +261,12 @@ export default function ShippingPage({ userRole = "employee", userPermissions }:
             {t('common.loading')}
           </div>
         </Card>
-      ) : orders.length === 0 ? (
+      ) : filteredOrders.length === 0 ? (
         <Card className="p-8">
           <div className="text-center">
             <Truck className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
             <p className="text-muted-foreground" data-testid="text-no-orders">
-              {t('orders.noOrders')}
+              {orders.length === 0 ? t('orders.noOrders') : t('orders.adjustFilters')}
             </p>
           </div>
         </Card>
@@ -105,6 +275,13 @@ export default function ShippingPage({ userRole = "employee", userPermissions }:
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={selectedOrderIds.length === filteredOrders.length && filteredOrders.length > 0}
+                    onCheckedChange={toggleAllOrders}
+                    data-testid="checkbox-select-all"
+                  />
+                </TableHead>
                 <TableHead data-testid="header-order-number">{t('orders.orderNumber')}</TableHead>
                 <TableHead data-testid="header-company">{t('orders.company')}</TableHead>
                 <TableHead data-testid="header-customer">{t('orders.customer')}</TableHead>
@@ -115,8 +292,15 @@ export default function ShippingPage({ userRole = "employee", userPermissions }:
               </TableRow>
             </TableHeader>
             <TableBody>
-              {orders.map((order) => (
+              {filteredOrders.map((order) => (
                 <TableRow key={order.id} data-testid={`row-order-${order.id}`}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedOrderIds.includes(order.id)}
+                      onCheckedChange={() => toggleOrderSelection(order.id)}
+                      data-testid={`checkbox-${order.id}`}
+                    />
+                  </TableCell>
                   <TableCell className="font-mono font-medium" data-testid={`text-order-number-${order.id}`}>
                     {order.orderNumber}
                   </TableCell>
@@ -169,6 +353,19 @@ export default function ShippingPage({ userRole = "employee", userPermissions }:
           </Table>
         </Card>
       )}
+
+      <BulkActionsBar
+        selectedCount={selectedOrderIds.length}
+        onUpdateTracking={() => setIsBulkTrackingDialogOpen(true)}
+        onCancel={() => setSelectedOrderIds([])}
+      />
+
+      <BulkTrackingDialog
+        isOpen={isBulkTrackingDialogOpen}
+        onClose={() => setIsBulkTrackingDialogOpen(false)}
+        selectedOrders={selectedOrders}
+        onSuccess={handleBulkTrackingSuccess}
+      />
 
       <OrderDetailModal
         order={selectedOrder}
