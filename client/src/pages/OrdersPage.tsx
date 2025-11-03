@@ -11,7 +11,7 @@ import { SalesChannelSelector } from "@/components/SalesChannelSelector";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { Order, OrderStatus, SalesChannel } from "@shared/schema";
+import type { Order, OrderStatus, SalesChannel, User, Role } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 
 interface OrdersPageProps {
@@ -71,6 +71,11 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
   const { data: ticketCounts = {} } = useQuery<Record<string, number>>({
     queryKey: ['/api/orders/ticket-counts'],
     retry: false,
+  });
+
+  // Fetch current user to get permissions
+  const { data: currentUser } = useQuery<{ user: User & { permissions: Role['permissions'] } }>({
+    queryKey: ['/api/auth/me'],
   });
 
   // Show error if Shopware is not configured
@@ -362,6 +367,7 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         userRole={userRole}
+        userPermissions={currentUser?.user?.permissions}
         onUpdateShipping={handleUpdateShipping}
         onUpdateDocuments={handleUpdateDocuments}
       />

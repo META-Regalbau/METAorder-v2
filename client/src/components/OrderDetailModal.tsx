@@ -1,4 +1,4 @@
-import { X, FileDown, Loader2, Ticket } from "lucide-react";
+import { X, FileDown, Loader2, Ticket, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -6,13 +6,15 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import StatusBadge from "./StatusBadge";
 import ShippingInfoForm from "./ShippingInfoForm";
 import AdminDocumentForm from "./AdminDocumentForm";
 import CreateTicketDialog from "./CreateTicketDialog";
+import TicketDetailModal from "./TicketDetailModal";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
-import type { Order } from "@shared/schema";
+import type { Order, Ticket as TicketType, Role } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 
 interface OrderDetailModalProps {
@@ -20,6 +22,7 @@ interface OrderDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   userRole: "employee" | "admin";
+  userPermissions?: Role['permissions'];
   onUpdateShipping: (orderId: string, data: any) => void;
   onUpdateDocuments: (orderId: string, data: any) => void;
 }
@@ -29,12 +32,15 @@ export default function OrderDetailModal({
   isOpen,
   onClose,
   userRole,
+  userPermissions,
   onUpdateShipping,
   onUpdateDocuments,
 }: OrderDetailModalProps) {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const [isCreateTicketDialogOpen, setIsCreateTicketDialogOpen] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState<TicketType | null>(null);
+  const [isTicketDetailOpen, setIsTicketDetailOpen] = useState(false);
 
   // Fetch documents for this order - must be before early return
   const { data: documents, isLoading: documentsLoading, error: documentsError } = useQuery<Array<{
@@ -46,6 +52,17 @@ export default function OrderDetailModal({
     queryKey: ['/api/orders', order?.id, 'documents'],
     enabled: isOpen && !!order?.id,
   });
+
+  // Fetch tickets for this order
+  const { data: orderTickets = [] } = useQuery<TicketType[]>({
+    queryKey: ['/api/orders', order?.id, 'tickets'],
+    enabled: isOpen && !!order?.id,
+  });
+
+  const handleTicketClick = (ticket: TicketType) => {
+    setSelectedTicket(ticket);
+    setIsTicketDetailOpen(true);
+  };
 
   if (!order) return null;
 
@@ -105,6 +122,33 @@ export default function OrderDetailModal({
             </div>
           </div>
         </DialogHeader>
+
+        {orderTickets.length > 0 && (
+          <Alert className="mt-4" data-testid="alert-existing-tickets">
+            <Ticket className="h-4 w-4" />
+            <AlertDescription className="flex items-center justify-between">
+              <span>
+                {orderTickets.length === 1 
+                  ? t('orderDetail.hasOneTicket')
+                  : t('orderDetail.hasMultipleTickets', { count: orderTickets.length })}
+              </span>
+              <div className="flex gap-2 flex-wrap">
+                {orderTickets.map((ticket) => (
+                  <Button
+                    key={ticket.id}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleTicketClick(ticket)}
+                    data-testid={`button-view-ticket-${ticket.id}`}
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    {ticket.ticketNumber}
+                  </Button>
+                ))}
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <Tabs defaultValue="overview" className="mt-6">
           <TabsList className="grid w-full grid-cols-4">
@@ -366,6 +410,16 @@ export default function OrderDetailModal({
         isOpen={isCreateTicketDialogOpen}
         onClose={() => setIsCreateTicketDialogOpen(false)}
         linkedOrder={order}
+      />
+
+      <TicketDetailModal
+        ticket={selectedTicket}
+        isOpen={isTicketDetailOpen}
+        onClose={() => {
+          setIsTicketDetailOpen(false);
+          setSelectedTicket(null);
+        }}
+        canManageTickets={userPermissions?.manageTickets || false}
       />
     </Dialog>
   );

@@ -123,6 +123,8 @@
     "overview": "Übersicht",
     "items": "Artikel",
     "shipping": "Versand",
+    "hasOneTicket": "Für diese Bestellung existiert ein Ticket",
+    "hasMultipleTickets": "Für diese Bestellung existieren {{count}} Tickets",
     "documents": "Dokumente",
     "customerInfo": "Kundeninformationen",
     "name": "Name",

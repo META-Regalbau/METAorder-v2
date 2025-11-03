@@ -123,6 +123,8 @@
     "overview": "Overview",
     "items": "Items",
     "shipping": "Shipping",
+    "hasOneTicket": "This order has one ticket",
+    "hasMultipleTickets": "This order has {{count}} tickets",
     "documents": "Documents",
     "customerInfo": "Customer Information",
     "name": "Name",
