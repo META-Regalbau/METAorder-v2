@@ -218,6 +218,8 @@ export const requireManageCrossSellingGroups = requirePermission("manageCrossSel
 export const requireManageCrossSellingRules = requirePermission("manageCrossSellingRules");
 export const requireViewTickets = requirePermission("viewTickets");
 export const requireManageTickets = requirePermission("manageTickets");
+export const requireViewShipping = requirePermission("viewShipping");
+export const requireEditOrders = requirePermission("editOrders");
 
 // Legacy middleware - kept for backwards compatibility
 // Prefer using permission-based checks (requireManageUsers, requireManageRoles, etc.)

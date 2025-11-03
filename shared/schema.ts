@@ -83,7 +83,7 @@ export type InsertShopwareSettings = z.infer<typeof shopwareSettingsSchema>;
 
 // Order types for Shopware integration
 export type OrderStatus = "open" | "in_progress" | "completed" | "cancelled";
-export type PaymentStatus = "open" | "paid" | "partially_paid" | "refunded" | "cancelled" | "reminded" | "failed";
+export type PaymentStatus = "open" | "paid" | "authorized" | "partially_paid" | "refunded" | "cancelled" | "reminded" | "failed";
 
 export type OrderAddress = {
   firstName: string;
@@ -122,6 +122,7 @@ export type Order = {
   deliveryNoteNumber?: string;
   erpNumber?: string;
   items: OrderItem[];
+  customFields?: Record<string, any>;
 };
 
 export type OrderItem = {

@@ -8,8 +8,10 @@ import crypto from "crypto";
 import { storage } from "./storage";
 import { ShopwareClient } from "./shopware";
 import { RuleEngine } from "./ruleEngine";
-import { shopwareSettingsSchema, insertCrossSellingRuleSchema, type Product, insertUserSchema, type Role, insertTicketSchema, insertTicketCommentSchema, insertTicketAssignmentRuleSchema, type Ticket, insertNotificationSchema, insertTicketAttachmentSchema } from "@shared/schema";
-import { requireAuth, requireViewDelayedOrders, requireManageUsers, requireManageRoles, requireManageSettings, requireManageCrossSellingGroups, requireManageCrossSellingRules, requireViewTickets, requireManageTickets } from "./auth";
+import { shopwareSettingsSchema, insertCrossSellingRuleSchema, type Product, insertUserSchema, type Role, insertTicketSchema, insertTicketCommentSchema, insertTicketAssignmentRuleSchema, type Ticket, insertNotificationSchema, insertTicketAttachmentSchema, insertTicketTemplateSchema, type Order } from "@shared/schema";
+import { requireAuth, requireViewDelayedOrders, requireManageUsers, requireManageRoles, requireManageSettings, requireManageCrossSellingGroups, requireManageCrossSellingRules, requireViewTickets, requireManageTickets, requireViewShipping, requireEditOrders } from "./auth";
+import { encrypt, decrypt } from "./encryption";
+import OpenAI from "openai";
 import * as XLSX from 'xlsx';
 import { generateToken } from "./jwt";
 import { parseEmailFile } from "./emailParser";
@@ -398,6 +400,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           manageCrossSellingRules: z.boolean(),
           viewTickets: z.boolean(),
           manageTickets: z.boolean(),
+          viewShipping: z.boolean(),
         }),
       });
       
@@ -435,6 +438,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           manageCrossSellingRules: z.boolean(),
           viewTickets: z.boolean(),
           manageTickets: z.boolean(),
+          viewShipping: z.boolean(),
         }).optional(),
       });
       
@@ -848,6 +852,320 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error updating order shipping:", error);
       res.status(500).json({ error: error.message || "Failed to update shipping information" });
+    }
+  });
+
+  // Shipping Dashboard - Get orders ready for shipping with equipment flags
+  app.get("/api/shipping", requireAuth, requireViewShipping, async (req, res) => {
+    try {
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const client = new ShopwareClient(settings);
+      const allOrders = await client.fetchOrders();
+
+      // Filter orders: (paymentStatus == "paid" OR "authorized") AND status == "in_progress"
+      const shippingOrders = allOrders.filter((order: Order) => {
+        const validPayment = order.paymentStatus === "paid" || order.paymentStatus === "authorized";
+        const validStatus = order.status === "in_progress";
+        return validPayment && validStatus;
+      });
+
+      // Detect special equipment from order items or customFields
+      const ordersWithFlags = shippingOrders.map((order: Order) => {
+        let requiresMitnahmestapler = false;
+        let requiresHebebuehne = false;
+
+        // Check items for equipment keywords
+        order.items.forEach(item => {
+          const itemName = item.name.toLowerCase();
+          if (itemName.includes("mitnahmestapler")) {
+            requiresMitnahmestapler = true;
+          }
+          if (itemName.includes("hebebühne") || itemName.includes("hebebuehne")) {
+            requiresHebebuehne = true;
+          }
+        });
+
+        // Check customFields for equipment flags
+        if (order.customFields) {
+          const customFieldsStr = JSON.stringify(order.customFields).toLowerCase();
+          if (customFieldsStr.includes("mitnahmestapler")) {
+            requiresMitnahmestapler = true;
+          }
+          if (customFieldsStr.includes("hebebühne") || customFieldsStr.includes("hebebuehne")) {
+            requiresHebebuehne = true;
+          }
+        }
+
+        return {
+          ...order,
+          requiresMitnahmestapler,
+          requiresHebebuehne,
+        };
+      });
+
+      res.json(ordersWithFlags);
+    } catch (error: any) {
+      console.error("Error fetching shipping orders:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch shipping orders" });
+    }
+  });
+
+  // Bulk Tracking Number Update
+  app.post("/api/orders/bulk-tracking", requireAuth, requireEditOrders, async (req, res) => {
+    try {
+      const bulkTrackingSchema = z.object({
+        orderIds: z.array(z.string()).min(1, "At least one order ID is required"),
+        trackingNumbers: z.array(z.string()).min(1, "At least one tracking number is required"),
+      });
+
+      const validatedData = bulkTrackingSchema.parse(req.body);
+      const { orderIds, trackingNumbers } = validatedData;
+
+      // Validate arrays have same length
+      if (orderIds.length !== trackingNumbers.length) {
+        return res.status(400).json({ 
+          error: "orderIds and trackingNumbers arrays must have the same length" 
+        });
+      }
+
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const client = new ShopwareClient(settings);
+      let updated = 0;
+
+      // Process each order
+      for (let i = 0; i < orderIds.length; i++) {
+        const orderId = orderIds[i];
+        const trackingNumber = trackingNumbers[i];
+
+        try {
+          // Update tracking number and mark as completed in Shopware
+          await client.updateOrderShipping(orderId, {
+            trackingNumber,
+          });
+          updated++;
+        } catch (error: any) {
+          console.error(`Error updating order ${orderId}:`, error);
+          // Continue with next order even if one fails
+        }
+      }
+
+      res.json({ 
+        success: true, 
+        updated 
+      });
+    } catch (error: any) {
+      console.error("Error in bulk tracking update:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: error.message || "Failed to update tracking numbers" });
+    }
+  });
+
+  // Ticket Templates - Get all templates
+  app.get("/api/templates", requireAuth, async (req, res) => {
+    try {
+      const templates = await storage.getAllTicketTemplates();
+      res.json(templates);
+    } catch (error: any) {
+      console.error("Error fetching templates:", error);
+      res.status(500).json({ error: "Failed to fetch templates" });
+    }
+  });
+
+  // Ticket Templates - Get single template
+  app.get("/api/templates/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const template = await storage.getTicketTemplate(id);
+      
+      if (!template) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+      
+      res.json(template);
+    } catch (error: any) {
+      console.error("Error fetching template:", error);
+      res.status(500).json({ error: "Failed to fetch template" });
+    }
+  });
+
+  // Ticket Templates - Create new template
+  app.post("/api/templates", requireAuth, requireManageTickets, async (req, res) => {
+    try {
+      const validatedData = insertTicketTemplateSchema.parse(req.body);
+      const userId = (req.user as any).id;
+
+      const newTemplate = await storage.createTicketTemplate({
+        ...validatedData,
+        createdByUserId: userId,
+      });
+
+      res.status(201).json(newTemplate);
+    } catch (error: any) {
+      console.error("Error creating template:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create template" });
+    }
+  });
+
+  // Ticket Templates - Update template
+  app.patch("/api/templates/:id", requireAuth, requireManageTickets, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = (req.user as any).id;
+
+      // Partial validation for update
+      const updateData = {
+        ...req.body,
+        createdByUserId: userId,
+      };
+
+      const updatedTemplate = await storage.updateTicketTemplate(id, updateData);
+      
+      if (!updatedTemplate) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+
+      res.json(updatedTemplate);
+    } catch (error: any) {
+      console.error("Error updating template:", error);
+      res.status(500).json({ error: "Failed to update template" });
+    }
+  });
+
+  // Ticket Templates - Delete template
+  app.delete("/api/templates/:id", requireAuth, requireManageTickets, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const deleted = await storage.deleteTicketTemplate(id);
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting template:", error);
+      res.status(500).json({ error: "Failed to delete template" });
+    }
+  });
+
+  // AI Text Improvement
+  app.post("/api/ai/improve-text", requireAuth, async (req, res) => {
+    try {
+      const textSchema = z.object({
+        text: z.string().min(1, "Text is required"),
+      });
+
+      const validatedData = textSchema.parse(req.body);
+      const { text } = validatedData;
+
+      // Load OpenAI settings
+      const aiSettings = await storage.getSetting("openai_settings");
+      
+      if (!aiSettings || !aiSettings.apiKey) {
+        return res.status(400).json({ error: "OpenAI API key not configured" });
+      }
+
+      // Decrypt API key
+      const apiKey = decrypt(aiSettings.apiKey);
+
+      // Initialize OpenAI client
+      const openai = new OpenAI({
+        apiKey: apiKey,
+      });
+
+      // Call OpenAI API
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "Verbessere diesen Kundenservice-Text. Mache ihn freundlicher und professioneller, aber halte die Kernaussage bei. Antworte nur mit dem verbesserten Text, ohne Erklärungen."
+          },
+          {
+            role: "user",
+            content: text
+          }
+        ],
+        max_tokens: 500,
+      });
+
+      const improvedText = completion.choices[0]?.message?.content || text;
+
+      res.json({ improvedText });
+    } catch (error: any) {
+      console.error("Error improving text with AI:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: error.message || "Failed to improve text" });
+    }
+  });
+
+  // AI Settings - Get AI settings
+  app.get("/api/settings/ai", requireAuth, requireManageSettings, async (req, res) => {
+    try {
+      const aiSettings = await storage.getSetting("openai_settings");
+      
+      res.json({ 
+        enabled: aiSettings?.enabled || false 
+      });
+    } catch (error: any) {
+      console.error("Error fetching AI settings:", error);
+      res.status(500).json({ error: "Failed to fetch AI settings" });
+    }
+  });
+
+  // AI Settings - Update AI settings
+  app.post("/api/settings/ai", requireAuth, requireManageSettings, async (req, res) => {
+    try {
+      const aiSettingsSchema = z.object({
+        apiKey: z.string().optional(),
+        enabled: z.boolean(),
+      });
+
+      const validatedData = aiSettingsSchema.parse(req.body);
+      const { apiKey, enabled } = validatedData;
+
+      // Get existing settings
+      const existingSettings = await storage.getSetting("openai_settings") || {};
+
+      // Prepare new settings
+      const newSettings: any = {
+        enabled,
+        apiKey: existingSettings.apiKey, // Keep existing encrypted key
+      };
+
+      // If new API key provided, encrypt it
+      if (apiKey) {
+        newSettings.apiKey = encrypt(apiKey);
+      }
+
+      // Save settings
+      await storage.saveSetting("openai_settings", newSettings);
+
+      res.json({ 
+        success: true,
+        enabled: newSettings.enabled
+      });
+    } catch (error: any) {
+      console.error("Error updating AI settings:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ error: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update AI settings" });
     }
   });
 
