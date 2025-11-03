@@ -127,7 +127,7 @@ export default function ShippingPage({ userRole = "employee", userPermissions }:
                     {format(new Date(order.orderDate), 'dd.MM.yyyy HH:mm')}
                   </TableCell>
                   <TableCell data-testid={`text-total-${order.id}`}>
-                    €{order.amountTotal.toFixed(2)}
+                    €{(order.amountTotal || 0).toFixed(2)}
                   </TableCell>
                   <TableCell data-testid={`text-sales-channel-${order.id}`}>
                     {order.salesChannelName || '-'}
