@@ -150,10 +150,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const csrfToken = crypto.randomBytes(32).toString('hex');
       
       // Set JWT token in httpOnly cookie (XSS-safe)
+      // Note: Replit automatically changes SameSite=Lax to SameSite=None at infrastructure level
+      // SameSite=None + Secure=true is safe and works correctly in all modern browsers
       res.cookie('auth_token', token, {
         httpOnly: true,  // Cannot be accessed by JavaScript
         secure: true,    // HTTPS only (Replit always uses HTTPS)
-        sameSite: 'lax', // CSRF protection while allowing same-site navigation
+        sameSite: 'lax', // Will be changed to 'none' by Replit's reverse proxy
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
       });
       
@@ -161,7 +163,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.cookie('csrf_token', csrfToken, {
         httpOnly: false, // Frontend must read and send in X-CSRF-Token header
         secure: true,
-        sameSite: 'lax',
+        sameSite: 'lax', // Will be changed to 'none' by Replit's reverse proxy
         maxAge: 24 * 60 * 60 * 1000
       });
       

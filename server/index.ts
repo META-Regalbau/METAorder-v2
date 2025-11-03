@@ -61,11 +61,12 @@ app.use(
     secret: process.env.SESSION_SECRET || "dev-secret-change-in-production",
     resave: false,
     saveUninitialized: false,
+    proxy: true, // Trust proxy for correct cookie behavior
     cookie: {
       // Replit always uses HTTPS, so cookies must be secure even in development
-      secure: true,
+      secure: 'auto', // Auto-detect based on proxy headers
       httpOnly: true,
-      // Use "lax" for CSRF protection while still allowing same-site navigation
+      // Use "lax" for CSRF protection while allowing same-site navigation
       sameSite: "lax",
       maxAge: sessionTimeout, // Configurable via SESSION_TIMEOUT env var
     },
