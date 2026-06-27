@@ -17,6 +17,11 @@ try {
   console.log("[ensure-pgvector] CREATE EXTENSION vector OK");
 } catch (err) {
   console.error("[ensure-pgvector] failed:", err.message);
+  if (String(err.message || "").includes("ENOTFOUND")) {
+    console.error(
+      "[ensure-pgvector] Host in DATABASE_URL unbekannt. In mStudio den Postgres-Container-Namen pruefen (hier oft pgvector, nicht postgresql).",
+    );
+  }
   process.exit(1);
 } finally {
   await client.end();

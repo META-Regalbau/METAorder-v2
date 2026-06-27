@@ -258,10 +258,10 @@ Ab dem naechsten Image-Deploy erledigt der Container **automatisch**:
 1. **GitHub Secret `DATABASE_URL`** setzen (Passwort URL-encoden):
 
    ```
-   postgresql://oliver-steiling:PASSWORT@postgresql:5432/MetaPGDB
+   postgresql://oliver-steiling:PASSWORT@pgvector:5432/MetaPGDB
    ```
 
-   Gueltig nur wenn **App-Container und PostgreSQL im gleichen Mittwald-Projekt** (empfohlen: beides **altgemeinde**). Host **`postgresql`** = Postgres-Container-Name in mStudio.
+   Gueltig nur wenn **App-Container und PostgreSQL im gleichen Mittwald-Projekt**. Host = **Stack-Service-Name** aus mStudio (bei euch: **`pgvector`**, nicht `postgresql`).
 
 2. **Neues Image deployen** (Push auf `main` oder Workflow starten) **oder** Container in mStudio **neu starten** (Recreate).
 
@@ -298,7 +298,7 @@ mw container exec metaorder-app node scripts/container-db-init.mjs
 postgresql://oliver-steiling:PASSWORT@postgresql:5432/MetaPGDB
 ```
 
-Host **`postgresql`** = Service-/Container-Name in mStudio (Bezeichnung pruefen).
+Host **`pgvector`** = Postgres/pgvector-Container im Stack (Service-Name in mStudio pruefen).
 
 ### Lokaler Fallback (nur wenn Container-Init nicht moeglich)
 
@@ -320,7 +320,8 @@ Dump von lokal → Restore ueber Port-Forward (siehe fruehere `pg_dump` / `pg_re
 |---------|---------|---------|
 | `relation "tenants" does not exist` | Altes Image ohne `container-db-init` | Neues Image deployen + Recreate |
 | `type "vector" does not exist` | pgvector fehlt auf Postgres | pgvector-Image / Extension |
-| Connection refused `@postgresql` | App und DB in verschiedenen Projekten | gleiches Projekt oder Host anpassen |
+| `getaddrinfo ENOTFOUND postgresql` | falscher DB-Host in DATABASE_URL | Host auf Stack-Namen setzen (z. B. `pgvector`) |
+| Connection refused `@pgvector` | App und DB in verschiedenen Projekten | gleiches Projekt oder Host anpassen |
 | Shopware-Keys leer nach Import | anderer `ENCRYPTION_KEY` | Key aus Quell-Umgebung uebernehmen |
 
 

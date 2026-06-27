@@ -15,7 +15,7 @@ set -euo pipefail
 REPO="META-Regalbau/METAorder-v2"
 DB_USER="${DB_USER:-oliver-steiling}"
 DB_NAME="${DB_NAME:-MetaPGDB}"
-DB_HOST="${DB_HOST:-postgresql}"
+DB_HOST="${DB_HOST:-pgvector}"
 DB_PORT="${DB_PORT:-5432}"
 APP_CONTAINER="${APP_CONTAINER:-metaorder-app}"
 
