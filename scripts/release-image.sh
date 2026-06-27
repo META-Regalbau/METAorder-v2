@@ -7,8 +7,8 @@ Nutzung:
   scripts/release-image.sh <image-repository> [tag]
 
 Beispiele:
-  scripts/release-image.sh docker.io/acme/metaorder-v2
-  scripts/release-image.sh docker.io/acme/metaorder-v2 2026-05-02-abc1234
+  scripts/release-image.sh ghcr.io/meta-regalbau/metaorder-v2
+  scripts/release-image.sh ghcr.io/meta-regalbau/metaorder-v2 2026-05-02-abc1234
 
 Optionale Umgebungsvariablen:
   TARGET_PLATFORM   Default: linux/amd64

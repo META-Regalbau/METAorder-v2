@@ -9,7 +9,7 @@ Nutzung:
   scripts/mittwald-rollout.sh <image-reference>
 
 Beispiel:
-  scripts/mittwald-rollout.sh ghcr.io/about-design/metaorder-v2:abc1234
+  scripts/mittwald-rollout.sh ghcr.io/meta-regalbau/metaorder-v2:abc1234
 
 Rollt ein neues Container-Image auf Mittwald mStudio aus (mw CLI).
 

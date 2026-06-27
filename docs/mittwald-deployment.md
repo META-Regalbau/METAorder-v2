@@ -9,15 +9,14 @@ Diese Anleitung richtet einen reproduzierbaren Deployment-Prozess fuer `METAorde
 
 ## 1) Voraussetzungen
 
-- GitHub-Repo: `about-design/META-Order-v3`
-- Submodule: `META-Regalbau/METAorder-v2`
-- Container-Registry: **GHCR** `ghcr.io/about-design/metaorder-v2`
+- GitHub-Repo: **`META-Regalbau/METAorder-v2`** (Workflow + Secrets hier)
+- Container-Registry: **GHCR** `ghcr.io/meta-regalbau/metaorder-v2`
 - Mittwald **mStudio** mit Container-Hosting
 - Stack-Definition: [`deploy/mittwald/stack.yaml`](../deploy/mittwald/stack.yaml)
 
 ## 2) GitHub Secrets und Variables
 
-### Secrets (Repository → Settings → Secrets and variables → Actions)
+### Secrets (Repository **META-Regalbau/METAorder-v2** → Settings → Secrets and variables → Actions)
 
 | Secret | Pflicht | Beschreibung |
 |--------|---------|--------------|
@@ -68,7 +67,7 @@ Mittwald muss Images aus GHCR pullen koennen:
 
 ## 5) Automatischer Ablauf (GitHub Actions)
 
-Workflow: [`.github/workflows/deploy-mittwald.yml`](../../.github/workflows/deploy-mittwald.yml)
+Workflow: [`.github/workflows/deploy-mittwald.yml`](../.github/workflows/deploy-mittwald.yml) im Repo **META-Regalbau/METAorder-v2**
 
 ```mermaid
 flowchart LR

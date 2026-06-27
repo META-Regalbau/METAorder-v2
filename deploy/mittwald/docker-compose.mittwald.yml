@@ -3,7 +3,7 @@ name: metaorder-v2
 
 services:
   metaorder-app:
-    image: ${APP_IMAGE:-ghcr.io/about-design/metaorder-v2:latest}
+    image: ${APP_IMAGE:-ghcr.io/meta-regalbau/metaorder-v2:latest}
     restart: unless-stopped
     deploy:
       resources:
