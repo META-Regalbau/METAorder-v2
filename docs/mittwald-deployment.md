@@ -44,22 +44,13 @@ Diese Anleitung richtet einen reproduzierbaren Deployment-Prozess fuer `METAorde
 | Feld | Wert |
 |------|------|
 | Projekt-Short-ID | `p-bbpye5` |
+| Stack-ID | `a86b11e2-5ea0-4777-a252-89d9a172c2c5` → GitHub Secret `MITTWALD_STACK_ID` |
 | Projekt-Domain | `p-bbpye5.project.space` |
 | Container-Port (App) | `5000` |
 
-**Stack-ID (`MITTWALD_STACK_ID`) ermitteln:**
+**Stack-ID in GitHub eintragen:**
 
-1. mStudio → Projekt **p-bbpye5** → **Container**
-2. Stack oeffnen (meist `default`) → **Details** → UUID kopieren
-
-Oder per CLI:
-
-```bash
-mw login
-mw stack list --project-id p-bbpye5
-```
-
-Die UUID (nicht `p-bbpye5`) als Secret `MITTWALD_STACK_ID` in GitHub eintragen.
+Repository **META-Regalbau/METAorder-v2** → Settings → Secrets → `MITTWALD_STACK_ID` = `a86b11e2-5ea0-4777-a252-89d9a172c2c5`
 
 **Ingress / Domain:** In mStudio den Container-Port **5000** auf die gewuenschte Domain routen (z. B. `p-bbpye5.project.space` oder eigene Domain).
 
