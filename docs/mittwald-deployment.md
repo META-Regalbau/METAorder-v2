@@ -11,7 +11,7 @@ Diese Anleitung richtet einen reproduzierbaren Deployment-Prozess fuer `METAorde
 
 - GitHub-Repo: **`META-Regalbau/METAorder-v2`** (Workflow + Secrets hier)
 - Container-Registry: **GHCR** `ghcr.io/meta-regalbau/metaorder-v2`
-- Mittwald **mStudio** mit Container-Hosting
+- Mittwald-Projekt: **`p-bbpye5`** (Domain: `p-bbpye5.project.space`)
 - Stack-Definition: [`deploy/mittwald/stack.yaml`](../deploy/mittwald/stack.yaml)
 
 ## 2) GitHub Secrets und Variables
@@ -30,23 +30,38 @@ Diese Anleitung richtet einen reproduzierbaren Deployment-Prozess fuer `METAorde
 
 ### Variables (optional, nicht-geheim)
 
-| Variable | Default im Workflow |
-|----------|---------------------|
-| `PUBLIC_APP_URL` | leer |
+| Variable | Empfohlen fuer Projekt `p-bbpye5` |
+|----------|-----------------------------------|
+| `PUBLIC_APP_URL` | `https://p-bbpye5.project.space` |
 | `REQUEST_LOG_SLOW_MS` | `1500` |
 | `METAORDER_STRICT_TENANT` | `true` |
 | `S3_REGION` | `us-east-1` |
 | `COMMERCIAL_AGENT_ENABLED` | `true` |
 | `AI_MODE` | `openai_optional` |
 
-**Stack-ID ermitteln:**
+### Zielprojekt Mittwald
+
+| Feld | Wert |
+|------|------|
+| Projekt-Short-ID | `p-bbpye5` |
+| Projekt-Domain | `p-bbpye5.project.space` |
+| Container-Port (App) | `5000` |
+
+**Stack-ID (`MITTWALD_STACK_ID`) ermitteln:**
+
+1. mStudio → Projekt **p-bbpye5** → **Container**
+2. Stack oeffnen (meist `default`) → **Details** → UUID kopieren
+
+Oder per CLI:
 
 ```bash
 mw login
-mw project list
-mw stack list --project-id <PROJECT_ID>
-# oder Default-Stack: GET /v2/projects/{projectId}/stacks/
+mw stack list --project-id p-bbpye5
 ```
+
+Die UUID (nicht `p-bbpye5`) als Secret `MITTWALD_STACK_ID` in GitHub eintragen.
+
+**Ingress / Domain:** In mStudio den Container-Port **5000** auf die gewuenschte Domain routen (z. B. `p-bbpye5.project.space` oder eigene Domain).
 
 ## 3) GHCR-Zugriff fuer Mittwald
 
@@ -94,17 +109,17 @@ GitHub Actions → *Deploy METAorder-v2 to Mittwald* → Run workflow:
 
 ## 7) Lokales Erst-Setup (optional)
 
-Falls der Stack noch nicht existiert:
+Falls der Stack noch nicht existiert (Projekt **p-bbpye5**):
 
 ```bash
 cd METAorder-v2
 cp deploy/mittwald/app.env.example deploy/mittwald/app.env
-# Werte anpassen
+# DATABASE_URL, SESSION_SECRET, ENCRYPTION_KEY anpassen
 
 mw stack deploy \
   -f deploy/mittwald/docker-compose.mittwald.yml \
   --env-file deploy/mittwald/app.env \
-  --project-id <PROJECT_ID>
+  --project-id p-bbpye5
 ```
 
 Danach `MITTWALD_STACK_ID` in GitHub Secrets eintragen. Weitere Deploys laufen ueber GitHub Actions.
