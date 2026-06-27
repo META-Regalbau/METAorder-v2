@@ -295,7 +295,7 @@ mw container exec metaorder-app node scripts/container-db-init.mjs
 **Gleiches Projekt, verschiedene Container** (z. B. `metaorder-app` + Postgres `postgresql`) ist **korrekt** — interner Host:
 
 ```
-postgresql://oliver-steiling:PASSWORT@postgresql:5432/MetaPGDB
+postgresql://oliver-steiling:PASSWORT@pgvector:5432/MetaPGDB
 ```
 
 Host **`pgvector`** = Postgres/pgvector-Container im Stack (Service-Name in mStudio pruefen).
