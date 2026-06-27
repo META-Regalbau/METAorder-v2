@@ -24,7 +24,7 @@ Diese Anleitung richtet einen reproduzierbaren Deployment-Prozess fuer `METAorde
 |--------|---------|--------------|
 | `MITTWALD_API_TOKEN` | ja | mStudio API-Token |
 | `MITTWALD_STACK_ID` | ja* | Stack-UUID (alternativ als **Variable** moeglich) |
-| `DATABASE_URL` | ja | PostgreSQL Connection String |
+| `DATABASE_URL` | ja | PostgreSQL Connection String (siehe unten) |
 | `SESSION_SECRET` | ja | Session-Verschluesselung |
 | `ENCRYPTION_KEY` | ja | App-Verschluesselung |
 | `METAORDER_INTEGRATION_API_KEY` | nein | Integration API |
@@ -55,6 +55,33 @@ Diese Anleitung richtet einen reproduzierbaren Deployment-Prozess fuer `METAorde
 Repository **META-Regalbau/METAorder-v2** → Settings → Secrets → `MITTWALD_STACK_ID` = `a86b11e2-5ea0-4777-a252-89d9a172c2c5`
 
 **Ingress / Domain:** In mStudio den Container-Port **5000** auf die gewuenschte Domain routen (z. B. `p-bbpye5.project.space` oder eigene Domain).
+
+### DATABASE_URL (GitHub Secret)
+
+**Nicht** den SSH-Host (`ssh.altgemeinde.project.host`) in `DATABASE_URL` verwenden — der ist nur fuer Shell-Zugang, nicht fuer PostgreSQL aus dem Container.
+
+Verbindungsdaten holen:
+
+1. mStudio → Projekt mit der **PostgreSQL-Datenbank** → **Datenbanken** → PostgreSQL
+2. Benutzer, Passwort, Datenbankname und **Datenbank-Host** aus dem Panel kopieren
+
+**Format fuer GitHub Secret `DATABASE_URL`:**
+
+```
+postgresql://BENUTZER:PASSWORT@HOST:5432/DATENBANKNAME
+```
+
+**Typische Mittwald-Faelle:**
+
+| Situation | Host in DATABASE_URL |
+|-----------|----------------------|
+| Managed PostgreSQL **im gleichen Projekt** wie der Container (`p-bbpye5`) | oft `postgresql` (Port `5432`) |
+| Host laut mStudio-Datenbankpanel | exakt diesen Host eintragen |
+| DB in anderem Projekt (`altgemeinde`) als Container (`p-bbpye5`) | Host aus DB-Panel; ggf. gleiches Projekt noetig oder Freigabe pruefen |
+
+Sonderzeichen im Passwort URL-encoden (z. B. `@` → `%40`).
+
+Ohne gueltiges `DATABASE_URL` ueberspringt oder bricht der Deploy ab — der Container startet dann nicht sauber in mStudio.
 
 ## 3) GHCR-Zugriff fuer Mittwald
 

@@ -1,5 +1,5 @@
 # mStudio stack definition for mittwald/deploy-container-action.
-# Placeholders use workflow env vars: {{ .Env.VAR_NAME }}
+# Values in double braces come from the GitHub Actions env block (see deploy-mittwald.yml).
 # Manual UI changes not reflected here are overwritten on deploy.
 
 services:
