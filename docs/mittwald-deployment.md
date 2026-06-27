@@ -18,10 +18,12 @@ Diese Anleitung richtet einen reproduzierbaren Deployment-Prozess fuer `METAorde
 
 ### Secrets (Repository **META-Regalbau/METAorder-v2** → Settings → Secrets and variables → Actions)
 
+> **Haeufigster Fehler:** Secrets im falschen Repo (`about-design/META-Order-v3`) oder als **Organization Secret** ohne Zugriff fuer dieses Repo.
+
 | Secret | Pflicht | Beschreibung |
 |--------|---------|--------------|
 | `MITTWALD_API_TOKEN` | ja | mStudio API-Token |
-| `MITTWALD_STACK_ID` | ja | Stack-UUID (siehe unten) |
+| `MITTWALD_STACK_ID` | ja* | Stack-UUID (alternativ als **Variable** moeglich) |
 | `DATABASE_URL` | ja | PostgreSQL Connection String |
 | `SESSION_SECRET` | ja | Session-Verschluesselung |
 | `ENCRYPTION_KEY` | ja | App-Verschluesselung |
@@ -89,7 +91,15 @@ Bei Push auf `main` (Aenderungen unter `METAorder-v2/**`):
 2. `mittwald/deploy-container-action@v1` mit `stack.yaml` und Secrets
 3. Stack-Update inkl. neues Image, Env-Vars, Volume, Port 5000
 
-Ohne Mittwald-/App-Secrets wird nur gebaut, Deploy uebersprungen.
+Ohne Mittwald-/App-Secrets schlaegt der Deploy-Job fehl und listet **welche** Werte fehlen (Schritt *Check Mittwald configuration*).
+
+### Deploy wird uebersprungen / schlaegt fehl
+
+1. Secrets in **`META-Regalbau/METAorder-v2`** pruefen (nicht im Parent-Repo)
+2. Exakte Namen: `MITTWALD_API_TOKEN`, `MITTWALD_STACK_ID`, `DATABASE_URL`, `SESSION_SECRET`, `ENCRYPTION_KEY`
+3. `MITTWALD_STACK_ID` darf auch unter **Variables** stehen: `a86b11e2-5ea0-4777-a252-89d9a172c2c5`
+4. Organization Secrets: Repo **META-Regalbau/METAorder-v2** muss Zugriff haben
+5. Workflow erneut starten und Log *Check Mittwald configuration* lesen
 
 ## 6) Rollback
 

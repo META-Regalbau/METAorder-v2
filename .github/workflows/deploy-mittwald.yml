@@ -98,22 +98,31 @@ jobs:
         id: config
         env:
           MITTWALD_API_TOKEN: ${{ secrets.MITTWALD_API_TOKEN }}
-          MITTWALD_STACK_ID: ${{ secrets.MITTWALD_STACK_ID }}
+          MITTWALD_STACK_ID: ${{ secrets.MITTWALD_STACK_ID || vars.MITTWALD_STACK_ID }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
         run: |
-          if [[ -z "${MITTWALD_API_TOKEN}" || -z "${MITTWALD_STACK_ID}" ]]; then
+          echo "Repository: ${{ github.repository }}"
+          echo "Event: ${{ github.event_name }}"
+
+          missing=()
+          [[ -n "${MITTWALD_API_TOKEN}" ]] && echo "MITTWALD_API_TOKEN: gesetzt" || missing+=("MITTWALD_API_TOKEN")
+          [[ -n "${MITTWALD_STACK_ID}" ]] && echo "MITTWALD_STACK_ID: gesetzt" || missing+=("MITTWALD_STACK_ID (Secret oder Variable)")
+          [[ -n "${DATABASE_URL}" ]] && echo "DATABASE_URL: gesetzt" || missing+=("DATABASE_URL")
+          [[ -n "${SESSION_SECRET}" ]] && echo "SESSION_SECRET: gesetzt" || missing+=("SESSION_SECRET")
+          [[ -n "${ENCRYPTION_KEY}" ]] && echo "ENCRYPTION_KEY: gesetzt" || missing+=("ENCRYPTION_KEY")
+
+          if [[ ${#missing[@]} -gt 0 ]]; then
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "Deploy uebersprungen: MITTWALD_API_TOKEN oder MITTWALD_STACK_ID fehlt."
-            exit 0
+            echo "::error::Deploy nicht moeglich. Fehlende Werte: ${missing[*]}"
+            echo "Secrets muessen im Repo META-Regalbau/METAorder-v2 unter Settings → Secrets and variables → Actions liegen."
+            echo "Stack-ID darf auch als Variable MITTWALD_STACK_ID gesetzt werden."
+            exit 1
           fi
-          if [[ -z "${DATABASE_URL}" || -z "${SESSION_SECRET}" || -z "${ENCRYPTION_KEY}" ]]; then
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "Deploy uebersprungen: DATABASE_URL, SESSION_SECRET oder ENCRYPTION_KEY fehlt."
-            exit 0
-          fi
+
           echo "ready=true" >> "$GITHUB_OUTPUT"
+          echo "Alle Pflichtwerte fuer den Deploy sind vorhanden."
 
       - name: Deploy to mStudio
         if: steps.config.outputs.ready == 'true'
@@ -123,7 +132,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
-          PUBLIC_APP_URL: ${{ vars.PUBLIC_APP_URL }}
+          PUBLIC_APP_URL: ${{ vars.PUBLIC_APP_URL || 'https://p-bbpye5.project.space' }}
           REQUEST_LOG_SLOW_MS: ${{ vars.REQUEST_LOG_SLOW_MS || '1500' }}
           METAORDER_STRICT_TENANT: ${{ vars.METAORDER_STRICT_TENANT || 'true' }}
           METAORDER_INTEGRATION_API_KEY: ${{ secrets.METAORDER_INTEGRATION_API_KEY }}
@@ -141,11 +150,12 @@ jobs:
           AI_MODE: ${{ vars.AI_MODE || 'openai_optional' }}
         with:
           api_token: ${{ secrets.MITTWALD_API_TOKEN }}
-          stack_id: ${{ secrets.MITTWALD_STACK_ID }}
+          stack_id: ${{ secrets.MITTWALD_STACK_ID || vars.MITTWALD_STACK_ID }}
           stack_file: ${{ github.workspace }}/${{ env.STACK_FILE }}
 
-      - name: Deploy skipped summary
-        if: steps.config.outputs.ready != 'true'
+      - name: Deploy configuration failed
+        if: failure() && steps.config.outputs.ready != 'true'
         run: |
-          echo "Image bereit: ${{ steps.deploy.outputs.image_ref }}"
+          echo "Image waere bereit gewesen: ${{ steps.deploy.outputs.image_ref }}"
           echo "Stack-Datei: ${{ env.STACK_FILE }}"
+          echo "Stack-ID (Referenz): a86b11e2-5ea0-4777-a252-89d9a172c2c5"
