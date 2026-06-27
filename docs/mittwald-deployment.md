@@ -288,9 +288,17 @@ Oder:
 mw container exec metaorder-app node scripts/container-db-init.mjs
 ```
 
-### App in p-bbpye5, DB in altgemeinde
+**App in p-bbpye5, DB in altgemeinde**
 
-`@postgresql:5432` funktioniert **nicht** ueber Projektgrenzen. **Entweder** App nach **altgemeinde** deployen **oder** DB nach **p-bbpye5** verlegen — sonst schlaegt die DB-Init fehl (Connection refused / timeout).
+`@postgresql:5432` funktioniert **nicht** ueber **Projekt**grenzen hinweg.
+
+**Gleiches Projekt, verschiedene Container** (z. B. `metaorder-app` + Postgres `postgresql`) ist **korrekt** — interner Host:
+
+```
+postgresql://oliver-steiling:PASSWORT@postgresql:5432/MetaPGDB
+```
+
+Host **`postgresql`** = Service-/Container-Name in mStudio (Bezeichnung pruefen).
 
 ### Lokaler Fallback (nur wenn Container-Init nicht moeglich)
 
