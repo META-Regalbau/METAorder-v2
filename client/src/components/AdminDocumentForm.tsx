@@ -4,17 +4,18 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 
 const createAdminDocumentSchema = () => z.object({
   invoiceNumber: z.string().optional(),
+  vorkasseInvoiceNumber: z.string().optional(),
   deliveryNoteNumber: z.string().optional(),
   erpNumber: z.string().optional(),
 });
 
 type AdminDocumentFormData = {
   invoiceNumber?: string;
+  vorkasseInvoiceNumber?: string;
   deliveryNoteNumber?: string;
   erpNumber?: string;
 };
@@ -27,7 +28,6 @@ interface AdminDocumentFormProps {
 
 export default function AdminDocumentForm({ defaultValues, onSubmit, onCancel }: AdminDocumentFormProps) {
   const { t } = useTranslation();
-  const { toast } = useToast();
   
   const adminDocumentSchema = createAdminDocumentSchema();
   
@@ -35,18 +35,14 @@ export default function AdminDocumentForm({ defaultValues, onSubmit, onCancel }:
     resolver: zodResolver(adminDocumentSchema),
     defaultValues: {
       invoiceNumber: defaultValues?.invoiceNumber || "",
+      vorkasseInvoiceNumber: defaultValues?.vorkasseInvoiceNumber || "",
       deliveryNoteNumber: defaultValues?.deliveryNoteNumber || "",
       erpNumber: defaultValues?.erpNumber || "",
     },
   });
 
   const handleSubmit = (data: AdminDocumentFormData) => {
-    console.log("Admin document info submitted:", data);
     onSubmit(data);
-    toast({
-      title: t('orderDetail.documentsUpdated'),
-      description: t('orderDetail.documentsSuccess'),
-    });
   };
 
   return (
@@ -65,7 +61,19 @@ export default function AdminDocumentForm({ defaultValues, onSubmit, onCancel }:
             </FormItem>
           )}
         />
-        
+        <FormField
+          control={form.control}
+          name="vorkasseInvoiceNumber"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="font-medium">{t('adminDocuments.vorkasseInvoiceNumber')}</FormLabel>
+              <FormControl>
+                <Input placeholder={t('adminDocuments.vorkasseInvoiceNumberPlaceholder')} className="font-mono" {...field} data-testid="input-vorkasse-invoice-number" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <FormField
           control={form.control}
           name="deliveryNoteNumber"

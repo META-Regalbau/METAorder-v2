@@ -24,6 +24,16 @@ type TicketAssignmentRule = {
   assignToRoleId: string | null;
 };
 
+type ParsedConditions = {
+  category?: string;
+  priority?: string;
+  aiCategory?: string;
+  aiPriority?: string;
+  aiSentiment?: string;
+  keywords?: string | string[];
+  minConfidence?: number;
+};
+
 export default function TicketRulesPage() {
   const { toast } = useToast();
   const { t } = useTranslation();
@@ -36,6 +46,11 @@ export default function TicketRulesPage() {
   const [assignmentType, setAssignmentType] = useState<"round_robin" | "rule_based">("round_robin");
   const [category, setCategory] = useState("");
   const [priorityCondition, setPriorityCondition] = useState("");
+  const [aiCategory, setAiCategory] = useState("");
+  const [aiPriority, setAiPriority] = useState("");
+  const [aiSentiment, setAiSentiment] = useState("");
+  const [keywords, setKeywords] = useState("");
+  const [minConfidence, setMinConfidence] = useState("");
   const [assignToUserId, setAssignToUserId] = useState("");
 
   const { data: rules = [], isLoading } = useQuery<TicketAssignmentRule[]>({
@@ -93,13 +108,26 @@ export default function TicketRulesPage() {
     setAssignmentType("round_robin");
     setCategory("");
     setPriorityCondition("");
+    setAiCategory("");
+    setAiPriority("");
+    setAiSentiment("");
+    setKeywords("");
+    setMinConfidence("");
     setAssignToUserId("");
     setEditingRule(null);
   };
 
   const handleSubmit = () => {
     const conditions = assignmentType === "rule_based" 
-      ? JSON.stringify({ category, priority: priorityCondition }) 
+      ? JSON.stringify({
+          category,
+          priority: priorityCondition,
+          aiCategory: aiCategory || undefined,
+          aiPriority: aiPriority || undefined,
+          aiSentiment: aiSentiment || undefined,
+          keywords: keywords || undefined,
+          minConfidence: minConfidence ? Number(minConfidence) : undefined,
+        }) 
       : null;
     
     const data = {
@@ -131,6 +159,11 @@ export default function TicketRulesPage() {
         const parsed = JSON.parse(rule.conditions);
         setCategory(parsed.category || "");
         setPriorityCondition(parsed.priority || "");
+        setAiCategory(parsed.aiCategory || "");
+        setAiPriority(parsed.aiPriority || "");
+        setAiSentiment(parsed.aiSentiment || "");
+        setKeywords(parsed.keywords || "");
+        setMinConfidence(parsed.minConfidence ? String(parsed.minConfidence) : "");
       } catch {}
     }
     setAssignToUserId(rule.assignToUserId || "");
@@ -144,8 +177,33 @@ export default function TicketRulesPage() {
     });
   };
 
+  const renderConditions = (rule: TicketAssignmentRule) => {
+    if (!rule.conditions) return null;
+    try {
+      const parsed = JSON.parse(rule.conditions) as ParsedConditions;
+      const parts: string[] = [];
+
+      if (parsed.category) parts.push(`Category: ${parsed.category}`);
+      if (parsed.priority) parts.push(`Priority: ${parsed.priority}`);
+      if (parsed.aiCategory) parts.push(`AI Category: ${parsed.aiCategory}`);
+      if (parsed.aiPriority) parts.push(`AI Priority: ${parsed.aiPriority}`);
+      if (parsed.aiSentiment) parts.push(`AI Sentiment: ${parsed.aiSentiment}`);
+      if (parsed.minConfidence !== undefined) parts.push(`Min AI Confidence: ${parsed.minConfidence}`);
+      if (parsed.keywords) {
+        const keywords = Array.isArray(parsed.keywords) ? parsed.keywords : String(parsed.keywords).split(",");
+        const cleaned = keywords.map((k) => k.trim()).filter(Boolean);
+        if (cleaned.length > 0) parts.push(`Keywords: ${cleaned.join(", ")}`);
+      }
+
+      if (parts.length === 0) return null;
+      return parts.join(" · ");
+    } catch {
+      return rule.conditions;
+    }
+  };
+
   return (
-    <div className="w-full max-w-4xl mx-auto">
+    <div className="w-full">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold mb-1">Ticket Assignment Rules</h1>
@@ -180,7 +238,7 @@ export default function TicketRulesPage() {
                   </div>
                   {rule.assignmentType === "rule_based" && rule.conditions && (
                     <p className="text-sm text-muted-foreground">
-                      Conditions: {rule.conditions}
+                      Conditions: {renderConditions(rule)}
                     </p>
                   )}
                 </div>
@@ -236,32 +294,105 @@ export default function TicketRulesPage() {
               <>
                 <div>
                   <Label>Category Filter</Label>
-                  <Select value={category} onValueChange={setCategory}>
+                  <Select value={category || "__none__"} onValueChange={(value) => setCategory(value === "__none__" ? "" : value)}>
                     <SelectTrigger data-testid="select-category">
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="__none__">Any</SelectItem>
                       <SelectItem value="general">General</SelectItem>
                       <SelectItem value="order_issue">Order Issue</SelectItem>
                       <SelectItem value="product_inquiry">Product Inquiry</SelectItem>
                       <SelectItem value="technical_support">Technical Support</SelectItem>
                       <SelectItem value="complaint">Complaint</SelectItem>
+                      <SelectItem value="feature_request">Feature Request</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
                   <Label>Priority Filter</Label>
-                  <Select value={priorityCondition} onValueChange={setPriorityCondition}>
+                  <Select value={priorityCondition || "__none__"} onValueChange={(value) => setPriorityCondition(value === "__none__" ? "" : value)}>
                     <SelectTrigger data-testid="select-priority-filter">
                       <SelectValue placeholder="Select priority" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="__none__">Any</SelectItem>
                       <SelectItem value="low">Low</SelectItem>
                       <SelectItem value="normal">Normal</SelectItem>
                       <SelectItem value="high">High</SelectItem>
                       <SelectItem value="urgent">Urgent</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div>
+                  <Label>AI Category Filter</Label>
+                  <Select value={aiCategory || "__none__"} onValueChange={(value) => setAiCategory(value === "__none__" ? "" : value)}>
+                    <SelectTrigger data-testid="select-ai-category">
+                      <SelectValue placeholder="Select AI category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Any</SelectItem>
+                      <SelectItem value="general">General</SelectItem>
+                      <SelectItem value="order_issue">Order Issue</SelectItem>
+                      <SelectItem value="product_inquiry">Product Inquiry</SelectItem>
+                      <SelectItem value="technical_support">Technical Support</SelectItem>
+                      <SelectItem value="complaint">Complaint</SelectItem>
+                      <SelectItem value="feature_request">Feature Request</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>AI Priority Filter</Label>
+                  <Select value={aiPriority || "__none__"} onValueChange={(value) => setAiPriority(value === "__none__" ? "" : value)}>
+                    <SelectTrigger data-testid="select-ai-priority">
+                      <SelectValue placeholder="Select AI priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Any</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="normal">Normal</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>AI Sentiment Filter</Label>
+                  <Select value={aiSentiment || "__none__"} onValueChange={(value) => setAiSentiment(value === "__none__" ? "" : value)}>
+                    <SelectTrigger data-testid="select-ai-sentiment">
+                      <SelectValue placeholder="Select sentiment" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Any</SelectItem>
+                      <SelectItem value="positive">Positive</SelectItem>
+                      <SelectItem value="neutral">Neutral</SelectItem>
+                      <SelectItem value="negative">Negative</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Keywords</Label>
+                  <Input
+                    value={keywords}
+                    onChange={(e) => setKeywords(e.target.value)}
+                    placeholder="e.g. invoice, refund"
+                    data-testid="input-keywords"
+                  />
+                </div>
+                <div>
+                  <Label>Minimum AI Confidence</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={minConfidence}
+                    onChange={(e) => setMinConfidence(e.target.value)}
+                    placeholder="0.7"
+                    data-testid="input-ai-confidence"
+                  />
                 </div>
                 <div>
                   <Label>Assign To User</Label>

@@ -1,12 +1,8 @@
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
-import { createServer as createViteServer, createLogger } from "vite";
+import crypto from "crypto";
 import { type Server } from "http";
-import viteConfig from "../vite.config";
-import { nanoid } from "nanoid";
-
-const viteLogger = createLogger();
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -19,24 +15,38 @@ export function log(message: string, source = "express") {
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
+/**
+ * Runtime-only dynamic import that esbuild cannot statically analyze,
+ * keeping dev-only packages (vite, @vitejs/plugin-react, …) out of
+ * the production bundle.
+ */
+// eslint-disable-next-line @typescript-eslint/no-implied-eval
+const _import = new Function("p", "return import(p)") as (
+  p: string,
+) => Promise<any>;
+
 export async function setupVite(app: Express, server: Server) {
-  const serverOptions = {
-    middlewareMode: true,
-    hmr: { server },
-    allowedHosts: true as const,
-  };
+  const { createServer: createViteServer, createLogger } =
+    await _import("vite");
+  const { default: viteConfig } = await _import("../vite.config");
+
+  const viteLogger = createLogger();
 
   const vite = await createViteServer({
     ...viteConfig,
     configFile: false,
     customLogger: {
       ...viteLogger,
-      error: (msg, options) => {
+      error: (msg: string, options?: any) => {
         viteLogger.error(msg, options);
         process.exit(1);
       },
     },
-    server: serverOptions,
+    server: {
+      middlewareMode: true,
+      hmr: { server },
+      allowedHosts: true as const,
+    },
     appType: "custom",
   });
 
@@ -52,11 +62,10 @@ export async function setupVite(app: Express, server: Server) {
         "index.html",
       );
 
-      // always reload the index.html file from disk incase it changes
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
       template = template.replace(
         `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`,
+        `src="/src/main.tsx?v=${crypto.randomUUID()}"`,
       );
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
@@ -76,10 +85,32 @@ export function serveStatic(app: Express) {
     );
   }
 
-  app.use(express.static(distPath));
+  const noStoreHtml =
+    "no-store, no-cache, must-revalidate, proxy-revalidate, private, max-age=0";
 
-  // fall through to index.html if the file doesn't exist
-  app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
+  app.use(
+    express.static(distPath, {
+      setHeaders: (res, filepath) => {
+        const rel = path.relative(distPath, filepath).replace(/\\/g, "/");
+        if (rel === "index.html" || rel.endsWith("/index.html")) {
+          res.setHeader("Cache-Control", noStoreHtml);
+        } else if (rel.startsWith("assets/")) {
+          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        }
+      },
+    }),
+  );
+
+  app.use((req, res, next) => {
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      return next();
+    }
+    if (req.path.startsWith("/api")) {
+      return next();
+    }
+    res.setHeader("Cache-Control", noStoreHtml);
+    res.sendFile(path.resolve(distPath, "index.html"), (err) => {
+      if (err) next(err);
+    });
   });
 }

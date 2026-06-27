@@ -1,0 +1,98 @@
+{
+  "document": {
+    "type": "purchase_order",
+    "number": "4500987654",
+    "date": "2026-02-26",
+    "delivery_date": null,
+    "currency": "EUR",
+    "total_net": 4353.64,
+    "language": "de",
+    "recipient_is_meta": true
+  },
+  "buyer": {
+    "company": "Musterhandel GmbH",
+    "street": "Beispielstraße 12",
+    "zip": "4213",
+    "city": "Unterweitersdorf",
+    "country": "AT",
+    "vat_id": "ATU12345678",
+    "customer_number": "700456",
+    "contact_person": null,
+    "email": null,
+    "phone": null
+  },
+  "delivery_address": {
+    "same_as_buyer": false,
+    "company": "META Lagertechnik Ges.m.b.H.",
+    "street": "IZ-NÖ-Süd, Strasse 7, Objekt 58a",
+    "zip": "2355",
+    "city": "Wiener Neudorf",
+    "country": "AT",
+    "delivery_window": "KW 10/2026"
+  },
+  "terms": {
+    "incoterms": null,
+    "payment": "30 Tage netto",
+    "partial_delivery_allowed": null,
+    "notes": null
+  },
+  "line_items": [
+    {
+      "position": 1,
+      "quantity": 19,
+      "unit": "Stück",
+      "supplier_sku": "4026212260212",
+      "buyer_sku": null,
+      "description": "Steckregal META CLIP 150 S",
+      "attributes": {
+        "color": null,
+        "surface": null,
+        "dimensions_raw": "150 S",
+        "system": "META CLIP"
+      },
+      "unit_price_net": 160.06,
+      "line_total_net": 3041.14,
+      "confidence_warnings": []
+    },
+    {
+      "position": 2,
+      "quantity": 5,
+      "unit": "Stück",
+      "supplier_sku": "4026212260229",
+      "buyer_sku": null,
+      "description": "Steckregal META CLIP 150 S",
+      "attributes": {
+        "color": null,
+        "surface": null,
+        "dimensions_raw": "150 S",
+        "system": "META CLIP"
+      },
+      "unit_price_net": 172.50,
+      "line_total_net": 862.50,
+      "confidence_warnings": []
+    },
+    {
+      "position": 3,
+      "quantity": 2,
+      "unit": "Stück",
+      "supplier_sku": "4026212401007",
+      "buyer_sku": null,
+      "description": "Anbauregal META CLIP 100 S",
+      "attributes": {
+        "color": null,
+        "surface": null,
+        "dimensions_raw": "100 S",
+        "system": "META CLIP"
+      },
+      "unit_price_net": 225.00,
+      "line_total_net": 450.00,
+      "confidence_warnings": []
+    }
+  ],
+  "extraction_meta": {
+    "overall_confidence": "high",
+    "warnings": [],
+    "calculated_total_net": 4353.64,
+    "total_matches_calculated": true
+  }
+}

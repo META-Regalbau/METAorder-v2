@@ -1,0 +1,60 @@
+<?xml version="1.0" ?>
+<container xmlns="http://symfony.com/schema/dic/services"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:schemaLocation="http://symfony.com/schema/dic/services http://symfony.com/schema/dic/services/services-1.0.xsd">
+    <services>
+        <defaults autowire="true" autoconfigure="true" public="false"/>
+
+        <service id="Meta\ClipCpq\Core\Content\System\SystemDefinition">
+            <tag name="shopware.entity.definition" entity="meta_clip_system"/>
+        </service>
+        <service id="Meta\ClipCpq\Core\Content\ComponentType\ComponentTypeDefinition">
+            <tag name="shopware.entity.definition" entity="meta_clip_component_type"/>
+        </service>
+        <service id="Meta\ClipCpq\Core\Content\ProductMapping\ProductMappingDefinition">
+            <tag name="shopware.entity.definition" entity="meta_clip_product_mapping"/>
+        </service>
+        <service id="Meta\ClipCpq\Core\Content\Geometry\GeometryDefinition">
+            <tag name="shopware.entity.definition" entity="meta_clip_geometry"/>
+        </service>
+        <service id="Meta\ClipCpq\Core\Content\Rule\RuleDefinition">
+            <tag name="shopware.entity.definition" entity="meta_clip_rule"/>
+        </service>
+        <service id="Meta\ClipCpq\Core\Content\RuleVersion\RuleVersionDefinition">
+            <tag name="shopware.entity.definition" entity="meta_clip_rule_version"/>
+        </service>
+        <service id="Meta\ClipCpq\Core\Content\Configuration\ConfigurationDefinition">
+            <tag name="shopware.entity.definition" entity="meta_clip_configuration"/>
+        </service>
+        <service id="Meta\ClipCpq\Core\Content\ConfigurationReviewLog\ConfigurationReviewLogDefinition">
+            <tag name="shopware.entity.definition" entity="meta_clip_configuration_review_log"/>
+        </service>
+
+        <service id="Meta\ClipCpq\Core\Checkout\Subscriber\OrderPlacedSubscriber">
+            <tag name="kernel.event_subscriber"/>
+        </service>
+        <service id="Meta\ClipCpq\Core\Checkout\Subscriber\OrderRoutingSubscriber">
+            <argument type="service" id="meta_clip_configuration.repository"/>
+            <tag name="kernel.event_subscriber"/>
+        </service>
+
+        <service id="Meta\ClipCpq\Core\Notification\SlackNotifier">
+            <argument type="service" id="meta_clip_configuration_review_log.repository"/>
+        </service>
+
+        <service id="Meta\ClipCpq\Core\Review\ReviewQueueService">
+            <argument type="service" id="meta_clip_configuration.repository"/>
+            <argument type="service" id="meta_clip_configuration_review_log.repository"/>
+        </service>
+
+        <service id="Meta\ClipCpq\Core\Lobster\Message\DispatchToLobsterMessageHandler">
+            <argument type="service" id="meta_clip_configuration.repository"/>
+            <argument type="service" id="order.repository"/>
+            <tag name="messenger.message_handler"/>
+        </service>
+
+        <service id="Meta\ClipCpq\Core\Review\Api\ReviewQueueController" public="true">
+            <tag name="controller.service_arguments"/>
+        </service>
+    </services>
+</container>

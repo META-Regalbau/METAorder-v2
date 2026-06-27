@@ -19,6 +19,7 @@ export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
+  options?: { signal?: AbortSignal },
 ): Promise<Response> {
   const headers: Record<string, string> = {};
   
@@ -39,6 +40,7 @@ export async function apiRequest(
     headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: 'include', // Include cookies in requests
+    signal: options?.signal,
   });
 
   await throwIfResNotOk(res);

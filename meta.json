@@ -1,0 +1,2460 @@
+{
+  "inputs": {
+    "shared/schema.ts": {
+      "bytes": 80334,
+      "imports": [
+        {
+          "path": "drizzle-orm",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "drizzle-orm/pg-core",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "drizzle-zod",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "zod",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "server/db.ts": {
+      "bytes": 1290,
+      "imports": [
+        {
+          "path": "drizzle-orm/neon-serverless",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "drizzle-orm/node-postgres",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "@neondatabase/serverless",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "pg",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "ws",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "shared/schema.ts",
+          "kind": "import-statement",
+          "original": "../shared/schema"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/tenantContext.ts": {
+      "bytes": 407,
+      "imports": [
+        {
+          "path": "node:async_hooks",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "server/encryption.ts": {
+      "bytes": 2259,
+      "imports": [
+        {
+          "path": "crypto",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "server/dbStorage.ts": {
+      "bytes": 97445,
+      "imports": [
+        {
+          "path": "drizzle-orm",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/db.ts",
+          "kind": "import-statement",
+          "original": "./db"
+        },
+        {
+          "path": "server/tenantContext.ts",
+          "kind": "import-statement",
+          "original": "./tenantContext"
+        },
+        {
+          "path": "shared/schema.ts",
+          "kind": "import-statement",
+          "original": "@shared/schema"
+        },
+        {
+          "path": "server/encryption.ts",
+          "kind": "import-statement",
+          "original": "./encryption"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/storage.ts": {
+      "bytes": 79523,
+      "imports": [
+        {
+          "path": "@shared/schema",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "crypto",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/dbStorage.ts",
+          "kind": "import-statement",
+          "original": "./dbStorage"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/productCache.ts": {
+      "bytes": 6340,
+      "imports": [],
+      "format": "esm"
+    },
+    "server/shopware.ts": {
+      "bytes": 224845,
+      "imports": [
+        {
+          "path": "crypto",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/productCache.ts",
+          "kind": "import-statement",
+          "original": "./productCache"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/ruleEngine.ts": {
+      "bytes": 14439,
+      "imports": [],
+      "format": "esm"
+    },
+    "server/aiConfig.ts": {
+      "bytes": 4816,
+      "imports": [],
+      "format": "esm"
+    },
+    "server/jwt.ts": {
+      "bytes": 1224,
+      "imports": [
+        {
+          "path": "jsonwebtoken",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "server/auth.ts": {
+      "bytes": 12446,
+      "imports": [
+        {
+          "path": "passport",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "passport-local",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "bcryptjs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/jwt.ts",
+          "kind": "import-statement",
+          "original": "./jwt"
+        },
+        {
+          "path": "server/storage.ts",
+          "kind": "import-statement",
+          "original": "./storage"
+        },
+        {
+          "path": "server/tenantContext.ts",
+          "kind": "import-statement",
+          "original": "./tenantContext"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/authCustomer.ts": {
+      "bytes": 1292,
+      "imports": [
+        {
+          "path": "jsonwebtoken",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "server/emailParser.ts": {
+      "bytes": 4450,
+      "imports": [
+        {
+          "path": "mailparser",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "@kenjiuno/msgreader",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "file-type",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "server/events.ts": {
+      "bytes": 674,
+      "imports": [
+        {
+          "path": "events",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "server/openaiClient.ts": {
+      "bytes": 3192,
+      "imports": [
+        {
+          "path": "openai",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/encryption.ts",
+          "kind": "import-statement",
+          "original": "./encryption"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/naturalLanguageAnalytics.ts": {
+      "bytes": 19443,
+      "imports": [
+        {
+          "path": "server/openaiClient.ts",
+          "kind": "import-statement",
+          "original": "./openaiClient"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/forecastEngine.ts": {
+      "bytes": 15703,
+      "imports": [],
+      "format": "esm"
+    },
+    "server/analyticsQueryExecutor.ts": {
+      "bytes": 42846,
+      "imports": [
+        {
+          "path": "./shopware",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/forecastEngine.ts",
+          "kind": "import-statement",
+          "original": "./forecastEngine"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/automaticInsights.ts": {
+      "bytes": 14614,
+      "imports": [
+        {
+          "path": "server/openaiClient.ts",
+          "kind": "import-statement",
+          "original": "./openaiClient"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/productPropertyExtractor.ts": {
+      "bytes": 11654,
+      "imports": [],
+      "format": "esm"
+    },
+    "server/semanticProductSearch.ts": {
+      "bytes": 14336,
+      "imports": [
+        {
+          "path": "openai",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/productPropertyExtractor.ts",
+          "kind": "import-statement",
+          "original": "./productPropertyExtractor"
+        },
+        {
+          "path": "server/openaiClient.ts",
+          "kind": "import-statement",
+          "original": "./openaiClient"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/semanticEmbeddings.ts": {
+      "bytes": 2590,
+      "imports": [
+        {
+          "path": "crypto",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/aiConfig.ts",
+          "kind": "import-statement",
+          "original": "./aiConfig"
+        },
+        {
+          "path": "server/openaiClient.ts",
+          "kind": "import-statement",
+          "original": "./openaiClient"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/b2bSellersClient.ts": {
+      "bytes": 29762,
+      "imports": [],
+      "format": "esm"
+    },
+    "server/semanticIndexer.ts": {
+      "bytes": 9530,
+      "imports": [
+        {
+          "path": "server/db.ts",
+          "kind": "import-statement",
+          "original": "./db"
+        },
+        {
+          "path": "server/semanticEmbeddings.ts",
+          "kind": "import-statement",
+          "original": "./semanticEmbeddings"
+        },
+        {
+          "path": "server/productCache.ts",
+          "kind": "import-statement",
+          "original": "./productCache"
+        },
+        {
+          "path": "server/shopware.ts",
+          "kind": "import-statement",
+          "original": "./shopware"
+        },
+        {
+          "path": "server/b2bSellersClient.ts",
+          "kind": "import-statement",
+          "original": "./b2bSellersClient"
+        },
+        {
+          "path": "shared/schema.ts",
+          "kind": "import-statement",
+          "original": "@shared/schema"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/semanticFaq.ts": {
+      "bytes": 5245,
+      "imports": [
+        {
+          "path": "server/aiConfig.ts",
+          "kind": "import-statement",
+          "original": "./aiConfig"
+        },
+        {
+          "path": "server/openaiClient.ts",
+          "kind": "import-statement",
+          "original": "./openaiClient"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/webhookService.ts": {
+      "bytes": 16252,
+      "imports": [
+        {
+          "path": "crypto",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/storage.ts",
+          "kind": "import-statement",
+          "original": "./storage"
+        },
+        {
+          "path": "crypto",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "server/crossSellLearning.ts": {
+      "bytes": 11600,
+      "imports": [
+        {
+          "path": "server/shopware.ts",
+          "kind": "import-statement",
+          "original": "./shopware"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/offerLearning.ts": {
+      "bytes": 4125,
+      "imports": [
+        {
+          "path": "server/b2bSellersClient.ts",
+          "kind": "import-statement",
+          "original": "./b2bSellersClient"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/m365Client.ts": {
+      "bytes": 5958,
+      "imports": [
+        {
+          "path": "jsonwebtoken",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/encryption.ts",
+          "kind": "import-statement",
+          "original": "./encryption"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/emailOutbound.ts": {
+      "bytes": 5759,
+      "imports": [
+        {
+          "path": "nodemailer",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/encryption.ts",
+          "kind": "import-statement",
+          "original": "./encryption"
+        },
+        {
+          "path": "server/m365Client.ts",
+          "kind": "import-statement",
+          "original": "./m365Client"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/dunningPdf.ts": {
+      "bytes": 13320,
+      "imports": [
+        {
+          "path": "pdfkit",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "server/uploadsRoot.ts": {
+      "bytes": 993,
+      "imports": [
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "url",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "server/dunningJob.ts": {
+      "bytes": 12357,
+      "imports": [
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs/promises",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/shopware.ts",
+          "kind": "import-statement",
+          "original": "./shopware"
+        },
+        {
+          "path": "server/emailOutbound.ts",
+          "kind": "import-statement",
+          "original": "./emailOutbound"
+        },
+        {
+          "path": "server/dunningPdf.ts",
+          "kind": "import-statement",
+          "original": "./dunningPdf"
+        },
+        {
+          "path": "server/uploadsRoot.ts",
+          "kind": "import-statement",
+          "original": "./uploadsRoot"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/installmentAgreementPdf.ts": {
+      "bytes": 5575,
+      "imports": [
+        {
+          "path": "pdfkit",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "server/objectStorage.ts": {
+      "bytes": 6602,
+      "imports": [
+        {
+          "path": "@google-cloud/storage",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "express",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "crypto",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "server/emailClassifier.ts": {
+      "bytes": 4916,
+      "imports": [
+        {
+          "path": "zod",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/openaiClient.ts",
+          "kind": "import-statement",
+          "original": "./openaiClient"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/emailRouting.ts": {
+      "bytes": 4790,
+      "imports": [],
+      "format": "esm"
+    },
+    "server/notifications.ts": {
+      "bytes": 2196,
+      "imports": [
+        {
+          "path": "web-push",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "server/commercialDocumentIntent.ts": {
+      "bytes": 3669,
+      "imports": [
+        {
+          "path": "zod",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:module",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/openaiClient.ts",
+          "kind": "import-statement",
+          "original": "./openaiClient"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/aiTextUtils.ts": {
+      "bytes": 1454,
+      "imports": [
+        {
+          "path": "fs/promises",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "server/orderDraftExtractor.ts": {
+      "bytes": 13034,
+      "imports": [
+        {
+          "path": "openai",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:module",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/aiTextUtils.ts",
+          "kind": "import-statement",
+          "original": "./aiTextUtils"
+        },
+        {
+          "path": "tesseract.js",
+          "kind": "dynamic-import",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "server/offerDraftExtractor.ts": {
+      "bytes": 17271,
+      "imports": [
+        {
+          "path": "openai",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:module",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/aiTextUtils.ts",
+          "kind": "import-statement",
+          "original": "./aiTextUtils"
+        },
+        {
+          "path": "tesseract.js",
+          "kind": "dynamic-import",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "server/systemMatcher.ts": {
+      "bytes": 9824,
+      "imports": [],
+      "format": "esm"
+    },
+    "server/categoryProfiles.ts": {
+      "bytes": 8365,
+      "imports": [],
+      "format": "esm"
+    },
+    "server/alternativeMatcher.ts": {
+      "bytes": 10367,
+      "imports": [
+        {
+          "path": "server/categoryProfiles.ts",
+          "kind": "import-statement",
+          "original": "./categoryProfiles"
+        },
+        {
+          "path": "server/productPropertyExtractor.ts",
+          "kind": "import-statement",
+          "original": "./productPropertyExtractor"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/productMatcher.ts": {
+      "bytes": 30024,
+      "imports": [
+        {
+          "path": "server/shopware.ts",
+          "kind": "import-statement",
+          "original": "./shopware"
+        },
+        {
+          "path": "server/productCache.ts",
+          "kind": "import-statement",
+          "original": "./productCache"
+        },
+        {
+          "path": "server/systemMatcher.ts",
+          "kind": "import-statement",
+          "original": "./systemMatcher"
+        },
+        {
+          "path": "./productPropertyExtractor",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/alternativeMatcher.ts",
+          "kind": "import-statement",
+          "original": "./alternativeMatcher"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/smartPricingEngine.ts": {
+      "bytes": 12687,
+      "imports": [
+        {
+          "path": "openai",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "./shopware",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "server/commercialDraftPipeline.ts": {
+      "bytes": 11912,
+      "imports": [
+        {
+          "path": "fs/promises",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/aiConfig.ts",
+          "kind": "import-statement",
+          "original": "./aiConfig"
+        },
+        {
+          "path": "server/orderDraftExtractor.ts",
+          "kind": "import-statement",
+          "original": "./orderDraftExtractor"
+        },
+        {
+          "path": "server/offerDraftExtractor.ts",
+          "kind": "import-statement",
+          "original": "./offerDraftExtractor"
+        },
+        {
+          "path": "server/productMatcher.ts",
+          "kind": "import-statement",
+          "original": "./productMatcher"
+        },
+        {
+          "path": "server/smartPricingEngine.ts",
+          "kind": "import-statement",
+          "original": "./smartPricingEngine"
+        },
+        {
+          "path": "server/openaiClient.ts",
+          "kind": "dynamic-import",
+          "original": "./openaiClient"
+        },
+        {
+          "path": "server/shopware.ts",
+          "kind": "dynamic-import",
+          "original": "./shopware"
+        },
+        {
+          "path": "server/shopware.ts",
+          "kind": "dynamic-import",
+          "original": "./shopware"
+        },
+        {
+          "path": "server/shopware.ts",
+          "kind": "dynamic-import",
+          "original": "./shopware"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/commercialDraftShopware.ts": {
+      "bytes": 7833,
+      "imports": [
+        {
+          "path": "server/b2bSellersClient.ts",
+          "kind": "import-statement",
+          "original": "./b2bSellersClient"
+        },
+        {
+          "path": "server/shopware.ts",
+          "kind": "import-statement",
+          "original": "./shopware"
+        },
+        {
+          "path": "server/productCache.ts",
+          "kind": "dynamic-import",
+          "original": "./productCache"
+        },
+        {
+          "path": "server/productCache.ts",
+          "kind": "dynamic-import",
+          "original": "./productCache"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/commercialAgentOrchestrator.ts": {
+      "bytes": 8604,
+      "imports": [
+        {
+          "path": "crypto",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs/promises",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/aiConfig.ts",
+          "kind": "import-statement",
+          "original": "./aiConfig"
+        },
+        {
+          "path": "server/commercialDocumentIntent.ts",
+          "kind": "import-statement",
+          "original": "./commercialDocumentIntent"
+        },
+        {
+          "path": "server/commercialDraftPipeline.ts",
+          "kind": "import-statement",
+          "original": "./commercialDraftPipeline"
+        },
+        {
+          "path": "server/commercialDraftShopware.ts",
+          "kind": "import-statement",
+          "original": "./commercialDraftShopware"
+        },
+        {
+          "path": "server/uploadsRoot.ts",
+          "kind": "import-statement",
+          "original": "./uploadsRoot"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/emailInbound.ts": {
+      "bytes": 26392,
+      "imports": [
+        {
+          "path": "imapflow",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "mailparser",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/objectStorage.ts",
+          "kind": "import-statement",
+          "original": "./objectStorage"
+        },
+        {
+          "path": "server/emailClassifier.ts",
+          "kind": "import-statement",
+          "original": "./emailClassifier"
+        },
+        {
+          "path": "server/emailRouting.ts",
+          "kind": "import-statement",
+          "original": "./emailRouting"
+        },
+        {
+          "path": "server/encryption.ts",
+          "kind": "import-statement",
+          "original": "./encryption"
+        },
+        {
+          "path": "server/m365Client.ts",
+          "kind": "import-statement",
+          "original": "./m365Client"
+        },
+        {
+          "path": "server/emailOutbound.ts",
+          "kind": "import-statement",
+          "original": "./emailOutbound"
+        },
+        {
+          "path": "server/notifications.ts",
+          "kind": "import-statement",
+          "original": "./notifications"
+        },
+        {
+          "path": "server/commercialAgentOrchestrator.ts",
+          "kind": "import-statement",
+          "original": "./commercialAgentOrchestrator"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/accounting.ts": {
+      "bytes": 11899,
+      "imports": [
+        {
+          "path": "csv-parse/sync",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "openai",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/aiTextUtils.ts",
+          "kind": "import-statement",
+          "original": "./aiTextUtils"
+        },
+        {
+          "path": "pdf-parse",
+          "kind": "dynamic-import",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "server/googleKpi.ts": {
+      "bytes": 7181,
+      "imports": [
+        {
+          "path": "@google-analytics/data",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "google-ads-api",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/encryption.ts",
+          "kind": "import-statement",
+          "original": "./encryption"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/ticketAi.ts": {
+      "bytes": 4535,
+      "imports": [
+        {
+          "path": "zod",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/openaiClient.ts",
+          "kind": "import-statement",
+          "original": "./openaiClient"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/cpq/cpqStorage.ts": {
+      "bytes": 12214,
+      "imports": [
+        {
+          "path": "drizzle-orm",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/db.ts",
+          "kind": "import-statement",
+          "original": "../db"
+        },
+        {
+          "path": "shared/schema.ts",
+          "kind": "import-statement",
+          "original": "@shared/schema"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/cpq/ruleEvaluator.ts": {
+      "bytes": 6557,
+      "imports": [],
+      "format": "esm"
+    },
+    "server/cpq/constraintEngine.ts": {
+      "bytes": 3936,
+      "imports": [
+        {
+          "path": "server/cpq/ruleEvaluator.ts",
+          "kind": "import-statement",
+          "original": "./ruleEvaluator"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/cpq/cpqBillOfMaterials.ts": {
+      "bytes": 9923,
+      "imports": [
+        {
+          "path": "server/cpq/constraintEngine.ts",
+          "kind": "import-statement",
+          "original": "./constraintEngine"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/cpq/cpqCrossSelling.ts": {
+      "bytes": 3644,
+      "imports": [
+        {
+          "path": "server/cpq/cpqStorage.ts",
+          "kind": "import-statement",
+          "original": "./cpqStorage"
+        },
+        {
+          "path": "server/cpq/constraintEngine.ts",
+          "kind": "import-statement",
+          "original": "./constraintEngine"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/cpq/discountEvaluator.ts": {
+      "bytes": 3679,
+      "imports": [
+        {
+          "path": "server/cpq/cpqStorage.ts",
+          "kind": "import-statement",
+          "original": "./cpqStorage"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/cpq/sceneBuilder.ts": {
+      "bytes": 8431,
+      "imports": [
+        {
+          "path": "fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/cpq/cpqBillOfMaterials.ts",
+          "kind": "import-statement",
+          "original": "./cpqBillOfMaterials"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/cpq/cpqRoutes.ts": {
+      "bytes": 45814,
+      "imports": [
+        {
+          "path": "fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "express",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/cpq/cpqStorage.ts",
+          "kind": "import-statement",
+          "original": "./cpqStorage"
+        },
+        {
+          "path": "server/cpq/constraintEngine.ts",
+          "kind": "import-statement",
+          "original": "./constraintEngine"
+        },
+        {
+          "path": "server/cpq/cpqBillOfMaterials.ts",
+          "kind": "import-statement",
+          "original": "./cpqBillOfMaterials"
+        },
+        {
+          "path": "server/cpq/cpqCrossSelling.ts",
+          "kind": "import-statement",
+          "original": "./cpqCrossSelling"
+        },
+        {
+          "path": "server/cpq/discountEvaluator.ts",
+          "kind": "import-statement",
+          "original": "./discountEvaluator"
+        },
+        {
+          "path": "server/productCache.ts",
+          "kind": "dynamic-import",
+          "original": "../productCache"
+        },
+        {
+          "path": "server/productCache.ts",
+          "kind": "dynamic-import",
+          "original": "../productCache"
+        },
+        {
+          "path": "server/productCache.ts",
+          "kind": "dynamic-import",
+          "original": "../productCache"
+        },
+        {
+          "path": "server/productCache.ts",
+          "kind": "dynamic-import",
+          "original": "../productCache"
+        },
+        {
+          "path": "server/cpq/sceneBuilder.ts",
+          "kind": "dynamic-import",
+          "original": "./sceneBuilder"
+        },
+        {
+          "path": "server/cpq/ruleEvaluator.ts",
+          "kind": "dynamic-import",
+          "original": "./ruleEvaluator"
+        },
+        {
+          "path": "server/storage.ts",
+          "kind": "dynamic-import",
+          "original": "../storage"
+        },
+        {
+          "path": "server/b2bSellersClient.ts",
+          "kind": "dynamic-import",
+          "original": "../b2bSellersClient"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/mondu.ts": {
+      "bytes": 2800,
+      "imports": [
+        {
+          "path": "form-data",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "server/improvementSuggestions.ts": {
+      "bytes": 9877,
+      "imports": [
+        {
+          "path": "crypto",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/openaiClient.ts",
+          "kind": "import-statement",
+          "original": "./openaiClient"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/offerDraftPdf.ts": {
+      "bytes": 4838,
+      "imports": [
+        {
+          "path": "pdfkit",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "server/routes.ts": {
+      "bytes": 503794,
+      "imports": [
+        {
+          "path": "http",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "zod",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "bcryptjs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "passport",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "express-rate-limit",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "crypto",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/storage.ts",
+          "kind": "import-statement",
+          "original": "./storage"
+        },
+        {
+          "path": "server/shopware.ts",
+          "kind": "import-statement",
+          "original": "./shopware"
+        },
+        {
+          "path": "server/ruleEngine.ts",
+          "kind": "import-statement",
+          "original": "./ruleEngine"
+        },
+        {
+          "path": "shared/schema.ts",
+          "kind": "import-statement",
+          "original": "@shared/schema"
+        },
+        {
+          "path": "server/aiConfig.ts",
+          "kind": "import-statement",
+          "original": "./aiConfig"
+        },
+        {
+          "path": "server/auth.ts",
+          "kind": "import-statement",
+          "original": "./auth"
+        },
+        {
+          "path": "server/authCustomer.ts",
+          "kind": "import-statement",
+          "original": "./authCustomer"
+        },
+        {
+          "path": "server/encryption.ts",
+          "kind": "import-statement",
+          "original": "./encryption"
+        },
+        {
+          "path": "openai",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "xlsx",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/jwt.ts",
+          "kind": "import-statement",
+          "original": "./jwt"
+        },
+        {
+          "path": "server/emailParser.ts",
+          "kind": "import-statement",
+          "original": "./emailParser"
+        },
+        {
+          "path": "server/events.ts",
+          "kind": "import-statement",
+          "original": "./events"
+        },
+        {
+          "path": "server/naturalLanguageAnalytics.ts",
+          "kind": "import-statement",
+          "original": "./naturalLanguageAnalytics"
+        },
+        {
+          "path": "server/analyticsQueryExecutor.ts",
+          "kind": "import-statement",
+          "original": "./analyticsQueryExecutor"
+        },
+        {
+          "path": "server/automaticInsights.ts",
+          "kind": "import-statement",
+          "original": "./automaticInsights"
+        },
+        {
+          "path": "server/semanticProductSearch.ts",
+          "kind": "import-statement",
+          "original": "./semanticProductSearch"
+        },
+        {
+          "path": "server/semanticIndexer.ts",
+          "kind": "import-statement",
+          "original": "./semanticIndexer"
+        },
+        {
+          "path": "server/semanticEmbeddings.ts",
+          "kind": "import-statement",
+          "original": "./semanticEmbeddings"
+        },
+        {
+          "path": "server/semanticFaq.ts",
+          "kind": "import-statement",
+          "original": "./semanticFaq"
+        },
+        {
+          "path": "server/webhookService.ts",
+          "kind": "import-statement",
+          "original": "./webhookService"
+        },
+        {
+          "path": "server/crossSellLearning.ts",
+          "kind": "import-statement",
+          "original": "./crossSellLearning"
+        },
+        {
+          "path": "server/b2bSellersClient.ts",
+          "kind": "import-statement",
+          "original": "./b2bSellersClient"
+        },
+        {
+          "path": "server/offerLearning.ts",
+          "kind": "import-statement",
+          "original": "./offerLearning"
+        },
+        {
+          "path": "server/dunningJob.ts",
+          "kind": "import-statement",
+          "original": "./dunningJob"
+        },
+        {
+          "path": "server/dunningPdf.ts",
+          "kind": "import-statement",
+          "original": "./dunningPdf"
+        },
+        {
+          "path": "server/installmentAgreementPdf.ts",
+          "kind": "import-statement",
+          "original": "./installmentAgreementPdf"
+        },
+        {
+          "path": "multer",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs/promises",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/objectStorage.ts",
+          "kind": "import-statement",
+          "original": "./objectStorage"
+        },
+        {
+          "path": "server/uploadsRoot.ts",
+          "kind": "import-statement",
+          "original": "./uploadsRoot"
+        },
+        {
+          "path": "server/emailInbound.ts",
+          "kind": "import-statement",
+          "original": "./emailInbound"
+        },
+        {
+          "path": "server/emailOutbound.ts",
+          "kind": "import-statement",
+          "original": "./emailOutbound"
+        },
+        {
+          "path": "server/notifications.ts",
+          "kind": "import-statement",
+          "original": "./notifications"
+        },
+        {
+          "path": "server/accounting.ts",
+          "kind": "import-statement",
+          "original": "./accounting"
+        },
+        {
+          "path": "server/emailRouting.ts",
+          "kind": "import-statement",
+          "original": "./emailRouting"
+        },
+        {
+          "path": "server/m365Client.ts",
+          "kind": "import-statement",
+          "original": "./m365Client"
+        },
+        {
+          "path": "server/googleKpi.ts",
+          "kind": "import-statement",
+          "original": "./googleKpi"
+        },
+        {
+          "path": "server/ticketAi.ts",
+          "kind": "import-statement",
+          "original": "./ticketAi"
+        },
+        {
+          "path": "server/cpq/cpqRoutes.ts",
+          "kind": "import-statement",
+          "original": "./cpq/cpqRoutes"
+        },
+        {
+          "path": "server/commercialDraftPipeline.ts",
+          "kind": "import-statement",
+          "original": "./commercialDraftPipeline"
+        },
+        {
+          "path": "server/commercialDraftShopware.ts",
+          "kind": "import-statement",
+          "original": "./commercialDraftShopware"
+        },
+        {
+          "path": "server/commercialAgentOrchestrator.ts",
+          "kind": "import-statement",
+          "original": "./commercialAgentOrchestrator"
+        },
+        {
+          "path": "server/mondu.ts",
+          "kind": "dynamic-import",
+          "original": "./mondu"
+        },
+        {
+          "path": "server/mondu.ts",
+          "kind": "dynamic-import",
+          "original": "./mondu"
+        },
+        {
+          "path": "server/openaiClient.ts",
+          "kind": "dynamic-import",
+          "original": "./openaiClient"
+        },
+        {
+          "path": "server/openaiClient.ts",
+          "kind": "dynamic-import",
+          "original": "./openaiClient"
+        },
+        {
+          "path": "server/openaiClient.ts",
+          "kind": "dynamic-import",
+          "original": "./openaiClient"
+        },
+        {
+          "path": "server/openaiClient.ts",
+          "kind": "dynamic-import",
+          "original": "./openaiClient"
+        },
+        {
+          "path": "server/openaiClient.ts",
+          "kind": "dynamic-import",
+          "original": "./openaiClient"
+        },
+        {
+          "path": "server/productCache.ts",
+          "kind": "dynamic-import",
+          "original": "./productCache"
+        },
+        {
+          "path": "server/productCache.ts",
+          "kind": "dynamic-import",
+          "original": "./productCache"
+        },
+        {
+          "path": "server/productCache.ts",
+          "kind": "dynamic-import",
+          "original": "./productCache"
+        },
+        {
+          "path": "server/productCache.ts",
+          "kind": "dynamic-import",
+          "original": "./productCache"
+        },
+        {
+          "path": "server/productCache.ts",
+          "kind": "dynamic-import",
+          "original": "./productCache"
+        },
+        {
+          "path": "server/productCache.ts",
+          "kind": "dynamic-import",
+          "original": "./productCache"
+        },
+        {
+          "path": "server/improvementSuggestions.ts",
+          "kind": "dynamic-import",
+          "original": "./improvementSuggestions"
+        },
+        {
+          "path": "server/openaiClient.ts",
+          "kind": "dynamic-import",
+          "original": "./openaiClient"
+        },
+        {
+          "path": "server/jwt.ts",
+          "kind": "dynamic-import",
+          "original": "./jwt"
+        },
+        {
+          "path": "server/openaiClient.ts",
+          "kind": "dynamic-import",
+          "original": "./openaiClient"
+        },
+        {
+          "path": "server/productCache.ts",
+          "kind": "dynamic-import",
+          "original": "./productCache"
+        },
+        {
+          "path": "server/openaiClient.ts",
+          "kind": "dynamic-import",
+          "original": "./openaiClient"
+        },
+        {
+          "path": "server/offerDraftPdf.ts",
+          "kind": "dynamic-import",
+          "original": "./offerDraftPdf"
+        },
+        {
+          "path": "server/productCache.ts",
+          "kind": "dynamic-import",
+          "original": "./productCache"
+        }
+      ],
+      "format": "esm"
+    },
+    "server/vite.ts": {
+      "bytes": 3246,
+      "imports": [
+        {
+          "path": "express",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "crypto",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "http",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "server/seedData.ts": {
+      "bytes": 12914,
+      "imports": [
+        {
+          "path": "bcryptjs",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "format": "esm"
+    },
+    "server/index.ts": {
+      "bytes": 10279,
+      "imports": [
+        {
+          "path": "dotenv",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "url",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "express",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "http",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "express-session",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "cookie-parser",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "server/routes.ts",
+          "kind": "import-statement",
+          "original": "./routes"
+        },
+        {
+          "path": "server/vite.ts",
+          "kind": "import-statement",
+          "original": "./vite"
+        },
+        {
+          "path": "server/auth.ts",
+          "kind": "import-statement",
+          "original": "./auth"
+        },
+        {
+          "path": "server/storage.ts",
+          "kind": "import-statement",
+          "original": "./storage"
+        },
+        {
+          "path": "server/db.ts",
+          "kind": "import-statement",
+          "original": "./db"
+        },
+        {
+          "path": "server/seedData.ts",
+          "kind": "import-statement",
+          "original": "./seedData"
+        },
+        {
+          "path": "server/crossSellLearning.ts",
+          "kind": "import-statement",
+          "original": "./crossSellLearning"
+        },
+        {
+          "path": "server/offerLearning.ts",
+          "kind": "import-statement",
+          "original": "./offerLearning"
+        },
+        {
+          "path": "server/emailInbound.ts",
+          "kind": "import-statement",
+          "original": "./emailInbound"
+        },
+        {
+          "path": "server/dunningJob.ts",
+          "kind": "import-statement",
+          "original": "./dunningJob"
+        },
+        {
+          "path": "server/auth.ts",
+          "kind": "import-statement",
+          "original": "./auth"
+        }
+      ],
+      "format": "esm"
+    }
+  },
+  "outputs": {
+    "dist/index.js": {
+      "imports": [
+        {
+          "path": "drizzle-orm",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "drizzle-orm/pg-core",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "drizzle-zod",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "zod",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "drizzle-orm/neon-serverless",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "drizzle-orm/node-postgres",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "@neondatabase/serverless",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "pg",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "ws",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:async_hooks",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "crypto",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "drizzle-orm",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "crypto",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "crypto",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "jsonwebtoken",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "openai",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "form-data",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "crypto",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "pdfkit",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "dotenv",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "url",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "express",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "http",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "express-session",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "cookie-parser",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "http",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "zod",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "bcryptjs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "passport",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "express-rate-limit",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "crypto",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "passport",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "passport-local",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "bcryptjs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "jsonwebtoken",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "xlsx",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "mailparser",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "@kenjiuno/msgreader",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "file-type",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "events",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "crypto",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "crypto",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "crypto",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs/promises",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "nodemailer",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "jsonwebtoken",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "pdfkit",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "url",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "pdfkit",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "multer",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs/promises",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "@google-cloud/storage",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "crypto",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "imapflow",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "mailparser",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "zod",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "web-push",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "crypto",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs/promises",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "zod",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:module",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs/promises",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "node:module",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs/promises",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "tesseract.js",
+          "kind": "dynamic-import",
+          "external": true
+        },
+        {
+          "path": "node:module",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "tesseract.js",
+          "kind": "dynamic-import",
+          "external": true
+        },
+        {
+          "path": "csv-parse/sync",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "pdf-parse",
+          "kind": "dynamic-import",
+          "external": true
+        },
+        {
+          "path": "@google-analytics/data",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "google-ads-api",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "zod",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "drizzle-orm",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "express",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "fs",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "path",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "crypto",
+          "kind": "import-statement",
+          "external": true
+        },
+        {
+          "path": "bcryptjs",
+          "kind": "import-statement",
+          "external": true
+        }
+      ],
+      "exports": [],
+      "entryPoint": "server/index.ts",
+      "inputs": {
+        "shared/schema.ts": {
+          "bytesInOutput": 58693
+        },
+        "server/db.ts": {
+          "bytesInOutput": 1269
+        },
+        "server/tenantContext.ts": {
+          "bytesInOutput": 387
+        },
+        "server/encryption.ts": {
+          "bytesInOutput": 1531
+        },
+        "server/dbStorage.ts": {
+          "bytesInOutput": 82972
+        },
+        "server/storage.ts": {
+          "bytesInOutput": 48617
+        },
+        "server/productCache.ts": {
+          "bytesInOutput": 5634
+        },
+        "server/shopware.ts": {
+          "bytesInOutput": 217616
+        },
+        "server/jwt.ts": {
+          "bytesInOutput": 1058
+        },
+        "server/openaiClient.ts": {
+          "bytesInOutput": 1959
+        },
+        "server/b2bSellersClient.ts": {
+          "bytesInOutput": 27967
+        },
+        "server/cpq/ruleEvaluator.ts": {
+          "bytesInOutput": 4491
+        },
+        "server/cpq/constraintEngine.ts": {
+          "bytesInOutput": 2912
+        },
+        "server/cpq/cpqBillOfMaterials.ts": {
+          "bytesInOutput": 7591
+        },
+        "server/cpq/sceneBuilder.ts": {
+          "bytesInOutput": 7031
+        },
+        "server/mondu.ts": {
+          "bytesInOutput": 2643
+        },
+        "server/improvementSuggestions.ts": {
+          "bytesInOutput": 9874
+        },
+        "server/offerDraftPdf.ts": {
+          "bytesInOutput": 3623
+        },
+        "server/index.ts": {
+          "bytesInOutput": 8043
+        },
+        "server/routes.ts": {
+          "bytesInOutput": 442383
+        },
+        "server/ruleEngine.ts": {
+          "bytesInOutput": 11030
+        },
+        "server/aiConfig.ts": {
+          "bytesInOutput": 3630
+        },
+        "server/auth.ts": {
+          "bytesInOutput": 8270
+        },
+        "server/authCustomer.ts": {
+          "bytesInOutput": 1064
+        },
+        "server/emailParser.ts": {
+          "bytesInOutput": 3365
+        },
+        "server/events.ts": {
+          "bytesInOutput": 460
+        },
+        "server/naturalLanguageAnalytics.ts": {
+          "bytesInOutput": 14844
+        },
+        "server/forecastEngine.ts": {
+          "bytesInOutput": 11035
+        },
+        "server/analyticsQueryExecutor.ts": {
+          "bytesInOutput": 35641
+        },
+        "server/automaticInsights.ts": {
+          "bytesInOutput": 10687
+        },
+        "server/productPropertyExtractor.ts": {
+          "bytesInOutput": 8059
+        },
+        "server/semanticProductSearch.ts": {
+          "bytesInOutput": 12658
+        },
+        "server/semanticIndexer.ts": {
+          "bytesInOutput": 8449
+        },
+        "server/semanticEmbeddings.ts": {
+          "bytesInOutput": 2153
+        },
+        "server/semanticFaq.ts": {
+          "bytesInOutput": 4295
+        },
+        "server/webhookService.ts": {
+          "bytesInOutput": 12990
+        },
+        "server/crossSellLearning.ts": {
+          "bytesInOutput": 9284
+        },
+        "server/offerLearning.ts": {
+          "bytesInOutput": 3636
+        },
+        "server/dunningJob.ts": {
+          "bytesInOutput": 9522
+        },
+        "server/emailOutbound.ts": {
+          "bytesInOutput": 4919
+        },
+        "server/m365Client.ts": {
+          "bytesInOutput": 5206
+        },
+        "server/dunningPdf.ts": {
+          "bytesInOutput": 10027
+        },
+        "server/uploadsRoot.ts": {
+          "bytesInOutput": 578
+        },
+        "server/installmentAgreementPdf.ts": {
+          "bytesInOutput": 4901
+        },
+        "server/objectStorage.ts": {
+          "bytesInOutput": 5928
+        },
+        "server/emailInbound.ts": {
+          "bytesInOutput": 25388
+        },
+        "server/emailClassifier.ts": {
+          "bytesInOutput": 4230
+        },
+        "server/emailRouting.ts": {
+          "bytesInOutput": 3907
+        },
+        "server/notifications.ts": {
+          "bytesInOutput": 1828
+        },
+        "server/commercialAgentOrchestrator.ts": {
+          "bytesInOutput": 7179
+        },
+        "server/commercialDocumentIntent.ts": {
+          "bytesInOutput": 3201
+        },
+        "server/commercialDraftPipeline.ts": {
+          "bytesInOutput": 10428
+        },
+        "server/orderDraftExtractor.ts": {
+          "bytesInOutput": 10878
+        },
+        "server/aiTextUtils.ts": {
+          "bytesInOutput": 1317
+        },
+        "server/offerDraftExtractor.ts": {
+          "bytesInOutput": 14717
+        },
+        "server/productMatcher.ts": {
+          "bytesInOutput": 21717
+        },
+        "server/systemMatcher.ts": {
+          "bytesInOutput": 7140
+        },
+        "server/categoryProfiles.ts": {
+          "bytesInOutput": 5587
+        },
+        "server/alternativeMatcher.ts": {
+          "bytesInOutput": 7216
+        },
+        "server/smartPricingEngine.ts": {
+          "bytesInOutput": 9578
+        },
+        "server/commercialDraftShopware.ts": {
+          "bytesInOutput": 7252
+        },
+        "server/accounting.ts": {
+          "bytesInOutput": 9205
+        },
+        "server/googleKpi.ts": {
+          "bytesInOutput": 6483
+        },
+        "server/ticketAi.ts": {
+          "bytesInOutput": 3895
+        },
+        "server/cpq/cpqRoutes.ts": {
+          "bytesInOutput": 40097
+        },
+        "server/cpq/cpqStorage.ts": {
+          "bytesInOutput": 9081
+        },
+        "server/cpq/cpqCrossSelling.ts": {
+          "bytesInOutput": 2440
+        },
+        "server/cpq/discountEvaluator.ts": {
+          "bytesInOutput": 2504
+        },
+        "server/vite.ts": {
+          "bytesInOutput": 2832
+        },
+        "server/seedData.ts": {
+          "bytesInOutput": 12009
+        }
+      },
+      "bytes": 1371861
+    }
+  }
+}

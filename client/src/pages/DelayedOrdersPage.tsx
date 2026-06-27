@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { RefreshCw, Search, AlertTriangle } from "lucide-react";
+import { RefreshCw, Search, AlertTriangle, ArrowUpDown, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -18,6 +18,16 @@ type DelayedOrder = Order & {
   daysSinceOrder: number;
 };
 
+type SortDirection = "asc" | "desc";
+type DelayedSortKey =
+  | "orderNumber"
+  | "daysSinceOrder"
+  | "orderDate"
+  | "customerName"
+  | "totalAmount"
+  | "status"
+  | "paymentStatus";
+
 interface DelayedOrdersPageProps {
   userRole: "employee" | "admin";
 }
@@ -31,6 +41,8 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
   const [itemsPerPage, setItemsPerPage] = useState("25");
   const [currentPage, setCurrentPage] = useState(1);
   const [daysThreshold, setDaysThreshold] = useState("3");
+  const [sortKey, setSortKey] = useState<DelayedSortKey>("daysSinceOrder");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
   const dateLocale = i18n.language === 'de' ? de : i18n.language === 'es' ? es : enUS;
 
@@ -60,12 +72,30 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
     updateShippingMutation.mutate({ orderId, shippingData: data });
   };
 
+  // Mutation to update document numbers in Shopware
+  const updateDocumentsMutation = useMutation({
+    mutationFn: async ({ orderId, documentData }: { orderId: string; documentData: any }) => {
+      const response = await apiRequest("PATCH", `/api/orders/${orderId}/documents`, documentData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/delayed'] });
+      toast({
+        title: t('orderDetail.documentsUpdated'),
+        description: t('orderDetail.documentsSuccess'),
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t('errors.updateFailed'),
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleUpdateDocuments = (orderId: string, data: any) => {
-    console.log("Update documents for order:", orderId, data);
-    toast({
-      title: t('orderDetail.documentsUpdated'),
-      description: t('orderDetail.documentsSuccess'),
-    });
+    updateDocumentsMutation.mutate({ orderId, documentData: data });
   };
 
   // Fetch delayed orders
@@ -86,7 +116,7 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
     const errorMessage = (error as any)?.message || t('errors.loadFailed');
     if (errorMessage.includes('not configured')) {
       return (
-        <div className="w-full max-w-4xl mx-auto">
+        <div className="w-full">
           <div className="mb-6">
             <h1 className="text-2xl font-semibold mb-1">{t('delayedOrders.title')}</h1>
             <p className="text-sm text-muted-foreground">
@@ -110,26 +140,73 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
   }
 
   // Filter orders
+  const normalizedSearch = searchValue.trim().toLowerCase();
   const filteredOrders = orders.filter((order) => {
     const matchesSearch =
-      searchValue === "" ||
-      order.orderNumber.toLowerCase().includes(searchValue.toLowerCase()) ||
-      order.customerName.toLowerCase().includes(searchValue.toLowerCase()) ||
-      order.customerEmail.toLowerCase().includes(searchValue.toLowerCase());
+      normalizedSearch === "" ||
+      order.orderNumber.toLowerCase().includes(normalizedSearch) ||
+      order.customerName.toLowerCase().includes(normalizedSearch) ||
+      order.customerEmail.toLowerCase().includes(normalizedSearch) ||
+      order.invoiceNumber?.toLowerCase().includes(normalizedSearch) ||
+      order.erpNumber?.toLowerCase().includes(normalizedSearch);
 
     return matchesSearch;
   });
 
+  const sortedOrders = [...filteredOrders].sort((a, b) => {
+    const direction = sortDirection === "asc" ? 1 : -1;
+    switch (sortKey) {
+      case "orderNumber":
+        return a.orderNumber.localeCompare(b.orderNumber) * direction;
+      case "daysSinceOrder":
+        return (a.daysSinceOrder - b.daysSinceOrder) * direction;
+      case "orderDate":
+        return (new Date(a.orderDate).getTime() - new Date(b.orderDate).getTime()) * direction;
+      case "customerName":
+        return a.customerName.localeCompare(b.customerName) * direction;
+      case "totalAmount":
+        return (a.totalAmount - b.totalAmount) * direction;
+      case "status":
+        return a.status.localeCompare(b.status) * direction;
+      case "paymentStatus":
+        return a.paymentStatus.localeCompare(b.paymentStatus) * direction;
+      default:
+        return 0;
+    }
+  });
+
   // Pagination
   const itemsPerPageNum = parseInt(itemsPerPage);
-  const totalPages = Math.ceil(filteredOrders.length / itemsPerPageNum);
+  const totalPages = Math.ceil(sortedOrders.length / itemsPerPageNum);
   const startIndex = (currentPage - 1) * itemsPerPageNum;
   const endIndex = startIndex + itemsPerPageNum;
-  const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
+  const paginatedOrders = sortedOrders.slice(startIndex, endIndex);
 
   // Reset to page 1 when filters change
   const resetPage = () => setCurrentPage(1);
-  useEffect(resetPage, [searchValue, daysThreshold]);
+  useEffect(resetPage, [searchValue, daysThreshold, sortKey, sortDirection]);
+
+  const handleSortChange = (key: DelayedSortKey) => {
+    setSortKey((current) => {
+      if (current === key) {
+        setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+        return current;
+      }
+      setSortDirection("asc");
+      return key;
+    });
+  };
+
+  const renderSortIcon = (key: DelayedSortKey) => {
+    if (sortKey !== key) {
+      return <ArrowUpDown className="h-3 w-3 ml-1 opacity-50" />;
+    }
+    return sortDirection === "asc" ? (
+      <ChevronUp className="h-3 w-3 ml-1 opacity-80" />
+    ) : (
+      <ChevronDown className="h-3 w-3 ml-1 opacity-80" />
+    );
+  };
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
@@ -161,7 +238,7 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto">
+    <div className="w-full">
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-1">
           <AlertTriangle className="h-6 w-6 text-destructive" />
@@ -242,13 +319,76 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
               <table className="w-full">
                 <thead className="border-b">
                   <tr className="bg-muted/50">
-                    <th className="text-left p-3 text-sm font-medium">{t('orders.orderNumber')}</th>
-                    <th className="text-left p-3 text-sm font-medium">{t('delayedOrders.daysDelayed')}</th>
-                    <th className="text-left p-3 text-sm font-medium">{t('orders.orderDate')}</th>
-                    <th className="text-left p-3 text-sm font-medium">{t('orders.customer')}</th>
-                    <th className="text-right p-3 text-sm font-medium">{t('orders.totalAmount')}</th>
-                    <th className="text-left p-3 text-sm font-medium">{t('orders.status')}</th>
-                    <th className="text-left p-3 text-sm font-medium">{t('orders.paymentStatus')}</th>
+                    <th className="text-left p-3 text-sm font-medium">
+                      <button
+                        type="button"
+                        className="inline-flex items-center"
+                        onClick={() => handleSortChange("orderNumber")}
+                      >
+                        {t('orders.orderNumber')}
+                        {renderSortIcon("orderNumber")}
+                      </button>
+                    </th>
+                    <th className="text-left p-3 text-sm font-medium">
+                      <button
+                        type="button"
+                        className="inline-flex items-center"
+                        onClick={() => handleSortChange("daysSinceOrder")}
+                      >
+                        {t('delayedOrders.daysDelayed')}
+                        {renderSortIcon("daysSinceOrder")}
+                      </button>
+                    </th>
+                    <th className="text-left p-3 text-sm font-medium">
+                      <button
+                        type="button"
+                        className="inline-flex items-center"
+                        onClick={() => handleSortChange("orderDate")}
+                      >
+                        {t('orders.orderDate')}
+                        {renderSortIcon("orderDate")}
+                      </button>
+                    </th>
+                    <th className="text-left p-3 text-sm font-medium">
+                      <button
+                        type="button"
+                        className="inline-flex items-center"
+                        onClick={() => handleSortChange("customerName")}
+                      >
+                        {t('orders.customer')}
+                        {renderSortIcon("customerName")}
+                      </button>
+                    </th>
+                    <th className="text-right p-3 text-sm font-medium">
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-end w-full"
+                        onClick={() => handleSortChange("totalAmount")}
+                      >
+                        {t('orders.totalAmount')}
+                        {renderSortIcon("totalAmount")}
+                      </button>
+                    </th>
+                    <th className="text-left p-3 text-sm font-medium">
+                      <button
+                        type="button"
+                        className="inline-flex items-center"
+                        onClick={() => handleSortChange("status")}
+                      >
+                        {t('orders.status')}
+                        {renderSortIcon("status")}
+                      </button>
+                    </th>
+                    <th className="text-left p-3 text-sm font-medium">
+                      <button
+                        type="button"
+                        className="inline-flex items-center"
+                        onClick={() => handleSortChange("paymentStatus")}
+                      >
+                        {t('orders.paymentStatus')}
+                        {renderSortIcon("paymentStatus")}
+                      </button>
+                    </th>
                     <th className="text-right p-3 text-sm font-medium">{t('common.actions')}</th>
                   </tr>
                 </thead>

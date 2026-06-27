@@ -10,6 +10,7 @@ interface PaymentStatusBadgeProps {
 const paymentStatusConfig: Record<PaymentStatus, { variant: "default" | "secondary" | "outline" | "destructive" }> = {
   open: { variant: "secondary" },
   paid: { variant: "default" },
+  authorized: { variant: "secondary" },
   partially_paid: { variant: "outline" },
   refunded: { variant: "outline" },
   cancelled: { variant: "destructive" },

@@ -1,0 +1,77 @@
+{% block meta_clip_review_detail %}
+<sw-page class="meta-clip-review-detail">
+    <template #smart-bar-header>
+        <h2>{{ entity ? entity.name : $tc('meta-clip-review.detail.title') }}</h2>
+    </template>
+
+    <template #smart-bar-actions>
+        <sw-text-field
+            v-model:value="assignedTo"
+            :placeholder="$tc('meta-clip-review.detail.assignPlaceholder')"
+            v-if="acl.can('meta_clip.review.assign')"
+        />
+        <sw-button-process
+            variant="default"
+            :isLoading="isLoading"
+            @click="triggerAssign"
+            v-if="acl.can('meta_clip.review.assign')"
+        >
+            {{ $tc('meta-clip-review.detail.assign') }}
+        </sw-button-process>
+        <sw-button-process
+            variant="primary"
+            :isLoading="isLoading"
+            @click="triggerAction('approve')"
+            v-if="acl.can('meta_clip.review.approve')"
+        >
+            {{ $tc('meta-clip-review.detail.approve') }}
+        </sw-button-process>
+        <sw-button-process
+            variant="danger"
+            :isLoading="isLoading"
+            @click="triggerAction('reject')"
+            v-if="acl.can('meta_clip.review.approve')"
+        >
+            {{ $tc('meta-clip-review.detail.reject') }}
+        </sw-button-process>
+        <sw-button-process
+            variant="secondary"
+            :isLoading="isLoading"
+            @click="triggerAction('request-customer-contact')"
+            v-if="acl.can('meta_clip.review.approve')"
+        >
+            {{ $tc('meta-clip-review.detail.requestContact') }}
+        </sw-button-process>
+    </template>
+
+    <template #content>
+        <sw-card-view>
+            <sw-card :title="$tc('meta-clip-review.detail.currentState')" :isLoading="isLoading">
+                <p><strong>ID:</strong> {{ entity ? entity.id : '-' }}</p>
+                <p><strong>Status:</strong> {{ entity ? entity.validationStatus : '-' }}</p>
+                <p><strong>Outcome:</strong> {{ entity ? entity.outcome : '-' }}</p>
+            </sw-card>
+
+            <sw-card :title="$tc('meta-clip-review.detail.notes')" :isLoading="isLoading">
+                <sw-textarea-field v-model:value="notes" />
+            </sw-card>
+
+            <sw-card :title="$tc('meta-clip-review.detail.bomTitle')" :isLoading="isLoading">
+                <pre v-if="entity">{{ JSON.stringify(entity.configData || {}, null, 2) }}</pre>
+            </sw-card>
+
+            <sw-card :title="$tc('meta-clip-review.detail.logTitle')" :isLoading="isLoading">
+                <sw-data-grid
+                    v-if="entity && entity.reviewLogs"
+                    :dataSource="entity.reviewLogs"
+                    :columns="[
+                        { property: 'createdAt', label: $tc('meta-clip-review.detail.logDate') },
+                        { property: 'action', label: $tc('meta-clip-review.detail.logAction') },
+                        { property: 'toStatus', label: $tc('meta-clip-review.detail.logStatus') }
+                    ]"
+                />
+            </sw-card>
+        </sw-card-view>
+    </template>
+</sw-page>
+{% endblock %}

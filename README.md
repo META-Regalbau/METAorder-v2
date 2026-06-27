@@ -110,6 +110,26 @@ npm run dev
 
 Die Anwendung ist verfügbar unter: `http://localhost:5000`
 
+## Lokale Docker-Installation
+
+### 1. Konfiguration prüfen
+
+Passen Sie bei Bedarf die Werte in `docker.env` an (DB-Zugang, Secrets, Port). Das CPQ-Modul (Regalsysteme, Rabatt-Ampel, Produkt-Mappings) nutzt dieselbe DB – keine zusätzlichen Umgebungsvariablen erforderlich.
+
+### 2. Container bauen und starten
+
+```bash
+docker compose up --build
+```
+
+Beim Start werden automatisch ausgeführt: Drizzle `db:push`, SQL-Migrationen (inkl. CPQ-Schema), dann die App. Die Anwendung ist anschließend unter `http://localhost:5001` erreichbar.
+
+### 3. Container stoppen
+
+```bash
+docker compose down
+```
+
 ### Erste Schritte
 
 Bei der ersten Initialisierung werden automatisch folgende Testbenutzer angelegt:
@@ -153,6 +173,15 @@ NODE_ENV=production npm start
 1. Klicken Sie auf den **"Publish"**-Button in Replit
 2. Warten Sie, bis die Veröffentlichung abgeschlossen ist
 3. Ihre App ist verfügbar unter: `https://ihr-projekt.replit.app`
+
+### Deployment auf Mittwald (Container Hosting)
+
+Fuer einen sauberen Docker-basierten Rollout inkl. Tagged Images, Healthcheck und Rollback:
+
+- Anleitung: `docs/mittwald-deployment.md`
+- Stack-Datei: `deploy/mittwald/docker-compose.mittwald.yml`
+- Release-Skript (Build+Push): `scripts/release-image.sh`
+- Deploy-Skript (Pull+Healthcheck+Rollback): `scripts/mittwald-deploy.sh`
 
 **Wichtige Hinweise für Production:**
 - Setzen Sie `NODE_ENV=production`

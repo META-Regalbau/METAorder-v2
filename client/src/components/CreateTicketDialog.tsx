@@ -358,6 +358,7 @@ export default function CreateTicketDialog({
                   <SelectItem value="technical_support">{t('tickets.categoryTechnicalSupport')}</SelectItem>
                   <SelectItem value="complaint">{t('tickets.categoryComplaint')}</SelectItem>
                   <SelectItem value="feature_request">{t('tickets.categoryFeatureRequest')}</SelectItem>
+                  <SelectItem value="discount_request">{t('tickets.categoryDiscountRequest')}</SelectItem>
                   <SelectItem value="other">{t('tickets.categoryOther')}</SelectItem>
                 </SelectContent>
               </Select>

@@ -1,0 +1,29 @@
+{
+  "meta-clip-review": {
+    "general": {
+      "mainMenuItemGeneral": "META CLIP Review Queue",
+      "descriptionTextModule": "Pruefung und Routing von META CLIP Auftraegen"
+    },
+    "list": {
+      "pendingTitle": "Offene Reviews",
+      "assignedTitle": "Meine Reviews",
+      "colName": "Konfiguration",
+      "colStatus": "Status"
+    },
+    "detail": {
+      "title": "Review Detail",
+      "assign": "Zuweisen",
+      "assignPlaceholder": "User-ID fuer Zuweisung",
+      "approve": "Freigeben",
+      "reject": "Ablehnen",
+      "requestContact": "Kundenkontakt anfragen",
+      "currentState": "Aktueller Status",
+      "notes": "Review-Notizen",
+      "bomTitle": "BOM / Konfigurationsdaten",
+      "logTitle": "Review-Protokoll",
+      "logDate": "Datum",
+      "logAction": "Aktion",
+      "logStatus": "Zielstatus"
+    }
+  }
+}

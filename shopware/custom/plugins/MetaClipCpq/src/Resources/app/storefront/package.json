@@ -1,0 +1,9 @@
+{
+  "name": "meta-clip-cpq-storefront",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Storefront assets for MetaClip CPQ PDP island",
+  "dependencies": {
+    "vue": "^3.5.13"
+  }
+}

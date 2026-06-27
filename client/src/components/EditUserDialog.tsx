@@ -16,6 +16,7 @@ const editUserSchema = z.object({
   email: z.string().email("Please enter a valid email address").optional().or(z.literal("")),
   roleId: z.string().min(1, "Please select a role"),
   salesChannelIds: z.array(z.string()),
+  skills: z.string().optional(),
   password: z.string().optional(),
   confirmPassword: z.string().optional(),
 }).refine((data) => {
@@ -34,7 +35,7 @@ interface EditUserDialogProps {
   user: (User & { roleId: string }) | null;
   open: boolean;
   onClose: () => void;
-  onUpdateUser: (id: string, data: EditUserFormData) => void;
+  onUpdateUser: (id: string, data: Omit<EditUserFormData, "skills"> & { skills: string[] }) => void;
   availableRoles: Role[];
 }
 
@@ -49,6 +50,7 @@ export default function EditUserDialog({ user, open, onClose, onUpdateUser, avai
       email: user.email || "",
       roleId: user.roleId,
       salesChannelIds: user.salesChannelIds || [],
+      skills: (user.skills || []).join(", "),
       password: "",
       confirmPassword: "",
     } : undefined,
@@ -58,7 +60,10 @@ export default function EditUserDialog({ user, open, onClose, onUpdateUser, avai
     if (!user) return;
     
     console.log("Updating user:", user.id, { ...data, password: data.password ? "***" : undefined });
-    onUpdateUser(user.id, data);
+    const skills = data.skills
+      ? data.skills.split(",").map((skill) => skill.trim()).filter(Boolean)
+      : [];
+    onUpdateUser(user.id, { ...data, skills });
     toast({
       title: "User updated",
       description: `User ${data.username} has been updated successfully.`,
@@ -139,6 +144,24 @@ export default function EditUserDialog({ user, open, onClose, onUpdateUser, avai
                     <SalesChannelMultiSelect
                       value={field.value}
                       onChange={field.onChange}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="skills"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="font-medium">{t('users.skills')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder={t('users.skillsPlaceholder')}
+                      {...field}
+                      data-testid="input-edit-skills"
                     />
                   </FormControl>
                   <FormMessage />

@@ -1,0 +1,71 @@
+{% import 'partials/macros.html.twig' as pdf %}
+
+{% set layout = layout|default({
+  showMontageLineInOverview: true,
+  showShippingLineInOverview: true,
+  overviewShowUnitPrices: true,
+}) %}
+
+<h2 class="section-heading">Schnellübersicht</h2>
+
+<table class="overview-table">
+  <thead>
+    <tr>
+      <th class="col-pos">Pos.</th>
+      <th class="col-label">Bezeichnung</th>
+      <th class="col-qty num">Menge</th>
+      {% if layout.overviewShowUnitPrices %}
+        <th class="col-unit num">Einzel (netto)</th>
+      {% endif %}
+      <th class="col-total num">Gesamt (netto)</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in offer.lineItems|default([]) %}
+      <tr>
+        <td class="col-pos">{{ loop.index }}</td>
+        <td class="col-label">{{ row.label|default('—')|e }}</td>
+        <td class="col-qty num">{{ row.quantity|default(0) }}</td>
+        {% if layout.overviewShowUnitPrices %}
+          <td class="col-unit num">{{ pdf.eur(row.unitPrice|default(0)) }}</td>
+        {% endif %}
+        <td class="col-total num">{{ pdf.eur(row.totalPrice|default(0)) }}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% set netBefore = offer.productsNetSubtotal|default(0) + offer.shippingCostsNet|default(0) + offer.montageCostNet|default(0) %}
+
+<div class="summary-block">
+  <table class="summary-table">
+    <tr>
+      <td class="sum-label">Zwischensumme Positionen (netto)</td>
+      <td class="sum-val num">{{ pdf.eur(offer.productsNetSubtotal|default(0)) }}</td>
+    </tr>
+    {% if offer.shippingCostsNet|default(0) > 0.001 %}
+      <tr>
+        <td class="sum-label">Versandkosten (netto)</td>
+        <td class="sum-val num">{{ pdf.eur(offer.shippingCostsNet) }}</td>
+      </tr>
+    {% endif %}
+    {% if offer.montageCostNet|default(0) > 0.001 %}
+      <tr>
+        <td class="sum-label">Montage ({{ offer.montageDescription|default('')|e }}) (netto)</td>
+        <td class="sum-val num">{{ pdf.eur(offer.montageCostNet) }}</td>
+      </tr>
+    {% endif %}
+    <tr>
+      <td class="sum-label">Summe netto</td>
+      <td class="sum-val num">{{ pdf.eur(netBefore) }}</td>
+    </tr>
+    <tr>
+      <td class="sum-label">zzgl. USt. ({{ offer.displayTaxRate|default(0) }} %)</td>
+      <td class="sum-val num">{{ pdf.eur(offer.vatAmount|default(0)) }}</td>
+    </tr>
+    <tr class="summary-gross">
+      <td class="sum-label"><strong>Gesamtbetrag (brutto)</strong></td>
+      <td class="sum-val num"><strong>{{ pdf.eur(offer.grossTotal|default(0)) }}</strong></td>
+    </tr>
+  </table>
+</div>

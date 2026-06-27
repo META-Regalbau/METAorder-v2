@@ -1,0 +1,146 @@
+{
+  "name": "METAorder Commercial — Upload und Create (Beispiel)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      "name": "Manueller Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://METAORDER_HOST/api/commercial-drafts/upload",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-METAORDER-Integration-Key",
+              "value": "METAORDER_INTEGRATION_API_KEY_PLACEHOLDER"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a12",
+      "name": "POST commercial-drafts/upload",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [260, 0],
+      "notesInFlow": true,
+      "notes": "Vorher eine Binary-Property `data` bereitstellen (z. B. Read Binary File oder E-Mail-Anhang). URL und Header-Key anpassen."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c-offer",
+              "leftValue": "={{ $json.draftKind }}",
+              "rightValue": "offer",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c2eebc99-9c0b-4ef8-bb6d-6bb9bd380a13",
+      "name": "draftKind = offer?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [520, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://METAORDER_HOST/api/offer-drafts/{{ $json.draft.id }}/create-offer",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-METAORDER-Integration-Key",
+              "value": "METAORDER_INTEGRATION_API_KEY_PLACEHOLDER"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={}",
+        "options": {}
+      },
+      "id": "d3eebc99-9c0b-4ef8-bb6d-6bb9bd380a14",
+      "name": "POST create-offer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [780, -120],
+      "notesInFlow": true,
+      "notes": "`METAORDER_HOST` im Ausdruck durch echte Basis-URL ersetzen. Optional JSON-Body: {\"sales_channel_id\":\"...\"}."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://METAORDER_HOST/api/order-drafts/{{ $json.draft.id }}/create-order",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-METAORDER-Integration-Key",
+              "value": "METAORDER_INTEGRATION_API_KEY_PLACEHOLDER"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={}",
+        "options": {}
+      },
+      "id": "e4eebc99-9c0b-4ef8-bb6d-6bb9bd380a15",
+      "name": "POST create-order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [780, 120],
+      "notesInFlow": true,
+      "notes": "`METAORDER_HOST` im Ausdruck durch echte Basis-URL ersetzen."
+    }
+  ],
+  "connections": {
+    "Manueller Start": {
+      "main": [[{ "node": "POST commercial-drafts/upload", "type": "main", "index": 0 }]]
+    },
+    "POST commercial-drafts/upload": {
+      "main": [[{ "node": "draftKind = offer?", "type": "main", "index": 0 }]]
+    },
+    "draftKind = offer?": {
+      "main": [
+        [{ "node": "POST create-offer", "type": "main", "index": 0 }],
+        [{ "node": "POST create-order", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

@@ -7,6 +7,7 @@ export default function TopBarExample() {
       <TopBar 
         userRole="admin" 
         username="John Doe" 
+        onLogout={() => undefined}
       />
     </SidebarProvider>
   );

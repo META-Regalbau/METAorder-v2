@@ -1,0 +1,41 @@
+{% import 'partials/macros.html.twig' as pdf %}
+
+{% set layout = layout|default({
+  detailIncludeImage: true,
+  detailIncludeDescription: true,
+  detailIncludePartsList: true,
+  detailIncludeAccessoryList: true,
+}) %}
+
+{% set cfg = lineItem.config ?? null %}
+{% if cfg %}
+<div class="position-detail">
+  <h2 class="position-title">Position {{ index + 1 }}: {{ lineItem.label|default('—')|e }}</h2>
+
+  {% if layout.detailIncludeImage and cfg.imageBase64|default('')|trim != '' %}
+    <div class="config-image-wrap">
+      <img src="{{ cfg.imageBase64|e('html_attr') }}" alt="" class="config-image" />
+    </div>
+  {% endif %}
+
+  {% if layout.detailIncludeDescription %}
+    {% set rawDesc = cfg.description|default('')|trim %}
+    {% if rawDesc != '' %}
+      <div class="config-description">
+        {% include 'partials/config_description.html.twig' with { rawBody: rawDesc } only %}
+      </div>
+    {% endif %}
+  {% endif %}
+
+  {% if layout.detailIncludePartsList %}
+    {% set parts = cfg.partsList|default([]) %}
+    <h3 class="bom-heading">Stückliste</h3>
+    {% include 'partials/bom_table.html.twig' with { rows: parts } only %}
+  {% endif %}
+
+  {% if layout.detailIncludeAccessoryList and (cfg.accessoryList|default([])|length) > 0 %}
+    <h3 class="bom-heading bom-heading-spaced">Zubehör</h3>
+    {% include 'partials/bom_table.html.twig' with { rows: cfg.accessoryList } only %}
+  {% endif %}
+</div>
+{% endif %}

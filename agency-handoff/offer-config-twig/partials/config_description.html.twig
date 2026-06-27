@@ -1,0 +1,36 @@
+{# Annäherung an splitConfigDescriptionIntoSections / drawConfigDescriptionInColumn (offerConfigPdf.ts) #}
+{% set t = rawBody|trim|replace({'\r\n': '\n', '\r': '\n'})|replace({'\n\n\n': '\n\n'}) %}
+
+{% for rawSection in t|split('\n\n') %}
+  {% set section = rawSection|trim %}
+  {% if section != '' %}
+  {% set lines = section|split('\n')|map(l => l|trim)|filter(l => l != '') %}
+  {% set head = lines[0]|default('') %}
+  {% set zubehoerHead = head|lower %}
+  {% set extraGap = zubehoerHead starts with 'zubehör' or 'konfiguriertes' in zubehoerHead %}
+  <div class="desc-section{% if extraGap %} desc-section-zubehoer{% endif %}">
+    {% for line in lines %}
+      {% set trimmed = line %}
+      {% if ':' in trimmed %}
+        {% set parts = trimmed|split(':') %}
+        {% if parts|length >= 2 %}
+          {% set labelPart = parts[0] %}
+          {% set valuePart = parts|slice(1)|join(':')|trim %}
+          {% if valuePart != '' %}
+            <div class="desc-row">
+              <span class="desc-label">{{ labelPart|e }}:</span>
+              <span class="desc-value"><strong>{{ valuePart|e }}</strong></span>
+            </div>
+          {% else %}
+            <p class="desc-plain">{{ trimmed|e }}</p>
+          {% endif %}
+        {% else %}
+          <p class="desc-plain">{{ trimmed|e }}</p>
+        {% endif %}
+      {% else %}
+        <p class="desc-plain">{{ trimmed|e }}</p>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endfor %}

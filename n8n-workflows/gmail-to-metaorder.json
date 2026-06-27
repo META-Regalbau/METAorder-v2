@@ -1,0 +1,182 @@
+{
+  "name": "Gmail → METAorder Commercial Upload",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [{ "mode": "everyMinute" }]
+        },
+        "filters": {
+          "readStatus": "unread"
+        },
+        "options": {}
+      },
+      "id": "gmail-trigger-1",
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "GMAIL_OAUTH_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://gmail.googleapis.com/gmail/v1/users/me/messages/{{ $('Gmail Trigger').item.json.id }}?format=raw",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "options": {}
+      },
+      "id": "gmail-get-raw-1",
+      "name": "Gmail Get Raw",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [260, 0],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "GMAIL_OAUTH_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      },
+      "notesInFlow": true,
+      "notes": "Gmail API format=raw → vollständige RFC822/.eml inkl. Anhänge (Base64url)."
+    },
+    {
+      "parameters": {
+        "jsCode": "const trigger = $('Gmail Trigger').first().json;\nconst api = $input.first().json;\nconst raw = api.raw;\nif (!raw || typeof raw !== 'string') {\n  throw new Error('Gmail API lieferte kein raw — OAuth, Scopes (gmail.readonly) und Message-ID prüfen.');\n}\n\nconst normalized = raw.replace(/-/g, '+').replace(/_/g, '/');\nconst emlBuffer = Buffer.from(normalized, 'base64');\n\nconst subject = trigger.subject || '';\nconst body = (trigger.textPlain || trigger.snippet || '').slice(0, 500);\nconst text = `${subject}\\n${body}`.toLowerCase();\nlet intentHint = 'unclear';\nif (/\\b(bestell|bestellung|purchase order|p\\.?\\s*o\\.?|auftrag)\\b/i.test(text)) {\n  intentHint = 'order';\n} else if (/\\b(angebot|preisanfrage|quote|rfq|offerta|preventivo|kostenvoranschlag)\\b/i.test(text)) {\n  intentHint = 'offer';\n}\n\nreturn [{\n  json: {\n    ...trigger,\n    intentHint,\n    metaorderSubject: subject,\n    metaorderBody: body,\n  },\n  binary: {\n    data: {\n      data: emlBuffer.toString('base64'),\n      mimeType: 'message/rfc822',\n      fileName: `gmail-${trigger.id || 'message'}.eml`,\n    },\n  },\n}];"
+      },
+      "id": "code-prepare-eml-1",
+      "name": "Prepare EML + Classifier",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.METAORDER_BASE_URL || 'http://host.docker.internal:5001' }}/api/commercial-drafts/upload",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-METAORDER-Integration-Key",
+              "value": "={{ $env.METAORDER_INTEGRATION_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "subject",
+              "value": "={{ $json.metaorderSubject }}"
+            },
+            {
+              "name": "body",
+              "value": "={{ $json.metaorderBody }}"
+            },
+            {
+              "name": "intentHint",
+              "value": "={{ $json.intentHint }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "http-upload-1",
+      "name": "POST commercial-drafts/upload",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [780, 0],
+      "notesInFlow": true,
+      "notes": "Lädt .eml hoch; Strikt-Auto-Create läuft serverseitig wenn alle Regeln erfüllt sind."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "ok-upload",
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 299,
+              "operator": { "type": "number", "operation": "lte" }
+            },
+            {
+              "id": "ok-upload-min",
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 200,
+              "operator": { "type": "number", "operation": "gte" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-upload-ok",
+      "name": "Upload OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1040, 0]
+    },
+    {
+      "parameters": {
+        "operation": "markAsRead",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}"
+      },
+      "id": "gmail-mark-read",
+      "name": "Gmail Mark Read",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1300, -80],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "GMAIL_OAUTH_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Gmail Trigger": {
+      "main": [[{ "node": "Gmail Get Raw", "type": "main", "index": 0 }]]
+    },
+    "Gmail Get Raw": {
+      "main": [[{ "node": "Prepare EML + Classifier", "type": "main", "index": 0 }]]
+    },
+    "Prepare EML + Classifier": {
+      "main": [[{ "node": "POST commercial-drafts/upload", "type": "main", "index": 0 }]]
+    },
+    "POST commercial-drafts/upload": {
+      "main": [[{ "node": "Upload OK?", "type": "main", "index": 0 }]]
+    },
+    "Upload OK?": {
+      "main": [
+        [{ "node": "Gmail Mark Read", "type": "main", "index": 0 }],
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

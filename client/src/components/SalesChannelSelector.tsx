@@ -16,6 +16,10 @@ interface SalesChannelSelectorProps {
   onSelectionChange: (channelIds: string[]) => void;
   userAllowedChannelIds?: string[] | null;
   isAdmin?: boolean;
+  buttonLabelKey?: string;
+  titleKey?: string;
+  /** Delay fetch until ready (e.g. user authenticated) */
+  enabled?: boolean;
 }
 
 export function SalesChannelSelector({
@@ -23,11 +27,15 @@ export function SalesChannelSelector({
   onSelectionChange,
   userAllowedChannelIds,
   isAdmin = false,
+  buttonLabelKey,
+  titleKey,
+  enabled = true,
 }: SalesChannelSelectorProps) {
   const { t } = useTranslation();
 
   const { data: allChannels = [], isLoading } = useQuery<SalesChannel[]>({
     queryKey: ['/api/sales-channels'],
+    enabled,
   });
 
   // Determine which channels the user can see
@@ -70,7 +78,7 @@ export function SalesChannelSelector({
           className="gap-2"
         >
           <Filter className="h-4 w-4" />
-          {t('salesChannel.filter')}
+          {t(buttonLabelKey ?? 'salesChannel.filter')}
           {selectedCount > 0 && selectedCount < totalCount && (
             <Badge variant="secondary" className="ml-1">
               {selectedCount}
@@ -81,7 +89,7 @@ export function SalesChannelSelector({
       <PopoverContent className="w-72" align="start">
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h4 className="font-medium">{t('salesChannel.selectChannels')}</h4>
+            <h4 className="font-medium">{t(titleKey ?? 'salesChannel.selectChannels')}</h4>
             <div className="flex gap-2">
               <Button
                 variant="ghost"

@@ -1,0 +1,72 @@
+{% sw_extends '@Storefront/storefront/page/product-detail/index.html.twig' %}
+
+{% block page_product_detail_buy_container %}
+    {{ parent() }}
+
+    {% set cpqContext = {
+        apiBase: '/api/cpq-core',
+        debounceMs: 500,
+        locale: app.request.locale,
+        currencyIso: context.currency.isoCode,
+        customerGroup: context.customer is not null and context.customer.company is not empty ? 'b2b_standard' : 'b2c',
+        customerId: context.customer is not null ? context.customer.id : null,
+        salesChannelId: context.salesChannel.id,
+        deliveryCountry: context.salesChannel.countryIso,
+        productId: page.product.id,
+        productNumber: page.product.productNumber,
+        systemId: 'shopware-pdp',
+        systemVariant: 'clip',
+        initialConfiguration: {
+            frame: {
+                heightMm: 2000,
+                depthMm: 500,
+                widthMm: 1000,
+                anchoringIncluded: false
+            },
+            shelfCount: 4,
+            shelfLoadKg: 150
+        }
+    } %}
+
+    {% set cpqTexts = {
+        title: 'meta-clip-cpq.storefront.title'|trans,
+        subtitle: 'meta-clip-cpq.storefront.subtitle'|trans,
+        customerGroupLabel: 'meta-clip-cpq.storefront.customerGroupLabel'|trans,
+        customerGroupB2c: 'meta-clip-cpq.storefront.customerGroupB2c'|trans,
+        customerGroupB2bStandard: 'meta-clip-cpq.storefront.customerGroupB2bStandard'|trans,
+        customerGroupB2bIndustrie: 'meta-clip-cpq.storefront.customerGroupB2bIndustrie'|trans,
+        heightLabel: 'meta-clip-cpq.storefront.heightLabel'|trans,
+        depthLabel: 'meta-clip-cpq.storefront.depthLabel'|trans,
+        widthLabel: 'meta-clip-cpq.storefront.widthLabel'|trans,
+        shelfCountLabel: 'meta-clip-cpq.storefront.shelfCountLabel'|trans,
+        shelfLoadLabel: 'meta-clip-cpq.storefront.shelfLoadLabel'|trans,
+        anchoringLabel: 'meta-clip-cpq.storefront.anchoringLabel'|trans,
+        loading: 'meta-clip-cpq.storefront.loading'|trans,
+        hardErrorsTitle: 'meta-clip-cpq.storefront.hardErrorsTitle'|trans,
+        softWarningsTitle: 'meta-clip-cpq.storefront.softWarningsTitle'|trans,
+        classCNotice: 'meta-clip-cpq.storefront.classCNotice'|trans,
+        classCModalTrigger: 'meta-clip-cpq.storefront.classCModalTrigger'|trans,
+        classCModalTitle: 'meta-clip-cpq.storefront.classCModalTitle'|trans,
+        classCModalBody: 'meta-clip-cpq.storefront.classCModalBody'|trans,
+        close: 'meta-clip-cpq.storefront.close'|trans,
+        retry: 'meta-clip-cpq.storefront.retry'|trans,
+        netPrice: 'meta-clip-cpq.storefront.netPrice'|trans,
+        grossPrice: 'meta-clip-cpq.storefront.grossPrice'|trans,
+        pricingUnavailable: 'meta-clip-cpq.storefront.pricingUnavailable'|trans,
+        requestErrorPrefix: 'meta-clip-cpq.storefront.requestErrorPrefix'|trans,
+        updatedAtPrefix: 'meta-clip-cpq.storefront.updatedAtPrefix'|trans,
+        liveRegionReady: 'meta-clip-cpq.storefront.liveRegionReady'|trans,
+        liveRegionLoading: 'meta-clip-cpq.storefront.liveRegionLoading'|trans,
+        liveRegionError: 'meta-clip-cpq.storefront.liveRegionError'|trans,
+        liveRegionClassC: 'meta-clip-cpq.storefront.liveRegionClassC'|trans
+    } %}
+
+    <div
+        data-meta-clip-cpq="{{ cpqContext|json_encode|e('html_attr') }}"
+        data-meta-clip-cpq-texts="{{ cpqTexts|json_encode|e('html_attr') }}"
+    >
+        <noscript>
+            {{ 'meta-clip-cpq.storefront.noScript'|trans }}
+        </noscript>
+    </div>
+{% endblock %}

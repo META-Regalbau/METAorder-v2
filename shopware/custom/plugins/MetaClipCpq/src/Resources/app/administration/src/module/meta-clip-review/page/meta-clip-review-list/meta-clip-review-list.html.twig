@@ -1,0 +1,33 @@
+{% block meta_clip_review_list %}
+<sw-page class="meta-clip-review-list">
+    <template #smart-bar-header>
+        <h2>{{ $tc('meta-clip-review.general.mainMenuItemGeneral') }}</h2>
+    </template>
+
+    <template #content>
+        <sw-card-view>
+            <sw-card :title="$tc('meta-clip-review.list.pendingTitle')" :isLoading="isLoading">
+                <sw-data-grid
+                    :dataSource="pendingItems"
+                    :columns="[
+                        { property: 'name', label: $tc('meta-clip-review.list.colName') },
+                        { property: 'validationStatus', label: $tc('meta-clip-review.list.colStatus') }
+                    ]"
+                    @row-click="openDetail"
+                />
+            </sw-card>
+
+            <sw-card :title="$tc('meta-clip-review.list.assignedTitle')" :isLoading="isLoading">
+                <sw-data-grid
+                    :dataSource="assignedItems"
+                    :columns="[
+                        { property: 'name', label: $tc('meta-clip-review.list.colName') },
+                        { property: 'validationStatus', label: $tc('meta-clip-review.list.colStatus') }
+                    ]"
+                    @row-click="openDetail"
+                />
+            </sw-card>
+        </sw-card-view>
+    </template>
+</sw-page>
+{% endblock %}

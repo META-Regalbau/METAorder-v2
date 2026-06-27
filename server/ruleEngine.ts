@@ -4,8 +4,34 @@ import type {
   RuleCondition,
   RuleTargetCriteria,
   RuleConditionOperator,
+  CrossSellCooccurrence,
+  CrossSellEventPairStats,
 } from "@shared/schema";
+import { CROSS_SELL_CATEGORIES } from "@shared/schema";
+import { normalizeFootprint, sameWidthAndDepth as sameWidthAndDepthFootprint } from "./crossSellShelvingHeuristics";
 import type { ShopwareClient } from "./shopware";
+import type { IStorage } from "./storage";
+import type { HybridRankedProduct, HybridWeights } from "./crossSellHybridRanker";
+import { rankCrossSellCandidatesHybrid } from "./crossSellHybridRanker";
+import { llmRerankCrossSellCandidates } from "./crossSellLlmRerank";
+
+/** Optional Hybrid- + LLM-Ranking nach regelbasierter Kandidatensuche. */
+export type SuggestCrossSellingOptions = {
+  hybridRank?: {
+    storage: IStorage;
+    tenantId: string | null;
+    cooccurrences: CrossSellCooccurrence[];
+    eventStatsMap: Map<string, CrossSellEventPairStats>;
+    weights: HybridWeights;
+  };
+  llmRerank?: {
+    storage: IStorage;
+    topK: number;
+    topN: number;
+    ttlHours: number;
+    useLlmFromSettings: boolean;
+  };
+};
 
 export class RuleEngine {
   /**
@@ -63,7 +89,9 @@ export class RuleEngine {
   async findMatchingProducts(
     sourceProduct: Product, 
     criteria: RuleTargetCriteria[], 
-    shopwareClient: ShopwareClient
+    shopwareClient: ShopwareClient,
+    /** Deduplicate identical Shopware searches within one rule evaluation */
+    searchTermCache?: Map<string, Promise<Product[]>>
   ): Promise<Product[]> {
     console.log(`[RuleEngine] Finding products using Shopware search for ${criteria.length} criteria...`);
     
@@ -73,24 +101,69 @@ export class RuleEngine {
     
     // Collect all candidate products from Shopware searches
     const candidateProducts = new Map<string, Product>();
-    
-    // For each criterion, generate a search query and fetch products from Shopware
-    for (const criterion of criteria) {
+
+    const cache = searchTermCache ?? new Map<string, Promise<Product[]>>();
+
+    const loadProductsForSearchTerm = (searchTerm: string): Promise<Product[]> => {
+      const key = searchTerm.trim().toLowerCase();
+      const existing = cache.get(key);
+      if (existing) {
+        return existing;
+      }
+      const promise = (async () => {
+        const result = await shopwareClient.fetchProducts(
+          100,
+          1,
+          searchTerm,
+          undefined,
+          false,
+          undefined,
+          undefined,
+          undefined,
+          true
+        );
+        return result.products.filter((p) => p.id !== sourceProduct.id);
+      })();
+      cache.set(key, promise);
+      return promise;
+    };
+
+    const criterionLoads = criteria.map(async (criterion) => {
+      if (criterion.matchType === "sameWidthAndDepth") {
+        const fp = normalizeFootprint(sourceProduct);
+        if (fp.width == null || fp.depth == null) {
+          return [] as Product[];
+        }
+        const result = await shopwareClient.fetchProducts(
+          200,
+          1,
+          undefined,
+          undefined,
+          false,
+          fp.width,
+          undefined,
+          fp.depth,
+          true,
+        );
+        return result.products.filter((p) => p.id !== sourceProduct.id);
+      }
+
       const searchTerm = this.generateSearchTerm(criterion, sourceProduct);
-      
-      if (searchTerm) {
-        console.log(`[RuleEngine] Searching Shopware with term: "${searchTerm}" for field: ${criterion.field}`);
-        
-        // Fetch products from Shopware with search term - include inactive for rule matching
-        const result = await shopwareClient.fetchProducts(100, 1, searchTerm, undefined, false, undefined, undefined, undefined, true);
-        console.log(`[RuleEngine] Shopware returned ${result.products.length} products for search term "${searchTerm}"`);
-        
-        // Add all products to candidates (we'll filter later with AND logic)
-        result.products.forEach(product => {
-          if (product.id !== sourceProduct.id) {
-            candidateProducts.set(product.id, product);
-          }
-        });
+      if (!searchTerm) {
+        return [] as Product[];
+      }
+      console.log(`[RuleEngine] Searching Shopware with term: "${searchTerm}" for field: ${criterion.field}`);
+      const products = await loadProductsForSearchTerm(searchTerm);
+      console.log(`[RuleEngine] Shopware returned ${products.length} products for search term "${searchTerm}"`);
+      return products;
+    });
+
+    const criterionResults = await Promise.all(criterionLoads);
+    for (const products of criterionResults) {
+      for (const product of products) {
+        if (product.id !== sourceProduct.id) {
+          candidateProducts.set(product.id, product);
+        }
       }
     }
     
@@ -140,6 +213,9 @@ export class RuleEngine {
         // We need to fetch products and filter them manually
         console.log(`[RuleEngine] Skipping Shopware search for criterion type: ${criterion.matchType}`);
         return null;
+
+      case "sameWidthAndDepth":
+        return null;
       
       default:
         console.warn(`[RuleEngine] Unknown match type for search: ${criterion.matchType}`);
@@ -181,6 +257,14 @@ export class RuleEngine {
         }
         
         return match;
+
+      case "sameWidthAndDepth": {
+        const absTol = 5;
+        const relTol = 0.01;
+        const a = normalizeFootprint(sourceProduct);
+        const b = normalizeFootprint(targetProduct);
+        return sameWidthAndDepthFootprint(a, b, absTol, relTol);
+      }
       
       default:
         console.warn(`Unknown match type: ${criterion.matchType}`);
@@ -379,36 +463,112 @@ export class RuleEngine {
   async suggestCrossSelling(
     product: Product,
     rules: CrossSellingRule[],
-    shopwareClient: ShopwareClient
-  ): Promise<Product[]> {
-    const suggestions = new Set<Product>();
-    
+    shopwareClient: ShopwareClient,
+    options?: SuggestCrossSellingOptions,
+  ): Promise<Array<Product & { crossSellReason?: string; hybridScore?: number }>> {
     // Filter to only active rules (active === 1)
     const activeRules = rules.filter((rule) => rule.active === 1);
     
     console.log(`[RuleEngine] Processing ${activeRules.length} active rules for product ${product.name}`);
-    
-    for (const rule of activeRules) {
+
+    const searchTermCache = new Map<string, Promise<Product[]>>();
+    const scoreByProductId = new Map<string, number>();
+    const productById = new Map<string, Product>();
+    const ruleIndexByProductId = new Map<string, number>();
+    const categoryByProductId = new Map<string, string | null>();
+
+    for (let ruleIndex = 0; ruleIndex < activeRules.length; ruleIndex++) {
+      const rule = activeRules[ruleIndex];
       console.log(`[RuleEngine] Evaluating rule: ${rule.name}`);
-      console.log(`[RuleEngine] Source conditions:`, rule.sourceConditions);
-      
-      // Check if this rule applies to the source product
+
       if (this.evaluateSourceConditions(product, rule.sourceConditions)) {
-        console.log(`[RuleEngine] Source conditions matched! Finding target products...`);
-        console.log(`[RuleEngine] Target criteria:`, rule.targetCriteria);
-        
-        // Find products that match the target criteria using Shopware search
-        const matches = await this.findMatchingProducts(product, rule.targetCriteria, shopwareClient);
+        const matches = await this.findMatchingProducts(
+          product,
+          rule.targetCriteria,
+          shopwareClient,
+          searchTermCache
+        );
         console.log(`[RuleEngine] Found ${matches.length} matching products`);
-        
-        // Add to suggestions
-        matches.forEach((match) => suggestions.add(match));
-      } else {
-        console.log(`[RuleEngine] Source conditions did not match`);
+        const ruleWeight = Math.max(1, 250 - ruleIndex * 5);
+        for (const match of matches) {
+          const id = match.id;
+          if (!id) continue;
+          productById.set(id, match);
+          scoreByProductId.set(id, (scoreByProductId.get(id) ?? 0) + ruleWeight);
+          const prev = ruleIndexByProductId.get(id);
+          if (prev === undefined || ruleIndex < prev) {
+            ruleIndexByProductId.set(id, ruleIndex);
+            categoryByProductId.set(id, rule.category ?? null);
+          }
+        }
       }
     }
-    
-    console.log(`[RuleEngine] Total suggestions: ${suggestions.size}`);
-    return Array.from(suggestions);
+
+    const normalizeSuggestCategory = (raw: string | null | undefined): string => {
+      const v = (raw || "").trim().toLowerCase();
+      if (!v) return CROSS_SELL_CATEGORIES.COMPONENTS;
+      const allowed = new Set<string>(Object.values(CROSS_SELL_CATEGORIES) as string[]);
+      return allowed.has(v) ? v : CROSS_SELL_CATEGORIES.COMPONENTS;
+    };
+
+    for (const p of productById.values()) {
+      const cat = categoryByProductId.get(p.id);
+      (p as Product & { suggestCategory?: string }).suggestCategory = normalizeSuggestCategory(cat);
+    }
+
+    const ranked = Array.from(productById.values()).sort((a, b) => {
+      const sa = scoreByProductId.get(a.id) ?? 0;
+      const sb = scoreByProductId.get(b.id) ?? 0;
+      if (sb !== sa) return sb - sa;
+      const stockDiff = (b.stock ?? 0) - (a.stock ?? 0);
+      if (stockDiff !== 0) return stockDiff;
+      return (a.productNumber || "").localeCompare(b.productNumber || "");
+    });
+
+    let out: Array<Product & { crossSellReason?: string; hybridScore?: number }> = ranked.map((p) => ({ ...p }));
+
+    const hybrid = options?.hybridRank;
+    let hybridRanked: HybridRankedProduct[] | null = null;
+    if (hybrid?.storage) {
+      hybridRanked = await rankCrossSellCandidatesHybrid({
+        storage: hybrid.storage,
+        tenantId: hybrid.tenantId ?? null,
+        sourceProduct: product,
+        candidates: ranked,
+        cooccurrences: hybrid.cooccurrences,
+        eventStatsMap: hybrid.eventStatsMap,
+        weights: hybrid.weights,
+        ruleIndexByProductId,
+      });
+      out = hybridRanked.map((h) => {
+        const { hybridComponents: _hc, ...rest } = h;
+        return { ...rest, hybridScore: h.hybridScore };
+      });
+    }
+
+    const llm = options?.llmRerank;
+    if (llm?.storage && hybrid?.storage && hybridRanked) {
+      const reranked = await llmRerankCrossSellCandidates({
+        storage: llm.storage,
+        tenantId: hybrid.tenantId ?? null,
+        sourceProduct: product,
+        candidates: hybridRanked,
+        topK: llm.topK,
+        topN: llm.topN,
+        ttlHours: llm.ttlHours,
+        useLlmFromSettings: llm.useLlmFromSettings,
+      });
+      out = reranked.map((r) => {
+        const { hybridComponents: _hc, ...rest } = r;
+        return {
+          ...rest,
+          hybridScore: r.hybridScore,
+          crossSellReason: r.crossSellReason,
+        };
+      });
+    }
+
+    console.log(`[RuleEngine] Total suggestions: ${out.length}`);
+    return out;
   }
 }

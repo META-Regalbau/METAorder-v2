@@ -1,0 +1,24 @@
+<table class="bom-table">
+  <thead>
+    <tr>
+      <th class="bom-pos">Pos.</th>
+      <th class="bom-sku">Art.-Nr.</th>
+      <th class="bom-name">Bezeichnung</th>
+      <th class="bom-qty num">Menge</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for part in rows|default([]) %}
+      <tr>
+        <td class="bom-pos">{{ loop.index }}</td>
+        <td class="bom-sku">{{ part.productNumber|default('—')|e }}</td>
+        <td class="bom-name">{{ part.name|default('—')|e }}</td>
+        <td class="bom-qty num">{{ part.quantity|default(0) }}</td>
+      </tr>
+    {% else %}
+      <tr>
+        <td colspan="4" class="muted">—</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>

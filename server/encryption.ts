@@ -12,9 +12,7 @@ function getEncryptionKey(): Buffer {
   const key = process.env.ENCRYPTION_KEY;
   
   if (!key) {
-    console.warn('[Encryption] WARNING: ENCRYPTION_KEY not set in environment. Using default key. SET THIS IN PRODUCTION!');
-    // Default key for development only - should be replaced in production
-    return crypto.scryptSync('default-dev-key-change-in-production', 'salt', 32);
+    throw new Error("ENCRYPTION_KEY is required. Refusing to start without a secure key.");
   }
   
   // Derive a 256-bit key from the environment variable

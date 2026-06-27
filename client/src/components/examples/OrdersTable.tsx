@@ -9,7 +9,10 @@ const mockOrders: Order[] = [
     customerEmail: 'john@example.com',
     orderDate: '2024-01-15T10:30:00Z',
     totalAmount: 299.99,
+    netTotalAmount: 252.09,
     status: 'in_progress',
+    paymentStatus: 'open',
+    salesChannelId: 'sc-1',
     shippingInfo: {
       carrier: 'DHL',
       trackingNumber: 'DHL123456789',
@@ -24,7 +27,10 @@ const mockOrders: Order[] = [
     customerEmail: 'jane@example.com',
     orderDate: '2024-01-14T14:20:00Z',
     totalAmount: 149.50,
+    netTotalAmount: 125.63,
     status: 'open',
+    paymentStatus: 'open',
+    salesChannelId: 'sc-1',
     items: []
   },
   {
@@ -34,7 +40,10 @@ const mockOrders: Order[] = [
     customerEmail: 'bob@example.com',
     orderDate: '2024-01-13T09:15:00Z',
     totalAmount: 499.99,
+    netTotalAmount: 420.16,
     status: 'completed',
+    paymentStatus: 'paid',
+    salesChannelId: 'sc-1',
     shippingInfo: {
       carrier: 'UPS',
       trackingNumber: 'UPS987654321',

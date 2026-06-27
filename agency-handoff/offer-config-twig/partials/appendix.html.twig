@@ -1,0 +1,22 @@
+{# Entspricht drawClosingAppendix (offerConfigPdf.ts) #}
+{% if offer.offerSystemInfoText|default('')|trim != '' %}
+  <section class="appendix-block">
+    {% if offer.offerSystemInfoTitle|default('')|trim != '' %}
+      <h2 class="appendix-title">{{ offer.offerSystemInfoTitle|trim|e }}</h2>
+    {% endif %}
+    <div class="appendix-body prose">
+      {{ offer.offerSystemInfoText|trim|nl2br }}
+    </div>
+  </section>
+{% endif %}
+
+{% if offer.offerStandardClosingText|default('')|trim != '' %}
+  <section class="appendix-block">
+    {% if offer.offerStandardClosingTitle|default('')|trim != '' %}
+      <h2 class="appendix-title">{{ offer.offerStandardClosingTitle|trim|e }}</h2>
+    {% endif %}
+    <div class="appendix-body prose">
+      {{ offer.offerStandardClosingText|trim|nl2br }}
+    </div>
+  </section>
+{% endif %}

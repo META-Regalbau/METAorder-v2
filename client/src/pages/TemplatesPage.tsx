@@ -43,7 +43,7 @@ export default function TemplatesPage({ userPermissions }: TemplatesPageProps) {
   // Check permissions
   if (!userPermissions?.manageTickets) {
     return (
-      <div className="w-full max-w-4xl mx-auto">
+      <div className="w-full">
         <Card className="p-8">
           <div className="text-center">
             <h2 className="text-xl font-semibold mb-2">{t('common.accessDenied')}</h2>
@@ -94,7 +94,7 @@ export default function TemplatesPage({ userPermissions }: TemplatesPageProps) {
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto">
+    <div className="w-full">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold mb-1" data-testid="text-templates-title">

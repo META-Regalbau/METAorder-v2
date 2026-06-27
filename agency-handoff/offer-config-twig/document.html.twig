@@ -1,0 +1,250 @@
+{#
+  =============================================================================
+  METAorder Konfigurations-PDF → Shopware Twig (Handoff für Agentur)
+  =============================================================================
+  Quelllogik: METAorder-v2/server/offerConfigPdf.ts, offerConfigPdfBuilder.ts,
+  offerConfigPdfTexts.ts, offerConfigPdfTermsDe.ts
+
+  Twig-Loader: Verzeichnis dieses Templates als Namespace/Wurzel registrieren, damit
+  {% include 'partials/...' %} aufgelöst wird (alle Dateien unter offer-config-twig/).
+
+  Kontext-Variable (ein Objekt, struktur wie OfferConfigPdfInput):
+  - offer.offerNumber, offer.customerNumber, offer.customerName, offer.customerEmail
+  - offer.billingAddress: { firstName, lastName, street, zipCode, city, country, company, phoneNumber }
+  - offer.createdAt, offer.expirationDate (ISO-Datum für |date)
+  - offer.productsNetSubtotal, offer.shippingCostsNet, offer.montageCostNet, offer.montageDescription
+  - offer.vatAmount, offer.grossTotal, offer.displayTaxRate
+  - offer.lineItems[]: label, productNumber, quantity, unitPrice, totalPrice, taxRate
+    optional config: name, description, imageBase64 (Data-URL), installationTimeMinutes,
+    partsList[], accessoryList[] (productNumber, name, quantity)
+  - offer.offerIntroText, offer.offerSystemInfoTitle, offer.offerSystemInfoText,
+    offer.offerStandardClosingTitle, offer.offerStandardClosingText
+  - offer.logoUrl (optional, öffentliche URL zum Logo statt Platzhalter)
+
+  Optional zusätzlich im Kontext:
+  - layoutOptions: wie OfferConfigPdfLayoutOptions (showMontageLineInOverview, …)
+    Hinweis: Anpassung der Summen bei ausgeblendeten Zeilen wie in
+    applyOfferConfigPdfLayoutFromRequest soll serverseitig erfolgen; Twig erwartet finale Beträge.
+
+  Siehe TypeScript-Typen: OfferConfigPdfInput, OfferConfigPdfLineItem, OfferConfigPdfLayoutOptions
+  in server/offerConfigPdf.ts
+  =============================================================================
+#}
+
+{% set defaultLayout = {
+  showMontageLineInOverview: true,
+  showShippingLineInOverview: true,
+  overviewShowUnitPrices: true,
+  detailIncludeImage: true,
+  detailIncludeDescription: true,
+  detailIncludePartsList: true,
+  detailIncludeAccessoryList: true,
+} %}
+{% set layout = defaultLayout|merge(layoutOptions|default({})) %}
+
+{% set configuredItems = offer.lineItems|default([])|filter(li => (li.config ?? false)) %}
+{% set hasAppendix = (offer.offerSystemInfoText|default('')|trim != '') or (offer.offerStandardClosingText|default('')|trim != '') %}
+{% set cfgCount = configuredItems|length %}
+{% set totalPages = 1 + cfgCount + (hasAppendix ? 1 : 0) + 1 %}
+
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <title>Angebot {{ offer.offerNumber|default('')|e }}</title>
+  <style>
+    :root {
+      --text: #111;
+      --muted: #666;
+      --rule: #999;
+      --font: Helvetica, Arial, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      font-size: 9pt;
+      line-height: 1.35;
+      color: var(--text);
+    }
+    .muted { color: var(--muted); }
+    .small { font-size: 7.5pt; }
+    .text-right { text-align: right; }
+    .num { text-align: right; }
+
+    @page {
+      size: A4;
+      margin: 14mm 12mm 16mm 12mm;
+    }
+
+    .pdf-page {
+      page-break-after: always;
+      min-height: 250mm;
+      display: flex;
+      flex-direction: column;
+      padding-bottom: 4mm;
+    }
+    .pdf-page:last-child {
+      page-break-after: auto;
+    }
+    .pdf-page-body {
+      flex: 1 1 auto;
+    }
+
+    .pdf-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .logo-placeholder {
+      min-height: 40px;
+      padding: 8px;
+      border: 1px dashed var(--rule);
+      font-size: 8pt;
+    }
+    .logo-img { max-width: 200px; max-height: 56px; object-fit: contain; }
+    .sender-name { font-weight: bold; font-size: 10pt; }
+    .sender-line { font-size: 9pt; }
+    .sender-meta { margin: 6px 0 10px; }
+    .pdf-header-meta-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 8px;
+    }
+    .recipient-block { flex: 1; max-width: 55%; font-size: 10pt; line-height: 1.4; }
+    .offer-meta { font-size: 9pt; line-height: 1.45; }
+    .doc-title { font-size: 16pt; font-weight: bold; margin: 14px 0 10px; }
+
+    .intro { font-size: 10pt; margin-bottom: 12px; line-height: 1.45; }
+
+    .section-heading { font-size: 10pt; font-weight: bold; margin: 0 0 8px; }
+
+    .overview-table, .bom-table, .summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 8pt;
+    }
+    .overview-table th, .overview-table td,
+    .bom-table th, .bom-table td {
+      vertical-align: top;
+      padding: 3px 4px;
+    }
+    .overview-table thead th {
+      font-weight: bold;
+      border-bottom: 0.5pt solid var(--text);
+    }
+    .overview-table tbody tr { border-bottom: 0.25pt solid #ddd; }
+    .col-pos { width: 28px; }
+    .col-qty { width: 40px; }
+    .col-unit { width: 72px; }
+    .col-total { width: 72px; }
+
+    .summary-block { margin-top: 10px; max-width: 280px; margin-left: auto; }
+    .summary-table td { padding: 2px 0; font-size: 9pt; }
+    .sum-label { text-align: right; padding-right: 8px !important; }
+    .sum-val { white-space: nowrap; }
+    .summary-gross td { padding-top: 6px; border-top: 0.5pt solid var(--text); }
+
+    .position-title { font-size: 14pt; font-weight: bold; margin: 0 0 10px; }
+    .config-image-wrap { text-align: center; margin: 8px 0 12px; }
+    .config-image { max-width: 100%; max-height: 248px; object-fit: contain; }
+
+    .desc-section { margin-bottom: 10px; }
+    .desc-section-zubehoer { margin-top: 12px; }
+    .desc-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 2px;
+      font-size: 8.5pt;
+    }
+    .desc-label { flex: 0 0 200px; max-width: 45%; }
+    .desc-value { flex: 1; min-width: 0; }
+    .desc-plain { margin: 0 0 4px; font-size: 8.5pt; }
+
+    .bom-heading { font-size: 10pt; font-weight: bold; margin: 12px 0 6px; }
+    .bom-heading-spaced { margin-top: 16px; }
+    .bom-table thead th { border-bottom: 0.5pt solid var(--text); font-weight: bold; }
+    .bom-pos { width: 24px; }
+    .bom-sku { width: 92px; }
+    .bom-qty { width: 44px; }
+
+    .appendix-title { font-size: 12pt; font-weight: bold; margin: 0 0 8px; }
+    .appendix-block { margin-bottom: 14px; }
+    .appendix-body { font-size: 9pt; line-height: 1.4; }
+
+    .general-terms h1 { font-size: 14pt; margin: 0 0 8px; }
+    .general-terms h2 { font-size: 10pt; margin: 16px 0 6px; }
+    .terms-hr { border: none; border-top: 0.5pt solid var(--rule); margin: 12px 0; }
+    .terms-table { width: 100%; border-collapse: collapse; font-size: 7pt; margin: 8px 0; }
+    .terms-table th, .terms-table td { border: 0.25pt solid #ccc; padding: 3px 4px; text-align: center; }
+    .terms-table th:first-child, .terms-table td:first-child { text-align: left; }
+    .general-terms ul { margin: 6px 0; padding-left: 18px; }
+    .general-terms p { margin: 6px 0; }
+
+    .pdf-footer { margin-top: auto; padding-top: 8px; font-size: 6.5pt; line-height: 1.35; }
+    .footer-rule { border: none; border-top: 0.5pt solid var(--rule); margin: 0 0 6px; }
+    .footer-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+    .footer-page { margin-top: 4px; }
+    @media print {
+      .pdf-footer { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+
+  {# ——— Seite 1: Kopf, Einleitung, Schnellübersicht ——— #}
+  <div class="pdf-page">
+    <div class="pdf-page-body">
+      {% include 'partials/header.html.twig' %}
+      {% if offer.offerIntroText|default('')|trim != '' %}
+        <div class="intro">{{ offer.offerIntroText|trim|nl2br }}</div>
+      {% endif %}
+      {% include 'partials/overview_table.html.twig' with { offer: offer, layout: layout } only %}
+    </div>
+    {% include 'partials/footer.html.twig' with { page: 1, totalPages: totalPages } only %}
+  </div>
+
+  {# ——— Positionsdetailseiten (MetaCalc) — Index wie generateOfferConfigPdf: Position i = Index in gesamter lineItems-Liste #}
+  {% for lineItem in offer.lineItems|default([]) %}
+    {% if (lineItem.config ?? false) %}
+      {% set pageNum = 2 + (offer.lineItems|slice(0, loop.index0)|filter(li => (li.config ?? false))|length) %}
+      <div class="pdf-page">
+        <div class="pdf-page-body">
+          {% include 'partials/position_detail.html.twig' with {
+            lineItem: lineItem,
+            index: loop.index0,
+            layout: layout,
+          } only %}
+        </div>
+        {% include 'partials/footer.html.twig' with { page: pageNum, totalPages: totalPages } only %}
+      </div>
+    {% endif %}
+  {% endfor %}
+
+  {# ——— Anhang: Systemhinweise / Abschluss ——— #}
+  {% if hasAppendix %}
+    {% set appendixPage = 1 + cfgCount + 1 %}
+    <div class="pdf-page">
+      <div class="pdf-page-body">
+        {% include 'partials/appendix.html.twig' with { offer: offer } only %}
+      </div>
+      {% include 'partials/footer.html.twig' with { page: appendixPage, totalPages: totalPages } only %}
+    </div>
+  {% endif %}
+
+  {# ——— Allgemeine Angebotsbedingungen ——— #}
+  <div class="pdf-page">
+    <div class="pdf-page-body">
+      {% include 'partials/general_terms.html.twig' only %}
+    </div>
+    {% include 'partials/footer.html.twig' with { page: totalPages, totalPages: totalPages } only %}
+  </div>
+
+</body>
+</html>

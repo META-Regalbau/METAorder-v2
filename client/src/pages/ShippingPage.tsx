@@ -22,6 +22,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { Order, Role, SalesChannel } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
+import SortableTableHead from "@/components/SortableTableHead";
 
 interface ShippingOrder extends Order {
   requiresMitnahmestapler?: boolean;
@@ -33,6 +34,15 @@ interface ShippingPageProps {
   userPermissions?: Role['permissions'];
 }
 
+type SortDirection = "asc" | "desc";
+type ShippingSortKey =
+  | "orderNumber"
+  | "company"
+  | "customer"
+  | "orderDate"
+  | "salesChannel"
+  | "equipment";
+
 export default function ShippingPage({ userRole = "employee", userPermissions }: ShippingPageProps) {
   const { t } = useTranslation();
   const [selectedOrder, setSelectedOrder] = useState<ShippingOrder | null>(null);
@@ -43,6 +53,8 @@ export default function ShippingPage({ userRole = "employee", userPermissions }:
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [isBulkTrackingDialogOpen, setIsBulkTrackingDialogOpen] = useState(false);
+  const [sortKey, setSortKey] = useState<ShippingSortKey>("orderDate");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
   const { data: orders = [], isLoading, error } = useQuery<ShippingOrder[]>({
     queryKey: ['/api/shipping'],
@@ -74,10 +86,10 @@ export default function ShippingPage({ userRole = "employee", userPermissions }:
   };
 
   const toggleAllOrders = () => {
-    if (selectedOrderIds.length === filteredOrders.length) {
+    if (selectedOrderIds.length === sortedOrders.length) {
       setSelectedOrderIds([]);
     } else {
-      setSelectedOrderIds(filteredOrders.map(order => order.id));
+      setSelectedOrderIds(sortedOrders.map(order => order.id));
     }
   };
 
@@ -105,10 +117,41 @@ export default function ShippingPage({ userRole = "employee", userPermissions }:
         (equipmentFilter === "none" && !order.requiresMitnahmestapler && !order.requiresHebebuehne);
 
       return matchesSearch && matchesChannel && matchesEquipment;
-    })
-    .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
+    });
 
-  const selectedOrders = filteredOrders.filter(order => selectedOrderIds.includes(order.id));
+  const sortedOrders = [...filteredOrders].sort((a, b) => {
+    const direction = sortDirection === "asc" ? 1 : -1;
+    switch (sortKey) {
+      case "orderNumber":
+        return a.orderNumber.localeCompare(b.orderNumber) * direction;
+      case "company": {
+        const aCompany = a.billingAddress?.company || a.shippingAddress?.company || "";
+        const bCompany = b.billingAddress?.company || b.shippingAddress?.company || "";
+        return aCompany.localeCompare(bCompany) * direction;
+      }
+      case "customer":
+        return a.customerName.localeCompare(b.customerName) * direction;
+      case "orderDate":
+        return (new Date(a.orderDate).getTime() - new Date(b.orderDate).getTime()) * direction;
+      case "salesChannel": {
+        const aChannel = salesChannels.find(c => c.id === a.salesChannelId)?.name || "";
+        const bChannel = salesChannels.find(c => c.id === b.salesChannelId)?.name || "";
+        return aChannel.localeCompare(bChannel) * direction;
+      }
+      case "equipment": {
+        const toLabel = (order: ShippingOrder) => {
+          if (order.requiresMitnahmestapler) return "mitnahmestapler";
+          if (order.requiresHebebuehne) return "hebebuehne";
+          return "none";
+        };
+        return toLabel(a).localeCompare(toLabel(b)) * direction;
+      }
+      default:
+        return 0;
+    }
+  });
+
+  const selectedOrders = sortedOrders.filter(order => selectedOrderIds.includes(order.id));
 
   const activeFiltersCount = [
     searchValue !== "",
@@ -116,9 +159,20 @@ export default function ShippingPage({ userRole = "employee", userPermissions }:
     equipmentFilter !== "all",
   ].filter(Boolean).length;
 
+  const handleSortChange = (key: ShippingSortKey) => {
+    setSortKey((current) => {
+      if (current === key) {
+        setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+        return current;
+      }
+      setSortDirection("asc");
+      return key;
+    });
+  };
+
   if (!userPermissions?.viewShipping) {
     return (
-      <div className="w-full max-w-screen-2xl mx-auto">
+      <div className="w-full">
         <Card className="p-8">
           <div className="text-center">
             <Truck className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
@@ -133,13 +187,13 @@ export default function ShippingPage({ userRole = "employee", userPermissions }:
   }
 
   return (
-    <div className="w-full max-w-screen-2xl mx-auto">
+    <div className="w-full">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold mb-1" data-testid="text-shipping-title">
           {t('shipping.title')}
         </h1>
         <p className="text-sm text-muted-foreground">
-          {t('orders.showing', { count: filteredOrders.length, total: orders.length })}
+          {t('orders.showing', { count: sortedOrders.length, total: orders.length })}
         </p>
       </div>
 
@@ -261,7 +315,7 @@ export default function ShippingPage({ userRole = "employee", userPermissions }:
             {t('common.loading')}
           </div>
         </Card>
-      ) : filteredOrders.length === 0 ? (
+      ) : sortedOrders.length === 0 ? (
         <Card className="p-8">
           <div className="text-center">
             <Truck className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
@@ -277,22 +331,64 @@ export default function ShippingPage({ userRole = "employee", userPermissions }:
               <TableRow>
                 <TableHead className="w-12">
                   <Checkbox
-                    checked={selectedOrderIds.length === filteredOrders.length && filteredOrders.length > 0}
+                    checked={selectedOrderIds.length === sortedOrders.length && sortedOrders.length > 0}
                     onCheckedChange={toggleAllOrders}
                     data-testid="checkbox-select-all"
                   />
                 </TableHead>
-                <TableHead data-testid="header-order-number">{t('orders.orderNumber')}</TableHead>
-                <TableHead data-testid="header-company">{t('orders.company')}</TableHead>
-                <TableHead data-testid="header-customer">{t('orders.customer')}</TableHead>
-                <TableHead data-testid="header-date">{t('orders.date')}</TableHead>
-                <TableHead data-testid="header-sales-channel">{t('salesChannel.filter')}</TableHead>
-                <TableHead data-testid="header-equipment">{t('shipping.equipment')}</TableHead>
+                <SortableTableHead
+                  label={t('orders.orderNumber')}
+                  sortKey="orderNumber"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  onSort={handleSortChange}
+                  className="font-medium"
+                />
+                <SortableTableHead
+                  label={t('orders.company')}
+                  sortKey="company"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  onSort={handleSortChange}
+                  className="font-medium"
+                />
+                <SortableTableHead
+                  label={t('orders.customer')}
+                  sortKey="customer"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  onSort={handleSortChange}
+                  className="font-medium"
+                />
+                <SortableTableHead
+                  label={t('orders.date')}
+                  sortKey="orderDate"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  onSort={handleSortChange}
+                  className="font-medium"
+                />
+                <SortableTableHead
+                  label={t('salesChannel.filter')}
+                  sortKey="salesChannel"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  onSort={handleSortChange}
+                  className="font-medium"
+                />
+                <SortableTableHead
+                  label={t('shipping.equipment')}
+                  sortKey="equipment"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  onSort={handleSortChange}
+                  className="font-medium"
+                />
                 <TableHead data-testid="header-actions">{t('common.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredOrders.map((order) => (
+              {sortedOrders.map((order) => (
                 <TableRow key={order.id} data-testid={`row-order-${order.id}`}>
                   <TableCell>
                     <Checkbox

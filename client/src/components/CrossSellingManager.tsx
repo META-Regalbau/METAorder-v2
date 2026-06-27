@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -18,14 +18,21 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { useCrossSellProductLabels } from "@/hooks/useCrossSellProductLabels";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Product, CrossSellingGroup, CrossSellingProduct } from "@shared/schema";
+import {
+  SHOPWARE_CROSS_SELLING_STOREFRONT_NAME,
+  type Product,
+  type CrossSellingGroup,
+  type CrossSellingProduct,
+} from "@shared/schema";
 
 interface CrossSellingManagerProps {
   product: Product;
@@ -40,12 +47,16 @@ export default function CrossSellingManager({
 }: CrossSellingManagerProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const [newGroupName, setNewGroupName] = useState("");
+  const [newGroupName, setNewGroupName] = useState(SHOPWARE_CROSS_SELLING_STOREFRONT_NAME);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [showCreateFromSuggestions, setShowCreateFromSuggestions] = useState(false);
-  const [newGroupFromSuggestionsName, setNewGroupFromSuggestionsName] = useState("");
+  const [newGroupFromSuggestionsName, setNewGroupFromSuggestionsName] = useState(
+    SHOPWARE_CROSS_SELLING_STOREFRONT_NAME,
+  );
+  const [suggestionTargetGroupId, setSuggestionTargetGroupId] = useState<string | null>(null);
+  const suggestionsImpressionLogged = useRef(false);
 
   // Fetch cross-selling data
   const { data: crossSellingData, refetch: refetchCrossSelling } = useQuery<{
@@ -53,32 +64,27 @@ export default function CrossSellingManager({
   }>({
     queryKey: ["/api/products", product.id, "cross-selling"],
     queryFn: async () => {
-      const response = await fetch(`/api/products/${product.id}/cross-selling`, {
-        cache: 'no-cache', // Force fresh data, bypass browser cache
-        headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache',
-        },
-      });
-      if (!response.ok) throw new Error("Failed to fetch cross-selling");
+      const response = await apiRequest("GET", `/api/products/${product.id}/cross-selling`);
       return response.json();
     },
     enabled: open,
-    staleTime: 0, // Always consider data stale
-    gcTime: 0, // Don't cache in TanStack Query
+    staleTime: 30_000,
   });
 
   // Fetch rule-based suggestions
   const { data: suggestionsData, isLoading: loadingSuggestions } = useQuery<{
-    suggestions: Product[];
+    suggestions: Array<Product & { crossSellReason?: string; hybridScore?: number }>;
   }>({
     queryKey: ["/api/products", product.id, "cross-selling-suggestions"],
     queryFn: async () => {
-      const response = await fetch(`/api/products/${product.id}/cross-selling-suggestions`);
-      if (!response.ok) throw new Error("Failed to fetch suggestions");
+      const response = await apiRequest(
+        "GET",
+        `/api/products/${product.id}/cross-selling-suggestions`
+      );
       return response.json();
     },
     enabled: open,
+    staleTime: 15_000,
   });
 
   // Search products
@@ -92,7 +98,9 @@ export default function CrossSellingManager({
       if (searchTerm) {
         params.set("search", searchTerm);
       }
-      const response = await fetch(`/api/products?${params.toString()}`);
+      const response = await fetch(`/api/products?${params.toString()}`, {
+        credentials: "include",
+      });
       if (!response.ok) throw new Error("Failed to search products");
       return response.json();
     },
@@ -164,6 +172,49 @@ export default function CrossSellingManager({
     },
   });
 
+  const addSuggestionToGroupMutation = useMutation({
+    mutationFn: async ({
+      crossSellingId,
+      productIds,
+      addedProductId,
+    }: {
+      crossSellingId: string;
+      productIds: string[];
+      addedProductId: string;
+    }) => {
+      await apiRequest(
+        "PUT",
+        `/api/products/${product.id}/cross-selling/${crossSellingId}`,
+        { productIds }
+      );
+      return { addedProductId };
+    },
+    onSuccess: (data, variables) => {
+      toast({
+        title: t("crossSelling.updated"),
+        description: t("crossSelling.suggestionAddedToGroup"),
+      });
+      refetchCrossSelling();
+      const addedId = data?.addedProductId ?? variables.addedProductId;
+      const targetPn =
+        suggestions.find((p) => p.id === addedId)?.productNumber?.trim() || undefined;
+      void apiRequest("POST", "/api/cross-selling/analytics-events", {
+        event: "product_suggestion_add_to_group",
+        sourceProductId: product.id,
+        targetProductId: addedId,
+        sourceProductNumber: product.productNumber?.trim(),
+        targetProductNumber: targetPn,
+      }).catch(() => {});
+    },
+    onError: () => {
+      toast({
+        title: t("errors.updateFailed"),
+        description: t("crossSelling.suggestionAddError"),
+        variant: "destructive",
+      });
+    },
+  });
+
   // Update cross-selling mutation
   const updateCrossSellingMutation = useMutation({
     mutationFn: async ({
@@ -223,8 +274,46 @@ export default function CrossSellingManager({
 
   const crossSellings = crossSellingData?.crossSellings || [];
   const suggestions = suggestionsData?.suggestions || [];
+  const suggestionProductNumbers = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          suggestions.map((p) => p.productNumber?.trim()).filter((n): n is string => !!n),
+        ),
+      ).slice(0, 100),
+    [suggestions],
+  );
+  const { productName: suggestionShopwareName } = useCrossSellProductLabels(
+    suggestionProductNumbers,
+    open && suggestionProductNumbers.length > 0,
+  );
   const selectedGroup = crossSellings.find((cs) => cs.id === selectedGroupId);
   const currentProductIds = selectedGroup?.products?.map((p) => p.id) || [];
+
+  useEffect(() => {
+    if (!open) return;
+    if (crossSellings.length > 0 && !suggestionTargetGroupId) {
+      setSuggestionTargetGroupId(crossSellings[0].id);
+    }
+  }, [open, crossSellings, suggestionTargetGroupId]);
+
+  useEffect(() => {
+    if (!open) {
+      suggestionsImpressionLogged.current = false;
+      return;
+    }
+    if (suggestions.length === 0 || suggestionsImpressionLogged.current) return;
+    suggestionsImpressionLogged.current = true;
+    const suggestionProductNumbers = suggestions
+      .map((p) => p.productNumber?.trim())
+      .filter((n): n is string => !!n);
+    void apiRequest("POST", "/api/cross-selling/analytics-events", {
+      event: "product_suggestions_impression",
+      sourceProductId: product.id,
+      sourceProductNumber: product.productNumber?.trim(),
+      metadata: { count: suggestions.length, suggestionProductNumbers },
+    }).catch(() => {});
+  }, [open, product.id, suggestions.length, suggestions, product.productNumber]);
 
   const handleToggleProduct = (productId: string) => {
     setSelectedProductIds((prev) =>
@@ -347,8 +436,10 @@ export default function CrossSellingManager({
                               key={p.id}
                               variant="outline"
                               className="text-xs"
+                              title={p.name ?? undefined}
                             >
                               {p.productNumber}
+                              {p.name && <span className="font-normal opacity-90"> – {p.name}</span>}
                             </Badge>
                           ))}
                           {cs.products.length > 3 && (
@@ -439,7 +530,7 @@ export default function CrossSellingManager({
                               )}
                               <div className="flex-1">
                                 <p className="font-medium text-sm">{p.name}</p>
-                                <p className="text-xs text-muted-foreground font-mono">
+                                <p className="text-xs text-muted-foreground font-mono" title={p.name ?? undefined}>
                                   {p.productNumber}
                                 </p>
                               </div>
@@ -486,6 +577,37 @@ export default function CrossSellingManager({
               </div>
             </div>
 
+            {crossSellings.length > 0 && suggestions.length > 0 && (
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
+                <span className="text-sm text-muted-foreground shrink-0">
+                  {t("crossSelling.targetGroupLabel")}
+                </span>
+                <Select
+                  value={suggestionTargetGroupId ?? undefined}
+                  onValueChange={(v) => setSuggestionTargetGroupId(v)}
+                >
+                  <SelectTrigger
+                    className="w-full sm:w-72"
+                    data-testid="select-suggestion-target-group"
+                  >
+                    <SelectValue placeholder={t("crossSelling.pickGroup")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {crossSellings.map((cs) => (
+                      <SelectItem key={cs.id} value={cs.id}>
+                        {cs.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {crossSellings.length === 0 && suggestions.length > 0 && (
+              <p className="text-sm text-muted-foreground mb-3" data-testid="text-suggestion-no-groups">
+                {t("crossSelling.createGroupFirstForSingles")}
+              </p>
+            )}
+
             {loadingSuggestions ? (
               <Card className="p-6 text-center">
                 <p className="text-sm text-muted-foreground">
@@ -504,7 +626,7 @@ export default function CrossSellingManager({
               </Card>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {suggestions.map((p) => (
+                {suggestions.map((p, idx) => (
                   <Card key={p.id} className="p-4" data-testid={`card-suggestion-${p.id}`}>
                     <div className="flex gap-3">
                       {p.imageUrl && (
@@ -515,13 +637,32 @@ export default function CrossSellingManager({
                         />
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm mb-1 truncate">
-                          {p.name}
-                        </p>
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <p className="font-medium text-sm truncate">{p.name}</p>
+                          {idx === 0 && (
+                            <Badge
+                              variant="default"
+                              className="text-xs shrink-0"
+                              title={
+                                p.crossSellReason
+                                  ? `${t("crossSelling.recommendedBecause", "Empfohlen, weil")}: ${p.crossSellReason}`
+                                  : undefined
+                              }
+                            >
+                              {t("crossSelling.recommendedBadge")}
+                            </Badge>
+                          )}
+                        </div>
                         <p className="text-xs text-muted-foreground font-mono mb-2">
                           {p.productNumber}
+                          {suggestionShopwareName(p.productNumber || "") &&
+                            suggestionShopwareName(p.productNumber || "") !== p.name && (
+                              <span className="block font-sans text-muted-foreground mt-0.5">
+                                {suggestionShopwareName(p.productNumber || "")}
+                              </span>
+                            )}
                         </p>
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-2 mb-2">
                           <p className="font-semibold">€{p.price.toFixed(2)}</p>
                           {p.available && (
                             <Badge variant="secondary" className="text-xs">
@@ -529,6 +670,33 @@ export default function CrossSellingManager({
                             </Badge>
                           )}
                         </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          className="w-full"
+                          disabled={
+                            !suggestionTargetGroupId ||
+                            addSuggestionToGroupMutation.isPending
+                          }
+                          data-testid={`button-add-suggestion-to-group-${p.id}`}
+                          onClick={() => {
+                            if (!suggestionTargetGroupId) return;
+                            const group = crossSellings.find(
+                              (cs) => cs.id === suggestionTargetGroupId
+                            );
+                            const existingIds =
+                              group?.products?.map((x) => x.id).filter(Boolean) ?? [];
+                            const merged = [...new Set([...existingIds, p.id])];
+                            addSuggestionToGroupMutation.mutate({
+                              crossSellingId: suggestionTargetGroupId,
+                              productIds: merged,
+                              addedProductId: p.id,
+                            });
+                          }}
+                        >
+                          {t("crossSelling.addOneToGroup")}
+                        </Button>
                       </div>
                     </div>
                   </Card>

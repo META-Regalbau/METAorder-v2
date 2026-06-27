@@ -1,0 +1,14 @@
+node_modules
+dist
+.git
+.cursor
+uploads
+*.log
+.env
+.env.*
+docker.env
+!.env.example
+.DS_Store
+coverage
+.vscode
+.idea

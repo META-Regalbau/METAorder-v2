@@ -22,8 +22,11 @@ import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { User, Role, SalesChannel } from "@shared/schema";
+import SortableTableHead from "@/components/SortableTableHead";
 
 type UserWithRole = User & { roleId: string; roleName: string };
+type SortDirection = "asc" | "desc";
+type UserSortKey = "username" | "email" | "roleName" | "salesChannels" | "skills";
 
 export default function UsersPage() {
   const { toast } = useToast();
@@ -31,6 +34,8 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<UserWithRole | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [deletingUser, setDeletingUser] = useState<UserWithRole | null>(null);
+  const [sortKey, setSortKey] = useState<UserSortKey>("username");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
   const { data: users = [], isLoading: usersLoading } = useQuery<UserWithRole[]>({
     queryKey: ['/api/users'],
@@ -45,7 +50,7 @@ export default function UsersPage() {
   });
 
   const createUserMutation = useMutation({
-    mutationFn: async (userData: { username: string; email?: string; password: string; roleId: string; salesChannelIds: string[] }) => {
+    mutationFn: async (userData: { username: string; email?: string; password: string; roleId: string; salesChannelIds: string[]; skills: string[] }) => {
       const response = await apiRequest("POST", "/api/users", userData);
       if (!response.ok) {
         const error = await response.json();
@@ -119,7 +124,7 @@ export default function UsersPage() {
     },
   });
 
-  const handleAddUser = (userData: { username: string; email?: string; password: string; roleId: string; salesChannelIds: string[] }) => {
+  const handleAddUser = (userData: { username: string; email?: string; password: string; roleId: string; salesChannelIds: string[]; skills: string[] }) => {
     createUserMutation.mutate(userData);
   };
 
@@ -137,9 +142,50 @@ export default function UsersPage() {
     setIsEditDialogOpen(true);
   };
 
+  const handleSortChange = (key: UserSortKey) => {
+    setSortKey((current) => {
+      if (current === key) {
+        setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+        return current;
+      }
+      setSortDirection("asc");
+      return key;
+    });
+  };
+
+  const sortedUsers = [...users].sort((a, b) => {
+    const direction = sortDirection === "asc" ? 1 : -1;
+    switch (sortKey) {
+      case "username":
+        return a.username.localeCompare(b.username) * direction;
+      case "email":
+        return (a.email || "").localeCompare(b.email || "") * direction;
+      case "roleName":
+        return a.roleName.localeCompare(b.roleName) * direction;
+      case "salesChannels": {
+        const aChannels = salesChannels
+          .filter(c => a.salesChannelIds?.includes(c.id))
+          .map(c => c.name)
+          .join(", ");
+        const bChannels = salesChannels
+          .filter(c => b.salesChannelIds?.includes(c.id))
+          .map(c => c.name)
+          .join(", ");
+        return aChannels.localeCompare(bChannels) * direction;
+      }
+      case "skills": {
+        const aSkills = (a.skills || []).join(", ");
+        const bSkills = (b.skills || []).join(", ");
+        return aSkills.localeCompare(bSkills) * direction;
+      }
+      default:
+        return 0;
+    }
+  });
+
   if (usersLoading || rolesLoading) {
     return (
-      <div className="w-full max-w-6xl mx-auto">
+      <div className="w-full">
         <div className="mb-6">
           <h1 className="text-2xl font-semibold mb-1">{t('users.title')}</h1>
           <p className="text-sm text-muted-foreground">{t('users.description')}</p>
@@ -152,7 +198,7 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="w-full max-w-6xl mx-auto">
+    <div className="w-full">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold mb-1">{t('users.title')}</h1>
@@ -168,15 +214,46 @@ export default function UsersPage() {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50">
-                <TableHead className="font-medium">{t('users.username')}</TableHead>
-                <TableHead className="font-medium">{t('users.email')}</TableHead>
-                <TableHead className="font-medium">{t('users.role')}</TableHead>
-                <TableHead className="font-medium">{t('users.salesChannels')}</TableHead>
+                <SortableTableHead
+                  label={t('users.username')}
+                  sortKey="username"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  onSort={handleSortChange}
+                />
+                <SortableTableHead
+                  label={t('users.email')}
+                  sortKey="email"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  onSort={handleSortChange}
+                />
+                <SortableTableHead
+                  label={t('users.role')}
+                  sortKey="roleName"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  onSort={handleSortChange}
+                />
+                <SortableTableHead
+                  label={t('users.salesChannels')}
+                  sortKey="salesChannels"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  onSort={handleSortChange}
+                />
+                <SortableTableHead
+                  label={t('users.skills')}
+                  sortKey="skills"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  onSort={handleSortChange}
+                />
                 <TableHead className="font-medium text-right">{t('common.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-            {users.map((user) => {
+            {sortedUsers.map((user) => {
               const userChannels = salesChannels.filter(c => user.salesChannelIds?.includes(c.id));
               
               return (
@@ -203,6 +280,19 @@ export default function UsersPage() {
                         {userChannels.map(channel => (
                           <Badge key={channel.id} variant="outline" className="text-xs">
                             {channel.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {!user.skills || user.skills.length === 0 ? (
+                      <span className="text-sm text-muted-foreground">{t('users.noSkills')}</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {user.skills.map((skill) => (
+                          <Badge key={skill} variant="secondary" className="text-xs">
+                            {skill}
                           </Badge>
                         ))}
                       </div>

@@ -2,7 +2,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -28,6 +28,22 @@ const editRoleSchema = z.object({
     manageCrossSellingRules: z.boolean(),
     viewTickets: z.boolean(),
     manageTickets: z.boolean(),
+    manageAutomations: z.boolean(),
+    manageOrderDrafts: z.boolean(),
+    viewOffers: z.boolean(),
+    manageOffers: z.boolean(),
+    viewNaturalLanguageAnalytics: z.boolean(),
+    viewDocuments: z.boolean(),
+    manageDocuments: z.boolean(),
+    manageProducts: z.boolean(),
+    viewAccounting: z.boolean(),
+    viewCrm: z.boolean(),
+    manageCrm: z.boolean(),
+    approveCrm: z.boolean(),
+    viewCPQ: z.boolean(),
+    manageCPQ: z.boolean(),
+    manageCPQDiscountLevels: z.boolean(),
+    approveCPQQuotes: z.boolean(),
   }),
 });
 
@@ -54,6 +70,22 @@ const permissionLabels = {
   manageCrossSellingRules: { label: "Manage Cross-Selling Rules", description: "Can create and manage intelligent cross-selling rules" },
   viewTickets: { label: "View Tickets", description: "Can view ticket list and details" },
   manageTickets: { label: "Manage Tickets", description: "Can create, edit, assign, and delete tickets" },
+  manageAutomations: { label: "Manage Automations", description: "Can create and manage automation rules" },
+  manageOrderDrafts: { label: "Manage Order Drafts", description: "Can upload and process order drafts" },
+  viewOffers: { label: "View Offers", description: "Can view offers and offer details" },
+  manageOffers: { label: "Manage Offers", description: "Can upload offer drafts and create offers" },
+  viewNaturalLanguageAnalytics: { label: "View Natural Language Analytics", description: "Can use natural language analytics queries" },
+  viewDocuments: { label: "View Documents", description: "Can access documents and files" },
+  manageDocuments: { label: "Manage Documents", description: "Can upload and manage documents" },
+  manageProducts: { label: "Manage Products", description: "Can activate and deactivate products" },
+  viewAccounting: { label: "View Accounting", description: "Can access accounting uploads and matching" },
+  viewCrm: { label: "View CRM", description: "Can access CRM pages and customer views" },
+  manageCrm: { label: "Manage CRM", description: "Can create CRM requests and customer notes" },
+  approveCrm: { label: "Approve CRM", description: "Can approve discounts and assignments" },
+  viewCPQ: { label: "View CPQ", description: "Can view configurator and configurations" },
+  manageCPQ: { label: "Manage CPQ", description: "Can manage rules, mappings, and systems" },
+  manageCPQDiscountLevels: { label: "Manage CPQ Discount Levels", description: "Can manage discount traffic light levels" },
+  approveCPQQuotes: { label: "Approve CPQ Quotes", description: "Can approve offers requiring clearance" },
 };
 
 export default function EditRoleDialog({ role, open, onClose, onUpdateRole }: EditRoleDialogProps) {
@@ -65,7 +97,37 @@ export default function EditRoleDialog({ role, open, onClose, onUpdateRole }: Ed
     values: role ? {
       name: role.name,
       salesChannelIds: role.salesChannelIds || [],
-      permissions: role.permissions,
+      permissions: {
+        viewOrders: !!role.permissions.viewOrders,
+        editOrders: !!role.permissions.editOrders,
+        exportData: !!role.permissions.exportData,
+        viewAnalytics: !!role.permissions.viewAnalytics,
+        viewDelayedOrders: !!role.permissions.viewDelayedOrders,
+        viewShipping: !!role.permissions.viewShipping,
+        manageUsers: !!role.permissions.manageUsers,
+        manageRoles: !!role.permissions.manageRoles,
+        manageSettings: !!role.permissions.manageSettings,
+        manageCrossSellingGroups: !!role.permissions.manageCrossSellingGroups,
+        manageCrossSellingRules: !!role.permissions.manageCrossSellingRules,
+        viewTickets: !!role.permissions.viewTickets,
+        manageTickets: !!role.permissions.manageTickets,
+        manageAutomations: !!role.permissions.manageAutomations,
+        manageOrderDrafts: !!role.permissions.manageOrderDrafts,
+        viewOffers: !!role.permissions.viewOffers,
+        manageOffers: !!role.permissions.manageOffers,
+        viewNaturalLanguageAnalytics: !!role.permissions.viewNaturalLanguageAnalytics,
+        viewDocuments: !!role.permissions.viewDocuments,
+        manageDocuments: !!role.permissions.manageDocuments,
+        manageProducts: !!role.permissions.manageProducts,
+        viewAccounting: !!role.permissions.viewAccounting,
+        viewCrm: !!role.permissions.viewCrm,
+        manageCrm: !!role.permissions.manageCrm,
+        approveCrm: !!role.permissions.approveCrm,
+        viewCPQ: !!(role.permissions as any).viewCPQ,
+        manageCPQ: !!(role.permissions as any).manageCPQ,
+        manageCPQDiscountLevels: !!(role.permissions as any).manageCPQDiscountLevels,
+        approveCPQQuotes: !!(role.permissions as any).approveCPQQuotes,
+      },
     } : undefined,
   });
 
@@ -88,6 +150,7 @@ export default function EditRoleDialog({ role, open, onClose, onUpdateRole }: Ed
       <DialogContent className="max-w-xl max-h-[90vh] flex flex-col" data-testid="dialog-edit-role">
         <DialogHeader>
           <DialogTitle>Edit Role</DialogTitle>
+          <DialogDescription>{t("roles.description")}</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col flex-1 min-h-0 gap-4">

@@ -7,9 +7,13 @@ import { Card } from "@/components/ui/card";
 import { useTranslation } from "react-i18next";
 import type { OrderStatus } from "@shared/schema";
 
+export type InvoiceFilter = "all" | "with" | "without" | "unsent";
+
 interface OrderFiltersProps {
   statusFilter: OrderStatus | "all";
   onStatusFilterChange: (status: OrderStatus | "all") => void;
+  invoiceFilter: InvoiceFilter;
+  onInvoiceFilterChange: (value: InvoiceFilter) => void;
   dateFrom: string;
   dateTo: string;
   onDateFromChange: (date: string) => void;
@@ -21,6 +25,8 @@ interface OrderFiltersProps {
 export default function OrderFilters({
   statusFilter,
   onStatusFilterChange,
+  invoiceFilter,
+  onInvoiceFilterChange,
   dateFrom,
   dateTo,
   onDateFromChange,
@@ -76,7 +82,22 @@ export default function OrderFilters({
             </SelectContent>
           </Select>
         </div>
-        
+
+        <div>
+          <Label className="text-sm font-medium mb-2">{t('filters.invoiceLabel')}</Label>
+          <Select value={invoiceFilter} onValueChange={(v) => onInvoiceFilterChange(v as InvoiceFilter)}>
+            <SelectTrigger data-testid="select-invoice-filter">
+              <SelectValue placeholder={t('filters.invoiceAll')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('filters.invoiceAll')}</SelectItem>
+              <SelectItem value="with">{t('filters.invoiceWith')}</SelectItem>
+              <SelectItem value="without">{t('filters.invoiceWithout')}</SelectItem>
+              <SelectItem value="unsent">{t('filters.invoiceUnsent')}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="space-y-3">
           <div>
             <Label className="text-sm font-medium mb-2">{t('filters.dateFrom')}</Label>

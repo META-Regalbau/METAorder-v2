@@ -1,4 +1,5 @@
 import { useToast } from "@/hooks/use-toast"
+import { useTranslation } from "react-i18next"
 import {
   Toast,
   ToastClose,
@@ -10,6 +11,7 @@ import {
 
 export function Toaster() {
   const { toasts } = useToast()
+  const { t } = useTranslation()
 
   return (
     <ToastProvider>
@@ -27,7 +29,9 @@ export function Toaster() {
           </Toast>
         )
       })}
-      <ToastViewport />
+      <ToastViewport
+        label={t("a11y.toastViewport", { defaultValue: "Benachrichtigungen ({hotkey})" })}
+      />
     </ToastProvider>
   )
 }

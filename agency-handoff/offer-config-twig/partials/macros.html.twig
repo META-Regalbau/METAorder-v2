@@ -1,0 +1,52 @@
+{# Währung und Datum wie im METAorder offerConfigPdf (de-DE). #}
+{% macro eur(amount) -%}
+  {%- set v = amount ?? 0 -%}
+  {{- v|number_format(2, ',', '.') }} EUR
+{%- endmacro %}
+
+{% macro de_date(iso) -%}
+  {%- if iso is not defined or iso is null or iso == '' -%}
+    —
+  {%- else -%}
+    {{- iso|date('d.m.Y') -}}
+  {%- endif -%}
+{%- endmacro %}
+
+{# Entspricht formatRecipientAddressLines() in offerConfigPdf.ts #}
+{% macro address_lines(offer) %}
+  {%- set a = offer.billingAddress ?? {} -%}
+  {%- set lines = [] -%}
+  {%- if a.company|default('')|trim != '' -%}
+    {%- set lines = lines|merge([a.company|trim]) -%}
+  {%- endif -%}
+  {%- set person = [a.firstName|default(''), a.lastName|default('')]|join(' ')|trim -%}
+  {%- if person != '' -%}
+    {%- set lines = lines|merge([person]) -%}
+  {%- endif -%}
+  {%- if a.street|default('')|trim != '' -%}
+    {%- set lines = lines|merge([a.street|trim]) -%}
+  {%- endif -%}
+  {%- set cityLine = [a.zipCode|default(''), a.city|default('')]|join(' ')|trim -%}
+  {%- if cityLine != '' -%}
+    {%- set lines = lines|merge([cityLine]) -%}
+  {%- endif -%}
+  {%- if a.country|default('')|trim != '' -%}
+    {%- set lines = lines|merge([a.country|trim]) -%}
+  {%- endif -%}
+  {%- if a.phoneNumber|default('')|trim != '' -%}
+    {%- set lines = lines|merge(['Tel. ' ~ a.phoneNumber|trim]) -%}
+  {%- endif -%}
+  {%- if lines is empty and offer.customerName|default('')|trim != '' -%}
+    {%- set lines = lines|merge([offer.customerName|trim]) -%}
+  {%- endif -%}
+  {%- if offer.customerEmail|default('')|trim != '' -%}
+    {%- set lines = lines|merge([offer.customerEmail|trim]) -%}
+  {%- endif -%}
+  {%- if lines is empty -%}
+    <span class="muted">—</span>
+  {%- else -%}
+    {%- for line in lines -%}
+      {{- line -}}{% if not loop.last %}<br>{% endif %}
+    {%- endfor -%}
+  {%- endif -%}
+{% endmacro %}

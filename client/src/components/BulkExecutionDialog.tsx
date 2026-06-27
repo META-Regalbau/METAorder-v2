@@ -4,7 +4,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Card } from "@/components/ui/card";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useCrossSellProductLabels } from "@/hooks/useCrossSellProductLabels";
 import { useTranslation } from "react-i18next";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -26,11 +27,52 @@ interface BulkExecutionResult {
   errors: Array<{ productId: string; productName: string; error: string }>;
 }
 
+function extractProductNumbersFromRule(rule: CrossSellingRule): string[] {
+  const nums: string[] = [];
+  for (const c of rule.sourceConditions || []) {
+    if (c.field === "productNumber" && c.operator === "equals" && typeof c.value === "string") {
+      nums.push(c.value.trim());
+    }
+  }
+  for (const t of rule.targetCriteria || []) {
+    if (t.field === "productNumber" && t.matchType === "exact" && t.value != null && t.value !== "") {
+      nums.push(String(t.value).trim());
+    }
+  }
+  return nums;
+}
+
+function ruleFixedPairSummary(rule: CrossSellingRule, nameFor: (pn: string) => string): string | null {
+  const src = rule.sourceConditions?.find(
+    (c) => c.field === "productNumber" && c.operator === "equals" && typeof c.value === "string",
+  )?.value as string | undefined;
+  const tgtRaw = rule.targetCriteria?.find((t) => t.field === "productNumber" && t.matchType === "exact")?.value;
+  const tgt = tgtRaw != null && tgtRaw !== "" ? String(tgtRaw).trim() : "";
+  if (!src || !tgt) return null;
+  const ns = nameFor(src);
+  const nt = nameFor(tgt);
+  const left = ns ? `${src} (${ns})` : src;
+  const right = nt ? `${tgt} (${nt})` : tgt;
+  return `${left} → ${right}`;
+}
+
 export default function BulkExecutionDialog({ open, onClose, rules }: BulkExecutionDialogProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const [selectedRuleId, setSelectedRuleId] = useState<string>("all");
   const [executionResult, setExecutionResult] = useState<BulkExecutionResult | null>(null);
+
+  const bulkLabelNumbers = useMemo(() => {
+    const s = new Set<string>();
+    for (const rule of rules) {
+      for (const n of extractProductNumbersFromRule(rule)) {
+        s.add(n);
+      }
+    }
+    return Array.from(s).slice(0, 400);
+  }, [rules]);
+
+  const { productName } = useCrossSellProductLabels(bulkLabelNumbers, open && bulkLabelNumbers.length > 0);
 
   const executeMutation = useMutation({
     mutationFn: async (ruleId?: string) => {
@@ -91,19 +133,44 @@ export default function BulkExecutionDialog({ open, onClose, rules }: BulkExecut
                     <SelectItem value="all" data-testid="option-all-rules">
                       {t('rules.allActiveRules')} ({activeRules.length})
                     </SelectItem>
-                    {activeRules.map((rule) => (
-                      <SelectItem key={rule.id} value={rule.id} data-testid={`option-rule-${rule.id}`}>
-                        {rule.name}
-                      </SelectItem>
-                    ))}
+                    {activeRules.map((rule) => {
+                      const pairHint = ruleFixedPairSummary(rule, productName);
+                      return (
+                        <SelectItem
+                          key={rule.id}
+                          value={rule.id}
+                          data-testid={`option-rule-${rule.id}`}
+                          textValue={`${rule.name} ${pairHint ?? ""}`}
+                        >
+                          <div className="flex flex-col items-start gap-0.5 py-0.5">
+                            <span className="font-medium">{rule.name}</span>
+                            {pairHint && (
+                              <span className="text-xs text-muted-foreground font-normal line-clamp-2 max-w-[300px]">
+                                {pairHint}
+                              </span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="p-4 border rounded-md bg-muted/50">
+              <div className="p-4 border rounded-md bg-muted/50 space-y-2">
                 <p className="text-sm text-muted-foreground">
                   {t('rules.bulkExecutionWarning')}
                 </p>
+                {selectedRuleId !== "all" && (() => {
+                  const sel = activeRules.find((r) => r.id === selectedRuleId);
+                  const hint = sel ? ruleFixedPairSummary(sel, productName) : null;
+                  return hint ? (
+                    <p className="text-xs text-muted-foreground border-t border-border/60 pt-2">
+                      <span className="font-medium text-foreground">{t("rules.bulkSelectedRulePair", "Artikelpaar")}:</span>{" "}
+                      {hint}
+                    </p>
+                  ) : null;
+                })()}
               </div>
 
               <div className="flex justify-end gap-2">

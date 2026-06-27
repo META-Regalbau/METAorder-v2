@@ -1,7 +1,11 @@
 import jwt from "jsonwebtoken";
 import type { User } from "@shared/schema";
 
-const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || "dev-jwt-secret-change-in-production";
+const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET;
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET is required. Refusing to start without a secure secret.");
+}
+const JWT_SECRET_VALUE = JWT_SECRET as string;
 const JWT_EXPIRES_IN = "24h";
 
 export interface JWTPayload {
@@ -20,7 +24,7 @@ export function generateToken(user: User): string {
     roleId: user.roleId,
   };
 
-  return jwt.sign(payload, JWT_SECRET, {
+  return jwt.sign(payload, JWT_SECRET_VALUE, {
     expiresIn: JWT_EXPIRES_IN,
   });
 }
@@ -31,8 +35,17 @@ export function generateToken(user: User): string {
  */
 export function verifyToken(token: string): JWTPayload | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
-    return decoded;
+    const decoded = jwt.verify(token, JWT_SECRET_VALUE);
+    if (
+      typeof decoded === "object" &&
+      decoded !== null &&
+      "userId" in decoded &&
+      "username" in decoded &&
+      "roleId" in decoded
+    ) {
+      return decoded as JWTPayload;
+    }
+    return null;
   } catch (error) {
     return null;
   }

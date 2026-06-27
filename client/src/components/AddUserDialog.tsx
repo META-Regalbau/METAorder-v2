@@ -20,6 +20,7 @@ const addUserSchema = z.object({
   confirmPassword: z.string(),
   roleId: z.string().min(1, "Please select a role"),
   salesChannelIds: z.array(z.string()),
+  skills: z.string().optional(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
@@ -28,7 +29,7 @@ const addUserSchema = z.object({
 type AddUserFormData = z.infer<typeof addUserSchema>;
 
 interface AddUserDialogProps {
-  onAddUser: (user: Omit<AddUserFormData, "confirmPassword">) => void;
+  onAddUser: (user: Omit<AddUserFormData, "confirmPassword" | "skills"> & { skills: string[] }) => void;
   availableRoles: Role[];
 }
 
@@ -46,13 +47,17 @@ export default function AddUserDialog({ onAddUser, availableRoles }: AddUserDial
       confirmPassword: "",
       roleId: "",
       salesChannelIds: [],
+      skills: "",
     },
   });
 
   const handleSubmit = (data: AddUserFormData) => {
     console.log("Adding user:", { ...data, password: "***", confirmPassword: "***" });
-    const { confirmPassword, ...userData } = data;
-    onAddUser(userData);
+    const { confirmPassword, skills, ...userData } = data;
+    const parsedSkills = skills
+      ? skills.split(",").map((skill) => skill.trim()).filter(Boolean)
+      : [];
+    onAddUser({ ...userData, skills: parsedSkills });
     toast({
       title: "User created",
       description: `User ${data.username} has been created successfully.`,
@@ -166,6 +171,24 @@ export default function AddUserDialog({ onAddUser, availableRoles }: AddUserDial
                     <SalesChannelMultiSelect
                       value={field.value}
                       onChange={field.onChange}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="skills"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="font-medium">{t('users.skills')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder={t('users.skillsPlaceholder')}
+                      {...field}
+                      data-testid="input-skills"
                     />
                   </FormControl>
                   <FormMessage />

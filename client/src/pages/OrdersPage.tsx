@@ -1,10 +1,21 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useLocation } from "wouter";
 import { RefreshCw, Search, ChevronDown, ChevronUp, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import OrderFilters from "@/components/OrderFilters";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import OrderFilters, { type InvoiceFilter } from "@/components/OrderFilters";
 import OrdersTable from "@/components/OrdersTable";
 import OrderDetailModal from "@/components/OrderDetailModal";
 import BulkActionsBar from "@/components/BulkActionsBar";
@@ -21,11 +32,22 @@ interface OrdersPageProps {
   userSalesChannelIds?: string[] | null;
 }
 
+type SortDirection = "asc" | "desc";
+type OrderSortKey =
+  | "orderNumber"
+  | "customerName"
+  | "orderDate"
+  | "status"
+  | "totalAmount"
+  | "trackingNumber";
+
 export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPageProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const [location] = useLocation();
   const [searchValue, setSearchValue] = useState("");
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">("all");
+  const [invoiceFilter, setInvoiceFilter] = useState<InvoiceFilter>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -36,6 +58,17 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [isBulkTrackingDialogOpen, setIsBulkTrackingDialogOpen] = useState(false);
+  const [sortKey, setSortKey] = useState<OrderSortKey>("orderDate");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.split("?")[1] ?? "");
+    const searchParam = params.get("search");
+    if (searchParam !== null) {
+      setSearchValue(searchParam);
+      setCurrentPage(1);
+    }
+  }, [location]);
 
   // Fetch sales channels to initialize selection
   const { data: salesChannels = [] } = useQuery<SalesChannel[]>({
@@ -74,6 +107,16 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
   // Fetch ticket counts for orders
   const { data: ticketCounts = {} } = useQuery<Record<string, number>>({
     queryKey: ['/api/orders/ticket-counts'],
+    queryFn: async () => {
+      const response = await fetch('/api/orders/ticket-counts', { credentials: 'include' });
+      if (response.status === 401) {
+        return {};
+      }
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      return response.json();
+    },
     retry: false,
   });
 
@@ -87,7 +130,7 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
     const errorMessage = (error as any)?.message || t('errors.loadFailed');
     if (errorMessage.includes('not configured')) {
       return (
-        <div className="w-full max-w-4xl mx-auto">
+        <div className="w-full">
           <div className="mb-6">
             <h1 className="text-2xl font-semibold mb-1">{t('orders.title')}</h1>
             <p className="text-sm text-muted-foreground">
@@ -110,36 +153,96 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
     }
   }
 
-  // Filter and sort orders (newest first)
+  // Filter orders
+  const normalizedSearch = searchValue.trim().toLowerCase();
   const filteredOrders = orders
     .filter((order) => {
       const matchesSearch =
-        searchValue === "" ||
-        order.orderNumber.toLowerCase().includes(searchValue.toLowerCase()) ||
-        order.customerName.toLowerCase().includes(searchValue.toLowerCase()) ||
-        order.customerEmail.toLowerCase().includes(searchValue.toLowerCase());
+        normalizedSearch === "" ||
+        order.orderNumber.toLowerCase().includes(normalizedSearch) ||
+        order.customerName.toLowerCase().includes(normalizedSearch) ||
+        order.customerEmail.toLowerCase().includes(normalizedSearch) ||
+        order.invoiceNumber?.toLowerCase().includes(normalizedSearch) ||
+        order.erpNumber?.toLowerCase().includes(normalizedSearch);
 
       const matchesStatus = statusFilter === "all" || order.status === statusFilter;
+
+      const matchesInvoice =
+        invoiceFilter === "all" ||
+        (invoiceFilter === "with" && !!order.hasInvoiceDocument) ||
+        (invoiceFilter === "without" && !order.hasInvoiceDocument) ||
+        (invoiceFilter === "unsent" && !!order.hasInvoiceDocument && !order.invoiceSent);
 
       const matchesDateFrom = dateFrom === "" || new Date(order.orderDate) >= new Date(dateFrom);
       const matchesDateTo = dateTo === "" || new Date(order.orderDate) <= new Date(dateTo);
 
-      return matchesSearch && matchesStatus && matchesDateFrom && matchesDateTo;
-    })
-    .sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
+      return matchesSearch && matchesStatus && matchesInvoice && matchesDateFrom && matchesDateTo;
+    });
+
+  const sortedOrders = [...filteredOrders].sort((a, b) => {
+    const direction = sortDirection === "asc" ? 1 : -1;
+    switch (sortKey) {
+      case "orderNumber":
+        return a.orderNumber.localeCompare(b.orderNumber) * direction;
+      case "customerName":
+        return a.customerName.localeCompare(b.customerName) * direction;
+      case "orderDate":
+        return (new Date(a.orderDate).getTime() - new Date(b.orderDate).getTime()) * direction;
+      case "status":
+        return a.status.localeCompare(b.status) * direction;
+      case "totalAmount":
+        return ((a.totalAmount || 0) - (b.totalAmount || 0)) * direction;
+      case "trackingNumber": {
+        const aTracking = a.shippingInfo?.trackingNumber || "";
+        const bTracking = b.shippingInfo?.trackingNumber || "";
+        return aTracking.localeCompare(bTracking) * direction;
+      }
+      default:
+        return 0;
+    }
+  });
 
   // Pagination
   const itemsPerPageNum = parseInt(itemsPerPage);
-  const totalPages = Math.ceil(filteredOrders.length / itemsPerPageNum);
+  const totalPages = Math.ceil(sortedOrders.length / itemsPerPageNum);
   const startIndex = (currentPage - 1) * itemsPerPageNum;
   const endIndex = startIndex + itemsPerPageNum;
-  const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
+  const paginatedOrders = sortedOrders.slice(startIndex, endIndex);
+
+  const duplicateOrderIds = useMemo(() => {
+    const windowMs = 7 * 24 * 60 * 60 * 1000;
+    const groups = new Map<string, Order[]>();
+    orders.forEach((order) => {
+      const key = `${order.orderNumber}|${order.customerEmail}`.toLowerCase();
+      const list = groups.get(key) || [];
+      list.push(order);
+      groups.set(key, list);
+    });
+    const duplicates = new Set<string>();
+    groups.forEach((group) => {
+      if (group.length < 2) return;
+      const sorted = [...group].sort((a, b) => new Date(a.orderDate).getTime() - new Date(b.orderDate).getTime());
+      for (let i = 0; i < sorted.length; i += 1) {
+        for (let j = i + 1; j < sorted.length; j += 1) {
+          const diff = Math.abs(new Date(sorted[j].orderDate).getTime() - new Date(sorted[i].orderDate).getTime());
+          if (diff <= windowMs) {
+            duplicates.add(sorted[i].id);
+            duplicates.add(sorted[j].id);
+          } else {
+            break;
+          }
+        }
+      }
+    });
+    return duplicates;
+  }, [orders]);
 
   // Reset to page 1 when filters change
   const resetPage = () => setCurrentPage(1);
 
   const activeFiltersCount = [
     statusFilter !== "all",
+    invoiceFilter !== "all",
     dateFrom !== "",
     dateTo !== "",
   ].filter(Boolean).length;
@@ -171,6 +274,18 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
     }
   };
 
+  const handleSortChange = (key: OrderSortKey) => {
+    setSortKey((current) => {
+      if (current === key) {
+        setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+        return current;
+      }
+      setSortDirection("asc");
+      return key;
+    });
+    setCurrentPage(1);
+  };
+
   // Mutation to update shipping information and set status to shipped in Shopware
   const updateShippingMutation = useMutation({
     mutationFn: async ({ orderId, shippingData }: { orderId: string; shippingData: any }) => {
@@ -197,13 +312,83 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
     updateShippingMutation.mutate({ orderId, shippingData: data });
   };
 
+  // Mutation to update document numbers in Shopware
+  const updateDocumentsMutation = useMutation({
+    mutationFn: async ({ orderId, documentData }: { orderId: string; documentData: any }) => {
+      const response = await apiRequest("PATCH", `/api/orders/${orderId}/documents`, documentData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
+      toast({
+        title: t('orderDetail.documentsUpdated'),
+        description: t('orderDetail.documentsSuccess'),
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t('errors.updateFailed'),
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleUpdateDocuments = (orderId: string, data: any) => {
-    console.log("Update documents for order:", orderId, data);
-    toast({
-      title: t('orderDetail.documentsUpdated'),
-      description: t('orderDetail.documentsSuccess'),
+    updateDocumentsMutation.mutate({ orderId, documentData: data });
+  };
+
+  // Rechnung ueber die Shopware-Funktion verschicken (Dokument per Mail + sent=true)
+  const [sendingInvoiceOrderId, setSendingInvoiceOrderId] = useState<string | null>(null);
+  // Bestellung, fuer die der Versand-Bestaetigungsdialog offen ist.
+  const [pendingSendInvoiceOrder, setPendingSendInvoiceOrder] = useState<Order | null>(null);
+  const sendInvoiceMutation = useMutation({
+    mutationFn: async ({ orderId, orderNumber }: { orderId: string; orderNumber?: string }) => {
+      const response = await apiRequest("POST", `/api/orders/${orderId}/send-invoice`, { orderNumber });
+      return response.json();
+    },
+    onMutate: ({ orderId }) => setSendingInvoiceOrderId(orderId),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
+      if (data?.status === 'already_sent') {
+        toast({
+          title: t('orders.invoiceAlreadySentTitle'),
+          description: data?.mondu
+            ? t('orders.invoiceAlreadySentMonduDesc')
+            : t('orders.invoiceAlreadySentDesc'),
+        });
+      } else {
+        toast({
+          title: t('orders.invoiceSentTitle'),
+          description: data?.mondu
+            ? t('orders.invoiceSentMonduDesc', { number: data?.invoiceNumber ?? '' })
+            : t('orders.invoiceSentDesc', { number: data?.invoiceNumber ?? '' }),
+        });
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t('orders.invoiceSendFailedTitle'),
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+    onSettled: () => setSendingInvoiceOrderId(null),
+  });
+
+  // Klick auf "Verschicken" oeffnet zuerst den Bestaetigungsdialog (kein
+  // versehentlicher Mailversand an Kunden).
+  const handleSendInvoice = (order: Order) => {
+    setPendingSendInvoiceOrder(order);
+  };
+
+  const confirmSendInvoice = () => {
+    if (!pendingSendInvoiceOrder) return;
+    sendInvoiceMutation.mutate({
+      orderId: pendingSendInvoiceOrder.id,
+      orderNumber: pendingSendInvoiceOrder.orderNumber,
     });
-    // TODO: Implement API call to update documents
+    setPendingSendInvoiceOrder(null);
   };
 
   const handleToggleOrder = (orderId: string) => {
@@ -289,13 +474,22 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
           <CollapsibleContent>
             <OrderFilters
               statusFilter={statusFilter}
-              onStatusFilterChange={(value) => setStatusFilter(value as OrderStatus | "all")}
+              onStatusFilterChange={(value) => {
+                setStatusFilter(value as OrderStatus | "all");
+                resetPage();
+              }}
+              invoiceFilter={invoiceFilter}
+              onInvoiceFilterChange={(value) => {
+                setInvoiceFilter(value);
+                resetPage();
+              }}
               dateFrom={dateFrom}
               dateTo={dateTo}
               onDateFromChange={setDateFrom}
               onDateToChange={setDateTo}
               onClearFilters={() => {
                 setStatusFilter("all");
+                setInvoiceFilter("all");
                 setDateFrom("");
                 setDateTo("");
                 setSearchValue("");
@@ -314,9 +508,15 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
           onViewOrder={handleViewOrder}
           isLoading={isLoading}
           ticketCounts={ticketCounts}
+          duplicateOrderIds={duplicateOrderIds}
           selectedOrderIds={selectedOrderIds}
           onToggleOrder={handleToggleOrder}
           onToggleAll={handleToggleAll}
+          sortKey={sortKey}
+          sortDirection={sortDirection}
+          onSortChange={handleSortChange}
+          onSendInvoice={handleSendInvoice}
+          sendingInvoiceOrderId={sendingInvoiceOrderId}
         />
       </div>
 
@@ -398,6 +598,9 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
         onClose={() => setIsModalOpen(false)}
         userRole={userRole}
         userPermissions={currentUser?.user?.permissions}
+        canManageCrm={currentUser?.user?.permissions?.manageCrm || false}
+        canApproveCrm={currentUser?.user?.permissions?.approveCrm || false}
+        hasDuplicate={selectedOrder ? duplicateOrderIds.has(selectedOrder.id) : false}
         onUpdateShipping={handleUpdateShipping}
         onUpdateDocuments={handleUpdateDocuments}
       />
@@ -414,6 +617,36 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
         selectedOrders={orders.filter(order => selectedOrderIds.includes(order.id))}
         onSuccess={handleBulkUpdateSuccess}
       />
+
+      <AlertDialog
+        open={!!pendingSendInvoiceOrder}
+        onOpenChange={(open) => {
+          if (!open) setPendingSendInvoiceOrder(null);
+        }}
+      >
+        <AlertDialogContent data-testid="dialog-send-invoice">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('orders.sendInvoiceConfirmTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('orders.sendInvoiceConfirmDesc', {
+                orderNumber: pendingSendInvoiceOrder?.orderNumber ?? '',
+                customer: pendingSendInvoiceOrder?.customerName ?? '',
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-send-invoice">
+              {t('common.cancel')}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmSendInvoice}
+              data-testid="button-confirm-send-invoice"
+            >
+              {t('orders.sendInvoice')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

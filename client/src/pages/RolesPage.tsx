@@ -22,6 +22,10 @@ import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Role, SalesChannel } from "@shared/schema";
+import SortableTableHead from "@/components/SortableTableHead";
+
+type SortDirection = "asc" | "desc";
+type RoleSortKey = "name" | "salesChannels" | "permissions";
 
 export default function RolesPage() {
   const { toast } = useToast();
@@ -29,6 +33,8 @@ export default function RolesPage() {
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [deletingRole, setDeletingRole] = useState<Role | null>(null);
+  const [sortKey, setSortKey] = useState<RoleSortKey>("name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
   const { data: roles = [], isLoading: rolesLoading } = useQuery<Role[]>({
     queryKey: ['/api/roles'],
@@ -135,9 +141,43 @@ export default function RolesPage() {
     return Object.values(permissions).filter(Boolean).length;
   };
 
+  const handleSortChange = (key: RoleSortKey) => {
+    setSortKey((current) => {
+      if (current === key) {
+        setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+        return current;
+      }
+      setSortDirection("asc");
+      return key;
+    });
+  };
+
+  const sortedRoles = [...roles].sort((a, b) => {
+    const direction = sortDirection === "asc" ? 1 : -1;
+    switch (sortKey) {
+      case "name":
+        return a.name.localeCompare(b.name) * direction;
+      case "salesChannels": {
+        const aChannels = salesChannels
+          .filter(c => a.salesChannelIds?.includes(c.id))
+          .map(c => c.name)
+          .join(", ");
+        const bChannels = salesChannels
+          .filter(c => b.salesChannelIds?.includes(c.id))
+          .map(c => c.name)
+          .join(", ");
+        return aChannels.localeCompare(bChannels) * direction;
+      }
+      case "permissions":
+        return (permissionCount(a.permissions) - permissionCount(b.permissions)) * direction;
+      default:
+        return 0;
+    }
+  });
+
   if (rolesLoading) {
     return (
-      <div className="w-full max-w-7xl mx-auto">
+      <div className="w-full">
         <div className="mb-6">
           <h1 className="text-2xl font-semibold mb-1">{t('roles.title')}</h1>
           <p className="text-sm text-muted-foreground">{t('roles.description')}</p>
@@ -150,7 +190,7 @@ export default function RolesPage() {
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto">
+    <div className="w-full">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold mb-1">{t('roles.title')}</h1>
@@ -165,14 +205,32 @@ export default function RolesPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="font-medium">{t('roles.roleName')}</TableHead>
-              <TableHead className="font-medium">{t('roles.salesChannels')}</TableHead>
-              <TableHead className="font-medium">{t('roles.permissions')}</TableHead>
+              <SortableTableHead
+                label={t('roles.roleName')}
+                sortKey="name"
+                activeKey={sortKey}
+                direction={sortDirection}
+                onSort={handleSortChange}
+              />
+              <SortableTableHead
+                label={t('roles.salesChannels')}
+                sortKey="salesChannels"
+                activeKey={sortKey}
+                direction={sortDirection}
+                onSort={handleSortChange}
+              />
+              <SortableTableHead
+                label={t('roles.permissions')}
+                sortKey="permissions"
+                activeKey={sortKey}
+                direction={sortDirection}
+                onSort={handleSortChange}
+              />
               <TableHead className="font-medium text-right">{t('common.actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {roles.map((role) => {
+            {sortedRoles.map((role) => {
               const roleChannels = salesChannels.filter(c => role.salesChannelIds?.includes(c.id));
               
               return (

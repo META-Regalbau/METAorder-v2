@@ -1,0 +1,53 @@
+{% import 'partials/macros.html.twig' as pdf %}
+
+{# Absender META Regalbau — Konstante CO in offerConfigPdf.ts #}
+{% set co = {
+  name: 'META Regalbau GmbH & Co. KG',
+  street: 'Eichenkamp',
+  zip: '59759',
+  city: 'Arnsberg',
+  country: 'Deutschland',
+  phone: '029329573393',
+  email: 'shop@meta-online.com',
+  web: 'shop.meta-online.com',
+} %}
+
+<div class="pdf-header">
+  <div class="pdf-header-row">
+    <div class="pdf-header-logo">
+      {% if offer.logoUrl|default('')|trim != '' %}
+        <img src="{{ offer.logoUrl|e('html_attr') }}" alt="" class="logo-img" width="200" height="56">
+      {% else %}
+        <div class="logo-placeholder muted">Logo (offer.logoUrl)</div>
+      {% endif %}
+    </div>
+    <div class="pdf-header-sender text-right">
+      <div class="sender-name">{{ co.name }}</div>
+      <div class="sender-line">{{ co.street }}</div>
+      <div class="sender-line">{{ co.zip }} {{ co.city }}</div>
+      <div class="sender-line">{{ co.country }}</div>
+      <div class="sender-line">Telefon {{ co.phone }}</div>
+      <div class="sender-line">{{ co.email }}</div>
+      <div class="sender-line">{{ co.web }}</div>
+    </div>
+  </div>
+  <p class="sender-meta muted small">
+    {{ co.name }} · {{ co.street }} · {{ co.zip }} {{ co.city }} · {{ co.country }}
+  </p>
+  <div class="pdf-header-meta-row">
+    <div class="recipient-block">
+      {{ pdf.address_lines(offer) }}
+    </div>
+    <div class="offer-meta text-right">
+      <div>Angebot Nr. {{ offer.offerNumber|e }}</div>
+      {% if offer.customerNumber|default('')|trim != '' %}
+        <div>Kunden-Nr. {{ offer.customerNumber|trim|e }}</div>
+      {% endif %}
+      <div>Datum {{ pdf.de_date(offer.createdAt) }}</div>
+      {% if offer.expirationDate|default('')|trim != '' %}
+        <div>Gültig bis {{ pdf.de_date(offer.expirationDate) }}</div>
+      {% endif %}
+    </div>
+  </div>
+  <h1 class="doc-title">Angebot {{ offer.offerNumber|e }}</h1>
+</div>

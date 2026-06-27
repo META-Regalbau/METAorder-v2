@@ -10,7 +10,7 @@ import { SalesChannelSelector } from "@/components/SalesChannelSelector";
 import { format, subDays } from "date-fns";
 import { de } from "date-fns/locale";
 import { useTranslation } from "react-i18next";
-import type { SalesChannel } from "@shared/schema";
+import type { SalesChannel, AiInsight, OfferLearningInsight } from "@shared/schema";
 import {
   TrendingUp,
   Package,
@@ -123,6 +123,55 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
     enabled: selectedChannelIds.length > 0,
   });
 
+  const { data: aiInsightsData } = useQuery<{ insights: AiInsight[] }>({
+    queryKey: ["/api/ai/insights"],
+    queryFn: async () => {
+      const response = await fetch("/api/ai/insights", { credentials: "include" });
+      if (!response.ok) return { insights: [] };
+      return response.json();
+    },
+  });
+
+  const aiInsights = aiInsightsData?.insights || [];
+
+  const { data: offerInsightsData } = useQuery<{ insights: OfferLearningInsight[] }>({
+    queryKey: ["/api/ai/offers/insights"],
+    queryFn: async () => {
+      const response = await fetch("/api/ai/offers/insights", { credentials: "include" });
+      if (!response.ok) return { insights: [] };
+      return response.json();
+    },
+  });
+
+  const offerInsights = offerInsightsData?.insights || [];
+  const offerStatusInsight = offerInsights.find((insight) => insight.insightType === "offer_status_distribution");
+  const offerConversionInsight = offerInsights.find((insight) => insight.insightType === "offer_conversion");
+  const offerAvgInsight = offerInsights.find((insight) => insight.insightType === "offer_avg_values");
+  const offerTopCustomersInsight = offerInsights.find((insight) => insight.insightType === "top_customers");
+
+  const offerKpiTotals = useMemo(() => {
+    const conv = offerConversionInsight?.data as Record<string, unknown> | undefined;
+    const statusCounts = offerStatusInsight?.data?.statusCounts as Record<string, number> | undefined;
+    const derivedTotal =
+      statusCounts && Object.keys(statusCounts).length > 0
+        ? Object.values(statusCounts).reduce((s, n) => s + (typeof n === "number" ? n : 0), 0)
+        : undefined;
+    const totalOffers = typeof conv?.totalOffers === "number" ? conv.totalOffers : derivedTotal;
+    const approved =
+      typeof conv?.approved === "number"
+        ? conv.approved
+        : typeof statusCounts?.approved === "number"
+          ? statusCounts.approved
+          : undefined;
+    const acceptedOfAllRate =
+      typeof conv?.acceptedOfAllRate === "number"
+        ? conv.acceptedOfAllRate
+        : totalOffers !== undefined && approved !== undefined && totalOffers > 0
+          ? approved / totalOffers
+          : undefined;
+    return { totalOffers, approved, acceptedOfAllRate };
+  }, [offerConversionInsight, offerStatusInsight]);
+
   const { data: orderStatus } = useQuery<Record<string, number>>({
     queryKey: ["/api/analytics/order-status", dateFrom, dateTo, selectedChannelIds],
     queryFn: async () => {
@@ -168,6 +217,34 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
       if (!response.ok) throw new Error("Failed to fetch product overview");
       return response.json();
     },
+  });
+
+  const { data: productActivityTrend } = useQuery<{ trend: Array<{ month: string; active: number; inactive: number }> }>({
+    queryKey: ["/api/analytics/product-activity-trend"],
+    queryFn: async () => {
+      const response = await fetch("/api/analytics/product-activity-trend", {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to fetch product activity trend");
+      return response.json();
+    },
+  });
+
+  const { data: productDataQuality } = useQuery<{
+    totalProducts: number;
+    averageScore: number;
+    criteriaCount: number;
+    distribution: Array<{ label: string; count: number }>;
+  }>({
+    queryKey: ["/api/analytics/product-data-quality", selectedChannelIds],
+    queryFn: async () => {
+      const response = await fetch("/api/analytics/product-data-quality", {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to fetch product data quality");
+      return response.json();
+    },
+    enabled: selectedChannelIds.length > 0,
   });
 
   const { data: categorySales } = useQuery<Array<{ name: string; revenue: number; netRevenue: number; quantity: number }>>({
@@ -239,6 +316,77 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
     enabled: selectedChannelIds.length > 0,
   });
 
+  const { data: shippingTimes } = useQuery<{
+    ordersWithShippingCount: number;
+    averageDays: number;
+    medianDays: number;
+    averageHours: number;
+    medianHours: number;
+    distribution: Array<{ label: string; count: number }>;
+  }>({
+    queryKey: ["/api/analytics/shipping-times", dateFrom, dateTo, selectedChannelIds],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (dateFrom) params.append("dateFrom", dateFrom);
+      if (dateTo) params.append("dateTo", dateTo);
+      if (selectedChannelIds.length > 0) params.append("salesChannelIds", selectedChannelIds.join(","));
+      const response = await fetch(`/api/analytics/shipping-times?${params}`, {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to fetch shipping times");
+      return response.json();
+    },
+    enabled: selectedChannelIds.length > 0,
+  });
+
+  const { data: ga4Kpis } = useQuery<{
+    propertyId?: string;
+    dailyUsers?: number;
+    weeklyUsers?: number;
+    monthlyUsers?: number;
+    rangeUsers?: number;
+    rangeSessions?: number;
+  }>({
+    queryKey: ["/api/analytics/google/ga4", dateFrom, dateTo],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (dateFrom) params.append("dateFrom", dateFrom);
+      if (dateTo) params.append("dateTo", dateTo);
+      const response = await fetch(`/api/analytics/google/ga4?${params}`, {
+        credentials: "include",
+      });
+      if (!response.ok) return {};
+      return response.json();
+    },
+  });
+
+  const { data: adsKpis } = useQuery<{
+    totalCost?: number;
+    totalConversions?: number;
+    conversionRate?: number;
+    costPerConversion?: number;
+    campaigns?: Array<{
+      campaignId: string;
+      campaignName: string;
+      cost: number;
+      conversions: number;
+      clicks: number;
+      impressions: number;
+    }>;
+  }>({
+    queryKey: ["/api/analytics/google/ads", dateFrom, dateTo],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (dateFrom) params.append("dateFrom", dateFrom);
+      if (dateTo) params.append("dateTo", dateTo);
+      const response = await fetch(`/api/analytics/google/ads?${params}`, {
+        credentials: "include",
+      });
+      if (!response.ok) return {};
+      return response.json();
+    },
+  });
+
   // Transform data for charts
   const orderStatusData = useMemo(() => {
     if (!orderStatus) return [];
@@ -265,6 +413,24 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
     }));
   }, [categorySales]);
 
+  const productActivityData = useMemo(() => {
+    if (!productActivityTrend?.trend) return [];
+    return productActivityTrend.trend.map((item) => {
+      const date = new Date(`${item.month}-01T00:00:00`);
+      return {
+        month: Number.isNaN(date.getTime())
+          ? item.month
+          : format(date, "MMM yyyy", { locale: de }),
+        active: item.active,
+        inactive: item.inactive,
+      };
+    });
+  }, [productActivityTrend]);
+
+  const dataQualityDistribution = useMemo(() => {
+    return productDataQuality?.distribution || [];
+  }, [productDataQuality]);
+
   // Export analytics data
   const handleExport = (format: "csv" | "excel" | "json") => {
     try {
@@ -273,6 +439,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
         orderStatus,
         paymentStatus,
         productOverview,
+        productActivityTrend,
         categorySales,
         productPerformance,
         salesTrend,
@@ -352,7 +519,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto">
+    <div className="w-full">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold mb-1" data-testid="text-page-title">
           {t('analytics.title')}
@@ -430,6 +597,12 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
         </div>
       </div>
 
+      <div className="mb-3">
+        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+          {t('analytics.sectionOverview')}
+        </h2>
+      </div>
+
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card>
@@ -489,149 +662,339 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
         </Card>
       </div>
 
-      {/* Product Overview */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            {t('analytics.productOverview')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <PackageCheck className="h-5 w-5 text-green-600" />
-                <span className="text-sm font-medium">{t('analytics.activeProducts')}</span>
-              </div>
-              <div className="text-3xl font-bold text-green-600" data-testid="text-active-products">
-                {productOverview?.active?.toLocaleString("de-DE")}
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <PackageX className="h-5 w-5 text-red-600" />
-                <span className="text-sm font-medium">{t('analytics.inactiveProducts')}</span>
-              </div>
-              <div className="text-3xl font-bold text-red-600" data-testid="text-inactive-products">
-                {productOverview?.inactive?.toLocaleString("de-DE")}
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <Package className="h-5 w-5 text-muted-foreground" />
-                <span className="text-sm font-medium">{t('analytics.totalProducts')}</span>
-              </div>
-              <div className="text-3xl font-bold" data-testid="text-total-products">
-                {productOverview?.total?.toLocaleString("de-DE")}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {(ga4Kpis?.propertyId || adsKpis?.totalCost !== undefined || (adsKpis?.campaigns?.length ?? 0) > 0) && (
+        <div className="mb-3">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+            {t('analytics.sectionMarketing')}
+          </h2>
+        </div>
+      )}
 
-      {/* Charts Row 1: Status Distribution */}
+      {(ga4Kpis?.propertyId || adsKpis?.totalCost) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+          {ga4Kpis?.propertyId && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{t("analytics.ga4Users")}</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="text-2xl font-bold">
+                  {ga4Kpis.monthlyUsers?.toLocaleString("de-DE") || 0}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {t("analytics.ga4Monthly")}
+                </p>
+                <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
+                  <div>{t("analytics.ga4Daily")}: {ga4Kpis.dailyUsers?.toLocaleString("de-DE") || 0}</div>
+                  <div>{t("analytics.ga4Weekly")}: {ga4Kpis.weeklyUsers?.toLocaleString("de-DE") || 0}</div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {adsKpis?.totalCost !== undefined && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{t("analytics.adsPerformance")}</CardTitle>
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="text-2xl font-bold">
+                  {adsKpis.totalCost?.toLocaleString("de-DE", { style: "currency", currency: "EUR" }) || "€0"}
+                </div>
+                <p className="text-xs text-muted-foreground">{t("analytics.adsSpend")}</p>
+                <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
+                  <div>
+                    {t("analytics.adsConversionRate")}: {((adsKpis.conversionRate || 0) * 100).toFixed(1)}%
+                  </div>
+                  <div>
+                    {t("analytics.adsCpa")}: {(adsKpis.costPerConversion || 0).toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {adsKpis?.campaigns && adsKpis.campaigns.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-sm font-medium">{t("analytics.adsCampaigns")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 text-sm text-muted-foreground">
+              {adsKpis.campaigns
+                .slice()
+                .sort((a, b) => b.cost - a.cost)
+                .slice(0, 5)
+                .map((campaign) => (
+                  <div key={campaign.campaignId} className="flex items-center justify-between">
+                    <span>{campaign.campaignName}</span>
+                    <span>
+                      {campaign.cost.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="mb-3">
+        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+          {t('analytics.sectionInsights')}
+        </h2>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <ShoppingCart className="h-5 w-5" />
-              {t('analytics.orderStatusDistribution')}
+              <BarChart3 className="h-5 w-5" />
+              {t('analytics.offerInsightsTitle', 'Angebots-Insights')}
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div data-testid="chart-order-status">
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie data={orderStatusData} cx="50%" cy="50%" labelLine={false} label={(entry) => entry.name} outerRadius={80} fill="#8884d8" dataKey="value">
-                    {orderStatusData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+          <CardContent className="space-y-4">
+            {offerInsights.length === 0 && (
+              <p className="text-sm text-muted-foreground">{t('analytics.offerInsightsEmpty')}</p>
+            )}
+            {offerConversionInsight?.data && (
+              <div className="border rounded-lg p-4">
+                <h3 className="font-medium">{offerConversionInsight.title}</h3>
+                <p className="text-sm text-muted-foreground mt-1">{offerConversionInsight.description}</p>
+                {offerKpiTotals.totalOffers !== undefined && (
+                  <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                    <div className="rounded-md bg-muted/50 px-3 py-2">
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                        {t("analytics.offerTotalInPeriod", "Angebote (Zeitraum)")}
+                      </div>
+                      <div className="text-lg font-semibold tabular-nums">{offerKpiTotals.totalOffers}</div>
+                    </div>
+                    <div className="rounded-md bg-muted/50 px-3 py-2">
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                        {t("analytics.offerAcceptedCount", "Angenommen / freigegeben")}
+                      </div>
+                      <div className="text-lg font-semibold tabular-nums">
+                        {offerKpiTotals.approved !== undefined ? offerKpiTotals.approved : "—"}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {typeof offerKpiTotals.acceptedOfAllRate === "number" &&
+                  offerKpiTotals.totalOffers !== undefined &&
+                  offerKpiTotals.totalOffers > 0 && (
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {t("analytics.offerAcceptedShareAll", "{{pct}}% aller Angebote im Zeitraum", {
+                        pct: (offerKpiTotals.acceptedOfAllRate * 100).toFixed(1),
+                      })}
+                    </p>
+                  )}
+                <div className="mt-3 text-sm text-muted-foreground">
+                  {(offerConversionInsight.data.conversionRate * 100).toFixed(1)}%{" "}
+                  {t("analytics.offerConversionRate", "freigegeben")}{" "}
+                  <span className="text-muted-foreground/80">
+                    ({t("analytics.offerConversionHint", "bezogen auf eingereichte, versandte, abgelehnte und freigegebene Angebote")})
+                  </span>
+                </div>
+              </div>
+            )}
+            {offerStatusInsight?.data?.statusCounts && (
+              <div className="border rounded-lg p-4">
+                <h3 className="font-medium">{offerStatusInsight.title}</h3>
+                <p className="text-sm text-muted-foreground mt-1">{offerStatusInsight.description}</p>
+                <div className="mt-3 text-sm text-muted-foreground">
+                  {Object.entries(offerStatusInsight.data.statusCounts as Record<string, number>).map(([status, count]) => (
+                    <div key={status}>{status}: {count}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {offerAvgInsight?.data?.avgByStatus && (
+              <div className="border rounded-lg p-4">
+                <h3 className="font-medium">{offerAvgInsight.title}</h3>
+                <p className="text-sm text-muted-foreground mt-1">{offerAvgInsight.description}</p>
+                <div className="mt-3 text-sm text-muted-foreground">
+                  {Object.entries(offerAvgInsight.data.avgByStatus).map(([status, avg]) => (
+                    <div key={status}>
+                      {status}: {Number(avg).toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {offerTopCustomersInsight?.data?.topCustomers && (
+              <div className="border rounded-lg p-4">
+                <h3 className="font-medium">{offerTopCustomersInsight.title}</h3>
+                <p className="text-sm text-muted-foreground mt-1">{offerTopCustomersInsight.description}</p>
+                <div className="mt-3 text-sm text-muted-foreground">
+                  {offerTopCustomersInsight.data.topCustomers.map((entry: any, index: number) => (
+                    <div key={`${entry.customer}-${index}`}>
+                      {entry.customer}: {entry.count}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <CreditCard className="h-5 w-5" />
-              {t('analytics.paymentStatusDistribution')}
+              <BarChart3 className="h-5 w-5" />
+              {t('analytics.aiInsightsTitle', 'AI-Insights')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {aiInsights.length === 0 && (
+              <p className="text-sm text-muted-foreground">{t('analytics.aiInsightsEmpty')}</p>
+            )}
+            {aiInsights.map((insight) => (
+              <div key={insight.id} className="border rounded-lg p-4" data-testid={`ai-insight-${insight.id}`}>
+                <h3 className="font-medium">{insight.title}</h3>
+                {insight.description && (
+                  <p className="text-sm text-muted-foreground mt-1">{insight.description}</p>
+                )}
+                {insight.data?.pairs && Array.isArray(insight.data.pairs) && (
+                  <div className="mt-3 text-sm text-muted-foreground">
+                    {insight.data.pairs.slice(0, 5).map((pair: any, index: number) => (
+                      <div key={`${pair.source}-${pair.target}-${index}`}>
+                        {pair.source} → {pair.target} · {(pair.support * 100).toFixed(1)}% · {pair.lift.toFixed(2)}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 mb-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              {t('analytics.dataQualityTitle')}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div data-testid="chart-payment-status">
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie data={paymentStatusData} cx="50%" cy="50%" labelLine={false} label={(entry) => entry.name} outerRadius={80} fill="#8884d8" dataKey="value">
-                    {paymentStatusData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
+            <div className="flex flex-wrap items-center gap-8 mb-4">
+              <div>
+                <div className="text-sm text-muted-foreground">
+                  {t('analytics.dataQualityAverage')}
+                </div>
+                <div className="text-3xl font-bold" data-testid="text-data-quality-average">
+                  {productDataQuality?.averageScore ?? 0}%
+                </div>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground">
+                  {t('analytics.totalProducts')}
+                </div>
+                <div className="text-3xl font-bold" data-testid="text-data-quality-total">
+                  {productDataQuality?.totalProducts?.toLocaleString("de-DE") || 0}
+                </div>
+              </div>
+            </div>
+            <div className="text-sm text-muted-foreground mb-2">
+              {t('analytics.dataQualityDistribution')}
+            </div>
+            <div data-testid="chart-data-quality">
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={dataQualityDistribution}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="label" />
+                  <YAxis allowDecimals={false} />
                   <Tooltip />
-                </PieChart>
+                  <Bar dataKey="count" fill="#3b82f6" name={t('analytics.count')} />
+                </BarChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Sales Trend Chart */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            {t('analytics.salesTrend')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div data-testid="chart-sales-trend">
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={salesTrend}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="revenue" stroke="#8884d8" name={t('analytics.revenue')} />
-                <Line type="monotone" dataKey="orderCount" stroke="#82ca9d" name={t('analytics.orders')} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="mb-3">
+        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+          {t('analytics.sectionProducts')}
+        </h2>
+      </div>
 
-      {/* Category Sales Chart */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5" />
-            {t('analytics.categorySales')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div data-testid="chart-category-sales">
-            <ResponsiveContainer width="100%" height={400}>
-              <BarChart data={categorySalesData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="revenue" fill="#8884d8" name={t('analytics.revenue')} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              {t('analytics.productOverview')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <PackageCheck className="h-5 w-5 text-green-600" />
+                  <span className="text-sm font-medium">{t('analytics.activeProducts')}</span>
+                </div>
+                <div className="text-3xl font-bold text-green-600" data-testid="text-active-products">
+                  {productOverview?.active?.toLocaleString("de-DE")}
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <PackageX className="h-5 w-5 text-red-600" />
+                  <span className="text-sm font-medium">{t('analytics.inactiveProducts')}</span>
+                </div>
+                <div className="text-3xl font-bold text-red-600" data-testid="text-inactive-products">
+                  {productOverview?.inactive?.toLocaleString("de-DE")}
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Package className="h-5 w-5 text-muted-foreground" />
+                  <span className="text-sm font-medium">{t('analytics.totalProducts')}</span>
+                </div>
+                <div className="text-3xl font-bold" data-testid="text-total-products">
+                  {productOverview?.total?.toLocaleString("de-DE")}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Product Performance */}
-      <div className="mb-4 flex items-center gap-4">
-        <span className="text-sm font-medium">{t('analytics.sortBy')}:</span>
-        <div className="flex gap-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              {t('analytics.productActivityTrend')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div data-testid="chart-product-activity">
+              <ResponsiveContainer width="100%" height={320}>
+                <BarChart data={productActivityData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="active" stackId="a" fill="#22c55e" name={t('analytics.activeProducts')} />
+                  <Bar dataKey="inactive" stackId="a" fill="#ef4444" name={t('analytics.inactiveProducts')} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h3 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+          {t('analytics.productPerformance')}
+        </h3>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">{t('analytics.sortBy')}:</span>
           <Button
             variant={productSortBy === "quantity" ? "default" : "outline"}
             size="sm"
@@ -651,7 +1014,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-green-600">
@@ -716,6 +1079,181 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
           </CardContent>
         </Card>
       </div>
+
+      <div className="mb-3">
+        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+          {t('analytics.sectionSales')}
+        </h2>
+      </div>
+
+      {/* Charts Row 1: Status Distribution */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShoppingCart className="h-5 w-5" />
+              {t('analytics.orderStatusDistribution')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div data-testid="chart-order-status">
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie data={orderStatusData} cx="50%" cy="50%" labelLine={false} label={(entry) => entry.name} outerRadius={80} fill="#8884d8" dataKey="value">
+                    {orderStatusData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              {t('analytics.paymentStatusDistribution')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div data-testid="chart-payment-status">
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie data={paymentStatusData} cx="50%" cy="50%" labelLine={false} label={(entry) => entry.name} outerRadius={80} fill="#8884d8" dataKey="value">
+                    {paymentStatusData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Sales Trend Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              {t('analytics.salesTrend')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div data-testid="chart-sales-trend">
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={salesTrend}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="revenue" stroke="#8884d8" name={t('analytics.revenue')} />
+                  <Line type="monotone" dataKey="orderCount" stroke="#82ca9d" name={t('analytics.orders')} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Category Sales Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              {t('analytics.categorySales')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div data-testid="chart-category-sales">
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={categorySalesData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="revenue" fill="#8884d8" name={t('analytics.revenue')} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Versandzeiten: Bestelleingang bis Versand */}
+      <div className="mb-3">
+        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+          {t("analytics.shippingTimesTitle")}
+        </h2>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              {t("analytics.shippingTimesTitle")}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              {t("analytics.shippingTimesDescription")}
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {shippingTimes?.ordersWithShippingCount === 0 ? (
+              <p className="text-sm text-muted-foreground">{t("analytics.noShippingData")}</p>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <div className="text-xs text-muted-foreground">{t("analytics.averageShippingDays")}</div>
+                    <div className="text-2xl font-bold" data-testid="text-average-shipping-days">
+                      {shippingTimes?.averageDays != null
+                        ? shippingTimes.averageDays.toFixed(1)
+                        : "–"}{" "}
+                      {t("analytics.days")}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">{t("analytics.medianShippingDays")}</div>
+                    <div className="text-2xl font-bold" data-testid="text-median-shipping-days">
+                      {shippingTimes?.medianDays != null
+                        ? shippingTimes.medianDays.toFixed(1)
+                        : "–"}{" "}
+                      {t("analytics.days")}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">{t("analytics.ordersWithShippingData")}</div>
+                    <div className="text-2xl font-bold" data-testid="text-orders-with-shipping">
+                      {shippingTimes?.ordersWithShippingCount?.toLocaleString("de-DE") ?? "0"}
+                    </div>
+                  </div>
+                </div>
+                {shippingTimes?.distribution && shippingTimes.distribution.some((d) => d.count > 0) && (
+                  <div>
+                    <div className="text-sm text-muted-foreground mb-2">{t("analytics.shippingTimesDistribution")}</div>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart data={shippingTimes.distribution}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="label" />
+                        <YAxis allowDecimals={false} />
+                        <Tooltip />
+                        <Bar dataKey="count" fill="#3b82f6" name={t("analytics.count")} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
     </div>
   );
 }

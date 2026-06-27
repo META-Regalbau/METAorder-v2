@@ -1,0 +1,143 @@
+# Beispiel-Stack: App + PostgreSQL (pgvector) + optional MinIO (S3-kompatibel) für Ticket-Anhänge.
+# Anpassen: Passwörter, SESSION_SECRET, ggf. Shopware-Variablen über .env oder compose overrides.
+#
+# Nach Code-Änderungen: Image neu bauen und App-Container ersetzen, z. B.:
+#   docker compose build --no-cache app && docker compose up -d --force-recreate app
+#
+# Host-Port: Standard HOST_PORT=5001, weil macOS den Port 5000 oft für „AirPlay-Empfang“
+# (Control Center) blockiert. Eigenen Port: HOST_PORT=8080 docker compose up
+# oder AirPlay unter Systemeinstellungen → Allgemein → AirDrop und Handoff deaktivieren.
+#
+# MinIO: Console http://127.0.0.1:9003 (Default), API intern app→minio:9000.
+# Erfordert Docker Compose v2.20+ für `service_completed_successfully` bei minio-init.
+
+name: metaorder-v2
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: metaorder
+      POSTGRES_PASSWORD: metaorder
+      POSTGRES_DB: metaorder
+    volumes:
+      - metaorder_pgdata:/var/lib/postgresql/data
+    # Nur localhost: fuer drizzle-kit push / psql vom Mac (Rolle metaorder existiert nur im Container)
+    ports:
+      - "127.0.0.1:${POSTGRES_PUBLISH_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U metaorder -d metaorder"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-metaorder}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-metaorder-minio-change-me}
+    volumes:
+      - metaorder_minio:/data
+    ports:
+      - "127.0.0.1:${MINIO_API_PORT:-9002}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9003}:9001"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/minio/health/live || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 8
+      start_period: 15s
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-metaorder}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-metaorder-minio-change-me}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - 'mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" && mc mb -p local/metaorder || true'
+
+  app:
+    build: .
+    ports:
+      - "${HOST_PORT:-5001}:5000"
+    environment:
+      DATABASE_URL: postgresql://metaorder:metaorder@db:5432/metaorder
+      SESSION_SECRET: ${SESSION_SECRET:-bitte-in-produktion-setzen}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-metaorder-dev-encryption-key-change-in-prod}
+      PORT: "5000"
+      # Explizit: Uploads landen im gemounteten Volume (nicht von process.cwd() abhängig)
+      UPLOADS_DIR: /app/uploads
+      # S3-kompatibel (MinIO): Ticket-Anhänge + Object-Storage-Pfad in der App
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: metaorder
+      S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-metaorder}
+      S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-metaorder-minio-change-me}
+      S3_REGION: us-east-1
+      S3_FORCE_PATH_STYLE: "true"
+      # Optional: "false" = POST /api/cross-selling-rules/execute-bulk gesperrt (Shopware-Massenbefüllung).
+      # In Produktion oft weglassen oder false; Wert aus Host-.env: CROSS_SELL_BULK_ENABLED=false docker compose up
+      CROSS_SELL_BULK_ENABLED: ${CROSS_SELL_BULK_ENABLED:-}
+      # Cross-Sell GPT-4o Re-Rank (Vorschlaege UI / Einzelendpunkte; Bulk/Staging nutzen nur Hybrid)
+      CROSS_SELL_LLM_RERANK_ENABLED: ${CROSS_SELL_LLM_RERANK_ENABLED:-}
+      CROSS_SELL_LLM_RERANK_TOPK: ${CROSS_SELL_LLM_RERANK_TOPK:-}
+      CROSS_SELL_LLM_RERANK_TTL_HOURS: ${CROSS_SELL_LLM_RERANK_TTL_HOURS:-}
+      # Angebots-/Bestell-Review (strengeres Matching, Klärungs-E-Mail-Vorschau): keine extra Env-Vars —
+      # nur neues Image bauen und App neu starten (SPA unter dist/public).
+      # Einstellungen (7 Tabs: Allgemein, Shopware, Angebote, Tickets, E-Mail, Marketing, KI):
+      # gleicher Deploy-Weg — kein Schema/Volume/Env; nach Build App-Container neu starten.
+      # Nachberechnung (Bestelldetail, Tab „Nachberechnung“): PDF + Shopware-Rechnungsupload —
+      # gleicher Deploy-Weg; Shopware-Zugangsdaten im Mandanten erforderlich.
+      # Optional: METAORDER_GTIN_ARTICLE_PREFIX=4026212 (Default) — 6-stellige GTIN-Anteile + synthetische EAN
+      COMMERCIAL_AGENT_ENABLED: ${COMMERCIAL_AGENT_ENABLED:-false}
+      COMMERCIAL_AGENT_AUTO_OFFERS: ${COMMERCIAL_AGENT_AUTO_OFFERS:-true}
+      COMMERCIAL_AGENT_AUTO_ORDERS: ${COMMERCIAL_AGENT_AUTO_ORDERS:-false}
+      COMMERCIAL_AGENT_STRICT_AUTO_CREATE: ${COMMERCIAL_AGENT_STRICT_AUTO_CREATE:-true}
+      COMMERCIAL_AGENT_STRICT_MIN_INTENT: ${COMMERCIAL_AGENT_STRICT_MIN_INTENT:-0.95}
+      COMMERCIAL_AGENT_STRICT_MIN_CUSTOMER: ${COMMERCIAL_AGENT_STRICT_MIN_CUSTOMER:-95}
+      B2B_SELLERS_DEFAULT_SALES_CHANNEL: ${B2B_SELLERS_DEFAULT_SALES_CHANNEL:-}
+    volumes:
+      - metaorder_uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${N8N_PORT:-5678}:5678"
+    environment:
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_ADMIN_USER:-admin}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_ADMIN_PASSWORD:-change-me-n8n-admin}
+      N8N_HOST: localhost
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: http://localhost:${N8N_PORT:-5678}/
+      GENERIC_TIMEZONE: Europe/Berlin
+      N8N_DEFAULT_BINARY_DATA_MODE: filesystem
+      # Für HTTP-Request-Nodes im Gmail-Workflow (METAorder API)
+      METAORDER_BASE_URL: ${METAORDER_BASE_URL:-http://host.docker.internal:5001}
+      METAORDER_INTEGRATION_KEY: ${METAORDER_INTEGRATION_API_KEY:-}
+    volumes:
+      - metaorder_n8n:/home/node/.n8n
+    depends_on:
+      app:
+        condition: service_started
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  metaorder_pgdata:
+  metaorder_uploads:
+  metaorder_minio:
+  metaorder_n8n:

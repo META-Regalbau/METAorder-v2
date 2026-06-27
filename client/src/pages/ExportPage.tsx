@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Download, FileSpreadsheet, Calendar, Filter } from "lucide-react";
+import { Download, FileSpreadsheet, Calendar, Filter, FileText } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -9,10 +9,20 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 
 type SalesChannel = {
   id: string;
   name: string;
+};
+
+type InvoiceDownloadResult = {
+  orderNumber: string;
+  status: "ok" | "not_found" | "no_invoice" | "error" | "forbidden";
+  orderId?: string;
+  downloadUrl?: string;
+  filename?: string;
+  message?: string;
 };
 
 export default function ExportPage() {
@@ -28,6 +38,9 @@ export default function ExportPage() {
     "status",
     "totalAmount",
   ]);
+  const [invoiceOrderNumbersText, setInvoiceOrderNumbersText] = useState("");
+  const [invoiceResults, setInvoiceResults] = useState<InvoiceDownloadResult[]>([]);
+  const [isDownloadingInvoices, setIsDownloadingInvoices] = useState(false);
 
   // Fetch current user to check if admin
   const { data: userData } = useQuery({
@@ -73,6 +86,17 @@ export default function ExportPage() {
     );
   };
 
+  const parseOrderNumbers = (value: string) =>
+    Array.from(new Set(value.split(/[\n,;]+/).map((entry) => entry.trim()).filter(Boolean)));
+
+  const updateInvoiceResult = (orderNumber: string, updates: Partial<InvoiceDownloadResult>) => {
+    setInvoiceResults((prev) =>
+      prev.map((result) =>
+        result.orderNumber === orderNumber ? { ...result, ...updates } : result
+      )
+    );
+  };
+
   const handleExport = async () => {
     try {
       toast({
@@ -80,11 +104,17 @@ export default function ExportPage() {
         description: `Your ${format.toUpperCase()} file is being generated...`,
       });
 
+      const csrfToken = document.cookie.match(/csrf_token=([^;]+)/)?.[1];
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (csrfToken) {
+        headers["X-CSRF-Token"] = csrfToken;
+      }
+
       const response = await fetch('/api/orders/export', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           dateFrom,
           dateTo,
@@ -133,8 +163,103 @@ export default function ExportPage() {
     }
   };
 
+  const handleInvoiceDownload = async () => {
+    const orderNumbers = parseOrderNumbers(invoiceOrderNumbersText);
+    if (orderNumbers.length === 0) {
+      toast({
+        title: "Please enter order numbers",
+        description: "Please enter order numbers",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsDownloadingInvoices(true);
+    setInvoiceResults([]);
+
+    try {
+      const csrfToken = document.cookie.match(/csrf_token=([^;]+)/)?.[1];
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (csrfToken) {
+        headers["X-CSRF-Token"] = csrfToken;
+      }
+
+      const response = await fetch("/api/orders/invoices/by-order-numbers", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ orderNumbers }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Invoice resolve failed");
+      }
+
+      const data = await response.json();
+      const results: InvoiceDownloadResult[] = data.results || [];
+      setInvoiceResults(results);
+
+      const downloadable = results.filter((result) => result.status === "ok" && result.downloadUrl);
+      if (downloadable.length === 0) {
+        toast({
+          title: "Invoices could not be prepared",
+          description: "Invoices could not be prepared",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Download started",
+        description: "Preparing invoices...",
+      });
+
+      for (const result of downloadable) {
+        try {
+          const downloadResponse = await fetch(result.downloadUrl as string);
+
+          if (!downloadResponse.ok) {
+            throw new Error("Invoice download failed");
+          }
+
+          const arrayBuffer = await downloadResponse.arrayBuffer();
+          const blob = new Blob([arrayBuffer], { type: "application/pdf" });
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = result.filename || `invoice-${result.orderNumber}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+        } catch (error) {
+          console.error("Invoice download error:", error);
+          updateInvoiceResult(result.orderNumber, {
+            status: "error",
+            message: "Download failed",
+          });
+        }
+      }
+
+      toast({
+        title: "Downloads complete",
+        description: "Downloads complete",
+      });
+    } catch (error) {
+      console.error("Invoice resolve error:", error);
+      toast({
+        title: "Invoices could not be prepared",
+        description: "Invoices could not be prepared",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloadingInvoices(false);
+    }
+  };
+
   return (
-    <div className="w-full max-w-4xl mx-auto">
+    <div className="w-full">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold mb-1">Export & Reports</h1>
         <p className="text-sm text-muted-foreground">
@@ -272,6 +397,67 @@ export default function ExportPage() {
           </div>
         </Card>
 
+        <Card className="p-6">
+          <h2 className="text-sm font-medium uppercase tracking-wide mb-2 flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Invoices (PDF)
+          </h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Enter order numbers separated by line breaks or commas
+          </p>
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Order numbers</Label>
+            <Textarea
+              value={invoiceOrderNumbersText}
+              onChange={(e) => setInvoiceOrderNumbersText(e.target.value)}
+              placeholder={"e.g. 10001\n10002, 10003"}
+              data-testid="textarea-invoice-order-numbers"
+            />
+          </div>
+          <div className="mt-4 flex justify-end">
+            <Button
+              onClick={handleInvoiceDownload}
+              disabled={isDownloadingInvoices}
+              data-testid="button-download-invoices"
+            >
+              <Download className="h-4 w-4 mr-1" />
+              Download invoices
+            </Button>
+          </div>
+          {invoiceResults.length > 0 && (
+            <div className="mt-4 space-y-2 border-t pt-4">
+              {invoiceResults.map((result) => (
+                <div key={result.orderNumber} className="flex flex-wrap items-center gap-2 text-sm">
+                  <span className="font-mono">{result.orderNumber}</span>
+                  <Badge
+                    variant={
+                      result.status === "ok"
+                        ? "secondary"
+                        : result.status === "no_invoice"
+                        ? "outline"
+                        : "destructive"
+                    }
+                    className="text-xs"
+                  >
+                    {result.status === "ok"
+                      ? "Ready"
+                      : result.status === "not_found"
+                      ? "Not found"
+                      : result.status === "no_invoice"
+                      ? "No invoice"
+                      : result.status === "forbidden"
+                      ? "No access"
+                      : "Error"}
+                  </Badge>
+                  {result.message && (
+                    <span className="text-muted-foreground">{result.message}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
         <div className="flex justify-end gap-2">
           <Button
             variant="outline"
@@ -281,6 +467,8 @@ export default function ExportPage() {
               setFormat("csv");
               setSelectedSalesChannels([]);
               setSelectedColumns(["orderNumber", "customerName", "orderDate", "status", "totalAmount"]);
+              setInvoiceOrderNumbersText("");
+              setInvoiceResults([]);
             }}
             data-testid="button-reset-export"
           >

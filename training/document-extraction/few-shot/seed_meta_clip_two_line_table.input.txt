@@ -1,0 +1,23 @@
+Musterhandel GmbH                                            Bestellung 4500987654
+Beispielstraße 12                                            Datum: 26.02.2026
+4213 Unterweitersdorf                                        Kundennr: 700456
+ATU12345678
+
+Lieferadresse:
+META Lagertechnik Ges.m.b.H.
+IZ-NÖ-Süd, Strasse 7, Objekt 58a
+2355 Wiener Neudorf
+Austria
+Liefertermin: KW 10/2026
+
+Pos    Ident-Nr.        Bezeichnung                           Menge       Einzelpreis     Gesamt
+00001  4026212260212    Steckregal META CLIP 150 S
+                                                              19 Stück      160,06         3.041,14
+00002  4026212260229    Steckregal META CLIP 150 S
+                                                               5 Stück      172,50           862,50
+00003  4026212401007    Anbauregal META CLIP 100 S
+                                                               2 Stück      225,00           450,00
+
+                                                                            Summe netto:   4.353,64
+
+Zahlung: 30 Tage netto

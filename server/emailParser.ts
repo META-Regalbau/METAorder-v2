@@ -18,10 +18,20 @@ export interface ParsedAttachment {
 }
 
 /**
+ * mailparser liefert bei extrahierten message/rfc822-Teilen mitunter \r\r\n statt \r\n,
+ * wodurch der innere Body leer bleibt.
+ */
+function normalizeEmlBufferForParsing(buffer: Buffer): Buffer {
+  const s = buffer.toString("latin1");
+  if (!s.includes("\r\r\n")) return buffer;
+  return Buffer.from(s.replace(/\r\r\n/g, "\r\n"), "latin1");
+}
+
+/**
  * Parst .eml Dateien (Standard E-Mail Format)
  */
 export async function parseEmlFile(buffer: Buffer): Promise<ParsedEmailResult> {
-  const parsed: ParsedMail = await simpleParser(buffer);
+  const parsed: ParsedMail = await simpleParser(normalizeEmlBufferForParsing(buffer));
 
   const attachments = await filterRelevantAttachments(
     parsed.attachments || []
@@ -94,7 +104,7 @@ export async function parseMsgFile(buffer: Buffer): Promise<ParsedEmailResult> {
 }
 
 /**
- * Filtert nur PDF und Foto-Anhänge
+ * PDF, Bilder und verschachtelte E-Mails (.eml / message/rfc822) für Entwurfsextraktion.
  */
 async function filterRelevantAttachments(
   attachments: Attachment[]
@@ -105,16 +115,28 @@ async function filterRelevantAttachments(
     if (!attachment.content) continue;
 
     const buffer = Buffer.from(attachment.content);
+    const fn = (attachment.filename || "").toLowerCase();
+    const ct = (attachment.contentType || "").toLowerCase();
+
+    if (ct.includes("message/rfc822") || fn.endsWith(".eml")) {
+      relevant.push({
+        filename: attachment.filename || "nested.eml",
+        contentType: "message/rfc822",
+        size: buffer.length,
+        content: buffer,
+      });
+      continue;
+    }
+
     const fileType = await fileTypeFromBuffer(buffer);
 
     if (fileType) {
       const isPdfOrImage =
-        fileType.mime === 'application/pdf' ||
-        fileType.mime.startsWith('image/');
+        fileType.mime === "application/pdf" || fileType.mime.startsWith("image/");
 
       if (isPdfOrImage) {
         relevant.push({
-          filename: attachment.filename || 'unknown',
+          filename: attachment.filename || "unknown",
           contentType: fileType.mime,
           size: buffer.length,
           content: buffer,
@@ -168,5 +190,20 @@ export async function parseEmailFile(
     throw new Error(
       'Ungültiges Dateiformat. Nur .eml und .msg werden unterstützt.'
     );
+  }
+}
+
+/**
+ * EML vs. MSG anhand des Inhalts erraten (z. B. falsche Dateiendung / generischer Multer-Name).
+ */
+export async function parseEmailBufferAutodetect(buffer: Buffer): Promise<ParsedEmailResult> {
+  const head = buffer.slice(0, Math.min(400, buffer.length)).toString("latin1").trimStart();
+  if (/^(received:|mime-version:|from |return-path:)/im.test(head)) {
+    return parseEmlFile(buffer);
+  }
+  try {
+    return await parseMsgFile(buffer);
+  } catch {
+    return parseEmlFile(buffer);
   }
 }

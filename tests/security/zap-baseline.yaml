@@ -1,0 +1,30 @@
+zapBaseline:
+  target: ${ZAP_TARGET_URL:-http://127.0.0.1:5000}
+  failOn:
+    - high
+  allowlist:
+    - path: ^/healthz$
+      reason: "Health endpoint intentionally minimal."
+  context:
+    name: METAorder Sprint8 Baseline
+    includePaths:
+      - ${ZAP_TARGET_URL:-http://127.0.0.1:5000}.*
+    excludePaths:
+      - .*/sw.js
+      - .*/assets/.*
+      - .*/cpq-models/.*
+  auth:
+    type: form
+    loginUrl: ${ZAP_TARGET_URL:-http://127.0.0.1:5000}/api/auth/login
+    loginBody: username=${ZAP_USERNAME:-admin}&password=${ZAP_PASSWORD:-admin123}
+    username: ${ZAP_USERNAME:-admin}
+    password: ${ZAP_PASSWORD:-admin123}
+  scan:
+    maxDurationMinutes: 20
+    ajaxSpider: true
+  reports:
+    html: tests/security/zap-report.html
+    json: tests/security/zap-report.json
+  notes:
+    - "TODO verify: ZAP Auth-Flow auf produktiven Login-Mechanismus abstimmen (JWT Cookie + CSRF)."
+    - "TODO verify: Zielsystem fuer produktive Baseline nicht lokal, sondern Staging-URL verwenden."

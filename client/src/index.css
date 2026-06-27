@@ -223,8 +223,58 @@
   }
 
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    @apply font-sans antialiased bg-background text-foreground touch-manipulation;
+    text-rendering: optimizeLegibility;
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* Tastatur: „Zum Inhalt springen“ — sichtbar ab erstem Tab */
+.skip-to-main {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-to-main:focus {
+  position: fixed;
+  left: 1rem;
+  top: 1rem;
+  z-index: 200;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0.5rem 1rem;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+  border-radius: var(--radius);
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  font-size: 0.875rem;
+  font-weight: 500;
+  box-shadow: var(--shadow-md);
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
 }
 
 /**
@@ -291,8 +341,10 @@
     background-color: var(--elevate-2);
   }
 
-  /* If there's a 1px border, adjust the inset so that it covers that parent's border */
-  .border.toggle-elevate::before {
+  /* If there's a 1px border, adjust the inset so that it covers that parent's border.
+   * Do not use `.border` in the selector — Tailwind expands it and lightningcss minify fails
+   * on invalid `::after::before`. Match the utility class via attribute instead. */
+  .toggle-elevate[class~="border"]::before {
     inset: -1px;
   }
 
@@ -330,11 +382,10 @@
   }
 
   /* If there's a 1px border, adjust the inset so that it covers that parent's border */
-  .border.hover-elevate:not(.no-hover-interaction-elevate)::after,
-  .border.active-elevate:not(.no-active-interaction-elevate)::after,
-  .border.hover-elevate-2:not(.no-hover-interaction-elevate)::after,
-  .border.active-elevate-2:not(.no-active-interaction-elevate)::after,
-  .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
+  .hover-elevate[class~="border"]:not(.no-hover-interaction-elevate)::after,
+  .active-elevate[class~="border"]:not(.no-active-interaction-elevate)::after,
+  .hover-elevate-2[class~="border"]:not(.no-hover-interaction-elevate)::after,
+  .active-elevate-2[class~="border"]:not(.no-active-interaction-elevate)::after {
     inset: -1px;
   }
 }

@@ -1,38 +1,35 @@
-import { X, Send, Trash2, Link as LinkIcon, Clock, Sparkles } from "lucide-react";
+import { X, Trash2, Link as LinkIcon, Clock } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { Ticket, TicketComment, User, TicketAttachment } from "@shared/schema";
+import type { Ticket, TicketComment, User, TicketAttachment, DiscountRequest } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
 import TagInput from "@/components/TagInput";
 import { DatePicker } from "@/components/ui/date-picker";
 import { FileUpload } from "@/components/FileUpload";
 import { AttachmentsList } from "@/components/AttachmentsList";
+import TicketReplyComposer from "@/components/TicketReplyComposer";
 
-interface Template {
-  id: string;
-  title: string;
-  category?: string | null;
-  content: string;
-}
 
 interface TicketDetailModalProps {
   ticketId: string | null;
   isOpen: boolean;
   onClose: () => void;
   canManageTickets: boolean;
+  canManageCrm: boolean;
+  canApproveCrm: boolean;
 }
 
 export default function TicketDetailModal({
@@ -40,13 +37,17 @@ export default function TicketDetailModal({
   isOpen,
   onClose,
   canManageTickets,
+  canManageCrm,
+  canApproveCrm,
 }: TicketDetailModalProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const [commentText, setCommentText] = useState("");
-  const [isInternalComment, setIsInternalComment] = useState(false);
   const [editingTicket, setEditingTicket] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
+  const [isDiscountDialogOpen, setIsDiscountDialogOpen] = useState(false);
+  const [discountType, setDiscountType] = useState("percent");
+  const [discountValue, setDiscountValue] = useState("");
+  const [discountReason, setDiscountReason] = useState("");
 
   // Fetch ticket data
   const { data: ticket, isLoading: ticketLoading } = useQuery<Ticket>({
@@ -105,63 +106,20 @@ export default function TicketDetailModal({
     enabled: isOpen && !!ticketId,
   });
 
-  // Fetch templates
-  const { data: templates = [] } = useQuery<Template[]>({
-    queryKey: ['/api/templates'],
-    retry: false,
-  });
-
-  // Fetch AI settings
-  const { data: aiSettings } = useQuery<{ enabled: boolean; hasApiKey: boolean }>({
-    queryKey: ['/api/settings/ai'],
-    retry: false,
-  });
-
-  const improveTextMutation = useMutation({
-    mutationFn: async (text: string) => {
-      const response = await apiRequest("POST", "/api/ai/improve-text", { text });
+  const { data: discountRequests = [] } = useQuery<DiscountRequest[]>({
+    queryKey: ['/api/crm/discount-requests', ticketId],
+    queryFn: async () => {
+      const response = await fetch(`/api/crm/discount-requests?ticketId=${ticketId}`, { credentials: "include" });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
       return response.json();
     },
-    onSuccess: (data) => {
-      setCommentText(data.improvedText);
-      toast({
-        title: t('ai.textImproved'),
-        description: t('ai.textImprovedDesc'),
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: t('ai.improveFailed'),
-        description: error.message,
-        variant: "destructive",
-      });
-    },
+    enabled: isOpen && !!ticketId && (canManageCrm || canApproveCrm),
   });
 
-  const addCommentMutation = useMutation({
-    mutationFn: async (data: { comment: string; isInternal: number }) => {
-      if (!ticketId) throw new Error("No ticket ID");
-      const response = await apiRequest("POST", `/api/tickets/${ticketId}/comments`, data);
-      return response.json();
-    },
-    onSuccess: () => {
-      if (!ticketId) return;
-      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticketId, 'comments'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticketId, 'activity'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/tickets', ticketId, 'unread-counts'] });
-      setCommentText("");
-      toast({
-        title: t('tickets.commentAdded'),
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: t('tickets.commentFailed'),
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
+  const activeDiscountRequest = discountRequests[0];
+
 
   const updateTicketMutation = useMutation({
     mutationFn: async (data: Partial<Ticket>) => {
@@ -184,6 +142,62 @@ export default function TicketDetailModal({
         description: error.message,
         variant: "destructive",
       });
+    },
+  });
+
+  const createDiscountRequestMutation = useMutation({
+    mutationFn: async () => {
+      if (!ticketId || !ticket) throw new Error("No ticket loaded");
+      const response = await apiRequest("POST", "/api/crm/discount-requests", {
+        ticketId,
+        orderId: ticket.orderId,
+        orderNumber: ticket.orderNumber,
+        customerEmail: ticket.customerEmail,
+        customerName: ticket.customerName,
+        discountType,
+        discountValue: Number(discountValue),
+        reason: discountReason.trim() || undefined,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/crm/discount-requests', ticketId] });
+      setIsDiscountDialogOpen(false);
+      setDiscountType("percent");
+      setDiscountValue("");
+      setDiscountReason("");
+      toast({ title: t("crm.discountRequested") });
+    },
+    onError: (error: Error) => {
+      toast({ title: t("crm.discountFailed"), description: error.message, variant: "destructive" });
+    },
+  });
+
+  const approveDiscountMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("POST", `/api/crm/discount-requests/${id}/approve`, {});
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/crm/discount-requests', ticketId] });
+      toast({ title: t("crm.discountApproved") });
+    },
+    onError: (error: Error) => {
+      toast({ title: t("crm.discountFailed"), description: error.message, variant: "destructive" });
+    },
+  });
+
+  const rejectDiscountMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("POST", `/api/crm/discount-requests/${id}/reject`, {});
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/crm/discount-requests', ticketId] });
+      toast({ title: t("crm.discountRejected") });
+    },
+    onError: (error: Error) => {
+      toast({ title: t("crm.discountFailed"), description: error.message, variant: "destructive" });
     },
   });
 
@@ -292,14 +306,6 @@ export default function TicketDetailModal({
 
   if (!ticketId || ticketLoading || !ticket) return null;
 
-  const handleAddComment = () => {
-    if (!commentText.trim()) return;
-    addCommentMutation.mutate({
-      comment: commentText,
-      isInternal: isInternalComment ? 1 : 0,
-    });
-  };
-
   const handleUpdateStatus = (status: string) => {
     updateTicketMutation.mutate({ status });
   };
@@ -326,8 +332,9 @@ export default function TicketDetailModal({
     }
   };
 
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
+  const getStatusBadgeVariant = (status?: string) => {
+    const safeStatus = status || "open";
+    switch (safeStatus) {
       case "open": return "default";
       case "in_progress": return "secondary";
       case "waiting_for_customer": return "outline";
@@ -338,14 +345,42 @@ export default function TicketDetailModal({
     }
   };
 
-  const getPriorityBadgeVariant = (priority: string) => {
-    switch (priority) {
+  const getStatusLabel = (status?: string) => {
+    const safeStatus = status || "open";
+    return t(
+      `tickets.status${safeStatus
+        .split("_")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join("")}`
+    );
+  };
+
+  const getPriorityBadgeVariant = (priority?: string) => {
+    const safePriority = priority || "normal";
+    switch (safePriority) {
       case "urgent": return "destructive";
       case "high": return "default";
       case "normal": return "secondary";
       case "low": return "outline";
       default: return "secondary";
     }
+  };
+
+  const getPriorityLabel = (priority?: string) => {
+    const safePriority = priority || "normal";
+    return t(
+      `tickets.priority${safePriority.charAt(0).toUpperCase() + safePriority.slice(1)}`
+    );
+  };
+
+  const getCategoryLabel = (category?: string) => {
+    const safeCategory = category || "other";
+    return t(
+      `tickets.category${safeCategory
+        .split("_")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join("")}`
+    );
   };
 
   return (
@@ -357,10 +392,10 @@ export default function TicketDetailModal({
               {ticket.ticketNumber}
             </span>
             <Badge variant={getPriorityBadgeVariant(ticket.priority)} data-testid="badge-priority">
-              {t(`tickets.priority${ticket.priority.charAt(0).toUpperCase() + ticket.priority.slice(1)}`)}
+              {getPriorityLabel(ticket.priority)}
             </Badge>
             <Badge variant={getStatusBadgeVariant(ticket.status)} data-testid="badge-status">
-              {t(`tickets.status${ticket.status.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join('')}`)}
+              {getStatusLabel(ticket.status)}
             </Badge>
           </div>
           <DialogTitle className="text-2xl font-semibold" data-testid="text-ticket-title">
@@ -450,6 +485,56 @@ export default function TicketDetailModal({
                 </CardContent>
               </Card>
             </div>
+
+            {(canManageCrm || canApproveCrm) && (
+              <div className="space-y-3">
+                <h3 className="text-base font-medium">{t('crm.discountRequestTitle')}</h3>
+                <Card>
+                  <CardContent className="pt-6 space-y-3">
+                    {activeDiscountRequest ? (
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap gap-2 items-center">
+                          <Badge variant="outline">
+                            {t(`crm.discounts.status.${activeDiscountRequest.status}`)}
+                          </Badge>
+                          <span className="text-sm text-muted-foreground">
+                            {activeDiscountRequest.discountType === "percent"
+                              ? `${activeDiscountRequest.discountValue}%`
+                              : `€${Number(activeDiscountRequest.discountValue).toFixed(2)}`}
+                          </span>
+                        </div>
+                        {activeDiscountRequest.reason && (
+                          <p className="text-sm text-muted-foreground">{activeDiscountRequest.reason}</p>
+                        )}
+                        {canApproveCrm && activeDiscountRequest.status === "requested" && (
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={() => approveDiscountMutation.mutate(activeDiscountRequest.id)}>
+                              {t("crm.approve")}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => rejectDiscountMutation.mutate(activeDiscountRequest.id)}
+                            >
+                              {t("crm.reject")}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-3">
+                        <p className="text-sm text-muted-foreground">{t("crm.discountNone")}</p>
+                        {canManageCrm && (
+                          <Button size="sm" variant="outline" onClick={() => setIsDiscountDialogOpen(true)}>
+                            {t("crm.discountRequestAction")}
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
 
             {/* Aktionen in 3 Spalten */}
             {canManageTickets && (
@@ -605,71 +690,10 @@ export default function TicketDetailModal({
                 <CardTitle className="text-sm">{t('tickets.addComment')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {templates.length > 0 && (
-                  <Select 
-                    onValueChange={(templateId) => {
-                      const template = templates.find(t => t.id === templateId);
-                      if (template) {
-                        setCommentText(template.content);
-                      }
-                    }}
-                  >
-                    <SelectTrigger data-testid="select-template-comment">
-                      <SelectValue placeholder={t('templates.useTemplate')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {templates.map((template) => (
-                        <SelectItem key={template.id} value={template.id}>
-                          {template.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                <div className="relative">
-                  <Textarea
-                    placeholder={t('tickets.addComment')}
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    rows={4}
-                    data-testid="input-comment"
-                  />
-                  {aiSettings?.enabled && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute top-2 right-2"
-                      onClick={() => improveTextMutation.mutate(commentText)}
-                      disabled={!commentText.trim() || improveTextMutation.isPending}
-                      data-testid="button-improve-text"
-                      title={t('ai.improveText')}
-                    >
-                      <Sparkles className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-                {canManageTickets && (
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      id="internal-comment"
-                      checked={isInternalComment}
-                      onCheckedChange={setIsInternalComment}
-                      data-testid="switch-internal"
-                    />
-                    <Label htmlFor="internal-comment" className="text-sm">
-                      {t('tickets.internalNote')}
-                    </Label>
-                  </div>
-                )}
-                <Button
-                  onClick={handleAddComment}
-                  disabled={!commentText.trim() || addCommentMutation.isPending}
-                  data-testid="button-add-comment"
-                >
-                  <Send className="h-4 w-4 mr-2" />
-                  {t('tickets.addComment')}
-                </Button>
+                <TicketReplyComposer
+                  ticketId={ticketId}
+                  canManageTickets={canManageTickets}
+                />
               </CardContent>
             </Card>
 
@@ -756,13 +780,13 @@ export default function TicketDetailModal({
 
                     // Translate status/priority/category
                     if (fieldName === 'status') {
-                      return t(`tickets.status${value.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join('')}`);
+                      return getStatusLabel(value);
                     }
                     if (fieldName === 'priority') {
-                      return t(`tickets.priority${value.charAt(0).toUpperCase() + value.slice(1)}`);
+                      return getPriorityLabel(value);
                     }
                     if (fieldName === 'category') {
-                      return t(`tickets.category${value.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join('')}`);
+                      return getCategoryLabel(value);
                     }
 
                     return value;
@@ -843,6 +867,63 @@ export default function TicketDetailModal({
           </TabsContent>
         </Tabs>
       </DialogContent>
+
+      <Dialog open={isDiscountDialogOpen} onOpenChange={setIsDiscountDialogOpen}>
+        <DialogContent className="max-w-lg" data-testid="dialog-discount-request">
+          <DialogHeader>
+            <DialogTitle>{t("crm.discountRequestTitle")}</DialogTitle>
+            <DialogDescription className="sr-only">
+              {t("crm.discountRequestTitle")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>{t("crm.discounts.type")}</Label>
+                <Select value={discountType} onValueChange={setDiscountType}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="percent">{t("crm.discounts.typePercent")}</SelectItem>
+                    <SelectItem value="amount">{t("crm.discounts.typeAmount")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>{t("crm.discounts.value")}</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={discountValue}
+                  onChange={(event) => setDiscountValue(event.target.value)}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>{t("crm.discounts.reason")}</Label>
+              <Textarea
+                rows={3}
+                value={discountReason}
+                onChange={(event) => setDiscountReason(event.target.value)}
+                placeholder={t("crm.discounts.reasonPlaceholder")}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsDiscountDialogOpen(false)}>
+                {t("common.cancel")}
+              </Button>
+              <Button
+                onClick={() => createDiscountRequestMutation.mutate()}
+                disabled={!discountValue || createDiscountRequestMutation.isPending}
+              >
+                {t("crm.discountRequestAction")}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

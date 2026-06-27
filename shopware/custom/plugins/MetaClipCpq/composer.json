@@ -1,0 +1,29 @@
+{
+    "name": "meta/clip-cpq",
+    "description": "Shopware 6.6 CPQ-Grundplugin fuer META CLIP.",
+    "type": "shopware-platform-plugin",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.2"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "Meta\\ClipCpq\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Meta\\ClipCpq\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "shopware-plugin-class": "Meta\\ClipCpq\\MetaClipCpq",
+        "label": {
+            "de-DE": "META CLIP CPQ",
+            "en-GB": "META CLIP CPQ"
+        }
+    }
+}

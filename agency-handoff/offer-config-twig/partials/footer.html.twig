@@ -1,0 +1,44 @@
+{# Entspricht drawFooter() / Konstante CO in offerConfigPdf.ts #}
+{% set co_footer = {
+  name: 'META Regalbau GmbH & Co. KG',
+  idNr: '009 342 60142',
+  ustIdNr: 'DE111797160',
+  finanzamt: 'Arnsberg',
+  bank: 'Deutsche Bank Arnsberg',
+  iban: 'DE83466700070554477000',
+  bic: 'BIC/SWIFT DEUTDEDW466',
+  gerichtsstand: 'Arnsberg HRA 1551',
+  erfuellungsort: 'Arnsberg',
+  gf: 'Dr. Klaus Vatter, Rainer Haupt',
+  phone: '029329573393',
+} %}
+
+<footer class="pdf-footer">
+  <div class="footer-rule"></div>
+  <div class="footer-grid">
+    <div class="footer-col">
+      <strong>{{ co_footer.name }}</strong><br>
+      IdNr.: {{ co_footer.idNr }}<br>
+      USt-IdNr.: {{ co_footer.ustIdNr }}<br>
+      Finanzamt: {{ co_footer.finanzamt }}
+    </div>
+    <div class="footer-col">
+      <strong>Bankverbindung</strong><br>
+      {{ co_footer.bank }}<br>
+      IBAN: {{ co_footer.iban }}<br>
+      BIC: {{ co_footer.bic }}
+    </div>
+    <div class="footer-col">
+      <strong>Gerichtsstand:</strong> {{ co_footer.gerichtsstand }}<br>
+      <strong>Erfüllungsort:</strong> {{ co_footer.erfuellungsort }}
+    </div>
+    <div class="footer-col">
+      <strong>Geschäftsführer</strong><br>
+      {{ co_footer.gf }}<br>
+      {{ co_footer.phone }}
+    </div>
+  </div>
+  {% if page is defined and totalPages is defined %}
+    <div class="footer-page muted text-right small">Seite {{ page }} / {{ totalPages }}</div>
+  {% endif %}
+</footer>

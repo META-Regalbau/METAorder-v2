@@ -10,7 +10,10 @@ const mockOrder: Order = {
   customerEmail: 'john@example.com',
   orderDate: '2024-01-15T10:30:00Z',
   totalAmount: 299.99,
+  netTotalAmount: 252.09,
   status: 'in_progress',
+  paymentStatus: 'open',
+  salesChannelId: 'sc-1',
   shippingInfo: {
     carrier: 'DHL',
     trackingNumber: 'DHL123456789',
@@ -20,8 +23,8 @@ const mockOrder: Order = {
   deliveryNoteNumber: 'DN-2024-001',
   erpNumber: 'ERP-12345',
   items: [
-    { id: '1', name: 'Product A', quantity: 2, price: 99.99, total: 199.98 },
-    { id: '2', name: 'Product B', quantity: 1, price: 100.01, total: 100.01 }
+    { id: '1', name: 'Product A', quantity: 2, price: 99.99, netPrice: 84.02, total: 199.98, netTotal: 168.04, taxRate: 19 },
+    { id: '2', name: 'Product B', quantity: 1, price: 100.01, netPrice: 84.05, total: 100.01, netTotal: 84.05, taxRate: 19 }
   ]
 };
 

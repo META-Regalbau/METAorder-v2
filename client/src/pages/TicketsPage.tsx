@@ -19,6 +19,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { Ticket, User, Role } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
+import { useRightSidebar } from "@/components/RightSidebarContext";
 
 interface TicketsPageProps {
   userPermissions: Role['permissions'];
@@ -27,7 +28,7 @@ interface TicketsPageProps {
 export default function TicketsPage({ userPermissions }: TicketsPageProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const [searchValue, setSearchValue] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
@@ -41,6 +42,7 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const { setActiveTicketId } = useRightSidebar();
 
   const canViewTickets = userPermissions?.viewTickets || false;
   const canManageTickets = userPermissions?.manageTickets || false;
@@ -109,6 +111,15 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
     }
   }, [userPermissions, canViewTickets, setLocation, toast, t]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.split("?")[1] ?? "");
+    const searchParam = params.get("search");
+    if (searchParam !== null) {
+      setSearchValue(searchParam);
+      setCurrentPage(1);
+    }
+  }, [location]);
+
   // Fetch current user
   const { data: currentUser } = useQuery<{ user: User & { permissions: Role['permissions'] } }>({
     queryKey: ['/api/auth/me'],
@@ -131,6 +142,8 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
       return response.json();
     },
     retry: false,
+    refetchInterval: 15000,
+    refetchIntervalInBackground: true,
   });
 
   // Handle ticketId query parameter from URL (e.g., from notifications)
@@ -142,6 +155,7 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
       const ticket = tickets.find(t => t.id === ticketId);
       if (ticket) {
         setSelectedTicketId(ticket.id);
+        setActiveTicketId(ticket.id);
         setIsDetailModalOpen(true);
         // Clean up URL after opening modal
         window.history.replaceState({}, '', '/tickets');
@@ -195,8 +209,9 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
     showMyTicketsOnly,
   ].filter(Boolean).length;
 
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
+  const getStatusBadgeVariant = (status?: string) => {
+    const safeStatus = status || "open";
+    switch (safeStatus) {
       case "open": return "default";
       case "in_progress": return "secondary";
       case "waiting_for_customer": return "outline";
@@ -207,14 +222,42 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
     }
   };
 
-  const getPriorityBadgeVariant = (priority: string) => {
-    switch (priority) {
+  const getStatusLabel = (status?: string) => {
+    const safeStatus = status || "open";
+    return t(
+      `tickets.status${safeStatus
+        .split("_")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join("")}`
+    );
+  };
+
+  const getPriorityBadgeVariant = (priority?: string) => {
+    const safePriority = priority || "normal";
+    switch (safePriority) {
       case "urgent": return "destructive";
       case "high": return "default";
       case "normal": return "secondary";
       case "low": return "outline";
       default: return "secondary";
     }
+  };
+
+  const getPriorityLabel = (priority?: string) => {
+    const safePriority = priority || "normal";
+    return t(
+      `tickets.priority${safePriority.charAt(0).toUpperCase() + safePriority.slice(1)}`
+    );
+  };
+
+  const getCategoryLabel = (category?: string) => {
+    const safeCategory = category || "other";
+    return t(
+      `tickets.category${safeCategory
+        .split("_")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join("")}`
+    );
   };
 
   const getDueDateInfo = (dueDate: Date | null) => {
@@ -236,7 +279,7 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto">
+    <div className="w-full">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold mb-1" data-testid="text-page-title">{t('tickets.title')}</h1>
         <p className="text-sm text-muted-foreground">
@@ -326,6 +369,7 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
               <SelectItem value="technical_support">{t('tickets.categoryTechnicalSupport')}</SelectItem>
               <SelectItem value="complaint">{t('tickets.categoryComplaint')}</SelectItem>
               <SelectItem value="feature_request">{t('tickets.categoryFeatureRequest')}</SelectItem>
+              <SelectItem value="discount_request">{t('tickets.categoryDiscountRequest')}</SelectItem>
               <SelectItem value="other">{t('tickets.categoryOther')}</SelectItem>
             </SelectContent>
           </Select>
@@ -417,10 +461,10 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
                         {ticket.ticketNumber}
                       </span>
                       <Badge variant={getPriorityBadgeVariant(ticket.priority)} data-testid={`badge-priority-${ticket.id}`}>
-                        {t(`tickets.priority${ticket.priority.charAt(0).toUpperCase() + ticket.priority.slice(1)}`)}
+                        {getPriorityLabel(ticket.priority)}
                       </Badge>
                       <Badge variant={getStatusBadgeVariant(ticket.status)} data-testid={`badge-status-${ticket.id}`}>
-                        {t(`tickets.status${ticket.status.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join('')}`)}
+                        {getStatusLabel(ticket.status)}
                       </Badge>
                       {(() => {
                         const dueDateInfo = getDueDateInfo(ticket.dueDate);
@@ -440,6 +484,7 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
                     size="sm"
                     onClick={() => {
                       setSelectedTicketId(ticket.id);
+                      setActiveTicketId(ticket.id);
                       setIsDetailModalOpen(true);
                     }}
                     data-testid={`button-view-ticket-${ticket.id}`}
@@ -451,7 +496,7 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
               <CardContent className="pt-0">
                 <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mb-2">
                   <span data-testid={`text-category-${ticket.id}`}>
-                    {t(`tickets.category${ticket.category.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join('')}`)}
+                    {getCategoryLabel(ticket.category)}
                   </span>
                   {ticket.assignedToUserId && (
                     <span data-testid={`text-assigned-${ticket.id}`} className="flex items-center gap-1">
@@ -544,6 +589,8 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
           setSelectedTicketId(null);
         }}
         canManageTickets={canManageTickets}
+        canManageCrm={userPermissions?.manageCrm || false}
+        canApproveCrm={userPermissions?.approveCrm || false}
       />
 
       <CreateTicketDialog

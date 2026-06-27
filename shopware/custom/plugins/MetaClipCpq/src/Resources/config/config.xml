@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/shopware/shopware/trunk/src/Core/System/SystemConfig/Schema/config.xsd">
+    <card>
+        <title>META CLIP CPQ Routing</title>
+        <title lang="de-DE">META CLIP CPQ Routing</title>
+
+        <input-field type="text">
+            <name>lobsterWebhookUrl</name>
+            <label>Lobster Webhook URL</label>
+            <label lang="de-DE">Lobster Webhook URL</label>
+            <required>true</required>
+        </input-field>
+
+        <input-field type="password">
+            <name>lobsterApiKey</name>
+            <label>Lobster API Key</label>
+            <label lang="de-DE">Lobster API Key</label>
+        </input-field>
+
+        <input-field type="int">
+            <name>lobsterTimeoutSeconds</name>
+            <label>Lobster Timeout (s)</label>
+            <label lang="de-DE">Lobster Timeout (s)</label>
+            <defaultValue>10</defaultValue>
+        </input-field>
+
+        <input-field type="int">
+            <name>lobsterRetryAttempts</name>
+            <label>Lobster Retry Attempts</label>
+            <label lang="de-DE">Lobster Retry Versuche</label>
+            <defaultValue>3</defaultValue>
+        </input-field>
+
+        <input-field type="text">
+            <name>slackWebhookUrl</name>
+            <label>Slack Webhook URL</label>
+            <label lang="de-DE">Slack Webhook URL</label>
+        </input-field>
+    </card>
+</config>
