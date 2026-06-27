@@ -1,3 +1,4 @@
+# mStudio stack (Compose-Referenz). CI nutzt deploy/mittwald/stack.yaml + deploy-container-action.
 name: metaorder-v2
 
 services:

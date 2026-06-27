@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Manuelles Deploy: bevorzugt GitHub Actions (mittwald/deploy-container-action).
+# Dieses Skript aktualisiert nur das Container-Image per mw CLI (Legacy).
 set -euo pipefail
 
 usage() {

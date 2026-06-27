@@ -3,180 +3,122 @@
 Diese Anleitung richtet einen reproduzierbaren Deployment-Prozess fuer `METAorder-v2` auf **Mittwald mStudio** ein:
 
 1. Image in **GHCR** bauen und pushen
-2. Stack einmalig per **mw CLI** deployen
-3. Updates automatisch via **GitHub Actions** ausrollen
-4. Bei Bedarf per SHA-Tag zurueckrollen
+2. Stack per **mittwald/deploy-container-action** aus [`stack.yaml`](../deploy/mittwald/stack.yaml) deployen
+3. Updates automatisch via **GitHub Actions** bei Push auf `main`
+4. Rollback per festem Image-Tag (SHA)
 
 ## 1) Voraussetzungen
 
 - GitHub-Repo: `about-design/META-Order-v3`
+- Submodule: `META-Regalbau/METAorder-v2`
 - Container-Registry: **GHCR** `ghcr.io/about-design/metaorder-v2`
 - Mittwald **mStudio** mit Container-Hosting
-- Mittwald **mw CLI** ([Dokumentation](https://developer.mittwald.de/docs/v2/cli/))
-- Externe PostgreSQL-DB (Mittwald Managed DB empfohlen)
-- Persistentes Volume fuer `/app/uploads`
+- Stack-Definition: [`deploy/mittwald/stack.yaml`](../deploy/mittwald/stack.yaml)
 
-## 2) Einmaliges Setup
+## 2) GitHub Secrets und Variables
 
-### 2.1 mw CLI und API-Token
+### Secrets (Repository → Settings → Secrets and variables → Actions)
+
+| Secret | Pflicht | Beschreibung |
+|--------|---------|--------------|
+| `MITTWALD_API_TOKEN` | ja | mStudio API-Token |
+| `MITTWALD_STACK_ID` | ja | Stack-UUID (siehe unten) |
+| `DATABASE_URL` | ja | PostgreSQL Connection String |
+| `SESSION_SECRET` | ja | Session-Verschluesselung |
+| `ENCRYPTION_KEY` | ja | App-Verschluesselung |
+| `METAORDER_INTEGRATION_API_KEY` | nein | Integration API |
+| `S3_*` | nein | S3/MinIO fuer Ticket-Anhaenge |
+
+### Variables (optional, nicht-geheim)
+
+| Variable | Default im Workflow |
+|----------|---------------------|
+| `PUBLIC_APP_URL` | leer |
+| `REQUEST_LOG_SLOW_MS` | `1500` |
+| `METAORDER_STRICT_TENANT` | `true` |
+| `S3_REGION` | `us-east-1` |
+| `COMMERCIAL_AGENT_ENABLED` | `true` |
+| `AI_MODE` | `openai_optional` |
+
+**Stack-ID ermitteln:**
 
 ```bash
-# CLI installieren (siehe Mittwald-Doku), dann:
 mw login
-# oder: export MITTWALD_API_TOKEN=<token>
-```
-
-API-Token in mStudio unter **Benutzer → API-Tokens** anlegen.
-
-### 2.2 GitHub Secrets (Repository Settings → Secrets and variables → Actions)
-
-| Secret | Beschreibung |
-|--------|--------------|
-| `MITTWALD_API_TOKEN` | mStudio API-Token |
-| `MITTWALD_PROJECT_ID` | Projekt-ID oder Short-ID |
-| `MITTWALD_CONTAINER_ID` | Container-ID oder Short-ID (nach Erst-Deploy) |
-
-IDs ermitteln:
-
-```bash
 mw project list
-mw container list --project-id <PROJECT_ID>
+mw stack list --project-id <PROJECT_ID>
+# oder Default-Stack: GET /v2/projects/{projectId}/stacks/
 ```
 
-### 2.3 GHCR-Zugriff fuer Mittwald
+## 3) GHCR-Zugriff fuer Mittwald
 
 Mittwald muss Images aus GHCR pullen koennen:
 
-- **Option A (einfach):** GHCR-Package `metaorder-v2` auf **public** stellen (GitHub → Packages → Package settings → Change visibility).
-- **Option B (privat):** Registry-Credentials im mStudio-Stack hinterlegen (GitHub PAT mit `read:packages`).
+- **Option A:** Package `metaorder-v2` auf **public** stellen
+- **Option B:** Registry-Credentials im mStudio-Stack (GitHub PAT mit `read:packages`)
 
-### 2.4 app.env vorbereiten
+## 4) Stack-Dateien
+
+| Datei | Zweck |
+|-------|--------|
+| [`stack.yaml`](../deploy/mittwald/stack.yaml) | **Quelle fuer CI** — mStudio Stack (Action `deploy-container-action`) |
+| [`docker-compose.mittwald.yml`](../deploy/mittwald/docker-compose.mittwald.yml) | Referenz / manuelles `mw stack deploy` lokal |
+| [`app.env.example`](../deploy/mittwald/app.env.example) | Vorlage fuer lokales Erst-Setup |
+
+> **Wichtig:** Die Action ueberschreibt den Stack komplett gemaess `stack.yaml`. Manuelle Aenderungen in mStudio, die nicht im Repo stehen, gehen beim Deploy verloren.
+
+## 5) Automatischer Ablauf (GitHub Actions)
+
+Workflow: [`.github/workflows/deploy-mittwald.yml`](../../.github/workflows/deploy-mittwald.yml)
+
+```mermaid
+flowchart LR
+  push["Push main"] --> build["Build + Push GHCR"]
+  build --> action["mittwald/deploy-container-action"]
+  action --> stack["UpdateStack aus stack.yaml"]
+  stack --> recreate["Service recreate metaorder-app"]
+```
+
+Bei Push auf `main` (Aenderungen unter `METAorder-v2/**`):
+
+1. Docker-Image bauen → GHCR `:<sha>` + `:latest`
+2. `mittwald/deploy-container-action@v1` mit `stack.yaml` und Secrets
+3. Stack-Update inkl. neues Image, Env-Vars, Volume, Port 5000
+
+Ohne Mittwald-/App-Secrets wird nur gebaut, Deploy uebersprungen.
+
+## 6) Rollback
+
+GitHub Actions → *Deploy METAorder-v2 to Mittwald* → Run workflow:
+
+- `deploy_only`: **true**
+- `image_tag`: stabiler Git-SHA (z. B. `abc1234`)
+
+## 7) Lokales Erst-Setup (optional)
+
+Falls der Stack noch nicht existiert:
 
 ```bash
 cd METAorder-v2
 cp deploy/mittwald/app.env.example deploy/mittwald/app.env
-# Werte anpassen: DATABASE_URL, SESSION_SECRET, ENCRYPTION_KEY, PUBLIC_APP_URL, ...
-```
+# Werte anpassen
 
-Pflichtwerte in `app.env`:
-
-- `DATABASE_URL` — Mittwald Postgres (Host z. B. `meta-db-uvclwb`)
-- `SESSION_SECRET` — langer Zufallswert
-- `ENCRYPTION_KEY` — langer Zufallswert
-- `PUBLIC_APP_URL` — oeffentliche App-URL
-
-Optional: `S3_*`, `COMMERCIAL_AGENT_*`, Integrations-Variablen (siehe `app.env.example`).
-
-### 2.5 Erstes Image bauen und pushen
-
-Lokal (einmalig, vor Erst-Deploy):
-
-```bash
-cd METAorder-v2
-echo "$GITHUB_TOKEN" | docker login ghcr.io -u USERNAME --password-stdin
-scripts/release-image.sh ghcr.io/about-design/metaorder-v2
-```
-
-Alternativ: einmal `main` pushen und GitHub Actions bauen lassen (Secrets fuer Deploy koennen danach gesetzt werden).
-
-### 2.6 Stack in mStudio deployen
-
-```bash
-cd METAorder-v2
 mw stack deploy \
   -f deploy/mittwald/docker-compose.mittwald.yml \
   --env-file deploy/mittwald/app.env \
   --project-id <PROJECT_ID>
 ```
 
-Danach in mStudio pruefen/konfigurieren:
+Danach `MITTWALD_STACK_ID` in GitHub Secrets eintragen. Weitere Deploys laufen ueber GitHub Actions.
 
-- **Volume** `metaorder_uploads` → `/app/uploads` (in Compose bereits definiert)
-- **Domain/Ingress** auf Container-Port **5000**
-- Container-ID notieren fuer GitHub Secret `MITTWALD_CONTAINER_ID`
+## 8) Betriebshinweise
 
-SQL-Migrationen laufen beim Containerstart automatisch (`scripts/docker-entrypoint.sh` → `run-migrations.mjs`).
-
-Bei leerer DB einmalig Basistabellen anlegen:
-
-```bash
-DATABASE_URL="postgresql://..." npm run db:push
-```
-
-## 3) Kontinuierliche Updates (GitHub Actions)
-
-Workflow: [`.github/workflows/deploy-mittwald.yml`](../../.github/workflows/deploy-mittwald.yml)
-
-**Trigger:** Push auf `main` mit Aenderungen unter `METAorder-v2/**`
-
-**Ablauf:**
-
-1. Docker-Image bauen (`linux/amd64`)
-2. Push nach GHCR als `:<git-sha>` und `:latest`
-3. `mw container update --image ... --recreate` auf Mittwald
-
-Solange die Mittwald-Secrets fehlen, baut der Workflow trotzdem das Image — der Deploy-Schritt wird uebersprungen.
-
-## 4) Manuelles Deploy / Rollback
-
-### Per GitHub Actions (empfohlen)
-
-**Neues Image bauen und deployen:** Actions → *Deploy METAorder-v2 to Mittwald* → Run workflow
-
-**Rollback auf bestehenden Tag (ohne Build):**
-
-- `deploy_only`: **true**
-- `image_tag`: z. B. `abc1234` (stabiler Git-SHA)
-
-### Per mw CLI lokal
-
-```bash
-cd METAorder-v2
-export MITTWALD_PROJECT_ID=<PROJECT_ID>
-export MITTWALD_CONTAINER_ID=<CONTAINER_ID>
-
-scripts/mittwald-rollout.sh ghcr.io/about-design/metaorder-v2:<SHA>
-```
-
-Optional oeffentlichen Healthcheck:
-
-```bash
-export HEALTHCHECK_URL=https://metaorder.example.de/healthz
-scripts/mittwald-rollout.sh ghcr.io/about-design/metaorder-v2:<SHA>
-```
-
-Bei Fehler Rollback mit explizitem vorherigem Tag:
-
-```bash
-export PREVIOUS_IMAGE=ghcr.io/about-design/metaorder-v2:<ALTER_SHA>
-export HEALTHCHECK_URL=https://metaorder.example.de/healthz
-scripts/mittwald-rollout.sh ghcr.io/about-design/metaorder-v2:<NEUER_SHA>
-```
-
-## 5) Lokaler Image-Release (ohne CI)
-
-```bash
-cd METAorder-v2
-scripts/release-image.sh ghcr.io/about-design/metaorder-v2
-# Optional festen Tag:
-scripts/release-image.sh ghcr.io/about-design/metaorder-v2 abc1234
-```
-
-## 6) Betriebshinweise
-
-- Healthcheck-Route: `GET /healthz`
-- Compose-Setup betreibt nur die App; DB bleibt getrennt (Managed Postgres)
-- Uploads persistent in Volume `metaorder_uploads`
-- Backups sicherstellen fuer:
-  - Datenbank
-  - Upload-Volume (`/app/uploads`)
-
-## 7) Legacy
-
-[`scripts/mittwald-deploy.sh`](../scripts/mittwald-deploy.sh) ist **deprecated** (SSH + `docker compose`). Fuer mStudio immer [`scripts/mittwald-rollout.sh`](../scripts/mittwald-rollout.sh) oder GitHub Actions verwenden.
+- Healthcheck in der App: `GET /healthz`
+- Uploads persistent: Volume `metaorder_uploads` → `/app/uploads`
+- SQL-Migrationen beim Containerstart (`scripts/docker-entrypoint.sh`)
+- Backups: Datenbank + Upload-Volume
 
 ## Referenzen
 
-- [Mittwald Container-Doku](https://developer.mittwald.de/docs/v2/platform/workloads/containers/)
-- [mw stack deploy](https://developer.mittwald.de/docs/v2/cli/reference/stack/)
+- [mittwald/deploy-container-action](https://github.com/mittwald/deploy-container-action)
+- [Mittwald Container Actions Guide](https://developer.mittwald.de/docs/v2/guides/deployment/container-actions/)
 - [Docker-Setup lokal](docker.md)

@@ -1,0 +1,45 @@
+# mStudio stack definition for mittwald/deploy-container-action.
+# Placeholders use workflow env vars: {{ .Env.VAR_NAME }}
+# Manual UI changes not reflected here are overwritten on deploy.
+
+services:
+  metaorder-app:
+    image: "{{ .Env.APP_IMAGE }}"
+    description: "METAorder-v2 application"
+    restartPolicy: always
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1024M
+    ports:
+      - "5000/tcp"
+    environment:
+      NODE_ENV: production
+      PORT: "5000"
+      DATABASE_URL: "{{ .Env.DATABASE_URL }}"
+      SESSION_SECRET: "{{ .Env.SESSION_SECRET }}"
+      ENCRYPTION_KEY: "{{ .Env.ENCRYPTION_KEY }}"
+      UPLOADS_DIR: /app/uploads
+      PUBLIC_APP_URL: "{{ .Env.PUBLIC_APP_URL }}"
+      REQUEST_LOG_SLOW_MS: "{{ .Env.REQUEST_LOG_SLOW_MS }}"
+      METAORDER_STRICT_TENANT: "{{ .Env.METAORDER_STRICT_TENANT }}"
+      METAORDER_INTEGRATION_API_KEY: "{{ .Env.METAORDER_INTEGRATION_API_KEY }}"
+      METAORDER_INTEGRATION_USER_ID: "{{ .Env.METAORDER_INTEGRATION_USER_ID }}"
+      METAORDER_INTEGRATION_TENANT_ID: "{{ .Env.METAORDER_INTEGRATION_TENANT_ID }}"
+      S3_ENDPOINT: "{{ .Env.S3_ENDPOINT }}"
+      S3_BUCKET: "{{ .Env.S3_BUCKET }}"
+      S3_ACCESS_KEY_ID: "{{ .Env.S3_ACCESS_KEY_ID }}"
+      S3_SECRET_ACCESS_KEY: "{{ .Env.S3_SECRET_ACCESS_KEY }}"
+      S3_REGION: "{{ .Env.S3_REGION }}"
+      S3_FORCE_PATH_STYLE: "{{ .Env.S3_FORCE_PATH_STYLE }}"
+      S3_OBJECT_PREFIX: "{{ .Env.S3_OBJECT_PREFIX }}"
+      COMMERCIAL_AGENT_ENABLED: "{{ .Env.COMMERCIAL_AGENT_ENABLED }}"
+      COMMERCIAL_AGENT_WEB_VERIFY: "{{ .Env.COMMERCIAL_AGENT_WEB_VERIFY }}"
+      AI_MODE: "{{ .Env.AI_MODE }}"
+    volumes:
+      - "metaorder_uploads:/app/uploads"
+
+volumes:
+  metaorder_uploads:
+    name: metaorder-uploads
