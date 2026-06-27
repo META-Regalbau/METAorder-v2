@@ -79,16 +79,98 @@ postgresql://BENUTZER:PASSWORT@HOST:5432/DATENBANKNAME
 | Host laut mStudio-Datenbankpanel | exakt diesen Host eintragen |
 | DB in anderem Projekt (`altgemeinde`) als Container (`p-bbpye5`) | Host aus DB-Panel; ggf. gleiches Projekt noetig oder Freigabe pruefen |
 
+### Projekt **altgemeinde** (DB) + **p-bbpye5** (App)
+
+Aktuelles Setup: PostgreSQL in **altgemeinde**, METAorder-Container in **p-bbpye5**.
+
+Mittwald isoliert Projekte im Netz — der Hostname **`postgresql`** gilt **nur innerhalb desselben Projekts**. Der Container in `p-bbpye5` erreicht die DB in `altgemeinde` **nicht** ueber `@postgresql:5432`.
+
+**Empfohlene Loesungen (eine waehlen):**
+
+| Option | Beschreibung |
+|--------|----------------|
+| **A (empfohlen)** | METAorder-Stack nach **altgemeinde** deployen (gleiches Projekt wie DB). `MITTWALD_STACK_ID`, Registry-Credentials und Domain/Ingress in altgemeinde anpassen. `DATABASE_URL`: `postgresql://USER:PASS@postgresql:5432/DBNAME` |
+| **B** | PostgreSQL (mit **pgvector**) nach **p-bbpye5** verlegen oder neu anlegen; Dump aus altgemeinde importieren |
+| **C** | Nicht empfohlen: DB oeffentlich exponieren — Sicherheitsrisiko |
+
+`ssh.altgemeinde.project.host` ist **nur SSH**, nicht der PostgreSQL-Host fuer `DATABASE_URL`.
+
+**Schema/Data auf altgemeinde einspielen (vom Mac):**
+
+```bash
+# mStudio-CLI im Projekt altgemeinde (Projekt-ID aus URL oder mw project list)
+mw container port-forward postgresql 5433:5432 --project-id <ALTGEMEINDE_PROJECT_ID>
+
+export DATABASE_URL="postgresql://USER:PASS@127.0.0.1:5433/DBNAME"
+cd METAorder-v2 && npm install && npm run db:push && npm run db:migrate
+```
+
+Container-Name (`postgresql`) ggf. in mStudio → altgemeinde → Container pruefen.
+
+**Wenn die App in p-bbpye5 bleibt:** GitHub Secret `DATABASE_URL` mit `@postgresql:5432` **funktioniert nicht** — zuerst Option A oder B umsetzen.
+
 Sonderzeichen im Passwort URL-encoden (z. B. `@` → `%40`).
 
 Ohne gueltiges `DATABASE_URL` ueberspringt oder bricht der Deploy ab — der Container startet dann nicht sauber in mStudio.
 
 ## 3) GHCR-Zugriff fuer Mittwald
 
-Mittwald muss Images aus GHCR pullen koennen:
+Fehler **`registry credentials have no image access`** bedeutet: mStudio darf `ghcr.io/meta-regalbau/metaorder-v2` nicht pullen (fehlende, falsche oder unzureichende Registry-Anmeldung).
 
-- **Option A:** Package `metaorder-v2` auf **public** stellen
-- **Option B:** Registry-Credentials im mStudio-Stack (GitHub PAT mit `read:packages`)
+Image-Ziel: **`ghcr.io/meta-regalbau/metaorder-v2:latest`** (bzw. `:<git-sha>`)
+
+### Option A — Package oeffentlich (schnellster Weg)
+
+1. GitHub → Organisation **META-Regalbau** → **Packages** → **`metaorder-v2`**
+2. **Package settings** → **Change visibility** → **Public**
+3. Deploy-Workflow erneut starten
+
+Oeffentliche Images brauchen **keine** Registry-Credentials in mStudio.
+
+### Option B — Private Registry in mStudio (empfohlen fuer Produktion)
+
+#### 1) GitHub PAT (classic)
+
+1. GitHub → **Settings** → **Developer settings** → **Personal access tokens** → **Tokens (classic)**
+2. **Generate new token (classic)**
+3. Name z. B. `mStudio GHCR pull`
+4. Scopes:
+   - **`read:packages`** (Pflicht)
+   - **`repo`** zusaetzlich, wenn das Repo **privat** ist und das Package daran haengt
+5. Token erzeugen und kopieren
+6. Organisation **META-Regalbau** mit SSO: neben dem Token **Configure SSO** → Organisation autorisieren (sonst: Login ok, Pull verweigert)
+
+#### 2) Registry im Mittwald-Projekt `p-bbpye5`
+
+mStudio → Projekt **p-bbpye5** → **Container** → **Registry credentials** / **Registries** (Bezeichnung je nach UI):
+
+| Feld | Wert |
+|------|------|
+| Registry / URL | `ghcr.io` |
+| Benutzername | **Dein GitHub-Benutzername** (Besitzer des PAT — **nicht** `meta-regalbau`) |
+| Passwort / Token | der PAT aus Schritt 1 |
+
+Speichern, dann Deploy erneut starten.
+
+#### 3) Typische Fehler bei `no image access`
+
+| Problem | Loesung |
+|---------|---------|
+| Falscher Benutzername (`meta-regalbau` statt GitHub-User) | GitHub-Username des PAT-Inhabers eintragen |
+| Nur `read:packages`, Repo privat | zusaetzlich Scope **`repo`** |
+| Org-SSO aktiv | Token fuer **META-Regalbau** autorisieren |
+| PAT-Inhaber kein Zugriff auf Org-Package | GitHub-User muss Leserecht auf Package/Repo haben |
+| Credentials in falschem Projekt | Registry in **p-bbpye5** hinterlegen, nicht in altgemeinde |
+| Package existiert nicht | Actions-Job *Build and push* muss erfolgreich sein; unter Packages sichtbar? |
+
+#### 4) Kurztest (optional, lokal)
+
+```bash
+echo "$GITHUB_PAT" | docker login ghcr.io -u DEIN_GITHUB_USER --password-stdin
+docker pull ghcr.io/meta-regalbau/metaorder-v2:latest
+```
+
+Wenn `docker pull` lokal scheitert, hilft auch mStudio nicht — erst PAT/Rechte/Visibility fixen.
 
 ## 4) Stack-Dateien
 
@@ -119,6 +201,10 @@ Bei Push auf `main` (Aenderungen unter `METAorder-v2/**`):
 3. Stack-Update inkl. neues Image, Env-Vars, Volume, Port 5000
 
 Ohne Mittwald-/App-Secrets schlaegt der Deploy-Job fehl und listet **welche** Werte fehlen (Schritt *Check Mittwald configuration*).
+
+### Deploy scheitert mit registry credentials have no image access
+
+→ Abschnitt **3) GHCR-Zugriff fuer Mittwald** (Package public oder PAT in mStudio Projekt `p-bbpye5`).
 
 ### Deploy wird uebersprungen / schlaegt fehl
 
@@ -158,6 +244,77 @@ Danach `MITTWALD_STACK_ID` in GitHub Secrets eintragen. Weitere Deploys laufen u
 - Uploads persistent: Volume `metaorder_uploads` → `/app/uploads`
 - SQL-Migrationen beim Containerstart (`scripts/docker-entrypoint.sh`)
 - Backups: Datenbank + Upload-Volume
+
+## 9) Datenbank einrichten (nur Container)
+
+Ab dem naechsten Image-Deploy erledigt der Container **automatisch**:
+
+1. `CREATE EXTENSION vector`
+2. Drizzle-Schema (`drizzle-kit push`) — nur wenn Tabelle `tenants` noch fehlt
+3. SQL-Dateien unter `migrations/`
+
+### Dein einziger Schritt
+
+1. **GitHub Secret `DATABASE_URL`** setzen (Passwort URL-encoden):
+
+   ```
+   postgresql://oliver-steiling:PASSWORT@postgresql:5432/MetaPGDB
+   ```
+
+   Gueltig nur wenn **App-Container und PostgreSQL im gleichen Mittwald-Projekt** (empfohlen: beides **altgemeinde**). Host **`postgresql`** = Postgres-Container-Name in mStudio.
+
+2. **Neues Image deployen** (Push auf `main` oder Workflow starten) **oder** Container in mStudio **neu starten** (Recreate).
+
+3. Logs pruefen — erwartete Zeilen:
+
+   ```
+   [container-db-init] Step 1/3: pgvector
+   [container-db-init] Step 2/3: Drizzle schema push
+   [container-db-init] Step 3/3: SQL migrationen
+   [container-db-init] Fertig.
+   ```
+
+### Manuell (optional, ohne Neustart)
+
+Im Projekt mit dem **metaorder-app**-Container:
+
+```bash
+mw container exec metaorder-app /app/scripts/mittwald-db-init.sh
+```
+
+Oder:
+
+```bash
+mw container exec metaorder-app node scripts/container-db-init.mjs
+```
+
+### App in p-bbpye5, DB in altgemeinde
+
+`@postgresql:5432` funktioniert **nicht** ueber Projektgrenzen. **Entweder** App nach **altgemeinde** deployen **oder** DB nach **p-bbpye5** verlegen — sonst schlaegt die DB-Init fehl (Connection refused / timeout).
+
+### Lokaler Fallback (nur wenn Container-Init nicht moeglich)
+
+Port-Forward in **altgemeinde**, dann vom Mac:
+
+```bash
+mw container port-forward postgresql 5433:5432
+export DATABASE_URL="postgresql://oliver-steiling:PASS@127.0.0.1:5433/MetaPGDB"
+npm run db:init:container
+```
+
+### Datenimport (bestehende Instanz)
+
+Dump von lokal → Restore ueber Port-Forward (siehe fruehere `pg_dump` / `pg_restore`-Beispiele). **`ENCRYPTION_KEY`** muss zur Quell-DB passen.
+
+### Typische Fehler
+
+| Symptom | Ursache | Loesung |
+|---------|---------|---------|
+| `relation "tenants" does not exist` | Altes Image ohne `container-db-init` | Neues Image deployen + Recreate |
+| `type "vector" does not exist` | pgvector fehlt auf Postgres | pgvector-Image / Extension |
+| Connection refused `@postgresql` | App und DB in verschiedenen Projekten | gleiches Projekt oder Host anpassen |
+| Shopware-Keys leer nach Import | anderer `ENCRYPTION_KEY` | Key aus Quell-Umgebung uebernehmen |
+
 
 ## Referenzen
 

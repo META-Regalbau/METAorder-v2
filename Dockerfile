@@ -39,7 +39,9 @@ RUN npm run build \
        find node_modules/@napi-rs -mindepth 1 -maxdepth 1 -type d -name "canvas-*" ! -name "$KEEP" -exec rm -rf {} + ; \
      fi \
   && rm -rf client \
-  && chmod +x scripts/docker-entrypoint.sh
+  && npm install drizzle-kit@0.30.6 --no-save --omit=dev \
+  && npm cache clean --force \
+  && chmod +x scripts/docker-entrypoint.sh scripts/mittwald-db-init.sh
 
 EXPOSE 5000
 

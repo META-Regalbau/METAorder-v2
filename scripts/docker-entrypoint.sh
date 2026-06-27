@@ -14,10 +14,10 @@ mkdir -p \
   2>/dev/null || true
 
 if [ -n "$DATABASE_URL" ]; then
-  echo "[docker-entrypoint] Running SQL migrations..."
-  node scripts/run-migrations.mjs
+  echo "[docker-entrypoint] Database init (pgvector, schema, SQL migrations)..."
+  node scripts/container-db-init.mjs
 else
-  echo "[docker-entrypoint] DATABASE_URL not set, skipping migrations"
+  echo "[docker-entrypoint] DATABASE_URL not set, skipping database init"
 fi
 
 exec node dist/index.js

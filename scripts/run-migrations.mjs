@@ -39,9 +39,10 @@ async function runMigrations() {
         } else if (code === "42P01" && msg.includes("does not exist")) {
           console.error(`[run-migrations] ${file} error:`, err.message);
           console.error(
-            "[run-migrations] Leere oder unvollständige Datenbank: Basistabellen fehlen. Einmalig vom Host (Postgres erreichbar, siehe docker-compose db ports) ausführen:\n" +
-              '  DATABASE_URL="postgresql://USER:PASS@HOST:5432/DBNAME" npm run db:push\n' +
-              "Danach Container neu starten. Ohne db:push kennt Postgres z. B. tenants/cross_selling_rules nicht.",
+            "[run-migrations] Leere oder unvollständige Datenbank: Basistabellen fehlen. Im Container ausführen:\n" +
+              "  node scripts/container-db-init.mjs\n" +
+              "  (oder mw container exec metaorder-app /app/scripts/mittwald-db-init.sh)\n" +
+              "Danach Container neu starten.",
           );
           throw err;
         } else {
