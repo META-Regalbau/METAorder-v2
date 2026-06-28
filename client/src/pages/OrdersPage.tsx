@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import OrderFilters, { type InvoiceFilter } from "@/components/OrderFilters";
+import OrderFilters, { type InvoiceFilter, type OrderNumberFilter } from "@/components/OrderFilters";
 import OrdersTable from "@/components/OrdersTable";
 import OrderDetailModal from "@/components/OrderDetailModal";
 import BulkActionsBar from "@/components/BulkActionsBar";
@@ -48,6 +48,7 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
   const [searchValue, setSearchValue] = useState("");
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">("all");
   const [invoiceFilter, setInvoiceFilter] = useState<InvoiceFilter>("all");
+  const [orderNumberFilter, setOrderNumberFilter] = useState<OrderNumberFilter>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -176,7 +177,10 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
       const matchesDateFrom = dateFrom === "" || new Date(order.orderDate) >= new Date(dateFrom);
       const matchesDateTo = dateTo === "" || new Date(order.orderDate) <= new Date(dateTo);
 
-      return matchesSearch && matchesStatus && matchesInvoice && matchesDateFrom && matchesDateTo;
+      const matchesOrderNumber =
+        orderNumberFilter === "all" || order.orderNumber.toUpperCase().startsWith("MO");
+
+      return matchesSearch && matchesStatus && matchesInvoice && matchesDateFrom && matchesDateTo && matchesOrderNumber;
     });
 
   const sortedOrders = [...filteredOrders].sort((a, b) => {
@@ -243,6 +247,7 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
   const activeFiltersCount = [
     statusFilter !== "all",
     invoiceFilter !== "all",
+    orderNumberFilter !== "all",
     dateFrom !== "",
     dateTo !== "",
   ].filter(Boolean).length;
@@ -483,6 +488,11 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
                 setInvoiceFilter(value);
                 resetPage();
               }}
+              orderNumberFilter={orderNumberFilter}
+              onOrderNumberFilterChange={(value) => {
+                setOrderNumberFilter(value);
+                resetPage();
+              }}
               dateFrom={dateFrom}
               dateTo={dateTo}
               onDateFromChange={setDateFrom}
@@ -490,6 +500,7 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
               onClearFilters={() => {
                 setStatusFilter("all");
                 setInvoiceFilter("all");
+                setOrderNumberFilter("all");
                 setDateFrom("");
                 setDateTo("");
                 setSearchValue("");

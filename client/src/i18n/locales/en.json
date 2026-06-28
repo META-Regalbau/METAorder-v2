@@ -736,6 +736,9 @@
     "invoiceWith": "With invoice",
     "invoiceWithout": "Without invoice",
     "invoiceUnsent": "Invoice not sent",
+    "orderNumberLabel": "Order number",
+    "orderNumberAll": "All orders",
+    "orderNumberMoOnly": "MO orders only",
     "dateFrom": "Date From",
     "dateTo": "Date To"
   },

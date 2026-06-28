@@ -645,6 +645,9 @@
     "invoiceWith": "Con factura",
     "invoiceWithout": "Sin factura",
     "invoiceUnsent": "Factura no enviada",
+    "orderNumberLabel": "Número de pedido",
+    "orderNumberAll": "Todos los pedidos",
+    "orderNumberMoOnly": "Solo pedidos MO",
     "dateFrom": "Fecha desde",
     "dateTo": "Fecha hasta"
   },

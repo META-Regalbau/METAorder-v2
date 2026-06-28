@@ -8,12 +8,15 @@ import { useTranslation } from "react-i18next";
 import type { OrderStatus } from "@shared/schema";
 
 export type InvoiceFilter = "all" | "with" | "without" | "unsent";
+export type OrderNumberFilter = "all" | "mo";
 
 interface OrderFiltersProps {
   statusFilter: OrderStatus | "all";
   onStatusFilterChange: (status: OrderStatus | "all") => void;
   invoiceFilter: InvoiceFilter;
   onInvoiceFilterChange: (value: InvoiceFilter) => void;
+  orderNumberFilter: OrderNumberFilter;
+  onOrderNumberFilterChange: (value: OrderNumberFilter) => void;
   dateFrom: string;
   dateTo: string;
   onDateFromChange: (date: string) => void;
@@ -27,6 +30,8 @@ export default function OrderFilters({
   onStatusFilterChange,
   invoiceFilter,
   onInvoiceFilterChange,
+  orderNumberFilter,
+  onOrderNumberFilterChange,
   dateFrom,
   dateTo,
   onDateFromChange,
@@ -94,6 +99,19 @@ export default function OrderFilters({
               <SelectItem value="with">{t('filters.invoiceWith')}</SelectItem>
               <SelectItem value="without">{t('filters.invoiceWithout')}</SelectItem>
               <SelectItem value="unsent">{t('filters.invoiceUnsent')}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label className="text-sm font-medium mb-2">{t("filters.orderNumberLabel")}</Label>
+          <Select value={orderNumberFilter} onValueChange={(v) => onOrderNumberFilterChange(v as OrderNumberFilter)}>
+            <SelectTrigger data-testid="select-order-number-filter">
+              <SelectValue placeholder={t("filters.orderNumberAll")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("filters.orderNumberAll")}</SelectItem>
+              <SelectItem value="mo">{t("filters.orderNumberMoOnly")}</SelectItem>
             </SelectContent>
           </Select>
         </div>

@@ -734,6 +734,9 @@
     "invoiceWith": "Mit Rechnung",
     "invoiceWithout": "Ohne Rechnung",
     "invoiceUnsent": "Rechnung nicht verschickt",
+    "orderNumberLabel": "Bestellnummer",
+    "orderNumberAll": "Alle Bestellungen",
+    "orderNumberMoOnly": "Nur MO-Bestellungen",
     "dateFrom": "Datum von",
     "dateTo": "Datum bis"
   },
