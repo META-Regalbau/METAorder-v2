@@ -155,6 +155,11 @@ export default function OrdersTable({
               )}
               <TableCell className="font-mono font-medium" data-testid={`text-order-number-${order.id}`}>
                 {order.orderNumber}
+                {order.erpNumber ? (
+                  <div className="text-xs font-normal text-muted-foreground" data-testid={`text-erp-number-${order.id}`}>
+                    {t('orders.erpNumberInline', { number: order.erpNumber })}
+                  </div>
+                ) : null}
               </TableCell>
               <TableCell>
                 <div>

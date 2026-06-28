@@ -407,6 +407,11 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
                         <span className="font-medium" data-testid={`text-order-number-${index}`}>
                           {order.orderNumber}
                         </span>
+                        {order.erpNumber ? (
+                          <div className="text-xs font-normal text-muted-foreground" data-testid={`text-erp-number-${index}`}>
+                            {t('orders.erpNumberInline', { number: order.erpNumber })}
+                          </div>
+                        ) : null}
                       </td>
                       <td className="p-3">
                         <Badge variant="destructive" data-testid={`badge-days-${index}`}>

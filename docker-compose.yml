@@ -70,6 +70,9 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:-bitte-in-produktion-setzen}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-metaorder-dev-encryption-key-change-in-prod}
       PORT: "5000"
+      # Aktiviert den Seed des n8n-service-Benutzers (Integration-Key-Auth) und
+      # das HMAC-Secret des eingehenden Ticket-Webhooks. In Produktion setzen.
+      N8N_SERVICE_PASSWORD: ${N8N_SERVICE_PASSWORD:-metaorder-dev-n8n-service-change-in-prod}
       # Explizit: Uploads landen im gemounteten Volume (nicht von process.cwd() abhängig)
       UPLOADS_DIR: /app/uploads
       # S3-kompatibel (MinIO): Ticket-Anhänge + Object-Storage-Pfad in der App
@@ -124,6 +127,9 @@ services:
       N8N_PROTOCOL: http
       WEBHOOK_URL: http://localhost:${N8N_PORT:-5678}/
       GENERIC_TIMEZONE: Europe/Berlin
+      # Fester Schlüssel: deterministische Neustarts, verhindert den Crash-Loop
+      # bei leerer/kaputter ~/.n8n/config. In Produktion eigenen Wert setzen.
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-metaorder-dev-n8n-encryption-key-change-in-prod}
       N8N_DEFAULT_BINARY_DATA_MODE: filesystem
       # Für HTTP-Request-Nodes im Gmail-Workflow (METAorder API)
       METAORDER_BASE_URL: ${METAORDER_BASE_URL:-http://host.docker.internal:5001}

@@ -554,6 +554,7 @@
   "orders": {
     "title": "Pedidos",
     "orderNumber": "Número de Pedido",
+    "erpNumberInline": "ERP: {{number}}",
     "orderDate": "Fecha del Pedido",
     "company": "Empresa",
     "customer": "Cliente",
@@ -828,7 +829,36 @@
       "tickets": "Tickets",
       "email": "Correo",
       "marketing": "Marketing",
-      "ai": "IA"
+      "ai": "IA",
+      "integration": "Integración"
+    },
+    "integration": {
+      "keys": {
+        "title": "Claves de API de integración (n8n / automatización)",
+        "description": "Claves para automatizaciones entrantes (p. ej. n8n). Cada clave es válida solo para este inquilino y se envía en la cabecera X-METAORDER-Integration-Key.",
+        "nameLabel": "Etiqueta",
+        "namePlaceholder": "p. ej. flujo Gmail de n8n",
+        "create": "Crear clave",
+        "createdTitle": "Clave creada",
+        "createdMessage": "Copia la clave ahora: solo se muestra una vez.",
+        "newKeyWarning": "Nueva clave: cópiala y guárdala ahora. No se volverá a mostrar.",
+        "deletedTitle": "Clave eliminada",
+        "empty": "Aún no hay claves creadas.",
+        "unnamed": "Sin etiqueta",
+        "createdAt": "Creada el {{date}}",
+        "deleteTitle": "¿Eliminar clave?",
+        "deleteConfirm": "La clave «{{name}}» se eliminará de forma permanente. Las automatizaciones que la usen dejarán de funcionar.",
+        "copyFailed": "Error al copiar"
+      },
+      "usage": {
+        "title": "Uso",
+        "description": "Cómo usa n8n la clave para enviar documentos a METAorder.",
+        "headerLabel": "Cabecera de autenticación",
+        "yourKey": "tu clave",
+        "uploadLabel": "Endpoint de carga (oferta/pedido)",
+        "webhookHint": "Los webhooks salientes (METAorder → n8n) se configuran en la pestaña Shopware.",
+        "webhookLogs": "Registro de webhooks"
+      }
     },
     "shopwareConfig": "Configuración de Shopware",
     "tenants": {

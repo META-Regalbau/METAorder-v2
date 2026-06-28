@@ -645,6 +645,7 @@
   "orders": {
     "title": "Orders",
     "orderNumber": "Order Number",
+    "erpNumberInline": "ERP: {{number}}",
     "orderDate": "Order Date",
     "company": "Company",
     "customer": "Customer",
@@ -1003,7 +1004,36 @@
       "tickets": "Tickets",
       "email": "Email",
       "marketing": "Marketing",
-      "ai": "AI"
+      "ai": "AI",
+      "integration": "Integration"
+    },
+    "integration": {
+      "keys": {
+        "title": "Integration API keys (n8n / automation)",
+        "description": "Keys for inbound automations (e.g. n8n). Each key applies only to this tenant and is sent in the X-METAORDER-Integration-Key header.",
+        "nameLabel": "Label",
+        "namePlaceholder": "e.g. n8n Gmail workflow",
+        "create": "Create key",
+        "createdTitle": "Key created",
+        "createdMessage": "Please copy the key now – it is shown only once.",
+        "newKeyWarning": "New key – copy and store it now. It will not be shown again.",
+        "deletedTitle": "Key deleted",
+        "empty": "No keys created yet.",
+        "unnamed": "Unnamed",
+        "createdAt": "Created on {{date}}",
+        "deleteTitle": "Delete key?",
+        "deleteConfirm": "The key \"{{name}}\" will be permanently removed. Automations using it will stop working.",
+        "copyFailed": "Copy failed"
+      },
+      "usage": {
+        "title": "Usage",
+        "description": "How n8n uses the key to push documents to METAorder.",
+        "headerLabel": "Auth header",
+        "yourKey": "your key",
+        "uploadLabel": "Upload endpoint (offer/order)",
+        "webhookHint": "Outbound webhooks (METAorder → n8n) are configured in the Shopware tab.",
+        "webhookLogs": "Webhook logs"
+      }
     },
     "semanticRanking": {
       "title": "Semantic Ranking",

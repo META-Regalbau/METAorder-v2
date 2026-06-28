@@ -643,6 +643,7 @@
   "orders": {
     "title": "Bestellungen",
     "orderNumber": "Bestellnummer",
+    "erpNumberInline": "ERP: {{number}}",
     "orderDate": "Bestelldatum",
     "company": "Firma",
     "customer": "Kunde",
@@ -1001,7 +1002,36 @@
       "tickets": "Tickets",
       "email": "E-Mail",
       "marketing": "Marketing",
-      "ai": "KI"
+      "ai": "KI",
+      "integration": "Integration"
+    },
+    "integration": {
+      "keys": {
+        "title": "Integrations-API-Schlüssel (n8n / Automation)",
+        "description": "Schlüssel für eingehende Automatisierungen (z. B. n8n). Jeder Schlüssel gilt nur für diesen Mandanten und wird beim Aufruf im Header X-METAORDER-Integration-Key übergeben.",
+        "nameLabel": "Bezeichnung",
+        "namePlaceholder": "z. B. n8n Gmail-Workflow",
+        "create": "Schlüssel erstellen",
+        "createdTitle": "Schlüssel erstellt",
+        "createdMessage": "Bitte den Schlüssel jetzt kopieren – er wird nur einmal angezeigt.",
+        "newKeyWarning": "Neuer Schlüssel – jetzt kopieren und sicher speichern. Er wird nicht erneut angezeigt.",
+        "deletedTitle": "Schlüssel gelöscht",
+        "empty": "Noch keine Schlüssel angelegt.",
+        "unnamed": "Ohne Bezeichnung",
+        "createdAt": "Erstellt am {{date}}",
+        "deleteTitle": "Schlüssel löschen?",
+        "deleteConfirm": "Der Schlüssel „{{name}}“ wird dauerhaft entfernt. Automatisierungen, die ihn verwenden, funktionieren danach nicht mehr.",
+        "copyFailed": "Kopieren fehlgeschlagen"
+      },
+      "usage": {
+        "title": "Verwendung",
+        "description": "So nutzt n8n den Schlüssel, um Belege an METAorder zu übergeben.",
+        "headerLabel": "Auth-Header",
+        "yourKey": "dein Schlüssel",
+        "uploadLabel": "Upload-Endpunkt (Angebot/Bestellung)",
+        "webhookHint": "Ausgehende Webhooks (METAorder → n8n) werden im Tab Shopware konfiguriert.",
+        "webhookLogs": "Webhook-Protokoll"
+      }
     },
     "semanticRanking": {
       "title": "Semantic Ranking",

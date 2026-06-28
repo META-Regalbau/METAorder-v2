@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import WebhooksSettingsSection from "@/components/WebhooksSettingsSection";
+import N8nSettingsSection from "@/components/N8nSettingsSection";
 import { useState, useEffect, useCallback } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
@@ -3240,6 +3241,7 @@ function AiTab() {
           <TabsTrigger value="email">{t("settings.tabs.email")}</TabsTrigger>
           <TabsTrigger value="marketing">{t("settings.tabs.marketing")}</TabsTrigger>
           <TabsTrigger value="ai">{t("settings.tabs.ai")}</TabsTrigger>
+          <TabsTrigger value="integration">{t("settings.tabs.integration")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="mt-0">
@@ -3262,6 +3264,9 @@ function AiTab() {
         </TabsContent>
         <TabsContent value="ai" className="mt-0">
           <AiTab />
+        </TabsContent>
+        <TabsContent value="integration" className="mt-0">
+          <N8nSettingsSection />
         </TabsContent>
       </Tabs>
     </div>
