@@ -7,7 +7,7 @@
 # Docker-Disk und triggert bei knappem Speicher ENOSPC. Nach `npm prune` bleiben
 # nur Runtime-Dependencies; `client/` wird entfernt (SPA liegt unter dist/public).
 
-FROM node:22-bookworm-slim
+FROM node:24-bookworm-slim
 
 WORKDIR /app
 
@@ -39,7 +39,9 @@ RUN npm run build \
        find node_modules/@napi-rs -mindepth 1 -maxdepth 1 -type d -name "canvas-*" ! -name "$KEEP" -exec rm -rf {} + ; \
      fi \
   && rm -rf client \
-  && npm install drizzle-kit@0.30.6 --no-save --omit=dev \
+  && npm install drizzle-kit@0.30.6 --no-save --include=dev \
+  && test -f node_modules/drizzle-kit/package.json \
+  && test -x node_modules/.bin/drizzle-kit \
   && npm cache clean --force \
   && chmod +x scripts/docker-entrypoint.sh scripts/mittwald-db-init.sh
 

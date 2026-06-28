@@ -6,11 +6,13 @@
  * 3) SQL files in migrations/
  */
 import { spawnSync } from "child_process";
+import { existsSync } from "fs";
 import pg from "pg";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const appRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+const drizzleKitBin = path.join(appRoot, "node_modules", ".bin", "drizzle-kit");
 
 function run(label, command, args) {
   console.log(`[container-db-init] ${label}...`);
@@ -51,7 +53,14 @@ async function main() {
   if (baseTablesExist) {
     console.log("[container-db-init] Step 2/3: Basistabellen vorhanden, Drizzle push übersprungen");
   } else {
-    run("Step 2/3: Drizzle schema push", "npx", ["drizzle-kit", "push", "--force"]);
+    if (!existsSync(drizzleKitBin)) {
+      console.error(
+        "[container-db-init] drizzle-kit fehlt in node_modules/.bin — Image-Build pruefen (Dockerfile: drizzle-kit@0.30.6)",
+      );
+      process.exit(1);
+    }
+    // Nicht npx: laedt drizzle-kit aus dem Cache, drizzle.config.ts braucht aber /app/node_modules/drizzle-kit
+    run("Step 2/3: Drizzle schema push", drizzleKitBin, ["push", "--force"]);
   }
 
   run("Step 3/3: SQL migrationen", "node", ["scripts/run-migrations.mjs"]);
