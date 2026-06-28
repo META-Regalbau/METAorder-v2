@@ -139,8 +139,11 @@ export async function sendOrderInvoice(
       }
 
       if (!monduInfo.deliveryId) {
+        const historyHint = monduInfo.hasHistoricalMonduTransaction
+          ? " (Hinweis: aeltere Mondu-Transaktionen in der Bestellhistorie — aktuelle Zahlart pruefen.)"
+          : "";
         const message =
-          "Mondu-Bestellung ohne Lieferung in Shopware – Versand an Mondu nicht moeglich.";
+          `Mondu-Bestellung ohne Lieferung in Shopware – Versand an Mondu nicht moeglich.${historyHint}`;
         await logRun("failed", { invoiceId: invoice.id, errorMessage: message });
         return {
           status: "failed",

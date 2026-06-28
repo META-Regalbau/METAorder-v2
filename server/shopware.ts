@@ -2806,7 +2806,22 @@ export class ShopwareClient {
 
       // Extract invoice date from documents (Invoice created at)
       const invoiceDate = this.extractInvoiceDateFromDocuments(shopwareOrder, includedMap);
-      const invoiceInfo = this.extractInvoiceInfoFromDocuments(shopwareOrder, includedMap);
+      let invoiceInfo = this.extractInvoiceInfoFromDocuments(shopwareOrder, includedMap);
+      // documents-Association liefert in Einzelabfragen oft unvollstaendig — wie in fetchOrders nachladen.
+      if (!invoiceInfo.hasInvoice) {
+        try {
+          const batch = await this.fetchInvoiceInfoByOrderIds([shopwareOrder.id]);
+          const info = batch.get(shopwareOrder.id);
+          if (info && info.count > 0) {
+            invoiceInfo = { hasInvoice: true, count: info.count, sent: info.sent };
+          }
+        } catch (fallbackErr) {
+          console.warn(
+            `[fetchOrderById] invoice info fallback failed for ${shopwareOrder.id}:`,
+            fallbackErr,
+          );
+        }
+      }
 
       const order: Order = {
         id: shopwareOrder.id,
@@ -8247,6 +8262,10 @@ export class ShopwareClient {
     isMondu: boolean;
     deliveryId: string | null;
     deliveryState: string | null;
+    /** Name der aktuell gueltigen Zahlart (juengste Transaktion). */
+    activePaymentMethod?: string | null;
+    /** true, wenn aeltere Transaktionen noch Mondu waren (Checkout-Zahlart gewechselt). */
+    hasHistoricalMonduTransaction?: boolean;
   }> {
     const response = await this.makeAuthenticatedRequest(
       `${this.baseUrl}/api/search/order`,
@@ -8256,7 +8275,10 @@ export class ShopwareClient {
         body: JSON.stringify({
           filter: [{ type: 'equals', field: 'id', value: orderId }],
           associations: {
-            transactions: { associations: { paymentMethod: {} } },
+            transactions: {
+              associations: { paymentMethod: {} },
+              sort: [{ field: 'createdAt', order: 'DESC' }],
+            },
             deliveries: { associations: { stateMachineState: {} } },
           },
         }),
@@ -8274,21 +8296,44 @@ export class ShopwareClient {
     const order = data.data?.[0];
 
     const transactions: any[] = order?.transactions ?? [];
-    // Juengste Transaktion (entspricht der aktuell gueltigen Zahlart) bewerten,
-    // aber bereits ein Mondu-Handler in irgendeiner Transaktion genuegt.
-    const isMondu = transactions.some((t: any) => {
-      const handler = t?.paymentMethod?.handlerIdentifier;
-      return typeof handler === 'string' && handler.startsWith('Mondu\\MonduPayment\\');
+    const sortedTransactions = [...transactions].sort((a, b) => {
+      const ta = new Date(a?.createdAt ?? a?.attributes?.createdAt ?? 0).getTime();
+      const tb = new Date(b?.createdAt ?? b?.attributes?.createdAt ?? 0).getTime();
+      return tb - ta;
     });
+
+    const isMonduHandler = (t: any): boolean => {
+      const handler = t?.paymentMethod?.handlerIdentifier ?? t?.attributes?.paymentMethod?.handlerIdentifier;
+      return typeof handler === 'string' && handler.startsWith('Mondu\\MonduPayment\\');
+    };
+
+    const latestTransaction = sortedTransactions[0];
+    const isMondu = latestTransaction ? isMonduHandler(latestTransaction) : false;
+    const hasHistoricalMonduTransaction =
+      !isMondu && sortedTransactions.some((t) => isMonduHandler(t));
+
+    const activePaymentMethod =
+      latestTransaction?.paymentMethod?.translated?.name ??
+      latestTransaction?.paymentMethod?.name ??
+      null;
 
     const delivery = order?.deliveries?.[0];
     const deliveryState =
       delivery?.stateMachineState?.technicalName ?? null;
 
+    if (hasHistoricalMonduTransaction) {
+      console.log(
+        `[Mondu] Order ${orderId}: aktive Zahlart "${activePaymentMethod ?? "?"}" ist nicht Mondu, ` +
+          `aber aeltere Mondu-Transaktion(en) vorhanden — Rechnungsversand per E-Mail.`,
+      );
+    }
+
     return {
       isMondu,
       deliveryId: delivery?.id ?? null,
       deliveryState,
+      activePaymentMethod,
+      hasHistoricalMonduTransaction,
     };
   }
 
