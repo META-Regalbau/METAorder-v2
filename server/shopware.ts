@@ -320,6 +320,16 @@ export function getRealInvoiceDocument(documents: OrderDocument[]): OrderDocumen
   return real ?? invoiceLike[0];
 }
 
+/** Fehlermeldungen des Mondu-Shopware-Plugins beim Lieferstatus-Uebergang. */
+export function isMonduPluginShipError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    message.includes("MONDU__ERROR") ||
+    lower.includes("corrupt order") ||
+    message.includes("MONDU_SHIP_BLOCKED_AFTER_PAYMENT_SWITCH")
+  );
+}
+
 function readEntityTechnicalName(entity: any): string {
   if (!entity) return "unknown";
   const t =
@@ -6830,18 +6840,7 @@ export class ShopwareClient {
       }
 
       // Step 3: Transition delivery state to "shipped"
-      const stateResponse = await this.makeAuthenticatedRequest(
-        `${this.baseUrl}/api/_action/order_delivery/${deliveryId}/state/ship`,
-        {
-          method: 'POST',
-          body: JSON.stringify({}),
-        }
-      );
-
-      if (!stateResponse.ok) {
-        const errorText = await stateResponse.text();
-        throw new Error(`Failed to set order to shipped: ${stateResponse.statusText} - ${errorText}`);
-      }
+      await this.transitionOrderDeliveryToShipped(orderId, deliveryId);
 
       // Step 4: Persist shipping info in order customFields (for analytics / Versandzeiten)
       const customFields: Record<string, string> = {};
@@ -8224,27 +8223,158 @@ export class ShopwareClient {
         throw new Error('No delivery found for order');
       }
 
-      // Transition delivery to shipped state
-      const transitionResponse = await this.makeAuthenticatedRequest(
-        `${this.baseUrl}/api/_action/order_delivery/${delivery.id}/state/ship`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({}),
-        }
-      );
-
-      if (!transitionResponse.ok) {
-        const errorText = await transitionResponse.text();
-        throw new Error(`Failed to transition order to shipped: ${transitionResponse.statusText} - ${errorText}`);
-      }
+      await this.transitionOrderDeliveryToShipped(orderId, delivery.id);
 
       console.log(`[Shopware API] Order ${orderId} set to shipped status successfully`);
     } catch (error) {
       console.error('Error setting order to shipped:', error);
       throw error;
+    }
+  }
+
+  private isMonduPaymentHandler(transaction: any): boolean {
+    const handler =
+      transaction?.paymentMethod?.handlerIdentifier ??
+      transaction?.attributes?.paymentMethod?.handlerIdentifier;
+    return typeof handler === "string" && handler.startsWith("Mondu\\MonduPayment\\");
+  }
+
+  private getTransactionStateTechnicalName(transaction: any): string | null {
+    return (
+      transaction?.stateMachineState?.technicalName ??
+      transaction?.attributes?.stateMachineState?.technicalName ??
+      null
+    );
+  }
+
+  /**
+   * Storniert aeltere Mondu-Transaktionen, wenn im Checkout die Zahlart gewechselt
+   * wurde (z. B. Mondu → PayPal). Das Mondu-Plugin wertet sonst oft noch die
+   * Historie und blockiert den Lieferstatus "versandt" mit "Corrupt order".
+   */
+  async cancelSupersededMonduTransactions(orderId: string): Promise<number> {
+    const response = await this.makeAuthenticatedRequest(
+      `${this.baseUrl}/api/search/order`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filter: [{ type: "equals", field: "id", value: orderId }],
+          associations: {
+            transactions: {
+              associations: { paymentMethod: {}, stateMachineState: {} },
+              sort: [{ field: "createdAt", order: "DESC" }],
+            },
+          },
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Failed to load order transactions for Mondu cleanup: ${response.statusText} - ${errorText}`,
+      );
+    }
+
+    const data = await response.json();
+    const transactions: any[] = data.data?.[0]?.transactions ?? [];
+    if (transactions.length <= 1) return 0;
+
+    const sorted = [...transactions].sort((a, b) => {
+      const ta = new Date(a?.createdAt ?? a?.attributes?.createdAt ?? 0).getTime();
+      const tb = new Date(b?.createdAt ?? b?.attributes?.createdAt ?? 0).getTime();
+      return tb - ta;
+    });
+
+    const latestId = sorted[0]?.id;
+    let cancelled = 0;
+
+    for (const transaction of sorted) {
+      if (!transaction?.id || transaction.id === latestId) continue;
+      if (!this.isMonduPaymentHandler(transaction)) continue;
+
+      const state = this.getTransactionStateTechnicalName(transaction);
+      if (state === "cancelled" || state === "failed") continue;
+
+      const cancelResponse = await this.makeAuthenticatedRequest(
+        `${this.baseUrl}/api/_action/order_transaction/${transaction.id}/state/cancel`,
+        { method: "POST", body: JSON.stringify({}) },
+      );
+
+      if (cancelResponse.ok) {
+        cancelled += 1;
+        console.log(
+          `[Shopware] Cancelled superseded Mondu transaction ${transaction.id} on order ${orderId}`,
+        );
+      } else {
+        const errorText = await cancelResponse.text();
+        console.warn(
+          `[Shopware] Could not cancel Mondu transaction ${transaction.id} on order ${orderId}: ${cancelResponse.statusText} - ${errorText}`,
+        );
+      }
+    }
+
+    return cancelled;
+  }
+
+  /**
+   * Lieferung auf "versandt" setzen. Bei Zahlartwechsel (historische Mondu-Transaktion,
+   * aktive Zahlart nicht Mondu) wird bei Mondu-Plugin-Fehler zuerst aufgeraeumt und
+   * erneut versucht.
+   */
+  async transitionOrderDeliveryToShipped(orderId: string, deliveryId: string): Promise<void> {
+    const monduInfo = await this.getMonduShipInfo(orderId);
+    if (
+      monduInfo.deliveryState === "shipped" ||
+      monduInfo.deliveryState === "shipped_partially"
+    ) {
+      return;
+    }
+
+    const shipOnce = async () => {
+      const stateResponse = await this.makeAuthenticatedRequest(
+        `${this.baseUrl}/api/_action/order_delivery/${deliveryId}/state/ship`,
+        { method: "POST", body: JSON.stringify({}) },
+      );
+      if (!stateResponse.ok) {
+        const errorText = await stateResponse.text();
+        throw new Error(
+          `Failed to set order to shipped: ${stateResponse.statusText} - ${errorText}`,
+        );
+      }
+    };
+
+    try {
+      await shipOnce();
+      return;
+    } catch (firstError) {
+      const message = firstError instanceof Error ? firstError.message : String(firstError);
+      if (
+        !monduInfo.isMondu &&
+        monduInfo.hasHistoricalMonduTransaction &&
+        isMonduPluginShipError(message)
+      ) {
+        console.log(
+          `[Shopware] Mondu plugin blocked ship for order ${orderId} ` +
+            `(active payment: ${monduInfo.activePaymentMethod ?? "?"}), cleaning stale Mondu transactions…`,
+        );
+        const cancelled = await this.cancelSupersededMonduTransactions(orderId);
+        if (cancelled > 0) {
+          try {
+            await shipOnce();
+            console.log(
+              `[Shopware] Ship succeeded for order ${orderId} after cancelling ${cancelled} stale Mondu transaction(s)`,
+            );
+            return;
+          } catch (retryError) {
+            const retryMsg = retryError instanceof Error ? retryError.message : String(retryError);
+            throw new Error(`MONDU_SHIP_BLOCKED_AFTER_PAYMENT_SWITCH: ${retryMsg}`);
+          }
+        }
+        throw new Error(`MONDU_SHIP_BLOCKED_AFTER_PAYMENT_SWITCH: ${message}`);
+      }
+      throw firstError;
     }
   }
 
@@ -8302,10 +8432,7 @@ export class ShopwareClient {
       return tb - ta;
     });
 
-    const isMonduHandler = (t: any): boolean => {
-      const handler = t?.paymentMethod?.handlerIdentifier ?? t?.attributes?.paymentMethod?.handlerIdentifier;
-      return typeof handler === 'string' && handler.startsWith('Mondu\\MonduPayment\\');
-    };
+    const isMonduHandler = (t: any): boolean => this.isMonduPaymentHandler(t);
 
     const latestTransaction = sortedTransactions[0];
     const isMondu = latestTransaction ? isMonduHandler(latestTransaction) : false;

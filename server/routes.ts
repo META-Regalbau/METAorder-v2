@@ -7,7 +7,7 @@ import rateLimit from "express-rate-limit";
 import crypto from "crypto";
 import { storage } from "./storage";
 import type { IStorage } from "./storage";
-import { ShopwareClient, getRealInvoiceDocument, type ShopwareProductOverview } from "./shopware";
+import { ShopwareClient, getRealInvoiceDocument, isMonduPluginShipError, type ShopwareProductOverview } from "./shopware";
 import { parseFakturaRowsFromBuffer, runFakturaImport } from "./shopFakturenImport";
 import { sendOrderInvoice } from "./invoiceSending";
 import { RuleEngine, type SuggestCrossSellingOptions } from "./ruleEngine";
@@ -1140,6 +1140,20 @@ async function generateCrossSellStaging(
     suggestionsCount: stagingSuggestions.length,
     productsWithSuggestions,
     productsWithoutSuggestions,
+  };
+}
+
+function monduShipBlockedPayload(errorMessage: string) {
+  const afterPaymentSwitch = errorMessage.includes("MONDU_SHIP_BLOCKED_AFTER_PAYMENT_SWITCH");
+  return {
+    error: "Mondu plugin error",
+    code: afterPaymentSwitch
+      ? "mondu_ship_blocked_after_payment_switch"
+      : "mondu_ship_blocked",
+    message: afterPaymentSwitch
+      ? "Das Mondu-Plugin blockiert den Versandstatus, obwohl die aktuelle Zahlart nicht Mondu ist (Zahlart wurde im Checkout gewechselt). Bitte in Shopware prüfen: alte Mondu-Transaktion stornieren oder im Mondu-Plugin „Skip order state validation“ aktivieren."
+      : "Das Mondu-Zahlungs-Plugin in Shopware verhindert die Statusänderung. Bitte den Lieferstatus manuell in Shopware setzen oder den Shopware-/Mondu-Support kontaktieren.",
+    details: errorMessage,
   };
 }
 
@@ -3732,7 +3746,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("Error updating order shipping:", error);
-      res.status(500).json({ error: error.message || "Failed to update shipping information" });
+      const message = error.message || "Failed to update shipping information";
+      if (isMonduPluginShipError(message)) {
+        return res.status(502).json(monduShipBlockedPayload(message));
+      }
+      res.status(500).json({ error: message });
     }
   });
 
@@ -4918,18 +4936,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error("Error marking order as shipped:", error);
-      
-      // Handle Mondu plugin errors specifically
-      if (error.message?.includes('MONDU__ERROR') || error.message?.includes('Corrupt order')) {
-        return res.status(502).json({ 
-          error: "Mondu plugin error",
-          message: "The Mondu payment plugin in Shopware is preventing the order status change. This is a known Shopware-side issue that cannot be fixed in METAorder. Please contact Shopware support or manually update the order status in Shopware.",
-          details: error.message,
-        });
+      const message = error.message || "Failed to mark order as shipped";
+
+      if (isMonduPluginShipError(message)) {
+        return res.status(502).json(monduShipBlockedPayload(message));
       }
       
       res.status(500).json({ 
-        error: error.message || "Failed to mark order as shipped" 
+        error: message,
       });
     }
   });

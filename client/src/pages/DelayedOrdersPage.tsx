@@ -9,6 +9,7 @@ import OrderDetailModal from "@/components/OrderDetailModal";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { getApiErrorToastContent } from "@/lib/orderApiErrors";
 import type { Order } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
@@ -60,9 +61,10 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
       });
     },
     onError: (error: Error) => {
+      const { title, description } = getApiErrorToastContent(error, t);
       toast({
-        title: t('errors.updateFailed'),
-        description: error.message,
+        title,
+        description,
         variant: "destructive",
       });
     },

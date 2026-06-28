@@ -24,6 +24,7 @@ import { SalesChannelSelector } from "@/components/SalesChannelSelector";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { getApiErrorToastContent } from "@/lib/orderApiErrors";
 import type { Order, OrderStatus, SalesChannel, User, Role } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 
@@ -305,9 +306,10 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
       });
     },
     onError: (error: Error) => {
+      const { title, description } = getApiErrorToastContent(error, t);
       toast({
-        title: t('errors.updateFailed'),
-        description: error.message,
+        title,
+        description,
         variant: "destructive",
       });
     },
