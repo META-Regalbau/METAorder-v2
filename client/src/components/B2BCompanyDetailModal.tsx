@@ -96,6 +96,8 @@ export type B2BCompanyDetail = {
     pluginDetected: boolean;
     prices: B2BCompanyCustomerPrice[];
   };
+  crmCustomerId: string | null;
+  tags: string[];
 };
 
 type B2BCompanyDetailModalProps = {
@@ -231,6 +233,11 @@ export default function B2BCompanyDetailModal({
               {data.accountType ? (
                 <Badge variant="outline">{data.accountType}</Badge>
               ) : null}
+              {data.tags.map((tag) => (
+                <Badge key={tag} variant="secondary">
+                  {tag}
+                </Badge>
+              ))}
             </section>
 
             <section>

@@ -2518,6 +2518,7 @@
       "companies": "Empresas",
       "employees": "Empleados",
       "roles": "Roles",
+      "tags": "Etiquetas",
       "detail": {
         "title": "Detalles de la empresa",
         "subtitle": "Datos maestros, dirección y empleados asignados desde Shopware",

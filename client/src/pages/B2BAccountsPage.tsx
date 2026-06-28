@@ -18,6 +18,7 @@ type Company = {
   active: boolean;
   salesChannelId?: string | null;
   salesChannelName?: string | null;
+  tags?: string[];
 };
 
 interface B2BAccountsPageProps {
@@ -122,6 +123,7 @@ export default function B2BAccountsPage({ userPermissions, userRole, userSalesCh
                 <TableHead>{t("b2b.company")}</TableHead>
                 <TableHead>{t("b2b.email")}</TableHead>
                 <TableHead>{t("b2b.customerNumber")}</TableHead>
+                <TableHead>{t("b2b.accounts.tags")}</TableHead>
                 <TableHead>{t("b2b.accounts.detail.salesChannel")}</TableHead>
                 <TableHead>{t("b2b.status")}</TableHead>
               </TableRow>
@@ -136,6 +138,19 @@ export default function B2BAccountsPage({ userPermissions, userRole, userSalesCh
                   <TableCell className="font-medium">{c.company || "—"}</TableCell>
                   <TableCell>{c.email || "—"}</TableCell>
                   <TableCell>{c.customerNumber || "—"}</TableCell>
+                  <TableCell>
+                    {(c.tags?.length ?? 0) > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {c.tags!.map((tag) => (
+                          <Badge key={tag} variant="secondary" className="text-xs">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                   <TableCell>{c.salesChannelName || "—"}</TableCell>
                   <TableCell>
                     <Badge variant={c.active ? "default" : "secondary"}>
@@ -146,7 +161,7 @@ export default function B2BAccountsPage({ userPermissions, userRole, userSalesCh
               ))}
               {!companiesLoading && !companiesError && (companiesData?.companies?.length ?? 0) === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground">
                     {t("b2b.noResults")}
                   </TableCell>
                 </TableRow>

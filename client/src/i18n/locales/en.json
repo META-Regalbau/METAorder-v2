@@ -2887,6 +2887,7 @@
       "companies": "Companies",
       "employees": "Employees",
       "roles": "Roles",
+      "tags": "Tags",
       "detail": {
         "title": "Company details",
         "subtitle": "Master data, address and assigned employees from Shopware",

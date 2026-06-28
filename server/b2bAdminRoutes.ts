@@ -44,6 +44,35 @@ function parseRequestedSalesChannelIds(req: Request): string[] {
   return raw.split(",").map((id) => id.trim()).filter(Boolean);
 }
 
+type CrmCustomerByEmail = { id: string; tags: string[] };
+
+async function buildCrmCustomerByEmailMap(tenantId?: string | null): Promise<Map<string, CrmCustomerByEmail>> {
+  const rows = await storage.getAllCustomers(tenantId);
+  const map = new Map<string, CrmCustomerByEmail>();
+  for (const row of rows) {
+    const email = row.email?.trim().toLowerCase();
+    if (!email) continue;
+    map.set(email, {
+      id: row.id,
+      tags: row.tags?.filter(Boolean) ?? [],
+    });
+  }
+  return map;
+}
+
+function resolveCrmCustomerByEmail(
+  map: Map<string, CrmCustomerByEmail>,
+  email: string | null | undefined,
+): { crmCustomerId: string | null; tags: string[] } {
+  const key = email?.trim().toLowerCase();
+  if (!key) return { crmCustomerId: null, tags: [] };
+  const match = map.get(key);
+  return {
+    crmCustomerId: match?.id ?? null,
+    tags: match?.tags ?? [],
+  };
+}
+
 async function resolveCompanySalesChannelIds(
   req: Request,
   getSalesChannelFilter: B2BAdminRouteOptions["getSalesChannelFilter"],
@@ -122,14 +151,22 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       if (salesChannelIds === "denied") {
         return res.json({ companies: [], total: 0 });
       }
-      const client = await getAdminClient((req as any).tenantId ?? null);
+      const tenantId = (req as any).tenantId ?? null;
+      const client = await getAdminClient(tenantId);
       const result = await client.fetchCompanies({
         search: (req.query.search as string) || undefined,
         page: Number(req.query.page) || 1,
         limit: Number(req.query.limit) || 50,
         salesChannelIds,
       });
-      res.json(result);
+      const crmByEmail = await buildCrmCustomerByEmailMap(tenantId);
+      res.json({
+        companies: result.companies.map((company) => ({
+          ...company,
+          ...resolveCrmCustomerByEmail(crmByEmail, company.email),
+        })),
+        total: result.total,
+      });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to fetch companies" });
     }
@@ -137,9 +174,17 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
 
   app.get("/api/b2b/companies/:companyId", requireAuth, requireViewB2B, async (req, res) => {
     try {
-      const client = await getAdminClient((req as any).tenantId ?? null);
+      const tenantId = (req as any).tenantId ?? null;
+      const client = await getAdminClient(tenantId);
       const detail = await client.fetchCompanyDetail(req.params.companyId);
-      res.json(detail);
+      const crmCustomer = detail.email
+        ? await storage.getCustomerByEmail(detail.email, tenantId)
+        : undefined;
+      res.json({
+        ...detail,
+        crmCustomerId: crmCustomer?.id ?? null,
+        tags: crmCustomer?.tags?.filter(Boolean) ?? [],
+      });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to fetch company detail" });
     }

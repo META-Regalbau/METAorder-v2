@@ -2916,6 +2916,7 @@
       "companies": "Unternehmen",
       "employees": "Mitarbeiter",
       "roles": "Rollen",
+      "tags": "Tags",
       "detail": {
         "title": "Unternehmensdetails",
         "subtitle": "Stammdaten, Adresse und zugeordnete Mitarbeiter aus Shopware",
