@@ -45,6 +45,9 @@ const addRoleSchema = z.object({
     manageCPQ: z.boolean(),
     manageCPQDiscountLevels: z.boolean(),
     approveCPQQuotes: z.boolean(),
+    viewB2B: z.boolean(),
+    manageB2B: z.boolean(),
+    approveB2BBudgets: z.boolean(),
   }),
 });
 
@@ -84,6 +87,9 @@ const permissionLabels = {
   manageCPQ: { label: "Manage CPQ", description: "Can manage rules, mappings, and systems" },
   manageCPQDiscountLevels: { label: "Manage CPQ Discount Levels", description: "Can manage discount traffic light levels" },
   approveCPQQuotes: { label: "Approve CPQ Quotes", description: "Can approve offers requiring clearance" },
+  viewB2B: { label: "View B2B Suite", description: "Can view B2B companies, budgets, lists and assortments" },
+  manageB2B: { label: "Manage B2B Suite", description: "Can create and edit B2B employees, SKUs and shopping lists" },
+  approveB2BBudgets: { label: "Approve B2B Orders", description: "Can approve or reject B2B budget/order requests" },
 };
 
 export default function AddRoleDialog({ onAddRole }: AddRoleDialogProps) {
@@ -126,6 +132,9 @@ export default function AddRoleDialog({ onAddRole }: AddRoleDialogProps) {
         manageCPQ: false,
         manageCPQDiscountLevels: false,
         approveCPQQuotes: false,
+        viewB2B: false,
+        manageB2B: false,
+        approveB2BBudgets: false,
       },
     },
   });

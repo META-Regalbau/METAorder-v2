@@ -59,6 +59,9 @@ export const roles = pgTable("roles", {
     manageCPQ: boolean;
     manageCPQDiscountLevels: boolean;
     approveCPQQuotes: boolean;
+    viewB2B: boolean;
+    manageB2B: boolean;
+    approveB2BBudgets: boolean;
   }>(),
 });
 
@@ -1364,6 +1367,28 @@ export type TicketActivityLog = typeof ticketActivityLog.$inferSelect;
 export type InsertTicketAssignmentRule = z.infer<typeof insertTicketAssignmentRuleSchema>;
 export type TicketAssignmentRule = typeof ticketAssignmentRules.$inferSelect;
 
+/** Audit log for B2B budget/order approval actions taken in META Order backoffice */
+export const b2bApprovalLog = pgTable("b2b_approval_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id),
+  shopwareReferenceId: text("shopware_reference_id").notNull(),
+  referenceType: text("reference_type").notNull(),
+  action: text("action").notNull(),
+  status: text("status").notNull().default("completed"),
+  actorUserId: varchar("actor_user_id").references(() => users.id),
+  comment: text("comment"),
+  payload: jsonb("payload"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertB2bApprovalLogSchema = createInsertSchema(b2bApprovalLog).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertB2bApprovalLog = z.infer<typeof insertB2bApprovalLogSchema>;
+export type B2bApprovalLog = typeof b2bApprovalLog.$inferSelect;
+
 export const discountRequests = pgTable("discount_requests", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").references(() => tenants.id),
@@ -2240,7 +2265,7 @@ export const webhookConfigs = pgTable(
   (table) => ({
     uniqueTenantEvent: uniqueIndex("webhook_configs_tenant_event_unique").on(table.tenantId, table.eventType),
     // Check constraint for event types
-    eventTypeCheck: sql`CHECK (event_type IN ('ticket.created', 'ticket.updated', 'ticket.commented', 'ticket.assigned', 'ticket.customer_replied', 'ticket.agent_replied', 'order.ready_to_ship', 'document.created', 'commercial.draft_created', 'commercial.draft_review_required', 'commercial.auto_offer_created', 'commercial.auto_order_created'))`,
+    eventTypeCheck: sql`CHECK (event_type IN ('ticket.created', 'ticket.updated', 'ticket.commented', 'ticket.assigned', 'ticket.customer_replied', 'ticket.agent_replied', 'order.ready_to_ship', 'document.created', 'commercial.draft_created', 'commercial.draft_review_required', 'commercial.auto_offer_created', 'commercial.auto_order_created', 'b2b.approval_required', 'b2b.approval_decided'))`,
   })
 );
 
@@ -2258,6 +2283,8 @@ export const insertWebhookConfigSchema = createInsertSchema(webhookConfigs, {
     'commercial.draft_review_required',
     'commercial.auto_offer_created',
     'commercial.auto_order_created',
+    'b2b.approval_required',
+    'b2b.approval_decided',
   ]),
   targetUrl: z.string().url().optional().nullable(),
   enabled: z.number().int().min(0).max(1).default(0),
@@ -2286,7 +2313,9 @@ export type WebhookEventType =
   | 'commercial.draft_created'
   | 'commercial.draft_review_required'
   | 'commercial.auto_offer_created'
-  | 'commercial.auto_order_created';
+  | 'commercial.auto_order_created'
+  | 'b2b.approval_required'
+  | 'b2b.approval_decided';
 
 // Webhook Logs table - tracks all webhook delivery attempts
 export const webhookLogs = pgTable("webhook_logs", {

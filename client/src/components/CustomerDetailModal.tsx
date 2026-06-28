@@ -19,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
@@ -226,6 +227,19 @@ export default function CustomerDetailModal({
 
   const duplicateShopwareCustomerId = matchResult?.self?.customerId ?? null;
 
+  const { data: b2bSkusData, isLoading: b2bSkusLoading } = useQuery<{ skus: Array<{ id: string; customerProductNumber: string; productId: string | null; productNumber?: string | null }> }>({
+    queryKey: ["/api/b2b/customer-skus", duplicateShopwareCustomerId],
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/b2b/customer-skus?customerId=${encodeURIComponent(duplicateShopwareCustomerId!)}&limit=100`,
+        { credentials: "include" },
+      );
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    enabled: isOpen && !!duplicateShopwareCustomerId,
+  });
+
   const previewMergeMutation = useMutation({
     mutationFn: async (candidate: CustomerMatchCandidate) => {
       if (!duplicateShopwareCustomerId) {
@@ -320,11 +334,12 @@ export default function CustomerDetailModal({
           <div className="py-10 text-center text-muted-foreground">{t("common.loading")}</div>
         ) : (
           <Tabs defaultValue="overview">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="overview">{t("crm.customer.tabs.overview")}</TabsTrigger>
               <TabsTrigger value="orders">{t("crm.customer.tabs.orders")}</TabsTrigger>
               <TabsTrigger value="tickets">{t("crm.customer.tabs.tickets")}</TabsTrigger>
               <TabsTrigger value="prices">{t("crm.customer.tabs.prices")}</TabsTrigger>
+              <TabsTrigger value="b2b">{t("crm.customer.tabs.b2b")}</TabsTrigger>
               <TabsTrigger value="interactions">{t("crm.customer.tabs.interactions")}</TabsTrigger>
             </TabsList>
 
@@ -567,6 +582,50 @@ export default function CustomerDetailModal({
                     </Table>
                   </div>
                 </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="b2b" className="pt-4 space-y-4">
+              {!duplicateShopwareCustomerId ? (
+                <div className="py-6 text-center text-muted-foreground">
+                  {t("crm.customer.b2b.noShopwareId")}
+                </div>
+              ) : (
+                <>
+                  <div className="flex flex-wrap gap-2">
+                    <Button asChild variant="outline" size="sm">
+                      <Link href={`/b2b/assortments?customerId=${encodeURIComponent(duplicateShopwareCustomerId)}`}>
+                        {t("crm.customer.b2b.openAssortments")}
+                      </Link>
+                    </Button>
+                  </div>
+                  {b2bSkusLoading ? (
+                    <div className="py-6 text-center text-muted-foreground">{t("common.loading")}</div>
+                  ) : (b2bSkusData?.skus?.length ?? 0) === 0 ? (
+                    <div className="py-6 text-center text-muted-foreground">{t("crm.customer.b2b.emptySkus")}</div>
+                  ) : (
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/50">
+                            <TableHead>{t("b2b.assortments.customerSku")}</TableHead>
+                            <TableHead>{t("b2b.productNumber")}</TableHead>
+                            <TableHead>{t("b2b.assortments.productId")}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {b2bSkusData!.skus.map((sku) => (
+                            <TableRow key={sku.id}>
+                              <TableCell className="font-mono">{sku.customerProductNumber}</TableCell>
+                              <TableCell className="font-mono">{sku.productNumber || "—"}</TableCell>
+                              <TableCell className="font-mono text-xs">{sku.productId || "—"}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </>
               )}
             </TabsContent>
 

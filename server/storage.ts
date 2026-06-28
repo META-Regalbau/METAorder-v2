@@ -102,6 +102,8 @@ import {
   type InsertOfferPublicLink,
   type OfferPublicEvent,
   type InsertOfferPublicEvent,
+  type B2bApprovalLog,
+  type InsertB2bApprovalLog,
 } from "@shared/schema";
 import { createHash, randomBytes, randomUUID } from "crypto";
 
@@ -461,6 +463,15 @@ export interface IStorage {
     row: Omit<InsertOfferPublicEvent, "id" | "createdAt">,
     tenantId?: string | null
   ): Promise<OfferPublicEvent>;
+
+  createB2bApprovalLog(
+    row: Omit<InsertB2bApprovalLog, "id" | "createdAt">,
+    tenantId?: string | null
+  ): Promise<B2bApprovalLog>;
+  listB2bApprovalLogs(
+    tenantId?: string | null,
+    options?: { limit?: number }
+  ): Promise<B2bApprovalLog[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -2412,6 +2423,36 @@ export class MemStorage implements IStorage {
     };
     this.offerPublicEvents.push(ev);
     return ev;
+  }
+
+  private b2bApprovalLogs: B2bApprovalLog[] = [];
+
+  async createB2bApprovalLog(
+    row: Omit<InsertB2bApprovalLog, "id" | "createdAt">,
+    tenantId?: string | null
+  ): Promise<B2bApprovalLog> {
+    const record: B2bApprovalLog = {
+      id: randomUUID(),
+      tenantId: tenantId ?? row.tenantId ?? null,
+      shopwareReferenceId: row.shopwareReferenceId,
+      referenceType: row.referenceType,
+      action: row.action,
+      status: row.status ?? "completed",
+      actorUserId: row.actorUserId ?? null,
+      comment: row.comment ?? null,
+      payload: row.payload ?? null,
+      createdAt: new Date(),
+    };
+    this.b2bApprovalLogs.unshift(record);
+    return record;
+  }
+
+  async listB2bApprovalLogs(tenantId?: string | null, options?: { limit?: number }): Promise<B2bApprovalLog[]> {
+    const tid = tenantId ?? null;
+    const limit = options?.limit ?? 50;
+    return this.b2bApprovalLogs
+      .filter((l) => (l.tenantId ?? null) === tid)
+      .slice(0, limit);
   }
 }
 

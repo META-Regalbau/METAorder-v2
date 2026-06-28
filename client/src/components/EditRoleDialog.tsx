@@ -44,6 +44,9 @@ const editRoleSchema = z.object({
     manageCPQ: z.boolean(),
     manageCPQDiscountLevels: z.boolean(),
     approveCPQQuotes: z.boolean(),
+    viewB2B: z.boolean(),
+    manageB2B: z.boolean(),
+    approveB2BBudgets: z.boolean(),
   }),
 });
 
@@ -86,6 +89,9 @@ const permissionLabels = {
   manageCPQ: { label: "Manage CPQ", description: "Can manage rules, mappings, and systems" },
   manageCPQDiscountLevels: { label: "Manage CPQ Discount Levels", description: "Can manage discount traffic light levels" },
   approveCPQQuotes: { label: "Approve CPQ Quotes", description: "Can approve offers requiring clearance" },
+  viewB2B: { label: "View B2B Suite", description: "Can view B2B companies, budgets, lists and assortments" },
+  manageB2B: { label: "Manage B2B Suite", description: "Can create and edit B2B employees, SKUs and shopping lists" },
+  approveB2BBudgets: { label: "Approve B2B Orders", description: "Can approve or reject B2B budget/order requests" },
 };
 
 export default function EditRoleDialog({ role, open, onClose, onUpdateRole }: EditRoleDialogProps) {
@@ -127,6 +133,9 @@ export default function EditRoleDialog({ role, open, onClose, onUpdateRole }: Ed
         manageCPQ: !!(role.permissions as any).manageCPQ,
         manageCPQDiscountLevels: !!(role.permissions as any).manageCPQDiscountLevels,
         approveCPQQuotes: !!(role.permissions as any).approveCPQQuotes,
+        viewB2B: !!(role.permissions as any).viewB2B,
+        manageB2B: !!(role.permissions as any).manageB2B,
+        approveB2BBudgets: !!(role.permissions as any).approveB2BBudgets,
       },
     } : undefined,
   });

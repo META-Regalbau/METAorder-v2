@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, Download, BarChart3, Settings, Users, Shield, Sparkles, AlertTriangle, Ticket, GitBranch, Truck, FileText, Zap, FileUp, Receipt, Briefcase, Boxes, FileSearch, Scale } from "lucide-react";
+import { LayoutDashboard, Package, Download, BarChart3, Settings, Users, Shield, Sparkles, AlertTriangle, Ticket, GitBranch, Truck, FileText, Zap, FileUp, Receipt, Briefcase, Boxes, FileSearch, Scale, Building2, Wallet, ListOrdered, Layers } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import type { Role } from "@shared/schema";
@@ -145,6 +145,36 @@ export default function AppSidebar({ userRole, permissions }: AppSidebarProps) {
           url: "/crm",
           icon: Briefcase,
           permission: "viewCrm" as keyof Role['permissions'],
+        },
+        {
+          titleKey: "nav.b2bAccounts",
+          url: "/b2b/accounts",
+          icon: Building2,
+          permission: "viewB2B" as keyof Role['permissions'],
+        },
+        {
+          titleKey: "nav.b2bBudgets",
+          url: "/b2b/budgets",
+          icon: Wallet,
+          permission: "viewB2B" as keyof Role['permissions'],
+        },
+        {
+          titleKey: "nav.b2bAssortments",
+          url: "/b2b/assortments",
+          icon: Layers,
+          permission: "viewB2B" as keyof Role['permissions'],
+        },
+        {
+          titleKey: "nav.b2bOrderLists",
+          url: "/b2b/order-lists",
+          icon: ListOrdered,
+          permission: "viewB2B" as keyof Role['permissions'],
+        },
+        {
+          titleKey: "nav.b2bExplodedViews",
+          url: "/b2b/exploded-views",
+          icon: Boxes,
+          permission: "viewB2B" as keyof Role['permissions'],
         },
         {
           titleKey: "nav.ticketRules",

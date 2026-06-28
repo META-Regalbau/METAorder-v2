@@ -41,6 +41,11 @@ const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
 const WebhookLogsPage = lazy(() => import("@/pages/WebhookLogsPage"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
 const AccountingPage = lazy(() => import("@/pages/AccountingPage"));
+const B2BAccountsPage = lazy(() => import("@/pages/B2BAccountsPage"));
+const B2BBudgetsPage = lazy(() => import("@/pages/B2BBudgetsPage"));
+const B2BAssortmentsPage = lazy(() => import("@/pages/B2BAssortmentsPage"));
+const B2BOrderListsPage = lazy(() => import("@/pages/B2BOrderListsPage"));
+const B2BExplodedViewsPage = lazy(() => import("@/pages/B2BExplodedViewsPage"));
 const ShopFakturenImportPage = lazy(() => import("@/pages/ShopFakturenImportPage"));
 import LoginPage from "@/pages/LoginPage";
 import NotFound from "@/pages/not-found";
@@ -79,6 +84,11 @@ function Router({
       <Route path="/bundles" component={BundlesPage} />
       <Route path="/tickets" component={() => <TicketsPage userPermissions={userPermissions} />} />
       <Route path="/crm" component={() => <CrmPage userPermissions={userPermissions} userRole={userRole} userSalesChannelIds={userSalesChannelIds} />} />
+      <Route path="/b2b/accounts" component={() => <B2BAccountsPage userPermissions={userPermissions} userRole={userRole} userSalesChannelIds={userSalesChannelIds} />} />
+      <Route path="/b2b/budgets" component={() => <B2BBudgetsPage userPermissions={userPermissions} />} />
+      <Route path="/b2b/assortments" component={() => <B2BAssortmentsPage userPermissions={userPermissions} />} />
+      <Route path="/b2b/order-lists" component={() => <B2BOrderListsPage userPermissions={userPermissions} />} />
+      <Route path="/b2b/exploded-views" component={() => <B2BExplodedViewsPage userPermissions={userPermissions} />} />
       <Route path="/ticket-rules" component={TicketRulesPage} />
       <Route path="/automation-rules" component={AutomationRulesPage} />
       <Route path="/templates" component={() => <TemplatesPage userPermissions={userPermissions} />} />

@@ -61,7 +61,16 @@ export function SalesChannelSelector({
     onSelectionChange([]);
   };
 
-  if (isLoading || availableChannels.length === 0) {
+  if (isLoading) {
+    return (
+      <Button variant="outline" disabled className="gap-2" data-testid="button-sales-channel-filter">
+        <Filter className="h-4 w-4" />
+        {t(buttonLabelKey ?? "salesChannel.filter")}
+      </Button>
+    );
+  }
+
+  if (availableChannels.length === 0) {
     return null;
   }
 

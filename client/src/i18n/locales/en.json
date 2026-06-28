@@ -266,6 +266,11 @@
     "orderDrafts": "Order Drafts",
     "offers": "Offers",
     "crm": "CRM",
+    "b2bAccounts": "B2B Accounts",
+    "b2bBudgets": "B2B Budgets",
+    "b2bAssortments": "B2B Assortments",
+    "b2bOrderLists": "B2B Order Lists",
+    "b2bExplodedViews": "B2B Exploded Views",
     "appTitle": "METAorder",
     "notifications": "Notifications",
     "profile": "Profile"
@@ -1199,7 +1204,9 @@
       "commercial_draft_created": "Commercial: draft created",
       "commercial_draft_review_required": "Commercial: draft needs review",
       "commercial_auto_offer_created": "Commercial: offer auto-created",
-      "commercial_auto_order_created": "Commercial: order auto-created"
+      "commercial_auto_order_created": "Commercial: order auto-created",
+      "b2b_approval_required": "B2B: approval required",
+      "b2b_approval_decided": "B2B: approval decided"
     },
     "monduSaved": "Mondu settings saved",
     "monduSavedDesc": "Your Mondu API settings have been updated successfully.",
@@ -1219,6 +1226,34 @@
         "open": "Open",
         "confirmed": "Confirmed",
         "declined": "Declined"
+      }
+    },
+    "b2bEntityMapping": {
+      "title": "B2B entity mapping",
+      "description": "Shopware entity names for the B2B Sellers Suite (API resources). Env vars B2B_ENTITY_* override code defaults; values saved here apply per tenant.",
+      "discovered": "Discovered B2B entities (sample)",
+      "reset": "Reset to defaults",
+      "save": "Save mapping",
+      "saving": "Saving…",
+      "saveSuccess": "B2B mapping saved",
+      "saveSuccessDesc": "Entity names have been updated.",
+      "saveError": "Failed to save B2B mapping",
+      "fields": {
+        "company": "Company / business customer",
+        "employee": "Employee",
+        "employeeRole": "Employee role",
+        "employeePermission": "Employee permission",
+        "employeeCustomer": "Employee customer link",
+        "budget": "Budget",
+        "budgetEmployee": "Budget employee",
+        "customerPrice": "Customer price",
+        "productList": "Product / shopping list",
+        "productListItem": "List line item",
+        "productListType": "List type",
+        "customerProductNumber": "Customer product number",
+        "productExplodedView": "Exploded view",
+        "productExplodedViewItem": "Exploded view part",
+        "employeeOrder": "Employee order (approval)"
       }
     },
     "offerConfigPdf": {
@@ -2741,7 +2776,8 @@
         "orders": "Orders",
         "tickets": "Tickets",
         "prices": "Individual prices",
-        "interactions": "Interactions"
+        "interactions": "Interactions",
+        "b2b": "B2B"
       },
       "email": "Email",
       "phone": "Phone",
@@ -2749,6 +2785,12 @@
       "lastTouch": "Last touch",
       "noOrders": "No orders",
       "noTickets": "No tickets",
+      "b2b": {
+        "noShopwareId": "No linked Shopware customer — B2B data unavailable.",
+        "customerSkus": "Customer SKUs",
+        "openAssortments": "Manage assortments",
+        "emptySkus": "No customer SKUs on file"
+      },
       "individualPrices": {
         "label": "Customer-specific prices",
         "yesCount": "Yes ({{count}})",
@@ -2814,6 +2856,121 @@
         "meeting": "Meeting",
         "other": "Other"
       }
+    }
+  },
+  "b2b": {
+    "noPermission": "No permission for B2B features.",
+    "search": "Search…",
+    "company": "Company",
+    "email": "Email",
+    "customerNumber": "Customer number",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "noResults": "No entries found",
+    "loadError": "Could not load B2B data.",
+    "name": "Name",
+    "department": "Department",
+    "actions": "Actions",
+    "approve": "Approve",
+    "reject": "Reject",
+    "add": "Add",
+    "productNumber": "Product number",
+    "price": "Price",
+    "quantity": "Quantity",
+    "accounts": {
+      "title": "B2B company accounts",
+      "subtitle": "Manage company customers and employees from the B2B Sellers Suite",
+      "companies": "Companies",
+      "employees": "Employees",
+      "roles": "Roles",
+      "detail": {
+        "title": "Company details",
+        "subtitle": "Master data, address and assigned employees from Shopware",
+        "masterData": "Master data",
+        "contactPerson": "Contact person",
+        "phone": "Phone",
+        "customerGroup": "Customer group",
+        "salesChannel": "Sales channel",
+        "vatIds": "VAT IDs",
+        "createdAt": "Created at",
+        "lastLogin": "Last login",
+        "orderCount": "Orders",
+        "orderTotal": "Order volume",
+        "customerId": "Shopware customer ID",
+        "offerCustomerId": "B2B offer customer ID",
+        "billingAddress": "Billing address",
+        "street": "Street",
+        "city": "ZIP / City",
+        "country": "Country",
+        "customFields": "B2B custom fields",
+        "customerPrices": "Customer discounts & prices",
+        "listPriceNet": "List price net",
+        "discountPercent": "Discount",
+        "openAssortments": "Manage assortments",
+        "pricesPluginMissing": "B2Bsellers customer prices are not available in Shopware.",
+        "employeeActions": "Actions",
+        "activateEmployee": "Activate",
+        "deactivateEmployee": "Deactivate",
+        "deleteEmployee": "Delete",
+        "deleteEmployeeTitle": "Delete employee?",
+        "deleteEmployeeDescription": "The employee will be permanently removed from Shopware. This action cannot be undone.",
+        "employeeActivated": "Employee activated",
+        "employeeDeactivated": "Employee deactivated",
+        "employeeDeleted": "Employee deleted",
+        "employeeActionFailed": "Action failed"
+      }
+    },
+    "budgets": {
+      "title": "B2B budgets & approvals",
+      "subtitle": "Budgets and pending order approvals",
+      "list": "Budgets",
+      "name": "Name",
+      "amount": "Amount",
+      "period": "Period",
+      "approvalQueue": "Approval queue",
+      "order": "Order",
+      "decisionSaved": "Decision saved"
+    },
+    "assortments": {
+      "title": "B2B assortments & SKUs",
+      "subtitle": "Customer-specific prices and product numbers",
+      "customerIdPlaceholder": "Shopware customer ID (UUID)",
+      "customerPrices": "Customer prices",
+      "customerSkus": "Customer SKUs",
+      "customerSku": "Customer SKU",
+      "productId": "Product ID",
+      "skuCreated": "Customer SKU created"
+    },
+    "orderLists": {
+      "title": "B2B order lists",
+      "subtitle": "Recurring shopping lists and reorder",
+      "lists": "Lists",
+      "listName": "List name",
+      "items": "Line items",
+      "reorder": "Prepare reorder",
+      "reorderPrepared": "Reorder prepared",
+      "reorderDraftCreated": "Order draft created",
+      "openDraft": "Open draft",
+      "positions": "Line items"
+    },
+    "explodedViews": {
+      "title": "B2B exploded views",
+      "subtitle": "Spare parts and hotspots from the B2B Sellers Suite",
+      "views": "Drawings",
+      "parts": "Parts",
+      "label": "Label"
+    },
+    "quickOrder": {
+      "title": "Quick order (CSV)",
+      "subtitle": "Product number and quantity per line — e.g. \"SKU;5\"",
+      "placeholder": "Product number;Quantity\n12345;2",
+      "match": "Match products",
+      "matched": "Found",
+      "notMatched": "Not found",
+      "barcode": "Barcode / EAN",
+      "barcodePlaceholder": "Scan or enter EAN",
+      "lookup": "Lookup"
     }
   },
   "notFound": {

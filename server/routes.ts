@@ -109,6 +109,7 @@ function parseUploadIntentHint(raw: unknown): "offer" | "order" | "unclear" | un
 }
 import { extractDocumentTextPreviewForIntent } from "./documentTextExtraction";
 import { registerPublicOfferRoutes } from "./publicOfferRoutes";
+import { registerB2BAdminRoutes } from "./b2bAdminRoutes";
 import { buildOfferDetailJson } from "./offerDetailBuilder";
 import { generateOfferPlainToken, hashOfferPublicToken } from "./offerToken";
 import { buildCommercialProductFeedbackRowsFromDraftUpdate } from "./commercialProductLearning";
@@ -1656,6 +1657,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           manageCPQ: z.boolean(),
           manageCPQDiscountLevels: z.boolean(),
           approveCPQQuotes: z.boolean(),
+          viewB2B: z.boolean(),
+          manageB2B: z.boolean(),
+          approveB2BBudgets: z.boolean(),
         }),
       });
       
@@ -1710,6 +1714,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           manageCPQ: z.boolean(),
           manageCPQDiscountLevels: z.boolean(),
           approveCPQQuotes: z.boolean(),
+          viewB2B: z.boolean(),
+          manageB2B: z.boolean(),
+          approveB2BBudgets: z.boolean(),
         }).optional(),
       });
       
@@ -14225,9 +14232,11 @@ Antworte im JSON-Format:
 
       const prefixQuery = req.query.prefix as string | undefined;
       const entityQuery = req.query.entity as string | undefined;
-      const prefix = prefixQuery === "all" ? "" : (prefixQuery || "b2b_");
+      const prefix = prefixQuery === "all" ? "" : (prefixQuery || "b2bsellers");
       const client = new ShopwareClient(settings);
       const { source, schema } = await client.fetchEntitySchema();
+
+      const toApiEntityName = (name: string) => name.replace(/_/g, "-");
 
       let entities: string[] = [];
 
@@ -14246,10 +14255,15 @@ Antworte im JSON-Format:
           .filter((path: string) => path.startsWith("/api/") && path.endsWith("/search"))
           .map((path: string) => path.replace("/api/", "").replace("/search", "").split("/")[0]);
         entities = [...fromSearchPrefix, ...fromSearchSuffix];
+      } else if (schema && typeof schema === "object") {
+        entities = Object.keys(schema).filter((key) => /^[a-z][a-z0-9_]*$/i.test(key) && key.includes("_"));
       }
 
-      const unique = Array.from(new Set(entities.filter(Boolean)));
-      const filtered = prefix ? unique.filter((name) => name.startsWith(prefix)) : unique;
+      const unique = Array.from(new Set(entities.filter(Boolean).map(toApiEntityName)));
+      const normalizedPrefix = prefix.replace(/_/g, "-").toLowerCase();
+      const filtered = normalizedPrefix
+        ? unique.filter((name) => name.toLowerCase().includes(normalizedPrefix))
+        : unique;
       const schemaKeys = schema && typeof schema === "object" ? Object.keys(schema) : [];
       const pathKeys = schema?.paths && typeof schema.paths === "object" ? Object.keys(schema.paths) : [];
 
@@ -15531,6 +15545,7 @@ Antworte im JSON-Format:
   });
 
   registerPublicOfferRoutes(app);
+  registerB2BAdminRoutes(app, { getSalesChannelFilter });
 
   const httpServer = createServer(app);
 

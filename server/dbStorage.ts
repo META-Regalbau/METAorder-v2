@@ -53,6 +53,7 @@ import {
   commercialProductMatchFeedback,
   offerPublicLinks,
   offerPublicEvents,
+  b2bApprovalLog,
   type User,
   type InsertUser,
   type Role,
@@ -154,6 +155,8 @@ import {
   type InsertOfferPublicLink,
   type OfferPublicEvent,
   type InsertOfferPublicEvent,
+  type B2bApprovalLog,
+  type InsertB2bApprovalLog,
 } from "@shared/schema";
 import type { IStorage, InsertRole, UpdateUser } from "./storage";
 import { encrypt, decrypt } from "./encryption";
@@ -300,6 +303,13 @@ function normalizeRolePermissions(role: Role): Role {
     viewCrm: false,
     manageCrm: false,
     approveCrm: false,
+    viewCPQ: false,
+    manageCPQ: false,
+    manageCPQDiscountLevels: false,
+    approveCPQQuotes: false,
+    viewB2B: false,
+    manageB2B: false,
+    approveB2BBudgets: false,
   };
 
   const mergedPermissions = {
@@ -311,6 +321,9 @@ function normalizeRolePermissions(role: Role): Role {
     mergedPermissions.viewCrm = true;
     mergedPermissions.manageCrm = true;
     mergedPermissions.approveCrm = true;
+    mergedPermissions.viewB2B = true;
+    mergedPermissions.manageB2B = true;
+    mergedPermissions.approveB2BBudgets = true;
   } else if (role.name === "Employee" || role.name === "Warehouse Manager") {
     mergedPermissions.viewCrm = true;
     mergedPermissions.manageCrm = true;
@@ -3123,5 +3136,32 @@ export class DbStorage implements IStorage {
     const [ev] = await db.insert(offerPublicEvents).values(row).returning();
     if (!ev) throw new Error("Failed to create offer public event");
     return ev;
+  }
+
+  async createB2bApprovalLog(
+    row: Omit<InsertB2bApprovalLog, "id" | "createdAt">,
+    tenantId?: string | null
+  ): Promise<B2bApprovalLog> {
+    const [log] = await db
+      .insert(b2bApprovalLog)
+      .values({ ...row, tenantId: tenantId ?? row.tenantId ?? null })
+      .returning();
+    if (!log) throw new Error("Failed to create B2B approval log");
+    return log;
+  }
+
+  async listB2bApprovalLogs(
+    tenantId?: string | null,
+    options?: { limit?: number }
+  ): Promise<B2bApprovalLog[]> {
+    const tid = tenantId ?? null;
+    const limit = options?.limit ?? 50;
+    const tenantFilter = tenantFilterFor(b2bApprovalLog.tenantId, tid);
+    return await db
+      .select()
+      .from(b2bApprovalLog)
+      .where(tenantFilter)
+      .orderBy(desc(b2bApprovalLog.createdAt))
+      .limit(limit);
   }
 }

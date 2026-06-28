@@ -1,4 +1,4 @@
--- Erweitere webhook_configs.event_type um Commercial-/n8n-Events
+-- B2B approval webhook event types
 DO $$
 DECLARE
   r RECORD;

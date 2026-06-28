@@ -102,6 +102,22 @@ export type CommercialAutoOrderCreatedPayload = {
   createdAt: string;
 };
 
+export type B2bApprovalRequiredPayload = {
+  referenceId: string;
+  referenceType: string;
+  customerId?: string | null;
+  totalPrice?: number | null;
+  createdAt: string;
+};
+
+export type B2bApprovalDecidedPayload = {
+  referenceId: string;
+  referenceType: string;
+  decision: "approved" | "rejected";
+  actorUserId: string | null;
+  decidedAt: string;
+};
+
 export type WebhookPayload =
   | TicketCreatedPayload
   | TicketUpdatedPayload
@@ -112,7 +128,9 @@ export type WebhookPayload =
   | CommercialDraftCreatedPayload
   | CommercialDraftReviewRequiredPayload
   | CommercialAutoOfferCreatedPayload
-  | CommercialAutoOrderCreatedPayload;
+  | CommercialAutoOrderCreatedPayload
+  | B2bApprovalRequiredPayload
+  | B2bApprovalDecidedPayload;
 
 // In-memory cache for webhook configs (60 second TTL), pro Mandant getrennt.
 // Key = tenantId aus dem AsyncLocalStorage-Kontext (oder "__global__" als Fallback).
@@ -662,6 +680,24 @@ class WebhookService {
           orderId: "test-order-id",
           messageId: null,
           createdAt: new Date().toISOString(),
+        };
+
+      case "b2b.approval_required":
+        return {
+          referenceId: "test-employee-order-id",
+          referenceType: "employee_order",
+          customerId: "test-customer-id",
+          totalPrice: 1500,
+          createdAt: new Date().toISOString(),
+        };
+
+      case "b2b.approval_decided":
+        return {
+          referenceId: "test-employee-order-id",
+          referenceType: "employee_order",
+          decision: "approved",
+          actorUserId: "test-user",
+          decidedAt: new Date().toISOString(),
         };
 
       default:

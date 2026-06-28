@@ -1,10 +1,12 @@
 import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { FileUp, Search, Copy, X, FileText, CheckCircle2, AlertCircle, Download, User } from "lucide-react";
+import { FileUp, Search, Copy, X, FileText, CheckCircle2, AlertCircle, Download, User, ScanLine } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { apiRequest } from "@/lib/queryClient";
 import {
   Table,
   TableBody,
@@ -93,6 +95,20 @@ export default function ObxSearchPage() {
   const [result, setResult] = useState<ObxSearchResult | null>(null);
   const [showFound, setShowFound] = useState(false);
   const [selectedHeaderFile, setSelectedHeaderFile] = useState<ObxFileSummary | null>(null);
+  const [quickOrderText, setQuickOrderText] = useState("");
+  const [quickOrderCustomerId, setQuickOrderCustomerId] = useState("");
+  const [barcodeCode, setBarcodeCode] = useState("");
+  const [quickOrderLoading, setQuickOrderLoading] = useState(false);
+  const [quickOrderResults, setQuickOrderResults] = useState<
+    Array<{
+      identifier: string;
+      quantity: number;
+      matched: boolean;
+      productNumber: string | null;
+      productName: string | null;
+    }>
+  | null>(null);
+  const [barcodeProduct, setBarcodeProduct] = useState<{ productNumber: string; name: string } | null>(null);
 
   const addFiles = (incoming: FileList | null) => {
     if (!incoming) return;
@@ -142,6 +158,65 @@ export default function ObxSearchPage() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const parseQuickOrderRows = (text: string) => {
+    return text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const parts = line.split(/[;\t,]/).map((p) => p.trim());
+        const identifier = parts[0] || "";
+        const qty = Number(parts[1]?.replace(",", "."));
+        return { identifier, quantity: Number.isFinite(qty) && qty > 0 ? qty : 1 };
+      })
+      .filter((row) => row.identifier.length > 0);
+  };
+
+  const runQuickOrderMatch = async () => {
+    const rows = parseQuickOrderRows(quickOrderText);
+    if (rows.length === 0) {
+      toast({ title: t("common.error"), description: t("b2b.quickOrder.placeholder"), variant: "destructive" });
+      return;
+    }
+    setQuickOrderLoading(true);
+    setQuickOrderResults(null);
+    try {
+      const res = await apiRequest("POST", "/api/b2b/quick-order/match", {
+        rows,
+        customerId: quickOrderCustomerId.trim() || undefined,
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || res.statusText);
+      }
+      const data = await res.json();
+      setQuickOrderResults(data.matched || []);
+    } catch (error: any) {
+      toast({ title: t("common.error"), description: error.message, variant: "destructive" });
+    } finally {
+      setQuickOrderLoading(false);
+    }
+  };
+
+  const lookupBarcode = async () => {
+    const code = barcodeCode.trim();
+    if (!code) return;
+    setBarcodeProduct(null);
+    try {
+      const res = await fetch(`/api/b2b/quick-order/barcode/${encodeURIComponent(code)}`, {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || res.statusText);
+      }
+      const data = await res.json();
+      setBarcodeProduct({ productNumber: data.productNumber, name: data.name });
+    } catch (error: any) {
+      toast({ title: t("common.error"), description: error.message, variant: "destructive" });
     }
   };
 
@@ -446,6 +521,81 @@ export default function ObxSearchPage() {
           ) : null}
         </>
       ) : null}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("b2b.quickOrder.title")}</CardTitle>
+          <CardDescription>{t("b2b.quickOrder.subtitle")}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Input
+            placeholder={t("b2b.assortments.customerIdPlaceholder")}
+            value={quickOrderCustomerId}
+            onChange={(e) => setQuickOrderCustomerId(e.target.value)}
+          />
+          <Textarea
+            rows={6}
+            placeholder={t("b2b.quickOrder.placeholder")}
+            value={quickOrderText}
+            onChange={(e) => setQuickOrderText(e.target.value)}
+          />
+          <Button onClick={runQuickOrderMatch} disabled={quickOrderLoading}>
+            {quickOrderLoading ? t("common.loading") : t("b2b.quickOrder.match")}
+          </Button>
+
+          {quickOrderResults ? (
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("b2b.productNumber")}</TableHead>
+                    <TableHead>{t("b2b.name")}</TableHead>
+                    <TableHead className="text-right">{t("b2b.quantity")}</TableHead>
+                    <TableHead>{t("b2b.status")}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {quickOrderResults.map((row) => (
+                    <TableRow key={`${row.identifier}-${row.quantity}`}>
+                      <TableCell className="font-mono">{row.productNumber || row.identifier}</TableCell>
+                      <TableCell>{row.productName || "—"}</TableCell>
+                      <TableCell className="text-right">{row.quantity}</TableCell>
+                      <TableCell>
+                        <Badge variant={row.matched ? "default" : "destructive"}>
+                          {row.matched ? t("b2b.quickOrder.matched") : t("b2b.quickOrder.notMatched")}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : null}
+
+          <div className="flex flex-wrap items-end gap-2 pt-2 border-t">
+            <div className="flex-1 min-w-[200px] space-y-1">
+              <p className="text-sm font-medium flex items-center gap-2">
+                <ScanLine className="h-4 w-4" />
+                {t("b2b.quickOrder.barcode")}
+              </p>
+              <Input
+                placeholder={t("b2b.quickOrder.barcodePlaceholder")}
+                value={barcodeCode}
+                onChange={(e) => setBarcodeCode(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && void lookupBarcode()}
+              />
+            </div>
+            <Button variant="outline" onClick={() => void lookupBarcode()}>
+              {t("b2b.quickOrder.lookup")}
+            </Button>
+          </div>
+          {barcodeProduct ? (
+            <p className="text-sm text-muted-foreground">
+              {barcodeProduct.productNumber} — {barcodeProduct.name}
+            </p>
+          ) : null}
+        </CardContent>
+      </Card>
 
       <Dialog
         open={!!selectedHeaderFile}

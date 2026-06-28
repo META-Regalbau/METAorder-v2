@@ -53,6 +53,9 @@ export async function seedDatabase(storage: IStorage) {
           manageCPQ: true,
           manageCPQDiscountLevels: true,
           approveCPQQuotes: true,
+          viewB2B: true,
+          manageB2B: true,
+          approveB2BBudgets: true,
         },
       });
       
@@ -89,6 +92,9 @@ export async function seedDatabase(storage: IStorage) {
           manageCPQ: false,
           manageCPQDiscountLevels: false,
           approveCPQQuotes: false,
+          viewB2B: false,
+          manageB2B: false,
+          approveB2BBudgets: false,
         },
       });
       
@@ -125,6 +131,9 @@ export async function seedDatabase(storage: IStorage) {
           manageCPQ: false,
           manageCPQDiscountLevels: false,
           approveCPQQuotes: false,
+          viewB2B: true,
+          manageB2B: true,
+          approveB2BBudgets: false,
         },
       });
 
@@ -161,6 +170,9 @@ export async function seedDatabase(storage: IStorage) {
           manageCPQ: false,
           manageCPQDiscountLevels: false,
           approveCPQQuotes: false,
+          viewB2B: false,
+          manageB2B: false,
+          approveB2BBudgets: false,
         },
       });
       
@@ -260,6 +272,8 @@ export async function seedDatabase(storage: IStorage) {
       'commercial.draft_review_required',
       'commercial.auto_offer_created',
       'commercial.auto_order_created',
+      'b2b.approval_required',
+      'b2b.approval_decided',
     ] as const;
 
     for (const eventType of eventTypes) {
@@ -315,6 +329,9 @@ export async function seedDatabase(storage: IStorage) {
           manageCPQ: false,
           manageCPQDiscountLevels: false,
           approveCPQQuotes: false,
+          viewB2B: true,
+          manageB2B: true,
+          approveB2BBudgets: false,
         },
       });
       console.log("N8N Service role created!");

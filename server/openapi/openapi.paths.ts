@@ -1345,6 +1345,49 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/settings/b2b-entity-mapping": {
+    "get": {
+      "tags": ["b2b", "settings"],
+      "summary": "GET /api/settings/b2b-entity-mapping",
+      "responses": { "200": { "description": "OK" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" } }
+    },
+    "post": {
+      "tags": ["b2b", "settings"],
+      "summary": "POST /api/settings/b2b-entity-mapping",
+      "responses": { "200": { "description": "OK" }, "400": { "description": "Bad request" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" } }
+    }
+  },
+  "/api/b2b/companies": {
+    "get": { "tags": ["b2b"], "summary": "GET /api/b2b/companies", "responses": { "200": { "description": "OK" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" } } }
+  },
+  "/api/b2b/employees": {
+    "get": { "tags": ["b2b"], "summary": "GET /api/b2b/employees", "responses": { "200": { "description": "OK" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" } } }
+  },
+  "/api/b2b/roles": {
+    "get": { "tags": ["b2b"], "summary": "GET /api/b2b/roles", "responses": { "200": { "description": "OK" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" } } }
+  },
+  "/api/b2b/budgets": {
+    "get": { "tags": ["b2b"], "summary": "GET /api/b2b/budgets", "responses": { "200": { "description": "OK" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" } } }
+  },
+  "/api/b2b/approvals": {
+    "get": { "tags": ["b2b"], "summary": "GET /api/b2b/approvals", "responses": { "200": { "description": "OK" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" } } }
+  },
+  "/api/b2b/assortments": {
+    "get": { "tags": ["b2b"], "summary": "GET /api/b2b/assortments", "responses": { "200": { "description": "OK" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" } } }
+  },
+  "/api/b2b/customer-skus": {
+    "get": { "tags": ["b2b"], "summary": "GET /api/b2b/customer-skus", "responses": { "200": { "description": "OK" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" } } },
+    "post": { "tags": ["b2b"], "summary": "POST /api/b2b/customer-skus", "responses": { "200": { "description": "OK" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" } } }
+  },
+  "/api/b2b/shopping-lists": {
+    "get": { "tags": ["b2b"], "summary": "GET /api/b2b/shopping-lists", "responses": { "200": { "description": "OK" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" } } }
+  },
+  "/api/b2b/quick-order/match": {
+    "post": { "tags": ["b2b"], "summary": "POST /api/b2b/quick-order/match", "responses": { "200": { "description": "OK" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" } } }
+  },
+  "/api/b2b/exploded-views": {
+    "get": { "tags": ["b2b"], "summary": "GET /api/b2b/exploded-views", "responses": { "200": { "description": "OK" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" } } }
+  },
   "/api/bundles": {
     "get": {
       "tags": [

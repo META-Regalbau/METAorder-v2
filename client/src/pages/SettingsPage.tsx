@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import type { DunningSettings, EmailInboundSettings, EmailOutboundSettings, EmailRoutingRule, EmailRoutingSettings, GoogleAdsSettings, GoogleAnalyticsSettings, M365Settings, ProformaNumberRangeSettings, TicketCategory, TicketPriority } from "@shared/schema";
+import type { B2BEntityMapping } from "@shared/b2bEntityMapping";
 
 type OfferStatusMapping = {
   draft: { id?: string | null; label: string };
@@ -63,6 +64,24 @@ type OfferConfigPdfTextsForm = {
 };
 
 const OFFER_PDF_SYSTEM_KEYS = ["meta", "steck", "schraub", "_default"] as const;
+
+const B2B_ENTITY_FIELD_KEYS: Array<keyof B2BEntityMapping> = [
+  "company",
+  "employee",
+  "employeeRole",
+  "employeePermission",
+  "employeeCustomer",
+  "budget",
+  "budgetEmployee",
+  "customerPrice",
+  "productList",
+  "productListItem",
+  "productListType",
+  "customerProductNumber",
+  "productExplodedView",
+  "productExplodedViewItem",
+  "employeeOrder",
+];
 
 type CommercialAgentForm = {
   enabled: boolean;
@@ -148,6 +167,7 @@ export default function SettingsPage() {
     faqSystemAddon: "",
   });
   const [offerStatusMapping, setOfferStatusMapping] = useState<OfferStatusMapping | null>(null);
+  const [b2bEntityMapping, setB2bEntityMapping] = useState<B2BEntityMapping | null>(null);
   const [offerConfigPdfForm, setOfferConfigPdfForm] = useState<OfferConfigPdfTextsForm | null>(null);
   const [slaSettings, setSlaSettings] = useState({
     lowDays: 7,
@@ -329,6 +349,22 @@ export default function SettingsPage() {
     queryKey: ["/api/settings/b2b-offer-status-mapping", tenantKey],
     queryFn: () => fetchJson("/api/settings/b2b-offer-status-mapping"),
     retry: false,
+  });
+
+  const { data: b2bEntityMappingData, isLoading: b2bEntityMappingLoading } = useQuery<{
+    mapping: B2BEntityMapping;
+    defaults: B2BEntityMapping;
+  }>({
+    queryKey: ["/api/settings/b2b-entity-mapping", tenantKey],
+    queryFn: () => fetchJson("/api/settings/b2b-entity-mapping"),
+    retry: false,
+  });
+
+  const { data: b2bDiscoveredEntities } = useQuery<{ entities?: string[] }>({
+    queryKey: ["/api/b2b/entities", tenantKey],
+    queryFn: () => fetchJson("/api/b2b/entities?prefix=b2bsellers"),
+    retry: false,
+    enabled: Boolean(tenantData?.activeTenantId),
   });
 
   const { data: offerConfigPdfTextsData, isLoading: offerConfigPdfTextsLoading } = useQuery<{
@@ -515,6 +551,12 @@ export default function SettingsPage() {
       setOfferStatusMapping(b2bStatusMappingData.mapping);
     }
   }, [b2bStatusMappingData]);
+
+  useEffect(() => {
+    if (b2bEntityMappingData?.mapping) {
+      setB2bEntityMapping(b2bEntityMappingData.mapping);
+    }
+  }, [b2bEntityMappingData]);
 
   useEffect(() => {
     if (offerConfigPdfTextsData?.effective) {
@@ -719,6 +761,28 @@ export default function SettingsPage() {
     onError: (error: Error) => {
       toast({
         title: t("settings.b2bOfferStatus.saveError"),
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const saveB2BEntityMappingMutation = useMutation({
+    mutationFn: async (data: B2BEntityMapping) => {
+      const response = await apiRequest("POST", "/api/settings/b2b-entity-mapping", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/b2b-entity-mapping"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/b2b/entity-mapping"] });
+      toast({
+        title: t("settings.b2bEntityMapping.saveSuccess"),
+        description: t("settings.b2bEntityMapping.saveSuccessDesc"),
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t("settings.b2bEntityMapping.saveError"),
         description: error.message,
         variant: "destructive",
       });
@@ -1618,6 +1682,66 @@ function ShopwareTab() {
                 {saveB2BStatusMappingMutation.isPending
                   ? t("settings.b2bOfferStatus.saving")
                   : t("settings.b2bOfferStatus.save")}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Card>
+      <Card className="p-6">
+        <h2 className="text-sm font-medium uppercase tracking-wide mb-2">
+          {t("settings.b2bEntityMapping.title")}
+        </h2>
+        <p className="text-xs text-muted-foreground mb-4">
+          {t("settings.b2bEntityMapping.description")}
+        </p>
+
+        {b2bDiscoveredEntities?.entities && b2bDiscoveredEntities.entities.length > 0 ? (
+          <p className="text-xs text-muted-foreground mb-4 font-mono break-all">
+            {t("settings.b2bEntityMapping.discovered")}: {b2bDiscoveredEntities.entities.slice(0, 12).join(", ")}
+            {b2bDiscoveredEntities.entities.length > 12 ? "…" : ""}
+          </p>
+        ) : null}
+
+        {b2bEntityMappingLoading || !b2bEntityMapping ? (
+          <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid gap-3 md:grid-cols-2">
+              {B2B_ENTITY_FIELD_KEYS.map((key) => (
+                <div key={key} className="space-y-1">
+                  <Label className="text-xs font-medium">
+                    {t(`settings.b2bEntityMapping.fields.${key}`)}
+                  </Label>
+                  <Input
+                    value={b2bEntityMapping[key]}
+                    onChange={(e) =>
+                      setB2bEntityMapping((prev) =>
+                        prev ? { ...prev, [key]: e.target.value } : prev,
+                      )
+                    }
+                    className="font-mono text-sm"
+                    data-testid={`input-b2b-entity-${key}`}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setB2bEntityMapping(b2bEntityMappingData?.defaults || null)}
+                disabled={!b2bEntityMappingData?.defaults || saveB2BEntityMappingMutation.isPending}
+                data-testid="button-reset-b2b-entity-mapping"
+              >
+                {t("settings.b2bEntityMapping.reset")}
+              </Button>
+              <Button
+                onClick={() => b2bEntityMapping && saveB2BEntityMappingMutation.mutate(b2bEntityMapping)}
+                disabled={!b2bEntityMapping || saveB2BEntityMappingMutation.isPending}
+                data-testid="button-save-b2b-entity-mapping"
+              >
+                {saveB2BEntityMappingMutation.isPending
+                  ? t("settings.b2bEntityMapping.saving")
+                  : t("settings.b2bEntityMapping.save")}
               </Button>
             </div>
           </div>

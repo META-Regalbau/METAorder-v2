@@ -443,6 +443,9 @@ export const requireViewCPQ = requirePermission("viewCPQ");
 export const requireManageCPQ = requirePermission("manageCPQ");
 export const requireManageCPQDiscountLevels = requirePermission("manageCPQDiscountLevels");
 export const requireApproveCPQQuotes = requirePermission("approveCPQQuotes");
+export const requireViewB2B = requirePermission("viewB2B");
+export const requireManageB2B = requirePermission("manageB2B");
+export const requireApproveB2BBudgets = requirePermission("approveB2BBudgets");
 export const requireViewAccounting = (req: any, res: any, next: any) => {
   const user = req.user as any;
   const isAdmin =

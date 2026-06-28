@@ -178,6 +178,11 @@
     "orderDrafts": "Borradores de Pedidos",
     "offers": "Ofertas",
     "crm": "CRM",
+    "b2bAccounts": "Cuentas B2B",
+    "b2bBudgets": "Presupuestos B2B",
+    "b2bAssortments": "Surtidos B2B",
+    "b2bOrderLists": "Listas de pedido B2B",
+    "b2bExplodedViews": "Vistas explosionadas B2B",
     "appTitle": "METAorder",
     "notifications": "Notificaciones",
     "profile": "Perfil"
@@ -966,6 +971,38 @@
         "open": "Abierto",
         "confirmed": "Confirmado",
         "declined": "Rechazado"
+      }
+    },
+    "webhookEvent": {
+      "b2b_approval_required": "B2B: aprobación requerida",
+      "b2b_approval_decided": "B2B: aprobación decidida"
+    },
+    "b2bEntityMapping": {
+      "title": "Asignación de entidades B2B",
+      "description": "Nombres de entidades Shopware de la suite B2B Sellers.",
+      "discovered": "Entidades B2B descubiertas (muestra)",
+      "reset": "Restablecer valores predeterminados",
+      "save": "Guardar asignación",
+      "saving": "Guardando…",
+      "saveSuccess": "Asignación B2B guardada",
+      "saveSuccessDesc": "Nombres de entidades actualizados.",
+      "saveError": "No se pudo guardar la asignación B2B",
+      "fields": {
+        "company": "Empresa",
+        "employee": "Empleado",
+        "employeeRole": "Rol de empleado",
+        "employeePermission": "Permiso de empleado",
+        "employeeCustomer": "Cliente del empleado",
+        "budget": "Presupuesto",
+        "budgetEmployee": "Empleado de presupuesto",
+        "customerPrice": "Precio de cliente",
+        "productList": "Lista de productos",
+        "productListItem": "Posición de lista",
+        "productListType": "Tipo de lista",
+        "customerProductNumber": "Número de artículo del cliente",
+        "productExplodedView": "Vista explosionada",
+        "productExplodedViewItem": "Parte de vista explosionada",
+        "employeeOrder": "Pedido de empleado (aprobación)"
       }
     },
     "ticketSla": {
@@ -2370,7 +2407,8 @@
         "orders": "Pedidos",
         "tickets": "Tickets",
         "prices": "Precios individuales",
-        "interactions": "Interacciones"
+        "interactions": "Interacciones",
+        "b2b": "B2B"
       },
       "email": "Correo",
       "phone": "Teléfono",
@@ -2378,6 +2416,12 @@
       "lastTouch": "Último contacto",
       "noOrders": "Sin pedidos",
       "noTickets": "Sin tickets",
+      "b2b": {
+        "noShopwareId": "Sin cliente Shopware vinculado — datos B2B no disponibles.",
+        "customerSkus": "SKUs del cliente",
+        "openAssortments": "Gestionar surtidos",
+        "emptySkus": "No hay SKUs de cliente registrados"
+      },
       "individualPrices": {
         "label": "Precios específicos del cliente",
         "yesCount": "Sí ({{count}})",
@@ -2443,6 +2487,121 @@
         "meeting": "Reunión",
         "other": "Otro"
       }
+    }
+  },
+  "b2b": {
+    "noPermission": "Sin permiso para funciones B2B.",
+    "search": "Buscar…",
+    "company": "Empresa",
+    "email": "Correo",
+    "customerNumber": "Número de cliente",
+    "status": "Estado",
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "noResults": "No se encontraron entradas",
+    "loadError": "No se pudieron cargar los datos B2B.",
+    "name": "Nombre",
+    "department": "Departamento",
+    "actions": "Acciones",
+    "approve": "Aprobar",
+    "reject": "Rechazar",
+    "add": "Añadir",
+    "productNumber": "Número de artículo",
+    "price": "Precio",
+    "quantity": "Cantidad",
+    "accounts": {
+      "title": "Cuentas B2B",
+      "subtitle": "Gestionar empresas y empleados de la suite B2B Sellers",
+      "companies": "Empresas",
+      "employees": "Empleados",
+      "roles": "Roles",
+      "detail": {
+        "title": "Detalles de la empresa",
+        "subtitle": "Datos maestros, dirección y empleados asignados desde Shopware",
+        "masterData": "Datos maestros",
+        "contactPerson": "Persona de contacto",
+        "phone": "Teléfono",
+        "customerGroup": "Grupo de clientes",
+        "salesChannel": "Canal de ventas",
+        "vatIds": "NIF-IVA",
+        "createdAt": "Creado el",
+        "lastLogin": "Último acceso",
+        "orderCount": "Pedidos",
+        "orderTotal": "Volumen de pedidos",
+        "customerId": "ID de cliente Shopware",
+        "offerCustomerId": "ID de cliente de oferta B2B",
+        "billingAddress": "Dirección de facturación",
+        "street": "Calle",
+        "city": "CP / Ciudad",
+        "country": "País",
+        "customFields": "Campos personalizados B2B",
+        "customerPrices": "Descuentos y precios del cliente",
+        "listPriceNet": "Precio de lista neto",
+        "discountPercent": "Descuento",
+        "openAssortments": "Gestionar surtidos",
+        "pricesPluginMissing": "Los precios de cliente B2Bsellers no están disponibles en Shopware.",
+        "employeeActions": "Acciones",
+        "activateEmployee": "Activar",
+        "deactivateEmployee": "Desactivar",
+        "deleteEmployee": "Eliminar",
+        "deleteEmployeeTitle": "¿Eliminar empleado?",
+        "deleteEmployeeDescription": "El empleado se eliminará permanentemente de Shopware. Esta acción no se puede deshacer.",
+        "employeeActivated": "Empleado activado",
+        "employeeDeactivated": "Empleado desactivado",
+        "employeeDeleted": "Empleado eliminado",
+        "employeeActionFailed": "Acción fallida"
+      }
+    },
+    "budgets": {
+      "title": "Presupuestos y aprobaciones B2B",
+      "subtitle": "Presupuestos y aprobaciones de pedidos pendientes",
+      "list": "Presupuestos",
+      "name": "Nombre",
+      "amount": "Importe",
+      "period": "Período",
+      "approvalQueue": "Cola de aprobación",
+      "order": "Pedido",
+      "decisionSaved": "Decisión guardada"
+    },
+    "assortments": {
+      "title": "Surtidos y SKUs B2B",
+      "subtitle": "Precios y números de artículo específicos del cliente",
+      "customerIdPlaceholder": "ID de cliente Shopware (UUID)",
+      "customerPrices": "Precios de cliente",
+      "customerSkus": "SKUs de cliente",
+      "customerSku": "SKU del cliente",
+      "productId": "ID de producto",
+      "skuCreated": "SKU de cliente creado"
+    },
+    "orderLists": {
+      "title": "Listas de pedido B2B",
+      "subtitle": "Listas recurrentes y reorden",
+      "lists": "Listas",
+      "listName": "Nombre de lista",
+      "items": "Posiciones",
+      "reorder": "Preparar reorden",
+      "reorderPrepared": "Reorden preparado",
+      "reorderDraftCreated": "Borrador de pedido creado",
+      "openDraft": "Abrir borrador",
+      "positions": "Posiciones"
+    },
+    "explodedViews": {
+      "title": "Vistas explosionadas B2B",
+      "subtitle": "Repuestos y hotspots de la suite B2B Sellers",
+      "views": "Dibujos",
+      "parts": "Partes",
+      "label": "Etiqueta"
+    },
+    "quickOrder": {
+      "title": "Pedido rápido (CSV)",
+      "subtitle": "Número de artículo y cantidad por línea — p. ej. \"SKU;5\"",
+      "placeholder": "Número de artículo;Cantidad\n12345;2",
+      "match": "Asignar productos",
+      "matched": "Encontrado",
+      "notMatched": "No encontrado",
+      "barcode": "Código de barras / EAN",
+      "barcodePlaceholder": "Escanear o introducir EAN",
+      "lookup": "Buscar"
     }
   },
   "notFound": {
