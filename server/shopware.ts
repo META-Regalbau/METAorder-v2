@@ -20,6 +20,9 @@ function toShopwareUuid(uuid: string): string {
   return uuid.replace(/-/g, "").toLowerCase();
 }
 
+/** Admin-API: effektives Seitenlimit (Shopware `max_limit`, häufig 100–250). */
+export const SHOPWARE_ADMIN_SEARCH_PAGE_SIZE = 250;
+
 /** Ein Eintrag im Shopware-Produkt-`price`-Array (inkl. optional regulationPrice). */
 export type ShopwarePriceEntry = Record<string, unknown>;
 
@@ -5966,17 +5969,18 @@ export class ShopwareClient {
     if (terms.length === 0) return [];
 
     const out: Array<{ company: string; customerNumber: string | null }> = [];
-    const limit = 500;
-    const maxPages = 6;
+    const pageSize = SHOPWARE_ADMIN_SEARCH_PAGE_SIZE;
+    let page = 1;
 
-    for (let page = 1; page <= maxPages; page++) {
+    while (true) {
       try {
         const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/customer`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            limit,
+            limit: pageSize,
             page,
+            totalCountMode: 1,
             filter: [{ type: 'multi', operator: 'OR', queries: terms.map((value) => ({ type: 'contains', field: 'group.name', value })) }],
             associations: { group: {}, defaultBillingAddress: {} },
           }),
@@ -6011,7 +6015,8 @@ export class ShopwareClient {
           out.push({ company, customerNumber: cnRaw != null && String(cnRaw).trim() ? String(cnRaw).trim() : null });
         }
 
-        if (list.length < limit) break;
+        if (list.length < pageSize) break;
+        page += 1;
       } catch (error: any) {
         console.error('[Shopware] fetchBestandskundenIndex error:', error?.message || error);
         break;

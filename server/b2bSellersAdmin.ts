@@ -2,7 +2,7 @@ import type { ShopwareSettings } from "@shared/schema";
 import type { B2BEntityMapping } from "@shared/b2bEntityMapping";
 import { DEFAULT_B2B_ENTITY_MAPPING, mergeB2BEntityMapping } from "@shared/b2bEntityMapping";
 import { storage } from "./storage";
-import { ShopwareClient } from "./shopware";
+import { ShopwareClient, SHOPWARE_ADMIN_SEARCH_PAGE_SIZE } from "./shopware";
 
 function computeDiscountPercent(priceNet: number | null, pseudoPriceNet: number | null): number | null {
   if (priceNet == null || pseudoPriceNet == null || pseudoPriceNet <= 0 || priceNet >= pseudoPriceNet) {
@@ -350,20 +350,18 @@ export class B2BSellersAdminClient {
     search?: string;
     salesChannelIds?: string[];
   }) {
-    const batchSize = 250;
+    const pageSize = SHOPWARE_ADMIN_SEARCH_PAGE_SIZE;
     let page = 1;
-    let total = Number.POSITIVE_INFINITY;
     const companies: ReturnType<B2BSellersAdminClient["mapCompany"]>[] = [];
 
-    while (companies.length < total) {
+    while (true) {
       const result = await this.searchEntity(
         "company",
-        this.buildCompanyEntitySearchCriteria({ ...filters, limit: batchSize, page }),
+        this.buildCompanyEntitySearchCriteria({ ...filters, limit: pageSize, page }),
       );
       const batch = result.data.map((row) => this.mapCompany(row));
       companies.push(...batch);
-      total = result.total ?? companies.length;
-      if (batch.length < batchSize) break;
+      if (batch.length < pageSize) break;
       page += 1;
     }
 
@@ -374,16 +372,14 @@ export class B2BSellersAdminClient {
     search?: string;
     salesChannelIds?: string[];
   }) {
-    const batchSize = 250;
+    const pageSize = SHOPWARE_ADMIN_SEARCH_PAGE_SIZE;
     let page = 1;
-    let total = Number.POSITIVE_INFINITY;
     const companies: ReturnType<B2BSellersAdminClient["mapCustomerAsCompany"]>[] = [];
 
-    while (companies.length < total) {
-      const result = await this.searchBusinessCustomers({ ...filters, limit: batchSize, page });
+    while (true) {
+      const result = await this.searchBusinessCustomers({ ...filters, limit: pageSize, page });
       companies.push(...result.companies);
-      total = result.total;
-      if (result.companies.length < batchSize) break;
+      if (result.companies.length < pageSize) break;
       page += 1;
     }
 
