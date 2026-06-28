@@ -2667,7 +2667,16 @@
       "open": "Öffnen",
       "onlyIndividualPrices": "Nur Kunden mit individuellen Preisen",
       "individualPricesCount": "{{count}} mit individuellen Preisen",
-      "individualPriceBadge": "Individuelle Preise"
+      "individualPriceBadge": "Individuelle Preise",
+      "onlyPossibleExisting": "Nur mögliche Bestandskunden",
+      "emptyPossibleExisting": "Keine möglichen Bestandskunden in dieser Ansicht.",
+      "possibleExistingBadge": "Möglicher Bestandskunde",
+      "possibleExistingBadgeWithNumber": "Möglicher Bestandskunde · {{number}}",
+      "pagination": {
+        "summary": "{{from}}–{{to}} von {{total}} Kunden",
+        "perPage": "Pro Seite:",
+        "page": "Seite {{page}} von {{pages}}"
+      }
     },
     "assignments": {
       "title": "Außendienst-Zuweisungen",
@@ -2752,6 +2761,40 @@
         "priceNet": "Preis netto",
         "validity": "Gültigkeit",
         "alwaysValid": "Unbegrenzt gültig"
+      },
+      "match": {
+        "title": "Bestandskunden-Abgleich",
+        "existing": "Ist Bestandskunde",
+        "existingWithNumber": "Ist Bestandskunde · Kundennummer {{number}}",
+        "noMatch": "Kein Treffer",
+        "notConfigured": "Shopware ist nicht verbunden – Abgleich nicht möglich.",
+        "candidatesHint": "Mögliche bestehende Kunden (über mehrere Felder abgeglichen):",
+        "numberLabel": "Kundennummer {{number}}",
+        "noNumber": "Ohne Kundennummer",
+        "bestandskunde": "Bestandskunde",
+        "shopkunde": "Shopkunde",
+        "groupLabel": "Kundengruppe: {{group}}",
+        "noCandidates": "Keine passenden Bestandskunden gefunden.",
+        "selfOnly": "Eigener Shopware-Datensatz · Kundennummer {{number}}",
+        "reasons": {
+          "email": "E-Mail",
+          "company": "Firma",
+          "name": "Name",
+          "phone": "Telefon"
+        },
+        "merge": {
+          "action": "Als Bestandskunde übernehmen",
+          "noShopAccount": "Kein Shop-Konto zum Zusammenführen vorhanden.",
+          "confirmTitle": "Kunden zusammenführen?",
+          "confirmIntro": "Dieser Shop-Kunde wird mit dem Bestandskunden {{name}} (Kundennummer {{number}}) zusammengeführt.",
+          "confirmOrders": "{{count}} Bestellung(en) werden auf den Bestandskunden umgehängt.",
+          "confirmOutOfScope": "{{count}} Bestellung(en) liegen außerhalb deiner Verkaufskanäle – der Merge wird abgebrochen.",
+          "confirmDeactivate": "Das doppelte Shop-Konto ({{email}}) wird anschließend deaktiviert.",
+          "confirmAction": "Zusammenführen",
+          "success": "Zusammengeführt – {{count}} Bestellung(en) umgehängt.",
+          "partial": "Teilweise zusammengeführt – {{count}} Bestellung(en) umgehängt, einige fehlgeschlagen.",
+          "failed": "Zusammenführen fehlgeschlagen"
+        }
       }
     },
     "interactions": {

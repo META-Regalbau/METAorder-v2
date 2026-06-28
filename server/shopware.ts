@@ -5679,6 +5679,348 @@ export class ShopwareClient {
   }
 
   /**
+   * Erweiterte Kundensuche für den CRM-Bestandskundenabgleich.
+   * Sucht über mehrere Felder (E-Mail exakt, Vor-/Nachname, Firma, Kundennummer)
+   * und liefert je Treffer Kundennummer + Rechnungsadresse zur Identitätsprüfung.
+   * Wirft nicht; bei Fehler leeres Array.
+   */
+  async searchExistingCustomers(params: {
+    email?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    name?: string | null;
+    company?: string | null;
+    customerNumber?: string | null;
+    limit?: number;
+  }): Promise<Array<{
+    id: string;
+    customerNumber: string | null;
+    email: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    company: string | null;
+    groupId: string | null;
+    groupName: string | null;
+    billingAddress?: OrderAddress;
+  }>> {
+    const queries: any[] = [];
+    const addContains = (field: string, value?: string | null) => {
+      const v = (value || '').trim();
+      if (v.length >= 2) queries.push({ type: 'contains', field, value: v });
+    };
+
+    const email = (params.email || '').trim();
+    if (email) queries.push({ type: 'equals', field: 'email', value: email });
+    addContains('firstName', params.firstName);
+    addContains('lastName', params.lastName);
+    addContains('company', params.company);
+    // "Vorname Nachname" -> einzelne Tokens als Nachname-Treffer ergänzen.
+    for (const token of (params.name || '').split(/\s+/)) {
+      if (token.trim().length >= 2) {
+        queries.push({ type: 'contains', field: 'lastName', value: token.trim() });
+      }
+    }
+    const cn = (params.customerNumber || '').trim();
+    if (cn) queries.push({ type: 'equals', field: 'customerNumber', value: cn });
+
+    if (queries.length === 0) return [];
+
+    const mapAddress = (addr: any, includedMap: Map<string, any>): OrderAddress | undefined => {
+      if (!addr) return undefined;
+      const a = addr.attributes || addr;
+      let countryStr = '';
+      const c = a.country;
+      if (typeof c === 'string') countryStr = c;
+      else if (c?.name) countryStr = String(c.name);
+      else if (c?.translated?.name) countryStr = String(c.translated.name);
+      else if (c?.data?.id) {
+        const cent = includedMap.get(`country-${c.data.id}`);
+        const ca = cent?.attributes || cent;
+        if (ca?.name) countryStr = String(ca.name);
+        else if (ca?.translated?.name) countryStr = String(ca.translated.name);
+      }
+      const street = String(a.street || '').trim();
+      const zipCode = String(a.zipcode || a.zipCode || '').trim();
+      const city = String(a.city || '').trim();
+      if (!street && !zipCode && !city && !String(a.company || '').trim()) return undefined;
+      return {
+        firstName: String(a.firstName || '').trim(),
+        lastName: String(a.lastName || '').trim(),
+        street,
+        zipCode,
+        city,
+        country: countryStr,
+        company: a.company ? String(a.company).trim() : undefined,
+        phoneNumber: a.phoneNumber ? String(a.phoneNumber).trim() : undefined,
+      };
+    };
+
+    try {
+      const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/customer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          limit: params.limit ?? 25,
+          filter: [{ type: 'multi', operator: 'OR', queries }],
+          associations: { defaultBillingAddress: { associations: { country: {} } }, group: {} },
+        }),
+      });
+      if (!response.ok) return [];
+
+      const data = await response.json();
+      const list = data.data || [];
+      const includedMap = new Map<string, any>();
+      for (const item of data.included || []) {
+        if (item?.type && item?.id) includedMap.set(`${item.type}-${item.id}`, item);
+      }
+
+      return list.map((row: any) => {
+        const a = row.attributes || row;
+        const cnRaw = a.customerNumber ?? a.customerNo;
+        let billingAddress = mapAddress(row.defaultBillingAddress, includedMap);
+        const relId = row.relationships?.defaultBillingAddress?.data?.id;
+        if (!billingAddress && relId) {
+          const fromInc =
+            includedMap.get(`customer_address-${relId}`) ||
+            [...includedMap.values()].find((x) => x.id === relId && /address/i.test(String(x.type || '')));
+          billingAddress = mapAddress(fromInc, includedMap);
+        }
+
+        // Kundengruppe auflösen (für Bestandskunde- vs. Shopkunde-Klassifizierung).
+        let groupName: string | null = null;
+        const grp = row.group;
+        if (grp) {
+          const ga = grp.attributes || grp;
+          groupName = ga?.translated?.name || ga?.name || null;
+        }
+        const grpRelId = row.relationships?.group?.data?.id;
+        if (!groupName && grpRelId) {
+          const gent = includedMap.get(`customer_group-${grpRelId}`);
+          const ga = gent?.attributes || gent;
+          groupName = ga?.translated?.name || ga?.name || null;
+        }
+        const groupId = (a.groupId ?? grpRelId ?? null) as string | null;
+
+        return {
+          id: row.id,
+          customerNumber: cnRaw != null && String(cnRaw).trim() ? String(cnRaw).trim() : null,
+          email: a.email ?? null,
+          firstName: a.firstName ?? null,
+          lastName: a.lastName ?? null,
+          company: a.company ? String(a.company).trim() : null,
+          groupId,
+          groupName,
+          billingAddress,
+        };
+      });
+    } catch (error: any) {
+      console.error('[Shopware] searchExistingCustomers error:', error?.message || error);
+      return [];
+    }
+  }
+
+  /**
+   * Lädt einen Shopware-Kunden per ID (für den Merge-Abgleich). Wirft nicht.
+   */
+  async getCustomerById(customerId: string): Promise<{
+    id: string;
+    customerNumber: string | null;
+    email: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    company: string | null;
+    active: boolean;
+  } | null> {
+    const raw = (customerId || '').trim();
+    if (!raw) return null;
+    try {
+      const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/customer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ limit: 1, filter: [{ type: 'equals', field: 'id', value: toShopwareUuid(raw) }] }),
+      });
+      if (!response.ok) return null;
+      const data = await response.json();
+      const row = data.data?.[0];
+      if (!row) return null;
+      const a = row.attributes || row;
+      const cnRaw = a.customerNumber ?? a.customerNo;
+      return {
+        id: row.id,
+        customerNumber: cnRaw != null && String(cnRaw).trim() ? String(cnRaw).trim() : null,
+        email: a.email ?? null,
+        firstName: a.firstName ?? null,
+        lastName: a.lastName ?? null,
+        company: a.company ? String(a.company).trim() : null,
+        active: a.active !== false,
+      };
+    } catch (error: any) {
+      console.error('[Shopware] getCustomerById error:', error?.message || error);
+      return null;
+    }
+  }
+
+  /**
+   * Liefert alle order_customer-Snapshots eines Kontos (per customerId) inkl.
+   * Order-Nummer und Verkaufskanal. Für das Umhängen beim Kunden-Merge.
+   */
+  async findOrderCustomersByCustomerId(customerId: string): Promise<Array<{
+    orderCustomerId: string;
+    orderId: string | null;
+    orderNumber: string | null;
+    salesChannelId: string | null;
+    email: string | null;
+  }>> {
+    const id = toShopwareUuid((customerId || '').trim());
+    if (!id) return [];
+    try {
+      const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/order-customer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          limit: 500,
+          filter: [{ type: 'equals', field: 'customerId', value: id }],
+          associations: { order: {} },
+        }),
+      });
+      if (!response.ok) return [];
+      const data = await response.json();
+      const list = data.data || [];
+      const includedMap = new Map<string, any>();
+      for (const item of data.included || []) {
+        if (item?.type && item?.id) includedMap.set(`${item.type}-${item.id}`, item);
+      }
+      return list.map((row: any) => {
+        const a = row.attributes || row;
+        const relId = row.relationships?.order?.data?.id;
+        let order = row.order;
+        if (!order && relId) order = includedMap.get(`order-${relId}`);
+        const oa = order?.attributes || order || {};
+        return {
+          orderCustomerId: row.id,
+          orderId: relId || order?.id || null,
+          orderNumber: oa.orderNumber ?? null,
+          salesChannelId: oa.salesChannelId ?? null,
+          email: a.email ?? null,
+        };
+      });
+    } catch (error: any) {
+      console.error('[Shopware] findOrderCustomersByCustomerId error:', error?.message || error);
+      return [];
+    }
+  }
+
+  /**
+   * Hängt einen order_customer-Snapshot auf einen anderen Kunden um.
+   * Wirft bei Fehler (für saubere Fehlerbehandlung im Merge).
+   */
+  async reassignOrderCustomer(
+    orderCustomerId: string,
+    target: { customerId: string; customerNumber?: string | null; email?: string | null; firstName?: string | null; lastName?: string | null },
+  ): Promise<boolean> {
+    const ocId = (orderCustomerId || '').trim();
+    if (!ocId) throw new Error('orderCustomerId is required');
+    const payload: Record<string, any> = { customerId: toShopwareUuid(target.customerId) };
+    if (target.customerNumber) payload.customerNumber = target.customerNumber;
+    if (target.email) payload.email = target.email;
+    if (target.firstName) payload.firstName = target.firstName;
+    if (target.lastName) payload.lastName = target.lastName;
+
+    const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/order-customer/${ocId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const err = await response.text().catch(() => '');
+      throw new Error(`reassignOrderCustomer ${ocId} failed: ${response.status} ${err}`);
+    }
+    return true;
+  }
+
+  /**
+   * Deaktiviert einen Kunden (active = false). Wirft bei Fehler.
+   */
+  async deactivateCustomer(customerId: string): Promise<boolean> {
+    const id = (customerId || '').trim();
+    if (!id) throw new Error('customerId is required');
+    const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/customer/${toShopwareUuid(id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ active: false }),
+    });
+    if (!response.ok) {
+      const err = await response.text().catch(() => '');
+      throw new Error(`deactivateCustomer ${id} failed: ${response.status} ${err}`);
+    }
+    return true;
+  }
+
+  /**
+   * Lädt alle Bestandskunden anhand der Kundengruppen-Namen (z.B. "Händler
+   * Portal") inkl. Firma + Kundennummer. Für den CRM-Filter "möglicher
+   * Bestandskunde". Server-seitig grob über group.name vorgefiltert.
+   */
+  async fetchBestandskundenIndex(groupNameTerms: string[]): Promise<Array<{ company: string; customerNumber: string | null }>> {
+    const terms = (groupNameTerms || []).map((term) => (term || '').trim()).filter((term) => term.length >= 2);
+    if (terms.length === 0) return [];
+
+    const out: Array<{ company: string; customerNumber: string | null }> = [];
+    const limit = 500;
+    const maxPages = 6;
+
+    for (let page = 1; page <= maxPages; page++) {
+      try {
+        const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/customer`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            limit,
+            page,
+            filter: [{ type: 'multi', operator: 'OR', queries: terms.map((value) => ({ type: 'contains', field: 'group.name', value })) }],
+            associations: { group: {}, defaultBillingAddress: {} },
+          }),
+        });
+        if (!response.ok) break;
+
+        const data = await response.json();
+        const list = data.data || [];
+        const includedMap = new Map<string, any>();
+        for (const item of data.included || []) {
+          if (item?.type && item?.id) includedMap.set(`${item.type}-${item.id}`, item);
+        }
+
+        for (const row of list) {
+          const a = row.attributes || row;
+          let company = a.company ? String(a.company).trim() : '';
+          if (!company) {
+            const ba = row.defaultBillingAddress?.attributes || row.defaultBillingAddress;
+            if (ba?.company) {
+              company = String(ba.company).trim();
+            } else {
+              const relId = row.relationships?.defaultBillingAddress?.data?.id;
+              if (relId) {
+                const inc = includedMap.get(`customer_address-${relId}`);
+                const ia = inc?.attributes || inc;
+                if (ia?.company) company = String(ia.company).trim();
+              }
+            }
+          }
+          if (!company) continue;
+          const cnRaw = a.customerNumber ?? a.customerNo;
+          out.push({ company, customerNumber: cnRaw != null && String(cnRaw).trim() ? String(cnRaw).trim() : null });
+        }
+
+        if (list.length < limit) break;
+      } catch (error: any) {
+        console.error('[Shopware] fetchBestandskundenIndex error:', error?.message || error);
+        break;
+      }
+    }
+    return out;
+  }
+
+  /**
    * Liest kundenindividuelle Preise aus dem "B2Bsellers Suite"-Plugin.
    * Probiert die bekannten Entitätsnamen (neu: `b2bsellers-customer-price`,
    * alt: `b2b-customer-price`) und kann per Env `B2B_SELLERS_CUSTOMER_PRICE_ENTITY`

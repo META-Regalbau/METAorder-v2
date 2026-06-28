@@ -2638,7 +2638,16 @@
       "open": "Open",
       "onlyIndividualPrices": "Only customers with individual prices",
       "individualPricesCount": "{{count}} with individual prices",
-      "individualPriceBadge": "Individual prices"
+      "individualPriceBadge": "Individual prices",
+      "onlyPossibleExisting": "Only possible existing customers",
+      "emptyPossibleExisting": "No possible existing customers in this view.",
+      "possibleExistingBadge": "Possible existing customer",
+      "possibleExistingBadgeWithNumber": "Possible existing customer · {{number}}",
+      "pagination": {
+        "summary": "{{from}}–{{to}} of {{total}} customers",
+        "perPage": "Per page:",
+        "page": "Page {{page}} of {{pages}}"
+      }
     },
     "assignments": {
       "title": "Field Assignments",
@@ -2723,6 +2732,40 @@
         "priceNet": "Net price",
         "validity": "Validity",
         "alwaysValid": "Always valid"
+      },
+      "match": {
+        "title": "Existing customer check",
+        "existing": "Existing customer",
+        "existingWithNumber": "Existing customer · Customer number {{number}}",
+        "noMatch": "No match",
+        "notConfigured": "Shopware is not connected – matching unavailable.",
+        "candidatesHint": "Possible existing customers (matched across multiple fields):",
+        "numberLabel": "Customer number {{number}}",
+        "noNumber": "No customer number",
+        "bestandskunde": "Existing customer",
+        "shopkunde": "Shop customer",
+        "groupLabel": "Customer group: {{group}}",
+        "noCandidates": "No matching existing customers found.",
+        "selfOnly": "Own Shopware record · Customer number {{number}}",
+        "reasons": {
+          "email": "Email",
+          "company": "Company",
+          "name": "Name",
+          "phone": "Phone"
+        },
+        "merge": {
+          "action": "Adopt as existing customer",
+          "noShopAccount": "No shop account available to merge.",
+          "confirmTitle": "Merge customers?",
+          "confirmIntro": "This shop customer will be merged into the existing customer {{name}} (customer number {{number}}).",
+          "confirmOrders": "{{count}} order(s) will be reassigned to the existing customer.",
+          "confirmOutOfScope": "{{count}} order(s) are outside your sales channels – the merge will be cancelled.",
+          "confirmDeactivate": "The duplicate shop account ({{email}}) will then be deactivated.",
+          "confirmAction": "Merge",
+          "success": "Merged – {{count}} order(s) reassigned.",
+          "partial": "Partially merged – {{count}} order(s) reassigned, some failed.",
+          "failed": "Merge failed"
+        }
       }
     },
     "interactions": {

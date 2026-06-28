@@ -2267,7 +2267,16 @@
       "open": "Abrir",
       "onlyIndividualPrices": "Solo clientes con precios individuales",
       "individualPricesCount": "{{count}} con precios individuales",
-      "individualPriceBadge": "Precios individuales"
+      "individualPriceBadge": "Precios individuales",
+      "onlyPossibleExisting": "Solo posibles clientes existentes",
+      "emptyPossibleExisting": "No hay posibles clientes existentes en esta vista.",
+      "possibleExistingBadge": "Posible cliente existente",
+      "possibleExistingBadgeWithNumber": "Posible cliente existente · {{number}}",
+      "pagination": {
+        "summary": "{{from}}–{{to}} de {{total}} clientes",
+        "perPage": "Por página:",
+        "page": "Página {{page}} de {{pages}}"
+      }
     },
     "assignments": {
       "title": "Asignaciones de Campo",
@@ -2352,6 +2361,40 @@
         "priceNet": "Precio neto",
         "validity": "Validez",
         "alwaysValid": "Siempre válido"
+      },
+      "match": {
+        "title": "Comprobación de cliente existente",
+        "existing": "Cliente existente",
+        "existingWithNumber": "Cliente existente · Número de cliente {{number}}",
+        "noMatch": "Sin coincidencia",
+        "notConfigured": "Shopware no está conectado: la comprobación no está disponible.",
+        "candidatesHint": "Posibles clientes existentes (cotejados por varios campos):",
+        "numberLabel": "Número de cliente {{number}}",
+        "noNumber": "Sin número de cliente",
+        "bestandskunde": "Cliente existente",
+        "shopkunde": "Cliente de tienda",
+        "groupLabel": "Grupo de clientes: {{group}}",
+        "noCandidates": "No se encontraron clientes existentes coincidentes.",
+        "selfOnly": "Registro propio de Shopware · Número de cliente {{number}}",
+        "reasons": {
+          "email": "Correo electrónico",
+          "company": "Empresa",
+          "name": "Nombre",
+          "phone": "Teléfono"
+        },
+        "merge": {
+          "action": "Adoptar como cliente existente",
+          "noShopAccount": "No hay cuenta de tienda para fusionar.",
+          "confirmTitle": "¿Fusionar clientes?",
+          "confirmIntro": "Este cliente de la tienda se fusionará con el cliente existente {{name}} (número de cliente {{number}}).",
+          "confirmOrders": "Se reasignarán {{count}} pedido(s) al cliente existente.",
+          "confirmOutOfScope": "{{count}} pedido(s) están fuera de tus canales de venta: la fusión se cancelará.",
+          "confirmDeactivate": "La cuenta de tienda duplicada ({{email}}) se desactivará a continuación.",
+          "confirmAction": "Fusionar",
+          "success": "Fusionado: {{count}} pedido(s) reasignado(s).",
+          "partial": "Fusión parcial: {{count}} pedido(s) reasignado(s), algunos fallaron.",
+          "failed": "Error al fusionar"
+        }
       }
     },
     "interactions": {

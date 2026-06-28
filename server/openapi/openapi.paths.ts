@@ -3161,6 +3161,33 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/crm/customers/{id}/match": {
+    "get": {
+      "tags": [
+        "crm"
+      ],
+      "summary": "GET /api/crm/customers/{id}/match",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/crm/customers/{id}/overview": {
     "get": {
       "tags": [
@@ -3194,6 +3221,33 @@ export const openApiPaths = {
         "crm"
       ],
       "summary": "GET /api/crm/customers/individual-prices-index",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/crm/customers/merge": {
+    "post": {
+      "tags": [
+        "crm"
+      ],
+      "summary": "POST /api/crm/customers/merge",
       "responses": {
         "200": {
           "description": "OK",

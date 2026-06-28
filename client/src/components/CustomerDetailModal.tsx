@@ -1,5 +1,15 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,6 +53,43 @@ type CustomerIndividualPricesResponse = {
   configured: boolean;
   pluginDetected?: boolean;
   customerNumber?: string | null;
+};
+
+type CustomerMatchAddress = {
+  street?: string;
+  zipCode?: string;
+  city?: string;
+  country?: string;
+  company?: string;
+  phoneNumber?: string;
+};
+
+type CustomerMatchCandidate = {
+  customerId: string;
+  customerNumber: string | null;
+  email: string | null;
+  name: string | null;
+  company: string | null;
+  billingAddress: CustomerMatchAddress | null;
+  groupName: string | null;
+  isBestandskunde: boolean;
+  reasons: string[];
+  score: number;
+};
+
+type CustomerMatchResponse = {
+  configured: boolean;
+  self: { customerId: string; customerNumber: string | null } | null;
+  matches: CustomerMatchCandidate[];
+};
+
+type MergePreview = {
+  dryRun: boolean;
+  duplicate: { id: string; email: string | null; customerNumber: string | null };
+  target: { id: string; email: string | null; customerNumber: string | null };
+  ordersTotal: number;
+  ordersInScope: number;
+  ordersOutOfScope: number;
 };
 
 const priceFormatter = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
@@ -154,11 +201,108 @@ export default function CustomerDetailModal({
     enabled: isOpen && !!resolvedCustomerId,
   });
 
+  const { data: matchResult, isLoading: matchLoading } = useQuery<CustomerMatchResponse>({
+    queryKey: ["/api/crm/customers", resolvedCustomerId, "match"],
+    queryFn: async () => {
+      const response = await fetch(`/api/crm/customers/${resolvedCustomerId}/match`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      return response.json();
+    },
+    enabled: isOpen && !!resolvedCustomerId,
+  });
+
   const orders = overview?.orders || [];
   const tickets = overview?.tickets || [];
   const interactions = overview?.interactions || [];
   const prices = individualPrices?.prices || [];
   const hasIndividualPrices = !!individualPrices?.available;
+
+  const [mergeCandidate, setMergeCandidate] = useState<CustomerMatchCandidate | null>(null);
+  const [mergePreview, setMergePreview] = useState<MergePreview | null>(null);
+
+  const duplicateShopwareCustomerId = matchResult?.self?.customerId ?? null;
+
+  const previewMergeMutation = useMutation({
+    mutationFn: async (candidate: CustomerMatchCandidate) => {
+      if (!duplicateShopwareCustomerId) {
+        throw new Error("no-shop-account");
+      }
+      const response = await apiRequest("POST", "/api/crm/customers/merge", {
+        duplicateShopwareCustomerId,
+        targetShopwareCustomerId: candidate.customerId,
+        dryRun: true,
+      });
+      return (await response.json()) as MergePreview;
+    },
+    onSuccess: (data) => {
+      setMergePreview(data);
+    },
+    onError: (error: Error) => {
+      setMergeCandidate(null);
+      toast({ title: t("crm.customer.match.merge.failed"), description: error.message, variant: "destructive" });
+    },
+  });
+
+  const executeMergeMutation = useMutation({
+    mutationFn: async (candidate: CustomerMatchCandidate) => {
+      if (!duplicateShopwareCustomerId) {
+        throw new Error("no-shop-account");
+      }
+      const response = await apiRequest("POST", "/api/crm/customers/merge", {
+        duplicateShopwareCustomerId,
+        targetShopwareCustomerId: candidate.customerId,
+        dryRun: false,
+      });
+      return response.json();
+    },
+    onSuccess: (data: { success: boolean; reassignedCount: number; failures?: Array<{ error: string }> }) => {
+      setMergeCandidate(null);
+      setMergePreview(null);
+      if (data.success) {
+        toast({ title: t("crm.customer.match.merge.success", { count: data.reassignedCount }) });
+      } else {
+        toast({
+          title: t("crm.customer.match.merge.partial", { count: data.reassignedCount }),
+          variant: "destructive",
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/customers", customerId || customerEmail, "overview"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/crm/customers", resolvedCustomerId, "match"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: t("crm.customer.match.merge.failed"), description: error.message, variant: "destructive" });
+    },
+  });
+
+  const startMerge = (candidate: CustomerMatchCandidate) => {
+    setMergePreview(null);
+    setMergeCandidate(candidate);
+    previewMergeMutation.mutate(candidate);
+  };
+
+  const matchCandidates = matchResult?.matches || [];
+  const selfCustomerNumber = matchResult?.self?.customerNumber || null;
+  const bestandskundeMatches = matchCandidates.filter((candidate) => candidate.isBestandskunde);
+  // Bestandskunden-Kundennummer kommt aus einer Händler-Portal-Gruppe, nicht aus
+  // dem eigenen Shopkunden-Datensatz (META B2B DE).
+  const existingCustomerNumber =
+    bestandskundeMatches.find((candidate) => candidate.customerNumber)?.customerNumber || null;
+  const isLikelyExisting = bestandskundeMatches.length > 0;
+
+  const formatMatchAddress = (address: CustomerMatchAddress | null) => {
+    if (!address) return null;
+    const parts = [
+      address.company,
+      address.street,
+      [address.zipCode, address.city].filter(Boolean).join(" "),
+      address.country,
+    ].filter((part) => part && part.trim().length > 0);
+    return parts.length > 0 ? parts.join(", ") : null;
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -185,6 +329,97 @@ export default function CustomerDetailModal({
             </TabsList>
 
             <TabsContent value="overview" className="pt-4 space-y-4">
+              <Card className="p-4 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm font-medium">{t("crm.customer.match.title")}</div>
+                  {matchLoading ? (
+                    <span className="text-xs text-muted-foreground">{t("common.loading")}</span>
+                  ) : isLikelyExisting ? (
+                    <Badge className="bg-amber-500 hover:bg-amber-500 text-white">
+                      {existingCustomerNumber
+                        ? t("crm.customer.match.existingWithNumber", { number: existingCustomerNumber })
+                        : t("crm.customer.match.existing")}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline">{t("crm.customer.match.noMatch")}</Badge>
+                  )}
+                </div>
+
+                {!matchLoading && matchResult?.configured === false ? (
+                  <div className="text-xs text-muted-foreground">{t("crm.customer.match.notConfigured")}</div>
+                ) : null}
+
+                {!matchLoading && matchCandidates.length > 0 ? (
+                  <div className="space-y-2">
+                    <div className="text-xs text-muted-foreground">{t("crm.customer.match.candidatesHint")}</div>
+                    {matchCandidates.map((candidate) => {
+                      const address = formatMatchAddress(candidate.billingAddress);
+                      return (
+                        <div key={candidate.customerId} className="rounded-md border p-3 text-sm space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {candidate.isBestandskunde ? (
+                              <Badge className="bg-amber-500 hover:bg-amber-500 text-white">
+                                {t("crm.customer.match.bestandskunde")}
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline">{t("crm.customer.match.shopkunde")}</Badge>
+                            )}
+                            {candidate.customerNumber ? (
+                              <Badge variant="secondary" className="font-mono">
+                                {t("crm.customer.match.numberLabel", { number: candidate.customerNumber })}
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline">{t("crm.customer.match.noNumber")}</Badge>
+                            )}
+                            <span className="font-medium">{candidate.name || candidate.email || "—"}</span>
+                          </div>
+                          {candidate.groupName ? (
+                            <div className="text-xs text-muted-foreground">
+                              {t("crm.customer.match.groupLabel", { group: candidate.groupName })}
+                            </div>
+                          ) : null}
+                          {candidate.company ? (
+                            <div className="text-muted-foreground">{candidate.company}</div>
+                          ) : null}
+                          {candidate.email ? (
+                            <div className="text-xs text-muted-foreground">{candidate.email}</div>
+                          ) : null}
+                          {address ? <div className="text-xs text-muted-foreground">{address}</div> : null}
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                            <div className="flex flex-wrap gap-1">
+                              {candidate.reasons.map((reason) => (
+                                <Badge key={reason} variant="outline" className="text-[10px]">
+                                  {t(`crm.customer.match.reasons.${reason}`)}
+                                </Badge>
+                              ))}
+                            </div>
+                            {canManageCrm && candidate.isBestandskunde && candidate.customerNumber ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={!duplicateShopwareCustomerId || previewMergeMutation.isPending || executeMergeMutation.isPending}
+                                onClick={() => startMerge(candidate)}
+                                title={!duplicateShopwareCustomerId ? t("crm.customer.match.merge.noShopAccount") : undefined}
+                              >
+                                {t("crm.customer.match.merge.action")}
+                              </Button>
+                            ) : null}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
+
+                {!matchLoading && matchResult?.configured !== false && matchCandidates.length === 0 ? (
+                  <div className="text-xs text-muted-foreground">
+                    {selfCustomerNumber
+                      ? t("crm.customer.match.selfOnly", { number: selfCustomerNumber })
+                      : t("crm.customer.match.noCandidates")}
+                  </div>
+                ) : null}
+              </Card>
+
               <Card className="p-4 space-y-2">
                 <div className="flex flex-wrap gap-2">
                   <Badge variant="outline">{overview.customer.status}</Badge>
@@ -391,6 +626,64 @@ export default function CustomerDetailModal({
             </TabsContent>
           </Tabs>
         )}
+
+        <AlertDialog
+          open={!!mergeCandidate}
+          onOpenChange={(open) => {
+            if (!open) {
+              setMergeCandidate(null);
+              setMergePreview(null);
+            }
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("crm.customer.match.merge.confirmTitle")}</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-2 text-sm">
+                  <div>
+                    {t("crm.customer.match.merge.confirmIntro", {
+                      number: mergeCandidate?.customerNumber ?? "",
+                      name: mergeCandidate?.name || mergeCandidate?.company || mergeCandidate?.email || "",
+                    })}
+                  </div>
+                  {previewMergeMutation.isPending || !mergePreview ? (
+                    <div className="text-muted-foreground">{t("common.loading")}</div>
+                  ) : (
+                    <ul className="list-disc space-y-1 pl-5">
+                      <li>{t("crm.customer.match.merge.confirmOrders", { count: mergePreview.ordersInScope })}</li>
+                      {mergePreview.ordersOutOfScope > 0 ? (
+                        <li className="text-destructive">
+                          {t("crm.customer.match.merge.confirmOutOfScope", { count: mergePreview.ordersOutOfScope })}
+                        </li>
+                      ) : null}
+                      <li>{t("crm.customer.match.merge.confirmDeactivate", { email: mergePreview.duplicate.email ?? "" })}</li>
+                    </ul>
+                  )}
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={executeMergeMutation.isPending}>{t("common.cancel")}</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={
+                  executeMergeMutation.isPending ||
+                  previewMergeMutation.isPending ||
+                  !mergePreview ||
+                  (mergePreview?.ordersOutOfScope ?? 0) > 0
+                }
+                onClick={(event) => {
+                  event.preventDefault();
+                  if (mergeCandidate) {
+                    executeMergeMutation.mutate(mergeCandidate);
+                  }
+                }}
+              >
+                {t("crm.customer.match.merge.confirmAction")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );

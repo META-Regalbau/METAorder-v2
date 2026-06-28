@@ -56,7 +56,10 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
   const [selectedCustomer, setSelectedCustomer] = useState<CrmCustomer | null>(null);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [onlyIndividualPrices, setOnlyIndividualPrices] = useState(false);
+  const [onlyPossibleExisting, setOnlyPossibleExisting] = useState(false);
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
+  const [pageSize, setPageSize] = useState(25);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const canViewCrm = userPermissions?.viewCrm || false;
   const canManageCrm = userPermissions?.manageCrm || false;
@@ -83,6 +86,16 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
     emails: string[];
   }>({
     queryKey: ["/api/crm/customers/individual-prices-index"],
+    enabled: canViewCrm,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: possibleExistingIndex, isLoading: possibleExistingLoading } = useQuery<{
+    configured: boolean;
+    customerCount: number;
+    companies: Record<string, string | null>;
+  }>({
+    queryKey: ["/api/crm/customers/possible-existing-index"],
     enabled: canViewCrm,
     staleTime: 5 * 60 * 1000,
   });
@@ -161,6 +174,27 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
   );
   const hasIndividualPrice = (email: string) => individualPriceEmails.has((email || "").toLowerCase());
 
+  // Muss identisch zur Server-Normalisierung in /possible-existing-index sein.
+  const normalizeCompany = (value?: string | null) =>
+    (value || "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/\b(gmbh|ag|kg|ohg|e\.?\s?k\.?|mbh|co\.?|kgaa|ug|gbr|ltd|inc|gesellschaft|und|&)\b/g, " ")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+
+  const possibleExistingCompanies = useMemo(
+    () => possibleExistingIndex?.companies || {},
+    [possibleExistingIndex]
+  );
+  const getPossibleExistingNumber = (company?: string | null): string | null | undefined => {
+    const key = normalizeCompany(company);
+    if (key.length < 3) return undefined;
+    return key in possibleExistingCompanies ? possibleExistingCompanies[key] : undefined;
+  };
+  const isPossibleExisting = (company?: string | null) => getPossibleExistingNumber(company) !== undefined;
+
   const filteredCustomers = useMemo(() => {
     let result = customers;
     if (selectedChannelIds.length > 0) {
@@ -171,8 +205,26 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
     if (onlyIndividualPrices) {
       result = result.filter((customer) => hasIndividualPrice(customer.email));
     }
+    if (onlyPossibleExisting) {
+      result = result.filter((customer) => isPossibleExisting(customer.company));
+    }
     return result;
-  }, [customers, onlyIndividualPrices, individualPriceEmails, selectedChannelIds]);
+  }, [customers, onlyIndividualPrices, onlyPossibleExisting, individualPriceEmails, possibleExistingCompanies, selectedChannelIds]);
+
+  const totalCustomers = filteredCustomers.length;
+  const totalPages = Math.max(1, Math.ceil(totalCustomers / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const pageStart = totalCustomers === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const pageEnd = Math.min(safePage * pageSize, totalCustomers);
+  const pagedCustomers = useMemo(
+    () => filteredCustomers.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [filteredCustomers, safePage, pageSize]
+  );
+
+  // Bei Filter-/Suchwechsel oder geänderter Seitengröße zurück auf Seite 1.
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchValue, onlyIndividualPrices, onlyPossibleExisting, selectedChannelIds, pageSize]);
 
   const pendingAssignments = useMemo(
     () => assignments.filter((assignment) => assignment.status === "requested"),
@@ -285,16 +337,29 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="only-individual-prices"
-                  checked={onlyIndividualPrices}
-                  onCheckedChange={setOnlyIndividualPrices}
-                  disabled={individualPricesLoading || !individualPricesIndex?.pluginDetected}
-                />
-                <Label htmlFor="only-individual-prices" className="text-sm font-normal text-muted-foreground">
-                  {t("crm.customers.onlyIndividualPrices")}
-                </Label>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-6">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="only-individual-prices"
+                    checked={onlyIndividualPrices}
+                    onCheckedChange={setOnlyIndividualPrices}
+                    disabled={individualPricesLoading || !individualPricesIndex?.pluginDetected}
+                  />
+                  <Label htmlFor="only-individual-prices" className="text-sm font-normal text-muted-foreground">
+                    {t("crm.customers.onlyIndividualPrices")}
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="only-possible-existing"
+                    checked={onlyPossibleExisting}
+                    onCheckedChange={setOnlyPossibleExisting}
+                    disabled={possibleExistingLoading || !possibleExistingIndex?.configured}
+                  />
+                  <Label htmlFor="only-possible-existing" className="text-sm font-normal text-muted-foreground">
+                    {t("crm.customers.onlyPossibleExisting")}
+                  </Label>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -302,9 +367,14 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
                 <div className="py-8 text-center text-muted-foreground">{t("common.loading")}</div>
               ) : filteredCustomers.length === 0 ? (
                 <div className="py-8 text-center text-muted-foreground">
-                  {onlyIndividualPrices ? t("crm.customers.emptyIndividualPrices") : t("crm.customers.empty")}
+                  {onlyPossibleExisting
+                    ? t("crm.customers.emptyPossibleExisting")
+                    : onlyIndividualPrices
+                      ? t("crm.customers.emptyIndividualPrices")
+                      : t("crm.customers.empty")}
                 </div>
               ) : (
+                <div className="space-y-3">
                 <div className="border rounded-lg overflow-hidden">
                   <Table>
                     <TableHeader>
@@ -317,7 +387,7 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredCustomers.map((customer) => (
+                      {pagedCustomers.map((customer) => (
                         <TableRow key={customer.email} className="hover-elevate">
                           <TableCell>
                             <div className="flex items-center gap-2">
@@ -325,6 +395,15 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
                               {hasIndividualPrice(customer.email) && (
                                 <Badge className="bg-green-600 hover:bg-green-600">
                                   {t("crm.customers.individualPriceBadge")}
+                                </Badge>
+                              )}
+                              {isPossibleExisting(customer.company) && (
+                                <Badge variant="outline" className="border-amber-500 text-amber-700 dark:text-amber-400">
+                                  {getPossibleExistingNumber(customer.company)
+                                    ? t("crm.customers.possibleExistingBadgeWithNumber", {
+                                        number: getPossibleExistingNumber(customer.company),
+                                      })
+                                    : t("crm.customers.possibleExistingBadge")}
                                 </Badge>
                               )}
                             </div>
@@ -353,6 +432,45 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
                       ))}
                     </TableBody>
                   </Table>
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    {t("crm.customers.pagination.summary", { from: pageStart, to: pageEnd, total: totalCustomers })}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm text-muted-foreground">{t("crm.customers.pagination.perPage")}</span>
+                    {[25, 50, 100].map((size) => (
+                      <Button
+                        key={size}
+                        variant={pageSize === size ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setPageSize(size)}
+                      >
+                        {size}
+                      </Button>
+                    ))}
+                    <div className="mx-1 hidden h-5 w-px bg-border sm:block" />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={safePage <= 1}
+                      onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                    >
+                      {t("common.previous")}
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      {t("crm.customers.pagination.page", { page: safePage, pages: totalPages })}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={safePage >= totalPages}
+                      onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                    >
+                      {t("common.next")}
+                    </Button>
+                  </div>
+                </div>
                 </div>
               )}
             </CardContent>

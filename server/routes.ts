@@ -11796,6 +11796,257 @@ Antworte im JSON-Format:
     }
   });
 
+  // Bestandskunden-Abgleich: prüft über mehrere Felder (E-Mail, Name, Firma,
+  // Telefon), ob der Shop-Kunde bereits als bestehender Shopware-Kunde mit
+  // Kundennummer existiert. Rein lesend.
+  app.get("/api/crm/customers/:id/match", requireAuth, requireViewCrm, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const customer = await storage.getCustomer(id);
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.json({ configured: false, self: null, matches: [] });
+      }
+      const client = new ShopwareClient(settings);
+
+      // Namen best-effort in Vor-/Nachname zerlegen.
+      const nameParts = (customer.name || "").trim().split(/\s+/).filter(Boolean);
+      const firstName = nameParts.length > 1 ? nameParts[0] : "";
+      const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : nameParts[0] || "";
+
+      const candidates = await client.searchExistingCustomers({
+        email: customer.email,
+        firstName,
+        lastName,
+        name: customer.name,
+        company: customer.company,
+        limit: 25,
+      });
+
+      const norm = (s?: string | null) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
+      const normCompany = (s?: string | null) =>
+        norm(s)
+          .replace(/\b(gmbh|ag|kg|ohg|e\.?\s?k\.?|mbh|co\.?|kgaa|ug|gbr|ltd|inc|gesellschaft|und|&)\b/g, " ")
+          .replace(/[^a-z0-9]+/g, " ")
+          .trim();
+      const digits = (s?: string | null) => (s || "").replace(/\D+/g, "");
+
+      // Bestandskunden sitzen in den "Händler Portal"-Kundengruppen, Shopkunden in
+      // "META B2B DE". Per Env überschreibbar (CRM_BESTANDSKUNDE_GROUP_PATTERN).
+      const bestandskundePattern = (() => {
+        const raw = process.env.CRM_BESTANDSKUNDE_GROUP_PATTERN;
+        try {
+          return raw ? new RegExp(raw, "i") : /portal|h(ä|ae)ndler/i;
+        } catch {
+          return /portal|h(ä|ae)ndler/i;
+        }
+      })();
+      const isBestandskundeGroup = (name?: string | null) => !!name && bestandskundePattern.test(name);
+
+      const custEmail = norm(customer.email);
+      const custCompany = normCompany(customer.company);
+      const custName = norm(customer.name);
+      const custPhone = digits(customer.phone);
+
+      const scored = candidates.map((c) => {
+        const reasons: string[] = [];
+        let score = 0;
+
+        if (norm(c.email) && norm(c.email) === custEmail) {
+          reasons.push("email");
+          score += 50;
+        }
+
+        const candCompany = normCompany(c.company) || normCompany(c.billingAddress?.company);
+        if (custCompany && candCompany && candCompany === custCompany) {
+          reasons.push("company");
+          score += 30;
+        }
+
+        const candName = norm([c.firstName, c.lastName].filter(Boolean).join(" "));
+        if (custName && candName && (candName === custName || candName.includes(custName) || custName.includes(candName))) {
+          reasons.push("name");
+          score += 20;
+        }
+
+        const candPhone = digits(c.billingAddress?.phoneNumber);
+        if (custPhone && candPhone && custPhone === candPhone) {
+          reasons.push("phone");
+          score += 20;
+        }
+
+        return {
+          customerId: c.id,
+          customerNumber: c.customerNumber,
+          email: c.email,
+          name: [c.firstName, c.lastName].filter(Boolean).join(" ") || null,
+          company: c.company || c.billingAddress?.company || null,
+          billingAddress: c.billingAddress || null,
+          groupName: c.groupName,
+          isBestandskunde: isBestandskundeGroup(c.groupName),
+          reasons,
+          score,
+          isSelf: norm(c.email) === custEmail,
+        };
+      });
+
+      // Eigener Shopware-Datensatz (gleiche E-Mail) separat zurückgeben.
+      const self = scored.find((m) => m.isSelf) || null;
+
+      // Bestandskunden-Kandidaten: alle Treffer mit Score > 0, ohne den eigenen
+      // Datensatz. Echte Bestandskunden (Händler-Portal-Gruppe) zuerst.
+      const matches = scored
+        .filter((m) => !m.isSelf && m.score > 0)
+        .sort((a, b) => Number(b.isBestandskunde) - Number(a.isBestandskunde) || b.score - a.score);
+
+      res.json({
+        configured: true,
+        self: self ? { customerId: self.customerId, customerNumber: self.customerNumber } : null,
+        matches,
+      });
+    } catch (error: any) {
+      console.error("Error matching CRM customer:", error?.message || error);
+      res.status(500).json({ error: "Failed to match customer" });
+    }
+  });
+
+  // Manueller Kunden-Merge: hängt die Bestellungen eines doppelten Shop-Kontos
+  // (duplicate) auf einen bestehenden Bestandskunden (target) um und deaktiviert
+  // anschließend das Dubletten-Konto. Schreibt auf Shopware -> requireManageCrm.
+  // Mit dryRun=true wird nur eine Vorschau (betroffene Bestellungen) geliefert.
+  app.post("/api/crm/customers/merge", requireAuth, requireManageCrm, requireCsrf, async (req, res) => {
+    try {
+      const duplicateId = String(req.body?.duplicateShopwareCustomerId || "").trim();
+      const targetId = String(req.body?.targetShopwareCustomerId || "").trim();
+      const dryRun = req.body?.dryRun === true;
+
+      if (!duplicateId || !targetId) {
+        return res.status(400).json({ error: "duplicateShopwareCustomerId and targetShopwareCustomerId are required" });
+      }
+      if (duplicateId === targetId) {
+        return res.status(400).json({ error: "Quelle und Ziel dürfen nicht identisch sein" });
+      }
+
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware not configured" });
+      }
+      const client = new ShopwareClient(settings);
+
+      const [duplicate, target] = await Promise.all([
+        client.getCustomerById(duplicateId),
+        client.getCustomerById(targetId),
+      ]);
+      if (!duplicate) return res.status(404).json({ error: "Duplicate customer not found" });
+      if (!target) return res.status(404).json({ error: "Target customer not found" });
+      if (!target.customerNumber) {
+        return res.status(400).json({ error: "Zielkunde hat keine Kundennummer" });
+      }
+
+      const allowedChannelIds = await getSalesChannelFilter(req);
+      const orderCustomers = await client.findOrderCustomersByCustomerId(duplicateId);
+
+      // Verkaufskanal-Bindung: nur Bestellungen innerhalb erlaubter Kanäle umhängen.
+      const inScope = orderCustomers.filter(
+        (oc) => allowedChannelIds === null || (oc.salesChannelId != null && allowedChannelIds.includes(oc.salesChannelId)),
+      );
+      const outOfScope = orderCustomers.length - inScope.length;
+
+      if (dryRun) {
+        return res.json({
+          dryRun: true,
+          duplicate: { id: duplicate.id, email: duplicate.email, customerNumber: duplicate.customerNumber },
+          target: { id: target.id, email: target.email, customerNumber: target.customerNumber },
+          ordersTotal: orderCustomers.length,
+          ordersInScope: inScope.length,
+          ordersOutOfScope: outOfScope,
+        });
+      }
+
+      if (outOfScope > 0) {
+        return res.status(403).json({
+          error: "Einige Bestellungen liegen außerhalb deiner Verkaufskanäle – Merge abgebrochen.",
+          ordersOutOfScope: outOfScope,
+        });
+      }
+
+      const reassignedOrders: string[] = [];
+      const failures: Array<{ orderNumber: string | null; error: string }> = [];
+      for (const oc of inScope) {
+        try {
+          await client.reassignOrderCustomer(oc.orderCustomerId, {
+            customerId: target.id,
+            customerNumber: target.customerNumber,
+            email: target.email,
+            firstName: target.firstName,
+            lastName: target.lastName,
+          });
+          reassignedOrders.push(oc.orderNumber || oc.orderCustomerId);
+        } catch (e: any) {
+          failures.push({ orderNumber: oc.orderNumber, error: e?.message || String(e) });
+        }
+      }
+
+      // Dublette nur deaktivieren, wenn alle Bestellungen erfolgreich umgehängt wurden.
+      let deactivated = false;
+      let deactivateError: string | null = null;
+      if (failures.length === 0) {
+        try {
+          deactivated = await client.deactivateCustomer(duplicateId);
+        } catch (e: any) {
+          deactivateError = e?.message || String(e);
+        }
+      }
+
+      // Lokales Protokoll an den lokalen CRM-Kunden (über die E-Mail der Dublette).
+      try {
+        if (duplicate.email) {
+          let localCustomer = await storage.getCustomerByEmail(duplicate.email);
+          if (!localCustomer) {
+            localCustomer = await storage.createCustomer({
+              email: duplicate.email,
+              name: duplicate.email,
+              status: "inactive",
+            } as any);
+          }
+          await storage.createCustomerInteraction({
+            customerId: localCustomer.id,
+            userId: (req.user as any)?.id ?? null,
+            interactionType: "other",
+            subject: "Kunde zusammengeführt",
+            body: JSON.stringify({
+              action: "merge",
+              duplicate: { id: duplicate.id, email: duplicate.email, customerNumber: duplicate.customerNumber },
+              target: { id: target.id, email: target.email, customerNumber: target.customerNumber },
+              reassignedOrders,
+              failures,
+              deactivated,
+            }),
+          } as any);
+        }
+      } catch (logErr) {
+        console.warn("[merge] logging failed:", logErr);
+      }
+
+      res.json({
+        success: failures.length === 0 && !deactivateError,
+        reassignedCount: reassignedOrders.length,
+        reassignedOrders,
+        failures,
+        deactivated,
+        deactivateError,
+        target: { customerNumber: target.customerNumber, email: target.email },
+      });
+    } catch (error: any) {
+      console.error("Error merging CRM customers:", error?.message || error);
+      res.status(500).json({ error: "Failed to merge customers" });
+    }
+  });
+
   // Kundenindividuelle Preise (B2Bsellers Suite). Löst den Shopware-Kunden über
   // die E-Mail auf und liest dessen individuelle Preise aus dem Plugin.
   app.get("/api/crm/customers/:id/individual-prices", requireAuth, requireViewCrm, async (req, res) => {
@@ -11872,6 +12123,47 @@ Antworte im JSON-Format:
     } catch (error: any) {
       console.error("Error loading individual prices index:", error?.message || error);
       res.status(500).json({ error: "Failed to load individual prices index" });
+    }
+  });
+
+  // Index der Bestandskunden-Firmen (Händler-Portal-Gruppen) für den CRM-Filter
+  // "möglicher Bestandskunde". Liefert normalisierte Firmennamen -> Kundennummer;
+  // der Abgleich gegen die CRM-Liste erfolgt clientseitig per Firmen-Match.
+  app.get("/api/crm/customers/possible-existing-index", requireAuth, requireViewCrm, async (req, res) => {
+    try {
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.json({ configured: false, customerCount: 0, companies: {} });
+      }
+
+      const client = new ShopwareClient(settings);
+      const rows = await client.fetchBestandskundenIndex(["Portal", "Händler", "Haendler"]);
+
+      const normCompany = (s?: string | null) =>
+        (s || "")
+          .toLowerCase()
+          .replace(/\s+/g, " ")
+          .trim()
+          .replace(/\b(gmbh|ag|kg|ohg|e\.?\s?k\.?|mbh|co\.?|kgaa|ug|gbr|ltd|inc|gesellschaft|und|&)\b/g, " ")
+          .replace(/[^a-z0-9]+/g, " ")
+          .trim();
+
+      const companies: Record<string, string | null> = {};
+      for (const row of rows) {
+        const key = normCompany(row.company);
+        if (key.length >= 3 && !(key in companies)) {
+          companies[key] = row.customerNumber;
+        }
+      }
+
+      res.json({
+        configured: true,
+        customerCount: rows.length,
+        companies,
+      });
+    } catch (error: any) {
+      console.error("Error loading possible-existing index:", error?.message || error);
+      res.status(500).json({ error: "Failed to load possible-existing index" });
     }
   });
 
