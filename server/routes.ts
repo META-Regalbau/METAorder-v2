@@ -112,6 +112,7 @@ import { registerPublicOfferRoutes } from "./publicOfferRoutes";
 import { registerB2BAdminRoutes } from "./b2bAdminRoutes";
 import { buildOfferDetailJson } from "./offerDetailBuilder";
 import { generateOfferPlainToken, hashOfferPublicToken } from "./offerToken";
+import { getHashCached, stableFingerprint } from "./contentHashCache";
 import { buildCommercialProductFeedbackRowsFromDraftUpdate } from "./commercialProductLearning";
 import { buildCommercialClarificationEmail } from "./customerClarificationEmail";
 
@@ -1145,11 +1146,14 @@ async function generateCrossSellStaging(
 // Versionierter Key: bei strukturellen Aenderungen am Order-Objekt (neue Felder
 // wie hasInvoiceDocument/invoiceSent) erhoehen, damit alte DB-Caches automatisch
 // verworfen werden und ein frischer Fetch mit den neuen Feldern laeuft.
-const ORDERS_CACHE_KEY = "orders_cache_v3";
+const ORDERS_CACHE_KEY = "orders_cache_v4";
 const ORDERS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const CRM_CUSTOMERS_CACHE_KEY = "crm_customers_cache_v2";
+const BESTANDSKUNDEN_GROUP_TERMS = ["Portal", "Händler", "Haendler"];
 
 type OrdersCache = {
   fetchedAt: string;
+  fingerprint?: string;
   orders: Order[];
   latestMeta?: {
     id: string;
@@ -1159,12 +1163,21 @@ type OrdersCache = {
   };
 };
 
-async function getOrdersWithCache(client: ShopwareClient): Promise<{ orders: Order[]; fromCache: boolean }> {
-  const cached = (await storage.getSetting(ORDERS_CACHE_KEY)) as OrdersCache | undefined;
+async function getOrdersWithCache(
+  client: ShopwareClient,
+  tenantId?: string | null,
+): Promise<{ orders: Order[]; fromCache: boolean }> {
+  const cached = (await storage.getSetting(ORDERS_CACHE_KEY, tenantId)) as OrdersCache | undefined;
   if (cached?.orders?.length && cached.fetchedAt) {
-    const ageMs = Date.now() - new Date(cached.fetchedAt).getTime();
-    if (ageMs < ORDERS_CACHE_TTL_MS) {
-      try {
+    try {
+      const sourceFingerprint = await client.fetchOrdersFingerprint();
+      if (sourceFingerprint && cached.fingerprint === sourceFingerprint) {
+        return { orders: cached.orders, fromCache: true };
+      }
+
+      const ageMs = Date.now() - new Date(cached.fetchedAt).getTime();
+      if (ageMs < ORDERS_CACHE_TTL_MS && !cached.fingerprint) {
+        // Abwärtskompatibel: alter Cache ohne fingerprint — ein Meta-Check reicht
         const latestMeta = await client.fetchLatestOrderMeta();
         const cachedMeta = cached.latestMeta;
         const matchesLatest =
@@ -1177,17 +1190,19 @@ async function getOrdersWithCache(client: ShopwareClient): Promise<{ orders: Ord
         if (matchesLatest || !latestMeta) {
           return { orders: cached.orders, fromCache: true };
         }
-      } catch (error) {
-        console.warn("[orders-cache] Latest meta check failed, using cached orders:", error);
-        return { orders: cached.orders, fromCache: true };
       }
+    } catch (error) {
+      console.warn("[orders-cache] fingerprint check failed, using cached orders:", error);
+      return { orders: cached.orders, fromCache: true };
     }
   }
 
   const orders = await client.fetchOrders(undefined, { includeInvoiceInfo: true });
   const latestOrder = orders[0];
+  const fingerprint = (await client.fetchOrdersFingerprint()) ?? undefined;
   const cacheToSave: OrdersCache = {
     fetchedAt: new Date().toISOString(),
+    fingerprint,
     orders,
     latestMeta: latestOrder
       ? {
@@ -1198,7 +1213,8 @@ async function getOrdersWithCache(client: ShopwareClient): Promise<{ orders: Ord
         }
       : undefined,
   };
-  await storage.saveSetting(ORDERS_CACHE_KEY, cacheToSave);
+  await storage.saveSetting(ORDERS_CACHE_KEY, cacheToSave, tenantId);
+  console.log(`[orders-cache] full reload (${orders.length} orders, fp ${fingerprint?.slice(0, 8) ?? "n/a"})`);
   return { orders, fromCache: false };
 }
 
@@ -1207,9 +1223,9 @@ async function getOrdersWithCache(client: ShopwareClient): Promise<{ orders: Ord
  * damit das "verschickt"-Badge nach dem Versand sofort stimmt, ohne dass die
  * gesamte (teure) Bestellliste neu geladen werden muss.
  */
-async function markOrderInvoiceSentInCache(orderId: string): Promise<void> {
+async function markOrderInvoiceSentInCache(orderId: string, tenantId?: string | null): Promise<void> {
   try {
-    const cached = (await storage.getSetting(ORDERS_CACHE_KEY)) as OrdersCache | undefined;
+    const cached = (await storage.getSetting(ORDERS_CACHE_KEY, tenantId)) as OrdersCache | undefined;
     if (!cached?.orders?.length) return;
     let changed = false;
     for (const o of cached.orders) {
@@ -1225,7 +1241,7 @@ async function markOrderInvoiceSentInCache(orderId: string): Promise<void> {
       }
     }
     if (changed) {
-      await storage.saveSetting(ORDERS_CACHE_KEY, cached);
+      await storage.saveSetting(ORDERS_CACHE_KEY, cached, tenantId);
     }
   } catch (error) {
     console.warn("[orders-cache] Failed to update invoice-sent flag:", error);
@@ -2975,7 +2991,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       } else {
         // Backward compatibility: fetch all orders if no pagination params with caching
-        const { orders } = await getOrdersWithCache(client);
+        const { orders } = await getOrdersWithCache(client, (req as any).tenantId ?? null);
 
         // SECURITY: Apply sales channel filter locally (cache stores all orders)
         const filteredOrders = filterOrdersBySalesChannels(orders, allowedChannelIds);
@@ -4963,7 +4979,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Cache aktualisieren, damit das Badge sofort "verschickt" zeigt.
         if (result.status === "sent") {
-          await markOrderInvoiceSentInCache(orderId);
+          await markOrderInvoiceSentInCache(orderId, (req as any).tenantId ?? null);
         }
 
         res.json(result);
@@ -6775,7 +6791,7 @@ Antworte im JSON-Format:
         const settings = await storage.getShopwareSettings();
         if (settings) {
           const client = new ShopwareClient(settings);
-          const { orders } = await getOrdersWithCache(client);
+          const { orders } = await getOrdersWithCache(client, (req as any).tenantId ?? null);
           const filtered = filterOrdersBySalesChannels(orders, allowedChannelIds)
             .filter((order) =>
               matches(order.orderNumber) ||
@@ -11593,18 +11609,12 @@ Antworte im JSON-Format:
     try {
       const rawQuery = typeof req.query.q === "string" ? req.query.q.trim().toLowerCase() : "";
       const allowedChannelIds = await getSalesChannelFilter(req);
-      const cacheKey = "crm_customers_cache";
-      const cacheTtlMs = 15 * 60 * 1000;
-      const cached = (await storage.getSetting(cacheKey)) as { fetchedAt: string; customers: any[] } | undefined;
-      const isCacheValid =
-        cached?.fetchedAt &&
-        Date.now() - new Date(cached.fetchedAt).getTime() < cacheTtlMs &&
-        Array.isArray(cached.customers);
+      const tenantId = (req as any).tenantId ?? null;
 
       const customerRows = await storage.getAllCustomers();
       const customerByEmail = new Map(customerRows.map((row) => [row.email.toLowerCase(), row]));
 
-      let list: Array<{
+      type CrmListItem = {
         id: string | null;
         email: string;
         name: string;
@@ -11617,100 +11627,109 @@ Antworte im JSON-Format:
         lastOrderNumber: string | null;
         lastOrderDate: string | null;
         salesChannelIds: string[];
-      }> = [];
+      };
 
-      if (isCacheValid) {
-        list = cached.customers;
-      } else {
-        const aggregation = new Map<string, {
-          email: string;
-          name?: string;
-          phone?: string | null;
-          company?: string | null;
-          totalOrders: number;
-          totalRevenue: number;
-          lastOrderNumber?: string | null;
-          lastOrderDate?: string | null;
-          salesChannelIds: Set<string>;
-        }>();
-
-        const settings = await storage.getShopwareSettings();
-        if (settings) {
+      const { data: list } = await getHashCached<CrmListItem[]>({
+        cacheKey: CRM_CUSTOMERS_CACHE_KEY,
+        tenantId,
+        fetchFingerprint: async () => {
+          const settings = await storage.getShopwareSettings();
+          if (!settings) return null;
           const client = new ShopwareClient(settings);
-          const { orders } = await getOrdersWithCache(client);
-          const filteredOrders = filterOrdersBySalesChannels(orders, allowedChannelIds);
-
-          filteredOrders.forEach((order) => {
-            const emailKey = order.customerEmail?.toLowerCase();
-            if (!emailKey) return;
-            const existing = aggregation.get(emailKey) || {
-              email: order.customerEmail,
-              name: order.customerName,
-              phone: order.customerPhone ?? null,
-              company: order.billingAddress?.company ?? null,
-              totalOrders: 0,
-              totalRevenue: 0,
-              lastOrderNumber: null,
-              lastOrderDate: null,
-              salesChannelIds: new Set<string>(),
-            };
-            existing.totalOrders += 1;
-            existing.totalRevenue += Number(order.totalAmount || 0);
-            if (order.salesChannelId) {
-              existing.salesChannelIds.add(order.salesChannelId);
-            }
-            const orderDate = order.orderDate;
-            if (!existing.lastOrderDate || new Date(orderDate) > new Date(existing.lastOrderDate)) {
-              existing.lastOrderDate = orderDate;
-              existing.lastOrderNumber = order.orderNumber;
-            }
-            aggregation.set(emailKey, existing);
+          const ordersFp = await client.fetchOrdersFingerprint();
+          const tickets = await storage.getAllTickets();
+          return stableFingerprint({
+            orders: ordersFp ?? "none",
+            crmRows: customerRows.length,
+            tickets: tickets.length,
           });
-        }
+        },
+        fetchFull: async () => {
+          const aggregation = new Map<string, {
+            email: string;
+            name?: string;
+            phone?: string | null;
+            company?: string | null;
+            totalOrders: number;
+            totalRevenue: number;
+            lastOrderNumber?: string | null;
+            lastOrderDate?: string | null;
+            salesChannelIds: Set<string>;
+          }>();
 
-        const tickets = await storage.getAllTickets();
-        const filteredTickets = await filterTicketsBySalesChannels(tickets, allowedChannelIds, storage, (req.user as any)?.id);
-        filteredTickets.forEach((ticket) => {
-          if (!ticket.customerEmail) return;
-          const emailKey = ticket.customerEmail.toLowerCase();
-          if (!aggregation.has(emailKey)) {
-            aggregation.set(emailKey, {
-              email: ticket.customerEmail,
-              name: ticket.customerName || ticket.customerEmail,
-              phone: null,
-              company: null,
-              totalOrders: 0,
-              totalRevenue: 0,
-              lastOrderNumber: ticket.orderNumber || null,
-              lastOrderDate: null,
-              salesChannelIds: new Set<string>(),
+          const settings = await storage.getShopwareSettings();
+          if (settings) {
+            const client = new ShopwareClient(settings);
+            const { orders } = await getOrdersWithCache(client, tenantId);
+            const filteredOrders = filterOrdersBySalesChannels(orders, allowedChannelIds);
+
+            filteredOrders.forEach((order) => {
+              const emailKey = order.customerEmail?.toLowerCase();
+              if (!emailKey) return;
+              const existing = aggregation.get(emailKey) || {
+                email: order.customerEmail,
+                name: order.customerName,
+                phone: order.customerPhone ?? null,
+                company: order.billingAddress?.company ?? null,
+                totalOrders: 0,
+                totalRevenue: 0,
+                lastOrderNumber: null,
+                lastOrderDate: null,
+                salesChannelIds: new Set<string>(),
+              };
+              existing.totalOrders += 1;
+              existing.totalRevenue += Number(order.totalAmount || 0);
+              if (order.salesChannelId) {
+                existing.salesChannelIds.add(order.salesChannelId);
+              }
+              const orderDate = order.orderDate;
+              if (!existing.lastOrderDate || new Date(orderDate) > new Date(existing.lastOrderDate)) {
+                existing.lastOrderDate = orderDate;
+                existing.lastOrderNumber = order.orderNumber;
+              }
+              aggregation.set(emailKey, existing);
             });
           }
-        });
 
-        list = Array.from(aggregation.entries()).map(([emailKey, data]) => {
-          const stored = customerByEmail.get(emailKey);
-          return {
-            id: stored?.id ?? null,
-            email: data.email,
-            name: stored?.name || data.name || data.email,
-            phone: stored?.phone ?? data.phone ?? null,
-            company: stored?.company ?? data.company ?? null,
-            status: stored?.status ?? "active",
-            tags: stored?.tags ?? [],
-            totalOrders: data.totalOrders,
-            totalRevenue: data.totalRevenue,
-            lastOrderNumber: data.lastOrderNumber ?? null,
-            lastOrderDate: data.lastOrderDate ?? null,
-            salesChannelIds: Array.from(data.salesChannelIds),
-          };
-        });
+          const tickets = await storage.getAllTickets();
+          const filteredTickets = await filterTicketsBySalesChannels(tickets, allowedChannelIds, storage, (req.user as any)?.id);
+          filteredTickets.forEach((ticket) => {
+            if (!ticket.customerEmail) return;
+            const emailKey = ticket.customerEmail.toLowerCase();
+            if (!aggregation.has(emailKey)) {
+              aggregation.set(emailKey, {
+                email: ticket.customerEmail,
+                name: ticket.customerName || ticket.customerEmail,
+                phone: null,
+                company: null,
+                totalOrders: 0,
+                totalRevenue: 0,
+                lastOrderNumber: ticket.orderNumber || null,
+                lastOrderDate: null,
+                salesChannelIds: new Set<string>(),
+              });
+            }
+          });
 
-        await storage.saveSetting(cacheKey, {
-          fetchedAt: new Date().toISOString(),
-          customers: list,
-        });
-      }
+          return Array.from(aggregation.entries()).map(([emailKey, data]) => {
+            const stored = customerByEmail.get(emailKey);
+            return {
+              id: stored?.id ?? null,
+              email: data.email,
+              name: stored?.name || data.name || data.email,
+              phone: stored?.phone ?? data.phone ?? null,
+              company: stored?.company ?? data.company ?? null,
+              status: stored?.status ?? "active",
+              tags: stored?.tags ?? [],
+              totalOrders: data.totalOrders,
+              totalRevenue: data.totalRevenue,
+              lastOrderNumber: data.lastOrderNumber ?? null,
+              lastOrderDate: data.lastOrderDate ?? null,
+              salesChannelIds: Array.from(data.salesChannelIds),
+            };
+          });
+        },
+      });
 
       const filtered = rawQuery
         ? list.filter((item) =>
@@ -11764,7 +11783,7 @@ Antworte im JSON-Format:
       let orders: Order[] = [];
       if (settings) {
         const client = new ShopwareClient(settings);
-        const { orders: allOrders } = await getOrdersWithCache(client);
+        const { orders: allOrders } = await getOrdersWithCache(client, (req as any).tenantId ?? null);
         orders = filterOrdersBySalesChannels(allOrders, allowedChannelIds)
           .filter((order) => order.customerEmail?.toLowerCase() === customerEmail);
       }
@@ -12118,8 +12137,15 @@ Antworte im JSON-Format:
         return res.json({ configured: false, pluginDetected: false, customerCount: 0, emails: [] });
       }
 
+      const tenantId = (req as any).tenantId ?? null;
       const client = new ShopwareClient(settings);
-      const index = await client.fetchIndividualPriceCustomerIndex();
+
+      const { data: index } = await getHashCached({
+        cacheKey: "crm_individual_prices_index_v1",
+        tenantId,
+        fetchFingerprint: () => client.fetchIndividualPriceCustomerFingerprint(),
+        fetchFull: () => client.fetchIndividualPriceCustomerIndex(),
+      });
 
       res.json({
         configured: true,
@@ -12143,8 +12169,8 @@ Antworte im JSON-Format:
         return res.json({ configured: false, customerCount: 0, companies: {} });
       }
 
+      const tenantId = (req as any).tenantId ?? null;
       const client = new ShopwareClient(settings);
-      const rows = await client.fetchBestandskundenIndex(["Portal", "Händler", "Haendler"]);
 
       const normCompany = (s?: string | null) =>
         (s || "")
@@ -12155,18 +12181,31 @@ Antworte im JSON-Format:
           .replace(/[^a-z0-9]+/g, " ")
           .trim();
 
-      const companies: Record<string, string | null> = {};
-      for (const row of rows) {
-        const key = normCompany(row.company);
-        if (key.length >= 3 && !(key in companies)) {
-          companies[key] = row.customerNumber;
-        }
+      const { data: cached, fromCache } = await getHashCached({
+        cacheKey: "crm_bestandskunden_index_v1",
+        tenantId,
+        fetchFingerprint: () => client.fetchBestandskundenFingerprint(BESTANDSKUNDEN_GROUP_TERMS),
+        fetchFull: async () => {
+          const rows = await client.fetchBestandskundenIndex(BESTANDSKUNDEN_GROUP_TERMS);
+          const companies: Record<string, string | null> = {};
+          for (const row of rows) {
+            const key = normCompany(row.company);
+            if (key.length >= 3 && !(key in companies)) {
+              companies[key] = row.customerNumber;
+            }
+          }
+          return { customerCount: rows.length, companies };
+        },
+      });
+
+      if (fromCache) {
+        console.log(`[hash-cache] bestandskunden index served from cache (${cached.customerCount} customers)`);
       }
 
       res.json({
         configured: true,
-        customerCount: rows.length,
-        companies,
+        customerCount: cached.customerCount,
+        companies: cached.companies,
       });
     } catch (error: any) {
       console.error("Error loading possible-existing index:", error?.message || error);

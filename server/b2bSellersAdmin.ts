@@ -14,6 +14,18 @@ function computeDiscountPercent(priceNet: number | null, pseudoPriceNet: number 
 export type { B2BEntityMapping };
 export { DEFAULT_B2B_ENTITY_MAPPING, mergeB2BEntityMapping };
 
+export type B2BCompanyListItem = {
+  id: string;
+  customerId: string | null;
+  company: string;
+  email: string;
+  customerNumber: string | null;
+  active: boolean;
+  createdAt: string | null;
+  salesChannelId: string | null;
+  salesChannelName: string | null;
+};
+
 export async function getStoredB2BEntityMapping(): Promise<B2BEntityMapping> {
   const stored = (await storage.getSetting("b2b.entityMapping")) as Partial<B2BEntityMapping> | undefined;
   return mergeB2BEntityMapping(stored);
@@ -209,7 +221,7 @@ export class B2BSellersAdminClient {
     }, {} as Record<string, object>);
   }
 
-  private mapCustomerAsCompany(raw: any) {
+  private mapCustomerAsCompany(raw: any): B2BCompanyListItem {
     const u = unwrapEntity(raw);
     return {
       id: u.id,
@@ -352,7 +364,7 @@ export class B2BSellersAdminClient {
   }) {
     const pageSize = SHOPWARE_ADMIN_SEARCH_PAGE_SIZE;
     let page = 1;
-    const companies: ReturnType<B2BSellersAdminClient["mapCompany"]>[] = [];
+    const companies: B2BCompanyListItem[] = [];
 
     while (true) {
       const result = await this.searchEntity(
@@ -374,7 +386,7 @@ export class B2BSellersAdminClient {
   }) {
     const pageSize = SHOPWARE_ADMIN_SEARCH_PAGE_SIZE;
     let page = 1;
-    const companies: ReturnType<B2BSellersAdminClient["mapCustomerAsCompany"]>[] = [];
+    const companies: B2BCompanyListItem[] = [];
 
     while (true) {
       const result = await this.searchBusinessCustomers({ ...filters, limit: pageSize, page });
@@ -386,7 +398,7 @@ export class B2BSellersAdminClient {
     return companies;
   }
 
-  mapCompany(raw: any) {
+  mapCompany(raw: any): B2BCompanyListItem {
     const u = unwrapEntity(raw);
     return {
       id: u.id,
@@ -671,6 +683,80 @@ export class B2BSellersAdminClient {
     };
   }
 
+  /**
+   * Vollständige Firmenliste für Snapshot-Cache (Offer-Customers + Business-Customers).
+   */
+  async loadCompaniesSnapshot(salesChannelIds?: string[]): Promise<B2BCompanyListItem[]> {
+    const [companyEntities, businessCustomers] = await Promise.all([
+      this.searchAllCompanyEntities({ salesChannelIds }),
+      this.searchAllBusinessCustomers({ salesChannelIds }),
+    ]);
+    const knownCustomerIds = new Set(companyEntities.map((c) => c.customerId || c.id));
+    const supplemental = businessCustomers.filter((c) => !knownCustomerIds.has(c.customerId || c.id));
+    return this.sortCompaniesByCreatedAt(
+      this.dedupeCompaniesByCustomerId([...companyEntities, ...supplemental]),
+    );
+  }
+
+  /**
+   * Leichter Änderungs-Fingerprint (2 Search-Calls) für den B2B-Firmen-Snapshot.
+   */
+  async fetchCompaniesSnapshotFingerprint(salesChannelIds?: string[]): Promise<string | null> {
+    const { stableFingerprint } = await import("./contentHashCache");
+
+    try {
+      const companyCriteria = this.buildCompanyEntitySearchCriteria({
+        salesChannelIds,
+        limit: 1,
+        page: 1,
+      });
+      companyCriteria.sort = [{ field: "updatedAt", order: "DESC" }];
+      const companyResult = await this.searchEntity("company", companyCriteria);
+      const latestCompany = companyResult.data[0];
+      const companyAttrs = latestCompany ? unwrapEntity(latestCompany) : null;
+      const companyLatest =
+        getField(companyAttrs, "updatedAt") ||
+        getField(companyAttrs, "customer.updatedAt") ||
+        getField(companyAttrs, "createdAt") ||
+        null;
+
+      const customerCriteria = this.buildBusinessCustomerSearchCriteria({
+        salesChannelIds,
+        limit: 1,
+        page: 1,
+      });
+      customerCriteria.sort = [{ field: "updatedAt", order: "DESC" }];
+
+      let customerTotal = 0;
+      let customerLatest: string | null = null;
+      const customerResponse = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/customer`, {
+        method: "POST",
+        body: JSON.stringify(customerCriteria),
+      });
+      if (customerResponse.ok) {
+        const parsed = await customerResponse.json();
+        customerTotal = Number(parsed?.meta?.total ?? parsed?.total ?? 0);
+        const latestCustomer = parsed?.data?.[0];
+        const customerAttrs = latestCustomer ? unwrapEntity(latestCustomer) : null;
+        customerLatest =
+          getField(customerAttrs, "updatedAt") || getField(customerAttrs, "createdAt") || null;
+      }
+
+      return stableFingerprint({
+        scope: "b2b_companies",
+        entity: this.resolveEntityName("company"),
+        channels: salesChannelIds?.length ? salesChannelIds.slice().sort().join(",") : "all",
+        companyTotal: companyResult.total,
+        companyLatest,
+        customerTotal,
+        customerLatest,
+      });
+    } catch (error) {
+      console.warn("[B2B] companies snapshot fingerprint failed:", error);
+      return null;
+    }
+  }
+
   async fetchCompanies(filters: {
     search?: string;
     page?: number;
@@ -682,21 +768,7 @@ export class B2BSellersAdminClient {
     const channelFiltered = Boolean(filters.salesChannelIds?.length);
     try {
       if (channelFiltered) {
-        const [companyEntities, businessCustomers] = await Promise.all([
-          this.searchAllCompanyEntities({
-            search: filters.search,
-            salesChannelIds: filters.salesChannelIds,
-          }),
-          this.searchAllBusinessCustomers({
-            search: filters.search,
-            salesChannelIds: filters.salesChannelIds,
-          }),
-        ]);
-        const knownCustomerIds = new Set(companyEntities.map((c) => c.customerId || c.id));
-        const supplemental = businessCustomers.filter((c) => !knownCustomerIds.has(c.customerId || c.id));
-        const companies = this.sortCompaniesByCreatedAt(
-          this.dedupeCompaniesByCustomerId([...companyEntities, ...supplemental]),
-        );
+        const companies = await this.loadCompaniesSnapshot(filters.salesChannelIds);
         const start = (page - 1) * limit;
         return {
           companies: companies.slice(start, start + limit),

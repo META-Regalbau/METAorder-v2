@@ -16,6 +16,7 @@ import {
   createB2BAdminClient,
   getStoredB2BEntityMapping,
 } from "./b2bSellersAdmin";
+import { getB2BCompaniesCached } from "./b2bCompaniesCache";
 import { webhookService } from "./webhookService";
 import { productCache } from "./productCache";
 import { ShopwareClient } from "./shopware";
@@ -153,11 +154,16 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       }
       const tenantId = (req as any).tenantId ?? null;
       const client = await getAdminClient(tenantId);
-      const result = await client.fetchCompanies({
-        search: (req.query.search as string) || undefined,
-        page: Number(req.query.page) || 1,
-        limit: Number(req.query.limit) || 50,
+      const search = (req.query.search as string) || undefined;
+      const page = Number(req.query.page) || 1;
+      const limit = Number(req.query.limit) || 50;
+
+      const result = await getB2BCompaniesCached(client, {
+        search,
+        page,
+        limit,
         salesChannelIds,
+        tenantId,
       });
       const crmByEmail = await buildCrmCustomerByEmailMap(tenantId);
       res.json({

@@ -29,6 +29,7 @@ interface CacheStatus {
 class ProductCache {
   private products: Product[] = [];
   private lastUpdate: Date | null = null;
+  private lastFingerprint: string | null = null;
   private isLoading: boolean = false;
   private error: string | null = null;
   private refreshInterval: NodeJS.Timeout | null = null;
@@ -156,6 +157,19 @@ class ProductCache {
     this.error = null;
     
     try {
+      const sourceFingerprint = await client.fetchActiveProductCatalogFingerprint();
+      if (
+        sourceFingerprint &&
+        this.lastFingerprint === sourceFingerprint &&
+        this.products.length > 0
+      ) {
+        this.lastUpdate = new Date();
+        console.log(
+          `[Product Cache] Skipping full refresh — catalog unchanged (${this.products.length} products, fp ${sourceFingerprint.slice(0, 8)})`,
+        );
+        return;
+      }
+
       console.log('[Product Cache] Starting product fetch...');
       const allProducts: Product[] = [];
       
@@ -188,6 +202,7 @@ class ProductCache {
       // Update cache
       this.products = allProducts;
       this.lastUpdate = new Date();
+      this.lastFingerprint = sourceFingerprint;
       this.error = null;
       
       console.log(`[Product Cache] ✓ Successfully cached ${allProducts.length} products`);
@@ -212,6 +227,7 @@ class ProductCache {
     }
     this.products = [];
     this.lastUpdate = null;
+    this.lastFingerprint = null;
     this.error = null;
     console.log('[Product Cache] Cache destroyed');
   }

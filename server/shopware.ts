@@ -1661,6 +1661,111 @@ export class ShopwareClient {
   }
 
   /**
+   * Leichter Änderungs-Fingerprint für Search-Endpoints: Anzahl + jüngstes updatedAt.
+   * Ein API-Call statt voller Pagination — Basis für Hash-Cache-Invalidierung.
+   */
+  async fetchEntitySearchFingerprint(
+    entity: string,
+    options?: {
+      filter?: any[];
+      sortField?: string;
+    },
+  ): Promise<{ total: number; latestUpdatedAt: string | null; latestId: string | null } | null> {
+    try {
+      const sortField = options?.sortField ?? "updatedAt";
+      const body: Record<string, unknown> = {
+        limit: 1,
+        page: 1,
+        totalCountMode: 1,
+        sort: [{ field: sortField, order: "DESC" }],
+      };
+      if (options?.filter?.length) {
+        body.filter = options.filter;
+      }
+
+      const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/${entity}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch ${entity} fingerprint: ${response.statusText} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      const latest = data?.data?.[0];
+      const total = Number(data?.meta?.total ?? data?.total ?? 0);
+      const attrs = latest?.attributes ?? latest;
+
+      return {
+        total,
+        latestUpdatedAt: (attrs?.updatedAt ?? latest?.updatedAt ?? null) as string | null,
+        latestId: (latest?.id ?? null) as string | null,
+      };
+    } catch (error) {
+      console.error(`[Shopware] fetchEntitySearchFingerprint(${entity}) failed:`, error);
+      return null;
+    }
+  }
+
+  /** Fingerprint-String für Bestandskunden-Index (Portal/Händler-Gruppen). */
+  async fetchBestandskundenFingerprint(groupNameTerms: string[]): Promise<string | null> {
+    const terms = (groupNameTerms || []).map((term) => (term || "").trim()).filter((term) => term.length >= 2);
+    if (terms.length === 0) return null;
+
+    const filter = [
+      {
+        type: "multi",
+        operator: "OR",
+        queries: terms.map((value) => ({ type: "contains", field: "group.name", value })),
+      },
+    ];
+
+    const fp = await this.fetchEntitySearchFingerprint("customer", { filter });
+    if (!fp) return null;
+
+    const { stableFingerprint } = await import("./contentHashCache");
+    return stableFingerprint({
+      scope: "bestandskunden",
+      terms: terms.join(","),
+      total: fp.total,
+      latestUpdatedAt: fp.latestUpdatedAt,
+      latestId: fp.latestId,
+    });
+  }
+
+  /** Fingerprint für aktive Produkte (entspricht Product-Cache-Refresh). */
+  async fetchActiveProductCatalogFingerprint(): Promise<string | null> {
+    const filter = [{ type: "equals", field: "active", value: true }];
+    const fp = await this.fetchEntitySearchFingerprint("product", { filter, sortField: "updatedAt" });
+    if (!fp) return null;
+
+    const { stableFingerprint } = await import("./contentHashCache");
+    return stableFingerprint({
+      scope: "active_products",
+      total: fp.total,
+      latestUpdatedAt: fp.latestUpdatedAt,
+      latestId: fp.latestId,
+    });
+  }
+
+  /** Fingerprint für Bestellungen (Count + jüngste Änderung). */
+  async fetchOrdersFingerprint(): Promise<string | null> {
+    const fp = await this.fetchEntitySearchFingerprint("order", { sortField: "updatedAt" });
+    if (!fp) return null;
+
+    const { stableFingerprint } = await import("./contentHashCache");
+    return stableFingerprint({
+      scope: "orders",
+      total: fp.total,
+      latestUpdatedAt: fp.latestUpdatedAt,
+      latestId: fp.latestId,
+    });
+  }
+
+  /**
    * Fetch orders with pagination support
    * @param limit Maximum number of orders to return (default: 50)
    * @param offset Number of orders to skip (default: 0)
@@ -6240,6 +6345,43 @@ export class ShopwareClient {
 
     // Plugin/Entität nicht vorhanden.
     return { entity: null, customerCount: 0, emails: [] };
+  }
+
+  /**
+   * Leichter Fingerprint für den Individual-Prices-Index (Aggregation, ohne E-Mail-Auflösung).
+   */
+  async fetchIndividualPriceCustomerFingerprint(): Promise<string | null> {
+    const { stableFingerprint } = await import("./contentHashCache");
+
+    for (const entity of this.getCustomerPriceEntityCandidates()) {
+      try {
+        const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/${entity}`, {
+          method: "POST",
+          body: JSON.stringify({
+            limit: 1,
+            totalCountMode: 1,
+            aggregations: [{ name: "byCustomer", type: "terms", field: "customerId", limit: 5 }],
+          }),
+        });
+        if (response.status === 404) continue;
+        if (!response.ok) continue;
+
+        const data = await response.json();
+        const buckets: any[] = data?.aggregations?.byCustomer?.buckets || [];
+        const fp = await this.fetchEntitySearchFingerprint(entity, { sortField: "updatedAt" });
+
+        return stableFingerprint({
+          scope: "individual_prices",
+          entity,
+          docTotal: data?.meta?.total ?? 0,
+          distinctCustomers: buckets.length,
+          latestUpdatedAt: fp?.latestUpdatedAt ?? null,
+        });
+      } catch {
+        continue;
+      }
+    }
+    return stableFingerprint({ scope: "individual_prices", entity: "none" });
   }
 
   /**
