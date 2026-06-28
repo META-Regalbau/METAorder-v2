@@ -11609,6 +11609,7 @@ Antworte im JSON-Format:
         totalRevenue: number;
         lastOrderNumber: string | null;
         lastOrderDate: string | null;
+        salesChannelIds: string[];
       }> = [];
 
       if (isCacheValid) {
@@ -11623,6 +11624,7 @@ Antworte im JSON-Format:
           totalRevenue: number;
           lastOrderNumber?: string | null;
           lastOrderDate?: string | null;
+          salesChannelIds: Set<string>;
         }>();
 
         const settings = await storage.getShopwareSettings();
@@ -11643,9 +11645,13 @@ Antworte im JSON-Format:
               totalRevenue: 0,
               lastOrderNumber: null,
               lastOrderDate: null,
+              salesChannelIds: new Set<string>(),
             };
             existing.totalOrders += 1;
             existing.totalRevenue += Number(order.totalAmount || 0);
+            if (order.salesChannelId) {
+              existing.salesChannelIds.add(order.salesChannelId);
+            }
             const orderDate = order.orderDate;
             if (!existing.lastOrderDate || new Date(orderDate) > new Date(existing.lastOrderDate)) {
               existing.lastOrderDate = orderDate;
@@ -11670,6 +11676,7 @@ Antworte im JSON-Format:
               totalRevenue: 0,
               lastOrderNumber: ticket.orderNumber || null,
               lastOrderDate: null,
+              salesChannelIds: new Set<string>(),
             });
           }
         });
@@ -11688,6 +11695,7 @@ Antworte im JSON-Format:
             totalRevenue: data.totalRevenue,
             lastOrderNumber: data.lastOrderNumber ?? null,
             lastOrderDate: data.lastOrderDate ?? null,
+            salesChannelIds: Array.from(data.salesChannelIds),
           };
         });
 

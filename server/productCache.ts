@@ -1,5 +1,6 @@
 import type { Product } from "@shared/schema";
 import type { ShopwareClient } from "./shopware";
+import { getTenantIdFromContext } from "./tenantContext";
 
 /**
  * Product Cache System
@@ -10,6 +11,11 @@ import type { ShopwareClient } from "./shopware";
  * - Auto-refresh every 6 hours (configurable)
  * - Manual refresh capability
  * - Cache status tracking
+ *
+ * Mandantentrennung: Jeder Mandant (tenantId) hat eine eigene Cache-Instanz.
+ * Der exportierte `productCache` ist eine Facade, die pro Aufruf die
+ * Instanz des aktuellen Tenants (aus dem AsyncLocalStorage-Kontext) auflöst,
+ * sodass bestehende Aufrufstellen unverändert bleiben.
  */
 
 interface CacheStatus {
@@ -211,5 +217,48 @@ class ProductCache {
   }
 }
 
-// Singleton instance
-export const productCache = new ProductCache();
+/**
+ * Registry hält pro Mandant genau eine ProductCache-Instanz.
+ */
+class ProductCacheRegistry {
+  private caches = new Map<string, ProductCache>();
+
+  private keyFor(tenantId?: string | null): string {
+    const resolved = tenantId === undefined ? getTenantIdFromContext() : tenantId;
+    return resolved ?? "__global__";
+  }
+
+  /** Cache-Instanz für den angegebenen oder aktuellen Mandanten. */
+  for(tenantId?: string | null): ProductCache {
+    const key = this.keyFor(tenantId);
+    let cache = this.caches.get(key);
+    if (!cache) {
+      cache = new ProductCache();
+      this.caches.set(key, cache);
+    }
+    return cache;
+  }
+
+  /** Alle Mandanten-Caches verwerfen (z.B. für Tests/Shutdown). */
+  destroyAll(): void {
+    for (const cache of this.caches.values()) {
+      cache.destroy();
+    }
+    this.caches.clear();
+  }
+}
+
+export const productCacheRegistry = new ProductCacheRegistry();
+
+/**
+ * Facade: leitet jeden Zugriff an die ProductCache-Instanz des aktuellen
+ * Mandanten weiter. Dadurch funktionieren alle bestehenden `productCache.*`
+ * Aufrufe automatisch mandantengetrennt.
+ */
+export const productCache: ProductCache = new Proxy({} as ProductCache, {
+  get(_target, prop) {
+    const instance = productCacheRegistry.for();
+    const value = (instance as any)[prop];
+    return typeof value === "function" ? value.bind(instance) : value;
+  },
+}) as ProductCache;

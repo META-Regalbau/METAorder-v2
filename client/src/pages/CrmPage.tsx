@@ -14,6 +14,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTranslation } from "react-i18next";
 import type { DiscountRequest, OrderAssignment, Role } from "@shared/schema";
 import CustomerDetailModal from "@/components/CustomerDetailModal";
+import { SalesChannelSelector } from "@/components/SalesChannelSelector";
 
 type CrmCustomer = {
   id: string | null;
@@ -27,6 +28,7 @@ type CrmCustomer = {
   totalRevenue: number;
   lastOrderNumber?: string | null;
   lastOrderDate?: string | null;
+  salesChannelIds?: string[];
 };
 
 type EnrichedAssignment = OrderAssignment & {
@@ -42,9 +44,11 @@ type EnrichedDiscountRequest = DiscountRequest & {
 
 interface CrmPageProps {
   userPermissions: Role["permissions"];
+  userRole?: "employee" | "admin";
+  userSalesChannelIds?: string[] | null;
 }
 
-export default function CrmPage({ userPermissions }: CrmPageProps) {
+export default function CrmPage({ userPermissions, userRole, userSalesChannelIds }: CrmPageProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
@@ -52,6 +56,7 @@ export default function CrmPage({ userPermissions }: CrmPageProps) {
   const [selectedCustomer, setSelectedCustomer] = useState<CrmCustomer | null>(null);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [onlyIndividualPrices, setOnlyIndividualPrices] = useState(false);
+  const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
 
   const canViewCrm = userPermissions?.viewCrm || false;
   const canManageCrm = userPermissions?.manageCrm || false;
@@ -156,10 +161,18 @@ export default function CrmPage({ userPermissions }: CrmPageProps) {
   );
   const hasIndividualPrice = (email: string) => individualPriceEmails.has((email || "").toLowerCase());
 
-  const filteredCustomers = useMemo(
-    () => (onlyIndividualPrices ? customers.filter((customer) => hasIndividualPrice(customer.email)) : customers),
-    [customers, onlyIndividualPrices, individualPriceEmails]
-  );
+  const filteredCustomers = useMemo(() => {
+    let result = customers;
+    if (selectedChannelIds.length > 0) {
+      result = result.filter((customer) =>
+        (customer.salesChannelIds || []).some((channelId) => selectedChannelIds.includes(channelId))
+      );
+    }
+    if (onlyIndividualPrices) {
+      result = result.filter((customer) => hasIndividualPrice(customer.email));
+    }
+    return result;
+  }, [customers, onlyIndividualPrices, individualPriceEmails, selectedChannelIds]);
 
   const pendingAssignments = useMemo(
     () => assignments.filter((assignment) => assignment.status === "requested"),
@@ -252,15 +265,24 @@ export default function CrmPage({ userPermissions }: CrmPageProps) {
                     </Badge>
                   )}
                 </div>
-                <div className="flex w-full max-w-sm items-center gap-2">
-                  <Input
-                    value={searchValue}
-                    onChange={(event) => setSearchValue(event.target.value)}
-                    placeholder={t("crm.customers.searchPlaceholder")}
+                <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center md:w-auto">
+                  <SalesChannelSelector
+                    selectedChannelIds={selectedChannelIds}
+                    onSelectionChange={setSelectedChannelIds}
+                    userAllowedChannelIds={userSalesChannelIds}
+                    isAdmin={userRole === "admin"}
+                    enabled={canViewCrm}
                   />
-                  <Button variant="outline" onClick={() => setSearchValue("")}>
-                    {t("common.clear")}
-                  </Button>
+                  <div className="flex w-full max-w-sm items-center gap-2">
+                    <Input
+                      value={searchValue}
+                      onChange={(event) => setSearchValue(event.target.value)}
+                      placeholder={t("crm.customers.searchPlaceholder")}
+                    />
+                    <Button variant="outline" onClick={() => setSearchValue("")}>
+                      {t("common.clear")}
+                    </Button>
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-2">

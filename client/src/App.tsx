@@ -78,7 +78,7 @@ function Router({
       <Route path="/price-check" component={PriceCheckPage} />
       <Route path="/bundles" component={BundlesPage} />
       <Route path="/tickets" component={() => <TicketsPage userPermissions={userPermissions} />} />
-      <Route path="/crm" component={() => <CrmPage userPermissions={userPermissions} />} />
+      <Route path="/crm" component={() => <CrmPage userPermissions={userPermissions} userRole={userRole} userSalesChannelIds={userSalesChannelIds} />} />
       <Route path="/ticket-rules" component={TicketRulesPage} />
       <Route path="/automation-rules" component={AutomationRulesPage} />
       <Route path="/templates" component={() => <TemplatesPage userPermissions={userPermissions} />} />

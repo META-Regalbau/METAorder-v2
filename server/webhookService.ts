@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import type { WebhookEventType, InsertWebhookLog } from "@shared/schema";
 import { storage } from "./storage";
 import crypto from "crypto";
+import { getTenantIdFromContext } from "./tenantContext";
 
 // Webhook payload types for different events
 export type TicketCreatedPayload = {
@@ -113,9 +114,14 @@ export type WebhookPayload =
   | CommercialAutoOfferCreatedPayload
   | CommercialAutoOrderCreatedPayload;
 
-// In-memory cache for webhook configs (60 second TTL)
-let configCache: { configs: any[]; timestamp: number } | null = null;
+// In-memory cache for webhook configs (60 second TTL), pro Mandant getrennt.
+// Key = tenantId aus dem AsyncLocalStorage-Kontext (oder "__global__" als Fallback).
+const configCacheByTenant = new Map<string, { configs: any[]; timestamp: number }>();
 const CACHE_TTL_MS = 60000; // 60 seconds
+
+function webhookConfigCacheKey(): string {
+  return getTenantIdFromContext() ?? "__global__";
+}
 
 /**
  * Webhook Service - handles triggering webhooks with retry logic
@@ -129,20 +135,22 @@ class WebhookService {
    * Invalidate config cache (call after updating webhook configs)
    */
   invalidateCache() {
-    configCache = null;
+    configCacheByTenant.clear();
   }
 
   /**
-   * Get webhook configurations (cached)
+   * Get webhook configurations (cached, pro Mandant)
    */
   private async getConfigs() {
     const now = Date.now();
-    if (configCache && now - configCache.timestamp < CACHE_TTL_MS) {
-      return configCache.configs;
+    const key = webhookConfigCacheKey();
+    const cached = configCacheByTenant.get(key);
+    if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+      return cached.configs;
     }
 
     const configs = await storage.getAllWebhookConfigs();
-    configCache = { configs, timestamp: now };
+    configCacheByTenant.set(key, { configs, timestamp: now });
     return configs;
   }
 
