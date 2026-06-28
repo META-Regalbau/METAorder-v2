@@ -2888,6 +2888,11 @@
       "employees": "Employees",
       "roles": "Roles",
       "tags": "Tags",
+      "pagination": {
+        "summary": "{{from}}–{{to}} of {{total}} companies",
+        "perPage": "Per page:",
+        "page": "Page {{page}} of {{pages}}"
+      },
       "detail": {
         "title": "Company details",
         "subtitle": "Master data, address and assigned employees from Shopware",

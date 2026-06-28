@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SalesChannelSelector } from "@/components/SalesChannelSelector";
 import B2BCompanyDetailModal from "@/components/B2BCompanyDetailModal";
@@ -31,6 +32,8 @@ export default function B2BAccountsPage({ userPermissions, userRole, userSalesCh
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [selectedCompanyName, setSelectedCompanyName] = useState("");
   const [detailOpen, setDetailOpen] = useState(false);
@@ -51,19 +54,34 @@ export default function B2BAccountsPage({ userPermissions, userRole, userSalesCh
     }
   }, [salesChannels, userRole, userSalesChannelIds, selectedChannelIds.length]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedChannelIds, pageSize]);
+
   const { data: companiesData, isLoading: companiesLoading, isError: companiesError, error: companiesQueryError } = useQuery<{ companies: Company[]; total: number }>({
-    queryKey: ["/api/b2b/companies", search, selectedChannelIds],
+    queryKey: ["/api/b2b/companies", search, selectedChannelIds, currentPage, pageSize],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (search.trim()) params.set("search", search.trim());
       if (selectedChannelIds.length > 0) params.set("salesChannelIds", selectedChannelIds.join(","));
-      const q = params.toString() ? `?${params.toString()}` : "";
-      const res = await fetch(`/api/b2b/companies${q}`, { credentials: "include" });
+      params.set("page", String(currentPage));
+      params.set("limit", String(pageSize));
+      const res = await fetch(`/api/b2b/companies?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
-    enabled: canView,
+    enabled: canView && selectedChannelIds.length > 0,
   });
+
+  const totalCompanies = companiesData?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCompanies / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const pageStart = totalCompanies === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const pageEnd = Math.min(safePage * pageSize, totalCompanies);
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
 
   const { data: rolesData } = useQuery<{ roles: { id: string; name: string }[] }>({
     queryKey: ["/api/b2b/roles"],
@@ -117,6 +135,9 @@ export default function B2BAccountsPage({ userPermissions, userRole, userSalesCh
               {companiesQueryError instanceof Error ? companiesQueryError.message : t("b2b.loadError")}
             </p>
           ) : null}
+          {companiesLoading ? (
+            <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+          ) : null}
           <Table>
             <TableHeader>
               <TableRow>
@@ -168,6 +189,46 @@ export default function B2BAccountsPage({ userPermissions, userRole, userSalesCh
               ) : null}
             </TableBody>
           </Table>
+          {!companiesLoading && totalCompanies > 0 ? (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-sm text-muted-foreground">
+                {t("b2b.accounts.pagination.summary", { from: pageStart, to: pageEnd, total: totalCompanies })}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm text-muted-foreground">{t("b2b.accounts.pagination.perPage")}</span>
+                {[25, 50, 100].map((size) => (
+                  <Button
+                    key={size}
+                    variant={pageSize === size ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setPageSize(size)}
+                  >
+                    {size}
+                  </Button>
+                ))}
+                <div className="mx-1 hidden h-5 w-px bg-border sm:block" />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={safePage <= 1}
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                >
+                  {t("common.previous")}
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  {t("b2b.accounts.pagination.page", { page: safePage, pages: totalPages })}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={safePage >= totalPages}
+                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                >
+                  {t("common.next")}
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 

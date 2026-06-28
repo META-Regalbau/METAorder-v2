@@ -2917,6 +2917,11 @@
       "employees": "Mitarbeiter",
       "roles": "Rollen",
       "tags": "Tags",
+      "pagination": {
+        "summary": "{{from}}–{{to}} von {{total}} Unternehmen",
+        "perPage": "Pro Seite:",
+        "page": "Seite {{page}} von {{pages}}"
+      },
       "detail": {
         "title": "Unternehmensdetails",
         "subtitle": "Stammdaten, Adresse und zugeordnete Mitarbeiter aus Shopware",

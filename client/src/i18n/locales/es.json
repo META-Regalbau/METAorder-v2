@@ -2519,6 +2519,11 @@
       "employees": "Empleados",
       "roles": "Roles",
       "tags": "Etiquetas",
+      "pagination": {
+        "summary": "{{from}}–{{to}} de {{total}} empresas",
+        "perPage": "Por página:",
+        "page": "Página {{page}} de {{pages}}"
+      },
       "detail": {
         "title": "Detalles de la empresa",
         "subtitle": "Datos maestros, dirección y empleados asignados desde Shopware",

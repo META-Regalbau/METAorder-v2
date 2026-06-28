@@ -308,6 +308,88 @@ export class B2BSellersAdminClient {
     });
   }
 
+  private buildCompanyEntitySearchCriteria(filters: {
+    search?: string;
+    page?: number;
+    limit?: number;
+    salesChannelIds?: string[];
+  }) {
+    const criteria: Record<string, unknown> = {
+      limit: filters.limit || 50,
+      page: filters.page || 1,
+      totalCountMode: 1,
+      sort: [{ field: "createdAt", order: "DESC" }],
+      associations: {
+        customer: {
+          associations: {
+            salesChannel: {},
+          },
+        },
+      },
+      filter: [],
+    };
+    const channelFilter = this.buildSalesChannelCustomerFilter(filters.salesChannelIds, "customer.");
+    if (channelFilter) {
+      (criteria.filter as any[]).push(channelFilter);
+    }
+    if (filters.search) {
+      (criteria.filter as any[]).push({
+        type: "multi",
+        operator: "or",
+        queries: [
+          { type: "contains", field: "company", value: filters.search },
+          { type: "contains", field: "customer.company", value: filters.search },
+          { type: "contains", field: "email", value: filters.search },
+        ],
+      });
+    }
+    return criteria;
+  }
+
+  private async searchAllCompanyEntities(filters: {
+    search?: string;
+    salesChannelIds?: string[];
+  }) {
+    const batchSize = 250;
+    let page = 1;
+    let total = Number.POSITIVE_INFINITY;
+    const companies: ReturnType<B2BSellersAdminClient["mapCompany"]>[] = [];
+
+    while (companies.length < total) {
+      const result = await this.searchEntity(
+        "company",
+        this.buildCompanyEntitySearchCriteria({ ...filters, limit: batchSize, page }),
+      );
+      const batch = result.data.map((row) => this.mapCompany(row));
+      companies.push(...batch);
+      total = result.total ?? companies.length;
+      if (batch.length < batchSize) break;
+      page += 1;
+    }
+
+    return companies;
+  }
+
+  private async searchAllBusinessCustomers(filters: {
+    search?: string;
+    salesChannelIds?: string[];
+  }) {
+    const batchSize = 250;
+    let page = 1;
+    let total = Number.POSITIVE_INFINITY;
+    const companies: ReturnType<B2BSellersAdminClient["mapCustomerAsCompany"]>[] = [];
+
+    while (companies.length < total) {
+      const result = await this.searchBusinessCustomers({ ...filters, limit: batchSize, page });
+      companies.push(...result.companies);
+      total = result.total;
+      if (result.companies.length < batchSize) break;
+      page += 1;
+    }
+
+    return companies;
+  }
+
   mapCompany(raw: any) {
     const u = unwrapEntity(raw);
     return {
@@ -602,51 +684,23 @@ export class B2BSellersAdminClient {
     const limit = filters.limit || 50;
     const page = filters.page || 1;
     const channelFiltered = Boolean(filters.salesChannelIds?.length);
-    const fetchLimit = channelFiltered ? Math.max(limit, 500) : limit;
-    const criteria: Record<string, unknown> = {
-      limit: fetchLimit,
-      page: channelFiltered ? 1 : page,
-      totalCountMode: 1,
-      sort: [{ field: "createdAt", order: "DESC" }],
-      associations: {
-        customer: {
-          associations: {
-            salesChannel: {},
-          },
-        },
-      },
-      filter: [],
-    };
-    const channelFilter = this.buildSalesChannelCustomerFilter(filters.salesChannelIds, "customer.");
-    if (channelFilter) {
-      (criteria.filter as any[]).push(channelFilter);
-    }
-    if (filters.search) {
-      (criteria.filter as any[]).push({
-        type: "multi",
-        operator: "or",
-        queries: [
-          { type: "contains", field: "company", value: filters.search },
-          { type: "contains", field: "customer.company", value: filters.search },
-          { type: "contains", field: "email", value: filters.search },
-        ],
-      });
-    }
     try {
-      const result = await this.searchEntity("company", criteria);
-      let companies = this.dedupeCompaniesByCustomerId(result.data.map((r) => this.mapCompany(r)));
-
       if (channelFiltered) {
-        const business = await this.searchBusinessCustomers({
-          search: filters.search,
-          salesChannelIds: filters.salesChannelIds,
-          limit: fetchLimit,
-          page: 1,
-        });
-        const knownCustomerIds = new Set(companies.map((c) => c.customerId || c.id));
-        const supplemental = business.companies.filter((c) => !knownCustomerIds.has(c.customerId || c.id));
-        companies = this.dedupeCompaniesByCustomerId([...companies, ...supplemental]);
-        companies = this.sortCompaniesByCreatedAt(companies);
+        const [companyEntities, businessCustomers] = await Promise.all([
+          this.searchAllCompanyEntities({
+            search: filters.search,
+            salesChannelIds: filters.salesChannelIds,
+          }),
+          this.searchAllBusinessCustomers({
+            search: filters.search,
+            salesChannelIds: filters.salesChannelIds,
+          }),
+        ]);
+        const knownCustomerIds = new Set(companyEntities.map((c) => c.customerId || c.id));
+        const supplemental = businessCustomers.filter((c) => !knownCustomerIds.has(c.customerId || c.id));
+        const companies = this.sortCompaniesByCreatedAt(
+          this.dedupeCompaniesByCustomerId([...companyEntities, ...supplemental]),
+        );
         const start = (page - 1) * limit;
         return {
           companies: companies.slice(start, start + limit),
@@ -654,6 +708,11 @@ export class B2BSellersAdminClient {
         };
       }
 
+      const result = await this.searchEntity(
+        "company",
+        this.buildCompanyEntitySearchCriteria({ ...filters, limit, page }),
+      );
+      const companies = this.dedupeCompaniesByCustomerId(result.data.map((r) => this.mapCompany(r)));
       return { companies, total: result.total };
     } catch (primaryError) {
       const business = await this.searchBusinessCustomers(filters);
