@@ -12,6 +12,8 @@ self.addEventListener("push", (event) => {
   const options = {
     body: payload.body || "",
     data: payload.data || {},
+    icon: "/icon-192.png",
+    badge: "/favicon-32.png",
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });

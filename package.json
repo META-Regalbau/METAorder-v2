@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "NODE_ENV=development tsx server/index.ts",
     "pdf:landing-logo": "node scripts/generate-landing-logo-png.mjs",
+    "icons:generate": "node scripts/generate-app-icons.mjs",
     "openapi:generate": "node scripts/generate-openapi-paths.mjs",
     "build": "npm run openapi:generate && vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist && esbuild scripts/resetRegulationPrice.ts scripts/importShopFakturen.ts --platform=node --packages=external --bundle --format=esm --outdir=dist/scripts && node scripts/copy-pdf-assets.mjs",
     "start": "NODE_ENV=production node dist/index.js",
