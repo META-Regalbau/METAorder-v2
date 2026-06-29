@@ -1524,10 +1524,10 @@
     "userDeleted": "Benutzer gelöscht",
     "userDeletedSuccess": "Der Benutzer wurde erfolgreich gelöscht",
     "noSalesChannels": "Keine Verkaufskanäle verfügbar",
-    "allChannelsAccess": "Alle Kanäle (Admin)",
+    "allChannelsAccess": "Keine Einschränkung — Rollen-Standard (alle Kanäle, wenn die Rolle keine Liste hat)",
     "selectedChannelsCount": "{{count}} Kanal ausgewählt",
     "selectedChannelsCount_plural": "{{count}} Kanäle ausgewählt",
-    "salesChannelHelp": "Leer lassen für Zugriff auf alle Kanäle (nur Admin)"
+    "salesChannelHelp": "Optional: Nur diese Kanäle zusätzlich einschränken. Ohne Auswahl gilt die Kanalliste der Rolle (leer = alle Kanäle)."
   },
   "products": {
     "title": "Produkte",

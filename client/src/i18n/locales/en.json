@@ -1521,10 +1521,10 @@
     "userDeleted": "User deleted",
     "userDeletedSuccess": "The user has been deleted successfully",
     "noSalesChannels": "No sales channels available",
-    "allChannelsAccess": "All channels (Admin)",
+    "allChannelsAccess": "No restriction — role default (all channels when the role has no list)",
     "selectedChannelsCount": "{{count}} channel selected",
     "selectedChannelsCount_plural": "{{count}} channels selected",
-    "salesChannelHelp": "Leave empty for access to all channels (Admin only)"
+    "salesChannelHelp": "Optional: restrict to these channels only. With no selection, the role's channel list applies (empty = all channels)."
   },
   "products": {
     "title": "Products",

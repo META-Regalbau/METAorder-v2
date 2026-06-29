@@ -80,12 +80,13 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
 
   // Initialize selected channels based on user permissions
   useEffect(() => {
+    const hasChannelRestriction =
+      Array.isArray(userSalesChannelIds) && userSalesChannelIds.length > 0;
+
     if (salesChannels.length > 0 && selectedChannelIds.length === 0) {
-      if (userRole === "admin" || !userSalesChannelIds) {
-        // Admin sees all channels by default
-        setSelectedChannelIds(salesChannels.map(c => c.id));
+      if (userRole === "admin" || !hasChannelRestriction) {
+        setSelectedChannelIds(salesChannels.map((c) => c.id));
       } else {
-        // Non-admin users see only their assigned channels
         setSelectedChannelIds(userSalesChannelIds);
       }
     }

@@ -315,6 +315,50 @@ async function assignTicketAutomatically(ticket: Ticket): Promise<string | null>
 // SECURITY: This is the ONLY source of truth for sales channel access control
 // Returns: string[] for restricted users, null for admins with full access
 // Throws: Error if user context is missing (should never happen after requireAuth)
+
+function normalizeStoredSalesChannelIds(ids?: string[] | null): string[] | null {
+  if (!ids?.length) return null;
+  return ids;
+}
+
+async function resolveUserRoleForChannels(user: any): Promise<{ salesChannelIds?: string[] | null; name?: string } | null> {
+  if (user?.roleDetails) return user.roleDetails;
+  if (!user?.roleId) return null;
+  try {
+    return (await storage.getRole(user.roleId)) ?? null;
+  } catch (error) {
+    console.error("Error fetching role for sales channel filter:", error);
+    return null;
+  }
+}
+
+/** Neuen User dem Mandanten des Erstellers zuweisen (oder Live / ersten verfügbaren). */
+async function assignNewUserToTenant(req: Request, userId: string): Promise<string | null> {
+  let tenantId: string | null = (req as any).tenantId ?? null;
+
+  if (!tenantId) {
+    const creatorTenants = await storage.getTenantsForUser((req.user as any).id);
+    const live = creatorTenants.find((t) => t.name === "Live");
+    tenantId = live?.id ?? creatorTenants[0]?.id ?? null;
+  }
+
+  if (!tenantId) {
+    const allTenants = await storage.getAllTenants();
+    const live = allTenants.find((t) => t.name === "Live");
+    tenantId = live?.id ?? allTenants[0]?.id ?? null;
+  }
+
+  if (!tenantId) return null;
+
+  try {
+    await storage.addUserToTenant({ tenantId, userId });
+  } catch (error) {
+    console.warn(`[assignNewUserToTenant] skipped for user ${userId}:`, error);
+  }
+
+  return tenantId;
+}
+
 async function getSalesChannelFilter(req: Request): Promise<string[] | null> {
   const user = req.user as any;
   
@@ -333,42 +377,30 @@ async function getSalesChannelFilter(req: Request): Promise<string[] | null> {
     return null; // null = see all channels
   }
   
-  // SECURITY: For non-admin users, NULL in database was historically treated as unrestricted access
-  // However, for stricter security, only explicit admins (checked above) should have unrestricted access
-  // Non-admin users with NULL salesChannelIds should be treated as having NO specific channels assigned
-  // They will either inherit from role or get empty array (no access)
-  
-  // NOTE: If both user and role have NULL salesChannelIds, this means the user has not been 
-  // properly configured. In this case, deny access (return []) for safety rather than granting full access.
-  
-  // Collect all sales channel IDs from user and role
+  const role = await resolveUserRoleForChannels(user);
   const channelIds = new Set<string>();
   
-  // Add user's direct sales channel assignments
+  // User-level channel restriction (null/empty = inherit from role)
   if (Array.isArray(user.salesChannelIds) && user.salesChannelIds.length > 0) {
     user.salesChannelIds.forEach((id: string) => channelIds.add(id));
   }
   
-  // Add role-based sales channel assignments (if role exists)
-  if (user.roleId) {
-    try {
-      const role = await storage.getRole(user.roleId);
-      if (role && Array.isArray(role.salesChannelIds) && role.salesChannelIds.length > 0) {
-        role.salesChannelIds.forEach((id: string) => channelIds.add(id));
-      }
-    } catch (error) {
-      console.error("Error fetching role for sales channel filter:", error);
-      // Continue without role-based channels
-    }
+  if (role && Array.isArray(role.salesChannelIds) && role.salesChannelIds.length > 0) {
+    role.salesChannelIds.forEach((id: string) => channelIds.add(id));
+  }
+
+  const userHasOwnChannels =
+    Array.isArray(user.salesChannelIds) && user.salesChannelIds.length > 0;
+
+  // Rolle ohne Kanalliste = alle Shopware-Verkaufskanäle (Standard z. B. Employee)
+  if (!userHasOwnChannels && role && role.salesChannelIds == null) {
+    return null;
   }
   
-  // SECURITY: If no channels assigned (and not admin or NULL), return empty array
-  // Empty array = restricted user with NO channel access
   if (channelIds.size === 0) {
-    return []; // Empty array = no channel access
+    return [];
   }
   
-  // Return restricted channel list
   return Array.from(channelIds);
 }
 
@@ -1545,12 +1577,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.deleteUser(user.id);
         return res.status(400).json({ error: "Invalid role ID" });
       }
+
+      const assignedTenantId = await assignNewUserToTenant(req, user.id);
+      const userSalesChannelIds = normalizeStoredSalesChannelIds(validated.salesChannelIds);
       
       await storage.updateUser(user.id, {
         role: role.name.toLowerCase() === "administrator" ? "admin" : "employee",
         roleId: validated.roleId,
-        salesChannelIds: validated.salesChannelIds || null,
-        skills: validated.skills || null,
+        salesChannelIds: userSalesChannelIds,
+        skills: validated.skills?.length ? validated.skills : null,
+        ...(assignedTenantId ? { activeTenantId: assignedTenantId } : {}),
       });
       
       const updatedUser = await storage.getUser(user.id);
@@ -1601,6 +1637,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ error: "Invalid role ID" });
         }
         updates.role = role.name.toLowerCase() === "administrator" ? "admin" : "employee";
+      }
+
+      if (validated.salesChannelIds !== undefined) {
+        updates.salesChannelIds = normalizeStoredSalesChannelIds(validated.salesChannelIds);
       }
       
       const user = await storage.updateUser(req.params.id, updates);
@@ -2971,7 +3011,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Orders routes
   app.get("/api/orders", requireAuth, async (req, res) => {
     try {
-      const settings = await storage.getShopwareSettings();
+      const tenantId = (req as any).tenantId ?? null;
+      const settings = await storage.getShopwareSettings(tenantId);
       if (!settings) {
         return res.status(400).json({ error: "Shopware settings not configured" });
       }

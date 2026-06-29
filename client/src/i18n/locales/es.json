@@ -1251,10 +1251,10 @@
     "userDeleted": "Usuario eliminado",
     "userDeletedSuccess": "El usuario ha sido eliminado exitosamente",
     "noSalesChannels": "No hay canales de ventas disponibles",
-    "allChannelsAccess": "Todos los canales (Admin)",
+    "allChannelsAccess": "Sin restricción — estándar del rol (todos los canales si el rol no tiene lista)",
     "selectedChannelsCount": "{{count}} canal seleccionado",
     "selectedChannelsCount_plural": "{{count}} canales seleccionados",
-    "salesChannelHelp": "Dejar vacío para acceso a todos los canales (solo Admin)"
+    "salesChannelHelp": "Opcional: restringir solo a estos canales. Sin selección, se aplica la lista del rol (vacía = todos los canales)."
   },
   "products": {
     "title": "Productos",

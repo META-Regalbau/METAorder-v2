@@ -383,7 +383,13 @@ export async function seedDatabase(storage: IStorage) {
 
     const allUsers = await storage.getAllUsers();
     const allTenants = await storage.getAllTenants();
+    const defaultTenant =
+      allTenants.find((t) => t.name === "Live") ?? devTenant;
     for (const user of allUsers) {
+      if (Array.isArray(user.salesChannelIds) && user.salesChannelIds.length === 0) {
+        await storage.updateUser(user.id, { salesChannelIds: null });
+      }
+
       const userTenants = await storage.getTenantsForUser(user.id);
       const userTenantIds = new Set(userTenants.map((tenant) => tenant.id));
       const role = user.roleId ? await storage.getRole(user.roleId) : undefined;
@@ -400,13 +406,13 @@ export async function seedDatabase(storage: IStorage) {
         }
       } else if (userTenants.length === 0) {
         await storage.addUserToTenant({
-          tenantId: devTenant.id,
+          tenantId: defaultTenant.id,
           userId: user.id,
         });
       }
 
       if (!user.activeTenantId) {
-        await storage.updateUser(user.id, { activeTenantId: devTenant.id });
+        await storage.updateUser(user.id, { activeTenantId: defaultTenant.id });
       }
     }
   } catch (error) {
