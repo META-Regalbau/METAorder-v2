@@ -675,16 +675,47 @@ function filterOrdersBySalesChannels(orders: Order[], allowedChannelIds: string[
   return orders.filter(order => allowedChannelIds.includes(order.salesChannelId));
 }
 
-function filterCrmCustomersBySalesChannels<T extends { salesChannelIds: string[] }>(
+function filterCrmCustomersBySalesChannels<T extends { salesChannelIds?: string[] }>(
   customers: T[],
   allowedChannelIds: string[] | null,
 ): T[] {
   if (!allowedChannelIds) return customers;
-  return customers.filter(
-    (customer) =>
-      customer.salesChannelIds.length === 0 ||
-      customer.salesChannelIds.some((channelId) => allowedChannelIds.includes(channelId)),
-  );
+  return customers.filter((customer) => {
+    const channelIds = customer.salesChannelIds ?? [];
+    return channelIds.length === 0 || channelIds.some((channelId) => allowedChannelIds.includes(channelId));
+  });
+}
+
+/** Abwärtskompatibel: alter Index-Cache hatte nur emails, kein customers-Array. */
+function individualPricesIndexCustomers(index: {
+  customers?: Array<{
+    id: string;
+    email: string;
+    name: string;
+    company: string | null;
+    phone: string | null;
+    salesChannelId: string | null;
+  }>;
+  emails?: string[];
+}): Array<{
+  id: string;
+  email: string;
+  name: string;
+  company: string | null;
+  phone: string | null;
+  salesChannelId: string | null;
+}> {
+  if (Array.isArray(index.customers) && index.customers.length > 0) {
+    return index.customers;
+  }
+  return (index.emails ?? []).map((email) => ({
+    id: "",
+    email,
+    name: email,
+    company: null,
+    phone: null,
+    salesChannelId: null,
+  }));
 }
 
 function getRulePairKey(rule: CrossSellingRule): string | null {
@@ -1213,7 +1244,8 @@ function monduShipBlockedPayload(errorMessage: string) {
 // verworfen werden und ein frischer Fetch mit den neuen Feldern laeuft.
 const ORDERS_CACHE_KEY = "orders_cache_v4";
 const ORDERS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const CRM_CUSTOMERS_CACHE_KEY = "crm_customers_cache_v3";
+const CRM_CUSTOMERS_CACHE_KEY = "crm_customers_cache_v4";
+const CRM_INDIVIDUAL_PRICES_CACHE_KEY = "crm_individual_prices_index_v2";
 const BESTANDSKUNDEN_GROUP_TERMS = ["Portal", "Händler", "Haendler"];
 
 type OrdersCacheLegacy = {
@@ -11803,13 +11835,13 @@ Antworte im JSON-Format:
             });
 
             const { data: individualPricesIndex } = await getHashCached({
-              cacheKey: "crm_individual_prices_index_v1",
+              cacheKey: CRM_INDIVIDUAL_PRICES_CACHE_KEY,
               tenantId,
               fetchFingerprint: () => client.fetchIndividualPriceCustomerFingerprint(),
               fetchFull: () => client.fetchIndividualPriceCustomerIndex(),
             });
 
-            for (const ipCustomer of individualPricesIndex.customers) {
+            for (const ipCustomer of individualPricesIndexCustomers(individualPricesIndex)) {
               individualPriceEmailsForList.add(ipCustomer.email.toLowerCase());
               const emailKey = ipCustomer.email.toLowerCase();
               const existing = aggregation.get(emailKey);
@@ -11892,7 +11924,7 @@ Antworte im JSON-Format:
 
       res.json({ customers: filtered });
     } catch (error: any) {
-      console.error("Error loading CRM customers:", error);
+      console.error("Error loading CRM customers:", error?.message || error, error?.stack);
       res.status(500).json({ error: "Failed to load customers" });
     }
   });
@@ -12292,7 +12324,7 @@ Antworte im JSON-Format:
       const client = new ShopwareClient(settings);
 
       const { data: index } = await getHashCached({
-        cacheKey: "crm_individual_prices_index_v1",
+        cacheKey: CRM_INDIVIDUAL_PRICES_CACHE_KEY,
         tenantId,
         fetchFingerprint: () => client.fetchIndividualPriceCustomerFingerprint(),
         fetchFull: () => client.fetchIndividualPriceCustomerIndex(),
