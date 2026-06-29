@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useLocation } from "wouter";
 import { RefreshCw, Search, ChevronDown, ChevronUp, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,14 @@ type OrderSortKey =
   | "totalAmount"
   | "trackingNumber";
 
+type OrdersPageResponse = {
+  orders: Order[];
+  total: number;
+  limit: number;
+  offset: number;
+  duplicateOrderIds: string[];
+};
+
 export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPageProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -62,6 +70,13 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
   const [isBulkTrackingDialogOpen, setIsBulkTrackingDialogOpen] = useState(false);
   const [sortKey, setSortKey] = useState<OrderSortKey>("orderDate");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const refreshOnNextFetch = useRef(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchValue.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [searchValue]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.split("?")[1] ?? "");
@@ -92,20 +107,66 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
     }
   }, [salesChannels, userRole, userSalesChannelIds, selectedChannelIds.length]);
 
-  // Fetch orders from Shopware API with sales channel filtering
-  const salesChannelQuery = selectedChannelIds.length > 0 ? `?salesChannelIds=${selectedChannelIds.join(',')}` : '';
-  const { data: orders = [], isLoading, error, refetch } = useQuery<Order[]>({
-    queryKey: ['/api/orders', selectedChannelIds],
+  const itemsPerPageNum = parseInt(itemsPerPage, 10);
+  const ordersQueryString = useMemo(() => {
+    const params = new URLSearchParams();
+    params.set("limit", String(itemsPerPageNum));
+    params.set("offset", String((currentPage - 1) * itemsPerPageNum));
+    if (debouncedSearch) params.set("search", debouncedSearch);
+    if (statusFilter !== "all") params.set("status", statusFilter);
+    if (invoiceFilter !== "all") params.set("invoiceFilter", invoiceFilter);
+    if (orderNumberFilter !== "all") params.set("orderNumberFilter", orderNumberFilter);
+    if (dateFrom) params.set("dateFrom", dateFrom);
+    if (dateTo) params.set("dateTo", dateTo);
+    params.set("sortKey", sortKey);
+    params.set("sortDirection", sortDirection);
+    return params.toString();
+  }, [
+    itemsPerPageNum,
+    currentPage,
+    debouncedSearch,
+    statusFilter,
+    invoiceFilter,
+    orderNumberFilter,
+    dateFrom,
+    dateTo,
+    sortKey,
+    sortDirection,
+  ]);
+
+  const {
+    data: ordersPage,
+    isLoading,
+    error,
+    refetch,
+    isFetching,
+  } = useQuery<OrdersPageResponse>({
+    queryKey: ['/api/orders', ordersQueryString, selectedChannelIds],
     queryFn: async () => {
-      const response = await fetch(`/api/orders${salesChannelQuery}`);
+      const params = new URLSearchParams(ordersQueryString);
+      if (refreshOnNextFetch.current) {
+        params.set("refresh", "1");
+        refreshOnNextFetch.current = false;
+      }
+      const response = await fetch(`/api/orders?${params.toString()}`, {
+        credentials: "include",
+      });
       if (!response.ok) {
         throw new Error(await response.text());
       }
       return response.json();
     },
     retry: false,
-    enabled: selectedChannelIds.length > 0,
+    placeholderData: (previous) => previous,
   });
+
+  const pageOrders = ordersPage?.orders ?? [];
+  const totalOrders = ordersPage?.total ?? 0;
+  const duplicateOrderIds = useMemo(
+    () => new Set(ordersPage?.duplicateOrderIds ?? []),
+    [ordersPage?.duplicateOrderIds],
+  );
+  const totalPages = Math.max(1, Math.ceil(totalOrders / itemsPerPageNum));
 
   // Fetch ticket counts for orders
   const { data: ticketCounts = {} } = useQuery<Record<string, number>>({
@@ -156,95 +217,22 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
     }
   }
 
-  // Filter orders
-  const normalizedSearch = searchValue.trim().toLowerCase();
-  const filteredOrders = orders
-    .filter((order) => {
-      const matchesSearch =
-        normalizedSearch === "" ||
-        order.orderNumber.toLowerCase().includes(normalizedSearch) ||
-        order.customerName.toLowerCase().includes(normalizedSearch) ||
-        order.customerEmail.toLowerCase().includes(normalizedSearch) ||
-        order.invoiceNumber?.toLowerCase().includes(normalizedSearch) ||
-        order.erpNumber?.toLowerCase().includes(normalizedSearch);
-
-      const matchesStatus = statusFilter === "all" || order.status === statusFilter;
-
-      const matchesInvoice =
-        invoiceFilter === "all" ||
-        (invoiceFilter === "with" && !!order.hasInvoiceDocument) ||
-        (invoiceFilter === "without" && !order.hasInvoiceDocument) ||
-        (invoiceFilter === "unsent" && !!order.hasInvoiceDocument && !order.invoiceSent);
-
-      const matchesDateFrom = dateFrom === "" || new Date(order.orderDate) >= new Date(dateFrom);
-      const matchesDateTo = dateTo === "" || new Date(order.orderDate) <= new Date(dateTo);
-
-      const matchesOrderNumber =
-        orderNumberFilter === "all" || order.orderNumber.toUpperCase().startsWith("MO");
-
-      return matchesSearch && matchesStatus && matchesInvoice && matchesDateFrom && matchesDateTo && matchesOrderNumber;
-    });
-
-  const sortedOrders = [...filteredOrders].sort((a, b) => {
-    const direction = sortDirection === "asc" ? 1 : -1;
-    switch (sortKey) {
-      case "orderNumber":
-        return a.orderNumber.localeCompare(b.orderNumber) * direction;
-      case "customerName":
-        return a.customerName.localeCompare(b.customerName) * direction;
-      case "orderDate":
-        return (new Date(a.orderDate).getTime() - new Date(b.orderDate).getTime()) * direction;
-      case "status":
-        return a.status.localeCompare(b.status) * direction;
-      case "totalAmount":
-        return ((a.totalAmount || 0) - (b.totalAmount || 0)) * direction;
-      case "trackingNumber": {
-        const aTracking = a.shippingInfo?.trackingNumber || "";
-        const bTracking = b.shippingInfo?.trackingNumber || "";
-        return aTracking.localeCompare(bTracking) * direction;
-      }
-      default:
-        return 0;
-    }
-  });
-
-  // Pagination
-  const itemsPerPageNum = parseInt(itemsPerPage);
-  const totalPages = Math.ceil(sortedOrders.length / itemsPerPageNum);
-  const startIndex = (currentPage - 1) * itemsPerPageNum;
-  const endIndex = startIndex + itemsPerPageNum;
-  const paginatedOrders = sortedOrders.slice(startIndex, endIndex);
-
-  const duplicateOrderIds = useMemo(() => {
-    const windowMs = 7 * 24 * 60 * 60 * 1000;
-    const groups = new Map<string, Order[]>();
-    orders.forEach((order) => {
-      const key = `${order.orderNumber}|${order.customerEmail}`.toLowerCase();
-      const list = groups.get(key) || [];
-      list.push(order);
-      groups.set(key, list);
-    });
-    const duplicates = new Set<string>();
-    groups.forEach((group) => {
-      if (group.length < 2) return;
-      const sorted = [...group].sort((a, b) => new Date(a.orderDate).getTime() - new Date(b.orderDate).getTime());
-      for (let i = 0; i < sorted.length; i += 1) {
-        for (let j = i + 1; j < sorted.length; j += 1) {
-          const diff = Math.abs(new Date(sorted[j].orderDate).getTime() - new Date(sorted[i].orderDate).getTime());
-          if (diff <= windowMs) {
-            duplicates.add(sorted[i].id);
-            duplicates.add(sorted[j].id);
-          } else {
-            break;
-          }
-        }
-      }
-    });
-    return duplicates;
-  }, [orders]);
-
   // Reset to page 1 when filters change
   const resetPage = () => setCurrentPage(1);
+
+  useEffect(() => {
+    resetPage();
+  }, [
+    debouncedSearch,
+    statusFilter,
+    invoiceFilter,
+    orderNumberFilter,
+    dateFrom,
+    dateTo,
+    sortKey,
+    sortDirection,
+    itemsPerPage,
+  ]);
 
   const activeFiltersCount = [
     statusFilter !== "all",
@@ -265,14 +253,14 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
   };
 
   const handleRefresh = async () => {
-    console.log("Refreshing orders...");
+    refreshOnNextFetch.current = true;
     try {
       await refetch();
       toast({
         title: t('orders.refreshed'),
         description: t('orders.refreshSuccess'),
       });
-    } catch (error) {
+    } catch {
       toast({
         title: t('orders.refreshFailed'),
         description: t('orders.refreshError'),
@@ -408,10 +396,10 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
   };
 
   const handleToggleAll = () => {
-    if (selectedOrderIds.length === paginatedOrders.length) {
+    if (selectedOrderIds.length === pageOrders.length) {
       setSelectedOrderIds([]);
     } else {
-      setSelectedOrderIds(paginatedOrders.map(order => order.id));
+      setSelectedOrderIds(pageOrders.map(order => order.id));
     }
   };
 
@@ -430,7 +418,9 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
         <div>
           <h1 className="text-2xl font-semibold mb-1">{t('orders.title')}</h1>
           <p className="text-sm text-muted-foreground">
-            {isLoading ? t('common.loading') : t('orders.showing', { count: filteredOrders.length, total: orders.length })}
+            {isLoading && !ordersPage
+              ? t('common.loading')
+              : t('orders.showing', { count: totalOrders, total: totalOrders })}
           </p>
         </div>
 
@@ -441,8 +431,8 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
             userAllowedChannelIds={userSalesChannelIds}
             isAdmin={userRole === "admin"}
           />
-          <Button variant="outline" onClick={handleRefresh} disabled={isLoading} data-testid="button-refresh-orders">
-            <RefreshCw className={`h-4 w-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
+          <Button variant="outline" onClick={handleRefresh} disabled={isFetching} data-testid="button-refresh-orders">
+            <RefreshCw className={`h-4 w-4 mr-1 ${isFetching ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">{t('common.refresh')}</span>
           </Button>
         </div>
@@ -518,7 +508,7 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
       {/* Orders Table */}
       <div>
         <OrdersTable
-          orders={paginatedOrders}
+          orders={pageOrders}
           onViewOrder={handleViewOrder}
           isLoading={isLoading}
           ticketCounts={ticketCounts}
@@ -628,7 +618,7 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
       <BulkTrackingDialog
         isOpen={isBulkTrackingDialogOpen}
         onClose={() => setIsBulkTrackingDialogOpen(false)}
-        selectedOrders={orders.filter(order => selectedOrderIds.includes(order.id))}
+        selectedOrders={pageOrders.filter(order => selectedOrderIds.includes(order.id))}
         onSuccess={handleBulkUpdateSuccess}
       />
 

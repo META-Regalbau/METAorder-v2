@@ -29,6 +29,7 @@ type CrmCustomer = {
   lastOrderNumber?: string | null;
   lastOrderDate?: string | null;
   salesChannelIds?: string[];
+  hasIndividualPrice?: boolean;
 };
 
 type EnrichedAssignment = OrderAssignment & {
@@ -172,7 +173,13 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
     () => new Set((individualPricesIndex?.emails || []).map((email) => email.toLowerCase())),
     [individualPricesIndex]
   );
-  const hasIndividualPrice = (email: string) => individualPriceEmails.has((email || "").toLowerCase());
+  const hasIndividualPrice = (customer: CrmCustomer) =>
+    customer.hasIndividualPrice ?? individualPriceEmails.has((customer.email || "").toLowerCase());
+
+  const individualPricesInView = useMemo(
+    () => customers.filter((customer) => hasIndividualPrice(customer)).length,
+    [customers, individualPriceEmails]
+  );
 
   // Muss identisch zur Server-Normalisierung in /possible-existing-index sein.
   const normalizeCompany = (value?: string | null) =>
@@ -203,7 +210,7 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
       );
     }
     if (onlyIndividualPrices) {
-      result = result.filter((customer) => hasIndividualPrice(customer.email));
+      result = result.filter((customer) => hasIndividualPrice(customer));
     }
     if (onlyPossibleExisting) {
       result = result.filter((customer) => isPossibleExisting(customer.company));
@@ -314,6 +321,11 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
                   {individualPricesIndex?.pluginDetected && (
                     <Badge variant="secondary">
                       {t("crm.customers.individualPricesCount", { count: individualPricesIndex.customerCount })}
+                      {individualPricesInView !== individualPricesIndex.customerCount ? (
+                        <span className="ml-1 font-normal opacity-80">
+                          ({t("crm.customers.individualPricesInView", { count: individualPricesInView })})
+                        </span>
+                      ) : null}
                     </Badge>
                   )}
                 </div>
@@ -392,7 +404,7 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <span className="font-medium">{customer.name}</span>
-                              {hasIndividualPrice(customer.email) && (
+                              {hasIndividualPrice(customer) && (
                                 <Badge className="bg-green-600 hover:bg-green-600">
                                   {t("crm.customers.individualPriceBadge")}
                                 </Badge>

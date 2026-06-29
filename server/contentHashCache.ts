@@ -12,9 +12,12 @@ type MemoryEntry<T> = {
   fingerprint: string;
   data: T;
   expiresAt: number;
+  /** Letzter erfolgreicher Fingerprint-Abgleich mit Shopware. */
+  fingerprintCheckedAt?: number;
 };
 
 const memoryLayer = new Map<string, MemoryEntry<unknown>>();
+const DEFAULT_FINGERPRINT_MIN_INTERVAL_MS = 60_000;
 
 /** Deterministischer Kurz-Fingerprint aus sortierten Key-Value-Paaren. */
 export function stableFingerprint(parts: Record<string, string | number | null | undefined>): string {
@@ -43,6 +46,10 @@ export async function getHashCached<T>(options: {
   tenantId?: string | null;
   ttlMs?: number;
   memoryTtlMs?: number;
+  /** Shopware-Fingerprint höchstens alle N ms (Default 60s). */
+  fingerprintMinIntervalMs?: number;
+  /** Erzwingt vollen Reload (z. B. manueller Refresh). */
+  bypassCache?: boolean;
   fetchFingerprint: () => Promise<string | null>;
   fetchFull: () => Promise<T>;
 }): Promise<{ data: T; fromCache: boolean; fingerprint: string }> {
@@ -51,29 +58,79 @@ export async function getHashCached<T>(options: {
     tenantId,
     ttlMs = 24 * 60 * 60 * 1000,
     memoryTtlMs = 2 * 60 * 1000,
+    fingerprintMinIntervalMs = DEFAULT_FINGERPRINT_MIN_INTERVAL_MS,
+    bypassCache = false,
     fetchFingerprint,
     fetchFull,
   } = options;
 
   const memKey = `${tenantId ?? "__global__"}:${cacheKey}`;
 
-  let sourceFingerprint: string | null = null;
-  try {
-    sourceFingerprint = await fetchFingerprint();
-  } catch (error) {
-    console.warn(`[hash-cache] fingerprint failed for ${cacheKey}:`, error);
+  if (bypassCache) {
+    memoryLayer.delete(memKey);
+    let sourceFingerprint: string | null = null;
+    try {
+      sourceFingerprint = await fetchFingerprint();
+    } catch (error) {
+      console.warn(`[hash-cache] fingerprint failed for ${cacheKey}:`, error);
+    }
+    const data = await fetchFull();
+    const fingerprint = sourceFingerprint ?? hashPayload(data);
+    const entry: PersistedHashCache<T> = {
+      fetchedAt: new Date().toISOString(),
+      fingerprint,
+      data,
+    };
+    await storage.saveSetting(cacheKey, entry, tenantId);
+    memoryLayer.set(memKey, {
+      fingerprint,
+      data,
+      expiresAt: Date.now() + memoryTtlMs,
+      fingerprintCheckedAt: Date.now(),
+    });
+    return { data, fromCache: false, fingerprint };
   }
 
-  const persisted = (await storage.getSetting(cacheKey, tenantId)) as PersistedHashCache<T> | undefined;
-
   const memoryHit = memoryLayer.get(memKey) as MemoryEntry<T> | undefined;
+  const memoryFresh = memoryHit && Date.now() < memoryHit.expiresAt;
+  const fingerprintRecentlyChecked =
+    memoryHit?.fingerprintCheckedAt != null &&
+    Date.now() - memoryHit.fingerprintCheckedAt < fingerprintMinIntervalMs;
+
+  let sourceFingerprint: string | null = null;
+  if (memoryFresh && fingerprintRecentlyChecked && memoryHit?.fingerprint) {
+    sourceFingerprint = memoryHit.fingerprint;
+  } else {
+    try {
+      sourceFingerprint = await fetchFingerprint();
+    } catch (error) {
+      console.warn(`[hash-cache] fingerprint failed for ${cacheKey}:`, error);
+    }
+  }
+
+  const persistedRaw = (await storage.getSetting(cacheKey, tenantId)) as
+    | (PersistedHashCache<T> & { orders?: T })
+    | undefined;
+  const persistedData = persistedRaw?.data ?? persistedRaw?.orders;
+  const persisted: PersistedHashCache<T> | undefined =
+    persistedRaw?.fetchedAt != null && persistedData != null
+      ? {
+          fetchedAt: persistedRaw.fetchedAt,
+          fingerprint: persistedRaw.fingerprint ?? "",
+          data: persistedData,
+        }
+      : undefined;
+
   if (
-    memoryHit &&
-    Date.now() < memoryHit.expiresAt &&
+    memoryFresh &&
     sourceFingerprint &&
-    memoryHit.fingerprint === sourceFingerprint
+    memoryHit!.fingerprint === sourceFingerprint
   ) {
-    return { data: memoryHit.data, fromCache: true, fingerprint: sourceFingerprint };
+    memoryLayer.set(memKey, {
+      ...memoryHit!,
+      fingerprintCheckedAt: Date.now(),
+    });
+    return { data: memoryHit!.data, fromCache: true, fingerprint: sourceFingerprint };
   }
 
   if (
@@ -86,6 +143,7 @@ export async function getHashCached<T>(options: {
       fingerprint: sourceFingerprint,
       data: persisted.data,
       expiresAt: Date.now() + memoryTtlMs,
+      fingerprintCheckedAt: Date.now(),
     });
     return { data: persisted.data, fromCache: true, fingerprint: sourceFingerprint };
   }
@@ -100,6 +158,12 @@ export async function getHashCached<T>(options: {
     !sourceFingerprint &&
     !ttlExpired
   ) {
+    memoryLayer.set(memKey, {
+      fingerprint: persisted.fingerprint,
+      data: persisted.data,
+      expiresAt: Date.now() + memoryTtlMs,
+      fingerprintCheckedAt: Date.now(),
+    });
     return { data: persisted.data, fromCache: true, fingerprint: persisted.fingerprint };
   }
 
@@ -115,6 +179,7 @@ export async function getHashCached<T>(options: {
     fingerprint,
     data,
     expiresAt: Date.now() + memoryTtlMs,
+    fingerprintCheckedAt: Date.now(),
   });
 
   if (persisted?.fingerprint && persisted.fingerprint !== fingerprint) {

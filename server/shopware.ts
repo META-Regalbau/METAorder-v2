@@ -6300,9 +6300,30 @@ export class ShopwareClient {
     entity: string | null;
     customerCount: number;
     emails: string[];
+    customers: Array<{
+      id: string;
+      email: string;
+      name: string;
+      company: string | null;
+      phone: string | null;
+      salesChannelId: string | null;
+    }>;
   }> {
     // Sicherheitsgrenze, um bei sehr vielen Kunden nicht endlos E-Mails aufzulösen.
     const MAX_CUSTOMERS = 5000;
+    const empty = {
+      entity: null as string | null,
+      customerCount: 0,
+      emails: [] as string[],
+      customers: [] as Array<{
+        id: string;
+        email: string;
+        name: string;
+        company: string | null;
+        phone: string | null;
+        salesChannelId: string | null;
+      }>,
+    };
 
     for (const entity of this.getCustomerPriceEntityCandidates()) {
       let response: Response;
@@ -6336,11 +6357,19 @@ export class ShopwareClient {
 
       const customerCount = customerIds.length;
       if (customerCount === 0) {
-        return { entity, customerCount: 0, emails: [] };
+        return { entity, customerCount: 0, emails: [], customers: [] };
       }
 
-      // E-Mails in Chunks auflösen (equalsAny über die Kunden-IDs).
+      // Kundendaten in Chunks auflösen (equalsAny über die Kunden-IDs).
       const emails = new Set<string>();
+      const customers: Array<{
+        id: string;
+        email: string;
+        name: string;
+        company: string | null;
+        phone: string | null;
+        salesChannelId: string | null;
+      }> = [];
       const CHUNK = 100;
       for (let i = 0; i < customerIds.length; i += CHUNK) {
         const chunk = customerIds.slice(i, i + CHUNK).map((id) => toShopwareUuid(id));
@@ -6350,26 +6379,63 @@ export class ShopwareClient {
             body: JSON.stringify({
               limit: CHUNK,
               filter: [{ type: "equalsAny", field: "id", value: chunk }],
-              includes: { customer: ["id", "email"] },
+              includes: { customer: ["id", "email", "firstName", "lastName", "company", "salesChannelId"] },
+              associations: { defaultBillingAddress: {} },
             }),
           });
           if (!custResp.ok) continue;
           const custData = await custResp.json();
+          const includedMap = new Map<string, any>();
+          for (const item of custData.included || []) {
+            if (item?.type && item?.id) includedMap.set(`${item.type}-${item.id}`, item);
+          }
           for (const row of custData.data || []) {
             const attrs = row.attributes || row;
             const email = attrs?.email ? String(attrs.email).trim().toLowerCase() : "";
-            if (email) emails.add(email);
+            if (!email) continue;
+            emails.add(email);
+
+            const billingRel = attrs.defaultBillingAddress?.data?.id ?? attrs.defaultBillingAddress?.id;
+            const billingEntity = billingRel
+              ? includedMap.get(`customer_address-${billingRel}`)
+              : undefined;
+            const billingAttrs = billingEntity?.attributes || billingEntity;
+            const company =
+              (billingAttrs?.company ? String(billingAttrs.company).trim() : "") ||
+              (attrs?.company ? String(attrs.company).trim() : "") ||
+              null;
+            const firstName = String(attrs?.firstName || "").trim();
+            const lastName = String(attrs?.lastName || "").trim();
+            const name = [firstName, lastName].filter(Boolean).join(" ") || company || email;
+            const phone = billingAttrs?.phoneNumber
+              ? String(billingAttrs.phoneNumber).trim()
+              : null;
+            const salesChannelId = attrs?.salesChannelId ? String(attrs.salesChannelId) : null;
+
+            customers.push({
+              id: String(attrs?.id || row.id),
+              email,
+              name,
+              company,
+              phone,
+              salesChannelId,
+            });
           }
         } catch (error: any) {
           console.warn("[B2B] fetchIndividualPriceCustomerIndex email resolve error:", error?.message || error);
         }
       }
 
-      return { entity, customerCount, emails: Array.from(emails) };
+      return {
+        entity,
+        customerCount: customers.length,
+        emails: Array.from(emails),
+        customers,
+      };
     }
 
     // Plugin/Entität nicht vorhanden.
-    return { entity: null, customerCount: 0, emails: [] };
+    return empty;
   }
 
   /**
