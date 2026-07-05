@@ -67,12 +67,6 @@ export default function AppSidebar({ userRole, permissions }: AppSidebarProps) {
           permission: "viewOffers" as keyof Role['permissions'],
         },
         {
-          titleKey: "nav.offerBuilder",
-          url: "/offer-builder",
-          icon: FilePlus,
-          permission: "manageOffers" as keyof Role['permissions'],
-        },
-        {
           titleKey: "nav.orderDrafts",
           url: "/order-drafts",
           icon: FileUp,

@@ -29,7 +29,6 @@ const CrossSellingRulesPage = lazy(() => import("@/pages/CrossSellingRulesPage")
 const TemplatesPage = lazy(() => import("@/pages/TemplatesPage"));
 const OrderDraftsPage = lazy(() => import("@/pages/OrderDraftsPage"));
 const OffersPage = lazy(() => import("@/pages/OffersPage"));
-const OfferBuilderPage = lazy(() => import("@/pages/OfferBuilderPage"));
 const OfferPreviewPage = lazy(() => import("@/pages/OfferPreviewPage"));
 const ExportPage = lazy(() => import("@/pages/ExportPage"));
 const AnalyticsPage = lazy(() => import("@/pages/AnalyticsPage"));
@@ -98,7 +97,6 @@ function Router({
       <Route path="/cross-selling-rules" component={CrossSellingRulesPage} />
       <Route path="/order-drafts" component={OrderDraftsPage} />
       <Route path="/offers/:offerId/preview" component={OfferPreviewPage} />
-      <Route path="/offer-builder" component={() => <OfferBuilderPage />} />
       <Route path="/offers" component={() => <OffersPage userRole={userRole} userSalesChannelIds={userSalesChannelIds} />} />
       <Route path="/export" component={ExportPage} />
       <Route path="/analytics" component={() => <AnalyticsPage userRole={userRole} userSalesChannelIds={userSalesChannelIds} />} />
