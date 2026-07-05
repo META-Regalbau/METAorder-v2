@@ -574,7 +574,7 @@ export class B2BSellersAdminClient {
           to: price.to,
           priceNet: price.priceNet,
           pseudoPriceNet: price.pseudoPriceNet,
-          purchasePriceNet: price.purchasePriceNet,
+          listPriceNet: price.listPriceNet,
           discountPercent: price.discountPercent,
           currencyIsoCode: price.currencyIsoCode,
           validFrom: price.validFrom,

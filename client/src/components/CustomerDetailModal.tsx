@@ -41,7 +41,7 @@ type CustomerIndividualPrice = {
   to: number | null;
   priceNet: number | null;
   pseudoPriceNet: number | null;
-  purchasePriceNet: number | null;
+  listPriceNet: number | null;
   discountPercent: number | null;
   currencyIsoCode: string | null;
   validFrom: string | null;
@@ -669,7 +669,7 @@ export default function CustomerDetailModal({
                           <TableHead>{t("crm.customer.individualPrices.product")}</TableHead>
                           <TableHead>{t("crm.customer.individualPrices.productNumber")}</TableHead>
                           <TableHead className="text-right">{t("crm.customer.individualPrices.quantity")}</TableHead>
-                          <TableHead className="text-right">{t("crm.customer.individualPrices.purchasePriceNet")}</TableHead>
+                          <TableHead className="text-right">{t("crm.customer.individualPrices.listPriceNet")}</TableHead>
                           <TableHead className="text-right">{t("crm.customer.individualPrices.priceNet")}</TableHead>
                           <TableHead className="text-right">{t("crm.customer.individualPrices.discountPercent")}</TableHead>
                           <TableHead>{t("crm.customer.individualPrices.validity")}</TableHead>
@@ -684,8 +684,8 @@ export default function CustomerDetailModal({
                               {price.from != null ? `${price.from}${price.to != null ? `–${price.to}` : "+"}` : "—"}
                             </TableCell>
                             <TableCell className="text-right">
-                              {price.purchasePriceNet != null
-                                ? formatCustomerPrice(price.purchasePriceNet, price.currencyIsoCode)
+                              {price.listPriceNet != null
+                                ? formatCustomerPrice(price.listPriceNet, price.currencyIsoCode)
                                 : "—"}
                             </TableCell>
                             <TableCell className="text-right font-medium">

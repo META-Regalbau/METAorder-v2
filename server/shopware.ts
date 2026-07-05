@@ -17,7 +17,10 @@ import { productCache } from "./productCache";
 import {
   computeDiscountPercentFromPurchaseBase,
   extractDiscountPercentFromCustomFields,
+  firstShopwarePriceEntry,
   parseDiscountPercentValue,
+  parseShopwarePriceCollectionNet,
+  productIdLookupKeys,
 } from "./pricingUtils";
 
 /** Shopware 6 erwartet UUIDs als 32 Hex-Zeichen ohne Bindestriche (lowercase). */
@@ -101,7 +104,8 @@ export interface ShopwareCustomerPrice {
 }
 
 export type EnrichedShopwareCustomerPrice = ShopwareCustomerPrice & {
-  purchasePriceNet: number | null;
+  /** Listenpreis netto = Shopware purchasePrices (Einkaufspreis). */
+  listPriceNet: number | null;
   discountPercent: number | null;
 };
 
@@ -111,7 +115,8 @@ export type ProductAdvancedPricingDetails = {
   name: string;
   priceNet: number;
   priceGross: number;
-  purchasePriceNet: number | null;
+  /** Listenpreis netto = Shopware purchasePrices (Einkaufspreis). */
+  listPriceNet: number | null;
   taxRate: number;
   currency: string;
   maxDiscountPercent: number | null;
@@ -4068,20 +4073,16 @@ export class ShopwareClient {
         priceNet = first?.net ?? (priceGross && taxRate ? priceGross / (1 + taxRate / 100) : priceGross);
       }
 
-      // Einkaufspreis (netto/brutto) aus purchasePrices
+      // Einkaufspreis / Listenpreis netto (purchasePrices)
       let purchasePriceNet: number | null = null;
       let purchasePriceGross: number | null = null;
-      const purchaseArray = Array.isArray(sp.purchasePrices)
-        ? sp.purchasePrices
-        : Array.isArray(attributes?.purchasePrices)
-          ? attributes.purchasePrices
-          : null;
-      if (purchaseArray && purchaseArray.length > 0) {
-        const first = purchaseArray[0];
-        const net = typeof first?.net === "number" ? first.net : null;
-        const gross = typeof first?.gross === "number" ? first.gross : null;
-        purchasePriceGross = gross;
-        purchasePriceNet = net ?? (gross != null && taxRate ? gross / (1 + taxRate / 100) : gross);
+      const purchaseRaw = sp.purchasePrices ?? attributes?.purchasePrices;
+      const purchaseEntryNet = parseShopwarePriceCollectionNet(purchaseRaw, taxRate);
+      if (purchaseEntryNet != null) {
+        purchasePriceNet = purchaseEntryNet;
+        const purchaseEntry = firstShopwarePriceEntry(purchaseRaw);
+        purchasePriceGross =
+          typeof purchaseEntry?.gross === "number" ? (purchaseEntry.gross as number) : null;
       }
 
       // Hersteller
@@ -6627,12 +6628,18 @@ export class ShopwareClient {
     return null;
   }
 
-  /** Netto-Einkaufspreis und Listenpreis für Produkt-IDs (Shopware purchasePrices / price). */
-  async fetchProductPurchaseAndCatalogNetPrices(
+  /** Listenpreis netto (Shopware purchasePrices) und Verkaufspreis für Produkt-IDs. */
+  async fetchProductListAndCatalogNetPrices(
     productIds: string[],
-  ): Promise<Map<string, { purchasePriceNet: number | null; catalogPriceNet: number | null }>> {
-    const result = new Map<string, { purchasePriceNet: number | null; catalogPriceNet: number | null }>();
+  ): Promise<Map<string, { listPriceNet: number | null; catalogPriceNet: number | null }>> {
+    const result = new Map<string, { listPriceNet: number | null; catalogPriceNet: number | null }>();
     if (productIds.length === 0) return result;
+
+    const setPricing = (productId: string, pricing: { listPriceNet: number | null; catalogPriceNet: number | null }) => {
+      for (const key of productIdLookupKeys(productId)) {
+        result.set(key, pricing);
+      }
+    };
 
     const uniqueIds = [...new Set(productIds.map((pid) => toShopwareUuid(pid)))];
     const CHUNK = 25;
@@ -6656,64 +6663,58 @@ export class ShopwareClient {
           if (sp.tax?.taxRate != null) taxRate = sp.tax.taxRate;
           else if (attrs?.tax?.taxRate != null) taxRate = attrs.tax.taxRate;
 
-          const parseNet = (entry: any): number | null => {
-            if (!entry) return null;
-            const net = typeof entry?.net === "number" ? entry.net : null;
-            const gross = typeof entry?.gross === "number" ? entry.gross : null;
-            if (net != null) return net;
-            if (gross != null) return gross / (1 + taxRate / 100);
-            return null;
-          };
+          const priceRaw = sp.price ?? attrs?.price;
+          const purchaseRaw = sp.purchasePrices ?? attrs?.purchasePrices;
 
-          const priceArray = Array.isArray(sp.price) ? sp.price : Array.isArray(attrs?.price) ? attrs.price : null;
-          const purchaseArray = Array.isArray(sp.purchasePrices)
-            ? sp.purchasePrices
-            : Array.isArray(attrs?.purchasePrices)
-              ? attrs.purchasePrices
-              : null;
-
-          const catalogPriceNet = priceArray?.length ? parseNet(priceArray[0]) : null;
-          const purchasePriceNet = purchaseArray?.length ? parseNet(purchaseArray[0]) : null;
-
-          result.set(toShopwareUuid(String(sp.id)), { purchasePriceNet, catalogPriceNet });
+          setPricing(String(sp.id), {
+            catalogPriceNet: parseShopwarePriceCollectionNet(priceRaw, taxRate),
+            listPriceNet: parseShopwarePriceCollectionNet(purchaseRaw, taxRate),
+          });
         }
       } catch (error: any) {
-        console.warn("[Shopware] fetchProductPurchaseAndCatalogNetPrices:", error?.message || error);
+        console.warn("[Shopware] fetchProductListAndCatalogNetPrices:", error?.message || error);
       }
     }
 
     return result;
   }
 
-  /** Ergänzt Kundenpreise um Einkaufspreis und Rabatt in Prozent (Basis: EK). */
+  private lookupProductPricing<T>(map: Map<string, T>, productId: string | null | undefined): T | null {
+    if (!productId) return null;
+    for (const key of productIdLookupKeys(productId)) {
+      const hit = map.get(key);
+      if (hit) return hit;
+    }
+    return null;
+  }
+
+  /** Ergänzt Kundenpreise um Listenpreis netto (purchasePrices) und Rabatt in Prozent. */
   async enrichCustomerSpecificPricesWithDiscounts(
     prices: ShopwareCustomerPrice[],
   ): Promise<EnrichedShopwareCustomerPrice[]> {
     const productIds = [
       ...new Set(prices.filter((p) => p.productId).map((p) => String(p.productId))),
     ];
-    const priceByProductId = await this.fetchProductPurchaseAndCatalogNetPrices(productIds);
+    const priceByProductId = await this.fetchProductListAndCatalogNetPrices(productIds);
 
     return prices.map((price) => {
-      const productPricing = price.productId
-        ? priceByProductId.get(toShopwareUuid(String(price.productId)))
-        : null;
-      const purchasePriceNet = productPricing?.purchasePriceNet ?? null;
+      const productPricing = this.lookupProductPricing(priceByProductId, price.productId);
+      const listPriceNet = productPricing?.listPriceNet ?? null;
       const catalogPriceNet = productPricing?.catalogPriceNet ?? null;
 
       return {
         ...price,
-        purchasePriceNet,
+        listPriceNet,
         discountPercent: computeDiscountPercentFromPurchaseBase(
           price.priceNet,
           catalogPriceNet,
-          purchasePriceNet,
+          listPriceNet,
         ),
       };
     });
   }
 
-  /** Erweiterte Produktpreise inkl. Rabatt relativ zum Einkaufspreis. */
+  /** Erweiterte Produktpreise inkl. Rabatt relativ zum Einkaufspreis (Listenpreis). */
   async fetchProductAdvancedPricing(productId: string): Promise<ProductAdvancedPricingDetails | null> {
     const { products } = await this.fetchProductsOverviewPage(1, 1, {
       productId,
@@ -6722,12 +6723,14 @@ export class ShopwareClient {
     const product = products[0];
     if (!product) return null;
 
+    const listPriceNet = product.purchasePriceNet;
+
     const advancedPrices = product.advancedPrices.map((tier) => ({
       ...tier,
       discountPercent: computeDiscountPercentFromPurchaseBase(
         tier.net,
         product.priceNet,
-        product.purchasePriceNet,
+        listPriceNet,
       ),
     }));
 
@@ -6737,7 +6740,7 @@ export class ShopwareClient {
       name: product.name,
       priceNet: product.priceNet,
       priceGross: product.priceGross,
-      purchasePriceNet: product.purchasePriceNet,
+      listPriceNet,
       taxRate: product.taxRate,
       currency: product.currency,
       maxDiscountPercent: extractDiscountPercentFromCustomFields(product.customFields),
