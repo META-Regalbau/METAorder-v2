@@ -93,7 +93,22 @@ type MergePreview = {
   ordersOutOfScope: number;
 };
 
-const priceFormatter = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
+const priceFormatterCache = new Map<string, Intl.NumberFormat>();
+
+function formatCustomerPrice(value: number, currencyIsoCode?: string | null): string {
+  const currency = (currencyIsoCode || "EUR").toUpperCase();
+  let formatter = priceFormatterCache.get(currency);
+  if (!formatter) {
+    try {
+      formatter = new Intl.NumberFormat("de-DE", { style: "currency", currency });
+    } catch {
+      // Unbekannter/ungültiger ISO-Code -> auf EUR zurückfallen.
+      formatter = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
+    }
+    priceFormatterCache.set(currency, formatter);
+  }
+  return formatter.format(value);
+}
 
 interface CustomerDetailModalProps {
   isOpen: boolean;
@@ -569,7 +584,7 @@ export default function CustomerDetailModal({
                               {price.from != null ? `${price.from}${price.to != null ? `–${price.to}` : "+"}` : "—"}
                             </TableCell>
                             <TableCell className="text-right">
-                              {price.priceNet != null ? priceFormatter.format(price.priceNet) : "—"}
+                              {price.priceNet != null ? formatCustomerPrice(price.priceNet, price.currencyIsoCode) : "—"}
                             </TableCell>
                             <TableCell className="text-xs text-muted-foreground">
                               {price.validFrom || price.validUntil

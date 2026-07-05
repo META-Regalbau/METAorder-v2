@@ -6267,7 +6267,7 @@ export class ShopwareClient {
       totalCountMode: 1,
       filter,
       sort: [{ field: "productNumber", order: "ASC" }],
-      associations: { product: {} },
+      associations: { product: {}, currency: {} },
     };
 
     const envEntity = process.env.B2B_SELLERS_CUSTOMER_PRICE_ENTITY;
@@ -6328,6 +6328,22 @@ export class ShopwareClient {
       const num = (v: any): number | null =>
         v === null || v === undefined || v === "" || Number.isNaN(Number(v)) ? null : Number(v);
 
+      // Löst den Währungs-ISO-Code auf. B2Bsellers speichert i. d. R. eine
+      // `currencyId` (UUID) statt eines direkten ISO-Codes – daher über die
+      // `currency`-Association bzw. das `included`-Array nach `isoCode` suchen.
+      const resolveCurrencyIso = (raw: any, attrs: any): string | null => {
+        if (attrs?.currencyIsoCode) return String(attrs.currencyIsoCode);
+        const nested = raw.currency?.attributes || raw.currency;
+        if (nested?.isoCode) return String(nested.isoCode);
+        const rel = raw.relationships?.currency?.data;
+        if (rel?.id) {
+          const inc = includedById.get(`currency-${rel.id}`);
+          const incAttrs = inc?.attributes || inc;
+          if (incAttrs?.isoCode) return String(incAttrs.isoCode);
+        }
+        return null;
+      };
+
       const prices: ShopwareCustomerPrice[] = list.map((raw) => {
         const attrs = raw.attributes || raw;
         return {
@@ -6341,7 +6357,7 @@ export class ShopwareClient {
           to: num(attrs.to),
           priceNet: num(attrs.priceNet),
           pseudoPriceNet: num(attrs.pseudoPriceNet),
-          currencyIsoCode: attrs.currencyIsoCode ? String(attrs.currencyIsoCode) : null,
+          currencyIsoCode: resolveCurrencyIso(raw, attrs),
           validFrom: attrs.validFrom ? String(attrs.validFrom) : null,
           validUntil: attrs.validUntil ? String(attrs.validUntil) : null,
         } satisfies ShopwareCustomerPrice;
