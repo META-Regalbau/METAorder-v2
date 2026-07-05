@@ -1547,6 +1547,10 @@
     "viewDetails": "View Details",
     "productNumber": "Product Number",
     "price": "Price",
+    "advancedPricesTitle": "Advanced prices & discounts",
+    "maxDiscountPercent": "Max. discount (B2B)",
+    "discountPercent": "Discount",
+    "listPriceNet": "List price net",
     "availability": "Availability",
     "dimensions": "Dimensions",
     "dimensionsFilter": "Dimensions Filter",
@@ -2815,7 +2819,11 @@
         "alwaysValid": "Always valid",
         "currency": "Currency",
         "summaryForCurrency": "{{count}} prices in {{currency}}",
-        "emptyForCurrency": "No prices in {{currency}}"
+        "emptyForCurrency": "No prices in {{currency}}",
+        "standardDiscount": "Standard discount (B2B)",
+        "standardDiscountHint": "Company-wide discount from B2Bsellers Discount Rate – applies unless a customer-specific price is set.",
+        "listPriceNet": "List price net",
+        "discountPercent": "Discount"
       },
       "match": {
         "title": "Existing customer check",

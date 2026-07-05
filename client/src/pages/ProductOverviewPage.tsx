@@ -713,10 +713,16 @@ function ProductRow({ product }: { product: OverviewProduct }) {
                       <TableHead>{t("productOverview.modal.priceRule")}</TableHead>
                       <TableHead className="text-right">{t("productOverview.csv.priceGross")}</TableHead>
                       <TableHead className="text-right">{t("productOverview.csv.priceNet")}</TableHead>
+                      <TableHead className="text-right">{t("products.discountPercent")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {product.advancedPrices.map((ap, idx) => (
+                    {product.advancedPrices.map((ap, idx) => {
+                      const discountPercent =
+                        ap.net != null && product.priceNet > 0 && ap.net < product.priceNet
+                          ? Math.round((1 - ap.net / product.priceNet) * 1000) / 10
+                          : null;
+                      return (
                       <TableRow key={idx}>
                         <TableCell>
                           {t("productOverview.fromQuantity", { qty: ap.quantityStart })}
@@ -731,8 +737,12 @@ function ProductRow({ product }: { product: OverviewProduct }) {
                         <TableCell className="text-right font-mono text-muted-foreground">
                           {ap.net != null ? currencyFormatter.format(ap.net) : "—"}
                         </TableCell>
+                        <TableCell className="text-right">
+                          {discountPercent != null ? `${discountPercent.toLocaleString("de-DE")} %` : "—"}
+                        </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>

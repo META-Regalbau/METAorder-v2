@@ -41,6 +41,8 @@ type CustomerIndividualPrice = {
   to: number | null;
   priceNet: number | null;
   pseudoPriceNet: number | null;
+  listPriceNet: number | null;
+  discountPercent: number | null;
   currencyIsoCode: string | null;
   validFrom: string | null;
   validUntil: string | null;
@@ -51,6 +53,7 @@ type CustomerIndividualPricesResponse = {
   total: number;
   prices: CustomerIndividualPrice[];
   currency?: string;
+  standardDiscountPercent?: number | null;
   resolved: boolean;
   configured: boolean;
   pluginDetected?: boolean;
@@ -520,6 +523,18 @@ export default function CustomerDetailModal({
                     </div>
                   </div>
                   <div>
+                    <div className="text-muted-foreground">{t("crm.customer.individualPrices.standardDiscount")}</div>
+                    <div className="font-medium">
+                      {pricesLoading ? (
+                        <span className="text-muted-foreground">{t("common.loading")}</span>
+                      ) : individualPrices?.standardDiscountPercent != null ? (
+                        `${individualPrices.standardDiscountPercent.toLocaleString("de-DE")} %`
+                      ) : (
+                        "—"
+                      )}
+                    </div>
+                  </div>
+                  <div>
                     <div className="text-muted-foreground">{t("crm.customer.individualPrices.label")}</div>
                     <div className="font-medium">
                       {pricesLoading ? (
@@ -600,6 +615,17 @@ export default function CustomerDetailModal({
                 </div>
               ) : (
                 <div className="space-y-3">
+                  {individualPrices?.standardDiscountPercent != null ? (
+                    <Card className="p-3">
+                      <div className="text-sm text-muted-foreground">{t("crm.customer.individualPrices.standardDiscount")}</div>
+                      <div className="text-lg font-semibold">
+                        {individualPrices.standardDiscountPercent.toLocaleString("de-DE")} %
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {t("crm.customer.individualPrices.standardDiscountHint")}
+                      </p>
+                    </Card>
+                  ) : null}
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="text-sm text-muted-foreground">
                       {prices.length > 0
@@ -643,7 +669,9 @@ export default function CustomerDetailModal({
                           <TableHead>{t("crm.customer.individualPrices.product")}</TableHead>
                           <TableHead>{t("crm.customer.individualPrices.productNumber")}</TableHead>
                           <TableHead className="text-right">{t("crm.customer.individualPrices.quantity")}</TableHead>
+                          <TableHead className="text-right">{t("crm.customer.individualPrices.listPriceNet")}</TableHead>
                           <TableHead className="text-right">{t("crm.customer.individualPrices.priceNet")}</TableHead>
+                          <TableHead className="text-right">{t("crm.customer.individualPrices.discountPercent")}</TableHead>
                           <TableHead>{t("crm.customer.individualPrices.validity")}</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -656,7 +684,17 @@ export default function CustomerDetailModal({
                               {price.from != null ? `${price.from}${price.to != null ? `–${price.to}` : "+"}` : "—"}
                             </TableCell>
                             <TableCell className="text-right">
+                              {price.listPriceNet != null
+                                ? formatCustomerPrice(price.listPriceNet, price.currencyIsoCode)
+                                : "—"}
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
                               {price.priceNet != null ? formatCustomerPrice(price.priceNet, price.currencyIsoCode) : "—"}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {price.discountPercent != null
+                                ? `${price.discountPercent.toLocaleString("de-DE")} %`
+                                : "—"}
                             </TableCell>
                             <TableCell className="text-xs text-muted-foreground">
                               {price.validFrom || price.validUntil

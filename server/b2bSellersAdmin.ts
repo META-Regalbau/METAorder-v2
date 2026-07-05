@@ -3,13 +3,7 @@ import type { B2BEntityMapping } from "@shared/b2bEntityMapping";
 import { DEFAULT_B2B_ENTITY_MAPPING, mergeB2BEntityMapping } from "@shared/b2bEntityMapping";
 import { storage } from "./storage";
 import { ShopwareClient, SHOPWARE_ADMIN_SEARCH_PAGE_SIZE } from "./shopware";
-
-function computeDiscountPercent(priceNet: number | null, pseudoPriceNet: number | null): number | null {
-  if (priceNet == null || pseudoPriceNet == null || pseudoPriceNet <= 0 || priceNet >= pseudoPriceNet) {
-    return null;
-  }
-  return Math.round((1 - priceNet / pseudoPriceNet) * 1000) / 10;
-}
+import { computeDiscountPercent } from "./pricingUtils";
 
 export type { B2BEntityMapping };
 export { DEFAULT_B2B_ENTITY_MAPPING, mergeB2BEntityMapping };

@@ -6398,6 +6398,28 @@ Antworte im JSON-Format:
     }
   });
 
+  app.get("/api/products/:productId/pricing-details", requireAuth, async (req, res) => {
+    try {
+      const { productId } = req.params;
+      const tenantId = (req as any).tenantId as string | null | undefined;
+      const settings = await storage.getShopwareSettings(tenantId);
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const client = new ShopwareClient(settings);
+      const pricing = await client.fetchProductAdvancedPricing(productId);
+      if (!pricing) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+
+      res.json(pricing);
+    } catch (error: any) {
+      console.error("[/api/products/pricing-details] Error:", error?.message || error);
+      res.status(500).json({ error: "Failed to load product pricing details" });
+    }
+  });
+
   // Produkt-Übersicht: Alle Produkte inkl. Verkaufskanal-Zuordnung, erweiterten Preisen,
   // Kategorien und Customfields. Lädt den kompletten (gefilterten) Katalog frisch aus
   // Shopware; Filterung/Sortierung/Pagination passiert clientseitig.
@@ -12297,17 +12319,25 @@ Antworte im JSON-Format:
           ? req.query.currency.trim().toUpperCase()
           : "EUR";
 
-      const result = await client.fetchAllCustomerSpecificPrices({
-        customerId: swCustomerId,
-        customerNumber: swCustomerNumber,
-        currencyIsoCode: currency,
-      });
+      const [result, standardDiscountPercent] = await Promise.all([
+        client.fetchAllCustomerSpecificPrices({
+          customerId: swCustomerId,
+          customerNumber: swCustomerNumber,
+          currencyIsoCode: currency,
+        }),
+        swCustomerId
+          ? client.fetchCustomerB2BStandardDiscount(swCustomerId).catch(() => null)
+          : Promise.resolve(null),
+      ]);
+
+      const prices = await client.enrichCustomerSpecificPricesWithDiscounts(result.prices);
 
       res.json({
         available: result.available,
-        total: result.total,
-        prices: result.prices,
+        total: prices.length,
+        prices,
         currency,
+        standardDiscountPercent,
         resolved: true,
         configured: true,
         customerId: swCustomerId ?? null,

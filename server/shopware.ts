@@ -14,6 +14,11 @@ import type {
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { productCache } from "./productCache";
+import {
+  computeDiscountPercent,
+  extractDiscountPercentFromCustomFields,
+  parseDiscountPercentValue,
+} from "./pricingUtils";
 
 /** Shopware 6 erwartet UUIDs als 32 Hex-Zeichen ohne Bindestriche (lowercase). */
 function toShopwareUuid(uuid: string): string {
@@ -94,6 +99,23 @@ export interface ShopwareCustomerPrice {
   validFrom: string | null;
   validUntil: string | null;
 }
+
+export type EnrichedShopwareCustomerPrice = ShopwareCustomerPrice & {
+  listPriceNet: number | null;
+  discountPercent: number | null;
+};
+
+export type ProductAdvancedPricingDetails = {
+  productId: string;
+  productNumber: string;
+  name: string;
+  priceNet: number;
+  priceGross: number;
+  taxRate: number;
+  currency: string;
+  maxDiscountPercent: number | null;
+  advancedPrices: Array<ShopwareAdvancedPrice & { discountPercent: number | null }>;
+};
 
 /** Maße aus Produktname parsen (z.B. "Steckrahmen 2000 x 600", "Boden 1000 x 600 vzk").
  *  Shopware speichert in mm. Liefert { width?, height?, length? } mit length = Tiefe. */
@@ -3929,7 +3951,7 @@ export class ShopwareClient {
   async fetchProductsOverviewPage(
     limit: number,
     page: number,
-    options?: { includeInactive?: boolean; salesChannelIds?: string[] },
+    options?: { includeInactive?: boolean; salesChannelIds?: string[]; productId?: string },
   ): Promise<{ products: ShopwareProductOverview[]; total: number }> {
     const includeInactive = options?.includeInactive ?? true;
 
@@ -3990,6 +4012,10 @@ export class ShopwareClient {
 
     if (!includeInactive) {
       requestBody.filter.push({ type: "equals", field: "active", value: true });
+    }
+
+    if (options?.productId) {
+      requestBody.filter.push({ type: "equals", field: "id", value: toShopwareUuid(options.productId) });
     }
 
     if (options?.salesChannelIds && options.salesChannelIds.length > 0) {
@@ -6536,6 +6562,163 @@ export class ShopwareClient {
       total: prices.length,
       prices,
       entity,
+    };
+  }
+
+  /**
+   * Standard-Rabatt (B2Bsellers Discount-Rate-Addon) auf Kundenebene.
+   * Prüft Customfields und bekannte Discount-Rate-Entitäten.
+   */
+  async fetchCustomerB2BStandardDiscount(customerId: string): Promise<number | null> {
+    const id = toShopwareUuid(customerId);
+
+    try {
+      const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/customer`, {
+        method: "POST",
+        body: JSON.stringify({
+          limit: 1,
+          filter: [{ type: "equals", field: "id", value: id }],
+          includes: { customer: ["id", "customFields"] },
+        }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const attrs = data.data?.[0]?.attributes ?? data.data?.[0];
+        const fromCustomFields = extractDiscountPercentFromCustomFields(attrs?.customFields);
+        if (fromCustomFields != null) return fromCustomFields;
+      }
+    } catch (error: any) {
+      console.warn("[B2B] fetchCustomerB2BStandardDiscount customer:", error?.message || error);
+    }
+
+    const entityCandidates = [
+      "b2bsellers-customer-discount-rate",
+      "b2b-customer-discount-rate",
+      "b2bsellers-discount-rate",
+      "b2b-discount-rate",
+      "b2bsellers_customer_discount_rate",
+    ];
+    const fieldCandidates = ["discount", "discountRate", "discountPercent", "percentage", "rate"];
+
+    for (const entity of entityCandidates) {
+      try {
+        const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/${entity}`, {
+          method: "POST",
+          body: JSON.stringify({
+            limit: 1,
+            filter: [{ type: "equals", field: "customerId", value: id }],
+          }),
+        });
+        if (response.status === 404 || !response.ok) continue;
+        const data = await response.json();
+        const raw = data.data?.[0];
+        if (!raw) continue;
+        const attrs = raw.attributes ?? raw;
+        for (const field of fieldCandidates) {
+          const parsed = parseDiscountPercentValue(attrs[field]);
+          if (parsed != null) return parsed;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    return null;
+  }
+
+  /** Netto-Listenpreise für Produkt-IDs (Grundpreis, erste Währung). */
+  async fetchProductListNetPrices(productIds: string[]): Promise<Map<string, number>> {
+    const result = new Map<string, number>();
+    if (productIds.length === 0) return result;
+
+    const uniqueIds = [...new Set(productIds.map((pid) => toShopwareUuid(pid)))];
+    const CHUNK = 25;
+    for (let i = 0; i < uniqueIds.length; i += CHUNK) {
+      const chunk = uniqueIds.slice(i, i + CHUNK);
+      try {
+        const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/product`, {
+          method: "POST",
+          body: JSON.stringify({
+            limit: chunk.length,
+            ids: chunk,
+            includes: { product: ["id", "price"], tax: ["taxRate"] },
+            associations: { tax: {} },
+          }),
+        });
+        if (!response.ok) continue;
+        const data = await response.json();
+        for (const sp of data.data || []) {
+          const attrs = sp.attributes ?? sp;
+          const priceArray = Array.isArray(sp.price) ? sp.price : Array.isArray(attrs?.price) ? attrs.price : null;
+          if (!priceArray?.length) continue;
+          const first = priceArray[0];
+          let net = typeof first?.net === "number" ? first.net : null;
+          const gross = typeof first?.gross === "number" ? first.gross : null;
+          if (net == null && gross != null) {
+            let taxRate = 19;
+            if (sp.tax?.taxRate != null) taxRate = sp.tax.taxRate;
+            else if (attrs?.tax?.taxRate != null) taxRate = attrs.tax.taxRate;
+            net = gross / (1 + taxRate / 100);
+          }
+          if (net != null && net > 0) result.set(toShopwareUuid(String(sp.id)), net);
+        }
+      } catch (error: any) {
+        console.warn("[Shopware] fetchProductListNetPrices:", error?.message || error);
+      }
+    }
+
+    return result;
+  }
+
+  /** Ergänzt Kundenpreise um Listenpreis und Rabatt in Prozent. */
+  async enrichCustomerSpecificPricesWithDiscounts(
+    prices: ShopwareCustomerPrice[],
+  ): Promise<EnrichedShopwareCustomerPrice[]> {
+    const missingProductIds = [
+      ...new Set(
+        prices
+          .filter((p) => p.pseudoPriceNet == null && p.productId)
+          .map((p) => String(p.productId)),
+      ),
+    ];
+    const catalogNetByProductId = await this.fetchProductListNetPrices(missingProductIds);
+
+    return prices.map((price) => {
+      const listPriceNet =
+        price.pseudoPriceNet ??
+        (price.productId ? catalogNetByProductId.get(toShopwareUuid(String(price.productId))) ?? null : null);
+      return {
+        ...price,
+        listPriceNet,
+        discountPercent: computeDiscountPercent(price.priceNet, listPriceNet),
+      };
+    });
+  }
+
+  /** Erweiterte Produktpreise inkl. Rabatt gegenüber Grundpreis. */
+  async fetchProductAdvancedPricing(productId: string): Promise<ProductAdvancedPricingDetails | null> {
+    const { products } = await this.fetchProductsOverviewPage(1, 1, {
+      productId,
+      includeInactive: true,
+    });
+    const product = products[0];
+    if (!product) return null;
+
+    const advancedPrices = product.advancedPrices.map((tier) => ({
+      ...tier,
+      discountPercent: computeDiscountPercent(tier.net, product.priceNet),
+    }));
+
+    return {
+      productId: product.id,
+      productNumber: product.productNumber,
+      name: product.name,
+      priceNet: product.priceNet,
+      priceGross: product.priceGross,
+      taxRate: product.taxRate,
+      currency: product.currency,
+      maxDiscountPercent: extractDiscountPercentFromCustomFields(product.customFields),
+      advancedPrices,
     };
   }
 

@@ -1561,6 +1561,10 @@
     "viewDetails": "Details ansehen",
     "productNumber": "Artikelnummer",
     "price": "Preis",
+    "advancedPricesTitle": "Erweiterte Preise & Rabatte",
+    "maxDiscountPercent": "Max. Rabatt (B2B)",
+    "discountPercent": "Rabatt",
+    "listPriceNet": "Listenpreis netto",
     "availability": "Verfügbarkeit",
     "dimensions": "Abmessungen",
     "dimensionsFilter": "Abmessungsfilter",
@@ -2844,7 +2848,11 @@
         "alwaysValid": "Unbegrenzt gültig",
         "currency": "Währung",
         "summaryForCurrency": "{{count}} Preise in {{currency}}",
-        "emptyForCurrency": "Keine Preise in {{currency}} hinterlegt"
+        "emptyForCurrency": "Keine Preise in {{currency}} hinterlegt",
+        "standardDiscount": "Standardrabatt (B2B)",
+        "standardDiscountHint": "Firmenweiter Rabatt aus B2Bsellers Discount Rate – gilt, sofern kein kundenindividueller Preis hinterlegt ist.",
+        "listPriceNet": "Listenpreis netto",
+        "discountPercent": "Rabatt"
       },
       "match": {
         "title": "Bestandskunden-Abgleich",

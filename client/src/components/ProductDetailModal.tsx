@@ -214,6 +214,40 @@ export default function ProductDetailModal({
     staleTime: 30_000,
   });
 
+  const { data: productPricing, isLoading: productPricingLoading } = useQuery<{
+    productId: string;
+    productNumber: string;
+    name: string;
+    priceNet: number;
+    priceGross: number;
+    taxRate: number;
+    currency: string;
+    maxDiscountPercent: number | null;
+    advancedPrices: Array<{
+      quantityStart: number;
+      quantityEnd: number | null;
+      gross: number | null;
+      net: number | null;
+      ruleId: string | null;
+      ruleName: string | null;
+      discountPercent: number | null;
+    }>;
+  }>({
+    queryKey: ["/api/products", product?.id, "pricing-details"],
+    queryFn: async () => {
+      if (!product) throw new Error("No product");
+      const response = await fetch(`/api/products/${product.id}/pricing-details`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error("Failed to fetch product pricing details: " + errorText);
+      }
+      return response.json();
+    },
+    enabled: !!product && open,
+  });
+
   const { data: productDataQuality } = useQuery<{
     score: number;
     criteriaCount: number;
@@ -418,6 +452,62 @@ export default function ProductDetailModal({
                 </Badge>
               </Card>
             </div>
+
+            {(productPricingLoading || productPricing?.maxDiscountPercent != null || (productPricing?.advancedPrices?.length ?? 0) > 0) ? (
+              <Card className="p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-semibold">{t("products.advancedPricesTitle")}</p>
+                  {productPricing?.maxDiscountPercent != null ? (
+                    <Badge variant="secondary">
+                      {t("products.maxDiscountPercent")}: {productPricing.maxDiscountPercent.toLocaleString("de-DE")} %
+                    </Badge>
+                  ) : null}
+                </div>
+                {productPricingLoading ? (
+                  <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+                ) : (productPricing?.advancedPrices?.length ?? 0) === 0 ? (
+                  <p className="text-sm text-muted-foreground">{t("productOverview.table.none")}</p>
+                ) : (
+                  <div className="rounded-md border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{t("productOverview.modal.quantity")}</TableHead>
+                          <TableHead>{t("productOverview.modal.priceRule")}</TableHead>
+                          <TableHead className="text-right">{t("products.listPriceNet")}</TableHead>
+                          <TableHead className="text-right">{t("orderDetail.net")}</TableHead>
+                          <TableHead className="text-right">{t("products.discountPercent")}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {productPricing!.advancedPrices.map((tier, idx) => (
+                          <TableRow key={idx}>
+                            <TableCell>
+                              {t("productOverview.fromQuantity", { qty: tier.quantityStart })}
+                              {tier.quantityEnd ? `–${tier.quantityEnd}` : ""}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {tier.ruleName || t("productOverview.table.none")}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-muted-foreground">
+                              €{productPricing!.priceNet.toFixed(2)}
+                            </TableCell>
+                            <TableCell className="text-right font-mono">
+                              {tier.net != null ? `€${tier.net.toFixed(2)}` : "—"}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {tier.discountPercent != null
+                                ? `${tier.discountPercent.toLocaleString("de-DE")} %`
+                                : "—"}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </Card>
+            ) : null}
 
             {/* Dimensions */}
             {product.dimensions && (

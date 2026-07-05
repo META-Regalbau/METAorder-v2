@@ -1277,6 +1277,10 @@
     "viewDetails": "Ver Detalles",
     "productNumber": "Número de Producto",
     "price": "Precio",
+    "advancedPricesTitle": "Precios avanzados y descuentos",
+    "maxDiscountPercent": "Descuento máx. (B2B)",
+    "discountPercent": "Descuento",
+    "listPriceNet": "Precio de lista neto",
     "availability": "Disponibilidad",
     "dimensions": "Dimensiones",
     "dimensionsFilter": "Filtro de Dimensiones",
@@ -2446,7 +2450,11 @@
         "alwaysValid": "Siempre válido",
         "currency": "Moneda",
         "summaryForCurrency": "{{count}} precios en {{currency}}",
-        "emptyForCurrency": "No hay precios en {{currency}}"
+        "emptyForCurrency": "No hay precios en {{currency}}",
+        "standardDiscount": "Descuento estándar (B2B)",
+        "standardDiscountHint": "Descuento global de B2Bsellers Discount Rate; no aplica si hay un precio individual de cliente.",
+        "listPriceNet": "Precio de lista neto",
+        "discountPercent": "Descuento"
       },
       "match": {
         "title": "Comprobación de cliente existente",
