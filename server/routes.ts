@@ -1099,60 +1099,6 @@ function getFallbackSuggestionsByProperties(
   return scored.slice(0, limit).map((entry) => entry.product);
 }
 
-/**
- * Berechnet die Staging-Zeilen (Zielprodukt + Kategorie) fuer EIN Quellprodukt.
- * Identische Logik wie ein Schleifendurchlauf in generateCrossSellStaging, damit
- * die Artikel-Vorschau garantiert dasselbe Ergebnis liefert wie die spaetere
- * Uebertragung nach Shopware.
- */
-async function computeStagingRowsForProduct(
-  client: ShopwareClient,
-  ruleEngine: RuleEngine,
-  product: Product,
-  rules: CrossSellingRule[],
-  allProducts: Product[],
-  suggestOpts: SuggestCrossSellingOptions | undefined,
-  shelfCfg: CrossSellShelvingPatternConfig,
-): Promise<Array<{ product: Product; category: string }>> {
-  const suggestions = await ruleEngine.suggestCrossSelling(product, rules, client, suggestOpts);
-  // Tiefen-Regel: Bei Regal/Staender-Quellen (z. B. 600 tief) nur Kandidaten mit passender
-  // Tiefe zulassen. Greift jetzt auch fuer regelbasierte Treffer, nicht nur die Heuristik.
-  const suggestionsDepthFiltered = filterCandidatesBySourceDepth(product, suggestions, shelfCfg);
-  const srcFp = normalizeFootprint(product);
-  console.log(
-    `[CrossSell/Staging] source=${product.productNumber} name="${product.name}" ` +
-      `isShelf=${sourceIsShelf(product, shelfCfg)} srcDepth=${srcFp.depth ?? "n/a"} ` +
-      `rawSuggestions=${suggestions.length} afterDepthFilter=${suggestionsDepthFiltered.length}`,
-  );
-  // Keine kuenstliche Begrenzung mehr: alle Moeglichkeiten (nur Dedupe).
-  const rulesLimited = dedupeAndLimitSuggestions(suggestionsDepthFiltered, Number.MAX_SAFE_INTEGER);
-
-  let fallbackLimited: Product[] = [];
-  if (rulesLimited.length === 0) {
-    const fallback = filterCandidatesBySourceDepth(
-      product,
-      getFallbackSuggestionsByProperties(product, allProducts, Number.MAX_SAFE_INTEGER),
-      shelfCfg,
-    );
-    fallbackLimited = dedupeAndLimitSuggestions(fallback, Number.MAX_SAFE_INTEGER);
-  }
-
-  const ruleHits = rulesLimited.map((s) => ({
-    product: s,
-    category:
-      (s as Product & { suggestCategory?: string }).suggestCategory ??
-      CROSS_SELL_CATEGORIES.COMPONENTS,
-  }));
-  const fallbackHits = fallbackLimited.map((s) => ({
-    product: s,
-    category: CROSS_SELL_CATEGORIES.OTHER,
-  }));
-  const ruleOrFallback = ruleHits.length > 0 ? ruleHits : fallbackHits;
-
-  const heur = findShelvingSupplements(product, allProducts, shelfCfg);
-  return mergeStagingCandidatesWithQuotas(ruleOrFallback, heur, shelfCfg);
-}
-
 async function generateCrossSellStaging(
   tenantId: string | null,
   userId: string | null
@@ -1224,15 +1170,31 @@ async function generateCrossSellStaging(
     if (!product.productNumber) {
       continue;
     }
-    const merged = await computeStagingRowsForProduct(
-      client,
-      ruleEngine,
-      product,
-      rules,
-      allProducts,
-      suggestOpts,
-      shelfCfg,
-    );
+    const suggestions = await ruleEngine.suggestCrossSelling(product, rules, client, suggestOpts);
+    const rulesLimited = dedupeAndLimitSuggestions(suggestions, 40);
+
+    let fallbackLimited: Product[] = [];
+    if (rulesLimited.length === 0) {
+      fallbackLimited = dedupeAndLimitSuggestions(
+        getFallbackSuggestionsByProperties(product, allProducts, 40),
+        40,
+      );
+    }
+
+    const ruleHits = rulesLimited.map((s) => ({
+      product: s,
+      category:
+        (s as Product & { suggestCategory?: string }).suggestCategory ??
+        CROSS_SELL_CATEGORIES.COMPONENTS,
+    }));
+    const fallbackHits = fallbackLimited.map((s) => ({
+      product: s,
+      category: CROSS_SELL_CATEGORIES.OTHER,
+    }));
+    const ruleOrFallback = ruleHits.length > 0 ? ruleHits : fallbackHits;
+
+    const heur = findShelvingSupplements(product, allProducts, shelfCfg);
+    const merged = mergeStagingCandidatesWithQuotas(ruleOrFallback, heur, shelfCfg);
 
     if (merged.length === 0) {
       productsWithoutSuggestions += 1;
@@ -1267,58 +1229,6 @@ async function generateCrossSellStaging(
     productsWithSuggestions,
     productsWithoutSuggestions,
   };
-}
-
-// --- Cross-Sell Hintergrund-Jobs (Single-Process, In-Memory) ---
-// Grosse Katalog-Laeufe (Staging-Neuberechnung, AI-Lernlauf) dauern laenger als
-// das Proxy-/Browser-Timeout (~60s). Deshalb laufen sie asynchron im Hintergrund
-// und der Client pollt den Status.
-type CrossSellJobType = "staging" | "ai";
-type CrossSellJobState = {
-  type: CrossSellJobType;
-  status: "running" | "done" | "error";
-  startedAt: string;
-  finishedAt?: string;
-  processed: number;
-  total: number;
-  result?: unknown;
-  error?: string;
-};
-const crossSellJobs = new Map<string, CrossSellJobState>();
-const crossSellJobKey = (tenantId: string | null, type: CrossSellJobType): string =>
-  `${tenantId ?? "__default__"}:${type}`;
-
-function startCrossSellJob(
-  tenantId: string | null,
-  type: CrossSellJobType,
-  run: (job: CrossSellJobState) => Promise<unknown>,
-): { started: boolean; state: CrossSellJobState } {
-  const key = crossSellJobKey(tenantId, type);
-  const existing = crossSellJobs.get(key);
-  if (existing && existing.status === "running") {
-    return { started: false, state: existing };
-  }
-  const state: CrossSellJobState = {
-    type,
-    status: "running",
-    startedAt: new Date().toISOString(),
-    processed: 0,
-    total: 0,
-  };
-  crossSellJobs.set(key, state);
-  void (async () => {
-    try {
-      state.result = await run(state);
-      state.status = "done";
-    } catch (err: any) {
-      state.error = err?.message || String(err);
-      state.status = "error";
-      console.error(`[CrossSellJob:${type}] failed:`, err);
-    } finally {
-      state.finishedAt = new Date().toISOString();
-    }
-  })();
-  return { started: true, state };
 }
 
 function monduShipBlockedPayload(errorMessage: string) {
@@ -3899,60 +3809,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Zusatz-Badges fuer die Bestelluebersicht: pro Bestellung, ob eine Ratenzahlung
-  // existiert und welche Mahnstufe gesetzt ist. Nur fuer Bestellungen, auf die der
-  // User laut SalesChannel-Rechten Zugriff hat (analog zu ticket-counts).
-  app.get("/api/orders/badge-flags", requireAuth, async (req, res) => {
-    try {
-      const tenantId = (req as any).tenantId ?? null;
-
-      // Zugelassene Bestell-IDs anhand der SalesChannel-Rechte bestimmen.
-      const allowedChannelIds = await getSalesChannelFilter(req);
-      const settings = await storage.getShopwareSettings(tenantId);
-      const allowedOrderIds = new Set<string>();
-      if (settings) {
-        const client = new ShopwareClient(settings);
-        const { orders } = await getOrdersWithCache(client, tenantId, {});
-        for (const o of filterOrdersBySalesChannels(orders, allowedChannelIds)) {
-          allowedOrderIds.add(o.id);
-        }
-      }
-
-      const [dunningStatuses, installmentPlans] = await Promise.all([
-        storage.getAllOrderDunningStatuses(tenantId),
-        storage.getAllInstallmentPlans(tenantId),
-      ]);
-
-      const dunningStages: Record<string, number> = {};
-      for (const status of dunningStatuses) {
-        if (
-          status.orderId &&
-          (status.stage ?? 0) > 0 &&
-          allowedOrderIds.has(status.orderId)
-        ) {
-          // Hoechste Stufe gewinnt (falls mehrere Eintraege je Bestellung).
-          dunningStages[status.orderId] = Math.max(
-            dunningStages[status.orderId] ?? 0,
-            status.stage ?? 0,
-          );
-        }
-      }
-
-      const installmentCounts: Record<string, number> = {};
-      for (const plan of installmentPlans) {
-        if (plan.orderId && allowedOrderIds.has(plan.orderId)) {
-          installmentCounts[plan.orderId] =
-            (installmentCounts[plan.orderId] ?? 0) + 1;
-        }
-      }
-
-      res.json({ dunningStages, installmentCounts });
-    } catch (error: any) {
-      console.error("Error fetching order badge flags:", error);
-      res.status(500).json({ error: "Failed to fetch order badge flags" });
-    }
-  });
-
   // Get single order by ID (with sales channel access enforcement)
   app.get("/api/orders/:orderId", requireAuth, async (req, res) => {
     try {
@@ -5244,27 +5100,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           typeof req.body?.orderNumber === "string" ? req.body.orderNumber : undefined;
         const force = req.body?.force === true;
 
-        // Optionale, manuell eingegebene Empfaengeradresse. Ueberschreibt das
-        // Kunden-Customfield custom_invoice_email_address und die Besteller-Mail.
-        let overrideEmail: string | undefined;
-        const rawEmail =
-          typeof req.body?.email === "string" ? req.body.email.trim() : "";
-        if (rawEmail) {
-          const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail);
-          if (!emailValid) {
-            return res.status(400).json({
-              error: "Invalid email",
-              message: "Die eingegebene E-Mailadresse ist ungueltig.",
-            });
-          }
-          overrideEmail = rawEmail;
-        }
-
         const client = new ShopwareClient(settings);
         const result = await sendOrderInvoice(
           client,
           { id: orderId, orderNumber },
-          { trigger: "manual", force, tenantId, overrideEmail },
+          { trigger: "manual", force, tenantId },
         );
 
         if (result.status === "no_invoice") {
@@ -6564,62 +6404,6 @@ Antworte im JSON-Format:
     }
   });
 
-  // Cache-basierte Produktsuche für Angebots-Builder & Co.
-  // Sucht im kompletten, gecachten Katalog (6h TTL) statt Shopware live abzufragen.
-  // So wird nicht bei jeder Suche/Anfrage erneut auf Shopware zugegriffen und es
-  // steht der gesamte Katalog (nicht nur die ersten ~50) für die Suche zur Verfügung.
-  app.get("/api/products/search", requireAuth, async (req, res) => {
-    try {
-      const settings = await storage.getShopwareSettings();
-      if (!settings) {
-        return res.status(400).json({ error: "Shopware settings not configured" });
-      }
-
-      const search = (req.query.search as string | undefined)?.trim() ?? "";
-      const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 50, 1), 200);
-      const page = Math.max(parseInt(req.query.page as string) || 1, 1);
-
-      const { productCache } = await import("./productCache");
-      const client = new ShopwareClient(settings);
-      // Lazy-Befüllung: lädt nur nach, wenn Cache leer oder älter als 6h.
-      await productCache.ensurePopulated(client);
-
-      const all = productCache.getProducts();
-      const status = productCache.getStatus();
-
-      const q = search.toLowerCase();
-      const matched = q
-        ? all.filter((p) => {
-            return (
-              p.name?.toLowerCase().includes(q) ||
-              p.productNumber?.toLowerCase().includes(q) ||
-              p.manufacturerNumber?.toLowerCase().includes(q) ||
-              p.sapProductNumber?.toLowerCase().includes(q) ||
-              p.ean?.toLowerCase().includes(q)
-            );
-          })
-        : all;
-
-      const total = matched.length;
-      const start = (page - 1) * limit;
-      const products = matched.slice(start, start + limit);
-
-      res.json({
-        products,
-        total,
-        fromCache: true,
-        lastUpdate: status.lastUpdate,
-      });
-    } catch (error: any) {
-      const msg = error?.message || "Failed to search products";
-      console.error("[/api/products/search] Error:", msg, error?.stack);
-      res.status(500).json({ error: msg });
-    }
-  });
-
-  // Produkt-Übersicht: Alle Produkte inkl. Verkaufskanal-Zuordnung, erweiterten Preisen,
-  // Kategorien und Customfields. Lädt den kompletten (gefilterten) Katalog frisch aus
-  // Shopware; Filterung/Sortierung/Pagination passiert clientseitig.
   app.get("/api/products/:productId/pricing-details", requireAuth, async (req, res) => {
     try {
       const { productId } = req.params;
@@ -6642,6 +6426,8 @@ Antworte im JSON-Format:
     }
   });
 
+  // Produkt-Übersicht: Alle Produkte inkl. Verkaufskanal-Zuordnung, erweiterten Preisen,
+  // Kategorien und Customfields. Lädt den kompletten (gefilterten) Katalog frisch aus
   // Shopware; Filterung/Sortierung/Pagination passiert clientseitig.
   app.get("/api/products/overview", requireAuth, async (req, res) => {
     try {
@@ -8188,31 +7974,21 @@ Antworte im JSON-Format:
         userId: (req.user as any)?.id ?? null,
       });
       // #endregion
-      const tenantId = req.tenantId ?? null;
-      const userId = (req.user as any)?.id ?? null;
-      const { started, state } = startCrossSellJob(tenantId, "ai", async () => {
-        const status = await runCrossSellLearning(storage, settings, tenantId);
-        let staging: {
-          batchId: string;
-          rulesCount: number;
-          suggestionsCount: number;
-          productsWithSuggestions: number;
-          productsWithoutSuggestions: number;
-        } | null = null;
-        try {
-          staging = await generateCrossSellStaging(tenantId, userId);
-        } catch (stagingError: any) {
-          console.warn("[CrossSellLearning] Staging generation failed:", stagingError?.message || stagingError);
-        }
-        return { ...status, staging };
-      });
-
-      // 202: Lernlauf laeuft im Hintergrund – Client pollt Status (type=ai).
-      return res.status(202).json({
-        started,
-        alreadyRunning: !started,
-        status: state.status,
-      });
+      const status = await runCrossSellLearning(storage, settings, req.tenantId ?? null);
+      let staging: {
+        batchId: string;
+        rulesCount: number;
+        suggestionsCount: number;
+        productsWithSuggestions: number;
+        productsWithoutSuggestions: number;
+      } | null = null;
+      try {
+        staging = await generateCrossSellStaging(req.tenantId ?? null, (req.user as any)?.id ?? null);
+      } catch (stagingError: any) {
+        console.warn("[CrossSellLearning] Staging generation failed:", stagingError?.message || stagingError);
+      }
+      // #endregion
+      res.json({ ...status, staging });
     } catch (error: any) {
       console.error("Error running cross-selling learning:", error);
       res.status(500).json({ error: error.message || "Failed to run learning job" });
@@ -8341,123 +8117,105 @@ Antworte im JSON-Format:
         return res.status(400).json({ error: "Shopware settings not configured" });
       }
 
-      const tenantId = req.tenantId ?? null;
-      const { started, state } = startCrossSellJob(tenantId, "staging", async (job) => {
-        const client = new ShopwareClient(settings);
-        const ruleEngine = new RuleEngine();
-        const stagingRules = await storage.getCrossSellStagingRules(batch.id, tenantId);
-        const activeRules = stagingRules.filter((rule) => rule.active === 1);
+      const client = new ShopwareClient(settings);
+      const ruleEngine = new RuleEngine();
+      const stagingRules = await storage.getCrossSellStagingRules(batch.id, req.tenantId ?? null);
+      const activeRules = stagingRules.filter((rule) => rule.active === 1);
 
-        const rulesForEngine: CrossSellingRule[] = activeRules.map((rule) => ({
-          id: rule.id,
-          name: rule.name,
-          description: rule.description ?? undefined,
-          active: rule.active,
-          category: rule.category ?? undefined,
-          sourceConditions: rule.sourceConditions as RuleCondition[],
-          targetCriteria: rule.targetCriteria as RuleTargetCriteria[],
-          createdAt: rule.createdAt,
-          updatedAt: rule.updatedAt,
-        }));
+      const rulesForEngine: CrossSellingRule[] = activeRules.map((rule) => ({
+        id: rule.id,
+        name: rule.name,
+        description: rule.description ?? undefined,
+        active: rule.active,
+        category: rule.category ?? undefined,
+        sourceConditions: rule.sourceConditions as RuleCondition[],
+        targetCriteria: rule.targetCriteria as RuleTargetCriteria[],
+        createdAt: rule.createdAt,
+        updatedAt: rule.updatedAt,
+      }));
 
-        const allProducts = await fetchAllProductsForStaging(client);
-        const rankingBundle = await loadCrossSellRankingBundle(tenantId);
-        const suggestOpts = crossSellSuggestOptions(tenantId, rankingBundle, "hybrid_only");
-        const shelfCfg = await loadCrossSellShelvingPatternConfig((k, t) => storage.getSetting(k, t), tenantId);
-        job.total = allProducts.length;
-        const stagingSuggestions: Array<{
-          batchId: string;
-          tenantId: string | null;
-          sourceProductId: string | null;
-          sourceProductNumber: string;
-          targetProductId: string | null;
-          targetProductNumber: string;
-          category?: string | null;
-          active: number;
-        }> = [];
-        let productsWithSuggestions = 0;
-        let productsWithoutSuggestions = 0;
+      const allProducts = await fetchAllProductsForStaging(client);
+      const rankingBundle = await loadCrossSellRankingBundle(req.tenantId ?? null);
+      const suggestOpts = crossSellSuggestOptions(req.tenantId ?? null, rankingBundle, "hybrid_only");
+      const shelfCfg = await loadCrossSellShelvingPatternConfig((k, t) => storage.getSetting(k, t), req.tenantId ?? null);
+      const stagingSuggestions: Array<{
+        batchId: string;
+        tenantId: string | null;
+        sourceProductId: string | null;
+        sourceProductNumber: string;
+        targetProductId: string | null;
+        targetProductNumber: string;
+        category?: string | null;
+        active: number;
+      }> = [];
+      let productsWithSuggestions = 0;
+      let productsWithoutSuggestions = 0;
 
-        for (const product of allProducts) {
-          job.processed += 1;
-          if (!product.productNumber) {
-            continue;
-          }
-          // Gemeinsamer Helper: identische Logik wie Vorschau + generateCrossSellStaging
-          // (inkl. Tiefen-Filter fuer Regal/Staender und kein 10er/40er-Cap).
-          const merged = await computeStagingRowsForProduct(
-            client,
-            ruleEngine,
-            product,
-            rulesForEngine,
-            allProducts,
-            suggestOpts,
-            shelfCfg,
+      for (const product of allProducts) {
+        if (!product.productNumber) {
+          continue;
+        }
+        const suggestions = await ruleEngine.suggestCrossSelling(product, rulesForEngine, client, suggestOpts);
+        const rulesLimited = dedupeAndLimitSuggestions(suggestions, 40);
+
+        let fallbackLimited: Product[] = [];
+        if (rulesLimited.length === 0) {
+          fallbackLimited = dedupeAndLimitSuggestions(
+            getFallbackSuggestionsByProperties(product, allProducts, 40),
+            40,
           );
-
-          if (merged.length === 0) {
-            productsWithoutSuggestions += 1;
-            continue;
-          }
-
-          productsWithSuggestions += 1;
-          for (const row of merged) {
-            const suggestion = row.product;
-            if (!suggestion.productNumber) {
-              continue;
-            }
-            stagingSuggestions.push({
-              batchId: batch.id,
-              tenantId: batch.tenantId ?? null,
-              sourceProductId: product.id ?? null,
-              sourceProductNumber: product.productNumber,
-              targetProductId: suggestion.id ?? null,
-              targetProductNumber: suggestion.productNumber,
-              category: row.category,
-              active: 1,
-            });
-          }
         }
 
-        await storage.replaceCrossSellStagingSuggestions(batch.id, stagingSuggestions, batch.tenantId ?? null);
-        return {
-          batchId: batch.id,
-          suggestionsCount: stagingSuggestions.length,
-          productsWithSuggestions,
-          productsWithoutSuggestions,
-        };
-      });
+        const ruleHits = rulesLimited.map((s) => ({
+          product: s,
+          category:
+            (s as Product & { suggestCategory?: string }).suggestCategory ??
+            CROSS_SELL_CATEGORIES.COMPONENTS,
+        }));
+        const fallbackHits = fallbackLimited.map((s) => ({
+          product: s,
+          category: CROSS_SELL_CATEGORIES.OTHER,
+        }));
+        const ruleOrFallback = ruleHits.length > 0 ? ruleHits : fallbackHits;
 
-      // 202: Job laeuft (neu gestartet oder bereits laufend) – Client pollt Status.
-      return res.status(202).json({
-        started,
-        alreadyRunning: !started,
-        status: state.status,
-        processed: state.processed,
-        total: state.total,
+        const heur = findShelvingSupplements(product, allProducts, shelfCfg);
+        const merged = mergeStagingCandidatesWithQuotas(ruleOrFallback, heur, shelfCfg);
+
+        if (merged.length === 0) {
+          productsWithoutSuggestions += 1;
+          continue;
+        }
+
+        productsWithSuggestions += 1;
+        for (const row of merged) {
+          const suggestion = row.product;
+          if (!suggestion.productNumber) {
+            continue;
+          }
+          stagingSuggestions.push({
+            batchId: batch.id,
+            tenantId: batch.tenantId ?? null,
+            sourceProductId: product.id ?? null,
+            sourceProductNumber: product.productNumber,
+            targetProductId: suggestion.id ?? null,
+            targetProductNumber: suggestion.productNumber,
+            category: row.category,
+            active: 1,
+          });
+        }
+      }
+
+      await storage.replaceCrossSellStagingSuggestions(batch.id, stagingSuggestions, batch.tenantId ?? null);
+      res.json({
+        batchId: batch.id,
+        suggestionsCount: stagingSuggestions.length,
+        productsWithSuggestions,
+        productsWithoutSuggestions,
       });
     } catch (error: any) {
       console.error("Error regenerating staging suggestions:", error);
       res.status(500).json({ error: error.message || "Failed to regenerate staging suggestions" });
     }
-  });
-
-  // Status-Polling fuer die Hintergrund-Jobs (Staging-Neuberechnung, AI-Lernlauf).
-  app.get("/api/cross-selling/jobs/status", requireAuth, requireManageCrossSellingRules, (req, res) => {
-    const type: CrossSellJobType = req.query.type === "ai" ? "ai" : "staging";
-    const state = crossSellJobs.get(crossSellJobKey(req.tenantId ?? null, type));
-    if (!state) {
-      return res.json({ status: "idle" });
-    }
-    return res.json({
-      status: state.status,
-      processed: state.processed,
-      total: state.total,
-      startedAt: state.startedAt,
-      finishedAt: state.finishedAt ?? null,
-      result: state.status === "done" ? state.result : null,
-      error: state.status === "error" ? state.error : null,
-    });
   });
 
   app.post("/api/cross-selling/staging/execute-rule", requireAuth, requireManageCrossSellingRules, async (req, res) => {
@@ -8497,7 +8255,6 @@ Antworte im JSON-Format:
       const allProducts = await fetchAllProductsForStaging(client);
       const rankingBundle = await loadCrossSellRankingBundle(req.tenantId ?? null);
       const suggestOpts = crossSellSuggestOptions(req.tenantId ?? null, rankingBundle, "hybrid_only");
-      const shelfCfg = await loadCrossSellShelvingPatternConfig((k, t) => storage.getSetting(k, t), req.tenantId ?? null);
 
       // Execute rule on all products
       const suggestionsBySource = new Map<string, Product[]>();
@@ -8507,9 +8264,7 @@ Antworte im JSON-Format:
           continue;
         }
         const suggestions = await ruleEngine.suggestCrossSelling(product, [manualRule], client, suggestOpts);
-        // Tiefen-Regel + keine 10er-Begrenzung: alle passenden Moeglichkeiten.
-        const depthFiltered = filterCandidatesBySourceDepth(product, suggestions, shelfCfg);
-        const limited = dedupeAndLimitSuggestions(depthFiltered, Number.MAX_SAFE_INTEGER);
+        const limited = dedupeAndLimitSuggestions(suggestions, 10);
         
         if (limited.length > 0) {
           suggestionsBySource.set(product.productNumber, limited);
@@ -8598,12 +8353,10 @@ Antworte im JSON-Format:
         undefined,
         true
       );
-      // Voll hydrierte Quelle (dimensions/categoryNames/properties) bevorzugen; das Minimal-Objekt
-      // aus fetchProductsByNumbers nur als letzter Fallback, damit Tiefen-/Regal-Logik greift.
       const sourceProduct =
+        resolvedByNumber ||
         productResult.products.find((p) => p.productNumber === productNumber) ||
-        productResult.products[0] ||
-        resolvedByNumber;
+        productResult.products[0];
 
       if (!sourceProduct) {
         return res.status(404).json({ error: "Source product not found" });
@@ -8622,14 +8375,8 @@ Antworte im JSON-Format:
 
       const rankingBundle = await loadCrossSellRankingBundle(req.tenantId ?? null);
       const suggestOpts = crossSellSuggestOptions(req.tenantId ?? null, rankingBundle, "full");
-      const shelfCfg = await loadCrossSellShelvingPatternConfig(
-        (key, tid) => storage.getSetting(key, tid),
-        req.tenantId ?? null,
-      );
       const suggestions = await ruleEngine.suggestCrossSelling(sourceProduct, rules, client, suggestOpts);
-      // Tiefen-Regel + keine 10er-Begrenzung: alle passenden Moeglichkeiten.
-      const depthFiltered = filterCandidatesBySourceDepth(sourceProduct, suggestions, shelfCfg);
-      let limited = dedupeAndLimitSuggestions(depthFiltered, Number.MAX_SAFE_INTEGER);
+      let limited = dedupeAndLimitSuggestions(suggestions, 10);
 
       if (limited.length === 0) {
         const recommendations = await storage.getAiRecommendations(
@@ -8791,8 +8538,7 @@ Antworte im JSON-Format:
 
       for (const [sourceProductNumber, categoryMap] of grouped) {
         const merged = mergeStagingTargetsByCategoryOrder(categoryMap);
-        // Keine 10er-Begrenzung: alle passenden Ziele.
-        const slice = merged;
+        const slice = merged.slice(0, 10);
         if (slice.length === 0) continue;
         operations.push({
           sourceProductNumber,
@@ -8818,115 +8564,6 @@ Antworte im JSON-Format:
       });
     } catch (error: any) {
       console.error("Error building staging apply preview:", error);
-      res.status(500).json({ error: error.message || "Failed to build preview" });
-    }
-  });
-
-  /**
-   * Vorschau fuer EINEN Artikel: zeigt genau die Cross-Selling-Gruppe, die bei der
-   * Uebertragung nach Shopware geschrieben wuerde - berechnet on-the-fly aus der
-   * kombinierten Regelbasis (Regeln + Hybrid + Regal-Heuristik), ohne kompletten
-   * Staging-Lauf und ohne Schreibzugriff. Nutzt dieselbe Pro-Produkt-Logik wie
-   * generateCrossSellStaging und dieselbe Gruppierung/Cap wie POST /staging/apply.
-   */
-  app.get("/api/cross-selling/staging/apply-preview-product", requireAuth, requireManageCrossSellingRules, async (req, res) => {
-    try {
-      const productNumber = typeof req.query.productNumber === "string" ? req.query.productNumber.trim() : "";
-      if (!productNumber) {
-        return res.status(400).json({ error: "productNumber is required" });
-      }
-
-      const settings = await storage.getShopwareSettings(req.tenantId ?? null);
-      if (!settings) {
-        return res.status(400).json({ error: "Shopware settings not configured" });
-      }
-
-      const client = new ShopwareClient(settings);
-      const ruleEngine = new RuleEngine();
-
-      const rules = await getCombinedCrossSellingRules(req.tenantId ?? null);
-      const allProducts = await fetchAllProductsForStaging(client);
-      const productResult = await client.fetchProducts(
-        5,
-        1,
-        productNumber,
-        undefined,
-        false,
-        undefined,
-        undefined,
-        undefined,
-        true,
-      );
-      // WICHTIG: voll hydrierte Quelle (mit dimensions/categoryNames/properties) verwenden.
-      // fetchProductsByNumbers liefert nur ein Minimal-Objekt ohne Maße/Kategorien, wodurch
-      // die Tiefen-/Regal-Erkennung nicht greifen wuerde.
-      const sourceProduct =
-        allProducts.find((p) => p.productNumber === productNumber) ||
-        productResult.products.find((p) => p.productNumber === productNumber) ||
-        productResult.products[0];
-
-      if (!sourceProduct || !sourceProduct.productNumber) {
-        return res.status(404).json({ error: "Source product not found" });
-      }
-
-      const rankingBundle = await loadCrossSellRankingBundle(req.tenantId ?? null);
-      const suggestOpts = crossSellSuggestOptions(req.tenantId ?? null, rankingBundle, "hybrid_only");
-      const shelfCfg = await loadCrossSellShelvingPatternConfig((k, t) => storage.getSetting(k, t), req.tenantId ?? null);
-
-      const rows = await computeStagingRowsForProduct(
-        client,
-        ruleEngine,
-        sourceProduct,
-        rules,
-        allProducts,
-        suggestOpts,
-        shelfCfg,
-      );
-
-      // Gruppierung + Kategorie-Reihenfolge + Cap (10) exakt wie beim Apply.
-      const categoryMap = new Map<string | null, StagingApplyCategoryGroup>();
-      const categoryByTarget = new Map<string, string | null>();
-      for (const row of rows) {
-        const pn = row.product.productNumber;
-        if (!pn) continue;
-        const category = row.category || null;
-        if (!categoryMap.has(category)) {
-          categoryMap.set(category, { category, targets: [] });
-        }
-        categoryMap.get(category)!.targets.push({
-          targetProductNumber: pn,
-          targetProductId: row.product.id ?? null,
-        });
-        if (!categoryByTarget.has(pn)) {
-          categoryByTarget.set(pn, category);
-        }
-      }
-
-      const merged = mergeStagingTargetsByCategoryOrder(categoryMap);
-      // Keine 10er-Begrenzung: alle passenden Ziele werden angezeigt und (beim Apply) geschrieben.
-      const capped = merged;
-
-      const nameByNumber = new Map<string, string | null>();
-      for (const p of allProducts) {
-        if (p.productNumber && !nameByNumber.has(p.productNumber)) {
-          nameByNumber.set(p.productNumber, (p.name as string | undefined) ?? null);
-        }
-      }
-
-      res.json({
-        sourceProductNumber: sourceProduct.productNumber,
-        sourceProductName: (sourceProduct.name as string | undefined) ?? null,
-        shopwareGroupName: SHOPWARE_CROSS_SELLING_STOREFRONT_NAME,
-        targetsTotalBeforeCap: merged.length,
-        targetsApplied: capped.length,
-        targets: capped.map((tg) => ({
-          productNumber: tg.targetProductNumber,
-          name: nameByNumber.get(tg.targetProductNumber) ?? null,
-          category: categoryByTarget.get(tg.targetProductNumber) ?? null,
-        })),
-      });
-    } catch (error: any) {
-      console.error("Error building per-product apply preview:", error);
       res.status(500).json({ error: error.message || "Failed to build preview" });
     }
   });
@@ -8984,8 +8621,7 @@ Antworte im JSON-Format:
 
         const mergedTargets = mergeStagingTargetsByCategoryOrder(categoryMap);
         const targetIds: string[] = [];
-        // Keine 10er-Begrenzung: alle passenden Ziele werden nach Shopware geschrieben.
-        for (const target of mergedTargets) {
+        for (const target of mergedTargets.slice(0, 10)) {
           const targetId = target.targetProductId ?? (await resolveProductId(target.targetProductNumber));
           if (targetId) {
             targetIds.push(targetId);
@@ -14394,57 +14030,6 @@ Antworte im JSON-Format:
       res.json(offerDraft);
     } catch (error: any) {
       console.error("Error creating offer draft from CPQ:", error);
-      res.status(500).json({ error: error.message ?? "Fehler beim Erstellen des Angebotsentwurfs" });
-    }
-  });
-
-  // POST /api/offer-drafts/blank - Create an empty offer draft for the manual offer builder
-  app.post("/api/offer-drafts/blank", requireAuth, requireManageOffers, async (req: Request, res: Response) => {
-    try {
-      const user = req.user as { id?: string; username?: string };
-      const userId = user?.id ?? user?.username ?? "unknown";
-
-      const bodySchema = z.object({
-        name: z.string().max(200).optional(),
-        offerNotes: z.string().max(5000).optional(),
-      });
-      const parsed = bodySchema.safeParse(req.body ?? {});
-      if (!parsed.success) {
-        return res.status(400).json({ error: "Ungültiger Request", details: parsed.error.errors });
-      }
-
-      const validUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-      const offerDraft = await storage.createOfferDraft(
-        {
-          // "approved" = manuell erstellt, kein KI-Review nötig; kann direkt bearbeitet/angelegt werden.
-          status: "approved",
-          originalFileName: `Angebot-${new Date().toISOString().slice(0, 10)}.manual`,
-          originalFilePath: null,
-          extractedData: {
-            offerNotes: parsed.data.offerNotes ?? "",
-            validUntil,
-            manualBuilder: true,
-          },
-          matchingResults: {
-            items: [],
-            overallConfidence: 100,
-            pricingRecommendations: {
-              totalCatalogValue: 0,
-              totalSuggestedValue: 0,
-              totalDiscountPercentage: 0,
-              reasoning: "Manueller Angebots-Builder",
-            },
-          },
-          shopwareCustomerId: null,
-          shopwareOfferId: null,
-          createdByUserId: userId,
-        },
-        req.tenantId ?? null
-      );
-
-      res.json(offerDraft);
-    } catch (error: any) {
-      console.error("Error creating blank offer draft:", error);
       res.status(500).json({ error: error.message ?? "Fehler beim Erstellen des Angebotsentwurfs" });
     }
   });
