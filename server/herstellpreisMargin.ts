@@ -9,7 +9,11 @@ import { getHerstellpreisLookupKey } from "./productIdentifiers";
 
 export type HerstellMarginVerdict = "green" | "red" | "none";
 
-export const DEFAULT_HERSTELL_MARGIN_THRESHOLD_PERCENT = 7;
+/** Schwellwert nur für die Preisprüfung (Kalkulation), nicht für CRM. */
+export const PRICE_CHECK_MARGIN_THRESHOLD_PERCENT = 7;
+
+/** @deprecated Alias für Preisprüfung */
+export const DEFAULT_HERSTELL_MARGIN_THRESHOLD_PERCENT = PRICE_CHECK_MARGIN_THRESHOLD_PERCENT;
 
 /** Aufschlag in % relativ zu importierten Herstellkosten: (VK − HK) / HK × 100. */
 export function computeHerstellMarginPercent(
@@ -22,10 +26,16 @@ export function computeHerstellMarginPercent(
 
 export function computeHerstellMarginVerdict(
   marginPercent: number | null,
-  threshold = DEFAULT_HERSTELL_MARGIN_THRESHOLD_PERCENT,
+  threshold = PRICE_CHECK_MARGIN_THRESHOLD_PERCENT,
 ): HerstellMarginVerdict {
   if (marginPercent == null) return "none";
   return marginPercent >= threshold ? "green" : "red";
+}
+
+/** CRM/BWL: rentabel wenn Verkaufspreis die Herstellkosten übersteigt (Deckungsbeitrag > 0). */
+export function computeCrmProfitabilityVerdict(marginPercent: number | null): HerstellMarginVerdict {
+  if (marginPercent == null) return "none";
+  return marginPercent > 0 ? "green" : "red";
 }
 
 /** Passende Staffel aus Shopware-Erweiterpreisen für eine Menge wählen. */
@@ -123,13 +133,11 @@ export async function enrichCustomerPricesWithHerstellMargin(
     storage: IStorage;
     client: ShopwareClient;
     tenantId?: string | null;
-    threshold?: number;
     standardDiscountPercent?: number | null;
   },
 ): Promise<CustomerPriceWithHerstellMargin[]> {
   if (prices.length === 0) return [];
 
-  const threshold = opts.threshold ?? DEFAULT_HERSTELL_MARGIN_THRESHOLD_PERCENT;
   const productIds = [
     ...new Set(prices.filter((p) => p.productId).map((p) => String(p.productId))),
   ];
@@ -164,7 +172,7 @@ export async function enrichCustomerPricesWithHerstellMargin(
     });
 
     const herstellMarginPercent = computeHerstellMarginPercent(sellingPriceNet, herstellpreisNet);
-    const herstellMarginVerdict = computeHerstellMarginVerdict(herstellMarginPercent, threshold);
+    const herstellMarginVerdict = computeCrmProfitabilityVerdict(herstellMarginPercent);
 
     return {
       ...price,

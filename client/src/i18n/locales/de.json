@@ -2872,8 +2872,9 @@
         "listPriceNet": "Listenpreis netto",
         "purchasePriceNet": "Einkaufspreis netto",
         "discountPercent": "Rabatt",
-        "herstellMargin": "Marge (HK)",
-        "herstellMarginHint": "Aufschlag auf importierte Herstellkosten gegen den effektiven Verkaufspreis (Kundenpreis netto, sonst Staffelpreis oder Katalog mit B2B-Rabatt). Grün ab 7 %, darunter rot."
+        "herstellMargin": "Rentabilität (HK)",
+        "herstellMarginHint": "Deckungsbeitrag auf importierte Herstellkosten: (effektiver VK − HK) / HK. Grün = rentabel (VK > HK), rot = unrentabel oder Verlust. Unabhängig von der 7‑%-Schwelle in der Preisprüfung.",
+        "herstellMarginNone": "Kein Herstellpreis"
       },
       "match": {
         "title": "Bestandskunden-Abgleich",

@@ -2843,8 +2843,9 @@
         "listPriceNet": "List price net",
         "purchasePriceNet": "Purchase price net",
         "discountPercent": "Discount",
-        "herstellMargin": "Margin (mfg. cost)",
-        "herstellMarginHint": "Markup on imported manufacturing costs vs. effective selling price (customer net price, else tier price or catalog with B2B discount). Green from 7 %, red below."
+        "herstellMargin": "Profitability (mfg. cost)",
+        "herstellMarginHint": "Contribution margin on imported manufacturing costs: (effective SP − mfg. cost) / mfg. cost. Green = profitable (SP > mfg. cost), red = unprofitable or loss. Independent of the 7% threshold in price check.",
+        "herstellMarginNone": "No manufacturing cost"
       },
       "match": {
         "title": "Existing customer check",

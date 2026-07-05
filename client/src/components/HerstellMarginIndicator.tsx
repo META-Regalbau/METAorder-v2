@@ -26,7 +26,7 @@ export default function HerstellMarginIndicator({
       <span className="inline-flex items-center gap-2 justify-end">
         <span className={`inline-block h-3 w-3 rounded-full shrink-0 ${dotClass}`} />
         <Badge variant="outline" className="text-muted-foreground font-normal">
-          {t("priceCheck.verdict.none")}
+          {t("crm.customer.individualPrices.herstellMarginNone")}
         </Badge>
       </span>
     );
