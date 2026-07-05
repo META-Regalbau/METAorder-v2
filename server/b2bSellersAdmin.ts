@@ -2,6 +2,7 @@ import type { ShopwareSettings } from "@shared/schema";
 import type { B2BEntityMapping } from "@shared/b2bEntityMapping";
 import { DEFAULT_B2B_ENTITY_MAPPING, mergeB2BEntityMapping } from "@shared/b2bEntityMapping";
 import { storage } from "./storage";
+import { enrichCustomerPricesWithHerstellMargin } from "./herstellpreisMargin";
 import { ShopwareClient, SHOPWARE_ADMIN_SEARCH_PAGE_SIZE } from "./shopware";
 export type { B2BEntityMapping };
 export { DEFAULT_B2B_ENTITY_MAPPING, mergeB2BEntityMapping };
@@ -473,7 +474,7 @@ export class B2BSellersAdminClient {
     return { customerId: id, offerCustomerRaw: null };
   }
 
-  async fetchCompanyDetail(companyId: string) {
+  async fetchCompanyDetail(companyId: string, tenantId?: string | null) {
     const { customerId, offerCustomerRaw } = await this.resolveCustomerContext(companyId);
     const offer = offerCustomerRaw ? unwrapEntity(offerCustomerRaw) : null;
 
@@ -529,6 +530,11 @@ export class B2BSellersAdminClient {
     const enrichedPrices = priceResult.available
       ? await shopware.enrichCustomerSpecificPricesWithDiscounts(priceResult.prices)
       : [];
+    const pricesWithMargin = await enrichCustomerPricesWithHerstellMargin(enrichedPrices, {
+      storage,
+      client: shopware,
+      tenantId,
+    });
 
     return {
       offerCustomerId: offer?.id || null,
@@ -565,7 +571,7 @@ export class B2BSellersAdminClient {
         available: priceResult.available,
         total: priceResult.total,
         pluginDetected: priceResult.entity != null,
-        prices: enrichedPrices.map((price) => ({
+        prices: pricesWithMargin.map((price) => ({
           id: price.id,
           productId: price.productId,
           productNumber: price.productNumber,
@@ -576,6 +582,8 @@ export class B2BSellersAdminClient {
           pseudoPriceNet: price.pseudoPriceNet,
           listPriceNet: price.listPriceNet,
           discountPercent: price.discountPercent,
+          herstellMarginPercent: price.herstellMarginPercent,
+          herstellMarginVerdict: price.herstellMarginVerdict,
           currencyIsoCode: price.currencyIsoCode,
           validFrom: price.validFrom,
           validUntil: price.validUntil,

@@ -2842,7 +2842,9 @@
         "standardDiscountHint": "Company-wide discount from B2Bsellers Discount Rate – applies unless a customer-specific price is set.",
         "listPriceNet": "List price net",
         "purchasePriceNet": "Purchase price net",
-        "discountPercent": "Discount"
+        "discountPercent": "Discount",
+        "herstellMargin": "Margin (mfg. cost)",
+        "herstellMarginHint": "Markup on imported manufacturing costs. Green from 7 %, red below."
       },
       "match": {
         "title": "Existing customer check",

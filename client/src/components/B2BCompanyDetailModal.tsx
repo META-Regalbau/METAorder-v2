@@ -28,6 +28,7 @@ import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { Role } from "@shared/schema";
+import HerstellMarginIndicator from "@/components/HerstellMarginIndicator";
 
 export type B2BCompanyCustomerPrice = {
   id: string;
@@ -40,6 +41,8 @@ export type B2BCompanyCustomerPrice = {
   pseudoPriceNet: number | null;
   listPriceNet: number | null;
   discountPercent: number | null;
+  herstellMarginPercent?: number | null;
+  herstellMarginVerdict?: "green" | "red" | "none";
   currencyIsoCode: string | null;
   validFrom: string | null;
   validUntil: string | null;
@@ -454,6 +457,7 @@ export default function B2BCompanyDetailModal({
                         <TableHead className="text-right">{t("b2b.accounts.detail.listPriceNet")}</TableHead>
                         <TableHead className="text-right">{t("crm.customer.individualPrices.priceNet")}</TableHead>
                         <TableHead className="text-right">{t("b2b.accounts.detail.discountPercent")}</TableHead>
+                        <TableHead className="text-right">{t("crm.customer.individualPrices.herstellMargin")}</TableHead>
                         <TableHead>{t("crm.customer.individualPrices.validity")}</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -473,6 +477,12 @@ export default function B2BCompanyDetailModal({
                           </TableCell>
                           <TableCell className="text-right">
                             {price.discountPercent != null ? `${price.discountPercent.toLocaleString("de-DE")} %` : "—"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <HerstellMarginIndicator
+                              marginPercent={price.herstellMarginPercent ?? null}
+                              verdict={price.herstellMarginVerdict ?? "none"}
+                            />
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground">
                             {price.validFrom || price.validUntil

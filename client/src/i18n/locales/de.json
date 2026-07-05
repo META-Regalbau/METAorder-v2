@@ -2871,7 +2871,9 @@
         "standardDiscountHint": "Firmenweiter Rabatt aus B2Bsellers Discount Rate – gilt, sofern kein kundenindividueller Preis hinterlegt ist.",
         "listPriceNet": "Listenpreis netto",
         "purchasePriceNet": "Einkaufspreis netto",
-        "discountPercent": "Rabatt"
+        "discountPercent": "Rabatt",
+        "herstellMargin": "Marge (HK)",
+        "herstellMarginHint": "Aufschlag auf importierte Herstellkosten. Grün ab 7 %, darunter rot."
       },
       "match": {
         "title": "Bestandskunden-Abgleich",

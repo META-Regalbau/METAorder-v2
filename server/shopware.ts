@@ -14,7 +14,11 @@ import type {
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { productCache } from "./productCache";
-import { addHerstellpreisCatalogKeys, getWduIfsProductNumber } from "./productIdentifiers";
+import {
+  addHerstellpreisCatalogKeys,
+  getHerstellpreisLookupKey,
+  getWduIfsProductNumber,
+} from "./productIdentifiers";
 import {
   computeDiscountPercentFromPurchaseBase,
   extractDiscountPercentFromCustomFields,
@@ -6873,6 +6877,52 @@ export class ShopwareClient {
         }
       } catch (error: any) {
         console.warn("[Shopware] fetchProductListAndCatalogNetPrices:", error?.message || error);
+      }
+    }
+
+    return result;
+  }
+
+  /** IFS-Schlüssel (wdu_ifs_productnumber) für Herstellpreis-Lookup je Produkt-ID. */
+  async fetchProductHerstellpreisLookupKeys(productIds: string[]): Promise<Map<string, string>> {
+    const result = new Map<string, string>();
+    if (productIds.length === 0) return result;
+
+    const setKey = (productId: string, lookupKey: string) => {
+      for (const key of productIdLookupKeys(productId)) {
+        result.set(key, lookupKey);
+      }
+    };
+
+    const uniqueIds = [...new Set(productIds.map((pid) => toShopwareUuid(pid)))];
+    const CHUNK = 25;
+    for (let i = 0; i < uniqueIds.length; i += CHUNK) {
+      const chunk = uniqueIds.slice(i, i + CHUNK);
+      try {
+        const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/product`, {
+          method: "POST",
+          body: JSON.stringify({
+            limit: chunk.length,
+            ids: chunk,
+            includes: { product: ["id", "productNumber", "customFields"] },
+          }),
+        });
+        if (!response.ok) continue;
+        const data = await response.json();
+        for (const sp of data.data || []) {
+          const attrs = sp.attributes ?? sp;
+          const customFields = (sp.customFields ?? attrs?.customFields) as
+            | Record<string, unknown>
+            | undefined;
+          const productNumber = String(sp.productNumber ?? attrs?.productNumber ?? "");
+          const lookupKey = getHerstellpreisLookupKey(
+            customFields,
+            productNumber.trim() || undefined,
+          );
+          if (lookupKey) setKey(String(sp.id), lookupKey);
+        }
+      } catch (error: any) {
+        console.warn("[Shopware] fetchProductHerstellpreisLookupKeys:", error?.message || error);
       }
     }
 

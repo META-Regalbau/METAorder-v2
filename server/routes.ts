@@ -18,6 +18,7 @@ import {
 } from "./ordersList";
 import { parseFakturaRowsFromBuffer, runFakturaImport } from "./shopFakturenImport";
 import { parseHerstellpreisRowsFromBuffer, runHerstellpreisImport } from "./herstellpreisImport";
+import { enrichCustomerPricesWithHerstellMargin } from "./herstellpreisMargin";
 import { getHerstellpreisLookupKey } from "./productIdentifiers";
 import { sendOrderInvoice } from "./invoiceSending";
 import { RuleEngine, type SuggestCrossSellingOptions } from "./ruleEngine";
@@ -12402,7 +12403,13 @@ Antworte im JSON-Format:
           : Promise.resolve(null),
       ]);
 
-      const prices = await client.enrichCustomerSpecificPricesWithDiscounts(result.prices);
+      const pricesWithDiscounts = await client.enrichCustomerSpecificPricesWithDiscounts(result.prices);
+      const tenantId = (req as any).tenantId as string | null | undefined;
+      const prices = await enrichCustomerPricesWithHerstellMargin(pricesWithDiscounts, {
+        storage,
+        client,
+        tenantId,
+      });
 
       res.json({
         available: result.available,

@@ -2473,7 +2473,9 @@
         "standardDiscountHint": "Descuento global de B2Bsellers Discount Rate; no aplica si hay un precio individual de cliente.",
         "listPriceNet": "Precio de lista neto",
         "purchasePriceNet": "Precio de compra neto",
-        "discountPercent": "Descuento"
+        "discountPercent": "Descuento",
+        "herstellMargin": "Margen (coste fab.)",
+        "herstellMarginHint": "Recargo sobre costes de fabricación importados. Verde desde 7 %, rojo por debajo."
       },
       "match": {
         "title": "Comprobación de cliente existente",

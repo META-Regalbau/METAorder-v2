@@ -24,6 +24,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import type { Customer, CustomerInteraction, Order, Ticket } from "@shared/schema";
+import HerstellMarginIndicator from "@/components/HerstellMarginIndicator";
 
 type CustomerOverview = {
   customer: Customer;
@@ -43,6 +44,8 @@ type CustomerIndividualPrice = {
   pseudoPriceNet: number | null;
   listPriceNet: number | null;
   discountPercent: number | null;
+  herstellMarginPercent?: number | null;
+  herstellMarginVerdict?: "green" | "red" | "none";
   currencyIsoCode: string | null;
   validFrom: string | null;
   validUntil: string | null;
@@ -672,6 +675,9 @@ export default function CustomerDetailModal({
                           <TableHead className="text-right">{t("crm.customer.individualPrices.listPriceNet")}</TableHead>
                           <TableHead className="text-right">{t("crm.customer.individualPrices.priceNet")}</TableHead>
                           <TableHead className="text-right">{t("crm.customer.individualPrices.discountPercent")}</TableHead>
+                          <TableHead className="text-right" title={t("crm.customer.individualPrices.herstellMarginHint")}>
+                            {t("crm.customer.individualPrices.herstellMargin")}
+                          </TableHead>
                           <TableHead>{t("crm.customer.individualPrices.validity")}</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -695,6 +701,12 @@ export default function CustomerDetailModal({
                               {price.discountPercent != null
                                 ? `${price.discountPercent.toLocaleString("de-DE")} %`
                                 : "—"}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <HerstellMarginIndicator
+                                marginPercent={price.herstellMarginPercent ?? null}
+                                verdict={price.herstellMarginVerdict ?? "none"}
+                              />
                             </TableCell>
                             <TableCell className="text-xs text-muted-foreground">
                               {price.validFrom || price.validUntil
