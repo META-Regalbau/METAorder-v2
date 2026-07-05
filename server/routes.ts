@@ -6542,24 +6542,12 @@ Antworte im JSON-Format:
         }
 
         const client = new ShopwareClient(settings);
+        const ifsCatalog = await client.loadIfsProductNumberCatalog({ includeInactive: true });
         const result = await runHerstellpreisImport(
           {
             storage,
             tenantId,
-            resolveCatalogProductNumbers: async (ifsNumbers) => {
-              const products = await client.searchProductsByIfsProductNumbers(ifsNumbers);
-              const found = new Set<string>();
-              const ifsByNormalized = new Map(
-                products.map((p) => [String(p.ifsProductNumber).trim(), p.ifsProductNumber]),
-              );
-              for (const input of ifsNumbers) {
-                const trimmed = String(input).trim();
-                if (ifsByNormalized.has(trimmed)) {
-                  found.add(input);
-                }
-              }
-              return found;
-            },
+            ifsCatalog,
           },
           rows,
           { apply },

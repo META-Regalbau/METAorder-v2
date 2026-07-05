@@ -14,6 +14,7 @@ import type {
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { productCache } from "./productCache";
+import { addHerstellpreisCatalogKeys, getWduIfsProductNumber } from "./productIdentifiers";
 import {
   computeDiscountPercentFromPurchaseBase,
   extractDiscountPercentFromCustomFields,
@@ -4854,7 +4855,40 @@ export class ShopwareClient {
     }
   }
 
-  /** Sucht Produkte anhand wdu_ifs_productnumber (Custom Field, Excel „Verkaufsartikel“). */
+  /** Lädt alle wdu_ifs_productnumber aus dem Katalog (wie OBX-Suche, ohne Custom-Field-API-Filter). */
+  async loadIfsProductNumberCatalog(options?: { includeInactive?: boolean }): Promise<Set<string>> {
+    const catalog = new Set<string>();
+    const includeInactive = options?.includeInactive ?? true;
+    const BATCH = 500;
+    let page = 1;
+
+    while (true) {
+      const { products } = await this.fetchProducts(
+        BATCH,
+        page,
+        undefined,
+        undefined,
+        false,
+        undefined,
+        undefined,
+        undefined,
+        includeInactive,
+      );
+
+      for (const product of products) {
+        const ifs = getWduIfsProductNumber(product.customFields as Record<string, unknown> | undefined);
+        if (ifs) addHerstellpreisCatalogKeys(catalog, ifs);
+      }
+
+      if (products.length < BATCH) break;
+      page += 1;
+    }
+
+    console.log(`[Shopware] loadIfsProductNumberCatalog: ${catalog.size} IFS-Schlüssel geladen`);
+    return catalog;
+  }
+
+  /** @deprecated Shopware filtert customFields oft nicht per Search — loadIfsProductNumberCatalog nutzen. */
   async searchProductsByIfsProductNumbers(ifsProductNumbers: string[]): Promise<
     Array<{
       id: string;

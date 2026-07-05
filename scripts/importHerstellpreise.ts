@@ -69,24 +69,14 @@ async function main(): Promise<void> {
     JSON.stringify({ mode: apply ? "apply" : "dry-run", tenantId, file, totalRows: rows.length }, null, 2),
   );
 
+  console.log("Lade wdu_ifs_productnumber-Katalog aus Shopware…");
+  const ifsCatalog = await client.loadIfsProductNumberCatalog({ includeInactive: true });
+
   const result = await runHerstellpreisImport(
     {
       storage,
       tenantId,
-      resolveCatalogProductNumbers: async (ifsNumbers) => {
-        const products = await client.searchProductsByIfsProductNumbers(ifsNumbers);
-        const found = new Set<string>();
-        const ifsByNormalized = new Map(
-          products.map((p) => [String(p.ifsProductNumber).trim(), p.ifsProductNumber]),
-        );
-        for (const input of ifsNumbers) {
-          const trimmed = String(input).trim();
-          if (ifsByNormalized.has(trimmed)) {
-            found.add(input);
-          }
-        }
-        return found;
-      },
+      ifsCatalog,
     },
     rows,
     { apply },

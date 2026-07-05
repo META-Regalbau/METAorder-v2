@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
 import type { IStorage } from "./storage";
+import { herstellpreisCatalogHas } from "./productIdentifiers";
 
 export type HerstellpreisRow = {
   productNumber: string;
@@ -34,8 +35,8 @@ export type HerstellpreisImportResult = {
 export type HerstellpreisImportDeps = {
   storage: IStorage;
   tenantId?: string | null;
-  /** Prüft, ob Artikelnummern im Shopware-Katalog existieren (nur Lesen). */
-  resolveCatalogProductNumbers?: (productNumbers: string[]) => Promise<Set<string>>;
+  /** Geladene wdu_ifs_productnumber-Werte aus dem Shopware-Katalog (In-Memory-Abgleich). */
+  ifsCatalog?: ReadonlySet<string>;
 };
 
 const PRODUCT_NUMBER_CHUNK = 200;
@@ -108,7 +109,7 @@ export async function runHerstellpreisImport(
   options: HerstellpreisImportOptions,
   log: (message: string) => void = () => {},
 ): Promise<HerstellpreisImportResult> {
-  const { storage, tenantId, resolveCatalogProductNumbers } = deps;
+  const { storage, tenantId, ifsCatalog } = deps;
   const results: HerstellpreisImportRowResult[] = [];
   let matched = 0;
   let updated = 0;
@@ -120,16 +121,11 @@ export async function runHerstellpreisImport(
     const chunk = rows.slice(i, i + PRODUCT_NUMBER_CHUNK);
     const numbers = chunk.map((r) => r.productNumber);
 
-    let catalogSet: Set<string> | null = null;
-    if (resolveCatalogProductNumbers) {
-      catalogSet = await resolveCatalogProductNumbers(numbers);
-    }
-
     const existingMap = await storage.getProductHerstellpreiseByProductNumbers(numbers, tenantId);
     const pendingUpserts: HerstellpreisRow[] = [];
 
     for (const row of chunk) {
-      const inCatalog = catalogSet ? catalogSet.has(row.productNumber) : true;
+      const inCatalog = ifsCatalog ? herstellpreisCatalogHas(ifsCatalog, row.productNumber) : true;
       if (!inCatalog) {
         notFound += 1;
         results.push({

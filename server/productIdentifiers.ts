@@ -27,3 +27,30 @@ export function getHerstellpreisLookupKey(
 ): string | undefined {
   return getWduIfsProductNumber(customFields) ?? fallbackProductNumber;
 }
+
+export function normalizeHerstellpreisIdentifier(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    if (typeof value === "number" && Number.isFinite(value)) value = String(value);
+    else return undefined;
+  }
+  const compact = (value as string).trim().replace(/[\s\u00A0\-–._/]/g, "");
+  return compact ? compact.toLowerCase() : undefined;
+}
+
+export function addHerstellpreisCatalogKeys(target: Set<string>, value: unknown): void {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    value = String(value);
+  }
+  if (typeof value !== "string") return;
+  const trimmed = value.trim();
+  if (trimmed) target.add(trimmed);
+  const normalized = normalizeHerstellpreisIdentifier(trimmed);
+  if (normalized) target.add(normalized);
+}
+
+export function herstellpreisCatalogHas(catalog: ReadonlySet<string>, input: string): boolean {
+  const trimmed = String(input).trim();
+  if (catalog.has(trimmed)) return true;
+  const normalized = normalizeHerstellpreisIdentifier(trimmed);
+  return normalized != null && catalog.has(normalized);
+}
