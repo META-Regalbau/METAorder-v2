@@ -111,7 +111,14 @@ export interface ShopwareCustomerPrice {
 export type EnrichedShopwareCustomerPrice = ShopwareCustomerPrice & {
   /** Listenpreis netto = Shopware purchasePrices (Einkaufspreis). */
   listPriceNet: number | null;
+  /** Katalog-Verkaufspreis netto (Shopware price). */
+  catalogPriceNet: number | null;
   discountPercent: number | null;
+};
+
+export type ProductCrmSellingContext = {
+  catalogPriceNet: number | null;
+  advancedPrices: ShopwareAdvancedPrice[];
 };
 
 export type ProductAdvancedPricingDetails = {
@@ -508,6 +515,66 @@ function pickPreferredOverviewPriceEntry(
   const candidateHasRule = !!candidate.price.ruleName || !!candidate.price.ruleId;
   if (candidateHasRule && !existingHasRule) return true;
   return false;
+}
+
+/** Erweiterte Preise (Staffelpreise) aus einem Produkt-Suchtreffer parsen. */
+function parseProductAdvancedPrices(sp: any, includedMap: Map<string, any>): ShopwareAdvancedPrice[] {
+  const priceRuleEntries = collectOverviewProductPriceEntries(sp, includedMap);
+  const advancedPriceByTier = new Map<
+    string,
+    { price: ShopwareAdvancedPrice; isLive: boolean; updatedAt: number }
+  >();
+
+  for (const pr of priceRuleEntries) {
+    const a = pr?.attributes || pr;
+    const priceEntries = Array.isArray(a?.price) ? a.price : a?.price ? [a.price] : [];
+    const priceObj = priceEntries[0];
+    const quantityStart = Number(a?.quantityStart ?? 1);
+    const quantityEnd = normalizeOverviewQuantityEnd(a?.quantityEnd);
+    const ruleId = a?.ruleId ?? null;
+    const versionId = a?.versionId ?? pr?.versionId ?? null;
+    const isLive = versionId == null || versionId === SHOPWARE_LIVE_VERSION_ID;
+    const updatedAt = Date.parse(a?.updatedAt ?? a?.createdAt ?? "") || 0;
+
+    if (!isLive) continue;
+
+    let ruleName: string | null =
+      a?.rule?.name ?? pr?.rule?.name ?? a?.rule?.attributes?.name ?? null;
+    if (!ruleName && ruleId) {
+      ruleName = includedMap.get(`rule-${ruleId}`)?.attributes?.name ?? null;
+    }
+
+    const tierKey = overviewAdvancedPriceTierKey(quantityStart, quantityEnd);
+    const candidate = {
+      price: {
+        quantityStart,
+        quantityEnd,
+        gross: priceObj?.gross ?? null,
+        net: priceObj?.net ?? null,
+        ruleId,
+        ruleName,
+      } satisfies ShopwareAdvancedPrice,
+      isLive,
+      updatedAt,
+    };
+
+    const existing = advancedPriceByTier.get(tierKey);
+    if (!existing || pickPreferredOverviewPriceEntry(existing, candidate)) {
+      advancedPriceByTier.set(tierKey, candidate);
+    }
+  }
+
+  const advancedPrices: ShopwareAdvancedPrice[] = Array.from(advancedPriceByTier.values())
+    .map((entry) => entry.price)
+    .sort((x, y) => x.quantityStart - y.quantityStart);
+
+  const seenPriceSignature = new Set<string>();
+  return advancedPrices.filter((p) => {
+    const signature = `${p.quantityStart}|${p.quantityEnd ?? ""}|${p.net ?? ""}|${p.gross ?? ""}`;
+    if (seenPriceSignature.has(signature)) return false;
+    seenPriceSignature.add(signature);
+    return true;
+  });
 }
 
 export class ShopwareClient {
@@ -4136,69 +4203,7 @@ export class ShopwareClient {
       }
 
       // Erweiterte Preise / Staffelpreise (product.prices)
-      // Ein Produkt kann pro Mengen-Staffel mehrere Preiszeilen haben – je eine pro
-      // Preislisten-Regel (z. B. "Standard Preise Portal" und "Standard Preise Shop").
-      // Für die Produkt-Übersicht (kanal-/kundenunabhängige Katalogansicht) brauchen
-      // wir nur den aktuellsten Stand: pro Mengen-Staffel (quantityStart/quantityEnd)
-      // genau einen Eintrag – die zuletzt aktualisierte Preiszeile. Die Live-Version
-      // hat Vorrang vor evtl. versionierten Kopien.
-      const priceRuleEntries = collectOverviewProductPriceEntries(sp, includedMap);
-      const advancedPriceByTier = new Map<
-        string,
-        { price: ShopwareAdvancedPrice; isLive: boolean; updatedAt: number }
-      >();
-      for (const pr of priceRuleEntries) {
-        const a = pr?.attributes || pr;
-        const priceEntries = Array.isArray(a?.price) ? a.price : a?.price ? [a.price] : [];
-        const priceObj = priceEntries[0];
-        const quantityStart = Number(a?.quantityStart ?? 1);
-        const quantityEnd = normalizeOverviewQuantityEnd(a?.quantityEnd);
-        const ruleId = a?.ruleId ?? null;
-        const versionId = a?.versionId ?? pr?.versionId ?? null;
-        const isLive = versionId == null || versionId === SHOPWARE_LIVE_VERSION_ID;
-        const updatedAt = Date.parse(a?.updatedAt ?? a?.createdAt ?? "") || 0;
-
-        // Nur Live-Preise in der Übersicht (versionierte Kopien überspringen).
-        if (!isLive) continue;
-
-        // Regelnamen auflösen: inline-Association bevorzugt, sonst über includedMap.
-        let ruleName: string | null =
-          a?.rule?.name ?? pr?.rule?.name ?? a?.rule?.attributes?.name ?? null;
-        if (!ruleName && ruleId) {
-          ruleName = includedMap.get(`rule-${ruleId}`)?.attributes?.name ?? null;
-        }
-
-        const tierKey = overviewAdvancedPriceTierKey(quantityStart, quantityEnd);
-        const candidate = {
-          price: {
-            quantityStart,
-            quantityEnd,
-            gross: priceObj?.gross ?? null,
-            net: priceObj?.net ?? null,
-            ruleId,
-            ruleName,
-          } satisfies ShopwareAdvancedPrice,
-          isLive,
-          updatedAt,
-        };
-
-        const existing = advancedPriceByTier.get(tierKey);
-        if (!existing || pickPreferredOverviewPriceEntry(existing, candidate)) {
-          advancedPriceByTier.set(tierKey, candidate);
-        }
-      }
-      const advancedPrices: ShopwareAdvancedPrice[] = Array.from(advancedPriceByTier.values())
-        .map((entry) => entry.price)
-        .sort((x, y) => x.quantityStart - y.quantityStart);
-
-      // Absicherung: identische Staffel+Preis nicht doppelt anzeigen.
-      const seenPriceSignature = new Set<string>();
-      const dedupedAdvancedPrices = advancedPrices.filter((p) => {
-        const signature = `${p.quantityStart}|${p.quantityEnd ?? ""}|${p.net ?? ""}|${p.gross ?? ""}`;
-        if (seenPriceSignature.has(signature)) return false;
-        seenPriceSignature.add(signature);
-        return true;
-      });
+      const dedupedAdvancedPrices = parseProductAdvancedPrices(sp, includedMap);
 
       // Eigenschaften zählen
       const propertyOptionIds = new Set<string>();
@@ -6929,6 +6934,67 @@ export class ShopwareClient {
     return result;
   }
 
+  /**
+   * Verkaufspreis-Kontext für CRM-Marge: Katalogpreis + erweiterte Staffelpreise je Produkt-ID.
+   */
+  async fetchProductCrmSellingContext(productIds: string[]): Promise<Map<string, ProductCrmSellingContext>> {
+    const result = new Map<string, ProductCrmSellingContext>();
+    if (productIds.length === 0) return result;
+
+    const setContext = (productId: string, context: ProductCrmSellingContext) => {
+      for (const key of productIdLookupKeys(productId)) {
+        result.set(key, context);
+      }
+    };
+
+    const uniqueIds = [...new Set(productIds.map((pid) => toShopwareUuid(pid)))];
+    const CHUNK = 25;
+    for (let i = 0; i < uniqueIds.length; i += CHUNK) {
+      const chunk = uniqueIds.slice(i, i + CHUNK);
+      try {
+        const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/product`, {
+          method: "POST",
+          body: JSON.stringify({
+            limit: chunk.length,
+            ids: chunk,
+            includes: {
+              product: ["id", "price", "prices"],
+              product_price: ["quantityStart", "quantityEnd", "price", "ruleId", "versionId", "updatedAt", "createdAt", "rule"],
+              rule: ["id", "name"],
+              tax: ["taxRate"],
+            },
+            associations: {
+              tax: {},
+              prices: { associations: { rule: {} } },
+            },
+          }),
+        });
+        if (!response.ok) continue;
+        const data = await response.json();
+        const includedMap = new Map<string, any>();
+        if (Array.isArray(data.included)) {
+          data.included.forEach((item: any) => includedMap.set(`${item.type}-${item.id}`, item));
+        }
+        for (const sp of data.data || []) {
+          const attrs = sp.attributes ?? sp;
+          let taxRate = 19;
+          if (sp.tax?.taxRate != null) taxRate = sp.tax.taxRate;
+          else if (attrs?.tax?.taxRate != null) taxRate = attrs.tax.taxRate;
+
+          const priceRaw = sp.price ?? attrs?.price;
+          setContext(String(sp.id), {
+            catalogPriceNet: parseShopwarePriceCollectionNet(priceRaw, taxRate),
+            advancedPrices: parseProductAdvancedPrices(sp, includedMap),
+          });
+        }
+      } catch (error: any) {
+        console.warn("[Shopware] fetchProductCrmSellingContext:", error?.message || error);
+      }
+    }
+
+    return result;
+  }
+
   private lookupProductPricing<T>(map: Map<string, T>, productId: string | null | undefined): T | null {
     if (!productId) return null;
     for (const key of productIdLookupKeys(productId)) {
@@ -6955,6 +7021,7 @@ export class ShopwareClient {
       return {
         ...price,
         listPriceNet,
+        catalogPriceNet,
         discountPercent: computeDiscountPercentFromPurchaseBase(
           price.priceNet,
           catalogPriceNet,

@@ -515,7 +515,7 @@ export class B2BSellersAdminClient {
       null;
 
     const shopware = new ShopwareClient(this.shopwareSettings);
-    const [employeesResult, budgetsResult, priceResult] = await Promise.all([
+    const [employeesResult, budgetsResult, priceResult, standardDiscountPercent] = await Promise.all([
       this.fetchEmployees({ customerId, limit: 100 }),
       this.fetchBudgets({ customerId, limit: 50 }).catch(() => ({ budgets: [], total: 0 })),
       shopware
@@ -525,6 +525,7 @@ export class B2BSellersAdminClient {
           limit: 200,
         })
         .catch(() => ({ available: false, total: 0, prices: [], entity: null })),
+      shopware.fetchCustomerB2BStandardDiscount(customerId).catch(() => null),
     ]);
 
     const enrichedPrices = priceResult.available
@@ -534,6 +535,7 @@ export class B2BSellersAdminClient {
       storage,
       client: shopware,
       tenantId,
+      standardDiscountPercent,
     });
 
     return {

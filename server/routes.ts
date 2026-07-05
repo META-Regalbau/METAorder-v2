@@ -12409,6 +12409,7 @@ Antworte im JSON-Format:
         storage,
         client,
         tenantId,
+        standardDiscountPercent,
       });
 
       res.json({

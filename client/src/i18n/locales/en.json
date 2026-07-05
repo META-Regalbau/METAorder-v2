@@ -2844,7 +2844,7 @@
         "purchasePriceNet": "Purchase price net",
         "discountPercent": "Discount",
         "herstellMargin": "Margin (mfg. cost)",
-        "herstellMarginHint": "Markup on imported manufacturing costs. Green from 7 %, red below."
+        "herstellMarginHint": "Markup on imported manufacturing costs vs. effective selling price (customer net price, else tier price or catalog with B2B discount). Green from 7 %, red below."
       },
       "match": {
         "title": "Existing customer check",

@@ -2873,7 +2873,7 @@
         "purchasePriceNet": "Einkaufspreis netto",
         "discountPercent": "Rabatt",
         "herstellMargin": "Marge (HK)",
-        "herstellMarginHint": "Aufschlag auf importierte Herstellkosten. Grün ab 7 %, darunter rot."
+        "herstellMarginHint": "Aufschlag auf importierte Herstellkosten gegen den effektiven Verkaufspreis (Kundenpreis netto, sonst Staffelpreis oder Katalog mit B2B-Rabatt). Grün ab 7 %, darunter rot."
       },
       "match": {
         "title": "Bestandskunden-Abgleich",

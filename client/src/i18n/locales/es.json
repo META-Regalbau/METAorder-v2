@@ -2475,7 +2475,7 @@
         "purchasePriceNet": "Precio de compra neto",
         "discountPercent": "Descuento",
         "herstellMargin": "Margen (coste fab.)",
-        "herstellMarginHint": "Recargo sobre costes de fabricación importados. Verde desde 7 %, rojo por debajo."
+        "herstellMarginHint": "Recargo sobre costes de fabricación importados frente al precio de venta efectivo (precio neto del cliente, si no precio por tramo o catálogo con descuento B2B). Verde desde 7 %, rojo por debajo."
       },
       "match": {
         "title": "Comprobación de cliente existente",
