@@ -3,6 +3,7 @@ import type { B2BEntityMapping } from "@shared/b2bEntityMapping";
 import { DEFAULT_B2B_ENTITY_MAPPING, mergeB2BEntityMapping } from "@shared/b2bEntityMapping";
 import { storage } from "./storage";
 import { enrichCustomerPricesWithHerstellMargin } from "./herstellpreisMargin";
+import { loadCrmProfitabilitySettings } from "./crmProfitabilitySettings";
 import { ShopwareClient, SHOPWARE_ADMIN_SEARCH_PAGE_SIZE } from "./shopware";
 export type { B2BEntityMapping };
 export { DEFAULT_B2B_ENTITY_MAPPING, mergeB2BEntityMapping };
@@ -531,11 +532,13 @@ export class B2BSellersAdminClient {
     const enrichedPrices = priceResult.available
       ? await shopware.enrichCustomerSpecificPricesWithDiscounts(priceResult.prices)
       : [];
+    const profitabilitySettings = await loadCrmProfitabilitySettings(storage, tenantId);
     const pricesWithMargin = await enrichCustomerPricesWithHerstellMargin(enrichedPrices, {
       storage,
       client: shopware,
       tenantId,
       standardDiscountPercent,
+      minMarginPercent: profitabilitySettings.minMarginPercent,
     });
 
     return {

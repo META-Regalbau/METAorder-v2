@@ -57,6 +57,7 @@ type CustomerIndividualPricesResponse = {
   prices: CustomerIndividualPrice[];
   currency?: string;
   standardDiscountPercent?: number | null;
+  profitabilityMinMarginPercent?: number;
   resolved: boolean;
   configured: boolean;
   pluginDetected?: boolean;
@@ -629,6 +630,13 @@ export default function CustomerDetailModal({
                       </p>
                     </Card>
                   ) : null}
+                  {individualPrices?.profitabilityMinMarginPercent != null ? (
+                    <p className="text-xs text-muted-foreground">
+                      {t("crm.customer.individualPrices.profitabilityThresholdHint", {
+                        threshold: individualPrices.profitabilityMinMarginPercent.toLocaleString("de-DE"),
+                      })}
+                    </p>
+                  ) : null}
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="text-sm text-muted-foreground">
                       {prices.length > 0
@@ -675,7 +683,9 @@ export default function CustomerDetailModal({
                           <TableHead className="text-right">{t("crm.customer.individualPrices.listPriceNet")}</TableHead>
                           <TableHead className="text-right">{t("crm.customer.individualPrices.priceNet")}</TableHead>
                           <TableHead className="text-right">{t("crm.customer.individualPrices.discountPercent")}</TableHead>
-                          <TableHead className="text-right" title={t("crm.customer.individualPrices.herstellMarginHint")}>
+                          <TableHead className="text-right" title={t("crm.customer.individualPrices.herstellMarginHint", {
+                            threshold: individualPrices?.profitabilityMinMarginPercent?.toLocaleString("de-DE") ?? "—",
+                          })}>
                             {t("crm.customer.individualPrices.herstellMargin")}
                           </TableHead>
                           <TableHead>{t("crm.customer.individualPrices.validity")}</TableHead>

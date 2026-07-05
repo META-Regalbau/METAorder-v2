@@ -1150,6 +1150,16 @@
       "proformaSaveSuccessDesc": "Der Proforma-Nummernkreis wurde aktualisiert.",
       "proformaSaveError": "Speichern fehlgeschlagen",
       "proformaSaveErrorDesc": "Der Proforma-Nummernkreis konnte nicht gespeichert werden.",
+      "crmProfitabilityTitle": "CRM-Rentabilität",
+      "crmProfitabilityDescription": "Mindest-Deckungsbeitrag auf Herstellkosten für die Ampel in kundenindividuellen Preisen (inkl. Ziel für Gemeinkosten).",
+      "crmProfitabilityMinMargin": "Mindestmarge (%)",
+      "crmProfitabilityMinMarginHint": "Grün ab diesem Aufschlag auf die importierten Herstellkosten. Beispiel: Bei 20 % gilt eine Marge von 16 % als unrentabel (rot).",
+      "crmProfitabilitySave": "CRM-Rentabilität speichern",
+      "crmProfitabilitySaving": "Speichere...",
+      "crmProfitabilitySaveSuccess": "CRM-Rentabilität gespeichert",
+      "crmProfitabilitySaveSuccessDesc": "Die Mindestmarge für die Rentabilitäts-Ampel wurde aktualisiert.",
+      "crmProfitabilitySaveError": "Speichern fehlgeschlagen",
+      "crmProfitabilitySaveErrorDesc": "Die CRM-Rentabilitätseinstellungen konnten nicht gespeichert werden.",
       "dunningTitle": "Mahnsystem",
       "dunningDescription": "Konfigurieren Sie das Mahnsystem fuer den aktiven Mandanten.",
       "dunningEnabled": "Mahnsystem aktiv",
@@ -2873,8 +2883,9 @@
         "purchasePriceNet": "Einkaufspreis netto",
         "discountPercent": "Rabatt",
         "herstellMargin": "Rentabilität (HK)",
-        "herstellMarginHint": "Deckungsbeitrag auf importierte Herstellkosten: (effektiver VK − HK) / HK. Grün = rentabel (VK > HK), rot = unrentabel oder Verlust. Unabhängig von der 7‑%-Schwelle in der Preisprüfung.",
-        "herstellMarginNone": "Kein Herstellpreis"
+        "herstellMarginHint": "Deckungsbeitrag auf importierte Herstellkosten. Grün ab {{threshold}} % (Mindestmarge inkl. Gemeinkosten), darunter rot.",
+        "herstellMarginNone": "Kein Herstellpreis",
+        "profitabilityThresholdHint": "Rentabilitäts-Ampel: grün ab {{threshold}} % Marge auf Herstellkosten (Einstellungen → Mandant → CRM-Rentabilität)."
       },
       "match": {
         "title": "Bestandskunden-Abgleich",

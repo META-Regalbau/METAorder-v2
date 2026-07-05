@@ -1152,6 +1152,16 @@
       "proformaSaveSuccessDesc": "The proforma number range was updated.",
       "proformaSaveError": "Save failed",
       "proformaSaveErrorDesc": "The proforma number range could not be saved.",
+      "crmProfitabilityTitle": "CRM profitability",
+      "crmProfitabilityDescription": "Minimum contribution margin on manufacturing costs for the traffic light in customer-specific prices (incl. overhead target).",
+      "crmProfitabilityMinMargin": "Minimum margin (%)",
+      "crmProfitabilityMinMarginHint": "Green from this markup on imported manufacturing costs. Example: At 20%, a 16% margin is unprofitable (red).",
+      "crmProfitabilitySave": "Save CRM profitability",
+      "crmProfitabilitySaving": "Saving...",
+      "crmProfitabilitySaveSuccess": "CRM profitability saved",
+      "crmProfitabilitySaveSuccessDesc": "The minimum margin for the profitability indicator was updated.",
+      "crmProfitabilitySaveError": "Save failed",
+      "crmProfitabilitySaveErrorDesc": "CRM profitability settings could not be saved.",
       "dunningTitle": "Dunning System",
       "dunningDescription": "Configure the dunning system for the active tenant.",
       "dunningEnabled": "Dunning enabled",
@@ -2844,8 +2854,9 @@
         "purchasePriceNet": "Purchase price net",
         "discountPercent": "Discount",
         "herstellMargin": "Profitability (mfg. cost)",
-        "herstellMarginHint": "Contribution margin on imported manufacturing costs: (effective SP − mfg. cost) / mfg. cost. Green = profitable (SP > mfg. cost), red = unprofitable or loss. Independent of the 7% threshold in price check.",
-        "herstellMarginNone": "No manufacturing cost"
+        "herstellMarginHint": "Contribution margin on imported manufacturing costs. Green from {{threshold}}% (minimum margin incl. overhead), below that red.",
+        "herstellMarginNone": "No manufacturing cost",
+        "profitabilityThresholdHint": "Profitability indicator: green from {{threshold}}% margin on manufacturing costs (Settings → Tenant → CRM profitability)."
       },
       "match": {
         "title": "Existing customer check",

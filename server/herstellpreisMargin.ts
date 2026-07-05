@@ -6,6 +6,7 @@ import type {
 } from "./shopware";
 import { productIdLookupKeys } from "./pricingUtils";
 import { getHerstellpreisLookupKey } from "./productIdentifiers";
+import { loadCrmProfitabilitySettings } from "./crmProfitabilitySettings";
 
 export type HerstellMarginVerdict = "green" | "red" | "none";
 
@@ -32,10 +33,13 @@ export function computeHerstellMarginVerdict(
   return marginPercent >= threshold ? "green" : "red";
 }
 
-/** CRM/BWL: rentabel wenn Verkaufspreis die Herstellkosten übersteigt (Deckungsbeitrag > 0). */
-export function computeCrmProfitabilityVerdict(marginPercent: number | null): HerstellMarginVerdict {
+/** CRM/BWL: rentabel wenn Marge den Mindest-Deckungsbeitrag erreicht (Gemeinkosten). */
+export function computeCrmProfitabilityVerdict(
+  marginPercent: number | null,
+  minMarginPercent: number,
+): HerstellMarginVerdict {
   if (marginPercent == null) return "none";
-  return marginPercent > 0 ? "green" : "red";
+  return marginPercent >= minMarginPercent ? "green" : "red";
 }
 
 /** Passende Staffel aus Shopware-Erweiterpreisen für eine Menge wählen. */
@@ -134,9 +138,13 @@ export async function enrichCustomerPricesWithHerstellMargin(
     client: ShopwareClient;
     tenantId?: string | null;
     standardDiscountPercent?: number | null;
+    minMarginPercent?: number;
   },
 ): Promise<CustomerPriceWithHerstellMargin[]> {
   if (prices.length === 0) return [];
+
+  const profitabilitySettings = await loadCrmProfitabilitySettings(opts.storage, opts.tenantId);
+  const minMarginPercent = opts.minMarginPercent ?? profitabilitySettings.minMarginPercent;
 
   const productIds = [
     ...new Set(prices.filter((p) => p.productId).map((p) => String(p.productId))),
@@ -172,7 +180,7 @@ export async function enrichCustomerPricesWithHerstellMargin(
     });
 
     const herstellMarginPercent = computeHerstellMarginPercent(sellingPriceNet, herstellpreisNet);
-    const herstellMarginVerdict = computeCrmProfitabilityVerdict(herstellMarginPercent);
+    const herstellMarginVerdict = computeCrmProfitabilityVerdict(herstellMarginPercent, minMarginPercent);
 
     return {
       ...price,

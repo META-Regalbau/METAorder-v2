@@ -1345,49 +1345,6 @@ export const openApiPaths = {
       }
     }
   },
-  "/api/settings/b2b-entity-mapping": {
-    "get": {
-      "tags": ["b2b", "settings"],
-      "summary": "GET /api/settings/b2b-entity-mapping",
-      "responses": { "200": { "description": "OK" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" } }
-    },
-    "post": {
-      "tags": ["b2b", "settings"],
-      "summary": "POST /api/settings/b2b-entity-mapping",
-      "responses": { "200": { "description": "OK" }, "400": { "description": "Bad request" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" } }
-    }
-  },
-  "/api/b2b/companies": {
-    "get": { "tags": ["b2b"], "summary": "GET /api/b2b/companies", "responses": { "200": { "description": "OK" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" } } }
-  },
-  "/api/b2b/employees": {
-    "get": { "tags": ["b2b"], "summary": "GET /api/b2b/employees", "responses": { "200": { "description": "OK" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" } } }
-  },
-  "/api/b2b/roles": {
-    "get": { "tags": ["b2b"], "summary": "GET /api/b2b/roles", "responses": { "200": { "description": "OK" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" } } }
-  },
-  "/api/b2b/budgets": {
-    "get": { "tags": ["b2b"], "summary": "GET /api/b2b/budgets", "responses": { "200": { "description": "OK" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" } } }
-  },
-  "/api/b2b/approvals": {
-    "get": { "tags": ["b2b"], "summary": "GET /api/b2b/approvals", "responses": { "200": { "description": "OK" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" } } }
-  },
-  "/api/b2b/assortments": {
-    "get": { "tags": ["b2b"], "summary": "GET /api/b2b/assortments", "responses": { "200": { "description": "OK" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" } } }
-  },
-  "/api/b2b/customer-skus": {
-    "get": { "tags": ["b2b"], "summary": "GET /api/b2b/customer-skus", "responses": { "200": { "description": "OK" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" } } },
-    "post": { "tags": ["b2b"], "summary": "POST /api/b2b/customer-skus", "responses": { "200": { "description": "OK" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" } } }
-  },
-  "/api/b2b/shopping-lists": {
-    "get": { "tags": ["b2b"], "summary": "GET /api/b2b/shopping-lists", "responses": { "200": { "description": "OK" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" } } }
-  },
-  "/api/b2b/quick-order/match": {
-    "post": { "tags": ["b2b"], "summary": "POST /api/b2b/quick-order/match", "responses": { "200": { "description": "OK" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" } } }
-  },
-  "/api/b2b/exploded-views": {
-    "get": { "tags": ["b2b"], "summary": "GET /api/b2b/exploded-views", "responses": { "200": { "description": "OK" }, "401": { "description": "Unauthorized" }, "403": { "description": "Forbidden" } } }
-  },
   "/api/bundles": {
     "get": {
       "tags": [
@@ -3177,6 +3134,33 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/crm/customers/{id}/individual-prices/currencies": {
+    "get": {
+      "tags": [
+        "crm"
+      ],
+      "summary": "GET /api/crm/customers/{id}/individual-prices/currencies",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/crm/customers/{id}/interactions": {
     "post": {
       "tags": [
@@ -3291,6 +3275,33 @@ export const openApiPaths = {
         "crm"
       ],
       "summary": "POST /api/crm/customers/merge",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/crm/customers/possible-existing-index": {
+    "get": {
+      "tags": [
+        "crm"
+      ],
+      "summary": "GET /api/crm/customers/possible-existing-index",
       "responses": {
         "200": {
           "description": "OK",
@@ -7067,6 +7078,33 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/products/{productId}/pricing-details": {
+    "get": {
+      "tags": [
+        "products"
+      ],
+      "summary": "GET /api/products/{productId}/pricing-details",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/products/{productId}/sales-channels": {
     "get": {
       "tags": [
@@ -7125,6 +7163,33 @@ export const openApiPaths = {
         "products"
       ],
       "summary": "GET /api/products/cache-status",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/products/herstellpreise/import": {
+    "post": {
+      "tags": [
+        "products"
+      ],
+      "summary": "POST /api/products/herstellpreise/import",
       "responses": {
         "200": {
           "description": "OK",
@@ -7983,6 +8048,58 @@ export const openApiPaths = {
         "settings"
       ],
       "summary": "POST /api/settings/commercial-agent",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/settings/crm-profitability": {
+    "get": {
+      "tags": [
+        "settings"
+      ],
+      "summary": "GET /api/settings/crm-profitability",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    },
+    "post": {
+      "tags": [
+        "settings"
+      ],
+      "summary": "POST /api/settings/crm-profitability",
       "responses": {
         "200": {
           "description": "OK",

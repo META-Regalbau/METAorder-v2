@@ -19,6 +19,11 @@ import {
 import { parseFakturaRowsFromBuffer, runFakturaImport } from "./shopFakturenImport";
 import { parseHerstellpreisRowsFromBuffer, runHerstellpreisImport } from "./herstellpreisImport";
 import { enrichCustomerPricesWithHerstellMargin } from "./herstellpreisMargin";
+import {
+  loadCrmProfitabilitySettings,
+  parseCrmProfitabilitySettings,
+  saveCrmProfitabilitySettings,
+} from "./crmProfitabilitySettings";
 import { getHerstellpreisLookupKey } from "./productIdentifiers";
 import { sendOrderInvoice } from "./invoiceSending";
 import { RuleEngine, type SuggestCrossSellingOptions } from "./ruleEngine";
@@ -1972,6 +1977,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error saving proforma number range settings:", error);
       res.status(500).json({ error: error.message || "Failed to save proforma number range settings" });
+    }
+  });
+
+  app.get("/api/settings/crm-profitability", requireAuth, requireManageSettings, async (req, res) => {
+    try {
+      const tenantId = (req as any).tenantId as string | null | undefined;
+      const settings = await loadCrmProfitabilitySettings(storage, tenantId);
+      res.json(settings);
+    } catch (error: any) {
+      console.error("Error fetching CRM profitability settings:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch CRM profitability settings" });
+    }
+  });
+
+  app.post("/api/settings/crm-profitability", requireAuth, requireManageSettings, async (req, res) => {
+    try {
+      const tenantId = (req as any).tenantId as string | null | undefined;
+      const parsed = parseCrmProfitabilitySettings(req.body);
+      const saved = await saveCrmProfitabilitySettings(storage, parsed, tenantId);
+      res.json(saved);
+    } catch (error: any) {
+      console.error("Error saving CRM profitability settings:", error);
+      res.status(500).json({ error: error.message || "Failed to save CRM profitability settings" });
     }
   });
 
@@ -12405,11 +12433,13 @@ Antworte im JSON-Format:
 
       const pricesWithDiscounts = await client.enrichCustomerSpecificPricesWithDiscounts(result.prices);
       const tenantId = (req as any).tenantId as string | null | undefined;
+      const profitabilitySettings = await loadCrmProfitabilitySettings(storage, tenantId);
       const prices = await enrichCustomerPricesWithHerstellMargin(pricesWithDiscounts, {
         storage,
         client,
         tenantId,
         standardDiscountPercent,
+        minMarginPercent: profitabilitySettings.minMarginPercent,
       });
 
       res.json({
@@ -12418,6 +12448,7 @@ Antworte im JSON-Format:
         prices,
         currency,
         standardDiscountPercent,
+        profitabilityMinMarginPercent: profitabilitySettings.minMarginPercent,
         resolved: true,
         configured: true,
         customerId: swCustomerId ?? null,

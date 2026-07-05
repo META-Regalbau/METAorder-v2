@@ -258,6 +258,7 @@ export default function SettingsPage() {
     nextNumber: 1,
     padding: 6,
   });
+  const [crmProfitabilityMinMargin, setCrmProfitabilityMinMargin] = useState(20);
   const [dunningSettings, setDunningSettings] = useState<DunningSettings>({
     enabled: false,
     manualOnly: true,
@@ -333,6 +334,12 @@ export default function SettingsPage() {
   const { data: proformaNumberRangeSettings } = useQuery<ProformaNumberRangeSettings>({
     queryKey: ["/api/settings/proforma-number-range", tenantKey],
     queryFn: () => fetchJson("/api/settings/proforma-number-range"),
+    retry: false,
+  });
+
+  const { data: crmProfitabilitySettings } = useQuery<{ minMarginPercent: number }>({
+    queryKey: ["/api/settings/crm-profitability", tenantKey],
+    queryFn: () => fetchJson("/api/settings/crm-profitability"),
     retry: false,
   });
 
@@ -470,6 +477,12 @@ export default function SettingsPage() {
       setProformaNumberRange(proformaNumberRangeSettings);
     }
   }, [proformaNumberRangeSettings]);
+
+  useEffect(() => {
+    if (crmProfitabilitySettings?.minMarginPercent != null) {
+      setCrmProfitabilityMinMargin(crmProfitabilitySettings.minMarginPercent);
+    }
+  }, [crmProfitabilitySettings]);
 
   useEffect(() => {
     if (dunningSettingsData) {
@@ -1113,6 +1126,30 @@ export default function SettingsPage() {
     },
   });
 
+  const saveCrmProfitabilityMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/settings/crm-profitability", {
+        minMarginPercent: crmProfitabilityMinMargin,
+      });
+      return response.json();
+    },
+    onSuccess: (data: { minMarginPercent: number }) => {
+      setCrmProfitabilityMinMargin(data.minMarginPercent);
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/crm-profitability", tenantKey] });
+      toast({
+        title: t("settings.tenants.crmProfitabilitySaveSuccess"),
+        description: t("settings.tenants.crmProfitabilitySaveSuccessDesc"),
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t("settings.tenants.crmProfitabilitySaveError"),
+        description: error?.message || t("settings.tenants.crmProfitabilitySaveErrorDesc"),
+        variant: "destructive",
+      });
+    },
+  });
+
   const saveDunningSettingsMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest("POST", "/api/settings/dunning", dunningSettings);
@@ -1360,6 +1397,46 @@ function GeneralTab() {
                     {saveProformaNumberRangeMutation.isPending
                       ? t("settings.tenants.proformaSaving")
                       : t("settings.tenants.proformaSave")}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-border">
+              <h3 className="text-sm font-medium uppercase tracking-wide mb-2">
+                {t("settings.tenants.crmProfitabilityTitle")}
+              </h3>
+              <p className="text-xs text-muted-foreground mb-4">
+                {t("settings.tenants.crmProfitabilityDescription")}
+              </p>
+              <div className="grid gap-3">
+                <div className="grid gap-2">
+                  <Label className="text-sm font-medium">{t("settings.tenants.crmProfitabilityMinMargin")}</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={500}
+                    step={0.1}
+                    value={crmProfitabilityMinMargin}
+                    onChange={(e) => {
+                      const value = Number(e.target.value);
+                      setCrmProfitabilityMinMargin(Number.isFinite(value) ? value : crmProfitabilityMinMargin);
+                    }}
+                    data-testid="input-crm-profitability-min-margin"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t("settings.tenants.crmProfitabilityMinMarginHint")}
+                  </p>
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    onClick={() => saveCrmProfitabilityMutation.mutate()}
+                    disabled={!selectedTenantId || saveCrmProfitabilityMutation.isPending}
+                    data-testid="button-save-crm-profitability"
+                  >
+                    {saveCrmProfitabilityMutation.isPending
+                      ? t("settings.tenants.crmProfitabilitySaving")
+                      : t("settings.tenants.crmProfitabilitySave")}
                   </Button>
                 </div>
               </div>

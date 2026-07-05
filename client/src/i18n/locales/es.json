@@ -914,6 +914,16 @@
       "proformaSaveSuccessDesc": "El rango de numeracion proforma se actualizo.",
       "proformaSaveError": "Error al guardar",
       "proformaSaveErrorDesc": "No se pudo guardar el rango de numeracion proforma.",
+      "crmProfitabilityTitle": "Rentabilidad CRM",
+      "crmProfitabilityDescription": "Margen minimo de contribucion sobre costes de fabricacion para el semaforo en precios individuales (incl. objetivo de gastos generales).",
+      "crmProfitabilityMinMargin": "Margen minimo (%)",
+      "crmProfitabilityMinMarginHint": "Verde a partir de este recargo sobre los costes de fabricacion importados. Ejemplo: con 20 %, un margen del 16 % se considera no rentable (rojo).",
+      "crmProfitabilitySave": "Guardar rentabilidad CRM",
+      "crmProfitabilitySaving": "Guardando...",
+      "crmProfitabilitySaveSuccess": "Rentabilidad CRM guardada",
+      "crmProfitabilitySaveSuccessDesc": "Se actualizo el margen minimo del indicador de rentabilidad.",
+      "crmProfitabilitySaveError": "Error al guardar",
+      "crmProfitabilitySaveErrorDesc": "No se pudieron guardar los ajustes de rentabilidad CRM.",
       "dunningTitle": "Sistema de Cobranza",
       "dunningDescription": "Configure el sistema de cobranza para el inquilino activo.",
       "dunningEnabled": "Cobranza activa",
@@ -2475,8 +2485,9 @@
         "purchasePriceNet": "Precio de compra neto",
         "discountPercent": "Descuento",
         "herstellMargin": "Rentabilidad (coste fab.)",
-        "herstellMarginHint": "Margen de contribución sobre costes de fabricación importados: (PV efectivo − coste fab.) / coste fab. Verde = rentable (PV > coste fab.), rojo = no rentable o pérdida. Independiente del umbral del 7 % en la revisión de precios.",
-        "herstellMarginNone": "Sin coste de fabricación"
+        "herstellMarginHint": "Margen de contribucion sobre costes de fabricacion importados. Verde desde {{threshold}} % (margen minimo incl. gastos generales), por debajo rojo.",
+        "herstellMarginNone": "Sin coste de fabricacion",
+        "profitabilityThresholdHint": "Indicador de rentabilidad: verde desde {{threshold}} % de margen sobre costes de fabricacion (Ajustes → Inquilino → Rentabilidad CRM)."
       },
       "match": {
         "title": "Comprobación de cliente existente",
