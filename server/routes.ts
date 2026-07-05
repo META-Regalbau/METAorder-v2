@@ -6426,7 +6426,7 @@ Antworte im JSON-Format:
         : allChannels;
 
       // Gesamten (gefilterten) Katalog frisch aus Shopware laden
-      const overview: ShopwareProductOverview[] = [];
+      const overviewById = new Map<string, ShopwareProductOverview>();
       const BATCH_SIZE = 500;
       let page = 1;
       let hasMore = true;
@@ -6435,10 +6435,13 @@ Antworte im JSON-Format:
           includeInactive,
           salesChannelIds: allowedChannelIds ?? undefined,
         });
-        overview.push(...products);
+        for (const product of products) {
+          overviewById.set(product.id, product);
+        }
         hasMore = products.length === BATCH_SIZE;
         page++;
       }
+      const overview = Array.from(overviewById.values());
 
       const rows = overview.map((p) => ({
         ...p,

@@ -375,6 +375,71 @@ function normalizeOrderDocumentType(technicalName: string): string {
  */
 const SHOPWARE_LIVE_VERSION_ID = "0fa91ce3e96a4bc2be4bd9ce752c3425";
 
+function normalizeOverviewQuantityEnd(value: unknown): number | null {
+  if (value == null || value === "") return null;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
+}
+
+function overviewAdvancedPriceTierKey(quantityStart: number, quantityEnd: number | null): string {
+  const end = quantityEnd == null ? "" : String(quantityEnd);
+  return `${quantityStart}|${end}`;
+}
+
+/** Sammelt product_price-Einträge einmalig (Relationships + included, dedupliziert nach ID). */
+function collectOverviewProductPriceEntries(
+  sp: any,
+  includedMap: Map<string, any>,
+): any[] {
+  const byId = new Map<string, any>();
+
+  const add = (raw: any) => {
+    if (!raw) return;
+    const id = raw.id ?? raw.attributes?.id;
+    let resolved = raw;
+    if (id && includedMap.has(`product_price-${id}`)) {
+      resolved = includedMap.get(`product_price-${id}`);
+    } else if (!raw.attributes && !raw.quantityStart && id) {
+      resolved = includedMap.get(`product_price-${id}`) ?? raw;
+    }
+    const resolvedId = resolved?.id ?? resolved?.attributes?.id ?? id;
+    if (resolvedId) {
+      if (byId.has(resolvedId)) return;
+      byId.set(resolvedId, resolved);
+      return;
+    }
+    byId.set(`${byId.size}-${overviewAdvancedPriceTierKey(
+      Number(resolved?.attributes?.quantityStart ?? resolved?.quantityStart ?? 1),
+      normalizeOverviewQuantityEnd(resolved?.attributes?.quantityEnd ?? resolved?.quantityEnd),
+    )}`, resolved);
+  };
+
+  if (Array.isArray(sp.relationships?.prices?.data)) {
+    for (const ref of sp.relationships.prices.data) {
+      add(includedMap.get(`product_price-${ref.id}`) ?? ref);
+    }
+  } else if (Array.isArray(sp.prices)) {
+    for (const pr of sp.prices) add(pr);
+  }
+
+  return Array.from(byId.values());
+}
+
+function pickPreferredOverviewPriceEntry(
+  existing: { price: ShopwareAdvancedPrice; isLive: boolean; updatedAt: number },
+  candidate: { price: ShopwareAdvancedPrice; isLive: boolean; updatedAt: number },
+): boolean {
+  if (candidate.isLive && !existing.isLive) return true;
+  if (!candidate.isLive && existing.isLive) return false;
+  if (candidate.updatedAt !== existing.updatedAt) return candidate.updatedAt > existing.updatedAt;
+  // Bei gleicher Staffel/Preis: bevorzugt Eintrag mit aufgelöster Regel.
+  const existingHasRule = !!existing.price.ruleName || !!existing.price.ruleId;
+  const candidateHasRule = !!candidate.price.ruleName || !!candidate.price.ruleId;
+  if (candidateHasRule && !existingHasRule) return true;
+  return false;
+}
+
 export class ShopwareClient {
   private baseUrl: string;
   private publicBaseUrl: string;
@@ -4007,24 +4072,24 @@ export class ShopwareClient {
       // wir nur den aktuellsten Stand: pro Mengen-Staffel (quantityStart/quantityEnd)
       // genau einen Eintrag – die zuletzt aktualisierte Preiszeile. Die Live-Version
       // hat Vorrang vor evtl. versionierten Kopien.
-      const priceRuleEntries = Array.isArray(sp.prices)
-        ? sp.prices
-        : Array.isArray(sp.relationships?.prices?.data)
-          ? sp.relationships.prices.data.map((ref: any) => includedMap.get(`product_price-${ref.id}`)).filter(Boolean)
-          : [];
+      const priceRuleEntries = collectOverviewProductPriceEntries(sp, includedMap);
       const advancedPriceByTier = new Map<
         string,
         { price: ShopwareAdvancedPrice; isLive: boolean; updatedAt: number }
       >();
       for (const pr of priceRuleEntries) {
         const a = pr?.attributes || pr;
-        const priceObj = Array.isArray(a?.price) ? a.price[0] : undefined;
-        const quantityStart = a?.quantityStart ?? 1;
-        const quantityEnd = a?.quantityEnd ?? null;
+        const priceEntries = Array.isArray(a?.price) ? a.price : a?.price ? [a.price] : [];
+        const priceObj = priceEntries[0];
+        const quantityStart = Number(a?.quantityStart ?? 1);
+        const quantityEnd = normalizeOverviewQuantityEnd(a?.quantityEnd);
         const ruleId = a?.ruleId ?? null;
         const versionId = a?.versionId ?? pr?.versionId ?? null;
         const isLive = versionId == null || versionId === SHOPWARE_LIVE_VERSION_ID;
         const updatedAt = Date.parse(a?.updatedAt ?? a?.createdAt ?? "") || 0;
+
+        // Nur Live-Preise in der Übersicht (versionierte Kopien überspringen).
+        if (!isLive) continue;
 
         // Regelnamen auflösen: inline-Association bevorzugt, sonst über includedMap.
         let ruleName: string | null =
@@ -4033,9 +4098,7 @@ export class ShopwareClient {
           ruleName = includedMap.get(`rule-${ruleId}`)?.attributes?.name ?? null;
         }
 
-        // Schlüssel pro Mengen-Staffel – bewusst OHNE ruleId, damit mehrere
-        // Preislisten für dieselbe Menge auf einen aktuellen Eintrag reduziert werden.
-        const tierKey = `${quantityStart}|${quantityEnd ?? ""}`;
+        const tierKey = overviewAdvancedPriceTierKey(quantityStart, quantityEnd);
         const candidate = {
           price: {
             quantityStart,
@@ -4050,20 +4113,22 @@ export class ShopwareClient {
         };
 
         const existing = advancedPriceByTier.get(tierKey);
-        if (!existing) {
-          advancedPriceByTier.set(tierKey, candidate);
-          continue;
-        }
-        // Live-Version schlägt versionierte Kopie; sonst gewinnt der jüngere Eintrag.
-        if (candidate.isLive && !existing.isLive) {
-          advancedPriceByTier.set(tierKey, candidate);
-        } else if (candidate.isLive === existing.isLive && candidate.updatedAt > existing.updatedAt) {
+        if (!existing || pickPreferredOverviewPriceEntry(existing, candidate)) {
           advancedPriceByTier.set(tierKey, candidate);
         }
       }
       const advancedPrices: ShopwareAdvancedPrice[] = Array.from(advancedPriceByTier.values())
         .map((entry) => entry.price)
         .sort((x, y) => x.quantityStart - y.quantityStart);
+
+      // Absicherung: identische Staffel+Preis nicht doppelt anzeigen.
+      const seenPriceSignature = new Set<string>();
+      const dedupedAdvancedPrices = advancedPrices.filter((p) => {
+        const signature = `${p.quantityStart}|${p.quantityEnd ?? ""}|${p.net ?? ""}|${p.gross ?? ""}`;
+        if (seenPriceSignature.has(signature)) return false;
+        seenPriceSignature.add(signature);
+        return true;
+      });
 
       // Eigenschaften zählen
       const propertyOptionIds = new Set<string>();
@@ -4093,7 +4158,7 @@ export class ShopwareClient {
         taxRate,
         currency: "EUR",
         salesChannelIds: Array.from(salesChannelIds),
-        advancedPrices,
+        advancedPrices: dedupedAdvancedPrices,
         categories,
         tags,
         customFields: customFields && typeof customFields === "object" ? customFields : undefined,
