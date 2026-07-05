@@ -7,6 +7,7 @@ import {
   Download,
   RefreshCw,
   Tag,
+  Tags as TagIcon,
   Layers,
   Store,
   AlertCircle,
@@ -48,6 +49,7 @@ interface OverviewAdvancedPrice {
   gross: number | null;
   net: number | null;
   ruleId: string | null;
+  ruleName: string | null;
 }
 
 interface OverviewProduct {
@@ -69,6 +71,7 @@ interface OverviewProduct {
   hasAdvancedPrices: boolean;
   advancedPriceCount: number;
   categories: string[];
+  tags: string[];
   customFields?: Record<string, unknown>;
   customFieldKeys: string[];
   propertyCount: number;
@@ -114,6 +117,7 @@ export default function ProductOverviewPage() {
   const [search, setSearch] = useState("");
   const [channelFilter, setChannelFilter] = useState<string>(ALL);
   const [categoryFilter, setCategoryFilter] = useState<string>(ALL);
+  const [tagFilter, setTagFilter] = useState<string>(ALL);
   const [statusFilter, setStatusFilter] = useState<string>(ALL);
   const [onlyAdvancedPrices, setOnlyAdvancedPrices] = useState(false);
   const [onlyCustomFields, setOnlyCustomFields] = useState(false);
@@ -128,6 +132,12 @@ export default function ProductOverviewPage() {
   const categories = useMemo(() => {
     const set = new Set<string>();
     for (const p of products) for (const c of p.categories) set.add(c);
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [products]);
+
+  const tags = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of products) for (const tg of p.tags ?? []) set.add(tg);
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [products]);
 
@@ -150,6 +160,7 @@ export default function ProductOverviewPage() {
         if (!p.salesChannelIds.includes(channelFilter)) return false;
       }
       if (categoryFilter !== ALL && !p.categories.includes(categoryFilter)) return false;
+      if (tagFilter !== ALL && !(p.tags ?? []).includes(tagFilter)) return false;
       if (statusFilter === "active" && p.active !== true) return false;
       if (statusFilter === "inactive" && p.active === true) return false;
       if (onlyAdvancedPrices && !p.hasAdvancedPrices) return false;
@@ -186,6 +197,7 @@ export default function ProductOverviewPage() {
     search,
     channelFilter,
     categoryFilter,
+    tagFilter,
     statusFilter,
     onlyAdvancedPrices,
     onlyCustomFields,
@@ -221,6 +233,7 @@ export default function ProductOverviewPage() {
     setSearch("");
     setChannelFilter(ALL);
     setCategoryFilter(ALL);
+    setTagFilter(ALL);
     setStatusFilter(ALL);
     setOnlyAdvancedPrices(false);
     setOnlyCustomFields(false);
@@ -239,6 +252,7 @@ export default function ProductOverviewPage() {
       t("productOverview.table.salesChannels"),
       t("productOverview.table.advancedPrices"),
       t("productOverview.table.categories"),
+      t("productOverview.table.tags"),
       t("productOverview.table.customFields"),
       t("productOverview.csv.priceGross"),
       t("productOverview.csv.priceNet"),
@@ -260,6 +274,7 @@ export default function ProductOverviewPage() {
           p.salesChannels.map((c) => c.name).join(" | "),
           p.advancedPriceCount,
           p.categories.join(" | "),
+          (p.tags ?? []).join(" | "),
           customFields,
           p.priceGross,
           p.priceNet,
@@ -412,6 +427,26 @@ export default function ProductOverviewPage() {
             </Select>
 
             <Select
+              value={tagFilter}
+              onValueChange={(v) => {
+                setTagFilter(v);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger data-testid="overview-tag">
+                <SelectValue placeholder={t("productOverview.filters.tag")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>{t("productOverview.filters.allTags")}</SelectItem>
+                {tags.map((tg) => (
+                  <SelectItem key={tg} value={tg}>
+                    {tg}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select
               value={statusFilter}
               onValueChange={(v) => {
                 setStatusFilter(v);
@@ -533,6 +568,7 @@ export default function ProductOverviewPage() {
                     <TableHead className="min-w-[180px]">{t("productOverview.table.salesChannels")}</TableHead>
                     <TableHead className="w-[120px]">{t("productOverview.table.advancedPrices")}</TableHead>
                     <TableHead className="min-w-[180px]">{t("productOverview.table.categories")}</TableHead>
+                    <TableHead className="min-w-[160px]">{t("productOverview.table.tags")}</TableHead>
                     <TableHead className="w-[130px]">{t("productOverview.table.customFields")}</TableHead>
                     <TableHead className="w-[120px] text-right">{t("productOverview.table.price")}</TableHead>
                   </TableRow>
@@ -674,6 +710,7 @@ function ProductRow({ product }: { product: OverviewProduct }) {
                   <TableHeader>
                     <TableRow>
                       <TableHead>{t("productOverview.modal.quantity")}</TableHead>
+                      <TableHead>{t("productOverview.modal.priceRule")}</TableHead>
                       <TableHead className="text-right">{t("productOverview.csv.priceGross")}</TableHead>
                       <TableHead className="text-right">{t("productOverview.csv.priceNet")}</TableHead>
                     </TableRow>
@@ -684,6 +721,9 @@ function ProductRow({ product }: { product: OverviewProduct }) {
                         <TableCell>
                           {t("productOverview.fromQuantity", { qty: ap.quantityStart })}
                           {ap.quantityEnd ? `–${ap.quantityEnd}` : ""}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {ap.ruleName ? ap.ruleName : t("productOverview.table.none")}
                         </TableCell>
                         <TableCell className="text-right font-mono">
                           {ap.gross != null ? currencyFormatter.format(ap.gross) : "—"}
@@ -706,6 +746,14 @@ function ProductRow({ product }: { product: OverviewProduct }) {
         <BadgeList
           items={product.categories}
           icon={<Tag className="h-3 w-3" />}
+          emptyLabel={t("productOverview.table.none")}
+          moreLabel={(n) => t("productOverview.table.more", { count: n })}
+        />
+      </TableCell>
+      <TableCell>
+        <BadgeList
+          items={product.tags ?? []}
+          icon={<TagIcon className="h-3 w-3" />}
           emptyLabel={t("productOverview.table.none")}
           moreLabel={(n) => t("productOverview.table.more", { count: n })}
         />

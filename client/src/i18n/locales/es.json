@@ -316,6 +316,7 @@
     "fromQuantity": "desde {{qty}}",
     "modal": {
       "quantity": "Cantidad",
+      "priceRule": "Regla de precio",
       "field": "Campo",
       "value": "Valor"
     },
@@ -334,6 +335,8 @@
       "noChannel": "Sin canal",
       "category": "Categoría",
       "allCategories": "Todas las categorías",
+      "tag": "Etiqueta",
+      "allTags": "Todas las etiquetas",
       "status": "Estado",
       "allStatus": "Todos los estados",
       "active": "Solo activos",
@@ -356,6 +359,7 @@
       "salesChannels": "Canales de venta",
       "advancedPrices": "Precios av.",
       "categories": "Categorías",
+      "tags": "Etiquetas",
       "customFields": "Campos pers.",
       "price": "Precio (bruto)",
       "none": "—",

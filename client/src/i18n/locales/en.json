@@ -404,6 +404,7 @@
     "fromQuantity": "from {{qty}}",
     "modal": {
       "quantity": "Quantity",
+      "priceRule": "Price rule",
       "field": "Field",
       "value": "Value"
     },
@@ -422,6 +423,8 @@
       "noChannel": "No channel",
       "category": "Category",
       "allCategories": "All categories",
+      "tag": "Tag",
+      "allTags": "All tags",
       "status": "Status",
       "allStatus": "All statuses",
       "active": "Active only",
@@ -444,6 +447,7 @@
       "salesChannels": "Sales channels",
       "advancedPrices": "Adv. prices",
       "categories": "Categories",
+      "tags": "Tags",
       "customFields": "Custom fields",
       "price": "Price (gross)",
       "none": "—",

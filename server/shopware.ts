@@ -33,6 +33,8 @@ export interface ShopwareAdvancedPrice {
   gross: number | null;
   net: number | null;
   ruleId: string | null;
+  /** Name der Preislisten-Regel (z. B. "Standard Preise Shop"). null = nicht auflösbar. */
+  ruleName: string | null;
 }
 
 /** Angereicherte Produktzeile für die Produkt-Übersicht. */
@@ -56,6 +58,8 @@ export interface ShopwareProductOverview {
   salesChannelIds: string[];
   advancedPrices: ShopwareAdvancedPrice[];
   categories: string[];
+  /** Tag-Namen des Produkts (Shopware tags-Association). */
+  tags: string[];
   customFields?: Record<string, unknown>;
   propertyCount: number;
   parentId: string | null;
@@ -362,6 +366,14 @@ function normalizeOrderDocumentType(technicalName: string): string {
 
   return raw;
 }
+
+/**
+ * Shopware-"Live"-Version. Alle Entitäten, die im Shop tatsächlich aktiv sind,
+ * tragen diese versionId. Versionierte Kopien (z. B. Entwürfe, Bestell-Snapshots)
+ * haben abweichende versionIds und dürfen in der Produkt-Übersicht nicht als
+ * eigenständige (Staffel-)Preise erscheinen.
+ */
+const SHOPWARE_LIVE_VERSION_ID = "0fa91ce3e96a4bc2be4bd9ce752c3425";
 
 export class ShopwareClient {
   private baseUrl: string;
@@ -3840,6 +3852,7 @@ export class ShopwareClient {
           "customFields",
           "tax",
           "categories",
+          "tags",
           "prices",
           "visibilities",
           "properties",
@@ -3850,16 +3863,23 @@ export class ShopwareClient {
         ],
         product_manufacturer: ["name"],
         category: ["id", "name"],
+        tag: ["id", "name"],
         tax: ["taxRate"],
-        product_price: ["quantityStart", "quantityEnd", "price", "ruleId"],
+        product_price: ["quantityStart", "quantityEnd", "price", "ruleId", "versionId", "updatedAt", "createdAt", "rule"],
         product_visibility: ["id", "salesChannelId", "visibility"],
         property_group_option: ["id"],
+        rule: ["id", "name"],
       },
       associations: {
         manufacturer: {},
         categories: {},
+        tags: {},
         tax: {},
-        prices: {},
+        prices: {
+          associations: {
+            rule: {},
+          },
+        },
         visibilities: {},
         properties: {},
       },
@@ -3953,6 +3973,20 @@ export class ShopwareClient {
         });
       }
 
+      // Tags (Namen)
+      const tags: string[] = [];
+      if (Array.isArray(sp.tags)) {
+        sp.tags.forEach((tg: any) => {
+          const name = tg?.name ?? tg?.attributes?.name;
+          if (name) tags.push(name);
+        });
+      } else if (Array.isArray(sp.relationships?.tags?.data)) {
+        sp.relationships.tags.data.forEach((ref: any) => {
+          const name = includedMap.get(`tag-${ref.id}`)?.attributes?.name;
+          if (name) tags.push(name);
+        });
+      }
+
       // Verkaufskanäle (IDs aus visibilities)
       const salesChannelIds = new Set<string>();
       const visEntries = Array.isArray(sp.visibilities)
@@ -3966,23 +4000,69 @@ export class ShopwareClient {
       }
 
       // Erweiterte Preise / Staffelpreise (product.prices)
-      const advancedPrices: ShopwareAdvancedPrice[] = [];
+      // Ein Produkt kann pro Mengen-Staffel mehrere Preiszeilen haben – je eine pro
+      // Preislisten-Regel (z. B. "Standard Preise Portal" und "Standard Preise Shop").
+      // Für die Produkt-Übersicht (kanal-/kundenunabhängige Katalogansicht) brauchen
+      // wir nur den aktuellsten Stand: pro Mengen-Staffel (quantityStart/quantityEnd)
+      // genau einen Eintrag – die zuletzt aktualisierte Preiszeile. Die Live-Version
+      // hat Vorrang vor evtl. versionierten Kopien.
       const priceRuleEntries = Array.isArray(sp.prices)
         ? sp.prices
         : Array.isArray(sp.relationships?.prices?.data)
           ? sp.relationships.prices.data.map((ref: any) => includedMap.get(`product_price-${ref.id}`)).filter(Boolean)
           : [];
+      const advancedPriceByTier = new Map<
+        string,
+        { price: ShopwareAdvancedPrice; isLive: boolean; updatedAt: number }
+      >();
       for (const pr of priceRuleEntries) {
         const a = pr?.attributes || pr;
         const priceObj = Array.isArray(a?.price) ? a.price[0] : undefined;
-        advancedPrices.push({
-          quantityStart: a?.quantityStart ?? 1,
-          quantityEnd: a?.quantityEnd ?? null,
-          gross: priceObj?.gross ?? null,
-          net: priceObj?.net ?? null,
-          ruleId: a?.ruleId ?? null,
-        });
+        const quantityStart = a?.quantityStart ?? 1;
+        const quantityEnd = a?.quantityEnd ?? null;
+        const ruleId = a?.ruleId ?? null;
+        const versionId = a?.versionId ?? pr?.versionId ?? null;
+        const isLive = versionId == null || versionId === SHOPWARE_LIVE_VERSION_ID;
+        const updatedAt = Date.parse(a?.updatedAt ?? a?.createdAt ?? "") || 0;
+
+        // Regelnamen auflösen: inline-Association bevorzugt, sonst über includedMap.
+        let ruleName: string | null =
+          a?.rule?.name ?? pr?.rule?.name ?? a?.rule?.attributes?.name ?? null;
+        if (!ruleName && ruleId) {
+          ruleName = includedMap.get(`rule-${ruleId}`)?.attributes?.name ?? null;
+        }
+
+        // Schlüssel pro Mengen-Staffel – bewusst OHNE ruleId, damit mehrere
+        // Preislisten für dieselbe Menge auf einen aktuellen Eintrag reduziert werden.
+        const tierKey = `${quantityStart}|${quantityEnd ?? ""}`;
+        const candidate = {
+          price: {
+            quantityStart,
+            quantityEnd,
+            gross: priceObj?.gross ?? null,
+            net: priceObj?.net ?? null,
+            ruleId,
+            ruleName,
+          } satisfies ShopwareAdvancedPrice,
+          isLive,
+          updatedAt,
+        };
+
+        const existing = advancedPriceByTier.get(tierKey);
+        if (!existing) {
+          advancedPriceByTier.set(tierKey, candidate);
+          continue;
+        }
+        // Live-Version schlägt versionierte Kopie; sonst gewinnt der jüngere Eintrag.
+        if (candidate.isLive && !existing.isLive) {
+          advancedPriceByTier.set(tierKey, candidate);
+        } else if (candidate.isLive === existing.isLive && candidate.updatedAt > existing.updatedAt) {
+          advancedPriceByTier.set(tierKey, candidate);
+        }
       }
+      const advancedPrices: ShopwareAdvancedPrice[] = Array.from(advancedPriceByTier.values())
+        .map((entry) => entry.price)
+        .sort((x, y) => x.quantityStart - y.quantityStart);
 
       // Eigenschaften zählen
       const propertyOptionIds = new Set<string>();
@@ -4014,6 +4094,7 @@ export class ShopwareClient {
         salesChannelIds: Array.from(salesChannelIds),
         advancedPrices,
         categories,
+        tags,
         customFields: customFields && typeof customFields === "object" ? customFields : undefined,
         propertyCount: propertyOptionIds.size,
         parentId: parentIdRaw == null || parentIdRaw === "" ? null : String(parentIdRaw),
