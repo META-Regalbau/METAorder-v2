@@ -1550,6 +1550,7 @@
     "advancedPricesTitle": "Advanced prices & discounts",
     "maxDiscountPercent": "Max. discount (B2B)",
     "discountPercent": "Discount",
+    "purchasePriceNet": "Purchase price net",
     "listPriceNet": "List price net",
     "availability": "Availability",
     "dimensions": "Dimensions",
@@ -2823,6 +2824,7 @@
         "standardDiscount": "Standard discount (B2B)",
         "standardDiscountHint": "Company-wide discount from B2Bsellers Discount Rate – applies unless a customer-specific price is set.",
         "listPriceNet": "List price net",
+        "purchasePriceNet": "Purchase price net",
         "discountPercent": "Discount"
       },
       "match": {
@@ -2932,6 +2934,7 @@
         "customFields": "B2B custom fields",
         "customerPrices": "Customer discounts & prices",
         "listPriceNet": "List price net",
+        "purchasePriceNet": "Purchase price net",
         "discountPercent": "Discount",
         "openAssortments": "Manage assortments",
         "pricesPluginMissing": "B2Bsellers customer prices are not available in Shopware.",

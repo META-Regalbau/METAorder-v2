@@ -15,7 +15,7 @@ import type {
 import { randomUUID } from "crypto";
 import { productCache } from "./productCache";
 import {
-  computeDiscountPercent,
+  computeDiscountPercentFromPurchaseBase,
   extractDiscountPercentFromCustomFields,
   parseDiscountPercentValue,
 } from "./pricingUtils";
@@ -101,7 +101,7 @@ export interface ShopwareCustomerPrice {
 }
 
 export type EnrichedShopwareCustomerPrice = ShopwareCustomerPrice & {
-  listPriceNet: number | null;
+  purchasePriceNet: number | null;
   discountPercent: number | null;
 };
 
@@ -111,6 +111,7 @@ export type ProductAdvancedPricingDetails = {
   name: string;
   priceNet: number;
   priceGross: number;
+  purchasePriceNet: number | null;
   taxRate: number;
   currency: string;
   maxDiscountPercent: number | null;
@@ -6626,9 +6627,11 @@ export class ShopwareClient {
     return null;
   }
 
-  /** Netto-Listenpreise für Produkt-IDs (Grundpreis, erste Währung). */
-  async fetchProductListNetPrices(productIds: string[]): Promise<Map<string, number>> {
-    const result = new Map<string, number>();
+  /** Netto-Einkaufspreis und Listenpreis für Produkt-IDs (Shopware purchasePrices / price). */
+  async fetchProductPurchaseAndCatalogNetPrices(
+    productIds: string[],
+  ): Promise<Map<string, { purchasePriceNet: number | null; catalogPriceNet: number | null }>> {
+    const result = new Map<string, { purchasePriceNet: number | null; catalogPriceNet: number | null }>();
     if (productIds.length === 0) return result;
 
     const uniqueIds = [...new Set(productIds.map((pid) => toShopwareUuid(pid)))];
@@ -6641,7 +6644,7 @@ export class ShopwareClient {
           body: JSON.stringify({
             limit: chunk.length,
             ids: chunk,
-            includes: { product: ["id", "price"], tax: ["taxRate"] },
+            includes: { product: ["id", "price", "purchasePrices"], tax: ["taxRate"] },
             associations: { tax: {} },
           }),
         });
@@ -6649,53 +6652,68 @@ export class ShopwareClient {
         const data = await response.json();
         for (const sp of data.data || []) {
           const attrs = sp.attributes ?? sp;
+          let taxRate = 19;
+          if (sp.tax?.taxRate != null) taxRate = sp.tax.taxRate;
+          else if (attrs?.tax?.taxRate != null) taxRate = attrs.tax.taxRate;
+
+          const parseNet = (entry: any): number | null => {
+            if (!entry) return null;
+            const net = typeof entry?.net === "number" ? entry.net : null;
+            const gross = typeof entry?.gross === "number" ? entry.gross : null;
+            if (net != null) return net;
+            if (gross != null) return gross / (1 + taxRate / 100);
+            return null;
+          };
+
           const priceArray = Array.isArray(sp.price) ? sp.price : Array.isArray(attrs?.price) ? attrs.price : null;
-          if (!priceArray?.length) continue;
-          const first = priceArray[0];
-          let net = typeof first?.net === "number" ? first.net : null;
-          const gross = typeof first?.gross === "number" ? first.gross : null;
-          if (net == null && gross != null) {
-            let taxRate = 19;
-            if (sp.tax?.taxRate != null) taxRate = sp.tax.taxRate;
-            else if (attrs?.tax?.taxRate != null) taxRate = attrs.tax.taxRate;
-            net = gross / (1 + taxRate / 100);
-          }
-          if (net != null && net > 0) result.set(toShopwareUuid(String(sp.id)), net);
+          const purchaseArray = Array.isArray(sp.purchasePrices)
+            ? sp.purchasePrices
+            : Array.isArray(attrs?.purchasePrices)
+              ? attrs.purchasePrices
+              : null;
+
+          const catalogPriceNet = priceArray?.length ? parseNet(priceArray[0]) : null;
+          const purchasePriceNet = purchaseArray?.length ? parseNet(purchaseArray[0]) : null;
+
+          result.set(toShopwareUuid(String(sp.id)), { purchasePriceNet, catalogPriceNet });
         }
       } catch (error: any) {
-        console.warn("[Shopware] fetchProductListNetPrices:", error?.message || error);
+        console.warn("[Shopware] fetchProductPurchaseAndCatalogNetPrices:", error?.message || error);
       }
     }
 
     return result;
   }
 
-  /** Ergänzt Kundenpreise um Listenpreis und Rabatt in Prozent. */
+  /** Ergänzt Kundenpreise um Einkaufspreis und Rabatt in Prozent (Basis: EK). */
   async enrichCustomerSpecificPricesWithDiscounts(
     prices: ShopwareCustomerPrice[],
   ): Promise<EnrichedShopwareCustomerPrice[]> {
-    const missingProductIds = [
-      ...new Set(
-        prices
-          .filter((p) => p.pseudoPriceNet == null && p.productId)
-          .map((p) => String(p.productId)),
-      ),
+    const productIds = [
+      ...new Set(prices.filter((p) => p.productId).map((p) => String(p.productId))),
     ];
-    const catalogNetByProductId = await this.fetchProductListNetPrices(missingProductIds);
+    const priceByProductId = await this.fetchProductPurchaseAndCatalogNetPrices(productIds);
 
     return prices.map((price) => {
-      const listPriceNet =
-        price.pseudoPriceNet ??
-        (price.productId ? catalogNetByProductId.get(toShopwareUuid(String(price.productId))) ?? null : null);
+      const productPricing = price.productId
+        ? priceByProductId.get(toShopwareUuid(String(price.productId)))
+        : null;
+      const purchasePriceNet = productPricing?.purchasePriceNet ?? null;
+      const catalogPriceNet = productPricing?.catalogPriceNet ?? null;
+
       return {
         ...price,
-        listPriceNet,
-        discountPercent: computeDiscountPercent(price.priceNet, listPriceNet),
+        purchasePriceNet,
+        discountPercent: computeDiscountPercentFromPurchaseBase(
+          price.priceNet,
+          catalogPriceNet,
+          purchasePriceNet,
+        ),
       };
     });
   }
 
-  /** Erweiterte Produktpreise inkl. Rabatt gegenüber Grundpreis. */
+  /** Erweiterte Produktpreise inkl. Rabatt relativ zum Einkaufspreis. */
   async fetchProductAdvancedPricing(productId: string): Promise<ProductAdvancedPricingDetails | null> {
     const { products } = await this.fetchProductsOverviewPage(1, 1, {
       productId,
@@ -6706,7 +6724,11 @@ export class ShopwareClient {
 
     const advancedPrices = product.advancedPrices.map((tier) => ({
       ...tier,
-      discountPercent: computeDiscountPercent(tier.net, product.priceNet),
+      discountPercent: computeDiscountPercentFromPurchaseBase(
+        tier.net,
+        product.priceNet,
+        product.purchasePriceNet,
+      ),
     }));
 
     return {
@@ -6715,6 +6737,7 @@ export class ShopwareClient {
       name: product.name,
       priceNet: product.priceNet,
       priceGross: product.priceGross,
+      purchasePriceNet: product.purchasePriceNet,
       taxRate: product.taxRate,
       currency: product.currency,
       maxDiscountPercent: extractDiscountPercentFromCustomFields(product.customFields),

@@ -63,6 +63,7 @@ interface OverviewProduct {
   manufacturerName?: string;
   priceGross: number;
   priceNet: number;
+  purchasePriceNet?: number | null;
   taxRate: number;
   currency: string;
   salesChannelIds: string[];
@@ -719,8 +720,16 @@ function ProductRow({ product }: { product: OverviewProduct }) {
                   <TableBody>
                     {product.advancedPrices.map((ap, idx) => {
                       const discountPercent =
-                        ap.net != null && product.priceNet > 0 && ap.net < product.priceNet
-                          ? Math.round((1 - ap.net / product.priceNet) * 1000) / 10
+                        ap.net != null &&
+                        product.purchasePriceNet != null &&
+                        product.purchasePriceNet > 0
+                          ? product.priceNet > ap.net
+                            ? Math.round(
+                                ((product.priceNet - ap.net) / product.purchasePriceNet) * 1000,
+                              ) / 10
+                            : Math.round(
+                                ((ap.net - product.purchasePriceNet) / product.purchasePriceNet) * 1000,
+                              ) / 10
                           : null;
                       return (
                       <TableRow key={idx}>

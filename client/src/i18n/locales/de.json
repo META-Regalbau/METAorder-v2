@@ -1564,6 +1564,7 @@
     "advancedPricesTitle": "Erweiterte Preise & Rabatte",
     "maxDiscountPercent": "Max. Rabatt (B2B)",
     "discountPercent": "Rabatt",
+    "purchasePriceNet": "Einkaufspreis netto",
     "listPriceNet": "Listenpreis netto",
     "availability": "Verfügbarkeit",
     "dimensions": "Abmessungen",
@@ -2852,6 +2853,7 @@
         "standardDiscount": "Standardrabatt (B2B)",
         "standardDiscountHint": "Firmenweiter Rabatt aus B2Bsellers Discount Rate – gilt, sofern kein kundenindividueller Preis hinterlegt ist.",
         "listPriceNet": "Listenpreis netto",
+        "purchasePriceNet": "Einkaufspreis netto",
         "discountPercent": "Rabatt"
       },
       "match": {
@@ -2961,6 +2963,7 @@
         "customFields": "B2B-Zusatzfelder",
         "customerPrices": "Kundenrabatte & Preise",
         "listPriceNet": "Listenpreis netto",
+        "purchasePriceNet": "Einkaufspreis netto",
         "discountPercent": "Rabatt",
         "openAssortments": "Sortimente verwalten",
         "pricesPluginMissing": "B2Bsellers-Kundenpreise sind in Shopware nicht verfügbar.",

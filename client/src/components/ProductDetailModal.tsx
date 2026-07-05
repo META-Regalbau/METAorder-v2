@@ -220,6 +220,7 @@ export default function ProductDetailModal({
     name: string;
     priceNet: number;
     priceGross: number;
+    purchasePriceNet: number | null;
     taxRate: number;
     currency: string;
     maxDiscountPercent: number | null;
@@ -474,7 +475,7 @@ export default function ProductDetailModal({
                         <TableRow>
                           <TableHead>{t("productOverview.modal.quantity")}</TableHead>
                           <TableHead>{t("productOverview.modal.priceRule")}</TableHead>
-                          <TableHead className="text-right">{t("products.listPriceNet")}</TableHead>
+                          <TableHead className="text-right">{t("products.purchasePriceNet")}</TableHead>
                           <TableHead className="text-right">{t("orderDetail.net")}</TableHead>
                           <TableHead className="text-right">{t("products.discountPercent")}</TableHead>
                         </TableRow>
@@ -490,7 +491,9 @@ export default function ProductDetailModal({
                               {tier.ruleName || t("productOverview.table.none")}
                             </TableCell>
                             <TableCell className="text-right font-mono text-muted-foreground">
-                              €{productPricing!.priceNet.toFixed(2)}
+                              {productPricing!.purchasePriceNet != null
+                                ? `€${productPricing!.purchasePriceNet.toFixed(2)}`
+                                : "—"}
                             </TableCell>
                             <TableCell className="text-right font-mono">
                               {tier.net != null ? `€${tier.net.toFixed(2)}` : "—"}

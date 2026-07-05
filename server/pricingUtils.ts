@@ -9,6 +9,24 @@ export function computeDiscountPercent(
   return Math.round((1 - priceNet / listPriceNet) * 1000) / 10;
 }
 
+/**
+ * Rabatt relativ zum Einkaufspreis: (Listenpreis − Kundenpreis) / Einkaufspreis.
+ * Fallback ohne Listenpreis: Aufschlag (Kundenpreis − EK) / EK.
+ */
+export function computeDiscountPercentFromPurchaseBase(
+  customerPriceNet: number | null | undefined,
+  catalogPriceNet: number | null | undefined,
+  purchasePriceNet: number | null | undefined,
+): number | null {
+  if (customerPriceNet == null || purchasePriceNet == null || purchasePriceNet <= 0) return null;
+
+  if (catalogPriceNet != null && catalogPriceNet > customerPriceNet) {
+    return Math.round(((catalogPriceNet - customerPriceNet) / purchasePriceNet) * 1000) / 10;
+  }
+
+  return Math.round(((customerPriceNet - purchasePriceNet) / purchasePriceNet) * 1000) / 10;
+}
+
 const DISCOUNT_CUSTOM_FIELD_KEYS = [
   "b2b_discount_rate",
   "b2b_discountRate",

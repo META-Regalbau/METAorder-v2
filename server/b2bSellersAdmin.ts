@@ -3,8 +3,6 @@ import type { B2BEntityMapping } from "@shared/b2bEntityMapping";
 import { DEFAULT_B2B_ENTITY_MAPPING, mergeB2BEntityMapping } from "@shared/b2bEntityMapping";
 import { storage } from "./storage";
 import { ShopwareClient, SHOPWARE_ADMIN_SEARCH_PAGE_SIZE } from "./shopware";
-import { computeDiscountPercent } from "./pricingUtils";
-
 export type { B2BEntityMapping };
 export { DEFAULT_B2B_ENTITY_MAPPING, mergeB2BEntityMapping };
 
@@ -528,6 +526,10 @@ export class B2BSellersAdminClient {
         .catch(() => ({ available: false, total: 0, prices: [], entity: null })),
     ]);
 
+    const enrichedPrices = priceResult.available
+      ? await shopware.enrichCustomerSpecificPricesWithDiscounts(priceResult.prices)
+      : [];
+
     return {
       offerCustomerId: offer?.id || null,
       customerId,
@@ -563,7 +565,7 @@ export class B2BSellersAdminClient {
         available: priceResult.available,
         total: priceResult.total,
         pluginDetected: priceResult.entity != null,
-        prices: priceResult.prices.map((price) => ({
+        prices: enrichedPrices.map((price) => ({
           id: price.id,
           productId: price.productId,
           productNumber: price.productNumber,
@@ -572,7 +574,8 @@ export class B2BSellersAdminClient {
           to: price.to,
           priceNet: price.priceNet,
           pseudoPriceNet: price.pseudoPriceNet,
-          discountPercent: computeDiscountPercent(price.priceNet, price.pseudoPriceNet),
+          purchasePriceNet: price.purchasePriceNet,
+          discountPercent: price.discountPercent,
           currencyIsoCode: price.currencyIsoCode,
           validFrom: price.validFrom,
           validUntil: price.validUntil,

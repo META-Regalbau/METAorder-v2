@@ -1280,6 +1280,7 @@
     "advancedPricesTitle": "Precios avanzados y descuentos",
     "maxDiscountPercent": "Descuento máx. (B2B)",
     "discountPercent": "Descuento",
+    "purchasePriceNet": "Precio de compra neto",
     "listPriceNet": "Precio de lista neto",
     "availability": "Disponibilidad",
     "dimensions": "Dimensiones",
@@ -2454,6 +2455,7 @@
         "standardDiscount": "Descuento estándar (B2B)",
         "standardDiscountHint": "Descuento global de B2Bsellers Discount Rate; no aplica si hay un precio individual de cliente.",
         "listPriceNet": "Precio de lista neto",
+        "purchasePriceNet": "Precio de compra neto",
         "discountPercent": "Descuento"
       },
       "match": {
@@ -2563,6 +2565,7 @@
         "customFields": "Campos personalizados B2B",
         "customerPrices": "Descuentos y precios del cliente",
         "listPriceNet": "Precio de lista neto",
+        "purchasePriceNet": "Precio de compra neto",
         "discountPercent": "Descuento",
         "openAssortments": "Gestionar surtidos",
         "pricesPluginMissing": "Los precios de cliente B2Bsellers no están disponibles en Shopware.",

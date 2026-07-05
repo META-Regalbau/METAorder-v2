@@ -38,6 +38,7 @@ export type B2BCompanyCustomerPrice = {
   to: number | null;
   priceNet: number | null;
   pseudoPriceNet: number | null;
+  purchasePriceNet: number | null;
   discountPercent: number | null;
   currencyIsoCode: string | null;
   validFrom: string | null;
@@ -450,7 +451,7 @@ export default function B2BCompanyDetailModal({
                         <TableHead>{t("crm.customer.individualPrices.product")}</TableHead>
                         <TableHead>{t("crm.customer.individualPrices.productNumber")}</TableHead>
                         <TableHead className="text-right">{t("crm.customer.individualPrices.quantity")}</TableHead>
-                        <TableHead className="text-right">{t("b2b.accounts.detail.listPriceNet")}</TableHead>
+                        <TableHead className="text-right">{t("b2b.accounts.detail.purchasePriceNet")}</TableHead>
                         <TableHead className="text-right">{t("crm.customer.individualPrices.priceNet")}</TableHead>
                         <TableHead className="text-right">{t("b2b.accounts.detail.discountPercent")}</TableHead>
                         <TableHead>{t("crm.customer.individualPrices.validity")}</TableHead>
@@ -465,7 +466,7 @@ export default function B2BCompanyDetailModal({
                             {price.from != null ? `${price.from}${price.to != null ? `–${price.to}` : "+"}` : "—"}
                           </TableCell>
                           <TableCell className="text-right">
-                            {price.pseudoPriceNet != null ? currencyFormatter.format(price.pseudoPriceNet) : "—"}
+                            {price.purchasePriceNet != null ? currencyFormatter.format(price.purchasePriceNet) : "—"}
                           </TableCell>
                           <TableCell className="text-right font-medium">
                             {price.priceNet != null ? currencyFormatter.format(price.priceNet) : "—"}
