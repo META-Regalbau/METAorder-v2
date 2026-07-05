@@ -516,8 +516,8 @@
     },
     "import": {
       "title": "Herstellpreise importieren",
-      "description": "Excel „ÜbersichtVerkaufsartikel“ (Spalten Verkaufsartikel und VTLS Herstell Kosten / Herstellkosten) in META Order importieren — Shopware wird nicht verändert.",
-      "uploadHint": "Erwartet .xlsx mit Verkaufsartikel, VTLS Herstell Kosten und/oder Herstellkosten.",
+      "description": "Excel „ÜbersichtVerkaufsartikel“ (Spalte Verkaufsartikel) in META Order importieren. Abgleich über Shopware-Customfield wdu_ifs_productnumber — Shopware wird nicht verändert.",
+      "uploadHint": "Erwartet .xlsx mit Verkaufsartikel (= wdu_ifs_productnumber), VTLS Herstell Kosten und/oder Herstellkosten.",
       "dropzoneSub": ".xlsx-Datei (max. 15 MB)",
       "dryRun": "Vorschau (Dry-Run)",
       "apply": "In META Order speichern",

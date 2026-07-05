@@ -137,7 +137,7 @@ export async function runHerstellpreisImport(
           herstellkostenNet: row.herstellkostenNet,
           source: row.source,
           status: "not_found",
-          message: "Artikel in Shopware nicht gefunden",
+          message: "Kein Shopware-Artikel mit wdu_ifs_productnumber gefunden",
         });
         continue;
       }

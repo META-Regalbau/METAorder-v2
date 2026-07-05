@@ -73,9 +73,19 @@ async function main(): Promise<void> {
     {
       storage,
       tenantId,
-      resolveCatalogProductNumbers: async (productNumbers) => {
-        const products = await client.searchProductsByProductNumbers(productNumbers);
-        return new Set(products.map((p) => p.productNumber));
+      resolveCatalogProductNumbers: async (ifsNumbers) => {
+        const products = await client.searchProductsByIfsProductNumbers(ifsNumbers);
+        const found = new Set<string>();
+        const ifsByNormalized = new Map(
+          products.map((p) => [String(p.ifsProductNumber).trim(), p.ifsProductNumber]),
+        );
+        for (const input of ifsNumbers) {
+          const trimmed = String(input).trim();
+          if (ifsByNormalized.has(trimmed)) {
+            found.add(input);
+          }
+        }
+        return found;
       },
     },
     rows,

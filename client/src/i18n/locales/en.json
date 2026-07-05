@@ -515,8 +515,8 @@
     },
     "import": {
       "title": "Import manufacturing prices",
-      "description": "Import Excel „ÜbersichtVerkaufsartikel“ (columns Verkaufsartikel and VTLS Herstell Kosten / Herstellkosten) into META Order — Shopware is not modified.",
-      "uploadHint": "Expects .xlsx with Verkaufsartikel, VTLS Herstell Kosten and/or Herstellkosten.",
+      "description": "Import Excel „ÜbersichtVerkaufsartikel“ (column Verkaufsartikel) into META Order. Matched via Shopware custom field wdu_ifs_productnumber — Shopware is not modified.",
+      "uploadHint": "Expects .xlsx with Verkaufsartikel (= wdu_ifs_productnumber), VTLS Herstell Kosten and/or Herstellkosten.",
       "dropzoneSub": ".xlsx file (max. 15 MB)",
       "dryRun": "Preview (dry run)",
       "apply": "Save to META Order",

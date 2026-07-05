@@ -4854,6 +4854,67 @@ export class ShopwareClient {
     }
   }
 
+  /** Sucht Produkte anhand wdu_ifs_productnumber (Custom Field, Excel „Verkaufsartikel“). */
+  async searchProductsByIfsProductNumbers(ifsProductNumbers: string[]): Promise<
+    Array<{
+      id: string;
+      productNumber: string;
+      ifsProductNumber: string;
+    }>
+  > {
+    const uniqueNumbers = [...new Set(ifsProductNumbers.map((n) => String(n).trim()).filter(Boolean))];
+    if (uniqueNumbers.length === 0) return [];
+
+    const result: Array<{ id: string; productNumber: string; ifsProductNumber: string }> = [];
+    const CHUNK = 50;
+
+    for (let i = 0; i < uniqueNumbers.length; i += CHUNK) {
+      const chunk = uniqueNumbers.slice(i, i + CHUNK);
+      try {
+        const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/product`, {
+          method: "POST",
+          body: JSON.stringify({
+            limit: Math.max(chunk.length, 25),
+            filter: {
+              type: "multi",
+              operator: "or",
+              queries: chunk.map((ifsNumber) => ({
+                type: "equals",
+                field: "customFields.wdu_ifs_productnumber",
+                value: ifsNumber,
+              })),
+            },
+            includes: {
+              product: ["id", "productNumber", "customFields"],
+            },
+          }),
+        });
+        if (!response.ok) continue;
+        const data = await response.json();
+        for (const sp of data.data || []) {
+          const attrs = sp.attributes ?? sp;
+          const customFields = (sp.customFields ?? attrs?.customFields) as Record<string, unknown> | undefined;
+          let ifsValue: string | undefined;
+          const direct = customFields?.["wdu_ifs_productnumber"];
+          if (typeof direct === "string" && direct.trim()) ifsValue = direct.trim();
+          else if (typeof direct === "number" && Number.isFinite(direct)) ifsValue = String(direct);
+
+          if (!ifsValue) continue;
+
+          result.push({
+            id: String(sp.id),
+            productNumber: String(sp.productNumber ?? attrs?.productNumber ?? ""),
+            ifsProductNumber: ifsValue,
+          });
+        }
+      } catch (error: any) {
+        console.warn("[Shopware] searchProductsByIfsProductNumbers:", error?.message || error);
+      }
+    }
+
+    return result;
+  }
+
   /** Sucht Produkte anhand der Artikelnummer (Batch). */
   async searchProductsByProductNumbers(productNumbers: string[]): Promise<
     Array<{
