@@ -248,6 +248,7 @@
     "obxSearch": "OBX-Abgleich",
     "productOverview": "Produkt-Übersicht",
     "priceCheck": "Preisprüfung",
+    "profitabilityAnalysis": "Rentabilitäts-Analyse",
     "bundles": "Bundles",
     "tickets": "Tickets",
     "export": "Export & Berichte",
@@ -530,6 +531,80 @@
       "unchanged": "{{count}} unverändert",
       "notFound": "{{count}} nicht in Shopware",
       "errors": "{{count}} Fehler"
+    }
+  },
+  "profitabilityAnalysis": {
+    "title": "Rentabilitäts-Analyse",
+    "description": "Überblick über Katalogpreise vs. importierte Herstellkosten — wie rentabel META auf Artikelebene steht.",
+    "refresh": "Aktualisieren",
+    "exportCsv": "CSV exportieren",
+    "loading": "Katalog wird analysiert…",
+    "errorTitle": "Analyse konnte nicht geladen werden",
+    "activeOnly": "Nur aktive Artikel",
+    "openPriceCheck": "Zur Preisprüfung",
+    "executiveSummary": "Management-Überblick",
+    "executiveSummaryHint": "Basis: Shopware-Katalogpreis netto vs. importierte Herstellkosten. CRM-Rentabilität ab {{crmThreshold}} %, Preisprüfung ab {{priceCheckThreshold}} %.",
+    "noData": "Keine Artikel mit Herstellpreis",
+    "worstTitle": "Kritische Artikel (niedrigste Marge)",
+    "worstHint": "Artikel mit der schwächsten Deckung — Handlungsbedarf bei Preis oder Kosten.",
+    "bestTitle": "Stärkste Artikel (höchste Marge)",
+    "bestHint": "Artikel mit dem besten Deckungsbeitrag auf Herstellkosten.",
+    "interpretationTitle": "Einordnung",
+    "interpretation": {
+      "catalog": "Diese Analyse nutzt den Shopware-Katalogpreis (Listenpreis netto), nicht kundenindividuelle Preise oder B2B-Rabatte. Für Kundenpreise siehe CRM → Kundenindividuelle Preise.",
+      "crmVsPriceCheck": "CRM-Rentabilität ({{threshold}} %) bildet Gemeinkosten ab. Die 7‑%-Schwelle in der Preisprüfung ist eine engere Kalkulationskontrolle.",
+      "gaps": "Artikel ohne importierten Herstellpreis erscheinen als „Kein Herstellpreis“ — die Datenbasis für die Analyse ist dort unvollständig."
+    },
+    "kpi": {
+      "crmGreenShare": "Anteil CRM-rentabel",
+      "crmGreenShareHint": "{{green}} von {{withData}} Artikeln mit HK-Daten",
+      "belowCrm": "Unter CRM-Schwelle",
+      "belowCrmHint": "Marge < {{threshold}} % (inkl. Verlust)",
+      "loss": "Verlustartikel",
+      "lossHint": "VK netto unter Herstellkosten",
+      "avgMargin": "Ø Marge",
+      "medianHint": "Median: {{median}} %",
+      "noMarginData": "Keine HK-Daten vorhanden"
+    },
+    "stats": {
+      "total": "Artikel",
+      "coverage": "HK-Abdeckung",
+      "crmGreen": "CRM grün (≥ {{threshold}} %)",
+      "crmRed": "CRM rot (< {{threshold}} %)",
+      "priceCheckGreen": "Preisprüfung grün (≥ 7 %)",
+      "noHerstellpreis": "Ohne Herstellpreis"
+    },
+    "charts": {
+      "crmDistribution": "CRM-Rentabilität (Ampel)",
+      "crmDistributionHint": "Verteilung nach Mindestmarge {{threshold}} % auf Herstellkosten",
+      "marginBuckets": "Margen-Verteilung",
+      "marginBucketsHint": "Wie viele Artikel in welcher Marge-Klasse liegen",
+      "products": "Artikel"
+    },
+    "buckets": {
+      "loss": "< 0 %",
+      "0_7": "0–7 %",
+      "7_20": "7–20 %",
+      "20_40": "20–40 %",
+      "40_plus": "≥ 40 %"
+    },
+    "verdict": {
+      "green": "Grün",
+      "red": "Rot",
+      "none": "Kein Herstellpreis"
+    },
+    "table": {
+      "productNumber": "Artikelnummer",
+      "name": "Name",
+      "active": "Aktiv",
+      "activeYes": "Ja",
+      "inactive": "Nein",
+      "priceNet": "VK netto",
+      "herstellpreis": "Herstellpreis",
+      "marginAbs": "Deckung €",
+      "marginPct": "Marge %",
+      "crmVerdict": "CRM",
+      "priceCheckVerdict": "Preisprüfung"
     }
   },
   "bundles": {

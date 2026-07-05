@@ -6504,6 +6504,7 @@ Antworte im JSON-Format:
         .map((p) => getHerstellpreisLookupKey(p.customFields as Record<string, unknown> | undefined, p.productNumber))
         .filter((key): key is string => Boolean(key));
       const herstellMap = await storage.getProductHerstellpreiseByProductNumbers(lookupKeys, tenantId);
+      const profitabilitySettings = await loadCrmProfitabilitySettings(storage, tenantId);
 
       const rows = overview.map((p) => {
         const lookupKey = getHerstellpreisLookupKey(
@@ -6527,6 +6528,7 @@ Antworte im JSON-Format:
         products: rows,
         salesChannels: visibleChannels.map((c) => ({ id: c.id, name: c.name })),
         total: rows.length,
+        profitabilityMinMarginPercent: profitabilitySettings.minMarginPercent,
       });
     } catch (error: any) {
       const msg = error?.message || "Produkt-Übersicht fehlgeschlagen";

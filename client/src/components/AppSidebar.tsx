@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, Download, BarChart3, Settings, Users, Shield, Sparkles, AlertTriangle, Ticket, GitBranch, Truck, FileText, Zap, FileUp, Receipt, Briefcase, Boxes, FileSearch, Scale, Building2, Wallet, ListOrdered, Layers } from "lucide-react";
+import { LayoutDashboard, Package, Download, BarChart3, Settings, Users, Shield, Sparkles, AlertTriangle, Ticket, GitBranch, Truck, FileText, Zap, FileUp, Receipt, Briefcase, Boxes, FileSearch, Scale, Building2, Wallet, ListOrdered, Layers, FilePlus } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import type { Role } from "@shared/schema";
@@ -67,6 +67,12 @@ export default function AppSidebar({ userRole, permissions }: AppSidebarProps) {
           permission: "viewOffers" as keyof Role['permissions'],
         },
         {
+          titleKey: "nav.offerBuilder",
+          url: "/offer-builder",
+          icon: FilePlus,
+          permission: "manageOffers" as keyof Role['permissions'],
+        },
+        {
           titleKey: "nav.orderDrafts",
           url: "/order-drafts",
           icon: FileUp,
@@ -98,6 +104,12 @@ export default function AppSidebar({ userRole, permissions }: AppSidebarProps) {
           titleKey: "nav.priceCheck",
           url: "/price-check",
           icon: Scale,
+          permission: "viewOrders" as keyof Role['permissions'],
+        },
+        {
+          titleKey: "nav.profitabilityAnalysis",
+          url: "/profitability-analysis",
+          icon: BarChart3,
           permission: "viewOrders" as keyof Role['permissions'],
         },
         {

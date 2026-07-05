@@ -159,6 +159,7 @@
     "obxSearch": "Cotejo OBX",
     "productOverview": "Resumen de productos",
     "priceCheck": "Verificación de precios",
+    "profitabilityAnalysis": "Análisis de rentabilidad",
     "bundles": "Bundles",
     "tickets": "Tickets",
     "export": "Exportar e Informes",
@@ -441,6 +442,80 @@
       "unchanged": "{{count}} sin cambios",
       "notFound": "{{count}} no encontrados en Shopware",
       "errors": "{{count}} errores"
+    }
+  },
+  "profitabilityAnalysis": {
+    "title": "Análisis de rentabilidad",
+    "description": "Resumen de precios de catálogo vs. costes de fabricación importados — cómo está META a nivel de artículo.",
+    "refresh": "Actualizar",
+    "exportCsv": "Exportar CSV",
+    "loading": "Analizando catálogo…",
+    "errorTitle": "No se pudo cargar el análisis",
+    "activeOnly": "Solo artículos activos",
+    "openPriceCheck": "Ir a verificación de precios",
+    "executiveSummary": "Resumen ejecutivo",
+    "executiveSummaryHint": "Base: precio neto de catálogo Shopware vs. costes de fabricación importados. Rentabilidad CRM desde {{crmThreshold}} %, verificación desde {{priceCheckThreshold}} %.",
+    "noData": "Sin artículos con coste de fabricación",
+    "worstTitle": "Artículos críticos (menor margen)",
+    "worstHint": "Peor margen de contribución — acción necesaria en precio o coste.",
+    "bestTitle": "Artículos más fuertes (mayor margen)",
+    "bestHint": "Mejor margen de contribución sobre costes de fabricación.",
+    "interpretationTitle": "Interpretación",
+    "interpretation": {
+      "catalog": "Este análisis usa el precio de catálogo Shopware (neto), no precios individuales ni descuentos B2B. Para precios de clientes ver CRM → Precios individuales.",
+      "crmVsPriceCheck": "Rentabilidad CRM ({{threshold}} %) incluye gastos generales. El umbral del 7 % en verificación de precios es un control de cálculo más estricto.",
+      "gaps": "Artículos sin coste de fabricación importado aparecen como „Sin coste de fabricación“ — datos incompletos."
+    },
+    "kpi": {
+      "crmGreenShare": "Cuota CRM rentable",
+      "crmGreenShareHint": "{{green}} de {{withData}} artículos con datos de coste",
+      "belowCrm": "Bajo umbral CRM",
+      "belowCrmHint": "Margen < {{threshold}} % (incl. pérdida)",
+      "loss": "Artículos en pérdida",
+      "lossHint": "PV neto por debajo del coste de fabricación",
+      "avgMargin": "Margen medio",
+      "medianHint": "Mediana: {{median}} %",
+      "noMarginData": "Sin datos de coste de fabricación"
+    },
+    "stats": {
+      "total": "Artículos",
+      "coverage": "Cobertura costes fab.",
+      "crmGreen": "CRM verde (≥ {{threshold}} %)",
+      "crmRed": "CRM rojo (< {{threshold}} %)",
+      "priceCheckGreen": "Verificación verde (≥ 7 %)",
+      "noHerstellpreis": "Sin coste de fabricación"
+    },
+    "charts": {
+      "crmDistribution": "Rentabilidad CRM (semáforo)",
+      "crmDistributionHint": "Distribución según margen mínimo {{threshold}} % sobre costes de fabricación",
+      "marginBuckets": "Distribución de márgenes",
+      "marginBucketsHint": "Cuántos artículos hay en cada banda de margen",
+      "products": "Artículos"
+    },
+    "buckets": {
+      "loss": "< 0 %",
+      "0_7": "0–7 %",
+      "7_20": "7–20 %",
+      "20_40": "20–40 %",
+      "40_plus": "≥ 40 %"
+    },
+    "verdict": {
+      "green": "Verde",
+      "red": "Rojo",
+      "none": "Sin coste de fabricación"
+    },
+    "table": {
+      "productNumber": "Número de artículo",
+      "name": "Nombre",
+      "active": "Activo",
+      "activeYes": "Sí",
+      "inactive": "No",
+      "priceNet": "PV neto",
+      "herstellpreis": "Coste fabricación",
+      "marginAbs": "Contribución €",
+      "marginPct": "Margen %",
+      "crmVerdict": "CRM",
+      "priceCheckVerdict": "Verificación"
     }
   },
   "bundles": {

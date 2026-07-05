@@ -247,6 +247,7 @@
     "obxSearch": "OBX Matching",
     "productOverview": "Product overview",
     "priceCheck": "Price check",
+    "profitabilityAnalysis": "Profitability analysis",
     "bundles": "Bundles",
     "tickets": "Tickets",
     "export": "Export & Reports",
@@ -529,6 +530,80 @@
       "unchanged": "{{count}} unchanged",
       "notFound": "{{count}} not found in Shopware",
       "errors": "{{count}} errors"
+    }
+  },
+  "profitabilityAnalysis": {
+    "title": "Profitability analysis",
+    "description": "Overview of catalog prices vs. imported manufacturing costs — how profitable META is at product level.",
+    "refresh": "Refresh",
+    "exportCsv": "Export CSV",
+    "loading": "Analyzing catalog…",
+    "errorTitle": "Analysis could not be loaded",
+    "activeOnly": "Active products only",
+    "openPriceCheck": "Open price check",
+    "executiveSummary": "Executive summary",
+    "executiveSummaryHint": "Based on Shopware catalog net price vs. imported manufacturing costs. CRM profitability from {{crmThreshold}}%, price check from {{priceCheckThreshold}}%.",
+    "noData": "No products with manufacturing cost",
+    "worstTitle": "Critical products (lowest margin)",
+    "worstHint": "Weakest contribution margin — action needed on price or cost.",
+    "bestTitle": "Strongest products (highest margin)",
+    "bestHint": "Best contribution margin on manufacturing costs.",
+    "interpretationTitle": "How to read this",
+    "interpretation": {
+      "catalog": "This analysis uses the Shopware catalog price (list net), not customer-specific prices or B2B discounts. For customer prices see CRM → Individual prices.",
+      "crmVsPriceCheck": "CRM profitability ({{threshold}}%) includes overhead target. The 7% price check threshold is a tighter calculation control.",
+      "gaps": "Products without imported manufacturing cost show as “No manufacturing cost” — data is incomplete there."
+    },
+    "kpi": {
+      "crmGreenShare": "CRM profitable share",
+      "crmGreenShareHint": "{{green}} of {{withData}} products with mfg. cost data",
+      "belowCrm": "Below CRM threshold",
+      "belowCrmHint": "Margin < {{threshold}}% (incl. loss)",
+      "loss": "Loss products",
+      "lossHint": "Net SP below manufacturing cost",
+      "avgMargin": "Avg. margin",
+      "medianHint": "Median: {{median}}%",
+      "noMarginData": "No manufacturing cost data"
+    },
+    "stats": {
+      "total": "Products",
+      "coverage": "Mfg. cost coverage",
+      "crmGreen": "CRM green (≥ {{threshold}}%)",
+      "crmRed": "CRM red (< {{threshold}}%)",
+      "priceCheckGreen": "Price check green (≥ 7%)",
+      "noHerstellpreis": "No manufacturing cost"
+    },
+    "charts": {
+      "crmDistribution": "CRM profitability (traffic light)",
+      "crmDistributionHint": "Distribution by minimum margin {{threshold}}% on manufacturing costs",
+      "marginBuckets": "Margin distribution",
+      "marginBucketsHint": "How many products fall into each margin band",
+      "products": "Products"
+    },
+    "buckets": {
+      "loss": "< 0%",
+      "0_7": "0–7%",
+      "7_20": "7–20%",
+      "20_40": "20–40%",
+      "40_plus": "≥ 40%"
+    },
+    "verdict": {
+      "green": "Green",
+      "red": "Red",
+      "none": "No manufacturing cost"
+    },
+    "table": {
+      "productNumber": "Product number",
+      "name": "Name",
+      "active": "Active",
+      "activeYes": "Yes",
+      "inactive": "No",
+      "priceNet": "Net SP",
+      "herstellpreis": "Manufacturing cost",
+      "marginAbs": "Contribution €",
+      "marginPct": "Margin %",
+      "crmVerdict": "CRM",
+      "priceCheckVerdict": "Price check"
     }
   },
   "bundles": {
