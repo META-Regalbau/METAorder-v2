@@ -471,7 +471,7 @@
   },
   "priceCheck": {
     "title": "Price check",
-    "description": "Compare net sales price and net purchase price with a traffic-light rating.",
+    "description": "Compare net sales price (Shopware) and imported manufacturing costs (META Order) with a traffic-light rating.",
     "refresh": "Refresh",
     "exportCsv": "Export CSV",
     "loading": "Loading products…",
@@ -481,10 +481,10 @@
     "thresholdHint": "Traffic light: green from {{threshold}}% markup, red below.",
     "stats": {
       "total": "Total products",
-      "withEk": "With purchase price",
+      "withEk": "With manufacturing price",
       "green": "Green (sufficient)",
       "red": "Red (too low)",
-      "none": "Without purchase price"
+      "none": "No manufacturing price"
     },
     "filters": {
       "searchPlaceholder": "Article no., name, manufacturer no.…",
@@ -496,13 +496,13 @@
     "verdict": {
       "green": "Green",
       "red": "Red",
-      "none": "No purchase price"
+      "none": "No mfg. price"
     },
     "table": {
       "productNumber": "Article number",
       "name": "Name",
       "priceNet": "Net price",
-      "purchaseNet": "Net purchase",
+      "purchaseNet": "Mfg. price net",
       "diffAbs": "Difference",
       "diffPct": "Difference %",
       "verdict": "Rating"
@@ -512,6 +512,23 @@
       "pageInfo": "Page {{page}} of {{pages}}",
       "prev": "Previous",
       "next": "Next"
+    },
+    "import": {
+      "title": "Import manufacturing prices",
+      "description": "Import Excel „ÜbersichtVerkaufsartikel“ (columns Verkaufsartikel and VTLS Herstell Kosten / Herstellkosten) into META Order — Shopware is not modified.",
+      "uploadHint": "Expects .xlsx with Verkaufsartikel, VTLS Herstell Kosten and/or Herstellkosten.",
+      "dropzoneSub": ".xlsx file (max. 15 MB)",
+      "dryRun": "Preview (dry run)",
+      "apply": "Save to META Order",
+      "applyConfirm": "Really import manufacturing prices into META Order?",
+      "running": "Import running…",
+      "success": "Import completed",
+      "matched": "{{count}} products matched",
+      "updated": "{{count}} would be updated",
+      "updatedApplied": "{{count}} updated",
+      "unchanged": "{{count}} unchanged",
+      "notFound": "{{count}} not found in Shopware",
+      "errors": "{{count}} errors"
     }
   },
   "bundles": {

@@ -472,7 +472,7 @@
   },
   "priceCheck": {
     "title": "Preisprüfung",
-    "description": "Abgleich von Netto-Verkaufspreis und Netto-Einkaufspreis mit Ampelbewertung.",
+    "description": "Abgleich von Netto-Verkaufspreis (Shopware) und importierten Herstellkosten (META Order) mit Ampelbewertung.",
     "refresh": "Aktualisieren",
     "exportCsv": "CSV exportieren",
     "loading": "Produkte werden geladen…",
@@ -482,7 +482,7 @@
     "thresholdHint": "Ampel: ab {{threshold}}% Aufschlag grün, darunter rot.",
     "stats": {
       "total": "Produkte gesamt",
-      "withEk": "Mit Einkaufspreis",
+      "withEk": "Mit Herstellpreis",
       "green": "Grün (ausreichend)",
       "red": "Rot (zu niedrig)",
       "none": "Ohne Einkaufspreis"
@@ -497,13 +497,13 @@
     "verdict": {
       "green": "Grün",
       "red": "Rot",
-      "none": "Kein EK"
+      "none": "Kein Herstellpreis"
     },
     "table": {
       "productNumber": "Artikelnummer",
       "name": "Name",
       "priceNet": "Preis netto",
-      "purchaseNet": "EK netto",
+      "purchaseNet": "Herstellpreis netto",
       "diffAbs": "Differenz",
       "diffPct": "Differenz %",
       "verdict": "Bewertung"
@@ -513,6 +513,23 @@
       "pageInfo": "Seite {{page}} von {{pages}}",
       "prev": "Zurück",
       "next": "Weiter"
+    },
+    "import": {
+      "title": "Herstellpreise importieren",
+      "description": "Excel „ÜbersichtVerkaufsartikel“ (Spalten Verkaufsartikel und VTLS Herstell Kosten / Herstellkosten) in META Order importieren — Shopware wird nicht verändert.",
+      "uploadHint": "Erwartet .xlsx mit Verkaufsartikel, VTLS Herstell Kosten und/oder Herstellkosten.",
+      "dropzoneSub": ".xlsx-Datei (max. 15 MB)",
+      "dryRun": "Vorschau (Dry-Run)",
+      "apply": "In META Order speichern",
+      "applyConfirm": "Herstellpreise wirklich in META Order importieren?",
+      "running": "Import läuft…",
+      "success": "Import abgeschlossen",
+      "matched": "{{count}} Artikel gefunden",
+      "updated": "{{count}} würden aktualisiert",
+      "updatedApplied": "{{count}} aktualisiert",
+      "unchanged": "{{count}} unverändert",
+      "notFound": "{{count}} nicht in Shopware",
+      "errors": "{{count}} Fehler"
     }
   },
   "bundles": {

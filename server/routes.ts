@@ -17,12 +17,17 @@ import {
   type OrdersListQuery,
 } from "./ordersList";
 import { parseFakturaRowsFromBuffer, runFakturaImport } from "./shopFakturenImport";
+import { parseHerstellpreisRowsFromBuffer, runHerstellpreisImport } from "./herstellpreisImport";
 import { sendOrderInvoice } from "./invoiceSending";
 import { RuleEngine, type SuggestCrossSellingOptions } from "./ruleEngine";
 import {
   loadCrossSellShelvingPatternConfig,
   findShelvingSupplements,
   mergeStagingCandidatesWithQuotas,
+  filterCandidatesBySourceDepth,
+  sourceIsShelf,
+  normalizeFootprint,
+  type CrossSellShelvingPatternConfig,
 } from "./crossSellShelvingHeuristics";
 import { shopwareSettingsSchema, monduSettingsSchema, proformaNumberRangeSchema, dunningSettingsSchema, type MonduSettings, insertCrossSellingRuleSchema, type Product, insertUserSchema, type Role, insertTicketSchema, insertTicketCommentSchema, insertTicketAssignmentRuleSchema, type Ticket, insertNotificationSchema, insertTicketAttachmentSchema, insertTicketTemplateSchema, insertProcessUpdateSchema, type Order, insertOrderDraftSchema, insertOfferDraftSchema, insertAutomationRuleSchema, insertShippingCarrierSchema, type CrossSellingRule, type RuleCondition, type RuleTargetCriteria, type WebhookEventType, type TicketCategory, insertCustomerInteractionSchema, insertOrderAssignmentSchema, insertDiscountRequestSchema, createInstallmentPlanBodySchema, settlementInvoicePdfBodySchema, additionalInvoiceBodySchema, type InstallmentPlan, type InstallmentInvoice, type CrossSellCooccurrence, type CrossSellEventPairStats, SHOPWARE_CROSS_SELLING_STOREFRONT_NAME, CROSS_SELL_CATEGORIES } from "@shared/schema";
 import {
@@ -6465,8 +6470,14 @@ Antworte im JSON-Format:
       }
       const overview = Array.from(overviewById.values());
 
+      const herstellMap = await storage.getProductHerstellpreiseByProductNumbers(
+        overview.map((p) => p.productNumber),
+        tenantId,
+      );
+
       const rows = overview.map((p) => ({
         ...p,
+        herstellpreisNet: herstellMap.get(p.productNumber) ?? null,
         salesChannels: p.salesChannelIds.map((id) => ({
           id,
           name: channelNameById.get(id) || id,
@@ -6487,6 +6498,62 @@ Antworte im JSON-Format:
       res.status(500).json({ error: msg });
     }
   });
+
+  const herstellpreisUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 15 * 1024 * 1024, files: 1 },
+  });
+
+  // Herstellkosten aus ÜbersichtVerkaufsartikel.xlsx → META Order (nicht Shopware)
+  app.post(
+    "/api/products/herstellpreise/import",
+    requireAuth,
+    requireCsrf,
+    requireManageProducts,
+    uploadRateLimiter,
+    herstellpreisUpload.single("file"),
+    async (req, res) => {
+      try {
+        const file = (req as any).file as Express.Multer.File | undefined;
+        if (!file?.buffer) {
+          return res.status(400).json({ error: "Keine Excel-Datei hochgeladen" });
+        }
+
+        const tenantId = (req as any).tenantId as string | null | undefined;
+        const settings = await storage.getShopwareSettings(tenantId);
+        if (!settings) {
+          return res.status(400).json({ error: "Shopware settings not configured" });
+        }
+
+        const apply = req.body?.apply === true || req.body?.apply === "true" || req.body?.apply === "1";
+
+        let rows;
+        try {
+          rows = parseHerstellpreisRowsFromBuffer(file.buffer);
+        } catch (parseError: any) {
+          return res.status(400).json({ error: parseError?.message || "Excel konnte nicht gelesen werden" });
+        }
+
+        const client = new ShopwareClient(settings);
+        const result = await runHerstellpreisImport(
+          {
+            storage,
+            tenantId,
+            resolveCatalogProductNumbers: async (productNumbers) => {
+              const products = await client.searchProductsByProductNumbers(productNumbers);
+              return new Set(products.map((p) => p.productNumber));
+            },
+          },
+          rows,
+          { apply },
+        );
+        res.json(result);
+      } catch (error: any) {
+        console.error("[/api/products/herstellpreise/import] Error:", error?.message || error);
+        res.status(500).json({ error: error.message || "Herstellpreis-Import fehlgeschlagen" });
+      }
+    },
+  );
 
   // OBX-Suche: Artikel aus hochgeladenen OBX-Dateien gegen den Katalog abgleichen
   // und die NICHT gefundenen Artikel als kommagetrennte Liste zurückgeben.

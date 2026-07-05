@@ -4822,6 +4822,111 @@ export class ShopwareClient {
     }
   }
 
+  /** Setzt `purchasePrices` (Einkaufspreis / Listenpreis netto) per Sync-Upsert. */
+  async bulkPatchProductPurchasePrices(
+    payload: Array<{ id: string; purchasePrices: ShopwarePriceEntry[] }>,
+  ): Promise<void> {
+    if (payload.length === 0) {
+      return;
+    }
+
+    const syncPayload = payload.map((row) => ({
+      id: toShopwareUuid(row.id),
+      purchasePrices: row.purchasePrices,
+    }));
+
+    const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/_action/sync`, {
+      method: "POST",
+      body: JSON.stringify({
+        "write-product-purchase-prices": {
+          entity: "product",
+          action: "upsert",
+          payload: syncPayload,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Failed to bulk patch product purchase prices: ${response.status} ${response.statusText} - ${errorText}`
+      );
+    }
+  }
+
+  /** Sucht Produkte anhand der Artikelnummer (Batch). */
+  async searchProductsByProductNumbers(productNumbers: string[]): Promise<
+    Array<{
+      id: string;
+      productNumber: string;
+      taxRate: number;
+      purchasePrices: ShopwarePriceEntry[] | null;
+    }>
+  > {
+    const uniqueNumbers = [...new Set(productNumbers.map((n) => String(n).trim()).filter(Boolean))];
+    if (uniqueNumbers.length === 0) return [];
+
+    const result: Array<{
+      id: string;
+      productNumber: string;
+      taxRate: number;
+      purchasePrices: ShopwarePriceEntry[] | null;
+    }> = [];
+
+    const CHUNK = 50;
+    for (let i = 0; i < uniqueNumbers.length; i += CHUNK) {
+      const chunk = uniqueNumbers.slice(i, i + CHUNK);
+      try {
+        const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/product`, {
+          method: "POST",
+          body: JSON.stringify({
+            limit: chunk.length,
+            filter: {
+              type: "multi",
+              operator: "or",
+              queries: chunk.map((productNumber) => ({
+                type: "equals",
+                field: "productNumber",
+                value: productNumber,
+              })),
+            },
+            includes: {
+              product: ["id", "productNumber", "purchasePrices"],
+              tax: ["taxRate"],
+            },
+            associations: { tax: {} },
+          }),
+        });
+        if (!response.ok) continue;
+        const data = await response.json();
+        for (const sp of data.data || []) {
+          const attrs = sp.attributes ?? sp;
+          let taxRate = 19;
+          if (sp.tax?.taxRate != null) taxRate = sp.tax.taxRate;
+          else if (attrs?.tax?.taxRate != null) taxRate = attrs.tax.taxRate;
+
+          const purchaseRaw = sp.purchasePrices ?? attrs?.purchasePrices;
+          const purchasePrices = Array.isArray(purchaseRaw)
+            ? purchaseRaw
+            : purchaseRaw && typeof purchaseRaw === "object"
+              ? Object.values(purchaseRaw)
+              : null;
+
+          result.push({
+            id: String(sp.id),
+            productNumber: String(sp.productNumber ?? attrs?.productNumber ?? ""),
+            taxRate,
+            purchasePrices: purchasePrices as ShopwarePriceEntry[] | null,
+          });
+        }
+      } catch (error: any) {
+        console.warn("[Shopware] searchProductsByProductNumbers:", error?.message || error);
+      }
+    }
+
+    return result;
+  }
+
   /** GLB-Datei in Shopware Medien hochladen und dem Produkt zuordnen */
   async uploadProductGlbMedia(productId: string, glbBuffer: Buffer, filename: string): Promise<{ mediaId: string }> {
     const mediaId = toShopwareUuid(randomUUID());

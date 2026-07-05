@@ -1666,6 +1666,35 @@ export type BundleItem = typeof bundleItems.$inferSelect;
 export type BundleWithItems = Bundle & { items: BundleItem[] };
 export type BundleItemInput = Omit<InsertBundleItem, "bundleId" | "tenantId">;
 
+/** Herstellkosten aus SAP/VTLS-Excel — nur in META Order, nicht in Shopware. */
+export const productHerstellpreise = pgTable(
+  "product_herstellpreise",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id").references(() => tenants.id),
+    productNumber: text("product_number").notNull(),
+    herstellkostenNet: real("herstellkosten_net").notNull(),
+    source: text("source").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    uniqueTenantProduct: uniqueIndex("product_herstellpreise_tenant_product_unique").on(
+      table.tenantId,
+      table.productNumber,
+    ),
+  }),
+);
+
+export const insertProductHerstellpreisSchema = createInsertSchema(productHerstellpreise).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertProductHerstellpreis = z.infer<typeof insertProductHerstellpreisSchema>;
+export type ProductHerstellpreis = typeof productHerstellpreise.$inferSelect;
+
 // Order Drafts table - for AI-powered order creation from PDFs/emails
 export const orderDrafts = pgTable("order_drafts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

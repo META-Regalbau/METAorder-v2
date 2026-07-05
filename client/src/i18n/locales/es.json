@@ -383,7 +383,7 @@
   },
   "priceCheck": {
     "title": "Verificación de precios",
-    "description": "Comparación entre precio de venta neto y precio de compra neto con semáforo.",
+    "description": "Comparación entre precio de venta neto (Shopware) y costes de fabricación importados (META Order) con semáforo.",
     "refresh": "Actualizar",
     "exportCsv": "Exportar CSV",
     "loading": "Cargando productos…",
@@ -393,10 +393,10 @@
     "thresholdHint": "Semáforo: verde a partir de {{threshold}}% de margen, rojo por debajo.",
     "stats": {
       "total": "Productos en total",
-      "withEk": "Con precio de compra",
+      "withEk": "Con precio de fabricación",
       "green": "Verde (suficiente)",
       "red": "Rojo (demasiado bajo)",
-      "none": "Sin precio de compra"
+      "none": "Sin precio de fabricación"
     },
     "filters": {
       "searchPlaceholder": "N.º art., nombre, n.º fabricante…",
@@ -408,13 +408,13 @@
     "verdict": {
       "green": "Verde",
       "red": "Rojo",
-      "none": "Sin precio de compra"
+      "none": "Sin precio de fabricación"
     },
     "table": {
       "productNumber": "Número de artículo",
       "name": "Nombre",
       "priceNet": "Precio neto",
-      "purchaseNet": "Compra neta",
+      "purchaseNet": "Precio fabricación neto",
       "diffAbs": "Diferencia",
       "diffPct": "Diferencia %",
       "verdict": "Valoración"
@@ -424,6 +424,23 @@
       "pageInfo": "Página {{page}} de {{pages}}",
       "prev": "Anterior",
       "next": "Siguiente"
+    },
+    "import": {
+      "title": "Importar precios de fabricación",
+      "description": "Importar Excel „ÜbersichtVerkaufsartikel“ (columnas Verkaufsartikel y VTLS Herstell Kosten / Herstellkosten) en META Order — Shopware no se modifica.",
+      "uploadHint": "Se espera .xlsx con Verkaufsartikel, VTLS Herstell Kosten y/o Herstellkosten.",
+      "dropzoneSub": "Archivo .xlsx (máx. 15 MB)",
+      "dryRun": "Vista previa (simulación)",
+      "apply": "Guardar en META Order",
+      "applyConfirm": "¿Importar realmente los precios de fabricación en META Order?",
+      "running": "Importación en curso…",
+      "success": "Importación completada",
+      "matched": "{{count}} artículos encontrados",
+      "updated": "{{count}} se actualizarían",
+      "updatedApplied": "{{count}} actualizados",
+      "unchanged": "{{count}} sin cambios",
+      "notFound": "{{count}} no encontrados en Shopware",
+      "errors": "{{count}} errores"
     }
   },
   "bundles": {

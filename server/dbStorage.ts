@@ -54,6 +54,7 @@ import {
   offerPublicLinks,
   offerPublicEvents,
   b2bApprovalLog,
+  productHerstellpreise,
   type User,
   type InsertUser,
   type Role,
@@ -2776,6 +2777,80 @@ export class DbStorage implements IStorage {
       .where(and(tenantFilter, eq(semanticDocuments.sourceType, sourceType), eq(semanticDocuments.sourceId, sourceId)))
       .limit(1);
     return (result[0]?.embedding as number[] | undefined) ?? null;
+  }
+
+  async upsertProductHerstellpreise(
+    rows: Array<{ productNumber: string; herstellkostenNet: number; source: string }>,
+    tenantId?: string | null,
+  ): Promise<void> {
+    if (rows.length === 0) return;
+    const resolvedTenantId = resolveTenantId(tenantId);
+    const now = new Date();
+    const values = rows.map((row) => ({
+      tenantId: resolvedTenantId ?? null,
+      productNumber: row.productNumber,
+      herstellkostenNet: row.herstellkostenNet,
+      source: row.source,
+      updatedAt: now,
+    }));
+
+    await db
+      .insert(productHerstellpreise)
+      .values(values)
+      .onConflictDoUpdate({
+        target: [productHerstellpreise.tenantId, productHerstellpreise.productNumber],
+        set: {
+          herstellkostenNet: sql`excluded.herstellkosten_net`,
+          source: sql`excluded.source`,
+          updatedAt: sql`excluded.updated_at`,
+        },
+      });
+  }
+
+  async getProductHerstellpreiseByProductNumbers(
+    productNumbers: string[],
+    tenantId?: string | null,
+  ): Promise<Map<string, number>> {
+    const out = new Map<string, number>();
+    if (productNumbers.length === 0) return out;
+
+    const tenantFilter = tenantFilterFor(productHerstellpreise.tenantId, tenantId);
+    const uniqueNumbers = [...new Set(productNumbers)];
+    const CHUNK = 500;
+
+    for (let i = 0; i < uniqueNumbers.length; i += CHUNK) {
+      const chunk = uniqueNumbers.slice(i, i + CHUNK);
+      const rows = await db
+        .select({
+          productNumber: productHerstellpreise.productNumber,
+          herstellkostenNet: productHerstellpreise.herstellkostenNet,
+        })
+        .from(productHerstellpreise)
+        .where(and(tenantFilter, inArray(productHerstellpreise.productNumber, chunk)));
+
+      for (const row of rows) {
+        out.set(row.productNumber, row.herstellkostenNet);
+      }
+    }
+
+    return out;
+  }
+
+  async getAllProductHerstellpreise(tenantId?: string | null): Promise<Map<string, number>> {
+    const tenantFilter = tenantFilterFor(productHerstellpreise.tenantId, tenantId);
+    const rows = await db
+      .select({
+        productNumber: productHerstellpreise.productNumber,
+        herstellkostenNet: productHerstellpreise.herstellkostenNet,
+      })
+      .from(productHerstellpreise)
+      .where(tenantFilter);
+
+    const out = new Map<string, number>();
+    for (const row of rows) {
+      out.set(row.productNumber, row.herstellkostenNet);
+    }
+    return out;
   }
 
   async searchSemanticDocuments(

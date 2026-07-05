@@ -104,6 +104,7 @@ import {
   type InsertOfferPublicEvent,
   type B2bApprovalLog,
   type InsertB2bApprovalLog,
+  type InsertProductHerstellpreis,
 } from "@shared/schema";
 import { createHash, randomBytes, randomUUID } from "crypto";
 
@@ -426,6 +427,17 @@ export interface IStorage {
     tenantId?: string | null
   ): Promise<Array<SemanticDocument & { distance: number; textRank: number }>>;
 
+  // Herstellpreise (SAP/VTLS, nur META Order)
+  upsertProductHerstellpreise(
+    rows: Array<Pick<InsertProductHerstellpreis, "productNumber" | "herstellkostenNet" | "source">>,
+    tenantId?: string | null,
+  ): Promise<void>;
+  getProductHerstellpreiseByProductNumbers(
+    productNumbers: string[],
+    tenantId?: string | null,
+  ): Promise<Map<string, number>>;
+  getAllProductHerstellpreise(tenantId?: string | null): Promise<Map<string, number>>;
+
   // Installment plans (Teilzahlung)
   createInstallmentPlanWithInvoices(
     plan: InsertInstallmentPlan,
@@ -507,6 +519,7 @@ export class MemStorage implements IStorage {
   private notifications: Map<string, Notification>;
   private ticketCounter: number;
   private semanticDocuments: SemanticDocument[];
+  private productHerstellpreiseMap: Map<string, { herstellkostenNet: number; source: string }>;
   private dunningSettings?: DunningSettings;
   private orderDunningStatus: Map<string, OrderDunningStatus>;
   private monduSettings?: MonduSettings;
@@ -546,6 +559,7 @@ export class MemStorage implements IStorage {
     this.notifications = new Map();
     this.ticketCounter = 1000;
     this.semanticDocuments = [];
+    this.productHerstellpreiseMap = new Map();
     this.dunningSettings = undefined;
     this.orderDunningStatus = new Map();
     this.monduSettings = undefined;
@@ -2231,6 +2245,36 @@ export class MemStorage implements IStorage {
       distance: 0,
       textRank: 0,
     }));
+  }
+
+  async upsertProductHerstellpreise(
+    rows: Array<{ productNumber: string; herstellkostenNet: number; source: string }>,
+  ): Promise<void> {
+    for (const row of rows) {
+      this.productHerstellpreiseMap.set(row.productNumber, {
+        herstellkostenNet: row.herstellkostenNet,
+        source: row.source,
+      });
+    }
+  }
+
+  async getProductHerstellpreiseByProductNumbers(
+    productNumbers: string[],
+  ): Promise<Map<string, number>> {
+    const out = new Map<string, number>();
+    for (const n of productNumbers) {
+      const entry = this.productHerstellpreiseMap.get(n);
+      if (entry) out.set(n, entry.herstellkostenNet);
+    }
+    return out;
+  }
+
+  async getAllProductHerstellpreise(): Promise<Map<string, number>> {
+    const out = new Map<string, number>();
+    for (const [n, entry] of this.productHerstellpreiseMap) {
+      out.set(n, entry.herstellkostenNet);
+    }
+    return out;
   }
 
   async createInstallmentPlanWithInvoices(

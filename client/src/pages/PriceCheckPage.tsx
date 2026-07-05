@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
-import { Scale, Search, Download, RefreshCw, AlertCircle, X } from "lucide-react";
+import { Scale, Search, Download, RefreshCw, AlertCircle, X, FileSpreadsheet, FileUp, Play } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useToast } from "@/hooks/use-toast";
 
 interface PriceCheckProduct {
   id: string;
@@ -30,7 +32,7 @@ interface PriceCheckProduct {
   active: boolean | null;
   manufacturerNumber?: string;
   priceNet: number;
-  purchasePriceNet: number | null;
+  herstellpreisNet: number | null;
 }
 
 interface OverviewResponse {
@@ -66,8 +68,25 @@ interface PriceRow extends PriceCheckProduct {
   verdict: Verdict;
 }
 
+type HerstellpreisImportSummary = {
+  mode: "apply" | "dry-run";
+  totalRows: number;
+  matched: number;
+  updated: number;
+  unchanged: number;
+  notFound: number;
+  errors: number;
+};
+
+function getCsrfToken(): string | null {
+  const match = document.cookie.match(/csrf_token=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 export default function PriceCheckPage() {
   const { t } = useTranslation();
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery<OverviewResponse>({
     queryKey: ["/api/products/overview"],
@@ -77,6 +96,10 @@ export default function PriceCheckPage() {
   const [verdictFilter, setVerdictFilter] = useState<string>(ALL);
   const [thresholdInput, setThresholdInput] = useState(String(DEFAULT_THRESHOLD));
   const [page, setPage] = useState(1);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importApply, setImportApply] = useState(false);
+  const [importRunning, setImportRunning] = useState(false);
+  const [importResult, setImportResult] = useState<HerstellpreisImportSummary | null>(null);
 
   const threshold = useMemo(() => {
     const n = Number(thresholdInput.replace(",", "."));
@@ -86,7 +109,7 @@ export default function PriceCheckPage() {
   const rows = useMemo<PriceRow[]>(() => {
     const products = data?.products ?? [];
     return products.map((p) => {
-      const ek = p.purchasePriceNet;
+      const ek = p.herstellpreisNet;
       if (ek == null || ek <= 0) {
         return { ...p, diffAbs: null, diffPct: null, verdict: "none" as Verdict };
       }
@@ -139,6 +162,50 @@ export default function PriceCheckPage() {
     setPage(1);
   };
 
+  const runImport = async () => {
+    if (!importFile) return;
+    if (importApply && !window.confirm(t("priceCheck.import.applyConfirm"))) {
+      return;
+    }
+
+    setImportRunning(true);
+    setImportResult(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", importFile);
+      formData.append("apply", importApply ? "true" : "false");
+
+      const headers: Record<string, string> = {};
+      const csrfToken = getCsrfToken();
+      if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
+
+      const res = await fetch("/api/products/herstellpreise/import", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+        headers,
+      });
+      const payload = await res.json();
+      if (!res.ok) {
+        throw new Error(payload.error || t("priceCheck.errorTitle"));
+      }
+
+      setImportResult(payload);
+      toast({ title: t("priceCheck.import.success") });
+      if (importApply) {
+        void refetch();
+      }
+    } catch (importError) {
+      toast({
+        title: t("priceCheck.errorTitle"),
+        description: importError instanceof Error ? importError.message : String(importError),
+        variant: "destructive",
+      });
+    } finally {
+      setImportRunning(false);
+    }
+  };
+
   const exportCsv = () => {
     if (filtered.length === 0) return;
     const header = [
@@ -157,7 +224,7 @@ export default function PriceCheckPage() {
           r.productNumber,
           r.name,
           r.priceNet,
-          r.purchasePriceNet ?? "",
+          r.herstellpreisNet ?? "",
           r.diffAbs ?? "",
           r.diffPct != null ? r.diffPct.toFixed(2) : "",
           t(`priceCheck.verdict.${r.verdict}`),
@@ -210,6 +277,83 @@ export default function PriceCheckPage() {
           </CardContent>
         </Card>
       ) : null}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileSpreadsheet className="h-5 w-5" />
+            {t("priceCheck.import.title")}
+          </CardTitle>
+          <CardDescription>{t("priceCheck.import.description")}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">{t("priceCheck.import.uploadHint")}</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              className="hidden"
+              onChange={(e) => {
+                setImportFile(e.target.files?.[0] ?? null);
+                setImportResult(null);
+              }}
+            />
+            <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+              <FileUp className="h-4 w-4 mr-2" />
+              {importFile ? importFile.name : t("priceCheck.import.dropzoneSub")}
+            </Button>
+            {importFile ? (
+              <Button type="button" variant="ghost" size="icon" onClick={() => setImportFile(null)}>
+                <X className="h-4 w-4" />
+              </Button>
+            ) : null}
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="herstellpreis-apply"
+                checked={importApply}
+                onCheckedChange={(checked) => setImportApply(checked === true)}
+              />
+              <Label htmlFor="herstellpreis-apply">{t("priceCheck.import.apply")}</Label>
+            </div>
+            <Button
+              type="button"
+              onClick={() => void runImport()}
+              disabled={!importFile || importRunning}
+            >
+              <Play className="h-4 w-4 mr-2" />
+              {importRunning
+                ? t("priceCheck.import.running")
+                : importApply
+                  ? t("priceCheck.import.apply")
+                  : t("priceCheck.import.dryRun")}
+            </Button>
+          </div>
+          {importResult ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 text-sm">
+              <div>
+                <span className="text-muted-foreground">{t("priceCheck.import.matched", { count: importResult.matched })}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">
+                  {importResult.mode === "apply"
+                    ? t("priceCheck.import.updatedApplied", { count: importResult.updated })
+                    : t("priceCheck.import.updated", { count: importResult.updated })}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">{t("priceCheck.import.unchanged", { count: importResult.unchanged })}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">{t("priceCheck.import.notFound", { count: importResult.notFound })}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">{t("priceCheck.import.errors", { count: importResult.errors })}</span>
+              </div>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
@@ -394,7 +538,7 @@ function PriceRowView({ row }: { row: PriceRow }) {
       </TableCell>
       <TableCell className="text-right font-mono">{currencyFormatter.format(row.priceNet)}</TableCell>
       <TableCell className="text-right font-mono">
-        {row.purchasePriceNet != null ? currencyFormatter.format(row.purchasePriceNet) : "—"}
+        {row.herstellpreisNet != null ? currencyFormatter.format(row.herstellpreisNet) : "—"}
       </TableCell>
       <TableCell className="text-right font-mono">
         {row.diffAbs != null ? currencyFormatter.format(row.diffAbs) : "—"}
