@@ -387,6 +387,43 @@ function overviewAdvancedPriceTierKey(quantityStart: number, quantityEnd: number
   return `${quantityStart}|${end}`;
 }
 
+function normalizeCustomerPriceCurrencyIso(iso: string | null | undefined): string {
+  return (iso || "EUR").toUpperCase();
+}
+
+/** Eindeutiger Schlüssel für logisch identische Kundenpreise (ohne Shopware-Zeilen-ID). */
+function customerSpecificPriceSignature(price: ShopwareCustomerPrice): string {
+  const product = String(price.productNumber ?? price.productId ?? price.id).trim();
+  const from = price.from ?? "";
+  const to = price.to ?? "";
+  const net = price.priceNet ?? "";
+  const currency = normalizeCustomerPriceCurrencyIso(price.currencyIsoCode);
+  const validFrom = price.validFrom ?? "";
+  const validUntil = price.validUntil ?? "";
+  return `${product}|${from}|${to}|${net}|${currency}|${validFrom}|${validUntil}`;
+}
+
+function pickPreferredCustomerPrice(
+  existing: ShopwareCustomerPrice,
+  candidate: ShopwareCustomerPrice,
+): ShopwareCustomerPrice {
+  if (candidate.productName && !existing.productName) return candidate;
+  if (existing.productName && !candidate.productName) return existing;
+  if (candidate.currencyIsoCode && !existing.currencyIsoCode) return candidate;
+  if (existing.currencyIsoCode && !candidate.currencyIsoCode) return existing;
+  return existing;
+}
+
+function dedupeCustomerSpecificPrices(prices: ShopwareCustomerPrice[]): ShopwareCustomerPrice[] {
+  const bySignature = new Map<string, ShopwareCustomerPrice>();
+  for (const price of prices) {
+    const key = customerSpecificPriceSignature(price);
+    const existing = bySignature.get(key);
+    bySignature.set(key, existing ? pickPreferredCustomerPrice(existing, price) : price);
+  }
+  return Array.from(bySignature.values());
+}
+
 /** Sammelt product_price-Einträge einmalig (Relationships + included, dedupliziert nach ID). */
 function collectOverviewProductPriceEntries(
   sp: any,
@@ -6431,8 +6468,8 @@ export class ShopwareClient {
           productName: resolveProductName(raw, attrs),
           customerId: attrs.customerId ? String(attrs.customerId) : null,
           customerNumber: attrs.customerNumber ? String(attrs.customerNumber) : null,
-          from: num(attrs.from),
-          to: num(attrs.to),
+          from: num(attrs.from ?? attrs.quantityFrom ?? attrs.quantityStart),
+          to: num(attrs.to ?? attrs.quantityTo ?? attrs.quantityEnd),
           priceNet: num(attrs.priceNet),
           pseudoPriceNet: num(attrs.pseudoPriceNet),
           currencyIsoCode: resolveCurrencyIso(raw, attrs),
@@ -6455,6 +6492,51 @@ export class ShopwareClient {
 
     // Keine passende Entität gefunden (Plugin evtl. nicht installiert).
     return { available: false, total: 0, prices: [], entity: null };
+  }
+
+  /**
+   * Lädt alle kundenindividuellen Preise (paginiert) und dedupliziert logische Duplikate.
+   * B2Bsellers liefert oft mehrere Zeilen pro Produkt/Staffel (z. B. pro Sales Channel).
+   */
+  async fetchAllCustomerSpecificPrices(opts: {
+    customerId?: string | null;
+    customerNumber?: string | null;
+    currencyIsoCode?: string | null;
+    includeProductNames?: boolean;
+  }): Promise<{ available: boolean; total: number; prices: ShopwareCustomerPrice[]; entity: string | null }> {
+    const merged: ShopwareCustomerPrice[] = [];
+    let page = 1;
+    const limit = 250;
+    const maxPages = 40;
+    let entity: string | null = null;
+
+    while (page <= maxPages) {
+      const result = await this.fetchCustomerSpecificPrices({
+        ...opts,
+        limit,
+        page,
+      });
+      if (!result.entity) {
+        if (page === 1) return result;
+        break;
+      }
+      entity = result.entity;
+      merged.push(...result.prices);
+      if (result.prices.length < limit) break;
+      page++;
+    }
+
+    const prices = dedupeCustomerSpecificPrices(merged);
+    prices.sort((a, b) =>
+      (a.productNumber ?? "").localeCompare(b.productNumber ?? "", undefined, { numeric: true }),
+    );
+
+    return {
+      available: prices.length > 0,
+      total: prices.length,
+      prices,
+      entity,
+    };
   }
 
   /**

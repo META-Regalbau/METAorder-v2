@@ -12297,10 +12297,9 @@ Antworte im JSON-Format:
           ? req.query.currency.trim().toUpperCase()
           : "EUR";
 
-      const result = await client.fetchCustomerSpecificPrices({
+      const result = await client.fetchAllCustomerSpecificPrices({
         customerId: swCustomerId,
         customerNumber: swCustomerNumber,
-        limit: 200,
         currencyIsoCode: currency,
       });
 
