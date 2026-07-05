@@ -2812,7 +2812,10 @@
         "quantity": "Quantity",
         "priceNet": "Net price",
         "validity": "Validity",
-        "alwaysValid": "Always valid"
+        "alwaysValid": "Always valid",
+        "currency": "Currency",
+        "summaryForCurrency": "{{count}} prices in {{currency}}",
+        "emptyForCurrency": "No prices in {{currency}}"
       },
       "match": {
         "title": "Existing customer check",

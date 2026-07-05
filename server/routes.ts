@@ -12289,16 +12289,23 @@ Antworte im JSON-Format:
         return res.json({ available: false, total: 0, prices: [], resolved: false, configured: true });
       }
 
+      const currency =
+        typeof req.query.currency === "string" && req.query.currency.trim()
+          ? req.query.currency.trim().toUpperCase()
+          : "EUR";
+
       const result = await client.fetchCustomerSpecificPrices({
         customerId: swCustomerId,
         customerNumber: swCustomerNumber,
         limit: 200,
+        currencyIsoCode: currency,
       });
 
       res.json({
         available: result.available,
         total: result.total,
         prices: result.prices,
+        currency,
         resolved: true,
         configured: true,
         customerId: swCustomerId ?? null,
@@ -12308,6 +12315,54 @@ Antworte im JSON-Format:
     } catch (error: any) {
       console.error("Error loading customer individual prices:", error?.message || error);
       res.status(500).json({ error: "Failed to load individual prices" });
+    }
+  });
+
+  // Verfügbare Währungen für kundenindividuelle Preise (on demand für Währungsauswahl).
+  app.get("/api/crm/customers/:id/individual-prices/currencies", requireAuth, requireViewCrm, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const customer = await storage.getCustomer(id);
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.json({ currencies: [], resolved: false, configured: false });
+      }
+
+      const client = new ShopwareClient(settings);
+      let resolved: any = null;
+      try {
+        resolved = await client.findCustomerByEmail(customer.email);
+      } catch (resolveError: any) {
+        console.warn("[individual-prices/currencies] customer resolve failed:", resolveError?.message || resolveError);
+      }
+      const swCustomerId: string | undefined = resolved?.id;
+      const swCustomerNumber: string | null =
+        (resolved?.attributes?.customerNumber ?? resolved?.customerNumber)
+          ? String(resolved.attributes?.customerNumber ?? resolved.customerNumber)
+          : null;
+
+      if (!swCustomerId && !swCustomerNumber) {
+        return res.json({ currencies: [], resolved: false, configured: true });
+      }
+
+      const { currencies } = await client.fetchCustomerPriceCurrencies({
+        customerId: swCustomerId,
+        customerNumber: swCustomerNumber,
+      });
+
+      res.json({
+        currencies,
+        resolved: true,
+        configured: true,
+        pluginDetected: currencies.length > 0,
+      });
+    } catch (error: any) {
+      console.error("Error loading customer individual price currencies:", error?.message || error);
+      res.status(500).json({ error: "Failed to load individual price currencies" });
     }
   });
 

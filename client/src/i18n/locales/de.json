@@ -2841,7 +2841,10 @@
         "quantity": "Menge",
         "priceNet": "Preis netto",
         "validity": "Gültigkeit",
-        "alwaysValid": "Unbegrenzt gültig"
+        "alwaysValid": "Unbegrenzt gültig",
+        "currency": "Währung",
+        "summaryForCurrency": "{{count}} Preise in {{currency}}",
+        "emptyForCurrency": "Keine Preise in {{currency}} hinterlegt"
       },
       "match": {
         "title": "Bestandskunden-Abgleich",

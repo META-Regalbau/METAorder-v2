@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -50,10 +50,18 @@ type CustomerIndividualPricesResponse = {
   available: boolean;
   total: number;
   prices: CustomerIndividualPrice[];
+  currency?: string;
   resolved: boolean;
   configured: boolean;
   pluginDetected?: boolean;
   customerNumber?: string | null;
+};
+
+type CustomerIndividualPriceCurrenciesResponse = {
+  currencies: string[];
+  resolved: boolean;
+  configured: boolean;
+  pluginDetected?: boolean;
 };
 
 type CustomerMatchAddress = {
@@ -93,6 +101,7 @@ type MergePreview = {
   ordersOutOfScope: number;
 };
 
+const DEFAULT_PRICE_CURRENCY = "EUR";
 const priceFormatterCache = new Map<string, Intl.NumberFormat>();
 
 function formatCustomerPrice(value: number, currencyIsoCode?: string | null): string {
@@ -132,6 +141,15 @@ export default function CustomerDetailModal({
   const [interactionType, setInteractionType] = useState("note");
   const [interactionSubject, setInteractionSubject] = useState("");
   const [interactionBody, setInteractionBody] = useState("");
+  const [selectedPriceCurrency, setSelectedPriceCurrency] = useState(DEFAULT_PRICE_CURRENCY);
+  const [pricesTabActive, setPricesTabActive] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedPriceCurrency(DEFAULT_PRICE_CURRENCY);
+      setPricesTabActive(false);
+    }
+  }, [isOpen]);
 
   const { data: overview, isLoading } = useQuery<CustomerOverview>({
     queryKey: ["/api/crm/customers", customerId || customerEmail, "overview"],
@@ -203,12 +221,13 @@ export default function CustomerDetailModal({
 
   const resolvedCustomerId = overview?.customer?.id ?? null;
 
-  const { data: individualPrices, isLoading: pricesLoading } = useQuery<CustomerIndividualPricesResponse>({
-    queryKey: ["/api/crm/customers", resolvedCustomerId, "individual-prices"],
+  const { data: individualPrices, isLoading: pricesLoading, isFetching: pricesFetching } = useQuery<CustomerIndividualPricesResponse>({
+    queryKey: ["/api/crm/customers", resolvedCustomerId, "individual-prices", selectedPriceCurrency],
     queryFn: async () => {
-      const response = await fetch(`/api/crm/customers/${resolvedCustomerId}/individual-prices`, {
-        credentials: "include",
-      });
+      const response = await fetch(
+        `/api/crm/customers/${resolvedCustomerId}/individual-prices?currency=${encodeURIComponent(selectedPriceCurrency)}`,
+        { credentials: "include" },
+      );
       if (!response.ok) {
         throw new Error(await response.text());
       }
@@ -216,6 +235,27 @@ export default function CustomerDetailModal({
     },
     enabled: isOpen && !!resolvedCustomerId,
   });
+
+  const { data: priceCurrencies, isLoading: priceCurrenciesLoading } = useQuery<CustomerIndividualPriceCurrenciesResponse>({
+    queryKey: ["/api/crm/customers", resolvedCustomerId, "individual-prices-currencies"],
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/crm/customers/${resolvedCustomerId}/individual-prices/currencies`,
+        { credentials: "include" },
+      );
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      return response.json();
+    },
+    enabled: isOpen && !!resolvedCustomerId && pricesTabActive,
+  });
+
+  const currencyOptions = useMemo(() => {
+    const fromApi = priceCurrencies?.currencies ?? [];
+    const merged = new Set([DEFAULT_PRICE_CURRENCY, ...fromApi, selectedPriceCurrency]);
+    return [...merged].sort((a, b) => a.localeCompare(b));
+  }, [priceCurrencies, selectedPriceCurrency]);
 
   const { data: matchResult, isLoading: matchLoading } = useQuery<CustomerMatchResponse>({
     queryKey: ["/api/crm/customers", resolvedCustomerId, "match"],
@@ -348,7 +388,10 @@ export default function CustomerDetailModal({
         {isLoading || !overview ? (
           <div className="py-10 text-center text-muted-foreground">{t("common.loading")}</div>
         ) : (
-          <Tabs defaultValue="overview">
+          <Tabs
+            defaultValue="overview"
+            onValueChange={(value) => setPricesTabActive(value === "prices")}
+          >
             <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="overview">{t("crm.customer.tabs.overview")}</TabsTrigger>
               <TabsTrigger value="orders">{t("crm.customer.tabs.orders")}</TabsTrigger>
@@ -555,15 +598,44 @@ export default function CustomerDetailModal({
                 <div className="py-6 text-center text-muted-foreground">
                   {t("crm.customer.individualPrices.notResolved")}
                 </div>
-              ) : prices.length === 0 ? (
-                <div className="py-6 text-center text-muted-foreground">
-                  {t("crm.customer.individualPrices.empty")}
-                </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="text-sm text-muted-foreground">
-                    {t("crm.customer.individualPrices.summary", { count: individualPrices?.total ?? prices.length })}
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="text-sm text-muted-foreground">
+                      {prices.length > 0
+                        ? t("crm.customer.individualPrices.summaryForCurrency", {
+                            count: individualPrices?.total ?? prices.length,
+                            currency: selectedPriceCurrency,
+                          })
+                        : selectedPriceCurrency === DEFAULT_PRICE_CURRENCY
+                          ? t("crm.customer.individualPrices.empty")
+                          : t("crm.customer.individualPrices.emptyForCurrency", { currency: selectedPriceCurrency })}
+                      {pricesFetching && !pricesLoading ? (
+                        <span className="ml-2 text-xs">{t("common.loading")}</span>
+                      ) : null}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">
+                        {t("crm.customer.individualPrices.currency")}
+                      </span>
+                      <Select value={selectedPriceCurrency} onValueChange={setSelectedPriceCurrency}>
+                        <SelectTrigger className="w-[120px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {currencyOptions.map((currency) => (
+                            <SelectItem key={currency} value={currency}>
+                              {currency}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {priceCurrenciesLoading ? (
+                        <span className="text-xs text-muted-foreground">{t("common.loading")}</span>
+                      ) : null}
+                    </div>
                   </div>
+                  {prices.length === 0 ? null : (
                   <div className="border rounded-lg overflow-hidden">
                     <Table>
                       <TableHeader>
@@ -596,6 +668,7 @@ export default function CustomerDetailModal({
                       </TableBody>
                     </Table>
                   </div>
+                  )}
                 </div>
               )}
             </TabsContent>

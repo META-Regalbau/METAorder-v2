@@ -2443,7 +2443,10 @@
         "quantity": "Cantidad",
         "priceNet": "Precio neto",
         "validity": "Validez",
-        "alwaysValid": "Siempre válido"
+        "alwaysValid": "Siempre válido",
+        "currency": "Moneda",
+        "summaryForCurrency": "{{count}} precios en {{currency}}",
+        "emptyForCurrency": "No hay precios en {{currency}}"
       },
       "match": {
         "title": "Comprobación de cliente existente",

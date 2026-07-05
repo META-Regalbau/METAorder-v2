@@ -382,6 +382,7 @@ export class ShopwareClient {
   private apiSecret: string;
   private accessToken: string | null = null;
   private tokenExpiry: number = 0;
+  private currencyIdCache = new Map<string, string>();
 
   constructor(settings: ShopwareSettings) {
     const trimmedUrl = settings.shopwareUrl.replace(/\/$/, '');
@@ -6248,9 +6249,15 @@ export class ShopwareClient {
     customerNumber?: string | null;
     limit?: number;
     page?: number;
+    /** ISO-Code (z. B. EUR). Filtert serverseitig; null = alle Währungen. */
+    currencyIsoCode?: string | null;
+    /** Produktnamen laden (für Währungsliste nicht nötig). */
+    includeProductNames?: boolean;
   }): Promise<{ available: boolean; total: number; prices: ShopwareCustomerPrice[]; entity: string | null }> {
     const limit = opts.limit ?? 100;
     const page = opts.page ?? 1;
+    const includeProductNames = opts.includeProductNames !== false;
+    const currencyIsoCode = opts.currencyIsoCode?.trim().toUpperCase() || null;
 
     const filter: any[] = [];
     if (opts.customerId) {
@@ -6261,13 +6268,18 @@ export class ShopwareClient {
       return { available: false, total: 0, prices: [], entity: null };
     }
 
+    if (currencyIsoCode) {
+      const currencyFilter = await this.buildCustomerPriceCurrencyFilter(currencyIsoCode);
+      if (currencyFilter) filter.push(currencyFilter);
+    }
+
     const criteria = {
       limit,
       page,
       totalCountMode: 1,
       filter,
       sort: [{ field: "productNumber", order: "ASC" }],
-      associations: { product: {}, currency: {} },
+      associations: includeProductNames ? { product: {}, currency: {} } : { currency: {} },
     };
 
     const envEntity = process.env.B2B_SELLERS_CUSTOMER_PRICE_ENTITY;
@@ -6312,6 +6324,7 @@ export class ShopwareClient {
       }
 
       const resolveProductName = (raw: any, attrs: any): string | null => {
+        if (!includeProductNames) return null;
         const nested = raw.product?.attributes || raw.product;
         if (nested?.translated?.name) return String(nested.translated.name);
         if (nested?.name) return String(nested.name);
@@ -6363,12 +6376,108 @@ export class ShopwareClient {
         } satisfies ShopwareCustomerPrice;
       });
 
-      const total = typeof data.total === "number" ? data.total : prices.length;
-      return { available: total > 0, total, prices, entity };
+      const filteredPrices = currencyIsoCode
+        ? this.filterPricesByCurrency(prices, currencyIsoCode)
+        : prices;
+
+      const total = currencyIsoCode
+        ? filteredPrices.length
+        : typeof data.total === "number"
+          ? data.total
+          : filteredPrices.length;
+      return { available: total > 0, total, prices: filteredPrices, entity };
     }
 
     // Keine passende Entität gefunden (Plugin evtl. nicht installiert).
     return { available: false, total: 0, prices: [], entity: null };
+  }
+
+  /**
+   * Liefert alle beim Kunden hinterlegten Währungs-ISO-Codes (ohne Produktnamen).
+   * Wird on demand geladen, wenn der Nutzer die Währungsauswahl öffnet.
+   */
+  async fetchCustomerPriceCurrencies(opts: {
+    customerId?: string | null;
+    customerNumber?: string | null;
+  }): Promise<{ currencies: string[] }> {
+    const currencies = new Set<string>();
+    let page = 1;
+    const limit = 250;
+    const maxPages = 20;
+
+    while (page <= maxPages) {
+      const result = await this.fetchCustomerSpecificPrices({
+        ...opts,
+        limit,
+        page,
+        includeProductNames: false,
+      });
+      if (!result.entity) break;
+      for (const price of result.prices) {
+        currencies.add(ShopwareClient.normalizePriceCurrencyIso(price.currencyIsoCode));
+      }
+      if (result.prices.length < limit) break;
+      page++;
+    }
+
+    return { currencies: [...currencies].sort((a, b) => a.localeCompare(b)) };
+  }
+
+  /** Löst Shopware-Währungs-UUID aus ISO-Code (gecacht). */
+  async resolveCurrencyId(isoCode: string): Promise<string | null> {
+    const iso = isoCode.toUpperCase();
+    const cached = this.currencyIdCache.get(iso);
+    if (cached) return cached;
+
+    try {
+      const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/currency`, {
+        method: "POST",
+        body: JSON.stringify({
+          limit: 1,
+          filter: [{ type: "equals", field: "isoCode", value: iso }],
+        }),
+      });
+      if (!response.ok) return null;
+      const data = await response.json();
+      const id = data.data?.[0]?.id;
+      if (typeof id === "string" && id.length > 0) {
+        this.currencyIdCache.set(iso, id);
+        return id;
+      }
+    } catch (error: any) {
+      console.warn(`[Shopware] resolveCurrencyId(${iso}):`, error?.message || error);
+    }
+    return null;
+  }
+
+  private static normalizePriceCurrencyIso(iso: string | null | undefined): string {
+    return (iso || "EUR").toUpperCase();
+  }
+
+  /** Shopware-Filter für kundenindividuelle Preise nach Währung. */
+  private async buildCustomerPriceCurrencyFilter(currencyIsoCode: string): Promise<any | null> {
+    const iso = currencyIsoCode.toUpperCase();
+    if (iso === "EUR") {
+      const eurId = await this.resolveCurrencyId("EUR");
+      const queries: any[] = [{ type: "equals", field: "currencyId", value: null }];
+      if (eurId) queries.unshift({ type: "equals", field: "currencyId", value: eurId });
+      return queries.length === 1 ? queries[0]! : { type: "multi", operator: "or", queries };
+    }
+    const id = await this.resolveCurrencyId(iso);
+    if (!id) {
+      return { type: "equals", field: "currencyIsoCode", value: iso };
+    }
+    return { type: "equals", field: "currencyId", value: id };
+  }
+
+  private filterPricesByCurrency(
+    prices: ShopwareCustomerPrice[],
+    currencyIsoCode: string,
+  ): ShopwareCustomerPrice[] {
+    const want = currencyIsoCode.toUpperCase();
+    return prices.filter(
+      (p) => ShopwareClient.normalizePriceCurrencyIso(p.currencyIsoCode) === want,
+    );
   }
 
   /** Bekannte Entitätsnamen der B2Bsellers-Customer-Price-Entität (überschreibbar per Env). */
