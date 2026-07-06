@@ -51,6 +51,17 @@ type OrdersPageResponse = {
   duplicateOrderIds: string[];
 };
 
+type OrdersDbSummaryResponse = {
+  avgDb1: number | null;
+  ordersWithDb1: number;
+  totalFiltered: number;
+};
+
+const currencyFormatter = new Intl.NumberFormat("de-DE", {
+  style: "currency",
+  currency: "EUR",
+});
+
 export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPageProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -109,28 +120,35 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
   }, [salesChannels, userRole, userSalesChannelIds, selectedChannelIds.length]);
 
   const itemsPerPageNum = parseInt(itemsPerPage, 10);
-  const ordersQueryString = useMemo(() => {
+  const ordersFilterQueryString = useMemo(() => {
     const params = new URLSearchParams();
-    params.set("limit", String(itemsPerPageNum));
-    params.set("offset", String((currentPage - 1) * itemsPerPageNum));
     if (debouncedSearch) params.set("search", debouncedSearch);
     if (statusFilter !== "all") params.set("status", statusFilter);
     if (invoiceFilter !== "all") params.set("invoiceFilter", invoiceFilter);
     if (orderNumberFilter !== "all") params.set("orderNumberFilter", orderNumberFilter);
     if (dateFrom) params.set("dateFrom", dateFrom);
     if (dateTo) params.set("dateTo", dateTo);
-    params.set("sortKey", sortKey);
-    params.set("sortDirection", sortDirection);
     return params.toString();
   }, [
-    itemsPerPageNum,
-    currentPage,
     debouncedSearch,
     statusFilter,
     invoiceFilter,
     orderNumberFilter,
     dateFrom,
     dateTo,
+  ]);
+
+  const ordersQueryString = useMemo(() => {
+    const params = new URLSearchParams(ordersFilterQueryString);
+    params.set("limit", String(itemsPerPageNum));
+    params.set("offset", String((currentPage - 1) * itemsPerPageNum));
+    params.set("sortKey", sortKey);
+    params.set("sortDirection", sortDirection);
+    return params.toString();
+  }, [
+    ordersFilterQueryString,
+    itemsPerPageNum,
+    currentPage,
     sortKey,
     sortDirection,
   ]);
@@ -147,11 +165,35 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
       const params = new URLSearchParams(ordersQueryString);
       if (refreshOnNextFetch.current) {
         params.set("refresh", "1");
-        refreshOnNextFetch.current = false;
       }
       const response = await fetch(`/api/orders?${params.toString()}`, {
         credentials: "include",
       });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      return response.json();
+    },
+    retry: false,
+    placeholderData: (previous) => previous,
+  });
+
+  const {
+    data: dbSummary,
+    isLoading: isDbSummaryLoading,
+    refetch: refetchDbSummary,
+  } = useQuery<OrdersDbSummaryResponse>({
+    queryKey: ["/api/orders/db-summary", ordersFilterQueryString, selectedChannelIds],
+    queryFn: async () => {
+      const params = new URLSearchParams(ordersFilterQueryString);
+      if (refreshOnNextFetch.current) {
+        params.set("refresh", "1");
+      }
+      const query = params.toString();
+      const response = await fetch(
+        query ? `/api/orders/db-summary?${query}` : "/api/orders/db-summary",
+        { credentials: "include" },
+      );
       if (!response.ok) {
         throw new Error(await response.text());
       }
@@ -275,7 +317,7 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
   const handleRefresh = async () => {
     refreshOnNextFetch.current = true;
     try {
-      await refetch();
+      await Promise.all([refetch(), refetchDbSummary()]);
       toast({
         title: t('orders.refreshed'),
         description: t('orders.refreshSuccess'),
@@ -286,6 +328,8 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
         description: t('orders.refreshError'),
         variant: "destructive",
       });
+    } finally {
+      refreshOnNextFetch.current = false;
     }
   };
 
@@ -483,6 +527,30 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
             <span className="hidden sm:inline">{t('common.refresh')}</span>
           </Button>
         </div>
+      </div>
+
+      <div
+        className="rounded-lg border bg-muted/30 px-4 py-3 flex flex-wrap items-baseline gap-x-4 gap-y-1"
+        data-testid="orders-db-summary"
+      >
+        <span className="text-sm text-muted-foreground">{t("orders.dbSummary.avgDb1")}</span>
+        {isDbSummaryLoading && !dbSummary ? (
+          <span className="text-sm text-muted-foreground">{t("common.loading")}</span>
+        ) : dbSummary?.avgDb1 != null ? (
+          <>
+            <span className="text-lg font-semibold font-mono tabular-nums">
+              {currencyFormatter.format(dbSummary.avgDb1)}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {t("orders.dbSummary.hint", {
+                withData: dbSummary.ordersWithDb1,
+                total: dbSummary.totalFiltered,
+              })}
+            </span>
+          </>
+        ) : (
+          <span className="text-sm text-muted-foreground">{t("orders.dbSummary.noData")}</span>
+        )}
       </div>
 
       {/* Filters Section */}

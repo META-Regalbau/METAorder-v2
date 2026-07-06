@@ -892,7 +892,12 @@
     "exportDescription": "Your order export is being prepared.",
     "paymentOverdue": "Payment Overdue",
     "duplicate": "Duplicate",
-    "duplicateWarning": "Possible duplicate order detected. Please verify before processing."
+    "duplicateWarning": "Possible duplicate order detected. Please verify before processing.",
+    "dbSummary": {
+      "avgDb1": "Avg. DB1 net",
+      "hint": "{{withData}} of {{total}} filtered orders with manufacturing cost data",
+      "noData": "No contribution margin data for the current filter selection"
+    }
   },
   "delayedOrders": {
     "title": "Delayed Orders",

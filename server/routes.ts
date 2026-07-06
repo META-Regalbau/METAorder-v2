@@ -3191,6 +3191,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/orders/db-summary", requireAuth, async (req, res) => {
+    try {
+      const tenantId = (req as any).tenantId ?? null;
+      const settings = await storage.getShopwareSettings(tenantId);
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const client = new ShopwareClient(settings);
+      const allowedChannelIds = await getSalesChannelFilter(req);
+      const listQuery = parseOrdersListQuery(req.query as Record<string, unknown>);
+      const forceRefresh = req.query.refresh === "true" || req.query.refresh === "1";
+
+      const { orders: cachedOrders } = await getOrdersWithCache(client, tenantId, { forceRefresh });
+      let filteredOrders = filterOrdersBySalesChannels(cachedOrders, allowedChannelIds);
+      filteredOrders = filterOrdersList(filteredOrders, listQuery);
+
+      const enrichedOrders = await enrichOrdersWithProfitability(filteredOrders, {
+        storage,
+        client,
+        tenantId,
+      });
+      const summary = buildOrderProfitabilityAnalysisSummary(enrichedOrders);
+
+      res.json({
+        avgDb1: summary.avgDb1,
+        ordersWithDb1: summary.ordersWithHerstellpreis,
+        totalFiltered: summary.totalOrders,
+      });
+    } catch (error: any) {
+      console.error("[/api/orders/db-summary] Error:", error?.message || error);
+      res.status(500).json({ error: error.message || "DB-Zusammenfassung fehlgeschlagen" });
+    }
+  });
+
   app.get("/api/orders/profitability-analysis", requireAuth, async (req, res) => {
     try {
       const tenantId = (req as any).tenantId ?? null;

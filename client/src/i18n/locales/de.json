@@ -890,7 +890,12 @@
     "exportDescription": "Ihr Bestellungsexport wird vorbereitet.",
     "paymentOverdue": "Zahlung überfällig",
     "duplicate": "Duplikat",
-    "duplicateWarning": "Mögliche Doppelbestellung erkannt. Bitte vor der Bearbeitung prüfen."
+    "duplicateWarning": "Mögliche Doppelbestellung erkannt. Bitte vor der Bearbeitung prüfen.",
+    "dbSummary": {
+      "avgDb1": "Ø DB1 netto",
+      "hint": "{{withData}} von {{total}} gefilterten Bestellungen mit HK-Daten",
+      "noData": "Keine DB-Daten für die aktuelle Filterauswahl"
+    }
   },
   "delayedOrders": {
     "title": "Verspätete Bestellungen",

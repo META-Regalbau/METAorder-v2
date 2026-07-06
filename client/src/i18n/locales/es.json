@@ -801,7 +801,12 @@
     "exportDescription": "Su exportación de pedidos se está preparando.",
     "paymentOverdue": "Pago Vencido",
     "duplicate": "Duplicado",
-    "duplicateWarning": "Posible pedido duplicado detectado. Verifique antes de procesar."
+    "duplicateWarning": "Posible pedido duplicado detectado. Verifique antes de procesar.",
+    "dbSummary": {
+      "avgDb1": "DB1 neto medio",
+      "hint": "{{withData}} de {{total}} pedidos filtrados con datos de coste de fabricación",
+      "noData": "Sin datos de margen de contribución para la selección de filtros actual"
+    }
   },
   "delayedOrders": {
     "title": "Pedidos Retrasados",
