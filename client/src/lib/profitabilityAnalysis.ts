@@ -13,8 +13,13 @@ export type ProfitabilityProductInput = {
 export type AnalyzedProduct = ProfitabilityProductInput & {
   listPriceNet: number;
   effectivePriceNet: number;
+  /** Marge auf Herstellkosten: (VK − HK) / HK × 100 — Basis für CRM-Ampel. */
   marginPercent: number | null;
+  /** Marge auf Umsatz: (VK − HK) / VK × 100. */
+  marginOnRevenuePercent: number | null;
   catalogMarginPercent: number | null;
+  catalogMarginOnRevenuePercent: number | null;
+  /** DB1 = Deckungsbeitrag in € (VK netto − Herstellkosten). */
   marginAbs: number | null;
   crmVerdict: ProfitabilityVerdict;
   priceCheckVerdict: ProfitabilityVerdict;
@@ -44,6 +49,8 @@ export type ProfitabilitySummary = {
   belowCrmThresholdCount: number;
   avgMarginPercent: number | null;
   medianMarginPercent: number | null;
+  avgMarginOnRevenuePercent: number | null;
+  medianMarginOnRevenuePercent: number | null;
   avgMarginAbs: number | null;
   medianMarginAbs: number | null;
   minMarginPercent: number | null;
@@ -96,6 +103,15 @@ export function computeMarginPercent(
 ): number | null {
   if (priceNet == null || herstellpreisNet == null || herstellpreisNet <= 0) return null;
   return Math.round(((priceNet - herstellpreisNet) / herstellpreisNet) * 1000) / 10;
+}
+
+/** Marge auf Umsatz (Handelsmarge): (VK − HK) / VK × 100 */
+export function computeMarginOnRevenuePercent(
+  priceNet: number | null | undefined,
+  herstellpreisNet: number | null | undefined,
+): number | null {
+  if (priceNet == null || herstellpreisNet == null || priceNet <= 0) return null;
+  return Math.round(((priceNet - herstellpreisNet) / priceNet) * 1000) / 10;
 }
 
 export function computeVerdict(
@@ -151,6 +167,7 @@ export function buildProfitabilityAnalysis(
 
   const bucketCounts = new Map<string, number>(BUCKET_DEFS.map((b) => [b.key, 0]));
   const margins: number[] = [];
+  const marginsOnRevenue: number[] = [];
   const marginAbsValues: number[] = [];
 
   let withHerstellpreis = 0;
@@ -175,7 +192,15 @@ export function buildProfitabilityAnalysis(
       db1DiscountPercent,
     );
     const catalogMarginPercent = computeMarginPercent(listPriceNet, p.herstellpreisNet);
+    const catalogMarginOnRevenuePercent = computeMarginOnRevenuePercent(
+      listPriceNet,
+      p.herstellpreisNet,
+    );
     const marginPercent = computeMarginPercent(effectivePriceNet, p.herstellpreisNet);
+    const marginOnRevenuePercent = computeMarginOnRevenuePercent(
+      effectivePriceNet,
+      p.herstellpreisNet,
+    );
     const marginAbs =
       p.herstellpreisNet != null && p.herstellpreisNet > 0
         ? Math.round((effectivePriceNet - p.herstellpreisNet) * 100) / 100
@@ -187,6 +212,7 @@ export function buildProfitabilityAnalysis(
     if (marginPercent != null) {
       withHerstellpreis += 1;
       margins.push(marginPercent);
+      if (marginOnRevenuePercent != null) marginsOnRevenue.push(marginOnRevenuePercent);
       if (marginAbs != null) marginAbsValues.push(marginAbs);
       bucketCounts.set(assignBucket(marginPercent), (bucketCounts.get(assignBucket(marginPercent)) ?? 0) + 1);
       if (marginPercent < 0) lossCount += 1;
@@ -213,7 +239,9 @@ export function buildProfitabilityAnalysis(
       listPriceNet,
       effectivePriceNet,
       marginPercent,
+      marginOnRevenuePercent,
       catalogMarginPercent,
+      catalogMarginOnRevenuePercent,
       marginAbs,
       crmVerdict,
       priceCheckVerdict,
@@ -249,6 +277,13 @@ export function buildProfitabilityAnalysis(
     belowCrmThresholdCount,
     avgMarginPercent,
     medianMarginPercent: median(margins),
+    avgMarginOnRevenuePercent:
+      marginsOnRevenue.length > 0
+        ? Math.round(
+            (marginsOnRevenue.reduce((sum, v) => sum + v, 0) / marginsOnRevenue.length) * 10,
+          ) / 10
+        : null,
+    medianMarginOnRevenuePercent: median(marginsOnRevenue),
     avgMarginAbs,
     medianMarginAbs: median(marginAbsValues),
     minMarginPercent: margins.length > 0 ? Math.min(...margins) : null,
