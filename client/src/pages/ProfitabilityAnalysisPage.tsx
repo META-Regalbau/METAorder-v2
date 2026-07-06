@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
@@ -99,6 +99,12 @@ function VerdictBadge({
   );
 }
 
+function parsePercentInput(raw: string, fallback = 0, max = 100): number {
+  const n = Number(raw.replace(",", "."));
+  if (!Number.isFinite(n) || n < 0) return fallback;
+  return Math.min(n, max);
+}
+
 function PriceCell({
   product,
   showDiscount,
@@ -123,18 +129,33 @@ export default function ProfitabilityAnalysisPage() {
   const { t } = useTranslation();
   const [activeOnly, setActiveOnly] = useState(true);
   const [dealerDiscountInput, setDealerDiscountInput] = useState("0");
+  const [db1DiscountInput, setDb1DiscountInput] = useState("0");
+  const [crmThresholdInput, setCrmThresholdInput] = useState(String(DEFAULT_CRM_THRESHOLD));
 
-  const dealerDiscountPercent = useMemo(() => {
-    const n = Number(dealerDiscountInput.replace(",", "."));
-    if (!Number.isFinite(n) || n < 0) return 0;
-    return Math.min(n, 100);
-  }, [dealerDiscountInput]);
+  const dealerDiscountPercent = useMemo(
+    () => parsePercentInput(dealerDiscountInput),
+    [dealerDiscountInput],
+  );
+  const db1DiscountPercent = useMemo(
+    () => parsePercentInput(db1DiscountInput),
+    [db1DiscountInput],
+  );
+  const hasScenarioDiscount = dealerDiscountPercent > 0 || db1DiscountPercent > 0;
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery<OverviewResponse>({
     queryKey: ["/api/products/overview"],
   });
 
-  const crmThreshold = data?.profitabilityMinMarginPercent ?? DEFAULT_CRM_THRESHOLD;
+  useEffect(() => {
+    if (data?.profitabilityMinMarginPercent != null) {
+      setCrmThresholdInput(String(data.profitabilityMinMarginPercent));
+    }
+  }, [data?.profitabilityMinMarginPercent]);
+
+  const crmThreshold = useMemo(
+    () => parsePercentInput(crmThresholdInput, DEFAULT_CRM_THRESHOLD, 500),
+    [crmThresholdInput],
+  );
 
   const analysis = useMemo(
     () =>
@@ -143,8 +164,9 @@ export default function ProfitabilityAnalysisPage() {
         priceCheckThreshold: DEFAULT_PRICE_CHECK_THRESHOLD,
         activeOnly,
         dealerDiscountPercent,
+        db1DiscountPercent,
       }),
-    [data?.products, crmThreshold, activeOnly, dealerDiscountPercent],
+    [data?.products, crmThreshold, activeOnly, dealerDiscountPercent, db1DiscountPercent],
   );
 
   const worstProducts = useMemo(
@@ -193,9 +215,10 @@ export default function ProfitabilityAnalysisPage() {
       t("profitabilityAnalysis.table.name"),
       t("profitabilityAnalysis.table.active"),
       t("profitabilityAnalysis.table.listPriceNet"),
-      ...(dealerDiscountPercent > 0
+      ...(hasScenarioDiscount
         ? [
             t("profitabilityAnalysis.table.dealerDiscount"),
+            t("profitabilityAnalysis.table.db1Discount"),
             t("profitabilityAnalysis.table.effectivePriceNet"),
           ]
         : []),
@@ -213,8 +236,8 @@ export default function ProfitabilityAnalysisPage() {
           p.name,
           p.active === false ? t("profitabilityAnalysis.table.inactive") : t("profitabilityAnalysis.table.activeYes"),
           p.listPriceNet,
-          ...(dealerDiscountPercent > 0
-            ? [dealerDiscountPercent, p.effectivePriceNet]
+          ...(hasScenarioDiscount
+            ? [dealerDiscountPercent, db1DiscountPercent, p.effectivePriceNet]
             : []),
           p.herstellpreisNet ?? "",
           p.marginAbs ?? "",
@@ -303,27 +326,63 @@ export default function ProfitabilityAnalysisPage() {
               <CardTitle>{t("profitabilityAnalysis.dealerDiscount.title")}</CardTitle>
               <CardDescription>{t("profitabilityAnalysis.dealerDiscount.description")}</CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-wrap items-end gap-4">
-              <div className="grid gap-2 w-full max-w-xs">
-                <Label htmlFor="dealer-discount">{t("profitabilityAnalysis.dealerDiscount.label")}</Label>
-                <Input
-                  id="dealer-discount"
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={0.1}
-                  value={dealerDiscountInput}
-                  onChange={(e) => setDealerDiscountInput(e.target.value)}
-                  data-testid="input-dealer-discount"
-                />
-                <p className="text-xs text-muted-foreground">
-                  {t("profitabilityAnalysis.dealerDiscount.hint")}
-                </p>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-muted-foreground">
+                {t("profitabilityAnalysis.dealerDiscount.stackFormulaHint")}
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-2">
+                  <Label htmlFor="dealer-discount">{t("profitabilityAnalysis.dealerDiscount.label")}</Label>
+                  <Input
+                    id="dealer-discount"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.1}
+                    value={dealerDiscountInput}
+                    onChange={(e) => setDealerDiscountInput(e.target.value)}
+                    data-testid="input-dealer-discount"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="db1-discount">{t("profitabilityAnalysis.dealerDiscount.db1Label")}</Label>
+                  <Input
+                    id="db1-discount"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.1}
+                    value={db1DiscountInput}
+                    onChange={(e) => setDb1DiscountInput(e.target.value)}
+                    data-testid="input-db1-discount"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t("profitabilityAnalysis.dealerDiscount.db1Hint")}
+                  </p>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="crm-threshold">{t("profitabilityAnalysis.dealerDiscount.crmThresholdLabel")}</Label>
+                  <Input
+                    id="crm-threshold"
+                    type="number"
+                    min={0}
+                    max={500}
+                    step={0.1}
+                    value={crmThresholdInput}
+                    onChange={(e) => setCrmThresholdInput(e.target.value)}
+                    data-testid="input-crm-threshold"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t("profitabilityAnalysis.dealerDiscount.crmThresholdHint")}
+                  </p>
+                </div>
               </div>
-              {dealerDiscountPercent > 0 ? (
+              {hasScenarioDiscount ? (
                 <div className="text-sm text-muted-foreground">
                   {t("profitabilityAnalysis.dealerDiscount.activeHint", {
-                    discount: dealerDiscountPercent.toLocaleString("de-DE"),
+                    dealer: dealerDiscountPercent.toLocaleString("de-DE"),
+                    db1: db1DiscountPercent.toLocaleString("de-DE"),
+                    threshold: crmThreshold.toLocaleString("de-DE"),
                   })}
                 </div>
               ) : null}
@@ -334,11 +393,12 @@ export default function ProfitabilityAnalysisPage() {
             <CardHeader>
               <CardTitle>{t("profitabilityAnalysis.executiveSummary")}</CardTitle>
               <CardDescription>
-                {dealerDiscountPercent > 0
+                {hasScenarioDiscount
                   ? t("profitabilityAnalysis.executiveSummaryHintWithDiscount", {
                       crmThreshold: crmThreshold.toLocaleString("de-DE"),
                       priceCheckThreshold: DEFAULT_PRICE_CHECK_THRESHOLD,
-                      discount: dealerDiscountPercent.toLocaleString("de-DE"),
+                      dealer: dealerDiscountPercent.toLocaleString("de-DE"),
+                      db1: db1DiscountPercent.toLocaleString("de-DE"),
                     })
                   : t("profitabilityAnalysis.executiveSummaryHint", {
                       crmThreshold: crmThreshold.toLocaleString("de-DE"),
@@ -388,7 +448,7 @@ export default function ProfitabilityAnalysisPage() {
                     : t("profitabilityAnalysis.kpi.noMarginData")}
                 </p>
               </div>
-              {dealerDiscountPercent > 0 ? (
+              {hasScenarioDiscount ? (
                 <div className="md:col-span-2 lg:col-span-4 border-t border-border/60 pt-4">
                   <p className="text-sm text-muted-foreground">{t("profitabilityAnalysis.kpi.flippedToRed")}</p>
                   <p className="text-2xl font-semibold text-amber-600">{summary.flippedToRedCount}</p>
@@ -519,7 +579,7 @@ export default function ProfitabilityAnalysisPage() {
                       <TableHead>{t("profitabilityAnalysis.table.productNumber")}</TableHead>
                       <TableHead>{t("profitabilityAnalysis.table.name")}</TableHead>
                       <TableHead className="text-right">
-                        {dealerDiscountPercent > 0
+                        {hasScenarioDiscount
                           ? t("profitabilityAnalysis.table.effectivePriceNet")
                           : t("profitabilityAnalysis.table.listPriceNet")}
                       </TableHead>
@@ -542,11 +602,11 @@ export default function ProfitabilityAnalysisPage() {
                             {p.name}
                           </TableCell>
                           <TableCell className="text-right">
-                            <PriceCell product={p} showDiscount={dealerDiscountPercent > 0} />
+                            <PriceCell product={p} showDiscount={hasScenarioDiscount} />
                           </TableCell>
                           <TableCell className="text-right font-mono">
                             {p.marginPercent != null ? `${p.marginPercent.toLocaleString("de-DE")} %` : "—"}
-                            {dealerDiscountPercent > 0 &&
+                            {hasScenarioDiscount &&
                             p.catalogMarginPercent != null &&
                             p.catalogCrmVerdict === "green" &&
                             p.crmVerdict === "red" ? (
@@ -586,7 +646,7 @@ export default function ProfitabilityAnalysisPage() {
                       <TableHead>{t("profitabilityAnalysis.table.productNumber")}</TableHead>
                       <TableHead>{t("profitabilityAnalysis.table.name")}</TableHead>
                       <TableHead className="text-right">
-                        {dealerDiscountPercent > 0
+                        {hasScenarioDiscount
                           ? t("profitabilityAnalysis.table.effectivePriceNet")
                           : t("profitabilityAnalysis.table.listPriceNet")}
                       </TableHead>
@@ -609,11 +669,11 @@ export default function ProfitabilityAnalysisPage() {
                             {p.name}
                           </TableCell>
                           <TableCell className="text-right">
-                            <PriceCell product={p} showDiscount={dealerDiscountPercent > 0} />
+                            <PriceCell product={p} showDiscount={hasScenarioDiscount} />
                           </TableCell>
                           <TableCell className="text-right font-mono">
                             {p.marginPercent != null ? `${p.marginPercent.toLocaleString("de-DE")} %` : "—"}
-                            {dealerDiscountPercent > 0 &&
+                            {hasScenarioDiscount &&
                             p.catalogMarginPercent != null &&
                             p.catalogCrmVerdict === "green" &&
                             p.crmVerdict === "red" ? (

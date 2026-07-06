@@ -543,13 +543,18 @@
     "openPriceCheck": "Open price check",
     "executiveSummary": "Executive summary",
     "executiveSummaryHint": "Based on Shopware catalog net price vs. imported manufacturing costs. CRM profitability from {{crmThreshold}}%, price check from {{priceCheckThreshold}}%.",
-    "executiveSummaryHintWithDiscount": "Effective SP = list net price minus {{discount}}% dealer discount. CRM profitability from {{crmThreshold}}%, price check from {{priceCheckThreshold}}%.",
+    "executiveSummaryHintWithDiscount": "Effective SP = list price × (1 − {{dealer}}% dealer discount) × (1 − {{db1}}% DB1). Profitability from {{crmThreshold}}%, price check from {{priceCheckThreshold}}%.",
     "dealerDiscount": {
-      "title": "Dealer discount scenario",
-      "description": "Enter a typical dealer/B2B discount to check profitability on the effective selling price.",
+      "title": "Price & profitability scenario",
+      "description": "Enter dealer discount, DB1 and minimum margin for what-if analysis — without changing tenant settings.",
       "label": "Dealer discount (%)",
-      "hint": "Formula: effective net SP = list price × (1 − discount / 100). 0% = catalog price only.",
-      "activeHint": "All KPIs and traffic lights use {{discount}}% off list price."
+      "hint": "First discount on catalog list net price.",
+      "db1Label": "DB1 (%)",
+      "db1Hint": "Second stacked discount on the already reduced price (after dealer discount).",
+      "crmThresholdLabel": "Profitability threshold (%)",
+      "crmThresholdHint": "Green from this minimum margin on manufacturing costs. Default from Settings → Tenant → CRM profitability.",
+      "stackFormulaHint": "Effective net SP: list price × (1 − dealer discount / 100) × (1 − DB1 / 100).",
+      "activeHint": "Scenario: {{dealer}}% dealer discount, {{db1}}% DB1, profitability from {{threshold}}%."
     },
     "noData": "No products with manufacturing cost",
     "worstTitle": "Critical products (lowest margin)",
@@ -573,7 +578,7 @@
       "medianHint": "Median: {{median}}%",
       "noMarginData": "No manufacturing cost data",
       "flippedToRed": "Unprofitable after discount",
-      "flippedToRedHint": "Products CRM-green without discount but red with dealer discount"
+      "flippedToRedHint": "Products CRM-green at list price but red in scenario (dealer discount/DB1)"
     },
     "stats": {
       "total": "Products",
@@ -612,6 +617,7 @@
       "listPriceNet": "List price net",
       "effectivePriceNet": "Net SP (after discount)",
       "dealerDiscount": "Dealer discount %",
+      "db1Discount": "DB1 %",
       "wasGreen": "without discount: {{margin}}%",
       "herstellpreis": "Manufacturing cost",
       "marginAbs": "Contribution €",

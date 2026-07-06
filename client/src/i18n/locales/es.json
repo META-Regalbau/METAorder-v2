@@ -455,13 +455,18 @@
     "openPriceCheck": "Ir a verificación de precios",
     "executiveSummary": "Resumen ejecutivo",
     "executiveSummaryHint": "Base: precio neto de catálogo Shopware vs. costes de fabricación importados. Rentabilidad CRM desde {{crmThreshold}} %, verificación desde {{priceCheckThreshold}} %.",
-    "executiveSummaryHintWithDiscount": "PV efectivo = precio neto de lista menos {{discount}} % de descuento comercial. Rentabilidad CRM desde {{crmThreshold}} %, verificación desde {{priceCheckThreshold}} %.",
+    "executiveSummaryHintWithDiscount": "PV efectivo = precio lista × (1 − {{dealer}} % descuento comercial) × (1 − {{db1}} % DB1). Rentabilidad desde {{crmThreshold}} %, verificación desde {{priceCheckThreshold}} %.",
     "dealerDiscount": {
-      "title": "Escenario de descuento comercial",
-      "description": "Indique un descuento típico de distribuidor/B2B para comprobar la rentabilidad sobre el precio de venta efectivo.",
+      "title": "Escenario de precio y rentabilidad",
+      "description": "Indique descuento comercial, DB1 y margen mínimo para análisis what-if — sin cambiar ajustes del inquilino.",
       "label": "Descuento comercial (%)",
-      "hint": "Fórmula: PV neto efectivo = precio lista × (1 − descuento / 100). 0 % = solo precio de catálogo.",
-      "activeHint": "Todos los KPI y semáforos usan {{discount}} % de descuento sobre el precio de lista."
+      "hint": "Primer descuento sobre el precio neto de catálogo.",
+      "db1Label": "DB1 (%)",
+      "db1Hint": "Segundo descuento acumulado sobre el precio ya reducido (tras descuento comercial).",
+      "crmThresholdLabel": "Umbral de rentabilidad (%)",
+      "crmThresholdHint": "Verde desde este margen mínimo sobre costes de fabricación. Valor por defecto en Ajustes → Inquilino → Rentabilidad CRM.",
+      "stackFormulaHint": "PV neto efectivo: precio lista × (1 − descuento comercial / 100) × (1 − DB1 / 100).",
+      "activeHint": "Escenario: {{dealer}} % descuento comercial, {{db1}} % DB1, rentabilidad desde {{threshold}} %."
     },
     "noData": "Sin artículos con coste de fabricación",
     "worstTitle": "Artículos críticos (menor margen)",
@@ -485,7 +490,7 @@
       "medianHint": "Mediana: {{median}} %",
       "noMarginData": "Sin datos de coste de fabricación",
       "flippedToRed": "No rentable tras descuento",
-      "flippedToRedHint": "Artículos CRM verdes sin descuento pero rojos con descuento comercial"
+      "flippedToRedHint": "Artículos CRM verdes a precio lista pero rojos en el escenario (descuento comercial/DB1)"
     },
     "stats": {
       "total": "Artículos",
@@ -524,6 +529,7 @@
       "listPriceNet": "Precio lista neto",
       "effectivePriceNet": "PV neto (con descuento)",
       "dealerDiscount": "Descuento comercial %",
+      "db1Discount": "DB1 %",
       "wasGreen": "sin descuento: {{margin}} %",
       "herstellpreis": "Coste fabricación",
       "marginAbs": "Contribución €",

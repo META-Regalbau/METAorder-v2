@@ -544,13 +544,18 @@
     "openPriceCheck": "Zur Preisprüfung",
     "executiveSummary": "Management-Überblick",
     "executiveSummaryHint": "Basis: Shopware-Katalogpreis netto vs. importierte Herstellkosten. CRM-Rentabilität ab {{crmThreshold}} %, Preisprüfung ab {{priceCheckThreshold}} %.",
-    "executiveSummaryHintWithDiscount": "Effektiver VK = Listenpreis netto abzüglich {{discount}} % Handlerrabatt. CRM-Rentabilität ab {{crmThreshold}} %, Preisprüfung ab {{priceCheckThreshold}} %.",
+    "executiveSummaryHintWithDiscount": "Effektiver VK = Listenpreis × (1 − {{dealer}} % Handlerrabatt) × (1 − {{db1}} % DB1). Rentabilität ab {{crmThreshold}} %, Preisprüfung ab {{priceCheckThreshold}} %.",
     "dealerDiscount": {
-      "title": "Handlerrabatt-Szenario",
-      "description": "Typischen Händler-/B2B-Rabatt eingeben, um die Rentabilität auf dem effektiven Verkaufspreis zu prüfen.",
+      "title": "Preis- & Rentabilitäts-Szenario",
+      "description": "Handlerrabatt, DB1 und Mindestmarge für die What-if-Analyse eingeben — ohne die Mandanten-Einstellungen zu ändern.",
       "label": "Handlerrabatt (%)",
-      "hint": "Formel: effektiver VK netto = Listenpreis × (1 − Rabatt / 100). 0 % = reiner Katalogpreis.",
-      "activeHint": "Alle Kennzellen und Ampeln beziehen sich auf {{discount}} % Rabatt auf den Listenpreis."
+      "hint": "Erster Rabatt auf den Katalog-Listenpreis netto.",
+      "db1Label": "DB1 (%)",
+      "db1Hint": "Zweiter gestaffelter Rabatt auf den bereits reduzierten Preis (nach Handlerrabatt).",
+      "crmThresholdLabel": "Rentabilitätsschwelle (%)",
+      "crmThresholdHint": "Grün ab dieser Mindestmarge auf Herstellkosten. Vorgabe aus Einstellungen → Mandant → CRM-Rentabilität.",
+      "stackFormulaHint": "Formel effektiver VK netto: Listenpreis × (1 − Handlerrabatt / 100) × (1 − DB1 / 100).",
+      "activeHint": "Szenario: {{dealer}} % Handlerrabatt, {{db1}} % DB1, Rentabilität ab {{threshold}} %."
     },
     "noData": "Keine Artikel mit Herstellpreis",
     "worstTitle": "Kritische Artikel (niedrigste Marge)",
@@ -574,7 +579,7 @@
       "medianHint": "Median: {{median}} %",
       "noMarginData": "Keine HK-Daten vorhanden",
       "flippedToRed": "Nach Rabatt unrentabel",
-      "flippedToRedHint": "Artikel, die ohne Rabatt CRM-grün waren, mit Handlerrabatt aber rot sind"
+      "flippedToRedHint": "Artikel, die am Listenpreis CRM-grün waren, im Szenario (Handlerrabatt/DB1) aber rot sind"
     },
     "stats": {
       "total": "Artikel",
@@ -613,6 +618,7 @@
       "listPriceNet": "Listenpreis netto",
       "effectivePriceNet": "VK netto (nach Rabatt)",
       "dealerDiscount": "Handlerrabatt %",
+      "db1Discount": "DB1 %",
       "wasGreen": "ohne Rabatt: {{margin}} %",
       "herstellpreis": "Herstellpreis",
       "marginAbs": "Deckung €",
