@@ -44,6 +44,8 @@ export type ProfitabilitySummary = {
   belowCrmThresholdCount: number;
   avgMarginPercent: number | null;
   medianMarginPercent: number | null;
+  avgMarginAbs: number | null;
+  medianMarginAbs: number | null;
   minMarginPercent: number | null;
   maxMarginPercent: number | null;
   /** Vorher CRM-grün am Listenpreis, nach Rabatt-Szenario rot. */
@@ -149,6 +151,7 @@ export function buildProfitabilityAnalysis(
 
   const bucketCounts = new Map<string, number>(BUCKET_DEFS.map((b) => [b.key, 0]));
   const margins: number[] = [];
+  const marginAbsValues: number[] = [];
 
   let withHerstellpreis = 0;
   let crmGreen = 0;
@@ -175,7 +178,7 @@ export function buildProfitabilityAnalysis(
     const marginPercent = computeMarginPercent(effectivePriceNet, p.herstellpreisNet);
     const marginAbs =
       p.herstellpreisNet != null && p.herstellpreisNet > 0
-        ? effectivePriceNet - p.herstellpreisNet
+        ? Math.round((effectivePriceNet - p.herstellpreisNet) * 100) / 100
         : null;
     const crmVerdict = computeVerdict(marginPercent, crmThreshold);
     const catalogCrmVerdict = computeVerdict(catalogMarginPercent, crmThreshold);
@@ -184,6 +187,7 @@ export function buildProfitabilityAnalysis(
     if (marginPercent != null) {
       withHerstellpreis += 1;
       margins.push(marginPercent);
+      if (marginAbs != null) marginAbsValues.push(marginAbs);
       bucketCounts.set(assignBucket(marginPercent), (bucketCounts.get(assignBucket(marginPercent)) ?? 0) + 1);
       if (marginPercent < 0) lossCount += 1;
       if (marginPercent < crmThreshold) belowCrmThresholdCount += 1;
@@ -222,6 +226,13 @@ export function buildProfitabilityAnalysis(
       ? Math.round((margins.reduce((sum, v) => sum + v, 0) / margins.length) * 10) / 10
       : null;
 
+  const avgMarginAbs =
+    marginAbsValues.length > 0
+      ? Math.round(
+          (marginAbsValues.reduce((sum, v) => sum + v, 0) / marginAbsValues.length) * 100,
+        ) / 100
+      : null;
+
   const summary: ProfitabilitySummary = {
     total: filtered.length,
     active,
@@ -238,6 +249,8 @@ export function buildProfitabilityAnalysis(
     belowCrmThresholdCount,
     avgMarginPercent,
     medianMarginPercent: median(margins),
+    avgMarginAbs,
+    medianMarginAbs: median(marginAbsValues),
     minMarginPercent: margins.length > 0 ? Math.min(...margins) : null,
     maxMarginPercent: margins.length > 0 ? Math.max(...margins) : null,
     flippedToRedCount,

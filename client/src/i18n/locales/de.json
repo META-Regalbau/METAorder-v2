@@ -576,7 +576,7 @@
       "loss": "Verlustartikel",
       "lossHint": "VK netto unter Herstellkosten",
       "avgMargin": "Ø Marge",
-      "medianHint": "Median: {{median}} %",
+      "medianHint": "Median: {{median}} % · {{medianAbs}}",
       "noMarginData": "Keine HK-Daten vorhanden",
       "flippedToRed": "Nach Rabatt unrentabel",
       "flippedToRedHint": "Artikel, die am Listenpreis CRM-grün waren, im Szenario (Handlerrabatt/DB1) aber rot sind"
@@ -621,6 +621,7 @@
       "db1Discount": "DB1 %",
       "wasGreen": "ohne Rabatt: {{margin}} %",
       "herstellpreis": "Herstellpreis",
+      "margin": "Marge",
       "marginAbs": "Deckung €",
       "marginPct": "Marge %",
       "crmVerdict": "CRM",

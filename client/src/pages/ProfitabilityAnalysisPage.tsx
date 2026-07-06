@@ -125,6 +125,44 @@ function PriceCell({
   );
 }
 
+function MarginCell({
+  marginPercent,
+  marginAbs,
+  catalogMarginPercent,
+  showWasGreen,
+  wasGreenLabel,
+}: {
+  marginPercent: number | null;
+  marginAbs: number | null;
+  catalogMarginPercent?: number | null;
+  showWasGreen?: boolean;
+  wasGreenLabel?: string;
+}) {
+  if (marginPercent == null) {
+    return <>—</>;
+  }
+
+  return (
+    <div className="text-right font-mono">
+      <div>{`${marginPercent.toLocaleString("de-DE")} %`}</div>
+      {marginAbs != null ? (
+        <div
+          className={
+            marginAbs < 0
+              ? "text-xs text-destructive font-normal"
+              : "text-xs text-muted-foreground font-normal"
+          }
+        >
+          {currencyFormatter.format(marginAbs)}
+        </div>
+      ) : null}
+      {showWasGreen && catalogMarginPercent != null && wasGreenLabel ? (
+        <div className="text-xs text-amber-600 font-normal">{wasGreenLabel}</div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function ProfitabilityAnalysisPage() {
   const { t } = useTranslation();
   const [activeOnly, setActiveOnly] = useState(true);
@@ -440,10 +478,19 @@ export default function ProfitabilityAnalysisPage() {
                     ? `${summary.avgMarginPercent.toLocaleString("de-DE")} %`
                     : "—"}
                 </p>
+                {summary.avgMarginAbs != null ? (
+                  <p className="text-lg font-medium text-muted-foreground">
+                    {currencyFormatter.format(summary.avgMarginAbs)}
+                  </p>
+                ) : null}
                 <p className="text-xs text-muted-foreground mt-1">
                   {summary.medianMarginPercent != null
                     ? t("profitabilityAnalysis.kpi.medianHint", {
                         median: summary.medianMarginPercent.toLocaleString("de-DE"),
+                        medianAbs:
+                          summary.medianMarginAbs != null
+                            ? currencyFormatter.format(summary.medianMarginAbs)
+                            : "—",
                       })
                     : t("profitabilityAnalysis.kpi.noMarginData")}
                 </p>
@@ -583,7 +630,7 @@ export default function ProfitabilityAnalysisPage() {
                           ? t("profitabilityAnalysis.table.effectivePriceNet")
                           : t("profitabilityAnalysis.table.listPriceNet")}
                       </TableHead>
-                      <TableHead className="text-right">{t("profitabilityAnalysis.table.marginPct")}</TableHead>
+                      <TableHead className="text-right">{t("profitabilityAnalysis.table.margin")}</TableHead>
                       <TableHead>{t("profitabilityAnalysis.table.crmVerdict")}</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -604,18 +651,24 @@ export default function ProfitabilityAnalysisPage() {
                           <TableCell className="text-right">
                             <PriceCell product={p} showDiscount={hasScenarioDiscount} />
                           </TableCell>
-                          <TableCell className="text-right font-mono">
-                            {p.marginPercent != null ? `${p.marginPercent.toLocaleString("de-DE")} %` : "—"}
-                            {hasScenarioDiscount &&
-                            p.catalogMarginPercent != null &&
-                            p.catalogCrmVerdict === "green" &&
-                            p.crmVerdict === "red" ? (
-                              <div className="text-xs text-amber-600 font-normal">
-                                {t("profitabilityAnalysis.table.wasGreen", {
-                                  margin: p.catalogMarginPercent.toLocaleString("de-DE"),
-                                })}
-                              </div>
-                            ) : null}
+                          <TableCell className="text-right">
+                            <MarginCell
+                              marginPercent={p.marginPercent}
+                              marginAbs={p.marginAbs}
+                              catalogMarginPercent={p.catalogMarginPercent}
+                              showWasGreen={
+                                hasScenarioDiscount &&
+                                p.catalogCrmVerdict === "green" &&
+                                p.crmVerdict === "red"
+                              }
+                              wasGreenLabel={
+                                p.catalogMarginPercent != null
+                                  ? t("profitabilityAnalysis.table.wasGreen", {
+                                      margin: p.catalogMarginPercent.toLocaleString("de-DE"),
+                                    })
+                                  : undefined
+                              }
+                            />
                           </TableCell>
                           <TableCell>
                             <VerdictBadge
@@ -650,7 +703,7 @@ export default function ProfitabilityAnalysisPage() {
                           ? t("profitabilityAnalysis.table.effectivePriceNet")
                           : t("profitabilityAnalysis.table.listPriceNet")}
                       </TableHead>
-                      <TableHead className="text-right">{t("profitabilityAnalysis.table.marginPct")}</TableHead>
+                      <TableHead className="text-right">{t("profitabilityAnalysis.table.margin")}</TableHead>
                       <TableHead>{t("profitabilityAnalysis.table.crmVerdict")}</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -671,18 +724,24 @@ export default function ProfitabilityAnalysisPage() {
                           <TableCell className="text-right">
                             <PriceCell product={p} showDiscount={hasScenarioDiscount} />
                           </TableCell>
-                          <TableCell className="text-right font-mono">
-                            {p.marginPercent != null ? `${p.marginPercent.toLocaleString("de-DE")} %` : "—"}
-                            {hasScenarioDiscount &&
-                            p.catalogMarginPercent != null &&
-                            p.catalogCrmVerdict === "green" &&
-                            p.crmVerdict === "red" ? (
-                              <div className="text-xs text-amber-600 font-normal">
-                                {t("profitabilityAnalysis.table.wasGreen", {
-                                  margin: p.catalogMarginPercent.toLocaleString("de-DE"),
-                                })}
-                              </div>
-                            ) : null}
+                          <TableCell className="text-right">
+                            <MarginCell
+                              marginPercent={p.marginPercent}
+                              marginAbs={p.marginAbs}
+                              catalogMarginPercent={p.catalogMarginPercent}
+                              showWasGreen={
+                                hasScenarioDiscount &&
+                                p.catalogCrmVerdict === "green" &&
+                                p.crmVerdict === "red"
+                              }
+                              wasGreenLabel={
+                                p.catalogMarginPercent != null
+                                  ? t("profitabilityAnalysis.table.wasGreen", {
+                                      margin: p.catalogMarginPercent.toLocaleString("de-DE"),
+                                    })
+                                  : undefined
+                              }
+                            />
                           </TableCell>
                           <TableCell>
                             <VerdictBadge

@@ -575,7 +575,7 @@
       "loss": "Loss products",
       "lossHint": "Net SP below manufacturing cost",
       "avgMargin": "Avg. margin",
-      "medianHint": "Median: {{median}}%",
+      "medianHint": "Median: {{median}}% · {{medianAbs}}",
       "noMarginData": "No manufacturing cost data",
       "flippedToRed": "Unprofitable after discount",
       "flippedToRedHint": "Products CRM-green at list price but red in scenario (dealer discount/DB1)"
@@ -620,6 +620,7 @@
       "db1Discount": "DB1 %",
       "wasGreen": "without discount: {{margin}}%",
       "herstellpreis": "Manufacturing cost",
+      "margin": "Margin",
       "marginAbs": "Contribution €",
       "marginPct": "Margin %",
       "crmVerdict": "CRM",
