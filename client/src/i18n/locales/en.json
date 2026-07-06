@@ -391,7 +391,7 @@
   },
   "productOverview": {
     "title": "Product overview",
-    "description": "All products with sales channels, advanced prices, categories and custom fields.",
+    "description": "All products with sales channels, advanced prices, categories, delivery times and custom fields.",
     "refresh": "Refresh",
     "exportCsv": "Export CSV",
     "loading": "Loading products…",
@@ -404,6 +404,14 @@
     "advancedPricesTitle": "Advanced prices",
     "customFieldsTitle": "Custom fields",
     "fromQuantity": "from {{qty}}",
+    "deliveryTimeRange": "{{min}}–{{max}} {{unit}}",
+    "deliveryTimeSingle": "{{value}} {{unit}}",
+    "deliveryTimeUnits": {
+      "day": "days",
+      "week": "weeks",
+      "month": "months",
+      "year": "years"
+    },
     "modal": {
       "quantity": "Quantity",
       "priceRule": "Price rule",
@@ -416,7 +424,8 @@
       "inactive": "Inactive",
       "withAdvancedPrices": "With advanced prices",
       "withoutChannel": "Without sales channel",
-      "withCustomFields": "With custom fields"
+      "withCustomFields": "With custom fields",
+      "withoutDeliveryTime": "Without delivery time"
     },
     "filters": {
       "searchPlaceholder": "Article no., name, EAN, manufacturer no.…",
@@ -433,6 +442,9 @@
       "inactive": "Inactive only",
       "onlyAdvancedPrices": "Only with advanced prices",
       "onlyCustomFields": "Only with custom fields",
+      "deliveryTime": "Delivery time",
+      "allDeliveryTimes": "All delivery times",
+      "noDeliveryTime": "Without delivery time",
       "customFieldKey": "Custom field",
       "allCustomFields": "All custom fields",
       "customFieldPresence": "Presence",
@@ -450,7 +462,9 @@
       "advancedPrices": "Adv. prices",
       "categories": "Categories",
       "tags": "Tags",
+      "deliveryTime": "Delivery time",
       "customFields": "Custom fields",
+      "missingDeliveryTime": "No delivery time",
       "price": "Price (gross)",
       "none": "—",
       "more": "+{{count}} more",

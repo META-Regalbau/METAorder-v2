@@ -303,7 +303,7 @@
   },
   "productOverview": {
     "title": "Resumen de productos",
-    "description": "Todos los productos con canales de venta, precios avanzados, categorías y campos personalizados.",
+    "description": "Todos los productos con canales de venta, precios avanzados, categorías, plazos de entrega y campos personalizados.",
     "refresh": "Actualizar",
     "exportCsv": "Exportar CSV",
     "loading": "Cargando productos…",
@@ -316,6 +316,14 @@
     "advancedPricesTitle": "Precios avanzados",
     "customFieldsTitle": "Campos personalizados",
     "fromQuantity": "desde {{qty}}",
+    "deliveryTimeRange": "{{min}}–{{max}} {{unit}}",
+    "deliveryTimeSingle": "{{value}} {{unit}}",
+    "deliveryTimeUnits": {
+      "day": "días",
+      "week": "semanas",
+      "month": "meses",
+      "year": "años"
+    },
     "modal": {
       "quantity": "Cantidad",
       "priceRule": "Regla de precio",
@@ -328,7 +336,8 @@
       "inactive": "Inactivos",
       "withAdvancedPrices": "Con precios avanzados",
       "withoutChannel": "Sin canal de venta",
-      "withCustomFields": "Con campos personalizados"
+      "withCustomFields": "Con campos personalizados",
+      "withoutDeliveryTime": "Sin plazo de entrega"
     },
     "filters": {
       "searchPlaceholder": "N.º art., nombre, EAN, n.º fabricante…",
@@ -345,6 +354,9 @@
       "inactive": "Solo inactivos",
       "onlyAdvancedPrices": "Solo con precios avanzados",
       "onlyCustomFields": "Solo con campos personalizados",
+      "deliveryTime": "Plazo de entrega",
+      "allDeliveryTimes": "Todos los plazos",
+      "noDeliveryTime": "Sin plazo de entrega",
       "customFieldKey": "Campo personalizado",
       "allCustomFields": "Todos los campos personalizados",
       "customFieldPresence": "Presencia",
@@ -362,7 +374,9 @@
       "advancedPrices": "Precios av.",
       "categories": "Categorías",
       "tags": "Etiquetas",
+      "deliveryTime": "Plazo de entrega",
       "customFields": "Campos pers.",
+      "missingDeliveryTime": "Sin plazo",
       "price": "Precio (bruto)",
       "none": "—",
       "more": "+{{count}} más",

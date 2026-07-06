@@ -73,6 +73,12 @@ interface OverviewProduct {
   advancedPriceCount: number;
   categories: string[];
   tags: string[];
+  deliveryTimeId: string | null;
+  deliveryTimeName: string | null;
+  deliveryTimeMin: number | null;
+  deliveryTimeMax: number | null;
+  deliveryTimeUnit: string | null;
+  hasDeliveryTime: boolean;
   customFields?: Record<string, unknown>;
   customFieldKeys: string[];
   propertyCount: number;
@@ -90,6 +96,7 @@ interface OverviewResponse {
 
 const PAGE_SIZE = 50;
 const NONE_CHANNEL = "__none__";
+const NONE_DELIVERY_TIME = "__none_delivery__";
 const ALL = "__all__";
 
 const currencyFormatter = new Intl.NumberFormat("de-DE", {
@@ -101,6 +108,30 @@ function formatCustomFieldValue(value: unknown): string {
   if (value == null) return "";
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);
+}
+
+function formatDeliveryTimeLabel(
+  product: Pick<
+    OverviewProduct,
+    "deliveryTimeName" | "deliveryTimeMin" | "deliveryTimeMax" | "deliveryTimeUnit" | "hasDeliveryTime"
+  >,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string | null {
+  if (!product.hasDeliveryTime) return null;
+  if (product.deliveryTimeName) return product.deliveryTimeName;
+  const unitKey = product.deliveryTimeUnit ?? "day";
+  const unitLabel = t(`productOverview.deliveryTimeUnits.${unitKey}`, { defaultValue: unitKey });
+  const { deliveryTimeMin: min, deliveryTimeMax: max } = product;
+  if (min != null && max != null && min !== max) {
+    return t("productOverview.deliveryTimeRange", { min, max, unit: unitLabel });
+  }
+  if (min != null) {
+    return t("productOverview.deliveryTimeSingle", { value: min, unit: unitLabel });
+  }
+  if (max != null) {
+    return t("productOverview.deliveryTimeSingle", { value: max, unit: unitLabel });
+  }
+  return null;
 }
 
 function escapeCsv(value: unknown): string {
@@ -125,6 +156,7 @@ export default function ProductOverviewPage() {
   const [customFieldKey, setCustomFieldKey] = useState<string>(ALL);
   const [customFieldPresence, setCustomFieldPresence] = useState<"any" | "present" | "absent">("any");
   const [customFieldValue, setCustomFieldValue] = useState("");
+  const [deliveryTimeFilter, setDeliveryTimeFilter] = useState<string>(ALL);
   const [page, setPage] = useState(1);
 
   const products = useMemo(() => data?.products ?? [], [data]);
@@ -148,11 +180,24 @@ export default function ProductOverviewPage() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [products]);
 
+  const deliveryTimeOptions = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const p of products) {
+      if (!p.deliveryTimeId) continue;
+      const label = formatDeliveryTimeLabel(p, t) ?? p.deliveryTimeId;
+      byId.set(p.deliveryTimeId, label);
+    }
+    return Array.from(byId.entries())
+      .map(([id, label]) => ({ id, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, "de"));
+  }, [products, t]);
+
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return products.filter((p) => {
       if (term) {
-        const haystack = `${p.productNumber} ${p.name} ${p.ean ?? ""} ${p.manufacturerNumber ?? ""}`.toLowerCase();
+        const deliveryLabel = formatDeliveryTimeLabel(p, t) ?? "";
+        const haystack = `${p.productNumber} ${p.name} ${p.ean ?? ""} ${p.manufacturerNumber ?? ""} ${deliveryLabel}`.toLowerCase();
         if (!haystack.includes(term)) return false;
       }
       if (channelFilter === NONE_CHANNEL) {
@@ -164,6 +209,11 @@ export default function ProductOverviewPage() {
       if (tagFilter !== ALL && !(p.tags ?? []).includes(tagFilter)) return false;
       if (statusFilter === "active" && p.active !== true) return false;
       if (statusFilter === "inactive" && p.active === true) return false;
+      if (deliveryTimeFilter === NONE_DELIVERY_TIME) {
+        if (p.hasDeliveryTime) return false;
+      } else if (deliveryTimeFilter !== ALL) {
+        if (p.deliveryTimeId !== deliveryTimeFilter) return false;
+      }
       if (onlyAdvancedPrices && !p.hasAdvancedPrices) return false;
       if (onlyCustomFields && p.customFieldKeys.length === 0) return false;
 
@@ -200,6 +250,7 @@ export default function ProductOverviewPage() {
     categoryFilter,
     tagFilter,
     statusFilter,
+    deliveryTimeFilter,
     onlyAdvancedPrices,
     onlyCustomFields,
     customFieldKey,
@@ -213,14 +264,24 @@ export default function ProductOverviewPage() {
     let withAdvancedPrices = 0;
     let withoutChannel = 0;
     let withCustomFields = 0;
+    let withoutDeliveryTime = 0;
     for (const p of products) {
       if (p.active === true) active += 1;
       else inactive += 1;
       if (p.hasAdvancedPrices) withAdvancedPrices += 1;
       if (p.salesChannelIds.length === 0) withoutChannel += 1;
       if (p.customFieldKeys.length > 0) withCustomFields += 1;
+      if (!p.hasDeliveryTime) withoutDeliveryTime += 1;
     }
-    return { total: products.length, active, inactive, withAdvancedPrices, withoutChannel, withCustomFields };
+    return {
+      total: products.length,
+      active,
+      inactive,
+      withAdvancedPrices,
+      withoutChannel,
+      withCustomFields,
+      withoutDeliveryTime,
+    };
   }, [products]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -241,6 +302,7 @@ export default function ProductOverviewPage() {
     setCustomFieldKey(ALL);
     setCustomFieldPresence("any");
     setCustomFieldValue("");
+    setDeliveryTimeFilter(ALL);
     setPage(1);
   };
 
@@ -254,6 +316,7 @@ export default function ProductOverviewPage() {
       t("productOverview.table.advancedPrices"),
       t("productOverview.table.categories"),
       t("productOverview.table.tags"),
+      t("productOverview.table.deliveryTime"),
       t("productOverview.table.customFields"),
       t("productOverview.csv.priceGross"),
       t("productOverview.csv.priceNet"),
@@ -276,6 +339,7 @@ export default function ProductOverviewPage() {
           p.advancedPriceCount,
           p.categories.join(" | "),
           (p.tags ?? []).join(" | "),
+          formatDeliveryTimeLabel(p, t) ?? "",
           customFields,
           p.priceGross,
           p.priceNet,
@@ -333,7 +397,7 @@ export default function ProductOverviewPage() {
         </Card>
       ) : null}
 
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">{t("productOverview.stats.total")}</p>
@@ -362,6 +426,12 @@ export default function ProductOverviewPage() {
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">{t("productOverview.stats.withCustomFields")}</p>
             <p className="text-2xl font-semibold">{stats.withCustomFields}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground">{t("productOverview.stats.withoutDeliveryTime")}</p>
+            <p className="text-2xl font-semibold text-destructive">{stats.withoutDeliveryTime}</p>
           </CardContent>
         </Card>
       </div>
@@ -461,6 +531,27 @@ export default function ProductOverviewPage() {
                 <SelectItem value={ALL}>{t("productOverview.filters.allStatus")}</SelectItem>
                 <SelectItem value="active">{t("productOverview.filters.active")}</SelectItem>
                 <SelectItem value="inactive">{t("productOverview.filters.inactive")}</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={deliveryTimeFilter}
+              onValueChange={(v) => {
+                setDeliveryTimeFilter(v);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger data-testid="overview-delivery-time">
+                <SelectValue placeholder={t("productOverview.filters.deliveryTime")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>{t("productOverview.filters.allDeliveryTimes")}</SelectItem>
+                <SelectItem value={NONE_DELIVERY_TIME}>{t("productOverview.filters.noDeliveryTime")}</SelectItem>
+                {deliveryTimeOptions.map((dt) => (
+                  <SelectItem key={dt.id} value={dt.id}>
+                    {dt.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
 
@@ -570,6 +661,7 @@ export default function ProductOverviewPage() {
                     <TableHead className="w-[120px]">{t("productOverview.table.advancedPrices")}</TableHead>
                     <TableHead className="min-w-[180px]">{t("productOverview.table.categories")}</TableHead>
                     <TableHead className="min-w-[160px]">{t("productOverview.table.tags")}</TableHead>
+                    <TableHead className="min-w-[140px]">{t("productOverview.table.deliveryTime")}</TableHead>
                     <TableHead className="w-[130px]">{t("productOverview.table.customFields")}</TableHead>
                     <TableHead className="w-[120px] text-right">{t("productOverview.table.price")}</TableHead>
                   </TableRow>
@@ -663,6 +755,7 @@ function BadgeList({
 function ProductRow({ product }: { product: OverviewProduct }) {
   const { t } = useTranslation();
   const channelNames = product.salesChannels.map((c) => c.name);
+  const deliveryTimeLabel = formatDeliveryTimeLabel(product, t);
 
   return (
     <TableRow>
@@ -776,6 +869,15 @@ function ProductRow({ product }: { product: OverviewProduct }) {
           emptyLabel={t("productOverview.table.none")}
           moreLabel={(n) => t("productOverview.table.more", { count: n })}
         />
+      </TableCell>
+      <TableCell>
+        {deliveryTimeLabel ? (
+          <span className="text-sm">{deliveryTimeLabel}</span>
+        ) : (
+          <Badge variant="outline" className="text-destructive border-destructive/40">
+            {t("productOverview.table.missingDeliveryTime")}
+          </Badge>
+        )}
       </TableCell>
       <TableCell>
         {product.customFieldKeys.length > 0 ? (

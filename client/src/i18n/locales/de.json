@@ -392,7 +392,7 @@
   },
   "productOverview": {
     "title": "Produkt-Übersicht",
-    "description": "Alle Produkte mit Verkaufskanälen, erweiterten Preisen, Kategorien und Customfields.",
+    "description": "Alle Produkte mit Verkaufskanälen, erweiterten Preisen, Kategorien, Lieferzeiten und Customfields.",
     "refresh": "Aktualisieren",
     "exportCsv": "CSV exportieren",
     "loading": "Produkte werden geladen…",
@@ -405,6 +405,14 @@
     "advancedPricesTitle": "Erweiterte Preise",
     "customFieldsTitle": "Customfields",
     "fromQuantity": "ab {{qty}}",
+    "deliveryTimeRange": "{{min}}–{{max}} {{unit}}",
+    "deliveryTimeSingle": "{{value}} {{unit}}",
+    "deliveryTimeUnits": {
+      "day": "Tage",
+      "week": "Wochen",
+      "month": "Monate",
+      "year": "Jahre"
+    },
     "modal": {
       "quantity": "Menge",
       "priceRule": "Preisregel",
@@ -417,7 +425,8 @@
       "inactive": "Inaktiv",
       "withAdvancedPrices": "Mit erweiterten Preisen",
       "withoutChannel": "Ohne Verkaufskanal",
-      "withCustomFields": "Mit Customfields"
+      "withCustomFields": "Mit Customfields",
+      "withoutDeliveryTime": "Ohne Lieferzeit"
     },
     "filters": {
       "searchPlaceholder": "Artikelnr., Name, EAN, Herstellernr.…",
@@ -434,6 +443,9 @@
       "inactive": "Nur inaktive",
       "onlyAdvancedPrices": "Nur mit erweiterten Preisen",
       "onlyCustomFields": "Nur mit Customfields",
+      "deliveryTime": "Lieferzeit",
+      "allDeliveryTimes": "Alle Lieferzeiten",
+      "noDeliveryTime": "Ohne Lieferzeit",
       "customFieldKey": "Customfield",
       "allCustomFields": "Alle Customfields",
       "customFieldPresence": "Vorhandensein",
@@ -451,7 +463,9 @@
       "advancedPrices": "Erw. Preise",
       "categories": "Kategorien",
       "tags": "Tags",
+      "deliveryTime": "Lieferzeit",
       "customFields": "Customfields",
+      "missingDeliveryTime": "Keine Lieferzeit",
       "price": "Preis (brutto)",
       "none": "—",
       "more": "+{{count}} mehr",

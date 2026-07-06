@@ -73,6 +73,14 @@ export interface ShopwareProductOverview {
   categories: string[];
   /** Tag-Namen des Produkts (Shopware tags-Association). */
   tags: string[];
+  /** Shopware product_delivery_time.id */
+  deliveryTimeId: string | null;
+  /** Anzeigename der Lieferzeit (Shopware translated.name oder name). */
+  deliveryTimeName: string | null;
+  deliveryTimeMin: number | null;
+  deliveryTimeMax: number | null;
+  deliveryTimeUnit: string | null;
+  hasDeliveryTime: boolean;
   customFields?: Record<string, unknown>;
   propertyCount: number;
   parentId: string | null;
@@ -575,6 +583,64 @@ function parseProductAdvancedPrices(sp: any, includedMap: Map<string, any>): Sho
     seenPriceSignature.add(signature);
     return true;
   });
+}
+
+export type ParsedProductDeliveryTime = {
+  deliveryTimeId: string | null;
+  deliveryTimeName: string | null;
+  deliveryTimeMin: number | null;
+  deliveryTimeMax: number | null;
+  deliveryTimeUnit: string | null;
+  hasDeliveryTime: boolean;
+};
+
+/** Lieferzeit aus Produkt-Suchtreffer parsen (product.deliveryTime / deliveryTimeId). */
+function parseProductDeliveryTime(sp: any, includedMap: Map<string, any>): ParsedProductDeliveryTime {
+  let dt = sp.deliveryTime;
+  if (!dt && sp.relationships?.deliveryTime?.data?.id) {
+    dt = includedMap.get(`product_delivery_time-${sp.relationships.deliveryTime.data.id}`);
+  }
+
+  const attributes = sp.attributes || sp;
+  const deliveryTimeIdRaw =
+    sp.deliveryTimeId ??
+    attributes?.deliveryTimeId ??
+    sp.relationships?.deliveryTime?.data?.id ??
+    dt?.id ??
+    null;
+  const deliveryTimeId = deliveryTimeIdRaw == null || deliveryTimeIdRaw === "" ? null : String(deliveryTimeIdRaw);
+
+  if (!dt && !deliveryTimeId) {
+    return {
+      deliveryTimeId: null,
+      deliveryTimeName: null,
+      deliveryTimeMin: null,
+      deliveryTimeMax: null,
+      deliveryTimeUnit: null,
+      hasDeliveryTime: false,
+    };
+  }
+
+  const dtAttrs = dt?.attributes || dt || {};
+  const deliveryTimeName =
+    dtAttrs.translated?.name ?? dtAttrs.name ?? dt?.name ?? dt?.translated?.name ?? null;
+  const minRaw = dtAttrs.min ?? dt?.min;
+  const maxRaw = dtAttrs.max ?? dt?.max;
+  const deliveryTimeMin = minRaw != null && !Number.isNaN(Number(minRaw)) ? Number(minRaw) : null;
+  const deliveryTimeMax = maxRaw != null && !Number.isNaN(Number(maxRaw)) ? Number(maxRaw) : null;
+  const deliveryTimeUnit =
+    dtAttrs.unit ?? dt?.unit ?? (deliveryTimeMin != null || deliveryTimeMax != null ? "day" : null);
+
+  const hasDeliveryTime = Boolean(deliveryTimeId || deliveryTimeName || deliveryTimeMin != null || deliveryTimeMax != null);
+
+  return {
+    deliveryTimeId,
+    deliveryTimeName: deliveryTimeName ? String(deliveryTimeName) : null,
+    deliveryTimeMin,
+    deliveryTimeMax,
+    deliveryTimeUnit: deliveryTimeUnit ? String(deliveryTimeUnit) : null,
+    hasDeliveryTime,
+  };
 }
 
 export class ShopwareClient {
@@ -4070,10 +4136,12 @@ export class ShopwareClient {
           "childCount",
           "createdAt",
           "updatedAt",
+          "deliveryTimeId",
         ],
         product_manufacturer: ["name"],
         category: ["id", "name"],
         tag: ["id", "name"],
+        product_delivery_time: ["id", "name", "min", "max", "unit", "translated"],
         tax: ["taxRate"],
         product_price: ["quantityStart", "quantityEnd", "price", "ruleId", "versionId", "updatedAt", "createdAt", "rule"],
         product_visibility: ["id", "salesChannelId", "visibility"],
@@ -4092,6 +4160,7 @@ export class ShopwareClient {
         },
         visibilities: {},
         properties: {},
+        deliveryTime: {},
       },
     };
 
@@ -4132,6 +4201,7 @@ export class ShopwareClient {
 
     const products: ShopwareProductOverview[] = (data.data || []).map((sp: any) => {
       const attributes = sp.attributes || sp;
+      const deliveryTime = parseProductDeliveryTime(sp, includedMap);
 
       // Steuer
       let taxRate = 19;
@@ -4243,6 +4313,7 @@ export class ShopwareClient {
         advancedPrices: dedupedAdvancedPrices,
         categories,
         tags,
+        ...deliveryTime,
         customFields: customFields && typeof customFields === "object" ? customFields : undefined,
         propertyCount: propertyOptionIds.size,
         parentId: parentIdRaw == null || parentIdRaw === "" ? null : String(parentIdRaw),

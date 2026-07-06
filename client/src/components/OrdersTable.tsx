@@ -228,16 +228,13 @@ export default function OrdersTable({
                 </div>
               </TableCell>
               <TableCell className="text-right">
-                {order.profitability?.db1Total != null ? (
-                  <div className="space-y-1">
-                    <p className="font-mono text-sm tabular-nums">
-                      €{order.profitability.db1Total.toFixed(2)}
-                    </p>
-                    <HerstellMarginIndicator
-                      marginPercent={order.profitability.marginPercent}
-                      verdict={order.profitability.crmVerdict}
-                    />
-                  </div>
+                {order.profitability?.marginPercent != null ||
+                order.profitability?.marginOnRevenuePercent != null ? (
+                  <HerstellMarginIndicator
+                    marginPercent={order.profitability.marginPercent}
+                    marginOnRevenuePercent={order.profitability.marginOnRevenuePercent}
+                    verdict={order.profitability.crmVerdict}
+                  />
                 ) : (
                   <span className="text-sm text-muted-foreground">—</span>
                 )}

@@ -912,18 +912,20 @@ export default function OrderDetailModal({
           <TabsContent value="items" className="pt-6">
             <Card className="p-6">
               <h3 className="text-sm font-medium uppercase tracking-wide mb-4">{t('orderDetail.orderItems')}</h3>
-              {order.profitability?.db1Total != null ? (
+              {order.profitability?.marginPercent != null ||
+              order.profitability?.marginOnRevenuePercent != null ? (
                 <div className="mb-4 rounded-lg border bg-muted/30 p-4 flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{t('orderDetail.profitability.db1Total')}</p>
-                    <p className="text-lg font-semibold font-mono tabular-nums">
-                      €{order.profitability.db1Total.toFixed(2)}
-                    </p>
-                  </div>
                   <HerstellMarginIndicator
                     marginPercent={order.profitability.marginPercent}
+                    marginOnRevenuePercent={order.profitability.marginOnRevenuePercent}
                     verdict={order.profitability.crmVerdict}
                   />
+                  {order.profitability.db1Total != null ? (
+                    <p className="text-xs text-muted-foreground font-mono tabular-nums">
+                      {t("orderDetail.profitability.db1Total")}: €
+                      {order.profitability.db1Total.toFixed(2)}
+                    </p>
+                  ) : null}
                   <p className="text-xs text-muted-foreground w-full">
                     {t('orderDetail.profitability.coverageHint', {
                       withData: order.profitability.linesWithHerstellpreis,
@@ -956,15 +958,18 @@ export default function OrderDetailModal({
                             <p className="text-muted-foreground">€{item.price.toFixed(2)} {t('orderDetail.each')} <span className="text-xs">({t('orderDetail.gross')})</span></p>
                             <p className="text-xs text-muted-foreground">€{item.netPrice.toFixed(2)} {t('orderDetail.each')} ({t('orderDetail.net')})</p>
                           </div>
-                          {item.db1Abs != null ? (
+                          {item.marginPercent != null || item.marginOnRevenuePercent != null ? (
                             <div className="pt-1">
-                              <p className="text-xs text-muted-foreground">
-                                {t('orderDetail.profitability.db1Line')}: €{item.db1Abs.toFixed(2)}
-                              </p>
                               <HerstellMarginIndicator
                                 marginPercent={item.marginPercent ?? null}
+                                marginOnRevenuePercent={item.marginOnRevenuePercent ?? null}
                                 verdict={item.crmVerdict ?? "none"}
                               />
+                              {item.db1Abs != null ? (
+                                <p className="text-xs text-muted-foreground font-mono tabular-nums mt-0.5">
+                                  {t("orderDetail.profitability.db1Line")}: €{item.db1Abs.toFixed(2)}
+                                </p>
+                              ) : null}
                             </div>
                           ) : null}
                         </div>

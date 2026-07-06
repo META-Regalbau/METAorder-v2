@@ -97,7 +97,11 @@ function CompactOrderRow({ order }: { order: Order }) {
       </TableCell>
       <TableCell className="text-right">
         {p ? (
-          <HerstellMarginIndicator marginPercent={p.marginPercent} verdict={p.crmVerdict} />
+          <HerstellMarginIndicator
+            marginPercent={p.marginPercent}
+            marginOnRevenuePercent={p.marginOnRevenuePercent}
+            verdict={p.crmVerdict}
+          />
         ) : (
           "—"
         )}
