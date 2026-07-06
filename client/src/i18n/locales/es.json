@@ -455,6 +455,14 @@
     "openPriceCheck": "Ir a verificación de precios",
     "executiveSummary": "Resumen ejecutivo",
     "executiveSummaryHint": "Base: precio neto de catálogo Shopware vs. costes de fabricación importados. Rentabilidad CRM desde {{crmThreshold}} %, verificación desde {{priceCheckThreshold}} %.",
+    "executiveSummaryHintWithDiscount": "PV efectivo = precio neto de lista menos {{discount}} % de descuento comercial. Rentabilidad CRM desde {{crmThreshold}} %, verificación desde {{priceCheckThreshold}} %.",
+    "dealerDiscount": {
+      "title": "Escenario de descuento comercial",
+      "description": "Indique un descuento típico de distribuidor/B2B para comprobar la rentabilidad sobre el precio de venta efectivo.",
+      "label": "Descuento comercial (%)",
+      "hint": "Fórmula: PV neto efectivo = precio lista × (1 − descuento / 100). 0 % = solo precio de catálogo.",
+      "activeHint": "Todos los KPI y semáforos usan {{discount}} % de descuento sobre el precio de lista."
+    },
     "noData": "Sin artículos con coste de fabricación",
     "worstTitle": "Artículos críticos (menor margen)",
     "worstHint": "Peor margen de contribución — acción necesaria en precio o coste.",
@@ -462,7 +470,7 @@
     "bestHint": "Mejor margen de contribución sobre costes de fabricación.",
     "interpretationTitle": "Interpretación",
     "interpretation": {
-      "catalog": "Este análisis usa el precio de catálogo Shopware (neto), no precios individuales ni descuentos B2B. Para precios de clientes ver CRM → Precios individuales.",
+      "catalog": "Sin descuento comercial se usa el precio neto de catálogo Shopware. Con descuento, el PV efectivo determina margen y semáforo. Para precios individuales ver CRM.",
       "crmVsPriceCheck": "Rentabilidad CRM ({{threshold}} %) incluye gastos generales. El umbral del 7 % en verificación de precios es un control de cálculo más estricto.",
       "gaps": "Artículos sin coste de fabricación importado aparecen como „Sin coste de fabricación“ — datos incompletos."
     },
@@ -475,7 +483,9 @@
       "lossHint": "PV neto por debajo del coste de fabricación",
       "avgMargin": "Margen medio",
       "medianHint": "Mediana: {{median}} %",
-      "noMarginData": "Sin datos de coste de fabricación"
+      "noMarginData": "Sin datos de coste de fabricación",
+      "flippedToRed": "No rentable tras descuento",
+      "flippedToRedHint": "Artículos CRM verdes sin descuento pero rojos con descuento comercial"
     },
     "stats": {
       "total": "Artículos",
@@ -511,6 +521,10 @@
       "activeYes": "Sí",
       "inactive": "No",
       "priceNet": "PV neto",
+      "listPriceNet": "Precio lista neto",
+      "effectivePriceNet": "PV neto (con descuento)",
+      "dealerDiscount": "Descuento comercial %",
+      "wasGreen": "sin descuento: {{margin}} %",
       "herstellpreis": "Coste fabricación",
       "marginAbs": "Contribución €",
       "marginPct": "Margen %",

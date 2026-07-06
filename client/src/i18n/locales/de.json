@@ -544,6 +544,14 @@
     "openPriceCheck": "Zur Preisprüfung",
     "executiveSummary": "Management-Überblick",
     "executiveSummaryHint": "Basis: Shopware-Katalogpreis netto vs. importierte Herstellkosten. CRM-Rentabilität ab {{crmThreshold}} %, Preisprüfung ab {{priceCheckThreshold}} %.",
+    "executiveSummaryHintWithDiscount": "Effektiver VK = Listenpreis netto abzüglich {{discount}} % Handlerrabatt. CRM-Rentabilität ab {{crmThreshold}} %, Preisprüfung ab {{priceCheckThreshold}} %.",
+    "dealerDiscount": {
+      "title": "Handlerrabatt-Szenario",
+      "description": "Typischen Händler-/B2B-Rabatt eingeben, um die Rentabilität auf dem effektiven Verkaufspreis zu prüfen.",
+      "label": "Handlerrabatt (%)",
+      "hint": "Formel: effektiver VK netto = Listenpreis × (1 − Rabatt / 100). 0 % = reiner Katalogpreis.",
+      "activeHint": "Alle Kennzellen und Ampeln beziehen sich auf {{discount}} % Rabatt auf den Listenpreis."
+    },
     "noData": "Keine Artikel mit Herstellpreis",
     "worstTitle": "Kritische Artikel (niedrigste Marge)",
     "worstHint": "Artikel mit der schwächsten Deckung — Handlungsbedarf bei Preis oder Kosten.",
@@ -551,7 +559,7 @@
     "bestHint": "Artikel mit dem besten Deckungsbeitrag auf Herstellkosten.",
     "interpretationTitle": "Einordnung",
     "interpretation": {
-      "catalog": "Diese Analyse nutzt den Shopware-Katalogpreis (Listenpreis netto), nicht kundenindividuelle Preise oder B2B-Rabatte. Für Kundenpreise siehe CRM → Kundenindividuelle Preise.",
+      "catalog": "Ohne Handlerrabatt gilt der Shopware-Katalogpreis (Listenpreis netto). Mit Rabatt wird der effektive VK für Marge und Ampel verwendet. Kundenindividuelle Preise siehe CRM.",
       "crmVsPriceCheck": "CRM-Rentabilität ({{threshold}} %) bildet Gemeinkosten ab. Die 7‑%-Schwelle in der Preisprüfung ist eine engere Kalkulationskontrolle.",
       "gaps": "Artikel ohne importierten Herstellpreis erscheinen als „Kein Herstellpreis“ — die Datenbasis für die Analyse ist dort unvollständig."
     },
@@ -564,7 +572,9 @@
       "lossHint": "VK netto unter Herstellkosten",
       "avgMargin": "Ø Marge",
       "medianHint": "Median: {{median}} %",
-      "noMarginData": "Keine HK-Daten vorhanden"
+      "noMarginData": "Keine HK-Daten vorhanden",
+      "flippedToRed": "Nach Rabatt unrentabel",
+      "flippedToRedHint": "Artikel, die ohne Rabatt CRM-grün waren, mit Handlerrabatt aber rot sind"
     },
     "stats": {
       "total": "Artikel",
@@ -600,6 +610,10 @@
       "activeYes": "Ja",
       "inactive": "Nein",
       "priceNet": "VK netto",
+      "listPriceNet": "Listenpreis netto",
+      "effectivePriceNet": "VK netto (nach Rabatt)",
+      "dealerDiscount": "Handlerrabatt %",
+      "wasGreen": "ohne Rabatt: {{margin}} %",
       "herstellpreis": "Herstellpreis",
       "marginAbs": "Deckung €",
       "marginPct": "Marge %",

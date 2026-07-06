@@ -543,6 +543,14 @@
     "openPriceCheck": "Open price check",
     "executiveSummary": "Executive summary",
     "executiveSummaryHint": "Based on Shopware catalog net price vs. imported manufacturing costs. CRM profitability from {{crmThreshold}}%, price check from {{priceCheckThreshold}}%.",
+    "executiveSummaryHintWithDiscount": "Effective SP = list net price minus {{discount}}% dealer discount. CRM profitability from {{crmThreshold}}%, price check from {{priceCheckThreshold}}%.",
+    "dealerDiscount": {
+      "title": "Dealer discount scenario",
+      "description": "Enter a typical dealer/B2B discount to check profitability on the effective selling price.",
+      "label": "Dealer discount (%)",
+      "hint": "Formula: effective net SP = list price × (1 − discount / 100). 0% = catalog price only.",
+      "activeHint": "All KPIs and traffic lights use {{discount}}% off list price."
+    },
     "noData": "No products with manufacturing cost",
     "worstTitle": "Critical products (lowest margin)",
     "worstHint": "Weakest contribution margin — action needed on price or cost.",
@@ -550,7 +558,7 @@
     "bestHint": "Best contribution margin on manufacturing costs.",
     "interpretationTitle": "How to read this",
     "interpretation": {
-      "catalog": "This analysis uses the Shopware catalog price (list net), not customer-specific prices or B2B discounts. For customer prices see CRM → Individual prices.",
+      "catalog": "Without dealer discount, the Shopware catalog list net price applies. With a discount, the effective SP is used for margin and traffic light. For customer-specific prices see CRM.",
       "crmVsPriceCheck": "CRM profitability ({{threshold}}%) includes overhead target. The 7% price check threshold is a tighter calculation control.",
       "gaps": "Products without imported manufacturing cost show as “No manufacturing cost” — data is incomplete there."
     },
@@ -563,7 +571,9 @@
       "lossHint": "Net SP below manufacturing cost",
       "avgMargin": "Avg. margin",
       "medianHint": "Median: {{median}}%",
-      "noMarginData": "No manufacturing cost data"
+      "noMarginData": "No manufacturing cost data",
+      "flippedToRed": "Unprofitable after discount",
+      "flippedToRedHint": "Products CRM-green without discount but red with dealer discount"
     },
     "stats": {
       "total": "Products",
@@ -599,6 +609,10 @@
       "activeYes": "Yes",
       "inactive": "No",
       "priceNet": "Net SP",
+      "listPriceNet": "List price net",
+      "effectivePriceNet": "Net SP (after discount)",
+      "dealerDiscount": "Dealer discount %",
+      "wasGreen": "without discount: {{margin}}%",
       "herstellpreis": "Manufacturing cost",
       "marginAbs": "Contribution €",
       "marginPct": "Margin %",

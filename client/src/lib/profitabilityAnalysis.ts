@@ -11,10 +11,14 @@ export type ProfitabilityProductInput = {
 };
 
 export type AnalyzedProduct = ProfitabilityProductInput & {
+  listPriceNet: number;
+  effectivePriceNet: number;
   marginPercent: number | null;
+  catalogMarginPercent: number | null;
   marginAbs: number | null;
   crmVerdict: ProfitabilityVerdict;
   priceCheckVerdict: ProfitabilityVerdict;
+  catalogCrmVerdict: ProfitabilityVerdict;
 };
 
 export type MarginBucket = {
@@ -42,6 +46,8 @@ export type ProfitabilitySummary = {
   medianMarginPercent: number | null;
   minMarginPercent: number | null;
   maxMarginPercent: number | null;
+  /** Nur bei Handlerrabatt > 0: vorher grün, nach Rabatt rot. */
+  flippedToRedCount: number;
 };
 
 export type ProfitabilityAnalysis = {
@@ -50,10 +56,22 @@ export type ProfitabilityAnalysis = {
   buckets: MarginBucket[];
   crmThreshold: number;
   priceCheckThreshold: number;
+  dealerDiscountPercent: number;
 };
 
 export const DEFAULT_PRICE_CHECK_THRESHOLD = 7;
 export const DEFAULT_CRM_THRESHOLD = 20;
+
+export function applyDealerDiscount(
+  listPriceNet: number,
+  dealerDiscountPercent: number,
+): number {
+  if (!Number.isFinite(dealerDiscountPercent) || dealerDiscountPercent <= 0) {
+    return listPriceNet;
+  }
+  const clamped = Math.min(Math.max(dealerDiscountPercent, 0), 100);
+  return Math.round(listPriceNet * (1 - clamped / 100) * 100) / 100;
+}
 
 export function computeMarginPercent(
   priceNet: number | null | undefined,
@@ -103,10 +121,15 @@ export function buildProfitabilityAnalysis(
     crmThreshold?: number;
     priceCheckThreshold?: number;
     activeOnly?: boolean;
+    dealerDiscountPercent?: number;
   },
 ): ProfitabilityAnalysis {
   const crmThreshold = opts?.crmThreshold ?? DEFAULT_CRM_THRESHOLD;
   const priceCheckThreshold = opts?.priceCheckThreshold ?? DEFAULT_PRICE_CHECK_THRESHOLD;
+  const dealerDiscountPercent = Math.min(
+    Math.max(opts?.dealerDiscountPercent ?? 0, 0),
+    100,
+  );
   const filtered = opts?.activeOnly ? products.filter((p) => p.active !== false) : products;
 
   const bucketCounts = new Map<string, number>(BUCKET_DEFS.map((b) => [b.key, 0]));
@@ -121,15 +144,22 @@ export function buildProfitabilityAnalysis(
   let priceCheckNone = 0;
   let lossCount = 0;
   let belowCrmThresholdCount = 0;
+  let flippedToRedCount = 0;
   let active = 0;
 
   const analyzed: AnalyzedProduct[] = filtered.map((p) => {
     if (p.active !== false) active += 1;
 
-    const marginPercent = computeMarginPercent(p.priceNet, p.herstellpreisNet);
+    const listPriceNet = p.priceNet;
+    const effectivePriceNet = applyDealerDiscount(listPriceNet, dealerDiscountPercent);
+    const catalogMarginPercent = computeMarginPercent(listPriceNet, p.herstellpreisNet);
+    const marginPercent = computeMarginPercent(effectivePriceNet, p.herstellpreisNet);
     const marginAbs =
-      p.herstellpreisNet != null && p.herstellpreisNet > 0 ? p.priceNet - p.herstellpreisNet : null;
+      p.herstellpreisNet != null && p.herstellpreisNet > 0
+        ? effectivePriceNet - p.herstellpreisNet
+        : null;
     const crmVerdict = computeVerdict(marginPercent, crmThreshold);
+    const catalogCrmVerdict = computeVerdict(catalogMarginPercent, crmThreshold);
     const priceCheckVerdict = computeVerdict(marginPercent, priceCheckThreshold);
 
     if (marginPercent != null) {
@@ -138,6 +168,13 @@ export function buildProfitabilityAnalysis(
       bucketCounts.set(assignBucket(marginPercent), (bucketCounts.get(assignBucket(marginPercent)) ?? 0) + 1);
       if (marginPercent < 0) lossCount += 1;
       if (marginPercent < crmThreshold) belowCrmThresholdCount += 1;
+      if (
+        dealerDiscountPercent > 0 &&
+        catalogCrmVerdict === "green" &&
+        crmVerdict === "red"
+      ) {
+        flippedToRedCount += 1;
+      }
     }
 
     if (crmVerdict === "green") crmGreen += 1;
@@ -150,10 +187,14 @@ export function buildProfitabilityAnalysis(
 
     return {
       ...p,
+      listPriceNet,
+      effectivePriceNet,
       marginPercent,
+      catalogMarginPercent,
       marginAbs,
       crmVerdict,
       priceCheckVerdict,
+      catalogCrmVerdict,
     };
   });
 
@@ -180,6 +221,7 @@ export function buildProfitabilityAnalysis(
     medianMarginPercent: median(margins),
     minMarginPercent: margins.length > 0 ? Math.min(...margins) : null,
     maxMarginPercent: margins.length > 0 ? Math.max(...margins) : null,
+    flippedToRedCount,
   };
 
   const buckets = BUCKET_DEFS.map((def) => ({
@@ -193,6 +235,7 @@ export function buildProfitabilityAnalysis(
     buckets,
     crmThreshold,
     priceCheckThreshold,
+    dealerDiscountPercent,
   };
 }
 

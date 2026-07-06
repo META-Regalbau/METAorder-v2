@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -98,9 +99,36 @@ function VerdictBadge({
   );
 }
 
+function PriceCell({
+  product,
+  showDiscount,
+}: {
+  product: { listPriceNet: number; effectivePriceNet: number };
+  showDiscount: boolean;
+}) {
+  if (!showDiscount) {
+    return <>{currencyFormatter.format(product.listPriceNet)}</>;
+  }
+  return (
+    <div className="text-right">
+      <div>{currencyFormatter.format(product.effectivePriceNet)}</div>
+      <div className="text-xs text-muted-foreground line-through">
+        {currencyFormatter.format(product.listPriceNet)}
+      </div>
+    </div>
+  );
+}
+
 export default function ProfitabilityAnalysisPage() {
   const { t } = useTranslation();
   const [activeOnly, setActiveOnly] = useState(true);
+  const [dealerDiscountInput, setDealerDiscountInput] = useState("0");
+
+  const dealerDiscountPercent = useMemo(() => {
+    const n = Number(dealerDiscountInput.replace(",", "."));
+    if (!Number.isFinite(n) || n < 0) return 0;
+    return Math.min(n, 100);
+  }, [dealerDiscountInput]);
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery<OverviewResponse>({
     queryKey: ["/api/products/overview"],
@@ -114,8 +142,9 @@ export default function ProfitabilityAnalysisPage() {
         crmThreshold,
         priceCheckThreshold: DEFAULT_PRICE_CHECK_THRESHOLD,
         activeOnly,
+        dealerDiscountPercent,
       }),
-    [data?.products, crmThreshold, activeOnly],
+    [data?.products, crmThreshold, activeOnly, dealerDiscountPercent],
   );
 
   const worstProducts = useMemo(
@@ -163,7 +192,13 @@ export default function ProfitabilityAnalysisPage() {
       t("profitabilityAnalysis.table.productNumber"),
       t("profitabilityAnalysis.table.name"),
       t("profitabilityAnalysis.table.active"),
-      t("profitabilityAnalysis.table.priceNet"),
+      t("profitabilityAnalysis.table.listPriceNet"),
+      ...(dealerDiscountPercent > 0
+        ? [
+            t("profitabilityAnalysis.table.dealerDiscount"),
+            t("profitabilityAnalysis.table.effectivePriceNet"),
+          ]
+        : []),
       t("profitabilityAnalysis.table.herstellpreis"),
       t("profitabilityAnalysis.table.marginAbs"),
       t("profitabilityAnalysis.table.marginPct"),
@@ -177,7 +212,10 @@ export default function ProfitabilityAnalysisPage() {
           p.productNumber,
           p.name,
           p.active === false ? t("profitabilityAnalysis.table.inactive") : t("profitabilityAnalysis.table.activeYes"),
-          p.priceNet,
+          p.listPriceNet,
+          ...(dealerDiscountPercent > 0
+            ? [dealerDiscountPercent, p.effectivePriceNet]
+            : []),
           p.herstellpreisNet ?? "",
           p.marginAbs ?? "",
           p.marginPercent ?? "",
@@ -260,14 +298,52 @@ export default function ProfitabilityAnalysisPage() {
         </Card>
       ) : (
         <>
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("profitabilityAnalysis.dealerDiscount.title")}</CardTitle>
+              <CardDescription>{t("profitabilityAnalysis.dealerDiscount.description")}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap items-end gap-4">
+              <div className="grid gap-2 w-full max-w-xs">
+                <Label htmlFor="dealer-discount">{t("profitabilityAnalysis.dealerDiscount.label")}</Label>
+                <Input
+                  id="dealer-discount"
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={0.1}
+                  value={dealerDiscountInput}
+                  onChange={(e) => setDealerDiscountInput(e.target.value)}
+                  data-testid="input-dealer-discount"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t("profitabilityAnalysis.dealerDiscount.hint")}
+                </p>
+              </div>
+              {dealerDiscountPercent > 0 ? (
+                <div className="text-sm text-muted-foreground">
+                  {t("profitabilityAnalysis.dealerDiscount.activeHint", {
+                    discount: dealerDiscountPercent.toLocaleString("de-DE"),
+                  })}
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+
           <Card className="border-primary/20 bg-primary/5">
             <CardHeader>
               <CardTitle>{t("profitabilityAnalysis.executiveSummary")}</CardTitle>
               <CardDescription>
-                {t("profitabilityAnalysis.executiveSummaryHint", {
-                  crmThreshold: crmThreshold.toLocaleString("de-DE"),
-                  priceCheckThreshold: DEFAULT_PRICE_CHECK_THRESHOLD,
-                })}
+                {dealerDiscountPercent > 0
+                  ? t("profitabilityAnalysis.executiveSummaryHintWithDiscount", {
+                      crmThreshold: crmThreshold.toLocaleString("de-DE"),
+                      priceCheckThreshold: DEFAULT_PRICE_CHECK_THRESHOLD,
+                      discount: dealerDiscountPercent.toLocaleString("de-DE"),
+                    })
+                  : t("profitabilityAnalysis.executiveSummaryHint", {
+                      crmThreshold: crmThreshold.toLocaleString("de-DE"),
+                      priceCheckThreshold: DEFAULT_PRICE_CHECK_THRESHOLD,
+                    })}
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -312,6 +388,15 @@ export default function ProfitabilityAnalysisPage() {
                     : t("profitabilityAnalysis.kpi.noMarginData")}
                 </p>
               </div>
+              {dealerDiscountPercent > 0 ? (
+                <div className="md:col-span-2 lg:col-span-4 border-t border-border/60 pt-4">
+                  <p className="text-sm text-muted-foreground">{t("profitabilityAnalysis.kpi.flippedToRed")}</p>
+                  <p className="text-2xl font-semibold text-amber-600">{summary.flippedToRedCount}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t("profitabilityAnalysis.kpi.flippedToRedHint")}
+                  </p>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
 
@@ -433,7 +518,11 @@ export default function ProfitabilityAnalysisPage() {
                     <TableRow>
                       <TableHead>{t("profitabilityAnalysis.table.productNumber")}</TableHead>
                       <TableHead>{t("profitabilityAnalysis.table.name")}</TableHead>
-                      <TableHead className="text-right">{t("profitabilityAnalysis.table.priceNet")}</TableHead>
+                      <TableHead className="text-right">
+                        {dealerDiscountPercent > 0
+                          ? t("profitabilityAnalysis.table.effectivePriceNet")
+                          : t("profitabilityAnalysis.table.listPriceNet")}
+                      </TableHead>
                       <TableHead className="text-right">{t("profitabilityAnalysis.table.marginPct")}</TableHead>
                       <TableHead>{t("profitabilityAnalysis.table.crmVerdict")}</TableHead>
                     </TableRow>
@@ -452,9 +541,21 @@ export default function ProfitabilityAnalysisPage() {
                           <TableCell className="max-w-[200px] truncate" title={p.name}>
                             {p.name}
                           </TableCell>
-                          <TableCell className="text-right">{currencyFormatter.format(p.priceNet)}</TableCell>
+                          <TableCell className="text-right">
+                            <PriceCell product={p} showDiscount={dealerDiscountPercent > 0} />
+                          </TableCell>
                           <TableCell className="text-right font-mono">
                             {p.marginPercent != null ? `${p.marginPercent.toLocaleString("de-DE")} %` : "—"}
+                            {dealerDiscountPercent > 0 &&
+                            p.catalogMarginPercent != null &&
+                            p.catalogCrmVerdict === "green" &&
+                            p.crmVerdict === "red" ? (
+                              <div className="text-xs text-amber-600 font-normal">
+                                {t("profitabilityAnalysis.table.wasGreen", {
+                                  margin: p.catalogMarginPercent.toLocaleString("de-DE"),
+                                })}
+                              </div>
+                            ) : null}
                           </TableCell>
                           <TableCell>
                             <VerdictBadge
@@ -484,7 +585,11 @@ export default function ProfitabilityAnalysisPage() {
                     <TableRow>
                       <TableHead>{t("profitabilityAnalysis.table.productNumber")}</TableHead>
                       <TableHead>{t("profitabilityAnalysis.table.name")}</TableHead>
-                      <TableHead className="text-right">{t("profitabilityAnalysis.table.priceNet")}</TableHead>
+                      <TableHead className="text-right">
+                        {dealerDiscountPercent > 0
+                          ? t("profitabilityAnalysis.table.effectivePriceNet")
+                          : t("profitabilityAnalysis.table.listPriceNet")}
+                      </TableHead>
                       <TableHead className="text-right">{t("profitabilityAnalysis.table.marginPct")}</TableHead>
                       <TableHead>{t("profitabilityAnalysis.table.crmVerdict")}</TableHead>
                     </TableRow>
@@ -503,9 +608,21 @@ export default function ProfitabilityAnalysisPage() {
                           <TableCell className="max-w-[200px] truncate" title={p.name}>
                             {p.name}
                           </TableCell>
-                          <TableCell className="text-right">{currencyFormatter.format(p.priceNet)}</TableCell>
+                          <TableCell className="text-right">
+                            <PriceCell product={p} showDiscount={dealerDiscountPercent > 0} />
+                          </TableCell>
                           <TableCell className="text-right font-mono">
                             {p.marginPercent != null ? `${p.marginPercent.toLocaleString("de-DE")} %` : "—"}
+                            {dealerDiscountPercent > 0 &&
+                            p.catalogMarginPercent != null &&
+                            p.catalogCrmVerdict === "green" &&
+                            p.crmVerdict === "red" ? (
+                              <div className="text-xs text-amber-600 font-normal">
+                                {t("profitabilityAnalysis.table.wasGreen", {
+                                  margin: p.catalogMarginPercent.toLocaleString("de-DE"),
+                                })}
+                              </div>
+                            ) : null}
                           </TableCell>
                           <TableCell>
                             <VerdictBadge
