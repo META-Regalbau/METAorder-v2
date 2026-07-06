@@ -439,22 +439,27 @@ export class RuleEngine {
     // Check if width, height, or length are similar
     const dimensionKeys: Array<'width' | 'height' | 'length'> = ['width', 'height', 'length'];
     
+    let comparable = 0;
     for (const key of dimensionKeys) {
       const dim1 = product1.dimensions[key];
       const dim2 = product2.dimensions[key];
       
       if (dim1 !== undefined && dim2 !== undefined) {
+        comparable++;
         const diff = Math.abs(dim1 - dim2);
         const maxDiff = Math.max(dim1, dim2) * tolerance;
         
-        // At least one dimension should match within tolerance
-        if (diff <= maxDiff) {
-          return true;
+        // Jede gemeinsam vorhandene Dimension muss innerhalb der Toleranz liegen,
+        // sonst sind die Produkte nicht "kompatibel".
+        if (diff > maxDiff) {
+          return false;
         }
       }
     }
     
-    return false;
+    // Mindestens zwei vergleichbare Dimensionen verlangen: ein einzelner
+    // Ein-Dimensions-Treffer ist zu zufaellig und produziert irrelevante Vorschlaege.
+    return comparable >= 2;
   }
 
   /**
@@ -520,8 +525,8 @@ export class RuleEngine {
       const sa = scoreByProductId.get(a.id) ?? 0;
       const sb = scoreByProductId.get(b.id) ?? 0;
       if (sb !== sa) return sb - sa;
-      const stockDiff = (b.stock ?? 0) - (a.stock ?? 0);
-      if (stockDiff !== 0) return stockDiff;
+      // Kein Lagerbestand-Tie-Break: Ueberbestaende/Ladenhueter sind kein
+      // Relevanzsignal fuers Cross-Selling. Stabile, deterministische Reihenfolge.
       return (a.productNumber || "").localeCompare(b.productNumber || "");
     });
 

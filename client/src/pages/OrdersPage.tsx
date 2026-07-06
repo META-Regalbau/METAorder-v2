@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { RefreshCw, Search, ChevronDown, ChevronUp, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -184,6 +185,25 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
     retry: false,
   });
 
+  // Zusatz-Badges (Ratenzahlung / Mahnstufe) fuer die Bestelluebersicht
+  const { data: badgeFlags } = useQuery<{
+    dunningStages: Record<string, number>;
+    installmentCounts: Record<string, number>;
+  }>({
+    queryKey: ['/api/orders/badge-flags'],
+    queryFn: async () => {
+      const response = await fetch('/api/orders/badge-flags', { credentials: 'include' });
+      if (response.status === 401) {
+        return { dunningStages: {}, installmentCounts: {} };
+      }
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      return response.json();
+    },
+    retry: false,
+  });
+
   // Fetch current user to get permissions
   const { data: currentUser } = useQuery<{ user: User & { permissions: Role['permissions'] } }>({
     queryKey: ['/api/auth/me'],
@@ -338,9 +358,23 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
   const [sendingInvoiceOrderId, setSendingInvoiceOrderId] = useState<string | null>(null);
   // Bestellung, fuer die der Versand-Bestaetigungsdialog offen ist.
   const [pendingSendInvoiceOrder, setPendingSendInvoiceOrder] = useState<Order | null>(null);
+  // Manuell eingegebene Empfaenger-Adresse im Bestaetigungsdialog (ueberschreibt
+  // Customfield und Besteller-Mail). Leer = Standardempfaenger verwenden.
+  const [sendInvoiceEmailOverride, setSendInvoiceEmailOverride] = useState("");
   const sendInvoiceMutation = useMutation({
-    mutationFn: async ({ orderId, orderNumber }: { orderId: string; orderNumber?: string }) => {
-      const response = await apiRequest("POST", `/api/orders/${orderId}/send-invoice`, { orderNumber });
+    mutationFn: async ({
+      orderId,
+      orderNumber,
+      email,
+    }: {
+      orderId: string;
+      orderNumber?: string;
+      email?: string;
+    }) => {
+      const response = await apiRequest("POST", `/api/orders/${orderId}/send-invoice`, {
+        orderNumber,
+        ...(email ? { email } : {}),
+      });
       return response.json();
     },
     onMutate: ({ orderId }) => setSendingInvoiceOrderId(orderId),
@@ -375,16 +409,29 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
   // Klick auf "Verschicken" oeffnet zuerst den Bestaetigungsdialog (kein
   // versehentlicher Mailversand an Kunden).
   const handleSendInvoice = (order: Order) => {
+    setSendInvoiceEmailOverride("");
     setPendingSendInvoiceOrder(order);
   };
+
+  // Standard-Empfaenger, der ohne manuelle Eingabe verwendet wird:
+  // Customfield custom_invoice_email_address hat Vorrang vor der Besteller-Mail.
+  const pendingSendInvoiceDefaultEmail = (() => {
+    const order = pendingSendInvoiceOrder;
+    if (!order) return "";
+    const custom = order.customFields?.custom_invoice_email_address;
+    const customEmail = typeof custom === "string" ? custom.trim() : "";
+    return customEmail || order.customerEmail || "";
+  })();
 
   const confirmSendInvoice = () => {
     if (!pendingSendInvoiceOrder) return;
     sendInvoiceMutation.mutate({
       orderId: pendingSendInvoiceOrder.id,
       orderNumber: pendingSendInvoiceOrder.orderNumber,
+      email: sendInvoiceEmailOverride.trim() || undefined,
     });
     setPendingSendInvoiceOrder(null);
+    setSendInvoiceEmailOverride("");
   };
 
   const handleToggleOrder = (orderId: string) => {
@@ -512,6 +559,8 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
           onViewOrder={handleViewOrder}
           isLoading={isLoading}
           ticketCounts={ticketCounts}
+          installmentCounts={badgeFlags?.installmentCounts}
+          dunningStages={badgeFlags?.dunningStages}
           duplicateOrderIds={duplicateOrderIds}
           selectedOrderIds={selectedOrderIds}
           onToggleOrder={handleToggleOrder}
@@ -625,7 +674,10 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
       <AlertDialog
         open={!!pendingSendInvoiceOrder}
         onOpenChange={(open) => {
-          if (!open) setPendingSendInvoiceOrder(null);
+          if (!open) {
+            setPendingSendInvoiceOrder(null);
+            setSendInvoiceEmailOverride("");
+          }
         }}
       >
         <AlertDialogContent data-testid="dialog-send-invoice">
@@ -638,6 +690,24 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
               })}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="send-invoice-email-override">
+              {t('orders.sendInvoiceRecipientLabel')}
+            </Label>
+            <Input
+              id="send-invoice-email-override"
+              type="email"
+              value={sendInvoiceEmailOverride}
+              onChange={(e) => setSendInvoiceEmailOverride(e.target.value)}
+              placeholder={pendingSendInvoiceDefaultEmail || t('orders.sendInvoiceRecipientPlaceholder')}
+              data-testid="input-send-invoice-email"
+            />
+            <p className="text-xs text-muted-foreground">
+              {t('orders.sendInvoiceRecipientHint', {
+                email: pendingSendInvoiceDefaultEmail || '—',
+              })}
+            </p>
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel data-testid="button-cancel-send-invoice">
               {t('common.cancel')}

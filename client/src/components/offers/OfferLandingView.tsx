@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import OfferLineItemGlbPreview from "./OfferLineItemGlbPreview";
 import metaLogoUrl from "@assets/META-Logo.svg";
+import { CPQ_3D_PREVIEW } from "@/lib/featureFlags";
 import "@google/model-viewer";
 
 export type OfferLandingLineChild = {
@@ -418,7 +419,7 @@ export default function OfferLandingView({
           const hasChildren = item.children && item.children.length > 0;
           const hasProductGlbKey = !!(item.productNumber && item.productNumber.trim());
           const showPresentationOnly = !hasProductGlbKey && !item.coverImageUrl;
-          const showGlb = hasProductGlbKey || showPresentationOnly;
+          const showGlb = CPQ_3D_PREVIEW && (hasProductGlbKey || showPresentationOnly);
           const hasImg = !!(item.coverImageUrl && item.coverImageUrl.trim());
           const compactGlb = hasImg && showGlb;
 

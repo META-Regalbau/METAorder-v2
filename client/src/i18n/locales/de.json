@@ -249,6 +249,7 @@
     "productOverview": "Produkt-Übersicht",
     "priceCheck": "Preisprüfung",
     "profitabilityAnalysis": "Rentabilitäts-Analyse",
+    "orderProfitabilityAnalysis": "Bestell-DB-Analyse",
     "bundles": "Bundles",
     "tickets": "Tickets",
     "export": "Export & Berichte",
@@ -637,6 +638,66 @@
       "priceCheckVerdict": "Preisprüfung"
     }
   },
+  "orderProfitabilityAnalysis": {
+    "title": "Bestell-DB-Analyse",
+    "description": "Deckungsbeitrag (DB1) auf Basis der tatsächlichen Auftragspreise netto vs. importierte Herstellkosten.",
+    "refresh": "Aktualisieren",
+    "exportCsv": "CSV exportieren",
+    "loading": "Bestellungen werden analysiert…",
+    "errorTitle": "Analyse konnte nicht geladen werden",
+    "openOrders": "Zur Bestellübersicht",
+    "executiveSummary": "Management-Überblick",
+    "executiveSummaryHint": "Basis: Positionen mit HK-Daten — VK netto aus dem Auftrag, CRM-Ampel ab {{crmThreshold}} % Marge auf Kosten.",
+    "noData": "Keine Bestellungen mit Herstellpreis-Daten",
+    "worstTitle": "Kritische Bestellungen (niedrigste Marge)",
+    "worstHint": "Aufträge mit der schwächsten Deckung — Rabatt, Kosten oder Sortiment prüfen.",
+    "bestTitle": "Stärkste Bestellungen (höchste Marge)",
+    "bestHint": "Aufträge mit dem besten Deckungsbeitrag auf Herstellkosten.",
+    "filters": {
+      "title": "Filter",
+      "dateFrom": "Von",
+      "dateTo": "Bis",
+      "status": "Status"
+    },
+    "kpi": {
+      "totalOrders": "Bestellungen",
+      "hkCoverage": "{{withData}} mit HK-Daten ({{percent}} % Abdeckung)",
+      "crmGreenShare": "Anteil CRM-rentabel",
+      "crmGreenShareHint": "{{green}} von {{withData}} analysierbaren Bestellungen",
+      "totalDb1": "Summe DB1",
+      "avgDb1Hint": "Ø DB1 je Bestellung: {{amount}}",
+      "avgMarginOnCost": "Ø Marge auf Kosten",
+      "medianOnCostHint": "Median auf Kosten: {{median}} %",
+      "noMarginData": "Keine HK-Daten vorhanden"
+    },
+    "stats": {
+      "title": "Kennzahlen",
+      "crmGreen": "CRM grün (≥ {{threshold}} %)",
+      "crmRed": "CRM rot (< {{threshold}} %)",
+      "noHerstellpreis": "Ohne HK-Daten",
+      "loss": "Verlust-Aufträge",
+      "totalHerstellkosten": "Summe Herstellkosten"
+    },
+    "charts": {
+      "crmDistribution": "CRM-Rentabilität (Ampel)",
+      "crmDistributionHint": "Verteilung nach Mindestmarge {{crmThreshold}} % auf Herstellkosten"
+    },
+    "verdict": {
+      "green": "Grün",
+      "red": "Rot",
+      "none": "Kein Herstellpreis"
+    },
+    "table": {
+      "orderNumber": "Bestellnummer",
+      "customer": "Kunde",
+      "date": "Datum",
+      "netTotal": "Netto gesamt",
+      "db1": "DB1",
+      "marginOnCost": "Marge",
+      "coverage": "HK-Abdeckung",
+      "crmVerdict": "CRM"
+    }
+  },
   "bundles": {
     "title": "Bundles",
     "description": "Mock-Artikelnummern für Bundle-Sets verwalten",
@@ -784,6 +845,7 @@
     "paymentMethod": "Zahlart",
     "shippingMethod": "Versandart",
     "total": "Gesamt",
+    "db1": "DB1",
     "totalAmount": "Gesamtbetrag",
     "tracking": "Sendungsverfolgung",
     "invoice": "Rechnung",
@@ -899,6 +961,12 @@
     "net": "Netto",
     "taxRate": "MwSt",
     "noItems": "Keine Artikel verfügbar",
+    "profitability": {
+      "db1Total": "DB1 gesamt (Positionen mit HK)",
+      "db1Line": "DB1",
+      "herstellpreis": "HK netto",
+      "coverageHint": "HK-Daten für {{withData}} von {{total}} Produktpositionen"
+    },
     "shippingInfo": "Versandinformationen",
     "shippingUpdated": "Versand aktualisiert",
     "shippingSuccess": "Versandinformationen wurden gespeichert.",

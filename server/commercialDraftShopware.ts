@@ -58,6 +58,7 @@ export async function executeCreateOfferFromDraft(
   const { productCache } = await import("./productCache");
   const lineItemMap = new Map<string, number>();
   const productNumberById = new Map<string, string>();
+  const manualNetById = new Map<string, number>();
   const unresolvedProducts: string[] = [];
 
   draft.matchingResults.items.forEach((item) => {
@@ -80,6 +81,10 @@ export async function executeCreateOfferFromDraft(
     if (item.matchedProduct!.productNumber) {
       productNumberById.set(productId, item.matchedProduct!.productNumber);
     }
+    const manualNet = item.matchedProduct!.manualUnitPriceNet;
+    if (typeof manualNet === "number" && Number.isFinite(manualNet) && manualNet >= 0 && !manualNetById.has(productId)) {
+      manualNetById.set(productId, manualNet);
+    }
   });
 
   if (unresolvedProducts.length > 0) {
@@ -91,12 +96,18 @@ export async function executeCreateOfferFromDraft(
   }
 
   const sortedEntries = Array.from(lineItemMap.entries()).sort(([a], [b]) => a.localeCompare(b));
-  let lineItems: Array<{ productId: string; quantity: number; productNumber?: string; payload?: Record<string, unknown> }> =
-    sortedEntries.map(([productId, quantity]) => ({
-      productId,
-      quantity,
-      productNumber: productNumberById.get(productId),
-    }));
+  let lineItems: Array<{
+    productId: string;
+    quantity: number;
+    productNumber?: string;
+    payload?: Record<string, unknown>;
+    unitPriceNet?: number;
+  }> = sortedEntries.map(([productId, quantity]) => ({
+    productId,
+    quantity,
+    productNumber: productNumberById.get(productId),
+    ...(manualNetById.has(productId) ? { unitPriceNet: manualNetById.get(productId) } : {}),
+  }));
 
   const cpqRaw = draft.extractedData?.cpqSource;
   const cpq =

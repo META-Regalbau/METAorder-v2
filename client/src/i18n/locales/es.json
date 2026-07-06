@@ -160,6 +160,7 @@
     "productOverview": "Resumen de productos",
     "priceCheck": "Verificación de precios",
     "profitabilityAnalysis": "Análisis de rentabilidad",
+    "orderProfitabilityAnalysis": "Análisis DB pedidos",
     "bundles": "Bundles",
     "tickets": "Tickets",
     "export": "Exportar e Informes",
@@ -548,6 +549,66 @@
       "priceCheckVerdict": "Verificación"
     }
   },
+  "orderProfitabilityAnalysis": {
+    "title": "Análisis de contribución de pedidos",
+    "description": "DB1 según precios netos reales del pedido vs. costes de fabricación importados.",
+    "refresh": "Actualizar",
+    "exportCsv": "Exportar CSV",
+    "loading": "Analizando pedidos…",
+    "errorTitle": "No se pudo cargar el análisis",
+    "openOrders": "Ir a pedidos",
+    "executiveSummary": "Resumen ejecutivo",
+    "executiveSummaryHint": "Basado en líneas con datos de coste de fabricación — precio neto del pedido, semáforo CRM desde {{crmThreshold}}% margen sobre coste.",
+    "noData": "Sin pedidos con datos de coste de fabricación",
+    "worstTitle": "Pedidos críticos (menor margen)",
+    "worstHint": "Pedidos con la cobertura más débil.",
+    "bestTitle": "Mejores pedidos (mayor margen)",
+    "bestHint": "Pedidos con mejor contribución sobre costes de fabricación.",
+    "filters": {
+      "title": "Filtros",
+      "dateFrom": "Desde",
+      "dateTo": "Hasta",
+      "status": "Estado"
+    },
+    "kpi": {
+      "totalOrders": "Pedidos",
+      "hkCoverage": "{{withData}} con datos CF ({{percent}}% cobertura)",
+      "crmGreenShare": "Parte CRM rentable",
+      "crmGreenShareHint": "{{green}} de {{withData}} pedidos analizables",
+      "totalDb1": "DB1 total",
+      "avgDb1Hint": "DB1 medio por pedido: {{amount}}",
+      "avgMarginOnCost": "Margen medio sobre coste",
+      "medianOnCostHint": "Mediana sobre coste: {{median}}%",
+      "noMarginData": "Sin datos de coste de fabricación"
+    },
+    "stats": {
+      "title": "Estadísticas",
+      "crmGreen": "CRM verde (≥ {{threshold}}%)",
+      "crmRed": "CRM rojo (< {{threshold}}%)",
+      "noHerstellpreis": "Sin datos CF",
+      "loss": "Pedidos con pérdida",
+      "totalHerstellkosten": "Costes de fabricación totales"
+    },
+    "charts": {
+      "crmDistribution": "Rentabilidad CRM (semáforo)",
+      "crmDistributionHint": "Distribución por margen mínimo {{crmThreshold}}% sobre coste de fabricación"
+    },
+    "verdict": {
+      "green": "Verde",
+      "red": "Rojo",
+      "none": "Sin coste de fabricación"
+    },
+    "table": {
+      "orderNumber": "Número de pedido",
+      "customer": "Cliente",
+      "date": "Fecha",
+      "netTotal": "Neto total",
+      "db1": "DB1",
+      "marginOnCost": "Margen",
+      "coverage": "Cobertura CF",
+      "crmVerdict": "CRM"
+    }
+  },
   "bundles": {
     "title": "Bundles",
     "description": "Gestionar números de artículo simulados para conjuntos",
@@ -695,6 +756,7 @@
     "paymentMethod": "Método de Pago",
     "shippingMethod": "Método de Envío",
     "total": "Total",
+    "db1": "DB1",
     "totalAmount": "Monto Total",
     "tracking": "Seguimiento",
     "invoice": "Factura",
@@ -807,6 +869,12 @@
     "net": "Neto",
     "taxRate": "IVA",
     "noItems": "No hay artículos disponibles",
+    "profitability": {
+      "db1Total": "DB1 total (líneas con CF)",
+      "db1Line": "DB1",
+      "herstellpreis": "CF neto",
+      "coverageHint": "Datos CF para {{withData}} de {{total}} líneas de producto"
+    },
     "shippingInfo": "Información de Envío",
     "shippingUpdated": "Envío actualizado",
     "shippingSuccess": "La información de envío se ha guardado.",

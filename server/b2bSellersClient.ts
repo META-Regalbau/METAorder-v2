@@ -547,6 +547,8 @@ export class B2BSellersClient {
       type?: string;
       /** B2B/Shopware: MetaCalc-kompatibles payload (z. B. aus CPQ-Stückliste) */
       payload?: Record<string, unknown>;
+      /** Optionaler Netto-Stückpreis-Override (manueller Rabatt) */
+      unitPriceNet?: number;
     }>;
     /** Kunden-/Adressdaten aus Entwurf; für vollständige B2B-Pflichtfelder */
     customerContext?: B2BOfferCustomerContext;

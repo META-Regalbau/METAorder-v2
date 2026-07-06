@@ -1,10 +1,11 @@
-import { Eye, Package, Ticket, AlertTriangle, FileCheck2, FileClock, FileMinus, Send, Loader2 } from "lucide-react";
+import { Eye, Package, Ticket, AlertTriangle, FileCheck2, FileClock, FileMinus, Send, Loader2, CreditCard, FileWarning } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import StatusBadge from "./StatusBadge";
 import PaymentStatusBadge from "./PaymentStatusBadge";
+import HerstellMarginIndicator from "./HerstellMarginIndicator";
 import type { Order } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 import SortableTableHead from "@/components/SortableTableHead";
@@ -14,6 +15,10 @@ interface OrdersTableProps {
   onViewOrder: (order: Order) => void;
   isLoading?: boolean;
   ticketCounts?: Record<string, number>;
+  /** Anzahl Ratenzahlungs-Plaene je Bestellung (>0 => Badge "Ratenzahlung"). */
+  installmentCounts?: Record<string, number>;
+  /** Hoechste Mahnstufe je Bestellung (>0 => Badge "Mahnung Stufe X"). */
+  dunningStages?: Record<string, number>;
   duplicateOrderIds?: Set<string>;
   selectedOrderIds?: string[];
   onToggleOrder?: (orderId: string) => void;
@@ -39,6 +44,8 @@ export default function OrdersTable({
   onViewOrder, 
   isLoading, 
   ticketCounts = {},
+  installmentCounts = {},
+  dunningStages = {},
   duplicateOrderIds,
   selectedOrderIds = [],
   onToggleOrder,
@@ -129,6 +136,7 @@ export default function OrdersTable({
               align="right"
               className="text-right"
             />
+            <TableHead className="font-medium text-right">{t('orders.db1')}</TableHead>
             <SortableTableHead
               label={t('orders.tracking')}
               sortKey="trackingNumber"
@@ -190,6 +198,27 @@ export default function OrdersTable({
                       {ticketCounts[order.id]}
                     </Badge>
                   )}
+                  {order.isPaymentOverdue ? (
+                    <Badge variant="destructive" className="gap-1" data-testid={`badge-overdue-${order.id}`}>
+                      <AlertTriangle className="h-3 w-3" />
+                      {t('orders.overdue')}
+                    </Badge>
+                  ) : null}
+                  {dunningStages[order.id] > 0 && (
+                    <Badge
+                      className="gap-1 border-transparent bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300"
+                      data-testid={`badge-dunning-${order.id}`}
+                    >
+                      <FileWarning className="h-3 w-3" />
+                      {t('orders.dunningStage', { stage: dunningStages[order.id] })}
+                    </Badge>
+                  )}
+                  {installmentCounts[order.id] > 0 && (
+                    <Badge variant="outline" className="gap-1" data-testid={`badge-installment-${order.id}`}>
+                      <CreditCard className="h-3 w-3" />
+                      {t('orders.installmentPlan')}
+                    </Badge>
+                  )}
                 </div>
               </TableCell>
               <TableCell className="text-right">
@@ -197,6 +226,21 @@ export default function OrdersTable({
                   <p className="font-medium">€{(order.totalAmount || 0).toFixed(2)}</p>
                   <p className="text-sm text-muted-foreground">€{(order.netTotalAmount || 0).toFixed(2)} <span className="text-xs">{t('orderDetail.net')}</span></p>
                 </div>
+              </TableCell>
+              <TableCell className="text-right">
+                {order.profitability?.db1Total != null ? (
+                  <div className="space-y-1">
+                    <p className="font-mono text-sm tabular-nums">
+                      €{order.profitability.db1Total.toFixed(2)}
+                    </p>
+                    <HerstellMarginIndicator
+                      marginPercent={order.profitability.marginPercent}
+                      verdict={order.profitability.crmVerdict}
+                    />
+                  </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground">—</span>
+                )}
               </TableCell>
               <TableCell>
                 {order.shippingInfo?.trackingNumber ? (

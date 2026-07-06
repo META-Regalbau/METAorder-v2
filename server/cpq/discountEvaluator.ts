@@ -11,7 +11,12 @@ export type DiscountLevelResult = {
   name: string;
   color: string;
   icon?: string | null;
+  /** Vom Server bereits teilweise aufgeloeste Nachricht (Fallback, ohne verlust/marge). */
   message: string;
+  /** Rohvorlage mit Platzhaltern ({verlust}, {marge}, {rabatt}, {max_rabatt}) fuer Client-Interpolation. */
+  messageTemplate: string | null;
+  discountMin: number;
+  discountMax: number;
   approvalType: string;
   justificationRequired: boolean;
   revenueLoss?: number;
@@ -97,6 +102,9 @@ export async function evaluateDiscountLevel(
         color: level.color,
         icon: level.icon,
         message,
+        messageTemplate: level.messageTemplate ?? null,
+        discountMin: min,
+        discountMax: max,
         approvalType: level.approvalType,
         justificationRequired: level.justificationRequired ?? false,
       };

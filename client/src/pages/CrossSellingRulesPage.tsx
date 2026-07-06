@@ -36,6 +36,28 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useCrossSellProductLabels } from "@/hooks/useCrossSellProductLabels";
 
+// Wartet auf einen Cross-Sell-Hintergrundjob (Staging-Neuberechnung / AI-Lernlauf).
+// Der POST startet den Job (202) und dieser Poller fragt den Status ab, bis er
+// "done" oder "error" ist. Vermeidet Proxy-/Browser-Timeouts bei grossen Laeufen.
+async function pollCrossSellJob(
+  type: "staging" | "ai",
+  onProgress?: (processed: number, total: number) => void,
+): Promise<any> {
+  const maxAttempts = 720; // ~30 min bei 2.5s Intervall
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+    const resp = await apiRequest("GET", `/api/cross-selling/jobs/status?type=${type}`);
+    const data = await resp.json();
+    if (typeof data.processed === "number" && typeof data.total === "number") {
+      onProgress?.(data.processed, data.total);
+    }
+    if (data.status === "done") return data.result ?? {};
+    if (data.status === "error") throw new Error(data.error || "Job fehlgeschlagen");
+    if (data.status === "idle") throw new Error("Job wurde nicht gefunden");
+  }
+  throw new Error("Zeitüberschreitung beim Warten auf den Hintergrundjob");
+}
+
 type SortDirection = "asc" | "desc";
 type RuleSortKey = "name" | "description" | "status" | "conditions";
 
@@ -78,6 +100,15 @@ type StagingApplyPreviewResponse = {
   }>;
 };
 
+type ProductApplyPreviewResponse = {
+  sourceProductNumber: string;
+  sourceProductName: string | null;
+  shopwareGroupName: string;
+  targetsTotalBeforeCap: number;
+  targetsApplied: number;
+  targets: Array<{ productNumber: string; name: string | null; category: string | null }>;
+};
+
 export default function CrossSellingRulesPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -117,7 +148,10 @@ export default function CrossSellingRulesPage() {
     productsWithSuggestions?: number;
     productsWithoutSuggestions?: number;
   } | null>(null);
+  const [stagingJobProgress, setStagingJobProgress] = useState<{ processed: number; total: number } | null>(null);
   const [showShopwareApplyPreview, setShowShopwareApplyPreview] = useState(false);
+  const [previewProductNumber, setPreviewProductNumber] = useState("");
+  const [productApplyPreview, setProductApplyPreview] = useState<ProductApplyPreviewResponse | null>(null);
 
   // Fetch all rules
   const { data, isLoading } = useQuery<{ rules: CrossSellingRule[] }>({
@@ -284,8 +318,9 @@ export default function CrossSellingRulesPage() {
   });
 
   const getGroupCountVariant = (count: number) => {
-    if (count >= 10) return "bg-red-100 text-red-800";
-    if (count >= 5) return "bg-yellow-100 text-yellow-800";
+    // Kein 10er-Cap mehr: groessere Gruppen sind gewollt. Farbe nur als grober Umfang-Indikator.
+    if (count >= 30) return "bg-red-100 text-red-800";
+    if (count >= 15) return "bg-yellow-100 text-yellow-800";
     return "bg-green-100 text-green-800";
   };
 
@@ -388,14 +423,14 @@ export default function CrossSellingRulesPage() {
 
   const regenerateStagingMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/cross-selling/staging/regenerate", {});
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.error || "Failed to regenerate staging suggestions");
-      }
-      return response.json();
+      // Startet den Hintergrundjob (202) und wartet per Polling auf das Ergebnis.
+      await apiRequest("POST", "/api/cross-selling/staging/regenerate", {});
+      return pollCrossSellJob("staging", (processed, total) => {
+        if (total > 0) setStagingJobProgress({ processed, total });
+      });
     },
     onSuccess: (result: any) => {
+      setStagingJobProgress(null);
       queryClient.invalidateQueries({ queryKey: ["/api/cross-selling/staging"] });
       setLastStagingStats({
         suggestionsCount: result?.suggestionsCount ?? 0,
@@ -411,6 +446,7 @@ export default function CrossSellingRulesPage() {
       });
     },
     onError: (error: any) => {
+      setStagingJobProgress(null);
       toast({
         title: t("rules.stagingRegenerateError", "Neuberechnung fehlgeschlagen"),
         description: error.message,
@@ -440,6 +476,34 @@ export default function CrossSellingRulesPage() {
     onError: (error: any) => {
       toast({
         title: t("rules.stagingApplyError", "Uebertragen fehlgeschlagen"),
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const productApplyPreviewMutation = useMutation({
+    mutationFn: async () => {
+      const pn = previewProductNumber.trim();
+      if (!pn) {
+        throw new Error(t("rules.previewProductRequired", "Bitte einen Artikel wählen"));
+      }
+      const response = await apiRequest(
+        "GET",
+        `/api/cross-selling/staging/apply-preview-product?productNumber=${encodeURIComponent(pn)}`,
+      );
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error((error as { error?: string }).error || "Preview failed");
+      }
+      return response.json() as Promise<ProductApplyPreviewResponse>;
+    },
+    onSuccess: (data) => {
+      setProductApplyPreview(data);
+    },
+    onError: (error: any) => {
+      toast({
+        title: t("rules.previewProductError", "Vorschau fehlgeschlagen"),
         description: error.message,
         variant: "destructive",
       });
@@ -551,12 +615,9 @@ export default function CrossSellingRulesPage() {
 
   const runLearningMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/ai/cross-selling/run", {});
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.error || "Failed to run learning job");
-      }
-      return response.json();
+      // Startet den AI-Lernlauf im Hintergrund (202) und wartet per Polling.
+      await apiRequest("POST", "/api/ai/cross-selling/run", {});
+      return pollCrossSellJob("ai");
     },
     onSuccess: (result: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/ai/cross-selling/rules"] });
@@ -984,7 +1045,12 @@ export default function CrossSellingRulesPage() {
                   onClick={() => regenerateStagingMutation.mutate()}
                   disabled={!stagingBatch || regenerateStagingMutation.isPending}
                 >
-                  {t("rules.stagingRegenerate", "Vorschlaege neu berechnen")}
+                  {regenerateStagingMutation.isPending && stagingJobProgress
+                    ? t("rules.stagingRegenerateProgress", "Berechne… {{processed}}/{{total}}", {
+                        processed: stagingJobProgress.processed,
+                        total: stagingJobProgress.total,
+                      })
+                    : t("rules.stagingRegenerate", "Vorschlaege neu berechnen")}
                 </Button>
                 <Button
                   onClick={() => setShowShopwareApplyPreview(true)}
@@ -1010,6 +1076,91 @@ export default function CrossSellingRulesPage() {
                   )}
               </div>
             )}
+
+            <Card className="p-4 border-dashed space-y-3">
+              <div>
+                <h3 className="text-base font-semibold">
+                  {t("rules.previewProductTitle", "Artikel-Vorschau (ohne Uebertragung)")}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {t(
+                    "rules.previewProductHint",
+                    "Waehle einen Artikel und sieh sofort, welche Zielartikel als Cross-Selling-Gruppe nach Shopware geschrieben wuerden - ohne kompletten Staging-Lauf und ohne Schreibzugriff.",
+                  )}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="w-[360px]">
+                  <ProductAutocomplete
+                    value={previewProductNumber}
+                    onChange={setPreviewProductNumber}
+                    placeholder={t("rules.previewProductSelect", "Artikel waehlen")}
+                  />
+                </div>
+                <Button
+                  onClick={() => productApplyPreviewMutation.mutate()}
+                  disabled={!previewProductNumber.trim() || productApplyPreviewMutation.isPending}
+                >
+                  {productApplyPreviewMutation.isPending
+                    ? t("common.loading")
+                    : t("rules.previewProductRun", "Vorschau berechnen")}
+                </Button>
+              </div>
+
+              {productApplyPreview && (
+                <div className="space-y-2">
+                  <div className="text-sm">
+                    <span className="font-mono text-xs">{productApplyPreview.sourceProductNumber}</span>
+                    {productApplyPreview.sourceProductName && (
+                      <span className="text-muted-foreground"> — {productApplyPreview.sourceProductName}</span>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {t("rules.shopwareGroup", "Shopware-Gruppe")}: {productApplyPreview.shopwareGroupName} ·{" "}
+                    {t("rules.targetsCount", "{{count}} Zielartikel", { count: productApplyPreview.targetsApplied })}
+                  </p>
+                  {productApplyPreview.targets.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      {t(
+                        "rules.previewProductEmpty",
+                        "Keine Zielartikel - fuer diesen Artikel wuerde nichts geschrieben.",
+                      )}
+                    </p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{t("rules.aiTarget", "Zielartikel")}</TableHead>
+                          <TableHead>{t("rules.productName", "Bezeichnung")}</TableHead>
+                          <TableHead>{t("rules.category", "Kategorie")}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {productApplyPreview.targets.map((tg) => (
+                          <TableRow key={tg.productNumber}>
+                            <TableCell className="font-mono text-xs">{tg.productNumber}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground">{tg.name || "—"}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{tg.category || "—"}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                  {productApplyPreview.targetsTotalBeforeCap > productApplyPreview.targetsApplied && (
+                    <p className="text-xs text-amber-700 dark:text-amber-400">
+                      {t(
+                        "rules.shopwareTargetTruncated",
+                        "Hinweis: {{total}} Ziele ermittelt, es werden nur {{applied}} uebernommen.",
+                        {
+                          total: productApplyPreview.targetsTotalBeforeCap,
+                          applied: productApplyPreview.targetsApplied,
+                        },
+                      )}
+                    </p>
+                  )}
+                </div>
+              )}
+            </Card>
 
             {stagingLoading ? (
               <div className="text-center py-12">
@@ -1416,7 +1567,7 @@ export default function CrossSellingRulesPage() {
             <DialogDescription>
               {t(
                 "rules.shopwareApplyPreviewDesc",
-                "So werden aktive Staging-Vorschlaege gruppiert und je Kategorie als Cross-Selling-Gruppe geschrieben (max. 10 Ziele pro Gruppe wie bei der Uebertragung).",
+                "So werden die aktuell gespeicherten Staging-Vorschlaege gruppiert und je Kategorie als Cross-Selling-Gruppe geschrieben (alle passenden Ziele, ohne Begrenzung). Hinweis: Es wird der gespeicherte Stand angezeigt - nach Regel-/Logikaenderungen zuerst 'Staging neu generieren'.",
               )}
             </DialogDescription>
           </DialogHeader>
@@ -1479,7 +1630,7 @@ export default function CrossSellingRulesPage() {
                             )}
                           </TableCell>
                           <TableCell className="text-right text-xs text-muted-foreground">
-                            {op.targetsApplied}/10
+                            {op.targetsApplied}
                           </TableCell>
                         </TableRow>
                       ))}

@@ -174,6 +174,7 @@ export interface IStorage {
   // Dunning status per order
   getOrderDunningStatus(orderId: string, tenantId?: string | null): Promise<OrderDunningStatus | undefined>;
   getOrderDunningStatuses(orderIds: string[], tenantId?: string | null): Promise<OrderDunningStatus[]>;
+  getAllOrderDunningStatuses(tenantId?: string | null): Promise<OrderDunningStatus[]>;
   upsertOrderDunningStatus(status: InsertOrderDunningStatus, tenantId?: string | null): Promise<OrderDunningStatus>;
   
   // Cross-Selling Rules
@@ -446,6 +447,7 @@ export interface IStorage {
   ): Promise<{ plan: InstallmentPlan; invoices: InstallmentInvoice[] }>;
   getInstallmentPlan(id: string, tenantId?: string | null): Promise<InstallmentPlan | undefined>;
   getInstallmentPlansByOrder(orderId: string, tenantId?: string | null): Promise<InstallmentPlan[]>;
+  getAllInstallmentPlans(tenantId?: string | null): Promise<InstallmentPlan[]>;
   updateInstallmentPlan(
     id: string,
     updates: Partial<InsertInstallmentPlan>,
@@ -785,6 +787,10 @@ export class MemStorage implements IStorage {
 
   async getOrderDunningStatus(orderId: string): Promise<OrderDunningStatus | undefined> {
     return this.orderDunningStatus.get(orderId);
+  }
+
+  async getAllOrderDunningStatuses(): Promise<OrderDunningStatus[]> {
+    return Array.from(this.orderDunningStatus.values());
   }
 
   async getOrderDunningStatuses(orderIds: string[]): Promise<OrderDunningStatus[]> {
@@ -2336,6 +2342,10 @@ export class MemStorage implements IStorage {
 
   async getInstallmentPlansByOrder(orderId: string, _tenantId?: string | null): Promise<InstallmentPlan[]> {
     return Array.from(this.installmentPlansMap.values()).filter((p) => p.orderId === orderId);
+  }
+
+  async getAllInstallmentPlans(_tenantId?: string | null): Promise<InstallmentPlan[]> {
+    return Array.from(this.installmentPlansMap.values());
   }
 
   async updateInstallmentPlan(

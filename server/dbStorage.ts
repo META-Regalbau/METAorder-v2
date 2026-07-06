@@ -724,6 +724,11 @@ export class DbStorage implements IStorage {
       .where(and(inArray(orderDunningStatus.orderId, orderIds), tenantFilter));
   }
 
+  async getAllOrderDunningStatuses(tenantId?: string | null): Promise<OrderDunningStatus[]> {
+    const tenantFilter = tenantFilterFor(orderDunningStatus.tenantId, tenantId);
+    return db.select().from(orderDunningStatus).where(tenantFilter);
+  }
+
   async upsertOrderDunningStatus(
     status: InsertOrderDunningStatus,
     tenantId?: string | null
@@ -3067,6 +3072,11 @@ export class DbStorage implements IStorage {
       .where(and(eq(installmentPlans.id, id), tenantFilter))
       .limit(1);
     return result[0];
+  }
+
+  async getAllInstallmentPlans(tenantId?: string | null): Promise<InstallmentPlan[]> {
+    const tenantFilter = tenantFilterFor(installmentPlans.tenantId, tenantId);
+    return db.select().from(installmentPlans).where(tenantFilter);
   }
 
   async getInstallmentPlansByOrder(orderId: string, tenantId?: string | null): Promise<InstallmentPlan[]> {

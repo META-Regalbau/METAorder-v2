@@ -5,13 +5,18 @@
 import { useQuery } from "@tanstack/react-query";
 
 type DiscountLevelResult = {
-  id: string;
+  levelId: string;
   name: string;
   color: string;
+  icon?: string | null;
+  /** Vom Server teilweise aufgeloeste Nachricht (Fallback). */
+  message?: string | null;
+  /** Rohvorlage mit Platzhaltern fuer die Client-Interpolation. */
+  messageTemplate: string | null;
   discountMin: number;
   discountMax: number;
-  messageTemplate: string | null;
   approvalType: string;
+  justificationRequired?: boolean;
   revenueLoss?: number;
   listPrice?: number;
   discountedPrice?: number;
@@ -57,7 +62,7 @@ export default function DiscountTrafficLight({
     enabled: listPrice > 0,
   });
 
-  if (isLoading || !level) {
+  if (isLoading) {
     return (
       <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 text-sm text-muted-foreground">
         <div className="w-3 h-3 rounded-full bg-muted animate-pulse" />
@@ -66,12 +71,19 @@ export default function DiscountTrafficLight({
     );
   }
 
-  const message = interpolateMessage(level.messageTemplate, {
-    verlust: revenueLoss.toFixed(2),
-    marge: listPrice > 0 ? ((discountedPrice / listPrice) * 100).toFixed(1) : "0",
-    rabatt: discountPercent.toFixed(1),
-    max_rabatt: level.discountMax?.toString() ?? "",
-  });
+  // Keine passende Rabattstufe konfiguriert → nichts anzeigen (statt Dauer-Spinner).
+  if (!level) {
+    return null;
+  }
+
+  const message = level.messageTemplate
+    ? interpolateMessage(level.messageTemplate, {
+        verlust: revenueLoss.toFixed(2),
+        marge: listPrice > 0 ? ((discountedPrice / listPrice) * 100).toFixed(1) : "0",
+        rabatt: discountPercent.toFixed(1),
+        max_rabatt: level.discountMax?.toString() ?? "",
+      })
+    : (level.message ?? "");
 
   const approvalLabel =
     level.approvalType === "none"

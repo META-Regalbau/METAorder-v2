@@ -1383,6 +1383,7 @@ export class ShopwareClient {
               netTotal: netTotal,
               taxRate: taxRate,
               weight,
+              productId: productId && itemType === 'product' ? String(productId) : undefined,
               productNumber,
             };
 
@@ -1456,6 +1457,7 @@ export class ShopwareClient {
               netTotal: netTotal,
               taxRate: taxRate,
               weight,
+              productId: productId && itemType === 'product' ? String(productId) : undefined,
               productNumber,
             };
 
@@ -2981,6 +2983,11 @@ export class ShopwareClient {
           total: grossTotal,
           netTotal,
           taxRate,
+          productId:
+            (attrs.productId || attrs.referencedId) && (attrs.type || 'product') === 'product'
+              ? String(attrs.productId || attrs.referencedId)
+              : undefined,
+          productNumber: attrs.productNumber || attrs.payload?.productNumber,
         };
       };
       let lineItemsRaw: any[] = shopwareOrder.lineItems || [];

@@ -45,7 +45,8 @@ export const DEFAULT_CROSS_SELL_SHELVING_PATTERN_CONFIG: CrossSellShelvingPatter
   dimensionToleranceMm: 5,
   dimensionRelativeTolerance: 0.01,
   quotas: {
-    totalCap: 10,
+    // totalCap <= 0 = unbegrenzt: es sollen ALLE passenden Moeglichkeiten ausgegeben werden.
+    totalCap: 0,
     reservedBoeden: 2,
     reservedDiagonal: 2,
     reservedKleinteile: 2,
@@ -176,6 +177,41 @@ export function sameWidthOnly(
   return nearEqual(a.width, b.width, absTol, relTol);
 }
 
+/** Prueft, ob die Quelle ein Regal/Staender/Rahmen ist (Kategorie- oder Namens-Match). */
+export function sourceIsShelf(source: Product, cfg: CrossSellShelvingPatternConfig): boolean {
+  return productMatchesAnyPattern(source, cfg.sourceShelf);
+}
+
+/**
+ * Tiefen-Regel fuer Regal/Staender-Quellen: Ist die Quelle z. B. 600 tief, duerfen andere
+ * Produkte ebenfalls nur ~600 tief sein.
+ *
+ * Standard ist STRIKT: Kandidaten mit abweichender ODER unbekannter Tiefe werden entfernt.
+ * (Ein Kandidat ohne ermittelbare Tiefe kann nicht als "gleich tief" garantiert werden.)
+ * Mit `keepUnknownDepth: true` bleiben Kandidaten ohne Tiefe erhalten (lax).
+ *
+ * Greift nur, wenn die Quelle ein Regal/Staender ist UND selbst eine bekannte Tiefe hat.
+ * Bei Nicht-Regal-Quellen bzw. unbekannter Quell-Tiefe bleibt die Liste unveraendert.
+ */
+export function filterCandidatesBySourceDepth<T extends Product>(
+  source: Product,
+  candidates: T[],
+  cfg: CrossSellShelvingPatternConfig,
+  opts?: { keepUnknownDepth?: boolean },
+): T[] {
+  if (!sourceIsShelf(source, cfg)) return candidates;
+  const srcFp = normalizeFootprint(source);
+  if (srcFp.depth == null) return candidates;
+  const keepUnknownDepth = opts?.keepUnknownDepth ?? false;
+  const absTol = cfg.dimensionToleranceMm;
+  const relTol = cfg.dimensionRelativeTolerance;
+  return candidates.filter((cand) => {
+    const fp = normalizeFootprint(cand);
+    if (fp.depth == null) return keepUnknownDepth;
+    return sameDepthOnly(srcFp, fp, absTol, relTol);
+  });
+}
+
 export type ShelvingSupplementHit = {
   product: Product;
   category: string;
@@ -290,16 +326,17 @@ export function findShelvingSupplements(
     }
   }
 
-  for (const p of sortByStockThenNumber(boeden).slice(0, 12)) {
+  // Keine kuenstliche Kategorie-Begrenzung: alle passenden (masslich gefilterten) Treffer.
+  for (const p of sortByStockThenNumber(boeden)) {
     push(p, CROSS_SELL_CATEGORIES.BOARDS, "Boden: gleiche Breite und Tiefe wie Regal");
   }
-  for (const p of sortByStockThenNumber(diagonals).slice(0, 12)) {
+  for (const p of sortByStockThenNumber(diagonals)) {
     push(p, CROSS_SELL_CATEGORIES.DIAGONAL, "Diagonalverstrebung: gleiche Breite wie Regal");
   }
-  for (const p of sortByStockThenNumber(kleinteile).slice(0, 12)) {
+  for (const p of sortByStockThenNumber(kleinteile)) {
     push(p, CROSS_SELL_CATEGORIES.SMALL_PARTS, "Kleinteil: Tiefe passend, Einfach/Doppel nach Quelle");
   }
-  for (const p of sortByStockThenNumber(zubehoer).slice(0, 15)) {
+  for (const p of sortByStockThenNumber(zubehoer)) {
     push(p, CROSS_SELL_CATEGORIES.ACCESSORIES, "Zubehör: Maßregel nach Kategorie");
   }
 
@@ -318,7 +355,8 @@ export function mergeStagingCandidatesWithQuotas(
   cfg: CrossSellShelvingPatternConfig,
 ): StagingCandidate[] {
   const q = cfg.quotas;
-  const totalCap = Math.max(1, q.totalCap);
+  // totalCap <= 0 = unbegrenzt (alle Moeglichkeiten).
+  const totalCap = q.totalCap > 0 ? q.totalCap : Number.POSITIVE_INFINITY;
   const heur = heuristicHits.map((h) => ({ product: h.product, category: h.category }));
 
   const byCat = (cat: string) => heur.filter((x) => x.category === cat);

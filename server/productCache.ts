@@ -57,6 +57,24 @@ class ProductCache {
   getProducts(): Product[] {
     return this.products;
   }
+
+  /**
+   * Prüft, ob der Cache leer oder älter als die TTL ist (Standard 6 Stunden).
+   */
+  isStale(ttl: number = this.DEFAULT_TTL): boolean {
+    if (this.products.length === 0 || !this.lastUpdate) return true;
+    return Date.now() - this.lastUpdate.getTime() > ttl;
+  }
+
+  /**
+   * Stellt sicher, dass der Cache befüllt und nicht älter als die TTL ist.
+   * Lädt bei Bedarf (leer oder abgelaufen) den kompletten Katalog nach.
+   * Solange der Cache "frisch" ist (< 6h), wird Shopware NICHT erneut abgefragt.
+   */
+  async ensurePopulated(client: ShopwareClient, ttl: number = this.DEFAULT_TTL): Promise<void> {
+    if (!this.isStale(ttl)) return;
+    await this.refresh(client);
+  }
   
   /**
    * Get a product by its ID

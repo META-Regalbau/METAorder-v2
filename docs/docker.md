@@ -126,6 +126,7 @@ Shopware, E-Mail, optionale Dienste: wie bisher ueber `.env` / Compose `environm
 | `VITE_SENTRY_ENVIRONMENT` | Optional: Frontend Environment-Tag. |
 | `VITE_SENTRY_RELEASE` | Optional: Frontend Release-Tag. |
 | `VITE_SENTRY_TRACES_SAMPLE_RATE` | Optional: Sampling fuer Frontend Tracing (Default `0.1`). |
+| `VITE_CPQ_3D_PREVIEW` | Optional: 3D-Vorschau (Three.js/GLB) im CPQ-Konfigurator, in der Angebots-Ansicht und im Produkt-Detail. **Default `false`** (aus). **Build-Zeit-Flag** — muss beim Image-Build gesetzt werden: `docker build --build-arg VITE_CPQ_3D_PREVIEW=true .`. Reines Runtime-Setzen im Container hat **keine** Wirkung, da Vite `VITE_*` beim Build in die SPA backt. |
 
 KI-Schluessel (OpenAI / Anthropic) werden in der Regel **in der App unter Einstellungen** gesetzt (verschluesselt in der DB), nicht zwingend als Container-Env.
 

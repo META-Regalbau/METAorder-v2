@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import StatusBadge from "./StatusBadge";
+import HerstellMarginIndicator from "./HerstellMarginIndicator";
 import ShippingInfoForm from "./ShippingInfoForm";
 import AdminDocumentForm from "./AdminDocumentForm";
 import InstallmentPlanSection from "./InstallmentPlanSection";
@@ -911,6 +912,26 @@ export default function OrderDetailModal({
           <TabsContent value="items" className="pt-6">
             <Card className="p-6">
               <h3 className="text-sm font-medium uppercase tracking-wide mb-4">{t('orderDetail.orderItems')}</h3>
+              {order.profitability?.db1Total != null ? (
+                <div className="mb-4 rounded-lg border bg-muted/30 p-4 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm text-muted-foreground">{t('orderDetail.profitability.db1Total')}</p>
+                    <p className="text-lg font-semibold font-mono tabular-nums">
+                      €{order.profitability.db1Total.toFixed(2)}
+                    </p>
+                  </div>
+                  <HerstellMarginIndicator
+                    marginPercent={order.profitability.marginPercent}
+                    verdict={order.profitability.crmVerdict}
+                  />
+                  <p className="text-xs text-muted-foreground w-full">
+                    {t('orderDetail.profitability.coverageHint', {
+                      withData: order.profitability.linesWithHerstellpreis,
+                      total: order.profitability.productLineCount,
+                    })}
+                  </p>
+                </div>
+              ) : null}
               {order.items && order.items.length > 0 ? (
                 <div className="space-y-3">
                   {order.items.map((item) => (
@@ -919,6 +940,11 @@ export default function OrderDetailModal({
                         <p className="font-medium">{item.name}</p>
                         <p className="text-sm text-muted-foreground">{t('orderDetail.quantity')}: {item.quantity}</p>
                         <p className="text-xs text-muted-foreground">{t('orderDetail.taxRate')}: {item.taxRate}%</p>
+                        {item.herstellpreisNet != null ? (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {t('orderDetail.profitability.herstellpreis')}: €{item.herstellpreisNet.toFixed(2)}
+                          </p>
+                        ) : null}
                       </div>
                       <div className="text-right">
                         <div className="space-y-1">
@@ -930,6 +956,17 @@ export default function OrderDetailModal({
                             <p className="text-muted-foreground">€{item.price.toFixed(2)} {t('orderDetail.each')} <span className="text-xs">({t('orderDetail.gross')})</span></p>
                             <p className="text-xs text-muted-foreground">€{item.netPrice.toFixed(2)} {t('orderDetail.each')} ({t('orderDetail.net')})</p>
                           </div>
+                          {item.db1Abs != null ? (
+                            <div className="pt-1">
+                              <p className="text-xs text-muted-foreground">
+                                {t('orderDetail.profitability.db1Line')}: €{item.db1Abs.toFixed(2)}
+                              </p>
+                              <HerstellMarginIndicator
+                                marginPercent={item.marginPercent ?? null}
+                                verdict={item.crmVerdict ?? "none"}
+                              />
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     </div>

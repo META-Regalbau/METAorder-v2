@@ -15,6 +15,10 @@ export type BomLineItem = {
   unitPrice: number;
   lineTotal: number;
   componentType: string;
+  imageUrl?: string;
+  width?: number;
+  height?: number;
+  length?: number;
 };
 
 export type BillOfMaterialsResult = {
@@ -71,6 +75,32 @@ const ROLE_ATTR_MAP: Record<string, string[]> = {
   shelf: ["width", "depth"],
 };
 
+const DIMENSIONED_ROLES = new Set(["frame", "beam", "shelf"]);
+
+/** Shopware-Maße können Floats sein – Vergleich mit ±1 mm Toleranz. */
+const DIMENSION_TOLERANCE_MM = 1;
+
+function dimensionsEqual(a: number, b: number): boolean {
+  return Math.abs(a - b) <= DIMENSION_TOLERANCE_MM;
+}
+
+function isDimensionedRole(role: string): boolean {
+  return DIMENSIONED_ROLES.has(role);
+}
+
+function formatDimensionMismatch(role: string, config: ConfigContext): string {
+  const parts: string[] = [];
+  const attrKeys = ROLE_ATTR_MAP[role] ?? [];
+  for (const key of attrKeys) {
+    const val = config[key] as number | undefined;
+    if (val !== undefined) {
+      const label = key === "depth" ? "Tiefe" : key === "height" ? "Höhe" : key === "width" ? "Breite" : key;
+      parts.push(`${label} ${val} mm`);
+    }
+  }
+  return parts.length > 0 ? parts.join(", ") : "gewählte Maße";
+}
+
 // Produkt-Dimensionen für Fallback-Matching (Shopware: length = Tiefe)
 interface ProductDimensions {
   width?: number;
@@ -87,8 +117,23 @@ export type GetProductFn = (
       price: number;
       dimensions?: ProductDimensions;
       manufacturerNumber?: string;
+      imageUrl?: string;
     }
   | undefined;
+
+function resolveProductDimension(
+  key: string,
+  attrs: Record<string, number> | null | undefined,
+  dims: ProductDimensions | undefined
+): number | undefined {
+  const attrVal = attrs?.[key] as number | undefined;
+  if (attrVal !== undefined) return attrVal;
+  if (!dims) return undefined;
+  if (key === "height") return dims.height;
+  if (key === "depth" || key === "length") return dims.length;
+  if (key === "width") return dims.width;
+  return undefined;
+}
 
 function matchMappingToConfig(
   mapping: CpqProductMapping,
@@ -96,43 +141,25 @@ function matchMappingToConfig(
   config: ConfigContext,
   getProduct: GetProductFn
 ): boolean {
-  const attrs = mapping.attributes as Record<string, number> | null | undefined;
-
-  // 1. Explizite Mapping-Attribute prüfen
-  if (attrs) {
-    const attrKeys = ROLE_ATTR_MAP[role];
-    if (!attrKeys) return true;
-    for (const key of attrKeys) {
-      const configVal = config[key] as number | undefined;
-      const attrVal = attrs[key] as number | undefined;
-      if (configVal !== undefined && attrVal !== undefined && configVal !== attrVal) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  // 2. Fallback: Produkt-Dimensionen aus Katalog für passendes Mapping nutzen
-  // (z.B. 2000x600 Ständer, 1000x600 Böden passend zu config height/depth/width)
-  const product = getProduct(mapping.shopwareProductNumber);
-  if (!product?.dimensions) return true; // Kein Fallback möglich → alle passen
-
-  const dims = product.dimensions;
   const attrKeys = ROLE_ATTR_MAP[role];
   if (!attrKeys) return true;
+
+  const attrs = mapping.attributes as Record<string, number> | null | undefined;
+  const product = getProduct(mapping.shopwareProductNumber);
+  const dims = product?.dimensions;
 
   for (const key of attrKeys) {
     const configVal = config[key] as number | undefined;
     if (configVal === undefined) continue;
 
-    // Shopware: width, height, length. Config: height, depth (=length), width
-    let productVal: number | undefined;
-    if (key === "height") productVal = dims.height;
-    else if (key === "depth") productVal = dims.length; // Tiefe = length in Shopware
-    else if (key === "width") productVal = dims.width;
-    else if (key === "length") productVal = dims.length;
+    const productVal = resolveProductDimension(key, attrs ?? undefined, dims);
+    if (productVal === undefined) {
+      // Dimensionierte Rolle + gesetzte Config-Dimension → ohne passenden Wert kein Match
+      if (isDimensionedRole(role)) return false;
+      continue;
+    }
 
-    if (productVal !== undefined && configVal !== productVal) {
+    if (!dimensionsEqual(configVal, productVal)) {
       return false;
     }
   }
@@ -186,7 +213,16 @@ export async function resolveBillOfMaterials(
 
     const list = mappingsByType.get(ct.id) ?? [];
     const candidates = list.filter((m) => matchMappingToConfig(m, normalizedRole, result.config, getProductByNumber));
-    const mapping = candidates[0] ?? list[0];
+    let mapping = candidates[0];
+    if (!mapping && list.length > 0) {
+      if (isDimensionedRole(normalizedRole)) {
+        errors.push(
+          `${ct.name}: Kein passender Artikel für ${formatDimensionMismatch(normalizedRole, result.config)} gefunden`
+        );
+        continue;
+      }
+      mapping = list[0];
+    }
     if (!mapping) {
       warnings.push(`${ct.name}: Kein Produkt-Mapping vorhanden`);
       continue;
@@ -210,6 +246,10 @@ export async function resolveBillOfMaterials(
       unitPrice: product.price,
       lineTotal: qty * product.price,
       componentType: ct.name,
+      imageUrl: product.imageUrl,
+      width: product.dimensions?.width,
+      height: product.dimensions?.height,
+      length: product.dimensions?.length,
     });
   }
 
@@ -247,6 +287,10 @@ export async function resolveBillOfMaterials(
       unitPrice: product.price,
       lineTotal: product.price,
       componentType: ct.name,
+      imageUrl: product.imageUrl,
+      width: product.dimensions?.width,
+      height: product.dimensions?.height,
+      length: product.dimensions?.length,
     });
   }
 

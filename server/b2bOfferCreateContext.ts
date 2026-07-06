@@ -253,6 +253,8 @@ export type OfferLineItemInput = {
   quantity: number;
   productNumber?: string;
   payload?: Record<string, unknown>;
+  /** Optionaler Netto-Stückpreis-Override (manueller Rabatt) */
+  unitPriceNet?: number;
 };
 
 /**
@@ -441,6 +443,8 @@ export async function buildB2BOfferCreateAttributes(
       quantity: number;
       type?: string;
       payload?: Record<string, unknown>;
+      /** Optionaler Netto-Stueckpreis-Override (z. B. manueller Rabatt). Ersetzt den Katalog-Nettopreis. */
+      unitPriceNet?: number;
     }>;
     customerContext?: B2BOfferCustomerContext;
     statusMapping?: OfferStatusMapping;
@@ -495,7 +499,12 @@ export async function buildB2BOfferCreateAttributes(
   const itemsPayload = params.lineItems.map((item) => {
     const productId = toShopwareUuid(item.productId);
     const price = pricing.get(productId);
-    const net = price?.net ?? 0;
+    const catalogNet = price?.net ?? 0;
+    // Manueller Netto-Stueckpreis (Rabatt) hat Vorrang; sonst Katalog-Nettopreis aus Shopware.
+    const net =
+      typeof item.unitPriceNet === "number" && Number.isFinite(item.unitPriceNet) && item.unitPriceNet >= 0
+        ? round2(item.unitPriceNet)
+        : catalogNet;
     const taxRate = price?.taxRate ?? 0;
     const quantity = item.quantity;
 

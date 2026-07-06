@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, lazy, Suspense, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Package, Save, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -21,7 +21,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import Shelf3DViewer from "@/components/cpq/Shelf3DViewer";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +32,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiRequest } from "@/lib/queryClient";
+import { CPQ_3D_PREVIEW } from "@/lib/featureFlags";
+import CpqProductPreview from "@/components/cpq/CpqProductPreview";
+
+// Lazy geladen, damit Three.js/GLB nur gebündelt wird, wenn die 3D-Vorschau aktiv ist.
+const Shelf3DViewer = lazy(() => import("@/components/cpq/Shelf3DViewer"));
 
 type CpqSystem = {
   id: string;
@@ -61,6 +65,10 @@ type BomLineItem = {
   unitPrice: number;
   lineTotal: number;
   componentType: string;
+  imageUrl?: string;
+  width?: number;
+  height?: number;
+  length?: number;
 };
 
 type BomResult = {
@@ -138,6 +146,34 @@ export default function CPQConfiguratorPage() {
     },
     enabled: !!selectedSystemId,
   });
+
+  // Verfügbare Optionen aus Shopware-Mappings: ungültige/fehlende Defaults ersetzen
+  useEffect(() => {
+    const opts = optionsData?.availableOptions;
+    if (!opts || !selectedSystemId) return;
+
+    setConfig((prev) => {
+      const next = { ...prev };
+      let changed = false;
+
+      const syncNumeric = (key: "height" | "depth" | "width" | "field_count" | "level_count", list: number[] | undefined) => {
+        if (!list || list.length === 0) return;
+        const current = prev[key] as number | undefined;
+        if (current === undefined || !list.includes(current)) {
+          next[key] = list[0];
+          changed = true;
+        }
+      };
+
+      syncNumeric("height", opts.heights);
+      syncNumeric("depth", opts.depths);
+      syncNumeric("width", opts.widths);
+      syncNumeric("field_count", opts.field_counts);
+      syncNumeric("level_count", opts.level_counts);
+
+      return changed ? next : prev;
+    });
+  }, [optionsData?.availableOptions, selectedSystemId]);
 
   const getCsrfHeaders = () => {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -402,59 +438,81 @@ export default function CPQConfiguratorPage() {
               <div className="grid gap-4 max-w-md">
                 <div>
                   <label className="text-sm font-medium">Höhe (mm)</label>
-                  <Select
-                    value={config.height != null ? String(config.height) : ""}
-                    onValueChange={(v) => setConfig((c) => ({ ...c, height: parseInt(v, 10) }))}
-                  >
-                    <SelectTrigger data-testid="cpq-select-height"><SelectValue placeholder="Wählen" /></SelectTrigger>
-                    <SelectContent>
-                      {(optionsData?.availableOptions?.heights ?? [1800, 2000, 2200, 2500, 3000]).map((h) => (
-                        <SelectItem key={h} value={String(h)}>{h} mm</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {(optionsData?.availableOptions?.heights?.length ?? 0) > 0 ? (
+                    <Select
+                      value={config.height != null ? String(config.height) : ""}
+                      onValueChange={(v) => setConfig((c) => ({ ...c, height: parseInt(v, 10) }))}
+                    >
+                      <SelectTrigger data-testid="cpq-select-height"><SelectValue placeholder="Wählen" /></SelectTrigger>
+                      <SelectContent>
+                        {optionsData!.availableOptions!.heights.map((h) => (
+                          <SelectItem key={h} value={String(h)}>{h} mm</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Keine Maße für dieses System gemappt (CPQ Admin prüfen).
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="text-sm font-medium">Tiefe (mm)</label>
-                  <Select
-                    value={config.depth != null ? String(config.depth) : ""}
-                    onValueChange={(v) => setConfig((c) => ({ ...c, depth: parseInt(v, 10) }))}
-                  >
-                    <SelectTrigger data-testid="cpq-select-depth"><SelectValue placeholder="Wählen" /></SelectTrigger>
-                    <SelectContent>
-                      {(optionsData?.availableOptions?.depths ?? [400, 500, 600, 800]).map((d) => (
-                        <SelectItem key={d} value={String(d)}>{d} mm</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {(optionsData?.availableOptions?.depths?.length ?? 0) > 0 ? (
+                    <Select
+                      value={config.depth != null ? String(config.depth) : ""}
+                      onValueChange={(v) => setConfig((c) => ({ ...c, depth: parseInt(v, 10) }))}
+                    >
+                      <SelectTrigger data-testid="cpq-select-depth"><SelectValue placeholder="Wählen" /></SelectTrigger>
+                      <SelectContent>
+                        {optionsData!.availableOptions!.depths.map((d) => (
+                          <SelectItem key={d} value={String(d)}>{d} mm</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Keine Maße für dieses System gemappt (CPQ Admin prüfen).
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="text-sm font-medium">Anzahl Felder</label>
-                  <Select
-                    value={config.field_count != null ? String(config.field_count) : ""}
-                    onValueChange={(v) => setConfig((c) => ({ ...c, field_count: parseInt(v, 10) }))}
-                  >
-                    <SelectTrigger data-testid="cpq-select-field-count"><SelectValue placeholder="Wählen" /></SelectTrigger>
-                    <SelectContent>
-                      {(optionsData?.availableOptions?.field_counts ?? [1, 2, 3, 4, 5, 6, 8, 10]).map((f) => (
-                        <SelectItem key={f} value={String(f)}>{f}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {(optionsData?.availableOptions?.field_counts?.length ?? 0) > 0 ? (
+                    <Select
+                      value={config.field_count != null ? String(config.field_count) : ""}
+                      onValueChange={(v) => setConfig((c) => ({ ...c, field_count: parseInt(v, 10) }))}
+                    >
+                      <SelectTrigger data-testid="cpq-select-field-count"><SelectValue placeholder="Wählen" /></SelectTrigger>
+                      <SelectContent>
+                        {optionsData!.availableOptions!.field_counts.map((f) => (
+                          <SelectItem key={f} value={String(f)}>{f}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="mt-1 text-sm text-muted-foreground">Keine Optionen verfügbar.</p>
+                  )}
                 </div>
                 <div>
                   <label className="text-sm font-medium">Feldbreite / Bodenbreite (mm)</label>
-                  <Select
-                    value={config.width != null ? String(config.width) : ""}
-                    onValueChange={(v) => setConfig((c) => ({ ...c, width: parseInt(v, 10) }))}
-                  >
-                    <SelectTrigger data-testid="cpq-select-width"><SelectValue placeholder="Standard: 1000" /></SelectTrigger>
-                    <SelectContent>
-                      {(optionsData?.availableOptions?.widths ?? [1000, 1200, 800]).map((w) => (
-                        <SelectItem key={w} value={String(w)}>{w} mm</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {(optionsData?.availableOptions?.widths?.length ?? 0) > 0 ? (
+                    <Select
+                      value={config.width != null ? String(config.width) : ""}
+                      onValueChange={(v) => setConfig((c) => ({ ...c, width: parseInt(v, 10) }))}
+                    >
+                      <SelectTrigger data-testid="cpq-select-width"><SelectValue placeholder="Wählen" /></SelectTrigger>
+                      <SelectContent>
+                        {optionsData!.availableOptions!.widths.map((w) => (
+                          <SelectItem key={w} value={String(w)}>{w} mm</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Keine Maße für dieses System gemappt (CPQ Admin prüfen).
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -467,17 +525,21 @@ export default function CPQConfiguratorPage() {
               <div className="max-w-md space-y-4">
                 <div>
                   <label className="text-sm font-medium">Anzahl Ebenen</label>
-                  <Select
-                    value={config.level_count != null ? String(config.level_count) : ""}
-                    onValueChange={(v) => setConfig((c) => ({ ...c, level_count: parseInt(v, 10) }))}
-                  >
-                    <SelectTrigger data-testid="cpq-select-level-count"><SelectValue placeholder="Wählen" /></SelectTrigger>
-                    <SelectContent>
-                      {(optionsData?.availableOptions?.level_counts ?? [2, 3, 4, 5, 6, 8, 10]).map((l) => (
-                        <SelectItem key={l} value={String(l)}>{l}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {(optionsData?.availableOptions?.level_counts?.length ?? 0) > 0 ? (
+                    <Select
+                      value={config.level_count != null ? String(config.level_count) : ""}
+                      onValueChange={(v) => setConfig((c) => ({ ...c, level_count: parseInt(v, 10) }))}
+                    >
+                      <SelectTrigger data-testid="cpq-select-level-count"><SelectValue placeholder="Wählen" /></SelectTrigger>
+                      <SelectContent>
+                        {optionsData!.availableOptions!.level_counts.map((l) => (
+                          <SelectItem key={l} value={String(l)}>{l}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="mt-1 text-sm text-muted-foreground">Keine Optionen verfügbar.</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -595,6 +657,7 @@ export default function CPQConfiguratorPage() {
                 </div>
               ) : bom && bom.items.length > 0 ? (
                 <>
+                  <CpqProductPreview items={bom.items} />
                   <div className="rounded-lg border overflow-hidden">
                     <Table data-testid="cpq-bom-table">
                       <TableHeader>
@@ -782,16 +845,26 @@ export default function CPQConfiguratorPage() {
           </DialogContent>
         </Dialog>
 
-        <Card className="w-80 p-6 shrink-0">
-          <h3 className="font-semibold mb-4">Live-Vorschau</h3>
-          {selectedSystemId ? (
-            <Shelf3DViewer systemId={selectedSystemId} config={config} />
-          ) : (
-            <div className="aspect-square bg-muted rounded flex items-center justify-center text-muted-foreground text-sm">
-              System wählen für Vorschau
-            </div>
-          )}
-        </Card>
+        {CPQ_3D_PREVIEW && (
+          <Card className="w-80 p-6 shrink-0">
+            <h3 className="font-semibold mb-4">Live-Vorschau</h3>
+            {selectedSystemId ? (
+              <Suspense
+                fallback={
+                  <div className="aspect-square bg-muted rounded flex items-center justify-center text-muted-foreground text-sm">
+                    Vorschau wird geladen…
+                  </div>
+                }
+              >
+                <Shelf3DViewer systemId={selectedSystemId} config={config} />
+              </Suspense>
+            ) : (
+              <div className="aspect-square bg-muted rounded flex items-center justify-center text-muted-foreground text-sm">
+                System wählen für Vorschau
+              </div>
+            )}
+          </Card>
+        )}
       </div>
     </div>
   );

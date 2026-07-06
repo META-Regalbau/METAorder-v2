@@ -21,6 +21,12 @@ COPY . .
 
 ENV NODE_ENV=production
 
+# Frontend-Feature-Flags werden zur Build-Zeit in die SPA gebacken (Vite VITE_*).
+# 3D-Vorschau (CPQ/Angebote) ist standardmaessig aus. Zum Aktivieren:
+#   docker build --build-arg VITE_CPQ_3D_PREVIEW=true .
+ARG VITE_CPQ_3D_PREVIEW=false
+ENV VITE_CPQ_3D_PREVIEW=$VITE_CPQ_3D_PREVIEW
+
 # pdf-parse haengt an @napi-rs/canvas, das standardmaessig **alle** Plattform-Binaer
 # (darwin, musl, x64, arm64, …) unter node_modules legt — mehrere hundert MB und
 # haeufig ENOSPC beim Image-Export. Im Debian-glibc-Image reicht eine GNU-Variante.

@@ -11,6 +11,17 @@ import { prepareCpqCartTransfer } from "./cpqCartTransfer";
 import { evaluateDiscountLevel } from "./discountEvaluator";
 import type { requireAuth, requireViewCPQ, requireManageCPQ } from "../auth";
 
+/** Stellt sicher, dass der Shopware-Produktcache (6h TTL) für CPQ-Matching befüllt ist. */
+async function ensureCpqProductCacheForTenant(tenantId: string | null | undefined): Promise<void> {
+  const { productCacheRegistry } = await import("../productCache");
+  const { storage } = await import("../storage");
+  const settings = await storage.getShopwareSettings(tenantId ?? null);
+  if (!settings) return;
+  const { ShopwareClient } = await import("../shopware");
+  const client = new ShopwareClient(settings);
+  await productCacheRegistry.for(tenantId ?? null).ensurePopulated(client);
+}
+
 export function registerCpqRoutes(
   app: Express,
   auth: {
@@ -73,6 +84,7 @@ export function registerCpqRoutes(
       const { id } = req.params;
       const componentTypes = await cpqStorage.getComponentTypesBySystem(id);
       const mappings = await cpqStorage.getProductMappingsBySystem(id, req.tenantId ?? null);
+      await ensureCpqProductCacheForTenant(req.tenantId ?? null);
       const { productCache } = await import("../productCache");
       const mappingsWithName = mappings.map((m) => {
         const product = productCache.getProductByIdentifier(m.shopwareProductNumber);
@@ -184,6 +196,7 @@ export function registerCpqRoutes(
           cpqStorage.getComponentTypesBySystem(id),
           cpqStorage.getProductMappingsBySystem(id, req.tenantId ?? null),
         ]);
+        await ensureCpqProductCacheForTenant(req.tenantId ?? null);
         const { productCache } = await import("../productCache");
         const activeMappings = mappings.filter((m) => m.status === "active");
         const heights = new Set<number>();
@@ -202,14 +215,6 @@ export function registerCpqRoutes(
           const product = productCache.getProductByIdentifier(m.shopwareProductNumber);
           const dims = product?.dimensions;
 
-          if (attrs.height) heights.add(attrs.height);
-          if (attrs.depth) depths.add(attrs.depth);
-          if (attrs.width) widths.add(attrs.width);
-          if (dims) {
-            if (dims.height) heights.add(dims.height);
-            if (dims.length) depths.add(dims.length);
-            if (dims.width) widths.add(dims.width);
-          }
           if (isFrame(role)) {
             if (attrs.height) heights.add(attrs.height);
             if (attrs.depth) depths.add(attrs.depth);
@@ -219,6 +224,10 @@ export function registerCpqRoutes(
           if (isBeam(role) || isShelf(role)) {
             if (attrs.width) widths.add(attrs.width);
             if (dims?.width) widths.add(dims.width);
+          }
+          if (isShelf(role)) {
+            if (attrs.depth) depths.add(attrs.depth);
+            if (dims?.length) depths.add(dims.length);
           }
         }
 
@@ -287,6 +296,7 @@ export function registerCpqRoutes(
         });
       }
 
+      await ensureCpqProductCacheForTenant(req.tenantId ?? null);
       const { productCache } = await import("../productCache");
       const getProduct = (productNumber: string) => {
         const p = productCache.getProductByIdentifier(productNumber);
@@ -296,6 +306,8 @@ export function registerCpqRoutes(
               name: p.name ?? productNumber,
               price: p.price ?? 0,
               dimensions: p.dimensions,
+              manufacturerNumber: p.manufacturerNumber,
+              imageUrl: p.imageUrl,
             }
           : undefined;
       };
@@ -342,6 +354,7 @@ export function registerCpqRoutes(
         cpqStorage.getRulesBySystem(systemId, req.tenantId ?? null),
       ]);
       const { productCache } = await import("../productCache");
+      await ensureCpqProductCacheForTenant(req.tenantId ?? null);
       const getProduct = (productNumber: string) => {
         const p = productCache.getProductByIdentifier(productNumber);
         return p
@@ -604,6 +617,7 @@ export function registerCpqRoutes(
       selected_frame: (cfg.selected_frame as object) ?? { height: h, depth: d },
       selected_beam: (cfg.selected_beam as object) ?? { width: 1000, length: d },
       selected_shelf: (cfg.selected_shelf as object) ?? { width: 1000, depth: d },
+      selected_accessory: (cfg.selected_accessory as object) ?? { depth: d },
     };
   }
 

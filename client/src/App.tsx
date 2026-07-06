@@ -20,6 +20,7 @@ const ObxSearchPage = lazy(() => import("@/pages/ObxSearchPage"));
 const ProductOverviewPage = lazy(() => import("@/pages/ProductOverviewPage"));
 const PriceCheckPage = lazy(() => import("@/pages/PriceCheckPage"));
 const ProfitabilityAnalysisPage = lazy(() => import("@/pages/ProfitabilityAnalysisPage"));
+const OrderProfitabilityAnalysisPage = lazy(() => import("@/pages/OrderProfitabilityAnalysisPage"));
 const BundlesPage = lazy(() => import("@/pages/BundlesPage"));
 const TicketsPage = lazy(() => import("@/pages/TicketsPage"));
 const CrmPage = lazy(() => import("@/pages/CrmPage"));
@@ -83,6 +84,7 @@ function Router({
       <Route path="/product-overview" component={ProductOverviewPage} />
       <Route path="/price-check" component={PriceCheckPage} />
       <Route path="/profitability-analysis" component={ProfitabilityAnalysisPage} />
+      <Route path="/order-profitability-analysis" component={OrderProfitabilityAnalysisPage} />
       <Route path="/bundles" component={BundlesPage} />
       <Route path="/tickets" component={() => <TicketsPage userPermissions={userPermissions} />} />
       <Route path="/crm" component={() => <CrmPage userPermissions={userPermissions} userRole={userRole} userSalesChannelIds={userSalesChannelIds} />} />

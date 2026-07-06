@@ -20,6 +20,11 @@ import { parseFakturaRowsFromBuffer, runFakturaImport } from "./shopFakturenImpo
 import { parseHerstellpreisRowsFromBuffer, runHerstellpreisImport } from "./herstellpreisImport";
 import { enrichCustomerPricesWithHerstellMargin } from "./herstellpreisMargin";
 import {
+  buildOrderProfitabilityAnalysisSummary,
+  enrichOrdersWithProfitability,
+  sortOrdersByMargin,
+} from "./orderProfitabilityAnalysis";
+import {
   loadCrmProfitabilitySettings,
   parseCrmProfitabilitySettings,
   saveCrmProfitabilitySettings,
@@ -3160,8 +3165,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .filter((o) => duplicateIds.has(o.id))
           .map((o) => o.id);
 
+        const enrichedPage = await enrichOrdersWithProfitability(pageOrders, {
+          storage,
+          client,
+          tenantId,
+        });
+
         res.json({
-          orders: pageOrders,
+          orders: enrichedPage,
           total,
           limit,
           offset,
@@ -3177,6 +3188,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error fetching orders:", error);
       res.status(500).json({ error: error.message || "Failed to fetch orders" });
+    }
+  });
+
+  app.get("/api/orders/profitability-analysis", requireAuth, async (req, res) => {
+    try {
+      const tenantId = (req as any).tenantId ?? null;
+      const settings = await storage.getShopwareSettings(tenantId);
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const client = new ShopwareClient(settings);
+      const allowedChannelIds = await getSalesChannelFilter(req);
+      const listQuery = parseOrdersListQuery(req.query as Record<string, unknown>);
+      const forceRefresh = req.query.refresh === "true" || req.query.refresh === "1";
+
+      const { orders: cachedOrders } = await getOrdersWithCache(client, tenantId, { forceRefresh });
+      let filteredOrders = filterOrdersBySalesChannels(cachedOrders, allowedChannelIds);
+      filteredOrders = filterOrdersList(filteredOrders, listQuery);
+
+      const enrichedOrders = await enrichOrdersWithProfitability(filteredOrders, {
+        storage,
+        client,
+        tenantId,
+      });
+      const profitabilitySettings = await loadCrmProfitabilitySettings(storage, tenantId);
+      const summary = buildOrderProfitabilityAnalysisSummary(enrichedOrders);
+      const worstOrders = sortOrdersByMargin(enrichedOrders, "asc", 15);
+      const bestOrders = sortOrdersByMargin(enrichedOrders, "desc", 10);
+
+      res.json({
+        orders: enrichedOrders,
+        summary,
+        worstOrders,
+        bestOrders,
+        total: enrichedOrders.length,
+        profitabilityMinMarginPercent: profitabilitySettings.minMarginPercent,
+      });
+    } catch (error: any) {
+      console.error("[/api/orders/profitability-analysis] Error:", error?.message || error);
+      res.status(500).json({ error: error.message || "Bestell-Analyse fehlgeschlagen" });
     }
   });
 
@@ -3871,7 +3923,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Order not found or access denied" });
       }
 
-      res.json(order);
+      const tenantId = (req as any).tenantId ?? null;
+      const [enrichedOrder] = await enrichOrdersWithProfitability([order], {
+        storage,
+        client,
+        tenantId,
+      });
+
+      res.json(enrichedOrder ?? order);
     } catch (error: any) {
       console.error("Error fetching order:", error);
       res.status(500).json({ error: error.message || "Failed to fetch order" });

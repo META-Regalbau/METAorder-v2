@@ -40,6 +40,12 @@ export interface SendOrderInvoiceOptions {
   storage?: typeof defaultStorage;
   /** Automations-Lauf protokollieren (Default: true). */
   log?: boolean;
+  /**
+   * Abweichende Empfaenger-E-Mailadresse. Ueberschreibt sowohl das
+   * Kunden-Customfield custom_invoice_email_address als auch die Besteller-Mail.
+   * Gilt nur fuer den direkten Shopware-Mailversand (nicht fuer den Mondu-Weg).
+   */
+  overrideEmail?: string;
 }
 
 /**
@@ -181,7 +187,9 @@ export async function sendOrderInvoice(
     }
 
     // Shopware-Funktion: Dokument per Mail an den Kunden senden.
-    await client.sendInvoiceEmail(order.id, invoice.id);
+    // options.overrideEmail hat Vorrang, sonst greift ggf. das Kunden-Customfield
+    // custom_invoice_email_address (in getInvoiceMailContext ausgewertet).
+    await client.sendInvoiceEmail(order.id, invoice.id, options.overrideEmail);
 
     // Sicherstellen, dass der sent-Status gesetzt ist (Shopware markiert das beim
     // Mailversand nicht zuverlaessig selbst).

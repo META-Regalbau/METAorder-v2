@@ -107,6 +107,12 @@ export default function AppSidebar({ userRole, permissions }: AppSidebarProps) {
           permission: "viewOrders" as keyof Role['permissions'],
         },
         {
+          titleKey: "nav.orderProfitabilityAnalysis",
+          url: "/order-profitability-analysis",
+          icon: BarChart3,
+          permission: "viewOrders" as keyof Role['permissions'],
+        },
+        {
           titleKey: "nav.bundles",
           url: "/bundles",
           icon: Package,

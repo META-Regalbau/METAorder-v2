@@ -306,11 +306,26 @@ export type Order = {
   customerComment?: string; // Checkout-Kommentar des Kunden
   isPaymentOverdue?: boolean; // Automatisch berechnet: 30 Tage nach invoiceDate + paymentStatus = open/authorized
   items: OrderItem[];
+  profitability?: OrderProfitabilitySummary;
   customFields?: Record<string, any>;
   discount?: {
     amount: number; // Rabattbetrag (Brutto)
     percentage: number; // Rabattprozentsatz
   };
+};
+
+export type OrderProfitabilityVerdict = "green" | "red" | "none";
+
+/** Deckungsbeitrags-Kennzahlen je Bestellung (VK aus Auftrag vs. importierte HK). */
+export type OrderProfitabilitySummary = {
+  herstellkostenTotal: number | null;
+  db1Total: number | null;
+  marginPercent: number | null;
+  marginOnRevenuePercent: number | null;
+  crmVerdict: OrderProfitabilityVerdict;
+  productLineCount: number;
+  linesWithHerstellpreis: number;
+  coveragePercent: number;
 };
 
 export type OrderItem = {
@@ -324,8 +339,28 @@ export type OrderItem = {
   taxRate: number; // Steuersatz in Prozent
   categoryNames?: string[]; // Für Analytics: Kategorie-Namen des Produkts
   weight?: number; // Produktgewicht in kg
+  productId?: string;
   productNumber?: string; // Artikelnummer für Gewichts-Lookup
+  /** Herstellkosten netto je Einheit (importiert). */
+  herstellpreisNet?: number | null;
+  /** Herstellkosten gesamt (HK × Menge). */
+  herstellkostenTotal?: number | null;
+  /** DB1 je Position in € (netTotal − Herstellkosten). */
+  db1Abs?: number | null;
+  marginPercent?: number | null;
+  marginOnRevenuePercent?: number | null;
+  crmVerdict?: OrderProfitabilityVerdict;
 };
+
+export type OrderItemProfitabilityFields = Pick<
+  OrderItem,
+  | "herstellpreisNet"
+  | "herstellkostenTotal"
+  | "db1Abs"
+  | "marginPercent"
+  | "marginOnRevenuePercent"
+  | "crmVerdict"
+>;
 
 export type ShippingInfoInput = {
   carrier: string;
@@ -1940,6 +1975,7 @@ export const offerDrafts = pgTable("offer_drafts", {
     }>;
     offerNotes?: string; // Customer's request notes
     validUntil?: string; // Requested validity date
+    manualBuilder?: boolean; // true = im manuellen Angebots-Builder erstellt (kein KI-Entwurf)
     commercialIntent?: "quote_request" | "purchase_order" | "unclear";
     commercialIntentConfidence?: number;
     commercialIntentRationale?: string;
@@ -2001,6 +2037,7 @@ export const offerDrafts = pgTable("offer_drafts", {
         catalogPrice: number; // Original catalog price
         suggestedPrice?: number; // AI-suggested price
         suggestedDiscount?: number; // AI-suggested discount percentage
+        manualUnitPriceNet?: number; // Manuell gesetzter Netto-Stückpreis (Angebots-Builder) → an Shopware
       };
       bundle?: BundlePayload;
       alternativeMatches?: Array<{

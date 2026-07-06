@@ -248,6 +248,7 @@
     "productOverview": "Product overview",
     "priceCheck": "Price check",
     "profitabilityAnalysis": "Profitability analysis",
+    "orderProfitabilityAnalysis": "Order DB analysis",
     "bundles": "Bundles",
     "tickets": "Tickets",
     "export": "Export & Reports",
@@ -636,6 +637,66 @@
       "priceCheckVerdict": "Price check"
     }
   },
+  "orderProfitabilityAnalysis": {
+    "title": "Order contribution margin analysis",
+    "description": "DB1 based on actual order net prices vs. imported manufacturing costs.",
+    "refresh": "Refresh",
+    "exportCsv": "Export CSV",
+    "loading": "Analyzing orders…",
+    "errorTitle": "Analysis could not be loaded",
+    "openOrders": "Open orders",
+    "executiveSummary": "Executive summary",
+    "executiveSummaryHint": "Based on lines with manufacturing cost data — order net selling price, CRM traffic light from {{crmThreshold}}% margin on cost.",
+    "noData": "No orders with manufacturing cost data",
+    "worstTitle": "Critical orders (lowest margin)",
+    "worstHint": "Orders with the weakest coverage — review discount, cost, or assortment.",
+    "bestTitle": "Strongest orders (highest margin)",
+    "bestHint": "Orders with the best contribution margin on manufacturing costs.",
+    "filters": {
+      "title": "Filters",
+      "dateFrom": "From",
+      "dateTo": "To",
+      "status": "Status"
+    },
+    "kpi": {
+      "totalOrders": "Orders",
+      "hkCoverage": "{{withData}} with MC data ({{percent}}% coverage)",
+      "crmGreenShare": "CRM profitable share",
+      "crmGreenShareHint": "{{green}} of {{withData}} analyzable orders",
+      "totalDb1": "Total DB1",
+      "avgDb1Hint": "Avg. DB1 per order: {{amount}}",
+      "avgMarginOnCost": "Avg. margin on cost",
+      "medianOnCostHint": "Median on cost: {{median}}%",
+      "noMarginData": "No manufacturing cost data"
+    },
+    "stats": {
+      "title": "Statistics",
+      "crmGreen": "CRM green (≥ {{threshold}}%)",
+      "crmRed": "CRM red (< {{threshold}}%)",
+      "noHerstellpreis": "Without MC data",
+      "loss": "Loss orders",
+      "totalHerstellkosten": "Total manufacturing costs"
+    },
+    "charts": {
+      "crmDistribution": "CRM profitability (traffic light)",
+      "crmDistributionHint": "Distribution by minimum margin {{crmThreshold}}% on manufacturing costs"
+    },
+    "verdict": {
+      "green": "Green",
+      "red": "Red",
+      "none": "No manufacturing cost"
+    },
+    "table": {
+      "orderNumber": "Order number",
+      "customer": "Customer",
+      "date": "Date",
+      "netTotal": "Net total",
+      "db1": "DB1",
+      "marginOnCost": "Margin",
+      "coverage": "MC coverage",
+      "crmVerdict": "CRM"
+    }
+  },
   "bundles": {
     "title": "Bundles",
     "description": "Manage mock product numbers for bundle sets",
@@ -786,6 +847,7 @@
     "paymentMethod": "Payment Method",
     "shippingMethod": "Shipping Method",
     "total": "Total",
+    "db1": "DB1",
     "totalAmount": "Total Amount",
     "tracking": "Tracking",
     "invoice": "Invoice",
@@ -901,6 +963,12 @@
     "net": "Net",
     "taxRate": "VAT",
     "noItems": "No items available",
+    "profitability": {
+      "db1Total": "Total DB1 (lines with MC)",
+      "db1Line": "DB1",
+      "herstellpreis": "MC net",
+      "coverageHint": "MC data for {{withData}} of {{total}} product lines"
+    },
     "shippingInfo": "Shipping Information",
     "shippingUpdated": "Shipping updated",
     "shippingSuccess": "Shipping information has been saved.",

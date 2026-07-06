@@ -2,6 +2,13 @@ import type { Product, CrossSellCooccurrence, CrossSellEventPairStats } from "@s
 import type { IStorage } from "./storage";
 import type { LearningSettings } from "./crossSellLearning";
 
+/**
+ * Fester Massstab fuer die absolute Co-Occurrence-Normalisierung.
+ * directionalCoOccScore = confidence * log1p(lift); ~1.0 entspricht einem starken
+ * Paar (z. B. confidence 0.5 & lift ~5). Werte darueber werden auf 1.0 gekappt.
+ */
+const CO_OCC_ABS_SCALE = 1.0;
+
 export type HybridWeights = {
   wCoOcc: number;
   wEmbed: number;
@@ -164,15 +171,31 @@ export async function rankCrossSellCandidatesHybrid(params: {
     raw.push({ product: c, coOcc, embed, signal, rule });
   }
 
-  const maxCo = Math.max(1e-9, ...raw.map((r) => r.coOcc));
+  // Absolute (nicht set-relative) Normalisierung der Co-Occurrence.
+  // Vorher: coOcc / max(coOcc) -> der beste Kandidat bekam IMMER 1.0, auch wenn
+  // die absolute Co-Occurrence winzig war (z. B. 2 zufaellige gemeinsame Kaeufe).
+  // Bei duenner Historie wurde so "der Beste unter den Schwachen" kuenstlich
+  // hochskaliert. Jetzt fester Massstab: ~1.0 entspricht einem starken Paar.
+  const normalizedCo = raw.map((r) => Math.min(1, r.coOcc / CO_OCC_ABS_SCALE));
 
-  const scored: HybridRankedProduct[] = raw.map((r) => {
-    const nCo = Math.min(1, r.coOcc / maxCo);
-    const score =
-      weights.wCoOcc * nCo +
-      weights.wEmbed * r.embed +
-      weights.wSignal * r.signal +
-      weights.wRule * r.rule;
+  // Fehlende Signalquellen (keine Embeddings, keine Bestellhistorie, keine Events)
+  // duerfen ihr Gewicht nicht still "verschlucken". Wenn eine Quelle fuer ALLE
+  // Kandidaten leer ist, wird ihr Gewicht 0 gesetzt und die verbleibenden aktiven
+  // Gewichte werden re-normalisiert -> die vorhandenen Signale behalten volle Wirkung.
+  const hasCoOcc = normalizedCo.some((v) => v > 0);
+  const hasEmbed = raw.some((r) => r.embed > 0);
+  const hasSignal = raw.some((r) => r.signal > 0);
+  const hasRule = raw.some((r) => r.rule > 0);
+  const wCo = hasCoOcc ? weights.wCoOcc : 0;
+  const wEm = hasEmbed ? weights.wEmbed : 0;
+  const wSi = hasSignal ? weights.wSignal : 0;
+  const wRu = hasRule ? weights.wRule : 0;
+  const wSum = wCo + wEm + wSi + wRu;
+
+  const scored: HybridRankedProduct[] = raw.map((r, i) => {
+    const nCo = normalizedCo[i];
+    const rawScore = wCo * nCo + wEm * r.embed + wSi * r.signal + wRu * r.rule;
+    const score = wSum > 0 ? rawScore / wSum : 0;
     return {
       ...r.product,
       hybridScore: score,
@@ -182,8 +205,8 @@ export async function rankCrossSellCandidatesHybrid(params: {
 
   scored.sort((a, b) => {
     if (b.hybridScore !== a.hybridScore) return b.hybridScore - a.hybridScore;
-    const stockDiff = (b.stock ?? 0) - (a.stock ?? 0);
-    if (stockDiff !== 0) return stockDiff;
+    // Kein Lagerbestand-Tie-Break: Bestand ist kein Relevanzsignal fuers
+    // Cross-Selling. Stabile, deterministische Reihenfolge ueber Artikelnummer.
     return (a.productNumber || "").localeCompare(b.productNumber || "");
   });
 
