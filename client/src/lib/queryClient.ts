@@ -7,6 +7,31 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+export async function readJsonBody<T>(res: Response): Promise<T> {
+  if (res.status === 204) {
+    return null as T;
+  }
+
+  const text = await res.text();
+  if (!text.trim()) {
+    if (res.status === 304) {
+      throw new Error("API-Antwort unverändert (304) – bitte Seite neu laden.");
+    }
+    throw new Error("Leere Server-Antwort");
+  }
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(`Ungültige JSON-Antwort: ${text.slice(0, 200)}`);
+  }
+}
+
+const API_FETCH_INIT: RequestInit = {
+  credentials: "include",
+  cache: "no-store",
+};
+
 // Helper to get CSRF token from cookie
 function getCsrfToken(): string | null {
   const match = document.cookie.match(/csrf_token=([^;]+)/);
@@ -36,10 +61,10 @@ export async function apiRequest(
   }
   
   const res = await fetch(url, {
+    ...API_FETCH_INIT,
     method,
     headers,
     body: data ? JSON.stringify(data) : undefined,
-    credentials: 'include', // Include cookies in requests
     signal: options?.signal,
   });
 
@@ -53,16 +78,14 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
-      credentials: 'include', // Include cookies in requests
-    });
+    const res = await fetch(queryKey.join("/") as string, API_FETCH_INIT);
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
       return null;
     }
 
     await throwIfResNotOk(res);
-    return await res.json();
+    return await readJsonBody<T>(res);
   };
 
 export const queryClient = new QueryClient({

@@ -175,6 +175,54 @@ class ProductCache {
     this.error = null;
     
     try {
+      // Prefer persistent DB mirror when available (fast, no Shopware full fetch).
+      try {
+        const { storage } = await import("./storage");
+        const { mirrorRowsToProducts } = await import("./shopwareMirror");
+        const tenantId = getTenantIdFromContext();
+        const mirrorCount = await storage.countShopwareProductMirrors(tenantId);
+        if (mirrorCount > 0) {
+          const sourceFingerprint = await client.fetchActiveProductCatalogFingerprint();
+          if (
+            sourceFingerprint &&
+            this.lastFingerprint === sourceFingerprint &&
+            this.products.length > 0
+          ) {
+            this.lastUpdate = new Date();
+            console.log(
+              `[Product Cache] Skipping refresh — mirror catalog unchanged (${this.products.length} products)`,
+            );
+            return;
+          }
+
+          const state = await storage.getShopwareSyncState("products", tenantId);
+          // If fingerprint matches mirror sync state, load from DB without triggering Shopware delta here.
+          if (
+            sourceFingerprint &&
+            state?.lastFingerprint === sourceFingerprint
+          ) {
+            const { rows } = await storage.getShopwareProductMirrors({ activeOnly: true }, tenantId);
+            this.hydrateFromMirror(mirrorRowsToProducts(rows), sourceFingerprint);
+            console.log(`[Product Cache] ✓ Hydrated ${this.products.length} products from DB mirror`);
+            return;
+          }
+
+          // Fingerprint changed: trigger background delta sync, still serve current mirror if present.
+          if (this.products.length === 0) {
+            const { rows } = await storage.getShopwareProductMirrors({ activeOnly: true }, tenantId);
+            this.hydrateFromMirror(mirrorRowsToProducts(rows), state?.lastFingerprint ?? null);
+          }
+          const { triggerShopwareMirrorSync } = await import("./shopwareMirror");
+          triggerShopwareMirrorSync(storage, client, tenantId, ["products"]);
+          if (this.products.length > 0) {
+            this.lastUpdate = new Date();
+            return;
+          }
+        }
+      } catch (mirrorError: any) {
+        console.warn("[Product Cache] Mirror hydrate failed, falling back to live fetch:", mirrorError?.message || mirrorError);
+      }
+
       const sourceFingerprint = await client.fetchActiveProductCatalogFingerprint();
       if (
         sourceFingerprint &&
@@ -248,6 +296,17 @@ class ProductCache {
     this.lastFingerprint = null;
     this.error = null;
     console.log('[Product Cache] Cache destroyed');
+  }
+
+  /**
+   * Befuellt den In-Memory-Cache aus dem persistenten Shopware-Spiegel (ohne Live-Fetch).
+   */
+  hydrateFromMirror(products: Product[], fingerprint: string | null = null): void {
+    this.products = products;
+    this.lastUpdate = new Date();
+    this.lastFingerprint = fingerprint;
+    this.error = null;
+    this.isLoading = false;
   }
 }
 

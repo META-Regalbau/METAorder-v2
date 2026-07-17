@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { EmailRoutingSettings, TicketCategory, TicketPriority } from "@shared/schema";
-import { getOpenAIClientFromSettings } from "./openaiClient";
+import { getChatClientFromSettings } from "./llmClient";
 import type { IStorage } from "./storage";
 
 export type EmailClassification = {
@@ -100,7 +100,9 @@ export async function classifyIncomingEmail(
   skillCatalog: string[]
 ): Promise<EmailClassification> {
   const combined = `${input.subject}\n${input.body}\n${input.from || ""}`.slice(0, 12000);
-  const openaiConfig = await getOpenAIClientFromSettings(storage.getSetting.bind(storage));
+  const openaiConfig = await getChatClientFromSettings(storage.getSetting.bind(storage), {
+    tier: "fast",
+  });
 
   if (!openaiConfig) {
     return heuristicClassification(combined, settings);
@@ -134,7 +136,7 @@ export async function classifyIncomingEmail(
 
   try {
     const response = await openaiConfig.client.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: openaiConfig.model,
       temperature: 0,
       messages: [
         { role: "system", content: "You are a JSON-only classifier for support emails." },

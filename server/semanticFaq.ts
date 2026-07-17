@@ -1,6 +1,6 @@
 import type { IStorage } from "./storage";
 import { getAISettings } from "./aiConfig";
-import { getOpenAIClientFromSettings } from "./openaiClient";
+import { getChatClientFromSettings } from "./llmClient";
 
 type SemanticResult = {
   sourceType: string;
@@ -94,7 +94,9 @@ export async function generateFaqAnswer(
 
   const aiSettings = await getAISettings(storage);
   const promptOverrides = (await storage.getSetting("ai_prompt_overrides")) || {};
-  const openaiConfig = await getOpenAIClientFromSettings(storage.getSetting.bind(storage));
+  const openaiConfig = await getChatClientFromSettings(storage.getSetting.bind(storage), {
+    tier: "smart",
+  });
   const wantsOpenAI = options?.preferOpenAI || aiSettings.mode === "openai_only";
   const language = options?.language || inferLanguage(query);
 
@@ -127,7 +129,7 @@ export async function generateFaqAnswer(
 
   try {
     const completion = await openaiConfig.client.chat.completions.create({
-      model: "gpt-4o",
+      model: openaiConfig.model,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
@@ -150,7 +152,7 @@ export async function generateFaqAnswer(
     return {
       answer: answer || buildFallbackAnswer(language, sources),
       sources: filteredSources,
-      model: "gpt-4o",
+      model: openaiConfig.model,
     };
   } catch (error) {
     console.error("[SemanticFAQ] OpenAI error:", error);

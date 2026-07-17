@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, Download, BarChart3, Settings, Users, Shield, Sparkles, AlertTriangle, Ticket, GitBranch, Truck, FileText, Zap, FileUp, Receipt, Briefcase, Boxes, FileSearch, Scale, Building2, Wallet, ListOrdered, Layers, FilePlus } from "lucide-react";
+import { LayoutDashboard, Package, Download, BarChart3, Settings, Users, Shield, Sparkles, AlertTriangle, Ticket, GitBranch, Truck, FileText, Zap, FileUp, Receipt, Briefcase, Boxes, FileSearch, Scale, Building2, Wallet, ListOrdered, Layers, FilePlus, UserPlus } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import type { Role } from "@shared/schema";
@@ -162,6 +162,12 @@ export default function AppSidebar({ userRole, permissions }: AppSidebarProps) {
           titleKey: "nav.b2bAccounts",
           url: "/b2b/accounts",
           icon: Building2,
+          permission: "viewB2B" as keyof Role['permissions'],
+        },
+        {
+          titleKey: "nav.b2bUsers",
+          url: "/b2b/users",
+          icon: UserPlus,
           permission: "viewB2B" as keyof Role['permissions'],
         },
         {

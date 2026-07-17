@@ -270,6 +270,7 @@
     "offers": "Angebote",
     "crm": "CRM",
     "b2bAccounts": "B2B Unternehmen",
+    "b2bUsers": "B2B Nutzer",
     "b2bBudgets": "B2B Budgets",
     "b2bAssortments": "B2B Sortimente",
     "b2bOrderLists": "B2B Bestelllisten",
@@ -413,6 +414,7 @@
       "month": "Monate",
       "year": "Jahre"
     },
+    "restockTimeDays": "{{value}} Tage",
     "modal": {
       "quantity": "Menge",
       "priceRule": "Preisregel",
@@ -446,6 +448,9 @@
       "deliveryTime": "Lieferzeit",
       "allDeliveryTimes": "Alle Lieferzeiten",
       "noDeliveryTime": "Ohne Lieferzeit",
+      "restockTime": "Wiederauffüllzeit",
+      "allRestockTimes": "Alle Wiederauffüllzeiten",
+      "noRestockTime": "Ohne Wiederauffüllzeit",
       "customFieldKey": "Customfield",
       "allCustomFields": "Alle Customfields",
       "customFieldPresence": "Vorhandensein",
@@ -464,6 +469,7 @@
       "categories": "Kategorien",
       "tags": "Tags",
       "deliveryTime": "Lieferzeit",
+      "restockTime": "Wiederauffüllzeit",
       "customFields": "Customfields",
       "missingDeliveryTime": "Keine Lieferzeit",
       "price": "Preis (brutto)",
@@ -2260,7 +2266,18 @@
     "anthropicApiKeyDesc": "Wird verschlüsselt gespeichert. Für Claude als Chat-Anbieter erforderlich.",
     "anthropicModel": "Claude-Modell (optional)",
     "openaiChatModel": "OpenAI Chat-Modell (optional)",
-    "openaiKeyOptionalDesc": "Optional: für semantische Embeddings, Vision (PDF/Bild-Extraktion) und andere OpenAI-only-Features, auch wenn der Chat über Claude läuft."
+    "openaiKeyOptionalDesc": "Optional: für semantische Embeddings, Vision (PDF/Bild-Extraktion) und andere OpenAI-only-Features, auch wenn der Chat über Claude/Gemini läuft.",
+    "chatProviderGoogle": "Google (Gemini)",
+    "geminiApiKey": "Gemini API-Schlüssel",
+    "geminiApiKeyPlaceholder": "AIza…",
+    "geminiApiKeyDesc": "Wird verschlüsselt gespeichert. Für Gemini als Chat-Anbieter erforderlich. Läuft über Googles OpenAI-kompatiblen Endpunkt.",
+    "googleModel": "Gemini-Modell (optional)",
+    "tierFast": "Standard-Stufe",
+    "smartTierTitle": "Smart-Stufe (schwierige Aufgaben)",
+    "smartTierDesc": "Nur für schwierige Aufgaben (z. B. unsicherer Intent, Extraktion). Leer lassen = gleiches Modell wie die Standard-Stufe. Beispiel: Standard auf Gemini/OpenAI, Opus nur hier.",
+    "smartProvider": "Anbieter (Smart)",
+    "smartProviderInherit": "Wie Standard-Stufe",
+    "smartModel": "Modell (Smart)"
   },
   "cache": {
     "title": "Produkt-Cache",
@@ -3200,6 +3217,126 @@
         "employeeDeactivated": "Mitarbeiter deaktiviert",
         "employeeDeleted": "Mitarbeiter gelöscht",
         "employeeActionFailed": "Aktion fehlgeschlagen"
+      }
+    },
+    "users": {
+      "title": "B2B Portal-Nutzer",
+      "subtitle": "Einzelne Nutzer anlegen oder per Excel importieren",
+      "tabs": {
+        "single": "Einzelanlage",
+        "import": "Excel-Import"
+      },
+      "createSuccessTitle": "Nutzer angelegt",
+      "createSuccessDescription": "Der B2B-Portal-Nutzer wurde erfolgreich in Shopware angelegt.",
+      "updateSuccessTitle": "Nutzer aktualisiert",
+      "updateSuccessDescription": "Der B2B-Portal-Nutzer wurde in Shopware aktualisiert.",
+      "createErrorTitle": "Anlage fehlgeschlagen",
+      "settings": {
+        "sendEmails": "E-Mails an Nutzer senden",
+        "sendEmailsHint": "Aus (Standard): Keine Willkommens- oder Registrierungs-Mails bei Anlage/Import. Shopware-Flows werden unterdrückt.",
+        "saveErrorTitle": "Einstellung konnte nicht gespeichert werden"
+      },
+      "types": {
+        "company": "Unternehmensaccount",
+        "dealer": "B2B Händler",
+        "sales_rep": "Vertriebsmitarbeiter"
+      },
+      "fields": {
+        "firstName": "Vorname",
+        "lastName": "Nachname",
+        "type": "Kontotyp",
+        "supervisor": "Supervisor",
+        "customerGroup": "Kundengruppe",
+        "customerGroupPlaceholder": "Kundengruppe wählen",
+        "salesChannel": "Verkaufskanal",
+        "salesChannelPlaceholder": "Verkaufskanal wählen",
+        "metaCompany": "META-Firma",
+        "metaCompanyPlaceholder": "Firma für Vertriebsmitarbeiter wählen",
+        "supervisorRole": "Supervisor-Rolle",
+        "supervisorRolePlaceholder": "Rolle wählen",
+        "password": "Passwort",
+        "passwordOptional": "Passwort (optional)",
+        "passwordOptionalPlaceholder": "Leer lassen = unverändert",
+        "passwordMin": "Passwort muss mindestens 6 Zeichen haben",
+        "confirmPassword": "Passwort bestätigen",
+        "defaultType": "Standard-Typ (wenn Spalte leer)",
+        "defaultSupervisor": "Standard: Supervisor",
+        "groupCompany": "Kundengruppe Unternehmen",
+        "groupDealer": "Kundengruppe Händler",
+        "groupSalesRep": "Kundengruppe Vertrieb",
+        "addressCompany": "Firma (Adresse)",
+        "addressStreet": "Straße",
+        "addressZipCode": "PLZ",
+        "addressCity": "Ort",
+        "addressCountry": "Land"
+      },
+      "single": {
+        "title": "Einzelnen Nutzer anlegen",
+        "description": "Legt Shopware-Business-Kunden plus B2B-Mitarbeiter mit Login an. Im Portal melden sich Nutzer mit der Mitarbeiter-E-Mail an (nicht über den Firmen-Stammkunden).",
+        "updateExisting": "Bestehenden Nutzer aktualisieren",
+        "updateExistingHint": "Sucht per E-Mail und überschreibt Verkaufskanal, Kundengruppe und Adresse.",
+        "submit": "Nutzer anlegen",
+        "updateSubmit": "Nutzer aktualisieren",
+        "creating": "Wird angelegt…",
+        "updating": "Wird aktualisiert…"
+      },
+      "import": {
+        "title": "Excel-Import",
+        "description": "Spalten: Vorname, Nachname, E-Mail, optional Typ und Supervisor. Passwort und Adresse gelten für alle Zeilen.",
+        "updateExisting": "Bestehende Nutzer aktualisieren",
+        "updateExistingHint": "Bekannte E-Mails werden korrigiert (Verkaufskanal, Kundengruppe, Adresse). Neue E-Mails werden angelegt.",
+        "downloadTemplate": "Vorlage herunterladen",
+        "dropzone": "Excel-Datei hierher ziehen oder klicken",
+        "dropzoneSub": ".xlsx-Datei (max. 10 MB)",
+        "dryRun": "Vorschau (Dry-Run)",
+        "apply": "Importieren",
+        "running": "Wird verarbeitet…",
+        "dryRunTitle": "Vorschau (keine Änderungen)",
+        "appliedTitle": "Import angewendet",
+        "appliedToast": "Import erfolgreich angewendet",
+        "summary": "{{total}} Zeile(n), {{created}} angelegt, {{wouldCreate}} würden angelegt, {{updated}} aktualisiert, {{wouldUpdate}} würden aktualisiert, {{skipped}} übersprungen, {{errors}} Fehler",
+        "parseErrorsTitle": "Parse-Fehler in der Excel-Datei",
+        "parseErrorLine": "Zeile {{row}}: {{message}}",
+        "problemsTitle": "Zu prüfen",
+        "problemsHint": "Diese Zeilen wurden nicht oder nur teilweise verarbeitet.",
+        "errorTitle": "Import fehlgeschlagen",
+        "errorGeneric": "Beim Verarbeiten der Datei ist ein Fehler aufgetreten.",
+        "table": {
+          "row": "Zeile",
+          "message": "Hinweis"
+        },
+        "status": {
+          "would_create": "Würde angelegt",
+          "created": "Angelegt",
+          "would_update": "Würde aktualisiert",
+          "updated": "Aktualisiert",
+          "skipped_duplicate": "E-Mail existiert",
+          "error": "Fehler"
+        }
+      },
+      "verify": {
+        "button": "Login prüfen",
+        "running": "Prüfe Login…",
+        "resultTitle": "Login-Prüfung",
+        "successTitle": "Login OK",
+        "successDescription": "Der Nutzer kann sich am Storefront anmelden.",
+        "failedTitle": "Login fehlgeschlagen",
+        "failedDescription": "Anmeldung am Verkaufskanal nicht möglich.",
+        "overall": {
+          "pass": "OK",
+          "warn": "Hinweis",
+          "fail": "Fehler"
+        },
+        "checkStatus": {
+          "pass": "OK",
+          "warn": "Hinweis",
+          "fail": "Fehler",
+          "skip": "Übersprungen"
+        },
+        "table": {
+          "check": "Prüfung",
+          "overall": "Login-Check"
+        }
       }
     },
     "budgets": {

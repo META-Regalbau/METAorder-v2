@@ -23,6 +23,7 @@ import { pollInboundEmails } from "./emailInbound";
 import { runDunningJob } from "./dunningJob";
 import { metricsCollectorService } from "./services/metricsCollector";
 import { initBackendSentry } from "./observability/sentry";
+import { runShopwareMirrorSync } from "./shopwareMirror";
 
 const app = express();
 initBackendSentry(app);
@@ -290,6 +291,25 @@ app.post("/ingest/:id", (req, res) => {
   const dunningIntervalMs = dunningIntervalMinutes * 60 * 1000;
   setTimeout(runDunning, 45 * 1000);
   setInterval(runDunning, dunningIntervalMs);
+
+  const runMirrorSync = async () => {
+    try {
+      await runShopwareMirrorSync(storage);
+      log("[ShopwareMirror] Background sync completed.");
+    } catch (error) {
+      console.error("[ShopwareMirror] Background sync failed:", error);
+    }
+  };
+
+  if (process.env.SHOPWARE_SYNC_ENABLED !== "false") {
+    const syncIntervalMinutes = Number(process.env.SHOPWARE_SYNC_INTERVAL_MINUTES || 3);
+    const syncIntervalMs = Math.max(1, syncIntervalMinutes) * 60 * 1000;
+    setTimeout(runMirrorSync, 20 * 1000);
+    setInterval(runMirrorSync, syncIntervalMs);
+    log(`[ShopwareMirror] Sync scheduled every ${syncIntervalMinutes} minute(s)`);
+  } else {
+    log("[ShopwareMirror] Sync disabled via SHOPWARE_SYNC_ENABLED=false");
+  }
 
   // CPQ 3D-Modelle (GLB) – gleicher Pfad wie in cpqGlbResolve (dist/public oder client/public)
   const { getCpqGlbDirectory } = await import("./cpqGlbResolve");

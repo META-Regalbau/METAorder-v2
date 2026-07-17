@@ -5872,12 +5872,22 @@ Antworte im JSON-Format:
       const { isChatLlmConfigured } = await import("./llmChat");
 
       const enabled = await isChatLlmConfigured((key) => storage.getSetting(key));
-      const chatProvider = aiSettings?.chatProvider === "anthropic" ? "anthropic" : "openai";
+      const rawProvider = aiSettings?.chatProvider;
+      const chatProvider =
+        rawProvider === "anthropic" || rawProvider === "google" ? rawProvider : "openai";
       const mode = isReplitOpenAIAvailable()
         ? "replit"
         : chatProvider === "anthropic"
           ? "anthropic"
-          : "standard";
+          : chatProvider === "google"
+            ? "google"
+            : "standard";
+      const smartProvider =
+        aiSettings?.smartProvider === "anthropic" ||
+        aiSettings?.smartProvider === "google" ||
+        aiSettings?.smartProvider === "openai"
+          ? aiSettings.smartProvider
+          : "";
 
       res.json({
         enabled,
@@ -5885,8 +5895,12 @@ Antworte im JSON-Format:
         chatProvider,
         hasApiKey: Boolean(aiSettings?.apiKey),
         hasAnthropicKey: Boolean(aiSettings?.anthropicApiKey),
+        hasGeminiKey: Boolean(aiSettings?.geminiApiKey),
         anthropicModel: typeof aiSettings?.anthropicModel === "string" ? aiSettings.anthropicModel : "",
         openaiChatModel: typeof aiSettings?.openaiChatModel === "string" ? aiSettings.openaiChatModel : "",
+        googleModel: typeof aiSettings?.googleModel === "string" ? aiSettings.googleModel : "",
+        smartProvider,
+        smartModel: typeof aiSettings?.smartModel === "string" ? aiSettings.smartModel : "",
       });
     } catch (error: any) {
       console.error("Error fetching AI settings:", error);
@@ -5900,15 +5914,29 @@ Antworte im JSON-Format:
       const aiSettingsSchema = z.object({
         apiKey: z.string().optional(),
         anthropicApiKey: z.string().optional(),
+        geminiApiKey: z.string().optional(),
         enabled: z.boolean(),
-        chatProvider: z.enum(["openai", "anthropic"]).optional(),
+        chatProvider: z.enum(["openai", "anthropic", "google"]).optional(),
         anthropicModel: z.string().max(120).optional(),
         openaiChatModel: z.string().max(120).optional(),
+        googleModel: z.string().max(120).optional(),
+        smartProvider: z.enum(["", "openai", "anthropic", "google"]).optional(),
+        smartModel: z.string().max(120).optional(),
       });
 
       const validatedData = aiSettingsSchema.parse(req.body);
-      const { apiKey, anthropicApiKey, enabled, chatProvider, anthropicModel, openaiChatModel } =
-        validatedData;
+      const {
+        apiKey,
+        anthropicApiKey,
+        geminiApiKey,
+        enabled,
+        chatProvider,
+        anthropicModel,
+        openaiChatModel,
+        googleModel,
+        smartProvider,
+        smartModel,
+      } = validatedData;
 
       // Get existing settings
       const existingSettings = (await storage.getSetting("openai_settings")) || {};
@@ -5918,6 +5946,7 @@ Antworte im JSON-Format:
         enabled,
         apiKey: existingSettings.apiKey,
         anthropicApiKey: existingSettings.anthropicApiKey,
+        geminiApiKey: existingSettings.geminiApiKey,
         chatProvider: chatProvider ?? existingSettings.chatProvider ?? "openai",
         anthropicModel:
           anthropicModel !== undefined
@@ -5927,6 +5956,18 @@ Antworte im JSON-Format:
           openaiChatModel !== undefined
             ? openaiChatModel
             : existingSettings.openaiChatModel ?? "",
+        googleModel:
+          googleModel !== undefined
+            ? googleModel
+            : existingSettings.googleModel ?? "",
+        smartProvider:
+          smartProvider !== undefined
+            ? smartProvider
+            : existingSettings.smartProvider ?? "",
+        smartModel:
+          smartModel !== undefined
+            ? smartModel
+            : existingSettings.smartModel ?? "",
       };
 
       if (apiKey) {
@@ -5934,6 +5975,9 @@ Antworte im JSON-Format:
       }
       if (anthropicApiKey) {
         newSettings.anthropicApiKey = encrypt(anthropicApiKey);
+      }
+      if (geminiApiKey) {
+        newSettings.geminiApiKey = encrypt(geminiApiKey);
       }
 
       await storage.saveSetting("openai_settings", newSettings);
@@ -6443,6 +6487,72 @@ Antworte im JSON-Format:
       );
 
       let result: { products: Product[]; total: number };
+
+      // withGlb needs live pagination + filesystem matching — keep Shopware path.
+      // Normal product list: serve from persistent mirror when available.
+      if (!withGlb && !categoryId && width == null && height == null && depth == null && !withVariantsOnly) {
+        const tenantId = (req as any).tenantId as string | null | undefined;
+        const mirrorCount = await storage.countShopwareProductMirrors(tenantId);
+        if (mirrorCount > 0) {
+          const { mirrorRowsToProducts, mirrorPayloadToOverview, triggerShopwareMirrorSync } =
+            await import("./shopwareMirror");
+          // Keep mirror warm in background
+          triggerShopwareMirrorSync(storage, client, tenantId ?? null, ["products"]);
+
+          const { rows, total } = await storage.getShopwareProductMirrors(
+            {
+              search,
+              activeOnly: !showInactive,
+              salesChannelIds,
+              page,
+              limit,
+            },
+            tenantId,
+          );
+
+          // Prefer full Product shape when payload has overview fields
+          const products: Product[] = [];
+          for (const row of rows) {
+            const overview = mirrorPayloadToOverview(row.payload);
+            if (overview) {
+              products.push({
+                id: overview.id,
+                productNumber: overview.productNumber,
+                name: overview.name,
+                price: overview.priceGross,
+                netPrice: overview.priceNet,
+                currency: overview.currency || "EUR",
+                taxRate: overview.taxRate,
+                stock: overview.stock ?? 0,
+                available: (overview.stock ?? 0) > 0,
+                active: overview.active ?? undefined,
+                childCount: overview.childCount ?? undefined,
+                parentId: overview.parentId,
+                manufacturerName: overview.manufacturerName,
+                manufacturerNumber: overview.manufacturerNumber,
+                categoryNames: overview.categories,
+                ean: overview.ean,
+                customFields: overview.customFields as Record<string, any> | undefined,
+                createdAt: overview.createdAt,
+                updatedAt: overview.updatedAt,
+              });
+            }
+          }
+          // Fallback if payloads were incomplete
+          if (products.length === 0 && rows.length > 0) {
+            result = { products: mirrorRowsToProducts(rows), total };
+          } else {
+            result = { products, total };
+          }
+          return res.json(result);
+        }
+        // Cold start: trigger sync and fall through to live fetch
+        const { triggerShopwareMirrorSync } = await import("./shopwareMirror");
+        triggerShopwareMirrorSync(storage, client, ((req as any).tenantId as string | null) ?? null, [
+          "products",
+        ]);
+      }
+
       if (withGlb) {
         result = await client.fetchProducts(
           500,
@@ -6550,8 +6660,8 @@ Antworte im JSON-Format:
   });
 
   // Produkt-Übersicht: Alle Produkte inkl. Verkaufskanal-Zuordnung, erweiterten Preisen,
-  // Kategorien und Customfields. Lädt den kompletten (gefilterten) Katalog frisch aus
-  // Shopware; Filterung/Sortierung/Pagination passiert clientseitig.
+  // Kategorien und Customfields. Liest aus dem persistenten Shopware-Spiegel (Delta-Sync);
+  // Filterung/Sortierung/Pagination passiert clientseitig.
   app.get("/api/products/overview", requireAuth, async (req, res) => {
     try {
       const tenantId = (req as any).tenantId as string | null | undefined;
@@ -6576,23 +6686,45 @@ Antworte im JSON-Format:
         ? allChannels.filter((c) => allowedChannelIds.includes(c.id))
         : allChannels;
 
-      // Gesamten (gefilterten) Katalog frisch aus Shopware laden
-      const overviewById = new Map<string, ShopwareProductOverview>();
-      const BATCH_SIZE = 500;
-      let page = 1;
-      let hasMore = true;
-      while (hasMore) {
-        const { products } = await client.fetchProductsOverviewPage(BATCH_SIZE, page, {
-          includeInactive,
-          salesChannelIds: allowedChannelIds ?? undefined,
-        });
-        for (const product of products) {
-          overviewById.set(product.id, product);
+      const { mirrorPayloadToOverview, triggerShopwareMirrorSync } = await import("./shopwareMirror");
+      let overview: ShopwareProductOverview[] = [];
+
+      const mirrorCount = await storage.countShopwareProductMirrors(tenantId);
+      if (mirrorCount > 0) {
+        const { rows: mirrorRows } = await storage.getShopwareProductMirrors(
+          {
+            includeInactive,
+            activeOnly: !includeInactive,
+            salesChannelIds: allowedChannelIds ?? undefined,
+          },
+          tenantId,
+        );
+        overview = mirrorRows
+          .map((row) => mirrorPayloadToOverview(row.payload))
+          .filter((p): p is ShopwareProductOverview => Boolean(p));
+        if (!includeInactive) {
+          overview = overview.filter((p) => p.active !== false);
         }
-        hasMore = products.length === BATCH_SIZE;
-        page++;
+      } else {
+        // Cold-Start: Live-Fetch einmalig + Background-Sync anstossen
+        triggerShopwareMirrorSync(storage, client, tenantId ?? null, ["products"]);
+        const overviewById = new Map<string, ShopwareProductOverview>();
+        const BATCH_SIZE = 500;
+        let page = 1;
+        let hasMore = true;
+        while (hasMore) {
+          const { products } = await client.fetchProductsOverviewPage(BATCH_SIZE, page, {
+            includeInactive,
+            salesChannelIds: allowedChannelIds ?? undefined,
+          });
+          for (const product of products) {
+            overviewById.set(product.id, product);
+          }
+          hasMore = products.length === BATCH_SIZE;
+          page++;
+        }
+        overview = Array.from(overviewById.values());
       }
-      const overview = Array.from(overviewById.values());
 
       const lookupKeys = overview
         .map((p) => getHerstellpreisLookupKey(p.customFields as Record<string, unknown> | undefined, p.productNumber))
@@ -6623,6 +6755,7 @@ Antworte im JSON-Format:
         salesChannels: visibleChannels.map((c) => ({ id: c.id, name: c.name })),
         total: rows.length,
         profitabilityMinMarginPercent: profitabilitySettings.minMarginPercent,
+        fromMirror: mirrorCount > 0,
       });
     } catch (error: any) {
       const msg = error?.message || "Produkt-Übersicht fehlgeschlagen";
@@ -7731,7 +7864,7 @@ Antworte im JSON-Format:
         const searchResult = await executeSemanticProductSearch(
           { query, language: language || 'de' },
           allProducts,
-          { promptAddon }
+          { promptAddon, getSetting: (key) => storage.getSetting(key) }
         );
         
         return res.json(searchResult);
@@ -7745,7 +7878,7 @@ Antworte im JSON-Format:
       const searchResult = await executeSemanticProductSearch(
         { query, language: language || 'de' },
         cachedProducts,
-        { promptAddon }
+        { promptAddon, getSetting: (key) => storage.getSetting(key) }
       );
 
       res.json(searchResult);
@@ -7756,17 +7889,28 @@ Antworte im JSON-Format:
   });
 
   // Product Cache Status endpoint - Admin only
-  app.get("/api/products/cache-status", requireAuth, requireManageSettings, async (_req, res) => {
+  app.get("/api/products/cache-status", requireAuth, requireManageSettings, async (req, res) => {
     try {
       const { productCache } = await import("./productCache");
       const status = productCache.getStatus();
+      const tenantId = (req as any).tenantId ?? null;
+      const mirrorCount = await storage.countShopwareProductMirrors(tenantId);
+      const syncState = await storage.getShopwareSyncState("products", tenantId);
       
       res.json({
         isPopulated: status.isPopulated,
         productCount: status.productCount,
         lastUpdate: status.lastUpdate,
         isLoading: status.isLoading,
-        error: status.error
+        error: status.error,
+        mirror: {
+          productCount: mirrorCount,
+          lastFingerprint: syncState?.lastFingerprint ?? null,
+          lastDeltaAt: syncState?.lastDeltaAt ?? null,
+          lastReconcileAt: syncState?.lastReconcileAt ?? null,
+          status: syncState?.status ?? null,
+          error: syncState?.error ?? null,
+        },
       });
     } catch (error: any) {
       console.error("[Product Cache] Error fetching cache status:", error);
@@ -7775,7 +7919,7 @@ Antworte im JSON-Format:
   });
 
   // Product Cache Refresh endpoint - Admin only manual refresh
-  app.post("/api/products/refresh-cache", requireAuth, requireManageSettings, async (_req, res) => {
+  app.post("/api/products/refresh-cache", requireAuth, requireManageSettings, async (req, res) => {
     try {
       const { productCache } = await import("./productCache");
       const cacheStatus = productCache.getStatus();
@@ -7791,12 +7935,19 @@ Antworte im JSON-Format:
       
       console.log("[Product Cache] Manual refresh requested");
       const client = new ShopwareClient(settings);
+      const tenantId = (req as any).tenantId ?? null;
+      const { syncShopwareMirrorForTenant } = await import("./shopwareMirror");
+      await syncShopwareMirrorForTenant(storage, client, tenantId, {
+        force: true,
+        settings,
+        entities: ["products"],
+      });
       await productCache.refresh(client);
       
       const updatedStatus = productCache.getStatus();
       res.json({
         success: true,
-        message: "Product cache refreshed successfully",
+        message: "Product mirror + cache refreshed successfully",
         status: {
           productCount: updatedStatus.productCount,
           lastUpdate: updatedStatus.lastUpdate
@@ -12060,7 +12211,52 @@ Antworte im JSON-Format:
               cacheKey: CRM_INDIVIDUAL_PRICES_CACHE_KEY,
               tenantId,
               fetchFingerprint: () => client.fetchIndividualPriceCustomerFingerprint(),
-              fetchFull: () => client.fetchIndividualPriceCustomerIndex(),
+              fetchFull: async () => {
+                const priceCount = await storage.countShopwareCustomerPriceMirrors(tenantId);
+                if (priceCount > 0) {
+                  const prices = await storage.getShopwareCustomerPriceMirrors(tenantId);
+                  const customerIds = [
+                    ...new Set(
+                      prices.map((p) => p.customerId).filter((id): id is string => Boolean(id)),
+                    ),
+                  ];
+                  const customers = await storage.getShopwareCustomerMirrors(tenantId);
+                  const byId = new Map(customers.map((c) => [c.shopwareId, c]));
+                  const emails: string[] = [];
+                  const ipCustomers: Array<{
+                    id: string;
+                    email: string;
+                    name: string;
+                    company: string | null;
+                    phone: string | null;
+                    salesChannelId: string | null;
+                  }> = [];
+                  for (const id of customerIds) {
+                    const c = byId.get(id);
+                    const payload = c?.payload as any;
+                    const email = (c?.email || payload?.email || "").toLowerCase();
+                    if (!email) continue;
+                    emails.push(email);
+                    const firstName = payload?.firstName || "";
+                    const lastName = payload?.lastName || "";
+                    ipCustomers.push({
+                      id,
+                      email,
+                      name: `${firstName} ${lastName}`.trim() || email,
+                      company: c?.company ?? payload?.company ?? null,
+                      phone: payload?.phone ?? null,
+                      salesChannelId: c?.salesChannelId ?? payload?.salesChannelId ?? null,
+                    });
+                  }
+                  return {
+                    entity: "mirror",
+                    customerCount: ipCustomers.length,
+                    emails,
+                    customers: ipCustomers,
+                  };
+                }
+                return client.fetchIndividualPriceCustomerIndex();
+              },
             });
 
             for (const ipCustomer of individualPricesIndexCustomers(individualPricesIndex)) {
@@ -12494,20 +12690,33 @@ Antworte im JSON-Format:
       }
 
       const client = new ShopwareClient(settings);
-      let resolved: any = null;
-      try {
-        resolved = await client.findCustomerByEmail(customer.email);
-      } catch (resolveError: any) {
-        console.warn("[individual-prices] customer resolve failed:", resolveError?.message || resolveError);
+      const tenantId = (req as any).tenantId as string | null | undefined;
+      const emailKey = customer.email.toLowerCase();
+
+      let swCustomerId: string | undefined;
+      let swCustomerNumber: string | null = null;
+
+      // Prefer customer mirror for resolve
+      const mirroredCustomers = await storage.getShopwareCustomerMirrors(tenantId);
+      const mirrored = mirroredCustomers.find((c) => (c.email || "").toLowerCase() === emailKey);
+      if (mirrored) {
+        swCustomerId = mirrored.shopwareId;
+        swCustomerNumber = mirrored.customerNumber;
+      } else {
+        let resolved: any = null;
+        try {
+          resolved = await client.findCustomerByEmail(customer.email);
+        } catch (resolveError: any) {
+          console.warn("[individual-prices] customer resolve failed:", resolveError?.message || resolveError);
+        }
+        swCustomerId = resolved?.id;
+        swCustomerNumber =
+          (resolved?.attributes?.customerNumber ?? resolved?.customerNumber)
+            ? String(resolved.attributes?.customerNumber ?? resolved.customerNumber)
+            : null;
       }
-      const swCustomerId: string | undefined = resolved?.id;
-      const swCustomerNumber: string | null =
-        (resolved?.attributes?.customerNumber ?? resolved?.customerNumber)
-          ? String(resolved.attributes?.customerNumber ?? resolved.customerNumber)
-          : null;
 
       if (!swCustomerId && !swCustomerNumber) {
-        // Kein Shopware-Kunde zur E-Mail gefunden -> keine individuellen Preise ermittelbar.
         return res.json({ available: false, total: 0, prices: [], resolved: false, configured: true });
       }
 
@@ -12516,19 +12725,44 @@ Antworte im JSON-Format:
           ? req.query.currency.trim().toUpperCase()
           : "EUR";
 
-      const [result, standardDiscountPercent] = await Promise.all([
-        client.fetchAllCustomerSpecificPrices({
+      // Prefer price mirror
+      const mirroredPrices = await storage.getShopwareCustomerPriceMirrors(tenantId);
+      let basePrices: import("./shopware").ShopwareCustomerPrice[] = [];
+      let fromMirror = false;
+      let pluginEntity: string | null = null;
+
+      if (mirroredPrices.length > 0) {
+        basePrices = mirroredPrices
+          .filter((row) => {
+            if (swCustomerId && row.customerId === swCustomerId) return true;
+            if (swCustomerNumber && row.customerNumber === swCustomerNumber) return true;
+            return false;
+          })
+          .map((row) => row.payload as import("./shopware").ShopwareCustomerPrice)
+          .filter((p) => {
+            if (!currency) return true;
+            const iso = (p.currencyIsoCode || "").toUpperCase();
+            return !iso || iso === currency;
+          });
+        fromMirror = true;
+        pluginEntity = "mirror";
+      } else {
+        const { triggerShopwareMirrorSync } = await import("./shopwareMirror");
+        triggerShopwareMirrorSync(storage, client, tenantId ?? null, ["customer_prices"]);
+        const result = await client.fetchAllCustomerSpecificPrices({
           customerId: swCustomerId,
           customerNumber: swCustomerNumber,
           currencyIsoCode: currency,
-        }),
-        swCustomerId
-          ? client.fetchCustomerB2BStandardDiscount(swCustomerId).catch(() => null)
-          : Promise.resolve(null),
-      ]);
+        });
+        basePrices = result.prices;
+        pluginEntity = result.entity;
+      }
 
-      const pricesWithDiscounts = await client.enrichCustomerSpecificPricesWithDiscounts(result.prices);
-      const tenantId = (req as any).tenantId as string | null | undefined;
+      const standardDiscountPercent = swCustomerId
+        ? await client.fetchCustomerB2BStandardDiscount(swCustomerId).catch(() => null)
+        : null;
+
+      const pricesWithDiscounts = await client.enrichCustomerSpecificPricesWithDiscounts(basePrices);
       const profitabilitySettings = await loadCrmProfitabilitySettings(storage, tenantId);
       const prices = await enrichCustomerPricesWithHerstellMargin(pricesWithDiscounts, {
         storage,
@@ -12539,7 +12773,7 @@ Antworte im JSON-Format:
       });
 
       res.json({
-        available: result.available,
+        available: prices.length > 0,
         total: prices.length,
         prices,
         currency,
@@ -12549,7 +12783,8 @@ Antworte im JSON-Format:
         configured: true,
         customerId: swCustomerId ?? null,
         customerNumber: swCustomerNumber,
-        pluginDetected: result.entity != null,
+        pluginDetected: pluginEntity != null,
+        fromMirror,
       });
     } catch (error: any) {
       console.error("Error loading customer individual prices:", error?.message || error);
@@ -12617,6 +12852,34 @@ Antworte im JSON-Format:
       const tenantId = (req as any).tenantId ?? null;
       const client = new ShopwareClient(settings);
 
+      // Prefer persistent customer-price + customer mirrors
+      const priceCount = await storage.countShopwareCustomerPriceMirrors(tenantId);
+      if (priceCount > 0) {
+        const prices = await storage.getShopwareCustomerPriceMirrors(tenantId);
+        const customerIds = new Set(
+          prices.map((p) => p.customerId).filter((id): id is string => Boolean(id)),
+        );
+        const customers = await storage.getShopwareCustomerMirrors(tenantId);
+        const byId = new Map(customers.map((c) => [c.shopwareId, c]));
+        const emails = new Set<string>();
+        for (const id of customerIds) {
+          const c = byId.get(id);
+          if (c?.email) emails.add(c.email.toLowerCase());
+        }
+        const { triggerShopwareMirrorSync } = await import("./shopwareMirror");
+        triggerShopwareMirrorSync(storage, client, tenantId, ["customer_prices", "customers"]);
+        return res.json({
+          configured: true,
+          pluginDetected: true,
+          customerCount: customerIds.size,
+          emails: Array.from(emails),
+          fromMirror: true,
+        });
+      }
+
+      const { triggerShopwareMirrorSync } = await import("./shopwareMirror");
+      triggerShopwareMirrorSync(storage, client, tenantId, ["customer_prices", "customers"]);
+
       const { data: index } = await getHashCached({
         cacheKey: CRM_INDIVIDUAL_PRICES_CACHE_KEY,
         tenantId,
@@ -12657,6 +12920,37 @@ Antworte im JSON-Format:
           .replace(/\b(gmbh|ag|kg|ohg|e\.?\s?k\.?|mbh|co\.?|kgaa|ug|gbr|ltd|inc|gesellschaft|und|&)\b/g, " ")
           .replace(/[^a-z0-9]+/g, " ")
           .trim();
+
+      // Prefer customer mirror filtered by group name terms
+      const mirrorCount = await storage.countShopwareCustomerMirrors(tenantId);
+      if (mirrorCount > 0) {
+        const customers = await storage.getShopwareCustomerMirrors(tenantId);
+        const terms = BESTANDSKUNDEN_GROUP_TERMS.map((t) => t.toLowerCase());
+        const companies: Record<string, string | null> = {};
+        let matched = 0;
+        for (const c of customers) {
+          const groupName = (c.groupName || "").toLowerCase();
+          if (!terms.some((term) => groupName.includes(term.toLowerCase()))) continue;
+          const company = c.company || (c.payload as any)?.company;
+          if (!company) continue;
+          matched += 1;
+          const key = normCompany(company);
+          if (key.length >= 3 && !(key in companies)) {
+            companies[key] = c.customerNumber;
+          }
+        }
+        const { triggerShopwareMirrorSync } = await import("./shopwareMirror");
+        triggerShopwareMirrorSync(storage, client, tenantId, ["customers"]);
+        return res.json({
+          configured: true,
+          customerCount: matched,
+          companies,
+          fromMirror: true,
+        });
+      }
+
+      const { triggerShopwareMirrorSync } = await import("./shopwareMirror");
+      triggerShopwareMirrorSync(storage, client, tenantId, ["customers"]);
 
       const { data: cached, fromCache } = await getHashCached({
         cacheKey: "crm_bestandskunden_index_v1",

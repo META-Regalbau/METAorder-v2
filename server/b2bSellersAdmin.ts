@@ -157,10 +157,23 @@ export class B2BSellersAdminClient {
     return result.data || result;
   }
 
-  async createEntity(entityKey: keyof B2BEntityMapping, payload: Record<string, unknown>): Promise<{ id: string }> {
+  private writeRequestHeaders(skipTriggerFlow?: boolean): Record<string, string> {
+    const headers: Record<string, string> = {};
+    if (skipTriggerFlow) {
+      headers["sw-skip-trigger-flow"] = "1";
+    }
+    return headers;
+  }
+
+  async createEntity(
+    entityKey: keyof B2BEntityMapping,
+    payload: Record<string, unknown>,
+    options?: { skipTriggerFlow?: boolean },
+  ): Promise<{ id: string }> {
     const entityName = this.resolveEntityName(entityKey);
     const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/${entityName}`, {
       method: "POST",
+      headers: this.writeRequestHeaders(options?.skipTriggerFlow),
       body: JSON.stringify(payload),
     });
     if (!response.ok) {
@@ -185,10 +198,16 @@ export class B2BSellersAdminClient {
     return { id };
   }
 
-  async patchEntity(entityKey: keyof B2BEntityMapping, id: string, payload: Record<string, unknown>): Promise<void> {
+  async patchEntity(
+    entityKey: keyof B2BEntityMapping,
+    id: string,
+    payload: Record<string, unknown>,
+    options?: { skipTriggerFlow?: boolean },
+  ): Promise<void> {
     const entityName = this.resolveEntityName(entityKey);
     const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/${entityName}/${id}`, {
       method: "PATCH",
+      headers: this.writeRequestHeaders(options?.skipTriggerFlow),
       body: JSON.stringify(payload),
     });
     if (!response.ok) {
@@ -842,6 +861,69 @@ export class B2BSellersAdminClient {
     return { employees: result.data.map((r) => this.mapEmployee(r)), total: result.total };
   }
 
+  async findEmployeeByEmail(email: string): Promise<{
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    active: boolean;
+    roleId?: string | null;
+  } | null> {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized) return null;
+    const result = await this.searchEntity("employee", {
+      limit: 1,
+      filter: [{ type: "equals", field: "email", value: normalized }],
+    });
+    const raw = result.data[0];
+    if (!raw) return null;
+    const mapped = this.mapEmployee(raw);
+    const u = unwrapEntity(raw);
+    return {
+      ...mapped,
+      active: mapped.active,
+      roleId: getField(u, "roleId") || getField(u, "employeeRoleId") || null,
+    };
+  }
+
+  async findCustomerIdsForEmployee(employeeId: string): Promise<string[]> {
+    const links = await this.searchEntity("employeeCustomer", {
+      limit: 50,
+      filter: [{ type: "equals", field: "employeeId", value: employeeId }],
+    });
+    return links.data
+      .map((link) => getField(unwrapEntity(link), "customerId"))
+      .filter((customerId): customerId is string => Boolean(customerId));
+  }
+
+  async hasEmployeeCustomerLink(employeeId: string, customerId: string): Promise<boolean> {
+    const links = await this.searchEntity("employeeCustomer", {
+      limit: 50,
+      filter: [{ type: "equals", field: "employeeId", value: employeeId }],
+    });
+    return links.data.some((link) => getField(unwrapEntity(link), "customerId") === customerId);
+  }
+
+  async ensureEmployeeCustomerLink(
+    employeeId: string,
+    customerId: string,
+    options?: { skipTriggerFlow?: boolean },
+  ): Promise<void> {
+    const links = await this.searchEntity("employeeCustomer", {
+      limit: 50,
+      filter: [{ type: "equals", field: "employeeId", value: employeeId }],
+    });
+    const existing = links.data.find((link) => getField(unwrapEntity(link), "customerId") === customerId);
+    if (existing) return;
+
+    for (const link of links.data) {
+      const linkId = getField(unwrapEntity(link), "id");
+      if (linkId) await this.deleteEntity("employeeCustomer", String(linkId));
+    }
+
+    await this.createEntity("employeeCustomer", { employeeId, customerId }, options);
+  }
+
   async setEmployeeActive(employeeId: string, active: boolean): Promise<void> {
     await this.patchEntity("employee", employeeId, { active });
   }
@@ -873,19 +955,24 @@ export class B2BSellersAdminClient {
   }
 
   async fetchBudgets(filters: { customerId?: string; page?: number; limit?: number }) {
-    const criteria: Record<string, unknown> = {
-      limit: filters.limit || 50,
-      page: filters.page || 1,
-      totalCountMode: 1,
-      sort: [{ field: "createdAt", order: "DESC" }],
-      associations: this.buildAssociations(["budgetPeriodType", "customer"]),
-      filter: [],
-    };
-    if (filters.customerId) {
-      (criteria.filter as any[]).push({ type: "equals", field: "customerId", value: filters.customerId });
-    }
-    const result = await this.searchEntity("budget", criteria);
-    return { budgets: result.data.map((r) => this.mapBudget(r)), total: result.total };
+    // TEMPORÄR DEAKTIVIERT: Der Search-Request an /api/search/b2bsellers-budget
+    // verursacht Exceptions im Shop-Log (Association-/Feld-Namen passen vermutlich
+    // nicht zur installierten B2Bsellers-Version). Bis das geklärt ist, senden wir
+    // keinen Request und geben ein leeres Ergebnis zurück.
+    return { budgets: [] as ReturnType<typeof this.mapBudget>[], total: 0 };
+    // const criteria: Record<string, unknown> = {
+    //   limit: filters.limit || 50,
+    //   page: filters.page || 1,
+    //   totalCountMode: 1,
+    //   sort: [{ field: "createdAt", order: "DESC" }],
+    //   associations: this.buildAssociations(["budgetPeriodType", "customer"]),
+    //   filter: [],
+    // };
+    // if (filters.customerId) {
+    //   (criteria.filter as any[]).push({ type: "equals", field: "customerId", value: filters.customerId });
+    // }
+    // const result = await this.searchEntity("budget", criteria);
+    // return { budgets: result.data.map((r) => this.mapBudget(r)), total: result.total };
   }
 
   async fetchPendingApprovals(filters: { page?: number; limit?: number }) {

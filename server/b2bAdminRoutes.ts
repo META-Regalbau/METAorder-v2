@@ -1,4 +1,5 @@
 import type { Express, Request, Response } from "express";
+import multer from "multer";
 import { z } from "zod";
 import type { User } from "@shared/schema";
 import { mergeB2BEntityMapping, type B2BEntityMapping } from "@shared/b2bEntityMapping";
@@ -9,6 +10,7 @@ import {
   requireViewB2B,
   requireManageB2B,
   requireApproveB2BBudgets,
+  requireCsrf,
 } from "./auth";
 import { storage } from "./storage";
 import {
@@ -20,6 +22,21 @@ import { getB2BCompaniesCached } from "./b2bCompaniesCache";
 import { webhookService } from "./webhookService";
 import { productCache } from "./productCache";
 import { ShopwareClient } from "./shopware";
+import {
+  createB2BPortalUsersBatch,
+  createB2BPortalUser,
+  updateB2BPortalUser,
+  verifyB2BPortalUser,
+  resolveExistingPortalCustomer,
+  DEFAULT_META_ADDRESS,
+  getB2BPortalUserSettings,
+  saveB2BPortalUserSettings,
+} from "./b2bPortalUserService";
+import {
+  buildB2BPortalUserTemplateBuffer,
+  buildPortalUserInputsFromImport,
+  parseB2BPortalUserRowsFromBuffer,
+} from "./b2bUserImport";
 
 import { getTenantIdFromContext } from "./tenantContext";
 
@@ -92,6 +109,64 @@ async function resolveCompanySalesChannelIds(
     return filtered.length > 0 ? filtered : "denied";
   }
   return allowedChannelIds;
+}
+
+async function getShopwareClient(tenantId?: string | null): Promise<ShopwareClient> {
+  const settings = await storage.getShopwareSettings(tenantId ?? getTenantIdFromContext());
+  if (!settings) {
+    throw new Error("Shopware settings not configured");
+  }
+  return new ShopwareClient(settings);
+}
+
+const portalUserTypeSchema = z.enum(["company", "dealer", "sales_rep"]);
+
+const portalAddressSchema = z.object({
+  company: z.string().optional(),
+  street: z.string().min(1),
+  zipCode: z.string().min(1),
+  city: z.string().min(1),
+  country: z.string().min(1),
+});
+
+const portalUserPayloadSchema = z.object({
+  firstName: z.string().min(1),
+  lastName: z.string().min(1),
+  email: z.string().email(),
+  password: z.string().min(6),
+  type: portalUserTypeSchema,
+  isSupervisor: z.boolean().optional(),
+  groupId: z.string().min(1),
+  salesChannelId: z.string().min(1),
+  address: portalAddressSchema,
+  metaCompanyCustomerId: z.string().optional(),
+  supervisorRoleId: z.string().optional(),
+  sendEmails: z.boolean().optional(),
+});
+
+const portalUserImportDefaultsSchema = z.object({
+  password: z.string().optional(),
+  defaultType: portalUserTypeSchema,
+  defaultSupervisor: z.boolean().optional(),
+  groupIdCompany: z.string().min(1),
+  groupIdDealer: z.string().min(1),
+  groupIdSalesRep: z.string().min(1),
+  salesChannelId: z.string().min(1),
+  address: portalAddressSchema,
+  metaCompanyCustomerId: z.string().optional(),
+  supervisorRoleId: z.string().optional(),
+});
+
+function parseMultipartBoolean(value: unknown): boolean {
+  return value === true || value === "true" || value === "1" || value === 1;
+}
+
+async function resolvePortalUserSendEmails(bodyValue: unknown): Promise<boolean> {
+  if (typeof bodyValue === "boolean") return bodyValue;
+  if (bodyValue === "true" || bodyValue === "1" || bodyValue === 1) return true;
+  if (bodyValue === "false" || bodyValue === "0" || bodyValue === 0) return false;
+  const settings = await getB2BPortalUserSettings();
+  return settings.sendEmails;
 }
 
 export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptions): void {
@@ -240,10 +315,16 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
         customerId: z.string().optional(),
       });
       const body = schema.parse(req.body);
-      const client = await getAdminClient();
+      const tenantId = getTenantIdFromContext();
+      const [client, shopwareClient] = await Promise.all([
+        getAdminClient(tenantId),
+        getShopwareClient(tenantId),
+      ]);
       const { customerId, ...employeePayload } = body;
+      const salutationId = employeePayload.salutationId?.trim() || (await shopwareClient.getDefaultSalutationId());
       const created = await client.createEntity("employee", {
         ...employeePayload,
+        salutationId,
         active: employeePayload.active ?? true,
       });
       if (customerId) {
@@ -310,6 +391,312 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       res.status(500).json({ error: error.message || "Failed to fetch roles" });
     }
   });
+
+  app.get("/api/b2b/customer-groups", requireAuth, requireViewB2B, async (req, res) => {
+    try {
+      const tenantId = (req as any).tenantId ?? null;
+      const client = await getShopwareClient(tenantId);
+      const groups = await client.fetchCustomerGroups();
+      res.json({ groups });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch customer groups" });
+    }
+  });
+
+  app.get("/api/b2b/portal-users/settings", requireAuth, requireViewB2B, async (_req, res) => {
+    try {
+      const settings = await getB2BPortalUserSettings();
+      res.json({ settings });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to fetch portal user settings" });
+    }
+  });
+
+  app.post("/api/b2b/portal-users/settings", requireAuth, requireCsrf, requireManageB2B, async (req, res) => {
+    try {
+      const body = z.object({ sendEmails: z.boolean() }).parse(req.body);
+      const settings = await saveB2BPortalUserSettings({ sendEmails: body.sendEmails });
+      res.json({ settings });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      res.status(500).json({ error: error.message || "Failed to save portal user settings" });
+    }
+  });
+
+  app.get("/api/b2b/portal-users/template", requireAuth, requireManageB2B, async (_req, res) => {
+    try {
+      const buffer = buildB2BPortalUserTemplateBuffer();
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", 'attachment; filename="b2b-portal-users-template.xlsx"');
+      res.send(buffer);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to build template" });
+    }
+  });
+
+  app.post("/api/b2b/portal-users", requireAuth, requireCsrf, requireManageB2B, async (req, res) => {
+    try {
+      const body = portalUserPayloadSchema.parse(req.body);
+      const tenantId = (req as any).tenantId ?? null;
+      const [shopwareClient, b2bClient] = await Promise.all([
+        getShopwareClient(tenantId),
+        getAdminClient(tenantId),
+      ]);
+
+      if (body.type === "sales_rep" && !body.metaCompanyCustomerId) {
+        return res.status(400).json({ error: "META-Firma ist für Vertriebsmitarbeiter erforderlich" });
+      }
+      if (body.type === "sales_rep" && body.isSupervisor && !body.supervisorRoleId) {
+        return res.status(400).json({ error: "Supervisor-Rolle ist erforderlich" });
+      }
+
+      const sendEmails = await resolvePortalUserSendEmails(body.sendEmails);
+
+      const result = await createB2BPortalUser(
+        { shopwareClient, b2bClient },
+        {
+          firstName: body.firstName,
+          lastName: body.lastName,
+          email: body.email,
+          password: body.password,
+          type: body.type,
+          isSupervisor: body.isSupervisor,
+          groupId: body.groupId,
+          salesChannelId: body.salesChannelId,
+          address: body.address,
+          metaCompanyCustomerId: body.metaCompanyCustomerId,
+          supervisorRoleId: body.supervisorRoleId,
+        },
+        { apply: true, verifyLogin: true, sendEmails },
+      );
+
+      if (result.status === "error") {
+        return res.status(400).json({ error: result.message || "Anlage fehlgeschlagen", result });
+      }
+      if (result.status === "skipped_duplicate") {
+        return res.status(409).json({ error: result.message || "E-Mail bereits vergeben", result });
+      }
+
+      res.status(201).json(result);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      res.status(500).json({ error: error.message || "Failed to create portal user" });
+    }
+  });
+
+  app.patch("/api/b2b/portal-users", requireAuth, requireCsrf, requireManageB2B, async (req, res) => {
+    try {
+      const body = portalUserPayloadSchema.extend({ password: z.string().min(6).optional() }).parse(req.body);
+      const tenantId = (req as any).tenantId ?? null;
+      const [shopwareClient, b2bClient] = await Promise.all([
+        getShopwareClient(tenantId),
+        getAdminClient(tenantId),
+      ]);
+
+      const existingCustomer = await resolveExistingPortalCustomer(
+        { shopwareClient, b2bClient },
+        body.email.trim().toLowerCase(),
+        { type: body.type, metaCompanyCustomerId: body.metaCompanyCustomerId },
+      );
+      if (!existingCustomer) {
+        return res.status(404).json({ error: "Kein Kunde oder B2B-Mitarbeiter mit dieser E-Mail gefunden" });
+      }
+
+      if (body.type === "sales_rep" && !body.metaCompanyCustomerId) {
+        return res.status(400).json({ error: "META-Firma ist für Vertriebsmitarbeiter erforderlich" });
+      }
+      if (body.type === "sales_rep" && body.isSupervisor && !body.supervisorRoleId) {
+        return res.status(400).json({ error: "Supervisor-Rolle ist erforderlich" });
+      }
+
+      const sendEmails = await resolvePortalUserSendEmails(body.sendEmails);
+
+      const result = await updateB2BPortalUser(
+        { shopwareClient, b2bClient },
+        {
+          firstName: body.firstName,
+          lastName: body.lastName,
+          email: body.email,
+          password: body.password ?? "",
+          type: body.type,
+          isSupervisor: body.isSupervisor,
+          groupId: body.groupId,
+          salesChannelId: body.salesChannelId,
+          address: body.address,
+          metaCompanyCustomerId: body.metaCompanyCustomerId,
+          supervisorRoleId: body.supervisorRoleId,
+        },
+        { id: existingCustomer.id },
+        { apply: true, verifyLogin: true, sendEmails },
+      );
+
+      if (result.status === "error") {
+        return res.status(400).json({ error: result.message || "Update fehlgeschlagen", result });
+      }
+
+      res.json(result);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      res.status(500).json({ error: error.message || "Failed to update portal user" });
+    }
+  });
+
+  app.post("/api/b2b/portal-users/verify", requireAuth, requireCsrf, requireManageB2B, async (req, res) => {
+    try {
+      const body = portalUserPayloadSchema
+        .extend({ password: z.string().min(6) })
+        .parse(req.body);
+      const tenantId = (req as any).tenantId ?? null;
+      const [shopwareClient, b2bClient] = await Promise.all([
+        getShopwareClient(tenantId),
+        getAdminClient(tenantId),
+      ]);
+
+      if (body.type === "sales_rep" && !body.metaCompanyCustomerId) {
+        return res.status(400).json({ error: "META-Firma ist für Vertriebsmitarbeiter erforderlich" });
+      }
+
+      const existing = await shopwareClient.findCustomerByEmail(body.email.trim().toLowerCase());
+      const result = await verifyB2BPortalUser(
+        { shopwareClient, b2bClient },
+        {
+          firstName: body.firstName,
+          lastName: body.lastName,
+          email: body.email,
+          password: body.password,
+          type: body.type,
+          isSupervisor: body.isSupervisor,
+          groupId: body.groupId,
+          salesChannelId: body.salesChannelId,
+          address: body.address,
+          metaCompanyCustomerId: body.metaCompanyCustomerId,
+          supervisorRoleId: body.supervisorRoleId,
+          customerId: existing ? String(existing.id || existing.attributes?.id) : undefined,
+        },
+        { testLogin: true, password: body.password },
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      res.status(500).json({ error: error.message || "Login verification failed" });
+    }
+  });
+
+  const portalUserUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+  });
+
+  app.post(
+    "/api/b2b/portal-users/import",
+    requireAuth,
+    requireCsrf,
+    requireManageB2B,
+    portalUserUpload.single("file"),
+    async (req, res) => {
+      try {
+        const file = (req as Request & { file?: Express.Multer.File }).file;
+        if (!file?.buffer) {
+          return res.status(400).json({ error: "Keine Excel-Datei hochgeladen" });
+        }
+
+        const apply = parseMultipartBoolean(req.body?.apply);
+        const updateExisting = parseMultipartBoolean(req.body?.updateExisting);
+        const importPassword = String(req.body?.password || "").trim();
+        if (!updateExisting && importPassword.length < 6) {
+          return res.status(400).json({ error: "Passwort muss mindestens 6 Zeichen haben" });
+        }
+
+        const defaults = portalUserImportDefaultsSchema.parse({
+          password: importPassword || undefined,
+          defaultType: req.body?.defaultType,
+          defaultSupervisor: parseMultipartBoolean(req.body?.defaultSupervisor),
+          groupIdCompany: req.body?.groupIdCompany,
+          groupIdDealer: req.body?.groupIdDealer,
+          groupIdSalesRep: req.body?.groupIdSalesRep,
+          salesChannelId: req.body?.salesChannelId,
+          address: {
+            company: req.body?.addressCompany || DEFAULT_META_ADDRESS.company,
+            street: req.body?.addressStreet || DEFAULT_META_ADDRESS.street,
+            zipCode: req.body?.addressZipCode || DEFAULT_META_ADDRESS.zipCode,
+            city: req.body?.addressCity || DEFAULT_META_ADDRESS.city,
+            country: req.body?.addressCountry || DEFAULT_META_ADDRESS.country,
+          },
+          metaCompanyCustomerId: req.body?.metaCompanyCustomerId || undefined,
+          supervisorRoleId: req.body?.supervisorRoleId || undefined,
+        });
+
+        if (defaults.defaultType === "sales_rep" && !defaults.metaCompanyCustomerId) {
+          return res.status(400).json({ error: "META-Firma ist für Vertriebsmitarbeiter erforderlich" });
+        }
+        if (defaults.defaultType === "sales_rep" && defaults.defaultSupervisor && !defaults.supervisorRoleId) {
+          return res.status(400).json({ error: "Supervisor-Rolle ist erforderlich" });
+        }
+
+        let parsed;
+        try {
+          parsed = parseB2BPortalUserRowsFromBuffer(file.buffer);
+        } catch (parseError: any) {
+          return res.status(400).json({ error: parseError?.message || "Excel konnte nicht gelesen werden" });
+        }
+
+        if (parsed.rows.length === 0) {
+          return res.status(400).json({
+            error: "Keine gültigen Zeilen in der Excel-Datei gefunden",
+            parseErrors: parsed.parseErrors,
+          });
+        }
+
+        const tenantId = (req as any).tenantId ?? null;
+        const [shopwareClient, b2bClient] = await Promise.all([
+          getShopwareClient(tenantId),
+          getAdminClient(tenantId),
+        ]);
+
+        const sendEmails = await resolvePortalUserSendEmails(req.body?.sendEmails);
+
+        const inputs = buildPortalUserInputsFromImport(parsed, {
+          password: defaults.password || "",
+          defaultType: defaults.defaultType,
+          defaultSupervisor: defaults.defaultSupervisor ?? false,
+          groupIdByType: {
+            company: defaults.groupIdCompany,
+            dealer: defaults.groupIdDealer,
+            sales_rep: defaults.groupIdSalesRep,
+          },
+          salesChannelId: defaults.salesChannelId,
+          address: defaults.address,
+          metaCompanyCustomerId: defaults.metaCompanyCustomerId,
+          supervisorRoleId: defaults.supervisorRoleId,
+        });
+
+        const result = await createB2BPortalUsersBatch(
+          { shopwareClient, b2bClient },
+          inputs,
+          { apply, updateExisting, verifyLogin: apply, sendEmails },
+        );
+
+        res.json({
+          ...result,
+          parseErrors: parsed.parseErrors,
+        });
+      } catch (error: any) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({ error: error.errors[0].message });
+        }
+        res.status(500).json({ error: error.message || "Portal-user import failed" });
+      }
+    },
+  );
 
   // --- Budgets & approvals ---
   app.get("/api/b2b/budgets", requireAuth, requireViewB2B, async (req, res) => {

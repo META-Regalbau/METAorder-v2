@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "crypto";
-import { eq, sql as drizzleSql, desc, asc, and, isNull, lte, gt, gte, sql, inArray, count } from "drizzle-orm";
+import { eq, sql as drizzleSql, desc, asc, and, isNull, lte, gt, gte, sql, inArray, count, or, ilike } from "drizzle-orm";
 import { db } from "./db";
 import { getTenantIdFromContext } from "./tenantContext";
 import {
@@ -55,6 +55,11 @@ import {
   offerPublicEvents,
   b2bApprovalLog,
   productHerstellpreise,
+  shopwareProducts,
+  shopwareCustomers,
+  shopwareB2bCompanies,
+  shopwareCustomerPrices,
+  shopwareSyncState,
   type User,
   type InsertUser,
   type Role,
@@ -159,7 +164,14 @@ import {
   type B2bApprovalLog,
   type InsertB2bApprovalLog,
 } from "@shared/schema";
-import type { IStorage, InsertRole, UpdateUser } from "./storage";
+import type {
+  IStorage,
+  InsertRole,
+  UpdateUser,
+  ShopwareMirrorSyncEntity,
+  ShopwareProductMirrorFilter,
+  ShopwareSyncStatePatch,
+} from "./storage";
 import { encrypt, decrypt } from "./encryption";
 
 const toIsoString = (value: Date | string) => (value instanceof Date ? value.toISOString() : value);
@@ -3248,5 +3260,498 @@ export class DbStorage implements IStorage {
       .where(tenantFilter)
       .orderBy(desc(b2bApprovalLog.createdAt))
       .limit(limit);
+  }
+
+  async getShopwareSyncState(
+    entity: ShopwareMirrorSyncEntity,
+    tenantId?: string | null,
+  ): Promise<typeof shopwareSyncState.$inferSelect | undefined> {
+    const tenantFilter = tenantFilterFor(shopwareSyncState.tenantId, tenantId);
+    const [row] = await db
+      .select()
+      .from(shopwareSyncState)
+      .where(and(tenantFilter, eq(shopwareSyncState.entity, entity)))
+      .limit(1);
+    return row;
+  }
+
+  async upsertShopwareSyncState(
+    entity: ShopwareMirrorSyncEntity,
+    patch: ShopwareSyncStatePatch,
+    tenantId?: string | null,
+  ): Promise<typeof shopwareSyncState.$inferSelect> {
+    const resolvedTenantId = resolveTenantId(tenantId) ?? null;
+    const existing = await this.getShopwareSyncState(entity, tenantId);
+    const now = new Date();
+    const values = {
+      tenantId: resolvedTenantId,
+      entity,
+      cursorUpdatedAt:
+        patch.cursorUpdatedAt !== undefined
+          ? patch.cursorUpdatedAt
+          : existing?.cursorUpdatedAt ?? null,
+      lastTotal: patch.lastTotal !== undefined ? patch.lastTotal : existing?.lastTotal ?? null,
+      lastFingerprint:
+        patch.lastFingerprint !== undefined
+          ? patch.lastFingerprint
+          : existing?.lastFingerprint ?? null,
+      lastDeltaAt: patch.lastDeltaAt !== undefined ? patch.lastDeltaAt : existing?.lastDeltaAt ?? null,
+      lastReconcileAt:
+        patch.lastReconcileAt !== undefined
+          ? patch.lastReconcileAt
+          : existing?.lastReconcileAt ?? null,
+      status: patch.status ?? existing?.status ?? "idle",
+      error: patch.error !== undefined ? patch.error : existing?.error ?? null,
+      updatedAt: now,
+    };
+
+    if (existing) {
+      const [updated] = await db
+        .update(shopwareSyncState)
+        .set(values)
+        .where(eq(shopwareSyncState.id, existing.id))
+        .returning();
+      return updated;
+    }
+
+    const [inserted] = await db.insert(shopwareSyncState).values(values).returning();
+    return inserted;
+  }
+
+  async upsertShopwareProductMirrors(
+    rows: Array<{
+      shopwareId: string;
+      productNumber: string;
+      manufacturerNumber?: string | null;
+      ean?: string | null;
+      name?: string | null;
+      active?: boolean | null;
+      swUpdatedAt?: Date | null;
+      payload: Record<string, unknown>;
+    }>,
+    tenantId?: string | null,
+  ): Promise<void> {
+    if (rows.length === 0) return;
+    const resolvedTenantId = resolveTenantId(tenantId) ?? null;
+    const now = new Date();
+    const CHUNK = 200;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const chunk = rows.slice(i, i + CHUNK).map((row) => ({
+        tenantId: resolvedTenantId,
+        shopwareId: row.shopwareId,
+        productNumber: row.productNumber,
+        manufacturerNumber: row.manufacturerNumber ?? null,
+        ean: row.ean ?? null,
+        name: row.name ?? null,
+        active: row.active ?? null,
+        swUpdatedAt: row.swUpdatedAt ?? null,
+        payload: row.payload,
+        syncedAt: now,
+      }));
+      await db
+        .insert(shopwareProducts)
+        .values(chunk)
+        .onConflictDoUpdate({
+          target: [shopwareProducts.tenantId, shopwareProducts.shopwareId],
+          set: {
+            productNumber: sql`excluded.product_number`,
+            manufacturerNumber: sql`excluded.manufacturer_number`,
+            ean: sql`excluded.ean`,
+            name: sql`excluded.name`,
+            active: sql`excluded.active`,
+            swUpdatedAt: sql`excluded.sw_updated_at`,
+            payload: sql`excluded.payload`,
+            syncedAt: sql`excluded.synced_at`,
+          },
+        });
+    }
+  }
+
+  async getShopwareProductMirrors(
+    filter?: ShopwareProductMirrorFilter,
+    tenantId?: string | null,
+  ): Promise<{ rows: (typeof shopwareProducts.$inferSelect)[]; total: number }> {
+    const tenantFilter = tenantFilterFor(shopwareProducts.tenantId, tenantId);
+    const conditions: any[] = [tenantFilter];
+
+    if (filter?.activeOnly) {
+      conditions.push(eq(shopwareProducts.active, true));
+    }
+
+    if (filter?.search?.trim()) {
+      const q = `%${filter.search.trim()}%`;
+      conditions.push(
+        or(
+          ilike(shopwareProducts.productNumber, q),
+          ilike(shopwareProducts.name, q),
+          ilike(shopwareProducts.manufacturerNumber, q),
+          ilike(shopwareProducts.ean, q),
+        ),
+      );
+    }
+
+    const whereClause = and(...conditions);
+    const [{ value: total }] = await db
+      .select({ value: count() })
+      .from(shopwareProducts)
+      .where(whereClause);
+
+    const page = filter?.page ?? 1;
+    const limit = filter?.limit;
+    let rows: (typeof shopwareProducts.$inferSelect)[];
+
+    if (limit && limit > 0) {
+      rows = await db
+        .select()
+        .from(shopwareProducts)
+        .where(whereClause)
+        .orderBy(asc(shopwareProducts.productNumber))
+        .limit(limit)
+        .offset((page - 1) * limit);
+    } else {
+      rows = await db
+        .select()
+        .from(shopwareProducts)
+        .where(whereClause)
+        .orderBy(asc(shopwareProducts.productNumber));
+    }
+
+    if (filter?.salesChannelIds?.length) {
+      const allowed = new Set(filter.salesChannelIds);
+      rows = rows.filter((row) => {
+        const ids = (row.payload as any)?.salesChannelIds;
+        return Array.isArray(ids) && ids.some((id: string) => allowed.has(id));
+      });
+      // When channel-filtering in memory after SQL pagination, total is approximate for paged queries.
+      // Overview loads without limit, so total is exact.
+      if (!limit) {
+        return { rows, total: rows.length };
+      }
+    }
+
+    return { rows, total: Number(total) || 0 };
+  }
+
+  async countShopwareProductMirrors(tenantId?: string | null): Promise<number> {
+    const tenantFilter = tenantFilterFor(shopwareProducts.tenantId, tenantId);
+    const [{ value }] = await db
+      .select({ value: count() })
+      .from(shopwareProducts)
+      .where(tenantFilter);
+    return Number(value) || 0;
+  }
+
+  async getShopwareProductMirrorIds(tenantId?: string | null): Promise<string[]> {
+    const tenantFilter = tenantFilterFor(shopwareProducts.tenantId, tenantId);
+    const rows = await db
+      .select({ shopwareId: shopwareProducts.shopwareId })
+      .from(shopwareProducts)
+      .where(tenantFilter);
+    return rows.map((r) => r.shopwareId);
+  }
+
+  async deleteShopwareProductMirrorsNotIn(
+    keepIds: string[],
+    tenantId?: string | null,
+  ): Promise<number> {
+    const tenantFilter = tenantFilterFor(shopwareProducts.tenantId, tenantId);
+    if (keepIds.length === 0) {
+      const deleted = await db.delete(shopwareProducts).where(tenantFilter).returning({ id: shopwareProducts.id });
+      return deleted.length;
+    }
+    // Delete in chunks using NOT IN for keep set is expensive for huge catalogs;
+    // instead load existing ids and delete orphans.
+    const existing = await this.getShopwareProductMirrorIds(tenantId);
+    const keep = new Set(keepIds);
+    const orphans = existing.filter((id) => !keep.has(id));
+    if (orphans.length === 0) return 0;
+    let deleted = 0;
+    const CHUNK = 500;
+    for (let i = 0; i < orphans.length; i += CHUNK) {
+      const chunk = orphans.slice(i, i + CHUNK);
+      const result = await db
+        .delete(shopwareProducts)
+        .where(and(tenantFilter, inArray(shopwareProducts.shopwareId, chunk)))
+        .returning({ id: shopwareProducts.id });
+      deleted += result.length;
+    }
+    return deleted;
+  }
+
+  async upsertShopwareCustomerMirrors(
+    rows: Array<{
+      shopwareId: string;
+      customerNumber?: string | null;
+      email?: string | null;
+      company?: string | null;
+      groupId?: string | null;
+      groupName?: string | null;
+      salesChannelId?: string | null;
+      swUpdatedAt?: Date | null;
+      payload: Record<string, unknown>;
+    }>,
+    tenantId?: string | null,
+  ): Promise<void> {
+    if (rows.length === 0) return;
+    const resolvedTenantId = resolveTenantId(tenantId) ?? null;
+    const now = new Date();
+    const CHUNK = 200;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const chunk = rows.slice(i, i + CHUNK).map((row) => ({
+        tenantId: resolvedTenantId,
+        shopwareId: row.shopwareId,
+        customerNumber: row.customerNumber ?? null,
+        email: row.email ?? null,
+        company: row.company ?? null,
+        groupId: row.groupId ?? null,
+        groupName: row.groupName ?? null,
+        salesChannelId: row.salesChannelId ?? null,
+        swUpdatedAt: row.swUpdatedAt ?? null,
+        payload: row.payload,
+        syncedAt: now,
+      }));
+      await db
+        .insert(shopwareCustomers)
+        .values(chunk)
+        .onConflictDoUpdate({
+          target: [shopwareCustomers.tenantId, shopwareCustomers.shopwareId],
+          set: {
+            customerNumber: sql`excluded.customer_number`,
+            email: sql`excluded.email`,
+            company: sql`excluded.company`,
+            groupId: sql`excluded.group_id`,
+            groupName: sql`excluded.group_name`,
+            salesChannelId: sql`excluded.sales_channel_id`,
+            swUpdatedAt: sql`excluded.sw_updated_at`,
+            payload: sql`excluded.payload`,
+            syncedAt: sql`excluded.synced_at`,
+          },
+        });
+    }
+  }
+
+  async getShopwareCustomerMirrors(
+    tenantId?: string | null,
+  ): Promise<(typeof shopwareCustomers.$inferSelect)[]> {
+    const tenantFilter = tenantFilterFor(shopwareCustomers.tenantId, tenantId);
+    return await db.select().from(shopwareCustomers).where(tenantFilter);
+  }
+
+  async countShopwareCustomerMirrors(tenantId?: string | null): Promise<number> {
+    const tenantFilter = tenantFilterFor(shopwareCustomers.tenantId, tenantId);
+    const [{ value }] = await db
+      .select({ value: count() })
+      .from(shopwareCustomers)
+      .where(tenantFilter);
+    return Number(value) || 0;
+  }
+
+  async getShopwareCustomerMirrorIds(tenantId?: string | null): Promise<string[]> {
+    const tenantFilter = tenantFilterFor(shopwareCustomers.tenantId, tenantId);
+    const rows = await db
+      .select({ shopwareId: shopwareCustomers.shopwareId })
+      .from(shopwareCustomers)
+      .where(tenantFilter);
+    return rows.map((r) => r.shopwareId);
+  }
+
+  async deleteShopwareCustomerMirrorsNotIn(
+    keepIds: string[],
+    tenantId?: string | null,
+  ): Promise<number> {
+    const tenantFilter = tenantFilterFor(shopwareCustomers.tenantId, tenantId);
+    if (keepIds.length === 0) {
+      const deleted = await db
+        .delete(shopwareCustomers)
+        .where(tenantFilter)
+        .returning({ id: shopwareCustomers.id });
+      return deleted.length;
+    }
+    const existing = await this.getShopwareCustomerMirrorIds(tenantId);
+    const keep = new Set(keepIds);
+    const orphans = existing.filter((id) => !keep.has(id));
+    if (orphans.length === 0) return 0;
+    let deleted = 0;
+    const CHUNK = 500;
+    for (let i = 0; i < orphans.length; i += CHUNK) {
+      const chunk = orphans.slice(i, i + CHUNK);
+      const result = await db
+        .delete(shopwareCustomers)
+        .where(and(tenantFilter, inArray(shopwareCustomers.shopwareId, chunk)))
+        .returning({ id: shopwareCustomers.id });
+      deleted += result.length;
+    }
+    return deleted;
+  }
+
+  async replaceShopwareB2bCompanyMirrors(
+    rows: Array<{
+      companyId: string;
+      customerId?: string | null;
+      company?: string | null;
+      email?: string | null;
+      customerNumber?: string | null;
+      active?: boolean | null;
+      salesChannelId?: string | null;
+      swUpdatedAt?: Date | null;
+      payload: Record<string, unknown>;
+    }>,
+    tenantId?: string | null,
+  ): Promise<void> {
+    const tenantFilter = tenantFilterFor(shopwareB2bCompanies.tenantId, tenantId);
+    await db.delete(shopwareB2bCompanies).where(tenantFilter);
+    if (rows.length === 0) return;
+    const resolvedTenantId = resolveTenantId(tenantId) ?? null;
+    const now = new Date();
+    const CHUNK = 200;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const chunk = rows.slice(i, i + CHUNK).map((row) => ({
+        tenantId: resolvedTenantId,
+        companyId: row.companyId,
+        customerId: row.customerId ?? null,
+        company: row.company ?? null,
+        email: row.email ?? null,
+        customerNumber: row.customerNumber ?? null,
+        active: row.active ?? null,
+        salesChannelId: row.salesChannelId ?? null,
+        swUpdatedAt: row.swUpdatedAt ?? null,
+        payload: row.payload,
+        syncedAt: now,
+      }));
+      await db.insert(shopwareB2bCompanies).values(chunk);
+    }
+  }
+
+  async getShopwareB2bCompanyMirrors(
+    tenantId?: string | null,
+  ): Promise<(typeof shopwareB2bCompanies.$inferSelect)[]> {
+    const tenantFilter = tenantFilterFor(shopwareB2bCompanies.tenantId, tenantId);
+    return await db.select().from(shopwareB2bCompanies).where(tenantFilter);
+  }
+
+  async countShopwareB2bCompanyMirrors(tenantId?: string | null): Promise<number> {
+    const tenantFilter = tenantFilterFor(shopwareB2bCompanies.tenantId, tenantId);
+    const [{ value }] = await db
+      .select({ value: count() })
+      .from(shopwareB2bCompanies)
+      .where(tenantFilter);
+    return Number(value) || 0;
+  }
+
+  async replaceShopwareCustomerPriceMirrors(
+    rows: Array<{
+      priceId: string;
+      customerId?: string | null;
+      productId?: string | null;
+      productNumber?: string | null;
+      customerNumber?: string | null;
+      swUpdatedAt?: Date | null;
+      payload: Record<string, unknown>;
+    }>,
+    tenantId?: string | null,
+  ): Promise<void> {
+    const tenantFilter = tenantFilterFor(shopwareCustomerPrices.tenantId, tenantId);
+    await db.delete(shopwareCustomerPrices).where(tenantFilter);
+    await this.upsertShopwareCustomerPriceMirrors(rows, tenantId);
+  }
+
+  async upsertShopwareCustomerPriceMirrors(
+    rows: Array<{
+      priceId: string;
+      customerId?: string | null;
+      productId?: string | null;
+      productNumber?: string | null;
+      customerNumber?: string | null;
+      swUpdatedAt?: Date | null;
+      payload: Record<string, unknown>;
+    }>,
+    tenantId?: string | null,
+  ): Promise<void> {
+    if (rows.length === 0) return;
+    const resolvedTenantId = resolveTenantId(tenantId) ?? null;
+    const now = new Date();
+    const CHUNK = 200;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const chunk = rows.slice(i, i + CHUNK).map((row) => ({
+        tenantId: resolvedTenantId,
+        priceId: row.priceId,
+        customerId: row.customerId ?? null,
+        productId: row.productId ?? null,
+        productNumber: row.productNumber ?? null,
+        customerNumber: row.customerNumber ?? null,
+        swUpdatedAt: row.swUpdatedAt ?? null,
+        payload: row.payload,
+        syncedAt: now,
+      }));
+      await db
+        .insert(shopwareCustomerPrices)
+        .values(chunk)
+        .onConflictDoUpdate({
+          target: [shopwareCustomerPrices.tenantId, shopwareCustomerPrices.priceId],
+          set: {
+            customerId: sql`excluded.customer_id`,
+            productId: sql`excluded.product_id`,
+            productNumber: sql`excluded.product_number`,
+            customerNumber: sql`excluded.customer_number`,
+            swUpdatedAt: sql`excluded.sw_updated_at`,
+            payload: sql`excluded.payload`,
+            syncedAt: sql`excluded.synced_at`,
+          },
+        });
+    }
+  }
+
+  async getShopwareCustomerPriceMirrors(
+    tenantId?: string | null,
+  ): Promise<(typeof shopwareCustomerPrices.$inferSelect)[]> {
+    const tenantFilter = tenantFilterFor(shopwareCustomerPrices.tenantId, tenantId);
+    return await db.select().from(shopwareCustomerPrices).where(tenantFilter);
+  }
+
+  async countShopwareCustomerPriceMirrors(tenantId?: string | null): Promise<number> {
+    const tenantFilter = tenantFilterFor(shopwareCustomerPrices.tenantId, tenantId);
+    const [{ value }] = await db
+      .select({ value: count() })
+      .from(shopwareCustomerPrices)
+      .where(tenantFilter);
+    return Number(value) || 0;
+  }
+
+  async getShopwareCustomerPriceMirrorIds(tenantId?: string | null): Promise<string[]> {
+    const tenantFilter = tenantFilterFor(shopwareCustomerPrices.tenantId, tenantId);
+    const rows = await db
+      .select({ priceId: shopwareCustomerPrices.priceId })
+      .from(shopwareCustomerPrices)
+      .where(tenantFilter);
+    return rows.map((r) => r.priceId);
+  }
+
+  async deleteShopwareCustomerPriceMirrorsNotIn(
+    keepIds: string[],
+    tenantId?: string | null,
+  ): Promise<number> {
+    const tenantFilter = tenantFilterFor(shopwareCustomerPrices.tenantId, tenantId);
+    if (keepIds.length === 0) {
+      const deleted = await db
+        .delete(shopwareCustomerPrices)
+        .where(tenantFilter)
+        .returning({ id: shopwareCustomerPrices.id });
+      return deleted.length;
+    }
+    const existing = await this.getShopwareCustomerPriceMirrorIds(tenantId);
+    const keep = new Set(keepIds);
+    const orphans = existing.filter((id) => !keep.has(id));
+    if (orphans.length === 0) return 0;
+    let deleted = 0;
+    const CHUNK = 500;
+    for (let i = 0; i < orphans.length; i += CHUNK) {
+      const chunk = orphans.slice(i, i + CHUNK);
+      const result = await db
+        .delete(shopwareCustomerPrices)
+        .where(and(tenantFilter, inArray(shopwareCustomerPrices.priceId, chunk)))
+        .returning({ id: shopwareCustomerPrices.id });
+      deleted += result.length;
+    }
+    return deleted;
   }
 }

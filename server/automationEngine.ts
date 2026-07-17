@@ -1,6 +1,6 @@
 import type { IStorage } from "./storage";
 import type { AutomationRule, Order, Ticket } from "@shared/schema";
-import { getOpenAIClientFromSettings } from "./openaiClient";
+import { getChatClientFromSettings } from "./llmClient";
 
 export interface AutomationContext {
   trigger: string;
@@ -335,25 +335,26 @@ export class AutomationEngine {
 
     try {
       // Get OpenAI client
-      const openaiConfig = await getOpenAIClientFromSettings(
+      const openaiConfig = await getChatClientFromSettings(
         async (key: string) => {
           const setting = await this.storage.getSetting(key);
           return setting?.value;
-        }
+        },
+        { tier: "fast" }
       );
 
       if (!openaiConfig) {
-        console.warn(`[AutomationEngine] AI analysis skipped - OpenAI not configured`);
+        console.warn(`[AutomationEngine] AI analysis skipped - LLM not configured`);
         return;
       }
 
-      const { client } = openaiConfig;
+      const { client, model } = openaiConfig;
 
       // Run sentiment analysis if requested
       if (params.analyzeSentiment) {
         const sentimentResponse = await Promise.race([
           client.chat.completions.create({
-            model: "gpt-4o-mini",
+            model,
             messages: [
               {
                 role: "system",
@@ -387,7 +388,7 @@ export class AutomationEngine {
       if (params.suggestCategory) {
         const categoryResponse = await Promise.race([
           client.chat.completions.create({
-            model: "gpt-4o-mini",
+            model,
             messages: [
               {
                 role: "system",

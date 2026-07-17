@@ -148,11 +148,16 @@ export default function SettingsPage() {
     useState<CommercialAgentForm>(defaultCommercialAgentForm);
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [showOpenaiKey, setShowOpenaiKey] = useState(false);
-  const [chatProvider, setChatProvider] = useState<"openai" | "anthropic">("openai");
+  const [chatProvider, setChatProvider] = useState<"openai" | "anthropic" | "google">("openai");
   const [anthropicApiKey, setAnthropicApiKey] = useState("");
   const [showAnthropicKey, setShowAnthropicKey] = useState(false);
   const [anthropicModel, setAnthropicModel] = useState("");
   const [openaiChatModel, setOpenaiChatModel] = useState("");
+  const [geminiApiKey, setGeminiApiKey] = useState("");
+  const [showGeminiKey, setShowGeminiKey] = useState(false);
+  const [googleModel, setGoogleModel] = useState("");
+  const [smartProvider, setSmartProvider] = useState<"" | "openai" | "anthropic" | "google">("");
+  const [smartModel, setSmartModel] = useState("");
   const [rankingSettings, setRankingSettings] = useState<SemanticRankingSettings>({
     vectorWeight: 0.65,
     textWeight: 0.25,
@@ -287,9 +292,13 @@ export default function SettingsPage() {
     enabled: boolean;
     hasApiKey: boolean;
     hasAnthropicKey?: boolean;
-    chatProvider?: "openai" | "anthropic";
+    hasGeminiKey?: boolean;
+    chatProvider?: "openai" | "anthropic" | "google";
     anthropicModel?: string;
     openaiChatModel?: string;
+    googleModel?: string;
+    smartProvider?: "" | "openai" | "anthropic" | "google";
+    smartModel?: string;
     mode?: string;
   }>({
     queryKey: ["/api/settings/ai", tenantKey],
@@ -497,9 +506,16 @@ export default function SettingsPage() {
   useEffect(() => {
     if (aiSettings) {
       setAiEnabled(aiSettings.enabled);
-      setChatProvider(aiSettings.chatProvider === "anthropic" ? "anthropic" : "openai");
+      setChatProvider(
+        aiSettings.chatProvider === "anthropic" || aiSettings.chatProvider === "google"
+          ? aiSettings.chatProvider
+          : "openai"
+      );
       setAnthropicModel(aiSettings.anthropicModel ?? "");
       setOpenaiChatModel(aiSettings.openaiChatModel ?? "");
+      setGoogleModel(aiSettings.googleModel ?? "");
+      setSmartProvider(aiSettings.smartProvider ?? "");
+      setSmartModel(aiSettings.smartModel ?? "");
     }
   }, [aiSettings]);
 
@@ -690,10 +706,14 @@ export default function SettingsPage() {
     mutationFn: async (data: {
       apiKey?: string;
       anthropicApiKey?: string;
+      geminiApiKey?: string;
       enabled: boolean;
-      chatProvider: "openai" | "anthropic";
+      chatProvider: "openai" | "anthropic" | "google";
       anthropicModel: string;
       openaiChatModel: string;
+      googleModel: string;
+      smartProvider: "" | "openai" | "anthropic" | "google";
+      smartModel: string;
     }) => {
       const response = await apiRequest("POST", "/api/settings/ai", data);
       return response.json();
@@ -706,6 +726,7 @@ export default function SettingsPage() {
       });
       setOpenaiApiKey("");
       setAnthropicApiKey("");
+      setGeminiApiKey("");
     },
     onError: (error: Error) => {
       toast({
@@ -2905,7 +2926,7 @@ function AiTab() {
             <Label className="text-sm font-medium">{t("ai.chatProvider")}</Label>
             <Select
               value={chatProvider}
-              onValueChange={(v) => setChatProvider(v as "openai" | "anthropic")}
+              onValueChange={(v) => setChatProvider(v as "openai" | "anthropic" | "google")}
             >
               <SelectTrigger data-testid="select-chat-llm-provider">
                 <SelectValue />
@@ -2913,6 +2934,7 @@ function AiTab() {
               <SelectContent>
                 <SelectItem value="openai">{t("ai.chatProviderOpenAI")}</SelectItem>
                 <SelectItem value="anthropic">{t("ai.chatProviderAnthropic")}</SelectItem>
+                <SelectItem value="google">{t("ai.chatProviderGoogle")}</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">{t("ai.chatProviderDesc")}</p>
@@ -2947,6 +2969,35 @@ function AiTab() {
             </div>
           ) : null}
 
+          {chatProvider === "google" ? (
+            <div>
+              <Label className="text-sm font-medium mb-2">{t("ai.geminiApiKey")}</Label>
+              <div className="relative">
+                <Input
+                  type={showGeminiKey ? "text" : "password"}
+                  placeholder={
+                    aiSettings?.hasGeminiKey ? "••••••••••••••••••••" : t("ai.geminiApiKeyPlaceholder")
+                  }
+                  value={geminiApiKey}
+                  onChange={(e) => setGeminiApiKey(e.target.value)}
+                  className="font-mono pr-10"
+                  data-testid="input-gemini-api-key"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full"
+                  onClick={() => setShowGeminiKey(!showGeminiKey)}
+                  data-testid="button-toggle-gemini-key-visibility"
+                >
+                  {showGeminiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">{t("ai.geminiApiKeyDesc")}</p>
+            </div>
+          ) : null}
+
           <div>
             <Label className="text-sm font-medium mb-2">{t("ai.apiKey")}</Label>
             <div className="relative">
@@ -2974,33 +3025,84 @@ function AiTab() {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {chatProvider === "anthropic" ? t("ai.openaiKeyOptionalDesc") : t('ai.apiKeyDesc')}
+              {chatProvider === "anthropic" || chatProvider === "google"
+                ? t("ai.openaiKeyOptionalDesc")
+                : t('ai.apiKeyDesc')}
             </p>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-1">
+            <Label className="text-xs">
+              {chatProvider === "anthropic"
+                ? t("ai.anthropicModel")
+                : chatProvider === "google"
+                  ? t("ai.googleModel")
+                  : t("ai.openaiChatModel")}{" "}
+              <span className="text-muted-foreground">({t("ai.tierFast")})</span>
+            </Label>
             {chatProvider === "anthropic" ? (
-              <div className="space-y-1">
-                <Label className="text-xs">{t("ai.anthropicModel")}</Label>
-                <Input
-                  className="font-mono text-sm"
-                  placeholder="claude-3-5-sonnet-20241022"
-                  value={anthropicModel}
-                  onChange={(e) => setAnthropicModel(e.target.value)}
-                  data-testid="input-anthropic-model"
-                />
-              </div>
-            ) : null}
-            <div className="space-y-1">
-              <Label className="text-xs">{t("ai.openaiChatModel")}</Label>
+              <Input
+                className="font-mono text-sm"
+                placeholder="claude-3-5-haiku-latest"
+                value={anthropicModel}
+                onChange={(e) => setAnthropicModel(e.target.value)}
+                data-testid="input-anthropic-model"
+              />
+            ) : chatProvider === "google" ? (
+              <Input
+                className="font-mono text-sm"
+                placeholder="gemini-2.0-flash"
+                value={googleModel}
+                onChange={(e) => setGoogleModel(e.target.value)}
+                data-testid="input-google-model"
+              />
+            ) : (
               <Input
                 className="font-mono text-sm"
                 placeholder="gpt-4o-mini"
                 value={openaiChatModel}
                 onChange={(e) => setOpenaiChatModel(e.target.value)}
-                disabled={chatProvider === "anthropic"}
                 data-testid="input-openai-chat-model"
               />
+            )}
+          </div>
+
+          <div className="rounded-md border border-border p-3 space-y-3">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">{t("ai.smartTierTitle")}</Label>
+              <p className="text-xs text-muted-foreground">{t("ai.smartTierDesc")}</p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-1">
+                <Label className="text-xs">{t("ai.smartProvider")}</Label>
+                <Select
+                  value={smartProvider === "" ? "inherit" : smartProvider}
+                  onValueChange={(v) =>
+                    setSmartProvider(v === "inherit" ? "" : (v as "openai" | "anthropic" | "google"))
+                  }
+                >
+                  <SelectTrigger data-testid="select-smart-provider">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="inherit">{t("ai.smartProviderInherit")}</SelectItem>
+                    <SelectItem value="openai">{t("ai.chatProviderOpenAI")}</SelectItem>
+                    <SelectItem value="anthropic">{t("ai.chatProviderAnthropic")}</SelectItem>
+                    <SelectItem value="google">{t("ai.chatProviderGoogle")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">{t("ai.smartModel")}</Label>
+                <Input
+                  className="font-mono text-sm"
+                  placeholder="claude-opus-4-20250514"
+                  value={smartModel}
+                  onChange={(e) => setSmartModel(e.target.value)}
+                  disabled={smartProvider === ""}
+                  data-testid="input-smart-model"
+                />
+              </div>
             </div>
           </div>
 
@@ -3009,10 +3111,14 @@ function AiTab() {
               onClick={() => saveAiSettingsMutation.mutate({ 
                 apiKey: openaiApiKey || undefined,
                 anthropicApiKey: anthropicApiKey || undefined,
+                geminiApiKey: geminiApiKey || undefined,
                 enabled: aiEnabled,
                 chatProvider,
                 anthropicModel: anthropicModel.trim(),
                 openaiChatModel: openaiChatModel.trim(),
+                googleModel: googleModel.trim(),
+                smartProvider,
+                smartModel: smartModel.trim(),
               })}
               disabled={saveAiSettingsMutation.isPending}
               data-testid="button-save-ai-settings"

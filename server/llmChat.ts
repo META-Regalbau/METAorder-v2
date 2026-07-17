@@ -1,7 +1,15 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type OpenAI from "openai";
+import OpenAI from "openai";
 import { decrypt } from "./encryption";
 import { getOpenAIClient, isReplitOpenAIAvailable } from "./openaiClient";
+import {
+  DEFAULT_MODELS,
+  GEMINI_OPENAI_BASE_URL,
+  type ModelTier,
+  type StoredLlmSettings,
+  resolveTierModel,
+  resolveTierProvider,
+} from "./llmClient";
 
 /** Jede chatCompletion: Provider, Modell, Dauer (auch UI-Chat — kann laut werden). */
 function llmTraceEnabled(): boolean {
@@ -24,33 +32,20 @@ export type ChatCompletionParams = {
   max_tokens?: number;
   /** OpenAI json_object or JSON-only instruction for Claude */
   response_json?: boolean;
+  /**
+   * Modell-Stufe: "fast" (Standard, günstig) oder "smart" (schwierige
+   * Aufgaben, z. B. Claude Opus). Default: "fast".
+   */
+  tier?: ModelTier;
 };
 
-export type StoredOpenaiSettings = {
-  enabled?: boolean;
-  apiKey?: string;
-  chatProvider?: "openai" | "anthropic";
-  anthropicApiKey?: string;
-  anthropicModel?: string;
-  openaiChatModel?: string;
-};
+/** @deprecated Verwende StoredLlmSettings aus ./llmClient */
+export type StoredOpenaiSettings = StoredLlmSettings;
 
-export const DEFAULT_ANTHROPIC_CHAT_MODEL = "claude-3-5-sonnet-20241022";
+export const DEFAULT_ANTHROPIC_CHAT_MODEL = DEFAULT_MODELS.anthropic.smart;
 
 /** OpenAI-Modellnamen nicht an die Anthropic-API durchreichen. */
 const LOOKS_LIKE_OPENAI_MODEL = /^(gpt-|o\d|chatgpt-)/i;
-
-function resolveAnthropicModel(
-  paramsModel: string | undefined,
-  settings: StoredOpenaiSettings
-): string {
-  const configured = settings.anthropicModel?.trim();
-  if (configured) return configured;
-  if (paramsModel?.trim() && !LOOKS_LIKE_OPENAI_MODEL.test(paramsModel.trim())) {
-    return paramsModel.trim();
-  }
-  return DEFAULT_ANTHROPIC_CHAT_MODEL;
-}
 
 function mergeAnthropicMessages(messages: ChatMessage[]): {
   system: string;
@@ -143,19 +138,27 @@ export async function chatCompletion(
   params: ChatCompletionParams
 ): Promise<string> {
   const t0 = Date.now();
-  const settings = ((await getSetting("openai_settings")) || {}) as StoredOpenaiSettings;
-  const useAnthropic = settings.chatProvider === "anthropic";
+  const settings = ((await getSetting("openai_settings")) || {}) as StoredLlmSettings;
+  const tier = params.tier ?? "fast";
+  const provider = resolveTierProvider(settings, tier);
+  const modelOverride =
+    params.model?.trim() && !LOOKS_LIKE_OPENAI_MODEL.test(params.model.trim())
+      ? params.model.trim()
+      : provider === "openai"
+        ? params.model?.trim() || undefined
+        : undefined;
 
   try {
-    if (useAnthropic) {
+    if (provider === "anthropic") {
       if (!settings.enabled || !settings.anthropicApiKey) {
         throw new Error("Anthropic (Claude) API is not configured");
       }
       const client = new Anthropic({ apiKey: decrypt(settings.anthropicApiKey) });
-      const model = resolveAnthropicModel(params.model, settings);
+      const model = modelOverride || resolveTierModel(settings, tier, "anthropic");
       const text = await completeWithAnthropic(client, model, params, Boolean(params.response_json));
       logLlmTrace({
         provider: "anthropic",
+        tier,
         model,
         ms: Date.now() - t0,
         response_json: Boolean(params.response_json),
@@ -165,13 +168,36 @@ export async function chatCompletion(
       return text;
     }
 
+    if (provider === "google") {
+      if (!settings.enabled || !settings.geminiApiKey) {
+        throw new Error("Google (Gemini) API is not configured");
+      }
+      const client = new OpenAI({
+        apiKey: decrypt(settings.geminiApiKey),
+        baseURL: GEMINI_OPENAI_BASE_URL,
+      });
+      const model = modelOverride || resolveTierModel(settings, tier, "google");
+      const text = await completeWithOpenAI(client, model, params);
+      logLlmTrace({
+        provider: "google",
+        tier,
+        model,
+        ms: Date.now() - t0,
+        response_json: Boolean(params.response_json),
+        responseChars: text.length,
+        max_tokens: params.max_tokens,
+      });
+      return text;
+    }
+
+    // provider === "openai"
     if (isReplitOpenAIAvailable()) {
       const { client } = getOpenAIClient();
-      const model =
-        params.model || settings.openaiChatModel || "gpt-4o-mini";
+      const model = modelOverride || resolveTierModel(settings, tier, "openai");
       const text = await completeWithOpenAI(client, model, params);
       logLlmTrace({
         provider: "openai",
+        tier,
         model,
         ms: Date.now() - t0,
         response_json: Boolean(params.response_json),
@@ -185,10 +211,11 @@ export async function chatCompletion(
       throw new Error("OpenAI API is not configured");
     }
     const { client } = getOpenAIClient(settings.apiKey);
-    const model = params.model || settings.openaiChatModel || "gpt-4o-mini";
+    const model = modelOverride || resolveTierModel(settings, tier, "openai");
     const text = await completeWithOpenAI(client, model, params);
     logLlmTrace({
       provider: "openai",
+      tier,
       model,
       ms: Date.now() - t0,
       response_json: Boolean(params.response_json),
@@ -198,7 +225,8 @@ export async function chatCompletion(
     return text;
   } catch (e) {
     logLlmTrace({
-      provider: useAnthropic ? "anthropic" : "openai",
+      provider,
+      tier,
       ms: Date.now() - t0,
       error: String(e),
     });
@@ -222,9 +250,12 @@ export async function isChatLlmConfigured(
   getSetting: (key: string) => Promise<any>
 ): Promise<boolean> {
   try {
-    const settings = ((await getSetting("openai_settings")) || {}) as StoredOpenaiSettings;
+    const settings = ((await getSetting("openai_settings")) || {}) as StoredLlmSettings;
     if (settings.chatProvider === "anthropic") {
       return Boolean(settings.enabled && settings.anthropicApiKey);
+    }
+    if (settings.chatProvider === "google") {
+      return Boolean(settings.enabled && settings.geminiApiKey);
     }
     if (isReplitOpenAIAvailable()) return true;
     return Boolean(settings.enabled && settings.apiKey);

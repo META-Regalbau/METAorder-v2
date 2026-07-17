@@ -49,6 +49,7 @@ async function runPdfSpecialistIntent(
   if (!excerpt.trim()) return null;
   try {
     const raw = await chatCompletion(storage.getSetting.bind(storage), {
+      tier: "smart",
       messages: [
         { role: "system", content: PDF_SPECIALIST_SYSTEM },
         {
@@ -79,6 +80,7 @@ async function runEmailSpecialistIntent(
   if (!body.trim() && !subj.trim()) return null;
   try {
     const raw = await chatCompletion(storage.getSetting.bind(storage), {
+      tier: "smart",
       messages: [
         { role: "system", content: EMAIL_SPECIALIST_SYSTEM },
         {

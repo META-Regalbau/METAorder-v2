@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import type { Product } from "@shared/schema";
 import { extractProductMetadata, extractProductSeries } from "./productPropertyExtractor";
 import { getOpenAIClient } from "./openaiClient";
+import { getChatClientFromSettings } from "./llmClient";
 
 interface SemanticSearchInput {
   query: string;
@@ -36,7 +37,7 @@ interface SemanticSearchResult {
 export async function executeSemanticProductSearch(
   input: SemanticSearchInput,
   allProducts: Product[],
-  options?: { promptAddon?: string }
+  options?: { promptAddon?: string; getSetting?: (key: string) => Promise<any> }
 ): Promise<SemanticSearchResult> {
   const { query, language = "de" } = input;
 
@@ -48,11 +49,15 @@ export async function executeSemanticProductSearch(
   let interpretation: SemanticSearchInterpretation;
 
   try {
-    const openaiConfig = getOpenAIClient();
-    console.log(`[Semantic Search] Using OpenAI in ${openaiConfig.mode} mode`);
-    
-    const completion = await openaiConfig.client.chat.completions.create({
-      model: "gpt-4o",
+    const resolved = options?.getSetting
+      ? await getChatClientFromSettings(options.getSetting, { tier: "smart" })
+      : null;
+    const client = resolved?.client ?? getOpenAIClient().client;
+    const model = resolved?.model ?? "gpt-4o";
+    console.log(`[Semantic Search] Using provider ${resolved?.provider ?? "openai"} (${model})`);
+
+    const completion = await client.chat.completions.create({
+      model,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }

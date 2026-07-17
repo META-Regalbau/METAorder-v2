@@ -1730,6 +1730,142 @@ export const insertProductHerstellpreisSchema = createInsertSchema(productHerste
 export type InsertProductHerstellpreis = z.infer<typeof insertProductHerstellpreisSchema>;
 export type ProductHerstellpreis = typeof productHerstellpreise.$inferSelect;
 
+/** Persistenter Shopware-Produktspiegel (Delta-Sync). */
+export const shopwareProducts = pgTable(
+  "shopware_products",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id").references(() => tenants.id),
+    shopwareId: varchar("shopware_id").notNull(),
+    productNumber: text("product_number").notNull(),
+    manufacturerNumber: text("manufacturer_number"),
+    ean: text("ean"),
+    name: text("name"),
+    active: boolean("active"),
+    swUpdatedAt: timestamp("sw_updated_at"),
+    payload: jsonb("payload").notNull().default({}),
+    syncedAt: timestamp("synced_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    uniqueTenantShopwareId: uniqueIndex("shopware_products_tenant_sw_id_unique").on(
+      table.tenantId,
+      table.shopwareId,
+    ),
+  }),
+);
+
+export type ShopwareProductMirror = typeof shopwareProducts.$inferSelect;
+export type InsertShopwareProductMirror = typeof shopwareProducts.$inferInsert;
+
+/** Persistenter Shopware-Kundenspiegel. */
+export const shopwareCustomers = pgTable(
+  "shopware_customers",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id").references(() => tenants.id),
+    shopwareId: varchar("shopware_id").notNull(),
+    customerNumber: text("customer_number"),
+    email: text("email"),
+    company: text("company"),
+    groupId: varchar("group_id"),
+    groupName: text("group_name"),
+    salesChannelId: varchar("sales_channel_id"),
+    swUpdatedAt: timestamp("sw_updated_at"),
+    payload: jsonb("payload").notNull().default({}),
+    syncedAt: timestamp("synced_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    uniqueTenantShopwareId: uniqueIndex("shopware_customers_tenant_sw_id_unique").on(
+      table.tenantId,
+      table.shopwareId,
+    ),
+  }),
+);
+
+export type ShopwareCustomerMirror = typeof shopwareCustomers.$inferSelect;
+export type InsertShopwareCustomerMirror = typeof shopwareCustomers.$inferInsert;
+
+/** Persistenter B2B-Firmen-Spiegel (B2Bsellers). */
+export const shopwareB2bCompanies = pgTable(
+  "shopware_b2b_companies",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id").references(() => tenants.id),
+    companyId: varchar("company_id").notNull(),
+    customerId: varchar("customer_id"),
+    company: text("company"),
+    email: text("email"),
+    customerNumber: text("customer_number"),
+    active: boolean("active"),
+    salesChannelId: varchar("sales_channel_id"),
+    swUpdatedAt: timestamp("sw_updated_at"),
+    payload: jsonb("payload").notNull().default({}),
+    syncedAt: timestamp("synced_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    uniqueTenantCompanyId: uniqueIndex("shopware_b2b_companies_tenant_company_unique").on(
+      table.tenantId,
+      table.companyId,
+    ),
+  }),
+);
+
+export type ShopwareB2bCompanyMirror = typeof shopwareB2bCompanies.$inferSelect;
+export type InsertShopwareB2bCompanyMirror = typeof shopwareB2bCompanies.$inferInsert;
+
+/** Persistenter Spiegel fuer kundenindividuelle Preise (B2Bsellers). */
+export const shopwareCustomerPrices = pgTable(
+  "shopware_customer_prices",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id").references(() => tenants.id),
+    priceId: varchar("price_id").notNull(),
+    customerId: varchar("customer_id"),
+    productId: varchar("product_id"),
+    productNumber: text("product_number"),
+    customerNumber: text("customer_number"),
+    swUpdatedAt: timestamp("sw_updated_at"),
+    payload: jsonb("payload").notNull().default({}),
+    syncedAt: timestamp("synced_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    uniqueTenantPriceId: uniqueIndex("shopware_customer_prices_tenant_price_unique").on(
+      table.tenantId,
+      table.priceId,
+    ),
+  }),
+);
+
+export type ShopwareCustomerPriceMirror = typeof shopwareCustomerPrices.$inferSelect;
+export type InsertShopwareCustomerPriceMirror = typeof shopwareCustomerPrices.$inferInsert;
+
+/** Sync-Cursor / Fingerprint pro Entity und Mandant. */
+export const shopwareSyncState = pgTable(
+  "shopware_sync_state",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id").references(() => tenants.id),
+    entity: text("entity").notNull(),
+    cursorUpdatedAt: timestamp("cursor_updated_at"),
+    lastTotal: integer("last_total"),
+    lastFingerprint: text("last_fingerprint"),
+    lastDeltaAt: timestamp("last_delta_at"),
+    lastReconcileAt: timestamp("last_reconcile_at"),
+    status: text("status").notNull().default("idle"),
+    error: text("error"),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    uniqueTenantEntity: uniqueIndex("shopware_sync_state_tenant_entity_unique").on(
+      table.tenantId,
+      table.entity,
+    ),
+  }),
+);
+
+export type ShopwareSyncStateRow = typeof shopwareSyncState.$inferSelect;
+export type InsertShopwareSyncState = typeof shopwareSyncState.$inferInsert;
+
 // Order Drafts table - for AI-powered order creation from PDFs/emails
 export const orderDrafts = pgTable("order_drafts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

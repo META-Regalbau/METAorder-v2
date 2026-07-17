@@ -79,6 +79,7 @@ interface OverviewProduct {
   deliveryTimeMax: number | null;
   deliveryTimeUnit: string | null;
   hasDeliveryTime: boolean;
+  restockTime: number | null;
   customFields?: Record<string, unknown>;
   customFieldKeys: string[];
   propertyCount: number;
@@ -97,6 +98,7 @@ interface OverviewResponse {
 const PAGE_SIZE = 50;
 const NONE_CHANNEL = "__none__";
 const NONE_DELIVERY_TIME = "__none_delivery__";
+const NONE_RESTOCK_TIME = "__none_restock__";
 const ALL = "__all__";
 
 const currencyFormatter = new Intl.NumberFormat("de-DE", {
@@ -134,6 +136,14 @@ function formatDeliveryTimeLabel(
   return null;
 }
 
+function formatRestockTimeLabel(
+  restockTime: number | null | undefined,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string | null {
+  if (restockTime == null) return null;
+  return t("productOverview.restockTimeDays", { value: restockTime });
+}
+
 function escapeCsv(value: unknown): string {
   const s = String(value ?? "");
   return /[",\n\r;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
@@ -157,6 +167,7 @@ export default function ProductOverviewPage() {
   const [customFieldPresence, setCustomFieldPresence] = useState<"any" | "present" | "absent">("any");
   const [customFieldValue, setCustomFieldValue] = useState("");
   const [deliveryTimeFilter, setDeliveryTimeFilter] = useState<string>(ALL);
+  const [restockTimeFilter, setRestockTimeFilter] = useState<string>(ALL);
   const [page, setPage] = useState(1);
 
   const products = useMemo(() => data?.products ?? [], [data]);
@@ -192,12 +203,27 @@ export default function ProductOverviewPage() {
       .sort((a, b) => a.label.localeCompare(b.label, "de"));
   }, [products, t]);
 
+  const restockTimeOptions = useMemo(() => {
+    const values = new Set<number>();
+    for (const p of products) {
+      if (p.restockTime != null) values.add(p.restockTime);
+    }
+    return Array.from(values)
+      .sort((a, b) => a - b)
+      .map((value) => ({
+        value: String(value),
+        label: formatRestockTimeLabel(value, t) ?? String(value),
+      }));
+  }, [products, t]);
+
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return products.filter((p) => {
       if (term) {
         const deliveryLabel = formatDeliveryTimeLabel(p, t) ?? "";
-        const haystack = `${p.productNumber} ${p.name} ${p.ean ?? ""} ${p.manufacturerNumber ?? ""} ${deliveryLabel}`.toLowerCase();
+        const restockLabel = formatRestockTimeLabel(p.restockTime, t) ?? "";
+        const haystack =
+          `${p.productNumber} ${p.name} ${p.ean ?? ""} ${p.manufacturerNumber ?? ""} ${deliveryLabel} ${restockLabel} ${p.restockTime ?? ""}`.toLowerCase();
         if (!haystack.includes(term)) return false;
       }
       if (channelFilter === NONE_CHANNEL) {
@@ -213,6 +239,11 @@ export default function ProductOverviewPage() {
         if (p.hasDeliveryTime) return false;
       } else if (deliveryTimeFilter !== ALL) {
         if (p.deliveryTimeId !== deliveryTimeFilter) return false;
+      }
+      if (restockTimeFilter === NONE_RESTOCK_TIME) {
+        if (p.restockTime != null) return false;
+      } else if (restockTimeFilter !== ALL) {
+        if (p.restockTime == null || String(p.restockTime) !== restockTimeFilter) return false;
       }
       if (onlyAdvancedPrices && !p.hasAdvancedPrices) return false;
       if (onlyCustomFields && p.customFieldKeys.length === 0) return false;
@@ -251,6 +282,7 @@ export default function ProductOverviewPage() {
     tagFilter,
     statusFilter,
     deliveryTimeFilter,
+    restockTimeFilter,
     onlyAdvancedPrices,
     onlyCustomFields,
     customFieldKey,
@@ -303,6 +335,7 @@ export default function ProductOverviewPage() {
     setCustomFieldPresence("any");
     setCustomFieldValue("");
     setDeliveryTimeFilter(ALL);
+    setRestockTimeFilter(ALL);
     setPage(1);
   };
 
@@ -317,6 +350,7 @@ export default function ProductOverviewPage() {
       t("productOverview.table.categories"),
       t("productOverview.table.tags"),
       t("productOverview.table.deliveryTime"),
+      t("productOverview.table.restockTime"),
       t("productOverview.table.customFields"),
       t("productOverview.csv.priceGross"),
       t("productOverview.csv.priceNet"),
@@ -340,6 +374,7 @@ export default function ProductOverviewPage() {
           p.categories.join(" | "),
           (p.tags ?? []).join(" | "),
           formatDeliveryTimeLabel(p, t) ?? "",
+          formatRestockTimeLabel(p.restockTime, t) ?? "",
           customFields,
           p.priceGross,
           p.priceNet,
@@ -556,6 +591,27 @@ export default function ProductOverviewPage() {
             </Select>
 
             <Select
+              value={restockTimeFilter}
+              onValueChange={(v) => {
+                setRestockTimeFilter(v);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger data-testid="overview-restock-time">
+                <SelectValue placeholder={t("productOverview.filters.restockTime")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>{t("productOverview.filters.allRestockTimes")}</SelectItem>
+                <SelectItem value={NONE_RESTOCK_TIME}>{t("productOverview.filters.noRestockTime")}</SelectItem>
+                {restockTimeOptions.map((rt) => (
+                  <SelectItem key={rt.value} value={rt.value}>
+                    {rt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select
               value={customFieldKey}
               onValueChange={(v) => {
                 setCustomFieldKey(v);
@@ -662,6 +718,7 @@ export default function ProductOverviewPage() {
                     <TableHead className="min-w-[180px]">{t("productOverview.table.categories")}</TableHead>
                     <TableHead className="min-w-[160px]">{t("productOverview.table.tags")}</TableHead>
                     <TableHead className="min-w-[140px]">{t("productOverview.table.deliveryTime")}</TableHead>
+                    <TableHead className="min-w-[120px]">{t("productOverview.table.restockTime")}</TableHead>
                     <TableHead className="w-[130px]">{t("productOverview.table.customFields")}</TableHead>
                     <TableHead className="w-[120px] text-right">{t("productOverview.table.price")}</TableHead>
                   </TableRow>
@@ -756,6 +813,7 @@ function ProductRow({ product }: { product: OverviewProduct }) {
   const { t } = useTranslation();
   const channelNames = product.salesChannels.map((c) => c.name);
   const deliveryTimeLabel = formatDeliveryTimeLabel(product, t);
+  const restockTimeLabel = formatRestockTimeLabel(product.restockTime, t);
 
   return (
     <TableRow>
@@ -877,6 +935,13 @@ function ProductRow({ product }: { product: OverviewProduct }) {
           <Badge variant="outline" className="text-destructive border-destructive/40">
             {t("productOverview.table.missingDeliveryTime")}
           </Badge>
+        )}
+      </TableCell>
+      <TableCell>
+        {restockTimeLabel ? (
+          <span className="text-sm font-mono tabular-nums">{restockTimeLabel}</span>
+        ) : (
+          <span className="text-muted-foreground text-sm">{t("productOverview.table.none")}</span>
         )}
       </TableCell>
       <TableCell>

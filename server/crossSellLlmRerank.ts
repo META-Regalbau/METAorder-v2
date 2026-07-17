@@ -2,7 +2,7 @@ import { createHash } from "crypto";
 import type { Product } from "@shared/schema";
 import type { IStorage } from "./storage";
 import type { HybridRankedProduct } from "./crossSellHybridRanker";
-import { getOpenAIClientFromSettings } from "./openaiClient";
+import { getChatClientFromSettings } from "./llmClient";
 
 const CACHE_SETTING_KEY = "cross_sell_llm_rerank_cache";
 
@@ -134,7 +134,9 @@ export async function llmRerankCrossSellCandidates(params: {
     return applyLlmRanking(candidates, cached, topN);
   }
 
-  const openai = await getOpenAIClientFromSettings(storage.getSetting.bind(storage));
+  const openai = await getChatClientFromSettings(storage.getSetting.bind(storage), {
+    tier: "smart",
+  });
   if (!openai) {
     return candidates.slice(0, topN).map((c) => ({ ...c }));
   }
@@ -162,7 +164,7 @@ Die Liste ranking muss die besten zuerst enthalten (hoechstens ${topN} Eintraege
 
   try {
     const completion = await openai.client.chat.completions.create({
-      model: "gpt-4o",
+      model: openai.model,
       temperature: 0.2,
       response_format: { type: "json_object" },
       messages: [

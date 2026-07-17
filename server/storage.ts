@@ -105,12 +105,38 @@ import {
   type B2bApprovalLog,
   type InsertB2bApprovalLog,
   type InsertProductHerstellpreis,
+  type ShopwareProductMirror,
+  type ShopwareCustomerMirror,
+  type ShopwareB2bCompanyMirror,
+  type ShopwareCustomerPriceMirror,
+  type ShopwareSyncStateRow,
 } from "@shared/schema";
 import { createHash, randomBytes, randomUUID } from "crypto";
 
-// modify the interface with any CRUD methods
-// you might need
+export type ShopwareMirrorSyncEntity =
+  | "products"
+  | "customers"
+  | "b2b_companies"
+  | "customer_prices";
 
+export type ShopwareProductMirrorFilter = {
+  search?: string;
+  activeOnly?: boolean;
+  includeInactive?: boolean;
+  salesChannelIds?: string[];
+  page?: number;
+  limit?: number;
+};
+
+export type ShopwareSyncStatePatch = {
+  cursorUpdatedAt?: Date | null;
+  lastTotal?: number | null;
+  lastFingerprint?: string | null;
+  lastDeltaAt?: Date | null;
+  lastReconcileAt?: Date | null;
+  status?: string;
+  error?: string | null;
+};
 export type InsertRole = Omit<Role, "id">;
 export type UpdateUser = {
   username?: string;
@@ -438,6 +464,103 @@ export interface IStorage {
     tenantId?: string | null,
   ): Promise<Map<string, number>>;
   getAllProductHerstellpreise(tenantId?: string | null): Promise<Map<string, number>>;
+
+  // Shopware Mirror (Delta-Sync)
+  getShopwareSyncState(
+    entity: ShopwareMirrorSyncEntity,
+    tenantId?: string | null,
+  ): Promise<ShopwareSyncStateRow | undefined>;
+  upsertShopwareSyncState(
+    entity: ShopwareMirrorSyncEntity,
+    patch: ShopwareSyncStatePatch,
+    tenantId?: string | null,
+  ): Promise<ShopwareSyncStateRow>;
+
+  upsertShopwareProductMirrors(
+    rows: Array<{
+      shopwareId: string;
+      productNumber: string;
+      manufacturerNumber?: string | null;
+      ean?: string | null;
+      name?: string | null;
+      active?: boolean | null;
+      swUpdatedAt?: Date | null;
+      payload: Record<string, unknown>;
+    }>,
+    tenantId?: string | null,
+  ): Promise<void>;
+  getShopwareProductMirrors(
+    filter?: ShopwareProductMirrorFilter,
+    tenantId?: string | null,
+  ): Promise<{ rows: ShopwareProductMirror[]; total: number }>;
+  countShopwareProductMirrors(tenantId?: string | null): Promise<number>;
+  getShopwareProductMirrorIds(tenantId?: string | null): Promise<string[]>;
+  deleteShopwareProductMirrorsNotIn(keepIds: string[], tenantId?: string | null): Promise<number>;
+
+  upsertShopwareCustomerMirrors(
+    rows: Array<{
+      shopwareId: string;
+      customerNumber?: string | null;
+      email?: string | null;
+      company?: string | null;
+      groupId?: string | null;
+      groupName?: string | null;
+      salesChannelId?: string | null;
+      swUpdatedAt?: Date | null;
+      payload: Record<string, unknown>;
+    }>,
+    tenantId?: string | null,
+  ): Promise<void>;
+  getShopwareCustomerMirrors(tenantId?: string | null): Promise<ShopwareCustomerMirror[]>;
+  countShopwareCustomerMirrors(tenantId?: string | null): Promise<number>;
+  getShopwareCustomerMirrorIds(tenantId?: string | null): Promise<string[]>;
+  deleteShopwareCustomerMirrorsNotIn(keepIds: string[], tenantId?: string | null): Promise<number>;
+
+  replaceShopwareB2bCompanyMirrors(
+    rows: Array<{
+      companyId: string;
+      customerId?: string | null;
+      company?: string | null;
+      email?: string | null;
+      customerNumber?: string | null;
+      active?: boolean | null;
+      salesChannelId?: string | null;
+      swUpdatedAt?: Date | null;
+      payload: Record<string, unknown>;
+    }>,
+    tenantId?: string | null,
+  ): Promise<void>;
+  getShopwareB2bCompanyMirrors(tenantId?: string | null): Promise<ShopwareB2bCompanyMirror[]>;
+  countShopwareB2bCompanyMirrors(tenantId?: string | null): Promise<number>;
+
+  replaceShopwareCustomerPriceMirrors(
+    rows: Array<{
+      priceId: string;
+      customerId?: string | null;
+      productId?: string | null;
+      productNumber?: string | null;
+      customerNumber?: string | null;
+      swUpdatedAt?: Date | null;
+      payload: Record<string, unknown>;
+    }>,
+    tenantId?: string | null,
+  ): Promise<void>;
+  upsertShopwareCustomerPriceMirrors(
+    rows: Array<{
+      priceId: string;
+      customerId?: string | null;
+      productId?: string | null;
+      productNumber?: string | null;
+      customerNumber?: string | null;
+      swUpdatedAt?: Date | null;
+      payload: Record<string, unknown>;
+    }>,
+    tenantId?: string | null,
+  ): Promise<void>;
+  getShopwareCustomerPriceMirrors(tenantId?: string | null): Promise<ShopwareCustomerPriceMirror[]>;
+  countShopwareCustomerPriceMirrors(tenantId?: string | null): Promise<number>;
+  getShopwareCustomerPriceMirrorIds(tenantId?: string | null): Promise<string[]>;
+  deleteShopwareCustomerPriceMirrorsNotIn(keepIds: string[], tenantId?: string | null): Promise<number>;
 
   // Installment plans (Teilzahlung)
   createInstallmentPlanWithInvoices(
@@ -2507,6 +2630,323 @@ export class MemStorage implements IStorage {
     return this.b2bApprovalLogs
       .filter((l) => (l.tenantId ?? null) === tid)
       .slice(0, limit);
+  }
+
+  private shopwareSyncStates = new Map<string, ShopwareSyncStateRow>();
+  private shopwareProductMirrors: ShopwareProductMirror[] = [];
+  private shopwareCustomerMirrors: ShopwareCustomerMirror[] = [];
+  private shopwareB2bCompanyMirrors: ShopwareB2bCompanyMirror[] = [];
+  private shopwareCustomerPriceMirrors: ShopwareCustomerPriceMirror[] = [];
+
+  async getShopwareSyncState(
+    entity: ShopwareMirrorSyncEntity,
+    tenantId?: string | null,
+  ): Promise<ShopwareSyncStateRow | undefined> {
+    return this.shopwareSyncStates.get(`${tenantId ?? "null"}:${entity}`);
+  }
+
+  async upsertShopwareSyncState(
+    entity: ShopwareMirrorSyncEntity,
+    patch: ShopwareSyncStatePatch,
+    tenantId?: string | null,
+  ): Promise<ShopwareSyncStateRow> {
+    const key = `${tenantId ?? "null"}:${entity}`;
+    const existing = this.shopwareSyncStates.get(key);
+    const row: ShopwareSyncStateRow = {
+      id: existing?.id ?? randomUUID(),
+      tenantId: tenantId ?? null,
+      entity,
+      cursorUpdatedAt: patch.cursorUpdatedAt !== undefined ? patch.cursorUpdatedAt : existing?.cursorUpdatedAt ?? null,
+      lastTotal: patch.lastTotal !== undefined ? patch.lastTotal : existing?.lastTotal ?? null,
+      lastFingerprint:
+        patch.lastFingerprint !== undefined ? patch.lastFingerprint : existing?.lastFingerprint ?? null,
+      lastDeltaAt: patch.lastDeltaAt !== undefined ? patch.lastDeltaAt : existing?.lastDeltaAt ?? null,
+      lastReconcileAt:
+        patch.lastReconcileAt !== undefined ? patch.lastReconcileAt : existing?.lastReconcileAt ?? null,
+      status: patch.status ?? existing?.status ?? "idle",
+      error: patch.error !== undefined ? patch.error : existing?.error ?? null,
+      updatedAt: new Date(),
+    };
+    this.shopwareSyncStates.set(key, row);
+    return row;
+  }
+
+  async upsertShopwareProductMirrors(
+    rows: Array<{
+      shopwareId: string;
+      productNumber: string;
+      manufacturerNumber?: string | null;
+      ean?: string | null;
+      name?: string | null;
+      active?: boolean | null;
+      swUpdatedAt?: Date | null;
+      payload: Record<string, unknown>;
+    }>,
+    tenantId?: string | null,
+  ): Promise<void> {
+    const tid = tenantId ?? null;
+    for (const row of rows) {
+      const idx = this.shopwareProductMirrors.findIndex(
+        (p) => (p.tenantId ?? null) === tid && p.shopwareId === row.shopwareId,
+      );
+      const next: ShopwareProductMirror = {
+        id: idx >= 0 ? this.shopwareProductMirrors[idx].id : randomUUID(),
+        tenantId: tid,
+        shopwareId: row.shopwareId,
+        productNumber: row.productNumber,
+        manufacturerNumber: row.manufacturerNumber ?? null,
+        ean: row.ean ?? null,
+        name: row.name ?? null,
+        active: row.active ?? null,
+        swUpdatedAt: row.swUpdatedAt ?? null,
+        payload: row.payload,
+        syncedAt: new Date(),
+      };
+      if (idx >= 0) this.shopwareProductMirrors[idx] = next;
+      else this.shopwareProductMirrors.push(next);
+    }
+  }
+
+  async getShopwareProductMirrors(
+    filter?: ShopwareProductMirrorFilter,
+    tenantId?: string | null,
+  ): Promise<{ rows: ShopwareProductMirror[]; total: number }> {
+    const tid = tenantId ?? null;
+    let rows = this.shopwareProductMirrors.filter((p) => (p.tenantId ?? null) === tid);
+    if (filter?.activeOnly) rows = rows.filter((p) => p.active === true);
+    if (filter?.search) {
+      const q = filter.search.toLowerCase();
+      rows = rows.filter(
+        (p) =>
+          (p.productNumber || "").toLowerCase().includes(q) ||
+          (p.name || "").toLowerCase().includes(q) ||
+          (p.manufacturerNumber || "").toLowerCase().includes(q) ||
+          (p.ean || "").toLowerCase().includes(q),
+      );
+    }
+    if (filter?.salesChannelIds?.length) {
+      const allowed = new Set(filter.salesChannelIds);
+      rows = rows.filter((p) => {
+        const ids = (p.payload as any)?.salesChannelIds;
+        return Array.isArray(ids) && ids.some((id: string) => allowed.has(id));
+      });
+    }
+    const total = rows.length;
+    const page = filter?.page ?? 1;
+    const limit = filter?.limit;
+    if (limit && limit > 0) {
+      const start = (page - 1) * limit;
+      rows = rows.slice(start, start + limit);
+    }
+    return { rows, total };
+  }
+
+  async countShopwareProductMirrors(tenantId?: string | null): Promise<number> {
+    const tid = tenantId ?? null;
+    return this.shopwareProductMirrors.filter((p) => (p.tenantId ?? null) === tid).length;
+  }
+
+  async getShopwareProductMirrorIds(tenantId?: string | null): Promise<string[]> {
+    const tid = tenantId ?? null;
+    return this.shopwareProductMirrors
+      .filter((p) => (p.tenantId ?? null) === tid)
+      .map((p) => p.shopwareId);
+  }
+
+  async deleteShopwareProductMirrorsNotIn(keepIds: string[], tenantId?: string | null): Promise<number> {
+    const tid = tenantId ?? null;
+    const keep = new Set(keepIds);
+    const before = this.shopwareProductMirrors.length;
+    this.shopwareProductMirrors = this.shopwareProductMirrors.filter(
+      (p) => (p.tenantId ?? null) !== tid || keep.has(p.shopwareId),
+    );
+    return before - this.shopwareProductMirrors.length;
+  }
+
+  async upsertShopwareCustomerMirrors(
+    rows: Array<{
+      shopwareId: string;
+      customerNumber?: string | null;
+      email?: string | null;
+      company?: string | null;
+      groupId?: string | null;
+      groupName?: string | null;
+      salesChannelId?: string | null;
+      swUpdatedAt?: Date | null;
+      payload: Record<string, unknown>;
+    }>,
+    tenantId?: string | null,
+  ): Promise<void> {
+    const tid = tenantId ?? null;
+    for (const row of rows) {
+      const idx = this.shopwareCustomerMirrors.findIndex(
+        (c) => (c.tenantId ?? null) === tid && c.shopwareId === row.shopwareId,
+      );
+      const next: ShopwareCustomerMirror = {
+        id: idx >= 0 ? this.shopwareCustomerMirrors[idx].id : randomUUID(),
+        tenantId: tid,
+        shopwareId: row.shopwareId,
+        customerNumber: row.customerNumber ?? null,
+        email: row.email ?? null,
+        company: row.company ?? null,
+        groupId: row.groupId ?? null,
+        groupName: row.groupName ?? null,
+        salesChannelId: row.salesChannelId ?? null,
+        swUpdatedAt: row.swUpdatedAt ?? null,
+        payload: row.payload,
+        syncedAt: new Date(),
+      };
+      if (idx >= 0) this.shopwareCustomerMirrors[idx] = next;
+      else this.shopwareCustomerMirrors.push(next);
+    }
+  }
+
+  async getShopwareCustomerMirrors(tenantId?: string | null): Promise<ShopwareCustomerMirror[]> {
+    const tid = tenantId ?? null;
+    return this.shopwareCustomerMirrors.filter((c) => (c.tenantId ?? null) === tid);
+  }
+
+  async countShopwareCustomerMirrors(tenantId?: string | null): Promise<number> {
+    return (await this.getShopwareCustomerMirrors(tenantId)).length;
+  }
+
+  async getShopwareCustomerMirrorIds(tenantId?: string | null): Promise<string[]> {
+    return (await this.getShopwareCustomerMirrors(tenantId)).map((c) => c.shopwareId);
+  }
+
+  async deleteShopwareCustomerMirrorsNotIn(keepIds: string[], tenantId?: string | null): Promise<number> {
+    const tid = tenantId ?? null;
+    const keep = new Set(keepIds);
+    const before = this.shopwareCustomerMirrors.length;
+    this.shopwareCustomerMirrors = this.shopwareCustomerMirrors.filter(
+      (c) => (c.tenantId ?? null) !== tid || keep.has(c.shopwareId),
+    );
+    return before - this.shopwareCustomerMirrors.length;
+  }
+
+  async replaceShopwareB2bCompanyMirrors(
+    rows: Array<{
+      companyId: string;
+      customerId?: string | null;
+      company?: string | null;
+      email?: string | null;
+      customerNumber?: string | null;
+      active?: boolean | null;
+      salesChannelId?: string | null;
+      swUpdatedAt?: Date | null;
+      payload: Record<string, unknown>;
+    }>,
+    tenantId?: string | null,
+  ): Promise<void> {
+    const tid = tenantId ?? null;
+    this.shopwareB2bCompanyMirrors = this.shopwareB2bCompanyMirrors.filter(
+      (c) => (c.tenantId ?? null) !== tid,
+    );
+    const now = new Date();
+    for (const row of rows) {
+      this.shopwareB2bCompanyMirrors.push({
+        id: randomUUID(),
+        tenantId: tid,
+        companyId: row.companyId,
+        customerId: row.customerId ?? null,
+        company: row.company ?? null,
+        email: row.email ?? null,
+        customerNumber: row.customerNumber ?? null,
+        active: row.active ?? null,
+        salesChannelId: row.salesChannelId ?? null,
+        swUpdatedAt: row.swUpdatedAt ?? null,
+        payload: row.payload,
+        syncedAt: now,
+      });
+    }
+  }
+
+  async getShopwareB2bCompanyMirrors(tenantId?: string | null): Promise<ShopwareB2bCompanyMirror[]> {
+    const tid = tenantId ?? null;
+    return this.shopwareB2bCompanyMirrors.filter((c) => (c.tenantId ?? null) === tid);
+  }
+
+  async countShopwareB2bCompanyMirrors(tenantId?: string | null): Promise<number> {
+    return (await this.getShopwareB2bCompanyMirrors(tenantId)).length;
+  }
+
+  async replaceShopwareCustomerPriceMirrors(
+    rows: Array<{
+      priceId: string;
+      customerId?: string | null;
+      productId?: string | null;
+      productNumber?: string | null;
+      customerNumber?: string | null;
+      swUpdatedAt?: Date | null;
+      payload: Record<string, unknown>;
+    }>,
+    tenantId?: string | null,
+  ): Promise<void> {
+    const tid = tenantId ?? null;
+    this.shopwareCustomerPriceMirrors = this.shopwareCustomerPriceMirrors.filter(
+      (p) => (p.tenantId ?? null) !== tid,
+    );
+    await this.upsertShopwareCustomerPriceMirrors(rows, tenantId);
+  }
+
+  async upsertShopwareCustomerPriceMirrors(
+    rows: Array<{
+      priceId: string;
+      customerId?: string | null;
+      productId?: string | null;
+      productNumber?: string | null;
+      customerNumber?: string | null;
+      swUpdatedAt?: Date | null;
+      payload: Record<string, unknown>;
+    }>,
+    tenantId?: string | null,
+  ): Promise<void> {
+    const tid = tenantId ?? null;
+    for (const row of rows) {
+      const idx = this.shopwareCustomerPriceMirrors.findIndex(
+        (p) => (p.tenantId ?? null) === tid && p.priceId === row.priceId,
+      );
+      const next: ShopwareCustomerPriceMirror = {
+        id: idx >= 0 ? this.shopwareCustomerPriceMirrors[idx].id : randomUUID(),
+        tenantId: tid,
+        priceId: row.priceId,
+        customerId: row.customerId ?? null,
+        productId: row.productId ?? null,
+        productNumber: row.productNumber ?? null,
+        customerNumber: row.customerNumber ?? null,
+        swUpdatedAt: row.swUpdatedAt ?? null,
+        payload: row.payload,
+        syncedAt: new Date(),
+      };
+      if (idx >= 0) this.shopwareCustomerPriceMirrors[idx] = next;
+      else this.shopwareCustomerPriceMirrors.push(next);
+    }
+  }
+
+  async getShopwareCustomerPriceMirrors(tenantId?: string | null): Promise<ShopwareCustomerPriceMirror[]> {
+    const tid = tenantId ?? null;
+    return this.shopwareCustomerPriceMirrors.filter((p) => (p.tenantId ?? null) === tid);
+  }
+
+  async countShopwareCustomerPriceMirrors(tenantId?: string | null): Promise<number> {
+    return (await this.getShopwareCustomerPriceMirrors(tenantId)).length;
+  }
+
+  async getShopwareCustomerPriceMirrorIds(tenantId?: string | null): Promise<string[]> {
+    return (await this.getShopwareCustomerPriceMirrors(tenantId)).map((p) => p.priceId);
+  }
+
+  async deleteShopwareCustomerPriceMirrorsNotIn(
+    keepIds: string[],
+    tenantId?: string | null,
+  ): Promise<number> {
+    const tid = tenantId ?? null;
+    const keep = new Set(keepIds);
+    const before = this.shopwareCustomerPriceMirrors.length;
+    this.shopwareCustomerPriceMirrors = this.shopwareCustomerPriceMirrors.filter(
+      (p) => (p.tenantId ?? null) !== tid || keep.has(p.priceId),
+    );
+    return before - this.shopwareCustomerPriceMirrors.length;
   }
 }
 

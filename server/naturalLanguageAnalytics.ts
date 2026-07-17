@@ -1,4 +1,4 @@
-import { getOpenAIClientFromSettings } from "./openaiClient";
+import { getChatClientFromSettings } from "./llmClient";
 import type { AnalyticsQuery, AnalyticsQueryType } from "@shared/schema";
 import type { IStorage } from "./storage";
 
@@ -300,22 +300,23 @@ export async function processNaturalLanguageQuery(
   console.log(`[NL Analytics] Processing query from user ${userId}: "${question}"`);
 
   // Get OpenAI client (dual integration support)
-  const openaiConfig = await getOpenAIClientFromSettings(
-    (key: string) => storage.getSetting(key)
+  const openaiConfig = await getChatClientFromSettings(
+    (key: string) => storage.getSetting(key),
+    { tier: "smart" }
   );
 
   if (!openaiConfig) {
-    console.error('[NL Analytics] OpenAI not configured - neither Replit integration nor API key available');
-    throw new Error('OpenAI integration not available. Please configure API key in settings.');
+    console.error('[NL Analytics] LLM not configured - neither Replit integration nor API key available');
+    throw new Error('LLM integration not available. Please configure API key in settings.');
   }
 
-  console.log(`[NL Analytics] Using OpenAI mode: ${openaiConfig.mode}`);
+  console.log(`[NL Analytics] Using provider ${openaiConfig.provider} (${openaiConfig.model})`);
 
   try {
-    // Call OpenAI to process the natural language query with timeout
+    // Call the LLM to process the natural language query with timeout
     const completion = await Promise.race([
       openaiConfig.client.chat.completions.create({
-        model: 'gpt-4o',
+        model: openaiConfig.model,
         messages: [
           {
             role: 'system',

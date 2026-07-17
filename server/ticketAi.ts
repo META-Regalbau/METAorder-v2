@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { TicketCategory, TicketPriority } from "@shared/schema";
 import type { Ticket } from "@shared/schema";
 import type { IStorage } from "./storage";
-import { getOpenAIClientFromSettings } from "./openaiClient";
+import { getChatClientFromSettings } from "./llmClient";
 
 export type TicketAiResult = {
   category: TicketCategory;
@@ -74,7 +74,9 @@ function heuristicClassification(ticket: Ticket): TicketAiResult {
 }
 
 export async function classifyTicketForRules(storage: IStorage, ticket: Ticket): Promise<TicketAiResult> {
-  const openaiConfig = await getOpenAIClientFromSettings(storage.getSetting.bind(storage));
+  const openaiConfig = await getChatClientFromSettings(storage.getSetting.bind(storage), {
+    tier: "fast",
+  });
   if (!openaiConfig) {
     return heuristicClassification(ticket);
   }
@@ -102,7 +104,7 @@ export async function classifyTicketForRules(storage: IStorage, ticket: Ticket):
 
   try {
     const response = await openaiConfig.client.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: openaiConfig.model,
       temperature: 0,
       messages: [
         { role: "system", content: "You are a JSON-only classifier for support tickets." },

@@ -1,4 +1,4 @@
-import { getOpenAIClientFromSettings } from "./openaiClient";
+import { getChatClientFromSettings } from "./llmClient";
 import type { AnalyticsResult, AnalyticsInsight, AnalyticsQueryType } from "@shared/schema";
 import type { IStorage } from "./storage";
 
@@ -104,16 +104,17 @@ export async function generateInsights(
   console.log(`[Insights Generator] Data summary:`, JSON.stringify(data.summary, null, 2));
 
   // Get OpenAI client (dual integration support)
-  const openaiConfig = await getOpenAIClientFromSettings(
-    (key: string) => storage.getSetting(key)
+  const openaiConfig = await getChatClientFromSettings(
+    (key: string) => storage.getSetting(key),
+    { tier: "smart" }
   );
 
   if (!openaiConfig) {
-    console.warn('[Insights Generator] OpenAI not configured - returning basic insights');
+    console.warn('[Insights Generator] LLM not configured - returning basic insights');
     return generateBasicInsights(data, queryType);
   }
 
-  console.log(`[Insights Generator] Using OpenAI mode: ${openaiConfig.mode}`);
+  console.log(`[Insights Generator] Using provider ${openaiConfig.provider} (${openaiConfig.model})`);
 
   try {
     // Prepare context for AI
@@ -124,7 +125,7 @@ export async function generateInsights(
     // Call OpenAI to generate insights with timeout
     const completion = await Promise.race([
       openaiConfig.client.chat.completions.create({
-        model: 'gpt-4o',
+        model: openaiConfig.model,
         messages: [
           {
             role: 'system',

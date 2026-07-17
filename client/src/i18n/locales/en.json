@@ -269,6 +269,7 @@
     "offers": "Offers",
     "crm": "CRM",
     "b2bAccounts": "B2B Accounts",
+    "b2bUsers": "B2B Users",
     "b2bBudgets": "B2B Budgets",
     "b2bAssortments": "B2B Assortments",
     "b2bOrderLists": "B2B Order Lists",
@@ -412,6 +413,7 @@
       "month": "months",
       "year": "years"
     },
+    "restockTimeDays": "{{value}} days",
     "modal": {
       "quantity": "Quantity",
       "priceRule": "Price rule",
@@ -445,6 +447,9 @@
       "deliveryTime": "Delivery time",
       "allDeliveryTimes": "All delivery times",
       "noDeliveryTime": "Without delivery time",
+      "restockTime": "Restock time",
+      "allRestockTimes": "All restock times",
+      "noRestockTime": "Without restock time",
       "customFieldKey": "Custom field",
       "allCustomFields": "All custom fields",
       "customFieldPresence": "Presence",
@@ -463,6 +468,7 @@
       "categories": "Categories",
       "tags": "Tags",
       "deliveryTime": "Delivery time",
+      "restockTime": "Restock time",
       "customFields": "Custom fields",
       "missingDeliveryTime": "No delivery time",
       "price": "Price (gross)",
@@ -2228,7 +2234,18 @@
     "anthropicApiKeyDesc": "Stored encrypted. Required when Claude is the chat provider.",
     "anthropicModel": "Claude model ID (optional)",
     "openaiChatModel": "OpenAI chat model (optional)",
-    "openaiKeyOptionalDesc": "Optional: for semantic embeddings, vision (PDF/image extraction), and other OpenAI-only features when chat runs on Claude."
+    "openaiKeyOptionalDesc": "Optional: for semantic embeddings, vision (PDF/image extraction), and other OpenAI-only features when chat runs on Claude/Gemini.",
+    "chatProviderGoogle": "Google (Gemini)",
+    "geminiApiKey": "Gemini API key",
+    "geminiApiKeyPlaceholder": "AIza…",
+    "geminiApiKeyDesc": "Stored encrypted. Required when Gemini is the chat provider. Uses Google's OpenAI-compatible endpoint.",
+    "googleModel": "Gemini model ID (optional)",
+    "tierFast": "Default tier",
+    "smartTierTitle": "Smart tier (hard tasks)",
+    "smartTierDesc": "Only for hard tasks (e.g. uncertain intent, extraction). Leave empty = same model as the default tier. Example: default on Gemini/OpenAI, Opus only here.",
+    "smartProvider": "Provider (smart)",
+    "smartProviderInherit": "Same as default tier",
+    "smartModel": "Model (smart)"
   },
   "cache": {
     "title": "Product Cache",
@@ -3171,6 +3188,126 @@
         "employeeDeactivated": "Employee deactivated",
         "employeeDeleted": "Employee deleted",
         "employeeActionFailed": "Action failed"
+      }
+    },
+    "users": {
+      "title": "B2B portal users",
+      "subtitle": "Create individual users or import from Excel",
+      "tabs": {
+        "single": "Single user",
+        "import": "Excel import"
+      },
+      "createSuccessTitle": "User created",
+      "createSuccessDescription": "The B2B portal user was created successfully in Shopware.",
+      "updateSuccessTitle": "User updated",
+      "updateSuccessDescription": "The B2B portal user was updated in Shopware.",
+      "createErrorTitle": "Creation failed",
+      "settings": {
+        "sendEmails": "Send emails to users",
+        "sendEmailsHint": "Off (default): No welcome or registration emails on create/import. Shopware flows are suppressed.",
+        "saveErrorTitle": "Could not save setting"
+      },
+      "types": {
+        "company": "Company account",
+        "dealer": "B2B dealer",
+        "sales_rep": "Sales representative"
+      },
+      "fields": {
+        "firstName": "First name",
+        "lastName": "Last name",
+        "type": "Account type",
+        "supervisor": "Supervisor",
+        "customerGroup": "Customer group",
+        "customerGroupPlaceholder": "Select customer group",
+        "salesChannel": "Sales channel",
+        "salesChannelPlaceholder": "Select sales channel",
+        "metaCompany": "META company",
+        "metaCompanyPlaceholder": "Select company for sales reps",
+        "supervisorRole": "Supervisor role",
+        "supervisorRolePlaceholder": "Select role",
+        "password": "Password",
+        "passwordOptional": "Password (optional)",
+        "passwordOptionalPlaceholder": "Leave empty to keep unchanged",
+        "passwordMin": "Password must be at least 6 characters",
+        "confirmPassword": "Confirm password",
+        "defaultType": "Default type (when column empty)",
+        "defaultSupervisor": "Default: supervisor",
+        "groupCompany": "Customer group company",
+        "groupDealer": "Customer group dealer",
+        "groupSalesRep": "Customer group sales",
+        "addressCompany": "Company (address)",
+        "addressStreet": "Street",
+        "addressZipCode": "ZIP code",
+        "addressCity": "City",
+        "addressCountry": "Country"
+      },
+      "single": {
+        "title": "Create single user",
+        "description": "Creates a Shopware business customer plus B2B employee login. Users sign in with the employee email in the portal (not the company master account).",
+        "updateExisting": "Update existing user",
+        "updateExistingHint": "Finds by email and updates sales channel, customer group, and address.",
+        "submit": "Create user",
+        "updateSubmit": "Update user",
+        "creating": "Creating…",
+        "updating": "Updating…"
+      },
+      "import": {
+        "title": "Excel import",
+        "description": "Columns: first name, last name, email, optional type and supervisor. Password and address apply to all rows.",
+        "updateExisting": "Update existing users",
+        "updateExistingHint": "Known emails are corrected (sales channel, customer group, address). New emails are created.",
+        "downloadTemplate": "Download template",
+        "dropzone": "Drop Excel file here or click",
+        "dropzoneSub": ".xlsx file (max. 10 MB)",
+        "dryRun": "Preview (dry-run)",
+        "apply": "Import",
+        "running": "Processing…",
+        "dryRunTitle": "Preview (no changes)",
+        "appliedTitle": "Import applied",
+        "appliedToast": "Import applied successfully",
+        "summary": "{{total}} row(s), {{created}} created, {{wouldCreate}} would be created, {{updated}} updated, {{wouldUpdate}} would be updated, {{skipped}} skipped, {{errors}} errors",
+        "parseErrorsTitle": "Parse errors in Excel file",
+        "parseErrorLine": "Row {{row}}: {{message}}",
+        "problemsTitle": "Needs review",
+        "problemsHint": "These rows were not or only partially processed.",
+        "errorTitle": "Import failed",
+        "errorGeneric": "An error occurred while processing the file.",
+        "table": {
+          "row": "Row",
+          "message": "Message"
+        },
+        "status": {
+          "would_create": "Would create",
+          "created": "Created",
+          "would_update": "Would update",
+          "updated": "Updated",
+          "skipped_duplicate": "Email exists",
+          "error": "Error"
+        }
+      },
+      "verify": {
+        "button": "Test login",
+        "running": "Testing login…",
+        "resultTitle": "Login verification",
+        "successTitle": "Login OK",
+        "successDescription": "The user can sign in on the storefront.",
+        "failedTitle": "Login failed",
+        "failedDescription": "Could not sign in on the sales channel.",
+        "overall": {
+          "pass": "OK",
+          "warn": "Warning",
+          "fail": "Failed"
+        },
+        "checkStatus": {
+          "pass": "OK",
+          "warn": "Warning",
+          "fail": "Failed",
+          "skip": "Skipped"
+        },
+        "table": {
+          "check": "Check",
+          "overall": "Login check"
+        }
       }
     },
     "budgets": {

@@ -324,6 +324,7 @@
       "month": "meses",
       "year": "años"
     },
+    "restockTimeDays": "{{value}} días",
     "modal": {
       "quantity": "Cantidad",
       "priceRule": "Regla de precio",
@@ -357,6 +358,9 @@
       "deliveryTime": "Plazo de entrega",
       "allDeliveryTimes": "Todos los plazos",
       "noDeliveryTime": "Sin plazo de entrega",
+      "restockTime": "Tiempo de reposición",
+      "allRestockTimes": "Todos los tiempos de reposición",
+      "noRestockTime": "Sin tiempo de reposición",
       "customFieldKey": "Campo personalizado",
       "allCustomFields": "Todos los campos personalizados",
       "customFieldPresence": "Presencia",
@@ -375,6 +379,7 @@
       "categories": "Categorías",
       "tags": "Etiquetas",
       "deliveryTime": "Plazo de entrega",
+      "restockTime": "Tiempo de reposición",
       "customFields": "Campos pers.",
       "missingDeliveryTime": "Sin plazo",
       "price": "Precio (bruto)",

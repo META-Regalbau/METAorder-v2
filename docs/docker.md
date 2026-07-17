@@ -116,6 +116,9 @@ Shopware, E-Mail, optionale Dienste: wie bisher ueber `.env` / Compose `environm
 | `CROSS_SELL_LLM_RERANK_ENABLED` | Optional: `false` / `0` schaltet **GPT-4o Re-Rank** fuer Cross-Sell-Vorschlaege aus (rein heuristischer Hybrid-Score). Default in der App: **an**, wenn OpenAI konfiguriert ist. |
 | `CROSS_SELL_LLM_RERANK_TOPK` | Optional: Zahl — wie viele Hybrid-Kandidaten maximal an das LLM gehen (Default **25**). |
 | `CROSS_SELL_LLM_RERANK_TTL_HOURS` | Optional: Cache-TTL in Stunden fuer LLM-Re-Rank pro Quellartikel (Default **24**). |
+| `SHOPWARE_SYNC_ENABLED` | Optional: `false` deaktiviert den Hintergrund-Worker fuer den persistenten Shopware-Spiegel (Produkte, Kunden, B2B-Firmen, Kundenpreise). Default: an. |
+| `SHOPWARE_SYNC_INTERVAL_MINUTES` | Optional: Intervall des Delta-Sync-Workers in Minuten (Default **3**). |
+| `SHOPWARE_SYNC_RECONCILE_MINUTES` | Optional: Intervall fuer ID-Sweep / Soft-Delete-Abgleich in Minuten (Default **60**). |
 | `METAORDER_GTIN_ARTICLE_PREFIX` | Optional: Nur Ziffern — gemeinsamer Anfang firmeneigener GTIN/EAN (Default **4026212**). Steuert 6-stellige Artikelnummern als GTIN-Fragment sowie synthetische GTIN (`Präfix + 6 Ziffern`) im Katalog-Matching; überschreibbar pro Installation. Typische Anfrage-Schreibweise **„4026212 073492“** (Leerzeichen zwischen Präfix und Suffix) wird erkannt; ohne dieses Muster gelten sechsstellige Suffixe nur ab **200000**, damit nicht jede 6er-Zahl als Artikel gilt. |
 | `B2B_ENTITY_*` | Optional: Shopware-Entitätsnamen der **B2Bsellers Suite** (Standard: `b2bsellers-offer-customer`, `b2bsellers-employee`, `b2bsellers-budget`, …). Code-Defaults in `shared/b2bEntityMapping.ts`; pro Mandant überschreibbar unter **Einstellungen → Shopware → B2B-Entitäts-Mapping**. Keine Pflicht-Env-Vars — nur bei abweichenden Plugin-Versionen setzen. |
 | `SENTRY_DSN_BACKEND` | Optional: Backend-DSN fuer Sprint-8 Monitoring Basisintegration. |
@@ -134,7 +137,7 @@ KI-Schluessel (OpenAI / Anthropic) werden in der Regel **in der App unter Einste
 
 | Pfad / Volume | Inhalt |
 |---------------|--------|
-| Postgres-Volume (`metaorder_pgdata` in Compose) | Datenbank inkl. `installment_plans` / `installment_invoices` |
+| Postgres-Volume (`metaorder_pgdata` in Compose) | Datenbank inkl. `installment_plans` / `installment_invoices` sowie Shopware-Spiegel (`shopware_products`, `shopware_customers`, `shopware_b2b_companies`, `shopware_customer_prices`, `shopware_sync_state`; Migration `0019_shopware_mirror.sql`) |
 | **`/app/uploads`** (Volume `metaorder_uploads`) | u. a. `installment-agreements/` (PDF Teilzahlungsvereinbarung), `dunning/`, **`ticket-attachments/`** (E-Mail-Anhänge ohne Google Object Storage), `commercial-agent-incoming/` (Commercial Agent PDFs), optional Debug-Logdatei wenn `COMMERCIAL_AGENT_DEBUG_FILE` darauf zeigt |
 | **`/app/server/pdfAssets/`** (im Image, ohne Volume) | Standard-PDF-Logo **`META_at_all_levels_RGB.png`** — durch eigenes META-Firmenlogo ersetzen (Custom-Image bauen) oder `METAORDER_PDF_LOGO_PATH` setzen. |
 
