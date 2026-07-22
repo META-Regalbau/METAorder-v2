@@ -12315,17 +12315,17 @@ Antworte im JSON-Format:
             }
           });
 
-          // Vollständiger Kundenstamm aus dem Shopware-Mirror: sorgt dafür, dass
-          // ALLE Shopware-Kunden im CRM erscheinen – auch solche ohne Bestellung,
-          // individuellen Preis oder Ticket.
+          // Vollständiger Kundenstamm aus dem Shopware-Mirror: die AUTORITATIVE
+          // Quelle für den Kundenbestand UND die Kanal-Zugehörigkeit. Ein Kunde
+          // "gehört" zu dem Verkaufskanal, in dem sein Shopware-Konto gebunden ist
+          // (salesChannelId) – NICHT (nur) dem Kanal, in dem er bestellt hat.
           //
-          // WICHTIG: Bereits aggregierte Kunden (aus Bestellungen/Preisen/Tickets)
-          // werden NUR um Stammdaten ergänzt – ihre bisherigen salesChannelIds
-          // bleiben UNVERÄNDERT. Andernfalls würde das Ergänzen der im Mirror
-          // gebundenen Kanal-ID Kunden, die vorher keine Kanal-ID hatten (und
-          // damit für alle sichtbar waren), bei kanalbeschränkten Nutzern aus dem
-          // Verkaufskanal-Filter fallen lassen -> die Liste würde kleiner statt
-          // größer. Die vorher sichtbare Menge muss eine Teilmenge bleiben.
+          // Der gebundene Kanal wird per Union zu salesChannelIds hinzugefügt.
+          // Union kann die sichtbare Menge nur VERGRÖSSERN (mehr Treffer im
+          // Kanal-Filter), nie verkleinern. Dadurch zeigt z. B. "Händler Portal DE"
+          // ALLE dort gebundenen Kunden, nicht nur die, die dort bestellt haben.
+          // Kunden mit demselben E-Mail in mehreren Kanälen (Shop + Portal) landen
+          // in einem CRM-Eintrag mit beiden Kanälen.
           const customerMirrors = await storage.getShopwareCustomerMirrors(tenantId);
           for (const mirror of customerMirrors) {
             const payload = (mirror.payload as any) ?? {};
@@ -12334,7 +12334,7 @@ Antworte im JSON-Format:
 
             const existing = aggregation.get(email);
             if (existing) {
-              // Kanal-IDs bewusst NICHT verändern (siehe Hinweis oben).
+              if (mirror.salesChannelId) existing.salesChannelIds.add(mirror.salesChannelId);
               if (!existing.company && (mirror.company ?? payload.company)) {
                 existing.company = mirror.company ?? payload.company;
               }
@@ -13158,10 +13158,16 @@ Antworte im JSON-Format:
       const client = new ShopwareClient(settings);
       const counts = await client.fetchCustomerCounts();
 
-      // Lokaler Kunden-Mirror: zeigt, ob der vollständige Kundenstamm bereits
-      // gespiegelt ist (Basis der CRM-Liste). 0 bedeutet: Sync noch nicht
-      // gelaufen -> CRM-Liste zeigt nur Kunden mit Bestellung/Preis/Ticket.
+      // Kunden-Mirror im Hintergrund anstoßen, damit der vollständige Stamm
+      // (Basis der CRM-Liste) befüllt/aktualisiert wird.
+      const { triggerShopwareMirrorSync } = await import("./shopwareMirror");
+      triggerShopwareMirrorSync(storage, client, tenantId, ["customers"]);
+
+      // Lokaler Kunden-Mirror + Sync-Status: zeigt, ob der vollständige
+      // Kundenstamm bereits gespiegelt ist (Basis der CRM-Liste) und ob der
+      // Sync ggf. mit einem Fehler hängt.
       const mirrorCount = await storage.countShopwareCustomerMirrors(tenantId);
+      const syncState = await storage.getShopwareSyncState("customers", tenantId);
 
       res.json({
         configured: true,
@@ -13169,6 +13175,12 @@ Antworte im JSON-Format:
         byChannel: counts.byChannel,
         mirrorCount,
         mirrorSynced: mirrorCount >= counts.total,
+        sync: {
+          status: syncState?.status ?? "unknown",
+          error: syncState?.error ?? null,
+          lastTotal: syncState?.lastTotal ?? null,
+          lastDeltaAt: syncState?.lastDeltaAt ?? null,
+        },
       });
     } catch (error: any) {
       console.error("Error loading customer count:", error?.message || error);
