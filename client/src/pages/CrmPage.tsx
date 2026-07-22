@@ -85,6 +85,7 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
     pluginDetected: boolean;
     customerCount: number;
     emails: string[];
+    channelsByEmail?: Record<string, string[]>;
   }>({
     queryKey: ["/api/crm/customers/individual-prices-index"],
     enabled: canViewCrm,
@@ -175,6 +176,9 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
   );
   const hasIndividualPrice = (customer: CrmCustomer) =>
     customer.hasIndividualPrice ?? individualPriceEmails.has((customer.email || "").toLowerCase());
+
+  const channelsForCustomer = (customer: CrmCustomer): string[] =>
+    individualPricesIndex?.channelsByEmail?.[(customer.email || "").toLowerCase()] ?? [];
 
   const individualPricesInView = useMemo(
     () => customers.filter((customer) => hasIndividualPrice(customer)).length,
@@ -405,8 +409,18 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
                             <div className="flex items-center gap-2">
                               <span className="font-medium">{customer.name}</span>
                               {hasIndividualPrice(customer) && (
-                                <Badge className="bg-green-600 hover:bg-green-600">
+                                <Badge
+                                  className="bg-green-600 hover:bg-green-600"
+                                  title={
+                                    channelsForCustomer(customer).length > 0
+                                      ? channelsForCustomer(customer).join(", ")
+                                      : undefined
+                                  }
+                                >
                                   {t("crm.customers.individualPriceBadge")}
+                                  {channelsForCustomer(customer).length > 0
+                                    ? ` · ${channelsForCustomer(customer).join(", ")}`
+                                    : ""}
                                 </Badge>
                               )}
                               {isPossibleExisting(customer.company) && (

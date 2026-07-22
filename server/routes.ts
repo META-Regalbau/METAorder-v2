@@ -12153,11 +12153,13 @@ Antworte im JSON-Format:
           const ordersFp = await client.fetchOrdersFingerprint();
           const ipFp = await client.fetchIndividualPriceCustomerFingerprint();
           const tickets = await storage.getAllTickets();
+          const customerMirrorCount = await storage.countShopwareCustomerMirrors(tenantId);
           return stableFingerprint({
             orders: ordersFp ?? "none",
             crmRows: customerRows.length,
             tickets: tickets.length,
             individualPrices: ipFp ?? "none",
+            customerMirror: customerMirrorCount,
           });
         },
         fetchFull: async () => {
@@ -12178,6 +12180,10 @@ Antworte im JSON-Format:
           const settings = await storage.getShopwareSettings(tenantId);
           if (settings) {
             const client = new ShopwareClient(settings);
+            // Kundenstamm im Hintergrund spiegeln, damit die CRM-Liste den
+            // vollständigen Shopware-Kundenbestand (nicht nur aktive) abbildet.
+            const { triggerShopwareMirrorSync } = await import("./shopwareMirror");
+            triggerShopwareMirrorSync(storage, client, tenantId, ["customers"]);
             const { orders } = await getOrdersWithCache(client, tenantId);
 
             orders.forEach((order) => {
@@ -12308,6 +12314,45 @@ Antworte im JSON-Format:
               });
             }
           });
+
+          // Vollständiger Kundenstamm aus dem Shopware-Mirror: sorgt dafür, dass
+          // ALLE Shopware-Kunden im CRM erscheinen – auch solche ohne Bestellung,
+          // individuellen Preis oder Ticket. Bereits aggregierte Kunden werden
+          // nur um Kanal-/Stammdaten ergänzt (per E-Mail zusammengeführt).
+          const customerMirrors = await storage.getShopwareCustomerMirrors(tenantId);
+          for (const mirror of customerMirrors) {
+            const payload = (mirror.payload as any) ?? {};
+            const email = (mirror.email || payload.email || "").toLowerCase();
+            if (!email) continue;
+
+            const existing = aggregation.get(email);
+            if (existing) {
+              if (mirror.salesChannelId) existing.salesChannelIds.add(mirror.salesChannelId);
+              if (!existing.company && (mirror.company ?? payload.company)) {
+                existing.company = mirror.company ?? payload.company;
+              }
+              if (!existing.phone && payload.phone) existing.phone = payload.phone;
+              if (!existing.shopwareCustomerId) existing.shopwareCustomerId = mirror.shopwareId;
+              continue;
+            }
+
+            const firstName = payload.firstName || "";
+            const lastName = payload.lastName || "";
+            aggregation.set(email, {
+              email: mirror.email || email,
+              shopwareCustomerId: mirror.shopwareId,
+              name: `${firstName} ${lastName}`.trim() || mirror.email || email,
+              phone: payload.phone ?? null,
+              company: mirror.company ?? payload.company ?? null,
+              totalOrders: 0,
+              totalRevenue: 0,
+              lastOrderNumber: null,
+              lastOrderDate: null,
+              salesChannelIds: mirror.salesChannelId
+                ? new Set([mirror.salesChannelId])
+                : new Set<string>(),
+            });
+          }
 
           return Array.from(aggregation.entries()).map(([emailKey, data]) => {
             const stored = customerByEmail.get(emailKey);
@@ -12693,32 +12738,74 @@ Antworte im JSON-Format:
       const tenantId = (req as any).tenantId as string | null | undefined;
       const emailKey = customer.email.toLowerCase();
 
-      let swCustomerId: string | undefined;
-      let swCustomerNumber: string | null = null;
+      // Eine Person kann in mehreren Verkaufskanälen (bound sales channel) als
+      // separate Shopware-Kunden mit gleicher E-Mail existieren – z. B. Portal
+      // (mit individuellen Preisen) und Shop (ohne). Wir sammeln ALLE passenden
+      // Accounts ein und beschriften jeden Preis mit seinem Verkaufskanal, damit
+      // die beiden Kanäle im Frontend getrennt betrachtbar sind.
+      type MatchedAccount = {
+        customerId: string | null;
+        customerNumber: string | null;
+        salesChannelId: string | null;
+      };
+      const matchedAccounts: MatchedAccount[] = [];
 
       // Prefer customer mirror for resolve
       const mirroredCustomers = await storage.getShopwareCustomerMirrors(tenantId);
-      const mirrored = mirroredCustomers.find((c) => (c.email || "").toLowerCase() === emailKey);
-      if (mirrored) {
-        swCustomerId = mirrored.shopwareId;
-        swCustomerNumber = mirrored.customerNumber;
-      } else {
-        let resolved: any = null;
+      const mirroredMatches = mirroredCustomers.filter(
+        (c) => (c.email || "").toLowerCase() === emailKey,
+      );
+      for (const m of mirroredMatches) {
+        matchedAccounts.push({
+          customerId: m.shopwareId ?? null,
+          customerNumber: m.customerNumber ?? null,
+          salesChannelId: m.salesChannelId ?? null,
+        });
+      }
+
+      if (matchedAccounts.length === 0) {
         try {
-          resolved = await client.findCustomerByEmail(customer.email);
+          const resolvedList = await client.findCustomersByEmail(customer.email);
+          for (const r of resolvedList) {
+            matchedAccounts.push({
+              customerId: r.id ?? null,
+              customerNumber: r.customerNumber ?? null,
+              salesChannelId: r.salesChannelId ?? null,
+            });
+          }
         } catch (resolveError: any) {
           console.warn("[individual-prices] customer resolve failed:", resolveError?.message || resolveError);
         }
-        swCustomerId = resolved?.id;
-        swCustomerNumber =
-          (resolved?.attributes?.customerNumber ?? resolved?.customerNumber)
-            ? String(resolved.attributes?.customerNumber ?? resolved.customerNumber)
-            : null;
       }
 
-      if (!swCustomerId && !swCustomerNumber) {
+      const swCustomerIds = new Set(
+        matchedAccounts.map((a) => a.customerId).filter((v): v is string => Boolean(v)),
+      );
+      const swCustomerNumbers = new Set(
+        matchedAccounts.map((a) => a.customerNumber).filter((v): v is string => Boolean(v)),
+      );
+
+      if (swCustomerIds.size === 0 && swCustomerNumbers.size === 0) {
         return res.json({ available: false, total: 0, prices: [], resolved: false, configured: true });
       }
+
+      // Optionaler Kanal-Filter (?salesChannelId=...) für die getrennte Betrachtung.
+      const salesChannelFilter =
+        typeof req.query.salesChannelId === "string" && req.query.salesChannelId.trim()
+          ? req.query.salesChannelId.trim()
+          : null;
+
+      // Lookups customerId/customerNumber -> salesChannelId für die Preis-Beschriftung.
+      const channelByCustomerId = new Map<string, string | null>();
+      const channelByCustomerNumber = new Map<string, string | null>();
+      for (const a of matchedAccounts) {
+        if (a.customerId) channelByCustomerId.set(a.customerId, a.salesChannelId);
+        if (a.customerNumber) channelByCustomerNumber.set(a.customerNumber, a.salesChannelId);
+      }
+
+      // Primär-ID (erste) für Kontext-Abfragen wie Standardrabatt.
+      const primaryCustomerId = swCustomerIds.size > 0 ? Array.from(swCustomerIds)[0] : undefined;
+      const primaryCustomerNumber = swCustomerNumbers.size > 0 ? Array.from(swCustomerNumbers)[0] : null;
 
       const currency =
         typeof req.query.currency === "string" && req.query.currency.trim()
@@ -12734,8 +12821,8 @@ Antworte im JSON-Format:
       if (mirroredPrices.length > 0) {
         basePrices = mirroredPrices
           .filter((row) => {
-            if (swCustomerId && row.customerId === swCustomerId) return true;
-            if (swCustomerNumber && row.customerNumber === swCustomerNumber) return true;
+            if (row.customerId && swCustomerIds.has(row.customerId)) return true;
+            if (row.customerNumber && swCustomerNumbers.has(row.customerNumber)) return true;
             return false;
           })
           .map((row) => row.payload as import("./shopware").ShopwareCustomerPrice)
@@ -12749,17 +12836,53 @@ Antworte im JSON-Format:
       } else {
         const { triggerShopwareMirrorSync } = await import("./shopwareMirror");
         triggerShopwareMirrorSync(storage, client, tenantId ?? null, ["customer_prices"]);
-        const result = await client.fetchAllCustomerSpecificPrices({
-          customerId: swCustomerId,
-          customerNumber: swCustomerNumber,
-          currencyIsoCode: currency,
-        });
-        basePrices = result.prices;
-        pluginEntity = result.entity;
+        // Preise für alle passenden Kunden (beide Kanäle) laden und mergen.
+        // Dedup NUR innerhalb desselben Accounts (per Preis-ID) – Kanäle bleiben
+        // getrennt, damit gleiche Produkte pro Kanal separat sichtbar sind.
+        const seenPriceIds = new Set<string>();
+        const targets: Array<{ customerId?: string; customerNumber?: string }> =
+          swCustomerIds.size > 0
+            ? Array.from(swCustomerIds).map((customerId) => ({ customerId }))
+            : Array.from(swCustomerNumbers).map((customerNumber) => ({ customerNumber }));
+        for (const target of targets) {
+          const result = await client.fetchAllCustomerSpecificPrices({
+            customerId: target.customerId ?? null,
+            customerNumber: target.customerNumber ?? null,
+            currencyIsoCode: currency,
+          });
+          if (result.entity) pluginEntity = result.entity;
+          for (const price of result.prices) {
+            const dedupeKey =
+              price.id ||
+              `${price.customerId ?? target.customerId ?? target.customerNumber}|${price.productNumber}|${price.from}|${price.to}|${price.priceNet}`;
+            if (seenPriceIds.has(dedupeKey)) continue;
+            seenPriceIds.add(dedupeKey);
+            basePrices.push(price);
+          }
+        }
       }
 
-      const standardDiscountPercent = swCustomerId
-        ? await client.fetchCustomerB2BStandardDiscount(swCustomerId).catch(() => null)
+      // Jeden Preis mit seinem Verkaufskanal beschriften.
+      const channelNameMap = await client.fetchSalesChannelNameMap().catch(() => new Map<string, string>());
+      const resolveChannelId = (p: import("./shopware").ShopwareCustomerPrice): string | null => {
+        if (p.salesChannelId) return p.salesChannelId;
+        if (p.customerId && channelByCustomerId.has(p.customerId)) return channelByCustomerId.get(p.customerId) ?? null;
+        if (p.customerNumber && channelByCustomerNumber.has(p.customerNumber)) return channelByCustomerNumber.get(p.customerNumber) ?? null;
+        return null;
+      };
+      for (const p of basePrices) {
+        const scId = resolveChannelId(p);
+        p.salesChannelId = scId;
+        p.salesChannelName = scId ? channelNameMap.get(scId) ?? scId : null;
+      }
+
+      // Optionaler Kanal-Filter anwenden.
+      if (salesChannelFilter) {
+        basePrices = basePrices.filter((p) => p.salesChannelId === salesChannelFilter);
+      }
+
+      const standardDiscountPercent = primaryCustomerId
+        ? await client.fetchCustomerB2BStandardDiscount(primaryCustomerId).catch(() => null)
         : null;
 
       const pricesWithDiscounts = await client.enrichCustomerSpecificPricesWithDiscounts(basePrices);
@@ -12772,17 +12895,48 @@ Antworte im JSON-Format:
         minMarginPercent: profitabilitySettings.minMarginPercent,
       });
 
+      // Kanal-Übersicht: alle gematchten Accounts + Preiszahl je Kanal.
+      const priceCountByChannel = new Map<string, number>();
+      for (const p of prices) {
+        const key = p.salesChannelId ?? "__none__";
+        priceCountByChannel.set(key, (priceCountByChannel.get(key) ?? 0) + 1);
+      }
+      const channelsSeen = new Set<string>();
+      const channels: Array<{
+        salesChannelId: string | null;
+        salesChannelName: string | null;
+        customerId: string | null;
+        customerNumber: string | null;
+        priceCount: number;
+      }> = [];
+      for (const a of matchedAccounts) {
+        const key = a.salesChannelId ?? "__none__";
+        if (channelsSeen.has(key)) continue;
+        channelsSeen.add(key);
+        channels.push({
+          salesChannelId: a.salesChannelId,
+          salesChannelName: a.salesChannelId ? channelNameMap.get(a.salesChannelId) ?? a.salesChannelId : null,
+          customerId: a.customerId,
+          customerNumber: a.customerNumber,
+          priceCount: priceCountByChannel.get(key) ?? 0,
+        });
+      }
+
       res.json({
         available: prices.length > 0,
         total: prices.length,
         prices,
         currency,
+        salesChannelId: salesChannelFilter,
+        channels,
         standardDiscountPercent,
         profitabilityMinMarginPercent: profitabilitySettings.minMarginPercent,
         resolved: true,
         configured: true,
-        customerId: swCustomerId ?? null,
-        customerNumber: swCustomerNumber,
+        customerId: primaryCustomerId ?? null,
+        customerNumber: primaryCustomerNumber,
+        matchedCustomerIds: Array.from(swCustomerIds),
+        matchedCustomerNumbers: Array.from(swCustomerNumbers),
         pluginDetected: pluginEntity != null,
         fromMirror,
       });
@@ -12862,9 +13016,18 @@ Antworte im JSON-Format:
         const customers = await storage.getShopwareCustomerMirrors(tenantId);
         const byId = new Map(customers.map((c) => [c.shopwareId, c]));
         const emails = new Set<string>();
+        const channelNameMap = await client.fetchSalesChannelNameMap().catch(() => new Map<string, string>());
+        // E-Mail -> Verkaufskanäle, in denen der Kunde individuelle Preise hat.
+        const channelsByEmail: Record<string, string[]> = {};
         for (const id of customerIds) {
           const c = byId.get(id);
-          if (c?.email) emails.add(c.email.toLowerCase());
+          if (!c?.email) continue;
+          const key = c.email.toLowerCase();
+          emails.add(key);
+          const name = c.salesChannelId ? channelNameMap.get(c.salesChannelId) ?? c.salesChannelId : null;
+          if (!name) continue;
+          const list = (channelsByEmail[key] ??= []);
+          if (!list.includes(name)) list.push(name);
         }
         const { triggerShopwareMirrorSync } = await import("./shopwareMirror");
         triggerShopwareMirrorSync(storage, client, tenantId, ["customer_prices", "customers"]);
@@ -12873,6 +13036,7 @@ Antworte im JSON-Format:
           pluginDetected: true,
           customerCount: customerIds.size,
           emails: Array.from(emails),
+          channelsByEmail,
           fromMirror: true,
         });
       }
@@ -12887,15 +13051,113 @@ Antworte im JSON-Format:
         fetchFull: () => client.fetchIndividualPriceCustomerIndex(),
       });
 
+      const channelNameMap = await client.fetchSalesChannelNameMap().catch(() => new Map<string, string>());
+      const channelsByEmail: Record<string, string[]> = {};
+      for (const c of index.customers ?? []) {
+        const key = (c.email || "").toLowerCase();
+        if (!key) continue;
+        const name = c.salesChannelId ? channelNameMap.get(c.salesChannelId) ?? c.salesChannelId : null;
+        if (!name) continue;
+        const list = (channelsByEmail[key] ??= []);
+        if (!list.includes(name)) list.push(name);
+      }
+
       res.json({
         configured: true,
         pluginDetected: index.entity != null,
         customerCount: index.customerCount,
         emails: index.emails,
+        channelsByEmail,
       });
     } catch (error: any) {
       console.error("Error loading individual prices index:", error?.message || error);
       res.status(500).json({ error: "Failed to load individual prices index" });
+    }
+  });
+
+  // Diagnose: Rohzahlen zu kundenindividuellen Preisen direkt aus Shopware +
+  // Vergleich mit dem lokalen Mirror. Hilft zu klären, ob der angezeigte
+  // "X Kunden mit individuellen Preisen" Zähler vollständig ist.
+  app.get("/api/crm/customers/individual-prices-diagnostics", requireAuth, requireViewCrm, async (req, res) => {
+    try {
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.json({ configured: false });
+      }
+
+      const tenantId = (req as any).tenantId ?? null;
+      const client = new ShopwareClient(settings);
+
+      // Live-Rohzahlen aus Shopware.
+      const live = await client.fetchIndividualPriceDiagnostics();
+
+      // Lokaler Mirror-Vergleich.
+      const mirrorRows = await storage.getShopwareCustomerPriceMirrors(tenantId);
+      const mirrorCustomerIds = new Set<string>();
+      const mirrorCustomerNumbers = new Set<string>();
+      let mirrorRowsWithoutCustomerId = 0;
+      for (const row of mirrorRows) {
+        if (row.customerId) mirrorCustomerIds.add(row.customerId);
+        else mirrorRowsWithoutCustomerId += 1;
+        if (row.customerNumber) mirrorCustomerNumbers.add(row.customerNumber);
+      }
+
+      // Wie viele der Live-Kunden lassen sich per E-Mail im Customer-Mirror auflösen?
+      const customerMirrors = await storage.getShopwareCustomerMirrors(tenantId);
+      const resolvableEmails = new Set(
+        customerMirrors
+          .filter((c) => mirrorCustomerIds.has(c.shopwareId) && c.email)
+          .map((c) => (c.email as string).toLowerCase()),
+      );
+
+      res.json({
+        configured: true,
+        pluginDetected: live.entity != null,
+        entity: live.entity,
+        live: {
+          totalPriceRows: live.totalRows,
+          distinctCustomerId: live.distinctCustomerId,
+          distinctCustomerNumber: live.distinctCustomerNumber,
+          rowsWithoutCustomerId: live.rowsWithoutCustomerId,
+          aggregationCapped: live.aggregationCapped,
+        },
+        mirror: {
+          priceRows: mirrorRows.length,
+          distinctCustomerId: mirrorCustomerIds.size,
+          distinctCustomerNumber: mirrorCustomerNumbers.size,
+          rowsWithoutCustomerId: mirrorRowsWithoutCustomerId,
+          resolvableEmails: resolvableEmails.size,
+        },
+        note:
+          "displayedCount = mirror.distinctCustomerId (bei vorhandenem Mirror) bzw. Live-Index. " +
+          "Ist live.distinctCustomerId oder distinctCustomerNumber deutlich groesser, ist der angezeigte Zaehler unvollstaendig.",
+      });
+    } catch (error: any) {
+      console.error("Error loading individual prices diagnostics:", error?.message || error);
+      res.status(500).json({ error: "Failed to load individual prices diagnostics" });
+    }
+  });
+
+  // Anzahl der Kunden im Shop (gesamt) + Aufschlüsselung pro Verkaufskanal
+  // (z. B. Shop vs. Händler-Portal). Liefert die Live-Zahl direkt aus Shopware.
+  app.get("/api/crm/customers/count", requireAuth, requireViewCrm, async (req, res) => {
+    try {
+      const settings = await storage.getShopwareSettings();
+      if (!settings) {
+        return res.json({ configured: false, total: 0, byChannel: [] });
+      }
+
+      const client = new ShopwareClient(settings);
+      const counts = await client.fetchCustomerCounts();
+
+      res.json({
+        configured: true,
+        total: counts.total,
+        byChannel: counts.byChannel,
+      });
+    } catch (error: any) {
+      console.error("Error loading customer count:", error?.message || error);
+      res.status(500).json({ error: "Failed to load customer count" });
     }
   });
 

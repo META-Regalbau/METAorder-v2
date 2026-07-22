@@ -821,7 +821,36 @@
     "daysDelayed": "Días de retraso",
     "days": "días",
     "searchPlaceholder": "Buscar pedidos retrasados...",
-    "noDelayed": "No se encontraron pedidos retrasados"
+    "noDelayed": "No se encontraron pedidos retrasados",
+    "stats": {
+      "totalAmount": "Importe total",
+      "totalAmountHint": "Suma de todos los pedidos mostrados",
+      "withInvoice": "Con factura",
+      "withInvoiceHint": "Pedidos con documento de factura",
+      "withoutInvoice": "Sin factura",
+      "withoutInvoiceHint": "Pedidos sin documento de factura"
+    },
+    "selection": {
+      "selected": "{{count}} seleccionados",
+      "selectedTotal": "· Importe total {{amount}}",
+      "createTicket": "Crear ticket",
+      "clear": "Anular selección",
+      "selectAll": "Seleccionar todo",
+      "selectRow": "Seleccionar pedido {{orderNumber}}"
+    },
+    "ticket": {
+      "titleSingle": "Pedido retrasado {{orderNumber}} – {{customer}}",
+      "titleMultiple": "Pedidos retrasados ({{count}})",
+      "summaryHeading": "Pedidos retrasados – resumen para el agente",
+      "summaryCount": "Número de pedidos",
+      "summaryTotal": "Importe total",
+      "summaryWithInvoice": "Con factura",
+      "summaryWithoutInvoice": "Sin factura",
+      "ordersHeading": "Pedidos afectados",
+      "orderLine": "• N.º pedido {{orderNumber}} | Cliente: {{customer}} | Fecha: {{date}} | {{days}} días de retraso | {{amount}} | Factura: {{invoice}} | Estado: {{status}} | Pago: {{payment}}",
+      "invoiceYes": "Sí",
+      "invoiceNo": "No"
+    }
   },
   "dunningPreview": {
     "title": "Vista previa de cobranzas",
@@ -1998,6 +2027,7 @@
     "noAttachments": "Sin archivos adjuntos",
     "attachmentDeleted": "Archivo adjunto eliminado",
     "relatedOrder": "Pedido Relacionado",
+    "relatedOrders": "Pedidos Relacionados ({{count}})",
     "noTickets": "No se encontraron tickets",
     "createTicket": "Crear Ticket",
     "editTicket": "Editar Ticket",
@@ -2674,6 +2704,9 @@
         "validity": "Validez",
         "alwaysValid": "Siempre válido",
         "currency": "Moneda",
+        "salesChannel": "Canal de venta",
+        "allSalesChannels": "Todos los canales de venta",
+        "unknownChannel": "Canal desconocido",
         "summaryForCurrency": "{{count}} precios en {{currency}}",
         "emptyForCurrency": "No hay precios en {{currency}}",
         "standardDiscount": "Descuento estándar (B2B)",

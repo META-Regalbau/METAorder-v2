@@ -913,7 +913,36 @@
     "daysDelayed": "Days delayed",
     "days": "days",
     "searchPlaceholder": "Search delayed orders...",
-    "noDelayed": "No delayed orders found"
+    "noDelayed": "No delayed orders found",
+    "stats": {
+      "totalAmount": "Total amount",
+      "totalAmountHint": "Sum of all displayed orders",
+      "withInvoice": "With invoice",
+      "withInvoiceHint": "Orders with an invoice document",
+      "withoutInvoice": "Without invoice",
+      "withoutInvoiceHint": "Orders without an invoice document"
+    },
+    "selection": {
+      "selected": "{{count}} selected",
+      "selectedTotal": "· Total {{amount}}",
+      "createTicket": "Create ticket",
+      "clear": "Clear selection",
+      "selectAll": "Select all",
+      "selectRow": "Select order {{orderNumber}}"
+    },
+    "ticket": {
+      "titleSingle": "Delayed order {{orderNumber}} – {{customer}}",
+      "titleMultiple": "Delayed orders ({{count}})",
+      "summaryHeading": "Delayed orders – overview for the agent",
+      "summaryCount": "Number of orders",
+      "summaryTotal": "Total amount",
+      "summaryWithInvoice": "With invoice",
+      "summaryWithoutInvoice": "Without invoice",
+      "ordersHeading": "Affected orders",
+      "orderLine": "• Order no. {{orderNumber}} | Customer: {{customer}} | Order date: {{date}} | {{days}} days delayed | {{amount}} | Invoice: {{invoice}} | Status: {{status}} | Payment: {{payment}}",
+      "invoiceYes": "Yes",
+      "invoiceNo": "No"
+    }
   },
   "dunningPreview": {
     "title": "Dunning Preview",
@@ -2306,6 +2335,7 @@
     "noAttachments": "No attachments",
     "attachmentDeleted": "Attachment deleted",
     "relatedOrder": "Related Order",
+    "relatedOrders": "Related Orders ({{count}})",
     "noTickets": "No tickets found",
     "createTicket": "Create Ticket",
     "editTicket": "Edit Ticket",
@@ -3055,6 +3085,9 @@
         "validity": "Validity",
         "alwaysValid": "Always valid",
         "currency": "Currency",
+        "salesChannel": "Sales channel",
+        "allSalesChannels": "All sales channels",
+        "unknownChannel": "Unknown channel",
         "summaryForCurrency": "{{count}} prices in {{currency}}",
         "emptyForCurrency": "No prices in {{currency}}",
         "standardDiscount": "Standard discount (B2B)",

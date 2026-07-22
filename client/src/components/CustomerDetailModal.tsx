@@ -49,6 +49,16 @@ type CustomerIndividualPrice = {
   currencyIsoCode: string | null;
   validFrom: string | null;
   validUntil: string | null;
+  salesChannelId?: string | null;
+  salesChannelName?: string | null;
+};
+
+type CustomerIndividualPriceChannel = {
+  salesChannelId: string | null;
+  salesChannelName: string | null;
+  customerId: string | null;
+  customerNumber: string | null;
+  priceCount: number;
 };
 
 type CustomerIndividualPricesResponse = {
@@ -56,6 +66,8 @@ type CustomerIndividualPricesResponse = {
   total: number;
   prices: CustomerIndividualPrice[];
   currency?: string;
+  channels?: CustomerIndividualPriceChannel[];
+  salesChannelId?: string | null;
   standardDiscountPercent?: number | null;
   profitabilityMinMarginPercent?: number;
   resolved: boolean;
@@ -149,11 +161,13 @@ export default function CustomerDetailModal({
   const [interactionSubject, setInteractionSubject] = useState("");
   const [interactionBody, setInteractionBody] = useState("");
   const [selectedPriceCurrency, setSelectedPriceCurrency] = useState(DEFAULT_PRICE_CURRENCY);
+  const [selectedSalesChannel, setSelectedSalesChannel] = useState<string>("all");
   const [pricesTabActive, setPricesTabActive] = useState(false);
 
   useEffect(() => {
     if (!isOpen) {
       setSelectedPriceCurrency(DEFAULT_PRICE_CURRENCY);
+      setSelectedSalesChannel("all");
       setPricesTabActive(false);
     }
   }, [isOpen]);
@@ -283,6 +297,12 @@ export default function CustomerDetailModal({
   const interactions = overview?.interactions || [];
   const prices = individualPrices?.prices || [];
   const hasIndividualPrices = !!individualPrices?.available;
+  const priceChannels = individualPrices?.channels ?? [];
+  const hasMultipleChannels = priceChannels.length > 1;
+  const filteredPrices =
+    selectedSalesChannel === "all"
+      ? prices
+      : prices.filter((p) => (p.salesChannelId ?? "__none__") === selectedSalesChannel);
 
   const [mergeCandidate, setMergeCandidate] = useState<CustomerMatchCandidate | null>(null);
   const [mergePreview, setMergePreview] = useState<MergePreview | null>(null);
@@ -651,7 +671,33 @@ export default function CustomerDetailModal({
                         <span className="ml-2 text-xs">{t("common.loading")}</span>
                       ) : null}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {hasMultipleChannels ? (
+                        <>
+                          <span className="text-sm text-muted-foreground">
+                            {t("crm.customer.individualPrices.salesChannel")}
+                          </span>
+                          <Select value={selectedSalesChannel} onValueChange={setSelectedSalesChannel}>
+                            <SelectTrigger className="w-[200px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">
+                                {t("crm.customer.individualPrices.allSalesChannels")}
+                              </SelectItem>
+                              {priceChannels.map((ch) => (
+                                <SelectItem
+                                  key={ch.salesChannelId ?? "__none__"}
+                                  value={ch.salesChannelId ?? "__none__"}
+                                >
+                                  {ch.salesChannelName ?? t("crm.customer.individualPrices.unknownChannel")}
+                                  {` (${ch.priceCount})`}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </>
+                      ) : null}
                       <span className="text-sm text-muted-foreground">
                         {t("crm.customer.individualPrices.currency")}
                       </span>
@@ -672,13 +718,16 @@ export default function CustomerDetailModal({
                       ) : null}
                     </div>
                   </div>
-                  {prices.length === 0 ? null : (
+                  {filteredPrices.length === 0 ? null : (
                   <div className="border rounded-lg overflow-hidden">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-muted/50">
                           <TableHead>{t("crm.customer.individualPrices.product")}</TableHead>
                           <TableHead>{t("crm.customer.individualPrices.productNumber")}</TableHead>
+                          {hasMultipleChannels ? (
+                            <TableHead>{t("crm.customer.individualPrices.salesChannel")}</TableHead>
+                          ) : null}
                           <TableHead className="text-right">{t("crm.customer.individualPrices.quantity")}</TableHead>
                           <TableHead className="text-right">{t("crm.customer.individualPrices.listPriceNet")}</TableHead>
                           <TableHead className="text-right">{t("crm.customer.individualPrices.priceNet")}</TableHead>
@@ -692,10 +741,15 @@ export default function CustomerDetailModal({
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {prices.map((price) => (
+                        {filteredPrices.map((price) => (
                           <TableRow key={price.id}>
                             <TableCell>{price.productName || "—"}</TableCell>
                             <TableCell className="font-mono">{price.productNumber || "—"}</TableCell>
+                            {hasMultipleChannels ? (
+                              <TableCell className="text-xs text-muted-foreground">
+                                {price.salesChannelName || "—"}
+                              </TableCell>
+                            ) : null}
                             <TableCell className="text-right">
                               {price.from != null ? `${price.from}${price.to != null ? `–${price.to}` : "+"}` : "—"}
                             </TableCell>

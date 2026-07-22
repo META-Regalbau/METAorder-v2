@@ -116,6 +116,10 @@ export interface ShopwareCustomerPrice {
   currencyIsoCode: string | null;
   validFrom: string | null;
   validUntil: string | null;
+  /** Verkaufskanal des zugehörigen Shopware-Kunden (bound sales channel). */
+  salesChannelId?: string | null;
+  /** Aufgelöster Verkaufskanal-Name (für die Anzeige). */
+  salesChannelName?: string | null;
 }
 
 export type EnrichedShopwareCustomerPrice = ShopwareCustomerPrice & {
@@ -554,7 +558,10 @@ function parseProductAdvancedPrices(sp: any, includedMap: Map<string, any>): Sho
       ruleName = includedMap.get(`rule-${ruleId}`)?.attributes?.name ?? null;
     }
 
-    const tierKey = overviewAdvancedPriceTierKey(quantityStart, quantityEnd);
+    // Gruppierung pro Preisregel UND Mengenstaffel: Ohne ruleId würden mehrere
+    // Regeln (z. B. verschiedene Kundengruppen) mit gleicher Staffel zu einer
+    // Zeile kollabieren und Preise "verschwinden".
+    const tierKey = `${ruleId ?? "__default__"}|${overviewAdvancedPriceTierKey(quantityStart, quantityEnd)}`;
     const candidate = {
       price: {
         quantityStart,
@@ -576,11 +583,18 @@ function parseProductAdvancedPrices(sp: any, includedMap: Map<string, any>): Sho
 
   const advancedPrices: ShopwareAdvancedPrice[] = Array.from(advancedPriceByTier.values())
     .map((entry) => entry.price)
-    .sort((x, y) => x.quantityStart - y.quantityStart);
+    .sort((x, y) => {
+      // Zuerst nach Regel (Name, dann Id) gruppieren, dann nach Mengenstaffel.
+      const ruleCompare = (x.ruleName ?? "").localeCompare(y.ruleName ?? "");
+      if (ruleCompare !== 0) return ruleCompare;
+      const ruleIdCompare = (x.ruleId ?? "").localeCompare(y.ruleId ?? "");
+      if (ruleIdCompare !== 0) return ruleIdCompare;
+      return x.quantityStart - y.quantityStart;
+    });
 
   const seenPriceSignature = new Set<string>();
   return advancedPrices.filter((p) => {
-    const signature = `${p.quantityStart}|${p.quantityEnd ?? ""}|${p.net ?? ""}|${p.gross ?? ""}`;
+    const signature = `${p.ruleId ?? ""}|${p.quantityStart}|${p.quantityEnd ?? ""}|${p.net ?? ""}|${p.gross ?? ""}`;
     if (seenPriceSignature.has(signature)) return false;
     seenPriceSignature.add(signature);
     return true;
@@ -900,6 +914,70 @@ export class ShopwareClient {
       console.error('Error fetching sales channels from Shopware:', error);
       throw error;
     }
+  }
+
+  /**
+   * Liefert eine Map salesChannelId -> Name (inkl. inaktiver Kanäle), damit
+   * kundenindividuelle Preise pro Verkaufskanal beschriftet werden können.
+   */
+  async fetchSalesChannelNameMap(): Promise<Map<string, string>> {
+    const map = new Map<string, string>();
+    try {
+      const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/sales-channel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ limit: 200, includes: { sales_channel: ['id', 'name', 'translated'] } }),
+      });
+      if (!response.ok) return map;
+      const data = await response.json();
+      for (const channel of data.data || []) {
+        const attrs = channel.attributes || channel;
+        const id = String(channel.id ?? attrs.id ?? '');
+        const name =
+          attrs.translated?.name || attrs.name || channel.name || null;
+        if (id) map.set(id, name ? String(name) : id);
+      }
+    } catch (error: any) {
+      console.warn('[Shopware] fetchSalesChannelNameMap:', error?.message || error);
+    }
+    return map;
+  }
+
+  /**
+   * Zählt die Kunden im Shop (gesamt) und pro Verkaufskanal.
+   * Nutzt total-count-mode "exact" für die Gesamtzahl und eine Terms-
+   * Aggregation auf salesChannelId für die Aufschlüsselung je Kanal
+   * (z. B. Shop vs. Händler-Portal).
+   */
+  async fetchCustomerCounts(): Promise<{
+    total: number;
+    byChannel: Array<{ salesChannelId: string | null; salesChannelName: string; count: number }>;
+  }> {
+    const nameMap = await this.fetchSalesChannelNameMap().catch(
+      () => new Map<string, string>(),
+    );
+    const data = await this.searchEntity("customer", {
+      limit: 1,
+      "total-count-mode": "exact",
+      aggregations: [
+        { name: "byChannel", type: "terms", field: "salesChannelId", limit: 500 },
+      ],
+    });
+    const total = Number(data?.total ?? data?.meta?.total ?? 0);
+    const buckets: any[] = data?.aggregations?.byChannel?.buckets || [];
+    const byChannel = buckets
+      .map((b) => {
+        const id =
+          b?.key != null && String(b.key).trim() !== "" ? String(b.key) : null;
+        const name = id ? nameMap.get(id) ?? id : "Unbekannter Kanal";
+        return {
+          salesChannelId: id,
+          salesChannelName: name,
+          count: Number(b?.count ?? 0),
+        };
+      })
+      .sort((a, b) => b.count - a.count);
+    return { total, byChannel };
   }
 
   private mapShopwareStatus(shopwareStatus: string): OrderStatus {
@@ -6831,6 +6909,44 @@ export class ShopwareClient {
   }
 
   /**
+   * Liefert ALLE Shopware-Kunden mit dieser E-Mail. Wichtig, weil dieselbe Person
+   * in mehreren Verkaufskanälen (bound sales channel) als separate Kunden mit
+   * gleicher E-Mail existieren kann – z. B. einmal im Portal (mit individuellen
+   * Preisen) und einmal im Shop (ohne). Wir brauchen alle IDs/Kundennummern, um
+   * die Preise vollständig aufzulösen.
+   */
+  async findCustomersByEmail(
+    email: string,
+    limit: number = 25,
+  ): Promise<Array<{ id: string; customerNumber: string | null; salesChannelId: string | null }>> {
+    try {
+      const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/customer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          limit,
+          filter: [{ type: 'equals', field: 'email', value: email }],
+          includes: { customer: ['id', 'customerNumber', 'salesChannelId'] },
+        }),
+      });
+      if (!response.ok) return [];
+      const data = await response.json();
+      const list: any[] = Array.isArray(data.data) ? data.data : [];
+      return list.map((raw) => {
+        const attrs = raw.attributes || raw;
+        return {
+          id: String(raw.id ?? attrs.id),
+          customerNumber: attrs.customerNumber ? String(attrs.customerNumber) : null,
+          salesChannelId: attrs.salesChannelId ? String(attrs.salesChannelId) : null,
+        };
+      });
+    } catch (error: any) {
+      console.error('[Shopware] findCustomersByEmail error:', error?.message || error);
+      return [];
+    }
+  }
+
+  /**
    * Search customers by term (email, firstName, lastName) for picker/UI.
    * Returns array of { id, email, firstName?, lastName?, company? }.
    */
@@ -7394,7 +7510,8 @@ export class ShopwareClient {
     const merged: ShopwareCustomerPrice[] = [];
     let page = 1;
     const limit = 250;
-    const maxPages = 40;
+    // Safety-Cap: 250 × 400 = bis zu 100.000 Preiszeilen pro Kunde.
+    const maxPages = 400;
     let entity: string | null = null;
 
     while (page <= maxPages) {
@@ -7726,7 +7843,8 @@ export class ShopwareClient {
     const currencies = new Set<string>();
     let page = 1;
     const limit = 250;
-    const maxPages = 20;
+    // Safety-Cap: 250 × 400 = bis zu 100.000 Preiszeilen pro Kunde.
+    const maxPages = 400;
 
     while (page <= maxPages) {
       const result = await this.fetchCustomerSpecificPrices({
@@ -7964,6 +8082,104 @@ export class ShopwareClient {
     }
 
     // Plugin/Entität nicht vorhanden.
+    return empty;
+  }
+
+  /**
+   * Diagnose: liefert die Rohzahlen aus der B2Bsellers-Preis-Entität direkt aus
+   * Shopware – um zu prüfen, ob der angezeigte "X Kunden mit individuellen Preisen"
+   * Zähler vollständig ist. Zählt distinct customerId, distinct customerNumber,
+   * Zeilen ohne customerId sowie die Gesamtzahl der Preiszeilen.
+   */
+  async fetchIndividualPriceDiagnostics(): Promise<{
+    entity: string | null;
+    totalRows: number;
+    distinctCustomerId: number;
+    distinctCustomerNumber: number;
+    rowsWithoutCustomerId: number;
+    aggregationCapped: boolean;
+  }> {
+    const empty = {
+      entity: null as string | null,
+      totalRows: 0,
+      distinctCustomerId: 0,
+      distinctCustomerNumber: 0,
+      rowsWithoutCustomerId: 0,
+      aggregationCapped: false,
+    };
+    // Terms-Buckets bis zu dieser Grenze zählen. Wird sie erreicht, ist die
+    // echte Anzahl distinct-Werte evtl. höher (aggregationCapped = true).
+    const TERMS_LIMIT = 50000;
+
+    for (const entity of this.getCustomerPriceEntityCandidates()) {
+      let response: Response;
+      try {
+        response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/${entity}`, {
+          method: "POST",
+          body: JSON.stringify({
+            limit: 1,
+            totalCountMode: 1,
+            aggregations: [
+              { name: "byCustomerId", type: "terms", field: "customerId", limit: TERMS_LIMIT },
+              { name: "byCustomerNumber", type: "terms", field: "customerNumber", limit: TERMS_LIMIT },
+            ],
+          }),
+        });
+      } catch (error: any) {
+        console.error(`[B2B] fetchIndividualPriceDiagnostics request error (${entity}):`, error?.message || error);
+        continue;
+      }
+
+      if (response.status === 404) continue;
+      if (!response.ok) {
+        const errText = await response.text().catch(() => "");
+        console.warn(`[B2B] fetchIndividualPriceDiagnostics ${response.status} (${entity}): ${errText}`);
+        continue;
+      }
+
+      const data = await response.json();
+      const totalRows = data?.total ?? data?.meta?.total ?? 0;
+      const idBuckets: any[] = data?.aggregations?.byCustomerId?.buckets || [];
+      const numberBuckets: any[] = data?.aggregations?.byCustomerNumber?.buckets || [];
+
+      // Distinct customerId ohne leere/null-Keys.
+      const distinctCustomerId = idBuckets.filter(
+        (b) => b?.key != null && String(b.key).trim() !== "",
+      ).length;
+      const distinctCustomerNumber = numberBuckets.filter(
+        (b) => b?.key != null && String(b.key).trim() !== "",
+      ).length;
+
+      // Preiszeilen ohne customerId separat zählen.
+      let rowsWithoutCustomerId = 0;
+      try {
+        const nullResp = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/${entity}`, {
+          method: "POST",
+          body: JSON.stringify({
+            limit: 1,
+            totalCountMode: 1,
+            filter: [{ type: "equals", field: "customerId", value: null }],
+          }),
+        });
+        if (nullResp.ok) {
+          const nullData = await nullResp.json();
+          rowsWithoutCustomerId = nullData?.total ?? nullData?.meta?.total ?? 0;
+        }
+      } catch (error: any) {
+        console.warn(`[B2B] fetchIndividualPriceDiagnostics null-count error (${entity}):`, error?.message || error);
+      }
+
+      return {
+        entity,
+        totalRows,
+        distinctCustomerId,
+        distinctCustomerNumber,
+        rowsWithoutCustomerId,
+        aggregationCapped:
+          idBuckets.length >= TERMS_LIMIT || numberBuckets.length >= TERMS_LIMIT,
+      };
+    }
+
     return empty;
   }
 

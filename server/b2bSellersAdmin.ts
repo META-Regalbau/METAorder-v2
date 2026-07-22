@@ -539,10 +539,9 @@ export class B2BSellersAdminClient {
       this.fetchEmployees({ customerId, limit: 100 }),
       this.fetchBudgets({ customerId, limit: 50 }).catch(() => ({ budgets: [], total: 0 })),
       shopware
-        .fetchCustomerSpecificPrices({
+        .fetchAllCustomerSpecificPrices({
           customerId,
           customerNumber: customerNumber ? String(customerNumber) : null,
-          limit: 200,
         })
         .catch(() => ({ available: false, total: 0, prices: [], entity: null })),
       shopware.fetchCustomerB2BStandardDiscount(customerId).catch(() => null),
@@ -559,6 +558,15 @@ export class B2BSellersAdminClient {
       standardDiscountPercent,
       minMarginPercent: profitabilitySettings.minMarginPercent,
     });
+
+    const companySalesChannelId =
+      getField(customer, "salesChannelId") ||
+      getField(customer, "salesChannel.id") ||
+      null;
+    const companySalesChannelName =
+      getField(customer, "salesChannel.name") ||
+      getField(customer, "salesChannel.translated.name") ||
+      null;
 
     return {
       offerCustomerId: offer?.id || null,
@@ -581,10 +589,7 @@ export class B2BSellersAdminClient {
       createdAt: getField(customer, "createdAt") || getField(offer, "createdAt") || null,
       customFields: customFields && typeof customFields === "object" ? customFields : null,
       billingAddress,
-      salesChannelName:
-        getField(customer, "salesChannel.name") ||
-        getField(customer, "salesChannel.translated.name") ||
-        null,
+      salesChannelName: companySalesChannelName,
       customerGroupName:
         getField(customer, "group.name") ||
         getField(customer, "group.translated.name") ||
@@ -611,6 +616,10 @@ export class B2BSellersAdminClient {
           currencyIsoCode: price.currencyIsoCode,
           validFrom: price.validFrom,
           validUntil: price.validUntil,
+          // Preise dieses B2B-Firmenkontakts gehören zum Verkaufskanal des
+          // Kunden – für die getrennte Kanal-Betrachtung mit ausgeben.
+          salesChannelId: price.salesChannelId ?? companySalesChannelId,
+          salesChannelName: price.salesChannelName ?? companySalesChannelName,
         })),
       },
     };

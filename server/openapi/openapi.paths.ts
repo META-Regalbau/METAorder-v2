@@ -3242,6 +3242,60 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/crm/customers/count": {
+    "get": {
+      "tags": [
+        "crm"
+      ],
+      "summary": "GET /api/crm/customers/count",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/crm/customers/individual-prices-diagnostics": {
+    "get": {
+      "tags": [
+        "crm"
+      ],
+      "summary": "GET /api/crm/customers/individual-prices-diagnostics",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/crm/customers/individual-prices-index": {
     "get": {
       "tags": [

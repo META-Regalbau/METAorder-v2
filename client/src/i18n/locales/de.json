@@ -911,7 +911,36 @@
     "daysDelayed": "Tage verspätet",
     "days": "Tage",
     "searchPlaceholder": "Verspätete Bestellungen suchen...",
-    "noDelayed": "Keine verspäteten Bestellungen gefunden"
+    "noDelayed": "Keine verspäteten Bestellungen gefunden",
+    "stats": {
+      "totalAmount": "Gesamtbetrag",
+      "totalAmountHint": "Summe aller angezeigten Bestellungen",
+      "withInvoice": "Mit Rechnung",
+      "withInvoiceHint": "Bestellungen mit Rechnungsdokument",
+      "withoutInvoice": "Ohne Rechnung",
+      "withoutInvoiceHint": "Bestellungen ohne Rechnungsdokument"
+    },
+    "selection": {
+      "selected": "{{count}} ausgewählt",
+      "selectedTotal": "· Gesamtbetrag {{amount}}",
+      "createTicket": "Ticket erstellen",
+      "clear": "Auswahl aufheben",
+      "selectAll": "Alle auswählen",
+      "selectRow": "Bestellung {{orderNumber}} auswählen"
+    },
+    "ticket": {
+      "titleSingle": "Verspätete Bestellung {{orderNumber}} – {{customer}}",
+      "titleMultiple": "Verspätete Bestellungen ({{count}})",
+      "summaryHeading": "Verspätete Bestellungen – Übersicht für den Sachbearbeiter",
+      "summaryCount": "Anzahl Bestellungen",
+      "summaryTotal": "Gesamtbetrag",
+      "summaryWithInvoice": "Mit Rechnung",
+      "summaryWithoutInvoice": "Ohne Rechnung",
+      "ordersHeading": "Betroffene Bestellungen",
+      "orderLine": "• Bestellnr. {{orderNumber}} | Kunde: {{customer}} | Bestelldatum: {{date}} | {{days}} Tage verspätet | {{amount}} | Rechnung: {{invoice}} | Status: {{status}} | Zahlung: {{payment}}",
+      "invoiceYes": "Ja",
+      "invoiceNo": "Nein"
+    }
   },
   "dunningPreview": {
     "title": "Mahnvorschau",
@@ -2338,6 +2367,7 @@
     "noAttachments": "Keine Anhänge vorhanden",
     "attachmentDeleted": "Anhang gelöscht",
     "relatedOrder": "Zugehörige Bestellung",
+    "relatedOrders": "Zugehörige Bestellungen ({{count}})",
     "noTickets": "Keine Tickets gefunden",
     "createTicket": "Ticket erstellen",
     "editTicket": "Ticket bearbeiten",
@@ -3084,6 +3114,9 @@
         "validity": "Gültigkeit",
         "alwaysValid": "Unbegrenzt gültig",
         "currency": "Währung",
+        "salesChannel": "Verkaufskanal",
+        "allSalesChannels": "Alle Verkaufskanäle",
+        "unknownChannel": "Unbekannter Kanal",
         "summaryForCurrency": "{{count}} Preise in {{currency}}",
         "emptyForCurrency": "Keine Preise in {{currency}} hinterlegt",
         "standardDiscount": "Standardrabatt (B2B)",

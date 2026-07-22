@@ -418,8 +418,8 @@ async function syncCustomerPrices(
       // If total known and we've fetched all, stop
       if (result.total > 0 && allPrices.length >= result.total) break;
       page += 1;
-      // Safety cap
-      if (page > 500) break;
+      // Safety cap: 250 × 4000 = bis zu 1.000.000 Preiszeilen im Voll-Snapshot.
+      if (page > 4000) break;
     }
 
     await storage.replaceShopwareCustomerPriceMirrors(

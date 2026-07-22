@@ -1,11 +1,13 @@
-import { useState, useEffect } from "react";
-import { RefreshCw, Search, AlertTriangle, ArrowUpDown, ChevronDown, ChevronUp } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { RefreshCw, Search, AlertTriangle, ArrowUpDown, ChevronDown, ChevronUp, Euro, FileCheck, FileX, Ticket, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import OrderDetailModal from "@/components/OrderDetailModal";
+import CreateTicketDialog from "@/components/CreateTicketDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -44,8 +46,15 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
   const [daysThreshold, setDaysThreshold] = useState("3");
   const [sortKey, setSortKey] = useState<DelayedSortKey>("daysSinceOrder");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isTicketDialogOpen, setIsTicketDialogOpen] = useState(false);
 
   const dateLocale = i18n.language === 'de' ? de : i18n.language === 'es' ? es : enUS;
+
+  const currencyFormatter = useMemo(
+    () => new Intl.NumberFormat(i18n.language || 'de', { style: 'currency', currency: 'EUR' }),
+    [i18n.language]
+  );
 
   // Update shipping mutation
   const updateShippingMutation = useMutation({
@@ -155,6 +164,115 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
     return matchesSearch;
   });
 
+  // Aggregierte Kennzahlen für die Statistik-Kacheln (basierend auf der gefilterten Ansicht)
+  const stats = useMemo(() => {
+    let totalAmount = 0;
+    let withInvoice = 0;
+    for (const order of filteredOrders) {
+      totalAmount += order.totalAmount || 0;
+      if (order.hasInvoiceDocument) {
+        withInvoice += 1;
+      }
+    }
+    return {
+      count: filteredOrders.length,
+      totalAmount,
+      withInvoice,
+      withoutInvoice: filteredOrders.length - withInvoice,
+    };
+  }, [filteredOrders]);
+
+  // Auswahl-Status ableiten
+  const selectedOrders = orders.filter((order) => selectedIds.has(order.id));
+  const allFilteredSelected =
+    filteredOrders.length > 0 && filteredOrders.every((order) => selectedIds.has(order.id));
+  const someFilteredSelected = filteredOrders.some((order) => selectedIds.has(order.id));
+  const headerCheckboxState: boolean | "indeterminate" = allFilteredSelected
+    ? true
+    : someFilteredSelected
+      ? "indeterminate"
+      : false;
+
+  const toggleOrderSelection = (orderId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(orderId)) {
+        next.delete(orderId);
+      } else {
+        next.add(orderId);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) => {
+      if (filteredOrders.length > 0 && filteredOrders.every((order) => prev.has(order.id))) {
+        // Alle bereits ausgewählt -> gefilterte abwählen
+        const next = new Set(prev);
+        filteredOrders.forEach((order) => next.delete(order.id));
+        return next;
+      }
+      const next = new Set(prev);
+      filteredOrders.forEach((order) => next.add(order.id));
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  // Vorbelegung für das Sammel-Ticket aus den ausgewählten Bestellungen aufbauen
+  const buildTicketPrefill = () => {
+    const ordersForTicket = selectedOrders;
+    const selectedWithInvoice = ordersForTicket.filter((order) => order.hasInvoiceDocument).length;
+    const selectedTotal = ordersForTicket.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+
+    const title =
+      ordersForTicket.length === 1
+        ? t('delayedOrders.ticket.titleSingle', {
+            orderNumber: ordersForTicket[0].orderNumber,
+            customer: ordersForTicket[0].customerName,
+          })
+        : t('delayedOrders.ticket.titleMultiple', { count: ordersForTicket.length });
+
+    const orderLines = ordersForTicket.map((order) =>
+      t('delayedOrders.ticket.orderLine', {
+        orderNumber: order.orderNumber,
+        customer: order.customerName,
+        date: format(new Date(order.orderDate), 'dd.MM.yyyy', { locale: dateLocale }),
+        days: order.daysSinceOrder,
+        amount: currencyFormatter.format(order.totalAmount || 0),
+        invoice: order.hasInvoiceDocument
+          ? order.invoiceNumber
+            ? `${t('delayedOrders.ticket.invoiceYes')} (${order.invoiceNumber})`
+            : t('delayedOrders.ticket.invoiceYes')
+          : t('delayedOrders.ticket.invoiceNo'),
+        status: t(`orderStatus.${order.status}`),
+        payment: t(`paymentStatus.${order.paymentStatus}`),
+      })
+    );
+
+    const description = [
+      t('delayedOrders.ticket.summaryHeading'),
+      '',
+      `${t('delayedOrders.ticket.summaryCount')}: ${ordersForTicket.length}`,
+      `${t('delayedOrders.ticket.summaryTotal')}: ${currencyFormatter.format(selectedTotal)}`,
+      `${t('delayedOrders.ticket.summaryWithInvoice')}: ${selectedWithInvoice}`,
+      `${t('delayedOrders.ticket.summaryWithoutInvoice')}: ${ordersForTicket.length - selectedWithInvoice}`,
+      '',
+      `${t('delayedOrders.ticket.ordersHeading')}:`,
+      ...orderLines,
+    ].join('\n');
+
+    return {
+      title,
+      description,
+      priority: 'high',
+      category: 'order_issue',
+      tags: ['verspaetet'],
+    };
+  };
+
   const sortedOrders = [...filteredOrders].sort((a, b) => {
     const direction = sortDirection === "asc" ? 1 : -1;
     switch (sortKey) {
@@ -187,6 +305,11 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
   // Reset to page 1 when filters change
   const resetPage = () => setCurrentPage(1);
   useEffect(resetPage, [searchValue, daysThreshold, sortKey, sortDirection]);
+
+  // Auswahl zurücksetzen, wenn sich der Tage-Filter ändert (anderer Datenkontext)
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [daysThreshold]);
 
   const handleSortChange = (key: DelayedSortKey) => {
     setSortKey((current) => {
@@ -251,21 +374,74 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
         </p>
       </div>
 
-      {/* Statistics Card */}
-      <Card className="mb-6">
-        <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">
-            {t('delayedOrders.totalDelayed')}
-          </CardTitle>
-          <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold" data-testid="text-delayed-count">{filteredOrders.length}</div>
-          <p className="text-xs text-muted-foreground">
-            {t('delayedOrders.olderThan', { days: daysThreshold })}
-          </p>
-        </CardContent>
-      </Card>
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              {t('delayedOrders.totalDelayed')}
+            </CardTitle>
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="text-delayed-count">{stats.count}</div>
+            <p className="text-xs text-muted-foreground">
+              {t('delayedOrders.olderThan', { days: daysThreshold })}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              {t('delayedOrders.stats.totalAmount')}
+            </CardTitle>
+            <Euro className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="text-delayed-total-amount">
+              {currencyFormatter.format(stats.totalAmount)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t('delayedOrders.stats.totalAmountHint')}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              {t('delayedOrders.stats.withInvoice')}
+            </CardTitle>
+            <FileCheck className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="text-delayed-with-invoice">
+              {stats.withInvoice}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t('delayedOrders.stats.withInvoiceHint')}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              {t('delayedOrders.stats.withoutInvoice')}
+            </CardTitle>
+            <FileX className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="text-delayed-without-invoice">
+              {stats.withoutInvoice}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t('delayedOrders.stats.withoutInvoiceHint')}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-6">
@@ -304,6 +480,47 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
         </Button>
       </div>
 
+      {/* Selection action bar */}
+      {selectedOrders.length > 0 && (
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 mb-4 rounded-lg border bg-muted/50 p-3"
+          data-testid="bar-selection"
+        >
+          <div className="flex items-center gap-2 text-sm">
+            <Ticket className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium" data-testid="text-selection-count">
+              {t('delayedOrders.selection.selected', { count: selectedOrders.length })}
+            </span>
+            <span className="text-muted-foreground">
+              {t('delayedOrders.selection.selectedTotal', {
+                amount: currencyFormatter.format(
+                  selectedOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0)
+                ),
+              })}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearSelection}
+              data-testid="button-clear-selection"
+            >
+              <X className="h-4 w-4 mr-2" />
+              {t('delayedOrders.selection.clear')}
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setIsTicketDialogOpen(true)}
+              data-testid="button-create-ticket"
+            >
+              <Ticket className="h-4 w-4 mr-2" />
+              {t('delayedOrders.selection.createTicket')}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Orders Table */}
       <Card>
         <CardContent className="p-0">
@@ -321,6 +538,14 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
               <table className="w-full">
                 <thead className="border-b">
                   <tr className="bg-muted/50">
+                    <th className="w-10 p-3 text-sm font-medium">
+                      <Checkbox
+                        checked={headerCheckboxState}
+                        onCheckedChange={toggleSelectAll}
+                        aria-label={t('delayedOrders.selection.selectAll')}
+                        data-testid="checkbox-select-all"
+                      />
+                    </th>
                     <th className="text-left p-3 text-sm font-medium">
                       <button
                         type="button"
@@ -405,6 +630,14 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
                       }}
                       data-testid={`row-order-${index}`}
                     >
+                      <td className="p-3" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selectedIds.has(order.id)}
+                          onCheckedChange={() => toggleOrderSelection(order.id)}
+                          aria-label={t('delayedOrders.selection.selectRow', { orderNumber: order.orderNumber })}
+                          data-testid={`checkbox-select-${index}`}
+                        />
+                      </td>
                       <td className="p-3">
                         <span className="font-medium" data-testid={`text-order-number-${index}`}>
                           {order.orderNumber}
@@ -530,6 +763,19 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
           userRole={userRole}
           onUpdateShipping={handleUpdateShipping}
           onUpdateDocuments={handleUpdateDocuments}
+        />
+      )}
+
+      {/* Create Ticket from selected delayed orders */}
+      {isTicketDialogOpen && selectedOrders.length > 0 && (
+        <CreateTicketDialog
+          isOpen={isTicketDialogOpen}
+          onClose={() => {
+            setIsTicketDialogOpen(false);
+            clearSelection();
+          }}
+          linkedOrders={selectedOrders}
+          initialValues={buildTicketPrefill()}
         />
       )}
     </div>

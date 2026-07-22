@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,16 +23,30 @@ interface Template {
   content: string;
 }
 
+interface CreateTicketInitialValues {
+  title?: string;
+  description?: string;
+  priority?: string;
+  category?: string;
+  tags?: string[];
+}
+
 interface CreateTicketDialogProps {
   isOpen: boolean;
   onClose: () => void;
   linkedOrder?: Order | null;
+  /** Optional: mehrere Bestellungen, die mit dem Ticket verknüpft/aufgelistet werden sollen. */
+  linkedOrders?: Order[];
+  /** Optional: Vorbelegung der Formularfelder (wird einmalig beim Öffnen angewendet). */
+  initialValues?: CreateTicketInitialValues;
 }
 
 export default function CreateTicketDialog({
   isOpen,
   onClose,
   linkedOrder,
+  linkedOrders,
+  initialValues,
 }: CreateTicketDialogProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -47,6 +61,27 @@ export default function CreateTicketDialog({
   const [detectedOrderNumber, setDetectedOrderNumber] = useState<string | undefined>();
   const [emailFileData, setEmailFileData] = useState<{ filename: string; fileData: string } | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+
+  // Primäre Bestellung für die DB-Verknüpfung (orderId/orderNumber).
+  const primaryOrder = linkedOrder ?? linkedOrders?.[0] ?? null;
+
+  // Vorbelegung einmalig beim Öffnen anwenden, ohne spätere Nutzereingaben zu überschreiben.
+  const appliedInitialRef = useRef(false);
+  useEffect(() => {
+    if (!isOpen) {
+      appliedInitialRef.current = false;
+      return;
+    }
+    if (appliedInitialRef.current) return;
+    appliedInitialRef.current = true;
+    if (initialValues) {
+      if (initialValues.title !== undefined) setTitle(initialValues.title);
+      if (initialValues.description !== undefined) setDescription(initialValues.description);
+      if (initialValues.priority !== undefined) setPriority(initialValues.priority);
+      if (initialValues.category !== undefined) setCategory(initialValues.category);
+      if (initialValues.tags !== undefined) setTags(initialValues.tags);
+    }
+  }, [isOpen, initialValues]);
 
   // Fetch templates
   const { data: templates = [] } = useQuery<Template[]>({
@@ -176,8 +211,8 @@ export default function CreateTicketDialog({
           category,
           tags: tags.length > 0 ? tags : undefined,
           dueDate,
-          orderId: linkedOrder?.id,
-          orderNumber: linkedOrder?.orderNumber,
+          orderId: primaryOrder?.id,
+          orderNumber: primaryOrder?.orderNumber,
         });
         
         const createdTicket = await response.json();
@@ -274,14 +309,30 @@ export default function CreateTicketDialog({
 
           <Separator />
 
-          {linkedOrder && (
+          {linkedOrders && linkedOrders.length > 1 ? (
+            <div className="p-3 bg-muted rounded-md">
+              <p className="text-sm font-medium mb-1">
+                {t('tickets.relatedOrders', { count: linkedOrders.length })}
+              </p>
+              <div
+                className="text-sm text-muted-foreground max-h-32 overflow-y-auto space-y-0.5"
+                data-testid="text-linked-orders"
+              >
+                {linkedOrders.map((o) => (
+                  <p key={o.id}>
+                    {o.orderNumber} - {o.customerName}
+                  </p>
+                ))}
+              </div>
+            </div>
+          ) : primaryOrder ? (
             <div className="p-3 bg-muted rounded-md">
               <p className="text-sm font-medium mb-1">{t('tickets.relatedOrder')}</p>
               <p className="text-sm text-muted-foreground" data-testid="text-linked-order">
-                {linkedOrder.orderNumber} - {linkedOrder.customerName}
+                {primaryOrder.orderNumber} - {primaryOrder.customerName}
               </p>
             </div>
-          )}
+          ) : null}
 
           <div className="space-y-2">
             <Label htmlFor="title">{t('tickets.subject')} *</Label>

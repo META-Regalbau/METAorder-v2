@@ -46,6 +46,8 @@ export type B2BCompanyCustomerPrice = {
   currencyIsoCode: string | null;
   validFrom: string | null;
   validUntil: string | null;
+  salesChannelId?: string | null;
+  salesChannelName?: string | null;
 };
 
 export type B2BCompanyDetail = {
