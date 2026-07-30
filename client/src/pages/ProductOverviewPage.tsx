@@ -12,12 +12,15 @@ import {
   Store,
   AlertCircle,
   X,
+  Printer,
+  ScanLine,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -42,6 +45,14 @@ import {
   DialogDescription,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  PrintArticleLabelDialog,
+  type PrintableArticle,
+} from "@/components/PrintArticleLabelDialog";
+import { BarcodeScannerDialog } from "@/components/BarcodeScannerDialog";
+import { normalizeScanCode } from "@/lib/barcode/normalizeScanCode";
+import { useToast } from "@/hooks/use-toast";
+import { extractSizeColor } from "@shared/productVariantLabel";
 
 interface OverviewAdvancedPrice {
   quantityStart: number;
@@ -81,10 +92,14 @@ interface OverviewProduct {
   hasDeliveryTime: boolean;
   restockTime: number | null;
   customFields?: Record<string, unknown>;
+  /** Aufgelöste Labels für Customfield-Werte, die Shopware-Entity-IDs sind */
+  customFieldsDisplay?: Record<string, string>;
   customFieldKeys: string[];
   propertyCount: number;
   parentId: string | null;
   childCount: number | null;
+  options?: Array<{ group: string; option: string }>;
+  inheritedFields?: string[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -112,20 +127,45 @@ function formatCustomFieldValue(value: unknown): string {
   return String(value);
 }
 
+function formatCustomFieldDisplay(
+  product: Pick<OverviewProduct, "customFields" | "customFieldsDisplay">,
+  key: string,
+): string {
+  const resolved = product.customFieldsDisplay?.[key];
+  if (resolved) return resolved;
+  return formatCustomFieldValue(product.customFields?.[key]);
+}
+
 function formatDeliveryTimeLabel(
   product: Pick<
     OverviewProduct,
-    "deliveryTimeName" | "deliveryTimeMin" | "deliveryTimeMax" | "deliveryTimeUnit" | "hasDeliveryTime"
+    | "deliveryTimeId"
+    | "deliveryTimeName"
+    | "deliveryTimeMin"
+    | "deliveryTimeMax"
+    | "deliveryTimeUnit"
+    | "hasDeliveryTime"
   >,
   t: (key: string, options?: Record<string, unknown>) => string,
 ): string | null {
-  if (!product.hasDeliveryTime) return null;
-  if (product.deliveryTimeName) return product.deliveryTimeName;
+  const name = product.deliveryTimeName?.trim();
+  if (name) return name;
+
+  const hasDeliveryTime =
+    product.hasDeliveryTime ||
+    Boolean(product.deliveryTimeId) ||
+    product.deliveryTimeMin != null ||
+    product.deliveryTimeMax != null;
+  if (!hasDeliveryTime) return null;
+
   const unitKey = product.deliveryTimeUnit ?? "day";
   const unitLabel = t(`productOverview.deliveryTimeUnits.${unitKey}`, { defaultValue: unitKey });
   const { deliveryTimeMin: min, deliveryTimeMax: max } = product;
   if (min != null && max != null && min !== max) {
     return t("productOverview.deliveryTimeRange", { min, max, unit: unitLabel });
+  }
+  if (min != null && max != null && min === max) {
+    return t("productOverview.deliveryTimeSingle", { value: min, unit: unitLabel });
   }
   if (min != null) {
     return t("productOverview.deliveryTimeSingle", { value: min, unit: unitLabel });
@@ -149,8 +189,24 @@ function escapeCsv(value: unknown): string {
   return /[",\n\r;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
+/** Parent products with variants are not printable SKUs. */
+function isPrintableSku(product: OverviewProduct): boolean {
+  return (product.childCount ?? 0) <= 0;
+}
+
+function toPrintableArticle(product: OverviewProduct): PrintableArticle {
+  const { size, color, baseName } = extractSizeColor(product.options, null, product.name);
+  return {
+    productNumber: product.productNumber,
+    name: baseName || product.name || null,
+    size,
+    color,
+  };
+}
+
 export default function ProductOverviewPage() {
   const { t } = useTranslation();
+  const { toast } = useToast();
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery<OverviewResponse>({
     queryKey: ["/api/products/overview"],
@@ -169,6 +225,10 @@ export default function ProductOverviewPage() {
   const [deliveryTimeFilter, setDeliveryTimeFilter] = useState<string>(ALL);
   const [restockTimeFilter, setRestockTimeFilter] = useState<string>(ALL);
   const [page, setPage] = useState(1);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [labelDialogOpen, setLabelDialogOpen] = useState(false);
+  const [labelProducts, setLabelProducts] = useState<PrintableArticle[]>([]);
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   const products = useMemo(() => data?.products ?? [], [data]);
   const salesChannels = useMemo(() => data?.salesChannels ?? [], [data]);
@@ -195,8 +255,16 @@ export default function ProductOverviewPage() {
     const byId = new Map<string, string>();
     for (const p of products) {
       if (!p.deliveryTimeId) continue;
-      const label = formatDeliveryTimeLabel(p, t) ?? p.deliveryTimeId;
-      byId.set(p.deliveryTimeId, label);
+      const label = formatDeliveryTimeLabel(p, t);
+      const existing = byId.get(p.deliveryTimeId);
+      if (label) {
+        // Namen bevorzugen; ID-Fallback nicht über echten Namen schreiben
+        if (!existing || existing === p.deliveryTimeId) {
+          byId.set(p.deliveryTimeId, label);
+        }
+      } else if (!existing) {
+        byId.set(p.deliveryTimeId, p.deliveryTimeId);
+      }
     }
     return Array.from(byId.entries())
       .map(([id, label]) => ({ id, label }))
@@ -222,8 +290,9 @@ export default function ProductOverviewPage() {
       if (term) {
         const deliveryLabel = formatDeliveryTimeLabel(p, t) ?? "";
         const restockLabel = formatRestockTimeLabel(p.restockTime, t) ?? "";
+        const options = (p.options || []).map((o) => o.option).join(" ");
         const haystack =
-          `${p.productNumber} ${p.name} ${p.ean ?? ""} ${p.manufacturerNumber ?? ""} ${deliveryLabel} ${restockLabel} ${p.restockTime ?? ""}`.toLowerCase();
+          `${p.productNumber} ${p.name} ${options} ${p.ean ?? ""} ${p.manufacturerNumber ?? ""} ${(p.categories || []).join(" ")} ${(p.tags || []).join(" ")} ${deliveryLabel} ${restockLabel} ${p.restockTime ?? ""}`.toLowerCase();
         if (!haystack.includes(term)) return false;
       }
       if (channelFilter === NONE_CHANNEL) {
@@ -257,7 +326,7 @@ export default function ProductOverviewPage() {
           // "present" oder "any" mit konkretem Key: Feld muss gesetzt sein
           if (!hasKey) return false;
           if (cfValueTerm) {
-            const val = formatCustomFieldValue(p.customFields?.[customFieldKey]).toLowerCase();
+            const val = formatCustomFieldDisplay(p, customFieldKey).toLowerCase();
             if (!val.includes(cfValueTerm)) return false;
           }
         }
@@ -267,7 +336,7 @@ export default function ProductOverviewPage() {
         if (customFieldPresence === "absent" && p.customFieldKeys.length > 0) return false;
         if (cfValueTerm && customFieldPresence !== "absent") {
           const matches = p.customFieldKeys.some((k) =>
-            formatCustomFieldValue(p.customFields?.[k]).toLowerCase().includes(cfValueTerm),
+            formatCustomFieldDisplay(p, k).toLowerCase().includes(cfValueTerm),
           );
           if (!matches) return false;
         }
@@ -323,6 +392,42 @@ export default function ProductOverviewPage() {
     [filtered, currentPage],
   );
 
+  const printablePageRows = useMemo(() => pageRows.filter(isPrintableSku), [pageRows]);
+  const allPageSelected =
+    printablePageRows.length > 0 && printablePageRows.every((p) => selectedIds.has(p.id));
+  const somePageSelected = printablePageRows.some((p) => selectedIds.has(p.id));
+
+  const selectedProducts = useMemo(
+    () => products.filter((p) => selectedIds.has(p.id) && isPrintableSku(p)),
+    [products, selectedIds],
+  );
+
+  function toggleSelectAllPage(checked: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const p of printablePageRows) {
+        if (checked) next.add(p.id);
+        else next.delete(p.id);
+      }
+      return next;
+    });
+  }
+
+  function toggleSelectOne(id: string, checked: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  function openLabelDialog(articles: PrintableArticle[]) {
+    if (articles.length === 0) return;
+    setLabelProducts(articles);
+    setLabelDialogOpen(true);
+  }
+
   const resetFilters = () => {
     setSearch("");
     setChannelFilter(ALL);
@@ -337,6 +442,7 @@ export default function ProductOverviewPage() {
     setDeliveryTimeFilter(ALL);
     setRestockTimeFilter(ALL);
     setPage(1);
+    setSelectedIds(new Set());
   };
 
   const exportCsv = () => {
@@ -362,7 +468,7 @@ export default function ProductOverviewPage() {
     const lines = [header.map(escapeCsv).join(",")];
     for (const p of filtered) {
       const customFields = p.customFieldKeys
-        .map((k) => `${k}=${formatCustomFieldValue(p.customFields?.[k])}`)
+        .map((k) => `${k}=${formatCustomFieldDisplay(p, k)}`)
         .join(" | ");
       lines.push(
         [
@@ -399,6 +505,46 @@ export default function ProductOverviewPage() {
     URL.revokeObjectURL(url);
   };
 
+  function handleOverviewScan(code: string) {
+    const scanned = normalizeScanCode(code);
+    if (!scanned) return;
+    setSearch(scanned);
+    setPage(1);
+
+    const exact = products.find(
+      (p) =>
+        p.productNumber === scanned ||
+        (p.ean != null && String(p.ean).trim() === scanned),
+    );
+
+    if (!exact) {
+      toast({
+        title: t("barcodeScan.overviewNotFound", { code: scanned }),
+        variant: "destructive",
+      });
+      setScannerOpen(false);
+      return;
+    }
+
+    if (!isPrintableSku(exact)) {
+      toast({
+        title: t("barcodeScan.overviewNotPrintable", { code: scanned }),
+      });
+      setScannerOpen(false);
+      return;
+    }
+
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.add(exact.id);
+      return next;
+    });
+    toast({
+      title: t("barcodeScan.overviewSelected", { productNumber: exact.productNumber }),
+    });
+    setScannerOpen(false);
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -410,6 +556,16 @@ export default function ProductOverviewPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {selectedProducts.length > 0 ? (
+            <Button
+              variant="default"
+              onClick={() => openLabelDialog(selectedProducts.map(toPrintableArticle))}
+              data-testid="overview-print-labels"
+            >
+              <Printer className="h-4 w-4 mr-2" />
+              {t("productLabels.printSelected", { count: selectedProducts.length })}
+            </Button>
+          ) : null}
           <Button variant="outline" onClick={() => refetch()} disabled={isFetching} data-testid="overview-refresh">
             <RefreshCw className={`h-4 w-4 mr-2 ${isFetching ? "animate-spin" : ""}`} />
             {t("productOverview.refresh")}
@@ -477,18 +633,32 @@ export default function ProductOverviewPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                placeholder={t("productOverview.filters.searchPlaceholder")}
-                className="pl-8"
-                data-testid="overview-search"
-              />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
+                  }}
+                  placeholder={t("productOverview.filters.searchPlaceholder")}
+                  className="pl-8"
+                  data-testid="overview-search"
+                />
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                onClick={() => setScannerOpen(true)}
+                title={t("barcodeScan.scan")}
+                data-testid="overview-scan"
+              >
+                <ScanLine className="h-4 w-4" />
+                <span className="sr-only">{t("barcodeScan.scan")}</span>
+              </Button>
             </div>
 
             <Select
@@ -710,6 +880,16 @@ export default function ProductOverviewPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-[40px]">
+                      <Checkbox
+                        checked={
+                          allPageSelected ? true : somePageSelected ? "indeterminate" : false
+                        }
+                        onCheckedChange={(v) => toggleSelectAllPage(v === true)}
+                        disabled={printablePageRows.length === 0}
+                        aria-label={t("productLabels.selectAll")}
+                      />
+                    </TableHead>
                     <TableHead className="w-[150px]">{t("productOverview.table.productNumber")}</TableHead>
                     <TableHead className="min-w-[200px]">{t("productOverview.table.name")}</TableHead>
                     <TableHead className="w-[90px]">{t("productOverview.table.status")}</TableHead>
@@ -721,11 +901,19 @@ export default function ProductOverviewPage() {
                     <TableHead className="min-w-[120px]">{t("productOverview.table.restockTime")}</TableHead>
                     <TableHead className="w-[130px]">{t("productOverview.table.customFields")}</TableHead>
                     <TableHead className="w-[120px] text-right">{t("productOverview.table.price")}</TableHead>
+                    <TableHead className="w-[56px]">{t("productOverview.table.actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {pageRows.map((p) => (
-                    <ProductRow key={p.id} product={p} />
+                    <ProductRow
+                      key={p.id}
+                      product={p}
+                      selected={selectedIds.has(p.id)}
+                      printable={isPrintableSku(p)}
+                      onSelectedChange={(checked) => toggleSelectOne(p.id, checked)}
+                      onPrint={() => openLabelDialog([toPrintableArticle(p)])}
+                    />
                   ))}
                 </TableBody>
               </Table>
@@ -759,6 +947,19 @@ export default function ProductOverviewPage() {
           ) : null}
         </CardContent>
       </Card>
+
+      <PrintArticleLabelDialog
+        products={labelProducts}
+        open={labelDialogOpen}
+        onOpenChange={setLabelDialogOpen}
+      />
+
+      <BarcodeScannerDialog
+        open={scannerOpen}
+        onOpenChange={setScannerOpen}
+        onScan={handleOverviewScan}
+        description={t("barcodeScan.overviewDescription")}
+      />
     </div>
   );
 }
@@ -809,17 +1010,58 @@ function BadgeList({
   );
 }
 
-function ProductRow({ product }: { product: OverviewProduct }) {
+function ProductRow({
+  product,
+  selected,
+  printable,
+  onSelectedChange,
+  onPrint,
+}: {
+  product: OverviewProduct;
+  selected: boolean;
+  printable: boolean;
+  onSelectedChange: (checked: boolean) => void;
+  onPrint: () => void;
+}) {
   const { t } = useTranslation();
   const channelNames = product.salesChannels.map((c) => c.name);
   const deliveryTimeLabel = formatDeliveryTimeLabel(product, t);
   const restockTimeLabel = formatRestockTimeLabel(product.restockTime, t);
+  const inherited = new Set(product.inheritedFields || []);
+  const optionLabel = (product.options || [])
+    .map((o) => o.option)
+    .filter(Boolean)
+    .join(" · ");
+
+  const inheritedHint = (field: string) =>
+    inherited.has(field) ? (
+      <span
+        className="ml-1 text-[10px] uppercase tracking-wide text-muted-foreground"
+        title={t("productOverview.inheritedHint")}
+      >
+        {t("productOverview.inherited")}
+      </span>
+    ) : null;
 
   return (
     <TableRow>
+      <TableCell>
+        <Checkbox
+          checked={selected}
+          disabled={!printable}
+          onCheckedChange={(v) => onSelectedChange(v === true)}
+          aria-label={t("productLabels.selectRow", { number: product.productNumber })}
+        />
+      </TableCell>
       <TableCell className="font-mono text-sm">{product.productNumber}</TableCell>
       <TableCell>
-        <div className="font-medium">{product.name}</div>
+        <div className="font-medium">
+          {product.name || t("productOverview.table.none")}
+          {inheritedHint("name")}
+        </div>
+        {optionLabel ? (
+          <div className="text-xs text-muted-foreground">{optionLabel}</div>
+        ) : null}
         {product.manufacturerNumber ? (
           <div className="text-xs text-muted-foreground">{product.manufacturerNumber}</div>
         ) : null}
@@ -834,163 +1076,210 @@ function ProductRow({ product }: { product: OverviewProduct }) {
         )}
       </TableCell>
       <TableCell>
-        <BadgeList
-          items={channelNames}
-          icon={<Store className="h-3 w-3" />}
-          emptyLabel={t("productOverview.table.none")}
-          moreLabel={(n) => t("productOverview.table.more", { count: n })}
-        />
-      </TableCell>
-      <TableCell>
-        {product.hasAdvancedPrices ? (
-          <Dialog>
-            <DialogTrigger asChild>
-              <Badge variant="secondary" className="cursor-pointer gap-1">
-                <Layers className="h-3 w-3" />
-                {t("productOverview.table.tiers", { count: product.advancedPriceCount })}
-              </Badge>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>{t("productOverview.advancedPricesTitle")}</DialogTitle>
-                <DialogDescription>
-                  {product.productNumber} · {product.name}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="rounded-md border overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("productOverview.modal.quantity")}</TableHead>
-                      <TableHead>{t("productOverview.modal.priceRule")}</TableHead>
-                      <TableHead className="text-right">{t("productOverview.csv.priceGross")}</TableHead>
-                      <TableHead className="text-right">{t("productOverview.csv.priceNet")}</TableHead>
-                      <TableHead className="text-right">{t("products.discountPercent")}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {product.advancedPrices.map((ap, idx) => {
-                      const discountPercent =
-                        ap.net != null &&
-                        product.purchasePriceNet != null &&
-                        product.purchasePriceNet > 0
-                          ? product.priceNet > ap.net
-                            ? Math.round(
-                                ((product.priceNet - ap.net) / product.purchasePriceNet) * 1000,
-                              ) / 10
-                            : Math.round(
-                                ((ap.net - product.purchasePriceNet) / product.purchasePriceNet) * 1000,
-                              ) / 10
-                          : null;
-                      return (
-                      <TableRow key={idx}>
-                        <TableCell>
-                          {t("productOverview.fromQuantity", { qty: ap.quantityStart })}
-                          {ap.quantityEnd ? `–${ap.quantityEnd}` : ""}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {ap.ruleName ? ap.ruleName : t("productOverview.table.none")}
-                        </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {ap.gross != null ? currencyFormatter.format(ap.gross) : "—"}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-muted-foreground">
-                          {ap.net != null ? currencyFormatter.format(ap.net) : "—"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {discountPercent != null ? `${discountPercent.toLocaleString("de-DE")} %` : "—"}
-                        </TableCell>
-                      </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </DialogContent>
-          </Dialog>
-        ) : (
-          <span className="text-muted-foreground text-sm">{t("productOverview.table.none")}</span>
-        )}
-      </TableCell>
-      <TableCell>
-        <BadgeList
-          items={product.categories}
-          icon={<Tag className="h-3 w-3" />}
-          emptyLabel={t("productOverview.table.none")}
-          moreLabel={(n) => t("productOverview.table.more", { count: n })}
-        />
-      </TableCell>
-      <TableCell>
-        <BadgeList
-          items={product.tags ?? []}
-          icon={<TagIcon className="h-3 w-3" />}
-          emptyLabel={t("productOverview.table.none")}
-          moreLabel={(n) => t("productOverview.table.more", { count: n })}
-        />
-      </TableCell>
-      <TableCell>
-        {deliveryTimeLabel ? (
-          <span className="text-sm">{deliveryTimeLabel}</span>
-        ) : (
-          <Badge variant="outline" className="text-destructive border-destructive/40">
-            {t("productOverview.table.missingDeliveryTime")}
-          </Badge>
-        )}
-      </TableCell>
-      <TableCell>
-        {restockTimeLabel ? (
-          <span className="text-sm font-mono tabular-nums">{restockTimeLabel}</span>
-        ) : (
-          <span className="text-muted-foreground text-sm">{t("productOverview.table.none")}</span>
-        )}
-      </TableCell>
-      <TableCell>
-        {product.customFieldKeys.length > 0 ? (
-          <Dialog>
-            <DialogTrigger asChild>
-              <Badge variant="secondary" className="cursor-pointer">
-                {t("productOverview.table.fieldsCount", { count: product.customFieldKeys.length })}
-              </Badge>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>{t("productOverview.customFieldsTitle")}</DialogTitle>
-                <DialogDescription>
-                  {product.productNumber} · {product.name}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="rounded-md border overflow-hidden max-h-[60vh] overflow-y-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("productOverview.modal.field")}</TableHead>
-                      <TableHead>{t("productOverview.modal.value")}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {product.customFieldKeys.map((key) => (
-                      <TableRow key={key}>
-                        <TableCell className="font-mono text-xs align-top">{key}</TableCell>
-                        <TableCell className="break-all">
-                          {formatCustomFieldValue(product.customFields?.[key]) || "—"}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </DialogContent>
-          </Dialog>
-        ) : (
-          <span className="text-muted-foreground text-sm">{t("productOverview.table.none")}</span>
-        )}
-      </TableCell>
-      <TableCell className="text-right">
-        <div className="font-medium">{currencyFormatter.format(product.priceGross)}</div>
-        <div className="text-xs text-muted-foreground">
-          {currencyFormatter.format(product.priceNet)} {t("productOverview.net")}
+        <div className="flex items-start gap-1 flex-wrap">
+          <BadgeList
+            items={channelNames}
+            icon={<Store className="h-3 w-3" />}
+            emptyLabel={t("productOverview.table.none")}
+            moreLabel={(n) => t("productOverview.table.more", { count: n })}
+          />
+          {inheritedHint("salesChannels")}
         </div>
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center gap-1">
+          {product.hasAdvancedPrices ? (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Badge variant="secondary" className="cursor-pointer gap-1">
+                  <Layers className="h-3 w-3" />
+                  {t("productOverview.table.tiers", { count: product.advancedPriceCount })}
+                </Badge>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>{t("productOverview.advancedPricesTitle")}</DialogTitle>
+                  <DialogDescription>
+                    {product.productNumber} · {product.name}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="rounded-md border overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t("productOverview.modal.quantity")}</TableHead>
+                        <TableHead>{t("productOverview.modal.priceRule")}</TableHead>
+                        <TableHead className="text-right">{t("productOverview.csv.priceGross")}</TableHead>
+                        <TableHead className="text-right">{t("productOverview.csv.priceNet")}</TableHead>
+                        <TableHead className="text-right">{t("products.discountPercent")}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {product.advancedPrices.map((ap, idx) => {
+                        const discountPercent =
+                          ap.net != null &&
+                          product.purchasePriceNet != null &&
+                          product.purchasePriceNet > 0
+                            ? product.priceNet > ap.net
+                              ? Math.round(
+                                  ((product.priceNet - ap.net) / product.purchasePriceNet) * 1000,
+                                ) / 10
+                              : Math.round(
+                                  ((ap.net - product.purchasePriceNet) / product.purchasePriceNet) *
+                                    1000,
+                                ) / 10
+                            : null;
+                        return (
+                          <TableRow key={idx}>
+                            <TableCell>
+                              {t("productOverview.fromQuantity", { qty: ap.quantityStart })}
+                              {ap.quantityEnd ? `–${ap.quantityEnd}` : ""}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {ap.ruleName ? ap.ruleName : t("productOverview.table.none")}
+                            </TableCell>
+                            <TableCell className="text-right font-mono">
+                              {ap.gross != null ? currencyFormatter.format(ap.gross) : "—"}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-muted-foreground">
+                              {ap.net != null ? currencyFormatter.format(ap.net) : "—"}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {discountPercent != null
+                                ? `${discountPercent.toLocaleString("de-DE")} %`
+                                : "—"}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </DialogContent>
+            </Dialog>
+          ) : (
+            <span className="text-muted-foreground text-sm">{t("productOverview.table.none")}</span>
+          )}
+          {inheritedHint("advancedPrices")}
+        </div>
+      </TableCell>
+      <TableCell>
+        <div className="flex items-start gap-1 flex-wrap">
+          <BadgeList
+            items={product.categories}
+            icon={<Tag className="h-3 w-3" />}
+            emptyLabel={t("productOverview.table.none")}
+            moreLabel={(n) => t("productOverview.table.more", { count: n })}
+          />
+          {inheritedHint("categories")}
+        </div>
+      </TableCell>
+      <TableCell>
+        <div className="flex items-start gap-1 flex-wrap">
+          <BadgeList
+            items={product.tags ?? []}
+            icon={<TagIcon className="h-3 w-3" />}
+            emptyLabel={t("productOverview.table.none")}
+            moreLabel={(n) => t("productOverview.table.more", { count: n })}
+          />
+          {inheritedHint("tags")}
+        </div>
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center gap-1">
+          {deliveryTimeLabel ? (
+            <span className="text-sm">{deliveryTimeLabel}</span>
+          ) : (
+            <span className="text-sm text-destructive flex items-center gap-1">
+              <AlertCircle className="h-3.5 w-3.5" />
+              {t("productOverview.table.missingDeliveryTime")}
+            </span>
+          )}
+          {inheritedHint("deliveryTime")}
+        </div>
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center gap-1">
+          {restockTimeLabel ? (
+            <span className="text-sm">{restockTimeLabel}</span>
+          ) : (
+            <span className="text-muted-foreground text-sm">{t("productOverview.table.none")}</span>
+          )}
+          {inheritedHint("restockTime")}
+        </div>
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center gap-1">
+          {product.customFieldKeys.length > 0 ? (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Badge variant="secondary" className="cursor-pointer">
+                  {t("productOverview.table.fieldsCount", { count: product.customFieldKeys.length })}
+                </Badge>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>{t("productOverview.customFieldsTitle")}</DialogTitle>
+                  <DialogDescription>
+                    {product.productNumber} · {product.name}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="rounded-md border overflow-hidden max-h-[60vh] overflow-y-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t("productOverview.modal.field")}</TableHead>
+                        <TableHead>{t("productOverview.modal.value")}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {product.customFieldKeys.map((key) => (
+                        <TableRow key={key}>
+                          <TableCell className="font-mono text-xs align-top">{key}</TableCell>
+                          <TableCell className="break-all">
+                            {formatCustomFieldDisplay(product, key) || "—"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </DialogContent>
+            </Dialog>
+          ) : (
+            <span className="text-muted-foreground text-sm">{t("productOverview.table.none")}</span>
+          )}
+          {inheritedHint("customFields")}
+        </div>
+      </TableCell>
+      <TableCell className="text-right font-mono">
+        <div>
+          {currencyFormatter.format(product.priceGross || 0)}
+          {inheritedHint("price")}
+        </div>
+        <div className="text-xs text-muted-foreground">
+          {currencyFormatter.format(product.priceNet || 0)} {t("productOverview.net")}
+        </div>
+      </TableCell>
+      <TableCell>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          disabled={!printable}
+          title={
+            printable
+              ? t("productLabels.printOne")
+              : t("productLabels.parentNotPrintable")
+          }
+          onClick={onPrint}
+        >
+          <Printer className="h-4 w-4" />
+          <span className="sr-only">{t("productLabels.printOne")}</span>
+        </Button>
       </TableCell>
     </TableRow>
   );
 }
+

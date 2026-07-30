@@ -44,6 +44,8 @@ type CustomerIndividualPrice = {
   pseudoPriceNet: number | null;
   listPriceNet: number | null;
   discountPercent: number | null;
+  advancedPriceNet?: number | null;
+  advancedPriceDifferencePercent?: number | null;
   herstellMarginPercent?: number | null;
   herstellMarginVerdict?: "green" | "red" | "none";
   currencyIsoCode: string | null;
@@ -730,7 +732,11 @@ export default function CustomerDetailModal({
                           ) : null}
                           <TableHead className="text-right">{t("crm.customer.individualPrices.quantity")}</TableHead>
                           <TableHead className="text-right">{t("crm.customer.individualPrices.listPriceNet")}</TableHead>
+                          <TableHead className="text-right">{t("crm.customer.individualPrices.advancedPrice")}</TableHead>
                           <TableHead className="text-right">{t("crm.customer.individualPrices.priceNet")}</TableHead>
+                          <TableHead className="text-right" title={t("crm.customer.individualPrices.advancedPriceDifferenceHint")}>
+                            {t("crm.customer.individualPrices.advancedPriceDifference")}
+                          </TableHead>
                           <TableHead className="text-right">{t("crm.customer.individualPrices.discountPercent")}</TableHead>
                           <TableHead className="text-right" title={t("crm.customer.individualPrices.herstellMarginHint", {
                             threshold: individualPrices?.profitabilityMinMarginPercent?.toLocaleString("de-DE") ?? "—",
@@ -758,8 +764,18 @@ export default function CustomerDetailModal({
                                 ? formatCustomerPrice(price.listPriceNet, price.currencyIsoCode)
                                 : "—"}
                             </TableCell>
+                            <TableCell className="text-right">
+                              {price.advancedPriceNet != null
+                                ? formatCustomerPrice(price.advancedPriceNet, price.currencyIsoCode)
+                                : "—"}
+                            </TableCell>
                             <TableCell className="text-right font-medium">
                               {price.priceNet != null ? formatCustomerPrice(price.priceNet, price.currencyIsoCode) : "—"}
+                            </TableCell>
+                            <TableCell className={`text-right ${price.advancedPriceDifferencePercent != null && price.advancedPriceDifferencePercent < 0 ? "text-destructive" : ""}`}>
+                              {price.advancedPriceDifferencePercent != null
+                                ? `${price.advancedPriceDifferencePercent.toLocaleString("de-DE")} %`
+                                : "—"}
                             </TableCell>
                             <TableCell className="text-right">
                               {price.discountPercent != null

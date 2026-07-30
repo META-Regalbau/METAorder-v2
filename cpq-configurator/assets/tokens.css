@@ -1,0 +1,82 @@
+/* ============================================================================
+   META Design System — tokens + Frutiger LT Com faces (subset used here)
+   Extracted from the META Design System project (colors_and_type.css). The
+   brand is intentionally austere: one accent (META Red), neutrals for the rest.
+   ============================================================================ */
+
+@font-face {
+  font-family: "Frutiger LT Com";
+  src: url("fonts/FrutigerLTCom-Roman.ttf") format("truetype");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Frutiger LT Com";
+  src: url("fonts/FrutigerLTCom-Bold.ttf") format("truetype");
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Frutiger LT Com";
+  src: url("fonts/FrutigerLTCom-Black.ttf") format("truetype");
+  font-weight: 800; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Frutiger LT Com Cn";
+  src: url("fonts/FrutigerLTCom-BoldCn.ttf") format("truetype");
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Frutiger LT Com Cn";
+  src: url("fonts/FrutigerLTCom-BlackCn.ttf") format("truetype");
+  font-weight: 800; font-style: normal; font-display: swap;
+}
+
+:root {
+  /* Brand palette (META-Colors-RGB.ase) */
+  --meta-red:    #ff0002;
+  --meta-white:  #ffffff;
+  --meta-black:  #000000;
+  --meta-grey:   #929191;
+  --meta-steel:  #e8e8e8;
+  --meta-chrome: #f5f5f5;
+
+  /* Extended neutrals */
+  --meta-ink:      #1a1a1a;
+  --meta-graphite: #4a4a4a;
+  --meta-fog:      #c8c8c8;
+  --meta-mist:     #f9f9f9;
+
+  /* Red state tints */
+  --meta-red-hover: #d40002;
+  --meta-red-press: #a30001;
+  --meta-red-tint:  #ffe5e5;
+
+  /* Semantic foreground / background */
+  --fg-1: var(--meta-black);
+  --fg-2: var(--meta-graphite);
+  --fg-3: var(--meta-grey);
+  --fg-disabled: var(--meta-fog);
+
+  /* Type stacks */
+  --font-sans: "Frutiger LT Com", "Frutiger", "Helvetica Neue", Arial, sans-serif;
+  --font-cn:   "Frutiger LT Com Cn", "Frutiger LT Com", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", "Menlo", "Consolas", monospace;
+
+  /* Weights */
+  --fw-roman: 400;
+  --fw-bold:  700;
+  --fw-black: 800;
+
+  /* Spacing (4px grid) */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 24px; --sp-8: 32px;
+
+  /* Radii — the brand is squared */
+  --r-0: 0px; --r-1: 2px; --r-2: 4px;
+
+  /* Border widths */
+  --bw-hair: 1px; --bw: 2px; --bw-strong: 3px;
+
+  /* Motion */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-1: 120ms; --dur-2: 200ms;
+}

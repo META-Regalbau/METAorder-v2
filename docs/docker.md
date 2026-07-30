@@ -41,7 +41,7 @@ docker compose up --build
 
 **Frontend leer / laedt nicht:** Zuerst **richtige URL** (bei Compose meist **:5001**, nicht :5000). Dann Browser-Konsole (F12) auf Fehler pruefen. Startet der Node-Prozess nicht: `LISTEN_REUSE_PORT=false` in der `environment`-Sektion der App versuchen. Ohne gebaute SPA schlaegt `npm start` fehl — vorher `npm run build` oder Docker-Image bauen.
 
-Vor dem Start fuehrt der Entrypoint **`scripts/run-migrations.mjs`** aus — damit werden alle Dateien unter `migrations/*.sql` in Sortierreihenfolge angewendet (u. a. **Teilzahlung** `0005_installment_plans.sql`, **Anzahlung %** `0006_add_deposit_percent.sql`, **Commercial-Agent-Lernen** `0007_commercial_agent_learning.sql`, **öffentliche Angebots-Links** `0008_offer_public_links.sql`, **Commercial-Webhook-Eventtypen** `0009_webhook_commercial_events.sql`, **Integrations-API-Keys pro Mandant** `0010_tenant_integration_api_keys.sql`, **Indizes** `0011_tenant_query_indexes.sql`, **Angebots-Entwürfe / Shopware** `0012_offer_drafts_shopware_offer_id_idx.sql`, **CPQ-Review-Queue** `0014_cpq_review_queue_sprint2.sql`, **Cross-Sell-Events (Lernen)** `0015_cross_sell_events.sql`, **B2B-Freigabe-Audit** `0016_b2b_approval_log.sql`, **B2B-Webhook-Events** `0017_b2b_webhook_events.sql`). `extracted_data` in Angebots-/Bestell-Entwürfen bleibt JSONB — z. B. optionale Adressfelder wie `phone` brauchen **keine** eigene SQL-Migration.
+Vor dem Start fuehrt der Entrypoint **`scripts/run-migrations.mjs`** aus — damit werden alle Dateien unter `migrations/*.sql` in Sortierreihenfolge angewendet (u. a. **Teilzahlung** `0005_installment_plans.sql`, **Anzahlung %** `0006_add_deposit_percent.sql`, **Commercial-Agent-Lernen** `0007_commercial_agent_learning.sql`, **öffentliche Angebots-Links** `0008_offer_public_links.sql`, **Commercial-Webhook-Eventtypen** `0009_webhook_commercial_events.sql`, **Integrations-API-Keys pro Mandant** `0010_tenant_integration_api_keys.sql`, **Indizes** `0011_tenant_query_indexes.sql`, **Angebots-Entwürfe / Shopware** `0012_offer_drafts_shopware_offer_id_idx.sql`, **CPQ-Review-Queue** `0014_cpq_review_queue_sprint2.sql`, **Cross-Sell-Events (Lernen)** `0015_cross_sell_events.sql`, **B2B-Freigabe-Audit** `0016_b2b_approval_log.sql`, **B2B-Webhook-Events** `0017_b2b_webhook_events.sql`, **Herstellpreise** `0018_product_herstellpreise.sql`, **Shopware-Spiegel** `0019_shopware_mirror.sql`, **ERP-Kernmodule** `0020_erp_core_modules.sql` — Warenwirtschaft, Einkauf, Retouren, Fibu-OP, Produktion, Versand-Labels/Picklisten, **Versand-Provider** `0021_shipping_provider_settings.sql` — Sendcloud-Einstellungen + Label-Metadaten, **Sendcloud-Webhook-Status** `0022_sendcloud_webhook_status.sql`, **Stücklisten-Stamm** `0023_erp_boms.sql`, **Lieferanten-Preislisten** `0024_erp_supplier_price_lists.sql`). Architekturentscheidungen: `docs/erp-gap-decisions.md`. Gutschrift-Stubs liegen unter `uploads/credit-notes/`, Versandlabel-PDFs unter `uploads/shipping-labels/` (Volume `/app/uploads`). Sendcloud-Keys sind **mandantenspezifisch in der DB** (verschluesselt mit `ENCRYPTION_KEY`), keine zusaetzlichen Env-Vars. Fuer die angezeigte Webhook-URL `PUBLIC_APP_URL` (oder `METAORDER_BASE_URL`) setzen — der Endpoint selbst braucht keine Extra-Env. `extracted_data` in Angebots-/Bestell-Entwürfen bleibt JSONB — z. B. optionale Adressfelder wie `phone` brauchen **keine** eigene SQL-Migration.
 
 **Angebots-/Bestell-Entwurf Review (strengeres Matching, Klärungsbedarf, Rückfrage-Vorschau):** Läuft vollständig in der gebauten SPA + API im selben Image. Es gibt **keine** neuen Pflicht-Umgebungsvariablen und **keinen** Versand von E-Mail aus dem Container — nur lesende Endpunkte `GET /api/offer-drafts/:id/clarification-email` und `GET /api/order-drafts/:id/clarification-email`. Nach Deploy wie gewohnt: Image neu bauen, App-Container mit `--force-recreate` starten (siehe Absatz zu SPA-Cache oben).
 
@@ -138,10 +138,29 @@ KI-Schluessel (OpenAI / Anthropic) werden in der Regel **in der App unter Einste
 | Pfad / Volume | Inhalt |
 |---------------|--------|
 | Postgres-Volume (`metaorder_pgdata` in Compose) | Datenbank inkl. `installment_plans` / `installment_invoices` sowie Shopware-Spiegel (`shopware_products`, `shopware_customers`, `shopware_b2b_companies`, `shopware_customer_prices`, `shopware_sync_state`; Migration `0019_shopware_mirror.sql`) |
-| **`/app/uploads`** (Volume `metaorder_uploads`) | u. a. `installment-agreements/` (PDF Teilzahlungsvereinbarung), `dunning/`, **`ticket-attachments/`** (E-Mail-Anhänge ohne Google Object Storage), `commercial-agent-incoming/` (Commercial Agent PDFs), optional Debug-Logdatei wenn `COMMERCIAL_AGENT_DEBUG_FILE` darauf zeigt |
+| **`/app/uploads`** (Volume `metaorder_uploads`) | u. a. `installment-agreements/` (PDF Teilzahlungsvereinbarung), `dunning/`, **`ticket-attachments/`** (E-Mail-Anhänge ohne Google Object Storage), `commercial-agent-incoming/` (Commercial Agent PDFs), **`shipping-labels/`** (Versandlabel-PDFs Stub/Sendcloud), optional Debug-Logdatei wenn `COMMERCIAL_AGENT_DEBUG_FILE` darauf zeigt |
 | **`/app/server/pdfAssets/`** (im Image, ohne Volume) | Standard-PDF-Logo **`META_at_all_levels_RGB.png`** — durch eigenes META-Firmenlogo ersetzen (Custom-Image bauen) oder `METAORDER_PDF_LOGO_PATH` setzen. |
 
 Ohne Volume fuer `uploads` gehen generierte PDFs nach Container-Neustart verloren.
+
+## Artikeletiketten (Zebra ZD220)
+
+Der Druck von Artikeletiketten (Standard **103×150 mm**, umschaltbar z. B. auf 40×30 mm; Code128 + QR mit Artikelnummer) laeuft ueber ZPL. Die SPA ruft META Order (`/api/erp/zebra/*`) auf; der **App-Container** leitet an die Desktop-App **Zebra Browser Print** auf dem Host weiter (`BROWSER_PRINT_URL`, Default `http://host.docker.internal:9100`). So umgeht man CORS / Private Network Access im Browser.
+
+**Voraussetzung am Arbeitsplatz-PC** (Drucker-Host, nicht im Docker-Image):
+
+1. [Zebra Browser Print](https://www.zebra.com/us/en/support-downloads/software/printer-software/browser-print.html) installieren und starten (lauscht auf Port **9100**).
+2. ZD220 per USB verbinden und in Browser Print als Standarddrucker hinterlegen.
+3. Docker Compose: App-Service hat `extra_hosts: host.docker.internal:host-gateway` und `BROWSER_PRINT_URL` (bei Bedarf anpassen, z. B. wenn Browser Print auf einem anderen Rechner laeuft).
+4. In der App unter **Produkt-Übersicht** Etiketten einzeln oder per Mehrfachauswahl drucken.
+
+**Hinweis Mittwald / Remote-Server:** Der Proxy erreicht nur Browser Print auf dem **selben Host** wie der Container (bzw. die URL in `BROWSER_PRINT_URL`). Ein USB-Drucker am lokalen Laptop ist von einem entfernten Server aus nicht erreichbar — dort muesste Browser Print auf dem Server-Host laufen oder der Druck weiter clientseitig erfolgen.
+
+## Kamera-Scan (iPhone / QR + Code128)
+
+Inventur, Produkt-Übersicht und **Mobile Picking** (`/mobile/picking`) können Etiketten per **Geräte-Kamera** scannen (`html5-qrcode`). Am **iPhone** muss META Order unter **HTTPS** geöffnet werden (Safari erlaubt die Kamera nicht über `http://…` im LAN). Localhost auf dem Desktop reicht für Tests mit Webcam.
+
+**Versandlabels (Sendcloud):** PDF im Format `label_printer` (Thermodrucker). Am Lager-PC mit Browser Print: Button **Zebra** (PDF Direct). Am iPhone: PDF öffnen und teilen/drucken.
 
 ## Object Storage (MinIO)
 

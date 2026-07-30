@@ -90,7 +90,8 @@ async function syncProductsDelta(
     }
 
     // Cursor: bei Fingerprint-Match-Fail trotzdem Delta ab last cursor (inkl. gleiche updatedAt)
-    const cursor = state?.cursorUpdatedAt ?? null;
+    // force: voller Resync (z. B. neue Payload-Felder wie options)
+    const cursor = opts?.force ? null : state?.cursorUpdatedAt ?? null;
     let page = 1;
     let upserted = 0;
     let maxUpdated: Date | null = cursor;
@@ -103,8 +104,39 @@ async function syncProductsDelta(
       sourceTotal = total;
       if (products.length === 0) break;
 
+      const missingDtIds = products
+        .filter((p) => p.deliveryTimeId && !p.deliveryTimeName)
+        .map((p) => String(p.deliveryTimeId));
+      let deliveryById = new Map<
+        string,
+        { name: string | null; min: number | null; max: number | null; unit: string | null }
+      >();
+      if (missingDtIds.length > 0) {
+        try {
+          deliveryById = await client.resolveDeliveryTimes(missingDtIds);
+        } catch (err) {
+          console.warn("[ShopwareMirror] delivery time resolve failed:", err);
+        }
+      }
+
+      const enrichedProducts = products.map((p) => {
+        if (!p.deliveryTimeId || p.deliveryTimeName) return p;
+        const resolved = deliveryById.get(
+          String(p.deliveryTimeId).replace(/-/g, "").toLowerCase(),
+        );
+        if (!resolved) return p;
+        return {
+          ...p,
+          deliveryTimeName: resolved.name ?? p.deliveryTimeName,
+          deliveryTimeMin: resolved.min ?? p.deliveryTimeMin,
+          deliveryTimeMax: resolved.max ?? p.deliveryTimeMax,
+          deliveryTimeUnit: resolved.unit ?? p.deliveryTimeUnit,
+          hasDeliveryTime: true,
+        };
+      });
+
       await storage.upsertShopwareProductMirrors(
-        products.map((p) => ({
+        enrichedProducts.map((p) => ({
           shopwareId: p.id,
           productNumber: p.productNumber,
           manufacturerNumber: p.manufacturerNumber ?? null,
@@ -116,9 +148,9 @@ async function syncProductsDelta(
         })),
         tenantId,
       );
-      upserted += products.length;
+      upserted += enrichedProducts.length;
 
-      for (const p of products) {
+      for (const p of enrichedProducts) {
         const d = parseSwDate(p.updatedAt);
         if (d && (!maxUpdated || d > maxUpdated)) maxUpdated = d;
       }

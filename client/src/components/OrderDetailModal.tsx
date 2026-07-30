@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import StatusBadge from "./StatusBadge";
 import HerstellMarginIndicator from "./HerstellMarginIndicator";
+import { OrderItemStockHint, OrderStockSummaryBadge } from "./OrderStockHint";
 import ShippingInfoForm from "./ShippingInfoForm";
 import AdminDocumentForm from "./AdminDocumentForm";
 import InstallmentPlanSection from "./InstallmentPlanSection";
@@ -912,6 +913,16 @@ export default function OrderDetailModal({
           <TabsContent value="items" className="pt-6">
             <Card className="p-6">
               <h3 className="text-sm font-medium uppercase tracking-wide mb-4">{t('orderDetail.orderItems')}</h3>
+              {order.stockSummary?.lineCount ? (
+                <div className="mb-4">
+                  <OrderStockSummaryBadge
+                    status={order.stockSummary.status}
+                    issueCount={order.stockSummary.issueCount}
+                    lineCount={order.stockSummary.lineCount}
+                    warehouseCode={order.stockSummary.warehouseCode}
+                  />
+                </div>
+              ) : null}
               {order.profitability?.marginPercent != null ||
               order.profitability?.marginOnRevenuePercent != null ? (
                 <div className="mb-4 rounded-lg border bg-muted/30 p-4 flex flex-wrap items-center justify-between gap-3">
@@ -940,7 +951,17 @@ export default function OrderDetailModal({
                     <div key={item.id} className="flex justify-between items-center py-2 border-b last:border-0" data-testid={`orderitem-${item.id}`}>
                       <div className="flex-1">
                         <p className="font-medium">{item.name}</p>
+                        {item.productNumber ? (
+                          <p className="text-xs font-mono text-muted-foreground">{item.productNumber}</p>
+                        ) : null}
                         <p className="text-sm text-muted-foreground">{t('orderDetail.quantity')}: {item.quantity}</p>
+                        {item.stockStatus ? (
+                          <OrderItemStockHint
+                            status={item.stockStatus}
+                            available={item.stockAvailable}
+                            need={item.quantity}
+                          />
+                        ) : null}
                         <p className="text-xs text-muted-foreground">{t('orderDetail.taxRate')}: {item.taxRate}%</p>
                         {item.herstellpreisNet != null ? (
                           <p className="text-xs text-muted-foreground mt-1">

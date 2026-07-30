@@ -20,6 +20,7 @@ export function isTenantOptionalApiPath(req: { method: string; path: string }): 
   if (m === "GET" && p === "/api/auth/me") return true;
   if (m === "GET" && p === "/api/tenants") return true;
   if (m === "POST" && p === "/api/tenants/select") return true;
+  if (m === "POST" && p === "/api/tenants") return true;
   if (m === "GET" && p === "/api/auth/token") return true;
   if (m === "PUT" && p === "/api/profile") return true;
   if (m === "PUT" && p === "/api/profile/password") return true;
@@ -446,6 +447,16 @@ export const requireApproveCPQQuotes = requirePermission("approveCPQQuotes");
 export const requireViewB2B = requirePermission("viewB2B");
 export const requireManageB2B = requirePermission("manageB2B");
 export const requireApproveB2BBudgets = requirePermission("approveB2BBudgets");
+export const requireViewInventory = requirePermission("viewInventory");
+export const requireManageInventory = requirePermission("manageInventory");
+export const requireViewPurchasing = requirePermission("viewPurchasing");
+export const requireManagePurchasing = requirePermission("managePurchasing");
+export const requireViewReturns = requirePermission("viewReturns");
+export const requireManageReturns = requirePermission("manageReturns");
+export const requireManageAccounting = requirePermission("manageAccounting");
+export const requireViewProduction = requirePermission("viewProduction");
+export const requireManageProduction = requirePermission("manageProduction");
+export const requireManageShippingLabels = requirePermission("manageShippingLabels");
 export const requireViewAccounting = (req: any, res: any, next: any) => {
   const user = req.user as any;
   const isAdmin =

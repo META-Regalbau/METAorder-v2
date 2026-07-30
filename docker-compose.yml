@@ -103,8 +103,12 @@ services:
       COMMERCIAL_AGENT_STRICT_MIN_INTENT: ${COMMERCIAL_AGENT_STRICT_MIN_INTENT:-0.95}
       COMMERCIAL_AGENT_STRICT_MIN_CUSTOMER: ${COMMERCIAL_AGENT_STRICT_MIN_CUSTOMER:-95}
       B2B_SELLERS_DEFAULT_SALES_CHANNEL: ${B2B_SELLERS_DEFAULT_SALES_CHANNEL:-}
+      # Zebra Browser Print am Host (Artikeletiketten). Container → Host:9100.
+      BROWSER_PRINT_URL: ${BROWSER_PRINT_URL:-http://host.docker.internal:9100}
     volumes:
       - metaorder_uploads:/app/uploads
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       db:
         condition: service_healthy

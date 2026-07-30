@@ -1,0 +1,174 @@
+/* ============================================================================
+   META CLIP configurator — scoped theme.
+   All rules live under .mclip so the rest of the app (shadcn/Roboto/blue) is
+   untouched. Tokens + component styles ported from the META Design System
+   (colors_and_type.css) and the approved META-CLIP-Konfigurator-Web design.
+   ============================================================================ */
+
+@font-face { font-family: "Frutiger LT Com"; src: url("/fonts/meta/FrutigerLTCom-Roman.ttf") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Frutiger LT Com"; src: url("/fonts/meta/FrutigerLTCom-Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Frutiger LT Com"; src: url("/fonts/meta/FrutigerLTCom-Black.ttf") format("truetype"); font-weight: 800; font-style: normal; font-display: swap; }
+@font-face { font-family: "Frutiger LT Com Cn"; src: url("/fonts/meta/FrutigerLTCom-BoldCn.ttf") format("truetype"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Frutiger LT Com Cn"; src: url("/fonts/meta/FrutigerLTCom-BlackCn.ttf") format("truetype"); font-weight: 800; font-style: normal; font-display: swap; }
+
+.mclip {
+  --meta-red: #ff0002; --meta-white: #fff; --meta-black: #000; --meta-grey: #929191;
+  --meta-steel: #e8e8e8; --meta-chrome: #f5f5f5; --meta-ink: #1a1a1a; --meta-graphite: #4a4a4a;
+  --meta-fog: #c8c8c8; --meta-mist: #f9f9f9; --meta-red-hover: #d40002; --meta-red-press: #a30001;
+  --fg-1: var(--meta-black); --fg-2: var(--meta-graphite); --fg-3: var(--meta-grey); --fg-disabled: var(--meta-fog);
+  --font-sans: "Frutiger LT Com", "Helvetica Neue", Arial, sans-serif;
+  --font-cn: "Frutiger LT Com Cn", "Frutiger LT Com", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  --ease: cubic-bezier(0.4, 0, 0.2, 1); --dur-1: 120ms;
+
+  font-family: var(--font-sans); font-weight: 400; color: var(--fg-1);
+  background: var(--meta-chrome); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  display: flex; justify-content: center; padding: 24px; min-height: 100%;
+}
+.mclip *, .mclip *::before, .mclip *::after { box-sizing: border-box; }
+.mclip ::selection { background: var(--meta-red); color: var(--meta-white); }
+
+.mclip .cfg { width: 100%; max-width: 1240px; background: var(--meta-white); border: 1px solid var(--meta-steel); display: flex; flex-direction: column; }
+
+/* header */
+.mclip .cfg-head { height: 56px; flex: 0 0 56px; border-bottom: 1px solid var(--meta-steel); padding: 0 24px; display: flex; align-items: center; gap: 24px; }
+.mclip .cfg-head img { height: 18px; width: auto; display: block; }
+.mclip .head-div { width: 1px; height: 20px; background: var(--meta-steel); }
+.mclip .crumbs { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--fg-3); }
+.mclip .crumbs .now { color: var(--fg-1); }
+.mclip .lang-toggle, .mclip .seg { display: flex; border: 1px solid var(--meta-steel); border-radius: 2px; overflow: hidden; }
+.mclip .lang-toggle button { min-width: 40px; height: 28px; border: 0; cursor: pointer; font-family: var(--font-sans); font-size: 12px; font-weight: 700; letter-spacing: 0.06em; background: var(--meta-white); }
+.mclip .lang-toggle button + button, .mclip .seg button + button { border-left: 1px solid var(--meta-steel); }
+.mclip .seg button { height: 28px; padding: 0 12px; border: 0; cursor: pointer; font-family: var(--font-sans); font-size: 11px; font-weight: 700; letter-spacing: 0.04em; background: var(--meta-white); color: var(--fg-3); }
+.mclip .seg button.on { color: var(--meta-red); }
+
+/* main grid */
+/* align-items:start — otherwise grid stretches .stage to match .panel's (taller,
+   control-heavy) content height, blowing up .viewport into a narrow, very tall
+   box and badly skewing the 3D camera's aspect ratio. */
+.mclip .cfg-main { display: grid; grid-template-columns: minmax(0, 1fr) 420px; align-items: start; }
+.mclip .stage { background: var(--meta-chrome); padding: 24px; display: flex; flex-direction: column; gap: 16px; min-height: 660px; }
+.mclip .stage-top { display: flex; align-items: center; gap: 12px; }
+.mclip .view-label { font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--meta-red); }
+.mclip .view-opts { display: flex; gap: 6px; }
+.mclip .view-opts button { height: 32px; padding: 0 12px; border-radius: 2px; cursor: pointer; font-family: var(--font-sans); font-size: 12px; font-weight: 700; background: var(--meta-white); color: var(--fg-2); border: 1px solid var(--meta-steel); }
+.mclip .view-opts button.on { color: var(--meta-red); border-color: var(--meta-red); }
+.mclip .viewport { position: relative; flex: 1 1 auto; min-height: 420px; background: var(--meta-white); border: 1px solid var(--meta-steel); overflow: hidden; }
+.mclip .viewport svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.mclip .view-caption { position: absolute; left: 16px; top: 16px; pointer-events: none; font-family: var(--font-cn); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-3); }
+.mclip .view-hint { position: absolute; right: 16px; bottom: 14px; pointer-events: none; font-size: 11px; color: var(--meta-fog); }
+/* Real GLB scene (Shelf3DScene) ships its own aspect-square/grey-bg wrapper —
+   force it to fill the viewport box instead so it sits flush like the design. */
+.mclip .viewport .glb-fill { position: absolute; inset: 0; }
+.mclip .viewport .glb-fill > div { width: 100% !important; height: 100% !important; aspect-ratio: auto !important; border-radius: 0 !important; background: var(--meta-white) !important; }
+.mclip .dims { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--meta-steel); background: var(--meta-white); }
+.mclip .dims .cell { padding: 12px 16px; border-left: 1px solid var(--meta-steel); display: flex; flex-direction: column; gap: 2px; }
+.mclip .dims .cell:first-child { border-left: 0; }
+.mclip .dims .k { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-3); }
+.mclip .dims .v { font-family: var(--font-cn); font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* panel */
+.mclip .panel { border-left: 1px solid var(--meta-steel); padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+.mclip .panel-head { display: flex; flex-direction: column; gap: 4px; }
+.mclip .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--meta-red); }
+.mclip .panel-title { font-size: 24px; font-weight: 700; line-height: 1.15; }
+.mclip .panel-sub { font-size: 13px; color: var(--fg-2); }
+.mclip .rule { height: 1px; background: var(--meta-steel); }
+.mclip .controls { display: flex; flex-direction: column; gap: 18px; }
+.mclip .control { display: flex; flex-direction: column; gap: 8px; }
+.mclip .control-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.mclip .control-label { font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--fg-2); }
+.mclip .control-value { font-family: var(--font-cn); font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mclip .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.mclip .chips button { flex: 1 1 0; min-width: 44px; height: 44px; padding: 0 6px; border-radius: 2px; cursor: pointer; font-family: var(--font-sans); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; background: var(--meta-white); color: var(--fg-2); border: 1px solid var(--meta-steel); }
+.mclip .chips button.on { color: var(--meta-red); border-color: var(--meta-red); }
+.mclip .chips button:disabled { color: var(--fg-disabled); cursor: not-allowed; background: var(--meta-mist); }
+.mclip .slider { display: flex; flex-direction: column; gap: 2px; }
+.mclip input[type=range] { width: 100%; height: 36px; margin: 0; accent-color: var(--meta-red); cursor: pointer; }
+.mclip .ticks { display: flex; justify-content: space-between; }
+.mclip .tick { font-family: var(--font-cn); font-size: 11px; font-weight: 700; color: var(--fg-3); font-variant-numeric: tabular-nums; }
+.mclip .tick.on { color: var(--meta-red); }
+.mclip .stepper { display: flex; align-items: stretch; height: 44px; border: 1px solid var(--meta-steel); border-radius: 2px; }
+.mclip .stepper button { width: 52px; border: 0; cursor: pointer; font-family: var(--font-sans); font-size: 18px; font-weight: 700; background: var(--meta-white); color: var(--meta-ink); transition: background var(--dur-1) var(--ease); }
+.mclip .stepper button:hover:not(:disabled) { background: var(--meta-chrome); }
+.mclip .stepper button:disabled { color: var(--fg-disabled); cursor: not-allowed; }
+.mclip .stepper .dec { border-right: 1px solid var(--meta-steel); }
+.mclip .stepper .inc { border-left: 1px solid var(--meta-steel); }
+.mclip .stepper .val { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; font-family: var(--font-cn); font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums; }
+.mclip .stepper .unit { color: var(--fg-3); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; }
+.mclip .control-note { font-size: 12px; color: var(--fg-3); }
+.mclip .extras { display: flex; flex-direction: column; gap: 10px; }
+.mclip .extras-label { font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--fg-3); }
+.mclip .surface { display: flex; gap: 6px; }
+.mclip .surface button { flex: 1 1 0; height: 40px; border-radius: 2px; cursor: pointer; font-family: var(--font-sans); font-size: 13px; font-weight: 700; background: var(--meta-white); color: var(--fg-2); border: 1px solid var(--meta-steel); }
+.mclip .surface button.on { color: var(--meta-red); border-color: var(--meta-red); }
+.mclip .rear { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 40px; padding: 0 12px; border: 1px solid var(--meta-steel); border-radius: 2px; background: var(--meta-white); cursor: pointer; font-family: var(--font-sans); transition: background var(--dur-1) var(--ease); }
+.mclip .rear:hover { background: var(--meta-chrome); }
+.mclip .rear:disabled { opacity: 0.5; cursor: not-allowed; }
+.mclip .rear .name { font-size: 13px; color: var(--fg-1); }
+.mclip .rear .meta { display: flex; align-items: center; gap: 8px; }
+.mclip .rear .price { font-family: var(--font-cn); font-size: 12px; font-weight: 700; color: var(--fg-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mclip .rear .box { width: 18px; height: 18px; border: 1px solid var(--meta-grey); color: var(--meta-white); font-size: 12px; line-height: 16px; text-align: center; }
+.mclip .rear .box.on { border-color: var(--meta-red); background: var(--meta-red); }
+.mclip .alert { display: flex; flex-direction: column; gap: 4px; background: var(--meta-chrome); border-left: 3px solid var(--meta-grey); padding: 14px 16px; }
+.mclip .alert.error { background: #ffe5e5; border-left-color: var(--meta-red); }
+.mclip .alert .title { font-weight: 700; font-size: 14px; color: var(--fg-1); }
+.mclip .alert .body { font-size: 13px; color: var(--fg-1); }
+.mclip .spring { flex: 1; min-height: 8px; }
+.mclip .checkout { border-top: 2px solid var(--meta-black); padding-top: 16px; display: flex; flex-direction: column; gap: 12px; }
+.mclip .price-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.mclip .price-label { font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--fg-3); }
+.mclip .price-net { font-family: var(--font-cn); font-size: 34px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.mclip .price-net.loading { color: var(--fg-disabled); }
+.mclip .price-gross { font-size: 12px; color: var(--fg-3); text-align: right; font-variant-numeric: tabular-nums; }
+.mclip .avail { display: flex; align-items: center; gap: 8px; }
+.mclip .avail .dot { width: 8px; height: 8px; }
+.mclip .avail .txt { font-size: 13px; color: var(--fg-2); }
+.mclip .badge-class { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 6px; font-family: var(--font-cn); font-size: 12px; font-weight: 800; color: var(--meta-white); background: var(--meta-graphite); }
+.mclip .badge-class.c { background: var(--meta-red); }
+
+.mclip .btn { display: flex; width: 100%; align-items: center; justify-content: center; font-family: var(--font-sans); font-weight: 700; letter-spacing: 0.01em; border-radius: 0; cursor: pointer; white-space: nowrap; transition: background var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease); }
+.mclip .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.mclip .btn-lg { font-size: 16px; padding: 0 28px; height: 52px; }
+.mclip .btn-md { font-size: 15px; padding: 0 20px; height: 44px; }
+.mclip .btn-primary { background: var(--meta-red); color: var(--meta-white); border: 1px solid var(--meta-red); }
+.mclip .btn-primary:hover:not(:disabled) { background: var(--meta-red-hover); border-color: var(--meta-red-hover); }
+.mclip .btn-primary:active:not(:disabled) { background: var(--meta-red-press); border-color: var(--meta-red-press); }
+.mclip .btn-secondary { background: var(--meta-white); color: var(--meta-ink); border: 1px solid var(--meta-ink); }
+.mclip .btn-secondary:hover:not(:disabled) { background: var(--meta-chrome); }
+.mclip .btn-tertiary { width: auto; background: transparent; color: var(--meta-ink); border: 1px solid transparent; }
+.mclip .btn-tertiary:hover:not(:disabled) { background: var(--meta-chrome); }
+.mclip .btn-actions { display: flex; gap: 8px; }
+
+/* footer: summary + BOM */
+.mclip .cfg-foot { border-top: 1px solid var(--meta-steel); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); }
+.mclip .summary { padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+.mclip .sec-label { font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--fg-1); }
+.mclip .sum-rows { display: flex; flex-direction: column; }
+.mclip .sum-row { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 8px 0; border-bottom: 1px solid var(--meta-steel); }
+.mclip .sum-row .k { font-size: 13px; color: var(--fg-2); }
+.mclip .sum-row .v { font-family: var(--font-cn); font-size: 14px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+.mclip .config-code { font-size: 12px; color: var(--fg-3); }
+.mclip .config-code code { font-family: var(--font-mono); color: var(--fg-1); }
+.mclip .bom { padding: 24px; border-left: 1px solid var(--meta-steel); display: flex; flex-direction: column; gap: 12px; background: var(--meta-mist); }
+.mclip .bom-grid { display: grid; grid-template-columns: minmax(0, 1fr) 150px 40px 84px 92px; gap: 0 12px; align-items: center; }
+.mclip .bom-head { padding-bottom: 8px; border-bottom: 2px solid var(--meta-black); font-size: 11px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--fg-3); }
+.mclip .bom-row { padding: 8px 0; border-bottom: 1px solid var(--meta-steel); font-size: 13px; }
+.mclip .bom-art { font-family: var(--font-mono); font-size: 11px; color: var(--fg-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mclip .num { text-align: right; font-variant-numeric: tabular-nums; }
+.mclip .muted { color: var(--fg-2); }
+.mclip .bold { font-weight: 700; }
+.mclip .bom-total { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding-top: 8px; }
+.mclip .bom-total .k { font-size: 12px; color: var(--fg-3); }
+.mclip .bom-total .v { font-family: var(--font-cn); font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 900px) {
+  .mclip { padding: 0; }
+  .mclip .cfg { border: 0; }
+  .mclip .cfg-main { grid-template-columns: 1fr; }
+  .mclip .panel { border-left: 0; border-top: 1px solid var(--meta-steel); }
+  .mclip .cfg-foot { grid-template-columns: 1fr; }
+  .mclip .bom { border-left: 0; border-top: 1px solid var(--meta-steel); }
+  .mclip .stage { min-height: 0; }
+  .mclip .crumbs { display: none; }
+}

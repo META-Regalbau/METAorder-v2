@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>META CLIP — Konfigurator</title>
+  <link rel="stylesheet" href="assets/tokens.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body { height: 100%; }
+    body {
+      font-family: var(--font-sans);
+      font-weight: var(--fw-roman);
+      color: var(--fg-1);
+      background: var(--meta-chrome);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      display: flex;
+      justify-content: center;
+      padding: 32px 24px;
+    }
+    ::selection { background: var(--meta-red); color: var(--meta-white); }
+
+    /* The configurator surface — a bordered panel, brand-squared. */
+    .cfg {
+      width: 100%;
+      max-width: 1240px;
+      background: var(--meta-white);
+      border: 1px solid var(--meta-steel);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ---- header ---- */
+    .cfg-head {
+      height: 56px; flex: 0 0 56px;
+      border-bottom: 1px solid var(--meta-steel);
+      padding: 0 24px;
+      display: flex; align-items: center; gap: 24px;
+    }
+    .cfg-head img { height: 18px; width: auto; display: block; }
+    .head-div { width: 1px; height: 20px; background: var(--meta-steel); }
+    .crumbs {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; color: var(--fg-3);
+    }
+    .crumbs .now { color: var(--fg-1); }
+    .lang-toggle {
+      display: flex; border: 1px solid var(--meta-steel);
+      border-radius: 2px; overflow: hidden;
+    }
+    .lang-toggle button {
+      min-width: 40px; height: 28px; border: 0; cursor: pointer;
+      font-family: var(--font-sans); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.06em; background: var(--meta-white);
+    }
+    .lang-toggle button + button { border-left: 1px solid var(--meta-steel); }
+    .seg {
+      display: flex; border: 1px solid var(--meta-steel); border-radius: 2px; overflow: hidden;
+    }
+    .seg button {
+      height: 28px; padding: 0 12px; border: 0; cursor: pointer;
+      font-family: var(--font-sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.04em; background: var(--meta-white); color: var(--fg-3);
+    }
+    .seg button + button { border-left: 1px solid var(--meta-steel); }
+    .seg button.on { color: var(--meta-red); }
+
+    /* ---- main grid ---- */
+    .cfg-main { display: grid; grid-template-columns: minmax(0,1fr) 420px; }
+
+    /* stage (left) */
+    .stage {
+      background: var(--meta-chrome); padding: 24px;
+      display: flex; flex-direction: column; gap: 16px; min-height: 660px;
+    }
+    .stage-top { display: flex; align-items: center; gap: 12px; }
+    .view-label {
+      font-size: 12px; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--meta-red);
+    }
+    .view-opts { display: flex; gap: 6px; }
+    .view-opts button {
+      height: 32px; padding: 0 12px; border-radius: 2px; cursor: pointer;
+      font-family: var(--font-sans); font-size: 12px; font-weight: 700;
+      background: var(--meta-white); color: var(--fg-2);
+      border: 1px solid var(--meta-steel);
+    }
+    .view-opts button.on { color: var(--meta-red); border-color: var(--meta-red); }
+
+    .viewport {
+      position: relative; flex: 1 1 auto; min-height: 420px;
+      background: var(--meta-white); border: 1px solid var(--meta-steel);
+      overflow: hidden;
+    }
+    .viewport svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .view-caption {
+      position: absolute; left: 16px; top: 16px; pointer-events: none;
+      font-family: var(--font-cn); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-3);
+    }
+    .view-hint {
+      position: absolute; right: 16px; bottom: 14px; pointer-events: none;
+      font-size: 11px; color: var(--meta-fog); letter-spacing: 0.02em;
+    }
+
+    .dims {
+      display: grid; grid-template-columns: repeat(4,1fr);
+      border: 1px solid var(--meta-steel); background: var(--meta-white);
+    }
+    .dims .cell {
+      padding: 12px 16px; border-left: 1px solid var(--meta-steel);
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .dims .cell:first-child { border-left: 0; }
+    .dims .k {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--fg-3);
+    }
+    .dims .v {
+      font-family: var(--font-cn); font-size: 20px; font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* panel (right) */
+    .panel {
+      border-left: 1px solid var(--meta-steel); padding: 24px;
+      display: flex; flex-direction: column; gap: 20px;
+    }
+    .panel-head { display: flex; flex-direction: column; gap: 4px; }
+    .eyebrow {
+      font-size: 12px; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--meta-red);
+    }
+    .panel-title { font-size: 24px; font-weight: 700; line-height: 1.15; }
+    .panel-sub { font-size: 13px; color: var(--fg-2); }
+    .rule { height: 1px; background: var(--meta-steel); }
+
+    .controls { display: flex; flex-direction: column; gap: 18px; }
+    .control { display: flex; flex-direction: column; gap: 8px; }
+    .control-head {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+    }
+    .control-label {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.09em;
+      text-transform: uppercase; color: var(--fg-2);
+    }
+    .control-value {
+      font-family: var(--font-cn); font-size: 15px; font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .chips { display: flex; gap: 6px; }
+    .chips button {
+      flex: 1 1 0; min-width: 0; height: 44px; padding: 0 6px; border-radius: 2px;
+      cursor: pointer; font-family: var(--font-sans); font-size: 14px; font-weight: 700;
+      font-variant-numeric: tabular-nums; background: var(--meta-white);
+      color: var(--fg-2); border: 1px solid var(--meta-steel);
+    }
+    .chips button.on { color: var(--meta-red); border-color: var(--meta-red); }
+
+    .slider { display: flex; flex-direction: column; gap: 2px; }
+    input[type=range] {
+      width: 100%; height: 36px; margin: 0; accent-color: var(--meta-red); cursor: pointer;
+    }
+    .ticks { display: flex; justify-content: space-between; }
+    .tick {
+      font-family: var(--font-cn); font-size: 11px; font-weight: 700;
+      color: var(--fg-3); font-variant-numeric: tabular-nums;
+    }
+    .tick.on { color: var(--meta-red); }
+
+    .stepper {
+      display: flex; align-items: stretch; height: 44px;
+      border: 1px solid var(--meta-steel); border-radius: 2px;
+    }
+    .stepper button {
+      width: 52px; border: 0; cursor: pointer; font-family: var(--font-sans);
+      font-size: 18px; font-weight: 700; background: var(--meta-white);
+      color: var(--meta-ink); transition: background var(--dur-1) var(--ease-standard);
+    }
+    .stepper button:hover:not(:disabled) { background: var(--meta-chrome); }
+    .stepper button:disabled { color: var(--fg-disabled); cursor: not-allowed; }
+    .stepper .dec { border-right: 1px solid var(--meta-steel); }
+    .stepper .inc { border-left: 1px solid var(--meta-steel); }
+    .stepper .val {
+      flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+      font-family: var(--font-cn); font-weight: 700; font-size: 16px;
+      font-variant-numeric: tabular-nums;
+    }
+    .stepper .unit {
+      color: var(--fg-3); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    .control-note { font-size: 12px; color: var(--fg-3); }
+
+    .extras { display: flex; flex-direction: column; gap: 10px; }
+    .extras-label {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.09em;
+      text-transform: uppercase; color: var(--fg-3);
+    }
+    .surface { display: flex; gap: 6px; }
+    .surface button {
+      flex: 1 1 0; height: 40px; border-radius: 2px; cursor: pointer;
+      font-family: var(--font-sans); font-size: 13px; font-weight: 700;
+      background: var(--meta-white); color: var(--fg-2); border: 1px solid var(--meta-steel);
+    }
+    .surface button.on { color: var(--meta-red); border-color: var(--meta-red); }
+    .rear {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      height: 40px; padding: 0 12px; border: 1px solid var(--meta-steel);
+      border-radius: 2px; background: var(--meta-white); cursor: pointer;
+      font-family: var(--font-sans);
+      transition: background var(--dur-1) var(--ease-standard);
+    }
+    .rear:hover { background: var(--meta-chrome); }
+    .rear .name { font-size: 13px; color: var(--fg-1); }
+    .rear .meta { display: flex; align-items: center; gap: 8px; }
+    .rear .price {
+      font-family: var(--font-cn); font-size: 12px; font-weight: 700; color: var(--fg-3);
+      font-variant-numeric: tabular-nums; white-space: nowrap;
+    }
+    .rear .box {
+      width: 18px; height: 18px; border: 1px solid var(--meta-grey);
+      color: var(--meta-white); font-size: 12px; line-height: 16px; text-align: center;
+    }
+    .rear .box.on { border-color: var(--meta-red); background: var(--meta-red); }
+
+    /* alert */
+    .alert {
+      display: flex; flex-direction: column; gap: 4px;
+      background: var(--meta-chrome); border-left: 3px solid var(--meta-grey);
+      padding: 14px 16px; font-family: var(--font-sans);
+    }
+    .alert .title { font-weight: 700; font-size: 14px; color: var(--fg-1); }
+    .alert .body { font-size: 13px; color: var(--fg-1); }
+
+    .spring { flex: 1; min-height: 8px; }
+
+    /* checkout */
+    .checkout {
+      border-top: 2px solid var(--meta-black); padding-top: 16px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .price-row {
+      display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;
+    }
+    .price-label {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.09em;
+      text-transform: uppercase; color: var(--fg-3);
+    }
+    .price-net {
+      font-family: var(--font-cn); font-size: 34px; font-weight: 800; line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .price-gross {
+      font-size: 12px; color: var(--fg-3); text-align: right; font-variant-numeric: tabular-nums;
+    }
+    .avail { display: flex; align-items: center; gap: 8px; }
+    .avail .dot { width: 8px; height: 8px; }
+    .avail .txt { font-size: 13px; color: var(--fg-2); }
+
+    .btn {
+      display: flex; width: 100%; align-items: center; justify-content: center;
+      font-family: var(--font-sans); font-weight: 700; letter-spacing: 0.01em;
+      border-radius: 0; cursor: pointer; white-space: nowrap;
+      transition: background var(--dur-1) var(--ease-standard),
+                  border-color var(--dur-1) var(--ease-standard);
+    }
+    .btn-lg { font-size: 16px; padding: 0 28px; height: 52px; }
+    .btn-md { font-size: 15px; padding: 0 20px; height: 44px; }
+    .btn-primary { background: var(--meta-red); color: var(--meta-white); border: 1px solid var(--meta-red); }
+    .btn-primary:hover { background: var(--meta-red-hover); border-color: var(--meta-red-hover); }
+    .btn-primary:active { background: var(--meta-red-press); border-color: var(--meta-red-press); }
+    .btn-secondary { background: var(--meta-white); color: var(--meta-ink); border: 1px solid var(--meta-ink); }
+    .btn-secondary:hover { background: var(--meta-chrome); }
+    .btn-secondary:active { background: var(--meta-steel); }
+    .btn-tertiary { width: auto; background: transparent; color: var(--meta-ink); border: 1px solid transparent; }
+    .btn-tertiary:hover { background: var(--meta-chrome); }
+    .btn-tertiary:active { background: var(--meta-steel); }
+    .btn-actions { display: flex; gap: 8px; }
+
+    /* ---- footer: summary + BOM ---- */
+    .cfg-foot {
+      border-top: 1px solid var(--meta-steel);
+      display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.4fr);
+    }
+    .summary { padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+    .sec-label {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.09em;
+      text-transform: uppercase; color: var(--fg-1);
+    }
+    .sum-rows { display: flex; flex-direction: column; }
+    .sum-row {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+      padding: 8px 0; border-bottom: 1px solid var(--meta-steel);
+    }
+    .sum-row .k { font-size: 13px; color: var(--fg-2); }
+    .sum-row .v {
+      font-family: var(--font-cn); font-size: 14px; font-weight: 700; text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .config-code { font-size: 12px; color: var(--fg-3); }
+    .config-code code { font-family: var(--font-mono); color: var(--fg-1); }
+
+    .bom {
+      padding: 24px; border-left: 1px solid var(--meta-steel);
+      display: flex; flex-direction: column; gap: 12px; background: var(--meta-mist);
+    }
+    .bom-grid {
+      display: grid; grid-template-columns: minmax(0,1fr) 140px 48px 88px 96px;
+      gap: 0 12px; align-items: center;
+    }
+    .bom-head {
+      padding-bottom: 8px; border-bottom: 2px solid var(--meta-black);
+      font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
+      text-transform: uppercase; color: var(--fg-3);
+    }
+    .bom-row { padding: 8px 0; border-bottom: 1px solid var(--meta-steel); font-size: 13px; }
+    .bom-art { font-family: var(--font-mono); font-size: 11px; color: var(--fg-2); }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .muted { color: var(--fg-2); }
+    .bold { font-weight: 700; }
+    .bom-total {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+      padding-top: 8px;
+    }
+    .bom-total .k { font-size: 12px; color: var(--fg-3); }
+    .bom-total .v {
+      font-family: var(--font-cn); font-size: 18px; font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Responsive: collapse to a single column on narrow viewports. */
+    @media (max-width: 900px) {
+      body { padding: 0; }
+      .cfg { border: 0; }
+      .cfg-main { grid-template-columns: 1fr; }
+      .panel { border-left: 0; border-top: 1px solid var(--meta-steel); }
+      .cfg-foot { grid-template-columns: 1fr; }
+      .bom { border-left: 0; border-top: 1px solid var(--meta-steel); }
+      .stage { min-height: 0; }
+      .crumbs { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="cfg" id="app" role="application" aria-label="META CLIP Konfigurator"></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    /* ---- product tables (from the design's dc-script) ---- */
+    var HOEHEN = [2000, 2200, 2500, 3000];
+    var BREITEN = [750, 1000, 1300];
+    var TIEFEN = [300, 400, 500, 600];
+    var LASTEN = [150, 230, 330];
+    var LASTF = { 150: 0.88, 230: 1, 330: 1.28 };
+
+    /* ---- copy (DE / EN) ---- */
+    var L = {
+      de: {
+        crumb1: "Regalsysteme", crumb2: "Steckregale", viewLabel: "3D-Ansicht",
+        eyebrow: "META CLIP · Steckregal", title: "Regal konfigurieren",
+        subtitle: "Sechs Einstellungen. Preis und Stückliste aktualisieren sich sofort.",
+        extras: "Zubehör (optional)", rearWall: "Rückwand, verzinkt", noteTitle: "Hinweis",
+        priceLabel: "Preis netto", reset: "Zurücksetzen", summary: "Zusammenfassung",
+        bom: "Stückliste", bomPos: "Position", bomArt: "Art.-Nr.", bomQty: "Stk.",
+        bomUnit: "Einzel", bomSum: "Summe", bomTotal: "Summe netto, zzgl. Versand",
+        configCodeLabel: "Konfigurations-Code:",
+        cart: "In den Warenkorb", cartDone: "✓ In den Warenkorb gelegt",
+        share: "Konfiguration teilen", shareDone: "✓ Link kopiert",
+        fields: "Anzahl Felder", height: "Höhe", width: "Feldbreite", depth: "Feldtiefe",
+        shelves: "Fachböden je Feld", load: "Fachlast", zinc: "Verzinkt", coat: "Lackiert, RAL 3000",
+        views: ["Perspektive", "Vorderansicht", "Draufsicht"],
+        dim: ["Gesamtlänge", "Höhe", "Feldtiefe", "Felder"],
+        sumRows: ["Ausführung", "Gesamtmaß L × H × T", "Felder × Fachböden", "Fachlast", "Gesamttragkraft", "Gewicht, ca."],
+        fieldsNote: "Grundfeld + Anbaufelder, gemeinsame Rahmen.",
+        shelvesNote: "Einhängbar im 25-mm-Raster.",
+        bomNames: ["Steckrahmen", "Fachboden", "Fußplatten-Set", "Rückwand"],
+        availStock: "Auf Lager · Versand in 2–4 Werktagen",
+        availMake: "Fertigung nach Auftrag · 10–14 Werktage",
+        availMid: "Versand in 5–7 Werktagen",
+        noteAnchor: "Ab 5 m Gesamtlänge ist eine Wandankerung vorgeschrieben.",
+        noteLoad: "Bei 330 kg Fachlast sind maximal 6 Fachböden je Feld zulässig.",
+        pcs: "Felder", pcsShelf: "Böden",
+        modeSlider: "Regler", modeChips: "Auswahl"
+      },
+      en: {
+        crumb1: "Shelving systems", crumb2: "Boltless shelving", viewLabel: "3D view",
+        eyebrow: "META CLIP · Boltless shelving", title: "Configure shelving",
+        subtitle: "Six settings. Price and bill of materials update instantly.",
+        extras: "Accessories (optional)", rearWall: "Rear panel, galvanised", noteTitle: "Note",
+        priceLabel: "Price, net", reset: "Reset", summary: "Summary",
+        bom: "Bill of materials", bomPos: "Item", bomArt: "Part no.", bomQty: "Qty",
+        bomUnit: "Unit", bomSum: "Total", bomTotal: "Net total, excl. shipping",
+        configCodeLabel: "Configuration code:",
+        cart: "Add to cart", cartDone: "✓ Added to cart",
+        share: "Share configuration", shareDone: "✓ Link copied",
+        fields: "Number of bays", height: "Height", width: "Bay width", depth: "Bay depth",
+        shelves: "Shelves per bay", load: "Shelf load", zinc: "Galvanised", coat: "Coated, RAL 3000",
+        views: ["Perspective", "Front view", "Top view"],
+        dim: ["Overall length", "Height", "Bay depth", "Bays"],
+        sumRows: ["Finish", "Overall L × H × D", "Bays × shelves", "Shelf load", "Total capacity", "Weight, approx."],
+        fieldsNote: "Starter bay plus add-on bays, shared frames.",
+        shelvesNote: "Clipped in on a 25 mm pitch.",
+        bomNames: ["Frame", "Shelf", "Foot plate set", "Rear panel"],
+        availStock: "In stock · ships in 2–4 working days",
+        availMake: "Made to order · 10–14 working days",
+        availMid: "Ships in 5–7 working days",
+        noteAnchor: "Wall anchoring is mandatory from 5 m overall length.",
+        noteLoad: "At 330 kg shelf load, a maximum of 6 shelves per bay is permitted.",
+        pcs: "bays", pcsShelf: "shelves",
+        modeSlider: "Sliders", modeChips: "Chips"
+      }
+    };
+
+    /* ---- state ---- */
+    var s = {
+      lang: "de", mode: "slider",
+      felder: 2, hoehe: 2200, breite: 1000, tiefe: 400, boeden: 5, last: 230,
+      surface: "zinc", rear: false, view: 0, added: false, shared: false
+    };
+    var flashT = {};
+
+    /* ---- helpers ---- */
+    function nf(n, d) {
+      return n.toLocaleString(s.lang === "de" ? "de-DE" : "en-GB", {
+        minimumFractionDigits: d || 0, maximumFractionDigits: d || 0
+      });
+    }
+    function money(n) { return nf(n, 2) + " €"; }
+    function esc(v) {
+      return String(v).replace(/[&<>"]/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+      });
+    }
+    function flash(key) {
+      s[key] = true;
+      clearTimeout(flashT[key]);
+      flashT[key] = setTimeout(function () { s[key] = false; render(); }, 2200);
+    }
+
+    /* ---- derive everything from state (mirrors renderVals) ---- */
+    function compute() {
+      var t = L[s.lang];
+      var coated = s.surface === "coat";
+
+      var rahmen = 46 + s.hoehe * 0.031 + s.tiefe * 0.042;
+      var boden = (12 + s.breite * 0.0125 + s.tiefe * 0.019) * LASTF[s.last];
+      var fuss = 6.4;
+      var rw = (s.hoehe * s.breite) / 1e6 * 58;
+      var k = coated ? 1.14 : 1;
+
+      var rows = [
+        { name: t.bomNames[0], art: "CL-SR-" + s.hoehe + "x" + s.tiefe + (coated ? "-L" : "-V"), n: s.felder + 1, u: rahmen * k },
+        { name: t.bomNames[1], art: "CL-FB-" + s.breite + "x" + s.tiefe + "-" + s.last + (coated ? "-L" : "-V"), n: s.felder * s.boeden, u: boden * k },
+        { name: t.bomNames[2], art: "CL-FP-04", n: s.felder + 1, u: fuss }
+      ];
+      if (s.rear) rows.push({ name: t.bomNames[3], art: "CL-RW-" + s.hoehe + "x" + s.breite + (coated ? "-L" : "-V"), n: s.felder, u: rw * k });
+
+      var net = rows.reduce(function (a, r) { return a + r.n * r.u; }, 0);
+      var laenge = s.felder * s.breite + (s.felder + 1) * 40;
+      var kg = s.felder * s.boeden * s.last;
+      var weight = (s.felder + 1) * (s.hoehe / 1000) * 9.5
+        + s.felder * s.boeden * (s.breite * s.tiefe / 1e6) * 11
+        + (s.rear ? s.felder * 12 : 0);
+
+      var hinweis = laenge > 5000 ? t.noteAnchor
+        : (s.last === 330 && s.boeden > 6 ? t.noteLoad : null);
+
+      var configCode = ["CLIP", s.hoehe, s.breite, s.tiefe, s.felder + "F" + s.boeden, s.last, coated ? "L" : "V", s.rear ? "RW" : "NR"].join("-");
+
+      return {
+        t: t, coated: coated, rows: rows, net: net, laenge: laenge, kg: kg, weight: weight,
+        hinweis: hinweis, rw: rw, k: k, configCode: configCode,
+        avail: coated ? t.availMake : (s.rear ? t.availMid : t.availStock),
+        availDot: coated ? "var(--meta-grey)" : "#1e8e47"
+      };
+    }
+
+    /* ---- controls model ---- */
+    function optionControl(label, list, current, key, valueLabel, fmt) {
+      var chips = s.mode === "chips";
+      return {
+        kind: chips ? "chips" : "slider",
+        label: label, valueLabel: valueLabel, key: key,
+        idx: list.indexOf(current), max: list.length - 1,
+        opts: list.map(function (v) {
+          return { val: v, label: fmt(v), on: v === current };
+        })
+      };
+    }
+    function stepperControl(label, key, value, min, max, unit, note) {
+      return {
+        kind: "stepper", label: label, key: key, value: value,
+        min: min, max: max, unit: unit, note: note
+      };
+    }
+    function controlsFor(c) {
+      var t = c.t;
+      return [
+        stepperControl(t.fields, "felder", s.felder, 1, 6, t.pcs, t.fieldsNote),
+        optionControl(t.height, HOEHEN, s.hoehe, "hoehe", nf(s.hoehe) + " mm", function (v) { return nf(v); }),
+        optionControl(t.width, BREITEN, s.breite, "breite", nf(s.breite) + " mm", function (v) { return nf(v); }),
+        optionControl(t.depth, TIEFEN, s.tiefe, "tiefe", s.tiefe + " mm", function (v) { return String(v); }),
+        stepperControl(t.shelves, "boeden", s.boeden, 3, 8, t.pcsShelf, t.shelvesNote),
+        optionControl(t.load, LASTEN, s.last, "last", s.last + " kg", function (v) { return v + " kg"; })
+      ];
+    }
+
+    /* ---- schematic line-drawing for the "3D" slot ---- */
+    function schematic(c) {
+      var W = 1000, H = 620, pad = 70;
+      var bays = s.felder, shelves = s.boeden;
+      var stroke = "var(--meta-graphite)", thin = "var(--meta-steel)", accent = "var(--meta-red)";
+      var parts = [];
+      function rect(x, y, w, h, sw, col, fill) {
+        return '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + w.toFixed(1) +
+          '" height="' + h.toFixed(1) + '" fill="' + (fill || "none") + '" stroke="' + col +
+          '" stroke-width="' + sw + '" />';
+      }
+      function line(x1, y1, x2, y2, sw, col) {
+        return '<line x1="' + x1.toFixed(1) + '" y1="' + y1.toFixed(1) + '" x2="' + x2.toFixed(1) +
+          '" y2="' + y2.toFixed(1) + '" stroke="' + col + '" stroke-width="' + sw + '" />';
+      }
+
+      if (s.view === 2) {
+        // TOP VIEW — bays along length, depth downward
+        var totalLen = bays * s.breite + (bays + 1) * 40;
+        var availW = W - pad * 2, availH = H - pad * 2;
+        var scale = Math.min(availW / totalLen, availH / s.tiefe);
+        var dw = s.tiefe * scale, cw = s.breite * scale, post = 40 * scale;
+        var totW = totalLen * scale;
+        var ox = (W - totW) / 2, oy = (H - dw) / 2;
+        var x = ox;
+        parts.push(rect(ox, oy, totW, dw, 2, stroke));
+        for (var i = 0; i < bays; i++) {
+          x += post;
+          parts.push(rect(x, oy, cw, dw, 1.4, thin));
+          x += cw;
+        }
+        // posts
+        var px = ox;
+        for (var p = 0; p <= bays; p++) {
+          parts.push(rect(px, oy, post, dw, 2, stroke, "var(--meta-chrome)"));
+          if (p < bays) px += post + cw;
+        }
+      } else {
+        // FRONT / PERSPECTIVE
+        var totalLenF = bays * s.breite + (bays + 1) * 40;
+        var availWf = W - pad * 2, availHf = H - pad * 2;
+        var persp = s.view === 0;
+        var dx = persp ? 60 : 0, dy = persp ? -34 : 0;
+        var scaleF = Math.min((availWf - Math.abs(dx)) / totalLenF, (availHf - Math.abs(dy)) / s.hoehe);
+        var cwF = s.breite * scaleF, postF = 40 * scaleF, hF = s.hoehe * scaleF;
+        var totWf = totalLenF * scaleF;
+        var oxF = (W - totWf - dx) / 2, oyF = (H - hF - Math.abs(dy)) / 2 + (persp ? -dy : 0);
+        var top = oyF, bot = oyF + hF;
+
+        // back plane (perspective only)
+        if (persp) {
+          var bx = oxF + dx, byTop = top + dy, byBot = bot + dy;
+          parts.push(rect(bx, byTop, totWf, hF, 1.2, thin));
+          parts.push(line(oxF, top, bx, byTop, 1, thin));
+          parts.push(line(oxF + totWf, top, bx + totWf, byTop, 1, thin));
+          parts.push(line(oxF + totWf, bot, bx + totWf, byBot, 1, thin));
+        }
+
+        // uprights
+        var ux = oxF;
+        for (var u = 0; u <= bays; u++) {
+          parts.push(rect(ux, top, postF, hF, 2, stroke, "var(--meta-chrome)"));
+          if (persp) parts.push(line(ux + postF, top, ux + postF + dx, top + dy, 0.8, thin));
+          if (u < bays) ux += postF + cwF;
+        }
+        // shelves in each bay
+        var sx = oxF;
+        for (var b = 0; b < bays; b++) {
+          sx += postF;
+          for (var sh = 0; sh < shelves; sh++) {
+            var sy = top + (hF) * (sh + 1) / (shelves + 1);
+            var swk = s.last >= 330 ? 3 : (s.last >= 230 ? 2.2 : 1.6);
+            parts.push(line(sx, sy, sx + cwF, sy, swk, stroke));
+            if (persp) {
+              parts.push(line(sx, sy, sx + dx, sy + dy, 0.8, thin));
+              parts.push(line(sx + cwF, sy, sx + cwF + dx, sy + dy, 0.8, thin));
+              parts.push(line(sx + dx, sy + dy, sx + cwF + dx, sy + dy, 1, thin));
+            }
+          }
+          sx += cwF;
+        }
+        // ground line
+        parts.push(line(oxF - 8, bot, oxF + totWf + 8, bot, 2, accent));
+      }
+
+      return '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" ' +
+        'xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' + parts.join("") + '</svg>';
+    }
+
+    /* ---- render pieces ---- */
+    function renderControl(c) {
+      var head = '<div class="control-head">' +
+        '<span class="control-label">' + esc(c.label) + '</span>' +
+        (c.valueLabel ? '<span class="control-value">' + esc(c.valueLabel) + '</span>' : '') +
+        '</div>';
+      var body = "";
+      if (c.kind === "chips") {
+        body = '<div class="chips">' + c.opts.map(function (o) {
+          return '<button type="button" class="' + (o.on ? "on" : "") + '" ' +
+            'data-act="opt" data-key="' + c.key + '" data-val="' + o.val + '">' + esc(o.label) + '</button>';
+        }).join("") + '</div>';
+      } else if (c.kind === "slider") {
+        var ticks = c.opts.map(function (o) {
+          return '<span class="tick ' + (o.on ? "on" : "") + '">' + esc(o.label) + '</span>';
+        }).join("");
+        body = '<div class="slider">' +
+          '<input type="range" min="0" max="' + c.max + '" step="1" value="' + c.idx + '" ' +
+          'data-act="range" data-key="' + c.key + '" aria-label="' + esc(c.label) + '">' +
+          '<div class="ticks">' + ticks + '</div></div>';
+      } else if (c.kind === "stepper") {
+        body = '<div class="stepper">' +
+          '<button type="button" class="dec" data-act="step" data-key="' + c.key + '" data-dir="-1"' +
+          (c.value <= c.min ? ' disabled' : '') + ' aria-label="−">–</button>' +
+          '<div class="val"><span>' + esc(c.value) + '</span>' +
+          '<span class="unit">' + esc(c.unit) + '</span></div>' +
+          '<button type="button" class="inc" data-act="step" data-key="' + c.key + '" data-dir="1"' +
+          (c.value >= c.max ? ' disabled' : '') + ' aria-label="+">+</button>' +
+          '</div>';
+      }
+      var note = c.note ? '<span class="control-note">' + esc(c.note) + '</span>' : '';
+      return '<div class="control">' + head + body + note + '</div>';
+    }
+
+    function render() {
+      var c = compute();
+      var t = c.t;
+      var controls = controlsFor(c);
+
+      // header
+      var head = '<div class="cfg-head">' +
+        '<img src="assets/meta-logo-red.png" alt="META">' +
+        '<div class="head-div"></div>' +
+        '<div class="crumbs"><span>' + esc(t.crumb1) + '</span><span>›</span>' +
+        '<span>' + esc(t.crumb2) + '</span><span>›</span><span class="now">META CLIP</span></div>' +
+        '<div style="flex:1"></div>' +
+        '<div class="seg" role="group" aria-label="' + esc(t.viewLabel) + '">' +
+        '<button type="button" class="' + (s.mode === "slider" ? "on" : "") + '" data-act="mode" data-val="slider">' + esc(t.modeSlider) + '</button>' +
+        '<button type="button" class="' + (s.mode === "chips" ? "on" : "") + '" data-act="mode" data-val="chips">' + esc(t.modeChips) + '</button>' +
+        '</div>' +
+        '<div class="lang-toggle">' +
+        '<button type="button" data-act="lang" data-val="de" style="color:' + (s.lang === "de" ? "var(--meta-red)" : "var(--fg-3)") + '">DE</button>' +
+        '<button type="button" data-act="lang" data-val="en" style="color:' + (s.lang === "en" ? "var(--meta-red)" : "var(--fg-3)") + '">EN</button>' +
+        '</div></div>';
+
+      // stage
+      var viewCaption = t.views[s.view] + " · " + nf(c.laenge) + " × " + nf(s.hoehe) + " × " + s.tiefe + " mm";
+      var stage = '<div class="stage">' +
+        '<div class="stage-top">' +
+        '<span class="view-label">' + esc(t.viewLabel) + '</span>' +
+        '<div style="flex:1"></div>' +
+        '<div class="view-opts">' + t.views.map(function (label, i) {
+          return '<button type="button" class="' + (s.view === i ? "on" : "") + '" data-act="view" data-val="' + i + '">' + esc(label) + '</button>';
+        }).join("") + '</div></div>' +
+        '<div class="viewport">' + schematic(c) +
+        '<div class="view-caption">' + esc(viewCaption) + '</div>' +
+        '<div class="view-hint">Schema · Render-Slot</div></div>' +
+        '<div class="dims">' +
+        [[t.dim[0], nf(c.laenge) + " mm"], [t.dim[1], nf(s.hoehe) + " mm"], [t.dim[2], s.tiefe + " mm"], [t.dim[3], String(s.felder)]]
+          .map(function (d) {
+            return '<div class="cell"><span class="k">' + esc(d[0]) + '</span><span class="v">' + esc(d[1]) + '</span></div>';
+          }).join("") +
+        '</div></div>';
+
+      // panel
+      var surfaceBtns = [["zinc", t.zinc], ["coat", t.coat]].map(function (o) {
+        return '<button type="button" class="' + (s.surface === o[0] ? "on" : "") + '" data-act="surface" data-val="' + o[0] + '">' + esc(o[1]) + '</button>';
+      }).join("");
+
+      var alert = c.hinweis ? '<div class="alert" role="note"><div class="title">' + esc(t.noteTitle) + '</div>' +
+        '<div class="body">' + esc(c.hinweis) + '</div></div>' : '';
+
+      var panel = '<div class="panel">' +
+        '<div class="panel-head"><span class="eyebrow">' + esc(t.eyebrow) + '</span>' +
+        '<span class="panel-title">' + esc(t.title) + '</span>' +
+        '<span class="panel-sub">' + esc(t.subtitle) + '</span></div>' +
+        '<div class="rule"></div>' +
+        '<div class="controls">' + controls.map(renderControl).join("") + '</div>' +
+        '<div class="rule"></div>' +
+        '<div class="extras"><span class="extras-label">' + esc(t.extras) + '</span>' +
+        '<div class="surface">' + surfaceBtns + '</div>' +
+        '<button type="button" class="rear" data-act="rear" aria-pressed="' + s.rear + '">' +
+        '<span class="name">' + esc(t.rearWall) + '</span>' +
+        '<span class="meta"><span class="price">+ ' + esc(money(c.rw * c.k * s.felder)) + '</span>' +
+        '<span class="box ' + (s.rear ? "on" : "") + '">' + (s.rear ? "✓" : "") + '</span></span></button></div>' +
+        alert +
+        '<div class="spring"></div>' +
+        '<div class="checkout">' +
+        '<div class="price-row"><div style="display:flex;flex-direction:column;gap:2px">' +
+        '<span class="price-label">' + esc(t.priceLabel) + '</span>' +
+        '<span class="price-net">' + esc(money(c.net)) + '</span></div>' +
+        '<span class="price-gross">' + esc(money(c.net * 1.19) + (s.lang === "de" ? " inkl. MwSt." : " incl. VAT")) + '</span></div>' +
+        '<div class="avail"><span class="dot" style="background:' + c.availDot + '"></span>' +
+        '<span class="txt">' + esc(c.avail) + '</span></div>' +
+        '<button type="button" class="btn btn-lg btn-primary" data-act="cart">' + esc(s.added ? t.cartDone : t.cart) + '</button>' +
+        '<div class="btn-actions">' +
+        '<button type="button" class="btn btn-md btn-secondary" data-act="share">' + esc(s.shared ? t.shareDone : t.share) + '</button>' +
+        '<button type="button" class="btn btn-md btn-tertiary" data-act="reset">' + esc(t.reset) + '</button>' +
+        '</div></div></div>';
+
+      // footer
+      var sumRows = [
+        [t.sumRows[0], "META CLIP · " + (c.coated ? t.coat : t.zinc) + (s.rear ? " · " + t.rearWall : "")],
+        [t.sumRows[1], nf(c.laenge) + " × " + nf(s.hoehe) + " × " + s.tiefe + " mm"],
+        [t.sumRows[2], s.felder + " × " + s.boeden],
+        [t.sumRows[3], s.last + " kg"],
+        [t.sumRows[4], nf(c.kg) + " kg"],
+        [t.sumRows[5], nf(c.weight, 0) + " kg"]
+      ].map(function (r) {
+        return '<div class="sum-row"><span class="k">' + esc(r[0]) + '</span><span class="v">' + esc(r[1]) + '</span></div>';
+      }).join("");
+
+      var bomHead = '<div class="bom-grid bom-head"><span>' + esc(t.bomPos) + '</span><span>' + esc(t.bomArt) +
+        '</span><span class="num">' + esc(t.bomQty) + '</span><span class="num">' + esc(t.bomUnit) +
+        '</span><span class="num">' + esc(t.bomSum) + '</span></div>';
+      var bomRows = c.rows.map(function (b) {
+        return '<div class="bom-grid bom-row"><span>' + esc(b.name) + '</span>' +
+          '<span class="bom-art">' + esc(b.art) + '</span>' +
+          '<span class="num">' + esc(b.n) + '</span>' +
+          '<span class="num muted">' + esc(money(b.u)) + '</span>' +
+          '<span class="num bold">' + esc(money(b.n * b.u)) + '</span></div>';
+      }).join("");
+
+      var foot = '<div class="cfg-foot">' +
+        '<div class="summary"><span class="sec-label">' + esc(t.summary) + '</span>' +
+        '<div class="sum-rows">' + sumRows + '</div>' +
+        '<span class="config-code">' + esc(t.configCodeLabel) + ' <code>' + esc(c.configCode) + '</code></span></div>' +
+        '<div class="bom"><span class="sec-label">' + esc(t.bom) + '</span>' + bomHead + bomRows +
+        '<div class="bom-total"><span class="k">' + esc(t.bomTotal) + '</span>' +
+        '<span class="v">' + esc(money(c.net)) + '</span></div></div>' +
+        '</div>';
+
+      document.getElementById("app").innerHTML = head + '<div class="cfg-main">' + stage + panel + '</div>' + foot;
+      document.documentElement.lang = s.lang;
+    }
+
+    /* ---- events (delegated) ---- */
+    function setState(patch) { for (var kk in patch) s[kk] = patch[kk]; render(); }
+
+    document.addEventListener("click", function (e) {
+      var el = e.target.closest("[data-act]");
+      if (!el) return;
+      var act = el.getAttribute("data-act");
+      var key = el.getAttribute("data-key");
+      switch (act) {
+        case "lang": setState({ lang: el.getAttribute("data-val") }); break;
+        case "mode": setState({ mode: el.getAttribute("data-val") }); break;
+        case "view": setState({ view: Number(el.getAttribute("data-val")) }); break;
+        case "opt": setState({ added: false, [key]: Number(el.getAttribute("data-val")) }); break;
+        case "surface": setState({ surface: el.getAttribute("data-val"), added: false }); break;
+        case "rear": setState({ rear: !s.rear, added: false }); break;
+        case "step": {
+          var dir = Number(el.getAttribute("data-dir"));
+          var lim = key === "felder" ? [1, 6] : [3, 8];
+          var nv = Math.min(lim[1], Math.max(lim[0], s[key] + dir));
+          setState({ added: false, [key]: nv });
+          break;
+        }
+        case "cart": flash("added"); render(); break;
+        case "share": flash("shared"); render(); break;
+        case "reset":
+          setState({ felder: 2, hoehe: 2200, breite: 1000, tiefe: 400, boeden: 5, last: 230, surface: "zinc", rear: false, added: false });
+          break;
+      }
+    });
+
+    document.addEventListener("change", function (e) {
+      var el = e.target;
+      if (el.getAttribute && el.getAttribute("data-act") === "range") {
+        var key = el.getAttribute("data-key");
+        var list = { hoehe: HOEHEN, breite: BREITEN, tiefe: TIEFEN, last: LASTEN }[key];
+        setState({ added: false, [key]: list[Number(el.value)] });
+      }
+    });
+
+    render();
+  })();
+  </script>
+</body>
+</html>

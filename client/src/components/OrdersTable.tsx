@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import StatusBadge from "./StatusBadge";
 import PaymentStatusBadge from "./PaymentStatusBadge";
 import HerstellMarginIndicator from "./HerstellMarginIndicator";
+import { OrderStockSummaryBadge } from "./OrderStockHint";
 import type { Order } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 import SortableTableHead from "@/components/SortableTableHead";
@@ -219,6 +220,14 @@ export default function OrdersTable({
                       {t('orders.installmentPlan')}
                     </Badge>
                   )}
+                  {order.status !== "completed" && order.stockSummary?.lineCount ? (
+                    <OrderStockSummaryBadge
+                      status={order.stockSummary.status}
+                      issueCount={order.stockSummary.issueCount}
+                      lineCount={order.stockSummary.lineCount}
+                      warehouseCode={order.stockSummary.warehouseCode}
+                    />
+                  ) : null}
                 </div>
               </TableCell>
               <TableCell className="text-right">

@@ -22,6 +22,7 @@ const PriceCheckPage = lazy(() => import("@/pages/PriceCheckPage"));
 const ProfitabilityAnalysisPage = lazy(() => import("@/pages/ProfitabilityAnalysisPage"));
 const OrderProfitabilityAnalysisPage = lazy(() => import("@/pages/OrderProfitabilityAnalysisPage"));
 const BundlesPage = lazy(() => import("@/pages/BundlesPage"));
+const VisibilityImportPage = lazy(() => import("@/pages/VisibilityImportPage"));
 const TicketsPage = lazy(() => import("@/pages/TicketsPage"));
 const CrmPage = lazy(() => import("@/pages/CrmPage"));
 const TicketRulesPage = lazy(() => import("@/pages/TicketRulesPage"));
@@ -50,6 +51,13 @@ const B2BAssortmentsPage = lazy(() => import("@/pages/B2BAssortmentsPage"));
 const B2BOrderListsPage = lazy(() => import("@/pages/B2BOrderListsPage"));
 const B2BExplodedViewsPage = lazy(() => import("@/pages/B2BExplodedViewsPage"));
 const ShopFakturenImportPage = lazy(() => import("@/pages/ShopFakturenImportPage"));
+const WarehousePage = lazy(() => import("@/pages/WarehousePage"));
+const PurchasingPage = lazy(() => import("@/pages/PurchasingPage"));
+const ReturnsPage = lazy(() => import("@/pages/ReturnsPage"));
+const FinancePage = lazy(() => import("@/pages/FinancePage"));
+const ProductionPage = lazy(() => import("@/pages/ProductionPage"));
+const ShippingOpsPage = lazy(() => import("@/pages/ShippingOpsPage"));
+const MobilePickingPage = lazy(() => import("@/pages/MobilePickingPage"));
 import LoginPage from "@/pages/LoginPage";
 import NotFound from "@/pages/not-found";
 import PublicOfferPage from "@/pages/PublicOfferPage";
@@ -87,6 +95,7 @@ function Router({
       <Route path="/profitability-analysis" component={ProfitabilityAnalysisPage} />
       <Route path="/order-profitability-analysis" component={OrderProfitabilityAnalysisPage} />
       <Route path="/bundles" component={BundlesPage} />
+      <Route path="/visibility-import" component={VisibilityImportPage} />
       <Route path="/tickets" component={() => <TicketsPage userPermissions={userPermissions} />} />
       <Route path="/crm" component={() => <CrmPage userPermissions={userPermissions} userRole={userRole} userSalesChannelIds={userSalesChannelIds} />} />
       <Route path="/b2b/accounts" component={() => <B2BAccountsPage userPermissions={userPermissions} userRole={userRole} userSalesChannelIds={userSalesChannelIds} />} />
@@ -109,6 +118,14 @@ function Router({
       <Route path="/configurator" component={() => <CPQConfiguratorPage />} />
       <Route path="/cpq-review-queue" component={() => <CPQReviewQueuePage />} />
       <Route path="/accounting" component={AccountingPage} />
+      <Route path="/finance" component={FinancePage} />
+      <Route path="/warehouse" component={WarehousePage} />
+      <Route path="/purchasing" component={PurchasingPage} />
+      <Route path="/returns" component={ReturnsPage} />
+      <Route path="/production" component={ProductionPage} />
+      <Route path="/shipping-ops" component={ShippingOpsPage} />
+      <Route path="/mobile/picking/:id" component={MobilePickingPage} />
+      <Route path="/mobile/picking" component={MobilePickingPage} />
       <Route path="/shop-fakturen-import" component={ShopFakturenImportPage} />
       <Route path="/users" component={UsersPage} />
       <Route path="/roles" component={RolesPage} />
@@ -190,6 +207,34 @@ function AuthenticatedApp() {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
   };
+
+  const isMobilePicking = pathname === "/mobile/picking" || pathname.startsWith("/mobile/picking/");
+
+  if (isMobilePicking) {
+    return (
+      <TooltipProvider>
+        <div className="flex h-dvh min-h-0 w-full max-h-dvh flex-col bg-background">
+          <main id="main-content" className="relative flex min-h-0 flex-1 flex-col overflow-hidden" tabIndex={-1}>
+            <Suspense
+              fallback={
+                <div className="p-4 space-y-3" aria-busy="true">
+                  <Skeleton className="h-8 w-1/2 max-w-md" />
+                  <Skeleton className="h-4 w-full max-w-lg" />
+                </div>
+              }
+            >
+              <Router
+                userRole={user.role as "employee" | "admin"}
+                userSalesChannelIds={user.salesChannelIds}
+                userPermissions={user.permissions}
+              />
+            </Suspense>
+          </main>
+        </div>
+        <Toaster />
+      </TooltipProvider>
+    );
+  }
 
   return (
     <TooltipProvider>

@@ -5,6 +5,7 @@ Diese Dokumentation beschreibt Aufbau, Betrieb und Nutzung von METAorder. Sie er
 ## Inhalt
 
 - [Architekturueberblick](./architecture.md)
+- [ERP Gap Entscheidungen](./erp-gap-decisions.md)
 - [Setup & Betrieb](./setup_operations.md)
 - [Backend & API](./backend_api.md)
 - [Frontend & UI](./frontend_ui.md)

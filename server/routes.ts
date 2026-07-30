@@ -7,7 +7,7 @@ import rateLimit from "express-rate-limit";
 import crypto from "crypto";
 import { storage } from "./storage";
 import type { IStorage } from "./storage";
-import { ShopwareClient, getRealInvoiceDocument, isMonduPluginShipError, type ShopwareProductOverview } from "./shopware";
+import { ShopwareClient, getRealInvoiceDocument, isMonduPluginShipError, type ShopwareProductOverview, applyOverviewParentInheritance, isShopwareEntityId, normalizeShopwareEntityId } from "./shopware";
 import { getHashCached, invalidateMemoryHashCache, stableFingerprint, type PersistedHashCache } from "./contentHashCache";
 import {
   filterOrdersList,
@@ -16,14 +16,22 @@ import {
   paginateOrdersList,
   type OrdersListQuery,
 } from "./ordersList";
+import { isOrderEligibleForShippingPick } from "@shared/orderShippingEligibility";
 import { parseFakturaRowsFromBuffer, runFakturaImport } from "./shopFakturenImport";
 import { parseHerstellpreisRowsFromBuffer, runHerstellpreisImport } from "./herstellpreisImport";
+import {
+  parseVisibilityMatrixFromBuffer,
+  runVisibilityImport,
+  buildVisibilityImportTemplateBuffer,
+} from "./productVisibilityImport";
+import { productCache } from "./productCache";
 import { enrichCustomerPricesWithHerstellMargin } from "./herstellpreisMargin";
 import {
   buildOrderProfitabilityAnalysisSummary,
   enrichOrdersWithProfitability,
   sortOrdersByMargin,
 } from "./orderProfitabilityAnalysis";
+import { enrichOrdersWithStockAvailability } from "./erp/orderStockEnrichment";
 import {
   loadCrmProfitabilitySettings,
   parseCrmProfitabilitySettings,
@@ -135,6 +143,8 @@ function parseUploadIntentHint(raw: unknown): "offer" | "order" | "unclear" | un
 import { extractDocumentTextPreviewForIntent } from "./documentTextExtraction";
 import { registerPublicOfferRoutes } from "./publicOfferRoutes";
 import { registerB2BAdminRoutes } from "./b2bAdminRoutes";
+import { registerErpRoutes } from "./erp/erpRoutes";
+import { registerErpProductLabelRoutes } from "./erp/erpProductLabels";
 import { buildOfferDetailJson } from "./offerDetailBuilder";
 import { generateOfferPlainToken, hashOfferPublicToken } from "./offerToken";
 import { buildCommercialProductFeedbackRowsFromDraftUpdate } from "./commercialProductLearning";
@@ -1333,6 +1343,14 @@ async function getOrdersWithCache(
     console.log(`[orders-cache] hit (${result.data.length} orders, fp ${result.fingerprint.slice(0, 8)})`);
   } else {
     console.log(`[orders-cache] full reload (${result.data.length} orders, fp ${result.fingerprint.slice(0, 8)})`);
+    if (tenantId) {
+      try {
+        const { triggerShopwareSalesStockSync } = await import("./erp/erpShopwareSalesStock");
+        triggerShopwareSalesStockSync(tenantId, result.data);
+      } catch (err) {
+        console.error("[orders-cache] shopware sales stock trigger failed:", err);
+      }
+    }
   }
 
   return { orders: result.data, fromCache: result.fromCache };
@@ -1512,10 +1530,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: error.message || "Failed to select tenant" });
     }
   });
+
+  /** Neuen Mandanten anlegen (manageSettings). Ersteller wird zugewiesen und standardmäßig aktiv gesetzt. */
+  app.post("/api/tenants", requireAuth, requireCsrf, requireManageSettings, async (req, res) => {
+    try {
+      const schema = z.object({
+        name: z.string().trim().min(1, "Name required").max(120),
+        setActive: z.boolean().optional(),
+      });
+      const { name, setActive } = schema.parse(req.body);
+      const user = req.user as any;
+
+      const existing = await storage.getTenantByName(name);
+      if (existing) {
+        return res.status(409).json({ error: "Tenant name already exists" });
+      }
+
+      const tenant = await storage.createTenant({ name });
+      try {
+        await storage.addUserToTenant({ tenantId: tenant.id, userId: user.id });
+      } catch (assignErr) {
+        console.warn(`[POST /api/tenants] assign creator failed:`, assignErr);
+      }
+
+      let activeTenantId = user.activeTenantId ?? null;
+      if (setActive !== false) {
+        const updated = await storage.updateUser(user.id, { activeTenantId: tenant.id });
+        activeTenantId = updated?.activeTenantId ?? tenant.id;
+        (req.user as any).activeTenantId = activeTenantId;
+      }
+
+      res.status(201).json({ tenant, activeTenantId });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      console.error("Error creating tenant:", error);
+      res.status(500).json({ error: error.message || "Failed to create tenant" });
+    }
+  });
   
   // CPQ (Configure, Price, Quote) routes
   registerCpqRoutes(app, { requireAuth, requireViewCPQ, requireManageCPQ, requireManageCPQDiscountLevels, requireApproveCPQQuotes });
   registerCpqCoreRoutes(app, { requireAuth, requireViewCPQ, requireManageCPQ });
+
+  // ERP-Kernmodule (Warenwirtschaft, Einkauf, Retouren, Fibu, Produktion, Versand)
+  registerErpRoutes(app);
+  registerErpProductLabelRoutes(app);
 
   // Get JWT token from cookie (for SSE initialization)
   app.get("/api/auth/token", requireAuth, (req, res) => {
@@ -1816,6 +1877,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           viewB2B: z.boolean(),
           manageB2B: z.boolean(),
           approveB2BBudgets: z.boolean(),
+          manageAccounting: z.boolean(),
+          viewInventory: z.boolean(),
+          manageInventory: z.boolean(),
+          viewPurchasing: z.boolean(),
+          managePurchasing: z.boolean(),
+          viewReturns: z.boolean(),
+          manageReturns: z.boolean(),
+          viewProduction: z.boolean(),
+          manageProduction: z.boolean(),
+          manageShippingLabels: z.boolean(),
         }),
       });
       
@@ -1873,6 +1944,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           viewB2B: z.boolean(),
           manageB2B: z.boolean(),
           approveB2BBudgets: z.boolean(),
+          manageAccounting: z.boolean(),
+          viewInventory: z.boolean(),
+          manageInventory: z.boolean(),
+          viewPurchasing: z.boolean(),
+          managePurchasing: z.boolean(),
+          viewReturns: z.boolean(),
+          manageReturns: z.boolean(),
+          viewProduction: z.boolean(),
+          manageProduction: z.boolean(),
+          manageShippingLabels: z.boolean(),
         }).optional(),
       });
       
@@ -3170,9 +3251,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           client,
           tenantId,
         });
+        const withStock = await enrichOrdersWithStockAvailability(enrichedPage, tenantId);
 
         res.json({
-          orders: enrichedPage,
+          orders: withStock,
           total,
           limit,
           offset,
@@ -3182,8 +3264,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const { orders } = await getOrdersWithCache(client, tenantId, { forceRefresh });
 
         const filteredOrders = filterOrdersBySalesChannels(orders, allowedChannelIds);
+        const withStock = await enrichOrdersWithStockAvailability(filteredOrders, tenantId);
         
-        res.json(filteredOrders);
+        res.json(withStock);
       }
     } catch (error: any) {
       console.error("Error fetching orders:", error);
@@ -3965,7 +4048,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tenantId,
       });
 
-      res.json(enrichedOrder ?? order);
+      const [withStock] = await enrichOrdersWithStockAvailability(
+        [enrichedOrder ?? order],
+        tenantId,
+      );
+
+      res.json(withStock ?? enrichedOrder ?? order);
     } catch (error: any) {
       console.error("Error fetching order:", error);
       res.status(500).json({ error: error.message || "Failed to fetch order" });
@@ -5345,15 +5433,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const client = new ShopwareClient(settings);
       const allOrders = await client.fetchOrders();
 
-      // Filter orders: (paymentStatus == "paid" OR "authorized") AND status == "in_progress"
-      const shippingOrders = allOrders.filter((order: Order) => {
-        const validPayment = order.paymentStatus === "paid" || order.paymentStatus === "authorized";
-        const validStatus = order.status === "in_progress";
-        return validPayment && validStatus;
-      });
+      // Filter: paid/authorized und noch offen (open oder in_progress).
+      // open inkl. — Shopware belässt bezahlte Aufträge oft auf open bis „In Bearbeitung“.
+      const shippingOrders = allOrders.filter((order: Order) =>
+        isOrderEligibleForShippingPick(order),
+      );
+
+      const tenantId = (req as any).tenantId ?? null;
+      const shippingWithStock = await enrichOrdersWithStockAvailability(
+        shippingOrders,
+        tenantId,
+      );
 
       // Detect special equipment from order items or customFields
-      const ordersWithFlags = shippingOrders.map((order: Order) => {
+      const ordersWithFlags = shippingWithStock.map((order: Order) => {
         let requiresMitnahmestapler = false;
         let requiresHebebuehne = false;
 
@@ -6726,6 +6819,117 @@ Antworte im JSON-Format:
         overview = Array.from(overviewById.values());
       }
 
+      // Varianten ohne eigene Werte: Shopware-Vererbung vom Elternprodukt für die Listenanzeige
+      overview = applyOverviewParentInheritance(overview);
+
+      // Fehlende Lieferzeit-Namen (älterer Spiegel / falscher includes-Alias) nachladen
+      const missingDeliveryTimeIds = Array.from(
+        new Set(
+          overview
+            .filter((p) => p.deliveryTimeId && !p.deliveryTimeName)
+            .map((p) => String(p.deliveryTimeId)),
+        ),
+      );
+      if (missingDeliveryTimeIds.length > 0) {
+        try {
+          const deliveryById = await client.resolveDeliveryTimes(missingDeliveryTimeIds);
+          if (deliveryById.size > 0) {
+            overview = overview.map((p) => {
+              if (!p.deliveryTimeId || p.deliveryTimeName) return p;
+              const resolved = deliveryById.get(normalizeShopwareEntityId(String(p.deliveryTimeId)));
+              if (!resolved?.name && resolved?.min == null && resolved?.max == null) return p;
+              return {
+                ...p,
+                deliveryTimeName: resolved.name ?? p.deliveryTimeName,
+                deliveryTimeMin: resolved.min ?? p.deliveryTimeMin,
+                deliveryTimeMax: resolved.max ?? p.deliveryTimeMax,
+                deliveryTimeUnit: resolved.unit ?? p.deliveryTimeUnit,
+                hasDeliveryTime: true,
+              };
+            });
+
+            // Spiegel nachziehen (fire-and-forget), damit nächste Loads ohne Shopware-Roundtrip Namen haben
+            void (async () => {
+              try {
+                const { db } = await import("./db");
+                const { shopwareProducts } = await import("@shared/schema");
+                const { sql, and, eq } = await import("drizzle-orm");
+                for (const [id, resolved] of deliveryById.entries()) {
+                  if (!resolved.name && resolved.min == null && resolved.max == null) continue;
+                  const patch = {
+                    deliveryTimeName: resolved.name,
+                    deliveryTimeMin: resolved.min,
+                    deliveryTimeMax: resolved.max,
+                    deliveryTimeUnit: resolved.unit,
+                    hasDeliveryTime: true,
+                  };
+                  const conditions = [
+                    sql`lower(replace(coalesce(${shopwareProducts.payload}->>'deliveryTimeId', ''), '-', '')) = ${id}`,
+                    sql`coalesce(${shopwareProducts.payload}->>'deliveryTimeName', '') = ''`,
+                  ];
+                  if (tenantId) {
+                    conditions.push(eq(shopwareProducts.tenantId, tenantId));
+                  }
+                  await db
+                    .update(shopwareProducts)
+                    .set({
+                      payload: sql`${shopwareProducts.payload} || ${JSON.stringify(patch)}::jsonb`,
+                    })
+                    .where(and(...conditions));
+                }
+              } catch (err) {
+                console.warn("[/api/products/overview] delivery time mirror patch failed:", err);
+              }
+            })();
+          }
+        } catch (err) {
+          console.warn("[/api/products/overview] delivery time resolve failed:", err);
+        }
+      }
+
+      // Customfield-Werte, die Shopware-UUIDs sind → übersetzte Entity-Namen auflösen
+      const entityIds = new Set<string>();
+      for (const p of overview) {
+        const cf = p.customFields;
+        if (!cf || typeof cf !== "object") continue;
+        for (const value of Object.values(cf)) {
+          if (isShopwareEntityId(value)) entityIds.add(String(value).trim());
+          if (Array.isArray(value)) {
+            for (const item of value) {
+              if (isShopwareEntityId(item)) entityIds.add(String(item).trim());
+            }
+          }
+        }
+      }
+      let entityNameById = new Map<string, string>();
+      if (entityIds.size > 0) {
+        try {
+          entityNameById = await client.resolveEntityDisplayNames(Array.from(entityIds));
+        } catch (err) {
+          console.warn("[/api/products/overview] entity name resolve failed:", err);
+        }
+      }
+
+      const resolveCustomFieldDisplay = (cf: Record<string, unknown> | undefined): Record<string, string> => {
+        const display: Record<string, string> = {};
+        if (!cf) return display;
+        for (const [key, value] of Object.entries(cf)) {
+          if (isShopwareEntityId(value)) {
+            const name = entityNameById.get(normalizeShopwareEntityId(String(value)));
+            if (name) display[key] = name;
+          } else if (Array.isArray(value)) {
+            const parts = value.map((item) => {
+              if (!isShopwareEntityId(item)) return String(item ?? "");
+              return (
+                entityNameById.get(normalizeShopwareEntityId(String(item))) || String(item)
+              );
+            });
+            if (parts.some(Boolean)) display[key] = parts.filter(Boolean).join(", ");
+          }
+        }
+        return display;
+      };
+
       const lookupKeys = overview
         .map((p) => getHerstellpreisLookupKey(p.customFields as Record<string, unknown> | undefined, p.productNumber))
         .filter((key): key is string => Boolean(key));
@@ -6737,15 +6941,20 @@ Antworte im JSON-Format:
           p.customFields as Record<string, unknown> | undefined,
           p.productNumber,
         );
+        const customFieldsDisplay = resolveCustomFieldDisplay(
+          p.customFields as Record<string, unknown> | undefined,
+        );
         return {
           ...p,
+          customFieldsDisplay:
+            Object.keys(customFieldsDisplay).length > 0 ? customFieldsDisplay : undefined,
           herstellpreisNet: lookupKey ? (herstellMap.get(lookupKey) ?? null) : null,
-          salesChannels: p.salesChannelIds.map((id) => ({
+          salesChannels: (p.salesChannelIds || []).map((id) => ({
             id,
             name: channelNameById.get(id) || id,
           })),
-          hasAdvancedPrices: p.advancedPrices.length > 0,
-          advancedPriceCount: p.advancedPrices.length,
+          hasAdvancedPrices: (p.advancedPrices || []).length > 0,
+          advancedPriceCount: (p.advancedPrices || []).length,
           customFieldKeys: p.customFields ? Object.keys(p.customFields) : [],
         };
       });
@@ -6814,6 +7023,98 @@ Antworte im JSON-Format:
       } catch (error: any) {
         console.error("[/api/products/herstellpreise/import] Error:", error?.message || error);
         res.status(500).json({ error: error.message || "Herstellpreis-Import fehlgeschlagen" });
+      }
+    },
+  );
+
+  const visibilityImportUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 15 * 1024 * 1024, files: 1 },
+  });
+
+  // Excel-Vorlage: Identifier + Spalte je Verkaufskanal + Legende
+  app.get(
+    "/api/products/visibility/import-template",
+    requireAuth,
+    requireManageProducts,
+    async (req, res) => {
+      try {
+        const tenantId = (req as any).tenantId as string | null | undefined;
+        const settings = await storage.getShopwareSettings(tenantId);
+        if (!settings) {
+          return res.status(400).json({ error: "Shopware settings not configured" });
+        }
+        const client = new ShopwareClient(settings);
+        const salesChannels = await client.fetchSalesChannels();
+        const buffer = buildVisibilityImportTemplateBuffer(salesChannels);
+        res.setHeader(
+          "Content-Type",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        );
+        res.setHeader(
+          "Content-Disposition",
+          'attachment; filename="sichtbarkeit-import-vorlage.xlsx"',
+        );
+        res.send(buffer);
+      } catch (error: any) {
+        console.error("[/api/products/visibility/import-template] Error:", error?.message || error);
+        res.status(500).json({ error: error.message || "Vorlage konnte nicht erzeugt werden" });
+      }
+    },
+  );
+
+  // Sichtbarkeit je Verkaufskanal per Excel-Matrix (Dry-Run / Apply)
+  app.post(
+    "/api/products/visibility/import",
+    requireAuth,
+    requireCsrf,
+    requireManageProducts,
+    uploadRateLimiter,
+    visibilityImportUpload.single("file"),
+    async (req, res) => {
+      try {
+        const file = (req as any).file as Express.Multer.File | undefined;
+        if (!file?.buffer) {
+          return res.status(400).json({ error: "Keine Excel-Datei hochgeladen" });
+        }
+
+        const tenantId = (req as any).tenantId as string | null | undefined;
+        const settings = await storage.getShopwareSettings(tenantId);
+        if (!settings) {
+          return res.status(400).json({ error: "Shopware settings not configured" });
+        }
+
+        const apply =
+          req.body?.apply === true || req.body?.apply === "true" || req.body?.apply === "1";
+
+        let rows;
+        try {
+          rows = parseVisibilityMatrixFromBuffer(file.buffer);
+        } catch (parseError: any) {
+          return res.status(400).json({
+            error: parseError?.message || "Excel konnte nicht gelesen werden",
+          });
+        }
+
+        if (rows.length === 0) {
+          return res.status(400).json({ error: "Keine Datenzeilen in der Excel-Datei gefunden" });
+        }
+
+        const client = new ShopwareClient(settings);
+        await productCache.ensurePopulated(client);
+        const products = productCache.getProducts();
+        const salesChannels = await client.fetchSalesChannels();
+
+        const result = await runVisibilityImport(
+          { client, products, salesChannels },
+          rows,
+          { apply },
+          (msg) => console.log(msg),
+        );
+        res.json(result);
+      } catch (error: any) {
+        console.error("[/api/products/visibility/import] Error:", error?.message || error);
+        res.status(500).json({ error: error.message || "Sichtbarkeits-Import fehlgeschlagen" });
       }
     },
   );
@@ -14700,7 +15001,15 @@ Antworte im JSON-Format:
 
       const offerDraft = await storage.createOfferDraft(
         {
-          status: "approved",
+          // "review_required", nicht "approved": der Draft muss in der
+          // "Angebotsentwürfe"-Sektion auf /offers auftauchen (pending/review_required),
+          // damit ein Sachbearbeiter ihn einem Kunden zuordnen kann. NICHT "pending" —
+          // das ist in commercialDraftPipeline.ts nur ein Platzhalter-Defaultwert, der
+          // vor dem Speichern immer durch approved/review_required ersetzt wird; als
+          // gespeicherter Endzustand hat "pending" nirgendwo im System einen
+          // "Freigeben"-Übergang, wodurch executeCreateOfferFromDraft() jeden Versuch,
+          // daraus ein Angebot zu erstellen, mit 400 "Draft is still pending" ablehnt.
+          status: "review_required",
           originalFileName: `CPQ-${systemName ?? systemId ?? "Konfiguration"}-${new Date().toISOString().slice(0, 10)}.json`,
           originalFilePath: null,
         extractedData: {
@@ -16119,15 +16428,12 @@ Antworte im JSON-Format:
       const accessibleOrders = filterOrdersBySalesChannels(orderItems, allowedChannelIds);
 
       // Filter orders ready for shipping:
-      // - Status is "in_progress" (not open, completed, or cancelled)
-      // - Payment status is "paid" or "authorized"
+      // - Status open oder in_progress (nicht completed/cancelled)
+      // - Payment paid oder authorized
       // - No tracking number yet (not yet shipped)
       const shippingReadyOrders = accessibleOrders.filter((order: Order) => {
-        const isPaid = order.paymentStatus === 'paid' || order.paymentStatus === 'authorized';
-        const isInProgress = order.status === 'in_progress';
         const notShippedYet = !order.shippingInfo?.trackingNumber;
-        
-        return isPaid && isInProgress && notShippedYet;
+        return isOrderEligibleForShippingPick(order) && notShippedYet;
       });
 
       // Limit to 10 orders

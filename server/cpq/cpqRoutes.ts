@@ -176,6 +176,8 @@ export function registerCpqRoutes(
       const defaultWidths = [800, 1000, 1200];
       const defaultFieldCounts = [1, 2, 3, 4, 5, 6, 8, 10];
       const defaultLevelCounts = [2, 3, 4, 5, 6, 8, 10];
+      const defaultLoads = [80, 150, 200, 230, 330];
+      const defaultSurfaces = ["verzinkt"];
 
       let availableOptions: {
         heights: number[];
@@ -183,12 +185,16 @@ export function registerCpqRoutes(
         widths: number[];
         field_counts: number[];
         level_counts: number[];
+        loads: number[];
+        surfaces: string[];
       } = {
         heights: [...defaultHeights],
         depths: [...defaultDepths],
         widths: [...defaultWidths],
         field_counts: [...defaultFieldCounts],
         level_counts: [...defaultLevelCounts],
+        loads: [...defaultLoads],
+        surfaces: [...defaultSurfaces],
       };
 
       try {
@@ -202,6 +208,8 @@ export function registerCpqRoutes(
         const heights = new Set<number>();
         const depths = new Set<number>();
         const widths = new Set<number>();
+        const loads = new Set<number>();
+        const surfaces = new Set<string>();
 
         const roleNorm = (r: string) => r.toLowerCase().trim();
         const isFrame = (r: string) => ["frame", "steher", "ständer", "rahmen"].includes(roleNorm(r)) || roleNorm(r).includes("ständer") || roleNorm(r).includes("steher");
@@ -228,12 +236,19 @@ export function registerCpqRoutes(
           if (isShelf(role)) {
             if (attrs.depth) depths.add(attrs.depth);
             if (dims?.length) depths.add(dims.length);
+            const load = Number((attrs as Record<string, unknown>).load ?? (attrs as Record<string, unknown>).maxFachlastKg);
+            if (Number.isFinite(load) && load > 0) loads.add(load);
           }
+          // Oberfläche aus jedem Mapping mit gesetztem surface-Attribut sammeln.
+          const surface = (attrs as Record<string, unknown>).surface;
+          if (typeof surface === "string" && surface.trim()) surfaces.add(surface.trim());
         }
 
         if (heights.size > 0) availableOptions.heights = [...heights].sort((a, b) => a - b);
         if (depths.size > 0) availableOptions.depths = [...depths].sort((a, b) => a - b);
         if (widths.size > 0) availableOptions.widths = [...widths].sort((a, b) => a - b);
+        if (loads.size > 0) availableOptions.loads = [...loads].sort((a, b) => a - b);
+        if (surfaces.size > 0) availableOptions.surfaces = [...surfaces];
       } catch (e) {
         // keep defaults if productCache or mappings fail
       }
@@ -300,11 +315,13 @@ export function registerCpqRoutes(
       const { productCache } = await import("../productCache");
       const getProduct = (productNumber: string) => {
         const p = productCache.getProductByIdentifier(productNumber);
+        // BOM-Preise sind netto (deutsche B2B-Konvention, "Preis netto" im Konfigurator).
+        // p.price ist Shopware's Bruttopreis (inkl. MwSt.) — p.netPrice ist der Nettopreis.
         return p
           ? {
               id: p.id,
               name: p.name ?? productNumber,
-              price: p.price ?? 0,
+              price: p.netPrice ?? 0,
               dimensions: p.dimensions,
               manufacturerNumber: p.manufacturerNumber,
               imageUrl: p.imageUrl,
@@ -357,8 +374,9 @@ export function registerCpqRoutes(
       await ensureCpqProductCacheForTenant(req.tenantId ?? null);
       const getProduct = (productNumber: string) => {
         const p = productCache.getProductByIdentifier(productNumber);
+        // Konsistent netto halten, siehe Kommentar in der bill-of-materials-Route oben.
         return p
-          ? { id: p.id, name: p.name ?? productNumber, price: p.price ?? 0, dimensions: p.dimensions }
+          ? { id: p.id, name: p.name ?? productNumber, price: p.netPrice ?? 0, dimensions: p.dimensions }
           : undefined;
       };
       const getGeometry = (id: string) => cpqStorage.getGeometryByProductMapping(id);

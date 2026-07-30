@@ -63,6 +63,19 @@ export function computeDiscountPercentFromPurchaseBase(
   return Math.round(((customerPriceNet - listPriceNet) / listPriceNet) * 1000) / 10;
 }
 
+/**
+ * Prozentuale Differenz eines Kundenpreises relativ zu einer Basis (netto).
+ * Positiv = Kundenpreis liegt unter der Basis (Nachlass), negativ = darüber.
+ * Wird für den Vergleich Kundenpreis ↔ erweiterter Preis (Staffelpreis) genutzt.
+ */
+export function computePriceDifferencePercent(
+  customerPriceNet: number | null | undefined,
+  basePriceNet: number | null | undefined,
+): number | null {
+  if (customerPriceNet == null || basePriceNet == null || basePriceNet <= 0) return null;
+  return Math.round(((basePriceNet - customerPriceNet) / basePriceNet) * 1000) / 10;
+}
+
 const DISCOUNT_CUSTOM_FIELD_KEYS = [
   "b2b_discount_rate",
   "b2b_discountRate",

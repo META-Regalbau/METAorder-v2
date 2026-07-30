@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, Download, BarChart3, Settings, Users, Shield, Sparkles, AlertTriangle, Ticket, GitBranch, Truck, FileText, Zap, FileUp, Receipt, Briefcase, Boxes, FileSearch, Scale, Building2, Wallet, ListOrdered, Layers, FilePlus, UserPlus } from "lucide-react";
+import { LayoutDashboard, Package, Download, BarChart3, Settings, Users, Shield, Sparkles, AlertTriangle, Ticket, GitBranch, Truck, FileText, Zap, FileUp, Receipt, Briefcase, Boxes, FileSearch, Scale, Building2, Wallet, ListOrdered, Layers, FilePlus, UserPlus, Warehouse, ShoppingCart, RotateCcw, Landmark, Factory, PackageCheck, Smartphone, Eye } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import type { Role } from "@shared/schema";
@@ -61,6 +61,18 @@ export default function AppSidebar({ userRole, permissions }: AppSidebarProps) {
           permission: "viewShipping" as keyof Role['permissions'],
         },
         {
+          titleKey: "nav.shippingOps",
+          url: "/shipping-ops",
+          icon: PackageCheck,
+          permission: "manageShippingLabels" as keyof Role['permissions'],
+        },
+        {
+          titleKey: "nav.mobilePicking",
+          url: "/mobile/picking",
+          icon: Smartphone,
+          permission: "manageShippingLabels" as keyof Role['permissions'],
+        },
+        {
           titleKey: "nav.offers",
           url: "/offers",
           icon: Receipt,
@@ -119,6 +131,30 @@ export default function AppSidebar({ userRole, permissions }: AppSidebarProps) {
           permission: "manageProducts" as keyof Role['permissions'],
         },
         {
+          titleKey: "nav.visibilityImport",
+          url: "/visibility-import",
+          icon: Eye,
+          permission: "manageProducts" as keyof Role['permissions'],
+        },
+        {
+          titleKey: "nav.warehouse",
+          url: "/warehouse",
+          icon: Warehouse,
+          permission: "viewInventory" as keyof Role['permissions'],
+        },
+        {
+          titleKey: "nav.purchasing",
+          url: "/purchasing",
+          icon: ShoppingCart,
+          permission: "viewPurchasing" as keyof Role['permissions'],
+        },
+        {
+          titleKey: "nav.production",
+          url: "/production",
+          icon: Factory,
+          permission: "viewProduction" as keyof Role['permissions'],
+        },
+        {
           titleKey: "nav.rules",
           url: "/cross-selling-rules",
           icon: Sparkles,
@@ -157,6 +193,12 @@ export default function AppSidebar({ userRole, permissions }: AppSidebarProps) {
           url: "/crm",
           icon: Briefcase,
           permission: "viewCrm" as keyof Role['permissions'],
+        },
+        {
+          titleKey: "nav.returns",
+          url: "/returns",
+          icon: RotateCcw,
+          permission: "viewReturns" as keyof Role['permissions'],
         },
         {
           titleKey: "nav.b2bAccounts",
@@ -230,6 +272,12 @@ export default function AppSidebar({ userRole, permissions }: AppSidebarProps) {
           titleKey: "nav.accounting",
           url: "/accounting",
           icon: FileText,
+          permission: "viewAccounting" as keyof Role['permissions'],
+        },
+        {
+          titleKey: "nav.finance",
+          url: "/finance",
+          icon: Landmark,
           permission: "viewAccounting" as keyof Role['permissions'],
         },
         {

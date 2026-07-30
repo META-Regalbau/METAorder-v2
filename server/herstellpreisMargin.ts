@@ -4,7 +4,7 @@ import type {
   ShopwareAdvancedPrice,
   ShopwareClient,
 } from "./shopware";
-import { productIdLookupKeys } from "./pricingUtils";
+import { productIdLookupKeys, computePriceDifferencePercent } from "./pricingUtils";
 import { getHerstellpreisLookupKey } from "./productIdentifiers";
 import { loadCrmProfitabilitySettings } from "./crmProfitabilitySettings";
 
@@ -102,6 +102,10 @@ export function resolveCrmSellingPriceNet(input: {
 export type CustomerPriceWithHerstellMargin = EnrichedShopwareCustomerPrice & {
   herstellMarginPercent: number | null;
   herstellMarginVerdict: HerstellMarginVerdict;
+  /** Erweiterter Preis (Shopware-Staffelpreis) netto passend zur Mengenstaffel. */
+  advancedPriceNet: number | null;
+  /** Differenz Kundenpreis ↔ erweiterter Preis in %. Positiv = günstiger als Staffelpreis. */
+  advancedPriceDifferencePercent: number | null;
 };
 
 function lookupHerstellpreisKey(
@@ -182,10 +186,23 @@ export async function enrichCustomerPricesWithHerstellMargin(
     const herstellMarginPercent = computeHerstellMarginPercent(sellingPriceNet, herstellpreisNet);
     const herstellMarginVerdict = computeCrmProfitabilityVerdict(herstellMarginPercent, minMarginPercent);
 
+    // Erweiterter Preis (Shopware-Staffelpreis) passend zur Mengenstaffel des Kundenpreises.
+    const advancedTier = pickAdvancedPriceTier(sellingContext?.advancedPrices ?? [], price.from);
+    const advancedPriceNet =
+      advancedTier?.net != null && advancedTier.net > 0
+        ? advancedTier.net
+        : (sellingContext?.catalogPriceNet ?? price.catalogPriceNet ?? null);
+    const advancedPriceDifferencePercent = computePriceDifferencePercent(
+      price.priceNet,
+      advancedPriceNet,
+    );
+
     return {
       ...price,
       herstellMarginPercent,
       herstellMarginVerdict,
+      advancedPriceNet,
+      advancedPriceDifferencePercent,
     };
   });
 }

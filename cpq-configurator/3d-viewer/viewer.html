@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Fachbodenregal CLIP – Regalzeile aus echten META-GLB-Bauteilen</title>
+<style>
+  html, body { margin:0; padding:0; overflow:hidden; font-family: -apple-system, Segoe UI, Roboto, sans-serif; background:#1b1e22; }
+  #canvas-container { position:absolute; top:0; left:0; right:360px; bottom:0; }
+  #panel { position:absolute; top:0; right:0; width:360px; bottom:0; background:#f4f5f7; box-sizing:border-box; padding:16px; overflow-y:auto; border-left:1px solid #ccc; }
+  #panel h2 { font-size:15px; margin:0 0 10px 0; }
+  #panel h3 { font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:#555; margin:16px 0 6px 0; }
+  fieldset { border:1px solid #ccc; border-radius:6px; margin:0 0 12px 0; padding:10px; }
+  legend { font-size:12px; font-weight:600; color:#333; padding:0 4px; }
+  label { display:block; font-size:12px; margin:6px 0; }
+  input[type=range] { width:100%; }
+  input[type=number] { width:90px; padding:3px 6px; font-size:12px; }
+  select { width:100%; padding:4px; font-size:12px; }
+  select:disabled { color:#999; background:#eee; }
+  .row2 { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  #status { font-size:12px; padding:6px 8px; border-radius:4px; background:#fff3cd; color:#664d03; margin-bottom:10px; white-space:pre-wrap; }
+  #status.ok { background:#d1e7dd; color:#0a3622; }
+  #status.err { background:#f8d7da; color:#58151c; }
+  #info { font-size:11px; font-family: ui-monospace, monospace; background:#fff; border:1px solid #ddd; border-radius:6px; padding:8px; white-space:pre-wrap; }
+  .note { font-size:11px; color:#555; line-height:1.5; margin-top:14px; }
+  .hint { font-size:10.5px; color:#777; margin-top:2px; }
+  .badge { display:inline-block; font-size:10px; padding:1px 6px; border-radius:10px; background:#e0e0e0; margin-right:4px; }
+  .badge.real { background:#c8f0d0; color:#0a5c22; }
+  .badge.placeholder { background:#f8d7c0; color:#8a3c00; }
+</style>
+</head>
+<body>
+<div id="canvas-container"></div>
+<div id="panel">
+  <h2>Fachbodenregal CLIP – Regalzeile</h2>
+  <div id="status">Lade Bauteile…</div>
+
+  <fieldset>
+    <legend>Regalzeile – Anzahl Felder</legend>
+    <div class="row2">
+      <label style="flex:1;">Anzahl Felder (Menge)
+        <input type="number" id="fieldCount" min="1" max="20" step="1" value="2">
+      </label>
+    </div>
+    <div class="hint">1 Grundfeld + weitere Anbaufelder, teilen sich jeweils einen Ständerrahmen.</div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Regalzeile – über Ziellänge</legend>
+    <div class="row2">
+      <label style="flex:1;">Ziellänge der Zeile (mm), max. möglich
+        <input type="number" id="targetLength" min="1000" max="20000" step="100" value="2000">
+      </label>
+    </div>
+    <div class="hint">Das System baut so viele ganze 1000-mm-Felder, wie <b>innerhalb</b> dieser Länge passen (abgerundet) – nie mehr als eingegeben.</div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Ebenen &amp; Höhe</legend>
+    <label>Anzahl Ebenen (Fachböden je Feld): <span id="levelsVal">5</span>
+      <input type="range" id="levels" min="2" max="10" step="1" value="5">
+    </label>
+    <label>Regalhöhe
+      <select id="heightSelect">
+        <option value="2000">2000 mm</option>
+        <option value="2500">2500 mm</option>
+      </select>
+    </label>
+    <div class="hint">Beide Rahmenhöhen liegen als echtes GLB vor (gleiche Breite/Tiefe: 50 × 545&nbsp;mm) – weitere Höhen folgen, sobald verfügbar.</div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Aussteifung (Zubehör K)</legend>
+    <label>Zeilenlange Aussteifung je Feld
+      <select id="aussteifungSelect">
+        <option value="keine">keine</option>
+        <option value="diagonalstab" selected>Diagonalstab (echtes GLB)</option>
+        <option value="laengsriegel" disabled>Längsriegel (GLB folgt noch)</option>
+      </select>
+    </label>
+    <div class="hint">Diagonalstab und Längsriegel sind Alternativen, frei wählbar (siehe Datenmodell-Dokument Abschnitt 11). Erstes Feld: Kreuz aus 2&nbsp;Streben. Jedes weitere Feld: 1&nbsp;Strebe, Ausrichtung alterniert (links-oben↔rechts-unten, dann rechts-oben↔links-unten, ...). Position ist eine <b>Näherung</b> (spannt ca. 1&nbsp;Feldbreite × 1&nbsp;m Höhe an der Rückseite) – die exakte META-Platzierungsregel (850&nbsp;mm-Modul + Versatz DH) ist noch offen.</div>
+  </fieldset>
+
+  <h3>Bauteile in dieser Ansicht</h3>
+  <div style="font-size:12px; line-height:1.8;">
+    <span class="badge real">echtes GLB</span> Ständerrahmen H≈2000&nbsp;mm (FL-Modul=1000&nbsp;mm, Fd=500&nbsp;mm, 2 feste Diagonalstreben), gemeinsam genutzt zwischen Feldern<br>
+    <span class="badge real">echtes GLB</span> Ständerrahmen H≈2500&nbsp;mm (gleiche Breite/Tiefe, 3 feste Diagonalstreben)<br>
+    <span class="badge real">echtes GLB</span> Fachboden MS150 (1000×500&nbsp;mm)<br>
+    <span class="badge real">echtes GLB</span> Diagonalstab (Zubehör K, für Regalbreite 1000&nbsp;mm)<br>
+    <span class="badge placeholder">Platzhalter</span> Kappe oben (2&nbsp;mm, rot/transparent – echtes GLB folgt noch)
+  </div>
+
+  <h3>Zusammenfassung</h3>
+  <div id="info">–</div>
+
+  <p class="note">
+    Rahmen (beide Höhen), Boden und Diagonalstab sind reale GLBs (vorab in Node.js von Draco auf unkomprimiert umgewandelt, damit
+    der Browser sie ohne Worker/Zusatz-Decoder laden kann). Anbaufelder teilen sich – wie im Datenmodell-Dokument
+    beschrieben – jeweils einen Ständerrahmen mit dem Nachbarfeld: bei N Feldern werden N+1 Rahmen platziert, nicht 2×N.
+    Alle Felder nutzen aktuell dieselbe Ebenenzahl, Regalhöhe und Aussteifung (pro-Feld-Konfiguration folgt bei Bedarf später).
+  </p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script>
+(function(){
+
+  const statusEl = document.getElementById('status');
+
+  function fail(msg) {
+    statusEl.textContent = 'Fehler: ' + msg;
+    statusEl.className = 'err';
+    console.error(msg);
+  }
+
+  if (typeof THREE === 'undefined') { fail('three.js konnte nicht geladen werden (Netzwerk/CDN blockiert?).'); return; }
+  if (typeof THREE.GLTFLoader === 'undefined') { fail('THREE.GLTFLoader konnte nicht geladen werden (Netzwerk/CDN blockiert?).'); return; }
+
+  // ---------- real META GLB assets, loaded as separate files from assets/glb/ ----------
+
+  // ---------- real measured geometry (meters, from GLB accessor bounding boxes) ----------
+  const FL = 1.000;                 // Feldbreite / Fachboden-Breite (bisher einzige verfügbare Größe)
+  const FRAME_Z_MIN = -0.5405, FRAME_Z_MAX = 0.0045; // Rahmen-Tiefe insgesamt 545mm (=Fd+45), identisch bei beiden Höhen
+  const FRAME_Z_CENTER = (FRAME_Z_MIN + FRAME_Z_MAX) / 2;
+  const CAP_THICKNESS = 0.002;      // 2mm, laut Nutzer bestätigt (GLB folgt noch)
+  const RASTER = 0.05;               // 50mm Lochraster (korrigiert 29.07. anhand Referenzbild: Löcher im T-Profil 5cm auseinander, nicht 25mm)
+  const HANG_HEIGHT = 0.100;        // 100mm Einhängehöhe unterster Boden
+
+  // je Regalhöhe: Oberkante Ständerprofil (ohne Kappe), aus den jeweiligen GLB-Bounding-Boxes gemessen
+  const GLB_BASE = 'assets/glb/';
+  const HEIGHTS = {
+    '2000': { topY: 1.996, template: null, url: GLB_BASE + 'frame_plain.glb', label: '2000 mm' },
+    '2500': { topY: 2.496, template: null, url: GLB_BASE + 'frame2500_plain.glb', label: '2500 mm' },
+  };
+
+  // Diagonalstab (Zubehör K, "für Regalbreite 1000mm"): eigene lokale Bounding-Box aus dem GLB
+  // (4 Meshes: Hauptstab + 3 Spannschloss-Kleinteile), kombinierte BBox ca. 1,011 x 1,005 x 0,026 m.
+  // Näherungs-Platzierung: lokale X-Achse -> Feldbreite (FL), lokale Y-Achse -> Höhe ab Einhängehöhe,
+  // außen an der Rückseite des Rahmens montiert (Z hinter FRAME_Z_MIN, nicht innen im Rahmen).
+  // Exaktes META-Platzierungsraster (850mm-Modul + DH) offen.
+  const DIAGSTAB_LOCAL_MIN = { x: -0.505625, y: -0.502634, z: -0.019850 };
+  const DIAGSTAB_LOCAL_MAX = { x: 0.505625, y: 0.502625, z: 0.006042 };
+
+  // Real gemessen (29.07., 4. Korrektur, aus frame_plain.glb / frame2500_plain.glb, Mesh des hinteren
+  // Ständerprofils mit der Lochung): äußerste (rückwärtigste) Z-Fläche des hinteren Pfostens, identisch
+  // bei 2000mm und 2500mm Höhe. Vorher wurde fälschlich die Fußplatten-BBox (FRAME_Z_MIN) als Referenz
+  // benutzt, die geringfügig von der eigentlichen Lochungsfläche des Pfostens abweicht und zu einem
+  // sichtbaren Abstand zwischen Strebe und Lochung führte.
+  const BACK_POST_OUTER_Z = -0.536;
+  // 29.07., 6. Korrektur: Die 23mm-Überlappung aus der 5. Korrektur war zu viel ("wieder wie am Anfang,
+  // im Regal drin") - der Nutzer bestätigte, dass die Positionierung aus der 4. Korrektur (v9, 3mm
+  // Überlappung) bereits richtig war. Zurückgesetzt auf 3mm. Das eigentliche Problem war die
+  // Haken-Richtung, nicht der Abstand (siehe Z-Spiegelung unten).
+  const DIAGSTAB_Z_OVERLAP = 0.018; // 29.07., 9. Korrektur (v14): -5mm gegenüber v13 (23mm -> 18mm), Nutzer-Feinjustierung nach v13
+
+  // 29.07., 6. Korrektur: Nutzer bestätigte, dass die Haken jetzt in die andere Richtung zeigen müssen.
+  // Per Playwright-Screenshot-Vergleich (Seitenansicht) verifiziert: eine zusätzliche Z-Spiegelung der
+  // gesamten Strebe (scale.z=-1) zeigt ein sichtbar anderes Hakenprofil (gebogene Hakenform statt
+  // gerader Stift) - das ist die vom Nutzer geforderte Richtungsänderung. Die Referenz-Position wechselt
+  // dabei von DIAGSTAB_LOCAL_MAX.z (unrotiert) auf DIAGSTAB_LOCAL_MIN.z (gespiegelt), siehe diagPosZ().
+  const DIAGSTAB_POS_Z = BACK_POST_OUTER_Z + DIAGSTAB_Z_OVERLAP + DIAGSTAB_LOCAL_MIN.z;
+
+  // ---------- Lochraster-Kopplung (29.07., 3. Korrektur anhand Referenzbild): Streben werden in der
+  // Lochung montiert (die kleine "Nase" am Streben-Ende hakt im Loch ein), zwei Streben dürfen sich
+  // niemals dasselbe Loch teilen (v.a. an gemeinsamen Rahmen zwischen Feldern). Lochabstand im
+  // T-Profil laut Referenzbild 50mm (nicht 25mm, siehe RASTER oben). Die gemessene BBox-Höhenspanne
+  // (~1005mm, inkl. Spannschloss-Überstand) wird auf ein ganzzahliges Vielfaches des 50mm-Rasters
+  // gerundet (-> 20 Raster = 1000mm), damit jede Strebe zwei exakte Loch-Positionen
+  // (Rahmen-Index + Raster-Schritt) als Endpunkte hat.
+  const DIAGSTAB_SPAN_STEPS = Math.round((DIAGSTAB_LOCAL_MAX.y - DIAGSTAB_LOCAL_MIN.y) / RASTER); // = 20 (1000mm)
+
+  // 29.07., 7. Korrektur: per Marker-Vergleich am gerenderten Rahmen (Kugeln bei Y=k*RASTER vs.
+  // Y=0.025+k*RASTER) verifiziert, dass die echten Loch-Mittelpunkte NICHT bei Vielfachen von RASTER ab
+  // Y=0 liegen, sondern um 25mm phasenverschoben (Y=0.025 + k*0.05). HOLE_PHASE korrigiert das für die
+  // Diagonalstab-Platzierung (Fachboden-Ebenenraster/HANG_HEIGHT bleibt unangetastet, da separat aus
+  // früherer realer Messung stammend und nicht Teil der aktuellen Nutzer-Rückmeldung). Diese Phasen-
+  // Korrektur behebt sowohl die falsche Höhe als auch den sichtbaren Spalt zum Profil: eine Strebe, die
+  // auf massivem Material zwischen zwei echten Löchern landet, sieht optisch wie ein "schwebender" Haken
+  // aus, obwohl der Z-Abstand selbst korrekt war.
+  const HOLE_PHASE = 0.025;
+  const DIAG_BASE_STEP = Math.round((HANG_HEIGHT - HOLE_PHASE) / RASTER); // nächstgelegenes reales Loch zur früheren 100mm-Zielhöhe
+  function holeY(step) { return HOLE_PHASE + step * RASTER; }
+
+  // Skalierungs-Korrektur (29.07., 4. Korrektur): die gemessene BBox der Strebe ist real 1011.25mm x
+  // 1005.26mm groß (nicht exakt 1000mm x 1000mm), wodurch die Endpunkte sonst ca. 11mm über die
+  // Rahmen-Mittellinie/das Ziel-Raster hinauslaufen würden ("Streben stecken nicht in den Löchern").
+  // X/Y werden minimal (~1%) gestaucht, damit beide Enden EXAKT auf Rahmen-Mittellinie bzw. exaktem
+  // Raster-Y treffen.
+  const SCALE_X = FL / (DIAGSTAB_LOCAL_MAX.x - DIAGSTAB_LOCAL_MIN.x);
+  const SCALE_Y = (DIAGSTAB_SPAN_STEPS * RASTER) / (DIAGSTAB_LOCAL_MAX.y - DIAGSTAB_LOCAL_MIN.y);
+
+  // Orientierung "A" (Y-unskaliert/ungespiegelt): Bauteil läuft nativ von lokal (minX,minY) nach
+  // (maxX,maxY) -> von vorne gesehen: links unten nach rechts oben ("/").
+  // Orientierung "B" (Y-only-Spiegelung via negativem Y-Scale, 29.07. 4. Korrektur: NICHT 180°-Rotation
+  // um X, denn die flippt zusätzlich Z): läuft von links oben nach rechts unten ("\").
+  // Z-Spiegelung (scale.z=-1, 29.07. 6. Korrektur, bei BEIDEN Ausrichtungen A und B angewendet): dreht
+  // die Haken-Nase in die vom Nutzer bestätigte korrekte Richtung.
+  // baseY ist eine ECHTE Loch-Y-Position (aus holeY(step), phasenkorrigiert, 29.07. 7. Korrektur), keine
+  // rohe RASTER-Vielfache mehr.
+  function makeDiagonal(xLeft, orientation, baseY) {
+    const diag = diagonalTemplate.clone(true);
+    if (orientation === 'B') {
+      diag.scale.set(SCALE_X, -SCALE_Y, -1);
+      diag.position.set(
+        xLeft - SCALE_X * DIAGSTAB_LOCAL_MIN.x,
+        baseY + SCALE_Y * DIAGSTAB_LOCAL_MAX.y,
+        DIAGSTAB_POS_Z
+      );
+    } else {
+      diag.scale.set(SCALE_X, SCALE_Y, -1);
+      diag.position.set(
+        xLeft - SCALE_X * DIAGSTAB_LOCAL_MIN.x,
+        baseY - SCALE_Y * DIAGSTAB_LOCAL_MIN.y,
+        DIAGSTAB_POS_Z
+      );
+    }
+    return diag;
+  }
+
+  // Berechnet die zwei Loch-Endpunkte (Rahmen-Index, Raster-Schritt) einer Strebe im Feld f
+  // bei gegebener Ausrichtung und Basis-Raster-Schritt (Einhängehöhe + Offset-Schritte).
+  function diagonalHoleEndpoints(f, orientation, baseStep) {
+    if (orientation === 'B') {
+      return [
+        { frame: f, step: baseStep + DIAGSTAB_SPAN_STEPS },     // oben, am linken/vorderen Rahmen
+        { frame: f + 1, step: baseStep },                        // unten, am rechten Rahmen
+      ];
+    }
+    return [
+      { frame: f, step: baseStep },                               // unten, am linken Rahmen
+      { frame: f + 1, step: baseStep + DIAGSTAB_SPAN_STEPS },      // oben, am rechten Rahmen
+    ];
+  }
+
+  // Platziert eine Diagonalstrebe im Feld f mit Kollisionsvermeidung: sucht ausgehend von der
+  // Standard-Einhängehöhe (Schritt 0, dann +1, -1, +2, -2, ... Raster) die erste Position, an der
+  // beide Loch-Endpunkte noch frei sind, markiert sie als belegt und baut die Strebe.
+  function placeDiagonal(usedHoles, group, xLeft, f, orientation) {
+    const maxSearchSteps = 40;
+    let chosenBaseStep = null;
+    let chosenEndpoints = null;
+    for (let s = 0; s <= maxSearchSteps && chosenBaseStep === null; s++) {
+      const candidates = s === 0 ? [0] : [s, -s];
+      for (const delta of candidates) {
+        const baseStep = DIAG_BASE_STEP + delta;
+        const endpoints = diagonalHoleEndpoints(f, orientation, baseStep);
+        const keys = endpoints.map((e) => e.frame + '_' + e.step);
+        if (keys.every((k) => !usedHoles.has(k))) {
+          chosenBaseStep = baseStep;
+          chosenEndpoints = keys;
+          break;
+        }
+      }
+    }
+    if (chosenBaseStep === null) {
+      // Notfall (sollte praktisch nie eintreten): trotzdem bauen, ohne Kollisionsprüfung.
+      chosenBaseStep = DIAG_BASE_STEP;
+    } else {
+      chosenEndpoints.forEach((k) => usedHoles.add(k));
+    }
+    const diag = makeDiagonal(xLeft, orientation, holeY(chosenBaseStep));
+    diag.userData.kind = 'diag:f' + f + ':' + orientation;
+    group.add(diag);
+  }
+
+  function levelPositions(topY, n) {
+    const bottom = HANG_HEIGHT;
+    const top = topY - CAP_THICKNESS;
+    if (n <= 1) return [bottom];
+    let positions = [];
+    for (let i = 0; i < n; i++) {
+      const raw = bottom + (top - bottom) * (i / (n - 1));
+      positions.push(Math.round(raw / RASTER) * RASTER);
+    }
+    positions[0] = bottom;
+    positions[n - 1] = top;
+    for (let i = 1; i < positions.length; i++) {
+      if (positions[i] <= positions[i - 1]) positions[i] = positions[i - 1] + RASTER;
+    }
+    return positions;
+  }
+
+  // ---------- three.js scene setup ----------
+  const container = document.getElementById('canvas-container');
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x1b1e22);
+
+  const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.01, 200);
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(window.devicePixelRatio || 1);
+  renderer.setSize(container.clientWidth, container.clientHeight);
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  container.appendChild(renderer.domElement);
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 0.9));
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  dirLight.position.set(3, 4, 3);
+  scene.add(dirLight);
+  const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.4);
+  dirLight2.position.set(-3, 2, -3);
+  scene.add(dirLight2);
+
+  const grid = new THREE.GridHelper(20, 20, 0x2e3136, 0x24262b); // 20m/20 = 1x1m Kästen, dezente Farben nahe am Hintergrund
+  grid.material.transparent = true;
+  grid.material.opacity = 0.35;
+  scene.add(grid);
+
+  // manual spherical-coordinate orbit camera (no OrbitControls dependency)
+  let camTarget = new THREE.Vector3(1.0, 1.0, -0.25);
+  let camRadius = 4.5, camTheta = 0.9, camPhi = 1.1;
+  function updateCamera() {
+    const x = camTarget.x + camRadius * Math.sin(camPhi) * Math.sin(camTheta);
+    const y = camTarget.y + camRadius * Math.cos(camPhi);
+    const z = camTarget.z + camRadius * Math.sin(camPhi) * Math.cos(camTheta);
+    camera.position.set(x, y, z);
+    camera.lookAt(camTarget);
+  }
+  updateCamera();
+
+  let isDragging = false, lastX = 0, lastY = 0;
+  renderer.domElement.addEventListener('mousedown', (e) => { isDragging = true; lastX = e.clientX; lastY = e.clientY; });
+  window.addEventListener('mouseup', () => { isDragging = false; });
+  window.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    const dx = e.clientX - lastX, dy = e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY;
+    camTheta -= dx * 0.008;
+    camPhi -= dy * 0.008;
+    camPhi = Math.max(0.15, Math.min(Math.PI - 0.15, camPhi));
+    updateCamera();
+  });
+  renderer.domElement.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    camRadius *= (1 + e.deltaY * 0.001);
+    camRadius = Math.max(0.5, Math.min(30, camRadius));
+    updateCamera();
+  }, { passive: false });
+
+  window.addEventListener('resize', () => {
+    camera.aspect = container.clientWidth / container.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(container.clientWidth, container.clientHeight);
+  });
+
+  // ---------- loading real GLB assets (plain, uncompressed) ----------
+  const gltfLoader = new THREE.GLTFLoader();
+
+  let shelfTemplate = null, diagonalTemplate = null, loadErrors = [];
+
+  function allFramesLoaded() {
+    return Object.keys(HEIGHTS).every((k) => HEIGHTS[k].template);
+  }
+
+  function tryRebuildWhenReady() {
+    if (allFramesLoaded() && shelfTemplate && diagonalTemplate) {
+      statusEl.textContent = 'Bauteile geladen (echte GLBs: Rahmen, Boden, Diagonalstab).';
+      statusEl.className = 'ok';
+      rebuild();
+    } else if (loadErrors.length > 0) {
+      fail(loadErrors.join(' | '));
+    }
+  }
+
+  Object.keys(HEIGHTS).forEach((key) => {
+    const h = HEIGHTS[key];
+    try {
+      gltfLoader.load(h.url, (gltf) => {
+        h.template = gltf.scene;
+        tryRebuildWhenReady();
+      }, undefined, (err) => { loadErrors.push('Rahmen ' + h.label + ': ' + err); tryRebuildWhenReady(); });
+    } catch (e) { loadErrors.push('Rahmen ' + h.label + ' (Exception): ' + e.message); tryRebuildWhenReady(); }
+  });
+
+  try {
+    gltfLoader.load(GLB_BASE + 'shelf_plain.glb', (gltf) => {
+      shelfTemplate = gltf.scene;
+      tryRebuildWhenReady();
+    }, undefined, (err) => { loadErrors.push('Boden: ' + err); tryRebuildWhenReady(); });
+  } catch (e) { loadErrors.push('Boden (Exception): ' + e.message); tryRebuildWhenReady(); }
+
+  try {
+    gltfLoader.load(GLB_BASE + 'diagonalstab_plain.glb', (gltf) => {
+      diagonalTemplate = gltf.scene;
+      tryRebuildWhenReady();
+    }, undefined, (err) => { loadErrors.push('Diagonalstab: ' + err); tryRebuildWhenReady(); });
+  } catch (e) { loadErrors.push('Diagonalstab (Exception): ' + e.message); tryRebuildWhenReady(); }
+
+  const group = new THREE.Group();
+  scene.add(group);
+
+  const capGeo = new THREE.BoxGeometry(0.076, CAP_THICKNESS, 0.058);
+  const capMat = new THREE.MeshStandardMaterial({ color: 0xdd3333, transparent: true, opacity: 0.55 });
+
+  function clearGroup() {
+    while (group.children.length) group.remove(group.children[0]);
+  }
+
+  // ---------- field-count <-> row-length sync ----------
+  const fieldCountInput = document.getElementById('fieldCount');
+  const targetLengthInput = document.getElementById('targetLength');
+  let syncing = false;
+
+  function setFieldCount(n) {
+    n = Math.max(1, Math.min(20, Math.round(n)));
+    syncing = true;
+    fieldCountInput.value = n;
+    targetLengthInput.value = Math.round(n * FL * 1000);
+    syncing = false;
+    rebuild();
+  }
+
+  fieldCountInput.addEventListener('input', () => {
+    if (syncing) return;
+    const n = parseInt(fieldCountInput.value, 10) || 1;
+    setFieldCount(n);
+  });
+
+  targetLengthInput.addEventListener('input', () => {
+    if (syncing) return;
+    const lenMM = parseFloat(targetLengthInput.value) || 1000;
+    // "baut bis zur max. möglichen Länge auf" -> abrunden, nie mehr als eingegeben
+    const n = Math.max(1, Math.floor(lenMM / (FL * 1000)));
+    setFieldCount(n);
+  });
+
+  document.getElementById('levels').addEventListener('input', rebuild);
+  document.getElementById('heightSelect').addEventListener('change', rebuild);
+  document.getElementById('aussteifungSelect').addEventListener('change', rebuild);
+
+  function rebuild() {
+    if (!allFramesLoaded() || !shelfTemplate || !diagonalTemplate) return;
+    clearGroup();
+
+    const nFields = Math.max(1, Math.min(20, parseInt(fieldCountInput.value, 10) || 1));
+    const nLevels = parseInt(document.getElementById('levels').value, 10);
+    document.getElementById('levelsVal').textContent = nLevels;
+
+    const heightKey = document.getElementById('heightSelect').value;
+    const heightDef = HEIGHTS[heightKey];
+    const frameTemplate = heightDef.template;
+    const topY = heightDef.topY;
+
+    // N Felder teilen sich N+1 Rahmen (Grundfeld + Anbaufelder)
+    const nFrames = nFields + 1;
+    for (let i = 0; i < nFrames; i++) {
+      const frame = frameTemplate.clone(true);
+      frame.position.set(i * FL, 0, 0);
+      group.add(frame);
+    }
+
+    const positions = levelPositions(topY, nLevels);
+    for (let f = 0; f < nFields; f++) {
+      const xCenter = f * FL + FL / 2;
+      positions.forEach((y) => {
+        const shelf = shelfTemplate.clone(true);
+        shelf.position.set(xCenter, y, FRAME_Z_CENTER);
+        group.add(shelf);
+      });
+    }
+
+    // Kappen-Platzhalter auf jedem Rahmen
+    for (let i = 0; i < nFrames; i++) {
+      const cap = new THREE.Mesh(capGeo, capMat);
+      cap.position.set(i * FL, topY + CAP_THICKNESS / 2, FRAME_Z_CENTER);
+      group.add(cap);
+    }
+
+    // Aussteifung: Diagonalstab (echtes GLB) nach Nutzer-Vorgabe (29.07.):
+    // - erstes Feld: immer ein Kreuz aus 2 Streben (beide Ausrichtungen)
+    // - jedes weitere Feld: 1 Strebe, Ausrichtung alternierend (B, A, B, A, ...)
+    // - Montage in der Lochung, keine zwei Streben im selben Loch (29.07., 2. Korrektur):
+    //   ein Rahmen-weites usedHoles-Set verfolgt belegte Löcher; bei Kollision (v.a. an geteilten
+    //   Rahmen zwischen benachbarten Feldern) wird die betroffene Strebe um ganze Raster-Schritte
+    //   vertikal verschoben, bis beide Endpunkte frei sind.
+    const aussteifung = document.getElementById('aussteifungSelect').value;
+    if (aussteifung === 'diagonalstab') {
+      const usedHoles = new Set();
+      for (let f = 0; f < nFields; f++) {
+        const xLeft = f * FL;
+        if (f === 0) {
+          placeDiagonal(usedHoles, group, xLeft, f, 'A');
+          placeDiagonal(usedHoles, group, xLeft, f, 'B');
+        } else {
+          const orientation = (f % 2 === 1) ? 'B' : 'A';
+          placeDiagonal(usedHoles, group, xLeft, f, orientation);
+        }
+      }
+    }
+
+    // Kamera-Ziel an die Zeilenmitte anpassen
+    camTarget.set((nFields * FL) / 2, topY / 2, FRAME_Z_CENTER);
+    updateCamera();
+
+    const totalLengthMM = Math.round(nFields * FL * 1000);
+    const requestedMM = Math.round(parseFloat(targetLengthInput.value) || totalLengthMM);
+    const infoLines = [
+      'Regalhöhe: ' + heightDef.label,
+      'Felder: ' + nFields + ' (Grundfeld + ' + (nFields - 1) + ' Anbaufeld' + (nFields - 1 === 1 ? '' : 'er') + ')',
+      'Rahmen gesamt: ' + nFrames + ' (geteilt zwischen Feldern)',
+      'Gebaute Zeilenlänge: ' + totalLengthMM + ' mm',
+      'davon genutzt von eingegebener Ziellänge: ' + totalLengthMM + ' / ' + requestedMM + ' mm',
+      'Ebenen je Feld: ' + nLevels,
+      'Aussteifung: ' + (aussteifung === 'diagonalstab' ? 'Diagonalstab (' + (nFields + 1) + 'x – Feld 1: Kreuz aus 2, weitere Felder je 1, alternierend)' : 'keine'),
+      '',
+      'Ebenen-Höhen (je Feld gleich):',
+    ];
+    positions.forEach((y, i) => {
+      const label = i === 0 ? ' (Einhängehöhe)' : (i === positions.length - 1 ? ' (oberste, unter Kappe)' : '');
+      infoLines.push('  Ebene ' + (i + 1) + ': Y = ' + Math.round(y * 1000) + ' mm' + label);
+    });
+    document.getElementById('info').textContent = infoLines.join('\n');
+  }
+
+  function animate() {
+    requestAnimationFrame(animate);
+    renderer.render(scene, camera);
+  }
+  animate();
+
+})();
+</script>
+</body>
+</html>

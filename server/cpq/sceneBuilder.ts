@@ -8,6 +8,7 @@ import path from "path";
 import type { CpqComponentType, CpqProductMapping } from "@shared/schema";
 import { resolveBillOfMaterials, type GetProductFn } from "./cpqBillOfMaterials";
 import type { ConfigContext } from "./ruleEvaluator";
+import { getCpqGlbDirectory } from "../cpqGlbResolve";
 
 export type SceneInstance = {
   productMappingId: string;
@@ -41,15 +42,13 @@ function normalizeRole(role: string): string {
   return r;
 }
 
-const CPQ_GLB_PATH = process.env.CPQ_GLB_PATH || path.resolve(process.cwd(), "client", "public", "cpq-models");
-
 /** Hängt mtime als Cache-Bust-Parameter an cpq-models URLs */
 function withCacheBust(url: string): string {
   if (!url.startsWith("/cpq-models/")) return url;
   const base = url.split("?")[0];
   const filename = base.replace("/cpq-models/", "");
   try {
-    const fullPath = path.join(CPQ_GLB_PATH, filename);
+    const fullPath = path.join(getCpqGlbDirectory(), filename);
     const stat = fs.statSync(fullPath);
     const mtime = Math.floor(stat.mtimeMs / 1000);
     return `${base}?v=${mtime}`;
@@ -71,9 +70,10 @@ function resolveGlbUrl(
       raw = `/${geometryGlbUrl}`.replace(/^\/\/+/, "/");
     }
   } else {
-    // Fallback: GLB-Dateien oft nach ManufacturerNr (10023_VZK.glb) oder GTIN_ManufNr_... (4026212007886_10023_xyz.glb)
-    if (!fs.existsSync(CPQ_GLB_PATH)) return null;
-    const glbFiles = fs.readdirSync(CPQ_GLB_PATH).filter((f) => f.endsWith(".glb"));
+    // Fallback: GLB-Dateien oft nach GTIN (4026212018257_2001624.glb) oder ManufacturerNr (10023_VZK.glb)
+    const cpqGlbPath = getCpqGlbDirectory();
+    if (!fs.existsSync(cpqGlbPath)) return null;
+    const glbFiles = fs.readdirSync(cpqGlbPath).filter((f) => f.endsWith(".glb"));
     const tryMatchPrefix = (pn: string) => {
       const norm = String(pn || "").trim();
       if (!norm) return null;

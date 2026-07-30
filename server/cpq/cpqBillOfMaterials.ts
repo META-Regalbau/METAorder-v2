@@ -73,9 +73,23 @@ const ROLE_ATTR_MAP: Record<string, string[]> = {
   frame: ["height", "depth"],
   beam: ["width", "length"],
   shelf: ["width", "depth"],
+  // Accessory dimensions (z. B. Rückwand = Höhe × Feldbreite) werden nur geprüft,
+  // wenn das Mapping die Attribute gesetzt hat (nicht-dimensionierte Rolle → sonst Match).
+  accessory: ["height", "width"],
 };
 
 const DIMENSIONED_ROLES = new Set(["frame", "beam", "shelf"]);
+
+/** Zusätzliche exakt zu matchende Attribute (kein ±mm-Toleranzvergleich):
+ *  Fachlast und Oberfläche. Erlaubt es, denselben Bauteiltyp mit mehreren
+ *  Last-/Oberflächen-Varianten zu mappen und die passende Variante anhand der
+ *  Konfiguration auszuwählen. Beide Seiten müssen den Wert setzen, sonst wird
+ *  die Prüfung übersprungen (rückwärtskompatibel zu Mappings ohne diese Attribute).
+ *  `config`-Schlüssel → Liste akzeptierter Mapping-Attribut-Schlüssel (Synonyme). */
+const EXTRA_MATCH_ATTRS: Array<{ configKey: string; attrKeys: string[] }> = [
+  { configKey: "load", attrKeys: ["load", "maxFachlastKg", "fachlast"] },
+  { configKey: "surface", attrKeys: ["surface", "oberflaeche"] },
+];
 
 /** Shopware-Maße können Floats sein – Vergleich mit ±1 mm Toleranz. */
 const DIMENSION_TOLERANCE_MM = 1;
@@ -160,6 +174,26 @@ function matchMappingToConfig(
     }
 
     if (!dimensionsEqual(configVal, productVal)) {
+      return false;
+    }
+  }
+
+  // Exakt-Match für Fachlast / Oberfläche (nur wenn beide Seiten den Wert setzen).
+  for (const { configKey, attrKeys } of EXTRA_MATCH_ATTRS) {
+    const configVal = config[configKey];
+    if (configVal === undefined || configVal === null) continue;
+    let attrVal: unknown;
+    for (const k of attrKeys) {
+      if (attrs?.[k] !== undefined) {
+        attrVal = attrs[k];
+        break;
+      }
+    }
+    if (attrVal === undefined) continue; // Mapping ohne dieses Attribut → nicht einschränken
+    // Zahlen tolerant (String/Number), Strings case-insensitiv vergleichen.
+    if (typeof configVal === "number" || typeof attrVal === "number") {
+      if (Number(configVal) !== Number(attrVal)) return false;
+    } else if (String(configVal).toLowerCase() !== String(attrVal).toLowerCase()) {
       return false;
     }
   }

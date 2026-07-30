@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import type { IStorage } from "./storage";
+import { mergeErpPermissions } from "./erp/erpLogic";
 
 export async function seedDatabase(storage: IStorage) {
   try {
@@ -16,6 +17,39 @@ export async function seedDatabase(storage: IStorage) {
 
     // Create default roles first
     const roles = await storage.getAllRoles();
+
+    // Bestehende Rollen: fehlende ERP-Permissions nachziehen (ohne bestehende Werte zu überschreiben)
+    for (const role of roles) {
+      const isAdmin = role.name === "Administrator";
+      const isWarehouse = role.name === "Warehouse Manager";
+      const isAccounting = role.name === "Accounting";
+      const merged = mergeErpPermissions(role.permissions as Record<string, boolean>, isAdmin);
+      if (isWarehouse) {
+        merged.viewInventory = true;
+        merged.manageInventory = true;
+        merged.viewPurchasing = true;
+        merged.managePurchasing = true;
+        merged.viewReturns = true;
+        merged.manageReturns = true;
+        merged.viewProduction = true;
+        merged.manageProduction = true;
+        merged.manageShippingLabels = true;
+      }
+      if (isAccounting) {
+        merged.viewAccounting = true;
+        merged.manageAccounting = true;
+        merged.viewPurchasing = true;
+        merged.viewReturns = true;
+      }
+      const before = JSON.stringify(role.permissions);
+      const after = JSON.stringify({ ...role.permissions, ...merged });
+      if (before !== after) {
+        await storage.updateRole(role.id, {
+          permissions: { ...role.permissions, ...merged } as any,
+        });
+        console.log(`Role "${role.name}": ERP-Permissions ergänzt.`);
+      }
+    }
     
     if (roles.length === 0) {
       console.log("Seeding default roles...");
@@ -56,6 +90,16 @@ export async function seedDatabase(storage: IStorage) {
           viewB2B: true,
           manageB2B: true,
           approveB2BBudgets: true,
+          manageAccounting: true,
+          viewInventory: true,
+          manageInventory: true,
+          viewPurchasing: true,
+          managePurchasing: true,
+          viewReturns: true,
+          manageReturns: true,
+          viewProduction: true,
+          manageProduction: true,
+          manageShippingLabels: true,
         },
       });
       
@@ -95,6 +139,16 @@ export async function seedDatabase(storage: IStorage) {
           viewB2B: false,
           manageB2B: false,
           approveB2BBudgets: false,
+          manageAccounting: false,
+          viewInventory: false,
+          manageInventory: false,
+          viewPurchasing: false,
+          managePurchasing: false,
+          viewReturns: false,
+          manageReturns: false,
+          viewProduction: false,
+          manageProduction: false,
+          manageShippingLabels: false,
         },
       });
       
@@ -134,6 +188,16 @@ export async function seedDatabase(storage: IStorage) {
           viewB2B: true,
           manageB2B: true,
           approveB2BBudgets: false,
+          manageAccounting: false,
+          viewInventory: true,
+          manageInventory: true,
+          viewPurchasing: true,
+          managePurchasing: true,
+          viewReturns: true,
+          manageReturns: true,
+          viewProduction: true,
+          manageProduction: true,
+          manageShippingLabels: true,
         },
       });
 
@@ -173,6 +237,16 @@ export async function seedDatabase(storage: IStorage) {
           viewB2B: false,
           manageB2B: false,
           approveB2BBudgets: false,
+          manageAccounting: true,
+          viewInventory: false,
+          manageInventory: false,
+          viewPurchasing: true,
+          managePurchasing: false,
+          viewReturns: true,
+          manageReturns: false,
+          viewProduction: false,
+          manageProduction: false,
+          manageShippingLabels: false,
         },
       });
       
@@ -332,6 +406,16 @@ export async function seedDatabase(storage: IStorage) {
           viewB2B: true,
           manageB2B: true,
           approveB2BBudgets: false,
+          manageAccounting: false,
+          viewInventory: false,
+          manageInventory: false,
+          viewPurchasing: false,
+          managePurchasing: false,
+          viewReturns: false,
+          manageReturns: false,
+          viewProduction: false,
+          manageProduction: false,
+          manageShippingLabels: false,
         },
       });
       console.log("N8N Service role created!");

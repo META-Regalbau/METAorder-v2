@@ -7427,6 +7427,60 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/products/visibility/import": {
+    "post": {
+      "tags": [
+        "products"
+      ],
+      "summary": "POST /api/products/visibility/import",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/products/visibility/import-template": {
+    "get": {
+      "tags": [
+        "products"
+      ],
+      "summary": "GET /api/products/visibility/import-template",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/profile": {
     "put": {
       "tags": [
@@ -9331,6 +9385,31 @@ export const openApiPaths = {
         "tenants"
       ],
       "summary": "GET /api/tenants",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    },
+    "post": {
+      "tags": [
+        "tenants"
+      ],
+      "summary": "POST /api/tenants",
       "responses": {
         "200": {
           "description": "OK",

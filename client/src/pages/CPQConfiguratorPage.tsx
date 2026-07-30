@@ -1,871 +1,533 @@
-import { useState, lazy, Suspense, useEffect } from "react";
+/**
+ * META CLIP configurator.
+ *
+ * The approved META-CLIP-Konfigurator-Web design, wired to the real CPQ engines:
+ *   - options + priced bill-of-materials from the DB-backed `cpq` engine
+ *     (GET /systems/:id/options, POST /systems/:id/bill-of-materials)
+ *   - rule validation, A/B/C classification and effective Fachlasten from
+ *     `cpq-core` (POST /api/cpq-core/validate)
+ *   - checkout via cart transfer, plus save-as-offer draft.
+ *
+ * The six controls live in one UI state; src/lib/metaClipCpq.ts translates it to
+ * both engine payloads. Prices/articles are always real Shopware data.
+ */
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Package, Save, Loader2 } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { useToast } from "@/hooks/use-toast";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useTranslation } from "react-i18next";
 import { apiRequest } from "@/lib/queryClient";
-import { CPQ_3D_PREVIEW } from "@/lib/featureFlags";
-import CpqProductPreview from "@/components/cpq/CpqProductPreview";
+import { useToast } from "@/hooks/use-toast";
 
-// Lazy geladen, damit Three.js/GLB nur gebündelt wird, wenn die 3D-Vorschau aktiv ist.
-const Shelf3DViewer = lazy(() => import("@/components/cpq/Shelf3DViewer"));
+// Real 3D shelf (WebGL) — lazy so three.js only loads on this page.
+// MetaClipRegalAssembly is the real, hand-measured assembly (frame + shelves +
+// diagonal bracing, correct hole-raster placement), scaled to whatever
+// width/depth/height is configured — see regalAssembly.ts for the scaling
+// rationale. Exact/unscaled only at the reference size (1000×500mm,
+// 2000/2500mm height); scaled elsewhere, but always the real assembly.
+const MetaClipRegalAssembly = lazy(() => import("./metaClip/MetaClipRegalAssembly"));
+import {
+  DEFAULT_STATE,
+  toConfigContext,
+  toCpqCoreInput,
+  CPQ_CORE_CONTEXT,
+  buildConfigCode,
+  overallLength,
+  formatMoney,
+  formatNumber,
+  reconcileWithOptions,
+  isRegalAssemblySupported,
+  type MetaClipState,
+  type MetaClipOptions,
+  type Surface,
+} from "@/lib/metaClipCpq";
+import "./metaClip/metaClip.css";
 
-type CpqSystem = {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  status: string;
-};
+// ---- copy deck (matches the design; the configurator keeps its own DE/EN toggle) ----
+const L = {
+  de: {
+    crumb1: "Regalsysteme", crumb2: "Steckregale", viewLabel: "3D-Ansicht",
+    eyebrow: "META CLIP · Steckregal", title: "Regal konfigurieren",
+    subtitle: "Sechs Einstellungen. Preis und Stückliste aus dem Live-Katalog.",
+    extras: "Zubehör (optional)", rearWall: "Rückwand", noteTitle: "Hinweis",
+    priceLabel: "Preis netto", reset: "Zurücksetzen", summary: "Zusammenfassung",
+    bom: "Stückliste", bomPos: "Position", bomArt: "Art.-Nr.", bomQty: "Stk.",
+    bomUnit: "Einzel", bomSum: "Summe", bomTotal: "Summe netto, zzgl. Versand",
+    configCodeLabel: "Konfigurations-Code:",
+    cart: "In den Warenkorb", cartDone: "✓ In den Warenkorb gelegt",
+    share: "Als Angebot speichern", shareDone: "✓ Angebot angelegt",
+    fields: "Anzahl Felder", height: "Höhe", width: "Feldbreite", depth: "Feldtiefe",
+    shelves: "Fachböden je Feld", load: "Fachlast", zinc: "Verzinkt", coat: "Lackiert, RAL 7035",
+    views: ["Perspektive", "Vorderansicht", "Draufsicht"],
+    dim: ["Gesamtlänge", "Höhe", "Feldtiefe", "Felder"],
+    sumRows: ["Ausführung", "Gesamtmaß L × H × T", "Felder × Fachböden", "Fachlast", "Gesamttragkraft", "Gewicht, ca."],
+    fieldsNote: "Grundfeld + Anbaufelder, gemeinsame Rahmen.",
+    shelvesNote: "Einhängbar im 25-mm-Raster.",
+    availA: "Auf Lager · Versand in 2–4 Werktagen",
+    availB: "Fertigung nach Auftrag · 10–14 Werktage",
+    availC: "Sonderausführung · Prüfung erforderlich",
+    reviewBlocked: "Prüfung erforderlich",
+    pcs: "Felder", pcsShelf: "Böden",
+    modeSlider: "Regler", modeChips: "Auswahl", mm: "mm", kg: "kg",
+    loadingPrice: "…", emptySystem: "Kein META CLIP System gefunden. Bitte im CPQ-Admin anlegen.",
+    bomError: "Konfiguration nicht lieferbar",
+  },
+  en: {
+    crumb1: "Shelving systems", crumb2: "Boltless shelving", viewLabel: "3D view",
+    eyebrow: "META CLIP · Boltless shelving", title: "Configure shelving",
+    subtitle: "Six settings. Price and bill of materials from the live catalogue.",
+    extras: "Accessories (optional)", rearWall: "Rear panel", noteTitle: "Note",
+    priceLabel: "Price, net", reset: "Reset", summary: "Summary",
+    bom: "Bill of materials", bomPos: "Item", bomArt: "Part no.", bomQty: "Qty",
+    bomUnit: "Unit", bomSum: "Total", bomTotal: "Net total, excl. shipping",
+    configCodeLabel: "Configuration code:",
+    cart: "Add to cart", cartDone: "✓ Added to cart",
+    share: "Save as offer", shareDone: "✓ Offer created",
+    fields: "Number of bays", height: "Height", width: "Bay width", depth: "Bay depth",
+    shelves: "Shelves per bay", load: "Shelf load", zinc: "Galvanised", coat: "Coated, RAL 7035",
+    views: ["Perspective", "Front view", "Top view"],
+    dim: ["Overall length", "Height", "Bay depth", "Bays"],
+    sumRows: ["Finish", "Overall L × H × D", "Bays × shelves", "Shelf load", "Total capacity", "Weight, approx."],
+    fieldsNote: "Starter bay plus add-on bays, shared frames.",
+    shelvesNote: "Clipped in on a 25 mm pitch.",
+    availA: "In stock · ships in 2–4 working days",
+    availB: "Made to order · 10–14 working days",
+    availC: "Special build · review required",
+    reviewBlocked: "Review required",
+    pcs: "bays", pcsShelf: "shelves",
+    modeSlider: "Sliders", modeChips: "Chips", mm: "mm", kg: "kg",
+    loadingPrice: "…", emptySystem: "No META CLIP system found. Please create it in the CPQ admin.",
+    bomError: "Configuration not available",
+  },
+} as const;
 
-type ConfigStep = "system" | "dimensions" | "levels" | "accessories" | "summary";
-const STEP_ORDER: ConfigStep[] = ["system", "dimensions", "levels", "accessories", "summary"];
+type Lang = keyof typeof L;
 
-const SUMMARY_CONFIG_DEFAULTS: Record<string, unknown> = {
-  height: 2000,
-  depth: 600,
-  field_count: 1,
-  level_count: 2,
-  width: 1000,
-};
-
+// ---- server response shapes ----
+type CpqSystem = { id: string; name: string; slug?: string; status?: string };
 type BomLineItem = {
-  productId: string;
-  productNumber: string;
-  name: string;
-  quantity: number;
-  unitPrice: number;
-  lineTotal: number;
-  componentType: string;
-  imageUrl?: string;
-  width?: number;
-  height?: number;
-  length?: number;
+  productId: string; productNumber: string; manufacturerNumber?: string; name: string;
+  quantity: number; unitPrice: number; lineTotal: number; componentType?: string;
 };
-
-type BomResult = {
-  items: BomLineItem[];
-  totalPrice: number;
-  errors: string[];
-  warnings: string[];
-};
-
-type CpqCoreDecision = {
+type BomResult = { items: BomLineItem[]; totalPrice: number; errors: string[]; warnings: string[] };
+type CoreDecision = {
+  valid: boolean;
   classification: "A" | "B" | "C";
-  status: "accepted" | "review_required" | "invalid";
-  requiresReview: boolean;
-  reviewStatus: "pending" | "not_required";
+  errors: Array<{ messageDe?: string; message?: string } | string>;
   disclaimers: string[];
-  errors: string[];
+  computed?: { effectiveFachlasten?: Array<{ effectiveKg: number; nominalKg: number; reducedByFieldLimit: boolean }> };
 };
 
-type CpqCorePriceResult = CpqCoreDecision & {
-  totals: { net: number; gross: number };
-};
+// ---- 3D-slot schematic (line drawing, reflects the configuration) ----
+function schematic(s: MetaClipState): string {
+  const W = 1000, H = 620, pad = 70;
+  const bays = s.felder, shelves = s.boeden;
+  const stroke = "var(--meta-graphite)", thin = "var(--meta-steel)", accent = "var(--meta-red)";
+  const parts: string[] = [];
+  const rect = (x: number, y: number, w: number, h: number, sw: number, col: string, fill = "none") =>
+    `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" fill="${fill}" stroke="${col}" stroke-width="${sw}"/>`;
+  const line = (x1: number, y1: number, x2: number, y2: number, sw: number, col: string) =>
+    `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${col}" stroke-width="${sw}"/>`;
+  const totalLen = bays * s.breite + (bays + 1) * 40;
 
-type CpqCoreSubmitTransferResult = {
-  configurationId: string;
-  classification: "A" | "B" | "C";
-  status: "accepted" | "review_required";
-  requiresReview: boolean;
-  reviewStatus: "pending" | "not_required";
-  transfer?: {
-    status: "prepared" | "skipped" | "blocked";
-    reason?: string;
-    message?: string;
-    offerId?: string;
-  };
-};
+  if (s.view === 2) {
+    const availW = W - pad * 2, availH = H - pad * 2;
+    const scale = Math.min(availW / totalLen, availH / s.tiefe);
+    const dw = s.tiefe * scale, cw = s.breite * scale, post = 40 * scale, totW = totalLen * scale;
+    const ox = (W - totW) / 2, oy = (H - dw) / 2;
+    parts.push(rect(ox, oy, totW, dw, 2, stroke));
+    let x = ox;
+    for (let i = 0; i < bays; i++) { x += post; parts.push(rect(x, oy, cw, dw, 1.4, thin)); x += cw; }
+    let px = ox;
+    for (let p = 0; p <= bays; p++) { parts.push(rect(px, oy, post, dw, 2, stroke, "var(--meta-chrome)")); if (p < bays) px += post + cw; }
+  } else {
+    const availWf = W - pad * 2, availHf = H - pad * 2;
+    const persp = s.view === 0;
+    const dx = persp ? 60 : 0, dy = persp ? -34 : 0;
+    const scaleF = Math.min((availWf - Math.abs(dx)) / totalLen, (availHf - Math.abs(dy)) / s.hoehe);
+    const cwF = s.breite * scaleF, postF = 40 * scaleF, hF = s.hoehe * scaleF, totWf = totalLen * scaleF;
+    const oxF = (W - totWf - dx) / 2, oyF = (H - hF - Math.abs(dy)) / 2 + (persp ? -dy : 0);
+    const top = oyF, bot = oyF + hF;
+    if (persp) {
+      const bx = oxF + dx, byTop = top + dy, byBot = bot + dy;
+      parts.push(rect(bx, byTop, totWf, hF, 1.2, thin));
+      parts.push(line(oxF, top, bx, byTop, 1, thin));
+      parts.push(line(oxF + totWf, top, bx + totWf, byTop, 1, thin));
+      parts.push(line(oxF + totWf, bot, bx + totWf, byBot, 1, thin));
+    }
+    let ux = oxF;
+    for (let u = 0; u <= bays; u++) {
+      parts.push(rect(ux, top, postF, hF, 2, stroke, "var(--meta-chrome)"));
+      if (persp) parts.push(line(ux + postF, top, ux + postF + dx, top + dy, 0.8, thin));
+      if (u < bays) ux += postF + cwF;
+    }
+    let sx = oxF;
+    for (let b = 0; b < bays; b++) {
+      sx += postF;
+      for (let sh = 0; sh < shelves; sh++) {
+        const sy = top + hF * (sh + 1) / (shelves + 1);
+        const swk = s.last >= 330 ? 3 : s.last >= 230 ? 2.2 : 1.6;
+        parts.push(line(sx, sy, sx + cwF, sy, swk, stroke));
+        if (persp) {
+          parts.push(line(sx, sy, sx + dx, sy + dy, 0.8, thin));
+          parts.push(line(sx + cwF, sy, sx + cwF + dx, sy + dy, 0.8, thin));
+          parts.push(line(sx + dx, sy + dy, sx + cwF + dx, sy + dy, 1, thin));
+        }
+      }
+      sx += cwF;
+    }
+    parts.push(line(oxF - 8, bot, oxF + totWf + 8, bot, 2, accent));
+  }
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${parts.join("")}</svg>`;
+}
 
 export default function CPQConfiguratorPage() {
+  const { i18n } = useTranslation();
   const { toast } = useToast();
-  const [step, setStep] = useState<ConfigStep>("system");
-  const [selectedSystemId, setSelectedSystemId] = useState<string | null>(null);
-  const [config, setConfig] = useState<Record<string, unknown>>({});
-  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
-  const [saveConfigName, setSaveConfigName] = useState("");
-  const [savedCpqConfigurationId, setSavedCpqConfigurationId] = useState<string | null>(null);
-  const [coreValidation, setCoreValidation] = useState<CpqCoreDecision | null>(null);
-  const [corePrice, setCorePrice] = useState<CpqCorePriceResult | null>(null);
-  const [submitResult, setSubmitResult] = useState<CpqCoreSubmitTransferResult | null>(null);
-
-  const { data: systems = [], isLoading: systemsLoading } = useQuery<CpqSystem[]>({
-    queryKey: ["/api/cpq/systems"],
+  const [state, setState] = useState<MetaClipState>({
+    ...DEFAULT_STATE,
+    lang: i18n.language?.startsWith("en") ? "en" : "de",
   });
+  const [added, setAdded] = useState(false);
+  const [shared, setShared] = useState(false);
+  const reconciled = useRef(false);
 
-  const { data: optionsData, isLoading: optionsLoading } = useQuery<{
-    options: Record<string, unknown>;
-    availableOptions?: {
-      heights: number[];
-      depths: number[];
-      widths: number[];
-      field_counts: number[];
-      level_counts: number[];
-    };
-    messages: string[];
-    errors: string[];
-    warnings: string[];
-  }>({
-    queryKey: ["/api/cpq/systems", selectedSystemId, "options", step, config],
+  const lang = state.lang as Lang;
+  const t = L[lang];
+  const patch = (p: Partial<MetaClipState>) => { setAdded(false); setState((s) => ({ ...s, ...p })); };
+
+  // 1) system
+  const { data: systems = [], isLoading: systemsLoading } = useQuery<CpqSystem[]>({ queryKey: ["/api/cpq/systems"] });
+  const system = useMemo(
+    () => systems.find((x) => x.slug === "meta-clip") ?? systems.find((x) => /clip/i.test(x.name)) ?? systems[0],
+    [systems],
+  );
+  const systemId = system?.id;
+
+  // 2) options (server-driven, catalogue-derived)
+  const { data: options } = useQuery<MetaClipOptions>({
+    queryKey: [`/api/cpq/systems/${systemId}/options`, "opts"],
+    enabled: !!systemId,
     queryFn: async () => {
-      if (!selectedSystemId) return { options: {}, messages: [], errors: [], warnings: [] };
-      const res = await fetch(
-        `/api/cpq/systems/${selectedSystemId}/options?step=${STEP_ORDER.indexOf(step) + 1}&config=${encodeURIComponent(JSON.stringify(config))}`,
-        { credentials: "include" }
-      );
-      if (!res.ok) throw new Error("Failed to fetch options");
-      return res.json();
+      const res = await apiRequest("GET", `/api/cpq/systems/${systemId}/options?step=2&config=%7B%7D`);
+      const json = await res.json();
+      return json.availableOptions as MetaClipOptions;
     },
-    enabled: !!selectedSystemId,
   });
-
-  // Verfügbare Optionen aus Shopware-Mappings: ungültige/fehlende Defaults ersetzen
   useEffect(() => {
-    const opts = optionsData?.availableOptions;
-    if (!opts || !selectedSystemId) return;
+    if (options && !reconciled.current) { reconciled.current = true; setState((s) => reconcileWithOptions(s, options)); }
+  }, [options]);
 
-    setConfig((prev) => {
-      const next = { ...prev };
-      let changed = false;
+  const config = useMemo(() => toConfigContext(state), [state]);
+  const coreInput = useMemo(() => toCpqCoreInput(state), [state]);
 
-      const syncNumeric = (key: "height" | "depth" | "width" | "field_count" | "level_count", list: number[] | undefined) => {
-        if (!list || list.length === 0) return;
-        const current = prev[key] as number | undefined;
-        if (current === undefined || !list.includes(current)) {
-          next[key] = list[0];
-          changed = true;
-        }
-      };
-
-      syncNumeric("height", opts.heights);
-      syncNumeric("depth", opts.depths);
-      syncNumeric("width", opts.widths);
-      syncNumeric("field_count", opts.field_counts);
-      syncNumeric("level_count", opts.level_counts);
-
-      return changed ? next : prev;
-    });
-  }, [optionsData?.availableOptions, selectedSystemId]);
-
-  const getCsrfHeaders = () => {
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    const csrfToken = document.cookie.match(/csrf_token=([^;]+)/)?.[1];
-    if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
-    return headers;
-  };
-
-  const buildCoreRequestPayload = () => {
-    const frameHeight = Number(config.height ?? SUMMARY_CONFIG_DEFAULTS.height ?? 2000);
-    const frameDepth = Number(config.depth ?? SUMMARY_CONFIG_DEFAULTS.depth ?? 600);
-    const frameWidth = Number(config.width ?? SUMMARY_CONFIG_DEFAULTS.width ?? 1000);
-    const fieldCount = Math.max(1, Number(config.field_count ?? SUMMARY_CONFIG_DEFAULTS.field_count ?? 1));
-    const levelCount = Math.max(1, Number(config.level_count ?? SUMMARY_CONFIG_DEFAULTS.level_count ?? 2));
-
-    return {
-      context: { customerGroup: "b2b_standard" as const },
-      configuration: {
-        frame: {
-          heightMm: frameHeight,
-          depthMm: frameDepth,
-          widthMm: frameWidth,
-          anchoringIncluded: frameHeight / Math.max(frameDepth, 1) <= 4,
-        },
-        shelves: [
-          {
-            material: "stahl_verzinkt",
-            maxFachlastKg: 150,
-            depthMm: frameDepth,
-            widthMm: frameWidth,
-            count: fieldCount * levelCount,
-          },
-        ],
-        accessories: [],
-        application: "werkstatt",
-      },
-    };
-  };
-
-  const { data: bom, isLoading: bomLoading, error: bomError } = useQuery<BomResult>({
-    queryKey: ["/api/cpq/systems", selectedSystemId, "bill-of-materials", config],
+  // 3) priced BOM (cpq)
+  const { data: bom, isFetching: bomFetching } = useQuery<BomResult>({
+    queryKey: [`/api/cpq/systems/${systemId}/bill-of-materials`, JSON.stringify(config)],
+    enabled: !!systemId,
+    placeholderData: (prev) => prev,
     queryFn: async () => {
-      if (!selectedSystemId) return { items: [], totalPrice: 0, errors: [], warnings: [] };
-      const res = await fetch(`/api/cpq/systems/${selectedSystemId}/bill-of-materials`, {
-        method: "POST",
-        headers: getCsrfHeaders(),
-        body: JSON.stringify({ config }),
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        let msg = "Fehler beim Laden der Stückliste";
-        try {
-          const body = text ? JSON.parse(text) : {};
-          if (typeof (body as { error?: string }).error === "string") msg = (body as { error: string }).error;
-          else if (text) msg = text;
-        } catch {
-          if (text) msg = text;
-        }
-        throw new Error(msg);
-      }
-      return res.json();
+      const res = await apiRequest("POST", `/api/cpq/systems/${systemId}/bill-of-materials`, { config });
+      return res.json() as Promise<BomResult>;
     },
-    enabled: !!selectedSystemId && step === "summary",
   });
 
-  const saveConfigurationMutation = useMutation({
-    mutationFn: async (name: string) => {
-      if (!selectedSystemId) throw new Error("Kein System");
-      const res = await fetch("/api/cpq/configurations", {
-        method: "POST",
-        headers: getCsrfHeaders(),
-        body: JSON.stringify({
-          systemId: selectedSystemId,
-          name: name.trim(),
-          configData: config,
-          validationStatus: bom?.errors?.length ? "errors" : bom?.warnings?.length ? "warnings" : "valid",
-          totalPrice: bom?.totalPrice ?? null,
-        }),
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err as { error?: string }).error ?? "Speichern fehlgeschlagen");
-      }
-      return res.json() as Promise<{ id: string }>;
-    },
-    onSuccess: (row) => {
-      setSavedCpqConfigurationId(row.id);
-      setSaveDialogOpen(false);
-      toast({ title: "Gespeichert", description: "Konfiguration wurde in der Datenbank abgelegt." });
-    },
-    onError: (e: Error) => toast({ title: "Fehler", description: e.message, variant: "destructive" }),
-  });
-
-  const createOfferDraftMutation = useMutation({
-    mutationFn: async () => {
-      const systemName = systems.find((s) => s.id === selectedSystemId)?.name;
-      const res = await fetch("/api/offer-drafts/from-cpq", {
-        method: "POST",
-        headers: getCsrfHeaders(),
-        body: JSON.stringify({
-          systemId: selectedSystemId,
-          systemName,
-          config,
-          billOfMaterials: bom,
-          ...(savedCpqConfigurationId ? { cpqConfigurationId: savedCpqConfigurationId } : {}),
-        }),
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? "Fehler beim Erstellen des Angebots");
-      }
-      return res.json();
-    },
-    onSuccess: (draft) => {
-      toast({ title: "Angebot erstellt", description: `Angebotsentwurf ${draft.originalFileName} wurde angelegt. Kunde zuordnen und Angebot erstellen unter Angebotsentwürfe.` });
-      window.location.href = "/offers";
-    },
-    onError: (e: Error) => toast({ title: "Fehler", description: e.message, variant: "destructive" }),
-  });
-
-  const validateCoreMutation = useMutation({
-    mutationFn: async () => {
-      if (!selectedSystemId) throw new Error("Kein System ausgewählt");
+  // 4) rules / classification / effective loads (cpq-core)
+  const { data: core } = useQuery<CoreDecision>({
+    queryKey: ["/api/cpq-core/validate", systemId, JSON.stringify(coreInput)],
+    enabled: !!systemId,
+    placeholderData: (prev) => prev,
+    queryFn: async () => {
       const res = await apiRequest("POST", "/api/cpq-core/validate", {
-        systemId: selectedSystemId,
-        ...buildCoreRequestPayload(),
+        systemId, context: CPQ_CORE_CONTEXT, configuration: coreInput,
       });
-      return res.json() as Promise<CpqCoreDecision>;
+      return res.json() as Promise<CoreDecision>;
     },
-    onSuccess: (result) => {
-      setCoreValidation(result);
-      toast({ title: "Validierung erfolgreich", description: `Klasse ${result.classification}` });
-    },
-    onError: (e: Error) => toast({ title: "Validierung fehlgeschlagen", description: e.message, variant: "destructive" }),
   });
 
-  const priceCoreMutation = useMutation({
+  // ---- mutations (CTAs) ----
+  const cartMut = useMutation({
     mutationFn: async () => {
-      if (!selectedSystemId) throw new Error("Kein System ausgewählt");
-      const res = await apiRequest("POST", "/api/cpq-core/price", {
-        systemId: selectedSystemId,
-        ...buildCoreRequestPayload(),
-      });
-      return res.json() as Promise<CpqCorePriceResult>;
+      const cart_items = (bom?.items ?? []).map((i) => ({ product_id: i.productId, product_number: i.productNumber, quantity: i.quantity }));
+      const res = await apiRequest("POST", "/api/cpq/cart/transfer", { cart_items, create_offer: false });
+      return res.json();
     },
-    onSuccess: (result) => {
-      setCorePrice(result);
-      setCoreValidation(result);
-      toast({ title: "Preis berechnet", description: `Netto ${result.totals.net.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}` });
-    },
-    onError: (e: Error) => toast({ title: "Preisberechnung fehlgeschlagen", description: e.message, variant: "destructive" }),
+    onSuccess: () => { setAdded(true); toast({ title: t.cartDone }); setTimeout(() => setAdded(false), 2500); },
+    onError: (e: Error) => toast({ title: "Fehler", description: e.message, variant: "destructive" }),
   });
-
-  const submitCoreMutation = useMutation({
+  const offerMut = useMutation({
     mutationFn: async () => {
-      if (!selectedSystemId) throw new Error("Kein System ausgewählt");
-      const cartItems = (bom?.items ?? []).map((item) => ({
-        product_id: item.productId,
-        product_number: item.productNumber,
-        quantity: item.quantity,
-      }));
-      const res = await apiRequest("POST", "/api/cpq-core/adapter/submit-transfer", {
-        systemId: selectedSystemId,
-        name: saveConfigName.trim() || `CPQ ${new Date().toISOString().slice(0, 10)}`,
-        ...buildCoreRequestPayload(),
-        cartTransfer: {
-          cart_items: cartItems,
-          create_offer: false,
+      const res = await apiRequest("POST", "/api/offer-drafts/from-cpq", {
+        systemId, systemName: system?.name ?? "META CLIP",
+        config,
+        billOfMaterials: {
+          items: (bom?.items ?? []).map((i) => ({
+            productId: i.productId, productNumber: i.productNumber, name: i.name,
+            quantity: i.quantity, unitPrice: i.unitPrice, lineTotal: i.lineTotal, componentType: i.componentType,
+          })),
+          totalPrice: bom?.totalPrice ?? 0,
         },
       });
-      return res.json() as Promise<CpqCoreSubmitTransferResult>;
+      return res.json();
     },
-    onSuccess: (result) => {
-      setSubmitResult(result);
-      toast({
-        title: result.requiresReview ? "Review erforderlich" : "Submit erfolgreich",
-        description: result.requiresReview
-          ? "Klasse C wurde in die Review Queue eingesteuert."
-          : "Cart/Checkout-Transfer wurde vorbereitet.",
-      });
-    },
-    onError: (e: Error) => toast({ title: "Submit fehlgeschlagen", description: e.message, variant: "destructive" }),
+    onSuccess: () => { setShared(true); toast({ title: t.shareDone }); setTimeout(() => setShared(false), 2500); },
+    onError: (e: Error) => toast({ title: "Fehler", description: e.message, variant: "destructive" }),
   });
 
-  const currentStepIndex = STEP_ORDER.indexOf(step);
+  // ---- derived display ----
+  const coated = state.surface === "lackiert";
+  const laenge = overallLength(state);
+  const nominalCapacity = state.felder * state.boeden * state.last;
+  const weight = (state.felder + 1) * (state.hoehe / 1000) * 9.5
+    + state.felder * state.boeden * ((state.breite * state.tiefe) / 1e6) * 11
+    + (state.rear ? state.felder * 12 : 0);
+  const configCode = buildConfigCode(state);
+
+  const classification = core?.classification ?? "A";
+  const coreValid = core?.valid ?? true;
+  const blocked = classification === "C" || !coreValid;
+  const bomErrors = bom?.errors ?? [];
+  const coreErrorMsgs = (core?.errors ?? []).map((e) => (typeof e === "string" ? e : e.messageDe ?? e.message ?? "")).filter(Boolean);
+  const disclaimer = coreErrorMsgs[0] ?? bomErrors[0] ?? core?.disclaimers?.[0] ?? null;
+  const disclaimerIsError = coreErrorMsgs.length > 0 || bomErrors.length > 0;
+
+  const availText = classification === "C" ? t.availC : classification === "B" ? t.availB : t.availA;
+  const availDot = classification === "C" ? "var(--meta-red)" : classification === "B" ? "#c98a00" : "#1e8e47";
+
+  const price = bom?.totalPrice ?? 0;
+  const rearItem = (bom?.items ?? []).find((i) => /rückwand|rear/i.test(i.componentType ?? ""));
+
+  const options0: MetaClipOptions = options ?? {
+    heights: [state.hoehe], depths: [state.tiefe], widths: [state.breite],
+    field_counts: [], level_counts: [], loads: [state.last], surfaces: ["verzinkt"],
+  };
+  const surfaces = options0.surfaces?.length ? options0.surfaces : ["verzinkt"];
+
+  // ---- render helpers ----
+  const money = (n: number) => formatMoney(n, lang);
+  const nf = (n: number, d = 0) => formatNumber(n, lang, d);
+
+  type OptControl = { key: "hoehe" | "breite" | "tiefe" | "last"; label: string; opts: number[]; unit: string; fmt: (v: number) => string };
+  const optControls: OptControl[] = [
+    { key: "hoehe", label: t.height, opts: options0.heights, unit: t.mm, fmt: (v) => nf(v) },
+    { key: "breite", label: t.width, opts: options0.widths, unit: t.mm, fmt: (v) => nf(v) },
+    { key: "tiefe", label: t.depth, opts: options0.depths, unit: t.mm, fmt: (v) => String(v) },
+    { key: "last", label: t.load, opts: options0.loads, unit: t.kg, fmt: (v) => String(v) },
+  ];
+
+  const chip = (on: boolean, label: string, onClick: () => void, disabled = false, key?: string | number) => (
+    <button key={key} type="button" className={on ? "on" : ""} disabled={disabled} onClick={onClick}>{label}</button>
+  );
+
+  if (systemsLoading) return <div className="mclip"><div className="cfg" style={{ padding: 48, color: "var(--fg-3)" }}>…</div></div>;
+  if (!systemId) return <div className="mclip"><div className="cfg" style={{ padding: 48, color: "var(--fg-2)" }}>{t.emptySystem}</div></div>;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold" data-testid="heading-cpq-configurator">Regal-Konfigurator</h1>
-        <p className="text-muted-foreground">Stellen Sie Ihr Regal nach Maß zusammen</p>
-      </div>
+    <div className="mclip">
+      <div className="cfg" role="application" aria-label="META CLIP Konfigurator">
+        {/* header */}
+        <div className="cfg-head">
+          <img src="/img/meta-logo-red.png" alt="META" />
+          <div className="head-div" />
+          <div className="crumbs"><span>{t.crumb1}</span><span>›</span><span>{t.crumb2}</span><span>›</span><span className="now">META CLIP</span></div>
+          <div style={{ flex: 1 }} />
+          <div className="seg" role="group" aria-label={t.viewLabel}>
+            <button type="button" className={state.mode === "slider" ? "on" : ""} onClick={() => setState((s) => ({ ...s, mode: "slider" }))}>{t.modeSlider}</button>
+            <button type="button" className={state.mode === "chips" ? "on" : ""} onClick={() => setState((s) => ({ ...s, mode: "chips" }))}>{t.modeChips}</button>
+          </div>
+          <div className="lang-toggle">
+            <button type="button" style={{ color: lang === "de" ? "var(--meta-red)" : "var(--fg-3)" }} onClick={() => setState((s) => ({ ...s, lang: "de" }))}>DE</button>
+            <button type="button" style={{ color: lang === "en" ? "var(--meta-red)" : "var(--fg-3)" }} onClick={() => setState((s) => ({ ...s, lang: "en" }))}>EN</button>
+          </div>
+        </div>
 
-      <div className="flex gap-4">
-        <Card className="flex-1 p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex gap-2">
-              {STEP_ORDER.map((s, i) => (
-                <Badge
-                  key={s}
-                  variant={s === step ? "default" : i < currentStepIndex ? "secondary" : "outline"}
-                  className="cursor-pointer"
-                  data-testid={`cpq-step-${s}`}
-                  onClick={() => {
-                    if (i <= currentStepIndex || (s === "system" && i === 0)) {
-                      if (s === "summary") setConfig((prev) => ({ ...SUMMARY_CONFIG_DEFAULTS, ...prev }));
-                      setStep(s);
-                    }
-                  }}
-                >
-                  {s === "system" && "System"}
-                  {s === "dimensions" && "Maße"}
-                  {s === "levels" && "Ebenen"}
-                  {s === "accessories" && "Zubehör"}
-                  {s === "summary" && "Zusammenfassung"}
-                </Badge>
+        <div className="cfg-main">
+          {/* stage */}
+          <div className="stage">
+            <div className="stage-top">
+              <span className="view-label">{t.viewLabel}</span>
+              <div style={{ flex: 1 }} />
+              <div className="view-opts">
+                {t.views.map((label, i) => chip(state.view === i, label, () => setState((s) => ({ ...s, view: i })), false, i))}
+              </div>
+            </div>
+            <div className="viewport">
+              <Suspense fallback={<div dangerouslySetInnerHTML={{ __html: schematic(state) }} />}>
+                <MetaClipRegalAssembly state={state} />
+              </Suspense>
+              <div className="view-caption">{t.views[state.view]} · {nf(laenge)} × {nf(state.hoehe)} × {state.tiefe} {t.mm}</div>
+              <div className="view-hint">{isRegalAssemblySupported(state) ? "3D · echter Aufbau" : "3D · echter Aufbau (skaliert)"}</div>
+            </div>
+            <div className="dims">
+              {[[t.dim[0], `${nf(laenge)} ${t.mm}`], [t.dim[1], `${nf(state.hoehe)} ${t.mm}`], [t.dim[2], `${state.tiefe} ${t.mm}`], [t.dim[3], String(state.felder)]].map(([k, v], i) => (
+                <div className="cell" key={i}><span className="k">{k}</span><span className="v">{v}</span></div>
               ))}
             </div>
-            <div className="text-sm text-muted-foreground">
-              Schritt {currentStepIndex + 1} von {STEP_ORDER.length}
-            </div>
           </div>
 
-          {step === "system" && (
-            <div className="space-y-4">
-              <h3 className="font-semibold">Regalsystem wählen</h3>
-              {systemsLoading ? (
-                <Skeleton className="h-12 w-full" />
-              ) : systems.length === 0 ? (
-                <p className="text-muted-foreground">Keine Regalsysteme verfügbar. Bitte wenden Sie sich an den Administrator.</p>
-              ) : (
-                <div className="grid gap-3">
-                  {systems.map((sys) => (
-                    <Card
-                      key={sys.id}
-                      className={`p-4 cursor-pointer transition-colors ${selectedSystemId === sys.id ? "ring-2 ring-primary" : "hover:bg-muted/50"}`}
-                      data-testid={`cpq-system-card-${sys.slug}`}
-                      onClick={() => setSelectedSystemId(sys.id)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Package className="h-8 w-8 text-muted-foreground" />
-                        <div>
-                          <div className="font-medium">{sys.name}</div>
-                          {sys.description && <div className="text-sm text-muted-foreground">{sys.description}</div>}
-                        </div>
-                        {selectedSystemId === sys.id && <Badge>Ausgewählt</Badge>}
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              )}
+          {/* panel */}
+          <div className="panel">
+            <div className="panel-head">
+              <span className="eyebrow">{t.eyebrow}</span>
+              <span className="panel-title">{t.title}</span>
+              <span className="panel-sub">{t.subtitle}</span>
             </div>
-          )}
+            <div className="rule" />
 
-          {step === "dimensions" && selectedSystemId && (
-            <div className="space-y-4">
-              <h3 className="font-semibold">Grundmaße</h3>
-              <p className="text-sm text-muted-foreground">Höhe, Tiefe und Felder definieren.</p>
-              <div className="grid gap-4 max-w-md">
-                <div>
-                  <label className="text-sm font-medium">Höhe (mm)</label>
-                  {(optionsData?.availableOptions?.heights?.length ?? 0) > 0 ? (
-                    <Select
-                      value={config.height != null ? String(config.height) : ""}
-                      onValueChange={(v) => setConfig((c) => ({ ...c, height: parseInt(v, 10) }))}
-                    >
-                      <SelectTrigger data-testid="cpq-select-height"><SelectValue placeholder="Wählen" /></SelectTrigger>
-                      <SelectContent>
-                        {optionsData!.availableOptions!.heights.map((h) => (
-                          <SelectItem key={h} value={String(h)}>{h} mm</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Keine Maße für dieses System gemappt (CPQ Admin prüfen).
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Tiefe (mm)</label>
-                  {(optionsData?.availableOptions?.depths?.length ?? 0) > 0 ? (
-                    <Select
-                      value={config.depth != null ? String(config.depth) : ""}
-                      onValueChange={(v) => setConfig((c) => ({ ...c, depth: parseInt(v, 10) }))}
-                    >
-                      <SelectTrigger data-testid="cpq-select-depth"><SelectValue placeholder="Wählen" /></SelectTrigger>
-                      <SelectContent>
-                        {optionsData!.availableOptions!.depths.map((d) => (
-                          <SelectItem key={d} value={String(d)}>{d} mm</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Keine Maße für dieses System gemappt (CPQ Admin prüfen).
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Anzahl Felder</label>
-                  {(optionsData?.availableOptions?.field_counts?.length ?? 0) > 0 ? (
-                    <Select
-                      value={config.field_count != null ? String(config.field_count) : ""}
-                      onValueChange={(v) => setConfig((c) => ({ ...c, field_count: parseInt(v, 10) }))}
-                    >
-                      <SelectTrigger data-testid="cpq-select-field-count"><SelectValue placeholder="Wählen" /></SelectTrigger>
-                      <SelectContent>
-                        {optionsData!.availableOptions!.field_counts.map((f) => (
-                          <SelectItem key={f} value={String(f)}>{f}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <p className="mt-1 text-sm text-muted-foreground">Keine Optionen verfügbar.</p>
-                  )}
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Feldbreite / Bodenbreite (mm)</label>
-                  {(optionsData?.availableOptions?.widths?.length ?? 0) > 0 ? (
-                    <Select
-                      value={config.width != null ? String(config.width) : ""}
-                      onValueChange={(v) => setConfig((c) => ({ ...c, width: parseInt(v, 10) }))}
-                    >
-                      <SelectTrigger data-testid="cpq-select-width"><SelectValue placeholder="Wählen" /></SelectTrigger>
-                      <SelectContent>
-                        {optionsData!.availableOptions!.widths.map((w) => (
-                          <SelectItem key={w} value={String(w)}>{w} mm</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Keine Maße für dieses System gemappt (CPQ Admin prüfen).
-                    </p>
-                  )}
-                </div>
+            <div className="controls">
+              <Stepper label={t.fields} value={state.felder} min={1} max={8} unit={t.pcs} note={t.fieldsNote}
+                onDec={() => patch({ felder: Math.max(1, state.felder - 1) })} onInc={() => patch({ felder: Math.min(8, state.felder + 1) })} />
+
+              {optControls.map((c) => {
+                const cur = state[c.key];
+                const idx = Math.max(0, c.opts.indexOf(cur));
+                return (
+                  <div className="control" key={c.key}>
+                    <div className="control-head">
+                      <span className="control-label">{c.label}</span>
+                      <span className="control-value">{c.fmt(cur)} {c.unit}</span>
+                    </div>
+                    {state.mode === "chips" ? (
+                      <div className="chips">
+                        {c.opts.map((v) => chip(v === cur, c.fmt(v), () => patch({ [c.key]: v } as Partial<MetaClipState>), false, v))}
+                      </div>
+                    ) : (
+                      <div className="slider">
+                        <input type="range" min={0} max={Math.max(0, c.opts.length - 1)} step={1} value={idx}
+                          aria-label={c.label}
+                          onChange={(e) => patch({ [c.key]: c.opts[Number(e.target.value)] } as Partial<MetaClipState>)} />
+                        <div className="ticks">{c.opts.map((v) => <span key={v} className={`tick ${v === cur ? "on" : ""}`}>{c.fmt(v)}</span>)}</div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              <Stepper label={t.shelves} value={state.boeden} min={1} max={8} unit={t.pcsShelf} note={t.shelvesNote}
+                onDec={() => patch({ boeden: Math.max(1, state.boeden - 1) })} onInc={() => patch({ boeden: Math.min(8, state.boeden + 1) })} />
+            </div>
+
+            <div className="rule" />
+
+            {/* extras */}
+            <div className="extras">
+              <span className="extras-label">{t.extras}</span>
+              <div className="surface">
+                {surfaces.map((sf) => chip(state.surface === sf, sf === "lackiert" ? t.coat : t.zinc, () => patch({ surface: sf as Surface }), false, sf))}
               </div>
+              <button type="button" className="rear" aria-pressed={state.rear} onClick={() => patch({ rear: !state.rear })}>
+                <span className="name">{t.rearWall}</span>
+                <span className="meta">
+                  {state.rear && rearItem ? <span className="price">+ {money(rearItem.lineTotal)}</span> : null}
+                  <span className={`box ${state.rear ? "on" : ""}`}>{state.rear ? "✓" : ""}</span>
+                </span>
+              </button>
             </div>
-          )}
 
-          {step === "levels" && selectedSystemId && (
-            <div className="space-y-4">
-              <h3 className="font-semibold">Ebenen</h3>
-              <p className="text-sm text-muted-foreground">Anzahl der Fachebenen und Bodentyp.</p>
-              <div className="max-w-md space-y-4">
-                <div>
-                  <label className="text-sm font-medium">Anzahl Ebenen</label>
-                  {(optionsData?.availableOptions?.level_counts?.length ?? 0) > 0 ? (
-                    <Select
-                      value={config.level_count != null ? String(config.level_count) : ""}
-                      onValueChange={(v) => setConfig((c) => ({ ...c, level_count: parseInt(v, 10) }))}
-                    >
-                      <SelectTrigger data-testid="cpq-select-level-count"><SelectValue placeholder="Wählen" /></SelectTrigger>
-                      <SelectContent>
-                        {optionsData!.availableOptions!.level_counts.map((l) => (
-                          <SelectItem key={l} value={String(l)}>{l}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <p className="mt-1 text-sm text-muted-foreground">Keine Optionen verfügbar.</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {step === "accessories" && selectedSystemId && (
-            <div className="space-y-4">
-              <h3 className="font-semibold">Zubehör</h3>
-              <p className="text-sm text-muted-foreground">Optionales Zubehör wie Fußplatten, Rückwände.</p>
-              <p className="text-muted-foreground text-sm">Pflicht-Zubehör wird automatisch vorausgewählt.</p>
-            </div>
-          )}
-
-          {step === "summary" && selectedSystemId && (
-            <div className="space-y-4">
-              <h3 className="font-semibold">Zusammenfassung</h3>
-              <p className="text-sm text-muted-foreground">Stückliste und Gesamtpreis.</p>
-
-              <Card className="p-4 space-y-3">
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => validateCoreMutation.mutate()}
-                    disabled={validateCoreMutation.isPending}
-                    data-testid="cpq-button-validate-core"
-                  >
-                    {validateCoreMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                    Validate (CPQ Core)
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => priceCoreMutation.mutate()}
-                    disabled={priceCoreMutation.isPending}
-                    data-testid="cpq-button-price-core"
-                  >
-                    {priceCoreMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                    Price (CPQ Core)
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={() => submitCoreMutation.mutate()}
-                    disabled={submitCoreMutation.isPending || !bom || bom.items.length === 0 || bom.errors.length > 0}
-                    data-testid="cpq-button-submit-transfer"
-                  >
-                    {submitCoreMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                    Submit + Cart-Transfer vorbereiten
-                  </Button>
-                </div>
-
-                {coreValidation && (
-                  <div className="text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">Validierung:</span>
-                      <Badge variant={coreValidation.requiresReview ? "destructive" : "default"}>
-                        Klasse {coreValidation.classification} / {coreValidation.status}
-                      </Badge>
-                    </div>
-                    {coreValidation.disclaimers.length > 0 && (
-                      <div className="mt-2 text-amber-600 dark:text-amber-400">
-                        {coreValidation.disclaimers.map((text, i) => (
-                          <div key={`disc-${i}`}>• {text}</div>
-                        ))}
-                      </div>
-                    )}
-                    {coreValidation.errors.length > 0 && (
-                      <div className="mt-2 text-destructive">
-                        {coreValidation.errors.map((text, i) => (
-                          <div key={`err-${i}`}>• {text}</div>
-                        ))}
-                      </div>
-                    )}
-                    {coreValidation.requiresReview && (
-                      <p className="mt-2 text-sm text-destructive">
-                        Klasse C erkannt: Submit liefert immer <span className="font-mono">review_required</span> und erfordert Vertriebs-Review.
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {corePrice && (
-                  <div className="text-sm text-muted-foreground">
-                    Preisvorschau: Netto {corePrice.totals.net.toLocaleString("de-DE", { style: "currency", currency: "EUR" })} /
-                    Brutto {corePrice.totals.gross.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
-                  </div>
-                )}
-
-                {submitResult && (
-                  <div className="rounded border p-3 text-sm">
-                    <div className="font-medium">
-                      Submit: Klasse {submitResult.classification}, Status {submitResult.status}
-                    </div>
-                    <div className="text-muted-foreground">
-                      Konfigurations-ID: <span className="font-mono">{submitResult.configurationId}</span>
-                    </div>
-                    {submitResult.transfer && (
-                      <div className="mt-1 text-muted-foreground">
-                        Transfer: {submitResult.transfer.status}
-                        {submitResult.transfer.reason ? ` (${submitResult.transfer.reason})` : ""}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </Card>
-
-              {bomError ? (
-                <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-4 text-sm text-destructive">
-                  {bomError.message}
-                </div>
-              ) : bomLoading ? (
-                <div className="flex items-center gap-2 py-8 text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Stückliste wird berechnet…
-                </div>
-              ) : bom && bom.items.length > 0 ? (
-                <>
-                  <CpqProductPreview items={bom.items} />
-                  <div className="rounded-lg border overflow-hidden">
-                    <Table data-testid="cpq-bom-table">
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Pos.</TableHead>
-                          <TableHead>Artikelnummer / Produktname</TableHead>
-                          <TableHead className="text-right">Menge</TableHead>
-                          <TableHead className="text-right">Einzelpreis</TableHead>
-                          <TableHead className="text-right">Summe</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {bom.items.map((item, i) => (
-                        <TableRow key={item.productId + i}>
-                            <TableCell className="font-mono text-xs">{i + 1}</TableCell>
-                            <TableCell>
-                              <span className="font-mono text-sm">{item.productNumber}</span>
-                              {item.name && <span className="text-muted-foreground block text-xs font-normal mt-0.5">{item.name}</span>}
-                            </TableCell>
-                            <TableCell className="text-right font-mono">{item.quantity}</TableCell>
-                            <TableCell className="text-right font-mono">
-                              {item.unitPrice.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
-                            </TableCell>
-                            <TableCell className="text-right font-mono font-medium">
-                              {item.lineTotal.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                  <div className="flex items-center justify-between border-t pt-4">
-                    <div className="font-semibold">Gesamtpreis (Brutto)</div>
-                    <div className="text-lg font-bold">
-                      {bom.totalPrice.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
-                    </div>
-                  </div>
-                  {bom.warnings.length > 0 && (
-                    <div className="text-sm text-amber-600 dark:text-amber-400">
-                      {bom.warnings.map((w, i) => (
-                        <div key={i}>• {w}</div>
-                      ))}
-                    </div>
-                  )}
-                  {bom.errors.length > 0 && (
-                    <div className="text-sm text-destructive">
-                      {bom.errors.map((e, i) => (
-                        <div key={i}>• {e}</div>
-                      ))}
-                    </div>
-                  )}
-                  <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        const sys = systems.find((s) => s.id === selectedSystemId)?.name ?? "Konfiguration";
-                        setSaveConfigName(`${sys} ${new Date().toISOString().slice(0, 10)}`);
-                        setSaveDialogOpen(true);
-                      }}
-                      disabled={bom.errors.length > 0 || saveConfigurationMutation.isPending}
-                      data-testid="cpq-button-save-configuration"
-                    >
-                      {saveConfigurationMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <Save className="h-4 w-4 mr-2" />
-                      )}
-                      Konfiguration speichern
-                    </Button>
-                    <Button
-                      onClick={() => createOfferDraftMutation.mutate()}
-                      disabled={createOfferDraftMutation.isPending || bom.errors.length > 0}
-                      className="w-full sm:w-auto"
-                      data-testid="cpq-button-create-offer-draft"
-                    >
-                      {createOfferDraftMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <Package className="h-4 w-4 mr-2" />
-                      )}
-                      In den Warenkorb (Angebotsentwurf)
-                    </Button>
-                  </div>
-                  {savedCpqConfigurationId && (
-                    <p className="text-xs text-muted-foreground">
-                      Verknüpfte Konfigurations-ID: <span className="font-mono">{savedCpqConfigurationId}</span>
-                    </p>
-                  )}
-                </>
-              ) : bom && (bom.errors.length > 0 || (bom.items.length === 0 && (bom.warnings?.length ?? 0) > 0)) ? (
-                <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-4 text-sm text-destructive">
-                  {bom.errors.map((e, i) => (
-                    <div key={i}>• {e}</div>
-                  ))}
-                  {bom.items.length === 0 && (bom.warnings?.length ?? 0) > 0 && (
-                    <div className="mt-2 text-amber-600 dark:text-amber-400">
-                      {bom.warnings!.map((w, i) => (
-                        <div key={i}>• {w}</div>
-                      ))}
-                    </div>
-                  )}
-                  <p className="mt-2 text-muted-foreground">Bitte im CPQ Admin prüfen: gleiches System auswählen → Tab Produkt-Mappings → Komponententypen anlegen und Shopware-Produkte zuordnen. Rollen der Komponententypen müssen „frame“, „beam“ oder „shelf“ heißen (für Stücklistenberechnung).</p>
-                  <p className="mt-2 text-muted-foreground">Falls Produkte fehlen: Shopware-Sync in den Einstellungen ausführen (Admin → Einstellungen → Shopware).</p>
-                </div>
-              ) : (
-                <div className="rounded-lg border bg-muted/50 p-6 text-center text-muted-foreground">
-                  {bom && bom.items.length === 0 ? (
-                    <>
-                      Keine Stückliste berechnet. Bitte im CPQ Admin für <strong>dieses System</strong> Komponententypen und Produkt-Mappings anlegen.
-                      <p className="mt-2 text-sm">Falls Produkte fehlen: Shopware-Sync in den Einstellungen ausführen (Admin → Einstellungen → Shopware).</p>
-                      {(bom.warnings?.length ?? 0) > 0 && (
-                        <div className="mt-3 text-left text-sm text-amber-600 dark:text-amber-400">
-                          {bom.warnings!.map((w, i) => (
-                            <div key={i}>• {w}</div>
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    "Keine Stückliste verfügbar. Bitte legen Sie Komponententypen und Produkt-Mappings im CPQ Admin an."
-                  )}
-                  <pre className="mt-3 text-left text-xs overflow-auto max-h-32 bg-background p-3 rounded">
-                    {JSON.stringify(config, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="flex justify-between mt-8 pt-4 border-t">
-            <Button variant="outline" disabled={currentStepIndex === 0} onClick={() => setStep(STEP_ORDER[currentStepIndex - 1]!)}>
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Zurück
-            </Button>
-            <Button
-              data-testid="cpq-button-next-step"
-              disabled={step === "system" && !selectedSystemId}
-              onClick={() => {
-                if (currentStepIndex < STEP_ORDER.length - 1) {
-                  const nextStep = STEP_ORDER[currentStepIndex + 1]!;
-                  if (nextStep === "summary") {
-                    setConfig((prev) => ({ ...SUMMARY_CONFIG_DEFAULTS, ...prev }));
-                  }
-                  setStep(nextStep);
-                }
-              }}
-            >
-              Weiter
-              <ChevronRight className="h-4 w-4 ml-1" />
-            </Button>
-          </div>
-        </Card>
-
-        <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Konfiguration speichern</DialogTitle>
-              <DialogDescription>
-                Name für diese Konfiguration (wiederauffindbar im System, optional für Angebotsentwurf).
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-2 py-2">
-              <Label htmlFor="cpq-save-name">Name</Label>
-              <Input
-                id="cpq-save-name"
-                value={saveConfigName}
-                onChange={(e) => setSaveConfigName(e.target.value)}
-                placeholder="z. B. META CLIP Lager 2026-04-02"
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setSaveDialogOpen(false)}>
-                Abbrechen
-              </Button>
-              <Button
-                type="button"
-                disabled={!saveConfigName.trim() || saveConfigurationMutation.isPending}
-                onClick={() => saveConfigurationMutation.mutate(saveConfigName)}
-                data-testid="cpq-button-confirm-save"
-              >
-                Speichern
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {CPQ_3D_PREVIEW && (
-          <Card className="w-80 p-6 shrink-0">
-            <h3 className="font-semibold mb-4">Live-Vorschau</h3>
-            {selectedSystemId ? (
-              <Suspense
-                fallback={
-                  <div className="aspect-square bg-muted rounded flex items-center justify-center text-muted-foreground text-sm">
-                    Vorschau wird geladen…
-                  </div>
-                }
-              >
-                <Shelf3DViewer systemId={selectedSystemId} config={config} />
-              </Suspense>
-            ) : (
-              <div className="aspect-square bg-muted rounded flex items-center justify-center text-muted-foreground text-sm">
-                System wählen für Vorschau
+            {disclaimer && (
+              <div className={`alert ${disclaimerIsError ? "error" : ""}`} role="note">
+                <div className="title">{disclaimerIsError ? t.bomError : t.noteTitle}</div>
+                <div className="body">{disclaimer}</div>
               </div>
             )}
-          </Card>
-        )}
+
+            <div className="spring" />
+
+            {/* checkout */}
+            <div className="checkout">
+              <div className="price-row">
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <span className="price-label">{t.priceLabel}</span>
+                  <span className={`price-net ${bomFetching && !bom ? "loading" : ""}`}>
+                    {bomErrors.length ? "—" : bom ? money(price) : t.loadingPrice}
+                  </span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                  <span className="price-gross">{bom && !bomErrors.length ? `${money(price * 1.19)}${lang === "de" ? " inkl. MwSt." : " incl. VAT"}` : ""}</span>
+                  <span className={`badge-class ${classification === "C" ? "c" : ""}`} title={`Klasse ${classification}`}>{classification}</span>
+                </div>
+              </div>
+              <div className="avail">
+                <span className="dot" style={{ background: availDot }} />
+                <span className="txt">{availText}</span>
+              </div>
+              <button type="button" className="btn btn-lg btn-primary"
+                disabled={blocked || bomFetching || !!bomErrors.length || !bom?.items?.length || cartMut.isPending}
+                onClick={() => cartMut.mutate()}>
+                {blocked ? t.reviewBlocked : added ? t.cartDone : t.cart}
+              </button>
+              <div className="btn-actions">
+                <button type="button" className="btn btn-md btn-secondary"
+                  disabled={!bom?.items?.length || !!bomErrors.length || offerMut.isPending}
+                  onClick={() => offerMut.mutate()}>
+                  {shared ? t.shareDone : t.share}
+                </button>
+                <button type="button" className="btn btn-md btn-tertiary"
+                  onClick={() => { reconciled.current = false; setState((s) => reconcileWithOptions({ ...DEFAULT_STATE, lang: s.lang, mode: s.mode }, options0)); }}>
+                  {t.reset}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* footer: summary + BOM */}
+        <div className="cfg-foot">
+          <div className="summary">
+            <span className="sec-label">{t.summary}</span>
+            <div className="sum-rows">
+              {[
+                [t.sumRows[0], `META CLIP · ${coated ? t.coat : t.zinc}${state.rear ? " · " + t.rearWall : ""}`],
+                [t.sumRows[1], `${nf(laenge)} × ${nf(state.hoehe)} × ${state.tiefe} ${t.mm}`],
+                [t.sumRows[2], `${state.felder} × ${state.boeden}`],
+                [t.sumRows[3], `${state.last} ${t.kg}`],
+                [t.sumRows[4], `${nf(nominalCapacity)} ${t.kg}`],
+                [t.sumRows[5], `${nf(weight, 0)} ${t.kg}`],
+              ].map(([k, v], i) => (
+                <div className="sum-row" key={i}><span className="k">{k}</span><span className="v">{v}</span></div>
+              ))}
+            </div>
+            <span className="config-code">{t.configCodeLabel} <code>{configCode}</code></span>
+          </div>
+
+          <div className="bom">
+            <span className="sec-label">{t.bom}</span>
+            <div className="bom-grid bom-head">
+              <span>{t.bomPos}</span><span>{t.bomArt}</span>
+              <span className="num">{t.bomQty}</span><span className="num">{t.bomUnit}</span><span className="num">{t.bomSum}</span>
+            </div>
+            {(bom?.items ?? []).map((b, i) => (
+              <div className="bom-grid bom-row" key={i}>
+                <span>{b.name}</span>
+                <span className="bom-art" title={b.manufacturerNumber ?? b.productNumber}>{b.manufacturerNumber ?? b.productNumber}</span>
+                <span className="num">{b.quantity}</span>
+                <span className="num muted">{money(b.unitPrice)}</span>
+                <span className="num bold">{money(b.lineTotal)}</span>
+              </div>
+            ))}
+            {!bom?.items?.length && !bomErrors.length && <div className="control-note">…</div>}
+            {bomErrors.map((e, i) => <div className="control-note" key={i} style={{ color: "var(--meta-red)" }}>{e}</div>)}
+            <div className="bom-total">
+              <span className="k">{t.bomTotal}</span>
+              <span className="v">{bom && !bomErrors.length ? money(price) : "—"}</span>
+            </div>
+          </div>
+        </div>
       </div>
+    </div>
+  );
+}
+
+// ---- stepper sub-component ----
+function Stepper(props: { label: string; value: number; min: number; max: number; unit: string; note?: string; onDec: () => void; onInc: () => void }) {
+  const { label, value, min, max, unit, note, onDec, onInc } = props;
+  return (
+    <div className="control">
+      <div className="control-head"><span className="control-label">{label}</span></div>
+      <div className="stepper">
+        <button type="button" className="dec" disabled={value <= min} onClick={onDec} aria-label="−">–</button>
+        <div className="val"><span>{value}</span><span className="unit">{unit}</span></div>
+        <button type="button" className="inc" disabled={value >= max} onClick={onInc} aria-label="+">+</button>
+      </div>
+      {note && <span className="control-note">{note}</span>}
     </div>
   );
 }

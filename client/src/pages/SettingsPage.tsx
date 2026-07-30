@@ -258,6 +258,7 @@ export default function SettingsPage() {
   const [hasAdsClientSecret, setHasAdsClientSecret] = useState(false);
   const [hasAdsRefreshToken, setHasAdsRefreshToken] = useState(false);
   const [selectedTenantId, setSelectedTenantId] = useState("");
+  const [newTenantName, setNewTenantName] = useState("");
   const [proformaNumberRange, setProformaNumberRange] = useState<ProformaNumberRangeSettings>({
     prefix: "PF-",
     nextNumber: 1,
@@ -1125,6 +1126,34 @@ export default function SettingsPage() {
     },
   });
 
+  const createTenantMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const response = await apiRequest("POST", "/api/tenants", { name, setActive: true });
+      return response.json() as Promise<{ tenant: TenantInfo; activeTenantId: string | null }>;
+    },
+    onSuccess: async (data) => {
+      setNewTenantName("");
+      if (data.activeTenantId) {
+        setSelectedTenantId(data.activeTenantId);
+      }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["/api/tenants"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] }),
+      ]);
+      toast({
+        title: t("settings.tenants.createSuccess"),
+        description: t("settings.tenants.createSuccessDesc", { name: data.tenant.name }),
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t("settings.tenants.createError"),
+        description: error?.message || t("settings.tenants.createErrorDesc"),
+        variant: "destructive",
+      });
+    },
+  });
+
   const saveProformaNumberRangeMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest("POST", "/api/settings/proforma-number-range", proformaNumberRange);
@@ -1357,7 +1386,47 @@ function GeneralTab() {
                   : t("settings.tenants.save")}
               </Button>
             </div>
+          </div>
+        )}
 
+        <div className="mt-6 pt-4 border-t border-border space-y-3">
+          <h3 className="text-sm font-medium uppercase tracking-wide">
+            {t("settings.tenants.createTitle")}
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            {t("settings.tenants.createDescription")}
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Input
+              value={newTenantName}
+              onChange={(e) => setNewTenantName(e.target.value)}
+              placeholder={t("settings.tenants.createPlaceholder")}
+              maxLength={120}
+              data-testid="input-new-tenant-name"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  const name = newTenantName.trim();
+                  if (name && !createTenantMutation.isPending) {
+                    createTenantMutation.mutate(name);
+                  }
+                }
+              }}
+            />
+            <Button
+              onClick={() => createTenantMutation.mutate(newTenantName.trim())}
+              disabled={!newTenantName.trim() || createTenantMutation.isPending}
+              data-testid="button-create-tenant"
+            >
+              {createTenantMutation.isPending
+                ? t("settings.tenants.creating")
+                : t("settings.tenants.create")}
+            </Button>
+          </div>
+        </div>
+
+        {hasTenants ? (
+          <>
             <div className="mt-6 pt-4 border-t border-border">
               <h3 className="text-sm font-medium uppercase tracking-wide mb-2">
                 {t("settings.tenants.proformaTitle")}
@@ -1607,8 +1676,8 @@ function GeneralTab() {
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          </>
+        ) : null}
       </Card>
       <Card className="p-6">
         <h2 className="text-sm font-medium uppercase tracking-wide mb-4">

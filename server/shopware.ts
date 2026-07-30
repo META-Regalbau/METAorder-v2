@@ -83,12 +83,166 @@ export interface ShopwareProductOverview {
   hasDeliveryTime: boolean;
   /** Wiederauffüllzeit in Tagen (Shopware restockTime). */
   restockTime: number | null;
+  /** Varianten-Optionen (Größe/Farbe) — bei Child-Varianten gesetzt. */
+  options?: Array<{ group: string; option: string }>;
+  /** Eigenschaften (Fallback für Größe/Farbe bei einfachen Produkten). */
+  properties?: Array<{ groupName: string; optionName: string }>;
   customFields?: Record<string, unknown>;
+  /**
+   * Aufgelöste Anzeigenamen für Customfield-Werte, die Shopware-Entity-IDs sind
+   * (z. B. property_group_option / media → translated.name / Dateiname).
+   */
+  customFieldsDisplay?: Record<string, string>;
   propertyCount: number;
   parentId: string | null;
   childCount: number | null;
   createdAt?: string;
   updatedAt?: string;
+  /**
+   * Felder, die für die Anzeige vom Elternprodukt übernommen wurden
+   * (Shopware-Vererbung, wenn Variante keine eigenen Werte hat).
+   */
+  inheritedFields?: string[];
+}
+
+function isBlankOverviewName(name: string | null | undefined): boolean {
+  return !String(name ?? "").trim();
+}
+
+function isEmptyOverviewList(value: unknown[] | null | undefined): boolean {
+  return !Array.isArray(value) || value.length === 0;
+}
+
+function isZeroOverviewPrice(gross: number | null | undefined, net: number | null | undefined): boolean {
+  const g = Number(gross ?? 0);
+  const n = Number(net ?? 0);
+  return (!Number.isFinite(g) || g === 0) && (!Number.isFinite(n) || n === 0);
+}
+
+/**
+ * Shopware vererbt bei Varianten ohne eigene Einstellung Werte vom Parent.
+ * Für Listenansichten fehlende Child-Felder mit Parent-Werten auffüllen.
+ */
+export function applyOverviewParentInheritance(
+  products: ShopwareProductOverview[],
+): ShopwareProductOverview[] {
+  const byId = new Map(products.map((p) => [p.id, p]));
+
+  const resolveParent = (parentId: string | null | undefined, depth = 0): ShopwareProductOverview | null => {
+    if (!parentId || depth > 4) return null;
+    const parent = byId.get(parentId);
+    if (!parent) return null;
+    // Wenn Parent selbst Variante ist, weiter nach oben (selten)
+    if (parent.parentId && isBlankOverviewName(parent.name)) {
+      return resolveParent(parent.parentId, depth + 1) || parent;
+    }
+    return parent;
+  };
+
+  return products.map((child) => {
+    if (!child.parentId) return child;
+    const parent = resolveParent(child.parentId);
+    if (!parent) return child;
+
+    const inheritedFields: string[] = [];
+    const next: ShopwareProductOverview = {
+      ...child,
+      salesChannelIds: Array.isArray(child.salesChannelIds) ? [...child.salesChannelIds] : [],
+      categories: Array.isArray(child.categories) ? [...child.categories] : [],
+      tags: Array.isArray(child.tags) ? [...child.tags] : [],
+      advancedPrices: Array.isArray(child.advancedPrices) ? [...child.advancedPrices] : [],
+    };
+
+    if (isBlankOverviewName(next.name) && !isBlankOverviewName(parent.name)) {
+      next.name = parent.name;
+      inheritedFields.push("name");
+    }
+
+    if (isEmptyOverviewList(next.salesChannelIds) && !isEmptyOverviewList(parent.salesChannelIds)) {
+      next.salesChannelIds = [...parent.salesChannelIds];
+      inheritedFields.push("salesChannels");
+    }
+
+    if (isEmptyOverviewList(next.categories) && !isEmptyOverviewList(parent.categories)) {
+      next.categories = [...parent.categories];
+      inheritedFields.push("categories");
+    }
+
+    if (isEmptyOverviewList(next.tags) && !isEmptyOverviewList(parent.tags)) {
+      next.tags = [...parent.tags];
+      inheritedFields.push("tags");
+    }
+
+    if (
+      isEmptyOverviewList(next.advancedPrices) &&
+      !isEmptyOverviewList(parent.advancedPrices)
+    ) {
+      next.advancedPrices = parent.advancedPrices.map((ap) => ({ ...ap }));
+      inheritedFields.push("advancedPrices");
+    }
+
+    if (
+      isZeroOverviewPrice(next.priceGross, next.priceNet) &&
+      !isZeroOverviewPrice(parent.priceGross, parent.priceNet)
+    ) {
+      next.priceGross = parent.priceGross;
+      next.priceNet = parent.priceNet;
+      inheritedFields.push("price");
+    }
+
+    if (
+      (next.purchasePriceNet == null || next.purchasePriceNet === 0) &&
+      parent.purchasePriceNet != null &&
+      parent.purchasePriceNet !== 0
+    ) {
+      next.purchasePriceNet = parent.purchasePriceNet;
+      next.purchasePriceGross = parent.purchasePriceGross;
+      inheritedFields.push("purchasePrice");
+    }
+
+    if (!next.hasDeliveryTime && parent.hasDeliveryTime) {
+      next.deliveryTimeId = parent.deliveryTimeId;
+      next.deliveryTimeName = parent.deliveryTimeName;
+      next.deliveryTimeMin = parent.deliveryTimeMin;
+      next.deliveryTimeMax = parent.deliveryTimeMax;
+      next.deliveryTimeUnit = parent.deliveryTimeUnit;
+      next.hasDeliveryTime = true;
+      inheritedFields.push("deliveryTime");
+    }
+
+    if (next.restockTime == null && parent.restockTime != null) {
+      next.restockTime = parent.restockTime;
+      inheritedFields.push("restockTime");
+    }
+
+    if (!next.manufacturerName && parent.manufacturerName) {
+      next.manufacturerName = parent.manufacturerName;
+      inheritedFields.push("manufacturer");
+    }
+    if (!next.manufacturerNumber && parent.manufacturerNumber) {
+      next.manufacturerNumber = parent.manufacturerNumber;
+      if (!inheritedFields.includes("manufacturer")) inheritedFields.push("manufacturer");
+    }
+
+    const parentCf =
+      parent.customFields && typeof parent.customFields === "object" ? parent.customFields : null;
+    const childCf =
+      next.customFields && typeof next.customFields === "object" ? next.customFields : null;
+    if (parentCf && Object.keys(parentCf).length > 0) {
+      const merged = { ...parentCf, ...(childCf || {}) };
+      const childKeys = childCf ? Object.keys(childCf) : [];
+      const inheritedCf = Object.keys(parentCf).some((k) => !childKeys.includes(k));
+      if (inheritedCf || !childCf || Object.keys(childCf).length === 0) {
+        next.customFields = merged;
+        if (inheritedCf || !childCf || Object.keys(childCf).length === 0) {
+          inheritedFields.push("customFields");
+        }
+      }
+    }
+
+    if (!inheritedFields.length) return child;
+    return { ...next, inheritedFields };
+  });
 }
 
 export interface ProductPriceResetRow {
@@ -219,6 +373,32 @@ function normalizeShopwareProductEntity(raw: any): any {
   };
 }
 
+function shopwareEntityName(entity: any): string {
+  if (!entity || typeof entity !== "object") return "";
+  const attrs = entity.attributes || {};
+  return String(
+    entity.translated?.name ||
+      attrs.translated?.name ||
+      entity.name ||
+      attrs.name ||
+      "",
+  ).trim();
+}
+
+/** Shopware-UUID (32 Hex oder mit Bindestrichen). */
+export function isShopwareEntityId(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const s = value.trim();
+  return (
+    /^[0-9a-f]{32}$/i.test(s) ||
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)
+  );
+}
+
+export function normalizeShopwareEntityId(id: string): string {
+  return id.replace(/-/g, "").toLowerCase();
+}
+
 function mapShopwareOptionsForVariant(
   cp: any,
   includedMap: Map<string, any>
@@ -226,23 +406,52 @@ function mapShopwareOptionsForVariant(
   const out: Array<{ group: string; option: string }> = [];
   if (cp.options && Array.isArray(cp.options)) {
     for (const opt of cp.options) {
-      const groupName = opt.group?.name || opt.groupName || "";
-      const optionName = opt.name || opt.optionName || "";
+      const groupName = shopwareEntityName(opt.group) || String(opt.groupName || "").trim();
+      const optionName = shopwareEntityName(opt) || String(opt.optionName || "").trim();
       if (groupName && optionName) out.push({ group: groupName, option: optionName });
     }
   } else if (cp.relationships?.options?.data) {
     for (const optRef of cp.relationships.options.data) {
       const prop = includedMap.get(`property_group_option-${optRef.id}`);
       if (!prop) continue;
-      const optionName = prop.attributes?.name || prop.name || "";
+      const optionName = shopwareEntityName(prop);
       let groupName = "";
-      if (prop.group?.name) groupName = prop.group.name;
+      if (prop.group) groupName = shopwareEntityName(prop.group);
       else if (prop.relationships?.group?.data?.id) {
         const group = includedMap.get(`property_group-${prop.relationships.group.data.id}`);
-        groupName = group?.attributes?.name || group?.name || "";
+        groupName = shopwareEntityName(group);
       }
       if (groupName && optionName) out.push({ group: groupName, option: optionName });
     }
+  }
+  return out;
+}
+
+function mapShopwarePropertiesForLabel(
+  sp: any,
+  includedMap: Map<string, any>,
+): Array<{ groupName: string; optionName: string }> {
+  const out: Array<{ groupName: string; optionName: string }> = [];
+  if (Array.isArray(sp.properties)) {
+    for (const prop of sp.properties) {
+      const groupName = shopwareEntityName(prop.group) || String(prop.groupName || "").trim();
+      const optionName = shopwareEntityName(prop) || String(prop.optionName || "").trim();
+      if (groupName && optionName) out.push({ groupName, optionName });
+    }
+    return out;
+  }
+  if (!Array.isArray(sp.relationships?.properties?.data)) return out;
+  for (const propRef of sp.relationships.properties.data) {
+    const prop = includedMap.get(`property_group_option-${propRef.id}`);
+    if (!prop) continue;
+    const optionName = shopwareEntityName(prop);
+    let groupName = "";
+    if (prop.group) groupName = shopwareEntityName(prop.group);
+    else if (prop.relationships?.group?.data?.id) {
+      const group = includedMap.get(`property_group-${prop.relationships.group.data.id}`);
+      groupName = shopwareEntityName(group);
+    }
+    if (groupName && optionName) out.push({ groupName, optionName });
   }
   return out;
 }
@@ -553,9 +762,12 @@ function parseProductAdvancedPrices(sp: any, includedMap: Map<string, any>): Sho
     if (!isLive) continue;
 
     let ruleName: string | null =
-      a?.rule?.name ?? pr?.rule?.name ?? a?.rule?.attributes?.name ?? null;
+      shopwareEntityName(a?.rule) ||
+      shopwareEntityName(pr?.rule) ||
+      a?.rule?.attributes?.name ||
+      null;
     if (!ruleName && ruleId) {
-      ruleName = includedMap.get(`rule-${ruleId}`)?.attributes?.name ?? null;
+      ruleName = shopwareEntityName(includedMap.get(`rule-${ruleId}`)) || null;
     }
 
     // Gruppierung pro Preisregel UND Mengenstaffel: Ohne ruleId würden mehrere
@@ -610,21 +822,39 @@ export type ParsedProductDeliveryTime = {
   hasDeliveryTime: boolean;
 };
 
+/** Shopware apiAlias ist `delivery_time` (nicht product_delivery_time). */
+function getIncludedDeliveryTime(
+  includedMap: Map<string, any>,
+  id: string | null | undefined,
+): any | undefined {
+  if (!id) return undefined;
+  return (
+    includedMap.get(`delivery_time-${id}`) ||
+    includedMap.get(`product_delivery_time-${id}`)
+  );
+}
+
 /** Lieferzeit aus Produkt-Suchtreffer parsen (product.deliveryTime / deliveryTimeId). */
 function parseProductDeliveryTime(sp: any, includedMap: Map<string, any>): ParsedProductDeliveryTime {
-  let dt = sp.deliveryTime;
-  if (!dt && sp.relationships?.deliveryTime?.data?.id) {
-    dt = includedMap.get(`product_delivery_time-${sp.relationships.deliveryTime.data.id}`);
+  const attributes = sp.attributes || sp;
+  const relId = sp.relationships?.deliveryTime?.data?.id ?? null;
+  let dt = sp.deliveryTime || attributes?.deliveryTime || null;
+  if (!dt && relId) {
+    dt = getIncludedDeliveryTime(includedMap, relId);
   }
 
-  const attributes = sp.attributes || sp;
   const deliveryTimeIdRaw =
     sp.deliveryTimeId ??
     attributes?.deliveryTimeId ??
-    sp.relationships?.deliveryTime?.data?.id ??
+    relId ??
     dt?.id ??
+    dt?.attributes?.id ??
     null;
   const deliveryTimeId = deliveryTimeIdRaw == null || deliveryTimeIdRaw === "" ? null : String(deliveryTimeIdRaw);
+
+  if (!dt && deliveryTimeId) {
+    dt = getIncludedDeliveryTime(includedMap, deliveryTimeId);
+  }
 
   if (!dt && !deliveryTimeId) {
     return {
@@ -639,7 +869,12 @@ function parseProductDeliveryTime(sp: any, includedMap: Map<string, any>): Parse
 
   const dtAttrs = dt?.attributes || dt || {};
   const deliveryTimeName =
-    dtAttrs.translated?.name ?? dtAttrs.name ?? dt?.name ?? dt?.translated?.name ?? null;
+    shopwareEntityName(dt) ||
+    dtAttrs.translated?.name ||
+    dtAttrs.name ||
+    dt?.name ||
+    dt?.translated?.name ||
+    null;
   const minRaw = dtAttrs.min ?? dt?.min;
   const maxRaw = dtAttrs.max ?? dt?.max;
   const deliveryTimeMin = minRaw != null && !Number.isNaN(Number(minRaw)) ? Number(minRaw) : null;
@@ -995,6 +1230,8 @@ export class ShopwareClient {
     const paymentStatusMap: Record<string, PaymentStatus> = {
       'open': 'open',
       'in_progress': 'open',
+      // Shopware 6: Kreditkarte / Rechnung / BNPL vor Capture
+      'authorized': 'authorized',
       'paid': 'paid',
       'paid_partially': 'partially_paid',
       'partially_paid': 'partially_paid',
@@ -3872,6 +4109,11 @@ export class ShopwareClient {
             group: {},
           },
         },
+        options: {
+          associations: {
+            group: {},
+          },
+        },
       };
       if (includeVariantChildren) {
         fetchAssociations.children = {
@@ -4000,6 +4242,13 @@ export class ShopwareClient {
               }
             }
           });
+        }
+
+        // Varianten-Optionen (Größe/Farbe) ebenfalls in properties spiegeln
+        for (const opt of mapShopwareOptionsForVariant(sp, includedMap)) {
+          if (!properties.some((p) => p.groupName === opt.group && p.optionName === opt.option)) {
+            properties.push({ groupName: opt.group, optionName: opt.option });
+          }
         }
 
         // Get tax rate
@@ -4206,6 +4455,7 @@ export class ShopwareClient {
           "id",
           "productNumber",
           "name",
+          "translated",
           "active",
           "stock",
           "available",
@@ -4221,6 +4471,7 @@ export class ShopwareClient {
           "prices",
           "visibilities",
           "properties",
+          "options",
           "parentId",
           "childCount",
           "createdAt",
@@ -4228,15 +4479,17 @@ export class ShopwareClient {
           "deliveryTimeId",
           "restockTime",
         ],
-        product_manufacturer: ["name"],
-        category: ["id", "name"],
-        tag: ["id", "name"],
+        product_manufacturer: ["name", "translated"],
+        category: ["id", "name", "translated"],
+        tag: ["id", "name", "translated"],
+        delivery_time: ["id", "name", "min", "max", "unit", "translated"],
         product_delivery_time: ["id", "name", "min", "max", "unit", "translated"],
         tax: ["taxRate"],
         product_price: ["quantityStart", "quantityEnd", "price", "ruleId", "versionId", "updatedAt", "createdAt", "rule"],
         product_visibility: ["id", "salesChannelId", "visibility"],
-        property_group_option: ["id"],
-        rule: ["id", "name"],
+        property_group_option: ["id", "name", "translated", "group"],
+        property_group: ["id", "name", "translated"],
+        rule: ["id", "name", "translated"],
       },
       associations: {
         manufacturer: {},
@@ -4249,7 +4502,16 @@ export class ShopwareClient {
           },
         },
         visibilities: {},
-        properties: {},
+        properties: {
+          associations: {
+            group: {},
+          },
+        },
+        options: {
+          associations: {
+            group: {},
+          },
+        },
         deliveryTime: {},
       },
     };
@@ -4326,33 +4588,39 @@ export class ShopwareClient {
 
       // Hersteller
       let manufacturerName: string | undefined;
-      if (sp.manufacturer?.name) {
-        manufacturerName = sp.manufacturer.name;
+      if (sp.manufacturer) {
+        manufacturerName = shopwareEntityName(sp.manufacturer) || undefined;
       } else if (sp.relationships?.manufacturer?.data?.id) {
-        manufacturerName = includedMap.get(`product_manufacturer-${sp.relationships.manufacturer.data.id}`)?.attributes?.name;
+        manufacturerName =
+          shopwareEntityName(
+            includedMap.get(`product_manufacturer-${sp.relationships.manufacturer.data.id}`),
+          ) || undefined;
       }
 
-      // Kategorien (Namen)
+      // Kategorien (Namen / Übersetzungen)
       const categories: string[] = [];
       if (Array.isArray(sp.categories)) {
-        sp.categories.forEach((c: any) => c?.name && categories.push(c.name));
+        sp.categories.forEach((c: any) => {
+          const name = shopwareEntityName(c);
+          if (name) categories.push(name);
+        });
       } else if (Array.isArray(sp.relationships?.categories?.data)) {
         sp.relationships.categories.data.forEach((ref: any) => {
-          const name = includedMap.get(`category-${ref.id}`)?.attributes?.name;
+          const name = shopwareEntityName(includedMap.get(`category-${ref.id}`));
           if (name) categories.push(name);
         });
       }
 
-      // Tags (Namen)
+      // Tags (Namen / Übersetzungen)
       const tags: string[] = [];
       if (Array.isArray(sp.tags)) {
         sp.tags.forEach((tg: any) => {
-          const name = tg?.name ?? tg?.attributes?.name;
+          const name = shopwareEntityName(tg);
           if (name) tags.push(name);
         });
       } else if (Array.isArray(sp.relationships?.tags?.data)) {
         sp.relationships.tags.data.forEach((ref: any) => {
-          const name = includedMap.get(`tag-${ref.id}`)?.attributes?.name;
+          const name = shopwareEntityName(includedMap.get(`tag-${ref.id}`));
           if (name) tags.push(name);
         });
       }
@@ -4383,11 +4651,16 @@ export class ShopwareClient {
       const customFields = (sp.customFields || attributes?.customFields) as Record<string, unknown> | undefined;
       const childCountRaw = sp.childCount ?? attributes?.childCount;
       const parentIdRaw = sp.parentId ?? attributes?.parentId;
+      const variantOptions = mapShopwareOptionsForVariant(sp, includedMap);
+      const propertyLabels = mapShopwarePropertiesForLabel(sp, includedMap);
 
       return {
         id: sp.id,
         productNumber: sp.productNumber || attributes?.productNumber || "",
-        name: sp.name || attributes?.name || "",
+        name:
+          shopwareEntityName(sp) ||
+          shopwareEntityName(attributes) ||
+          String(sp.name || attributes?.name || "").trim(),
         active: sp.active !== undefined ? sp.active : attributes?.active ?? null,
         stock: sp.stock ?? attributes?.stock ?? null,
         ean: sp.ean || attributes?.ean || undefined,
@@ -4405,6 +4678,8 @@ export class ShopwareClient {
         tags,
         ...deliveryTime,
         restockTime: parseProductRestockTime(sp),
+        options: variantOptions.length ? variantOptions : undefined,
+        properties: propertyLabels.length ? propertyLabels : undefined,
         customFields: customFields && typeof customFields === "object" ? customFields : undefined,
         propertyCount: propertyOptionIds.size,
         parentId: parentIdRaw == null || parentIdRaw === "" ? null : String(parentIdRaw),
@@ -4446,6 +4721,7 @@ export class ShopwareClient {
           "id",
           "productNumber",
           "name",
+          "translated",
           "active",
           "stock",
           "available",
@@ -4461,6 +4737,7 @@ export class ShopwareClient {
           "prices",
           "visibilities",
           "properties",
+          "options",
           "parentId",
           "childCount",
           "createdAt",
@@ -4468,15 +4745,17 @@ export class ShopwareClient {
           "deliveryTimeId",
           "restockTime",
         ],
-        product_manufacturer: ["name"],
-        category: ["id", "name"],
-        tag: ["id", "name"],
+        product_manufacturer: ["name", "translated"],
+        category: ["id", "name", "translated"],
+        tag: ["id", "name", "translated"],
+        delivery_time: ["id", "name", "min", "max", "unit", "translated"],
         product_delivery_time: ["id", "name", "min", "max", "unit", "translated"],
         tax: ["taxRate"],
         product_price: ["quantityStart", "quantityEnd", "price", "ruleId", "versionId", "updatedAt", "createdAt", "rule"],
         product_visibility: ["id", "salesChannelId", "visibility"],
-        property_group_option: ["id"],
-        rule: ["id", "name"],
+        property_group_option: ["id", "name", "translated", "group"],
+        property_group: ["id", "name", "translated"],
+        rule: ["id", "name", "translated"],
       },
       associations: {
         manufacturer: {},
@@ -4485,7 +4764,16 @@ export class ShopwareClient {
         tax: {},
         prices: { associations: { rule: {} } },
         visibilities: {},
-        properties: {},
+        properties: {
+          associations: {
+            group: {},
+          },
+        },
+        options: {
+          associations: {
+            group: {},
+          },
+        },
         deliveryTime: {},
       },
     };
@@ -4556,20 +4844,24 @@ export class ShopwareClient {
       }
 
       let manufacturerName: string | undefined;
-      if (sp.manufacturer?.name) {
-        manufacturerName = sp.manufacturer.name;
+      if (sp.manufacturer) {
+        manufacturerName = shopwareEntityName(sp.manufacturer) || undefined;
       } else if (sp.relationships?.manufacturer?.data?.id) {
-        manufacturerName = includedMap.get(
-          `product_manufacturer-${sp.relationships.manufacturer.data.id}`,
-        )?.attributes?.name;
+        manufacturerName =
+          shopwareEntityName(
+            includedMap.get(`product_manufacturer-${sp.relationships.manufacturer.data.id}`),
+          ) || undefined;
       }
 
       const categories: string[] = [];
       if (Array.isArray(sp.categories)) {
-        sp.categories.forEach((c: any) => c?.name && categories.push(c.name));
+        sp.categories.forEach((c: any) => {
+          const name = shopwareEntityName(c);
+          if (name) categories.push(name);
+        });
       } else if (Array.isArray(sp.relationships?.categories?.data)) {
         sp.relationships.categories.data.forEach((ref: any) => {
-          const name = includedMap.get(`category-${ref.id}`)?.attributes?.name;
+          const name = shopwareEntityName(includedMap.get(`category-${ref.id}`));
           if (name) categories.push(name);
         });
       }
@@ -4577,12 +4869,12 @@ export class ShopwareClient {
       const tags: string[] = [];
       if (Array.isArray(sp.tags)) {
         sp.tags.forEach((tg: any) => {
-          const name = tg?.name ?? tg?.attributes?.name;
+          const name = shopwareEntityName(tg);
           if (name) tags.push(name);
         });
       } else if (Array.isArray(sp.relationships?.tags?.data)) {
         sp.relationships.tags.data.forEach((ref: any) => {
-          const name = includedMap.get(`tag-${ref.id}`)?.attributes?.name;
+          const name = shopwareEntityName(includedMap.get(`tag-${ref.id}`));
           if (name) tags.push(name);
         });
       }
@@ -4615,11 +4907,16 @@ export class ShopwareClient {
         | undefined;
       const childCountRaw = sp.childCount ?? attributes?.childCount;
       const parentIdRaw = sp.parentId ?? attributes?.parentId;
+      const variantOptions = mapShopwareOptionsForVariant(sp, includedMap);
+      const propertyLabels = mapShopwarePropertiesForLabel(sp, includedMap);
 
       return {
         id: sp.id,
         productNumber: sp.productNumber || attributes?.productNumber || "",
-        name: sp.name || attributes?.name || "",
+        name:
+          shopwareEntityName(sp) ||
+          shopwareEntityName(attributes) ||
+          String(sp.name || attributes?.name || "").trim(),
         active: sp.active !== undefined ? sp.active : attributes?.active ?? null,
         stock: sp.stock ?? attributes?.stock ?? null,
         ean: sp.ean || attributes?.ean || undefined,
@@ -4637,6 +4934,8 @@ export class ShopwareClient {
         tags,
         ...deliveryTime,
         restockTime: parseProductRestockTime(sp),
+        options: variantOptions.length ? variantOptions : undefined,
+        properties: propertyLabels.length ? propertyLabels : undefined,
         customFields: customFields && typeof customFields === "object" ? customFields : undefined,
         propertyCount: propertyOptionIds.size,
         parentId: parentIdRaw == null || parentIdRaw === "" ? null : String(parentIdRaw),
@@ -5147,7 +5446,8 @@ export class ShopwareClient {
         ],
         product_visibility: ["id", "salesChannelId"],
         product_media: ["id"],
-        product_delivery_time: ["id"],
+        delivery_time: ["id", "name", "min", "max", "unit", "translated"],
+        product_delivery_time: ["id", "name", "min", "max", "unit", "translated"],
         category: ["id"],
       },
       associations: {
@@ -5332,7 +5632,8 @@ export class ShopwareClient {
         property_group: ["id", "name"],
         product_visibility: ["id", "salesChannelId"],
         product_media: ["id"],
-        product_delivery_time: ["id"],
+        delivery_time: ["id", "name", "min", "max", "unit", "translated"],
+        product_delivery_time: ["id", "name", "min", "max", "unit", "translated"],
         category: ["id"],
       },
       associations: {
@@ -5431,6 +5732,174 @@ export class ShopwareClient {
     };
   }
 
+  /**
+   * Shopware-Entity-IDs (z. B. Customfields) → Anzeigenamen (translated.name).
+   * Versucht property_group_option, danach media (fileName).
+   */
+  async resolveEntityDisplayNames(ids: string[]): Promise<Map<string, string>> {
+    const out = new Map<string, string>();
+    const unique = Array.from(
+      new Set(
+        ids
+          .map((id) => String(id || "").trim())
+          .filter((id) => isShopwareEntityId(id))
+          .map((id) => normalizeShopwareEntityId(id)),
+      ),
+    );
+    if (!unique.length) return out;
+
+    const CHUNK = 100;
+    for (let i = 0; i < unique.length; i += CHUNK) {
+      const chunk = unique.slice(i, i + CHUNK);
+      try {
+        const data = await this.searchEntity("property_group_option", {
+          limit: chunk.length,
+          filter: [{ type: "equalsAny", field: "id", value: chunk }],
+          includes: {
+            property_group_option: ["id", "name", "translated"],
+          },
+        });
+        for (const row of data.data || []) {
+          const id = normalizeShopwareEntityId(String(row.id || row.attributes?.id || ""));
+          const name = shopwareEntityName(row);
+          if (id && name) out.set(id, name);
+        }
+      } catch (err) {
+        console.warn("[shopware] resolve property_group_option names failed:", err);
+      }
+    }
+
+    const missing = unique.filter((id) => !out.has(id));
+    for (let i = 0; i < missing.length; i += CHUNK) {
+      const chunk = missing.slice(i, i + CHUNK);
+      try {
+        const data = await this.searchEntity("media", {
+          limit: chunk.length,
+          filter: [{ type: "equalsAny", field: "id", value: chunk }],
+          includes: {
+            media: ["id", "fileName", "fileExtension", "translated"],
+          },
+        });
+        for (const row of data.data || []) {
+          const id = normalizeShopwareEntityId(String(row.id || row.attributes?.id || ""));
+          const attrs = row.attributes || row;
+          const fileName = String(
+            attrs.translated?.fileName || attrs.fileName || row.fileName || "",
+          ).trim();
+          const ext = String(attrs.fileExtension || "").trim();
+          const label = fileName ? (ext ? `${fileName}.${ext}` : fileName) : "";
+          if (id && label) out.set(id, label);
+        }
+      } catch (err) {
+        console.warn("[shopware] resolve media names failed:", err);
+      }
+    }
+
+    return out;
+  }
+
+  /**
+   * Lieferzeiten (delivery_time) per ID laden – für Spiegel-Payloads ohne Namen.
+   * Lädt bei Bedarf den kompletten (kleinen) Lieferzeiten-Katalog.
+   */
+  async resolveDeliveryTimes(
+    ids: string[],
+  ): Promise<
+    Map<
+      string,
+      {
+        name: string | null;
+        min: number | null;
+        max: number | null;
+        unit: string | null;
+      }
+    >
+  > {
+    type DeliveryResolved = {
+      name: string | null;
+      min: number | null;
+      max: number | null;
+      unit: string | null;
+    };
+    const out = new Map<string, DeliveryResolved>();
+
+    const putRow = (row: any) => {
+      const id = normalizeShopwareEntityId(String(row?.id || row?.attributes?.id || ""));
+      if (!id) return;
+      const attrs = row?.attributes || row || {};
+      const name = shopwareEntityName(row) || null;
+      const minRaw = attrs.min ?? row?.min;
+      const maxRaw = attrs.max ?? row?.max;
+      const unit = attrs.unit ?? row?.unit ?? null;
+      out.set(id, {
+        name: name ? String(name) : null,
+        min: minRaw != null && !Number.isNaN(Number(minRaw)) ? Number(minRaw) : null,
+        max: maxRaw != null && !Number.isNaN(Number(maxRaw)) ? Number(maxRaw) : null,
+        unit: unit != null ? String(unit) : null,
+      });
+    };
+
+    const wanted = Array.from(
+      new Set(
+        ids
+          .map((id) => String(id || "").trim())
+          .filter((id) => isShopwareEntityId(id))
+          .map((id) => normalizeShopwareEntityId(id)),
+      ),
+    );
+
+    // Katalog ist klein (meist < 50) – einmal laden und nach ID mappen
+    try {
+      let page = 1;
+      while (page <= 5) {
+        const data = await this.searchEntity("delivery-time", {
+          limit: 100,
+          page,
+          includes: {
+            delivery_time: ["id", "name", "min", "max", "unit", "translated"],
+          },
+        });
+        const rows = data.data || [];
+        for (const row of rows) putRow(row);
+        if (rows.length < 100) break;
+        page += 1;
+      }
+    } catch (err) {
+      console.warn("[shopware] list delivery_time catalog failed:", err);
+    }
+
+    const missing = wanted.filter((id) => !out.has(id) || !out.get(id)?.name);
+    if (missing.length > 0) {
+      const CHUNK = 50;
+      for (let i = 0; i < missing.length; i += CHUNK) {
+        const chunk = missing.slice(i, i + CHUNK);
+        try {
+          const data = await this.searchEntity("delivery-time", {
+            limit: chunk.length,
+            filter: [{ type: "equalsAny", field: "id", value: chunk }],
+            includes: {
+              delivery_time: ["id", "name", "min", "max", "unit", "translated"],
+            },
+          });
+          for (const row of data.data || []) putRow(row);
+        } catch (err) {
+          console.warn("[shopware] resolve delivery_time by id failed:", err);
+        }
+      }
+    }
+
+    if (wanted.length > 0) {
+      const filtered = new Map<string, DeliveryResolved>();
+      for (const id of wanted) {
+        const row = out.get(id);
+        if (row) filtered.set(id, row);
+      }
+      return filtered;
+    }
+
+    return out;
+  }
+
   async setProductActive(productId: string, active: boolean): Promise<void> {
     const syncResponse = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/_action/sync`, {
       method: "POST",
@@ -5486,6 +5955,53 @@ export class ShopwareClient {
       const legacyError = await legacyResponse.text();
       throw new Error(
         `Failed to update product status: Sync: ${syncResponse.statusText} - ${syncError} | JSON:API: ${jsonApiResponse.statusText} - ${jsonApiError} | Legacy: ${legacyResponse.statusText} - ${legacyError}`
+      );
+    }
+  }
+
+  /** Setzt den Shopware-Produktbestand (absolute Menge). */
+  async setProductStock(productId: string, stock: number): Promise<void> {
+    const qty = Math.max(0, Math.floor(Number(stock) || 0));
+    const syncResponse = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/_action/sync`, {
+      method: "POST",
+      body: JSON.stringify({
+        "write-product-stock": {
+          entity: "product",
+          action: "upsert",
+          payload: [{ id: productId, stock: qty }],
+        },
+      }),
+    });
+
+    if (syncResponse.ok) return;
+
+    const syncError = await syncResponse.text();
+
+    const jsonApiResponse = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/product/${productId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/vnd.api+json" },
+      body: JSON.stringify({
+        data: {
+          id: productId,
+          type: "product",
+          attributes: { stock: qty },
+        },
+      }),
+    });
+
+    if (jsonApiResponse.ok) return;
+
+    const jsonApiError = await jsonApiResponse.text();
+
+    const legacyResponse = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/product/${productId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ stock: qty }),
+    });
+
+    if (!legacyResponse.ok) {
+      const legacyError = await legacyResponse.text();
+      throw new Error(
+        `Failed to update product stock: Sync: ${syncResponse.statusText} - ${syncError} | JSON:API: ${jsonApiResponse.statusText} - ${jsonApiError} | Legacy: ${legacyResponse.statusText} - ${legacyError}`,
       );
     }
   }
@@ -6093,6 +6609,151 @@ export class ShopwareClient {
     }
   }
 
+  /**
+   * Setzt/ändert die Sichtbarkeit je Verkaufskanal selektiv.
+   * - upsert: visibility 10 | 20 | 30 (bestehende id wiederverwenden)
+   * - remove: product_visibility-Eintrag löschen
+   * - Kanäle ohne Eintrag in `changes` bleiben unverändert
+   */
+  async applyProductVisibilityChanges(
+    productId: string,
+    changes: Array<{ salesChannelId: string; visibility: 10 | 20 | 30 } | { salesChannelId: string; remove: true }>,
+  ): Promise<{ previous: Array<{ salesChannelId: string; visibility: number | null }> }> {
+    if (!changes.length) {
+      return { previous: [] };
+    }
+
+    let currentEntries: Array<{ id?: string; salesChannelId?: string; visibility?: number | null }> = [];
+    try {
+      const current = await this.searchEntity("product-visibility", {
+        limit: 500,
+        filter: [
+          {
+            type: "equals",
+            field: "productId",
+            value: productId,
+          },
+        ],
+        includes: {
+          product_visibility: ["id", "salesChannelId", "visibility"],
+        },
+      });
+      currentEntries = (current?.data || []).map((entry: any) => ({
+        id: entry?.id,
+        salesChannelId: entry?.salesChannelId || entry?.attributes?.salesChannelId,
+        visibility:
+          entry?.visibility ??
+          entry?.attributes?.visibility ??
+          null,
+      }));
+    } catch (error) {
+      console.warn("Failed to fetch existing product visibilities for applyProductVisibilityChanges:", error);
+    }
+
+    const currentByChannel = new Map(
+      currentEntries
+        .filter((entry) => entry.salesChannelId)
+        .map((entry) => [entry.salesChannelId as string, entry]),
+    );
+
+    const previous = changes.map((change) => {
+      const existing = currentByChannel.get(change.salesChannelId);
+      return {
+        salesChannelId: change.salesChannelId,
+        visibility: existing?.visibility ?? null,
+      };
+    });
+
+    const upsertPayload: Array<{
+      id: string;
+      productId: string;
+      salesChannelId: string;
+      visibility: number;
+    }> = [];
+    const deletePayload: Array<{ id: string }> = [];
+
+    for (const change of changes) {
+      const existing = currentByChannel.get(change.salesChannelId);
+      if ("remove" in change && change.remove) {
+        if (existing?.id) {
+          deletePayload.push({ id: existing.id });
+        }
+        continue;
+      }
+      const visibility = (change as { visibility: 10 | 20 | 30 }).visibility;
+      upsertPayload.push({
+        id: existing?.id || randomUUID().replace(/-/g, ""),
+        productId,
+        salesChannelId: change.salesChannelId,
+        visibility,
+      });
+    }
+
+    const syncPayload: Record<string, any> = {};
+    if (upsertPayload.length > 0) {
+      syncPayload["upsert-product-visibility"] = {
+        entity: "product_visibility",
+        action: "upsert",
+        payload: upsertPayload,
+      };
+    }
+    if (deletePayload.length > 0) {
+      syncPayload["delete-product-visibility"] = {
+        entity: "product_visibility",
+        action: "delete",
+        payload: deletePayload,
+      };
+    }
+
+    if (Object.keys(syncPayload).length === 0) {
+      return { previous };
+    }
+
+    const syncResponse = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/_action/sync`, {
+      method: "POST",
+      body: JSON.stringify(syncPayload),
+    });
+
+    if (syncResponse.ok) {
+      return { previous };
+    }
+
+    const syncError = await syncResponse.text();
+
+    // Fallback: nur Upserts über Produkt-PATCH (Deletes nicht abgedeckt)
+    if (upsertPayload.length > 0 && deletePayload.length === 0) {
+      const patchResponse = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/product/${productId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/vnd.api+json",
+        },
+        body: JSON.stringify({
+          data: {
+            id: productId,
+            type: "product",
+            attributes: {
+              visibilities: upsertPayload.map(({ salesChannelId, visibility }) => ({
+                salesChannelId,
+                visibility,
+              })),
+            },
+          },
+        }),
+      });
+      if (patchResponse.ok) {
+        return { previous };
+      }
+      const patchError = await patchResponse.text();
+      throw new Error(
+        `Failed to apply product visibility changes: Sync: ${syncResponse.statusText} - ${syncError} | JSON:API: ${patchResponse.statusText} - ${patchError}`,
+      );
+    }
+
+    throw new Error(
+      `Failed to apply product visibility changes: Sync: ${syncResponse.statusText} - ${syncError}`,
+    );
+  }
+
   // Fetch categories that have products by extracting them from actual products
   async fetchCategories(): Promise<Array<{ id: string; name: string; parentId: string | null }>> {
     try {
@@ -6312,9 +6973,11 @@ export class ShopwareClient {
               },
             ],
             includes: {
-              product: ['id', 'productNumber', 'name', 'manufacturerId', 'coverId'],
+              product: ['id', 'productNumber', 'name', 'manufacturerId', 'coverId', 'parentId'],
               media: ['id', 'url'],
               product_manufacturer: ['id', 'name'],
+              property_group_option: ['name', 'group'],
+              property_group: ['name'],
             },
             associations: {
               cover: {
@@ -6323,6 +6986,16 @@ export class ShopwareClient {
                 },
               },
               manufacturer: {},
+              options: {
+                associations: {
+                  group: {},
+                },
+              },
+              properties: {
+                associations: {
+                  group: {},
+                },
+              },
             },
           }),
         });
@@ -6336,8 +7009,42 @@ export class ShopwareClient {
         const data = await response.json();
         const products = data.data || [];
 
+        const includedMap = new Map<string, any>();
+        if (data.included) {
+          data.included.forEach((item: any) => {
+            includedMap.set(`${item.type}-${item.id}`, item);
+          });
+        }
+
         products.forEach((product: any) => {
           if (product.productNumber) {
+            const options = mapShopwareOptionsForVariant(product, includedMap);
+            const properties: Array<{ groupName: string; optionName: string }> = [];
+            if (Array.isArray(product.properties)) {
+              for (const prop of product.properties) {
+                const groupName = prop.group?.name || prop.groupName || "";
+                const optionName = prop.name || prop.optionName || "";
+                if (groupName && optionName) properties.push({ groupName, optionName });
+              }
+            } else if (product.relationships?.properties?.data) {
+              for (const propRef of product.relationships.properties.data) {
+                const prop = includedMap.get(`property_group_option-${propRef.id}`);
+                if (!prop) continue;
+                const optionName = prop.attributes?.name || prop.name || "";
+                let groupName = "";
+                if (prop.group?.name) groupName = prop.group.name;
+                else if (prop.relationships?.group?.data?.id) {
+                  const group = includedMap.get(`property_group-${prop.relationships.group.data.id}`);
+                  groupName = group?.attributes?.name || group?.name || "";
+                }
+                if (groupName && optionName) properties.push({ groupName, optionName });
+              }
+            }
+            for (const opt of options) {
+              if (!properties.some((p) => p.groupName === opt.group && p.optionName === opt.option)) {
+                properties.push({ groupName: opt.group, optionName: opt.option });
+              }
+            }
             productMap.set(product.productNumber, {
               id: product.id,
               productNumber: product.productNumber,
@@ -6348,6 +7055,9 @@ export class ShopwareClient {
               cover: {
                 url: product.cover?.media?.url,
               },
+              options,
+              properties,
+              parentId: product.parentId ?? null,
             });
           }
         });

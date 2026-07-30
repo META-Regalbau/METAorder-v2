@@ -52,6 +52,7 @@ export const roles = pgTable("roles", {
     manageDocuments: boolean;
     manageProducts: boolean;
     viewAccounting: boolean;
+    manageAccounting: boolean;
     viewCrm: boolean;
     manageCrm: boolean;
     approveCrm: boolean;
@@ -62,6 +63,15 @@ export const roles = pgTable("roles", {
     viewB2B: boolean;
     manageB2B: boolean;
     approveB2BBudgets: boolean;
+    viewInventory: boolean;
+    manageInventory: boolean;
+    viewPurchasing: boolean;
+    managePurchasing: boolean;
+    viewReturns: boolean;
+    manageReturns: boolean;
+    viewProduction: boolean;
+    manageProduction: boolean;
+    manageShippingLabels: boolean;
   }>(),
 });
 
@@ -307,6 +317,13 @@ export type Order = {
   isPaymentOverdue?: boolean; // Automatisch berechnet: 30 Tage nach invoiceDate + paymentStatus = open/authorized
   items: OrderItem[];
   profitability?: OrderProfitabilitySummary;
+  /** ERP-Lagerübersicht (Default-/Hauptlager) über alle Positionen mit Artikelnummer. */
+  stockSummary?: {
+    status: "ok" | "short" | "out";
+    issueCount: number;
+    lineCount: number;
+    warehouseCode?: string;
+  };
   customFields?: Record<string, any>;
   discount?: {
     amount: number; // Rabattbetrag (Brutto)
@@ -350,6 +367,13 @@ export type OrderItem = {
   marginPercent?: number | null;
   marginOnRevenuePercent?: number | null;
   crmVerdict?: OrderProfitabilityVerdict;
+  /** ERP-Lager: physischer Bestand (Summe Lagerorte). */
+  stockQuantity?: number;
+  stockReserved?: number;
+  /** ERP-Lager: verfügbar (Bestand − reserviert). */
+  stockAvailable?: number;
+  /** Vergleich verfügbar vs. Bestellmenge. */
+  stockStatus?: "ok" | "short" | "out";
 };
 
 export type OrderItemProfitabilityFields = Pick<
@@ -2762,3 +2786,6 @@ export type CpqDiscountLevelRule = typeof cpqDiscountLevelRules.$inferSelect;
 export type InsertCpqDiscountLevelRule = typeof cpqDiscountLevelRules.$inferInsert;
 export type CpqQuoteLog = typeof cpqQuoteLog.$inferSelect;
 export type InsertCpqQuoteLog = typeof cpqQuoteLog.$inferInsert;
+
+// ERP-Kernmodule (Warenwirtschaft, Einkauf, Retouren, Fibu, Produktion, Versand)
+export * from "./erpSchema";
