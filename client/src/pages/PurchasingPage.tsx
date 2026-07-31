@@ -21,6 +21,23 @@ function getCsrfToken(): string | null {
   return match ? match[1] : null;
 }
 
+function getPoStatusBadgeVariant(status: string): "secondary" | "warning" | "success" | "destructive" {
+  switch (status) {
+    case "draft":
+      return "secondary";
+    case "ordered":
+    case "partial":
+      return "warning";
+    case "received":
+    case "completed":
+      return "success";
+    case "cancelled":
+      return "destructive";
+    default:
+      return "secondary";
+  }
+}
+
 type ImportPreview = {
   mode: "apply" | "dry-run";
   totalRows: number;
@@ -316,7 +333,7 @@ export default function PurchasingPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge>{po.status}</Badge>
+                        <Badge variant={getPoStatusBadgeVariant(po.status)}>{po.status}</Badge>
                       </TableCell>
                       <TableCell className="space-x-2">
                         {po.status === "draft" ? (
@@ -646,7 +663,7 @@ export default function PurchasingPage() {
                         </TableCell>
                         <TableCell>{r.unitPrice}</TableCell>
                         <TableCell>
-                          <Badge variant={r.catalogMatch === "matched" ? "default" : "secondary"}>
+                          <Badge variant={r.catalogMatch === "matched" ? "success" : "destructive"}>
                             {r.catalogMatch === "matched"
                               ? t("erp.purchasing.priceList.matched")
                               : t("erp.purchasing.priceList.unmatched")}

@@ -431,11 +431,31 @@ export default function ShippingOpsPage() {
       .join(", ");
   }
 
-  function statusBadgeVariant(status: string): "default" | "secondary" | "outline" | "destructive" {
-    if (status === "completed") return "default";
+  function statusBadgeVariant(status: string): "success" | "warning" | "outline" | "destructive" {
+    if (status === "completed") return "success";
     if (status === "cancelled") return "destructive";
-    if (status === "open") return "secondary";
+    if (status === "open") return "warning";
     return "outline";
+  }
+
+  function labelStatusBadgeVariant(status: string): "success" | "warning" | "outline" | "destructive" | "secondary" {
+    const s = String(status || "").toLowerCase();
+    if (s === "delivered" || s.includes("print") || s.includes("active")) return "success";
+    if (s === "void" || s.includes("cancel") || s.includes("return") || s.includes("error") || s.includes("fail")) {
+      return "destructive";
+    }
+    if (
+      s === "created" ||
+      s === "in_transit" ||
+      s.includes("transit") ||
+      s.includes("delay") ||
+      s.includes("pending") ||
+      s.includes("process") ||
+      s.includes("queue")
+    ) {
+      return "warning";
+    }
+    return "secondary";
   }
 
   function openPdf(labelId: string) {
@@ -610,17 +630,10 @@ export default function ShippingOpsPage() {
                                         <Badge
                                           variant={
                                             stockStatus === "ok"
-                                              ? "secondary"
+                                              ? "success"
                                               : stockStatus === "short"
-                                                ? "outline"
+                                                ? "warning"
                                                 : "destructive"
-                                          }
-                                          className={
-                                            stockStatus === "ok"
-                                              ? "text-emerald-700 border-emerald-200"
-                                              : stockStatus === "short"
-                                                ? "text-amber-700 border-amber-300"
-                                                : undefined
                                           }
                                         >
                                           {stockStatus === "ok"
@@ -711,7 +724,7 @@ export default function ShippingOpsPage() {
                         <Badge variant="outline">{l.provider || "stub"}</Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge>{l.labelStatus}</Badge>
+                        <Badge variant={labelStatusBadgeVariant(l.labelStatus)}>{l.labelStatus}</Badge>
                       </TableCell>
                       <TableCell className="text-sm max-w-[180px]">
                         {l.carrierStatusMessage || l.carrierStatus || "—"}

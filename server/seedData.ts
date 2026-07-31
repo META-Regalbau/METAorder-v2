@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import type { IStorage } from "./storage";
 import { mergeErpPermissions } from "./erp/erpLogic";
+import { isKnownInsecureDefault } from "./secretGuard";
 
 export async function seedDatabase(storage: IStorage) {
   try {
@@ -440,9 +441,14 @@ export async function seedDatabase(storage: IStorage) {
     const existingN8NUser = await storage.getUserByUsername("n8n-service");
     if (!existingN8NUser) {
       try {
+        const allowDevSecrets = (process.env.ALLOW_DEV_SECRETS || "").trim().toLowerCase() === "true";
         if (!process.env.N8N_SERVICE_PASSWORD) {
           console.warn("WARNING: N8N_SERVICE_PASSWORD not set — skipping n8n-service account creation");
           console.warn("Set N8N_SERVICE_PASSWORD to enable the n8n integration account");
+        } else if (isKnownInsecureDefault(process.env.N8N_SERVICE_PASSWORD) && !allowDevSecrets) {
+          console.warn(
+            "[SECURITY] N8N_SERVICE_PASSWORD ist auf einen bekannten, in docker-compose.yml öffentlich sichtbaren Default-Wert gesetzt — n8n-service-Konto wird NICHT angelegt. Eigenes Passwort setzen (oder ALLOW_DEV_SECRETS=true für lokale Entwicklung)."
+          );
         } else {
           console.log("Creating n8n-service user...");
           const hashedPassword = await bcrypt.hash(process.env.N8N_SERVICE_PASSWORD, 10);

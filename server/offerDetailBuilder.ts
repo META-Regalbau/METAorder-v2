@@ -26,6 +26,14 @@ export type OfferDetailLineItem = {
   configurationDescription?: string | null;
   coverImageUrl?: string | null;
   children?: OfferDetailLineItemChild[];
+  /** Rohe CPQ ConfigContext (field_count/height/depth/width/level_count/...) fürs
+   *  interaktive 3D+AR-Modell auf der öffentlichen Angebotsseite — nicht die
+   *  Stückliste (die kommt über `children`), sondern die Maße zum Nachbauen. */
+  cpqConfig?: Record<string, unknown> | null;
+  /** true = synthetischer Gruppen-Kopf ("Überpunkt") einer Konfiguration; kein
+   *  echtes Shopware-Lineitem, sondern Name/Beschreibung + `children` als
+   *  vollständige Stückliste (inkl. der Position, die die Konfiguration trug). */
+  isConfigurationGroup?: boolean;
 };
 
 export type OfferDetailJson = {
@@ -90,11 +98,25 @@ export async function buildOfferDetailJson(
     }
   }
 
+  // Komponenten, die bereits als eigene, separat bepreiste Top-Level-Position im
+  // Angebot stehen (z.B. bei CPQ-Angeboten, wo jede Stücklisten-Zeile ein echtes
+  // Shopware-Lineitem ist) sollen nicht zusätzlich als (unbepreiste) "children"
+  // unter der eingebetteten metaCalcConfigurationPayload auftauchen — sonst
+  // erscheint jede Position doppelt (einmal echt, einmal informativ verschachtelt).
+  const lineItemIndexByProductId = new Map<string, number>();
+  allItems.forEach((item, idx) => {
+    const linePid = item.productId || item.payload?.productId;
+    if (linePid) lineItemIndexByProductId.set(String(linePid), idx);
+  });
+  const topLevelProductIds = new Set(lineItemIndexByProductId.keys());
+
   const lineItems: OfferDetailLineItem[] = allItems.map((item: any) => {
     const mcp = item.payload?.metaCalcConfigurationPayload;
     const rawPartsList = mcp?.partsList || [];
     const rawAccessoryList = mcp?.accessoryList || [];
-    const bomEntries = [...rawPartsList, ...rawAccessoryList];
+    const bomEntries = [...rawPartsList, ...rawAccessoryList].filter(
+      (part: any) => !part.productId || !topLevelProductIds.has(String(part.productId))
+    );
 
     const children = bomEntries.map((part: any) => {
       const pid = part.productId ? String(part.productId) : "";
@@ -132,18 +154,64 @@ export async function buildOfferDetailJson(
     };
   });
 
-  const hasStructuredBom = lineItems.some((li) => (li.children?.length ?? 0) > 0);
-  if (!hasStructuredBom) {
-    const draft = await storage.getOfferDraftByShopwareOfferId(offerId, tenantId ?? null);
-    const rawCpq = draft?.extractedData && (draft.extractedData as { cpqSource?: unknown }).cpqSource;
-    const cpq =
-      rawCpq && typeof rawCpq === "object"
-        ? (rawCpq as CpqSourceSnapshot)
-        : undefined;
-    const bom = cpq?.billOfMaterials?.items;
-    if (bom?.length) {
+  const draft = await storage.getOfferDraftByShopwareOfferId(offerId, tenantId ?? null);
+  const rawCpq = draft?.extractedData && (draft.extractedData as { cpqSource?: unknown }).cpqSource;
+  const cpq =
+    rawCpq && typeof rawCpq === "object" ? (rawCpq as CpqSourceSnapshot) : undefined;
+
+  const firstIdx = allItems.findIndex((item) => !isOfferShippingLineItem(item));
+  const carrierProductId =
+    firstIdx >= 0 ? String(allItems[firstIdx].productId || allItems[firstIdx].payload?.productId || "") : "";
+  // Indizes real existierender Top-Level-Positionen, die weiter unten in die
+  // Stückliste der Konfiguration gefaltet werden und daher aus der flachen
+  // Liste entfernt werden (sonst erscheinen sie doppelt: einmal echt bepreist,
+  // einmal informativ verschachtelt).
+  const indicesFoldedIntoConfig = new Set<number>();
+
+  const bomForFallback = cpq?.billOfMaterials?.items;
+  // Zeilen der Stückliste ohne die "Trägerposition" selbst (die wird weiter unten
+  // beim Umbau zum Konfigurations-Kopf automatisch zur ersten Stückliste-Zeile).
+  const bomOthers = (bomForFallback || []).filter(
+    (row) => !row.productId || String(row.productId) !== carrierProductId
+  );
+  // Wenn jede übrige Stücklisten-Zeile aus dem CPQ-Snapshot bereits eine eigene,
+  // echte Top-Level-Position im Angebot ist (typischer CPQ-Fall: jede Komponente
+  // wurde separat bepreist ins Angebot übernommen), werden diese Positionen mit
+  // ihren echten Preisen in die Stückliste gefaltet statt informativ dupliziert.
+  const bomAlreadyTopLevel =
+    bomOthers.length > 0 && bomOthers.every((row) => !row.productId || topLevelProductIds.has(String(row.productId)));
+
+  if (firstIdx >= 0 && firstIdx < lineItems.length && bomForFallback?.length) {
+    if (bomAlreadyTopLevel) {
+      const children: OfferDetailLineItemChild[] = [];
+      for (const row of bomOthers) {
+        const pid = row.productId ? String(row.productId) : "";
+        const idx = pid ? lineItemIndexByProductId.get(pid) : undefined;
+        if (idx === undefined) continue;
+        const li = lineItems[idx]!;
+        children.push({
+          id: li.id,
+          label: li.label,
+          quantity: li.quantity,
+          unitPrice: li.unitPrice,
+          totalPrice: li.totalPrice,
+          productNumber: li.productNumber,
+          coverImageUrl: li.coverImageUrl,
+        });
+        indicesFoldedIntoConfig.add(idx);
+      }
+      const prev = lineItems[firstIdx]!;
+      lineItems[firstIdx] = {
+        ...prev,
+        configurationName: prev.configurationName || "CPQ Regalkonfiguration",
+        configurationDescription:
+          prev.configurationDescription || "Stückliste aus dem CPQ-Konfigurator.",
+        children,
+        cpqConfig: cpq?.config ?? null,
+      };
+    } else {
       let needFetch = false;
-      for (const row of bom) {
+      for (const row of bomOthers) {
         if (row.productId && !productLookup.has(String(row.productId))) {
           bomProductIds.add(String(row.productId));
           needFetch = true;
@@ -159,32 +227,81 @@ export async function buildOfferDetailJson(
         }
       }
 
-      const firstIdx = allItems.findIndex((item) => !isOfferShippingLineItem(item));
-      if (firstIdx >= 0 && firstIdx < lineItems.length) {
-        const children: OfferDetailLineItemChild[] = bom.map((row) => {
-          const pid = String(row.productId);
-          const resolved = productLookup.get(pid);
-          return {
-            id: pid,
-            label: resolved?.name || row.name || row.productNumber || "Position",
-            quantity: row.quantity || 0,
-            unitPrice: 0,
-            totalPrice: 0,
-            productNumber: resolved?.productNumber ?? row.productNumber ?? null,
-            coverImageUrl: resolved?.coverImageUrl ?? null,
-          };
-        });
-        const prev = lineItems[firstIdx]!;
-        lineItems[firstIdx] = {
-          ...prev,
-          configurationName: prev.configurationName || "CPQ Regalkonfiguration",
-          configurationDescription:
-            prev.configurationDescription || "Stückliste aus dem CPQ-Konfigurator.",
-          children,
+      const children: OfferDetailLineItemChild[] = bomOthers.map((row) => {
+        const pid = String(row.productId);
+        const resolved = productLookup.get(pid);
+        return {
+          id: pid,
+          label: resolved?.name || row.name || row.productNumber || "Position",
+          quantity: row.quantity || 0,
+          unitPrice: 0,
+          totalPrice: 0,
+          productNumber: resolved?.productNumber ?? row.productNumber ?? null,
+          coverImageUrl: resolved?.coverImageUrl ?? null,
         };
-      }
+      });
+      const prev = lineItems[firstIdx]!;
+      lineItems[firstIdx] = {
+        ...prev,
+        configurationName: prev.configurationName || "CPQ Regalkonfiguration",
+        configurationDescription:
+          prev.configurationDescription || "Stückliste aus dem CPQ-Konfigurator.",
+        children,
+        cpqConfig: cpq?.config ?? null,
+      };
     }
+  } else if (firstIdx >= 0 && firstIdx < lineItems.length && cpq?.config) {
+    // Bereits konvertiertes Angebot ohne (neue) Stücklisten-Info: Shopware liefert
+    // die Stückliste ggf. schon selbst über metaCalcConfigurationPayload, aber
+    // nicht die rohe ConfigContext für den 3D+AR-Viewer — die kommt nur aus dem
+    // Draft-Snapshot.
+    lineItems[firstIdx] = { ...lineItems[firstIdx]!, cpqConfig: cpq.config };
   }
+
+  // Jede Position, die eine "Konfiguration" trägt (Name/Beschreibung/3D-Config/
+  // Stückliste), wird zu einem Überpunkt: die Trägerposition selbst wird zur
+  // ersten Stückliste-Zeile (mit ihrem echten Preis), der Überpunkt zeigt nur
+  // noch Name + Beschreibung + Gesamtsumme der Stückliste.
+  const finalLineItems: OfferDetailLineItem[] = [];
+  lineItems.forEach((li, idx) => {
+    if (indicesFoldedIntoConfig.has(idx)) return; // bereits in eine Stückliste gefaltet
+    const isConfiguration = !!(
+      li.configurationName ||
+      li.configurationDescription ||
+      li.cpqConfig ||
+      (li.children && li.children.length > 0)
+    );
+    if (!isConfiguration) {
+      finalLineItems.push(li);
+      return;
+    }
+    const selfChild: OfferDetailLineItemChild = {
+      id: li.id,
+      label: li.label,
+      quantity: li.quantity,
+      unitPrice: li.unitPrice,
+      totalPrice: li.totalPrice,
+      productNumber: li.productNumber,
+      coverImageUrl: li.coverImageUrl,
+    };
+    const children = [selfChild, ...(li.children || [])];
+    const totalPrice = children.reduce((sum, c) => sum + (c.totalPrice || 0), 0);
+    finalLineItems.push({
+      id: `${li.id}__config`,
+      label: li.configurationName || "Konfiguration",
+      quantity: 1,
+      unitPrice: totalPrice,
+      totalPrice,
+      taxRate: li.taxRate,
+      productNumber: null,
+      configurationName: li.configurationName || null,
+      configurationDescription: li.configurationDescription || null,
+      coverImageUrl: li.coverImageUrl,
+      cpqConfig: li.cpqConfig,
+      isConfigurationGroup: true,
+      children,
+    });
+  });
 
   return {
     id: mapped.id,
@@ -202,6 +319,6 @@ export async function buildOfferDetailJson(
     expirationDate: mapped.offerExpiration || null,
     salesChannelId: mapped.salesChannelId || null,
     salesChannelName: mapped.salesChannelName || null,
-    lineItems,
+    lineItems: finalLineItems,
   };
 }

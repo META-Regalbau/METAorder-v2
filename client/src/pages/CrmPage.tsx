@@ -410,7 +410,7 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
                               <span className="font-medium">{customer.name}</span>
                               {hasIndividualPrice(customer) && (
                                 <Badge
-                                  className="bg-green-600 hover:bg-green-600"
+                                  variant="secondary"
                                   title={
                                     channelsForCustomer(customer).length > 0
                                       ? channelsForCustomer(customer).join(", ")
@@ -424,7 +424,7 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
                                 </Badge>
                               )}
                               {isPossibleExisting(customer.company) && (
-                                <Badge variant="outline" className="border-amber-500 text-amber-700 dark:text-amber-400">
+                                <Badge variant="warning">
                                   {getPossibleExistingNumber(customer.company)
                                     ? t("crm.customers.possibleExistingBadgeWithNumber", {
                                         number: getPossibleExistingNumber(customer.company),
@@ -529,7 +529,7 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
                           <TableCell className="font-mono">{assignment.orderNumber}</TableCell>
                           <TableCell>{assignment.assignedToUserName || "—"}</TableCell>
                           <TableCell>
-                            <Badge variant={assignment.status === "approved" ? "default" : assignment.status === "rejected" ? "destructive" : "outline"}>
+                            <Badge variant={assignment.status === "approved" ? "success" : assignment.status === "rejected" ? "destructive" : "warning"}>
                               {t(`crm.assignments.status.${assignment.status}`)}
                             </Badge>
                           </TableCell>
@@ -607,7 +607,7 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
                               : `€${Number(request.discountValue).toFixed(2)}`}
                           </TableCell>
                           <TableCell>
-                            <Badge variant={request.status === "approved" ? "default" : request.status === "rejected" ? "destructive" : "outline"}>
+                            <Badge variant={request.status === "approved" ? "success" : request.status === "rejected" ? "destructive" : "warning"}>
                               {t(`crm.discounts.status.${request.status}`)}
                             </Badge>
                           </TableCell>

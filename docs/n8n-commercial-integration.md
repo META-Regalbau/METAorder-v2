@@ -27,12 +27,13 @@ Details und Docker: [`docker.md`](docker.md).
    - Auth: JWT **oder** Integrations-Key (siehe oben).  
    - Antwort u. a.: **`draft`**, **`draftKind`**: `"offer"` | `"order"`, Intent-Metadaten, optional **`strictAutoCreate`** (Ergebnis der Strikt-Regel).
 
-2. Optional: Entwurf in der UI oder per **`PATCH`** auf die jeweiligen Draft-Routen anpassen (wie in der allgemeinen API-Doku).
+2. Optional: Entwurf in der UI oder per **`PATCH`** auf die jeweiligen Draft-Routen anpassen (wie in der allgemeinen API-Doku). Auch diese `PATCH`-Routen akzeptieren **`requireAuthOrIntegrationKey`** (JWT oder Integrations-Key).
 
 3. Finalisierung in Shopware:  
    - Angebot: **`POST /api/offer-drafts/:id/create-offer`** (Body optional `sales_channel_id`).  
    - Bestellung: **`POST /api/order-drafts/:id/create-order`**.  
    - Beide Endpunkte: **`requireAuthOrIntegrationKey`** (JWT oder Integrations-Key).
+   - **Wichtig:** Ein frischer Entwurf steht auf Status `pending` — beide Endpunkte lehnen das mit `400 "Please approve it first"` ab. Erst per `PATCH .../:id` mit `{"status": "approved"}` freigeben (die Review-Modal-UI macht das beim Klick auf "Angebot/Bestellung erstellen" automatisch mit), dann `create-offer`/`create-order` aufrufen. Siehe [`n8n-commercial-workflow.example.json`](n8n-commercial-workflow.example.json) für den vollständigen Ablauf.
 
 **Hinweise**
 

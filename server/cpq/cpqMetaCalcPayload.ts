@@ -18,6 +18,8 @@ export type CpqSourceSnapshot = {
   systemName?: string | null;
   config?: Record<string, unknown> | null;
   cpqConfigurationId?: string | null;
+  /** data:image/png;base64,... — Regal-Komposit (Perspektive + Vorderansicht/Draufsicht), fürs Angebots-PDF. */
+  previewImageBase64?: string | null;
   billOfMaterials?: {
     items: CpqBomItemSnapshot[];
     totalPrice?: number;
@@ -31,7 +33,10 @@ function isAccessoryComponentType(componentType: string | undefined): boolean {
 }
 
 /** MetaCalc-kompatible Teil-Stückliste (productId Pflicht für Auflösung im PDF). */
-export function buildMetaCalcConfigurationPayloadFromCpqBom(items: CpqBomItemSnapshot[]): {
+export function buildMetaCalcConfigurationPayloadFromCpqBom(
+  items: CpqBomItemSnapshot[],
+  previewImageBase64?: string | null
+): {
   metaCalcConfigurationName: string;
   metaCalcConfigurationPayload: {
     metaCalcConfigurationName: string;
@@ -68,7 +73,7 @@ export function buildMetaCalcConfigurationPayloadFromCpqBom(items: CpqBomItemSna
       metaCalcConfigurationName,
       description:
         "Konfiguration aus dem META Order CPQ-Konfigurator (Stückliste siehe unten).",
-      image: null,
+      image: previewImageBase64 ?? null,
       installationTime: 0,
       installationTimeMinutes: 0,
       partsList,
@@ -83,7 +88,7 @@ export function buildMetaCalcConfigurationPayloadFromCpqBom(items: CpqBomItemSna
 export function buildShopwareLinePayloadFromCpqSource(cpq: CpqSourceSnapshot): Record<string, unknown> {
   const items = cpq.billOfMaterials?.items ?? [];
   const { metaCalcConfigurationName, metaCalcConfigurationPayload } =
-    buildMetaCalcConfigurationPayloadFromCpqBom(items);
+    buildMetaCalcConfigurationPayloadFromCpqBom(items, cpq.previewImageBase64);
 
   const lines: string[] = [];
   if (cpq.systemName) lines.push(`System: ${cpq.systemName}`);

@@ -538,36 +538,60 @@ export async function processCommercialDocumentFromEmail(
         minCust: minCustOrder,
         messageId,
       });
-    } else {
-    const result = await executeCreateOrderFromDraft(storage, draftId, { tenantId: tenantId ?? null });
-    if (result.ok) {
-      logAudit({
-        event: "auto_order_created",
-        draftId,
-        orderId: result.orderId,
-        messageId,
+    } else if (draftOrder?.shopwareCustomerId) {
+      const channelResult = await resolveOfferSalesChannelId(storage, {
+        tenantId: tenantId ?? null,
+        allowedChannelIds: null,
       });
-      emitCommercialAutoOrderCreated({
-        draftId,
-        orderId: result.orderId,
-        messageId,
-      });
-      if (ticketId) {
-        await addTicketNote(
-          storage,
-          ticketId,
-          systemUserId,
-          `[Commercial Agent] Bestellung automatisch in Shopware ausgelöst: ${result.orderId}. Entwurf ${draftId}.`
-        );
+      if (!channelResult.ok) {
+        logAudit({
+          event: "auto_order_skipped",
+          draftId,
+          reason: "missing_sales_channel_id",
+          error: channelResult.error,
+          messageId,
+        });
+      } else {
+        const result = await executeCreateOrderFromDraft(storage, draftId, {
+          salesChannelId: channelResult.salesChannelId,
+          tenantId: tenantId ?? null,
+        });
+        if (result.ok) {
+          logAudit({
+            event: "auto_order_created",
+            draftId,
+            orderId: result.orderId,
+            messageId,
+          });
+          emitCommercialAutoOrderCreated({
+            draftId,
+            orderId: result.orderId,
+            messageId,
+          });
+          if (ticketId) {
+            await addTicketNote(
+              storage,
+              ticketId,
+              systemUserId,
+              `[Commercial Agent] Bestellung automatisch in Shopware ausgelöst: ${result.orderId}. Entwurf ${draftId}.`
+            );
+          }
+        } else {
+          logAudit({
+            event: "auto_order_failed",
+            draftId,
+            error: result.error,
+            messageId,
+          });
+        }
       }
     } else {
       logAudit({
-        event: "auto_order_failed",
+        event: "auto_order_skipped",
         draftId,
-        error: result.error,
+        reason: "missing_customer",
         messageId,
       });
-    }
     }
   }
 

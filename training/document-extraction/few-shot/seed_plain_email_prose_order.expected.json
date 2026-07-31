@@ -1,0 +1,81 @@
+{
+  "document": {
+    "type": "purchase_order",
+    "number": null,
+    "date": null,
+    "delivery_date": null,
+    "currency": "EUR",
+    "total_net": null,
+    "language": "de",
+    "recipient_is_meta": false
+  },
+  "buyer": {
+    "company": "Baumarkt Lang GmbH",
+    "street": "Industriering 8",
+    "zip": "45127",
+    "city": "Essen",
+    "country": "DE",
+    "vat_id": null,
+    "customer_number": null,
+    "contact_person": "Petra Lang",
+    "email": "p.lang@baumarkt-lang.de",
+    "phone": "0201 555123"
+  },
+  "delivery_address": {
+    "same_as_buyer": true,
+    "company": null,
+    "street": null,
+    "zip": null,
+    "city": null,
+    "country": null,
+    "delivery_window": null
+  },
+  "terms": {
+    "incoterms": null,
+    "payment": null,
+    "partial_delivery_allowed": null,
+    "notes": null
+  },
+  "line_items": [
+    {
+      "position": 1,
+      "quantity": 3,
+      "unit": "Stück",
+      "supplier_sku": "4026212072482",
+      "buyer_sku": null,
+      "description": "META CLIP Staenderrahmen",
+      "attributes": {
+        "color": null,
+        "surface": null,
+        "dimensions_raw": null,
+        "system": "META CLIP"
+      },
+      "unit_price_net": null,
+      "line_total_net": null,
+      "confidence_warnings": []
+    },
+    {
+      "position": 2,
+      "quantity": 6,
+      "unit": "Stück",
+      "supplier_sku": "4026212264821",
+      "buyer_sku": null,
+      "description": "META CLIP Fachboden",
+      "attributes": {
+        "color": null,
+        "surface": null,
+        "dimensions_raw": null,
+        "system": "META CLIP"
+      },
+      "unit_price_net": null,
+      "line_total_net": null,
+      "confidence_warnings": []
+    }
+  ],
+  "extraction_meta": {
+    "overall_confidence": "high",
+    "warnings": [],
+    "calculated_total_net": null,
+    "total_matches_calculated": null
+  }
+}

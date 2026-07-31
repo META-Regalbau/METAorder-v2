@@ -1,6 +1,4 @@
 import { useTranslation } from "react-i18next";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Ticket, Package, TrendingUp, Truck } from "lucide-react";
 import { Link } from "wouter";
 import type { Role } from "@shared/schema";
@@ -50,26 +48,30 @@ export default function QuickActionsWidget({ userPermissions }: QuickActionsWidg
   }
 
   return (
-    <Card data-testid="widget-quick-actions">
-      <CardHeader>
-        <CardTitle>{t("dashboard.quickActions")}</CardTitle>
-        <CardDescription>{t("dashboard.quickActionsDescription")}</CardDescription>
-      </CardHeader>
-      <CardContent>
+    <div className="mcard" data-testid="widget-quick-actions">
+      <div className="mcard-head">
+        <div>
+          <h3 className="mcard-title">{t("dashboard.quickActions")}</h3>
+          <p className="mcard-desc">{t("dashboard.quickActionsDescription")}</p>
+        </div>
+      </div>
+      <div className="mcard-body">
         <div className="flex flex-wrap gap-2">
           {visibleActions.map((action) => {
             const Icon = action.icon;
             return (
-              <Link key={action.href} href={action.href}>
-                <Button variant={action.variant} size="sm" className="gap-2">
-                  <Icon className="h-4 w-4" />
-                  {action.label}
-                </Button>
+              <Link
+                key={action.href}
+                href={action.href}
+                className={action.variant === "default" ? "mbtn primary" : "mbtn"}
+              >
+                <Icon className="h-4 w-4" />
+                {action.label}
               </Link>
             );
           })}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

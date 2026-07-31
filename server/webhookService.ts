@@ -3,6 +3,7 @@ import type { WebhookEventType, InsertWebhookLog } from "@shared/schema";
 import { storage } from "./storage";
 import crypto from "crypto";
 import { getTenantIdFromContext } from "./tenantContext";
+import { validateHttpsUrlForOutboundFetch } from "./safeOutboundUrl";
 
 // Webhook payload types for different events
 export type TicketCreatedPayload = {
@@ -175,46 +176,14 @@ class WebhookService {
   /**
    * Validate webhook URL to prevent SSRF attacks
    */
+  /**
+   * Delegiert an die gemeinsame SSRF-Prüfung (server/safeOutboundUrl.ts) statt einer
+   * eigenen, schwächeren Kopie — deckt u. a. das volle 127.0.0.0/8, IPv6-Literale und
+   * Credentials-in-URL ab, die hier vorher fehlten.
+   */
   private validateWebhookUrl(url: string): { valid: boolean; error?: string } {
-    try {
-      const parsed = new URL(url);
-
-      // Only allow HTTPS
-      if (parsed.protocol !== "https:") {
-        return { valid: false, error: "Only HTTPS URLs are allowed" };
-      }
-
-      // Block localhost
-      if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
-        return { valid: false, error: "Localhost URLs are not allowed" };
-      }
-
-      // Block private IP ranges (10.x.x.x, 172.16-31.x.x, 192.168.x.x, 169.254.x.x)
-      const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
-      const match = parsed.hostname.match(ipv4Regex);
-      if (match) {
-        const [, a, b] = match;
-        const first = parseInt(a);
-        const second = parseInt(b);
-
-        if (first === 10) {
-          return { valid: false, error: "Private IP range (10.x.x.x) not allowed" };
-        }
-        if (first === 172 && second >= 16 && second <= 31) {
-          return { valid: false, error: "Private IP range (172.16-31.x.x) not allowed" };
-        }
-        if (first === 192 && second === 168) {
-          return { valid: false, error: "Private IP range (192.168.x.x) not allowed" };
-        }
-        if (first === 169 && second === 254) {
-          return { valid: false, error: "Link-local IP range (169.254.x.x) not allowed" };
-        }
-      }
-
-      return { valid: true };
-    } catch (error) {
-      return { valid: false, error: "Invalid URL format" };
-    }
+    const result = validateHttpsUrlForOutboundFetch(url);
+    return result.ok ? { valid: true } : { valid: false, error: result.error };
   }
 
   /**
@@ -424,7 +393,19 @@ class WebhookService {
         headers,
         body: JSON.stringify(payload),
         signal: controller.signal,
+        // Redirects manuell behandeln statt automatisch zu folgen: sonst könnte eine
+        // zunächst gültige, öffentliche URL zur Laufzeit auf eine interne/private
+        // Adresse umleiten und die SSRF-Prüfung von validateWebhookUrl umgehen.
+        redirect: "manual",
       });
+
+      if (response.type === "opaqueredirect" || (response.status >= 300 && response.status < 400)) {
+        throw {
+          status: response.status || null,
+          message: "Redirects are not followed for webhook delivery (SSRF protection)",
+          body: null,
+        };
+      }
 
       const body = await response.text().catch(() => null);
 
@@ -503,6 +484,16 @@ class WebhookService {
       return {
         success: false,
         message: "No URL provided",
+      };
+    }
+
+    // Auch beim Test-Versand prüfen — sonst kann jeder mit Einstellungsrechten den
+    // Server zwingen, beliebige interne/private Adressen anzufragen (SSRF).
+    const urlValidation = this.validateWebhookUrl(targetUrl);
+    if (!urlValidation.valid) {
+      return {
+        success: false,
+        message: urlValidation.error || "Invalid webhook URL",
       };
     }
 

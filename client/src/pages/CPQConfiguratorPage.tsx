@@ -255,9 +255,19 @@ export default function CPQConfiguratorPage() {
   });
   const offerMut = useMutation({
     mutationFn: async () => {
+      // Best-effort: a PDF without the image is still useful, so a capture
+      // failure (e.g. WebGL context lost) must not block saving the offer.
+      let previewImageBase64: string | null = null;
+      try {
+        const { captureRegalCompositeImage } = await import("./metaClip/captureRegalImage");
+        previewImageBase64 = await captureRegalCompositeImage(state);
+      } catch (e) {
+        console.warn("[CPQ] Regal-Vorschaubild konnte nicht erzeugt werden:", e);
+      }
       const res = await apiRequest("POST", "/api/offer-drafts/from-cpq", {
         systemId, systemName: system?.name ?? "META CLIP",
         config,
+        previewImageBase64,
         billOfMaterials: {
           items: (bom?.items ?? []).map((i) => ({
             productId: i.productId, productNumber: i.productNumber, name: i.name,

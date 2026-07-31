@@ -34,6 +34,20 @@ const emptyBomForm = () => ({
   lines: [{ productNumber: "", quantity: 1 }] as BomLineForm[],
 });
 
+function getProductionOrderStatusBadgeVariant(status: string): "secondary" | "warning" | "success" {
+  switch (status) {
+    case "planned":
+      return "secondary";
+    case "released":
+    case "in_progress":
+      return "warning";
+    case "completed":
+      return "success";
+    default:
+      return "secondary";
+  }
+}
+
 export default function ProductionPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -338,7 +352,7 @@ export default function ProductionPage() {
                         </TableCell>
                         <TableCell>{o.quantity}</TableCell>
                         <TableCell>
-                          <Badge>{o.status}</Badge>
+                          <Badge variant={getProductionOrderStatusBadgeVariant(o.status)}>{o.status}</Badge>
                         </TableCell>
                         <TableCell>
                           {next ? (
@@ -398,7 +412,7 @@ export default function ProductionPage() {
                       <TableCell>{b.name || "—"}</TableCell>
                       <TableCell>{b.lineCount ?? 0}</TableCell>
                       <TableCell>
-                        <Badge variant={b.active ? "default" : "secondary"}>
+                        <Badge variant={b.active ? "success" : "secondary"}>
                           {b.active ? t("erp.production.bom.active") : t("erp.production.bom.inactive")}
                         </Badge>
                       </TableCell>

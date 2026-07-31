@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import { assertSecureSecret } from "./secretGuard";
 
 export type CustomerJWTPayload = {
   customerId?: string;
@@ -10,10 +11,11 @@ export type CustomerRequest = {
   customer?: CustomerJWTPayload;
 };
 
-const CUSTOMER_JWT_SECRET =
-  process.env.CUSTOMER_JWT_SECRET ||
-  process.env.SESSION_SECRET ||
-  "dev-customer-jwt-secret-change-in-production";
+const CUSTOMER_JWT_SECRET_RAW = process.env.CUSTOMER_JWT_SECRET || process.env.SESSION_SECRET;
+if (!CUSTOMER_JWT_SECRET_RAW) {
+  throw new Error("CUSTOMER_JWT_SECRET is required. Refusing to start without a secure secret.");
+}
+const CUSTOMER_JWT_SECRET = assertSecureSecret("CUSTOMER_JWT_SECRET", CUSTOMER_JWT_SECRET_RAW);
 
 const CUSTOMER_JWT_ISSUER = process.env.CUSTOMER_JWT_ISSUER;
 const CUSTOMER_JWT_AUDIENCE = process.env.CUSTOMER_JWT_AUDIENCE;

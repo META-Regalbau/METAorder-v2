@@ -1,8 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { ShoppingCart } from "lucide-react";
 import { Link } from "wouter";
 import type { Order } from "@shared/schema";
@@ -19,14 +16,14 @@ export default function RecentOrdersWidget() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "open":
-        return "default";
+        return "b-default";
       case "in_progress":
-        return "default";
+        return "b-default";
       case "completed":
       case "cancelled":
-        return "secondary";
+        return "b-outline";
       default:
-        return "secondary";
+        return "b-outline";
     }
   };
 
@@ -34,52 +31,48 @@ export default function RecentOrdersWidget() {
     new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(amount);
 
   return (
-    <Card data-testid="widget-recent-orders">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ShoppingCart className="h-5 w-5 text-muted-foreground" />
-            <CardTitle>{t("dashboard.recentOrders")}</CardTitle>
+    <div className="mcard" data-testid="widget-recent-orders">
+      <div className="mcard-head">
+        <div className="mcard-head-left">
+          <ShoppingCart className="h-5 w-5" />
+          <div>
+            <h3 className="mcard-title">{t("dashboard.recentOrders")}</h3>
+            <p className="mcard-desc">{t("dashboard.recentOrdersDescription")}</p>
           </div>
-          <Link href="/orders">
-            <Button variant="ghost" size="sm" data-testid="button-view-all-orders">
-              {t("common.viewAll")}
-            </Button>
-          </Link>
         </div>
-        <CardDescription>{t("dashboard.recentOrdersDescription")}</CardDescription>
-      </CardHeader>
-      <CardContent>
+        <Link href="/orders" className="mbtn ghost sm" data-testid="button-view-all-orders">
+          {t("common.viewAll")}
+        </Link>
+      </div>
+      <div className="mcard-body">
         {isLoading ? (
-          <div className="text-sm text-muted-foreground">{t("common.loading")}</div>
+          <div className="mloading">{t("common.loading")}</div>
         ) : orders.length === 0 ? (
-          <div className="text-sm text-muted-foreground">{t("dashboard.noOrders")}</div>
+          <div className="mempty">{t("dashboard.noOrders")}</div>
         ) : (
-          <div className="space-y-3">
+          <div className="mlist">
             {orders.slice(0, 5).map((order) => (
-              <div
-                key={order.id}
-                className="flex items-center justify-between p-3 border rounded-md"
-                data-testid={`order-item-${order.id}`}
-              >
-                <div className="space-y-1 flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm">{order.orderNumber}</span>
-                    <Badge variant={getStatusColor(order.status)} className="text-xs">
+              <div className="mrow" key={order.id} data-testid={`order-item-${order.id}`}>
+                <div className="mrow-main">
+                  <div className="mrow-title">
+                    {order.orderNumber}
+                    <span className={`mbadge ${getStatusColor(order.status)}`}>
                       {t(`orderStatus.${order.status}`)}
-                    </Badge>
+                    </span>
                   </div>
-                  <div className="text-xs text-muted-foreground truncate">{order.customerName}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {format(new Date(order.orderDate), "dd.MM.yyyy HH:mm")}
+                  <div className="mrow-meta">
+                    <span>{order.customerName}</span>
+                    <span>{format(new Date(order.orderDate), "dd.MM.yyyy HH:mm")}</span>
                   </div>
                 </div>
-                <div className="text-sm font-medium">{formatCurrency(order.totalAmount)}</div>
+                <div className="mrow-side">
+                  <div className="amt">{formatCurrency(order.totalAmount)}</div>
+                </div>
               </div>
             ))}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

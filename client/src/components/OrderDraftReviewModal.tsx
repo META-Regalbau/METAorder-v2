@@ -241,6 +241,20 @@ export function OrderDraftReviewModal({
   const [showUnclearInMainTable, setShowUnclearInMainTable] = useState(false);
   const [clarificationEmailOpen, setClarificationEmailOpen] = useState(false);
   const [useSeparateShipping, setUseSeparateShipping] = useState(false);
+  const [customerSearchTerm, setCustomerSearchTerm] = useState("");
+  const [debouncedCustomerSearch, setDebouncedCustomerSearch] = useState("");
+  const [productSearchTerm, setProductSearchTerm] = useState("");
+  const [debouncedProductSearch, setDebouncedProductSearch] = useState("");
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedCustomerSearch(customerSearchTerm), 300);
+    return () => clearTimeout(t);
+  }, [customerSearchTerm]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedProductSearch(productSearchTerm), 300);
+    return () => clearTimeout(t);
+  }, [productSearchTerm]);
 
   // Reset editedData whenever draft.id changes to prevent stale data
   useEffect(() => {
@@ -317,12 +331,14 @@ export function OrderDraftReviewModal({
 
   const createOrderMutation = useMutation({
     mutationFn: async () => {
-      if (mergedMatchingResults) {
-        await apiRequest("PATCH", `/api/order-drafts/${draft.id}`, {
-          extractedData: editedData,
-          matchingResults: mergedMatchingResults,
-        });
-      }
+      // "Bestellung erstellen" ist die Freigabe-Handlung: ein frischer Entwurf steht
+      // auf "pending", das Backend lehnt create-order dafür ab ("Please approve it
+      // first"). Hier gleich mit approven, damit der Klick nicht ins Leere läuft.
+      await apiRequest("PATCH", `/api/order-drafts/${draft.id}`, {
+        extractedData: editedData,
+        matchingResults: mergedMatchingResults ?? draft.matchingResults,
+        status: draft.status === "pending" ? "approved" : undefined,
+      });
       const response = await apiRequest("POST", `/api/order-drafts/${draft.id}/create-order`);
       return await response.json();
     },
@@ -342,6 +358,61 @@ export function OrderDraftReviewModal({
         variant: "destructive",
       });
     },
+  });
+
+  type ShopwareCustomer = { id: string; email?: string; firstName?: string; lastName?: string; company?: string };
+  const { data: customerSearchData } = useQuery<{ customers: ShopwareCustomer[] }>({
+    queryKey: ["/api/order-drafts/customer-search", debouncedCustomerSearch],
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/order-drafts/customer-search?q=${encodeURIComponent(debouncedCustomerSearch)}&limit=20`,
+        { credentials: "include" }
+      );
+      if (!res.ok) throw new Error("Kundensuche fehlgeschlagen");
+      return res.json();
+    },
+    enabled: open && debouncedCustomerSearch.length >= 2,
+  });
+  const customerSearchResults = customerSearchData?.customers ?? [];
+
+  const assignCustomerMutation = useMutation({
+    mutationFn: async (customer: ShopwareCustomer) => {
+      const nextData = {
+        ...(draft.extractedData || {}),
+        customer: {
+          firstName: customer.firstName,
+          lastName: customer.lastName,
+          email: customer.email,
+          company: customer.company,
+        },
+      };
+      await apiRequest("PATCH", `/api/order-drafts/${draft.id}`, {
+        shopwareCustomerId: customer.id,
+        extractedData: nextData,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/order-drafts"] });
+      onUpdate();
+      setCustomerSearchTerm("");
+      setDebouncedCustomerSearch("");
+      toast({ title: t("orderDrafts.review.customerAssigned", "Kunde zugeordnet") });
+    },
+    onError: (e: Error) => toast({ title: t("common.error", "Fehler"), description: e.message, variant: "destructive" }),
+  });
+
+  const clearCustomerMutation = useMutation({
+    mutationFn: async () => {
+      const nextData = { ...(draft.extractedData || {}) };
+      if (nextData.customer) delete nextData.customer;
+      await apiRequest("PATCH", `/api/order-drafts/${draft.id}`, { shopwareCustomerId: null, extractedData: nextData });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/order-drafts"] });
+      onUpdate();
+      toast({ title: t("orderDrafts.review.customerCleared", "Kunde entfernt") });
+    },
+    onError: (e: Error) => toast({ title: t("common.error", "Fehler"), description: e.message, variant: "destructive" }),
   });
 
   const createShopwareCustomerMutation = useMutation({
@@ -490,6 +561,45 @@ export function OrderDraftReviewModal({
     },
   });
 
+  type ManualSearchProduct = { id: string; productNumber: string; name: string; price: number };
+  const { data: productSearchData, isFetching: isProductSearchFetching } = useQuery<{
+    products: ManualSearchProduct[];
+  }>({
+    queryKey: ["/api/products", "manual-add", debouncedProductSearch],
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/products?search=${encodeURIComponent(debouncedProductSearch)}&limit=10`,
+        { credentials: "include" }
+      );
+      if (!res.ok) throw new Error("Produktsuche fehlgeschlagen");
+      return res.json();
+    },
+    enabled: open && debouncedProductSearch.length >= 2,
+  });
+  const productSearchResults = productSearchData?.products ?? [];
+
+  const updateQuantityMutation = useMutation({
+    mutationFn: async ({ index, quantity }: { index: number; quantity: number }) => {
+      const items = [...(draft.matchingResults?.items ?? [])];
+      if (index < 0 || index >= items.length) return;
+      (items as any[])[index] = { ...items[index], quantity };
+      const lineItems = [...((editedData || draft.extractedData)?.lineItems ?? [])];
+      if (lineItems[index]) {
+        (lineItems as any[])[index] = { ...lineItems[index], quantity };
+      }
+      await apiRequest("PATCH", `/api/order-drafts/${draft.id}`, {
+        extractedData: { ...(editedData || draft.extractedData || {}), lineItems },
+        matchingResults: { ...draft.matchingResults, items },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/order-drafts"] });
+      onUpdate();
+    },
+    onError: (e: Error) =>
+      toast({ title: t("common.error", "Fehler"), description: e.message, variant: "destructive" }),
+  });
+
   const { data: bundlesData } = useQuery<{ bundles: BundleSummary[] }>({
     queryKey: ["/api/bundles", "order-drafts"],
     queryFn: async () => {
@@ -557,6 +667,7 @@ export function OrderDraftReviewModal({
 
   const canCreateOrder =
     draft.status !== "created" &&
+    !!draft.shopwareCustomerId &&
     !!mergedMatchingResults?.items?.length &&
     mergedMatchingResults.items.every((item, index) =>
       isOfferLineReadyForCreate(item, index, alternativeSelectionInput)
@@ -1021,6 +1132,74 @@ export function OrderDraftReviewModal({
             )}
           </Card>
 
+          <Card data-testid="card-assign-customer-order">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <User className="w-4 h-4" />
+                {t("orderDrafts.review.assignCustomer", "Kunde zuordnen")}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {draft.shopwareCustomerId ? (
+                <div className="flex items-center justify-between gap-4">
+                  <div className="text-sm text-muted-foreground">
+                    {editedData?.customer ? (
+                      <span>
+                        {[editedData.customer.firstName, editedData.customer.lastName].filter(Boolean).join(" ") || editedData.customer.email || "—"}
+                        {editedData.customer.email && (
+                          <span className="ml-1 text-muted-foreground">({editedData.customer.email})</span>
+                        )}
+                      </span>
+                    ) : (
+                      t("orderDrafts.review.customerExists", "Kunde zugeordnet")
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={clearCustomerMutation.isPending}
+                    onClick={() => clearCustomerMutation.mutate()}
+                    data-testid="button-clear-customer-order"
+                  >
+                    {t("orderDrafts.review.changeCustomer", "Kunde ändern")}
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Input
+                    placeholder={t("orderDrafts.review.searchCustomerPlaceholder", "Kunde suchen (E-Mail, Name, min. 2 Zeichen)…")}
+                    value={customerSearchTerm}
+                    onChange={(e) => setCustomerSearchTerm(e.target.value)}
+                    className="max-w-md"
+                    data-testid="input-customer-search-order"
+                  />
+                  {customerSearchResults.length > 0 && (
+                    <ul className="border rounded-md divide-y max-h-48 overflow-y-auto max-w-md">
+                      {customerSearchResults.map((c) => (
+                        <li key={c.id}>
+                          <button
+                            type="button"
+                            className="w-full px-3 py-2 text-left text-sm hover:bg-muted"
+                            onClick={() => assignCustomerMutation.mutate(c)}
+                            disabled={assignCustomerMutation.isPending}
+                            data-testid={`customer-option-order-${c.id}`}
+                          >
+                            {[c.firstName, c.lastName].filter(Boolean).join(" ") || "—"}
+                            {c.email && <span className="text-muted-foreground ml-1">({c.email})</span>}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {debouncedCustomerSearch.length >= 2 && customerSearchResults.length === 0 && !assignCustomerMutation.isPending && (
+                    <p className="text-sm text-muted-foreground">{t("orderDrafts.review.noCustomersFound", "Keine Kunden gefunden.")}</p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {!draft.shopwareCustomerId && editedData?.billingAddress && !!emailForShopwareCustomer && (
             <Card data-testid="card-create-shopware-customer-order">
               <CardHeader>
@@ -1274,7 +1453,22 @@ export function OrderDraftReviewModal({
                                 ? "Unklar"
                                 : "—"}
                         </TableCell>
-                        <TableCell data-testid={`text-quantity-${index}`}>{item.quantity}</TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            min={1}
+                            className="h-8 w-20"
+                            defaultValue={item.quantity}
+                            disabled={draft.status === "created"}
+                            data-testid={`input-quantity-${index}`}
+                            onBlur={(event) => {
+                              const next = Number(event.target.value);
+                              if (Number.isFinite(next) && next > 0 && next !== item.quantity) {
+                                updateQuantityMutation.mutate({ index, quantity: next });
+                              }
+                            }}
+                          />
+                        </TableCell>
                         <TableCell>{getConfidenceBadge(item.confidence)}</TableCell>
                         <TableCell className="text-right">
                           <Button
@@ -1408,6 +1602,63 @@ export function OrderDraftReviewModal({
             />
             </>
           )}
+
+          {/* Add Product Manually */}
+          <Card data-testid="card-add-product-manually">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Plus className="w-4 h-4" />
+                Produkt manuell hinzufügen
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Wenn die KI keine oder falsche Positionen erkannt hat: Produkt suchen und direkt hinzufügen.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Input
+                placeholder="Produktname oder Artikelnummer (mind. 2 Zeichen)"
+                value={productSearchTerm}
+                onChange={(event) => setProductSearchTerm(event.target.value)}
+                disabled={draft.status === "created"}
+                data-testid="input-manual-product-search"
+              />
+              {debouncedProductSearch.length >= 2 && (
+                <div className="space-y-1 max-h-64 overflow-y-auto">
+                  {isProductSearchFetching && (
+                    <p className="text-xs text-muted-foreground">Suche läuft…</p>
+                  )}
+                  {!isProductSearchFetching && productSearchResults.length === 0 && (
+                    <p className="text-xs text-muted-foreground">Keine Produkte gefunden.</p>
+                  )}
+                  {productSearchResults.map((product) => (
+                    <div
+                      key={product.id}
+                      className="flex items-center justify-between gap-2 rounded-md border p-2 text-sm"
+                      data-testid={`manual-product-result-${product.id}`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium truncate">{product.name}</p>
+                        <p className="text-xs text-muted-foreground font-mono">
+                          {product.productNumber} • €{product.price?.toFixed?.(2) ?? product.price}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={addProductMutation.isPending || draft.status === "created"}
+                        onClick={() => addProductMutation.mutate({ productId: product.id, quantity: 1 })}
+                        data-testid={`button-manual-add-product-${product.id}`}
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Hinzufügen
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Add Bundle */}
           <Card>

@@ -1,30 +1,16 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { RefreshCw, Search, Download, Sparkles, FileText, Eye, Trash2, CheckCircle, AlertCircle, XCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import type { Offer, OfferStatus, OfferDraft, SalesChannel, User, Role } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   IMPORT_MATCHING_CONFIDENCE_WARNING_THRESHOLD,
   isLowOverallMatchingConfidence,
 } from "@/lib/commercialDraftConfidence";
 import { pickDocumentExtraction } from "@/components/DocumentExtractionAlerts";
 import { useLocation } from "wouter";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { fetchOfferDraftForReview } from "@/lib/refreshReviewDraft";
 import OfferDetailModal from "@/components/OfferDetailModal";
@@ -32,6 +18,7 @@ import { OfferDraftUploadDialog } from "@/components/OfferDraftUploadDialog";
 import { OfferDraftReviewModal } from "@/components/OfferDraftReviewModal";
 import PaginationControls from "@/components/PaginationControls";
 import TableSkeleton from "@/components/TableSkeleton";
+import "@/styles/metaAdmin.css";
 
 interface OffersPageProps {
   userRole: "employee" | "admin";
@@ -254,23 +241,32 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
     const errorMessage = (error as any)?.message || t('offers.errors.loadFailed');
     if (errorMessage.includes('not configured')) {
       return (
-        <div className="w-full">
-          <div className="mb-6">
-            <h1 className="text-2xl font-semibold mb-1">{t('offers.title')}</h1>
-            <p className="text-sm text-muted-foreground">
-              {t('offers.description')}
-            </p>
+        <div className="madmin w-full">
+          <div className="mpage-head">
+            <div>
+              <span className="eyebrow">Angebote</span>
+              <h1 data-testid="heading-offers-page">{t('offers.title')}</h1>
+              <p className="desc">
+                {t('offers.description')}
+              </p>
+            </div>
           </div>
-          <div className="bg-muted/50 border border-border rounded-lg p-8 text-center">
-            <p className="text-muted-foreground mb-4">
-              {t('errors.notConfigured')}
-            </p>
-            <p className="text-sm text-muted-foreground mb-4">
-              {t('errors.notConfiguredDescription')}
-            </p>
-            <Button onClick={() => window.location.href = '/settings'} data-testid="button-go-to-settings">
-              {t('errors.goToSettings')}
-            </Button>
+          <div className="mcard">
+            <div className="mcard-body" style={{ textAlign: "center", padding: "32px 18px" }}>
+              <p style={{ color: "var(--fg-3)", marginBottom: 16 }}>
+                {t('errors.notConfigured')}
+              </p>
+              <p style={{ fontSize: 12.5, color: "var(--fg-3)", marginBottom: 16 }}>
+                {t('errors.notConfiguredDescription')}
+              </p>
+              <button
+                className="mbtn primary"
+                onClick={() => window.location.href = '/settings'}
+                data-testid="button-go-to-settings"
+              >
+                {t('errors.goToSettings')}
+              </button>
+            </div>
           </div>
         </div>
       );
@@ -302,7 +298,7 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
         }
         throw new Error('Failed to download PDF');
       }
-      
+
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -312,7 +308,7 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      
+
       toast({
         title: t('common.download'),
         description: `${t('offers.downloadPDF')} - ${offerNumber}`,
@@ -330,40 +326,40 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
 
   const getStatusBadge = (status: OfferStatus, statusLabel?: string | null) => {
     const statusConfig = {
-      draft: { 
-        colorClass: 'bg-warning/20 text-warning border-warning/40 dark:bg-warning/20 dark:text-warning-foreground dark:border-warning/40',
+      draft: {
+        badgeClass: 'b-warning',
         label: t('offers.status.draft')
       },
       submitted: {
-        colorClass: 'bg-warning/20 text-warning border-warning/40 dark:bg-warning/20 dark:text-warning-foreground dark:border-warning/40',
+        badgeClass: 'b-warning',
         label: t('offers.status.submitted')
       },
-      sent: { 
-        colorClass: 'bg-warning/20 text-warning border-warning/40 dark:bg-warning/20 dark:text-warning-foreground dark:border-warning/40',
+      sent: {
+        badgeClass: 'b-warning',
         label: t('offers.status.sent')
       },
-      approved: { 
-        colorClass: 'bg-success/20 text-success border-success/40 dark:bg-success/20 dark:text-success-foreground dark:border-success/40',
+      approved: {
+        badgeClass: 'b-success',
         label: t('offers.status.approved')
       },
-      rejected: { 
-        colorClass: 'bg-destructive/20 text-destructive border-destructive/40 dark:bg-destructive/20 dark:text-destructive-foreground dark:border-destructive/40',
+      rejected: {
+        badgeClass: 'b-destructive',
         label: t('offers.status.rejected')
       },
-      expired: { 
-        colorClass: 'bg-destructive/20 text-destructive border-destructive/40 dark:bg-destructive/20 dark:text-destructive-foreground dark:border-destructive/40',
+      expired: {
+        badgeClass: 'b-destructive',
         label: t('offers.status.expired')
       },
       offered: {
-        colorClass: 'bg-warning/20 text-warning border-warning/40 dark:bg-warning/20 dark:text-warning-foreground dark:border-warning/40',
+        badgeClass: 'b-warning',
         label: t('offers.status.sent')
       },
       accepted: {
-        colorClass: 'bg-success/20 text-success border-success/40 dark:bg-success/20 dark:text-success-foreground dark:border-success/40',
+        badgeClass: 'b-success',
         label: t('offers.status.accepted')
       },
       declined: {
-        colorClass: 'bg-destructive/20 text-destructive border-destructive/40 dark:bg-destructive/20 dark:text-destructive-foreground dark:border-destructive/40',
+        badgeClass: 'b-destructive',
         label: t('offers.status.rejected')
       },
     };
@@ -372,9 +368,9 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
     const mappedLabel = statusMapping?.[status as keyof OfferStatusMapping]?.label;
     const label = statusLabel || mappedLabel || config.label;
     return (
-      <Badge variant="outline" className={config.colorClass}>
+      <span className={`mbadge ${config.badgeClass}`}>
         {label}
-      </Badge>
+      </span>
     );
   };
 
@@ -407,37 +403,37 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
     switch (status) {
       case "review_required":
         return (
-          <Badge variant="outline" className="bg-warning/20 text-warning border-warning/40 dark:bg-warning/20 dark:text-warning-foreground dark:border-warning/40" data-testid={`badge-draft-status-${status}`}>
-            <AlertCircle className="w-3 h-3 mr-1" />
+          <span className="mbadge b-warning" data-testid={`badge-draft-status-${status}`}>
+            <AlertCircle className="w-3 h-3" />
             {t("offerDrafts.status.reviewRequired")}
-          </Badge>
+          </span>
         );
       case "pending":
         return (
-          <Badge variant="outline" className="bg-warning/20 text-warning border-warning/40 dark:bg-warning/20 dark:text-warning-foreground dark:border-warning/40" data-testid={`badge-draft-status-${status}`}>
+          <span className="mbadge b-warning" data-testid={`badge-draft-status-${status}`}>
             {t("offerDrafts.status.pending")}
-          </Badge>
+          </span>
         );
       case "approved":
         return (
-          <Badge variant="outline" className="bg-success/20 text-success border-success/40 dark:bg-success/20 dark:text-success-foreground dark:border-success/40" data-testid={`badge-draft-status-${status}`}>
-            <CheckCircle className="w-3 h-3 mr-1" />
+          <span className="mbadge b-success" data-testid={`badge-draft-status-${status}`}>
+            <CheckCircle className="w-3 h-3" />
             {t("offerDrafts.status.approved")}
-          </Badge>
+          </span>
         );
       case "rejected":
         return (
-          <Badge variant="outline" className="bg-destructive/20 text-destructive border-destructive/40 dark:bg-destructive/20 dark:text-destructive-foreground dark:border-destructive/40" data-testid={`badge-draft-status-${status}`}>
-            <XCircle className="w-3 h-3 mr-1" />
+          <span className="mbadge b-destructive" data-testid={`badge-draft-status-${status}`}>
+            <XCircle className="w-3 h-3" />
             {t("offerDrafts.status.rejected")}
-          </Badge>
+          </span>
         );
       case "created":
         return (
-          <Badge variant="outline" className="bg-success/20 text-success border-success/40 dark:bg-success/20 dark:text-success-foreground dark:border-success/40" data-testid={`badge-draft-status-${status}`}>
-            <CheckCircle className="w-3 h-3 mr-1" />
+          <span className="mbadge b-success" data-testid={`badge-draft-status-${status}`}>
+            <CheckCircle className="w-3 h-3" />
             {t("offerDrafts.status.created")}
-          </Badge>
+          </span>
         );
     }
   };
@@ -445,21 +441,21 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
   const getConfidenceBadge = (confidence: number) => {
     if (confidence >= 90) {
       return (
-        <Badge variant="outline" className="bg-success/20 text-success border-success/40 dark:bg-success/20 dark:text-success-foreground dark:border-success/40" data-testid="badge-confidence-high">
+        <span className="mbadge b-success" data-testid="badge-confidence-high">
           {confidence}%
-        </Badge>
+        </span>
       );
     } else if (confidence >= 60) {
       return (
-        <Badge variant="outline" className="bg-warning/20 text-warning border-warning/40 dark:bg-warning/20 dark:text-warning-foreground dark:border-warning/40" data-testid="badge-confidence-medium">
+        <span className="mbadge b-warning" data-testid="badge-confidence-medium">
           {confidence}%
-        </Badge>
+        </span>
       );
     } else {
       return (
-        <Badge variant="outline" className="bg-destructive/20 text-destructive border-destructive/40 dark:bg-destructive/20 dark:text-destructive-foreground dark:border-destructive/40" data-testid="badge-confidence-low">
+        <span className="mbadge b-destructive" data-testid="badge-confidence-low">
           {confidence}%
-        </Badge>
+        </span>
       );
     }
   };
@@ -473,285 +469,267 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
   };
 
   return (
-    <div className="w-full h-full p-4 md:p-6 overflow-auto">
+    <div className="madmin w-full h-full p-4 md:p-6 overflow-auto">
       <div className="w-full">
         {/* Header */}
-        <div className="mb-6 flex items-start justify-between gap-4">
+        <div className="mpage-head">
           <div>
-            <h1 className="text-2xl font-semibold mb-1" data-testid="heading-offers-page">{t('offers.title')}</h1>
-            <p className="text-sm text-muted-foreground">
+            <span className="eyebrow">Angebote</span>
+            <h1 data-testid="heading-offers-page">{t('offers.title')}</h1>
+            <p className="desc">
               {t('offers.description')}
             </p>
           </div>
-          <Button onClick={() => setUploadDialogOpen(true)} data-testid="button-create-intelligent-offer">
-            <Sparkles className="w-4 h-4 mr-2" />
+          <button
+            className="mbtn primary"
+            onClick={() => setUploadDialogOpen(true)}
+            data-testid="button-create-intelligent-offer"
+          >
+            <Sparkles className="w-4 h-4" />
             {t("offerDrafts.intelligentOfferCreation")}
-          </Button>
+          </button>
         </div>
 
         {/* Offer Drafts Section */}
         {pendingDrafts.length > 0 && (
-          <Card className="mb-6">
-            <div className="p-4 border-b">
-              <h2 className="text-lg font-semibold flex items-center gap-2" data-testid="heading-offer-drafts">
-                <Sparkles className="w-5 h-5 text-primary" />
-                {t("offerDrafts.pendingDrafts")}
-              </h2>
-              <p className="text-sm text-muted-foreground mt-1" data-testid="text-drafts-description">
-                {t("offerDrafts.pendingDraftsDescription")}
-              </p>
+          <div className="mcard">
+            <div className="mcard-head">
+              <div className="mcard-head-left">
+                <Sparkles className="w-5 h-5" />
+                <div>
+                  <p className="mcard-title" data-testid="heading-offer-drafts">
+                    {t("offerDrafts.pendingDrafts")}
+                  </p>
+                  <p className="mcard-desc" data-testid="text-drafts-description">
+                    {t("offerDrafts.pendingDraftsDescription")}
+                  </p>
+                </div>
+              </div>
             </div>
-            {recipientIsMetaPendingDrafts.length > 0 && (
-              <div className="px-4 pb-2">
-                <Alert
-                  variant="destructive"
-                  className="border-destructive/60"
-                  data-testid="alert-recipient-is-meta-offer-drafts"
-                >
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Empfänger ist META — vermutlich Lieferanten-AB</AlertTitle>
-                  <AlertDescription className="text-sm space-y-2">
-                    <p>
-                      {recipientIsMetaPendingDrafts.length} Beleg(e) richten sich an einen META-Standort.
-                      Bitte prüfen, ob diese überhaupt als Kunden-Anfrage verarbeitet werden sollen.
-                    </p>
-                    <ul className="list-disc pl-4 space-y-0.5">
-                      {recipientIsMetaPendingDrafts.map((d) => (
-                        <li key={`meta-${d.id}`}>
-                          <span className="font-medium">{d.originalFileName}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </AlertDescription>
-                </Alert>
-              </div>
-            )}
-            {lowConfidencePendingDrafts.length > 0 && (
-              <div className="px-4 pb-2">
-                <Alert
-                  variant="destructive"
-                  className="border-destructive/60"
-                  data-testid="alert-low-matching-offer-drafts"
-                >
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>
+            <div className="mcard-body">
+              {recipientIsMetaPendingDrafts.length > 0 && (
+                <div className="malert destructive" data-testid="alert-recipient-is-meta-offer-drafts">
+                  <div className="malert-title">Empfänger ist META — vermutlich Lieferanten-AB</div>
+                  <p>
+                    {recipientIsMetaPendingDrafts.length} Beleg(e) richten sich an einen META-Standort.
+                    Bitte prüfen, ob diese überhaupt als Kunden-Anfrage verarbeitet werden sollen.
+                  </p>
+                  <ul style={{ listStyle: "disc", paddingLeft: 16, marginTop: 6 }}>
+                    {recipientIsMetaPendingDrafts.map((d) => (
+                      <li key={`meta-${d.id}`}>
+                        <span style={{ fontWeight: 700 }}>{d.originalFileName}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {lowConfidencePendingDrafts.length > 0 && (
+                <div className="malert destructive" data-testid="alert-low-matching-offer-drafts">
+                  <div className="malert-title">
                     {t("drafts.importLowMatching.listTitle", "Import mit niedriger Zuordnungsgenauigkeit")}
-                  </AlertTitle>
-                  <AlertDescription className="text-sm space-y-2">
-                    <p>
-                      {t("drafts.importLowMatching.listBody", {
-                        defaultValue:
-                          "{{count}} Entwurf/Entwürfe unter {{threshold}} % Gesamt-Genauigkeit — bitte im Review prüfen.",
-                        count: lowConfidencePendingDrafts.length,
-                        threshold: IMPORT_MATCHING_CONFIDENCE_WARNING_THRESHOLD,
-                      })}
-                    </p>
-                    <ul className="list-disc pl-4 space-y-0.5">
-                      {lowConfidencePendingDrafts.map((d) => (
-                        <li key={d.id}>
-                          <span className="font-medium">{d.originalFileName}</span>
-                          {d.matchingResults != null && (
-                            <span className="text-muted-foreground">
-                              {" "}
-                              ({d.matchingResults.overallConfidence}%)
-                            </span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </AlertDescription>
-                </Alert>
-              </div>
-            )}
-            {draftsLoading ? (
-              <TableSkeleton columns={7} rows={3} />
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead data-testid="table-head-draft-document">{t("offerDrafts.table.document")}</TableHead>
-                    <TableHead data-testid="table-head-draft-status">{t("offerDrafts.table.status")}</TableHead>
-                    <TableHead data-testid="table-head-draft-products">{t("offerDrafts.table.products")}</TableHead>
-                    <TableHead data-testid="table-head-draft-matching-confidence">
-                      {t("offerDrafts.table.matchingConfidence", "Genauigkeit")}
-                    </TableHead>
-                    <TableHead data-testid="table-head-draft-total">{t("offerDrafts.table.totalValue")}</TableHead>
-                    <TableHead data-testid="table-head-draft-created">{t("offerDrafts.table.created")}</TableHead>
-                    <TableHead className="text-right" data-testid="table-head-draft-actions">
-                      {t("offerDrafts.table.actions")}
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pendingDrafts.map((draft) => (
-                    <TableRow
-                      key={draft.id}
-                      data-testid={`row-draft-${draft.id}`}
-                      className={
-                        isLowOverallMatchingConfidence(draft.matchingResults)
-                          ? "bg-destructive/5 border-l-4 border-l-destructive/70"
-                          : undefined
-                      }
-                    >
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-4 h-4 text-muted-foreground" />
-                          <span className="font-medium" data-testid={`text-draft-filename-${draft.id}`}>
-                            {draft.originalFileName}
+                  </div>
+                  <p>
+                    {t("drafts.importLowMatching.listBody", {
+                      defaultValue:
+                        "{{count}} Entwurf/Entwürfe unter {{threshold}} % Gesamt-Genauigkeit — bitte im Review prüfen.",
+                      count: lowConfidencePendingDrafts.length,
+                      threshold: IMPORT_MATCHING_CONFIDENCE_WARNING_THRESHOLD,
+                    })}
+                  </p>
+                  <ul style={{ listStyle: "disc", paddingLeft: 16, marginTop: 6 }}>
+                    {lowConfidencePendingDrafts.map((d) => (
+                      <li key={d.id}>
+                        <span style={{ fontWeight: 700 }}>{d.originalFileName}</span>
+                        {d.matchingResults != null && (
+                          <span style={{ color: "var(--fg-3)" }}>
+                            {" "}
+                            ({d.matchingResults.overallConfidence}%)
                           </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>{getDraftStatusBadge(draft.status)}</TableCell>
-                      <TableCell data-testid={`text-draft-product-count-${draft.id}`}>
-                        {draft.matchingResults?.items.length || 0}
-                      </TableCell>
-                      <TableCell data-testid={`text-draft-confidence-${draft.id}`}>
-                        {draft.matchingResults ? (
-                          getConfidenceBadge(draft.matchingResults.overallConfidence)
-                        ) : (
-                          <Badge variant="secondary" data-testid={`badge-draft-no-matching-${draft.id}`}>
-                            {t("orderDrafts.noMatching", "—")}
-                          </Badge>
                         )}
-                      </TableCell>
-                      <TableCell data-testid={`text-draft-total-${draft.id}`}>
-                        €{calculateDraftTotal(draft).toFixed(2)}
-                      </TableCell>
-                      <TableCell data-testid={`text-draft-created-${draft.id}`}>
-                        {format(new Date(draft.createdAt), "dd.MM.yyyy HH:mm")}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setSelectedDraft(draft)}
-                            data-testid={`button-review-draft-${draft.id}`}
-                          >
-                            <Eye className="w-4 h-4 mr-1" />
-                            {t("offerDrafts.table.review")}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => deleteDraftMutation.mutate(draft.id)}
-                            disabled={deleteDraftMutation.isPending}
-                            data-testid={`button-delete-draft-${draft.id}`}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </Card>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {draftsLoading ? (
+                <TableSkeleton columns={7} rows={3} />
+              ) : (
+                <div className="mtable-wrap">
+                  <table className="mtable">
+                    <thead>
+                      <tr>
+                        <th data-testid="table-head-draft-document">{t("offerDrafts.table.document")}</th>
+                        <th data-testid="table-head-draft-status">{t("offerDrafts.table.status")}</th>
+                        <th className="num" data-testid="table-head-draft-products">{t("offerDrafts.table.products")}</th>
+                        <th data-testid="table-head-draft-matching-confidence">
+                          {t("offerDrafts.table.matchingConfidence", "Genauigkeit")}
+                        </th>
+                        <th className="num" data-testid="table-head-draft-total">{t("offerDrafts.table.totalValue")}</th>
+                        <th data-testid="table-head-draft-created">{t("offerDrafts.table.created")}</th>
+                        <th className="num" data-testid="table-head-draft-actions">
+                          {t("offerDrafts.table.actions")}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pendingDrafts.map((draft) => (
+                        <tr
+                          key={draft.id}
+                          data-testid={`row-draft-${draft.id}`}
+                          className={
+                            isLowOverallMatchingConfidence(draft.matchingResults)
+                              ? "flagged"
+                              : undefined
+                          }
+                        >
+                          <td>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <FileText className="w-4 h-4" style={{ color: "var(--fg-3)" }} />
+                              <span style={{ fontWeight: 700 }} data-testid={`text-draft-filename-${draft.id}`}>
+                                {draft.originalFileName}
+                              </span>
+                            </div>
+                          </td>
+                          <td>{getDraftStatusBadge(draft.status)}</td>
+                          <td className="num" data-testid={`text-draft-product-count-${draft.id}`}>
+                            {draft.matchingResults?.items.length || 0}
+                          </td>
+                          <td data-testid={`text-draft-confidence-${draft.id}`}>
+                            {draft.matchingResults ? (
+                              getConfidenceBadge(draft.matchingResults.overallConfidence)
+                            ) : (
+                              <span className="mbadge b-default" data-testid={`badge-draft-no-matching-${draft.id}`}>
+                                {t("orderDrafts.noMatching", "—")}
+                              </span>
+                            )}
+                          </td>
+                          <td className="num" data-testid={`text-draft-total-${draft.id}`}>
+                            €{calculateDraftTotal(draft).toFixed(2)}
+                          </td>
+                          <td data-testid={`text-draft-created-${draft.id}`}>
+                            {format(new Date(draft.createdAt), "dd.MM.yyyy HH:mm")}
+                          </td>
+                          <td className="num">
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
+                              <button
+                                className="mbtn sm"
+                                onClick={() => setSelectedDraft(draft)}
+                                data-testid={`button-review-draft-${draft.id}`}
+                              >
+                                <Eye className="w-4 h-4" />
+                                {t("offerDrafts.table.review")}
+                              </button>
+                              <button
+                                className="mbtn sm destructive"
+                                onClick={() => deleteDraftMutation.mutate(draft.id)}
+                                disabled={deleteDraftMutation.isPending}
+                                data-testid={`button-delete-draft-${draft.id}`}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
         {/* Filters */}
-        <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center flex-1">
-            <div className="relative flex-1 md:max-w-sm">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder={t('offers.filter.searchPlaceholder')}
-                value={searchValue}
-                onChange={(e) => setSearchValue(e.target.value)}
-                className="pl-9"
-                data-testid="input-search-offers"
-              />
-            </div>
-
-            <Input
-              placeholder={t('offers.filter.customerPlaceholder')}
-              value={customerFilter}
-              onChange={(e) => setCustomerFilter(e.target.value)}
-              className="md:max-w-xs"
-              data-testid="input-customer-filter"
+        <div className="mfilters">
+          <div className="mfield has-icon grow" style={{ maxWidth: 320 }}>
+            <Search className="h-4 w-4" />
+            <input
+              className="minput"
+              placeholder={t('offers.filter.searchPlaceholder')}
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              data-testid="input-search-offers"
             />
-
-            <Input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="md:max-w-[160px]"
-              data-testid="input-date-from"
-            />
-
-            <Input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="md:max-w-[160px]"
-              data-testid="input-date-to"
-            />
-
-            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as OfferStatus | "all")}>
-              <SelectTrigger className="w-full md:w-48" data-testid="select-status-filter">
-                <SelectValue placeholder={t('offers.filter.status')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('offers.filter.allStatuses')}</SelectItem>
-                <SelectItem value="draft">{getFilterLabel("draft")}</SelectItem>
-                <SelectItem value="submitted">{getFilterLabel("submitted")}</SelectItem>
-                <SelectItem value="sent">{getFilterLabel("sent")}</SelectItem>
-                <SelectItem value="approved">{getFilterLabel("approved")}</SelectItem>
-                <SelectItem value="rejected">{getFilterLabel("rejected")}</SelectItem>
-                <SelectItem value="expired">{t('offers.status.expired')}</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
 
-          <Button
-            variant="outline"
-            size="default"
+          <input
+            className="minput"
+            style={{ maxWidth: 240 }}
+            placeholder={t('offers.filter.customerPlaceholder')}
+            value={customerFilter}
+            onChange={(e) => setCustomerFilter(e.target.value)}
+            data-testid="input-customer-filter"
+          />
+
+          <input
+            type="date"
+            className="minput"
+            style={{ maxWidth: 160 }}
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            data-testid="input-date-from"
+          />
+
+          <input
+            type="date"
+            className="minput"
+            style={{ maxWidth: 160 }}
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            data-testid="input-date-to"
+          />
+
+          <select
+            className="minput"
+            style={{ maxWidth: 200 }}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as OfferStatus | "all")}
+            data-testid="select-status-filter"
+          >
+            <option value="all">{t('offers.filter.allStatuses')}</option>
+            <option value="draft">{getFilterLabel("draft")}</option>
+            <option value="submitted">{getFilterLabel("submitted")}</option>
+            <option value="sent">{getFilterLabel("sent")}</option>
+            <option value="approved">{getFilterLabel("approved")}</option>
+            <option value="rejected">{getFilterLabel("rejected")}</option>
+            <option value="expired">{t('offers.status.expired')}</option>
+          </select>
+
+          <button
+            className="mbtn"
             onClick={() => refetch()}
             disabled={isLoading}
             data-testid="button-refresh-offers"
+            style={{ marginLeft: "auto" }}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             {t('common.refresh', 'Aktualisieren')}
-          </Button>
+          </button>
         </div>
 
         {/* Table */}
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
-          {isLoading ? (
+        {isLoading ? (
+          <div className="mtable-wrap">
             <TableSkeleton columns={7} rows={parseInt(itemsPerPage) || 25} />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px]">
-                <thead className="border-b border-border bg-muted/50">
+          </div>
+        ) : (
+          <div className="mtable-wrap">
+            <table className="mtable">
+              <thead>
+                <tr>
+                  <th>{t('offers.table.number')}</th>
+                  <th>{t('offers.table.customer')}</th>
+                  <th>{t('offers.table.status')}</th>
+                  <th className="num">{t('offers.table.amount')}</th>
+                  <th>{t('offers.table.createdDate')}</th>
+                  <th>{t('offers.table.expirationDate')}</th>
+                  <th className="center">{t('offers.table.actions')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedOffers.length === 0 ? (
                   <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground whitespace-nowrap">
-                      {t('offers.table.number')}
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground whitespace-nowrap">
-                      {t('offers.table.customer')}
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground whitespace-nowrap">
-                      {t('offers.table.status')}
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground whitespace-nowrap">
-                      {t('offers.table.amount')}
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground whitespace-nowrap">
-                      {t('offers.table.createdDate')}
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground whitespace-nowrap">
-                      {t('offers.table.expirationDate')}
-                    </th>
-                    <th className="px-4 py-3 text-center text-sm font-medium text-muted-foreground whitespace-nowrap">
-                      {t('offers.table.actions')}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedOffers.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                    <td colSpan={7} style={{ textAlign: "center", padding: "32px 14px", color: "var(--fg-3)", fontSize: 12.5 }}>
                       {t('offers.noOffers')}
                     </td>
                   </tr>
@@ -759,87 +737,82 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
                   paginatedOffers.map((offer) => (
                     <tr
                       key={offer.id}
-                      className="border-b border-border last:border-0 hover-elevate cursor-pointer"
+                      className="clickable"
                       data-testid={`row-offer-${offer.id}`}
                       onClick={() => handleRowClick(offer.id)}
                     >
-                      <td className="px-4 py-3 text-sm font-medium whitespace-nowrap" data-testid="text-offer-number">
+                      <td data-testid="text-offer-number">
                         {offer.offerNumber}
                       </td>
-                      <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap" data-testid="text-offer-customer">
+                      <td style={{ color: "var(--fg-3)" }} data-testid="text-offer-customer">
                         {offer.customerName || offer.customerEmail || '-'}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td>
                         {getStatusBadge(offer.status, offer.statusLabel)}
                       </td>
-                      <td className="px-4 py-3 text-sm whitespace-nowrap" data-testid="text-total-price">
+                      <td className="num" data-testid="text-total-price">
                         €{offer.totalPrice?.toFixed(2) || '0.00'}
                       </td>
-                      <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
+                      <td style={{ color: "var(--fg-3)" }}>
                         {offer.createdAt && !isNaN(new Date(offer.createdAt).getTime())
                           ? format(new Date(offer.createdAt), 'dd.MM.yyyy HH:mm')
                           : '-'}
                       </td>
-                      <td className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
+                      <td style={{ color: "var(--fg-3)" }}>
                         {offer.offerExpiration && !isNaN(new Date(offer.offerExpiration).getTime())
                           ? format(new Date(offer.offerExpiration), 'dd.MM.yyyy')
                           : '-'}
                       </td>
-                      <td className="px-4 py-3 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
+                      <td className="center">
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                          <button
+                            className="mbtn icon ghost"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleDownloadPDF(offer.id, offer.offerNumber);
                             }}
                             data-testid="button-download-pdf"
+                            title={t('offers.downloadPDF')}
                           >
-                            <Download className="h-4 w-4 mr-1" />
-                            <span className="hidden sm:inline">{t('offers.downloadPDF')}</span>
-                            <span className="sm:hidden">PDF</span>
-                          </Button>
+                            <Download className="h-4 w-4" />
+                          </button>
                           {canManageOffers && (
                             <>
-                              <Button
-                                variant="ghost"
-                                size="sm"
+                              <button
+                                className="mbtn icon ghost"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   approveOfferMutation.mutate(offer.id);
                                 }}
                                 disabled={approveOfferMutation.isPending || ["approved", "rejected", "expired"].includes(offer.status)}
                                 data-testid="button-approve-offer"
+                                title={t('offers.actions.approve')}
                               >
-                                <CheckCircle className="h-4 w-4 mr-1" />
-                                <span className="hidden sm:inline">{t('offers.actions.approve')}</span>
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
+                                <CheckCircle className="h-4 w-4" />
+                              </button>
+                              <button
+                                className="mbtn icon ghost"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   rejectOfferMutation.mutate({ offerId: offer.id });
                                 }}
                                 disabled={rejectOfferMutation.isPending || ["rejected", "expired"].includes(offer.status)}
                                 data-testid="button-reject-offer"
+                                title={t('offers.actions.reject')}
                               >
-                                <XCircle className="h-4 w-4 mr-1" />
-                                <span className="hidden sm:inline">{t('offers.actions.reject')}</span>
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
+                                <XCircle className="h-4 w-4" />
+                              </button>
+                              <button
+                                className="mbtn icon ghost"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleEditClick(offer.id);
                                 }}
                                 data-testid="button-edit-offer"
+                                title={t('common.edit')}
                               >
-                                <FileText className="h-4 w-4 mr-1" />
-                                <span className="hidden sm:inline">{t('common.edit')}</span>
-                              </Button>
+                                <FileText className="h-4 w-4" />
+                              </button>
                             </>
                           )}
                         </div>
@@ -847,11 +820,10 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
                     </tr>
                   ))
                 )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* Offer Detail Modal */}
         <OfferDetailModal

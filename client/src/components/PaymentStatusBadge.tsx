@@ -7,14 +7,14 @@ interface PaymentStatusBadgeProps {
   orderId: string;
 }
 
-const paymentStatusConfig: Record<PaymentStatus, { variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  open: { variant: "secondary" },
-  paid: { variant: "default" },
-  authorized: { variant: "secondary" },
-  partially_paid: { variant: "outline" },
-  refunded: { variant: "outline" },
+const paymentStatusConfig: Record<PaymentStatus, { variant: "secondary" | "warning" | "success" | "destructive" }> = {
+  open: { variant: "warning" },
+  paid: { variant: "success" },
+  authorized: { variant: "warning" },
+  partially_paid: { variant: "warning" },
+  refunded: { variant: "secondary" },
   cancelled: { variant: "destructive" },
-  reminded: { variant: "secondary" },
+  reminded: { variant: "warning" },
   failed: { variant: "destructive" },
 };
 

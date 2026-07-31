@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* META-Markendesign — gleiche Fonts/Tokens wie metaClip.css/offerLanding.css/
+   metaAdmin.css, aber hier global gesetzt: jede shadcn-Komponente (Button,
+   Card, Badge, Input, Dialog, Sidebar, Table, ...) bezieht Farben/Radius/Font
+   aus diesen Variablen, wird also app-weit automatisch auf den META-Look
+   umgestellt, ohne dass jede Seite einzeln umgebaut werden muss. */
+@font-face { font-family: "Frutiger LT Com"; src: url("/fonts/meta/FrutigerLTCom-Roman.ttf") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Frutiger LT Com"; src: url("/fonts/meta/FrutigerLTCom-Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Frutiger LT Com"; src: url("/fonts/meta/FrutigerLTCom-Black.ttf") format("truetype"); font-weight: 800; font-style: normal; font-display: swap; }
+@font-face { font-family: "Frutiger LT Com Cn"; src: url("/fonts/meta/FrutigerLTCom-BoldCn.ttf") format("truetype"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Frutiger LT Com Cn"; src: url("/fonts/meta/FrutigerLTCom-BlackCn.ttf") format("truetype"); font-weight: 800; font-style: normal; font-display: swap; }
+
 /* LIGHT MODE */
 :root {
   --button-outline: rgba(0,0,0, .10);
@@ -14,76 +25,89 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  --background: 210 4% 98%;
+  --background: 0 0% 96%;
 
-  --foreground: 210 6% 12%;
+  --foreground: 0 0% 10%;
 
-  --border: 210 6% 88%;
+  --border: 0 0% 89%;
 
-  --card: 210 4% 96%;
+  --card: 0 0% 100%;
 
-  --card-foreground: 210 6% 12%;
+  --card-foreground: 0 0% 10%;
 
-  --card-border: 210 5% 92%;
+  --card-border: 0 0% 89%;
 
-  --sidebar: 210 4% 94%;
+  --sidebar: 0 0% 96%;
 
-  --sidebar-foreground: 210 6% 12%;
+  --sidebar-foreground: 0 0% 10%;
 
-  --sidebar-border: 210 5% 90%;
+  --sidebar-border: 0 0% 89%;
 
-  --sidebar-primary: 210 85% 42%;
+  --sidebar-primary: 0 100% 50%;
 
-  --sidebar-primary-foreground: 210 10% 98%;
+  --sidebar-primary-foreground: 0 0% 100%;
 
-  --sidebar-accent: 210 8% 88%;
+  --sidebar-accent: 0 0% 90%;
 
-  --sidebar-accent-foreground: 210 6% 12%;
+  --sidebar-accent-foreground: 0 0% 10%;
 
-  --sidebar-ring: 210 85% 42%;
+  --sidebar-ring: 0 100% 50%;
 
-  --popover: 210 4% 92%;
+  --popover: 0 0% 100%;
 
-  --popover-foreground: 210 6% 12%;
+  --popover-foreground: 0 0% 10%;
 
-  --popover-border: 210 5% 88%;
+  --popover-border: 0 0% 89%;
 
-  --primary: 210 85% 42%;
+  /* Bewusst NICHT das META-Rot: viele bestehende Seiten nutzen Badge
+     variant="default" (= bg-primary) für neutrale Status ("In Bearbeitung"),
+     nicht für Fehler/Warnung — mit Rot als primary würden diese wie
+     Fehlerzustände aussehen. Rot bleibt für Buttons/CTAs (siehe .mbtn.primary
+     in metaAdmin.css), Fokusring, aktive Sidebar-Navigation und destructive
+     reserviert; primary ist hier ein neutraler dunkler Akzent. */
+  --primary: 0 0% 14%;
 
-  --primary-foreground: 210 10% 98%;
+  --primary-foreground: 0 0% 100%;
 
-  --secondary: 210 8% 86%;
+  --secondary: 0 0% 94%;
 
-  --secondary-foreground: 210 6% 12%;
+  --secondary-foreground: 0 0% 10%;
 
-  --muted: 210 10% 90%;
+  --muted: 0 0% 96%;
 
-  --muted-foreground: 210 6% 35%;
+  --muted-foreground: 0 0% 40%;
 
-  --accent: 210 12% 88%;
+  --accent: 0 0% 90%;
 
-  --accent-foreground: 210 6% 12%;
+  --accent-foreground: 0 0% 10%;
 
-  --destructive: 0 72% 38%;
+  --destructive: 4 78% 41%;
 
-  --destructive-foreground: 0 5% 98%;
+  --destructive-foreground: 0 0% 100%;
 
-  --success: 142 70% 40%;
+  --success: 142 60% 30%;
 
   --success-foreground: 142 5% 98%;
 
-  --input: 210 10% 70%;
-  --ring: 210 85% 42%;
+  /* Ampel-Gelb/Amber für "wartet/braucht Aufmerksamkeit"-Zustände (zwischen
+     success/grün und destructive/rot) — ergänzt den bestehenden success-Token
+     um eine echte 3-Stufen-Ampel für Badge variant="warning". */
+  --warning: 38 92% 42%;
+
+  --warning-foreground: 0 0% 100%;
+
+  --input: 0 0% 89%;
+  --ring: 0 100% 50%;
   --chart-1: 210 82% 35%;
   --chart-2: 195 78% 38%;
   --chart-3: 185 70% 40%;
   --chart-4: 200 75% 36%;
   --chart-5: 220 80% 34%;
 
-  --font-sans: Roboto, sans-serif;
+  --font-sans: "Frutiger LT Com", "Helvetica Neue", Arial, sans-serif;
   --font-serif: Georgia, serif;
-  --font-mono: "Roboto Mono", monospace;
-  --radius: .5rem; /* 8px */
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  --radius: .125rem; /* 2px — scharfe Kanten statt der ursprünglichen 8px */
   --shadow-2xs: 0px 1px 2px 0px hsl(210 10% 10% / 0.05);
   --shadow-xs: 0px 2px 3px 0px hsl(210 10% 10% / 0.06);
   --shadow-sm: 0px 2px 4px 0px hsl(210 10% 10% / 0.05), 0px 1px 2px -1px hsl(210 10% 10% / 0.04);
@@ -128,6 +152,10 @@
   /* Fallback for older browsers */
   --success-border: hsl(var(--success));
   --success-border: hsl(from hsl(var(--success)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Fallback for older browsers */
+  --warning-border: hsl(var(--warning));
+  --warning-border: hsl(from hsl(var(--warning)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
 
 .dark {
@@ -140,66 +168,70 @@
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
 
-  --background: 210 5% 8%;
+  --background: 0 0% 8%;
 
-  --foreground: 210 5% 92%;
+  --foreground: 0 0% 92%;
 
-  --border: 210 6% 18%;
+  --border: 0 0% 18%;
 
-  --card: 210 5% 11%;
+  --card: 0 0% 11%;
 
-  --card-foreground: 210 5% 92%;
+  --card-foreground: 0 0% 92%;
 
-  --card-border: 210 6% 15%;
+  --card-border: 0 0% 16%;
 
-  --sidebar: 210 5% 13%;
+  --sidebar: 0 0% 10%;
 
-  --sidebar-foreground: 210 5% 92%;
+  --sidebar-foreground: 0 0% 92%;
 
-  --sidebar-border: 210 6% 17%;
+  --sidebar-border: 0 0% 17%;
 
-  --sidebar-primary: 210 80% 45%;
+  --sidebar-primary: 0 100% 55%;
 
-  --sidebar-primary-foreground: 210 10% 98%;
+  --sidebar-primary-foreground: 0 0% 100%;
 
-  --sidebar-accent: 210 8% 17%;
+  --sidebar-accent: 0 0% 18%;
 
-  --sidebar-accent-foreground: 210 5% 92%;
+  --sidebar-accent-foreground: 0 0% 92%;
 
-  --sidebar-ring: 210 80% 45%;
+  --sidebar-ring: 0 100% 55%;
 
-  --popover: 210 5% 15%;
+  --popover: 0 0% 13%;
 
-  --popover-foreground: 210 5% 92%;
+  --popover-foreground: 0 0% 92%;
 
-  --popover-border: 210 6% 19%;
+  --popover-border: 0 0% 19%;
 
-  --primary: 210 80% 45%;
+  --primary: 0 0% 85%;
 
-  --primary-foreground: 210 10% 98%;
+  --primary-foreground: 0 0% 10%;
 
-  --secondary: 210 8% 19%;
+  --secondary: 0 0% 19%;
 
-  --secondary-foreground: 210 5% 92%;
+  --secondary-foreground: 0 0% 92%;
 
-  --muted: 210 12% 17%;
+  --muted: 0 0% 17%;
 
-  --muted-foreground: 210 8% 70%;
+  --muted-foreground: 0 0% 68%;
 
-  --accent: 210 10% 18%;
+  --accent: 0 0% 19%;
 
-  --accent-foreground: 210 5% 92%;
+  --accent-foreground: 0 0% 92%;
 
-  --destructive: 0 68% 42%;
+  --destructive: 4 75% 52%;
 
-  --destructive-foreground: 0 5% 98%;
+  --destructive-foreground: 0 0% 100%;
 
-  --success: 142 65% 45%;
+  --success: 142 55% 48%;
 
   --success-foreground: 142 5% 98%;
 
-  --input: 210 10% 32%;
-  --ring: 210 80% 45%;
+  --warning: 38 85% 55%;
+
+  --warning-foreground: 0 0% 10%;
+
+  --input: 0 0% 24%;
+  --ring: 0 100% 55%;
   --chart-1: 210 85% 65%;
   --chart-2: 195 80% 68%;
   --chart-3: 185 75% 70%;
@@ -225,6 +257,13 @@
   body {
     @apply font-sans antialiased bg-background text-foreground touch-manipulation;
     text-rendering: optimizeLegibility;
+  }
+
+  /* META-Markendesign: flache Optik, keine Schlagschatten (Tailwinds
+     shadow-*-Utilities sind fixe Klassen, nicht an --shadow-* gebunden —
+     daher hier pauschal deaktiviert statt in jeder Komponente einzeln). */
+  .shadow-2xs, .shadow-xs, .shadow-sm, .shadow, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl {
+    box-shadow: none !important;
   }
 
   @media (prefers-reduced-motion: reduce) {

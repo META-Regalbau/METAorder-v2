@@ -336,11 +336,11 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case 'completed':
-        return 'default';
+        return 'success';
       case 'in_progress':
-        return 'secondary';
+        return 'warning';
       case 'cancelled':
-        return 'outline';
+        return 'destructive';
       default:
         return 'secondary';
     }
@@ -349,14 +349,14 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
   const getPaymentStatusBadgeVariant = (status: string) => {
     switch (status) {
       case 'paid':
-        return 'default';
+        return 'success';
       case 'open':
-        return 'secondary';
+        return 'warning';
       case 'partially_paid':
-        return 'secondary';
+        return 'warning';
       case 'failed':
       case 'cancelled':
-        return 'outline';
+        return 'destructive';
       default:
         return 'secondary';
     }

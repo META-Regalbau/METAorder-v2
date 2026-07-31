@@ -16,7 +16,7 @@ export type B2BOfferCustomerContext = {
 const OFFER_NUMBER_RANGE_TYPE =
   process.env.B2B_SELLERS_OFFER_NUMBER_RANGE_TYPE || "b2bsellers_offer";
 
-function toShopwareUuid(uuid: string): string {
+export function toShopwareUuid(uuid: string): string {
   return uuid.replace(/-/g, "").toLowerCase();
 }
 
@@ -43,13 +43,13 @@ async function reserveOfferNumber(
   }
 }
 
-function readAttr(row: any, key: string): unknown {
+export function readAttr(row: any, key: string): unknown {
   if (!row) return undefined;
   if (row[key] !== undefined) return row[key];
   return row.attributes?.[key];
 }
 
-async function searchFirst(
+export async function searchFirst(
   client: ShopwareClient,
   entity: string,
   body: Record<string, unknown>
@@ -58,7 +58,7 @@ async function searchFirst(
   return data?.data?.[0] ?? null;
 }
 
-async function fetchSalutationId(client: ShopwareClient): Promise<string> {
+export async function fetchSalutationId(client: ShopwareClient): Promise<string> {
   const row = await searchFirst(client, "salutation", { limit: 1 });
   const id = readAttr(row, "id");
   if (!id || typeof id !== "string") {
@@ -67,7 +67,7 @@ async function fetchSalutationId(client: ShopwareClient): Promise<string> {
   return id;
 }
 
-async function fetchCountryId(client: ShopwareClient, countryHint?: string): Promise<string> {
+export async function fetchCountryId(client: ShopwareClient, countryHint?: string): Promise<string> {
   const raw = (countryHint || "DE").trim();
 
   if (/^[a-z]{2}$/i.test(raw)) {
@@ -191,7 +191,7 @@ export async function fetchSalesChannelOfferDefaults(
   return { currencyId, shippingMethodId, paymentMethodId };
 }
 
-function mergeAddress(
+export function mergeAddress(
   primary?: Partial<OrderAddress>,
   fallback?: Partial<OrderAddress>
 ): Partial<OrderAddress> {
@@ -207,7 +207,7 @@ function mergeAddress(
   };
 }
 
-function buildOfferAddressPayload(
+export function buildOfferAddressPayload(
   address: Partial<OrderAddress>,
   salutationId: string,
   countryId: string
@@ -345,7 +345,7 @@ export function formatShopwareWriteError(errorText: string): string {
 /**
  * Baut die vollständige Shopware-Schreib-Payload für b2bsellers-offer (Admin API).
  */
-async function fetchCustomerEmail(
+export async function fetchCustomerEmail(
   client: ShopwareClient,
   shopwareCustomerId: string
 ): Promise<string | undefined> {
@@ -357,9 +357,9 @@ async function fetchCustomerEmail(
   return typeof email === "string" && email.trim() ? email.trim() : undefined;
 }
 
-type ProductPricing = { net: number; gross: number; taxRate: number; name: string };
+export type ProductPricing = { net: number; gross: number; taxRate: number; name: string };
 
-function round2(value: number): number {
+export function round2(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
@@ -367,7 +367,7 @@ function round2(value: number): number {
  * Holt Netto-Preis, Brutto-Preis und Steuersatz je Produkt aus Shopware.
  * Bevorzugt den Preis in der Angebotswährung, sonst den ersten Preis.
  */
-async function fetchProductPricing(
+export async function fetchProductPricing(
   client: ShopwareClient,
   productIds: string[],
   currencyId: string
@@ -404,7 +404,14 @@ async function fetchProductPricing(
   return map;
 }
 
-function buildCalculatedItemPrice(net: number, quantity: number, taxRate: number) {
+/** Shopware CashRoundingConfig — required auf order_transaction.amount (order-Entity validiert dies strikt). */
+export const DEFAULT_CASH_ROUNDING = {
+  decimals: 2,
+  interval: 0.01,
+  roundForNet: true,
+};
+
+export function buildCalculatedItemPrice(net: number, quantity: number, taxRate: number) {
   const unitPrice = round2(net);
   const totalPrice = round2(net * quantity);
   const tax = round2((totalPrice * taxRate) / 100);
@@ -420,7 +427,7 @@ function buildCalculatedItemPrice(net: number, quantity: number, taxRate: number
   };
 }
 
-function buildQuantityPriceDefinition(net: number, quantity: number, taxRate: number) {
+export function buildQuantityPriceDefinition(net: number, quantity: number, taxRate: number) {
   return {
     type: "quantity",
     price: round2(net),

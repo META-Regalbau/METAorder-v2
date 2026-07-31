@@ -553,6 +553,55 @@ const sanitizeFilename = (value: string) =>
     .replace(/\.\.+/g, ".")
     .replace(/[^a-zA-Z0-9.\-_]/g, "_");
 
+/** Für HTML-E-Mail-Bodies, die Freitext (z. B. Ticket-Kommentare) einbetten. */
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+/**
+ * Prüft die tatsächlichen Datei-Bytes gegen die vom Dateinamen behauptete
+ * Endung (Magic-Bytes) — sonst wird eine beliebige Datei mit `.pdf`-Endung
+ * blind an pdf-parse durchgereicht (Parser-Verwirrung). Gibt bei fehlendem/
+ * unbekanntem Muster `null` zurück (kein Fehlschlag — z. B. .txt/.eml haben
+ * keine verlässliche Signatur).
+ */
+function detectFileExtensionMismatch(buffer: Buffer, originalname: string): string | null {
+  const ext = (originalname.match(/\.([a-z0-9]+)$/i)?.[1] || "").toLowerCase();
+  const startsWith = (bytes: number[], offset = 0) =>
+    buffer.length >= offset + bytes.length && bytes.every((b, i) => buffer[offset + i] === b);
+  const asciiAt = (offset: number, len: number) =>
+    buffer.length >= offset + len ? buffer.toString("ascii", offset, offset + len) : "";
+
+  switch (ext) {
+    case "pdf":
+      return startsWith([0x25, 0x50, 0x44, 0x46, 0x2d]) /* %PDF- */ ? null : "Datei beginnt nicht mit einer gültigen PDF-Signatur";
+    case "png":
+      return startsWith([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]) ? null : "Datei ist keine gültige PNG-Datei";
+    case "jpg":
+    case "jpeg":
+      return startsWith([0xff, 0xd8, 0xff]) ? null : "Datei ist keine gültige JPEG-Datei";
+    case "gif":
+      return asciiAt(0, 6) === "GIF87a" || asciiAt(0, 6) === "GIF89a" ? null : "Datei ist keine gültige GIF-Datei";
+    case "webp":
+      return asciiAt(0, 4) === "RIFF" && asciiAt(8, 4) === "WEBP" ? null : "Datei ist keine gültige WEBP-Datei";
+    case "docx":
+      // .docx ist ein ZIP-Container ("PK\x03\x04").
+      return startsWith([0x50, 0x4b, 0x03, 0x04]) ? null : "Datei ist keine gültige .docx-Datei";
+    case "doc":
+    case "msg":
+      // Legacy .doc/.msg sind OLE2-Compound-Files.
+      return startsWith([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])
+        ? null
+        : `Datei ist keine gültige .${ext}-Datei`;
+    default:
+      return null;
+  }
+}
+
 const resolveAttachmentPath = (filePath: string) => {
   const root = getUploadsRoot();
   const normalized = path.isAbsolute(filePath)
@@ -11374,7 +11423,7 @@ Antworte im JSON-Format:
                 to: recipient,
                 subject,
                 text: comment.comment,
-                html: `<p>${comment.comment.replace(/\n/g, "<br/>")}</p>`,
+                html: `<p>${escapeHtml(comment.comment).replace(/\n/g, "<br/>")}</p>`,
                 inReplyTo: latestMessage?.messageId || undefined,
                 references: latestMessage?.references || (latestMessage?.messageId ? [latestMessage.messageId] : undefined),
               });
@@ -14078,6 +14127,13 @@ Antworte im JSON-Format:
         }
 
         const fileBuffer = await fs.readFile(file.path);
+
+        const extensionMismatch = detectFileExtensionMismatch(fileBuffer, file.originalname);
+        if (extensionMismatch) {
+          await fs.unlink(file.path);
+          return res.status(400).json({ error: extensionMismatch });
+        }
+
         const docPreview = await extractDocumentTextPreviewForIntent(
           fileBuffer,
           file.mimetype,
@@ -14375,6 +14431,27 @@ Antworte im JSON-Format:
     }
   });
 
+  // GET /api/order-drafts/customer-search?q=... - Search Shopware customers for draft assignment
+  app.get("/api/order-drafts/customer-search", requireAuth, requireManageOrderDrafts, async (req: Request, res: Response) => {
+    try {
+      const q = (req.query.q as string)?.trim() ?? "";
+      const limit = Math.min(50, Math.max(5, parseInt(String(req.query.limit || 20), 10) || 20));
+      if (q.length < 2) {
+        return res.json({ customers: [] });
+      }
+      const settings = await storage.getShopwareSettings(req.tenantId ?? null);
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware-Einstellungen nicht konfiguriert" });
+      }
+      const client = new ShopwareClient(settings);
+      const customers = await client.searchCustomers(q, limit);
+      res.json({ customers });
+    } catch (error: any) {
+      console.error("Error searching customers for order draft:", error);
+      res.status(500).json({ error: error.message ?? "Kundensuche fehlgeschlagen" });
+    }
+  });
+
   // GET /api/order-drafts/:id - Get single order draft with cross-selling suggestions
   app.get("/api/order-drafts/:id", requireAuth, requireManageOrderDrafts, async (req: Request, res: Response) => {
     try {
@@ -14499,7 +14576,7 @@ Antworte im JSON-Format:
   );
 
   // PATCH /api/order-drafts/:id - Update order draft
-  app.patch("/api/order-drafts/:id", requireAuth, requireManageOrderDrafts, async (req: Request, res: Response) => {
+  app.patch("/api/order-drafts/:id", requireAuthOrIntegrationKey, requireManageOrderDrafts, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       
@@ -14514,14 +14591,29 @@ Antworte im JSON-Format:
         status: z.enum(["pending", "review_required", "approved", "rejected", "created"]).optional(),
         extractedData: z.any().optional(),
         matchingResults: z.any().optional(),
+        shopwareCustomerId: z.string().nullable().optional(),
       });
 
       const validated = updateSchema.parse(req.body);
-      const updatedDraftPayload = {
+
+      // Status "created" heißt "es existiert eine echte Shopware-Bestellung" —
+      // das darf nur POST .../create-order setzen (das dabei auch shopwareOrderId
+      // schreibt), nicht dieses generische PATCH. Sonst könnten Dashboards/Reports,
+      // die sich auf status==="created" verlassen, Fantasie-Bestellungen zählen.
+      if (validated.status === "created" && !existingDraft.shopwareOrderId) {
+        return res.status(400).json({
+          error: "Status kann nicht direkt auf 'created' gesetzt werden — dafür POST /api/order-drafts/:id/create-order verwenden.",
+        });
+      }
+
+      const updatedDraftPayload: Record<string, unknown> = {
         extractedData: validated.extractedData ?? existingDraft.extractedData,
         matchingResults: validated.matchingResults ?? existingDraft.matchingResults,
       };
-      
+      if (validated.shopwareCustomerId !== undefined) {
+        updatedDraftPayload.shopwareCustomerId = validated.shopwareCustomerId;
+      }
+
       // Update order draft
       const updatedDraft = await storage.updateOrderDraft(id, validated);
       
@@ -14760,7 +14852,19 @@ Antworte im JSON-Format:
   app.post("/api/order-drafts/:id/create-order", requireAuthOrIntegrationKey, requireManageOrderDrafts, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const result = await executeCreateOrderFromDraft(storage, id, { tenantId: req.tenantId ?? null });
+      const allowedChannelIds = await getSalesChannelFilter(req);
+      const channelResult = await resolveOfferSalesChannelId(storage, {
+        tenantId: req.tenantId ?? null,
+        requestedChannelId: req.body?.sales_channel_id,
+        allowedChannelIds,
+      });
+      if (!channelResult.ok) {
+        return res.status(channelResult.statusCode).json({ error: channelResult.error });
+      }
+      const result = await executeCreateOrderFromDraft(storage, id, {
+        salesChannelId: channelResult.salesChannelId,
+        tenantId: req.tenantId ?? null,
+      });
       if (!result.ok) {
         return res.status(result.statusCode).json({ error: result.error });
       }
@@ -14953,13 +15057,19 @@ Antworte im JSON-Format:
   // POST /api/offer-drafts/from-cpq - Create offer draft from CPQ Konfigurator
   app.post("/api/offer-drafts/from-cpq", requireAuth, requireManageOffers, async (req: Request, res: Response) => {
     try {
-      const { systemId, systemName, config, billOfMaterials, cpqConfigurationId } = req.body;
+      const { systemId, systemName, config, billOfMaterials, cpqConfigurationId, previewImageBase64 } = req.body;
       const user = req.user as { id?: string; username?: string };
       const userId = user?.id ?? user?.username ?? "unknown";
 
       if (!billOfMaterials || !billOfMaterials.items || billOfMaterials.items.length === 0) {
         return res.status(400).json({ error: "Stückliste ist leer. Bitte zuerst die Konfiguration im CPQ-Konfigurator vervollständigen." });
       }
+      // Nur ein echtes data:image/...;base64,... durchlassen — alles andere (leerer
+      // String, fehlgeschlagene Client-Erfassung) wird als "kein Bild" behandelt.
+      const previewImage =
+        typeof previewImageBase64 === "string" && /^data:image\/\w+;base64,/.test(previewImageBase64)
+          ? previewImageBase64
+          : null;
 
       type BomItemIn = {
         productId: string;
@@ -15020,6 +15130,7 @@ Antworte im JSON-Format:
             systemName: systemName ?? null,
             config: config && typeof config === "object" ? config : null,
             cpqConfigurationId: typeof cpqConfigurationId === "string" ? cpqConfigurationId : null,
+            previewImageBase64: previewImage,
             billOfMaterials: {
               items: bomItems.map((item) => ({
                 productId: item.productId,
@@ -15200,7 +15311,7 @@ Antworte im JSON-Format:
   });
 
   // PATCH /api/offer-drafts/:id - Update offer draft
-  app.patch("/api/offer-drafts/:id", requireAuth, requireManageOffers, async (req: Request, res: Response) => {
+  app.patch("/api/offer-drafts/:id", requireAuthOrIntegrationKey, requireManageOffers, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       
@@ -15219,11 +15330,21 @@ Antworte im JSON-Format:
       });
 
       const validated = updateSchema.parse(req.body);
+
+      // Status "created" heißt "es existiert ein echtes Shopware-Angebot" — das darf
+      // nur POST .../create-offer setzen (das dabei auch shopwareOfferId schreibt),
+      // nicht dieses generische PATCH.
+      if (validated.status === "created" && !existingDraft.shopwareOfferId) {
+        return res.status(400).json({
+          error: "Status kann nicht direkt auf 'created' gesetzt werden — dafür POST /api/offer-drafts/:id/create-offer verwenden.",
+        });
+      }
+
       const updatedDraftPayload = {
         extractedData: validated.extractedData ?? existingDraft.extractedData,
         matchingResults: validated.matchingResults ?? existingDraft.matchingResults,
       };
-      
+
       // Update offer draft
       const updatedDraft = await storage.updateOfferDraft(id, validated);
       
@@ -15626,8 +15747,13 @@ Antworte im JSON-Format:
 
   // GET /api/b2b/offer-status-mapping - Return status label/id mapping
   app.get("/api/b2b/offer-status-mapping", requireAuth, requireViewOffers, async (_req: Request, res: Response) => {
-    const stored = (await storage.getSetting("b2b.offerStatusMapping")) as OfferStatusMapping | undefined;
-    res.json(getOfferStatusMapping(stored));
+    try {
+      const stored = (await storage.getSetting("b2b.offerStatusMapping")) as OfferStatusMapping | undefined;
+      res.json(getOfferStatusMapping(stored));
+    } catch (error) {
+      console.error("Error fetching B2B offer status mapping:", error);
+      res.status(500).json({ error: "Failed to fetch offer status mapping" });
+    }
   });
 
   // GET /api/b2b/entities - List available entities from Shopware schema (debug)

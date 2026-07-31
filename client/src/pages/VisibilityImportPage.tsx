@@ -66,14 +66,14 @@ interface ImportResult {
   rows: RowResult[];
 }
 
-const STATUS_VARIANT: Record<RowStatus, "default" | "secondary" | "destructive" | "outline"> = {
-  would_update: "default",
-  updated: "default",
+const STATUS_VARIANT: Record<RowStatus, "secondary" | "destructive" | "outline" | "success" | "warning"> = {
+  would_update: "success",
+  updated: "success",
   unchanged: "outline",
   not_found: "destructive",
   ambiguous: "destructive",
   error: "destructive",
-  skipped: "secondary",
+  skipped: "warning",
 };
 
 const PROBLEM_STATUSES: RowStatus[] = ["not_found", "ambiguous", "error"];
@@ -315,7 +315,7 @@ export default function VisibilityImportPage() {
             <Badge variant="secondary">
               {t("visibilityImport.summary.matched")}: {result.matched}
             </Badge>
-            <Badge variant="default">
+            <Badge variant="success">
               {t("visibilityImport.summary.updated")}: {result.updated}
             </Badge>
             <Badge variant="outline">

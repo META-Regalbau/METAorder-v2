@@ -6,9 +6,6 @@ import { de, enUS, es } from "date-fns/locale";
 import { Eye, FileText, Inbox, ShoppingCart, Sparkles } from "lucide-react";
 import { Link } from "wouter";
 import type { Role } from "@shared/schema";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { fetchOfferDraftForReview, fetchOrderDraftForReview } from "@/lib/refreshReviewDraft";
 import { OfferDraftReviewModal } from "@/components/OfferDraftReviewModal";
@@ -83,36 +80,36 @@ export default function ImportedCommercialInquiriesWidget({
 
   const getStatusBadge = (item: ImportedInquirySummary) => {
     const ns = item.kind === "order" ? "orderDrafts.status" : "offerDrafts.status";
-    const variant =
+    const badgeClass =
       item.status === "review_required" || item.status === "pending"
-        ? "secondary"
+        ? "b-warning"
         : item.status === "created"
-          ? "default"
+          ? "b-success"
           : item.status === "rejected"
-            ? "destructive"
-            : "outline";
+            ? "b-destructive"
+            : "b-outline";
 
     return (
-      <Badge variant={variant} className="text-xs shrink-0">
+      <span className={`mbadge ${badgeClass}`}>
         {t(`${ns}.${statusTranslationKey(item.status)}`)}
-      </Badge>
+      </span>
     );
   };
 
   const getKindBadge = (kind: ImportedInquirySummary["kind"]) => {
     if (kind === "order") {
       return (
-        <Badge variant="outline" className="text-xs gap-1 shrink-0">
+        <span className="mbadge b-outline">
           <ShoppingCart className="h-3 w-3" />
           {t("dashboard.importedInquiries.kindOrder")}
-        </Badge>
+        </span>
       );
     }
     return (
-      <Badge variant="outline" className="text-xs gap-1 shrink-0">
+      <span className="mbadge b-outline">
         <Sparkles className="h-3 w-3" />
         {t("dashboard.importedInquiries.kindOffer")}
-      </Badge>
+      </span>
     );
   };
 
@@ -138,60 +135,64 @@ export default function ImportedCommercialInquiriesWidget({
 
   return (
     <>
-      <Card data-testid="widget-imported-inquiries">
-        <CardHeader>
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Inbox className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <CardTitle>{t("dashboard.importedInquiries.title")}</CardTitle>
-                <CardDescription>{t("dashboard.importedInquiries.description")}</CardDescription>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {canOffers ? (
-                <Link href="/offers">
-                  <Button variant="ghost" size="sm" data-testid="button-view-offer-drafts">
-                    {t("dashboard.importedInquiries.viewOffers")}
-                  </Button>
-                </Link>
-              ) : null}
-              {canOrders ? (
-                <Link href="/order-drafts">
-                  <Button variant="ghost" size="sm" data-testid="button-view-order-drafts">
-                    {t("dashboard.importedInquiries.viewOrders")}
-                  </Button>
-                </Link>
-              ) : null}
+      <div className="mcard" data-testid="widget-imported-inquiries">
+        <div className="mcard-head">
+          <div className="mcard-head-left">
+            <Inbox className="h-5 w-5" />
+            <div>
+              <h3 className="mcard-title">{t("dashboard.importedInquiries.title")}</h3>
+              <p className="mcard-desc">{t("dashboard.importedInquiries.description")}</p>
             </div>
           </div>
-        </CardHeader>
-        <CardContent>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {canOffers ? (
+              <Link href="/offers" className="mbtn ghost sm" data-testid="button-view-offer-drafts">
+                {t("dashboard.importedInquiries.viewOffers")}
+              </Link>
+            ) : null}
+            {canOrders ? (
+              <Link href="/order-drafts" className="mbtn ghost sm" data-testid="button-view-order-drafts">
+                {t("dashboard.importedInquiries.viewOrders")}
+              </Link>
+            ) : null}
+          </div>
+        </div>
+        <div className="mcard-body">
           {stats && stats.total > 0 ? (
-            <div className="mb-4 flex flex-wrap gap-2 text-xs text-muted-foreground">
+            <div
+              style={{
+                marginBottom: 16,
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 12,
+                color: "var(--fg-3)",
+              }}
+            >
               <span>{t("dashboard.importedInquiries.statsTotal", { count: stats.total })}</span>
               {stats.reviewRequired > 0 ? (
-                <Badge variant="secondary" className="text-xs">
+                <span className="mbadge b-warning">
                   {t("dashboard.importedInquiries.statsReview", { count: stats.reviewRequired })}
-                </Badge>
+                </span>
               ) : null}
               {stats.pending > 0 ? (
-                <Badge variant="outline" className="text-xs">
+                <span className="mbadge b-outline">
                   {t("dashboard.importedInquiries.statsPending", { count: stats.pending })}
-                </Badge>
+                </span>
               ) : null}
             </div>
           ) : null}
 
           {isLoading ? (
-            <div className="text-sm text-muted-foreground">{t("common.loading")}</div>
+            <div className="mloading">{t("common.loading")}</div>
           ) : items.length === 0 ? (
-            <div className="text-sm text-muted-foreground space-y-2">
-              <FileText className="h-8 w-8 text-muted-foreground/60" />
+            <div className="mempty">
+              <FileText className="h-4 w-4" />
               <p>{t("dashboard.importedInquiries.empty")}</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="mlist">
               {items.map((item) => {
                 const lowConfidence = isLowOverallMatchingConfidence({
                   overallConfidence: item.overallConfidence ?? undefined,
@@ -205,22 +206,22 @@ export default function ImportedCommercialInquiriesWidget({
                 return (
                   <div
                     key={`${item.kind}-${item.id}`}
-                    className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between"
+                    className="mrow"
                     data-testid={`inquiry-item-${item.id}`}
                   >
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
+                    <div className="mrow-main">
+                      <div className="mrow-badges">
                         {getKindBadge(item.kind)}
                         {getStatusBadge(item)}
                         {item.commercialIntent ? (
-                          <Badge variant="outline" className="text-xs font-normal">
+                          <span className="mbadge b-outline">
                             {t(`commercialUpload.intent.${item.commercialIntent}`)}
-                          </Badge>
+                          </span>
                         ) : null}
                       </div>
-                      <div className="truncate text-sm font-medium">{item.originalFileName}</div>
-                      <div className="truncate text-xs text-muted-foreground">{customerLabel}</div>
-                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                      <div className="mrow-title truncate">{item.originalFileName}</div>
+                      <div className="mrow-meta">
+                        <span>{customerLabel}</span>
                         <span>
                           {format(new Date(item.createdAt), "dd.MM.yyyy HH:mm", {
                             locale: getDateLocale(),
@@ -233,11 +234,7 @@ export default function ImportedCommercialInquiriesWidget({
                           })}
                         </span>
                         {item.overallConfidence != null ? (
-                          <span
-                            className={
-                              lowConfidence ? "text-destructive font-medium" : undefined
-                            }
-                          >
+                          <span style={lowConfidence ? { color: "var(--meta-red)" } : undefined}>
                             {t("dashboard.importedInquiries.confidence", {
                               value: item.overallConfidence,
                             })}
@@ -250,24 +247,24 @@ export default function ImportedCommercialInquiriesWidget({
                         ) : null}
                       </div>
                     </div>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="shrink-0"
-                      disabled={openingId === item.id}
-                      onClick={() => void openReview(item)}
-                      data-testid={`button-review-inquiry-${item.id}`}
-                    >
-                      <Eye className="mr-2 h-4 w-4" />
-                      {t("dashboard.importedInquiries.review")}
-                    </Button>
+                    <div className="mrow-side">
+                      <button
+                        className="mbtn sm"
+                        disabled={openingId === item.id}
+                        onClick={() => void openReview(item)}
+                        data-testid={`button-review-inquiry-${item.id}`}
+                      >
+                        <Eye className="h-4 w-4" />
+                        {t("dashboard.importedInquiries.review")}
+                      </button>
+                    </div>
                   </div>
                 );
               })}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {reviewOffer ? (
         <OfferDraftReviewModal

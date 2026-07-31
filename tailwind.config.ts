@@ -6,9 +6,9 @@ export default {
   theme: {
     extend: {
       borderRadius: {
-        lg: ".5625rem", /* 9px */
-        md: ".375rem", /* 6px */
-        sm: ".1875rem", /* 3px */
+        lg: ".125rem", /* 2px — META-Markendesign: scharfe Kanten statt runder Ecken */
+        md: ".125rem", /* 2px */
+        sm: ".0625rem", /* 1px */
       },
       colors: {
         // Flat / base colors (regular buttons)
@@ -55,6 +55,11 @@ export default {
           DEFAULT: "hsl(var(--success) / <alpha-value>)",
           foreground: "hsl(var(--success-foreground) / <alpha-value>)",
           border: "var(--success-border)",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning) / <alpha-value>)",
+          foreground: "hsl(var(--warning-foreground) / <alpha-value>)",
+          border: "var(--warning-border)",
         },
         ring: "hsl(var(--ring) / <alpha-value>)",
         chart: {

@@ -1068,7 +1068,7 @@ function ProductRow({
       </TableCell>
       <TableCell>
         {product.active === true ? (
-          <Badge className="bg-green-600 hover:bg-green-600">{t("productOverview.active")}</Badge>
+          <Badge variant="success">{t("productOverview.active")}</Badge>
         ) : (
           <Badge variant="outline" className="text-muted-foreground">
             {t("productOverview.inactive")}

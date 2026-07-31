@@ -69,6 +69,11 @@ services:
       DATABASE_URL: postgresql://metaorder:metaorder@db:5432/metaorder
       SESSION_SECRET: ${SESSION_SECRET:-bitte-in-produktion-setzen}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-metaorder-dev-encryption-key-change-in-prod}
+      # Erlaubt die bekannten Dev-Default-Secrets oben nur für diese lokale
+      # docker-compose.yml (Testing/Entwicklung). Echte Deployments (z. B.
+      # deploy/mittwald/) setzen dies nicht — dort wird bei Default-Secrets
+      # der Start verweigert (siehe server/secretGuard.ts).
+      ALLOW_DEV_SECRETS: ${ALLOW_DEV_SECRETS:-true}
       PORT: "5000"
       # Aktiviert den Seed des n8n-service-Benutzers (Integration-Key-Auth) und
       # das HMAC-Secret des eingehenden Ticket-Webhooks. In Produktion setzen.

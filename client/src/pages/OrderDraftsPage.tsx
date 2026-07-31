@@ -91,14 +91,14 @@ export default function OrderDraftsPage() {
     switch (status) {
       case "approved":
         return (
-          <Badge variant="default" className="bg-green-600 hover:bg-green-700" data-testid={`badge-status-${status}`}>
+          <Badge variant="success" data-testid={`badge-status-${status}`}>
             <CheckCircle className="w-3 h-3 mr-1" />
             {t("orderDrafts.status.approved")}
           </Badge>
         );
       case "review_required":
         return (
-          <Badge variant="default" className="bg-yellow-600 hover:bg-yellow-700" data-testid={`badge-status-${status}`}>
+          <Badge variant="warning" data-testid={`badge-status-${status}`}>
             <AlertCircle className="w-3 h-3 mr-1" />
             {t("orderDrafts.status.reviewRequired")}
           </Badge>
@@ -118,7 +118,7 @@ export default function OrderDraftsPage() {
         );
       case "created":
         return (
-          <Badge variant="default" className="bg-blue-600 hover:bg-blue-700" data-testid={`badge-status-${status}`}>
+          <Badge variant="success" data-testid={`badge-status-${status}`}>
             <CheckCircle className="w-3 h-3 mr-1" />
             {t("orderDrafts.status.created")}
           </Badge>
@@ -129,13 +129,13 @@ export default function OrderDraftsPage() {
   const getConfidenceBadge = (confidence: number) => {
     if (confidence >= 90) {
       return (
-        <Badge variant="default" className="bg-green-600 hover:bg-green-700" data-testid="badge-confidence-high">
+        <Badge variant="success" data-testid="badge-confidence-high">
           {confidence}%
         </Badge>
       );
     } else if (confidence >= 60) {
       return (
-        <Badge variant="default" className="bg-yellow-600 hover:bg-yellow-700" data-testid="badge-confidence-medium">
+        <Badge variant="warning" data-testid="badge-confidence-medium">
           {confidence}%
         </Badge>
       );

@@ -40,6 +40,16 @@ export async function executeCreateOfferFromDraft(
       statusCode: 400,
     };
   }
+  const invalidQuantityItems = draft.matchingResults.items.filter(
+    (item) => !Number.isFinite(item.quantity) || item.quantity <= 0
+  );
+  if (invalidQuantityItems.length > 0) {
+    return {
+      ok: false,
+      error: "Some line items have an invalid quantity (must be a positive number).",
+      statusCode: 400,
+    };
+  }
   if (!draft.shopwareCustomerId) {
     return {
       ok: false,
@@ -81,7 +91,10 @@ export async function executeCreateOfferFromDraft(
     if (item.matchedProduct!.productNumber) {
       productNumberById.set(productId, item.matchedProduct!.productNumber);
     }
-    const manualNet = item.matchedProduct!.manualUnitPriceNet;
+    // Manuelle Preis-Override hat Vorrang; sonst greift der von der Smart-Pricing-Engine
+    // vorgeschlagene (und dem Prüfer im Review sowie im Kunden-PDF bereits gezeigte) Preis —
+    // sonst wird der im Review sichtbare Rabatt beim echten Shopware-Angebot nie angewendet.
+    const manualNet = item.matchedProduct!.manualUnitPriceNet ?? item.matchedProduct!.suggestedPrice;
     if (typeof manualNet === "number" && Number.isFinite(manualNet) && manualNet >= 0 && !manualNetById.has(productId)) {
       manualNetById.set(productId, manualNet);
     }
@@ -156,6 +169,17 @@ export async function executeCreateOfferFromDraft(
     };
   } | null;
 
+  // Atomarer Claim direkt vor dem Shopware-Call: verhindert doppelte Angebote bei
+  // gleichzeitigen Requests (Doppelklick, Webhook-Retry) — siehe dbStorage.ts.
+  const claimed = await storage.claimOfferDraftForCreation(draftId, options.tenantId ?? null);
+  if (!claimed) {
+    return {
+      ok: false,
+      error: "Angebot wird bereits erstellt oder wurde bereits erstellt (gleichzeitiger Request).",
+      statusCode: 409,
+    };
+  }
+
   let created: { id: string };
   try {
     created = await client.createOffer({
@@ -174,6 +198,8 @@ export async function executeCreateOfferFromDraft(
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Angebot konnte nicht erstellt werden";
     console.error("[CreateOfferFromDraft] failed:", error instanceof Error ? error.stack || error.message : error);
+    // Claim zurücknehmen, damit der Entwurf erneut versucht werden kann.
+    await storage.updateOfferDraft(draftId, { status: draft.status }, options.tenantId ?? null);
     return { ok: false, error: message, statusCode: 502 };
   }
 
@@ -196,7 +222,7 @@ export async function executeCreateOfferFromDraft(
 export async function executeCreateOrderFromDraft(
   storage: IStorage,
   draftId: string,
-  options: { tenantId?: string | null }
+  options: { salesChannelId: string; tenantId?: string | null }
 ): Promise<CreateOrderSuccess | CreateFromDraftFailure> {
   const draft = await storage.getOrderDraft(draftId, options.tenantId ?? null);
   if (!draft) {
@@ -225,6 +251,30 @@ export async function executeCreateOrderFromDraft(
       statusCode: 400,
     };
   }
+  const invalidQuantityItems = draft.matchingResults.items.filter(
+    (item) => !Number.isFinite(item.quantity) || item.quantity <= 0
+  );
+  if (invalidQuantityItems.length > 0) {
+    return {
+      ok: false,
+      error: "Some line items have an invalid quantity (must be a positive number).",
+      statusCode: 400,
+    };
+  }
+  if (!draft.shopwareCustomerId) {
+    return {
+      ok: false,
+      error: "Draft has no Shopware customer (shopwareCustomerId). Bitte Kunde im Entwurf zuordnen.",
+      statusCode: 400,
+    };
+  }
+  if (!options.salesChannelId) {
+    return {
+      ok: false,
+      error: "sales_channel_id erforderlich. Bitte angeben oder B2B_SELLERS_DEFAULT_SALES_CHANNEL setzen.",
+      statusCode: 400,
+    };
+  }
 
   const shopwareSettings = await storage.getShopwareSettings(options.tenantId ?? null);
   if (!shopwareSettings) {
@@ -232,6 +282,7 @@ export async function executeCreateOrderFromDraft(
   }
 
   const { productCache } = await import("./productCache");
+  const productNumberById = new Map<string, string>();
   const lineItemMap = new Map<string, number>();
   const unresolvedProducts: string[] = [];
 
@@ -245,12 +296,16 @@ export async function executeCreateOrderFromDraft(
         }
         const nextQty = (lineItemMap.get(productId) ?? 0) + item.quantity * component.quantity;
         lineItemMap.set(productId, nextQty);
+        if (component.productNumber) productNumberById.set(productId, component.productNumber);
       });
       return;
     }
     const productId = item.matchedProduct!.id;
     const nextQty = (lineItemMap.get(productId) ?? 0) + item.quantity;
     lineItemMap.set(productId, nextQty);
+    if (item.matchedProduct!.productNumber) {
+      productNumberById.set(productId, item.matchedProduct!.productNumber);
+    }
   });
 
   if (unresolvedProducts.length > 0) {
@@ -261,21 +316,93 @@ export async function executeCreateOrderFromDraft(
     };
   }
 
-  const lineItems = Array.from(lineItemMap.entries()).map(([productId, quantity]) => ({
+  let lineItems: Array<{ productId: string; quantity: number; productNumber?: string }> = Array.from(
+    lineItemMap.entries()
+  ).map(([productId, quantity]) => ({
     productId,
     quantity,
+    productNumber: productNumberById.get(productId),
   }));
 
-  const client = new ShopwareClient(shopwareSettings);
-  const { extractedData, matchingResults: _mr } = draft;
+  // Produkt-IDs gegen Shopware validieren und veraltete IDs über die productNumber neu auflösen
+  // (gleiches Vorgehen wie bei der Angebotserstellung).
+  const { resolveOfferLineItemProducts } = await import("./b2bOfferCreateContext");
+  const productResolution = await resolveOfferLineItemProducts(shopwareSettings, lineItems);
+  if (productResolution.invalid.length > 0) {
+    const names = productResolution.invalid.map((p) => p.productNumber || p.productId).join(", ");
+    return {
+      ok: false,
+      error: `Folgende Produkte wurden in Shopware nicht gefunden: ${names}`,
+      statusCode: 400,
+    };
+  }
+  lineItems = productResolution.items;
 
-  const orderData: any = { lineItems };
-  if (extractedData.customer) orderData.customer = extractedData.customer;
-  if (extractedData.billingAddress) orderData.billingAddress = extractedData.billingAddress;
-  if (extractedData.shippingAddress) orderData.shippingAddress = extractedData.shippingAddress;
-  if (extractedData.orderNotes) orderData.customerComment = extractedData.orderNotes;
+  const { extractedData } = draft;
+  const { buildOrderCreateAttributes } = await import("./shopwareOrderCreateContext");
 
-  const shopwareOrder = await client.createOrder(orderData);
+  // Atomarer Claim direkt vor dem Shopware-Call: verhindert doppelte Bestellungen bei
+  // gleichzeitigen Requests (Doppelklick, Webhook-Retry) — siehe dbStorage.ts.
+  const claimed = await storage.claimOrderDraftForCreation(draftId, options.tenantId ?? null);
+  if (!claimed) {
+    return {
+      ok: false,
+      error: "Bestellung wird bereits erstellt oder wurde bereits erstellt (gleichzeitiger Request).",
+      statusCode: 409,
+    };
+  }
+
+  let shopwareOrder: { id: string };
+  try {
+    const attributes = await buildOrderCreateAttributes(shopwareSettings, {
+      shopwareCustomerId: draft.shopwareCustomerId,
+      salesChannelId: options.salesChannelId,
+      lineItems,
+      customerContext: {
+        email: extractedData.customer?.email,
+        firstName: extractedData.customer?.firstName,
+        lastName: extractedData.customer?.lastName,
+        company: extractedData.customer?.company,
+        phoneNumber: extractedData.customer?.phone,
+        billingAddress: extractedData.billingAddress
+          ? {
+              firstName: extractedData.billingAddress.firstName,
+              lastName: extractedData.billingAddress.lastName,
+              company: extractedData.billingAddress.company,
+              street: extractedData.billingAddress.street,
+              zipCode: extractedData.billingAddress.zipCode,
+              city: extractedData.billingAddress.city,
+              country: extractedData.billingAddress.country,
+              phoneNumber: extractedData.billingAddress.phone,
+            }
+          : undefined,
+        shippingAddress: extractedData.shippingAddress
+          ? {
+              firstName: extractedData.shippingAddress.firstName,
+              lastName: extractedData.shippingAddress.lastName,
+              company: extractedData.shippingAddress.company,
+              street: extractedData.shippingAddress.street,
+              zipCode: extractedData.shippingAddress.zipCode,
+              city: extractedData.shippingAddress.city,
+              country: extractedData.shippingAddress.country,
+              phoneNumber: extractedData.shippingAddress.phone,
+            }
+          : undefined,
+      },
+      customerComment: extractedData.orderNotes,
+    });
+
+    const client = new ShopwareClient(shopwareSettings);
+    shopwareOrder = await client.createOrder(attributes);
+  } catch (error) {
+    // Claim zurücknehmen, damit der Entwurf erneut versucht werden kann.
+    await storage.updateOrderDraft(draftId, { status: draft.status }, options.tenantId ?? null);
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Bestellung konnte nicht in Shopware angelegt werden",
+      statusCode: 502,
+    };
+  }
 
   const updatedDraft = await storage.updateOrderDraft(
     draftId,

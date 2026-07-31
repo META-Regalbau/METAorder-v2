@@ -11,6 +11,7 @@ import QuickActionsWidget from "@/components/dashboard/QuickActionsWidget";
 import CommercialDraftQuickUploadWidget from "@/components/dashboard/CommercialDraftQuickUploadWidget";
 import ImportedCommercialInquiriesWidget from "@/components/dashboard/ImportedCommercialInquiriesWidget";
 import ProcessUpdatesWidget from "@/components/dashboard/ProcessUpdatesWidget";
+import "@/styles/metaAdmin.css";
 
 interface DashboardPageProps {
   userPermissions: Role["permissions"];
@@ -20,14 +21,15 @@ export default function DashboardPage({ userPermissions }: DashboardPageProps) {
   const { t } = useTranslation();
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight" data-testid="text-dashboard-title">
-          {t("dashboard.title")}
-        </h1>
-        <p className="text-muted-foreground" data-testid="text-dashboard-description">
-          {t("dashboard.description")}
-        </p>
+    <div className="madmin">
+      <div className="mpage-head">
+        <div>
+          <span className="eyebrow">METAorder</span>
+          <h1 data-testid="text-dashboard-title">{t("dashboard.title")}</h1>
+          <p className="desc" data-testid="text-dashboard-description">
+            {t("dashboard.description")}
+          </p>
+        </div>
       </div>
 
       <QuickActionsWidget userPermissions={userPermissions} />
@@ -42,19 +44,19 @@ export default function DashboardPage({ userPermissions }: DashboardPageProps) {
         <ImportedCommercialInquiriesWidget userPermissions={userPermissions} />
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="mgrid-kpi" style={{ marginTop: 16 }}>
         <KPIWidget userPermissions={userPermissions} />
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="space-y-6">
+      <div className="mgrid-2" style={{ marginTop: 16 }}>
+        <div>
           <ProcessUpdatesWidget userPermissions={userPermissions} />
           {userPermissions.viewTickets && <MyTicketsWidget />}
           {userPermissions.viewTickets && <RecentCommentsWidget />}
           {userPermissions.viewCrm && <RecentCrmInteractionsWidget />}
           {userPermissions.viewDelayedOrders && <DelayedOrdersWidget />}
         </div>
-        <div className="space-y-6">
+        <div>
           {userPermissions.viewOrders && <RecentOrdersWidget />}
           {userPermissions.viewShipping && <ShippingReadyWidget />}
         </div>

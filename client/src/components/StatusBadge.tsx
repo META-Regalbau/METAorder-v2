@@ -6,10 +6,10 @@ interface StatusBadgeProps {
   status: OrderStatus;
 }
 
-const statusConfig: Record<OrderStatus, { variant: "default" | "secondary" | "outline" | "destructive" }> = {
+const statusConfig: Record<OrderStatus, { variant: "secondary" | "warning" | "success" | "destructive" }> = {
   open: { variant: "secondary" },
-  in_progress: { variant: "default" },
-  completed: { variant: "outline" },
+  in_progress: { variant: "warning" },
+  completed: { variant: "success" },
   cancelled: { variant: "destructive" },
 };
 

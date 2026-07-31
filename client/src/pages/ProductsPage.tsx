@@ -180,11 +180,11 @@ export default function ProductsPage() {
           message.includes("bin2hex()"))
     );
 
-  const getDataQualityBadgeClass = (score?: number) => {
-    if (typeof score !== "number") return "bg-muted text-muted-foreground";
-    if (score >= 100) return "bg-green-600 text-white";
-    if (score > 50) return "bg-yellow-500 text-black";
-    return "bg-red-600 text-white";
+  const getDataQualityBadgeVariant = (score?: number): "success" | "warning" | "destructive" | "secondary" => {
+    if (typeof score !== "number") return "secondary";
+    if (score >= 100) return "success";
+    if (score > 50) return "warning";
+    return "destructive";
   };
 
   const toggleProductMutation = useMutation({
@@ -481,8 +481,8 @@ export default function ProductsPage() {
                         </p>
                       )}
                     </div>
-                    <Badge 
-                      variant={product.available ? "default" : "secondary"}
+                    <Badge
+                      variant={product.available ? "success" : "warning"}
                       data-testid={`badge-availability-${product.id}`}
                     >
                       {product.available ? t('products.available') : t('products.notAvailable')}
@@ -491,14 +491,15 @@ export default function ProductsPage() {
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Badge variant={product.active === false ? "secondary" : "default"}>
+                      <Badge variant={product.active === false ? "secondary" : "success"}>
                         {product.active === false ? t("products.statusInactive") : t("products.statusActive")}
                       </Badge>
                       <Badge
-                        className={getDataQualityBadgeClass(product.dataQualityScore)}
+                        variant={getDataQualityBadgeVariant(product.dataQualityScore)}
                         data-testid={`badge-data-quality-${product.id}`}
                       >
-                        {t("products.dataQualityBadge")} {product.dataQualityScore ?? 0}%
+                        {t("products.dataQualityBadge")}{" "}
+                        {typeof product.dataQualityScore === "number" ? `${product.dataQualityScore}%` : "–"}
                       </Badge>
                     </div>
                     {canManageProducts && (

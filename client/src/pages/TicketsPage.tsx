@@ -212,13 +212,13 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
   const getStatusBadgeVariant = (status?: string) => {
     const safeStatus = status || "open";
     switch (safeStatus) {
-      case "open": return "default";
-      case "in_progress": return "secondary";
-      case "waiting_for_customer": return "outline";
-      case "waiting_for_internal": return "outline";
-      case "resolved": return "default";
+      case "open": return "warning";
+      case "in_progress": return "warning";
+      case "waiting_for_customer": return "secondary";
+      case "waiting_for_internal": return "secondary";
+      case "resolved": return "success";
       case "closed": return "secondary";
-      default: return "default";
+      default: return "secondary";
     }
   };
 
@@ -236,7 +236,7 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
     const safePriority = priority || "normal";
     switch (safePriority) {
       case "urgent": return "destructive";
-      case "high": return "default";
+      case "high": return "warning";
       case "normal": return "secondary";
       case "low": return "outline";
       default: return "secondary";
@@ -271,9 +271,9 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
     if (diffDays < 0) {
       return { label: t('tickets.overdue'), variant: 'destructive' as const };
     } else if (diffDays === 0) {
-      return { label: t('tickets.dueToday'), variant: 'default' as const };
+      return { label: t('tickets.dueToday'), variant: 'warning' as const };
     } else if (diffDays <= 3) {
-      return { label: t('tickets.dueSoon'), variant: 'outline' as const };
+      return { label: t('tickets.dueSoon'), variant: 'warning' as const };
     }
     return null;
   };

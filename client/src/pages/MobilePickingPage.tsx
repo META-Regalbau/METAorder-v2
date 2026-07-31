@@ -108,7 +108,7 @@ function MobilePickingList({
                     </div>
                   )}
                 </div>
-                <Badge variant={picked >= qty && qty > 0 ? "default" : "secondary"}>
+                <Badge variant={picked >= qty && qty > 0 ? "success" : "warning"}>
                   {picked} / {qty}
                 </Badge>
               </div>
@@ -280,7 +280,7 @@ function MobilePickingDetail({
             {t("erp.mobilePicking.progress", { picked, qty })}
           </div>
         </div>
-        <Badge variant={picked >= qty && qty > 0 ? "default" : "outline"}>
+        <Badge variant={picked >= qty && qty > 0 ? "success" : "warning"}>
           {picked}/{qty}
         </Badge>
       </div>

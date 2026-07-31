@@ -97,32 +97,53 @@ function normZip(z: string | undefined): string {
   return m ? m[1] : "";
 }
 
-async function fetchTextLimited(url: string): Promise<{ ok: boolean; text?: string; status?: number; error?: string }> {
-  const v = validateHttpsUrlForOutboundFetch(url);
-  if (!v.ok) return { ok: false, error: v.error };
+const MAX_REDIRECTS = 3;
 
-  const ac = new AbortController();
-  const t = setTimeout(() => ac.abort(), FETCH_TIMEOUT_MS);
-  try {
-    const res = await fetch(v.url.toString(), {
-      method: "GET",
-      redirect: "follow",
-      signal: ac.signal,
-      headers: {
-        "User-Agent": USER_AGENT,
-        Accept: "text/html,application/xhtml+xml;q=0.9,text/plain;q=0.8,*/*;q=0.5",
-      },
-    });
-    const buf = await res.arrayBuffer();
-    clearTimeout(t);
-    const slice = buf.byteLength > MAX_RESPONSE_BYTES ? buf.slice(0, MAX_RESPONSE_BYTES) : buf;
-    const raw = new TextDecoder("utf-8", { fatal: false }).decode(slice);
-    const text = htmlToPlainText(raw);
-    return { ok: res.ok, text, status: res.status };
-  } catch (e: any) {
-    clearTimeout(t);
-    return { ok: false, error: e?.name === "AbortError" ? "timeout" : String(e?.message || e) };
+/**
+ * GET mit manuellem Redirect-Handling: jede Weiterleitung wird erneut gegen
+ * validateHttpsUrlForOutboundFetch geprüft, bevor ihr gefolgt wird. Ein blindes
+ * `redirect: "follow"` würde die SSRF-Prüfung der Start-URL umgehen, sobald der
+ * (von der E-Mail-Absenderdomain abgeleitete, nicht vertrauenswürdige) Server mit
+ * einer internen/privaten Adresse antwortet.
+ */
+async function fetchTextLimited(url: string): Promise<{ ok: boolean; text?: string; status?: number; error?: string }> {
+  let currentUrl = url;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    const v = validateHttpsUrlForOutboundFetch(currentUrl);
+    if (!v.ok) return { ok: false, error: v.error };
+
+    const ac = new AbortController();
+    const t = setTimeout(() => ac.abort(), FETCH_TIMEOUT_MS);
+    try {
+      const res = await fetch(v.url.toString(), {
+        method: "GET",
+        redirect: "manual",
+        signal: ac.signal,
+        headers: {
+          "User-Agent": USER_AGENT,
+          Accept: "text/html,application/xhtml+xml;q=0.9,text/plain;q=0.8,*/*;q=0.5",
+        },
+      });
+      clearTimeout(t);
+
+      if (res.status >= 300 && res.status < 400) {
+        const location = res.headers.get("location");
+        if (!location) return { ok: false, error: "redirect_without_location" };
+        currentUrl = new URL(location, v.url).toString();
+        continue;
+      }
+
+      const buf = await res.arrayBuffer();
+      const slice = buf.byteLength > MAX_RESPONSE_BYTES ? buf.slice(0, MAX_RESPONSE_BYTES) : buf;
+      const raw = new TextDecoder("utf-8", { fatal: false }).decode(slice);
+      const text = htmlToPlainText(raw);
+      return { ok: res.ok, text, status: res.status };
+    } catch (e: any) {
+      clearTimeout(t);
+      return { ok: false, error: e?.name === "AbortError" ? "timeout" : String(e?.message || e) };
+    }
   }
+  return { ok: false, error: "too_many_redirects" };
 }
 
 function scoreCompanyInText(company: string | undefined, haystackNorm: string): boolean {

@@ -8,8 +8,9 @@
  * reference size (1000×500mm, 2000/2500mm height), scaled elsewhere.
  */
 import { useEffect, useMemo, useRef } from "react";
+import * as THREE from "three";
 import { Canvas, useThree } from "@react-three/fiber";
-import { OrbitControls, useGLTF } from "@react-three/drei";
+import { Environment, OrbitControls, useGLTF } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { buildRegalGroup, HEIGHT_GLB, SHELF_GLB_URL, DIAGONAL_GLB_URL } from "./regalAssembly";
 import type { MetaClipState } from "@/lib/metaClipCpq";
@@ -86,10 +87,24 @@ function Assembly({
 export default function MetaClipRegalAssembly({ state }: { state: MetaClipState }) {
   return (
     <div style={{ position: "absolute", inset: 0 }}>
-      <Canvas dpr={[1, 2]} camera={{ fov: 32, near: 0.01, far: 100 }} style={{ background: "transparent" }}>
-        <ambientLight intensity={0.7} />
-        <directionalLight position={[3, 6, 4]} intensity={1.1} />
-        <directionalLight position={[-4, 3, -3]} intensity={0.35} />
+      <Canvas
+        dpr={[1, 2]}
+        camera={{ fov: 32, near: 0.01, far: 100 }}
+        gl={{ toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 0.55 }}
+        style={{ background: "transparent" }}
+      >
+        {/* Echte, lokal gehostete HDRI (kein CDN-Fetch, keine Netzwerk-
+            abhängigkeit) statt handgebauter Lightformer-Panels — gibt dem
+            verzinkten Stahl (metalness 0.75) die feinen, natürlichen
+            Kontraste/Glanzlichter eines echten Studio-Environments, ähnlich
+            der automatischen neutralen Umgebung, die <model-viewer/> im
+            AR-Viewer der Angebotsseite intern erzeugt. `flat` (kein
+            Tonemapping) hat die Szene hart weiß ausgebrannt, weil Highlights
+            ohne Rolloff bei 1.0 hart abgeschnitten werden — und ignoriert
+            zusätzlich toneMappingExposure komplett. ACES-Filmic rollt
+            Highlights weich ab; die niedrige Exposure zieht die insgesamt
+            sehr helle HDRI wieder auf ein normales Niveau. */}
+        <Environment files="/env/studio_small_03_1k.hdr" background={false} />
         <Assembly
           fieldCount={state.felder}
           levels={state.boeden}

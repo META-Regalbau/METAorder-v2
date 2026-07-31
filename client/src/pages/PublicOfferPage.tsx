@@ -114,7 +114,7 @@ export default function PublicOfferPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-muted/40 to-background">
+    <div className="min-h-screen">
       <OfferLandingView
         offer={data.offer}
         shareExpiresAt={data.shareExpiresAt}

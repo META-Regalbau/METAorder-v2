@@ -382,6 +382,13 @@ export interface IStorage {
   getOrderDraft(id: string, tenantId?: string | null): Promise<OrderDraft | undefined>;
   createOrderDraft(draft: InsertOrderDraft, tenantId?: string | null): Promise<OrderDraft>;
   updateOrderDraft(id: string, updates: Partial<InsertOrderDraft>, tenantId?: string | null): Promise<OrderDraft | undefined>;
+  /**
+   * Atomarer "Claim" direkt vor dem Shopware-Create-Call: setzt Status auf "creating",
+   * aber NUR wenn der Entwurf noch nicht "created"/"creating" ist. Verhindert doppelte
+   * Shopware-Bestellungen bei gleichzeitigen Requests (Doppelklick, Webhook-Retry).
+   * Gibt undefined zurück, wenn ein anderer Request den Entwurf bereits geclaimt hat.
+   */
+  claimOrderDraftForCreation(id: string, tenantId?: string | null): Promise<OrderDraft | undefined>;
   deleteOrderDraft(id: string, tenantId?: string | null): Promise<boolean>;
   
   // Offer Drafts (AI-powered offer/quote creation)
@@ -394,6 +401,8 @@ export interface IStorage {
   ): Promise<OfferDraft | undefined>;
   createOfferDraft(draft: InsertOfferDraft, tenantId?: string | null): Promise<OfferDraft>;
   updateOfferDraft(id: string, updates: Partial<InsertOfferDraft>, tenantId?: string | null): Promise<OfferDraft | undefined>;
+  /** Atomarer "Claim" — siehe claimOrderDraftForCreation. */
+  claimOfferDraftForCreation(id: string, tenantId?: string | null): Promise<OfferDraft | undefined>;
   deleteOfferDraft(id: string, tenantId?: string | null): Promise<boolean>;
 
   // Commercial Agent — Few-Shot-Lernexemplare
@@ -1997,7 +2006,12 @@ export class MemStorage implements IStorage {
     // Stub implementation - not used in production (using DbStorage)
     return undefined;
   }
-  
+
+  async claimOrderDraftForCreation(_id: string, _tenantId?: string | null): Promise<OrderDraft | undefined> {
+    // Stub implementation - not used in production (using DbStorage)
+    return undefined;
+  }
+
   async deleteOrderDraft(id: string): Promise<boolean> {
     // Stub implementation - not used in production (using DbStorage)
     return false;
@@ -2044,7 +2058,12 @@ export class MemStorage implements IStorage {
     // Stub implementation - not used in production (using DbStorage)
     return undefined;
   }
-  
+
+  async claimOfferDraftForCreation(_id: string, _tenantId?: string | null): Promise<OfferDraft | undefined> {
+    // Stub implementation - not used in production (using DbStorage)
+    return undefined;
+  }
+
   async deleteOfferDraft(id: string): Promise<boolean> {
     // Stub implementation - not used in production (using DbStorage)
     return false;

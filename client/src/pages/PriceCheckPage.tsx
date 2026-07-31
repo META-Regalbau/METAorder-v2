@@ -371,7 +371,7 @@ export default function PriceCheckPage() {
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">{t("priceCheck.stats.green")}</p>
-            <p className="text-2xl font-semibold text-green-600">{stats.green}</p>
+            <p className="text-2xl font-semibold text-success">{stats.green}</p>
           </CardContent>
         </Card>
         <Card>
@@ -549,12 +549,14 @@ function PriceRowView({ row }: { row: PriceRow }) {
       <TableCell>
         <span className="inline-flex items-center gap-2">
           <span className={`inline-block h-3 w-3 rounded-full ${dotClass}`} />
-          {row.verdict === "none" ? (
+          {row.verdict === "green" ? (
+            <Badge variant="success">{t("priceCheck.verdict.green")}</Badge>
+          ) : row.verdict === "red" ? (
+            <Badge variant="destructive">{t("priceCheck.verdict.red")}</Badge>
+          ) : (
             <Badge variant="outline" className="text-muted-foreground">
               {t("priceCheck.verdict.none")}
             </Badge>
-          ) : (
-            <span className="text-sm">{t(`priceCheck.verdict.${row.verdict}`)}</span>
           )}
         </span>
       </TableCell>

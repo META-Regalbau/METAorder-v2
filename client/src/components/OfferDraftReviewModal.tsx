@@ -194,9 +194,13 @@ export function OfferDraftReviewModal({
       if (!mergedMatchingResults) {
         throw new Error(t("offerDrafts.review.createOfferError"));
       }
+      // "Angebot erstellen" ist die Freigabe-Handlung: ein frischer Entwurf steht
+      // auf "pending", das Backend lehnt create-offer dafür ab ("Please approve it
+      // first"). Hier gleich mit approven, damit der Klick nicht ins Leere läuft.
       await apiRequest("PATCH", `/api/offer-drafts/${draft.id}`, {
         extractedData: editedData,
         matchingResults: mergedMatchingResults,
+        status: draft.status === "pending" ? "approved" : undefined,
       });
       // Angebot erstellen
       const response = await apiRequest("POST", `/api/offer-drafts/${draft.id}/create-offer`);

@@ -1,14 +1,6 @@
-import { X, FileDown, Loader2, ExternalLink, ChevronDown, ChevronRight, Package, Layers, FileSpreadsheet, FileCode2 } from "lucide-react";
+import { FileDown, Loader2, ChevronDown, ChevronRight, Package, Layers, FileSpreadsheet, FileCode2 } from "lucide-react";
 import { useState, useEffect, Fragment, useMemo, useRef } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -24,6 +16,7 @@ import {
   type OfferConfigPdfDialogState,
 } from "@/lib/offerConfigPdfOptions";
 import { Link } from "wouter";
+import "@/styles/metaAdmin.css";
 
 interface OfferDetailModalProps {
   offerId: string | null;
@@ -56,6 +49,8 @@ interface OfferLineItem {
   configurationDescription?: string | null;
   coverImageUrl?: string | null;
   children?: OfferLineItemChild[];
+  /** true = Überpunkt einer Konfiguration (kein echtes Lineitem, siehe children) */
+  isConfigurationGroup?: boolean;
 }
 
 interface OfferDetail {
@@ -383,24 +378,27 @@ export default function OfferDetailModal({
 
   const getStatusBadge = (status: string, statusLabel?: string | null) => {
     const statusKey = status.toLowerCase();
-    const statusVariantMap: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
-      draft: "secondary",
-      submitted: "outline",
-      sent: "outline",
-      approved: "default",
-      rejected: "destructive",
-      expired: "secondary",
-      offered: "outline",
-      accepted: "default",
-      declined: "destructive",
+    const statusClassMap: Record<string, string> = {
+      draft: "b-outline",
+      submitted: "b-warning",
+      sent: "b-warning",
+      approved: "b-success",
+      rejected: "b-destructive",
+      expired: "b-outline",
+      offered: "b-warning",
+      accepted: "b-success",
+      declined: "b-destructive",
     };
 
     const mappedLabel = statusMapping?.[statusKey as keyof OfferStatusMapping]?.label;
     const label = statusLabel || mappedLabel || t(`offers.status.${statusKey}`, status);
     return (
-      <Badge variant={statusVariantMap[statusKey] || "outline"} data-testid={`badge-offer-status-${statusKey}`}>
+      <span
+        className={`mbadge ${statusClassMap[statusKey] || "b-outline"}`}
+        data-testid={`badge-offer-status-${statusKey}`}
+      >
         {label}
-      </Badge>
+      </span>
     );
   };
 
@@ -582,7 +580,7 @@ export default function OfferDetailModal({
   if (!offer && isLoading) {
     return (
       <Dialog open={isOpen} onOpenChange={handleClose}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-4xl madmin" style={{ borderRadius: 2, boxShadow: "none", borderColor: "var(--meta-steel)" }}>
           <DialogHeader>
             <DialogTitle>{t('common.loading', 'Lädt...')}</DialogTitle>
             <DialogDescription className="sr-only">{t('offers.description')}</DialogDescription>
@@ -598,16 +596,14 @@ export default function OfferDetailModal({
   if (!offer || error) {
     return (
       <Dialog open={isOpen} onOpenChange={handleClose}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-4xl madmin" style={{ borderRadius: 2, boxShadow: "none", borderColor: "var(--meta-steel)" }}>
           <DialogHeader>
             <DialogTitle>{t('offers.errors.loadFailed')}</DialogTitle>
             <DialogDescription className="sr-only">{t('offers.errors.loadFailed')}</DialogDescription>
           </DialogHeader>
-          <Alert variant="destructive">
-            <AlertDescription>
-              {error instanceof Error ? error.message : t('offers.errors.loadFailed')}
-            </AlertDescription>
-          </Alert>
+          <div className="malert destructive">
+            {error instanceof Error ? error.message : t('offers.errors.loadFailed')}
+          </div>
         </DialogContent>
       </Dialog>
     );
@@ -616,108 +612,111 @@ export default function OfferDetailModal({
   return (
     <>
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="modal-offer-detail">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto madmin" data-testid="modal-offer-detail" style={{ borderRadius: 2, boxShadow: "none", borderColor: "var(--meta-steel)" }}>
         <DialogHeader>
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <DialogTitle className="text-2xl font-semibold">
-                {t('offerDetail.title', { offerNumber: offer.offerNumber })}
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="min-w-0" style={{ paddingTop: 6 }}>
+              <DialogTitle asChild>
+                <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>
+                  {t('offerDetail.title', { offerNumber: offer.offerNumber })}
+                </h2>
               </DialogTitle>
               <DialogDescription className="sr-only">{t('offerDetail.offerInfo')}</DialogDescription>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <Button
-                variant="outline"
-                size="sm"
+              <button
+                type="button"
+                className="mbtn sm"
                 onClick={handleDownloadPDF}
                 data-testid="button-download-pdf"
               >
-                <FileDown className="h-4 w-4 mr-2" />
+                <FileDown className="h-4 w-4" />
                 {t('offers.downloadPDF')}
-              </Button>
+              </button>
               {hasConfigPdf && (
-                <Button
-                  variant="outline"
-                  size="sm"
+                <button
+                  type="button"
+                  className="mbtn sm"
                   onClick={() => setConfigPdfOptionsOpen(true)}
                   disabled={configPdfLoading}
                   data-testid="button-download-config-pdf"
                 >
                   {configPdfLoading ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Layers className="h-4 w-4 mr-2" />
+                    <Layers className="h-4 w-4" />
                   )}
                   {t("offerDetail.downloadConfigPdf")}
-                </Button>
+                </button>
               )}
-              <Button
-                variant="outline"
-                size="sm"
+              <button
+                type="button"
+                className="mbtn sm"
                 onClick={() => handleDownloadErpExport("csv")}
                 disabled={erpExportLoading !== null}
                 data-testid="button-download-offer-erp-csv"
                 title={t("offerDetail.erpExportCsvHint")}
               >
                 {erpExportLoading === "csv" ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  <FileSpreadsheet className="h-4 w-4" />
                 )}
                 {t("offerDetail.downloadErpCsv")}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
+              </button>
+              <button
+                type="button"
+                className="mbtn sm"
                 onClick={() => handleDownloadErpExport("xml")}
                 disabled={erpExportLoading !== null}
                 data-testid="button-download-offer-erp-xml"
                 title={t("offerDetail.erpExportXmlHint")}
               >
                 {erpExportLoading === "xml" ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <FileCode2 className="h-4 w-4 mr-2" />
+                  <FileCode2 className="h-4 w-4" />
                 )}
                 {t("offerDetail.downloadErpXml")}
-              </Button>
+              </button>
               {canManage && (
                 <>
-                  <Button
-                    variant="outline"
-                    size="sm"
+                  <button
+                    type="button"
+                    className="mbtn sm"
                     onClick={() => approveOfferMutation.mutate()}
                     disabled={approveOfferMutation.isPending || ["approved", "rejected", "expired"].includes(offer.status)}
                     data-testid="button-approve-offer"
                   >
                     {t('offers.actions.approve')}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
+                  </button>
+                  <button
+                    type="button"
+                    className="mbtn sm destructive"
                     onClick={() => rejectOfferMutation.mutate()}
                     disabled={rejectOfferMutation.isPending || ["rejected", "expired"].includes(offer.status)}
                     data-testid="button-reject-offer"
                   >
                     {t('offers.actions.reject')}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
+                  </button>
+                  <button
+                    type="button"
+                    className="mbtn sm"
                     onClick={() => setIsEditing((prev) => !prev)}
                     data-testid="button-toggle-edit"
                   >
                     {isEditing ? t('common.cancel') : t('common.edit')}
-                  </Button>
+                  </button>
                   {isEditing && (
-                    <Button
-                      size="sm"
+                    <button
+                      type="button"
+                      className="mbtn sm primary"
                       onClick={() => updateOfferMutation.mutate()}
                       disabled={updateOfferMutation.isPending}
                       data-testid="button-save-offer"
                     >
                       {t('common.save')}
-                    </Button>
+                    </button>
                   )}
                 </>
               )}
@@ -726,38 +725,54 @@ export default function OfferDetailModal({
           </div>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="overview" data-testid="tab-overview">
-              {t('offerDetail.overview')}
-            </TabsTrigger>
-            <TabsTrigger value="items" data-testid="tab-items">
-              {t('offerDetail.items')}
-            </TabsTrigger>
-            <TabsTrigger value="pdf" data-testid="tab-pdf">
-              {t('offerDetail.pdfPreview')}
-            </TabsTrigger>
-          </TabsList>
+        <div className="mtabs-list">
+          <button
+            type="button"
+            className={`mtab ${activeTab === "overview" ? "active" : ""}`}
+            onClick={() => setActiveTab("overview")}
+            data-testid="tab-overview"
+          >
+            {t('offerDetail.overview')}
+          </button>
+          <button
+            type="button"
+            className={`mtab ${activeTab === "items" ? "active" : ""}`}
+            onClick={() => setActiveTab("items")}
+            data-testid="tab-items"
+          >
+            {t('offerDetail.items')}
+          </button>
+          <button
+            type="button"
+            className={`mtab ${activeTab === "pdf" ? "active" : ""}`}
+            onClick={() => setActiveTab("pdf")}
+            data-testid="tab-pdf"
+          >
+            {t('offerDetail.pdfPreview')}
+          </button>
+        </div>
 
-          <TabsContent value="overview" className="space-y-4">
+        {activeTab === "overview" && (
+          <div className="space-y-4" style={{ marginTop: 16 }}>
             {offerId && (
               <CpqApprovalPanel
                 offerId={offerId}
                 canApprove={canApproveCPQ}
               />
             )}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">{t('offerDetail.customerInfo')}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
+            <div className="mgrid-2">
+              <div className="mcard">
+                <div className="mcard-head">
+                  <h3 className="mcard-title">{t('offerDetail.customerInfo')}</h3>
+                </div>
+                <div className="mcard-body">
                   <div>
-                    <div className="text-sm font-medium text-muted-foreground">
+                    <div className="mfield-label">
                       {t('offerDetail.name')}
                     </div>
                     {isEditing ? (
-                      <Input
+                      <input
+                        className="minput"
                         value={editValues.customerName}
                         onChange={(event) =>
                           setEditValues((prev) => ({ ...prev, customerName: event.target.value }))
@@ -765,18 +780,19 @@ export default function OfferDetailModal({
                         data-testid="input-customer-name"
                       />
                     ) : (
-                      <div className="text-base" data-testid="text-customer-name">
+                      <div className="mfield-value" data-testid="text-customer-name">
                         {offer.customerName || '-'}
                       </div>
                     )}
                   </div>
-                  <Separator />
+                  <div className="mhr" />
                   <div>
-                    <div className="text-sm font-medium text-muted-foreground">
+                    <div className="mfield-label">
                       {t('offerDetail.email')}
                     </div>
                     {isEditing ? (
-                      <Input
+                      <input
+                        className="minput"
                         value={editValues.customerEmail}
                         onChange={(event) =>
                           setEditValues((prev) => ({ ...prev, customerEmail: event.target.value }))
@@ -784,34 +800,35 @@ export default function OfferDetailModal({
                         data-testid="input-customer-email"
                       />
                     ) : (
-                      <div className="text-base" data-testid="text-customer-email">
+                      <div className="mfield-value" data-testid="text-customer-email">
                         {offer.customerEmail || '-'}
                       </div>
                     )}
                   </div>
-                  <Separator />
+                  <div className="mhr" />
                   <div>
-                    <div className="text-sm font-medium text-muted-foreground">
+                    <div className="mfield-label">
                       {t('offerDetail.phone')}
                     </div>
-                    <div className="text-base" data-testid="text-customer-phone">
+                    <div className="mfield-value" data-testid="text-customer-phone">
                       {offer.customerPhone || '-'}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">{t('offerDetail.offerInfo')}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
+              <div className="mcard">
+                <div className="mcard-head">
+                  <h3 className="mcard-title">{t('offerDetail.offerInfo')}</h3>
+                </div>
+                <div className="mcard-body">
                   <div>
-                    <div className="text-sm font-medium text-muted-foreground">
+                    <div className="mfield-label">
                       {t('offerDetail.offerNumber')}
                     </div>
                     {isEditing ? (
-                      <Input
+                      <input
+                        className="minput"
                         value={editValues.offerNumber}
                         onChange={(event) =>
                           setEditValues((prev) => ({ ...prev, offerNumber: event.target.value }))
@@ -819,28 +836,29 @@ export default function OfferDetailModal({
                         data-testid="input-offer-number"
                       />
                     ) : (
-                      <div className="text-base font-mono" data-testid="text-offer-number">
+                      <div className="mfield-value mono" data-testid="text-offer-number">
                         {offer.offerNumber}
                       </div>
                     )}
                   </div>
-                  <Separator />
+                  <div className="mhr" />
                   <div>
-                    <div className="text-sm font-medium text-muted-foreground">
+                    <div className="mfield-label">
                       {t('offerDetail.offerDate')}
                     </div>
-                    <div className="text-base" data-testid="text-offer-date">
+                    <div className="mfield-value" data-testid="text-offer-date">
                       {formatDate(offer.createdAt)}
                     </div>
                   </div>
-                  <Separator />
+                  <div className="mhr" />
                   <div>
-                    <div className="text-sm font-medium text-muted-foreground">
+                    <div className="mfield-label">
                       {t('offerDetail.expirationDate')}
                     </div>
                     {isEditing ? (
-                      <Input
+                      <input
                         type="date"
+                        className="minput"
                         value={editValues.expirationDate}
                         onChange={(event) =>
                           setEditValues((prev) => ({ ...prev, expirationDate: event.target.value }))
@@ -848,116 +866,112 @@ export default function OfferDetailModal({
                         data-testid="input-expiration-date"
                       />
                     ) : (
-                      <div className="text-base" data-testid="text-expiration-date">
+                      <div className="mfield-value" data-testid="text-expiration-date">
                         {formatDate(offer.expirationDate)}
                       </div>
                     )}
                   </div>
                   {isEditing && (
                     <>
-                      <Separator />
+                      <div className="mhr" />
                       <div>
-                        <div className="text-sm font-medium text-muted-foreground">
+                        <div className="mfield-label">
                           {t('offerDetail.status')}
                         </div>
-                        <Select
+                        <select
+                          className="minput"
                           value={editValues.status}
-                          onValueChange={(value) => setEditValues((prev) => ({ ...prev, status: value }))}
+                          onChange={(event) => setEditValues((prev) => ({ ...prev, status: event.target.value }))}
+                          data-testid="select-offer-status"
                         >
-                          <SelectTrigger data-testid="select-offer-status">
-                            <SelectValue placeholder={t('offers.filter.status')} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="draft">{getFilterLabel("draft")}</SelectItem>
-                            <SelectItem value="submitted">{getFilterLabel("submitted")}</SelectItem>
-                            <SelectItem value="sent">{getFilterLabel("sent")}</SelectItem>
-                            <SelectItem value="approved">{getFilterLabel("approved")}</SelectItem>
-                            <SelectItem value="rejected">{getFilterLabel("rejected")}</SelectItem>
-                            <SelectItem value="expired">{t('offers.status.expired')}</SelectItem>
-                          </SelectContent>
-                        </Select>
+                          <option value="draft">{getFilterLabel("draft")}</option>
+                          <option value="submitted">{getFilterLabel("submitted")}</option>
+                          <option value="sent">{getFilterLabel("sent")}</option>
+                          <option value="approved">{getFilterLabel("approved")}</option>
+                          <option value="rejected">{getFilterLabel("rejected")}</option>
+                          <option value="expired">{t('offers.status.expired')}</option>
+                        </select>
                       </div>
                     </>
                   )}
-                  <Separator />
+                  <div className="mhr" />
                   <div>
-                    <div className="text-sm font-medium text-muted-foreground">
+                    <div className="mfield-label">
                       {t('offerDetail.status')}
                     </div>
                     <div className="mt-1">
                       {getStatusBadge(offer.status, offer.statusLabel)}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">{t('offerDetail.totalAmount')}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
+            <div className="mcard">
+              <div className="mcard-head">
+                <h3 className="mcard-title">{t('offerDetail.totalAmount')}</h3>
+              </div>
+              <div className="mcard-body">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">
-                    {t('offerDetail.net')}:
+                  <span className="mfield-label">
+                    {t('offerDetail.net')}
                   </span>
-                  <span className="text-base font-medium" data-testid="text-net-amount">
+                  <span className="mfield-value" data-testid="text-net-amount">
                     {formatCurrency(offer.netAmount)}
                   </span>
                 </div>
-                <Separator />
+                <div className="mhr" />
                 <div className="flex items-center justify-between">
-                  <span className="text-base font-semibold">
-                    {t('offerDetail.gross')}:
+                  <span style={{ fontSize: 14, fontWeight: 700 }}>
+                    {t('offerDetail.gross')}
                   </span>
-                  <span className="text-xl font-bold" data-testid="text-total-amount">
+                  <span style={{ fontFamily: "var(--font-cn)", fontSize: 22, fontWeight: 800 }} data-testid="text-total-amount">
                     {formatCurrency(offer.totalAmount)}
                   </span>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
             {offer.salesChannelName && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">{t('offerDetail.salesChannel')}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-base" data-testid="text-sales-channel">
+              <div className="mcard">
+                <div className="mcard-head">
+                  <h3 className="mcard-title">{t('offerDetail.salesChannel')}</h3>
+                </div>
+                <div className="mcard-body">
+                  <div className="mfield-value" data-testid="text-sales-channel">
                     {offer.salesChannelName}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             )}
 
             {offerId ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">{t("offerDetail.publicLinkTitle")}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  <p className="text-muted-foreground">{t("offerDetail.publicLinkDescription")}</p>
+              <div className="mcard">
+                <div className="mcard-head">
+                  <h3 className="mcard-title">{t("offerDetail.publicLinkTitle")}</h3>
+                </div>
+                <div className="mcard-body space-y-3 text-sm">
+                  <p style={{ color: "var(--fg-3)" }}>{t("offerDetail.publicLinkDescription")}</p>
                   {shareLinkMeta?.active ? (
-                    <div className="space-y-1 rounded-md border bg-muted/30 p-3">
+                    <div style={{ border: "1px solid var(--meta-steel)", background: "var(--meta-mist)", padding: 12 }}>
                       <div>
-                        <span className="font-medium">{t("offerDetail.publicLinkActive")}: </span>
+                        <span style={{ fontWeight: 700 }}>{t("offerDetail.publicLinkActive")}: </span>
                         <span>{shareLinkMeta.expiresAt ? formatDate(shareLinkMeta.expiresAt) : "—"}</span>
                       </div>
                       {shareLinkMeta.lastAccessAt ? (
-                        <div className="text-muted-foreground text-xs">
+                        <div style={{ color: "var(--fg-3)", fontSize: 11 }}>
                           {t("offerDetail.publicLinkLastAccess")}: {formatDate(shareLinkMeta.lastAccessAt)}
                         </div>
                       ) : null}
                     </div>
                   ) : (
-                    <p className="text-muted-foreground">{t("offerDetail.publicLinkNone")}</p>
+                    <p style={{ color: "var(--fg-3)" }}>{t("offerDetail.publicLinkNone")}</p>
                   )}
                   {lastPublicShareUrl ? (
                     <div className="flex flex-wrap gap-2">
-                      <Button
+                      <button
                         type="button"
-                        variant="secondary"
-                        size="sm"
+                        className="mbtn sm"
                         onClick={() => {
                           void navigator.clipboard.writeText(lastPublicShareUrl).then(
                             () => toast({ title: t("offerDetail.publicLinkCopySuccess") }),
@@ -966,73 +980,72 @@ export default function OfferDetailModal({
                         }}
                       >
                         {t("offerDetail.publicLinkCopy")}
-                      </Button>
+                      </button>
                     </div>
                   ) : null}
                   <div className="flex flex-wrap gap-2">
                     {canManage ? (
-                      <Button
+                      <button
                         type="button"
-                        size="sm"
+                        className="mbtn sm primary"
                         disabled={createShareLinkMutation.isPending}
                         onClick={() => createShareLinkMutation.mutate()}
                       >
                         {createShareLinkMutation.isPending ? (
-                          <Loader2 className="h-4 w-4 animate-spin mr-2 inline" aria-hidden />
+                          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                         ) : null}
                         {t("offerDetail.publicLinkCreate")}
-                      </Button>
+                      </button>
                     ) : null}
                     {canManage && shareLinkMeta?.active ? (
-                      <Button
+                      <button
                         type="button"
-                        variant="outline"
-                        size="sm"
+                        className="mbtn sm"
                         disabled={revokeShareLinkMutation.isPending}
                         onClick={() => revokeShareLinkMutation.mutate()}
                       >
                         {t("offerDetail.publicLinkRevoke")}
-                      </Button>
+                      </button>
                     ) : null}
-                    <Button variant="outline" size="sm" asChild>
-                      <Link href={`/offers/${offerId}/preview`} target="_blank" rel="noopener noreferrer">
+                    <Link href={`/offers/${offerId}/preview`} target="_blank" rel="noopener noreferrer" className="mbtn sm">
                         {t("offerDetail.publicLinkPreview")}
                       </Link>
-                    </Button>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             ) : null}
-          </TabsContent>
+          </div>
+        )}
 
-          <TabsContent value="items" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">{t('offerDetail.offerItems')}</CardTitle>
-              </CardHeader>
-              <CardContent>
+        {activeTab === "items" && (
+          <div className="space-y-4" style={{ marginTop: 16 }}>
+            <div className="mcard">
+              <div className="mcard-head">
+                <h3 className="mcard-title">{t('offerDetail.offerItems')}</h3>
+              </div>
+              <div className="mcard-body tight">
                 {offer.lineItems && offer.lineItems.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
+                  <div className="mtable-wrap" style={{ border: "none" }}>
+                    <table className="mtable">
                       <thead>
-                        <tr className="border-b">
+                        <tr>
                           <th className="w-8"></th>
-                          <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">
+                          <th>
                             {t('products.productNumber')}
                           </th>
-                          <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">
+                          <th>
                             {t('offerDetail.name')}
                           </th>
-                          <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">
+                          <th className="num">
                             {t('offerDetail.quantity')}
                           </th>
-                          <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">
+                          <th className="num">
                             {t('products.price')}
                           </th>
-                          <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">
+                          <th className="num">
                             {t('offerDetail.taxRate')}
                           </th>
-                          <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">
+                          <th className="num">
                             {t('offerDetail.totalAmount')}
                           </th>
                         </tr>
@@ -1058,57 +1071,61 @@ export default function OfferDetailModal({
                           return (
                             <Fragment key={item.id}>
                               <tr
-                                className={`border-b last:border-0 ${isExpandable ? 'cursor-pointer hover:bg-muted/50' : ''}`}
+                                className={isExpandable ? 'clickable' : undefined}
                                 data-testid={`row-item-${index}`}
                                 onClick={isExpandable ? toggleExpand : undefined}
                               >
-                                <td className="py-3 px-1 text-center">
+                                <td className="text-center">
                                   {isExpandable ? (
                                     <button
                                       type="button"
-                                      className="inline-flex items-center justify-center rounded p-0.5 text-muted-foreground hover:text-foreground"
+                                      className="mbtn icon ghost"
                                       aria-label={isExpanded ? t('common.collapse') : t('common.expand')}
                                     >
                                       {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                                     </button>
                                   ) : null}
                                 </td>
-                                <td className="py-3 px-2 text-sm">
+                                <td>
                                   <div className="flex items-center gap-1.5">
-                                    {isExpandable && <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
-                                    <span className="font-mono">{item.productNumber || '-'}</span>
+                                    {item.isConfigurationGroup ? (
+                                      <Layers className="h-3.5 w-3.5 flex-shrink-0" style={{ color: "var(--fg-3)" }} />
+                                    ) : isExpandable ? (
+                                      <Package className="h-3.5 w-3.5 flex-shrink-0" style={{ color: "var(--fg-3)" }} />
+                                    ) : null}
+                                    <span style={{ fontFamily: "var(--font-mono, monospace)" }}>{item.productNumber || '-'}</span>
                                   </div>
                                 </td>
-                                <td className="py-3 px-2 text-sm">
-                                  <span>{item.label}</span>
-                                  {item.configurationName && (
-                                    <span className="text-xs text-muted-foreground ml-1">({item.configurationName})</span>
+                                <td>
+                                  <span className={item.isConfigurationGroup ? 'font-medium' : undefined}>{item.label}</span>
+                                  {item.configurationName && !item.isConfigurationGroup && (
+                                    <span className="text-xs ml-1" style={{ color: "var(--fg-3)" }}>({item.configurationName})</span>
                                   )}
                                   {hasChildren && (
-                                    <Badge variant="secondary" className="ml-2 text-[10px] px-1.5 py-0">
+                                    <span className="mbadge b-outline" style={{ marginLeft: 8 }}>
                                       {t('offerDetail.bomCount', { count: item.children!.length })}
-                                    </Badge>
+                                    </span>
                                   )}
                                 </td>
-                                <td className="py-3 px-2 text-sm text-right">
-                                  {item.quantity}
+                                <td className="num">
+                                  {item.isConfigurationGroup ? '–' : item.quantity}
                                 </td>
-                                <td className="py-3 px-2 text-sm text-right">
-                                  {formatCurrency(item.unitPrice)} {t('offerDetail.each')}
+                                <td className="num">
+                                  {item.isConfigurationGroup ? '–' : `${formatCurrency(item.unitPrice)} ${t('offerDetail.each')}`}
                                 </td>
-                                <td className="py-3 px-2 text-sm text-right">
-                                  {item.taxRate}%
+                                <td className="num">
+                                  {item.isConfigurationGroup ? '–' : `${item.taxRate}%`}
                                 </td>
-                                <td className="py-3 px-2 text-sm text-right font-medium">
+                                <td className="num" style={{ fontWeight: 700 }}>
                                   {formatCurrency(item.totalPrice)}
                                 </td>
                               </tr>
 
                               {isExpanded && item.configurationDescription && (
-                                <tr key={`${item.id}-config-desc`} className="bg-muted/20">
-                                  <td className="py-2 px-1"></td>
-                                  <td colSpan={6} className="py-2 px-2">
-                                    <p className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed">
+                                <tr key={`${item.id}-config-desc`} style={{ background: "var(--meta-mist)" }}>
+                                  <td></td>
+                                  <td colSpan={6}>
+                                    <p className="text-xs whitespace-pre-line leading-relaxed" style={{ color: "var(--fg-3)" }}>
                                       {item.configurationDescription}
                                     </p>
                                   </td>
@@ -1116,43 +1133,46 @@ export default function OfferDetailModal({
                               )}
 
                               {isExpanded && hasChildren && (
-                                <tr key={`${item.id}-bom-header`} className="bg-muted/30">
-                                  <td className="py-1.5 px-1"></td>
-                                  <td colSpan={6} className="py-1.5 px-2">
-                                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                <tr key={`${item.id}-bom-header`} style={{ background: "var(--meta-mist)" }}>
+                                  <td></td>
+                                  <td colSpan={6}>
+                                    <span className="mfield-label">
                                       {t('offerDetail.billOfMaterials')}
                                     </span>
                                   </td>
                                 </tr>
                               )}
 
-                              {isExpanded && hasChildren && item.children!.map((child, childIdx) => (
+                              {isExpanded && hasChildren && item.children!.map((child, childIdx) => {
+                                const childHasPrice = child.unitPrice > 0 || child.totalPrice > 0;
+                                return (
                                 <tr
                                   key={`${item.id}-child-${child.id}-${childIdx}`}
-                                  className="bg-muted/30 border-b last:border-0"
+                                  style={{ background: "var(--meta-mist)" }}
                                   data-testid={`row-item-${index}-child-${childIdx}`}
                                 >
-                                  <td className="py-2 px-1"></td>
-                                  <td className="py-2 px-2 text-xs pl-8">
-                                    <span className="font-mono text-muted-foreground">{child.productNumber || '-'}</span>
+                                  <td></td>
+                                  <td className="text-xs" style={{ paddingLeft: 32 }}>
+                                    <span style={{ fontFamily: "var(--font-mono, monospace)", color: "var(--fg-3)" }}>{child.productNumber || '-'}</span>
                                   </td>
-                                  <td className="py-2 px-2 text-xs text-muted-foreground">
+                                  <td className="text-xs" style={{ color: "var(--fg-3)" }}>
                                     {child.label}
                                   </td>
-                                  <td className="py-2 px-2 text-xs text-right text-muted-foreground">
+                                  <td className="num text-xs" style={{ color: "var(--fg-3)" }}>
                                     {child.quantity}×
                                   </td>
-                                  <td className="py-2 px-2 text-xs text-right text-muted-foreground">
+                                  <td className="num text-xs" style={{ color: "var(--fg-3)" }}>
+                                    {childHasPrice ? `${formatCurrency(child.unitPrice)} ${t('offerDetail.each')}` : '-'}
+                                  </td>
+                                  <td className="num text-xs" style={{ color: "var(--fg-3)" }}>
                                     -
                                   </td>
-                                  <td className="py-2 px-2 text-xs text-right text-muted-foreground">
-                                    -
-                                  </td>
-                                  <td className="py-2 px-2 text-xs text-right text-muted-foreground">
-                                    -
+                                  <td className="num text-xs" style={{ color: "var(--fg-3)" }}>
+                                    {childHasPrice ? formatCurrency(child.totalPrice) : '-'}
                                   </td>
                                 </tr>
-                              ))}
+                                );
+                              })}
                             </Fragment>
                           );
                         })}
@@ -1160,25 +1180,25 @@ export default function OfferDetailModal({
                     </table>
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-muted-foreground">
+                  <div className="text-center py-8" style={{ color: "var(--fg-3)" }}>
                     {t('offerDetail.noItems')}
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+              </div>
+            </div>
+          </div>
+        )}
 
-          <TabsContent value="pdf" className="space-y-4">
-            <Card>
-              <CardContent className="p-0">
+        {activeTab === "pdf" && (
+          <div className="space-y-4" style={{ marginTop: 16 }}>
+            <div className="mcard">
+              <div className="mcard-body tight">
                 {pdfError ? (
-                  <Alert variant="destructive" className="m-4">
-                    <AlertDescription>
-                      {!offer?.customerId && !hasConfigPdf
-                        ? t('offerDetail.pdfNotAvailableForDraft', 'PDF kann nur für Angebote mit zugeordnetem Kunden generiert werden. Dieses Angebot ist vermutlich ein Entwurf ohne Kundeninformationen.')
-                        : t('offerDetail.pdfLoadingError')}
-                    </AlertDescription>
-                  </Alert>
+                  <div className="malert destructive" style={{ margin: 16 }}>
+                    {!offer?.customerId && !hasConfigPdf
+                      ? t('offerDetail.pdfNotAvailableForDraft', 'PDF kann nur für Angebote mit zugeordnetem Kunden generiert werden. Dieses Angebot ist vermutlich ein Entwurf ohne Kundeninformationen.')
+                      : t('offerDetail.pdfLoadingError')}
+                  </div>
                 ) : pdfUrl ? (
                   <div className="w-full h-[600px]">
                     <iframe
@@ -1192,10 +1212,10 @@ export default function OfferDetailModal({
                     <Loader2 className="h-8 w-8 animate-spin" />
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+              </div>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
     <OfferConfigPdfOptionsDialog

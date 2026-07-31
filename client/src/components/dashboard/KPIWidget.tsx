@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Ticket, ShoppingBag, Clock, AlertTriangle } from "lucide-react";
 import type { Role } from "@shared/schema";
 
@@ -33,14 +32,12 @@ export default function KPIWidget({ userPermissions }: KPIWidgetProps) {
     return (
       <>
         {[1, 2, 3, 4].map((i) => (
-          <Card key={i}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t("common.loading")}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">-</div>
-            </CardContent>
-          </Card>
+          <div className="mstat" key={i}>
+            <div className="mstat-head">
+              <span className="mstat-label-top">{t("common.loading")}</span>
+            </div>
+            <div className="mstat-value">-</div>
+          </div>
         ))}
       </>
     );
@@ -49,67 +46,59 @@ export default function KPIWidget({ userPermissions }: KPIWidgetProps) {
   return (
     <>
       {userPermissions.viewTickets && (
-        <Card data-testid="kpi-open-tickets">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("dashboard.kpi.openTickets")}</CardTitle>
-            <Ticket className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" data-testid="value-open-tickets">
-              {kpis?.tickets.open || 0}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {t("dashboard.kpi.totalTickets", { count: kpis?.tickets.total || 0 })}
-            </p>
-          </CardContent>
-        </Card>
+        <div className="mstat" data-testid="kpi-open-tickets">
+          <div className="mstat-head">
+            <span className="mstat-label-top">{t("dashboard.kpi.openTickets")}</span>
+            <Ticket className="h-4 w-4" />
+          </div>
+          <div className="mstat-value" data-testid="value-open-tickets">
+            {kpis?.tickets.open || 0}
+          </div>
+          <p className="mstat-sub">
+            {t("dashboard.kpi.totalTickets", { count: kpis?.tickets.total || 0 })}
+          </p>
+        </div>
       )}
 
       {userPermissions.viewTickets && (
-        <Card data-testid="kpi-high-priority-tickets">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("dashboard.kpi.highPriorityTickets")}</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive" data-testid="value-high-priority-tickets">
-              {kpis?.tickets.highPriority || 0}
-            </div>
-            <p className="text-xs text-muted-foreground">{t("dashboard.kpi.requiresAttention")}</p>
-          </CardContent>
-        </Card>
+        <div className="mstat" data-testid="kpi-high-priority-tickets">
+          <div className="mstat-head">
+            <span className="mstat-label-top">{t("dashboard.kpi.highPriorityTickets")}</span>
+            <AlertTriangle className="h-4 w-4" style={{ color: "var(--meta-red)" }} />
+          </div>
+          <div className="mstat-value danger" data-testid="value-high-priority-tickets">
+            {kpis?.tickets.highPriority || 0}
+          </div>
+          <p className="mstat-sub">{t("dashboard.kpi.requiresAttention")}</p>
+        </div>
       )}
 
       {userPermissions.viewOrders && kpis?.orders && (
-        <Card data-testid="kpi-orders-today">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("dashboard.kpi.ordersToday")}</CardTitle>
-            <ShoppingBag className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" data-testid="value-orders-today">
-              {kpis.orders.today}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {t("dashboard.kpi.openOrders", { count: kpis.orders.open })}
-            </p>
-          </CardContent>
-        </Card>
+        <div className="mstat" data-testid="kpi-orders-today">
+          <div className="mstat-head">
+            <span className="mstat-label-top">{t("dashboard.kpi.ordersToday")}</span>
+            <ShoppingBag className="h-4 w-4" />
+          </div>
+          <div className="mstat-value" data-testid="value-orders-today">
+            {kpis.orders.today}
+          </div>
+          <p className="mstat-sub">
+            {t("dashboard.kpi.openOrders", { count: kpis.orders.open })}
+          </p>
+        </div>
       )}
 
       {userPermissions.viewDelayedOrders && kpis?.orders && (
-        <Card data-testid="kpi-delayed-orders">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("dashboard.kpi.delayedOrders")}</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" data-testid="value-delayed-orders">
-              {kpis.orders.delayed}
-            </div>
-            <p className="text-xs text-muted-foreground">{t("dashboard.kpi.needsAttention")}</p>
-          </CardContent>
-        </Card>
+        <div className="mstat" data-testid="kpi-delayed-orders">
+          <div className="mstat-head">
+            <span className="mstat-label-top">{t("dashboard.kpi.delayedOrders")}</span>
+            <Clock className="h-4 w-4" />
+          </div>
+          <div className="mstat-value" data-testid="value-delayed-orders">
+            {kpis.orders.delayed}
+          </div>
+          <p className="mstat-sub">{t("dashboard.kpi.needsAttention")}</p>
+        </div>
       )}
     </>
   );

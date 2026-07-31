@@ -9817,53 +9817,45 @@ export class ShopwareClient {
     return id;
   }
 
-  async createOrder(orderData: {
-    lineItems: Array<{ productId: string; quantity: number }>;
-    customer?: any;
-    billingAddress?: any;
-    shippingAddress?: any;
-    customerComment?: string;
-  }): Promise<any> {
-    try {
-      // Shopware order creation is complex and typically requires:
-      // - Customer context
-      // - Sales channel context
-      // - Line items with proper structure
-      // - Payment and shipping methods
-      
-      // For this implementation, we'll create a simplified order
-      // You may need to adjust this based on your Shopware setup
-      
-      const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/order`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          lineItems: orderData.lineItems.map(item => ({
-            referencedId: item.productId,
-            type: 'product',
-            quantity: item.quantity,
-          })),
-          customerComment: orderData.customerComment || '',
-          // Note: Add customer, billing/shipping addresses, payment method, etc.
-          // based on your Shopware configuration
-        }),
-      });
+  /**
+   * Legt eine echte Shopware-Kern-Bestellung an (Admin API `POST /api/order`).
+   * `attributes` muss eine vollständige, bereits aufgelöste Payload sein (Kunde,
+   * Adressen, Positionen mit Preis/Steuer, Lieferung, Zahlung, State-IDs — siehe
+   * `buildOrderCreateAttributes` in server/shopwareOrderCreateContext.ts). Diese
+   * Methode selbst löst keine IDs auf, sie schreibt nur und behandelt Shopwares
+   * 204-No-Content-Antwort (ID kommt dann nur aus der eigenen Payload oder dem
+   * Location-Header, nicht aus einem JSON-Body).
+   */
+  async createOrder(attributes: Record<string, unknown>): Promise<{ id: string }> {
+    const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/order`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(attributes),
+    });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to create order: ${response.statusText} - ${errorText}`);
-      }
-
-      const result = await response.json();
-      
-      // Return the created order
-      return result.data || result;
-    } catch (error: any) {
-      console.error('Error creating order in Shopware:', error);
-      throw new Error(`Failed to create order in Shopware: ${error.message}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      const { formatShopwareWriteError } = await import("./b2bOfferCreateContext");
+      throw new Error(`Bestellung konnte nicht in Shopware angelegt werden: ${formatShopwareWriteError(errorText)}`);
     }
+
+    const locationHeader = response.headers.get("location") || response.headers.get("Location");
+    const locationId = locationHeader?.split("/").filter(Boolean).pop();
+    const rawBody = await response.text();
+    let result: any = {};
+    if (rawBody.trim()) {
+      try {
+        result = JSON.parse(rawBody);
+      } catch {
+        /* Shopware liefert bei Erfolg oft 204 ohne JSON-Body */
+      }
+    }
+    const created = result.data || result;
+    const id = created?.id || (typeof attributes.id === "string" ? attributes.id : undefined) || locationId;
+    if (!id) {
+      throw new Error("Bestellung wurde angelegt, aber keine ID zurückgegeben");
+    }
+    return { id: String(id) };
   }
 
   /**
@@ -11834,14 +11826,16 @@ export class ShopwareClient {
    * Dokument wird als PDF mitgesendet. Die "echte" Markierung document.sent=true
    * erfolgt anschliessend ueber setDocumentSent() im aufrufenden Service.
    */
-  async sendInvoiceEmail(orderId: string, documentId: string): Promise<void> {
+  async sendInvoiceEmail(orderId: string, documentId: string, overrideEmail?: string): Promise<void> {
     try {
       console.log(
         `[Shopware API] Sending invoice email for order ${orderId}, document ${documentId}`,
       );
 
       const ctx = await this.getInvoiceMailContext(orderId);
-      if (!ctx.recipientEmail) {
+      const recipientEmail = overrideEmail?.trim() || ctx.recipientEmail;
+      const recipientName = overrideEmail?.trim() ? overrideEmail.trim() : ctx.recipientName;
+      if (!recipientEmail) {
         throw new Error(`Keine Kunden-E-Mail fuer Bestellung ${orderId} gefunden`);
       }
       if (!ctx.salesChannelId) {
@@ -11866,7 +11860,7 @@ export class ShopwareClient {
         process.env.SHOPWARE_INVOICE_SENDER_EMAIL?.trim() || 'shop@meta-online.com';
 
       const payload: Record<string, unknown> = {
-        recipients: { [ctx.recipientEmail]: ctx.recipientName ?? ctx.recipientEmail },
+        recipients: { [recipientEmail]: recipientName ?? recipientEmail },
         senderEmail,
         salesChannelId: ctx.salesChannelId,
         contentHtml: template.contentHtml,
@@ -11922,7 +11916,7 @@ export class ShopwareClient {
       }
 
       console.log(
-        `[Shopware API] Invoice email sent for order ${orderId} from ${senderEmail} to ${ctx.recipientEmail} (size=${mailSize ?? 'unbekannt'})`,
+        `[Shopware API] Invoice email sent for order ${orderId} from ${senderEmail} to ${recipientEmail} (size=${mailSize ?? 'unbekannt'})`,
       );
     } catch (error) {
       console.error('Error sending invoice email:', error);

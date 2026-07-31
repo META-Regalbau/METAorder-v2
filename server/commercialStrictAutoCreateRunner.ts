@@ -189,7 +189,30 @@ export async function runStrictCommercialAutoCreateIfAllowed(params: {
     };
   }
 
+  const orderChannelResult = await resolveOfferSalesChannelId(storage, {
+    tenantId: tenantId ?? null,
+    allowedChannelIds: null,
+  });
+  if (!orderChannelResult.ok) {
+    attachShopwareFailureToTrace(extractedData, orderChannelResult.error);
+    await storage.updateOrderDraft(
+      draftId,
+      {
+        extractedData: extractedData as never,
+        status: "review_required",
+      },
+      tenantId ?? null
+    );
+    return {
+      strictAllowed: true,
+      strictReasons: [],
+      shopwareCreated: false,
+      shopwareError: orderChannelResult.error,
+    };
+  }
+
   const result = await executeCreateOrderFromDraft(storage, draftId, {
+    salesChannelId: orderChannelResult.salesChannelId,
     tenantId: tenantId ?? null,
   });
   if (result.ok) {

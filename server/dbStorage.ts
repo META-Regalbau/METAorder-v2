@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "crypto";
-import { eq, sql as drizzleSql, desc, asc, and, isNull, lte, gt, gte, sql, inArray, count, or, ilike } from "drizzle-orm";
+import { eq, sql as drizzleSql, desc, asc, and, isNull, lte, gt, gte, sql, inArray, not, count, or, ilike } from "drizzle-orm";
 import { db } from "./db";
 import { getTenantIdFromContext } from "./tenantContext";
 import {
@@ -771,7 +771,7 @@ export class DbStorage implements IStorage {
       .insert(orderDunningStatus)
       .values({
         ...status,
-        tenantId: tenantId ?? null,
+        tenantId: resolveTenantId(tenantId) ?? null,
       })
       .returning();
     return inserted[0];
@@ -801,7 +801,7 @@ export class DbStorage implements IStorage {
     const result = await db
       .insert(crossSellingRules)
       .values({
-        tenantId: tenantId ?? null,
+        tenantId: resolveTenantId(tenantId) ?? null,
         name: insertRule.name,
         description: insertRule.description,
         active: insertRule.active ?? 1,
@@ -908,7 +908,7 @@ export class DbStorage implements IStorage {
       .insert(tickets)
       .values({
         ...insertTicket,
-        tenantId: tenantId ?? null,
+        tenantId: resolveTenantId(tenantId) ?? null,
         ticketNumber,
       })
       .returning();
@@ -1161,15 +1161,16 @@ export class DbStorage implements IStorage {
       .insert(ticketComments)
       .values({
         ...insertComment,
-        tenantId: tenantId ?? null,
+        tenantId: resolveTenantId(tenantId) ?? null,
       })
       .returning();
     
+    const ticketTenantFilter = tenantFilterFor(tickets.tenantId, tenantId);
     await db
       .update(tickets)
       .set({ updatedAt: new Date() })
-      .where(eq(tickets.id, insertComment.ticketId));
-    
+      .where(and(eq(tickets.id, insertComment.ticketId), ticketTenantFilter));
+
     return result[0];
   }
 
@@ -1198,7 +1199,7 @@ export class DbStorage implements IStorage {
       .insert(ticketEmailMessages)
       .values({
         ...message,
-        tenantId: tenantId ?? null,
+        tenantId: resolveTenantId(tenantId) ?? null,
       })
       .returning();
     return result[0];
@@ -1261,7 +1262,7 @@ export class DbStorage implements IStorage {
   async createM365Connection(connection: InsertM365Connection, tenantId?: string | null): Promise<M365Connection> {
     const payload = {
       ...connection,
-      tenantId: tenantId ?? connection.tenantId ?? null,
+      tenantId: resolveTenantId(tenantId) ?? connection.tenantId ?? null,
       accessToken: encrypt(connection.accessToken),
       refreshToken: connection.refreshToken ? encrypt(connection.refreshToken) : null,
       updatedAt: new Date(),
@@ -1337,7 +1338,7 @@ export class DbStorage implements IStorage {
       .insert(ticketAttachments)
       .values({
         ...insertAttachment,
-        tenantId: tenantId ?? null,
+        tenantId: resolveTenantId(tenantId) ?? null,
       })
       .returning();
     return result[0];
@@ -1366,7 +1367,7 @@ export class DbStorage implements IStorage {
       await db
         .insert(ticketCommentViews)
         .values({
-          tenantId: tenantId ?? null,
+          tenantId: resolveTenantId(tenantId) ?? null,
           commentId: comment.id,
           userId: userId,
         })
@@ -1387,7 +1388,7 @@ export class DbStorage implements IStorage {
       await db
         .insert(ticketAttachmentViews)
         .values({
-          tenantId: tenantId ?? null,
+          tenantId: resolveTenantId(tenantId) ?? null,
           attachmentId: attachment.id,
           userId: userId,
         })
@@ -1460,7 +1461,7 @@ export class DbStorage implements IStorage {
       .insert(ticketActivityLog)
       .values({
         ...log,
-        tenantId: tenantId ?? null,
+        tenantId: resolveTenantId(tenantId) ?? null,
       })
       .returning();
     return result[0];
@@ -1500,7 +1501,7 @@ export class DbStorage implements IStorage {
       .insert(ticketAssignmentRules)
       .values({
         ...insertRule,
-        tenantId: tenantId ?? null,
+        tenantId: resolveTenantId(tenantId) ?? null,
       })
       .returning();
     return result[0];
@@ -1560,7 +1561,7 @@ export class DbStorage implements IStorage {
       .insert(notifications)
       .values({
         ...insertNotification,
-        tenantId: tenantId ?? null,
+        tenantId: resolveTenantId(tenantId) ?? null,
       })
       .returning();
     return result[0];
@@ -1625,7 +1626,7 @@ export class DbStorage implements IStorage {
       .insert(ticketTemplates)
       .values({
         ...insertTemplate,
-        tenantId: tenantId ?? null,
+        tenantId: resolveTenantId(tenantId) ?? null,
       })
       .returning();
     return result[0];
@@ -1675,7 +1676,7 @@ export class DbStorage implements IStorage {
       .insert(processUpdates)
       .values({
         ...update,
-        tenantId: tenantId ?? null,
+        tenantId: resolveTenantId(tenantId) ?? null,
       })
       .returning();
     return result[0];
@@ -1745,7 +1746,7 @@ export class DbStorage implements IStorage {
       await db.insert(crossSellCooccurrences).values(
         rows.map((row) => ({
           ...row,
-          tenantId: tenantId ?? null,
+          tenantId: resolveTenantId(tenantId) ?? null,
         }))
       );
     }
@@ -1771,7 +1772,7 @@ export class DbStorage implements IStorage {
       await db.insert(aiCrossSellRules).values(
         rows.map((row) => ({
           ...row,
-          tenantId: tenantId ?? null,
+          tenantId: resolveTenantId(tenantId) ?? null,
         }))
       );
     }
@@ -1799,7 +1800,7 @@ export class DbStorage implements IStorage {
       await db.insert(aiRecommendations).values(
         rows.map((row) => ({
           ...row,
-          tenantId: tenantId ?? null,
+          tenantId: resolveTenantId(tenantId) ?? null,
         }))
       );
     }
@@ -1840,7 +1841,7 @@ export class DbStorage implements IStorage {
       await db.insert(aiInsights).values(
         rows.map((row) => ({
           ...row,
-          tenantId: tenantId ?? null,
+          tenantId: resolveTenantId(tenantId) ?? null,
         }))
       );
     }
@@ -1858,7 +1859,7 @@ export class DbStorage implements IStorage {
   }
 
   async recordCrossSellEvent(row: InsertCrossSellEvent, tenantId?: string | null): Promise<void> {
-    const resolvedTenant = tenantId !== undefined ? tenantId : (row.tenantId ?? null);
+    const resolvedTenant = resolveTenantId(tenantId) ?? row.tenantId ?? null;
     await db.insert(crossSellEvents).values({
       eventType: row.eventType,
       sourceProductNumber: row.sourceProductNumber,
@@ -1906,7 +1907,7 @@ export class DbStorage implements IStorage {
       .insert(crossSellStagingBatches)
       .values({
         ...batch,
-        tenantId: tenantId ?? batch.tenantId ?? null,
+        tenantId: resolveTenantId(tenantId) ?? batch.tenantId ?? null,
       })
       .returning();
     return mapStagingBatch(result[0]);
@@ -1969,7 +1970,7 @@ export class DbStorage implements IStorage {
       await db.insert(crossSellStagingRules).values(
         rows.map((row) => ({
           ...row,
-          tenantId: tenantId ?? null,
+          tenantId: resolveTenantId(tenantId) ?? null,
         }))
       );
     }
@@ -1988,7 +1989,7 @@ export class DbStorage implements IStorage {
       await db.insert(crossSellStagingSuggestions).values(
         rows.map((row) => ({
           ...row,
-          tenantId: tenantId ?? null,
+          tenantId: resolveTenantId(tenantId) ?? null,
         }))
       );
     }
@@ -2014,7 +2015,7 @@ export class DbStorage implements IStorage {
       await db.insert(crossSellStagingSuggestions).values(
         rows.map((row) => ({
           ...row,
-          tenantId: tenantId ?? null,
+          tenantId: resolveTenantId(tenantId) ?? null,
         }))
       );
     }
@@ -2061,7 +2062,7 @@ export class DbStorage implements IStorage {
       await db.insert(offerLearningInsights).values(
         rows.map((row) => ({
           ...row,
-          tenantId: tenantId ?? null,
+          tenantId: resolveTenantId(tenantId) ?? null,
         }))
       );
     }
@@ -2116,7 +2117,7 @@ export class DbStorage implements IStorage {
       .insert(automationRules)
       .values({
         ...insertRule,
-        tenantId: tenantId ?? null,
+        tenantId: resolveTenantId(tenantId) ?? null,
         conditions: JSON.stringify(insertRule.conditions),
         actions: JSON.stringify(insertRule.actions),
       })
@@ -2169,7 +2170,7 @@ export class DbStorage implements IStorage {
       .insert(automationExecutions)
       .values({
         ...execution,
-        tenantId: tenantId ?? null,
+        tenantId: resolveTenantId(tenantId) ?? null,
       })
       .returning();
     return result;
@@ -2207,7 +2208,7 @@ export class DbStorage implements IStorage {
       .insert(orderDrafts)
       .values({
         ...(draft as typeof orderDrafts.$inferInsert),
-        tenantId: tenantId ?? null,
+        tenantId: resolveTenantId(tenantId) ?? null,
       })
       .returning();
     return result[0];
@@ -2230,6 +2231,22 @@ export class DbStorage implements IStorage {
       .where(and(eq(orderDrafts.id, id), tenantFilter))
       .returning();
     return result.length > 0;
+  }
+
+  async claimOrderDraftForCreation(id: string, tenantId?: string | null): Promise<OrderDraft | undefined> {
+    const tenantFilter = tenantFilterFor(orderDrafts.tenantId, tenantId);
+    const result = await db
+      .update(orderDrafts)
+      .set({ status: "creating", updatedAt: new Date() })
+      .where(
+        and(
+          eq(orderDrafts.id, id),
+          tenantFilter,
+          not(inArray(orderDrafts.status, ["created", "creating", "rejected"]))
+        )
+      )
+      .returning();
+    return result[0];
   }
   
   // Offer Drafts (AI-powered offer/quote creation)
@@ -2268,8 +2285,24 @@ export class DbStorage implements IStorage {
       .insert(offerDrafts)
       .values({
         ...(draft as typeof offerDrafts.$inferInsert),
-        tenantId: tenantId ?? null,
+        tenantId: resolveTenantId(tenantId) ?? null,
       })
+      .returning();
+    return result[0];
+  }
+
+  async claimOfferDraftForCreation(id: string, tenantId?: string | null): Promise<OfferDraft | undefined> {
+    const tenantFilter = tenantFilterFor(offerDrafts.tenantId, tenantId);
+    const result = await db
+      .update(offerDrafts)
+      .set({ status: "creating", updatedAt: new Date() })
+      .where(
+        and(
+          eq(offerDrafts.id, id),
+          tenantFilter,
+          not(inArray(offerDrafts.status, ["created", "creating", "rejected"]))
+        )
+      )
       .returning();
     return result[0];
   }
@@ -2469,14 +2502,14 @@ export class DbStorage implements IStorage {
       .insert(bundles)
       .values({
         ...bundle,
-        tenantId: tenantId ?? null,
+        tenantId: resolveTenantId(tenantId) ?? null,
       })
       .returning();
     
     const itemsToInsert = items.map((item) => ({
       ...item,
       bundleId: created.id,
-      tenantId: tenantId ?? null,
+      tenantId: resolveTenantId(tenantId) ?? null,
     }));
     
     const createdItems = itemsToInsert.length > 0
@@ -2515,7 +2548,7 @@ export class DbStorage implements IStorage {
         const itemsToInsert = items.map((item) => ({
           ...item,
           bundleId: id,
-          tenantId: tenantId ?? null,
+          tenantId: resolveTenantId(tenantId) ?? null,
         }));
         updatedItems = await db.insert(bundleItems).values(itemsToInsert).returning();
       }
@@ -2569,7 +2602,7 @@ export class DbStorage implements IStorage {
       .insert(erpAutomationRuns)
       .values({
         ...(run as typeof erpAutomationRuns.$inferInsert),
-        tenantId: tenantId ?? null,
+        tenantId: resolveTenantId(tenantId) ?? null,
       })
       .returning();
     return result;
@@ -2617,7 +2650,7 @@ export class DbStorage implements IStorage {
       .insert(shippingCarriers)
       .values({
         ...carrier,
-        tenantId: tenantId ?? null,
+        tenantId: resolveTenantId(tenantId) ?? null,
       })
       .returning();
     return result;
@@ -2652,14 +2685,14 @@ export class DbStorage implements IStorage {
       .insert(webhookConfigs)
       .values({
         ...config,
-        tenantId: tenantId ?? null,
+        tenantId: resolveTenantId(tenantId) ?? null,
         updatedAt: new Date(),
       })
       .onConflictDoUpdate({
         target: [webhookConfigs.tenantId, webhookConfigs.eventType],
         set: {
           ...config,
-          tenantId: tenantId ?? null,
+          tenantId: resolveTenantId(tenantId) ?? null,
           updatedAt: new Date(),
         },
       })
@@ -2686,7 +2719,7 @@ export class DbStorage implements IStorage {
       .insert(webhookLogs)
       .values({
         ...log,
-        tenantId: tenantId ?? null,
+        tenantId: resolveTenantId(tenantId) ?? null,
       })
       .returning();
     return result;
@@ -3241,7 +3274,7 @@ export class DbStorage implements IStorage {
   ): Promise<B2bApprovalLog> {
     const [log] = await db
       .insert(b2bApprovalLog)
-      .values({ ...row, tenantId: tenantId ?? row.tenantId ?? null })
+      .values({ ...row, tenantId: resolveTenantId(tenantId) ?? row.tenantId ?? null })
       .returning();
     if (!log) throw new Error("Failed to create B2B approval log");
     return log;
@@ -3251,9 +3284,8 @@ export class DbStorage implements IStorage {
     tenantId?: string | null,
     options?: { limit?: number }
   ): Promise<B2bApprovalLog[]> {
-    const tid = tenantId ?? null;
     const limit = options?.limit ?? 50;
-    const tenantFilter = tenantFilterFor(b2bApprovalLog.tenantId, tid);
+    const tenantFilter = tenantFilterFor(b2bApprovalLog.tenantId, tenantId);
     return await db
       .select()
       .from(b2bApprovalLog)

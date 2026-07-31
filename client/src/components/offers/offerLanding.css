@@ -1,0 +1,122 @@
+/* ============================================================================
+   Öffentliche Angebotsseite (Kundenlink) — scoped META-Theme.
+   Gleiche Marken-Tokens/Fonts wie der META CLIP Konfigurator (metaClip.css),
+   aber eigenständig, da diese Seite ein anderes Layout (Dokument statt Tool)
+   braucht. Alles unter .moffer, damit der Rest der App unberührt bleibt.
+   ============================================================================ */
+
+@font-face { font-family: "Frutiger LT Com"; src: url("/fonts/meta/FrutigerLTCom-Roman.ttf") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Frutiger LT Com"; src: url("/fonts/meta/FrutigerLTCom-Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Frutiger LT Com"; src: url("/fonts/meta/FrutigerLTCom-Black.ttf") format("truetype"); font-weight: 800; font-style: normal; font-display: swap; }
+@font-face { font-family: "Frutiger LT Com Cn"; src: url("/fonts/meta/FrutigerLTCom-BoldCn.ttf") format("truetype"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Frutiger LT Com Cn"; src: url("/fonts/meta/FrutigerLTCom-BlackCn.ttf") format("truetype"); font-weight: 800; font-style: normal; font-display: swap; }
+
+.moffer {
+  --meta-red: #ff0002; --meta-white: #fff; --meta-black: #000; --meta-grey: #929191;
+  --meta-steel: #e2e2e2; --meta-chrome: #f5f5f5; --meta-ink: #1a1a1a; --meta-graphite: #4a4a4a;
+  --meta-fog: #c8c8c8; --meta-mist: #f9f9f9; --meta-red-hover: #d40002; --meta-red-press: #a30001;
+  --meta-green: #1f7a3d; --meta-green-bg: #eaf6ee;
+  --fg-1: var(--meta-black); --fg-2: var(--meta-graphite); --fg-3: var(--meta-grey);
+  --font-sans: "Frutiger LT Com", "Helvetica Neue", Arial, sans-serif;
+  --font-cn: "Frutiger LT Com Cn", "Frutiger LT Com", "Helvetica Neue", Arial, sans-serif;
+
+  font-family: var(--font-sans); font-weight: 400; color: var(--fg-1);
+  background: var(--meta-chrome); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  min-height: 100vh;
+}
+.moffer *, .moffer *::before, .moffer *::after { box-sizing: border-box; }
+.moffer ::selection { background: var(--meta-red); color: var(--meta-white); }
+
+.moffer .wrap { width: 100%; max-width: 760px; margin: 0 auto; padding: 40px 20px 72px; }
+
+/* ---------- Hero ---------- */
+.moffer .hero { text-align: center; padding-bottom: 32px; }
+.moffer .hero .logo { height: 34px; width: auto; margin: 0 auto 20px; display: block; }
+.moffer .eyebrow { font-family: var(--font-cn); font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--meta-red); }
+.moffer .hero .num { font-family: var(--font-cn); font-weight: 800; font-size: clamp(36px, 8vw, 52px); line-height: 1.05; letter-spacing: 0.01em; margin: 6px 0 4px; font-variant-numeric: tabular-nums; }
+.moffer .hero .customer { font-size: 15px; color: var(--fg-2); margin-bottom: 14px; }
+.moffer .status { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 12px; border-radius: 2px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid transparent; }
+.moffer .status.st-open { background: var(--meta-mist); color: var(--fg-2); border-color: var(--meta-steel); }
+.moffer .status.st-accepted { background: var(--meta-green-bg); color: var(--meta-green); }
+.moffer .status.st-rejected { background: #fdeceb; color: #b3241a; }
+.moffer .status.st-expired { background: var(--meta-mist); color: var(--fg-3); border-color: var(--meta-steel); }
+.moffer .expiry { font-size: 12px; color: var(--fg-3); margin-top: 14px; }
+
+/* ---------- Panels ---------- */
+.moffer .panel { background: var(--meta-white); border: 1px solid var(--meta-steel); margin-top: 16px; }
+.moffer .panel-head { padding: 16px 20px; border-bottom: 1px solid var(--meta-steel); }
+.moffer .panel-head .eyebrow { display: block; margin-bottom: 2px; }
+.moffer .panel-head h2 { font-family: var(--font-sans); font-size: 15px; font-weight: 700; margin: 0; }
+.moffer .panel-body { padding: 18px 20px; }
+
+.moffer .kv { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; padding: 7px 0; }
+.moffer .kv + .kv { border-top: 1px solid var(--meta-mist); }
+.moffer .kv .k { color: var(--fg-3); }
+.moffer .kv .v { font-variant-numeric: tabular-nums; }
+
+.moffer .totals { margin-top: 4px; padding-top: 14px; border-top: 1px solid var(--meta-steel); }
+.moffer .totals .row { display: flex; justify-content: space-between; align-items: baseline; }
+.moffer .totals .row + .row { margin-top: 6px; }
+.moffer .totals .net .k, .moffer .totals .net .v { font-size: 13px; color: var(--fg-2); }
+.moffer .totals .gross .k { font-size: 14px; font-weight: 700; }
+.moffer .totals .gross .v { font-family: var(--font-cn); font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* ---------- Buttons ---------- */
+.moffer .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 20px; border-radius: 2px; font-family: var(--font-sans); font-size: 13px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; cursor: pointer; border: 1px solid var(--meta-steel); background: var(--meta-white); color: var(--fg-1); transition: background 120ms ease, border-color 120ms ease, color 120ms ease; }
+.moffer .btn:hover:not(:disabled) { border-color: var(--fg-3); }
+.moffer .btn:disabled { cursor: not-allowed; opacity: 0.55; }
+.moffer .btn.primary { background: var(--meta-red); border-color: var(--meta-red); color: var(--meta-white); }
+.moffer .btn.primary:hover:not(:disabled) { background: var(--meta-red-hover); border-color: var(--meta-red-hover); }
+.moffer .btn.primary:active:not(:disabled) { background: var(--meta-red-press); border-color: var(--meta-red-press); }
+.moffer .btn.block { width: 100%; }
+.moffer .btn-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.moffer .btn-row .btn { flex: 1 1 auto; }
+
+/* ---------- Positionen ---------- */
+.moffer .section-title { font-family: var(--font-sans); font-size: 18px; font-weight: 700; margin: 32px 0 12px; }
+
+.moffer .item { background: var(--meta-white); border: 1px solid var(--meta-steel); margin-top: 12px; }
+.moffer .item-head { padding: 16px 20px; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.moffer .item-head.clickable { cursor: pointer; }
+.moffer .item-head.clickable:hover { background: var(--meta-mist); }
+.moffer .item-title-row { display: flex; align-items: flex-start; gap: 8px; min-width: 0; flex: 1 1 auto; }
+.moffer .item-title-row svg { flex-shrink: 0; margin-top: 2px; color: var(--fg-3); }
+.moffer .item-title { min-width: 0; }
+.moffer .item-title .name { font-size: 14px; font-weight: 700; }
+.moffer .item-title .sub { font-size: 12px; color: var(--fg-3); margin-top: 2px; }
+.moffer .item-title .desc { font-size: 13px; color: var(--fg-2); white-space: pre-wrap; margin-top: 8px; line-height: 1.5; }
+.moffer .item-price { text-align: right; flex-shrink: 0; }
+.moffer .item-price .total { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 15px; }
+.moffer .item-price .unit { font-size: 11px; color: var(--fg-3); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.moffer .badge { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; margin-left: 8px; border-radius: 2px; background: var(--meta-mist); color: var(--fg-2); font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; vertical-align: middle; }
+
+.moffer .item-media { padding: 0 20px 18px; }
+.moffer .item-media.compact-top { padding-top: 0; }
+
+.moffer .bom { border-top: 1px solid var(--meta-steel); }
+.moffer .bom-caption { padding: 10px 20px; font-family: var(--font-cn); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg-3); background: var(--meta-mist); }
+.moffer .bom-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 20px; font-size: 13px; }
+.moffer .bom-row + .bom-row { border-top: 1px solid var(--meta-mist); }
+.moffer .bom-row .label { color: var(--fg-2); min-width: 0; }
+.moffer .bom-row .label .pn { color: var(--fg-3); font-size: 11px; }
+.moffer .bom-row .amt { flex-shrink: 0; text-align: right; font-variant-numeric: tabular-nums; color: var(--fg-2); font-size: 12px; }
+.moffer .bom-row .amt .total { display: block; color: var(--fg-1); font-weight: 700; font-size: 13px; }
+
+.moffer .viewport-wrap { margin: 0 20px 18px; border: 1px solid var(--meta-steel); background: var(--meta-mist); }
+.moffer .viewport-caption { padding: 8px 12px; font-size: 11px; color: var(--fg-3); text-align: center; border-top: 1px solid var(--meta-steel); background: var(--meta-white); }
+
+/* ---------- Decision ---------- */
+.moffer .decision { border-color: var(--meta-ink); }
+.moffer .decision .panel-body p { font-size: 13px; color: var(--fg-2); margin: 0 0 16px; line-height: 1.5; }
+.moffer .decision input[type="text"] { width: 100%; height: 40px; padding: 0 12px; border: 1px solid var(--meta-steel); border-radius: 2px; font-size: 13px; font-family: var(--font-sans); margin-bottom: 10px; }
+.moffer .decision input[type="text"]:focus { outline: none; border-color: var(--meta-red); }
+
+/* ---------- Banner ---------- */
+.moffer .banner { margin-top: 16px; padding: 12px 16px; border-radius: 2px; font-size: 13px; border: 1px solid; }
+.moffer .banner.success { background: var(--meta-green-bg); border-color: #b7e0c3; color: var(--meta-green); }
+.moffer .banner.error { background: #fdeceb; border-color: #f3c1bb; color: #b3241a; }
+.moffer .banner.info { background: var(--meta-mist); border-color: var(--meta-steel); color: var(--fg-2); }
+
+@media (min-width: 640px) {
+  .moffer .wrap { padding: 56px 24px 88px; }
+}

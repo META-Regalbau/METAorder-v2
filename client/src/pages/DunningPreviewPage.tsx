@@ -179,6 +179,22 @@ export default function DunningPreviewPage({ userRole }: DunningPreviewPageProps
     );
   };
 
+  const getPaymentStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'paid':
+        return 'success';
+      case 'open':
+      case 'partially_paid':
+      case 'reminded':
+        return 'warning';
+      case 'failed':
+      case 'cancelled':
+        return 'destructive';
+      default:
+        return 'secondary';
+    }
+  };
+
   // Mutation to update document numbers in Shopware
   const updateDocumentsMutation = useMutation({
     mutationFn: async ({ orderId, documentData }: { orderId: string; documentData: any }) => {
@@ -308,7 +324,7 @@ export default function DunningPreviewPage({ userRole }: DunningPreviewPageProps
                         {format(new Date(item.dueDate), 'P', { locale: dateLocale })}
                       </td>
                       <td className="py-2">
-                        <Badge variant={item.daysOverdue > 14 ? "destructive" : "secondary"}>
+                        <Badge variant={item.daysOverdue > 14 ? "destructive" : item.daysOverdue > 3 ? "warning" : "secondary"}>
                           {item.daysOverdue}
                         </Badge>
                       </td>
@@ -316,7 +332,7 @@ export default function DunningPreviewPage({ userRole }: DunningPreviewPageProps
                       <td className="py-2">{item.nextStage}</td>
                       <td className="py-2">€{item.order.totalAmount.toFixed(2)}</td>
                       <td className="py-2">
-                        <Badge variant="outline">{t(`paymentStatus.${item.order.paymentStatus}`)}</Badge>
+                        <Badge variant={getPaymentStatusBadgeVariant(item.order.paymentStatus)}>{t(`paymentStatus.${item.order.paymentStatus}`)}</Badge>
                       </td>
                       <td className="py-2">
                         <Button

@@ -74,6 +74,32 @@
     },
     {
       "parameters": {
+        "method": "PATCH",
+        "url": "=https://METAORDER_HOST/api/offer-drafts/{{ $json.draft.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-METAORDER-Integration-Key",
+              "value": "METAORDER_INTEGRATION_API_KEY_PLACEHOLDER"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"status\": \"approved\"}",
+        "options": {}
+      },
+      "id": "f5eebc99-9c0b-4ef8-bb6d-6bb9bd380a16",
+      "name": "PATCH approve offer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [780, -120],
+      "notesInFlow": true,
+      "notes": "Frische Entwürfe stehen auf Status 'pending' — create-offer lehnt das mit 400 ab. Diese PATCH-Freigabe ist Pflicht, wenn n8n ohne UI-Review direkt finalisiert (Gegenstück zur Freigabe, die die Review-Modal-UI beim Klick auf 'Angebot erstellen' automatisch mitschickt)."
+    },
+    {
+      "parameters": {
         "method": "POST",
         "url": "=https://METAORDER_HOST/api/offer-drafts/{{ $json.draft.id }}/create-offer",
         "sendHeaders": true,
@@ -94,9 +120,35 @@
       "name": "POST create-offer",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [780, -120],
+      "position": [1040, -120],
       "notesInFlow": true,
       "notes": "`METAORDER_HOST` im Ausdruck durch echte Basis-URL ersetzen. Optional JSON-Body: {\"sales_channel_id\":\"...\"}."
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://METAORDER_HOST/api/order-drafts/{{ $json.draft.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-METAORDER-Integration-Key",
+              "value": "METAORDER_INTEGRATION_API_KEY_PLACEHOLDER"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"status\": \"approved\"}",
+        "options": {}
+      },
+      "id": "f6eebc99-9c0b-4ef8-bb6d-6bb9bd380a17",
+      "name": "PATCH approve order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [780, 120],
+      "notesInFlow": true,
+      "notes": "Frische Entwürfe stehen auf Status 'pending' — create-order lehnt das mit 400 ab. Diese PATCH-Freigabe ist Pflicht, wenn n8n ohne UI-Review direkt finalisiert (Gegenstück zur Freigabe, die die Review-Modal-UI beim Klick auf 'Bestellung erstellen' automatisch mitschickt)."
     },
     {
       "parameters": {
@@ -120,7 +172,7 @@
       "name": "POST create-order",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [780, 120],
+      "position": [1040, 120],
       "notesInFlow": true,
       "notes": "`METAORDER_HOST` im Ausdruck durch echte Basis-URL ersetzen."
     }
@@ -134,9 +186,15 @@
     },
     "draftKind = offer?": {
       "main": [
-        [{ "node": "POST create-offer", "type": "main", "index": 0 }],
-        [{ "node": "POST create-order", "type": "main", "index": 0 }]
+        [{ "node": "PATCH approve offer", "type": "main", "index": 0 }],
+        [{ "node": "PATCH approve order", "type": "main", "index": 0 }]
       ]
+    },
+    "PATCH approve offer": {
+      "main": [[{ "node": "POST create-offer", "type": "main", "index": 0 }]]
+    },
+    "PATCH approve order": {
+      "main": [[{ "node": "POST create-order", "type": "main", "index": 0 }]]
     }
   },
   "pinData": {},

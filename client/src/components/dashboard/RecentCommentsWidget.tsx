@@ -1,8 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { MessageSquare } from "lucide-react";
 import { Link } from "wouter";
 import { formatDistanceToNow } from "date-fns";
@@ -42,12 +39,13 @@ export default function RecentCommentsWidget() {
     switch (status) {
       case "open":
       case "in_progress":
-        return "default";
+        return "b-default";
       case "completed":
+        return "b-success";
       case "cancelled":
-        return "secondary";
+        return "b-outline";
       default:
-        return "secondary";
+        return "b-outline";
     }
   };
 
@@ -55,47 +53,41 @@ export default function RecentCommentsWidget() {
     text.length <= maxLength ? text : `${text.substring(0, maxLength)}...`;
 
   return (
-    <Card data-testid="widget-recent-comments">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-muted-foreground" />
-            <CardTitle>{t("dashboard.recentComments")}</CardTitle>
+    <div className="mcard" data-testid="widget-recent-comments">
+      <div className="mcard-head">
+        <div>
+          <div className="mcard-head-left">
+            <MessageSquare className="h-5 w-5" />
+            <h3 className="mcard-title">{t("dashboard.recentComments")}</h3>
           </div>
-          <Link href="/tickets">
-            <Button variant="ghost" size="sm" data-testid="button-view-all-comments">
-              {t("common.viewAll")}
-            </Button>
-          </Link>
+          <p className="mcard-desc">{t("dashboard.recentCommentsDescription")}</p>
         </div>
-        <CardDescription>{t("dashboard.recentCommentsDescription")}</CardDescription>
-      </CardHeader>
-      <CardContent>
+        <Link href="/tickets" className="mbtn ghost sm" data-testid="button-view-all-comments">
+          {t("common.viewAll")}
+        </Link>
+      </div>
+      <div className="mcard-body">
         {isLoading ? (
-          <div className="text-sm text-muted-foreground">{t("common.loading")}</div>
+          <div className="mloading">{t("common.loading")}</div>
         ) : comments.length === 0 ? (
-          <div className="text-sm text-muted-foreground">{t("dashboard.noComments")}</div>
+          <div className="mempty">{t("dashboard.noComments")}</div>
         ) : (
-          <div className="space-y-3">
+          <div className="mlist">
             {comments.slice(0, 5).map((comment) => (
-              <Link key={comment.id} href={`/tickets?ticketId=${comment.ticketId}`}>
-                <div className="flex flex-col gap-2 p-3 border rounded-md hover-elevate active-elevate-2 cursor-pointer">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{comment.ticketTitle}</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {truncateText(comment.comment)}
-                      </div>
-                    </div>
+              <Link key={comment.id} href={`/tickets?ticketId=${comment.ticketId}`} className="mrow link">
+                <div className="mrow-main">
+                  <div className="mrow-title">
+                    <span className="truncate">{comment.ticketTitle}</span>
                   </div>
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">{comment.username}</span>
-                      <Badge variant={getStatusColor(comment.ticketStatus)} className="text-xs">
-                        {t(`tickets.statusValues.${comment.ticketStatus}`)}
-                      </Badge>
-                    </div>
-                    <span className="text-xs text-muted-foreground">
+                  <p className="mrow-snippet">{truncateText(comment.comment)}</p>
+                  <div className="mrow-badges">
+                    <span className={`mbadge ${getStatusColor(comment.ticketStatus)}`}>
+                      {t(`tickets.statusValues.${comment.ticketStatus}`)}
+                    </span>
+                  </div>
+                  <div className="mrow-meta">
+                    <span>{comment.username}</span>
+                    <span>
                       {formatDistanceToNow(new Date(comment.createdAt), {
                         addSuffix: true,
                         locale: getDateFnsLocale(),
@@ -107,7 +99,7 @@ export default function RecentCommentsWidget() {
             ))}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

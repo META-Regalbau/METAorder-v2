@@ -1,7 +1,5 @@
 import { useState, type ComponentProps } from "react";
 import { useTranslation } from "react-i18next";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { FileUp } from "lucide-react";
 import { CommercialUnifiedDraftUploadDialog } from "@/components/CommercialUnifiedDraftUploadDialog";
 import { OfferDraftReviewModal } from "@/components/OfferDraftReviewModal";
@@ -33,20 +31,27 @@ export default function CommercialDraftQuickUploadWidget() {
 
   return (
     <>
-      <Card data-testid="card-commercial-quick-upload">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <FileUp className="h-5 w-5 text-muted-foreground" />
-            {t("dashboard.commercialUpload.widgetTitle")}
-          </CardTitle>
-          <CardDescription>{t("dashboard.commercialUpload.widgetDescription")}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button variant="secondary" onClick={() => setDialogOpen(true)} data-testid="button-open-commercial-upload">
+      <div className="mcard" data-testid="card-commercial-quick-upload">
+        <div className="mcard-head">
+          <div>
+            <h3 className="mcard-title flex items-center gap-2">
+              <FileUp className="h-5 w-5" />
+              {t("dashboard.commercialUpload.widgetTitle")}
+            </h3>
+            <p className="mcard-desc">{t("dashboard.commercialUpload.widgetDescription")}</p>
+          </div>
+        </div>
+        <div className="mcard-body">
+          <button
+            type="button"
+            className="mbtn primary"
+            onClick={() => setDialogOpen(true)}
+            data-testid="button-open-commercial-upload"
+          >
             {t("dashboard.commercialUpload.openUpload")}
-          </Button>
-        </CardContent>
-      </Card>
+          </button>
+        </div>
+      </div>
 
       <CommercialUnifiedDraftUploadDialog
         open={dialogOpen}

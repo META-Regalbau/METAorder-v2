@@ -24,6 +24,7 @@ import { runDunningJob } from "./dunningJob";
 import { metricsCollectorService } from "./services/metricsCollector";
 import { initBackendSentry } from "./observability/sentry";
 import { runShopwareMirrorSync } from "./shopwareMirror";
+import { assertSecureSecret } from "./secretGuard";
 
 const app = express();
 initBackendSentry(app);
@@ -70,6 +71,10 @@ declare module 'http' {
   }
 }
 app.use(express.json({
+  // Default (100kb) is too small for endpoints that carry a base64 image in
+  // the JSON body (e.g. POST /api/offer-drafts/from-cpq's composite Regal
+  // preview, ~250-300KB) — 5mb gives comfortable headroom without being reckless.
+  limit: "5mb",
   verify: (req, _res, buf) => {
     req.rawBody = buf;
   }
@@ -90,7 +95,7 @@ app.use((_req, res, next) => {
   // Content Security Policy
   res.setHeader(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; worker-src 'self' blob:; child-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: http: blob: http://localhost:8090 http://127.0.0.1:8090; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' http://localhost:7242 http://127.0.0.1:7242 https://www.gstatic.com"
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; worker-src 'self' blob:; child-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: http: blob: http://localhost:8090 http://127.0.0.1:8090; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' blob: http://localhost:7242 http://127.0.0.1:7242 https://www.gstatic.com"
   );
   next();
 });
@@ -98,19 +103,14 @@ app.use((_req, res, next) => {
 // Session configuration with configurable timeout
 const sessionTimeout = parseInt(process.env.SESSION_TIMEOUT || '86400000', 10); // Default: 24 hours
 
-// Check for required secrets in production
-if (process.env.NODE_ENV === 'production') {
-  if (!process.env.SESSION_SECRET) {
-    console.error('[SECURITY WARNING] SESSION_SECRET not set! Using insecure default. Set SESSION_SECRET environment variable!');
-  }
-  if (!process.env.ENCRYPTION_KEY) {
-    console.error('[SECURITY WARNING] ENCRYPTION_KEY not set! Shopware credentials will be encrypted with default key. Set ENCRYPTION_KEY environment variable!');
-  }
-}
+// Refuse to run with a known dev-default secret (see server/secretGuard.ts for why a
+// plain "is it set" check doesn't work — docker-compose.yml always sets a fallback).
+const sessionSecret = assertSecureSecret("SESSION_SECRET", process.env.SESSION_SECRET);
+assertSecureSecret("ENCRYPTION_KEY", process.env.ENCRYPTION_KEY);
 
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || "dev-secret-change-in-production",
+    secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     proxy: true, // Trust proxy for correct cookie behavior

@@ -21,6 +21,7 @@
  * (BACK_POST_OUTER_Z, FRAME_Z_CENTER) scale with depth.
  */
 import * as THREE from "three";
+import { GLTFLoader } from "three-stdlib";
 
 export type HeightKey = "2000" | "2500";
 
@@ -165,6 +166,69 @@ export type RegalTemplates = {
   diagonal: THREE.Object3D;
 };
 
+let templatesPromise: Promise<RegalTemplates> | null = null;
+
+function loadGltf(loader: GLTFLoader, url: string): Promise<THREE.Object3D> {
+  return new Promise((resolve, reject) => {
+    loader.load(url, (gltf) => resolve(gltf.scene), undefined, reject);
+  });
+}
+
+/** Loads (and caches) the 4 real GLBs — shared by every consumer that builds a Regal group outside R3F/drei. */
+export function loadRegalTemplates(): Promise<RegalTemplates> {
+  if (!templatesPromise) {
+    const loader = new GLTFLoader();
+    templatesPromise = Promise.all([
+      loadGltf(loader, HEIGHT_GLB["2000"].url),
+      loadGltf(loader, HEIGHT_GLB["2500"].url),
+      loadGltf(loader, SHELF_GLB_URL),
+      loadGltf(loader, DIAGONAL_GLB_URL),
+    ]).then(([frame2000, frame2500, shelf, diagonal]) => ({
+      frame: { "2000": frame2000, "2500": frame2500 },
+      shelf,
+      diagonal,
+    }));
+  }
+  return templatesPromise;
+}
+
+/**
+ * Light grey floor grid so the shelf doesn't look like it's floating — a
+ * textured plane (not THREE.GridHelper's line geometry), since line-based
+ * geometry exports inconsistently to GLB across AR viewers (Android Scene
+ * Viewer in particular); a texture renders identically everywhere.
+ */
+function buildFloorGrid(sizeM: number): THREE.Mesh {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 512;
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, 512, 512);
+  ctx.strokeStyle = "#d8d8d8"; // matches the brand's --meta-steel hairline tone
+  ctx.lineWidth = 2;
+  const cells = 8;
+  const step = 512 / cells;
+  for (let i = 0; i <= cells; i++) {
+    ctx.beginPath();
+    ctx.moveTo(i * step, 0);
+    ctx.lineTo(i * step, 512);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, i * step);
+    ctx.lineTo(512, i * step);
+    ctx.stroke();
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  const repeats = Math.max(1, Math.round(sizeM / 0.5)); // one cell per 0.5m
+  texture.repeat.set(repeats, repeats);
+  const geo = new THREE.PlaneGeometry(sizeM, sizeM);
+  const mat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, opacity: 0.9 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.rotation.x = -Math.PI / 2; // lay flat (XZ plane)
+  return mesh;
+}
+
 export type BuildRegalResult = {
   group: THREE.Group;
   /** Bounding info for camera framing (meters). */
@@ -176,7 +240,16 @@ export type BuildRegalResult = {
 
 export function buildRegalGroup(
   templates: RegalTemplates,
-  opts: { fieldCount: number; levels: number; widthMM: number; depthMM: number; heightMM: number; aussteifung: boolean },
+  opts: {
+    fieldCount: number;
+    levels: number;
+    widthMM: number;
+    depthMM: number;
+    heightMM: number;
+    aussteifung: boolean;
+    /** Adds the light-grey floor grid plane (off by default — opt in per caller). */
+    floorGrid?: boolean;
+  },
 ): BuildRegalResult {
   const group = new THREE.Group();
   const nFields = Math.max(1, Math.min(20, Math.round(opts.fieldCount)));
@@ -246,5 +319,14 @@ export function buildRegalGroup(
   }
 
   const depthM = (REF_FRAME_Z_MAX - REF_FRAME_Z_MIN) * fdScale;
-  return { group, topY, totalLengthM: nFields * FL_M, frameZCenterM: frameZCenter, depthM };
+  const totalLengthM = nFields * FL_M;
+
+  if (opts.floorGrid) {
+    const gridSize = Math.max(totalLengthM, depthM) * 2.2;
+    const grid = buildFloorGrid(gridSize);
+    grid.position.set(totalLengthM / 2, 0, frameZCenter);
+    group.add(grid);
+  }
+
+  return { group, topY, totalLengthM, frameZCenterM: frameZCenter, depthM };
 }

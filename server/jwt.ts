@@ -1,11 +1,12 @@
 import jwt from "jsonwebtoken";
 import type { User } from "@shared/schema";
+import { assertSecureSecret } from "./secretGuard";
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET;
 if (!JWT_SECRET) {
   throw new Error("JWT_SECRET is required. Refusing to start without a secure secret.");
 }
-const JWT_SECRET_VALUE = JWT_SECRET as string;
+const JWT_SECRET_VALUE = assertSecureSecret("JWT_SECRET", JWT_SECRET);
 const JWT_EXPIRES_IN = "24h";
 
 export interface JWTPayload {

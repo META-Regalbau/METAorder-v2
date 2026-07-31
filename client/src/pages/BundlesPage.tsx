@@ -289,7 +289,7 @@ export default function BundlesPage() {
                     </TableCell>
                     <TableCell>
                       {bundle.active === 1 ? (
-                        <Badge variant="default" className="bg-green-600">
+                        <Badge variant="success">
                           {t("bundles.status.active")}
                         </Badge>
                       ) : (

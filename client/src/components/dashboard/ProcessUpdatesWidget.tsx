@@ -6,8 +6,6 @@ import { Pencil, Plus, Trash2, Megaphone } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -80,88 +78,97 @@ export default function ProcessUpdatesWidget({ userPermissions }: ProcessUpdates
   };
 
   return (
-    <Card data-testid="widget-process-updates">
-      <CardHeader>
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Megaphone className="h-5 w-5 text-muted-foreground" />
-            <CardTitle>{t("processUpdates.title")}</CardTitle>
+    <div className="mcard" data-testid="widget-process-updates">
+      <div className="mcard-head">
+        <div className="mcard-head-left">
+          <Megaphone className="h-5 w-5" />
+          <div>
+            <h3 className="mcard-title">{t("processUpdates.title")}</h3>
+            <p className="mcard-desc">{t("processUpdates.description")}</p>
           </div>
-          {canManage && (
-            <Button size="sm" onClick={() => setIsDialogOpen(true)} data-testid="button-create-process-update">
-              <Plus className="h-4 w-4 mr-2" />
-              {t("processUpdates.createButton")}
-            </Button>
-          )}
         </div>
-        <CardDescription>{t("processUpdates.description")}</CardDescription>
-      </CardHeader>
-      <CardContent>
+        {canManage && (
+          <button
+            className="mbtn primary sm"
+            onClick={() => setIsDialogOpen(true)}
+            data-testid="button-create-process-update"
+          >
+            <Plus className="h-4 w-4" />
+            {t("processUpdates.createButton")}
+          </button>
+        )}
+      </div>
+      <div className="mcard-body">
         {isLoading ? (
-          <div className="text-sm text-muted-foreground">{t("common.loading")}</div>
+          <div className="mloading">{t("common.loading")}</div>
         ) : updates.length === 0 ? (
-          <div className="text-sm text-muted-foreground">{t("processUpdates.empty")}</div>
+          <div className="mempty">{t("processUpdates.empty")}</div>
         ) : (
-          <div className="space-y-4">
+          <div className="mlist">
             {updates.map((update) => (
-              <div key={update.id} className="rounded-md border p-3 space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{update.title}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {t("processUpdates.effectiveDate")}{" "}
-                      {format(new Date(update.effectiveDate), "dd.MM.yyyy")}
+              <div
+                key={update.id}
+                className="mrow"
+                style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}
+              >
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                  <div className="mrow-main">
+                    <div className="mrow-title truncate">{update.title}</div>
+                    <div className="mrow-meta">
+                      <span>
+                        {t("processUpdates.effectiveDate")}{" "}
+                        {format(new Date(update.effectiveDate), "dd.MM.yyyy")}
+                      </span>
                     </div>
                   </div>
                   {canManage && (
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
+                    <div className="mrow-side" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <button
+                        className="mbtn icon ghost"
                         onClick={() => handleEdit(update)}
                         data-testid={`button-edit-process-update-${update.id}`}
                       >
                         <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
+                      </button>
+                      <button
+                        className="mbtn icon ghost"
                         onClick={() => setDeletingUpdateId(update.id)}
                         data-testid={`button-delete-process-update-${update.id}`}
                       >
                         <Trash2 className="h-4 w-4" />
-                      </Button>
+                      </button>
                     </div>
                   )}
                 </div>
 
                 {update.tags && update.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="mrow-badges">
                     {update.tags.map((tag) => (
-                      <Badge key={`${update.id}-${tag}`} variant="secondary">
+                      <span key={`${update.id}-${tag}`} className="mbadge b-outline">
                         {tag}
-                      </Badge>
+                      </span>
                     ))}
                   </div>
                 )}
 
-                <div className="text-sm text-muted-foreground line-clamp-3">{update.content}</div>
+                <p className="mrow-snippet" style={{ WebkitLineClamp: 3 }}>
+                  {update.content}
+                </p>
 
-                <div className="flex justify-end">
-                  <Button
-                    variant="ghost"
-                    size="sm"
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <button
+                    className="mbtn ghost sm"
                     onClick={() => setSelectedUpdate(update)}
                     data-testid={`button-view-process-update-${update.id}`}
                   >
                     {t("processUpdates.viewDetails")}
-                  </Button>
+                  </button>
                 </div>
               </div>
             ))}
           </div>
         )}
-      </CardContent>
+      </div>
 
       <ProcessUpdateDialog
         isOpen={isDialogOpen}
@@ -214,6 +221,6 @@ export default function ProcessUpdatesWidget({ userPermissions }: ProcessUpdates
           <div className="text-sm whitespace-pre-wrap">{selectedUpdate?.content}</div>
         </DialogContent>
       </Dialog>
-    </Card>
+    </div>
   );
 }

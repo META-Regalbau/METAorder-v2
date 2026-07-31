@@ -78,7 +78,16 @@ export async function saveGoogleAdsSettings(storage: IStorage, settings: GoogleA
   await storage.saveSetting("google_ads_settings", payload);
 }
 
-function getDateRanges(dateFrom?: string, dateTo?: string) {
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Nur ein valides YYYY-MM-DD durchreichen — sonst landet der Wert unescaped in einer GAQL-Query. */
+function safeIsoDate(value: string | undefined): string | undefined {
+  return value && ISO_DATE_RE.test(value) ? value : undefined;
+}
+
+function getDateRanges(dateFromRaw?: string, dateToRaw?: string) {
+  const dateFrom = safeIsoDate(dateFromRaw);
+  const dateTo = safeIsoDate(dateToRaw);
   const today = new Date();
   const fmt = (date: Date) => date.toISOString().slice(0, 10);
   const to = dateTo || fmt(today);

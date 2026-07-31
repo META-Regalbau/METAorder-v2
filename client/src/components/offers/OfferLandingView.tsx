@@ -1,24 +1,21 @@
 import { useMemo, useState, Fragment, type ReactNode } from "react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ChevronDown, ChevronRight, Download, ImageIcon, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, ImageIcon, Layers, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import OfferLineItemGlbPreview from "./OfferLineItemGlbPreview";
+import CpqRegalArViewer from "./CpqRegalArViewer";
 import metaLogoUrl from "@assets/META-Logo.svg";
 import { CPQ_3D_PREVIEW } from "@/lib/featureFlags";
 import "@google/model-viewer";
+import "./offerLanding.css";
 
 export type OfferLandingLineChild = {
   id: string;
@@ -42,6 +39,10 @@ export type OfferLandingLineItem = {
   configurationDescription?: string | null;
   coverImageUrl?: string | null;
   children?: OfferLandingLineChild[];
+  /** CPQ ConfigContext (Maße) fürs interaktive 3D+AR-Modell, falls diese Position aus dem CPQ-Konfigurator stammt. */
+  cpqConfig?: Record<string, unknown> | null;
+  /** true = Überpunkt einer Konfiguration (kein echtes Lineitem, siehe children) */
+  isConfigurationGroup?: boolean;
 };
 
 export type OfferLandingData = {
@@ -68,12 +69,12 @@ function formatMoney(n: number) {
   return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(n);
 }
 
-function statusBadgeVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
+function statusClass(status: string): string {
   const s = status.toLowerCase();
-  if (s === "approved" || s === "accepted") return "default";
-  if (s === "rejected" || s === "declined") return "destructive";
-  if (s === "expired") return "outline";
-  return "secondary";
+  if (s === "approved" || s === "accepted") return "st-accepted";
+  if (s === "rejected" || s === "declined") return "st-rejected";
+  if (s === "expired") return "st-expired";
+  return "st-open";
 }
 
 /** Produktbild und 3D nebeneinander (ab sm); Klick auf Bild öffnet Lightbox. */
@@ -106,7 +107,8 @@ function OfferPositionMediaGrid({
           <button
             type="button"
             onClick={onImageLightbox}
-            className="group rounded-lg border bg-muted/10 p-3 text-left transition hover:border-primary/35 hover:bg-muted/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="group border p-3 text-left transition hover:border-[var(--fg-3)] hover:bg-[var(--meta-mist)] focus:outline-none"
+            style={{ borderColor: "var(--meta-steel)", borderRadius: 2 }}
           >
             <img
               src={coverImageUrl}
@@ -115,7 +117,7 @@ function OfferPositionMediaGrid({
               loading="lazy"
               referrerPolicy="no-referrer"
             />
-            <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground group-hover:text-foreground">
+            <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-xs" style={{ color: "var(--fg-3)" }}>
               <ImageIcon className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
               Zum Vergrößern antippen
             </p>
@@ -300,120 +302,102 @@ export default function OfferLandingView({
   const label = offer.statusLabel || offer.status;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8 pb-16 px-4 py-8">
-      <MediaLightboxDialog state={mediaLightbox} onClose={() => setMediaLightbox(null)} />
+    <div className="moffer">
+      <div className="wrap">
+        <MediaLightboxDialog state={mediaLightbox} onClose={() => setMediaLightbox(null)} />
 
-      <div className="text-center space-y-3">
-        <img
-          src={metaLogoUrl}
-          alt=""
-          className="h-12 sm:h-14 w-auto mx-auto"
-          width={180}
-          height={56}
-        />
-        <p className="text-sm text-muted-foreground uppercase tracking-wide">Angebot</p>
-        <h1 className="text-3xl font-semibold tracking-tight">{offer.offerNumber}</h1>
-        {offer.customerName ? <p className="text-lg text-muted-foreground">{offer.customerName}</p> : null}
-        <div className="flex flex-wrap justify-center gap-2 pt-2">
-          <Badge variant={statusBadgeVariant(offer.status)}>{label}</Badge>
+        <div className="hero">
+          <img src={metaLogoUrl} alt="" className="logo" width={180} height={56} />
+          <span className="eyebrow">Angebot</span>
+          <h1 className="num">{offer.offerNumber}</h1>
+          {offer.customerName ? <p className="customer">{offer.customerName}</p> : null}
+          <span className={`status ${statusClass(offer.status)}`}>{label}</span>
+          {shareExpiresAt ? (
+            <p className="expiry">
+              Link gültig bis {format(new Date(shareExpiresAt), "PPp", { locale: de })}
+            </p>
+          ) : null}
         </div>
-      </div>
 
-      {banner ? (
-        <div
-          className={`rounded-lg border px-4 py-3 text-sm ${
-            banner.type === "success"
-              ? "bg-emerald-50 border-emerald-200 text-emerald-900 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-100"
-              : banner.type === "error"
-                ? "bg-destructive/10 border-destructive/30 text-destructive"
-                : "bg-muted border-border"
-          }`}
-        >
-          {banner.message}
+        {banner ? (
+          <div className={`banner ${banner.type}`}>{banner.message}</div>
+        ) : null}
+
+        <div className="panel">
+          <div className="panel-head">
+            <span className="eyebrow">Übersicht</span>
+            <h2>Angebotsdaten</h2>
+          </div>
+          <div className="panel-body">
+            {offer.expirationDate ? (
+              <div className="kv">
+                <span className="k">Angebot gültig bis</span>
+                <span className="v">{format(new Date(offer.expirationDate.slice(0, 10)), "PPP", { locale: de })}</span>
+              </div>
+            ) : null}
+            {offer.createdAt ? (
+              <div className="kv">
+                <span className="k">Erstellt</span>
+                <span className="v">{format(new Date(offer.createdAt), "PPP", { locale: de })}</span>
+              </div>
+            ) : null}
+            {offer.salesChannelName ? (
+              <div className="kv">
+                <span className="k">Vertriebskanal</span>
+                <span className="v">{offer.salesChannelName}</span>
+              </div>
+            ) : null}
+            <div className="totals">
+              <div className="row net">
+                <span className="k">Netto</span>
+                <span className="v">{formatMoney(offer.netAmount)}</span>
+              </div>
+              <div className="row gross">
+                <span className="k">Brutto gesamt</span>
+                <span className="v">{formatMoney(offer.totalAmount)}</span>
+              </div>
+            </div>
+          </div>
         </div>
-      ) : null}
 
-      {shareExpiresAt ? (
-        <p className="text-center text-xs text-muted-foreground">
-          Link gültig bis {format(new Date(shareExpiresAt), "PPp", { locale: de })}
-        </p>
-      ) : null}
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Übersicht</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          {offer.expirationDate ? (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Angebot gültig bis</span>
-              <span>{format(new Date(offer.expirationDate.slice(0, 10)), "PPP", { locale: de })}</span>
+        {showPdfDownloads ? (
+          <div className="panel">
+            <div className="panel-head">
+              <span className="eyebrow">Dokumente</span>
+              <h2>PDF-Export</h2>
             </div>
-          ) : null}
-          {offer.createdAt ? (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Erstellt</span>
-              <span>{format(new Date(offer.createdAt), "PPP", { locale: de })}</span>
+            <div className="panel-body btn-row">
+              <button
+                type="button"
+                className="btn"
+                disabled={pdfLoading !== null}
+                onClick={() => void downloadPdf("standard")}
+              >
+                {pdfLoading === "standard" ? (
+                  <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden />
+                ) : (
+                  <Download className="h-4 w-4 shrink-0" aria-hidden />
+                )}
+                Angebots-PDF
+              </button>
+              <button
+                type="button"
+                className="btn"
+                disabled={pdfLoading !== null}
+                onClick={() => void downloadPdf("config")}
+              >
+                {pdfLoading === "config" ? (
+                  <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden />
+                ) : (
+                  <Download className="h-4 w-4 shrink-0" aria-hidden />
+                )}
+                Konfigurations-PDF
+              </button>
             </div>
-          ) : null}
-          {offer.salesChannelName ? (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Vertriebskanal</span>
-              <span>{offer.salesChannelName}</span>
-            </div>
-          ) : null}
-          <Separator className="my-3" />
-          <div className="flex justify-between font-medium">
-            <span>Netto</span>
-            <span>{formatMoney(offer.netAmount)}</span>
           </div>
-          <div className="flex justify-between text-lg font-semibold">
-            <span>Brutto gesamt</span>
-            <span>{formatMoney(offer.totalAmount)}</span>
-          </div>
-        </CardContent>
-      </Card>
+        ) : null}
 
-      {showPdfDownloads ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">PDF</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col sm:flex-row flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              className="justify-center gap-2"
-              disabled={pdfLoading !== null}
-              onClick={() => void downloadPdf("standard")}
-            >
-              {pdfLoading === "standard" ? (
-                <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden />
-              ) : (
-                <Download className="h-4 w-4 shrink-0" aria-hidden />
-              )}
-              Angebots-PDF
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="justify-center gap-2"
-              disabled={pdfLoading !== null}
-              onClick={() => void downloadPdf("config")}
-            >
-              {pdfLoading === "config" ? (
-                <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden />
-              ) : (
-                <Download className="h-4 w-4 shrink-0" aria-hidden />
-              )}
-              Konfigurations-PDF
-            </Button>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold">Positionen</h2>
+        <h2 className="section-title">Positionen</h2>
         {offer.lineItems.map((item) => {
           const open = expanded.has(item.id);
           const hasChildren = item.children && item.children.length > 0;
@@ -422,40 +406,50 @@ export default function OfferLandingView({
           const showGlb = CPQ_3D_PREVIEW && (hasProductGlbKey || showPresentationOnly);
           const hasImg = !!(item.coverImageUrl && item.coverImageUrl.trim());
           const compactGlb = hasImg && showGlb;
+          const isGroup = !!item.isConfigurationGroup;
 
           return (
-            <Card key={item.id}>
-              <CardContent className="pt-4 space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    {hasChildren ? (
-                      <button
-                        type="button"
-                        className="flex items-start gap-2 text-left font-medium w-full"
-                        onClick={() => toggle(item.id)}
-                      >
-                        {open ? <ChevronDown className="h-4 w-4 mt-1 shrink-0" /> : <ChevronRight className="h-4 w-4 mt-1 shrink-0" />}
-                        <span>{item.label}</span>
-                      </button>
-                    ) : (
-                      <p className="font-medium">{item.label}</p>
-                    )}
-                    {item.configurationName ? (
-                      <p className="text-sm text-muted-foreground mt-1">{item.configurationName}</p>
+            <div className="item" key={item.id}>
+              <div
+                className={`item-head ${hasChildren ? "clickable" : ""}`}
+                onClick={hasChildren ? () => toggle(item.id) : undefined}
+              >
+                <div className="item-title-row">
+                  {hasChildren ? (open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />) : null}
+                  {isGroup ? <Layers className="h-4 w-4" /> : null}
+                  <div className="item-title">
+                    <span className="name">
+                      {item.label}
+                      {hasChildren ? (
+                        <span className="badge">{item.children!.length} Teile</span>
+                      ) : null}
+                    </span>
+                    {item.configurationName && !isGroup ? (
+                      <p className="sub">{item.configurationName}</p>
                     ) : null}
                     {item.configurationDescription ? (
-                      <p className="text-sm text-muted-foreground whitespace-pre-wrap mt-1">{item.configurationDescription}</p>
+                      <p className="desc">{item.configurationDescription}</p>
                     ) : null}
                   </div>
-                  <div className="text-right shrink-0">
-                    <p className="font-medium">{formatMoney(item.totalPrice)}</p>
-                    <p className="text-xs text-muted-foreground">
+                </div>
+                <div className="item-price">
+                  <p className="total">{formatMoney(item.totalPrice)}</p>
+                  {!isGroup ? (
+                    <p className="unit">
                       {item.quantity} × {formatMoney(item.unitPrice)}
                     </p>
-                  </div>
+                  ) : null}
                 </div>
+              </div>
 
-                {showGlb || hasImg ? (
+              {item.cpqConfig ? (
+                <div className="viewport-wrap">
+                  <CpqRegalArViewer cpqConfig={item.cpqConfig} compact={hasImg} />
+                </div>
+              ) : null}
+
+              {showGlb || hasImg ? (
+                <div className="item-media">
                   <OfferPositionMediaGrid
                     coverImageUrl={item.coverImageUrl}
                     onImageLightbox={
@@ -494,25 +488,30 @@ export default function OfferLandingView({
                       ) : null
                     }
                   />
-                ) : null}
+                </div>
+              ) : null}
 
-                {hasChildren && open ? (
-                  <div className="pl-4 border-l-2 border-muted space-y-4 mt-2">
-                    {item.children!.map((ch) => {
-                      const chHasImg = !!(ch.coverImageUrl && ch.coverImageUrl.trim());
+              {hasChildren && open ? (
+                <div className="bom">
+                  <div className="bom-caption">Stückliste</div>
+                  {item.children!.map((ch) => {
+                    const chHasImg = !!(ch.coverImageUrl && ch.coverImageUrl.trim());
+                    const chHasPrice = ch.unitPrice > 0 || ch.totalPrice > 0;
 
-                      return (
-                        <Fragment key={ch.id}>
-                          <div className="flex justify-between text-sm gap-2">
-                            <span className="text-muted-foreground">
-                              {ch.label}
-                              {ch.productNumber ? ` · ${ch.productNumber}` : ""}
-                            </span>
-                            <span>
-                              {ch.quantity}×
-                            </span>
-                          </div>
-                          {chHasImg ? (
+                    return (
+                      <Fragment key={ch.id}>
+                        <div className="bom-row">
+                          <span className="label">
+                            {ch.label}
+                            {ch.productNumber ? <span className="pn"> · {ch.productNumber}</span> : null}
+                          </span>
+                          <span className="amt">
+                            {ch.quantity}× {chHasPrice ? `${formatMoney(ch.unitPrice)} je` : ""}
+                            {chHasPrice ? <span className="total">{formatMoney(ch.totalPrice)}</span> : null}
+                          </span>
+                        </div>
+                        {chHasImg ? (
+                          <div className="item-media">
                             <OfferPositionMediaGrid
                               coverImageUrl={ch.coverImageUrl}
                               onImageLightbox={() =>
@@ -526,60 +525,68 @@ export default function OfferLandingView({
                               imageMaxClass="max-h-40"
                               glbPreview={null}
                             />
-                          ) : null}
-                        </Fragment>
-                      );
-                    })}
-                  </div>
-                ) : null}
-              </CardContent>
-            </Card>
+                          </div>
+                        ) : null}
+                      </Fragment>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </div>
           );
         })}
-      </div>
 
-      {showCustomerActions ? (
-        <Card className="border-primary/30">
-          <CardHeader>
-            <CardTitle className="text-lg">Entscheidung</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Sie können dieses Angebot direkt annehmen oder ablehnen. Bei Annahme wird der Status in unserem System aktualisiert.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Button className="flex-1" size="lg" onClick={onAccept} disabled={acceptLoading || declineLoading}>
-                {acceptLoading ? "Wird gesendet…" : "Angebot annehmen"}
-              </Button>
-              <Button
-                variant="outline"
-                className="flex-1"
-                size="lg"
-                onClick={() => setShowDecline((v) => !v)}
-                disabled={acceptLoading || declineLoading}
-              >
-                Ablehnen
-              </Button>
+        {showCustomerActions ? (
+          <div className="panel decision">
+            <div className="panel-head">
+              <span className="eyebrow">Entscheidung</span>
+              <h2>Wie möchten Sie fortfahren?</h2>
             </div>
-            {showDecline ? (
-              <div className="space-y-2">
-                <Input
-                  placeholder="Optional: Grund für die Ablehnung"
-                  value={declineReason}
-                  onChange={(e) => setDeclineReason(e.target.value)}
-                />
-                <Button
-                  variant="destructive"
-                  disabled={declineLoading || acceptLoading}
-                  onClick={() => onDecline?.(declineReason.trim() || undefined)}
+            <div className="panel-body">
+              <p>
+                Sie können dieses Angebot direkt annehmen oder ablehnen. Bei Annahme wird der Status in unserem System aktualisiert.
+              </p>
+              <div className="btn-row">
+                <button
+                  type="button"
+                  className="btn primary"
+                  onClick={onAccept}
+                  disabled={acceptLoading || declineLoading}
                 >
-                  {declineLoading ? "Wird gesendet…" : "Ablehnung bestätigen"}
-                </Button>
+                  {acceptLoading ? "Wird gesendet…" : "Angebot annehmen"}
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setShowDecline((v) => !v)}
+                  disabled={acceptLoading || declineLoading}
+                >
+                  Ablehnen
+                </button>
               </div>
-            ) : null}
-          </CardContent>
-        </Card>
-      ) : null}
+              {showDecline ? (
+                <div className="mt-3">
+                  <input
+                    type="text"
+                    placeholder="Optional: Grund für die Ablehnung"
+                    value={declineReason}
+                    onChange={(e) => setDeclineReason(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="btn block"
+                    style={{ borderColor: "#b3241a", color: "#b3241a" }}
+                    disabled={declineLoading || acceptLoading}
+                    onClick={() => onDecline?.(declineReason.trim() || undefined)}
+                  >
+                    {declineLoading ? "Wird gesendet…" : "Ablehnung bestätigen"}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

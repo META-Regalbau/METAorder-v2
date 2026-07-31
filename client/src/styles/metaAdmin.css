@@ -1,0 +1,149 @@
+/* ============================================================================
+   Interner META-Markenlook für Dashboard + Angebote-Bereich — gleiche Tokens/
+   Fonts wie die öffentliche Angebotsseite (offerLanding.css) und der META CLIP
+   Konfigurator (metaClip.css), aber als eigenständiges, wiederverwendbares
+   Klassen-Set für datendichte Admin-UI (Tabellen, Listen, KPI-Karten, Filter-
+   Leisten, Tabs). Alles unter .madmin, damit der Rest der App unberührt bleibt.
+   ============================================================================ */
+
+@font-face { font-family: "Frutiger LT Com"; src: url("/fonts/meta/FrutigerLTCom-Roman.ttf") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Frutiger LT Com"; src: url("/fonts/meta/FrutigerLTCom-Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Frutiger LT Com"; src: url("/fonts/meta/FrutigerLTCom-Black.ttf") format("truetype"); font-weight: 800; font-style: normal; font-display: swap; }
+@font-face { font-family: "Frutiger LT Com Cn"; src: url("/fonts/meta/FrutigerLTCom-BoldCn.ttf") format("truetype"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Frutiger LT Com Cn"; src: url("/fonts/meta/FrutigerLTCom-BlackCn.ttf") format("truetype"); font-weight: 800; font-style: normal; font-display: swap; }
+
+.madmin {
+  --meta-red: #ff0002; --meta-white: #fff; --meta-black: #000; --meta-grey: #929191;
+  --meta-steel: #e2e2e2; --meta-chrome: #f5f5f5; --meta-ink: #1a1a1a; --meta-graphite: #4a4a4a;
+  --meta-fog: #c8c8c8; --meta-mist: #f9f9f9; --meta-red-hover: #d40002; --meta-red-press: #a30001;
+  --meta-green: #1f7a3d; --meta-green-bg: #eaf6ee;
+  --meta-amber: #9a6700; --meta-amber-bg: #fdf3e0;
+  --meta-red-text: #b3241a; --meta-red-bg: #fdeceb;
+  --fg-1: var(--meta-black); --fg-2: var(--meta-graphite); --fg-3: var(--meta-grey);
+  --font-sans: "Frutiger LT Com", "Helvetica Neue", Arial, sans-serif;
+  --font-cn: "Frutiger LT Com Cn", "Frutiger LT Com", "Helvetica Neue", Arial, sans-serif;
+
+  font-family: var(--font-sans); font-weight: 400; color: var(--fg-1);
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+}
+.madmin *, .madmin *::before, .madmin *::after { box-sizing: border-box; }
+.madmin ::selection { background: var(--meta-red); color: var(--meta-white); }
+
+/* ---------- Page header ---------- */
+.madmin .mpage-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.madmin .mpage-head h1 { font-family: var(--font-sans); font-size: 22px; font-weight: 700; margin: 0; }
+.madmin .mpage-head .desc { font-size: 13px; color: var(--fg-3); margin-top: 4px; }
+.madmin .eyebrow { display: block; font-family: var(--font-cn); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--meta-red); margin-bottom: 2px; }
+
+/* ---------- Card panel ---------- */
+.madmin .mcard { background: var(--meta-white); border: 1px solid var(--meta-steel); }
+.madmin .mcard + .mcard { margin-top: 16px; }
+.madmin .mcard-head { padding: 14px 18px; border-bottom: 1px solid var(--meta-steel); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.madmin .mcard-head-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.madmin .mcard-head-left svg { color: var(--fg-3); flex-shrink: 0; }
+.madmin .mcard-title { font-size: 14px; font-weight: 700; margin: 0; }
+.madmin .mcard-desc { font-size: 12px; color: var(--fg-3); margin-top: 2px; }
+.madmin .mcard-body { padding: 14px 18px; }
+.madmin .mcard-body.tight { padding: 0; }
+
+/* ---------- Buttons ---------- */
+.madmin .mbtn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 34px; padding: 0 14px; border-radius: 2px; font-family: var(--font-sans); font-size: 12px; font-weight: 700; letter-spacing: 0.02em; cursor: pointer; border: 1px solid var(--meta-steel); background: var(--meta-white); color: var(--fg-1); transition: background 120ms ease, border-color 120ms ease, color 120ms ease; white-space: nowrap; }
+.madmin .mbtn:hover:not(:disabled) { border-color: var(--fg-3); }
+.madmin .mbtn:disabled { cursor: not-allowed; opacity: 0.5; }
+.madmin .mbtn.primary { background: var(--meta-red); border-color: var(--meta-red); color: var(--meta-white); }
+.madmin .mbtn.primary:hover:not(:disabled) { background: var(--meta-red-hover); border-color: var(--meta-red-hover); }
+.madmin .mbtn.ghost { border-color: transparent; background: transparent; }
+.madmin .mbtn.ghost:hover:not(:disabled) { background: var(--meta-mist); border-color: var(--meta-steel); }
+.madmin .mbtn.destructive { color: var(--meta-red-text); border-color: var(--meta-red-text); }
+.madmin .mbtn.destructive:hover:not(:disabled) { background: var(--meta-red-bg); }
+.madmin .mbtn.sm { height: 28px; padding: 0 10px; font-size: 11px; }
+.madmin .mbtn.icon { width: 28px; height: 28px; padding: 0; }
+
+/* ---------- Badges ---------- */
+.madmin .mbadge { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 9px; border-radius: 2px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; border: 1px solid transparent; white-space: nowrap; }
+.madmin .mbadge.b-default { background: var(--meta-mist); color: var(--fg-2); border-color: var(--meta-steel); }
+.madmin .mbadge.b-success { background: var(--meta-green-bg); color: var(--meta-green); }
+.madmin .mbadge.b-warning { background: var(--meta-amber-bg); color: var(--meta-amber); }
+.madmin .mbadge.b-destructive { background: var(--meta-red-bg); color: var(--meta-red-text); }
+.madmin .mbadge.b-outline { background: transparent; color: var(--fg-2); border-color: var(--meta-steel); }
+
+/* ---------- KPI stat ---------- */
+.madmin .mstat { background: var(--meta-white); border: 1px solid var(--meta-steel); padding: 14px 16px; }
+.madmin .mstat-head { display: flex; align-items: center; justify-content: space-between; }
+.madmin .mstat-label-top { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--fg-3); }
+.madmin .mstat-head svg { color: var(--fg-3); }
+.madmin .mstat-value { font-family: var(--font-cn); font-size: 30px; font-weight: 800; line-height: 1.15; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.madmin .mstat-value.danger { color: var(--meta-red); }
+.madmin .mstat-sub { font-size: 11px; color: var(--fg-3); margin-top: 2px; }
+
+/* small inline stat box (used inside widgets, not full mstat) */
+.madmin .mstat-box { border: 1px solid var(--meta-steel); padding: 10px 14px; background: var(--meta-mist); }
+.madmin .mstat-box .v { font-family: var(--font-cn); font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.madmin .mstat-box .v.danger { color: var(--meta-red); }
+.madmin .mstat-box .l { font-size: 11px; color: var(--fg-3); margin-top: 2px; }
+
+/* ---------- Lists / rows ---------- */
+.madmin .mlist { display: flex; flex-direction: column; gap: 8px; }
+.madmin .mrow { border: 1px solid var(--meta-steel); padding: 10px 12px; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; background: var(--meta-white); }
+.madmin .mrow.link { cursor: pointer; transition: background 120ms ease, border-color 120ms ease; }
+.madmin .mrow.link:hover { background: var(--meta-mist); border-color: var(--fg-3); }
+.madmin .mrow-main { min-width: 0; flex: 1 1 auto; }
+.madmin .mrow-title { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+.madmin .mrow-snippet { font-size: 12px; color: var(--fg-2); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.madmin .mrow-meta { font-size: 11px; color: var(--fg-3); margin-top: 6px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.madmin .mrow-badges { display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.madmin .mrow-side { text-align: right; flex-shrink: 0; }
+.madmin .mrow-side .amt { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 13px; }
+.madmin .mrow-side .sub { font-size: 11px; color: var(--fg-3); margin-top: 2px; }
+
+/* ---------- Empty / loading ---------- */
+.madmin .mempty, .madmin .mloading { font-size: 12.5px; color: var(--fg-3); padding: 6px 0; display: flex; align-items: center; gap: 8px; }
+
+/* ---------- Alerts ---------- */
+.madmin .malert { border: 1px solid; border-radius: 2px; padding: 10px 14px; font-size: 12.5px; margin-bottom: 12px; }
+.madmin .malert.warning { background: var(--meta-amber-bg); border-color: #f0d999; color: var(--meta-amber); }
+.madmin .malert.destructive { background: var(--meta-red-bg); border-color: #f3c1bb; color: var(--meta-red-text); }
+.madmin .malert-title { font-weight: 700; margin-bottom: 2px; }
+
+/* ---------- Filter bar ---------- */
+.madmin .mfilters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 16px; border: 1px solid var(--meta-steel); background: var(--meta-white); margin-bottom: 16px; }
+.madmin .mfilters .grow { flex: 1 1 200px; min-width: 160px; }
+.madmin .mfield { position: relative; }
+.madmin .mfield svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--fg-3); pointer-events: none; }
+.madmin .mfield input, .madmin .mfield select, .madmin .minput, .madmin select.minput {
+  height: 34px; width: 100%; padding: 0 10px; border: 1px solid var(--meta-steel); border-radius: 2px;
+  font-size: 12.5px; font-family: var(--font-sans); background: var(--meta-white); color: var(--fg-1);
+}
+.madmin .mfield.has-icon input { padding-left: 30px; }
+.madmin .mfield input:focus, .madmin .minput:focus { outline: none; border-color: var(--meta-red); }
+
+/* ---------- Table ---------- */
+.madmin .mtable-wrap { border: 1px solid var(--meta-steel); background: var(--meta-white); overflow-x: auto; }
+.madmin table.mtable { width: 100%; border-collapse: collapse; font-size: 13px; }
+.madmin table.mtable thead th { text-align: left; font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-3); padding: 10px 14px; border-bottom: 1px solid var(--meta-steel); background: var(--meta-mist); white-space: nowrap; }
+.madmin table.mtable thead th.num { text-align: right; }
+.madmin table.mtable thead th.center { text-align: center; }
+.madmin table.mtable tbody td { padding: 12px 14px; border-bottom: 1px solid var(--meta-mist); vertical-align: middle; }
+.madmin table.mtable tbody td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.madmin table.mtable tbody td.center { text-align: center; }
+.madmin table.mtable tbody tr:last-child td { border-bottom: 0; }
+.madmin table.mtable tbody tr.clickable { cursor: pointer; transition: background 120ms ease; }
+.madmin table.mtable tbody tr.clickable:hover { background: var(--meta-mist); }
+.madmin table.mtable tbody tr.flagged { border-left: 3px solid var(--meta-red-text); background: #fdf7f6; }
+
+/* ---------- Tabs (Modal) ---------- */
+.madmin .mtabs-list { display: flex; border-bottom: 1px solid var(--meta-steel); gap: 0; }
+.madmin .mtab { flex: 1 1 0; text-align: center; padding: 10px 12px; font-size: 12px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: var(--fg-3); background: transparent; border: 0; border-bottom: 2px solid transparent; cursor: pointer; }
+.madmin .mtab:hover { color: var(--fg-1); }
+.madmin .mtab.active { color: var(--meta-red); border-bottom-color: var(--meta-red); }
+
+/* ---------- Key/value field (Modal-Übersicht) ---------- */
+.madmin .mfield-label { font-size: 11.5px; font-weight: 700; color: var(--fg-3); text-transform: uppercase; letter-spacing: 0.03em; }
+.madmin .mfield-value { font-size: 14px; margin-top: 3px; }
+.madmin .mfield-value.mono { font-family: var(--font-mono, monospace); }
+.madmin .mhr { height: 1px; background: var(--meta-mist); margin: 12px 0; border: 0; }
+
+/* ---------- Utility ---------- */
+.madmin .mgrid-kpi { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+.madmin .mgrid-2 { display: grid; gap: 16px; }
+@media (min-width: 768px) { .madmin .mgrid-2 { grid-template-columns: 1fr 1fr; } }

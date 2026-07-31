@@ -207,7 +207,8 @@ export default function OrdersTable({
                   ) : null}
                   {dunningStages[order.id] > 0 && (
                     <Badge
-                      className="gap-1 border-transparent bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300"
+                      variant="warning"
+                      className="gap-1"
                       data-testid={`badge-dunning-${order.id}`}
                     >
                       <FileWarning className="h-3 w-3" />
@@ -327,7 +328,8 @@ function InvoiceStatusBadge({
   if (order.invoiceSent) {
     return (
       <Badge
-        className="gap-1 border-transparent bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+        variant="success"
+        className="gap-1"
         data-testid={`badge-invoice-sent-${order.id}`}
       >
         <FileCheck2 className="h-3 w-3" />
@@ -339,7 +341,8 @@ function InvoiceStatusBadge({
 
   return (
     <Badge
-      className="gap-1 border-transparent bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+      variant="warning"
+      className="gap-1"
       data-testid={`badge-invoice-unsent-${order.id}`}
     >
       <FileClock className="h-3 w-3" />
