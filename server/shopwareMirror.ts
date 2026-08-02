@@ -8,7 +8,7 @@ import type { IStorage } from "./storage";
 import type { ShopwareClient, ShopwareProductOverview, ShopwareCustomerPrice } from "./shopware";
 import { B2BSellersAdminClient, type B2BCompanyListItem } from "./b2bSellersAdmin";
 import { productCacheRegistry } from "./productCache";
-import type { Product } from "@shared/schema";
+import type { Product, Order } from "@shared/schema";
 
 const PRODUCT_BATCH = 500;
 const CUSTOMER_BATCH = 250;
@@ -60,6 +60,18 @@ export function mirrorRowsToProducts(
     if (!overview) continue;
     if (row.active === false) continue;
     out.push(overviewToProduct(overview));
+  }
+  return out;
+}
+
+/** Rekonstruiert Order[] aus dem Bestell-Spiegel (payload ist bereits das fertige Order-Objekt). */
+export function mirrorRowsToOrders(rows: Array<{ payload: unknown }>): Order[] {
+  const out: Order[] = [];
+  for (const row of rows) {
+    if (!row.payload || typeof row.payload !== "object") continue;
+    const order = row.payload as Order;
+    if (!order.id || !order.orderNumber) continue;
+    out.push(order);
   }
   return out;
 }
@@ -209,6 +221,106 @@ async function syncProductsDelta(
   } catch (error: any) {
     await storage.upsertShopwareSyncState(
       "products",
+      { status: "error", error: error?.message || String(error) },
+      tenantId,
+    );
+    throw error;
+  }
+}
+
+/**
+ * Bestell-Spiegel: Delta-Sync statt "bei jedem Laden alle Bestellungen neu holen".
+ * fetchOrders() paginiert intern selbst durch alle Treffer des updatedAt-Filters,
+ * deshalb reicht hier ein einzelner Aufruf (anders als bei Produkten/Kunden, wo
+ * der Aufrufer die Seiten selbst durchlaeuft).
+ */
+async function syncOrdersDelta(
+  storage: IStorage,
+  client: ShopwareClient,
+  tenantId: string | null,
+  opts?: { force?: boolean },
+): Promise<{ upserted: number; skipped: boolean }> {
+  await storage.upsertShopwareSyncState("orders", { status: "running", error: null }, tenantId);
+  try {
+    const state = await storage.getShopwareSyncState("orders", tenantId);
+    const fingerprint = await client.fetchOrdersFingerprint();
+
+    if (
+      !opts?.force &&
+      fingerprint &&
+      state?.lastFingerprint === fingerprint &&
+      (await storage.countShopwareOrderMirrors(tenantId)) > 0
+    ) {
+      await storage.upsertShopwareSyncState(
+        "orders",
+        { status: "idle", lastDeltaAt: new Date(), lastFingerprint: fingerprint },
+        tenantId,
+      );
+      return { upserted: 0, skipped: true };
+    }
+
+    const cursor = opts?.force ? null : state?.cursorUpdatedAt ?? null;
+    const orders = await client.fetchOrders(null, { updatedSince: cursor });
+
+    if (orders.length > 0) {
+      await storage.upsertShopwareOrderMirrors(
+        orders.map((o) => ({
+          shopwareId: o.id,
+          orderNumber: o.orderNumber ?? null,
+          salesChannelId: o.salesChannelId ?? null,
+          swUpdatedAt: parseSwDate(o.updatedAt),
+          payload: o as unknown as Record<string, unknown>,
+        })),
+        tenantId,
+      );
+    }
+
+    let maxUpdated: Date | null = cursor;
+    for (const o of orders) {
+      const d = parseSwDate(o.updatedAt);
+      if (d && (!maxUpdated || d > maxUpdated)) maxUpdated = d;
+    }
+
+    // Loesch-Abgleich (stornierte/geloeschte Bestellungen) — wie bei Produkten/Kunden
+    // nur periodisch, nicht bei jedem Delta-Lauf.
+    const reconcileMinutes = Number(process.env.SHOPWARE_SYNC_RECONCILE_MINUTES || 60);
+    const reconcileMs = reconcileMinutes * 60 * 1000;
+    const lastReconcile = state?.lastReconcileAt ? new Date(state.lastReconcileAt).getTime() : 0;
+    const needsReconcile = !lastReconcile || Date.now() - lastReconcile >= reconcileMs;
+
+    if (needsReconcile) {
+      const { ids } = await client.fetchAllOrderIds();
+      const deleted = await storage.deleteShopwareOrderMirrorsNotIn(ids, tenantId);
+      if (deleted > 0) {
+        console.log(`[ShopwareMirror] orders: reconciled ${deleted} deletions (tenant=${tenantId})`);
+      }
+      await storage.upsertShopwareSyncState(
+        "orders",
+        { lastReconcileAt: new Date(), lastTotal: ids.length },
+        tenantId,
+      );
+    }
+
+    await storage.upsertShopwareSyncState(
+      "orders",
+      {
+        status: "idle",
+        cursorUpdatedAt: maxUpdated,
+        lastFingerprint: fingerprint,
+        lastDeltaAt: new Date(),
+        lastTotal: await storage.countShopwareOrderMirrors(tenantId),
+        error: null,
+      },
+      tenantId,
+    );
+
+    console.log(
+      `[ShopwareMirror] orders: upserted=${orders.length} skipped=false tenant=${tenantId ?? "default"}`,
+    );
+    return { upserted: orders.length, skipped: false };
+  } catch (error: any) {
+    await storage.upsertShopwareSyncState(
+      "orders",
       { status: "error", error: error?.message || String(error) },
       tenantId,
     );
@@ -504,7 +616,7 @@ export async function syncShopwareMirrorForTenant(
   tenantId: string | null,
   opts?: {
     force?: boolean;
-    entities?: Array<"products" | "customers" | "b2b_companies" | "customer_prices">;
+    entities?: Array<"products" | "customers" | "b2b_companies" | "customer_prices" | "orders">;
     settings?: import("@shared/schema").ShopwareSettings;
   },
 ): Promise<void> {
@@ -516,9 +628,13 @@ export async function syncShopwareMirrorForTenant(
   }
 
   const run = (async () => {
-    const entities = opts?.entities ?? ["products", "customers", "b2b_companies", "customer_prices"];
+    const entities =
+      opts?.entities ?? ["products", "customers", "b2b_companies", "customer_prices", "orders"];
     if (entities.includes("products")) {
       await syncProductsDelta(storage, client, tenantId, opts);
+    }
+    if (entities.includes("orders")) {
+      await syncOrdersDelta(storage, client, tenantId, opts);
     }
     if (entities.includes("customers")) {
       await syncCustomersDelta(storage, client, tenantId, opts);

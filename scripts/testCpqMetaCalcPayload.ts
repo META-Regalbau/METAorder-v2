@@ -20,11 +20,16 @@ const bom = [
   { productId: "p2", productNumber: "222", name: "Fußplatte", quantity: 8, componentType: "accessory" },
 ];
 
-const { metaCalcConfigurationPayload } = buildMetaCalcConfigurationPayloadFromCpqBom(bom);
+const { metaCalcConfigurationName: fallbackName, metaCalcConfigurationPayload } = buildMetaCalcConfigurationPayloadFromCpqBom(bom);
 assert(metaCalcConfigurationPayload.partsList.length === 1, "partsList: 1 frame");
 assert(metaCalcConfigurationPayload.accessoryList.length === 1, "accessoryList: 1 accessory");
 assert(metaCalcConfigurationPayload.partsList[0]!.productId === "p1", "part id");
+assert(fallbackName === "CPQ Regalkonfiguration", "fallback config name ohne systemName");
 console.log("  buildMetaCalcConfigurationPayloadFromCpqBom: OK");
+
+const { metaCalcConfigurationName: namedName } = buildMetaCalcConfigurationPayloadFromCpqBom(bom, null, "META CLIP");
+assert(namedName === "META CLIP Regalkonfiguration", "config name mit systemName (kein doppeltes META)");
+console.log("  buildMetaCalcConfigurationPayloadFromCpqBom mit systemName: OK");
 
 const cpq = {
   systemId: "sys-1",
@@ -37,7 +42,7 @@ assert(
   typeof (payload as any).metaCalcConfigurationPayload?.description === "string",
   "description string",
 );
-assert((payload as any).metaCalcConfigurationName === "CPQ Regalkonfiguration", "config name");
+assert((payload as any).metaCalcConfigurationName === "META CLIP Regalkonfiguration", "config name aus systemName");
 console.log("  buildShopwareLinePayloadFromCpqSource: OK");
 
 const items = [{ productId: "x", quantity: 1, type: "product", payload: {} }];

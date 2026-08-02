@@ -5,6 +5,13 @@ DELETE FROM cpq.cpq_component_types WHERE system_id='46621043-37d9-4bd3-aacc-738
 INSERT INTO cpq.cpq_component_types (system_id,name,role,required,sort_order,attribute_schema)
 SELECT '46621043-37d9-4bd3-aacc-738b80fb895f','Rückwand','accessory',false,2,'{"height":{"type":"number","unit":"mm","label":"Höhe"},"width":{"type":"number","unit":"mm","label":"Feldbreite"}}'::jsonb
 WHERE NOT EXISTS (SELECT 1 FROM cpq.cpq_component_types WHERE system_id='46621043-37d9-4bd3-aacc-738b80fb895f' AND name='Rückwand');
+-- Aussteifung: Diagonalstab (Länge = Feldbreite) + zugehöriges, feldbreiten-unabhängiges Spannschloss.
+INSERT INTO cpq.cpq_component_types (system_id,name,role,required,sort_order,attribute_schema)
+SELECT '46621043-37d9-4bd3-aacc-738b80fb895f','Diagonalstab','diagonal',true,1,'{"width":{"type":"number","unit":"mm","label":"Feldbreite"}}'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM cpq.cpq_component_types WHERE system_id='46621043-37d9-4bd3-aacc-738b80fb895f' AND name='Diagonalstab');
+INSERT INTO cpq.cpq_component_types (system_id,name,role,required,sort_order,attribute_schema)
+SELECT '46621043-37d9-4bd3-aacc-738b80fb895f','Spannschloss','spannschloss',true,1,'{}'::jsonb
+WHERE NOT EXISTS (SELECT 1 FROM cpq.cpq_component_types WHERE system_id='46621043-37d9-4bd3-aacc-738b80fb895f' AND name='Spannschloss');
 INSERT INTO cpq.cpq_product_mapping
   (tenant_id, shopware_product_id, shopware_product_number, product_name, system_id, component_type_id, attributes, status)
 SELECT '8df98804-492e-4ed0-9699-a2f7036dea98', sp.shopware_id, v.pn, sp.name, '46621043-37d9-4bd3-aacc-738b80fb895f', 'c6d1c37c-1b7c-41e3-a7f2-079f8c63bd1f', v.attrs::jsonb, 'active'
@@ -121,6 +128,32 @@ FROM (VALUES
     ('4026212110951','{"height":3000,"width":1000,"surface":"verzinkt"}'),
     ('4026212111651','{"height":3000,"width":1300,"surface":"lackiert"}'),
     ('4026212111552','{"height":3000,"width":1300,"surface":"verzinkt"}')
+) AS v(pn, attrs)
+JOIN LATERAL (SELECT shopware_id, name FROM public.shopware_products WHERE product_number = v.pn AND active ORDER BY shopware_id LIMIT 1) sp ON true;
+
+-- Diagonalstab: eine Variante je Feldbreite (Länge ist fest an die Feldbreite gebunden,
+-- Höhe/Tiefe-unabhängig). Bewusst OHNE "surface"-Attribut: der Diagonalstab existiert im
+-- Katalog nur verzinkt, muss aber unabhängig von der gewählten Oberfläche (auch "lackiert")
+-- matchen — ein gesetztes surface-Attribut würde ihn für lackierte Konfigurationen blockieren.
+INSERT INTO cpq.cpq_product_mapping
+  (tenant_id, shopware_product_id, shopware_product_number, product_name, system_id, component_type_id, attributes, status)
+SELECT '8df98804-492e-4ed0-9699-a2f7036dea98', sp.shopware_id, v.pn, sp.name, '46621043-37d9-4bd3-aacc-738b80fb895f', (SELECT id FROM cpq.cpq_component_types WHERE system_id='46621043-37d9-4bd3-aacc-738b80fb895f' AND name='Diagonalstab' LIMIT 1), v.attrs::jsonb, 'active'
+FROM (VALUES
+    ('4026212109627','{"width":750}'),
+    ('4026212036336','{"width":1000}'),
+    ('4026212044539','{"width":1300}'),
+    ('4026212307443','{"width":1500}'),
+    ('4026212307467','{"width":1700}')
+) AS v(pn, attrs)
+JOIN LATERAL (SELECT shopware_id, name FROM public.shopware_products WHERE product_number = v.pn AND active ORDER BY shopware_id LIMIT 1) sp ON true;
+
+-- Spannschloss: ein universelles Teil für jeden Diagonalstab, unabhängig von der Feldbreite
+-- (daher keine dimensionierten Attribute — vgl. ROLE_ATTR_MAP in cpqBillOfMaterials.ts).
+INSERT INTO cpq.cpq_product_mapping
+  (tenant_id, shopware_product_id, shopware_product_number, product_name, system_id, component_type_id, attributes, status)
+SELECT '8df98804-492e-4ed0-9699-a2f7036dea98', sp.shopware_id, v.pn, sp.name, '46621043-37d9-4bd3-aacc-738b80fb895f', (SELECT id FROM cpq.cpq_component_types WHERE system_id='46621043-37d9-4bd3-aacc-738b80fb895f' AND name='Spannschloss' LIMIT 1), v.attrs::jsonb, 'active'
+FROM (VALUES
+    ('4026212036329','{}')
 ) AS v(pn, attrs)
 JOIN LATERAL (SELECT shopware_id, name FROM public.shopware_products WHERE product_number = v.pn AND active ORDER BY shopware_id LIMIT 1) sp ON true;
 

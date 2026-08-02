@@ -317,6 +317,34 @@ export async function requireAuth(req: any, res: any, next: any) {
   }
 }
 
+/**
+ * Auth für den öffentlichen Shop-Konfigurator: kein Mitarbeiter-Login, sondern ein
+ * kurzlebiger, von der Shopware-Produktseite signierter Handoff-Token (siehe
+ * cpqHandoffToken.ts). Setzt req.tenantId + req.cpqHandoff statt req.user —
+ * nachgelagerte Routen dürfen NIE eine vom Client mitgeschickte customerId
+ * verwenden, sondern ausschließlich req.cpqHandoff.customerId (verifiziert).
+ */
+export async function requireCpqHandoffToken(req: any, res: any, next: any) {
+  try {
+    const { verifyCpqHandoffToken } = await import("./cpqHandoffToken");
+    const raw = req.query?.cpqToken ?? req.body?.cpqToken;
+    const payload = verifyCpqHandoffToken(raw);
+    if (!payload) {
+      return res.status(401).json({ error: "Link ungültig oder abgelaufen" });
+    }
+    req.tenantId = payload.tenantId;
+    req.cpqHandoff = {
+      customerId: payload.customerId,
+      salesChannelId: payload.salesChannelId ?? null,
+      productId: payload.productId ?? null,
+    };
+    runWithTenantContext(payload.tenantId, () => next());
+  } catch (error) {
+    console.error("[requireCpqHandoffToken] Error:", error);
+    res.status(401).json({ error: "Authentication failed" });
+  }
+}
+
 // Middleware to require an active tenant selection for tenant-scoped routes
 export async function requireTenant(req: any, res: any, next: any) {
   try {

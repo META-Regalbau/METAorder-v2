@@ -56,5 +56,10 @@
         <service id="Meta\ClipCpq\Core\Review\Api\ReviewQueueController" public="true">
             <tag name="controller.service_arguments"/>
         </service>
+
+        <service id="Meta\ClipCpq\Twig\CpqHandoffTokenExtension">
+            <argument type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService"/>
+            <tag name="twig.extension"/>
+        </service>
     </services>
 </container>

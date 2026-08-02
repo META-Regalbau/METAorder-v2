@@ -69,6 +69,9 @@ services:
       DATABASE_URL: postgresql://metaorder:metaorder@db:5432/metaorder
       SESSION_SECRET: ${SESSION_SECRET:-bitte-in-produktion-setzen}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-metaorder-dev-encryption-key-change-in-prod}
+      # Muss mit dem "CPQ-Handoff-Secret" im MetaClipCpq-Shopware-Plugin (Systemkonfiguration)
+      # übereinstimmen — signiert den Übergabe-Token Produktseite → Konfigurator.
+      CPQ_HANDOFF_SECRET: ${CPQ_HANDOFF_SECRET:-dev-cpq-handoff-secret-change-me}
       # Erlaubt die bekannten Dev-Default-Secrets oben nur für diese lokale
       # docker-compose.yml (Testing/Entwicklung). Echte Deployments (z. B.
       # deploy/mittwald/) setzen dies nicht — dort wird bei Default-Secrets

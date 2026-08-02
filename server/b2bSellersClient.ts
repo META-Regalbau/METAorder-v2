@@ -1,7 +1,12 @@
+import { randomUUID } from "crypto";
 import type { Offer, OfferStatus, OrderAddress, ShopwareSettings } from "@shared/schema";
 import {
   buildB2BOfferCreateAttributes,
+  buildCalculatedItemPrice,
+  buildQuantityPriceDefinition,
   formatShopwareWriteError,
+  round2,
+  toShopwareUuid,
   type B2BOfferCustomerContext,
 } from "./b2bOfferCreateContext";
 
@@ -519,6 +524,221 @@ export class B2BSellersClient {
       const errorText = await response.text();
       throw new Error(`Failed to update offer: ${response.statusText} - ${errorText}`);
     }
+  }
+
+  /**
+   * Entfernt von Shopware beim Lesen eingefügte, beim Schreiben aber unerwünschte
+   * Metafelder (z. B. "apiAlias") rekursiv aus einem beliebig verschachtelten Wert.
+   */
+  private stripReadOnlyMeta<T>(value: T): T {
+    if (Array.isArray(value)) {
+      return value.map((v) => this.stripReadOnlyMeta(v)) as unknown as T;
+    }
+    if (value && typeof value === "object") {
+      const out: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+        if (k === "apiAlias" || k === "_uniqueIdentifier" || k === "versionId" || k === "extensions") continue;
+        out[k] = this.stripReadOnlyMeta(v);
+      }
+      return out as T;
+    }
+    return value;
+  }
+
+  // Nur die Felder übernehmen, die auch beim Anlegen geschrieben werden (createOffer) —
+  // Shopware lehnt beim Schreiben zusätzliche, beim Lesen mitgelieferte Metafelder ab
+  // ("Invalid payload. Should be associative array").
+  private cleanOfferItem(item: unknown): Record<string, unknown> {
+    const a = ((item as { attributes?: Record<string, unknown> })?.attributes ?? item) as Record<string, unknown>;
+    const row: Record<string, unknown> = {
+      id: a.id,
+      productId: a.productId,
+      quantity: a.quantity,
+      type: a.type ?? "product",
+      label: a.label,
+      unitPrice: a.unitPrice,
+      totalPrice: a.totalPrice,
+      price: a.price,
+      priceDefinition: a.priceDefinition,
+    };
+    if (a.payload && typeof a.payload === "object" && Object.keys(a.payload as object).length > 0) {
+      row.payload = a.payload;
+    }
+    return row;
+  }
+
+  /** Aggregiert Netto-/Steuer-Summen über alle übergebenen (bereits bereinigten) Positionen. */
+  private computeOfferPriceFromItems(items: Record<string, unknown>[]): Record<string, unknown> {
+    let positionNet = 0;
+    const taxByRate = new Map<number, number>();
+    for (const item of items) {
+      const total = Number((item as any).totalPrice ?? (item as any).price?.totalPrice ?? 0);
+      positionNet = round2(positionNet + total);
+      const taxes = (item as any).price?.calculatedTaxes ?? [];
+      for (const t of Array.isArray(taxes) ? taxes : []) {
+        const rate = Number(t?.taxRate ?? 0);
+        const tax = Number(t?.tax ?? 0);
+        taxByRate.set(rate, round2((taxByRate.get(rate) ?? 0) + tax));
+      }
+    }
+    const calculatedTaxes = Array.from(taxByRate.entries()).map(([taxRate, tax]) => ({ tax, taxRate, price: positionNet }));
+    const taxRules = Array.from(taxByRate.keys()).map((taxRate) => ({ taxRate, percentage: 100 }));
+    const totalTax = Array.from(taxByRate.values()).reduce((sum, t) => round2(sum + t), 0);
+
+    return {
+      netPrice: positionNet,
+      totalPrice: round2(positionNet + totalTax),
+      positionPrice: positionNet,
+      rawTotal: positionNet,
+      calculatedTaxes: calculatedTaxes.length > 0 ? calculatedTaxes : [{ tax: 0, taxRate: 0, price: positionNet }],
+      taxRules: taxRules.length > 0 ? taxRules : [{ taxRate: 0, percentage: 100 }],
+      taxStatus: "net",
+    };
+  }
+
+  /**
+   * Fügt einem bestehenden Angebot mehrere zusätzliche Positionen auf einmal hinzu
+   * (z. B. eine komplette CPQ-Stückliste), ohne die vorhandenen Positionen anzutasten.
+   * Berechnet Netto-/Steuer-Summen des Angebots über alle Positionen (bestehend + neu) neu.
+   */
+  async addOfferLineItems(
+    offerId: string,
+    newItems: Array<{
+      productId: string;
+      quantity: number;
+      unitPriceNet: number;
+      taxRate: number;
+      label: string;
+      type?: string;
+      /** z. B. MetaCalc-Konfigurationspayload (Stückliste/Beschreibung) — nur an einer "Kopf"-Position gesetzt. */
+      payload?: Record<string, unknown>;
+    }>
+  ): Promise<void> {
+    const { data: raw } = await this.fetchOfferById(offerId);
+    const config = this.resolvedEntityConfig || this.getEntityConfig(this.getApiEntityName());
+    const existingItemsRaw = this.getField(raw, config.itemsField);
+    const existingItemsList: unknown[] = Array.isArray(existingItemsRaw) ? existingItemsRaw : [];
+    const existingItems = existingItemsList.map((item) => this.cleanOfferItem(item));
+
+    const newRows: Record<string, unknown>[] = newItems.map((newItem) => {
+      const calc = buildCalculatedItemPrice(newItem.unitPriceNet, newItem.quantity, newItem.taxRate);
+      const row: Record<string, unknown> = {
+        id: randomUUID().replace(/-/g, ""),
+        productId: toShopwareUuid(newItem.productId),
+        quantity: newItem.quantity,
+        type: newItem.type || "product",
+        label: newItem.label,
+        unitPrice: calc.unitPrice,
+        totalPrice: calc.totalPrice,
+        price: calc,
+        priceDefinition: buildQuantityPriceDefinition(newItem.unitPriceNet, newItem.quantity, newItem.taxRate),
+      };
+      if (newItem.payload && Object.keys(newItem.payload).length > 0) {
+        row.payload = newItem.payload;
+      }
+      return row;
+    });
+
+    const combinedItems = [...existingItems, ...newRows];
+    const offerPrice = this.computeOfferPriceFromItems(combinedItems);
+
+    await this.updateOffer(offerId, {
+      [config.itemsField]: this.stripReadOnlyMeta(combinedItems),
+      price: this.stripReadOnlyMeta(offerPrice),
+    });
+  }
+
+  /**
+   * Fügt einem bestehenden Angebot eine einzelne zusätzliche Position hinzu (z. B. Montagekosten).
+   */
+  async addOfferLineItem(
+    offerId: string,
+    newItem: { productId: string; quantity: number; unitPriceNet: number; taxRate: number; label: string; type?: string; payload?: Record<string, unknown> }
+  ): Promise<void> {
+    await this.addOfferLineItems(offerId, [newItem]);
+  }
+
+/**
+   * Ermittelt Kandidaten für die eigene Entität der Angebots-Positionen (z. B.
+   * "b2b_offer_item"), indem das Shopware-Entity-Schema nach passenden Namen
+   * durchsucht wird — analog zu discoverOfferEntities() für das Angebot selbst.
+   */
+  private async discoverOfferItemEntities(): Promise<string[]> {
+    try {
+      const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/_info/entity-schema`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!response.ok) return [];
+      const schema = await response.json();
+      let entities: string[] = [];
+      if (schema?.entities && typeof schema.entities === "object") {
+        entities = Object.keys(schema.entities);
+      } else if (schema?.definitions && typeof schema.definitions === "object") {
+        entities = Object.keys(schema.definitions);
+      } else if (schema?.components?.schemas && typeof schema.components.schemas === "object") {
+        entities = Object.keys(schema.components.schemas);
+      }
+      const filtered = entities.filter((name) => /offer.*item|item.*offer|offer.*position|position.*offer/i.test(name));
+      return Array.from(new Set(filtered));
+    } catch (error) {
+      console.warn("[B2B] Failed to discover offer item entities:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Entfernt eine einzelne Position aus einem bestehenden Angebot (z. B. eine
+   * manuell hinzugefügte Montageposition) und berechnet die Summen neu.
+   *
+   * Wichtig: Ein Schreiben des Angebots mit einem um die Position verkürzten
+   * items-Array LÖSCHT die weggelassene Position NICHT (Shopware-DAL: to-many-
+   * Assoziationen werden beim Schreiben nur upserted, nicht synchronisiert —
+   * https://developer.shopware.com/docs/guides/plugins/plugins/framework/data-handling/replacing-associated-data.html).
+   * Die Position muss daher direkt über ihre eigene Entität gelöscht werden.
+   */
+  async removeOfferLineItem(offerId: string, itemId: string): Promise<void> {
+    const knownCandidates = ["b2b-offer-item", "b2bsellers-offer-item", "b2b-offer-position", "b2bsellers-offer-position"];
+    const discovered = await this.discoverOfferItemEntities();
+    const candidates = Array.from(new Set([...knownCandidates, ...discovered]));
+
+    let deleted = false;
+    let lastError: string | null = null;
+    for (const entity of candidates) {
+      try {
+        const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/${entity}/${itemId}`, {
+          method: "DELETE",
+        });
+        if (response.ok || response.status === 204) {
+          deleted = true;
+          break;
+        }
+        if (response.status !== 404) {
+          lastError = `${entity}: ${response.status} ${await response.text().catch(() => "")}`;
+        }
+      } catch (error: any) {
+        lastError = error?.message || String(error);
+      }
+    }
+
+    if (!deleted) {
+      throw new Error(
+        `Position konnte nicht direkt gelöscht werden (keine passende Positions-Entität gefunden${lastError ? `: ${lastError}` : ""}).`
+      );
+    }
+
+    // Angebots-Summe neu berechnen, jetzt basierend auf der tatsächlich verkürzten Positionsliste.
+    const { data: raw } = await this.fetchOfferById(offerId);
+    const config = this.resolvedEntityConfig || this.getEntityConfig(this.getApiEntityName());
+    const remainingItemsRaw = this.getField(raw, config.itemsField);
+    const remainingItems = (Array.isArray(remainingItemsRaw) ? remainingItemsRaw : []).map((item) =>
+      this.cleanOfferItem(item)
+    );
+    const offerPrice = this.computeOfferPriceFromItems(remainingItems);
+
+    await this.updateOffer(offerId, {
+      price: this.stripReadOnlyMeta(offerPrice),
+    });
   }
 
   async approveOffer(offerId: string): Promise<void> {

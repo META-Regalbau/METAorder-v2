@@ -56,10 +56,15 @@ import {
   b2bApprovalLog,
   productHerstellpreise,
   shopwareProducts,
+  shopwareOrders,
   shopwareCustomers,
   shopwareB2bCompanies,
   shopwareCustomerPrices,
   shopwareSyncState,
+  cpqRoomLayouts,
+  type CpqRoomLayout,
+  type CpqRoomPlacement,
+  type CpqRoomWallFeature,
   type User,
   type InsertUser,
   type Role,
@@ -245,6 +250,12 @@ const tenantFilterFor = <T>(column: T, tenantId?: string | null) => {
   const resolved = resolveTenantId(tenantId);
   return resolved ? eq(column as any, resolved) : isNull(column as any);
 };
+
+// Kurzer In-Memory-Cache für getSetting/saveSetting (siehe dort) — Modul-Scope, damit er
+// über alle DbStorage-Aufrufe hinweg geteilt wird (die App verwendet ohnehin eine Singleton-Instanz).
+const SETTINGS_CACHE_TTL_MS = 30_000;
+const settingsCache = new Map<string, { value: any; expiresAt: number }>();
+const settingsCacheKey = (key: string, tenantId?: string | null) => `${tenantId ?? "__global__"}::${key}`;
 
 const mapStagingBatch = (batch: any): CrossSellStagingBatch => ({
   id: batch.id,
@@ -1706,17 +1717,28 @@ export class DbStorage implements IStorage {
   }
 
   // Settings (generic key-value store)
+  //
+  // Wird auf vielen heißen Request-Pfaden gelesen (z. B. b2b.offerStatusMapping bei jedem
+  // Angebots-Request), ändert sich aber praktisch nie zwischen zwei Requests — kurzer
+  // In-Memory-Cache pro (tenantId, key), immer per saveSetting invalidiert.
   async getSetting(key: string, tenantId?: string | null): Promise<any | undefined> {
+    // tenantId immer auflösen (undefined = aus AsyncLocalStorage-Kontext) bevor er in den
+    // Cache-Key einfließt — sonst würden verschiedene Mandanten denselben "undefined"-Key teilen.
+    const resolvedTenantId = resolveTenantId(tenantId);
+    const cacheKey = settingsCacheKey(key, resolvedTenantId);
+    const cached = settingsCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) return cached.value;
+
     const tenantFilter = tenantFilterFor(settings.tenantId, tenantId);
     const result = await db
       .select()
       .from(settings)
       .where(and(eq(settings.key, key), tenantFilter))
       .limit(1);
-    
-    if (!result[0]) return undefined;
-    
-    return result[0].value;
+
+    const value = result[0]?.value;
+    settingsCache.set(cacheKey, { value, expiresAt: Date.now() + SETTINGS_CACHE_TTL_MS });
+    return value;
   }
 
   async saveSetting(key: string, value: any, tenantId?: string | null): Promise<void> {
@@ -1736,6 +1758,7 @@ export class DbStorage implements IStorage {
     } else {
       await db.insert(settings).values({ key, value, tenantId: resolved ?? null });
     }
+    settingsCache.delete(settingsCacheKey(key, resolved));
   }
 
   // AI Cross-Selling learning
@@ -2250,9 +2273,11 @@ export class DbStorage implements IStorage {
   }
   
   // Offer Drafts (AI-powered offer/quote creation)
-  async getAllOfferDrafts(tenantId?: string | null): Promise<OfferDraft[]> {
+  async getAllOfferDrafts(tenantId?: string | null, statuses?: string[]): Promise<OfferDraft[]> {
     const tenantFilter = tenantFilterFor(offerDrafts.tenantId, tenantId);
-    return await db.select().from(offerDrafts).where(tenantFilter).orderBy(desc(offerDrafts.createdAt));
+    const filter =
+      statuses && statuses.length > 0 ? and(tenantFilter, inArray(offerDrafts.status, statuses)) : tenantFilter;
+    return await db.select().from(offerDrafts).where(filter).orderBy(desc(offerDrafts.createdAt));
   }
 
   async getOfferDraft(id: string, tenantId?: string | null): Promise<OfferDraft | undefined> {
@@ -3508,6 +3533,169 @@ export class DbStorage implements IStorage {
       deleted += result.length;
     }
     return deleted;
+  }
+
+  async upsertShopwareOrderMirrors(
+    rows: Array<{
+      shopwareId: string;
+      orderNumber?: string | null;
+      salesChannelId?: string | null;
+      swUpdatedAt?: Date | null;
+      payload: Record<string, unknown>;
+    }>,
+    tenantId?: string | null,
+  ): Promise<void> {
+    if (rows.length === 0) return;
+    const resolvedTenantId = resolveTenantId(tenantId) ?? null;
+    const now = new Date();
+    const CHUNK = 200;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const chunk = rows.slice(i, i + CHUNK).map((row) => ({
+        tenantId: resolvedTenantId,
+        shopwareId: row.shopwareId,
+        orderNumber: row.orderNumber ?? null,
+        salesChannelId: row.salesChannelId ?? null,
+        swUpdatedAt: row.swUpdatedAt ?? null,
+        payload: row.payload,
+        syncedAt: now,
+      }));
+      await db
+        .insert(shopwareOrders)
+        .values(chunk)
+        .onConflictDoUpdate({
+          target: [shopwareOrders.tenantId, shopwareOrders.shopwareId],
+          set: {
+            orderNumber: sql`excluded.order_number`,
+            salesChannelId: sql`excluded.sales_channel_id`,
+            swUpdatedAt: sql`excluded.sw_updated_at`,
+            payload: sql`excluded.payload`,
+            syncedAt: sql`excluded.synced_at`,
+          },
+        });
+    }
+  }
+
+  async getShopwareOrderMirrors(
+    tenantId?: string | null,
+  ): Promise<{ rows: (typeof shopwareOrders.$inferSelect)[]; total: number }> {
+    const tenantFilter = tenantFilterFor(shopwareOrders.tenantId, tenantId);
+    const rows = await db.select().from(shopwareOrders).where(tenantFilter);
+    return { rows, total: rows.length };
+  }
+
+  async getShopwareOrderMirrorByShopwareId(
+    shopwareId: string,
+    tenantId?: string | null,
+  ): Promise<(typeof shopwareOrders.$inferSelect) | undefined> {
+    const tenantFilter = tenantFilterFor(shopwareOrders.tenantId, tenantId);
+    const result = await db
+      .select()
+      .from(shopwareOrders)
+      .where(and(eq(shopwareOrders.shopwareId, shopwareId), tenantFilter))
+      .limit(1);
+    return result[0];
+  }
+
+  async countShopwareOrderMirrors(tenantId?: string | null): Promise<number> {
+    const tenantFilter = tenantFilterFor(shopwareOrders.tenantId, tenantId);
+    const [{ value }] = await db
+      .select({ value: count() })
+      .from(shopwareOrders)
+      .where(tenantFilter);
+    return Number(value) || 0;
+  }
+
+  async deleteShopwareOrderMirrorsNotIn(
+    keepIds: string[],
+    tenantId?: string | null,
+  ): Promise<number> {
+    const tenantFilter = tenantFilterFor(shopwareOrders.tenantId, tenantId);
+    if (keepIds.length === 0) {
+      const deleted = await db.delete(shopwareOrders).where(tenantFilter).returning({ id: shopwareOrders.id });
+      return deleted.length;
+    }
+    const existingRows = await db
+      .select({ shopwareId: shopwareOrders.shopwareId })
+      .from(shopwareOrders)
+      .where(tenantFilter);
+    const keep = new Set(keepIds);
+    const orphans = existingRows.map((r) => r.shopwareId).filter((id) => !keep.has(id));
+    if (orphans.length === 0) return 0;
+    let deleted = 0;
+    const CHUNK = 500;
+    for (let i = 0; i < orphans.length; i += CHUNK) {
+      const chunk = orphans.slice(i, i + CHUNK);
+      const result = await db
+        .delete(shopwareOrders)
+        .where(and(tenantFilter, inArray(shopwareOrders.shopwareId, chunk)))
+        .returning({ id: shopwareOrders.id });
+      deleted += result.length;
+    }
+    return deleted;
+  }
+
+  async getCpqRoomLayoutByOfferId(
+    shopwareOfferId: string,
+    tenantId?: string | null,
+  ): Promise<CpqRoomLayout | undefined> {
+    const tenantFilter = tenantFilterFor(cpqRoomLayouts.tenantId, tenantId);
+    const result = await db
+      .select()
+      .from(cpqRoomLayouts)
+      .where(and(eq(cpqRoomLayouts.shopwareOfferId, shopwareOfferId), tenantFilter))
+      .limit(1);
+    return result[0];
+  }
+
+  async upsertCpqRoomLayout(
+    data: {
+      shopwareOfferId: string;
+      name?: string | null;
+      lengthMm: number;
+      widthMm: number;
+      heightMm: number;
+      minSpacingMm?: number | null;
+      placements: CpqRoomPlacement[];
+      wallFeatures?: CpqRoomWallFeature[];
+      previewImageBase64?: string | null;
+    },
+    tenantId?: string | null,
+  ): Promise<CpqRoomLayout> {
+    const resolvedTenantId = resolveTenantId(tenantId) ?? null;
+    const now = new Date();
+    const [row] = await db
+      .insert(cpqRoomLayouts)
+      .values({
+        tenantId: resolvedTenantId,
+        shopwareOfferId: data.shopwareOfferId,
+        name: data.name ?? null,
+        lengthMm: data.lengthMm,
+        widthMm: data.widthMm,
+        heightMm: data.heightMm,
+        minSpacingMm: data.minSpacingMm ?? null,
+        placements: data.placements,
+        wallFeatures: data.wallFeatures ?? [],
+        previewImageBase64: data.previewImageBase64 ?? null,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: [cpqRoomLayouts.tenantId, cpqRoomLayouts.shopwareOfferId],
+        set: {
+          name: sql`excluded.name`,
+          lengthMm: sql`excluded.length_mm`,
+          widthMm: sql`excluded.width_mm`,
+          heightMm: sql`excluded.height_mm`,
+          minSpacingMm: sql`excluded.min_spacing_mm`,
+          placements: sql`excluded.placements`,
+          updatedAt: sql`excluded.updated_at`,
+          ...(data.wallFeatures !== undefined ? { wallFeatures: sql`excluded.wall_features` } : {}),
+          ...(data.previewImageBase64 !== undefined
+            ? { previewImageBase64: sql`excluded.preview_image_base64` }
+            : {}),
+        },
+      })
+      .returning();
+    return row;
   }
 
   async upsertShopwareCustomerMirrors(

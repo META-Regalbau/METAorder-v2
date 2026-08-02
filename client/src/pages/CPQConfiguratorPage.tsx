@@ -16,6 +16,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { ShopwareCustomerSearch, customerLabel, type ShopwareCustomer } from "@/components/ShopwareCustomerSearch";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 // Real 3D shelf (WebGL) — lazy so three.js only loads on this page.
 // MetaClipRegalAssembly is the real, hand-measured assembly (frame + shelves +
@@ -49,11 +51,15 @@ const L = {
     subtitle: "Sechs Einstellungen. Preis und Stückliste aus dem Live-Katalog.",
     extras: "Zubehör (optional)", rearWall: "Rückwand", noteTitle: "Hinweis",
     priceLabel: "Preis netto", reset: "Zurücksetzen", summary: "Zusammenfassung",
+    youSave: "Sie sparen", vsCatalog: "ggü. Katalogpreis", catalogPrice: "Katalogpreis",
     bom: "Stückliste", bomPos: "Position", bomArt: "Art.-Nr.", bomQty: "Stk.",
     bomUnit: "Einzel", bomSum: "Summe", bomTotal: "Summe netto, zzgl. Versand",
     configCodeLabel: "Konfigurations-Code:",
+    customerPickerLabel: "Kunde (individuelle Preise)",
+    customerPickerHint: "Optional – ohne Auswahl gilt der Katalogpreis.",
     cart: "In den Warenkorb", cartDone: "✓ In den Warenkorb gelegt",
     share: "Als Angebot speichern", shareDone: "✓ Angebot angelegt",
+    shareToOffer: "Zum Angebot hinzufügen", shareDoneToOffer: "✓ Zum Angebot hinzugefügt",
     fields: "Anzahl Felder", height: "Höhe", width: "Feldbreite", depth: "Feldtiefe",
     shelves: "Fachböden je Feld", load: "Fachlast", zinc: "Verzinkt", coat: "Lackiert, RAL 7035",
     views: ["Perspektive", "Vorderansicht", "Draufsicht"],
@@ -69,6 +75,9 @@ const L = {
     modeSlider: "Regler", modeChips: "Auswahl", mm: "mm", kg: "kg",
     loadingPrice: "…", emptySystem: "Kein META CLIP System gefunden. Bitte im CPQ-Admin anlegen.",
     bomError: "Konfiguration nicht lieferbar",
+    loggedInAs: "Angemeldet als", guestNote: "Sie sind nicht angemeldet — es gilt der Katalogpreis. Melden Sie sich im Shop an, um Ihren individuellen Preis zu sehen und ein Angebot anzufragen.",
+    cartComingSoon: "Die Übergabe in den Warenkorb wird in Kürze freigeschaltet.",
+    requestOffer: "Angebot anfragen", requestOfferDone: "✓ Angebot angefragt",
   },
   en: {
     crumb1: "Shelving systems", crumb2: "Boltless shelving", viewLabel: "3D view",
@@ -76,11 +85,15 @@ const L = {
     subtitle: "Six settings. Price and bill of materials from the live catalogue.",
     extras: "Accessories (optional)", rearWall: "Rear panel", noteTitle: "Note",
     priceLabel: "Price, net", reset: "Reset", summary: "Summary",
+    youSave: "You save", vsCatalog: "vs. catalogue price", catalogPrice: "Catalogue price",
     bom: "Bill of materials", bomPos: "Item", bomArt: "Part no.", bomQty: "Qty",
     bomUnit: "Unit", bomSum: "Total", bomTotal: "Net total, excl. shipping",
     configCodeLabel: "Configuration code:",
+    customerPickerLabel: "Customer (individual pricing)",
+    customerPickerHint: "Optional – catalogue price applies if none is selected.",
     cart: "Add to cart", cartDone: "✓ Added to cart",
     share: "Save as offer", shareDone: "✓ Offer created",
+    shareToOffer: "Add to offer", shareDoneToOffer: "✓ Added to offer",
     fields: "Number of bays", height: "Height", width: "Bay width", depth: "Bay depth",
     shelves: "Shelves per bay", load: "Shelf load", zinc: "Galvanised", coat: "Coated, RAL 7035",
     views: ["Perspective", "Front view", "Top view"],
@@ -96,18 +109,34 @@ const L = {
     modeSlider: "Sliders", modeChips: "Chips", mm: "mm", kg: "kg",
     loadingPrice: "…", emptySystem: "No META CLIP system found. Please create it in the CPQ admin.",
     bomError: "Configuration not available",
+    loggedInAs: "Signed in as", guestNote: "You're not signed in — catalogue pricing applies. Sign in on the shop to see your individual price and request an offer.",
+    cartComingSoon: "Adding this to your cart will be available soon.",
+    requestOffer: "Request offer", requestOfferDone: "✓ Offer requested",
   },
 } as const;
 
 type Lang = keyof typeof L;
+
+/**
+ * Öffentlicher Shop-Modus (siehe PublicCpqConfiguratorPage.tsx): kein
+ * Mitarbeiter-Login, die Kundenidentität kommt aus einem serverseitig
+ * verifizierten Handoff-Token statt aus der internen Kundensuche.
+ */
+export type CpqCustomerMode = {
+  handoffToken: string;
+  customerId: string | null;
+  customerName: string | null;
+  isPortalCustomer: boolean;
+};
 
 // ---- server response shapes ----
 type CpqSystem = { id: string; name: string; slug?: string; status?: string };
 type BomLineItem = {
   productId: string; productNumber: string; manufacturerNumber?: string; name: string;
   quantity: number; unitPrice: number; lineTotal: number; componentType?: string;
+  catalogUnitPrice?: number; discountPercent?: number;
 };
-type BomResult = { items: BomLineItem[]; totalPrice: number; errors: string[]; warnings: string[] };
+type BomResult = { items: BomLineItem[]; totalPrice: number; totalCatalogPrice?: number; errors: string[]; warnings: string[] };
 type CoreDecision = {
   valid: boolean;
   classification: "A" | "B" | "C";
@@ -179,7 +208,7 @@ function schematic(s: MetaClipState): string {
   return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${parts.join("")}</svg>`;
 }
 
-export default function CPQConfiguratorPage() {
+export default function CPQConfiguratorPage({ customerMode }: { customerMode?: CpqCustomerMode } = {}) {
   const { i18n } = useTranslation();
   const { toast } = useToast();
   const [state, setState] = useState<MetaClipState>({
@@ -188,14 +217,39 @@ export default function CPQConfiguratorPage() {
   });
   const [added, setAdded] = useState(false);
   const [shared, setShared] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<ShopwareCustomer | null>(null);
   const reconciled = useRef(false);
+
+  // Optionaler Zielangebot-Modus: /configurator?offerId=... hängt die Konfiguration als
+  // neue Konfigurationsgruppe an ein bereits bestehendes Angebot an, statt ein neues anzulegen.
+  // Nur im internen Mitarbeiter-Modus relevant — im öffentlichen Shop-Modus gibt es kein offerId.
+  const targetOfferId = useMemo(
+    () => (customerMode ? null : new URLSearchParams(window.location.search).get("offerId")),
+    [customerMode],
+  );
+
+  // Im öffentlichen Shop-Modus (customerMode) laufen alle CPQ-Requests über die /public/*-Routen
+  // mit dem verifizierten Handoff-Token statt über Mitarbeiter-Session + interne Kundensuche.
+  const cpqBase = customerMode ? "/api/cpq/public" : "/api/cpq";
+  const cpqCoreValidatePath = customerMode ? "/api/cpq-core/public/validate" : "/api/cpq-core/validate";
+  const withToken = (url: string) =>
+    customerMode ? `${url}${url.includes("?") ? "&" : "?"}cpqToken=${encodeURIComponent(customerMode.handoffToken)}` : url;
+  const bodyWithToken = <T extends object>(body: T): T & { cpqToken?: string } =>
+    customerMode ? { ...body, cpqToken: customerMode.handoffToken } : body;
+  const effectiveCustomerId = customerMode ? customerMode.customerId ?? undefined : selectedCustomer?.id;
 
   const lang = state.lang as Lang;
   const t = L[lang];
   const patch = (p: Partial<MetaClipState>) => { setAdded(false); setState((s) => ({ ...s, ...p })); };
 
   // 1) system
-  const { data: systems = [], isLoading: systemsLoading } = useQuery<CpqSystem[]>({ queryKey: ["/api/cpq/systems"] });
+  const { data: systems = [], isLoading: systemsLoading } = useQuery<CpqSystem[]>({
+    queryKey: [`${cpqBase}/systems`, customerMode?.handoffToken ?? null],
+    queryFn: async () => {
+      const res = await apiRequest("GET", withToken(`${cpqBase}/systems`));
+      return res.json() as Promise<CpqSystem[]>;
+    },
+  });
   const system = useMemo(
     () => systems.find((x) => x.slug === "meta-clip") ?? systems.find((x) => /clip/i.test(x.name)) ?? systems[0],
     [systems],
@@ -204,10 +258,10 @@ export default function CPQConfiguratorPage() {
 
   // 2) options (server-driven, catalogue-derived)
   const { data: options } = useQuery<MetaClipOptions>({
-    queryKey: [`/api/cpq/systems/${systemId}/options`, "opts"],
+    queryKey: [`${cpqBase}/systems/${systemId}/options`, "opts"],
     enabled: !!systemId,
     queryFn: async () => {
-      const res = await apiRequest("GET", `/api/cpq/systems/${systemId}/options?step=2&config=%7B%7D`);
+      const res = await apiRequest("GET", withToken(`${cpqBase}/systems/${systemId}/options?step=2&config=%7B%7D`));
       const json = await res.json();
       return json.availableOptions as MetaClipOptions;
     },
@@ -216,29 +270,42 @@ export default function CPQConfiguratorPage() {
     if (options && !reconciled.current) { reconciled.current = true; setState((s) => reconcileWithOptions(s, options)); }
   }, [options]);
 
-  const config = useMemo(() => toConfigContext(state), [state]);
-  const coreInput = useMemo(() => toCpqCoreInput(state), [state]);
+  // Slider/Stepper feuern bei jedem Schritt eine State-Änderung — die BOM- und
+  // Regel-Validierungs-Requests (teuer: Shopware-Preise, Rule-Engine) werden über den
+  // debounced State entkoppelt, damit schnelle Eingaben nicht pro Schritt einen Request auslösen.
+  const debouncedState = useDebouncedValue(state, 300);
+  const config = useMemo(() => toConfigContext(debouncedState), [debouncedState]);
+  const coreInput = useMemo(() => toCpqCoreInput(debouncedState), [debouncedState]);
+  // Nur als Suspense-Fallback gebraucht (fast nie sichtbar, da die 3D-Komponente längst
+  // geladen ist) — trotzdem memoized, damit der SVG-String nicht bei jedem Render neu gebaut wird.
+  const schematicSvg = useMemo(() => schematic(state), [state]);
 
   // 3) priced BOM (cpq)
   const { data: bom, isFetching: bomFetching } = useQuery<BomResult>({
-    queryKey: [`/api/cpq/systems/${systemId}/bill-of-materials`, JSON.stringify(config)],
+    queryKey: [`${cpqBase}/systems/${systemId}/bill-of-materials`, JSON.stringify(config), effectiveCustomerId ?? null],
     enabled: !!systemId,
     placeholderData: (prev) => prev,
     queryFn: async () => {
-      const res = await apiRequest("POST", `/api/cpq/systems/${systemId}/bill-of-materials`, { config });
+      const res = await apiRequest(
+        "POST",
+        `${cpqBase}/systems/${systemId}/bill-of-materials`,
+        bodyWithToken({ config, customerId: effectiveCustomerId }),
+      );
       return res.json() as Promise<BomResult>;
     },
   });
 
   // 4) rules / classification / effective loads (cpq-core)
   const { data: core } = useQuery<CoreDecision>({
-    queryKey: ["/api/cpq-core/validate", systemId, JSON.stringify(coreInput)],
+    queryKey: [cpqCoreValidatePath, systemId, JSON.stringify(coreInput)],
     enabled: !!systemId,
     placeholderData: (prev) => prev,
     queryFn: async () => {
-      const res = await apiRequest("POST", "/api/cpq-core/validate", {
-        systemId, context: CPQ_CORE_CONTEXT, configuration: coreInput,
-      });
+      const res = await apiRequest(
+        "POST",
+        cpqCoreValidatePath,
+        bodyWithToken({ systemId, context: CPQ_CORE_CONTEXT, configuration: coreInput }),
+      );
       return res.json() as Promise<CoreDecision>;
     },
   });
@@ -264,21 +331,43 @@ export default function CPQConfiguratorPage() {
       } catch (e) {
         console.warn("[CPQ] Regal-Vorschaubild konnte nicht erzeugt werden:", e);
       }
-      const res = await apiRequest("POST", "/api/offer-drafts/from-cpq", {
-        systemId, systemName: system?.name ?? "META CLIP",
-        config,
-        previewImageBase64,
-        billOfMaterials: {
-          items: (bom?.items ?? []).map((i) => ({
-            productId: i.productId, productNumber: i.productNumber, name: i.name,
-            quantity: i.quantity, unitPrice: i.unitPrice, lineTotal: i.lineTotal, componentType: i.componentType,
-          })),
-          totalPrice: bom?.totalPrice ?? 0,
-        },
-      });
+      const billOfMaterials = {
+        items: (bom?.items ?? []).map((i) => ({
+          productId: i.productId, productNumber: i.productNumber, name: i.name,
+          quantity: i.quantity, unitPrice: i.unitPrice, lineTotal: i.lineTotal, componentType: i.componentType,
+          catalogUnitPrice: i.catalogUnitPrice, discountPercent: i.discountPercent,
+        })),
+        totalPrice: bom?.totalPrice ?? 0,
+        totalCatalogPrice: bom?.totalCatalogPrice,
+      };
+
+      const res = customerMode
+        ? await apiRequest(
+            "POST",
+            "/api/cpq/public/offer-request",
+            bodyWithToken({ systemId, systemName: system?.name ?? "META CLIP", config, previewImageBase64, billOfMaterials }),
+          )
+        : targetOfferId
+          ? await apiRequest("POST", `/api/offers/${targetOfferId}/cpq-configuration`, {
+              systemId, systemName: system?.name ?? "META CLIP",
+              config,
+              previewImageBase64,
+              billOfMaterials,
+            })
+          : await apiRequest("POST", "/api/offer-drafts/from-cpq", {
+              systemId, systemName: system?.name ?? "META CLIP",
+              config,
+              previewImageBase64,
+              customerId: selectedCustomer?.id,
+              billOfMaterials,
+            });
       return res.json();
     },
-    onSuccess: () => { setShared(true); toast({ title: t.shareDone }); setTimeout(() => setShared(false), 2500); },
+    onSuccess: () => {
+      setShared(true);
+      toast({ title: targetOfferId ? t.shareDoneToOffer : t.shareDone });
+      setTimeout(() => setShared(false), 2500);
+    },
     onError: (e: Error) => toast({ title: "Fehler", description: e.message, variant: "destructive" }),
   });
 
@@ -303,6 +392,9 @@ export default function CPQConfiguratorPage() {
   const availDot = classification === "C" ? "var(--meta-red)" : classification === "B" ? "#c98a00" : "#1e8e47";
 
   const price = bom?.totalPrice ?? 0;
+  const catalogPrice = bom?.totalCatalogPrice ?? 0;
+  const saveAmount = catalogPrice > price ? catalogPrice - price : 0;
+  const savePercent = catalogPrice > 0 && saveAmount > 0 ? Math.round((saveAmount / catalogPrice) * 1000) / 10 : 0;
   const rearItem = (bom?.items ?? []).find((i) => /rückwand|rear/i.test(i.componentType ?? ""));
 
   const options0: MetaClipOptions = options ?? {
@@ -360,7 +452,7 @@ export default function CPQConfiguratorPage() {
               </div>
             </div>
             <div className="viewport">
-              <Suspense fallback={<div dangerouslySetInnerHTML={{ __html: schematic(state) }} />}>
+              <Suspense fallback={<div dangerouslySetInnerHTML={{ __html: schematicSvg }} />}>
                 <MetaClipRegalAssembly state={state} />
               </Suspense>
               <div className="view-caption">{t.views[state.view]} · {nf(laenge)} × {nf(state.hoehe)} × {state.tiefe} {t.mm}</div>
@@ -380,6 +472,34 @@ export default function CPQConfiguratorPage() {
               <span className="panel-title">{t.title}</span>
               <span className="panel-sub">{t.subtitle}</span>
             </div>
+            <div className="rule" />
+
+            {customerMode ? (
+              <div className="control">
+                <div className="control-head">
+                  <span className="control-label">{customerMode.customerId ? t.loggedInAs : t.customerPickerLabel}</span>
+                </div>
+                {customerMode.customerId ? (
+                  <span className="control-note">{customerMode.customerName || customerMode.customerId}</span>
+                ) : (
+                  <span className="control-note">{t.guestNote}</span>
+                )}
+              </div>
+            ) : (
+              <div className="control">
+                <div className="control-head">
+                  <span className="control-label">{t.customerPickerLabel}</span>
+                </div>
+                <ShopwareCustomerSearch
+                  value={selectedCustomer}
+                  onChange={setSelectedCustomer}
+                  endpoint="/api/cpq/customer-search"
+                  placeholder={t.customerPickerLabel}
+                />
+                <span className="control-note">{t.customerPickerHint}</span>
+              </div>
+            )}
+
             <div className="rule" />
 
             <div className="controls">
@@ -449,6 +569,11 @@ export default function CPQConfiguratorPage() {
                   <span className={`price-net ${bomFetching && !bom ? "loading" : ""}`}>
                     {bomErrors.length ? "—" : bom ? money(price) : t.loadingPrice}
                   </span>
+                  {!bomErrors.length && saveAmount > 0 && (
+                    <span style={{ fontSize: 12, color: "#1e8e47" }}>
+                      {t.youSave} {money(saveAmount)} ({savePercent}%) {t.vsCatalog}
+                    </span>
+                  )}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
                   <span className="price-gross">{bom && !bomErrors.length ? `${money(price * 1.19)}${lang === "de" ? " inkl. MwSt." : " incl. VAT"}` : ""}</span>
@@ -459,17 +584,30 @@ export default function CPQConfiguratorPage() {
                 <span className="dot" style={{ background: availDot }} />
                 <span className="txt">{availText}</span>
               </div>
-              <button type="button" className="btn btn-lg btn-primary"
-                disabled={blocked || bomFetching || !!bomErrors.length || !bom?.items?.length || cartMut.isPending}
-                onClick={() => cartMut.mutate()}>
-                {blocked ? t.reviewBlocked : added ? t.cartDone : t.cart}
-              </button>
-              <div className="btn-actions">
-                <button type="button" className="btn btn-md btn-secondary"
-                  disabled={!bom?.items?.length || !!bomErrors.length || offerMut.isPending}
-                  onClick={() => offerMut.mutate()}>
-                  {shared ? t.shareDone : t.share}
+              {customerMode ? (
+                <div className="control-note" style={{ textAlign: "center", padding: "10px 0" }}>{t.cartComingSoon}</div>
+              ) : (
+                <button type="button" className="btn btn-lg btn-primary"
+                  disabled={blocked || bomFetching || !!bomErrors.length || !bom?.items?.length || cartMut.isPending}
+                  onClick={() => cartMut.mutate()}>
+                  {blocked ? t.reviewBlocked : added ? t.cartDone : t.cart}
                 </button>
+              )}
+              <div className="btn-actions">
+                {!customerMode && (
+                  <button type="button" className="btn btn-md btn-secondary"
+                    disabled={!bom?.items?.length || !!bomErrors.length || offerMut.isPending}
+                    onClick={() => offerMut.mutate()}>
+                    {shared ? (targetOfferId ? t.shareDoneToOffer : t.shareDone) : (targetOfferId ? t.shareToOffer : t.share)}
+                  </button>
+                )}
+                {customerMode?.customerId && (
+                  <button type="button" className="btn btn-md btn-secondary"
+                    disabled={blocked || !bom?.items?.length || !!bomErrors.length || offerMut.isPending}
+                    onClick={() => offerMut.mutate()}>
+                    {shared ? t.requestOfferDone : t.requestOffer}
+                  </button>
+                )}
                 <button type="button" className="btn btn-md btn-tertiary"
                   onClick={() => { reconciled.current = false; setState((s) => reconcileWithOptions({ ...DEFAULT_STATE, lang: s.lang, mode: s.mode }, options0)); }}>
                   {t.reset}
@@ -509,7 +647,18 @@ export default function CPQConfiguratorPage() {
                 <span>{b.name}</span>
                 <span className="bom-art" title={b.manufacturerNumber ?? b.productNumber}>{b.manufacturerNumber ?? b.productNumber}</span>
                 <span className="num">{b.quantity}</span>
-                <span className="num muted">{money(b.unitPrice)}</span>
+                <span className="num muted">
+                  {b.discountPercent && b.discountPercent > 0 && b.catalogUnitPrice != null ? (
+                    <>
+                      <span style={{ textDecoration: "line-through", opacity: 0.55, marginRight: 4 }}>
+                        {money(b.catalogUnitPrice)}
+                      </span>
+                      {money(b.unitPrice)}
+                    </>
+                  ) : (
+                    money(b.unitPrice)
+                  )}
+                </span>
                 <span className="num bold">{money(b.lineTotal)}</span>
               </div>
             ))}

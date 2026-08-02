@@ -14,6 +14,7 @@ import * as THREE from "three";
 import { GLTFExporter } from "three-stdlib";
 import "@google/model-viewer";
 import { buildRegalGroup, loadRegalTemplates, type HeightKey } from "@/pages/metaClip/regalAssembly";
+import FullscreenViewport from "@/components/FullscreenViewport";
 
 type CpqRegalArViewerProps = {
   /** Raw stored CpqConfigContext (field_count/height/depth/width/level_count/...). */
@@ -112,15 +113,17 @@ export default function CpqRegalArViewer({ cpqConfig, compact = false }: CpqRega
   return (
     <div className="space-y-2">
       <div className="rounded-md border bg-muted/20 p-2">
-        <model-viewer
-          src={glbUrl}
-          ar
-          ar-modes="webxr scene-viewer quick-look"
-          camera-controls
-          touch-action="pan-y"
-          style={{ width: "100%", height: viewerHeight, minHeight: 220, background: "#f5f5f5" }}
-          alt="3D-Ansicht des konfigurierten META CLIP Regals"
-        />
+        <FullscreenViewport label="Regal im Vollbild anzeigen">
+          <model-viewer
+            src={glbUrl}
+            ar
+            ar-modes="webxr scene-viewer quick-look"
+            camera-controls
+            touch-action="pan-y"
+            style={{ width: "100%", height: viewerHeight, minHeight: 220, background: "#f5f5f5" }}
+            alt="3D-Ansicht des konfigurierten META CLIP Regals"
+          />
+        </FullscreenViewport>
         <p className="text-[11px] text-muted-foreground mt-2 text-center">
           Drehen und zoomen · Smartphone: AR über das Geräte- oder Raum-Icon
         </p>

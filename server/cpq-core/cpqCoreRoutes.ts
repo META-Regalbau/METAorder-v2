@@ -16,6 +16,7 @@ import { cpqStorage } from "../cpq/cpqStorage";
 import { prepareCpqCartTransfer } from "../cpq/cpqCartTransfer";
 import type { CartItem } from "../cpq/cpqCrossSelling";
 import type { requireAuth, requireManageCPQ, requireViewCPQ } from "../auth";
+import { requireCpqHandoffToken } from "../auth";
 import {
   getCpqCoreMetricsSnapshot,
   getCpqKpiReport,
@@ -158,7 +159,7 @@ export function registerCpqCoreRoutes(
 ): void {
   const { requireAuth, requireViewCPQ, requireManageCPQ } = auth;
 
-  app.post("/api/cpq-core/validate", requireAuth, requireViewCPQ, async (req: Request, res: Response) => {
+  const handleCpqCoreValidate = async (req: Request, res: Response) => {
     const startedAt = Date.now();
     let errorMessage: string | undefined;
     let classification: "A" | "B" | "C" | undefined;
@@ -201,7 +202,14 @@ export function registerCpqCoreRoutes(
         classification,
       });
     }
-  });
+  };
+
+  app.post("/api/cpq-core/validate", requireAuth, requireViewCPQ, handleCpqCoreValidate);
+
+  // POST /api/cpq-core/public/validate - wie oben, aber für den öffentlichen Shop-Konfigurator
+  // (Handoff-Token statt Mitarbeiter-Login). Die Regelprüfung selbst ist mandantenunabhängig,
+  // req.tenantId fließt hier nur ins Metrics-Tracking ein.
+  app.post("/api/cpq-core/public/validate", requireCpqHandoffToken, handleCpqCoreValidate);
 
   app.post("/api/cpq-core/price", requireAuth, requireViewCPQ, async (req: Request, res: Response) => {
     const startedAt = Date.now();

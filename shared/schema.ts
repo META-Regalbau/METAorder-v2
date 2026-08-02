@@ -1863,6 +1863,89 @@ export const shopwareCustomerPrices = pgTable(
 export type ShopwareCustomerPriceMirror = typeof shopwareCustomerPrices.$inferSelect;
 export type InsertShopwareCustomerPriceMirror = typeof shopwareCustomerPrices.$inferInsert;
 
+/**
+ * Persistenter Bestell-Spiegel — payload enthaelt das fertig gemappte Order-Objekt
+ * (identisch zur Shape, die fetchOrders() zurueckgibt), damit die Bestellliste ohne
+ * Live-Shopware-Roundtrip aus der DB bedient werden kann.
+ */
+export const shopwareOrders = pgTable(
+  "shopware_orders",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id").references(() => tenants.id),
+    shopwareId: varchar("shopware_id").notNull(),
+    orderNumber: text("order_number"),
+    salesChannelId: varchar("sales_channel_id"),
+    swUpdatedAt: timestamp("sw_updated_at"),
+    payload: jsonb("payload").notNull().default({}),
+    syncedAt: timestamp("synced_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    uniqueTenantShopwareId: uniqueIndex("shopware_orders_tenant_sw_id_unique").on(
+      table.tenantId,
+      table.shopwareId,
+    ),
+  }),
+);
+
+export type ShopwareOrderMirror = typeof shopwareOrders.$inferSelect;
+export type InsertShopwareOrderMirror = typeof shopwareOrders.$inferInsert;
+
+/** Platzierung einer Konfiguration im Raum (Draufsicht, mm; Rotation nur in 90°-Schritten). */
+export type CpqRoomPlacement = {
+  /** Stabile ID der Konfigurationsgruppe im Angebot (Kopf-Lineitem-ID + "__config"). */
+  configKey: string;
+  xMm: number;
+  yMm: number;
+  rotationDeg: 0 | 90 | 180 | 270;
+};
+
+/**
+ * Rein stilisierte Tür/Fenster/Tor-Markierung in einer Raumwand (Draufsicht) — ohne
+ * Kollisionsprüfung gegen Regale, nur zur Visualisierung der Raumöffnungen.
+ * "offsetMm" misst ab der jeweiligen Wand-Startecke (Nord/Süd ab der linken/West-Ecke,
+ * Ost/West ab der oberen/Nord-Ecke), "widthMm" ist die Öffnungsbreite entlang der Wand.
+ */
+export type CpqRoomWallFeature = {
+  id: string;
+  wall: "north" | "south" | "east" | "west";
+  type: "door" | "window" | "gate";
+  offsetMm: number;
+  widthMm: number;
+};
+
+/** Raumplanung (Länge/Breite/Höhe + Platzierungen) für ein Angebot — ein Raum pro Angebot. */
+export const cpqRoomLayouts = pgTable(
+  "cpq_room_layouts",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id").references(() => tenants.id),
+    shopwareOfferId: varchar("shopware_offer_id").notNull(),
+    name: text("name"),
+    lengthMm: integer("length_mm").notNull(),
+    widthMm: integer("width_mm").notNull(),
+    heightMm: integer("height_mm").notNull(),
+    /** Override des Standard-Mindestabstands (Einstellungen); null = Standard verwenden. */
+    minSpacingMm: integer("min_spacing_mm"),
+    placements: jsonb("placements").$type<CpqRoomPlacement[]>().notNull().default([]),
+    /** Stilisierte Türen/Fenster/Tore in den Raumwänden (nur Draufsicht, keine Kollisionsprüfung). */
+    wallFeatures: jsonb("wall_features").$type<CpqRoomWallFeature[]>().notNull().default([]),
+    /** Offscreen-3D-Snapshot (data:image/png;base64,...) fürs Angebots-PDF (Raumplanung-Seite). */
+    previewImageBase64: text("preview_image_base64"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    uniqueTenantOffer: uniqueIndex("cpq_room_layouts_tenant_offer_unique").on(
+      table.tenantId,
+      table.shopwareOfferId,
+    ),
+  }),
+);
+
+export type CpqRoomLayout = typeof cpqRoomLayouts.$inferSelect;
+export type InsertCpqRoomLayout = typeof cpqRoomLayouts.$inferInsert;
+
 /** Sync-Cursor / Fingerprint pro Entity und Mandant. */
 export const shopwareSyncState = pgTable(
   "shopware_sync_state",
@@ -2097,7 +2180,9 @@ export type CommercialDraftAiExtractedMeta = {
 };
 
 // Offer Drafts table - for AI-powered offer/quote creation from PDFs/emails
-export const offerDrafts = pgTable("offer_drafts", {
+export const offerDrafts = pgTable(
+  "offer_drafts",
+  {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").references(() => tenants.id),
   status: text("status").notNull().default("pending"), // pending, review_required, approved, rejected, created
@@ -2180,8 +2265,13 @@ export const offerDrafts = pgTable("offer_drafts", {
           unitPrice?: number;
           lineTotal?: number;
           componentType?: string;
+          /** Katalogpreis (netto) vor kundenspezifischem Rabatt. */
+          catalogPrice?: number;
+          /** Rabatt in % ggü. Katalogpreis. */
+          discountPercent?: number;
         }>;
         totalPrice?: number;
+        totalCatalogPrice?: number;
       };
     };
   }>(),
@@ -2246,7 +2336,12 @@ export const offerDrafts = pgTable("offer_drafts", {
   createdByUserId: varchar("created_by_user_id").references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+  },
+  (table) => ({
+    tenantOfferIdx: index("offer_drafts_tenant_offer_idx").on(table.tenantId, table.shopwareOfferId),
+    tenantCreatedIdx: index("offer_drafts_tenant_created_idx").on(table.tenantId, table.createdAt),
+  })
+);
 
 export const insertOfferDraftSchema = createInsertSchema(offerDrafts).omit({
   id: true,

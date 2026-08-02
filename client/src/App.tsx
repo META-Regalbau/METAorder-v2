@@ -38,6 +38,7 @@ const SemanticSearchPage = lazy(() => import("@/pages/SemanticSearchPage"));
 const CPQAdminPage = lazy(() => import("@/pages/CPQAdminPage"));
 const CPQConfiguratorPage = lazy(() => import("@/pages/CPQConfiguratorPage"));
 const CPQReviewQueuePage = lazy(() => import("@/pages/CPQReviewQueuePage"));
+const RoomPlannerPage = lazy(() => import("@/pages/RoomPlannerPage"));
 const UsersPage = lazy(() => import("@/pages/UsersPage"));
 const RolesPage = lazy(() => import("@/pages/RolesPage"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
@@ -61,6 +62,7 @@ const MobilePickingPage = lazy(() => import("@/pages/MobilePickingPage"));
 import LoginPage from "@/pages/LoginPage";
 import NotFound from "@/pages/not-found";
 import PublicOfferPage from "@/pages/PublicOfferPage";
+import PublicCpqConfiguratorPage from "@/pages/PublicCpqConfiguratorPage";
 import GlobalSkeletonOverlay from "@/components/GlobalSkeletonOverlay";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { User, Role } from "@shared/schema";
@@ -117,6 +119,7 @@ function Router({
       <Route path="/cpq-admin" component={() => <CPQAdminPage />} />
       <Route path="/configurator" component={() => <CPQConfiguratorPage />} />
       <Route path="/cpq-review-queue" component={() => <CPQReviewQueuePage />} />
+      <Route path="/room-planner" component={() => <RoomPlannerPage />} />
       <Route path="/accounting" component={AccountingPage} />
       <Route path="/finance" component={FinancePage} />
       <Route path="/warehouse" component={WarehousePage} />
@@ -291,6 +294,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <Switch>
         <Route path="/angebot/:token" component={PublicOfferPage} />
+        <Route path="/konfigurator/:token" component={PublicCpqConfiguratorPage} />
         <Route component={AuthenticatedApp} />
       </Switch>
     </QueryClientProvider>

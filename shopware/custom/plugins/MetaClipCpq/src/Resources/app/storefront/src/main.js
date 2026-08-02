@@ -1,17 +1,6 @@
-import "./scss/meta-clip-cpq.scss";
-import MetaClipCpqStorefrontPlugin from "./plugin/meta-clip-cpq.storefront.plugin";
-
-const pluginManager = window.PluginManager;
-
-if (!pluginManager) {
-  // TODO verify: In manchen Shopware-Build-Modi ist der PluginManager verzögert verfügbar.
-  // Dieser Fallback verhindert einen Hard-Crash auf der PDP.
-  // eslint-disable-next-line no-console
-  console.warn("[MetaClipCpq] PluginManager not available during storefront bootstrap");
-} else {
-  pluginManager.register(
-    "MetaClipCpqStorefrontPlugin",
-    MetaClipCpqStorefrontPlugin,
-    "[data-meta-clip-cpq]"
-  );
-}
+// Der Produktseiten-Link in den METAorder-Konfigurator ist ein reiner
+// server-seitig gerenderter <a href>-Link (siehe
+// product-detail/index.html.twig + CpqHandoffTokenExtension.php) — kein
+// eigenes Storefront-JS mehr nötig. Diese Datei bleibt als leerer
+// Build-Entry-Point bestehen, damit der Storefront-Build der Plugins nicht
+// bricht, falls er sie fest erwartet.

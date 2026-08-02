@@ -142,6 +142,20 @@ export default function OfferConfigPdfOptionsDialog({ open, onOpenChange, onConf
             </div>
           </div>
 
+          <div className="space-y-3">
+            <p className="font-medium text-foreground">{t("offerDetail.configPdfSectionRoomPlan")}</p>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="cfg-room"
+                checked={form.includeRoomPlan}
+                onCheckedChange={(v) => toggle("includeRoomPlan", v === true)}
+              />
+              <Label htmlFor="cfg-room" className="font-normal cursor-pointer">
+                {t("offerDetail.configPdfRoomPlan")}
+              </Label>
+            </div>
+          </div>
+
           <p className="text-xs text-muted-foreground border-t pt-3">{t("offerDetail.configPdfRoadmapHint")}</p>
         </div>
 

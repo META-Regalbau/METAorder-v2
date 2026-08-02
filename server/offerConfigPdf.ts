@@ -96,6 +96,15 @@ export type OfferConfigPdfInput = {
   shelvingSystemKey?: string;
   /** Druck- und Schnellübersichts-Optionen (Query-Parameter / Dialog) */
   layoutOptions?: OfferConfigPdfLayoutOptions;
+  /** Raumplanung (Phase 3) — eigene Seite mit 3D-Snapshot, falls ein Raum-Layout mit Platzierungen existiert. */
+  roomPlan?: {
+    name: string | null;
+    lengthMm: number;
+    widthMm: number;
+    heightMm: number;
+    placementsCount: number;
+    imageBase64: string | null;
+  } | null;
 };
 
 /** Steuert Schnellübersicht und Folgeseiten (MetaCalc-Positionen). */
@@ -112,10 +121,12 @@ export type OfferConfigPdfLayoutOptions = {
   detailIncludeDescription: boolean;
   detailIncludePartsList: boolean;
   detailIncludeAccessoryList: boolean;
+  /** Eigene Seite mit Raumplanung (3D-Snapshot + Raummaße), falls vorhanden. */
+  includeRoomPlan: boolean;
 };
 
 export const DEFAULT_OFFER_CONFIG_PDF_LAYOUT: OfferConfigPdfLayoutOptions = {
-  showMontageLineInOverview: true,
+  showMontageLineInOverview: false,
   showShippingLineInOverview: true,
   overviewShowUnitPrices: true,
   overviewShowVatAndGross: true,
@@ -123,6 +134,7 @@ export const DEFAULT_OFFER_CONFIG_PDF_LAYOUT: OfferConfigPdfLayoutOptions = {
   detailIncludeDescription: true,
   detailIncludePartsList: true,
   detailIncludeAccessoryList: true,
+  includeRoomPlan: true,
 };
 
 function parseCfgQueryBool(v: unknown, defaultTrue: boolean): boolean {
@@ -142,7 +154,7 @@ export function applyOfferConfigPdfLayoutFromRequest(
   query: Record<string, unknown>,
 ): OfferConfigPdfInput {
   const layout: OfferConfigPdfLayoutOptions = {
-    showMontageLineInOverview: parseCfgQueryBool(query.cfgMontage, true),
+    showMontageLineInOverview: parseCfgQueryBool(query.cfgMontage, false),
     showShippingLineInOverview: parseCfgQueryBool(query.cfgShip, true),
     overviewShowUnitPrices: parseCfgQueryBool(query.cfgUnitPrice, true),
     overviewShowVatAndGross: parseCfgQueryBool(query.cfgVatGross, true),
@@ -150,6 +162,7 @@ export function applyOfferConfigPdfLayoutFromRequest(
     detailIncludeDescription: parseCfgQueryBool(query.cfgDesc, true),
     detailIncludePartsList: parseCfgQueryBool(query.cfgBom, true),
     detailIncludeAccessoryList: parseCfgQueryBool(query.cfgAcc, true),
+    includeRoomPlan: parseCfgQueryBool(query.cfgRoom, true),
   };
 
   const rate = input.displayTaxRate / 100;
@@ -185,9 +198,7 @@ function formatRecipientAddressLines(input: OfferConfigPdfInput): string[] {
   const cityLine = [a?.zipCode, a?.city].filter((p) => p?.trim()).join(" ");
   if (cityLine.trim()) lines.push(cityLine.trim());
   if (a?.country?.trim()) lines.push(a.country.trim());
-  if (a?.phoneNumber?.trim()) lines.push(`Tel. ${a.phoneNumber.trim()}`);
   if (!lines.length && input.customerName?.trim()) lines.push(input.customerName.trim());
-  if (input.customerEmail?.trim()) lines.push(input.customerEmail.trim());
   return lines.length ? lines : ["—"];
 }
 
@@ -632,7 +643,9 @@ function drawOverviewTable(doc: PDFKit.PDFDocument, input: OfferConfigPdfInput, 
   let pos = 1;
   for (const row of input.lineItems) {
     const tPos = String(pos);
-    const tLabel = row.label || "—";
+    // Konfigurationsname statt Rohbezeichnung der Kopf-Position — konsistent mit der
+    // Detailseiten-Überschrift (drawConfigSection) und dem Angebots-Modal.
+    const tLabel = row.config?.name || row.label || "—";
     const tMenge = String(row.quantity);
     const tEinzel = eur(row.unitPrice);
     const tGesamt = eur(row.totalPrice);
@@ -729,7 +742,10 @@ function drawConfigSection(
   const rowPad = 3;
 
   doc.fontSize(14).font("Helvetica-Bold");
-  const title = `Position ${index + 1}: ${item.label}`;
+  // Konfigurationsname (z. B. "META CLIP Regalkonfiguration") statt des rohen Namens der
+  // ersten Stücklisten-Position — konsistent mit Raumplanung/Angebotsdetail, die denselben
+  // metaCalcConfigurationName-Wert verwenden.
+  const title = `Position ${index + 1}: ${item.config?.name || item.label}`;
   const titleH = measuredTextHeight(doc, title, CW, rowLineGap);
   y = ensureContentY(doc, y, titleH + 6);
   doc.text(title, M, y, { width: CW, lineGap: rowLineGap, height: titleH });
@@ -912,6 +928,46 @@ function drawConfigSection(
   return y + LINE * 2;
 }
 
+/** Raumplanung-Seite (Phase 3): 3D-Snapshot + Raummaße + Anzahl platzierter Regale. */
+function drawRoomPlanSection(doc: PDFKit.PDFDocument, roomPlan: NonNullable<OfferConfigPdfInput["roomPlan"]>): void {
+  const rowLineGap = 2;
+  let y = M;
+
+  doc.fontSize(14).font("Helvetica-Bold");
+  const title = roomPlan.name?.trim() || "Raumplanung";
+  const titleH = measuredTextHeight(doc, title, CW, rowLineGap);
+  doc.text(title, M, y, { width: CW, lineGap: rowLineGap, height: titleH });
+  y += titleH + 6;
+
+  doc.font("Helvetica").fontSize(9).fillColor("#555");
+  const dims = `Raum: ${roomPlan.lengthMm} × ${roomPlan.widthMm} × ${roomPlan.heightMm} mm (L × B × H) · ${roomPlan.placementsCount} Regal${roomPlan.placementsCount === 1 ? "" : "e"} platziert`;
+  const dimsH = measuredTextHeight(doc, dims, CW, rowLineGap);
+  doc.text(dims, M, y, { width: CW, lineGap: rowLineGap, height: dimsH });
+  doc.fillColor("#000");
+  y += dimsH + 12;
+
+  const imgMaxW = Math.min(CW, 468);
+  const imgMaxH = 248;
+  const imgBuf = parseDataUrlImage(roomPlan.imageBase64);
+  if (imgBuf) {
+    try {
+      const im = (doc as PDFKit.PDFDocument & { openImage: (b: Buffer) => { width: number; height: number } }).openImage(
+        imgBuf,
+      );
+      const scale = Math.min(imgMaxW / im.width, imgMaxH / im.height, 1);
+      doc.image(imgBuf, M, y, { width: im.width * scale, height: im.height * scale });
+    } catch {
+      doc.font("Helvetica").fontSize(9).fillColor("#999");
+      doc.text("(Abbildung konnte nicht geladen werden)", M, y, { width: CW, lineGap: rowLineGap });
+      doc.fillColor("#000");
+    }
+  } else {
+    doc.font("Helvetica").fontSize(9).fillColor("#999");
+    doc.text("(Keine Abbildung verfügbar)", M, y, { width: CW, lineGap: rowLineGap });
+    doc.fillColor("#000");
+  }
+}
+
 export function generateOfferConfigPdf(input: OfferConfigPdfInput): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = createMetaPdfDocument();
@@ -932,6 +988,11 @@ export function generateOfferConfigPdf(input: OfferConfigPdfInput): Promise<Buff
         if (!li.config) continue;
         doc.addPage();
         drawConfigSection(doc, li, idx, M, layout);
+      }
+
+      if (layout.includeRoomPlan && input.roomPlan && input.roomPlan.placementsCount > 0) {
+        doc.addPage();
+        drawRoomPlanSection(doc, input.roomPlan);
       }
 
       const hasClosingHints =

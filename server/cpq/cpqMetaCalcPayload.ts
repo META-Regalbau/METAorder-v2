@@ -35,7 +35,8 @@ function isAccessoryComponentType(componentType: string | undefined): boolean {
 /** MetaCalc-kompatible Teil-Stückliste (productId Pflicht für Auflösung im PDF). */
 export function buildMetaCalcConfigurationPayloadFromCpqBom(
   items: CpqBomItemSnapshot[],
-  previewImageBase64?: string | null
+  previewImageBase64?: string | null,
+  systemName?: string | null
 ): {
   metaCalcConfigurationName: string;
   metaCalcConfigurationPayload: {
@@ -65,7 +66,12 @@ export function buildMetaCalcConfigurationPayloadFromCpqBom(
     }
   }
 
-  const metaCalcConfigurationName = "CPQ Regalkonfiguration";
+  // Der CPQ-Systemname trägt "META" bereits als Präfix (z. B. "META CLIP") — nicht noch
+  // einmal davorsetzen, sonst "META META CLIP Regalkonfiguration". Ohne Systemname (z. B.
+  // ältere Konfigurationen ohne systemName-Snapshot) bleibt der generische Fallback-Name.
+  const metaCalcConfigurationName = systemName?.trim()
+    ? `${systemName.trim()} Regalkonfiguration`
+    : "CPQ Regalkonfiguration";
 
   return {
     metaCalcConfigurationName,
@@ -88,7 +94,7 @@ export function buildMetaCalcConfigurationPayloadFromCpqBom(
 export function buildShopwareLinePayloadFromCpqSource(cpq: CpqSourceSnapshot): Record<string, unknown> {
   const items = cpq.billOfMaterials?.items ?? [];
   const { metaCalcConfigurationName, metaCalcConfigurationPayload } =
-    buildMetaCalcConfigurationPayloadFromCpqBom(items, cpq.previewImageBase64);
+    buildMetaCalcConfigurationPayloadFromCpqBom(items, cpq.previewImageBase64, cpq.systemName);
 
   const lines: string[] = [];
   if (cpq.systemName) lines.push(`System: ${cpq.systemName}`);
@@ -106,6 +112,11 @@ export function buildShopwareLinePayloadFromCpqSource(cpq: CpqSourceSnapshot): R
       description,
     },
     metaCalcInstallationTime: 0,
+    // Rohe CPQ-ConfigContext (field_count/height/depth/width/...) direkt an der Position
+    // gespeichert, damit der 3D+AR-Viewer sie ohne Rückgriff auf einen (nur pro Angebot
+    // einmal vorhandenen) Angebotsentwurf lesen kann — wichtig, sobald ein Angebot mehrere
+    // Konfigurationen enthält.
+    metaCalcCpqConfig: cpq.config ?? null,
   };
 }
 

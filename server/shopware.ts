@@ -1364,7 +1364,7 @@ export class ShopwareClient {
    */
   async fetchOrders(
     salesChannelIds?: string[] | null,
-    options?: { includeInvoiceInfo?: boolean },
+    options?: { includeInvoiceInfo?: boolean; updatedSince?: string | Date | null },
   ): Promise<Order[]> {
     try {
       const limit = 500; // Fetch 500 orders per request for efficiency
@@ -1372,10 +1372,10 @@ export class ShopwareClient {
       let allOrders: any[] = [];
       let allIncluded: any[] = [];
       let hasMore = true;
-      
+
       // Build filter array for Shopware API
       const filters: any[] = [];
-      
+
       // SECURITY: Add sales channel filter if provided
       if (salesChannelIds && salesChannelIds.length > 0) {
         filters.push({
@@ -1384,6 +1384,21 @@ export class ShopwareClient {
           value: salesChannelIds,
         });
         console.log(`[fetchOrders] SECURITY: Filtering by sales channels:`, salesChannelIds);
+      }
+
+      // Delta-Sync: nur Bestellungen, die sich seit dem letzten Sync geaendert haben
+      // (neu ODER Status-/Zahlungs-/Versand-Aenderung an einer aelteren Bestellung —
+      // Shopware bumpt updatedAt bei jeder Aenderung, nicht nur bei Erstellung).
+      if (options?.updatedSince) {
+        const sinceIso =
+          options.updatedSince instanceof Date
+            ? options.updatedSince.toISOString()
+            : options.updatedSince;
+        filters.push({
+          type: 'range',
+          field: 'updatedAt',
+          parameters: { gte: sinceIso },
+        });
       }
 
       // Fetch all orders with pagination - continue until we get no more results
@@ -1406,7 +1421,7 @@ export class ShopwareClient {
             },
           ],
           includes: {
-              order: ['id', 'orderNumber', 'orderDate', 'amountTotal', 'amountNet', 'orderCustomer', 'lineItems', 'stateMachineState', 'salesChannelId', 'salesChannel', 'customFields', 'transactions', 'price', 'billingAddress', 'deliveries', 'documents'],
+              order: ['id', 'orderNumber', 'orderDate', 'updatedAt', 'amountTotal', 'amountNet', 'orderCustomer', 'lineItems', 'stateMachineState', 'salesChannelId', 'salesChannel', 'customFields', 'transactions', 'price', 'billingAddress', 'deliveries', 'documents'],
               order_customer: ['firstName', 'lastName', 'email', 'customerNumber'],
               order_line_item: ['id', 'label', 'quantity', 'unitPrice', 'totalPrice', 'price', 'productId', 'referencedId', 'type', 'payload', 'productNumber'],
               state_machine_state: ['technicalName'],
@@ -2036,6 +2051,7 @@ export class ShopwareClient {
           customerEmail,
           customerPhone: customerPhone || undefined,
           orderDate: shopwareOrder.orderDate || shopwareOrder.attributes?.orderDate || shopwareOrder.createdAt || new Date().toISOString(),
+          updatedAt: shopwareOrder.updatedAt || shopwareOrder.attributes?.updatedAt || undefined,
           deliveryDateEarliest,
           deliveryDateLatest,
           totalAmount: grossTotal,
@@ -2424,7 +2440,7 @@ export class ShopwareClient {
           },
         ],
         includes: {
-            order: ['id', 'orderNumber', 'orderDate', 'amountTotal', 'amountNet', 'orderCustomer', 'lineItems', 'stateMachineState', 'salesChannelId', 'salesChannel', 'customFields', 'transactions', 'price', 'billingAddress', 'deliveries', 'documents'],
+            order: ['id', 'orderNumber', 'orderDate', 'updatedAt', 'amountTotal', 'amountNet', 'orderCustomer', 'lineItems', 'stateMachineState', 'salesChannelId', 'salesChannel', 'customFields', 'transactions', 'price', 'billingAddress', 'deliveries', 'documents'],
             order_customer: ['firstName', 'lastName', 'email', 'customerNumber'],
             order_line_item: ['id', 'label', 'quantity', 'unitPrice', 'totalPrice', 'price', 'productId', 'referencedId', 'type', 'payload', 'productNumber'],
             state_machine_state: ['technicalName'],
@@ -2895,6 +2911,7 @@ export class ShopwareClient {
           customerEmail,
           customerPhone: customerPhone || undefined,
           orderDate: shopwareOrder.orderDate || shopwareOrder.attributes?.orderDate || shopwareOrder.createdAt || new Date().toISOString(),
+          updatedAt: shopwareOrder.updatedAt || shopwareOrder.attributes?.updatedAt || undefined,
           deliveryDateEarliest,
           deliveryDateLatest,
           totalAmount: grossTotal,
@@ -5128,6 +5145,40 @@ export class ShopwareClient {
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Failed to fetch customer ids: ${response.statusText} - ${errorText}`);
+      }
+      const data = await response.json();
+      total = Number(data?.meta?.total ?? data?.total ?? total);
+      const list = data.data || [];
+      for (const row of list) {
+        if (row?.id) ids.push(String(row.id));
+      }
+      if (list.length < BATCH) break;
+      page += 1;
+    }
+    return { ids, total: total || ids.length };
+  }
+
+  /** Alle Bestell-IDs (fuer Loesch-Abgleich des Mirrors, siehe fetchAllProductIds). */
+  async fetchAllOrderIds(): Promise<{ ids: string[]; total: number }> {
+    const ids: string[] = [];
+    const BATCH = 500;
+    let page = 1;
+    let total = 0;
+
+    while (true) {
+      const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/order`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          limit: BATCH,
+          page,
+          totalCountMode: 1,
+          includes: { order: ["id"] },
+        }),
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch order ids: ${response.statusText} - ${errorText}`);
       }
       const data = await response.json();
       total = Number(data?.meta?.total ?? data?.total ?? total);
@@ -7660,12 +7711,12 @@ export class ShopwareClient {
    * Search customers by term (email, firstName, lastName) for picker/UI.
    * Returns array of { id, email, firstName?, lastName?, company? }.
    */
-  async searchCustomers(searchTerm: string, limit: number = 20): Promise<Array<{ id: string; email?: string; firstName?: string; lastName?: string; company?: string }>> {
+  async searchCustomers(searchTerm: string, limit: number = 20): Promise<Array<{ id: string; email?: string; firstName?: string; lastName?: string; company?: string; salesChannelId?: string; salesChannelName?: string }>> {
     const term = (searchTerm || '').trim();
     if (term.length < 2) return [];
 
     try {
-      const body: { limit: number; filter?: any[]; includes?: any } = {
+      const body: { limit: number; filter?: any[]; associations?: any } = {
         limit,
         filter: [
           {
@@ -7678,6 +7729,7 @@ export class ShopwareClient {
             ],
           },
         ],
+        associations: { salesChannel: {} },
       };
 
       const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/customer`, {
@@ -7694,17 +7746,45 @@ export class ShopwareClient {
       const list = data.data || [];
       return list.map((c: any) => {
         const attrs = c.attributes || c;
+        const salesChannel = attrs.salesChannel;
         return {
           id: c.id,
           email: attrs.email,
           firstName: attrs.firstName,
           lastName: attrs.lastName,
           company: attrs.company,
+          salesChannelId: salesChannel?.id ?? attrs.salesChannelId ?? undefined,
+          salesChannelName: salesChannel?.name ?? salesChannel?.translated?.name ?? undefined,
         };
       });
     } catch (error: any) {
       console.error('[Shopware] searchCustomers error:', error);
       return [];
+    }
+  }
+
+  /** Liefert den an einen Kunden gebundenen Verkaufskanal (für Angebotserstellung aus CPQ). */
+  async fetchCustomerSalesChannelId(customerId: string): Promise<{ id: string; name: string | null } | null> {
+    const id = toShopwareUuid(customerId);
+    try {
+      const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/customer`, {
+        method: 'POST',
+        body: JSON.stringify({
+          limit: 1,
+          filter: [{ type: 'equals', field: 'id', value: id }],
+          associations: { salesChannel: {} },
+        }),
+      });
+      if (!response.ok) return null;
+      const data = await response.json();
+      const attrs = data.data?.[0]?.attributes ?? data.data?.[0];
+      const salesChannel = attrs?.salesChannel;
+      const channelId = salesChannel?.id ?? attrs?.salesChannelId ?? null;
+      if (!channelId) return null;
+      return { id: channelId, name: salesChannel?.name ?? salesChannel?.translated?.name ?? null };
+    } catch (error: any) {
+      console.warn('[Shopware] fetchCustomerSalesChannelId error:', error?.message || error);
+      return null;
     }
   }
 
@@ -8937,6 +9017,7 @@ export class ShopwareClient {
   async fetchCustomerBillingForPdf(customerId: string): Promise<{
     customerNumber?: string;
     billingAddress?: OrderAddress;
+    email?: string;
   } | null> {
     const rawId = (customerId || "").trim();
     if (!rawId) return null;
@@ -8969,6 +9050,7 @@ export class ShopwareClient {
       const cnRaw = custAttrs.customerNumber ?? custAttrs.customerNo;
       const customerNumber =
         cnRaw != null && String(cnRaw).trim() ? String(cnRaw).trim() : undefined;
+      const email = String(custAttrs.email || "").trim() || undefined;
 
       const mapAddressEntity = (addr: any): OrderAddress | undefined => {
         if (!addr) return undefined;
@@ -9009,9 +9091,10 @@ export class ShopwareClient {
         billingAddress = mapAddressEntity(fromInc);
       }
 
-      const out: { customerNumber?: string; billingAddress?: OrderAddress } = {};
+      const out: { customerNumber?: string; billingAddress?: OrderAddress; email?: string } = {};
       if (customerNumber) out.customerNumber = customerNumber;
       if (billingAddress) out.billingAddress = billingAddress;
+      if (email) out.email = email;
       return Object.keys(out).length ? out : null;
     } catch (e) {
       console.warn("[Shopware] fetchCustomerBillingForPdf:", e);

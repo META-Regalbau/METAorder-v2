@@ -10,6 +10,8 @@ import { getCpqCrossSelling, validateCpqCart } from "./cpqCrossSelling";
 import { prepareCpqCartTransfer } from "./cpqCartTransfer";
 import { evaluateDiscountLevel } from "./discountEvaluator";
 import type { requireAuth, requireViewCPQ, requireManageCPQ } from "../auth";
+import { requireCpqHandoffToken } from "../auth";
+import { createCpqHandoffToken } from "../cpqHandoffToken";
 
 /** Stellt sicher, dass der Shopware-Produktcache (6h TTL) für CPQ-Matching befüllt ist. */
 async function ensureCpqProductCacheForTenant(tenantId: string | null | undefined): Promise<void> {
@@ -20,6 +22,180 @@ async function ensureCpqProductCacheForTenant(tenantId: string | null | undefine
   const { ShopwareClient } = await import("../shopware");
   const client = new ShopwareClient(settings);
   await productCacheRegistry.for(tenantId ?? null).ensurePopulated(client);
+}
+
+/** Geteilte Logik für die Optionsauflösung — genutzt vom Mitarbeiter- UND vom öffentlichen Handoff-Endpoint. */
+async function resolveCpqOptionsPayload(id: string, tenantId: string | null, step: number, rawConfig: string | undefined) {
+  const config = typeof rawConfig === "string" ? JSON.parse(rawConfig || "{}") : {};
+  const rules = await cpqStorage.getRulesBySystem(id, tenantId);
+  const result = evaluateRules(rules, config);
+
+  const defaultHeights = [1800, 2000, 2200, 2500, 3000];
+  const defaultDepths = [400, 500, 600, 800];
+  const defaultWidths = [800, 1000, 1200];
+  const defaultFieldCounts = [1, 2, 3, 4, 5, 6, 8, 10];
+  const defaultLevelCounts = [2, 3, 4, 5, 6, 8, 10];
+  const defaultLoads = [80, 150, 200, 230, 330];
+  const defaultSurfaces = ["verzinkt"];
+
+  let availableOptions: {
+    heights: number[];
+    depths: number[];
+    widths: number[];
+    field_counts: number[];
+    level_counts: number[];
+    loads: number[];
+    surfaces: string[];
+  } = {
+    heights: [...defaultHeights],
+    depths: [...defaultDepths],
+    widths: [...defaultWidths],
+    field_counts: [...defaultFieldCounts],
+    level_counts: [...defaultLevelCounts],
+    loads: [...defaultLoads],
+    surfaces: [...defaultSurfaces],
+  };
+
+  try {
+    const [componentTypes, mappings] = await Promise.all([
+      cpqStorage.getComponentTypesBySystem(id),
+      cpqStorage.getProductMappingsBySystem(id, tenantId),
+    ]);
+    await ensureCpqProductCacheForTenant(tenantId);
+    const { productCache } = await import("../productCache");
+    const activeMappings = mappings.filter((m) => m.status === "active");
+    const heights = new Set<number>();
+    const depths = new Set<number>();
+    const widths = new Set<number>();
+    const loads = new Set<number>();
+    const surfaces = new Set<string>();
+
+    const roleNorm = (r: string) => r.toLowerCase().trim();
+    const isFrame = (r: string) => ["frame", "steher", "ständer", "rahmen"].includes(roleNorm(r)) || roleNorm(r).includes("ständer") || roleNorm(r).includes("steher");
+    const isBeam = (r: string) => ["beam", "traverse", "träger"].includes(roleNorm(r)) || roleNorm(r).includes("träger") || roleNorm(r).includes("traverse");
+    const isShelf = (r: string) => ["shelf", "boden", "böden", "fachboden"].includes(roleNorm(r)) || roleNorm(r).includes("boden");
+
+    for (const m of activeMappings) {
+      const ct = componentTypes.find((c) => c.id === m.componentTypeId);
+      const role = ct?.role ?? ct?.name ?? "";
+      const attrs = (m.attributes as Record<string, number>) ?? {};
+      const product = productCache.getProductByIdentifier(m.shopwareProductNumber);
+      const dims = product?.dimensions;
+
+      if (isFrame(role)) {
+        if (attrs.height) heights.add(attrs.height);
+        if (attrs.depth) depths.add(attrs.depth);
+        if (dims?.height) heights.add(dims.height);
+        if (dims?.length) depths.add(dims.length);
+      }
+      if (isBeam(role) || isShelf(role)) {
+        if (attrs.width) widths.add(attrs.width);
+        if (dims?.width) widths.add(dims.width);
+      }
+      if (isShelf(role)) {
+        if (attrs.depth) depths.add(attrs.depth);
+        if (dims?.length) depths.add(dims.length);
+        const load = Number((attrs as Record<string, unknown>).load ?? (attrs as Record<string, unknown>).maxFachlastKg);
+        if (Number.isFinite(load) && load > 0) loads.add(load);
+      }
+      // Oberfläche aus jedem Mapping mit gesetztem surface-Attribut sammeln.
+      const surface = (attrs as Record<string, unknown>).surface;
+      if (typeof surface === "string" && surface.trim()) surfaces.add(surface.trim());
+    }
+
+    if (heights.size > 0) availableOptions.heights = [...heights].sort((a, b) => a - b);
+    if (depths.size > 0) availableOptions.depths = [...depths].sort((a, b) => a - b);
+    if (widths.size > 0) availableOptions.widths = [...widths].sort((a, b) => a - b);
+    if (loads.size > 0) availableOptions.loads = [...loads].sort((a, b) => a - b);
+    if (surfaces.size > 0) availableOptions.surfaces = [...surfaces];
+  } catch (e) {
+    // keep defaults if productCache or mappings fail
+  }
+
+  return {
+    options: result.config,
+    availableOptions,
+    messages: result.messages,
+    errors: result.errors,
+    warnings: result.warnings,
+  };
+}
+
+/** Geteilte Logik für die Stücklisten-/Preisauflösung — genutzt vom Mitarbeiter- UND vom öffentlichen Handoff-Endpoint. */
+async function resolveCpqBomPayload(
+  systemId: string,
+  config: any,
+  tenantId: string | null,
+  customerId: string | undefined,
+) {
+  const [componentTypes, mappings, rules] = await Promise.all([
+    cpqStorage.getComponentTypesBySystem(systemId),
+    cpqStorage.getProductMappingsBySystem(systemId, tenantId),
+    cpqStorage.getRulesBySystem(systemId, tenantId),
+  ]);
+
+  const activeMappings = mappings.filter((m) => m.status === "active");
+  if (componentTypes.length === 0) {
+    return {
+      items: [],
+      totalPrice: 0,
+      errors: ["Bitte legen Sie zuerst Komponententypen im CPQ Admin an (Tab Produkt-Mappings → Komponententyp)."],
+      warnings: [],
+    };
+  }
+  if (activeMappings.length === 0) {
+    return {
+      items: [],
+      totalPrice: 0,
+      errors: ["Keine Produkt-Mappings für dieses System. Bitte ordnen Sie im CPQ Admin Shopware-Produkte den Komponententypen zu (Tab Produkt-Mappings → Neues Mapping)."],
+      warnings: [],
+    };
+  }
+
+  await ensureCpqProductCacheForTenant(tenantId);
+  const { productCache } = await import("../productCache");
+  const getProduct = (productNumber: string) => {
+    const p = productCache.getProductByIdentifier(productNumber);
+    // BOM-Preise sind netto (deutsche B2B-Konvention, "Preis netto" im Konfigurator).
+    // p.price ist Shopware's Bruttopreis (inkl. MwSt.) — p.netPrice ist der Nettopreis.
+    return p
+      ? {
+          id: p.id,
+          name: p.name ?? productNumber,
+          price: p.netPrice ?? 0,
+          dimensions: p.dimensions,
+          manufacturerNumber: p.manufacturerNumber,
+          imageUrl: p.imageUrl,
+        }
+      : undefined;
+  };
+
+  const bom = await resolveBillOfMaterials(systemId, config, componentTypes, mappings, rules, getProduct);
+
+  if (customerId && bom.items.length > 0) {
+    try {
+      const { storage } = await import("../storage");
+      const settings = await storage.getShopwareSettings(tenantId);
+      if (settings) {
+        const { ShopwareClient } = await import("../shopware");
+        const { applyCpqCustomerPricing } = await import("./cpqPricing");
+        const client = new ShopwareClient(settings);
+        const priced = await applyCpqCustomerPricing(bom.items, {
+          customerId,
+          storage,
+          client,
+          tenantId,
+        });
+        bom.items = priced.items;
+        bom.totalPrice = priced.totalPrice;
+        bom.totalCatalogPrice = priced.totalCatalogPrice;
+      }
+    } catch (pricingError: any) {
+      console.error("[CPQ] Error applying customer pricing, falling back to catalog price:", pricingError);
+    }
+  }
+
+  return bom;
 }
 
 export function registerCpqRoutes(
@@ -36,6 +212,84 @@ export function registerCpqRoutes(
   const rDiscount = rd || rm;
   const rApproveOrManage = rApprove || rm;
 
+  // GET /api/cpq/customer-search?q= - Shopware-Kundensuche für die Kundenauswahl im Konfigurator
+  app.get("/api/cpq/customer-search", ra, rv, async (req: Request, res: Response) => {
+    try {
+      const q = (req.query.q as string)?.trim() ?? "";
+      const limit = Math.min(50, Math.max(5, parseInt(String(req.query.limit || 20), 10) || 20));
+      if (q.length < 2) return res.json({ customers: [] });
+
+      const { storage } = await import("../storage");
+      const settings = await storage.getShopwareSettings(req.tenantId ?? null);
+      if (!settings) return res.status(400).json({ error: "Shopware-Einstellungen nicht konfiguriert" });
+
+      const { ShopwareClient } = await import("../shopware");
+      const client = new ShopwareClient(settings);
+      const customers = await client.searchCustomers(q, limit);
+      res.json({ customers });
+    } catch (error: any) {
+      console.error("[CPQ] Error searching customers:", error);
+      res.status(500).json({ error: error.message ?? "Kundensuche fehlgeschlagen" });
+    }
+  });
+
+  // GET /api/cpq/public/handoff - Handoff-Token verifizieren, Kundenidentität fürs Frontend auflösen
+  app.get("/api/cpq/public/handoff", requireCpqHandoffToken, async (req: Request, res: Response) => {
+    try {
+      const { customerId, productId } = req.cpqHandoff!;
+      if (!customerId) {
+        return res.json({ valid: true, customerId: null, customerName: null, isPortalCustomer: false, productId });
+      }
+      let customerName: string | null = null;
+      let isPortalCustomer = false;
+      try {
+        const { storage } = await import("../storage");
+        const settings = await storage.getShopwareSettings(req.tenantId ?? null);
+        if (settings) {
+          const { ShopwareClient } = await import("../shopware");
+          const client = new ShopwareClient(settings);
+          const [billing, channel] = await Promise.all([
+            client.fetchCustomerBillingForPdf(customerId).catch(() => null),
+            client.fetchCustomerSalesChannelId(customerId).catch(() => null),
+          ]);
+          const a = billing?.billingAddress;
+          customerName = a ? [a.company, [a.firstName, a.lastName].filter(Boolean).join(" ")].filter(Boolean).join(" · ") || null : null;
+          const { loadCpqPricingSettings } = await import("../cpqPricingSettings");
+          const pricingSettings = await loadCpqPricingSettings(storage, req.tenantId ?? null);
+          isPortalCustomer = !!channel?.name?.toLowerCase().startsWith(pricingSettings.portalChannelNamePrefix.toLowerCase());
+        }
+      } catch (e: any) {
+        console.error("[CPQ] Error resolving handoff customer info:", e);
+      }
+      res.json({ valid: true, customerId, customerName, isPortalCustomer, productId });
+    } catch (error: any) {
+      console.error("[CPQ] Error verifying handoff token:", error);
+      res.status(500).json({ error: error.message || "Handoff-Verifikation fehlgeschlagen" });
+    }
+  });
+
+  // POST /api/cpq/handoff/create - Mitarbeiter-Endpoint zum Erzeugen eines Test-/Share-Links
+  // (die echte Ausstellung für Shop-Besucher passiert serverseitig im Shopware-Plugin).
+  app.post("/api/cpq/handoff/create", ra, rv, async (req: Request, res: Response) => {
+    try {
+      const tenantId = req.tenantId ?? null;
+      if (!tenantId) return res.status(400).json({ error: "Kein Mandant ausgewählt" });
+      const customerId = typeof req.body?.customerId === "string" && req.body.customerId ? req.body.customerId : null;
+      const productId = typeof req.body?.productId === "string" && req.body.productId ? req.body.productId : null;
+      const ttlMinutes = Math.min(24 * 60, Math.max(5, parseInt(req.body?.ttlMinutes, 10) || 30));
+      const token = createCpqHandoffToken({
+        tenantId,
+        customerId,
+        productId,
+        exp: Math.floor(Date.now() / 1000) + ttlMinutes * 60,
+      });
+      res.json({ token, expiresInMinutes: ttlMinutes });
+    } catch (error: any) {
+      console.error("[CPQ] Error creating handoff token:", error);
+      res.status(500).json({ error: error.message || "Token konnte nicht erzeugt werden" });
+    }
+  });
+
   // GET /api/cpq/systems - list active systems
   app.get("/api/cpq/systems", ra, rv, async (req: Request, res: Response) => {
     try {
@@ -44,6 +298,18 @@ export function registerCpqRoutes(
       res.json(systems);
     } catch (error: any) {
       console.error("[CPQ] Error fetching systems:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch systems" });
+    }
+  });
+
+  // GET /api/cpq/public/systems - wie oben, aber für den öffentlichen Shop-Konfigurator
+  app.get("/api/cpq/public/systems", requireCpqHandoffToken, async (req: Request, res: Response) => {
+    try {
+      const tenantId = req.tenantId ?? null;
+      const systems = await cpqStorage.getSystems(tenantId);
+      res.json(systems);
+    } catch (error: any) {
+      console.error("[CPQ] Error fetching public systems:", error);
       res.status(500).json({ error: error.message || "Failed to fetch systems" });
     }
   });
@@ -167,101 +433,24 @@ export function registerCpqRoutes(
     try {
       const { id } = req.params;
       const step = parseInt(req.query.step as string) || 1;
-      const config = typeof req.query.config === "string" ? JSON.parse(req.query.config || "{}") : {};
-      const rules = await cpqStorage.getRulesBySystem(id, req.tenantId ?? null);
-      const result = evaluateRules(rules, config);
-
-      const defaultHeights = [1800, 2000, 2200, 2500, 3000];
-      const defaultDepths = [400, 500, 600, 800];
-      const defaultWidths = [800, 1000, 1200];
-      const defaultFieldCounts = [1, 2, 3, 4, 5, 6, 8, 10];
-      const defaultLevelCounts = [2, 3, 4, 5, 6, 8, 10];
-      const defaultLoads = [80, 150, 200, 230, 330];
-      const defaultSurfaces = ["verzinkt"];
-
-      let availableOptions: {
-        heights: number[];
-        depths: number[];
-        widths: number[];
-        field_counts: number[];
-        level_counts: number[];
-        loads: number[];
-        surfaces: string[];
-      } = {
-        heights: [...defaultHeights],
-        depths: [...defaultDepths],
-        widths: [...defaultWidths],
-        field_counts: [...defaultFieldCounts],
-        level_counts: [...defaultLevelCounts],
-        loads: [...defaultLoads],
-        surfaces: [...defaultSurfaces],
-      };
-
-      try {
-        const [componentTypes, mappings] = await Promise.all([
-          cpqStorage.getComponentTypesBySystem(id),
-          cpqStorage.getProductMappingsBySystem(id, req.tenantId ?? null),
-        ]);
-        await ensureCpqProductCacheForTenant(req.tenantId ?? null);
-        const { productCache } = await import("../productCache");
-        const activeMappings = mappings.filter((m) => m.status === "active");
-        const heights = new Set<number>();
-        const depths = new Set<number>();
-        const widths = new Set<number>();
-        const loads = new Set<number>();
-        const surfaces = new Set<string>();
-
-        const roleNorm = (r: string) => r.toLowerCase().trim();
-        const isFrame = (r: string) => ["frame", "steher", "ständer", "rahmen"].includes(roleNorm(r)) || roleNorm(r).includes("ständer") || roleNorm(r).includes("steher");
-        const isBeam = (r: string) => ["beam", "traverse", "träger"].includes(roleNorm(r)) || roleNorm(r).includes("träger") || roleNorm(r).includes("traverse");
-        const isShelf = (r: string) => ["shelf", "boden", "böden", "fachboden"].includes(roleNorm(r)) || roleNorm(r).includes("boden");
-
-        for (const m of activeMappings) {
-          const ct = componentTypes.find((c) => c.id === m.componentTypeId);
-          const role = ct?.role ?? ct?.name ?? "";
-          const attrs = (m.attributes as Record<string, number>) ?? {};
-          const product = productCache.getProductByIdentifier(m.shopwareProductNumber);
-          const dims = product?.dimensions;
-
-          if (isFrame(role)) {
-            if (attrs.height) heights.add(attrs.height);
-            if (attrs.depth) depths.add(attrs.depth);
-            if (dims?.height) heights.add(dims.height);
-            if (dims?.length) depths.add(dims.length);
-          }
-          if (isBeam(role) || isShelf(role)) {
-            if (attrs.width) widths.add(attrs.width);
-            if (dims?.width) widths.add(dims.width);
-          }
-          if (isShelf(role)) {
-            if (attrs.depth) depths.add(attrs.depth);
-            if (dims?.length) depths.add(dims.length);
-            const load = Number((attrs as Record<string, unknown>).load ?? (attrs as Record<string, unknown>).maxFachlastKg);
-            if (Number.isFinite(load) && load > 0) loads.add(load);
-          }
-          // Oberfläche aus jedem Mapping mit gesetztem surface-Attribut sammeln.
-          const surface = (attrs as Record<string, unknown>).surface;
-          if (typeof surface === "string" && surface.trim()) surfaces.add(surface.trim());
-        }
-
-        if (heights.size > 0) availableOptions.heights = [...heights].sort((a, b) => a - b);
-        if (depths.size > 0) availableOptions.depths = [...depths].sort((a, b) => a - b);
-        if (widths.size > 0) availableOptions.widths = [...widths].sort((a, b) => a - b);
-        if (loads.size > 0) availableOptions.loads = [...loads].sort((a, b) => a - b);
-        if (surfaces.size > 0) availableOptions.surfaces = [...surfaces];
-      } catch (e) {
-        // keep defaults if productCache or mappings fail
-      }
-
-      res.json({
-        options: result.config,
-        availableOptions,
-        messages: result.messages,
-        errors: result.errors,
-        warnings: result.warnings,
-      });
+      const payload = await resolveCpqOptionsPayload(id, req.tenantId ?? null, step, req.query.config as string | undefined);
+      res.json(payload);
     } catch (error: any) {
       console.error("[CPQ] Error fetching options:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch options" });
+    }
+  });
+
+  // GET /api/cpq/public/systems/:id/options - wie oben, aber für den öffentlichen Shop-Konfigurator
+  // (Handoff-Token statt Mitarbeiter-Login, siehe requireCpqHandoffToken).
+  app.get("/api/cpq/public/systems/:id/options", requireCpqHandoffToken, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const step = parseInt(req.query.step as string) || 1;
+      const payload = await resolveCpqOptionsPayload(id, req.tenantId ?? null, step, req.query.config as string | undefined);
+      res.json(payload);
+    } catch (error: any) {
+      console.error("[CPQ] Error fetching public options:", error);
       res.status(500).json({ error: error.message || "Failed to fetch options" });
     }
   });
@@ -285,61 +474,29 @@ export function registerCpqRoutes(
     try {
       const { id: systemId } = req.params;
       const config = req.body.config ?? req.body;
+      const customerId: string | undefined = typeof req.body.customerId === "string" ? req.body.customerId : undefined;
       if (!systemId || !config) return res.status(400).json({ error: "systemId and config required" });
-
-      const [componentTypes, mappings, rules] = await Promise.all([
-        cpqStorage.getComponentTypesBySystem(systemId),
-        cpqStorage.getProductMappingsBySystem(systemId, req.tenantId ?? null),
-        cpqStorage.getRulesBySystem(systemId, req.tenantId ?? null),
-      ]);
-
-      const activeMappings = mappings.filter((m) => m.status === "active");
-      if (componentTypes.length === 0) {
-        return res.json({
-          items: [],
-          totalPrice: 0,
-          errors: ["Bitte legen Sie zuerst Komponententypen im CPQ Admin an (Tab Produkt-Mappings → Komponententyp)."],
-          warnings: [],
-        });
-      }
-      if (activeMappings.length === 0) {
-        return res.json({
-          items: [],
-          totalPrice: 0,
-          errors: ["Keine Produkt-Mappings für dieses System. Bitte ordnen Sie im CPQ Admin Shopware-Produkte den Komponententypen zu (Tab Produkt-Mappings → Neues Mapping)."],
-          warnings: [],
-        });
-      }
-
-      await ensureCpqProductCacheForTenant(req.tenantId ?? null);
-      const { productCache } = await import("../productCache");
-      const getProduct = (productNumber: string) => {
-        const p = productCache.getProductByIdentifier(productNumber);
-        // BOM-Preise sind netto (deutsche B2B-Konvention, "Preis netto" im Konfigurator).
-        // p.price ist Shopware's Bruttopreis (inkl. MwSt.) — p.netPrice ist der Nettopreis.
-        return p
-          ? {
-              id: p.id,
-              name: p.name ?? productNumber,
-              price: p.netPrice ?? 0,
-              dimensions: p.dimensions,
-              manufacturerNumber: p.manufacturerNumber,
-              imageUrl: p.imageUrl,
-            }
-          : undefined;
-      };
-
-      const bom = await resolveBillOfMaterials(
-        systemId,
-        config,
-        componentTypes,
-        mappings,
-        rules,
-        getProduct
-      );
+      const bom = await resolveCpqBomPayload(systemId, config, req.tenantId ?? null, customerId);
       res.json(bom);
     } catch (error: any) {
       console.error("[CPQ] Error bill-of-materials:", error);
+      res.status(500).json({ error: error.message || "Failed to resolve bill of materials" });
+    }
+  });
+
+  // POST /api/cpq/public/systems/:id/bill-of-materials - wie oben, aber für den öffentlichen
+  // Shop-Konfigurator. customerId kommt NIE aus dem Request-Body (Spoofing-Schutz), sondern
+  // ausschließlich aus dem verifizierten Handoff-Token (req.cpqHandoff).
+  app.post("/api/cpq/public/systems/:id/bill-of-materials", requireCpqHandoffToken, async (req: Request, res: Response) => {
+    try {
+      const { id: systemId } = req.params;
+      const config = req.body.config ?? req.body;
+      if (!systemId || !config) return res.status(400).json({ error: "systemId and config required" });
+      const customerId = req.cpqHandoff?.customerId ?? undefined;
+      const bom = await resolveCpqBomPayload(systemId, config, req.tenantId ?? null, customerId);
+      res.json(bom);
+    } catch (error: any) {
+      console.error("[CPQ] Error public bill-of-materials:", error);
       res.status(500).json({ error: error.message || "Failed to resolve bill of materials" });
     }
   });
@@ -379,7 +536,10 @@ export function registerCpqRoutes(
           ? { id: p.id, name: p.name ?? productNumber, price: p.netPrice ?? 0, dimensions: p.dimensions }
           : undefined;
       };
-      const getGeometry = (id: string) => cpqStorage.getGeometryByProductMapping(id);
+      // Einmal alle Geometrien des Systems in einer Query laden statt pro BOM-Position einzeln.
+      const geometryRows = await cpqStorage.getGeometryByProductMappingIds(mappings.map((m) => m.id));
+      const geometryByMappingId = new Map(geometryRows.map((g) => [g.productMappingId, g]));
+      const getGeometry = async (id: string) => geometryByMappingId.get(id);
       const { buildScene } = await import("./sceneBuilder");
       const { components, config: cfg } = await buildScene(
         systemId,

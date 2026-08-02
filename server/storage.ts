@@ -109,7 +109,11 @@ import {
   type ShopwareCustomerMirror,
   type ShopwareB2bCompanyMirror,
   type ShopwareCustomerPriceMirror,
+  type ShopwareOrderMirror,
   type ShopwareSyncStateRow,
+  type CpqRoomLayout,
+  type CpqRoomPlacement,
+  type CpqRoomWallFeature,
 } from "@shared/schema";
 import { createHash, randomBytes, randomUUID } from "crypto";
 
@@ -117,7 +121,8 @@ export type ShopwareMirrorSyncEntity =
   | "products"
   | "customers"
   | "b2b_companies"
-  | "customer_prices";
+  | "customer_prices"
+  | "orders";
 
 export type ShopwareProductMirrorFilter = {
   search?: string;
@@ -392,7 +397,7 @@ export interface IStorage {
   deleteOrderDraft(id: string, tenantId?: string | null): Promise<boolean>;
   
   // Offer Drafts (AI-powered offer/quote creation)
-  getAllOfferDrafts(tenantId?: string | null): Promise<OfferDraft[]>;
+  getAllOfferDrafts(tenantId?: string | null, statuses?: string[]): Promise<OfferDraft[]>;
   getOfferDraft(id: string, tenantId?: string | null): Promise<OfferDraft | undefined>;
   /** Entwurf zu einem bereits erstellten B2B-Angebot (u. a. CPQ config-PDF-Fallback) */
   getOfferDraftByShopwareOfferId(
@@ -505,6 +510,45 @@ export interface IStorage {
   countShopwareProductMirrors(tenantId?: string | null): Promise<number>;
   getShopwareProductMirrorIds(tenantId?: string | null): Promise<string[]>;
   deleteShopwareProductMirrorsNotIn(keepIds: string[], tenantId?: string | null): Promise<number>;
+
+  /** Bestell-Spiegel — payload ist das fertig gemappte Order-Objekt (siehe fetchOrders()). */
+  upsertShopwareOrderMirrors(
+    rows: Array<{
+      shopwareId: string;
+      orderNumber?: string | null;
+      salesChannelId?: string | null;
+      swUpdatedAt?: Date | null;
+      payload: Record<string, unknown>;
+    }>,
+    tenantId?: string | null,
+  ): Promise<void>;
+  getShopwareOrderMirrors(tenantId?: string | null): Promise<{ rows: ShopwareOrderMirror[]; total: number }>;
+  getShopwareOrderMirrorByShopwareId(
+    shopwareId: string,
+    tenantId?: string | null,
+  ): Promise<ShopwareOrderMirror | undefined>;
+  countShopwareOrderMirrors(tenantId?: string | null): Promise<number>;
+  deleteShopwareOrderMirrorsNotIn(keepIds: string[], tenantId?: string | null): Promise<number>;
+
+  /** Raumplanung — ein Raum-Layout pro Angebot (Raummaße + Regal-Platzierungen). */
+  getCpqRoomLayoutByOfferId(
+    shopwareOfferId: string,
+    tenantId?: string | null,
+  ): Promise<CpqRoomLayout | undefined>;
+  upsertCpqRoomLayout(
+    data: {
+      shopwareOfferId: string;
+      name?: string | null;
+      lengthMm: number;
+      widthMm: number;
+      heightMm: number;
+      minSpacingMm?: number | null;
+      placements: CpqRoomPlacement[];
+      wallFeatures?: CpqRoomWallFeature[];
+      previewImageBase64?: string | null;
+    },
+    tenantId?: string | null,
+  ): Promise<CpqRoomLayout>;
 
   upsertShopwareCustomerMirrors(
     rows: Array<{
@@ -2653,6 +2697,7 @@ export class MemStorage implements IStorage {
 
   private shopwareSyncStates = new Map<string, ShopwareSyncStateRow>();
   private shopwareProductMirrors: ShopwareProductMirror[] = [];
+  private shopwareOrderMirrors: ShopwareOrderMirror[] = [];
   private shopwareCustomerMirrors: ShopwareCustomerMirror[] = [];
   private shopwareB2bCompanyMirrors: ShopwareB2bCompanyMirror[] = [];
   private shopwareCustomerPriceMirrors: ShopwareCustomerPriceMirror[] = [];
@@ -2772,6 +2817,69 @@ export class MemStorage implements IStorage {
       .map((p) => p.shopwareId);
   }
 
+  async upsertShopwareOrderMirrors(
+    rows: Array<{
+      shopwareId: string;
+      orderNumber?: string | null;
+      salesChannelId?: string | null;
+      swUpdatedAt?: Date | null;
+      payload: Record<string, unknown>;
+    }>,
+    tenantId?: string | null,
+  ): Promise<void> {
+    const tid = tenantId ?? null;
+    for (const row of rows) {
+      const idx = this.shopwareOrderMirrors.findIndex(
+        (o) => (o.tenantId ?? null) === tid && o.shopwareId === row.shopwareId,
+      );
+      const next: ShopwareOrderMirror = {
+        id: idx >= 0 ? this.shopwareOrderMirrors[idx].id : randomUUID(),
+        tenantId: tid,
+        shopwareId: row.shopwareId,
+        orderNumber: row.orderNumber ?? null,
+        salesChannelId: row.salesChannelId ?? null,
+        swUpdatedAt: row.swUpdatedAt ?? null,
+        payload: row.payload,
+        syncedAt: new Date(),
+      };
+      if (idx >= 0) this.shopwareOrderMirrors[idx] = next;
+      else this.shopwareOrderMirrors.push(next);
+    }
+  }
+
+  async getShopwareOrderMirrors(
+    tenantId?: string | null,
+  ): Promise<{ rows: ShopwareOrderMirror[]; total: number }> {
+    const tid = tenantId ?? null;
+    const rows = this.shopwareOrderMirrors.filter((o) => (o.tenantId ?? null) === tid);
+    return { rows, total: rows.length };
+  }
+
+  async getShopwareOrderMirrorByShopwareId(
+    shopwareId: string,
+    tenantId?: string | null,
+  ): Promise<ShopwareOrderMirror | undefined> {
+    const tid = tenantId ?? null;
+    return this.shopwareOrderMirrors.find(
+      (o) => (o.tenantId ?? null) === tid && o.shopwareId === shopwareId,
+    );
+  }
+
+  async countShopwareOrderMirrors(tenantId?: string | null): Promise<number> {
+    const tid = tenantId ?? null;
+    return this.shopwareOrderMirrors.filter((o) => (o.tenantId ?? null) === tid).length;
+  }
+
+  async deleteShopwareOrderMirrorsNotIn(keepIds: string[], tenantId?: string | null): Promise<number> {
+    const tid = tenantId ?? null;
+    const keep = new Set(keepIds);
+    const before = this.shopwareOrderMirrors.length;
+    this.shopwareOrderMirrors = this.shopwareOrderMirrors.filter(
+      (o) => (o.tenantId ?? null) !== tid || keep.has(o.shopwareId),
+    );
+    return before - this.shopwareOrderMirrors.length;
+  }
+
   async deleteShopwareProductMirrorsNotIn(keepIds: string[], tenantId?: string | null): Promise<number> {
     const tid = tenantId ?? null;
     const keep = new Set(keepIds);
@@ -2780,6 +2888,67 @@ export class MemStorage implements IStorage {
       (p) => (p.tenantId ?? null) !== tid || keep.has(p.shopwareId),
     );
     return before - this.shopwareProductMirrors.length;
+  }
+
+  private cpqRoomLayouts: CpqRoomLayout[] = [];
+
+  async getCpqRoomLayoutByOfferId(
+    shopwareOfferId: string,
+    tenantId?: string | null,
+  ): Promise<CpqRoomLayout | undefined> {
+    const tid = tenantId ?? null;
+    return this.cpqRoomLayouts.find(
+      (r) => (r.tenantId ?? null) === tid && r.shopwareOfferId === shopwareOfferId,
+    );
+  }
+
+  async upsertCpqRoomLayout(
+    data: {
+      shopwareOfferId: string;
+      name?: string | null;
+      lengthMm: number;
+      widthMm: number;
+      heightMm: number;
+      minSpacingMm?: number | null;
+      placements: CpqRoomPlacement[];
+      wallFeatures?: CpqRoomWallFeature[];
+      previewImageBase64?: string | null;
+    },
+    tenantId?: string | null,
+  ): Promise<CpqRoomLayout> {
+    const tid = tenantId ?? null;
+    const idx = this.cpqRoomLayouts.findIndex(
+      (r) => (r.tenantId ?? null) === tid && r.shopwareOfferId === data.shopwareOfferId,
+    );
+    const now = new Date();
+    const next: CpqRoomLayout = {
+      id: idx >= 0 ? this.cpqRoomLayouts[idx].id : randomUUID(),
+      tenantId: tid,
+      shopwareOfferId: data.shopwareOfferId,
+      name: data.name ?? null,
+      lengthMm: data.lengthMm,
+      widthMm: data.widthMm,
+      heightMm: data.heightMm,
+      minSpacingMm: data.minSpacingMm ?? null,
+      placements: data.placements,
+      wallFeatures:
+        data.wallFeatures !== undefined
+          ? data.wallFeatures
+          : idx >= 0
+            ? this.cpqRoomLayouts[idx].wallFeatures
+            : [],
+      previewImageBase64:
+        data.previewImageBase64 !== undefined
+          ? data.previewImageBase64
+          : idx >= 0
+            ? this.cpqRoomLayouts[idx].previewImageBase64
+            : null,
+      createdAt: idx >= 0 ? this.cpqRoomLayouts[idx].createdAt : now,
+      updatedAt: now,
+    };
+    if (idx >= 0) this.cpqRoomLayouts[idx] = next;
+    else this.cpqRoomLayouts.push(next);
+    return next;
   }
 
   async upsertShopwareCustomerMirrors(

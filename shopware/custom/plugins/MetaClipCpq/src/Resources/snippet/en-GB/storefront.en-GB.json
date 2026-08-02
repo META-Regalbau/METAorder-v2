@@ -1,6 +1,7 @@
 {
   "meta-clip-cpq": {
     "storefront": {
+      "configureButton": "Configure shelving",
       "title": "CPQ quick check",
       "subtitle": "Live validation and price indication directly on the product detail page.",
       "customerGroupLabel": "Customer segment",

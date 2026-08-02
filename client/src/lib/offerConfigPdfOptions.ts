@@ -8,6 +8,7 @@ export const CFG_QUERY = {
   desc: "cfgDesc",
   bom: "cfgBom",
   acc: "cfgAcc",
+  room: "cfgRoom",
 } as const;
 
 export type OfferConfigPdfDialogState = {
@@ -19,13 +20,14 @@ export type OfferConfigPdfDialogState = {
   detailDescription: boolean;
   detailBom: boolean;
   detailAccessory: boolean;
+  includeRoomPlan: boolean;
 };
 
 const LS_KEY = "metaorder-offer-config-pdf-options";
 
 export function defaultOfferConfigPdfDialogState(): OfferConfigPdfDialogState {
   return {
-    showMontageLine: true,
+    showMontageLine: false,
     showShippingLine: true,
     overviewShowUnitPrices: true,
     overviewShowVatAndGross: true,
@@ -33,6 +35,7 @@ export function defaultOfferConfigPdfDialogState(): OfferConfigPdfDialogState {
     detailDescription: true,
     detailBom: true,
     detailAccessory: true,
+    includeRoomPlan: true,
   };
 }
 
@@ -66,5 +69,6 @@ export function buildCfgPdfSearchParams(o: OfferConfigPdfDialogState): string {
   set(CFG_QUERY.desc, o.detailDescription);
   set(CFG_QUERY.bom, o.detailBom);
   set(CFG_QUERY.acc, o.detailAccessory);
+  set(CFG_QUERY.room, o.includeRoomPlan);
   return p.toString();
 }

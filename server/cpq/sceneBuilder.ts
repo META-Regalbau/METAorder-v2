@@ -114,14 +114,24 @@ export async function buildScene(
     if (m.status === "active") mappingsByProductNumber.set(m.shopwareProductNumber, m);
   }
 
+  // Zuordnung + Rollen-Auflösung ist synchron — erst danach werden alle benötigten
+  // Geometrien EINMAL parallel geladen (statt pro BOM-Position sequenziell await'et).
+  const resolvedItems: Array<{ item: (typeof bom.items)[number]; mapping: CpqProductMapping; normRole: string }> = [];
+  const neededMappingIds = new Set<string>();
   for (const item of bom.items) {
     const mapping = mappingsByProductNumber.get(item.productNumber);
     if (!mapping) continue;
-
     const role = componentTypes.find((ct) => ct.id === mapping.componentTypeId)?.role ?? "";
-    const normRole = normalizeRole(role);
+    resolvedItems.push({ item, mapping, normRole: normalizeRole(role) });
+    neededMappingIds.add(mapping.id);
+  }
+  const geometryEntries = await Promise.all(
+    [...neededMappingIds].map(async (id) => [id, await getGeometry(id)] as const),
+  );
+  const geometryByMappingId = new Map(geometryEntries);
 
-    const geometry = await getGeometry(mapping.id);
+  for (const { item, mapping, normRole } of resolvedItems) {
+    const geometry = geometryByMappingId.get(mapping.id);
     const glbUrl = resolveGlbUrl(item.productNumber, geometry?.glbAssetUrl, item.manufacturerNumber);
 
     if (normRole === "frame") {

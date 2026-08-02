@@ -1,0 +1,58 @@
+.fs-viewport {
+  position: relative;
+}
+
+.fs-viewport-content {
+  width: 100%;
+  height: 100%;
+}
+
+.fs-viewport:fullscreen,
+.fs-viewport:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  padding: 0;
+}
+
+.fs-viewport:fullscreen .fs-viewport-content,
+.fs-viewport:-webkit-full-screen .fs-viewport-content {
+  width: 100%;
+  height: 100%;
+}
+
+.fs-viewport:fullscreen .fs-viewport-content--stretch,
+.fs-viewport:-webkit-full-screen .fs-viewport-content--stretch {
+  display: flex;
+}
+
+.fs-viewport:fullscreen .fs-viewport-content--stretch > *,
+.fs-viewport:-webkit-full-screen .fs-viewport-content--stretch > * {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.fs-viewport-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 5;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #d8d8d8;
+  border-radius: 2px;
+  cursor: pointer;
+  color: #333;
+  transition: background 120ms ease;
+}
+
+.fs-viewport-btn:hover {
+  background: #fff;
+}

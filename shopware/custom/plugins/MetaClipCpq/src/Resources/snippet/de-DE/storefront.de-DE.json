@@ -1,6 +1,7 @@
 {
   "meta-clip-cpq": {
     "storefront": {
+      "configureButton": "Regal konfigurieren",
       "title": "CPQ Schnellpruefung",
       "subtitle": "Live-Validierung und Preisindikation direkt auf der Produktseite.",
       "customerGroupLabel": "Kundensegment",

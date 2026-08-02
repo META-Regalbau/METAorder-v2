@@ -2,7 +2,7 @@
  * CPQ Storage - database operations for CPQ module
  */
 
-import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
+import { eq, and, desc, sql, gte, lte, inArray } from "drizzle-orm";
 import { db } from "../db";
 import {
   cpqSystems,
@@ -88,6 +88,15 @@ export const cpqStorage = {
     return rows[0];
   },
 
+  /** Batch-Variante von getProductMappingByProductId — vermeidet N+1-Queries bei Warenkorb-/Cross-Selling-Prüfungen. */
+  async getProductMappingsByProductIds(shopwareProductIds: string[], tenantId?: string | null): Promise<CpqProductMapping[]> {
+    if (shopwareProductIds.length === 0) return [];
+    const filter = tenantId
+      ? and(inArray(cpqProductMapping.shopwareProductId, shopwareProductIds), eq(cpqProductMapping.tenantId, tenantId))
+      : inArray(cpqProductMapping.shopwareProductId, shopwareProductIds);
+    return db.select().from(cpqProductMapping).where(filter);
+  },
+
   async createProductMapping(data: Omit<InsertCpqProductMapping, "id">, tenantId?: string | null): Promise<CpqProductMapping> {
     const [row] = await db.insert(cpqProductMapping).values({ ...data, tenantId: tenantId || null }).returning();
     return row;
@@ -102,6 +111,12 @@ export const cpqStorage = {
   async getGeometry(id: string): Promise<CpqGeometry | undefined> {
     const rows = await db.select().from(cpqGeometry).where(eq(cpqGeometry.id, id)).limit(1);
     return rows[0];
+  },
+
+  /** Batch-Variante von getGeometryByProductMapping — eine Query statt N für eine ganze BOM. */
+  async getGeometryByProductMappingIds(productMappingIds: string[]): Promise<CpqGeometry[]> {
+    if (productMappingIds.length === 0) return [];
+    return db.select().from(cpqGeometry).where(inArray(cpqGeometry.productMappingId, productMappingIds));
   },
 
   async createGeometry(data: Omit<InsertCpqGeometry, "id">): Promise<CpqGeometry> {

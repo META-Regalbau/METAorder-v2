@@ -28,6 +28,12 @@ interface CacheStatus {
 
 class ProductCache {
   private products: Product[] = [];
+  // O(1)-Lookup-Indizes, parallel zu `products` gepflegt (siehe setProducts) — vermeidet
+  // lineare Scans über den kompletten Katalog bei jedem CPQ-BOM-Matching-Aufruf.
+  private productsById: Map<string, Product> = new Map();
+  private productsByNumber: Map<string, Product> = new Map();
+  private productsByManufacturerNumber: Map<string, Product> = new Map();
+  private productsByEan: Map<string, Product> = new Map();
   private lastUpdate: Date | null = null;
   private lastFingerprint: string | null = null;
   private isLoading: boolean = false;
@@ -77,17 +83,39 @@ class ProductCache {
   }
   
   /**
+   * Ersetzt den Produktbestand und baut die Lookup-Indizes neu auf. Bei
+   * doppelten Schlüsseln gewinnt (wie zuvor bei Array.find) der erste Treffer.
+   */
+  private setProducts(products: Product[]): void {
+    this.products = products;
+    const byId = new Map<string, Product>();
+    const byNumber = new Map<string, Product>();
+    const byManufacturerNumber = new Map<string, Product>();
+    const byEan = new Map<string, Product>();
+    for (const p of products) {
+      if (!byId.has(p.id)) byId.set(p.id, p);
+      if (p.productNumber && !byNumber.has(p.productNumber)) byNumber.set(p.productNumber, p);
+      if (p.manufacturerNumber && !byManufacturerNumber.has(p.manufacturerNumber)) byManufacturerNumber.set(p.manufacturerNumber, p);
+      if (p.ean && !byEan.has(p.ean)) byEan.set(p.ean, p);
+    }
+    this.productsById = byId;
+    this.productsByNumber = byNumber;
+    this.productsByManufacturerNumber = byManufacturerNumber;
+    this.productsByEan = byEan;
+  }
+
+  /**
    * Get a product by its ID
    */
   getProductById(productId: string): Product | undefined {
-    return this.products.find(p => p.id === productId);
+    return this.productsById.get(productId);
   }
-  
+
   /**
    * Get a product by its product number (GTIN/EAN im Shop)
    */
   getProductByNumber(productNumber: string): Product | undefined {
-    return this.products.find(p => p.productNumber === productNumber);
+    return this.productsByNumber.get(productNumber);
   }
 
   /**
@@ -95,7 +123,7 @@ class ProductCache {
    */
   getProductByManufacturerNumber(manufacturerNumber: string): Product | undefined {
     if (!manufacturerNumber) return undefined;
-    return this.products.find(p => p.manufacturerNumber === manufacturerNumber);
+    return this.productsByManufacturerNumber.get(manufacturerNumber);
   }
 
   /**
@@ -106,9 +134,9 @@ class ProductCache {
     if (!identifier) return undefined;
     const t = identifier.trim();
     return (
-      this.getProductByNumber(t) ||
-      this.getProductByManufacturerNumber(t) ||
-      this.products.find(p => p.ean === t)
+      this.productsByNumber.get(t) ||
+      this.productsByManufacturerNumber.get(t) ||
+      this.productsByEan.get(t)
     );
   }
   
@@ -266,7 +294,7 @@ class ProductCache {
       }
       
       // Update cache
-      this.products = allProducts;
+      this.setProducts(allProducts);
       this.lastUpdate = new Date();
       this.lastFingerprint = sourceFingerprint;
       this.error = null;
@@ -291,7 +319,7 @@ class ProductCache {
       clearInterval(this.refreshInterval);
       this.refreshInterval = null;
     }
-    this.products = [];
+    this.setProducts([]);
     this.lastUpdate = null;
     this.lastFingerprint = null;
     this.error = null;
@@ -302,7 +330,7 @@ class ProductCache {
    * Befuellt den In-Memory-Cache aus dem persistenten Shopware-Spiegel (ohne Live-Fetch).
    */
   hydrateFromMirror(products: Product[], fingerprint: string | null = null): void {
-    this.products = products;
+    this.setProducts(products);
     this.lastUpdate = new Date();
     this.lastFingerprint = fingerprint;
     this.error = null;

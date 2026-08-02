@@ -17,7 +17,7 @@ export async function buildOfferConfigPdfInputWithCpqFallback(
   mappedOffer: MappedOfferForPdf,
   settings: ShopwareSettings
 ): Promise<OfferConfigPdfInput | null> {
-  let input = await buildOfferConfigPdfInput(rawOfferData as any, mappedOffer, settings);
+  let input = await buildOfferConfigPdfInput(rawOfferData as any, mappedOffer, settings, tenantId);
   if (input) return input;
 
   const draft = await storage.getOfferDraftByShopwareOfferId(shopwareOfferId, tenantId ?? null);
@@ -27,5 +27,5 @@ export async function buildOfferConfigPdfInputWithCpqFallback(
   if (!cpq.billOfMaterials?.items?.length) return null;
 
   const enrichedItems = enrichMappedOfferItemsWithCpqPayload(mappedOffer.items, cpq);
-  return buildOfferConfigPdfInput(rawOfferData as any, { ...mappedOffer, items: enrichedItems }, settings);
+  return buildOfferConfigPdfInput(rawOfferData as any, { ...mappedOffer, items: enrichedItems }, settings, tenantId);
 }

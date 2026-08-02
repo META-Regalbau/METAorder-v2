@@ -1,4 +1,4 @@
-import { FileDown, Loader2, ChevronDown, ChevronRight, Package, Layers, FileSpreadsheet, FileCode2 } from "lucide-react";
+import { FileDown, Loader2, ChevronDown, ChevronRight, Package, Layers, FileSpreadsheet, FileCode2, Trash2 } from "lucide-react";
 import { useState, useEffect, Fragment, useMemo, useRef } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -53,6 +53,17 @@ interface OfferLineItem {
   isConfigurationGroup?: boolean;
 }
 
+interface OfferBillingAddress {
+  firstName: string;
+  lastName: string;
+  street: string;
+  zipCode: string;
+  city: string;
+  country: string;
+  company?: string;
+  phoneNumber?: string;
+}
+
 interface OfferDetail {
   id: string;
   offerNumber: string;
@@ -60,6 +71,8 @@ interface OfferDetail {
   customerName: string | null;
   customerEmail: string | null;
   customerPhone: string | null;
+  customerNumber: string | null;
+  billingAddress: OfferBillingAddress | null;
   totalAmount: number;
   netAmount: number;
   status: string;
@@ -95,6 +108,9 @@ export default function OfferDetailModal({
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [lastPublicShareUrl, setLastPublicShareUrl] = useState<string | null>(null);
+  const [sendEmailOpen, setSendEmailOpen] = useState(false);
+  const [sendEmailTo, setSendEmailTo] = useState("");
+  const [sendEmailMessage, setSendEmailMessage] = useState("");
   const [isEditing, setIsEditing] = useState(mode === "edit");
   const [editValues, setEditValues] = useState({
     status: "",
@@ -103,6 +119,10 @@ export default function OfferDetailModal({
     offerNumber: "",
     expirationDate: "",
   });
+  const [servicePanelOpen, setServicePanelOpen] = useState(false);
+  const [selectedServiceProductNumber, setSelectedServiceProductNumber] = useState<string>("");
+  const [servicePriceInput, setServicePriceInput] = useState<string>("");
+  const [confirmDeleteItemId, setConfirmDeleteItemId] = useState<string | null>(null);
 
   const { data: offer, isLoading, error } = useQuery<OfferDetail>({
     queryKey: [`/api/offers/${offerId}`],
@@ -152,6 +172,7 @@ export default function OfferDetailModal({
         offerNumber: offer.offerNumber || "",
         expirationDate: offer.expirationDate ? offer.expirationDate.slice(0, 10) : "",
       });
+      setSendEmailTo((prev) => prev || offer.customerEmail || "");
       if (mode === "edit") {
         setIsEditing(true);
       }
@@ -291,6 +312,95 @@ export default function OfferDetailModal({
     },
   });
 
+  type MontageSuggestion = {
+    installationMinutes: number;
+    blocks: number;
+    net: number;
+    description: string;
+    productNumber: string;
+    productName: string;
+  };
+  type ServiceProduct = {
+    productNumber: string;
+    productId: string;
+    name: string;
+    priceNet: number;
+    taxRate: number;
+    serviceType: string;
+  };
+
+  const { data: serviceCatalogData, isLoading: serviceCatalogLoading } = useQuery<{ services: ServiceProduct[] }>({
+    queryKey: [`/api/offers/${offerId}/service-catalog`],
+    enabled: isOpen && !!offerId && servicePanelOpen,
+  });
+  const serviceCatalog = serviceCatalogData?.services ?? [];
+  const selectedService = serviceCatalog.find((s) => s.productNumber === selectedServiceProductNumber) ?? null;
+  const isMontageSelected = selectedServiceProductNumber === "SW10002";
+
+  const { data: montageSuggestion, isLoading: montageSuggestionLoading } = useQuery<MontageSuggestion>({
+    queryKey: [`/api/offers/${offerId}/montage-suggestion`],
+    enabled: isOpen && !!offerId && servicePanelOpen && isMontageSelected,
+  });
+
+  useEffect(() => {
+    if (!selectedServiceProductNumber) return;
+    if (isMontageSelected) {
+      if (montageSuggestion) setServicePriceInput(montageSuggestion.net.toFixed(2));
+    } else if (selectedService) {
+      setServicePriceInput(selectedService.priceNet.toFixed(2));
+    }
+  }, [selectedServiceProductNumber, isMontageSelected, montageSuggestion, selectedService]);
+
+  const addServiceMutation = useMutation({
+    mutationFn: async () => {
+      if (!offerId || !selectedServiceProductNumber) return null;
+      const unitPriceNet = Number(servicePriceInput.replace(",", "."));
+      const response = await apiRequest("POST", `/api/offers/${offerId}/service-line-item`, {
+        productNumber: selectedServiceProductNumber,
+        unitPriceNet,
+        quantity: 1,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/offers"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/offers/${offerId}`] });
+      toast({ title: t("offerDetail.serviceAdded", "Position hinzugefügt") });
+      setServicePanelOpen(false);
+      setSelectedServiceProductNumber("");
+      setServicePriceInput("");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t("offerDetail.serviceAddError", "Position konnte nicht hinzugefügt werden"),
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const removeLineItemMutation = useMutation({
+    mutationFn: async (itemId: string) => {
+      if (!offerId) return null;
+      const response = await apiRequest("DELETE", `/api/offers/${offerId}/line-items/${itemId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/offers"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/offers/${offerId}`] });
+      toast({ title: t("offerDetail.itemRemoved", "Position entfernt") });
+      setConfirmDeleteItemId(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t("offerDetail.itemRemoveError", "Position konnte nicht entfernt werden"),
+        description: error.message,
+        variant: "destructive",
+      });
+      setConfirmDeleteItemId(null);
+    },
+  });
+
   const approveOfferMutation = useMutation({
     mutationFn: async () => {
       if (!offerId) return null;
@@ -370,6 +480,31 @@ export default function OfferDetailModal({
     onError: (error: Error) => {
       toast({
         title: t("offerDetail.publicLinkError"),
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const sendOfferEmailMutation = useMutation({
+    mutationFn: async () => {
+      if (!offerId) throw new Error("missing offer");
+      const response = await apiRequest("POST", `/api/offers/${offerId}/send-email`, {
+        to: sendEmailTo.trim() || undefined,
+        message: sendEmailMessage.trim() || undefined,
+      });
+      return response.json() as Promise<{ sentTo: string; publicUrl: string }>;
+    },
+    onSuccess: (data) => {
+      setLastPublicShareUrl(data.publicUrl);
+      setSendEmailOpen(false);
+      setSendEmailMessage("");
+      queryClient.invalidateQueries({ queryKey: [`/api/offers/${offerId}/share-link`] });
+      toast({ title: t("offerDetail.sendEmailSuccess"), description: data.sentTo });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t("offerDetail.sendEmailError"),
         description: error.message,
         variant: "destructive",
       });
@@ -814,6 +949,38 @@ export default function OfferDetailModal({
                       {offer.customerPhone || '-'}
                     </div>
                   </div>
+                  <div className="mhr" />
+                  <div>
+                    <div className="mfield-label">
+                      {t('offerDetail.customerNumber')}
+                    </div>
+                    <div className="mfield-value" data-testid="text-customer-number">
+                      {offer.customerNumber || '-'}
+                    </div>
+                  </div>
+                  <div className="mhr" />
+                  <div>
+                    <div className="mfield-label">
+                      {t('offerDetail.address')}
+                    </div>
+                    <div className="mfield-value" data-testid="text-customer-address">
+                      {offer.billingAddress ? (
+                        <>
+                          {offer.billingAddress.company && <div>{offer.billingAddress.company}</div>}
+                          {(offer.billingAddress.firstName || offer.billingAddress.lastName) && (
+                            <div>{[offer.billingAddress.firstName, offer.billingAddress.lastName].filter(Boolean).join(' ')}</div>
+                          )}
+                          {offer.billingAddress.street && <div>{offer.billingAddress.street}</div>}
+                          {(offer.billingAddress.zipCode || offer.billingAddress.city) && (
+                            <div>{[offer.billingAddress.zipCode, offer.billingAddress.city].filter(Boolean).join(' ')}</div>
+                          )}
+                          {offer.billingAddress.country && <div>{offer.billingAddress.country}</div>}
+                        </>
+                      ) : (
+                        '-'
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -1014,6 +1181,74 @@ export default function OfferDetailModal({
                 </div>
               </div>
             ) : null}
+
+            {offerId && canManage ? (
+              <div className="mcard">
+                <div className="mcard-head">
+                  <h3 className="mcard-title">{t("offerDetail.sendEmailTitle")}</h3>
+                </div>
+                <div className="mcard-body space-y-3 text-sm">
+                  <p style={{ color: "var(--fg-3)" }}>{t("offerDetail.sendEmailDescription")}</p>
+                  {sendEmailOpen ? (
+                    <div className="space-y-3">
+                      <div>
+                        <label className="mfield-label">{t("offerDetail.email")}</label>
+                        <input
+                          className="minput"
+                          type="email"
+                          value={sendEmailTo}
+                          onChange={(event) => setSendEmailTo(event.target.value)}
+                          placeholder="kunde@beispiel.de"
+                          data-testid="input-send-email-to"
+                        />
+                      </div>
+                      <div>
+                        <label className="mfield-label">{t("offerDetail.sendEmailMessage")}</label>
+                        <textarea
+                          className="minput"
+                          rows={3}
+                          value={sendEmailMessage}
+                          onChange={(event) => setSendEmailMessage(event.target.value)}
+                          placeholder={t("offerDetail.sendEmailMessagePlaceholder")}
+                          data-testid="textarea-send-email-message"
+                        />
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className="mbtn sm primary"
+                          disabled={sendOfferEmailMutation.isPending || !sendEmailTo.trim()}
+                          onClick={() => sendOfferEmailMutation.mutate()}
+                          data-testid="button-send-email-confirm"
+                        >
+                          {sendOfferEmailMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                          ) : null}
+                          {t("offerDetail.sendEmailSend")}
+                        </button>
+                        <button
+                          type="button"
+                          className="mbtn sm"
+                          disabled={sendOfferEmailMutation.isPending}
+                          onClick={() => setSendEmailOpen(false)}
+                        >
+                          {t("offerDetail.cancel")}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="mbtn sm primary"
+                      onClick={() => setSendEmailOpen(true)}
+                      data-testid="button-send-email-open"
+                    >
+                      {t("offerDetail.sendEmailOpen")}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : null}
           </div>
         )}
 
@@ -1048,6 +1283,7 @@ export default function OfferDetailModal({
                           <th className="num">
                             {t('offerDetail.totalAmount')}
                           </th>
+                          <th className="w-8"></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1119,12 +1355,55 @@ export default function OfferDetailModal({
                                 <td className="num" style={{ fontWeight: 700 }}>
                                   {formatCurrency(item.totalPrice)}
                                 </td>
+                                <td className="text-center" onClick={(e) => e.stopPropagation()}>
+                                  {canManage && !item.isConfigurationGroup && (
+                                    confirmDeleteItemId === item.id ? (
+                                      <div className="flex items-center justify-center gap-1" style={{ whiteSpace: "nowrap" }}>
+                                        <span className="text-xs" style={{ color: "var(--fg-3)" }}>
+                                          {t('offerDetail.confirmRemoveItem', 'Wirklich entfernen?')}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          className="mbtn icon ghost"
+                                          aria-label={t('common.confirm', 'Bestätigen')}
+                                          disabled={removeLineItemMutation.isPending}
+                                          onClick={() => removeLineItemMutation.mutate(item.id)}
+                                          style={{ color: "var(--meta-red-text, #c0392b)" }}
+                                        >
+                                          {removeLineItemMutation.isPending && removeLineItemMutation.variables === item.id ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                          ) : (
+                                            <Trash2 className="h-4 w-4" />
+                                          )}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="mbtn icon ghost"
+                                          aria-label={t('common.cancel')}
+                                          disabled={removeLineItemMutation.isPending}
+                                          onClick={() => setConfirmDeleteItemId(null)}
+                                        >
+                                          ✕
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        className="mbtn icon ghost"
+                                        aria-label={t('common.delete')}
+                                        onClick={() => setConfirmDeleteItemId(item.id)}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </button>
+                                    )
+                                  )}
+                                </td>
                               </tr>
 
                               {isExpanded && item.configurationDescription && (
                                 <tr key={`${item.id}-config-desc`} style={{ background: "var(--meta-mist)" }}>
                                   <td></td>
-                                  <td colSpan={6}>
+                                  <td colSpan={7}>
                                     <p className="text-xs whitespace-pre-line leading-relaxed" style={{ color: "var(--fg-3)" }}>
                                       {item.configurationDescription}
                                     </p>
@@ -1135,7 +1414,7 @@ export default function OfferDetailModal({
                               {isExpanded && hasChildren && (
                                 <tr key={`${item.id}-bom-header`} style={{ background: "var(--meta-mist)" }}>
                                   <td></td>
-                                  <td colSpan={6}>
+                                  <td colSpan={7}>
                                     <span className="mfield-label">
                                       {t('offerDetail.billOfMaterials')}
                                     </span>
@@ -1170,6 +1449,7 @@ export default function OfferDetailModal({
                                   <td className="num text-xs" style={{ color: "var(--fg-3)" }}>
                                     {childHasPrice ? formatCurrency(child.totalPrice) : '-'}
                                   </td>
+                                  <td></td>
                                 </tr>
                                 );
                               })}
@@ -1182,6 +1462,117 @@ export default function OfferDetailModal({
                 ) : (
                   <div className="text-center py-8" style={{ color: "var(--fg-3)" }}>
                     {t('offerDetail.noItems')}
+                  </div>
+                )}
+
+                {canManage && (
+                  <div style={{ marginTop: 16, borderTop: "1px solid var(--border)", paddingTop: 16 }}>
+                    {!servicePanelOpen ? (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          className="mbtn"
+                          onClick={() => setServicePanelOpen(true)}
+                        >
+                          {t('offerDetail.addService', 'Zusatzleistung hinzufügen')}
+                        </button>
+                        {offerId && (
+                          <button
+                            type="button"
+                            className="mbtn"
+                            onClick={() => window.open(`/configurator?offerId=${encodeURIComponent(offerId)}`, "_blank", "noopener")}
+                          >
+                            {t('offerDetail.addConfiguration', 'Konfiguration hinzufügen')}
+                          </button>
+                        )}
+                        {offerId && (
+                          <button
+                            type="button"
+                            className="mbtn"
+                            onClick={() => window.open(`/room-planner?offerId=${encodeURIComponent(offerId)}`, "_blank", "noopener")}
+                          >
+                            {t('offerDetail.roomPlanner', 'Raumplanung')}
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-2" style={{ maxWidth: 420 }}>
+                        <div className="flex items-center gap-2">
+                          <label className="mfield-label" style={{ margin: 0 }}>
+                            {t('offerDetail.serviceType', 'Leistung')}
+                          </label>
+                          <select
+                            className="minput"
+                            style={{ width: 260 }}
+                            value={selectedServiceProductNumber}
+                            onChange={(e) => { setSelectedServiceProductNumber(e.target.value); setServicePriceInput(""); }}
+                            disabled={serviceCatalogLoading}
+                          >
+                            <option value="">
+                              {serviceCatalogLoading ? t('common.loading', 'Lädt…') : t('offerDetail.selectService', 'Bitte wählen…')}
+                            </option>
+                            {serviceCatalog.map((s) => (
+                              <option key={s.productNumber} value={s.productNumber}>
+                                {s.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {selectedServiceProductNumber && (
+                          <>
+                            {isMontageSelected && (
+                              montageSuggestionLoading ? (
+                                <div className="flex items-center gap-2 text-sm" style={{ color: "var(--fg-3)" }}>
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  {t('offerDetail.montageCalculating', 'Montagepreis wird berechnet…')}
+                                </div>
+                              ) : montageSuggestion ? (
+                                <p className="text-xs" style={{ color: "var(--fg-3)" }}>
+                                  {montageSuggestion.description}
+                                </p>
+                              ) : null
+                            )}
+                            <div className="flex items-center gap-2">
+                              <label className="mfield-label" style={{ margin: 0 }}>
+                                {t('offerDetail.serviceNetPrice', 'Preis netto (€)')}
+                              </label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                className="minput"
+                                style={{ width: 120 }}
+                                value={servicePriceInput}
+                                onChange={(e) => setServicePriceInput(e.target.value)}
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            className="mbtn primary"
+                            disabled={addServiceMutation.isPending || !selectedServiceProductNumber || !servicePriceInput}
+                            onClick={() => addServiceMutation.mutate()}
+                          >
+                            {addServiceMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              t('offerDetail.serviceConfirmAdd', 'Als Position hinzufügen')
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            className="mbtn ghost"
+                            onClick={() => { setServicePanelOpen(false); setSelectedServiceProductNumber(""); setServicePriceInput(""); }}
+                          >
+                            {t('common.cancel')}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

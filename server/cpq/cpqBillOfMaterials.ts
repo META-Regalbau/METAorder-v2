@@ -19,11 +19,17 @@ export type BomLineItem = {
   width?: number;
   height?: number;
   length?: number;
+  /** Katalogpreis (netto) vor kundenspezifischem Rabatt — nur gesetzt, wenn ein Kunde gewählt ist. */
+  catalogUnitPrice?: number;
+  /** Rabatt in % ggü. Katalogpreis (0, wenn kein Rabatt greift). */
+  discountPercent?: number;
 };
 
 export type BillOfMaterialsResult = {
   items: BomLineItem[];
   totalPrice: number;
+  /** Summe der Katalogpreise (netto) — nur gesetzt, wenn ein Kunde gewählt ist. */
+  totalCatalogPrice?: number;
   errors: string[];
   warnings: string[];
 };
@@ -35,6 +41,8 @@ const ROLE_TO_QUANTITY: Record<string, string> = {
   shelf: "shelf_quantity",
   connector: "connector_quantity",
   accessory: "accessory_quantity",
+  diagonal: "diagonal_quantity",
+  spannschloss: "spannschloss_quantity",
   // Deutsche/Synonyme für Stücklistenberechnung
   steher: "frame_quantity",
   ständer: "frame_quantity",
@@ -48,6 +56,10 @@ const ROLE_TO_QUANTITY: Record<string, string> = {
   fachboden: "shelf_quantity",
   regalboden: "shelf_quantity",
   zubehör: "accessory_quantity",
+  diagonalstab: "diagonal_quantity",
+  diagonalstrebe: "diagonal_quantity",
+  aussteifung: "diagonal_quantity",
+  turnbuckle: "spannschloss_quantity",
 };
 
 /** Rolle normalisieren (z. B. "Steher" → "frame") für Mengen-Lookup.
@@ -59,12 +71,16 @@ function normalizeRole(role: string): string {
   if (["frame", "steher", "ständer", "rahmen", "stand"].includes(r)) return "frame";
   if (["beam", "traverse", "träger", "längsträger"].includes(r)) return "beam";
   if (["shelf", "boden", "böden", "fachboden", "regalboden"].includes(r)) return "shelf";
+  if (["diagonal", "diagonalstab", "diagonalstrebe", "aussteifung"].includes(r)) return "diagonal";
+  if (["spannschloss", "turnbuckle"].includes(r)) return "spannschloss";
   // Enthält-Prüfung für Rollen wie "Ständer 2000x600", "Regalboden 1000x600"
   if (r.includes("ständer") || r.includes("steher") || r.includes("rahmen") || (r.includes("stand") && !r.includes("regal"))) return "frame";
   if (r.includes("träger") || r.includes("traverse") || r.includes("längsträger")) return "beam";
   if (r.includes("boden") || r.includes("böden") || r.includes("fachboden") || r.includes("regalboden") || r.includes("shelf")) return "shelf";
   if (r.includes("zubehör") || r.includes("accessory")) return "accessory";
   if (r.includes("connector")) return "connector";
+  if (r.includes("diagonal") || r.includes("aussteifung")) return "diagonal";
+  if (r.includes("spannschloss") || r.includes("turnbuckle")) return "spannschloss";
   return r;
 }
 
@@ -76,9 +92,13 @@ const ROLE_ATTR_MAP: Record<string, string[]> = {
   // Accessory dimensions (z. B. Rückwand = Höhe × Feldbreite) werden nur geprüft,
   // wenn das Mapping die Attribute gesetzt hat (nicht-dimensionierte Rolle → sonst Match).
   accessory: ["height", "width"],
+  // Diagonalstab-Länge ist an die Feldbreite gebunden (Höhe/Tiefe-unabhängig, siehe
+  // client/src/pages/metaClip/regalAssembly.ts) — muss also exakt zur Feldbreite passen.
+  // Spannschloss hat bewusst KEIN Attribut-Mapping: ein universelles Teil für jeden Diagonalstab.
+  diagonal: ["width"],
 };
 
-const DIMENSIONED_ROLES = new Set(["frame", "beam", "shelf"]);
+const DIMENSIONED_ROLES = new Set(["frame", "beam", "shelf", "diagonal"]);
 
 /** Zusätzliche exakt zu matchende Attribute (kein ±mm-Toleranzvergleich):
  *  Fachlast und Oberfläche. Erlaubt es, denselben Bauteiltyp mit mehreren
@@ -228,6 +248,11 @@ export async function resolveBillOfMaterials(
   if (cfg.frame_quantity === undefined) cfg.frame_quantity = fieldCount + 1;
   if (cfg.beam_quantity === undefined) cfg.beam_quantity = levelCount * fieldCount * 2;
   if (cfg.shelf_quantity === undefined) cfg.shelf_quantity = levelCount * fieldCount;
+  // Aussteifung (Diagonalstab je Feldbreite + zugehöriges Spannschloss): erstes Feld = Kreuz
+  // aus 2 Diagonalstäben, jedes weitere Feld = 1 Diagonalstab (siehe regalAssembly.ts, real
+  // verbaute Aussteifung) → Summe = field_count + 1. Ein Spannschloss je Diagonalstab.
+  if (cfg.diagonal_quantity === undefined) cfg.diagonal_quantity = fieldCount + 1;
+  if (cfg.spannschloss_quantity === undefined) cfg.spannschloss_quantity = fieldCount + 1;
 
   const mappingsByType = new Map<string, CpqProductMapping[]>();
   for (const m of mappings) {

@@ -5,6 +5,9 @@
 import type { OrderAddress, ShopwareSettings } from "@shared/schema";
 import { ShopwareClient } from "./shopware";
 import type { OfferConfigPdfInput, OfferConfigPdfLineItem } from "./offerConfigPdf";
+import type { IStorage } from "./storage";
+import { productCacheRegistry } from "./productCache";
+import { isServiceProductId } from "./offerServiceProducts";
 
 function mergeOfferBillingAddress(
   primary: OrderAddress | undefined,
@@ -72,17 +75,30 @@ export function sumMetaCalcInstallationMinutes(items: any[]): number {
   return sum;
 }
 
-/** Minimum 1 Tag = 2×3h-Blöcke, je Block 725 EUR netto (auch bei 0 min reiner Montagezeit: An-/Abfahrt). */
-export function computeMontageNet(installationMinutes: number): { net: number; description: string } {
+/** Kulanzzeit (Stunden), die vor dem nächsten Halbtags-Block toleriert wird. */
+export const MONTAGE_GRACE_HOURS = 2;
+/** Ein Halbtags-Block = 4 Std. Montagezeit. */
+export const MONTAGE_BLOCK_HOURS = 4;
+/** Preis je Halbtags-Block (netto). */
+export const MONTAGE_BLOCK_PRICE_NET = 725;
+/** Minimum 2 Blöcke = 1 Tag = 1.450 EUR netto. */
+export const MONTAGE_MIN_BLOCKS = 2;
+
+/**
+ * Minimum 1 Tag = 1.450 EUR netto (2×4h-Halbtagsblöcke à 725 EUR). Die 2h Kulanz verschiebt
+ * die Schwelle für den nächsten Halbtag von 8 auf 10 Std.; danach kommt alle weiteren 4 Std.
+ * ein Block dazu (kein erneuter Kulanz-Puffer pro Block).
+ */
+export function computeMontageNet(installationMinutes: number): { net: number; description: string; blocks: number } {
   const installationHours = Math.max(0, installationMinutes) / 60;
-  const totalHours = installationHours + 2;
-  let blocks = Math.ceil(totalHours / 3);
-  blocks = Math.max(blocks, 2);
-  const net = blocks * 725;
+  const effectiveHours = Math.max(0, installationHours - MONTAGE_GRACE_HOURS);
+  let blocks = Math.ceil(effectiveHours / MONTAGE_BLOCK_HOURS);
+  blocks = Math.max(blocks, MONTAGE_MIN_BLOCKS);
+  const net = blocks * MONTAGE_BLOCK_PRICE_NET;
   const dayParts = blocks / 2;
   const minsLabel = installationMinutes > 0 ? `, ${Math.round(installationMinutes)} min Montage` : "";
-  const description = `${dayParts} Tag(e) (${blocks}×3h inkl. An-/Abfahrt${minsLabel})`;
-  return { net, description };
+  const description = `${dayParts} Tag(e) (${blocks}×4h-Block(e)${minsLabel})`;
+  return { net, description, blocks };
 }
 
 function stripHtmlToText(html: string): string {
@@ -169,6 +185,33 @@ async function enrichCustomerForPdf(
 }
 
 /**
+ * Kundennummer + vollständige Rechnungsadresse für ein Angebot auflösen — bevorzugt die im
+ * Angebot selbst eingebettete Snapshot-Adresse (b2bsellers_offer_address, enthält meist schon
+ * Straße/PLZ/Ort), sonst live aus Shopware nachgeladen (enrichCustomerForPdf). Geteilt
+ * zwischen PDF-Aufbau (beide Varianten) und Angebotsdetail (Admin-Modal), damit überall
+ * dieselben vollständigen Kundendaten angezeigt werden.
+ */
+export async function resolveOfferCustomerDetails(
+  rawOfferData: any,
+  mappedOffer: { customerId?: string; customerNumber?: string; billingAddress?: OrderAddress },
+  settings: ShopwareSettings,
+): Promise<{ customerNumber?: string; billingAddress?: OrderAddress }> {
+  // Echte Shopware-Kunden-ID (Snapshot-offerCustomer), nicht die offerCustomerId.
+  const rawAttrs = rawOfferData?.attributes ?? rawOfferData ?? {};
+  const realCustomerId =
+    String(rawAttrs?.offerCustomer?.customerId ?? "").trim() || mappedOffer.customerId;
+  const embeddedBilling = mapEmbeddedOfferAddress(rawAttrs?.billingAddress);
+
+  if (embeddedBilling) {
+    return {
+      customerNumber: mappedOffer.customerNumber?.trim() || undefined,
+      billingAddress: embeddedBilling,
+    };
+  }
+  return enrichCustomerForPdf({ ...mappedOffer, customerId: realCustomerId }, settings);
+}
+
+/**
  * Baut OfferConfigPdfInput für ein normales B2B-Angebot (ohne MetaCalc-Konfiguration).
  * Rendert Kopf, Empfängeradresse, Positionsübersicht und Summen (Netto/USt./Brutto).
  * Versand wird aus dem Angebot übernommen; Montage entfällt (0).
@@ -189,9 +232,19 @@ export async function buildPlainOfferPdfInput(
     items?: any[];
   },
   settings: ShopwareSettings,
+  tenantId?: string | null,
 ): Promise<OfferConfigPdfInput> {
   const allItems: any[] = mappedOffer.items || [];
   const productLines = allItems.filter((it) => !isShippingLineItem(it));
+
+  // Zusatzleistungen (Montage, Gabelstapler, Fixtermin, ...) sollen auch im einfachen
+  // Angebots-PDF (ohne CPQ-Konfiguration) immer als letzte Positionen erscheinen.
+  const productCache = productCacheRegistry.for(tenantId ?? null);
+  try {
+    await productCache.ensurePopulated(new ShopwareClient(settings));
+  } catch {
+    /* nicht kritisch — Sortierung bleibt dann bei der Shopware-Ursprungsreihenfolge */
+  }
 
   // Steuersatz: zuerst gespeicherte Angebotspreise, dann Positions-Satz, sonst aus Netto/Brutto ableiten.
   const offerPrice = rawOfferData?.price ?? rawOfferData?.attributes?.price;
@@ -221,35 +274,26 @@ export async function buildPlainOfferPdfInput(
   const vatAmount = netBeforeVat * rate;
   const grossTotal = netBeforeVat + vatAmount;
 
-  const lineItems: OfferConfigPdfLineItem[] = productLines.map((item: any) => ({
-    label: item.label || item.name || item.productName || "Position",
-    productNumber: item.productNumber || item.payload?.productNumber || null,
-    quantity: item.quantity || 0,
-    unitPrice: Number(item.unitPrice ?? item.price ?? 0),
-    totalPrice: Number(item.totalPrice ?? item.total ?? 0),
-    taxRate: Number(item.taxRate ?? item.price?.taxRules?.[0]?.taxRate ?? 0) || displayTaxRate,
-  }));
+  const lineItems: OfferConfigPdfLineItem[] = productLines
+    .map((item: any) => ({
+      item: {
+        label: item.label || item.name || item.productName || "Position",
+        productNumber: item.productNumber || item.payload?.productNumber || null,
+        quantity: item.quantity || 0,
+        unitPrice: Number(item.unitPrice ?? item.price ?? 0),
+        totalPrice: Number(item.totalPrice ?? item.total ?? 0),
+        taxRate: Number(item.taxRate ?? item.price?.taxRules?.[0]?.taxRate ?? 0) || displayTaxRate,
+      },
+      isService: isServiceProductId(productCache, item.productId || item.payload?.productId),
+    }))
+    .sort((a, b) => Number(a.isService) - Number(b.isService))
+    .map((e) => e.item);
 
-  // Echte Shopware-Kunden-ID (Snapshot-offerCustomer), nicht die offerCustomerId.
-  const rawAttrs = rawOfferData?.attributes ?? rawOfferData ?? {};
-  const realCustomerId =
-    String(rawAttrs?.offerCustomer?.customerId ?? "").trim() || mappedOffer.customerId;
-  // Eigene Angebotsadresse bevorzugen (enthält Straße/PLZ/Ort), sonst gemappte Adresse.
-  const embeddedBilling = mapEmbeddedOfferAddress(rawAttrs?.billingAddress);
-
-  let customerNumber: string | undefined;
-  let billingAddress: OrderAddress | undefined;
-  if (embeddedBilling) {
-    customerNumber = mappedOffer.customerNumber?.trim() || undefined;
-    billingAddress = embeddedBilling;
-  } else {
-    const enriched = await enrichCustomerForPdf(
-      { ...mappedOffer, customerId: realCustomerId },
-      settings,
-    );
-    customerNumber = enriched.customerNumber;
-    billingAddress = enriched.billingAddress;
-  }
+  const { customerNumber, billingAddress } = await resolveOfferCustomerDetails(
+    rawOfferData,
+    mappedOffer,
+    settings,
+  );
 
   return {
     offerNumber: mappedOffer.offerNumber,
@@ -272,6 +316,33 @@ export async function buildPlainOfferPdfInput(
   };
 }
 
+/**
+ * Raumplanung (Phase 3) am fertigen PdfInput ergänzen, falls für das Angebot ein
+ * Raum-Layout mit mindestens einer Platzierung existiert. Mutiert `input` in-place
+ * (kein Rückgabewert nötig — beide PDF-Routen rufen das direkt vor generateOfferConfigPdf auf).
+ */
+export async function attachRoomPlanToPdfInput(
+  storage: IStorage,
+  input: OfferConfigPdfInput,
+  shopwareOfferId: string,
+  tenantId: string | null | undefined,
+): Promise<void> {
+  try {
+    const layout = await storage.getCpqRoomLayoutByOfferId(shopwareOfferId, tenantId ?? null);
+    if (!layout || layout.placements.length === 0) return;
+    input.roomPlan = {
+      name: layout.name,
+      lengthMm: layout.lengthMm,
+      widthMm: layout.widthMm,
+      heightMm: layout.heightMm,
+      placementsCount: layout.placements.length,
+      imageBase64: layout.previewImageBase64,
+    };
+  } catch {
+    /* Raumplanung ist optional — PDF-Erzeugung darf dadurch nicht fehlschlagen. */
+  }
+}
+
 export async function buildOfferConfigPdfInput(
   rawOfferData: any,
   mappedOffer: {
@@ -288,6 +359,7 @@ export async function buildOfferConfigPdfInput(
     items?: any[];
   },
   settings: ShopwareSettings,
+  tenantId?: string | null,
 ): Promise<OfferConfigPdfInput | null> {
   const allItems: any[] = mappedOffer.items || [];
   const hasAnyConfig = allItems.some(hasMetaCalcConfig);
@@ -309,6 +381,17 @@ export async function buildOfferConfigPdfInput(
     } catch {
       /* leer */
     }
+  }
+
+  // Zusatzleistungen (Montage, Gabelstapler, Fixtermin, ...) sollen immer als letzte
+  // Positionen erscheinen — Erkennung über den Produktkatalog-Cache (Customfield
+  // wdu_service_type, siehe montageLineItem.ts), optional: schlägt die Cache-Befüllung
+  // fehl, bleibt die Shopware-Ursprungsreihenfolge unverändert statt das PDF zu blockieren.
+  const productCache = productCacheRegistry.for(tenantId ?? null);
+  try {
+    await productCache.ensurePopulated(new ShopwareClient(settings));
+  } catch {
+    /* nicht kritisch, siehe Kommentar oben */
   }
 
   const productLines = allItems.filter((it) => !isShippingLineItem(it));
@@ -336,10 +419,43 @@ export async function buildOfferConfigPdfInput(
   const vatAmount = netBeforeVat * rate;
   const grossTotal = netBeforeVat + vatAmount;
 
-  const lineItems: OfferConfigPdfLineItem[] = productLines.map((item: any) => {
+  // Gruppierung wie im Angebots-Modal (siehe offerDetailBuilder.ts): jede CPQ-Konfiguration
+  // ist im echten Shopware-Angebot eine Kopfposition (mit metaCalcConfigurationPayload) plus
+  // N eigene, separat bepreiste Stücklisten-Positionen als weitere Top-Level-Lineitems.
+  // Diese "geclaimten" Positionen werden zu EINER Zeile pro Konfiguration zusammengefasst
+  // (Schnellübersicht = "Positionen" wie im Modal), die Detailseite je Konfiguration
+  // (drawConfigSection) zeigt die Stückliste dann wie gehabt einzeln aufgeschlüsselt.
+  const indicesByProductId = new Map<string, number[]>();
+  productLines.forEach((item: any, idx: number) => {
+    const pid = item.productId || item.payload?.productId;
+    if (pid) {
+      const key = String(pid);
+      const arr = indicesByProductId.get(key) ?? [];
+      arr.push(idx);
+      indicesByProductId.set(key, arr);
+    }
+  });
+  const headIndices = new Set<number>();
+  productLines.forEach((item: any, idx: number) => {
+    if (item.payload?.metaCalcConfigurationPayload) headIndices.add(idx);
+  });
+  const claimedIndices = new Set<number>();
+  const claimRealIndexForProduct = (productId: string, headIdx: number): number | undefined => {
+    const candidates = indicesByProductId.get(productId);
+    if (!candidates) return undefined;
+    for (const idx of candidates) {
+      if (idx === headIdx || claimedIndices.has(idx) || headIndices.has(idx)) continue;
+      claimedIndices.add(idx);
+      return idx;
+    }
+    return undefined;
+  };
+
+  const rawEntries: Array<{ item: OfferConfigPdfLineItem; isService: boolean }> = productLines.map((item: any, itemIdx: number) => {
     const mcp = item.payload?.metaCalcConfigurationPayload;
     const rawPartsList = mcp?.partsList || [];
     const rawAccessoryList = mcp?.accessoryList || [];
+    const ownProductId = item.productId || item.payload?.productId;
 
     const mapPart = (part: any) => {
       const resolved = part.productId ? productLookup.get(part.productId) : undefined;
@@ -363,18 +479,53 @@ export async function buildOfferConfigPdfInput(
         }
       : undefined;
 
+    // Kopfposition: eigener Preis + Summe aller ihr zugeordneten (geclaimten) Stücklisten-
+    // Positionen — dieselbe Zuordnung wie im Angebots-Modal, damit dieselbe Konfiguration
+    // hier denselben Gesamtpreis zeigt wie dort.
+    let totalPrice = Number(item.totalPrice ?? item.total ?? 0);
+    if (mcp) {
+      const bomEntries = [...rawPartsList, ...rawAccessoryList].filter(
+        (part: any) => !ownProductId || !part.productId || String(part.productId) !== String(ownProductId),
+      );
+      for (const part of bomEntries) {
+        if (!part.productId) continue;
+        const realIdx = claimRealIndexForProduct(String(part.productId), itemIdx);
+        if (realIdx !== undefined) {
+          const real = productLines[realIdx];
+          totalPrice += Number(real.totalPrice ?? real.total ?? 0);
+        }
+      }
+    }
+
     return {
-      label: item.label || item.name || item.productName || "Position",
-      productNumber: item.productNumber || item.payload?.productNumber || null,
-      quantity: item.quantity || 0,
-      unitPrice: Number(item.unitPrice ?? item.price ?? 0),
-      totalPrice: Number(item.totalPrice ?? item.total ?? 0),
-      taxRate: Number(item.taxRate ?? item.price?.taxRules?.[0]?.taxRate ?? displayTaxRate),
-      config,
+      item: {
+        label: item.label || item.name || item.productName || "Position",
+        productNumber: item.productNumber || item.payload?.productNumber || null,
+        quantity: mcp ? 1 : item.quantity || 0,
+        unitPrice: mcp ? totalPrice : Number(item.unitPrice ?? item.price ?? 0),
+        totalPrice,
+        taxRate: Number(item.taxRate ?? item.price?.taxRules?.[0]?.taxRate ?? displayTaxRate),
+        config,
+      },
+      // Eine CPQ-Konfigurationsgruppe ist nie selbst eine Zusatzleistung.
+      isService: !mcp && isServiceProductId(productCache, ownProductId),
     };
   });
 
-  const { customerNumber, billingAddress } = await enrichCustomerForPdf(mappedOffer, settings);
+  // In ihre Konfigurations-Kopfposition gefaltete Zeilen tauchen nicht zusätzlich als eigene
+  // Top-Level-Position auf (sonst doppelt: einmal einzeln, einmal in der Gruppen-Summe).
+  // Zusatzleistungen (Montage, Gabelstapler, Fixtermin, ...) immer als letzte Positionen —
+  // stabile Sortierung, damit die sonstige (Shopware-Ursprungs-)Reihenfolge erhalten bleibt.
+  const lineItems: OfferConfigPdfLineItem[] = rawEntries
+    .filter((_, idx) => !claimedIndices.has(idx))
+    .sort((a, b) => Number(a.isService) - Number(b.isService))
+    .map((e) => e.item);
+
+  const { customerNumber, billingAddress } = await resolveOfferCustomerDetails(
+    rawOfferData,
+    mappedOffer,
+    settings,
+  );
 
   return {
     offerNumber: mappedOffer.offerNumber,

@@ -11,6 +11,7 @@ import {
 } from "@/lib/commercialDraftConfidence";
 import { pickDocumentExtraction } from "@/components/DocumentExtractionAlerts";
 import { useLocation } from "wouter";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { fetchOfferDraftForReview } from "@/lib/refreshReviewDraft";
 import OfferDetailModal from "@/components/OfferDetailModal";
@@ -65,13 +66,18 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
   // Track if this is the initial mount to prevent pagination reset
   const isInitialMount = useRef(true);
 
+  // Freitext-Filter debouncen — sonst löst jeder Tastendruck sofort einen neuen
+  // /api/offers-Request (inkl. Pagination-Reset) aus.
+  const debouncedSearchValue = useDebouncedValue(searchValue, 350);
+  const debouncedCustomerFilter = useDebouncedValue(customerFilter, 350);
+
   // Fetch offers from backend (server-side filtering + pagination)
   const { data: offersResponse, isLoading, error, refetch } = useQuery<{ offers: Offer[]; total: number }>({
     queryKey: [
       "/api/offers",
-      searchValue,
+      debouncedSearchValue,
       statusFilter,
-      customerFilter,
+      debouncedCustomerFilter,
       dateFrom,
       dateTo,
       currentPage,
@@ -79,9 +85,9 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
     ],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (searchValue) params.append("search", searchValue);
+      if (debouncedSearchValue) params.append("search", debouncedSearchValue);
       if (statusFilter !== "all") params.append("status", statusFilter);
-      if (customerFilter) params.append("customer", customerFilter);
+      if (debouncedCustomerFilter) params.append("customer", debouncedCustomerFilter);
       if (dateFrom) params.append("dateFrom", dateFrom);
       if (dateTo) params.append("dateTo", dateTo);
       params.append("page", String(currentPage));
@@ -114,9 +120,22 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
   const canManageOffers = !!(currentUser?.user?.permissions as any)?.manageOffers;
   const canApproveCPQQuotes = !!(currentUser?.user?.permissions as any)?.approveCPQQuotes;
 
-  // Fetch offer drafts
+  // Fetch offer drafts — nur pending/review_required, das Einzige, was diese Seite anzeigt
+  // (statt der kompletten Entwurfshistorie inkl. großer JSONB-Spalten). Der queryKey behält
+  // "/api/offer-drafts" als erstes Element, damit die zahlreichen invalidateQueries({queryKey:
+  // ["/api/offer-drafts"]})-Aufrufe an anderer Stelle im Code diese Query weiterhin treffen.
   const { data: drafts = [], isLoading: draftsLoading, refetch: refetchDrafts } = useQuery<OfferDraft[]>({
-    queryKey: ["/api/offer-drafts"],
+    queryKey: ["/api/offer-drafts", "pending,review_required"],
+    queryFn: async () => {
+      const response = await fetch("/api/offer-drafts?status=pending,review_required", {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || "Failed to load offer drafts");
+      }
+      return response.json();
+    },
   });
 
   // Filter drafts to show only pending and review_required
@@ -285,7 +304,7 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
       return;
     }
     setCurrentPage(1);
-  }, [searchValue, statusFilter, customerFilter, dateFrom, dateTo, itemsPerPage]);
+  }, [debouncedSearchValue, statusFilter, debouncedCustomerFilter, dateFrom, dateTo, itemsPerPage]);
 
   const handleDownloadPDF = async (offerId: string, offerNumber: string) => {
     try {

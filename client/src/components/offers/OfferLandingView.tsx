@@ -1,4 +1,4 @@
-import { useMemo, useState, Fragment, type ReactNode } from "react";
+import { useMemo, useState, Fragment, lazy, Suspense, type ReactNode } from "react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import {
@@ -11,11 +11,16 @@ import { ChevronDown, ChevronRight, Download, ImageIcon, Layers, Loader2 } from 
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import OfferLineItemGlbPreview from "./OfferLineItemGlbPreview";
-import CpqRegalArViewer from "./CpqRegalArViewer";
 import metaLogoUrl from "@assets/META-Logo.svg";
 import { CPQ_3D_PREVIEW } from "@/lib/featureFlags";
-import "@google/model-viewer";
 import "./offerLanding.css";
+
+// three.js/GLTFExporter/model-viewer sind schwer und werden nur gebraucht, wenn diese
+// Angebotsseite tatsächlich eine CPQ-Konfiguration oder Raumplanung zeigt — lazy laden,
+// damit Angebote ohne CPQ-Inhalt sie nicht ins Hauptbundle ziehen (Muster wie RoomScene3D
+// im Admin-Raumplaner).
+const CpqRegalArViewer = lazy(() => import("./CpqRegalArViewer"));
+const CpqRoomArViewer = lazy(() => import("./CpqRoomArViewer"));
 
 export type OfferLandingLineChild = {
   id: string;
@@ -45,6 +50,20 @@ export type OfferLandingLineItem = {
   isConfigurationGroup?: boolean;
 };
 
+export type OfferLandingRoomPlan = {
+  name: string | null;
+  lengthMm: number;
+  widthMm: number;
+  heightMm: number;
+  placements: Array<{ configKey: string; xMm: number; yMm: number; rotationDeg: 0 | 90 | 180 | 270 }>;
+  configurations: Array<{
+    configKey: string;
+    footprint: { lengthMm: number; depthMm: number; heightMm: number };
+    cpqConfig: Record<string, unknown>;
+  }>;
+  wallFeatures?: Array<{ id: string; wall: "north" | "south" | "east" | "west"; type: "door" | "window" | "gate"; offsetMm: number; widthMm: number }>;
+};
+
 export type OfferLandingData = {
   id: string;
   offerNumber: string;
@@ -58,6 +77,8 @@ export type OfferLandingData = {
   expirationDate: string | null;
   salesChannelName?: string | null;
   lineItems: OfferLandingLineItem[];
+  /** Raumplanung (falls im Angebot platziert) fürs interaktive 3D+AR-Modell. */
+  roomPlan?: OfferLandingRoomPlan | null;
 };
 
 export type MediaLightboxState =
@@ -397,6 +418,29 @@ export default function OfferLandingView({
           </div>
         ) : null}
 
+        {offer.roomPlan && offer.roomPlan.placements.length > 0 ? (
+          <div className="panel">
+            <div className="panel-head">
+              <span className="eyebrow">Raumplanung</span>
+              <h2>{offer.roomPlan.name?.trim() || "Ihr Raum"}</h2>
+            </div>
+            <div className="panel-body">
+              <Suspense fallback={<div style={{ padding: 16, textAlign: "center", fontSize: 12.5, color: "var(--fg-3, #777)" }}>3D-Ansicht wird geladen…</div>}>
+                <CpqRoomArViewer
+                  room={{
+                    lengthMm: offer.roomPlan.lengthMm,
+                    widthMm: offer.roomPlan.widthMm,
+                    heightMm: offer.roomPlan.heightMm,
+                  }}
+                  placements={offer.roomPlan.placements}
+                  configurations={offer.roomPlan.configurations}
+                  wallFeatures={offer.roomPlan.wallFeatures ?? []}
+                />
+              </Suspense>
+            </div>
+          </div>
+        ) : null}
+
         <h2 className="section-title">Positionen</h2>
         {offer.lineItems.map((item) => {
           const open = expanded.has(item.id);
@@ -444,7 +488,9 @@ export default function OfferLandingView({
 
               {item.cpqConfig ? (
                 <div className="viewport-wrap">
-                  <CpqRegalArViewer cpqConfig={item.cpqConfig} compact={hasImg} />
+                  <Suspense fallback={<div style={{ padding: 16, textAlign: "center", fontSize: 12.5, color: "var(--fg-3, #777)" }}>3D-Ansicht wird geladen…</div>}>
+                    <CpqRegalArViewer cpqConfig={item.cpqConfig} compact={hasImg} />
+                  </Suspense>
                 </div>
               ) : null}
 

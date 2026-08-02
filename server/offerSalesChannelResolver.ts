@@ -6,6 +6,8 @@ export type ResolveOfferSalesChannelInput = {
   tenantId?: string | null;
   /** Aus Request-Body (optional) */
   requestedChannelId?: string | null;
+  /** An den Angebots-Kunden gebundener Verkaufskanal (z. B. aus CPQ-Kundenauswahl) — hat Vorrang vor Env/Settings/Default. */
+  customerChannelId?: string | null;
   /**
    * null = Admin / uneingeschränkter Zugriff (alle Kanäle erlaubt)
    * [] = Benutzer ohne zugewiesene Kanäle
@@ -40,13 +42,13 @@ function pickIfAllowed(
 
 /**
  * Ermittelt die Sales-Channel-ID für B2B-Angebote.
- * Reihenfolge: Request → Env → Agent-Settings → erster zugewiesener Kanal → erster aktiver Shopware-Kanal.
+ * Reihenfolge: Request → gebundener Kundenkanal → Env → Agent-Settings → erster zugewiesener Kanal → erster aktiver Shopware-Kanal.
  */
 export async function resolveOfferSalesChannelId(
   storage: IStorage,
   input: ResolveOfferSalesChannelInput
 ): Promise<ResolveOfferSalesChannelResult> {
-  const { tenantId, requestedChannelId, allowedChannelIds } = input;
+  const { tenantId, requestedChannelId, customerChannelId, allowedChannelIds } = input;
 
   if (Array.isArray(allowedChannelIds) && allowedChannelIds.length === 0) {
     return {
@@ -69,6 +71,11 @@ export async function resolveOfferSalesChannelId(
   const fromRequest = pickIfAllowed(requestedChannelId, allowedChannelIds);
   if (fromRequest) {
     return { ok: true, salesChannelId: fromRequest, source: "request" };
+  }
+
+  const fromCustomer = pickIfAllowed(customerChannelId, allowedChannelIds);
+  if (fromCustomer) {
+    return { ok: true, salesChannelId: fromCustomer, source: "customer_binding" };
   }
 
   const fromEnv = pickIfAllowed(

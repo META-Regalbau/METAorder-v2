@@ -2,6 +2,35 @@
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/shopware/shopware/trunk/src/Core/System/SystemConfig/Schema/config.xsd">
     <card>
+        <title>META CLIP CPQ Konfigurator (METAorder)</title>
+        <title lang="de-DE">META CLIP CPQ Konfigurator (METAorder)</title>
+
+        <input-field type="text">
+            <name>metaorderBaseUrl</name>
+            <label>METAorder Basis-URL (öffentlicher Konfigurator)</label>
+            <label lang="de-DE">METAorder Basis-URL (öffentlicher Konfigurator)</label>
+            <helpText>z. B. https://configurator.meta-online.com — ohne abschließenden Schrägstrich.</helpText>
+            <helpText lang="de-DE">z. B. https://configurator.meta-online.com — ohne abschließenden Schrägstrich.</helpText>
+        </input-field>
+
+        <input-field type="text">
+            <name>cpqTenantId</name>
+            <label>METAorder Mandanten-ID</label>
+            <label lang="de-DE">METAorder Mandanten-ID</label>
+            <helpText>Welchem METAorder-Mandanten diese Shop-Instanz zugeordnet ist.</helpText>
+            <helpText lang="de-DE">Welchem METAorder-Mandanten diese Shop-Instanz zugeordnet ist.</helpText>
+        </input-field>
+
+        <input-field type="password">
+            <name>cpqHandoffSecret</name>
+            <label>CPQ-Handoff-Secret</label>
+            <label lang="de-DE">CPQ-Handoff-Secret</label>
+            <helpText>Muss exakt mit CPQ_HANDOFF_SECRET auf dem METAorder-Server übereinstimmen.</helpText>
+            <helpText lang="de-DE">Muss exakt mit CPQ_HANDOFF_SECRET auf dem METAorder-Server übereinstimmen.</helpText>
+        </input-field>
+    </card>
+
+    <card>
         <title>META CLIP CPQ Routing</title>
         <title lang="de-DE">META CLIP CPQ Routing</title>
 

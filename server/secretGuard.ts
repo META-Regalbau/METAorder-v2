@@ -22,6 +22,7 @@ const KNOWN_INSECURE_DEFAULTS = new Set([
   "change-me-n8n-admin",
   "metaorder-dev-n8n-encryption-key-change-in-prod",
   "metaorder-minio-change-me",
+  "dev-cpq-handoff-secret-change-me",
 ]);
 
 function allowDevSecrets(): boolean {

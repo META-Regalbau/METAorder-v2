@@ -5,6 +5,7 @@
 import { cpqStorage } from "./cpqStorage";
 import { evaluateRules } from "./constraintEngine";
 import type { ShopwareClient } from "../shopware";
+import type { CpqProductMapping, CpqRule } from "@shared/schema";
 
 export type CartItem = {
   product_id: string;
@@ -36,11 +37,28 @@ export async function getCpqCrossSelling(
 
   if (cartItems.length === 0) return result;
 
-  for (const item of cartItems) {
-    const mapping = await cpqStorage.getProductMappingByProductId(item.product_id, tenantId);
-    if (!mapping || mapping.status !== "active") continue;
+  // Batch statt N+1: alle Produkt-Mappings in einer Query, Regeln + System-Mappings je
+  // eindeutigem System nur einmal laden (mehrere Cart-Items teilen sich oft dasselbe System).
+  const productIds = [...new Set(cartItems.map((i) => i.product_id))];
+  const mappings = await cpqStorage.getProductMappingsByProductIds(productIds, tenantId);
+  const mappingByProductId = new Map(mappings.map((m) => [m.shopwareProductId, m]));
 
-    const rules = await cpqStorage.getRulesBySystem(mapping.systemId, tenantId);
+  const activeItems = cartItems
+    .map((item) => ({ item, mapping: mappingByProductId.get(item.product_id) }))
+    .filter(
+      (x): x is { item: CartItem; mapping: CpqProductMapping } => !!x.mapping && x.mapping.status === "active",
+    );
+
+  const systemIds = [...new Set(activeItems.map((x) => x.mapping.systemId))];
+  const [rulesEntries, systemMappingsEntries] = await Promise.all([
+    Promise.all(systemIds.map(async (systemId) => [systemId, await cpqStorage.getRulesBySystem(systemId, tenantId)] as const)),
+    Promise.all(systemIds.map(async (systemId) => [systemId, await cpqStorage.getProductMappingsBySystem(systemId, tenantId)] as const)),
+  ]);
+  const rulesBySystem = new Map<string, CpqRule[]>(rulesEntries);
+  const systemMappingsBySystem = new Map<string, CpqProductMapping[]>(systemMappingsEntries);
+
+  for (const { item, mapping } of activeItems) {
+    const rules = rulesBySystem.get(mapping.systemId) ?? [];
     const config: Record<string, unknown> = {
       selected_frame: { attributes: mapping.attributes },
       selected_beam: {},
@@ -53,8 +71,8 @@ export async function getCpqCrossSelling(
 
     for (const req of ruleResult.requiredComponents) {
       if (req.type && req.value) {
-        const mappings = await cpqStorage.getProductMappingsBySystem(mapping.systemId, tenantId);
-        const matching = mappings.filter(
+        const systemMappings = systemMappingsBySystem.get(mapping.systemId) ?? [];
+        const matching = systemMappings.filter(
           (m) => m.status === "active" && m.attributes && (m.attributes as Record<string, unknown>)[req.attribute || ""] === req.value
         );
         for (const m of matching) {
@@ -89,11 +107,22 @@ export async function validateCpqCart(
 
   if (cartItems.length === 0) return result;
 
-  for (const item of cartItems) {
-    const mapping = await cpqStorage.getProductMappingByProductId(item.product_id, tenantId);
-    if (!mapping || mapping.status !== "active") continue;
+  const productIds = [...new Set(cartItems.map((i) => i.product_id))];
+  const mappings = await cpqStorage.getProductMappingsByProductIds(productIds, tenantId);
+  const mappingByProductId = new Map(mappings.map((m) => [m.shopwareProductId, m]));
 
-    const rules = await cpqStorage.getRulesBySystem(mapping.systemId, tenantId);
+  const activeMappings = cartItems
+    .map((item) => mappingByProductId.get(item.product_id))
+    .filter((m): m is CpqProductMapping => !!m && m.status === "active");
+
+  const systemIds = [...new Set(activeMappings.map((m) => m.systemId))];
+  const rulesEntries = await Promise.all(
+    systemIds.map(async (systemId) => [systemId, await cpqStorage.getRulesBySystem(systemId, tenantId)] as const),
+  );
+  const rulesBySystem = new Map<string, CpqRule[]>(rulesEntries);
+
+  for (const mapping of activeMappings) {
+    const rules = rulesBySystem.get(mapping.systemId) ?? [];
     const config: Record<string, unknown> = {
       selected_frame: { attributes: mapping.attributes },
       selected_beam: {},

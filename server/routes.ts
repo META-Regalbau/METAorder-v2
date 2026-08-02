@@ -56,7 +56,7 @@ import {
   DEFAULT_COMMERCIAL_AGENT,
   type CommercialAgentSettings,
 } from "./aiConfig";
-import { requireAuth, requireAuthOrIntegrationKey, requireCsrf, requireViewDelayedOrders, requireManageUsers, requireManageRoles, requireManageSettings, requireManageCrossSellingGroups, requireManageCrossSellingRules, requireViewTickets, requireManageTickets, requireViewShipping, requireEditOrders, requireManageAutomations, requireManageOrderDrafts, requireManageCommercialDraftUpload, requireViewOffers, requireManageOffers, requireViewNaturalLanguageAnalytics, requireManageDocuments, requireViewDocuments, requireViewAnalytics, requireManageProducts, requireViewAccounting, requireViewCrm, requireManageCrm, requireApproveCrm, requireViewCPQ, requireManageCPQ, requireManageCPQDiscountLevels, requireApproveCPQQuotes } from "./auth";
+import { requireAuth, requireAuthOrIntegrationKey, requireCsrf, requireViewDelayedOrders, requireManageUsers, requireManageRoles, requireManageSettings, requireManageCrossSellingGroups, requireManageCrossSellingRules, requireViewTickets, requireManageTickets, requireViewShipping, requireEditOrders, requireManageAutomations, requireManageOrderDrafts, requireManageCommercialDraftUpload, requireViewOffers, requireManageOffers, requireViewNaturalLanguageAnalytics, requireManageDocuments, requireViewDocuments, requireViewAnalytics, requireManageProducts, requireViewAccounting, requireViewCrm, requireManageCrm, requireApproveCrm, requireViewCPQ, requireManageCPQ, requireManageCPQDiscountLevels, requireApproveCPQQuotes, requireCpqHandoffToken } from "./auth";
 import { requireCustomerAuth, type CustomerRequest } from "./authCustomer";
 import { encrypt, decrypt } from "./encryption";
 import * as XLSX from 'xlsx';
@@ -83,7 +83,7 @@ import { generateSettlementInvoicePdf, type SettlementInvoicePdfInput } from "./
 import { generateAdditionalInvoicePdf } from "./additionalInvoicePdf";
 import { applyOfferConfigPdfLayoutFromRequest, generateOfferConfigPdf } from "./offerConfigPdf";
 import { buildOfferConfigPdfInputWithCpqFallback } from "./offerConfigPdfCpqFallback";
-import { buildPlainOfferPdfInput } from "./offerConfigPdfBuilder";
+import { buildPlainOfferPdfInput, attachRoomPlanToPdfInput } from "./offerConfigPdfBuilder";
 import {
   buildOfferErpExportModel,
   offerErpExportToCsv,
@@ -1315,94 +1315,88 @@ function monduShipBlockedPayload(errorMessage: string) {
   };
 }
 
-// Versionierter Key: bei strukturellen Aenderungen am Order-Objekt (neue Felder
-// wie hasInvoiceDocument/invoiceSent) erhoehen, damit alte DB-Caches automatisch
-// verworfen werden und ein frischer Fetch mit den neuen Feldern laeuft.
-const ORDERS_CACHE_KEY = "orders_cache_v4";
-const ORDERS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const CRM_CUSTOMERS_CACHE_KEY = "crm_customers_cache_v4";
 const CRM_INDIVIDUAL_PRICES_CACHE_KEY = "crm_individual_prices_index_v2";
 const BESTANDSKUNDEN_GROUP_TERMS = ["Portal", "Händler", "Haendler"];
 
-type OrdersCacheLegacy = {
-  fetchedAt: string;
-  fingerprint?: string;
-  orders: Order[];
-  latestMeta?: {
-    id: string;
-    orderNumber: string;
-    orderDate?: string;
-    updatedAt?: string;
-  };
-};
-
 async function markOrderInvoiceSentInCache(orderId: string, tenantId?: string | null): Promise<void> {
   try {
-    const raw = await storage.getSetting(ORDERS_CACHE_KEY, tenantId);
-    const persisted = raw as PersistedHashCache<Order[]> | OrdersCacheLegacy | undefined;
-    const orders =
-      persisted && "data" in persisted && Array.isArray(persisted.data)
-        ? persisted.data
-        : (persisted as OrdersCacheLegacy | undefined)?.orders;
-    if (!orders?.length) return;
+    const mirror = await storage.getShopwareOrderMirrorByShopwareId(orderId, tenantId);
+    if (!mirror) return;
+    const order = mirror.payload as Order;
+    if (!order || order.id !== orderId) return;
 
     let changed = false;
-    for (const o of orders) {
-      if (o.id === orderId) {
-        if (!o.hasInvoiceDocument) {
-          o.hasInvoiceDocument = true;
-          o.invoiceDocumentCount = o.invoiceDocumentCount || 1;
-        }
-        if (o.invoiceSent !== true) {
-          o.invoiceSent = true;
-          changed = true;
-        }
-      }
+    if (!order.hasInvoiceDocument) {
+      order.hasInvoiceDocument = true;
+      order.invoiceDocumentCount = order.invoiceDocumentCount || 1;
+      changed = true;
+    }
+    if (order.invoiceSent !== true) {
+      order.invoiceSent = true;
+      changed = true;
     }
     if (!changed) return;
 
-    if (persisted && "data" in persisted) {
-      await storage.saveSetting(ORDERS_CACHE_KEY, { ...persisted, data: orders }, tenantId);
-    } else if (persisted && "orders" in persisted) {
-      await storage.saveSetting(ORDERS_CACHE_KEY, { ...persisted, orders }, tenantId);
-    }
-    invalidateMemoryHashCache(ORDERS_CACHE_KEY, tenantId);
+    await storage.upsertShopwareOrderMirrors(
+      [
+        {
+          shopwareId: mirror.shopwareId,
+          orderNumber: mirror.orderNumber,
+          salesChannelId: mirror.salesChannelId,
+          swUpdatedAt: mirror.swUpdatedAt,
+          payload: order as unknown as Record<string, unknown>,
+        },
+      ],
+      tenantId,
+    );
   } catch (error) {
     console.warn("[orders-cache] Failed to update invoice-sent flag:", error);
   }
 }
 
+/**
+ * Bestellungen aus dem lokalen Spiegel (server/shopwareMirror.ts) statt bei jedem
+ * Laden alle Bestellungen live von Shopware zu holen. Der Spiegel wird alle 3 Minuten
+ * im Hintergrund per Delta-Sync aktuell gehalten (nur updatedAt >= letzter Sync-Zeitpunkt
+ * — erfasst damit auch Status-Aenderungen an aelteren Bestellungen, nicht nur neue).
+ * forceRefresh (manueller "Aktualisieren"-Klick) stoesst einen Sync synchron an, statt
+ * wie frueher alle Bestellungen komplett neu von Shopware zu laden.
+ */
 async function getOrdersWithCache(
   client: ShopwareClient,
   tenantId?: string | null,
   options?: { forceRefresh?: boolean },
 ): Promise<{ orders: Order[]; fromCache: boolean }> {
-  const result = await getHashCached<Order[]>({
-    cacheKey: ORDERS_CACHE_KEY,
-    tenantId,
-    ttlMs: ORDERS_CACHE_TTL_MS,
-    memoryTtlMs: 10 * 60 * 1000,
-    fingerprintMinIntervalMs: 60_000,
-    bypassCache: options?.forceRefresh,
-    fetchFingerprint: () => client.fetchOrdersFingerprint(),
-    fetchFull: () => client.fetchOrders(undefined, { includeInvoiceInfo: true }),
-  });
+  const mirrorCount = await storage.countShopwareOrderMirrors(tenantId);
+  const needsSync = Boolean(options?.forceRefresh) || mirrorCount === 0;
 
-  if (result.fromCache) {
-    console.log(`[orders-cache] hit (${result.data.length} orders, fp ${result.fingerprint.slice(0, 8)})`);
-  } else {
-    console.log(`[orders-cache] full reload (${result.data.length} orders, fp ${result.fingerprint.slice(0, 8)})`);
-    if (tenantId) {
-      try {
-        const { triggerShopwareSalesStockSync } = await import("./erp/erpShopwareSalesStock");
-        triggerShopwareSalesStockSync(tenantId, result.data);
-      } catch (err) {
-        console.error("[orders-cache] shopware sales stock trigger failed:", err);
-      }
+  if (needsSync) {
+    try {
+      const { syncShopwareMirrorForTenant } = await import("./shopwareMirror");
+      await syncShopwareMirrorForTenant(storage, client, tenantId ?? null, { entities: ["orders"] });
+    } catch (error) {
+      console.error("[orders-cache] Sync fehlgeschlagen, liefere Spiegel-Stand:", error);
     }
   }
 
-  return { orders: result.data, fromCache: result.fromCache };
+  const { mirrorRowsToOrders } = await import("./shopwareMirror");
+  const { rows } = await storage.getShopwareOrderMirrors(tenantId);
+  const orders = mirrorRowsToOrders(rows);
+  const fromCache = !needsSync;
+
+  console.log(`[orders-cache] ${fromCache ? "hit" : "synced"} (${orders.length} orders, mirror)`);
+
+  if (needsSync && tenantId) {
+    try {
+      const { triggerShopwareSalesStockSync } = await import("./erp/erpShopwareSalesStock");
+      triggerShopwareSalesStockSync(tenantId, orders);
+    } catch (err) {
+      console.error("[orders-cache] shopware sales stock trigger failed:", err);
+    }
+  }
+
+  return { orders, fromCache };
 }
 
 function parseOrdersListQuery(query: Record<string, unknown>): OrdersListQuery {
@@ -15054,10 +15048,42 @@ Antworte im JSON-Format:
     }
   );
 
+  // POST /api/offers/:id/cpq-configuration - eine weitere CPQ-Konfiguration zu einem bestehenden Angebot hinzufügen
+  app.post("/api/offers/:id/cpq-configuration", requireAuth, requireManageOffers, requireCsrf, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { systemId, systemName, config, billOfMaterials, cpqConfigurationId, previewImageBase64 } = req.body;
+      if (!billOfMaterials || !Array.isArray(billOfMaterials.items) || billOfMaterials.items.length === 0) {
+        return res.status(400).json({ error: "Stückliste ist leer. Bitte zuerst die Konfiguration im CPQ-Konfigurator vervollständigen." });
+      }
+      const previewImage =
+        typeof previewImageBase64 === "string" && /^data:image\/\w+;base64,/.test(previewImageBase64)
+          ? previewImageBase64
+          : null;
+
+      const { addCpqConfigurationToOffer } = await import("./cpqOfferAppend");
+      await addCpqConfigurationToOffer(storage, req.tenantId ?? null, id, {
+        systemId: systemId ?? null,
+        systemName: systemName ?? null,
+        config: config && typeof config === "object" ? config : null,
+        cpqConfigurationId: typeof cpqConfigurationId === "string" ? cpqConfigurationId : null,
+        previewImageBase64: previewImage,
+        billOfMaterials: {
+          items: billOfMaterials.items,
+          totalPrice: billOfMaterials.totalPrice,
+        },
+      });
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error adding CPQ configuration to offer:", error);
+      res.status(500).json({ error: error.message || "Konfiguration konnte nicht zum Angebot hinzugefügt werden" });
+    }
+  });
+
   // POST /api/offer-drafts/from-cpq - Create offer draft from CPQ Konfigurator
   app.post("/api/offer-drafts/from-cpq", requireAuth, requireManageOffers, async (req: Request, res: Response) => {
     try {
-      const { systemId, systemName, config, billOfMaterials, cpqConfigurationId, previewImageBase64 } = req.body;
+      const { systemId, systemName, config, billOfMaterials, cpqConfigurationId, previewImageBase64, customerId } = req.body;
       const user = req.user as { id?: string; username?: string };
       const userId = user?.id ?? user?.username ?? "unknown";
 
@@ -15079,9 +15105,18 @@ Antworte im JSON-Format:
         unitPrice: number;
         lineTotal?: number;
         componentType?: string;
+        /** Katalogpreis (netto) vor kundenspezifischem Rabatt — von der CPQ-Preisberechnung gesetzt. */
+        catalogUnitPrice?: number;
+        /** Rabatt in % ggü. Katalogpreis. */
+        discountPercent?: number;
       };
 
       const bomItems: BomItemIn[] = billOfMaterials.items;
+      const totalCatalogValue: number =
+        typeof billOfMaterials.totalCatalogPrice === "number" ? billOfMaterials.totalCatalogPrice : billOfMaterials.totalPrice;
+      const totalSuggestedValue: number = billOfMaterials.totalPrice;
+      const totalDiscountPercentage =
+        totalCatalogValue > 0 ? Math.round((1 - totalSuggestedValue / totalCatalogValue) * 1000) / 10 : 0;
 
       const matchingResults = {
         items: bomItems.map((item) => ({
@@ -15092,9 +15127,9 @@ Antworte im JSON-Format:
             id: item.productId,
             productNumber: item.productNumber,
             name: item.name,
-            catalogPrice: item.unitPrice,
+            catalogPrice: item.catalogUnitPrice ?? item.unitPrice,
             suggestedPrice: item.unitPrice,
-            suggestedDiscount: 0,
+            suggestedDiscount: item.discountPercent ?? 0,
           },
           confidence: 100,
           status: "matched",
@@ -15102,9 +15137,9 @@ Antworte im JSON-Format:
         })),
         overallConfidence: 100,
         pricingRecommendations: {
-          totalCatalogValue: billOfMaterials.totalPrice,
-          totalSuggestedValue: billOfMaterials.totalPrice,
-          totalDiscountPercentage: 0,
+          totalCatalogValue,
+          totalSuggestedValue,
+          totalDiscountPercentage,
           reasoning: "CPQ-Konfigurator",
         },
       };
@@ -15140,13 +15175,16 @@ Antworte im JSON-Format:
                 unitPrice: item.unitPrice,
                 lineTotal: item.lineTotal,
                 componentType: item.componentType,
+                catalogPrice: item.catalogUnitPrice,
+                discountPercent: item.discountPercent,
               })),
               totalPrice: billOfMaterials.totalPrice,
+              totalCatalogPrice: totalCatalogValue,
             },
           },
         },
         matchingResults,
-        shopwareCustomerId: null,
+        shopwareCustomerId: typeof customerId === "string" && customerId ? customerId : null,
         shopwareOfferId: null,
         createdByUserId: userId,
         },
@@ -15160,10 +15198,144 @@ Antworte im JSON-Format:
     }
   });
 
+  // POST /api/cpq/public/offer-request - wie /api/offer-drafts/from-cpq, aber für den
+  // öffentlichen Shop-Konfigurator: nur eingeloggte Kunden (customerId kommt ausschließlich
+  // aus dem verifizierten Handoff-Token), landet wie jeder andere CPQ-Entwurf in der
+  // "Ausstehende Entwürfe"-Prüfung, bevor ein Sachbearbeiter daraus ein echtes Angebot macht.
+  app.post("/api/cpq/public/offer-request", requireCpqHandoffToken, async (req: Request, res: Response) => {
+    try {
+      const customerId = req.cpqHandoff?.customerId ?? null;
+      if (!customerId) {
+        return res.status(403).json({ error: "Bitte melden Sie sich im Shop an, um ein Angebot anzufragen." });
+      }
+      const { systemId, systemName, config, billOfMaterials, cpqConfigurationId, previewImageBase64 } = req.body;
+
+      if (!billOfMaterials || !billOfMaterials.items || billOfMaterials.items.length === 0) {
+        return res.status(400).json({ error: "Stückliste ist leer. Bitte zuerst die Konfiguration vervollständigen." });
+      }
+      const previewImage =
+        typeof previewImageBase64 === "string" && /^data:image\/\w+;base64,/.test(previewImageBase64)
+          ? previewImageBase64
+          : null;
+
+      type BomItemIn = {
+        productId: string;
+        productNumber: string;
+        name: string;
+        quantity: number;
+        unitPrice: number;
+        lineTotal?: number;
+        componentType?: string;
+        catalogUnitPrice?: number;
+        discountPercent?: number;
+      };
+      const bomItems: BomItemIn[] = billOfMaterials.items;
+      const totalCatalogValue: number =
+        typeof billOfMaterials.totalCatalogPrice === "number" ? billOfMaterials.totalCatalogPrice : billOfMaterials.totalPrice;
+      const totalSuggestedValue: number = billOfMaterials.totalPrice;
+      const totalDiscountPercentage =
+        totalCatalogValue > 0 ? Math.round((1 - totalSuggestedValue / totalCatalogValue) * 1000) / 10 : 0;
+
+      const matchingResults = {
+        items: bomItems.map((item) => ({
+          extractedProductName: item.name,
+          extractedProductNumber: item.productNumber,
+          quantity: item.quantity,
+          matchedProduct: {
+            id: item.productId,
+            productNumber: item.productNumber,
+            name: item.name,
+            catalogPrice: item.catalogUnitPrice ?? item.unitPrice,
+            suggestedPrice: item.unitPrice,
+            suggestedDiscount: item.discountPercent ?? 0,
+          },
+          confidence: 100,
+          status: "matched",
+          productScreen: { likelihood: "likely_product" as const, reasons: ["CPQ-Stückliste (Shop-Kunde)"] },
+        })),
+        overallConfidence: 100,
+        pricingRecommendations: { totalCatalogValue, totalSuggestedValue, totalDiscountPercentage, reasoning: "CPQ-Konfigurator (Shop-Kunde)" },
+      };
+
+      const offerDraft = await storage.createOfferDraft(
+        {
+          status: "review_required",
+          originalFileName: `CPQ-Shop-${systemName ?? systemId ?? "Konfiguration"}-${new Date().toISOString().slice(0, 10)}.json`,
+          originalFilePath: null,
+          extractedData: {
+            offerNotes: `Angebotsanfrage aus dem Shop-Konfigurator: ${systemName ?? systemId ?? "Regalsystem"}`,
+            validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+            cpqSource: {
+              systemId: systemId ?? null,
+              systemName: systemName ?? null,
+              config: config && typeof config === "object" ? config : null,
+              cpqConfigurationId: typeof cpqConfigurationId === "string" ? cpqConfigurationId : null,
+              previewImageBase64: previewImage,
+              billOfMaterials: {
+                items: bomItems.map((item) => ({
+                  productId: item.productId,
+                  productNumber: item.productNumber,
+                  name: item.name,
+                  quantity: item.quantity,
+                  unitPrice: item.unitPrice,
+                  lineTotal: item.lineTotal,
+                  componentType: item.componentType,
+                  catalogPrice: item.catalogUnitPrice,
+                  discountPercent: item.discountPercent,
+                })),
+                totalPrice: billOfMaterials.totalPrice,
+                totalCatalogPrice: totalCatalogValue,
+              },
+            },
+          },
+          matchingResults,
+          shopwareCustomerId: customerId,
+          shopwareOfferId: null,
+          // Kein interner Mitarbeiter — der Ursprung "Shop-Kunde" steht in offerNotes/matchingResults.
+          createdByUserId: null,
+        },
+        req.tenantId ?? null,
+      );
+
+      // Best-effort: eine fehlgeschlagene Bestätigungsmail darf die Anfrage nicht blockieren.
+      try {
+        const settings = await storage.getShopwareSettings(req.tenantId ?? null);
+        if (settings) {
+          const { ShopwareClient } = await import("./shopware");
+          const client = new ShopwareClient(settings);
+          const billing = await client.fetchCustomerBillingForPdf(customerId);
+          if (billing?.email) {
+            const { sendEmail } = await import("./emailOutbound");
+            await sendEmail(storage, {
+              to: billing.email,
+              subject: "Ihre Angebotsanfrage bei META",
+              text:
+                "Vielen Dank für Ihre Konfiguration! Wir haben Ihre Anfrage erhalten und melden uns in Kürze mit einem individuellen Angebot.",
+            });
+          }
+        }
+      } catch (mailError) {
+        console.warn("[CPQ] Bestätigungsmail für Angebotsanfrage konnte nicht gesendet werden:", mailError);
+      }
+
+      res.json({ success: true, offerDraftId: offerDraft.id });
+    } catch (error: any) {
+      console.error("Error creating public offer request from CPQ:", error);
+      res.status(500).json({ error: error.message ?? "Angebotsanfrage konnte nicht erstellt werden" });
+    }
+  });
+
   // GET /api/offer-drafts - Get all offer drafts
   app.get("/api/offer-drafts", requireAuth, requireViewOffers, async (req: Request, res: Response) => {
     try {
-      const offerDrafts = await storage.getAllOfferDrafts();
+      // Optionaler ?status=a,b-Filter — die einzige Liste, die diese Route heute konsumiert
+      // (OffersPage "Ausstehende Entwürfe"), braucht ausschließlich pending/review_required
+      // und muss nicht die komplette Historie inkl. großer JSONB-Spalten laden.
+      const statusParam = typeof req.query.status === "string" ? req.query.status : undefined;
+      const statuses = statusParam
+        ? statusParam.split(",").map((s) => s.trim()).filter(Boolean)
+        : undefined;
+      const offerDrafts = await storage.getAllOfferDrafts(req.tenantId ?? null, statuses);
       res.json(offerDrafts);
     } catch (error) {
       console.error("Error fetching offer drafts:", error);
@@ -15218,62 +15390,68 @@ Antworte im JSON-Format:
             const rankingBundle = await loadCrossSellRankingBundle(req.tenantId ?? null);
             const suggestOpts = crossSellSuggestOptions(req.tenantId ?? null, rankingBundle, "full");
             
-            // For each matched product, find cross-selling suggestions
-            for (const item of offerDraft.matchingResults.items) {
-              if (item.matchedProduct && item.status === "matched") {
+            // Für jedes gematchte Produkt Cross-Selling-Vorschläge ermitteln — die
+            // "vollständiges Produkt"-Auflösung läuft primär über den lokalen Produktcache
+            // (O(1), kein Shopware-Roundtrip); nur bei Cache-Miss wird gezielt nachgesucht.
+            // Die restlichen, unabhängigen Items laufen parallel statt sequenziell.
+            const matchedItems = offerDraft.matchingResults.items.filter(
+              (item) => item.matchedProduct && item.status === "matched" && item.matchedProduct.productNumber,
+            );
+            const suggestionResults = await Promise.all(
+              matchedItems.map(async (item) => {
                 try {
-                  const productNumber = item.matchedProduct.productNumber;
-                  if (!productNumber) {
-                    continue;
-                  }
-                  const { products } = await shopwareClient.fetchProducts(
-                    25,
-                    1,
-                    productNumber,
-                    undefined,
-                    false,
-                    undefined,
-                    undefined,
-                    undefined,
-                    true
-                  );
-                  const fullProduct = products.find((p) => p.productNumber === productNumber) || products[0];
-                  if (fullProduct) {
-                    // Get cross-selling suggestions using rule engine
-                    const suggestions = await ruleEngine.suggestCrossSelling(
-                      fullProduct,
-                      crossSellingRules,
-                      shopwareClient,
-                      suggestOpts,
+                  const productNumber = item.matchedProduct!.productNumber;
+                  let fullProduct = productCache.getProductByNumber(productNumber);
+                  if (!fullProduct) {
+                    const { products } = await shopwareClient.fetchProducts(
+                      25,
+                      1,
+                      productNumber,
+                      undefined,
+                      false,
+                      undefined,
+                      undefined,
+                      undefined,
+                      true
                     );
-                    const limitedSuggestions = dedupeAndLimitSuggestions(suggestions, 10);
-                    
-                    // Add suggestions for this product (limit to top 10)
-                    crossSellingSuggestions.push({
-                      forProduct: {
-                        id: item.matchedProduct.id,
-                        name: item.matchedProduct.name,
-                        productNumber: item.matchedProduct.productNumber,
-                      },
-                      suggestions: limitedSuggestions.map(s => ({
-                        id: s.id,
-                        productNumber: s.productNumber,
-                        name: s.name,
-                        price: s.price,
-                        netPrice: s.netPrice,
-                        imageUrl: s.imageUrl,
-                        stock: s.stock,
-                        available: s.available,
-                        crossSellReason: (s as { crossSellReason?: string }).crossSellReason,
-                        hybridScore: (s as { hybridScore?: number }).hybridScore,
-                      })),
-                    });
+                    fullProduct = products.find((p) => p.productNumber === productNumber) || products[0];
                   }
+                  if (!fullProduct) return null;
+
+                  const suggestions = await ruleEngine.suggestCrossSelling(
+                    fullProduct,
+                    crossSellingRules,
+                    shopwareClient,
+                    suggestOpts,
+                  );
+                  const limitedSuggestions = dedupeAndLimitSuggestions(suggestions, 10);
+
+                  return {
+                    forProduct: {
+                      id: item.matchedProduct!.id,
+                      name: item.matchedProduct!.name,
+                      productNumber: item.matchedProduct!.productNumber,
+                    },
+                    suggestions: limitedSuggestions.map(s => ({
+                      id: s.id,
+                      productNumber: s.productNumber,
+                      name: s.name,
+                      price: s.price,
+                      netPrice: s.netPrice,
+                      imageUrl: s.imageUrl,
+                      stock: s.stock,
+                      available: s.available,
+                      crossSellReason: (s as { crossSellReason?: string }).crossSellReason,
+                      hybridScore: (s as { hybridScore?: number }).hybridScore,
+                    })),
+                  };
                 } catch (productError) {
-                  console.warn(`[Cross-Selling] Failed to fetch suggestions for product ${item.matchedProduct.id}:`, productError);
+                  console.warn(`[Cross-Selling] Failed to fetch suggestions for product ${item.matchedProduct!.id}:`, productError);
+                  return null;
                 }
-              }
-            }
+              }),
+            );
+            crossSellingSuggestions = suggestionResults.filter((s): s is NonNullable<typeof s> => s !== null);
           }
         } catch (crossSellingError) {
           console.warn("[Cross-Selling] Failed to generate suggestions:", crossSellingError);
@@ -15663,9 +15841,26 @@ Antworte im JSON-Format:
     try {
       const { id } = req.params;
       const allowedChannelIds = await getSalesChannelFilter(req);
+
+      let customerChannelId: string | null = null;
+      const draftForChannel = await storage.getOfferDraft(id);
+      if (draftForChannel?.shopwareCustomerId) {
+        try {
+          const shopwareSettings = await storage.getShopwareSettings(req.tenantId ?? null);
+          if (shopwareSettings) {
+            const shopwareClient = new ShopwareClient(shopwareSettings);
+            const bound = await shopwareClient.fetchCustomerSalesChannelId(draftForChannel.shopwareCustomerId);
+            customerChannelId = bound?.id ?? null;
+          }
+        } catch (channelLookupError) {
+          console.warn("[Offers] Kunden-Verkaufskanal konnte nicht ermittelt werden:", channelLookupError);
+        }
+      }
+
       const channelResult = await resolveOfferSalesChannelId(storage, {
         tenantId: req.tenantId ?? null,
         requestedChannelId: req.body?.sales_channel_id,
+        customerChannelId,
         allowedChannelIds,
       });
       if (!channelResult.ok) {
@@ -15881,6 +16076,7 @@ Antworte im JSON-Format:
         mapped.items || [],
         (req as any).tenantId ?? null,
       );
+      await attachRoomPlanToPdfInput(storage, input, id, (req as any).tenantId ?? null);
 
       const pdfInput = applyOfferConfigPdfLayoutFromRequest(input, req.query as Record<string, unknown>);
       const pdfBuffer = await generateOfferConfigPdf(pdfInput);
@@ -15925,7 +16121,7 @@ Antworte im JSON-Format:
         settings
       );
       const input =
-        configInput ?? (await buildPlainOfferPdfInput(rawOffer.data, mapped, settings));
+        configInput ?? (await buildPlainOfferPdfInput(rawOffer.data, mapped, settings, (req as any).tenantId));
 
       await enrichOfferConfigPdfInputWithTexts(
         storage,
@@ -15933,6 +16129,7 @@ Antworte im JSON-Format:
         mapped.items || [],
         (req as any).tenantId ?? null,
       );
+      await attachRoomPlanToPdfInput(storage, input, id, (req as any).tenantId ?? null);
 
       const pdfInput = applyOfferConfigPdfLayoutFromRequest(input, req.query as Record<string, unknown>);
       const pdfBuffer = await generateOfferConfigPdf(pdfInput);
@@ -16036,6 +16233,43 @@ Antworte im JSON-Format:
     }
   });
 
+  // Erzeugt einen frischen öffentlichen Angebots-Link (widerruft frühere aktive Links für
+  // dasselbe Angebot, siehe storage.createOfferPublicLink) — geteilt zwischen dem manuellen
+  // "Link erzeugen"-Button und dem "Angebot per E-Mail senden"-Flow, die beide denselben
+  // öffentlichen Klartext-Token nur einmalig bei der Erzeugung zurückbekommen.
+  async function createFreshOfferPublicLink(
+    req: Request,
+    offerId: string,
+    expiresInDays: number
+  ): Promise<{ linkId: string; token: string; publicUrl: string; expiresAt: Date }> {
+    const tenantId = (req as any).tenantId;
+    const userId = (req as any).user?.id as string | undefined;
+    const plain = generateOfferPlainToken();
+    const tokenHash = hashOfferPublicToken(plain);
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + expiresInDays);
+
+    const link = await storage.createOfferPublicLink(
+      {
+        tenantId: tenantId ?? null,
+        shopwareOfferId: offerId,
+        tokenHash,
+        expiresAt,
+        revokedAt: null,
+        createdByUserId: userId ?? null,
+        lastAccessAt: null,
+      },
+      tenantId
+    );
+
+    const base =
+      process.env.PUBLIC_APP_URL?.replace(/\/$/, "") ||
+      `${req.protocol}://${req.get("host") || ""}`.replace(/\/$/, "");
+    const publicUrl = `${base}/angebot/${encodeURIComponent(plain)}`;
+
+    return { linkId: link.id, token: plain, publicUrl, expiresAt };
+  }
+
   // POST /api/offers/:id/share-link — neuen Link erzeugen (ersetzt frühere aktive Links)
   app.post(
     "/api/offers/:id/share-link",
@@ -16046,7 +16280,6 @@ Antworte im JSON-Format:
       try {
         const { id } = req.params;
         const tenantId = (req as any).tenantId;
-        const userId = (req as any).user?.id as string | undefined;
         const bodySchema = z.object({
           expiresInDays: z.number().int().min(1).max(365).optional(),
         });
@@ -16063,31 +16296,10 @@ Antworte im JSON-Format:
         const client = new B2BSellersClient(settings, { statusMapping });
         await client.fetchOfferById(id);
 
-        const plain = generateOfferPlainToken();
-        const tokenHash = hashOfferPublicToken(plain);
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + days);
-
-        await storage.createOfferPublicLink(
-          {
-            tenantId: tenantId ?? null,
-            shopwareOfferId: id,
-            tokenHash,
-            expiresAt,
-            revokedAt: null,
-            createdByUserId: userId ?? null,
-            lastAccessAt: null,
-          },
-          tenantId
-        );
-
-        const base =
-          process.env.PUBLIC_APP_URL?.replace(/\/$/, "") ||
-          `${req.protocol}://${req.get("host") || ""}`.replace(/\/$/, "");
-        const publicUrl = `${base}/angebot/${encodeURIComponent(plain)}`;
+        const { token, publicUrl, expiresAt } = await createFreshOfferPublicLink(req, id, days);
 
         res.json({
-          token: plain,
+          token,
           publicUrl,
           expiresAt: expiresAt.toISOString(),
         });
@@ -16112,6 +16324,113 @@ Antworte im JSON-Format:
       } catch (error: any) {
         console.error("Error revoking offer share link:", error);
         res.status(500).json({ error: error.message || "Failed to revoke share link" });
+      }
+    }
+  );
+
+  // POST /api/offers/:id/send-email — Angebot per E-Mail an den Kunden senden: PDF im Anhang
+  // (dieselbe Erzeugung wie "PDF herunterladen") + Link auf die öffentliche Angebotsseite
+  // (erzeugt dabei einen frischen Link, der frühere aktive Links für dieses Angebot ersetzt).
+  app.post(
+    "/api/offers/:id/send-email",
+    requireAuth,
+    requireManageOffers,
+    requireCsrf,
+    async (req: Request, res: Response) => {
+      try {
+        const { id } = req.params;
+        const tenantId = (req as any).tenantId;
+        const bodySchema = z.object({
+          to: z.string().email().optional(),
+          message: z.string().max(2000).optional(),
+        });
+        const parsed = bodySchema.safeParse(req.body || {});
+        if (!parsed.success) {
+          return res.status(400).json({ error: "Ungültige Parameter (E-Mail-Adresse prüfen)" });
+        }
+
+        const settings = await storage.getShopwareSettings(tenantId);
+        if (!settings) {
+          return res.status(400).json({ error: "Shopware settings not configured" });
+        }
+        const statusMapping = await storage.getSetting("b2b.offerStatusMapping", tenantId);
+        const client = new B2BSellersClient(settings, { statusMapping });
+        const rawOffer = await client.fetchOfferById(id);
+        const mapped = client.mapOffer(rawOffer.data, undefined, rawOffer.included);
+
+        const to = parsed.data.to?.trim() || mapped.customerEmail?.trim();
+        if (!to) {
+          return res.status(400).json({
+            error: "Keine E-Mail-Adresse verfügbar — bitte manuell angeben.",
+          });
+        }
+
+        // Frischer öffentlicher Link (widerruft ggf. zuvor an den Kunden verschickte Links).
+        const { linkId, publicUrl } = await createFreshOfferPublicLink(req, id, 30);
+
+        // Dasselbe Angebots-PDF wie beim manuellen "PDF herunterladen".
+        const configInput = await buildOfferConfigPdfInputWithCpqFallback(
+          storage,
+          id,
+          tenantId,
+          rawOffer.data,
+          mapped,
+          settings
+        );
+        const pdfBuilderInput =
+          configInput ?? (await buildPlainOfferPdfInput(rawOffer.data, mapped, settings, tenantId));
+        await enrichOfferConfigPdfInputWithTexts(storage, pdfBuilderInput, mapped.items || [], tenantId ?? null);
+        await attachRoomPlanToPdfInput(storage, pdfBuilderInput, id, tenantId ?? null);
+        const pdfInput = applyOfferConfigPdfLayoutFromRequest(pdfBuilderInput, {});
+        const pdfBuffer = await generateOfferConfigPdf(pdfInput);
+        const safeName = `angebot-${mapped.offerNumber || id}`.replace(/[^a-zA-Z0-9._-]+/g, "_");
+
+        const personalMessage = parsed.data.message?.trim();
+        const greeting = mapped.customerName ? `Sehr geehrte Damen und Herren von ${mapped.customerName},` : "Sehr geehrte Damen und Herren,";
+        const textLines = [
+          greeting,
+          "",
+          `anbei erhalten Sie unser Angebot ${mapped.offerNumber} als PDF.`,
+          "",
+          "Sie können das Angebot auch online ansehen und direkt annehmen oder ablehnen:",
+          publicUrl,
+        ];
+        if (personalMessage) textLines.push("", personalMessage);
+        textLines.push("", "Bei Rückfragen stehen wir Ihnen gerne zur Verfügung.", "", "Mit freundlichen Grüßen", "Ihr META-Team");
+        const text = textLines.join("\n");
+
+        const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const html = `
+          <p>${escapeHtml(greeting)}</p>
+          <p>anbei erhalten Sie unser Angebot <strong>${escapeHtml(mapped.offerNumber)}</strong> als PDF.</p>
+          <p>Sie können das Angebot auch online ansehen und direkt annehmen oder ablehnen:<br/>
+          <a href="${publicUrl}">${publicUrl}</a></p>
+          ${personalMessage ? `<p>${escapeHtml(personalMessage).replace(/\n/g, "<br/>")}</p>` : ""}
+          <p>Bei Rückfragen stehen wir Ihnen gerne zur Verfügung.</p>
+          <p>Mit freundlichen Grüßen<br/>Ihr META-Team</p>
+        `;
+
+        await sendEmail(storage, {
+          to,
+          subject: `Ihr Angebot ${mapped.offerNumber}`,
+          text,
+          html,
+          attachments: [{ filename: `${safeName}.pdf`, content: pdfBuffer, contentType: "application/pdf" }],
+        });
+
+        try {
+          await storage.createOfferPublicEvent(
+            { linkId, eventType: "email_sent", ip: null, meta: { to } },
+            tenantId ?? null
+          );
+        } catch {
+          /* Audit-Log ist optional, darf den Versand nicht rückwirkend als fehlgeschlagen melden */
+        }
+
+        res.json({ success: true, sentTo: to, publicUrl });
+      } catch (error: any) {
+        console.error("Error sending offer email:", error);
+        res.status(500).json({ error: error.message || "Angebot konnte nicht per E-Mail versendet werden" });
       }
     }
   );
@@ -16143,6 +16462,222 @@ Antworte im JSON-Format:
     } catch (error: any) {
       console.error("Error updating offer:", error);
       res.status(500).json({ error: error.message || "Failed to update offer" });
+    }
+  });
+
+  // GET /api/offers/:id/service-catalog - alle Zusatzleistungs-Artikel (Montage, Mitnahmestapler, Ladebordwand, Fixtermin, ...) liefern
+  app.get("/api/offers/:id/service-catalog", requireAuth, requireManageOffers, async (req: Request, res: Response) => {
+    try {
+      const { listOfferServiceProducts } = await import("./montageLineItem");
+      const services = await listOfferServiceProducts(storage, req.tenantId ?? null);
+      res.json({ services });
+    } catch (error: any) {
+      console.error("Error listing offer service products:", error);
+      res.status(500).json({ error: error.message || "Zusatzleistungen konnten nicht geladen werden" });
+    }
+  });
+
+  // POST /api/offers/:id/service-line-item - einen Zusatzleistungs-Artikel als echte Position hinzufügen
+  app.post("/api/offers/:id/service-line-item", requireAuth, requireManageOffers, requireCsrf, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const bodySchema = z.object({
+        productNumber: z.string().min(1),
+        unitPriceNet: z.number().min(0),
+        quantity: z.number().int().min(1).max(20).optional(),
+      });
+      const { productNumber, unitPriceNet, quantity } = bodySchema.parse(req.body);
+      const { addServiceLineItemToOffer } = await import("./montageLineItem");
+      await addServiceLineItemToOffer(storage, req.tenantId ?? null, id, productNumber, unitPriceNet, quantity ?? 1);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error adding service line item:", error);
+      res.status(500).json({ error: error.message || "Position konnte nicht hinzugefügt werden" });
+    }
+  });
+
+  // GET /api/offers/:id/montage-suggestion - berechneten Montagepreis-Vorschlag für ein Angebot liefern
+  app.get("/api/offers/:id/montage-suggestion", requireAuth, requireManageOffers, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { computeOfferMontageSuggestion } = await import("./montageLineItem");
+      const suggestion = await computeOfferMontageSuggestion(storage, req.tenantId ?? null, id);
+      res.json(suggestion);
+    } catch (error: any) {
+      console.error("Error computing montage suggestion:", error);
+      res.status(500).json({ error: error.message || "Montage-Berechnung fehlgeschlagen" });
+    }
+  });
+
+  // POST /api/offers/:id/montage-line-item - Montagekosten als echte Position zum Angebot hinzufügen
+  app.post("/api/offers/:id/montage-line-item", requireAuth, requireManageOffers, requireCsrf, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const bodySchema = z.object({
+        unitPriceNet: z.number().min(0),
+        quantity: z.number().int().min(1).max(20).optional(),
+      });
+      const { unitPriceNet, quantity } = bodySchema.parse(req.body);
+      const { addMontageLineItemToOffer } = await import("./montageLineItem");
+      await addMontageLineItemToOffer(storage, req.tenantId ?? null, id, unitPriceNet, quantity ?? 1);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error adding montage line item:", error);
+      res.status(500).json({ error: error.message || "Montageposition konnte nicht hinzugefügt werden" });
+    }
+  });
+
+  // DELETE /api/offers/:id/line-items/:itemId - eine einzelne Position aus einem Angebot entfernen
+  app.delete("/api/offers/:id/line-items/:itemId", requireAuth, requireManageOffers, requireCsrf, async (req: Request, res: Response) => {
+    try {
+      const { id, itemId } = req.params;
+      const settings = await storage.getShopwareSettings(req.tenantId ?? null);
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware-Einstellungen nicht konfiguriert" });
+      }
+      const statusMapping = await storage.getSetting("b2b.offerStatusMapping", req.tenantId ?? null);
+      const client = new B2BSellersClient(settings, { statusMapping });
+      await client.removeOfferLineItem(id, itemId);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error removing offer line item:", error);
+      res.status(500).json({ error: error.message || "Position konnte nicht entfernt werden" });
+    }
+  });
+
+  // GET /api/offers/:id/room-layout - Raum-Layout (falls vorhanden) + Grundrisse aller
+  // Konfigurationen des Angebots liefern, damit der Raumplaner sie platzieren kann
+  app.get("/api/offers/:id/room-layout", requireAuth, requireManageOffers, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { buildOfferDetailJson } = await import("./offerDetailBuilder");
+      const { computeFootprintFromCpqConfig } = await import("./cpq/cpqRoomPlanner");
+      const { loadRoomPlannerSettings } = await import("./roomPlannerSettings");
+
+      const [detail, layout, plannerSettings] = await Promise.all([
+        buildOfferDetailJson(storage, id, req.tenantId ?? null),
+        storage.getCpqRoomLayoutByOfferId(id, req.tenantId ?? null),
+        loadRoomPlannerSettings(storage, req.tenantId ?? null),
+      ]);
+
+      const configurations: Array<{ configKey: string; name: string; footprint: NonNullable<ReturnType<typeof computeFootprintFromCpqConfig>> }> = [];
+      for (const li of detail.lineItems) {
+        if (!li.isConfigurationGroup || !li.cpqConfig) continue;
+        const footprint = computeFootprintFromCpqConfig(li.cpqConfig);
+        if (footprint) configurations.push({ configKey: li.id, name: li.label, footprint });
+      }
+
+      res.json({
+        layout: layout ?? null,
+        defaultMinSpacingMm: plannerSettings.defaultMinSpacingMm,
+        configurations,
+      });
+    } catch (error: any) {
+      console.error("Error loading room layout:", error);
+      res.status(500).json({ error: error.message || "Raum-Layout konnte nicht geladen werden" });
+    }
+  });
+
+  // PUT /api/offers/:id/room-layout - Raum-Layout speichern (mit Server-seitiger Kollisionsprüfung)
+  app.put("/api/offers/:id/room-layout", requireAuth, requireManageOffers, requireCsrf, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const bodySchema = z.object({
+        name: z.string().max(200).optional().nullable(),
+        lengthMm: z.number().int().min(100).max(200000),
+        widthMm: z.number().int().min(100).max(200000),
+        heightMm: z.number().int().min(100).max(50000),
+        minSpacingMm: z.number().int().min(0).max(10000).optional().nullable(),
+        placements: z.array(
+          z.object({
+            configKey: z.string().min(1),
+            xMm: z.number().int(),
+            yMm: z.number().int(),
+            rotationDeg: z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]),
+          }),
+        ),
+        wallFeatures: z
+          .array(
+            z.object({
+              id: z.string().min(1),
+              wall: z.enum(["north", "south", "east", "west"]),
+              type: z.enum(["door", "window", "gate"]),
+              offsetMm: z.number().int().min(0),
+              widthMm: z.number().int().min(1).max(20000),
+            }),
+          )
+          .optional(),
+        previewImageBase64: z
+          .string()
+          .max(4_000_000)
+          .regex(/^data:image\/\w+;base64,/)
+          .optional()
+          .nullable(),
+      });
+      const data = bodySchema.parse(req.body);
+
+      // Stilisierte Wandelemente dürfen nicht über die Wandlänge hinausragen — sonst keine
+      // Prüfung (keine Kollision mit Regalen, nur zur Visualisierung der Raumöffnungen).
+      const wallLengthFor = (wall: "north" | "south" | "east" | "west") =>
+        wall === "north" || wall === "south" ? data.lengthMm : data.widthMm;
+      const wallFeatureErrors: string[] = [];
+      for (const f of data.wallFeatures ?? []) {
+        if (f.offsetMm + f.widthMm > wallLengthFor(f.wall)) {
+          wallFeatureErrors.push(`Element ragt über die Wand hinaus (${f.wall}).`);
+        }
+      }
+      if (wallFeatureErrors.length > 0) {
+        return res.status(400).json({ error: "Ungültige Wandelemente", wallFeatureErrors });
+      }
+
+      const { buildOfferDetailJson } = await import("./offerDetailBuilder");
+      const { computeFootprintFromCpqConfig, validateRoomPlacements } = await import("./cpq/cpqRoomPlanner");
+      const { loadRoomPlannerSettings } = await import("./roomPlannerSettings");
+
+      const [detail, plannerSettings] = await Promise.all([
+        buildOfferDetailJson(storage, id, req.tenantId ?? null),
+        loadRoomPlannerSettings(storage, req.tenantId ?? null),
+      ]);
+
+      const footprintsByConfigKey = new Map<string, ReturnType<typeof computeFootprintFromCpqConfig>>();
+      for (const li of detail.lineItems) {
+        if (!li.isConfigurationGroup || !li.cpqConfig) continue;
+        const footprint = computeFootprintFromCpqConfig(li.cpqConfig);
+        if (footprint) footprintsByConfigKey.set(li.id, footprint);
+      }
+
+      const minSpacingMm = data.minSpacingMm ?? plannerSettings.defaultMinSpacingMm;
+      const violations = validateRoomPlacements(
+        { lengthMm: data.lengthMm, widthMm: data.widthMm },
+        data.placements,
+        footprintsByConfigKey as Map<string, NonNullable<ReturnType<typeof computeFootprintFromCpqConfig>>>,
+        minSpacingMm,
+      );
+      if (violations.length > 0) {
+        return res.status(400).json({ error: "Ungültige Platzierung", violations });
+      }
+
+      const saved = await storage.upsertCpqRoomLayout(
+        {
+          shopwareOfferId: id,
+          name: data.name ?? null,
+          lengthMm: data.lengthMm,
+          widthMm: data.widthMm,
+          heightMm: data.heightMm,
+          minSpacingMm: data.minSpacingMm ?? null,
+          placements: data.placements,
+          wallFeatures: data.wallFeatures,
+          previewImageBase64: data.previewImageBase64,
+        },
+        req.tenantId ?? null,
+      );
+      res.json({ layout: saved });
+    } catch (error: any) {
+      if (error?.name === "ZodError") {
+        return res.status(400).json({ error: "Ungültige Eingabe", details: error.errors });
+      }
+      console.error("Error saving room layout:", error);
+      res.status(500).json({ error: error.message || "Raum-Layout konnte nicht gespeichert werden" });
     }
   });
 
