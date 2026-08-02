@@ -27,6 +27,7 @@ Diese Anleitung richtet einen reproduzierbaren Deployment-Prozess fuer `METAorde
 | `DATABASE_URL` | ja | PostgreSQL Connection String (siehe unten) |
 | `SESSION_SECRET` | ja | Session-Verschluesselung |
 | `ENCRYPTION_KEY` | ja | App-Verschluesselung |
+| `CPQ_HANDOFF_SECRET` | ja | Signiert den CPQ-Übergabe-Token (Shopware-Produktseite → Konfigurator). Muss mit dem "CPQ-Handoff-Secret" im MetaClipCpq-Shopware-Plugin (Systemkonfiguration) übereinstimmen. Fehlt dieser Secret, startet der Container nicht (harter Stopp in `server/secretGuard.ts`). |
 | `METAORDER_INTEGRATION_API_KEY` | nein | Integration API |
 | `S3_*` | nein | S3/MinIO fuer Ticket-Anhaenge |
 

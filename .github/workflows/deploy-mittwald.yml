@@ -79,6 +79,7 @@ jobs:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
       ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+      CPQ_HANDOFF_SECRET: ${{ secrets.CPQ_HANDOFF_SECRET }}
       PUBLIC_APP_URL: ${{ vars.PUBLIC_APP_URL || 'https://p-bbpye5.project.space' }}
       REQUEST_LOG_SLOW_MS: ${{ vars.REQUEST_LOG_SLOW_MS || '1500' }}
       METAORDER_STRICT_TENANT: ${{ vars.METAORDER_STRICT_TENANT || 'true' }}
@@ -112,6 +113,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+          CPQ_HANDOFF_SECRET: ${{ secrets.CPQ_HANDOFF_SECRET }}
         run: |
           echo "Repository: ${{ github.repository }}"
           echo "Event: ${{ github.event_name }}"
@@ -122,6 +124,7 @@ jobs:
           [[ -n "${DATABASE_URL}" ]] && echo "DATABASE_URL: gesetzt" || missing+=("DATABASE_URL")
           [[ -n "${SESSION_SECRET}" ]] && echo "SESSION_SECRET: gesetzt" || missing+=("SESSION_SECRET")
           [[ -n "${ENCRYPTION_KEY}" ]] && echo "ENCRYPTION_KEY: gesetzt" || missing+=("ENCRYPTION_KEY")
+          [[ -n "${CPQ_HANDOFF_SECRET}" ]] && echo "CPQ_HANDOFF_SECRET: gesetzt" || missing+=("CPQ_HANDOFF_SECRET")
 
           if [[ ${#missing[@]} -gt 0 ]]; then
             echo "ready=false" >> "$GITHUB_OUTPUT"
