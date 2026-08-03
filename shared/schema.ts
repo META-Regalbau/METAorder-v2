@@ -115,6 +115,10 @@ export const tenantIntegrationApiKeys = pgTable(
       .references(() => tenants.id, { onDelete: "cascade" }),
     keyHash: text("key_hash").notNull().unique(),
     name: text("name").notNull().default(""),
+    /** Optional: welcher User als req.user gilt, wenn dieser Key genutzt wird (statt des
+     *  globalen n8n-service-Fallbacks) — erlaubt getrennte Identitäten je Automatisierungs-Client.
+     *  CASCADE: User gelöscht → Key gelöscht (fail-closed, kein stiller Identitätswechsel). */
+    userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => ({
@@ -1767,6 +1771,8 @@ export const shopwareProducts = pgTable(
     name: text("name"),
     active: boolean("active"),
     swUpdatedAt: timestamp("sw_updated_at"),
+    /** Zeitpunkt der letzten erkannten Preisänderung (siehe productPriceHistory). Null = noch keine erfasst. */
+    lastPriceChangeAt: timestamp("last_price_change_at"),
     payload: jsonb("payload").notNull().default({}),
     syncedAt: timestamp("synced_at").notNull().defaultNow(),
   },
@@ -1780,6 +1786,35 @@ export const shopwareProducts = pgTable(
 
 export type ShopwareProductMirror = typeof shopwareProducts.$inferSelect;
 export type InsertShopwareProductMirror = typeof shopwareProducts.$inferInsert;
+
+/**
+ * Append-only Preis-Historie: ein Eintrag pro erkannter Preisänderung eines Produkts
+ * (Vergleich alter vs. neuer Mirror-Preis beim Shopware-Sync). Startet erst ab Einführung
+ * dieser Tabelle — Shopware selbst liefert keine rückwirkende Preis-Änderungshistorie.
+ */
+export const productPriceHistory = pgTable(
+  "product_price_history",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id").references(() => tenants.id),
+    shopwareId: varchar("shopware_id").notNull(),
+    productNumber: text("product_number").notNull(),
+    oldPriceGross: real("old_price_gross"),
+    newPriceGross: real("new_price_gross").notNull(),
+    oldPriceNet: real("old_price_net"),
+    newPriceNet: real("new_price_net").notNull(),
+    changedAt: timestamp("changed_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    tenantShopwareIdx: index("product_price_history_tenant_sw_idx").on(
+      table.tenantId,
+      table.shopwareId,
+    ),
+  }),
+);
+
+export type ProductPriceHistory = typeof productPriceHistory.$inferSelect;
+export type InsertProductPriceHistory = typeof productPriceHistory.$inferInsert;
 
 /** Persistenter Shopware-Kundenspiegel. */
 export const shopwareCustomers = pgTable(

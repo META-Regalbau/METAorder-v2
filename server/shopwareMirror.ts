@@ -44,10 +44,16 @@ function overviewToProduct(p: ShopwareProductOverview): Product {
   };
 }
 
-export function mirrorPayloadToOverview(payload: unknown): ShopwareProductOverview | null {
+export function mirrorPayloadToOverview(
+  payload: unknown,
+  lastPriceChangeAt?: Date | null,
+): ShopwareProductOverview | null {
   if (!payload || typeof payload !== "object") return null;
   const p = payload as ShopwareProductOverview;
   if (!p.id || !p.productNumber) return null;
+  if (lastPriceChangeAt !== undefined) {
+    return { ...p, lastPriceChangeAt: lastPriceChangeAt ? lastPriceChangeAt.toISOString() : null };
+  }
   return p;
 }
 
@@ -147,6 +153,51 @@ async function syncProductsDelta(
         };
       });
 
+      // Preisänderung erkennen: alten Mirror-Preis vs. neu ankommenden Preis vergleichen,
+      // bevor der Mirror überschrieben wird. Nur Produkte mit bekanntem Vorzustand zählen
+      // (sonst würde der Erstsync fälschlich als "Preisänderung" geloggt).
+      const prevPrices = await storage.getShopwareProductPricesByShopwareIds(
+        enrichedProducts.map((p) => p.id),
+        tenantId,
+      );
+      const priceHistoryEntries: Array<{
+        shopwareId: string;
+        productNumber: string;
+        oldPriceGross: number | null;
+        newPriceGross: number;
+        oldPriceNet: number | null;
+        newPriceNet: number;
+        changedAt: Date;
+      }> = [];
+      const lastPriceChangeById = new Map<string, Date | null>();
+      for (const p of enrichedProducts) {
+        const prev = prevPrices.get(p.id);
+        if (!prev) {
+          lastPriceChangeById.set(p.id, null);
+          continue;
+        }
+        const priceChanged =
+          prev.priceGross != null &&
+          prev.priceNet != null &&
+          (Math.abs(prev.priceGross - p.priceGross) > 0.0001 ||
+            Math.abs(prev.priceNet - p.priceNet) > 0.0001);
+        if (priceChanged) {
+          const changedAt = parseSwDate(p.updatedAt) ?? new Date();
+          priceHistoryEntries.push({
+            shopwareId: p.id,
+            productNumber: p.productNumber,
+            oldPriceGross: prev.priceGross,
+            newPriceGross: p.priceGross,
+            oldPriceNet: prev.priceNet,
+            newPriceNet: p.priceNet,
+            changedAt,
+          });
+          lastPriceChangeById.set(p.id, changedAt);
+        } else {
+          lastPriceChangeById.set(p.id, prev.lastPriceChangeAt);
+        }
+      }
+
       await storage.upsertShopwareProductMirrors(
         enrichedProducts.map((p) => ({
           shopwareId: p.id,
@@ -156,11 +207,19 @@ async function syncProductsDelta(
           name: p.name ?? null,
           active: p.active,
           swUpdatedAt: parseSwDate(p.updatedAt),
+          lastPriceChangeAt: lastPriceChangeById.get(p.id) ?? null,
           payload: p as unknown as Record<string, unknown>,
         })),
         tenantId,
       );
       upserted += enrichedProducts.length;
+
+      if (priceHistoryEntries.length > 0) {
+        await storage.insertProductPriceHistory(priceHistoryEntries, tenantId);
+        console.log(
+          `[ShopwareMirror] products: ${priceHistoryEntries.length} Preisänderung(en) erfasst (tenant=${tenantId ?? "default"})`,
+        );
+      }
 
       for (const p of enrichedProducts) {
         const d = parseSwDate(p.updatedAt);

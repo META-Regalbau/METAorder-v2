@@ -447,7 +447,10 @@
       "quantity": "Quantity",
       "priceRule": "Price rule",
       "field": "Field",
-      "value": "Value"
+      "value": "Value",
+      "changedAt": "Changed at",
+      "oldPrice": "Old price",
+      "newPrice": "New price"
     },
     "stats": {
       "total": "Total products",
@@ -505,7 +508,10 @@
       "none": "—",
       "more": "+{{count}} more",
       "tiers": "{{count}} tier(s)",
-      "fieldsCount": "{{count}} field(s)"
+      "fieldsCount": "{{count}} field(s)",
+      "priceChangedAt": "Price changed",
+      "lastUpdated": "Last updated",
+      "lastUpdatedHint": "Last change to the product in Shopware (not price-specific) — confirms the sync actually ran."
     },
     "csv": {
       "priceGross": "Price gross",
@@ -519,7 +525,8 @@
       "pageInfo": "Page {{page}} of {{pages}}",
       "prev": "Previous",
       "next": "Next"
-    }
+    },
+    "priceHistoryTitle": "Price history"
   },
   "barcodeScan": {
     "scan": "Scan",

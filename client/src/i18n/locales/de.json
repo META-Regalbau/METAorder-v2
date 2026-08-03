@@ -480,7 +480,10 @@
       "quantity": "Menge",
       "priceRule": "Preisregel",
       "field": "Feld",
-      "value": "Wert"
+      "value": "Wert",
+      "changedAt": "Geändert am",
+      "oldPrice": "Alter Preis",
+      "newPrice": "Neuer Preis"
     },
     "stats": {
       "total": "Produkte gesamt",
@@ -538,7 +541,10 @@
       "none": "—",
       "more": "+{{count}} mehr",
       "tiers": "{{count}} Staffel(n)",
-      "fieldsCount": "{{count}} Feld(er)"
+      "fieldsCount": "{{count}} Feld(er)",
+      "priceChangedAt": "Preis geändert",
+      "lastUpdated": "Zuletzt aktualisiert",
+      "lastUpdatedHint": "Letzte Änderung des Produkts in Shopware (nicht nur Preis) — zeigt, dass der Sync tatsächlich gelaufen ist."
     },
     "csv": {
       "priceGross": "Preis brutto",
@@ -552,7 +558,8 @@
       "pageInfo": "Seite {{page}} von {{pages}}",
       "prev": "Zurück",
       "next": "Weiter"
-    }
+    },
+    "priceHistoryTitle": "Preis-Historie"
   },
   "barcodeScan": {
     "scan": "Scannen",

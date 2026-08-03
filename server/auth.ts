@@ -107,6 +107,15 @@ export function requireCsrf(req: any, res: any, next: any) {
   if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
     return next();
   }
+
+  // Integration-Key-Requests (Server-zu-Server, Flag gesetzt von requireAuthOrIntegrationKey
+  // NACH erfolgreicher Key-Verifikation) sind kein CSRF-Vektor: Der Angreifer-Browser kann den
+  // Custom-Header X-METAORDER-Integration-Key cross-origin nicht setzen, und es gibt keine
+  // Session-Cookies, die mitgeschickt würden. Browser-Session-Aufrufe derselben Routen bleiben
+  // dadurch voll CSRF-geschützt (Flag ist dort nie gesetzt).
+  if (req.integrationKeyAuth === true) {
+    return next();
+  }
   
   // Validate Origin or Referer header to prevent CSRF
   const origin = req.headers.origin || req.headers.referer;
@@ -212,7 +221,17 @@ export async function requireAuthOrIntegrationKey(req: any, res: any, next: any)
     const rawHeader = req.headers["x-metaorder-integration-key"];
     const headerKey = typeof rawHeader === "string" ? rawHeader.trim() : "";
 
-    async function loadIntegrationUser() {
+    // keyUserId (falls auf dem Integration-Key hinterlegt) geht vor dem globalen Fallback —
+    // erlaubt getrennte Identitäten/Audit-Trails je Automatisierungs-Client (n8n, META Agents, ...)
+    // statt dass jeder Tenant-Key auf denselben Service-User auflöst.
+    async function loadIntegrationUser(keyUserId?: string | null) {
+      if (keyUserId) {
+        // Fail-closed: Ist ein Key explizit an einen User gebunden, dieser aber nicht (mehr)
+        // auflösbar, NICHT still auf den globalen n8n-Fallback wechseln — das wäre ein
+        // unbemerkter Identitäts-/Rechtewechsel. Lieber den Key hart ablehnen.
+        const keyUser = await storage.getUser(keyUserId);
+        return keyUser ?? null;
+      }
       const explicitUserId = process.env.METAORDER_INTEGRATION_USER_ID?.trim();
       return explicitUserId
         ? await storage.getUser(explicitUserId)
@@ -221,16 +240,18 @@ export async function requireAuthOrIntegrationKey(req: any, res: any, next: any)
 
     if (headerKey) {
       const keyHash = createHash("sha256").update(headerKey, "utf8").digest("hex");
-      const tenantFromKey = await storage.findTenantIdByIntegrationKeyHash(keyHash);
+      const keyLookup = await storage.findTenantIdByIntegrationKeyHash(keyHash);
 
-      if (tenantFromKey) {
-        const user = await loadIntegrationUser();
+      if (keyLookup) {
+        const user = await loadIntegrationUser(keyLookup.userId);
         if (!user) {
-          return res.status(500).json({
-            error:
-              "Kein Integrations-Benutzer gefunden (n8n-service oder METAORDER_INTEGRATION_USER_ID).",
+          return res.status(keyLookup.userId ? 403 : 500).json({
+            error: keyLookup.userId
+              ? "Der an diesen Integration-Key gebundene Benutzer existiert nicht mehr — Key neu ausstellen."
+              : "Kein Integrations-Benutzer gefunden (n8n-service oder METAORDER_INTEGRATION_USER_ID).",
           });
         }
+        const tenantFromKey = keyLookup.tenantId;
         const tenants = await storage.getTenantsForUser(user.id);
         if (!tenants.some((t) => t.id === tenantFromKey)) {
           return res.status(403).json({
@@ -240,6 +261,7 @@ export async function requireAuthOrIntegrationKey(req: any, res: any, next: any)
         await attachAuthenticatedUser(req, user);
         req.tenantId = tenantFromKey;
         (req.user as any).activeTenantId = tenantFromKey;
+        req.integrationKeyAuth = true; // erlaubt requireCsrf-Skip NUR für diesen verifizierten Key-Pfad
         return runWithTenantContext(tenantFromKey, () => next());
       }
 
@@ -270,6 +292,7 @@ export async function requireAuthOrIntegrationKey(req: any, res: any, next: any)
           req.tenantId = forced;
           (req.user as any).activeTenantId = forced;
         }
+        req.integrationKeyAuth = true; // erlaubt requireCsrf-Skip NUR für diesen verifizierten Key-Pfad
         return runWithTenantContext(req.tenantId, () => next());
       }
     }

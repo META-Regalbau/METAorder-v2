@@ -33,6 +33,18 @@ function toShopwareUuid(uuid: string): string {
   return uuid.replace(/-/g, "").toLowerCase();
 }
 
+/** Memo für fetchProductHerstellpreisLookupKeys — Modul-Scope (pro Shopware-Instanz/baseUrl),
+ *  damit er über alle pro Request neu erzeugten ShopwareClient-Instanzen hinweg geteilt wird.
+ *  byId: toShopwareUuid(productId) → LookupKey ('' = kein Key, negativ gecacht).
+ *  6h wie der productCache: Der Erst-Aufbau über alle Bestellungen kostet ~20s+ (sequenzielle
+ *  Shopware-Chunks) — die Zuordnung productId→IFS-Nummer (Custom Field) ändert sich aber nur
+ *  bei Produkt-Stammdatenpflege; die Herstellpreis-WERTE selbst kommen weiterhin bei jedem
+ *  Request frisch aus der lokalen DB. */
+const HERSTELLPREIS_LOOKUP_TTL_MS = 6 * 60 * 60 * 1000;
+const herstellpreisLookupKeyCache = new Map<string, { fetchedAt: number; byId: Map<string, string> }>();
+/** Laufender Memo-Fill je Shopware-Instanz (Single-Flight, s. fetchProductHerstellpreisLookupKeys). */
+const herstellpreisLookupInflight = new Map<string, Promise<void>>();
+
 /** Admin-API: effektives Seitenlimit (Shopware `max_limit`, häufig 100–250). */
 export const SHOPWARE_ADMIN_SEARCH_PAGE_SIZE = 250;
 
@@ -98,6 +110,8 @@ export interface ShopwareProductOverview {
   childCount: number | null;
   createdAt?: string;
   updatedAt?: string;
+  /** Zeitpunkt der letzten erkannten Preisänderung (aus dem Mirror-Sync). Nur gesetzt, wenn aus dem Spiegel geladen. */
+  lastPriceChangeAt?: string | null;
   /**
    * Felder, die für die Anzeige vom Elternprodukt übernommen wurden
    * (Shopware-Vererbung, wenn Variante keine eigenen Werte hat).
@@ -8457,9 +8471,73 @@ export class ShopwareClient {
     };
 
     const uniqueIds = [...new Set(productIds.map((pid) => toShopwareUuid(pid)))];
+
+    // Memo pro Shopware-Instanz (Modul-Scope, s. herstellpreisLookupKeyCache): productId→
+    // LookupKey ändert sich nur bei Produkt-Stammdatenpflege. Ohne Memo feuert JEDER Aufruf
+    // der Bestellliste/DB-Analyse sequenzielle /search/product-Roundtrips (25er-Chunks) —
+    // bei der DB-Zusammenfassung über alle Bestellungen waren das >20s pro Request.
+    // '' = Produkt ohne LookupKey (negativ gecacht, sonst würde jede leere Antwort neu geholt).
+    const now = Date.now();
+    let bucket = herstellpreisLookupKeyCache.get(this.baseUrl);
+    if (!bucket || now - bucket.fetchedAt > HERSTELLPREIS_LOOKUP_TTL_MS) {
+      bucket = { fetchedAt: now, byId: new Map<string, string>() };
+      herstellpreisLookupKeyCache.set(this.baseUrl, bucket);
+    }
+
+    // Single-Flight: Läuft für diese Shopware-Instanz bereits ein Fill (z. B. Bestellliste
+    // und DB-Zusammenfassung feuern beim Seitenaufruf gleichzeitig auf leeren Memo), erst
+    // darauf warten statt dieselben Chunks doppelt zu holen — sonst verdoppeln konkurrierende
+    // Kaltstart-Requests die Roundtrips und verlangsamen sich gegenseitig (real gemessen: 40s).
+    let inflight = herstellpreisLookupInflight.get(this.baseUrl);
+    while (inflight && uniqueIds.some((id) => !bucket!.byId.has(id))) {
+      try {
+        await inflight;
+      } catch {
+        /* Fehler des fremden Fills ignorieren — fehlende IDs holt der eigene Fill unten nach */
+      }
+      const next = herstellpreisLookupInflight.get(this.baseUrl);
+      if (next === inflight) break; // derselbe (abgeschlossene) Fill → nicht endlos warten
+      inflight = next;
+    }
+
+    const missingIds = uniqueIds.filter((id) => !bucket!.byId.has(id));
+
+    if (missingIds.length > 0) {
+      const fill = this.fillHerstellpreisLookupKeys(bucket, missingIds);
+      herstellpreisLookupInflight.set(this.baseUrl, fill);
+      try {
+        await fill;
+      } finally {
+        if (herstellpreisLookupInflight.get(this.baseUrl) === fill) {
+          herstellpreisLookupInflight.delete(this.baseUrl);
+        }
+      }
+    }
+
+    for (const id of uniqueIds) {
+      const lookupKey = bucket.byId.get(id);
+      if (lookupKey) setKey(id, lookupKey);
+    }
+
+    return result;
+  }
+
+  /** Fehlende LookupKeys in 25er-Chunks holen — parallel mit begrenzter Nebenläufigkeit
+   *  (5 gleichzeitige Requests): Der Kalt-Aufbau über alle Bestellprodukte bestand aus
+   *  20+ sequenziellen Roundtrips à ~1s; parallelisiert schrumpft er auf wenige Sekunden. */
+  private async fillHerstellpreisLookupKeys(
+    bucket: { byId: Map<string, string> },
+    missingIds: string[],
+  ): Promise<void> {
     const CHUNK = 25;
-    for (let i = 0; i < uniqueIds.length; i += CHUNK) {
-      const chunk = uniqueIds.slice(i, i + CHUNK);
+    const CONCURRENCY = 5;
+    const chunks: string[][] = [];
+    for (let i = 0; i < missingIds.length; i += CHUNK) {
+      chunks.push(missingIds.slice(i, i + CHUNK));
+    }
+
+    const fetchChunk = async (chunk: string[]): Promise<void> => {
+      const returnedIds = new Set<string>();
       try {
         const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/product`, {
           method: "POST",
@@ -8469,7 +8547,7 @@ export class ShopwareClient {
             includes: { product: ["id", "productNumber", "customFields"] },
           }),
         });
-        if (!response.ok) continue;
+        if (!response.ok) return;
         const data = await response.json();
         for (const sp of data.data || []) {
           const attrs = sp.attributes ?? sp;
@@ -8481,14 +8559,27 @@ export class ShopwareClient {
             customFields,
             productNumber.trim() || undefined,
           );
-          if (lookupKey) setKey(String(sp.id), lookupKey);
+          const spId = toShopwareUuid(String(sp.id));
+          returnedIds.add(spId);
+          bucket.byId.set(spId, lookupKey ?? "");
+        }
+        // Angefragt, aber nicht zurückgekommen (z. B. gelöschtes Produkt) → negativ cachen.
+        for (const id of chunk) {
+          if (!returnedIds.has(id) && !bucket.byId.has(id)) bucket.byId.set(id, "");
         }
       } catch (error: any) {
         console.warn("[Shopware] fetchProductHerstellpreisLookupKeys:", error?.message || error);
       }
-    }
+    };
 
-    return result;
+    let cursor = 0;
+    const workers = Array.from({ length: Math.min(CONCURRENCY, chunks.length) }, async () => {
+      while (cursor < chunks.length) {
+        const chunk = chunks[cursor++];
+        await fetchChunk(chunk);
+      }
+    });
+    await Promise.all(workers);
   }
 
   /**

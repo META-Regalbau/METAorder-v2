@@ -111,6 +111,7 @@ import {
   type ShopwareCustomerPriceMirror,
   type ShopwareOrderMirror,
   type ShopwareSyncStateRow,
+  type ProductPriceHistory,
   type CpqRoomLayout,
   type CpqRoomPlacement,
   type CpqRoomWallFeature,
@@ -172,11 +173,17 @@ export interface IStorage {
   createTenant(tenant: InsertTenant): Promise<Tenant>;
   addUserToTenant(tenantUser: InsertTenantUser): Promise<TenantUser>;
 
-  findTenantIdByIntegrationKeyHash(keyHash: string): Promise<string | null>;
-  createTenantIntegrationApiKey(tenantId: string, name: string): Promise<{ id: string; apiKey: string }>;
+  findTenantIdByIntegrationKeyHash(
+    keyHash: string
+  ): Promise<{ tenantId: string; userId: string | null } | null>;
+  createTenantIntegrationApiKey(
+    tenantId: string,
+    name: string,
+    userId?: string | null
+  ): Promise<{ id: string; apiKey: string }>;
   listTenantIntegrationApiKeys(
     tenantId: string
-  ): Promise<Array<{ id: string; name: string; createdAt: Date }>>;
+  ): Promise<Array<{ id: string; name: string; createdAt: Date; userId: string | null }>>;
   deleteTenantIntegrationApiKey(id: string, tenantId: string): Promise<boolean>;
   
   // Roles
@@ -499,6 +506,7 @@ export interface IStorage {
       name?: string | null;
       active?: boolean | null;
       swUpdatedAt?: Date | null;
+      lastPriceChangeAt?: Date | null;
       payload: Record<string, unknown>;
     }>,
     tenantId?: string | null,
@@ -510,6 +518,27 @@ export interface IStorage {
   countShopwareProductMirrors(tenantId?: string | null): Promise<number>;
   getShopwareProductMirrorIds(tenantId?: string | null): Promise<string[]>;
   deleteShopwareProductMirrorsNotIn(keepIds: string[], tenantId?: string | null): Promise<number>;
+  /** Aktuelle Preise + letzter Änderungszeitpunkt für einen Batch Shopware-IDs (für Preisänderungs-Erkennung beim Sync). */
+  getShopwareProductPricesByShopwareIds(
+    shopwareIds: string[],
+    tenantId?: string | null,
+  ): Promise<Map<string, { priceGross: number | null; priceNet: number | null; lastPriceChangeAt: Date | null }>>;
+  insertProductPriceHistory(
+    rows: Array<{
+      shopwareId: string;
+      productNumber: string;
+      oldPriceGross: number | null;
+      newPriceGross: number;
+      oldPriceNet: number | null;
+      newPriceNet: number;
+      changedAt: Date;
+    }>,
+    tenantId?: string | null,
+  ): Promise<void>;
+  getProductPriceHistory(
+    shopwareId: string,
+    tenantId?: string | null,
+  ): Promise<ProductPriceHistory[]>;
 
   /** Bestell-Spiegel — payload ist das fertig gemappte Order-Objekt (siehe fetchOrders()). */
   upsertShopwareOrderMirrors(
@@ -675,6 +704,7 @@ export class MemStorage implements IStorage {
     keyHash: string;
     name: string;
     createdAt: Date;
+    userId: string | null;
   }>;
   private shopwareSettings: ShopwareSettings | undefined;
   private crossSellingRules: Map<string, CrossSellingRule>;
@@ -849,12 +879,18 @@ export class MemStorage implements IStorage {
     return created;
   }
 
-  async findTenantIdByIntegrationKeyHash(keyHash: string): Promise<string | null> {
+  async findTenantIdByIntegrationKeyHash(
+    keyHash: string
+  ): Promise<{ tenantId: string; userId: string | null } | null> {
     const row = this.tenantIntegrationKeyRows.find((r) => r.keyHash === keyHash);
-    return row?.tenantId ?? null;
+    return row ? { tenantId: row.tenantId, userId: row.userId ?? null } : null;
   }
 
-  async createTenantIntegrationApiKey(tenantId: string, name: string): Promise<{ id: string; apiKey: string }> {
+  async createTenantIntegrationApiKey(
+    tenantId: string,
+    name: string,
+    userId?: string | null
+  ): Promise<{ id: string; apiKey: string }> {
     const apiKey = `mo_${randomBytes(32).toString("base64url")}`;
     const keyHash = createHash("sha256").update(apiKey, "utf8").digest("hex");
     const id = randomUUID();
@@ -864,16 +900,17 @@ export class MemStorage implements IStorage {
       keyHash,
       name: name.trim() || "",
       createdAt: new Date(),
+      userId: userId ?? null,
     });
     return { id, apiKey };
   }
 
   async listTenantIntegrationApiKeys(
     tenantId: string
-  ): Promise<Array<{ id: string; name: string; createdAt: Date }>> {
+  ): Promise<Array<{ id: string; name: string; createdAt: Date; userId: string | null }>> {
     return this.tenantIntegrationKeyRows
       .filter((r) => r.tenantId === tenantId)
-      .map((r) => ({ id: r.id, name: r.name, createdAt: r.createdAt }))
+      .map((r) => ({ id: r.id, name: r.name, createdAt: r.createdAt, userId: r.userId ?? null }))
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
@@ -2701,6 +2738,7 @@ export class MemStorage implements IStorage {
   private shopwareCustomerMirrors: ShopwareCustomerMirror[] = [];
   private shopwareB2bCompanyMirrors: ShopwareB2bCompanyMirror[] = [];
   private shopwareCustomerPriceMirrors: ShopwareCustomerPriceMirror[] = [];
+  private productPriceHistoryRows: ProductPriceHistory[] = [];
 
   async getShopwareSyncState(
     entity: ShopwareMirrorSyncEntity,
@@ -2744,6 +2782,7 @@ export class MemStorage implements IStorage {
       name?: string | null;
       active?: boolean | null;
       swUpdatedAt?: Date | null;
+      lastPriceChangeAt?: Date | null;
       payload: Record<string, unknown>;
     }>,
     tenantId?: string | null,
@@ -2763,12 +2802,78 @@ export class MemStorage implements IStorage {
         name: row.name ?? null,
         active: row.active ?? null,
         swUpdatedAt: row.swUpdatedAt ?? null,
+        lastPriceChangeAt:
+          row.lastPriceChangeAt !== undefined
+            ? row.lastPriceChangeAt
+            : idx >= 0
+              ? this.shopwareProductMirrors[idx].lastPriceChangeAt
+              : null,
         payload: row.payload,
         syncedAt: new Date(),
       };
       if (idx >= 0) this.shopwareProductMirrors[idx] = next;
       else this.shopwareProductMirrors.push(next);
     }
+  }
+
+  async getShopwareProductPricesByShopwareIds(
+    shopwareIds: string[],
+    tenantId?: string | null,
+  ): Promise<Map<string, { priceGross: number | null; priceNet: number | null; lastPriceChangeAt: Date | null }>> {
+    const tid = tenantId ?? null;
+    const ids = new Set(shopwareIds);
+    const result = new Map<
+      string,
+      { priceGross: number | null; priceNet: number | null; lastPriceChangeAt: Date | null }
+    >();
+    for (const p of this.shopwareProductMirrors) {
+      if ((p.tenantId ?? null) !== tid || !ids.has(p.shopwareId)) continue;
+      const payload = p.payload as any;
+      result.set(p.shopwareId, {
+        priceGross: typeof payload?.priceGross === "number" ? payload.priceGross : null,
+        priceNet: typeof payload?.priceNet === "number" ? payload.priceNet : null,
+        lastPriceChangeAt: p.lastPriceChangeAt ?? null,
+      });
+    }
+    return result;
+  }
+
+  async insertProductPriceHistory(
+    rows: Array<{
+      shopwareId: string;
+      productNumber: string;
+      oldPriceGross: number | null;
+      newPriceGross: number;
+      oldPriceNet: number | null;
+      newPriceNet: number;
+      changedAt: Date;
+    }>,
+    tenantId?: string | null,
+  ): Promise<void> {
+    const tid = tenantId ?? null;
+    for (const row of rows) {
+      this.productPriceHistoryRows.push({
+        id: randomUUID(),
+        tenantId: tid,
+        shopwareId: row.shopwareId,
+        productNumber: row.productNumber,
+        oldPriceGross: row.oldPriceGross,
+        newPriceGross: row.newPriceGross,
+        oldPriceNet: row.oldPriceNet,
+        newPriceNet: row.newPriceNet,
+        changedAt: row.changedAt,
+      });
+    }
+  }
+
+  async getProductPriceHistory(
+    shopwareId: string,
+    tenantId?: string | null,
+  ): Promise<ProductPriceHistory[]> {
+    const tid = tenantId ?? null;
+    return this.productPriceHistoryRows
+      .filter((r) => (r.tenantId ?? null) === tid && r.shopwareId === shopwareId)
+      .sort((a, b) => b.changedAt.getTime() - a.changedAt.getTime());
   }
 
   async getShopwareProductMirrors(

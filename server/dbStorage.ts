@@ -56,6 +56,7 @@ import {
   b2bApprovalLog,
   productHerstellpreise,
   shopwareProducts,
+  productPriceHistory,
   shopwareOrders,
   shopwareCustomers,
   shopwareB2bCompanies,
@@ -440,41 +441,46 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
-  async findTenantIdByIntegrationKeyHash(keyHash: string): Promise<string | null> {
+  async findTenantIdByIntegrationKeyHash(
+    keyHash: string
+  ): Promise<{ tenantId: string; userId: string | null } | null> {
     const row = await db
-      .select({ tenantId: tenantIntegrationApiKeys.tenantId })
+      .select({ tenantId: tenantIntegrationApiKeys.tenantId, userId: tenantIntegrationApiKeys.userId })
       .from(tenantIntegrationApiKeys)
       .where(eq(tenantIntegrationApiKeys.keyHash, keyHash))
       .limit(1);
-    return row[0]?.tenantId ?? null;
+    if (!row[0]) return null;
+    return { tenantId: row[0].tenantId, userId: row[0].userId ?? null };
   }
 
   async createTenantIntegrationApiKey(
     tenantId: string,
-    name: string
+    name: string,
+    userId?: string | null
   ): Promise<{ id: string; apiKey: string }> {
     const apiKey = `mo_${randomBytes(32).toString("base64url")}`;
     const keyHash = createHash("sha256").update(apiKey, "utf8").digest("hex");
     const [created] = await db
       .insert(tenantIntegrationApiKeys)
-      .values({ tenantId, keyHash, name: name.trim() || "" })
+      .values({ tenantId, keyHash, name: name.trim() || "", userId: userId ?? null })
       .returning({ id: tenantIntegrationApiKeys.id });
     return { id: created!.id, apiKey };
   }
 
   async listTenantIntegrationApiKeys(
     tenantId: string
-  ): Promise<Array<{ id: string; name: string; createdAt: Date }>> {
+  ): Promise<Array<{ id: string; name: string; createdAt: Date; userId: string | null }>> {
     const rows = await db
       .select({
         id: tenantIntegrationApiKeys.id,
         name: tenantIntegrationApiKeys.name,
         createdAt: tenantIntegrationApiKeys.createdAt,
+        userId: tenantIntegrationApiKeys.userId,
       })
       .from(tenantIntegrationApiKeys)
       .where(eq(tenantIntegrationApiKeys.tenantId, tenantId))
       .orderBy(desc(tenantIntegrationApiKeys.createdAt));
-    return rows;
+    return rows.map((r) => ({ ...r, userId: r.userId ?? null }));
   }
 
   async deleteTenantIntegrationApiKey(id: string, tenantId: string): Promise<boolean> {
@@ -3384,6 +3390,7 @@ export class DbStorage implements IStorage {
       name?: string | null;
       active?: boolean | null;
       swUpdatedAt?: Date | null;
+      lastPriceChangeAt?: Date | null;
       payload: Record<string, unknown>;
     }>,
     tenantId?: string | null,
@@ -3402,6 +3409,7 @@ export class DbStorage implements IStorage {
         name: row.name ?? null,
         active: row.active ?? null,
         swUpdatedAt: row.swUpdatedAt ?? null,
+        lastPriceChangeAt: row.lastPriceChangeAt ?? null,
         payload: row.payload,
         syncedAt: now,
       }));
@@ -3417,11 +3425,87 @@ export class DbStorage implements IStorage {
             name: sql`excluded.name`,
             active: sql`excluded.active`,
             swUpdatedAt: sql`excluded.sw_updated_at`,
+            lastPriceChangeAt: sql`coalesce(excluded.last_price_change_at, ${shopwareProducts.lastPriceChangeAt})`,
             payload: sql`excluded.payload`,
             syncedAt: sql`excluded.synced_at`,
           },
         });
     }
+  }
+
+  async getShopwareProductPricesByShopwareIds(
+    shopwareIds: string[],
+    tenantId?: string | null,
+  ): Promise<Map<string, { priceGross: number | null; priceNet: number | null; lastPriceChangeAt: Date | null }>> {
+    const result = new Map<
+      string,
+      { priceGross: number | null; priceNet: number | null; lastPriceChangeAt: Date | null }
+    >();
+    if (shopwareIds.length === 0) return result;
+    const tenantFilter = tenantFilterFor(shopwareProducts.tenantId, tenantId);
+    const CHUNK = 500;
+    for (let i = 0; i < shopwareIds.length; i += CHUNK) {
+      const chunk = shopwareIds.slice(i, i + CHUNK);
+      const rows = await db
+        .select({
+          shopwareId: shopwareProducts.shopwareId,
+          payload: shopwareProducts.payload,
+          lastPriceChangeAt: shopwareProducts.lastPriceChangeAt,
+        })
+        .from(shopwareProducts)
+        .where(and(tenantFilter, inArray(shopwareProducts.shopwareId, chunk)));
+      for (const row of rows) {
+        const payload = row.payload as any;
+        result.set(row.shopwareId, {
+          priceGross: typeof payload?.priceGross === "number" ? payload.priceGross : null,
+          priceNet: typeof payload?.priceNet === "number" ? payload.priceNet : null,
+          lastPriceChangeAt: row.lastPriceChangeAt ?? null,
+        });
+      }
+    }
+    return result;
+  }
+
+  async insertProductPriceHistory(
+    rows: Array<{
+      shopwareId: string;
+      productNumber: string;
+      oldPriceGross: number | null;
+      newPriceGross: number;
+      oldPriceNet: number | null;
+      newPriceNet: number;
+      changedAt: Date;
+    }>,
+    tenantId?: string | null,
+  ): Promise<void> {
+    if (rows.length === 0) return;
+    const resolvedTenantId = resolveTenantId(tenantId) ?? null;
+    const CHUNK = 200;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const chunk = rows.slice(i, i + CHUNK).map((row) => ({
+        tenantId: resolvedTenantId,
+        shopwareId: row.shopwareId,
+        productNumber: row.productNumber,
+        oldPriceGross: row.oldPriceGross,
+        newPriceGross: row.newPriceGross,
+        oldPriceNet: row.oldPriceNet,
+        newPriceNet: row.newPriceNet,
+        changedAt: row.changedAt,
+      }));
+      await db.insert(productPriceHistory).values(chunk);
+    }
+  }
+
+  async getProductPriceHistory(
+    shopwareId: string,
+    tenantId?: string | null,
+  ): Promise<(typeof productPriceHistory.$inferSelect)[]> {
+    const tenantFilter = tenantFilterFor(productPriceHistory.tenantId, tenantId);
+    return db
+      .select()
+      .from(productPriceHistory)
+      .where(and(tenantFilter, eq(productPriceHistory.shopwareId, shopwareId)))
+      .orderBy(desc(productPriceHistory.changedAt));
   }
 
   async getShopwareProductMirrors(

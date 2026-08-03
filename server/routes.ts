@@ -393,6 +393,21 @@ async function assignNewUserToTenant(req: Request, userId: string): Promise<stri
   return tenantId;
 }
 
+/** Kurzer In-Memory-Cache für selten änderende Shopware-Stammdaten (Verkaufskanäle,
+ *  Kategorien), die sonst bei jedem Seitenaufruf live von Shopware geholt werden
+ *  (~0,7–1s pro Request). Key enthält den Tenant; 10 Min. TTL ist für diese Daten
+ *  unkritisch (Anlage neuer Kanäle/Kategorien ist ein seltener Admin-Vorgang). */
+const SHOPWARE_MASTERDATA_TTL_MS = 10 * 60 * 1000;
+const shopwareMasterdataCache = new Map<string, { expiresAt: number; value: unknown }>();
+
+async function cachedShopwareMasterdata<T>(cacheKey: string, load: () => Promise<T>): Promise<T> {
+  const cached = shopwareMasterdataCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.value as T;
+  const value = await load();
+  shopwareMasterdataCache.set(cacheKey, { value, expiresAt: Date.now() + SHOPWARE_MASTERDATA_TTL_MS });
+  return value;
+}
+
 async function getSalesChannelFilter(req: Request): Promise<string[] | null> {
   const user = req.user as any;
   
@@ -1614,8 +1629,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // CPQ (Configure, Price, Quote) routes
-  registerCpqRoutes(app, { requireAuth, requireViewCPQ, requireManageCPQ, requireManageCPQDiscountLevels, requireApproveCPQQuotes });
-  registerCpqCoreRoutes(app, { requireAuth, requireViewCPQ, requireManageCPQ });
+  // requireAuthOrIntegrationKey statt requireAuth: requireAuthOrIntegrationKey faellt ohne
+  // Integration-Key-Header transparent auf requireAuth zurueck (kein Verhaltensunterschied fuer
+  // bestehende Session-Aufrufe) und erlaubt zusaetzlich Automatisierungs-Clients (z. B. META
+  // Agents metaorder-Connector) den Zugriff — die eigentliche Rechteprüfung (requireViewCPQ/
+  // requireManageCPQ) greift unveraendert danach.
+  registerCpqRoutes(app, { requireAuth: requireAuthOrIntegrationKey, requireViewCPQ, requireManageCPQ, requireManageCPQDiscountLevels, requireApproveCPQQuotes });
+  registerCpqCoreRoutes(app, { requireAuth: requireAuthOrIntegrationKey, requireViewCPQ, requireManageCPQ });
 
   // ERP-Kernmodule (Warenwirtschaft, Einkauf, Retouren, Fibu, Produktion, Versand)
   registerErpRoutes(app);
@@ -2179,7 +2199,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Tenant required" });
       }
       const name = typeof req.body?.name === "string" ? req.body.name : "";
-      const created = await storage.createTenantIntegrationApiKey(tenantId, name);
+      const requestedUserId = typeof req.body?.userId === "string" ? req.body.userId.trim() : "";
+      let userId: string | null = null;
+      if (requestedUserId) {
+        const requestedUser = await storage.getUser(requestedUserId);
+        if (!requestedUser) {
+          return res.status(400).json({ error: "userId nicht gefunden" });
+        }
+        // Der gebundene User muss Mitglied des Key-Mandanten sein — sonst entstehen Keys,
+        // die erst zur Laufzeit scheitern (verwirrend) oder, schlimmer, bei späteren
+        // Mitgliedschafts-Änderungen unbemerkt scharf werden.
+        const targetTenants = await storage.getTenantsForUser(requestedUser.id);
+        if (!targetTenants.some((t) => t.id === tenantId)) {
+          return res.status(400).json({
+            error: "Der angegebene Benutzer ist diesem Mandanten nicht zugeordnet.",
+          });
+        }
+        userId = requestedUser.id;
+      }
+      const created = await storage.createTenantIntegrationApiKey(tenantId, name, userId);
       res.json({
         id: created.id,
         apiKey: created.apiKey,
@@ -3231,8 +3269,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const client = new ShopwareClient(settings);
-      const salesChannels = await client.fetchSalesChannels();
-      
+      const salesChannels = await cachedShopwareMasterdata(
+        `salesChannels::${(req as any).tenantId ?? "__global__"}`,
+        () => client.fetchSalesChannels(),
+      );
+
       res.json(salesChannels);
     } catch (error: any) {
       const msg = error?.message || "Failed to fetch sales channels";
@@ -4048,6 +4089,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error fetching ticket counts:", error);
       res.status(500).json({ error: "Failed to fetch ticket counts" });
+    }
+  });
+
+  // Badges für die Bestellübersicht (Mahnstufe + Ratenzahlungs-Zähler je Bestellung).
+  // Der Client (OrdersPage) ruft diese Route seit d896e27 auf, serverseitig fehlte sie aber —
+  // die Aufrufe liefen in die :orderId-Route darunter (orderId="badge-flags"), verbrannten
+  // dort ~600ms für eine zum Scheitern verurteilte Bestellsuche und die Badges blieben stumm.
+  // Muss VOR /api/orders/:orderId registriert bleiben. Rein lokale DB-Abfragen, kein Shopware.
+  app.get("/api/orders/badge-flags", requireAuth, async (req, res) => {
+    try {
+      const tenantId = (req as any).tenantId ?? null;
+      const [dunningStatuses, installmentPlans] = await Promise.all([
+        storage.getAllOrderDunningStatuses(tenantId),
+        storage.getAllInstallmentPlans(tenantId),
+      ]);
+
+      const dunningStages: Record<string, number> = {};
+      for (const status of dunningStatuses) {
+        if (status.orderId && status.stage > 0) dunningStages[status.orderId] = status.stage;
+      }
+
+      const installmentCounts: Record<string, number> = {};
+      for (const plan of installmentPlans) {
+        if (plan.orderId) installmentCounts[plan.orderId] = (installmentCounts[plan.orderId] || 0) + 1;
+      }
+
+      res.json({ dunningStages, installmentCounts });
+    } catch (error: any) {
+      console.error("Error fetching order badge flags:", error);
+      res.status(500).json({ error: "Failed to fetch badge flags" });
     }
   });
 
@@ -6836,7 +6907,7 @@ Antworte im JSON-Format:
           tenantId,
         );
         overview = mirrorRows
-          .map((row) => mirrorPayloadToOverview(row.payload))
+          .map((row) => mirrorPayloadToOverview(row.payload, row.lastPriceChangeAt))
           .filter((p): p is ShopwareProductOverview => Boolean(p));
         if (!includeInactive) {
           overview = overview.filter((p) => p.active !== false);
@@ -7012,6 +7083,18 @@ Antworte im JSON-Format:
     } catch (error: any) {
       const msg = error?.message || "Produkt-Übersicht fehlgeschlagen";
       console.error("[/api/products/overview] Error:", msg, error?.stack);
+      res.status(500).json({ error: msg });
+    }
+  });
+
+  app.get("/api/products/:shopwareId/price-history", requireAuth, async (req, res) => {
+    try {
+      const tenantId = (req as any).tenantId as string | null | undefined;
+      const history = await storage.getProductPriceHistory(req.params.shopwareId, tenantId);
+      res.json({ history });
+    } catch (error: any) {
+      const msg = error?.message || "Preis-Historie fehlgeschlagen";
+      console.error("[/api/products/:shopwareId/price-history] Error:", msg, error?.stack);
       res.status(500).json({ error: msg });
     }
   });
@@ -8312,7 +8395,10 @@ Antworte im JSON-Format:
       }
 
       const client = new ShopwareClient(settings);
-      const categories = await client.fetchCategories();
+      const categories = await cachedShopwareMasterdata(
+        `categories::${(req as any).tenantId ?? "__global__"}`,
+        () => client.fetchCategories(),
+      );
       res.json(categories);
     } catch (error: any) {
       const msg = error?.message || "Failed to fetch categories";
@@ -12743,7 +12829,7 @@ Antworte im JSON-Format:
     }
   });
 
-  app.get("/api/crm/customers/resolve", requireAuth, requireViewCrm, async (req, res) => {
+  app.get("/api/crm/customers/resolve", requireAuthOrIntegrationKey, requireViewCrm, async (req, res) => {
     try {
       const email = typeof req.query.email === "string" ? req.query.email.trim() : "";
       const name = typeof req.query.name === "string" ? req.query.name.trim() : "";
@@ -13072,7 +13158,7 @@ Antworte im JSON-Format:
 
   // Kundenindividuelle Preise (B2Bsellers Suite). Löst den Shopware-Kunden über
   // die E-Mail auf und liest dessen individuelle Preise aus dem Plugin.
-  app.get("/api/crm/customers/:id/individual-prices", requireAuth, requireViewCrm, async (req, res) => {
+  app.get("/api/crm/customers/:id/individual-prices", requireAuthOrIntegrationKey, requireViewCrm, async (req, res) => {
     try {
       const { id } = req.params;
       const customer = await storage.getCustomer(id);
@@ -14068,6 +14154,7 @@ Antworte im JSON-Format:
     "/api/commercial-drafts/upload",
     requireAuthOrIntegrationKey,
     requireManageCommercialDraftUpload,
+    requireCsrf,
     uploadRateLimiter,
     commercialUnifiedDraftUpload.single("file"),
     async (req: Request, res: Response) => {
@@ -14415,7 +14502,7 @@ Antworte im JSON-Format:
   );
 
   // GET /api/order-drafts - Get all order drafts
-  app.get("/api/order-drafts", requireAuth, requireManageOrderDrafts, async (req: Request, res: Response) => {
+  app.get("/api/order-drafts", requireAuthOrIntegrationKey, requireManageOrderDrafts, async (req: Request, res: Response) => {
     try {
       const orderDrafts = await storage.getAllOrderDrafts();
       res.json(orderDrafts);
@@ -14447,7 +14534,7 @@ Antworte im JSON-Format:
   });
 
   // GET /api/order-drafts/:id - Get single order draft with cross-selling suggestions
-  app.get("/api/order-drafts/:id", requireAuth, requireManageOrderDrafts, async (req: Request, res: Response) => {
+  app.get("/api/order-drafts/:id", requireAuthOrIntegrationKey, requireManageOrderDrafts, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const orderDraft = await storage.getOrderDraft(id);
@@ -14570,7 +14657,7 @@ Antworte im JSON-Format:
   );
 
   // PATCH /api/order-drafts/:id - Update order draft
-  app.patch("/api/order-drafts/:id", requireAuthOrIntegrationKey, requireManageOrderDrafts, async (req: Request, res: Response) => {
+  app.patch("/api/order-drafts/:id", requireAuthOrIntegrationKey, requireManageOrderDrafts, requireCsrf, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       
@@ -14843,7 +14930,7 @@ Antworte im JSON-Format:
   });
 
   // POST /api/order-drafts/:id/create-order - Create Shopware order from draft
-  app.post("/api/order-drafts/:id/create-order", requireAuthOrIntegrationKey, requireManageOrderDrafts, async (req: Request, res: Response) => {
+  app.post("/api/order-drafts/:id/create-order", requireAuthOrIntegrationKey, requireManageOrderDrafts, requireCsrf, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const allowedChannelIds = await getSalesChannelFilter(req);
@@ -15326,7 +15413,7 @@ Antworte im JSON-Format:
   });
 
   // GET /api/offer-drafts - Get all offer drafts
-  app.get("/api/offer-drafts", requireAuth, requireViewOffers, async (req: Request, res: Response) => {
+  app.get("/api/offer-drafts", requireAuthOrIntegrationKey, requireViewOffers, async (req: Request, res: Response) => {
     try {
       // Optionaler ?status=a,b-Filter — die einzige Liste, die diese Route heute konsumiert
       // (OffersPage "Ausstehende Entwürfe"), braucht ausschließlich pending/review_required
@@ -15365,7 +15452,7 @@ Antworte im JSON-Format:
   });
 
   // GET /api/offer-drafts/:id - Get single offer draft with cross-selling suggestions
-  app.get("/api/offer-drafts/:id", requireAuth, requireViewOffers, async (req: Request, res: Response) => {
+  app.get("/api/offer-drafts/:id", requireAuthOrIntegrationKey, requireViewOffers, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const offerDraft = await storage.getOfferDraft(id);
@@ -15489,7 +15576,7 @@ Antworte im JSON-Format:
   });
 
   // PATCH /api/offer-drafts/:id - Update offer draft
-  app.patch("/api/offer-drafts/:id", requireAuthOrIntegrationKey, requireManageOffers, async (req: Request, res: Response) => {
+  app.patch("/api/offer-drafts/:id", requireAuthOrIntegrationKey, requireManageOffers, requireCsrf, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       
@@ -15837,7 +15924,7 @@ Antworte im JSON-Format:
   });
 
   // POST /api/offer-drafts/:id/create-offer - Create Shopware offer from draft
-  app.post("/api/offer-drafts/:id/create-offer", requireAuthOrIntegrationKey, requireManageOffers, async (req: Request, res: Response) => {
+  app.post("/api/offer-drafts/:id/create-offer", requireAuthOrIntegrationKey, requireManageOffers, requireCsrf, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const allowedChannelIds = await getSalesChannelFilter(req);
@@ -15903,7 +15990,7 @@ Antworte im JSON-Format:
   });
 
   // GET /api/offers - Get all offers from B2B Sellers Suite
-  app.get("/api/offers", requireAuth, requireViewOffers, async (req: Request, res: Response) => {
+  app.get("/api/offers", requireAuthOrIntegrationKey, requireViewOffers, async (req: Request, res: Response) => {
     try {
       const settings = await storage.getShopwareSettings();
       if (!settings) {
@@ -16197,7 +16284,7 @@ Antworte im JSON-Format:
   });
 
   // GET /api/offers/:id - Get single offer with full details
-  app.get("/api/offers/:id", requireAuth, requireViewOffers, async (req: Request, res: Response) => {
+  app.get("/api/offers/:id", requireAuthOrIntegrationKey, requireViewOffers, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const detail = await buildOfferDetailJson(storage, id, (req as any).tenantId);
@@ -16333,7 +16420,10 @@ Antworte im JSON-Format:
   // (erzeugt dabei einen frischen Link, der frühere aktive Links für dieses Angebot ersetzt).
   app.post(
     "/api/offers/:id/send-email",
-    requireAuth,
+    // requireAuthOrIntegrationKey setzt bei verifiziertem Integration-Key req.integrationKeyAuth,
+    // wodurch requireCsrf fuer diesen Server-zu-Server-Pfad uebersprungen wird — Browser-Session-
+    // Aufrufe bleiben voll CSRF-geschuetzt (Double-Submit-Token wie ueberall).
+    requireAuthOrIntegrationKey,
     requireManageOffers,
     requireCsrf,
     async (req: Request, res: Response) => {

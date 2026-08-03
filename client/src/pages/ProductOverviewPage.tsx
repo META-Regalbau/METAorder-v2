@@ -102,6 +102,16 @@ interface OverviewProduct {
   inheritedFields?: string[];
   createdAt?: string;
   updatedAt?: string;
+  lastPriceChangeAt?: string | null;
+}
+
+interface PriceHistoryEntry {
+  id: string;
+  oldPriceGross: number | null;
+  newPriceGross: number;
+  oldPriceNet: number | null;
+  newPriceNet: number;
+  changedAt: string;
 }
 
 interface OverviewResponse {
@@ -119,6 +129,11 @@ const ALL = "__all__";
 const currencyFormatter = new Intl.NumberFormat("de-DE", {
   style: "currency",
   currency: "EUR",
+});
+
+const dateTimeFormatter = new Intl.DateTimeFormat("de-DE", {
+  dateStyle: "medium",
+  timeStyle: "short",
 });
 
 function formatCustomFieldValue(value: unknown): string {
@@ -464,6 +479,8 @@ export default function ProductOverviewPage() {
       "EAN",
       t("productOverview.csv.manufacturerNumber"),
       t("productOverview.csv.stock"),
+      t("productOverview.table.priceChangedAt"),
+      t("productOverview.table.lastUpdated"),
     ];
     const lines = [header.map(escapeCsv).join(",")];
     for (const p of filtered) {
@@ -488,6 +505,8 @@ export default function ProductOverviewPage() {
           p.ean ?? "",
           p.manufacturerNumber ?? "",
           p.stock ?? "",
+          p.lastPriceChangeAt ? dateTimeFormatter.format(new Date(p.lastPriceChangeAt)) : "",
+          p.updatedAt ? dateTimeFormatter.format(new Date(p.updatedAt)) : "",
         ]
           .map(escapeCsv)
           .join(","),
@@ -901,6 +920,10 @@ export default function ProductOverviewPage() {
                     <TableHead className="min-w-[120px]">{t("productOverview.table.restockTime")}</TableHead>
                     <TableHead className="w-[130px]">{t("productOverview.table.customFields")}</TableHead>
                     <TableHead className="w-[120px] text-right">{t("productOverview.table.price")}</TableHead>
+                    <TableHead className="w-[140px]">{t("productOverview.table.priceChangedAt")}</TableHead>
+                    <TableHead className="w-[140px]" title={t("productOverview.table.lastUpdatedHint")}>
+                      {t("productOverview.table.lastUpdated")}
+                    </TableHead>
                     <TableHead className="w-[56px]">{t("productOverview.table.actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1007,6 +1030,77 @@ function BadgeList({
         </Popover>
       ) : null}
     </div>
+  );
+}
+
+function PriceChangeCell({ product }: { product: OverviewProduct }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const { data, isLoading } = useQuery<{ history: PriceHistoryEntry[] }>({
+    queryKey: ["/api/products", product.id, "price-history"],
+    enabled: open,
+  });
+
+  if (!product.lastPriceChangeAt) {
+    return <span className="text-muted-foreground text-sm">{t("productOverview.table.none")}</span>;
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <button type="button" className="text-sm underline decoration-dotted underline-offset-2 text-left">
+          {dateTimeFormatter.format(new Date(product.lastPriceChangeAt))}
+        </button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{t("productOverview.priceHistoryTitle")}</DialogTitle>
+          <DialogDescription>
+            {product.productNumber} · {product.name}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="rounded-md border overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t("productOverview.modal.changedAt")}</TableHead>
+                <TableHead className="text-right">{t("productOverview.modal.oldPrice")}</TableHead>
+                <TableHead className="text-right">{t("productOverview.modal.newPrice")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center text-muted-foreground">
+                    {t("productOverview.loading")}
+                  </TableCell>
+                </TableRow>
+              ) : !data?.history?.length ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center text-muted-foreground">
+                    {t("productOverview.table.none")}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                data.history.map((entry) => (
+                  <TableRow key={entry.id}>
+                    <TableCell className="text-sm">
+                      {dateTimeFormatter.format(new Date(entry.changedAt))}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-muted-foreground">
+                      {entry.oldPriceGross != null ? currencyFormatter.format(entry.oldPriceGross) : "—"}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      {currencyFormatter.format(entry.newPriceGross)}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1260,6 +1354,21 @@ function ProductRow({
         <div className="text-xs text-muted-foreground">
           {currencyFormatter.format(product.priceNet || 0)} {t("productOverview.net")}
         </div>
+      </TableCell>
+      <TableCell>
+        <PriceChangeCell product={product} />
+      </TableCell>
+      <TableCell>
+        {product.updatedAt ? (
+          <span
+            className="text-sm text-muted-foreground"
+            title={t("productOverview.table.lastUpdatedHint")}
+          >
+            {dateTimeFormatter.format(new Date(product.updatedAt))}
+          </span>
+        ) : (
+          <span className="text-muted-foreground text-sm">{t("productOverview.table.none")}</span>
+        )}
       </TableCell>
       <TableCell>
         <Button
