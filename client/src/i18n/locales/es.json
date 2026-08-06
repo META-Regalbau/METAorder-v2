@@ -2578,6 +2578,8 @@
       "name": "Nombre",
       "contact": "Contacto",
       "lastOrder": "Último Pedido",
+      "interactions": "Interacciones",
+      "interactionsOpen": "Mostrar interacciones",
       "totalRevenue": "Ingresos",
       "orders": "{{count}} pedidos",
       "open": "Abrir",

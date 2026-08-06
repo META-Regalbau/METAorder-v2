@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { MessageSquare } from "lucide-react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTranslation } from "react-i18next";
 import type { DiscountRequest, OrderAssignment, Role } from "@shared/schema";
-import CustomerDetailModal from "@/components/CustomerDetailModal";
+import CustomerDetailModal, { type CustomerDetailTab } from "@/components/CustomerDetailModal";
 import { SalesChannelSelector } from "@/components/SalesChannelSelector";
 
 type CrmCustomer = {
@@ -30,6 +31,8 @@ type CrmCustomer = {
   lastOrderDate?: string | null;
   salesChannelIds?: string[];
   hasIndividualPrice?: boolean;
+  interactionCount?: number;
+  lastInteractionAt?: string | null;
 };
 
 type EnrichedAssignment = OrderAssignment & {
@@ -56,6 +59,7 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
   const [searchValue, setSearchValue] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<CrmCustomer | null>(null);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [customerModalTab, setCustomerModalTab] = useState<CustomerDetailTab>("overview");
   const [onlyIndividualPrices, setOnlyIndividualPrices] = useState(false);
   const [onlyPossibleExisting, setOnlyPossibleExisting] = useState(false);
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
@@ -294,8 +298,9 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
     return null;
   }
 
-  const handleCustomerOpen = (customer: CrmCustomer) => {
+  const handleCustomerOpen = (customer: CrmCustomer, tab: CustomerDetailTab = "overview") => {
     setSelectedCustomer(customer);
+    setCustomerModalTab(tab);
     setIsCustomerModalOpen(true);
   };
 
@@ -398,6 +403,7 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
                         <TableHead>{t("crm.customers.name")}</TableHead>
                         <TableHead>{t("crm.customers.contact")}</TableHead>
                         <TableHead>{t("crm.customers.lastOrder")}</TableHead>
+                        <TableHead>{t("crm.customers.interactions")}</TableHead>
                         <TableHead className="text-right">{t("crm.customers.totalRevenue")}</TableHead>
                         <TableHead className="text-right">{t("common.actions")}</TableHead>
                       </TableRow>
@@ -444,6 +450,28 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
                             <div className="text-xs text-muted-foreground">
                               {customer.lastOrderDate ? new Date(customer.lastOrderDate).toLocaleDateString() : "—"}
                             </div>
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {(customer.interactionCount ?? 0) > 0 ? (
+                              <button
+                                type="button"
+                                className="text-left hover-elevate rounded-md px-1 -mx-1"
+                                title={t("crm.customers.interactionsOpen")}
+                                onClick={() => handleCustomerOpen(customer, "interactions")}
+                              >
+                                <Badge variant="secondary" className="gap-1 cursor-pointer">
+                                  <MessageSquare className="h-3 w-3" aria-hidden />
+                                  {customer.interactionCount}
+                                </Badge>
+                                <div className="mt-1 text-xs text-muted-foreground">
+                                  {customer.lastInteractionAt
+                                    ? new Date(customer.lastInteractionAt).toLocaleDateString()
+                                    : "—"}
+                                </div>
+                              </button>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="font-medium">€{customer.totalRevenue.toFixed(2)}</div>
@@ -662,6 +690,7 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
         customerEmail={activeCustomer?.email || ""}
         customerName={activeCustomer?.name || ""}
         canManageCrm={canManageCrm}
+        initialTab={customerModalTab}
       />
     </div>
   );

@@ -1034,6 +1034,27 @@ export class DbStorage implements IStorage {
       .orderBy(desc(customerInteractions.createdAt));
   }
 
+  /** Interaktions-Zähler + letzter Zeitpunkt je Kunde — eine Gruppierungs-Query für die
+   *  ganze CRM-Liste (statt pro Kunde einzeln zu laden). */
+  async getCustomerInteractionSummaries(
+    tenantId?: string | null,
+  ): Promise<Map<string, { count: number; lastAt: Date | null }>> {
+    const tenantFilter = tenantFilterFor(customerInteractions.tenantId, tenantId);
+    const rows = await db
+      .select({
+        customerId: customerInteractions.customerId,
+        count: sql<number>`count(*)::int`,
+        lastAt: sql<Date | null>`max(${customerInteractions.createdAt})`,
+      })
+      .from(customerInteractions)
+      .where(tenantFilter)
+      .groupBy(customerInteractions.customerId);
+
+    return new Map(
+      rows.map((row) => [row.customerId, { count: Number(row.count) || 0, lastAt: row.lastAt ?? null }]),
+    );
+  }
+
   async getRecentCustomerInteractions(limit: number, tenantId?: string | null): Promise<CustomerInteraction[]> {
     const tenantFilter = tenantFilterFor(customerInteractions.tenantId, tenantId);
     return await db

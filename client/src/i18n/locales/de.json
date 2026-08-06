@@ -3126,6 +3126,8 @@
       "name": "Name",
       "contact": "Kontakt",
       "lastOrder": "Letzte Bestellung",
+      "interactions": "Interaktionen",
+      "interactionsOpen": "Interaktionen anzeigen",
       "totalRevenue": "Umsatz",
       "orders": "{{count}} Bestellungen",
       "open": "Öffnen",

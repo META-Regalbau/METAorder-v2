@@ -1330,7 +1330,7 @@ function monduShipBlockedPayload(errorMessage: string) {
   };
 }
 
-const CRM_CUSTOMERS_CACHE_KEY = "crm_customers_cache_v4";
+const CRM_CUSTOMERS_CACHE_KEY = "crm_customers_cache_v5";
 const CRM_INDIVIDUAL_PRICES_CACHE_KEY = "crm_individual_prices_index_v2";
 const BESTANDSKUNDEN_GROUP_TERMS = ["Portal", "Händler", "Haendler"];
 
@@ -12571,6 +12571,9 @@ Antworte im JSON-Format:
         lastOrderDate: string | null;
         salesChannelIds: string[];
         hasIndividualPrice: boolean;
+        /** Manuell erfasste Interaktionen (Notiz/Anruf/E-Mail/Termin) — s. Kunden-Detail, Tab „Interaktionen". */
+        interactionCount: number;
+        lastInteractionAt: string | null;
       };
 
       const { data: list } = await getHashCached<CrmListItem[]>({
@@ -12584,12 +12587,26 @@ Antworte im JSON-Format:
           const ipFp = await client.fetchIndividualPriceCustomerFingerprint();
           const tickets = await storage.getAllTickets();
           const customerMirrorCount = await storage.countShopwareCustomerMirrors(tenantId);
+          // Interaktionen müssen in den Fingerprint: sonst taucht eine frisch erfasste
+          // Notiz/Anruf erst auf, wenn zufällig eine andere Quelle (Bestellung/Ticket) den
+          // Cache invalidiert. Summe aus Anzahl + jüngstem Zeitstempel erkennt auch das
+          // Nachtragen einer älteren Interaktion bei gleichbleibender Gesamtzahl nicht —
+          // dafür reicht die Anzahl, die sich beim Anlegen immer ändert.
+          const interactionSummaries = await storage.getCustomerInteractionSummaries(tenantId);
+          let interactionTotal = 0;
+          let interactionLatest = 0;
+          for (const summary of interactionSummaries.values()) {
+            interactionTotal += summary.count;
+            const ts = summary.lastAt ? new Date(summary.lastAt).getTime() : 0;
+            if (ts > interactionLatest) interactionLatest = ts;
+          }
           return stableFingerprint({
             orders: ordersFp ?? "none",
             crmRows: customerRows.length,
             tickets: tickets.length,
             individualPrices: ipFp ?? "none",
             customerMirror: customerMirrorCount,
+            interactions: `${interactionTotal}:${interactionLatest}`,
           });
         },
         fetchFull: async () => {
@@ -12791,8 +12808,13 @@ Antworte im JSON-Format:
             });
           }
 
+          // Interaktionen hängen an der lokalen customers-Zeile (customer_interactions.customerId),
+          // deshalb erst hier über customerByEmail auflösen.
+          const interactionSummaries = await storage.getCustomerInteractionSummaries(tenantId);
+
           return Array.from(aggregation.entries()).map(([emailKey, data]) => {
             const stored = customerByEmail.get(emailKey);
+            const interaction = stored ? interactionSummaries.get(stored.id) : undefined;
             return {
               id: stored?.id ?? data.shopwareCustomerId ?? null,
               email: data.email,
@@ -12807,6 +12829,8 @@ Antworte im JSON-Format:
               lastOrderDate: data.lastOrderDate ?? null,
               salesChannelIds: Array.from(data.salesChannelIds),
               hasIndividualPrice: individualPriceEmailsForList.has(emailKey),
+              interactionCount: interaction?.count ?? 0,
+              lastInteractionAt: interaction?.lastAt ? new Date(interaction.lastAt).toISOString() : null,
             };
           });
         },

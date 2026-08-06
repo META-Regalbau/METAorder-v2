@@ -140,6 +140,15 @@ function formatCustomerPrice(value: number, currencyIsoCode?: string | null): st
   return formatter.format(value);
 }
 
+/** Tabs des Kunden-Modals — als Typ, damit Aufrufer (z. B. CRM-Liste) nur gültige Werte setzen. */
+export type CustomerDetailTab =
+  | "overview"
+  | "orders"
+  | "tickets"
+  | "prices"
+  | "b2b"
+  | "interactions";
+
 interface CustomerDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -147,6 +156,8 @@ interface CustomerDetailModalProps {
   customerEmail: string;
   customerName?: string;
   canManageCrm: boolean;
+  /** Tab, der beim Öffnen aktiv ist (Default: Übersicht). */
+  initialTab?: CustomerDetailTab;
 }
 
 export default function CustomerDetailModal({
@@ -156,6 +167,7 @@ export default function CustomerDetailModal({
   customerEmail,
   customerName,
   canManageCrm,
+  initialTab = "overview",
 }: CustomerDetailModalProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -165,14 +177,20 @@ export default function CustomerDetailModal({
   const [selectedPriceCurrency, setSelectedPriceCurrency] = useState(DEFAULT_PRICE_CURRENCY);
   const [selectedSalesChannel, setSelectedSalesChannel] = useState<string>("all");
   const [pricesTabActive, setPricesTabActive] = useState(false);
+  const [activeTab, setActiveTab] = useState<CustomerDetailTab>(initialTab);
 
   useEffect(() => {
     if (!isOpen) {
       setSelectedPriceCurrency(DEFAULT_PRICE_CURRENCY);
       setSelectedSalesChannel("all");
       setPricesTabActive(false);
+      return;
     }
-  }, [isOpen]);
+    // Beim Öffnen den gewünschten Tab setzen (z. B. „Interaktionen" beim Klick auf das
+    // Interaktions-Badge in der CRM-Liste); manuelles Weiterklicken bleibt davon unberührt.
+    setActiveTab(initialTab);
+    setPricesTabActive(initialTab === "prices");
+  }, [isOpen, initialTab]);
 
   const { data: overview, isLoading } = useQuery<CustomerOverview>({
     queryKey: ["/api/crm/customers", customerId || customerEmail, "overview"],
@@ -418,8 +436,11 @@ export default function CustomerDetailModal({
           <div className="py-10 text-center text-muted-foreground">{t("common.loading")}</div>
         ) : (
           <Tabs
-            defaultValue="overview"
-            onValueChange={(value) => setPricesTabActive(value === "prices")}
+            value={activeTab}
+            onValueChange={(value) => {
+              setActiveTab(value as CustomerDetailTab);
+              setPricesTabActive(value === "prices");
+            }}
           >
             <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="overview">{t("crm.customer.tabs.overview")}</TabsTrigger>

@@ -241,6 +241,9 @@ export interface IStorage {
 
   // CRM - Customer Interactions
   getCustomerInteractions(customerId: string, tenantId?: string | null): Promise<CustomerInteraction[]>;
+  getCustomerInteractionSummaries(
+    tenantId?: string | null,
+  ): Promise<Map<string, { count: number; lastAt: Date | null }>>;
   getRecentCustomerInteractions(limit: number, tenantId?: string | null): Promise<CustomerInteraction[]>;
   createCustomerInteraction(interaction: InsertCustomerInteraction, tenantId?: string | null): Promise<CustomerInteraction>;
   deleteCustomerInteraction(id: string, tenantId?: string | null): Promise<boolean>;
@@ -1265,6 +1268,19 @@ export class MemStorage implements IStorage {
     return Array.from(this.customerInteractions.values()).filter(
       (interaction) => interaction.customerId === customerId
     );
+  }
+
+  async getCustomerInteractionSummaries(): Promise<Map<string, { count: number; lastAt: Date | null }>> {
+    const summaries = new Map<string, { count: number; lastAt: Date | null }>();
+    for (const interaction of this.customerInteractions.values()) {
+      const current = summaries.get(interaction.customerId) ?? { count: 0, lastAt: null };
+      const createdAt = new Date(interaction.createdAt);
+      summaries.set(interaction.customerId, {
+        count: current.count + 1,
+        lastAt: !current.lastAt || createdAt > current.lastAt ? createdAt : current.lastAt,
+      });
+    }
+    return summaries;
   }
 
   async getRecentCustomerInteractions(limit: number): Promise<CustomerInteraction[]> {

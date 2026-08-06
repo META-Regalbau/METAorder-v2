@@ -2921,6 +2921,8 @@
       "name": "Name",
       "contact": "Contact",
       "lastOrder": "Last Order",
+      "interactions": "Interactions",
+      "interactionsOpen": "Show interactions",
       "totalRevenue": "Revenue",
       "orders": "{{count}} orders",
       "open": "Open",
