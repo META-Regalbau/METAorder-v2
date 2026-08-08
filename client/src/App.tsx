@@ -59,6 +59,8 @@ const FinancePage = lazy(() => import("@/pages/FinancePage"));
 const ProductionPage = lazy(() => import("@/pages/ProductionPage"));
 const ShippingOpsPage = lazy(() => import("@/pages/ShippingOpsPage"));
 const MobilePickingPage = lazy(() => import("@/pages/MobilePickingPage"));
+const MobileStockPage = lazy(() => import("@/pages/MobileStockPage"));
+const MobileInventoryPage = lazy(() => import("@/pages/MobileInventoryPage"));
 import LoginPage from "@/pages/LoginPage";
 import NotFound from "@/pages/not-found";
 import PublicOfferPage from "@/pages/PublicOfferPage";
@@ -129,6 +131,9 @@ function Router({
       <Route path="/shipping-ops" component={ShippingOpsPage} />
       <Route path="/mobile/picking/:id" component={MobilePickingPage} />
       <Route path="/mobile/picking" component={MobilePickingPage} />
+      <Route path="/mobile/stock" component={MobileStockPage} />
+      <Route path="/mobile/inventory/:id" component={MobileInventoryPage} />
+      <Route path="/mobile/inventory" component={MobileInventoryPage} />
       <Route path="/shop-fakturen-import" component={ShopFakturenImportPage} />
       <Route path="/users" component={UsersPage} />
       <Route path="/roles" component={RolesPage} />
@@ -211,9 +216,15 @@ function AuthenticatedApp() {
     "--sidebar-width-icon": "3rem",
   };
 
-  const isMobilePicking = pathname === "/mobile/picking" || pathname.startsWith("/mobile/picking/");
+  // Mobile-Ansichten laufen ohne Sidebar/Header — am Handgerät zählt jeder Pixel.
+  const isMobileFullscreen =
+    pathname === "/mobile/picking" ||
+    pathname.startsWith("/mobile/picking/") ||
+    pathname === "/mobile/stock" ||
+    pathname === "/mobile/inventory" ||
+    pathname.startsWith("/mobile/inventory/");
 
-  if (isMobilePicking) {
+  if (isMobileFullscreen) {
     return (
       <TooltipProvider>
         <div className="flex h-dvh min-h-0 w-full max-h-dvh flex-col bg-background">

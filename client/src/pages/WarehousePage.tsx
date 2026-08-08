@@ -1,7 +1,8 @@
 import { useDeferredValue, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Warehouse, Plus, ScanLine } from "lucide-react";
+import { Link } from "wouter";
+import { Warehouse, Plus, Printer, ScanLine, Smartphone } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,12 +11,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import ErpProductAutocomplete from "@/components/ErpProductAutocomplete";
 import { ErpProductCell } from "@/components/ErpProductCell";
 import { BarcodeScannerDialog } from "@/components/BarcodeScannerDialog";
+import {
+  PrintLocationLabelDialog,
+  type PrintableLocation,
+} from "@/components/PrintLocationLabelDialog";
+import { printStockCountSheet, type StockCountRow } from "@/lib/labels/stockCountSheet";
 import { useErpProductLabels } from "@/hooks/useErpProductLabels";
 import { normalizeScanCode } from "@/lib/barcode/normalizeScanCode";
 
@@ -56,6 +63,7 @@ type ErpWarehouseLocation = {
 type ErpStockLevel = {
   id: string;
   warehouseId: string;
+  locationId?: string | null;
   productNumber: string;
   quantity: number;
   reservedQuantity: number;
@@ -158,9 +166,14 @@ export default function WarehousePage() {
   const [stockActiveFilter, setStockActiveFilter] = useState<StockActiveFilter>("all");
   const [stockSizeFilter, setStockSizeFilter] = useState("all");
   const [stockColorFilter, setStockColorFilter] = useState("all");
+  const [selectedStockProducts, setSelectedStockProducts] = useState<Set<string>>(new Set());
+  const [assignLocationId, setAssignLocationId] = useState("");
   const [locationsWarehouseId, setLocationsWarehouseId] = useState("");
   const [locOpen, setLocOpen] = useState(false);
   const [editingLocationId, setEditingLocationId] = useState<string | null>(null);
+  const [selectedLocationIds, setSelectedLocationIds] = useState<Set<string>>(new Set());
+  const [locLabelOpen, setLocLabelOpen] = useState(false);
+  const [locLabelItems, setLocLabelItems] = useState<PrintableLocation[]>([]);
   const emptyLocForm = {
     code: "",
     name: "",
@@ -239,6 +252,24 @@ export default function WarehousePage() {
         : stock,
     [stock, defaultWarehouseId],
   );
+
+  /** Lagerplätze des Bestände-Lagers (für die Sammelzuweisung im Bestände-Tab). */
+  const { data: stockLocationsData } = useQuery<{ locations: ErpWarehouseLocation[] }>({
+    queryKey: ["/api/erp/warehouses", defaultWarehouseId, "locations"],
+    enabled: Boolean(defaultWarehouseId),
+  });
+  const stockLocations = stockLocationsData?.locations ?? [];
+  const stockLocationById = useMemo(
+    () => new Map(stockLocations.map((l) => [l.id, l])),
+    [stockLocations],
+  );
+  const locationByProduct = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const s of stockMain) {
+      if (s.locationId) map.set(s.productNumber, s.locationId);
+    }
+    return map;
+  }, [stockMain]);
 
   const { data: movData } = useQuery<{ movements: ErpStockMovement[] }>({
     queryKey: ["/api/erp/stock/movements"],
@@ -577,6 +608,123 @@ export default function WarehousePage() {
       toast({ title: t("errors.failed"), description: e.message, variant: "destructive" }),
   });
 
+  /** Mehrfachauswahl im Bestände-Tab: Lagerplatz für alle markierten Artikel setzen/entfernen. */
+  const assignStockLocation = useMutation({
+    mutationFn: async () => {
+      if (!defaultWarehouseId) throw new Error("Warehouse required");
+      const productNumbers = Array.from(selectedStockProducts);
+      if (productNumbers.length === 0) throw new Error("No products selected");
+      const res = await apiRequest("POST", "/api/erp/stock/assign-location", {
+        warehouseId: defaultWarehouseId,
+        productNumbers,
+        locationId: assignLocationId === "__none__" ? null : assignLocationId || null,
+      });
+      return (await res.json()) as { updated: number; created: number; merged: number };
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/erp/stock"] });
+      setSelectedStockProducts(new Set());
+      toast({
+        title: t("erp.warehouse.assignLocationDone", {
+          count: result.updated + result.created,
+        }),
+      });
+    },
+    onError: (e: Error) =>
+      toast({ title: t("errors.failed"), description: e.message, variant: "destructive" }),
+  });
+
+  const toggleStockProduct = (productNumber: string) => {
+    setSelectedStockProducts((prev) => {
+      const next = new Set(prev);
+      if (next.has(productNumber)) next.delete(productNumber);
+      else next.add(productNumber);
+      return next;
+    });
+  };
+
+  const allFilteredSelected =
+    filteredStockRows.length > 0 &&
+    filteredStockRows.every((r) => selectedStockProducts.has(r.productNumber));
+
+  /**
+   * Zählliste drucken: markierte Artikel, sonst alle gefilterten. Sortiert nach Lagerplatz,
+   * damit man die Liste im Lager Regal für Regal abarbeiten kann; Artikel ohne Lagerplatz
+   * landen am Ende.
+   */
+  const handlePrintCountSheet = () => {
+    const source =
+      selectedStockProducts.size > 0
+        ? filteredStockRows.filter((r) => selectedStockProducts.has(r.productNumber))
+        : filteredStockRows;
+
+    const rows: StockCountRow[] = source.map((row) => {
+      const locId = locationByProduct.get(row.productNumber);
+      const loc = locId ? stockLocationById.get(locId) : undefined;
+      const label = row.label || resolveLabel(row.productNumber);
+      return {
+        productNumber: row.productNumber,
+        name: label.name ?? null,
+        size: label.size ?? null,
+        color: label.color ?? null,
+        locationCode: loc?.code ?? null,
+        erpQty: Number(row.erpQty || 0),
+      };
+    });
+
+    const collator = new Intl.Collator("de", { numeric: true, sensitivity: "base" });
+    rows.sort((a, b) => {
+      if (!a.locationCode && b.locationCode) return 1;
+      if (a.locationCode && !b.locationCode) return -1;
+      const byLoc = collator.compare(a.locationCode || "", b.locationCode || "");
+      if (byLoc !== 0) return byLoc;
+      return collator.compare(a.productNumber, b.productNumber);
+    });
+
+    if (rows.length === 0) {
+      toast({ title: t("erp.warehouse.countSheetEmpty"), variant: "destructive" });
+      return;
+    }
+
+    const wh = defaultWarehouseId ? warehouseById.get(defaultWarehouseId) : undefined;
+    try {
+      printStockCountSheet(rows, {
+        title: t("erp.warehouse.countSheetTitle"),
+        warehouseLabel: wh ? `${wh.code} — ${wh.name}` : "—",
+        printedAt: new Date(),
+        labels: {
+          productNumber: t("erp.warehouse.countSheetSku"),
+          description: t("erp.warehouse.countSheetDescription"),
+          location: t("erp.warehouse.location"),
+          erpQty: t("erp.warehouse.erpQty"),
+          counted: t("erp.warehouse.countSheetCounted"),
+          date: t("erp.date"),
+          page: t("erp.warehouse.countSheetPage"),
+          rowCount: t("erp.warehouse.countSheetRows"),
+          note: t("erp.warehouse.countSheetNote"),
+        },
+      });
+    } catch (e) {
+      toast({
+        title: t("errors.failed"),
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const toggleAllStockRows = () => {
+    setSelectedStockProducts((prev) => {
+      const next = new Set(prev);
+      if (allFilteredSelected) {
+        for (const r of filteredStockRows) next.delete(r.productNumber);
+      } else {
+        for (const r of filteredStockRows) next.add(r.productNumber);
+      }
+      return next;
+    });
+  };
+
   const saveShelfType = useMutation({
     mutationFn: async () => {
       const body = {
@@ -621,6 +769,40 @@ export default function WarehousePage() {
       active: loc.active,
     });
     setLocOpen(true);
+  };
+
+  const toPrintableLocation = (loc: ErpWarehouseLocation): PrintableLocation => {
+    const st = loc.shelfTypeId ? shelfTypeById.get(loc.shelfTypeId) : undefined;
+    const wh = warehouseById.get(loc.warehouseId);
+    return {
+      code: loc.code,
+      name: loc.name || null,
+      shelfType: st ? `${st.code} — ${st.name}` : null,
+      warehouseCode: wh?.code || null,
+    };
+  };
+
+  const openLocationLabels = (locs: ErpWarehouseLocation[]) => {
+    setLocLabelItems(locs.map(toPrintableLocation));
+    setLocLabelOpen(true);
+  };
+
+  const toggleLocationSelected = (id: string) => {
+    setSelectedLocationIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const allLocationsSelected =
+    locations.length > 0 && locations.every((l) => selectedLocationIds.has(l.id));
+
+  const toggleAllLocations = () => {
+    setSelectedLocationIds(
+      allLocationsSelected ? new Set() : new Set(locations.map((l) => l.id)),
+    );
   };
 
   const openCreateShelfType = () => {
@@ -981,6 +1163,18 @@ export default function WarehousePage() {
           <p className="text-muted-foreground mt-1">{t("erp.warehouse.description")}</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/mobile/stock">
+              <Smartphone className="h-4 w-4 mr-2" />
+              {t("erp.warehouse.mobileStock")}
+            </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/mobile/inventory">
+              <Smartphone className="h-4 w-4 mr-2" />
+              {t("erp.warehouse.mobileInventory")}
+            </Link>
+          </Button>
           <Button
             variant="outline"
             onClick={() => {
@@ -1032,12 +1226,27 @@ export default function WarehousePage() {
                     {t("erp.warehouse.stockHelp")}
                   </p>
                 </div>
-                <Button
-                  disabled={importFromShopware.isPending || refreshReconcileMirror.isPending}
-                  onClick={() => importFromShopware.mutate()}
-                >
-                  {t("erp.warehouse.importFromShopware")}
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={handlePrintCountSheet}
+                    disabled={filteredStockRows.length === 0}
+                    data-testid="stock-print-count-sheet"
+                  >
+                    <Printer className="h-4 w-4 mr-2" />
+                    {selectedStockProducts.size > 0
+                      ? t("erp.warehouse.countSheetPrintSelected", {
+                          count: selectedStockProducts.size,
+                        })
+                      : t("erp.warehouse.countSheetPrint")}
+                  </Button>
+                  <Button
+                    disabled={importFromShopware.isPending || refreshReconcileMirror.isPending}
+                    onClick={() => importFromShopware.mutate()}
+                  >
+                    {t("erp.warehouse.importFromShopware")}
+                  </Button>
+                </div>
               </div>
 
               {stockViewRows.length > 0 ? (
@@ -1255,6 +1464,56 @@ export default function WarehousePage() {
                       </Button>
                     ) : null}
                   </div>
+
+                  {selectedStockProducts.size > 0 ? (
+                    <div
+                      className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-md border bg-muted/40 px-3 py-2"
+                      data-testid="stock-bulk-location-bar"
+                    >
+                      <p className="text-sm font-medium">
+                        {t("erp.warehouse.selectedCount", {
+                          count: selectedStockProducts.size,
+                        })}
+                      </p>
+                      <div className="flex-1 min-w-[14rem]">
+                        <Select value={assignLocationId} onValueChange={setAssignLocationId}>
+                          <SelectTrigger data-testid="stock-bulk-location-select">
+                            <SelectValue placeholder={t("erp.warehouse.selectLocation")} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">
+                              {t("erp.warehouse.clearLocation")}
+                            </SelectItem>
+                            {stockLocations
+                              .filter((l) => l.active)
+                              .map((l) => (
+                                <SelectItem key={l.id} value={l.id}>
+                                  {l.code}
+                                  {l.name ? ` — ${l.name}` : ""}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          disabled={!assignLocationId || assignStockLocation.isPending}
+                          onClick={() => assignStockLocation.mutate()}
+                          data-testid="stock-bulk-location-assign"
+                        >
+                          {t("erp.warehouse.assignLocation")}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setSelectedStockProducts(new Set())}
+                        >
+                          {t("erp.warehouse.clearSelection")}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </CardHeader>
@@ -1265,21 +1524,44 @@ export default function WarehousePage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-10">
+                        <Checkbox
+                          checked={allFilteredSelected}
+                          onCheckedChange={toggleAllStockRows}
+                          disabled={filteredStockRows.length === 0}
+                          aria-label={t("erp.warehouse.selectAll")}
+                          data-testid="stock-select-all"
+                        />
+                      </TableHead>
                       <TableHead>{t("erp.product")}</TableHead>
+                      <TableHead>{t("erp.warehouse.location")}</TableHead>
                       <TableHead>{t("erp.warehouse.shopwareQty")}</TableHead>
                       <TableHead>{t("erp.warehouse.erpQty")}</TableHead>
                       <TableHead>{t("erp.warehouse.difference")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredStockRows.map((row) => (
+                    {filteredStockRows.map((row) => {
+                      const locId = locationByProduct.get(row.productNumber);
+                      const loc = locId ? stockLocationById.get(locId) : undefined;
+                      return (
                       <TableRow key={row.productNumber}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedStockProducts.has(row.productNumber)}
+                            onCheckedChange={() => toggleStockProduct(row.productNumber)}
+                            aria-label={row.productNumber}
+                          />
+                        </TableCell>
                         <TableCell>
                           <ErpProductCell
                             productNumber={row.productNumber}
                             label={resolveLabel(row.productNumber, row.label)}
                             showActiveToggle
                           />
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {loc ? loc.code : "—"}
                         </TableCell>
                         <TableCell>{row.shopwareQty == null ? "—" : row.shopwareQty}</TableCell>
                         <TableCell>{row.erpQty}</TableCell>
@@ -1295,16 +1577,17 @@ export default function WarehousePage() {
                           )}
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                     {stockViewRows.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-muted-foreground">
+                        <TableCell colSpan={6} className="text-muted-foreground">
                           {t("erp.warehouse.stockEmptyHint")}
                         </TableCell>
                       </TableRow>
                     ) : filteredStockRows.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-muted-foreground">
+                        <TableCell colSpan={6} className="text-muted-foreground">
                           {t("erp.warehouse.stockFilterNoMatches")}
                         </TableCell>
                       </TableRow>
@@ -1358,20 +1641,37 @@ export default function WarehousePage() {
                     {t("erp.warehouse.locationsHelp")}
                   </p>
                 </div>
-                <Button
-                  onClick={openCreateLocation}
-                  disabled={!effectiveLocationsWarehouseId}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  {t("erp.warehouse.addLocation")}
-                </Button>
+                <div className="flex items-center gap-2">
+                  {selectedLocationIds.size > 0 ? (
+                    <Button
+                      variant="default"
+                      onClick={() =>
+                        openLocationLabels(locations.filter((l) => selectedLocationIds.has(l.id)))
+                      }
+                      data-testid="locations-print-labels"
+                    >
+                      <Printer className="h-4 w-4 mr-2" />
+                      {t("locationLabels.printSelected", { count: selectedLocationIds.size })}
+                    </Button>
+                  ) : null}
+                  <Button
+                    onClick={openCreateLocation}
+                    disabled={!effectiveLocationsWarehouseId}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    {t("erp.warehouse.addLocation")}
+                  </Button>
+                </div>
               </div>
               <div className="max-w-sm">
                 <Label>{t("erp.warehouse.selectWarehouse")}</Label>
                 <select
                   className="w-full border rounded-md h-10 px-3 bg-background mt-1"
                   value={effectiveLocationsWarehouseId}
-                  onChange={(e) => setLocationsWarehouseId(e.target.value)}
+                  onChange={(e) => {
+                    setLocationsWarehouseId(e.target.value);
+                    setSelectedLocationIds(new Set());
+                  }}
                 >
                   {warehouses.length === 0 ? (
                     <option value="">{t("erp.select")}</option>
@@ -1395,6 +1695,14 @@ export default function WarehousePage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-10">
+                        <Checkbox
+                          checked={allLocationsSelected}
+                          onCheckedChange={toggleAllLocations}
+                          aria-label={t("erp.warehouse.selectAll")}
+                          data-testid="locations-select-all"
+                        />
+                      </TableHead>
                       <TableHead>{t("erp.code")}</TableHead>
                       <TableHead>{t("erp.warehouse.shelfType")}</TableHead>
                       <TableHead>{t("erp.warehouse.manufacturer")}</TableHead>
@@ -1411,6 +1719,13 @@ export default function WarehousePage() {
                       const st = loc.shelfTypeId ? shelfTypeById.get(loc.shelfTypeId) : undefined;
                       return (
                         <TableRow key={loc.id}>
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedLocationIds.has(loc.id)}
+                              onCheckedChange={() => toggleLocationSelected(loc.id)}
+                              aria-label={loc.code}
+                            />
+                          </TableCell>
                           <TableCell className="font-mono">{loc.code}</TableCell>
                           <TableCell>
                             {st ? `${st.code} — ${st.name}` : t("erp.warehouse.noShelfType")}
@@ -1422,9 +1737,24 @@ export default function WarehousePage() {
                           <TableCell>{loc.regalplatz || "—"}</TableCell>
                           <TableCell>{loc.active ? t("erp.active") : t("erp.inactive")}</TableCell>
                           <TableCell>
-                            <Button variant="ghost" size="sm" onClick={() => openEditLocation(loc)}>
-                              {t("common.edit")}
-                            </Button>
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openLocationLabels([loc])}
+                                title={t("locationLabels.printOne")}
+                                aria-label={t("locationLabels.printOne")}
+                              >
+                                <Printer className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openEditLocation(loc)}
+                              >
+                                {t("common.edit")}
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
@@ -2191,6 +2521,12 @@ export default function WarehousePage() {
         onOpenChange={setScannerOpen}
         onScan={(code) => void handleInventoryScan(code)}
         description={t("barcodeScan.inventoryDescription")}
+      />
+
+      <PrintLocationLabelDialog
+        locations={locLabelItems}
+        open={locLabelOpen}
+        onOpenChange={setLocLabelOpen}
       />
     </div>
   );
