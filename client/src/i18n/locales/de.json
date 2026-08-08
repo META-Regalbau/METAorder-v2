@@ -3157,7 +3157,10 @@
         "summary": "{{from}}–{{to}} von {{total}} Kunden",
         "perPage": "Pro Seite:",
         "page": "Seite {{page}} von {{pages}}"
-      }
+      },
+      "onlyAdditionalDiscounts": "Nur Kunden mit Zusatzrabatten",
+      "additionalDiscount": "Zusatzrabatt",
+      "additionalDiscountHint": "Höchste Zusatzrabatt-Staffel; greift ab dem hinterlegten Warenkorbwert"
     },
     "assignments": {
       "title": "Außendienst-Zuweisungen",

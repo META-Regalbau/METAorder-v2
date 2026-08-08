@@ -2952,7 +2952,10 @@
         "summary": "{{from}}–{{to}} of {{total}} customers",
         "perPage": "Per page:",
         "page": "Page {{page}} of {{pages}}"
-      }
+      },
+      "onlyAdditionalDiscounts": "Only customers with additional discounts",
+      "additionalDiscount": "Additional discount",
+      "additionalDiscountHint": "Highest additional discount tier; applies from the configured cart value"
     },
     "assignments": {
       "title": "Field Assignments",

@@ -2609,7 +2609,10 @@
         "summary": "{{from}}–{{to}} de {{total}} clientes",
         "perPage": "Por página:",
         "page": "Página {{page}} de {{pages}}"
-      }
+      },
+      "onlyAdditionalDiscounts": "Solo clientes con descuentos adicionales",
+      "additionalDiscount": "Descuento adicional",
+      "additionalDiscountHint": "Tramo más alto; se aplica desde el valor de carrito configurado"
     },
     "assignments": {
       "title": "Asignaciones de Campo",

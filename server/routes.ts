@@ -13548,6 +13548,70 @@ Antworte im JSON-Format:
    * Shopware: der Aufbau des Snapshots dauert Minuten (82 Preislisten-Stichproben), die
    * Seite muss sofort antworten. Aktualisiert wird über scripts/syncCustomerDiscounts.ts.
    */
+  /**
+   * Index der Kunden mit Zusatzrabatt — für den Filter in der CRM-Liste.
+   *
+   * Die Staffeln hängen an der Kundennummer, die CRM-Liste arbeitet mit E-Mail-Adressen.
+   * Hier wird deshalb über den Kunden-Mirror auf E-Mail gemappt und gleich der höchste
+   * Satz je Kunde mitgeliefert, damit die Liste ihn ohne Zusatzabfrage anzeigen kann.
+   */
+  app.get("/api/crm/customers/additional-discounts-index", requireAuth, requireViewCrm, async (req, res) => {
+    try {
+      const tenantId = (req as any).tenantId ?? null;
+      const { customerDiscountTiers } = await import("@shared/schema");
+      const { db } = await import("./db");
+      const { eq, isNull } = await import("drizzle-orm");
+
+      const tiers = await db
+        .select()
+        .from(customerDiscountTiers)
+        .where(
+          tenantId
+            ? eq(customerDiscountTiers.tenantId, tenantId)
+            : isNull(customerDiscountTiers.tenantId),
+        );
+
+      if (tiers.length === 0) {
+        return res.json({ configured: false, customerCount: 0, emails: [], maxPercentByEmail: {} });
+      }
+
+      const maxByNumber = new Map<string, number>();
+      for (const t of tiers) {
+        maxByNumber.set(
+          t.customerNumber,
+          Math.max(maxByNumber.get(t.customerNumber) ?? 0, t.discountPercent),
+        );
+      }
+
+      const mirrors = await storage.getShopwareCustomerMirrors(tenantId);
+      const emails = new Set<string>();
+      const maxPercentByEmail: Record<string, number> = {};
+      for (const c of mirrors) {
+        if (!c.email || !c.customerNumber) continue;
+        const pct = maxByNumber.get(c.customerNumber);
+        if (pct == null) continue;
+        const key = c.email.toLowerCase();
+        emails.add(key);
+        maxPercentByEmail[key] = Math.max(maxPercentByEmail[key] ?? 0, pct);
+      }
+
+      res.json({
+        configured: true,
+        customerCount: emails.size,
+        // Kundennummern aus den Regeln, zu denen es keinen Kunden gibt — in dieser
+        // Installation Tippfehler mit fehlender Null. Sichtbar machen statt verschlucken.
+        unmatchedNumbers: [...maxByNumber.keys()].filter(
+          (nr) => !mirrors.some((c) => c.customerNumber === nr),
+        ).length,
+        emails: [...emails],
+        maxPercentByEmail,
+      });
+    } catch (error: any) {
+      console.error("Error loading additional discounts index:", error?.message || error);
+      res.status(500).json({ error: "Failed to load additional discounts index" });
+    }
+  });
+
   app.get("/api/crm/discount-overview", requireAuth, requireViewCrm, async (req, res) => {
     try {
       const tenantId = (req as any).tenantId ?? null;

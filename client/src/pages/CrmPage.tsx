@@ -61,6 +61,7 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [customerModalTab, setCustomerModalTab] = useState<CustomerDetailTab>("overview");
   const [onlyIndividualPrices, setOnlyIndividualPrices] = useState(false);
+  const [onlyAdditionalDiscounts, setOnlyAdditionalDiscounts] = useState(false);
   const [onlyPossibleExisting, setOnlyPossibleExisting] = useState(false);
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
   const [pageSize, setPageSize] = useState(25);
@@ -94,6 +95,17 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
     queryKey: ["/api/crm/customers/individual-prices-index"],
     enabled: canViewCrm,
     staleTime: 5 * 60 * 1000,
+  });
+
+  /** Kunden mit Zusatzrabatt-Staffeln (Regeln in Shopware, gespiegelt je Kundennummer). */
+  const { data: additionalDiscountsIndex, isLoading: additionalDiscountsLoading } = useQuery<{
+    configured: boolean;
+    customerCount: number;
+    unmatchedNumbers?: number;
+    emails: string[];
+    maxPercentByEmail: Record<string, number>;
+  }>({
+    queryKey: ["/api/crm/customers/additional-discounts-index"],
   });
 
   const { data: possibleExistingIndex, isLoading: possibleExistingLoading } = useQuery<{
@@ -178,6 +190,13 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
     () => new Set((individualPricesIndex?.emails || []).map((email) => email.toLowerCase())),
     [individualPricesIndex]
   );
+
+  const additionalDiscountEmails = useMemo(
+    () => new Set((additionalDiscountsIndex?.emails || []).map((e) => e.toLowerCase())),
+    [additionalDiscountsIndex]
+  );
+  const additionalDiscountPercent = (customer: { email?: string | null }) =>
+    additionalDiscountsIndex?.maxPercentByEmail?.[(customer.email || "").toLowerCase()] ?? null;
   const hasIndividualPrice = (customer: CrmCustomer) =>
     customer.hasIndividualPrice ?? individualPriceEmails.has((customer.email || "").toLowerCase());
 
@@ -220,11 +239,16 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
     if (onlyIndividualPrices) {
       result = result.filter((customer) => hasIndividualPrice(customer));
     }
+    if (onlyAdditionalDiscounts) {
+      result = result.filter((customer) =>
+        additionalDiscountEmails.has((customer.email || "").toLowerCase())
+      );
+    }
     if (onlyPossibleExisting) {
       result = result.filter((customer) => isPossibleExisting(customer.company));
     }
     return result;
-  }, [customers, onlyIndividualPrices, onlyPossibleExisting, individualPriceEmails, possibleExistingCompanies, selectedChannelIds]);
+  }, [customers, onlyIndividualPrices, onlyAdditionalDiscounts, onlyPossibleExisting, individualPriceEmails, additionalDiscountEmails, possibleExistingCompanies, selectedChannelIds]);
 
   const totalCustomers = filteredCustomers.length;
   const totalPages = Math.max(1, Math.ceil(totalCustomers / pageSize));
@@ -239,7 +263,7 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
   // Bei Filter-/Suchwechsel oder geänderter Seitengröße zurück auf Seite 1.
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchValue, onlyIndividualPrices, onlyPossibleExisting, selectedChannelIds, pageSize]);
+  }, [searchValue, onlyIndividualPrices, onlyAdditionalDiscounts, onlyPossibleExisting, selectedChannelIds, pageSize]);
 
   const pendingAssignments = useMemo(
     () => assignments.filter((assignment) => assignment.status === "requested"),
@@ -372,6 +396,21 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
                 </div>
                 <div className="flex items-center gap-2">
                   <Switch
+                    id="only-additional-discounts"
+                    checked={onlyAdditionalDiscounts}
+                    onCheckedChange={setOnlyAdditionalDiscounts}
+                    disabled={additionalDiscountsLoading || !additionalDiscountsIndex?.configured}
+                    data-testid="only-additional-discounts"
+                  />
+                  <Label htmlFor="only-additional-discounts" className="text-sm font-normal text-muted-foreground">
+                    {t("crm.customers.onlyAdditionalDiscounts")}
+                    {additionalDiscountsIndex?.customerCount
+                      ? ` (${additionalDiscountsIndex.customerCount})`
+                      : ""}
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
                     id="only-possible-existing"
                     checked={onlyPossibleExisting}
                     onCheckedChange={setOnlyPossibleExisting}
@@ -404,6 +443,7 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
                         <TableHead>{t("crm.customers.contact")}</TableHead>
                         <TableHead>{t("crm.customers.lastOrder")}</TableHead>
                         <TableHead>{t("crm.customers.interactions")}</TableHead>
+                        <TableHead>{t("crm.customers.additionalDiscount")}</TableHead>
                         <TableHead className="text-right">{t("crm.customers.totalRevenue")}</TableHead>
                         <TableHead className="text-right">{t("common.actions")}</TableHead>
                       </TableRow>
@@ -477,6 +517,19 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
                                     : "—"}
                                 </div>
                               </button>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {additionalDiscountPercent(customer) != null ? (
+                              <Badge
+                                variant="warning"
+                                className="tabular-nums"
+                                title={t("crm.customers.additionalDiscountHint")}
+                              >
+                                bis {additionalDiscountPercent(customer)!.toLocaleString("de-DE")} %
+                              </Badge>
                             ) : (
                               <span className="text-muted-foreground">—</span>
                             )}
