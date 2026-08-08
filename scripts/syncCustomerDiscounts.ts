@@ -173,6 +173,8 @@ async function main() {
     ruleId: string | null;
   };
   const tiers: Tier[] = [];
+  /** Kundennummern in Regeln, die durch Leerraum in Shopware wirkungslos sind. */
+  const whitespaceDefekte: Array<{ label: string; roh: string }> = [];
 
   const drRes = await (client as any).makeAuthenticatedRequest(
     `${base}/api/search/b2bsellers-discount-rules`,
@@ -195,7 +197,21 @@ async function main() {
       for (const c of dr.rule?.conditions ?? []) {
         if (/customerNumber/i.test(c.type ?? "")) {
           const v = c.value?.numbers ?? c.value?.customerNumbers ?? [];
-          if (Array.isArray(v)) nummern.push(...v.map(String));
+          if (Array.isArray(v)) {
+            for (const raw of v) {
+              const roh = String(raw);
+              const sauber = roh.trim();
+              if (!sauber) continue;
+              if (roh !== sauber) {
+                // Shopware vergleicht die Kundennummer exakt. Eine Nummer mit Leerraum
+                // trifft dort NIE — die Regel ist im Shop wirkungslos, obwohl sie
+                // gepflegt aussieht. Hier wird getrimmt, damit die Auswertung die
+                // Absicht zeigt; der Defekt wird unten gemeldet.
+                whitespaceDefekte.push({ label: dr.label ?? dr.rule?.name ?? "?", roh });
+              }
+              nummern.push(sauber);
+            }
+          }
         }
         if (/cartGoodsPrice|cartAmount/i.test(c.type ?? "")) {
           const a = Number(c.value?.amount);
@@ -225,7 +241,16 @@ async function main() {
     l.push(t);
     tiersByNumber.set(t.customerNumber, l);
   }
-  console.log(`Zusatzrabatt-Staffeln: ${fmt(tiers.length)} für ${fmt(tiersByNumber.size)} Kundennummern\n`);
+  console.log(`Zusatzrabatt-Staffeln: ${fmt(tiers.length)} für ${fmt(tiersByNumber.size)} Kundennummern`);
+  if (whitespaceDefekte.length > 0) {
+    console.log();
+    console.log(`ACHTUNG: ${whitespaceDefekte.length} Kundennummer(n) in Regeln enthalten Leerraum.`);
+    console.log("Shopware vergleicht exakt — diese Regeln greifen im Shop nicht:");
+    for (const d of whitespaceDefekte) {
+      console.log(`  "${d.label}" → [${d.roh.replace(/\t/g, "\\t")}]`);
+    }
+  }
+  console.log();
 
   // ---- 4. Snapshot je Kunde zusammenführen ---------------------------------------------
   const customerMirrors = await storage.getShopwareCustomerMirrors(tenant.id);
