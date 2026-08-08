@@ -109,6 +109,7 @@ import {
   type ShopwareCustomerMirror,
   type ShopwareB2bCompanyMirror,
   type ShopwareCustomerPriceMirror,
+  type ShopwareCustomerPriceStat,
   type ShopwareOrderMirror,
   type ShopwareSyncStateRow,
   type ProductPriceHistory,
@@ -644,6 +645,17 @@ export interface IStorage {
   ): Promise<void>;
   getShopwareCustomerPriceMirrors(tenantId?: string | null): Promise<ShopwareCustomerPriceMirror[]>;
   countShopwareCustomerPriceMirrors(tenantId?: string | null): Promise<number>;
+  getShopwareCustomerPriceStats(tenantId?: string | null): Promise<ShopwareCustomerPriceStat[]>;
+  upsertShopwareCustomerPriceStats(
+    rows: Array<{
+      customerId: string;
+      customerNumber?: string | null;
+      priceCount: number;
+      priceSum: number;
+      fingerprint: string;
+    }>,
+    tenantId?: string | null,
+  ): Promise<{ inserted: number; changed: number; unchanged: number; removed: number }>;
   getShopwareCustomerPriceMirrorIds(tenantId?: string | null): Promise<string[]>;
   deleteShopwareCustomerPriceMirrorsNotIn(keepIds: string[], tenantId?: string | null): Promise<number>;
 
@@ -3239,6 +3251,69 @@ export class MemStorage implements IStorage {
 
   async countShopwareCustomerPriceMirrors(tenantId?: string | null): Promise<number> {
     return (await this.getShopwareCustomerPriceMirrors(tenantId)).length;
+  }
+
+  private shopwareCustomerPriceStatRows: ShopwareCustomerPriceStat[] = [];
+
+  async getShopwareCustomerPriceStats(
+    tenantId?: string | null,
+  ): Promise<ShopwareCustomerPriceStat[]> {
+    const tid = tenantId ?? null;
+    return this.shopwareCustomerPriceStatRows.filter((r) => (r.tenantId ?? null) === tid);
+  }
+
+  async upsertShopwareCustomerPriceStats(
+    rows: Array<{
+      customerId: string;
+      customerNumber?: string | null;
+      priceCount: number;
+      priceSum: number;
+      fingerprint: string;
+    }>,
+    tenantId?: string | null,
+  ): Promise<{ inserted: number; changed: number; unchanged: number; removed: number }> {
+    const tid = tenantId ?? null;
+    const now = new Date();
+    let inserted = 0;
+    let changed = 0;
+    let unchanged = 0;
+    for (const row of rows) {
+      const prev = this.shopwareCustomerPriceStatRows.find(
+        (r) => (r.tenantId ?? null) === tid && r.customerId === row.customerId,
+      );
+      if (!prev) {
+        this.shopwareCustomerPriceStatRows.push({
+          id: randomUUID(),
+          tenantId: tid,
+          customerId: row.customerId,
+          customerNumber: row.customerNumber ?? null,
+          priceCount: row.priceCount,
+          priceSum: row.priceSum,
+          fingerprint: row.fingerprint,
+          pricesSyncedAt: null,
+          changedAt: now,
+          syncedAt: now,
+        } as ShopwareCustomerPriceStat);
+        inserted += 1;
+      } else if (prev.fingerprint !== row.fingerprint) {
+        prev.priceCount = row.priceCount;
+        prev.priceSum = row.priceSum;
+        prev.fingerprint = row.fingerprint;
+        prev.customerNumber = row.customerNumber ?? prev.customerNumber;
+        prev.changedAt = now;
+        prev.syncedAt = now;
+        changed += 1;
+      } else {
+        prev.syncedAt = now;
+        unchanged += 1;
+      }
+    }
+    const seen = new Set(rows.map((r) => r.customerId));
+    const before = this.shopwareCustomerPriceStatRows.length;
+    this.shopwareCustomerPriceStatRows = this.shopwareCustomerPriceStatRows.filter(
+      (r) => (r.tenantId ?? null) !== tid || seen.has(r.customerId),
+    );
+    return { inserted, changed, unchanged, removed: before - this.shopwareCustomerPriceStatRows.length };
   }
 
   async getShopwareCustomerPriceMirrorIds(tenantId?: string | null): Promise<string[]> {

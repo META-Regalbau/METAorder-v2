@@ -5210,6 +5210,79 @@ export class ShopwareClient {
    * Kundenpreise mit updatedAt >= since (falls Feld existiert), sonst Vollseite.
    * Probiert bekannte B2Bsellers-Entitaetsnamen.
    */
+  /**
+   * Kennzahlen der individuellen Preise je Kunde — in einem einzigen Request für den
+   * gesamten Shop (terms-Aggregation über customerId mit stats über priceNet).
+   *
+   * Ersetzt den Voll-Snapshot als Grundlage des Sync: bei >12 Mio. Preiszeilen ist ein
+   * zeilenweiser Abgleich unbezahlbar, diese Aggregation läuft in rund 30 Sekunden.
+   * Anzahl + Summe bilden den Fingerabdruck je Kunde (updatedAt ist auf der Entität NULL).
+   */
+  async fetchCustomerPriceStats(): Promise<{
+    entity: string | null;
+    stats: Array<{
+      customerId: string;
+      priceCount: number;
+      priceSum: number;
+      priceMin: number | null;
+      priceMax: number | null;
+      priceAvg: number | null;
+    }>;
+  }> {
+    for (const entity of this.getCustomerPriceEntityCandidates()) {
+      let response: Response;
+      try {
+        response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/${entity}`, {
+          method: "POST",
+          body: JSON.stringify({
+            limit: 1,
+            aggregations: [
+              {
+                name: "perCustomer",
+                type: "terms",
+                field: "customerId",
+                // Großzügig über der Kundenzahl: die Aggregation kennt kein Paging,
+                // ein zu kleines Limit würde stillschweigend Kunden abschneiden.
+                limit: 50000,
+                aggregation: { name: "stats", type: "stats", field: "priceNet" },
+              },
+            ],
+          }),
+        });
+      } catch (error: any) {
+        console.error(`[B2B] fetchCustomerPriceStats error (${entity}):`, error?.message || error);
+        continue;
+      }
+
+      if (!response.ok) continue;
+
+      const data = (await response.json()) as any;
+      const buckets = data?.aggregations?.perCustomer?.buckets;
+      if (!Array.isArray(buckets)) continue;
+
+      const num = (v: unknown): number | null => {
+        const n = typeof v === "number" ? v : Number(v);
+        return Number.isFinite(n) ? n : null;
+      };
+
+      return {
+        entity,
+        stats: buckets
+          .filter((b: any) => typeof b?.key === "string" && b.key)
+          .map((b: any) => ({
+            customerId: b.key as string,
+            priceCount: Number(b.count) || 0,
+            priceSum: num(b?.stats?.sum) ?? 0,
+            priceMin: num(b?.stats?.min),
+            priceMax: num(b?.stats?.max),
+            priceAvg: num(b?.stats?.avg),
+          })),
+      };
+    }
+
+    return { entity: null, stats: [] };
+  }
+
   async fetchCustomerPricesChangedSince(
     since: string | Date | null,
     limit: number = 250,
@@ -5236,7 +5309,13 @@ export class ShopwareClient {
       limit,
       page,
       totalCountMode: 1,
-      sort: [{ field: "updatedAt", order: "ASC" }],
+      // id als zweites Sortierkriterium: updatedAt ist auf der Preis-Entität für viele Zeilen
+      // identisch (Massenimport), die Reihenfolge innerhalb einer Sekunde also beliebig.
+      // Ohne stabilen Tiebreaker liefern aufeinanderfolgende Seiten überlappende Zeilen.
+      sort: [
+        { field: "updatedAt", order: "ASC" },
+        { field: "id", order: "ASC" },
+      ],
       associations: { product: {}, currency: {} },
     };
 

@@ -13,6 +13,8 @@ import type { Product, Order } from "@shared/schema";
 const PRODUCT_BATCH = 500;
 const CUSTOMER_BATCH = 250;
 const PRICE_BATCH = 250;
+/** Sicherheitsnetz: 250 × 400 = bis zu 100.000 Preiszeilen im Voll-Snapshot. */
+const PRICE_MAX_PAGES = 400;
 
 function parseSwDate(value: string | Date | null | undefined): Date | null {
   if (!value) return null;
@@ -608,21 +610,41 @@ async function syncCustomerPrices(
       return { upserted: 0, skipped: true };
     }
 
-    // Voll-Snapshot paginiert (updatedAt-Filter ist auf Plugin-Entitaeten unzuverlaessig)
-    const allPrices: ShopwareCustomerPrice[] = [];
+    // Voll-Snapshot paginiert (updatedAt-Filter ist auf Plugin-Entitaeten unzuverlaessig).
+    //
+    // Zwei Eigenheiten der B2B-Preis-Entität, die hier abgefangen werden:
+    //   1. `total` meldet die Seitengröße statt der Gesamtzahl (immer 250). Ein Abbruch über
+    //      `allPrices.length >= result.total` beendet den Snapshot deshalb nach der ersten
+    //      Seite — genau das hat den Mirror auf 250 von 12.999 Zeilen gedeckelt.
+    //   2. Die Seiten überlappen, weil viele Zeilen denselben updatedAt teilen. Deduplizieren
+    //      nach Preis-ID ist Pflicht, sonst landen Duplikate im Mirror.
+    //
+    // Abbruch daher über: Teilseite, oder eine Seite ohne neue IDs (schützt auch vor einem
+    // Plugin, das den page-Parameter ignoriert).
+    const byId = new Map<string, ShopwareCustomerPrice>();
     let page = 1;
     let entity: string | null = null;
-    while (true) {
+    while (page <= PRICE_MAX_PAGES) {
       const result = await client.fetchCustomerPricesChangedSince(null, PRICE_BATCH, page);
       if (!result.available) break;
       entity = result.entity;
-      allPrices.push(...result.prices);
+
+      let fresh = 0;
+      for (const p of result.prices) {
+        if (!p.id || byId.has(p.id)) continue;
+        byId.set(p.id, p);
+        fresh += 1;
+      }
+
       if (result.prices.length < PRICE_BATCH) break;
-      // If total known and we've fetched all, stop
-      if (result.total > 0 && allPrices.length >= result.total) break;
+      if (fresh === 0) break;
       page += 1;
-      // Safety cap: 250 × 4000 = bis zu 1.000.000 Preiszeilen im Voll-Snapshot.
-      if (page > 4000) break;
+    }
+    const allPrices = Array.from(byId.values());
+    if (page > PRICE_MAX_PAGES) {
+      console.warn(
+        `[ShopwareMirror] customer_prices: Seitenlimit ${PRICE_MAX_PAGES} erreicht — Snapshot evtl. unvollständig (${allPrices.length} Zeilen)`,
+      );
     }
 
     await storage.replaceShopwareCustomerPriceMirrors(

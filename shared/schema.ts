@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, decimal, integer, jsonb, serial, real, boolean, uniqueIndex, index, customType, pgSchema } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, decimal, doublePrecision, integer, jsonb, serial, real, boolean, uniqueIndex, index, customType, pgSchema } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -1896,6 +1896,46 @@ export const shopwareCustomerPrices = pgTable(
 );
 
 export type ShopwareCustomerPriceMirror = typeof shopwareCustomerPrices.$inferSelect;
+
+/**
+ * Fingerabdruck der individuellen Preise je Kunde — Grundlage für den inkrementellen Sync.
+ *
+ * Ein Voll-Snapshot der Preis-Entität ist bei diesem Shop nicht praktikabel (>100.000 Zeilen,
+ * ~25 Minuten). Stattdessen liefert eine einzige Shopware-Aggregation (terms über customerId
+ * mit stats über priceNet) je Kunde Anzahl und Preissumme. Nur Kunden, deren Fingerabdruck
+ * sich geändert hat, werden neu geladen.
+ *
+ * Warum Anzahl + Summe statt eines Zeitstempels: updatedAt ist auf der Plugin-Entität
+ * durchgehend NULL. Anzahl allein würde reine Preisänderungen übersehen, die Summe allein
+ * einen Tausch zweier Preise gleicher Summe — zusammen ist beides praktisch sicher.
+ */
+export const shopwareCustomerPriceStats = pgTable(
+  "shopware_customer_price_stats",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id").references(() => tenants.id),
+    customerId: varchar("customer_id").notNull(),
+    customerNumber: text("customer_number"),
+    priceCount: integer("price_count").notNull().default(0),
+    /** Summe aller priceNet dieses Kunden — Teil des Fingerabdrucks. */
+    priceSum: doublePrecision("price_sum").notNull().default(0),
+    /** "<anzahl>:<summe auf 2 Nachkommastellen>" */
+    fingerprint: text("fingerprint").notNull(),
+    /** Letzter erfolgreicher Detail-Abruf der Preiszeilen dieses Kunden. */
+    pricesSyncedAt: timestamp("prices_synced_at"),
+    /** Wann sich der Fingerabdruck zuletzt geändert hat. */
+    changedAt: timestamp("changed_at").notNull().defaultNow(),
+    syncedAt: timestamp("synced_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    uniqueTenantCustomer: uniqueIndex("shopware_customer_price_stats_tenant_customer_unique").on(
+      table.tenantId,
+      table.customerId,
+    ),
+  }),
+);
+
+export type ShopwareCustomerPriceStat = typeof shopwareCustomerPriceStats.$inferSelect;
 export type InsertShopwareCustomerPriceMirror = typeof shopwareCustomerPrices.$inferInsert;
 
 /**

@@ -13273,7 +13273,10 @@ Antworte im JSON-Format:
           ? req.query.currency.trim().toUpperCase()
           : "EUR";
 
-      // Prefer price mirror
+      // Mirror zuerst (schnell), aber nur als Treffer werten, wenn für DIESEN Kunden
+      // Zeilen drinstehen. Der Voll-Snapshot der Preis-Entität ist bei großen Shops
+      // nicht garantiert vollständig (Seitenlimit); ohne den Fallback unten meldet das
+      // Modal für einen Kunden mit echten Preisen fälschlich „keine vorhanden".
       const mirroredPrices = await storage.getShopwareCustomerPriceMirrors(tenantId);
       let basePrices: import("./shopware").ShopwareCustomerPrice[] = [];
       let fromMirror = false;
@@ -13292,9 +13295,13 @@ Antworte im JSON-Format:
             const iso = (p.currencyIsoCode || "").toUpperCase();
             return !iso || iso === currency;
           });
-        fromMirror = true;
-        pluginEntity = "mirror";
-      } else {
+        if (basePrices.length > 0) {
+          fromMirror = true;
+          pluginEntity = "mirror";
+        }
+      }
+
+      if (basePrices.length === 0) {
         const { triggerShopwareMirrorSync } = await import("./shopwareMirror");
         triggerShopwareMirrorSync(storage, client, tenantId ?? null, ["customer_prices"]);
         // Preise für alle passenden Kunden (beide Kanäle) laden und mergen.
@@ -13346,7 +13353,43 @@ Antworte im JSON-Format:
         ? await client.fetchCustomerB2BStandardDiscount(primaryCustomerId).catch(() => null)
         : null;
 
-      const pricesWithDiscounts = await client.enrichCustomerSpecificPricesWithDiscounts(basePrices);
+      // Kanal-Übersicht zählt über ALLE Preise des Kunden — unabhängig von Suche und Seitengröße.
+      const priceCountByChannel = new Map<string, number>();
+      for (const p of basePrices) {
+        const key = p.salesChannelId ?? "__none__";
+        priceCountByChannel.set(key, (priceCountByChannel.get(key) ?? 0) + 1);
+      }
+      const totalAll = basePrices.length;
+
+      // Suche nach Artikelnummer oder Produktname. Kunden haben teils hunderte Preise —
+      // das Modal lädt deshalb nicht mehr alles, sondern sucht gezielt.
+      const search =
+        typeof req.query.search === "string" ? req.query.search.trim().toLowerCase() : "";
+      const searched = search
+        ? basePrices.filter((p) => {
+            const pn = (p.productNumber || "").toLowerCase();
+            const name = (p.productName || "").toLowerCase();
+            return pn.includes(search) || name.includes(search);
+          })
+        : basePrices;
+
+      const limit = Math.min(
+        Math.max(Number.parseInt(String(req.query.limit ?? "50"), 10) || 50, 1),
+        200,
+      );
+      const offset = Math.max(Number.parseInt(String(req.query.offset ?? "0"), 10) || 0, 0);
+
+      searched.sort((a, b) =>
+        (a.productNumber || "").localeCompare(b.productNumber || "", undefined, {
+          numeric: true,
+          sensitivity: "base",
+        }),
+      );
+      const pageSlice = searched.slice(offset, offset + limit);
+
+      // Anreicherung (Rabatte, Herstellkosten, Marge) nur auf der ausgelieferten Seite:
+      // über alle Preise wäre das bei hunderten Positionen der teuerste Teil der Antwort.
+      const pricesWithDiscounts = await client.enrichCustomerSpecificPricesWithDiscounts(pageSlice);
       const profitabilitySettings = await loadCrmProfitabilitySettings(storage, tenantId);
       const prices = await enrichCustomerPricesWithHerstellMargin(pricesWithDiscounts, {
         storage,
@@ -13355,13 +13398,6 @@ Antworte im JSON-Format:
         standardDiscountPercent,
         minMarginPercent: profitabilitySettings.minMarginPercent,
       });
-
-      // Kanal-Übersicht: alle gematchten Accounts + Preiszahl je Kanal.
-      const priceCountByChannel = new Map<string, number>();
-      for (const p of prices) {
-        const key = p.salesChannelId ?? "__none__";
-        priceCountByChannel.set(key, (priceCountByChannel.get(key) ?? 0) + 1);
-      }
       const channelsSeen = new Set<string>();
       const channels: Array<{
         salesChannelId: string | null;
@@ -13384,8 +13420,15 @@ Antworte im JSON-Format:
       }
 
       res.json({
-        available: prices.length > 0,
-        total: prices.length,
+        // available/total beziehen sich auf ALLE Preise des Kunden, nicht auf die
+        // ausgelieferte Seite — sonst meldet das Modal bei einer Suche ohne Treffer
+        // fälschlich „keine individuellen Preise".
+        available: totalAll > 0,
+        total: totalAll,
+        matched: searched.length,
+        limit,
+        offset,
+        search: search || null,
         prices,
         currency,
         salesChannelId: salesChannelFilter,

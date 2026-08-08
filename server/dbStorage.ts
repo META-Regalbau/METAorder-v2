@@ -61,6 +61,7 @@ import {
   shopwareCustomers,
   shopwareB2bCompanies,
   shopwareCustomerPrices,
+  shopwareCustomerPriceStats,
   shopwareSyncState,
   cpqRoomLayouts,
   type CpqRoomLayout,
@@ -4040,6 +4041,92 @@ export class DbStorage implements IStorage {
       .from(shopwareCustomerPrices)
       .where(tenantFilter);
     return Number(value) || 0;
+  }
+
+  async getShopwareCustomerPriceStats(
+    tenantId?: string | null,
+  ): Promise<(typeof shopwareCustomerPriceStats.$inferSelect)[]> {
+    const tenantFilter = tenantFilterFor(shopwareCustomerPriceStats.tenantId, tenantId);
+    return await db.select().from(shopwareCustomerPriceStats).where(tenantFilter);
+  }
+
+  /**
+   * Kennzahlen je Kunde einspielen. Kunden, deren Fingerabdruck gleich bleibt, behalten
+   * `changed_at` und `prices_synced_at` — nur so lässt sich später erkennen, wessen
+   * Preisliste tatsächlich neu geladen werden muss. Kunden, die in Shopware keine
+   * individuellen Preise mehr haben, fallen aus der Tabelle.
+   */
+  async upsertShopwareCustomerPriceStats(
+    rows: Array<{
+      customerId: string;
+      customerNumber?: string | null;
+      priceCount: number;
+      priceSum: number;
+      fingerprint: string;
+    }>,
+    tenantId?: string | null,
+  ): Promise<{ inserted: number; changed: number; unchanged: number; removed: number }> {
+    const tid = tenantId ?? null;
+    const existing = await this.getShopwareCustomerPriceStats(tid);
+    const byCustomer = new Map(existing.map((r) => [r.customerId, r]));
+    const now = new Date();
+
+    let inserted = 0;
+    let changed = 0;
+    let unchanged = 0;
+
+    for (const row of rows) {
+      const prev = byCustomer.get(row.customerId);
+      if (!prev) {
+        await db.insert(shopwareCustomerPriceStats).values({
+          tenantId: tid,
+          customerId: row.customerId,
+          customerNumber: row.customerNumber ?? null,
+          priceCount: row.priceCount,
+          priceSum: row.priceSum,
+          fingerprint: row.fingerprint,
+          changedAt: now,
+          syncedAt: now,
+        });
+        inserted += 1;
+        continue;
+      }
+
+      if (prev.fingerprint === row.fingerprint) {
+        await db
+          .update(shopwareCustomerPriceStats)
+          .set({ syncedAt: now })
+          .where(eq(shopwareCustomerPriceStats.id, prev.id));
+        unchanged += 1;
+        continue;
+      }
+
+      await db
+        .update(shopwareCustomerPriceStats)
+        .set({
+          customerNumber: row.customerNumber ?? prev.customerNumber,
+          priceCount: row.priceCount,
+          priceSum: row.priceSum,
+          fingerprint: row.fingerprint,
+          changedAt: now,
+          syncedAt: now,
+        })
+        .where(eq(shopwareCustomerPriceStats.id, prev.id));
+      changed += 1;
+    }
+
+    const seen = new Set(rows.map((r) => r.customerId));
+    const stale = existing.filter((r) => !seen.has(r.customerId));
+    if (stale.length > 0) {
+      await db.delete(shopwareCustomerPriceStats).where(
+        inArray(
+          shopwareCustomerPriceStats.id,
+          stale.map((r) => r.id),
+        ),
+      );
+    }
+
+    return { inserted, changed, unchanged, removed: stale.length };
   }
 
   async getShopwareCustomerPriceMirrorIds(tenantId?: string | null): Promise<string[]> {

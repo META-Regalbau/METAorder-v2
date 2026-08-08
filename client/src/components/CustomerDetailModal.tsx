@@ -65,7 +65,13 @@ type CustomerIndividualPriceChannel = {
 
 type CustomerIndividualPricesResponse = {
   available: boolean;
+  /** Alle individuellen Preise des Kunden — unabhängig von Suche und Seitengröße. */
   total: number;
+  /** Treffer der aktuellen Suche (ohne Suche = total). */
+  matched?: number;
+  limit?: number;
+  offset?: number;
+  search?: string | null;
   prices: CustomerIndividualPrice[];
   currency?: string;
   channels?: CustomerIndividualPriceChannel[];
@@ -262,11 +268,34 @@ export default function CustomerDetailModal({
 
   const resolvedCustomerId = overview?.customer?.id ?? null;
 
+  // Serverseitige Suche: Kunden haben teils hunderte individuelle Preise, die Liste wird
+  // deshalb nicht mehr komplett geladen. Debounce, damit nicht jeder Tastendruck eine
+  // Abfrage auslöst.
+  const [priceSearch, setPriceSearch] = useState("");
+  const [debouncedPriceSearch, setDebouncedPriceSearch] = useState("");
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedPriceSearch(priceSearch.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [priceSearch]);
+
+  const PRICE_PAGE_SIZE = 50;
+
   const { data: individualPrices, isLoading: pricesLoading, isFetching: pricesFetching } = useQuery<CustomerIndividualPricesResponse>({
-    queryKey: ["/api/crm/customers", resolvedCustomerId, "individual-prices", selectedPriceCurrency],
+    queryKey: [
+      "/api/crm/customers",
+      resolvedCustomerId,
+      "individual-prices",
+      selectedPriceCurrency,
+      debouncedPriceSearch,
+    ],
     queryFn: async () => {
+      const params = new URLSearchParams({
+        currency: selectedPriceCurrency,
+        limit: String(PRICE_PAGE_SIZE),
+      });
+      if (debouncedPriceSearch) params.set("search", debouncedPriceSearch);
       const response = await fetch(
-        `/api/crm/customers/${resolvedCustomerId}/individual-prices?currency=${encodeURIComponent(selectedPriceCurrency)}`,
+        `/api/crm/customers/${resolvedCustomerId}/individual-prices?${params.toString()}`,
         { credentials: "include" },
       );
       if (!response.ok) {
@@ -275,6 +304,7 @@ export default function CustomerDetailModal({
       return response.json();
     },
     enabled: isOpen && !!resolvedCustomerId,
+    placeholderData: (prev) => prev,
   });
 
   const { data: priceCurrencies, isLoading: priceCurrenciesLoading } = useQuery<CustomerIndividualPriceCurrenciesResponse>({
@@ -682,7 +712,7 @@ export default function CustomerDetailModal({
                   ) : null}
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="text-sm text-muted-foreground">
-                      {prices.length > 0
+                      {hasIndividualPrices
                         ? t("crm.customer.individualPrices.summaryForCurrency", {
                             count: individualPrices?.total ?? prices.length,
                             currency: selectedPriceCurrency,
@@ -695,6 +725,13 @@ export default function CustomerDetailModal({
                       ) : null}
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
+                      <Input
+                        value={priceSearch}
+                        onChange={(e) => setPriceSearch(e.target.value)}
+                        placeholder={t("crm.customer.individualPrices.searchPlaceholder")}
+                        className="w-[220px]"
+                        data-testid="individual-prices-search"
+                      />
                       {hasMultipleChannels ? (
                         <>
                           <span className="text-sm text-muted-foreground">
@@ -741,6 +778,26 @@ export default function CustomerDetailModal({
                       ) : null}
                     </div>
                   </div>
+                  {hasIndividualPrices ? (
+                    <p className="text-xs text-muted-foreground" data-testid="individual-prices-hint">
+                      {debouncedPriceSearch
+                        ? t("crm.customer.individualPrices.searchResult", {
+                            matched: individualPrices?.matched ?? filteredPrices.length,
+                            search: debouncedPriceSearch,
+                          })
+                        : t("crm.customer.individualPrices.showingFirst", {
+                            shown: filteredPrices.length,
+                            total: individualPrices?.total ?? filteredPrices.length,
+                          })}
+                    </p>
+                  ) : null}
+                  {hasIndividualPrices && filteredPrices.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-6 text-center border rounded-lg">
+                      {t("crm.customer.individualPrices.searchNoMatches", {
+                        search: debouncedPriceSearch,
+                      })}
+                    </p>
+                  ) : null}
                   {filteredPrices.length === 0 ? null : (
                   <div className="border rounded-lg overflow-hidden">
                     <Table>
