@@ -54,18 +54,41 @@ async function main() {
   }
   const client = new ShopwareClient(settings);
 
-  // Listenpreise direkt aus dem Produkt-Mirror (payload.priceNet)
+  // Katalogpreis als Bezugsgröße: laut Preislogik gibt der ERWEITERTE Preis den
+  // Katalogpreis vor, nicht der einfache priceNet. Beide weichen bei 6.226 von 8.055
+  // Produkten voneinander ab (im Schnitt 6,8 %) — gegen priceNet gerechnet fiele jeder
+  // Rabatt entsprechend zu hoch aus. Fallback auf priceNet nur, wo kein erweiterter
+  // Preis gepflegt ist.
   const productRows = await db
     .select({ productNumber: shopwareProducts.productNumber, payload: shopwareProducts.payload })
     .from(shopwareProducts)
     .where(eq(shopwareProducts.tenantId, tenant.id));
   const listPrice = new Map<string, number>();
+  let ausErweitert = 0;
+  let ausListe = 0;
   for (const p of productRows) {
     const pn = (p.productNumber || "").trim();
-    const net = Number((p.payload as any)?.priceNet);
-    if (pn && Number.isFinite(net) && net > 0) listPrice.set(pn, net);
+    if (!pn) continue;
+    const payload = p.payload as any;
+    const advanced: any[] = Array.isArray(payload?.advancedPrices) ? payload.advancedPrices : [];
+    // Die Portal-Preisliste ist die maßgebliche; sonst der erste erweiterte Preis.
+    const portal =
+      advanced.find((a) => /portal/i.test(String(a?.ruleName ?? ""))) ?? advanced[0] ?? null;
+    const katalog = Number(portal?.net);
+    if (Number.isFinite(katalog) && katalog > 0) {
+      listPrice.set(pn, katalog);
+      ausErweitert += 1;
+      continue;
+    }
+    const net = Number(payload?.priceNet);
+    if (Number.isFinite(net) && net > 0) {
+      listPrice.set(pn, net);
+      ausListe += 1;
+    }
   }
-  console.log(`Listenpreise im Produkt-Mirror: ${fmt(listPrice.size)}`);
+  console.log(
+    `Katalogpreise: ${fmt(listPrice.size)} (${fmt(ausErweitert)} aus erweiterten Preisen, ${fmt(ausListe)} aus priceNet)`,
+  );
 
   const stats = await storage.getShopwareCustomerPriceStats(tenant.id);
   if (stats.length === 0) {

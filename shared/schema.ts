@@ -2959,3 +2959,52 @@ export type InsertCpqQuoteLog = typeof cpqQuoteLog.$inferInsert;
 
 // ERP-Kernmodule (Warenwirtschaft, Einkauf, Retouren, Fibu, Produktion, Versand)
 export * from "./erpSchema";
+
+/**
+ * Rabatt-Übersicht je Kunde — zusammengeführter Snapshot für die Auswertung.
+ *
+ * Führt die drei Bestandteile zusammen, die in Shopware an verschiedenen Stellen liegen:
+ *   - Standard-/Zusatzrabatt: Kunden-customField b2b_customer_discount_rate (eine eigene
+ *     Rabatt-Entität existiert in dieser Installation nicht, alle Kandidaten liefern 404)
+ *   - kundenindividuelle Preise: Anzahl und Preisniveau aus shopware_customer_price_stats
+ *   - effektiver Preislisten-Rabatt: Median gegen die Listenpreise, je Preislisten-Gruppe
+ *     einmal ermittelt und auf alle Kunden der Gruppe übertragen
+ *
+ * Bewusst eine eigene Tabelle statt zusätzlicher Spalten an den Preis-Kennzahlen: sie deckt
+ * ALLE Kunden ab, auch solche mit reinem Prozentrabatt und ohne individuelle Preise.
+ */
+export const customerDiscountSnapshots = pgTable(
+  "customer_discount_snapshots",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id").references(() => tenants.id),
+    customerId: varchar("customer_id").notNull(),
+    customerNumber: text("customer_number"),
+    email: text("email"),
+    company: text("company"),
+    groupName: text("group_name"),
+    salesChannelId: varchar("sales_channel_id"),
+    /** Prozentrabatt aus dem Kunden-customField; null = keiner gepflegt. */
+    standardDiscountPercent: doublePrecision("standard_discount_percent"),
+    /** Anzahl kundenindividueller Preise (0 = keine). */
+    individualPriceCount: integer("individual_price_count").notNull().default(0),
+    /** Fingerabdruck der Preisliste — gleiche Kunden teilen dieselbe Liste. */
+    priceListFingerprint: text("price_list_fingerprint"),
+    /** Median-Rabatt dieser Preisliste gegen die Listenpreise, in Prozent. */
+    priceListDiscountPercent: doublePrecision("price_list_discount_percent"),
+    /**
+     * Gesamtwirkung: Preislistenrabatt und Zusatzrabatt multiplikativ verknüpft, weil der
+     * Prozentsatz auf den bereits reduzierten Preis wirkt — nicht addiert.
+     */
+    effectiveDiscountPercent: doublePrecision("effective_discount_percent"),
+    syncedAt: timestamp("synced_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    uniqueTenantCustomer: uniqueIndex("customer_discount_snapshots_tenant_customer_unique").on(
+      table.tenantId,
+      table.customerId,
+    ),
+  }),
+);
+
+export type CustomerDiscountSnapshot = typeof customerDiscountSnapshots.$inferSelect;
