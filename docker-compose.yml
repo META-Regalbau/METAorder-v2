@@ -154,6 +154,29 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
+  # HTTPS-Proxy für Tests am Handgerät (Kamera/Barcode-Scanner braucht einen secure
+  # context — eine LAN-IP über http ist keiner). Startet nur mit Profil:
+  #   ./scripts/local-https-certs.sh          # Zertifikat erzeugen (einmalig)
+  #   docker compose --profile https up -d proxy
+  # Danach am iPhone: https://<LAN-IP>:5443
+  proxy:
+    image: caddy:2-alpine
+    profiles: ["https"]
+    ports:
+      - "${HTTPS_PORT:-5443}:5443"
+      # HTTP/3 läuft über UDP. Ohne diese Freigabe kündigt Caddy per Alt-Svc h3 an,
+      # das iPhone versucht es und fällt erst nach einem Timeout auf HTTP/2 zurück.
+      - "${HTTPS_PORT:-5443}:5443/udp"
+      # Diagnose ohne TLS: http://<LAN-IP>:5080 zeigt, ob das Handgerät den Mac überhaupt
+      # erreicht — unabhängig davon, ob das Zertifikat akzeptiert wird.
+      - "${HTTP_CHECK_PORT:-5080}:5080"
+    volumes:
+      - ./deploy/local-https/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./deploy/local-https/certs:/certs:ro
+    depends_on:
+      app:
+        condition: service_started
+
 volumes:
   metaorder_pgdata:
   metaorder_uploads:

@@ -1,0 +1,49 @@
+# Lokaler HTTPS-Reverse-Proxy für Tests am Handgerät.
+#
+# Zweck: Kamera-Zugriff (getUserMedia für Barcode/QR-Scanner) verlangt einen "secure
+# context". http://<LAN-IP>:5001 ist keiner, https schon. Nur für lokale Tests —
+# echte Deployments terminieren TLS am Mittwald-Ingress (siehe deploy/mittwald/).
+{
+	# Kein automatisches Let's Encrypt: die Zertifikate kommen aus certs/ (mkcert/openssl).
+	auto_https off
+	admin off
+	# Debug an: nur so werden abgelehnte TLS-Handshakes sichtbar. Ohne das ist ein iPhone,
+	# das das Zertifikat verweigert, im Log nicht von einem iPhone zu unterscheiden, das den
+	# Mac gar nicht erreicht — beides erzeugt keine Zugriffszeile.
+	debug
+}
+
+# Diagnose-Listener ohne TLS. Trennt die zwei Fehlerquellen:
+#   http://<LAN-IP>:5080 erreichbar  → Netzwerk ok, das Problem ist das Zertifikat
+#   nicht erreichbar                 → iPhone erreicht den Mac nicht (falsches WLAN,
+#                                      Client-Isolation im Router, falsche IP)
+:5080 {
+	respond "METAorder Proxy erreichbar. Netzwerk ist ok — jetzt https://{host}:5443 testen (Port 5443, nicht 5080). Die Kamera funktioniert nur über https." 200
+
+	# Eigener Log-Block: Caddy protokolliert pro Site. Ohne das bleiben die Zugriffe hier
+	# unsichtbar und man sieht nicht, ob der Test vom Handgerät oder vom Mac kam.
+	log {
+		output stderr
+		format console
+	}
+}
+
+:5443 {
+	tls /certs/cert.pem /certs/key.pem
+
+	# X-Forwarded-Proto: https setzt Caddy selbst. Die App hat trust proxy aktiv
+	# (server/index.ts) und markiert Session-Cookies dadurch korrekt als Secure.
+	reverse_proxy app:5000 {
+		# Der Barcode-Scanner streamt nichts, aber Uploads (Ticket-Anhänge, Excel-Import)
+		# brauchen Luft nach oben.
+		transport http {
+			read_timeout 300s
+			write_timeout 300s
+		}
+	}
+
+	log {
+		output stderr
+		format console
+	}
+}

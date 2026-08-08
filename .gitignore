@@ -7,3 +7,5 @@ docker.env
 server/public
 vite.config.ts.*
 *.tar.gz
+# Lokaler HTTPS-Proxy: Zertifikate sind maschinenspezifisch und gehören nicht ins Repo
+deploy/local-https/certs/
