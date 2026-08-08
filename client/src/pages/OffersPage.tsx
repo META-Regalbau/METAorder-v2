@@ -595,10 +595,11 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
                         <tr
                           key={draft.id}
                           data-testid={`row-draft-${draft.id}`}
+                          onClick={() => setSelectedDraft(draft)}
                           className={
                             isLowOverallMatchingConfidence(draft.matchingResults)
-                              ? "flagged"
-                              : undefined
+                              ? "flagged clickable"
+                              : "clickable"
                           }
                         >
                           <td>
@@ -632,7 +633,10 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
                               <button
                                 className="mbtn sm"
-                                onClick={() => setSelectedDraft(draft)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedDraft(draft);
+                                }}
                                 data-testid={`button-review-draft-${draft.id}`}
                               >
                                 <Eye className="w-4 h-4" />
@@ -640,7 +644,10 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
                               </button>
                               <button
                                 className="mbtn sm destructive"
-                                onClick={() => deleteDraftMutation.mutate(draft.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteDraftMutation.mutate(draft.id);
+                                }}
                                 disabled={deleteDraftMutation.isPending}
                                 data-testid={`button-delete-draft-${draft.id}`}
                               >

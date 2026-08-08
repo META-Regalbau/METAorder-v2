@@ -410,7 +410,11 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
                     </TableHeader>
                     <TableBody>
                       {pagedCustomers.map((customer) => (
-                        <TableRow key={customer.email} className="hover-elevate">
+                        <TableRow
+                          key={customer.email}
+                          className="hover-elevate cursor-pointer"
+                          onClick={() => handleCustomerOpen(customer)}
+                        >
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <span className="font-medium">{customer.name}</span>
@@ -457,7 +461,11 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
                                 type="button"
                                 className="text-left hover-elevate rounded-md px-1 -mx-1"
                                 title={t("crm.customers.interactionsOpen")}
-                                onClick={() => handleCustomerOpen(customer, "interactions")}
+                                onClick={(e) => {
+                                  // Sonst würde der Zeilen-Klick gewinnen und die Übersicht öffnen.
+                                  e.stopPropagation();
+                                  handleCustomerOpen(customer, "interactions");
+                                }}
                               >
                                 <Badge variant="secondary" className="gap-1 cursor-pointer">
                                   <MessageSquare className="h-3 w-3" aria-hidden />

@@ -261,10 +261,11 @@ export default function OrderDraftsPage() {
                 <TableRow
                   key={draft.id}
                   data-testid={`row-draft-${draft.id}`}
+                  onClick={() => setSelectedDraft(draft)}
                   className={
                     isLowOverallMatchingConfidence(draft.matchingResults)
-                      ? "bg-destructive/5 border-l-4 border-l-destructive/70"
-                      : undefined
+                      ? "bg-destructive/5 border-l-4 border-l-destructive/70 cursor-pointer"
+                      : "hover-elevate cursor-pointer"
                   }
                 >
                   <TableCell>

@@ -151,9 +151,15 @@ export default function OrdersTable({
         </TableHeader>
         <TableBody>
           {orders.map((order) => (
-            <TableRow key={order.id} className="hover-elevate" data-testid={`row-order-${order.id}`}>
+            <TableRow
+              key={order.id}
+              className="hover-elevate cursor-pointer"
+              data-testid={`row-order-${order.id}`}
+              onClick={() => onViewOrder(order)}
+            >
               {showCheckboxes && (
-                <TableCell>
+                // stopPropagation: Auswahl-Klick darf nicht zusätzlich das Detail öffnen.
+                <TableCell onClick={(e) => e.stopPropagation()}>
                   <Checkbox
                     checked={selectedOrderIds.includes(order.id)}
                     onCheckedChange={() => onToggleOrder(order.id)}
