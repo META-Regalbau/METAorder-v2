@@ -13353,6 +13353,46 @@ Antworte im JSON-Format:
         ? await client.fetchCustomerB2BStandardDiscount(primaryCustomerId).catch(() => null)
         : null;
 
+      // Zusatzrabatt-Staffeln aus dem gespiegelten Snapshot. Sie hängen an der
+      // KUNDENNUMMER, weil die Shopware-Regel Nummern als Bedingung führt — deshalb wird
+      // über alle gematchten Nummern des Kunden gesucht (Portal- und Shop-Konto können
+      // getrennte Datensätze mit derselben Nummer sein).
+      let additionalDiscountTiers: Array<{
+        label: string | null;
+        discountPercent: number;
+        thresholdAmount: number | null;
+        allowStacking: boolean;
+      }> = [];
+      try {
+        if (swCustomerNumbers.size > 0) {
+          const { customerDiscountTiers } = await import("@shared/schema");
+          const { db } = await import("./db");
+          const { and, eq, inArray, isNull } = await import("drizzle-orm");
+          const tierRows = await db
+            .select()
+            .from(customerDiscountTiers)
+            .where(
+              and(
+                tenantId
+                  ? eq(customerDiscountTiers.tenantId, tenantId)
+                  : isNull(customerDiscountTiers.tenantId),
+                inArray(customerDiscountTiers.customerNumber, Array.from(swCustomerNumbers)),
+              ),
+            );
+          additionalDiscountTiers = tierRows
+            .map((t) => ({
+              label: t.label,
+              discountPercent: t.discountPercent,
+              thresholdAmount: t.thresholdAmount,
+              allowStacking: t.allowStacking,
+            }))
+            .sort((a, b) => (a.thresholdAmount ?? 0) - (b.thresholdAmount ?? 0));
+        }
+      } catch (tierError: any) {
+        // Die Staffeln sind Zusatzinformation — ein Fehler hier darf die Preisliste nicht kippen.
+        console.warn("[individual-prices] Zusatzrabatte:", tierError?.message || tierError);
+      }
+
       // Kanal-Übersicht zählt über ALLE Preise des Kunden — unabhängig von Suche und Seitengröße.
       const priceCountByChannel = new Map<string, number>();
       for (const p of basePrices) {
@@ -13441,6 +13481,7 @@ Antworte im JSON-Format:
         customerNumber: primaryCustomerNumber,
         matchedCustomerIds: Array.from(swCustomerIds),
         matchedCustomerNumbers: Array.from(swCustomerNumbers),
+        additionalDiscountTiers,
         pluginDetected: pluginEntity != null,
         fromMirror,
       });

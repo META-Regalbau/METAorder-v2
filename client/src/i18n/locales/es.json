@@ -2720,7 +2720,13 @@
         "searchPlaceholder": "Buscar número de artículo…",
         "searchResult": "{{matched}} resultados para «{{search}}»",
         "searchNoMatches": "No hay precios individuales para «{{search}}».",
-        "showingFirst": "Mostrando {{shown}} de {{total}} precios — busque por número de artículo para acotar."
+        "showingFirst": "Mostrando {{shown}} de {{total}} precios — busque por número de artículo para acotar.",
+        "additionalDiscounts": "Descuentos adicionales",
+        "additionalDiscount": "Descuento adicional",
+        "fromAmount": "desde {{amount}} de carrito",
+        "noThreshold": "sin pedido mínimo",
+        "stackable": "acumulable",
+        "additionalDiscountsHint": "Se aplica al final sobre el total del carrito, tras los demás descuentos."
       },
       "match": {
         "title": "Comprobación de cliente existente",

@@ -3268,7 +3268,13 @@
         "searchPlaceholder": "Artikelnummer suchen…",
         "searchResult": "{{matched}} Treffer für „{{search}}“",
         "searchNoMatches": "Keine individuellen Preise für „{{search}}“.",
-        "showingFirst": "Zeige {{shown}} von {{total}} Preisen — zum Eingrenzen nach Artikelnummer suchen."
+        "showingFirst": "Zeige {{shown}} von {{total}} Preisen — zum Eingrenzen nach Artikelnummer suchen.",
+        "additionalDiscounts": "Zusatzrabatte",
+        "additionalDiscount": "Zusatzrabatt",
+        "fromAmount": "ab {{amount}} Warenkorbwert",
+        "noThreshold": "ohne Mindestbestellwert",
+        "stackable": "stapelbar",
+        "additionalDiscountsHint": "Greift zuletzt auf den gesamten Warenkorbwert, nach allen anderen Rabatten."
       },
       "match": {
         "title": "Bestandskunden-Abgleich",

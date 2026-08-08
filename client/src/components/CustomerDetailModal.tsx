@@ -82,6 +82,13 @@ type CustomerIndividualPricesResponse = {
   configured: boolean;
   pluginDetected?: boolean;
   customerNumber?: string | null;
+  /** Zusatzrabatt-Staffeln aus b2bsellers_discount_rules, verknüpft über die Kundennummer. */
+  additionalDiscountTiers?: Array<{
+    label: string | null;
+    discountPercent: number;
+    thresholdAmount: number | null;
+    allowStacking: boolean;
+  }>;
 };
 
 type CustomerIndividualPriceCurrenciesResponse = {
@@ -700,6 +707,47 @@ export default function CustomerDetailModal({
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
                         {t("crm.customer.individualPrices.standardDiscountHint")}
+                      </p>
+                    </Card>
+                  ) : null}
+                  {(individualPrices?.additionalDiscountTiers ?? []).length > 0 ? (
+                    <Card className="p-3">
+                      <div className="text-sm text-muted-foreground">
+                        {t("crm.customer.individualPrices.additionalDiscounts")}
+                      </div>
+                      <div className="mt-2 space-y-1.5">
+                        {(individualPrices?.additionalDiscountTiers ?? []).map((tier, idx) => (
+                          <div
+                            key={`${tier.label ?? "tier"}-${idx}`}
+                            className="flex items-center justify-between gap-3 text-sm"
+                          >
+                            <div className="min-w-0">
+                              <div className="truncate">
+                                {tier.label ?? t("crm.customer.individualPrices.additionalDiscount")}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {tier.thresholdAmount != null
+                                  ? t("crm.customer.individualPrices.fromAmount", {
+                                      amount: tier.thresholdAmount.toLocaleString("de-DE", {
+                                        style: "currency",
+                                        currency: "EUR",
+                                        maximumFractionDigits: 0,
+                                      }),
+                                    })
+                                  : t("crm.customer.individualPrices.noThreshold")}
+                                {tier.allowStacking
+                                  ? ` · ${t("crm.customer.individualPrices.stackable")}`
+                                  : ""}
+                              </div>
+                            </div>
+                            <Badge variant="warning" className="shrink-0 tabular-nums">
+                              {tier.discountPercent.toLocaleString("de-DE")} %
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {t("crm.customer.individualPrices.additionalDiscountsHint")}
                       </p>
                     </Card>
                   ) : null}

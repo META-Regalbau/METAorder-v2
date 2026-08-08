@@ -3063,7 +3063,13 @@
         "searchPlaceholder": "Search product number…",
         "searchResult": "{{matched}} matches for “{{search}}”",
         "searchNoMatches": "No individual prices for “{{search}}”.",
-        "showingFirst": "Showing {{shown}} of {{total}} prices — search by product number to narrow down."
+        "showingFirst": "Showing {{shown}} of {{total}} prices — search by product number to narrow down.",
+        "additionalDiscounts": "Additional discounts",
+        "additionalDiscount": "Additional discount",
+        "fromAmount": "from {{amount}} cart value",
+        "noThreshold": "no minimum order value",
+        "stackable": "stackable",
+        "additionalDiscountsHint": "Applied last to the whole cart value, after all other discounts."
       },
       "match": {
         "title": "Existing customer check",
