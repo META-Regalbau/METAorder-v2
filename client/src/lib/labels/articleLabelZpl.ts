@@ -92,6 +92,41 @@ export function mmToDots(mm: number, dpi: number): number {
   return Math.round((mm / 25.4) * dpi);
 }
 
+/**
+ * Modulbreite, die ein ^BQ-Feld auf dem Drucker tatsächlich belegt.
+ *
+ * Ein QR für kurze Nutzlasten ist Version 1 (21 Module) oder Version 2 (25 Module), und Zebra
+ * rendert das Feld inklusive Ruhezone von 4 Modulen je Seite. Die sichtbaren schwarzen Module
+ * sind deshalb nach rechts/unten versetzt und das Feld ist bis zu 33 Module breit — wer nur mit
+ * den 21 Modulen rechnet, platziert Nachbarelemente in den QR hinein.
+ */
+export const QR_FIELD_MODULES = 33;
+
+/** Kantenlänge des ^BQ-Feldes in Dots, konservativ inkl. Ruhezone. */
+export function qrFieldSize(magnification: number): number {
+  return magnification * QR_FIELD_MODULES;
+}
+
+/**
+ * Breite eines Code128 in Dots. Subset B braucht 11 Module je Zeichen plus 35 Module
+ * für Start, Prüfziffer und Stop.
+ */
+export function barcodeWidth(codeLength: number, module: number): number {
+  return (11 * Math.max(1, codeLength) + 35) * module;
+}
+
+/**
+ * Größte Code128-Modulbreite, bei der der Barcode noch in `availableWidth` Dots passt.
+ * Ohne diese Anpassung wird ein langer Code (z. B. 13-stellige EAN auf einem kleinen
+ * Etikett) rechts abgeschnitten und damit unscannbar.
+ */
+export function fitBarcodeModule(availableWidth: number, codeLength: number): number {
+  for (const m of [3, 2, 1.5]) {
+    if (barcodeWidth(codeLength, m) <= availableWidth) return m;
+  }
+  return 1;
+}
+
 function variantLine(size: string | null, color: string | null): string {
   return [size, color].map((p) => (p || "").trim()).filter(Boolean).join(" · ");
 }
@@ -147,11 +182,12 @@ export function buildArticleLabelZpl(
   const codesTop = y;
   const remainingH = Math.max(80, ll - codesTop - my);
   const qrMag = clamp(Math.round(Math.min(pw, remainingH) / 55), 3, 10);
-  // Approximate QR module size in dots (Zebra ^BQ magnification)
-  const qrSize = qrMag * 22;
+  // Belegte Feldbreite inkl. Ruhezone — nicht nur die sichtbaren Module, sonst rückt der
+  // Code128 rechts in den QR-Code hinein und frisst dessen Ruhezone.
+  const qrSize = qrFieldSize(qrMag);
   const barcodeH = clamp(Math.round(remainingH * 0.45), 50, 180);
-  const byModule = pw >= 600 ? 3 : pw >= 400 ? 2 : 1.5;
   const barcodeX = mx + qrSize + Math.round(mx * 0.8);
+  const byModule = fitBarcodeModule(pw - mx - barcodeX, sku.length);
   const barcodeY = codesTop + Math.round((Math.min(qrSize, remainingH) - barcodeH) / 2);
 
   const lines = [

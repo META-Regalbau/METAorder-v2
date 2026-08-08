@@ -113,21 +113,50 @@ export async function proxyListPrinters(): Promise<{
   }
 
   const data = (await res.json()) as AvailableResponse;
-  const printers = (Array.isArray(data.printer) ? data.printer : [])
+  const live = (Array.isArray(data.printer) ? data.printer : [])
     .map((p) => mapDevice(p))
     .filter((d) => d.uid);
 
-  const byUid = new Map<string, ZebraDeviceDto>();
-  if (defaultPrinter?.uid) byUid.set(defaultPrinter.uid, defaultPrinter);
-  for (const d of printers) {
-    if (d.uid && !byUid.has(d.uid)) byUid.set(d.uid, d);
+  // /available ist die Wahrheit: /default liefert einen gecachten Deskriptor, dessen USB-UID
+  // nach Aus-/Einstecken des Druckers veraltet ist (z. B. addr_003 statt addr_004). Ein Write
+  // auf so eine UID scheitert mit "Unable to establish connection". /default entscheidet
+  // deshalb nur noch, WELCHER Drucker vorausgewählt wird — nie, welcher Deskriptor gesendet wird.
+  let defaultUid: string | null = null;
+  if (defaultPrinter) {
+    const match =
+      live.find((d) => d.uid === defaultPrinter.uid) ??
+      live.find((d) => d.name === defaultPrinter.name);
+    defaultUid = match?.uid ?? null;
   }
 
-  const list = Array.from(byUid.values());
+  const list = live.length > 0 ? live : defaultPrinter ? [defaultPrinter] : [];
   return {
     printers: list,
-    defaultUid: defaultPrinter?.uid ?? list[0]?.uid ?? null,
+    defaultUid: defaultUid ?? list[0]?.uid ?? null,
   };
+}
+
+/**
+ * Aktuellen Deskriptor zu einem Gerät aus /available holen.
+ * Zuerst über die UID, sonst über den Namen — der bleibt beim Neuanstecken stabil,
+ * die USB-UID nicht.
+ */
+async function resolveLiveDevice(device: ZebraDeviceDto): Promise<ZebraDeviceDto | null> {
+  try {
+    const res = await fetchBrowserPrint("/available", undefined, 5000);
+    if (!res.ok) return null;
+    const data = (await res.json()) as AvailableResponse;
+    const live = (Array.isArray(data.printer) ? data.printer : [])
+      .map((p) => mapDevice(p))
+      .filter((d) => d.uid);
+    return (
+      live.find((d) => d.uid === device.uid) ??
+      live.find((d) => d.name === device.name) ??
+      null
+    );
+  } catch {
+    return null;
+  }
 }
 
 export async function proxySendZpl(device: ZebraDeviceDto, data: string): Promise<void> {
@@ -138,7 +167,7 @@ export async function proxySendZpl(device: ZebraDeviceDto, data: string): Promis
     throw new BrowserPrintProxyError("invalid_zpl", "ZPL data required", 400);
   }
 
-  await writeToPrinter(device, data);
+  await writeWithRefresh(device, data);
 }
 
 /**
@@ -153,7 +182,27 @@ export async function proxySendPdf(device: ZebraDeviceDto, pdf: Buffer): Promise
     throw new BrowserPrintProxyError("invalid_pdf", "PDF data required", 400);
   }
   // PDF Direct erwartet den Dateiinhalt; latin1 erhält Bytewerte 0–255 in einem JS-String.
-  await writeToPrinter(device, pdf.toString("latin1"));
+  await writeWithRefresh(device, pdf.toString("latin1"));
+}
+
+/**
+ * Schreibt auf den Drucker und wiederholt den Versuch einmal mit dem aktuellen Deskriptor
+ * aus /available. Der Client hält das Geräteobjekt ab dem Öffnen des Druckdialogs im State —
+ * wird der Drucker zwischendurch neu angesteckt, zeigt die gemerkte USB-UID ins Leere.
+ */
+async function writeWithRefresh(device: ZebraDeviceDto, data: string): Promise<void> {
+  try {
+    await writeToPrinter(device, data);
+    return;
+  } catch (e) {
+    if (!(e instanceof BrowserPrintProxyError) || e.code !== "print_failed") throw e;
+    const fresh = await resolveLiveDevice(device);
+    if (!fresh || fresh.uid === device.uid) throw e;
+    console.warn(
+      `[zebra] Write fehlgeschlagen, wiederhole mit aktueller Geräte-UID (alt: ${device.uid}, neu: ${fresh.uid})`,
+    );
+    await writeToPrinter(fresh, data);
+  }
 }
 
 async function writeToPrinter(device: ZebraDeviceDto, data: string): Promise<void> {
