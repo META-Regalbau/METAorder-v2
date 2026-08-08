@@ -60,6 +60,7 @@ const ProductionPage = lazy(() => import("@/pages/ProductionPage"));
 const ShippingOpsPage = lazy(() => import("@/pages/ShippingOpsPage"));
 const MobilePickingPage = lazy(() => import("@/pages/MobilePickingPage"));
 const MobileStockPage = lazy(() => import("@/pages/MobileStockPage"));
+const DiscountOverviewPage = lazy(() => import("@/pages/DiscountOverviewPage"));
 const MobileInventoryPage = lazy(() => import("@/pages/MobileInventoryPage"));
 import LoginPage from "@/pages/LoginPage";
 import NotFound from "@/pages/not-found";
@@ -131,6 +132,7 @@ function Router({
       <Route path="/shipping-ops" component={ShippingOpsPage} />
       <Route path="/mobile/picking/:id" component={MobilePickingPage} />
       <Route path="/mobile/picking" component={MobilePickingPage} />
+      <Route path="/discounts" component={DiscountOverviewPage} />
       <Route path="/mobile/stock" component={MobileStockPage} />
       <Route path="/mobile/inventory/:id" component={MobileInventoryPage} />
       <Route path="/mobile/inventory" component={MobileInventoryPage} />

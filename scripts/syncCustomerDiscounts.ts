@@ -19,6 +19,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../server/db";
 import {
   customerDiscountSnapshots,
+  customerDiscountTiers,
   shopwareProducts,
   tenants,
 } from "../shared/schema";
@@ -157,7 +158,76 @@ async function main() {
   }
   console.log(`Preislisten mit Rabattwert: ${fmt(discountByFingerprint.size)} von ${fmt(groups.size)}\n`);
 
-  // ---- 3. Snapshot je Kunde zusammenführen ---------------------------------------------
+  // ---- 3. Zusatzrabatt-Staffeln aus den Rabattregeln ------------------------------------
+  //
+  // b2bsellers_discount_rules trägt den Prozentsatz, die verknüpfte Shopware-Regel die
+  // Bedingungen: customerCustomerNumber (für wen) und cartGoodsPrice (ab welchem
+  // Warenkorbwert). Deshalb wird über die Kundennummer verknüpft, nicht über die ID.
+  type Tier = {
+    customerNumber: string;
+    label: string | null;
+    discountPercent: number;
+    thresholdAmount: number | null;
+    allowStacking: boolean;
+    priority: number | null;
+    ruleId: string | null;
+  };
+  const tiers: Tier[] = [];
+
+  const drRes = await (client as any).makeAuthenticatedRequest(
+    `${base}/api/search/b2bsellers-discount-rules`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        limit: 500,
+        associations: { rule: { associations: { conditions: {} } } },
+      }),
+    },
+  );
+  if (drRes.ok) {
+    const drData = await drRes.json();
+    for (const dr of drData.data ?? []) {
+      const pct = Number(dr.discountPercent);
+      if (!Number.isFinite(pct) || pct <= 0) continue;
+
+      const nummern: string[] = [];
+      let schwelle: number | null = null;
+      for (const c of dr.rule?.conditions ?? []) {
+        if (/customerNumber/i.test(c.type ?? "")) {
+          const v = c.value?.numbers ?? c.value?.customerNumbers ?? [];
+          if (Array.isArray(v)) nummern.push(...v.map(String));
+        }
+        if (/cartGoodsPrice|cartAmount/i.test(c.type ?? "")) {
+          const a = Number(c.value?.amount);
+          if (Number.isFinite(a)) schwelle = schwelle == null ? a : Math.min(schwelle, a);
+        }
+      }
+
+      for (const nr of [...new Set(nummern)]) {
+        tiers.push({
+          customerNumber: nr,
+          label: dr.label ?? dr.rule?.name ?? null,
+          discountPercent: pct,
+          thresholdAmount: schwelle,
+          allowStacking: Boolean(dr.allowStacking),
+          priority: Number.isFinite(Number(dr.priority)) ? Number(dr.priority) : null,
+          ruleId: dr.ruleId ?? null,
+        });
+      }
+    }
+  } else {
+    console.error(`Rabattregeln: HTTP ${drRes.status} — Zusatzrabatte bleiben leer.`);
+  }
+
+  const tiersByNumber = new Map<string, Tier[]>();
+  for (const t of tiers) {
+    const l = tiersByNumber.get(t.customerNumber) ?? [];
+    l.push(t);
+    tiersByNumber.set(t.customerNumber, l);
+  }
+  console.log(`Zusatzrabatt-Staffeln: ${fmt(tiers.length)} für ${fmt(tiersByNumber.size)} Kundennummern\n`);
+
+  // ---- 4. Snapshot je Kunde zusammenführen ---------------------------------------------
   const customerMirrors = await storage.getShopwareCustomerMirrors(tenant.id);
   const statByCustomer = new Map(stats.map((s) => [s.customerId, s]));
 
@@ -211,6 +281,10 @@ async function main() {
   console.log(`  nur individuelle Preise:   ${fmt(nurPreisliste.length)}`);
   console.log(`  beides kombiniert:         ${fmt(beides.length)}`);
   console.log(`ohne jeden Rabatt:           ${fmt(rows.length - mitRabatt.length)}`);
+  const mitStaffel = rows.filter(
+    (r) => r.customerNumber && tiersByNumber.has(r.customerNumber),
+  ).length;
+  console.log(`mit Zusatzrabatt-Staffel:    ${fmt(mitStaffel)}`);
 
   const eff = mitRabatt
     .map((r) => r.effectiveDiscountPercent as number)
@@ -225,6 +299,15 @@ async function main() {
   if (!apply) {
     console.log("\nDRY RUN — nichts geschrieben. Mit --apply ausführen.");
     process.exit(0);
+  }
+
+  await db.delete(customerDiscountTiers).where(eq(customerDiscountTiers.tenantId, tenant.id));
+  if (tiers.length > 0) {
+    for (let i = 0; i < tiers.length; i += 500) {
+      await db
+        .insert(customerDiscountTiers)
+        .values(tiers.slice(i, i + 500).map((t) => ({ ...t, tenantId: tenant.id })));
+    }
   }
 
   await db.delete(customerDiscountSnapshots).where(eq(customerDiscountSnapshots.tenantId, tenant.id));

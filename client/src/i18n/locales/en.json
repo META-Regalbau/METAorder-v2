@@ -3786,5 +3786,41 @@
       "createLabelsNone": "No order with Shopware ID on this pick list",
       "printZebraHint": "Zebra on PC (Browser Print); on iPhone open PDF"
     }
+  },
+  "discounts": {
+    "title": "Discount overview",
+    "description": "All customers with percentage discount, individual prices and additional discounts",
+    "exportCsv": "Export CSV",
+    "distribution": "Customers per discount band (5 % steps)",
+    "searchPlaceholder": "Customer number, company or email…",
+    "shown": "{{shown}} of {{total}} shown",
+    "empty": "No customers for this selection.",
+    "tierFallback": "Additional discount",
+    "stackable": "stackable",
+    "fromAmount": "from {{amount}}",
+    "syncedAt": "Data as of: {{date}}",
+    "kpi": {
+      "customers": "Customers",
+      "individual": "with individual prices",
+      "standard": "with percentage discount",
+      "tiers": "with additional discount",
+      "median": "median total discount",
+      "max": "highest total discount"
+    },
+    "filter": {
+      "withDiscount": "Only customers with a discount",
+      "individual": "Only individual prices",
+      "tiers": "Only with additional discount",
+      "all": "All customers"
+    },
+    "col": {
+      "customer": "Customer",
+      "standard": "Percentage",
+      "individualCount": "Individual prices",
+      "priceList": "Price list discount",
+      "article": "Item discount",
+      "tier": "Additional",
+      "total": "max. total"
+    }
   }
 }

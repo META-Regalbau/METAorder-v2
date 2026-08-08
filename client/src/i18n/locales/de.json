@@ -3991,5 +3991,41 @@
       "createLabelsNone": "Keine Bestellung mit Shopware-ID in dieser Pickliste",
       "printZebraHint": "Zebra am PC (Browser Print); am iPhone PDF öffnen"
     }
+  },
+  "discounts": {
+    "title": "Rabattübersicht",
+    "description": "Alle Kunden mit prozentualem Rabatt, individuellen Preisen und Zusatzrabatten",
+    "exportCsv": "CSV exportieren",
+    "distribution": "Kunden je Rabattstufe (5-%-Raster)",
+    "searchPlaceholder": "Kundennummer, Firma oder E-Mail…",
+    "shown": "{{shown}} von {{total}} angezeigt",
+    "empty": "Keine Kunden für diese Auswahl.",
+    "tierFallback": "Zusatzrabatt",
+    "stackable": "stapelbar",
+    "fromAmount": "ab {{amount}}",
+    "syncedAt": "Stand der Daten: {{date}}",
+    "kpi": {
+      "customers": "Kunden",
+      "individual": "mit individuellen Preisen",
+      "standard": "mit Prozentrabatt",
+      "tiers": "mit Zusatzrabatt",
+      "median": "Median Gesamtrabatt",
+      "max": "höchster Gesamtrabatt"
+    },
+    "filter": {
+      "withDiscount": "Nur Kunden mit Rabatt",
+      "individual": "Nur individuelle Preise",
+      "tiers": "Nur mit Zusatzrabatt",
+      "all": "Alle Kunden"
+    },
+    "col": {
+      "customer": "Kunde",
+      "standard": "Prozentrabatt",
+      "individualCount": "Individuelle Preise",
+      "priceList": "Preislisten-Rabatt",
+      "article": "Artikelrabatt",
+      "tier": "Zusatzrabatt",
+      "total": "max. gesamt"
+    }
   }
 }

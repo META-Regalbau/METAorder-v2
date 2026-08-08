@@ -3008,3 +3008,40 @@ export const customerDiscountSnapshots = pgTable(
 );
 
 export type CustomerDiscountSnapshot = typeof customerDiscountSnapshots.$inferSelect;
+
+/**
+ * Zusatzrabatt-Staffeln je Kunde.
+ *
+ * Quelle ist die Shopware-Entität `b2bsellers_discount_rules`: discountPercent plus eine
+ * Regel, deren `customerCustomerNumber`-Bedingung die Kundennummern trägt und deren
+ * `cartGoodsPrice`-Bedingung die Umsatzschwelle setzt. Ein Kunde hat typischerweise mehrere
+ * Stufen (z. B. 8 % ab 1.000 €, 12 % ab 3.000 €) — deshalb eine Zeile je Kunde und Stufe.
+ *
+ * Verknüpft wird über die KUNDENNUMMER, nicht über die Shopware-ID: in der Regelbedingung
+ * stehen Nummern, und dieselbe Nummer kann in mehreren Regeln vorkommen.
+ */
+export const customerDiscountTiers = pgTable(
+  "customer_discount_tiers",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id").references(() => tenants.id),
+    customerNumber: text("customer_number").notNull(),
+    /** Bezeichnung der Rabattregel, z. B. "Zusatzrabatt AWWM ab 1000 EUR 8%". */
+    label: text("label"),
+    discountPercent: doublePrecision("discount_percent").notNull(),
+    /** Warenkorb-Schwelle aus der cartGoodsPrice-Bedingung; null = ohne Mindestbestellwert. */
+    thresholdAmount: doublePrecision("threshold_amount"),
+    allowStacking: boolean("allow_stacking").notNull().default(false),
+    priority: integer("priority"),
+    ruleId: varchar("rule_id"),
+    syncedAt: timestamp("synced_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    tenantCustomerIdx: index("customer_discount_tiers_tenant_customer_idx").on(
+      table.tenantId,
+      table.customerNumber,
+    ),
+  }),
+);
+
+export type CustomerDiscountTier = typeof customerDiscountTiers.$inferSelect;

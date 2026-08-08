@@ -3323,5 +3323,41 @@
       "createLabelsNone": "Ningún pedido con ID de Shopware en esta lista",
       "printZebraHint": "Zebra en el PC (Browser Print); en iPhone abrir PDF"
     }
+  },
+  "discounts": {
+    "title": "Resumen de descuentos",
+    "description": "Todos los clientes con descuento porcentual, precios individuales y descuentos adicionales",
+    "exportCsv": "Exportar CSV",
+    "distribution": "Clientes por tramo de descuento (5 %)",
+    "searchPlaceholder": "Número de cliente, empresa o correo…",
+    "shown": "{{shown}} de {{total}} mostrados",
+    "empty": "No hay clientes para esta selección.",
+    "tierFallback": "Descuento adicional",
+    "stackable": "acumulable",
+    "fromAmount": "desde {{amount}}",
+    "syncedAt": "Datos a fecha: {{date}}",
+    "kpi": {
+      "customers": "Clientes",
+      "individual": "con precios individuales",
+      "standard": "con descuento porcentual",
+      "tiers": "con descuento adicional",
+      "median": "descuento total mediano",
+      "max": "descuento total máximo"
+    },
+    "filter": {
+      "withDiscount": "Solo clientes con descuento",
+      "individual": "Solo precios individuales",
+      "tiers": "Solo con descuento adicional",
+      "all": "Todos los clientes"
+    },
+    "col": {
+      "customer": "Cliente",
+      "standard": "Porcentaje",
+      "individualCount": "Precios individuales",
+      "priceList": "Descuento de lista",
+      "article": "Descuento de artículo",
+      "tier": "Adicional",
+      "total": "máx. total"
+    }
   }
 }

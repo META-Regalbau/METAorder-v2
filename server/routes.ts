@@ -13500,6 +13500,114 @@ Antworte im JSON-Format:
 
   // Index aller Kunden mit kundenindividuellen Preisen (B2Bsellers Suite).
   // Liefert Anzahl + E-Mails, damit die CRM-Kundenliste nach "hat individuelle Preise" filtern kann.
+  /**
+   * Rabattübersicht über alle Kunden — Grundlage für die Auswertung des Rabattsystems.
+   *
+   * Liest ausschließlich aus dem Snapshot (customer_discount_snapshots + _tiers), nicht aus
+   * Shopware: der Aufbau des Snapshots dauert Minuten (82 Preislisten-Stichproben), die
+   * Seite muss sofort antworten. Aktualisiert wird über scripts/syncCustomerDiscounts.ts.
+   */
+  app.get("/api/crm/discount-overview", requireAuth, requireViewCrm, async (req, res) => {
+    try {
+      const tenantId = (req as any).tenantId ?? null;
+      const search = typeof req.query.search === "string" ? req.query.search.trim().toLowerCase() : "";
+      const only = typeof req.query.only === "string" ? req.query.only : "with-discount";
+      const limit = Math.min(Math.max(Number.parseInt(String(req.query.limit ?? "100"), 10) || 100, 1), 500);
+      const offset = Math.max(Number.parseInt(String(req.query.offset ?? "0"), 10) || 0, 0);
+
+      const { customerDiscountSnapshots, customerDiscountTiers } = await import("@shared/schema");
+      const { db } = await import("./db");
+      const { eq, and, isNull } = await import("drizzle-orm");
+
+      const tenantFilter = tenantId
+        ? eq(customerDiscountSnapshots.tenantId, tenantId)
+        : isNull(customerDiscountSnapshots.tenantId);
+      const alle = await db.select().from(customerDiscountSnapshots).where(tenantFilter);
+
+      const tierFilter = tenantId
+        ? eq(customerDiscountTiers.tenantId, tenantId)
+        : isNull(customerDiscountTiers.tenantId);
+      const tierRows = await db.select().from(customerDiscountTiers).where(tierFilter);
+      const tiersByNumber = new Map<string, typeof tierRows>();
+      for (const t of tierRows) {
+        const l = tiersByNumber.get(t.customerNumber) ?? [];
+        l.push(t);
+        tiersByNumber.set(t.customerNumber, l);
+      }
+
+      let rows = alle.map((r) => {
+        const tiers = (r.customerNumber ? tiersByNumber.get(r.customerNumber) : undefined) ?? [];
+        const maxTier = tiers.reduce((a, t) => Math.max(a, t.discountPercent), 0);
+        // Der Zusatzrabatt greift zuletzt auf den Warenkorbwert, also multiplikativ auf
+        // den bereits reduzierten Preis — nicht addiert.
+        const artikel = r.effectiveDiscountPercent;
+        const maximal =
+          artikel != null && maxTier > 0
+            ? 100 - ((100 - artikel) / 100) * ((100 - maxTier) / 100) * 100
+            : artikel ?? (maxTier > 0 ? maxTier : null);
+        return {
+          customerId: r.customerId,
+          customerNumber: r.customerNumber,
+          email: r.email,
+          company: r.company,
+          groupName: r.groupName,
+          standardDiscountPercent: r.standardDiscountPercent,
+          individualPriceCount: r.individualPriceCount,
+          priceListDiscountPercent: r.priceListDiscountPercent,
+          articleDiscountPercent: artikel,
+          tiers: [...tiers]
+            .sort((a, b) => (a.thresholdAmount ?? 0) - (b.thresholdAmount ?? 0))
+            .map((t) => ({
+              label: t.label,
+              discountPercent: t.discountPercent,
+              thresholdAmount: t.thresholdAmount,
+              allowStacking: t.allowStacking,
+            })),
+          maxTierPercent: maxTier || null,
+          maxTotalDiscountPercent: maximal,
+        };
+      });
+
+      if (only === "with-discount") {
+        rows = rows.filter((r) => r.articleDiscountPercent != null || (r.maxTierPercent ?? 0) > 0);
+      } else if (only === "individual") {
+        rows = rows.filter((r) => r.individualPriceCount > 0);
+      } else if (only === "tiers") {
+        rows = rows.filter((r) => (r.maxTierPercent ?? 0) > 0);
+      }
+
+      if (search) {
+        rows = rows.filter((r) =>
+          [r.customerNumber, r.email, r.company]
+            .filter(Boolean)
+            .some((v) => String(v).toLowerCase().includes(search)),
+        );
+      }
+
+      rows.sort((a, b) => (b.maxTotalDiscountPercent ?? -1) - (a.maxTotalDiscountPercent ?? -1));
+
+      const mitRabatt = rows.filter((r) => r.maxTotalDiscountPercent != null);
+      const werte = mitRabatt
+        .map((r) => r.maxTotalDiscountPercent as number)
+        .sort((a, b) => a - b);
+      const summary = {
+        customersTotal: alle.length,
+        matched: rows.length,
+        withIndividualPrices: rows.filter((r) => r.individualPriceCount > 0).length,
+        withStandardDiscount: rows.filter((r) => r.standardDiscountPercent != null).length,
+        withTiers: rows.filter((r) => (r.maxTierPercent ?? 0) > 0).length,
+        medianDiscount: werte.length ? werte[Math.floor(werte.length / 2)] : null,
+        maxDiscount: werte.length ? werte[werte.length - 1] : null,
+        syncedAt: alle[0]?.syncedAt ?? null,
+      };
+
+      res.json({ summary, rows: rows.slice(offset, offset + limit), limit, offset });
+    } catch (error: any) {
+      console.error("Error loading discount overview:", error?.message || error);
+      res.status(500).json({ error: "Failed to load discount overview" });
+    }
+  });
+
   app.get("/api/crm/customers/individual-prices-index", requireAuth, requireViewCrm, async (req, res) => {
     try {
       const settings = await storage.getShopwareSettings();
