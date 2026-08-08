@@ -309,8 +309,11 @@ export async function buildStockReconcileDiff(
   for (const s of erpStock) {
     const pn = String(s.productNumber || "").trim();
     if (!pn) continue;
-    // Nur Bestände ohne Lagerort (Hauptlager-Ebene)
-    if (s.locationId) continue;
+    // Über alle Lagerplätze summieren: Shopware kennt je Artikel genau eine Menge, die
+    // Entsprechung ist der Gesamtbestand im Lager. Früher wurden Zeilen mit Lagerplatz
+    // übersprungen — solange kein Platz gepflegt war, fiel das nicht auf; sobald einer
+    // zugewiesen ist, meldet der Abgleich den Artikel fälschlich als Bestand 0 und ein
+    // Push würde ihn im Shop ausverkauft setzen.
     const prev = erpByPn.get(pn) || { qty: 0, reserved: 0 };
     prev.qty += Number(s.quantity || 0);
     prev.reserved += Number(s.reservedQuantity || 0);

@@ -343,6 +343,94 @@ export function registerErpRoutes(app: Express) {
     },
   );
 
+  /**
+   * Scan auflösen: ein gescannter Code ist entweder ein Lagerplatz-Code oder eine
+   * Artikelnummer. Lagerplätze werden zuerst geprüft, weil deren Codes ein festes Schema
+   * haben und nie mit Artikelnummern kollidieren.
+   */
+  app.get(
+    "/api/erp/scan/resolve",
+    requireAuth,
+    allowAdminOr(requireViewInventory),
+    async (req, res) => {
+      try {
+        const tid = requireTenant(req);
+        const code = typeof req.query.code === "string" ? req.query.code.trim() : "";
+        const warehouseId =
+          typeof req.query.warehouseId === "string" && req.query.warehouseId
+            ? req.query.warehouseId
+            : null;
+        if (!code) return res.status(400).json({ error: "code required" });
+
+        const location = await erpStorage.findLocationByCode(code, tid, warehouseId);
+        if (location) {
+          const shelfType = location.shelfTypeId
+            ? await erpStorage.getShelfType(location.shelfTypeId, tid)
+            : undefined;
+          return res.json({
+            kind: "location",
+            location,
+            shelfType: shelfType ?? null,
+          });
+        }
+
+        const stockRows = await erpStorage.listStockLevels(tid, {
+          warehouseId: warehouseId ?? undefined,
+          productNumber: code,
+        });
+        const { resolveErpProductLabels } = await import("./erpProductLabels");
+        const labels = await resolveErpProductLabels(tid, [code], { shopwareFallback: true });
+        const label = labels[code];
+
+        // Als Artikel gilt, was Shopware/Mirror namentlich kennt oder wofür es schon eine
+        // Bestandszeile gibt. Sonst wäre jeder Zahlendreher ein "gültiger" Artikel.
+        const known = Boolean(label?.name) || stockRows.length > 0;
+        if (!known) {
+          return res.json({ kind: "unknown", code });
+        }
+
+        const stock = stockRows[0];
+        return res.json({
+          kind: "product",
+          product: label,
+          stock: stock
+            ? {
+                quantity: Number(stock.quantity || 0),
+                reservedQuantity: Number(stock.reservedQuantity || 0),
+                locationId: stock.locationId ?? null,
+                warehouseId: stock.warehouseId,
+              }
+            : null,
+        });
+      } catch (error: any) {
+        return mapErpError(error, res, "Failed to resolve scan");
+      }
+    },
+  );
+
+  /** Mehrfachauswahl: mehreren Artikeln denselben Lagerplatz zuweisen (locationId=null hebt auf). */
+  app.post(
+    "/api/erp/stock/assign-location",
+    requireAuth,
+    requireCsrf,
+    allowAdminOr(requireManageInventory),
+    async (req, res) => {
+      try {
+        const body = z
+          .object({
+            warehouseId: z.string().min(1),
+            productNumbers: z.array(z.string().min(1)).min(1).max(2000),
+            locationId: z.string().min(1).nullable(),
+          })
+          .parse(req.body || {});
+        const result = await erpStorage.assignStockLocation(body, requireTenant(req));
+        res.json({ ok: true, ...result });
+      } catch (error: any) {
+        return mapErpError(error, res, "Failed to assign storage location");
+      }
+    },
+  );
+
   app.post(
     "/api/erp/stock/movements",
     requireAuth,
@@ -386,11 +474,22 @@ export function registerErpRoutes(app: Express) {
           );
         }
 
+        // Vorzeichen aus der Bewegungsart erzwingen: recordStockMovement addiert quantity
+        // direkt auf den Bestand, eine "issue" mit positivem Wert würde ihn also erhöhen.
+        // adjustment/transfer/reservation/release behalten das übergebene Vorzeichen.
+        const signedQuantity = ["receipt", "return", "production_receipt"].includes(
+          body.movementType,
+        )
+          ? Math.abs(body.quantity)
+          : ["issue", "production_issue"].includes(body.movementType)
+            ? -Math.abs(body.quantity)
+            : body.quantity;
+
         const result = await erpStorage.recordStockMovement(
           {
             warehouseId: body.warehouseId,
             productNumber: body.productNumber,
-            quantity: body.quantity,
+            quantity: signedQuantity,
             movementType: body.movementType,
             locationId: body.locationId,
             note: body.note,

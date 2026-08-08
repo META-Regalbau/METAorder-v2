@@ -200,6 +200,38 @@ export const erpStorage = {
       .orderBy(asc(erpWarehouseLocations.code));
   },
 
+  /**
+   * Lagerplatz über den aufgedruckten Code finden (Scan). Ohne `warehouseId` wird über alle
+   * Lager des Mandanten gesucht. Vergleich case-insensitive, weil Scanner je nach
+   * Tastaturlayout Groß-/Kleinschreibung abweichend liefern können.
+   */
+  async findLocationByCode(
+    code: string,
+    tenantId?: string | null,
+    warehouseId?: string | null,
+  ): Promise<ErpWarehouseLocation | undefined> {
+    const tid = requireTenantId(tenantId);
+    const trimmed = code.trim();
+    if (!trimmed) return undefined;
+
+    const warehouseIds = warehouseId
+      ? [warehouseId]
+      : (await this.listWarehouses(tid)).map((w) => w.id);
+    if (warehouseIds.length === 0) return undefined;
+
+    const rows = await db
+      .select()
+      .from(erpWarehouseLocations)
+      .where(
+        and(
+          inArray(erpWarehouseLocations.warehouseId, warehouseIds),
+          sql`lower(${erpWarehouseLocations.code}) = ${trimmed.toLowerCase()}`,
+        ),
+      )
+      .limit(1);
+    return rows[0];
+  },
+
   async createLocation(
     warehouseId: string,
     data: LocationHierarchyInput,
@@ -445,6 +477,124 @@ export const erpStorage = {
       })
       .returning();
     return row;
+  },
+
+  /**
+   * Weist mehreren Artikeln in einem Lager denselben Lagerplatz zu (Mehrfachauswahl in der
+   * Warenwirtschaft). `locationId = null` hebt die Zuweisung wieder auf.
+   *
+   * Ein Artikel kann historisch mehrere Bestandszeilen im selben Lager haben (je Lagerplatz eine).
+   * Da hier genau ein Lagerplatz zugewiesen wird, werden solche Zeilen zu einer zusammengeführt:
+   * Mengen werden summiert, Meldebestand/Mindestbestand als Maximum übernommen.
+   */
+  async assignStockLocation(
+    data: { warehouseId: string; productNumbers: string[]; locationId: string | null },
+    tenantId?: string | null,
+  ): Promise<{ updated: number; created: number; merged: number }> {
+    const tid = requireTenantId(tenantId);
+    const warehouse = await this.getWarehouse(data.warehouseId, tid);
+    if (!warehouse) throw new Error("Warehouse not found");
+
+    if (data.locationId) {
+      const loc = await db
+        .select()
+        .from(erpWarehouseLocations)
+        .where(
+          and(
+            eq(erpWarehouseLocations.id, data.locationId),
+            eq(erpWarehouseLocations.warehouseId, data.warehouseId),
+          ),
+        )
+        .limit(1);
+      if (!loc[0]) throw new Error("Location not found");
+    }
+
+    const productNumbers = Array.from(
+      new Set(data.productNumbers.map((p) => p.trim()).filter(Boolean)),
+    );
+    if (productNumbers.length === 0) return { updated: 0, created: 0, merged: 0 };
+
+    const existing = await db
+      .select()
+      .from(erpStockLevels)
+      .where(
+        and(
+          eq(erpStockLevels.tenantId, tid),
+          eq(erpStockLevels.warehouseId, data.warehouseId),
+          inArray(erpStockLevels.productNumber, productNumbers),
+        ),
+      );
+
+    const byProduct = new Map<string, ErpStockLevel[]>();
+    for (const row of existing) {
+      const list = byProduct.get(row.productNumber) || [];
+      list.push(row);
+      byProduct.set(row.productNumber, list);
+    }
+
+    let updated = 0;
+    let created = 0;
+    let merged = 0;
+
+    for (const productNumber of productNumbers) {
+      const rows = byProduct.get(productNumber) || [];
+
+      if (rows.length === 0) {
+        await db.insert(erpStockLevels).values({
+          tenantId: tid,
+          warehouseId: data.warehouseId,
+          locationId: data.locationId,
+          productNumber,
+          quantity: 0,
+          reservedQuantity: 0,
+          minQuantity: 0,
+          reorderPoint: 0,
+        });
+        created += 1;
+        continue;
+      }
+
+      // Führende Zeile: die mit dem größten Bestand, damit bei Merge die Historie sinnvoll bleibt.
+      const sorted = [...rows].sort((a, b) => Number(b.quantity || 0) - Number(a.quantity || 0));
+      const primary = sorted[0];
+      const rest = sorted.slice(1);
+
+      const quantity = sorted.reduce((sum, r) => sum + Number(r.quantity || 0), 0);
+      const reservedQuantity = sorted.reduce(
+        (sum, r) => sum + Number(r.reservedQuantity || 0),
+        0,
+      );
+      const minQuantity = Math.max(...sorted.map((r) => Number(r.minQuantity || 0)));
+      const reorderPoint = Math.max(...sorted.map((r) => Number(r.reorderPoint || 0)));
+
+      // Erst die Duplikate löschen, dann die führende Zeile umhängen. Umgekehrt verletzt das
+      // Update den Unique-Index (tenant, warehouse, coalesce(location_id,''), product_number),
+      // sobald eine der zu löschenden Zeilen bereits auf dem Ziel-Lagerplatz liegt.
+      if (rest.length > 0) {
+        await db.delete(erpStockLevels).where(
+          inArray(
+            erpStockLevels.id,
+            rest.map((r) => r.id),
+          ),
+        );
+        merged += rest.length;
+      }
+
+      await db
+        .update(erpStockLevels)
+        .set({
+          locationId: data.locationId,
+          quantity,
+          reservedQuantity,
+          minQuantity,
+          reorderPoint,
+          updatedAt: new Date(),
+        })
+        .where(eq(erpStockLevels.id, primary.id));
+      updated += 1;
+    }
+
+    return { updated, created, merged };
   },
 
   async recordStockMovement(
