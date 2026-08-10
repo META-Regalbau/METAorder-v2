@@ -23,6 +23,8 @@ import {
   computeAutoFaceRotation,
   wallFeatureGeometry,
   wallLengthMmFor,
+  autoLayout,
+  type AutoLayoutMode,
   type RoomFootprintMm,
   type RoomPlacement,
   type CpqRoomRotationDeg,
@@ -251,6 +253,11 @@ export default function RoomPlannerPage() {
   const [minSpacingMm, setMinSpacingMm] = useState(100);
   const [roomName, setRoomName] = useState("");
   const [placements, setPlacements] = useState<RoomPlacement[]>([]);
+  /** Stand vor der letzten automatischen Anordnung — ermöglicht Rückgängig ohne Neuladen. */
+  const [placementsBeforeAuto, setPlacementsBeforeAuto] = useState<RoomPlacement[] | null>(null);
+  const [autoMode, setAutoMode] = useState<AutoLayoutMode>("walls");
+  const [aisleWidthMm, setAisleWidthMm] = useState(1200);
+  const [autoHinweis, setAutoHinweis] = useState<string | null>(null);
   const [wallFeatures, setWallFeatures] = useState<RoomWallFeature[]>([]);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [selectedWallFeatureId, setSelectedWallFeatureId] = useState<string | null>(null);
@@ -355,8 +362,15 @@ export default function RoomPlannerPage() {
   );
 
   const violations = useMemo(
-    () => validateRoomPlacements({ lengthMm, widthMm }, placements, footprintsByConfigKey, minSpacingMm),
-    [lengthMm, widthMm, placements, footprintsByConfigKey, minSpacingMm],
+    () =>
+      validateRoomPlacements(
+        { lengthMm, widthMm },
+        placements,
+        footprintsByConfigKey,
+        minSpacingMm,
+        wallFeatures,
+      ),
+    [lengthMm, widthMm, placements, footprintsByConfigKey, minSpacingMm, wallFeatures],
   );
 
   const scale = Math.max(0.001, Math.min(CANVAS_MAX_W / Math.max(1, lengthMm), CANVAS_MAX_H / Math.max(1, widthMm)));
@@ -586,6 +600,40 @@ export default function RoomPlannerPage() {
 
   const colorFor = (configKey: string) => COLORS[configurations.findIndex((c) => c.configKey === configKey) % COLORS.length];
 
+  /**
+   * Automatische Anordnung. Ersetzt alle Platzierungen, merkt sich aber den vorherigen
+   * Stand — eine Anordnung, die man nicht zurücknehmen kann, traut sich niemand zu klicken.
+   */
+  function anordnenAutomatisch() {
+    const items = configurations.map((c) => ({ configKey: c.configKey, footprint: c.footprint }));
+    if (items.length === 0) {
+      setAutoHinweis("Keine Konfigurationen im Angebot.");
+      return;
+    }
+    const ergebnis = autoLayout(autoMode, { lengthMm, widthMm }, items, {
+      minSpacingMm,
+      wallClearanceMm: 50,
+      aisleWidthMm,
+      wallFeatures,
+    });
+    setPlacementsBeforeAuto(placements);
+    setPlacements(ergebnis.placements);
+    setSelectedKey(null);
+    setAutoHinweis(
+      ergebnis.unplaced.length === 0
+        ? `${ergebnis.placements.length} Regale angeordnet.`
+        : `${ergebnis.placements.length} von ${items.length} angeordnet — für ${ergebnis.unplaced.length} war kein Platz.`,
+    );
+  }
+
+  function autoRueckgaengig() {
+    if (!placementsBeforeAuto) return;
+    setPlacements(placementsBeforeAuto);
+    setPlacementsBeforeAuto(null);
+    setAutoHinweis(null);
+    setSelectedKey(null);
+  }
+
   return (
     <div className="madmin" style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
       <div className="mpage-head">
@@ -599,6 +647,52 @@ export default function RoomPlannerPage() {
         </button>
       </div>
 
+      <div className="mcard" style={{ padding: 12, marginBottom: 16, display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end" }}>
+        <div>
+          <label className="mlabel" htmlFor="auto-mode">Anordnung</label>
+          <select
+            id="auto-mode"
+            className="minput"
+            value={autoMode}
+            onChange={(e) => setAutoMode(e.target.value as AutoLayoutMode)}
+            data-testid="auto-layout-mode"
+          >
+            <option value="walls">An den Wänden</option>
+            <option value="rows">In Reihen mit Gang</option>
+          </select>
+        </div>
+        {autoMode === "rows" && (
+          <div>
+            <label className="mlabel" htmlFor="auto-aisle">Gangbreite (mm)</label>
+            <select
+              id="auto-aisle"
+              className="minput"
+              value={aisleWidthMm}
+              onChange={(e) => setAisleWidthMm(Number(e.target.value))}
+              data-testid="auto-layout-aisle"
+            >
+              <option value={1000}>1.000 — Personen</option>
+              <option value={1200}>1.200 — Personen, breit</option>
+              <option value={1400}>1.400 — Ameise</option>
+              <option value={2500}>2.500 — Stapler</option>
+              <option value={3500}>3.500 — Stapler, breit</option>
+            </select>
+          </div>
+        )}
+        <button type="button" className="mbtn" onClick={anordnenAutomatisch} data-testid="auto-layout-apply">
+          Automatisch anordnen
+        </button>
+        {placementsBeforeAuto && (
+          <button type="button" className="mbtn ghost" onClick={autoRueckgaengig} data-testid="auto-layout-undo">
+            Rückgängig
+          </button>
+        )}
+        {autoHinweis && <span className="desc" style={{ alignSelf: "center" }}>{autoHinweis}</span>}
+        <span className="desc" style={{ alignSelf: "center", marginLeft: "auto" }}>
+          Türen und Tore bleiben frei.
+        </span>
+      </div>
+
       {violations.length > 0 && (
         <div className="malert warning">
           <div className="malert-title">Ungültige Platzierung</div>
@@ -607,6 +701,13 @@ export default function RoomPlannerPage() {
               {v.type === "wall-collision" && `„${configurations.find((c) => c.configKey === v.configKey)?.name ?? v.configKey}“ ragt über die Raumgrenze hinaus.`}
               {v.type === "min-spacing" &&
                 `Mindestabstand zwischen „${configurations.find((c) => c.configKey === v.configKeyA)?.name ?? v.configKeyA}“ und „${configurations.find((c) => c.configKey === v.configKeyB)?.name ?? v.configKeyB}“ unterschritten.`}
+              {v.type === "opening-blocked" &&
+                (() => {
+                  const f = wallFeatures.find((w) => w.id === v.featureId);
+                  const art = f?.type === "gate" ? "Tor" : f?.type === "door" ? "Tür" : "Öffnung";
+                  const name = configurations.find((c) => c.configKey === v.configKey)?.name ?? v.configKey;
+                  return `„${name}“ verstellt ${art === "Tor" ? "die Anfahrzone vor dem Tor" : "den Schwenkbereich der Tür"}.`;
+                })()}
             </div>
           ))}
         </div>
@@ -758,7 +859,8 @@ export default function RoomPlannerPage() {
                 const isInvalid = violations.some(
                   (v) =>
                     (v.type === "wall-collision" && v.configKey === p.configKey) ||
-                    (v.type === "min-spacing" && (v.configKeyA === p.configKey || v.configKeyB === p.configKey)),
+                    (v.type === "min-spacing" && (v.configKeyA === p.configKey || v.configKeyB === p.configKey)) ||
+                    (v.type === "opening-blocked" && v.configKey === p.configKey),
                 );
                 const color = colorFor(p.configKey);
                 const cx = (rect.x0 + rect.x1) / 2 * scale;

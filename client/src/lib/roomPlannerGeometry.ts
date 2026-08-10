@@ -107,13 +107,57 @@ function inflate(rect: RoomRect, by: number): RoomRect {
 
 export type RoomLayoutViolation =
   | { type: "wall-collision"; configKey: string }
-  | { type: "min-spacing"; configKeyA: string; configKeyB: string };
+  | { type: "min-spacing"; configKeyA: string; configKeyB: string }
+  | { type: "opening-blocked"; configKey: string; featureId: string };
+
+/**
+ * Freizuhaltende Tiefe vor einer Wandöffnung, in mm.
+ *
+ * Tür: der Schwenkbereich entspricht der Türblattbreite — eine 1.000er Tür braucht 1.000 mm
+ * davor. Tor: Anfahr- und Rangierzone, deutlich mehr als die reine Öffnungsbreite, hier
+ * konservativ die Öffnungsbreite mindestens aber 1.500 mm. Fenster: Regale dürfen davor
+ * stehen (Brüstungshöhe), deshalb keine Sperrfläche.
+ */
+export function openingClearanceDepthMm(feature: RoomWallFeature): number {
+  if (feature.type === "window") return 0;
+  if (feature.type === "gate") return Math.max(1500, feature.widthMm);
+  return feature.widthMm;
+}
+
+/**
+ * Sperrflächen vor Türen und Toren als Rechtecke in Raumkoordinaten.
+ * Ein Regal, das eines dieser Rechtecke schneidet, verstellt die Öffnung.
+ */
+export function openingBlockZones(
+  features: RoomWallFeature[],
+  room: { lengthMm: number; widthMm: number },
+): Array<{ featureId: string; rect: RoomRect }> {
+  const zones: Array<{ featureId: string; rect: RoomRect }> = [];
+  for (const f of features) {
+    const tiefe = openingClearanceDepthMm(f);
+    if (tiefe <= 0) continue;
+    const von = Math.max(0, f.offsetMm);
+    const bis = Math.min(wallLengthMmFor(f.wall, room), f.offsetMm + f.widthMm);
+    if (bis <= von) continue;
+
+    let rect: RoomRect;
+    if (f.wall === "north") rect = { x0: von, y0: 0, x1: bis, y1: tiefe };
+    else if (f.wall === "south") rect = { x0: von, y0: room.widthMm - tiefe, x1: bis, y1: room.widthMm };
+    else if (f.wall === "west") rect = { x0: 0, y0: von, x1: tiefe, y1: bis };
+    else rect = { x0: room.lengthMm - tiefe, y0: von, x1: room.lengthMm, y1: bis };
+
+    zones.push({ featureId: f.id, rect });
+  }
+  return zones;
+}
 
 export function validateRoomPlacements(
   room: { lengthMm: number; widthMm: number },
   placements: RoomPlacement[],
   footprintsByConfigKey: Map<string, RoomFootprintMm>,
   minSpacingMm: number,
+  /** Wandöffnungen; ohne Angabe wird nicht gegen Sperrflächen geprüft (Altverhalten). */
+  wallFeatures?: RoomWallFeature[],
 ): RoomLayoutViolation[] {
   const violations: RoomLayoutViolation[] = [];
   const rects = new Map<string, RoomRect>();
@@ -135,6 +179,14 @@ export function validateRoomPlacements(
       const b = rects.get(keys[j])!;
       if (rectsIntersect(inflate(a, minSpacingMm / 2), inflate(b, minSpacingMm / 2))) {
         violations.push({ type: "min-spacing", configKeyA: keys[i], configKeyB: keys[j] });
+      }
+    }
+  }
+
+  for (const zone of openingBlockZones(wallFeatures ?? [], room)) {
+    for (const [configKey, rect] of rects) {
+      if (rectsIntersect(rect, zone.rect)) {
+        violations.push({ type: "opening-blocked", configKey, featureId: zone.featureId });
       }
     }
   }
@@ -285,4 +337,204 @@ export function findFreeSpot(
     }
   }
   return null;
+}
+
+// ---------------------------------------------------------------------------------------
+// Automatische Anordnung
+//
+// Bewusst deterministisch: dieselbe Konfiguration ergibt immer dieselbe Anordnung. Das
+// Ergebnis landet im Angebots-PDF, dort wäre eine bei jedem Klick andere Aufteilung nicht
+// vermittelbar. Beide Verfahren liefern nur Platzierungen; die Prüfung bleibt bei
+// validateRoomPlacements, damit Auto- und Handanordnung denselben Regeln unterliegen.
+// ---------------------------------------------------------------------------------------
+
+export type AutoLayoutItem = { configKey: string; footprint: RoomFootprintMm };
+
+export type AutoLayoutOptions = {
+  minSpacingMm: number;
+  /** Abstand zur Wand — Sockelleisten, Anfahrschutz, Reinigung. */
+  wallClearanceMm: number;
+  /** Nur für "rows": lichte Gangbreite zwischen zwei Regalzeilen. */
+  aisleWidthMm: number;
+  wallFeatures: RoomWallFeature[];
+};
+
+export type AutoLayoutResult = {
+  placements: RoomPlacement[];
+  /** configKeys, für die kein Platz gefunden wurde. */
+  unplaced: string[];
+};
+
+const DEFAULT_AUTO_LAYOUT: Pick<AutoLayoutOptions, "minSpacingMm" | "wallClearanceMm" | "aisleWidthMm"> = {
+  minSpacingMm: 100,
+  wallClearanceMm: 50,
+  aisleWidthMm: 1200,
+};
+
+function passtOhneKonflikt(
+  rect: RoomRect,
+  room: { lengthMm: number; widthMm: number },
+  belegt: RoomRect[],
+  zonen: Array<{ rect: RoomRect }>,
+  minSpacingMm: number,
+): boolean {
+  if (rect.x0 < 0 || rect.y0 < 0 || rect.x1 > room.lengthMm || rect.y1 > room.widthMm) return false;
+  for (const b of belegt) {
+    if (rectsIntersect(inflate(rect, minSpacingMm / 2), inflate(b, minSpacingMm / 2))) return false;
+  }
+  for (const z of zonen) if (rectsIntersect(rect, z.rect)) return false;
+  return true;
+}
+
+/**
+ * Wandverteilung: Regale mit dem Rücken an die Wände, im Uhrzeigersinn ab der Nordwand.
+ *
+ * Die Rotation ist je Wand fest, damit die Bedienseite immer ins Rauminnere zeigt: Nord 0°,
+ * Ost 90°, Süd 180°, West 270°. Große Regale zuerst — sonst blockieren viele kleine die
+ * langen Wandabschnitte und die großen bleiben übrig.
+ */
+export function autoLayoutAlongWalls(
+  room: { lengthMm: number; widthMm: number },
+  items: AutoLayoutItem[],
+  options: Partial<AutoLayoutOptions> = {},
+): AutoLayoutResult {
+  const opt = { ...DEFAULT_AUTO_LAYOUT, wallFeatures: [], ...options };
+  const zonen = openingBlockZones(opt.wallFeatures, room);
+  const belegt: RoomRect[] = [];
+  const placements: RoomPlacement[] = [];
+  const unplaced: string[] = [];
+
+  const offen = [...items].sort((a, b) => b.footprint.lengthMm - a.footprint.lengthMm);
+  const waende: Array<{ wall: RoomWall; rotationDeg: CpqRoomRotationDeg }> = [
+    { wall: "north", rotationDeg: 0 },
+    { wall: "east", rotationDeg: 90 },
+    { wall: "south", rotationDeg: 180 },
+    { wall: "west", rotationDeg: 270 },
+  ];
+
+  for (const item of offen) {
+    let gesetzt = false;
+    for (const { wall, rotationDeg } of waende) {
+      const gedreht = rotationDeg === 90 || rotationDeg === 270;
+      const breite = gedreht ? item.footprint.depthMm : item.footprint.lengthMm;
+      const tiefe = gedreht ? item.footprint.lengthMm : item.footprint.depthMm;
+
+      // Entlang der Wand in Schritten suchen: kleine Schritte finden Lücken zwischen
+      // Öffnungen, ohne dass ein vollständiges Packing nötig wäre.
+      const schritt = Math.max(50, Math.round(opt.minSpacingMm / 2));
+      const maxEntlang =
+        wall === "north" || wall === "south"
+          ? room.lengthMm - breite - opt.wallClearanceMm
+          : room.widthMm - tiefe - opt.wallClearanceMm;
+
+      for (let d = opt.wallClearanceMm; d <= maxEntlang; d += schritt) {
+        let x: number;
+        let y: number;
+        if (wall === "north") { x = d; y = opt.wallClearanceMm; }
+        else if (wall === "south") { x = d; y = room.widthMm - tiefe - opt.wallClearanceMm; }
+        else if (wall === "west") { x = opt.wallClearanceMm; y = d; }
+        else { x = room.lengthMm - breite - opt.wallClearanceMm; y = d; }
+
+        const kandidat: RoomPlacement = { configKey: item.configKey, xMm: Math.round(x), yMm: Math.round(y), rotationDeg };
+        const rect = placementRect(kandidat, item.footprint);
+        if (!passtOhneKonflikt(rect, room, belegt, zonen, opt.minSpacingMm)) continue;
+        placements.push(kandidat);
+        belegt.push(rect);
+        gesetzt = true;
+        break;
+      }
+      if (gesetzt) break;
+    }
+    if (!gesetzt) unplaced.push(item.configKey);
+  }
+
+  return { placements, unplaced };
+}
+
+/**
+ * Reihen: Regalzeilen quer zum Raum, dazwischen ein Gang in voller Breite.
+ *
+ * Klassische Lageraufteilung. Die Zeilen laufen entlang der Raumlänge, gestapelt über die
+ * Raumtiefe. Je Zeile werden Regale nebeneinander gesetzt, bis die Länge voll ist; danach
+ * beginnt nach einem Gang die nächste Zeile. Rotation 0° — Bedienseite zum Gang.
+ */
+export function autoLayoutRows(
+  room: { lengthMm: number; widthMm: number },
+  items: AutoLayoutItem[],
+  options: Partial<AutoLayoutOptions> = {},
+): AutoLayoutResult {
+  const opt = { ...DEFAULT_AUTO_LAYOUT, wallFeatures: [], ...options };
+  const zonen = openingBlockZones(opt.wallFeatures, room);
+  const belegt: RoomRect[] = [];
+  const placements: RoomPlacement[] = [];
+  const unplaced: string[] = [];
+
+  // Nach Tiefe gruppieren: Regale gleicher Tiefe ergeben eine bündige Zeile.
+  const offen = [...items].sort(
+    (a, b) => b.footprint.depthMm - a.footprint.depthMm || b.footprint.lengthMm - a.footprint.lengthMm,
+  );
+
+  let y = opt.wallClearanceMm;
+  let i = 0;
+  while (i < offen.length && y < room.widthMm) {
+    const zeilenTiefe = offen[i].footprint.depthMm;
+    if (y + zeilenTiefe + opt.wallClearanceMm > room.widthMm) break;
+
+    let x = opt.wallClearanceMm;
+    let inZeile = 0;
+    while (i < offen.length) {
+      const item = offen[i];
+      // Nur Regale ähnlicher Tiefe in dieselbe Zeile, sonst franst die Zeile aus.
+      if (Math.abs(item.footprint.depthMm - zeilenTiefe) > 50) break;
+      const breite = item.footprint.lengthMm;
+      if (x + breite + opt.wallClearanceMm > room.lengthMm) break;
+
+      const kandidat: RoomPlacement = { configKey: item.configKey, xMm: Math.round(x), yMm: Math.round(y), rotationDeg: 0 };
+      const rect = placementRect(kandidat, item.footprint);
+      if (passtOhneKonflikt(rect, room, belegt, zonen, opt.minSpacingMm)) {
+        placements.push(kandidat);
+        belegt.push(rect);
+        inZeile += 1;
+        x += breite + opt.minSpacingMm;
+        i += 1;
+      } else {
+        // Sperrfläche oder Kollision: an dieser Stelle vorbeirücken statt aufzugeben.
+        x += Math.max(100, Math.round(opt.minSpacingMm));
+        if (x + breite + opt.wallClearanceMm > room.lengthMm) break;
+      }
+    }
+
+    if (inZeile === 0) {
+      // In dieser Zeile ging nichts. Passt das Regal überhaupt in den Raum, liegt es an
+      // dieser Zeile → nach unten rücken. Ist es schlicht zu groß, muss es aussortiert
+      // werden — sonst blockiert ein übergroßes Regal alle nachfolgenden, weil der Index
+      // nie weiterläuft.
+      const item = offen[i];
+      const passtNieInDenRaum =
+        item.footprint.lengthMm + 2 * opt.wallClearanceMm > room.lengthMm ||
+        item.footprint.depthMm + 2 * opt.wallClearanceMm > room.widthMm;
+      if (passtNieInDenRaum) {
+        unplaced.push(item.configKey);
+        i += 1;
+        continue;
+      }
+      y += Math.max(200, zeilenTiefe);
+      continue;
+    }
+    y += zeilenTiefe + opt.aisleWidthMm;
+  }
+
+  for (; i < offen.length; i++) unplaced.push(offen[i].configKey);
+  return { placements, unplaced };
+}
+
+export type AutoLayoutMode = "walls" | "rows";
+
+export function autoLayout(
+  mode: AutoLayoutMode,
+  room: { lengthMm: number; widthMm: number },
+  items: AutoLayoutItem[],
+  options: Partial<AutoLayoutOptions> = {},
+): AutoLayoutResult {
+  return mode === "rows" ? autoLayoutRows(room, items, options) : autoLayoutAlongWalls(room, items, options);
 }
