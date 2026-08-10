@@ -270,6 +270,47 @@ export function computeClearances(
 export const AUTO_FACE_WALL_THRESHOLD_MM = 500;
 
 /**
+ * Standard-Wandabstand (mm).
+ *
+ * Regale stehen nicht bündig an der Wand: Sockelleisten, Rohrleitungen und die Reinigung
+ * brauchen Luft, und bei Anbauregalen liegen die Rahmenfüße auf. 150 mm ist der Wert, mit
+ * dem in der Praxis geplant wird.
+ */
+export const DEFAULT_WALL_CLEARANCE_MM = 150;
+
+/**
+ * Rückt eine Platzierung auf den Soll-Wandabstand, wenn sie näher als dieser an einer Wand
+ * liegt. Ohne das würde die Autodrehung ein Regal zwar korrekt ausrichten, es aber bündig
+ * an der Wand kleben lassen.
+ *
+ * Wirkt je Achse getrennt und nur nach innen — ein Regal in der Raummitte bleibt unberührt.
+ */
+export function snapToWallClearance(
+  placement: RoomPlacement,
+  footprint: RoomFootprintMm,
+  room: { lengthMm: number; widthMm: number },
+  clearanceMm: number = DEFAULT_WALL_CLEARANCE_MM,
+): RoomPlacement {
+  const rect = placementRect(placement, footprint);
+  const breite = rect.x1 - rect.x0;
+  const tiefe = rect.y1 - rect.y0;
+
+  let x = placement.xMm;
+  let y = placement.yMm;
+
+  if (rect.x0 < clearanceMm) x = clearanceMm;
+  else if (room.lengthMm - rect.x1 < clearanceMm) x = room.lengthMm - clearanceMm - breite;
+
+  if (rect.y0 < clearanceMm) y = clearanceMm;
+  else if (room.widthMm - rect.y1 < clearanceMm) y = room.widthMm - clearanceMm - tiefe;
+
+  // Passt das Regal nicht mehr zwischen die Wände, bleibt die ursprüngliche Position —
+  // ein Sprung auf eine negative Koordinate wäre schlechter als ein zu kleiner Abstand.
+  if (x < 0 || y < 0 || x + breite > room.lengthMm || y + tiefe > room.widthMm) return placement;
+  return { ...placement, xMm: Math.round(x), yMm: Math.round(y) };
+}
+
+/**
  * Ermittelt, ob ein Regal an der gegebenen Kandidatenposition automatisch gedreht werden
  * soll, damit seine Vorderseite von einer nahen Wand wegzeigt (sobald diese näher als
  * `thresholdMm` ist — Standard 500mm/50cm). Prüft mehrere nahe Wände in Reihenfolge
@@ -367,7 +408,7 @@ export type AutoLayoutResult = {
 
 const DEFAULT_AUTO_LAYOUT: Pick<AutoLayoutOptions, "minSpacingMm" | "wallClearanceMm" | "aisleWidthMm"> = {
   minSpacingMm: 100,
-  wallClearanceMm: 50,
+  wallClearanceMm: DEFAULT_WALL_CLEARANCE_MM,
   aisleWidthMm: 1200,
 };
 

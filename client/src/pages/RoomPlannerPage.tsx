@@ -24,6 +24,8 @@ import {
   wallFeatureGeometry,
   wallLengthMmFor,
   autoLayout,
+  snapToWallClearance,
+  DEFAULT_WALL_CLEARANCE_MM,
   type AutoLayoutMode,
   type RoomFootprintMm,
   type RoomPlacement,
@@ -257,6 +259,7 @@ export default function RoomPlannerPage() {
   const [placementsBeforeAuto, setPlacementsBeforeAuto] = useState<RoomPlacement[] | null>(null);
   const [autoMode, setAutoMode] = useState<AutoLayoutMode>("walls");
   const [aisleWidthMm, setAisleWidthMm] = useState(1200);
+  const [wallClearanceMm, setWallClearanceMm] = useState(DEFAULT_WALL_CLEARANCE_MM);
   const [autoHinweis, setAutoHinweis] = useState<string | null>(null);
   const [wallFeatures, setWallFeatures] = useState<RoomWallFeature[]>([]);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -473,7 +476,13 @@ export default function RoomPlannerPage() {
           // Wand wegdrehen (nur wenn die gedrehte Platzierung an dieser Stelle gültig bleibt —
           // Drehung kann bei Regalen mit Breite≠Tiefe den belegten Fußabdruck ändern).
           const autoRotation = computeAutoFaceRotation(next, footprint, room, others, minSpacingMm);
-          const finalPlacement = autoRotation !== null ? { ...next, rotationDeg: autoRotation } : next;
+          const gedreht = autoRotation !== null ? { ...next, rotationDeg: autoRotation } : next;
+          // Danach auf den Soll-Wandabstand rücken. Nur übernehmen, wenn die Position dort
+          // gültig bleibt — sonst bliebe ein Regal auf einem belegten Platz stehen.
+          const gerueckt = snapToWallClearance(gedreht, footprint, room, wallClearanceMm);
+          const finalPlacement = isPlacementValid(room, gerueckt, footprint, others, minSpacingMm)
+            ? gerueckt
+            : gedreht;
           setPlacements((prev) => prev.map((p) => (p.configKey === drag.configKey ? finalPlacement : p)));
         }
       }
@@ -521,7 +530,18 @@ export default function RoomPlannerPage() {
       otherRects(config.configKey),
       minSpacingMm,
     );
-    setPlacements((prev) => [...prev, autoRotation !== null ? { ...initialPlacement, rotationDeg: autoRotation } : initialPlacement]);
+    const gedreht = autoRotation !== null ? { ...initialPlacement, rotationDeg: autoRotation } : initialPlacement;
+    const gerueckt = snapToWallClearance(gedreht, config.footprint, { lengthMm, widthMm }, wallClearanceMm);
+    const platzierung = isPlacementValid(
+      { lengthMm, widthMm },
+      gerueckt,
+      config.footprint,
+      otherRects(config.configKey),
+      minSpacingMm,
+    )
+      ? gerueckt
+      : gedreht;
+    setPlacements((prev) => [...prev, platzierung]);
     setSelectedKey(config.configKey);
   };
 
@@ -612,7 +632,7 @@ export default function RoomPlannerPage() {
     }
     const ergebnis = autoLayout(autoMode, { lengthMm, widthMm }, items, {
       minSpacingMm,
-      wallClearanceMm: 50,
+      wallClearanceMm,
       aisleWidthMm,
       wallFeatures,
     });
@@ -679,6 +699,21 @@ export default function RoomPlannerPage() {
             </select>
           </div>
         )}
+        <div>
+          <label className="mlabel" htmlFor="auto-wall">Wandabstand (mm)</label>
+          <input
+            id="auto-wall"
+            className="minput"
+            type="number"
+            min={0}
+            max={2000}
+            step={10}
+            style={{ width: 120 }}
+            value={wallClearanceMm}
+            onChange={(e) => setWallClearanceMm(Math.max(0, Math.min(2000, Number(e.target.value) || 0)))}
+            data-testid="auto-layout-wall-clearance"
+          />
+        </div>
         <button type="button" className="mbtn" onClick={anordnenAutomatisch} data-testid="auto-layout-apply">
           Automatisch anordnen
         </button>
