@@ -79,8 +79,8 @@ const COLORS = ["#c0392b", "#2c6e8f", "#2e7d4f", "#a06b1f", "#6b4c9a", "#1f6f6f"
 /** Platz außerhalb des Raum-Rechtecks für die Bemaßungslinien (Länge oben, Breite links). */
 const DIM_PAD = 30;
 
-function nextRotation(r: CpqRoomRotationDeg): CpqRoomRotationDeg {
-  return ((r + 90) % 360) as CpqRoomRotationDeg;
+function rotateBy(r: CpqRoomRotationDeg, deltaDeg: 90 | 180): CpqRoomRotationDeg {
+  return ((r + deltaDeg) % 360) as CpqRoomRotationDeg;
 }
 
 /**
@@ -550,15 +550,24 @@ export default function RoomPlannerPage() {
     if (selectedKey === configKey) setSelectedKey(null);
   };
 
-  const rotateSelected = () => {
+  /**
+   * Auswahl drehen. 90° tauscht Breite und Tiefe und kann deshalb an enger Stelle
+   * kollidieren; 180° behält den Fußabdruck und dreht nur die Vorderseite um — damit lässt
+   * sich die Bedienseite auch dort wenden, wo für eine Vierteldrehung kein Platz ist.
+   */
+  const rotateSelected = (deltaDeg: 90 | 180) => {
     if (!selectedKey) return;
     const current = placements.find((p) => p.configKey === selectedKey);
     const footprint = footprintsByConfigKey.get(selectedKey);
     if (!current || !footprint) return;
-    const candidate: RoomPlacement = { ...current, rotationDeg: nextRotation(current.rotationDeg) };
+    const candidate: RoomPlacement = { ...current, rotationDeg: rotateBy(current.rotationDeg, deltaDeg) };
     const others = otherRects(selectedKey);
     if (!isPlacementValid({ lengthMm, widthMm }, candidate, footprint, others, minSpacingMm)) {
-      toast({ title: "Drehung nicht möglich", description: "An dieser Position würde das Regal mit Wand oder Nachbarregal kollidieren.", variant: "destructive" });
+      toast({
+        title: "Drehung nicht möglich",
+        description: `An dieser Position würde das Regal nach ${deltaDeg}° mit Wand oder Nachbarregal kollidieren.`,
+        variant: "destructive",
+      });
       return;
     }
     setPlacements((prev) => prev.map((p) => (p.configKey === selectedKey ? candidate : p)));
@@ -853,7 +862,12 @@ export default function RoomPlannerPage() {
           </div>
           {selectedKey && (
             <div className="flex items-center gap-2">
-              <button type="button" className="mbtn sm" onClick={rotateSelected}>Drehen (90°)</button>
+              <button type="button" className="mbtn sm" onClick={() => rotateSelected(90)} data-testid="rotate-90">
+                Drehen 90°
+              </button>
+              <button type="button" className="mbtn sm" onClick={() => rotateSelected(180)} data-testid="rotate-180">
+                Drehen 180°
+              </button>
               <button type="button" className="mbtn sm destructive" onClick={() => removeFromRoom(selectedKey)}>Aus Raum entfernen</button>
             </div>
           )}
