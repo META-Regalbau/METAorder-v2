@@ -63,6 +63,7 @@ type RoomLayoutRow = {
   widthMm: number;
   heightMm: number;
   minSpacingMm: number | null;
+  frontClearanceMm: number | null;
   placements: RoomPlacement[];
   wallFeatures: RoomWallFeature[];
 };
@@ -253,6 +254,8 @@ export default function RoomPlannerPage() {
   const [widthMm, setWidthMm] = useState(4000);
   const [heightMm, setHeightMm] = useState(2500);
   const [minSpacingMm, setMinSpacingMm] = useState(100);
+  /** Bediengang vor der Vorderseite — seitlich und hinten reicht der Mindestabstand. */
+  const [frontClearanceMm, setFrontClearanceMm] = useState(1200);
   const [roomName, setRoomName] = useState("");
   const [placements, setPlacements] = useState<RoomPlacement[]>([]);
   /** Stand vor der letzten automatischen Anordnung — ermöglicht Rückgängig ohne Neuladen. */
@@ -278,6 +281,9 @@ export default function RoomPlannerPage() {
       setWidthMm(data.layout.widthMm);
       setHeightMm(data.layout.heightMm);
       setMinSpacingMm(data.layout.minSpacingMm ?? data.defaultMinSpacingMm);
+      // Ohne gespeicherten Wert gilt der Mindestabstand ringsum — so verhalten sich
+      // Altbestände weiter wie vor der Unterscheidung.
+      setFrontClearanceMm(data.layout.frontClearanceMm ?? data.layout.minSpacingMm ?? data.defaultMinSpacingMm);
       setRoomName(data.layout.name ?? "");
       setPlacements(data.layout.placements ?? []);
       setWallFeatures(data.layout.wallFeatures ?? []);
@@ -372,8 +378,9 @@ export default function RoomPlannerPage() {
         footprintsByConfigKey,
         minSpacingMm,
         wallFeatures,
+        frontClearanceMm,
       ),
-    [lengthMm, widthMm, placements, footprintsByConfigKey, minSpacingMm, wallFeatures],
+    [lengthMm, widthMm, placements, footprintsByConfigKey, minSpacingMm, wallFeatures, frontClearanceMm],
   );
 
   const scale = Math.max(0.001, Math.min(CANVAS_MAX_W / Math.max(1, lengthMm), CANVAS_MAX_H / Math.max(1, widthMm)));
@@ -416,14 +423,18 @@ export default function RoomPlannerPage() {
     startOffsetMm: number;
   } | null>(null);
 
-  const otherRects = (excludeKey: string): Array<{ configKey: string; rect: RoomRect }> =>
+  // rotationDeg muss mit: ohne sie kann die Gangprüfung die Vorderseite des Nachbarn
+  // nicht kennen und würde einen zu kleinen Abstand durchgehen lassen.
+  const otherRects = (
+    excludeKey: string,
+  ): Array<{ configKey: string; rect: RoomRect; rotationDeg: CpqRoomRotationDeg }> =>
     placements
       .filter((p) => p.configKey !== excludeKey)
       .map((p) => {
         const fp = footprintsByConfigKey.get(p.configKey);
-        return fp ? { configKey: p.configKey, rect: placementRect(p, fp) } : null;
+        return fp ? { configKey: p.configKey, rect: placementRect(p, fp), rotationDeg: p.rotationDeg } : null;
       })
-      .filter((o): o is { configKey: string; rect: RoomRect } => !!o);
+      .filter((o): o is { configKey: string; rect: RoomRect; rotationDeg: CpqRoomRotationDeg } => !!o);
 
   const handlePointerDown = (e: React.PointerEvent, p: RoomPlacement) => {
     (e.target as Element).setPointerCapture(e.pointerId);
@@ -467,9 +478,9 @@ export default function RoomPlannerPage() {
         const tryY: RoomPlacement = { ...current, xMm: current.xMm, yMm: rawY };
 
         let next: RoomPlacement | null = null;
-        if (isPlacementValid(room, tryBoth, footprint, others, minSpacingMm)) next = tryBoth;
-        else if (isPlacementValid(room, tryX, footprint, others, minSpacingMm)) next = tryX;
-        else if (isPlacementValid(room, tryY, footprint, others, minSpacingMm)) next = tryY;
+        if (isPlacementValid(room, tryBoth, footprint, others, minSpacingMm, frontClearanceMm)) next = tryBoth;
+        else if (isPlacementValid(room, tryX, footprint, others, minSpacingMm, frontClearanceMm)) next = tryX;
+        else if (isPlacementValid(room, tryY, footprint, others, minSpacingMm, frontClearanceMm)) next = tryY;
 
         if (next) {
           // Autodrehung: näher als 50cm an einer Wand → Vorderseite automatisch von dieser
@@ -480,7 +491,7 @@ export default function RoomPlannerPage() {
           // Danach auf den Soll-Wandabstand rücken. Nur übernehmen, wenn die Position dort
           // gültig bleibt — sonst bliebe ein Regal auf einem belegten Platz stehen.
           const gerueckt = snapToWallClearance(gedreht, footprint, room, wallClearanceMm);
-          const finalPlacement = isPlacementValid(room, gerueckt, footprint, others, minSpacingMm)
+          const finalPlacement = isPlacementValid(room, gerueckt, footprint, others, minSpacingMm, frontClearanceMm)
             ? gerueckt
             : gedreht;
           setPlacements((prev) => prev.map((p) => (p.configKey === drag.configKey ? finalPlacement : p)));
@@ -562,7 +573,7 @@ export default function RoomPlannerPage() {
     if (!current || !footprint) return;
     const candidate: RoomPlacement = { ...current, rotationDeg: rotateBy(current.rotationDeg, deltaDeg) };
     const others = otherRects(selectedKey);
-    if (!isPlacementValid({ lengthMm, widthMm }, candidate, footprint, others, minSpacingMm)) {
+    if (!isPlacementValid({ lengthMm, widthMm }, candidate, footprint, others, minSpacingMm, frontClearanceMm)) {
       toast({
         title: "Drehung nicht möglich",
         description: `An dieser Position würde das Regal nach ${deltaDeg}° mit Wand oder Nachbarregal kollidieren.`,
@@ -598,6 +609,7 @@ export default function RoomPlannerPage() {
         widthMm,
         heightMm,
         minSpacingMm,
+        frontClearanceMm,
         placements,
         wallFeatures,
         ...(previewImageBase64 !== undefined ? { previewImageBase64 } : {}),
@@ -643,6 +655,7 @@ export default function RoomPlannerPage() {
       minSpacingMm,
       wallClearanceMm,
       aisleWidthMm,
+      frontClearanceMm,
       wallFeatures,
     });
     setPlacementsBeforeAuto(placements);
@@ -745,6 +758,8 @@ export default function RoomPlannerPage() {
               {v.type === "wall-collision" && `„${configurations.find((c) => c.configKey === v.configKey)?.name ?? v.configKey}“ ragt über die Raumgrenze hinaus.`}
               {v.type === "min-spacing" &&
                 `Mindestabstand zwischen „${configurations.find((c) => c.configKey === v.configKeyA)?.name ?? v.configKeyA}“ und „${configurations.find((c) => c.configKey === v.configKeyB)?.name ?? v.configKeyB}“ unterschritten.`}
+              {v.type === "front-clearance" &&
+                `Gang zwischen „${configurations.find((c) => c.configKey === v.configKeyA)?.name ?? v.configKeyA}“ und „${configurations.find((c) => c.configKey === v.configKeyB)?.name ?? v.configKeyB}“ zu schmal: ${v.actualMm} statt ${v.requiredMm} mm.`}
               {v.type === "opening-blocked" &&
                 (() => {
                   const f = wallFeatures.find((w) => w.id === v.featureId);
@@ -782,8 +797,21 @@ export default function RoomPlannerPage() {
               <input type="number" className="minput" style={{ width: 110 }} value={heightMm} min={100} onChange={(e) => setHeightMm(Math.max(100, Number(e.target.value) || 0))} />
             </div>
             <div>
-              <label className="mfield-label">Mindestabstand Regale (mm)</label>
+              <label className="mfield-label">Abstand seitlich/hinten (mm)</label>
               <input type="number" className="minput" style={{ width: 110 }} value={minSpacingMm} min={0} onChange={(e) => setMinSpacingMm(Math.max(0, Number(e.target.value) || 0))} />
+            </div>
+            <div>
+              <label className="mfield-label">Gang vor dem Regal (mm)</label>
+              <input
+                type="number"
+                className="minput"
+                style={{ width: 110 }}
+                value={frontClearanceMm}
+                min={0}
+                step={50}
+                onChange={(e) => setFrontClearanceMm(Math.max(0, Number(e.target.value) || 0))}
+                data-testid="front-clearance"
+              />
             </div>
           </div>
         </div>
@@ -909,7 +937,8 @@ export default function RoomPlannerPage() {
                   (v) =>
                     (v.type === "wall-collision" && v.configKey === p.configKey) ||
                     (v.type === "min-spacing" && (v.configKeyA === p.configKey || v.configKeyB === p.configKey)) ||
-                    (v.type === "opening-blocked" && v.configKey === p.configKey),
+                    (v.type === "opening-blocked" && v.configKey === p.configKey) ||
+                    (v.type === "front-clearance" && (v.configKeyA === p.configKey || v.configKeyB === p.configKey)),
                 );
                 const color = colorFor(p.configKey);
                 const cx = (rect.x0 + rect.x1) / 2 * scale;

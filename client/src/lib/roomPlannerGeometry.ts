@@ -105,10 +105,57 @@ function inflate(rect: RoomRect, by: number): RoomRect {
   return { x0: rect.x0 - by, y0: rect.y0 - by, x1: rect.x1 + by, y1: rect.y1 + by };
 }
 
+/**
+ * Richtung, in die die Vorderseite bei gegebener Rotation zeigt.
+ * Konvention wie im FrontMarker: 0°→Süden, 90°→Westen, 180°→Norden, 270°→Osten.
+ */
+export function frontDirection(rotationDeg: CpqRoomRotationDeg): { dx: number; dy: number } {
+  if (rotationDeg === 0) return { dx: 0, dy: 1 };
+  if (rotationDeg === 90) return { dx: -1, dy: 0 };
+  if (rotationDeg === 180) return { dx: 0, dy: -1 };
+  return { dx: 1, dy: 0 };
+}
+
+/** Liegt b (ganz oder teilweise) vor der Vorderseite von a? */
+function liegtVorDerFront(a: { rect: RoomRect; rotationDeg: CpqRoomRotationDeg }, b: RoomRect): boolean {
+  const dir = frontDirection(a.rotationDeg);
+  if (dir.dy === 1) return b.y0 >= a.rect.y1;
+  if (dir.dy === -1) return b.y1 <= a.rect.y0;
+  if (dir.dx === 1) return b.x0 >= a.rect.x1;
+  return b.x1 <= a.rect.x0;
+}
+
+/** Tatsächlicher Abstand zweier Rechtecke; 0 bei Überlappung. */
+function abstandMm(a: RoomRect, b: RoomRect): number {
+  const dx = Math.max(0, Math.max(a.x0 - b.x1, b.x0 - a.x1));
+  const dy = Math.max(0, Math.max(a.y0 - b.y1, b.y0 - a.y1));
+  return Math.max(dx, dy);
+}
+
+/**
+ * Geforderter Abstand zwischen zwei Regalen.
+ *
+ * Seitlich und hinten genügt der Mindestabstand; vor der Vorderseite muss der Gang passen.
+ * Maßgeblich ist der größere der beiden Ansprüche — stehen sich zwei Regale mit den Fronten
+ * gegenüber, teilen sie sich EINEN Gang. Würde man beide Ansprüche addieren, käme der
+ * doppelte Gang heraus.
+ */
+export function requiredGapMm(
+  a: { rect: RoomRect; rotationDeg: CpqRoomRotationDeg },
+  b: { rect: RoomRect; rotationDeg: CpqRoomRotationDeg },
+  minSpacingMm: number,
+  frontClearanceMm: number,
+): number {
+  const vonA = liegtVorDerFront(a, b.rect) ? frontClearanceMm : minSpacingMm;
+  const vonB = liegtVorDerFront(b, a.rect) ? frontClearanceMm : minSpacingMm;
+  return Math.max(vonA, vonB);
+}
+
 export type RoomLayoutViolation =
   | { type: "wall-collision"; configKey: string }
   | { type: "min-spacing"; configKeyA: string; configKeyB: string }
-  | { type: "opening-blocked"; configKey: string; featureId: string };
+  | { type: "opening-blocked"; configKey: string; featureId: string }
+  | { type: "front-clearance"; configKeyA: string; configKeyB: string; requiredMm: number; actualMm: number };
 
 /**
  * Freizuhaltende Tiefe vor einer Wandöffnung, in mm.
@@ -158,6 +205,8 @@ export function validateRoomPlacements(
   minSpacingMm: number,
   /** Wandöffnungen; ohne Angabe wird nicht gegen Sperrflächen geprüft (Altverhalten). */
   wallFeatures?: RoomWallFeature[],
+  /** Gangbreite vor der Vorderseite; ohne Angabe gilt überall der Mindestabstand. */
+  frontClearanceMm?: number,
 ): RoomLayoutViolation[] {
   const violations: RoomLayoutViolation[] = [];
   const rects = new Map<string, RoomRect>();
@@ -172,13 +221,27 @@ export function validateRoomPlacements(
     }
   }
 
+  const rotationByKey = new Map(placements.map((p) => [p.configKey, p.rotationDeg]));
   const keys = [...rects.keys()];
   for (let i = 0; i < keys.length; i++) {
     for (let j = i + 1; j < keys.length; j++) {
-      const a = rects.get(keys[i])!;
-      const b = rects.get(keys[j])!;
-      if (rectsIntersect(inflate(a, minSpacingMm / 2), inflate(b, minSpacingMm / 2))) {
+      const a = { rect: rects.get(keys[i])!, rotationDeg: rotationByKey.get(keys[i])! };
+      const b = { rect: rects.get(keys[j])!, rotationDeg: rotationByKey.get(keys[j])! };
+      const gefordert = requiredGapMm(a, b, minSpacingMm, frontClearanceMm ?? minSpacingMm);
+      const tatsaechlich = abstandMm(a.rect, b.rect);
+      if (tatsaechlich >= gefordert) continue;
+      // Reicht schon der seitliche Mindestabstand nicht, ist das der Grundverstoß;
+      // erst darüber hinaus geht es um den Gang.
+      if (tatsaechlich < minSpacingMm) {
         violations.push({ type: "min-spacing", configKeyA: keys[i], configKeyB: keys[j] });
+      } else {
+        violations.push({
+          type: "front-clearance",
+          configKeyA: keys[i],
+          configKeyB: keys[j],
+          requiredMm: gefordert,
+          actualMm: Math.round(tatsaechlich),
+        });
       }
     }
   }
@@ -199,15 +262,25 @@ export function isPlacementValid(
   room: { lengthMm: number; widthMm: number },
   candidate: RoomPlacement,
   footprint: RoomFootprintMm,
-  others: Array<{ configKey: string; rect: RoomRect }>,
+  /** rotationDeg mitgeben, damit der Gang vor der Vorderseite geprüft werden kann. */
+  others: Array<{ configKey: string; rect: RoomRect; rotationDeg?: CpqRoomRotationDeg }>,
   minSpacingMm: number,
+  /** Gangbreite vor der Vorderseite; ohne Angabe gilt überall der Mindestabstand. */
+  frontClearanceMm?: number,
 ): boolean {
   const rect = placementRect(candidate, footprint);
   if (rect.x0 < 0 || rect.y0 < 0 || rect.x1 > room.lengthMm || rect.y1 > room.widthMm) return false;
-  const inflated = inflate(rect, minSpacingMm / 2);
+  const gang = frontClearanceMm ?? minSpacingMm;
+  const a = { rect, rotationDeg: candidate.rotationDeg };
   for (const other of others) {
     if (other.configKey === candidate.configKey) continue;
-    if (rectsIntersect(inflated, inflate(other.rect, minSpacingMm / 2))) return false;
+    // Ohne bekannte Rotation des Nachbarn nur dessen Rückseite annehmen (Mindestabstand) —
+    // die Vorderseite des Kandidaten wird trotzdem berücksichtigt.
+    const b = { rect: other.rect, rotationDeg: other.rotationDeg ?? candidate.rotationDeg };
+    const gefordert = other.rotationDeg === undefined
+      ? Math.max(liegtVorDerFront(a, other.rect) ? gang : minSpacingMm, minSpacingMm)
+      : requiredGapMm(a, b, minSpacingMm, gang);
+    if (abstandMm(rect, other.rect) < gefordert) return false;
   }
   return true;
 }
@@ -397,6 +470,8 @@ export type AutoLayoutOptions = {
   wallClearanceMm: number;
   /** Nur für "rows": lichte Gangbreite zwischen zwei Regalzeilen. */
   aisleWidthMm: number;
+  /** Freiraum vor der Vorderseite; fällt ohne Angabe auf aisleWidthMm zurück. */
+  frontClearanceMm: number;
   wallFeatures: RoomWallFeature[];
 };
 
@@ -406,22 +481,28 @@ export type AutoLayoutResult = {
   unplaced: string[];
 };
 
-const DEFAULT_AUTO_LAYOUT: Pick<AutoLayoutOptions, "minSpacingMm" | "wallClearanceMm" | "aisleWidthMm"> = {
+const DEFAULT_AUTO_LAYOUT: Pick<
+  AutoLayoutOptions,
+  "minSpacingMm" | "wallClearanceMm" | "aisleWidthMm" | "frontClearanceMm"
+> = {
   minSpacingMm: 100,
   wallClearanceMm: DEFAULT_WALL_CLEARANCE_MM,
   aisleWidthMm: 1200,
+  frontClearanceMm: 1200,
 };
 
 function passtOhneKonflikt(
-  rect: RoomRect,
+  kandidat: { rect: RoomRect; rotationDeg: CpqRoomRotationDeg },
   room: { lengthMm: number; widthMm: number },
-  belegt: RoomRect[],
+  belegt: Array<{ rect: RoomRect; rotationDeg: CpqRoomRotationDeg }>,
   zonen: Array<{ rect: RoomRect }>,
   minSpacingMm: number,
+  frontClearanceMm: number,
 ): boolean {
+  const { rect } = kandidat;
   if (rect.x0 < 0 || rect.y0 < 0 || rect.x1 > room.lengthMm || rect.y1 > room.widthMm) return false;
   for (const b of belegt) {
-    if (rectsIntersect(inflate(rect, minSpacingMm / 2), inflate(b, minSpacingMm / 2))) return false;
+    if (abstandMm(rect, b.rect) < requiredGapMm(kandidat, b, minSpacingMm, frontClearanceMm)) return false;
   }
   for (const z of zonen) if (rectsIntersect(rect, z.rect)) return false;
   return true;
@@ -439,9 +520,14 @@ export function autoLayoutAlongWalls(
   items: AutoLayoutItem[],
   options: Partial<AutoLayoutOptions> = {},
 ): AutoLayoutResult {
-  const opt = { ...DEFAULT_AUTO_LAYOUT, wallFeatures: [], ...options };
+  const zusammengefuehrt = { ...DEFAULT_AUTO_LAYOUT, wallFeatures: [], ...options };
+  // Ohne eigenen Wert gilt der Gang als Freiraum vor der Vorderseite.
+  const opt = {
+    ...zusammengefuehrt,
+    frontClearanceMm: options.frontClearanceMm ?? zusammengefuehrt.aisleWidthMm,
+  };
   const zonen = openingBlockZones(opt.wallFeatures, room);
-  const belegt: RoomRect[] = [];
+  const belegt: Array<{ rect: RoomRect; rotationDeg: CpqRoomRotationDeg }> = [];
   const placements: RoomPlacement[] = [];
   const unplaced: string[] = [];
 
@@ -478,9 +564,10 @@ export function autoLayoutAlongWalls(
 
         const kandidat: RoomPlacement = { configKey: item.configKey, xMm: Math.round(x), yMm: Math.round(y), rotationDeg };
         const rect = placementRect(kandidat, item.footprint);
-        if (!passtOhneKonflikt(rect, room, belegt, zonen, opt.minSpacingMm)) continue;
+        const eintrag = { rect, rotationDeg };
+        if (!passtOhneKonflikt(eintrag, room, belegt, zonen, opt.minSpacingMm, opt.frontClearanceMm)) continue;
         placements.push(kandidat);
-        belegt.push(rect);
+        belegt.push(eintrag);
         gesetzt = true;
         break;
       }
@@ -504,9 +591,14 @@ export function autoLayoutRows(
   items: AutoLayoutItem[],
   options: Partial<AutoLayoutOptions> = {},
 ): AutoLayoutResult {
-  const opt = { ...DEFAULT_AUTO_LAYOUT, wallFeatures: [], ...options };
+  const zusammengefuehrt = { ...DEFAULT_AUTO_LAYOUT, wallFeatures: [], ...options };
+  // Ohne eigenen Wert gilt der Gang als Freiraum vor der Vorderseite.
+  const opt = {
+    ...zusammengefuehrt,
+    frontClearanceMm: options.frontClearanceMm ?? zusammengefuehrt.aisleWidthMm,
+  };
   const zonen = openingBlockZones(opt.wallFeatures, room);
-  const belegt: RoomRect[] = [];
+  const belegt: Array<{ rect: RoomRect; rotationDeg: CpqRoomRotationDeg }> = [];
   const placements: RoomPlacement[] = [];
   const unplaced: string[] = [];
 
@@ -532,9 +624,10 @@ export function autoLayoutRows(
 
       const kandidat: RoomPlacement = { configKey: item.configKey, xMm: Math.round(x), yMm: Math.round(y), rotationDeg: 0 };
       const rect = placementRect(kandidat, item.footprint);
-      if (passtOhneKonflikt(rect, room, belegt, zonen, opt.minSpacingMm)) {
+      const eintrag = { rect, rotationDeg: 0 as CpqRoomRotationDeg };
+      if (passtOhneKonflikt(eintrag, room, belegt, zonen, opt.minSpacingMm, opt.frontClearanceMm)) {
         placements.push(kandidat);
-        belegt.push(rect);
+        belegt.push(eintrag);
         inZeile += 1;
         x += breite + opt.minSpacingMm;
         i += 1;

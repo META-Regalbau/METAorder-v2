@@ -576,6 +576,7 @@ export interface IStorage {
       widthMm: number;
       heightMm: number;
       minSpacingMm?: number | null;
+      frontClearanceMm?: number | null;
       placements: CpqRoomPlacement[];
       wallFeatures?: CpqRoomWallFeature[];
       previewImageBase64?: string | null;
@@ -3043,6 +3044,7 @@ export class MemStorage implements IStorage {
       widthMm: number;
       heightMm: number;
       minSpacingMm?: number | null;
+      frontClearanceMm?: number | null;
       placements: CpqRoomPlacement[];
       wallFeatures?: CpqRoomWallFeature[];
       previewImageBase64?: string | null;
@@ -3063,6 +3065,7 @@ export class MemStorage implements IStorage {
       widthMm: data.widthMm,
       heightMm: data.heightMm,
       minSpacingMm: data.minSpacingMm ?? null,
+      frontClearanceMm: data.frontClearanceMm ?? null,
       placements: data.placements,
       wallFeatures:
         data.wallFeatures !== undefined

@@ -16958,6 +16958,8 @@ Antworte im JSON-Format:
         widthMm: z.number().int().min(100).max(200000),
         heightMm: z.number().int().min(100).max(50000),
         minSpacingMm: z.number().int().min(0).max(10000).optional().nullable(),
+        /** Bediengang vor der Regal-Vorderseite; null = Mindestabstand gilt ringsum. */
+        frontClearanceMm: z.number().int().min(0).max(10000).optional().nullable(),
         placements: z.array(
           z.object({
             configKey: z.string().min(1),
@@ -17035,6 +17037,7 @@ Antworte im JSON-Format:
           widthMm: data.widthMm,
           heightMm: data.heightMm,
           minSpacingMm: data.minSpacingMm ?? null,
+          frontClearanceMm: data.frontClearanceMm ?? null,
           placements: data.placements,
           wallFeatures: data.wallFeatures,
           previewImageBase64: data.previewImageBase64,

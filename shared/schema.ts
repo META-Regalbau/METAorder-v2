@@ -2002,6 +2002,11 @@ export const cpqRoomLayouts = pgTable(
     heightMm: integer("height_mm").notNull(),
     /** Override des Standard-Mindestabstands (Einstellungen); null = Standard verwenden. */
     minSpacingMm: integer("min_spacing_mm"),
+    /**
+     * Freiraum vor der Regal-Vorderseite (Bediengang), getrennt vom seitlichen Abstand.
+     * null = es gilt der Mindestabstand ringsum, wie vor dieser Unterscheidung.
+     */
+    frontClearanceMm: integer("front_clearance_mm"),
     placements: jsonb("placements").$type<CpqRoomPlacement[]>().notNull().default([]),
     /** Stilisierte Türen/Fenster/Tore in den Raumwänden (nur Draufsicht, keine Kollisionsprüfung). */
     wallFeatures: jsonb("wall_features").$type<CpqRoomWallFeature[]>().notNull().default([]),

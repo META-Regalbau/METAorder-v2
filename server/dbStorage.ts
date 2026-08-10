@@ -3761,6 +3761,7 @@ export class DbStorage implements IStorage {
       widthMm: number;
       heightMm: number;
       minSpacingMm?: number | null;
+      frontClearanceMm?: number | null;
       placements: CpqRoomPlacement[];
       wallFeatures?: CpqRoomWallFeature[];
       previewImageBase64?: string | null;
@@ -3779,6 +3780,7 @@ export class DbStorage implements IStorage {
         widthMm: data.widthMm,
         heightMm: data.heightMm,
         minSpacingMm: data.minSpacingMm ?? null,
+        frontClearanceMm: data.frontClearanceMm ?? null,
         placements: data.placements,
         wallFeatures: data.wallFeatures ?? [],
         previewImageBase64: data.previewImageBase64 ?? null,
@@ -3792,6 +3794,7 @@ export class DbStorage implements IStorage {
           widthMm: sql`excluded.width_mm`,
           heightMm: sql`excluded.height_mm`,
           minSpacingMm: sql`excluded.min_spacing_mm`,
+          frontClearanceMm: sql`excluded.front_clearance_mm`,
           placements: sql`excluded.placements`,
           updatedAt: sql`excluded.updated_at`,
           ...(data.wallFeatures !== undefined ? { wallFeatures: sql`excluded.wall_features` } : {}),
