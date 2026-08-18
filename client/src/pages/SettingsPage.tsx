@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import WebhooksSettingsSection from "@/components/WebhooksSettingsSection";
 import N8nSettingsSection from "@/components/N8nSettingsSection";
+import CommercialCustomerTokensSection from "@/components/CommercialCustomerTokensSection";
 import { useState, useEffect, useCallback } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
@@ -3641,8 +3642,10 @@ function AiTab() {
         <TabsContent value="ai" className="mt-0">
           <AiTab />
         </TabsContent>
-        <TabsContent value="integration" className="mt-0">
+        <TabsContent value="integration" className="mt-0 space-y-6">
           <N8nSettingsSection />
+          {/* Kundengebundene Token für den Rückmelde-Endpunkt (Auftragsbestätigung ans Kunden-ERP) */}
+          <CommercialCustomerTokensSection />
         </TabsContent>
       </Tabs>
     </div>

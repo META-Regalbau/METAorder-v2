@@ -2184,10 +2184,21 @@ export const orderDrafts = pgTable("order_drafts", {
   }>(),
   shopwareCustomerId: text("shopware_customer_id"), // ID of matched/created customer in Shopware
   shopwareOrderId: text("shopware_order_id"), // ID of created order in Shopware (if created)
+  /**
+   * Belegnummer des KUNDEN aus seinem eigenen ERP (`documentExtraction.document.number`),
+   * denormalisiert für den Rückmelde-Endpunkt: Das Kunden-ERP fragt mit seiner eigenen
+   * Nummer, nicht mit unserer UUID. Aus JSONB wäre das kein indizierbarer Lookup.
+   */
+  buyerDocumentNumber: text("buyer_document_number"),
   createdByUserId: varchar("created_by_user_id").references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (table) => ({
+  tenantBuyerDocIdx: index("order_drafts_tenant_buyer_doc_idx").on(
+    table.tenantId,
+    table.buyerDocumentNumber
+  ),
+}));
 
 export const insertOrderDraftSchema = createInsertSchema(orderDrafts).omit({
   id: true,
@@ -2413,6 +2424,12 @@ export const offerDrafts = pgTable(
   }>(),
   shopwareCustomerId: text("shopware_customer_id"), // ID of matched/created customer in Shopware
   shopwareOfferId: text("shopware_offer_id"), // ID of created offer in Shopware (if created)
+  /**
+   * Belegnummer des KUNDEN aus seinem eigenen ERP (`documentExtraction.document.number`),
+   * denormalisiert für den Rückmelde-Endpunkt: Das Kunden-ERP fragt mit seiner eigenen
+   * Nummer, nicht mit unserer UUID. Aus JSONB wäre das kein indizierbarer Lookup.
+   */
+  buyerDocumentNumber: text("buyer_document_number"),
   createdByUserId: varchar("created_by_user_id").references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -2420,6 +2437,10 @@ export const offerDrafts = pgTable(
   (table) => ({
     tenantOfferIdx: index("offer_drafts_tenant_offer_idx").on(table.tenantId, table.shopwareOfferId),
     tenantCreatedIdx: index("offer_drafts_tenant_created_idx").on(table.tenantId, table.createdAt),
+    tenantBuyerDocIdx: index("offer_drafts_tenant_buyer_doc_idx").on(
+      table.tenantId,
+      table.buyerDocumentNumber
+    ),
   })
 );
 
@@ -2498,6 +2519,51 @@ export type InsertCommercialProductMatchFeedback = z.infer<
   typeof insertCommercialProductMatchFeedbackSchema
 >;
 export type CommercialProductMatchFeedback = typeof commercialProductMatchFeedback.$inferSelect;
+
+/**
+ * Zugangs-Token für den kundenseitigen Rückmelde-Endpunkt (ERP des Kunden fragt den
+ * Status seiner Bestellung ab).
+ *
+ * Bewusst **nicht** über `tenant_integration_api_keys`: Die sind mandantenweit und würden
+ * einem Kunden Zugriff auf alle Vorgänge aller Kunden geben. Jedes Token hier ist hart an
+ * genau eine `shopwareCustomerId` gebunden; der Endpunkt filtert ausschließlich darauf.
+ *
+ * Der Klartext wird nie gespeichert — nur der SHA-256-Hash (wie bei den Angebots-Links).
+ */
+export const commercialCustomerApiTokens = pgTable(
+  "commercial_customer_api_tokens",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    /** Kunde, dessen Vorgänge dieses Token sehen darf — der einzige Filter des Endpunkts */
+    shopwareCustomerId: text("shopware_customer_id").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    /** Klartext-Bezeichnung für die Verwaltung, z. B. „ERP Mustermann Logistik" */
+    name: text("name").notNull().default(""),
+    expiresAt: timestamp("expires_at"),
+    revokedAt: timestamp("revoked_at"),
+    lastUsedAt: timestamp("last_used_at"),
+    createdByUserId: varchar("created_by_user_id").references(() => users.id),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    tenantCustomerIdx: index("commercial_customer_api_tokens_tenant_customer_idx").on(
+      table.tenantId,
+      table.shopwareCustomerId
+    ),
+  })
+);
+
+export const insertCommercialCustomerApiTokenSchema = createInsertSchema(
+  commercialCustomerApiTokens
+).omit({ id: true, createdAt: true });
+
+export type InsertCommercialCustomerApiToken = z.infer<
+  typeof insertCommercialCustomerApiTokenSchema
+>;
+export type CommercialCustomerApiToken = typeof commercialCustomerApiTokens.$inferSelect;
 
 // Natural Language Analytics Types
 export type AnalyticsQueryType =

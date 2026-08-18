@@ -1797,6 +1797,38 @@
       "saveSuccess": "Routing saved",
       "saveSuccessDesc": "Email routing settings have been updated.",
       "saveError": "Failed to save routing settings"
+    },
+    "customerTokens": {
+      "title": "Customer access (feedback to customer ERP)",
+      "description": "One access token per customer so their ERP can query the status of their orders. A token only ever sees that single customer's documents.",
+      "customerLabel": "Customer",
+      "customerSearchPlaceholder": "Search customer (company, name, email, min. 2 characters)…",
+      "noCustomersFound": "No customers found.",
+      "selectCustomerFirst": "Please select a customer first.",
+      "nameLabel": "Label (optional)",
+      "namePlaceholder": "e.g. ERP Mustermann Logistics",
+      "create": "Create token",
+      "createdTitle": "Token created",
+      "newTokenWarning": "This token is shown only once. Copy it now and hand it to the customer securely.",
+      "copyFailed": "Copy failed",
+      "empty": "No customer access tokens yet.",
+      "unnamed": "Unnamed",
+      "createdAt": "Created {{date}}",
+      "lastUsedAt": "last used {{date}}",
+      "neverUsed": "never used",
+      "statusActive": "Active",
+      "statusRevoked": "Revoked",
+      "statusExpired": "Expired",
+      "revoke": "Revoke",
+      "revokedTitle": "Token revoked",
+      "revokeTitle": "Revoke token?",
+      "revokeConfirm": "The token “{{name}}” becomes invalid immediately. The customer's ERP will no longer be able to query status.",
+      "usage": {
+        "title": "How the customer uses it",
+        "description": "The customer queries with their own document number and receives line item status, quantity changes and — once confirmed — the binding prices.",
+        "documentNumber": "document number",
+        "yourToken": "token"
+      }
     }
   },
   "webhookLogs": {

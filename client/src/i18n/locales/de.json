@@ -1827,6 +1827,38 @@
       "saveSuccess": "Routing gespeichert",
       "saveSuccessDesc": "E-Mail-Routing wurde aktualisiert.",
       "saveError": "Routing konnte nicht gespeichert werden"
+    },
+    "customerTokens": {
+      "title": "Kunden-Zugänge (Rückmeldung ans Kunden-ERP)",
+      "description": "Je Kunde ein Zugangstoken, mit dem sein ERP den Status seiner Bestellungen abfragen kann. Ein Token sieht ausschließlich die Vorgänge dieses einen Kunden.",
+      "customerLabel": "Kunde",
+      "customerSearchPlaceholder": "Kunde suchen (Firma, Name, E-Mail, min. 2 Zeichen)…",
+      "noCustomersFound": "Keine Kunden gefunden.",
+      "selectCustomerFirst": "Bitte zuerst einen Kunden auswählen.",
+      "nameLabel": "Bezeichnung (optional)",
+      "namePlaceholder": "z. B. ERP Mustermann Logistik",
+      "create": "Token erstellen",
+      "createdTitle": "Token erstellt",
+      "newTokenWarning": "Dieses Token wird nur einmal angezeigt. Jetzt kopieren und sicher an den Kunden übergeben.",
+      "copyFailed": "Kopieren fehlgeschlagen",
+      "empty": "Noch keine Kunden-Zugänge vergeben.",
+      "unnamed": "Ohne Bezeichnung",
+      "createdAt": "Erstellt am {{date}}",
+      "lastUsedAt": "zuletzt genutzt {{date}}",
+      "neverUsed": "noch nie genutzt",
+      "statusActive": "Aktiv",
+      "statusRevoked": "Widerrufen",
+      "statusExpired": "Abgelaufen",
+      "revoke": "Widerrufen",
+      "revokedTitle": "Token widerrufen",
+      "revokeTitle": "Token widerrufen?",
+      "revokeConfirm": "Das Token „{{name}}“ wird sofort ungültig. Das ERP des Kunden kann dann keine Status mehr abrufen.",
+      "usage": {
+        "title": "Verwendung durch den Kunden",
+        "description": "Der Kunde fragt mit seiner eigenen Belegnummer ab und erhält Positionsstatus, Mengenänderungen und — sobald bestätigt — die verbindlichen Preise.",
+        "documentNumber": "Belegnummer",
+        "yourToken": "Token"
+      }
     }
   },
   "webhookLogs": {

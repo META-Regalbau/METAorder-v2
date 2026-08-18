@@ -142,6 +142,7 @@ function parseUploadIntentHint(raw: unknown): "offer" | "order" | "unclear" | un
 }
 import { extractDocumentTextPreviewForIntent } from "./documentTextExtraction";
 import { registerPublicOfferRoutes } from "./publicOfferRoutes";
+import { registerCommercialAcknowledgementRoutes } from "./commercialAcknowledgementRoutes";
 import { registerB2BAdminRoutes } from "./b2bAdminRoutes";
 import { registerErpRoutes } from "./erp/erpRoutes";
 import { registerErpProductLabelRoutes } from "./erp/erpProductLabels";
@@ -6395,6 +6396,124 @@ Antworte im JSON-Format:
       } catch (error: any) {
         console.error("Commercial agent process error:", error);
         res.status(500).json({ error: error.message || "Commercial Agent Verarbeitung fehlgeschlagen" });
+      }
+    }
+  );
+
+  // ── Kundengebundene Zugangs-Token für den Rückmelde-Endpunkt ──
+  // Ein Token je Kunde; der Klartext wird ausschließlich in der Antwort auf POST
+  // zurückgegeben und nirgends gespeichert.
+  app.post(
+    "/api/settings/commercial-customer-tokens",
+    requireAuth,
+    requireManageSettings,
+    requireCsrf,
+    async (req: Request, res: Response) => {
+      try {
+        const tenantId = req.tenantId ?? null;
+        if (!tenantId) {
+          return res.status(400).json({ error: "Kein Mandant gewählt" });
+        }
+        const bodySchema = z.object({
+          shopwareCustomerId: z.string().min(1).max(64),
+          name: z.string().max(200).optional(),
+          expiresAt: z.string().datetime().optional(),
+        });
+        const parsed = bodySchema.safeParse(req.body);
+        if (!parsed.success) {
+          return res.status(400).json({ error: "Ungültige Eingabe", details: parsed.error.issues });
+        }
+        const created = await storage.createCommercialCustomerApiToken({
+          tenantId,
+          shopwareCustomerId: parsed.data.shopwareCustomerId,
+          name: parsed.data.name ?? "",
+          expiresAt: parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null,
+          createdByUserId: (req.user as { id?: string } | undefined)?.id ?? null,
+        });
+        res.status(201).json({
+          id: created.id,
+          // Einmalig — danach nicht mehr abrufbar.
+          token: created.token,
+          hint: "Dieses Token wird nur einmal angezeigt. Bitte sicher an den Kunden übergeben.",
+        });
+      } catch (error: any) {
+        console.error("Create commercial customer token error:", error);
+        res.status(500).json({ error: error.message || "Fehler" });
+      }
+    }
+  );
+
+  // Kundensuche für die Token-Vergabe. Eigene Route unter `settings`, weil die
+  // Entwurfs-Kundensuche `manageOrderDrafts` verlangt — ein reiner Settings-Admin
+  // hat dieses Recht nicht zwingend.
+  app.get(
+    "/api/settings/commercial-customer-tokens/customer-search",
+    requireAuth,
+    requireManageSettings,
+    async (req: Request, res: Response) => {
+      try {
+        const q = ((req.query.q as string) || "").trim();
+        if (q.length < 2) {
+          return res.json({ customers: [] });
+        }
+        const settings = await storage.getShopwareSettings(req.tenantId ?? null);
+        if (!settings) {
+          return res.status(400).json({ error: "Shopware-Einstellungen nicht konfiguriert" });
+        }
+        const client = new ShopwareClient(settings);
+        const customers = await client.searchCustomers(q, 20);
+        res.json({ customers });
+      } catch (error: any) {
+        console.error("Customer search for commercial tokens failed:", error);
+        res.status(500).json({ error: error.message ?? "Kundensuche fehlgeschlagen" });
+      }
+    }
+  );
+
+  app.get(
+    "/api/settings/commercial-customer-tokens",
+    requireAuth,
+    requireManageSettings,
+    async (req: Request, res: Response) => {
+      try {
+        const rows = await storage.listCommercialCustomerApiTokens(req.tenantId ?? null);
+        // tokenHash bewusst nicht ausliefern.
+        res.json({
+          tokens: rows.map((t) => ({
+            id: t.id,
+            shopwareCustomerId: t.shopwareCustomerId,
+            name: t.name,
+            expiresAt: t.expiresAt,
+            revokedAt: t.revokedAt,
+            lastUsedAt: t.lastUsedAt,
+            createdAt: t.createdAt,
+          })),
+        });
+      } catch (error: any) {
+        console.error("List commercial customer tokens error:", error);
+        res.status(500).json({ error: error.message || "Fehler" });
+      }
+    }
+  );
+
+  app.delete(
+    "/api/settings/commercial-customer-tokens/:id",
+    requireAuth,
+    requireManageSettings,
+    requireCsrf,
+    async (req: Request, res: Response) => {
+      try {
+        const ok = await storage.revokeCommercialCustomerApiToken(
+          req.params.id,
+          req.tenantId ?? null
+        );
+        if (!ok) {
+          return res.status(404).json({ error: "Token nicht gefunden oder bereits widerrufen." });
+        }
+        res.json({ revoked: true });
+      } catch (error: any) {
+        console.error("Revoke commercial customer token error:", error);
+        res.status(500).json({ error: error.message || "Fehler" });
       }
     }
   );
@@ -17984,6 +18103,7 @@ Antworte im JSON-Format:
   });
 
   registerPublicOfferRoutes(app);
+  registerCommercialAcknowledgementRoutes(app, storage);
   registerB2BAdminRoutes(app, { getSalesChannelFilter });
 
   const httpServer = createServer(app);

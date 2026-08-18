@@ -8231,6 +8231,85 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/settings/commercial-customer-tokens": {
+    "get": {
+      "tags": [
+        "settings"
+      ],
+      "summary": "GET /api/settings/commercial-customer-tokens",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    },
+    "post": {
+      "tags": [
+        "settings"
+      ],
+      "summary": "POST /api/settings/commercial-customer-tokens",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/settings/commercial-customer-tokens/{id}": {
+    "delete": {
+      "tags": [
+        "settings"
+      ],
+      "summary": "DELETE /api/settings/commercial-customer-tokens/{id}",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/settings/crm-profitability": {
     "get": {
       "tags": [

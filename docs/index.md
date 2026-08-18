@@ -10,6 +10,7 @@ Diese Dokumentation beschreibt Aufbau, Betrieb und Nutzung von METAorder. Sie er
 - [Backend & API](./backend_api.md)
 - [Frontend & UI](./frontend_ui.md)
 - [CPQ Blueprint Metaorder+Shopware](./cpq-metaorder-shopware-blueprint.md)
+- [Rueckmelde-API fuer Kunden-ERP](./kunden-rueckmeldung-api.md)
 
 ## Geltungsbereich
 

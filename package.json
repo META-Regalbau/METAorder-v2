@@ -26,6 +26,8 @@
     "test:company-name-heuristics": "tsx scripts/testCompanyNameHeuristics.ts",
     "test:strict-auto-create": "tsx scripts/testCommercialStrictAutoCreate.ts",
     "test:gmail-ingest-hint": "tsx scripts/testGmailIntentHintIngest.ts",
+    "test:order-acknowledgement": "tsx scripts/testCommercialOrderAcknowledgement.ts",
+    "test:customer-api-token": "tsx scripts/testCommercialCustomerApiToken.ts",
     "test:buyer-contact": "tsx scripts/testBuyerContactFieldUtils.ts",
     "test:order-pdf": "tsx scripts/testOrderPdfExtraction.ts",
     "test:erp": "tsx scripts/testErpCore.ts",

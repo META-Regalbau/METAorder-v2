@@ -46,6 +46,7 @@ import {
   type InsertCommercialAgentExemplar,
   type CommercialProductMatchFeedback,
   type InsertCommercialProductMatchFeedback,
+  type CommercialCustomerApiToken,
   type Bundle,
   type InsertBundle,
   type BundleItem,
@@ -437,7 +438,37 @@ export interface IStorage {
     tenantId?: string | null,
     limit?: number
   ): Promise<CommercialProductMatchFeedback[]>;
-  
+
+  // Kundenseitiger Rückmelde-Endpunkt (Auftragsbestätigung für das ERP des Kunden)
+  /**
+   * Lookup ohne Mandantenkontext — das Token bestimmt den Mandanten (wie bei
+   * `findTenantIdByIntegrationKeyHash`). Der Aufrufer prüft Ablauf/Widerruf.
+   */
+  findCommercialCustomerApiTokenByHash(
+    tokenHash: string
+  ): Promise<CommercialCustomerApiToken | undefined>;
+  touchCommercialCustomerApiTokenLastUsed(id: string): Promise<void>;
+  createCommercialCustomerApiToken(params: {
+    tenantId: string;
+    shopwareCustomerId: string;
+    name?: string;
+    expiresAt?: Date | null;
+    createdByUserId?: string | null;
+  }): Promise<{ id: string; token: string }>;
+  listCommercialCustomerApiTokens(tenantId?: string | null): Promise<CommercialCustomerApiToken[]>;
+  revokeCommercialCustomerApiToken(id: string, tenantId?: string | null): Promise<boolean>;
+  /**
+   * Sucht den Vorgang zur Belegnummer des Kunden. Immer **beide** Filter — Mandant und
+   * `shopwareCustomerId` — damit ein Token niemals fremde Vorgänge sieht.
+   */
+  findDraftsForAcknowledgement(params: {
+    tenantId: string;
+    shopwareCustomerId: string;
+    buyerDocumentNumber: string;
+  }): Promise<
+    Array<{ kind: "order"; draft: OrderDraft } | { kind: "offer"; draft: OfferDraft }>
+  >;
+
   // Bundles
   getAllBundles(tenantId?: string | null): Promise<BundleWithItems[]>;
   getBundle(id: string, tenantId?: string | null): Promise<BundleWithItems | undefined>;
@@ -2106,6 +2137,7 @@ export class MemStorage implements IStorage {
       matchingResults: (draft.matchingResults as OrderDraft["matchingResults"] | null | undefined) ?? null,
       shopwareCustomerId: draft.shopwareCustomerId ?? null,
       shopwareOrderId: draft.shopwareOrderId ?? null,
+      buyerDocumentNumber: draft.buyerDocumentNumber ?? null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -2158,6 +2190,7 @@ export class MemStorage implements IStorage {
       matchingResults: (draft.matchingResults as OfferDraft["matchingResults"] | null | undefined) ?? null,
       shopwareCustomerId: draft.shopwareCustomerId ?? null,
       shopwareOfferId: draft.shopwareOfferId ?? null,
+      buyerDocumentNumber: draft.buyerDocumentNumber ?? null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -2282,6 +2315,38 @@ export class MemStorage implements IStorage {
       .filter((r) => r.tenantId === normalizedTenant && keySet.has(r.lineKey))
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .slice(0, Math.max(1, Math.min(1000, limit)));
+  }
+
+  // Kundenseitiger Rückmelde-Endpunkt
+  async findCommercialCustomerApiTokenByHash(): Promise<CommercialCustomerApiToken | undefined> {
+    // Stub implementation - not used in production (using DbStorage)
+    return undefined;
+  }
+
+  async touchCommercialCustomerApiTokenLastUsed(): Promise<void> {
+    // Stub implementation - not used in production (using DbStorage)
+  }
+
+  async createCommercialCustomerApiToken(): Promise<{ id: string; token: string }> {
+    // Stub implementation - not used in production (using DbStorage)
+    throw new Error("createCommercialCustomerApiToken requires DbStorage");
+  }
+
+  async listCommercialCustomerApiTokens(): Promise<CommercialCustomerApiToken[]> {
+    // Stub implementation - not used in production (using DbStorage)
+    return [];
+  }
+
+  async revokeCommercialCustomerApiToken(): Promise<boolean> {
+    // Stub implementation - not used in production (using DbStorage)
+    return false;
+  }
+
+  async findDraftsForAcknowledgement(): Promise<
+    Array<{ kind: "order"; draft: OrderDraft } | { kind: "offer"; draft: OfferDraft }>
+  > {
+    // Stub implementation - not used in production (using DbStorage)
+    return [];
   }
 
   // Bundles

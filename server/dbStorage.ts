@@ -51,6 +51,7 @@ import {
   installmentInvoices,
   commercialAgentExemplars,
   commercialProductMatchFeedback,
+  commercialCustomerApiTokens,
   offerPublicLinks,
   offerPublicEvents,
   b2bApprovalLog,
@@ -164,6 +165,7 @@ import {
   type InsertCommercialAgentExemplar,
   type CommercialProductMatchFeedback,
   type InsertCommercialProductMatchFeedback,
+  type CommercialCustomerApiToken,
   type OfferPublicLink,
   type InsertOfferPublicLink,
   type OfferPublicEvent,
@@ -180,6 +182,10 @@ import type {
   ShopwareSyncStatePatch,
 } from "./storage";
 import { encrypt, decrypt } from "./encryption";
+import {
+  generateCommercialCustomerToken,
+  hashCommercialCustomerToken,
+} from "./commercialCustomerApiToken";
 
 const toIsoString = (value: Date | string) => (value instanceof Date ? value.toISOString() : value);
 
@@ -2488,6 +2494,127 @@ export class DbStorage implements IStorage {
       .where(and(tenantFilter, inArray(commercialProductMatchFeedback.lineKey, uniqKeys)))
       .orderBy(desc(commercialProductMatchFeedback.createdAt))
       .limit(maxRows);
+  }
+
+  // Kundenseitiger Rückmelde-Endpunkt
+  async findCommercialCustomerApiTokenByHash(
+    tokenHash: string
+  ): Promise<CommercialCustomerApiToken | undefined> {
+    // Bewusst ohne Mandantenfilter: Das Token bestimmt den Mandanten (wie bei den
+    // Integration-Keys). Der Aufrufer setzt danach den Kontext auf token.tenantId.
+    const rows = await db
+      .select()
+      .from(commercialCustomerApiTokens)
+      .where(eq(commercialCustomerApiTokens.tokenHash, tokenHash))
+      .limit(1);
+    return rows[0];
+  }
+
+  async touchCommercialCustomerApiTokenLastUsed(id: string): Promise<void> {
+    await db
+      .update(commercialCustomerApiTokens)
+      .set({ lastUsedAt: new Date() })
+      .where(eq(commercialCustomerApiTokens.id, id));
+  }
+
+  async createCommercialCustomerApiToken(params: {
+    tenantId: string;
+    shopwareCustomerId: string;
+    name?: string;
+    expiresAt?: Date | null;
+    createdByUserId?: string | null;
+  }): Promise<{ id: string; token: string }> {
+    const token = generateCommercialCustomerToken();
+    const tokenHash = hashCommercialCustomerToken(token);
+    const inserted = await db
+      .insert(commercialCustomerApiTokens)
+      .values({
+        tenantId: params.tenantId,
+        shopwareCustomerId: params.shopwareCustomerId,
+        tokenHash,
+        name: params.name ?? "",
+        expiresAt: params.expiresAt ?? null,
+        createdByUserId: params.createdByUserId ?? null,
+      })
+      .returning({ id: commercialCustomerApiTokens.id });
+    // Klartext wird nur hier zurückgegeben und nirgends persistiert.
+    return { id: inserted[0].id, token };
+  }
+
+  async listCommercialCustomerApiTokens(
+    tenantId?: string | null
+  ): Promise<CommercialCustomerApiToken[]> {
+    const tenantFilter = tenantFilterFor(commercialCustomerApiTokens.tenantId, tenantId);
+    return db
+      .select()
+      .from(commercialCustomerApiTokens)
+      .where(tenantFilter)
+      .orderBy(desc(commercialCustomerApiTokens.createdAt));
+  }
+
+  async revokeCommercialCustomerApiToken(
+    id: string,
+    tenantId?: string | null
+  ): Promise<boolean> {
+    const tenantFilter = tenantFilterFor(commercialCustomerApiTokens.tenantId, tenantId);
+    const updated = await db
+      .update(commercialCustomerApiTokens)
+      .set({ revokedAt: new Date() })
+      .where(
+        and(
+          eq(commercialCustomerApiTokens.id, id),
+          tenantFilter,
+          isNull(commercialCustomerApiTokens.revokedAt)
+        )
+      )
+      .returning({ id: commercialCustomerApiTokens.id });
+    return updated.length > 0;
+  }
+
+  async findDraftsForAcknowledgement(params: {
+    tenantId: string;
+    shopwareCustomerId: string;
+    buyerDocumentNumber: string;
+  }): Promise<Array<{ kind: "order"; draft: OrderDraft } | { kind: "offer"; draft: OfferDraft }>> {
+    const { tenantId, shopwareCustomerId, buyerDocumentNumber } = params;
+    // Beide Filter sind zwingend: Ohne shopwareCustomerId könnte ein Kunde mit geratener
+    // Belegnummer fremde Vorgänge lesen.
+    const orderRows = await db
+      .select()
+      .from(orderDrafts)
+      .where(
+        and(
+          eq(orderDrafts.tenantId, tenantId),
+          eq(orderDrafts.shopwareCustomerId, shopwareCustomerId),
+          eq(orderDrafts.buyerDocumentNumber, buyerDocumentNumber)
+        )
+      )
+      .orderBy(desc(orderDrafts.createdAt))
+      .limit(20);
+
+    const offerRows = await db
+      .select()
+      .from(offerDrafts)
+      .where(
+        and(
+          eq(offerDrafts.tenantId, tenantId),
+          eq(offerDrafts.shopwareCustomerId, shopwareCustomerId),
+          eq(offerDrafts.buyerDocumentNumber, buyerDocumentNumber)
+        )
+      )
+      .orderBy(desc(offerDrafts.createdAt))
+      .limit(20);
+
+    const combined: Array<
+      { kind: "order"; draft: OrderDraft } | { kind: "offer"; draft: OfferDraft }
+    > = [
+      ...orderRows.map((draft) => ({ kind: "order" as const, draft })),
+      ...offerRows.map((draft) => ({ kind: "offer" as const, draft })),
+    ];
+    combined.sort(
+      (a, b) => new Date(b.draft.createdAt).getTime() - new Date(a.draft.createdAt).getTime()
+    );
+    return combined;
   }
 
   // Bundles

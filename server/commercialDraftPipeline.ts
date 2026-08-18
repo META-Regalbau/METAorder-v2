@@ -23,6 +23,7 @@ import {
 } from "./commercialExtractionOrchestrator";
 import { maybeRunCommercialExtractionRefinement } from "./commercialExtractionRefinement";
 import { buildCommercialProductLearningHints } from "./commercialProductLearning";
+import { extractBuyerDocumentNumber } from "./commercialOrderAcknowledgement";
 import { mergeSuspectedSplitTableLineItemsInto } from "./commercialLineItemTableMerge";
 import {
   extractPlainTextForDraft,
@@ -425,6 +426,8 @@ export async function runOfferDraftPipeline(
       matchingResults: matchingResults as OfferDraft["matchingResults"],
       shopwareCustomerId,
       shopwareOfferId: null,
+      // Belegnummer des Kunden denormalisieren — Schlüssel des Rückmelde-Endpunkts
+      buyerDocumentNumber: extractBuyerDocumentNumber(extractedData),
       createdByUserId,
     },
     tenantId ?? null
@@ -667,6 +670,8 @@ export async function runOrderDraftPipeline(
       matchingResults,
       shopwareCustomerId,
       shopwareOrderId: null,
+      // Belegnummer des Kunden denormalisieren — Schlüssel des Rückmelde-Endpunkts
+      buyerDocumentNumber: extractBuyerDocumentNumber(extractedData),
       createdByUserId,
     },
     tenantId ?? null
