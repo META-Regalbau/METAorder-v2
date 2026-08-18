@@ -344,6 +344,67 @@ export function registerErpRoutes(app: Express) {
   );
 
   /**
+   * Lagerdaten zu genau einem Artikel für das Produkt-Modal: Bestände je Lagerplatz und
+   * die letzten Bewegungen — inkl. aufgelöster Lager- und Lagerplatznamen, damit der
+   * Client nicht pro Lager eine eigene Abfrage braucht.
+   */
+  app.get(
+    "/api/erp/stock/by-product",
+    requireAuth,
+    allowAdminOr(requireViewInventory),
+    async (req, res) => {
+      try {
+        const tid = requireTenant(req);
+        const productNumber =
+          typeof req.query.productNumber === "string" ? req.query.productNumber.trim() : "";
+        if (!productNumber) {
+          return res.status(400).json({ error: "productNumber is required" });
+        }
+
+        const [levels, movements, warehouses] = await Promise.all([
+          erpStorage.listStockLevels(tid, { productNumber }),
+          erpStorage.listMovements(tid, { productNumber, limit: 50 }),
+          erpStorage.listWarehouses(tid),
+        ]);
+
+        const warehouseById = new Map(warehouses.map((w) => [w.id, w]));
+        // Lagerplätze nur für die Lager laden, in denen der Artikel tatsächlich liegt.
+        const relevantWarehouseIds = [
+          ...new Set([
+            ...levels.map((l) => l.warehouseId),
+            ...movements.map((m) => m.warehouseId),
+          ]),
+        ].filter((id) => warehouseById.has(id));
+        const locationById = new Map<string, Awaited<ReturnType<typeof erpStorage.listLocations>>[number]>();
+        for (const warehouseId of relevantWarehouseIds) {
+          for (const location of await erpStorage.listLocations(warehouseId, tid)) {
+            locationById.set(location.id, location);
+          }
+        }
+
+        const decorate = <T extends { warehouseId: string; locationId?: string | null }>(row: T) => {
+          const warehouse = warehouseById.get(row.warehouseId);
+          const location = row.locationId ? locationById.get(row.locationId) : undefined;
+          return {
+            ...row,
+            warehouseCode: warehouse?.code ?? null,
+            warehouseName: warehouse?.name ?? null,
+            locationCode: location?.code ?? null,
+            locationName: location?.name ?? null,
+          };
+        };
+
+        res.json({
+          stock: levels.map(decorate),
+          movements: movements.map(decorate),
+        });
+      } catch (error: any) {
+        return mapErpError(error, res, "Failed to load product stock");
+      }
+    },
+  );
+
+  /**
    * Scan auflösen: ein gescannter Code ist entweder ein Lagerplatz-Code oder eine
    * Artikelnummer. Lagerplätze werden zuerst geprüft, weil deren Codes ein festes Schema
    * haben und nie mit Artikelnummern kollidieren.

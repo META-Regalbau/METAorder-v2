@@ -38,87 +38,26 @@ import {
 } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
   PrintArticleLabelDialog,
   type PrintableArticle,
 } from "@/components/PrintArticleLabelDialog";
 import { BarcodeScannerDialog } from "@/components/BarcodeScannerDialog";
+import ProductInsightsModal, {
+  type ProductInsightsTab,
+} from "@/components/ProductInsightsModal";
 import { normalizeScanCode } from "@/lib/barcode/normalizeScanCode";
+import {
+  currencyFormatter,
+  dateTimeFormatter,
+  formatCustomFieldDisplay,
+  formatDeliveryTimeLabel,
+  formatRestockTimeLabel,
+  isPrintableSku,
+  type OverviewProduct,
+  type OverviewResponse,
+} from "@/lib/productOverview";
 import { useToast } from "@/hooks/use-toast";
 import { extractSizeColor } from "@shared/productVariantLabel";
-
-interface OverviewAdvancedPrice {
-  quantityStart: number;
-  quantityEnd: number | null;
-  gross: number | null;
-  net: number | null;
-  ruleId: string | null;
-  ruleName: string | null;
-}
-
-interface OverviewProduct {
-  id: string;
-  productNumber: string;
-  name: string;
-  active: boolean | null;
-  stock: number | null;
-  ean?: string;
-  manufacturerNumber?: string;
-  manufacturerName?: string;
-  priceGross: number;
-  priceNet: number;
-  purchasePriceNet?: number | null;
-  taxRate: number;
-  currency: string;
-  salesChannelIds: string[];
-  salesChannels: Array<{ id: string; name: string }>;
-  advancedPrices: OverviewAdvancedPrice[];
-  hasAdvancedPrices: boolean;
-  advancedPriceCount: number;
-  categories: string[];
-  tags: string[];
-  deliveryTimeId: string | null;
-  deliveryTimeName: string | null;
-  deliveryTimeMin: number | null;
-  deliveryTimeMax: number | null;
-  deliveryTimeUnit: string | null;
-  hasDeliveryTime: boolean;
-  restockTime: number | null;
-  customFields?: Record<string, unknown>;
-  /** Aufgelöste Labels für Customfield-Werte, die Shopware-Entity-IDs sind */
-  customFieldsDisplay?: Record<string, string>;
-  customFieldKeys: string[];
-  propertyCount: number;
-  parentId: string | null;
-  childCount: number | null;
-  options?: Array<{ group: string; option: string }>;
-  inheritedFields?: string[];
-  createdAt?: string;
-  updatedAt?: string;
-  lastPriceChangeAt?: string | null;
-}
-
-interface PriceHistoryEntry {
-  id: string;
-  oldPriceGross: number | null;
-  newPriceGross: number;
-  oldPriceNet: number | null;
-  newPriceNet: number;
-  changedAt: string;
-}
-
-interface OverviewResponse {
-  products: OverviewProduct[];
-  salesChannels: Array<{ id: string; name: string }>;
-  total: number;
-}
 
 const PAGE_SIZE = 50;
 const NONE_CHANNEL = "__none__";
@@ -126,87 +65,9 @@ const NONE_DELIVERY_TIME = "__none_delivery__";
 const NONE_RESTOCK_TIME = "__none_restock__";
 const ALL = "__all__";
 
-const currencyFormatter = new Intl.NumberFormat("de-DE", {
-  style: "currency",
-  currency: "EUR",
-});
-
-const dateTimeFormatter = new Intl.DateTimeFormat("de-DE", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
-
-function formatCustomFieldValue(value: unknown): string {
-  if (value == null) return "";
-  if (typeof value === "object") return JSON.stringify(value);
-  return String(value);
-}
-
-function formatCustomFieldDisplay(
-  product: Pick<OverviewProduct, "customFields" | "customFieldsDisplay">,
-  key: string,
-): string {
-  const resolved = product.customFieldsDisplay?.[key];
-  if (resolved) return resolved;
-  return formatCustomFieldValue(product.customFields?.[key]);
-}
-
-function formatDeliveryTimeLabel(
-  product: Pick<
-    OverviewProduct,
-    | "deliveryTimeId"
-    | "deliveryTimeName"
-    | "deliveryTimeMin"
-    | "deliveryTimeMax"
-    | "deliveryTimeUnit"
-    | "hasDeliveryTime"
-  >,
-  t: (key: string, options?: Record<string, unknown>) => string,
-): string | null {
-  const name = product.deliveryTimeName?.trim();
-  if (name) return name;
-
-  const hasDeliveryTime =
-    product.hasDeliveryTime ||
-    Boolean(product.deliveryTimeId) ||
-    product.deliveryTimeMin != null ||
-    product.deliveryTimeMax != null;
-  if (!hasDeliveryTime) return null;
-
-  const unitKey = product.deliveryTimeUnit ?? "day";
-  const unitLabel = t(`productOverview.deliveryTimeUnits.${unitKey}`, { defaultValue: unitKey });
-  const { deliveryTimeMin: min, deliveryTimeMax: max } = product;
-  if (min != null && max != null && min !== max) {
-    return t("productOverview.deliveryTimeRange", { min, max, unit: unitLabel });
-  }
-  if (min != null && max != null && min === max) {
-    return t("productOverview.deliveryTimeSingle", { value: min, unit: unitLabel });
-  }
-  if (min != null) {
-    return t("productOverview.deliveryTimeSingle", { value: min, unit: unitLabel });
-  }
-  if (max != null) {
-    return t("productOverview.deliveryTimeSingle", { value: max, unit: unitLabel });
-  }
-  return null;
-}
-
-function formatRestockTimeLabel(
-  restockTime: number | null | undefined,
-  t: (key: string, options?: Record<string, unknown>) => string,
-): string | null {
-  if (restockTime == null) return null;
-  return t("productOverview.restockTimeDays", { value: restockTime });
-}
-
 function escapeCsv(value: unknown): string {
   const s = String(value ?? "");
   return /[",\n\r;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-
-/** Parent products with variants are not printable SKUs. */
-function isPrintableSku(product: OverviewProduct): boolean {
-  return (product.childCount ?? 0) <= 0;
 }
 
 function toPrintableArticle(product: OverviewProduct): PrintableArticle {
@@ -244,6 +105,8 @@ export default function ProductOverviewPage() {
   const [labelDialogOpen, setLabelDialogOpen] = useState(false);
   const [labelProducts, setLabelProducts] = useState<PrintableArticle[]>([]);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [detailProduct, setDetailProduct] = useState<OverviewProduct | null>(null);
+  const [detailTab, setDetailTab] = useState<ProductInsightsTab>("master");
 
   const products = useMemo(() => data?.products ?? [], [data]);
   const salesChannels = useMemo(() => data?.salesChannels ?? [], [data]);
@@ -441,6 +304,11 @@ export default function ProductOverviewPage() {
     if (articles.length === 0) return;
     setLabelProducts(articles);
     setLabelDialogOpen(true);
+  }
+
+  function openDetail(product: OverviewProduct, tab: ProductInsightsTab = "master") {
+    setDetailTab(tab);
+    setDetailProduct(product);
   }
 
   const resetFilters = () => {
@@ -936,6 +804,7 @@ export default function ProductOverviewPage() {
                       printable={isPrintableSku(p)}
                       onSelectedChange={(checked) => toggleSelectOne(p.id, checked)}
                       onPrint={() => openLabelDialog([toPrintableArticle(p)])}
+                      onOpenDetail={(tab) => openDetail(p, tab)}
                     />
                   ))}
                 </TableBody>
@@ -970,6 +839,19 @@ export default function ProductOverviewPage() {
           ) : null}
         </CardContent>
       </Card>
+
+      <ProductInsightsModal
+        product={detailProduct}
+        open={detailProduct !== null}
+        onOpenChange={(next) => {
+          if (!next) setDetailProduct(null);
+        }}
+        initialTab={detailTab}
+        minMarginPercent={data?.profitabilityMinMarginPercent}
+        onPrintLabel={
+          detailProduct ? () => openLabelDialog([toPrintableArticle(detailProduct)]) : undefined
+        }
+      />
 
       <PrintArticleLabelDialog
         products={labelProducts}
@@ -1014,11 +896,15 @@ function BadgeList({
       {rest > 0 ? (
         <Popover>
           <PopoverTrigger asChild>
-            <Badge variant="outline" className="cursor-pointer">
+            <Badge
+              variant="outline"
+              className="cursor-pointer"
+              onClick={(event) => event.stopPropagation()}
+            >
               {moreLabel(rest)}
             </Badge>
           </PopoverTrigger>
-          <PopoverContent className="w-64">
+          <PopoverContent className="w-64" onClick={(event) => event.stopPropagation()}>
             <div className="flex flex-wrap gap-1">
               {items.map((item) => (
                 <Badge key={item} variant="secondary">
@@ -1033,89 +919,20 @@ function BadgeList({
   );
 }
 
-function PriceChangeCell({ product }: { product: OverviewProduct }) {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const { data, isLoading } = useQuery<{ history: PriceHistoryEntry[] }>({
-    queryKey: ["/api/products", product.id, "price-history"],
-    enabled: open,
-  });
-
-  if (!product.lastPriceChangeAt) {
-    return <span className="text-muted-foreground text-sm">{t("productOverview.table.none")}</span>;
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <button type="button" className="text-sm underline decoration-dotted underline-offset-2 text-left">
-          {dateTimeFormatter.format(new Date(product.lastPriceChangeAt))}
-        </button>
-      </DialogTrigger>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{t("productOverview.priceHistoryTitle")}</DialogTitle>
-          <DialogDescription>
-            {product.productNumber} · {product.name}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="rounded-md border overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t("productOverview.modal.changedAt")}</TableHead>
-                <TableHead className="text-right">{t("productOverview.modal.oldPrice")}</TableHead>
-                <TableHead className="text-right">{t("productOverview.modal.newPrice")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={3} className="text-center text-muted-foreground">
-                    {t("productOverview.loading")}
-                  </TableCell>
-                </TableRow>
-              ) : !data?.history?.length ? (
-                <TableRow>
-                  <TableCell colSpan={3} className="text-center text-muted-foreground">
-                    {t("productOverview.table.none")}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                data.history.map((entry) => (
-                  <TableRow key={entry.id}>
-                    <TableCell className="text-sm">
-                      {dateTimeFormatter.format(new Date(entry.changedAt))}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-muted-foreground">
-                      {entry.oldPriceGross != null ? currencyFormatter.format(entry.oldPriceGross) : "—"}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {currencyFormatter.format(entry.newPriceGross)}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 function ProductRow({
   product,
   selected,
   printable,
   onSelectedChange,
   onPrint,
+  onOpenDetail,
 }: {
   product: OverviewProduct;
   selected: boolean;
   printable: boolean;
   onSelectedChange: (checked: boolean) => void;
   onPrint: () => void;
+  onOpenDetail: (tab: ProductInsightsTab) => void;
 }) {
   const { t } = useTranslation();
   const channelNames = product.salesChannels.map((c) => c.name);
@@ -1138,8 +955,12 @@ function ProductRow({
     ) : null;
 
   return (
-    <TableRow>
-      <TableCell>
+    <TableRow
+      className="cursor-pointer"
+      onClick={() => onOpenDetail("master")}
+      data-testid={`overview-row-${product.productNumber}`}
+    >
+      <TableCell onClick={(event) => event.stopPropagation()}>
         <Checkbox
           checked={selected}
           disabled={!printable}
@@ -1180,77 +1001,19 @@ function ProductRow({
           {inheritedHint("salesChannels")}
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell
+        onClick={(event) => {
+          if (!product.hasAdvancedPrices) return;
+          event.stopPropagation();
+          onOpenDetail("prices");
+        }}
+      >
         <div className="flex items-center gap-1">
           {product.hasAdvancedPrices ? (
-            <Dialog>
-              <DialogTrigger asChild>
-                <Badge variant="secondary" className="cursor-pointer gap-1">
-                  <Layers className="h-3 w-3" />
-                  {t("productOverview.table.tiers", { count: product.advancedPriceCount })}
-                </Badge>
-              </DialogTrigger>
-              <DialogContent className="max-w-lg">
-                <DialogHeader>
-                  <DialogTitle>{t("productOverview.advancedPricesTitle")}</DialogTitle>
-                  <DialogDescription>
-                    {product.productNumber} · {product.name}
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="rounded-md border overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t("productOverview.modal.quantity")}</TableHead>
-                        <TableHead>{t("productOverview.modal.priceRule")}</TableHead>
-                        <TableHead className="text-right">{t("productOverview.csv.priceGross")}</TableHead>
-                        <TableHead className="text-right">{t("productOverview.csv.priceNet")}</TableHead>
-                        <TableHead className="text-right">{t("products.discountPercent")}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {product.advancedPrices.map((ap, idx) => {
-                        const discountPercent =
-                          ap.net != null &&
-                          product.purchasePriceNet != null &&
-                          product.purchasePriceNet > 0
-                            ? product.priceNet > ap.net
-                              ? Math.round(
-                                  ((product.priceNet - ap.net) / product.purchasePriceNet) * 1000,
-                                ) / 10
-                              : Math.round(
-                                  ((ap.net - product.purchasePriceNet) / product.purchasePriceNet) *
-                                    1000,
-                                ) / 10
-                            : null;
-                        return (
-                          <TableRow key={idx}>
-                            <TableCell>
-                              {t("productOverview.fromQuantity", { qty: ap.quantityStart })}
-                              {ap.quantityEnd ? `–${ap.quantityEnd}` : ""}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {ap.ruleName ? ap.ruleName : t("productOverview.table.none")}
-                            </TableCell>
-                            <TableCell className="text-right font-mono">
-                              {ap.gross != null ? currencyFormatter.format(ap.gross) : "—"}
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-muted-foreground">
-                              {ap.net != null ? currencyFormatter.format(ap.net) : "—"}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {discountPercent != null
-                                ? `${discountPercent.toLocaleString("de-DE")} %`
-                                : "—"}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              </DialogContent>
-            </Dialog>
+            <Badge variant="secondary" className="cursor-pointer gap-1">
+              <Layers className="h-3 w-3" />
+              {t("productOverview.table.tiers", { count: product.advancedPriceCount })}
+            </Badge>
           ) : (
             <span className="text-muted-foreground text-sm">{t("productOverview.table.none")}</span>
           )}
@@ -1302,44 +1065,18 @@ function ProductRow({
           {inheritedHint("restockTime")}
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell
+        onClick={(event) => {
+          if (product.customFieldKeys.length === 0) return;
+          event.stopPropagation();
+          onOpenDetail("raw");
+        }}
+      >
         <div className="flex items-center gap-1">
           {product.customFieldKeys.length > 0 ? (
-            <Dialog>
-              <DialogTrigger asChild>
-                <Badge variant="secondary" className="cursor-pointer">
-                  {t("productOverview.table.fieldsCount", { count: product.customFieldKeys.length })}
-                </Badge>
-              </DialogTrigger>
-              <DialogContent className="max-w-lg">
-                <DialogHeader>
-                  <DialogTitle>{t("productOverview.customFieldsTitle")}</DialogTitle>
-                  <DialogDescription>
-                    {product.productNumber} · {product.name}
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="rounded-md border overflow-hidden max-h-[60vh] overflow-y-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t("productOverview.modal.field")}</TableHead>
-                        <TableHead>{t("productOverview.modal.value")}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {product.customFieldKeys.map((key) => (
-                        <TableRow key={key}>
-                          <TableCell className="font-mono text-xs align-top">{key}</TableCell>
-                          <TableCell className="break-all">
-                            {formatCustomFieldDisplay(product, key) || "—"}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </DialogContent>
-            </Dialog>
+            <Badge variant="secondary" className="cursor-pointer">
+              {t("productOverview.table.fieldsCount", { count: product.customFieldKeys.length })}
+            </Badge>
           ) : (
             <span className="text-muted-foreground text-sm">{t("productOverview.table.none")}</span>
           )}
@@ -1355,8 +1092,20 @@ function ProductRow({
           {currencyFormatter.format(product.priceNet || 0)} {t("productOverview.net")}
         </div>
       </TableCell>
-      <TableCell>
-        <PriceChangeCell product={product} />
+      <TableCell
+        onClick={(event) => {
+          if (!product.lastPriceChangeAt) return;
+          event.stopPropagation();
+          onOpenDetail("prices");
+        }}
+      >
+        {product.lastPriceChangeAt ? (
+          <span className="text-sm underline decoration-dotted underline-offset-2 cursor-pointer">
+            {dateTimeFormatter.format(new Date(product.lastPriceChangeAt))}
+          </span>
+        ) : (
+          <span className="text-muted-foreground text-sm">{t("productOverview.table.none")}</span>
+        )}
       </TableCell>
       <TableCell>
         {product.updatedAt ? (
@@ -1370,7 +1119,7 @@ function ProductRow({
           <span className="text-muted-foreground text-sm">{t("productOverview.table.none")}</span>
         )}
       </TableCell>
-      <TableCell>
+      <TableCell onClick={(event) => event.stopPropagation()}>
         <Button
           type="button"
           variant="ghost"

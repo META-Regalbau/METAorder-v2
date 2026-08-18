@@ -528,7 +528,45 @@
       "prev": "Previous",
       "next": "Next"
     },
-    "priceHistoryTitle": "Price history"
+    "priceHistoryTitle": "Price history",
+    "detail": {
+      "tabs": {
+        "master": "Master data",
+        "prices": "Prices",
+        "stock": "Stock",
+        "assignments": "Assignments",
+        "raw": "Raw data"
+      },
+      "image": "Product image",
+      "preview3d": "3D preview (GLB)",
+      "manufacturer": "Manufacturer",
+      "currency": "Currency",
+      "variantOptions": "Variant options",
+      "variantCount": "Variants",
+      "createdAt": "Created at",
+      "inheritedFields": "Inherited from parent product",
+      "properties": "Properties",
+      "propertiesCount": "{{count}} property/properties — details could not be loaded",
+      "purchasePriceNet": "Purchase price (net)",
+      "herstellpreisNet": "Manufacturing cost (net)",
+      "maxDiscount": "Max. discount",
+      "margin": "Margin",
+      "marginThreshold": "Minimum contribution margin: {{threshold}} %",
+      "stockShopware": "Stock in Shopware",
+      "stockErp": "Stock in inventory management",
+      "stockDiff": "Difference",
+      "warehouse": "Warehouse",
+      "minQuantity": "Minimum stock",
+      "noStock": "No stock recorded for this product.",
+      "movementReference": "Reference",
+      "bundles": "Bundles containing this product",
+      "bundleQuantity": "Quantity {{count}}",
+      "rawValue": "Raw value",
+      "shopwareId": "Shopware ID",
+      "parentId": "Parent product ID",
+      "deliveryTimeId": "Delivery time ID",
+      "noPermission": "No permission for this data."
+    }
   },
   "barcodeScan": {
     "scan": "Scan",

@@ -7234,6 +7234,59 @@ Antworte im JSON-Format:
     }
   });
 
+  /**
+   * Zusatz-Stammdaten eines einzelnen Produkts, die die Übersichtsliste nicht mitliefert:
+   * Beschreibung, Bild, Maße, Eigenschaften und Varianten. Wird erst beim Öffnen des
+   * Produkt-Modals geladen (Live-Abruf aus Shopware, nicht aus dem Spiegel).
+   */
+  app.get("/api/products/:productId/detail", requireAuth, async (req, res) => {
+    try {
+      const tenantId = (req as any).tenantId as string | null | undefined;
+      const settings = await storage.getShopwareSettings(tenantId);
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const client = new ShopwareClient(settings);
+      const { productId } = req.params;
+
+      const allowedChannelIds = await getSalesChannelFilter(req);
+      if (allowedChannelIds !== null) {
+        const { salesChannelIds } = await client.fetchProductSalesChannelIds(productId);
+        const hasAccess = salesChannelIds.some((id) => allowedChannelIds.includes(id));
+        if (!hasAccess) {
+          return res.status(403).json({ error: "Access denied: no sales channel permissions" });
+        }
+      }
+
+      const { products } = await client.fetchProducts(
+        1,
+        1,
+        undefined,
+        undefined,
+        false,
+        undefined,
+        undefined,
+        undefined,
+        true,
+        undefined,
+        false,
+        true,
+        productId,
+      );
+      const product = products[0];
+      if (!product) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+
+      res.json({ product });
+    } catch (error: any) {
+      const msg = error?.message || "Produkt-Details fehlgeschlagen";
+      console.error("[/api/products/:productId/detail] Error:", msg, error?.stack);
+      res.status(500).json({ error: msg });
+    }
+  });
+
   const herstellpreisUpload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 15 * 1024 * 1024, files: 1 },

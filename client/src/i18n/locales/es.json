@@ -439,7 +439,45 @@
       "prev": "Anterior",
       "next": "Siguiente"
     },
-    "priceHistoryTitle": "Historial de precios"
+    "priceHistoryTitle": "Historial de precios",
+    "detail": {
+      "tabs": {
+        "master": "Datos maestros",
+        "prices": "Precios",
+        "stock": "Almacén",
+        "assignments": "Asignaciones",
+        "raw": "Datos brutos"
+      },
+      "image": "Imagen del producto",
+      "preview3d": "Vista previa 3D (GLB)",
+      "manufacturer": "Fabricante",
+      "currency": "Moneda",
+      "variantOptions": "Características de variante",
+      "variantCount": "Variantes",
+      "createdAt": "Creado el",
+      "inheritedFields": "Heredado del producto padre",
+      "properties": "Propiedades",
+      "propertiesCount": "{{count}} propiedad(es) — no se pudieron cargar los detalles",
+      "purchasePriceNet": "Precio de compra (neto)",
+      "herstellpreisNet": "Coste de fabricación (neto)",
+      "maxDiscount": "Descuento máx.",
+      "margin": "Margen",
+      "marginThreshold": "Margen de contribución mínimo: {{threshold}} %",
+      "stockShopware": "Stock en Shopware",
+      "stockErp": "Stock en gestión de almacén",
+      "stockDiff": "Diferencia",
+      "warehouse": "Almacén",
+      "minQuantity": "Stock mínimo",
+      "noStock": "No hay stock registrado para este artículo.",
+      "movementReference": "Referencia",
+      "bundles": "Bundles con este artículo",
+      "bundleQuantity": "Cantidad {{count}}",
+      "rawValue": "Valor bruto",
+      "shopwareId": "ID de Shopware",
+      "parentId": "ID del producto padre",
+      "deliveryTimeId": "ID del plazo de entrega",
+      "noPermission": "Sin permiso para estos datos."
+    }
   },
   "barcodeScan": {
     "scan": "Escanear",

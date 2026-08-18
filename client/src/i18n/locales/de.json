@@ -561,7 +561,45 @@
       "prev": "Zurück",
       "next": "Weiter"
     },
-    "priceHistoryTitle": "Preis-Historie"
+    "priceHistoryTitle": "Preis-Historie",
+    "detail": {
+      "tabs": {
+        "master": "Stammdaten",
+        "prices": "Preise",
+        "stock": "Lager",
+        "assignments": "Zuordnungen",
+        "raw": "Rohdaten"
+      },
+      "image": "Produktbild",
+      "preview3d": "3D-Vorschau (GLB)",
+      "manufacturer": "Hersteller",
+      "currency": "Währung",
+      "variantOptions": "Varianten-Merkmale",
+      "variantCount": "Varianten",
+      "createdAt": "Angelegt am",
+      "inheritedFields": "Vom Elternprodukt geerbt",
+      "properties": "Eigenschaften",
+      "propertiesCount": "{{count}} Eigenschaft(en) — Details konnten nicht geladen werden",
+      "purchasePriceNet": "Einkaufspreis (netto)",
+      "herstellpreisNet": "Herstellkosten (netto)",
+      "maxDiscount": "Max. Rabatt",
+      "margin": "Marge",
+      "marginThreshold": "Mindest-Deckungsbeitrag: {{threshold}} %",
+      "stockShopware": "Bestand Shopware",
+      "stockErp": "Bestand Warenwirtschaft",
+      "stockDiff": "Differenz",
+      "warehouse": "Lager",
+      "minQuantity": "Mindestbestand",
+      "noStock": "Für diesen Artikel sind keine Lagerbestände erfasst.",
+      "movementReference": "Referenz",
+      "bundles": "Bundles mit diesem Artikel",
+      "bundleQuantity": "Menge {{count}}",
+      "rawValue": "Rohwert",
+      "shopwareId": "Shopware-ID",
+      "parentId": "Elternprodukt-ID",
+      "deliveryTimeId": "Lieferzeit-ID",
+      "noPermission": "Keine Berechtigung für diese Daten."
+    }
   },
   "barcodeScan": {
     "scan": "Scannen",
