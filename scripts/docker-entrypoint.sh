@@ -10,6 +10,7 @@ mkdir -p \
   "$UPLOADS/ticket-attachments" \
   "$UPLOADS/order-drafts" \
   "$UPLOADS/offer-drafts" \
+  "$UPLOADS/commercial-drafts" \
   "$UPLOADS/commercial-agent-incoming" \
   2>/dev/null || true
 

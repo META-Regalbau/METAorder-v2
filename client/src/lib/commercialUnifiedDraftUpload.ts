@@ -8,6 +8,23 @@ export type CommercialUnifiedUploadResult = {
   commercialIntentConfidence: number;
   commercialIntentRationale: string | null;
   intentRoutedAsOfferDueToPermission?: boolean;
+  /**
+   * Nur bei hochgeladenen E-Mail-Containern (.eml/.msg): Die Mail wird ausgepackt,
+   * je handelsrelevantem Anhang entsteht ein eigener Entwurf. Die Felder oben
+   * beschreiben dann den **ersten** Entwurf.
+   */
+  source?: "email_container";
+  drafts?: Array<{
+    draft: unknown;
+    draftKind: CommercialDraftKind;
+    commercialIntent: string;
+    commercialIntentConfidence: number;
+  }>;
+  draftCount?: number;
+  attachmentsProcessed?: number;
+  usedEmailOnlyFallback?: boolean;
+  /** true: Nachricht war bereits verarbeitet — es wurde kein neuer Entwurf angelegt. */
+  deduplicated?: boolean;
 };
 
 const VALID_MIME_TYPES = [

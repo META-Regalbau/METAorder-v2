@@ -128,6 +128,10 @@ import { resolveOfferSalesChannelId } from "./offerSalesChannelResolver";
 import { emitCommercialDraftWebhooks } from "./commercialWebhookNotifications";
 import { processCommercialPdfFromEmail } from "./commercialAgentOrchestrator";
 import { classifyCommercialDocumentIntent } from "./commercialDocumentIntent";
+import {
+  ingestCommercialEmailUpload,
+  isEmailContainerUpload,
+} from "./commercialEmailUploadIngest";
 import { runStrictCommercialAutoCreateIfAllowed } from "./commercialStrictAutoCreateRunner";
 import { toImportedInquirySummary } from "./importedInquirySummary";
 import type { MatchingResult } from "./productMatcher";
@@ -14624,6 +14628,78 @@ Antworte im JSON-Format:
         if (extensionMismatch) {
           await fs.unlink(file.path);
           return res.status(400).json({ error: extensionMismatch });
+        }
+
+        // ── Hochgeladene E-Mail (.eml/.msg): auspacken statt als Einzeldokument behandeln ──
+        // Ein Entwurf je handelsrelevantem Anhang, wie beim internen Postfach-Abruf.
+        // Nur wenn der Aufrufer BEIDE Rechte hat: der Orchestrator kennt das
+        // Permission-Downgrade (Bestellung → Angebot) des Einzeldokument-Pfads unten nicht,
+        // und welcher Anhang welche Art hat, steht erst nach der Klassifikation fest.
+        const agentSettingsForUpload = await getCommercialAgentSettings(storage);
+        if (
+          isEmailContainerUpload(file.originalname, file.mimetype) &&
+          agentSettingsForUpload.enabled &&
+          canOrder &&
+          canOffer
+        ) {
+          const ingest = await ingestCommercialEmailUpload({
+            storage,
+            tenantId: req.tenantId ?? null,
+            fileBuffer,
+            fileName: file.originalname,
+            formSubject: subject,
+            formBody: bodyNote,
+            createdByUserId: userId,
+            ocrEnabled: aiSettings.ocrEnabled,
+            uploadHint: uploadIntentHint ?? null,
+          });
+
+          // Der Orchestrator legt eigene Kopien je Anhang ab; das hochgeladene
+          // Container-File wird von keinem Entwurf referenziert.
+          try {
+            await fs.unlink(file.path);
+          } catch {
+            /* ignore */
+          }
+
+          const ingestedDrafts = [];
+          for (const result of ingest.results) {
+            const draft =
+              result.draftKind === "order"
+                ? await storage.getOrderDraft(result.draftId, req.tenantId ?? null)
+                : await storage.getOfferDraft(result.draftId, req.tenantId ?? null);
+            ingestedDrafts.push({
+              draft: draft ?? null,
+              draftKind: result.draftKind,
+              commercialIntent: result.intent,
+              commercialIntentConfidence: result.intentConfidence,
+              // Strikt-Auto-Create lief bereits im Orchestrator — Ergebnis steckt im Entwurf.
+              strictAutoCreateTrace:
+                (draft?.extractedData as Record<string, unknown> | undefined)
+                  ?.strictAutoCreateTrace ?? null,
+            });
+          }
+
+          const first = ingestedDrafts[0];
+          return res.json({
+            // Rückwärtskompatible Felder für UI und bestehende Clients (erster Entwurf)
+            draft: first?.draft ?? null,
+            draftKind: first?.draftKind ?? "offer",
+            commercialIntent: first?.commercialIntent ?? "unclear",
+            commercialIntentConfidence: first?.commercialIntentConfidence ?? 0,
+            commercialIntentRationale: null,
+            intentRoutedAsOfferDueToPermission: false,
+            uploadIntentHint: uploadIntentHint ?? null,
+            strictAutoCreate: first?.strictAutoCreateTrace ?? null,
+            // Neu: vollständiges Ergebnis der Mail-Zerlegung
+            source: "email_container" as const,
+            drafts: ingestedDrafts,
+            draftCount: ingestedDrafts.length,
+            attachmentsProcessed: ingest.attachmentsProcessed,
+            usedEmailOnlyFallback: ingest.usedEmailOnlyFallback,
+            // 0 Entwürfe bei vorhandenen Anhängen = bereits verarbeitete Nachricht
+            deduplicated: ingestedDrafts.length === 0,
+          });
         }
 
         const docPreview = await extractDocumentTextPreviewForIntent(

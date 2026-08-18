@@ -1,0 +1,269 @@
+{
+  "name": "Microsoft 365 → METAorder Commercial Upload",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "event": "messageReceived",
+        "filters": {},
+        "options": {}
+      },
+      "id": "outlook-trigger-1",
+      "name": "Outlook Trigger",
+      "type": "n8n-nodes-base.microsoftOutlookTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "OUTLOOK_OAUTH_CREDENTIAL_ID",
+          "name": "Microsoft Outlook account"
+        }
+      },
+      "notesInFlow": true,
+      "notes": "Pollt neue Nachrichten. Re-Verarbeitung ist unkritisch: METAorder dedupliziert über die Message-ID."
+    },
+    {
+      "parameters": {
+        "url": "=https://graph.microsoft.com/v1.0/me/messages/{{ $json.id }}/$value",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOutlookOAuth2Api",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "id": "graph-get-mime-1",
+      "name": "Graph Get MIME",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        260,
+        0
+      ],
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "OUTLOOK_OAUTH_CREDENTIAL_ID",
+          "name": "Microsoft Outlook account"
+        }
+      },
+      "notesInFlow": true,
+      "notes": "$value = vollständige RFC822/MIME inkl. Anhänge, direkt als Binary (kein Base64-Dekodieren nötig)."
+    },
+    {
+      "parameters": {
+        "jsCode": "const trigger = $('Outlook Trigger').first().json;\nconst item = $input.first();\n\nif (!item.binary || !item.binary.data) {\n  throw new Error(\n    'Graph lieferte kein MIME — $value-Zugriff, Berechtigung Mail.Read und Message-ID pruefen. ' +\n    'Ist $value im Tenant gesperrt, siehe Fallback in docs/gmail-to-shopware-automation.md.'\n  );\n}\n\nconst subject = trigger.subject || '';\nconst bodyRaw = trigger.bodyPreview || (trigger.body && trigger.body.content) || '';\nconst body = String(bodyRaw).slice(0, 500);\n\n// Quick-Classifier: nur ein Vorschlag. METAorder wertet ihn als leichten Boost\n// und laesst das LLM nie ueberschreiben (siehe commercialDocumentIntent.ts).\nconst text = `${subject}\\n${body}`.toLowerCase();\nlet intentHint = 'unclear';\nif (/\\b(bestell|bestellung|purchase order|p\\.?\\s*o\\.?|auftrag)\\b/i.test(text)) {\n  intentHint = 'order';\n} else if (/\\b(angebot|preisanfrage|quote|rfq|offerta|preventivo|kostenvoranschlag)\\b/i.test(text)) {\n  intentHint = 'offer';\n}\n\n// METAorder erkennt den E-Mail-Container ueber Dateiname ODER MIME-Typ.\n// Graph liefert $value als text/plain — beides hier explizit setzen, sonst\n// laeuft die Mail als Einzeldokument statt ausgepackt durch die Pipeline.\nconst binary = item.binary.data;\nbinary.mimeType = 'message/rfc822';\nbinary.fileName = `outlook-${trigger.id || 'message'}.eml`;\n\nreturn [{\n  json: {\n    ...trigger,\n    intentHint,\n    metaorderSubject: subject,\n    metaorderBody: body,\n  },\n  binary: { data: binary },\n}];"
+      },
+      "id": "code-prepare-eml-1",
+      "name": "Prepare EML + Classifier",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        0
+      ],
+      "notesInFlow": true,
+      "notes": "Setzt Dateiname .eml + MIME message/rfc822 — sonst packt METAorder die Mail nicht aus."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.METAORDER_BASE_URL || 'http://host.docker.internal:5001' }}/api/commercial-drafts/upload",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-METAORDER-Integration-Key",
+              "value": "={{ $env.METAORDER_INTEGRATION_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "subject",
+              "value": "={{ $json.metaorderSubject }}"
+            },
+            {
+              "name": "body",
+              "value": "={{ $json.metaorderBody }}"
+            },
+            {
+              "name": "intentHint",
+              "value": "={{ $json.intentHint }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "http-upload-1",
+      "name": "POST commercial-drafts/upload",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        780,
+        0
+      ],
+      "notesInFlow": true,
+      "notes": "Ein Entwurf je handelsrelevantem Anhang. Antwort: draftCount, drafts[], deduplicated. Strikt-Auto-Create läuft serverseitig."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "ok-upload",
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 299,
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            },
+            {
+              "id": "ok-upload-min",
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 200,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-upload-ok-1",
+      "name": "Upload OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        0
+      ],
+      "notesInFlow": true,
+      "notes": "Bereits verarbeitete Mails antworten mit 200 und deduplicated:true — bewusst OK, damit sie als gelesen markiert werden."
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "update",
+        "messageId": "={{ $('Outlook Trigger').item.json.id }}",
+        "updateFields": {
+          "isRead": true
+        }
+      },
+      "id": "outlook-mark-read-1",
+      "name": "Outlook Mark Read",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        0
+      ],
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "OUTLOOK_OAUTH_CREDENTIAL_ID",
+          "name": "Microsoft Outlook account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Outlook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Graph Get MIME",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Graph Get MIME": {
+      "main": [
+        [
+          {
+            "node": "Prepare EML + Classifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare EML + Classifier": {
+      "main": [
+        [
+          {
+            "node": "POST commercial-drafts/upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST commercial-drafts/upload": {
+      "main": [
+        [
+          {
+            "node": "Upload OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload OK?": {
+      "main": [
+        [
+          {
+            "node": "Outlook Mark Read",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

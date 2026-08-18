@@ -100,7 +100,9 @@
       "lineSavedAsOffer": "Gespeichert als Angebotsentwurf.",
       "permissionRoutedToOffer": "Als Angebotsentwurf gespeichert (keine Berechtigung für Bestellentwürfe).",
       "pageMismatchOfferPage": "Hinweis: Unter „Angebotsentwürfe“ erkannt als Bestellung – Entwurf finden Sie unter Bestellentwürfe.",
-      "pageMismatchOrderPage": "Hinweis: Unter „Bestellentwürfe“ erkannt als Angebot – Entwurf finden Sie unter Angebotsentwürfe."
+      "pageMismatchOrderPage": "Hinweis: Unter „Bestellentwürfe“ erkannt als Angebot – Entwurf finden Sie unter Angebotsentwürfe.",
+      "alreadyProcessed": "Diese Nachricht wurde bereits verarbeitet — es wurde kein neuer Entwurf angelegt.",
+      "multipleDrafts": "{{count}} Entwürfe aus den Anhängen der E-Mail angelegt."
     }
   },
   "processUpdates": {

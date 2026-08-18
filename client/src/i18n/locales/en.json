@@ -100,7 +100,9 @@
       "lineSavedAsOffer": "Saved as offer draft.",
       "permissionRoutedToOffer": "Saved as offer draft (no permission for order drafts).",
       "pageMismatchOfferPage": "Note: uploaded from offer drafts but classified as order — open Order drafts to review.",
-      "pageMismatchOrderPage": "Note: uploaded from order drafts but classified as offer — open Offer drafts to review."
+      "pageMismatchOrderPage": "Note: uploaded from order drafts but classified as offer — open Offer drafts to review.",
+      "alreadyProcessed": "This message has already been processed — no new draft was created.",
+      "multipleDrafts": "Created {{count}} drafts from the email attachments."
     }
   },
   "processUpdates": {

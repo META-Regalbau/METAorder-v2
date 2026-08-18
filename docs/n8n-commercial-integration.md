@@ -27,6 +27,25 @@ Details und Docker: [`docker.md`](docker.md).
    - Auth: JWT **oder** Integrations-Key (siehe oben).  
    - Antwort u. a.: **`draft`**, **`draftKind`**: `"offer"` | `"order"`, Intent-Metadaten, optional **`strictAutoCreate`** (Ergebnis der Strikt-Regel).
 
+   **E-Mail-Container (`.eml` / `.msg`)** werden ausgepackt statt als ein Dokument behandelt —
+   siehe [`server/commercialEmailUploadIngest.ts`](../server/commercialEmailUploadIngest.ts):
+
+   - **ein Entwurf je handelsrelevantem Anhang** (wie beim internen Postfach-Abruf);
+     ohne solchen Anhang wird die Nachricht selbst ausgewertet
+   - dadurch greifen **PDF-Vision** bei gescannten Bestellungen, die
+     **Signaturbild-Erkennung** für den Firmennamen und getrennte `siblingPdfExcerpts`
+   - Signatur-/Logobilder erzeugen **keinen** eigenen Entwurf
+   - **Dedupe über die `Message-ID`** der Mail: ein n8n-Retry derselben Nachricht legt
+     keinen zweiten Entwurf an (Antwort dann `draftCount: 0`, `deduplicated: true` mit **HTTP 200**,
+     damit der Workflow die Mail trotzdem als gelesen markieren kann)
+   - zusätzliche Antwortfelder: `source: "email_container"`, `drafts[]`, `draftCount`,
+     `attachmentsProcessed`, `usedEmailOnlyFallback`. Die Felder `draft`/`draftKind`/Intent
+     beschreiben weiterhin den **ersten** Entwurf (rückwärtskompatibel).
+   - Voraussetzung: Commercial Agent aktiv **und** der aufrufende Benutzer hat
+     `manageOrderDrafts` **und** `manageOffers` (der Seed-Benutzer `n8n-service` hat beides).
+     Fehlt eines, greift das bisherige Einzeldokument-Verhalten inklusive
+     Downgrade Bestellung → Angebot.
+
 2. Optional: Entwurf in der UI oder per **`PATCH`** auf die jeweiligen Draft-Routen anpassen (wie in der allgemeinen API-Doku). Auch diese `PATCH`-Routen akzeptieren **`requireAuthOrIntegrationKey`** (JWT oder Integrations-Key).
 
 3. Finalisierung in Shopware:  

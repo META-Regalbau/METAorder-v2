@@ -102,6 +102,12 @@ export type ProcessCommercialDocumentParams = {
   fromDisplayName?: string;
   /** Kleine Bilder derselben Nachricht (Signatur) für optionale Vision-Erkennung */
   signatureImageBuffers?: Array<{ buffer: Buffer; mimeType: string }>;
+  /**
+   * Vorschlag eines Upload-Clients (n8n Quick-Classifier). Wirkt nur als leichter
+   * Boost in `classifyCommercialDocumentIntent` und überschreibt das LLM nie —
+   * siehe docs/gmail-to-shopware-automation.md.
+   */
+  uploadHint?: "offer" | "order" | "unclear" | null;
 };
 
 /** @deprecated Typ-Alias */
@@ -135,6 +141,7 @@ export async function processCommercialDocumentFromEmail(
     primaryContainsEmailBody = false,
     fromDisplayName,
     signatureImageBuffers,
+    uploadHint = null,
   } = params;
 
   const agentSettings = await getCommercialAgentSettings(storage);
@@ -186,6 +193,7 @@ export async function processCommercialDocumentFromEmail(
     documentTextPreview: intentDocumentText,
     tenantId: tenantId ?? null,
     traceId: messageId,
+    uploadHint,
   });
 
   if (agentSettings.subAgentsEnabled !== false) {
@@ -269,6 +277,7 @@ export async function processCommercialDocumentFromEmail(
         intent: intent.intent,
         confidence: intent.confidence,
         rationale: intent.rationale,
+        uploadHint: uploadHint ?? undefined,
       };
       const { draft, timings } = await runOrderDraftPipeline({
         storage,
@@ -299,6 +308,7 @@ export async function processCommercialDocumentFromEmail(
         intent: intent.intent,
         confidence: intent.confidence,
         rationale: intent.rationale,
+        uploadHint: uploadHint ?? undefined,
       };
       const { draft, timings } = await runOfferDraftPipeline({
         storage,

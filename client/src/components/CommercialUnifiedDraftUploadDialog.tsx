@@ -72,6 +72,15 @@ export function CommercialUnifiedDraftUploadDialog({
   }, [open]);
 
   const buildSuccessToastDescription = (data: CommercialUnifiedUploadResult) => {
+    // Hochgeladene E-Mail: die Mail wird ausgepackt, je Anhang entsteht ein Entwurf.
+    if (data.source === "email_container") {
+      if (data.deduplicated) {
+        return t("commercialUpload.toast.alreadyProcessed");
+      }
+      if ((data.draftCount ?? 0) > 1) {
+        return t("commercialUpload.toast.multipleDrafts", { count: data.draftCount });
+      }
+    }
     const intentKey = `commercialUpload.intent.${data.commercialIntent}`;
     const intentLabel = t(intentKey, { defaultValue: data.commercialIntent });
     const confPct = Math.round((data.commercialIntentConfidence ?? 0) * 100);
