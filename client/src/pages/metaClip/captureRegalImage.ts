@@ -15,28 +15,26 @@
  */
 import * as THREE from "three";
 import { buildRegalGroup, loadRegalTemplates } from "./regalAssembly";
+import { buildRegalDimensions, disposeDimensions } from "./regalDimensions";
+import { cameraForView, unionBox } from "./regalFraming";
 import type { MetaClipState } from "@/lib/metaClipCpq";
 
 const PDF_IMAGE_ASPECT = 468 / 248; // server/offerConfigPdf.ts's image slot (imgMaxW/imgMaxH)
 
 type View = 0 | 1 | 2; // 0 Perspektive, 1 Vorderansicht, 2 Draufsicht
 
-function positionCamera(camera: THREE.PerspectiveCamera, view: View, radius: number, center: THREE.Vector3) {
-  const { x: cx, y: cy, z: cz } = center;
-  if (view === 2) camera.position.set(cx, cy + radius * 2.4, cz + 0.0001); // Draufsicht
-  else if (view === 1) camera.position.set(cx, cy, cz + radius * 2.6); // Vorderansicht
-  else camera.position.set(cx + radius * 1.3, cy + radius * 1.0, cz + radius * 1.7); // Perspektive
-  camera.lookAt(cx, cy, cz);
-}
-
-function renderView(scene: THREE.Scene, view: View, radius: number, center: THREE.Vector3, widthPx: number, heightPx: number): string {
+function renderView(scene: THREE.Scene, view: View, box: THREE.Box3, widthPx: number, heightPx: number): string {
   const canvas = document.createElement("canvas");
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(1);
   renderer.setSize(widthPx, heightPx, false);
   renderer.setClearColor(0xffffff, 1);
   const camera = new THREE.PerspectiveCamera(32, widthPx / heightPx, 0.01, 100);
-  positionCamera(camera, view, radius, center);
+  // Jede Kachel hat ein eigenes Seitenverhältnis (breite Perspektive links, flache
+  // Vorder-/Draufsicht rechts) — deshalb wird pro Kachel neu eingepasst.
+  const fit = cameraForView(box, view, camera.fov, widthPx / heightPx);
+  camera.position.set(...fit.position);
+  camera.lookAt(...fit.target);
   renderer.render(scene, camera);
   const dataUrl = canvas.toDataURL("image/png");
   renderer.dispose();
@@ -78,8 +76,25 @@ export async function captureRegalCompositeImage(state: MetaClipState): Promise<
   scene.add(dl2);
   scene.add(built.group);
 
-  const radius = 0.55 * Math.hypot(built.totalLengthM, built.topY, built.depthM);
-  const center = new THREE.Vector3(built.totalLengthM / 2, built.topY / 2, built.frameZCenterM);
+  // Bemaßung wie im Live-Viewport — pro Ansicht neu, weil sie ansichtsabhängig ist
+  // (Höhe entfällt in der Draufsicht, Tiefe in der Vorderansicht).
+  const dimensionsFor = (view: View) =>
+    !state.showDims
+      ? null
+      : buildRegalDimensions(built, {
+          widthMM: state.breite,
+          heightMM: state.hoehe,
+          depthMM: state.tiefe,
+          fieldCount: state.felder,
+          view,
+          lang: state.lang,
+        });
+
+  // Bounding-Box über die größte Bemaßung (die Perspektive zeigt alle Maße), damit auch
+  // in den beiden anderen Kacheln nichts abgeschnitten wird.
+  const framingDims = dimensionsFor(0);
+  const box = unionBox(framingDims ? [built.group, framingDims] : [built.group]);
+  if (framingDims) disposeDimensions(framingDims);
 
   const TOTAL_W = 1600;
   const TOTAL_H = Math.round(TOTAL_W / PDF_IMAGE_ASPECT);
@@ -88,9 +103,22 @@ export async function captureRegalCompositeImage(state: MetaClipState): Promise<
   const RIGHT_TOP_H = Math.round(TOTAL_H / 2);
   const RIGHT_BOTTOM_H = TOTAL_H - RIGHT_TOP_H;
 
-  const perspectiveUrl = renderView(scene, 0, radius, center, LEFT_W, TOTAL_H);
-  const frontUrl = renderView(scene, 1, radius, center, RIGHT_W, RIGHT_TOP_H);
-  const topUrl = renderView(scene, 2, radius, center, RIGHT_W, RIGHT_BOTTOM_H);
+  const renderWithDimensions = (view: View, widthPx: number, heightPx: number) => {
+    const dims = dimensionsFor(view);
+    if (dims) scene.add(dims);
+    try {
+      return renderView(scene, view, box, widthPx, heightPx);
+    } finally {
+      if (dims) {
+        scene.remove(dims);
+        disposeDimensions(dims);
+      }
+    }
+  };
+
+  const perspectiveUrl = renderWithDimensions(0, LEFT_W, TOTAL_H);
+  const frontUrl = renderWithDimensions(1, RIGHT_W, RIGHT_TOP_H);
+  const topUrl = renderWithDimensions(2, RIGHT_W, RIGHT_BOTTOM_H);
 
   const canvas = document.createElement("canvas");
   canvas.width = TOTAL_W;

@@ -12,6 +12,11 @@
  * thin view over whichever engine answers.
  */
 
+import { FRAME_POST_WIDTH_MM } from "@shared/metaClipGeometry";
+
+// Weitergereicht, damit Konfigurator-Code nur ein Modul kennen muss.
+export { FRAME_POST_WIDTH_MM };
+
 export type Surface = "verzinkt" | "lackiert";
 
 export type MetaClipState = {
@@ -26,6 +31,7 @@ export type MetaClipState = {
   surface: Surface;
   rear: boolean; // Rückwand
   view: number; // 0 perspective, 1 front, 2 top
+  showDims: boolean; // Bemaßung in Zeichnung und 3D-Ansicht einblenden
 };
 
 export const DEFAULT_STATE: MetaClipState = {
@@ -40,6 +46,7 @@ export const DEFAULT_STATE: MetaClipState = {
   surface: "verzinkt",
   rear: false,
   view: 0,
+  showDims: true,
 };
 
 /** Server-provided option lists (from GET /systems/:id/options → availableOptions). */
@@ -178,9 +185,9 @@ export function toCpqCoreInput(s: MetaClipState): CpqCoreInput {
 
 export const CPQ_CORE_CONTEXT = { customerGroup: "b2b_standard" as const };
 
-/** Overall bay length (mm): bays × width + (bays+1) frame posts (≈40mm each). */
+/** Overall bay length (mm): bays × width + (bays+1) frame posts. */
 export function overallLength(s: MetaClipState): number {
-  return s.felder * s.breite + (s.felder + 1) * 40;
+  return s.felder * s.breite + (s.felder + 1) * FRAME_POST_WIDTH_MM;
 }
 
 /** Stable configuration code, e.g. CLIP-2500-1000-500-2F5-230-V-NR. */

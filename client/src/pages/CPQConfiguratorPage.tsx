@@ -33,6 +33,7 @@ import {
   CPQ_CORE_CONTEXT,
   buildConfigCode,
   overallLength,
+  FRAME_POST_WIDTH_MM,
   formatMoney,
   formatNumber,
   reconcileWithOptions,
@@ -63,6 +64,7 @@ const L = {
     fields: "Anzahl Felder", height: "Höhe", width: "Feldbreite", depth: "Feldtiefe",
     shelves: "Fachböden je Feld", load: "Fachlast", zinc: "Verzinkt", coat: "Lackiert, RAL 7035",
     views: ["Perspektive", "Vorderansicht", "Draufsicht"],
+    dimsToggle: "Bemaßung",
     dim: ["Gesamtlänge", "Höhe", "Feldtiefe", "Felder"],
     sumRows: ["Ausführung", "Gesamtmaß L × H × T", "Felder × Fachböden", "Fachlast", "Gesamttragkraft", "Gewicht, ca."],
     fieldsNote: "Grundfeld + Anbaufelder, gemeinsame Rahmen.",
@@ -97,6 +99,7 @@ const L = {
     fields: "Number of bays", height: "Height", width: "Bay width", depth: "Bay depth",
     shelves: "Shelves per bay", load: "Shelf load", zinc: "Galvanised", coat: "Coated, RAL 7035",
     views: ["Perspective", "Front view", "Top view"],
+    dimsToggle: "Dimensions",
     dim: ["Overall length", "Height", "Bay depth", "Bays"],
     sumRows: ["Finish", "Overall L × H × D", "Bays × shelves", "Shelf load", "Total capacity", "Weight, approx."],
     fieldsNote: "Starter bay plus add-on bays, shared frames.",
@@ -148,32 +151,64 @@ type CoreDecision = {
 // ---- 3D-slot schematic (line drawing, reflects the configuration) ----
 function schematic(s: MetaClipState): string {
   const W = 1000, H = 620, pad = 70;
+  // Platz für die Maßketten: unten zwei (Feldbreite innen, Gesamtlänge außen), links eine.
+  const DIM_BOTTOM = 70, DIM_LEFT = 46;
   const bays = s.felder, shelves = s.boeden;
   const stroke = "var(--meta-graphite)", thin = "var(--meta-steel)", accent = "var(--meta-red)";
+  const dimCol = "var(--meta-steel)", dimTextCol = "var(--meta-red)";
   const parts: string[] = [];
+  const nfmm = (v: number) => `${new Intl.NumberFormat("de-DE").format(Math.round(v))} mm`;
   const rect = (x: number, y: number, w: number, h: number, sw: number, col: string, fill = "none") =>
     `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" fill="${fill}" stroke="${col}" stroke-width="${sw}"/>`;
   const line = (x1: number, y1: number, x2: number, y2: number, sw: number, col: string) =>
     `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${col}" stroke-width="${sw}"/>`;
-  const totalLen = bays * s.breite + (bays + 1) * 40;
+
+  /** Waagerechte Maßlinie: Linie mit Endstrichen, Maßzahl mittig darüber. */
+  const dimH = (x1: number, x2: number, y: number, label: string) => {
+    parts.push(line(x1, y, x2, y, 1, dimCol));
+    parts.push(line(x1, y - 5, x1, y + 5, 1, dimCol));
+    parts.push(line(x2, y - 5, x2, y + 5, 1, dimCol));
+    parts.push(
+      `<text x="${((x1 + x2) / 2).toFixed(1)}" y="${(y - 7).toFixed(1)}" text-anchor="middle" font-size="15" fill="${dimTextCol}">${label}</text>`,
+    );
+  };
+
+  /** Senkrechte Maßlinie, Maßzahl um 90° gedreht daneben. */
+  const dimV = (x: number, y1: number, y2: number, label: string) => {
+    const mid = (y1 + y2) / 2;
+    parts.push(line(x, y1, x, y2, 1, dimCol));
+    parts.push(line(x - 5, y1, x + 5, y1, 1, dimCol));
+    parts.push(line(x - 5, y2, x + 5, y2, 1, dimCol));
+    parts.push(
+      `<text x="${(x - 7).toFixed(1)}" y="${mid.toFixed(1)}" text-anchor="middle" font-size="15" fill="${dimTextCol}" transform="rotate(-90 ${(x - 7).toFixed(1)} ${mid.toFixed(1)})">${label}</text>`,
+    );
+  };
+  const totalLen = bays * s.breite + (bays + 1) * FRAME_POST_WIDTH_MM;
 
   if (s.view === 2) {
-    const availW = W - pad * 2, availH = H - pad * 2;
+    const availW = W - pad * 2 - DIM_LEFT, availH = H - pad * 2 - DIM_BOTTOM;
     const scale = Math.min(availW / totalLen, availH / s.tiefe);
-    const dw = s.tiefe * scale, cw = s.breite * scale, post = 40 * scale, totW = totalLen * scale;
-    const ox = (W - totW) / 2, oy = (H - dw) / 2;
+    const dw = s.tiefe * scale, cw = s.breite * scale, post = FRAME_POST_WIDTH_MM * scale, totW = totalLen * scale;
+    const ox = (W - totW) / 2 + DIM_LEFT / 2, oy = (H - DIM_BOTTOM - dw) / 2;
     parts.push(rect(ox, oy, totW, dw, 2, stroke));
     let x = ox;
     for (let i = 0; i < bays; i++) { x += post; parts.push(rect(x, oy, cw, dw, 1.4, thin)); x += cw; }
     let px = ox;
     for (let p = 0; p <= bays; p++) { parts.push(rect(px, oy, post, dw, 2, stroke, "var(--meta-chrome)")); if (p < bays) px += post + cw; }
+    if (s.showDims) {
+      // Draufsicht: Tiefe seitlich, Feldbreite und Gesamtlänge als Kette darunter.
+      dimV(ox - 26, oy, oy + dw, nfmm(s.tiefe));
+      dimH(ox + post, ox + post + cw, oy + dw + 34, nfmm(s.breite));
+      dimH(ox, ox + totW, oy + dw + 64, nfmm(totalLen));
+    }
   } else {
-    const availWf = W - pad * 2, availHf = H - pad * 2;
+    const availWf = W - pad * 2 - DIM_LEFT, availHf = H - pad * 2 - DIM_BOTTOM;
     const persp = s.view === 0;
     const dx = persp ? 60 : 0, dy = persp ? -34 : 0;
     const scaleF = Math.min((availWf - Math.abs(dx)) / totalLen, (availHf - Math.abs(dy)) / s.hoehe);
-    const cwF = s.breite * scaleF, postF = 40 * scaleF, hF = s.hoehe * scaleF, totWf = totalLen * scaleF;
-    const oxF = (W - totWf - dx) / 2, oyF = (H - hF - Math.abs(dy)) / 2 + (persp ? -dy : 0);
+    const cwF = s.breite * scaleF, postF = FRAME_POST_WIDTH_MM * scaleF, hF = s.hoehe * scaleF, totWf = totalLen * scaleF;
+    const oxF = (W - totWf - dx) / 2 + DIM_LEFT / 2,
+      oyF = (H - DIM_BOTTOM - hF - Math.abs(dy)) / 2 + (persp ? -dy : 0);
     const top = oyF, bot = oyF + hF;
     if (persp) {
       const bx = oxF + dx, byTop = top + dy, byBot = bot + dy;
@@ -204,6 +239,15 @@ function schematic(s: MetaClipState): string {
       sx += cwF;
     }
     parts.push(line(oxF - 8, bot, oxF + totWf + 8, bot, 2, accent));
+    if (s.showDims) {
+      // Höhe seitlich, darunter Feldbreite (innen) und Gesamtlänge (außen).
+      // Der Fachabstand wird bewusst NICHT bemaßt: die Böden sind im 25-mm-Raster frei
+      // einhängbar, die Konfiguration legt nur ihre Anzahl fest. Die Zeichnung verteilt sie
+      // gleichmäßig — ein Maß dort würde eine Genauigkeit behaupten, die das Angebot nicht hat.
+      dimV(oxF - 26, top, bot, nfmm(s.hoehe));
+      dimH(oxF + postF, oxF + postF + cwF, bot + 34, nfmm(s.breite));
+      dimH(oxF, oxF + totWf, bot + 64, nfmm(totalLen));
+    }
   }
   return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${parts.join("")}</svg>`;
 }
@@ -449,6 +493,8 @@ export default function CPQConfiguratorPage({ customerMode }: { customerMode?: C
               <div style={{ flex: 1 }} />
               <div className="view-opts">
                 {t.views.map((label, i) => chip(state.view === i, label, () => setState((s) => ({ ...s, view: i })), false, i))}
+                <span className="view-sep" aria-hidden="true" />
+                {chip(state.showDims, t.dimsToggle, () => setState((s) => ({ ...s, showDims: !s.showDims })), false, "dims")}
               </div>
             </div>
             <div className="viewport">
@@ -609,7 +655,7 @@ export default function CPQConfiguratorPage({ customerMode }: { customerMode?: C
                   </button>
                 )}
                 <button type="button" className="btn btn-md btn-tertiary"
-                  onClick={() => { reconciled.current = false; setState((s) => reconcileWithOptions({ ...DEFAULT_STATE, lang: s.lang, mode: s.mode }, options0)); }}>
+                  onClick={() => { reconciled.current = false; setState((s) => reconcileWithOptions({ ...DEFAULT_STATE, lang: s.lang, mode: s.mode, showDims: s.showDims }, options0)); }}>
                   {t.reset}
                 </button>
               </div>

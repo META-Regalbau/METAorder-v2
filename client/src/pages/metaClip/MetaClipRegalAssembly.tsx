@@ -13,22 +13,27 @@ import { Canvas, useThree } from "@react-three/fiber";
 import { Environment, OrbitControls, useGLTF } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { buildRegalGroup, HEIGHT_GLB, SHELF_GLB_URL, DIAGONAL_GLB_URL } from "./regalAssembly";
+import { buildRegalDimensions, disposeDimensions } from "./regalDimensions";
+import { cameraForView, unionBox } from "./regalFraming";
 import type { MetaClipState } from "@/lib/metaClipCpq";
 
-function Rig({ view, radius, center }: { view: number; radius: number; center: [number, number, number] }) {
-  const { camera } = useThree();
+function Rig({ view, box }: { view: number; box: THREE.Box3 }) {
+  const { camera, size } = useThree();
   const controls = useRef<OrbitControlsImpl | null>(null);
+  // Größe des Viewports geht mit ein: je breiter das Fenster, desto näher darf die Kamera
+  // heran, ohne dass etwas aus dem Bild fällt — dadurch wächst die Darstellung mit.
+  const fit = useMemo(
+    () => cameraForView(box, view, (camera as THREE.PerspectiveCamera).fov ?? 32, size.width / size.height),
+    [box, view, camera, size.width, size.height],
+  );
   useEffect(() => {
-    const [cx, cy, cz] = center;
-    if (view === 2) camera.position.set(cx, cy + radius * 2.4, cz + 0.0001); // Draufsicht
-    else if (view === 1) camera.position.set(cx, cy, cz + radius * 2.6); // Vorderansicht
-    else camera.position.set(cx + radius * 1.3, cy + radius * 1.0, cz + radius * 1.7); // Perspektive
-    camera.lookAt(cx, cy, cz);
+    camera.position.set(...fit.position);
+    camera.lookAt(...fit.target);
     if (controls.current) {
-      controls.current.target.set(cx, cy, cz);
+      controls.current.target.set(...fit.target);
       controls.current.update();
     }
-  }, [view, radius, center, camera]);
+  }, [fit, camera]);
   return (
     <OrbitControls
       ref={controls}
@@ -36,9 +41,9 @@ function Rig({ view, radius, center }: { view: number; radius: number; center: [
       enableRotate={view === 0}
       enablePan={false}
       enableZoom
-      minDistance={radius * 0.8}
-      maxDistance={radius * 5}
-      target={center}
+      minDistance={fit.distance * 0.4}
+      maxDistance={fit.distance * 4}
+      target={fit.target}
     />
   );
 }
@@ -50,6 +55,8 @@ function Assembly({
   depthMM,
   heightMM,
   view,
+  lang,
+  showDims,
 }: {
   fieldCount: number;
   levels: number;
@@ -57,6 +64,8 @@ function Assembly({
   depthMM: number;
   heightMM: number;
   view: number;
+  lang: "de" | "en";
+  showDims: boolean;
 }) {
   const frame2000 = useGLTF(HEIGHT_GLB["2000"].url);
   const frame2500 = useGLTF(HEIGHT_GLB["2500"].url);
@@ -73,13 +82,27 @@ function Assembly({
     [fieldCount, levels, widthMM, depthMM, heightMM, frame2000.scene, frame2500.scene, shelf.scene, diagonal.scene],
   );
 
-  const radius = 0.55 * Math.hypot(built.totalLengthM, built.topY, built.depthM);
-  const center: [number, number, number] = [built.totalLengthM / 2, built.topY / 2, built.frameZCenterM];
+  // Bemaßung als eigene Gruppe: sie hängt zusätzlich an der Ansicht (in der Draufsicht
+  // ist die Höhe ein Punkt, in der Vorderansicht die Tiefe) und wird deshalb getrennt
+  // vom Aufbau neu gebaut.
+  const dimensions = useMemo(
+    () =>
+      showDims ? buildRegalDimensions(built, { widthMM, heightMM, depthMM, fieldCount, view, lang }) : null,
+    [built, widthMM, heightMM, depthMM, fieldCount, view, lang, showDims],
+  );
+  useEffect(() => () => { if (dimensions) disposeDimensions(dimensions); }, [dimensions]);
+
+  // Bounding-Box über beide Gruppen, sonst schneidet die Kamera die äußeren Maßketten ab.
+  const box = useMemo(
+    () => unionBox(dimensions ? [built.group, dimensions] : [built.group]),
+    [built, dimensions],
+  );
 
   return (
     <>
       <primitive object={built.group} />
-      <Rig view={view} radius={radius} center={center} />
+      {dimensions && <primitive object={dimensions} />}
+      <Rig view={view} box={box} />
     </>
   );
 }
@@ -112,6 +135,8 @@ export default function MetaClipRegalAssembly({ state }: { state: MetaClipState 
           depthMM={state.tiefe}
           heightMM={state.hoehe}
           view={state.view}
+          lang={state.lang}
+          showDims={state.showDims}
         />
       </Canvas>
     </div>

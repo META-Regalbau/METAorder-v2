@@ -5,6 +5,8 @@
  * Kollisionsprüfung mit einfachen achsenparallelen Rechtecken (AABB) auskommt.
  */
 
+import { FRAME_POST_WIDTH_MM } from "@shared/metaClipGeometry";
+
 export type CpqRoomRotationDeg = 0 | 90 | 180 | 270;
 
 export type RoomFootprintMm = {
@@ -35,7 +37,7 @@ export function computeFootprintFromCpqConfig(
     return null;
   }
   return {
-    lengthMm: fieldCount * width + (fieldCount + 1) * 40,
+    lengthMm: fieldCount * width + (fieldCount + 1) * FRAME_POST_WIDTH_MM,
     depthMm: depth,
     heightMm: height,
   };
