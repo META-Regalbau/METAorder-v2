@@ -101,6 +101,8 @@ type CommercialAgentForm = {
   customerAutoCreateMinConfidence: number;
   minRankedEmailScoreForAutoCreate: number;
   signatureCompanyVisionEnabled: boolean;
+  inboundAcknowledgementEnabled: boolean;
+  inboundAcknowledgementSignature: string;
 };
 
 const defaultCommercialAgentForm: CommercialAgentForm = {
@@ -120,6 +122,8 @@ const defaultCommercialAgentForm: CommercialAgentForm = {
   customerAutoCreateMinConfidence: 50,
   minRankedEmailScoreForAutoCreate: 12,
   signatureCompanyVisionEnabled: false,
+  inboundAcknowledgementEnabled: false,
+  inboundAcknowledgementSignature: "",
 };
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -561,6 +565,14 @@ export default function SettingsPage() {
           typeof s.signatureCompanyVisionEnabled === "boolean"
             ? s.signatureCompanyVisionEnabled
             : defaultCommercialAgentForm.signatureCompanyVisionEnabled,
+        inboundAcknowledgementEnabled:
+          typeof s.inboundAcknowledgementEnabled === "boolean"
+            ? s.inboundAcknowledgementEnabled
+            : defaultCommercialAgentForm.inboundAcknowledgementEnabled,
+        inboundAcknowledgementSignature:
+          typeof s.inboundAcknowledgementSignature === "string"
+            ? s.inboundAcknowledgementSignature
+            : defaultCommercialAgentForm.inboundAcknowledgementSignature,
       });
     }
   }, [commercialAgentData]);
@@ -3278,6 +3290,44 @@ function AiTab() {
                 setCommercialAgentForm((p) => ({ ...p, signatureCompanyVisionEnabled: v }))
               }
             />
+          </div>
+
+          {/* Versendet automatisch Mail an echte Kunden — deshalb mit Warnhinweis. */}
+          <div className="rounded-lg border border-amber-500/60 bg-amber-50/60 p-3 dark:bg-amber-950/20">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-medium">
+                  {t("settings.commercialAgent.inboundAck")}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {t("settings.commercialAgent.inboundAckDesc")}
+                </p>
+              </div>
+              <Switch
+                checked={commercialAgentForm.inboundAcknowledgementEnabled}
+                onCheckedChange={(v) =>
+                  setCommercialAgentForm((p) => ({ ...p, inboundAcknowledgementEnabled: v }))
+                }
+                data-testid="switch-inbound-acknowledgement"
+              />
+            </div>
+            {commercialAgentForm.inboundAcknowledgementEnabled ? (
+              <div className="mt-3 space-y-1">
+                <Label className="text-xs">
+                  {t("settings.commercialAgent.inboundAckSignature")}
+                </Label>
+                <Input
+                  value={commercialAgentForm.inboundAcknowledgementSignature}
+                  placeholder={t("settings.commercialAgent.inboundAckSignaturePlaceholder")}
+                  onChange={(e) =>
+                    setCommercialAgentForm((p) => ({
+                      ...p,
+                      inboundAcknowledgementSignature: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+            ) : null}
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">

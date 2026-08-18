@@ -1482,7 +1482,11 @@
       "customerAutoCreateMin": "Min. Score Kunden-Anlage",
       "customerAutoCreateMinDesc": "Nur für automatische Neuanlage in Shopware, getrennt von der angezeigten Match-Konfidenz.",
       "minRankedEmailScore": "Min. E-Mail-Ranking für Anlage",
-      "minRankedEmailScoreDesc": "Heuristik-Score der Top-Adresse aus der Nachricht; darunter keine automatische Anlage."
+      "minRankedEmailScoreDesc": "Heuristik-Score der Top-Adresse aus der Nachricht; darunter keine automatische Anlage.",
+      "inboundAck": "Eingangsbestätigung an Kunden senden",
+      "inboundAckDesc": "Versendet automatisch eine E-Mail an den Absender, sobald eine Bestellung oder Anfrage eingegangen ist — mit den erkannten Positionen. Bestätigt ausdrücklich nur den Eingang, keine Zusage. Achtung: Geht an echte Kunden.",
+      "inboundAckSignature": "Signaturzeile",
+      "inboundAckSignaturePlaceholder": "z. B. Ihr META-Team"
     },
     "shopwareConfig": "Shopware-Konfiguration",
     "tenants": {

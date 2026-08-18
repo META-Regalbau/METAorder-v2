@@ -105,6 +105,18 @@ export type CommercialAgentSettings = {
    * Leer = nur Herstellerartikelnummer / direkte EAN ohne Erweiterung.
    */
   lineItemSixDigitGtinPrefixes?: string[];
+  /**
+   * Automatische Eingangsbestätigung an den Absender einer eingegangenen Bestellung/Anfrage.
+   * Default **false** — versendet Mail an echte Kunden, deshalb bewusste Freigabe nötig.
+   */
+  inboundAcknowledgementEnabled?: boolean;
+  /**
+   * Eigene Domains des Betreibers. An diese wird nie automatisch bestätigt
+   * (interne Weiterleitungen erzeugen sonst Mailschleifen).
+   */
+  inboundAcknowledgementOwnDomains?: string[];
+  /** Signaturzeile unter der Eingangsbestätigung, z. B. „Ihr META-Team“ */
+  inboundAcknowledgementSignature?: string;
 };
 
 export const DEFAULT_COMMERCIAL_AGENT: CommercialAgentSettings = {
@@ -130,6 +142,9 @@ export const DEFAULT_COMMERCIAL_AGENT: CommercialAgentSettings = {
   strictMinIntentConfidence: 0.95,
   strictMinCustomerMatchConfidence: 95,
   lineItemSixDigitGtinPrefixes: [],
+  inboundAcknowledgementEnabled: false,
+  inboundAcknowledgementOwnDomains: [],
+  inboundAcknowledgementSignature: "",
 };
 
 export async function getCommercialAgentSettings(storage: IStorage): Promise<CommercialAgentSettings> {
@@ -298,7 +313,35 @@ export async function getCommercialAgentSettings(storage: IStorage): Promise<Com
       envSixDigitPrefixes,
       stored.lineItemSixDigitGtinPrefixes
     ),
+    // Versendet Mail an echte Kunden: nur wenn ausdrücklich eingeschaltet.
+    inboundAcknowledgementEnabled:
+      process.env.COMMERCIAL_AGENT_INBOUND_ACK === "true"
+        ? true
+        : process.env.COMMERCIAL_AGENT_INBOUND_ACK === "false"
+          ? false
+          : (stored.inboundAcknowledgementEnabled ??
+            DEFAULT_COMMERCIAL_AGENT.inboundAcknowledgementEnabled),
+    inboundAcknowledgementOwnDomains: parseOwnDomains(
+      process.env.COMMERCIAL_AGENT_INBOUND_ACK_OWN_DOMAINS,
+      stored.inboundAcknowledgementOwnDomains
+    ),
   };
+}
+
+/** Kommagetrennte Domainliste aus Env oder Einstellungen. */
+function parseOwnDomains(envValue: string | undefined, stored: unknown): string[] {
+  const fromEnv = (envValue || "")
+    .split(",")
+    .map((d) => d.trim().toLowerCase())
+    .filter(Boolean);
+  if (fromEnv.length > 0) return fromEnv;
+  if (Array.isArray(stored)) {
+    return stored
+      .filter((d): d is string => typeof d === "string")
+      .map((d) => d.trim().toLowerCase())
+      .filter(Boolean);
+  }
+  return [];
 }
 
 function parseSixDigitGtinPrefixes(

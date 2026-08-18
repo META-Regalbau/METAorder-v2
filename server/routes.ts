@@ -6308,6 +6308,9 @@ Antworte im JSON-Format:
         customerAutoCreateMinConfidence: z.number().min(0).max(100).optional(),
         minRankedEmailScoreForAutoCreate: z.number().min(0).max(200).optional(),
         signatureCompanyVisionEnabled: z.boolean().optional(),
+        inboundAcknowledgementEnabled: z.boolean().optional(),
+        inboundAcknowledgementOwnDomains: z.array(z.string().max(120)).max(20).optional(),
+        inboundAcknowledgementSignature: z.string().max(200).optional(),
       });
       const data = schema.parse(req.body);
       const existing = (await storage.getSetting("commercial_agent_settings")) || {};
@@ -6337,6 +6340,15 @@ Antworte im JSON-Format:
           data.minRankedEmailScoreForAutoCreate ?? ex.minRankedEmailScoreForAutoCreate,
         signatureCompanyVisionEnabled:
           data.signatureCompanyVisionEnabled ?? ex.signatureCompanyVisionEnabled,
+        inboundAcknowledgementEnabled:
+          data.inboundAcknowledgementEnabled ?? ex.inboundAcknowledgementEnabled,
+        inboundAcknowledgementOwnDomains: Array.isArray(data.inboundAcknowledgementOwnDomains)
+          ? data.inboundAcknowledgementOwnDomains
+              .map((s) => s.trim().toLowerCase())
+              .filter(Boolean)
+          : ex.inboundAcknowledgementOwnDomains,
+        inboundAcknowledgementSignature:
+          data.inboundAcknowledgementSignature?.trim() ?? ex.inboundAcknowledgementSignature,
       };
       await storage.saveSetting("commercial_agent_settings", payload);
       res.json({ success: true, settings: await getCommercialAgentSettings(storage) });

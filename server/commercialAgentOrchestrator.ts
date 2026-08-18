@@ -23,6 +23,7 @@ import {
 } from "./commercialWebhookNotifications";
 import { getUploadsRoot } from "./uploadsRoot";
 import { logCommercialAgentDebug } from "./commercialAgentDebugLog";
+import { maybeSendInboundAcknowledgement } from "./commercialInboundAcknowledgementSend";
 import { isCommercialInboundDocumentAttachment } from "./commercialInboundPdfContext";
 
 const DEDUPE_SETTING_KEY = "commercial_agent_dedupe_hashes";
@@ -373,6 +374,20 @@ export async function processCommercialDocumentFromEmail(
     draftKind === "order"
       ? await storage.getOrderDraft(draftId, tenantId ?? null)
       : await storage.getOfferDraft(draftId, tenantId ?? null);
+
+  // Eingangsbestätigung an den Absender — bewusst nur hier (E-Mail-Eingang), nicht bei
+  // manuellen Uploads: Wenn ein Mitarbeiter ein PDF hochlädt, erwartet niemand eine Mail.
+  if (savedDraftForWebhook) {
+    await maybeSendInboundAcknowledgement({
+      storage,
+      tenantId: tenantId ?? null,
+      draftId,
+      draftKind,
+      draft: savedDraftForWebhook,
+      agentSettings,
+    }).catch((err) => console.warn("[CommercialAgent] Eingangsbestätigung fehlgeschlagen:", err));
+  }
+
   if (savedDraftForWebhook) {
     emitCommercialDraftWebhooks({
       draft: savedDraftForWebhook,

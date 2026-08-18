@@ -1452,7 +1452,11 @@
       "customerAutoCreateMin": "Min. score for auto customer create",
       "customerAutoCreateMinDesc": "Only for automatic new-customer creation in Shopware, separate from displayed match confidence.",
       "minRankedEmailScore": "Min. email rank score for auto-create",
-      "minRankedEmailScoreDesc": "Heuristic score of the top address from the message; no automatic creation below this."
+      "minRankedEmailScoreDesc": "Heuristic score of the top address from the message; no automatic creation below this.",
+      "inboundAck": "Send acknowledgement to customer",
+      "inboundAckDesc": "Automatically emails the sender once an order or enquiry arrives, listing the recorded line items. Confirms receipt only, never a commitment. Note: this reaches real customers.",
+      "inboundAckSignature": "Signature line",
+      "inboundAckSignaturePlaceholder": "e.g. Your META team"
     },
     "shopwareConfig": "Shopware Configuration",
     "tenants": {
