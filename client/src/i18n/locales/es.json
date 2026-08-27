@@ -2908,7 +2908,16 @@
         "employeesLoadError": "No se pudieron cargar los empleados (tiempo de espera o error). Los datos maestros se muestran igualmente.",
         "employeesTruncated": "Mostrando {{shown}} de {{total}} empleados.",
         "pricesPreviewHint": "Vista previa de los primeros {{shown}}: lista completa en «Gestionar surtidos».",
-        "pricesPresent": "Existen precios específicos del cliente: detalles en «Gestionar surtidos»."
+        "pricesPresent": "Existen precios específicos del cliente: detalles en «Gestionar surtidos».",
+        "newEmployee": "Nuevo empleado",
+        "newEmployeeTitle": "Crear nuevo empleado",
+        "newEmployeeDescription": "Crea un empleado para este cliente y define una contraseña del portal.",
+        "employeeRole": "Rol",
+        "employeeRoleDefault": "Rol predeterminado",
+        "employeePassword": "Contraseña",
+        "employeePasswordHint": "Al menos 8 caracteres.",
+        "employeeCreated": "Empleado creado",
+        "employeeCreateFailed": "Error al crear"
       }
     },
     "budgets": {

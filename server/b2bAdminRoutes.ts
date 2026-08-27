@@ -342,6 +342,92 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
     }
   });
 
+  // Neuen Mitarbeiter für einen konkreten Kunden anlegen. Bewusst nur normale
+  // Firmen-Mitarbeiter — Vertriebsmitarbeiter/Supervisor sind hier nicht vorgesehen.
+  app.post("/api/b2b/companies/:customerId/employees", requireAuth, requireManageB2B, async (req, res) => {
+    try {
+      const schema = z
+        .object({
+          firstName: z.string().min(1),
+          lastName: z.string().min(1),
+          email: z.string().email(),
+          department: z.string().max(255).optional(),
+          phoneNumber: z.string().max(255).optional(),
+          roleId: z.string().optional(),
+          password: z.string().min(8, "Passwort muss mindestens 8 Zeichen haben"),
+        })
+        .strict();
+      const body = schema.parse(req.body);
+      const customerId = req.params.customerId;
+      const tenantId = getTenantIdFromContext();
+      const [client, shopwareClient] = await Promise.all([
+        getAdminClient(tenantId),
+        getShopwareClient(tenantId),
+      ]);
+
+      const email = body.email.trim().toLowerCase();
+      // B2Bsellers-Mitarbeiter-E-Mail ist eindeutig — Duplikat vorab abfangen.
+      const existing = await client.findEmployeeByEmail(email);
+      if (existing) {
+        return res.status(409).json({ error: "Ein Mitarbeiter mit dieser E-Mail existiert bereits" });
+      }
+
+      const [languageId, salutationId] = await Promise.all([
+        shopwareClient.getDefaultLanguageId(),
+        shopwareClient.getDefaultSalutationId(),
+      ]);
+      if (!languageId) {
+        return res.status(500).json({ error: "Standard-Sprache in Shopware nicht gefunden" });
+      }
+      if (!salutationId?.trim()) {
+        return res.status(500).json({ error: "Standard-Anrede in Shopware nicht gefunden" });
+      }
+
+      // Rolle: übergebene roleId validieren, sonst Standard-(Admin-)Rolle wählen.
+      const roles = await client.fetchRoles();
+      let roleId = body.roleId?.trim() || null;
+      if (roleId && !roles.some((r) => r.id === roleId)) {
+        return res.status(400).json({ error: "Unbekannte Rolle" });
+      }
+      if (!roleId) {
+        const fallback =
+          roles.find((r) => /admin|administrator|verwaltung/i.test(r.name)) ?? roles[0];
+        roleId = fallback?.id ?? null;
+      }
+
+      const employeePayload: Record<string, unknown> = {
+        email,
+        firstName: body.firstName.trim(),
+        lastName: body.lastName.trim(),
+        languageId,
+        salutationId,
+        active: true,
+        password: body.password,
+        department: body.department?.trim() || null,
+        phoneNumber: body.phoneNumber?.trim() || null,
+      };
+      if (roleId) {
+        employeePayload.roleId = roleId;
+        employeePayload.employeeRoleId = roleId;
+      }
+
+      // skipTriggerFlow: keine automatischen Shopware-Flows/Mails beim Anlegen
+      // (konsistent mit dem Portal-User-Import, der standardmäßig keine Mails sendet).
+      const created = await client.createEntity("employee", employeePayload, { skipTriggerFlow: true });
+      await client.createEntity(
+        "employeeCustomer",
+        { employeeId: created.id, customerId },
+        { skipTriggerFlow: true },
+      );
+      res.status(201).json({ success: true, id: created.id });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      res.status(500).json({ error: error.message || "Failed to create employee" });
+    }
+  });
+
   app.patch("/api/b2b/employees/:id", requireAuth, requireManageB2B, async (req, res) => {
     try {
       const schema = z

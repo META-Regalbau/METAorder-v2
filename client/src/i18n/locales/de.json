@@ -3494,7 +3494,16 @@
         "employeesLoadError": "Mitarbeiter konnten nicht geladen werden (Zeitüberschreitung oder Fehler). Stammdaten werden trotzdem angezeigt.",
         "employeesTruncated": "Zeige {{shown}} von {{total}} Mitarbeitern.",
         "pricesPreviewHint": "Vorschau der ersten {{shown}} — vollständige Liste über „Sortimente verwalten“.",
-        "pricesPresent": "Kundenindividuelle Preise vorhanden — Details über „Sortimente verwalten“."
+        "pricesPresent": "Kundenindividuelle Preise vorhanden — Details über „Sortimente verwalten“.",
+        "newEmployee": "Neuer Mitarbeiter",
+        "newEmployeeTitle": "Neuen Mitarbeiter anlegen",
+        "newEmployeeDescription": "Legt einen Mitarbeiter für diesen Kunden an und vergibt ein Portal-Passwort.",
+        "employeeRole": "Rolle",
+        "employeeRoleDefault": "Standardrolle",
+        "employeePassword": "Passwort",
+        "employeePasswordHint": "Mindestens 8 Zeichen.",
+        "employeeCreated": "Mitarbeiter angelegt",
+        "employeeCreateFailed": "Anlage fehlgeschlagen"
       }
     },
     "users": {

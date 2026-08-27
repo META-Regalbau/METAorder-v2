@@ -24,6 +24,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -283,6 +290,202 @@ function EditEmployeeDialog({
   );
 }
 
+type B2BRole = { id: string; name: string; technicalName: string | null };
+
+function NewEmployeeDialog({
+  open,
+  customerId,
+  companyId,
+  onClose,
+}: {
+  open: boolean;
+  customerId: string | null;
+  companyId: string | null;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [department, setDepartment] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [roleId, setRoleId] = useState<string>("");
+  const [password, setPassword] = useState("");
+
+  // Formular bei jedem Öffnen zurücksetzen.
+  useEffect(() => {
+    if (!open) return;
+    setFirstName("");
+    setLastName("");
+    setEmail("");
+    setDepartment("");
+    setPhoneNumber("");
+    setRoleId("");
+    setPassword("");
+  }, [open]);
+
+  const { data: rolesData } = useQuery<{ roles: B2BRole[] }>({
+    queryKey: ["/api/b2b/roles"],
+    queryFn: async () => {
+      const res = await fetch("/api/b2b/roles", { credentials: "include" });
+      if (!res.ok) throw new Error(res.statusText);
+      return res.json();
+    },
+    enabled: open,
+  });
+  const roles = rolesData?.roles ?? [];
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (!customerId) throw new Error("Kein Kunde ausgewählt");
+      const res = await apiRequest("POST", `/api/b2b/companies/${customerId}/employees`, {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.trim(),
+        department: department.trim() || undefined,
+        phoneNumber: phoneNumber.trim() || undefined,
+        roleId: roleId || undefined,
+        password: password.trim(),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error || res.statusText);
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/b2b/companies", companyId, "detail"] });
+      toast({ title: t("b2b.accounts.detail.employeeCreated") });
+      onClose();
+    },
+    onError: (e: Error) => {
+      toast({
+        title: t("b2b.accounts.detail.employeeCreateFailed"),
+        description: e.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const emailValid = /.+@.+\..+/.test(email.trim());
+  const passwordTooShort = password.trim().length > 0 && password.trim().length < 8;
+  const canSubmit =
+    Boolean(firstName.trim()) &&
+    Boolean(lastName.trim()) &&
+    emailValid &&
+    password.trim().length >= 8 &&
+    !mutation.isPending;
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t("b2b.accounts.detail.newEmployeeTitle")}</DialogTitle>
+          <DialogDescription>{t("b2b.accounts.detail.newEmployeeDescription")}</DialogDescription>
+        </DialogHeader>
+        <form
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (canSubmit) mutation.mutate();
+          }}
+        >
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="new-emp-first">{t("b2b.accounts.detail.employeeFirstName")}</Label>
+              <Input
+                id="new-emp-first"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                data-testid="input-new-employee-firstname"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="new-emp-last">{t("b2b.accounts.detail.employeeLastName")}</Label>
+              <Input
+                id="new-emp-last"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                data-testid="input-new-employee-lastname"
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="new-emp-email">{t("b2b.email")}</Label>
+            <Input
+              id="new-emp-email"
+              type="email"
+              value={email}
+              autoComplete="off"
+              onChange={(e) => setEmail(e.target.value)}
+              data-testid="input-new-employee-email"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="new-emp-dep">{t("b2b.department")}</Label>
+              <Input
+                id="new-emp-dep"
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+                data-testid="input-new-employee-department"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="new-emp-phone">{t("b2b.accounts.detail.employeePhone")}</Label>
+              <Input
+                id="new-emp-phone"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                data-testid="input-new-employee-phone"
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label>{t("b2b.accounts.detail.employeeRole")}</Label>
+            <Select value={roleId} onValueChange={setRoleId}>
+              <SelectTrigger data-testid="select-new-employee-role">
+                <SelectValue placeholder={t("b2b.accounts.detail.employeeRoleDefault")} />
+              </SelectTrigger>
+              <SelectContent>
+                {roles.map((role) => (
+                  <SelectItem key={role.id} value={role.id}>
+                    {role.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="new-emp-pw">{t("b2b.accounts.detail.employeePassword")}</Label>
+            <Input
+              id="new-emp-pw"
+              type="password"
+              value={password}
+              autoComplete="new-password"
+              onChange={(e) => setPassword(e.target.value)}
+              data-testid="input-new-employee-password"
+            />
+            <p className={`text-xs ${passwordTooShort ? "text-destructive" : "text-muted-foreground"}`}>
+              {t("b2b.accounts.detail.employeePasswordHint")}
+            </p>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={onClose} disabled={mutation.isPending}>
+              {t("common.cancel")}
+            </Button>
+            <Button type="submit" disabled={!canSubmit} data-testid="button-create-employee">
+              {t("common.create")}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function B2BCompanyDetailModal({
   open,
   onClose,
@@ -299,6 +502,7 @@ export default function B2BCompanyDetailModal({
     name: string;
   } | null>(null);
   const [employeeToEdit, setEmployeeToEdit] = useState<B2BEmployee | null>(null);
+  const [newEmployeeOpen, setNewEmployeeOpen] = useState(false);
 
   const { data, isLoading, isError, error } = useQuery<B2BCompanyDetail>({
     queryKey: ["/api/b2b/companies", companyId, "detail"],
@@ -464,9 +668,21 @@ export default function B2BCompanyDetailModal({
             <Separator />
 
             <section>
-              <h3 className="mb-3 text-sm font-semibold">
-                {t("b2b.accounts.employees")} ({data.employeeTotal ?? data.employees.length})
-              </h3>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold">
+                  {t("b2b.accounts.employees")} ({data.employeeTotal ?? data.employees.length})
+                </h3>
+                {canManage && data.customerId ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setNewEmployeeOpen(true)}
+                    data-testid="button-new-employee"
+                  >
+                    {t("b2b.accounts.detail.newEmployee")}
+                  </Button>
+                ) : null}
+              </div>
               {data.employeesError ? (
                 <p className="mb-3 text-sm text-destructive">
                   {t("b2b.accounts.detail.employeesLoadError")}
@@ -669,6 +885,13 @@ export default function B2BCompanyDetailModal({
       employee={employeeToEdit}
       companyId={companyId}
       onClose={() => setEmployeeToEdit(null)}
+    />
+
+    <NewEmployeeDialog
+      open={newEmployeeOpen}
+      customerId={data?.customerId ?? null}
+      companyId={companyId}
+      onClose={() => setNewEmployeeOpen(false)}
     />
   </>
   );
