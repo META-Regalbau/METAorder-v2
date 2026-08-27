@@ -610,6 +610,23 @@ export class B2BSellersAdminClient {
       getField(customer, "salesChannel.translated.name") ||
       null;
 
+    // Media-Custom-Fields (z. B. Logo/Fußzeile) von der Media-ID zur öffentlichen
+    // URL auflösen, damit das Frontend statt der ID eine Bildvorschau zeigen kann.
+    const customFieldMedia: Record<string, string> = {};
+    if (customFields && typeof customFields === "object") {
+      const mediaEntries = Object.entries(customFields).filter(
+        ([key, value]) =>
+          /media/i.test(key) && typeof value === "string" && /^[0-9a-f]{32}$/i.test(value),
+      );
+      if (mediaEntries.length > 0) {
+        const urlById = await shopware.fetchMediaUrlsByIds(mediaEntries.map(([, v]) => String(v)));
+        for (const [key, value] of mediaEntries) {
+          const url = urlById[String(value)];
+          if (url) customFieldMedia[key] = url;
+        }
+      }
+    }
+
     return {
       offerCustomerId: offer?.id || null,
       customerId,
@@ -630,6 +647,7 @@ export class B2BSellersAdminClient {
       orderTotalAmount: getField(customer, "orderTotalAmount") ?? null,
       createdAt: getField(customer, "createdAt") || getField(offer, "createdAt") || null,
       customFields: customFields && typeof customFields === "object" ? customFields : null,
+      customFieldMedia,
       billingAddress,
       salesChannelName: companySalesChannelName,
       customerGroupName:

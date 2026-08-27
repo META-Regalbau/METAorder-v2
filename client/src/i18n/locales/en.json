@@ -3298,7 +3298,21 @@
         "employeePassword": "Password",
         "employeePasswordHint": "At least 8 characters.",
         "employeeCreated": "Employee created",
-        "employeeCreateFailed": "Creation failed"
+        "employeeCreateFailed": "Creation failed",
+        "customFieldLabels": {
+          "b2b_platform_access": "Platform access",
+          "b2b_sales_representative": "Sales representative",
+          "b2b_supervisor": "Supervisor",
+          "b2b_customer_discount_rate": "Customer discount (%)",
+          "wdu_allow_expert_mode": "Expert mode allowed",
+          "wdu_small_volume_threshold": "Small-volume threshold",
+          "wdu_small_volume_surcharge": "Small-volume surcharge",
+          "wdu_partner_group_number": "Partner group number",
+          "wdu_partner_data_logo_media": "Partner logo",
+          "wdu_partner_data_footer_media": "Partner footer",
+          "wdu_b2b_dealer": "B2B dealer",
+          "SW_Subscription_Status": "Subscription status"
+        }
       }
     },
     "users": {

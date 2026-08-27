@@ -967,6 +967,34 @@ export class ShopwareClient {
     return url;
   }
 
+  /** Löst Shopware-Media-IDs zu öffentlichen URLs auf (id -> url). Für Bild-Vorschauen. */
+  async fetchMediaUrlsByIds(ids: string[]): Promise<Record<string, string>> {
+    const unique = [...new Set(ids.filter(Boolean).map((id) => String(id)))];
+    if (unique.length === 0) return {};
+    const result: Record<string, string> = {};
+    try {
+      const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/media`, {
+        method: "POST",
+        body: JSON.stringify({
+          limit: unique.length,
+          filter: [{ type: "equalsAny", field: "id", value: unique }],
+          includes: { media: ["id", "url"] },
+        }),
+      });
+      if (!response.ok) return {};
+      const data = await response.json();
+      for (const raw of data.data || []) {
+        const item = raw.attributes || raw;
+        const id = raw.id || item.id;
+        const url = item.url;
+        if (id && url) result[String(id)] = this.resolveMediaUrl(String(url));
+      }
+    } catch (error: any) {
+      console.warn("[Shopware] fetchMediaUrlsByIds:", error?.message || error);
+    }
+    return result;
+  }
+
   private async authenticate(): Promise<string> {
     // Check if we have a valid cached token
     if (this.accessToken && Date.now() < this.tokenExpiry) {

@@ -2917,7 +2917,21 @@
         "employeePassword": "Contraseña",
         "employeePasswordHint": "Al menos 8 caracteres.",
         "employeeCreated": "Empleado creado",
-        "employeeCreateFailed": "Error al crear"
+        "employeeCreateFailed": "Error al crear",
+        "customFieldLabels": {
+          "b2b_platform_access": "Acceso a la plataforma",
+          "b2b_sales_representative": "Representante de ventas",
+          "b2b_supervisor": "Supervisor",
+          "b2b_customer_discount_rate": "Descuento de cliente (%)",
+          "wdu_allow_expert_mode": "Modo experto permitido",
+          "wdu_small_volume_threshold": "Umbral de pequeño volumen",
+          "wdu_small_volume_surcharge": "Recargo por pequeño volumen",
+          "wdu_partner_group_number": "Número de grupo de socios",
+          "wdu_partner_data_logo_media": "Logotipo del socio",
+          "wdu_partner_data_footer_media": "Pie de página del socio",
+          "wdu_b2b_dealer": "Distribuidor B2B",
+          "SW_Subscription_Status": "Estado de suscripción"
+        }
       }
     },
     "budgets": {

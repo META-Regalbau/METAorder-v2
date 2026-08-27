@@ -3503,7 +3503,21 @@
         "employeePassword": "Passwort",
         "employeePasswordHint": "Mindestens 8 Zeichen.",
         "employeeCreated": "Mitarbeiter angelegt",
-        "employeeCreateFailed": "Anlage fehlgeschlagen"
+        "employeeCreateFailed": "Anlage fehlgeschlagen",
+        "customFieldLabels": {
+          "b2b_platform_access": "Plattform-Zugang",
+          "b2b_sales_representative": "Vertriebsmitarbeiter",
+          "b2b_supervisor": "Supervisor",
+          "b2b_customer_discount_rate": "Kundenrabatt (%)",
+          "wdu_allow_expert_mode": "Experten-Modus erlaubt",
+          "wdu_small_volume_threshold": "Mindermengen-Schwelle",
+          "wdu_small_volume_surcharge": "Mindermengen-Zuschlag",
+          "wdu_partner_group_number": "Partner-Gruppennummer",
+          "wdu_partner_data_logo_media": "Partner-Logo",
+          "wdu_partner_data_footer_media": "Partner-Fußzeile",
+          "wdu_b2b_dealer": "B2B-Händler",
+          "SW_Subscription_Status": "Abo-Status"
+        }
       }
     },
     "users": {

@@ -56,6 +56,7 @@ export type B2BCompanyDetail = {
   orderTotalAmount: number | null;
   createdAt: string | null;
   customFields: Record<string, unknown> | null;
+  customFieldMedia: Record<string, string>;
   billingAddress: {
     company: string | null;
     firstName: string | null;
@@ -654,13 +655,43 @@ export default function B2BCompanyDetailModal({
               <section>
                 <h3 className="mb-3 text-sm font-semibold">{t("b2b.accounts.detail.customFields")}</h3>
                 <dl className="grid gap-4 sm:grid-cols-2">
-                  {customFieldEntries.map(([key, value]) => (
-                    <DetailField
-                      key={key}
-                      label={key.replace(/^b2b_/, "").replace(/_/g, " ")}
-                      value={typeof value === "boolean" ? (value ? t("b2b.active") : t("b2b.inactive")) : String(value)}
-                    />
-                  ))}
+                  {customFieldEntries.map(([key, value]) => {
+                    const label = t(`b2b.accounts.detail.customFieldLabels.${key}`, {
+                      defaultValue: key.replace(/^b2b_/, "").replace(/_/g, " "),
+                    });
+                    const mediaUrl = data.customFieldMedia?.[key];
+                    if (mediaUrl) {
+                      return (
+                        <DetailField
+                          key={key}
+                          label={label}
+                          value={
+                            <a href={mediaUrl} target="_blank" rel="noreferrer">
+                              <img
+                                src={mediaUrl}
+                                alt={label}
+                                className="h-14 w-auto max-w-[180px] rounded border bg-white object-contain p-1"
+                                loading="lazy"
+                              />
+                            </a>
+                          }
+                        />
+                      );
+                    }
+                    return (
+                      <DetailField
+                        key={key}
+                        label={label}
+                        value={
+                          typeof value === "boolean"
+                            ? value
+                              ? t("b2b.active")
+                              : t("b2b.inactive")
+                            : String(value)
+                        }
+                      />
+                    );
+                  })}
                 </dl>
               </section>
             ) : null}
