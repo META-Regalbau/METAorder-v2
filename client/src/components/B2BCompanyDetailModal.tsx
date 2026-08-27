@@ -567,7 +567,7 @@ export default function B2BCompanyDetailModal({
   return (
     <>
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{data?.company || companyName || t("b2b.accounts.detail.title")}</DialogTitle>
           <DialogDescription>{t("b2b.accounts.detail.subtitle")}</DialogDescription>
