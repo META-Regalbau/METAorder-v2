@@ -3287,7 +3287,9 @@
         "employeeUpdatedWithPassword": "Employee updated, password changed",
         "employeeUpdateFailed": "Update failed",
         "employeesLoadError": "Employees could not be loaded (timeout or error). Master data is still shown.",
-        "employeesTruncated": "Showing {{shown}} of {{total}} employees."
+        "employeesTruncated": "Showing {{shown}} of {{total}} employees.",
+        "pricesPreviewHint": "Preview of the first {{shown}} — full list via \"Manage assortments\".",
+        "pricesPresent": "Customer-specific prices exist — details via \"Manage assortments\"."
       }
     },
     "users": {

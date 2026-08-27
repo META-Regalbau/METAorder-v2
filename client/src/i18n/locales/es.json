@@ -2906,7 +2906,9 @@
         "employeeUpdatedWithPassword": "Empleado actualizado, contraseña cambiada",
         "employeeUpdateFailed": "Error al actualizar",
         "employeesLoadError": "No se pudieron cargar los empleados (tiempo de espera o error). Los datos maestros se muestran igualmente.",
-        "employeesTruncated": "Mostrando {{shown}} de {{total}} empleados."
+        "employeesTruncated": "Mostrando {{shown}} de {{total}} empleados.",
+        "pricesPreviewHint": "Vista previa de los primeros {{shown}}: lista completa en «Gestionar surtidos».",
+        "pricesPresent": "Existen precios específicos del cliente: detalles en «Gestionar surtidos»."
       }
     },
     "budgets": {

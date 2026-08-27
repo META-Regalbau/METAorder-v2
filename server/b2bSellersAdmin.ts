@@ -587,38 +587,24 @@ export class B2BSellersAdminClient {
       null;
 
     const shopware = new ShopwareClient(this.shopwareSettings);
-    const [employeesResult, budgetsResult, priceResult, standardDiscountPercent] = await Promise.all([
+    const [employeesResult, budgetsResult, priceCountInfo] = await Promise.all([
       // Mitarbeiter resilient laden: ein Fehler/Timeout hier darf nicht das
       // gesamte Firmendetail scheitern lassen (Stammdaten weiterhin anzeigen).
       this.fetchEmployees({ customerId, limit: 200 })
         .then((r) => ({ ...r, error: false }))
         .catch(() => ({ employees: [], total: 0, error: true })),
       this.fetchBudgets({ customerId, limit: 50 }).catch(() => ({ budgets: [], total: 0 })),
-      shopware
-        .fetchAllCustomerSpecificPrices({
-          customerId,
-          customerNumber: customerNumber ? String(customerNumber) : null,
-        })
-        .catch(() => ({ available: false, total: 0, prices: [], entity: null })),
-      shopware.fetchCustomerB2BStandardDiscount(customerId).catch(() => null),
+      // Kundenindividuelle Preise: im Firmen-Modal genügt die ANZAHL. Preiszeilen,
+      // Produktdaten und Margen-Anreicherung werden hier NICHT geladen — das war
+      // bei Großkunden (viele Preise) die Ursache für „lädt ewig". Die Vollansicht
+      // läuft über die Sortimente-Seite.
+      this.getCustomerPriceCount(shopware, {
+        tenantId,
+        customerId,
+        customerNumber: customerNumber ? String(customerNumber) : null,
+      }).catch(() => ({ count: null, pluginDetected: false, hasAny: false })),
     ]);
 
-    const enrichedPrices = priceResult.available
-      ? await shopware.enrichCustomerSpecificPricesWithDiscounts(priceResult.prices)
-      : [];
-    const profitabilitySettings = await loadCrmProfitabilitySettings(storage, tenantId);
-    const pricesWithMargin = await enrichCustomerPricesWithHerstellMargin(enrichedPrices, {
-      storage,
-      client: shopware,
-      tenantId,
-      standardDiscountPercent,
-      minMarginPercent: profitabilitySettings.minMarginPercent,
-    });
-
-    const companySalesChannelId =
-      getField(customer, "salesChannelId") ||
-      getField(customer, "salesChannel.id") ||
-      null;
     const companySalesChannelName =
       getField(customer, "salesChannel.name") ||
       getField(customer, "salesChannel.translated.name") ||
@@ -655,32 +641,48 @@ export class B2BSellersAdminClient {
       employeesError: employeesResult.error,
       budgets: budgetsResult.budgets,
       customerPrices: {
-        available: priceResult.available,
-        total: priceResult.total,
-        pluginDetected: priceResult.entity != null,
-        prices: pricesWithMargin.map((price) => ({
-          id: price.id,
-          productId: price.productId,
-          productNumber: price.productNumber,
-          productName: price.productName,
-          from: price.from,
-          to: price.to,
-          priceNet: price.priceNet,
-          pseudoPriceNet: price.pseudoPriceNet,
-          listPriceNet: price.listPriceNet,
-          discountPercent: price.discountPercent,
-          herstellMarginPercent: price.herstellMarginPercent,
-          herstellMarginVerdict: price.herstellMarginVerdict,
-          currencyIsoCode: price.currencyIsoCode,
-          validFrom: price.validFrom,
-          validUntil: price.validUntil,
-          // Preise dieses B2B-Firmenkontakts gehören zum Verkaufskanal des
-          // Kunden – für die getrennte Kanal-Betrachtung mit ausgeben.
-          salesChannelId: price.salesChannelId ?? companySalesChannelId,
-          salesChannelName: price.salesChannelName ?? companySalesChannelName,
-        })),
+        // Im Firmen-Modal nur die Anzahl (bzw. „vorhanden"), keine Preiszeilen.
+        count: priceCountInfo.count,
+        hasAny: priceCountInfo.hasAny,
+        pluginDetected: priceCountInfo.pluginDetected,
       },
     };
+  }
+
+  /**
+   * Anzahl der kundenindividuellen Preise eines Kunden — ohne die Preiszeilen
+   * selbst zu laden. Bevorzugt aus dem lokalen Statistik-Spiegel
+   * (shopware_customer_price_stats, exakt und ohne Shopware-Roundtrip); als
+   * Fallback eine günstige Zähl-Abfrage (limit 1, keine Produkt-Assoziationen).
+   */
+  private async getCustomerPriceCount(
+    shopware: ShopwareClient,
+    opts: { tenantId?: string | null; customerId: string; customerNumber: string | null },
+  ): Promise<{ count: number | null; hasAny: boolean; pluginDetected: boolean }> {
+    try {
+      const stats = await storage.getShopwareCustomerPriceStats(opts.tenantId);
+      const row = stats.find((s) => s.customerId === opts.customerId);
+      if (row) {
+        const count = row.priceCount ?? 0;
+        return { count, hasAny: count > 0, pluginDetected: true };
+      }
+    } catch {
+      /* Spiegel evtl. nicht verfügbar — Fallback unten */
+    }
+    try {
+      const page = await shopware.fetchCustomerSpecificPrices({
+        customerId: opts.customerId,
+        customerNumber: opts.customerNumber,
+        limit: 1,
+        includeProductNames: false,
+      });
+      if (!page.entity) return { count: null, hasAny: false, pluginDetected: false };
+      // page.total ist auf dieser Plugin-Entität nicht zuverlässig — daher keine
+      // exakte Zahl behaupten, nur „vorhanden/keine" anhand der zurückgegebenen Zeile.
+      return { count: null, hasAny: page.prices.length > 0, pluginDetected: true };
+    } catch {
+      return { count: null, hasAny: false, pluginDetected: false };
+    }
   }
 
   mapEmployee(raw: any) {

@@ -31,27 +31,6 @@ import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { Role } from "@shared/schema";
-import HerstellMarginIndicator from "@/components/HerstellMarginIndicator";
-
-export type B2BCompanyCustomerPrice = {
-  id: string;
-  productId: string | null;
-  productNumber: string | null;
-  productName: string | null;
-  from: number | null;
-  to: number | null;
-  priceNet: number | null;
-  pseudoPriceNet: number | null;
-  listPriceNet: number | null;
-  discountPercent: number | null;
-  herstellMarginPercent?: number | null;
-  herstellMarginVerdict?: "green" | "red" | "none";
-  currencyIsoCode: string | null;
-  validFrom: string | null;
-  validUntil: string | null;
-  salesChannelId?: string | null;
-  salesChannelName?: string | null;
-};
 
 export type B2BCompanyDetail = {
   offerCustomerId: string | null;
@@ -104,10 +83,9 @@ export type B2BCompanyDetail = {
     active: boolean;
   }[];
   customerPrices: {
-    available: boolean;
-    total: number;
+    count: number | null;
+    hasAny: boolean;
     pluginDetected: boolean;
-    prices: B2BCompanyCustomerPrice[];
   };
   crmCustomerId: string | null;
   tags: string[];
@@ -630,7 +608,8 @@ export default function B2BCompanyDetailModal({
             <section>
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold">
-                  {t("b2b.accounts.detail.customerPrices")} ({data.customerPrices?.total ?? 0})
+                  {t("b2b.accounts.detail.customerPrices")}
+                  {data.customerPrices?.count != null ? ` (${data.customerPrices.count})` : ""}
                 </h3>
                 {data.customerId ? (
                   <Button asChild variant="outline" size="sm">
@@ -642,59 +621,18 @@ export default function B2BCompanyDetailModal({
               </div>
               {!data.customerPrices?.pluginDetected ? (
                 <p className="text-sm text-muted-foreground">{t("b2b.accounts.detail.pricesPluginMissing")}</p>
-              ) : (data.customerPrices?.prices?.length ?? 0) === 0 ? (
-                <p className="text-sm text-muted-foreground">{t("crm.customer.individualPrices.empty")}</p>
+              ) : data.customerPrices.count != null ? (
+                <p className="text-sm text-muted-foreground">
+                  {data.customerPrices.count > 0
+                    ? t("crm.customer.individualPrices.summary", { count: data.customerPrices.count })
+                    : t("crm.customer.individualPrices.empty")}
+                </p>
+              ) : data.customerPrices.hasAny ? (
+                <p className="text-sm text-muted-foreground">
+                  {t("b2b.accounts.detail.pricesPresent")}
+                </p>
               ) : (
-                <div className="space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    {t("crm.customer.individualPrices.summary", { count: data.customerPrices.total })}
-                  </p>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t("crm.customer.individualPrices.product")}</TableHead>
-                        <TableHead>{t("crm.customer.individualPrices.productNumber")}</TableHead>
-                        <TableHead className="text-right">{t("crm.customer.individualPrices.quantity")}</TableHead>
-                        <TableHead className="text-right">{t("b2b.accounts.detail.listPriceNet")}</TableHead>
-                        <TableHead className="text-right">{t("crm.customer.individualPrices.priceNet")}</TableHead>
-                        <TableHead className="text-right">{t("b2b.accounts.detail.discountPercent")}</TableHead>
-                        <TableHead className="text-right">{t("crm.customer.individualPrices.herstellMargin")}</TableHead>
-                        <TableHead>{t("crm.customer.individualPrices.validity")}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {data.customerPrices.prices.map((price) => (
-                        <TableRow key={price.id}>
-                          <TableCell>{price.productName || "—"}</TableCell>
-                          <TableCell className="font-mono">{price.productNumber || "—"}</TableCell>
-                          <TableCell className="text-right">
-                            {price.from != null ? `${price.from}${price.to != null ? `–${price.to}` : "+"}` : "—"}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {price.listPriceNet != null ? currencyFormatter.format(price.listPriceNet) : "—"}
-                          </TableCell>
-                          <TableCell className="text-right font-medium">
-                            {price.priceNet != null ? currencyFormatter.format(price.priceNet) : "—"}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {price.discountPercent != null ? `${price.discountPercent.toLocaleString("de-DE")} %` : "—"}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <HerstellMarginIndicator
-                              marginPercent={price.herstellMarginPercent ?? null}
-                              verdict={price.herstellMarginVerdict ?? "none"}
-                            />
-                          </TableCell>
-                          <TableCell className="text-xs text-muted-foreground">
-                            {price.validFrom || price.validUntil
-                              ? `${price.validFrom ? new Date(price.validFrom).toLocaleDateString("de-DE") : "—"} – ${price.validUntil ? new Date(price.validUntil).toLocaleDateString("de-DE") : "—"}`
-                              : t("crm.customer.individualPrices.alwaysValid")}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                <p className="text-sm text-muted-foreground">{t("crm.customer.individualPrices.empty")}</p>
               )}
             </section>
           </div>

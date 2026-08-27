@@ -3492,7 +3492,9 @@
         "employeeUpdatedWithPassword": "Mitarbeiter aktualisiert, Passwort geändert",
         "employeeUpdateFailed": "Aktualisierung fehlgeschlagen",
         "employeesLoadError": "Mitarbeiter konnten nicht geladen werden (Zeitüberschreitung oder Fehler). Stammdaten werden trotzdem angezeigt.",
-        "employeesTruncated": "Zeige {{shown}} von {{total}} Mitarbeitern."
+        "employeesTruncated": "Zeige {{shown}} von {{total}} Mitarbeitern.",
+        "pricesPreviewHint": "Vorschau der ersten {{shown}} — vollständige Liste über „Sortimente verwalten“.",
+        "pricesPresent": "Kundenindividuelle Preise vorhanden — Details über „Sortimente verwalten“."
       }
     },
     "users": {
