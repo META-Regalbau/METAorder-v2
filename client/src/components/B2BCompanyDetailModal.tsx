@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -291,7 +292,10 @@ function EditEmployeeDialog({
   );
 }
 
-type B2BRole = { id: string; name: string; technicalName: string | null };
+type B2BRole = { id: string; name: string; technicalName: string | null; privileges: string[] };
+
+// Sentinel-Wert für „Neue Rolle anlegen“ im Rollen-Dropdown.
+const NEW_ROLE = "__new__";
 
 function NewEmployeeDialog({
   open,
@@ -314,6 +318,8 @@ function NewEmployeeDialog({
   const [phoneNumber, setPhoneNumber] = useState("");
   const [roleId, setRoleId] = useState<string>("");
   const [password, setPassword] = useState("");
+  const [newRoleName, setNewRoleName] = useState("");
+  const [newRolePrivileges, setNewRolePrivileges] = useState<string[]>([]);
 
   // Formular bei jedem Öffnen zurücksetzen.
   useEffect(() => {
@@ -325,6 +331,8 @@ function NewEmployeeDialog({
     setPhoneNumber("");
     setRoleId("");
     setPassword("");
+    setNewRoleName("");
+    setNewRolePrivileges([]);
   }, [open]);
 
   const { data: rolesData } = useQuery<{ roles: B2BRole[] }>({
@@ -337,17 +345,44 @@ function NewEmployeeDialog({
     enabled: open,
   });
   const roles = rolesData?.roles ?? [];
+  const creatingRole = roleId === NEW_ROLE;
+
+  // Auswählbare Rechte = Vereinigung der Rechte aller bestehenden Rollen.
+  const allPrivileges = Array.from(
+    new Set(roles.flatMap((r) => r.privileges ?? [])),
+  ).sort((a, b) => a.localeCompare(b));
+
+  const togglePrivilege = (priv: string) =>
+    setNewRolePrivileges((prev) =>
+      prev.includes(priv) ? prev.filter((p) => p !== priv) : [...prev, priv],
+    );
 
   const mutation = useMutation({
     mutationFn: async () => {
       if (!customerId) throw new Error("Kein Kunde ausgewählt");
+
+      // Ggf. zuerst die neue Rolle anlegen, dann deren ID verwenden.
+      let effectiveRoleId: string | undefined = roleId || undefined;
+      if (creatingRole) {
+        const roleRes = await apiRequest("POST", "/api/b2b/roles", {
+          name: newRoleName.trim(),
+          privileges: newRolePrivileges,
+        });
+        if (!roleRes.ok) {
+          const err = await roleRes.json().catch(() => ({ error: roleRes.statusText }));
+          throw new Error(err.error || roleRes.statusText);
+        }
+        const createdRole = await roleRes.json();
+        effectiveRoleId = createdRole.id;
+      }
+
       const res = await apiRequest("POST", `/api/b2b/companies/${customerId}/employees`, {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         email: email.trim(),
         department: department.trim() || undefined,
         phoneNumber: phoneNumber.trim() || undefined,
-        roleId: roleId || undefined,
+        roleId: effectiveRoleId,
         password: password.trim(),
       });
       if (!res.ok) {
@@ -358,6 +393,9 @@ function NewEmployeeDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/b2b/companies", companyId, "detail"] });
+      if (creatingRole) {
+        queryClient.invalidateQueries({ queryKey: ["/api/b2b/roles"] });
+      }
       toast({ title: t("b2b.accounts.detail.employeeCreated") });
       onClose();
     },
@@ -377,6 +415,7 @@ function NewEmployeeDialog({
     Boolean(lastName.trim()) &&
     emailValid &&
     password.trim().length >= 8 &&
+    (!creatingRole || Boolean(newRoleName.trim())) &&
     !mutation.isPending;
 
   return (
@@ -456,9 +495,50 @@ function NewEmployeeDialog({
                     {role.name}
                   </SelectItem>
                 ))}
+                <SelectItem value={NEW_ROLE} data-testid="select-role-new">
+                  ＋ {t("b2b.accounts.detail.roleCreateNew")}
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
+
+          {creatingRole ? (
+            <div className="space-y-3 rounded-md border border-dashed p-3">
+              <div className="space-y-1">
+                <Label htmlFor="new-role-name">{t("b2b.accounts.detail.roleName")}</Label>
+                <Input
+                  id="new-role-name"
+                  value={newRoleName}
+                  onChange={(e) => setNewRoleName(e.target.value)}
+                  placeholder={t("b2b.accounts.detail.roleNamePlaceholder")}
+                  data-testid="input-new-role-name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t("b2b.accounts.detail.rolePrivileges")}</Label>
+                {allPrivileges.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+                    {allPrivileges.map((priv) => (
+                      <label
+                        key={priv}
+                        className="flex cursor-pointer items-center gap-2 text-sm"
+                        data-testid={`privilege-${priv}`}
+                      >
+                        <Checkbox
+                          checked={newRolePrivileges.includes(priv)}
+                          onCheckedChange={() => togglePrivilege(priv)}
+                        />
+                        <span>{t(`b2b.accounts.detail.privileges.${priv}`, { defaultValue: priv })}</span>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">{t("b2b.accounts.detail.rolePrivilegesEmpty")}</p>
+                )}
+                <p className="text-xs text-muted-foreground">{t("b2b.accounts.detail.roleHint")}</p>
+              </div>
+            </div>
+          ) : null}
           <div className="space-y-1">
             <Label htmlFor="new-emp-pw">{t("b2b.accounts.detail.employeePassword")}</Label>
             <Input

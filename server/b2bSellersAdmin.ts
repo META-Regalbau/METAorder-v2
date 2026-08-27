@@ -725,10 +725,12 @@ export class B2BSellersAdminClient {
 
   mapRole(raw: any) {
     const u = unwrapEntity(raw);
+    const privileges = getField(u, "privileges");
     return {
       id: u.id,
       name: getField(u, "name") || getField(u, "translated.name") || "",
       technicalName: getField(u, "technicalName") || null,
+      privileges: Array.isArray(privileges) ? (privileges as string[]) : [],
     };
   }
 
@@ -1079,6 +1081,20 @@ export class B2BSellersAdminClient {
       sort: [{ field: "name", order: "ASC" }],
     });
     return result.data.map((r) => this.mapRole(r));
+  }
+
+  /** Neue (globale) B2Bsellers-Employee-Rolle anlegen. */
+  async createRole(input: { name: string; privileges: string[] }): Promise<{ id: string }> {
+    return this.createEntity(
+      "employeeRole",
+      {
+        name: input.name,
+        privileges: input.privileges,
+        // Global (kein Kundenbezug) — wie die bestehenden Standardrollen.
+        customerId: null,
+      },
+      { skipTriggerFlow: true },
+    );
   }
 
   async fetchBudgets(filters: { customerId?: string; page?: number; limit?: number }) {

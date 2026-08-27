@@ -3312,6 +3312,23 @@
           "wdu_partner_data_footer_media": "Partner footer",
           "wdu_b2b_dealer": "B2B dealer",
           "SW_Subscription_Status": "Subscription status"
+        },
+        "roleCreateNew": "Create new role",
+        "roleName": "Role name",
+        "roleNamePlaceholder": "e.g. Inside Sales",
+        "rolePrivileges": "Privileges",
+        "rolePrivilegesEmpty": "No privileges available.",
+        "roleHint": "The role is created globally and then available for all B2B employees.",
+        "privileges": {
+          "order": "Place orders",
+          "viewPrices": "View prices",
+          "viewAllOrders": "View all orders",
+          "viewSpecialConditions": "View special conditions",
+          "viewListing": "View assortment",
+          "createAddress": "Create address",
+          "editAddress": "Edit address",
+          "viewDocumentsArchive": "View document archive",
+          "editCustomer": "Edit customer data"
         }
       }
     },

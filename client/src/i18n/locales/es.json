@@ -2931,6 +2931,23 @@
           "wdu_partner_data_footer_media": "Pie de página del socio",
           "wdu_b2b_dealer": "Distribuidor B2B",
           "SW_Subscription_Status": "Estado de suscripción"
+        },
+        "roleCreateNew": "Crear nuevo rol",
+        "roleName": "Nombre del rol",
+        "roleNamePlaceholder": "p. ej. Ventas internas",
+        "rolePrivileges": "Permisos",
+        "rolePrivilegesEmpty": "No hay permisos disponibles.",
+        "roleHint": "El rol se crea de forma global y queda disponible para todos los empleados B2B.",
+        "privileges": {
+          "order": "Realizar pedidos",
+          "viewPrices": "Ver precios",
+          "viewAllOrders": "Ver todos los pedidos",
+          "viewSpecialConditions": "Ver condiciones especiales",
+          "viewListing": "Ver surtido",
+          "createAddress": "Crear dirección",
+          "editAddress": "Editar dirección",
+          "viewDocumentsArchive": "Ver archivo de documentos",
+          "editCustomer": "Editar datos del cliente"
         }
       }
     },

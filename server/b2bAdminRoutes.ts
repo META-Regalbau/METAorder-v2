@@ -508,6 +508,48 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
     }
   });
 
+  // Neue (globale) B2B-Rolle anlegen — z. B. direkt beim Anlegen eines Mitarbeiters.
+  app.post("/api/b2b/roles", requireAuth, requireManageB2B, async (req, res) => {
+    try {
+      const schema = z
+        .object({
+          name: z.string().min(1, "Name erforderlich").max(255),
+          privileges: z.array(z.string().min(1)).default([]),
+        })
+        .strict();
+      const body = schema.parse(req.body);
+      const client = await getAdminClient();
+
+      const name = body.name.trim();
+      // Doppelte Namen vermeiden (bestehende Rollen sind global).
+      const existing = await client.fetchRoles();
+      if (existing.some((r) => r.name.trim().toLowerCase() === name.toLowerCase())) {
+        return res.status(409).json({ error: "Eine Rolle mit diesem Namen existiert bereits" });
+      }
+
+      const created = await client.createRole({
+        name,
+        privileges: [...new Set(body.privileges)],
+      });
+      res.status(201).json({ id: created.id, name });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      res.status(500).json({ error: error.message || "Failed to create role" });
+    }
+  });
+
+  app.delete("/api/b2b/roles/:id", requireAuth, requireManageB2B, async (req, res) => {
+    try {
+      const client = await getAdminClient();
+      await client.deleteEntity("employeeRole", req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to delete role" });
+    }
+  });
+
   app.get("/api/b2b/customer-groups", requireAuth, requireViewB2B, async (req, res) => {
     try {
       const tenantId = (req as any).tenantId ?? null;

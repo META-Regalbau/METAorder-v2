@@ -3517,6 +3517,23 @@
           "wdu_partner_data_footer_media": "Partner-Fußzeile",
           "wdu_b2b_dealer": "B2B-Händler",
           "SW_Subscription_Status": "Abo-Status"
+        },
+        "roleCreateNew": "Neue Rolle anlegen",
+        "roleName": "Rollenname",
+        "roleNamePlaceholder": "z. B. Vertrieb Innendienst",
+        "rolePrivileges": "Rechte",
+        "rolePrivilegesEmpty": "Keine Rechte verfügbar.",
+        "roleHint": "Die Rolle wird global angelegt und steht danach für alle B2B-Mitarbeiter zur Verfügung.",
+        "privileges": {
+          "order": "Bestellen",
+          "viewPrices": "Preise sehen",
+          "viewAllOrders": "Alle Bestellungen sehen",
+          "viewSpecialConditions": "Sonderkonditionen sehen",
+          "viewListing": "Sortiment sehen",
+          "createAddress": "Adresse anlegen",
+          "editAddress": "Adresse bearbeiten",
+          "viewDocumentsArchive": "Dokumentenarchiv sehen",
+          "editCustomer": "Kundendaten bearbeiten"
         }
       }
     },
