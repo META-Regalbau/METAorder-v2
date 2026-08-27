@@ -44,6 +44,34 @@ function getField(raw: any, field: string): any {
   return value;
 }
 
+/** Wahrheitswert aus den verschiedenen Repräsentationen (bool, 0/1, "true"/"false"). */
+function coerceBool(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") return value;
+  if (value === 1 || value === "1" || value === "true") return true;
+  if (value === 0 || value === "0" || value === "false") return false;
+  return undefined;
+}
+
+/**
+ * Aktiv-Status eines B2B-Mitarbeiters ermitteln.
+ *
+ * Die B2Bsellers-Employee-Entität besitzt KEIN eigenes `active`-Feld (bestätigt
+ * gegen das Livesystem: Felder u. a. firstName, lastName, department, lastLogin,
+ * passwordActivation — aber kein active/enabled/status). Der bisherige Code las
+ * `active` und erhielt dadurch für jeden Mitarbeiter `false` → alle wurden als
+ * inaktiv angezeigt. Da B2Bsellers-Mitarbeiter keinen Deaktiviert-Zustand auf
+ * der Entität führen, werden sie als aktiv gewertet; die Kandidatenliste fängt
+ * abweichende Plugin-Versionen ab, die doch ein Flag mitliefern.
+ */
+function resolveEmployeeActive(u: any): boolean {
+  const candidates = ["active", "activeState", "isActive", "enabled", "customer.active"];
+  for (const field of candidates) {
+    const resolved = coerceBool(getField(u, field));
+    if (resolved !== undefined) return resolved;
+  }
+  return true;
+}
+
 export class B2BSellersAdminClient {
   private baseUrl: string;
   private apiKey: string;
@@ -634,18 +662,14 @@ export class B2BSellersAdminClient {
       lastName: getField(u, "lastName") || "",
       department: getField(u, "department") || null,
       phoneNumber: getField(u, "phoneNumber") || null,
-      active: Boolean(getField(u, "active")),
+      active: resolveEmployeeActive(u),
       createdAt: getField(u, "createdAt") || null,
-      // Letzte Änderung am Datensatz — echtes Aktivitätssignal, immer vorhanden.
+      // Letzte Änderung am Datensatz — immer vorhanden.
       updatedAt: getField(u, "updatedAt") || null,
-      // Letzter Login: Feldname variiert je B2Bsellers-Version, daher mehrere
-      // Kandidaten prüfen. Ist keiner gesetzt, liefert der Shop dieses Signal nicht.
-      lastLogin:
-        getField(u, "lastLogin") ||
-        getField(u, "lastLoginAt") ||
-        getField(u, "latestLogin") ||
-        getField(u, "customer.lastLogin") ||
-        null,
+      // Letzter Login des Mitarbeiters (B2Bsellers-Feld `lastLogin`, gegen das
+      // Livesystem bestätigt). Ersetzt die bisherige Anzeige, die nur das
+      // Anlagedatum (createdAt) kannte.
+      lastLogin: getField(u, "lastLogin") || null,
     };
   }
 

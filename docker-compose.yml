@@ -69,6 +69,9 @@ services:
       DATABASE_URL: postgresql://metaorder:metaorder@db:5432/metaorder
       SESSION_SECRET: ${SESSION_SECRET:-bitte-in-produktion-setzen}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-metaorder-dev-encryption-key-change-in-prod}
+      # Versteckter Notfall-Passwort-Reset (Login-Seite: Strg+Shift+Alt+R).
+      # Wert aus `.env` neben der Compose-Datei; leer/fehlend = Feature deaktiviert.
+      ADMIN_RESET_KEY: ${ADMIN_RESET_KEY:-}
       # Muss mit dem "CPQ-Handoff-Secret" im MetaClipCpq-Shopware-Plugin (Systemkonfiguration)
       # übereinstimmen — signiert den Übergabe-Token Produktseite → Konfigurator.
       CPQ_HANDOFF_SECRET: ${CPQ_HANDOFF_SECRET:-dev-cpq-handoff-secret-change-me}
