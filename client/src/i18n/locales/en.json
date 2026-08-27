@@ -3285,7 +3285,9 @@
         "employeeNewPasswordHint": "Leave empty to keep the current password (min. 8 characters).",
         "employeeUpdated": "Employee updated",
         "employeeUpdatedWithPassword": "Employee updated, password changed",
-        "employeeUpdateFailed": "Update failed"
+        "employeeUpdateFailed": "Update failed",
+        "employeesLoadError": "Employees could not be loaded (timeout or error). Master data is still shown.",
+        "employeesTruncated": "Showing {{shown}} of {{total}} employees."
       }
     },
     "users": {

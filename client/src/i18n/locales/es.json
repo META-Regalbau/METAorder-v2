@@ -2904,7 +2904,9 @@
         "employeeNewPasswordHint": "Déjalo vacío para mantener la contraseña actual (mín. 8 caracteres).",
         "employeeUpdated": "Empleado actualizado",
         "employeeUpdatedWithPassword": "Empleado actualizado, contraseña cambiada",
-        "employeeUpdateFailed": "Error al actualizar"
+        "employeeUpdateFailed": "Error al actualizar",
+        "employeesLoadError": "No se pudieron cargar los empleados (tiempo de espera o error). Los datos maestros se muestran igualmente.",
+        "employeesTruncated": "Mostrando {{shown}} de {{total}} empleados."
       }
     },
     "budgets": {

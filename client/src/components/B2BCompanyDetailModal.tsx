@@ -94,6 +94,8 @@ export type B2BCompanyDetail = {
     updatedAt: string | null;
     lastLogin: string | null;
   }[];
+  employeeTotal: number;
+  employeesError: boolean;
   budgets: {
     id: string;
     name: string;
@@ -485,8 +487,21 @@ export default function B2BCompanyDetailModal({
 
             <section>
               <h3 className="mb-3 text-sm font-semibold">
-                {t("b2b.accounts.employees")} ({data.employees.length})
+                {t("b2b.accounts.employees")} ({data.employeeTotal ?? data.employees.length})
               </h3>
+              {data.employeesError ? (
+                <p className="mb-3 text-sm text-destructive">
+                  {t("b2b.accounts.detail.employeesLoadError")}
+                </p>
+              ) : null}
+              {!data.employeesError && data.employeeTotal > data.employees.length ? (
+                <p className="mb-3 text-sm text-muted-foreground">
+                  {t("b2b.accounts.detail.employeesTruncated", {
+                    shown: data.employees.length,
+                    total: data.employeeTotal,
+                  })}
+                </p>
+              ) : null}
               {data.employees.length > 0 ? (
                 <Table>
                   <TableHeader>

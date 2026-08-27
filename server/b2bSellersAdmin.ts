@@ -154,12 +154,36 @@ export class B2BSellersAdminClient {
     return this.entityMapping[key];
   }
 
-  async searchEntity(entityKey: keyof B2BEntityMapping, criteria: Record<string, unknown>): Promise<{ data: any[]; total: number }> {
+  async searchEntity(
+    entityKey: keyof B2BEntityMapping,
+    criteria: Record<string, unknown>,
+    options?: { timeoutMs?: number },
+  ): Promise<{ data: any[]; total: number }> {
     const entityName = this.resolveEntityName(entityKey);
-    const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/${entityName}`, {
-      method: "POST",
-      body: JSON.stringify(criteria),
-    });
+    // Optionales Timeout: hängt der Shopware-Query (z. B. bei sehr großen
+    // Ergebnismengen), lieber schnell mit klarer Meldung abbrechen als das
+    // gesamte Detail-Request hängen zu lassen.
+    const controller = options?.timeoutMs ? new AbortController() : undefined;
+    const timer = controller
+      ? setTimeout(() => controller.abort(), options!.timeoutMs)
+      : undefined;
+    let response: Response;
+    try {
+      response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/${entityName}`, {
+        method: "POST",
+        body: JSON.stringify(criteria),
+        signal: controller?.signal,
+      });
+    } catch (error: any) {
+      if (error?.name === "AbortError") {
+        throw new Error(
+          `Search ${entityName} timed out after ${options?.timeoutMs}ms — Ergebnismenge evtl. zu groß, bitte einschränken`,
+        );
+      }
+      throw error;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`Failed to search ${entityName}: ${response.statusText} - ${errorText}`);
@@ -564,7 +588,11 @@ export class B2BSellersAdminClient {
 
     const shopware = new ShopwareClient(this.shopwareSettings);
     const [employeesResult, budgetsResult, priceResult, standardDiscountPercent] = await Promise.all([
-      this.fetchEmployees({ customerId, limit: 100 }),
+      // Mitarbeiter resilient laden: ein Fehler/Timeout hier darf nicht das
+      // gesamte Firmendetail scheitern lassen (Stammdaten weiterhin anzeigen).
+      this.fetchEmployees({ customerId, limit: 200 })
+        .then((r) => ({ ...r, error: false }))
+        .catch(() => ({ employees: [], total: 0, error: true })),
       this.fetchBudgets({ customerId, limit: 50 }).catch(() => ({ budgets: [], total: 0 })),
       shopware
         .fetchAllCustomerSpecificPrices({
@@ -623,6 +651,8 @@ export class B2BSellersAdminClient {
         getField(customer, "group.translated.name") ||
         null,
       employees: employeesResult.employees,
+      employeeTotal: employeesResult.total,
+      employeesError: employeesResult.error,
       budgets: budgetsResult.budgets,
       customerPrices: {
         available: priceResult.available,
@@ -873,7 +903,24 @@ export class B2BSellersAdminClient {
       page,
       totalCountMode: 1,
       sort: [{ field: "lastName", order: "ASC" }],
-      associations: this.buildAssociations(["customers"]),
+      // Nur die Felder laden, die mapEmployee tatsächlich nutzt. Ohne includes
+      // liefert Shopware u. a. den Passwort-Hash und alle Skalarfelder mit; die
+      // früher angeforderte customers-Assoziation wurde nie verwendet, blähte
+      // aber bei Kunden mit vielen Mitarbeitern die Antwort massiv auf (lange
+      // Laufzeit / Timeout). Entity-Key für includes = Technischer Name.
+      includes: {
+        [this.resolveEntityName("employee").replace(/-/g, "_")]: [
+          "id",
+          "email",
+          "firstName",
+          "lastName",
+          "department",
+          "phoneNumber",
+          "createdAt",
+          "updatedAt",
+          "lastLogin",
+        ],
+      },
       filter: [],
     };
     if (filters.search) {
@@ -889,18 +936,35 @@ export class B2BSellersAdminClient {
     }
     if (filters.customerId) {
       try {
-        const links = await this.searchEntity("employeeCustomer", {
-          limit: 500,
-          filter: [{ type: "equals", field: "customerId", value: filters.customerId }],
-        });
-        const employeeIds = links.data.map((l) => getField(l, "employeeId")).filter(Boolean);
+        // Verknüpfungen Kunde↔Mitarbeiter: nur die employeeId laden und in
+        // Seiten von je 500 durchlaufen, damit auch Kunden mit sehr vielen
+        // Mitarbeitern vollständig erfasst werden (statt bei 500 abzuschneiden).
+        const employeeIds: string[] = [];
+        let linkPage = 1;
+        // Sicherheitsobergrenze gegen Endlosschleifen (max. 10.000 Verknüpfungen).
+        for (let guard = 0; guard < 20; guard++) {
+          const links = await this.searchEntity(
+            "employeeCustomer",
+            {
+              limit: 500,
+              page: linkPage,
+              includes: { [this.resolveEntityName("employeeCustomer").replace(/-/g, "_")]: ["employeeId"] },
+              filter: [{ type: "equals", field: "customerId", value: filters.customerId }],
+            },
+            { timeoutMs: 20000 },
+          );
+          const ids = links.data.map((l) => getField(l, "employeeId")).filter(Boolean);
+          employeeIds.push(...ids);
+          if (ids.length < 500) break;
+          linkPage += 1;
+        }
         if (employeeIds.length === 0) return { employees: [], total: 0 };
         (criteria.filter as any[]).push({ type: "equalsAny", field: "id", value: employeeIds });
       } catch {
         /* entity may not exist */
       }
     }
-    const result = await this.searchEntity("employee", criteria);
+    const result = await this.searchEntity("employee", criteria, { timeoutMs: 25000 });
     return { employees: result.data.map((r) => this.mapEmployee(r)), total: result.total };
   }
 

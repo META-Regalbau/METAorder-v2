@@ -3490,7 +3490,9 @@
         "employeeNewPasswordHint": "Leer lassen, um das Passwort nicht zu ändern (mind. 8 Zeichen).",
         "employeeUpdated": "Mitarbeiter aktualisiert",
         "employeeUpdatedWithPassword": "Mitarbeiter aktualisiert, Passwort geändert",
-        "employeeUpdateFailed": "Aktualisierung fehlgeschlagen"
+        "employeeUpdateFailed": "Aktualisierung fehlgeschlagen",
+        "employeesLoadError": "Mitarbeiter konnten nicht geladen werden (Zeitüberschreitung oder Fehler). Stammdaten werden trotzdem angezeigt.",
+        "employeesTruncated": "Zeige {{shown}} von {{total}} Mitarbeitern."
       }
     },
     "users": {
