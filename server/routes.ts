@@ -166,6 +166,16 @@ const loginRateLimiter = rateLimit({
   skipSuccessfulRequests: true, // Don't count successful logins against the limit
 });
 
+// Rate limiter for the hidden emergency password reset - stricter than login,
+// failed attempts count (skipSuccessfulRequests would let an attacker probe the key)
+const emergencyResetRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { error: "Zu viele Versuche. Bitte später erneut versuchen." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Rate limiters for expensive endpoints
 const aiRateLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -1537,7 +1547,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
     res.json({ message: "Logged out successfully" });
   });
-  
+
+  // Versteckter Notfall-Passwort-Reset (Login-Seite: Ctrl+Shift+Alt+R).
+  // Nur aktiv, wenn ADMIN_RESET_KEY in der Umgebung gesetzt ist — ohne Key
+  // antwortet der Endpoint identisch zu "falscher Schlüssel", damit seine
+  // Existenz von außen nicht erkennbar ist.
+  app.post("/api/auth/emergency-reset", emergencyResetRateLimiter, async (req, res) => {
+    const denied = () => res.status(403).json({ error: "Reset nicht möglich" });
+    try {
+      const configuredKey = process.env.ADMIN_RESET_KEY?.trim();
+      const { username, resetKey, newPassword } = req.body ?? {};
+      if (
+        typeof username !== "string" ||
+        typeof resetKey !== "string" ||
+        typeof newPassword !== "string"
+      ) {
+        return denied();
+      }
+      if (!configuredKey) {
+        console.warn("[EMERGENCY-RESET] Versuch, aber ADMIN_RESET_KEY ist nicht gesetzt");
+        return denied();
+      }
+      // Timing-sicherer Vergleich über SHA-256 (gleiche Länge unabhängig von der Eingabe)
+      const providedHash = crypto.createHash("sha256").update(resetKey, "utf8").digest();
+      const configuredHash = crypto.createHash("sha256").update(configuredKey, "utf8").digest();
+      if (!crypto.timingSafeEqual(providedHash, configuredHash)) {
+        console.warn(`[EMERGENCY-RESET] Ungültiger Reset-Schlüssel (username=${username})`);
+        return denied();
+      }
+      if (newPassword.length < 8) {
+        return res.status(400).json({ error: "Neues Passwort muss mindestens 8 Zeichen haben" });
+      }
+      const user = await storage.getUserByUsername(username.trim());
+      if (!user) {
+        // Schlüssel war korrekt — hier darf die Meldung konkret sein
+        return res.status(404).json({ error: "Benutzer nicht gefunden" });
+      }
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await storage.updateUser(user.id, { password: hashedPassword });
+      console.log(`[EMERGENCY-RESET] Passwort für "${user.username}" wurde zurückgesetzt`);
+      return res.json({ message: "Passwort zurückgesetzt" });
+    } catch (error) {
+      console.error("[EMERGENCY-RESET] Error:", error);
+      return res.status(500).json({ error: "Reset fehlgeschlagen" });
+    }
+  });
+
+
   app.get("/api/auth/me", requireAuth, (req, res) => {
     // req.user is set by requireAuth middleware
     const { password, roleDetails, ...userWithoutPassword } = req.user as any;

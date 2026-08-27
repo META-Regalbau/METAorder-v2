@@ -139,6 +139,11 @@ app.use((req, res, next) => {
     console.log('[CSRF] Skipping CSRF check for login endpoint');
     return next();
   }
+  // Notfall-Passwort-Reset: vor dem Login existiert kein CSRF-Token; die
+  // Autorisierung läuft über den ADMIN_RESET_KEY im Request selbst.
+  if (req.path === "/api/auth/emergency-reset") {
+    return next();
+  }
   // Automation mit Integrations-Key (kein Browser-Cookie für CSRF)
   const intKey = req.headers["x-metaorder-integration-key"];
   if (typeof intKey === "string" && intKey.trim().length > 0) {

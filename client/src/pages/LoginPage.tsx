@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -7,6 +8,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
@@ -23,10 +25,159 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
+const emergencyResetSchema = z
+  .object({
+    username: z.string().min(1, "Benutzername erforderlich"),
+    resetKey: z.string().min(1, "Reset-Schlüssel erforderlich"),
+    newPassword: z.string().min(8, "Mindestens 8 Zeichen"),
+    confirmPassword: z.string().min(1, "Bestätigung erforderlich"),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwörter stimmen nicht überein",
+    path: ["confirmPassword"],
+  });
+
+type EmergencyResetFormData = z.infer<typeof emergencyResetSchema>;
+
+// Versteckter Notfall-Reset: nirgends verlinkt, nur über Ctrl+Shift+Alt+R
+// erreichbar. Serverseitig nur wirksam, wenn ADMIN_RESET_KEY gesetzt ist.
+function EmergencyResetDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const { toast } = useToast();
+
+  const form = useForm<EmergencyResetFormData>({
+    resolver: zodResolver(emergencyResetSchema),
+    defaultValues: {
+      username: "",
+      resetKey: "",
+      newPassword: "",
+      confirmPassword: "",
+    },
+  });
+
+  const resetMutation = useMutation({
+    mutationFn: async (data: EmergencyResetFormData) => {
+      const response = await apiRequest("POST", "/api/auth/emergency-reset", {
+        username: data.username,
+        resetKey: data.resetKey,
+        newPassword: data.newPassword,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Passwort zurückgesetzt",
+        description: "Sie können sich jetzt mit dem neuen Passwort anmelden.",
+      });
+      form.reset();
+      onOpenChange(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Reset fehlgeschlagen",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Notfall-Passwort-Reset</DialogTitle>
+          <DialogDescription>
+            Setzt das Passwort eines Benutzers mit dem hinterlegten Reset-Schlüssel zurück.
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form
+            onSubmit={form.handleSubmit((data) => resetMutation.mutate(data))}
+            className="space-y-4"
+          >
+            <FormField
+              control={form.control}
+              name="username"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Benutzername</FormLabel>
+                  <FormControl>
+                    <Input {...field} autoComplete="off" data-testid="input-reset-username" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="resetKey"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Reset-Schlüssel</FormLabel>
+                  <FormControl>
+                    <Input {...field} type="password" autoComplete="off" data-testid="input-reset-key" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="newPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Neues Passwort</FormLabel>
+                  <FormControl>
+                    <Input {...field} type="password" autoComplete="new-password" data-testid="input-reset-new-password" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Neues Passwort bestätigen</FormLabel>
+                  <FormControl>
+                    <Input {...field} type="password" autoComplete="new-password" data-testid="input-reset-confirm-password" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={resetMutation.isPending}
+              data-testid="button-reset-password"
+            >
+              {resetMutation.isPending ? "Wird zurückgesetzt…" : "Passwort zurücksetzen"}
+            </Button>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: () => void }) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+
+  // Versteckte Tastenkombination Ctrl+Shift+Alt+R öffnet den Notfall-Reset
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.ctrlKey && event.shiftKey && event.altKey && event.code === "KeyR") {
+        event.preventDefault();
+        setResetDialogOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -98,7 +249,7 @@ export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: () => vo
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="password"
@@ -118,7 +269,7 @@ export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: () => vo
                     </FormItem>
                   )}
                 />
-                
+
                 <Button
                   type="submit"
                   className="w-full"
@@ -132,6 +283,7 @@ export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: () => vo
           </CardContent>
         </Card>
       </div>
+      <EmergencyResetDialog open={resetDialogOpen} onOpenChange={setResetDialogOpen} />
     </div>
   );
 }
