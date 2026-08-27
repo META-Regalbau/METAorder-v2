@@ -636,6 +636,16 @@ export class B2BSellersAdminClient {
       phoneNumber: getField(u, "phoneNumber") || null,
       active: Boolean(getField(u, "active")),
       createdAt: getField(u, "createdAt") || null,
+      // Letzte Änderung am Datensatz — echtes Aktivitätssignal, immer vorhanden.
+      updatedAt: getField(u, "updatedAt") || null,
+      // Letzter Login: Feldname variiert je B2Bsellers-Version, daher mehrere
+      // Kandidaten prüfen. Ist keiner gesetzt, liefert der Shop dieses Signal nicht.
+      lastLogin:
+        getField(u, "lastLogin") ||
+        getField(u, "lastLoginAt") ||
+        getField(u, "latestLogin") ||
+        getField(u, "customer.lastLogin") ||
+        null,
     };
   }
 

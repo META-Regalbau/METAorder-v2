@@ -344,10 +344,40 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
 
   app.patch("/api/b2b/employees/:id", requireAuth, requireManageB2B, async (req, res) => {
     try {
+      const schema = z
+        .object({
+          firstName: z.string().min(1).optional(),
+          lastName: z.string().min(1).optional(),
+          department: z.string().max(255).nullish(),
+          phoneNumber: z.string().max(255).nullish(),
+          active: z.boolean().optional(),
+          // Optionales neues Portal-Passwort für den Mitarbeiter.
+          password: z.string().min(8, "Passwort muss mindestens 8 Zeichen haben").optional(),
+        })
+        .strict();
+      const body = schema.parse(req.body);
+
+      const payload: Record<string, unknown> = {};
+      for (const key of ["firstName", "lastName", "department", "phoneNumber", "active"] as const) {
+        if (body[key] !== undefined) {
+          // Leere Strings als null speichern (Shopware akzeptiert null für optionale Felder).
+          payload[key] = body[key] === "" ? null : body[key];
+        }
+      }
+      if (body.password) {
+        payload.password = body.password;
+      }
+      if (Object.keys(payload).length === 0) {
+        return res.status(400).json({ error: "Keine Änderungen übergeben" });
+      }
+
       const client = await getAdminClient();
-      await client.patchEntity("employee", req.params.id, req.body);
-      res.json({ success: true });
+      await client.patchEntity("employee", req.params.id, payload);
+      res.json({ success: true, passwordChanged: Boolean(body.password) });
     } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
       res.status(500).json({ error: error.message || "Failed to update employee" });
     }
   });

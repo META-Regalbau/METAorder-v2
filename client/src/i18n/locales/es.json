@@ -2889,7 +2889,22 @@
         "employeeActivated": "Empleado activado",
         "employeeDeactivated": "Empleado desactivado",
         "employeeDeleted": "Empleado eliminado",
-        "employeeActionFailed": "Acción fallida"
+        "employeeActionFailed": "Acción fallida",
+        "employeeCreatedAt": "Creado",
+        "employeeLastLogin": "Último acceso",
+        "employeeLastActivity": "Última actividad",
+        "editEmployee": "Editar",
+        "editEmployeeTitle": "Editar empleado",
+        "editEmployeeDescription": "Modifica los datos maestros y, opcionalmente, define una nueva contraseña del portal.",
+        "employeeFirstName": "Nombre",
+        "employeeLastName": "Apellidos",
+        "employeeDepartment": "Departamento",
+        "employeePhone": "Teléfono",
+        "employeeNewPassword": "Nueva contraseña",
+        "employeeNewPasswordHint": "Déjalo vacío para mantener la contraseña actual (mín. 8 caracteres).",
+        "employeeUpdated": "Empleado actualizado",
+        "employeeUpdatedWithPassword": "Empleado actualizado, contraseña cambiada",
+        "employeeUpdateFailed": "Error al actualizar"
       }
     },
     "budgets": {

@@ -3270,7 +3270,22 @@
         "employeeActivated": "Employee activated",
         "employeeDeactivated": "Employee deactivated",
         "employeeDeleted": "Employee deleted",
-        "employeeActionFailed": "Action failed"
+        "employeeActionFailed": "Action failed",
+        "employeeCreatedAt": "Created",
+        "employeeLastLogin": "Last login",
+        "employeeLastActivity": "Last active",
+        "editEmployee": "Edit",
+        "editEmployeeTitle": "Edit employee",
+        "editEmployeeDescription": "Change master data and optionally set a new portal password.",
+        "employeeFirstName": "First name",
+        "employeeLastName": "Last name",
+        "employeeDepartment": "Department",
+        "employeePhone": "Phone",
+        "employeeNewPassword": "New password",
+        "employeeNewPasswordHint": "Leave empty to keep the current password (min. 8 characters).",
+        "employeeUpdated": "Employee updated",
+        "employeeUpdatedWithPassword": "Employee updated, password changed",
+        "employeeUpdateFailed": "Update failed"
       }
     },
     "users": {

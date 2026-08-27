@@ -3475,7 +3475,22 @@
         "employeeActivated": "Mitarbeiter aktiviert",
         "employeeDeactivated": "Mitarbeiter deaktiviert",
         "employeeDeleted": "Mitarbeiter gelöscht",
-        "employeeActionFailed": "Aktion fehlgeschlagen"
+        "employeeActionFailed": "Aktion fehlgeschlagen",
+        "employeeCreatedAt": "Angelegt",
+        "employeeLastLogin": "Zuletzt angemeldet",
+        "employeeLastActivity": "Zuletzt aktiv",
+        "editEmployee": "Bearbeiten",
+        "editEmployeeTitle": "Mitarbeiter bearbeiten",
+        "editEmployeeDescription": "Stammdaten ändern und optional ein neues Portal-Passwort setzen.",
+        "employeeFirstName": "Vorname",
+        "employeeLastName": "Nachname",
+        "employeeDepartment": "Abteilung",
+        "employeePhone": "Telefon",
+        "employeeNewPassword": "Neues Passwort",
+        "employeeNewPasswordHint": "Leer lassen, um das Passwort nicht zu ändern (mind. 8 Zeichen).",
+        "employeeUpdated": "Mitarbeiter aktualisiert",
+        "employeeUpdatedWithPassword": "Mitarbeiter aktualisiert, Passwort geändert",
+        "employeeUpdateFailed": "Aktualisierung fehlgeschlagen"
       }
     },
     "users": {

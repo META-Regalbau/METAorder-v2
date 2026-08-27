@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -21,6 +21,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -88,6 +91,8 @@ export type B2BCompanyDetail = {
     phoneNumber: string | null;
     active: boolean;
     createdAt: string | null;
+    updatedAt: string | null;
+    lastLogin: string | null;
   }[];
   budgets: {
     id: string;
@@ -132,6 +137,172 @@ function formatDate(value: string | null) {
   return Number.isNaN(parsed.getTime()) ? value : dateFormatter.format(parsed);
 }
 
+type B2BEmployee = B2BCompanyDetail["employees"][number];
+
+function EditEmployeeDialog({
+  employee,
+  companyId,
+  onClose,
+}: {
+  employee: B2BEmployee | null;
+  companyId: string | null;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [department, setDepartment] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [active, setActive] = useState(true);
+  const [password, setPassword] = useState("");
+
+  // Formular bei jedem neu geöffneten Mitarbeiter mit dessen Daten befüllen.
+  useEffect(() => {
+    if (!employee) return;
+    setFirstName(employee.firstName ?? "");
+    setLastName(employee.lastName ?? "");
+    setDepartment(employee.department ?? "");
+    setPhoneNumber(employee.phoneNumber ?? "");
+    setActive(employee.active);
+    setPassword("");
+  }, [employee]);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (!employee) throw new Error("Kein Mitarbeiter ausgewählt");
+      const payload: Record<string, unknown> = {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        department: department.trim(),
+        phoneNumber: phoneNumber.trim(),
+        active,
+      };
+      if (password.trim()) {
+        payload.password = password.trim();
+      }
+      const res = await apiRequest("PATCH", `/api/b2b/employees/${employee.id}`, payload);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error || res.statusText);
+      }
+      return res.json() as Promise<{ passwordChanged?: boolean }>;
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/b2b/companies", companyId, "detail"] });
+      toast({
+        title: result?.passwordChanged
+          ? t("b2b.accounts.detail.employeeUpdatedWithPassword")
+          : t("b2b.accounts.detail.employeeUpdated"),
+      });
+      onClose();
+    },
+    onError: (e: Error) => {
+      toast({
+        title: t("b2b.accounts.detail.employeeUpdateFailed"),
+        description: e.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const passwordTooShort = password.trim().length > 0 && password.trim().length < 8;
+  const canSubmit =
+    Boolean(firstName.trim()) && Boolean(lastName.trim()) && !passwordTooShort && !mutation.isPending;
+
+  return (
+    <Dialog open={Boolean(employee)} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t("b2b.accounts.detail.editEmployeeTitle")}</DialogTitle>
+          <DialogDescription>{t("b2b.accounts.detail.editEmployeeDescription")}</DialogDescription>
+        </DialogHeader>
+        <form
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (canSubmit) mutation.mutate();
+          }}
+        >
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="edit-emp-first">{t("b2b.accounts.detail.employeeFirstName")}</Label>
+              <Input
+                id="edit-emp-first"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                data-testid="input-employee-firstname"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="edit-emp-last">{t("b2b.accounts.detail.employeeLastName")}</Label>
+              <Input
+                id="edit-emp-last"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                data-testid="input-employee-lastname"
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label>{t("b2b.email")}</Label>
+            <Input value={employee?.email ?? ""} disabled />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="edit-emp-dep">{t("b2b.department")}</Label>
+              <Input
+                id="edit-emp-dep"
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+                data-testid="input-employee-department"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="edit-emp-phone">{t("b2b.accounts.detail.employeePhone")}</Label>
+              <Input
+                id="edit-emp-phone"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                data-testid="input-employee-phone"
+              />
+            </div>
+          </div>
+          <div className="flex items-center justify-between rounded-md border p-3">
+            <Label htmlFor="edit-emp-active" className="cursor-pointer">
+              {t("b2b.status")}
+            </Label>
+            <Switch id="edit-emp-active" checked={active} onCheckedChange={setActive} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="edit-emp-pw">{t("b2b.accounts.detail.employeeNewPassword")}</Label>
+            <Input
+              id="edit-emp-pw"
+              type="password"
+              value={password}
+              autoComplete="new-password"
+              onChange={(e) => setPassword(e.target.value)}
+              data-testid="input-employee-password"
+            />
+            <p className={`text-xs ${passwordTooShort ? "text-destructive" : "text-muted-foreground"}`}>
+              {t("b2b.accounts.detail.employeeNewPasswordHint")}
+            </p>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={onClose} disabled={mutation.isPending}>
+              {t("common.cancel")}
+            </Button>
+            <Button type="submit" disabled={!canSubmit} data-testid="button-save-employee">
+              {t("common.save")}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function B2BCompanyDetailModal({
   open,
   onClose,
@@ -147,6 +318,7 @@ export default function B2BCompanyDetailModal({
     id: string;
     name: string;
   } | null>(null);
+  const [employeeToEdit, setEmployeeToEdit] = useState<B2BEmployee | null>(null);
 
   const { data, isLoading, isError, error } = useQuery<B2BCompanyDetail>({
     queryKey: ["/api/b2b/companies", companyId, "detail"],
@@ -322,6 +494,7 @@ export default function B2BCompanyDetailModal({
                       <TableHead>{t("b2b.name")}</TableHead>
                       <TableHead>{t("b2b.email")}</TableHead>
                       <TableHead>{t("b2b.department")}</TableHead>
+                      <TableHead>{t("b2b.accounts.detail.employeeLastLogin")}</TableHead>
                       <TableHead>{t("b2b.status")}</TableHead>
                       {canManage ? (
                         <TableHead className="text-right">{t("b2b.accounts.detail.employeeActions")}</TableHead>
@@ -334,6 +507,9 @@ export default function B2BCompanyDetailModal({
                         <TableCell>{`${employee.firstName} ${employee.lastName}`.trim()}</TableCell>
                         <TableCell>{employee.email}</TableCell>
                         <TableCell>{employee.department || "—"}</TableCell>
+                        <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                          {formatDate(employee.lastLogin)}
+                        </TableCell>
                         <TableCell>
                           <Badge variant={employee.active ? "default" : "secondary"}>
                             {employee.active ? t("b2b.active") : t("b2b.inactive")}
@@ -342,6 +518,14 @@ export default function B2BCompanyDetailModal({
                         {canManage ? (
                           <TableCell className="text-right">
                             <div className="flex flex-wrap justify-end gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setEmployeeToEdit(employee)}
+                                data-testid={`button-edit-employee-${employee.id}`}
+                              >
+                                {t("b2b.accounts.detail.editEmployee")}
+                              </Button>
                               {employee.active ? (
                                 <Button
                                   variant="outline"
@@ -527,6 +711,12 @@ export default function B2BCompanyDetailModal({
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+
+    <EditEmployeeDialog
+      employee={employeeToEdit}
+      companyId={companyId}
+      onClose={() => setEmployeeToEdit(null)}
+    />
   </>
   );
 }
