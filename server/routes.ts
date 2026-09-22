@@ -7,7 +7,7 @@ import rateLimit from "express-rate-limit";
 import crypto from "crypto";
 import { storage } from "./storage";
 import type { IStorage } from "./storage";
-import { ShopwareClient, getRealInvoiceDocument, isMonduPluginShipError, type ShopwareProductOverview, applyOverviewParentInheritance, isShopwareEntityId, normalizeShopwareEntityId } from "./shopware";
+import { ShopwareClient, getRealInvoiceDocument, isMonduPluginShipError, ZUGFERD_EMBEDDED_INVOICE_TYPE, type ShopwareProductOverview, applyOverviewParentInheritance, isShopwareEntityId, normalizeShopwareEntityId } from "./shopware";
 import { getHashCached, invalidateMemoryHashCache, stableFingerprint, type PersistedHashCache } from "./contentHashCache";
 import {
   filterOrdersList,
@@ -38,7 +38,7 @@ import {
   saveCrmProfitabilitySettings,
 } from "./crmProfitabilitySettings";
 import { getHerstellpreisLookupKey } from "./productIdentifiers";
-import { sendOrderInvoice } from "./invoiceSending";
+import { sendOrderInvoice, getInvoiceAutomationSettings, markOrderInvoiceSentInCache, INVOICE_AUTOMATION_SETTINGS_KEY, type SendInvoiceResult } from "./invoiceSending";
 import { RuleEngine, type SuggestCrossSellingOptions } from "./ruleEngine";
 import {
   loadCrossSellShelvingPatternConfig,
@@ -49,7 +49,7 @@ import {
   normalizeFootprint,
   type CrossSellShelvingPatternConfig,
 } from "./crossSellShelvingHeuristics";
-import { shopwareSettingsSchema, monduSettingsSchema, proformaNumberRangeSchema, dunningSettingsSchema, type MonduSettings, insertCrossSellingRuleSchema, type Product, insertUserSchema, type Role, insertTicketSchema, insertTicketCommentSchema, insertTicketAssignmentRuleSchema, type Ticket, insertNotificationSchema, insertTicketAttachmentSchema, insertTicketTemplateSchema, insertProcessUpdateSchema, type Order, insertOrderDraftSchema, insertOfferDraftSchema, insertAutomationRuleSchema, insertShippingCarrierSchema, type CrossSellingRule, type RuleCondition, type RuleTargetCriteria, type WebhookEventType, type TicketCategory, insertCustomerInteractionSchema, insertOrderAssignmentSchema, insertDiscountRequestSchema, createInstallmentPlanBodySchema, settlementInvoicePdfBodySchema, additionalInvoiceBodySchema, type InstallmentPlan, type InstallmentInvoice, type CrossSellCooccurrence, type CrossSellEventPairStats, SHOPWARE_CROSS_SELLING_STOREFRONT_NAME, CROSS_SELL_CATEGORIES } from "@shared/schema";
+import { shopwareSettingsSchema, monduSettingsSchema, proformaNumberRangeSchema, dunningSettingsSchema, invoiceAutomationSettingsSchema, type MonduSettings, insertCrossSellingRuleSchema, type Product, insertUserSchema, type Role, insertTicketSchema, insertTicketCommentSchema, insertTicketAssignmentRuleSchema, type Ticket, insertNotificationSchema, insertTicketAttachmentSchema, insertTicketTemplateSchema, insertProcessUpdateSchema, type Order, insertOrderDraftSchema, insertOfferDraftSchema, insertAutomationRuleSchema, insertShippingCarrierSchema, type CrossSellingRule, type RuleCondition, type RuleTargetCriteria, type WebhookEventType, type TicketCategory, insertCustomerInteractionSchema, insertOrderAssignmentSchema, insertDiscountRequestSchema, createInstallmentPlanBodySchema, settlementInvoicePdfBodySchema, additionalInvoiceBodySchema, type InstallmentPlan, type InstallmentInvoice, type CrossSellCooccurrence, type CrossSellEventPairStats, SHOPWARE_CROSS_SELLING_STOREFRONT_NAME, CROSS_SELL_CATEGORIES } from "@shared/schema";
 import {
   getAISettings,
   getCommercialAgentSettings,
@@ -1349,42 +1349,6 @@ const CRM_CUSTOMERS_CACHE_KEY = "crm_customers_cache_v5";
 const CRM_INDIVIDUAL_PRICES_CACHE_KEY = "crm_individual_prices_index_v2";
 const BESTANDSKUNDEN_GROUP_TERMS = ["Portal", "Händler", "Haendler"];
 
-async function markOrderInvoiceSentInCache(orderId: string, tenantId?: string | null): Promise<void> {
-  try {
-    const mirror = await storage.getShopwareOrderMirrorByShopwareId(orderId, tenantId);
-    if (!mirror) return;
-    const order = mirror.payload as Order;
-    if (!order || order.id !== orderId) return;
-
-    let changed = false;
-    if (!order.hasInvoiceDocument) {
-      order.hasInvoiceDocument = true;
-      order.invoiceDocumentCount = order.invoiceDocumentCount || 1;
-      changed = true;
-    }
-    if (order.invoiceSent !== true) {
-      order.invoiceSent = true;
-      changed = true;
-    }
-    if (!changed) return;
-
-    await storage.upsertShopwareOrderMirrors(
-      [
-        {
-          shopwareId: mirror.shopwareId,
-          orderNumber: mirror.orderNumber,
-          salesChannelId: mirror.salesChannelId,
-          swUpdatedAt: mirror.swUpdatedAt,
-          payload: order as unknown as Record<string, unknown>,
-        },
-      ],
-      tenantId,
-    );
-  } catch (error) {
-    console.warn("[orders-cache] Failed to update invoice-sent flag:", error);
-  }
-}
-
 /**
  * Bestellungen aus dem lokalen Spiegel (server/shopwareMirror.ts) statt bei jedem
  * Laden alle Bestellungen live von Shopware zu holen. Der Spiegel wird alle 3 Minuten
@@ -2210,6 +2174,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error saving CRM profitability settings:", error);
       res.status(500).json({ error: error.message || "Failed to save CRM profitability settings" });
+    }
+  });
+
+  // Rechnungs-Automatik (E-Rechnung/ZUGFeRD + automatischer Versand)
+  app.get("/api/settings/invoice-automation", requireAuth, requireManageDocuments, async (req, res) => {
+    try {
+      const tenantId = (req as any).tenantId ?? null;
+      res.json(await getInvoiceAutomationSettings(tenantId));
+    } catch (error: any) {
+      console.error("Error fetching invoice automation settings:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch invoice automation settings" });
+    }
+  });
+
+  app.post("/api/settings/invoice-automation", requireAuth, requireManageSettings, async (req, res) => {
+    try {
+      const tenantId = (req as any).tenantId ?? null;
+      const validated = invoiceAutomationSettingsSchema.parse(req.body);
+      await storage.saveSetting(INVOICE_AUTOMATION_SETTINGS_KEY, validated, tenantId);
+      res.json(validated);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      console.error("Error saving invoice automation settings:", error);
+      res.status(500).json({ error: error.message || "Failed to save invoice automation settings" });
     }
   });
 
@@ -4280,6 +4270,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Shopware settings not configured" });
       }
 
+      const tenantId = (req as any).tenantId ?? null;
+      const invoiceAutomation = await getInvoiceAutomationSettings(tenantId);
+      // Pro Anfrage abschaltbar (Checkbox im Formular); Default = Mandanten-Einstellung.
+      const sendInvoiceRequested =
+        typeof req.body?.sendInvoice === "boolean" ? req.body.sendInvoice : invoiceAutomation.autoSend;
+
       const { orderId } = req.params;
       let { invoiceNumber, vorkasseInvoiceNumber, deliveryNoteNumber, erpNumber } = req.body;
 
@@ -4305,6 +4301,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         deliveryNoteCreated: false,
         deliveryNoteSkipped: false,
         customFieldsUpdated: false,
+        /** true = ZUGFeRD-PDF, false = klassische PDF-Rechnung (nur gesetzt, wenn erstellt). */
+        invoiceIsEInvoice: undefined as boolean | undefined,
+        invoiceSend: undefined as SendInvoiceResult | undefined,
       };
 
       // PREFLIGHT: Check ALL documents for conflicts BEFORE creating anything
@@ -4355,9 +4354,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           console.log(`[Orders] Creating invoice ${invoiceNumber} for order ${orderId}`);
           console.log(`[DEBUG] Calling client.createInvoice with:`, { orderId, invoiceNumber, erpNumber });
-          await client.createInvoice(orderId, invoiceNumber, erpNumber);
+          const createdInvoice = await client.createInvoice(
+            orderId,
+            invoiceNumber,
+            erpNumber,
+            undefined,
+            // Bei Auto-Versand erst nach dem tatsaechlichen Versand als verschickt markieren.
+            !sendInvoiceRequested,
+            { eInvoice: invoiceAutomation.eInvoice },
+          );
           console.log(`[DEBUG] ✓ client.createInvoice succeeded`);
           results.invoiceCreated = true;
+          results.invoiceIsEInvoice = createdInvoice.documentType === ZUGFERD_EMBEDDED_INVOICE_TYPE;
 
           // Poll for document generation (Shopware uses async message queue)
           let pdfUrl: string | undefined = undefined;
@@ -4412,6 +4420,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }).catch(err => {
             console.error("Error triggering document.created webhook for invoice:", err);
           });
+
+          // Versand nur, wenn die Rechnung ordnungsgemaess erstellt wurde (PDF liegt vor).
+          if (sendInvoiceRequested) {
+            if (!createdInvoice.documentId || !createdInvoice.pdfReady) {
+              results.invoiceSend = {
+                status: "failed",
+                invoiceId: createdInvoice.documentId,
+                invoiceNumber,
+                message: "Rechnung erstellt, aber das PDF lag noch nicht vor – bitte manuell verschicken.",
+              };
+            } else {
+              results.invoiceSend = await sendOrderInvoice(
+                client,
+                { id: orderId, orderNumber: typeof req.body?.orderNumber === "string" ? req.body.orderNumber : undefined },
+                { trigger: "invoice_number", tenantId, invoiceId: createdInvoice.documentId },
+              );
+              if (results.invoiceSend.status === "sent") {
+                await markOrderInvoiceSentInCache(orderId, tenantId);
+              }
+            }
+            if (results.invoiceSend.status === "failed") {
+              errors.push(`Rechnungsversand fehlgeschlagen: ${results.invoiceSend.message ?? "unbekannter Fehler"}`);
+            }
+          }
         } catch (invoiceError: any) {
           console.error(`[Orders] Failed to create invoice for order ${orderId}:`, invoiceError);
           console.error(`[DEBUG] Invoice error details:`, {
@@ -5485,12 +5517,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const orderNumber =
           typeof req.body?.orderNumber === "string" ? req.body.orderNumber : undefined;
         const force = req.body?.force === true;
+        const emailRaw = typeof req.body?.email === "string" ? req.body.email.trim() : "";
+        if (emailRaw && !z.string().email().safeParse(emailRaw).success) {
+          return res.status(400).json({ error: "Invalid email", message: "Ungültige E-Mail-Adresse." });
+        }
 
         const client = new ShopwareClient(settings);
         const result = await sendOrderInvoice(
           client,
           { id: orderId, orderNumber },
-          { trigger: "manual", force, tenantId },
+          { trigger: "manual", force, tenantId, overrideEmail: emailRaw || undefined },
         );
 
         if (result.status === "no_invoice") {
@@ -10911,21 +10947,26 @@ Antworte im JSON-Format:
     }
   });
 
-  // POST /api/erp-automation/trigger - Manually trigger automation polling (Admin only)
+  // POST /api/erp-automation/trigger - Bestell-Spiegel sofort synchronisieren (Admin only).
+  // Damit greift der Rechnungsnummer-Watcher (server/invoiceNumberWatcher.ts) ohne auf
+  // den naechsten 3-Minuten-Lauf zu warten.
   app.post("/api/erp-automation/trigger", requireAuth, requireManageSettings, async (req, res) => {
     try {
-      const erpAutomationService = (global as any).erpAutomationService;
-      
-      if (!erpAutomationService) {
-        return res.status(503).json({ 
-          error: "ERP Automation service not available. Please check Shopware settings." 
+      const tenantId = (req as any).tenantId ?? null;
+      const settings = await storage.getShopwareSettings(tenantId);
+      if (!settings) {
+        return res.status(503).json({
+          error: "ERP Automation service not available. Please check Shopware settings."
         });
       }
 
-      // Trigger manual polling
-      await erpAutomationService.triggerManual();
-      
-      res.json({ 
+      const { syncShopwareMirrorForTenant } = await import("./shopwareMirror");
+      await syncShopwareMirrorForTenant(storage, new ShopwareClient(settings), tenantId, {
+        entities: ["orders"],
+        settings,
+      });
+
+      res.json({
         message: "ERP automation polling triggered successfully",
         timestamp: new Date().toISOString()
       });
@@ -12538,6 +12579,7 @@ Antworte im JSON-Format:
           markUnsent: truthy(req.body?.markUnsent),
           // Vorbereitung Automatisierung: Rechnungen direkt ueber Shopware verschicken.
           sendInvoice: truthy(req.body?.sendInvoice),
+          eInvoice: (await getInvoiceAutomationSettings(tenantId)).eInvoice,
         };
 
         let rows;

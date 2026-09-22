@@ -378,11 +378,32 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
       const response = await apiRequest("PATCH", `/api/orders/${orderId}/documents`, documentData);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
+      // 207 = teilweise erfolgreich (z. B. Rechnung erstellt, Versand fehlgeschlagen)
+      if (data?.partial || (Array.isArray(data?.errors) && data.errors.length > 0)) {
+        toast({
+          title: t('orderDetail.documentsPartial'),
+          description: (data.errors || []).join(' · '),
+          variant: "destructive",
+        });
+        return;
+      }
+      const send = data?.results?.invoiceSend;
+      const parts = [t('orderDetail.documentsSuccess')];
+      if (data?.results?.invoiceCreated) {
+        parts.push(
+          data.results.invoiceIsEInvoice
+            ? t('orderDetail.invoiceCreatedEInvoice')
+            : t('orderDetail.invoiceCreatedPdf'),
+        );
+      }
+      if (send?.status === 'sent') {
+        parts.push(send.mondu ? t('orderDetail.invoiceSentMondu') : t('orderDetail.invoiceSentCustomer'));
+      }
       toast({
         title: t('orderDetail.documentsUpdated'),
-        description: t('orderDetail.documentsSuccess'),
+        description: parts.join(' '),
       });
     },
     onError: (error: Error) => {

@@ -1302,7 +1302,7 @@ export default function OrderDetailModal({
                     erpNumber: order.erpNumber || "",
                   }}
                   onSubmit={(data) => {
-                    onUpdateDocuments(order.id, data);
+                    onUpdateDocuments(order.id, { ...data, orderNumber: order.orderNumber });
                     onClose();
                   }}
                   onCancel={onClose}

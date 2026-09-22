@@ -35,7 +35,9 @@ Diese Doku ist **nicht vollstaendig**. Die komplette Liste steht in `server/rout
 - `GET /api/orders`
 - `GET /api/orders/:id`
 - `PATCH /api/orders/:id/shipping`
-- `PATCH /api/orders/:id/documents`
+- `PATCH /api/orders/:id/documents` — neue Rechnungsnummer ⇒ Rechnung wird als E-Rechnung (Shopware-Dokumenttyp `zugferd_embedded_invoice`, Fallback `invoice`) erstellt und – sofern das PDF vorliegt – direkt verschickt. Body optional `sendInvoice: boolean` (Default: Mandanten-Einstellung). Antwort: `results.invoiceIsEInvoice`, `results.invoiceSend`; Versandfehler ⇒ 207.
+- Rechnungsnummer direkt in Shopware gesetzt (`custom_order_numbers_invoice`, z. B. SAP): der Bestell-Spiegel (Delta alle 3 min) erkennt die Aenderung gegenueber dem letzten Stand und erstellt/verschickt die Rechnung mit denselben Regeln (`server/invoiceNumberWatcher.ts`, Log in `erp_automation_runs` mit `metadata.source = shopware_mirror`). Nur Aenderungen zaehlen; Bestellungen mit bereits vorhandener Nummer beim ersten Sync bleiben unberuehrt.
+- `GET|POST /api/settings/invoice-automation` — `{ eInvoice, autoSend }` pro Mandant (Default beide `true`)
 - `GET /api/orders/ticket-counts`
 - `GET /api/orders/delayed`
 - `GET /api/orders/:orderId/documents` — Shopware-Belege; Einträge können optional `amountGross` enthalten (Brutto-Bestellsumme zum Dokument-Zeitpunkt via `orderVersionId` und `GET /api/order/:id` mit Header `Sw-Version-Id`)

@@ -1182,7 +1182,12 @@
     "totalWeight": "Peso Total",
     "itemsWithWeight": "artículos con peso",
     "customerOrderHistory": "Pedidos anteriores del cliente",
-    "noCustomerHistory": "No hay otros pedidos de este cliente"
+    "noCustomerHistory": "No hay otros pedidos de este cliente",
+    "documentsPartial": "Documentos procesados solo parcialmente",
+    "invoiceCreatedEInvoice": "Factura electrónica (ZUGFeRD) creada.",
+    "invoiceCreatedPdf": "Factura creada como PDF (ZUGFeRD no disponible en la tienda o desactivado).",
+    "invoiceSentCustomer": "Factura enviada al cliente.",
+    "invoiceSentMondu": "Pedido marcado como enviado y factura entregada a Mondu."
   },
   "documentTypes": {
     "invoice": "Factura",
@@ -1318,7 +1323,14 @@
       "dunningSaveSuccess": "Cobranza guardada",
       "dunningSaveSuccessDesc": "La configuracion de cobranza se actualizo.",
       "dunningSaveError": "Error al guardar",
-      "dunningSaveErrorDesc": "No se pudo guardar la configuracion de cobranza."
+      "dunningSaveErrorDesc": "No se pudo guardar la configuracion de cobranza.",
+      "invoiceAutomationTitle": "Facturas",
+      "invoiceAutomationDescription": "Se aplica al introducir un número de factura. El envío manual sigue siendo posible.",
+      "invoiceEInvoice": "Crear como factura electrónica (ZUGFeRD)",
+      "invoiceAutoSend": "Enviar automáticamente tras la creación",
+      "invoiceAutomationSave": "Guardar ajustes de facturas",
+      "invoiceAutomationSaved": "Ajustes de facturas guardados",
+      "invoiceAutomationSaveError": "No se pudieron guardar los ajustes de facturas"
     },
     "shopwareUrl": "URL de Shopware",
     "shopwareUrlPlaceholder": "https://su-tienda.com",
@@ -1599,7 +1611,10 @@
     "deliveryNote": "Número de Nota de Entrega",
     "deliveryNotePlaceholder": "Ingrese el número de nota de entrega",
     "erpNumber": "Número ERP",
-    "erpNumberPlaceholder": "Ingrese el número ERP"
+    "erpNumberPlaceholder": "Ingrese el número ERP",
+    "invoiceHintEInvoice": "Al guardar, la factura se crea como factura electrónica (PDF ZUGFeRD).",
+    "invoiceHintPdf": "Al guardar, la factura se crea como PDF.",
+    "sendInvoiceAfterCreate": "Enviar la factura al cliente después de crearla"
   },
   "errors": {
     "notConfigured": "La API de Shopware aún no está configurada.",

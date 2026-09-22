@@ -74,6 +74,8 @@ export interface FakturaImportOptions {
    * automatisch verschickt. Greift nur im Apply-Modus.
    */
   sendInvoice?: boolean;
+  /** Rechnungen als E-Rechnung (ZUGFeRD) anlegen (Mandanten-Einstellung). */
+  eInvoice?: boolean;
 }
 
 export interface FakturaImportResult {
@@ -203,7 +205,7 @@ export async function runFakturaImport(
   }
 
   // Schreibt einen erp_automation_runs-Eintrag, damit ein evtl. spaeter aktivierter
-  // ErpAutomationService-Poller diese Bestellung nicht erneut verarbeitet (keine Duplikate).
+  // Rechnungsnummer-Watcher (invoiceNumberWatcher.ts) diese Bestellung nicht erneut verarbeitet (keine Duplikate).
   const logRun = async (
     orderId: string,
     orderNumber: string,
@@ -332,6 +334,7 @@ export async function runFakturaImport(
           undefined,
           row.invoiceDateIso,
           sentFlag,
+          { eInvoice: options.eInvoice === true },
         );
         if (markUnsent) markedUnsentCount += 1;
         await logRun(order.id, row.orderNumber, "success", {
@@ -374,6 +377,7 @@ export async function runFakturaImport(
           undefined,
           row.invoiceDateIso,
           sentFlag,
+          { eInvoice: options.eInvoice === true },
         );
         if (markUnsent) markedUnsentCount += 1;
         await client.updateOrderDocumentNumbers(order.id, { invoiceNumber: row.invoiceNumber });

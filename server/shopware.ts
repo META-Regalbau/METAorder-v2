@@ -623,9 +623,15 @@ function readEntityTechnicalName(entity: any): string {
  * Shopware document_type.technical_name (und übliche Varianten/Plugins) → METAorder-Typ für UI/Logik.
  * Stornorechnungen heißen je nach Version z. B. storno, cancellation_invoice, nicht immer cancellation.
  */
+/** Shopware 6.7+: Rechnung als PDF mit eingebettetem ZUGFeRD-XML (E-Rechnung). */
+export const ZUGFERD_EMBEDDED_INVOICE_TYPE = "zugferd_embedded_invoice";
+
 function normalizeOrderDocumentType(technicalName: string): string {
   const raw = (technicalName || "").trim().toLowerCase();
   if (!raw || raw === "unknown") return "unknown";
+
+  // E-Rechnung (PDF + eingebettetes XML) ist fachlich eine normale Rechnung.
+  if (raw === ZUGFERD_EMBEDDED_INVOICE_TYPE) return "invoice";
 
   if (raw === "credit_note") return "credit_note";
 
@@ -1311,7 +1317,7 @@ export class ShopwareClient {
     // Primary: direct documents array
     const directDocs = shopwareOrder.documents || [];
     for (const doc of directDocs) {
-      if (getDocType(doc) === 'invoice') {
+      if (normalizeOrderDocumentType(getDocType(doc) ?? '') === 'invoice') {
         const createdAt = getCreatedAt(doc);
         if (createdAt) return createdAt;
       }
@@ -1324,7 +1330,7 @@ export class ShopwareClient {
       for (const ref of docRefs) {
         const doc = includedMap.get(`document-${ref.id}`);
         if (!doc) continue;
-        if (getDocType(doc) === 'invoice') {
+        if (normalizeOrderDocumentType(getDocType(doc) ?? '') === 'invoice') {
           const createdAt = getCreatedAt(doc);
           if (createdAt) return createdAt;
         }
@@ -1359,7 +1365,7 @@ export class ShopwareClient {
 
     const collected: boolean[] = []; // pro echter Rechnung: sent?
     const consider = (doc: any) => {
-      if (getDocType(doc) !== 'invoice') return;
+      if (normalizeOrderDocumentType(getDocType(doc) ?? '') !== 'invoice') return;
       const number = getNumber(doc);
       // Proforma-/Vorkasse-Rechnungen sind keine "echten" Rechnungen
       if (number && isProformaOrVorkasse(String(number))) return;
@@ -2279,7 +2285,7 @@ export class ShopwareClient {
             doc.attributes?.documentTypeId ??
             doc.relationships?.documentType?.data?.id;
           const technicalName = typeId ? typeNames.get(typeId) : undefined;
-          if (technicalName !== 'invoice') continue;
+          if (normalizeOrderDocumentType(technicalName ?? '') !== 'invoice') continue;
 
           const number = doc.documentNumber ?? doc.attributes?.documentNumber;
           if (number && isProformaOrVorkasse(String(number))) continue;
@@ -3911,9 +3917,9 @@ export class ShopwareClient {
                 value: orderId,
               },
               {
-                type: 'equals',
+                type: 'equalsAny',
                 field: 'documentType.technicalName',
-                value: 'invoice',
+                value: ['invoice', ZUGFERD_EMBEDDED_INVOICE_TYPE],
               },
             ],
             limit: 1,
@@ -10798,17 +10804,22 @@ export class ShopwareClient {
   }
 
   /**
-   * Create an invoice document for an order with ERP invoice number and order number
+   * Create an invoice document for an order with ERP invoice number and order number.
+   * Mit options.eInvoice wird die Rechnung als ZUGFeRD-PDF (E-Rechnung, Shopware 6.7+)
+   * erzeugt; fehlt der Dokumenttyp im Shop, wird die klassische PDF-Rechnung erstellt.
    */
   async createInvoice(
     orderId: string,
     erpInvoiceNumber?: string,
     erpOrderNumber?: string,
     documentDate?: string,
-    sent: boolean = true
-  ): Promise<{ documentId: string; invoiceNumber: string }> {
+    sent: boolean = true,
+    options: { eInvoice?: boolean } = {}
+  ): Promise<{ documentId: string; invoiceNumber: string; documentType: string; pdfReady: boolean }> {
     try {
       console.log(`[Shopware API] Creating invoice for order ${orderId} with ERP invoice number: ${erpInvoiceNumber}`);
+
+      const wantedTypes = options.eInvoice ? [ZUGFERD_EMBEDDED_INVOICE_TYPE, 'invoice'] : ['invoice'];
 
       // First, get document type ID for invoice
       const docTypeResponse = await this.makeAuthenticatedRequest(
@@ -10821,9 +10832,9 @@ export class ShopwareClient {
           body: JSON.stringify({
             filter: [
               {
-                type: 'equals',
+                type: 'equalsAny',
                 field: 'technicalName',
-                value: 'invoice',
+                value: wantedTypes,
               },
             ],
           }),
@@ -10836,10 +10847,18 @@ export class ShopwareClient {
       }
 
       const docTypeData = await docTypeResponse.json();
-      const invoiceDocType = docTypeData.data?.[0];
-      
-      if (!invoiceDocType) {
+      const availableTypes = new Set<string>(
+        (docTypeData.data || []).map((item: any) => readEntityTechnicalName(item)),
+      );
+      const documentType = wantedTypes.find(name => availableTypes.has(name));
+
+      if (!documentType) {
         throw new Error('Invoice document type not found in Shopware');
+      }
+      if (options.eInvoice && documentType !== ZUGFERD_EMBEDDED_INVOICE_TYPE) {
+        console.warn(
+          `[Shopware API] Dokumenttyp ${ZUGFERD_EMBEDDED_INVOICE_TYPE} fehlt im Shop (Shopware < 6.7?) – erstelle klassische PDF-Rechnung.`,
+        );
       }
 
       // Create invoice document using Shopware 6 document API
@@ -10871,7 +10890,7 @@ export class ShopwareClient {
       console.log('[Shopware API] Creating invoice with request body:', JSON.stringify(requestBody, null, 2));
       
       const createResponse = await this.makeAuthenticatedRequest(
-        `${this.baseUrl}/api/_action/order/document/invoice/create`,
+        `${this.baseUrl}/api/_action/order/document/${documentType}/create`,
         {
           method: 'POST',
           headers: {
@@ -10918,7 +10937,15 @@ export class ShopwareClient {
           ? parsedResponse.data[0]
           : parsedResponse?.data ?? parsedResponse;
       if (!createData) {
-        throw new Error('No document created - Shopware returned empty response');
+        // Shopware 6.7 meldet Fehler pro Bestellung (z. B. fehlende ZUGFeRD-Pflichtangaben) in "errors".
+        const errorsByOrder = parsedResponse?.errors;
+        const firstError = Array.isArray(errorsByOrder)
+          ? errorsByOrder[0]
+          : errorsByOrder && typeof errorsByOrder === 'object'
+            ? (Object.values(errorsByOrder).flat()[0] as any)
+            : undefined;
+        const detail = firstError?.detail || firstError?.title || firstError?.message;
+        throw new Error(detail ? String(detail) : 'No document created - Shopware returned empty response');
       }
       const documentId = createData.documentId || createData.id || createData.data?.id;
       const invoiceNumber = createData.documentNumber || erpInvoiceNumber || '';
@@ -10926,14 +10953,17 @@ export class ShopwareClient {
       console.log(`[Shopware API] Invoice created successfully: ${invoiceNumber} (Document ID: ${documentId})`);
 
       // Wait for PDF generation to complete (Shopware uses async message queues)
+      let pdfReady = false;
       if (documentId) {
         console.log(`[PDF Generation] Waiting for invoice PDF generation...`);
-        await this.waitForDocumentPdfGeneration(documentId);
+        pdfReady = await this.waitForDocumentPdfGeneration(documentId);
       }
 
       return {
         documentId,
         invoiceNumber,
+        documentType,
+        pdfReady,
       };
     } catch (error: any) {
       console.error('Error creating invoice in Shopware:', error);

@@ -9,6 +9,22 @@
  */
 import { ShopwareClient, getRealInvoiceDocument } from "./shopware";
 import { storage as defaultStorage } from "./storage";
+import {
+  defaultInvoiceAutomationSettings,
+  type InvoiceAutomationSettings,
+  type Order,
+} from "@shared/schema";
+
+export const INVOICE_AUTOMATION_SETTINGS_KEY = "invoice_automation_settings";
+
+/** Rechnungs-Automatik des Mandanten (E-Rechnung + Auto-Versand), mit Defaults. */
+export async function getInvoiceAutomationSettings(
+  tenantId?: string | null,
+  storage: typeof defaultStorage = defaultStorage,
+): Promise<InvoiceAutomationSettings> {
+  const stored = await storage.getSetting(INVOICE_AUTOMATION_SETTINGS_KEY, tenantId);
+  return { ...defaultInvoiceAutomationSettings, ...(stored || {}) };
+}
 
 export type SendInvoiceStatus =
   | "sent"
@@ -46,6 +62,55 @@ export interface SendOrderInvoiceOptions {
    * Gilt nur fuer den direkten Shopware-Mailversand (nicht fuer den Mondu-Weg).
    */
   overrideEmail?: string;
+  /**
+   * Genau dieses Dokument verschicken (z. B. die soeben erstellte Rechnung)
+   * statt der ersten "echten" Rechnung der Bestellung.
+   */
+  invoiceId?: string;
+}
+
+/**
+ * Spiegel-Eintrag der Bestellung sofort auf "Rechnung vorhanden + verschickt" setzen,
+ * damit das Badge nicht erst auf den naechsten Delta-Sync wartet.
+ */
+export async function markOrderInvoiceSentInCache(
+  orderId: string,
+  tenantId?: string | null,
+  storage: typeof defaultStorage = defaultStorage,
+): Promise<void> {
+  try {
+    const mirror = await storage.getShopwareOrderMirrorByShopwareId(orderId, tenantId);
+    if (!mirror) return;
+    const order = mirror.payload as Order;
+    if (!order || order.id !== orderId) return;
+
+    let changed = false;
+    if (!order.hasInvoiceDocument) {
+      order.hasInvoiceDocument = true;
+      order.invoiceDocumentCount = order.invoiceDocumentCount || 1;
+      changed = true;
+    }
+    if (order.invoiceSent !== true) {
+      order.invoiceSent = true;
+      changed = true;
+    }
+    if (!changed) return;
+
+    await storage.upsertShopwareOrderMirrors(
+      [
+        {
+          shopwareId: mirror.shopwareId,
+          orderNumber: mirror.orderNumber,
+          salesChannelId: mirror.salesChannelId,
+          swUpdatedAt: mirror.swUpdatedAt,
+          payload: order as unknown as Record<string, unknown>,
+        },
+      ],
+      tenantId,
+    );
+  } catch (error) {
+    console.warn("[orders-cache] Failed to update invoice-sent flag:", error);
+  }
 }
 
 /**
@@ -92,7 +157,9 @@ export async function sendOrderInvoice(
 
   try {
     const documents = await client.fetchOrderDocuments(order.id);
-    const invoice = getRealInvoiceDocument(documents);
+    const invoice = options.invoiceId
+      ? documents.find((d) => d.id === options.invoiceId)
+      : getRealInvoiceDocument(documents);
 
     if (!invoice || !invoice.id) {
       await logRun("skipped", { skippedReason: "Keine Rechnung vorhanden" });

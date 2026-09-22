@@ -1,9 +1,14 @@
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import { useQuery } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import type { InvoiceAutomationSettings } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 
 const createAdminDocumentSchema = () => z.object({
@@ -18,6 +23,8 @@ type AdminDocumentFormData = {
   vorkasseInvoiceNumber?: string;
   deliveryNoteNumber?: string;
   erpNumber?: string;
+  /** Rechnung nach dem Erstellen direkt verschicken (nur bei neu eingetragener Rechnungsnummer). */
+  sendInvoice?: boolean;
 };
 
 interface AdminDocumentFormProps {
@@ -41,8 +48,22 @@ export default function AdminDocumentForm({ defaultValues, onSubmit, onCancel }:
     },
   });
 
+  // Mandanten-Einstellung: E-Rechnung + automatischer Versand
+  const { data: invoiceAutomation } = useQuery<InvoiceAutomationSettings>({
+    queryKey: ["/api/settings/invoice-automation"],
+    retry: false,
+  });
+  const [sendInvoice, setSendInvoice] = useState(true);
+  useEffect(() => {
+    if (invoiceAutomation) setSendInvoice(invoiceAutomation.autoSend);
+  }, [invoiceAutomation]);
+
+  const enteredInvoiceNumber = (form.watch("invoiceNumber") || "").trim();
+  const isNewInvoiceNumber =
+    enteredInvoiceNumber !== "" && enteredInvoiceNumber !== (defaultValues?.invoiceNumber || "").trim();
+
   const handleSubmit = (data: AdminDocumentFormData) => {
-    onSubmit(data);
+    onSubmit(isNewInvoiceNumber ? { ...data, sendInvoice } : data);
   };
 
   return (
@@ -58,6 +79,26 @@ export default function AdminDocumentForm({ defaultValues, onSubmit, onCancel }:
                 <Input placeholder={t('adminDocuments.invoiceNumberPlaceholder')} className="font-mono" {...field} data-testid="input-invoice-number" />
               </FormControl>
               <FormMessage />
+              {isNewInvoiceNumber && (
+                <div className="space-y-2 pt-1">
+                  <p className="text-xs text-muted-foreground">
+                    {invoiceAutomation?.eInvoice === false
+                      ? t('adminDocuments.invoiceHintPdf')
+                      : t('adminDocuments.invoiceHintEInvoice')}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="send-invoice-after-create"
+                      checked={sendInvoice}
+                      onCheckedChange={(value) => setSendInvoice(value === true)}
+                      data-testid="checkbox-send-invoice"
+                    />
+                    <Label htmlFor="send-invoice-after-create" className="text-sm font-normal">
+                      {t('adminDocuments.sendInvoiceAfterCreate')}
+                    </Label>
+                  </div>
+                </div>
+              )}
             </FormItem>
           )}
         />

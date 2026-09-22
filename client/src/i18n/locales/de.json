@@ -1308,7 +1308,12 @@
     "totalWeight": "Gesamtgewicht",
     "itemsWithWeight": "Artikel mit Gewicht",
     "customerOrderHistory": "Vorherige Bestellungen des Kunden",
-    "noCustomerHistory": "Keine weiteren Bestellungen dieses Kunden"
+    "noCustomerHistory": "Keine weiteren Bestellungen dieses Kunden",
+    "documentsPartial": "Dokumente nur teilweise verarbeitet",
+    "invoiceCreatedEInvoice": "E-Rechnung (ZUGFeRD) erstellt.",
+    "invoiceCreatedPdf": "Rechnung als PDF erstellt (ZUGFeRD im Shop nicht verfügbar oder deaktiviert).",
+    "invoiceSentCustomer": "Rechnung an den Kunden verschickt.",
+    "invoiceSentMondu": "Bestellung als versandt markiert und Rechnung an Mondu übergeben."
   },
   "installmentPlan": {
     "sectionTitle": "Teilzahlung / Ratenzahlung",
@@ -1591,7 +1596,14 @@
       "dunningSaveSuccess": "Mahnsystem gespeichert",
       "dunningSaveSuccessDesc": "Die Mahn-Einstellungen wurden aktualisiert.",
       "dunningSaveError": "Speichern fehlgeschlagen",
-      "dunningSaveErrorDesc": "Die Mahn-Einstellungen konnten nicht gespeichert werden."
+      "dunningSaveErrorDesc": "Die Mahn-Einstellungen konnten nicht gespeichert werden.",
+      "invoiceAutomationTitle": "Rechnungen",
+      "invoiceAutomationDescription": "Gilt beim Eintragen einer Rechnungsnummer. Der manuelle Versand bleibt immer möglich.",
+      "invoiceEInvoice": "Als E-Rechnung (ZUGFeRD) erstellen",
+      "invoiceAutoSend": "Nach dem Erstellen automatisch verschicken",
+      "invoiceAutomationSave": "Rechnungs-Einstellungen speichern",
+      "invoiceAutomationSaved": "Rechnungs-Einstellungen gespeichert",
+      "invoiceAutomationSaveError": "Rechnungs-Einstellungen konnten nicht gespeichert werden"
     },
     "shopwareUrl": "Shopware-URL",
     "shopwareUrlPlaceholder": "https://ihr-shop.com",
@@ -1939,7 +1951,10 @@
     "deliveryNote": "Lieferscheinnummer",
     "deliveryNotePlaceholder": "Lieferscheinnummer eingeben",
     "erpNumber": "ERP-Nummer",
-    "erpNumberPlaceholder": "ERP-Nummer eingeben"
+    "erpNumberPlaceholder": "ERP-Nummer eingeben",
+    "invoiceHintEInvoice": "Beim Speichern wird die Rechnung als E-Rechnung (ZUGFeRD-PDF) erstellt.",
+    "invoiceHintPdf": "Beim Speichern wird die Rechnung als PDF erstellt.",
+    "sendInvoiceAfterCreate": "Rechnung nach dem Erstellen an den Kunden verschicken"
   },
   "errors": {
     "notConfigured": "Shopware-API ist noch nicht konfiguriert.",

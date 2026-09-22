@@ -16,7 +16,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import type { DunningSettings, EmailInboundSettings, EmailOutboundSettings, EmailRoutingRule, EmailRoutingSettings, GoogleAdsSettings, GoogleAnalyticsSettings, M365Settings, ProformaNumberRangeSettings, TicketCategory, TicketPriority } from "@shared/schema";
+import type { DunningSettings, InvoiceAutomationSettings, EmailInboundSettings, EmailOutboundSettings, EmailRoutingRule, EmailRoutingSettings, GoogleAdsSettings, GoogleAnalyticsSettings, M365Settings, ProformaNumberRangeSettings, TicketCategory, TicketPriority } from "@shared/schema";
 import type { B2BEntityMapping } from "@shared/b2bEntityMapping";
 
 type OfferStatusMapping = {
@@ -357,6 +357,19 @@ export default function SettingsPage() {
     queryFn: () => fetchJson("/api/settings/crm-profitability"),
     retry: false,
   });
+
+  const { data: invoiceAutomationData } = useQuery<InvoiceAutomationSettings>({
+    queryKey: ["/api/settings/invoice-automation", tenantKey],
+    queryFn: () => fetchJson("/api/settings/invoice-automation"),
+    retry: false,
+  });
+  const [invoiceAutomation, setInvoiceAutomation] = useState<InvoiceAutomationSettings>({
+    eInvoice: true,
+    autoSend: true,
+  });
+  useEffect(() => {
+    if (invoiceAutomationData) setInvoiceAutomation(invoiceAutomationData);
+  }, [invoiceAutomationData]);
 
   const { data: dunningSettingsData } = useQuery<DunningSettings>({
     queryKey: ["/api/settings/dunning", tenantKey],
@@ -1213,6 +1226,24 @@ export default function SettingsPage() {
     },
   });
 
+  const saveInvoiceAutomationMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/settings/invoice-automation", invoiceAutomation);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/invoice-automation"] });
+      toast({ title: t("settings.tenants.invoiceAutomationSaved") });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t("settings.tenants.invoiceAutomationSaveError"),
+        description: error?.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const saveDunningSettingsMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest("POST", "/api/settings/dunning", dunningSettings);
@@ -1540,6 +1571,42 @@ function GeneralTab() {
                     {saveCrmProfitabilityMutation.isPending
                       ? t("settings.tenants.crmProfitabilitySaving")
                       : t("settings.tenants.crmProfitabilitySave")}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-border">
+              <h3 className="text-sm font-medium uppercase tracking-wide mb-2">
+                {t("settings.tenants.invoiceAutomationTitle")}
+              </h3>
+              <p className="text-xs text-muted-foreground mb-4">
+                {t("settings.tenants.invoiceAutomationDescription")}
+              </p>
+              <div className="grid gap-3">
+                <div className="flex items-center justify-between gap-4">
+                  <Label className="text-sm font-medium">{t("settings.tenants.invoiceEInvoice")}</Label>
+                  <Switch
+                    checked={invoiceAutomation.eInvoice}
+                    onCheckedChange={(value) => setInvoiceAutomation((prev) => ({ ...prev, eInvoice: value }))}
+                    data-testid="switch-invoice-einvoice"
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <Label className="text-sm font-medium">{t("settings.tenants.invoiceAutoSend")}</Label>
+                  <Switch
+                    checked={invoiceAutomation.autoSend}
+                    onCheckedChange={(value) => setInvoiceAutomation((prev) => ({ ...prev, autoSend: value }))}
+                    data-testid="switch-invoice-autosend"
+                  />
+                </div>
+                <div className="flex justify-end">
+                  <Button
+                    onClick={() => saveInvoiceAutomationMutation.mutate()}
+                    disabled={!selectedTenantId || saveInvoiceAutomationMutation.isPending}
+                    data-testid="button-save-invoice-automation"
+                  >
+                    {t("settings.tenants.invoiceAutomationSave")}
                   </Button>
                 </div>
               </div>

@@ -236,6 +236,24 @@ export const proformaNumberRangeSchema = z.object({
 
 export type InsertProformaNumberRangeSettings = z.infer<typeof proformaNumberRangeSchema>;
 
+// Rechnungs-Automatik pro Mandant: E-Rechnung (ZUGFeRD) + automatischer Versand
+export type InvoiceAutomationSettings = {
+  /** Rechnung als ZUGFeRD-PDF (Shopware-Dokumenttyp zugferd_embedded_invoice) erzeugen. */
+  eInvoice: boolean;
+  /** Rechnung direkt nach erfolgreicher Erstellung an den Kunden verschicken. */
+  autoSend: boolean;
+};
+
+export const invoiceAutomationSettingsSchema = z.object({
+  eInvoice: z.boolean(),
+  autoSend: z.boolean(),
+});
+
+export const defaultInvoiceAutomationSettings: InvoiceAutomationSettings = {
+  eInvoice: true,
+  autoSend: true,
+};
+
 // Dunning (Mahnung) settings per tenant
 export type DunningSettings = {
   enabled: boolean;

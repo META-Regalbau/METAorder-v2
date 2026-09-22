@@ -323,6 +323,18 @@ async function syncOrdersDelta(
     const cursor = opts?.force ? null : state?.cursorUpdatedAt ?? null;
     const orders = await client.fetchOrders(null, { updatedSince: cursor });
 
+    // Vor dem Upsert: neue/geaenderte Rechnungsnummern gegen den alten Stand erkennen
+    // (z. B. von SAP direkt in Shopware gesetzt). Verarbeitung erst nach dem Sync.
+    // Lazy import wie bei ./shopware: der Watcher haengt an shopware.ts, das ueber
+    // productCache wiederum dieses Modul laedt (Import-Zyklus vermeiden).
+    const watcher =
+      process.env.INVOICE_NUMBER_WATCHER_ENABLED === "false" || orders.length === 0
+        ? null
+        : await import("./invoiceNumberWatcher");
+    const invoiceNumberChanges = watcher
+      ? await watcher.detectInvoiceNumberChanges(storage, orders, tenantId)
+      : [];
+
     if (orders.length > 0) {
       await storage.upsertShopwareOrderMirrors(
         orders.map((o) => ({
@@ -378,6 +390,19 @@ async function syncOrdersDelta(
     console.log(
       `[ShopwareMirror] orders: upserted=${orders.length} skipped=false tenant=${tenantId ?? "default"}`,
     );
+
+    if (watcher && invoiceNumberChanges.length > 0) {
+      try {
+        const stats = await watcher.processInvoiceNumberChanges(storage, client, tenantId, invoiceNumberChanges);
+        console.log(
+          `[InvoiceWatcher] tenant=${tenantId ?? "default"} changes=${invoiceNumberChanges.length} created=${stats.created} sent=${stats.sent} skipped=${stats.skipped} failed=${stats.failed}`,
+        );
+      } catch (error) {
+        // Fehler hier duerfen den Spiegel-Sync nicht als fehlgeschlagen markieren.
+        console.error(`[InvoiceWatcher] Verarbeitung fehlgeschlagen (tenant=${tenantId}):`, error);
+      }
+    }
+
     return { upserted: orders.length, skipped: false };
   } catch (error: any) {
     await storage.upsertShopwareSyncState(

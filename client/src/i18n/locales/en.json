@@ -1278,7 +1278,12 @@
     "totalWeight": "Total Weight",
     "itemsWithWeight": "items with weight",
     "customerOrderHistory": "Previous Customer Orders",
-    "noCustomerHistory": "No other orders from this customer"
+    "noCustomerHistory": "No other orders from this customer",
+    "documentsPartial": "Documents only partially processed",
+    "invoiceCreatedEInvoice": "E-invoice (ZUGFeRD) created.",
+    "invoiceCreatedPdf": "Invoice created as PDF (ZUGFeRD unavailable in the shop or disabled).",
+    "invoiceSentCustomer": "Invoice sent to the customer.",
+    "invoiceSentMondu": "Order marked as shipped and invoice handed over to Mondu."
   },
   "installmentPlan": {
     "sectionTitle": "Partial payment / installments",
@@ -1561,7 +1566,14 @@
       "dunningSaveSuccess": "Dunning settings saved",
       "dunningSaveSuccessDesc": "The dunning settings were updated.",
       "dunningSaveError": "Save failed",
-      "dunningSaveErrorDesc": "The dunning settings could not be saved."
+      "dunningSaveErrorDesc": "The dunning settings could not be saved.",
+      "invoiceAutomationTitle": "Invoices",
+      "invoiceAutomationDescription": "Applies when an invoice number is entered. Manual sending always remains available.",
+      "invoiceEInvoice": "Create as e-invoice (ZUGFeRD)",
+      "invoiceAutoSend": "Send automatically after creation",
+      "invoiceAutomationSave": "Save invoice settings",
+      "invoiceAutomationSaved": "Invoice settings saved",
+      "invoiceAutomationSaveError": "Invoice settings could not be saved"
     },
     "shopwareUrl": "Shopware URL",
     "shopwareUrlPlaceholder": "https://your-shop.com",
@@ -1909,7 +1921,10 @@
     "deliveryNote": "Delivery Note Number",
     "deliveryNotePlaceholder": "Enter delivery note number",
     "erpNumber": "ERP Number",
-    "erpNumberPlaceholder": "Enter ERP number"
+    "erpNumberPlaceholder": "Enter ERP number",
+    "invoiceHintEInvoice": "Saving creates the invoice as an e-invoice (ZUGFeRD PDF).",
+    "invoiceHintPdf": "Saving creates the invoice as a PDF.",
+    "sendInvoiceAfterCreate": "Send the invoice to the customer after creating it"
   },
   "errors": {
     "notConfigured": "Shopware API is not configured yet.",

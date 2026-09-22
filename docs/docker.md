@@ -117,6 +117,7 @@ Shopware, E-Mail, optionale Dienste: wie bisher ueber `.env` / Compose `environm
 | `CROSS_SELL_LLM_RERANK_TOPK` | Optional: Zahl — wie viele Hybrid-Kandidaten maximal an das LLM gehen (Default **25**). |
 | `CROSS_SELL_LLM_RERANK_TTL_HOURS` | Optional: Cache-TTL in Stunden fuer LLM-Re-Rank pro Quellartikel (Default **24**). |
 | `SHOPWARE_SYNC_ENABLED` | Optional: `false` deaktiviert den Hintergrund-Worker fuer den persistenten Shopware-Spiegel (Produkte, Kunden, B2B-Firmen, Kundenpreise). Default: an. |
+| `INVOICE_NUMBER_WATCHER_ENABLED` | Optional: `false` deaktiviert den Rechnungsnummer-Watcher im Bestell-Spiegel (erstellt/verschickt Rechnungen, wenn `custom_order_numbers_invoice` in Shopware neu gesetzt wird, z. B. durch SAP). Default: an. Haengt am Bestell-Sync, also auch aus bei `SHOPWARE_SYNC_ENABLED=false`. |
 | `SHOPWARE_SYNC_INTERVAL_MINUTES` | Optional: Intervall des Delta-Sync-Workers in Minuten (Default **3**). |
 | `SHOPWARE_SYNC_RECONCILE_MINUTES` | Optional: Intervall fuer ID-Sweep / Soft-Delete-Abgleich in Minuten (Default **60**). |
 | `METAORDER_GTIN_ARTICLE_PREFIX` | Optional: Nur Ziffern — gemeinsamer Anfang firmeneigener GTIN/EAN (Default **4026212**). Steuert 6-stellige Artikelnummern als GTIN-Fragment sowie synthetische GTIN (`Präfix + 6 Ziffern`) im Katalog-Matching; überschreibbar pro Installation. Typische Anfrage-Schreibweise **„4026212 073492“** (Leerzeichen zwischen Präfix und Suffix) wird erkannt; ohne dieses Muster gelten sechsstellige Suffixe nur ab **200000**, damit nicht jede 6er-Zahl als Artikel gilt. |
