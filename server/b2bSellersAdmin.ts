@@ -1,3 +1,4 @@
+import { getSharedShopwareToken, invalidateSharedShopwareToken } from "./shopwareTokenCache";
 import { cachedMissingEntityResponse, traceShopwareResponse } from "./shopwareHttpTrace";
 import type { ShopwareSettings } from "@shared/schema";
 import type { B2BEntityMapping } from "@shared/b2bEntityMapping";
@@ -107,27 +108,14 @@ export class B2BSellersAdminClient {
   }
 
   private async authenticate(): Promise<string> {
+    // Instanz-Cache zuerst; sonst gemeinsames Token (siehe shopwareTokenCache.ts)
     if (this.accessToken && Date.now() < this.tokenExpiry) {
       return this.accessToken;
     }
-    const response = await fetch(`${this.baseUrl}/api/oauth/token`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        grant_type: "client_credentials",
-        client_id: this.apiKey,
-        client_secret: this.apiSecret,
-      }),
-    });
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Authentication failed: ${response.statusText} - ${errorText}`);
-    }
-    const data = await response.json();
-    this.accessToken = data.access_token;
-    const expiresIn = data.expires_in || 600;
-    this.tokenExpiry = Date.now() + (expiresIn - 60) * 1000;
-    return this.accessToken as string;
+    const shared = await getSharedShopwareToken(this.baseUrl, this.apiKey, this.apiSecret);
+    this.accessToken = shared.token;
+    this.tokenExpiry = shared.expiresAt;
+    return shared.token;
   }
 
   async makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<Response> {
@@ -144,6 +132,7 @@ export class B2BSellersAdminClient {
     if (response.status === 401) {
       this.accessToken = null;
       this.tokenExpiry = 0;
+      invalidateSharedShopwareToken(this.baseUrl, this.apiKey, this.apiSecret);
       token = await this.authenticate();
       response = await fetch(url, {
         ...options,
