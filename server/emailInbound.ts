@@ -21,7 +21,10 @@ import {
 import { getEmailOutboundSettings, sendEmail } from "./emailOutbound";
 import { notifyNewTicket } from "./notifications";
 import { processCommercialDocumentFromEmail, isLikelyCommercialInquiry } from "./commercialAgentOrchestrator";
-import { collectSignatureImageCandidates } from "./commercialSignatureImageCandidates";
+import type { CommercialAgentProcessResult } from "./commercialAgentOrchestrator";
+import { attachSupportingDocumentsToDrafts, partitionCommercialParts } from "./commercialDraftAttachments";
+import { unwrapInternalForward } from "./emailForwardUnwrap";
+import { collectSignatureImageCandidates, isMailDecorationImage } from "./commercialSignatureImageCandidates";
 
 const DEFAULT_INBOUND_SETTINGS: EmailInboundSettings = {
   enabled: false,
@@ -209,26 +212,56 @@ async function processInboundMailAttachments(options: {
   /** Rohes HTML derselben Nachricht (CID-Signatur) */
   mailHtml?: string | null;
   fromDisplayName?: string;
+  /** Kopf-Absenderadresse — entscheidet, ob eine interne Weiterleitung ausgepackt wird */
+  fromEmail?: string | null;
 }): Promise<void> {
   const {
     storage,
     attachments,
     messageId,
-    subject,
-    body,
     ticketId,
     commercialTenantId,
     systemUserId,
     allowAttachments,
     mailHtml,
-    fromDisplayName,
   } = options;
   if (!allowAttachments || !ticketId || !systemUserId) return;
 
+  // Interne Weiterleitung zählt für den Commercial Agent nicht (Ticket bleibt unverändert):
+  // Absender, Betreff und Text stammen aus der ursprünglichen Kundenmail.
+  const headerFrom = [options.fromDisplayName?.trim(), options.fromEmail ? `<${options.fromEmail.trim()}>` : ""]
+    .filter(Boolean)
+    .join(" ");
+  const unwrapped = unwrapInternalForward({ from: headerFrom, subject: options.subject, body: options.body });
+  const subject = unwrapped.subject;
+  const body = unwrapped.body;
+  const fromDisplayName = unwrapped.strippedForwardLevels > 0 ? unwrapped.from : options.fromDisplayName;
+  if (unwrapped.strippedForwardLevels > 0) {
+    console.log(
+      `[EmailInbound] ${unwrapped.strippedForwardLevels} interne Weiterleitungsebene(n) entfernt — Kundenmail von ${unwrapped.from}`
+    );
+  }
+
   const signatureImageBuffers = collectSignatureImageCandidates(attachments, mailHtml ?? undefined);
 
-  const commercialParts = filterCommercialDocumentPartsFromMailparserAttachments(attachments);
+  const decorationBuffers = new Set<Buffer>();
+  for (const att of attachments) {
+    if (Buffer.isBuffer(att.content) && isMailDecorationImage(att, mailHtml ?? null)) decorationBuffers.add(att.content);
+  }
+  const allCommercialParts = filterCommercialDocumentPartsFromMailparserAttachments(attachments).filter(
+    (part) => !decorationBuffers.has(part.buffer)
+  );
   const aiInbound = await getAISettings(storage);
+  // Lieferschein/AB/Rechnung → Beilage am Entwurf statt eigener Entwurf (siehe commercialDraftAttachments.ts)
+  const partition = await partitionCommercialParts(allCommercialParts, { ocrEnabled: aiInbound.ocrEnabled });
+  const commercialParts = partition.draftParts;
+  const supportingBuffers = new Set(partition.supportingParts.map((sp) => sp.part.buffer));
+  for (const sp of partition.supportingParts) {
+    console.log(
+      `[EmailInbound] Anhang ${sp.part.filename} als ${sp.classification.kind} erkannt — Beilage, kein Entwurf.`
+    );
+  }
+  const pendingAgentRuns: Array<Promise<CommercialAgentProcessResult | null>> = [];
   const combinedIntent =
     commercialParts.length > 0
       ? (
@@ -285,9 +318,9 @@ async function processInboundMailAttachments(options: {
 
     const fn = (attachment.filename || "").toLowerCase();
     const ct = (attachment.contentType || "").toLowerCase();
-    if (isCommercialInboundDocumentAttachment(fn, ct)) {
+    if (isCommercialInboundDocumentAttachment(fn, ct) && !supportingBuffers.has(buf) && !decorationBuffers.has(buf)) {
       ranCommercialDocumentAgent = true;
-      processCommercialDocumentFromEmail({
+      const run = processCommercialDocumentFromEmail({
         storage,
         tenantId: commercialTenantId,
         messageId,
@@ -304,8 +337,23 @@ async function processInboundMailAttachments(options: {
         signatureImageBuffers: signatureImageBuffers.length ? signatureImageBuffers : undefined,
       }).catch((err) => {
         console.error("[EmailInbound] Commercial agent document processing failed:", err);
+        return null;
       });
+      pendingAgentRuns.push(run);
     }
+  }
+
+  if (pendingAgentRuns.length > 0) {
+    const results = (await Promise.all(pendingAgentRuns)).filter(
+      (r): r is CommercialAgentProcessResult => Boolean(r)
+    );
+    await attachSupportingDocumentsToDrafts({
+      storage,
+      tenantId: commercialTenantId,
+      results,
+      supportingParts: partition.supportingParts,
+      sourceMessageId: messageId,
+    });
   }
 
   if (!ranCommercialDocumentAgent && isLikelyCommercialInquiry(subject, body)) {
@@ -331,9 +379,21 @@ async function processInboundMailAttachments(options: {
       primaryContainsEmailBody: true,
       fromDisplayName,
       signatureImageBuffers: signatureImageBuffers.length ? signatureImageBuffers : undefined,
-    }).catch((err) => {
-      console.error("[EmailInbound] Commercial agent email-only processing failed:", err);
-    });
+    })
+      .then(async (result) => {
+        if (result) {
+          await attachSupportingDocumentsToDrafts({
+            storage,
+            tenantId: commercialTenantId,
+            results: [result],
+            supportingParts: partition.supportingParts,
+            sourceMessageId: messageId,
+          });
+        }
+      })
+      .catch((err) => {
+        console.error("[EmailInbound] Commercial agent email-only processing failed:", err);
+      });
   }
 }
 
@@ -627,6 +687,7 @@ export async function pollInboundEmails(storage: IStorage) {
               allowAttachments: true,
               mailHtml: graphMailHtml,
               fromDisplayName: fromName || undefined,
+              fromEmail: fromEmail || null,
             });
           }
 
@@ -825,6 +886,7 @@ export async function pollInboundEmails(storage: IStorage) {
                 allowAttachments: true,
                 mailHtml: typeof parsed.html === "string" ? parsed.html : null,
                 fromDisplayName: fromName || undefined,
+              fromEmail: fromEmail || null,
               });
             }
 
@@ -1027,6 +1089,7 @@ export async function pollInboundEmails(storage: IStorage) {
           allowAttachments: true,
           mailHtml: typeof parsed.html === "string" ? parsed.html : null,
           fromDisplayName: fromName || undefined,
+              fromEmail: fromEmail || null,
         });
       }
 

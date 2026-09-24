@@ -81,3 +81,27 @@ export function collectSignatureImageCandidates(
   scored.sort((a, b) => b.score - a.score || a.buffer.length - b.buffer.length);
   return scored.slice(0, MAX_COUNT).map(({ buffer, mimeType }) => ({ buffer, mimeType }));
 }
+
+/**
+ * Ist dieses Bild Mail-Dekoration (Signatur-Logo, Telefon-/Web-Icons, Zertifikats-Siegel)?
+ *
+ * Anders als `collectSignatureImageCandidates` (max. 3 Bilder für die Vision-Firmenerkennung)
+ * entscheidet diese Funktion für JEDES Bild, ob daraus ein Entwurf entstehen darf. Eine
+ * Signatur mit sechs Icons erzeugte sonst drei Bild-Entwürfe. Fotografierte/gescannte
+ * Bestellungen hängen als echte Anhänge an (disposition „attachment") und sind deutlich größer.
+ */
+export function isMailDecorationImage(att: MailparserLikeImageAttachment, html?: string | null): boolean {
+  if (!Buffer.isBuffer(att.content)) return false;
+  const mime = (att.contentType || "").split(";")[0].trim();
+  if (!/^image\//i.test(mime)) return false;
+  const size = att.content.length;
+  if (size < 12_000) return true; // Icons, Trennlinien, Tracking-Pixel
+  const disp = (att.contentDisposition || "").toLowerCase();
+  const cid = att.cid || att.contentId ? normCid(String(att.cid || att.contentId)) : "";
+  const referenced = Boolean(cid && html && cidsReferencedInHtml(html).has(cid));
+  const inline = disp.includes("inline") || att.related === true || referenced;
+  if (inline && size <= MAX_BYTES) return true;
+  const fn = (att.filename || "").toLowerCase();
+  if (/^(image|img|picture)\d+\.(png|jpe?g|gif)$/i.test(fn) && size <= 150_000) return true; // Outlook „image001.png"
+  return /signature|logo|signatur|firmenlogo|briefkopf/i.test(fn) && size <= MAX_BYTES;
+}

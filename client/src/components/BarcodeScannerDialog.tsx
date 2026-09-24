@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
+import { Html5Qrcode } from "html5-qrcode";
 import { ScanLine } from "lucide-react";
 import {
   Dialog,
@@ -11,13 +11,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { isSecureCameraContext } from "@/lib/barcode/normalizeScanCode";
 import {
-  isSecureCameraContext,
-  normalizeScanCode,
-} from "@/lib/barcode/normalizeScanCode";
+  barcodeScanBox,
+  createScanAcceptor,
+  SCANNER_EXPERIMENTAL_FEATURES,
+  SCANNER_FORMATS,
+} from "@/lib/barcode/scannerConfig";
+import { stopBarcodeScanner } from "@/lib/barcode/stopScanner";
 
 const SCANNER_ELEMENT_ID = "metaorder-barcode-scanner";
-const DEDUP_MS = 1500;
 
 type Props = {
   open: boolean;
@@ -38,7 +41,6 @@ export function BarcodeScannerDialog({
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
-  const lastScanRef = useRef<{ code: string; at: number } | null>(null);
   const onScanRef = useRef(onScan);
   onScanRef.current = onScan;
 
@@ -70,13 +72,8 @@ export function BarcodeScannerDialog({
 
       try {
         const scanner = new Html5Qrcode(SCANNER_ELEMENT_ID, {
-          formatsToSupport: [
-            Html5QrcodeSupportedFormats.QR_CODE,
-            Html5QrcodeSupportedFormats.CODE_128,
-            Html5QrcodeSupportedFormats.EAN_13,
-            Html5QrcodeSupportedFormats.EAN_8,
-            Html5QrcodeSupportedFormats.CODE_39,
-          ],
+          formatsToSupport: SCANNER_FORMATS,
+          experimentalFeatures: SCANNER_EXPERIMENTAL_FEATURES,
           verbose: false,
         });
         scannerRef.current = scanner;
@@ -85,22 +82,10 @@ export function BarcodeScannerDialog({
           { facingMode: "environment" },
           {
             fps: 8,
-            qrbox: (viewfinderWidth, viewfinderHeight) => {
-              const w = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.85);
-              const h = Math.floor(Math.min(w, viewfinderHeight * 0.45));
-              return { width: w, height: Math.max(120, h) };
-            },
+            qrbox: barcodeScanBox,
             aspectRatio: 1.333,
           },
-          (decoded) => {
-            const code = normalizeScanCode(decoded);
-            if (!code) return;
-            const now = Date.now();
-            const last = lastScanRef.current;
-            if (last && last.code === code && now - last.at < DEDUP_MS) return;
-            lastScanRef.current = { code, at: now };
-            onScanRef.current(code);
-          },
+          createScanAcceptor((code) => onScanRef.current(code)),
           () => {
             // ignore frame-level "not found"
           },
@@ -125,18 +110,7 @@ export function BarcodeScannerDialog({
       cancelled = true;
       const scanner = scannerRef.current;
       scannerRef.current = null;
-      if (scanner) {
-        void scanner
-          .stop()
-          .then(() => scanner.clear())
-          .catch(() => {
-            try {
-              scanner.clear();
-            } catch {
-              // ignore
-            }
-          });
-      }
+      stopBarcodeScanner(scanner);
     };
   }, [open, t]);
 

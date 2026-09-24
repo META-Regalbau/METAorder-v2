@@ -1,3 +1,4 @@
+import { cachedMissingEntityResponse, traceShopwareResponse } from "./shopwareHttpTrace";
 import type {
   Order,
   OrderAddress,
@@ -62,6 +63,13 @@ export interface ShopwareAdvancedPrice {
   ruleName: string | null;
 }
 
+/** Sichtbarkeit eines Produkts in einem Verkaufskanal (Shopware product_visibility). */
+export interface ShopwareChannelVisibility {
+  salesChannelId: string;
+  /** 30 = sichtbar, 20 = Produktlisten ausgeblendet, 10 = Produktlisten + Suche ausgeblendet. */
+  visibility: number;
+}
+
 /** Angereicherte Produktzeile für die Produkt-Übersicht. */
 export interface ShopwareProductOverview {
   id: string;
@@ -81,6 +89,13 @@ export interface ShopwareProductOverview {
   currency: "EUR";
   /** Zugeordnete Verkaufskanal-IDs (aus visibilities). Namensauflösung im Aufrufer. */
   salesChannelIds: string[];
+  /**
+   * Sichtbarkeit je Verkaufskanal (Shopware product_visibility.visibility):
+   * 30 = sichtbar, 20 = in Produktlisten ausgeblendet, 10 = in Produktlisten und Suche ausgeblendet.
+   * Kanäle ohne Eintrag fehlen hier (entspricht 0 / nicht zugewiesen).
+   * Optional, weil ältere Spiegel-Payloads das Feld noch nicht enthalten.
+   */
+  salesChannelVisibilities?: ShopwareChannelVisibility[];
   advancedPrices: ShopwareAdvancedPrice[];
   categories: string[];
   /** Tag-Namen des Produkts (Shopware tags-Association). */
@@ -162,6 +177,9 @@ export function applyOverviewParentInheritance(
     const next: ShopwareProductOverview = {
       ...child,
       salesChannelIds: Array.isArray(child.salesChannelIds) ? [...child.salesChannelIds] : [],
+      salesChannelVisibilities: Array.isArray(child.salesChannelVisibilities)
+        ? child.salesChannelVisibilities.map((v) => ({ ...v }))
+        : [],
       categories: Array.isArray(child.categories) ? [...child.categories] : [],
       tags: Array.isArray(child.tags) ? [...child.tags] : [],
       advancedPrices: Array.isArray(child.advancedPrices) ? [...child.advancedPrices] : [],
@@ -174,6 +192,7 @@ export function applyOverviewParentInheritance(
 
     if (isEmptyOverviewList(next.salesChannelIds) && !isEmptyOverviewList(parent.salesChannelIds)) {
       next.salesChannelIds = [...parent.salesChannelIds];
+      next.salesChannelVisibilities = (parent.salesChannelVisibilities ?? []).map((v) => ({ ...v }));
       inheritedFields.push("salesChannels");
     }
 
@@ -353,6 +372,7 @@ function extractSapProductNumberFromCustomFields(customFields: Record<string, un
     "material_number",
     "matnr",
     "meta_sap_product_number",
+    "wdu_ifs_productnumber",
   ];
   for (const key of directCandidates) {
     const value = customFields[key];
@@ -363,7 +383,7 @@ function extractSapProductNumberFromCustomFields(customFields: Record<string, un
 
   for (const [key, value] of Object.entries(customFields)) {
     if (typeof value !== "string" || !value.trim()) continue;
-    if (/(^|[_\-.])(sap|matnr|material)([_\-.]|$)/i.test(key)) {
+    if (/(^|[_\-.])(sap|matnr|material|ifs)([_\-.]|$)/i.test(key)) {
       return value.trim();
     }
   }
@@ -914,6 +934,48 @@ function parseProductDeliveryTime(sp: any, includedMap: Map<string, any>): Parse
   };
 }
 
+
+/**
+ * Verkaufskanal-Sichtbarkeiten aus einer Shopware-Produktantwort lesen.
+ * Unterstuetzt sowohl die flache (`visibilities`) als auch die JSON:API-Form
+ * (`relationships.visibilities` + `included`).
+ */
+function parseProductVisibilities(
+  sp: any,
+  includedMap: Map<string, any>,
+): { salesChannelIds: string[]; salesChannelVisibilities: ShopwareChannelVisibility[] } {
+  const visEntries: any[] = Array.isArray(sp?.visibilities)
+    ? sp.visibilities
+    : Array.isArray(sp?.relationships?.visibilities?.data)
+      ? sp.relationships.visibilities.data
+          .map((ref: any) => includedMap.get(`product_visibility-${ref.id}`))
+          .filter(Boolean)
+      : [];
+
+  // null = Kanal zugeordnet, Stufe aber unbekannt (z. B. Query ohne visibility-Feld)
+  const byChannel = new Map<string, number | null>();
+  for (const entry of visEntries) {
+    const scId = entry?.salesChannelId ?? entry?.attributes?.salesChannelId;
+    if (!scId) continue;
+    const rawVisibility = Number(entry?.visibility ?? entry?.attributes?.visibility);
+    const visibility = Number.isFinite(rawVisibility) ? rawVisibility : null;
+    const previous = byChannel.get(String(scId));
+    // Mehrfacheintraege je Kanal sollte es nicht geben; falls doch, gewinnt der sichtbarste Wert.
+    byChannel.set(
+      String(scId),
+      previous == null || visibility == null ? (visibility ?? previous ?? null) : Math.max(previous, visibility),
+    );
+  }
+
+  const salesChannelVisibilities: ShopwareChannelVisibility[] = [];
+  for (const [salesChannelId, visibility] of byChannel.entries()) {
+    if (visibility == null) continue;
+    salesChannelVisibilities.push({ salesChannelId, visibility });
+  }
+
+  return { salesChannelIds: Array.from(byChannel.keys()), salesChannelVisibilities };
+}
+
 /** Wiederauffüllzeit in Tagen (Shopware-Feld restockTime). */
 function parseProductRestockTime(sp: any): number | null {
   const attributes = sp.attributes || sp;
@@ -1040,6 +1102,8 @@ export class ShopwareClient {
   }
 
   private async makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<Response> {
+    const knownMissing = cachedMissingEntityResponse(url);
+    if (knownMissing) return knownMissing;
     let token = await this.authenticate();
 
     // Ensure JSON headers are preserved
@@ -1068,13 +1132,14 @@ export class ShopwareClient {
         'Authorization': `Bearer ${token}`,
       };
       
-      return await fetch(url, {
+      const retry = await fetch(url, {
         ...options,
         headers: retryHeaders,
       });
+      return traceShopwareResponse(url, { ...options, headers: retryHeaders }, retry);
     }
 
-    return response;
+    return traceShopwareResponse(url, { ...options, headers }, response);
   }
 
   async testConnection(): Promise<boolean> {
@@ -4690,17 +4755,8 @@ export class ShopwareClient {
         });
       }
 
-      // Verkaufskanäle (IDs aus visibilities)
-      const salesChannelIds = new Set<string>();
-      const visEntries = Array.isArray(sp.visibilities)
-        ? sp.visibilities
-        : Array.isArray(sp.relationships?.visibilities?.data)
-          ? sp.relationships.visibilities.data.map((ref: any) => includedMap.get(`product_visibility-${ref.id}`)).filter(Boolean)
-          : [];
-      for (const v of visEntries) {
-        const scId = v?.salesChannelId ?? v?.attributes?.salesChannelId;
-        if (scId) salesChannelIds.add(scId);
-      }
+      // Verkaufskanäle inkl. Sichtbarkeitsstufe (aus visibilities)
+      const { salesChannelIds, salesChannelVisibilities } = parseProductVisibilities(sp, includedMap);
 
       // Erweiterte Preise / Staffelpreise (product.prices)
       const dedupedAdvancedPrices = parseProductAdvancedPrices(sp, includedMap);
@@ -4737,7 +4793,8 @@ export class ShopwareClient {
         purchasePriceGross,
         taxRate,
         currency: "EUR",
-        salesChannelIds: Array.from(salesChannelIds),
+        salesChannelIds,
+        salesChannelVisibilities,
         advancedPrices: dedupedAdvancedPrices,
         categories,
         tags,
@@ -4944,18 +5001,7 @@ export class ShopwareClient {
         });
       }
 
-      const salesChannelIds = new Set<string>();
-      const visEntries = Array.isArray(sp.visibilities)
-        ? sp.visibilities
-        : Array.isArray(sp.relationships?.visibilities?.data)
-          ? sp.relationships.visibilities.data
-              .map((ref: any) => includedMap.get(`product_visibility-${ref.id}`))
-              .filter(Boolean)
-          : [];
-      for (const v of visEntries) {
-        const scId = v?.salesChannelId ?? v?.attributes?.salesChannelId;
-        if (scId) salesChannelIds.add(scId);
-      }
+      const { salesChannelIds, salesChannelVisibilities } = parseProductVisibilities(sp, includedMap);
 
       const dedupedAdvancedPrices = parseProductAdvancedPrices(sp, includedMap);
       const propertyOptionIds = new Set<string>();
@@ -4993,7 +5039,8 @@ export class ShopwareClient {
         purchasePriceGross,
         taxRate,
         currency: "EUR",
-        salesChannelIds: Array.from(salesChannelIds),
+        salesChannelIds,
+        salesChannelVisibilities,
         advancedPrices: dedupedAdvancedPrices,
         categories,
         tags,
@@ -7838,7 +7885,7 @@ export class ShopwareClient {
    * Search customers by term (email, firstName, lastName) for picker/UI.
    * Returns array of { id, email, firstName?, lastName?, company? }.
    */
-  async searchCustomers(searchTerm: string, limit: number = 20): Promise<Array<{ id: string; email?: string; firstName?: string; lastName?: string; company?: string; salesChannelId?: string; salesChannelName?: string }>> {
+  async searchCustomers(searchTerm: string, limit: number = 20): Promise<Array<{ id: string; email?: string; firstName?: string; lastName?: string; company?: string; customerNumber?: string; zipCode?: string; city?: string; salesChannelId?: string; salesChannelName?: string }>> {
     const term = (searchTerm || '').trim();
     if (term.length < 2) return [];
 
@@ -7853,10 +7900,17 @@ export class ShopwareClient {
               { type: 'contains', field: 'email', value: term },
               { type: 'contains', field: 'firstName', value: term },
               { type: 'contains', field: 'lastName', value: term },
+              // B2B: Kunden werden über Firma und Kundennummer gesucht, nicht über den
+              // Ansprechpartner — ohne diese Felder fand „Blumenbecker Industriebedarf GmbH"
+              // keinen der elf vorhandenen Accounts.
+              { type: 'contains', field: 'company', value: term },
+              { type: 'contains', field: 'customerNumber', value: term },
+              { type: 'contains', field: 'defaultBillingAddress.company', value: term },
+              { type: 'equals', field: 'defaultBillingAddress.zipcode', value: term },
             ],
           },
         ],
-        associations: { salesChannel: {} },
+        associations: { salesChannel: {}, defaultBillingAddress: {} },
       };
 
       const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/customer`, {
@@ -7879,7 +7933,10 @@ export class ShopwareClient {
           email: attrs.email,
           firstName: attrs.firstName,
           lastName: attrs.lastName,
-          company: attrs.company,
+          company: attrs.company || attrs.defaultBillingAddress?.company || undefined,
+          customerNumber: attrs.customerNumber ?? undefined,
+          zipCode: attrs.defaultBillingAddress?.zipcode ?? undefined,
+          city: attrs.defaultBillingAddress?.city ?? undefined,
           salesChannelId: salesChannel?.id ?? attrs.salesChannelId ?? undefined,
           salesChannelName: salesChannel?.name ?? salesChannel?.translated?.name ?? undefined,
         };
@@ -9410,9 +9467,31 @@ export class ShopwareClient {
         throw new Error(`Failed to create customer: ${response.statusText} - ${errorText}`);
       }
 
-      const result = await response.json();
-      const customer = result.data || result;
-      
+      // Shopware 6 antwortet auf POST /api/customer mit 204 No Content und der neuen ID
+      // nur im Location-Header. Ein blindes response.json() warf hier "Unexpected end of
+      // JSON input", obwohl der Kunde bereits angelegt war — der Aufrufer meldete dann
+      // "fehlgeschlagen" und legte beim nächsten Lauf einen Dubletten-Kunden an.
+      const rawBody = await response.text();
+      let customer: any = null;
+      if (rawBody.trim()) {
+        try {
+          const result = JSON.parse(rawBody);
+          customer = result.data || result;
+        } catch {
+          customer = null;
+        }
+      }
+      if (!customer?.id) {
+        const location = response.headers.get("location") || "";
+        const idFromLocation = location.split("/").filter(Boolean).pop() || "";
+        const idFromBody = typeof (requestBody as { id?: unknown }).id === "string" ? (requestBody as { id: string }).id : "";
+        const resolvedId = idFromLocation || idFromBody;
+        if (!resolvedId) {
+          throw new Error("Shopware returned no customer id (no body, no Location header)");
+        }
+        customer = { ...(customer || {}), id: resolvedId };
+      }
+
       console.log(`[Shopware] Customer created successfully: ${customer.id}`);
       return customer;
     } catch (error: any) {

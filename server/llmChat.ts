@@ -101,14 +101,28 @@ async function completeWithAnthropic(
     }
   }
   const { system, params: anthropicMessages } = mergeAnthropicMessages(messages);
-  const res = await client.messages.create({
+  const baseRequest = {
     model,
     max_tokens: params.max_tokens ?? 4096,
-    temperature: params.temperature,
     system: system || undefined,
     messages: anthropicMessages,
-  });
-  return anthropicTextFromMessage(res);
+  };
+  try {
+    const res = await client.messages.create({
+      ...baseRequest,
+      ...(typeof params.temperature === "number" ? { temperature: params.temperature } : {}),
+    });
+    return anthropicTextFromMessage(res);
+  } catch (error) {
+    // Neuere Claude-Modelle lehnen `temperature` ab („temperature is deprecated for this model").
+    // Dann ohne den Parameter wiederholen statt die ganze Anfrage scheitern zu lassen.
+    const message = error instanceof Error ? error.message : String(error);
+    if (typeof params.temperature === "number" && /temperature/i.test(message) && /deprecated|not supported|unsupported/i.test(message)) {
+      const res = await client.messages.create(baseRequest);
+      return anthropicTextFromMessage(res);
+    }
+    throw error;
+  }
 }
 
 async function completeWithOpenAI(

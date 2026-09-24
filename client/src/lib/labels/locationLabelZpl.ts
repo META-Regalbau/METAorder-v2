@@ -9,7 +9,7 @@
 
 import {
   QR_FIELD_MODULES,
-  barcodeWidth,
+  MIN_BARCODE_MODULE,
   escapeZpl,
   fitBarcodeModule,
   mmToDots,
@@ -164,12 +164,14 @@ export function buildLocationLabelZpl(
   // Passt der Code128 selbst bei minimaler Modulbreite nicht neben den QR (langer Code auf
   // kleinem Etikett), entfällt der QR. Ein abgeschnittener Barcode wäre unscannbar, ein
   // fehlender QR nur unbequem.
-  const showQr = innerW - (qrBox + gap) >= barcodeWidth(code.length, 1);
+  // Passt der Code128 neben dem QR nicht mit scannbarer Modulbreite (langer Code auf
+  // kleinem Etikett), entfällt der QR und der Barcode bekommt die volle Breite. Ein zu
+  // feiner oder abgeschnittener Barcode wäre unlesbar, ein fehlender QR nur unbequem.
+  const sideModule = fitBarcodeModule(innerW - (qrBox + gap), code);
+  const showQr = sideModule != null;
 
   const barcodeX = showQr ? qrBox + gap : 0;
-  // Modulbreite so groß wie möglich, aber nur so groß, dass der Code128 in die Restbreite
-  // passt — lange Lagerplatz-Codes würden auf kleinen Etiketten sonst abgeschnitten.
-  const byModule = fitBarcodeModule(innerW - barcodeX, code.length);
+  const byModule = sideModule ?? fitBarcodeModule(innerW, code) ?? MIN_BARCODE_MODULE;
   const barcodeH = clamp(Math.round(qrBox * 0.7), 40, 220);
   const barcodeY = showQr ? codesTop + Math.round((qrBox - barcodeH) / 2) : codesTop;
 
@@ -187,7 +189,7 @@ export function buildLocationLabelZpl(
       ? `^FO${mx},${yOffset + subtitleY}^A0N,${subFont},${subFont}^FD${subtitleEsc}^FS`
       : null,
     showQr ? `^FO${mx},${yOffset + codesTop}^BQN,2,${qrMag}^FDLA,${codeEsc}^FS` : null,
-    `^FO${mx + barcodeX},${yOffset + barcodeY}^BY${byModule},2,${barcodeH}^BCN,${barcodeH},N,N,N^FD${codeEsc}^FS`,
+    `^FO${mx + barcodeX},${yOffset + barcodeY}^BY${byModule},2,${barcodeH}^BCN,${barcodeH},N,N,N,A^FD${codeEsc}^FS`,
     `^PQ${copies}`,
     "^XZ",
   ];

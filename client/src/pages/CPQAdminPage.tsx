@@ -36,6 +36,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
 import CpqProductSelector, { type SelectedProduct } from "@/components/cpq/CpqProductSelector";
 import CpqRelationshipGraph from "@/components/cpq/CpqRelationshipGraph";
+import CpqTableView from "@/components/cpq/CpqTableView";
+import CpqCompatibilityMatrix from "@/components/cpq/CpqCompatibilityMatrix";
 import CpqRuleConditionEditor from "@/components/cpq/CpqRuleConditionEditor";
 import CpqComponentSidebar from "@/components/cpq/CpqComponentSidebar";
 import CpqDetailPanel from "@/components/cpq/CpqDetailPanel";
@@ -113,6 +115,7 @@ export default function CPQAdminPage() {
   });
   const [graphSelectedNodeId, setGraphSelectedNodeId] = useState<string | null>(null);
   const [graphSelectedNodeType, setGraphSelectedNodeType] = useState<"system" | "component" | "mapping" | null>(null);
+  const [canvasView, setCanvasView] = useState<"graph" | "table" | "matrix">("graph");
   const [showCreateMapping, setShowCreateMapping] = useState(false);
   const [showCreateComponentType, setShowCreateComponentType] = useState(false);
   const [editingRule, setEditingRule] = useState<CpqRule | null>(null);
@@ -451,39 +454,57 @@ export default function CPQAdminPage() {
                 <div className="flex items-center gap-2 px-5 py-3 border-b bg-muted/30">
                   <button
                     type="button"
-                    className="px-3 py-1.5 rounded-md text-xs font-medium bg-background text-foreground border"
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium border ${
+                      canvasView === "graph"
+                        ? "bg-background text-foreground"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
+                    onClick={() => setCanvasView("graph")}
+                    data-testid="button-canvas-view-graph"
                   >
                     Beziehungsgraph
                   </button>
                   <button
                     type="button"
-                    className="px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground"
-                    onClick={() => toast({ title: "Tabellenansicht", description: "kommt in Phase 2" })}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium border ${
+                      canvasView === "table"
+                        ? "bg-background text-foreground"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
+                    onClick={() => setCanvasView("table")}
+                    data-testid="button-canvas-view-table"
                   >
                     Tabellenansicht
                   </button>
                   <button
                     type="button"
-                    className="px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground"
-                    onClick={() => toast({ title: "Kompatibilitätsmatrix", description: "kommt in Phase 2" })}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium border ${
+                      canvasView === "matrix"
+                        ? "bg-background text-foreground"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
+                    onClick={() => setCanvasView("matrix")}
+                    data-testid="button-canvas-view-matrix"
                   >
                     Kompatibilitätsmatrix
                   </button>
                   <div className="flex-1" />
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Button variant="outline" size="icon" className="h-7 w-7" title="Verkleinern">−</Button>
-                    <span>100%</span>
-                    <Button variant="outline" size="icon" className="h-7 w-7" title="Vergrößern">+</Button>
-                  </div>
+                  {canvasView === "graph" && (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Button variant="outline" size="icon" className="h-7 w-7" title="Verkleinern">−</Button>
+                      <span>100%</span>
+                      <Button variant="outline" size="icon" className="h-7 w-7" title="Vergrößern">+</Button>
+                    </div>
+                  )}
                 </div>
 
-                {/* Graph */}
+                {/* Canvas: Graph / Tabelle / Matrix */}
                 <div className="flex-1 min-h-0">
                   {componentTypes.length === 0 ? (
                     <div className="h-full flex items-center justify-center text-muted-foreground">
                       Keine Komponententypen. Legen Sie zuerst Komponententypen im Tab &quot;Produkt-Mappings&quot; an.
                     </div>
-                  ) : (
+                  ) : canvasView === "graph" ? (
                     <CpqRelationshipGraph
                       system={systems.find((s) => s.id === selectedSystemId)!}
                       componentTypes={componentTypes}
@@ -495,6 +516,29 @@ export default function CPQAdminPage() {
                         setGraphSelectedNodeType(type ?? null);
                       }}
                       onSelectRule={() => {}}
+                    />
+                  ) : canvasView === "table" ? (
+                    <CpqTableView
+                      system={systems.find((s) => s.id === selectedSystemId)!}
+                      componentTypes={componentTypes}
+                      mappings={mappings}
+                      selectedNodeId={graphSelectedNodeId}
+                      onSelectNode={(id, type) => {
+                        setGraphSelectedNodeId(id);
+                        setGraphSelectedNodeType(type ?? null);
+                      }}
+                    />
+                  ) : (
+                    <CpqCompatibilityMatrix
+                      system={systems.find((s) => s.id === selectedSystemId)!}
+                      componentTypes={componentTypes}
+                      mappings={mappings}
+                      rules={rules}
+                      selectedNodeId={graphSelectedNodeId}
+                      onSelectNode={(id, type) => {
+                        setGraphSelectedNodeId(id);
+                        setGraphSelectedNodeType(type ?? null);
+                      }}
                     />
                   )}
                 </div>

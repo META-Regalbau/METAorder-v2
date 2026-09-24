@@ -202,3 +202,23 @@ console.log("=== personNameNormalize Unit Tests ===\n");
 }
 
 console.log("\nAll tests passed.\n");
+
+// --- Nachname-Vorname ohne Komma (Beleg-Schreibweise „Bearbeiter: Schlesselmann Birgit") ---
+{
+  const p = parsePersonName("Schlesselmann Birgit");
+  assertEqual(p.firstName, "Birgit", "last-first without comma → firstName");
+  assertEqual(p.lastName, "Schlesselmann", "last-first without comma → lastName");
+
+  const keep = parsePersonName("Peter Thomas");
+  assertEqual(keep.firstName, "Peter", "both first names → keep order");
+  assertEqual(keep.lastName, "Thomas", "both first names → keep order (last)");
+
+  const normal = parsePersonName("Clara Wilde");
+  assertEqual(normal.firstName, "Clara", "normal order stays");
+  assertEqual(normal.lastName, "Wilde", "normal order stays (last)");
+
+  const legacy = legacyFirstLastFromContactPerson("Augustinov, Adrian");
+  assertEqual(legacy.firstName, "Adrian", "comma notation → firstName");
+  assertEqual(legacy.lastName, "Augustinov", "comma notation → lastName");
+  console.log("  last-first without comma: OK");
+}

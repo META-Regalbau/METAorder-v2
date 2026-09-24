@@ -9,17 +9,42 @@ import type { CommercialAgentSettings } from "./aiConfig";
 import type { MatchingResult } from "./productMatcher";
 import type { LineItemPlausibilityEntry } from "./commercialExtractionOrchestrator";
 
-export const COMMERCIAL_STRICT_AUTO_CREATE_VERSION = "1";
+export const COMMERCIAL_STRICT_AUTO_CREATE_VERSION = "2";
 
 export type StrictAutoCreateIntent = {
   intent: "quote_request" | "purchase_order" | "unclear" | string;
   confidence: number;
 };
 
+/** Andere Entwürfe derselben Art mit gleicher Kunden-Belegnummer (Dublettenschutz). */
+export type StrictAutoCreateSiblingDraft = {
+  id: string;
+  status: string;
+  shopwareEntityId: string | null;
+};
+
+/**
+ * Preisabgleich je Position: Stückpreis aus dem Kundendokument gegen den für den
+ * Kunden in Shopware ermittelten Preis (Kundenpreis → Kundenrabatt → Liste).
+ */
+export type StrictAutoCreateLinePriceCheck = {
+  /** Index in extractedData.lineItems / matchingResults.items */
+  index: number;
+  /** Netto-Stückpreis laut Kundendokument (extractedPrice); null = nicht im Dokument */
+  documentUnitPriceNet: number | null;
+  /** Für den Kunden ermittelter Netto-Stückpreis; null = konnte nicht ermittelt werden */
+  expectedUnitPriceNet: number | null;
+  /** Herkunft des erwarteten Preises */
+  source?: "customer_specific" | "customer_discount" | "list" | "bundle" | "unresolved";
+  /** Vom Prüfer im Entwurf gesetzter Netto-Stückpreis — überstimmt den Abgleich */
+  manualUnitPriceNet?: number | null;
+};
+
 export type StrictAutoCreateEvaluation = {
   allowed: boolean;
   reasons: string[];
   version: string;
+  priceChecks?: Array<StrictAutoCreateLinePriceCheck & { deviationPercent: number | null; ok: boolean }>;
 };
 
 function isEmptyField(v: unknown): boolean {
@@ -47,9 +72,33 @@ export function evaluateStrictAutoCreate(params: {
   matchingResults?: MatchingResult | null;
   shopwareCustomerId?: string | null;
   intent: StrictAutoCreateIntent;
+  /**
+   * An den Shopware-Kunden gebundener Verkaufskanal. Erfüllt die Kanal-Pflicht,
+   * wenn weder Agent-Setting noch Env einen Kanal vorgeben (wie beim manuellen Angebot).
+   */
+  customerSalesChannelId?: string | null;
+  /**
+   * Andere Entwürfe derselben Art mit gleicher Kunden-Belegnummer. `undefined` = nicht
+   * geprüft (z. B. keine Belegnummer extrahiert); `[]` = geprüft, keine Dublette.
+   */
+  siblingDrafts?: StrictAutoCreateSiblingDraft[] | null;
+  /**
+   * Preisabgleich je Position (nur für Bestellungen ausgewertet). `undefined` bei einer
+   * Bestellung = Abgleich konnte nicht durchgeführt werden → Review.
+   */
+  linePriceChecks?: StrictAutoCreateLinePriceCheck[] | null;
 }): StrictAutoCreateEvaluation {
-  const { draftKind, agentSettings, extractedData, matchingResults, shopwareCustomerId, intent } =
-    params;
+  const {
+    draftKind,
+    agentSettings,
+    extractedData,
+    matchingResults,
+    shopwareCustomerId,
+    intent,
+    customerSalesChannelId,
+    siblingDrafts,
+    linePriceChecks,
+  } = params;
   const reasons: string[] = [];
 
   if (!agentSettings.enabled) {
@@ -103,14 +152,24 @@ export function evaluateStrictAutoCreate(params: {
     }
   }
 
-  if (draftKind === "offer") {
+  // Verkaufskanal: für Angebot UND Bestellung Pflicht. Der Resolver würde sonst auf den
+  // ersten aktiven Shopware-Kanal zurückfallen — für eine automatisch angelegte Kern-
+  // Bestellung ist ein zufälliger Kanal nicht akzeptabel.
+  {
     const channel =
       agentSettings.autoCreateSalesChannelId ||
       process.env.B2B_SELLERS_DEFAULT_SALES_CHANNEL ||
+      process.env.COMMERCIAL_AGENT_SALES_CHANNEL_ID ||
+      (customerSalesChannelId ?? "") ||
       "";
     if (!channel.trim()) {
       reasons.push("missing_sales_channel_id");
     }
+  }
+
+  // Dublettenschutz über die Kunden-Belegnummer (z. B. Bestellung zweimal gemailt).
+  if (Array.isArray(siblingDrafts) && siblingDrafts.length > 0) {
+    reasons.push("duplicate_buyer_document_number");
   }
 
   const addressHints = extractedData.addressReviewHints;
@@ -163,10 +222,76 @@ export function evaluateStrictAutoCreate(params: {
     });
   }
 
+  // Preisabgleich — nur Bestellungen: Der Kunde bestellt zu einem Preis; weicht dieser vom
+  // in Shopware hinterlegten Kundenpreis/Rabatt/Listenpreis ab, muss ein Mensch entscheiden.
+  // Bei Anfragen (Angebot) ist ein Preis im Dokument nur informativ.
+  let priceChecksOut: StrictAutoCreateEvaluation["priceChecks"];
+  if (draftKind === "order" && lineItems?.length && matchItems?.length === lineItems.length) {
+    if (!Array.isArray(linePriceChecks)) {
+      reasons.push("price_check_unavailable");
+    } else {
+      const tolerancePercent = Math.max(0, agentSettings.strictPriceTolerancePercent ?? 1);
+      const byIndex = new Map(linePriceChecks.map((c) => [c.index, c]));
+      priceChecksOut = [];
+      matchItems.forEach((item, index) => {
+        const plaus = plausByIndex.get(index);
+        if (plaus?.skipCatalogMatching) return;
+        const check = byIndex.get(index);
+        const n = index + 1;
+        if (!check) {
+          reasons.push(`line_${n}_price_unresolved`);
+          priceChecksOut!.push({
+            index,
+            documentUnitPriceNet: null,
+            expectedUnitPriceNet: null,
+            source: "unresolved",
+            deviationPercent: null,
+            ok: false,
+          });
+          return;
+        }
+        const manual =
+          typeof check.manualUnitPriceNet === "number" && Number.isFinite(check.manualUnitPriceNet)
+            ? check.manualUnitPriceNet
+            : null;
+        const doc =
+          typeof check.documentUnitPriceNet === "number" && Number.isFinite(check.documentUnitPriceNet)
+            ? check.documentUnitPriceNet
+            : null;
+        const expected =
+          typeof check.expectedUnitPriceNet === "number" && Number.isFinite(check.expectedUnitPriceNet)
+            ? check.expectedUnitPriceNet
+            : null;
+        let ok = true;
+        let deviationPercent: number | null = null;
+        if (manual != null) {
+          // Ein Prüfer hat den Preis bewusst gesetzt — das ist die Entscheidung, nicht der Abgleich.
+          ok = true;
+        } else if (doc == null) {
+          reasons.push(`line_${n}_price_missing_in_document`);
+          ok = false;
+        } else if (expected == null) {
+          reasons.push(`line_${n}_price_unresolved`);
+          ok = false;
+        } else {
+          const diff = Math.abs(doc - expected);
+          deviationPercent = expected > 0 ? Math.round((diff / expected) * 10000) / 100 : diff > 0 ? 100 : 0;
+          const allowedAbs = Math.max(0.01, (expected * tolerancePercent) / 100);
+          if (diff > allowedAbs) {
+            reasons.push(`line_${n}_price_mismatch`);
+            ok = false;
+          }
+        }
+        priceChecksOut!.push({ ...check, deviationPercent, ok });
+      });
+    }
+  }
+
   return {
     allowed: reasons.length === 0,
     reasons,
     version: COMMERCIAL_STRICT_AUTO_CREATE_VERSION,
+    ...(priceChecksOut ? { priceChecks: priceChecksOut } : {}),
   };
 }
 
@@ -180,5 +305,6 @@ export function attachStrictAutoCreateTraceToExtractedData(
     reasons: evaluation.reasons,
     version: evaluation.version,
     evaluatedAt: new Date().toISOString(),
+    ...(evaluation.priceChecks ? { priceChecks: evaluation.priceChecks } : {}),
   };
 }

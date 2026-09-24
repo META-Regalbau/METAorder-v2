@@ -24,13 +24,15 @@ import {
   type InboundCommercialDocPart,
 } from "./commercialInboundPdfContext";
 import {
-  collectSignatureImageCandidates,
+  collectSignatureImageCandidates, isMailDecorationImage,
   type SignatureImageCandidate,
 } from "./commercialSignatureImageCandidates";
 import {
   processCommercialDocumentFromEmail,
   type CommercialAgentProcessResult,
 } from "./commercialAgentOrchestrator";
+import { attachSupportingDocumentsToDrafts, partitionCommercialParts } from "./commercialDraftAttachments";
+import { unwrapInternalForward } from "./emailForwardUnwrap";
 
 /** Erkennt Uploads, die eine ganze Nachricht enthalten (statt eines Einzeldokuments). */
 export function isEmailContainerUpload(fileName: string, mimeType: string): boolean {
@@ -79,7 +81,14 @@ export type CommercialEmailParts = {
  * die Original-Buffer der Anhänge durch, ohne sie zu kopieren.
  */
 export function splitCommercialEmailParts(parsed: {
-  attachments: Array<{ content?: unknown; filename?: string; contentType?: string }>;
+  attachments: Array<{
+    content?: unknown;
+    filename?: string;
+    contentType?: string;
+    contentDisposition?: string;
+    cid?: string;
+    related?: boolean;
+  }>;
   html?: string | null;
 }): CommercialEmailParts {
   const signatureImageBuffers = collectSignatureImageCandidates(
@@ -87,6 +96,12 @@ export function splitCommercialEmailParts(parsed: {
     parsed.html ?? undefined
   );
   const signatureBuffers = new Set(signatureImageBuffers.map((s) => s.buffer));
+  // ALLE Dekorationsbilder ausschließen, nicht nur die bis zu drei Vision-Kandidaten.
+  for (const att of parsed.attachments) {
+    if (Buffer.isBuffer(att.content) && isMailDecorationImage(att, parsed.html ?? null)) {
+      signatureBuffers.add(att.content);
+    }
+  }
   const commercialParts = filterCommercialDocumentPartsFromMailparserAttachments(
     parsed.attachments
   ).filter((part) => !signatureBuffers.has(part.buffer));
@@ -105,6 +120,8 @@ export type IngestCommercialEmailUploadParams = {
   createdByUserId: string;
   ocrEnabled: boolean;
   uploadHint?: "offer" | "order" | "unclear" | null;
+  /** Dedupe überspringen (Re-Upload, dessen Entwurf gelöscht wurde) */
+  forceReprocess?: boolean;
 };
 
 export type IngestCommercialEmailUploadResult = {
@@ -115,6 +132,8 @@ export type IngestCommercialEmailUploadResult = {
   usedEmailOnlyFallback: boolean;
   messageId: string;
   subject: string;
+  /** Dateinamen der Anhänge, aus denen Entwürfe entstehen (für die Suche nach vorhandenen Entwürfen bei Dedupe) */
+  draftPartFileNames: string[];
 };
 
 /**
@@ -139,6 +158,7 @@ export async function ingestCommercialEmailUpload(
     createdByUserId,
     ocrEnabled,
     uploadHint = null,
+    forceReprocess = false,
   } = params;
 
   const parsed = await parseEmailBufferAutodetect(fileBuffer);
@@ -146,11 +166,36 @@ export async function ingestCommercialEmailUpload(
 
   // Die geparste Nachricht ist die verlässlichere Quelle: n8n überträgt den Body
   // nur gekürzt, das Formular ist beim UI-Upload oft leer.
-  const subject = parsed.subject?.trim() || formSubject.trim();
-  const emailBody = parsed.body?.trim() || formBody.trim();
-  const fromDisplayName = parsed.from?.trim() || undefined;
+  // Interne Weiterleitung („WG: …" aus dem eigenen Haus) zählt nicht: Absender, Betreff und
+  // Text kommen aus der ursprünglichen Kundenmail (siehe emailForwardUnwrap.ts).
+  const unwrapped = unwrapInternalForward({
+    from: parsed.from,
+    subject: parsed.subject?.trim() || formSubject.trim(),
+    body: parsed.body?.trim() || formBody.trim(),
+  });
+  if (unwrapped.strippedForwardLevels > 0) {
+    console.log(
+      `[EmailIngest] ${unwrapped.strippedForwardLevels} interne Weiterleitungsebene(n) entfernt — ` +
+        `Absender der Kundenmail: ${unwrapped.from}`
+    );
+  }
+  const subject = unwrapped.subject;
+  const emailBody = unwrapped.body.trim();
+  const fromDisplayName = unwrapped.from.trim() || undefined;
 
-  const { commercialParts, signatureImageBuffers } = splitCommercialEmailParts(parsed);
+  const { commercialParts: allCommercialParts, signatureImageBuffers } = splitCommercialEmailParts(parsed);
+
+  // Belegart je Anhang: Lieferschein/AB/Rechnung werden NICHT extrahiert, sondern als
+  // Beilage an den Entwurf gehängt. Sonst würde z. B. der Kundenlieferschein zur
+  // zweiten Bestellung mit falschen Mengen.
+  const partition = await partitionCommercialParts(allCommercialParts, { ocrEnabled });
+  const commercialParts = partition.draftParts;
+  for (const sp of partition.supportingParts) {
+    console.log(
+      `[EmailIngest] Anhang ${sp.part.filename} als ${sp.classification.kind} erkannt ` +
+        `(${Math.round(sp.classification.confidence * 100)} %) — wird als Beilage abgelegt, kein Entwurf.`
+    );
+  }
 
   const intentDocumentTextPreview =
     commercialParts.length > 0
@@ -178,17 +223,26 @@ export async function ingestCommercialEmailUpload(
       fromDisplayName,
       signatureImageBuffers: signatureImageBuffers.length ? signatureImageBuffers : undefined,
       uploadHint,
+      skipDedupe: forceReprocess,
     });
     if (result) results.push(result);
   }
 
   if (commercialParts.length > 0) {
+    await attachSupportingDocumentsToDrafts({
+      storage,
+      tenantId,
+      results,
+      supportingParts: partition.supportingParts,
+      sourceMessageId: messageId,
+    });
     return {
       results,
-      attachmentsProcessed: commercialParts.length,
+      attachmentsProcessed: allCommercialParts.length,
       usedEmailOnlyFallback: false,
       messageId,
       subject,
+      draftPartFileNames: commercialParts.map((p) => p.filename),
     };
   }
 
@@ -211,14 +265,26 @@ export async function ingestCommercialEmailUpload(
     fromDisplayName,
     signatureImageBuffers: signatureImageBuffers.length ? signatureImageBuffers : undefined,
     uploadHint,
+    skipDedupe: forceReprocess,
   });
   if (emailOnly) results.push(emailOnly);
 
+  // Nur Beilagen, keine Bestellung als Anhang (z. B. Lieferschein zur Bestellung im Mailtext):
+  // Beilagen an den Mail-Entwurf hängen.
+  await attachSupportingDocumentsToDrafts({
+    storage,
+    tenantId,
+    results,
+    supportingParts: partition.supportingParts,
+    sourceMessageId: messageId,
+  });
+
   return {
     results,
-    attachmentsProcessed: 0,
+    attachmentsProcessed: partition.supportingParts.length,
     usedEmailOnlyFallback: true,
     messageId,
     subject,
+    draftPartFileNames: [fileName],
   };
 }

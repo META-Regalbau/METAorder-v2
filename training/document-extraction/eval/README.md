@@ -72,3 +72,15 @@ Artikelnummern auch Trennzeichen (`4032 9812345678` = `40329812345678`); Beträg
 ```bash
 npm run test:extraction-eval
 ```
+
+## Echte Fälle im Datensatz (Stand September 2026)
+
+| Fall | Besonderheit |
+|------|--------------|
+| `real_hmf_multipal_bestellung` | EAN in jeder Positionszeile, 6-stellige META-Kurznummer in der Art.-Nr.-Spalte, abweichende Lieferanschrift, Avis-Kontakt |
+| `real_cp_breidenbach_grundregal` | META-Nummer nur als „Lieferantenartikelnummer" unter der Position, Kundennummer in der Spalte, Kommission/Referenz, Lieferschein-Hinweis |
+| `real_cordes_graefe_kragarmregal` | Ohne Preise, Kontakt als „Nachname Vorname", Lieferadresse = Besteller, Warenannahme-Hinweise |
+| `real_roloff_palettenregal` | META-ERP-Nummern (2001…) in der „Nr."-Spalte, kundeneigene Nummern in „Unsere Art.-Nr.", Zeichensalat im Textlayer |
+| `real_delker_schwerlastregal` | EAN als eigene Zeile „EAN: …", „Nummer beim Kunden" als Lieferschein-Pflichtangabe, Lieferkontakt im Positionstext, AB-/Rechnungsadresse |
+
+Lauf nur für diese Fälle: `npm run eval:extraction -- --case=real_`

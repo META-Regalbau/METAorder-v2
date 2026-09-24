@@ -16,7 +16,18 @@ export interface DocumentExtractionDocument {
   currency: string;
   total_net: number | null;
   language: "de" | "en" | string;
+  /**
+   * true, wenn eine META-Adresse als EMPFÄNGER im Beleg steht. Bei Kundenbestellungen an
+   * META ist das der Normalfall — kein Warnsignal. Für die Frage „ist META hier der
+   * Käufer (Lieferanten-AB)?" siehe `buyer_is_meta`.
+   */
   recipient_is_meta: boolean;
+  /**
+   * true, wenn der Käufer (buyer) selbst ein META-Unternehmen ist — also der Beleg eine
+   * Lieferanten-Auftragsbestätigung oder interne Bestellung ist. Wird deterministisch
+   * nach der Extraktion gesetzt (documentExtractionTranslate.ts), nicht vom Modell.
+   */
+  buyer_is_meta?: boolean;
 }
 
 export interface DocumentExtractionBuyer {
@@ -60,8 +71,15 @@ export interface DocumentExtractionLineItem {
   position: number;
   quantity: number;
   unit: string;
+  /** META-Artikelnummer (bevorzugt EAN 4026212…), siehe Prioritätsregeln im Prompt. */
   supplier_sku: string | null;
+  /** Kundeneigene Artikelnummer (aus „Unsere Art.-Nr." o. ä.). */
   buyer_sku: string | null;
+  /**
+   * Weitere META-seitige Nummern derselben Position (z. B. ERP-/IFS-Nummer „200188545",
+   * sechsstellige Kurznummer), die nicht als supplier_sku gewählt wurden.
+   */
+  alternative_skus?: string[];
   description: string;
   attributes: DocumentExtractionLineItemAttributes;
   unit_price_net: number | null;
@@ -78,11 +96,48 @@ export interface DocumentExtractionMeta {
   total_matches_calculated: boolean | null;
 }
 
+/**
+ * Belegspezifische Pflichtangaben, die später auf Lieferschein, AB und ins DMS gehören.
+ * Bewusst eigene Felder statt Freitext in `terms.notes`, damit nachgelagerte Systeme
+ * (Lobster/d.3, Lieferschein-Druck) sie ohne Parsen übernehmen können.
+ */
+export interface DocumentExtractionReferences {
+  /** „Nummer beim Kunden", „Kundenreferenz", „Ihre Referenz", Projekt-/Vorgangsnummer des Kunden */
+  customer_reference: string | null;
+  /** „Kommission", „Kom.", „Kommissionsnummer" */
+  commission: string | null;
+  /** META-Angebotsnummer, auf die sich die Bestellung bezieht („lt. Angebot 11156331.1", „AN280209") */
+  supplier_offer_number?: string | null;
+  /** Ansprechpartner am LIEFERORT (nicht der Einkäufer) */
+  delivery_contact_name: string | null;
+  delivery_contact_phone: string | null;
+  delivery_contact_email: string | null;
+  /** Anweisungen, die auf dem Lieferschein/bei Anlieferung zu beachten sind */
+  delivery_note_instructions: string | null;
+  /** Adresse, an die die Auftragsbestätigung gehen soll (falls abweichend vom Absender) */
+  order_confirmation_email: string | null;
+  /** Adresse, an die die Rechnung gehen soll */
+  invoice_email: string | null;
+}
+
 export interface DocumentExtraction {
   document: DocumentExtractionDocument;
   buyer: DocumentExtractionBuyer;
   delivery_address: DocumentExtractionDeliveryAddress;
   terms: DocumentExtractionTerms;
+  references?: DocumentExtractionReferences;
   line_items: DocumentExtractionLineItem[];
   extraction_meta: DocumentExtractionMeta;
 }
+
+export const EMPTY_DOCUMENT_EXTRACTION_REFERENCES: DocumentExtractionReferences = {
+  customer_reference: null,
+  commission: null,
+  supplier_offer_number: null,
+  delivery_contact_name: null,
+  delivery_contact_phone: null,
+  delivery_contact_email: null,
+  delivery_note_instructions: null,
+  order_confirmation_email: null,
+  invoice_email: null,
+};

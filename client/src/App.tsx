@@ -67,6 +67,7 @@ import NotFound from "@/pages/not-found";
 import PublicOfferPage from "@/pages/PublicOfferPage";
 import PublicCpqConfiguratorPage from "@/pages/PublicCpqConfiguratorPage";
 import GlobalSkeletonOverlay from "@/components/GlobalSkeletonOverlay";
+import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { User, Role } from "@shared/schema";
 
@@ -231,20 +232,22 @@ function AuthenticatedApp() {
       <TooltipProvider>
         <div className="flex h-dvh min-h-0 w-full max-h-dvh flex-col bg-background">
           <main id="main-content" className="relative flex min-h-0 flex-1 flex-col overflow-hidden" tabIndex={-1}>
-            <Suspense
-              fallback={
-                <div className="p-4 space-y-3" aria-busy="true">
-                  <Skeleton className="h-8 w-1/2 max-w-md" />
-                  <Skeleton className="h-4 w-full max-w-lg" />
-                </div>
-              }
-            >
-              <Router
-                userRole={user.role as "employee" | "admin"}
-                userSalesChannelIds={user.salesChannelIds}
-                userPermissions={user.permissions}
-              />
-            </Suspense>
+            <RouteErrorBoundary resetKey={pathname}>
+              <Suspense
+                fallback={
+                  <div className="p-4 space-y-3" aria-busy="true">
+                    <Skeleton className="h-8 w-1/2 max-w-md" />
+                    <Skeleton className="h-4 w-full max-w-lg" />
+                  </div>
+                }
+              >
+                <Router
+                  userRole={user.role as "employee" | "admin"}
+                  userSalesChannelIds={user.salesChannelIds}
+                  userPermissions={user.permissions}
+                />
+              </Suspense>
+            </RouteErrorBoundary>
           </main>
         </div>
         <Toaster />
@@ -275,21 +278,23 @@ function AuthenticatedApp() {
                 className="relative flex-1 overflow-auto p-6 bg-background"
                 tabIndex={-1}
               >
-                <Suspense
-                  fallback={
-                    <div className="space-y-3" aria-busy="true">
-                      <Skeleton className="h-8 w-1/2 max-w-md" />
-                      <Skeleton className="h-4 w-full max-w-lg" />
-                      <Skeleton className="h-4 w-5/6 max-w-lg" />
-                    </div>
-                  }
-                >
-                  <Router
-                    userRole={user.role as "employee" | "admin"}
-                    userSalesChannelIds={user.salesChannelIds}
-                    userPermissions={user.permissions}
-                  />
-                </Suspense>
+                <RouteErrorBoundary resetKey={pathname}>
+                  <Suspense
+                    fallback={
+                      <div className="space-y-3" aria-busy="true">
+                        <Skeleton className="h-8 w-1/2 max-w-md" />
+                        <Skeleton className="h-4 w-full max-w-lg" />
+                        <Skeleton className="h-4 w-5/6 max-w-lg" />
+                      </div>
+                    }
+                  >
+                    <Router
+                      userRole={user.role as "employee" | "admin"}
+                      userSalesChannelIds={user.salesChannelIds}
+                      userPermissions={user.permissions}
+                    />
+                  </Suspense>
+                </RouteErrorBoundary>
                 <GlobalSkeletonOverlay variant={skeletonVariantForPath(pathname)} />
               </main>
             </div>

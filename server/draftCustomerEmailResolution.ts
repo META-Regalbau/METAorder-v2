@@ -39,9 +39,27 @@ function isNoreplyLike(email: string): boolean {
   return false;
 }
 
+/**
+ * Eigene Domains des Betreibers — nie ein Kunde. Weitergeleitete Mails und CC-Zeilen
+ * enthalten interne Adressen (z. B. Sachbearbeiter), die sonst als Kunden-E-Mail gewinnen
+ * und einem internen Test-/Mitarbeiterkonto im Shop zugeordnet werden.
+ * Env: COMMERCIAL_AGENT_OWN_DOMAINS (kommagetrennt), zusätzlich zu den META-Defaults.
+ */
+const DEFAULT_OWN_EMAIL_DOMAINS = ["meta-online.com", "meta-regalbau.de", "meta-lagertechnik.at", "regalpro.de"];
+
+export function isOwnOperatorEmail(email: string): boolean {
+  const domain = email.split("@")[1]?.trim().toLowerCase();
+  if (!domain) return false;
+  const extra = (process.env.COMMERCIAL_AGENT_OWN_DOMAINS || process.env.COMMERCIAL_AGENT_INBOUND_ACK_OWN_DOMAINS || "")
+    .split(",")
+    .map((d) => d.trim().toLowerCase())
+    .filter(Boolean);
+  return [...DEFAULT_OWN_EMAIL_DOMAINS, ...extra].some((d) => domain === d || domain.endsWith(`.${d}`));
+}
+
 function bump(scores: Map<string, number>, email: string, delta: number): void {
   const key = email.trim().toLowerCase();
-  if (!key || isNoreplyLike(key)) return;
+  if (!key || isNoreplyLike(key) || isOwnOperatorEmail(key)) return;
   scores.set(key, (scores.get(key) ?? 0) + delta);
 }
 
@@ -153,6 +171,8 @@ export type DraftExtractedCustomer = {
   emailResolution?: {
     candidatesTried?: string[];
     chosenEmail?: string;
+    /** Login-E-Mail des zugeordneten Shopware-Kontos (kann von der Beleg-Kontaktadresse abweichen) */
+    shopwareAccountEmail?: string;
     method?: "heuristic" | "llm" | "extracted_only";
   };
   customerMatchConfidence?: number;
@@ -358,28 +378,119 @@ export async function tryCreateShopwareCustomerFromExtractedData(
   }
 }
 
+export type ShopwareCustomerCandidate = {
+  id: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  company?: string;
+  customerNumber?: string;
+  zipCode?: string;
+  city?: string;
+  salesChannelId?: string;
+  salesChannelName?: string;
+  /** Warum vorgeschlagen: exakte Firma, Firma + PLZ, Firma enthält … */
+  reason: "customer_number" | "company_exact_zip" | "company_exact" | "company_partial";
+};
+
+/** Rechtsform-Varianten angleichen („GmbH & Co. KG" / „GmbH+Co.KG"), damit Firmennamen vergleichbar sind. */
+function normCompany(s: string): string {
+  return norm(s)
+    .replace(/&|\+/g, " und ")
+    .replace(/[.,]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Firmenabgleich, wenn keine E-Mail passt (neuer Ansprechpartner eines Bestandskunden).
+ *
+ * B2B-Kunden haben oft MEHRERE Accounts (Niederlassungen, Ansprechpartner) mit eigenen
+ * Kanälen und Kundenpreisen. Deshalb wird nur automatisch zugeordnet, wenn GENAU EIN Account
+ * passt (exakte Firma, bevorzugt mit gleicher PLZ). Bei mehreren Treffern entscheidet der
+ * Bearbeiter — die Treffer werden als Vorschläge am Entwurf abgelegt.
+ */
 async function tryResolveCustomerByBillingAddress(
   shopwareClient: ShopwareClient,
-  billing: { company?: string; zipCode?: string; street?: string }
-): Promise<{ id: string; email?: string } | null> {
+  billing: { company?: string; zipCode?: string; street?: string },
+  /** Kundennummer aus dem Beleg („Kundennummer", „Unsere Kontonr.") — oft nur die letzten Stellen der Shop-Nummer */
+  documentCustomerNumber?: string | null
+): Promise<{ match: { id: string; email?: string } | null; candidates: ShopwareCustomerCandidate[] }> {
   const company = billing.company?.trim();
   const zip = billing.zipCode?.trim();
-  if (!company && !zip) return null;
-  const terms = [...new Set([company, zip].filter(Boolean))] as string[];
-  for (const term of terms) {
-    if (term.length < 2) continue;
-    const hits = await shopwareClient.searchCustomers(term, 15);
-    const needle = company ? norm(company) : "";
-    for (const h of hits) {
-      if (needle && h.company && norm(h.company).includes(needle.slice(0, Math.min(needle.length, 48)))) {
-        return { id: h.id, email: h.email };
+
+  // 1) Kundennummer aus dem Beleg direkt suchen („Unsere Kontonr.: 20000045995"). Das ist
+  //    eindeutiger als jeder Firmenabgleich — der richtige Account kann unter einer anderen
+  //    Firmenschreibweise geführt sein und taucht in der Firmensuche dann gar nicht auf.
+  const docNoDirect = (documentCustomerNumber ?? "").replace(/\D/g, "");
+  if (docNoDirect.length >= 4) {
+    try {
+      const hits = await shopwareClient.searchCustomers(docNoDirect, 25);
+      const byNumber = hits.filter((h) => (h.customerNumber ?? "").replace(/\D/g, "").endsWith(docNoDirect));
+      // „Kundennr. 11247" kann exakt einen Shop-Gast 11247 (fremde Firma, Bitburg) UND per Endung
+      // den Portal-Kunden 20000011247 (richtige Firma, Nordhorn) treffen. Deshalb nicht blind den
+      // exakten Treffer nehmen, sondern nur einen, der zu PLZ/Firma der Rechnungsadresse passt.
+      const needleCompany = company ? normCompany(company) : "";
+      const plausible = byNumber.filter((h) => {
+        if (zip && h.zipCode?.trim()) return h.zipCode.trim() === zip;
+        if (needleCompany && h.company) {
+          const hc = normCompany(h.company);
+          return hc.includes(needleCompany) || needleCompany.includes(hc);
+        }
+        return !zip && !needleCompany;
+      });
+      const exactPlausible = plausible.filter((h) => (h.customerNumber ?? "").replace(/\D/g, "") === docNoDirect);
+      const pick = exactPlausible.length === 1 ? exactPlausible[0] : plausible.length === 1 ? plausible[0] : null;
+      if (pick) {
+        return { match: { id: pick.id, email: pick.email }, candidates: [{ ...pick, reason: "customer_number" }] };
       }
-      if (zip && h.company && needle && norm(h.company).includes(needle.slice(0, 24))) {
-        return { id: h.id, email: h.email };
-      }
+    } catch (error) {
+      console.warn("[DraftCustomerEmail] Kundennummer-Suche fehlgeschlagen:", error);
     }
   }
-  return null;
+
+  if (!company || company.length < 3) return { match: null, candidates: [] };
+
+  const needle = normCompany(company);
+  // Suchbegriff: erster aussagekräftiger Namensteil — „contains" über den vollen Namen scheitert
+  // an Schreibvarianten der Rechtsform.
+  const firstToken = company.split(/\s+/).find((t) => t.replace(/[^\p{L}\p{N}]/gu, "").length >= 4) ?? company;
+  const terms = [...new Set([company, firstToken])];
+
+  const byId = new Map<string, ShopwareCustomerCandidate>();
+  for (const term of terms) {
+    const hits = await shopwareClient.searchCustomers(term, 40);
+    for (const h of hits) {
+      if (!h.company || byId.has(h.id)) continue;
+      const hc = normCompany(h.company);
+      let reason: ShopwareCustomerCandidate["reason"] | null = null;
+      if (hc === needle) reason = zip && h.zipCode?.trim() === zip ? "company_exact_zip" : "company_exact";
+      else if (hc.includes(needle) || needle.includes(hc)) reason = "company_partial";
+      if (!reason) continue;
+      byId.set(h.id, { ...h, reason });
+    }
+    if (byId.size > 0) break;
+  }
+
+  const rank = { customer_number: -1, company_exact_zip: 0, company_exact: 1, company_partial: 2 } as const;
+  const candidates = [...byId.values()].sort((a, b) => rank[a.reason] - rank[b.reason]).slice(0, 12);
+
+  // Kundennummer aus dem Beleg schlägt alles: „Unsere Kontonr.: 11006" ↔ Shop „20000011006".
+  const docNo = (documentCustomerNumber ?? "").replace(/\D/g, "");
+  if (docNo.length >= 4) {
+    const byNumber = candidates.filter((c) => {
+      const n = (c.customerNumber ?? "").replace(/\D/g, "");
+      return n.length > 0 && (n === docNo || n.endsWith(docNo));
+    });
+    if (byNumber.length === 1) {
+      return { match: { id: byNumber[0].id, email: byNumber[0].email }, candidates };
+    }
+  }
+
+  const exactZip = candidates.filter((c) => c.reason === "company_exact_zip");
+  const exact = candidates.filter((c) => c.reason !== "company_partial");
+  const unique = exactZip.length === 1 ? exactZip[0] : exact.length === 1 && candidates.length === 1 ? exact[0] : null;
+  return { match: unique ? { id: unique.id, email: unique.email } : null, candidates };
 }
 
 /**
@@ -434,6 +545,11 @@ export async function resolveShopwareCustomerForDraft(
     allowLlmDisambiguation?: boolean;
     /** Mindest-Confidence für Auto-Angebot/-Bestellung nach Zuordnung (Anzeige nach Anlage) */
     customerMatchAutoMinConfidence?: number;
+    /**
+     * Automatische Shopware-Kundenanlage erlauben (Default false — bewusste Freigabe,
+     * siehe CommercialAgentSettings.customerAutoCreateEnabled).
+     */
+    allowCustomerAutoCreate?: boolean;
     /** Mindest-Score für automatische Kundenanlage (getrennt von Anzeige-Match ohne Shopware) */
     customerAutoCreateMinConfidence?: number;
     /** Mindest-Ranking-Score der gewählten E-Mail für Auto-Anlage (Heuristik) */
@@ -508,11 +624,22 @@ export async function resolveShopwareCustomerForDraft(
 
   let addressSecondaryMatch = false;
   if (!shopwareCustomerId && extractedData.billingAddress) {
-    const addrHit = await tryResolveCustomerByBillingAddress(shopwareClient, extractedData.billingAddress);
-    if (addrHit) {
-      shopwareCustomerId = addrHit.id;
-      chosenEmail = addrHit.email?.trim() || chosenEmail;
+    const docCustomerNumber =
+      (extractedData as { documentExtraction?: { buyer?: { customer_number?: string | null } } }).documentExtraction
+        ?.buyer?.customer_number ?? null;
+    const addrResult = await tryResolveCustomerByBillingAddress(
+      shopwareClient,
+      extractedData.billingAddress,
+      docCustomerNumber
+    );
+    if (addrResult.match) {
+      shopwareCustomerId = addrResult.match.id;
+      chosenEmail = addrResult.match.email?.trim() || chosenEmail;
       addressSecondaryMatch = true;
+    } else if (addrResult.candidates.length > 0) {
+      // Mehrere passende Accounts: nicht raten, sondern im Review zur Auswahl anbieten.
+      (extractedData.customer as { shopwareCustomerCandidates?: ShopwareCustomerCandidate[] }).shopwareCustomerCandidates =
+        addrResult.candidates;
     }
   }
 
@@ -554,10 +681,16 @@ export async function resolveShopwareCustomerForDraft(
    * Ranking-Score (z. B. nur extrahierte E-Mail aus PDF); bei mehreren Kandidaten
    * zusätzlich autoCreateScore-Schwelle, um Fehlzuordnungen zu begrenzen.
    */
+  const companyForCreate = Boolean(
+    extractedData.billingAddress?.company?.trim() || extractedData.customer?.company?.trim()
+  );
+
   const canAutoCreate =
+    options.allowCustomerAutoCreate === true &&
     !shopwareCustomerId &&
     createEmailValid &&
     fullBillingForCreate &&
+    companyForCreate &&
     topRanked &&
     topRanked.score >= minRankedScore &&
     (singleDominantEmailCandidate || autoCreateScore >= minForAutoCreate);
@@ -583,10 +716,15 @@ export async function resolveShopwareCustomerForDraft(
     }
   }
 
-  if (chosenEmail) {
-    extractedData.customer.email = chosenEmail;
-  } else if (ordered[0]) {
-    extractedData.customer.email = ordered[0];
+  // customer.email ist die E-Mail der Bestellung (orderCustomer → Bestätigungsmail). Dafür gilt die
+  // Kontaktadresse aus dem Beleg, nicht die Login-Adresse des gefundenen Shopware-Kontos: Bei Zuordnung
+  // über Kundennummer/Adresse ist das oft jemand anderes (Brill → wachtmeister@hild-loebbecke.de statt
+  // elke.romswinkel@brillgruppe.de). Die Kontoadresse nur, wenn der Beleg keine E-Mail hergibt.
+  const extractedLower = extractedEmail.toLowerCase();
+  const documentEmail = ordered.find((e) => e === extractedLower) ?? ordered[0] ?? null;
+  const orderEmail = documentEmail ?? chosenEmail;
+  if (orderEmail) {
+    extractedData.customer.email = orderEmail;
   }
 
   let method: "heuristic" | "llm" | "extracted_only" = "heuristic";
@@ -602,6 +740,7 @@ export async function resolveShopwareCustomerForDraft(
   extractedData.customer.emailResolution = {
     candidatesTried: ordered.slice(0, 12),
     chosenEmail: extractedData.customer.email,
+    ...(shopwareCustomerId && chosenEmail ? { shopwareAccountEmail: chosenEmail } : {}),
     method,
   };
 

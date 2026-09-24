@@ -769,6 +769,64 @@ export type BundleComponent = {
   quantity: number;
 };
 
+/**
+ * Belegart eines Mail-Anhangs — bestimmt, ob daraus ein Entwurf entsteht (purchase_order /
+ * unknown) oder ob die Datei nur als Beilage am Entwurf abgelegt wird (Lieferschein, AB,
+ * Rechnung, Sonstiges). Siehe server/commercialAttachmentClassifier.ts.
+ */
+export type DraftAttachmentKind =
+  | "purchase_order"
+  | "delivery_note"
+  | "order_confirmation"
+  | "invoice"
+  | "other"
+  | "unknown";
+
+/** Beigefügtes Dokument einer eingegangenen Mail, das NICHT zum Entwurf extrahiert wurde. */
+export type DraftAttachment = {
+  id: string;
+  documentKind: DraftAttachmentKind;
+  fileName: string;
+  /** Absoluter Pfad unter uploads/commercial-agent-incoming (Volume) */
+  filePath: string;
+  mimeType: string;
+  size: number;
+  /** Message-ID der Ursprungsmail (Dedupe/Nachvollziehbarkeit) */
+  sourceMessageId?: string | null;
+  classification: {
+    /** 0–1 */
+    confidence: number;
+    signals: string[];
+  };
+  /** Aus dem Dokument gelesene Kennnummern — Index für DMS (Lobster → d.3) */
+  references: {
+    deliveryNoteNumber?: string | null;
+    orderNumber?: string | null;
+    invoiceNumber?: string | null;
+    commission?: string | null;
+    documentDate?: string | null;
+  };
+  /** Übergabe an das DMS: pending → exported (durch Lobster gesetzt) */
+  exportStatus: "pending" | "exported" | "skipped";
+  exportedAt?: string | null;
+  exportReference?: string | null;
+  createdAt: string;
+};
+
+/** Belegspezifische Pflichtangaben (Legacy-Spiegel von documentExtraction.references). */
+export type DraftDocumentReferences = {
+  customerReference?: string;
+  commission?: string;
+  /** META-Angebotsnummer, auf die sich die Bestellung bezieht */
+  supplierOfferNumber?: string;
+  deliveryContactName?: string;
+  deliveryContactPhone?: string;
+  deliveryContactEmail?: string;
+  deliveryNoteInstructions?: string;
+  orderConfirmationEmail?: string;
+  invoiceEmail?: string;
+};
+
 export type BundlePayload = {
   id: string;
   name: string;
@@ -2088,6 +2146,8 @@ export const orderDrafts = pgTable("order_drafts", {
       emailResolution?: {
         candidatesTried?: string[];
         chosenEmail?: string;
+        /** Login-E-Mail des zugeordneten Shopware-Kontos (kann von der Beleg-Kontaktadresse abweichen) */
+        shopwareAccountEmail?: string;
         method?: "heuristic" | "llm" | "extracted_only";
       };
       /** 0–100, KI/heuristische Sicherheit der E-Mail-/Kundenzuordnung */
@@ -2151,6 +2211,10 @@ export const orderDrafts = pgTable("order_drafts", {
     }>;
     extractionAgentTrace?: Array<{ step: string; ms: number; version: string }>;
     extractionRefinementApplied?: boolean;
+    /** Kundenreferenz, Kommission, Lieferkontakt, Lieferschein-Hinweise (aus documentExtraction.references) */
+    documentReferences?: DraftDocumentReferences;
+    /** Message-ID (bzw. Inhalts-Hash) der Ursprungsmail — findet bei erneutem Upload den vorhandenen Entwurf */
+    sourceMessageId?: string;
   }>(),
   matchingResults: jsonb("matching_results").$type<{
     items: Array<{
@@ -2208,6 +2272,11 @@ export const orderDrafts = pgTable("order_drafts", {
    * Nummer, nicht mit unserer UUID. Aus JSONB wäre das kein indizierbarer Lookup.
    */
   buyerDocumentNumber: text("buyer_document_number"),
+  /**
+   * Beigefügte Dokumente derselben Mail, die nicht zum Entwurf extrahiert wurden
+   * (Lieferschein, AB, Rechnung, Sonstiges) — für Review-Anzeige und DMS-Übergabe.
+   */
+  attachments: jsonb("attachments").$type<DraftAttachment[]>(),
   createdByUserId: varchar("created_by_user_id").references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -2286,6 +2355,8 @@ export type CommercialDraftAiExtractedMeta = {
   }>;
   extractionAgentTrace?: Array<{ step: string; ms: number; version: string }>;
   extractionRefinementApplied?: boolean;
+  /** Kundenreferenz, Kommission, Lieferkontakt, Lieferschein-Hinweise (aus documentExtraction.references) */
+  documentReferences?: DraftDocumentReferences;
 };
 
 // Offer Drafts table - for AI-powered offer/quote creation from PDFs/emails
@@ -2307,6 +2378,8 @@ export const offerDrafts = pgTable(
       emailResolution?: {
         candidatesTried?: string[];
         chosenEmail?: string;
+        /** Login-E-Mail des zugeordneten Shopware-Kontos (kann von der Beleg-Kontaktadresse abweichen) */
+        shopwareAccountEmail?: string;
         method?: "heuristic" | "llm" | "extracted_only";
       };
       customerMatchConfidence?: number;
@@ -2359,6 +2432,10 @@ export const offerDrafts = pgTable(
     }>;
     extractionAgentTrace?: Array<{ step: string; ms: number; version: string }>;
     extractionRefinementApplied?: boolean;
+    /** Kundenreferenz, Kommission, Lieferkontakt, Lieferschein-Hinweise (aus documentExtraction.references) */
+    documentReferences?: DraftDocumentReferences;
+    /** Message-ID (bzw. Inhalts-Hash) der Ursprungsmail — findet bei erneutem Upload den vorhandenen Entwurf */
+    sourceMessageId?: string;
     /** CPQ-Konfigurator: Snapshot für MetaCalc-Payload, PDF-Fallback und Stückliste im Angebotsdetail */
     cpqSource?: {
       systemId?: string | null;
@@ -2448,6 +2525,11 @@ export const offerDrafts = pgTable(
    * Nummer, nicht mit unserer UUID. Aus JSONB wäre das kein indizierbarer Lookup.
    */
   buyerDocumentNumber: text("buyer_document_number"),
+  /**
+   * Beigefügte Dokumente derselben Mail, die nicht zum Entwurf extrahiert wurden
+   * (Lieferschein, AB, Rechnung, Sonstiges) — für Review-Anzeige und DMS-Übergabe.
+   */
+  attachments: jsonb("attachments").$type<DraftAttachment[]>(),
   createdByUserId: varchar("created_by_user_id").references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -2833,6 +2915,121 @@ export const insertWebhookLogSchema = createInsertSchema(webhookLogs).omit({
 
 export type InsertWebhookLog = z.infer<typeof insertWebhookLogSchema>;
 export type WebhookLog = typeof webhookLogs.$inferSelect;
+
+// ===================================
+// SFTP-Server (Lobster / DMS-Übergabe)
+// ===================================
+// Je Mandant beliebig viele SFTP-Ziele. Beilagen der KI-Auftragsanlage (i. d. R. der
+// Kundenlieferschein) werden nach Bestellanlage dorthin hochgeladen; Lobster legt sie
+// ins d.3 und ordnet sie anhand der Sidecar-Metadaten (Bestellnummer, Kundenbestellnummer,
+// LS-Nr.) zu. Passwort / Private Key / Passphrase liegen verschlüsselt (AES-GCM) in der DB.
+export const SFTP_AUTH_METHODS = ["password", "key"] as const;
+export type SftpAuthMethod = (typeof SFTP_AUTH_METHODS)[number];
+
+export const SFTP_UPLOAD_DOCUMENT_KINDS = ["delivery_note", "order_confirmation", "invoice", "other"] as const;
+export type SftpUploadDocumentKind = (typeof SFTP_UPLOAD_DOCUMENT_KINDS)[number];
+
+export const DEFAULT_SFTP_FILENAME_TEMPLATE = "{orderNumber}_{documentKind}_{originalName}";
+
+export const sftpServers = pgTable(
+  "sftp_servers",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id").references(() => tenants.id),
+    name: text("name").notNull(),
+    host: text("host").notNull(),
+    port: integer("port").notNull().default(22),
+    username: text("username").notNull(),
+    authMethod: text("auth_method").notNull().default("password"), // 'password' | 'key'
+    password: text("password"), // verschlüsselt
+    privateKey: text("private_key"), // verschlüsselt (PEM/OpenSSH)
+    passphrase: text("passphrase"), // verschlüsselt
+    hostKeyFingerprint: text("host_key_fingerprint"), // optional: SHA256:… — Verbindung wird sonst ohne Host-Key-Prüfung aufgebaut
+    remotePath: text("remote_path").notNull().default("/"),
+    filenameTemplate: text("filename_template").notNull().default(DEFAULT_SFTP_FILENAME_TEMPLATE),
+    documentKinds: jsonb("document_kinds").$type<SftpUploadDocumentKind[]>().notNull().default(sql`'["delivery_note"]'::jsonb`),
+    writeMetadataSidecar: integer("write_metadata_sidecar").notNull().default(1), // JSON-Datei mit Zuordnungsdaten neben der PDF
+    autoUploadOnOrderCreate: integer("auto_upload_on_order_create").notNull().default(1),
+    enabled: integer("enabled").notNull().default(1),
+    maxAttempts: integer("max_attempts").notNull().default(3),
+    initialBackoffMs: integer("initial_backoff_ms").notNull().default(2000),
+    backoffFactor: real("backoff_factor").notNull().default(2.0),
+    timeoutMs: integer("timeout_ms").notNull().default(20000),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    uniqueTenantName: uniqueIndex("sftp_servers_tenant_name_unique").on(table.tenantId, table.name),
+    tenantIdx: index("sftp_servers_tenant_idx").on(table.tenantId),
+  })
+);
+
+export const insertSftpServerSchema = createInsertSchema(sftpServers, {
+  name: z.string().trim().min(1).max(120),
+  host: z.string().trim().min(1).max(255),
+  port: z.number().int().min(1).max(65535).default(22),
+  username: z.string().trim().min(1).max(255),
+  authMethod: z.enum(SFTP_AUTH_METHODS).default("password"),
+  password: z.string().max(4096).optional().nullable(),
+  privateKey: z.string().max(65536).optional().nullable(),
+  passphrase: z.string().max(4096).optional().nullable(),
+  hostKeyFingerprint: z.string().trim().max(200).optional().nullable(),
+  remotePath: z.string().trim().min(1).max(1024).default("/"),
+  filenameTemplate: z.string().trim().min(1).max(300).default(DEFAULT_SFTP_FILENAME_TEMPLATE),
+  documentKinds: z.array(z.enum(SFTP_UPLOAD_DOCUMENT_KINDS)).min(1).default(["delivery_note"]),
+  writeMetadataSidecar: z.number().int().min(0).max(1).default(1),
+  autoUploadOnOrderCreate: z.number().int().min(0).max(1).default(1),
+  enabled: z.number().int().min(0).max(1).default(1),
+  maxAttempts: z.number().int().min(1).max(5).default(3),
+  initialBackoffMs: z.number().int().min(500).max(60000).default(2000),
+  backoffFactor: z.number().min(1.0).max(5.0).default(2.0),
+  timeoutMs: z.number().int().min(1000).max(120000).default(20000),
+}).omit({
+  id: true,
+  tenantId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSftpServer = z.infer<typeof insertSftpServerSchema>;
+export type SftpServer = typeof sftpServers.$inferSelect;
+
+export const sftpUploadLogs = pgTable(
+  "sftp_upload_logs",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id").references(() => tenants.id),
+    requestId: varchar("request_id").notNull(), // gruppiert Wiederholungen
+    serverId: varchar("server_id"), // kein FK: Log bleibt nach Löschen des Servers erhalten
+    serverName: text("server_name").notNull(),
+    trigger: text("trigger").notNull(), // 'order_created' | 'manual' | 'test'
+    draftKind: text("draft_kind"), // 'order' | 'offer'
+    draftId: varchar("draft_id"),
+    attachmentId: varchar("attachment_id"),
+    fileName: text("file_name"),
+    remotePath: text("remote_path"),
+    status: text("status").notNull(), // 'pending' | 'success' | 'failed' | 'skipped'
+    errorMessage: text("error_message"),
+    attempt: integer("attempt").notNull().default(1),
+    durationMs: integer("duration_ms"),
+    executedAt: timestamp("executed_at").notNull().defaultNow(),
+    payload: jsonb("payload"),
+  },
+  (table) => ({
+    executedIdx: index("sftp_upload_logs_tenant_executed_idx").on(table.tenantId, table.executedAt),
+    draftIdx: index("sftp_upload_logs_draft_idx").on(table.draftId),
+    statusCheck: sql`CHECK (status IN ('pending', 'success', 'failed', 'skipped'))`,
+  })
+);
+
+export const insertSftpUploadLogSchema = createInsertSchema(sftpUploadLogs).omit({
+  id: true,
+  tenantId: true,
+  executedAt: true,
+});
+
+export type InsertSftpUploadLog = z.infer<typeof insertSftpUploadLogSchema>;
+export type SftpUploadLog = typeof sftpUploadLogs.$inferSelect;
 
 // CPQ Schema - Configure, Price, Quote module
 const cpqSchema = pgSchema("cpq");

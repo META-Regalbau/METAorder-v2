@@ -101,6 +101,7 @@
       "permissionRoutedToOffer": "Als Angebotsentwurf gespeichert (keine Berechtigung für Bestellentwürfe).",
       "pageMismatchOfferPage": "Hinweis: Unter „Angebotsentwürfe“ erkannt als Bestellung – Entwurf finden Sie unter Bestellentwürfe.",
       "pageMismatchOrderPage": "Hinweis: Unter „Bestellentwürfe“ erkannt als Angebot – Entwurf finden Sie unter Angebotsentwürfe.",
+      "alreadyProcessedOpened": "Diese Nachricht wurde bereits verarbeitet — der vorhandene Entwurf wird geöffnet.",
       "alreadyProcessed": "Diese Nachricht wurde bereits verarbeitet — es wurde kein neuer Entwurf angelegt.",
       "multipleDrafts": "{{count}} Entwürfe aus den Anhängen der E-Mail angelegt."
     }
@@ -524,7 +525,13 @@
       "presencePresent": "Ist vorhanden",
       "presenceAbsent": "Ist nicht vorhanden",
       "customFieldValuePlaceholder": "Customfield-Wert…",
-      "reset": "Filter zurücksetzen"
+      "reset": "Filter zurücksetzen",
+      "visibility": "Sichtbarkeit",
+      "allVisibilities": "Alle Sichtbarkeiten",
+      "visibility30": "Sichtbar (30)",
+      "visibility20": "In Produktlisten ausgeblendet (20)",
+      "visibility10": "In Produktlisten und Suche ausgeblendet (10)",
+      "visibility0": "Nicht zugewiesen (0)"
     },
     "table": {
       "productNumber": "Artikelnummer",
@@ -546,7 +553,8 @@
       "fieldsCount": "{{count}} Feld(er)",
       "priceChangedAt": "Preis geändert",
       "lastUpdated": "Zuletzt aktualisiert",
-      "lastUpdatedHint": "Letzte Änderung des Produkts in Shopware (nicht nur Preis) — zeigt, dass der Sync tatsächlich gelaufen ist."
+      "lastUpdatedHint": "Letzte Änderung des Produkts in Shopware (nicht nur Preis) — zeigt, dass der Sync tatsächlich gelaufen ist.",
+      "visibility": "Sichtbarkeit"
     },
     "csv": {
       "priceGross": "Preis brutto",
@@ -599,6 +607,16 @@
       "parentId": "Elternprodukt-ID",
       "deliveryTimeId": "Lieferzeit-ID",
       "noPermission": "Keine Berechtigung für diese Daten."
+    },
+    "visibility": {
+      "level30": "Sichtbar",
+      "level20": "Listen ausgeblendet",
+      "level10": "Listen + Suche ausgeblendet",
+      "level0": "Nicht zugewiesen",
+      "unknown": "Unbekannt",
+      "mixed": "Gemischt",
+      "unknownHint": "Sichtbarkeiten sind im Produktspiegel noch nicht enthalten — beim nächsten Sync bzw. über \"Cache aktualisieren\" werden sie nachgeladen.",
+      "summary": "{{count}} Kanal/Kanäle"
     }
   },
   "barcodeScan": {
@@ -1915,6 +1933,82 @@
         "documentNumber": "Belegnummer",
         "yourToken": "Token"
       }
+    },
+    "sftp": {
+      "title": "SFTP-Server (Lieferscheine → Lobster / d.3)",
+      "description": "Beilagen der KI-Auftragsanlage (i. d. R. der Kundenlieferschein) werden nach der Bestellanlage automatisch per SFTP an die hier hinterlegten Server übergeben. Neben jeder Datei liegt optional eine JSON-Datei mit Bestellnummer, Kundennummer, Kundenbestellnummer und LS-Nr., damit Lobster den Beleg im d.3 direkt zuordnen kann. Zugangsdaten werden verschlüsselt gespeichert.",
+      "add": "Server hinzufügen",
+      "addTitle": "SFTP-Server anlegen",
+      "editTitle": "SFTP-Server „{{name}}“ bearbeiten",
+      "dialogDescription": "Zugang, Zielordner und Dateinamen-Schema. Mit „Verbindung testen“ wird ein Login und eine Verzeichnisliste des Zielpfads durchgeführt.",
+      "empty": "Noch kein SFTP-Server hinterlegt.",
+      "enabled": "Aktiv",
+      "disabled": "Inaktiv",
+      "autoBadge": "Auto bei Bestellanlage",
+      "kindsLabel": "Belegarten",
+      "templateLabel": "Dateiname",
+      "sidecarShort": "mit JSON-Metadaten",
+      "hostKeyVerified": "Host-Key geprüft",
+      "test": "Verbindung testen",
+      "testOk": "Verbindung erfolgreich",
+      "testFailed": "Verbindung fehlgeschlagen",
+      "saved": "SFTP-Server gespeichert",
+      "savedMessage": "„{{name}}“ wurde gespeichert.",
+      "deleted": "SFTP-Server gelöscht",
+      "deleteTitle": "SFTP-Server löschen?",
+      "deleteConfirm": "„{{name}}“ wird entfernt. Bereits hochgeladene Dateien bleiben auf dem Server erhalten.",
+      "showAdvanced": "Erweiterte Einstellungen anzeigen",
+      "hideAdvanced": "Erweiterte Einstellungen ausblenden",
+      "kinds": {
+        "delivery_note": "Lieferschein",
+        "order_confirmation": "Auftragsbestätigung",
+        "invoice": "Rechnung",
+        "other": "Sonstiges"
+      },
+      "fields": {
+        "name": "Bezeichnung",
+        "namePlaceholder": "z. B. Lobster d.3",
+        "host": "Host",
+        "port": "Port",
+        "username": "Benutzername",
+        "authMethod": "Authentifizierung",
+        "authPassword": "Passwort",
+        "authKey": "SSH-Schlüssel",
+        "password": "Passwort",
+        "privateKey": "Private Key (PEM / OpenSSH)",
+        "passphrase": "Passphrase des Schlüssels",
+        "secretConfigured": "•••••••• (hinterlegt – leer lassen zum Beibehalten)",
+        "optional": "optional",
+        "hostKeyFingerprint": "Host-Key-Fingerprint (optional)",
+        "hostKeyHelp": "Empfohlen: Fingerprint des Servers (z. B. aus „ssh-keyscan host | ssh-keygen -lf -“). Ohne Angabe wird der Host-Key nicht geprüft.",
+        "remotePath": "Zielordner",
+        "filenameTemplate": "Dateinamen-Schema",
+        "templateHelp": "Platzhalter:",
+        "autoUpload": "Automatisch bei Bestellanlage",
+        "autoUploadHelp": "Beilagen sofort übergeben, wenn aus dem Entwurf eine Shopware-Bestellung entsteht.",
+        "sidecar": "JSON-Metadaten beilegen",
+        "sidecarHelp": "Zu jeder Datei eine <Dateiname>.json mit Bestell-/Kundennummer, Kundenbestellnummer und LS-Nr. für die Zuordnung im d.3.",
+        "maxAttempts": "Max. Versuche",
+        "initialBackoffMs": "Wartezeit 1. Wiederholung (ms)",
+        "backoffFactor": "Backoff-Faktor",
+        "timeoutMs": "Timeout (ms)"
+      },
+      "logs": {
+        "title": "Upload-Protokoll",
+        "empty": "Noch keine Uploads.",
+        "time": "Zeit",
+        "server": "Server",
+        "file": "Datei",
+        "order": "Bestellung",
+        "status": "Status",
+        "detail": "Details",
+        "statuses": {
+          "success": "Erfolgreich",
+          "failed": "Fehlgeschlagen",
+          "pending": "Wiederholung",
+          "skipped": "Übersprungen"
+        }
+      }
     }
   },
   "webhookLogs": {
@@ -3116,6 +3210,31 @@
     },
     "review": {
       "title": "Bestellentwurf überprüfen",
+      "attachments": {
+        "title": "Beigefügte Dokumente",
+        "hint": "Anhänge derselben Mail, die nicht als Bestellung extrahiert wurden. Ein Kundenlieferschein ist der Sendung beizulegen; die Dateien gehen später ins Dokumentenarchiv.",
+        "deliveryNoteNumber": "LS-Nr.",
+        "orderNumber": "Bestell-Nr.",
+        "invoiceNumber": "Rechnungs-Nr.",
+        "commission": "Kommission",
+        "exported": "im Archiv",
+        "skipped": "nicht archiviert",
+        "pending": "Archiv ausstehend",
+        "open": "Öffnen",
+        "sftpUpload": "Per SFTP übergeben",
+        "sftpTitle": "SFTP-Übergabe",
+        "sftpResult": "{{uploaded}} hochgeladen, {{failed}} fehlgeschlagen"
+      },
+      "references": {
+        "title": "Referenzen & Lieferhinweise",
+        "hint": "Werden bei der Bestellanlage in den Kundenkommentar übernommen und gehören auf Lieferschein und Auftragsbestätigung.",
+        "customerReference": "Kundenreferenz / Nummer beim Kunden",
+        "commission": "Kommission",
+        "deliveryContact": "Ansprechpartner am Lieferort",
+        "deliveryNoteInstructions": "Lieferschein / Anlieferung",
+        "orderConfirmationEmail": "Auftragsbestätigung an",
+        "invoiceEmail": "Rechnung an"
+      },
       "filename": "Datei",
       "customerInfo": "Kundeninformationen",
       "customerExists": "Kunde existiert bereits",
@@ -3166,7 +3285,16 @@
       "webVerificationStreet": "Straße (Teil) gefunden",
       "webVerificationExcerpt": "Textauszug",
       "webVerificationSkippedFreemail": "Übersprungen: E-Mail-Domain ist ein Freemail-/Provider-Dienst.",
-      "webVerificationSkippedNoEmail": "Übersprungen: Keine Kunden-E-Mail zur Domain-Ermittlung."
+      "webVerificationSkippedNoEmail": "Übersprungen: Keine Kunden-E-Mail zur Domain-Ermittlung.",
+      "recheck": "Nochmal prüfen",
+      "rechecking": "Prüfe …",
+      "recheckHint": "Produkte und Kunde erneut zuordnen, ohne neu hochzuladen",
+      "recheckDone": "Erneut geprüft",
+      "recheckProducts": "{{after}} von {{lines}} Positionen zugeordnet (vorher {{before}}).",
+      "recheckCustomerKept": "Kunde manuell zugeordnet – unverändert.",
+      "recheckCustomerChanged": "Kunde neu zugeordnet.",
+      "recheckCustomerSame": "Kunde unverändert.",
+      "recheckError": "Erneute Prüfung fehlgeschlagen"
     },
     "crossSelling": {
       "title": "Intelligente Produktvorschläge",
@@ -4186,5 +4314,11 @@
       "tier": "Zusatzrabatt",
       "total": "max. gesamt"
     }
+  },
+  "errorBoundary": {
+    "title": "Diese Seite konnte nicht geladen werden",
+    "description": "Ein unerwarteter Fehler ist aufgetreten. Die restliche Anwendung läuft weiter — du kannst es hier erneut versuchen oder die Seite neu laden.",
+    "retry": "Erneut versuchen",
+    "reload": "Seite neu laden"
   }
 }

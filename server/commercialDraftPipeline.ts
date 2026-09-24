@@ -29,6 +29,7 @@ import {
   extractPlainTextForDraft,
   normalizeMimeTypeForDraft,
 } from "./documentTextExtraction";
+import { resolveDocumentExtractionChatLlm } from "./documentExtractionChatLlm";
 
 export type DraftPipelineTimings = Record<string, number>;
 
@@ -205,6 +206,8 @@ export async function runOfferDraftPipeline(
     emailContext,
     siblingPdfExcerpts,
     primaryDocumentText: resolvedPrimaryDocumentText,
+    // Ohne OpenAI-Client: Chat-Provider des Mandanten (z. B. Anthropic) für Text-Extraktion
+    chatLlm: openaiClient || aiSettings.mode === "local_only" ? null : await resolveDocumentExtractionChatLlm(storage),
   });
   timings.extractionMs = Date.now() - extractionStart;
   normalizeLineItems(extractedData);
@@ -389,6 +392,7 @@ export async function runOfferDraftPipeline(
         customerMatchAutoMinConfidence: agentComm.customerMatchAutoMinConfidence,
         customerAutoCreateMinConfidence: agentComm.customerAutoCreateMinConfidence,
         minRankedEmailScoreForAutoCreate: agentComm.minRankedEmailScoreForAutoCreate,
+        allowCustomerAutoCreate: agentComm.customerAutoCreateEnabled === true,
       });
     } catch (e) {
       console.error(`[Offer Draft Pipeline] Customer error:`, e);
@@ -491,6 +495,8 @@ export async function runOrderDraftPipeline(
     emailContext,
     siblingPdfExcerpts,
     primaryDocumentText: resolvedPrimaryDocumentText,
+    // Ohne OpenAI-Client: Chat-Provider des Mandanten (z. B. Anthropic) für Text-Extraktion
+    chatLlm: openaiClient || aiSettings.mode === "local_only" ? null : await resolveDocumentExtractionChatLlm(storage),
   });
   timings.extractionMs = Date.now() - extractionStart;
   normalizeLineItems(extractedData);
@@ -637,6 +643,7 @@ export async function runOrderDraftPipeline(
         customerMatchAutoMinConfidence: agentComm.customerMatchAutoMinConfidence,
         customerAutoCreateMinConfidence: agentComm.customerAutoCreateMinConfidence,
         minRankedEmailScoreForAutoCreate: agentComm.minRankedEmailScoreForAutoCreate,
+        allowCustomerAutoCreate: agentComm.customerAutoCreateEnabled === true,
       });
     } catch (e) {
       console.error(`[Order Draft Pipeline] Customer error:`, e);

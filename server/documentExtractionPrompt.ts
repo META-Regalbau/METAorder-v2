@@ -39,7 +39,9 @@ Bestellung – niemals der buyer:
 - META-Regalbau, RegalPro
 
 Wenn eine META-Adresse im Dokument auftaucht: ignoriere sie für buyer und
-delivery_address, setze \`document.recipient_is_meta = true\`.
+delivery_address, setze \`document.recipient_is_meta = true\`. Das ist bei
+Kundenbestellungen an META der NORMALFALL und kein Warnsignal — der buyer bleibt
+der Kunde. \`buyer\` darf NIEMALS ein META-Unternehmen sein.
 
 # ADRESS-LOGIK
 - **buyer** = Auftraggeber/Kunde, der bei META bestellt. Meist im Briefkopf
@@ -159,15 +161,94 @@ Wenn Position-Spalte fehlt: nummeriere automatisch 1..n durch.
 - Land: aus PLZ/Adress-Kontext ableiten ("AT-4213" → "AT",
   "4213 Unterweitersdorf" → "AT" wenn Buyer-Kontext österreichisch)
 
-# ARTIKELNUMMER-EXTRAKTION (mehrstufige Strategie)
-Pro Line Item, in dieser Reihenfolge versuchen:
-1. Eigene SKU-Spalte gefüllt → \`supplier_sku\`
-2. EAN-13 im Bezeichnungstext (13 Ziffern, META-Pattern beginnt mit
-   "4026212" oder "402621") → \`supplier_sku\`
-3. Inline-Pattern matchen: \`(Art\\.?\\s*-?\\s*Nr\\.?\\s*:?\\s*([\\w\\d-]+))\`
-   oder \`Art\\.?\\s*-?\\s*Nr\\.?\\s*:?\\s*([\\w\\d-]+)\` → \`supplier_sku\`
-4. Spalte "Ihre Ident Nr." / "Ihre Art.Nr." gefüllt → \`buyer_sku\`
-   (NICHT supplier_sku, das ist die kundeneigene Nummer)
+# ARTIKELNUMMER-EXTRAKTION — META-NUMMER HAT IMMER VORRANG
+Der Beleg ist vom KUNDEN geschrieben. Deshalb gilt aus Kundensicht:
+„Ihre Artikelnummer" / „Ihre Ident-Nr." / „Lieferantenartikelnummer" /
+„Lieferanten-Art.-Nr." / „Hersteller-Nr." = META-Nummer → \`supplier_sku\`.
+„Unsere Art.-Nr." / „Unsere Artikelnummer" / „Kunden-Art.-Nr." = kundeneigene
+Nummer → \`buyer_sku\`.
+
+Beispiel (Blumenbecker): Spalte „Artikelnr." = 1406791 (Nummer des KUNDEN), darunter
+„Ihre Artikelnummer:20075063" (META-Nummer) → supplier_sku="20075063",
+buyer_sku="1406791". Steht im Beleg ein „Ihre Artikelnummer"-Label, ist die
+Spaltennummer daneben praktisch immer die Kundennummer.
+
+Pro Line Item, in dieser Reihenfolge — die ERSTE Stufe mit Treffer gewinnt:
+1. META-EAN irgendwo im Positionsblock: 13 Ziffern, beginnt mit "4026212"
+   (auch als eigene Zeile „EAN: 4026212342529", „Lieferantenartikelnummer:
+   4026212223842", „EAN-Nummer" oder unter der Bezeichnung) → \`supplier_sku\`.
+   Die EAN gewinnt IMMER, auch wenn in der Artikelnummern-Spalte etwas anderes
+   steht — die Spaltennummer wandert dann nach \`buyer_sku\` (Kundennummer) bzw.
+   nach \`alternative_skus\` (wenn sie META-seitig ist, z. B. 6-stellige META-
+   Kurznummer "124583" oder META-ERP-Nummer "200188545").
+2. Spalte/Label, das eindeutig META meint („Ihre Art.-Nr.", „Lieferantenartikel-
+   nummer", „Artikel-Nr. Lieferant") → \`supplier_sku\`; weitere META-Nummern
+   derselben Position → \`alternative_skus\`.
+3. Generische SKU-Spalte („Artikelnummer", „Art.-Nr.", „Ident Nr", „SKU") →
+   \`supplier_sku\`, AUSSER die Spalte ist als „Unsere …" gekennzeichnet → \`buyer_sku\`.
+4. Inline-Pattern \`Art\\.?\\s*-?\\s*Nr\\.?\\s*:?\\s*([\\w\\d-]+)\` → \`supplier_sku\`.
+5. Spalte „Unsere Art.-Nr." / „Kunden-Art.-Nr." → \`buyer_sku\`.
+Eine Position kann supplier_sku UND buyer_sku haben. Keine Nummer erfinden.
+\`buyer_sku\` ist NUR die kundeneigene Nummer. META-seitige Nummern gehören NIE
+dorthin: 6-stellige META-Kurznummern (= letzte 6 Ziffern der EAN, z. B. "124583"
+zu 4026212124583) und META-ERP-Nummern (9-stellig, "2001…") → \`alternative_skus\`.
+
+# SAMMELPOSITIONEN / STÜCKLISTEN („bestehend aus")
+Eine Position wie „Regalkomponenten bestehend aus: 11 x 4026212260977 Ständer …,
+8 x 4026212259438 Holm …, 80 x 4026212266184 U-Rammschutz" ist eine Stückliste.
+→ JEDE Komponente wird ein EIGENES line_item: quantity = Komponentenmenge × Menge
+der Sammelposition, supplier_sku = EAN der Komponente, description = Text der
+Komponente. unit_price_net/line_total_net der Komponenten = null (der Beleg nennt
+nur einen Pauschalpreis) — den Pauschalpreis NICHT auf eine Komponente buchen,
+er steht in document.total_net. Die Sammelposition selbst NICHT zusätzlich ausgeben.
+Komponentenlisten laufen über Seitenumbrüche („Übertrag", wiederholter Kopf) weiter.
+
+# ANGEBOTSBEZUG
+\`references.supplier_offer_number\`: META-Angebotsnummer, auf die sich die
+Bestellung bezieht — „lt. Angebot 11156331.1", „Ihr Angebot Nr.", „Angebots-Nr.",
+oder ein „AN" + Ziffern als „Ihre Artikelnummer" (z. B. AN280209 ist eine
+Angebotsnummer, KEINE Artikelnummer → nicht als supplier_sku verwenden).
+
+# KUNDENNUMMER vs. LIEFERANTENNUMMER
+\`buyer.customer_number\` = die Nummer, die der Kunde BEI META hat: Labels
+„Kundennummer", „Kd.-Nr.", „KD.Nr. b. Lief.", „Unsere Kd-Nr.", „Kundennr",
+„Unsere Kontonr.", „Unsere Konto-Nr.", „Debitorennr." (Konto des Kunden bei META).
+NICHT: „Lieferantennummer", „Lieferanten-Nr.", „Nummer Lieferant", „Kreditor" —
+das ist METAs Nummer beim Kunden → null lassen (nicht in customer_number).
+
+# LIEFERTERMIN
+\`document.delivery_date\`: Kopf-Termin („Liefertermin", „Lieferdatum",
+„Wunschtermin"). Steht der Termin nur je Position („Termin", „Erw. Lieferd.",
+„Lieferdatum: …" im Positionstext) und ist bei allen Positionen gleich →
+diesen als document.delivery_date übernehmen. Kalenderwochen („KW 39/26")
+gehören in \`delivery_address.delivery_window\`, nicht in delivery_date.
+
+# REFERENZEN & LIEFERHINWEISE (\`references\`) — eigene Felder, kein Freitext
+Diese Angaben müssen später auf Lieferschein / Auftragsbestätigung und ins
+Dokumentenarchiv. Deshalb NICHT nur in \`terms.notes\`, sondern zusätzlich hier:
+- \`customer_reference\`: „Nummer beim Kunden", „Kundenreferenz", „Ihre
+  Referenz", „Ref.", „Vorgangsnummer", „Projekt-Nr.", „Bedarfsnummer".
+  Ist die Angabe mit „bitte auf dem Lieferschein angeben" verknüpft, gehört
+  sie ZWINGEND hierher.
+- \`commission\`: „Kommission", „Kom.:", „Kommissionsnummer", „Baustelle".
+- \`delivery_contact_name/_phone/_email\`: Ansprechpartner AM LIEFERORT
+  („Avisierung an", „Ansprechpartner vor Ort", „Lieferung telef. avis.",
+  Name/Telefon im Positionstext neben der Lieferadresse). NICHT der
+  Einkäufer/Sachbearbeiter des Kunden — der bleibt \`buyer.contact_person\`.
+- \`delivery_note_instructions\`: alles, was bei Anlieferung/auf dem
+  Lieferschein zu beachten ist („Bitte Ware mit unserem Lieferschein
+  versenden", „Warenannahme Mo–Do 6–12 Uhr", „Anlieferung über Straße X",
+  „telefonisch avisieren", „Nummer immer auf dem Lieferschein angeben").
+- \`order_confirmation_email\`: Adresse, an die die AB gehen soll („AB an",
+  „Auftragsbestätigung an", „Abweichungen an … senden").
+- \`invoice_email\`: Adresse für die Rechnung („Rechnung nur per Mail an").
+Nicht vorhanden → null.
+
+# KONTAKTPERSON — REIHENFOLGE
+\`buyer.contact_person\` immer als „Vorname Nachname". Belege schreiben oft
+„Nachname Vorname" (z. B. „Bearbeiter: Schlesselmann Birgit", „Ansprechp:
+Augustinov, Adrian") — dann umstellen zu „Birgit Schlesselmann" / „Adrian
+Augustinov". Anreden/Titel weglassen.
 
 # MEHRZEILIGE TABELLENZELLEN
 Eine Item-Zeile kann visuell aus 2–3 Textzeilen bestehen (z.B. EAN oben,
@@ -226,6 +307,17 @@ Code-Fences, keine Erklärungen davor/danach.
     "partial_delivery_allowed": boolean | null,
     "notes": "string" | null
   },
+  "references": {
+    "customer_reference": "string" | null,
+    "commission": "string" | null,
+    "supplier_offer_number": "string" | null,
+    "delivery_contact_name": "string" | null,
+    "delivery_contact_phone": "string" | null,
+    "delivery_contact_email": "string" | null,
+    "delivery_note_instructions": "string" | null,
+    "order_confirmation_email": "string" | null,
+    "invoice_email": "string" | null
+  },
   "line_items": [
     {
       "position": integer,
@@ -233,6 +325,7 @@ Code-Fences, keine Erklärungen davor/danach.
       "unit": "string",
       "supplier_sku": "string" | null,
       "buyer_sku": "string" | null,
+      "alternative_skus": ["string"],
       "description": "string",
       "attributes": {
         "color": "string" | null,

@@ -150,4 +150,198 @@ console.log("=== commercialStrictAutoCreate Unit Tests ===\n");
   console.log("  unclear intent → blocked: OK");
 }
 
+// ---------------------------------------------------------------------------
+// Bestellungen — gleiche Basis wie Angebote plus Preisabgleich / Dubletten
+// ---------------------------------------------------------------------------
+
+function fullOrderExtracted(): Record<string, unknown> {
+  const data = fullExtracted();
+  (data.lineItems as Array<Record<string, unknown>>)[0].extractedPrice = 1;
+  return data;
+}
+
+const okPriceChecks = [{ index: 0, documentUnitPriceNet: 1, expectedUnitPriceNet: 1, source: "list" as const }];
+
+{
+  const r = evaluateStrictAutoCreate({
+    draftKind: "order",
+    agentSettings: baseSettings,
+    extractedData: fullOrderExtracted(),
+    matchingResults: fullMatching(),
+    shopwareCustomerId: "cust-1",
+    intent: { intent: "purchase_order", confidence: 0.97 },
+    siblingDrafts: [],
+    linePriceChecks: okPriceChecks,
+  });
+  assert(r.allowed, `order: all rules pass: ${r.reasons.join(", ")}`);
+  assert(r.priceChecks?.length === 1 && r.priceChecks[0].ok, "order: price check reported ok");
+  console.log("  order: all rules pass → allowed: OK");
+}
+
+{
+  const r = evaluateStrictAutoCreate({
+    draftKind: "order",
+    agentSettings: { ...baseSettings, autoCreateOrdersEnabled: false },
+    extractedData: fullOrderExtracted(),
+    matchingResults: fullMatching(),
+    shopwareCustomerId: "cust-1",
+    intent: { intent: "purchase_order", confidence: 0.97 },
+    siblingDrafts: [],
+    linePriceChecks: okPriceChecks,
+  });
+  assert(!r.allowed && r.reasons.includes("auto_create_orders_disabled"), "order kill switch");
+  console.log("  order: kill switch → blocked: OK");
+}
+
+{
+  const prevEnv = process.env.B2B_SELLERS_DEFAULT_SALES_CHANNEL;
+  const prevEnv2 = process.env.COMMERCIAL_AGENT_SALES_CHANNEL_ID;
+  delete process.env.B2B_SELLERS_DEFAULT_SALES_CHANNEL;
+  delete process.env.COMMERCIAL_AGENT_SALES_CHANNEL_ID;
+  const noChannel = { ...baseSettings, autoCreateSalesChannelId: "" };
+  const blocked = evaluateStrictAutoCreate({
+    draftKind: "order",
+    agentSettings: noChannel,
+    extractedData: fullOrderExtracted(),
+    matchingResults: fullMatching(),
+    shopwareCustomerId: "cust-1",
+    intent: { intent: "purchase_order", confidence: 0.97 },
+    siblingDrafts: [],
+    linePriceChecks: okPriceChecks,
+  });
+  assert(!blocked.allowed && blocked.reasons.includes("missing_sales_channel_id"), "order: missing channel");
+  const viaCustomer = evaluateStrictAutoCreate({
+    draftKind: "order",
+    agentSettings: noChannel,
+    extractedData: fullOrderExtracted(),
+    matchingResults: fullMatching(),
+    shopwareCustomerId: "cust-1",
+    intent: { intent: "purchase_order", confidence: 0.97 },
+    customerSalesChannelId: "channel-of-customer",
+    siblingDrafts: [],
+    linePriceChecks: okPriceChecks,
+  });
+  assert(viaCustomer.allowed, `order: customer-bound channel satisfies rule: ${viaCustomer.reasons.join(", ")}`);
+  const offerBlocked = evaluateStrictAutoCreate({
+    draftKind: "offer",
+    agentSettings: noChannel,
+    extractedData: fullExtracted(),
+    matchingResults: fullMatching(),
+    shopwareCustomerId: "cust-1",
+    intent: { intent: "quote_request", confidence: 0.97 },
+  });
+  assert(!offerBlocked.allowed && offerBlocked.reasons.includes("missing_sales_channel_id"), "offer: missing channel");
+  if (prevEnv !== undefined) process.env.B2B_SELLERS_DEFAULT_SALES_CHANNEL = prevEnv;
+  if (prevEnv2 !== undefined) process.env.COMMERCIAL_AGENT_SALES_CHANNEL_ID = prevEnv2;
+  console.log("  order+offer: sales channel required (customer-bound channel counts) → OK");
+}
+
+{
+  const r = evaluateStrictAutoCreate({
+    draftKind: "order",
+    agentSettings: baseSettings,
+    extractedData: fullOrderExtracted(),
+    matchingResults: fullMatching(),
+    shopwareCustomerId: "cust-1",
+    intent: { intent: "purchase_order", confidence: 0.97 },
+    siblingDrafts: [{ id: "other-draft", status: "created", shopwareEntityId: "sw-order-1" }],
+    linePriceChecks: okPriceChecks,
+  });
+  assert(!r.allowed && r.reasons.includes("duplicate_buyer_document_number"), "order: duplicate PO number");
+  const offerDup = evaluateStrictAutoCreate({
+    draftKind: "offer",
+    agentSettings: baseSettings,
+    extractedData: fullExtracted(),
+    matchingResults: fullMatching(),
+    shopwareCustomerId: "cust-1",
+    intent: { intent: "quote_request", confidence: 0.97 },
+    siblingDrafts: [{ id: "other-draft", status: "review_required", shopwareEntityId: null }],
+  });
+  assert(!offerDup.allowed && offerDup.reasons.includes("duplicate_buyer_document_number"), "offer: duplicate doc number");
+  console.log("  duplicate buyer document number → blocked (order + offer): OK");
+}
+
+{
+  const r = evaluateStrictAutoCreate({
+    draftKind: "order",
+    agentSettings: baseSettings,
+    extractedData: fullOrderExtracted(),
+    matchingResults: fullMatching(),
+    shopwareCustomerId: "cust-1",
+    intent: { intent: "purchase_order", confidence: 0.97 },
+    siblingDrafts: [],
+  });
+  assert(!r.allowed && r.reasons.includes("price_check_unavailable"), "order: price check unavailable");
+  console.log("  order: price check unavailable → blocked: OK");
+}
+
+{
+  const r = evaluateStrictAutoCreate({
+    draftKind: "order",
+    agentSettings: baseSettings,
+    extractedData: fullExtracted(), // kein extractedPrice
+    matchingResults: fullMatching(),
+    shopwareCustomerId: "cust-1",
+    intent: { intent: "purchase_order", confidence: 0.97 },
+    siblingDrafts: [],
+    linePriceChecks: [{ index: 0, documentUnitPriceNet: null, expectedUnitPriceNet: 1, source: "list" }],
+  });
+  assert(!r.allowed && r.reasons.includes("line_1_price_missing_in_document"), "order: price missing in document");
+  console.log("  order: price missing in document → blocked: OK");
+}
+
+{
+  const mismatch = evaluateStrictAutoCreate({
+    draftKind: "order",
+    agentSettings: baseSettings,
+    extractedData: fullOrderExtracted(),
+    matchingResults: fullMatching(),
+    shopwareCustomerId: "cust-1",
+    intent: { intent: "purchase_order", confidence: 0.97 },
+    siblingDrafts: [],
+    linePriceChecks: [{ index: 0, documentUnitPriceNet: 100, expectedUnitPriceNet: 90, source: "customer_specific" }],
+  });
+  assert(!mismatch.allowed && mismatch.reasons.includes("line_1_price_mismatch"), "order: price mismatch");
+  assert(mismatch.priceChecks?.[0].deviationPercent === 11.11, `deviation reported: ${mismatch.priceChecks?.[0].deviationPercent}`);
+  const withinTolerance = evaluateStrictAutoCreate({
+    draftKind: "order",
+    agentSettings: { ...baseSettings, strictPriceTolerancePercent: 2 },
+    extractedData: fullOrderExtracted(),
+    matchingResults: fullMatching(),
+    shopwareCustomerId: "cust-1",
+    intent: { intent: "purchase_order", confidence: 0.97 },
+    siblingDrafts: [],
+    linePriceChecks: [{ index: 0, documentUnitPriceNet: 91.5, expectedUnitPriceNet: 90, source: "customer_discount" }],
+  });
+  assert(withinTolerance.allowed, `order: within tolerance: ${withinTolerance.reasons.join(", ")}`);
+  const manualOverride = evaluateStrictAutoCreate({
+    draftKind: "order",
+    agentSettings: baseSettings,
+    extractedData: fullOrderExtracted(),
+    matchingResults: fullMatching(),
+    shopwareCustomerId: "cust-1",
+    intent: { intent: "purchase_order", confidence: 0.97 },
+    siblingDrafts: [],
+    linePriceChecks: [
+      { index: 0, documentUnitPriceNet: 100, expectedUnitPriceNet: 90, source: "list", manualUnitPriceNet: 100 },
+    ],
+  });
+  assert(manualOverride.allowed, `order: manual price overrides mismatch: ${manualOverride.reasons.join(", ")}`);
+  console.log("  order: price mismatch → blocked; tolerance + manual override → allowed: OK");
+}
+
+{
+  // Angebot: Preis im Dokument ist nur informativ — kein Preisabgleich, kein Block.
+  const r = evaluateStrictAutoCreate({
+    draftKind: "offer",
+    agentSettings: baseSettings,
+    extractedData: fullExtracted(),
+    matchingResults: fullMatching(),
+    shopwareCustomerId: "cust-1",
+    intent: { intent: "quote_request", confidence: 0.97 },
+  });
+  assert(r.allowed && !r.priceChecks, "offer: no price check");
+  console.log("  offer: no price check applied → OK");
+}
+
 console.log("\nAll tests passed.\n");

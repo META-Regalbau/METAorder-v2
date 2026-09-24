@@ -1,3 +1,4 @@
+import { cachedMissingEntityResponse, traceShopwareResponse } from "./shopwareHttpTrace";
 import { randomUUID } from "crypto";
 import type { Offer, OfferStatus, OrderAddress, ShopwareSettings } from "@shared/schema";
 import {
@@ -160,6 +161,8 @@ export class B2BSellersClient {
   }
 
   private async makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<Response> {
+    const knownMissing = cachedMissingEntityResponse(url);
+    if (knownMissing) return knownMissing;
     let token = await this.authenticate();
 
     const headers = {
@@ -186,13 +189,14 @@ export class B2BSellersClient {
         Authorization: `Bearer ${token}`,
       };
 
-      return await fetch(url, {
+      const retry = await fetch(url, {
         ...options,
         headers: retryHeaders,
       });
+      return traceShopwareResponse(url, { ...options, headers: retryHeaders }, retry);
     }
 
-    return response;
+    return traceShopwareResponse(url, { ...options, headers }, response);
   }
 
   private getApiEntityName(): string {
@@ -282,7 +286,10 @@ export class B2BSellersClient {
   private getEntityCandidates(): string[] {
     const raw = OFFER_ENTITY;
     const dashed = raw.replace(/_/g, "-");
+    // B2Bsellers Suite registriert „b2bsellers-offer" — zuerst probieren, sonst erzeugt jeder neue
+    // Client fünf „No route found"-Exceptions im Shop-Log, bevor er den richtigen Namen findet.
     const common = [
+      "b2bsellers-offer",
       "b2b_offer",
       "b2b-offer",
       "b2b_sellers_offer",
@@ -293,7 +300,8 @@ export class B2BSellersClient {
       "prems_individual_offer",
       "prems-individual-offer",
     ];
-    const candidates = [dashed, raw, ...common];
+    // Ohne explizite Env-Konfiguration nicht mit dem Default „b2b_offer" beginnen.
+    const candidates = process.env.B2B_SELLERS_ENTITY_OFFERS ? [dashed, raw, ...common] : common;
     return Array.from(new Set(candidates.filter(Boolean)));
   }
 
@@ -765,6 +773,8 @@ export class B2BSellersClient {
       productId: string;
       quantity: number;
       type?: string;
+      /** Artikelnummer — für den Abgleich mit kundenindividuellen Preisen */
+      productNumber?: string;
       /** B2B/Shopware: MetaCalc-kompatibles payload (z. B. aus CPQ-Stückliste) */
       payload?: Record<string, unknown>;
       /** Optionaler Netto-Stückpreis-Override (manueller Rabatt) */

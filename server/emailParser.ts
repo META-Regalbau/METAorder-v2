@@ -8,6 +8,8 @@ export interface ParsedEmailResult {
   body: string;
   attachments: ParsedAttachment[];
   orderNumber?: string;
+  /** Roh-HTML der Nachricht (CID-Referenzen der Signaturbilder) */
+  html?: string | null;
 }
 
 export interface ParsedAttachment {
@@ -15,6 +17,10 @@ export interface ParsedAttachment {
   contentType: string;
   size: number;
   content: Buffer;
+  /** „inline" / „attachment" — Signaturbilder sind inline eingebettet */
+  contentDisposition?: string;
+  cid?: string;
+  related?: boolean;
 }
 
 /**
@@ -46,6 +52,7 @@ export async function parseEmlFile(buffer: Buffer): Promise<ParsedEmailResult> {
     body: bodyText,
     attachments,
     orderNumber,
+    html: typeof parsed.html === "string" ? parsed.html : null,
   };
 }
 
@@ -140,6 +147,9 @@ async function filterRelevantAttachments(
           contentType: fileType.mime,
           size: buffer.length,
           content: buffer,
+          contentDisposition: attachment.contentDisposition,
+          cid: attachment.cid,
+          related: attachment.related,
         });
       }
     }

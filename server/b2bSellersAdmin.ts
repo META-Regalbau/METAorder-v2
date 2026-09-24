@@ -1,3 +1,4 @@
+import { cachedMissingEntityResponse, traceShopwareResponse } from "./shopwareHttpTrace";
 import type { ShopwareSettings } from "@shared/schema";
 import type { B2BEntityMapping } from "@shared/b2bEntityMapping";
 import { DEFAULT_B2B_ENTITY_MAPPING, mergeB2BEntityMapping } from "@shared/b2bEntityMapping";
@@ -130,6 +131,8 @@ export class B2BSellersAdminClient {
   }
 
   async makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<Response> {
+    const knownMissing = cachedMissingEntityResponse(url);
+    if (knownMissing) return knownMissing;
     let token = await this.authenticate();
     const headers = {
       "Content-Type": "application/json",
@@ -147,7 +150,7 @@ export class B2BSellersAdminClient {
         headers: { ...headers, Authorization: `Bearer ${token}` },
       });
     }
-    return response;
+    return traceShopwareResponse(url, { ...options, headers }, response);
   }
 
   resolveEntityName(key: keyof B2BEntityMapping): string {

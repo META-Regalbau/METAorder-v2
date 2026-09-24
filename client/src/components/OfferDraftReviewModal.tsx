@@ -73,6 +73,14 @@ import {
   LineItemConfidenceWarningBadges,
   pickDocumentExtraction,
 } from "@/components/DocumentExtractionAlerts";
+import { DraftAttachmentsCard } from "@/components/DraftAttachmentsCard";
+import {
+  DraftCustomerCandidates,
+  DraftCustomerOptionLabel,
+  useCustomerCreateEnabled,
+  type DraftShopwareCustomer,
+} from "@/components/DraftCustomerOptions";
+import { DraftReferencesCard, type DraftDocumentReferencesLite } from "@/components/DraftReferencesCard";
 
 interface BundleSummary {
   id: string;
@@ -414,7 +422,8 @@ export function OfferDraftReviewModal({
     },
   });
 
-  type ShopwareCustomer = { id: string; email?: string; firstName?: string; lastName?: string; company?: string };
+  type ShopwareCustomer = DraftShopwareCustomer;
+  const customerCreateEnabled = useCustomerCreateEnabled();
   const { data: customerSearchData } = useQuery<{ customers: ShopwareCustomer[] }>({
     queryKey: ["/api/offer-drafts/customer-search", debouncedCustomerSearch],
     queryFn: async () => {
@@ -758,6 +767,15 @@ export function OfferDraftReviewModal({
         )}
 
         <div className="space-y-6">
+          <DraftReferencesCard
+            references={
+              ((editedData ?? draft.extractedData) as { documentReferences?: DraftDocumentReferencesLite } | null)
+                ?.documentReferences ?? null
+            }
+          />
+
+          <DraftAttachmentsCard draftId={draft.id} draftKind="offer" />
+
           <Card data-testid="card-assign-customer">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
@@ -793,8 +811,18 @@ export function OfferDraftReviewModal({
                 </div>
               ) : (
                 <div className="space-y-2">
+                  <DraftCustomerCandidates
+                    candidates={
+                      ((editedData ?? draft.extractedData) as {
+                        customer?: { shopwareCustomerCandidates?: DraftShopwareCustomer[] };
+                      } | null)?.customer?.shopwareCustomerCandidates
+                    }
+                    onAssign={(c) => assignCustomerMutation.mutate(c)}
+                    disabled={assignCustomerMutation.isPending}
+                    testIdPrefix="offer-customer"
+                  />
                   <Input
-                    placeholder={t("offerDrafts.review.searchCustomerPlaceholder", "Kunde suchen (E-Mail, Name, min. 2 Zeichen)…")}
+                    placeholder={t("offerDrafts.review.searchCustomerPlaceholder", "Kunde suchen (Firma, Kundennummer, E-Mail, Name, PLZ)…")}
                     value={customerSearchTerm}
                     onChange={(e) => setCustomerSearchTerm(e.target.value)}
                     className="max-w-md"
@@ -811,8 +839,7 @@ export function OfferDraftReviewModal({
                             disabled={assignCustomerMutation.isPending}
                             data-testid={`customer-option-${c.id}`}
                           >
-                            {[c.firstName, c.lastName].filter(Boolean).join(" ") || "—"}
-                            {c.email && <span className="text-muted-foreground ml-1">({c.email})</span>}
+                            <DraftCustomerOptionLabel customer={c} />
                           </button>
                         </li>
                       ))}
@@ -821,7 +848,7 @@ export function OfferDraftReviewModal({
                   {debouncedCustomerSearch.length >= 2 && customerSearchResults.length === 0 && !assignCustomerMutation.isPending && (
                     <p className="text-sm text-muted-foreground">{t("offerDrafts.review.noCustomersFound", "Keine Kunden gefunden.")}</p>
                   )}
-                  {!draft.shopwareCustomerId && editedData?.billingAddress && !!emailForShopwareCustomer && (
+                  {customerCreateEnabled && !draft.shopwareCustomerId && editedData?.billingAddress && !!emailForShopwareCustomer && (
                     <div className="pt-3 mt-3 border-t space-y-2 max-w-md">
                       <p className="text-xs text-muted-foreground">{t("offerDrafts.review.createShopwareCustomerHint")}</p>
                       <Button

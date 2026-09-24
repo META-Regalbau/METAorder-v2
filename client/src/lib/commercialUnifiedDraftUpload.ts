@@ -25,6 +25,8 @@ export type CommercialUnifiedUploadResult = {
   usedEmailOnlyFallback?: boolean;
   /** true: Nachricht war bereits verarbeitet — es wurde kein neuer Entwurf angelegt. */
   deduplicated?: boolean;
+  /** Bei bereits verarbeiteter Mail: `draft` ist der schon vorhandene Entwurf */
+  existingDraftReturned?: boolean;
 };
 
 const VALID_MIME_TYPES = [

@@ -113,10 +113,14 @@ services:
       COMMERCIAL_AGENT_STRICT_AUTO_CREATE: ${COMMERCIAL_AGENT_STRICT_AUTO_CREATE:-true}
       COMMERCIAL_AGENT_STRICT_MIN_INTENT: ${COMMERCIAL_AGENT_STRICT_MIN_INTENT:-0.95}
       COMMERCIAL_AGENT_STRICT_MIN_CUSTOMER: ${COMMERCIAL_AGENT_STRICT_MIN_CUSTOMER:-95}
+      COMMERCIAL_AGENT_STRICT_PRICE_TOLERANCE: ${COMMERCIAL_AGENT_STRICT_PRICE_TOLERANCE:-1}
       # Eingangsbestätigung an den Absender (versendet Mail an echte Kunden — Default aus).
       # OWN_DOMAINS kommagetrennt: an diese Domains wird nie bestätigt (Mailschleifen).
       COMMERCIAL_AGENT_INBOUND_ACK: ${COMMERCIAL_AGENT_INBOUND_ACK:-false}
       COMMERCIAL_AGENT_INBOUND_ACK_OWN_DOMAINS: ${COMMERCIAL_AGENT_INBOUND_ACK_OWN_DOMAINS:-}
+      # Unbekannte Absender automatisch als Shopware-Kunde anlegen (Default aus: Entwurf bleibt im Review,
+      # Bearbeiter legt den Kunden bewusst an).
+      COMMERCIAL_AGENT_CUSTOMER_AUTO_CREATE: ${COMMERCIAL_AGENT_CUSTOMER_AUTO_CREATE:-false}
       B2B_SELLERS_DEFAULT_SALES_CHANNEL: ${B2B_SELLERS_DEFAULT_SALES_CHANNEL:-}
       # Zebra Browser Print am Host (Artikeletiketten). Container → Host:9100.
       BROWSER_PRINT_URL: ${BROWSER_PRINT_URL:-http://host.docker.internal:9100}

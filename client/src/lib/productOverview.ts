@@ -29,7 +29,12 @@ export interface OverviewProduct {
   taxRate: number;
   currency: string;
   salesChannelIds: string[];
-  salesChannels: Array<{ id: string; name: string }>;
+  /**
+   * Kanalzuordnung inkl. Shopware-Sichtbarkeit:
+   * 30 = sichtbar, 20 = in Produktlisten ausgeblendet, 10 = in Produktlisten und Suche ausgeblendet.
+   * null = unbekannt (Spiegel-Payload ohne Sichtbarkeiten, wird beim nächsten Sync gefüllt).
+   */
+  salesChannels: Array<{ id: string; name: string; visibility?: number | null }>;
   advancedPrices: OverviewAdvancedPrice[];
   hasAdvancedPrices: boolean;
   advancedPriceCount: number;
@@ -75,6 +80,32 @@ export interface OverviewResponse {
 }
 
 export type TranslateFn = (key: string, options?: Record<string, unknown>) => string;
+
+/**
+ * Shopware-Sichtbarkeitsstufen je Verkaufskanal (product_visibility.visibility).
+ * 0 ist kein Shopware-Wert, sondern steht für "dem Kanal nicht zugewiesen".
+ */
+export const VISIBILITY_LEVELS = [30, 20, 10, 0] as const;
+export type VisibilityLevel = (typeof VISIBILITY_LEVELS)[number];
+
+/** Sichtbarkeit eines Produkts in einem konkreten Kanal. null = unbekannt. */
+export function getChannelVisibility(
+  product: Pick<OverviewProduct, "salesChannels">,
+  salesChannelId: string,
+): number | null | undefined {
+  const entry = product.salesChannels.find((c) => c.id === salesChannelId);
+  if (!entry) return 0; // Kanal nicht zugewiesen
+  return entry.visibility ?? null;
+}
+
+/** Kurzlabel einer Sichtbarkeitsstufe, z. B. für Badges. */
+export function formatVisibilityLabel(visibility: number | null | undefined, t: TranslateFn): string {
+  if (visibility == null) return t("productOverview.visibility.unknown");
+  if (visibility === 30 || visibility === 20 || visibility === 10 || visibility === 0) {
+    return t(`productOverview.visibility.level${visibility}`);
+  }
+  return String(visibility);
+}
 
 export const currencyFormatter = new Intl.NumberFormat("de-DE", {
   style: "currency",

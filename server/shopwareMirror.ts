@@ -11,6 +11,12 @@ import { productCacheRegistry } from "./productCache";
 import type { Product, Order } from "@shared/schema";
 
 const PRODUCT_BATCH = 500;
+/**
+ * Version des Produkt-Spiegel-Payloads. Wird beim Fingerprint mitgespeichert;
+ * aendert sich die Version (neue Payload-Felder, z. B. salesChannelVisibilities),
+ * laeuft einmalig ein Voll-Resync statt eines Cursor-Deltas.
+ */
+const PRODUCT_PAYLOAD_VERSION = "v2";
 const CUSTOMER_BATCH = 250;
 const PRICE_BATCH = 250;
 /** Sicherheitsnetz: 250 × 400 = bis zu 100.000 Preiszeilen im Voll-Snapshot. */
@@ -94,24 +100,30 @@ async function syncProductsDelta(
   try {
     const state = await storage.getShopwareSyncState("products", tenantId);
     const fingerprint = await client.fetchActiveProductCatalogFingerprint();
+    const versionedFingerprint = fingerprint ? `${PRODUCT_PAYLOAD_VERSION}:${fingerprint}` : null;
+    // Spiegel wurde mit einer aelteren Payload-Version geschrieben -> einmalig voll neu laden
+    const payloadVersionStale = !String(state?.lastFingerprint ?? "").startsWith(
+      `${PRODUCT_PAYLOAD_VERSION}:`,
+    );
 
     if (
       !opts?.force &&
-      fingerprint &&
-      state?.lastFingerprint === fingerprint &&
+      !payloadVersionStale &&
+      versionedFingerprint &&
+      state?.lastFingerprint === versionedFingerprint &&
       (await storage.countShopwareProductMirrors(tenantId)) > 0
     ) {
       await storage.upsertShopwareSyncState(
         "products",
-        { status: "idle", lastDeltaAt: new Date(), lastFingerprint: fingerprint },
+        { status: "idle", lastDeltaAt: new Date(), lastFingerprint: versionedFingerprint },
         tenantId,
       );
       return { upserted: 0, skipped: true };
     }
 
     // Cursor: bei Fingerprint-Match-Fail trotzdem Delta ab last cursor (inkl. gleiche updatedAt)
-    // force: voller Resync (z. B. neue Payload-Felder wie options)
-    const cursor = opts?.force ? null : state?.cursorUpdatedAt ?? null;
+    // force / neue Payload-Version: voller Resync (z. B. neue Payload-Felder wie options)
+    const cursor = opts?.force || payloadVersionStale ? null : state?.cursorUpdatedAt ?? null;
     let page = 1;
     let upserted = 0;
     let maxUpdated: Date | null = cursor;
@@ -267,7 +279,7 @@ async function syncProductsDelta(
       {
         status: "idle",
         cursorUpdatedAt: maxUpdated,
-        lastFingerprint: fingerprint,
+        lastFingerprint: versionedFingerprint,
         lastDeltaAt: new Date(),
         lastTotal: await storage.countShopwareProductMirrors(tenantId),
         error: null,

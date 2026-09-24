@@ -119,11 +119,15 @@ Alle Bedingungen müssen erfüllt sein (`strictAutoCreateOnly`, Default **true**
 | Kunde | `shopwareCustomerId`, Match-Score ≥ **95**, **nicht** per Auto-Create neu angelegt |
 | Positionen | Jede Zeile: Katalog-Match mit **confidence = 100**, nicht `skipCatalogMatching` |
 | Review | Keine `addressReviewHints`, kein Intent/Upload-Mismatch, keine schwache Firmen-Heuristik |
-| Angebot | Sales Channel gesetzt |
+| Verkaufskanal | Angebot **und** Bestellung: `autoCreateSalesChannelId`, `B2B_SELLERS_DEFAULT_SALES_CHANNEL` **oder** an den Shopware-Kunden gebundener Kanal — kein Rückfall auf den ersten aktiven Kanal |
+| Dubletten | Kein anderer Entwurf derselben Art mit gleicher Kunden-Belegnummer und gleichem Shopware-Kunden (`duplicate_buyer_document_number`) |
+| Preise (nur Bestellung) | Jede Position: Stückpreis im Dokument vorhanden und innerhalb `strictPriceTolerancePercent` (Default **1 %**) des für den Kunden ermittelten Preises: kundenindividueller B2Bsellers-Preis → Kundenrabatt → Listenpreis. Ein im Review manuell gesetzter Preis überstimmt den Abgleich. Ergebnis je Zeile unter `strictAutoCreateTrace.priceChecks` |
 
 Trace im Entwurf: `extractedData.strictAutoCreateTrace` mit `allowed` und `reasons[]`.
 
-Env-Overrides: `COMMERCIAL_AGENT_STRICT_AUTO_CREATE`, `COMMERCIAL_AGENT_STRICT_MIN_INTENT`, `COMMERCIAL_AGENT_STRICT_MIN_CUSTOMER`.
+Env-Overrides: `COMMERCIAL_AGENT_STRICT_AUTO_CREATE`, `COMMERCIAL_AGENT_STRICT_MIN_INTENT`, `COMMERCIAL_AGENT_STRICT_MIN_CUSTOMER`, `COMMERCIAL_AGENT_STRICT_PRICE_TOLERANCE`.
+
+Die Shopware-Anlage (Angebot wie Bestellung) nutzt dieselbe Preisbasis wie der Abgleich (`server/commercialCustomerPricing.ts`); der Verkaufskanal wird in beiden Pfaden zuerst am Kunden gesucht.
 
 ## `intentHint` (n8n-Vorschlag)
 

@@ -101,6 +101,8 @@ Shopware, E-Mail, optionale Dienste: wie bisher ueber `.env` / Compose `environm
 | `COMMERCIAL_AGENT_STRICT_AUTO_CREATE` | `true` (Default): nur Strikt-Regel für Auto-Create; `false` = alter Schwellen-Pfad (Intent/Match). |
 | `COMMERCIAL_AGENT_STRICT_MIN_INTENT` | Mindest-Intent für Strikt-Auto-Create (Default `0.95`). |
 | `COMMERCIAL_AGENT_STRICT_MIN_CUSTOMER` | Mindest-Kunden-Match-Score für Strikt (Default `95`). |
+| `COMMERCIAL_AGENT_STRICT_PRICE_TOLERANCE` | Zulässige Abweichung in % zwischen Stückpreis im Kundendokument und dem für den Kunden in Shopware ermittelten Preis (Kundenpreis → Kundenrabatt → Liste) — nur Bestellungen (Default `1`). |
+| `COMMERCIAL_AGENT_CUSTOMER_AUTO_CREATE` | `true` = unbekannte Absender werden mit den extrahierten Belegdaten automatisch als Shopware-Kunde angelegt. Default `false`: Der Entwurf bleibt im Review, der Bearbeiter legt den Kunden bewusst über „Kunde anlegen" an. |
 | `N8N_ADMIN_USER` / `N8N_ADMIN_PASSWORD` | Basic Auth für n8n-UI (Service `n8n` in Compose). |
 | `METAORDER_BASE_URL` | Basis-URL für n8n-HTTP-Nodes (z. B. `http://host.docker.internal:5001`). |
 | `METAORDER_INTEGRATION_API_KEY` | Key für `X-METAORDER-Integration-Key` in n8n-Workflows. |

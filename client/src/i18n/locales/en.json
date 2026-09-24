@@ -101,6 +101,7 @@
       "permissionRoutedToOffer": "Saved as offer draft (no permission for order drafts).",
       "pageMismatchOfferPage": "Note: uploaded from offer drafts but classified as order — open Order drafts to review.",
       "pageMismatchOrderPage": "Note: uploaded from order drafts but classified as offer — open Offer drafts to review.",
+      "alreadyProcessedOpened": "This message was already processed — opening the existing draft.",
       "alreadyProcessed": "This message has already been processed — no new draft was created.",
       "multipleDrafts": "Created {{count}} drafts from the email attachments."
     }
@@ -152,7 +153,8 @@
     "saving": "Saving...",
     "cancel": "Cancel",
     "actions": "Actions",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "edit": "Edit"
   },
   "globalSearch": {
     "placeholder": "Semantic search (products, offers, tickets...)",
@@ -491,7 +493,13 @@
       "presencePresent": "Is present",
       "presenceAbsent": "Is not present",
       "customFieldValuePlaceholder": "Custom field value…",
-      "reset": "Reset filters"
+      "reset": "Reset filters",
+      "visibility": "Visibility",
+      "allVisibilities": "All visibilities",
+      "visibility30": "Visible (30)",
+      "visibility20": "Hidden in listings (20)",
+      "visibility10": "Hidden in listings and search (10)",
+      "visibility0": "Not assigned (0)"
     },
     "table": {
       "productNumber": "Article number",
@@ -513,7 +521,8 @@
       "fieldsCount": "{{count}} field(s)",
       "priceChangedAt": "Price changed",
       "lastUpdated": "Last updated",
-      "lastUpdatedHint": "Last change to the product in Shopware (not price-specific) — confirms the sync actually ran."
+      "lastUpdatedHint": "Last change to the product in Shopware (not price-specific) — confirms the sync actually ran.",
+      "visibility": "Visibility"
     },
     "csv": {
       "priceGross": "Price gross",
@@ -566,6 +575,16 @@
       "parentId": "Parent product ID",
       "deliveryTimeId": "Delivery time ID",
       "noPermission": "No permission for this data."
+    },
+    "visibility": {
+      "level30": "Visible",
+      "level20": "Hidden in listings",
+      "level10": "Hidden in listings + search",
+      "level0": "Not assigned",
+      "unknown": "Unknown",
+      "mixed": "Mixed",
+      "unknownHint": "Visibilities are not part of the product mirror yet — they are filled in on the next sync or via \"Refresh cache\".",
+      "summary": "{{count}} channel(s)"
     }
   },
   "barcodeScan": {
@@ -1885,6 +1904,82 @@
         "documentNumber": "document number",
         "yourToken": "token"
       }
+    },
+    "sftp": {
+      "title": "SFTP servers (delivery notes → Lobster / d.3)",
+      "description": "Supporting documents from AI order creation (usually the customer's delivery note) are uploaded automatically via SFTP to the servers configured here once the order has been created. Optionally a JSON file with order number, customer number, customer PO number and delivery note number is placed next to each file so Lobster can assign the document in d.3 directly. Credentials are stored encrypted.",
+      "add": "Add server",
+      "addTitle": "Add SFTP server",
+      "editTitle": "Edit SFTP server “{{name}}”",
+      "dialogDescription": "Access, target folder and filename pattern. “Test connection” logs in and lists the target directory.",
+      "empty": "No SFTP server configured yet.",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "autoBadge": "Auto on order creation",
+      "kindsLabel": "Document types",
+      "templateLabel": "Filename",
+      "sidecarShort": "with JSON metadata",
+      "hostKeyVerified": "host key verified",
+      "test": "Test connection",
+      "testOk": "Connection successful",
+      "testFailed": "Connection failed",
+      "saved": "SFTP server saved",
+      "savedMessage": "“{{name}}” has been saved.",
+      "deleted": "SFTP server deleted",
+      "deleteTitle": "Delete SFTP server?",
+      "deleteConfirm": "“{{name}}” will be removed. Files already uploaded remain on the server.",
+      "showAdvanced": "Show advanced settings",
+      "hideAdvanced": "Hide advanced settings",
+      "kinds": {
+        "delivery_note": "Delivery note",
+        "order_confirmation": "Order confirmation",
+        "invoice": "Invoice",
+        "other": "Other"
+      },
+      "fields": {
+        "name": "Name",
+        "namePlaceholder": "e.g. Lobster d.3",
+        "host": "Host",
+        "port": "Port",
+        "username": "Username",
+        "authMethod": "Authentication",
+        "authPassword": "Password",
+        "authKey": "SSH key",
+        "password": "Password",
+        "privateKey": "Private key (PEM / OpenSSH)",
+        "passphrase": "Key passphrase",
+        "secretConfigured": "•••••••• (stored – leave empty to keep)",
+        "optional": "optional",
+        "hostKeyFingerprint": "Host key fingerprint (optional)",
+        "hostKeyHelp": "Recommended: the server's fingerprint (e.g. from “ssh-keyscan host | ssh-keygen -lf -”). Without it the host key is not verified.",
+        "remotePath": "Target folder",
+        "filenameTemplate": "Filename pattern",
+        "templateHelp": "Placeholders:",
+        "autoUpload": "Automatically on order creation",
+        "autoUploadHelp": "Upload documents as soon as a Shopware order is created from the draft.",
+        "sidecar": "Add JSON metadata",
+        "sidecarHelp": "For each file a <filename>.json with order/customer number, customer PO number and delivery note number for assignment in d.3.",
+        "maxAttempts": "Max. attempts",
+        "initialBackoffMs": "Initial retry delay (ms)",
+        "backoffFactor": "Backoff factor",
+        "timeoutMs": "Timeout (ms)"
+      },
+      "logs": {
+        "title": "Upload log",
+        "empty": "No uploads yet.",
+        "time": "Time",
+        "server": "Server",
+        "file": "File",
+        "order": "Order",
+        "status": "Status",
+        "detail": "Details",
+        "statuses": {
+          "success": "Success",
+          "failed": "Failed",
+          "pending": "Retrying",
+          "skipped": "Skipped"
+        }
+      }
     }
   },
   "webhookLogs": {
@@ -2911,6 +3006,31 @@
     },
     "review": {
       "title": "Review Order Draft",
+      "attachments": {
+        "title": "Attached documents",
+        "hint": "Attachments of the same email that were not extracted as an order. A customer delivery note must accompany the shipment; the files are archived later.",
+        "deliveryNoteNumber": "Delivery note no.",
+        "orderNumber": "Order no.",
+        "invoiceNumber": "Invoice no.",
+        "commission": "Commission",
+        "exported": "archived",
+        "skipped": "not archived",
+        "pending": "archive pending",
+        "open": "Open",
+        "sftpUpload": "Send via SFTP",
+        "sftpTitle": "SFTP transfer",
+        "sftpResult": "{{uploaded}} uploaded, {{failed}} failed"
+      },
+      "references": {
+        "title": "References & delivery instructions",
+        "hint": "Copied into the customer comment when the order is created; belong on the delivery note and order confirmation.",
+        "customerReference": "Customer reference",
+        "commission": "Commission",
+        "deliveryContact": "Contact at delivery site",
+        "deliveryNoteInstructions": "Delivery note / delivery",
+        "orderConfirmationEmail": "Order confirmation to",
+        "invoiceEmail": "Invoice to"
+      },
       "filename": "File",
       "customerInfo": "Customer Information",
       "customerExists": "Existing Customer",
@@ -2961,7 +3081,16 @@
       "webVerificationStreet": "Street (partial) found",
       "webVerificationExcerpt": "Text excerpt",
       "webVerificationSkippedFreemail": "Skipped: email domain is a freemail/provider mailbox.",
-      "webVerificationSkippedNoEmail": "Skipped: no customer email to derive a domain."
+      "webVerificationSkippedNoEmail": "Skipped: no customer email to derive a domain.",
+      "recheck": "Check again",
+      "rechecking": "Checking …",
+      "recheckHint": "Re-match products and customer without uploading again",
+      "recheckDone": "Checked again",
+      "recheckProducts": "{{after}} of {{lines}} lines matched (before {{before}}).",
+      "recheckCustomerKept": "Customer assigned manually – unchanged.",
+      "recheckCustomerChanged": "Customer reassigned.",
+      "recheckCustomerSame": "Customer unchanged.",
+      "recheckError": "Re-check failed"
     },
     "crossSelling": {
       "title": "Intelligent Product Suggestions",
@@ -3981,5 +4110,11 @@
       "tier": "Additional",
       "total": "max. total"
     }
+  },
+  "errorBoundary": {
+    "title": "This page could not be loaded",
+    "description": "An unexpected error occurred. The rest of the app keeps running — try again here or reload the page.",
+    "retry": "Try again",
+    "reload": "Reload page"
   }
 }

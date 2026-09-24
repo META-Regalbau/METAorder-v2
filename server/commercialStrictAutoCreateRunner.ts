@@ -10,9 +10,12 @@ import {
   attachStrictAutoCreateTraceToExtractedData,
   evaluateStrictAutoCreate,
   type StrictAutoCreateIntent,
+  type StrictAutoCreateLinePriceCheck,
+  type StrictAutoCreateSiblingDraft,
 } from "./commercialStrictAutoCreate";
-import { executeCreateOfferFromDraft, executeCreateOrderFromDraft } from "./commercialDraftShopware";
-import { resolveOfferSalesChannelId } from "./offerSalesChannelResolver";
+import { ensureDraftShopwareCustomerId, executeCreateOfferFromDraft, executeCreateOrderFromDraft } from "./commercialDraftShopware";
+import { fetchCustomerBoundSalesChannelId, resolveOfferSalesChannelId } from "./offerSalesChannelResolver";
+import { extractBuyerDocumentNumber } from "./commercialOrderAcknowledgement";
 import {
   emitCommercialAutoOfferCreated,
   emitCommercialAutoOrderCreated,
@@ -55,6 +58,117 @@ async function persistDraftExtractedData(
   }
 }
 
+/**
+ * Sammelt die Kontextdaten, die die Strikt-Regel über den Entwurf hinaus braucht:
+ * kundengebundener Verkaufskanal, Dubletten über die Kunden-Belegnummer und der
+ * Preisabgleich je Position (Kundenpreis/Rabatt/Liste aus Shopware).
+ * Alle Teilschritte sind fehlertolerant: ein Fehler führt zu `undefined` und damit
+ * in der Regel zu Review — nie zu einer stillen Auto-Anlage.
+ */
+async function collectStrictAutoCreateContext(params: {
+  storage: IStorage;
+  tenantId?: string | null;
+  draftId: string;
+  draftKind: "offer" | "order";
+  extractedData: Record<string, unknown>;
+  matchingResults?: MatchingResult | null;
+  shopwareCustomerId?: string | null;
+}): Promise<{
+  customerSalesChannelId: string | null;
+  siblingDrafts: StrictAutoCreateSiblingDraft[] | undefined;
+  linePriceChecks: StrictAutoCreateLinePriceCheck[] | undefined;
+}> {
+  const { storage, tenantId, draftId, draftKind, extractedData, matchingResults } = params;
+
+  // Veraltete Kunden-ID vor der Kanalwahl reparieren (Portal-Kunde → Händler-Portal-Kanal).
+  const ensuredCustomer = params.shopwareCustomerId
+    ? await ensureDraftShopwareCustomerId(storage, { kind: draftKind, draftId, tenantId })
+    : null;
+  const shopwareCustomerId =
+    ensuredCustomer && ensuredCustomer.ok ? ensuredCustomer.customerId : params.shopwareCustomerId;
+
+  const customerSalesChannelId = await fetchCustomerBoundSalesChannelId(storage, tenantId, shopwareCustomerId);
+
+  let siblingDrafts: StrictAutoCreateSiblingDraft[] | undefined;
+  const buyerDocumentNumber = extractBuyerDocumentNumber(extractedData);
+  if (shopwareCustomerId && buyerDocumentNumber) {
+    try {
+      siblingDrafts = await storage.findSiblingDraftsByBuyerDocumentNumber({
+        tenantId: tenantId ?? null,
+        draftKind,
+        excludeDraftId: draftId,
+        shopwareCustomerId,
+        buyerDocumentNumber,
+      });
+    } catch (error) {
+      console.warn("[StrictAutoCreate] Dublettenprüfung fehlgeschlagen:", error instanceof Error ? error.message : error);
+      siblingDrafts = undefined;
+    }
+  }
+
+  let linePriceChecks: StrictAutoCreateLinePriceCheck[] | undefined;
+  const items = matchingResults?.items ?? [];
+  if (draftKind === "order" && shopwareCustomerId && items.length > 0) {
+    try {
+      const settings = await storage.getShopwareSettings(tenantId ?? null);
+      const channel = await resolveOfferSalesChannelId(storage, {
+        tenantId: tenantId ?? null,
+        customerChannelId: customerSalesChannelId,
+        allowedChannelIds: null,
+      });
+      if (settings && channel.ok) {
+        const { ShopwareClient } = await import("./shopware");
+        const { fetchSalesChannelOfferDefaults, toShopwareUuid } = await import("./b2bOfferCreateContext");
+        const { resolveCustomerUnitPrices } = await import("./commercialCustomerPricing");
+        const client = new ShopwareClient(settings);
+        const channelDefaults = await fetchSalesChannelOfferDefaults(client, channel.salesChannelId);
+        const priceItems = items
+          .map((item, index) => ({ item, index }))
+          .filter(({ item }) => item.matchedProduct && !(item as { bundle?: unknown }).bundle)
+          .map(({ item, index }) => ({
+            index,
+            productId: toShopwareUuid(item.matchedProduct!.id),
+            productNumber: item.matchedProduct!.productNumber ?? null,
+            quantity: item.quantity,
+          }));
+        const resolved = await resolveCustomerUnitPrices(client, {
+          customerId: shopwareCustomerId,
+          currencyId: channelDefaults.currencyId,
+          items: priceItems,
+        });
+        const extractedLines = Array.isArray(extractedData.lineItems)
+          ? (extractedData.lineItems as Array<{ extractedPrice?: number }>)
+          : [];
+        linePriceChecks = items.map((item, index) => {
+          const docPrice = extractedLines[index]?.extractedPrice;
+          const manual = (item.matchedProduct as { manualUnitPriceNet?: number } | undefined)?.manualUnitPriceNet;
+          const base = {
+            index,
+            documentUnitPriceNet:
+              typeof docPrice === "number" && Number.isFinite(docPrice) && docPrice > 0 ? docPrice : null,
+            manualUnitPriceNet: typeof manual === "number" && Number.isFinite(manual) ? manual : null,
+          };
+          if ((item as { bundle?: unknown }).bundle) {
+            return { ...base, expectedUnitPriceNet: null, source: "bundle" as const };
+          }
+          if (!item.matchedProduct) {
+            return { ...base, expectedUnitPriceNet: null, source: "unresolved" as const };
+          }
+          const price = resolved.prices.get(toShopwareUuid(item.matchedProduct.id));
+          return price
+            ? { ...base, expectedUnitPriceNet: price.net, source: price.source }
+            : { ...base, expectedUnitPriceNet: null, source: "unresolved" as const };
+        });
+      }
+    } catch (error) {
+      console.warn("[StrictAutoCreate] Preisabgleich fehlgeschlagen:", error instanceof Error ? error.message : error);
+      linePriceChecks = undefined;
+    }
+  }
+
+  return { customerSalesChannelId, siblingDrafts, linePriceChecks };
+}
+
 export async function runStrictCommercialAutoCreateIfAllowed(params: {
   storage: IStorage;
   tenantId?: string | null;
@@ -83,6 +197,16 @@ export async function runStrictCommercialAutoCreateIfAllowed(params: {
     executeShopware = true,
   } = params;
 
+  const context = await collectStrictAutoCreateContext({
+    storage,
+    tenantId,
+    draftId,
+    draftKind,
+    extractedData,
+    matchingResults,
+    shopwareCustomerId,
+  });
+
   const evaluation = evaluateStrictAutoCreate({
     draftKind,
     agentSettings,
@@ -90,6 +214,9 @@ export async function runStrictCommercialAutoCreateIfAllowed(params: {
     matchingResults,
     shopwareCustomerId,
     intent,
+    customerSalesChannelId: context.customerSalesChannelId,
+    siblingDrafts: context.siblingDrafts,
+    linePriceChecks: context.linePriceChecks,
   });
 
   attachStrictAutoCreateTraceToExtractedData(extractedData, evaluation);
@@ -136,6 +263,7 @@ export async function runStrictCommercialAutoCreateIfAllowed(params: {
   if (draftKind === "offer") {
     const channelResult = await resolveOfferSalesChannelId(storage, {
       tenantId: tenantId ?? null,
+      customerChannelId: context.customerSalesChannelId,
       allowedChannelIds: null,
     });
     if (!channelResult.ok) {
@@ -191,6 +319,7 @@ export async function runStrictCommercialAutoCreateIfAllowed(params: {
 
   const orderChannelResult = await resolveOfferSalesChannelId(storage, {
     tenantId: tenantId ?? null,
+    customerChannelId: context.customerSalesChannelId,
     allowedChannelIds: null,
   });
   if (!orderChannelResult.ok) {

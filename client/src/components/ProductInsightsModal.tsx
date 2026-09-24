@@ -43,6 +43,7 @@ import {
   formatCustomFieldValue,
   formatDeliveryTimeLabel,
   formatRestockTimeLabel,
+  formatVisibilityLabel,
   isPrintableSku,
   type OverviewProduct,
   type PriceHistoryEntry,
@@ -739,7 +740,9 @@ export default function ProductInsightsModal({
             <BadgeCard
               title={t("productOverview.table.salesChannels")}
               icon={<Store className="h-3 w-3" />}
-              items={product.salesChannels.map((channel) => channel.name)}
+              items={product.salesChannels.map(
+                (channel) => `${channel.name} — ${formatVisibilityLabel(channel.visibility ?? null, t)}`,
+              )}
               emptyLabel={none}
             />
             <BadgeCard

@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "crypto";
-import { eq, sql as drizzleSql, desc, asc, and, isNull, lte, gt, gte, sql, inArray, not, count, or, ilike } from "drizzle-orm";
+import { eq, ne, sql as drizzleSql, desc, asc, and, isNull, lte, gt, gte, sql, inArray, not, count, or, ilike } from "drizzle-orm";
 import { db } from "./db";
 import { getTenantIdFromContext } from "./tenantContext";
 import {
@@ -45,6 +45,8 @@ import {
   shippingCarriers,
   webhookConfigs,
   webhookLogs,
+  sftpServers,
+  sftpUploadLogs,
   semanticDocuments,
   orderDunningStatus,
   installmentPlans,
@@ -127,6 +129,10 @@ import {
   type WebhookLog,
   type InsertWebhookLog,
   type WebhookEventType,
+  type SftpServer,
+  type InsertSftpServer,
+  type SftpUploadLog,
+  type InsertSftpUploadLog,
   type CrossSellCooccurrence,
   type InsertCrossSellCooccurrence,
   type AiCrossSellRule,
@@ -2617,6 +2623,58 @@ export class DbStorage implements IStorage {
     return combined;
   }
 
+  async findSiblingDraftsByBuyerDocumentNumber(params: {
+    tenantId?: string | null;
+    draftKind: "offer" | "order";
+    excludeDraftId: string;
+    shopwareCustomerId: string;
+    buyerDocumentNumber: string;
+  }): Promise<Array<{ id: string; status: string; shopwareEntityId: string | null; createdAt: Date }>> {
+    const { tenantId, draftKind, excludeDraftId, shopwareCustomerId, buyerDocumentNumber } = params;
+    if (draftKind === "order") {
+      const rows = await db
+        .select({
+          id: orderDrafts.id,
+          status: orderDrafts.status,
+          shopwareEntityId: orderDrafts.shopwareOrderId,
+          createdAt: orderDrafts.createdAt,
+        })
+        .from(orderDrafts)
+        .where(
+          and(
+            tenantFilterFor(orderDrafts.tenantId, tenantId),
+            eq(orderDrafts.shopwareCustomerId, shopwareCustomerId),
+            eq(orderDrafts.buyerDocumentNumber, buyerDocumentNumber),
+            ne(orderDrafts.id, excludeDraftId),
+            ne(orderDrafts.status, "rejected")
+          )
+        )
+        .orderBy(desc(orderDrafts.createdAt))
+        .limit(20);
+      return rows;
+    }
+    const rows = await db
+      .select({
+        id: offerDrafts.id,
+        status: offerDrafts.status,
+        shopwareEntityId: offerDrafts.shopwareOfferId,
+        createdAt: offerDrafts.createdAt,
+      })
+      .from(offerDrafts)
+      .where(
+        and(
+          tenantFilterFor(offerDrafts.tenantId, tenantId),
+          eq(offerDrafts.shopwareCustomerId, shopwareCustomerId),
+          eq(offerDrafts.buyerDocumentNumber, buyerDocumentNumber),
+          ne(offerDrafts.id, excludeDraftId),
+          ne(offerDrafts.status, "rejected")
+        )
+      )
+      .orderBy(desc(offerDrafts.createdAt))
+      .limit(20);
+    return rows;
+  }
+
   // Bundles
   async getAllBundles(tenantId?: string | null): Promise<BundleWithItems[]> {
     const tenantFilter = tenantFilterFor(bundles.tenantId, tenantId);
@@ -2891,6 +2949,67 @@ export class DbStorage implements IStorage {
       .where(and(eq(webhookConfigs.eventType, eventType), tenantFilter))
       .returning();
     return result[0];
+  }
+
+  // SFTP-Server (DMS-Übergabe)
+  async getSftpServers(tenantId?: string | null): Promise<SftpServer[]> {
+    const tenantFilter = tenantFilterFor(sftpServers.tenantId, tenantId);
+    return await db.select().from(sftpServers).where(tenantFilter).orderBy(asc(sftpServers.name));
+  }
+
+  async getSftpServer(id: string, tenantId?: string | null): Promise<SftpServer | undefined> {
+    const tenantFilter = tenantFilterFor(sftpServers.tenantId, tenantId);
+    const result = await db.select().from(sftpServers).where(and(eq(sftpServers.id, id), tenantFilter)).limit(1);
+    return result[0];
+  }
+
+  async createSftpServer(server: InsertSftpServer, tenantId?: string | null): Promise<SftpServer> {
+    const [result] = await db
+      .insert(sftpServers)
+      .values({ ...server, tenantId: resolveTenantId(tenantId) ?? null, updatedAt: new Date() })
+      .returning();
+    return result;
+  }
+
+  async updateSftpServer(id: string, updates: Partial<InsertSftpServer>, tenantId?: string | null): Promise<SftpServer | undefined> {
+    const tenantFilter = tenantFilterFor(sftpServers.tenantId, tenantId);
+    const result = await db
+      .update(sftpServers)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(sftpServers.id, id), tenantFilter))
+      .returning();
+    return result[0];
+  }
+
+  async deleteSftpServer(id: string, tenantId?: string | null): Promise<boolean> {
+    const tenantFilter = tenantFilterFor(sftpServers.tenantId, tenantId);
+    const result = await db.delete(sftpServers).where(and(eq(sftpServers.id, id), tenantFilter));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async createSftpUploadLog(log: InsertSftpUploadLog, tenantId?: string | null): Promise<SftpUploadLog> {
+    const [result] = await db
+      .insert(sftpUploadLogs)
+      .values({ ...log, tenantId: resolveTenantId(tenantId) ?? null })
+      .returning();
+    return result;
+  }
+
+  async getSftpUploadLogs(
+    filters?: { serverId?: string; draftId?: string; status?: string; limit?: number; offset?: number },
+    tenantId?: string | null
+  ): Promise<{ logs: SftpUploadLog[]; total: number }> {
+    const { serverId, draftId, status, limit = 50, offset = 0 } = filters || {};
+    const conditions = [tenantFilterFor(sftpUploadLogs.tenantId, tenantId)];
+    if (serverId) conditions.push(eq(sftpUploadLogs.serverId, serverId));
+    if (draftId) conditions.push(eq(sftpUploadLogs.draftId, draftId));
+    if (status) conditions.push(eq(sftpUploadLogs.status, status));
+    const whereClause = and(...conditions);
+    const [logs, countResult] = await Promise.all([
+      db.select().from(sftpUploadLogs).where(whereClause).orderBy(desc(sftpUploadLogs.executedAt)).limit(limit).offset(offset),
+      db.select({ count: sql<number>`count(*)::int` }).from(sftpUploadLogs).where(whereClause),
+    ]);
+    return { logs, total: countResult[0]?.count ?? 0 };
   }
 
   // Webhook Logs

@@ -76,6 +76,56 @@ function reorderLastCommaFirst(raw: string): string | null {
   return `${right} ${left}`;
 }
 
+/**
+ * Häufige Vornamen (DE/AT/CH plus gängige internationale), klein geschrieben.
+ * Zweck: „Nachname Vorname"-Schreibweise ohne Komma erkennen („Schlesselmann Birgit").
+ * Kein Anspruch auf Vollständigkeit — die Heuristik greift nur, wenn das ZWEITE Token
+ * ein bekannter Vorname ist und das erste nicht.
+ */
+const COMMON_FIRST_NAMES = new Set(
+  (
+    "adrian alexander alexandra alfred alina andrea andreas angela angelika anja anke anna anne annette anton " +
+    "armin arno astrid axel barbara bastian beate benjamin bernd bernhard bettina birgit bjoern björn brigitte " +
+    "britta carina carmen carola carsten christa christian christiane christina christine christoph christopher " +
+    "claudia clara claus cornelia daniel daniela david denis dennis diana dieter dietmar dirk dominik doris dorothea " +
+    "eberhard edith egon elena elisabeth elke ellen emil erich erik erika ernst eva fabian felix ferdinand florian " +
+    "frank franz franziska friedrich fritz gabriele georg gerd gerhard gerlinde gertrud gisela gregor gudrun " +
+    "guenter günter guido gustav hannah hanna hannes hans harald hartmut heidi heike heiko heinrich heinz helga " +
+    "helmut henrik herbert hermann holger horst hubert ilona ines inge ingeborg ingo ingrid iris irmgard isabel " +
+    "isabell isabella jan jana janina jens jessica joachim jochen johann johanna johannes jonas jörg joerg josef " +
+    "juergen jürgen julia julian jutta kai karin karl karsten katharina kathrin katja katrin kerstin kevin klaus " +
+    "konrad kurt lara laura lars lea lena leon leonie lisa lothar lucas lukas luisa lutz magdalena maik manfred " +
+    "manuel manuela marc marcel marco margarete margit maria marianne mario marion mark markus marlene martin " +
+    "martina mathias matthias max maximilian melanie michael michaela mirko monika moritz nadine natalie nicole " +
+    "niklas nils nina norbert olaf oliver otto patrick paul paula peter petra philipp pia rainer ralf ralph regina " +
+    "reinhard renate rene rené richard rita robert roland rolf roman rosemarie rudolf ruth sabine sabrina sandra " +
+    "sarah sascha sebastian siegfried sigrid silke silvia simon simone sina sonja sophie stefan stefanie steffen " +
+    "stephan stephanie susanne sven svenja sylvia tanja theo theresa thomas thorsten tim timo tina tobias tom toni " +
+    "tony torsten udo ulrich ulrike ursula uta ute uwe vanessa vera verena viktor viktoria volker walter werner " +
+    "wilfried wilhelm willi wolfgang yvonne ines elias emma mia leonard noah ben finn mila sofia sophia hanne " +
+    "malte justine oliver olivier pierre jean marie luca giulia marco francesco paolo pieter jan kees anders " +
+    "erik lars sven mikael johan"
+  ).split(/\s+/)
+);
+
+function isKnownFirstName(token: string): boolean {
+  return COMMON_FIRST_NAMES.has(token.toLowerCase().replace(/[.:;,]+$/, ""));
+}
+
+/**
+ * „Schlesselmann Birgit" → „Birgit Schlesselmann": nur bei genau zwei Tokens, wenn das
+ * zweite ein bekannter Vorname ist und das erste nicht (bei „Peter Thomas" bleibt die
+ * Reihenfolge, weil beide Vornamen sein können).
+ */
+function reorderLastFirstWithoutComma(tokens: string[]): string[] {
+  if (tokens.length !== 2) return tokens;
+  const [a, b] = tokens;
+  if (isKnownFirstName(b) && !isKnownFirstName(a) && !isInitial(a)) {
+    return [b, a];
+  }
+  return tokens;
+}
+
 function isInitial(token: string): boolean {
   // „M.", „M.-L.", „J.F." – ein paar Großbuchstaben, je mit Punkt, evtl. Bindestrich.
   return /^([A-ZÄÖÜ]\.(?:-[A-ZÄÖÜ]\.)?){1,3}$/.test(token);
@@ -123,6 +173,8 @@ export function parsePersonName(raw: string | null | undefined): ParsedPersonNam
   if (tokens.length === 0) {
     return { salutation, title, isRole: false, confidence: "low" };
   }
+
+  tokens = reorderLastFirstWithoutComma(tokens);
 
   // Letztes Token könnte trotz vorhergehender Stripping-Schritte eine Rolle sein.
   if (tokens.length === 1) {

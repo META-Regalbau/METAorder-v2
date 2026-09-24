@@ -20,7 +20,9 @@ import {
   applyExtractionPostValidation,
   normalizeDocumentExtractionInPlace,
   translateDocumentExtractionToLegacy,
+  applyDocumentExtractionDeterministicSteps,
 } from "./documentExtractionTranslate";
+import { runDocumentExtractionViaChatLlm, type DocumentExtractionChatLlm } from "./documentExtractionChatLlm";
 
 export interface ExtractedOrderData {
   customer?: {
@@ -205,6 +207,13 @@ export async function extractOrderDataFromDocument(
     maxInputChars?: number;
     ocrEnabled?: boolean;
     primaryDocumentText?: string | null;
+    /**
+     * Provider-neutraler Chat-Aufruf (llmChat.chatCompletion mit Mandanten-Einstellungen).
+     * Greift, wenn KEIN OpenAI-Client vorhanden ist (z. B. Mandant nutzt Anthropic):
+     * Dokumente mit Textlayer werden dann darüber extrahiert. Vision (Scans/Bilder)
+     * bleibt OpenAI-only.
+     */
+    chatLlm?: DocumentExtractionChatLlm | null;
   } & DraftExtractionMailContext
 ): Promise<ExtractedOrderData> {
   const {
@@ -251,8 +260,16 @@ export async function extractOrderDataFromDocument(
     shouldUseOpenAI &&
     isOrderPdfTextInsufficient(await readPrimaryDocumentText());
 
-  // Local-first for optional mode
-  if (mode === "openai_optional" && !pdfNeedsVision) {
+  // Local-first nur für Klartext (E-Mail-Text, .txt). Bei PDF/Bild/Word liefert der
+  // lokale Parser Adress- und Fußzeilen als Positionen und würde den LLM-Aufruf
+  // blockieren, sobald irgendeine Zeile wie eine Position aussieht (Befund aus fünf
+  // echten Kundenbestellungen). Ohne OpenAI-Client bleibt der lokale Pfad der Fallback.
+  const canUseChatLlm = !shouldUseOpenAI && mode !== "local_only" && Boolean(options.chatLlm);
+  const localFirstEligible =
+    mode === "openai_optional" &&
+    !pdfNeedsVision &&
+    !((shouldUseOpenAI || canUseChatLlm) && isBinaryDocumentMime(effectiveMime, fileName));
+  if (localFirstEligible) {
     const localText = await readPrimaryDocumentText();
     const normalizedText = mergeDraftExtractionSources(
       localText,
@@ -305,6 +322,7 @@ export async function extractOrderDataFromDocument(
       if (!responseText) throw new Error("No response from OpenAI");
       const parsed = JSON.parse(responseText) as DocumentExtraction;
       normalizeDocumentExtractionInPlace(parsed);
+      applyDocumentExtractionDeterministicSteps(parsed, await readPrimaryDocumentText());
       applyExtractionPostValidation(parsed);
       return translateDocumentExtractionToLegacy(parsed) as ExtractedOrderData;
     };
@@ -364,6 +382,7 @@ export async function extractOrderDataFromDocument(
           fewShotMessages: fewShots,
         });
         normalizeDocumentExtractionInPlace(extraction);
+        applyDocumentExtractionDeterministicSteps(extraction, await readPrimaryDocumentText());
         applyExtractionPostValidation(extraction);
         const normalized = translateDocumentExtractionToLegacy(extraction) as ExtractedOrderData;
         if (debugStore) {
@@ -422,6 +441,30 @@ export async function extractOrderDataFromDocument(
         throw new Error(`Failed to extract order data: ${error.message}`);
       }
       console.warn("[Order Extraction] OpenAI failed, falling back to local extraction:", error);
+    }
+  }
+
+  // Kein OpenAI-Client, aber Chat-LLM des Mandanten (z. B. Anthropic): Text-Extraktion darüber.
+  // Scans ohne Textlayer und Bilder brauchen Vision (OpenAI) und fallen auf den lokalen Pfad.
+  if (canUseChatLlm && !effectiveMime.startsWith("image/")) {
+    try {
+      const textContent = await readPrimaryDocumentText();
+      if (textContent.trim().length >= 40) {
+        const safeText = mergeDraftExtractionSources(textContent, maxInputChars, mailExtras, Boolean(redactPromptPII));
+        const fewShots = await getCachedDocumentExtractionFewShots();
+        const parsed = await runDocumentExtractionViaChatLlm({
+          chatLlm: options.chatLlm!,
+          systemPrompt: DOCUMENT_EXTRACTION_SYSTEM_PROMPT,
+          fewShotMessages: buildFewShotChatMessages(fewShots),
+          userContent: `Extrahiere strukturierte Bestelldaten aus diesem Dokument (gesamtes JSON-Schema, snake_case):\n\nDateiname: ${fileName}\n\nInhalt:\n${safeText}`,
+        });
+        normalizeDocumentExtractionInPlace(parsed);
+        applyDocumentExtractionDeterministicSteps(parsed, textContent);
+        applyExtractionPostValidation(parsed);
+        return translateDocumentExtractionToLegacy(parsed) as ExtractedOrderData;
+      }
+    } catch (error) {
+      console.warn("[Order Extraction] Chat-LLM-Extraktion fehlgeschlagen, nutze lokale Extraktion:", error);
     }
   }
 
@@ -511,6 +554,16 @@ function extractLineItems(lines: string[]): ExtractedOrderData["lineItems"] {
     });
   }
   return items;
+}
+
+/** PDF, Bild, Word: Dokumente, bei denen der lokale Zeilenparser unbrauchbar ist. */
+export function isBinaryDocumentMime(mimeType: string, fileName: string): boolean {
+  const mt = (mimeType || "").toLowerCase();
+  const fn = (fileName || "").toLowerCase();
+  if (mt === "application/pdf" || fn.endsWith(".pdf")) return true;
+  if (mt.startsWith("image/")) return true;
+  if (mt.includes("wordprocessingml") || mt === "application/msword") return true;
+  return /\.(docx?|png|jpe?g|gif|webp|tiff?|bmp)$/.test(fn);
 }
 
 function isLowQualityLocalOrder(data: ExtractedOrderData): boolean {

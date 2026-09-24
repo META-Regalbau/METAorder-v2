@@ -14,6 +14,7 @@ import {
   X,
   Printer,
   ScanLine,
+  Eye,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -52,7 +53,10 @@ import {
   formatCustomFieldDisplay,
   formatDeliveryTimeLabel,
   formatRestockTimeLabel,
+  formatVisibilityLabel,
+  getChannelVisibility,
   isPrintableSku,
+  VISIBILITY_LEVELS,
   type OverviewProduct,
   type OverviewResponse,
 } from "@/lib/productOverview";
@@ -90,6 +94,7 @@ export default function ProductOverviewPage() {
 
   const [search, setSearch] = useState("");
   const [channelFilter, setChannelFilter] = useState<string>(ALL);
+  const [visibilityFilter, setVisibilityFilter] = useState<string>(ALL);
   const [categoryFilter, setCategoryFilter] = useState<string>(ALL);
   const [tagFilter, setTagFilter] = useState<string>(ALL);
   const [statusFilter, setStatusFilter] = useState<string>(ALL);
@@ -173,10 +178,24 @@ export default function ProductOverviewPage() {
           `${p.productNumber} ${p.name} ${options} ${p.ean ?? ""} ${p.manufacturerNumber ?? ""} ${(p.categories || []).join(" ")} ${(p.tags || []).join(" ")} ${deliveryLabel} ${restockLabel} ${p.restockTime ?? ""}`.toLowerCase();
         if (!haystack.includes(term)) return false;
       }
+      // Kanal- und Sichtbarkeitsfilter greifen ineinander:
+      // konkreter Kanal + Stufe = Stufe genau in diesem Kanal (0 = dort nicht zugewiesen),
+      // "Alle Kanäle" + Stufe = mindestens ein Kanal mit dieser Stufe (0 = gar kein Kanal).
+      const wantedVisibility = visibilityFilter === ALL ? null : Number(visibilityFilter);
       if (channelFilter === NONE_CHANNEL) {
         if (p.salesChannelIds.length > 0) return false;
       } else if (channelFilter !== ALL) {
-        if (!p.salesChannelIds.includes(channelFilter)) return false;
+        if (wantedVisibility == null) {
+          if (!p.salesChannelIds.includes(channelFilter)) return false;
+        } else if (getChannelVisibility(p, channelFilter) !== wantedVisibility) {
+          return false;
+        }
+      } else if (wantedVisibility != null) {
+        if (wantedVisibility === 0) {
+          if (p.salesChannels.length > 0) return false;
+        } else if (!p.salesChannels.some((c) => (c.visibility ?? null) === wantedVisibility)) {
+          return false;
+        }
       }
       if (categoryFilter !== ALL && !p.categories.includes(categoryFilter)) return false;
       if (tagFilter !== ALL && !(p.tags ?? []).includes(tagFilter)) return false;
@@ -225,6 +244,7 @@ export default function ProductOverviewPage() {
     products,
     search,
     channelFilter,
+    visibilityFilter,
     categoryFilter,
     tagFilter,
     statusFilter,
@@ -314,6 +334,7 @@ export default function ProductOverviewPage() {
   const resetFilters = () => {
     setSearch("");
     setChannelFilter(ALL);
+    setVisibilityFilter(ALL);
     setCategoryFilter(ALL);
     setTagFilter(ALL);
     setStatusFilter(ALL);
@@ -335,6 +356,7 @@ export default function ProductOverviewPage() {
       t("productOverview.table.name"),
       t("productOverview.table.status"),
       t("productOverview.table.salesChannels"),
+      t("productOverview.table.visibility"),
       t("productOverview.table.advancedPrices"),
       t("productOverview.table.categories"),
       t("productOverview.table.tags"),
@@ -361,6 +383,9 @@ export default function ProductOverviewPage() {
           p.name,
           p.active === true ? t("productOverview.active") : t("productOverview.inactive"),
           p.salesChannels.map((c) => c.name).join(" | "),
+          p.salesChannels
+            .map((c) => `${c.name}=${c.visibility ?? t("productOverview.visibility.unknown")}`)
+            .join(" | "),
           p.advancedPriceCount,
           p.categories.join(" | "),
           (p.tags ?? []).join(" | "),
@@ -564,6 +589,26 @@ export default function ProductOverviewPage() {
                 {salesChannels.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={visibilityFilter}
+              onValueChange={(v) => {
+                setVisibilityFilter(v);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger data-testid="overview-visibility">
+                <SelectValue placeholder={t("productOverview.filters.visibility")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>{t("productOverview.filters.allVisibilities")}</SelectItem>
+                {VISIBILITY_LEVELS.map((level) => (
+                  <SelectItem key={level} value={String(level)}>
+                    {t(`productOverview.filters.visibility${level}`)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -781,6 +826,7 @@ export default function ProductOverviewPage() {
                     <TableHead className="min-w-[200px]">{t("productOverview.table.name")}</TableHead>
                     <TableHead className="w-[90px]">{t("productOverview.table.status")}</TableHead>
                     <TableHead className="min-w-[180px]">{t("productOverview.table.salesChannels")}</TableHead>
+                    <TableHead className="min-w-[160px]">{t("productOverview.table.visibility")}</TableHead>
                     <TableHead className="w-[120px]">{t("productOverview.table.advancedPrices")}</TableHead>
                     <TableHead className="min-w-[180px]">{t("productOverview.table.categories")}</TableHead>
                     <TableHead className="min-w-[160px]">{t("productOverview.table.tags")}</TableHead>
@@ -800,6 +846,9 @@ export default function ProductOverviewPage() {
                     <ProductRow
                       key={p.id}
                       product={p}
+                      focusChannelId={
+                        channelFilter !== ALL && channelFilter !== NONE_CHANNEL ? channelFilter : null
+                      }
                       selected={selectedIds.has(p.id)}
                       printable={isPrintableSku(p)}
                       onSelectedChange={(checked) => toggleSelectOne(p.id, checked)}
@@ -919,8 +968,101 @@ function BadgeList({
   );
 }
 
+/** Badge-Variante je Shopware-Sichtbarkeitsstufe. */
+function visibilityBadgeVariant(
+  visibility: number | null | undefined,
+): "success" | "secondary" | "outline" {
+  if (visibility === 30) return "success";
+  if (visibility === 20) return "secondary";
+  return "outline";
+}
+
+function VisibilityBadge({
+  visibility,
+  suffix,
+}: {
+  visibility: number | null | undefined;
+  suffix?: string;
+}) {
+  const { t } = useTranslation();
+  const label = formatVisibilityLabel(visibility, t);
+  return (
+    <Badge
+      variant={visibilityBadgeVariant(visibility)}
+      className={visibility == null || visibility === 0 ? "gap-1 text-muted-foreground" : "gap-1"}
+      title={visibility == null ? t("productOverview.visibility.unknownHint") : undefined}
+    >
+      <Eye className="h-3 w-3" />
+      {label}
+      {suffix ? <span className="opacity-70">{suffix}</span> : null}
+    </Badge>
+  );
+}
+
+/**
+ * Sichtbarkeits-Spalte: bei gewähltem Kanalfilter genau dessen Stufe, sonst eine
+ * Zusammenfassung über alle Kanäle (Details im Popover).
+ */
+function VisibilityCell({
+  product,
+  focusChannelId,
+}: {
+  product: OverviewProduct;
+  focusChannelId: string | null;
+}) {
+  const { t } = useTranslation();
+
+  if (focusChannelId) {
+    return <VisibilityBadge visibility={getChannelVisibility(product, focusChannelId)} />;
+  }
+
+  const channels = product.salesChannels;
+  if (channels.length === 0) {
+    return <VisibilityBadge visibility={0} />;
+  }
+
+  const counts = new Map<number | null, number>();
+  for (const channel of channels) {
+    const level = channel.visibility ?? null;
+    counts.set(level, (counts.get(level) ?? 0) + 1);
+  }
+  const levels = Array.from(counts.keys()).sort((a, b) => (b ?? -1) - (a ?? -1));
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <div className="flex cursor-pointer flex-wrap gap-1">
+          {levels.map((level) => (
+            <VisibilityBadge
+              key={String(level)}
+              visibility={level}
+              suffix={levels.length > 1 || channels.length > 1 ? `· ${counts.get(level)}` : undefined}
+            />
+          ))}
+        </div>
+      </PopoverTrigger>
+      <PopoverContent className="w-72">
+        <div className="space-y-1">
+          <div className="text-xs text-muted-foreground">
+            {t("productOverview.visibility.summary", { count: channels.length })}
+          </div>
+          {channels.map((channel) => (
+            <div key={channel.id} className="flex items-center justify-between gap-2 text-sm">
+              <span className="truncate">{channel.name}</span>
+              <span className="shrink-0 text-muted-foreground">
+                {formatVisibilityLabel(channel.visibility ?? null, t)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function ProductRow({
   product,
+  focusChannelId,
   selected,
   printable,
   onSelectedChange,
@@ -928,6 +1070,8 @@ function ProductRow({
   onOpenDetail,
 }: {
   product: OverviewProduct;
+  /** Gewählter Kanalfilter — dann zeigt die Sichtbarkeits-Spalte genau diesen Kanal. */
+  focusChannelId: string | null;
   selected: boolean;
   printable: boolean;
   onSelectedChange: (checked: boolean) => void;
@@ -1000,6 +1144,9 @@ function ProductRow({
           />
           {inheritedHint("salesChannels")}
         </div>
+      </TableCell>
+      <TableCell onClick={(event) => event.stopPropagation()}>
+        <VisibilityCell product={product} focusChannelId={focusChannelId} />
       </TableCell>
       <TableCell
         onClick={(event) => {

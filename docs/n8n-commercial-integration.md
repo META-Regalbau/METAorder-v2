@@ -59,6 +59,127 @@ Details und Docker: [`docker.md`](docker.md).
 - **`uploadRateLimiter`:** bei Massenlast Retries/Backoff in n8n einplanen.  
 - **OpenAI / KI:** Upload-Pipeline braucht konfigurierte KI- und Shopware-Einstellungen wie in der App.
 
+## Interne Weiterleitungen zählen nicht
+
+Erreicht eine Kundenbestellung das Bestellpostfach über Kollegen („WG: …", „Moin, anbei eine
+Bestellung"), wertet der Commercial Agent ausschließlich die **ursprüngliche Kundenmail** aus
+([`emailForwardUnwrap.ts`](../server/emailForwardUnwrap.ts)): Ist der Kopf-Absender eine eigene
+Domain, wird die Weiterleitungskette (Outlook-Blöcke „Von/Gesendet/An/Betreff" bzw.
+„From/Sent/To/Subject") bis zum ersten externen Absender abgelaufen. Dessen Absender, Betreff
+(ohne „WG:"/„FW:"/„[External]") und Text gehen in Intent, Extraktion und Kundenzuordnung —
+Weiterleitungs-Notizen und interne Adressen nicht. Leitet ein **Kunde** selbst etwas weiter,
+bleibt die Mail unverändert. Eigene Domains: META-Defaults plus `COMMERCIAL_AGENT_OWN_DOMAINS`
+bzw. `COMMERCIAL_AGENT_INBOUND_ACK_OWN_DOMAINS` (kommagetrennt). Adressen dieser Domains werden
+zudem nie als Kunden-E-Mail gewählt.
+
+## Beilagen: Lieferschein, AB, Rechnung → Entwurf, nicht zweite Bestellung
+
+Kunden schicken neben der Bestellung oft weitere Belege mit — typisch den **eigenen
+Lieferschein**, der der Sendung beizulegen ist. Jeder Anhang wird deshalb vor der
+Extraktion klassifiziert ([`commercialAttachmentClassifier.ts`](../server/commercialAttachmentClassifier.ts)):
+
+| Belegart | Verhalten |
+|----------|-----------|
+| `purchase_order`, `unknown` | Extraktion → Bestell-/Angebotsentwurf (wie bisher) |
+| `delivery_note`, `order_confirmation`, `invoice`, `other` | **kein** Entwurf; Datei wird unter `uploads/commercial-agent-incoming/` abgelegt und an alle Entwürfe derselben Mail gehängt (`attachments`) |
+
+Die Erkennung ist deterministisch (Titelbegriffe wie „Lieferschein", „LS-Nr.", „Packstücke",
+„Rechnungs-Nr.", „Auftragsbestätigung"; Dateiname als Zusatzsignal). Ohne verwertbaren Text
+(Scan ohne OCR) bleibt der Anhang Bestell-Kandidat. Im Review-Modal erscheint der Block
+„Beigefügte Dokumente" mit Belegart, Kennnummern (LS-Nr., Bestell-Nr., Kommission) und
+Archiv-Status.
+
+### Übergabe an das DMS (Lobster → d.3)
+
+```
+GET   /api/order-drafts/:id/attachments                    Liste (ohne Dateipfad)
+GET   /api/order-drafts/:id/attachments/:attachmentId/file Datei (inline, Original-MIME)
+PATCH /api/order-drafts/:id/attachments/:attachmentId      { "exportStatus": "exported", "exportReference": "d3:…" }
+```
+
+Dieselben Endpunkte gibt es unter `/api/offer-drafts/…`. Auth: Session oder Integrations-API-Key
+(`X-METAORDER-Integration-Key`), Recht `manageOrderDrafts` bzw. `manageOffers`. Ein Anhang trägt
+`exportStatus` `pending` → Lobster holt die Datei, schreibt sie mit `buyerDocumentNumber`
+(Kundenbestellnummer) und `references` als Index ins d.3 und setzt `exported`. Die Liste enthält
+außerdem `shopwareOrderId`, sobald die Bestellung angelegt wurde.
+
+Beispiel-Antwort der Liste:
+
+```json
+{
+  "draftId": "…", "draftKind": "order", "buyerDocumentNumber": "381345/000", "shopwareOrderId": null,
+  "attachments": [{
+    "id": "…", "documentKind": "delivery_note", "documentKindLabel": "Lieferschein",
+    "fileName": "381345_000.pdf", "mimeType": "application/pdf", "size": 53677,
+    "references": { "deliveryNoteNumber": "1433099", "orderNumber": "8054002 /1174415", "commission": null },
+    "classification": { "confidence": 0.9, "signals": ["title_lieferschein", "ls_number_label"] },
+    "exportStatus": "pending", "createdAt": "2026-09-16T08:00:00.000Z"
+  }]
+}
+```
+
+### Push-Variante: SFTP-Upload an Lobster (Einstellungen → Integration → SFTP-Server)
+
+Alternativ oder zusätzlich zum Abholen per REST schiebt METAorder die Beilagen selbst per SFTP
+zu Lobster. Je Mandant können beliebig viele Server hinterlegt werden (Passwort oder SSH-Key,
+optional Host-Key-Fingerprint; Zugangsdaten liegen AES-GCM-verschlüsselt in `sftp_servers`).
+
+Ablauf: Sobald aus einem Bestellentwurf eine Shopware-Bestellung entsteht (manuell im Review-Modal
+oder automatisch durch den Commercial Agent), werden alle Beilagen mit passender Belegart
+(Standard: nur `delivery_note`) an jeden aktiven Server mit „Automatisch bei Bestellanlage"
+hochgeladen — asynchron, die Bestellanlage wartet nicht darauf. Erfolgreiche Beilagen erhalten
+`exportStatus = exported` und `exportReference = sftp:<Server>:<Pfad>`. Im Review-Modal gibt es
+zusätzlich „Per SFTP übergeben" (erneuter Upload, auch bereits exportierter Beilagen).
+
+Je Datei landet im Zielordner:
+
+```
+<Dateiname>            z. B. 10042_delivery_note_381345_000.pdf   (Schema konfigurierbar)
+<Dateiname>.json       Sidecar mit Zuordnungsdaten (abschaltbar)
+```
+
+Uploads erfolgen als `<Dateiname>.part` und werden erst nach vollständiger Übertragung umbenannt —
+Lobster sieht nie halbe Dateien; die JSON-Datei wird nach der PDF geschrieben, ein Lobster-Profil
+kann also auf `*.json` triggern. Platzhalter für das Dateinamen-Schema: `{orderNumber}`,
+`{customerNumber}`, `{buyerDocumentNumber}`, `{deliveryNoteNumber}`, `{invoiceNumber}`,
+`{commission}`, `{customerReference}`, `{documentKind}`, `{date}`, `{originalName}`, `{draftId}`,
+`{attachmentId}`.
+
+Beispiel-Sidecar:
+
+```json
+{
+  "type": "metaorder.draft_attachment", "version": 1, "uploadedAt": "2026-09-22T08:00:00.000Z",
+  "draft": { "id": "…", "kind": "order", "status": "created", "buyerDocumentNumber": "381345/000" },
+  "order": { "shopwareOrderId": "…", "orderNumber": "10042", "customerNumber": "K10001", "customerName": "Müller GmbH" },
+  "document": {
+    "attachmentId": "…", "kind": "delivery_note", "kindLabel": "Lieferschein",
+    "fileName": "10042_delivery_note_381345_000.pdf", "originalFileName": "381345_000.pdf",
+    "references": { "deliveryNoteNumber": "1433099", "orderNumber": "8054002 /1174415", "commission": null }
+  },
+  "documentReferences": { "customerReference": "…", "commission": "…", "supplierOfferNumber": "…" }
+}
+```
+
+Wiederholungen bei Verbindungs-/Übertragungsfehlern mit exponentiellem Backoff (je Server
+konfigurierbar, Standard 3 Versuche). Jeder Versuch steht im Upload-Protokoll (`sftp_upload_logs`,
+sichtbar unter dem Server-Abschnitt in den Einstellungen; API: `GET /api/settings/sftp-servers/logs`).
+
+```
+GET    /api/settings/sftp-servers              POST /api/settings/sftp-servers
+PATCH  /api/settings/sftp-servers/:id          DELETE /api/settings/sftp-servers/:id
+POST   /api/settings/sftp-servers/:id/test     POST /api/settings/sftp-servers/test   (Verbindungstest)
+POST   /api/order-drafts/:id/attachments/sftp-upload   { serverIds?, attachmentIds?, force? }
+```
+
+### Referenzen & Lieferhinweise
+
+Die Extraktion liefert zusätzlich `documentExtraction.references` (Kundenreferenz / „Nummer beim
+Kunden", Kommission, Ansprechpartner am Lieferort, Lieferschein-Hinweise, AB- und
+Rechnungsadresse) — im Entwurf als `extractedData.documentReferences`. Bei der Bestellanlage
+landen sie mit festen Labels im Kundenkommentar der Shopware-Bestellung
+(`Kundenreferenz: …`, `Kommission: …`, `Lieferkontakt: …`, `Lieferschein/Anlieferung: …`).
+
 ## Ausgehende Webhooks (METAorder → n8n)
 
 Unter **Einstellungen → Webhooks** (oder `GET/PATCH /api/settings/webhooks`) können URLs pro Eventtyp gesetzt werden.

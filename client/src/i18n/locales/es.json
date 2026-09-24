@@ -107,7 +107,8 @@
     "saving": "Guardando...",
     "cancel": "Cancelar",
     "actions": "Acciones",
-    "loading": "Cargando..."
+    "loading": "Cargando...",
+    "edit": "Editar"
   },
   "globalSearch": {
     "placeholder": "Buscar (pedido, factura, ERP)",
@@ -402,7 +403,13 @@
       "presencePresent": "Está presente",
       "presenceAbsent": "No está presente",
       "customFieldValuePlaceholder": "Valor del campo personalizado…",
-      "reset": "Restablecer filtros"
+      "reset": "Restablecer filtros",
+      "visibility": "Visibilidad",
+      "allVisibilities": "Todas las visibilidades",
+      "visibility30": "Visible (30)",
+      "visibility20": "Oculto en listados (20)",
+      "visibility10": "Oculto en listados y búsqueda (10)",
+      "visibility0": "No asignado (0)"
     },
     "table": {
       "productNumber": "Número de artículo",
@@ -424,7 +431,8 @@
       "fieldsCount": "{{count}} campo(s)",
       "priceChangedAt": "Precio modificado",
       "lastUpdated": "Última actualización",
-      "lastUpdatedHint": "Último cambio del producto en Shopware (no solo el precio) — confirma que la sincronización se ejecutó."
+      "lastUpdatedHint": "Último cambio del producto en Shopware (no solo el precio) — confirma que la sincronización se ejecutó.",
+      "visibility": "Visibilidad"
     },
     "csv": {
       "priceGross": "Precio bruto",
@@ -477,6 +485,16 @@
       "parentId": "ID del producto padre",
       "deliveryTimeId": "ID del plazo de entrega",
       "noPermission": "Sin permiso para estos datos."
+    },
+    "visibility": {
+      "level30": "Visible",
+      "level20": "Oculto en listados",
+      "level10": "Oculto en listados + búsqueda",
+      "level0": "No asignado",
+      "unknown": "Desconocido",
+      "mixed": "Mixto",
+      "unknownHint": "Las visibilidades aún no están en el espejo de productos; se completan en la próxima sincronización o con \"Actualizar caché\".",
+      "summary": "{{count}} canal(es)"
     }
   },
   "barcodeScan": {
@@ -1575,6 +1593,82 @@
       "saveSuccess": "Enrutamiento guardado",
       "saveSuccessDesc": "La configuración de enrutamiento se actualizó.",
       "saveError": "No se pudo guardar enrutamiento"
+    },
+    "sftp": {
+      "title": "Servidores SFTP (albaranes → Lobster / d.3)",
+      "description": "Los documentos adjuntos de la creación de pedidos por IA (normalmente el albarán del cliente) se envían automáticamente por SFTP a los servidores configurados aquí una vez creado el pedido. Opcionalmente se coloca junto a cada archivo un JSON con número de pedido, número de cliente, número de pedido del cliente y número de albarán para que Lobster asigne el documento en d.3 directamente. Las credenciales se guardan cifradas.",
+      "add": "Añadir servidor",
+      "addTitle": "Crear servidor SFTP",
+      "editTitle": "Editar servidor SFTP «{{name}}»",
+      "dialogDescription": "Acceso, carpeta de destino y patrón de nombre de archivo. «Probar conexión» inicia sesión y lista la carpeta de destino.",
+      "empty": "Aún no hay ningún servidor SFTP.",
+      "enabled": "Activo",
+      "disabled": "Inactivo",
+      "autoBadge": "Auto al crear pedido",
+      "kindsLabel": "Tipos de documento",
+      "templateLabel": "Nombre de archivo",
+      "sidecarShort": "con metadatos JSON",
+      "hostKeyVerified": "host key verificada",
+      "test": "Probar conexión",
+      "testOk": "Conexión correcta",
+      "testFailed": "Conexión fallida",
+      "saved": "Servidor SFTP guardado",
+      "savedMessage": "«{{name}}» se ha guardado.",
+      "deleted": "Servidor SFTP eliminado",
+      "deleteTitle": "¿Eliminar servidor SFTP?",
+      "deleteConfirm": "«{{name}}» se eliminará. Los archivos ya subidos permanecen en el servidor.",
+      "showAdvanced": "Mostrar ajustes avanzados",
+      "hideAdvanced": "Ocultar ajustes avanzados",
+      "kinds": {
+        "delivery_note": "Albarán",
+        "order_confirmation": "Confirmación de pedido",
+        "invoice": "Factura",
+        "other": "Otros"
+      },
+      "fields": {
+        "name": "Nombre",
+        "namePlaceholder": "p. ej. Lobster d.3",
+        "host": "Host",
+        "port": "Puerto",
+        "username": "Usuario",
+        "authMethod": "Autenticación",
+        "authPassword": "Contraseña",
+        "authKey": "Clave SSH",
+        "password": "Contraseña",
+        "privateKey": "Clave privada (PEM / OpenSSH)",
+        "passphrase": "Frase de paso de la clave",
+        "secretConfigured": "•••••••• (guardado – dejar vacío para mantener)",
+        "optional": "opcional",
+        "hostKeyFingerprint": "Huella de la host key (opcional)",
+        "hostKeyHelp": "Recomendado: huella del servidor (p. ej. «ssh-keyscan host | ssh-keygen -lf -»). Sin ella no se verifica la host key.",
+        "remotePath": "Carpeta de destino",
+        "filenameTemplate": "Patrón de nombre de archivo",
+        "templateHelp": "Marcadores:",
+        "autoUpload": "Automático al crear el pedido",
+        "autoUploadHelp": "Enviar los documentos en cuanto se cree un pedido de Shopware a partir del borrador.",
+        "sidecar": "Adjuntar metadatos JSON",
+        "sidecarHelp": "Por cada archivo un <nombre>.json con número de pedido/cliente, número de pedido del cliente y número de albarán para la asignación en d.3.",
+        "maxAttempts": "Intentos máx.",
+        "initialBackoffMs": "Espera 1.ª repetición (ms)",
+        "backoffFactor": "Factor de backoff",
+        "timeoutMs": "Tiempo de espera (ms)"
+      },
+      "logs": {
+        "title": "Registro de subidas",
+        "empty": "Aún no hay subidas.",
+        "time": "Hora",
+        "server": "Servidor",
+        "file": "Archivo",
+        "order": "Pedido",
+        "status": "Estado",
+        "detail": "Detalles",
+        "statuses": {
+          "success": "Correcto",
+          "failed": "Fallido",
+          "pending": "Reintentando",
+          "skipped": "Omitido"
+        }
+      }
     }
   },
   "webhookLogs": {
@@ -2580,7 +2674,21 @@
         "matchedProduct": "Producto Emparejado",
         "quantity": "Cantidad",
         "confidence": "Confianza"
-      }
+      },
+      "attachments": {
+        "sftpUpload": "Enviar por SFTP",
+        "sftpTitle": "Transferencia SFTP",
+        "sftpResult": "{{uploaded}} subidos, {{failed}} fallidos"
+      },
+      "recheck": "Volver a comprobar",
+      "rechecking": "Comprobando …",
+      "recheckHint": "Volver a asignar productos y cliente sin subir de nuevo",
+      "recheckDone": "Comprobado de nuevo",
+      "recheckProducts": "{{after}} de {{lines}} posiciones asignadas (antes {{before}}).",
+      "recheckCustomerKept": "Cliente asignado manualmente – sin cambios.",
+      "recheckCustomerChanged": "Cliente reasignado.",
+      "recheckCustomerSame": "Cliente sin cambios.",
+      "recheckError": "La nueva comprobación ha fallado"
     },
     "crossSelling": {
       "title": "Sugerencias Inteligentes de Productos",
@@ -3480,5 +3588,11 @@
       "tier": "Adicional",
       "total": "máx. total"
     }
+  },
+  "errorBoundary": {
+    "title": "No se pudo cargar esta página",
+    "description": "Se ha producido un error inesperado. El resto de la aplicación sigue funcionando: inténtalo de nuevo o recarga la página.",
+    "retry": "Reintentar",
+    "reload": "Recargar página"
   }
 }

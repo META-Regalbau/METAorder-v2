@@ -9,7 +9,7 @@ import {
   IMPORT_MATCHING_CONFIDENCE_WARNING_THRESHOLD,
   isLowOverallMatchingConfidence,
 } from "@/lib/commercialDraftConfidence";
-import { pickDocumentExtraction } from "@/components/DocumentExtractionAlerts";
+import { isDocumentBuyerMeta, pickDocumentExtraction } from "@/components/DocumentExtractionAlerts";
 import { useLocation } from "wouter";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -158,7 +158,7 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
       drafts.filter((d) => {
         if (d.status !== "pending" && d.status !== "review_required") return false;
         const ext = pickDocumentExtraction(d.extractedData as Record<string, unknown> | null);
-        return Boolean(ext?.document?.recipient_is_meta);
+        return isDocumentBuyerMeta(ext);
       }),
     [drafts]
   );
@@ -528,9 +528,9 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
             <div className="mcard-body">
               {recipientIsMetaPendingDrafts.length > 0 && (
                 <div className="malert destructive" data-testid="alert-recipient-is-meta-offer-drafts">
-                  <div className="malert-title">Empfänger ist META — vermutlich Lieferanten-AB</div>
+                  <div className="malert-title">Käufer ist META — vermutlich Lieferanten-AB</div>
                   <p>
-                    {recipientIsMetaPendingDrafts.length} Beleg(e) richten sich an einen META-Standort.
+                    {recipientIsMetaPendingDrafts.length} Beleg(e): META tritt als Besteller auf.
                     Bitte prüfen, ob diese überhaupt als Kunden-Anfrage verarbeitet werden sollen.
                   </p>
                   <ul style={{ listStyle: "disc", paddingLeft: 16, marginTop: 6 }}>
@@ -869,6 +869,7 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
             refetchDrafts();
             refetch();
             setUploadDialogOpen(false);
+            if (!result.draft) return;
             if (result.draftKind === "offer") {
               const of = result.draft as OfferDraft;
               setSelectedDraft(of);

@@ -15,10 +15,13 @@ import {
   buildFewShotChatMessages,
   loadDocumentExtractionFewShots,
 } from "./documentExtractionPrompt";
+import { isBinaryDocumentMime } from "./orderDraftExtractor";
+import { runDocumentExtractionViaChatLlm, type DocumentExtractionChatLlm } from "./documentExtractionChatLlm";
 import {
   applyExtractionPostValidation,
   normalizeDocumentExtractionInPlace,
   translateDocumentExtractionToLegacy,
+  applyDocumentExtractionDeterministicSteps,
 } from "./documentExtractionTranslate";
 
 export interface ExtractedOfferData {
@@ -212,6 +215,8 @@ export async function extractOfferDataFromDocument(
     ocrEnabled?: boolean;
     /** Wenn gesetzt, ersetzt den aus der Datei extrahierten Hauptdokument-Text */
     primaryDocumentText?: string | null;
+    /** Provider-neutraler Chat-Aufruf, falls kein OpenAI-Client vorhanden ist (siehe documentExtractionChatLlm.ts) */
+    chatLlm?: DocumentExtractionChatLlm | null;
   } & DraftExtractionMailContext
 ): Promise<ExtractedOfferData> {
   const {
@@ -243,7 +248,12 @@ export async function extractOfferDataFromDocument(
     throw new Error("OpenAI is required but not configured");
   }
 
-  if (mode === "openai_optional") {
+  // Local-first nur für Klartext — Begründung siehe orderDraftExtractor.ts.
+  const canUseChatLlm = !shouldUseOpenAI && mode !== "local_only" && Boolean(options.chatLlm);
+  if (
+    mode === "openai_optional" &&
+    !((shouldUseOpenAI || canUseChatLlm) && isBinaryDocumentMime(mimeType, fileName))
+  ) {
     const localText = await readPrimaryDocumentText();
     const normalizedText = mergeDraftExtractionSources(
       localText,
@@ -328,6 +338,7 @@ export async function extractOfferDataFromDocument(
 
       const parsed = JSON.parse(responseText) as DocumentExtraction;
       normalizeDocumentExtractionInPlace(parsed);
+      applyDocumentExtractionDeterministicSteps(parsed, await readPrimaryDocumentText());
       applyExtractionPostValidation(parsed);
       const normalized = translateDocumentExtractionToLegacy(parsed) as ExtractedOfferData;
 
@@ -350,6 +361,29 @@ export async function extractOfferDataFromDocument(
         throw new Error(`Failed to extract offer data: ${error.message}`);
       }
       console.warn("[Offer Extraction] OpenAI failed, falling back to local extraction:", error);
+    }
+  }
+
+  // Kein OpenAI-Client, aber Chat-LLM des Mandanten (z. B. Anthropic): Text-Extraktion darüber.
+  if (canUseChatLlm && !mimeType.startsWith("image/")) {
+    try {
+      const textContent = await readPrimaryDocumentText();
+      if (textContent.trim().length >= 40) {
+        const safeText = mergeDraftExtractionSources(textContent, maxInputChars, mailExtras, Boolean(redactPromptPII));
+        const fewShots = await getCachedDocumentExtractionFewShots();
+        const parsed = await runDocumentExtractionViaChatLlm({
+          chatLlm: options.chatLlm!,
+          systemPrompt: DOCUMENT_EXTRACTION_SYSTEM_PROMPT,
+          fewShotMessages: buildFewShotChatMessages(fewShots),
+          userContent: `Extrahiere strukturierte Angebots-/Anfrage-Daten aus diesem Dokument (gesamtes JSON-Schema, snake_case):\n\nDateiname: ${fileName}\n\nInhalt:\n${safeText}`,
+        });
+        normalizeDocumentExtractionInPlace(parsed);
+        applyDocumentExtractionDeterministicSteps(parsed, textContent);
+        applyExtractionPostValidation(parsed);
+        return translateDocumentExtractionToLegacy(parsed) as ExtractedOfferData;
+      }
+    } catch (error) {
+      console.warn("[Offer Extraction] Chat-LLM-Extraktion fehlgeschlagen, nutze lokale Extraktion:", error);
     }
   }
 

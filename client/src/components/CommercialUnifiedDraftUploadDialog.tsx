@@ -74,6 +74,12 @@ export function CommercialUnifiedDraftUploadDialog({
   const buildSuccessToastDescription = (data: CommercialUnifiedUploadResult) => {
     // Hochgeladene E-Mail: die Mail wird ausgepackt, je Anhang entsteht ein Entwurf.
     if (data.source === "email_container") {
+      if (data.existingDraftReturned) {
+        return t(
+          "commercialUpload.toast.alreadyProcessedOpened",
+          "Diese Nachricht wurde bereits verarbeitet — der vorhandene Entwurf wird geöffnet."
+        );
+      }
       if (data.deduplicated) {
         return t("commercialUpload.toast.alreadyProcessed");
       }

@@ -19,6 +19,31 @@ export type ResolveOfferSalesChannelResult =
   | { ok: true; salesChannelId: string; source: string }
   | { ok: false; error: string; statusCode: number };
 
+/**
+ * An den Shopware-Kunden gebundener Verkaufskanal (customer.salesChannelId).
+ * Fehler werden protokolliert und liefern null — der Resolver fällt dann auf Env/Settings zurück.
+ */
+export async function fetchCustomerBoundSalesChannelId(
+  storage: IStorage,
+  tenantId: string | null | undefined,
+  shopwareCustomerId: string | null | undefined
+): Promise<string | null> {
+  if (!shopwareCustomerId) return null;
+  try {
+    const settings = await storage.getShopwareSettings(tenantId ?? null);
+    if (!settings) return null;
+    const client = new ShopwareClient(settings);
+    const bound = await client.fetchCustomerSalesChannelId(shopwareCustomerId);
+    return bound?.id ?? null;
+  } catch (error) {
+    console.warn(
+      "[SalesChannel] Kunden-Verkaufskanal konnte nicht ermittelt werden:",
+      error instanceof Error ? error.message : error
+    );
+    return null;
+  }
+}
+
 function normalizeChannelId(id: string): string {
   return id.replace(/-/g, "").toLowerCase();
 }

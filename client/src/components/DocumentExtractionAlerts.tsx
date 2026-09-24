@@ -20,7 +20,10 @@ import { AlertTriangle, AlertCircle } from "lucide-react";
 
 export interface DocumentExtractionLite {
   document?: {
+    /** META ist Empfänger — bei Kundenbestellungen an META der Normalfall, KEIN Warnsignal. */
     recipient_is_meta?: boolean;
+    /** META ist der Käufer — dann ist der Beleg eine Lieferanten-AB / interne Bestellung. */
+    buyer_is_meta?: boolean;
     type?: string;
     number?: string | null;
   };
@@ -49,12 +52,20 @@ function localizeConfidenceWarning(code: string): string {
   return CONFIDENCE_WARNING_LABELS_DE[code] ?? code;
 }
 
+/**
+ * Warnt nur, wenn META der KÄUFER ist (Lieferanten-AB / interne Bestellung).
+ * `recipient_is_meta` allein ist kein Signal: jede Kundenbestellung ist an META adressiert.
+ */
+export function isDocumentBuyerMeta(extraction: DocumentExtractionLite | null | undefined): boolean {
+  return Boolean(extraction?.document?.buyer_is_meta);
+}
+
 export function DocumentExtractionRecipientMetaAlert({
   extraction,
 }: {
   extraction: DocumentExtractionLite | null | undefined;
 }) {
-  if (!extraction?.document?.recipient_is_meta) return null;
+  if (!isDocumentBuyerMeta(extraction)) return null;
   return (
     <Alert
       variant="destructive"
@@ -62,9 +73,9 @@ export function DocumentExtractionRecipientMetaAlert({
       data-testid="alert-recipient-is-meta"
     >
       <AlertTriangle className="h-4 w-4" />
-      <AlertTitle className="text-sm">Empfänger ist META</AlertTitle>
+      <AlertTitle className="text-sm">Käufer ist META</AlertTitle>
       <AlertDescription className="text-xs text-muted-foreground">
-        Dieses Dokument adressiert einen META-Standort als Empfänger — vermutlich
+        In diesem Beleg tritt ein META-Unternehmen als Besteller auf — vermutlich
         eine Lieferanten-Auftragsbestätigung oder eine interne Bestellung.
         Bitte prüfen, ob der Beleg überhaupt als Kunden-Bestellung / -Anfrage
         verarbeitet werden soll.

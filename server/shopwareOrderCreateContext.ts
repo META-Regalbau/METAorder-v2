@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import type { OrderAddress, ShopwareSettings } from "@shared/schema";
 import { ShopwareClient } from "./shopware";
 import {
@@ -10,13 +10,13 @@ import {
   mergeAddress,
   buildOfferAddressPayload,
   fetchCustomerEmail,
-  fetchProductPricing,
   buildCalculatedItemPrice,
   buildQuantityPriceDefinition,
   fetchSalesChannelOfferDefaults,
   round2,
   DEFAULT_CASH_ROUNDING,
 } from "./b2bOfferCreateContext";
+import { resolveCustomerUnitPrices } from "./commercialCustomerPricing";
 
 const ORDER_NUMBER_RANGE_TYPE = process.env.SHOPWARE_ORDER_NUMBER_RANGE_TYPE || "order";
 
@@ -69,6 +69,40 @@ async function resolveStateMachineStateId(
   return String(id);
 }
 
+/** Tag an allen automatisch aus KI-Entwürfen angelegten Bestellungen (Filter im Shopware-Admin). */
+const AUTOMATED_ORDER_TAG_NAME = process.env.SHOPWARE_AUTOMATED_ORDER_TAG?.trim() || "Automatisierte Anlage";
+/** Zahlungsstatus der KI-Bestellungen: direkt „autorisiert" statt „offen". */
+const AUTOMATED_ORDER_TRANSACTION_STATE = process.env.SHOPWARE_AUTOMATED_ORDER_PAYMENT_STATE?.trim() || "authorized";
+
+/**
+ * Bestehenden Tag per Name verknüpfen; sonst wird er mit der Bestellung angelegt. Die ID ist aus dem
+ * Namen abgeleitet, damit gleichzeitige Anlagen denselben Tag erzeugen statt Dubletten.
+ */
+async function resolveAutomatedOrderTag(client: ShopwareClient): Promise<{ id: string; name?: string }> {
+  const row = await searchFirst(client, "tag", {
+    limit: 1,
+    filter: [{ type: "equals", field: "name", value: AUTOMATED_ORDER_TAG_NAME }],
+  });
+  if (row?.id) return { id: String(row.id) };
+  const id = createHash("md5").update(`metaorder-tag:${AUTOMATED_ORDER_TAG_NAME}`).digest("hex");
+  return { id, name: AUTOMATED_ORDER_TAG_NAME };
+}
+
+/** Wie resolveStateMachineStateId, aber ohne stillen Fallback auf einen beliebigen Status. */
+async function resolveTransactionStateId(client: ShopwareClient): Promise<string> {
+  const rows = await client.searchEntity("state-machine-state", {
+    limit: 50,
+    filter: [{ type: "equals", field: "stateMachine.technicalName", value: "order_transaction.state" }],
+  });
+  const list: any[] = rows?.data ?? [];
+  const wanted = list.find((r) => readAttr(r, "technicalName") === AUTOMATED_ORDER_TRANSACTION_STATE);
+  if (wanted?.id) return String(wanted.id);
+  console.warn(
+    `[ShopwareOrder] Zahlungsstatus "${AUTOMATED_ORDER_TRANSACTION_STATE}" nicht gefunden — Bestellung bleibt "open".`
+  );
+  return resolveStateMachineStateId(client, "order_transaction.state");
+}
+
 async function fetchCurrencyFactor(client: ShopwareClient, currencyId: string): Promise<number> {
   const row = await searchFirst(client, "currency", {
     limit: 1,
@@ -92,6 +126,8 @@ export type OrderLineItemInput = {
   productId: string;
   quantity: number;
   productNumber?: string;
+  /** Optionaler Netto-Stückpreis-Override (manueller Preis aus dem Entwurf). Hat Vorrang vor Kundenpreis/Rabatt/Liste. */
+  unitPriceNet?: number;
 };
 
 /**
@@ -124,6 +160,7 @@ export async function buildOrderCreateAttributes(
     orderStateId,
     deliveryStateId,
     transactionStateId,
+    automatedOrderTag,
   ] = await Promise.all([
     fetchSalesChannelOfferDefaults(client, params.salesChannelId),
     fetchSalutationId(client),
@@ -131,7 +168,8 @@ export async function buildOrderCreateAttributes(
     reserveOrderNumber(client, params.salesChannelId),
     resolveStateMachineStateId(client, "order.state"),
     resolveStateMachineStateId(client, "order_delivery.state"),
-    resolveStateMachineStateId(client, "order_transaction.state"),
+    resolveTransactionStateId(client),
+    resolveAutomatedOrderTag(client),
   ]);
 
   const ctx = params.customerContext ?? {};
@@ -160,8 +198,17 @@ export async function buildOrderCreateAttributes(
   const billingAddress = buildOfferAddressPayload(billingMerged, salutationId, billingCountryId);
   const shippingAddress = buildOfferAddressPayload(shippingMerged, salutationId, shippingCountryId);
 
-  const productIds = params.lineItems.map((item) => toShopwareUuid(item.productId));
-  const pricing = await fetchProductPricing(client, productIds, channelDefaults.currencyId);
+  // Gleiche Preisbasis wie das B2B-Angebot: kundenindividueller Preis → Kundenrabatt → Listenpreis
+  // (siehe commercialCustomerPricing.ts). Ein manueller Override aus dem Entwurf hat Vorrang.
+  const { prices: pricing } = await resolveCustomerUnitPrices(client, {
+    customerId: params.shopwareCustomerId,
+    currencyId: channelDefaults.currencyId,
+    items: params.lineItems.map((item) => ({
+      productId: toShopwareUuid(item.productId),
+      productNumber: item.productNumber ?? null,
+      quantity: item.quantity,
+    })),
+  });
 
   let positionNet = 0;
   const taxByRate = new Map<number, number>();
@@ -169,7 +216,10 @@ export async function buildOrderCreateAttributes(
   const lineItemsPayload = params.lineItems.map((item, index) => {
     const productId = toShopwareUuid(item.productId);
     const price = pricing.get(productId);
-    const net = price?.net ?? 0;
+    const net =
+      typeof item.unitPriceNet === "number" && Number.isFinite(item.unitPriceNet) && item.unitPriceNet >= 0
+        ? round2(item.unitPriceNet)
+        : price?.net ?? 0;
     const taxRate = price?.taxRate ?? 0;
     const quantity = item.quantity;
 
@@ -238,6 +288,7 @@ export async function buildOrderCreateAttributes(
     totalRounding: DEFAULT_CASH_ROUNDING,
     shippingCosts: zeroShippingCosts,
     lineItems: lineItemsPayload,
+    tags: [automatedOrderTag],
     deliveries: [
       {
         stateId: deliveryStateId,

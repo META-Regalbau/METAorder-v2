@@ -20,7 +20,7 @@ import {
   IMPORT_MATCHING_CONFIDENCE_WARNING_THRESHOLD,
   isLowOverallMatchingConfidence,
 } from "@/lib/commercialDraftConfidence";
-import { pickDocumentExtraction } from "@/components/DocumentExtractionAlerts";
+import { isDocumentBuyerMeta, pickDocumentExtraction } from "@/components/DocumentExtractionAlerts";
 import { format } from "date-fns";
 import { de, enUS, es } from "date-fns/locale";
 import { OrderDraftUploadDialog } from "@/components/OrderDraftUploadDialog";
@@ -71,7 +71,7 @@ export default function OrderDraftsPage() {
     () =>
       (drafts ?? []).filter((d) => {
         const ext = pickDocumentExtraction(d.extractedData as Record<string, unknown> | null);
-        return Boolean(ext?.document?.recipient_is_meta);
+        return isDocumentBuyerMeta(ext);
       }),
     [drafts]
   );
@@ -172,10 +172,10 @@ export default function OrderDraftsPage() {
           data-testid="alert-recipient-is-meta-list"
         >
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Empfänger ist META — vermutlich Lieferanten-AB</AlertTitle>
+          <AlertTitle>Käufer ist META — vermutlich Lieferanten-AB</AlertTitle>
           <AlertDescription className="text-sm space-y-2">
             <p>
-              {recipientIsMetaDrafts.length} Beleg(e) richten sich an einen META-Standort.
+              In {recipientIsMetaDrafts.length} Beleg(en) tritt META als Besteller auf.
               Bitte prüfen, ob diese überhaupt als Kunden-Bestellung verarbeitet werden sollen.
             </p>
             <ul className="list-disc pl-4 space-y-0.5">
@@ -318,6 +318,9 @@ export default function OrderDraftsPage() {
         onUploadSuccess={(result) => {
           refetch();
           setUploadDialogOpen(false);
+          // Bereits verarbeitete Mail ohne auffindbaren Entwurf: auf der Seite bleiben
+          // (früher sprang die Seite fälschlich zu den Angeboten).
+          if (!result.draft) return;
           if (result.draftKind === "order") {
             const od = result.draft as OrderDraft;
             setSelectedDraft(od);

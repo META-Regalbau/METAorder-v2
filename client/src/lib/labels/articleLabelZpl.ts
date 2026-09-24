@@ -108,23 +108,45 @@ export function qrFieldSize(magnification: number): number {
 }
 
 /**
- * Breite eines Code128 in Dots. Subset B braucht 11 Module je Zeichen plus 35 Module
- * für Start, Prüfziffer und Stop.
+ * Kleinste Modulbreite (X-Dimension), die noch zuverlässig gescannt wird: 2 Dots
+ * entsprechen bei 203 dpi 0,25 mm — das Minimum der Code128-Spezifikation. Darunter
+ * verschmieren die Balken beim Thermodruck, und Kamera-Scanner lesen entweder gar
+ * nichts oder — schlimmer — falsche Zeichen.
  */
-export function barcodeWidth(codeLength: number, module: number): number {
-  return (11 * Math.max(1, codeLength) + 35) * module;
+export const MIN_BARCODE_MODULE = 2;
+
+/**
+ * Anzahl Code128-Zeichen für `data`. Der ZPL-Automatikmodus (^BC …,A) packt Ziffern
+ * paarweise in Subset C, eine 13-stellige Nummer braucht damit 8 statt 13 Zeichen.
+ */
+export function code128SymbolCount(data: string): number {
+  const s = String(data ?? "");
+  if (!s) return 1;
+  if (!/^\d+$/.test(s)) return s.length;
+  // Subset C: zwei Ziffern je Zeichen; ungerade Länge kostet einen Subset-Wechsel
+  // plus die einzelne Restziffer.
+  return s.length % 2 === 0 ? s.length / 2 : Math.floor(s.length / 2) + 2;
+}
+
+/**
+ * Breite eines Code128 in Dots: 11 Module je Zeichen plus 35 Module für Start,
+ * Prüfziffer und Stop.
+ */
+export function barcodeWidth(data: string, module: number): number {
+  return (11 * code128SymbolCount(data) + 35) * module;
 }
 
 /**
  * Größte Code128-Modulbreite, bei der der Barcode noch in `availableWidth` Dots passt.
- * Ohne diese Anpassung wird ein langer Code (z. B. 13-stellige EAN auf einem kleinen
- * Etikett) rechts abgeschnitten und damit unscannbar.
+ * `null` heißt: passt selbst mit der kleinsten scannbaren Modulbreite nicht — dann muss
+ * der Aufrufer Platz schaffen (Barcode unter den QR, QR weglassen), statt einen zu feinen
+ * oder abgeschnittenen und damit unlesbaren Code zu drucken.
  */
-export function fitBarcodeModule(availableWidth: number, codeLength: number): number {
-  for (const m of [3, 2, 1.5]) {
-    if (barcodeWidth(codeLength, m) <= availableWidth) return m;
+export function fitBarcodeModule(availableWidth: number, data: string): number | null {
+  for (const m of [3, MIN_BARCODE_MODULE]) {
+    if (barcodeWidth(data, m) <= availableWidth) return m;
   }
-  return 1;
+  return null;
 }
 
 function variantLine(size: string | null, color: string | null): string {
@@ -185,10 +207,36 @@ export function buildArticleLabelZpl(
   // Belegte Feldbreite inkl. Ruhezone — nicht nur die sichtbaren Module, sonst rückt der
   // Code128 rechts in den QR-Code hinein und frisst dessen Ruhezone.
   const qrSize = qrFieldSize(qrMag);
-  const barcodeH = clamp(Math.round(remainingH * 0.45), 50, 180);
-  const barcodeX = mx + qrSize + Math.round(mx * 0.8);
-  const byModule = fitBarcodeModule(pw - mx - barcodeX, sku.length);
-  const barcodeY = codesTop + Math.round((Math.min(qrSize, remainingH) - barcodeH) / 2);
+  const gap = Math.round(mx * 0.8);
+
+  // Bevorzugt steht der Code128 neben dem QR. Reicht die Restbreite nicht für eine
+  // scannbare Modulbreite (kleines Etikett, lange Artikelnummer), rückt er unter den QR
+  // und bekommt die volle Etikettenbreite — vorher wurde er dort auf 1 Dot (0,125 mm)
+  // gequetscht und war damit unlesbar bzw. wurde falsch dekodiert.
+  const sideX = mx + qrSize + gap;
+  const sideModule = fitBarcodeModule(pw - mx - sideX, sku);
+
+  let barcodeX: number;
+  let barcodeY: number;
+  let barcodeH: number;
+  let byModule: number;
+
+  // Klartextzeile unter dem Barcode: nur wenn darunter noch Platz ist. Im gestapelten
+  // Layout endet das Etikett direkt unter dem Code — und die Artikelnummer steht ohnehin
+  // gross in der Kopfzeile.
+  const interpretationLine = sideModule != null;
+
+  if (sideModule != null) {
+    byModule = sideModule;
+    barcodeX = sideX;
+    barcodeH = clamp(Math.round(remainingH * 0.45), 50, 180);
+    barcodeY = codesTop + Math.round((Math.min(qrSize, remainingH) - barcodeH) / 2);
+  } else {
+    barcodeX = mx;
+    byModule = fitBarcodeModule(pw - 2 * mx, sku) ?? MIN_BARCODE_MODULE;
+    barcodeY = codesTop + qrSize + Math.round(gap / 2);
+    barcodeH = clamp(ll - my - barcodeY, 40, 180);
+  }
 
   const lines = [
     "^XA",
@@ -200,7 +248,8 @@ export function buildArticleLabelZpl(
     name ? `^FO${mx},${nameY}^A0N,${nameFont},${nameFont}^FD${nameEsc}^FS` : null,
     variant ? `^FO${mx},${variantY}^A0N,${nameFont},${nameFont}^FD${variantEsc}^FS` : null,
     `^FO${mx},${codesTop}^BQN,2,${qrMag}^FDLA,${skuEsc}^FS`,
-    `^FO${barcodeX},${Math.max(codesTop, barcodeY)}^BY${byModule},2,${barcodeH}^BCN,${barcodeH},Y,N,N^FD${skuEsc}^FS`,
+    // Modus A: Drucker wählt das kompakteste Subset (Ziffern -> Subset C, halbe Breite)
+    `^FO${barcodeX},${Math.max(codesTop, barcodeY)}^BY${byModule},2,${barcodeH}^BCN,${barcodeH},${interpretationLine ? "Y" : "N"},N,N,A^FD${skuEsc}^FS`,
     `^PQ${copies}`,
     "^XZ",
   ];

@@ -449,6 +449,7 @@ export async function buildB2BOfferCreateAttributes(
       productId: string;
       quantity: number;
       type?: string;
+      productNumber?: string;
       payload?: Record<string, unknown>;
       /** Optionaler Netto-Stueckpreis-Override (z. B. manueller Rabatt). Ersetzt den Katalog-Nettopreis. */
       unitPriceNet?: number;
@@ -493,11 +494,18 @@ export async function buildB2BOfferCreateAttributes(
   const validUntil = new Date();
   validUntil.setDate(validUntil.getDate() + 30);
 
-  const pricing = await fetchProductPricing(
-    client,
-    params.lineItems.map((item) => toShopwareUuid(item.productId)),
-    channelDefaults.currencyId
-  );
+  // Gleiche Preisbasis wie die Bestellung: kundenindividueller Preis → Kundenrabatt → Listenpreis
+  // (siehe commercialCustomerPricing.ts).
+  const { resolveCustomerUnitPrices } = await import("./commercialCustomerPricing");
+  const { prices: pricing } = await resolveCustomerUnitPrices(client, {
+    customerId: params.shopwareCustomerId,
+    currencyId: channelDefaults.currencyId,
+    items: params.lineItems.map((item) => ({
+      productId: toShopwareUuid(item.productId),
+      productNumber: item.productNumber ?? (item.payload?.productNumber as string | undefined) ?? null,
+      quantity: item.quantity,
+    })),
+  });
 
   // Aggregation für die Offer-Gesamtpreise (taxStatus = "net")
   let positionNet = 0;
@@ -506,12 +514,12 @@ export async function buildB2BOfferCreateAttributes(
   const itemsPayload = params.lineItems.map((item) => {
     const productId = toShopwareUuid(item.productId);
     const price = pricing.get(productId);
-    const catalogNet = price?.net ?? 0;
-    // Manueller Netto-Stueckpreis (Rabatt) hat Vorrang; sonst Katalog-Nettopreis aus Shopware.
+    const customerNet = price?.net ?? 0;
+    // Manueller Netto-Stueckpreis (Rabatt) hat Vorrang; sonst der für den Kunden aufgelöste Nettopreis.
     const net =
       typeof item.unitPriceNet === "number" && Number.isFinite(item.unitPriceNet) && item.unitPriceNet >= 0
         ? round2(item.unitPriceNet)
-        : catalogNet;
+        : customerNet;
     const taxRate = price?.taxRate ?? 0;
     const quantity = item.quantity;
 

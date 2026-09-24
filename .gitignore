@@ -9,3 +9,6 @@ vite.config.ts.*
 *.tar.gz
 # Lokaler HTTPS-Proxy: Zertifikate sind maschinenspezifisch und gehören nicht ins Repo
 deploy/local-https/certs/
+
+# Echte Kundenbelege fuer Eval/Training nur lokal (personenbezogene Daten)
+training/**/real_*

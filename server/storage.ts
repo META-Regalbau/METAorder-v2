@@ -61,6 +61,10 @@ import {
   type WebhookLog,
   type InsertWebhookLog,
   type WebhookEventType,
+  type SftpServer,
+  type InsertSftpServer,
+  type SftpUploadLog,
+  type InsertSftpUploadLog,
   type CrossSellCooccurrence,
   type InsertCrossSellCooccurrence,
   type AiCrossSellRule,
@@ -468,6 +472,17 @@ export interface IStorage {
   }): Promise<
     Array<{ kind: "order"; draft: OrderDraft } | { kind: "offer"; draft: OfferDraft }>
   >;
+  /**
+   * Dublettenschutz für Auto-Create: andere Entwürfe derselben Art mit gleicher
+   * Kunden-Belegnummer und gleichem Shopware-Kunden (ohne `rejected`).
+   */
+  findSiblingDraftsByBuyerDocumentNumber(params: {
+    tenantId?: string | null;
+    draftKind: "offer" | "order";
+    excludeDraftId: string;
+    shopwareCustomerId: string;
+    buyerDocumentNumber: string;
+  }): Promise<Array<{ id: string; status: string; shopwareEntityId: string | null; createdAt: Date }>>;
 
   // Bundles
   getAllBundles(tenantId?: string | null): Promise<BundleWithItems[]>;
@@ -494,6 +509,15 @@ export interface IStorage {
   upsertWebhookConfig(config: InsertWebhookConfig, tenantId?: string | null): Promise<WebhookConfig>;
   updateWebhookConfig(eventType: WebhookEventType, updates: Partial<InsertWebhookConfig>, tenantId?: string | null): Promise<WebhookConfig | undefined>;
   
+  // SFTP-Server (DMS-Übergabe) — Secrets werden verschlüsselt gespeichert (server/sftpServers.ts)
+  getSftpServers(tenantId?: string | null): Promise<SftpServer[]>;
+  getSftpServer(id: string, tenantId?: string | null): Promise<SftpServer | undefined>;
+  createSftpServer(server: InsertSftpServer, tenantId?: string | null): Promise<SftpServer>;
+  updateSftpServer(id: string, updates: Partial<InsertSftpServer>, tenantId?: string | null): Promise<SftpServer | undefined>;
+  deleteSftpServer(id: string, tenantId?: string | null): Promise<boolean>;
+  createSftpUploadLog(log: InsertSftpUploadLog, tenantId?: string | null): Promise<SftpUploadLog>;
+  getSftpUploadLogs(filters?: { serverId?: string; draftId?: string; status?: string; limit?: number; offset?: number }, tenantId?: string | null): Promise<{ logs: SftpUploadLog[]; total: number }>;
+
   // Webhook Logs
   createWebhookLog(log: InsertWebhookLog, tenantId?: string | null): Promise<WebhookLog>;
   getWebhookLogs(filters?: { eventType?: string; status?: string; limit?: number; offset?: number }, tenantId?: string | null): Promise<{ logs: WebhookLog[]; total: number }>;
@@ -2138,6 +2162,7 @@ export class MemStorage implements IStorage {
       shopwareCustomerId: draft.shopwareCustomerId ?? null,
       shopwareOrderId: draft.shopwareOrderId ?? null,
       buyerDocumentNumber: draft.buyerDocumentNumber ?? null,
+      attachments: (draft.attachments as OrderDraft["attachments"] | null | undefined) ?? null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -2191,6 +2216,7 @@ export class MemStorage implements IStorage {
       shopwareCustomerId: draft.shopwareCustomerId ?? null,
       shopwareOfferId: draft.shopwareOfferId ?? null,
       buyerDocumentNumber: draft.buyerDocumentNumber ?? null,
+      attachments: (draft.attachments as OrderDraft["attachments"] | null | undefined) ?? null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -2349,6 +2375,18 @@ export class MemStorage implements IStorage {
     return [];
   }
 
+  async findSiblingDraftsByBuyerDocumentNumber(params: {
+    tenantId?: string | null;
+    draftKind: "offer" | "order";
+    excludeDraftId: string;
+    shopwareCustomerId: string;
+    buyerDocumentNumber: string;
+  }): Promise<Array<{ id: string; status: string; shopwareEntityId: string | null; createdAt: Date }>> {
+    // Stub implementation - not used in production (using DbStorage)
+    void params;
+    return [];
+  }
+
   // Bundles
   async getAllBundles(): Promise<BundleWithItems[]> {
     // Stub implementation - not used in production (using DbStorage)
@@ -2477,6 +2515,35 @@ export class MemStorage implements IStorage {
   async updateWebhookConfig(eventType: WebhookEventType, updates: Partial<InsertWebhookConfig>): Promise<WebhookConfig | undefined> {
     // Stub implementation - not used in production (using DbStorage)
     return undefined;
+  }
+
+  // SFTP-Server — Stub (nur DbStorage produktiv)
+  async getSftpServers(): Promise<SftpServer[]> {
+    return [];
+  }
+
+  async getSftpServer(_id: string): Promise<SftpServer | undefined> {
+    return undefined;
+  }
+
+  async createSftpServer(server: InsertSftpServer): Promise<SftpServer> {
+    return { ...server, id: randomUUID(), tenantId: null, createdAt: new Date(), updatedAt: new Date() } as SftpServer;
+  }
+
+  async updateSftpServer(_id: string, _updates: Partial<InsertSftpServer>): Promise<SftpServer | undefined> {
+    return undefined;
+  }
+
+  async deleteSftpServer(_id: string): Promise<boolean> {
+    return false;
+  }
+
+  async createSftpUploadLog(log: InsertSftpUploadLog): Promise<SftpUploadLog> {
+    return { ...log, id: randomUUID(), tenantId: null, executedAt: new Date() } as SftpUploadLog;
+  }
+
+  async getSftpUploadLogs(): Promise<{ logs: SftpUploadLog[]; total: number }> {
+    return { logs: [], total: 0 };
   }
 
   // Webhook Logs

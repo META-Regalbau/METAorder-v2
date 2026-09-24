@@ -12,8 +12,8 @@ import {
   deriveQualityScore,
 } from "./commercialAgentLearning";
 import { runOfferDraftPipeline, runOrderDraftPipeline } from "./commercialDraftPipeline";
-import { executeCreateOfferFromDraft, executeCreateOrderFromDraft } from "./commercialDraftShopware";
-import { resolveOfferSalesChannelId } from "./offerSalesChannelResolver";
+import { ensureDraftShopwareCustomerId, executeCreateOfferFromDraft, executeCreateOrderFromDraft } from "./commercialDraftShopware";
+import { fetchCustomerBoundSalesChannelId, resolveOfferSalesChannelId } from "./offerSalesChannelResolver";
 import { runStrictCommercialAutoCreateIfAllowed } from "./commercialStrictAutoCreateRunner";
 import type { MatchingResult } from "./productMatcher";
 import {
@@ -94,6 +94,8 @@ export type ProcessCommercialDocumentParams = {
    * Das aktuelle `buffer` bleibt die Quelle für die Entwurfsextraktion.
    */
   intentDocumentTextPreview?: string;
+  /** Manueller Re-Upload, dessen früherer Entwurf gelöscht wurde: Dedupe-Prüfung überspringen */
+  skipDedupe?: boolean;
   /**
    * true: `buffer` enthält bereits den vollständigen E-Mail-Kern (E-Mail-only); kein doppeltes emailContext in der Pipeline.
    */
@@ -142,6 +144,7 @@ export async function processCommercialDocumentFromEmail(
     fromDisplayName,
     signatureImageBuffers,
     uploadHint = null,
+    skipDedupe = false,
   } = params;
 
   const agentSettings = await getCommercialAgentSettings(storage);
@@ -154,7 +157,7 @@ export async function processCommercialDocumentFromEmail(
   }
 
   const dedupeHash = attachmentDedupeHash(messageId, filename, buffer);
-  if (await hasDedupeHash(storage, dedupeHash)) {
+  if (!skipDedupe && (await hasDedupeHash(storage, dedupeHash))) {
     logAudit({ event: "skip_duplicate", messageId, filename });
     return null;
   }
@@ -409,6 +412,32 @@ export async function processCommercialDocumentFromEmail(
     });
   }
 
+  // Herkunft am Entwurf vermerken: Ein erneuter Upload derselben Mail findet darüber den
+  // vorhandenen Entwurf (Dateinamen wie „Bestellung.pdf" sind dafür nicht eindeutig genug).
+  try {
+    if (draftKind === "order") {
+      const d = await storage.getOrderDraft(draftId, tenantId ?? null);
+      if (d) {
+        await storage.updateOrderDraft(
+          draftId,
+          { extractedData: { ...(d.extractedData ?? {}), sourceMessageId: messageId } as typeof d.extractedData },
+          tenantId ?? null
+        );
+      }
+    } else {
+      const d = await storage.getOfferDraft(draftId, tenantId ?? null);
+      if (d) {
+        await storage.updateOfferDraft(
+          draftId,
+          { extractedData: { ...(d.extractedData ?? {}), sourceMessageId: messageId } as typeof d.extractedData },
+          tenantId ?? null
+        );
+      }
+    }
+  } catch (error) {
+    console.warn("[CommercialAgent] sourceMessageId konnte nicht am Entwurf vermerkt werden:", error);
+  }
+
   const savedDraftForAuto =
     draftKind === "order"
       ? await storage.getOrderDraft(draftId, tenantId ?? null)
@@ -495,10 +524,14 @@ export async function processCommercialDocumentFromEmail(
         messageId,
       });
     } else if (draft?.shopwareCustomerId) {
-      const channelResult = await resolveOfferSalesChannelId(storage, {
-        tenantId: tenantId ?? null,
-        allowedChannelIds: null,
-      });
+      const ensuredCustomer = await ensureDraftShopwareCustomerId(storage, { kind: "offer", draftId, tenantId });
+      const channelResult = !ensuredCustomer.ok
+        ? ensuredCustomer
+        : await resolveOfferSalesChannelId(storage, {
+            tenantId: tenantId ?? null,
+            customerChannelId: await fetchCustomerBoundSalesChannelId(storage, tenantId, ensuredCustomer.customerId),
+            allowedChannelIds: null,
+          });
       if (!channelResult.ok) {
         logAudit({
           event: "auto_offer_skipped",
@@ -564,10 +597,14 @@ export async function processCommercialDocumentFromEmail(
         messageId,
       });
     } else if (draftOrder?.shopwareCustomerId) {
-      const channelResult = await resolveOfferSalesChannelId(storage, {
-        tenantId: tenantId ?? null,
-        allowedChannelIds: null,
-      });
+      const ensuredCustomer = await ensureDraftShopwareCustomerId(storage, { kind: "order", draftId, tenantId });
+      const channelResult = !ensuredCustomer.ok
+        ? ensuredCustomer
+        : await resolveOfferSalesChannelId(storage, {
+            tenantId: tenantId ?? null,
+            customerChannelId: await fetchCustomerBoundSalesChannelId(storage, tenantId, ensuredCustomer.customerId),
+            allowedChannelIds: null,
+          });
       if (!channelResult.ok) {
         logAudit({
           event: "auto_order_skipped",

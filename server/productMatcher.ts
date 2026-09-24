@@ -29,6 +29,9 @@ import {
 } from "./lineItemCatalogIdentifiers";
 import { normalizeLearningLineKey } from "./commercialProductLearning";
 
+/** Obergrenze für Regalsystem-Maßtreffer — reine Vorschläge, nie automatisch übernommen. */
+const SYSTEM_MATCH_MAX_CONFIDENCE = 45;
+
 export type CatalogMatchStrategy =
   | "ean"
   | "productNumber"
@@ -126,7 +129,9 @@ function getSapProductIdentifierCandidates(product: Product): string[] {
   if (cf && typeof cf === "object") {
     for (const [key, value] of Object.entries(cf)) {
       if (typeof value !== "string" || !value.trim()) continue;
-      if (/(^|[_\-.])(sap|matnr|material)([_\-.]|$)/i.test(key)) {
+      // wdu_ifs_productnumber: META-ERP-Nummer (200…) aus IFS. Früher als manufacturerNumber gepflegt,
+      // seit Sept. 2026 steht dort nur noch die Kurznummer — ohne dieses Feld matcht „200176896" nicht mehr.
+      if (/(^|[_\-.])(sap|matnr|material|ifs)([_\-.]|$)/i.test(key)) {
         out.add(value.trim());
       }
     }
@@ -583,33 +588,44 @@ export async function matchProductsAgainstCatalog(
       
       if (systemMatch.isSystemRequest && systemMatch.confidence > 0) {
         const currentMatch = bestMatches.get(index)!;
-        
-        // Use system match if it has higher confidence
-        if (systemMatch.confidence > currentMatch.confidence && systemMatch.baseProduct) {
-          console.log(`[Product Matcher] Using system match with ${systemMatch.confidence}% confidence`);
-          currentMatch.systemMatch = systemMatch;
-          currentMatch.confidence = systemMatch.confidence;
-          currentMatch.status = systemMatch.confidence >= 60 ? "matched" : "uncertain";
-          
-          // Fill matchedProduct with base product for compatibility
-          currentMatch.matchedProduct = {
+
+        // Ein Maßtreffer ist ein VORSCHLAG, kein Katalogtreffer: Die Regalsystem-Suche
+        // vergleicht nur Gesamtbreite/-höhe/-tiefe und lieferte damit z. B. für
+        // „Paletten-Grundregal H3300xB1825xT1100" ein Kabeltrommelregal mit 100 %.
+        // Deshalb: nie matchedProduct setzen, sondern Basis-/Anbauregal als
+        // Alternativen anbieten und den Vorschlag über `systemMatch` für die UI behalten.
+        if (!currentMatch.matchedProduct && systemMatch.baseProduct) {
+          const suggestionConfidence = Math.min(SYSTEM_MATCH_MAX_CONFIDENCE, systemMatch.confidence);
+          console.log(
+            `[Product Matcher] System suggestion (${systemMatch.confidence}% Maßtreffer, als Alternative mit ${suggestionConfidence}%)`
+          );
+          currentMatch.systemMatch = { ...systemMatch, confidence: suggestionConfidence };
+          currentMatch.status = "uncertain";
+          currentMatch.confidence = 0;
+
+          const alternatives = currentMatch.alternativeMatches ?? [];
+          const reasoning = systemMatch.totalWidth
+            ? `Maßtreffer Regalsystem: ${systemMatch.totalWidth} mm Gesamtbreite — bitte Regaltyp prüfen`
+            : "Maßtreffer Regalsystem — bitte Regaltyp prüfen";
+          alternatives.unshift({
             id: systemMatch.baseProduct.id,
             productNumber: systemMatch.baseProduct.productNumber,
             name: systemMatch.baseProduct.name,
             price: systemMatch.baseProduct.price,
-            confidence: systemMatch.confidence
-          };
-          
-          // Add extension product as alternative if available
+            confidence: suggestionConfidence,
+            reasoning,
+          });
           if (systemMatch.extensionProduct) {
-            currentMatch.alternativeMatches = [{
+            alternatives.push({
               id: systemMatch.extensionProduct.id,
               productNumber: systemMatch.extensionProduct.productNumber,
               name: `${systemMatch.extensionProduct.name} (${systemMatch.extensionQuantity}x)`,
               price: systemMatch.extensionProduct.price,
-              confidence: systemMatch.confidence
-            }];
+              confidence: suggestionConfidence,
+              reasoning,
+            });
           }
+          currentMatch.alternativeMatches = alternatives.slice(0, 8);
         }
       }
     }
@@ -1173,6 +1189,22 @@ function matchLineItemAgainstBatch(
   }
 
   const { matchStrategy: bestStrategy, nameSimilarityOnly: _nsi, ...bestAsProductMatch } = bestMatch;
+
+  // Holm→Holmebene-Umrechnung (12 Holme = 6 Sets) gilt nur für Freitext-Treffer. Bestellt der
+  // Kunde per EAN/Artikelnummer, meint die Menge genau DIESEN Artikel — „8 x 4026212259438"
+  // darf nicht zu 4 werden.
+  const matchedByIdentifier =
+    bestStrategy === "ean" ||
+    bestStrategy === "productNumber" ||
+    bestStrategy === "manufacturerNumber" ||
+    bestStrategy === "sapProductNumber" ||
+    bestStrategy === "synthetic_gtin";
+  if (matchedByIdentifier && convertedQuantity !== undefined) {
+    console.log(`[Holm Conversion] übersprungen — Treffer über ${bestStrategy}, Menge bleibt ${quantity}`);
+    originalQuantity = undefined;
+    convertedQuantity = undefined;
+    conversionNote = undefined;
+  }
 
   return {
     extractedProductName,

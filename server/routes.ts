@@ -123,8 +123,8 @@ import {
   type DraftBillingAddressInput,
   type DraftExtractedCustomer,
 } from "./draftCustomerEmailResolution";
-import { executeCreateOfferFromDraft, executeCreateOrderFromDraft } from "./commercialDraftShopware";
-import { resolveOfferSalesChannelId } from "./offerSalesChannelResolver";
+import { ensureDraftShopwareCustomerId, executeCreateOfferFromDraft, executeCreateOrderFromDraft } from "./commercialDraftShopware";
+import { fetchCustomerBoundSalesChannelId, resolveOfferSalesChannelId } from "./offerSalesChannelResolver";
 import { emitCommercialDraftWebhooks } from "./commercialWebhookNotifications";
 import { processCommercialPdfFromEmail } from "./commercialAgentOrchestrator";
 import { classifyCommercialDocumentIntent } from "./commercialDocumentIntent";
@@ -148,12 +148,21 @@ import { extractDocumentTextPreviewForIntent } from "./documentTextExtraction";
 import { registerPublicOfferRoutes } from "./publicOfferRoutes";
 import { registerCommercialAcknowledgementRoutes } from "./commercialAcknowledgementRoutes";
 import { registerB2BAdminRoutes } from "./b2bAdminRoutes";
+import { registerSftpRoutes } from "./sftpRoutes";
+import { hasEnabledSftpServers } from "./sftpUpload";
 import { registerErpRoutes } from "./erp/erpRoutes";
 import { registerErpProductLabelRoutes } from "./erp/erpProductLabels";
 import { buildOfferDetailJson } from "./offerDetailBuilder";
 import { generateOfferPlainToken, hashOfferPublicToken } from "./offerToken";
 import { buildCommercialProductFeedbackRowsFromDraftUpdate } from "./commercialProductLearning";
 import { buildCommercialClarificationEmail } from "./customerClarificationEmail";
+import {
+  applyDraftAttachmentExportUpdate,
+  listDraftAttachmentsForApi,
+  parseDraftAttachmentExportUpdate,
+  sendDraftAttachmentFile,
+} from "./draftAttachmentRoutes";
+import { restoreTenantContext } from "./tenantContext";
 
 // Rate limiter for login endpoint - prevents brute force attacks
 const loginRateLimiter = rateLimit({
@@ -6474,7 +6483,7 @@ Antworte im JSON-Format:
     requireAuth,
     requireManageSettings,
     uploadRateLimiter,
-    commercialAgentMemUpload.single("file"),
+    commercialAgentMemUpload.single("file"), restoreTenantContext,
     async (req: Request, res: Response) => {
       try {
         const file = req.file;
@@ -7285,6 +7294,9 @@ Antworte im JSON-Format:
         const customFieldsDisplay = resolveCustomFieldDisplay(
           p.customFields as Record<string, unknown> | undefined,
         );
+        const visibilityByChannelId = new Map(
+          (p.salesChannelVisibilities ?? []).map((v) => [v.salesChannelId, v.visibility]),
+        );
         return {
           ...p,
           customFieldsDisplay:
@@ -7293,6 +7305,8 @@ Antworte im JSON-Format:
           salesChannels: (p.salesChannelIds || []).map((id) => ({
             id,
             name: channelNameById.get(id) || id,
+            // null = Sichtbarkeit unbekannt (aelterer Spiegel ohne salesChannelVisibilities)
+            visibility: visibilityByChannelId.get(id) ?? null,
           })),
           hasAdvancedPrices: (p.advancedPrices || []).length > 0,
           advancedPriceCount: (p.advancedPrices || []).length,
@@ -7391,7 +7405,7 @@ Antworte im JSON-Format:
     requireCsrf,
     requireManageProducts,
     uploadRateLimiter,
-    herstellpreisUpload.single("file"),
+    herstellpreisUpload.single("file"), restoreTenantContext,
     async (req, res) => {
       try {
         const file = (req as any).file as Express.Multer.File | undefined;
@@ -7476,7 +7490,7 @@ Antworte im JSON-Format:
     requireCsrf,
     requireManageProducts,
     uploadRateLimiter,
-    visibilityImportUpload.single("file"),
+    visibilityImportUpload.single("file"), restoreTenantContext,
     async (req, res) => {
       try {
         const file = (req as any).file as Express.Multer.File | undefined;
@@ -7536,7 +7550,7 @@ Antworte im JSON-Format:
     "/api/products/obx-search",
     requireAuth,
     requireCsrf,
-    obxUpload.array("files", 500),
+    obxUpload.array("files", 500), restoreTenantContext,
     async (req, res) => {
       try {
         const files = ((req as any).files as Express.Multer.File[] | undefined) || [];
@@ -11940,7 +11954,7 @@ Antworte im JSON-Format:
     requireAuth, 
     requireViewTickets,
     uploadRateLimiter,
-    attachmentUpload.array('files', 10),
+    attachmentUpload.array('files', 10), restoreTenantContext,
     async (req, res) => {
       try {
         const userId = (req.user as any).id;
@@ -12458,7 +12472,7 @@ Antworte im JSON-Format:
     }
   });
 
-  app.post("/api/accounting/upload", requireAuth, requireViewAccounting, accountingUpload.single("file"), async (req, res) => {
+  app.post("/api/accounting/upload", requireAuth, requireViewAccounting, accountingUpload.single("file"), restoreTenantContext, async (req, res) => {
     try {
       const file = (req as any).file;
       if (!file?.buffer) {
@@ -12552,7 +12566,7 @@ Antworte im JSON-Format:
     requireCsrf,
     requireManageDocuments,
     uploadRateLimiter,
-    shopFakturenUpload.single("file"),
+    shopFakturenUpload.single("file"), restoreTenantContext,
     async (req, res) => {
       try {
         const file = (req as any).file as Express.Multer.File | undefined;
@@ -14722,7 +14736,7 @@ Antworte im JSON-Format:
     requireManageCommercialDraftUpload,
     requireCsrf,
     uploadRateLimiter,
-    commercialUnifiedDraftUpload.single("file"),
+    commercialUnifiedDraftUpload.single("file"), restoreTenantContext,
     async (req: Request, res: Response) => {
       try {
         if (!req.file) {
@@ -14793,7 +14807,7 @@ Antworte im JSON-Format:
           canOrder &&
           canOffer
         ) {
-          const ingest = await ingestCommercialEmailUpload({
+          const ingestParams = {
             storage,
             tenantId: req.tenantId ?? null,
             fileBuffer,
@@ -14803,7 +14817,33 @@ Antworte im JSON-Format:
             createdByUserId: userId,
             ocrEnabled: aiSettings.ocrEnabled,
             uploadHint: uploadIntentHint ?? null,
-          });
+          };
+          let ingest = await ingestCommercialEmailUpload(ingestParams);
+
+          // Bereits verarbeitete Mail: vorhandenen Entwurf zurückgeben statt „kein Entwurf".
+          // Wurde der Entwurf inzwischen gelöscht, bei manuellem Upload neu verarbeiten —
+          // sonst bliebe die Mail für immer gesperrt (n8n-Retries bleiben dedupliziert).
+          let existingForDedupe: { draft: unknown; draftKind: "order" | "offer" } | null = null;
+          if (ingest.results.length === 0) {
+            const tenantForLookup = req.tenantId ?? null;
+            const fromThisMail = (d: { tenantId?: string | null; extractedData?: unknown }) =>
+              (d.tenantId ?? null) === tenantForLookup &&
+              (d.extractedData as { sourceMessageId?: string } | null)?.sourceMessageId === ingest.messageId;
+            const [allOrders, allOffers] = await Promise.all([storage.getAllOrderDrafts(), storage.getAllOfferDrafts()]);
+            const candidates = [
+              ...allOrders
+                .filter(fromThisMail)
+                .map((d) => ({ draft: d, draftKind: "order" as const, at: new Date(d.createdAt).getTime() })),
+              ...allOffers
+                .filter(fromThisMail)
+                .map((d) => ({ draft: d, draftKind: "offer" as const, at: new Date(d.createdAt).getTime() })),
+            ].sort((a, b) => b.at - a.at);
+            if (candidates.length > 0) {
+              existingForDedupe = { draft: candidates[0].draft, draftKind: candidates[0].draftKind };
+            } else if ((req as { integrationKeyAuth?: boolean }).integrationKeyAuth !== true) {
+              ingest = await ingestCommercialEmailUpload({ ...ingestParams, forceReprocess: true });
+            }
+          }
 
           // Der Orchestrator legt eigene Kopien je Anhang ab; das hochgeladene
           // Container-File wird von keinem Entwurf referenziert.
@@ -14833,9 +14873,11 @@ Antworte im JSON-Format:
 
           const first = ingestedDrafts[0];
           return res.json({
-            // Rückwärtskompatible Felder für UI und bestehende Clients (erster Entwurf)
-            draft: first?.draft ?? null,
-            draftKind: first?.draftKind ?? "offer",
+            // Rückwärtskompatible Felder für UI und bestehende Clients (erster Entwurf).
+            // Bei Dedupe: der bereits vorhandene Entwurf — nie ein erfundenes „offer".
+            draft: first?.draft ?? existingForDedupe?.draft ?? null,
+            draftKind: first?.draftKind ?? existingForDedupe?.draftKind ?? null,
+            existingDraftReturned: Boolean(!first && existingForDedupe),
             commercialIntent: first?.commercialIntent ?? "unclear",
             commercialIntentConfidence: first?.commercialIntentConfidence ?? 0,
             commercialIntentRationale: null,
@@ -15053,7 +15095,7 @@ Antworte im JSON-Format:
     requireAuth,
     requireManageOrderDrafts,
     uploadRateLimiter,
-    orderDraftUpload.single('file'),
+    orderDraftUpload.single('file'), restoreTenantContext,
     async (req: Request, res: Response) => {
       try {
         if (!req.file) {
@@ -15371,6 +15413,12 @@ Antworte im JSON-Format:
     requireManageOrderDrafts,
     async (req: Request, res: Response) => {
       try {
+        if (!(await getCommercialAgentSettings(storage)).customerManualCreateEnabled) {
+          return res.status(403).json({
+            error:
+              "Kundenanlage ist deaktiviert. Bitte einen bestehenden Shopware-Kunden zuordnen (COMMERCIAL_AGENT_CUSTOMER_MANUAL_CREATE=true schaltet die Anlage frei).",
+          });
+        }
         const { id } = req.params;
         const bodySchema = z.object({ extractedData: z.any().optional() });
         const parsed = bodySchema.safeParse(req.body);
@@ -15567,14 +15615,48 @@ Antworte im JSON-Format:
     }
   });
 
+  // POST /api/order-drafts/:id/recheck - Produktabgleich + Kundenzuordnung erneut ausführen (ohne Neu-Upload).
+  // Body: { autoCreate?: boolean } — true (Automation) bewertet danach Strikt-Auto-Create und legt ggf. an.
+  app.post("/api/order-drafts/:id/recheck", requireAuthOrIntegrationKey, requireManageOrderDrafts, requireCsrf, async (req: Request, res: Response) => {
+    try {
+      const { recheckOrderDraft } = await import("./commercialDraftRecheck");
+      const result = await recheckOrderDraft(storage, req.params.id, {
+        tenantId: req.tenantId ?? null,
+        autoCreate: req.body?.autoCreate === true,
+      });
+      if (!result.ok) {
+        return res.status(result.statusCode).json({ error: result.error });
+      }
+      res.json({ draft: result.draft, summary: result.summary });
+    } catch (error: any) {
+      console.error("Error rechecking order draft:", error);
+      res.status(500).json({ error: error?.message || "Erneute Prüfung fehlgeschlagen" });
+    }
+  });
+
   // POST /api/order-drafts/:id/create-order - Create Shopware order from draft
   app.post("/api/order-drafts/:id/create-order", requireAuthOrIntegrationKey, requireManageOrderDrafts, requireCsrf, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const allowedChannelIds = await getSalesChannelFilter(req);
+      // Wie beim Angebot: an den Kunden gebundener Verkaufskanal hat Vorrang vor Env/Settings/Default.
+      const ensuredCustomer = await ensureDraftShopwareCustomerId(storage, {
+        kind: "order",
+        draftId: id,
+        tenantId: req.tenantId ?? null,
+      });
+      if (!ensuredCustomer.ok) {
+        return res.status(ensuredCustomer.statusCode).json({ error: ensuredCustomer.error });
+      }
+      const customerChannelId = await fetchCustomerBoundSalesChannelId(
+        storage,
+        req.tenantId ?? null,
+        ensuredCustomer.customerId
+      );
       const channelResult = await resolveOfferSalesChannelId(storage, {
         tenantId: req.tenantId ?? null,
         requestedChannelId: req.body?.sales_channel_id,
+        customerChannelId,
         allowedChannelIds,
       });
       if (!channelResult.ok) {
@@ -15613,6 +15695,63 @@ Antworte im JSON-Format:
       res.status(500).json({
         error: error.message || "Failed to create order from draft",
       });
+    }
+  });
+
+  // ============================================
+  // ENTWURFS-ANHÄNGE (Beilagen: Lieferschein, AB, Rechnung) — Anzeige + DMS-Übergabe (Lobster → d.3)
+  // ============================================
+
+  // Was das Review-Modal anbieten darf (ohne Settings-Recht lesbar)
+  app.get("/api/commercial-drafts/capabilities", requireAuth, async (_req: Request, res: Response) => {
+    const agent = await getCommercialAgentSettings(storage);
+    res.json({ customerCreateEnabled: agent.customerManualCreateEnabled === true });
+  });
+
+  app.get("/api/order-drafts/:id/attachments", requireAuthOrIntegrationKey, requireManageOrderDrafts, async (req: Request, res: Response) => {
+    try {
+      const draft = await storage.getOrderDraft(req.params.id, req.tenantId ?? null);
+      if (!draft) return res.status(404).json({ error: "Order draft not found" });
+      res.json({
+        draftId: draft.id,
+        draftKind: "order",
+        buyerDocumentNumber: draft.buyerDocumentNumber ?? null,
+        shopwareOrderId: draft.shopwareOrderId ?? null,
+        // Review-Modal: Button „Per SFTP übergeben" nur anzeigen, wenn ein Server aktiv ist
+        sftpAvailable: await hasEnabledSftpServers(storage, req.tenantId ?? null),
+        attachments: listDraftAttachmentsForApi(draft.attachments),
+      });
+    } catch (error) {
+      console.error("Error listing order draft attachments:", error);
+      res.status(500).json({ error: "Failed to list attachments" });
+    }
+  });
+
+  app.get("/api/order-drafts/:id/attachments/:attachmentId/file", requireAuthOrIntegrationKey, requireManageOrderDrafts, async (req: Request, res: Response) => {
+    try {
+      const draft = await storage.getOrderDraft(req.params.id, req.tenantId ?? null);
+      if (!draft) return res.status(404).json({ error: "Order draft not found" });
+      await sendDraftAttachmentFile(res, draft.attachments, req.params.attachmentId);
+    } catch (error) {
+      console.error("Error sending order draft attachment:", error);
+      if (!res.headersSent) res.status(500).json({ error: "Failed to send attachment" });
+    }
+  });
+
+  // Export-Status setzen (Lobster nach Ablage im d.3): { exportStatus: "exported"|"skipped"|"pending", exportReference?: string }
+  app.patch("/api/order-drafts/:id/attachments/:attachmentId", requireAuthOrIntegrationKey, requireManageOrderDrafts, requireCsrf, async (req: Request, res: Response) => {
+    try {
+      const draft = await storage.getOrderDraft(req.params.id, req.tenantId ?? null);
+      if (!draft) return res.status(404).json({ error: "Order draft not found" });
+      const update = parseDraftAttachmentExportUpdate(req.body);
+      if ("error" in update) return res.status(400).json({ error: update.error });
+      const next = applyDraftAttachmentExportUpdate(draft.attachments, req.params.attachmentId, update);
+      if (!next) return res.status(404).json({ error: "Attachment not found" });
+      const saved = await storage.updateOrderDraft(draft.id, { attachments: next }, req.tenantId ?? null);
+      res.json({ attachments: listDraftAttachmentsForApi(saved?.attachments ?? next) });
+    } catch (error) {
+      console.error("Error updating order draft attachment:", error);
+      res.status(500).json({ error: "Failed to update attachment" });
     }
   });
 
@@ -15687,7 +15826,7 @@ Antworte im JSON-Format:
     requireAuth,
     requireManageOffers,
     uploadRateLimiter,
-    offerDraftUpload.single('file'),
+    offerDraftUpload.single('file'), restoreTenantContext,
     async (req: Request, res: Response) => {
       try {
         if (!req.file) {
@@ -16286,6 +16425,12 @@ Antworte im JSON-Format:
     requireManageOffers,
     async (req: Request, res: Response) => {
       try {
+        if (!(await getCommercialAgentSettings(storage)).customerManualCreateEnabled) {
+          return res.status(403).json({
+            error:
+              "Kundenanlage ist deaktiviert. Bitte einen bestehenden Shopware-Kunden zuordnen (COMMERCIAL_AGENT_CUSTOMER_MANUAL_CREATE=true schaltet die Anlage frei).",
+          });
+        }
         const { id } = req.params;
         const bodySchema = z.object({ extractedData: z.any().optional() });
         const parsed = bodySchema.safeParse(req.body);
@@ -16527,6 +16672,49 @@ Antworte im JSON-Format:
   });
 
   // DELETE /api/offer-drafts/:id - Delete offer draft and file
+  app.get("/api/offer-drafts/:id/attachments", requireAuthOrIntegrationKey, requireManageOffers, async (req: Request, res: Response) => {
+    try {
+      const draft = await storage.getOfferDraft(req.params.id, req.tenantId ?? null);
+      if (!draft) return res.status(404).json({ error: "Offer draft not found" });
+      res.json({
+        draftId: draft.id,
+        draftKind: "offer",
+        buyerDocumentNumber: draft.buyerDocumentNumber ?? null,
+        attachments: listDraftAttachmentsForApi(draft.attachments),
+      });
+    } catch (error) {
+      console.error("Error listing offer draft attachments:", error);
+      res.status(500).json({ error: "Failed to list attachments" });
+    }
+  });
+
+  app.get("/api/offer-drafts/:id/attachments/:attachmentId/file", requireAuthOrIntegrationKey, requireManageOffers, async (req: Request, res: Response) => {
+    try {
+      const draft = await storage.getOfferDraft(req.params.id, req.tenantId ?? null);
+      if (!draft) return res.status(404).json({ error: "Offer draft not found" });
+      await sendDraftAttachmentFile(res, draft.attachments, req.params.attachmentId);
+    } catch (error) {
+      console.error("Error sending offer draft attachment:", error);
+      if (!res.headersSent) res.status(500).json({ error: "Failed to send attachment" });
+    }
+  });
+
+  app.patch("/api/offer-drafts/:id/attachments/:attachmentId", requireAuthOrIntegrationKey, requireManageOffers, requireCsrf, async (req: Request, res: Response) => {
+    try {
+      const draft = await storage.getOfferDraft(req.params.id, req.tenantId ?? null);
+      if (!draft) return res.status(404).json({ error: "Offer draft not found" });
+      const update = parseDraftAttachmentExportUpdate(req.body);
+      if ("error" in update) return res.status(400).json({ error: update.error });
+      const next = applyDraftAttachmentExportUpdate(draft.attachments, req.params.attachmentId, update);
+      if (!next) return res.status(404).json({ error: "Attachment not found" });
+      const saved = await storage.updateOfferDraft(draft.id, { attachments: next }, req.tenantId ?? null);
+      res.json({ attachments: listDraftAttachmentsForApi(saved?.attachments ?? next) });
+    } catch (error) {
+      console.error("Error updating offer draft attachment:", error);
+      res.status(500).json({ error: "Failed to update attachment" });
+    }
+  });
+
   app.delete("/api/offer-drafts/:id", requireAuth, requireManageOffers, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -16567,20 +16755,19 @@ Antworte im JSON-Format:
       const { id } = req.params;
       const allowedChannelIds = await getSalesChannelFilter(req);
 
-      let customerChannelId: string | null = null;
-      const draftForChannel = await storage.getOfferDraft(id);
-      if (draftForChannel?.shopwareCustomerId) {
-        try {
-          const shopwareSettings = await storage.getShopwareSettings(req.tenantId ?? null);
-          if (shopwareSettings) {
-            const shopwareClient = new ShopwareClient(shopwareSettings);
-            const bound = await shopwareClient.fetchCustomerSalesChannelId(draftForChannel.shopwareCustomerId);
-            customerChannelId = bound?.id ?? null;
-          }
-        } catch (channelLookupError) {
-          console.warn("[Offers] Kunden-Verkaufskanal konnte nicht ermittelt werden:", channelLookupError);
-        }
+      const ensuredCustomer = await ensureDraftShopwareCustomerId(storage, {
+        kind: "offer",
+        draftId: id,
+        tenantId: req.tenantId ?? null,
+      });
+      if (!ensuredCustomer.ok) {
+        return res.status(ensuredCustomer.statusCode).json({ error: ensuredCustomer.error });
       }
+      const customerChannelId = await fetchCustomerBoundSalesChannelId(
+        storage,
+        req.tenantId ?? null,
+        ensuredCustomer.customerId
+      );
 
       const channelResult = await resolveOfferSalesChannelId(storage, {
         tenantId: req.tenantId ?? null,
@@ -18344,6 +18531,7 @@ Antworte im JSON-Format:
   registerPublicOfferRoutes(app);
   registerCommercialAcknowledgementRoutes(app, storage);
   registerB2BAdminRoutes(app, { getSalesChannelFilter });
+  registerSftpRoutes(app);
 
   const httpServer = createServer(app);
 

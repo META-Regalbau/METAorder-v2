@@ -79,6 +79,20 @@ export type CommercialAgentSettings = {
   customerAutoCreateMinConfidence?: number;
   /** Mindest-Ranking-Score der Top-E-Mail (Heuristik) für automatische Kundenanlage */
   minRankedEmailScoreForAutoCreate?: number;
+  /**
+   * Shopware-Kunden automatisch anlegen, wenn kein Bestandskunde gefunden wurde.
+   * Default **false**: Jeder unbekannte Absender würde sonst mit extrahierten Daten
+   * als Stammsatz im Shop landen. Bei false bleibt der Entwurf im Review und der
+   * Bearbeiter legt den Kunden bewusst über „Kunde anlegen" an.
+   * Env: COMMERCIAL_AGENT_CUSTOMER_AUTO_CREATE=true
+   */
+  customerAutoCreateEnabled?: boolean;
+  /**
+   * Manuelle Kundenanlage aus dem Review-Modal („Kunde in Shopware anlegen") erlauben.
+   * Default **false**: Kunden werden vorerst nur bestehenden Accounts zugeordnet, die
+   * Stammdatenanlage bleibt im Shop/ERP. Env: COMMERCIAL_AGENT_CUSTOMER_MANUAL_CREATE=true
+   */
+  customerManualCreateEnabled?: boolean;
   /** Firmenname aus Signatur-Grafik per Vision (OpenAI), nur wenn Firma noch leer */
   signatureCompanyVisionEnabled?: boolean;
   /** HTTPS-Abfrage Firmen-Domain (Impressum/Kontakt) zur Plausibilisierung — kein automatisches Überschreiben */
@@ -100,6 +114,12 @@ export type CommercialAgentSettings = {
   strictMinIntentConfidence?: number;
   /** Mindest-Kunden-Match-Score (0–100) für Strikt-Auto-Create. Default 95 */
   strictMinCustomerMatchConfidence?: number;
+  /**
+   * Zulässige Abweichung (in %) zwischen dem Stückpreis im Kundendokument und dem
+   * für den Kunden in Shopware ermittelten Preis (Kundenpreis/Rabatt/Liste).
+   * Nur bei Bestellungen relevant. Default 1
+   */
+  strictPriceTolerancePercent?: number;
   /**
    * Präfixe für 6-stellige Positionsnummern → synthetische GTIN (Prefix + 6 Ziffern), z. B. ["4026212"].
    * Leer = nur Herstellerartikelnummer / direkte EAN ohne Erweiterung.
@@ -125,6 +145,8 @@ export const DEFAULT_COMMERCIAL_AGENT: CommercialAgentSettings = {
   autoCreateMinMatchConfidence: 90,
   autoCreateOffersEnabled: true,
   autoCreateOrdersEnabled: false,
+  customerAutoCreateEnabled: false,
+  customerManualCreateEnabled: false,
   autoCreateSalesChannelId: "",
   documentLearningEnabled: true,
   subAgentsEnabled: true,
@@ -141,6 +163,7 @@ export const DEFAULT_COMMERCIAL_AGENT: CommercialAgentSettings = {
   strictAutoCreateOnly: true,
   strictMinIntentConfidence: 0.95,
   strictMinCustomerMatchConfidence: 95,
+  strictPriceTolerancePercent: 1,
   lineItemSixDigitGtinPrefixes: [],
   inboundAcknowledgementEnabled: false,
   inboundAcknowledgementOwnDomains: [],
@@ -176,6 +199,9 @@ export async function getCommercialAgentSettings(storage: IStorage): Promise<Com
   const envMinRankedEmail = process.env.COMMERCIAL_AGENT_MIN_RANKED_EMAIL_SCORE
     ? Number(process.env.COMMERCIAL_AGENT_MIN_RANKED_EMAIL_SCORE)
     : undefined;
+  const envCustomerAutoCreate = process.env.COMMERCIAL_AGENT_CUSTOMER_AUTO_CREATE;
+  const envCustomerAutoCreateBool =
+    envCustomerAutoCreate === "true" ? true : envCustomerAutoCreate === "false" ? false : undefined;
   const envSigVision = process.env.COMMERCIAL_AGENT_SIGNATURE_VISION;
   const envSigVisionBool =
     envSigVision === "true" ? true : envSigVision === "false" ? false : undefined;
@@ -197,6 +223,9 @@ export async function getCommercialAgentSettings(storage: IStorage): Promise<Com
   const envStrictCustomer = process.env.COMMERCIAL_AGENT_STRICT_MIN_CUSTOMER
     ? Number(process.env.COMMERCIAL_AGENT_STRICT_MIN_CUSTOMER)
     : undefined;
+  const envStrictPriceTol = process.env.COMMERCIAL_AGENT_STRICT_PRICE_TOLERANCE
+    ? Number(process.env.COMMERCIAL_AGENT_STRICT_PRICE_TOLERANCE)
+    : undefined;
   const envSixDigitPrefixes = process.env.COMMERCIAL_AGENT_SIX_DIGIT_GTIN_PREFIXES;
 
   return {
@@ -205,6 +234,16 @@ export async function getCommercialAgentSettings(storage: IStorage): Promise<Com
     enabled: envEnabled || Boolean(stored.enabled),
     autoCreateOffersEnabled: envOffers ?? stored.autoCreateOffersEnabled ?? DEFAULT_COMMERCIAL_AGENT.autoCreateOffersEnabled,
     autoCreateOrdersEnabled: envOrders ?? stored.autoCreateOrdersEnabled ?? DEFAULT_COMMERCIAL_AGENT.autoCreateOrdersEnabled,
+    customerAutoCreateEnabled:
+      envCustomerAutoCreateBool ?? stored.customerAutoCreateEnabled ?? DEFAULT_COMMERCIAL_AGENT.customerAutoCreateEnabled ?? false,
+    customerManualCreateEnabled:
+      (process.env.COMMERCIAL_AGENT_CUSTOMER_MANUAL_CREATE === "true"
+        ? true
+        : process.env.COMMERCIAL_AGENT_CUSTOMER_MANUAL_CREATE === "false"
+          ? false
+          : undefined) ??
+      stored.customerManualCreateEnabled ??
+      false,
     autoCreateMinIntentConfidence:
       (Number.isFinite(envIntent) ? envIntent : undefined) ??
       stored.autoCreateMinIntentConfidence ??
@@ -309,6 +348,14 @@ export async function getCommercialAgentSettings(storage: IStorage): Promise<Com
         ? stored.strictMinCustomerMatchConfidence
         : undefined) ??
       DEFAULT_COMMERCIAL_AGENT.strictMinCustomerMatchConfidence,
+    strictPriceTolerancePercent:
+      (Number.isFinite(envStrictPriceTol) && envStrictPriceTol! >= 0 && envStrictPriceTol! <= 100
+        ? envStrictPriceTol
+        : undefined) ??
+      (typeof stored.strictPriceTolerancePercent === "number" && stored.strictPriceTolerancePercent >= 0
+        ? stored.strictPriceTolerancePercent
+        : undefined) ??
+      DEFAULT_COMMERCIAL_AGENT.strictPriceTolerancePercent,
     lineItemSixDigitGtinPrefixes: parseSixDigitGtinPrefixes(
       envSixDigitPrefixes,
       stored.lineItemSixDigitGtinPrefixes

@@ -15,7 +15,11 @@ import type {
   DocumentExtractionBuyer,
   DocumentExtractionDeliveryAddress,
   DocumentExtractionLineItem,
+  DocumentExtractionReferences,
 } from "@shared/documentExtractionSchema";
+import { EMPTY_DOCUMENT_EXTRACTION_REFERENCES } from "@shared/documentExtractionSchema";
+import type { DraftDocumentReferences } from "@shared/schema";
+import { applyBuyerIsMetaFlag, applyMetaSkuPriority, explodeComponentSets } from "./documentExtractionSkuPriority";
 import { sanitizePhoneField } from "./buyerContactFieldUtils";
 import { legacyFirstLastFromContactPerson } from "./personNameNormalize";
 
@@ -60,6 +64,8 @@ export interface LegacyExtractedDocument {
   orderNotes?: string;
   offerNotes?: string;
   validUntil?: string;
+  /** Kundenreferenz, Kommission, Lieferkontakt, Lieferschein-Hinweise (eigene Felder, kein Freitext) */
+  documentReferences?: DraftDocumentReferences;
   /** Snake-case Original — bleibt zur Anzeige + späteren Migration vorhanden. */
   documentExtraction?: DocumentExtraction;
 }
@@ -101,6 +107,25 @@ function deliveryToShipping(
   if (delivery.country) addr.country = delivery.country;
   if (Object.keys(addr).length === 0) return buyerFallback;
   return addr;
+}
+
+function referencesToLegacy(refs: DocumentExtractionReferences | undefined): DraftDocumentReferences | undefined {
+  if (!refs) return undefined;
+  const out: DraftDocumentReferences = {};
+  const put = (key: keyof DraftDocumentReferences, value: string | null | undefined) => {
+    const v = typeof value === "string" ? value.trim() : "";
+    if (v) out[key] = v;
+  };
+  put("customerReference", refs.customer_reference);
+  put("commission", refs.commission);
+  put("supplierOfferNumber", refs.supplier_offer_number);
+  put("deliveryContactName", refs.delivery_contact_name);
+  put("deliveryContactPhone", refs.delivery_contact_phone);
+  put("deliveryContactEmail", refs.delivery_contact_email);
+  put("deliveryNoteInstructions", refs.delivery_note_instructions);
+  put("orderConfirmationEmail", refs.order_confirmation_email);
+  put("invoiceEmail", refs.invoice_email);
+  return Object.keys(out).length ? out : undefined;
 }
 
 function pickProductNumber(item: DocumentExtractionLineItem): string | undefined {
@@ -172,6 +197,8 @@ export function translateDocumentExtractionToLegacy(
     out.orderNotes = notes;
     out.offerNotes = notes;
   }
+  const refs = referencesToLegacy(extraction.references);
+  if (refs) out.documentReferences = refs;
 
   if (extraction.document.delivery_date) {
     /* delivery_date wandert für Angebots-Pfad als validUntil-ähnlicher Hinweis ins
@@ -228,6 +255,22 @@ export function normalizeDocumentExtractionInPlace(extraction: DocumentExtractio
       notes: null,
     };
   }
+  {
+    const r = (extraction.references ?? {}) as Partial<DocumentExtractionReferences>;
+    const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
+    extraction.references = {
+      ...EMPTY_DOCUMENT_EXTRACTION_REFERENCES,
+      customer_reference: str(r.customer_reference),
+      commission: str(r.commission),
+      supplier_offer_number: str(r.supplier_offer_number),
+      delivery_contact_name: str(r.delivery_contact_name),
+      delivery_contact_phone: str(r.delivery_contact_phone),
+      delivery_contact_email: str(r.delivery_contact_email),
+      delivery_note_instructions: str(r.delivery_note_instructions),
+      order_confirmation_email: str(r.order_confirmation_email),
+      invoice_email: str(r.invoice_email),
+    };
+  }
   if (!Array.isArray(extraction.line_items)) {
     extraction.line_items = [];
   }
@@ -237,6 +280,9 @@ export function normalizeDocumentExtractionInPlace(extraction: DocumentExtractio
     unit: typeof it.unit === "string" && it.unit.trim() ? it.unit : "Stk",
     supplier_sku: it.supplier_sku ?? null,
     buyer_sku: it.buyer_sku ?? null,
+    alternative_skus: Array.isArray(it.alternative_skus)
+      ? it.alternative_skus.filter((v): v is string => typeof v === "string" && v.trim().length > 0)
+      : [],
     description: typeof it.description === "string" ? it.description : "",
     attributes: {
       color: it?.attributes?.color ?? null,
@@ -312,4 +358,30 @@ export function applyExtractionPostValidation(extraction: DocumentExtraction): v
     if (truncations || totalMatches === false) confidence = "medium";
   }
   extraction.extraction_meta.overall_confidence = confidence;
+}
+
+/**
+ * Deterministische Schritte nach der Modell-Antwort, vor Validierung/Übersetzung:
+ *  - META-Artikelnummern priorisieren (EAN aus Zeile oder Rohtext), siehe documentExtractionSkuPriority.ts
+ *  - `buyer_is_meta` aus dem Käufer-Firmennamen setzen (Lieferanten-AB-Erkennung)
+ */
+export function applyDocumentExtractionDeterministicSteps(
+  extraction: DocumentExtraction,
+  rawDocumentText: string | null | undefined
+): void {
+  try {
+    explodeComponentSets(extraction, rawDocumentText);
+  } catch (error) {
+    console.warn("[DocumentExtraction] Auflösen von Sammelpositionen fehlgeschlagen:", error);
+  }
+  try {
+    applyMetaSkuPriority(extraction, rawDocumentText);
+  } catch (error) {
+    console.warn("[DocumentExtraction] META-SKU-Priorisierung fehlgeschlagen:", error);
+  }
+  try {
+    applyBuyerIsMetaFlag(extraction);
+  } catch {
+    /* Flag ist optional */
+  }
 }

@@ -41,6 +41,7 @@ import {
   ChevronDown,
   ChevronUp,
   Trash2,
+  RefreshCw,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
@@ -68,6 +69,14 @@ import {
   pickDocumentExtraction,
   type DocumentExtractionLite,
 } from "@/components/DocumentExtractionAlerts";
+import { DraftAttachmentsCard } from "@/components/DraftAttachmentsCard";
+import {
+  DraftCustomerCandidates,
+  DraftCustomerOptionLabel,
+  useCustomerCreateEnabled,
+  type DraftShopwareCustomer,
+} from "@/components/DraftCustomerOptions";
+import { DraftReferencesCard, type DraftDocumentReferencesLite } from "@/components/DraftReferencesCard";
 
 interface CrossSellingSuggestion {
   forProduct: {
@@ -168,8 +177,10 @@ interface OrderDraft {
       fetchedAt: string;
       skippedReason?: "freemail" | "no_domain" | "no_email_context";
     };
-    /** Snake-case Original aus dem META-aware Extractor; UI nutzt davon recipient_is_meta + warnings. */
+    /** Snake-case Original aus dem META-aware Extractor; UI nutzt davon buyer_is_meta + warnings. */
     documentExtraction?: DocumentExtractionLite;
+    /** Kundenreferenz, Kommission, Lieferkontakt, Lieferschein-Hinweise */
+    documentReferences?: DraftDocumentReferencesLite;
   } | null;
   matchingResults: {
     items: Array<{
@@ -360,7 +371,47 @@ export function OrderDraftReviewModal({
     },
   });
 
-  type ShopwareCustomer = { id: string; email?: string; firstName?: string; lastName?: string; company?: string };
+  // „Nochmal prüfen": Produktabgleich + Kundenzuordnung auf dem vorhandenen Entwurf wiederholen,
+  // ohne das Dokument neu hochzuladen. Offene Änderungen vorher speichern, sonst gehen sie verloren.
+  const recheckMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("PATCH", `/api/order-drafts/${draft.id}`, {
+        extractedData: editedData,
+        matchingResults: mergedMatchingResults ?? draft.matchingResults,
+      });
+      const response = await apiRequest("POST", `/api/order-drafts/${draft.id}/recheck`, {});
+      return (await response.json()) as {
+        summary: { matchedBefore: number; matchedAfter: number; lines: number; customerChanged: boolean; customerKeptManual: boolean };
+      };
+    },
+    onSuccess: ({ summary }) => {
+      const customerNote = summary.customerKeptManual
+        ? t("orderDrafts.review.recheckCustomerKept", "Kunde manuell zugeordnet – unverändert.")
+        : summary.customerChanged
+          ? t("orderDrafts.review.recheckCustomerChanged", "Kunde neu zugeordnet.")
+          : t("orderDrafts.review.recheckCustomerSame", "Kunde unverändert.");
+      toast({
+        title: t("orderDrafts.review.recheckDone", "Erneut geprüft"),
+        description: `${t("orderDrafts.review.recheckProducts", "{{after}} von {{lines}} Positionen zugeordnet (vorher {{before}}).", {
+          after: summary.matchedAfter,
+          lines: summary.lines,
+          before: summary.matchedBefore,
+        })} ${customerNote}`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/order-drafts"] });
+      onUpdate();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t("orderDrafts.review.recheckError", "Erneute Prüfung fehlgeschlagen"),
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  type ShopwareCustomer = DraftShopwareCustomer;
+  const customerCreateEnabled = useCustomerCreateEnabled();
   const { data: customerSearchData } = useQuery<{ customers: ShopwareCustomer[] }>({
     queryKey: ["/api/order-drafts/customer-search", debouncedCustomerSearch],
     queryFn: async () => {
@@ -384,6 +435,8 @@ export function OrderDraftReviewModal({
           lastName: customer.lastName,
           email: customer.email,
           company: customer.company,
+          // „Nochmal prüfen" überschreibt eine bewusst gewählte Zuordnung nicht.
+          manuallyAssigned: true,
         },
       };
       await apiRequest("PATCH", `/api/order-drafts/${draft.id}`, {
@@ -1132,6 +1185,12 @@ export function OrderDraftReviewModal({
             )}
           </Card>
 
+          <DraftReferencesCard
+            references={(editedData ?? draft.extractedData)?.documentReferences ?? null}
+          />
+
+          <DraftAttachmentsCard draftId={draft.id} draftKind="order" />
+
           <Card data-testid="card-assign-customer-order">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
@@ -1167,8 +1226,18 @@ export function OrderDraftReviewModal({
                 </div>
               ) : (
                 <div className="space-y-2">
+                  <DraftCustomerCandidates
+                    candidates={
+                      ((editedData ?? draft.extractedData) as {
+                        customer?: { shopwareCustomerCandidates?: DraftShopwareCustomer[] };
+                      } | null)?.customer?.shopwareCustomerCandidates
+                    }
+                    onAssign={(c) => assignCustomerMutation.mutate(c)}
+                    disabled={assignCustomerMutation.isPending}
+                    testIdPrefix="order-customer"
+                  />
                   <Input
-                    placeholder={t("orderDrafts.review.searchCustomerPlaceholder", "Kunde suchen (E-Mail, Name, min. 2 Zeichen)…")}
+                    placeholder={t("orderDrafts.review.searchCustomerPlaceholder", "Kunde suchen (Firma, Kundennummer, E-Mail, Name, PLZ)…")}
                     value={customerSearchTerm}
                     onChange={(e) => setCustomerSearchTerm(e.target.value)}
                     className="max-w-md"
@@ -1185,8 +1254,7 @@ export function OrderDraftReviewModal({
                             disabled={assignCustomerMutation.isPending}
                             data-testid={`customer-option-order-${c.id}`}
                           >
-                            {[c.firstName, c.lastName].filter(Boolean).join(" ") || "—"}
-                            {c.email && <span className="text-muted-foreground ml-1">({c.email})</span>}
+                            <DraftCustomerOptionLabel customer={c} />
                           </button>
                         </li>
                       ))}
@@ -1200,7 +1268,7 @@ export function OrderDraftReviewModal({
             </CardContent>
           </Card>
 
-          {!draft.shopwareCustomerId && editedData?.billingAddress && !!emailForShopwareCustomer && (
+          {customerCreateEnabled && !draft.shopwareCustomerId && editedData?.billingAddress && !!emailForShopwareCustomer && (
             <Card data-testid="card-create-shopware-customer-order">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -1844,8 +1912,20 @@ export function OrderDraftReviewModal({
                 {t("common.close")}
               </Button>
               <Button
+                variant="outline"
+                onClick={() => recheckMutation.mutate()}
+                disabled={recheckMutation.isPending || createOrderMutation.isPending || draft.status === "created"}
+                title={t("orderDrafts.review.recheckHint", "Produkte und Kunde erneut zuordnen, ohne neu hochzuladen")}
+                data-testid="button-recheck-draft"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2${recheckMutation.isPending ? " animate-spin" : ""}`} />
+                {recheckMutation.isPending
+                  ? t("orderDrafts.review.rechecking", "Prüfe …")
+                  : t("orderDrafts.review.recheck", "Nochmal prüfen")}
+              </Button>
+              <Button
                 onClick={() => createOrderMutation.mutate()}
-                disabled={!canCreateOrder || createOrderMutation.isPending}
+                disabled={!canCreateOrder || createOrderMutation.isPending || recheckMutation.isPending}
                 data-testid="button-create-order"
               >
                 {createOrderMutation.isPending ? (

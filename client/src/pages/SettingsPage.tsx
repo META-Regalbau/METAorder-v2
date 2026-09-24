@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import WebhooksSettingsSection from "@/components/WebhooksSettingsSection";
 import N8nSettingsSection from "@/components/N8nSettingsSection";
 import CommercialCustomerTokensSection from "@/components/CommercialCustomerTokensSection";
+import SftpServersSection from "@/components/SftpServersSection";
 import { useState, useEffect, useCallback } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
@@ -3763,6 +3764,8 @@ function AiTab() {
           <N8nSettingsSection />
           {/* Kundengebundene Token für den Rückmelde-Endpunkt (Auftragsbestätigung ans Kunden-ERP) */}
           <CommercialCustomerTokensSection />
+          {/* SFTP-Server: Beilagen der KI-Auftragsanlage (Lieferscheine) an Lobster → d.3 */}
+          <SftpServersSection />
         </TabsContent>
       </Tabs>
     </div>
