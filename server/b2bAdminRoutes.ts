@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import multer from "multer";
 import { z } from "zod";
+import { employeeConfiguratorCustomFields, pickDefaultEmployeeRole } from "@shared/b2bEntityMapping";
 import type { User } from "@shared/schema";
 import { mergeB2BEntityMapping, type B2BEntityMapping } from "@shared/b2bEntityMapping";
 import { DEFAULT_B2B_ENTITY_MAPPING } from "@shared/b2bEntityMapping";
@@ -362,6 +363,8 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
           phoneNumber: z.string().max(255).optional(),
           roleId: z.string().optional(),
           password: z.string().min(8, "Passwort muss mindestens 8 Zeichen haben"),
+          configuratorAdminMode: z.boolean().optional(),
+          configuratorExpertMode: z.boolean().optional(),
         })
         .strict();
       const body = schema.parse(req.body);
@@ -390,16 +393,14 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
         return res.status(500).json({ error: "Standard-Anrede in Shopware nicht gefunden" });
       }
 
-      // Rolle: übergebene roleId validieren, sonst Standard-(Admin-)Rolle wählen.
+      // Rolle: übergebene roleId validieren, sonst Standardrolle (siehe pickDefaultEmployeeRole).
       const roles = await client.fetchRoles();
       let roleId = body.roleId?.trim() || null;
       if (roleId && !roles.some((r) => r.id === roleId)) {
         return res.status(400).json({ error: "Unbekannte Rolle" });
       }
       if (!roleId) {
-        const fallback =
-          roles.find((r) => /admin|administrator|verwaltung/i.test(r.name)) ?? roles[0];
-        roleId = fallback?.id ?? null;
+        roleId = pickDefaultEmployeeRole(roles)?.id ?? null;
       }
       if (!roleId) {
         // Ohne Rolle (und ohne Admin-Flag) kann sich der Mitarbeiter im Shop
@@ -419,6 +420,13 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
         department: body.department?.trim() || null,
         phoneNumber: body.phoneNumber?.trim() || null,
       };
+      const configuratorFields = employeeConfiguratorCustomFields({
+        adminMode: body.configuratorAdminMode,
+        expertMode: body.configuratorExpertMode,
+      });
+      if (Object.keys(configuratorFields).length > 0) {
+        employeePayload.customFields = configuratorFields;
+      }
 
       // skipTriggerFlow: keine automatischen Shopware-Flows/Mails beim Anlegen
       // (konsistent mit dem Portal-User-Import, der standardmäßig keine Mails sendet).
@@ -448,6 +456,9 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
           active: z.boolean().optional(),
           // Optionales neues Portal-Passwort für den Mitarbeiter.
           password: z.string().min(8, "Passwort muss mindestens 8 Zeichen haben").optional(),
+          // Regalplaner-Berechtigungen (Zusatzfelder am Mitarbeiter).
+          configuratorAdminMode: z.boolean().optional(),
+          configuratorExpertMode: z.boolean().optional(),
         })
         .strict();
       const body = schema.parse(req.body);
@@ -461,6 +472,14 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       }
       if (body.password) {
         payload.password = body.password;
+      }
+      // Shopware führt customFields bei PATCH zusammen — nur die geänderten Schlüssel senden.
+      const configuratorFields = employeeConfiguratorCustomFields({
+        adminMode: body.configuratorAdminMode,
+        expertMode: body.configuratorExpertMode,
+      });
+      if (Object.keys(configuratorFields).length > 0) {
+        payload.customFields = configuratorFields;
       }
       if (Object.keys(payload).length === 0 && body.active === undefined) {
         return res.status(400).json({ error: "Keine Änderungen übergeben" });

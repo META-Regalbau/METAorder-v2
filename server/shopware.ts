@@ -1460,7 +1460,12 @@ export class ShopwareClient {
    */
   async fetchOrders(
     salesChannelIds?: string[] | null,
-    options?: { includeInvoiceInfo?: boolean; updatedSince?: string | Date | null },
+    options?: {
+      includeInvoiceInfo?: boolean;
+      updatedSince?: string | Date | null;
+      /** Nur diese Bestell-IDs laden (Abgleich fehlender Spiegel-Eintraege). */
+      ids?: string[] | null;
+    },
   ): Promise<Order[]> {
     try {
       const limit = 500; // Fetch 500 orders per request for efficiency
@@ -1483,18 +1488,29 @@ export class ShopwareClient {
       }
 
       // Delta-Sync: nur Bestellungen, die sich seit dem letzten Sync geaendert haben
-      // (neu ODER Status-/Zahlungs-/Versand-Aenderung an einer aelteren Bestellung —
-      // Shopware bumpt updatedAt bei jeder Aenderung, nicht nur bei Erstellung).
+      // (Status-/Zahlungs-/Versand-Aenderung an einer aelteren Bestellung — Shopware
+      // bumpt updatedAt bei jeder Aenderung) ODER seitdem neu angelegt wurden.
+      // Neue Bestellungen haben in Shopware updatedAt = null (wird erst beim ersten
+      // Update gesetzt); ein reiner updatedAt-Range-Filter uebersieht sie, solange
+      // niemand etwas an ihnen aendert — deshalb zusaetzlich createdAt.
       if (options?.updatedSince) {
         const sinceIso =
           options.updatedSince instanceof Date
             ? options.updatedSince.toISOString()
             : options.updatedSince;
         filters.push({
-          type: 'range',
-          field: 'updatedAt',
-          parameters: { gte: sinceIso },
+          type: 'multi',
+          operator: 'OR',
+          queries: [
+            { type: 'range', field: 'updatedAt', parameters: { gte: sinceIso } },
+            { type: 'range', field: 'createdAt', parameters: { gte: sinceIso } },
+          ],
         });
+      }
+
+      if (options?.ids) {
+        if (options.ids.length === 0) return [];
+        filters.push({ type: 'equalsAny', field: 'id', value: options.ids });
       }
 
       // Fetch all orders with pagination - continue until we get no more results
@@ -1517,7 +1533,7 @@ export class ShopwareClient {
             },
           ],
           includes: {
-              order: ['id', 'orderNumber', 'orderDate', 'updatedAt', 'amountTotal', 'amountNet', 'orderCustomer', 'lineItems', 'stateMachineState', 'salesChannelId', 'salesChannel', 'customFields', 'transactions', 'price', 'billingAddress', 'deliveries', 'documents'],
+              order: ['id', 'orderNumber', 'orderDate', 'createdAt', 'updatedAt', 'amountTotal', 'amountNet', 'orderCustomer', 'lineItems', 'stateMachineState', 'salesChannelId', 'salesChannel', 'customFields', 'transactions', 'price', 'billingAddress', 'deliveries', 'documents'],
               order_customer: ['firstName', 'lastName', 'email', 'customerNumber'],
               order_line_item: ['id', 'label', 'quantity', 'unitPrice', 'totalPrice', 'price', 'productId', 'referencedId', 'type', 'payload', 'productNumber'],
               state_machine_state: ['technicalName'],
@@ -2148,6 +2164,7 @@ export class ShopwareClient {
           customerPhone: customerPhone || undefined,
           orderDate: shopwareOrder.orderDate || shopwareOrder.attributes?.orderDate || shopwareOrder.createdAt || new Date().toISOString(),
           updatedAt: shopwareOrder.updatedAt || shopwareOrder.attributes?.updatedAt || undefined,
+          createdAt: shopwareOrder.createdAt || shopwareOrder.attributes?.createdAt || undefined,
           deliveryDateEarliest,
           deliveryDateLatest,
           totalAmount: grossTotal,
@@ -2407,7 +2424,7 @@ export class ShopwareClient {
       const body: Record<string, unknown> = {
         limit: 1,
         page: 1,
-        totalCountMode: 1,
+        "total-count-mode": 1,
         sort: [{ field: sortField, order: "DESC" }],
       };
       if (options?.filter?.length) {
@@ -2482,18 +2499,31 @@ export class ShopwareClient {
     });
   }
 
-  /** Fingerprint für Bestellungen (Count + jüngste Änderung). */
-  async fetchOrdersFingerprint(): Promise<string | null> {
+  /**
+   * Fingerprint für Bestellungen (Count + jüngste Änderung + jüngste Anlage) inkl. Shop-Gesamtzahl.
+   * Neue Bestellungen haben updatedAt = null und landen bei Sortierung nach updatedAt DESC
+   * am Ende — deshalb zusaetzlich die juengste Anlage (createdAt DESC) einbeziehen.
+   */
+  async fetchOrdersFingerprintDetails(): Promise<{ fingerprint: string; total: number } | null> {
     const fp = await this.fetchEntitySearchFingerprint("order", { sortField: "updatedAt" });
     if (!fp) return null;
+    const created = await this.fetchEntitySearchFingerprint("order", { sortField: "createdAt" });
 
     const { stableFingerprint } = await import("./contentHashCache");
-    return stableFingerprint({
+    const fingerprint = stableFingerprint({
       scope: "orders",
       total: fp.total,
       latestUpdatedAt: fp.latestUpdatedAt,
       latestId: fp.latestId,
+      latestCreatedId: created?.latestId ?? null,
     });
+    return { fingerprint, total: fp.total };
+  }
+
+  /** Fingerprint für Bestellungen (siehe fetchOrdersFingerprintDetails). */
+  async fetchOrdersFingerprint(): Promise<string | null> {
+    const details = await this.fetchOrdersFingerprintDetails();
+    return details?.fingerprint ?? null;
   }
 
   /**
@@ -2536,7 +2566,7 @@ export class ShopwareClient {
           },
         ],
         includes: {
-            order: ['id', 'orderNumber', 'orderDate', 'updatedAt', 'amountTotal', 'amountNet', 'orderCustomer', 'lineItems', 'stateMachineState', 'salesChannelId', 'salesChannel', 'customFields', 'transactions', 'price', 'billingAddress', 'deliveries', 'documents'],
+            order: ['id', 'orderNumber', 'orderDate', 'createdAt', 'updatedAt', 'amountTotal', 'amountNet', 'orderCustomer', 'lineItems', 'stateMachineState', 'salesChannelId', 'salesChannel', 'customFields', 'transactions', 'price', 'billingAddress', 'deliveries', 'documents'],
             order_customer: ['firstName', 'lastName', 'email', 'customerNumber'],
             order_line_item: ['id', 'label', 'quantity', 'unitPrice', 'totalPrice', 'price', 'productId', 'referencedId', 'type', 'payload', 'productNumber'],
             state_machine_state: ['technicalName'],
@@ -3008,6 +3038,7 @@ export class ShopwareClient {
           customerPhone: customerPhone || undefined,
           orderDate: shopwareOrder.orderDate || shopwareOrder.attributes?.orderDate || shopwareOrder.createdAt || new Date().toISOString(),
           updatedAt: shopwareOrder.updatedAt || shopwareOrder.attributes?.updatedAt || undefined,
+          createdAt: shopwareOrder.createdAt || shopwareOrder.attributes?.createdAt || undefined,
           deliveryDateEarliest,
           deliveryDateLatest,
           totalAmount: grossTotal,
@@ -5060,7 +5091,7 @@ export class ShopwareClient {
       const body: any = {
         limit: BATCH,
         page,
-        totalCountMode: 1,
+        "total-count-mode": 1,
         includes: { product: ["id"] },
         filter: includeInactive ? [] : [{ type: "equals", field: "active", value: true }],
       };
@@ -5128,7 +5159,7 @@ export class ShopwareClient {
       body: JSON.stringify({
         limit,
         page,
-        totalCountMode: 1,
+        "total-count-mode": 1,
         sort: [{ field: "updatedAt", order: "ASC" }],
         filter,
         associations: { group: {}, defaultBillingAddress: {} },
@@ -5216,7 +5247,7 @@ export class ShopwareClient {
         body: JSON.stringify({
           limit: BATCH,
           page,
-          totalCountMode: 1,
+          "total-count-mode": 1,
           includes: { customer: ["id"] },
         }),
       });
@@ -5250,7 +5281,7 @@ export class ShopwareClient {
         body: JSON.stringify({
           limit: BATCH,
           page,
-          totalCountMode: 1,
+          "total-count-mode": 1,
           includes: { order: ["id"] },
         }),
       });
@@ -5372,7 +5403,7 @@ export class ShopwareClient {
     const criteriaBase = {
       limit,
       page,
-      totalCountMode: 1,
+      "total-count-mode": 1,
       // id als zweites Sortierkriterium: updatedAt ist auf der Preis-Entität für viele Zeilen
       // identisch (Massenimport), die Reihenfolge innerhalb einer Sekunde also beliebig.
       // Ohne stabilen Tiebreaker liefern aufeinanderfolgende Seiten überlappende Zeilen.
@@ -8254,7 +8285,7 @@ export class ShopwareClient {
           body: JSON.stringify({
             limit: pageSize,
             page,
-            totalCountMode: 1,
+            "total-count-mode": 1,
             filter: [{ type: 'multi', operator: 'OR', queries: terms.map((value) => ({ type: 'contains', field: 'group.name', value })) }],
             associations: { group: {}, defaultBillingAddress: {} },
           }),
@@ -8338,7 +8369,7 @@ export class ShopwareClient {
     const criteria = {
       limit,
       page,
-      totalCountMode: 1,
+      "total-count-mode": 1,
       filter,
       sort: [{ field: "productNumber", order: "ASC" }],
       associations: includeProductNames ? { product: {}, currency: {} } : { currency: {} },
@@ -9152,7 +9183,7 @@ export class ShopwareClient {
           method: "POST",
           body: JSON.stringify({
             limit: 1,
-            totalCountMode: 1,
+            "total-count-mode": 1,
             aggregations: [
               { name: "byCustomerId", type: "terms", field: "customerId", limit: TERMS_LIMIT },
               { name: "byCustomerNumber", type: "terms", field: "customerNumber", limit: TERMS_LIMIT },
@@ -9191,7 +9222,7 @@ export class ShopwareClient {
           method: "POST",
           body: JSON.stringify({
             limit: 1,
-            totalCountMode: 1,
+            "total-count-mode": 1,
             filter: [{ type: "equals", field: "customerId", value: null }],
           }),
         });
@@ -9229,7 +9260,7 @@ export class ShopwareClient {
           method: "POST",
           body: JSON.stringify({
             limit: 1,
-            totalCountMode: 1,
+            "total-count-mode": 1,
             aggregations: [{ name: "byCustomer", type: "terms", field: "customerId", limit: 5 }],
           }),
         });

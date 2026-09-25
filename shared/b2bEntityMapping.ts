@@ -1,3 +1,48 @@
+/**
+ * Zusatzfelder (Custom-Field-Set `wdu_configurator_permissions`) auf der
+ * B2Bsellers-Mitarbeiter-Entität: Regalplaner-Berechtigungen je Mitarbeiter.
+ */
+export const EMPLOYEE_CONFIGURATOR_FIELDS = {
+  adminMode: "wdu_allow_admin_mode",
+  expertMode: "wdu_allow_expert_mode",
+} as const;
+
+export type EmployeeConfiguratorPermissions = {
+  adminMode: boolean;
+  expertMode: boolean;
+};
+
+/** Teilweise gesetzte Berechtigungen in das Shopware-customFields-Objekt übersetzen (nur übergebene Werte). */
+export function employeeConfiguratorCustomFields(
+  perms: Partial<EmployeeConfiguratorPermissions>,
+): Record<string, boolean> {
+  const out: Record<string, boolean> = {};
+  if (perms.adminMode !== undefined) out[EMPLOYEE_CONFIGURATOR_FIELDS.adminMode] = perms.adminMode;
+  if (perms.expertMode !== undefined) out[EMPLOYEE_CONFIGURATOR_FIELDS.expertMode] = perms.expertMode;
+  return out;
+}
+
+/**
+ * Standardrolle für neue Mitarbeiter, wenn keine gewählt wurde.
+ *
+ * Nicht einfach die erste Rolle nehmen: Alphabetisch erste Rolle war z. B.
+ * „Buchhaltung“ ohne `viewListing` — der Mitarbeiter konnte sich anmelden, lief
+ * aber auf jeder Produkt-/Kategorieseite in InsufficientEmployeePermissionException.
+ * Bevorzugt wird eine Rolle, die Sortiment sehen und bestellen darf, danach
+ * die mit den meisten Rechten; Name nur als letzter Tie-Breaker.
+ */
+export function pickDefaultEmployeeRole<T extends { id: string; name: string; privileges: string[] }>(
+  roles: T[],
+): T | null {
+  const score = (r: T) =>
+    (r.privileges.includes("viewListing") ? 100 : 0) +
+    (r.privileges.includes("order") ? 10 : 0) +
+    r.privileges.length;
+  return (
+    [...roles].sort((a, b) => score(b) - score(a) || a.name.localeCompare(b.name))[0] ?? null
+  );
+}
+
 export type B2BEntityMapping = {
   company: string;
   employee: string;

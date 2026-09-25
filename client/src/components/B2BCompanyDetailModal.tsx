@@ -39,6 +39,7 @@ import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { Role } from "@shared/schema";
+import { pickDefaultEmployeeRole } from "@shared/b2bEntityMapping";
 
 export type B2BCompanyDetail = {
   offerCustomerId: string | null;
@@ -81,6 +82,7 @@ export type B2BCompanyDetail = {
     createdAt: string | null;
     updatedAt: string | null;
     lastLogin: string | null;
+    configuratorPermissions?: { adminMode: boolean; expertMode: boolean };
   }[];
   employeeTotal: number;
   employeesError: boolean;
@@ -128,6 +130,50 @@ function formatDate(value: string | null) {
 
 type B2BEmployee = B2BCompanyDetail["employees"][number];
 
+/** Regalplaner-Berechtigungen (Zusatzfelder am B2Bsellers-Mitarbeiter). */
+function ConfiguratorPermissionSwitches({
+  idPrefix,
+  adminMode,
+  expertMode,
+  onAdminModeChange,
+  onExpertModeChange,
+}: {
+  idPrefix: string;
+  adminMode: boolean;
+  expertMode: boolean;
+  onAdminModeChange: (next: boolean) => void;
+  onExpertModeChange: (next: boolean) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="space-y-2">
+      <Label>{t("b2b.accounts.detail.configuratorPermissions")}</Label>
+      <div className="flex items-center justify-between rounded-md border p-3">
+        <Label htmlFor={`${idPrefix}-cfg-admin`} className="cursor-pointer font-normal">
+          {t("b2b.accounts.detail.configuratorAdminMode")}
+        </Label>
+        <Switch
+          id={`${idPrefix}-cfg-admin`}
+          checked={adminMode}
+          onCheckedChange={onAdminModeChange}
+          data-testid={`${idPrefix}-configurator-admin`}
+        />
+      </div>
+      <div className="flex items-center justify-between rounded-md border p-3">
+        <Label htmlFor={`${idPrefix}-cfg-expert`} className="cursor-pointer font-normal">
+          {t("b2b.accounts.detail.configuratorExpertMode")}
+        </Label>
+        <Switch
+          id={`${idPrefix}-cfg-expert`}
+          checked={expertMode}
+          onCheckedChange={onExpertModeChange}
+          data-testid={`${idPrefix}-configurator-expert`}
+        />
+      </div>
+    </div>
+  );
+}
+
 function EditEmployeeDialog({
   employee,
   companyId,
@@ -146,6 +192,8 @@ function EditEmployeeDialog({
   const [phoneNumber, setPhoneNumber] = useState("");
   const [active, setActive] = useState(true);
   const [password, setPassword] = useState("");
+  const [configuratorAdminMode, setConfiguratorAdminMode] = useState(false);
+  const [configuratorExpertMode, setConfiguratorExpertMode] = useState(false);
 
   // Formular bei jedem neu geöffneten Mitarbeiter mit dessen Daten befüllen.
   useEffect(() => {
@@ -156,6 +204,8 @@ function EditEmployeeDialog({
     setPhoneNumber(employee.phoneNumber ?? "");
     setActive(employee.active);
     setPassword("");
+    setConfiguratorAdminMode(employee.configuratorPermissions?.adminMode ?? false);
+    setConfiguratorExpertMode(employee.configuratorPermissions?.expertMode ?? false);
   }, [employee]);
 
   const mutation = useMutation({
@@ -167,6 +217,8 @@ function EditEmployeeDialog({
         department: department.trim(),
         phoneNumber: phoneNumber.trim(),
         active,
+        configuratorAdminMode,
+        configuratorExpertMode,
       };
       if (password.trim()) {
         payload.password = password.trim();
@@ -264,6 +316,13 @@ function EditEmployeeDialog({
             </Label>
             <Switch id="edit-emp-active" checked={active} onCheckedChange={setActive} />
           </div>
+          <ConfiguratorPermissionSwitches
+            idPrefix="edit-emp"
+            adminMode={configuratorAdminMode}
+            expertMode={configuratorExpertMode}
+            onAdminModeChange={setConfiguratorAdminMode}
+            onExpertModeChange={setConfiguratorExpertMode}
+          />
           <div className="space-y-1">
             <Label htmlFor="edit-emp-pw">{t("b2b.accounts.detail.employeeNewPassword")}</Label>
             <Input
@@ -320,10 +379,14 @@ function NewEmployeeDialog({
   const [password, setPassword] = useState("");
   const [newRoleName, setNewRoleName] = useState("");
   const [newRolePrivileges, setNewRolePrivileges] = useState<string[]>([]);
+  const [configuratorAdminMode, setConfiguratorAdminMode] = useState(false);
+  const [configuratorExpertMode, setConfiguratorExpertMode] = useState(false);
 
   // Formular bei jedem Öffnen zurücksetzen.
   useEffect(() => {
     if (!open) return;
+    setConfiguratorAdminMode(false);
+    setConfiguratorExpertMode(false);
     setFirstName("");
     setLastName("");
     setEmail("");
@@ -346,6 +409,14 @@ function NewEmployeeDialog({
   });
   const roles = rolesData?.roles ?? [];
   const creatingRole = roleId === NEW_ROLE;
+
+  // Standardrolle vorbelegen (dieselbe Logik wie der Server), damit sichtbar ist,
+  // welche Rolle der Mitarbeiter ohne eigene Auswahl bekommt.
+  useEffect(() => {
+    if (!open || roleId || roles.length === 0) return;
+    const fallback = pickDefaultEmployeeRole(roles);
+    if (fallback) setRoleId(fallback.id);
+  }, [open, roleId, roles]);
 
   // Auswählbare Rechte = Vereinigung der Rechte aller bestehenden Rollen.
   const allPrivileges = Array.from(
@@ -384,6 +455,8 @@ function NewEmployeeDialog({
         phoneNumber: phoneNumber.trim() || undefined,
         roleId: effectiveRoleId,
         password: password.trim(),
+        configuratorAdminMode,
+        configuratorExpertMode,
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: res.statusText }));
@@ -539,6 +612,13 @@ function NewEmployeeDialog({
               </div>
             </div>
           ) : null}
+          <ConfiguratorPermissionSwitches
+            idPrefix="new-emp"
+            adminMode={configuratorAdminMode}
+            expertMode={configuratorExpertMode}
+            onAdminModeChange={setConfiguratorAdminMode}
+            onExpertModeChange={setConfiguratorExpertMode}
+          />
           <div className="space-y-1">
             <Label htmlFor="new-emp-pw">{t("b2b.accounts.detail.employeePassword")}</Label>
             <Input

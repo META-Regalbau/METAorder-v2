@@ -2,7 +2,11 @@ import { getSharedShopwareToken, invalidateSharedShopwareToken } from "./shopwar
 import { cachedMissingEntityResponse, traceShopwareResponse } from "./shopwareHttpTrace";
 import type { ShopwareSettings } from "@shared/schema";
 import type { B2BEntityMapping } from "@shared/b2bEntityMapping";
-import { DEFAULT_B2B_ENTITY_MAPPING, mergeB2BEntityMapping } from "@shared/b2bEntityMapping";
+import {
+  DEFAULT_B2B_ENTITY_MAPPING,
+  EMPLOYEE_CONFIGURATOR_FIELDS,
+  mergeB2BEntityMapping,
+} from "@shared/b2bEntityMapping";
 import { storage } from "./storage";
 import { enrichCustomerPricesWithHerstellMargin } from "./herstellpreisMargin";
 import { loadCrmProfitabilitySettings } from "./crmProfitabilitySettings";
@@ -746,6 +750,11 @@ export class B2BSellersAdminClient {
       active: link ? link.active : resolveEmployeeActive(u),
       roleId: link?.roleId ?? null,
       admin: link?.admin ?? false,
+      // Regalplaner-Berechtigungen aus den Zusatzfeldern des Mitarbeiters.
+      configuratorPermissions: {
+        adminMode: coerceBool(getField(u, `customFields.${EMPLOYEE_CONFIGURATOR_FIELDS.adminMode}`)) ?? false,
+        expertMode: coerceBool(getField(u, `customFields.${EMPLOYEE_CONFIGURATOR_FIELDS.expertMode}`)) ?? false,
+      },
       createdAt: getField(u, "createdAt") || null,
       // Letzte Änderung am Datensatz — immer vorhanden.
       updatedAt: getField(u, "updatedAt") || null,
@@ -974,6 +983,7 @@ export class B2BSellersAdminClient {
           "createdAt",
           "updatedAt",
           "lastLogin",
+          "customFields",
         ],
       },
       filter: [],
