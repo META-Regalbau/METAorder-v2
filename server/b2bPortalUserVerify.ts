@@ -164,24 +164,39 @@ export async function verifyB2BPortalUser(
       status: "pass",
       message: `Mitarbeiter ${employee.id} vorhanden`,
     });
-    checks.push({
-      id: "employee_active",
-      label: "Mitarbeiter aktiv",
-      status: employee.active ? "pass" : "fail",
-      message: employee.active ? "Mitarbeiter-Konto ist aktiv" : "Mitarbeiter-Konto ist deaktiviert",
-    });
-
+    // Aktiv-Status, Rolle und Admin-Flag liegen auf der Verknüpfung zum Kunden.
+    // Ohne aktive Verknüpfung mit Rolle oder Admin-Flag lehnt B2Bsellers den
+    // Login ab bzw. wirft InsufficientEmployeePermissionException (viewListing).
     const linkCustomerId = employeeLinkCustomerId(input, customer?.id || input.customerId || "");
     if (linkCustomerId) {
-      const linked = await deps.b2bClient.hasEmployeeCustomerLink(employee.id, linkCustomerId);
+      const link = await deps.b2bClient.findEmployeeCustomerLink(employee.id, linkCustomerId);
       checks.push({
         id: "employee_company_link",
         label: "Firmen-Zuordnung",
-        status: linked ? "pass" : "fail",
-        message: linked
+        status: link ? "pass" : "fail",
+        message: link
           ? "Mitarbeiter ist der Firma zugeordnet"
           : "Mitarbeiter ist nicht mit der erwarteten Firma verknüpft",
       });
+      if (link) {
+        checks.push({
+          id: "employee_active",
+          label: "Mitarbeiter aktiv",
+          status: link.active ? "pass" : "fail",
+          message: link.active ? "Zuordnung zum Kunden ist aktiv" : "Zuordnung zum Kunden ist deaktiviert",
+        });
+        const hasRights = link.admin || Boolean(link.roleId);
+        checks.push({
+          id: "employee_role",
+          label: "Rolle / Admin-Flag",
+          status: hasRights ? "pass" : "fail",
+          message: link.admin
+            ? "Administrator des Kunden"
+            : link.roleId
+              ? `Rolle ${link.roleId}`
+              : "Weder Rolle noch Admin-Flag auf der Kunden-Zuordnung — Login und Sortiment im Shop schlagen fehl (viewListing)",
+        });
+      }
     }
   }
 

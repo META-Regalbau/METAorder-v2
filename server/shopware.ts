@@ -9526,6 +9526,7 @@ export class ShopwareClient {
 
     const salutationId = await this.getDefaultSalutationId();
     const companyName = customerData.company?.trim() || customerData.billingAddress.company?.trim() || undefined;
+    const salesChannelId = customerData.salesChannelId?.trim() || (await this.getDefaultSalesChannelId());
     const requestBody: Record<string, unknown> = {
       email: customerData.email.trim().toLowerCase(),
       password: customerData.password,
@@ -9534,10 +9535,15 @@ export class ShopwareClient {
       accountType: "business",
       active: customerData.active ?? true,
       salutationId,
-      customerNumber: `B2B-${Date.now()}`,
+      // Kundennummer aus dem Shopware-Nummernkreis (wie bei einer Registrierung
+      // im Storefront), nicht mehr als Zeitstempel-Kunstnummer.
+      customerNumber: await this.nextCustomerNumber(salesChannelId),
       defaultPaymentMethodId: await this.getDefaultPaymentMethodId(),
       groupId: customerData.groupId,
-      salesChannelId: customerData.salesChannelId?.trim() || (await this.getDefaultSalesChannelId()),
+      salesChannelId,
+      // Wie bei einer Storefront-Registrierung mit aktiver Option „Kunden an
+      // Verkaufskanal binden“: Der Portal-Kunde gehört zu genau diesem Kanal.
+      boundSalesChannelId: salesChannelId,
       defaultBillingAddress: {
         firstName: customerData.billingAddress.firstName || customerData.firstName,
         lastName: customerData.billingAddress.lastName || customerData.lastName,
@@ -9597,6 +9603,19 @@ export class ShopwareClient {
       email: customerData.email.trim().toLowerCase(),
       customerNumber: customer?.attributes?.customerNumber ?? customer?.customerNumber,
     };
+  }
+
+  /**
+   * Nächste Kundennummer aus dem Nummernkreis `customer` des Verkaufskanals.
+   * Fällt der Nummernkreis aus, bleibt die bisherige Zeitstempel-Nummer als Notlösung.
+   */
+  private async nextCustomerNumber(salesChannelId?: string): Promise<string> {
+    try {
+      return await this.reserveNumberRange("customer", salesChannelId);
+    } catch (error) {
+      console.warn("[Shopware] Kundennummer aus Nummernkreis nicht verfügbar, Fallback auf Zeitstempel:", error);
+      return `B2B-${Date.now()}`;
+    }
   }
 
   /**

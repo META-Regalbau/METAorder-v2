@@ -74,6 +74,42 @@ function resolveEmployeeActive(u: any): boolean {
   return true;
 }
 
+/**
+ * Verknüpfung Mitarbeiter↔Kunde (`b2bsellers_employee_customer`).
+ *
+ * In B2Bsellers liegen Rolle (`roleId`), Administrator-Flag (`admin`) und
+ * Aktiv-Status (`active`) auf DIESER Verknüpfung — nicht am Mitarbeiter. Ein
+ * Mitarbeiter darf sich für einen Kunden nur anmelden, wenn die Verknüpfung
+ * aktiv ist UND (admin ODER roleId gesetzt); ohne Rolle/Admin wirft der Shop
+ * bei jeder Berechtigungsprüfung `InsufficientEmployeePermissionException`
+ * (z. B. `viewListing` auf Produkt-/Suchseiten), siehe B2bContextTrait.
+ * Shopware verwirft unbekannte Felder in Schreib-Requests still — `roleId`
+ * oder `active` am Mitarbeiter zu senden ist deshalb wirkungslos.
+ */
+export type EmployeeCustomerLink = {
+  id: string;
+  employeeId: string;
+  customerId: string;
+  roleId: string | null;
+  admin: boolean;
+  active: boolean;
+};
+
+const EMPLOYEE_CUSTOMER_LINK_FIELDS = ["id", "employeeId", "customerId", "roleId", "admin", "active"];
+
+function mapEmployeeCustomerLink(raw: any): EmployeeCustomerLink {
+  const u = unwrapEntity(raw);
+  return {
+    id: String(u.id),
+    employeeId: String(getField(u, "employeeId") || ""),
+    customerId: String(getField(u, "customerId") || ""),
+    roleId: getField(u, "roleId") || null,
+    admin: coerceBool(getField(u, "admin")) ?? false,
+    // Spalten-Default in B2Bsellers ist 1 — fehlender Wert zählt als aktiv.
+    active: coerceBool(getField(u, "active")) ?? true,
+  };
+}
+
 export class B2BSellersAdminClient {
   private baseUrl: string;
   private apiKey: string;
@@ -695,7 +731,7 @@ export class B2BSellersAdminClient {
     }
   }
 
-  mapEmployee(raw: any) {
+  mapEmployee(raw: any, link?: EmployeeCustomerLink | null) {
     const u = unwrapEntity(raw);
     return {
       id: u.id,
@@ -704,7 +740,12 @@ export class B2BSellersAdminClient {
       lastName: getField(u, "lastName") || "",
       department: getField(u, "department") || null,
       phoneNumber: getField(u, "phoneNumber") || null,
-      active: resolveEmployeeActive(u),
+      // Aktiv-Status, Rolle und Admin-Flag stehen auf der Verknüpfung zum
+      // Kunden (siehe EmployeeCustomerLink). Ohne Verknüpfungsdaten (globale
+      // Mitarbeiterliste) gilt der Mitarbeiter als aktiv.
+      active: link ? link.active : resolveEmployeeActive(u),
+      roleId: link?.roleId ?? null,
+      admin: link?.admin ?? false,
       createdAt: getField(u, "createdAt") || null,
       // Letzte Änderung am Datensatz — immer vorhanden.
       updatedAt: getField(u, "updatedAt") || null,
@@ -948,12 +989,13 @@ export class B2BSellersAdminClient {
         ],
       });
     }
+    // Verknüpfung je Mitarbeiter (Rolle/Admin/Aktiv), nur bei Kundenfilter befüllt.
+    const linkByEmployee = new Map<string, EmployeeCustomerLink>();
     if (filters.customerId) {
       try {
-        // Verknüpfungen Kunde↔Mitarbeiter: nur die employeeId laden und in
-        // Seiten von je 500 durchlaufen, damit auch Kunden mit sehr vielen
-        // Mitarbeitern vollständig erfasst werden (statt bei 500 abzuschneiden).
-        const employeeIds: string[] = [];
+        // Verknüpfungen Kunde↔Mitarbeiter: nur die schmalen Verknüpfungsfelder
+        // laden und in Seiten von je 500 durchlaufen, damit auch Kunden mit sehr
+        // vielen Mitarbeitern vollständig erfasst werden (statt bei 500 abzuschneiden).
         let linkPage = 1;
         // Sicherheitsobergrenze gegen Endlosschleifen (max. 10.000 Verknüpfungen).
         for (let guard = 0; guard < 20; guard++) {
@@ -962,24 +1004,36 @@ export class B2BSellersAdminClient {
             {
               limit: 500,
               page: linkPage,
-              includes: { [this.resolveEntityName("employeeCustomer").replace(/-/g, "_")]: ["employeeId"] },
+              includes: { [this.linkIncludeKey()]: EMPLOYEE_CUSTOMER_LINK_FIELDS },
               filter: [{ type: "equals", field: "customerId", value: filters.customerId }],
             },
             { timeoutMs: 20000 },
           );
-          const ids = links.data.map((l) => getField(l, "employeeId")).filter(Boolean);
-          employeeIds.push(...ids);
-          if (ids.length < 500) break;
+          for (const raw of links.data) {
+            const link = mapEmployeeCustomerLink(raw);
+            if (link.employeeId && !linkByEmployee.has(link.employeeId)) {
+              linkByEmployee.set(link.employeeId, link);
+            }
+          }
+          if (links.data.length < 500) break;
           linkPage += 1;
         }
-        if (employeeIds.length === 0) return { employees: [], total: 0 };
-        (criteria.filter as any[]).push({ type: "equalsAny", field: "id", value: employeeIds });
+        if (linkByEmployee.size === 0) return { employees: [], total: 0 };
+        (criteria.filter as any[]).push({ type: "equalsAny", field: "id", value: [...linkByEmployee.keys()] });
       } catch {
         /* entity may not exist */
       }
     }
     const result = await this.searchEntity("employee", criteria, { timeoutMs: 25000 });
-    return { employees: result.data.map((r) => this.mapEmployee(r)), total: result.total };
+    return {
+      employees: result.data.map((r) => this.mapEmployee(r, linkByEmployee.get(String(unwrapEntity(r).id)) ?? null)),
+      total: result.total,
+    };
+  }
+
+  /** Entity-Key für `includes` (technischer Name mit Unterstrichen). */
+  private linkIncludeKey(): string {
+    return this.resolveEntityName("employeeCustomer").replace(/-/g, "_");
   }
 
   async findEmployeeByEmail(email: string): Promise<{
@@ -988,7 +1042,6 @@ export class B2BSellersAdminClient {
     firstName: string;
     lastName: string;
     active: boolean;
-    roleId?: string | null;
   } | null> {
     const normalized = email.trim().toLowerCase();
     if (!normalized) return null;
@@ -998,13 +1051,21 @@ export class B2BSellersAdminClient {
     });
     const raw = result.data[0];
     if (!raw) return null;
-    const mapped = this.mapEmployee(raw);
-    const u = unwrapEntity(raw);
-    return {
-      ...mapped,
-      active: mapped.active,
-      roleId: getField(u, "roleId") || getField(u, "employeeRoleId") || null,
-    };
+    return this.mapEmployee(raw);
+  }
+
+  /** Verknüpfung eines Mitarbeiters zu einem Kunden inkl. Rolle/Admin/Aktiv, oder null. */
+  async findEmployeeCustomerLink(employeeId: string, customerId: string): Promise<EmployeeCustomerLink | null> {
+    const links = await this.searchEntity("employeeCustomer", {
+      limit: 1,
+      includes: { [this.linkIncludeKey()]: EMPLOYEE_CUSTOMER_LINK_FIELDS },
+      filter: [
+        { type: "equals", field: "employeeId", value: employeeId },
+        { type: "equals", field: "customerId", value: customerId },
+      ],
+    });
+    const raw = links.data[0];
+    return raw ? mapEmployeeCustomerLink(raw) : null;
   }
 
   async findCustomerIdsForEmployee(employeeId: string): Promise<string[]> {
@@ -1025,28 +1086,71 @@ export class B2BSellersAdminClient {
     return links.data.some((link) => getField(unwrapEntity(link), "customerId") === customerId);
   }
 
+  /**
+   * Verknüpfung Mitarbeiter↔Kunde sicherstellen.
+   *
+   * `roleId`, `admin` und `active` werden auf der Verknüpfung gespeichert
+   * (siehe EmployeeCustomerLink). Ist die Verknüpfung bereits vorhanden, werden
+   * nur explizit übergebene Werte nachgezogen (undefined = unverändert lassen).
+   * Beim Neuanlegen gilt: aktiv, kein Admin, Rolle wie übergeben.
+   */
   async ensureEmployeeCustomerLink(
     employeeId: string,
     customerId: string,
-    options?: { skipTriggerFlow?: boolean },
-  ): Promise<void> {
+    options?: { skipTriggerFlow?: boolean; roleId?: string | null; admin?: boolean; active?: boolean },
+  ): Promise<{ id: string; created: boolean }> {
     const links = await this.searchEntity("employeeCustomer", {
       limit: 50,
+      includes: { [this.linkIncludeKey()]: EMPLOYEE_CUSTOMER_LINK_FIELDS },
       filter: [{ type: "equals", field: "employeeId", value: employeeId }],
     });
-    const existing = links.data.find((link) => getField(unwrapEntity(link), "customerId") === customerId);
-    if (existing) return;
-
-    for (const link of links.data) {
-      const linkId = getField(unwrapEntity(link), "id");
-      if (linkId) await this.deleteEntity("employeeCustomer", String(linkId));
+    const all = links.data.map((raw) => mapEmployeeCustomerLink(raw));
+    const existing = all.find((link) => link.customerId === customerId);
+    if (existing) {
+      const patch: Record<string, unknown> = {};
+      if (options?.roleId !== undefined && options.roleId !== existing.roleId) patch.roleId = options.roleId;
+      if (options?.admin !== undefined && options.admin !== existing.admin) patch.admin = options.admin;
+      if (options?.active !== undefined && options.active !== existing.active) patch.active = options.active;
+      if (Object.keys(patch).length > 0) {
+        await this.patchEntity("employeeCustomer", existing.id, patch, { skipTriggerFlow: options?.skipTriggerFlow });
+      }
+      return { id: existing.id, created: false };
     }
 
-    await this.createEntity("employeeCustomer", { employeeId, customerId }, options);
+    for (const link of all) {
+      await this.deleteEntity("employeeCustomer", link.id);
+    }
+
+    const created = await this.createEntity(
+      "employeeCustomer",
+      {
+        employeeId,
+        customerId,
+        roleId: options?.roleId ?? null,
+        admin: options?.admin ?? false,
+        active: options?.active ?? true,
+      },
+      { skipTriggerFlow: options?.skipTriggerFlow },
+    );
+    return { id: created.id, created: true };
   }
 
+  /**
+   * Mitarbeiter (de)aktivieren: Der Aktiv-Status liegt auf den Verknüpfungen zu
+   * den Kunden — die Employee-Entität selbst kennt kein `active`.
+   */
   async setEmployeeActive(employeeId: string, active: boolean): Promise<void> {
-    await this.patchEntity("employee", employeeId, { active });
+    const links = await this.searchEntity("employeeCustomer", {
+      limit: 500,
+      includes: { [this.linkIncludeKey()]: EMPLOYEE_CUSTOMER_LINK_FIELDS },
+      filter: [{ type: "equals", field: "employeeId", value: employeeId }],
+    });
+    for (const raw of links.data) {
+      const link = mapEmployeeCustomerLink(raw);
+      if (link.active !== active) {
+        await this.patchEntity("employeeCustomer", link.id, { active });
+      }
+    }
   }
 
   async deleteEmployee(employeeId: string): Promise<void> {

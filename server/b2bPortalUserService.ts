@@ -151,15 +151,6 @@ function validatePortalUserInput(
   return null;
 }
 
-async function resolveAdminEmployeeRoleId(b2bClient: B2BSellersAdminClient): Promise<string | null> {
-  const roles = await b2bClient.fetchRoles();
-  const adminRole =
-    roles.find((role) => /admin|administrator|verwaltung/i.test(role.name)) ??
-    roles.find((role) => role.technicalName && /admin/i.test(role.technicalName)) ??
-    roles[0];
-  return adminRole?.id ?? null;
-}
-
 function portalEmployeeLinkCustomerId(input: CreateB2BPortalUserInput, customerId: string): string {
   if (input.type === "sales_rep") {
     return input.metaCompanyCustomerId!.trim();
@@ -177,7 +168,6 @@ function customerCustomFieldsForType(type: B2BPortalUserType): Record<string, un
 async function buildPortalEmployeePayload(
   shopwareClient: ShopwareClient,
   input: CreateB2BPortalUserInput,
-  options: { roleId?: string | null },
 ): Promise<Record<string, unknown>> {
   const [languageId, salutationId] = await Promise.all([
     shopwareClient.getDefaultLanguageId(),
@@ -190,34 +180,39 @@ async function buildPortalEmployeePayload(
     throw new Error("Standard-Anrede in Shopware nicht gefunden");
   }
 
-  const employeePayload: Record<string, unknown> = {
+  // Kein active/roleId hier: Die B2Bsellers-Employee-Entität kennt diese Felder
+  // nicht (Shopware verwirft sie still). Aktiv-Status, Rolle und Admin-Flag
+  // liegen auf der Verknüpfung Mitarbeiter↔Kunde, siehe resolvePortalEmployeeLinkFields.
+  return {
     email: input.email.trim().toLowerCase(),
     firstName: input.firstName.trim(),
     lastName: input.lastName.trim(),
     languageId,
     salutationId,
-    active: true,
   };
-
-  if (options.roleId?.trim()) {
-    employeePayload.roleId = options.roleId;
-    employeePayload.employeeRoleId = options.roleId;
-  }
-
-  return employeePayload;
 }
 
-async function resolvePortalEmployeeRoleId(
-  b2bClient: B2BSellersAdminClient,
+/**
+ * Rolle/Admin-Flag für die Verknüpfung Mitarbeiter↔Kunde.
+ *
+ * - Unternehmens-/Händler-Zugang = Administrator des Kunden (wie B2Bsellers
+ *   selbst beim Umwandeln eines Kunden in einen Mitarbeiter): Admin-Flag statt
+ *   einer per Namen geratenen „Admin“-Rolle.
+ * - Vertriebs-Supervisor: die gewählte Supervisor-Rolle.
+ * - Sonst: vorhandene Rolle/Admin-Flag unverändert lassen.
+ *
+ * `undefined` bedeutet „nicht anfassen“ (bestehende Verknüpfung bleibt wie sie ist).
+ */
+function resolvePortalEmployeeLinkFields(
   input: CreateB2BPortalUserInput,
-): Promise<string | null> {
-  if (input.type === "sales_rep" && input.isSupervisor && input.supervisorRoleId?.trim()) {
-    return input.supervisorRoleId.trim();
-  }
+): { roleId?: string | null; admin?: boolean } {
   if (input.type === "company" || input.type === "dealer") {
-    return resolveAdminEmployeeRoleId(b2bClient);
+    return { admin: true };
   }
-  return null;
+  if (input.type === "sales_rep" && input.isSupervisor && input.supervisorRoleId?.trim()) {
+    return { roleId: input.supervisorRoleId.trim() };
+  }
+  return {};
 }
 
 export type ResolvedPortalCustomer = {
@@ -380,17 +375,8 @@ async function syncPortalEmployee(
   options: { customerId: string; createIfMissing: boolean; sendEmails?: boolean },
 ): Promise<{ employeeId: string }> {
   const existing = await b2bClient.findEmployeeByEmail(input.email);
-  const roleId = await resolvePortalEmployeeRoleId(b2bClient, input);
-  const employeePayload = await buildPortalEmployeePayload(shopwareClient, input, { roleId });
+  const employeePayload = await buildPortalEmployeePayload(shopwareClient, input);
   const skipTriggerFlow = !options.sendEmails;
-
-  if (input.type === "sales_rep" && input.isSupervisor && input.supervisorRoleId?.trim()) {
-    employeePayload.roleId = input.supervisorRoleId.trim();
-    employeePayload.employeeRoleId = input.supervisorRoleId.trim();
-  } else if (existing?.roleId) {
-    delete employeePayload.roleId;
-    delete employeePayload.employeeRoleId;
-  }
 
   if (input.password?.trim()) {
     employeePayload.password = input.password;
@@ -412,8 +398,13 @@ async function syncPortalEmployee(
     throw new Error("Kein B2B-Mitarbeiter zu dieser E-Mail gefunden");
   }
 
+  // Rolle/Admin-Flag auf der Verknüpfung setzen; beim Neuanlegen ist die
+  // Verknüpfung aktiv, bei bestehender Verknüpfung bleibt der Aktiv-Status unberührt.
   const linkCustomerId = portalEmployeeLinkCustomerId(input, options.customerId);
-  await b2bClient.ensureEmployeeCustomerLink(employeeId, linkCustomerId, { skipTriggerFlow });
+  await b2bClient.ensureEmployeeCustomerLink(employeeId, linkCustomerId, {
+    skipTriggerFlow,
+    ...resolvePortalEmployeeLinkFields(input),
+  });
 
   return { employeeId };
 }

@@ -313,6 +313,8 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
         phoneNumber: z.string().optional(),
         active: z.boolean().optional(),
         customerId: z.string().optional(),
+        roleId: z.string().optional(),
+        admin: z.boolean().optional(),
       });
       const body = schema.parse(req.body);
       const tenantId = getTenantIdFromContext();
@@ -320,17 +322,22 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
         getAdminClient(tenantId),
         getShopwareClient(tenantId),
       ]);
-      const { customerId, ...employeePayload } = body;
+      // active, roleId und admin liegen in B2Bsellers auf der Verknüpfung
+      // Mitarbeiter↔Kunde, nicht am Mitarbeiter (unbekannte Felder würde
+      // Shopware still verwerfen).
+      const { customerId, active, roleId, admin, ...employeePayload } = body;
       const salutationId = employeePayload.salutationId?.trim() || (await shopwareClient.getDefaultSalutationId());
       const created = await client.createEntity("employee", {
         ...employeePayload,
         salutationId,
-        active: employeePayload.active ?? true,
       });
       if (customerId) {
         await client.createEntity("employeeCustomer", {
           employeeId: created.id,
           customerId,
+          roleId: roleId?.trim() || null,
+          admin: admin ?? false,
+          active: active ?? true,
         });
       }
       res.status(201).json(created);
@@ -394,29 +401,31 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
           roles.find((r) => /admin|administrator|verwaltung/i.test(r.name)) ?? roles[0];
         roleId = fallback?.id ?? null;
       }
+      if (!roleId) {
+        // Ohne Rolle (und ohne Admin-Flag) kann sich der Mitarbeiter im Shop
+        // nicht anmelden bzw. läuft in InsufficientEmployeePermissionException.
+        return res.status(400).json({ error: "Keine B2Bsellers-Rolle vorhanden — bitte zuerst eine Rolle anlegen" });
+      }
 
+      // Die Employee-Entität kennt weder active noch roleId — beides liegt auf
+      // der Verknüpfung Mitarbeiter↔Kunde (b2bsellers_employee_customer).
       const employeePayload: Record<string, unknown> = {
         email,
         firstName: body.firstName.trim(),
         lastName: body.lastName.trim(),
         languageId,
         salutationId,
-        active: true,
         password: body.password,
         department: body.department?.trim() || null,
         phoneNumber: body.phoneNumber?.trim() || null,
       };
-      if (roleId) {
-        employeePayload.roleId = roleId;
-        employeePayload.employeeRoleId = roleId;
-      }
 
       // skipTriggerFlow: keine automatischen Shopware-Flows/Mails beim Anlegen
       // (konsistent mit dem Portal-User-Import, der standardmäßig keine Mails sendet).
       const created = await client.createEntity("employee", employeePayload, { skipTriggerFlow: true });
       await client.createEntity(
         "employeeCustomer",
-        { employeeId: created.id, customerId },
+        { employeeId: created.id, customerId, roleId, admin: false, active: true },
         { skipTriggerFlow: true },
       );
       res.status(201).json({ success: true, id: created.id });
@@ -444,7 +453,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       const body = schema.parse(req.body);
 
       const payload: Record<string, unknown> = {};
-      for (const key of ["firstName", "lastName", "department", "phoneNumber", "active"] as const) {
+      for (const key of ["firstName", "lastName", "department", "phoneNumber"] as const) {
         if (body[key] !== undefined) {
           // Leere Strings als null speichern (Shopware akzeptiert null für optionale Felder).
           payload[key] = body[key] === "" ? null : body[key];
@@ -453,12 +462,18 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       if (body.password) {
         payload.password = body.password;
       }
-      if (Object.keys(payload).length === 0) {
+      if (Object.keys(payload).length === 0 && body.active === undefined) {
         return res.status(400).json({ error: "Keine Änderungen übergeben" });
       }
 
       const client = await getAdminClient();
-      await client.patchEntity("employee", req.params.id, payload);
+      if (Object.keys(payload).length > 0) {
+        await client.patchEntity("employee", req.params.id, payload);
+      }
+      // Aktiv-Status liegt auf den Kunden-Verknüpfungen, nicht am Mitarbeiter.
+      if (body.active !== undefined) {
+        await client.setEmployeeActive(req.params.id, body.active);
+      }
       res.json({ success: true, passwordChanged: Boolean(body.password) });
     } catch (error: any) {
       if (error instanceof z.ZodError) {
