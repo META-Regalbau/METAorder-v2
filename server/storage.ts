@@ -616,6 +616,8 @@ export interface IStorage {
     tenantId?: string | null,
   ): Promise<ShopwareOrderMirror | undefined>;
   countShopwareOrderMirrors(tenantId?: string | null): Promise<number>;
+  /** Alle Shopware-IDs im Bestell-Spiegel (Abgleich fehlender Bestellungen). */
+  listShopwareOrderMirrorIds(tenantId?: string | null): Promise<string[]>;
   deleteShopwareOrderMirrorsNotIn(keepIds: string[], tenantId?: string | null): Promise<number>;
 
   /** Raumplanung — ein Raum-Layout pro Angebot (Raummaße + Regal-Platzierungen). */
@@ -3134,6 +3136,13 @@ export class MemStorage implements IStorage {
   async countShopwareOrderMirrors(tenantId?: string | null): Promise<number> {
     const tid = tenantId ?? null;
     return this.shopwareOrderMirrors.filter((o) => (o.tenantId ?? null) === tid).length;
+  }
+
+  async listShopwareOrderMirrorIds(tenantId?: string | null): Promise<string[]> {
+    const tid = tenantId ?? null;
+    return this.shopwareOrderMirrors
+      .filter((o) => (o.tenantId ?? null) === tid)
+      .map((o) => o.shopwareId);
   }
 
   async deleteShopwareOrderMirrorsNotIn(keepIds: string[], tenantId?: string | null): Promise<number> {

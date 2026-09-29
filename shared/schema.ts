@@ -308,6 +308,8 @@ export type Order = {
   customerPhone?: string;
   orderDate: string;
   updatedAt?: string;
+  /** Shopware createdAt — neue Bestellungen haben updatedAt = null, bis sie erstmals geaendert werden */
+  createdAt?: string;
   deliveryDateEarliest?: string;
   deliveryDateLatest?: string;
   totalAmount: number; // Bruttogesamtbetrag (mit MwSt)

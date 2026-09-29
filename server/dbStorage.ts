@@ -3957,6 +3957,15 @@ export class DbStorage implements IStorage {
     return Number(value) || 0;
   }
 
+  async listShopwareOrderMirrorIds(tenantId?: string | null): Promise<string[]> {
+    const tenantFilter = tenantFilterFor(shopwareOrders.tenantId, tenantId);
+    const rows = await db
+      .select({ shopwareId: shopwareOrders.shopwareId })
+      .from(shopwareOrders)
+      .where(tenantFilter);
+    return rows.map((r) => r.shopwareId);
+  }
+
   async deleteShopwareOrderMirrorsNotIn(
     keepIds: string[],
     tenantId?: string | null,

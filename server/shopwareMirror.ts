@@ -301,11 +301,35 @@ async function syncProductsDelta(
   }
 }
 
+/** Gemappte Bestellungen in den Spiegel schreiben. */
+async function upsertOrderMirrors(storage: IStorage, orders: Order[], tenantId: string | null): Promise<void> {
+  if (orders.length === 0) return;
+  await storage.upsertShopwareOrderMirrors(
+    orders.map((o) => ({
+      shopwareId: o.id,
+      orderNumber: o.orderNumber ?? null,
+      salesChannelId: o.salesChannelId ?? null,
+      swUpdatedAt: parseSwDate(o.updatedAt),
+      payload: o as unknown as Record<string, unknown>,
+    })),
+    tenantId,
+  );
+}
+
 /**
  * Bestell-Spiegel: Delta-Sync statt "bei jedem Laden alle Bestellungen neu holen".
- * fetchOrders() paginiert intern selbst durch alle Treffer des updatedAt-Filters,
+ * fetchOrders() paginiert intern selbst durch alle Treffer des Delta-Filters,
  * deshalb reicht hier ein einzelner Aufruf (anders als bei Produkten/Kunden, wo
  * der Aufrufer die Seiten selbst durchlaeuft).
+ *
+ * Delta-Filter: updatedAt >= Cursor ODER createdAt >= Cursor. Neue Bestellungen haben
+ * in Shopware updatedAt = null (wird erst beim ersten Update gesetzt) — ein reiner
+ * updatedAt-Filter hat sie uebersehen, solange niemand etwas an ihnen geaendert hat.
+ *
+ * Abgleich (geloeschte UND im Spiegel fehlende Bestellungen): periodisch, und sofort,
+ * wenn die Anzahl im Spiegel nicht zur Anzahl im Shop passt — z. B. nach Wechsel der
+ * Shop-URL eines Mandanten, wo der alte Cursor sonst alle aelteren Bestellungen des
+ * neuen Shops dauerhaft ausblendet.
  */
 async function syncOrdersDelta(
   storage: IStorage,
@@ -316,7 +340,9 @@ async function syncOrdersDelta(
   await storage.upsertShopwareSyncState("orders", { status: "running", error: null }, tenantId);
   try {
     const state = await storage.getShopwareSyncState("orders", tenantId);
-    const fingerprint = await client.fetchOrdersFingerprint();
+    const fpDetails = await client.fetchOrdersFingerprintDetails();
+    const fingerprint = fpDetails?.fingerprint ?? null;
+    const shopTotal = fpDetails?.total ?? null;
 
     if (
       !opts?.force &&
@@ -347,37 +373,53 @@ async function syncOrdersDelta(
       ? await watcher.detectInvoiceNumberChanges(storage, orders, tenantId)
       : [];
 
-    if (orders.length > 0) {
-      await storage.upsertShopwareOrderMirrors(
-        orders.map((o) => ({
-          shopwareId: o.id,
-          orderNumber: o.orderNumber ?? null,
-          salesChannelId: o.salesChannelId ?? null,
-          swUpdatedAt: parseSwDate(o.updatedAt),
-          payload: o as unknown as Record<string, unknown>,
-        })),
-        tenantId,
-      );
-    }
+    await upsertOrderMirrors(storage, orders, tenantId);
 
     let maxUpdated: Date | null = cursor;
     for (const o of orders) {
-      const d = parseSwDate(o.updatedAt);
+      // Neue Bestellungen: updatedAt = null -> createdAt zaehlt fuer den Cursor.
+      const d = parseSwDate(o.updatedAt) ?? parseSwDate(o.createdAt);
       if (d && (!maxUpdated || d > maxUpdated)) maxUpdated = d;
     }
 
-    // Loesch-Abgleich (stornierte/geloeschte Bestellungen) — wie bei Produkten/Kunden
-    // nur periodisch, nicht bei jedem Delta-Lauf.
+    // Loesch-/Fehl-Abgleich — periodisch (wie bei Produkten/Kunden), zusaetzlich sofort,
+    // wenn Spiegel- und Shop-Anzahl auseinanderlaufen (Delta-Filter greift dann nicht).
     const reconcileMinutes = Number(process.env.SHOPWARE_SYNC_RECONCILE_MINUTES || 60);
     const reconcileMs = reconcileMinutes * 60 * 1000;
     const lastReconcile = state?.lastReconcileAt ? new Date(state.lastReconcileAt).getTime() : 0;
-    const needsReconcile = !lastReconcile || Date.now() - lastReconcile >= reconcileMs;
+    const mirrorCount = await storage.countShopwareOrderMirrors(tenantId);
+    // Abweichung Shop vs. Spiegel: nicht bei jedem Lauf erneut abgleichen — fetchOrders()
+    // dedupliziert Bestell-Versionen ueber die Bestellnummer, dadurch bleibt eine kleine,
+    // dauerhafte Differenz zur reinen ID-Anzahl im Shop normal. Deshalb gedrosselt.
+    const mismatchMinutes = Number(process.env.SHOPWARE_SYNC_MISMATCH_RECONCILE_MINUTES || 10);
+    const countMismatch =
+      shopTotal !== null &&
+      shopTotal > 0 &&
+      shopTotal !== mirrorCount &&
+      Date.now() - lastReconcile >= mismatchMinutes * 60 * 1000;
+    const needsReconcile = !lastReconcile || Date.now() - lastReconcile >= reconcileMs || countMismatch;
 
+    let reconciledMissing = 0;
     if (needsReconcile) {
       const { ids } = await client.fetchAllOrderIds();
       const deleted = await storage.deleteShopwareOrderMirrorsNotIn(ids, tenantId);
-      if (deleted > 0) {
-        console.log(`[ShopwareMirror] orders: reconciled ${deleted} deletions (tenant=${tenantId})`);
+
+      const known = new Set(await storage.listShopwareOrderMirrorIds(tenantId));
+      const missing = ids.filter((id) => !known.has(id));
+      // Bewusst ohne Rechnungsnummern-Watcher: diese Bestellungen sind dem Spiegel
+      // unbekannt, ihre Rechnungsnummern sind keine "Aenderung", die Versand ausloesen darf.
+      const MISSING_CHUNK = 500;
+      for (let i = 0; i < missing.length; i += MISSING_CHUNK) {
+        const chunkOrders = await client.fetchOrders(null, { ids: missing.slice(i, i + MISSING_CHUNK) });
+        await upsertOrderMirrors(storage, chunkOrders, tenantId);
+        reconciledMissing += chunkOrders.length;
+      }
+
+      if (deleted > 0 || missing.length > 0) {
+        console.log(
+          `[ShopwareMirror] orders: reconciled deleted=${deleted} missing=${missing.length} fetched=${reconciledMissing}` +
+            ` shopTotal=${shopTotal ?? "?"} mirror=${mirrorCount} (tenant=${tenantId ?? "default"})`,
+        );
       }
       await storage.upsertShopwareSyncState(
         "orders",
@@ -399,8 +441,9 @@ async function syncOrdersDelta(
       tenantId,
     );
 
+    const upserted = orders.length + reconciledMissing;
     console.log(
-      `[ShopwareMirror] orders: upserted=${orders.length} skipped=false tenant=${tenantId ?? "default"}`,
+      `[ShopwareMirror] orders: upserted=${upserted} (delta=${orders.length}, missing=${reconciledMissing}) skipped=false tenant=${tenantId ?? "default"}`,
     );
 
     if (watcher && invoiceNumberChanges.length > 0) {
@@ -415,7 +458,7 @@ async function syncOrdersDelta(
       }
     }
 
-    return { upserted: orders.length, skipped: false };
+    return { upserted, skipped: false };
   } catch (error: any) {
     await storage.upsertShopwareSyncState(
       "orders",
