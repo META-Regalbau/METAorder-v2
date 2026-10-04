@@ -34,7 +34,7 @@ export default function DelayedOrdersWidget() {
         <div className="mcard-head-left">
           <Clock className="h-5 w-5" />
           <div>
-            <h3 className="mcard-title">{t("dashboard.delayedOrders")}</h3>
+            <h2 className="mcard-title">{t("dashboard.delayedOrders")}</h2>
             <p className="mcard-desc">{t("dashboard.delayedOrdersDescription")}</p>
           </div>
         </div>

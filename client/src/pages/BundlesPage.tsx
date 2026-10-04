@@ -247,7 +247,7 @@ export default function BundlesPage() {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>{t("bundles.listTitle")}</CardTitle>
           <div className="flex items-center gap-2">
-            <Switch
+            <Switch aria-label={t("bundles.showInactive")}
               checked={includeInactive}
               onCheckedChange={setIncludeInactive}
               disabled={!canManageProducts}
@@ -365,7 +365,7 @@ export default function BundlesPage() {
               />
             </div>
             <div className="flex items-center gap-2">
-              <Switch
+              <Switch aria-label={t("bundles.fields.active")}
                 checked={formState.active}
                 onCheckedChange={(active) => setFormState((prev) => ({ ...prev, active }))}
               />

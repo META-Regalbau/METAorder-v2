@@ -289,7 +289,7 @@ export default function ProductsPage() {
         <Card className="p-4">
           <div className="flex items-center gap-2 mb-3">
             <Ruler className="h-4 w-4 text-muted-foreground" />
-            <h3 className="font-semibold text-sm">{t('products.dimensionsFilter')}</h3>
+            <h2 className="font-semibold text-sm">{t('products.dimensionsFilter')}</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>

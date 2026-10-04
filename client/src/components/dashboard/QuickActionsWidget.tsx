@@ -51,7 +51,7 @@ export default function QuickActionsWidget({ userPermissions }: QuickActionsWidg
     <div className="mcard" data-testid="widget-quick-actions">
       <div className="mcard-head">
         <div>
-          <h3 className="mcard-title">{t("dashboard.quickActions")}</h3>
+          <h2 className="mcard-title">{t("dashboard.quickActions")}</h2>
           <p className="mcard-desc">{t("dashboard.quickActionsDescription")}</p>
         </div>
       </div>

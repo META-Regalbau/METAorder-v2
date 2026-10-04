@@ -119,9 +119,9 @@ export default function TemplatesPage({ userPermissions }: TemplatesPageProps) {
       ) : templates.length === 0 ? (
         <Card className="p-8">
           <div className="text-center">
-            <h3 className="text-lg font-medium mb-2" data-testid="text-no-templates">
+            <h2 className="text-lg font-medium mb-2" data-testid="text-no-templates">
               {t('templates.noTemplates')}
-            </h3>
+            </h2>
             <p className="text-sm text-muted-foreground mb-4">
               {t('templates.noTemplatesDescription')}
             </p>

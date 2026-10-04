@@ -140,7 +140,7 @@ export default function ImportedCommercialInquiriesWidget({
           <div className="mcard-head-left">
             <Inbox className="h-5 w-5" />
             <div>
-              <h3 className="mcard-title">{t("dashboard.importedInquiries.title")}</h3>
+              <h2 className="mcard-title">{t("dashboard.importedInquiries.title")}</h2>
               <p className="mcard-desc">{t("dashboard.importedInquiries.description")}</p>
             </div>
           </div>
@@ -234,7 +234,7 @@ export default function ImportedCommercialInquiriesWidget({
                           })}
                         </span>
                         {item.overallConfidence != null ? (
-                          <span style={lowConfidence ? { color: "var(--meta-red)" } : undefined}>
+                          <span style={lowConfidence ? { color: "var(--meta-red-text)" } : undefined}>
                             {t("dashboard.importedInquiries.confidence", {
                               value: item.overallConfidence,
                             })}

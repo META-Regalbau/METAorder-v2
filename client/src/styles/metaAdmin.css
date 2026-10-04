@@ -17,9 +17,10 @@
   --meta-steel: #e2e2e2; --meta-chrome: #f5f5f5; --meta-ink: #1a1a1a; --meta-graphite: #4a4a4a;
   --meta-fog: #c8c8c8; --meta-mist: #f9f9f9; --meta-red-hover: #d40002; --meta-red-press: #a30001;
   --meta-green: #1f7a3d; --meta-green-bg: #eaf6ee;
-  --meta-amber: #9a6700; --meta-amber-bg: #fdf3e0;
+  --meta-amber: #835800; /* vorher #9a6700: 4,4:1 auf --meta-amber-bg */ --meta-amber-bg: #fdf3e0;
   --meta-red-text: #b3241a; --meta-red-bg: #fdeceb;
-  --fg-1: var(--meta-black); --fg-2: var(--meta-graphite); --fg-3: var(--meta-grey);
+  --meta-grey-text: #6b6a6a; /* Textgrau, Kontrast >= 4,5:1 (Markengrau #929191: 3,1:1) */
+  --fg-1: var(--meta-black); --fg-2: var(--meta-graphite); --fg-3: var(--meta-grey-text);
   --font-sans: "Frutiger LT Com", "Helvetica Neue", Arial, sans-serif;
   --font-cn: "Frutiger LT Com Cn", "Frutiger LT Com", "Helvetica Neue", Arial, sans-serif;
 

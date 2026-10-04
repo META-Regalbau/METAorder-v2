@@ -15,7 +15,8 @@
   --meta-red: #ff0002; --meta-white: #fff; --meta-black: #000; --meta-grey: #929191;
   --meta-steel: #e8e8e8; --meta-chrome: #f5f5f5; --meta-ink: #1a1a1a; --meta-graphite: #4a4a4a;
   --meta-fog: #c8c8c8; --meta-mist: #f9f9f9; --meta-red-hover: #d40002; --meta-red-press: #a30001;
-  --fg-1: var(--meta-black); --fg-2: var(--meta-graphite); --fg-3: var(--meta-grey); --fg-disabled: var(--meta-fog);
+  --meta-grey-text: #6b6a6a; /* Textgrau, Kontrast >= 4,5:1 (Markengrau #929191: 3,1:1) */
+  --fg-1: var(--meta-black); --fg-2: var(--meta-graphite); --fg-3: var(--meta-grey-text); --fg-disabled: var(--meta-fog);
   --font-sans: "Frutiger LT Com", "Helvetica Neue", Arial, sans-serif;
   --font-cn: "Frutiger LT Com Cn", "Frutiger LT Com", "Helvetica Neue", Arial, sans-serif;
   --font-mono: "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, monospace;

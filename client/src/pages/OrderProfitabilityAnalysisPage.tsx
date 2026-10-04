@@ -383,7 +383,13 @@ export default function OrderProfitabilityAnalysisPage() {
                         cx="50%"
                         cy="50%"
                         outerRadius={90}
-                        label={({ name, value }) => `${name}: ${value}`}
+                        // Beschriftung selbst zeichnen: sonst reicht recharts das aria-label der Tortenstuecke an Text und Linie weiter
+                        label={({ x, y, textAnchor, fill, name, value }) => (
+                          <text x={x} y={y} textAnchor={textAnchor} dominantBaseline="central" fill={fill}>{`${name}: ${value}`}</text>
+                        )}
+                        labelLine={({ points, stroke }: { points: Array<{ x: number; y: number }>; stroke: string }) => (
+                          <path d={`M${points[0].x},${points[0].y}L${points[1].x},${points[1].y}`} stroke={stroke} fill="none" />
+                        )}
                       >
                         {crmPieData.map((entry) => (
                           <Cell

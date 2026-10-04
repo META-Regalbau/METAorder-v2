@@ -1587,7 +1587,7 @@ function GeneralTab() {
               <div className="grid gap-3">
                 <div className="flex items-center justify-between gap-4">
                   <Label className="text-sm font-medium">{t("settings.tenants.invoiceEInvoice")}</Label>
-                  <Switch
+                  <Switch aria-label={t("settings.tenants.invoiceEInvoice")}
                     checked={invoiceAutomation.eInvoice}
                     onCheckedChange={(value) => setInvoiceAutomation((prev) => ({ ...prev, eInvoice: value }))}
                     data-testid="switch-invoice-einvoice"
@@ -1595,7 +1595,7 @@ function GeneralTab() {
                 </div>
                 <div className="flex items-center justify-between gap-4">
                   <Label className="text-sm font-medium">{t("settings.tenants.invoiceAutoSend")}</Label>
-                  <Switch
+                  <Switch aria-label={t("settings.tenants.invoiceAutoSend")}
                     checked={invoiceAutomation.autoSend}
                     onCheckedChange={(value) => setInvoiceAutomation((prev) => ({ ...prev, autoSend: value }))}
                     data-testid="switch-invoice-autosend"
@@ -1623,7 +1623,7 @@ function GeneralTab() {
               <div className="grid gap-3">
                 <div className="flex items-center justify-between gap-4">
                   <Label className="text-sm font-medium">{t("settings.tenants.dunningEnabled")}</Label>
-                  <Switch
+                  <Switch aria-label={t("settings.tenants.dunningEnabled")}
                     checked={dunningSettings.enabled}
                     onCheckedChange={(value) =>
                       setDunningSettings((prev) => ({ ...prev, enabled: value }))
@@ -1633,7 +1633,7 @@ function GeneralTab() {
                 </div>
                 <div className="flex items-center justify-between gap-4">
                   <Label className="text-sm font-medium">{t("settings.tenants.dunningManualOnly")}</Label>
-                  <Switch
+                  <Switch aria-label={t("settings.tenants.dunningManualOnly")}
                     checked={dunningSettings.manualOnly}
                     onCheckedChange={(value) =>
                       setDunningSettings((prev) => ({ ...prev, manualOnly: value }))
@@ -1646,7 +1646,7 @@ function GeneralTab() {
                     <Label className="text-sm font-medium">{t("settings.tenants.dunningGeneratePdfInApp")}</Label>
                     <p className="text-xs text-muted-foreground">{t("settings.tenants.dunningGeneratePdfInAppHelp")}</p>
                   </div>
-                  <Switch
+                  <Switch aria-label={t("settings.tenants.dunningGeneratePdfInApp")}
                     checked={dunningSettings.generatePdfInApp !== false}
                     onCheckedChange={(value) =>
                       setDunningSettings((prev) => ({ ...prev, generatePdfInApp: value }))
@@ -1660,7 +1660,7 @@ function GeneralTab() {
                       <Label className="text-sm font-medium">{t("settings.tenants.dunningSavePdfToShop")}</Label>
                       <p className="text-xs text-muted-foreground">{t("settings.tenants.dunningSavePdfToShopHelp")}</p>
                     </div>
-                    <Switch
+                    <Switch aria-label={t("settings.tenants.dunningSavePdfToShop")}
                       checked={dunningSettings.savePdfToShop === true}
                       onCheckedChange={(value) =>
                         setDunningSettings((prev) => ({ ...prev, savePdfToShop: value }))
@@ -2247,7 +2247,7 @@ function EmailTab() {
                 <Label className="text-sm font-medium">{t("settings.m365.enabled")}</Label>
                 <p className="text-xs text-muted-foreground">{t("settings.m365.enabledDesc")}</p>
               </div>
-              <Switch
+              <Switch aria-label={t("settings.m365.enabled")}
                 checked={m365Settings.enabled}
                 onCheckedChange={(value) => setM365Settings({ ...m365Settings, enabled: value })}
               />
@@ -2300,14 +2300,14 @@ function EmailTab() {
 
             <div className="flex flex-wrap gap-4">
               <div className="flex items-center gap-2">
-                <Switch
+                <Switch aria-label={t("settings.m365.enableGraph")}
                   checked={m365Settings.enableGraph}
                   onCheckedChange={(value) => setM365Settings({ ...m365Settings, enableGraph: value })}
                 />
                 <Label className="text-sm">{t("settings.m365.enableGraph")}</Label>
               </div>
               <div className="flex items-center gap-2">
-                <Switch
+                <Switch aria-label={t("settings.m365.enableImapSmtp")}
                   checked={m365Settings.enableImapSmtp}
                   onCheckedChange={(value) => setM365Settings({ ...m365Settings, enableImapSmtp: value })}
                 />
@@ -2447,7 +2447,7 @@ function EmailTab() {
                 <Label className="text-sm font-medium">{t("settings.emailInbound.enabled")}</Label>
                 <p className="text-xs text-muted-foreground">{t("settings.emailInbound.enabledDesc")}</p>
               </div>
-              <Switch
+              <Switch aria-label={t("settings.emailInbound.enabled")}
                 checked={emailInboundSettings.enabled}
                 onCheckedChange={(value) => setEmailInboundSettings({ ...emailInboundSettings, enabled: value })}
               />
@@ -2528,21 +2528,21 @@ function EmailTab() {
 
             <div className="flex flex-wrap gap-4">
               <div className="flex items-center gap-2">
-                <Switch
+                <Switch aria-label={t("settings.emailInbound.secure")}
                   checked={emailInboundSettings.secure}
                   onCheckedChange={(value) => setEmailInboundSettings({ ...emailInboundSettings, secure: value })}
                 />
                 <Label className="text-sm">{t("settings.emailInbound.secure")}</Label>
               </div>
               <div className="flex items-center gap-2">
-                <Switch
+                <Switch aria-label={t("settings.emailInbound.markAsSeen")}
                   checked={emailInboundSettings.markAsSeen}
                   onCheckedChange={(value) => setEmailInboundSettings({ ...emailInboundSettings, markAsSeen: value })}
                 />
                 <Label className="text-sm">{t("settings.emailInbound.markAsSeen")}</Label>
               </div>
               <div className="flex items-center gap-2">
-                <Switch
+                <Switch aria-label={t("settings.emailInbound.allowAttachments")}
                   checked={emailInboundSettings.allowAttachments}
                   onCheckedChange={(value) => setEmailInboundSettings({ ...emailInboundSettings, allowAttachments: value })}
                 />
@@ -2580,7 +2580,7 @@ function EmailTab() {
                 <Label className="text-sm font-medium">{t("settings.emailOutbound.enabled")}</Label>
                 <p className="text-xs text-muted-foreground">{t("settings.emailOutbound.enabledDesc")}</p>
               </div>
-              <Switch
+              <Switch aria-label={t("settings.emailOutbound.enabled")}
                 checked={emailOutboundSettings.enabled}
                 onCheckedChange={(value) => setEmailOutboundSettings({ ...emailOutboundSettings, enabled: value })}
               />
@@ -2669,7 +2669,7 @@ function EmailTab() {
 
             <div className="flex flex-wrap gap-4">
               <div className="flex items-center gap-2">
-                <Switch
+                <Switch aria-label={t("settings.emailOutbound.secure")}
                   checked={emailOutboundSettings.secure}
                   onCheckedChange={(value) => setEmailOutboundSettings({ ...emailOutboundSettings, secure: value })}
                 />
@@ -2707,7 +2707,7 @@ function EmailTab() {
                 <Label className="text-sm font-medium">{t("settings.emailRouting.enabled")}</Label>
                 <p className="text-xs text-muted-foreground">{t("settings.emailRouting.enabledDesc")}</p>
               </div>
-              <Switch
+              <Switch aria-label={t("settings.emailRouting.enabled")}
                 checked={emailRoutingSettings.enabled}
                 onCheckedChange={(value) => setEmailRoutingSettings({ ...emailRoutingSettings, enabled: value })}
               />
@@ -2911,7 +2911,7 @@ function MarketingTab() {
                 <Label className="text-sm font-medium">{t("settings.googleAnalytics.enabled")}</Label>
                 <p className="text-xs text-muted-foreground">{t("settings.googleAnalytics.enabledDesc")}</p>
               </div>
-              <Switch
+              <Switch aria-label={t("settings.googleAnalytics.enabled")}
                 checked={gaSettings.enabled}
                 onCheckedChange={(value) => setGaSettings({ ...gaSettings, enabled: value })}
               />
@@ -2972,7 +2972,7 @@ function MarketingTab() {
                 <Label className="text-sm font-medium">{t("settings.googleAds.enabled")}</Label>
                 <p className="text-xs text-muted-foreground">{t("settings.googleAds.enabledDesc")}</p>
               </div>
-              <Switch
+              <Switch aria-label={t("settings.googleAds.enabled")}
                 checked={adsSettings.enabled}
                 onCheckedChange={(value) => setAdsSettings({ ...adsSettings, enabled: value })}
               />
@@ -3067,7 +3067,7 @@ function AiTab() {
                 {t('ai.enableAiDesc')}
               </p>
             </div>
-            <Switch
+            <Switch aria-label={t('ai.enableAi')}
               checked={aiEnabled}
               onCheckedChange={setAiEnabled}
               data-testid="switch-ai-enabled"
@@ -3297,7 +3297,7 @@ function AiTab() {
               <Label className="text-sm font-medium">{t("settings.commercialAgent.enable")}</Label>
               <p className="text-xs text-muted-foreground">{t("settings.commercialAgent.enableDesc")}</p>
             </div>
-            <Switch
+            <Switch aria-label={t("settings.commercialAgent.enable")}
               checked={commercialAgentForm.enabled}
               onCheckedChange={(v) => setCommercialAgentForm((p) => ({ ...p, enabled: v }))}
             />
@@ -3308,7 +3308,7 @@ function AiTab() {
               <Label className="text-sm font-medium">{t("settings.commercialAgent.documentLearning")}</Label>
               <p className="text-xs text-muted-foreground">{t("settings.commercialAgent.documentLearningDesc")}</p>
             </div>
-            <Switch
+            <Switch aria-label={t("settings.commercialAgent.documentLearning")}
               checked={commercialAgentForm.documentLearningEnabled}
               onCheckedChange={(v) =>
                 setCommercialAgentForm((p) => ({ ...p, documentLearningEnabled: v }))
@@ -3321,7 +3321,7 @@ function AiTab() {
               <Label className="text-sm font-medium">{t("settings.commercialAgent.subAgents")}</Label>
               <p className="text-xs text-muted-foreground">{t("settings.commercialAgent.subAgentsDesc")}</p>
             </div>
-            <Switch
+            <Switch aria-label={t("settings.commercialAgent.subAgents")}
               checked={commercialAgentForm.subAgentsEnabled}
               onCheckedChange={(v) => setCommercialAgentForm((p) => ({ ...p, subAgentsEnabled: v }))}
             />
@@ -3332,7 +3332,7 @@ function AiTab() {
               <Label className="text-sm font-medium">{t("settings.commercialAgent.webDomainVerify")}</Label>
               <p className="text-xs text-muted-foreground">{t("settings.commercialAgent.webDomainVerifyDesc")}</p>
             </div>
-            <Switch
+            <Switch aria-label={t("settings.commercialAgent.webDomainVerify")}
               checked={commercialAgentForm.webDomainVerifyEnabled}
               onCheckedChange={(v) => setCommercialAgentForm((p) => ({ ...p, webDomainVerifyEnabled: v }))}
             />
@@ -3347,7 +3347,7 @@ function AiTab() {
                 {t("settings.commercialAgent.extractionRefinementSubAgentsDesc")}
               </p>
             </div>
-            <Switch
+            <Switch aria-label={t("settings.commercialAgent.extractionRefinementSubAgents")}
               checked={commercialAgentForm.extractionRefinementSubAgentsEnabled}
               onCheckedChange={(v) =>
                 setCommercialAgentForm((p) => ({ ...p, extractionRefinementSubAgentsEnabled: v }))
@@ -3360,7 +3360,7 @@ function AiTab() {
               <Label className="text-sm font-medium">{t("settings.commercialAgent.signatureCompanyVision")}</Label>
               <p className="text-xs text-muted-foreground">{t("settings.commercialAgent.signatureCompanyVisionDesc")}</p>
             </div>
-            <Switch
+            <Switch aria-label={t("settings.commercialAgent.signatureCompanyVision")}
               checked={commercialAgentForm.signatureCompanyVisionEnabled}
               onCheckedChange={(v) =>
                 setCommercialAgentForm((p) => ({ ...p, signatureCompanyVisionEnabled: v }))
@@ -3379,7 +3379,7 @@ function AiTab() {
                   {t("settings.commercialAgent.inboundAckDesc")}
                 </p>
               </div>
-              <Switch
+              <Switch aria-label={t("settings.commercialAgent.inboundAck")}
                 checked={commercialAgentForm.inboundAcknowledgementEnabled}
                 onCheckedChange={(v) =>
                   setCommercialAgentForm((p) => ({ ...p, inboundAcknowledgementEnabled: v }))
@@ -3538,7 +3538,7 @@ function AiTab() {
           </div>
           <div className="flex items-center justify-between">
             <Label className="text-sm">{t("settings.commercialAgent.autoOffers")}</Label>
-            <Switch
+            <Switch aria-label={t("settings.commercialAgent.autoOffers")}
               checked={commercialAgentForm.autoCreateOffersEnabled}
               onCheckedChange={(v) => setCommercialAgentForm((p) => ({ ...p, autoCreateOffersEnabled: v }))}
             />
@@ -3548,7 +3548,7 @@ function AiTab() {
               <Label className="text-sm">{t("settings.commercialAgent.autoOrders")}</Label>
               <p className="text-xs text-muted-foreground">{t("settings.commercialAgent.autoOrdersDesc")}</p>
             </div>
-            <Switch
+            <Switch aria-label={t("settings.commercialAgent.autoOrders")}
               checked={commercialAgentForm.autoCreateOrdersEnabled}
               onCheckedChange={(v) => setCommercialAgentForm((p) => ({ ...p, autoCreateOrdersEnabled: v }))}
             />

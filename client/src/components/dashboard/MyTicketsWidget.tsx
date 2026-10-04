@@ -46,7 +46,7 @@ export default function MyTicketsWidget() {
         <div>
           <div className="mcard-head-left">
             <Ticket className="h-5 w-5" />
-            <h3 className="mcard-title">{t("dashboard.myTickets")}</h3>
+            <h2 className="mcard-title">{t("dashboard.myTickets")}</h2>
           </div>
           <p className="mcard-desc">{t("dashboard.myTicketsDescription")}</p>
         </div>

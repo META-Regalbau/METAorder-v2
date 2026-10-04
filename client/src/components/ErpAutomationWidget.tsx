@@ -94,7 +94,7 @@ export default function ErpAutomationWidget({ userRole }: ErpAutomationWidgetPro
     switch (status) {
       case 'success':
         return (
-          <Badge variant="default" className="gap-1 bg-green-600 hover:bg-green-700" data-testid={`badge-success`}>
+          <Badge variant="default" className="gap-1 bg-green-700 hover:bg-green-800" data-testid={`badge-success`}>
             <CheckCircle className="w-3 h-3" />
             {t('erpAutomation.status.success', 'Success')}
           </Badge>

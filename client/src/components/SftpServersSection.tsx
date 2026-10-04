@@ -350,7 +350,7 @@ export default function SftpServersSection() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Label className="text-xs">{t("settings.sftp.enabled")}</Label>
-                  <Switch checked={s.enabled} disabled={toggleEnabled.isPending} onCheckedChange={() => toggleEnabled.mutate(s)} />
+                  <Switch aria-label={t("settings.sftp.enabled")} checked={s.enabled} disabled={toggleEnabled.isPending} onCheckedChange={() => toggleEnabled.mutate(s)} />
                 </div>
               </div>
               <div className="text-xs text-muted-foreground font-mono break-all">
@@ -553,18 +553,18 @@ export default function SftpServersSection() {
                 <Label className="text-xs">{t("settings.sftp.fields.autoUpload")}</Label>
                 <p className="text-[11px] text-muted-foreground">{t("settings.sftp.fields.autoUploadHelp")}</p>
               </div>
-              <Switch checked={form.autoUploadOnOrderCreate} onCheckedChange={(v) => set("autoUploadOnOrderCreate", v)} />
+              <Switch aria-label={t("settings.sftp.fields.autoUpload")} checked={form.autoUploadOnOrderCreate} onCheckedChange={(v) => set("autoUploadOnOrderCreate", v)} />
             </div>
             <div className="flex items-center justify-between gap-2 border rounded-md p-3">
               <div>
                 <Label className="text-xs">{t("settings.sftp.fields.sidecar")}</Label>
                 <p className="text-[11px] text-muted-foreground">{t("settings.sftp.fields.sidecarHelp")}</p>
               </div>
-              <Switch checked={form.writeMetadataSidecar} onCheckedChange={(v) => set("writeMetadataSidecar", v)} />
+              <Switch aria-label={t("settings.sftp.fields.sidecar")} checked={form.writeMetadataSidecar} onCheckedChange={(v) => set("writeMetadataSidecar", v)} />
             </div>
             <div className="flex items-center justify-between gap-2 border rounded-md p-3 sm:col-span-2">
               <Label className="text-xs">{t("settings.sftp.enabled")}</Label>
-              <Switch checked={form.enabled} onCheckedChange={(v) => set("enabled", v)} />
+              <Switch aria-label={t("settings.sftp.enabled")} checked={form.enabled} onCheckedChange={(v) => set("enabled", v)} />
             </div>
 
             <div className="sm:col-span-2">

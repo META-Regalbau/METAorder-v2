@@ -245,7 +245,7 @@ export default function TicketRulesPage() {
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-2">
                     <Label className="text-sm">Active</Label>
-                    <Switch
+                    <Switch aria-label="Active"
                       checked={rule.active === 1}
                       onCheckedChange={() => handleToggle(rule)}
                       data-testid={`switch-active-${rule.id}`}
