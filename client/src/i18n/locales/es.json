@@ -2458,6 +2458,10 @@
         "name": "Actualización Automática de Estado",
         "description": "Actualiza automáticamente el estado del pedido de 'Pagado' a 'En Progreso'"
       },
+      "paymentFailed": {
+        "name": "Pago fallido",
+        "description": "Crea un ticket cuando el estado de pago de un pedido cambia a “Fallido”."
+      },
       "sentimentPriority": {
         "name": "Priorizar tickets negativos",
         "description": "Pone los tickets nuevos con sentimiento negativo en prioridad “Alta”."
@@ -2492,7 +2496,9 @@
       },
       "order": {
         "status": "Pedido: estado",
+        "previousStatus": "Pedido: estado anterior",
         "paymentStatus": "Pedido: estado de pago",
+        "previousPaymentStatus": "Pedido: estado de pago anterior",
         "daysSinceOrder": "Pedido: días desde el pedido",
         "daysPastDeliveryDate": "Pedido: días tras la fecha de entrega más tardía",
         "totalAmount": "Pedido: importe total (bruto)",
@@ -2559,6 +2565,10 @@
       "previewSummary": "Coincide ahora con {{matching}} pedidos, {{done}} ya tratados. Próxima pasada: {{next}}.",
       "previewError": "Vista previa fallida",
       "days": "días"
+    },
+    "orderEvents": {
+      "title": "Con cambios en Shopware",
+      "description": "Se detecta durante la sincronización con Shopware (aprox. cada 3 minutos), es decir, con un breve retraso. Solo se notifican los cambios de las últimas {{hours}} horas; la primera sincronización de un inquilino no desencadena nada."
     }
   },
   "offers": {

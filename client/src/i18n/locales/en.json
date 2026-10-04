@@ -2803,6 +2803,10 @@
         "name": "Auto Status Update",
         "description": "Automatically updates order status from 'Paid' to 'In Progress'"
       },
+      "paymentFailed": {
+        "name": "Failed payment",
+        "description": "Creates a ticket when an order's payment status changes to “Failed”."
+      },
       "sentimentPriority": {
         "name": "Prioritize negative tickets",
         "description": "Sets new tickets with negative sentiment to priority “High”."
@@ -2837,7 +2841,9 @@
       },
       "order": {
         "status": "Order: status",
+        "previousStatus": "Order: previous status",
         "paymentStatus": "Order: payment status",
+        "previousPaymentStatus": "Order: previous payment status",
         "daysSinceOrder": "Order: days since order",
         "daysPastDeliveryDate": "Order: days past latest delivery date",
         "totalAmount": "Order: total (gross)",
@@ -2904,6 +2910,10 @@
       "previewSummary": "Currently matches {{matching}} orders, {{done}} of them already handled. Next run: {{next}}.",
       "previewError": "Preview failed",
       "days": "days"
+    },
+    "orderEvents": {
+      "title": "On changes in Shopware",
+      "description": "Detected during the sync with Shopware (about every 3 minutes), so with a short delay. Only changes from the last {{hours}} hours are reported; the first sync of a tenant triggers nothing."
     }
   },
   "offers": {
