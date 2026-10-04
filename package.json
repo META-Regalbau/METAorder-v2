@@ -14,6 +14,7 @@
     "openapi:check": "node scripts/generate-openapi-paths.mjs --check",
     "build": "npm run openapi:generate && vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist && esbuild scripts/resetRegulationPrice.ts scripts/importShopFakturen.ts scripts/importHerstellpreise.ts --platform=node --packages=external --bundle --format=esm --outdir=dist/scripts && node scripts/copy-pdf-assets.mjs",
     "start": "NODE_ENV=production node dist/index.js",
+    "docker:build": "APP_VERSION=$(git rev-list --count HEAD) APP_COMMIT=$(git rev-parse --short=7 HEAD) APP_COMMIT_DATE=$(git log -1 --format=%cI) docker compose build app",
     "check": "tsc",
     "test": "vitest run",
     "test:watch": "vitest",

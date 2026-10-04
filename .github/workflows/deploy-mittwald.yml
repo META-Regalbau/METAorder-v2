@@ -69,6 +69,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # ganze Historie: die Versionsnummer ist die Anzahl der Commits
+          fetch-depth: 0
 
       - name: Resolve image tag
         id: meta
@@ -80,6 +83,10 @@ jobs:
           fi
           echo "image_tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "image_ref=${{ env.IMAGE_REPO }}:${TAG}" >> "$GITHUB_OUTPUT"
+          # Versionsangabe der App (Sidebar unten, /api/version)
+          echo "app_version=$(git rev-list --count HEAD)" >> "$GITHUB_OUTPUT"
+          echo "app_commit=$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+          echo "app_commit_date=$(git log -1 --format=%cI)" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -101,6 +108,10 @@ jobs:
           tags: |
             ${{ env.IMAGE_REPO }}:${{ steps.meta.outputs.image_tag }}
             ${{ env.IMAGE_REPO }}:latest
+          build-args: |
+            APP_VERSION=${{ steps.meta.outputs.app_version }}
+            APP_COMMIT=${{ steps.meta.outputs.app_commit }}
+            APP_COMMIT_DATE=${{ steps.meta.outputs.app_commit_date }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

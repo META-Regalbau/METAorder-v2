@@ -51,6 +51,16 @@ RUN npm run build \
   && npm cache clean --force \
   && chmod +x scripts/docker-entrypoint.sh scripts/mittwald-db-init.sh
 
+# Versionsangabe (Sidebar unten, GET /api/version): fortlaufende Nummer, kurzer Commit, Commit-Datum.
+# Im Image gibt es kein .git - die CI und `npm run docker:build` reichen die Werte als Build-Argumente
+# herein; ohne sie zeigt die App "dev". Erst nach dem teuren Build-Schritt, damit dessen Cache bleibt.
+ARG APP_VERSION=
+ARG APP_COMMIT=
+ARG APP_COMMIT_DATE=
+ENV APP_VERSION=$APP_VERSION \
+    APP_COMMIT=$APP_COMMIT \
+    APP_COMMIT_DATE=$APP_COMMIT_DATE
+
 EXPOSE 5000
 
 ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]

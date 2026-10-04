@@ -4746,5 +4746,9 @@
       "description": "Clientes con más solicitudes de oferta"
     },
     "impressionsShort": "impr."
+  },
+  "appVersion": {
+    "label": "Versión {{version}}",
+    "details": "Commit {{commit}} del {{date}}"
   }
 }
