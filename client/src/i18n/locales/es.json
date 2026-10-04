@@ -2519,7 +2519,8 @@
     "medianShippingDays": "Mediana del tiempo de envío (días)",
     "ordersWithShippingData": "Pedidos con fecha de envío",
     "noShippingData": "No hay datos de envío en el periodo. Registre la fecha de envío al enviar.",
-    "shippingTimesDistribution": "Distribución por tiempo de envío"
+    "shippingTimesDistribution": "Distribución por tiempo de envío",
+    "gross": "Bruto"
   },
   "bulkActions": {
     "selectedCount": "{{count}} pedido seleccionado",
@@ -4679,5 +4680,40 @@
     "noRuns": "Todavía no hay ejecuciones de la automatización",
     "pollInterval": "La automatización se ejecuta cada 3 minutos",
     "info": "Crea facturas automáticamente y marca los pedidos como enviados según los CustomFields del ERP"
+  },
+  "insights": {
+    "top_pairs": {
+      "title": "Artículos más combinados",
+      "description": "Pares de artículos con alta probabilidad de compra"
+    },
+    "upsell_opportunities": {
+      "title": "Potencial de upselling",
+      "description": "Recomendaciones con alto lift para la cesta"
+    },
+    "top_quality_pairs": {
+      "title": "Pares de mayor calidad (embudo)",
+      "description": "Dirección origen→destino con alta interacción relativa (últimos 90 días)"
+    },
+    "low_quality_pairs": {
+      "title": "Pares débiles (embudo)",
+      "description": "Impresiones suficientes, pero una tasa de añadidos muy baja"
+    },
+    "offer_status_distribution": {
+      "title": "Distribución por estado de la oferta",
+      "description": "Distribución de los estados de las ofertas en el periodo"
+    },
+    "offer_conversion": {
+      "title": "Conversión de ofertas",
+      "description": "Proporción de ofertas aprobadas"
+    },
+    "offer_avg_values": {
+      "title": "Valor medio de las ofertas",
+      "description": "Valores medios por estado"
+    },
+    "top_customers": {
+      "title": "Clientes con más ofertas",
+      "description": "Clientes con más solicitudes de oferta"
+    },
+    "impressionsShort": "impr."
   }
 }

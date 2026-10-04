@@ -95,6 +95,15 @@ describe("Uebersetzungsschluessel (Deutsch)", () => {
     ])).toEqual([]);
   });
 
+  it("Lern-Insights: jeder vom Server erzeugte insightType hat Titel und Beschreibung", () => {
+    const types = new Set<string>();
+    for (const file of sourceFiles(path.join(ROOT, "server"))) {
+      for (const m of fs.readFileSync(file, "utf8").matchAll(/insightType:\s*["']([a-z_]+)["']/g)) types.add(m[1]);
+    }
+    expect(types.size).toBeGreaterThanOrEqual(8); // Plausibilitaet: Angebote (4) und Cross-Selling (4)
+    expect(missingIn([...types].flatMap((v) => [`insights.${v}.title`, `insights.${v}.description`]))).toEqual([]);
+  });
+
   it("Dokumenttypen der Shops (unbekannte zeigt die Detailansicht mit technischem Namen)", () => {
     const used = ["invoice", "delivery_note", "credit_note", "cancellation", "unknown", "pickware_erp_picklist", "partial_cancellation"];
     expect(missingIn(used.map((v) => `documentTypes.${v}`))).toEqual([]);

@@ -1,5 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { learningInsightDescription, learningInsightTitle } from "@/lib/learningInsightText";
 import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Play } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -939,9 +940,9 @@ export default function CrossSellingRulesPage() {
                   if (!insight) return null;
                   return (
                     <Card key={insightType} className="p-4">
-                      <h3 className="text-sm font-semibold mb-1">{insight.title}</h3>
-                      {insight.description && (
-                        <p className="text-xs text-muted-foreground mb-2">{insight.description}</p>
+                      <h3 className="text-sm font-semibold mb-1">{learningInsightTitle(t, insight)}</h3>
+                      {learningInsightDescription(t, insight) && (
+                        <p className="text-xs text-muted-foreground mb-2">{learningInsightDescription(t, insight)}</p>
                       )}
                       {pairs.length === 0 ? (
                         <p className="text-xs text-muted-foreground">{t("rules.noInsightData", "Noch keine Daten")}</p>
@@ -962,7 +963,7 @@ export default function CrossSellingRulesPage() {
                                 </div>
                                 {typeof row.addRatePct === "number" && (
                                   <div className="text-muted-foreground mt-0.5">
-                                    ({row.addRatePct}% / {String(row.impressions ?? "")} Imp.)
+                                    ({row.addRatePct}% / {String(row.impressions ?? "")} {t("insights.impressionsShort")})
                                   </div>
                                 )}
                               </div>
