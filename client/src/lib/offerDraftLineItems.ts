@@ -125,20 +125,21 @@ export function applyAlternativeSelectionsToOfferMatchingItems(
   });
 }
 
-export function applyAlternativeSelectionsToMatchingResults(
-  matchingResults: { items?: OfferDraftMatchItem[]; overallConfidence?: number; [key: string]: unknown } | null | undefined,
-  input: AlternativeSelectionInput
-): typeof matchingResults {
+/** Generisch, damit Aufrufer ihren konkreten Positionstyp behalten (sonst wird alles zu `unknown`). */
+export function applyAlternativeSelectionsToMatchingResults<
+  T extends { items?: OfferDraftMatchItem[]; overallConfidence?: number },
+>(matchingResults: T | null | undefined, input: AlternativeSelectionInput): T | null | undefined {
   if (!matchingResults?.items) return matchingResults;
   const items = applyAlternativeSelectionsToOfferMatchingItems(matchingResults.items, input);
   const overallConfidence = recomputeOfferOverallConfidence(
     items as Array<{ confidence: number; productScreen?: { likelihood: string } }>
   );
+  // Die Positionen behalten ihre Form (Spread + Überschreiben einzelner Felder).
   return {
     ...matchingResults,
     items,
     overallConfidence,
-  };
+  } as T;
 }
 
 /** Ob eine Position für die Angebotserstellung ausreichend zugeordnet ist (inkl. bewusster Alternativwahl). */
