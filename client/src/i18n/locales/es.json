@@ -108,7 +108,12 @@
     "cancel": "Cancelar",
     "actions": "Acciones",
     "loading": "Cargando...",
-    "edit": "Editar"
+    "edit": "Editar",
+    "errorLoadingData": "Error al cargar los datos",
+    "inStock": "En stock",
+    "noResults": "Sin resultados",
+    "outOfStock": "Sin stock",
+    "error": "Error"
   },
   "globalSearch": {
     "placeholder": "Buscar (pedido, factura, ERP)",
@@ -917,7 +922,14 @@
     "permissions": "Permisos",
     "allChannels": "Todos los Canales",
     "createRole": "Crear Rol",
-    "updateRole": "Actualizar Rol"
+    "updateRole": "Actualizar Rol",
+    "enabled": "activados",
+    "roleCreated": "Rol creado",
+    "roleCreatedSuccess": "El rol se ha creado correctamente.",
+    "roleUpdated": "Rol actualizado",
+    "roleUpdatedSuccess": "El rol se ha actualizado correctamente.",
+    "roleDeleted": "Rol eliminado",
+    "roleDeletedSuccess": "El rol se ha eliminado correctamente."
   },
   "orders": {
     "title": "Pedidos",
@@ -968,7 +980,16 @@
       "avgDb1": "DB1 neto medio",
       "hint": "{{withData}} de {{total}} pedidos filtrados con datos de coste de fabricación",
       "noData": "Sin datos de margen de contribución para la selección de filtros actual"
-    }
+    },
+    "dunningStage": "Nivel de reclamación {{stage}}",
+    "installmentPlan": "Plan de pagos",
+    "monduPluginError": "Envío bloqueado por Mondu",
+    "monduPluginErrorDescription": "El plugin de pago de Mondu en Shopware impide el cambio de estado. Establezca el estado de entrega manualmente en Shopware o contacte con el soporte de Shopware/Mondu.",
+    "monduPluginErrorPaymentSwitchDescription": "El plugin de Mondu bloquea el estado de envío aunque el método de pago actual no es Mondu (se cambió el método de pago en el checkout). Compruébelo en Shopware: anule la transacción antigua de Mondu o active «Skip order state validation» en el plugin de Mondu.",
+    "overdue": "Vencido",
+    "sendInvoiceRecipientHint": "Si se deja vacío, la factura se envía a {{email}}.",
+    "sendInvoiceRecipientLabel": "Destinatario (opcional)",
+    "sendInvoiceRecipientPlaceholder": "Dirección de correo electrónico"
   },
   "delayedOrders": {
     "title": "Pedidos Retrasados",
@@ -1214,7 +1235,19 @@
     "delivery_note": "Nota de Entrega",
     "credit_note": "Nota de Crédito",
     "cancellation": "Anulación",
-    "unknown": "Desconocido"
+    "unknown": "Desconocido",
+    "pickware_erp_picklist": "Lista de picking",
+    "pickware_erp_invoice_correction": "Corrección de factura",
+    "pickware_erp_supplier_order": "Pedido a proveedor",
+    "partial_cancellation": "Anulación parcial",
+    "zugferd_invoice": "Factura electrónica (XML)",
+    "zugferd_credit_note": "Nota de crédito electrónica (XML)",
+    "zugferd_embedded_credit_note": "Nota de crédito (factura electrónica)",
+    "zugferd_cancellation_invoice": "Factura de anulación electrónica (XML)",
+    "zugferd_embedded_cancellation_invoice": "Factura de anulación (factura electrónica)",
+    "offer": "Oferta",
+    "quotes": "Presupuesto",
+    "prems_individual_offer": "Oferta individual"
   },
   "status": {
     "open": "Abierto",
@@ -1235,7 +1268,8 @@
     "refunded": "Reembolsado",
     "cancelled": "Cancelado",
     "reminded": "Recordado",
-    "failed": "Fallido"
+    "failed": "Fallido",
+    "authorized": "Autorizado"
   },
   "settings": {
     "title": "Configuración",
@@ -1725,7 +1759,10 @@
     "loadFailed": "Error al cargar pedidos",
     "error": "Error",
     "orderNotFound": "Pedido no encontrado",
-    "fetchFailed": "No se pudieron obtener los datos"
+    "fetchFailed": "No se pudieron obtener los datos",
+    "createFailed": "Error al crear",
+    "deleteFailed": "Error al eliminar",
+    "failed": "Error"
   },
   "language": {
     "english": "Inglés",
@@ -2368,7 +2405,8 @@
       "success": "¡Correo procesado exitosamente!",
       "invalidFormat": "Solo se admiten archivos .eml y .msg",
       "parseError": "Error al procesar el correo",
-      "readError": "Error al leer el archivo"
+      "readError": "Error al leer el archivo",
+      "from": "De"
     },
     "export": "Exportar",
     "exportCSV": "Exportar como CSV",
@@ -2611,7 +2649,9 @@
       "accepted": "Aceptada",
       "approved": "Aprobada",
       "rejected": "Rechazada",
-      "expired": "Expirada"
+      "expired": "Expirada",
+      "offered": "Ofertada",
+      "declined": "Rechazada por el cliente"
     },
     "actions": {
       "approve": "Aprobar",
@@ -2920,7 +2960,8 @@
       "send": "Enviar solicitud",
       "requested": "Asignación solicitada",
       "requestFailed": "Falló la solicitud",
-      "existing": "Asignaciones existentes"
+      "existing": "Asignaciones existentes",
+      "statusLabel": "Estado"
     },
     "discounts": {
       "title": "Solicitudes de Descuento",
@@ -2940,7 +2981,8 @@
       "typeAmount": "Monto",
       "value": "Valor",
       "reason": "Motivo",
-      "reasonPlaceholder": "Motivo del descuento"
+      "reasonPlaceholder": "Motivo del descuento",
+      "statusLabel": "Estado"
     },
     "approve": "Aprobar",
     "reject": "Rechazar",

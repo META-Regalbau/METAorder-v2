@@ -154,7 +154,12 @@
     "cancel": "Cancel",
     "actions": "Actions",
     "loading": "Loading...",
-    "edit": "Edit"
+    "edit": "Edit",
+    "errorLoadingData": "Error loading data",
+    "inStock": "In stock",
+    "noResults": "No results",
+    "outOfStock": "Out of stock",
+    "error": "Error"
   },
   "globalSearch": {
     "placeholder": "Semantic search (products, offers, tickets...)",
@@ -1010,7 +1015,14 @@
     "permissions": "Permissions",
     "allChannels": "All Channels",
     "createRole": "Create Role",
-    "updateRole": "Update Role"
+    "updateRole": "Update Role",
+    "enabled": "enabled",
+    "roleCreated": "Role created",
+    "roleCreatedSuccess": "The role was created successfully.",
+    "roleUpdated": "Role updated",
+    "roleUpdatedSuccess": "The role was updated successfully.",
+    "roleDeleted": "Role deleted",
+    "roleDeletedSuccess": "The role was deleted successfully."
   },
   "orders": {
     "title": "Orders",
@@ -1061,7 +1073,16 @@
       "avgDb1": "Avg. DB1 net",
       "hint": "{{withData}} of {{total}} filtered orders with manufacturing cost data",
       "noData": "No contribution margin data for the current filter selection"
-    }
+    },
+    "dunningStage": "Dunning level {{stage}}",
+    "installmentPlan": "Installment plan",
+    "monduPluginError": "Shipment blocked by Mondu",
+    "monduPluginErrorDescription": "The Mondu payment plugin in Shopware prevents the status change. Please set the delivery status manually in Shopware or contact Shopware/Mondu support.",
+    "monduPluginErrorPaymentSwitchDescription": "The Mondu plugin blocks the shipping status although the current payment method is not Mondu (the payment method was changed during checkout). Please check in Shopware: cancel the old Mondu transaction or enable “Skip order state validation” in the Mondu plugin.",
+    "overdue": "Overdue",
+    "sendInvoiceRecipientHint": "If left empty, the invoice is sent to {{email}}.",
+    "sendInvoiceRecipientLabel": "Recipient (optional)",
+    "sendInvoiceRecipientPlaceholder": "Email address"
   },
   "delayedOrders": {
     "title": "Delayed Orders",
@@ -1391,7 +1412,19 @@
     "delivery_note": "Delivery Note",
     "credit_note": "Credit Note",
     "cancellation": "Cancellation",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "pickware_erp_picklist": "Picking list",
+    "pickware_erp_invoice_correction": "Invoice correction",
+    "pickware_erp_supplier_order": "Supplier order",
+    "partial_cancellation": "Partial cancellation",
+    "zugferd_invoice": "E-invoice (XML)",
+    "zugferd_credit_note": "E-credit note (XML)",
+    "zugferd_embedded_credit_note": "Credit note (e-invoice)",
+    "zugferd_cancellation_invoice": "E-cancellation invoice (XML)",
+    "zugferd_embedded_cancellation_invoice": "Cancellation invoice (e-invoice)",
+    "offer": "Offer",
+    "quotes": "Quote",
+    "prems_individual_offer": "Individual offer"
   },
   "status": {
     "open": "Open",
@@ -1412,7 +1445,8 @@
     "refunded": "Refunded",
     "cancelled": "Cancelled",
     "reminded": "Reminded",
-    "failed": "Failed"
+    "failed": "Failed",
+    "authorized": "Authorized"
   },
   "settings": {
     "title": "Settings",
@@ -2036,7 +2070,10 @@
     "loadFailed": "Failed to load orders",
     "error": "Error",
     "orderNotFound": "Order not found",
-    "fetchFailed": "Failed to fetch data"
+    "fetchFailed": "Failed to fetch data",
+    "createFailed": "Creation failed",
+    "deleteFailed": "Deletion failed",
+    "failed": "Failed"
   },
   "language": {
     "english": "English",
@@ -2713,7 +2750,8 @@
       "success": "Email processed successfully!",
       "invalidFormat": "Only .eml and .msg files are supported",
       "parseError": "Error processing email",
-      "readError": "Error reading file"
+      "readError": "Error reading file",
+      "from": "From"
     },
     "export": "Export",
     "exportCSV": "Export as CSV",
@@ -2956,7 +2994,9 @@
       "accepted": "Accepted",
       "approved": "Approved",
       "rejected": "Rejected",
-      "expired": "Expired"
+      "expired": "Expired",
+      "offered": "Offered",
+      "declined": "Declined by customer"
     },
     "actions": {
       "approve": "Approve",
@@ -3322,7 +3362,8 @@
       "send": "Send request",
       "requested": "Assignment requested",
       "requestFailed": "Assignment request failed",
-      "existing": "Existing assignments"
+      "existing": "Existing assignments",
+      "statusLabel": "Status"
     },
     "discounts": {
       "title": "Discount Requests",
@@ -3342,7 +3383,8 @@
       "typeAmount": "Amount",
       "value": "Value",
       "reason": "Reason",
-      "reasonPlaceholder": "Reason for the discount"
+      "reasonPlaceholder": "Reason for the discount",
+      "statusLabel": "Status"
     },
     "approve": "Approve",
     "reject": "Reject",

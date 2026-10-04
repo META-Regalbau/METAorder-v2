@@ -607,7 +607,7 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
                       <TableRow className="bg-muted/50">
                         <TableHead>{t("crm.assignments.order")}</TableHead>
                         <TableHead>{t("crm.assignments.assignee")}</TableHead>
-                        <TableHead>{t("crm.assignments.status")}</TableHead>
+                        <TableHead>{t("crm.assignments.statusLabel")}</TableHead>
                         <TableHead>{t("crm.assignments.requestedBy")}</TableHead>
                         <TableHead className="text-right">{t("common.actions")}</TableHead>
                       </TableRow>
@@ -677,7 +677,7 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
                         <TableHead>{t("crm.discounts.customer")}</TableHead>
                         <TableHead>{t("crm.discounts.order")}</TableHead>
                         <TableHead>{t("crm.discounts.amount")}</TableHead>
-                        <TableHead>{t("crm.discounts.status")}</TableHead>
+                        <TableHead>{t("crm.discounts.statusLabel")}</TableHead>
                         <TableHead>{t("crm.discounts.requestedBy")}</TableHead>
                         <TableHead className="text-right">{t("common.actions")}</TableHead>
                       </TableRow>

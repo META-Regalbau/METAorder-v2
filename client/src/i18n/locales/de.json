@@ -186,7 +186,13 @@
     "close": "Schließen",
     "expand": "Aufklappen",
     "collapse": "Zuklappen",
-    "unknown": "Unbekannt"
+    "unknown": "Unbekannt",
+    "errorLoadingData": "Fehler beim Laden der Daten",
+    "inStock": "Auf Lager",
+    "more": "weitere",
+    "noResults": "Keine Ergebnisse",
+    "outOfStock": "Nicht auf Lager",
+    "error": "Fehler"
   },
   "globalSearch": {
     "placeholder": "Semantische Suche (Produkte, Angebote, Tickets...)",
@@ -1039,7 +1045,14 @@
     "permissions": "Berechtigungen",
     "allChannels": "Alle Kanäle",
     "createRole": "Rolle erstellen",
-    "updateRole": "Rolle aktualisieren"
+    "updateRole": "Rolle aktualisieren",
+    "enabled": "aktiviert",
+    "roleCreated": "Rolle erstellt",
+    "roleCreatedSuccess": "Die Rolle wurde erfolgreich erstellt.",
+    "roleUpdated": "Rolle aktualisiert",
+    "roleUpdatedSuccess": "Die Rolle wurde erfolgreich aktualisiert.",
+    "roleDeleted": "Rolle gelöscht",
+    "roleDeletedSuccess": "Die Rolle wurde erfolgreich gelöscht."
   },
   "orders": {
     "title": "Bestellungen",
@@ -1090,7 +1103,16 @@
       "avgDb1": "Ø DB1 netto",
       "hint": "{{withData}} von {{total}} gefilterten Bestellungen mit HK-Daten",
       "noData": "Keine DB-Daten für die aktuelle Filterauswahl"
-    }
+    },
+    "dunningStage": "Mahnstufe {{stage}}",
+    "installmentPlan": "Ratenplan",
+    "monduPluginError": "Versand von Mondu blockiert",
+    "monduPluginErrorDescription": "Das Mondu-Zahlungs-Plugin in Shopware verhindert die Statusänderung. Bitte den Lieferstatus manuell in Shopware setzen oder den Shopware-/Mondu-Support kontaktieren.",
+    "monduPluginErrorPaymentSwitchDescription": "Das Mondu-Plugin blockiert den Versandstatus, obwohl die aktuelle Zahlart nicht Mondu ist (Zahlart wurde im Checkout gewechselt). Bitte in Shopware prüfen: alte Mondu-Transaktion stornieren oder im Mondu-Plugin „Skip order state validation“ aktivieren.",
+    "overdue": "Überfällig",
+    "sendInvoiceRecipientHint": "Ohne Angabe geht die Rechnung an {{email}}.",
+    "sendInvoiceRecipientLabel": "Empfänger (optional)",
+    "sendInvoiceRecipientPlaceholder": "E-Mail-Adresse"
   },
   "delayedOrders": {
     "title": "Verspätete Bestellungen",
@@ -1420,7 +1442,19 @@
     "delivery_note": "Lieferschein",
     "credit_note": "Gutschrift",
     "cancellation": "Storno",
-    "unknown": "Unbekannt"
+    "unknown": "Unbekannt",
+    "pickware_erp_picklist": "Pickliste",
+    "pickware_erp_invoice_correction": "Rechnungskorrektur",
+    "pickware_erp_supplier_order": "Lieferantenbestellung",
+    "partial_cancellation": "Teilstorno",
+    "zugferd_invoice": "E-Rechnung (XML)",
+    "zugferd_credit_note": "E-Gutschrift (XML)",
+    "zugferd_embedded_credit_note": "Gutschrift (E-Rechnung)",
+    "zugferd_cancellation_invoice": "E-Stornorechnung (XML)",
+    "zugferd_embedded_cancellation_invoice": "Stornorechnung (E-Rechnung)",
+    "offer": "Angebot",
+    "quotes": "Angebot",
+    "prems_individual_offer": "Individuelles Angebot"
   },
   "status": {
     "open": "Offen",
@@ -1441,7 +1475,8 @@
     "refunded": "Rückerstattet",
     "cancelled": "Storniert",
     "reminded": "Gemahnt",
-    "failed": "Fehlgeschlagen"
+    "failed": "Fehlgeschlagen",
+    "authorized": "Autorisiert"
   },
   "settings": {
     "title": "Einstellungen",
@@ -2067,7 +2102,10 @@
     "updateFailed": "Aktualisierung fehlgeschlagen",
     "error": "Fehler",
     "orderNotFound": "Bestellung nicht gefunden",
-    "fetchFailed": "Daten konnten nicht abgerufen werden"
+    "fetchFailed": "Daten konnten nicht abgerufen werden",
+    "createFailed": "Erstellen fehlgeschlagen",
+    "deleteFailed": "Löschen fehlgeschlagen",
+    "failed": "Fehlgeschlagen"
   },
   "language": {
     "english": "Englisch",
@@ -2789,7 +2827,8 @@
       "success": "E-Mail erfolgreich verarbeitet!",
       "invalidFormat": "Nur .eml und .msg Dateien werden unterstützt",
       "parseError": "Fehler beim Verarbeiten der E-Mail",
-      "readError": "Fehler beim Lesen der Datei"
+      "readError": "Fehler beim Lesen der Datei",
+      "from": "Von"
     },
     "export": "Exportieren",
     "exportCSV": "Als CSV exportieren",
@@ -3032,7 +3071,9 @@
       "accepted": "Angenommen",
       "approved": "Angenommen",
       "rejected": "Abgelehnt",
-      "expired": "Abgelaufen"
+      "expired": "Abgelaufen",
+      "offered": "Angeboten",
+      "declined": "Vom Kunden abgelehnt"
     },
     "actions": {
       "approve": "Freigeben",
@@ -3526,7 +3567,8 @@
       "send": "Anfrage senden",
       "requested": "Zuweisung angefragt",
       "requestFailed": "Zuweisung konnte nicht angefragt werden",
-      "existing": "Bestehende Zuweisungen"
+      "existing": "Bestehende Zuweisungen",
+      "statusLabel": "Status"
     },
     "discounts": {
       "title": "Rabattanfragen",
@@ -3546,7 +3588,8 @@
       "typeAmount": "Betrag",
       "value": "Wert",
       "reason": "Begründung",
-      "reasonPlaceholder": "Begründung für den Rabatt"
+      "reasonPlaceholder": "Begründung für den Rabatt",
+      "statusLabel": "Status"
     },
     "approve": "Freigeben",
     "reject": "Ablehnen",
