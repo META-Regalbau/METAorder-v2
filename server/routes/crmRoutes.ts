@@ -1,6 +1,6 @@
 // CRM: Kundenliste, Kundenuebersicht, individuelle Preise/Rabatte, Zuweisungen, Rabattanfragen.
 import { requireAuth, requireViewCrm, requireAuthOrIntegrationKey, requireManageCrm, requireCsrf, requireApproveCrm } from "../auth/auth";
-import { getSalesChannelFilter, filterTicketsBySalesChannels, filterOrdersBySalesChannels, getOrdersWithCache } from "./routeHelpers";
+import { getSalesChannelFilter, filterTicketsBySalesChannels, filterOrdersBySalesChannels, getOrdersWithCache, dedupeOrdersByNumber } from "./routeHelpers";
 import { storage } from "../storage";
 import { getHashCached, stableFingerprint } from "../lib/contentHashCache";
 import { ShopwareClient } from "../shopware/shopware";
@@ -52,7 +52,8 @@ function individualPricesIndexCustomers(index: {
   }));
 }
 
-const CRM_CUSTOMERS_CACHE_KEY = "crm_customers_cache_v5";
+// v6: Bestellanzahl/Umsatz je Kunde ohne doppelt angelegte Bestellungen (gespeicherte v5-Summen zaehlten sie mit)
+const CRM_CUSTOMERS_CACHE_KEY = "crm_customers_cache_v6";
 
 const CRM_INDIVIDUAL_PRICES_CACHE_KEY = "crm_individual_prices_index_v2";
 
@@ -145,7 +146,10 @@ export function registerCrmRoutes(app: Express): void {
             // vollständigen Shopware-Kundenbestand (nicht nur aktive) abbildet.
             const { triggerShopwareMirrorSync } = await import("../shopware/shopwareMirror");
             triggerShopwareMirrorSync(storage, client, tenantId, ["customers"]);
-            const { orders } = await getOrdersWithCache(client, tenantId);
+            // Mehrfach vergebene Bestellnummern zaehlen einmal - wie Statistik, Versand und Export
+            // (dedupeOrdersByNumber: die zuletzt geaenderte Bestellung).
+            const { orders: mirrorOrders } = await getOrdersWithCache(client, tenantId);
+            const orders = dedupeOrdersByNumber(mirrorOrders);
 
             orders.forEach((order) => {
               const emailKey = order.customerEmail?.toLowerCase();
