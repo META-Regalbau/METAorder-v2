@@ -1228,7 +1228,8 @@ export async function fetchProductsForDataQuality(
   const requestBody: any = {
     limit,
     page,
-    "total-count-mode": 1,
+    // Gesamtzahl nur auf der ersten Seite ermitteln (teuer); Folgeseiten kennen sie schon
+    "total-count-mode": page === 1 ? 1 : 0,
     sort: [
       {
         field: "productNumber",
@@ -1236,6 +1237,8 @@ export async function fetchProductsForDataQuality(
       },
     ],
     filter: [],
+    // Nur was gezaehlt wird. categories/visibilities/media/coverId muessen in der product-Liste
+    // stehen - sonst laesst Shopware sie weg und Kategorie, Sichtbarkeit und Bilder zaehlten nie.
     includes: {
       product: [
         "id",
@@ -1250,37 +1253,22 @@ export async function fetchProductsForDataQuality(
         "length",
         "weight",
         "deliveryTimeId",
+        "categories",
+        "visibilities",
+        "media",
+        "coverId",
       ],
+      property_group_option: ["id"],
       product_visibility: ["id", "salesChannelId"],
       product_media: ["id"],
-      delivery_time: ["id", "name", "min", "max", "unit", "translated"],
-      product_delivery_time: ["id", "name", "min", "max", "unit", "translated"],
       category: ["id"],
     },
     associations: {
       categories: {},
-      properties: {
-        associations: {
-          group: {},
-        },
-      },
-      options: {
-        associations: {
-          group: {},
-        },
-      },
+      properties: {},
+      options: {},
       visibilities: {},
-      deliveryTime: {},
-      cover: {
-        associations: {
-          media: {},
-        },
-      },
-      media: {
-        associations: {
-          media: {},
-        },
-      },
+      media: {},
     },
   };
 
@@ -1434,6 +1422,10 @@ export async function fetchProductDataQuality(this: ShopwareClient, productId: s
         "weight",
         "deliveryTimeId",
         "coverId",
+        // ohne diese Eintraege laesst Shopware die Zuordnungen weg (Kategorie/Sichtbarkeit/Bilder = 0)
+        "categories",
+        "visibilities",
+        "media",
       ],
       property_group_option: ["id", "name", "group"],
       property_group: ["id", "name"],

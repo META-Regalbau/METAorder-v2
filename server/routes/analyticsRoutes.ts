@@ -12,6 +12,7 @@ import { type Order } from "@shared/schema";
 import { isOrderEligibleForShippingPick } from "@shared/orderShippingEligibility";
 import { toImportedInquirySummary } from "../commercial/importedInquirySummary";
 import { loadAnalyticsOrders } from "../analytics/analyticsOrders";
+import { dataQualityCacheKey, fetchAllDataQualityProducts, productDataQualityCache, summarizeDataQuality } from "../analytics/productDataQuality";
 
 export function registerAnalyticsRoutes(app: Express): void {
   // Google KPI endpoints
@@ -98,78 +99,12 @@ export function registerAnalyticsRoutes(app: Express): void {
 
       const client = new ShopwareClient(settings);
       const salesChannelIds = await getSalesChannelFilter(req);
-
-      const limit = 200;
-      let page = 1;
-      let processed = 0;
-      let total = 0;
-      let totalScore = 0;
-
-      const bucketCounts = {
-        "0-20": 0,
-        "21-40": 0,
-        "41-60": 0,
-        "61-80": 0,
-        "81-100": 0,
-      };
-
-      const criteriaCount = 13;
-
-      while (true) {
-        const result = await client.fetchProductsForDataQuality(limit, page, salesChannelIds ?? undefined);
-        total = result.total ?? total;
-        if (result.products.length === 0) {
-          break;
-        }
-
-        for (const product of result.products) {
-          let points = 0;
-
-          if (product.productNumber) points += 1;
-          if (product.manufacturerNumber) points += 1;
-          if (product.ean) points += 1;
-          if (product.description) points += 1;
-          if (product.propertyCount > 2) points += 1;
-          if (product.hasDeliveryTime) points += 1;
-          if (product.visibilityCount > 0) points += 1;
-          if (product.categoryCount > 0) points += 1;
-          if (product.imageCount > 0) points += 1;
-          if (product.width) points += 1;
-          if (product.height) points += 1;
-          if (product.length) points += 1;
-          if (product.weight) points += 1;
-
-          const score = Math.round((points / criteriaCount) * 100);
-          totalScore += score;
-          processed += 1;
-
-          if (score <= 20) bucketCounts["0-20"] += 1;
-          else if (score <= 40) bucketCounts["21-40"] += 1;
-          else if (score <= 60) bucketCounts["41-60"] += 1;
-          else if (score <= 80) bucketCounts["61-80"] += 1;
-          else bucketCounts["81-100"] += 1;
-        }
-
-        if (result.products.length < limit || processed >= total) {
-          break;
-        }
-        page += 1;
-      }
-
-      const averageScore = processed > 0 ? Math.round(totalScore / processed) : 0;
-
-      res.json({
-        totalProducts: processed,
-        averageScore,
-        criteriaCount,
-        distribution: [
-          { label: "0-20", count: bucketCounts["0-20"] },
-          { label: "21-40", count: bucketCounts["21-40"] },
-          { label: "41-60", count: bucketCounts["41-60"] },
-          { label: "61-80", count: bucketCounts["61-80"] },
-          { label: "81-100", count: bucketCounts["81-100"] },
-        ],
-      });
+      // Zwischengespeichert je Mandant und Kanalfilter (siehe server/analytics/productDataQuality.ts)
+      const summary = await productDataQualityCache.get(
+        dataQualityCacheKey((req as any).tenantId, salesChannelIds),
+        async () => summarizeDataQuality(await fetchAllDataQualityProducts(client, salesChannelIds)),
+      );
+      res.json(summary);
     } catch (error: any) {
       console.error("Error fetching product data quality:", error);
       res.status(500).json({ error: error.message || "Failed to fetch product data quality" });

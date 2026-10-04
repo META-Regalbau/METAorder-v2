@@ -51,7 +51,7 @@ interface AnalyticsPageProps {
 }
 
 export default function AnalyticsPage({ userRole, userSalesChannelIds }: AnalyticsPageProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const [dateRange, setDateRange] = useState<DateRangePreset>("30");
   const [customDateFrom, setCustomDateFrom] = useState<Date>();
@@ -235,6 +235,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
     averageScore: number;
     criteriaCount: number;
     distribution: Array<{ label: string; count: number }>;
+    computedAt?: string;
   }>({
     queryKey: ["/api/analytics/product-data-quality", selectedChannelIds],
     queryFn: async () => {
@@ -879,6 +880,11 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
               <BarChart3 className="h-5 w-5" />
               {t('analytics.dataQualityTitle')}
             </CardTitle>
+            {productDataQuality?.computedAt && (
+              <div className="text-xs text-muted-foreground" data-testid="text-data-quality-as-of">
+                {t('analytics.dataQualityAsOf', { time: new Date(productDataQuality.computedAt).toLocaleString(i18n.language, { dateStyle: "short", timeStyle: "short" }) })}
+              </div>
+            )}
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap items-center gap-8 mb-4">
