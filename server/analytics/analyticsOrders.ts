@@ -1,6 +1,6 @@
 import type { Order } from "@shared/schema";
 import type { ShopwareClient } from "../shopware/shopware";
-import { filterOrdersBySalesChannels, getOrdersWithCache } from "../routes/routeHelpers";
+import { dedupeOrdersByNumber, filterOrdersBySalesChannels, getOrdersWithCache } from "../routes/routeHelpers";
 
 /**
  * Bestellungen fuer die Statistik-Seite aus dem lokalen Bestell-Spiegel statt bei jedem Aufruf
@@ -14,6 +14,9 @@ import { filterOrdersBySalesChannels, getOrdersWithCache } from "../routes/route
  *   Live-Abfrage kannte nur die Zusatzfelder - die sind in keinem Mandanten befuellt, die
  *   Versandzeiten blieben leer.
  * - Reihenfolge: neueste Bestellung zuerst.
+ * - Mehrfach vergebene Bestellnummern zaehlen einmal - wie bei Versand, Export und verspaeteten
+ *   Bestellungen die zuletzt geaenderte Bestellung (dedupeOrdersByNumber). Bis Oktober 2026 zaehlten
+ *   alle Kopien (Live: 36 doppelt angelegte Bestellungen, rund 597.000 Euro brutto).
  * Bewusste Unterschiede: Positionsbetraege kommen aus dem normalen Bestell-Mapping (die Live-
  * Abfrage behandelte Netto-Positionspreise als brutto); eine leere Kanalliste (Nutzer ohne Kanal)
  * bedeutet wie auf allen anderen Seiten "keine Bestellungen" statt "alle".
@@ -30,7 +33,7 @@ const orderDay = (order: Order) => String(order.orderDate ?? "").slice(0, 10);
 export function selectAnalyticsOrders(orders: Order[], filter: AnalyticsOrderFilter): Order[] {
   const from = filter.dateFrom?.slice(0, 10);
   const to = filter.dateTo?.slice(0, 10);
-  return filterOrdersBySalesChannels(orders, filter.salesChannelIds)
+  return filterOrdersBySalesChannels(dedupeOrdersByNumber(orders), filter.salesChannelIds)
     .filter((o) => (!from || orderDay(o) >= from) && (!to || orderDay(o) <= to))
     .sort((a, b) => orderDay(b).localeCompare(orderDay(a)));
 }
