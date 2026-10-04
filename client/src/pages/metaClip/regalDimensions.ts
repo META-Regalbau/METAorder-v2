@@ -36,7 +36,7 @@ import type { BuildRegalResult } from "./regalAssembly";
 const LENGTH_FROM_GEOMETRY = true;
 
 const DIM_COLOR = 0x8b969e; // --meta-steel, wie die Maßlinien der 2D-Zeichnung
-const DIM_LABEL_COLOR = "#ff0002"; // --meta-red; nur die Maßzahlen, die Linien bleiben ruhig
+const DIM_LABEL_COLOR = "#d40002"; // --meta-red; nur die Maßzahlen, die Linien bleiben ruhig
 
 export type RegalDimensionOptions = {
   widthMM: number;
