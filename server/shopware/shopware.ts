@@ -320,7 +320,6 @@ export interface ShopwareClient {
   fetchLatestOrderMeta: typeof ordersApi.fetchLatestOrderMeta;
   fetchOrdersFingerprintDetails: typeof ordersApi.fetchOrdersFingerprintDetails;
   fetchOrdersFingerprint: typeof ordersApi.fetchOrdersFingerprint;
-  fetchOrdersPaginated: typeof ordersApi.fetchOrdersPaginated;
   fetchOrdersByIds: typeof ordersApi.fetchOrdersByIds;
   fetchCustomerOrderHistory: typeof ordersApi.fetchCustomerOrderHistory;
   fetchOrderById: typeof ordersApi.fetchOrderById;

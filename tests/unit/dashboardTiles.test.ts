@@ -46,9 +46,7 @@ beforeAll(async () => {
   vi.spyOn(storage, "countShopwareOrderMirrors").mockImplementation(async () => state.orders.length);
   vi.spyOn(storage, "getShopwareOrderMirrors").mockImplementation(async () => ({ rows: state.orders.map((o) => ({ shopwareId: o.id, payload: structuredClone(o) })) as any, total: state.orders.length }));
   vi.spyOn(storage, "getAllTickets").mockResolvedValue([]);
-  for (const m of ["fetchOrders", "fetchOrdersPaginated"]) {
-    vi.spyOn(ShopwareClient.prototype as any, m).mockImplementation(async () => { state.live += 1; throw new Error("Live-Abruf nicht erwartet"); });
-  }
+  vi.spyOn(ShopwareClient.prototype as any, "fetchOrders").mockImplementation(async () => { state.live += 1; throw new Error("Live-Abruf nicht erwartet"); });
   const app = express();
   app.use(express.json());
   registerAnalyticsRoutes(app as any);
