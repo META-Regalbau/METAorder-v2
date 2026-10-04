@@ -17,21 +17,39 @@ import { executeRule, orderFacts, prepareRules } from "./engine";
  * Sicherungen: nur Bestellungen der letzten SCHEDULED_LOOKBACK_DAYS Tage; je Bestellung
  * hoechstens einmal pro Regel (Fehlversuche bis SCHEDULED_MAX_FAILED_ATTEMPTS wiederholt);
  * hoechstens SCHEDULED_MAX_PER_RULE_PER_RUN Ausfuehrungen je Regel und Lauf (aelteste zuerst).
+ * Doppelt angelegte Bestellungen (gleiche Bestellnummer, Live: 31 Nummern mit 36 weiteren
+ * Bestellungen): je Bestellnummer hoechstens eine Ausfuehrung pro Regel - die Bedingungen gelten fuer
+ * jede Kopie, ausgefuehrt wird die erste passende; erledigt ist die Nummer, sobald eine ihrer Kopien
+ * erledigt ist.
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Bestellungen des Mandanten (aus dem Kontext) im Pruefzeitraum, aelteste zuerst. */
-async function candidateOrders(deps: AutomationDeps, tenantId: string | null, now: Date): Promise<Order[]> {
+type Candidates = {
+  /** Bestellungen im Pruefzeitraum, aelteste zuerst (bei gleichem Datum nach id) */
+  orders: Order[];
+  /** Bestellnummer je Bestell-id - alle Bestellungen, auch ausserhalb des Pruefzeitraums */
+  orderNumberById: Map<string, string>;
+};
+
+/** Bestellungen des Mandanten (aus dem Kontext). */
+async function candidateOrders(deps: AutomationDeps, tenantId: string | null, now: Date): Promise<Candidates> {
   const { rows } = await deps.storage.getShopwareOrderMirrors(tenantId);
+  const all = mirrorRowsToOrders(rows);
   const since = now.getTime() - SCHEDULED_LOOKBACK_DAYS * DAY_MS;
-  return mirrorRowsToOrders(rows)
-    .filter((o) => {
-      const t = new Date(o.orderDate).getTime();
-      return !Number.isNaN(t) && t >= since;
-    })
-    .sort((a, b) => new Date(a.orderDate).getTime() - new Date(b.orderDate).getTime());
+  return {
+    orders: all
+      .filter((o) => {
+        const t = new Date(o.orderDate).getTime();
+        return !Number.isNaN(t) && t >= since;
+      })
+      .sort((a, b) => new Date(a.orderDate).getTime() - new Date(b.orderDate).getTime() || a.id.localeCompare(b.id)),
+    orderNumberById: new Map(all.filter((o) => o.orderNumber).map((o) => [o.id, o.orderNumber])),
+  };
 }
+
+type RunStats = { succeeded: boolean; failures: number };
+const isSettled = (s: RunStats | undefined) => !!s && (s.succeeded || s.failures >= SCHEDULED_MAX_FAILED_ATTEMPTS);
 
 type Due = { order: Order; facts: ReturnType<typeof orderFacts> };
 
@@ -39,20 +57,29 @@ type Due = { order: Order; facts: ReturnType<typeof orderFacts> };
 async function matchOrders(
   deps: AutomationDeps,
   conditions: AutomationConditionInput[],
-  orders: Order[],
+  candidates: Candidates,
   ruleId: string | null,
   now: Date,
 ): Promise<{ due: Due[]; done: number; matching: number }> {
-  const stats = ruleId ? await deps.storage.getAutomationEntityRunStats(ruleId, "order") : new Map();
+  const stats: Map<string, RunStats> = ruleId ? await deps.storage.getAutomationEntityRunStats(ruleId, "order") : new Map();
+  const settledNumbers = new Set<string>();
+  for (const [orderId, s] of stats) {
+    const orderNumber = candidates.orderNumberById.get(orderId);
+    if (orderNumber && isSettled(s)) settledNumbers.add(orderNumber);
+  }
+  const seenNumbers = new Set<string>();
   const due: Due[] = [];
   let done = 0;
   let matching = 0;
-  for (const order of orders) {
+  for (const order of candidates.orders) {
     const facts = orderFacts(order, now);
     if (!evaluateConditions(conditions, facts)) continue;
+    if (order.orderNumber) {
+      if (seenNumbers.has(order.orderNumber)) continue;
+      seenNumbers.add(order.orderNumber);
+    }
     matching += 1;
-    const s = stats.get(order.id);
-    if (s?.succeeded || (s?.failures ?? 0) >= SCHEDULED_MAX_FAILED_ATTEMPTS) done += 1;
+    if (isSettled(stats.get(order.id)) || settledNumbers.has(order.orderNumber)) done += 1;
     else due.push({ order, facts });
   }
   return { due, done, matching };

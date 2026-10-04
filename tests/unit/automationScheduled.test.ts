@@ -146,6 +146,53 @@ describe("Zeitgesteuerte Regeln", () => {
     expect(after).toMatchObject({ matching: 2, alreadyDone: 2, nextRun: 0, sample: [] });
   });
 
+  describe("doppelt angelegte Bestellungen (gleiche Bestellnummer)", () => {
+    const notCompleted = [
+      { field: "order.daysPastDeliveryDate", operator: "greaterThanOrEqual", value: 3 },
+      { field: "order.status", operator: "notEquals", value: "completed" },
+    ];
+
+    it("passen beide Kopien, gibt es nur eine Ausfuehrung - auch in spaeteren Laeufen", async () => {
+      const { deps, created } = fake([rule()], { "tenant-a": [order("k2", { orderNumber: "278278" }), order("k1", { orderNumber: "278278" }), order("x")] });
+      const first = await runScheduledAutomations(deps, NOW);
+      await runScheduledAutomations(deps, NOW);
+      expect(created.map((t) => t.orderId)).toEqual(["k1", "x"]); // gleiches Datum: nach id
+      expect(first[0]).toMatchObject({ matching: 2, executed: 2, remaining: 0 });
+    });
+
+    it("die Bedingungen gelten je Kopie: passt nur die zweite (erste storniert), wird sie ausgefuehrt", async () => {
+      const { deps, created } = fake([rule({ conditionsArr: notCompleted })], {
+        "tenant-a": [order("k1", { orderNumber: "278278", status: "completed" }), order("k2", { orderNumber: "278278" })],
+      });
+      await runScheduledAutomations(deps, NOW);
+      expect(created.map((t) => t.orderId)).toEqual(["k2"]);
+    });
+
+    it("ist eine Kopie schon erledigt, laeuft die Regel fuer die andere nicht mehr", async () => {
+      const r = rule({ conditionsArr: notCompleted });
+      const orders = [order("k1", { orderNumber: "278278" }), order("k2", { orderNumber: "278278", status: "completed" })];
+      const { deps, created } = fake([r], { "tenant-a": orders });
+      await runScheduledAutomations(deps, NOW);
+      // spaeter: k1 abgeschlossen, k2 wieder offen
+      orders[0].status = "completed";
+      orders[1].status = "in_progress";
+      await runScheduledAutomations(deps, NOW);
+      expect(created.map((t) => t.orderId)).toEqual(["k1"]);
+      const preview = await previewScheduledRule(deps, "tenant-a", notCompleted as any, r.id, NOW);
+      expect(preview).toMatchObject({ matching: 1, alreadyDone: 1, nextRun: 0 });
+    });
+
+    it("erledigt zaehlt auch, wenn die erledigte Kopie ausserhalb des Pruefzeitraums liegt", async () => {
+      const r = rule();
+      const { deps, created, executions } = fake([r], {
+        "tenant-a": [order("alt", { orderNumber: "286101", orderDate: daysAgo(70) }), order("neu", { orderNumber: "286101" })],
+      });
+      executions.push({ ruleId: r.id, status: "success", result: { entity: { type: "order", id: "alt" } } });
+      await runScheduledAutomations(deps, NOW);
+      expect(created).toHaveLength(0);
+    });
+  });
+
   it("verlangt mindestens eine Bedingung; Aktionen fuer Tickets sind nicht erlaubt", () => {
     const errors = validateAutomationRule({ triggerType: "scheduled", conditions: [], actions: [{ type: "assign_ticket", params: { userId: "u1" } }] });
     expect(errors.join(" | ")).toMatch(/mindestens eine Bedingung/);
