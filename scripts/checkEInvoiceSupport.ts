@@ -4,7 +4,7 @@
  * Usage: npx tsx scripts/checkEInvoiceSupport.ts [tenantId]
  */
 import { storage } from "../server/storage";
-import { ShopwareClient, ZUGFERD_EMBEDDED_INVOICE_TYPE } from "../server/shopware";
+import { ShopwareClient, ZUGFERD_EMBEDDED_INVOICE_TYPE } from "../server/shopware/shopware";
 
 const tenantId = process.argv[2]?.trim() || process.env.METAORDER_TENANT_ID || null;
 const settings = await storage.getShopwareSettings(tenantId);

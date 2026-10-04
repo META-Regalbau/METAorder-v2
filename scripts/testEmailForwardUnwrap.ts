@@ -3,7 +3,7 @@
  *   npm run test:forward-unwrap
  */
 import assert from "node:assert/strict";
-import { stripForwardSubjectPrefixes, unwrapInternalForward } from "../server/emailForwardUnwrap";
+import { stripForwardSubjectPrefixes, unwrapInternalForward } from "../server/email/emailForwardUnwrap";
 
 let failures = 0;
 function check(name: string, fn: () => void) {

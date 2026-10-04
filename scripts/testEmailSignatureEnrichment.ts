@@ -4,10 +4,10 @@
  */
 import fs from "fs";
 import assert from "node:assert/strict";
-import { extractPlainTextForDraft } from "../server/documentTextExtraction";
-import { pickCompanyFromTextSources } from "../server/companyNameHeuristics";
-import { enrichExtractedDataWithCompanyHeuristic } from "../server/companyNameAgent";
-import { runCommercialExtractionNormalizeSteps } from "../server/commercialExtractionOrchestrator";
+import { extractPlainTextForDraft } from "../server/extraction/documentTextExtraction";
+import { pickCompanyFromTextSources } from "../server/commercial/companyNameHeuristics";
+import { enrichExtractedDataWithCompanyHeuristic } from "../server/commercial/companyNameAgent";
+import { runCommercialExtractionNormalizeSteps } from "../server/commercial/commercialExtractionOrchestrator";
 
 const EML_PATH =
   process.env.TEST_EML_PATH ||

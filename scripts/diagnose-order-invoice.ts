@@ -3,8 +3,8 @@
  * Usage: npx tsx scripts/diagnose-order-invoice.ts MO102512
  */
 import { storage } from "../server/storage";
-import { ShopwareClient, getRealInvoiceDocument } from "../server/shopware";
-import { sendOrderInvoice } from "../server/invoiceSending";
+import { ShopwareClient, getRealInvoiceDocument } from "../server/shopware/shopware";
+import { sendOrderInvoice } from "../server/invoicing/invoiceSending";
 
 const args = process.argv.slice(2);
 const applySend = args.includes("--apply");

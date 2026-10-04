@@ -9,7 +9,7 @@ import {
   buildOrderAcknowledgement,
   extractBuyerDocumentNumber,
   mapDraftStatusToAcknowledgement,
-} from "../server/commercialOrderAcknowledgement";
+} from "../server/commercial/commercialOrderAcknowledgement";
 
 let failures = 0;
 

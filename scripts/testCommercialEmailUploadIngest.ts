@@ -13,7 +13,7 @@ import {
   deriveUploadMessageId,
   isEmailContainerUpload,
   splitCommercialEmailParts,
-} from "../server/commercialEmailUploadIngest";
+} from "../server/commercial/commercialEmailUploadIngest";
 
 let failures = 0;
 

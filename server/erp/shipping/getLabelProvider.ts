@@ -1,4 +1,4 @@
-import { decrypt } from "../../encryption";
+import { decrypt } from "../../lib/encryption";
 import { erpStorage } from "../erpStorage";
 import { SendcloudShippingLabelProvider } from "./sendcloudProvider";
 import { StubShippingLabelProvider } from "./stubProvider";

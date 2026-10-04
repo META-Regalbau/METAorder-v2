@@ -3,9 +3,9 @@
  * Ausführung: npx tsx scripts/testCommercialStrictAutoCreate.ts
  */
 
-import { DEFAULT_COMMERCIAL_AGENT } from "../server/aiConfig";
-import { evaluateStrictAutoCreate } from "../server/commercialStrictAutoCreate";
-import type { MatchingResult } from "../server/productMatcher";
+import { DEFAULT_COMMERCIAL_AGENT } from "../server/ai/aiConfig";
+import { evaluateStrictAutoCreate } from "../server/commercial/commercialStrictAutoCreate";
+import type { MatchingResult } from "../server/products/productMatcher";
 
 function assert(cond: boolean, message: string) {
   if (!cond) throw new Error(message);

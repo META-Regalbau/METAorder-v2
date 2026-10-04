@@ -9,10 +9,10 @@
  *       Standard-Onlineshop-Preis − B2B-Standardrabatt% (Bestpreis mit optionaler
  *       Zusatzrabatt-Regel, falls konfiguriert)
  */
-import type { ShopwareAdvancedPrice, ShopwareClient, ShopwareCustomerPrice } from "../shopware";
+import type { ShopwareAdvancedPrice, ShopwareClient, ShopwareCustomerPrice } from "../shopware/shopware";
 import type { IStorage } from "../storage";
 import type { BomLineItem } from "./cpqBillOfMaterials";
-import { loadCpqPricingSettings } from "../cpqPricingSettings";
+import { loadCpqPricingSettings } from "./cpqPricingSettings";
 
 export type CpqPriceSource = "customer-individual" | "extended-b2b" | "shop-b2b" | "additional-discount" | "fallback";
 

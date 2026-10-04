@@ -774,7 +774,7 @@ export type BundleComponent = {
 /**
  * Belegart eines Mail-Anhangs — bestimmt, ob daraus ein Entwurf entsteht (purchase_order /
  * unknown) oder ob die Datei nur als Beilage am Entwurf abgelegt wird (Lieferschein, AB,
- * Rechnung, Sonstiges). Siehe server/commercialAttachmentClassifier.ts.
+ * Rechnung, Sonstiges). Siehe server/commercial/commercialAttachmentClassifier.ts.
  */
 export type DraftAttachmentKind =
   | "purchase_order"

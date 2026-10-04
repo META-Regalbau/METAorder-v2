@@ -10,8 +10,8 @@ import {
   parseStreetLine,
   extractPhoneNumbers,
   extractEmails,
-} from "../server/companyNameHeuristics";
-import { enrichExtractedDataWithCompanyHeuristic } from "../server/companyNameAgent";
+} from "../server/commercial/companyNameHeuristics";
+import { enrichExtractedDataWithCompanyHeuristic } from "../server/commercial/companyNameAgent";
 
 function assert(cond: boolean, message: string) {
   if (!cond) throw new Error(message);
@@ -347,7 +347,7 @@ Grohe GmbH, J.-G.-Mahlstraße 11, I-39031 Bruneck (BZ)`;
   // Simuliert den Pipeline-Pfad: erst Heuristik, dann
   // runCommercialExtractionNormalizeSteps mit Token-basierter Filterung.
   const { runCommercialExtractionNormalizeSteps } = await import(
-    "../server/commercialExtractionOrchestrator"
+    "../server/commercial/commercialExtractionOrchestrator"
   );
   const extractedData: Record<string, unknown> = {
     customer: {},

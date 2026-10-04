@@ -5,11 +5,11 @@
 import type { Express } from "express";
 import { z } from "zod";
 import { and, eq, ilike, inArray, or, sql } from "drizzle-orm";
-import { requireAuth, requireCsrf, requireManageInventory, requirePermission } from "../auth";
+import { requireAuth, requireCsrf, requireManageInventory, requirePermission } from "../auth/auth";
 import { storage } from "../storage";
 import { db } from "../db";
 import { shopwareProducts, type Product } from "@shared/schema";
-import { ShopwareClient } from "../shopware";
+import { ShopwareClient } from "../shopware/shopware";
 import {
   buildErpProductLabel,
   type ErpProductLabel,

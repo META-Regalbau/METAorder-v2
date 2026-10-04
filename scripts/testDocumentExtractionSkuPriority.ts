@@ -11,7 +11,7 @@ import {
   applyMetaSkuPriority,
   explodeComponentSets,
   isMetaCompanyName,
-} from "../server/documentExtractionSkuPriority";
+} from "../server/extraction/documentExtractionSkuPriority";
 
 let failures = 0;
 function check(name: string, fn: () => void) {

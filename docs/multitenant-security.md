@@ -3,12 +3,12 @@
 ## Architektur kurz
 
 - Mandanten: Tabelle `tenants`, Zuordnung über `tenant_users`, aktiver Mandant am User als `active_tenant_id`.
-- Request-Kontext: [`server/tenantContext.ts`](../server/tenantContext.ts) (AsyncLocalStorage), gesetzt nach Auth.
+- Request-Kontext: [`server/lib/tenantContext.ts`](../server/lib/tenantContext.ts) (AsyncLocalStorage), gesetzt nach Auth.
 - DB-Zugriff: [`server/dbStorage.ts`](../server/dbStorage.ts) filtert viele Tabellen über `tenantFilterFor`: mit Mandant nur Zeilen dieses Mandanten; **ohne** Mandant nur Zeilen mit `tenant_id IS NULL` (Legacy).
 
 ## Strikter Mandanten-Modus (Shared-SaaS)
 
-Setze **`METAORDER_STRICT_TENANT=true`**, damit nach JWT-Auth für fast alle `/api/*`-Routen ein gültiger Mandant erforderlich ist (siehe [`server/auth.ts`](../server/auth.ts): `isTenantOptionalApiPath`).
+Setze **`METAORDER_STRICT_TENANT=true`**, damit nach JWT-Auth für fast alle `/api/*`-Routen ein gültiger Mandant erforderlich ist (siehe [`server/auth/auth.ts`](../server/auth/auth.ts): `isTenantOptionalApiPath`).
 
 Ausnahmen (ohne Pflicht-Mandant): u. a. `GET /api/auth/me`, `GET /api/tenants`, `POST /api/tenants/select`, `GET /api/auth/token`, `PUT /api/profile`, `PUT /api/profile/password`.
 

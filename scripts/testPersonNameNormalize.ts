@@ -6,7 +6,7 @@
 import {
   parsePersonName,
   legacyFirstLastFromContactPerson,
-} from "../server/personNameNormalize";
+} from "../server/extraction/personNameNormalize";
 
 function assert(cond: boolean, message: string) {
   if (!cond) throw new Error(message);

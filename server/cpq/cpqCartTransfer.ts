@@ -1,5 +1,5 @@
 import { storage } from "../storage";
-import { B2BSellersClient } from "../b2bSellersClient";
+import { B2BSellersClient } from "../b2b/b2bSellersClient";
 import { validateCpqCart, type CartItem } from "./cpqCrossSelling";
 
 type PrepareCpqCartTransferParams = {

@@ -11,14 +11,14 @@ import {
   requireAuth,
   requireCsrf,
   requirePermission,
-} from "../auth";
-import { getTenantIdFromContext } from "../tenantContext";
+} from "../auth/auth";
+import { getTenantIdFromContext } from "../lib/tenantContext";
 import { getUploadsRoot } from "../uploadsRoot";
 import { erpStorage } from "./erpStorage";
 import { isSafeUploadBasename } from "./erpLogic";
 import { storage } from "../storage";
-import { ShopwareClient } from "../shopware";
-import { encrypt } from "../encryption";
+import { ShopwareClient } from "../shopware/shopware";
+import { encrypt } from "../lib/encryption";
 import {
   getLabelProvider,
   getSendcloudSettingsDecrypted,

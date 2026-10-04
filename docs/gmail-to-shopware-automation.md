@@ -9,7 +9,7 @@ Schritt 2 ist der Ablauf identisch.
 
 1. **n8n** (Gmail- oder Outlook-Trigger, alle 60 s) → Quick-Classifier (Regex) → `intentHint`
 2. **METAorder** `POST /api/commercial-drafts/upload` (.eml + `intentHint`)
-3. Mail **auspacken**: ein Entwurf je handelsrelevantem Anhang ([`commercialEmailUploadIngest.ts`](../server/commercialEmailUploadIngest.ts))
+3. Mail **auspacken**: ein Entwurf je handelsrelevantem Anhang ([`commercialEmailUploadIngest.ts`](../server/commercial/commercialEmailUploadIngest.ts))
 4. Finale Intent-Klassifikation + Extraktion + Katalog-Match
 5. **Strikt-Regel** (`commercialStrictAutoCreate.ts`) — nur bei 100 %-Treffer → Auto-Create
 6. Sonst: Draft-Status `review_required` + `strictAutoCreateTrace.reasons[]` im Entwurf
@@ -127,7 +127,7 @@ Trace im Entwurf: `extractedData.strictAutoCreateTrace` mit `allowed` und `reaso
 
 Env-Overrides: `COMMERCIAL_AGENT_STRICT_AUTO_CREATE`, `COMMERCIAL_AGENT_STRICT_MIN_INTENT`, `COMMERCIAL_AGENT_STRICT_MIN_CUSTOMER`, `COMMERCIAL_AGENT_STRICT_PRICE_TOLERANCE`.
 
-Die Shopware-Anlage (Angebot wie Bestellung) nutzt dieselbe Preisbasis wie der Abgleich (`server/commercialCustomerPricing.ts`); der Verkaufskanal wird in beiden Pfaden zuerst am Kunden gesucht.
+Die Shopware-Anlage (Angebot wie Bestellung) nutzt dieselbe Preisbasis wie der Abgleich (`server/commercial/commercialCustomerPricing.ts`); der Verkaufskanal wird in beiden Pfaden zuerst am Kunden gesucht.
 
 ## `intentHint` (n8n-Vorschlag)
 

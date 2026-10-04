@@ -29,7 +29,7 @@ flowchart TB
     idx["server/index.ts<br/>Start · Middleware · Jobs starten"]
     routes["server/routes.ts<br/>Haupt-REST API"]
     cpq["server/cpq/cpqRoutes.ts<br/>CPQ API"]
-    pub["server/publicOfferRoutes.ts<br/>oeffentliche Angebote"]
+    pub["server/offers/publicOfferRoutes.ts<br/>oeffentliche Angebote"]
     idx --> routes
     idx --> cpq
     idx --> pub

@@ -28,6 +28,32 @@ flowchart LR
   api --> storage[Uploads_ObjectStorage]
 ```
 
+## Ordnerstruktur Backend (`server/`)
+
+Direkt unter `server/` liegen nur App-Einstieg und Infrastruktur: `index.ts`, `routes.ts`, `vite.ts`, `db.ts`, `storage.ts`/`dbStorage.ts`, `uploadsRoot.ts`, `seedData.ts`. `db.ts` und `uploadsRoot.ts` lösen Pfade relativ zu `server/` auf (`..` = Projektroot) und müssen deshalb dort bleiben.
+
+| Ordner | Inhalt |
+|---|---|
+| `ai/` | LLM-/OpenAI-Clients, KI-Einstellungen |
+| `analytics/` | Auswertungen, NL-Analytics, Prognosen, GA/Ads-KPIs, Profitabilität |
+| `auth/` | Login/Session, Kunden-Auth, JWT |
+| `b2b/` | B2B-Sellers-Suite: Client, Admin, Portal-Benutzer |
+| `commercial/` | KI-Pipeline für eingehende Anfragen/Bestellungen (Drafts, Agent, Bestätigungen) |
+| `cpq/`, `cpq-core/` | Konfigurator, Preisfindung, Raumplaner |
+| `cross-selling/` | Cross-Selling-Regeln, Ranking, Lernen |
+| `email/` | IMAP/SMTP/M365, Parsing, Klassifikation, Routing |
+| `erp/` | Warenwirtschaft, Lager, Versand |
+| `extraction/` | Dokument-Extraktion (PDF/E-Mail → strukturierte Daten), Normalisierung |
+| `invoicing/` | Rechnungen, Teilzahlung, Mahnwesen, Mondu, Buchhaltungsabgleich |
+| `lib/` | Querschnitt: Mandantenkontext, Verschlüsselung, Webhooks, Object Storage, Caches |
+| `offers/` | Angebote: PDF, öffentliche Angebotsseite, ERP-Export |
+| `pdf/` | Gemeinsames Briefpapier und Logo für alle PDFs |
+| `products/` | Produktcache, Matching, Preise, Herstellpreise |
+| `semantic/` | Embeddings, semantische Suche, FAQ |
+| `sftp/` | SFTP-Server und Upload |
+| `shopware/` | Shopware-API-Client, Spiegelung, Token-Cache |
+| `tickets/` | Ticket-KI, Automatisierung |
+
 ## Backend-Start und Hintergrundjobs
 
 Aus `server/index.ts`:
@@ -44,7 +70,7 @@ Aus `server/index.ts`:
 
 - Session-basierte Auth mit httpOnly-Cookies.
 - CSRF-Schutz (Double-Submit Cookie Pattern).
-- Rollen und Permissions auf API-Ebene enforced (siehe `server/auth.ts` und `shared/schema.ts`).
+- Rollen und Permissions auf API-Ebene enforced (siehe `server/auth/auth.ts` und `shared/schema.ts`).
 
 ## Datenmodelle (Kurzueberblick)
 

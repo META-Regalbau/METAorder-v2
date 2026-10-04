@@ -5,7 +5,7 @@
  *
  * Layout: large Perspektive on the left, Vorderansicht (top) and Draufsicht
  * (bottom) stacked on the right at the same combined height — matching the
- * PDF's image slot (server/offerConfigPdf.ts drawConfigSection: max 468×248pt,
+ * PDF's image slot (server/offers/offerConfigPdf.ts drawConfigSection: max 468×248pt,
  * ≈1.887:1 landscape), so the composite fits at full width without letterboxing.
  *
  * Runs outside React/Fiber: a bare THREE.WebGLRenderer against a detached
@@ -19,7 +19,7 @@ import { buildRegalDimensions, disposeDimensions } from "./regalDimensions";
 import { cameraForView, unionBox } from "./regalFraming";
 import type { MetaClipState } from "@/lib/metaClipCpq";
 
-const PDF_IMAGE_ASPECT = 468 / 248; // server/offerConfigPdf.ts's image slot (imgMaxW/imgMaxH)
+const PDF_IMAGE_ASPECT = 468 / 248; // server/offers/offerConfigPdf.ts's image slot (imgMaxW/imgMaxH)
 
 type View = 0 | 1 | 2; // 0 Perspektive, 1 Vorderansicht, 2 Draufsicht
 

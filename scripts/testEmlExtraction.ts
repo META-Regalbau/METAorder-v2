@@ -6,8 +6,8 @@ import assert from "node:assert/strict";
 import {
   splitEmailBodyMainAndSignature,
   formatParsedEmailForDraftExpanded,
-} from "../server/documentTextExtraction.ts";
-import { parseEmlFile } from "../server/emailParser.ts";
+} from "../server/extraction/documentTextExtraction.ts";
+import { parseEmlFile } from "../server/email/emailParser.ts";
 
 function fail(msg: string): never {
   throw new Error(msg);
