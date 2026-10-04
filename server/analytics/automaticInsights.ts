@@ -1,5 +1,5 @@
 import { chatCompletion, isChatLlmConfigured, parseLlmJsonResponse } from "../ai/llmChat";
-import type { AnalyticsLanguage, AnalyticsResult, AnalyticsInsight, AnalyticsQueryType } from "@shared/schema";
+import { ANALYTICS_INSIGHT_TYPES, type AnalyticsLanguage, type AnalyticsResult, type AnalyticsInsight, type AnalyticsQueryType } from "@shared/schema";
 import type { IStorage } from "../storage";
 import { NL_TEXTS, PROMPT_LANGUAGE_NAME } from "./nlLanguage";
 
@@ -25,6 +25,7 @@ Deine Aufgabe ist es, Analyseergebnisse zu untersuchen und aussagekräftige Insi
 3. **Sei verständlich**: Verwende klare, geschäftliche Sprache ohne zu viel Fachjargon
 4. **Sei relevant**: Konzentriere dich auf die wichtigsten Erkenntnisse
 5. **Verwende die Zielsprache**: Alle Insight-Texte müssen auf ${target} sein (auch wenn die Beispiele unten deutsch sind)
+6. **Währung**: Alle Geldbeträge sind Euro (€), nie Dollar
 
 ## ARTEN VON INSIGHTS:
 
@@ -170,12 +171,12 @@ export async function generateInsights(
       insights = [];
     }
 
-    // Validate and normalize insights
+    // Validate and normalize insights (unbekannte Arten der KI, z. B. "performance", als "general")
     const validatedInsights = insights
       .filter(insight => insight.text && insight.type)
       .map(insight => ({
         text: insight.text,
-        type: insight.type as 'trend' | 'anomaly' | 'comparison' | 'general',
+        type: (ANALYTICS_INSIGHT_TYPES as readonly string[]).includes(insight.type) ? insight.type : 'general',
         confidence: insight.confidence || undefined,
       }));
 
@@ -206,7 +207,17 @@ export async function generateInsights(
 /**
  * Prepares analytics data context for AI processing
  */
-function prepareAnalyticsContext(data: AnalyticsResult, queryType: AnalyticsQueryType): any {
+/** Zeitreihen: nur hier ist ein Vergleich erste/zweite Haelfte ein Trend */
+const TIME_SERIES_QUERY_TYPES = new Set<AnalyticsQueryType>([
+  'order_trends',
+  'revenue_trends',
+  'seasonal_analysis',
+  'revenue_forecast',
+  'product_demand_forecast',
+  'trend_forecast',
+]);
+
+export function prepareAnalyticsContext(data: AnalyticsResult, queryType: AnalyticsQueryType): any {
   const context: any = {
     queryType,
     dataPoints: data.labels.length,
@@ -227,8 +238,9 @@ function prepareAnalyticsContext(data: AnalyticsResult, queryType: AnalyticsQuer
     context.metadata = data.metadata;
   }
 
-  // Calculate some basic statistics
-  if (Array.isArray(data.data) && typeof data.data[0] === 'number') {
+  // Calculate some basic statistics (nicht bei den allgemeinen Statistiken: Anzahl, Umsatz und
+  // Durchschnitt lassen sich nicht zusammenzaehlen)
+  if (Array.isArray(data.data) && typeof data.data[0] === 'number' && queryType !== 'general_statistics') {
     const numbers = data.data as number[];
     const sorted = [...numbers].sort((a, b) => a - b);
     
@@ -240,7 +252,7 @@ function prepareAnalyticsContext(data: AnalyticsResult, queryType: AnalyticsQuer
     };
 
     // Calculate trend if it's time-series data
-    if (numbers.length > 1) {
+    if (numbers.length > 1 && TIME_SERIES_QUERY_TYPES.has(queryType)) {
       const firstHalf = numbers.slice(0, Math.floor(numbers.length / 2));
       const secondHalf = numbers.slice(Math.floor(numbers.length / 2));
       const firstAvg = firstHalf.reduce((sum, n) => sum + n, 0) / firstHalf.length;

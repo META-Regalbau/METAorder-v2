@@ -19,6 +19,7 @@ const state = vi.hoisted(() => ({
   llmConfigured: true,
   query: { type: "general_statistics", parameters: {} } as Record<string, unknown>,
   insightsFail: false,
+  insightType: "trend",
   calls: [] as Array<{ system: string; user: string }>,
 }));
 
@@ -34,7 +35,7 @@ vi.mock("../../server/ai/llmChat", async (importOriginal) => {
       if (system.startsWith("Du bist ein intelligenter Analytics-Assistent")) return JSON.stringify(state.query);
       if (system.includes("Business Intelligence")) {
         if (state.insightsFail) throw new Error("TIMEOUT");
-        return JSON.stringify({ insights: [{ text: "AI insight", type: "trend", confidence: 90 }] });
+        return JSON.stringify({ insights: [{ text: "AI insight", type: state.insightType, confidence: 90 }] });
       }
       return JSON.stringify({ suggestions: [{ category: "revenue", priority: "high", title: "T", description: "D", actionItems: ["a"] }] });
     },
@@ -90,6 +91,7 @@ beforeEach(() => {
   state.live = 0;
   state.llmConfigured = true;
   state.insightsFail = false;
+  state.insightType = "trend";
   state.calls = [];
   state.query = { type: "general_statistics", parameters: {} };
   seq = 0;
@@ -150,6 +152,28 @@ describe("Natürliche Sprache: Sprache der Antwort", () => {
     expect(call.system).toContain("auf Spanisch");
     expect(call.user).toContain("auf Spanisch");
     expect(body.result.improvements).toHaveLength(1);
+  });
+
+  it("Betraege in Euro; unbekannte Hinweisart der KI als allgemein", async () => {
+    state.insightType = "performance";
+    const { body } = await ask({ question: "How are we doing?", language: "en" });
+    expect(state.calls.find((c) => c.system.includes("Business Intelligence"))!.system).toContain("Euro (€), nie Dollar");
+    expect(body.insights[0].type).toBe("general");
+  });
+
+  it("Trend im KI-Kontext nur bei Zeitreihen, keine Summe ueber die allgemeinen Statistiken", async () => {
+    await ask({ question: "Wie läuft es?" });
+    const general = state.calls.find((c) => c.system.includes("Business Intelligence"))!.user;
+    expect(general).not.toContain('"trend"');
+    expect(general).not.toContain('"statistics"');
+    state.calls = [];
+    state.query = { type: "top_products", parameters: {} };
+    await ask({ question: "Top-Produkte" });
+    expect(state.calls.find((c) => c.system.includes("Business Intelligence"))!.user).not.toContain('"trend"');
+    state.calls = [];
+    state.query = { type: "order_trends", parameters: { groupBy: "day" } };
+    await ask({ question: "Bestelltrend" });
+    expect(state.calls.find((c) => c.system.includes("Business Intelligence"))!.user).toContain('"trend"');
   });
 
   it("KI-Hinweise nicht erreichbar: regelbasierte Hinweise in der Sprache", async () => {
