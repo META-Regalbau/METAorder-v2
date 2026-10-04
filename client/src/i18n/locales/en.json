@@ -2663,7 +2663,8 @@
     "min": "Minimum",
     "max": "Maximum",
     "range": "Range",
-    "value": "Value"
+    "value": "Value",
+    "gross": "Gross"
   },
   "bulkActions": {
     "selectedCount": "{{count}} order selected",
@@ -4682,5 +4683,40 @@
     "noRuns": "No automation runs yet",
     "pollInterval": "Automation runs every 3 minutes",
     "info": "Automatically creates invoices and sets orders to shipped based on ERP CustomFields"
+  },
+  "insights": {
+    "top_pairs": {
+      "title": "Top item combinations",
+      "description": "Item pairs with a high purchase probability"
+    },
+    "upsell_opportunities": {
+      "title": "Upsell potential",
+      "description": "Recommendations with high lift for the basket"
+    },
+    "top_quality_pairs": {
+      "title": "Top quality pairs (funnel)",
+      "description": "Source→target direction with high relative interaction (last 90 days)"
+    },
+    "low_quality_pairs": {
+      "title": "Weak pairs (funnel)",
+      "description": "Enough impressions, but a very low add rate"
+    },
+    "offer_status_distribution": {
+      "title": "Offer status distribution",
+      "description": "Distribution of offer statuses in the period"
+    },
+    "offer_conversion": {
+      "title": "Offer conversion",
+      "description": "Share of approved offers"
+    },
+    "offer_avg_values": {
+      "title": "Average offer value",
+      "description": "Average values by status"
+    },
+    "top_customers": {
+      "title": "Top offer customers",
+      "description": "Customers with the most offer requests"
+    },
+    "impressionsShort": "imp."
   }
 }

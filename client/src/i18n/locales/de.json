@@ -2660,7 +2660,8 @@
         "basedOn": "Datengrundlage",
         "confidence": "Konfidenz"
       }
-    }
+    },
+    "gross": "Brutto"
   },
   "bulkActions": {
     "selectedCount": "{{count}} Bestellung ausgewählt",
@@ -4679,5 +4680,40 @@
     "noRuns": "Noch keine Automatisierungsläufe",
     "pollInterval": "Die Automatisierung läuft alle 3 Minuten",
     "info": "Erstellt automatisch Rechnungen und setzt Bestellungen anhand der ERP-CustomFields auf versendet"
+  },
+  "insights": {
+    "top_pairs": {
+      "title": "Top kombinierte Artikel",
+      "description": "Artikelpaare mit hoher Kaufwahrscheinlichkeit"
+    },
+    "upsell_opportunities": {
+      "title": "Upsell-Potenzial",
+      "description": "Empfehlungen mit hohem Lift für den Warenkorb"
+    },
+    "top_quality_pairs": {
+      "title": "Top-Qualitäts-Paare (Funnel)",
+      "description": "Richtung Quelle→Ziel mit hoher relativer Interaktion (letzte 90 Tage)"
+    },
+    "low_quality_pairs": {
+      "title": "Schwache Paare (Funnel)",
+      "description": "Ausreichend Impressions, aber sehr niedrige Add-Rate"
+    },
+    "offer_status_distribution": {
+      "title": "Angebotsstatus-Verteilung",
+      "description": "Verteilung der Angebots-Status im Zeitraum"
+    },
+    "offer_conversion": {
+      "title": "Angebots-Conversion",
+      "description": "Anteil freigegebener Angebote"
+    },
+    "offer_avg_values": {
+      "title": "Durchschnittlicher Angebotswert",
+      "description": "Durchschnittswerte nach Status"
+    },
+    "top_customers": {
+      "title": "Top Angebot-Kunden",
+      "description": "Kunden mit den meisten Angebotsanfragen"
+    },
+    "impressionsShort": "Imp."
   }
 }

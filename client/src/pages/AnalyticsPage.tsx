@@ -11,6 +11,7 @@ import { format, subDays } from "date-fns";
 import { de } from "date-fns/locale";
 import { useTranslation } from "react-i18next";
 import type { SalesChannel, AiInsight, OfferLearningInsight } from "@shared/schema";
+import { learningInsightDescription, learningInsightPairStats, learningInsightTitle, offerStatusLabel } from "@/lib/learningInsightText";
 import {
   TrendingUp,
   Package,
@@ -616,7 +617,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
               {summary?.totalNetRevenue?.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
             </div>
             <p className="text-xs text-muted-foreground">
-              Brutto: {summary?.totalRevenue?.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+              {t("analytics.gross")}: {summary?.totalRevenue?.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
             </p>
           </CardContent>
         </Card>
@@ -644,7 +645,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
               {summary?.averageNetOrderValue?.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
             </div>
             <p className="text-xs text-muted-foreground">
-              Brutto: {summary?.averageOrderValue?.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+              {t("analytics.gross")}: {summary?.averageOrderValue?.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
             </p>
           </CardContent>
         </Card>
@@ -763,8 +764,8 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
             )}
             {offerConversionInsight?.data && (
               <div className="border rounded-lg p-4">
-                <h3 className="font-medium">{offerConversionInsight.title}</h3>
-                <p className="text-sm text-muted-foreground mt-1">{offerConversionInsight.description}</p>
+                <h3 className="font-medium">{learningInsightTitle(t, offerConversionInsight)}</h3>
+                <p className="text-sm text-muted-foreground mt-1">{learningInsightDescription(t, offerConversionInsight)}</p>
                 {offerKpiTotals.totalOffers !== undefined && (
                   <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
                     <div className="rounded-md bg-muted/50 px-3 py-2">
@@ -803,23 +804,23 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
             )}
             {offerStatusInsight?.data?.statusCounts && (
               <div className="border rounded-lg p-4">
-                <h3 className="font-medium">{offerStatusInsight.title}</h3>
-                <p className="text-sm text-muted-foreground mt-1">{offerStatusInsight.description}</p>
+                <h3 className="font-medium">{learningInsightTitle(t, offerStatusInsight)}</h3>
+                <p className="text-sm text-muted-foreground mt-1">{learningInsightDescription(t, offerStatusInsight)}</p>
                 <div className="mt-3 text-sm text-muted-foreground">
                   {Object.entries(offerStatusInsight.data.statusCounts as Record<string, number>).map(([status, count]) => (
-                    <div key={status}>{status}: {count}</div>
+                    <div key={status}>{offerStatusLabel(t, status)}: {count}</div>
                   ))}
                 </div>
               </div>
             )}
             {offerAvgInsight?.data?.avgByStatus && (
               <div className="border rounded-lg p-4">
-                <h3 className="font-medium">{offerAvgInsight.title}</h3>
-                <p className="text-sm text-muted-foreground mt-1">{offerAvgInsight.description}</p>
+                <h3 className="font-medium">{learningInsightTitle(t, offerAvgInsight)}</h3>
+                <p className="text-sm text-muted-foreground mt-1">{learningInsightDescription(t, offerAvgInsight)}</p>
                 <div className="mt-3 text-sm text-muted-foreground">
                   {Object.entries(offerAvgInsight.data.avgByStatus).map(([status, avg]) => (
                     <div key={status}>
-                      {status}: {Number(avg).toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+                      {offerStatusLabel(t, status)}: {Number(avg).toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
                     </div>
                   ))}
                 </div>
@@ -827,8 +828,8 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
             )}
             {offerTopCustomersInsight?.data?.topCustomers && (
               <div className="border rounded-lg p-4">
-                <h3 className="font-medium">{offerTopCustomersInsight.title}</h3>
-                <p className="text-sm text-muted-foreground mt-1">{offerTopCustomersInsight.description}</p>
+                <h3 className="font-medium">{learningInsightTitle(t, offerTopCustomersInsight)}</h3>
+                <p className="text-sm text-muted-foreground mt-1">{learningInsightDescription(t, offerTopCustomersInsight)}</p>
                 <div className="mt-3 text-sm text-muted-foreground">
                   {offerTopCustomersInsight.data.topCustomers.map((entry: any, index: number) => (
                     <div key={`${entry.customer}-${index}`}>
@@ -854,17 +855,21 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
             )}
             {aiInsights.map((insight) => (
               <div key={insight.id} className="border rounded-lg p-4" data-testid={`ai-insight-${insight.id}`}>
-                <h3 className="font-medium">{insight.title}</h3>
-                {insight.description && (
-                  <p className="text-sm text-muted-foreground mt-1">{insight.description}</p>
+                <h3 className="font-medium">{learningInsightTitle(t, insight)}</h3>
+                {learningInsightDescription(t, insight) && (
+                  <p className="text-sm text-muted-foreground mt-1">{learningInsightDescription(t, insight)}</p>
                 )}
                 {insight.data?.pairs && Array.isArray(insight.data.pairs) && (
                   <div className="mt-3 text-sm text-muted-foreground">
-                    {insight.data.pairs.slice(0, 5).map((pair: any, index: number) => (
-                      <div key={`${pair.source}-${pair.target}-${index}`}>
-                        {pair.source} → {pair.target} · {(pair.support * 100).toFixed(1)}% · {pair.lift.toFixed(2)}
-                      </div>
-                    ))}
+                    {insight.data.pairs.slice(0, 5).map((pair: any, index: number) => {
+                      const stats = learningInsightPairStats(t, pair);
+                      return (
+                        <div key={`${pair.source}-${pair.target}-${index}`}>
+                          {pair.source} → {pair.target}
+                          {stats && ` · ${stats}`}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
