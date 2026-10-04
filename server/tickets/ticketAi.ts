@@ -2,14 +2,16 @@ import { z } from "zod";
 import type { TicketCategory, TicketPriority } from "@shared/schema";
 import type { Ticket } from "@shared/schema";
 import type { IStorage } from "../storage";
-import { getChatClientFromSettings } from "../ai/llmClient";
+import { chatCompletion, isChatLlmConfigured, resolveChatTarget } from "../ai/llmChat";
+import type { ChatProvider } from "../ai/llmClient";
 
 export type TicketAiResult = {
   category: TicketCategory;
   priority: TicketPriority;
   sentiment: "positive" | "neutral" | "negative";
   confidence: number;
-  source: "openai" | "heuristic";
+  /** Chat-Anbieter der KI-Einordnung oder "heuristic" (Schluesselwoerter) */
+  source: ChatProvider | "heuristic";
 };
 
 const CATEGORY_RULES: Array<{ keywords: string[]; category: TicketCategory; priority?: TicketPriority }> = [
@@ -74,10 +76,9 @@ function heuristicClassification(ticket: Ticket): TicketAiResult {
 }
 
 export async function classifyTicketForRules(storage: IStorage, ticket: Ticket): Promise<TicketAiResult> {
-  const openaiConfig = await getChatClientFromSettings(storage.getSetting.bind(storage), {
-    tier: "fast",
-  });
-  if (!openaiConfig) {
+  // Chat-Anbieter des Mandanten (OpenAI, Claude oder Gemini)
+  const getSetting = storage.getSetting.bind(storage);
+  if (!(await isChatLlmConfigured(getSetting))) {
     return heuristicClassification(ticket);
   }
 
@@ -103,16 +104,16 @@ export async function classifyTicketForRules(storage: IStorage, ticket: Ticket):
   ].join("\n");
 
   try {
-    const response = await openaiConfig.client.chat.completions.create({
-      model: openaiConfig.model,
+    const raw = await chatCompletion(getSetting, {
+      tier: "fast",
       temperature: 0,
+      response_json: true,
       messages: [
         { role: "system", content: "You are a JSON-only classifier for support tickets." },
         { role: "user", content: prompt },
       ],
     });
 
-    const raw = response.choices[0]?.message?.content || "";
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     const jsonText = jsonMatch ? jsonMatch[0] : raw;
     const parsed = schema.safeParse(JSON.parse(jsonText));
@@ -125,7 +126,7 @@ export async function classifyTicketForRules(storage: IStorage, ticket: Ticket):
       priority: parsed.data.priority,
       sentiment: parsed.data.sentiment,
       confidence: parsed.data.confidence,
-      source: "openai",
+      source: (await resolveChatTarget(getSetting, "fast")).provider,
     };
   } catch (error) {
     console.error("[TicketAI] Classification failed:", error);
