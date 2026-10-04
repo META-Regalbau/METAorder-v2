@@ -70,7 +70,8 @@ export function createLogger(opts: { level?: string; format?: LogFormat; destina
 
   // JSON: Level als Text ("info" statt 30) - lesbarer in Log-Ansichten ohne Werkzeug
   options.formatters = { level: (label) => ({ level: label }) };
-  return opts.destination ? pino(options, opts.destination) : pino(options);
+  // Synchron nach stdout wie console: auch die letzten Zeilen vor einem Absturz landen im Log
+  return pino(options, opts.destination ?? pino.destination({ dest: 1, sync: true }));
 }
 
 function loadPinoPretty(): ((options: Record<string, unknown>) => DestinationStream) | null {
