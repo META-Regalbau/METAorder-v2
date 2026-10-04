@@ -611,7 +611,8 @@ export function registerErpRoutes(app: Express) {
           "./erpStockReconcile"
         );
         await refreshShopwareMirrorForStock(requireTenant(req));
-        const result = await buildStockReconcileDiff(requireTenant(req), { onlyDiffs: true });
+        // alle Zeilen: die Lagerseite filtert die Abweichungen selbst (eine Liste fuer Bestaende und Abgleich)
+        const result = await buildStockReconcileDiff(requireTenant(req), { onlyDiffs: false });
         res.json({ ok: true, ...result });
       } catch (error: any) {
         return mapErpError(error, res, "Failed to refresh Shopware mirror for stock");

@@ -25,7 +25,14 @@ import {
 import { printStockCountSheet, type StockCountRow } from "@/lib/labels/stockCountSheet";
 import { useErpProductLabels } from "@/hooks/useErpProductLabels";
 import { usePagedRows } from "@/hooks/usePagedRows";
-import { stockReconcileQueryKey, storeRefreshedReconcile } from "@/lib/stockReconcileCache";
+import {
+  productNumbersNeedingLabels,
+  reconcileLabelMap,
+  stockReconcileQueryKey,
+  stockReconcileUrl,
+  storeRefreshedReconcile,
+} from "@/lib/warehouseReconcile";
+import { isStockReconcileDiff } from "@shared/stockReconcile";
 import PaginationControls from "@/components/PaginationControls";
 import { normalizeScanCode } from "@/lib/barcode/normalizeScanCode";
 
@@ -284,25 +291,25 @@ export default function WarehousePage() {
   });
   const counts = countData?.counts ?? [];
 
+  const reconcileEnabled = mainTab === "reconcile" || mainTab === "stock";
   const {
     data: reconcileData,
     isLoading: reconcileLoading,
     isFetching: reconcileFetching,
   } = useQuery<StockReconcileResult>({
-    queryKey: stockReconcileQueryKey(mainTab === "stock" ? "all" : "diffs"),
-    enabled: mainTab === "reconcile" || mainTab === "stock",
-    queryFn: async ({ queryKey }) => {
-      const mode = queryKey[1];
-      const onlyDiffs = mode !== "all";
-      const res = await fetch(`/api/erp/stock/reconcile?onlyDiffs=${onlyDiffs}`, {
-        credentials: "include",
-      });
+    queryKey: stockReconcileQueryKey,
+    enabled: reconcileEnabled,
+    queryFn: async () => {
+      const res = await fetch(stockReconcileUrl, { credentials: "include" });
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
   });
-  const reconcileRows = reconcileData?.rows ?? [];
+  // Bestaende zeigen alle Artikel, der Abgleich-Reiter nur die Abweichungen - aus derselben Liste
+  const reconcileAllRows = useMemo(() => reconcileData?.rows ?? [], [reconcileData]);
+  const reconcileRows = useMemo(() => reconcileAllRows.filter(isStockReconcileDiff), [reconcileAllRows]);
   const reconcileTotals = reconcileData?.totals;
+  const reconcileLabelByPn = useMemo(() => reconcileLabelMap(reconcileAllRows), [reconcileAllRows]);
 
   const { data: activeCountData, isLoading: activeCountLoading } = useQuery<{
     count: ErpInventoryCountDetail;
@@ -327,16 +334,17 @@ export default function WarehousePage() {
       ...(activeCount?.lines || []).map((l) => l.productNumber),
       ...stockMain.map((s) => s.productNumber),
       ...movements.map((m) => m.productNumber),
-      ...(reconcileRows || []).map((r) => r.productNumber),
+      ...reconcileAllRows.map((r) => r.productNumber),
     ];
-    return nums;
-  }, [stockMain, movements, activeCount?.lines, reconcileRows]);
+    // Bezeichnungen aus der Abgleich-Liste nicht noch einmal einzeln laden (frueher ~7 MB in 34 Anfragen)
+    return productNumbersNeedingLabels(nums, reconcileLabelByPn, reconcileEnabled && reconcileLoading);
+  }, [stockMain, movements, activeCount?.lines, reconcileAllRows, reconcileLabelByPn, reconcileEnabled, reconcileLoading]);
   const { getLabel } = useErpProductLabels(erpProductNumbers);
 
   const resolveLabel = (productNumber: string, primary?: StockReconcileLabel | null) => {
     const fromInventory = inventoryLabels[productNumber];
     const fromApi = getLabel(productNumber);
-    const base = primary || fromInventory || null;
+    const base = primary || fromInventory || reconcileLabelByPn.get(productNumber) || null;
     if (!base) return fromApi;
     const name = base.name || fromApi.name;
     const size = base.size || fromApi.size;
@@ -357,8 +365,8 @@ export default function WarehousePage() {
 
   /** Bestände-Tab: Shopware-Mengen (alle SKUs) — auch wenn ERP noch leer ist. */
   const stockViewRows = useMemo(() => {
-    if (reconcileRows.length > 0) {
-      return reconcileRows
+    if (reconcileAllRows.length > 0) {
+      return reconcileAllRows
         .filter((r) => !r.isParent)
         .map((r) => ({
           productNumber: r.productNumber,
@@ -383,7 +391,7 @@ export default function WarehousePage() {
       purchasePriceNet: null as number | null,
       reservedQuantity: Number(s.reservedQuantity || 0),
     }));
-  }, [reconcileRows, stockMain, getLabel]);
+  }, [reconcileAllRows, stockMain, getLabel]);
 
   const currencyFmt = useMemo(
     () =>
@@ -1859,7 +1867,7 @@ export default function WarehousePage() {
                   {movements.map((m) => (
                     <TableRow key={m.id}>
                       <TableCell>
-                        <ErpProductCell productNumber={m.productNumber} label={getLabel(m.productNumber)} />
+                        <ErpProductCell productNumber={m.productNumber} label={resolveLabel(m.productNumber)} />
                       </TableCell>
                       <TableCell>{m.quantity}</TableCell>
                       <TableCell>{m.movementType}</TableCell>

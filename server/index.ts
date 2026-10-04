@@ -27,6 +27,7 @@ import { runShopwareMirrorSync } from "./shopware/shopwareMirror";
 import { assertSecureSecret } from "./lib/secretGuard";
 import { installConsoleBridge } from "./lib/consoleBridge";
 import { requestIdMiddleware } from "./lib/requestContext";
+import { responseCompression } from "./lib/responseCompression";
 import { errorHandler, requestLoggingMiddleware } from "./lib/httpLogging";
 import { registerAutomationTriggers, startAutomationScheduler } from "./automation";
 
@@ -38,6 +39,8 @@ const app = express();
 initBackendSentry(app);
 // Request-ID fuer jede Anfrage (Header X-Request-Id, in jeder Log-Zeile als requestId)
 app.use(requestIdMiddleware);
+// gzip fuer Antworten (ohne Server-Sent Events), siehe server/lib/responseCompression.ts
+app.use(responseCompression());
 
 app.get("/healthz", (_req, res) => {
   res.status(200).json({ status: "ok" });

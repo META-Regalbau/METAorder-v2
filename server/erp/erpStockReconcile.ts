@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "../db";
 import { shopwareProducts } from "@shared/schema";
 import { buildErpProductLabel, type ErpProductLabel } from "@shared/productVariantLabel";
+import { isStockReconcileDiff } from "@shared/stockReconcile";
 import { erpStorage } from "./erpStorage";
 import { requireTenantId } from "./erpLogic";
 import { syncShopwareMirrorForTenant } from "../shopware/shopwareMirror";
@@ -334,8 +335,8 @@ export async function buildStockReconcileDiff(
     const delta = shopwareQty - erpQty;
     if (!sw && erpByPn.has(pn)) onlyErp += 1;
     if (sw && !erpByPn.has(pn)) onlyShopware += 1;
-    if (delta !== 0) diffs += 1;
-    if (opts?.onlyDiffs !== false && delta === 0) continue;
+    if (isStockReconcileDiff({ delta })) diffs += 1;
+    else if (opts?.onlyDiffs !== false) continue;
 
     rows.push({
       productNumber: pn,
