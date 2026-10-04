@@ -54,6 +54,33 @@ Direkt unter `server/` liegen nur App-Einstieg und Infrastruktur: `index.ts`, `r
 | `shopware/` | Shopware-API-Client, Spiegelung, Token-Cache |
 | `tickets/` | Ticket-KI, Automatisierung |
 
+### API-Routen (`server/routes/`)
+
+`server/routes.ts` registriert nur noch die Bereichsmodule; die Routen liegen je Bereich in einer Datei mit einer `register…Routes(app)`-Funktion. Neue Routen gehören in das passende Modul (Reihenfolge-Hinweise stehen im Kopfkommentar von `routes.ts`).
+
+| Datei | Pfade |
+|---|---|
+| `authRoutes.ts` | `/api/auth` (ohne M365), `/api/profile` |
+| `userRoutes.ts` | `/api/users`, `/api/roles`, `/api/tenants` |
+| `settingsRoutes.ts` | `/api/settings` |
+| `orderRoutes.ts` | `/api/orders`, `/api/installment-plans` |
+| `offerRoutes.ts` | `/api/offers` |
+| `draftRoutes.ts` | `/api/order-drafts`, `/api/offer-drafts`, `/api/commercial-drafts`, `/api/commercial-agent` |
+| `productRoutes.ts` | `/api/products`, `/api/bundles` |
+| `crossSellingRoutes.ts` | `/api/cross-selling`, `/api/cross-selling-rules` |
+| `crmRoutes.ts` | `/api/crm` |
+| `ticketRoutes.ts` | `/api/tickets`, `/api/portal`, `/api/templates`, `/api/ticket-assignment-rules`, `/api/automation-rules`, `/api/attachments`, `/api/parse-email` |
+| `aiRoutes.ts` | `/api/ai`, `/api/semantic` |
+| `analyticsRoutes.ts` | `/api/analytics`, `/api/dashboard` |
+| `notificationRoutes.ts` | `/api/notifications` |
+| `masterDataRoutes.ts` | `/api/sales-channels`, `/api/categories`, `/api/search`, `/api/b2b` (Nachschlagewerte) |
+| `integrationRoutes.ts` | `/api/email`, `/api/m365`, `/api/auth/m365`, `/api/webhooks`, `/api/cpq/public/offer-request` |
+| `invoicingRoutes.ts` | `/api/dunning`, `/api/accounting` |
+| `operationsRoutes.ts` | `/api/shipping`, `/api/carriers`, `/api/process-updates`, `/api/erp-automation`, `/api/debug` |
+| `routeHelpers.ts` | gemeinsame Helfer (Verkaufskanal-Filter, Ticket-Zuweisung/-SLA, Anhang-Pfade, Bestell-Cache) |
+
+Weitere Routen-Module liegen bei ihrer Domäne: `erp/erpRoutes.ts`, `cpq/cpqRoutes.ts`, `cpq-core/cpqCoreRoutes.ts`, `b2b/b2bAdminRoutes.ts`, `offers/publicOfferRoutes.ts`, `sftp/sftpRoutes.ts`, `commercial/commercialAcknowledgementRoutes.ts`. Die OpenAPI-Pfade erzeugt `scripts/generate-openapi-paths.mjs` beim Build aus `routes.ts`, allen Dateien in `server/routes/` sowie den CPQ- und Public-Offer-Routen.
+
 ## Backend-Start und Hintergrundjobs
 
 Aus `server/index.ts`:
