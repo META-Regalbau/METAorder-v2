@@ -1,8 +1,10 @@
 /**
  * Uebersetzungsschluessel der Oberflaeche: jeder im Client verwendete Schluessel muss auf Deutsch
  * (Rueckfallsprache) als Text existieren - sonst zeigt die Oberflaeche den rohen Schluessel (z. B.
- * PAYMENTSTATUS.AUTHORIZED). Geprueft werden statische t("...")-Aufrufe ohne Standardtext und die
- * dynamischen Schluessel, deren Werte feststehen (Status, Prioritaeten, Automatisierungs-Katalog).
+ * PAYMENTSTATUS.AUTHORIZED) oder auf Englisch/Spanisch den deutschen Standardtext aus dem Code.
+ * Geprueft werden statische t("...")-Aufrufe und die dynamischen Schluessel, deren Werte feststehen
+ * (Status, Prioritaeten, Automatisierungs-Katalog). Englisch und Spanisch muessen jeden deutschen
+ * Schluessel mit denselben Platzhaltern enthalten.
  * Ausführung: npm test
  */
 import { describe, expect, it } from "vitest";
@@ -29,7 +31,8 @@ const flatten = (obj: Record<string, unknown>, prefix = ""): Record<string, unkn
     else out[key] = v;
     return out;
   }, {});
-const de = flatten(JSON.parse(fs.readFileSync(path.join(ROOT, "client/src/i18n/locales/de.json"), "utf8")));
+const locale = (lng: string) => flatten(JSON.parse(fs.readFileSync(path.join(ROOT, `client/src/i18n/locales/${lng}.json`), "utf8")));
+const de = locale("de");
 const missingIn = (keys: string[]) => keys.filter((k) => typeof de[k] !== "string");
 
 function sourceFiles(dir: string): string[] {
@@ -40,16 +43,15 @@ function sourceFiles(dir: string): string[] {
   });
 }
 
-/** Statische Schluessel aus t("..."), t('...'), t(`...`) ohne ${} und i18nKey="..."; mit Standardtext uebersprungen. */
-function staticKeysWithoutDefault(): Map<string, string> {
+/** Statische Schluessel aus t("..."), t('...'), t(`...`) ohne ${} und i18nKey="..." (auch mit Standardtext im Code). */
+function staticKeys(): Map<string, string> {
   const keys = new Map<string, string>();
-  const call = /\bt\(\s*(['"`])([A-Za-z0-9_.-]+)\1\s*(,\s*(['"`]|\{[^}]*defaultValue))?/g;
+  const call = /\bt\(\s*(['"`])([A-Za-z0-9_.-]+)\1/g;
   const attr = /i18nKey=\s*["']([A-Za-z0-9_.-]+)["']/g;
   for (const file of sourceFiles(path.join(ROOT, "client/src"))) {
     const src = fs.readFileSync(file, "utf8");
     const rel = path.relative(ROOT, file);
     for (const m of src.matchAll(call)) {
-      if (m[3]) continue; // mit Standardtext
       if (!m[2].includes(".")) continue; // keine Schluessel-Form (z. B. t("x") als Variable)
       if (!keys.has(m[2])) keys.set(m[2], rel);
     }
@@ -61,8 +63,8 @@ function staticKeysWithoutDefault(): Map<string, string> {
 const pascal = (s: string) => s.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join("");
 
 describe("Uebersetzungsschluessel (Deutsch)", () => {
-  it("jeder statisch verwendete Schluessel ohne Standardtext existiert als Text", () => {
-    const keys = staticKeysWithoutDefault();
+  it("jeder statisch verwendete Schluessel existiert als Text (auch mit Standardtext im Code)", () => {
+    const keys = staticKeys();
     expect(keys.size).toBeGreaterThan(1000); // Plausibilitaet: die Suche findet die Aufrufe
     const missing = [...keys].filter(([k]) => typeof de[k] !== "string").map(([k, file]) => `${k} (${file})`);
     expect(missing).toEqual([]);
@@ -96,5 +98,35 @@ describe("Uebersetzungsschluessel (Deutsch)", () => {
   it("Dokumenttypen der Shops (unbekannte zeigt die Detailansicht mit technischem Namen)", () => {
     const used = ["invoice", "delivery_note", "credit_note", "cancellation", "unknown", "pickware_erp_picklist", "partial_cancellation"];
     expect(missingIn(used.map((v) => `documentTypes.${v}`))).toEqual([]);
+  });
+});
+
+describe("Uebersetzungsschluessel (Englisch, Spanisch)", () => {
+  const placeholders = (s: string) => [...new Set([...s.matchAll(/\{\{\s*([\w.]+)/g)].map((m) => m[1]))].sort();
+  const transTags = (s: string) => [...s.matchAll(/<\/?\d+\s*\/?>/g)].map((m) => m[0].replace(/\s/g, "")).sort();
+
+  for (const lng of ["en", "es"]) {
+    const other = locale(lng);
+
+    it(`${lng}: jeder deutsche Schluessel existiert als Text`, () => {
+      expect(Object.keys(de).length).toBeGreaterThan(3000);
+      expect(Object.keys(de).filter((k) => typeof other[k] !== "string" || (other[k] === "" && de[k] !== ""))).toEqual([]);
+    });
+
+    it(`${lng}: Platzhalter und Trans-Markierungen wie auf Deutsch`, () => {
+      const differ = Object.keys(de)
+        .filter((k) => typeof de[k] === "string" && typeof other[k] === "string")
+        .filter((k) => {
+          const a = de[k] as string;
+          const b = other[k] as string;
+          return placeholders(a).join() !== placeholders(b).join() || transTags(a).join() !== transTags(b).join();
+        });
+      expect(differ).toEqual([]);
+    });
+  }
+
+  it("Mehrzahl im Format von i18next 21+ (_one/_other), nicht mehr _plural", () => {
+    const old = ["de", "en", "es"].flatMap((lng) => Object.keys(locale(lng)).filter((k) => k.endsWith("_plural")).map((k) => `${lng}: ${k}`));
+    expect(old).toEqual([]);
   });
 });

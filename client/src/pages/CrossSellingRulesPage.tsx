@@ -1026,10 +1026,10 @@ export default function CrossSellingRulesPage() {
                 <h2 className="text-lg font-semibold">{t("rules.stagingTitle", "Staging")}</h2>
                 <p className="text-sm text-muted-foreground">
                   {stagingBatch
-                    ? t(
-                        "rules.stagingLatest",
-                        `Letzter Snapshot: ${new Date(stagingBatch.createdAt).toLocaleString()}`
-                      )
+                    ? t("rules.stagingLatest", {
+                        date: new Date(stagingBatch.createdAt).toLocaleString(),
+                        defaultValue: "Letzter Snapshot: {{date}}",
+                      })
                     : t("rules.stagingNone", "Kein Staging vorhanden. Bitte AI-Regeln neu berechnen.")}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">

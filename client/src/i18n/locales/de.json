@@ -192,7 +192,9 @@
     "more": "weitere",
     "noResults": "Keine Ergebnisse",
     "outOfStock": "Nicht auf Lager",
-    "error": "Fehler"
+    "error": "Fehler",
+    "confirm": "Bestätigen",
+    "count": "Anzahl"
   },
   "globalSearch": {
     "placeholder": "Semantische Suche (Produkte, Angebote, Tickets...)",
@@ -760,7 +762,7 @@
     "openPriceCheck": "Zur Preisprüfung",
     "executiveSummary": "Management-Überblick",
     "executiveSummaryHint": "Basis: Shopware-Katalogpreis netto vs. importierte Herstellkosten. CRM-Rentabilität ab {{crmThreshold}} %, Preisprüfung ab {{priceCheckThreshold}} %.",
-    "executiveSummaryHintWithDiscount": "Effektiver VK = Listenpreis × (1 − {{dealer}} % Handlerrabatt) × (1 − {{additional}} % Zusatzrabatt). CRM-Ampel nach Marge auf Kosten ab {{crmThreshold}} %.",
+    "executiveSummaryHintWithDiscount": "Effektiver VK = Listenpreis × (1 − {{dealer}} % Händlerrabatt) × (1 − {{db1}} % Zusatzrabatt). CRM-Ampel nach Marge auf Kosten ab {{crmThreshold}} %.",
     "dealerDiscount": {
       "title": "Preis- & Rentabilitäts-Szenario",
       "description": "Handlerrabatt, optionaler Zusatzrabatt und Mindestmarge für die What-if-Analyse — ohne die Mandanten-Einstellungen zu ändern.",
@@ -2145,7 +2147,7 @@
     "noSalesChannels": "Keine Verkaufskanäle verfügbar",
     "allChannelsAccess": "Keine Einschränkung — Rollen-Standard (alle Kanäle, wenn die Rolle keine Liste hat)",
     "selectedChannelsCount": "{{count}} Kanal ausgewählt",
-    "selectedChannelsCount_plural": "{{count}} Kanäle ausgewählt",
+    "selectedChannelsCount_other": "{{count}} Kanäle ausgewählt",
     "salesChannelHelp": "Optional: Nur diese Kanäle zusätzlich einschränken. Ohne Auswahl gilt die Kanalliste der Rolle (leer = alle Kanäle)."
   },
   "products": {
@@ -2164,7 +2166,7 @@
       "height": "Höhe",
       "depth": "Tiefe",
       "resultsFound": "{{count}} Produkt gefunden",
-      "resultsFound_plural": "{{count}} Produkte gefunden"
+      "resultsFound_other": "{{count}} Produkte gefunden"
     },
     "noProducts": "Keine Produkte gefunden",
     "noProductsDescription": "Es wurden keine Produkte gefunden, die Ihren Suchkriterien entsprechen.",
@@ -2241,7 +2243,8 @@
     "salesChannelsUpdateError": "Verkaufskanäle konnten nicht aktualisiert werden",
     "pluginWarning": "Shopware‑Plugin meldet einen Fehler, Änderung wurde trotzdem gespeichert.",
     "pluginWarningTitle": "Hinweis: Shopware‑Plugin",
-    "pluginWarningBody": "Ein Shopware‑Plugin erzeugt beim Speichern einen 500‑Fehler. Die Änderung wurde dennoch übernommen."
+    "pluginWarningBody": "Ein Shopware‑Plugin erzeugt beim Speichern einen 500‑Fehler. Die Änderung wurde dennoch übernommen.",
+    "image": "Produktbild"
   },
   "categories": {
     "none": "Keine Kategorien verfügbar",
@@ -2249,7 +2252,7 @@
     "selectAll": "Alle auswählen",
     "clearAll": "Alle entfernen",
     "selectedCount": "{{count}} Kategorie ausgewählt",
-    "selectedCount_plural": "{{count}} Kategorien ausgewählt"
+    "selectedCount_other": "{{count}} Kategorien ausgewählt"
   },
   "crossSelling": {
     "title": "Cross-Selling",
@@ -2270,7 +2273,7 @@
     "selectProducts": "Produkte auswählen",
     "productsSelected": "Produkte ausgewählt",
     "productsToAdd": "{{count}} Produkt wird hinzugefügt",
-    "productsToAdd_plural": "{{count}} Produkte werden hinzugefügt",
+    "productsToAdd_other": "{{count}} Produkte werden hinzugefügt",
     "suggestionsInfo": "Intelligente Vorschläge",
     "suggestionsDesc": "Basierend auf aktiven Regeln werden automatisch passende Produkte vorgeschlagen",
     "noSuggestions": "Keine Vorschläge verfügbar",
@@ -2278,7 +2281,7 @@
     "createFromSuggestions": "Gruppe erstellen",
     "createFromSuggestionsTitle": "Cross-Selling-Gruppe aus Vorschlägen erstellen",
     "createFromSuggestionsDesc": "Eine neue Gruppe mit {{count}} vorgeschlagenem Produkt erstellen",
-    "createFromSuggestionsDesc_plural": "Eine neue Gruppe mit {{count}} vorgeschlagenen Produkten erstellen",
+    "createFromSuggestionsDesc_other": "Eine neue Gruppe mit {{count}} vorgeschlagenen Produkten erstellen",
     "groupCreated": "Gruppe erstellt",
     "groupCreatedDescription": "Die Cross-Selling-Gruppe wurde erfolgreich erstellt",
     "groupFromSuggestionsCreated": "Alle vorgeschlagenen Produkte wurden der neuen Gruppe hinzugefügt",
@@ -2295,7 +2298,8 @@
     "recommendedBadge": "Empfohlen",
     "addOneToGroup": "Zur Gruppe hinzufügen",
     "suggestionAddedToGroup": "Der Artikel wurde der gewählten Gruppe hinzugefügt.",
-    "suggestionAddError": "Der Artikel konnte der Gruppe nicht hinzugefügt werden."
+    "suggestionAddError": "Der Artikel konnte der Gruppe nicht hinzugefügt werden.",
+    "recommendedBecause": "Empfohlen, weil"
   },
   "rules": {
     "title": "Cross-Selling-Regeln",
@@ -2360,7 +2364,97 @@
     "productsSkipped": "Übersprungene Produkte",
     "productsProcessed": "Verarbeitete Produkte",
     "errors": "Fehler",
-    "errorDetails": "Fehlerdetails"
+    "errorDetails": "Fehlerdetails",
+    "stagingSelectTarget": "Zielprodukt wählen",
+    "stagingSearchProducts": "Suche nach Artikelnummer oder Name",
+    "stagingSearchMin": "Bitte mindestens 2 Zeichen eingeben",
+    "stagingNoProducts": "Keine Produkte gefunden",
+    "stagingResults": "Ergebnisse",
+    "stagingUnknownNumber": "Ohne Nummer",
+    "bulkSelectedRulePair": "Artikelpaar",
+    "learningSaved": "Einstellungen gespeichert",
+    "stagingRegenerated": "Vorschläge neu berechnet",
+    "stagingRegeneratedCount": "{{count}} Vorschläge",
+    "stagingRegenerateError": "Neuberechnung fehlgeschlagen",
+    "stagingApplied": "Staging in Shopware übertragen",
+    "stagingApplyError": "Übertragen fehlgeschlagen",
+    "previewProductRequired": "Bitte einen Artikel wählen",
+    "previewProductError": "Vorschau fehlgeschlagen",
+    "stagingTargetRequired": "Bitte einen Ausgangsartikel wählen",
+    "stagingTargetedSuccess": "Gezielte Vorschläge erstellt",
+    "stagingTargetedCount": "{{count}} Vorschläge",
+    "stagingTargetedError": "Gezielte Vorschläge fehlgeschlagen",
+    "executeSuccess": "Regel ausgeführt",
+    "executeCount": "{{count}} Vorschläge generiert",
+    "executeError": "Ausführung fehlgeschlagen",
+    "stagingTab": "Staging",
+    "executeRule": "Regel ausführen",
+    "aiRunOrders": "Bestellungen",
+    "aiRunRules": "Regeln",
+    "aiRunRecommendations": "Empfehlungen",
+    "aiRunInsights": "Insights",
+    "hybridRankerTitle": "Hybrid-Ranker & GPT-Re-Rank",
+    "hybridRankerHint": "Gewichte für Korb-Korrelation, Semantik (Embeddings), Nutzerfunnel und Regel-Priorität. GPT-Re-Rank nur für interaktive Vorschläge (nicht Bulk/Staging-Scan).",
+    "weightCoOcc": "Korb w",
+    "weightEmbed": "Embed w",
+    "weightSignal": "Funnel w",
+    "weightRule": "Regel w",
+    "signalAlpha": "Signal Alpha",
+    "signalBeta": "Signal Beta",
+    "useLlmRerank": "GPT-4o Re-Rank (Vorschläge)",
+    "useLlmRerankHint": "Kann per Umgebungsvariable CROSS_SELL_LLM_RERANK_ENABLED global aus sein.",
+    "saveLearningSettings": "Lern-Einstellungen speichern",
+    "noInsightData": "Noch keine Daten",
+    "productName": "Bezeichnung",
+    "productNameTarget": "Bezeichnung Ziel",
+    "stagingTitle": "Staging",
+    "stagingLatest": "Letzter Snapshot: {{date}}",
+    "stagingNone": "Kein Staging vorhanden. Bitte AI-Regeln neu berechnen.",
+    "stagingApplyHint": "Beim Übertragen wird je Ausgangsartikel genau eine bestehende Cross-Selling-Gruppe aktualisiert.",
+    "stagingRegenerateProgress": "Berechne… {{processed}}/{{total}}",
+    "stagingRegenerate": "Vorschläge neu berechnen",
+    "stagingApplyPreview": "Vorschau vor Übertragung",
+    "stagingLastRun": "Letzte Berechnung",
+    "stagingLastRunCount": "{{count}} Vorschläge",
+    "stagingCoverage": "Mit Vorschlägen",
+    "stagingCoverageMissing": "Ohne",
+    "previewProductTitle": "Artikel-Vorschau (ohne Übertragung)",
+    "previewProductHint": "Wählen Sie einen Artikel und sehen Sie sofort, welche Zielartikel als Cross-Selling-Gruppe nach Shopware geschrieben würden – ohne kompletten Staging-Lauf und ohne Schreibzugriff.",
+    "previewProductSelect": "Artikel wählen",
+    "previewProductRun": "Vorschau berechnen",
+    "shopwareGroup": "Shopware-Gruppe",
+    "targetsCount": "{{count}} Zielartikel",
+    "previewProductEmpty": "Keine Zielartikel – für diesen Artikel würde nichts geschrieben.",
+    "category": "Kategorie",
+    "shopwareTargetTruncated": "Hinweis: {{total}} Ziele ermittelt, es werden nur {{applied}} übernommen.",
+    "stagingNoneHint": "Starten Sie den AI-Lernlauf, um ein Staging zu erzeugen.",
+    "stagingTargetedTitle": "Gezielte Vorschläge",
+    "stagingTargetedHint": "Wählen Sie einen Ausgangsartikel und erstellen Sie Vorschläge aus der kombinierten Regelbasis.",
+    "stagingTargetSelect": "Ausgangsartikel wählen",
+    "stagingTargetRun": "Vorschläge berechnen",
+    "stagingRules": "Regeln",
+    "stagingRuleCount": "{{count}} Regeln",
+    "type": "Typ",
+    "stagingPair": "Quelle -> Ziel",
+    "stagingDynamic": "Dynamisch",
+    "stagingSuggestions": "Vorschläge",
+    "stagingSuggestionCount": "{{count}} Vorschläge",
+    "stagingSuggestionLimit": "Anzeige auf 200 Vorschläge begrenzt",
+    "stagingGroupsPreview": "Gruppen-Vorschau (Staging)",
+    "stagingGroupCount": "{{count}} Gruppen",
+    "stagingGroupsHint": "Zeigt nur aktive Vorschläge, die in Shopware zusammen angezeigt werden.",
+    "stagingGroupFilter": "Nach Ausgangsartikel filtern",
+    "stagingGroupsEmpty": "Keine aktiven Gruppen vorhanden",
+    "previewTitle": "Regel ausgeführt",
+    "previewDescription": "{{count}} Vorschläge für {{products}} Produkte generiert",
+    "previewEmpty": "Keine Vorschläge generiert",
+    "goToStaging": "Zum Staging wechseln",
+    "shopwareApplyPreviewTitle": "Vorschau: Übertragung nach Shopware",
+    "shopwareApplyPreviewDesc": "So werden die aktuell gespeicherten Staging-Vorschläge gruppiert und je Kategorie als Cross-Selling-Gruppe geschrieben (alle passenden Ziele, ohne Begrenzung). Hinweis: Es wird der gespeicherte Stand angezeigt – nach Regel-/Logikänderungen zuerst „Vorschläge neu berechnen“.",
+    "shopwareApplySummary": "{{active}} aktive Vorschläge → {{ops}} Shopware-Operationen",
+    "shopwareApplyPreviewEmpty": "Keine aktiven Vorschläge zum Übertragen.",
+    "shopwareTargetLimit": "Limit",
+    "stagingApplyConfirm": "Jetzt in Shopware übertragen"
   },
   "ruleBuilder": {
     "basicTab": "Grundlagen",
@@ -2570,7 +2664,7 @@
   },
   "bulkActions": {
     "selectedCount": "{{count}} Bestellung ausgewählt",
-    "selectedCount_plural": "{{count}} Bestellungen ausgewählt",
+    "selectedCount_other": "{{count}} Bestellungen ausgewählt",
     "updateTracking": "Sendungsnummern aktualisieren",
     "cancel": "Abbrechen",
     "dialogTitle": "Sendungsnummern für mehrere Bestellungen aktualisieren",
@@ -2579,9 +2673,9 @@
     "trackingNumbers": "Sendungsnummern",
     "trackingNumbersPlaceholder": "Geben Sie die Sendungsnummern ein, eine pro Zeile",
     "trackingNumbersHelp": "Sie müssen {{count}} Sendungsnummer angeben",
-    "trackingNumbersHelp_plural": "Sie müssen {{count}} Sendungsnummern angeben (eine pro Zeile)",
+    "trackingNumbersHelp_other": "Sie müssen {{count}} Sendungsnummern angeben (eine pro Zeile)",
     "validationError": "Bitte geben Sie genau {{count}} Sendungsnummer ein",
-    "validationError_plural": "Bitte geben Sie genau {{count}} Sendungsnummern ein (eine pro Zeile)",
+    "validationError_other": "Bitte geben Sie genau {{count}} Sendungsnummern ein (eine pro Zeile)",
     "updateSuccess": "Sendungsnummern erfolgreich aktualisiert",
     "updateFailed": "Fehler beim Aktualisieren der Sendungsnummern"
   },
@@ -3038,7 +3132,8 @@
     "orderEvents": {
       "title": "Bei Änderungen in Shopware",
       "description": "Wird beim Abgleich mit Shopware erkannt (etwa alle 3 Minuten), also mit kurzer Verzögerung. Gemeldet werden nur Änderungen der letzten {{hours}} Stunden; beim ersten Abgleich eines Mandanten wird nichts ausgelöst."
-    }
+    },
+    "customRules": "Eigene Automatisierungsregeln"
   },
   "offers": {
     "title": "Angebote",
@@ -3090,7 +3185,8 @@
     },
     "errors": {
       "loadFailed": "Fehler beim Laden der Angebote",
-      "pdfFailed": "Fehler beim Laden der PDF"
+      "pdfFailed": "Fehler beim Laden der PDF",
+      "pdfNotPdf": "Antwort ist kein PDF"
     }
   },
   "offerDetail": {
@@ -3174,7 +3270,21 @@
     "sendEmailSend": "Senden",
     "sendEmailSuccess": "E-Mail wurde gesendet an",
     "sendEmailError": "E-Mail konnte nicht gesendet werden",
-    "cancel": "Abbrechen"
+    "cancel": "Abbrechen",
+    "serviceAdded": "Position hinzugefügt",
+    "serviceAddError": "Position konnte nicht hinzugefügt werden",
+    "itemRemoved": "Position entfernt",
+    "itemRemoveError": "Position konnte nicht entfernt werden",
+    "confirmRemoveItem": "Wirklich entfernen?",
+    "addService": "Zusatzleistung hinzufügen",
+    "addConfiguration": "Konfiguration hinzufügen",
+    "roomPlanner": "Raumplanung",
+    "serviceType": "Leistung",
+    "selectService": "Bitte wählen…",
+    "montageCalculating": "Montagepreis wird berechnet…",
+    "serviceNetPrice": "Preis netto (€)",
+    "serviceConfirmAdd": "Als Position hinzufügen",
+    "pdfNotAvailableForDraft": "PDF kann nur für Angebote mit zugeordnetem Kunden generiert werden. Dieses Angebot ist vermutlich ein Entwurf ohne Kundeninformationen."
   },
   "offerDrafts": {
     "title": "Angebotsentwürfe",
@@ -3214,7 +3324,8 @@
       "totalValue": "Gesamtwert",
       "created": "Erstellt",
       "actions": "Aktionen",
-      "review": "Überprüfen"
+      "review": "Überprüfen",
+      "matchingConfidence": "Genauigkeit"
     },
     "upload": {
       "title": "Angebot hochladen",
@@ -3304,7 +3415,13 @@
       "webVerificationStreet": "Straße (Teil) gefunden",
       "webVerificationExcerpt": "Textauszug",
       "webVerificationSkippedFreemail": "Übersprungen: E-Mail-Domain ist ein Freemail-/Provider-Dienst.",
-      "webVerificationSkippedNoEmail": "Übersprungen: Keine Kunden-E-Mail zur Domain-Ermittlung."
+      "webVerificationSkippedNoEmail": "Übersprungen: Keine Kunden-E-Mail zur Domain-Ermittlung.",
+      "customerAssigned": "Kunde zugeordnet",
+      "customerCleared": "Kunde entfernt",
+      "assignCustomer": "Kunde zuordnen",
+      "changeCustomer": "Kunde ändern",
+      "searchCustomerPlaceholder": "Kunde suchen (Firma, Kundennummer, E-Mail, Name, PLZ)…",
+      "noCustomersFound": "Keine Kunden gefunden."
     },
     "cpqCrossSelling": {
       "title": "CPQ-Empfehlungen",
@@ -3399,7 +3516,8 @@
         "deliveryContact": "Ansprechpartner am Lieferort",
         "deliveryNoteInstructions": "Lieferschein / Anlieferung",
         "orderConfirmationEmail": "Auftragsbestätigung an",
-        "invoiceEmail": "Rechnung an"
+        "invoiceEmail": "Rechnung an",
+        "supplierOfferNumber": "Bezug auf META-Angebot"
       },
       "filename": "Datei",
       "customerInfo": "Kundeninformationen",
@@ -3460,7 +3578,17 @@
       "recheckCustomerKept": "Kunde manuell zugeordnet – unverändert.",
       "recheckCustomerChanged": "Kunde neu zugeordnet.",
       "recheckCustomerSame": "Kunde unverändert.",
-      "recheckError": "Erneute Prüfung fehlgeschlagen"
+      "recheckError": "Erneute Prüfung fehlgeschlagen",
+      "jsonCopied": "JSON kopiert",
+      "jsonCopiedDescription": "Die erkannten Elemente wurden in die Zwischenablage kopiert.",
+      "jsonCopyError": "Konnte JSON nicht kopieren.",
+      "copyJson": "JSON kopieren",
+      "customerAssigned": "Kunde zugeordnet",
+      "customerCleared": "Kunde entfernt",
+      "assignCustomer": "Kunde zuordnen",
+      "changeCustomer": "Kunde ändern",
+      "searchCustomerPlaceholder": "Kunde suchen (Firma, Kundennummer, E-Mail, Name, PLZ)…",
+      "noCustomersFound": "Keine Kunden gefunden."
     },
     "crossSelling": {
       "title": "Intelligente Produktvorschläge",
@@ -4491,5 +4619,65 @@
     "description": "Ein unerwarteter Fehler ist aufgetreten. Die restliche Anwendung läuft weiter — du kannst es hier erneut versuchen oder die Seite neu laden.",
     "retry": "Erneut versuchen",
     "reload": "Seite neu laden"
+  },
+  "drafts": {
+    "importLowMatching": {
+      "modalTitle": "Produktzuordnung unter {{threshold}} %",
+      "modalBodyOffer": "Gesamt-Genauigkeit: {{score}} %. Bitte prüfen Sie Positionen, Alternativen und Preise, bevor Sie das Angebot erstellen.",
+      "modalBody": "Gesamt-Genauigkeit: {{score}} %. Bitte prüfen Sie extrahierte Positionen, Alternativen und Mengen sorgfältig, bevor Sie die Bestellung anlegen.",
+      "listTitle": "Import mit niedriger Zuordnungsgenauigkeit",
+      "listBody": "{{count}} Entwurf/Entwürfe unter {{threshold}} % Gesamt-Genauigkeit — bitte im Review prüfen.",
+      "uploadToastTitle": "Import: Genauigkeit unter {{threshold}} %",
+      "uploadToastBody": "Gesamt-Genauigkeit der Produktzuordnung: {{score}} %. Bitte alle Positionen im Review prüfen.",
+      "uploadToastBodyOffer": "Gesamt-Genauigkeit der Produktzuordnung: {{score}} %. Bitte alle Positionen im Review prüfen."
+    },
+    "commercialReview": {
+      "title": "Hinweis zur KI-Einordnung",
+      "customerMatch": "Kundenzuordnung mit nur {{score}} % geschätzter Sicherheit — bitte prüfen.",
+      "intentReroutedOffer": "Die KI sah eher eine Bestellung; aus Berechtigungsgründen wurde der Angebots-Entwurf genutzt — bitte prüfen.",
+      "intentUncertain": "Dokumenten-Intent unsicher — Inhalt bitte gegenprüfen.",
+      "intentScore": "Intent-Konfidenz: {{p}} %",
+      "intentReroutedNeutral": "Intent und gewählte Pipeline wichen voneinander ab — bitte prüfen."
+    },
+    "debug": {
+      "title": "Debug: JSON",
+      "hint": "Rohdaten aus dem Server — Extraktion (KI), Produkt-Matching und Metadaten. Hilft beim Abgleich mit CLI-Tests.",
+      "tabExtraction": "Extraktion",
+      "tabMatching": "Matching",
+      "tabFull": "Alles"
+    }
+  },
+  "erpAutomation": {
+    "triggerSuccess": {
+      "title": "Automatisierung gestartet",
+      "description": "Die ERP-Automatisierung wurde erfolgreich gestartet"
+    },
+    "triggerError": {
+      "title": "Start fehlgeschlagen"
+    },
+    "status": {
+      "success": "Erfolgreich",
+      "failed": "Fehlgeschlagen",
+      "skipped": "Übersprungen"
+    },
+    "action": {
+      "createInvoice": "Rechnung erstellen",
+      "setShipped": "Auf versendet setzen",
+      "sendInvoice": "Rechnung senden"
+    },
+    "trigger": {
+      "invoiceNumber": "Rechnungsnummer",
+      "deliveryNote": "Lieferschein",
+      "orderNumber": "Bestellnummer"
+    },
+    "title": "ERP-Automatisierung",
+    "adminOnly": "Diese Funktion steht nur Administratoren zur Verfügung",
+    "triggerManual": "Jetzt ausführen",
+    "errorTitle": "Automatisierungsverlauf konnte nicht geladen werden",
+    "errorUnknown": "Ein unbekannter Fehler ist aufgetreten",
+    "retry": "Erneut versuchen",
+    "noRuns": "Noch keine Automatisierungsläufe",
+    "pollInterval": "Die Automatisierung läuft alle 3 Minuten",
+    "info": "Erstellt automatisch Rechnungen und setzt Bestellungen anhand der ERP-CustomFields auf versendet"
   }
 }
