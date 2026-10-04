@@ -12,7 +12,7 @@ function buildStubPdf(input: CreateShippingLabelInput, trackingNumber: string): 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: "A6", margin: 24 });
     const chunks: Buffer[] = [];
-    doc.on("data", (c) => chunks.push(Buffer.from(c)));
+    doc.on("data", (c: Uint8Array) => chunks.push(Buffer.from(c)));
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 

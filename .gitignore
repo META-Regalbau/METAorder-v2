@@ -12,3 +12,10 @@ deploy/local-https/certs/
 
 # Echte Kundenbelege fuer Eval/Training nur lokal (personenbezogene Daten)
 training/**/real_*
+
+# Laufzeit-Uploads (Docker-Volume) und Build-/Testartefakte
+uploads/
+meta.json
+test-results/
+playwright-report/
+tests/e2e/reports/

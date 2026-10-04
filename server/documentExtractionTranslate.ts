@@ -41,6 +41,7 @@ export interface LegacyExtractedDocument {
     country?: string;
     company?: string;
     phone?: string;
+    email?: string;
   };
   shippingAddress?: {
     firstName?: string;

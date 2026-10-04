@@ -27,7 +27,7 @@ if (process.env.DATABASE_URL?.includes("@db:")) {
   process.env.DATABASE_URL = process.env.DATABASE_URL.replace("@db:", `@${dbHost}:`);
 }
 
-// DATABASE_URL aus Einzelvariablen bauen, falls nicht gesetzt (wie bei test-shopware-auth.js etc.)
+// DATABASE_URL aus Einzelvariablen bauen, falls nicht gesetzt (wie bei scripts/dev/test-shopware-auth.js etc.)
 if (!process.env.DATABASE_URL) {
   const port = process.env.PGPORT || "5432";
   const user = process.env.PGUSER || "metaorder";

@@ -105,11 +105,10 @@ function applyBuyerToLegacyAddress(
   const phone = sanitizePhoneField(buyer.phone);
   fillEmpty(target, "phone", phone);
 
-  const { firstName, lastName, isRole } = legacyFirstLastFromContactPerson(buyer.contact_person);
-  if (!isRole) {
-    fillEmpty(target, "firstName", firstName);
-    fillEmpty(target, "lastName", lastName);
-  }
+  // Rollenbezeichnungen ("Einkauf" o. ä.) liefert der Helfer bereits als leeres Objekt.
+  const { firstName, lastName } = legacyFirstLastFromContactPerson(buyer.contact_person);
+  fillEmpty(target, "firstName", firstName);
+  fillEmpty(target, "lastName", lastName);
 }
 
 function sanitizePhoneOnRecord(obj: Record<string, unknown> | undefined): void {
