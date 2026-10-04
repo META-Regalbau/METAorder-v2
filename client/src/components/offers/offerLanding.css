@@ -12,9 +12,9 @@
 @font-face { font-family: "Frutiger LT Com Cn"; src: url("/fonts/meta/FrutigerLTCom-BlackCn.ttf") format("truetype"); font-weight: 800; font-style: normal; font-display: swap; }
 
 .moffer {
-  --meta-red: #ff0002; --meta-white: #fff; --meta-black: #000; --meta-grey: #929191;
+  --meta-red: #d40002; /* Markenrot in der Oberflaeche: weiss darauf 5,5:1 (#ff0002: 4,0:1, nur Logo/Icons) */ --meta-white: #fff; --meta-black: #000; --meta-grey: #929191;
   --meta-steel: #e2e2e2; --meta-chrome: #f5f5f5; --meta-ink: #1a1a1a; --meta-graphite: #4a4a4a;
-  --meta-fog: #c8c8c8; --meta-mist: #f9f9f9; --meta-red-hover: #d40002; --meta-red-press: #a30001;
+  --meta-fog: #c8c8c8; --meta-mist: #f9f9f9; --meta-red-hover: #bb0002; --meta-red-press: #a30001;
   --meta-green: #1f7a3d; --meta-green-bg: #eaf6ee;
   --meta-grey-text: #6b6a6a; /* Textgrau, Kontrast >= 4,5:1 (Markengrau #929191: 3,1:1) */
   --fg-1: var(--meta-black); --fg-2: var(--meta-graphite); --fg-3: var(--meta-grey-text);
