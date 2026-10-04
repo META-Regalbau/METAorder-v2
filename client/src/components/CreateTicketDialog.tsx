@@ -357,7 +357,7 @@ export default function CreateTicketDialog({
                   }
                 }}
               >
-                <SelectTrigger data-testid="select-template">
+                <SelectTrigger aria-label={t('templates.useTemplate')} data-testid="select-template">
                   <SelectValue placeholder={t('templates.useTemplate')} />
                 </SelectTrigger>
                 <SelectContent>

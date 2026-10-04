@@ -774,7 +774,7 @@ export default function CrossSellingRulesPage() {
                           >
                             <Play className="h-4 w-4" />
                           </Button>
-                          <Button
+                          <Button aria-label={t("common.edit")}
                             variant="ghost"
                             size="icon"
                             onClick={() => setEditingRule(rule)}
@@ -782,7 +782,7 @@ export default function CrossSellingRulesPage() {
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button
+                          <Button aria-label={t("common.delete")}
                             variant="ghost"
                             size="icon"
                             onClick={() => handleDelete(rule.id)}
@@ -856,7 +856,7 @@ export default function CrossSellingRulesPage() {
                   ).map(([key, label]) => (
                     <div key={key} className="space-y-1">
                       <Label className="text-xs">{label}</Label>
-                      <Input
+                      <Input aria-label={label}
                         type="number"
                         step="0.05"
                         min={0}
@@ -875,7 +875,7 @@ export default function CrossSellingRulesPage() {
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   <div className="space-y-1">
                     <Label className="text-xs">{t("rules.signalAlpha", "Signal Alpha")}</Label>
-                    <Input
+                    <Input aria-label={t("rules.signalAlpha", "Signal Alpha")}
                       type="number"
                       step="0.5"
                       min={0.01}
@@ -890,7 +890,7 @@ export default function CrossSellingRulesPage() {
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">{t("rules.signalBeta", "Signal Beta")}</Label>
-                    <Input
+                    <Input aria-label={t("rules.signalBeta", "Signal Beta")}
                       type="number"
                       step="1"
                       min={0.01}
@@ -1273,7 +1273,7 @@ export default function CrossSellingRulesPage() {
                                   <ToggleLeft className="h-4 w-4" />
                                 )}
                               </Button>
-                              <Button
+                              <Button aria-label={t("common.edit")}
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => setEditingStagingRule(rule)}

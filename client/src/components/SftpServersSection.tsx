@@ -457,16 +457,16 @@ export default function SftpServersSection() {
             </div>
             <div>
               <Label className="text-xs">{t("settings.sftp.fields.port")}</Label>
-              <Input className="mt-1 font-mono text-sm" type="number" min={1} max={65535} value={form.port} onChange={(e) => set("port", e.target.value)} />
+              <Input aria-label={t("settings.sftp.fields.port")} className="mt-1 font-mono text-sm" type="number" min={1} max={65535} value={form.port} onChange={(e) => set("port", e.target.value)} />
             </div>
             <div>
               <Label className="text-xs">{t("settings.sftp.fields.username")}</Label>
-              <Input className="mt-1 font-mono text-sm" value={form.username} onChange={(e) => set("username", e.target.value)} autoComplete="off" />
+              <Input aria-label={t("settings.sftp.fields.username")} className="mt-1 font-mono text-sm" value={form.username} onChange={(e) => set("username", e.target.value)} autoComplete="off" />
             </div>
             <div>
               <Label className="text-xs">{t("settings.sftp.fields.authMethod")}</Label>
               <Select value={form.authMethod} onValueChange={(v) => set("authMethod", v as FormState["authMethod"])}>
-                <SelectTrigger className="mt-1">
+                <SelectTrigger aria-label={t("settings.sftp.fields.authMethod")} className="mt-1">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -576,19 +576,19 @@ export default function SftpServersSection() {
               <>
                 <div>
                   <Label className="text-xs">{t("settings.sftp.fields.maxAttempts")}</Label>
-                  <Input className="mt-1" type="number" min={1} max={5} value={form.maxAttempts} onChange={(e) => set("maxAttempts", e.target.value)} />
+                  <Input aria-label={t("settings.sftp.fields.maxAttempts")} className="mt-1" type="number" min={1} max={5} value={form.maxAttempts} onChange={(e) => set("maxAttempts", e.target.value)} />
                 </div>
                 <div>
                   <Label className="text-xs">{t("settings.sftp.fields.initialBackoffMs")}</Label>
-                  <Input className="mt-1" type="number" min={500} max={60000} value={form.initialBackoffMs} onChange={(e) => set("initialBackoffMs", e.target.value)} />
+                  <Input aria-label={t("settings.sftp.fields.initialBackoffMs")} className="mt-1" type="number" min={500} max={60000} value={form.initialBackoffMs} onChange={(e) => set("initialBackoffMs", e.target.value)} />
                 </div>
                 <div>
                   <Label className="text-xs">{t("settings.sftp.fields.backoffFactor")}</Label>
-                  <Input className="mt-1" type="number" step="0.1" min={1} max={5} value={form.backoffFactor} onChange={(e) => set("backoffFactor", e.target.value)} />
+                  <Input aria-label={t("settings.sftp.fields.backoffFactor")} className="mt-1" type="number" step="0.1" min={1} max={5} value={form.backoffFactor} onChange={(e) => set("backoffFactor", e.target.value)} />
                 </div>
                 <div>
                   <Label className="text-xs">{t("settings.sftp.fields.timeoutMs")}</Label>
-                  <Input className="mt-1" type="number" min={1000} max={120000} value={form.timeoutMs} onChange={(e) => set("timeoutMs", e.target.value)} />
+                  <Input aria-label={t("settings.sftp.fields.timeoutMs")} className="mt-1" type="number" min={1000} max={120000} value={form.timeoutMs} onChange={(e) => set("timeoutMs", e.target.value)} />
                 </div>
               </>
             )}

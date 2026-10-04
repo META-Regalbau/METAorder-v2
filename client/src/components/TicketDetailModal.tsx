@@ -546,7 +546,7 @@ export default function TicketDetailModal({
                       <div className="space-y-2">
                         <Label>{t('tickets.status')}</Label>
                         <Select value={ticket.status} onValueChange={handleUpdateStatus}>
-                          <SelectTrigger data-testid="select-status">
+                          <SelectTrigger aria-label={t('tickets.status')} data-testid="select-status">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -563,7 +563,7 @@ export default function TicketDetailModal({
                       <div className="space-y-2">
                         <Label>{t('tickets.priority')}</Label>
                         <Select value={ticket.priority} onValueChange={handleUpdatePriority}>
-                          <SelectTrigger data-testid="select-priority">
+                          <SelectTrigger aria-label={t('tickets.priority')} data-testid="select-priority">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -581,7 +581,7 @@ export default function TicketDetailModal({
                           value={ticket.assignedToUserId || "unassigned"} 
                           onValueChange={handleUpdateAssignee}
                         >
-                          <SelectTrigger data-testid="select-assignee">
+                          <SelectTrigger aria-label={t('tickets.assignToUser')} data-testid="select-assignee">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -881,7 +881,7 @@ export default function TicketDetailModal({
               <div className="space-y-2">
                 <Label>{t("crm.discounts.type")}</Label>
                 <Select value={discountType} onValueChange={setDiscountType}>
-                  <SelectTrigger>
+                  <SelectTrigger aria-label={t("crm.discounts.type")}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -892,7 +892,7 @@ export default function TicketDetailModal({
               </div>
               <div className="space-y-2">
                 <Label>{t("crm.discounts.value")}</Label>
-                <Input
+                <Input aria-label={t("crm.discounts.value")}
                   type="number"
                   min="0"
                   step="0.01"

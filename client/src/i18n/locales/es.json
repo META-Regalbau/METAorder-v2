@@ -175,7 +175,10 @@
     "collapse": "Plegar",
     "unknown": "Desconocido",
     "confirm": "Confirmar",
-    "count": "Cantidad"
+    "count": "Cantidad",
+    "back": "Volver",
+    "showValue": "Mostrar valor",
+    "hideValue": "Ocultar valor"
   },
   "globalSearch": {
     "placeholder": "Buscar (pedido, factura, ERP)",
@@ -1053,7 +1056,11 @@
     "overdue": "Vencido",
     "sendInvoiceRecipientHint": "Si se deja vacío, la factura se envía a {{email}}.",
     "sendInvoiceRecipientLabel": "Destinatario (opcional)",
-    "sendInvoiceRecipientPlaceholder": "Dirección de correo electrónico"
+    "sendInvoiceRecipientPlaceholder": "Dirección de correo electrónico",
+    "selection": {
+      "selectAll": "Seleccionar todos los pedidos",
+      "selectRow": "Seleccionar el pedido {{orderNumber}}"
+    }
   },
   "delayedOrders": {
     "title": "Pedidos Retrasados",
@@ -1975,7 +1982,8 @@
   "language": {
     "english": "Inglés",
     "german": "Alemán",
-    "spanish": "Español"
+    "spanish": "Español",
+    "switch": "Cambiar idioma"
   },
   "salesChannel": {
     "filter": "Canal de Ventas",
@@ -2107,7 +2115,8 @@
       "resultsFound": "{{count}} producto encontrado",
       "resultsFound_other": "{{count}} productos encontrados"
     },
-    "image": "Imagen del producto"
+    "image": "Imagen del producto",
+    "activeSwitch": "{{name}} activo"
   },
   "categories": {
     "none": "No hay categorías disponibles",
@@ -2903,7 +2912,9 @@
       "computedHint": "Se determina con IA cuando hace falta (heurística por palabras clave sin configuración de IA).",
       "emailHint": "Usa la configuración de correo saliente. Si está desactivada, la acción falla y así aparece en el historial.",
       "placeholders": "Marcadores",
-      "incomplete": "Regla incompleta"
+      "incomplete": "Regla incompleta",
+      "conditionOperator": "Operador",
+      "actionType": "Acción"
     },
     "templates": {
       "title": "Plantillas de Reglas",
@@ -4753,6 +4764,7 @@
   },
   "appVersion": {
     "label": "Versión {{version}}",
-    "details": "Commit {{commit}} del {{date}}"
+    "details": "Commit {{commit}} del {{date}}",
+    "regionLabel": "Versión de la aplicación"
   }
 }

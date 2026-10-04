@@ -355,7 +355,7 @@ export default function TopBar({ userRole, username, onLogout }: TopBarProps) {
                 saveTenantSelectionMutation.mutate(value || null);
               }}
             >
-              <SelectTrigger className="h-8 w-44" data-testid="select-tenant-topbar">
+              <SelectTrigger aria-label={t("settings.tenants.selectPlaceholder")} className="h-8 w-44" data-testid="select-tenant-topbar">
                 <SelectValue placeholder={t("settings.tenants.selectPlaceholder")} />
               </SelectTrigger>
               <SelectContent>

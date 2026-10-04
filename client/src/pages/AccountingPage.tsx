@@ -156,7 +156,7 @@ export default function AccountingPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <Input
+          <Input aria-label={t("accounting.uploadTitle")}
             type="file"
             accept=".csv,.pdf"
             onChange={(e) => setFile(e.target.files?.[0] || null)}
@@ -192,7 +192,7 @@ export default function AccountingPage() {
               data-testid="input-accounting-search"
             />
             <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as any)}>
-              <SelectTrigger className="sm:w-56">
+              <SelectTrigger aria-label={t("common.filter")} className="sm:w-56">
                 <SelectValue placeholder={t("common.filter")} />
               </SelectTrigger>
               <SelectContent>

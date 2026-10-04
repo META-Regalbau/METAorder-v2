@@ -1138,7 +1138,7 @@ export default function OrderDetailModal({
                             setAdditionalReferenceNumber(doc?.number ?? "");
                           }}
                         >
-                          <SelectTrigger data-testid="select-additional-invoice-reference">
+                          <SelectTrigger aria-label={t("orderDetail.additionalInvoiceReference")} data-testid="select-additional-invoice-reference">
                             <SelectValue placeholder={t("orderDetail.settlementPickPlaceholder")} />
                           </SelectTrigger>
                           <SelectContent>
@@ -1200,7 +1200,7 @@ export default function OrderDetailModal({
                         >
                           <div className="sm:col-span-5 space-y-2">
                             <Label>{t("orderDetail.additionalInvoiceItemDescription")}</Label>
-                            <Input
+                            <Input aria-label={t("orderDetail.additionalInvoiceItemDescription")}
                               value={item.description}
                               onChange={(e) =>
                                 setAdditionalInvoiceItems((current) =>
@@ -1216,7 +1216,7 @@ export default function OrderDetailModal({
                           </div>
                           <div className="sm:col-span-2 space-y-2">
                             <Label>{t("orderDetail.additionalInvoiceItemQuantity")}</Label>
-                            <Input
+                            <Input aria-label={t("orderDetail.additionalInvoiceItemQuantity")}
                               inputMode="decimal"
                               value={item.quantity}
                               onChange={(e) =>
@@ -1261,7 +1261,7 @@ export default function OrderDetailModal({
                                 )
                               }
                             >
-                              <SelectTrigger data-testid={`select-additional-invoice-vat-${index}`}>
+                              <SelectTrigger aria-label={t("orderDetail.additionalInvoiceItemVat")} data-testid={`select-additional-invoice-vat-${index}`}>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -1272,7 +1272,7 @@ export default function OrderDetailModal({
                             </Select>
                           </div>
                           <div className="sm:col-span-1 flex items-end justify-end">
-                            <Button
+                            <Button aria-label={t("common.remove")}
                               type="button"
                               variant="ghost"
                               size="icon"
@@ -1436,7 +1436,7 @@ export default function OrderDetailModal({
                                 }
                               }}
                             >
-                              <SelectTrigger data-testid="select-settlement-original-doc">
+                              <SelectTrigger aria-label={t("orderDetail.settlementPickOriginal")} data-testid="select-settlement-original-doc">
                                 <SelectValue placeholder={t("orderDetail.settlementPickPlaceholder")} />
                               </SelectTrigger>
                               <SelectContent>
@@ -1501,7 +1501,7 @@ export default function OrderDetailModal({
                                 }
                               }}
                             >
-                              <SelectTrigger data-testid="select-settlement-storno-doc">
+                              <SelectTrigger aria-label={t("orderDetail.settlementPickStorno")} data-testid="select-settlement-storno-doc">
                                 <SelectValue placeholder={t("orderDetail.settlementPickPlaceholder")} />
                               </SelectTrigger>
                               <SelectContent>
@@ -1652,7 +1652,7 @@ export default function OrderDetailModal({
             <div>
               <p className="text-sm text-muted-foreground">{t("crm.assignments.assignee")}</p>
               <Select value={assignedToUserId} onValueChange={setAssignedToUserId}>
-                <SelectTrigger>
+                <SelectTrigger aria-label={t("crm.assignments.selectAssignee")}>
                   <SelectValue placeholder={t("crm.assignments.selectAssignee")} />
                 </SelectTrigger>
                 <SelectContent>

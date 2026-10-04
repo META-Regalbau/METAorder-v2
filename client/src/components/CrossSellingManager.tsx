@@ -415,7 +415,7 @@ export default function CrossSellingManager({
                           <Badge variant="secondary">
                             {cs.products?.length || 0} {t("crossSelling.products")}
                           </Badge>
-                          <Button
+                          <Button aria-label={t("common.delete")}
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8"
@@ -586,7 +586,7 @@ export default function CrossSellingManager({
                   value={suggestionTargetGroupId ?? undefined}
                   onValueChange={(v) => setSuggestionTargetGroupId(v)}
                 >
-                  <SelectTrigger
+                  <SelectTrigger aria-label={t("crossSelling.pickGroup")}
                     className="w-full sm:w-72"
                     data-testid="select-suggestion-target-group"
                   >

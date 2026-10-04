@@ -96,7 +96,7 @@ export default function OrdersTable({
                 <Checkbox
                   checked={allSelected || someSelected}
                   onCheckedChange={onToggleAll}
-                  aria-label="Select all orders"
+                  aria-label={t('orders.selection.selectAll')}
                   data-testid="checkbox-select-all"
                 />
               </TableHead>
@@ -164,7 +164,7 @@ export default function OrdersTable({
                   <Checkbox
                     checked={selectedOrderIds.includes(order.id)}
                     onCheckedChange={() => onToggleOrder(order.id)}
-                    aria-label={`Select order ${order.orderNumber}`}
+                    aria-label={t('orders.selection.selectRow', { orderNumber: order.orderNumber })}
                     data-testid={`checkbox-order-${order.id}`}
                   />
                 </TableCell>

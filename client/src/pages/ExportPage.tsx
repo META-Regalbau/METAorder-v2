@@ -276,7 +276,7 @@ export default function ExportPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label className="text-sm font-medium mb-2">From Date</Label>
-              <Input
+              <Input aria-label="From Date"
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
@@ -285,7 +285,7 @@ export default function ExportPage() {
             </div>
             <div>
               <Label className="text-sm font-medium mb-2">To Date</Label>
-              <Input
+              <Input aria-label="To Date"
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
@@ -356,7 +356,7 @@ export default function ExportPage() {
             Export Format
           </h2>
           <Select value={format} onValueChange={setFormat}>
-            <SelectTrigger data-testid="select-export-format">
+            <SelectTrigger aria-label="Export Format" data-testid="select-export-format">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

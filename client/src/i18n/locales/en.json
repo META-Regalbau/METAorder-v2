@@ -194,7 +194,10 @@
     "collapse": "Collapse",
     "unknown": "Unknown",
     "confirm": "Confirm",
-    "count": "Count"
+    "count": "Count",
+    "back": "Back",
+    "showValue": "Show value",
+    "hideValue": "Hide value"
   },
   "globalSearch": {
     "placeholder": "Semantic search (products, offers, tickets...)",
@@ -1117,7 +1120,11 @@
     "overdue": "Overdue",
     "sendInvoiceRecipientHint": "If left empty, the invoice is sent to {{email}}.",
     "sendInvoiceRecipientLabel": "Recipient (optional)",
-    "sendInvoiceRecipientPlaceholder": "Email address"
+    "sendInvoiceRecipientPlaceholder": "Email address",
+    "selection": {
+      "selectAll": "Select all orders",
+      "selectRow": "Select order {{orderNumber}}"
+    }
   },
   "delayedOrders": {
     "title": "Delayed Orders",
@@ -2119,7 +2126,8 @@
   "language": {
     "english": "English",
     "german": "Deutsch",
-    "spanish": "Español"
+    "spanish": "Español",
+    "switch": "Change language"
   },
   "salesChannel": {
     "filter": "Sales Channel",
@@ -2251,7 +2259,8 @@
       "resultsFound": "{{count}} product found",
       "resultsFound_other": "{{count}} products found"
     },
-    "image": "Product image"
+    "image": "Product image",
+    "activeSwitch": "{{name}} active"
   },
   "categories": {
     "none": "No categories available",
@@ -3047,7 +3056,9 @@
       "computedHint": "Determined by AI when needed (keyword heuristic without AI configuration).",
       "emailHint": "Uses the outgoing email settings. If outgoing email is disabled, the action fails and is shown as such in the execution history.",
       "placeholders": "Placeholders",
-      "incomplete": "Rule incomplete"
+      "incomplete": "Rule incomplete",
+      "conditionOperator": "Operator",
+      "actionType": "Action"
     },
     "templates": {
       "title": "Rule Templates",
@@ -4756,6 +4767,7 @@
   },
   "appVersion": {
     "label": "Version {{version}}",
-    "details": "Commit {{commit}} from {{date}}"
+    "details": "Commit {{commit}} from {{date}}",
+    "regionLabel": "App version"
   }
 }

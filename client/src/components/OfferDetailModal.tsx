@@ -906,7 +906,7 @@ export default function OfferDetailModal({
                       {t('offerDetail.name')}
                     </div>
                     {isEditing ? (
-                      <input
+                      <input aria-label={t('offerDetail.name')}
                         className="minput"
                         value={editValues.customerName}
                         onChange={(event) =>
@@ -926,7 +926,7 @@ export default function OfferDetailModal({
                       {t('offerDetail.email')}
                     </div>
                     {isEditing ? (
-                      <input
+                      <input aria-label={t('offerDetail.email')}
                         className="minput"
                         value={editValues.customerEmail}
                         onChange={(event) =>
@@ -994,7 +994,7 @@ export default function OfferDetailModal({
                       {t('offerDetail.offerNumber')}
                     </div>
                     {isEditing ? (
-                      <input
+                      <input aria-label={t('offerDetail.offerNumber')}
                         className="minput"
                         value={editValues.offerNumber}
                         onChange={(event) =>
@@ -1023,7 +1023,7 @@ export default function OfferDetailModal({
                       {t('offerDetail.expirationDate')}
                     </div>
                     {isEditing ? (
-                      <input
+                      <input aria-label={t('offerDetail.expirationDate')}
                         type="date"
                         className="minput"
                         value={editValues.expirationDate}
@@ -1045,7 +1045,7 @@ export default function OfferDetailModal({
                         <div className="mfield-label">
                           {t('offerDetail.status')}
                         </div>
-                        <select
+                        <select aria-label={t('offerDetail.status')}
                           className="minput"
                           value={editValues.status}
                           onChange={(event) => setEditValues((prev) => ({ ...prev, status: event.target.value }))}
@@ -1264,7 +1264,7 @@ export default function OfferDetailModal({
                     <table className="mtable">
                       <thead>
                         <tr>
-                          <th className="w-8"></th>
+                          <th className="w-8"><span className="sr-only">{t("common.actions")}</span></th>
                           <th>
                             {t('products.productNumber')}
                           </th>
@@ -1283,7 +1283,7 @@ export default function OfferDetailModal({
                           <th className="num">
                             {t('offerDetail.totalAmount')}
                           </th>
-                          <th className="w-8"></th>
+                          <th className="w-8"><span className="sr-only">{t("common.actions")}</span></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1501,7 +1501,7 @@ export default function OfferDetailModal({
                           <label className="mfield-label" style={{ margin: 0 }}>
                             {t('offerDetail.serviceType', 'Leistung')}
                           </label>
-                          <select
+                          <select aria-label={t('offerDetail.serviceType', 'Leistung')}
                             className="minput"
                             style={{ width: 260 }}
                             value={selectedServiceProductNumber}
@@ -1537,7 +1537,7 @@ export default function OfferDetailModal({
                               <label className="mfield-label" style={{ margin: 0 }}>
                                 {t('offerDetail.serviceNetPrice', 'Preis netto (€)')}
                               </label>
-                              <input
+                              <input aria-label={t('offerDetail.serviceNetPrice', 'Preis netto (€)')}
                                 type="number"
                                 step="0.01"
                                 min="0"

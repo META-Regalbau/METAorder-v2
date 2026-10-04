@@ -191,7 +191,7 @@ export default function CpqCompatibilityMatrix({
               value={`${activePair!.typeAId}::${activePair!.typeBId}`}
               onValueChange={(v) => setActivePairKey(v)}
             >
-              <SelectTrigger className="h-8 text-xs max-w-xs">
+              <SelectTrigger aria-label="Komponententyp-Paar" className="h-8 text-xs max-w-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

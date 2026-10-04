@@ -1032,7 +1032,7 @@ export default function B2BUsersPage({ userPermissions, userRole, userSalesChann
                     <FileSpreadsheet className="h-4 w-4" />
                     <span>{importFile.name}</span>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => setImportFile(null)}>
+                  <Button aria-label={t("common.remove")} variant="ghost" size="icon" onClick={() => setImportFile(null)}>
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
@@ -1042,7 +1042,7 @@ export default function B2BUsersPage({ userPermissions, userRole, userSalesChann
                 <div className="space-y-2 md:col-span-2">
                   <label className="text-sm font-medium">{t("b2b.users.fields.salesChannel")}</label>
                   <Select value={importSalesChannelId} onValueChange={setImportSalesChannelId}>
-                    <SelectTrigger><SelectValue placeholder={t("b2b.users.fields.salesChannelPlaceholder")} /></SelectTrigger>
+                    <SelectTrigger aria-label={t("b2b.users.fields.salesChannelPlaceholder")}><SelectValue placeholder={t("b2b.users.fields.salesChannelPlaceholder")} /></SelectTrigger>
                     <SelectContent>
                       {availableSalesChannels.map((channel) => (
                         <SelectItem key={channel.id} value={channel.id}>{channel.name}</SelectItem>
@@ -1073,7 +1073,7 @@ export default function B2BUsersPage({ userPermissions, userRole, userSalesChann
                 <div className="space-y-2">
                   <label className="text-sm font-medium">{t("b2b.users.fields.defaultType")}</label>
                   <Select value={importDefaultType} onValueChange={(value) => setImportDefaultType(value as PortalUserType)}>
-                    <SelectTrigger>
+                    <SelectTrigger aria-label={t("b2b.users.fields.defaultType")}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1092,7 +1092,7 @@ export default function B2BUsersPage({ userPermissions, userRole, userSalesChann
                 <div className="space-y-2">
                   <label className="text-sm font-medium">{t("b2b.users.fields.groupCompany")}</label>
                   <Select value={importGroupIdCompany} onValueChange={setImportGroupIdCompany}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger aria-label={t("b2b.users.fields.groupCompany")}><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {groups.map((group) => (
                         <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>
@@ -1103,7 +1103,7 @@ export default function B2BUsersPage({ userPermissions, userRole, userSalesChann
                 <div className="space-y-2">
                   <label className="text-sm font-medium">{t("b2b.users.fields.groupDealer")}</label>
                   <Select value={importGroupIdDealer} onValueChange={setImportGroupIdDealer}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger aria-label={t("b2b.users.fields.groupDealer")}><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {groups.map((group) => (
                         <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>
@@ -1114,7 +1114,7 @@ export default function B2BUsersPage({ userPermissions, userRole, userSalesChann
                 <div className="space-y-2 md:col-span-2">
                   <label className="text-sm font-medium">{t("b2b.users.fields.groupSalesRep")}</label>
                   <Select value={importGroupIdSalesRep} onValueChange={setImportGroupIdSalesRep}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger aria-label={t("b2b.users.fields.groupSalesRep")}><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {groups.map((group) => (
                         <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>
@@ -1127,7 +1127,7 @@ export default function B2BUsersPage({ userPermissions, userRole, userSalesChann
                     <div className="space-y-2 md:col-span-2">
                       <label className="text-sm font-medium">{t("b2b.users.fields.metaCompany")}</label>
                       <Select value={importMetaCompanyCustomerId} onValueChange={setImportMetaCompanyCustomerId}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectTrigger aria-label={t("b2b.users.fields.metaCompany")}><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {companies.map((company) => (
                             <SelectItem key={company.id} value={company.customerId || company.id}>
@@ -1141,7 +1141,7 @@ export default function B2BUsersPage({ userPermissions, userRole, userSalesChann
                       <div className="space-y-2 md:col-span-2">
                         <label className="text-sm font-medium">{t("b2b.users.fields.supervisorRole")}</label>
                         <Select value={importSupervisorRoleId} onValueChange={setImportSupervisorRoleId}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectTrigger aria-label={t("b2b.users.fields.supervisorRole")}><SelectValue /></SelectTrigger>
                           <SelectContent>
                             {roles.map((role) => (
                               <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>
@@ -1154,21 +1154,21 @@ export default function B2BUsersPage({ userPermissions, userRole, userSalesChann
                 ) : null}
                 <div className="space-y-2 md:col-span-2">
                   <label className="text-sm font-medium">{t("b2b.users.fields.addressStreet")}</label>
-                  <Input
+                  <Input aria-label={t("b2b.users.fields.addressStreet")}
                     value={importAddress.street}
                     onChange={(e) => setImportAddress((prev) => ({ ...prev, street: e.target.value }))}
                   />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">{t("b2b.users.fields.addressZipCode")}</label>
-                  <Input
+                  <Input aria-label={t("b2b.users.fields.addressZipCode")}
                     value={importAddress.zipCode}
                     onChange={(e) => setImportAddress((prev) => ({ ...prev, zipCode: e.target.value }))}
                   />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">{t("b2b.users.fields.addressCity")}</label>
-                  <Input
+                  <Input aria-label={t("b2b.users.fields.addressCity")}
                     value={importAddress.city}
                     onChange={(e) => setImportAddress((prev) => ({ ...prev, city: e.target.value }))}
                   />

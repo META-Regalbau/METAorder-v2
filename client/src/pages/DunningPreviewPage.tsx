@@ -255,7 +255,7 @@ export default function DunningPreviewPage({ userRole }: DunningPreviewPageProps
               data-testid="input-search-dunning"
             />
           </div>
-          <Input
+          <Input aria-label={t('common.itemsPerPage')}
             value={itemsPerPage}
             onChange={(e) => setItemsPerPage(e.target.value)}
             type="number"

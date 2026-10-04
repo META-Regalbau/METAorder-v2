@@ -288,7 +288,7 @@ function EditEmployeeDialog({
           </div>
           <div className="space-y-1">
             <Label>{t("b2b.email")}</Label>
-            <Input value={employee?.email ?? ""} disabled />
+            <Input aria-label={t("b2b.email")} value={employee?.email ?? ""} disabled />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
@@ -559,7 +559,7 @@ function NewEmployeeDialog({
           <div className="space-y-1">
             <Label>{t("b2b.accounts.detail.employeeRole")}</Label>
             <Select value={roleId} onValueChange={setRoleId}>
-              <SelectTrigger data-testid="select-new-employee-role">
+              <SelectTrigger aria-label={t("b2b.accounts.detail.employeeRole")} data-testid="select-new-employee-role">
                 <SelectValue placeholder={t("b2b.accounts.detail.employeeRoleDefault")} />
               </SelectTrigger>
               <SelectContent>

@@ -330,7 +330,7 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
 
         <div className="flex flex-wrap gap-2">
           <Select value={statusFilter} onValueChange={(value) => { setStatusFilter(value); resetPage(); }}>
-            <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
+            <SelectTrigger aria-label={t('tickets.filterByStatus')} className="w-[180px]" data-testid="select-status-filter">
               <SelectValue placeholder={t('tickets.filterByStatus')} />
             </SelectTrigger>
             <SelectContent>
@@ -345,7 +345,7 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
           </Select>
 
           <Select value={priorityFilter} onValueChange={(value) => { setPriorityFilter(value); resetPage(); }}>
-            <SelectTrigger className="w-[180px]" data-testid="select-priority-filter">
+            <SelectTrigger aria-label={t('tickets.filterByPriority')} className="w-[180px]" data-testid="select-priority-filter">
               <SelectValue placeholder={t('tickets.filterByPriority')} />
             </SelectTrigger>
             <SelectContent>
@@ -358,7 +358,7 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
           </Select>
 
           <Select value={categoryFilter} onValueChange={(value) => { setCategoryFilter(value); resetPage(); }}>
-            <SelectTrigger className="w-[200px]" data-testid="select-category-filter">
+            <SelectTrigger aria-label={t('tickets.filterByCategory')} className="w-[200px]" data-testid="select-category-filter">
               <SelectValue placeholder={t('tickets.filterByCategory')} />
             </SelectTrigger>
             <SelectContent>
@@ -376,7 +376,7 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
 
           {canManageTickets && users.length > 0 && (
             <Select value={assigneeFilter} onValueChange={(value) => { setAssigneeFilter(value); resetPage(); }}>
-              <SelectTrigger className="w-[200px]" data-testid="select-assignee-filter">
+              <SelectTrigger aria-label={t('tickets.filterByAssignee')} className="w-[200px]" data-testid="select-assignee-filter">
                 <SelectValue placeholder={t('tickets.filterByAssignee')} />
               </SelectTrigger>
               <SelectContent>
@@ -405,7 +405,7 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
 
           {allTags.length > 0 && (
             <Select value={tagFilter} onValueChange={(value) => { setTagFilter(value); resetPage(); }}>
-              <SelectTrigger className="w-[180px]" data-testid="select-tag-filter">
+              <SelectTrigger aria-label={t('tickets.filterByTag')} className="w-[180px]" data-testid="select-tag-filter">
                 <SelectValue placeholder={t('tickets.filterByTag')} />
               </SelectTrigger>
               <SelectContent>

@@ -786,23 +786,23 @@ export default function RoomPlannerPage() {
             </div>
             <div>
               <label className="mfield-label">Länge (mm)</label>
-              <input type="number" className="minput" style={{ width: 110 }} value={lengthMm} min={100} onChange={(e) => setLengthMm(Math.max(100, Number(e.target.value) || 0))} />
+              <input aria-label="Länge (mm)" type="number" className="minput" style={{ width: 110 }} value={lengthMm} min={100} onChange={(e) => setLengthMm(Math.max(100, Number(e.target.value) || 0))} />
             </div>
             <div>
               <label className="mfield-label">Breite (mm)</label>
-              <input type="number" className="minput" style={{ width: 110 }} value={widthMm} min={100} onChange={(e) => setWidthMm(Math.max(100, Number(e.target.value) || 0))} />
+              <input aria-label="Breite (mm)" type="number" className="minput" style={{ width: 110 }} value={widthMm} min={100} onChange={(e) => setWidthMm(Math.max(100, Number(e.target.value) || 0))} />
             </div>
             <div>
               <label className="mfield-label">Höhe (mm)</label>
-              <input type="number" className="minput" style={{ width: 110 }} value={heightMm} min={100} onChange={(e) => setHeightMm(Math.max(100, Number(e.target.value) || 0))} />
+              <input aria-label="Höhe (mm)" type="number" className="minput" style={{ width: 110 }} value={heightMm} min={100} onChange={(e) => setHeightMm(Math.max(100, Number(e.target.value) || 0))} />
             </div>
             <div>
               <label className="mfield-label">Abstand seitlich/hinten (mm)</label>
-              <input type="number" className="minput" style={{ width: 110 }} value={minSpacingMm} min={0} onChange={(e) => setMinSpacingMm(Math.max(0, Number(e.target.value) || 0))} />
+              <input aria-label="Abstand seitlich/hinten (mm)" type="number" className="minput" style={{ width: 110 }} value={minSpacingMm} min={0} onChange={(e) => setMinSpacingMm(Math.max(0, Number(e.target.value) || 0))} />
             </div>
             <div>
               <label className="mfield-label">Gang vor dem Regal (mm)</label>
-              <input
+              <input aria-label="Gang vor dem Regal (mm)"
                 type="number"
                 className="minput"
                 style={{ width: 110 }}
@@ -828,7 +828,7 @@ export default function RoomPlannerPage() {
           <div className="flex items-center gap-4 flex-wrap">
             <div>
               <label className="mfield-label">Wand</label>
-              <select className="minput" style={{ width: 140 }} value={newFeatureWall} onChange={(e) => setNewFeatureWall(e.target.value as RoomWall)}>
+              <select aria-label="Wand" className="minput" style={{ width: 140 }} value={newFeatureWall} onChange={(e) => setNewFeatureWall(e.target.value as RoomWall)}>
                 {(Object.keys(WALL_LABELS) as RoomWall[]).map((w) => (
                   <option key={w} value={w}>{WALL_LABELS[w]}</option>
                 ))}
@@ -836,7 +836,7 @@ export default function RoomPlannerPage() {
             </div>
             <div>
               <label className="mfield-label">Typ</label>
-              <select className="minput" style={{ width: 120 }} value={newFeatureType} onChange={(e) => setNewFeatureType(e.target.value as RoomWallFeatureType)}>
+              <select aria-label="Typ" className="minput" style={{ width: 120 }} value={newFeatureType} onChange={(e) => setNewFeatureType(e.target.value as RoomWallFeatureType)}>
                 {(Object.keys(WALL_FEATURE_TYPE_LABELS) as RoomWallFeatureType[]).map((t) => (
                   <option key={t} value={t}>{WALL_FEATURE_TYPE_LABELS[t]}</option>
                 ))}
@@ -844,11 +844,11 @@ export default function RoomPlannerPage() {
             </div>
             <div>
               <label className="mfield-label">Position ab Wandecke (mm)</label>
-              <input type="number" className="minput" style={{ width: 120 }} value={newFeatureOffsetMm} min={0} onChange={(e) => setNewFeatureOffsetMm(Math.max(0, Number(e.target.value) || 0))} />
+              <input aria-label="Position ab Wandecke (mm)" type="number" className="minput" style={{ width: 120 }} value={newFeatureOffsetMm} min={0} onChange={(e) => setNewFeatureOffsetMm(Math.max(0, Number(e.target.value) || 0))} />
             </div>
             <div>
               <label className="mfield-label">Breite (mm)</label>
-              <input type="number" className="minput" style={{ width: 110 }} value={newFeatureWidthMm} min={1} onChange={(e) => setNewFeatureWidthMm(Math.max(1, Number(e.target.value) || 0))} />
+              <input aria-label="Breite (mm)" type="number" className="minput" style={{ width: 110 }} value={newFeatureWidthMm} min={1} onChange={(e) => setNewFeatureWidthMm(Math.max(1, Number(e.target.value) || 0))} />
             </div>
             <button type="button" className="mbtn sm" onClick={commitWallFeature}>
               {isEditingWallFeature ? "Aktualisieren" : "Hinzufügen"}

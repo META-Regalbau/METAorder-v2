@@ -75,7 +75,7 @@ export default function OrderFilters({
         <div>
           <Label className="text-sm font-medium mb-2">{t('filters.statusLabel')}</Label>
           <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-            <SelectTrigger data-testid="select-status-filter">
+            <SelectTrigger aria-label={t('filters.statusLabel')} data-testid="select-status-filter">
               <SelectValue placeholder={t('filters.allStatuses')} />
             </SelectTrigger>
             <SelectContent>
@@ -91,7 +91,7 @@ export default function OrderFilters({
         <div>
           <Label className="text-sm font-medium mb-2">{t('filters.invoiceLabel')}</Label>
           <Select value={invoiceFilter} onValueChange={(v) => onInvoiceFilterChange(v as InvoiceFilter)}>
-            <SelectTrigger data-testid="select-invoice-filter">
+            <SelectTrigger aria-label={t('filters.invoiceLabel')} data-testid="select-invoice-filter">
               <SelectValue placeholder={t('filters.invoiceAll')} />
             </SelectTrigger>
             <SelectContent>
@@ -106,7 +106,7 @@ export default function OrderFilters({
         <div>
           <Label className="text-sm font-medium mb-2">{t("filters.orderNumberLabel")}</Label>
           <Select value={orderNumberFilter} onValueChange={(v) => onOrderNumberFilterChange(v as OrderNumberFilter)}>
-            <SelectTrigger data-testid="select-order-number-filter">
+            <SelectTrigger aria-label={t("filters.orderNumberLabel")} data-testid="select-order-number-filter">
               <SelectValue placeholder={t("filters.orderNumberAll")} />
             </SelectTrigger>
             <SelectContent>

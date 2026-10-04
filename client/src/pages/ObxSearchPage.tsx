@@ -432,7 +432,7 @@ export default function ObxSearchPage() {
               ) : (
                 <>
                   <div className="space-y-2">
-                    <Textarea
+                    <Textarea aria-label={t("obxSearch.missingTitle")}
                       readOnly
                       value={result.missingCsv}
                       className="font-mono text-sm h-28"

@@ -160,7 +160,7 @@ export default function CpqRuleConditionEditor({ condition, onChange }: CpqRuleC
             value={guided.sourceComponentType}
             onValueChange={(v) => update({ sourceComponentType: v })}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Quelle – Komponente">
               <SelectValue placeholder="Komponente wählen" />
             </SelectTrigger>
             <SelectContent>
@@ -176,7 +176,7 @@ export default function CpqRuleConditionEditor({ condition, onChange }: CpqRuleC
             value={guided.sourceAttribute}
             onValueChange={(v) => update({ sourceAttribute: v })}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Quelle – Attribut">
               <SelectValue placeholder="Attribut wählen" />
             </SelectTrigger>
             <SelectContent>
@@ -198,7 +198,7 @@ export default function CpqRuleConditionEditor({ condition, onChange }: CpqRuleC
       <div className="space-y-2">
         <Label>Operator</Label>
         <Select value={guided.operator} onValueChange={(v) => update({ operator: v })}>
-          <SelectTrigger>
+          <SelectTrigger aria-label="Operator">
             <SelectValue placeholder="Operator wählen" />
           </SelectTrigger>
           <SelectContent>
@@ -216,7 +216,7 @@ export default function CpqRuleConditionEditor({ condition, onChange }: CpqRuleC
             update({ targetMode: v, fixedValue: v === "fixed_value" ? guided.fixedValue : undefined })
           }
         >
-          <SelectTrigger>
+          <SelectTrigger aria-label="Ziel – Vergleichen mit">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -233,7 +233,7 @@ export default function CpqRuleConditionEditor({ condition, onChange }: CpqRuleC
               value={guided.targetComponentType}
               onValueChange={(v) => update({ targetComponentType: v })}
             >
-              <SelectTrigger>
+              <SelectTrigger aria-label="Ziel – Komponente">
                 <SelectValue placeholder="Komponente wählen" />
               </SelectTrigger>
               <SelectContent>
@@ -249,7 +249,7 @@ export default function CpqRuleConditionEditor({ condition, onChange }: CpqRuleC
               value={guided.targetAttribute}
               onValueChange={(v) => update({ targetAttribute: v })}
             >
-              <SelectTrigger>
+              <SelectTrigger aria-label="Ziel – Attribut">
                 <SelectValue placeholder="Attribut wählen" />
               </SelectTrigger>
               <SelectContent>

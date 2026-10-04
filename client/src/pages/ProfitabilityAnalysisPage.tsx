@@ -623,6 +623,7 @@ export default function ProfitabilityAnalysisPage() {
                         <Cell
                           key={entry.key}
                           fill={PIE_COLORS[entry.key as keyof typeof PIE_COLORS]}
+                          aria-label={`${entry.name}: ${entry.value}`}
                         />
                       ))}
                     </Pie>

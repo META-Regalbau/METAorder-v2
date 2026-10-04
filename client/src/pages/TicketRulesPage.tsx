@@ -251,10 +251,10 @@ export default function TicketRulesPage() {
                       data-testid={`switch-active-${rule.id}`}
                     />
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => handleEdit(rule)} data-testid={`button-edit-${rule.id}`}>
+                  <Button aria-label={t("common.edit")} variant="ghost" size="icon" onClick={() => handleEdit(rule)} data-testid={`button-edit-${rule.id}`}>
                     <Edit className="w-4 h-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(rule.id)} data-testid={`button-delete-${rule.id}`}>
+                  <Button aria-label={t("common.delete")} variant="ghost" size="icon" onClick={() => deleteMutation.mutate(rule.id)} data-testid={`button-delete-${rule.id}`}>
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
@@ -276,12 +276,12 @@ export default function TicketRulesPage() {
             </div>
             <div>
               <Label>Priority (higher = runs first)</Label>
-              <Input type="number" value={priority} onChange={(e) => setPriority(Number(e.target.value))} data-testid="input-priority" />
+              <Input aria-label="Priority (higher = runs first)" type="number" value={priority} onChange={(e) => setPriority(Number(e.target.value))} data-testid="input-priority" />
             </div>
             <div>
               <Label>Assignment Type</Label>
               <Select value={assignmentType} onValueChange={(v: any) => setAssignmentType(v)}>
-                <SelectTrigger data-testid="select-assignment-type">
+                <SelectTrigger aria-label="Assignment Type" data-testid="select-assignment-type">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -295,7 +295,7 @@ export default function TicketRulesPage() {
                 <div>
                   <Label>Category Filter</Label>
                   <Select value={category || "__none__"} onValueChange={(value) => setCategory(value === "__none__" ? "" : value)}>
-                    <SelectTrigger data-testid="select-category">
+                    <SelectTrigger aria-label="Category Filter" data-testid="select-category">
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
@@ -313,7 +313,7 @@ export default function TicketRulesPage() {
                 <div>
                   <Label>Priority Filter</Label>
                   <Select value={priorityCondition || "__none__"} onValueChange={(value) => setPriorityCondition(value === "__none__" ? "" : value)}>
-                    <SelectTrigger data-testid="select-priority-filter">
+                    <SelectTrigger aria-label="Priority Filter" data-testid="select-priority-filter">
                       <SelectValue placeholder="Select priority" />
                     </SelectTrigger>
                     <SelectContent>
@@ -328,7 +328,7 @@ export default function TicketRulesPage() {
                 <div>
                   <Label>AI Category Filter</Label>
                   <Select value={aiCategory || "__none__"} onValueChange={(value) => setAiCategory(value === "__none__" ? "" : value)}>
-                    <SelectTrigger data-testid="select-ai-category">
+                    <SelectTrigger aria-label="AI Category Filter" data-testid="select-ai-category">
                       <SelectValue placeholder="Select AI category" />
                     </SelectTrigger>
                     <SelectContent>
@@ -346,7 +346,7 @@ export default function TicketRulesPage() {
                 <div>
                   <Label>AI Priority Filter</Label>
                   <Select value={aiPriority || "__none__"} onValueChange={(value) => setAiPriority(value === "__none__" ? "" : value)}>
-                    <SelectTrigger data-testid="select-ai-priority">
+                    <SelectTrigger aria-label="AI Priority Filter" data-testid="select-ai-priority">
                       <SelectValue placeholder="Select AI priority" />
                     </SelectTrigger>
                     <SelectContent>
@@ -361,7 +361,7 @@ export default function TicketRulesPage() {
                 <div>
                   <Label>AI Sentiment Filter</Label>
                   <Select value={aiSentiment || "__none__"} onValueChange={(value) => setAiSentiment(value === "__none__" ? "" : value)}>
-                    <SelectTrigger data-testid="select-ai-sentiment">
+                    <SelectTrigger aria-label="AI Sentiment Filter" data-testid="select-ai-sentiment">
                       <SelectValue placeholder="Select sentiment" />
                     </SelectTrigger>
                     <SelectContent>
@@ -397,7 +397,7 @@ export default function TicketRulesPage() {
                 <div>
                   <Label>Assign To User</Label>
                   <Select value={assignToUserId} onValueChange={setAssignToUserId}>
-                    <SelectTrigger data-testid="select-assign-to">
+                    <SelectTrigger aria-label="Assign To User" data-testid="select-assign-to">
                       <SelectValue placeholder="Select user" />
                     </SelectTrigger>
                     <SelectContent>

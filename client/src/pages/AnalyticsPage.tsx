@@ -532,8 +532,8 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
       {canUseNaturalLanguage && (
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="mb-6">
           <TabsList>
-            <TabsTrigger value="dashboard" data-testid="tab-analytics-dashboard">{t('analytics.dashboardTab')}</TabsTrigger>
-            <TabsTrigger value="natural-language" data-testid="tab-analytics-natural-language">{t('analytics.nlQuery.tab')}</TabsTrigger>
+            <TabsTrigger value="dashboard" aria-controls={undefined} data-testid="tab-analytics-dashboard">{t('analytics.dashboardTab')}</TabsTrigger>
+            <TabsTrigger value="natural-language" aria-controls={undefined} data-testid="tab-analytics-natural-language">{t('analytics.nlQuery.tab')}</TabsTrigger>
           </TabsList>
         </Tabs>
       )}
@@ -576,7 +576,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
       {/* Date Range Filter and Export */}
       <div className="flex flex-wrap gap-4 mb-6">
         <Select value={dateRange} onValueChange={(value) => setDateRange(value as DateRangePreset)}>
-          <SelectTrigger className="w-48" data-testid="select-date-range">
+          <SelectTrigger aria-label={t('analytics.dateRange')} className="w-48" data-testid="select-date-range">
             <SelectValue placeholder={t('analytics.dateRange')} />
           </SelectTrigger>
           <SelectContent>
@@ -1144,7 +1144,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
                 <PieChart>
                   <Pie data={orderStatusData} cx="50%" cy="50%" labelLine={false} label={(entry) => entry.name} outerRadius={80} fill="#8884d8" dataKey="value">
                     {orderStatusData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} aria-label={`${entry.name}: ${entry.value}`} />
                     ))}
                   </Pie>
                   <Tooltip />
@@ -1167,7 +1167,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
                 <PieChart>
                   <Pie data={paymentStatusData} cx="50%" cy="50%" labelLine={false} label={(entry) => entry.name} outerRadius={80} fill="#8884d8" dataKey="value">
                     {paymentStatusData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} aria-label={`${entry.name}: ${entry.value}`} />
                     ))}
                   </Pie>
                   <Tooltip />

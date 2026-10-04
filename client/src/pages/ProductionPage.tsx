@@ -338,7 +338,7 @@ export default function ProductionPage() {
                     <TableHead>{t("erp.product")}</TableHead>
                     <TableHead>{t("erp.quantity")}</TableHead>
                     <TableHead>{t("erp.status")}</TableHead>
-                    <TableHead></TableHead>
+                    <TableHead><span className="sr-only">{t("common.actions")}</span></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -400,7 +400,7 @@ export default function ProductionPage() {
                     <TableHead>{t("erp.production.bom.name")}</TableHead>
                     <TableHead>{t("erp.production.bom.lineCount")}</TableHead>
                     <TableHead>{t("erp.status")}</TableHead>
-                    <TableHead></TableHead>
+                    <TableHead><span className="sr-only">{t("common.actions")}</span></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -521,7 +521,7 @@ export default function ProductionPage() {
             </div>
             <div>
               <Label>{t("erp.quantity")}</Label>
-              <Input
+              <Input aria-label={t("erp.quantity")}
                 type="number"
                 value={orderForm.quantity}
                 onChange={(e) => setOrderForm({ ...orderForm, quantity: Number(e.target.value) })}
@@ -529,7 +529,7 @@ export default function ProductionPage() {
             </div>
             <div>
               <Label>{t("erp.warehouse.warehouses")}</Label>
-              <select
+              <select aria-label={t("erp.warehouse.warehouses")}
                 className="w-full border rounded-md h-10 px-3 bg-background"
                 value={orderForm.warehouseId}
                 onChange={(e) => setOrderForm({ ...orderForm, warehouseId: e.target.value })}
@@ -570,13 +570,13 @@ export default function ProductionPage() {
                   </div>
                   <div className="w-24">
                     <Label className="text-xs">{t("erp.production.materialQty")}</Label>
-                    <Input
+                    <Input aria-label={t("erp.production.materialQty")}
                       type="number"
                       value={m.quantity}
                       onChange={(e) => updateOrderMaterial(index, { quantity: Number(e.target.value) })}
                     />
                   </div>
-                  <Button
+                  <Button aria-label={t("common.remove")}
                     type="button"
                     size="icon"
                     variant="ghost"
@@ -639,14 +639,14 @@ export default function ProductionPage() {
             </div>
             <div>
               <Label>{t("erp.production.bom.name")}</Label>
-              <Input
+              <Input aria-label={t("erp.production.bom.name")}
                 value={bomForm.name}
                 onChange={(e) => setBomForm({ ...bomForm, name: e.target.value })}
               />
             </div>
             <div>
               <Label>{t("erp.production.bom.notes")}</Label>
-              <Input
+              <Input aria-label={t("erp.production.bom.notes")}
                 value={bomForm.notes}
                 onChange={(e) => setBomForm({ ...bomForm, notes: e.target.value })}
               />
@@ -655,7 +655,7 @@ export default function ProductionPage() {
             <div className="border rounded-md p-3 space-y-2 bg-muted/20">
               <Label>{t("erp.production.bom.fromPriceList")}</Label>
               <p className="text-xs text-muted-foreground">{t("erp.production.bom.fromPriceListHint")}</p>
-              <select
+              <select aria-label={t("erp.production.bom.fromPriceList")}
                 className="w-full border rounded-md h-10 px-3 bg-background"
                 value={bomSupplierId}
                 onChange={(e) => {
@@ -753,13 +753,13 @@ export default function ProductionPage() {
                   </div>
                   <div className="w-24">
                     <Label className="text-xs">{t("erp.quantity")}</Label>
-                    <Input
+                    <Input aria-label={t("erp.quantity")}
                       type="number"
                       value={m.quantity}
                       onChange={(e) => updateBomLine(index, { quantity: Number(e.target.value) })}
                     />
                   </div>
-                  <Button
+                  <Button aria-label={t("common.remove")}
                     type="button"
                     size="icon"
                     variant="ghost"

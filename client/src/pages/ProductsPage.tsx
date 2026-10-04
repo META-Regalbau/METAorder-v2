@@ -254,7 +254,7 @@ export default function ProductsPage() {
                 setPage(1);
               }}
             >
-              <SelectTrigger data-testid="select-category-filter">
+              <SelectTrigger aria-label={t('products.allCategories')} data-testid="select-category-filter">
                 <div className="flex items-center gap-2">
                   <Filter className="h-4 w-4 text-muted-foreground" />
                   <SelectValue placeholder={t('products.allCategories')} />
@@ -509,6 +509,7 @@ export default function ProductsPage() {
                           onCheckedChange={(checked) => {
                             toggleProductMutation.mutate({ productId: product.id, active: checked });
                           }}
+                          aria-label={t("products.activeSwitch", { name: product.name })}
                           data-testid={`switch-toggle-active-${product.id}`}
                         />
                         <span className="text-xs text-muted-foreground">
@@ -588,7 +589,7 @@ export default function ProductsPage() {
                   })}
                 </span>
                 <Select value={limit.toString()} onValueChange={(v) => setLimit(Number(v))}>
-                  <SelectTrigger className="w-24 h-8">
+                  <SelectTrigger aria-label={t('common.itemsPerPage')} className="w-24 h-8">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

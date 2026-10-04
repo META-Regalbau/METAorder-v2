@@ -1011,7 +1011,7 @@ export function OfferDraftReviewModal({
               <CardContent className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <Label className="text-xs text-muted-foreground">{t("offerDrafts.review.company")}</Label>
-                  <Input
+                  <Input aria-label={t("offerDrafts.review.company")}
                     value={(editedData.billingAddress as { company?: string }).company || ""}
                     onChange={(e) =>
                       setEditedData({
@@ -1024,7 +1024,7 @@ export function OfferDraftReviewModal({
                 </div>
                 <div className="col-span-2">
                   <Label className="text-xs text-muted-foreground">{t("offerDrafts.review.street")}</Label>
-                  <Input
+                  <Input aria-label={t("offerDrafts.review.street")}
                     value={editedData.billingAddress.street || ""}
                     onChange={(e) =>
                       setEditedData({
@@ -1037,7 +1037,7 @@ export function OfferDraftReviewModal({
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">{t("offerDrafts.review.zipCode")}</Label>
-                  <Input
+                  <Input aria-label={t("offerDrafts.review.zipCode")}
                     value={editedData.billingAddress.zipCode || ""}
                     onChange={(e) =>
                       setEditedData({
@@ -1050,7 +1050,7 @@ export function OfferDraftReviewModal({
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">{t("offerDrafts.review.city")}</Label>
-                  <Input
+                  <Input aria-label={t("offerDrafts.review.city")}
                     value={editedData.billingAddress.city || ""}
                     onChange={(e) =>
                       setEditedData({
@@ -1063,7 +1063,7 @@ export function OfferDraftReviewModal({
                 </div>
                 <div className="col-span-2">
                   <Label className="text-xs text-muted-foreground">{t("offerDrafts.review.country")}</Label>
-                  <Input
+                  <Input aria-label={t("offerDrafts.review.country")}
                     value={editedData.billingAddress.country || ""}
                     onChange={(e) =>
                       setEditedData({
@@ -1293,7 +1293,7 @@ export function OfferDraftReviewModal({
                   <div className="w-full md:flex-1 space-y-2">
                     <Label>{t("bundles.listTitle")}</Label>
                     <Select value={selectedBundleId} onValueChange={setSelectedBundleId}>
-                      <SelectTrigger>
+                      <SelectTrigger aria-label={t("bundles.listTitle")}>
                         <SelectValue placeholder={t("bundles.create")} />
                       </SelectTrigger>
                       <SelectContent>
@@ -1307,7 +1307,7 @@ export function OfferDraftReviewModal({
                   </div>
                   <div className="w-full md:w-32 space-y-2">
                     <Label>{t("offerDrafts.review.quantity")}</Label>
-                    <Input
+                    <Input aria-label={t("offerDrafts.review.quantity")}
                       type="number"
                       min={1}
                       value={bundleQuantity}
@@ -1598,7 +1598,7 @@ export function OfferDraftReviewModal({
                           </TableCell>
                         <TableCell>
                           <div className="flex flex-col gap-1">
-                            <Input
+                            <Input aria-label={t("offerDrafts.review.quantity")}
                               type="number"
                               value={item.quantity}
                               className="w-20"
@@ -1912,7 +1912,7 @@ export function OfferDraftReviewModal({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <Textarea
+                <Textarea aria-label={t("offerDrafts.review.notes")}
                   value={editedData.offerNotes}
                   readOnly
                   className="min-h-[100px]"
