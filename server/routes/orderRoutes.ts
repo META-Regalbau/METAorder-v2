@@ -1,8 +1,8 @@
 // Bestellungen: Liste/Abfrage/Export, Details, Dokumente, Rechnungen, Versand, Mondu, Teilzahlungsplaene.
-import { requireAuth, requireViewDelayedOrders, requireManageDocuments, requireCsrf, requireEditOrders } from "../auth/auth";
+import { requireAuth, requireViewDelayedOrders, requireManageDocuments, requireCsrf, requireEditOrders, requireManageAccounting } from "../auth/auth";
 import { storage } from "../storage";
 import { ShopwareClient, getRealInvoiceDocument, isMonduPluginShipError, ZUGFERD_EMBEDDED_INVOICE_TYPE } from "../shopware/shopware";
-import { getSalesChannelFilter, getOrdersWithCache, filterOrdersBySalesChannels, filterTicketsBySalesChannels, defaultProformaNumberRange, resolveAttachmentPath, dedupeOrdersByNumber } from "./routeHelpers";
+import { getSalesChannelFilter, getOrdersWithCache, filterOrdersBySalesChannels, filterTicketsBySalesChannels, defaultProformaNumberRange, resolveAttachmentPath, dedupeOrdersByNumber, checkOrderChannelAccess } from "./routeHelpers";
 import { filterOrdersList, sortOrdersList, computeDuplicateOrderIds, paginateOrdersList, type OrdersListQuery } from "../shopware/ordersList";
 import { enrichOrdersWithProfitability, buildOrderProfitabilityAnalysisSummary, sortOrdersByMargin } from "../analytics/orderProfitabilityAnalysis";
 import { enrichOrdersWithStockAvailability } from "../erp/orderStockEnrichment";
@@ -1070,7 +1070,7 @@ export function registerOrderRoutes(app: Express): void {
   });
 
   // Update order shipping information and set status to shipped
-  app.patch("/api/orders/:orderId/shipping", requireAuth, async (req, res) => {
+  app.patch("/api/orders/:orderId/shipping", requireAuth, requireEditOrders, async (req, res) => {
     try {
       const settings = await storage.getShopwareSettings();
       if (!settings) {
@@ -1079,6 +1079,12 @@ export function registerOrderRoutes(app: Express): void {
 
       const { orderId } = req.params;
       const shippingInfo = req.body;
+
+      // Nur Bestellungen der eigenen Verkaufskanaele (wie auf den Bestellseiten)
+      const denied = await checkOrderChannelAccess(orderId, await getSalesChannelFilter(req), (req as any).tenantId ?? null);
+      if (denied) {
+        return res.status(denied.status).json({ error: denied.error });
+      }
 
       // Validate shipping info
       if (!shippingInfo.carrier && !shippingInfo.trackingNumber && !shippingInfo.shippedDate) {
@@ -2281,7 +2287,9 @@ export function registerOrderRoutes(app: Express): void {
   });
 
   // Mark order as shipped - requires invoice to exist, transitions state and sends invoice email
-  app.post("/api/orders/:orderId/mark-shipped", requireAuth, async (req, res) => {
+  // Setzt die Lieferung auf "versendet" UND verschickt die Rechnung an den Kunden - deshalb
+  // "Bestellungen bearbeiten" und "Dokumente verwalten" (wie send-invoice).
+  app.post("/api/orders/:orderId/mark-shipped", requireAuth, requireEditOrders, requireManageDocuments, async (req, res) => {
     try {
       const settings = await storage.getShopwareSettings();
       if (!settings) {
@@ -2289,6 +2297,10 @@ export function registerOrderRoutes(app: Express): void {
       }
 
       const { orderId } = req.params;
+      const denied = await checkOrderChannelAccess(orderId, await getSalesChannelFilter(req), (req as any).tenantId ?? null);
+      if (denied) {
+        return res.status(denied.status).json({ error: denied.error });
+      }
       const client = new ShopwareClient(settings);
 
       // Step 1: Check if invoice exists for this order (prefer real invoice over VKRE/PF)
@@ -2411,11 +2423,17 @@ export function registerOrderRoutes(app: Express): void {
   );
 
   // Submit invoice to Mondu - downloads PDF from Shopware and uploads to Mondu
-  app.post("/api/orders/:orderId/submit-to-mondu", requireAuth, async (req, res) => {
+  // Zahlungsabwicklung (Rechnung an den Zahlungsanbieter) - Recht "Buchhaltung verwalten"
+  app.post("/api/orders/:orderId/submit-to-mondu", requireAuth, requireManageAccounting, async (req, res) => {
     try {
       const shopwareSettings = await storage.getShopwareSettings();
       if (!shopwareSettings) {
         return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const denied = await checkOrderChannelAccess(req.params.orderId, await getSalesChannelFilter(req), (req as any).tenantId ?? null);
+      if (denied) {
+        return res.status(denied.status).json({ error: denied.error });
       }
 
       const monduSettings = await storage.getMonduSettings();
@@ -2506,6 +2524,22 @@ export function registerOrderRoutes(app: Express): void {
       const settings = await storage.getShopwareSettings();
       if (!settings) {
         return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      // Nur Bestellungen der eigenen Verkaufskanaele: erst alle pruefen, dann aendern - gehoert
+      // eine nicht dazu, wird nichts geaendert.
+      const allowedChannelIds = await getSalesChannelFilter(req);
+      const tenantId = (req as any).tenantId ?? null;
+      const deniedOrders: Array<{ orderId: string; status: number; error: string }> = [];
+      for (const orderId of orderIds) {
+        const denied = await checkOrderChannelAccess(orderId, allowedChannelIds, tenantId);
+        if (denied) deniedOrders.push({ orderId, ...denied });
+      }
+      if (deniedOrders.length > 0) {
+        return res.status(deniedOrders.some((d) => d.status === 403) ? 403 : deniedOrders[0].status).json({
+          error: "Some orders are not accessible",
+          orders: deniedOrders,
+        });
       }
 
       const client = new ShopwareClient(settings);

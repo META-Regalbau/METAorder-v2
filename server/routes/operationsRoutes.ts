@@ -5,7 +5,7 @@ import { ShopwareClient } from "../shopware/shopware";
 import { type Order, insertProcessUpdateSchema, insertShippingCarrierSchema } from "@shared/schema";
 import { isOrderEligibleForShippingPick } from "@shared/orderShippingEligibility";
 import { enrichOrdersWithStockAvailability } from "../erp/orderStockEnrichment";
-import { dedupeOrdersByNumber, filterOrdersBySalesChannels, getOrdersWithCache, getSalesChannelFilter } from "./routeHelpers";
+import { checkOrderChannelAccess, dedupeOrdersByNumber, filterOrdersBySalesChannels, getOrdersWithCache, getSalesChannelFilter } from "./routeHelpers";
 import type { Express } from "express";
 
 export function registerOperationsRoutes(app: Express): void {
@@ -231,41 +231,11 @@ export function registerOperationsRoutes(app: Express): void {
         return res.status(403).json({ error: "Insufficient permissions to view order automation history" });
       }
       
-      // Verkaufskanal-Pruefung wie auf den Bestellseiten (getSalesChannelFilter: Kanaele von Nutzer
-      // und Rolle; null = alle, [] = keine). Der Kanal der Bestellung kommt aus dem Bestell-Spiegel;
-      // nur wenn sie dort (noch) fehlt, wird diese eine Bestellung live geholt - frueher alle.
-      const allowedChannelIds = await getSalesChannelFilter(req);
-      if (allowedChannelIds !== null) {
-        if (allowedChannelIds.length === 0) {
-          return res.status(403).json({
-            error: "No sales channels assigned. Contact administrator for access."
-          });
-        }
-
-        const tenantId = (req as any).tenantId ?? null;
-        const mirror = await storage.getShopwareOrderMirrorByShopwareId(orderId, tenantId);
-        let salesChannelId = mirror ? mirror.salesChannelId ?? (mirror.payload as Order | null)?.salesChannelId ?? null : null;
-
-        if (!mirror) {
-          const settings = await storage.getShopwareSettings(tenantId);
-          if (!settings) {
-            return res.status(503).json({
-              error: "Shopware settings not configured"
-            });
-          }
-          const [order] = await new ShopwareClient(settings).fetchOrders(null, { ids: [orderId] });
-          if (!order) {
-            return res.status(404).json({ error: "Order not found" });
-          }
-          salesChannelId = order.salesChannelId;
-        }
-
-        // Verify user has access to this order's sales channel
-        if (!salesChannelId || !allowedChannelIds.includes(salesChannelId)) {
-          return res.status(403).json({
-            error: "You don't have access to this order's sales channel"
-          });
-        }
+      // Verkaufskanal-Pruefung wie auf den Bestellseiten (Kanal aus dem Bestell-Spiegel, nur
+      // wenn die Bestellung dort fehlt, wird diese eine live geholt).
+      const denied = await checkOrderChannelAccess(orderId, await getSalesChannelFilter(req), (req as any).tenantId ?? null);
+      if (denied) {
+        return res.status(denied.status).json({ error: denied.error });
       }
 
       const runs = await storage.getErpAutomationRunsByOrderId(orderId);
