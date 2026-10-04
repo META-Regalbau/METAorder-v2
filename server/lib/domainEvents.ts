@@ -1,15 +1,20 @@
-import type { Ticket } from "@shared/schema";
+import type { Order, Ticket } from "@shared/schema";
 import { logger } from "./logger";
 
 /**
- * Fachliche Ereignisse (z. B. "Ticket angelegt"), die der Speicher meldet und andere Module
- * abonnieren - aktuell die Automatisierungsregeln. Handler laufen entkoppelt (setImmediate),
- * die ausloesende Anfrage wartet also nicht; AsyncLocalStorage-Kontext (requestId, Mandant)
- * bleibt dabei erhalten. Fehler in Handlern werden geloggt, nie an den Ausloeser weitergereicht.
+ * Fachliche Ereignisse (z. B. "Ticket angelegt", "Bestellstatus geaendert"), die Speicher bzw.
+ * Shopware-Spiegel melden und andere Module abonnieren - aktuell die Automatisierungsregeln.
+ * Handler laufen entkoppelt (setImmediate), die ausloesende Anfrage wartet also nicht;
+ * AsyncLocalStorage-Kontext (requestId, Mandant) bleibt dabei erhalten. Fehler in Handlern
+ * werden geloggt, nie an den Ausloeser weitergereicht.
  */
 export type DomainEventMap = {
   "ticket.created": { ticket: Ticket };
   "ticket.statusChanged": { ticket: Ticket; previousStatus: string };
+  // Gemeldet vom Shopware-Spiegel (server/shopware/orderChangeEvents.ts)
+  "order.created": { order: Order; tenantId: string | null };
+  "order.statusChanged": { order: Order; tenantId: string | null; previousStatus: string };
+  "order.paymentStatusChanged": { order: Order; tenantId: string | null; previousPaymentStatus: string };
 };
 
 export type DomainEventName = keyof DomainEventMap;

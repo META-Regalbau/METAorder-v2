@@ -9,6 +9,7 @@ import type { ShopwareClient, ShopwareProductOverview, ShopwareCustomerPrice } f
 import { B2BSellersAdminClient, type B2BCompanyListItem } from "../b2b/b2bSellersAdmin";
 import { productCacheRegistry } from "../products/productCache";
 import type { Product, Order } from "@shared/schema";
+import { detectOrderChanges, emitOrderChanges } from "./orderChangeEvents";
 
 const PRODUCT_BATCH = 500;
 /**
@@ -373,7 +374,21 @@ async function syncOrdersDelta(
       ? await watcher.detectInvoiceNumberChanges(storage, orders, tenantId)
       : [];
 
+    // Aenderungserkennung (Automatisierung): bisherigen Stand VOR dem Upsert lesen,
+    // Ereignisse erst NACH dem Upsert melden. Erstimport (leerer Spiegel) meldet nichts.
+    const initialImport = (await storage.countShopwareOrderMirrors(tenantId)) === 0;
+    const previousStates =
+      initialImport || orders.length === 0
+        ? new Map()
+        : await storage.getShopwareOrderMirrorStates(orders.map((o) => o.id), tenantId);
+
     await upsertOrderMirrors(storage, orders, tenantId);
+
+    const orderChanges = detectOrderChanges(orders, previousStates, { initialImport });
+    if (orderChanges.length > 0) {
+      emitOrderChanges(orderChanges, tenantId);
+      console.log(`[ShopwareMirror] orders: ${orderChanges.length} Aenderung(en) gemeldet (tenant=${tenantId ?? "default"})`);
+    }
 
     let maxUpdated: Date | null = cursor;
     for (const o of orders) {

@@ -22,6 +22,13 @@ export const SCHEDULED_MAX_PER_RULE_PER_RUN = 25;
 export const SCHEDULED_MAX_FAILED_ATTEMPTS = 3;
 export const SCHEDULED_DEFAULT_INTERVAL_MINUTES = 60;
 
+/**
+ * Bestell-Ausloeser (erstellt / Status / Zahlungsstatus) erkennt der Shopware-Spiegel beim
+ * Abgleich. Gemeldet werden nur Aenderungen, die hoechstens so lange zurueckliegen; der
+ * Erstimport eines Mandanten meldet nichts.
+ */
+export const ORDER_EVENT_MAX_AGE_HOURS = 48;
+
 // ---------------------------------------------------------------------------
 // Ausloeser
 // ---------------------------------------------------------------------------
@@ -40,9 +47,9 @@ export type AutomationTriggerTypeId = (typeof AUTOMATION_TRIGGER_TYPES)[number];
 export const AUTOMATION_TRIGGERS: Record<AutomationTriggerTypeId, { entity: "ticket" | "order"; available: boolean }> = {
   ticket_created: { entity: "ticket", available: true },
   ticket_status_changed: { entity: "ticket", available: true },
-  order_created: { entity: "order", available: false },
-  order_status_changed: { entity: "order", available: false },
-  order_payment_changed: { entity: "order", available: false },
+  order_created: { entity: "order", available: true },
+  order_status_changed: { entity: "order", available: true },
+  order_payment_changed: { entity: "order", available: true },
   scheduled: { entity: "order", available: true },
 };
 
@@ -72,7 +79,7 @@ export type AutomationFieldDef = {
 };
 
 const TICKET_TRIGGERS = ["ticket_created", "ticket_status_changed"] as const;
-const ORDER_TRIGGERS = ["scheduled"] as const;
+const ORDER_TRIGGERS = ["scheduled", "order_created", "order_status_changed", "order_payment_changed"] as const;
 
 export const AUTOMATION_FIELDS: Record<string, AutomationFieldDef> = {
   "ticket.priority": { type: "enum", options: TICKET_PRIORITIES, triggers: TICKET_TRIGGERS },
@@ -88,7 +95,9 @@ export const AUTOMATION_FIELDS: Record<string, AutomationFieldDef> = {
   "ticket.fromEmail": { type: "boolean", triggers: TICKET_TRIGGERS },
   "ticket.sentiment": { type: "enum", options: SENTIMENTS, triggers: TICKET_TRIGGERS, computed: true },
   "order.status": { type: "enum", options: ORDER_STATUSES, triggers: ORDER_TRIGGERS },
+  "order.previousStatus": { type: "enum", options: ORDER_STATUSES, triggers: ["order_status_changed"] },
   "order.paymentStatus": { type: "enum", options: PAYMENT_STATUSES, triggers: ORDER_TRIGGERS },
+  "order.previousPaymentStatus": { type: "enum", options: PAYMENT_STATUSES, triggers: ["order_payment_changed"] },
   "order.daysSinceOrder": { type: "number", triggers: ORDER_TRIGGERS },
   "order.daysPastDeliveryDate": { type: "number", triggers: ORDER_TRIGGERS },
   "order.totalAmount": { type: "number", triggers: ORDER_TRIGGERS },
@@ -236,7 +245,7 @@ export type AutomationActionInput = { type: string; params: Record<string, unkno
 
 export const AUTOMATION_PLACEHOLDERS: Record<"ticket" | "order", readonly string[]> = {
   ticket: ["ticket.ticketNumber", "ticket.title", "ticket.status", "ticket.previousStatus", "ticket.priority", "ticket.category", "ticket.customerName", "ticket.customerEmail", "ticket.orderNumber"],
-  order: ["order.orderNumber", "order.customerName", "order.customerEmail", "order.orderDate", "order.status", "order.paymentStatus", "order.totalAmount", "order.daysSinceOrder", "order.daysPastDeliveryDate"],
+  order: ["order.orderNumber", "order.customerName", "order.customerEmail", "order.orderDate", "order.status", "order.previousStatus", "order.paymentStatus", "order.previousPaymentStatus", "order.totalAmount", "order.daysSinceOrder", "order.daysPastDeliveryDate"],
 };
 
 /** Ersetzt {{feld}} durch den Wert aus den Fakten; unbekannte Platzhalter werden leer. */

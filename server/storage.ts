@@ -618,6 +618,11 @@ export interface IStorage {
     tenantId?: string | null,
   ): Promise<ShopwareOrderMirror | undefined>;
   countShopwareOrderMirrors(tenantId?: string | null): Promise<number>;
+  /** Bisheriger Status/Zahlungsstatus je Bestellung im Spiegel (fuer die Aenderungserkennung). */
+  getShopwareOrderMirrorStates(
+    shopwareIds: string[],
+    tenantId?: string | null
+  ): Promise<Map<string, { status: string | null; paymentStatus: string | null }>>;
   /** Alle Shopware-IDs im Bestell-Spiegel (Abgleich fehlender Bestellungen). */
   listShopwareOrderMirrorIds(tenantId?: string | null): Promise<string[]>;
   deleteShopwareOrderMirrorsNotIn(keepIds: string[], tenantId?: string | null): Promise<number>;

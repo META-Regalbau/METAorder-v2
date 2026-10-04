@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertCircle, Clock, Eye, Plus, Sparkles, Trash2 } from "lucide-react";
+import { AlertCircle, Clock, Eye, Plus, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,7 @@ import {
   AUTOMATION_TRIGGERS,
   AUTOMATION_TRIGGER_TYPES,
   OPERATORS_BY_FIELD_TYPE,
+  ORDER_EVENT_MAX_AGE_HOURS,
   SCHEDULED_LOOKBACK_DAYS,
   SCHEDULED_MAX_PER_RULE_PER_RUN,
   fieldsForTrigger,
@@ -64,6 +65,21 @@ const RULE_TEMPLATES: Template[] = [
       params: {
         title: "Bestellung {{order.orderNumber}} verspätet",
         description: "Bestellung {{order.orderNumber}} von {{order.customerName}} ({{order.customerEmail}}) liegt seit {{order.daysPastDeliveryDate}} Tagen über dem spätesten Lieferdatum.",
+        priority: "high",
+        category: "order_issue",
+      },
+    }],
+  },
+  {
+    id: "paymentFailed",
+    triggerType: "order_payment_changed",
+    priority: 50,
+    conditions: [{ field: "order.paymentStatus", operator: "equals", value: "failed" }],
+    actions: [{
+      type: "create_ticket",
+      params: {
+        title: "Zahlung fehlgeschlagen: {{order.orderNumber}}",
+        description: "Zahlung für Bestellung {{order.orderNumber}} von {{order.customerName}} ({{order.customerEmail}}) ist fehlgeschlagen (vorher: {{order.previousPaymentStatus}}).",
         priority: "high",
         category: "order_issue",
       },
@@ -241,8 +257,10 @@ export function RuleBuilderDialog({ isOpen, onClose, editingRule }: RuleBuilderD
       case "ticket.previousStatus":
         return t(`tickets.statusValues.${value}`, value);
       case "order.status":
+      case "order.previousStatus":
         return t(`automation.values.orderStatus.${value}`, value);
       case "order.paymentStatus":
+      case "order.previousPaymentStatus":
         return t(`automation.values.paymentStatus.${value}`, value);
       default:
         return t(`automation.values.${value}`, value);
@@ -425,6 +443,16 @@ export function RuleBuilderDialog({ isOpen, onClose, editingRule }: RuleBuilderD
                       )}
                     </div>
                   )}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {AUTOMATION_TRIGGERS[triggerType].entity === "order" && triggerType !== "scheduled" && (
+              <Alert data-testid="alert-order-event-info">
+                <RefreshCw className="h-4 w-4" />
+                <AlertTitle>{t("automation.orderEvents.title")}</AlertTitle>
+                <AlertDescription>
+                  <p className="text-sm">{t("automation.orderEvents.description", { hours: ORDER_EVENT_MAX_AGE_HOURS })}</p>
                 </AlertDescription>
               </Alert>
             )}

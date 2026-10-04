@@ -25,6 +25,14 @@ export function createAutomationDeps(storage: IStorage): AutomationDeps {
  */
 export function registerAutomationTriggers(storage: IStorage): () => void {
   const deps = createAutomationDeps(storage);
+  // Bestell-Ereignisse kommen gebuendelt aus einem Spiegel-Abgleich: nacheinander abarbeiten,
+  // statt alle gleichzeitig auf die Datenbank loszulassen.
+  let orderQueue: Promise<unknown> = Promise.resolve();
+  const inOrderQueue = (fn: () => Promise<unknown>) => {
+    const next = orderQueue.then(fn);
+    orderQueue = next.catch(() => {});
+    return next;
+  };
   const offs = [
     onDomainEvent("ticket.created", async ({ ticket }) => {
       if (isInsideAutomation()) return;
@@ -33,6 +41,18 @@ export function registerAutomationTriggers(storage: IStorage): () => void {
     onDomainEvent("ticket.statusChanged", async ({ ticket, previousStatus }) => {
       if (isInsideAutomation()) return;
       await runAutomationEvent(deps, { trigger: "ticket_status_changed", tenantId: ticket.tenantId ?? null, ticket, previousStatus });
+    }),
+    onDomainEvent("order.created", async ({ order, tenantId }) => {
+      if (isInsideAutomation()) return;
+      await inOrderQueue(() => runAutomationEvent(deps, { trigger: "order_created", tenantId, order }));
+    }),
+    onDomainEvent("order.statusChanged", async ({ order, tenantId, previousStatus }) => {
+      if (isInsideAutomation()) return;
+      await inOrderQueue(() => runAutomationEvent(deps, { trigger: "order_status_changed", tenantId, order, previousStatus }));
+    }),
+    onDomainEvent("order.paymentStatusChanged", async ({ order, tenantId, previousPaymentStatus }) => {
+      if (isInsideAutomation()) return;
+      await inOrderQueue(() => runAutomationEvent(deps, { trigger: "order_payment_changed", tenantId, order, previousPaymentStatus }));
     }),
   ];
   return () => offs.forEach((off) => off());

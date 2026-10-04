@@ -3979,6 +3979,28 @@ export class DbStorage implements IStorage {
     return result[0];
   }
 
+  async getShopwareOrderMirrorStates(
+    shopwareIds: string[],
+    tenantId?: string | null
+  ): Promise<Map<string, { status: string | null; paymentStatus: string | null }>> {
+    const states = new Map<string, { status: string | null; paymentStatus: string | null }>();
+    const tenantFilter = tenantFilterFor(shopwareOrders.tenantId, tenantId);
+    const CHUNK = 500;
+    for (let i = 0; i < shopwareIds.length; i += CHUNK) {
+      const chunk = shopwareIds.slice(i, i + CHUNK);
+      const rows = await db
+        .select({
+          shopwareId: shopwareOrders.shopwareId,
+          status: drizzleSql<string | null>`${shopwareOrders.payload}->>'status'`,
+          paymentStatus: drizzleSql<string | null>`${shopwareOrders.payload}->>'paymentStatus'`,
+        })
+        .from(shopwareOrders)
+        .where(and(inArray(shopwareOrders.shopwareId, chunk), tenantFilter));
+      for (const row of rows) states.set(row.shopwareId, { status: row.status, paymentStatus: row.paymentStatus });
+    }
+    return states;
+  }
+
   async countShopwareOrderMirrors(tenantId?: string | null): Promise<number> {
     const tenantFilter = tenantFilterFor(shopwareOrders.tenantId, tenantId);
     const [{ value }] = await db

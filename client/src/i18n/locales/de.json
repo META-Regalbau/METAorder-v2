@@ -2879,6 +2879,10 @@
         "name": "Automatische Statusaktualisierung",
         "description": "Aktualisiert Bestellstatus automatisch von 'Bezahlt' zu 'In Bearbeitung'"
       },
+      "paymentFailed": {
+        "name": "Fehlgeschlagene Zahlung",
+        "description": "Legt ein Ticket an, wenn der Zahlungsstatus einer Bestellung auf „Fehlgeschlagen“ wechselt."
+      },
       "sentimentPriority": {
         "name": "Negative Tickets priorisieren",
         "description": "Setzt neue Tickets mit negativer Stimmung auf Priorität „Hoch“."
@@ -2913,7 +2917,9 @@
       },
       "order": {
         "status": "Bestellung: Status",
+        "previousStatus": "Bestellung: vorheriger Status",
         "paymentStatus": "Bestellung: Zahlungsstatus",
+        "previousPaymentStatus": "Bestellung: vorheriger Zahlungsstatus",
         "daysSinceOrder": "Bestellung: Tage seit Bestellung",
         "daysPastDeliveryDate": "Bestellung: Tage über spätestem Lieferdatum",
         "totalAmount": "Bestellung: Gesamtbetrag (brutto)",
@@ -2980,6 +2986,10 @@
       "previewSummary": "Trifft aktuell auf {{matching}} Bestellungen zu, davon {{done}} bereits erledigt. Im nächsten Lauf: {{next}}.",
       "previewError": "Vorschau fehlgeschlagen",
       "days": "Tage"
+    },
+    "orderEvents": {
+      "title": "Bei Änderungen in Shopware",
+      "description": "Wird beim Abgleich mit Shopware erkannt (etwa alle 3 Minuten), also mit kurzer Verzögerung. Gemeldet werden nur Änderungen der letzten {{hours}} Stunden; beim ersten Abgleich eines Mandanten wird nichts ausgelöst."
     }
   },
   "offers": {

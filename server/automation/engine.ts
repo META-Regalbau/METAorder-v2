@@ -17,7 +17,10 @@ export type AutomationEvent = {
   trigger: AutomationTriggerTypeId;
   tenantId: string | null;
   ticket?: Ticket;
+  order?: Order;
+  /** Vorheriger Status (Ticket bzw. Bestellung, je nach Ausloeser) */
   previousStatus?: string;
+  previousPaymentStatus?: string;
 };
 
 export type ActionOutcome = { type: string; ok: boolean; message: string };
@@ -52,7 +55,11 @@ function daysSince(value: string | undefined | null, now: Date): number | null {
   return Number.isNaN(t) ? null : Math.floor((now.getTime() - t) / DAY_MS);
 }
 
-export function orderFacts(order: Order, now: Date = new Date()): AutomationFacts {
+export function orderFacts(
+  order: Order,
+  now: Date = new Date(),
+  previous: { status?: string; paymentStatus?: string } = {},
+): AutomationFacts {
   const daysSinceOrder = daysSince(order.orderDate, now);
   // Wie die Ansicht "Verspaetete Bestellungen": spaetestes Lieferdatum, sonst Bestelldatum
   const daysPastDelivery = daysSince(order.deliveryDateLatest ?? order.orderDate, now);
@@ -61,7 +68,9 @@ export function orderFacts(order: Order, now: Date = new Date()): AutomationFact
     "order.orderNumber": order.orderNumber,
     "order.orderDate": order.orderDate ? order.orderDate.slice(0, 10) : null,
     "order.status": order.status,
+    "order.previousStatus": previous.status ?? null,
     "order.paymentStatus": order.paymentStatus,
+    "order.previousPaymentStatus": previous.paymentStatus ?? null,
     "order.daysSinceOrder": daysSinceOrder,
     "order.daysPastDeliveryDate": daysPastDelivery,
     "order.totalAmount": typeof order.totalAmount === "number" ? order.totalAmount : null,
@@ -153,7 +162,7 @@ export async function executeRule(
 }
 
 /**
- * Ticket-Ereignis: alle passenden Regeln des Mandanten ausfuehren.
+ * Ticket- oder Bestell-Ereignis: alle passenden Regeln des Mandanten ausfuehren.
  * Bedingungen beziehen sich auf den Stand beim Ausloesen (nicht auf Aenderungen frueherer Regeln).
  */
 export async function runAutomationEvent(deps: AutomationDeps, event: AutomationEvent): Promise<RuleOutcome[]> {
@@ -161,7 +170,11 @@ export async function runAutomationEvent(deps: AutomationDeps, event: Automation
     const prepared = await prepareRules(deps, event.trigger);
     if (prepared.length === 0) return [];
 
-    const facts: AutomationFacts = event.ticket ? ticketFacts(event.ticket, event.previousStatus) : {};
+    const facts: AutomationFacts = event.ticket
+      ? ticketFacts(event.ticket, event.previousStatus)
+      : event.order
+        ? orderFacts(event.order, new Date(), { status: event.previousStatus, paymentStatus: event.previousPaymentStatus })
+        : {};
     // KI-Felder nur ermitteln, wenn eine Regel sie braucht - und dann nur einmal je Ereignis
     const needsSentiment = prepared.some((p) => p.conditions.some((c) => AUTOMATION_FIELDS[c.field]?.computed));
     if (needsSentiment && event.ticket) {
@@ -175,7 +188,7 @@ export async function runAutomationEvent(deps: AutomationDeps, event: Automation
     const outcomes: RuleOutcome[] = [];
     for (const p of prepared) {
       if (!evaluateConditions(p.conditions, facts)) continue;
-      outcomes.push(await executeRule(deps, p, { trigger: event.trigger, tenantId: event.tenantId, facts, ticket: event.ticket }));
+      outcomes.push(await executeRule(deps, p, { trigger: event.trigger, tenantId: event.tenantId, facts, ticket: event.ticket, order: event.order }));
     }
     return outcomes;
   });

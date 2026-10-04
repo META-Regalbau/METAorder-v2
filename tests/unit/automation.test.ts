@@ -114,13 +114,13 @@ describe("Regel-Pruefung", () => {
     expect(validateAutomationRule({ triggerType: "ticket_created", conditions: [{ field: "ticket.category", operator: "equals", value: "complaint" }], actions: [assign] })).toEqual([]);
   });
 
-  it("meldet nicht verfuegbare Ausloeser/Aktionen, unbekannte Felder, falsche Werte und fehlende Parameter", () => {
+  it("meldet unbekannte Ausloeser, nicht verfuegbare Aktionen, unbekannte Felder, falsche Werte und fehlende Parameter", () => {
+    expect(validateAutomationRule({ triggerType: "order_shipped", conditions: [], actions: [assign] })).toEqual(["Unbekannter Auslöser: order_shipped"]);
     const errors = validateAutomationRule({
-      triggerType: "order_created",
+      triggerType: "ticket_created",
       conditions: [{ field: "orderAge", operator: "greaterThan", value: 3 }],
       actions: [{ type: "update_order_status", params: {} }, { type: "assign_ticket", params: {} }],
     });
-    expect(errors.join(" | ")).toMatch(/Auslöser "order_created" ist noch nicht verfügbar/);
     expect(errors.join(" | ")).toMatch(/unbekanntes Feld "orderAge"/);
     expect(errors.join(" | ")).toMatch(/"update_order_status" ist noch nicht verfügbar/);
     expect(errors.join(" | ")).toMatch(/Benutzer fehlt/);
