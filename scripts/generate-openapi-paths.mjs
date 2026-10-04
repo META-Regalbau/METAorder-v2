@@ -9,8 +9,16 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
 
+// Die frueher in server/routes.ts gesammelten Routen liegen jetzt je Bereich in server/routes/*.ts.
+const ROUTE_MODULES = fs
+  .readdirSync(path.join(root, "server", "routes"))
+  .filter((f) => f.endsWith(".ts"))
+  .sort()
+  .map((f) => `server/routes/${f}`);
+
 const FILES = [
   "server/routes.ts",
+  ...ROUTE_MODULES,
   "server/cpq/cpqRoutes.ts",
   "server/cpq-core/cpqCoreRoutes.ts",
   "server/offers/publicOfferRoutes.ts",
