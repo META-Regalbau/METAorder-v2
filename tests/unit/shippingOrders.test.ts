@@ -1,6 +1,7 @@
 /**
- * Versandliste aus dem Bestell-Spiegel (GET /api/shipping) und Spiegel-Abgleich nach dem
- * Sammel-Tracking (POST /api/orders/bulk-tracking) - echte Routen, Abhaengigkeiten gemockt.
+ * Versandliste aus dem Bestell-Spiegel (GET /api/shipping, nur eigene Verkaufskanaele),
+ * Spiegel-Abgleich nach dem Sammel-Tracking (POST /api/orders/bulk-tracking) und Kanal-Pruefung
+ * der Automatisierungs-Historie einer Bestellung - echte Routen, Abhaengigkeiten gemockt.
  * Ausführung: npm test
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -15,11 +16,14 @@ const state = vi.hoisted(() => ({
   syncCalls: [] as Array<{ tenantId: unknown; entities: unknown }>,
   shippingUpdates: [] as string[],
   failShipping: new Set<string>(),
+  channels: null as string[] | null,
+  user: { id: "u1", roleDetails: { permissions: { viewOrders: true } } } as any,
 }));
 vi.mock("../../server/routes/routeHelpers", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../server/routes/routeHelpers")>();
   return {
     ...actual,
+    getSalesChannelFilter: async () => state.channels,
     getOrdersWithCache: async (_client: unknown, tenantId: unknown, options?: { forceRefresh?: boolean }) => {
       state.cacheCalls.push({ tenantId, forceRefresh: options?.forceRefresh });
       return { orders: state.orders, fromCache: true };
@@ -38,7 +42,7 @@ vi.mock("../../server/shopware/shopwareMirror", async (importOriginal) => {
 vi.mock("../../server/erp/orderStockEnrichment", () => ({ enrichOrdersWithStockAvailability: async (orders: Order[]) => orders }));
 vi.mock("../../server/auth/auth", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../server/auth/auth")>();
-  const pass = (req: any, _res: any, next: () => void) => { req.user = { id: "u1" }; req.tenantId = "tenant-a"; next(); };
+  const pass = (req: any, _res: any, next: () => void) => { req.user = state.user; req.tenantId = "tenant-a"; next(); };
   return { ...actual, requireAuth: pass, requireViewShipping: pass, requireEditOrders: pass };
 });
 
@@ -78,6 +82,8 @@ beforeEach(() => {
   state.syncCalls = [];
   state.shippingUpdates = [];
   state.failShipping = new Set();
+  state.channels = null;
+  state.user = { id: "u1", roleDetails: { permissions: { viewOrders: true } } };
   state.orders = [
     order("offen-bezahlt", { status: "open", paymentStatus: "paid" }),
     order("bearbeitung-autorisiert", { paymentStatus: "authorized" }),
@@ -107,6 +113,69 @@ describe("GET /api/shipping", () => {
   it("refresh=1 stoesst vorher einen Abgleich an", async () => {
     await fetch(`${base}/api/shipping?refresh=1`);
     expect(state.cacheCalls).toEqual([{ tenantId: "tenant-a", forceRefresh: true }]);
+  });
+
+  it("nur die eigenen Verkaufskanaele; ohne Kanal keine Bestellungen", async () => {
+    state.orders.push(order("kanal2", { salesChannelId: "sc2" }));
+    state.channels = ["sc2"];
+    expect((await (await fetch(`${base}/api/shipping`)).json()).map((o: any) => o.id)).toEqual(["kanal2"]);
+    state.channels = [];
+    expect(await (await fetch(`${base}/api/shipping`)).json()).toEqual([]);
+    state.channels = null;
+    expect((await (await fetch(`${base}/api/shipping`)).json())).toHaveLength(6);
+  });
+});
+
+describe("GET /api/erp-automation/history/:orderId", () => {
+  const mirrorRows = new Map<string, any>([
+    ["o-sc1", { shopwareId: "o-sc1", salesChannelId: "sc1", payload: { id: "o-sc1", salesChannelId: "sc1" } }],
+    ["o-sc2", { shopwareId: "o-sc2", salesChannelId: "sc2", payload: { id: "o-sc2", salesChannelId: "sc2" } }],
+  ]);
+  let liveRequests: unknown[] = [];
+  let liveOrders: Order[] = [];
+  beforeAll(() => {
+    vi.spyOn(storage, "getShopwareOrderMirrorByShopwareId").mockImplementation(async (id: string) => mirrorRows.get(id));
+    vi.spyOn(storage, "getErpAutomationRunsByOrderId").mockImplementation(async (id: string) => [{ id: `run-${id}` }] as any);
+    vi.spyOn(ShopwareClient.prototype as any, "fetchOrders").mockImplementation(async (_x: unknown, opts?: unknown) => {
+      liveRequests.push(opts);
+      return liveOrders;
+    });
+  });
+  beforeEach(() => {
+    liveRequests = [];
+    liveOrders = [];
+  });
+  const get = async (id: string) => {
+    const r = await fetch(`${base}/api/erp-automation/history/${id}`);
+    return { status: r.status, json: await r.json() };
+  };
+
+  it("alle Kanaele (Admin bzw. Rolle ohne Kanalliste): Historie ohne Abruf", async () => {
+    expect(await get("o-sc2")).toEqual({ status: 200, json: [{ id: "run-o-sc2" }] });
+    expect(liveRequests).toEqual([]);
+  });
+
+  it("eigener Kanal laut Spiegel: Historie, kein Shopware-Abruf; fremder Kanal: 403; kein Kanal: 403", async () => {
+    state.channels = ["sc1"];
+    expect((await get("o-sc1")).status).toBe(200);
+    expect((await get("o-sc2")).status).toBe(403);
+    state.channels = [];
+    expect((await get("o-sc1")).status).toBe(403);
+    expect(liveRequests).toEqual([]);
+  });
+
+  it("fehlt die Bestellung im Spiegel, wird nur diese eine live geholt; unbekannt: 404", async () => {
+    state.channels = ["sc1"];
+    liveOrders = [{ id: "neu", salesChannelId: "sc1" } as Order];
+    expect((await get("neu")).status).toBe(200);
+    expect(liveRequests).toEqual([{ ids: ["neu"] }]);
+    liveOrders = [];
+    expect((await get("gibt-es-nicht")).status).toBe(404);
+  });
+
+  it("ohne Berechtigung fuer Bestellungen: 403", async () => {
+    state.user = { id: "u2", roleDetails: { permissions: {} } };
+    expect((await get("o-sc1")).status).toBe(403);
   });
 });
 
