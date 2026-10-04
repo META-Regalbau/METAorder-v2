@@ -1,6 +1,6 @@
 import type { IStorage } from "../storage";
 import { getAISettings } from "../ai/aiConfig";
-import { getChatClientFromSettings } from "../ai/llmClient";
+import { chatCompletion, isChatLlmConfigured, parseLlmJsonResponse, resolveChatTarget } from "../ai/llmChat";
 
 type SemanticResult = {
   sourceType: string;
@@ -94,17 +94,17 @@ export async function generateFaqAnswer(
 
   const aiSettings = await getAISettings(storage);
   const promptOverrides = (await storage.getSetting("ai_prompt_overrides")) || {};
-  const openaiConfig = await getChatClientFromSettings(storage.getSetting.bind(storage), {
-    tier: "smart",
-  });
+  // Chat-Anbieter des Mandanten (OpenAI, Claude oder Gemini); die Modi heissen historisch "openai_*"
+  const getSetting = storage.getSetting.bind(storage);
+  const llmConfigured = await isChatLlmConfigured(getSetting);
   const wantsOpenAI = options?.preferOpenAI || aiSettings.mode === "openai_only";
   const language = options?.language || inferLanguage(query);
 
-  if (aiSettings.mode === "openai_only" && !openaiConfig) {
-    throw new Error("OpenAI mode is required but no API key configured.");
+  if (aiSettings.mode === "openai_only" && !llmConfigured) {
+    throw new Error("AI mode is required but no chat provider is configured.");
   }
 
-  if (!openaiConfig || aiSettings.mode === "local_only") {
+  if (!llmConfigured || aiSettings.mode === "local_only") {
     return {
       answer: buildFallbackAnswer(language, sources),
       sources,
@@ -128,18 +128,17 @@ export async function generateFaqAnswer(
   const userPrompt = `Frage: ${query}\n\nQuellen:\n${sourceContext}`;
 
   try {
-    const completion = await openaiConfig.client.chat.completions.create({
-      model: openaiConfig.model,
+    const content = await chatCompletion(getSetting, {
+      tier: "smart",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
       temperature: 0.2,
-      response_format: { type: "json_object" },
+      response_json: true,
     });
 
-    const content = completion.choices?.[0]?.message?.content || "{}";
-    const parsed = JSON.parse(content) as { answer?: string; sourceIndexes?: number[] };
+    const parsed = parseLlmJsonResponse(content) as { answer?: string; sourceIndexes?: number[] };
     const answer = parsed.answer?.trim() || null;
     const sourceIndexes = Array.isArray(parsed.sourceIndexes) ? parsed.sourceIndexes : [];
     const filteredSources =
@@ -152,10 +151,10 @@ export async function generateFaqAnswer(
     return {
       answer: answer || buildFallbackAnswer(language, sources),
       sources: filteredSources,
-      model: openaiConfig.model,
+      model: (await resolveChatTarget(getSetting, "smart")).model,
     };
   } catch (error) {
-    console.error("[SemanticFAQ] OpenAI error:", error);
+    console.error("[SemanticFAQ] LLM error:", error);
     return {
       answer: buildFallbackAnswer(language, sources),
       sources,

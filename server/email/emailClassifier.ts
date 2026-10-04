@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { EmailRoutingSettings, TicketCategory, TicketPriority } from "@shared/schema";
-import { getChatClientFromSettings } from "../ai/llmClient";
+import { chatCompletion, isChatLlmConfigured, resolveChatTarget } from "../ai/llmChat";
+import type { ChatProvider } from "../ai/llmClient";
 import type { IStorage } from "../storage";
 
 export type EmailClassification = {
@@ -8,7 +9,8 @@ export type EmailClassification = {
   priority: TicketPriority;
   skill?: string;
   confidence: number;
-  source: "heuristic" | "openai";
+  /** Chat-Anbieter der KI-Einordnung oder "heuristic" (Regeln) */
+  source: "heuristic" | ChatProvider;
 };
 
 const KEYWORD_RULES: Array<{
@@ -100,11 +102,9 @@ export async function classifyIncomingEmail(
   skillCatalog: string[]
 ): Promise<EmailClassification> {
   const combined = `${input.subject}\n${input.body}\n${input.from || ""}`.slice(0, 12000);
-  const openaiConfig = await getChatClientFromSettings(storage.getSetting.bind(storage), {
-    tier: "fast",
-  });
-
-  if (!openaiConfig) {
+  // Chat-Anbieter des Mandanten (OpenAI, Claude oder Gemini)
+  const getSetting = storage.getSetting.bind(storage);
+  if (!(await isChatLlmConfigured(getSetting))) {
     return heuristicClassification(combined, settings);
   }
 
@@ -135,16 +135,16 @@ export async function classifyIncomingEmail(
   ].join("\n");
 
   try {
-    const response = await openaiConfig.client.chat.completions.create({
-      model: openaiConfig.model,
+    const raw = await chatCompletion(getSetting, {
+      tier: "fast",
       temperature: 0,
+      response_json: true,
       messages: [
         { role: "system", content: "You are a JSON-only classifier for support emails." },
         { role: "user", content: prompt },
       ],
     });
 
-    const raw = response.choices[0]?.message?.content || "";
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     const jsonText = jsonMatch ? jsonMatch[0] : raw;
     const parsed = schema.safeParse(JSON.parse(jsonText));
@@ -157,10 +157,10 @@ export async function classifyIncomingEmail(
       priority: parsed.data.priority,
       skill: parsed.data.skill || settings.defaultSkill,
       confidence: parsed.data.confidence,
-      source: "openai",
+      source: (await resolveChatTarget(getSetting, "fast")).provider,
     };
   } catch (error) {
-    console.error("[EmailClassifier] OpenAI classification failed:", error);
+    console.error("[EmailClassifier] LLM classification failed:", error);
     return heuristicClassification(combined, settings);
   }
 }

@@ -5,6 +5,7 @@ import { getOpenAIClient, isEnvOpenAIConfigured } from "./openaiClient";
 import {
   DEFAULT_MODELS,
   GEMINI_OPENAI_BASE_URL,
+  type ChatProvider,
   type ModelTier,
   type StoredLlmSettings,
   resolveTierModel,
@@ -246,6 +247,19 @@ export async function chatCompletion(
     });
     throw e;
   }
+}
+
+/**
+ * Anbieter und Modell, die chatCompletion fuer diese Stufe ohne Modellvorgabe nimmt - fuer
+ * Protokolle und Anzeigen ("KI (anthropic)"), nicht fuer den Aufruf selbst.
+ */
+export async function resolveChatTarget(
+  getSetting: (key: string) => Promise<any>,
+  tier: ModelTier = "fast"
+): Promise<{ provider: ChatProvider; model: string }> {
+  const settings = ((await getSetting("openai_settings")) || {}) as StoredLlmSettings;
+  const provider = resolveTierProvider(settings, tier);
+  return { provider, model: resolveTierModel(settings, tier, provider) };
 }
 
 /** JSON aus LLM-Antworten (inkl. optionaler ```json```-Fences von Claude). */

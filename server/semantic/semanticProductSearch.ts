@@ -1,8 +1,6 @@
-import OpenAI from "openai";
 import type { Product } from "@shared/schema";
 import { extractProductMetadata, extractProductSeries } from "../products/productPropertyExtractor";
-import { getOpenAIClient } from "../ai/openaiClient";
-import { getChatClientFromSettings } from "../ai/llmClient";
+import { chatCompletion, parseLlmJsonResponse } from "../ai/llmChat";
 
 interface SemanticSearchInput {
   query: string;
@@ -49,29 +47,27 @@ export async function executeSemanticProductSearch(
   let interpretation: SemanticSearchInterpretation;
 
   try {
-    const resolved = options?.getSetting
-      ? await getChatClientFromSettings(options.getSetting, { tier: "smart" })
-      : null;
-    const client = resolved?.client ?? getOpenAIClient().client;
-    const model = resolved?.model ?? "gpt-4o";
-    console.log(`[Semantic Search] Using provider ${resolved?.provider ?? "openai"} (${model})`);
-
-    const completion = await client.chat.completions.create({
-      model,
+    // Chat-Anbieter des Mandanten (OpenAI, Claude oder Gemini); ohne Einstellungen nur OpenAI per Umgebung
+    const getSetting = options?.getSetting ?? (async () => undefined);
+    const responseText = await chatCompletion(getSetting, {
+      tier: "smart",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
       temperature: 0.3,
-      response_format: { type: "json_object" }
+      response_json: true,
     });
-
-    const responseText = completion.choices[0]?.message?.content || "{}";
-    interpretation = JSON.parse(responseText) as SemanticSearchInterpretation;
+    const parsed = parseLlmJsonResponse(responseText) as SemanticSearchInterpretation;
+    // parseLlmJsonResponse liefert {} bei ungueltigem JSON (frueher warf JSON.parse) -> Rueckfall
+    if (!parsed || Object.keys(parsed).length === 0) {
+      throw new Error("Empty or invalid JSON from LLM");
+    }
+    interpretation = parsed;
     
     console.log("[Semantic Search] AI Interpretation:", JSON.stringify(interpretation, null, 2));
   } catch (error) {
-    console.error("[Semantic Search] GPT-4o error:", error);
+    console.error("[Semantic Search] LLM error:", error);
     interpretation = createFallbackInterpretation(query, language);
   }
 

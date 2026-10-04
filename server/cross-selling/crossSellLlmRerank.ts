@@ -2,7 +2,7 @@ import { createHash } from "crypto";
 import type { Product } from "@shared/schema";
 import type { IStorage } from "../storage";
 import type { HybridRankedProduct } from "./crossSellHybridRanker";
-import { getChatClientFromSettings } from "../ai/llmClient";
+import { chatCompletion, isChatLlmConfigured, parseLlmJsonResponse } from "../ai/llmChat";
 
 const CACHE_SETTING_KEY = "cross_sell_llm_rerank_cache";
 
@@ -134,10 +134,9 @@ export async function llmRerankCrossSellCandidates(params: {
     return applyLlmRanking(candidates, cached, topN);
   }
 
-  const openai = await getChatClientFromSettings(storage.getSetting.bind(storage), {
-    tier: "smart",
-  });
-  if (!openai) {
+  // Chat-Anbieter des Mandanten (OpenAI, Claude oder Gemini)
+  const getSetting = storage.getSetting.bind(storage);
+  if (!(await isChatLlmConfigured(getSetting))) {
     return candidates.slice(0, topN).map((c) => ({ ...c }));
   }
 
@@ -163,17 +162,16 @@ Die Liste ranking muss die besten zuerst enthalten (hoechstens ${topN} Eintraege
   ];
 
   try {
-    const completion = await openai.client.chat.completions.create({
-      model: openai.model,
+    const text = await chatCompletion(getSetting, {
+      tier: "smart",
       temperature: 0.2,
-      response_format: { type: "json_object" },
+      response_json: true,
       messages: [
         { role: "system", content: system },
         { role: "user", content: userLines.join("\n") },
       ],
     });
-    const text = completion.choices[0]?.message?.content || "{}";
-    const parsed = JSON.parse(text) as { ranking?: LlmRankingRow[] };
+    const parsed = parseLlmJsonResponse(text) as { ranking?: LlmRankingRow[] };
     const ranking = Array.isArray(parsed.ranking) ? parsed.ranking : [];
     await writeCache(storage, tenantId, cacheKey, ranking, envInt("CROSS_SELL_LLM_RERANK_TTL_HOURS", ttlHours));
     return applyLlmRanking(candidates, ranking, topN);
