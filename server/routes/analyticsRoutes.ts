@@ -610,7 +610,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       console.log('[NL Analytics API] Step 3: Executing analytics query...');
       let result;
       try {
-        result = await executeAnalyticsQuery(queryObj, storage, shopwareClient, allowedChannelIds);
+        result = await executeAnalyticsQuery(queryObj, storage, shopwareClient, allowedChannelIds, (req as any).tenantId ?? null);
         console.log('[NL Analytics API] Query executed successfully');
         console.log('[NL Analytics API] Result summary:', JSON.stringify(result.summary, null, 2));
       } catch (error: any) {

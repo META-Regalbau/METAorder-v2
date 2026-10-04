@@ -22,7 +22,7 @@ import { getTenantIdFromContext, restoreTenantContext } from "../lib/tenantConte
 import { objectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { parseEmailFile } from "../email/emailParser";
 import * as XLSX from "xlsx";
-import { DEFAULT_TICKET_SLA_SETTINGS, assignTicketAutomatically, filterTicketsBySalesChannels, getSalesChannelFilter, getTicketSlaSettings, resolveAttachmentPath, sanitizeFilename, uploadRateLimiter } from "./routeHelpers";
+import { DEFAULT_TICKET_SLA_SETTINGS, assignTicketAutomatically, filterTicketsBySalesChannels, getMirrorOrdersLikeLive, getSalesChannelFilter, getTicketSlaSettings, resolveAttachmentPath, sanitizeFilename, uploadRateLimiter } from "./routeHelpers";
 
 function calculateDueDate(priority: string, settings: typeof DEFAULT_TICKET_SLA_SETTINGS) {
   const days =
@@ -1737,7 +1737,8 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
           const settings = await storage.getShopwareSettings();
           if (settings) {
             const shopware = new ShopwareClient(settings);
-            const allOrders = await shopware.fetchOrders();
+            // aus dem Bestell-Spiegel statt alle Bestellungen live aus Shopware
+            const allOrders = await getMirrorOrdersLikeLive(shopware, (req as any).tenantId ?? null);
             
             // Find order by order number
             const matchingOrder = allOrders.find(

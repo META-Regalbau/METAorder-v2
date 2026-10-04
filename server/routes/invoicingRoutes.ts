@@ -1,7 +1,7 @@
 // Mahnwesen und Buchhaltung: Mahnungen (Vorschau/Versand/PDF), Buchhaltungs-Abgleich und Shop-Fakturen-Import.
 import { requireAuth, requireViewDocuments, requireManageDocuments, requireViewAccounting, requireCsrf } from "../auth/auth";
 import { storage } from "../storage";
-import { defaultDunningSettings, getSalesChannelFilter, uploadRateLimiter } from "./routeHelpers";
+import { defaultDunningSettings, getMirrorOrdersLikeLive, getSalesChannelFilter, uploadRateLimiter } from "./routeHelpers";
 import { ShopwareClient } from "../shopware/shopware";
 import { getDunningCandidates, enrichOrderDueDate, getDunningCandidateForOrder, sendDunningForOrderInternal, sendDunningForOrder, saveDunningPdfToSystem } from "../invoicing/dunningJob";
 import { z } from "zod";
@@ -224,7 +224,8 @@ export function registerInvoicingRoutes(app: Express): void {
         return res.status(400).json({ error: "Shopware settings not configured" });
       }
       const client = new ShopwareClient(settings);
-      const orders = await client.fetchOrders();
+      // Bestellungen aus dem Bestell-Spiegel statt alle live aus Shopware
+      const orders = await getMirrorOrdersLikeLive(client, (req as any).tenantId ?? null);
       const debugEnabled = String((req.query?.debug as string) || req.body?.debug || "").toLowerCase() === "true";
       const results = matchEntries(aiResult.entries, orders, {
         debug: debugEnabled,
