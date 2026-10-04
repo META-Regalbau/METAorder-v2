@@ -8,6 +8,7 @@ import { requireAuth, requireCsrf } from "../auth/auth";
 import { z } from "zod";
 import rateLimit from "express-rate-limit";
 import type { Express } from "express";
+import { getAppVersion } from "../lib/appVersion";
 
 
 // Rate limiter for login endpoint - prevents brute force attacks
@@ -33,6 +34,12 @@ const emergencyResetRateLimiter = rateLimit({
 });
 
 export function registerAuthRoutes(app: Express): void {
+  // Versionsangabe (Sidebar unten); ohne Anmeldung - enthaelt nur Nummer, Commit und Datum
+  app.get("/api/version", (_req, res) => {
+    res.set("Cache-Control", "no-store");
+    res.json(getAppVersion());
+  });
+
   // Authentication routes
   app.post("/api/auth/login", loginRateLimiter, (req, res, next) => {
     console.log('[LOGIN] Login request received', { username: req.body?.username });
