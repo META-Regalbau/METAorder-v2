@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { RefreshCw, Search, AlertTriangle, ArrowUpDown, ChevronDown, ChevronUp, Euro, FileCheck, FileX, Ticket, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,12 +57,16 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
   );
 
   // Update shipping mutation
+  // Naechster Abruf mit refresh=1 (siehe Abfrage unten)
+  const refreshNextRef = useRef(false);
+
   const updateShippingMutation = useMutation({
     mutationFn: async ({ orderId, shippingData }: { orderId: string; shippingData: any }) => {
       const response = await apiRequest("PATCH", `/api/orders/${orderId}/shipping`, shippingData);
       return response.json();
     },
     onSuccess: () => {
+      refreshNextRef.current = true;
       queryClient.invalidateQueries({ queryKey: ['/api/orders/delayed'] });
       toast({
         title: t('orderDetail.shippingUpdated'),
@@ -90,6 +94,7 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
       return response.json();
     },
     onSuccess: () => {
+      refreshNextRef.current = true;
       queryClient.invalidateQueries({ queryKey: ['/api/orders/delayed'] });
       toast({
         title: t('orderDetail.documentsUpdated'),
@@ -109,11 +114,14 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
     updateDocumentsMutation.mutate({ orderId, documentData: data });
   };
 
-  // Fetch delayed orders
+  // Fetch delayed orders (aus dem Bestell-Spiegel; nach Aenderungen bzw. "Aktualisieren"
+  // mit refresh=1 - der Server holt dann vorher die Aenderungen aus Shopware)
   const { data: orders = [], isLoading, error, refetch } = useQuery<DelayedOrder[]>({
     queryKey: ['/api/orders/delayed', daysThreshold],
     queryFn: async () => {
-      const response = await fetch(`/api/orders/delayed?days=${daysThreshold}`);
+      const refresh = refreshNextRef.current;
+      refreshNextRef.current = false;
+      const response = await fetch(`/api/orders/delayed?days=${daysThreshold}${refresh ? "&refresh=1" : ""}`);
       if (!response.ok) {
         throw new Error(await response.text());
       }
@@ -471,7 +479,10 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
 
         <Button
           variant="outline"
-          onClick={() => refetch()}
+          onClick={() => {
+            refreshNextRef.current = true;
+            refetch();
+          }}
           disabled={isLoading}
           data-testid="button-refresh"
         >

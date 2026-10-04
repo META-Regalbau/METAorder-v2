@@ -396,6 +396,23 @@ export async function getOrdersWithCache(
   return { orders, fromCache };
 }
 
+/**
+ * Eine Bestellung je Bestellnummer - wie fetchOrders beim Live-Abruf. Im Spiegel stehen bei
+ * doppelt angelegten Bestellnummern beide Bestellungen (Live-Shop: 36 Nummern, alle am
+ * 17.06.2026 in derselben Sekunde angelegt). Behalten wird die zuletzt geaenderte; fetchOrders
+ * behielt die, die Shopware zuerst lieferte (bei gleichem Bestelldatum zufaellig).
+ */
+export function dedupeOrdersByNumber(orders: Order[]): Order[] {
+  const changedAt = (o: Order) => new Date(o.updatedAt ?? o.createdAt ?? o.orderDate ?? 0).getTime() || 0;
+  const best = new Map<string, Order>();
+  for (const order of orders) {
+    if (!order.orderNumber) continue;
+    const current = best.get(order.orderNumber);
+    if (!current || changedAt(order) > changedAt(current)) best.set(order.orderNumber, order);
+  }
+  return orders.filter((o) => !o.orderNumber || best.get(o.orderNumber) === o);
+}
+
 export const defaultProformaNumberRange = {
   prefix: "PF-",
   nextNumber: 1,

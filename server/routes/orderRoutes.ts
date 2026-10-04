@@ -2,7 +2,7 @@
 import { requireAuth, requireViewDelayedOrders, requireManageDocuments, requireCsrf, requireEditOrders } from "../auth/auth";
 import { storage } from "../storage";
 import { ShopwareClient, getRealInvoiceDocument, isMonduPluginShipError, ZUGFERD_EMBEDDED_INVOICE_TYPE } from "../shopware/shopware";
-import { getSalesChannelFilter, getOrdersWithCache, filterOrdersBySalesChannels, filterTicketsBySalesChannels, defaultProformaNumberRange, resolveAttachmentPath } from "./routeHelpers";
+import { getSalesChannelFilter, getOrdersWithCache, filterOrdersBySalesChannels, filterTicketsBySalesChannels, defaultProformaNumberRange, resolveAttachmentPath, dedupeOrdersByNumber } from "./routeHelpers";
 import { filterOrdersList, sortOrdersList, computeDuplicateOrderIds, paginateOrdersList, type OrdersListQuery } from "../shopware/ordersList";
 import { enrichOrdersWithProfitability, buildOrderProfitabilityAnalysisSummary, sortOrdersByMargin } from "../analytics/orderProfitabilityAnalysis";
 import { enrichOrdersWithStockAvailability } from "../erp/orderStockEnrichment";
@@ -568,7 +568,11 @@ export function registerOrderRoutes(app: Express): void {
       }
 
       const client = new ShopwareClient(settings);
-      const orders = await client.fetchOrders();
+      // Aus dem Bestell-Spiegel statt alle Bestellungen live (Testing ~18 s); refresh=1 (nach
+      // Aenderungen auf der Seite / Aktualisieren-Knopf) stoesst vorher einen Delta-Abgleich an.
+      const forceRefresh = req.query.refresh === "true" || req.query.refresh === "1";
+      const { orders: mirrorOrders } = await getOrdersWithCache(client, (req as any).tenantId ?? null, { forceRefresh });
+      const orders = dedupeOrdersByNumber(mirrorOrders);
       
       // SECURITY: Get sales channel filter from user permissions (server-side, authoritative)
       const allowedChannelIds = await getSalesChannelFilter(req);
