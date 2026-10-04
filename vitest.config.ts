@@ -21,6 +21,9 @@ export default defineConfig({
       // server/auth/jwt.ts verlangt beim Import ein Secret (in der CI gibt es keine .env).
       // Nur fuer Unit-Tests, kein echtes Geheimnis.
       JWT_SECRET: "unit-tests-only-not-a-real-secret",
+      // Ebenso fuer Module, die beim Registrieren der Routen geladen werden (routeRegistry.test.ts).
+      CUSTOMER_JWT_SECRET: "unit-tests-only-not-a-real-secret",
+      CPQ_HANDOFF_SECRET: "unit-tests-only-not-a-real-secret",
     },
   },
 });
