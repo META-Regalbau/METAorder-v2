@@ -890,7 +890,7 @@ export default function OrderDetailModal({
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
                             <Badge variant="secondary" data-testid={`badge-type-${doc.type}`}>
-                              {t(`documentTypes.${doc.type}`)}
+                              {t(`documentTypes.${doc.type}`, { defaultValue: doc.type })}
                             </Badge>
                             {doc.number && (
                               <span className="font-mono text-sm font-medium" data-testid={`text-number-${doc.id}`}>
@@ -899,7 +899,7 @@ export default function OrderDetailModal({
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            {t('orderDetail.documentType')}: {t(`documentTypes.${doc.type}`)}
+                            {t('orderDetail.documentType')}: {t(`documentTypes.${doc.type}`, { defaultValue: doc.type })}
                             {!canDownload && <span className="ml-2 text-destructive">({t('orderDetail.downloadUnavailable')})</span>}
                           </p>
                         </div>
