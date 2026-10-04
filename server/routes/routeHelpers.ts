@@ -398,8 +398,8 @@ export async function getOrdersWithCache(
 
 /**
  * Eine Bestellung je Bestellnummer - wie fetchOrders beim Live-Abruf. Im Spiegel stehen bei
- * doppelt angelegten Bestellnummern beide Bestellungen (Live-Shop: 36 Nummern, alle am
- * 17.06.2026 in derselben Sekunde angelegt). Behalten wird die zuletzt geaenderte; fetchOrders
+ * mehrfach angelegten Bestellnummern alle Bestellungen (Live-Shop: 31 Nummern, 36 zusaetzliche
+ * Bestellungen, meist in derselben Sekunde angelegt). Behalten wird die zuletzt geaenderte; fetchOrders
  * behielt die, die Shopware zuerst lieferte (bei gleichem Bestelldatum zufaellig).
  */
 export function dedupeOrdersByNumber(orders: Order[]): Order[] {
