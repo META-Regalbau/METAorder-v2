@@ -1,5 +1,6 @@
 /**
- * Bestell-Spiegel: einmaliges Neuladen bei neuer Payload-Version (v2: Versandangaben), Rechnungs-
+ * Bestell-Spiegel: einmaliges Neuladen bei neuer Payload-Version (v2: Versandangaben, v3: alle
+ * Bestellungen auch bei mehrfach vergebener Bestellnummer), Rechnungs-
  * Watcher dabei nur fuer den normalen Delta-Ausschnitt, Delta-Cursor inkl. Lieferungs-Aenderungen -
  * echter syncOrdersDelta mit Test-Shop und Test-Speicher.
  * Ausführung: npm test
@@ -67,6 +68,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
+const CURRENT = "v3";
 const v1State = { lastFingerprint: "fp-a", cursorUpdatedAt: CURSOR, lastReconcileAt: new Date() };
 
 describe("Bestell-Spiegel: Payload-Version", () => {
@@ -74,9 +76,15 @@ describe("Bestell-Spiegel: Payload-Version", () => {
     const { syncState, fetchCalls, sync } = setup(v1State);
     await sync();
     expect(fetchCalls).toEqual([{ updatedSince: null }]);
-    expect(syncState.lastFingerprint).toBe("v2:fp-a");
+    expect(syncState.lastFingerprint).toBe(`${CURRENT}:fp-a`);
     await sync();
     expect(fetchCalls).toHaveLength(1); // danach greift der Fingerprint wieder
+  });
+
+  it("auch ein Spiegel aus v2 (Versandangaben, aber ohne alle Dubletten-Kopien) wird einmal neu geladen", async () => {
+    const { fetchCalls, sync } = setup({ ...v1State, lastFingerprint: "v2:fp-a" });
+    await sync();
+    expect(fetchCalls).toEqual([{ updatedSince: null }]);
   });
 
   it("Rechnungs-Watcher beim Neuladen nur fuer Bestellungen seit dem bisherigen Cursor", async () => {
@@ -86,7 +94,7 @@ describe("Bestell-Spiegel: Payload-Version", () => {
   });
 
   it("normaler Delta-Lauf und erzwungener Abgleich: Watcher wie bisher fuer alle abgerufenen Bestellungen", async () => {
-    const { shop, fetchCalls, sync } = setup({ ...v1State, lastFingerprint: "v2:fp-a" });
+    const { shop, fetchCalls, sync } = setup({ ...v1State, lastFingerprint: `${CURRENT}:fp-a` });
     shop.fingerprint = "fp-b";
     await sync();
     expect(fetchCalls).toEqual([{ updatedSince: CURSOR }]);
@@ -97,7 +105,7 @@ describe("Bestell-Spiegel: Payload-Version", () => {
   });
 
   it("Cursor: juengste Lieferungs-Aenderung zaehlt mit, wenn sie nach der juengsten Bestell-Aenderung liegt", async () => {
-    const { shop, syncState, sync } = setup({ ...v1State, lastFingerprint: "v2:fp-a" });
+    const { shop, syncState, sync } = setup({ ...v1State, lastFingerprint: `${CURRENT}:fp-a` });
     shop.fingerprint = "fp-b";
     shop.latestDeliveryUpdatedAt = "2026-09-25T12:00:00.000+00:00";
     await sync();

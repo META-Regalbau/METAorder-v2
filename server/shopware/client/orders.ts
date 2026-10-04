@@ -161,6 +161,11 @@ export async function fetchOrders(
     updatedSince?: string | Date | null;
     /** Nur diese Bestell-IDs laden (Abgleich fehlender Spiegel-Eintraege). */
     ids?: string[] | null;
+    /**
+     * Mehrfach vergebene Bestellnummern nicht zusammenfassen (Bestell-Spiegel: jede Shopware-
+     * Bestellung aktuell halten). Sonst bleibt je Bestellnummer nur die zuerst gelieferte.
+     */
+    keepDuplicateOrderNumbers?: boolean;
   },
 ): Promise<Order[]> {
   try {
@@ -938,10 +943,11 @@ export async function fetchOrders(
     });
 
     // Duplikate entfernen: Die paginierte Suche kann dieselbe Bestellung
-    // mehrfach liefern (Seitengrenzen-Ueberlappung -> gleiche id) und
-    // Shopware-Order-Versionen erscheinen mit gleicher Bestellnummer aber
-    // unterschiedlicher id. orderNumber ist in Shopware eindeutig und damit
-    // eine sichere Dedup-Basis; zusaetzlich dedupen wir hart ueber die id.
+    // mehrfach liefern (Seitengrenzen-Ueberlappung -> gleiche id). Zusaetzlich
+    // je Bestellnummer nur die zuerst gelieferte Bestellung: Bestellnummern sind
+    // in Shopware NICHT eindeutig (Live: 31 Nummern mit 36 weiteren, eigenstaendigen
+    // Bestellungen, meist doppelt angelegt). Der Bestell-Spiegel braucht alle
+    // (keepDuplicateOrderNumbers), die Seiten fassen dann selbst zusammen.
     const seenIds = new Set<string>();
     const seenNumbers = new Set<string>();
     const dedupedOrders: Order[] = [];
@@ -951,7 +957,7 @@ export async function fetchOrders(
         duplicateCount++;
         continue;
       }
-      if (o.orderNumber && seenNumbers.has(o.orderNumber)) {
+      if (o.orderNumber && seenNumbers.has(o.orderNumber) && !options?.keepDuplicateOrderNumbers) {
         duplicateCount++;
         continue;
       }
