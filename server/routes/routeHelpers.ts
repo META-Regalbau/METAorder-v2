@@ -1,6 +1,6 @@
 // Gemeinsame Hilfsfunktionen der API-Routen (aus server/routes.ts ausgelagert).
 import rateLimit from "express-rate-limit";
-import { type Ticket } from "@shared/schema";
+import { type Ticket, type Order } from "@shared/schema";
 import { storage } from "../storage";
 import { classifyTicketForRules } from "../tickets/ticketAi";
 import type { Request } from "express";
@@ -341,4 +341,57 @@ export async function filterTicketsBySalesChannels(
     const orderSalesChannel = ordersBySalesChannel.get(ticket.orderId);
     return orderSalesChannel && allowedChannelIds.includes(orderSalesChannel);
   });
+}
+
+// Filter function for orders based on sales channels
+export function filterOrdersBySalesChannels(orders: Order[], allowedChannelIds: string[] | null): Order[] {
+  if (!allowedChannelIds) {
+    return orders; // No filter = all orders (admin)
+  }
+  
+  return orders.filter(order => allowedChannelIds.includes(order.salesChannelId));
+}
+
+/**
+ * Bestellungen aus dem lokalen Spiegel (server/shopware/shopwareMirror.ts) statt bei jedem
+ * Laden alle Bestellungen live von Shopware zu holen. Der Spiegel wird alle 3 Minuten
+ * im Hintergrund per Delta-Sync aktuell gehalten (nur updatedAt >= letzter Sync-Zeitpunkt
+ * — erfasst damit auch Status-Aenderungen an aelteren Bestellungen, nicht nur neue).
+ * forceRefresh (manueller "Aktualisieren"-Klick) stoesst einen Sync synchron an, statt
+ * wie frueher alle Bestellungen komplett neu von Shopware zu laden.
+ */
+export async function getOrdersWithCache(
+  client: ShopwareClient,
+  tenantId?: string | null,
+  options?: { forceRefresh?: boolean },
+): Promise<{ orders: Order[]; fromCache: boolean }> {
+  const mirrorCount = await storage.countShopwareOrderMirrors(tenantId);
+  const needsSync = Boolean(options?.forceRefresh) || mirrorCount === 0;
+
+  if (needsSync) {
+    try {
+      const { syncShopwareMirrorForTenant } = await import("../shopware/shopwareMirror");
+      await syncShopwareMirrorForTenant(storage, client, tenantId ?? null, { entities: ["orders"] });
+    } catch (error) {
+      console.error("[orders-cache] Sync fehlgeschlagen, liefere Spiegel-Stand:", error);
+    }
+  }
+
+  const { mirrorRowsToOrders } = await import("../shopware/shopwareMirror");
+  const { rows } = await storage.getShopwareOrderMirrors(tenantId);
+  const orders = mirrorRowsToOrders(rows);
+  const fromCache = !needsSync;
+
+  console.log(`[orders-cache] ${fromCache ? "hit" : "synced"} (${orders.length} orders, mirror)`);
+
+  if (needsSync && tenantId) {
+    try {
+      const { triggerShopwareSalesStockSync } = await import("../erp/erpShopwareSalesStock");
+      triggerShopwareSalesStockSync(tenantId, orders);
+    } catch (err) {
+      console.error("[orders-cache] shopware sales stock trigger failed:", err);
+    }
+  }
+
+  return { orders, fromCache };
 }
