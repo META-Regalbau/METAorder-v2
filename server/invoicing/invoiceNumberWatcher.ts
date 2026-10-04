@@ -16,6 +16,18 @@ import {
   markOrderInvoiceSentInCache,
   sendOrderInvoice,
 } from "./invoiceSending";
+import { logger } from "../lib/logger";
+
+/** Log-Felder je Bestellung; Texte bleiben wie bisher. */
+const watcherLog = (tenantId: string | null, order: Order, invoiceNumber: string | null, previousInvoiceNumber?: string | null) =>
+  logger.child({
+    component: "invoice-watcher",
+    ...(tenantId ? { tenantId } : {}),
+    orderId: order.id,
+    orderNumber: order.orderNumber ?? null,
+    invoiceNumber,
+    ...(previousInvoiceNumber !== undefined ? { previousInvoiceNumber } : {}),
+  });
 
 export interface InvoiceNumberChange {
   order: Order;
@@ -43,14 +55,15 @@ export async function detectInvoiceNumberChanges(
     const mirror = await storage.getShopwareOrderMirrorByShopwareId(order.id, tenantId);
     // Ohne vorherigen Stand (neue Bestellung / erster Sync) nichts automatisch anstossen.
     if (!mirror) {
-      console.log(
+      watcherLog(tenantId, order, current).info(
         `[InvoiceWatcher] ${order.orderNumber ?? order.id}: Rechnungsnummer ${current} ohne vorherigen Spiegel-Stand – uebersprungen`,
       );
       continue;
     }
     const previous = normalize((mirror.payload as Partial<Order> | null)?.invoiceNumber);
     if (previous === current) {
-      console.log(
+      // debug: kommt bei jedem Abgleich fuer jede geaenderte Bestellung mit Rechnungsnummer
+      watcherLog(tenantId, order, current).debug(
         `[InvoiceWatcher] ${order.orderNumber ?? order.id}: Rechnungsnummer ${current} unveraendert – keine Aktion`,
       );
       continue;
@@ -75,6 +88,7 @@ export async function processInvoiceNumberChanges(
   for (const { order, previousInvoiceNumber } of changes) {
     const invoiceNumber = normalize(order.invoiceNumber)!;
     const label = `${order.orderNumber ?? order.id} (${previousInvoiceNumber ?? "–"} → ${invoiceNumber})`;
+    const log = watcherLog(tenantId, order, invoiceNumber, previousInvoiceNumber);
 
     const logRun = async (
       status: "success" | "failed" | "skipped",
@@ -94,7 +108,7 @@ export async function processInvoiceNumberChanges(
           tenantId,
         );
       } catch (error) {
-        console.warn("[InvoiceWatcher] Automations-Log konnte nicht geschrieben werden:", error);
+        log.warn({ err: error }, `[InvoiceWatcher] Automations-Log konnte nicht geschrieben werden: ${error instanceof Error ? error.message : String(error)}`);
       }
     };
 
@@ -108,12 +122,12 @@ export async function processInvoiceNumberChanges(
       if (check.conflict) {
         stats.skipped++;
         const reason = `Bestellung hat bereits Rechnung ${check.documentNumber} – ${invoiceNumber} nicht erstellt`;
-        console.warn(`[InvoiceWatcher] ⊘ ${label}: ${reason}`);
+        log.warn({ outcome: "skipped", existingInvoice: check.documentNumber }, `[InvoiceWatcher] ⊘ ${label}: ${reason}`);
         await logRun("skipped", { skippedReason: reason });
         continue;
       }
 
-      console.log(`[InvoiceWatcher] Erstelle Rechnung fuer ${label}`);
+      log.info(`[InvoiceWatcher] Erstelle Rechnung fuer ${label}`);
       const created = await client.createInvoice(
         order.id,
         invoiceNumber,
@@ -134,7 +148,7 @@ export async function processInvoiceNumberChanges(
 
       if (!created.documentId || !created.pdfReady) {
         stats.failed++;
-        console.warn(`[InvoiceWatcher] ! ${label}: PDF lag nicht vor – Versand uebersprungen`);
+        log.warn({ outcome: "pdf_missing", documentId: created.documentId }, `[InvoiceWatcher] ! ${label}: PDF lag nicht vor – Versand uebersprungen`);
         await storage.createErpAutomationRun(
           {
             orderId: order.id,
@@ -158,15 +172,15 @@ export async function processInvoiceNumberChanges(
       if (sendResult.status === "sent") {
         stats.sent++;
         await markOrderInvoiceSentInCache(order.id, tenantId, storage as any);
-        console.log(`[InvoiceWatcher] ✓ ${label}: Rechnung erstellt und verschickt`);
+        log.info({ outcome: "sent", documentId: created.documentId }, `[InvoiceWatcher] ✓ ${label}: Rechnung erstellt und verschickt`);
       } else if (sendResult.status === "failed") {
         stats.failed++;
-        console.warn(`[InvoiceWatcher] ! ${label}: Versand fehlgeschlagen – ${sendResult.message}`);
+        log.warn({ outcome: "send_failed", documentId: created.documentId }, `[InvoiceWatcher] ! ${label}: Versand fehlgeschlagen – ${sendResult.message}`);
       }
     } catch (error) {
       stats.failed++;
       const message = error instanceof Error ? error.message : String(error);
-      console.error(`[InvoiceWatcher] ✗ ${label}: ${message}`);
+      log.error({ err: error, outcome: "failed" }, `[InvoiceWatcher] ✗ ${label}: ${message}`);
       await logRun("failed", { errorMessage: message });
     }
   }

@@ -40,13 +40,16 @@ export function createLogger(opts: { level?: string; format?: LogFormat; destina
     base: undefined,
     timestamp: pino.stdTimeFunctions.isoTime,
     redact: { paths: REDACT_PATHS, censor: "[REDACTED]" },
-    // Kontext der laufenden Anfrage bzw. des Mandanten automatisch an jede Zeile haengen
-    mixin() {
+    // Kontext der laufenden Anfrage bzw. des Mandanten automatisch an jede Zeile haengen -
+    // ausser ein Kind-Logger (logger.child({ tenantId })) hat das Feld schon gebunden: pino
+    // wuerde den Schluessel sonst doppelt ins JSON schreiben.
+    mixin(_mergeObject, _level, log) {
+      const bound = (log as Logger | undefined)?.bindings?.() ?? {};
       const context: Record<string, string> = {};
       const requestId = getRequestId();
-      if (requestId) context.requestId = requestId;
+      if (requestId && bound.requestId === undefined) context.requestId = requestId;
       const tenantId = getTenantIdFromContext();
-      if (tenantId) context.tenantId = tenantId;
+      if (tenantId && bound.tenantId === undefined) context.tenantId = tenantId;
       return context;
     },
   };

@@ -74,6 +74,15 @@ describe("logger", () => {
     expect(lines[1]).not.toHaveProperty("tenantId");
   });
 
+  it("Kind-Logger mit gebundenem tenantId: Feld nur einmal, Kontext ergaenzt den Rest", () => {
+    const { log, raw, lines } = memoryLogger();
+    runWithRequestId("req-12345678", () =>
+      runWithTenantContext("tenant-kontext", () => log.child({ tenantId: "tenant-gebunden", component: "x" }).info("gebunden")),
+    );
+    expect(raw[0].match(/"tenantId"/g)).toHaveLength(1);
+    expect(lines[0]).toMatchObject({ tenantId: "tenant-gebunden", requestId: "req-12345678", component: "x" });
+  });
+
   it("schwaerzt Passwoerter, Tokens und Secrets in Feldern", () => {
     const { log, raw } = memoryLogger();
     log.info({ password: "pw1", user: { password: "pw2", apiSecret: "s3", token: "t4" }, headers: { authorization: "Bearer x" } }, "Login");
