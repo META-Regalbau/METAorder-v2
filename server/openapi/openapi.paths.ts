@@ -14860,6 +14860,33 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/version": {
+    "get": {
+      "tags": [
+        "version"
+      ],
+      "summary": "GET /api/version",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/webhooks/incoming/tickets": {
     "post": {
       "tags": [
