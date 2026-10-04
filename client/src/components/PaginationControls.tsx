@@ -67,7 +67,7 @@ export default function PaginationControls({
   }
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-4">
       {showItemsPerPage && (
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">{t('common.show')}</span>
@@ -94,7 +94,8 @@ export default function PaginationControls({
       )}
 
       {totalPages > 1 && (
-        <Pagination>
+        // flex-1: fuellt den Rest der Zeile wie bisher, rutscht nur bei Platzmangel in die naechste
+        <Pagination className="sm:w-auto sm:flex-1">
           <PaginationContent>
             <PaginationItem>
               <Button

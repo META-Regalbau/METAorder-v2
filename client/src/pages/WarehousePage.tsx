@@ -24,6 +24,9 @@ import {
 } from "@/components/PrintLocationLabelDialog";
 import { printStockCountSheet, type StockCountRow } from "@/lib/labels/stockCountSheet";
 import { useErpProductLabels } from "@/hooks/useErpProductLabels";
+import { usePagedRows } from "@/hooks/usePagedRows";
+import { stockReconcileQueryKey, storeRefreshedReconcile } from "@/lib/stockReconcileCache";
+import PaginationControls from "@/components/PaginationControls";
 import { normalizeScanCode } from "@/lib/barcode/normalizeScanCode";
 
 type StockQtyFilter = "all" | "in_stock" | "out_of_stock" | "erp_positive" | "erp_zero";
@@ -286,7 +289,7 @@ export default function WarehousePage() {
     isLoading: reconcileLoading,
     isFetching: reconcileFetching,
   } = useQuery<StockReconcileResult>({
-    queryKey: ["/api/erp/stock/reconcile", mainTab === "stock" ? "all" : "diffs"],
+    queryKey: stockReconcileQueryKey(mainTab === "stock" ? "all" : "diffs"),
     enabled: mainTab === "reconcile" || mainTab === "stock",
     queryFn: async ({ queryKey }) => {
       const mode = queryKey[1];
@@ -561,6 +564,14 @@ export default function WarehousePage() {
       return hay.includes(q);
     });
   }, [activeCount?.lines, inventoryLineFilter, getLabel, inventoryLabels]);
+
+  // Nur eine Seite rendern: Testing hat ~8.200 Artikel, alle auf einmal waren ~134.000 DOM-Elemente
+  const stockPage = usePagedRows(
+    filteredStockRows,
+    [deferredStockSearch, stockQtyFilter, stockDiffFilter, stockActiveFilter, stockSizeFilter, stockColorFilter].join("|"),
+  );
+  const reconcilePage = usePagedRows(reconcileRows, "");
+  const inventoryPage = usePagedRows(filteredInventoryLines, `${activeCountId}|${inventoryLineFilter}`);
 
   const createWh = useMutation({
     mutationFn: async () => apiRequest("POST", "/api/erp/warehouses", whForm),
@@ -982,7 +993,7 @@ export default function WarehousePage() {
       return res.json() as Promise<StockReconcileResult & { ok: boolean }>;
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(["/api/erp/stock/reconcile"], data);
+      storeRefreshedReconcile(queryClient, data);
       toast({
         title: t("erp.warehouse.reconcileMirrorDone"),
         description: t("erp.warehouse.reconcileDiffCount", { count: data.totals?.diffs ?? 0 }),
@@ -1541,7 +1552,7 @@ export default function WarehousePage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredStockRows.map((row) => {
+                    {stockPage.rows.map((row) => {
                       const locId = locationByProduct.get(row.productNumber);
                       const loc = locId ? stockLocationById.get(locId) : undefined;
                       return (
@@ -1595,6 +1606,18 @@ export default function WarehousePage() {
                   </TableBody>
                 </Table>
               )}
+              {filteredStockRows.length > 0 ? (
+                <div className="mt-4">
+                  <PaginationControls
+                    currentPage={stockPage.page}
+                    totalPages={stockPage.totalPages}
+                    itemsPerPage={stockPage.pageSize}
+                    onPageChange={stockPage.setPage}
+                    onItemsPerPageChange={stockPage.setPageSize}
+                    totalItems={stockPage.totalItems}
+                  />
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         </TabsContent>
@@ -2050,7 +2073,7 @@ export default function WarehousePage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredInventoryLines.map((line) => {
+                      {inventoryPage.rows.map((line) => {
                         const diff = lineDiff(line);
                         const draftValue =
                           countedDrafts[line.id] ??
@@ -2121,6 +2144,18 @@ export default function WarehousePage() {
                     </TableBody>
                   </Table>
                 )}
+                {!activeCountLoading && filteredInventoryLines.length > 0 ? (
+                  <div className="mt-4">
+                    <PaginationControls
+                      currentPage={inventoryPage.page}
+                      totalPages={inventoryPage.totalPages}
+                      itemsPerPage={inventoryPage.pageSize}
+                      onPageChange={inventoryPage.setPage}
+                      onItemsPerPageChange={inventoryPage.setPageSize}
+                      totalItems={inventoryPage.totalItems}
+                    />
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
           ) : null}
@@ -2224,7 +2259,7 @@ export default function WarehousePage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {reconcileRows.map((row) => (
+                    {reconcilePage.rows.map((row) => (
                       <TableRow key={row.productNumber}>
                         <TableCell>
                           <ErpProductCell
@@ -2256,6 +2291,18 @@ export default function WarehousePage() {
                   </TableBody>
                 </Table>
               )}
+              {!reconcileLoading && !reconcileFetching && reconcileRows.length > 0 ? (
+                <div className="mt-4">
+                  <PaginationControls
+                    currentPage={reconcilePage.page}
+                    totalPages={reconcilePage.totalPages}
+                    itemsPerPage={reconcilePage.pageSize}
+                    onPageChange={reconcilePage.setPage}
+                    onItemsPerPageChange={reconcilePage.setPageSize}
+                    totalItems={reconcilePage.totalItems}
+                  />
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         </TabsContent>
