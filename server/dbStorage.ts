@@ -374,6 +374,16 @@ function normalizeRolePermissions(role: Role): Role {
   };
 }
 
+/**
+ * Bedingungen/Aktionen einer Automatisierungsregel fuer die Text-Spalte. Die Route liefert schon
+ * JSON-Text (InsertAutomationRule) - nochmals JSON.stringify ergab doppelt kodierte Werte, die die
+ * Engine nicht lesen konnte (Regeln wurden uebersprungen).
+ */
+export function automationRuleJson(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
 export class DbStorage implements IStorage {
   // Users
   async getUser(id: string): Promise<User | undefined> {
@@ -2184,8 +2194,9 @@ export class DbStorage implements IStorage {
       .values({
         ...insertRule,
         tenantId: resolveTenantId(tenantId) ?? null,
-        conditions: JSON.stringify(insertRule.conditions),
-        actions: JSON.stringify(insertRule.actions),
+        conditions: automationRuleJson(insertRule.conditions),
+        // actions ist Pflicht (NOT NULL) - fehlt es, lehnt die DB den Eintrag wie bisher ab
+        actions: automationRuleJson(insertRule.actions) as string,
       })
       .returning();
     return result[0];
@@ -2197,10 +2208,10 @@ export class DbStorage implements IStorage {
     
     // Handle JSON fields - allow null/empty values
     if ('conditions' in updates) {
-      updateData.conditions = updates.conditions ? JSON.stringify(updates.conditions) : null;
+      updateData.conditions = updates.conditions ? automationRuleJson(updates.conditions) : null;
     }
     if ('actions' in updates) {
-      updateData.actions = updates.actions ? JSON.stringify(updates.actions) : null;
+      updateData.actions = updates.actions ? automationRuleJson(updates.actions) : null;
     }
     
     const result = await db

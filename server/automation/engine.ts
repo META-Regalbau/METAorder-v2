@@ -2,6 +2,7 @@ import type { AutomationRule, Order, Ticket } from "@shared/schema";
 import {
   AUTOMATION_FIELDS,
   evaluateConditions,
+  parseStoredRuleList,
   validateAutomationRule,
   type AutomationActionInput,
   type AutomationConditionInput,
@@ -82,16 +83,6 @@ export function orderFacts(
   };
 }
 
-function parseJsonArray<T>(raw: string | null | undefined): T[] | null {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Aktive, vollstaendige Regeln eines Ausloesers fuer den Mandanten aus dem Kontext.
  * Reihenfolge: Prioritaet absteigend, bei Gleichstand aelteste zuerst. Unvollstaendige bzw.
@@ -103,8 +94,8 @@ export async function prepareRules(deps: AutomationDeps, trigger: AutomationTrig
     .sort((a, b) => b.priority - a.priority || new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   const prepared: PreparedRule[] = [];
   for (const rule of rules) {
-    const conditions = parseJsonArray<AutomationConditionInput>(rule.conditions);
-    const actions = parseJsonArray<AutomationActionInput>(rule.actions);
+    const conditions = parseStoredRuleList<AutomationConditionInput>(rule.conditions);
+    const actions = parseStoredRuleList<AutomationActionInput>(rule.actions);
     const errors = conditions && actions ? validateAutomationRule({ triggerType: rule.triggerType, conditions, actions }) : ["Bedingungen/Aktionen sind kein gueltiges JSON"];
     if (errors.length > 0) {
       logger.warn({ ruleId: rule.id, ruleName: rule.name, errors }, "Automatisierungsregel uebersprungen: unvollstaendig oder veraltet");
