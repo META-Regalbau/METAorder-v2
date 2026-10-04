@@ -1,6 +1,8 @@
 import crypto from "crypto";
 import { chatCompletion, isChatLlmConfigured, parseLlmJsonResponse } from "../ai/llmChat";
+import type { AnalyticsLanguage } from "@shared/schema";
 import type { IStorage } from "../storage";
+import { PROMPT_LANGUAGE_NAME } from "./nlLanguage";
 
 const IMPROVEMENT_SYSTEM_PROMPT = `Du bist ein erfahrener E-Commerce Business Analyst und Berater.
 
@@ -84,6 +86,12 @@ Deine Aufgabe ist es, Analytics- und Prognosedaten zu analysieren und **konkrete
 - Denke wie ein Unternehmensberater, der echte Ergebnisse liefern muss
 
 Antworte AUSSCHLIESSLICH mit einem gültigen JSON-Objekt im oben gezeigten Format.`;
+
+/** Sprachvorgabe: Texte in der Oberflaechensprache, Kategorie und Prioritaet bleiben Codes. */
+export function improvementLanguageInstruction(language: AnalyticsLanguage): string {
+  const target = PROMPT_LANGUAGE_NAME[language];
+  return `## SPRACHE:\nSchreibe title, description, expectedImpact, actionItems, timeframe und basedOn auf ${target} (auch wenn das Beispiel oben deutsch ist). "category" und "priority" bleiben die englischen Codes aus der Liste.`;
+}
 
 function formatNumber(num: number | unknown): string {
   if (typeof num !== "number") return String(num);
@@ -175,6 +183,7 @@ export async function generateImprovementSuggestions(
   query: any,
   result: any,
   storage: IStorage,
+  language: AnalyticsLanguage = "de",
 ): Promise<any[]> {
   console.log(
     "[Improvement Suggestions] Generating suggestions for query type:",
@@ -197,10 +206,10 @@ export async function generateImprovementSuggestions(
       chatCompletion((key) => storage.getSetting(key), {
         model: "gpt-4o",
         messages: [
-          { role: "system", content: IMPROVEMENT_SYSTEM_PROMPT },
+          { role: "system", content: `${IMPROVEMENT_SYSTEM_PROMPT}\n\n${improvementLanguageInstruction(language)}` },
           {
             role: "user",
-            content: `Analysiere diese E-Commerce Analytics-Daten und generiere konkrete Verbesserungsvorschläge:\n\n${context}`,
+            content: `Analysiere diese E-Commerce Analytics-Daten und generiere konkrete Verbesserungsvorschläge auf ${PROMPT_LANGUAGE_NAME[language]}:\n\n${context}`,
           },
         ],
         temperature: 0.3,

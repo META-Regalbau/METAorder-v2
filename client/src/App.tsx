@@ -118,7 +118,7 @@ function Router({
       <Route path="/offers/:offerId/preview" component={OfferPreviewPage} />
       <Route path="/offers" component={() => <OffersPage userRole={userRole} userSalesChannelIds={userSalesChannelIds} />} />
       <Route path="/export" component={ExportPage} />
-      <Route path="/analytics" component={() => <AnalyticsPage userRole={userRole} userSalesChannelIds={userSalesChannelIds} />} />
+      <Route path="/analytics" component={() => <AnalyticsPage userRole={userRole} userSalesChannelIds={userSalesChannelIds} userPermissions={userPermissions} />} />
       <Route path="/search" component={SemanticSearchPage} />
       <Route path="/cpq-admin" component={() => <CPQAdminPage />} />
       <Route path="/configurator" component={() => <CPQConfiguratorPage />} />

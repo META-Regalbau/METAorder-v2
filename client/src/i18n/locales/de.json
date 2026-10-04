@@ -2578,8 +2578,8 @@
     "exportFailed": "Export fehlgeschlagen",
     "exportError": "Fehler beim Exportieren der Analytics-Daten.",
     "nlQuery": {
-      "tab": "Natural Language",
-      "welcome": "Willkommen bei Natural Language Analytics",
+      "tab": "Natürliche Sprache",
+      "welcome": "Auswertungen in natürlicher Sprache",
       "welcomeDescription": "Stellen Sie einfach Fragen in natürlicher Sprache zu Ihren Bestellungen, Produkten und Kunden. Unsere KI analysiert Ihre Daten und liefert detaillierte Einblicke.",
       "suggestedQuestions": "Vorgeschlagene Fragen",
       "inputPlaceholder": "Frage eingeben, z.B. 'Zeig mir die Top 10 Produkte vom letzten Monat'",
@@ -2610,7 +2610,9 @@
         "revenueForecast": "Umsatzprognose",
         "productDemandForecast": "Produktnachfrage-Prognose",
         "seasonalAnalysis": "Saisonale Analyse",
-        "trendForecast": "Trend-Prognose"
+        "trendForecast": "Trend-Prognose",
+        "weightAnalysis": "Gewichtsanalyse",
+        "itemCountAnalysis": "Positionen je Bestellung"
       },
       "forecast": {
         "algorithm": "Algorithmus",
@@ -2659,6 +2661,35 @@
         "timeframe": "Zeitrahmen",
         "basedOn": "Datengrundlage",
         "confidence": "Konfidenz"
+      },
+      "ask": "Fragen",
+      "period": "Zeitraum: {{from}} – {{to}}",
+      "amount": "Betrag",
+      "revenue": "Umsatz",
+      "insightTypes": {
+        "trend": "Trend",
+        "anomaly": "Auffälligkeit",
+        "comparison": "Vergleich",
+        "general": "Allgemein",
+        "forecast": "Prognose",
+        "recommendation": "Empfehlung"
+      },
+      "errors": {
+        "invalid_question": "Bitte geben Sie eine Frage ein.",
+        "llm_unavailable": "Für diesen Mandanten ist kein KI-Anbieter eingerichtet. Bitte in den Einstellungen einen API-Schlüssel hinterlegen.",
+        "not_understood": "Die Frage wurde nicht verstanden. Bitte formulieren Sie sie anders.",
+        "shopware_missing": "Für diesen Mandanten sind keine Shopware-Zugangsdaten eingerichtet.",
+        "permissions_failed": "Ihre Berechtigungen konnten nicht ermittelt werden.",
+        "execution_failed": "Die Auswertung ist fehlgeschlagen. Bitte versuchen Sie es erneut.",
+        "unexpected": "Die Abfrage konnte nicht verarbeitet werden. Bitte versuchen Sie es erneut."
+      },
+      "examples": {
+        "q1": "Zeig mir die Top 10 Produkte vom letzten Monat",
+        "q2": "Wie ist der Umsatz-Trend der letzten 90 Tage?",
+        "q3": "Wer sind unsere besten Kunden nach Bestellwert?",
+        "q4": "Welche Bestellungen sind verspätet?",
+        "q5": "Zeige mir die Verteilung der Bestellstatus",
+        "q6": "Prognostiziere den Umsatz für die nächsten 3 Monate"
       }
     },
     "gross": "Brutto"

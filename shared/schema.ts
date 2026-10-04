@@ -2668,25 +2668,43 @@ export type InsertCommercialCustomerApiToken = z.infer<
 export type CommercialCustomerApiToken = typeof commercialCustomerApiTokens.$inferSelect;
 
 // Natural Language Analytics Types
-export type AnalyticsQueryType =
-  | "top_products"
-  | "delayed_orders"
-  | "order_trends"
-  | "revenue_trends"
-  | "customer_analysis"
-  | "weight_analysis"
-  | "item_count_analysis"
-  | "customer_rankings"
-  | "product_performance"
-  | "category_performance"
-  | "payment_analysis"
-  | "sales_channel_analysis"
-  | "order_status_distribution"
-  | "general_statistics"
-  | "revenue_forecast"
-  | "product_demand_forecast"
-  | "seasonal_analysis"
-  | "trend_forecast";
+export const ANALYTICS_QUERY_TYPES = [
+  "top_products",
+  "delayed_orders",
+  "order_trends",
+  "revenue_trends",
+  "customer_analysis",
+  "weight_analysis",
+  "item_count_analysis",
+  "customer_rankings",
+  "product_performance",
+  "category_performance",
+  "payment_analysis",
+  "sales_channel_analysis",
+  "order_status_distribution",
+  "general_statistics",
+  "revenue_forecast",
+  "product_demand_forecast",
+  "seasonal_analysis",
+  "trend_forecast",
+] as const;
+export type AnalyticsQueryType = (typeof ANALYTICS_QUERY_TYPES)[number];
+
+/** Sprache der Oberflaeche fuer KI-Texte und feste Beschriftungen der Antwort */
+export const ANALYTICS_LANGUAGES = ["de", "en", "es"] as const;
+export type AnalyticsLanguage = (typeof ANALYTICS_LANGUAGES)[number];
+
+/** Fehlercodes von POST /api/analytics/nl-query; die Oberflaeche uebersetzt sie */
+export const NL_QUERY_ERROR_CODES = [
+  "invalid_question",
+  "llm_unavailable",
+  "not_understood",
+  "shopware_missing",
+  "permissions_failed",
+  "execution_failed",
+  "unexpected",
+] as const;
+export type NlQueryErrorCode = (typeof NL_QUERY_ERROR_CODES)[number];
 
 export type AnalyticsQuery = {
   type: AnalyticsQueryType;
@@ -2739,16 +2757,21 @@ export type AnalyticsResult = {
   improvements?: ImprovementSuggestion[]; // AI-generated improvement suggestions
 };
 
+export const ANALYTICS_INSIGHT_TYPES = ["trend", "anomaly", "comparison", "general", "forecast", "recommendation"] as const;
+
 export type AnalyticsInsight = {
   text: string;
-  type: "trend" | "anomaly" | "comparison" | "general" | "forecast" | "recommendation";
+  type: (typeof ANALYTICS_INSIGHT_TYPES)[number];
   confidence?: number;
 };
 
+export const IMPROVEMENT_CATEGORIES = ["revenue", "inventory", "marketing", "operations", "customer_service", "general"] as const;
+export const IMPROVEMENT_PRIORITIES = ["high", "medium", "low"] as const;
+
 export type ImprovementSuggestion = {
   id: string;
-  category: "revenue" | "inventory" | "marketing" | "operations" | "customer_service" | "general";
-  priority: "high" | "medium" | "low";
+  category: (typeof IMPROVEMENT_CATEGORIES)[number];
+  priority: (typeof IMPROVEMENT_PRIORITIES)[number];
   title: string;
   description: string;
   expectedImpact?: string; // E.g., "Potential 15% revenue increase"

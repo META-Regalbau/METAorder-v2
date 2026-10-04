@@ -1,10 +1,12 @@
-import type { AnalyticsQuery, AnalyticsResult, Order, Product } from "@shared/schema";
+import type { AnalyticsLanguage, AnalyticsQuery, AnalyticsResult, Order, Product } from "@shared/schema";
 import { ShopwareClient } from "../shopware/shopware";
 import type { IStorage } from "../storage";
 import { getMirrorOrdersLikeLive } from "../routes/routeHelpers";
 import { getTenantIdFromContext } from "../lib/tenantContext";
 import { generateForecast } from "./forecastEngine";
 import type { ForecastConfig, ForecastInput } from "./forecastEngine";
+import { NL_TEXTS } from "./nlLanguage";
+import { selectDelayedOrders } from "../shopware/ordersList";
 
 /**
  * Analytics Query Executor
@@ -22,6 +24,8 @@ interface QueryExecutionContext {
   allowedChannelIds?: string[] | null; // SECURITY: Restricts data to user's assigned sales channels
   /** Mandant fuer den Bestell-Spiegel */
   tenantId?: string | null;
+  /** Sprache fester Beschriftungen (Kennzahlen, Gruppen, Platzhalter) */
+  language: AnalyticsLanguage;
 }
 
 /**
@@ -31,6 +35,7 @@ interface QueryExecutionContext {
  * @param storage - Storage interface for database access
  * @param shopwareClient - Optional Shopware client for API access
  * @param allowedChannelIds - Optional sales channel filter for user permissions (null = admin, [] = no access, [...ids] = specific channels)
+ * @param language - Sprache fester Beschriftungen der Antwort (Standard Deutsch)
  * @returns Formatted analytics results with labels and data
  */
 export async function executeAnalyticsQuery(
@@ -39,6 +44,7 @@ export async function executeAnalyticsQuery(
   shopwareClient?: ShopwareClient,
   allowedChannelIds?: string[] | null,
   tenantId?: string | null,
+  language: AnalyticsLanguage = "de",
 ): Promise<AnalyticsResult> {
   console.log(`[Analytics Executor] Executing query type: ${queryObj.type}`);
   console.log(`[Analytics Executor] Parameters:`, JSON.stringify(queryObj.parameters, null, 2));
@@ -55,6 +61,7 @@ export async function executeAnalyticsQuery(
     allowedChannelIds,
     // ohne Angabe der Mandant der Anfrage (null waere der globale Bereich)
     tenantId: tenantId === undefined ? getTenantIdFromContext() : tenantId,
+    language,
   };
 
   try {
@@ -269,21 +276,8 @@ async function executeDelayedOrders(
   console.log('[Analytics Executor] Executing DELAYED_ORDERS query');
   
   const orders = await getOrders(context);
-  const now = new Date();
-  
-  // Find orders where delivery date has passed but status is not completed
-  const delayedOrders = orders.filter(order => {
-    if (order.status === 'completed' || order.status === 'cancelled') {
-      return false;
-    }
-    
-    if (order.deliveryDateLatest) {
-      const deliveryDate = new Date(order.deliveryDateLatest);
-      return deliveryDate < now;
-    }
-    
-    return false;
-  });
+  // Dieselbe Regel wie die Seite "Verspaetete Bestellungen" und das Dashboard
+  const delayedOrders = selectDelayedOrders(orders);
   
   console.log(`[Analytics Executor] Found ${delayedOrders.length} delayed orders`);
   
@@ -296,7 +290,7 @@ async function executeDelayedOrders(
       deliveryDateLatest: o.deliveryDateLatest,
       status: o.status,
       totalAmount: o.totalAmount,
-      daysDelayed: Math.floor((now.getTime() - new Date(o.deliveryDateLatest!).getTime()) / (1000 * 60 * 60 * 24)),
+      daysDelayed: o.daysSinceOrder,
     })),
     summary: {
       count: delayedOrders.length,
@@ -534,7 +528,7 @@ async function executeCategoryPerformance(
   
   for (const order of filtered) {
     for (const item of order.items) {
-      const categories = item.categoryNames || ['Uncategorized'];
+      const categories = item.categoryNames || [NL_TEXTS[context.language].uncategorized];
       
       for (const category of categories) {
         const existing = categoryStats.get(category) || { quantity: 0, revenue: 0 };
@@ -621,7 +615,7 @@ async function executeSalesChannelAnalysis(
   const channelStats = new Map<string, { count: number; revenue: number }>();
   
   for (const order of filtered) {
-    const channel = order.salesChannelName || 'Unknown';
+    const channel = order.salesChannelName || NL_TEXTS[context.language].unknownSalesChannel;
     const existing = channelStats.get(channel) || { count: 0, revenue: 0 };
     existing.count += 1;
     existing.revenue += order.totalAmount;
@@ -697,10 +691,11 @@ async function executeGeneralStatistics(
   const totalRevenue = filtered.reduce((sum, o) => sum + o.totalAmount, 0);
   const averageOrderValue = totalRevenue / filtered.length;
   
+  const texts = NL_TEXTS[context.language];
   const stats = [
-    { label: 'Anzahl Bestellungen', value: filtered.length },
-    { label: 'Gesamtumsatz', value: totalRevenue },
-    { label: 'Durchschn. Bestellwert', value: averageOrderValue },
+    { label: texts.orderCount, value: filtered.length },
+    { label: texts.totalRevenue, value: totalRevenue },
+    { label: texts.averageOrderValue, value: averageOrderValue },
   ];
   
   console.log(`[Analytics Executor] Generated general statistics for ${filtered.length} orders`);
@@ -1228,23 +1223,24 @@ async function executeItemCountAnalysis(
   const averageQuantity = orders.length > 0 ? totalQuantity / orders.length : 0;
   
   // Create item count distribution buckets (1, 2-3, 4-5, 6-10, 11-20, 20+)
+  const texts = NL_TEXTS[context.language];
   const itemCountBuckets = [
-    { label: '1 Artikel', min: 1, max: 2, count: 0 },
-    { label: '2-3 Artikel', min: 2, max: 4, count: 0 },
-    { label: '4-5 Artikel', min: 4, max: 6, count: 0 },
-    { label: '6-10 Artikel', min: 6, max: 11, count: 0 },
-    { label: '11-20 Artikel', min: 11, max: 21, count: 0 },
-    { label: '20+ Artikel', min: 21, max: Infinity, count: 0 },
+    { label: texts.lineItems('1', true), min: 1, max: 2, count: 0 },
+    { label: texts.lineItems('2-3', false), min: 2, max: 4, count: 0 },
+    { label: texts.lineItems('4-5', false), min: 4, max: 6, count: 0 },
+    { label: texts.lineItems('6-10', false), min: 6, max: 11, count: 0 },
+    { label: texts.lineItems('11-20', false), min: 11, max: 21, count: 0 },
+    { label: texts.lineItems('20+', false), min: 21, max: Infinity, count: 0 },
   ];
   
   // Create quantity distribution buckets
   const quantityBuckets = [
-    { label: '1-2 Stück', min: 1, max: 3, count: 0 },
-    { label: '3-5 Stück', min: 3, max: 6, count: 0 },
-    { label: '6-10 Stück', min: 6, max: 11, count: 0 },
-    { label: '11-25 Stück', min: 11, max: 26, count: 0 },
-    { label: '26-50 Stück', min: 26, max: 51, count: 0 },
-    { label: '50+ Stück', min: 51, max: Infinity, count: 0 },
+    { label: texts.pieces('1-2'), min: 1, max: 3, count: 0 },
+    { label: texts.pieces('3-5'), min: 3, max: 6, count: 0 },
+    { label: texts.pieces('6-10'), min: 6, max: 11, count: 0 },
+    { label: texts.pieces('11-25'), min: 11, max: 26, count: 0 },
+    { label: texts.pieces('26-50'), min: 26, max: 51, count: 0 },
+    { label: texts.pieces('50+'), min: 51, max: Infinity, count: 0 },
   ];
   
   for (const oc of orderItemCounts) {

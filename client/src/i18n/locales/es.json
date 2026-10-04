@@ -2469,7 +2469,7 @@
         "confidence": "Confianza"
       },
       "tab": "Lenguaje natural",
-      "welcome": "Bienvenido a Natural Language Analytics",
+      "welcome": "Análisis en lenguaje natural",
       "welcomeDescription": "Haga preguntas en lenguaje natural sobre sus pedidos, productos y clientes. Nuestra IA analiza sus datos y ofrece información detallada.",
       "suggestedQuestions": "Preguntas sugeridas",
       "inputPlaceholder": "Introduzca una pregunta, p. ej. 'Muéstrame los 10 productos más vendidos del mes pasado'",
@@ -2500,7 +2500,38 @@
         "revenueForecast": "Previsión de facturación",
         "productDemandForecast": "Previsión de demanda de productos",
         "seasonalAnalysis": "Análisis estacional",
-        "trendForecast": "Previsión de tendencias"
+        "trendForecast": "Previsión de tendencias",
+        "weightAnalysis": "Análisis de peso",
+        "itemCountAnalysis": "Artículos por pedido"
+      },
+      "ask": "Preguntar",
+      "period": "Periodo: {{from}} – {{to}}",
+      "amount": "Importe",
+      "revenue": "Facturación",
+      "insightTypes": {
+        "trend": "Tendencia",
+        "anomaly": "Anomalía",
+        "comparison": "Comparación",
+        "general": "General",
+        "forecast": "Previsión",
+        "recommendation": "Recomendación"
+      },
+      "errors": {
+        "invalid_question": "Introduzca una pregunta.",
+        "llm_unavailable": "No hay ningún proveedor de IA configurado para este cliente. Añada una clave API en los ajustes.",
+        "not_understood": "No se ha entendido la pregunta. Formúlela de otra manera.",
+        "shopware_missing": "No hay credenciales de Shopware configuradas para este cliente.",
+        "permissions_failed": "No se han podido determinar sus permisos.",
+        "execution_failed": "El análisis ha fallado. Inténtelo de nuevo.",
+        "unexpected": "No se ha podido procesar la consulta. Inténtelo de nuevo."
+      },
+      "examples": {
+        "q1": "Muéstrame los 10 productos más vendidos del mes pasado",
+        "q2": "¿Cuál es la tendencia de facturación de los últimos 90 días?",
+        "q3": "¿Quiénes son nuestros mejores clientes por valor de pedido?",
+        "q4": "¿Qué pedidos están retrasados?",
+        "q5": "Muéstrame la distribución de los estados de los pedidos",
+        "q6": "Prevé la facturación de los próximos 3 meses"
       }
     },
     "dashboardTab": "Panel",
