@@ -18,13 +18,24 @@ import {
 import { extractPlainTextForDraft } from "../../server/extraction/documentTextExtraction";
 
 // Aus scripts/testCommercialAttachmentClassifier.ts uebernommen: Pruefungen unveraendert, Rumpf als ein Vitest-Test.
+// Echte Kundenbelege (training/**/real_*) sind wegen personenbezogener Daten per .gitignore nur
+// lokal vorhanden. Fehlt ein solcher Beleg (z. B. in der CI), wird die Pruefung sichtbar
+// uebersprungen statt als Fehler gezaehlt; jeder andere Fehler bleibt ein Fehler.
+class MissingLocalFixture extends Error {}
+
 test("CommercialAttachmentClassifier", async () => {
   let failures = 0;
+  let skipped = 0;
   async function check(name: string, fn: () => Promise<void> | void) {
     try {
       await fn();
       console.log(`  ${name}: OK`);
     } catch (error) {
+      if (error instanceof MissingLocalFixture) {
+        skipped += 1;
+        console.log(`  ${name}: UEBERSPRUNGEN (${error.message})`);
+        return;
+      }
       failures += 1;
       console.error(`  ${name}: FAILED`);
       console.error(`    ${error instanceof Error ? error.message : String(error)}`);
@@ -32,7 +43,13 @@ test("CommercialAttachmentClassifier", async () => {
   }
 
   async function pdfText(file: string): Promise<string> {
-    const buf = await fs.readFile(path.join("training", "document-classification", file));
+    const filePath = path.join("training", "document-classification", file);
+    const buf = await fs.readFile(filePath).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT" && file.startsWith("real_")) {
+        throw new MissingLocalFixture(`lokaler Kundenbeleg ${filePath} fehlt`);
+      }
+      throw error;
+    });
     const raw = await extractPlainTextForDraft({ fileBuffer: buf, mimeType: "application/pdf", fileName: file, ocrEnabled: false });
     return (raw || "").slice(0, 12000);
   }
@@ -120,5 +137,5 @@ test("CommercialAttachmentClassifier", async () => {
     console.error(`\n${failures} Test(s) fehlgeschlagen`);
     throw new Error("testCommercialAttachmentClassifier.ts: Pruefungen fehlgeschlagen (Details in der Ausgabe oben)");
   }
-  console.log("\nAlle Tests bestanden\n");
+  console.log(skipped > 0 ? `\nAlle Tests bestanden (${skipped} uebersprungen: lokale Kundenbelege fehlen)\n` : "\nAlle Tests bestanden\n");
 });

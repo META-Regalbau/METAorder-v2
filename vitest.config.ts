@@ -18,6 +18,9 @@ export default defineConfig({
       // unerreichbare Adresse laesst sie laden, verhindert aber jeden echten DB-Zugriff aus
       // Unit-Tests - lokal (dotenv ueberschreibt gesetzte Variablen nicht) wie in der CI.
       DATABASE_URL: "postgresql://unit-tests:unit-tests@127.0.0.1:1/unit-tests",
+      // server/auth/jwt.ts verlangt beim Import ein Secret (in der CI gibt es keine .env).
+      // Nur fuer Unit-Tests, kein echtes Geheimnis.
+      JWT_SECRET: "unit-tests-only-not-a-real-secret",
     },
   },
 });
