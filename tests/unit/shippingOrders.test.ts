@@ -6,6 +6,12 @@
  * Ausführung: npm test
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+// Abgleich des Spiegels startet nebenbei die ERP-Bestandsbuchung (ohne await); ihr Fehler gegen die
+// absichtlich unerreichbare Test-DB kam teils erst nach dem Testende und liess den Lauf scheitern.
+vi.mock("../../server/erp/erpShopwareSalesStock", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../server/erp/erpShopwareSalesStock")>()),
+  triggerShopwareSalesStockSync: () => {},
+}));
 import express from "express";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
