@@ -519,14 +519,14 @@ export default function ShippingOpsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-10" />
+                    <TableHead className="w-10"><span className="sr-only">{t("common.actions")}</span></TableHead>
                     <TableHead>{t("erp.status")}</TableHead>
                     <TableHead>{t("erp.shippingOps.orders")}</TableHead>
                     <TableHead>{t("erp.warehouse.warehouses")}</TableHead>
                     <TableHead>{t("erp.shippingOps.lineCount")}</TableHead>
                     <TableHead>{t("erp.shippingOps.qtySum")}</TableHead>
                     <TableHead>{t("erp.shippingOps.createdAt")}</TableHead>
-                    <TableHead />
+                    <TableHead><span className="sr-only">{t("common.actions")}</span></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -711,7 +711,7 @@ export default function ShippingOpsPage() {
                     <TableHead>{t("erp.shippingOps.provider")}</TableHead>
                     <TableHead>{t("erp.status")}</TableHead>
                     <TableHead>{t("erp.shippingOps.carrierStatus")}</TableHead>
-                    <TableHead />
+                    <TableHead><span className="sr-only">{t("common.actions")}</span></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -818,7 +818,7 @@ export default function ShippingOpsPage() {
               {shippingMethods.length > 0 ? (
                 <div>
                   <Label>{t("erp.shippingOps.defaultMethod")}</Label>
-                  <select
+                  <select aria-label={t("erp.shippingOps.defaultMethod")}
                     className="w-full border rounded-md h-10 px-3 bg-background"
                     value={scForm.defaultShippingMethodId}
                     onChange={(e) => {
@@ -862,7 +862,7 @@ export default function ShippingOpsPage() {
                 <p className="text-xs text-muted-foreground">{t("erp.shippingOps.webhookHint")}</p>
                 {scSettings?.webhookUrl ? (
                   <div className="flex gap-2 items-start">
-                    <Input readOnly value={scSettings.webhookUrl} className="font-mono text-xs" />
+                    <Input aria-label={t("erp.shippingOps.webhookTitle")} readOnly value={scSettings.webhookUrl} className="font-mono text-xs" />
                     <Button
                       type="button"
                       variant="outline"
@@ -948,7 +948,7 @@ export default function ShippingOpsPage() {
             </div>
             <div>
               <Label>{t("erp.weight")}</Label>
-              <Input
+              <Input aria-label={t("erp.weight")}
                 type="number"
                 step="0.01"
                 min={0.01}
@@ -959,7 +959,7 @@ export default function ShippingOpsPage() {
             {shippingMethods.length > 0 ? (
               <div>
                 <Label>{t("erp.shippingOps.shippingMethod")}</Label>
-                <select
+                <select aria-label={t("erp.shippingOps.shippingMethod")}
                   className="w-full border rounded-md h-10 px-3 bg-background"
                   value={labelForm.shippingMethodId}
                   onChange={(e) => setLabelForm({ ...labelForm, shippingMethodId: e.target.value })}
@@ -1007,7 +1007,7 @@ export default function ShippingOpsPage() {
           <div className="space-y-4">
             <div>
               <Label>{t("erp.warehouse.warehouses")}</Label>
-              <select
+              <select aria-label={t("erp.warehouse.warehouses")}
                 className="w-full border rounded-md h-10 px-3 bg-background"
                 value={fromWarehouseId}
                 onChange={(e) => setFromWarehouseId(e.target.value)}
@@ -1110,7 +1110,7 @@ export default function ShippingOpsPage() {
           <div className="space-y-3">
             <div>
               <Label>{t("erp.warehouse.warehouses")}</Label>
-              <select
+              <select aria-label={t("erp.warehouse.warehouses")}
                 className="w-full border rounded-md h-10 px-3 bg-background"
                 value={pickForm.warehouseId}
                 onChange={(e) => setPickForm({ ...pickForm, warehouseId: e.target.value })}
@@ -1125,7 +1125,7 @@ export default function ShippingOpsPage() {
             </div>
             <div>
               <Label>{t("erp.orderNumber")}</Label>
-              <Input
+              <Input aria-label={t("erp.orderNumber")}
                 value={pickForm.orderNumber}
                 onChange={(e) => setPickForm({ ...pickForm, orderNumber: e.target.value })}
               />
@@ -1140,7 +1140,7 @@ export default function ShippingOpsPage() {
             </div>
             <div>
               <Label>{t("erp.quantity")}</Label>
-              <Input
+              <Input aria-label={t("erp.quantity")}
                 type="number"
                 value={pickForm.quantity}
                 onChange={(e) => setPickForm({ ...pickForm, quantity: Number(e.target.value) })}

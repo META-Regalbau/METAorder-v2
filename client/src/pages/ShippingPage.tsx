@@ -243,7 +243,7 @@ export default function ShippingPage({ userRole = "employee", userPermissions }:
                     value={selectedChannelId}
                     onValueChange={setSelectedChannelId}
                   >
-                    <SelectTrigger data-testid="select-sales-channel">
+                    <SelectTrigger aria-label={t('salesChannel.filter')} data-testid="select-sales-channel">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -265,7 +265,7 @@ export default function ShippingPage({ userRole = "employee", userPermissions }:
                     value={equipmentFilter}
                     onValueChange={setEquipmentFilter}
                   >
-                    <SelectTrigger data-testid="select-equipment">
+                    <SelectTrigger aria-label={t('shipping.equipment')} data-testid="select-equipment">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -333,6 +333,7 @@ export default function ShippingPage({ userRole = "employee", userPermissions }:
                   <Checkbox
                     checked={selectedOrderIds.length === sortedOrders.length && sortedOrders.length > 0}
                     onCheckedChange={toggleAllOrders}
+                    aria-label={t('orders.selection.selectAll')}
                     data-testid="checkbox-select-all"
                   />
                 </TableHead>
@@ -394,6 +395,7 @@ export default function ShippingPage({ userRole = "employee", userPermissions }:
                     <Checkbox
                       checked={selectedOrderIds.includes(order.id)}
                       onCheckedChange={() => toggleOrderSelection(order.id)}
+                      aria-label={t('orders.selection.selectRow', { orderNumber: order.orderNumber })}
                       data-testid={`checkbox-${order.id}`}
                     />
                   </TableCell>

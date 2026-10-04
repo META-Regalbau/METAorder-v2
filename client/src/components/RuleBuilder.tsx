@@ -89,7 +89,7 @@ export default function RuleBuilder({
                         value={condition.operator}
                         onValueChange={(value) => updateSourceCondition(index, { operator: value as RuleConditionOperator })}
                       >
-                        <SelectTrigger data-testid={`select-source-operator-${index}`}>
+                        <SelectTrigger aria-label={t('ruleBuilder.operator')} data-testid={`select-source-operator-${index}`}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -118,7 +118,7 @@ export default function RuleBuilder({
                   </div>
                 </div>
 
-                <Button
+                <Button aria-label={t("common.remove")}
                   type="button"
                   variant="ghost"
                   size="icon"
@@ -174,7 +174,7 @@ export default function RuleBuilder({
                         value={criterion.matchType}
                         onValueChange={(value) => updateTargetCriterion(index, { matchType: value as 'exact' | 'contains' | 'sameDimensions' | 'sameProperty' })}
                       >
-                        <SelectTrigger data-testid={`select-target-matchtype-${index}`}>
+                        <SelectTrigger aria-label={t('ruleBuilder.matchType')} data-testid={`select-target-matchtype-${index}`}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -198,7 +198,7 @@ export default function RuleBuilder({
                   </div>
                 </div>
 
-                <Button
+                <Button aria-label={t("common.remove")}
                   type="button"
                   variant="ghost"
                   size="icon"

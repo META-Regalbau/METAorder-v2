@@ -304,7 +304,7 @@ export default function PriceCheckPage() {
               {importFile ? importFile.name : t("priceCheck.import.dropzoneSub")}
             </Button>
             {importFile ? (
-              <Button type="button" variant="ghost" size="icon" onClick={() => setImportFile(null)}>
+              <Button aria-label={t("common.remove")} type="button" variant="ghost" size="icon" onClick={() => setImportFile(null)}>
                 <X className="h-4 w-4" />
               </Button>
             ) : null}
@@ -416,7 +416,7 @@ export default function PriceCheckPage() {
                 setPage(1);
               }}
             >
-              <SelectTrigger data-testid="pricecheck-verdict">
+              <SelectTrigger aria-label={t("priceCheck.filters.verdict")} data-testid="pricecheck-verdict">
                 <SelectValue placeholder={t("priceCheck.filters.verdict")} />
               </SelectTrigger>
               <SelectContent>

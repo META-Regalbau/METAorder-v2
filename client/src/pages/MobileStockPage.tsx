@@ -233,7 +233,7 @@ export default function MobileStockPage() {
         <label className="text-xs text-muted-foreground shrink-0">
           {t("erp.warehouse.selectWarehouse")}
         </label>
-        <select
+        <select aria-label={t("erp.warehouse.selectWarehouse")}
           className="flex-1 border rounded-md h-10 px-2 bg-background text-sm"
           value={warehouseId}
           onChange={(e) => {
@@ -333,7 +333,7 @@ export default function MobileStockPage() {
             >
               <Minus className="h-6 w-6" />
             </Button>
-            <input
+            <input aria-label={t("erp.quantity")}
               type="number"
               inputMode="numeric"
               min={1}

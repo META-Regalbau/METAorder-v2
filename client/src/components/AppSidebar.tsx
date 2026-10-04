@@ -323,7 +323,8 @@ export default function AppSidebar({ userRole, permissions }: AppSidebarProps) {
 
   return (
     <Sidebar>
-      <SidebarContent>
+      {/* Navigation als Orientierungsbereich (Screenreader: "Navigation"), Version als eigener Bereich */}
+      <SidebarContent role="navigation" aria-label={t('nav.appTitle')}>
         <SidebarGroup>
           <SidebarGroupLabel>{t('nav.appTitle')}</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -361,7 +362,7 @@ export default function AppSidebar({ userRole, permissions }: AppSidebarProps) {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter role="region" aria-label={t('appVersion.regionLabel')}>
         <AppVersionLabel />
       </SidebarFooter>
     </Sidebar>

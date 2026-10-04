@@ -153,7 +153,7 @@ export default function TicketReplyComposer({
             }
           }}
         >
-          <SelectTrigger data-testid="select-template-comment">
+          <SelectTrigger aria-label={t("templates.useTemplate")} data-testid="select-template-comment">
             <SelectValue placeholder={t("templates.useTemplate")} />
           </SelectTrigger>
           <SelectContent>

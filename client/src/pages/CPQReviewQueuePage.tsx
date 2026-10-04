@@ -142,7 +142,7 @@ export default function CPQReviewQueuePage() {
                   setSelectedItemId(null);
                 }}
               >
-                <SelectTrigger>
+                <SelectTrigger aria-label="Status wählen">
                   <SelectValue placeholder="Status wählen" />
                 </SelectTrigger>
                 <SelectContent>
@@ -238,7 +238,7 @@ export default function CPQReviewQueuePage() {
                 <div className="space-y-2">
                   <Label>Zielstatus</Label>
                   <Select value={targetStatus} onValueChange={(value) => setTargetStatus(value as ReviewStatus)}>
-                    <SelectTrigger>
+                    <SelectTrigger aria-label="Zielstatus">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

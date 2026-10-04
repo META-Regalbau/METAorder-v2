@@ -882,11 +882,11 @@ export default function CPQAdminPage() {
               <div className="flex items-center gap-2 ml-auto">
                 <div>
                   <Label className="text-xs">Von</Label>
-                  <Input type="date" value={reportFrom} onChange={(e) => setReportFrom(e.target.value)} className="w-36" />
+                  <Input aria-label="Von" type="date" value={reportFrom} onChange={(e) => setReportFrom(e.target.value)} className="w-36" />
                 </div>
                 <div>
                   <Label className="text-xs">Bis</Label>
-                  <Input type="date" value={reportTo} onChange={(e) => setReportTo(e.target.value)} className="w-36" />
+                  <Input aria-label="Bis" type="date" value={reportTo} onChange={(e) => setReportTo(e.target.value)} className="w-36" />
                 </div>
               </div>
             </div>
@@ -1074,7 +1074,7 @@ export default function CPQAdminPage() {
                 <div>
                   <Label htmlFor="ruleType">Typ</Label>
                   <Select value={newRuleType} onValueChange={setNewRuleType}>
-                    <SelectTrigger>
+                    <SelectTrigger id="ruleType">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1144,12 +1144,12 @@ export default function CPQAdminPage() {
                   >
                     <div>
                       <Label>Name</Label>
-                      <Input name="editRuleName" defaultValue={editingRule.name} />
+                      <Input aria-label="Name" name="editRuleName" defaultValue={editingRule.name} />
                     </div>
                     <div>
                       <Label>Typ</Label>
                       <Select value={editRuleType} onValueChange={setEditRuleType}>
-                        <SelectTrigger>
+                        <SelectTrigger aria-label="Typ">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1172,7 +1172,7 @@ export default function CPQAdminPage() {
                     )}
                     <div>
                       <Label>Priorität</Label>
-                      <Input name="editPriority" type="number" defaultValue={editingRule.priority} />
+                      <Input aria-label="Priorität" name="editPriority" type="number" defaultValue={editingRule.priority} />
                     </div>
                     <div>
                       <Label>Nachricht (optional)</Label>
@@ -1408,7 +1408,7 @@ export default function CPQAdminPage() {
             <div>
               <Label htmlFor="ctRole">Rolle</Label>
               <Select value={newComponentTypeRole} onValueChange={setNewComponentTypeRole}>
-                <SelectTrigger>
+                <SelectTrigger id="ctRole">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1467,7 +1467,7 @@ export default function CPQAdminPage() {
             <div>
               <Label htmlFor="mappingComponentType">Komponententyp</Label>
               <Select value={newMappingComponentTypeId} onValueChange={setNewMappingComponentTypeId}>
-                <SelectTrigger>
+                <SelectTrigger aria-label="Komponententyp wählen">
                   <SelectValue placeholder="Komponententyp wählen" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1587,7 +1587,7 @@ export default function CPQAdminPage() {
             <div>
               <Label htmlFor="dlApproval">Freigabe erforderlich</Label>
               <Select value={discountLevelForm.approvalType} onValueChange={(v) => setDiscountLevelForm((f) => ({ ...f, approvalType: v }))}>
-                <SelectTrigger>
+                <SelectTrigger id="dlApproval">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

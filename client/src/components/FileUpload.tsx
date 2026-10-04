@@ -158,7 +158,7 @@ export function FileUpload({ onFilesSelected, maxFiles = 10, className, disabled
                 <span className="text-xs text-muted-foreground">
                   {(file.size / 1024).toFixed(1)} KB
                 </span>
-                <Button
+                <Button aria-label={t("common.remove")}
                   type="button"
                   variant="ghost"
                   size="icon"

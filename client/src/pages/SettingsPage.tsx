@@ -1408,7 +1408,7 @@ function GeneralTab() {
             <div className="grid gap-2">
               <Label className="text-sm font-medium">{t("settings.tenants.selectLabel")}</Label>
               <Select value={selectedTenantId || ""} onValueChange={setSelectedTenantId}>
-                <SelectTrigger data-testid="select-active-tenant">
+                <SelectTrigger aria-label={t("settings.tenants.selectLabel")} data-testid="select-active-tenant">
                   <SelectValue placeholder={t("settings.tenants.selectPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
@@ -1482,7 +1482,7 @@ function GeneralTab() {
               <div className="grid gap-3">
                 <div className="grid gap-2">
                   <Label className="text-sm font-medium">{t("settings.tenants.proformaPrefix")}</Label>
-                  <Input
+                  <Input aria-label={t("settings.tenants.proformaPrefix")}
                     value={proformaNumberRange.prefix}
                     onChange={(e) =>
                       setProformaNumberRange((prev) => ({ ...prev, prefix: e.target.value }))
@@ -1492,7 +1492,7 @@ function GeneralTab() {
                 </div>
                 <div className="grid gap-2">
                   <Label className="text-sm font-medium">{t("settings.tenants.proformaNextNumber")}</Label>
-                  <Input
+                  <Input aria-label={t("settings.tenants.proformaNextNumber")}
                     type="number"
                     min={1}
                     value={proformaNumberRange.nextNumber}
@@ -1508,7 +1508,7 @@ function GeneralTab() {
                 </div>
                 <div className="grid gap-2">
                   <Label className="text-sm font-medium">{t("settings.tenants.proformaPadding")}</Label>
-                  <Input
+                  <Input aria-label={t("settings.tenants.proformaPadding")}
                     type="number"
                     min={0}
                     max={12}
@@ -1547,7 +1547,7 @@ function GeneralTab() {
               <div className="grid gap-3">
                 <div className="grid gap-2">
                   <Label className="text-sm font-medium">{t("settings.tenants.crmProfitabilityMinMargin")}</Label>
-                  <Input
+                  <Input aria-label={t("settings.tenants.crmProfitabilityMinMargin")}
                     type="number"
                     min={0}
                     max={500}
@@ -1671,7 +1671,7 @@ function GeneralTab() {
                 )}
                 <div className="grid gap-2">
                   <Label className="text-sm font-medium">{t("settings.tenants.dunningDueDateField")}</Label>
-                  <Input
+                  <Input aria-label={t("settings.tenants.dunningDueDateField")}
                     value={dunningSettings.dueDateFieldKey}
                     onChange={(e) =>
                       setDunningSettings((prev) => ({ ...prev, dueDateFieldKey: e.target.value }))
@@ -1681,7 +1681,7 @@ function GeneralTab() {
                 </div>
                 <div className="grid gap-2">
                   <Label className="text-sm font-medium">{t("settings.tenants.dunningDocumentType")}</Label>
-                  <Input
+                  <Input aria-label={t("settings.tenants.dunningDocumentType")}
                     value={dunningSettings.documentTypeTechnicalName}
                     onChange={(e) =>
                       setDunningSettings((prev) => ({ ...prev, documentTypeTechnicalName: e.target.value }))
@@ -1704,7 +1704,7 @@ function GeneralTab() {
                   <Label className="text-sm font-medium">{t("settings.tenants.dunningStageDays")}</Label>
                   <div className="grid grid-cols-3 gap-2">
                     {dunningSettings.stageDays.map((value, index) => (
-                      <Input
+                      <Input aria-label={t("settings.tenants.dunningStageDays")}
                         key={`dunning-stage-${index}`}
                         type="number"
                         min={1}
@@ -1725,7 +1725,7 @@ function GeneralTab() {
                 </div>
                 <div className="grid gap-2">
                   <Label className="text-sm font-medium">{t("settings.tenants.dunningEmailSubject")}</Label>
-                  <Input
+                  <Input aria-label={t("settings.tenants.dunningEmailSubject")}
                     value={dunningSettings.emailSubjectTemplate}
                     onChange={(e) =>
                       setDunningSettings((prev) => ({ ...prev, emailSubjectTemplate: e.target.value }))
@@ -1735,7 +1735,7 @@ function GeneralTab() {
                 </div>
                 <div className="grid gap-2">
                   <Label className="text-sm font-medium">{t("settings.tenants.dunningEmailBody")}</Label>
-                  <Textarea
+                  <Textarea aria-label={t("settings.tenants.dunningEmailBody")}
                     value={dunningSettings.emailBodyTemplate}
                     onChange={(e) =>
                       setDunningSettings((prev) => ({ ...prev, emailBodyTemplate: e.target.value }))
@@ -1767,7 +1767,7 @@ function GeneralTab() {
         <div className="space-y-4">
           <div>
             <Label className="text-sm font-medium mb-2">Default Items Per Page</Label>
-            <Input
+            <Input aria-label="Default Items Per Page"
               type="number"
               defaultValue="25"
               min="10"
@@ -1836,6 +1836,8 @@ function ShopwareTab() {
                 size="icon"
                 className="absolute right-0 top-0 h-full"
                 onClick={() => setShowSecret(!showSecret)}
+                aria-label={showSecret ? t("common.hideValue") : t("common.showValue")}
+                aria-pressed={showSecret}
                 data-testid="button-toggle-secret-visibility"
               >
                 {showSecret ? (
@@ -1897,7 +1899,7 @@ function ShopwareTab() {
                     value={offerStatusMapping?.[key]?.id || "__unmapped__"}
                     onValueChange={(value) => updateOfferStatusMapping(key, value)}
                   >
-                    <SelectTrigger data-testid={`select-b2b-status-${key}`}>
+                    <SelectTrigger aria-label={t("settings.b2bOfferStatus.unmapped")} data-testid={`select-b2b-status-${key}`}>
                       <SelectValue placeholder={t("settings.b2bOfferStatus.unmapped")} />
                     </SelectTrigger>
                     <SelectContent>
@@ -1960,7 +1962,7 @@ function ShopwareTab() {
                   <Label className="text-xs font-medium">
                     {t(`settings.b2bEntityMapping.fields.${key}`)}
                   </Label>
-                  <Input
+                  <Input aria-label={t(`settings.b2bEntityMapping.fields.${key}`)}
                     value={b2bEntityMapping[key]}
                     onChange={(e) =>
                       setB2bEntityMapping((prev) =>
@@ -2020,7 +2022,7 @@ function OffersTab() {
           <div className="space-y-6">
             <div className="space-y-2">
               <Label className="text-sm font-medium">{t("settings.offerConfigPdf.introLabel")}</Label>
-              <Textarea
+              <Textarea aria-label={t("settings.offerConfigPdf.introLabel")}
                 value={offerConfigPdfForm.introTemplate}
                 onChange={(e) =>
                   setOfferConfigPdfForm((prev) =>
@@ -2035,7 +2037,7 @@ function OffersTab() {
 
             <div className="space-y-2">
               <Label className="text-sm font-medium">{t("settings.offerConfigPdf.systemInfoTitleLabel")}</Label>
-              <Input
+              <Input aria-label={t("settings.offerConfigPdf.systemInfoTitleLabel")}
                 value={offerConfigPdfForm.systemInfoTitle}
                 onChange={(e) =>
                   setOfferConfigPdfForm((prev) =>
@@ -2054,7 +2056,7 @@ function OffersTab() {
                   <Label className="text-sm text-muted-foreground">
                     {t(`settings.offerConfigPdf.systemKeys.${key}`)}
                   </Label>
-                  <Textarea
+                  <Textarea aria-label={t(`settings.offerConfigPdf.systemKeys.${key}`)}
                     value={offerConfigPdfForm.systemInfoByKey[key] ?? ""}
                     onChange={(e) =>
                       setOfferConfigPdfForm((prev) =>
@@ -2079,7 +2081,7 @@ function OffersTab() {
 
             <div className="space-y-2">
               <Label className="text-sm font-medium">{t("settings.offerConfigPdf.standardTitleLabel")}</Label>
-              <Input
+              <Input aria-label={t("settings.offerConfigPdf.standardTitleLabel")}
                 value={offerConfigPdfForm.standardClosingTitle}
                 onChange={(e) =>
                   setOfferConfigPdfForm((prev) =>
@@ -2093,7 +2095,7 @@ function OffersTab() {
 
             <div className="space-y-2">
               <Label className="text-sm font-medium">{t("settings.offerConfigPdf.standardBodyLabel")}</Label>
-              <Textarea
+              <Textarea aria-label={t("settings.offerConfigPdf.standardBodyLabel")}
                 value={offerConfigPdfForm.standardClosing}
                 onChange={(e) =>
                   setOfferConfigPdfForm((prev) =>
@@ -2163,7 +2165,7 @@ function TicketsTab() {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label className="text-sm font-medium">{t("tickets.priorityLow")}</Label>
-                <Input
+                <Input aria-label={t("tickets.priorityLow")}
                   type="number"
                   min={0}
                   max={365}
@@ -2174,7 +2176,7 @@ function TicketsTab() {
               </div>
               <div className="space-y-2">
                 <Label className="text-sm font-medium">{t("tickets.priorityNormal")}</Label>
-                <Input
+                <Input aria-label={t("tickets.priorityNormal")}
                   type="number"
                   min={0}
                   max={365}
@@ -2185,7 +2187,7 @@ function TicketsTab() {
               </div>
               <div className="space-y-2">
                 <Label className="text-sm font-medium">{t("tickets.priorityHigh")}</Label>
-                <Input
+                <Input aria-label={t("tickets.priorityHigh")}
                   type="number"
                   min={0}
                   max={365}
@@ -2196,7 +2198,7 @@ function TicketsTab() {
               </div>
               <div className="space-y-2">
                 <Label className="text-sm font-medium">{t("tickets.priorityUrgent")}</Label>
-                <Input
+                <Input aria-label={t("tickets.priorityUrgent")}
                   type="number"
                   min={0}
                   max={365}
@@ -2254,7 +2256,7 @@ function EmailTab() {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label className="text-sm font-medium">{t("settings.m365.clientId")}</Label>
-                <Input
+                <Input aria-label={t("settings.m365.clientId")}
                   value={m365Settings.clientId}
                   onChange={(e) => setM365Settings({ ...m365Settings, clientId: e.target.value })}
                 />
@@ -2265,7 +2267,7 @@ function EmailTab() {
                   value={m365Settings.authFlow || "auth_code"}
                   onValueChange={(value) => setM365Settings({ ...m365Settings, authFlow: value as M365Settings["authFlow"] })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger aria-label={t("settings.m365.authFlow")}>
                     <SelectValue placeholder={t("settings.m365.authFlowPlaceholder")} />
                   </SelectTrigger>
                   <SelectContent>
@@ -2287,7 +2289,7 @@ function EmailTab() {
                   </div>
                   <div className="space-y-2 sm:col-span-2">
                     <Label className="text-sm font-medium">{t("settings.m365.redirectUri")}</Label>
-                    <Input
+                    <Input aria-label={t("settings.m365.redirectUri")}
                       value={m365Settings.redirectUri}
                       onChange={(e) => setM365Settings({ ...m365Settings, redirectUri: e.target.value })}
                     />
@@ -2454,14 +2456,14 @@ function EmailTab() {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label className="text-sm font-medium">{t("settings.emailInbound.host")}</Label>
-                <Input
+                <Input aria-label={t("settings.emailInbound.host")}
                   value={emailInboundSettings.host}
                   onChange={(e) => setEmailInboundSettings({ ...emailInboundSettings, host: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
                 <Label className="text-sm font-medium">{t("settings.emailInbound.port")}</Label>
-                <Input
+                <Input aria-label={t("settings.emailInbound.port")}
                   type="number"
                   min={1}
                   max={65535}
@@ -2471,7 +2473,7 @@ function EmailTab() {
               </div>
               <div className="space-y-2">
                 <Label className="text-sm font-medium">{t("settings.emailInbound.user")}</Label>
-                <Input
+                <Input aria-label={t("settings.emailInbound.user")}
                   value={emailInboundSettings.user}
                   onChange={(e) => setEmailInboundSettings({ ...emailInboundSettings, user: e.target.value })}
                 />
@@ -2487,14 +2489,14 @@ function EmailTab() {
               </div>
               <div className="space-y-2">
                 <Label className="text-sm font-medium">{t("settings.emailInbound.mailbox")}</Label>
-                <Input
+                <Input aria-label={t("settings.emailInbound.mailbox")}
                   value={emailInboundSettings.mailbox}
                   onChange={(e) => setEmailInboundSettings({ ...emailInboundSettings, mailbox: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
                 <Label className="text-sm font-medium">{t("settings.emailInbound.pollInterval")}</Label>
-                <Input
+                <Input aria-label={t("settings.emailInbound.pollInterval")}
                   type="number"
                   min={10}
                   max={3600}
@@ -2509,7 +2511,7 @@ function EmailTab() {
               </div>
               <div className="space-y-2">
                 <Label className="text-sm font-medium">{t("settings.emailInbound.maxMessages")}</Label>
-                <Input
+                <Input aria-label={t("settings.emailInbound.maxMessages")}
                   type="number"
                   min={1}
                   max={200}
@@ -2596,7 +2598,7 @@ function EmailTab() {
                     })
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger aria-label={t("settings.emailOutbound.m365Connection")}>
                     <SelectValue placeholder={t("settings.emailOutbound.m365ConnectionPlaceholder")} />
                   </SelectTrigger>
                   <SelectContent>
@@ -2611,14 +2613,14 @@ function EmailTab() {
               </div>
               <div className="space-y-2">
                 <Label className="text-sm font-medium">{t("settings.emailOutbound.host")}</Label>
-                <Input
+                <Input aria-label={t("settings.emailOutbound.host")}
                   value={emailOutboundSettings.host}
                   onChange={(e) => setEmailOutboundSettings({ ...emailOutboundSettings, host: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
                 <Label className="text-sm font-medium">{t("settings.emailOutbound.port")}</Label>
-                <Input
+                <Input aria-label={t("settings.emailOutbound.port")}
                   type="number"
                   min={1}
                   max={65535}
@@ -2628,7 +2630,7 @@ function EmailTab() {
               </div>
               <div className="space-y-2">
                 <Label className="text-sm font-medium">{t("settings.emailOutbound.user")}</Label>
-                <Input
+                <Input aria-label={t("settings.emailOutbound.user")}
                   value={emailOutboundSettings.user}
                   onChange={(e) => setEmailOutboundSettings({ ...emailOutboundSettings, user: e.target.value })}
                 />
@@ -2644,21 +2646,21 @@ function EmailTab() {
               </div>
               <div className="space-y-2">
                 <Label className="text-sm font-medium">{t("settings.emailOutbound.fromAddress")}</Label>
-                <Input
+                <Input aria-label={t("settings.emailOutbound.fromAddress")}
                   value={emailOutboundSettings.fromAddress}
                   onChange={(e) => setEmailOutboundSettings({ ...emailOutboundSettings, fromAddress: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
                 <Label className="text-sm font-medium">{t("settings.emailOutbound.fromName")}</Label>
-                <Input
+                <Input aria-label={t("settings.emailOutbound.fromName")}
                   value={emailOutboundSettings.fromName || ""}
                   onChange={(e) => setEmailOutboundSettings({ ...emailOutboundSettings, fromName: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
                 <Label className="text-sm font-medium">{t("settings.emailOutbound.replyTo")}</Label>
-                <Input
+                <Input aria-label={t("settings.emailOutbound.replyTo")}
                   value={emailOutboundSettings.replyTo || ""}
                   onChange={(e) => setEmailOutboundSettings({ ...emailOutboundSettings, replyTo: e.target.value })}
                 />
@@ -2714,7 +2716,7 @@ function EmailTab() {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label className="text-sm font-medium">{t("settings.emailRouting.threshold")}</Label>
-                <Input
+                <Input aria-label={t("settings.emailRouting.threshold")}
                   type="number"
                   min={0}
                   max={1}
@@ -2730,7 +2732,7 @@ function EmailTab() {
               </div>
               <div className="space-y-2">
                 <Label className="text-sm font-medium">{t("settings.emailRouting.defaultSkill")}</Label>
-                <Input
+                <Input aria-label={t("settings.emailRouting.defaultSkill")}
                   value={emailRoutingSettings.defaultSkill || ""}
                   onChange={(e) =>
                     setEmailRoutingSettings({ ...emailRoutingSettings, defaultSkill: e.target.value })
@@ -2745,7 +2747,7 @@ function EmailTab() {
                     setEmailRoutingSettings({ ...emailRoutingSettings, defaultCategory: value as TicketCategory })
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger aria-label={t("settings.emailRouting.defaultCategory")}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -2765,7 +2767,7 @@ function EmailTab() {
                     setEmailRoutingSettings({ ...emailRoutingSettings, defaultPriority: value as TicketPriority })
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger aria-label={t("settings.emailRouting.defaultPriority")}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -2795,7 +2797,7 @@ function EmailTab() {
                     <div className="grid gap-2 sm:grid-cols-2">
                       <div className="space-y-1">
                         <Label className="text-xs">{t("settings.emailRouting.pattern")}</Label>
-                        <Input
+                        <Input aria-label={t("settings.emailRouting.pattern")}
                           value={rule.pattern}
                           onChange={(e) => updateRoutingRule(index, { pattern: e.target.value })}
                         />
@@ -2806,7 +2808,7 @@ function EmailTab() {
                           value={rule.target}
                           onValueChange={(value) => updateRoutingRule(index, { target: value as EmailRoutingRule["target"] })}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger aria-label={t("settings.emailRouting.target")}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -2824,7 +2826,7 @@ function EmailTab() {
                           value={rule.category || ""}
                           onValueChange={(value) => updateRoutingRule(index, { category: value as TicketCategory })}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger aria-label={t("settings.emailRouting.ruleCategory")}>
                             <SelectValue placeholder={t("settings.emailRouting.optional")} />
                           </SelectTrigger>
                           <SelectContent>
@@ -2842,7 +2844,7 @@ function EmailTab() {
                           value={rule.priority || ""}
                           onValueChange={(value) => updateRoutingRule(index, { priority: value as TicketPriority })}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger aria-label={t("settings.emailRouting.rulePriority")}>
                             <SelectValue placeholder={t("settings.emailRouting.optional")} />
                           </SelectTrigger>
                           <SelectContent>
@@ -2856,7 +2858,7 @@ function EmailTab() {
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">{t("settings.emailRouting.ruleSkill")}</Label>
-                        <Input
+                        <Input aria-label={t("settings.emailRouting.ruleSkill")}
                           value={rule.skill || ""}
                           onChange={(e) => updateRoutingRule(index, { skill: e.target.value })}
                         />
@@ -3021,7 +3023,7 @@ function MarketingTab() {
               </div>
               <div className="space-y-2">
                 <Label className="text-sm font-medium">{t("settings.googleAds.loginCustomerId")}</Label>
-                <Input
+                <Input aria-label={t("settings.googleAds.loginCustomerId")}
                   value={adsSettings.loginCustomerId || ""}
                   onChange={(e) => setAdsSettings({ ...adsSettings, loginCustomerId: e.target.value })}
                 />
@@ -3078,7 +3080,7 @@ function AiTab() {
               value={chatProvider}
               onValueChange={(v) => setChatProvider(v as "openai" | "anthropic" | "google")}
             >
-              <SelectTrigger data-testid="select-chat-llm-provider">
+              <SelectTrigger aria-label={t("ai.chatProvider")} data-testid="select-chat-llm-provider">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -3110,6 +3112,8 @@ function AiTab() {
                   size="icon"
                   className="absolute right-0 top-0 h-full"
                   onClick={() => setShowAnthropicKey(!showAnthropicKey)}
+                  aria-label={showAnthropicKey ? t("common.hideValue") : t("common.showValue")}
+                  aria-pressed={showAnthropicKey}
                   data-testid="button-toggle-anthropic-key-visibility"
                 >
                   {showAnthropicKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -3139,6 +3143,8 @@ function AiTab() {
                   size="icon"
                   className="absolute right-0 top-0 h-full"
                   onClick={() => setShowGeminiKey(!showGeminiKey)}
+                  aria-label={showGeminiKey ? t("common.hideValue") : t("common.showValue")}
+                  aria-pressed={showGeminiKey}
                   data-testid="button-toggle-gemini-key-visibility"
                 >
                   {showGeminiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -3165,6 +3171,8 @@ function AiTab() {
                 size="icon"
                 className="absolute right-0 top-0 h-full"
                 onClick={() => setShowOpenaiKey(!showOpenaiKey)}
+                aria-label={showOpenaiKey ? t("common.hideValue") : t("common.showValue")}
+                aria-pressed={showOpenaiKey}
                 data-testid="button-toggle-openai-key-visibility"
               >
                 {showOpenaiKey ? (
@@ -3231,7 +3239,7 @@ function AiTab() {
                     setSmartProvider(v === "inherit" ? "" : (v as "openai" | "anthropic" | "google"))
                   }
                 >
-                  <SelectTrigger data-testid="select-smart-provider">
+                  <SelectTrigger aria-label={t("ai.smartProvider")} data-testid="select-smart-provider">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -3402,7 +3410,7 @@ function AiTab() {
             <div className="space-y-1">
               <Label className="text-xs">{t("settings.commercialAgent.customerMatchAutoMin")}</Label>
               <p className="text-xs text-muted-foreground">{t("settings.commercialAgent.customerMatchAutoMinDesc")}</p>
-              <Input
+              <Input aria-label={t("settings.commercialAgent.customerMatchAutoMin")}
                 type="number"
                 min={0}
                 max={100}
@@ -3419,7 +3427,7 @@ function AiTab() {
             <div className="space-y-1">
               <Label className="text-xs">{t("settings.commercialAgent.customerAutoCreateMin")}</Label>
               <p className="text-xs text-muted-foreground">{t("settings.commercialAgent.customerAutoCreateMinDesc")}</p>
-              <Input
+              <Input aria-label={t("settings.commercialAgent.customerAutoCreateMin")}
                 type="number"
                 min={0}
                 max={100}
@@ -3436,7 +3444,7 @@ function AiTab() {
             <div className="space-y-1">
               <Label className="text-xs">{t("settings.commercialAgent.minRankedEmailScore")}</Label>
               <p className="text-xs text-muted-foreground">{t("settings.commercialAgent.minRankedEmailScoreDesc")}</p>
-              <Input
+              <Input aria-label={t("settings.commercialAgent.minRankedEmailScore")}
                 type="number"
                 min={0}
                 max={200}
@@ -3473,7 +3481,7 @@ function AiTab() {
 
           <div className="space-y-1">
             <Label className="text-xs">{t("settings.commercialAgent.exemplarsMax")}</Label>
-            <Input
+            <Input aria-label={t("settings.commercialAgent.exemplarsMax")}
               type="number"
               min={1}
               max={12}
@@ -3497,7 +3505,7 @@ function AiTab() {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1">
               <Label className="text-xs">{t("settings.commercialAgent.minIntent")}</Label>
-              <Input
+              <Input aria-label={t("settings.commercialAgent.minIntent")}
                 type="number"
                 step="0.05"
                 min={0}
@@ -3513,7 +3521,7 @@ function AiTab() {
             </div>
             <div className="space-y-1">
               <Label className="text-xs">{t("settings.commercialAgent.minMatch")}</Label>
-              <Input
+              <Input aria-label={t("settings.commercialAgent.minMatch")}
                 type="number"
                 step={1}
                 min={0}
@@ -3575,7 +3583,7 @@ function AiTab() {
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-1">
               <Label className="text-xs">{t("settings.semanticRanking.vectorWeight")}</Label>
-              <Input
+              <Input aria-label={t("settings.semanticRanking.vectorWeight")}
                 type="number"
                 step="0.01"
                 min="0"
@@ -3588,7 +3596,7 @@ function AiTab() {
             </div>
             <div className="space-y-1">
               <Label className="text-xs">{t("settings.semanticRanking.textWeight")}</Label>
-              <Input
+              <Input aria-label={t("settings.semanticRanking.textWeight")}
                 type="number"
                 step="0.01"
                 min="0"
@@ -3601,7 +3609,7 @@ function AiTab() {
             </div>
             <div className="space-y-1">
               <Label className="text-xs">{t("settings.semanticRanking.metadataWeight")}</Label>
-              <Input
+              <Input aria-label={t("settings.semanticRanking.metadataWeight")}
                 type="number"
                 step="0.01"
                 min="0"
@@ -3614,7 +3622,7 @@ function AiTab() {
             </div>
             <div className="space-y-1">
               <Label className="text-xs">{t("settings.semanticRanking.feedbackWeight")}</Label>
-              <Input
+              <Input aria-label={t("settings.semanticRanking.feedbackWeight")}
                 type="number"
                 step="0.01"
                 min="0"
@@ -3629,7 +3637,7 @@ function AiTab() {
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-1">
               <Label className="text-xs">{t("settings.semanticRanking.metadataExactBoost")}</Label>
-              <Input
+              <Input aria-label={t("settings.semanticRanking.metadataExactBoost")}
                 type="number"
                 step="0.01"
                 min="0"
@@ -3642,7 +3650,7 @@ function AiTab() {
             </div>
             <div className="space-y-1">
               <Label className="text-xs">{t("settings.semanticRanking.metadataPartialBoost")}</Label>
-              <Input
+              <Input aria-label={t("settings.semanticRanking.metadataPartialBoost")}
                 type="number"
                 step="0.01"
                 min="0"
@@ -3655,7 +3663,7 @@ function AiTab() {
             </div>
             <div className="space-y-1">
               <Label className="text-xs">{t("settings.semanticRanking.titleTokenBoost")}</Label>
-              <Input
+              <Input aria-label={t("settings.semanticRanking.titleTokenBoost")}
                 type="number"
                 step="0.01"
                 min="0"

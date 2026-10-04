@@ -672,6 +672,7 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
             <input
               className="minput"
               placeholder={t('offers.filter.searchPlaceholder')}
+              aria-label={t('offers.filter.searchPlaceholder')}
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
               data-testid="input-search-offers"
@@ -682,6 +683,7 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
             className="minput"
             style={{ maxWidth: 240 }}
             placeholder={t('offers.filter.customerPlaceholder')}
+            aria-label={t('offers.filter.customerPlaceholder')}
             value={customerFilter}
             onChange={(e) => setCustomerFilter(e.target.value)}
             data-testid="input-customer-filter"
@@ -693,6 +695,7 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
             style={{ maxWidth: 160 }}
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
+            aria-label={t('filters.dateFrom')}
             data-testid="input-date-from"
           />
 
@@ -702,6 +705,7 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
             style={{ maxWidth: 160 }}
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
+            aria-label={t('filters.dateTo')}
             data-testid="input-date-to"
           />
 
@@ -710,6 +714,7 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
             style={{ maxWidth: 200 }}
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as OfferStatus | "all")}
+            aria-label={t('offers.filter.status')}
             data-testid="select-status-filter"
           >
             <option value="all">{t('offers.filter.allStatuses')}</option>

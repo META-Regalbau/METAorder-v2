@@ -325,7 +325,7 @@ export function PrintLocationLabelDialog({ locations, open, onOpenChange }: Prop
                 </p>
               ) : printers.length > 0 ? (
                 <Select value={selectedUid} onValueChange={setSelectedUid}>
-                  <SelectTrigger>
+                  <SelectTrigger aria-label={t("productLabels.selectPrinter")}>
                     <SelectValue placeholder={t("productLabels.selectPrinter")} />
                   </SelectTrigger>
                   <SelectContent>

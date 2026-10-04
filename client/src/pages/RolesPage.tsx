@@ -261,7 +261,7 @@ export default function RolesPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button
+                      <Button aria-label={t("common.edit")}
                         variant="ghost"
                         size="icon"
                         onClick={() => handleEditClick(role)}
@@ -269,7 +269,7 @@ export default function RolesPage() {
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button
+                      <Button aria-label={t("common.delete")}
                         variant="ghost"
                         size="icon"
                         onClick={() => setDeletingRole(role)}

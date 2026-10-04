@@ -72,7 +72,7 @@ export default function PaginationControls({
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">{t('common.show')}</span>
           <Select value={itemsPerPage} onValueChange={onItemsPerPageChange}>
-            <SelectTrigger className="w-20" data-testid="select-items-per-page">
+            <SelectTrigger aria-label={t('common.itemsPerPage')} className="w-20" data-testid="select-items-per-page">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

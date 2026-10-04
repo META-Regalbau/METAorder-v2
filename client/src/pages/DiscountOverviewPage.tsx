@@ -179,7 +179,7 @@ export default function DiscountOverviewPage() {
               data-testid="discount-search"
             />
             <Select value={only} onValueChange={setOnly}>
-              <SelectTrigger className="w-[230px]">
+              <SelectTrigger aria-label={t("common.filter")} className="w-[230px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -203,7 +203,7 @@ export default function DiscountOverviewPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-8" />
+                  <TableHead className="w-8"><span className="sr-only">{t("common.actions")}</span></TableHead>
                   <TableHead>{t("discounts.col.customer")}</TableHead>
                   <TableHead className="text-right">{t("discounts.col.standard")}</TableHead>
                   <TableHead className="text-right">{t("discounts.col.individualCount")}</TableHead>

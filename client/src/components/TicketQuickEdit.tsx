@@ -141,7 +141,7 @@ export default function TicketQuickEdit({ canManageTickets, canViewTickets }: Ti
         />
         <div className="flex items-center gap-2">
           <Select value={scope} onValueChange={(value) => setScope(value as ScopeFilter)}>
-            <SelectTrigger data-testid="select-quick-scope">
+            <SelectTrigger aria-label={t("tickets.quickEdit.scope")} data-testid="select-quick-scope">
               <SelectValue placeholder={t("tickets.quickEdit.scope")} />
             </SelectTrigger>
             <SelectContent>
@@ -152,7 +152,7 @@ export default function TicketQuickEdit({ canManageTickets, canViewTickets }: Ti
           </Select>
           {scope === "user" && canManageTickets && (
             <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-              <SelectTrigger data-testid="select-quick-user">
+              <SelectTrigger aria-label={t("tickets.quickEdit.selectUser")} data-testid="select-quick-user">
                 <SelectValue placeholder={t("tickets.quickEdit.selectUser")} />
               </SelectTrigger>
               <SelectContent>
@@ -230,7 +230,7 @@ export default function TicketQuickEdit({ canManageTickets, canViewTickets }: Ti
                 onValueChange={(value) => updateTicketMutation.mutate({ status: value })}
                 disabled={!canManageTickets || updateTicketMutation.isPending}
               >
-                <SelectTrigger data-testid="select-quick-status">
+                <SelectTrigger aria-label={t("tickets.quickEdit.statusChange")} data-testid="select-quick-status">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

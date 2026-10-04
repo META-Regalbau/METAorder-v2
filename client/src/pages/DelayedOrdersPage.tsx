@@ -470,7 +470,7 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
         </div>
 
         <Select value={daysThreshold} onValueChange={setDaysThreshold}>
-          <SelectTrigger className="w-[180px]" data-testid="select-days-threshold">
+          <SelectTrigger aria-label={t('delayedOrders.daysDelayed')} className="w-[180px]" data-testid="select-days-threshold">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -729,7 +729,7 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
               setItemsPerPage(value);
               setCurrentPage(1);
             }}>
-              <SelectTrigger className="w-[70px]" data-testid="select-items-per-page">
+              <SelectTrigger aria-label={t('common.rowsPerPage')} className="w-[70px]" data-testid="select-items-per-page">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

@@ -467,7 +467,7 @@ export function RuleBuilderDialog({ isOpen, onClose, editingRule }: RuleBuilderD
                     <Card key={index} className="p-3">
                       <div className="flex flex-wrap items-center gap-2">
                         <Select value={availableFields.includes(condition.field) ? condition.field : undefined} onValueChange={(v) => updateCondition(index, { field: v })}>
-                          <SelectTrigger className="w-56" data-testid={`select-condition-field-${index}`}>
+                          <SelectTrigger aria-label={t("automation.form.conditionField")} className="w-56" data-testid={`select-condition-field-${index}`}>
                             <SelectValue placeholder={condition.field || t("automation.form.conditionField")} />
                           </SelectTrigger>
                           <SelectContent>
@@ -475,21 +475,21 @@ export function RuleBuilderDialog({ isOpen, onClose, editingRule }: RuleBuilderD
                           </SelectContent>
                         </Select>
                         <Select value={condition.operator} onValueChange={(v) => updateCondition(index, { operator: v })}>
-                          <SelectTrigger className="w-40" data-testid={`select-condition-operator-${index}`}><SelectValue /></SelectTrigger>
+                          <SelectTrigger aria-label={t("automation.form.conditionOperator")} className="w-40" data-testid={`select-condition-operator-${index}`}><SelectValue /></SelectTrigger>
                           <SelectContent>
                             {(def ? OPERATORS_BY_FIELD_TYPE[def.type] : []).map((op) => <SelectItem key={op} value={op}>{t(`automation.operators.${op}`)}</SelectItem>)}
                           </SelectContent>
                         </Select>
                         {def?.type === "enum" ? (
                           <Select value={String(condition.value)} onValueChange={(v) => updateCondition(index, { value: v })}>
-                            <SelectTrigger className="w-48" data-testid={`select-condition-value-${index}`}><SelectValue /></SelectTrigger>
+                            <SelectTrigger aria-label={t("automation.form.conditionValue")} className="w-48" data-testid={`select-condition-value-${index}`}><SelectValue /></SelectTrigger>
                             <SelectContent>
                               {def.options!.map((o) => <SelectItem key={o} value={o}>{valueLabel(condition.field, o)}</SelectItem>)}
                             </SelectContent>
                           </Select>
                         ) : def?.type === "boolean" ? (
                           <Select value={String(condition.value)} onValueChange={(v) => updateCondition(index, { value: v === "true" })}>
-                            <SelectTrigger className="w-32" data-testid={`select-condition-value-${index}`}><SelectValue /></SelectTrigger>
+                            <SelectTrigger aria-label={t("automation.form.conditionValue")} className="w-32" data-testid={`select-condition-value-${index}`}><SelectValue /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="true">{t("automation.values.yes")}</SelectItem>
                               <SelectItem value="false">{t("automation.values.no")}</SelectItem>
@@ -505,7 +505,7 @@ export function RuleBuilderDialog({ isOpen, onClose, editingRule }: RuleBuilderD
                             data-testid={`input-condition-value-${index}`}
                           />
                         )}
-                        <Button size="icon" variant="ghost" onClick={() => setConditions(conditions.filter((_, i) => i !== index))} data-testid={`button-remove-condition-${index}`}>
+                        <Button aria-label={t("common.remove")} size="icon" variant="ghost" onClick={() => setConditions(conditions.filter((_, i) => i !== index))} data-testid={`button-remove-condition-${index}`}>
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
@@ -534,7 +534,7 @@ export function RuleBuilderDialog({ isOpen, onClose, editingRule }: RuleBuilderD
                       <div className="flex items-start gap-2">
                         <div className="flex-1 space-y-3">
                           <Select value={action.type} onValueChange={(v) => updateAction(index, { type: v, params: defaultParams(v as AutomationActionTypeId) })}>
-                            <SelectTrigger data-testid={`select-action-type-${index}`}><SelectValue /></SelectTrigger>
+                            <SelectTrigger aria-label={t("automation.form.actionType")} data-testid={`select-action-type-${index}`}><SelectValue /></SelectTrigger>
                             <SelectContent>
                               {AUTOMATION_ACTION_TYPES.map((type) => {
                                 const a = AUTOMATION_ACTIONS[type];
@@ -553,7 +553,7 @@ export function RuleBuilderDialog({ isOpen, onClose, editingRule }: RuleBuilderD
                             <p className="text-xs text-muted-foreground break-words">{t("automation.form.placeholders")}: <span className="font-mono">{placeholderHint}</span></p>
                           )}
                         </div>
-                        <Button size="icon" variant="ghost" onClick={() => setActions(actions.filter((_, i) => i !== index))} data-testid={`button-remove-action-${index}`}>
+                        <Button aria-label={t("common.remove")} size="icon" variant="ghost" onClick={() => setActions(actions.filter((_, i) => i !== index))} data-testid={`button-remove-action-${index}`}>
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>

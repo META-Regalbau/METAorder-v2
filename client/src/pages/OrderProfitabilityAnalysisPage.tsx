@@ -273,7 +273,7 @@ export default function OrderProfitabilityAnalysisPage() {
               value={statusFilter}
               onValueChange={(v) => setStatusFilter(v as OrderStatus | "all")}
             >
-              <SelectTrigger>
+              <SelectTrigger aria-label={t("orderProfitabilityAnalysis.filters.status")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -389,6 +389,7 @@ export default function OrderProfitabilityAnalysisPage() {
                           <Cell
                             key={entry.key}
                             fill={PIE_COLORS[entry.key as keyof typeof PIE_COLORS]}
+                            aria-label={`${entry.name}: ${entry.value}`}
                           />
                         ))}
                       </Pie>
@@ -443,7 +444,7 @@ export default function OrderProfitabilityAnalysisPage() {
                 <CardTitle>{t("orderProfitabilityAnalysis.worstTitle")}</CardTitle>
                 <CardDescription>{t("orderProfitabilityAnalysis.worstHint")}</CardDescription>
               </CardHeader>
-              <CardContent className="overflow-x-auto">
+              <CardContent className="overflow-x-auto" tabIndex={0}>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -467,7 +468,7 @@ export default function OrderProfitabilityAnalysisPage() {
                 <CardTitle>{t("orderProfitabilityAnalysis.bestTitle")}</CardTitle>
                 <CardDescription>{t("orderProfitabilityAnalysis.bestHint")}</CardDescription>
               </CardHeader>
-              <CardContent className="overflow-x-auto">
+              <CardContent className="overflow-x-auto" tabIndex={0}>
                 <Table>
                   <TableHeader>
                     <TableRow>

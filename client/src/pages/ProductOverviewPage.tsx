@@ -18,7 +18,8 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Badge, badgeVariants } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -580,7 +581,7 @@ export default function ProductOverviewPage() {
                 setPage(1);
               }}
             >
-              <SelectTrigger data-testid="overview-channel">
+              <SelectTrigger aria-label={t("productOverview.filters.salesChannel")} data-testid="overview-channel">
                 <SelectValue placeholder={t("productOverview.filters.salesChannel")} />
               </SelectTrigger>
               <SelectContent>
@@ -601,7 +602,7 @@ export default function ProductOverviewPage() {
                 setPage(1);
               }}
             >
-              <SelectTrigger data-testid="overview-visibility">
+              <SelectTrigger aria-label={t("productOverview.filters.visibility")} data-testid="overview-visibility">
                 <SelectValue placeholder={t("productOverview.filters.visibility")} />
               </SelectTrigger>
               <SelectContent>
@@ -621,7 +622,7 @@ export default function ProductOverviewPage() {
                 setPage(1);
               }}
             >
-              <SelectTrigger data-testid="overview-category">
+              <SelectTrigger aria-label={t("productOverview.filters.category")} data-testid="overview-category">
                 <SelectValue placeholder={t("productOverview.filters.category")} />
               </SelectTrigger>
               <SelectContent>
@@ -641,7 +642,7 @@ export default function ProductOverviewPage() {
                 setPage(1);
               }}
             >
-              <SelectTrigger data-testid="overview-tag">
+              <SelectTrigger aria-label={t("productOverview.filters.tag")} data-testid="overview-tag">
                 <SelectValue placeholder={t("productOverview.filters.tag")} />
               </SelectTrigger>
               <SelectContent>
@@ -661,7 +662,7 @@ export default function ProductOverviewPage() {
                 setPage(1);
               }}
             >
-              <SelectTrigger data-testid="overview-status">
+              <SelectTrigger aria-label={t("productOverview.filters.status")} data-testid="overview-status">
                 <SelectValue placeholder={t("productOverview.filters.status")} />
               </SelectTrigger>
               <SelectContent>
@@ -678,7 +679,7 @@ export default function ProductOverviewPage() {
                 setPage(1);
               }}
             >
-              <SelectTrigger data-testid="overview-delivery-time">
+              <SelectTrigger aria-label={t("productOverview.filters.deliveryTime")} data-testid="overview-delivery-time">
                 <SelectValue placeholder={t("productOverview.filters.deliveryTime")} />
               </SelectTrigger>
               <SelectContent>
@@ -699,7 +700,7 @@ export default function ProductOverviewPage() {
                 setPage(1);
               }}
             >
-              <SelectTrigger data-testid="overview-restock-time">
+              <SelectTrigger aria-label={t("productOverview.filters.restockTime")} data-testid="overview-restock-time">
                 <SelectValue placeholder={t("productOverview.filters.restockTime")} />
               </SelectTrigger>
               <SelectContent>
@@ -720,7 +721,7 @@ export default function ProductOverviewPage() {
                 setPage(1);
               }}
             >
-              <SelectTrigger data-testid="overview-customfield-key">
+              <SelectTrigger aria-label={t("productOverview.filters.customFieldKey")} data-testid="overview-customfield-key">
                 <SelectValue placeholder={t("productOverview.filters.customFieldKey")} />
               </SelectTrigger>
               <SelectContent>
@@ -740,7 +741,7 @@ export default function ProductOverviewPage() {
                 setPage(1);
               }}
             >
-              <SelectTrigger data-testid="overview-customfield-presence">
+              <SelectTrigger aria-label={t("productOverview.filters.customFieldPresence")} data-testid="overview-customfield-presence">
                 <SelectValue placeholder={t("productOverview.filters.customFieldPresence")} />
               </SelectTrigger>
               <SelectContent>
@@ -945,13 +946,14 @@ function BadgeList({
       {rest > 0 ? (
         <Popover>
           <PopoverTrigger asChild>
-            <Badge
-              variant="outline"
-              className="cursor-pointer"
+            {/* echte Schaltflaeche statt div: per Tastatur bedienbar */}
+            <button
+              type="button"
+              className={cn(badgeVariants({ variant: "outline" }), "cursor-pointer")}
               onClick={(event) => event.stopPropagation()}
             >
               {moreLabel(rest)}
-            </Badge>
+            </button>
           </PopoverTrigger>
           <PopoverContent className="w-64" onClick={(event) => event.stopPropagation()}>
             <div className="flex flex-wrap gap-1">
@@ -1031,7 +1033,7 @@ function VisibilityCell({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <div className="flex cursor-pointer flex-wrap gap-1">
+        <button type="button" className="flex cursor-pointer flex-wrap gap-1 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           {levels.map((level) => (
             <VisibilityBadge
               key={String(level)}
@@ -1039,7 +1041,7 @@ function VisibilityCell({
               suffix={levels.length > 1 || channels.length > 1 ? `· ${counts.get(level)}` : undefined}
             />
           ))}
-        </div>
+        </button>
       </PopoverTrigger>
       <PopoverContent className="w-72">
         <div className="space-y-1">

@@ -172,7 +172,7 @@ export default function AutomationRulesPage() {
                     onCheckedChange={() => handleToggle(rule)}
                     data-testid={`switch-toggle-${rule.id}`}
                   />
-                  <Button
+                  <Button aria-label={t("automation.executionHistory")}
                     size="icon"
                     variant="ghost"
                     onClick={() => setHistoryRuleId(rule.id)}
@@ -180,7 +180,7 @@ export default function AutomationRulesPage() {
                   >
                     <History className="w-4 h-4" />
                   </Button>
-                  <Button
+                  <Button aria-label={t("common.edit")}
                     size="icon"
                     variant="ghost"
                     onClick={() => handleEdit(rule)}
@@ -188,7 +188,7 @@ export default function AutomationRulesPage() {
                   >
                     <Edit className="w-4 h-4" />
                   </Button>
-                  <Button
+                  <Button aria-label={t("common.delete")}
                     size="icon"
                     variant="ghost"
                     onClick={() => handleDelete(rule)}

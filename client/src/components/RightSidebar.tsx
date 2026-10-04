@@ -35,6 +35,8 @@ export default function RightSidebar({ userPermissions }: RightSidebarProps) {
           variant="ghost"
           size="icon"
           onClick={toggle}
+          aria-label={t("tickets.quickEdit.title")}
+          aria-expanded={isOpen}
           data-testid="button-toggle-right-sidebar"
         >
           {isOpen ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}

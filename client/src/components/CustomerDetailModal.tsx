@@ -786,7 +786,7 @@ export default function CustomerDetailModal({
                             {t("crm.customer.individualPrices.salesChannel")}
                           </span>
                           <Select value={selectedSalesChannel} onValueChange={setSelectedSalesChannel}>
-                            <SelectTrigger className="w-[200px]">
+                            <SelectTrigger aria-label={t("crm.customer.individualPrices.salesChannel")} className="w-[200px]">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -810,7 +810,7 @@ export default function CustomerDetailModal({
                         {t("crm.customer.individualPrices.currency")}
                       </span>
                       <Select value={selectedPriceCurrency} onValueChange={setSelectedPriceCurrency}>
-                        <SelectTrigger className="w-[120px]">
+                        <SelectTrigger aria-label={t("crm.customer.individualPrices.currency")} className="w-[120px]">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -978,7 +978,7 @@ export default function CustomerDetailModal({
                 <Card className="p-4 space-y-3">
                   <div className="grid gap-3 md:grid-cols-3">
                     <Select value={interactionType} onValueChange={setInteractionType}>
-                      <SelectTrigger>
+                      <SelectTrigger aria-label={t("crm.interactions.type")}>
                         <SelectValue placeholder={t("crm.interactions.type")} />
                       </SelectTrigger>
                       <SelectContent>

@@ -341,14 +341,14 @@ export default function BundlesPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>{t("bundles.fields.name")}</Label>
-                <Input
+                <Input aria-label={t("bundles.fields.name")}
                   value={formState.name}
                   onChange={(event) => setFormState((prev) => ({ ...prev, name: event.target.value }))}
                 />
               </div>
               <div className="space-y-2">
                 <Label>{t("bundles.fields.mockNumber")}</Label>
-                <Input
+                <Input aria-label={t("bundles.fields.mockNumber")}
                   value={formState.mockProductNumber}
                   onChange={(event) =>
                     setFormState((prev) => ({ ...prev, mockProductNumber: event.target.value }))
@@ -358,7 +358,7 @@ export default function BundlesPage() {
             </div>
             <div className="space-y-2">
               <Label>{t("bundles.fields.description")}</Label>
-              <Textarea
+              <Textarea aria-label={t("bundles.fields.description")}
                 value={formState.description}
                 onChange={(event) => setFormState((prev) => ({ ...prev, description: event.target.value }))}
                 rows={3}
@@ -427,7 +427,7 @@ export default function BundlesPage() {
                       />
                     </div>
                     <div className="col-span-3">
-                      <Input
+                      <Input aria-label={t("erp.quantity")}
                         type="number"
                         min={1}
                         value={item.quantity}

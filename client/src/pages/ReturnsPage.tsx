@@ -100,7 +100,7 @@ export default function ReturnsPage() {
                 <TableHead>{t("erp.product")}</TableHead>
                 <TableHead>{t("erp.status")}</TableHead>
                 <TableHead>{t("erp.creditNote")}</TableHead>
-                <TableHead></TableHead>
+                <TableHead><span className="sr-only">{t("common.actions")}</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -162,19 +162,19 @@ export default function ReturnsPage() {
           <div className="space-y-3">
             <div>
               <Label>{t("erp.orderNumber")}</Label>
-              <Input value={form.shopwareOrderNumber} onChange={(e) => setForm({ ...form, shopwareOrderNumber: e.target.value })} />
+              <Input aria-label={t("erp.orderNumber")} value={form.shopwareOrderNumber} onChange={(e) => setForm({ ...form, shopwareOrderNumber: e.target.value })} />
             </div>
             <div>
               <Label>E-Mail</Label>
-              <Input value={form.customerEmail} onChange={(e) => setForm({ ...form, customerEmail: e.target.value })} />
+              <Input aria-label="E-Mail" value={form.customerEmail} onChange={(e) => setForm({ ...form, customerEmail: e.target.value })} />
             </div>
             <div>
               <Label>{t("erp.reason")}</Label>
-              <Input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
+              <Input aria-label={t("erp.reason")} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
             </div>
             <div>
               <Label>{t("erp.warehouse.warehouses")}</Label>
-              <select
+              <select aria-label={t("erp.warehouse.warehouses")}
                 className="w-full border rounded-md h-10 px-3 bg-background"
                 value={form.warehouseId}
                 onChange={(e) => setForm({ ...form, warehouseId: e.target.value })}
@@ -195,11 +195,11 @@ export default function ReturnsPage() {
             </div>
             <div>
               <Label>{t("erp.quantity")}</Label>
-              <Input type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} />
+              <Input aria-label={t("erp.quantity")} type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} />
             </div>
             <div>
               <Label>{t("erp.unitPrice")}</Label>
-              <Input type="number" value={form.unitPrice} onChange={(e) => setForm({ ...form, unitPrice: Number(e.target.value) })} />
+              <Input aria-label={t("erp.unitPrice")} type="number" value={form.unitPrice} onChange={(e) => setForm({ ...form, unitPrice: Number(e.target.value) })} />
             </div>
           </div>
           <DialogFooter>

@@ -1353,7 +1353,7 @@ export default function WarehousePage() {
                         value={stockQtyFilter}
                         onValueChange={(v) => setStockQtyFilter(v as StockQtyFilter)}
                       >
-                        <SelectTrigger data-testid="stock-filter-qty">
+                        <SelectTrigger aria-label={t("erp.warehouse.stockFilterQty")} data-testid="stock-filter-qty">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1375,7 +1375,7 @@ export default function WarehousePage() {
                         value={stockDiffFilter}
                         onValueChange={(v) => setStockDiffFilter(v as StockDiffFilter)}
                       >
-                        <SelectTrigger data-testid="stock-filter-diff">
+                        <SelectTrigger aria-label={t("erp.warehouse.stockFilterDiff")} data-testid="stock-filter-diff">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1397,7 +1397,7 @@ export default function WarehousePage() {
                         value={stockActiveFilter}
                         onValueChange={(v) => setStockActiveFilter(v as StockActiveFilter)}
                       >
-                        <SelectTrigger data-testid="stock-filter-active">
+                        <SelectTrigger aria-label={t("erp.warehouse.stockFilterActive")} data-testid="stock-filter-active">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1413,7 +1413,7 @@ export default function WarehousePage() {
                       <div className="w-full sm:w-32">
                         <Label className="text-xs">{t("erp.warehouse.stockFilterSize")}</Label>
                         <Select value={stockSizeFilter} onValueChange={setStockSizeFilter}>
-                          <SelectTrigger data-testid="stock-filter-size">
+                          <SelectTrigger aria-label={t("erp.warehouse.stockFilterSize")} data-testid="stock-filter-size">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1431,7 +1431,7 @@ export default function WarehousePage() {
                       <div className="w-full sm:w-36">
                         <Label className="text-xs">{t("erp.warehouse.stockFilterColor")}</Label>
                         <Select value={stockColorFilter} onValueChange={setStockColorFilter}>
-                          <SelectTrigger data-testid="stock-filter-color">
+                          <SelectTrigger aria-label={t("erp.warehouse.stockFilterColor")} data-testid="stock-filter-color">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1477,7 +1477,7 @@ export default function WarehousePage() {
                       </p>
                       <div className="flex-1 min-w-[14rem]">
                         <Select value={assignLocationId} onValueChange={setAssignLocationId}>
-                          <SelectTrigger data-testid="stock-bulk-location-select">
+                          <SelectTrigger aria-label={t("erp.warehouse.selectLocation")} data-testid="stock-bulk-location-select">
                             <SelectValue placeholder={t("erp.warehouse.selectLocation")} />
                           </SelectTrigger>
                           <SelectContent>
@@ -1665,7 +1665,7 @@ export default function WarehousePage() {
               </div>
               <div className="max-w-sm">
                 <Label>{t("erp.warehouse.selectWarehouse")}</Label>
-                <select
+                <select aria-label={t("erp.warehouse.selectWarehouse")}
                   className="w-full border rounded-md h-10 px-3 bg-background mt-1"
                   value={effectiveLocationsWarehouseId}
                   onChange={(e) => {
@@ -1711,7 +1711,7 @@ export default function WarehousePage() {
                       <TableHead>{t("erp.warehouse.regalfach")}</TableHead>
                       <TableHead>{t("erp.warehouse.regalplatz")}</TableHead>
                       <TableHead>{t("erp.status")}</TableHead>
-                      <TableHead />
+                      <TableHead><span className="sr-only">{t("common.actions")}</span></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1791,7 +1791,7 @@ export default function WarehousePage() {
                       <TableHead>{t("erp.name")}</TableHead>
                       <TableHead>{t("erp.warehouse.manufacturer")}</TableHead>
                       <TableHead>{t("erp.status")}</TableHead>
-                      <TableHead />
+                      <TableHead><span className="sr-only">{t("common.actions")}</span></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1861,7 +1861,7 @@ export default function WarehousePage() {
               <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-end">
                 <div className="min-w-[200px]">
                   <Label className="text-xs">{t("erp.warehouse.warehouses")}</Label>
-                  <select
+                  <select aria-label={t("erp.warehouse.warehouses")}
                     className="w-full border rounded-md h-10 px-3 bg-background"
                     value={defaultStartWarehouse}
                     onChange={(e) => setStartWarehouseId(e.target.value)}
@@ -1890,7 +1890,7 @@ export default function WarehousePage() {
                     <TableHead>{t("erp.warehouse.warehouses")}</TableHead>
                     <TableHead>{t("erp.status")}</TableHead>
                     <TableHead>{t("erp.date")}</TableHead>
-                    <TableHead></TableHead>
+                    <TableHead><span className="sr-only">{t("common.actions")}</span></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -2046,7 +2046,7 @@ export default function WarehousePage() {
                         <TableHead>{t("erp.warehouse.expectedQty")}</TableHead>
                         <TableHead>{t("erp.warehouse.countedQty")}</TableHead>
                         <TableHead>{t("erp.warehouse.difference")}</TableHead>
-                        <TableHead></TableHead>
+                        <TableHead><span className="sr-only">{t("common.actions")}</span></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -2066,7 +2066,7 @@ export default function WarehousePage() {
                             </TableCell>
                             <TableCell>{line.expectedQty}</TableCell>
                             <TableCell>
-                              <Input
+                              <Input aria-label={t("erp.warehouse.countedQty")}
                                 type="number"
                                 className="w-28"
                                 disabled={activeCount?.status === "completed"}
@@ -2269,11 +2269,11 @@ export default function WarehousePage() {
           <div className="space-y-3">
             <div>
               <Label>{t("erp.code")}</Label>
-              <Input value={whForm.code} onChange={(e) => setWhForm({ ...whForm, code: e.target.value })} />
+              <Input aria-label={t("erp.code")} value={whForm.code} onChange={(e) => setWhForm({ ...whForm, code: e.target.value })} />
             </div>
             <div>
               <Label>{t("erp.name")}</Label>
-              <Input value={whForm.name} onChange={(e) => setWhForm({ ...whForm, name: e.target.value })} />
+              <Input aria-label={t("erp.name")} value={whForm.name} onChange={(e) => setWhForm({ ...whForm, name: e.target.value })} />
             </div>
           </div>
           <DialogFooter>
@@ -2292,7 +2292,7 @@ export default function WarehousePage() {
           <div className="space-y-3">
             <div>
               <Label>{t("erp.warehouse.warehouses")}</Label>
-              <select
+              <select aria-label={t("erp.warehouse.warehouses")}
                 className="w-full border rounded-md h-10 px-3 bg-background"
                 value={moveForm.warehouseId}
                 onChange={(e) => setMoveForm({ ...moveForm, warehouseId: e.target.value })}
@@ -2315,7 +2315,7 @@ export default function WarehousePage() {
             </div>
             <div>
               <Label>{t("erp.quantity")}</Label>
-              <Input
+              <Input aria-label={t("erp.quantity")}
                 type="number"
                 value={moveForm.quantity}
                 onChange={(e) => setMoveForm({ ...moveForm, quantity: Number(e.target.value) })}
@@ -2323,7 +2323,7 @@ export default function WarehousePage() {
             </div>
             <div>
               <Label>{t("erp.type")}</Label>
-              <select
+              <select aria-label={t("erp.type")}
                 className="w-full border rounded-md h-10 px-3 bg-background"
                 value={moveForm.movementType}
                 onChange={(e) => setMoveForm({ ...moveForm, movementType: e.target.value })}
@@ -2337,7 +2337,7 @@ export default function WarehousePage() {
             </div>
             <div>
               <Label>{t("erp.reorderPoint")}</Label>
-              <Input
+              <Input aria-label={t("erp.reorderPoint")}
                 type="number"
                 value={moveForm.reorderPoint}
                 onChange={(e) => setMoveForm({ ...moveForm, reorderPoint: Number(e.target.value) })}
@@ -2418,14 +2418,14 @@ export default function WarehousePage() {
             </div>
             <div>
               <Label>{t("erp.name")}</Label>
-              <Input
+              <Input aria-label={t("erp.name")}
                 value={locForm.name}
                 onChange={(e) => setLocForm({ ...locForm, name: e.target.value })}
               />
             </div>
             <div>
               <Label>{t("erp.warehouse.shelfType")}</Label>
-              <select
+              <select aria-label={t("erp.warehouse.shelfType")}
                 className="w-full border rounded-md h-10 px-3 bg-background"
                 value={locForm.shelfTypeId}
                 onChange={(e) => setLocForm({ ...locForm, shelfTypeId: e.target.value })}
@@ -2485,21 +2485,21 @@ export default function WarehousePage() {
             </div>
             <div>
               <Label>{t("erp.code")}</Label>
-              <Input
+              <Input aria-label={t("erp.code")}
                 value={shelfForm.code}
                 onChange={(e) => setShelfForm({ ...shelfForm, code: e.target.value })}
               />
             </div>
             <div>
               <Label>{t("erp.name")}</Label>
-              <Input
+              <Input aria-label={t("erp.name")}
                 value={shelfForm.name}
                 onChange={(e) => setShelfForm({ ...shelfForm, name: e.target.value })}
               />
             </div>
             <div>
               <Label>{t("erp.warehouse.fieldDescription")}</Label>
-              <Input
+              <Input aria-label={t("erp.warehouse.fieldDescription")}
                 value={shelfForm.description}
                 onChange={(e) => setShelfForm({ ...shelfForm, description: e.target.value })}
               />

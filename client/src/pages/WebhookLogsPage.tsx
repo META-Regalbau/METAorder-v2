@@ -21,7 +21,7 @@ type WebhookLog = {
 };
 
 export default function WebhookLogsPage() {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [page, setPage] = useState(1);
   const limit = 50;
   const offset = (page - 1) * limit;
@@ -65,11 +65,11 @@ export default function WebhookLogsPage() {
     <div className="p-6 w-full">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <Link href="/settings">
-            <Button variant="ghost" size="icon" data-testid="button-back-to-settings">
+          <Button variant="ghost" size="icon" asChild>
+            <Link href="/settings" aria-label={t("common.back")} data-testid="button-back-to-settings">
               <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
+            </Link>
+          </Button>
           <div>
             <h1 className="text-2xl font-semibold">Webhook Logs</h1>
             <p className="text-sm text-muted-foreground">

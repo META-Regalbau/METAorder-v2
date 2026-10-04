@@ -238,7 +238,7 @@ export default function SemanticSearchPage() {
           />
         </div>
         <Select value={sourceFilter} onValueChange={setSourceFilter}>
-          <SelectTrigger className="w-56">
+          <SelectTrigger aria-label={t("semanticSearch.globalFilterAll")} className="w-56">
             <SelectValue placeholder={t("semanticSearch.globalFilterAll")} />
           </SelectTrigger>
           <SelectContent>

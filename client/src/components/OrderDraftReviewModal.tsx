@@ -946,7 +946,7 @@ export function OrderDraftReviewModal({
               <CardContent className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <Label>{t("orderDrafts.review.fields.company")}</Label>
-                  <Input
+                  <Input aria-label={t("orderDrafts.review.fields.company")}
                     value={editedData.billingAddress.company || ""}
                     onChange={(e) =>
                       setEditedData({
@@ -958,7 +958,7 @@ export function OrderDraftReviewModal({
                 </div>
                 <div>
                   <Label>{t("orderDrafts.review.fields.firstName")}</Label>
-                  <Input
+                  <Input aria-label={t("orderDrafts.review.fields.firstName")}
                     value={editedData.billingAddress.firstName || ""}
                     onChange={(e) =>
                       setEditedData({
@@ -970,7 +970,7 @@ export function OrderDraftReviewModal({
                 </div>
                 <div>
                   <Label>{t("orderDrafts.review.fields.lastName")}</Label>
-                  <Input
+                  <Input aria-label={t("orderDrafts.review.fields.lastName")}
                     value={editedData.billingAddress.lastName || ""}
                     onChange={(e) =>
                       setEditedData({
@@ -982,7 +982,7 @@ export function OrderDraftReviewModal({
                 </div>
                 <div className="col-span-2">
                   <Label>{t("orderDrafts.review.fields.street")}</Label>
-                  <Input
+                  <Input aria-label={t("orderDrafts.review.fields.street")}
                     value={editedData.billingAddress.street || ""}
                     onChange={(e) =>
                       setEditedData({
@@ -994,7 +994,7 @@ export function OrderDraftReviewModal({
                 </div>
                 <div>
                   <Label>{t("orderDrafts.review.fields.zipCode")}</Label>
-                  <Input
+                  <Input aria-label={t("orderDrafts.review.fields.zipCode")}
                     value={editedData.billingAddress.zipCode || ""}
                     onChange={(e) =>
                       setEditedData({
@@ -1006,7 +1006,7 @@ export function OrderDraftReviewModal({
                 </div>
                 <div>
                   <Label>{t("orderDrafts.review.fields.city")}</Label>
-                  <Input
+                  <Input aria-label={t("orderDrafts.review.fields.city")}
                     value={editedData.billingAddress.city || ""}
                     onChange={(e) =>
                       setEditedData({
@@ -1018,7 +1018,7 @@ export function OrderDraftReviewModal({
                 </div>
                 <div className="col-span-2">
                   <Label>{t("orderDrafts.review.fields.country")}</Label>
-                  <Input
+                  <Input aria-label={t("orderDrafts.review.fields.country")}
                     value={editedData.billingAddress.country || ""}
                     onChange={(e) =>
                       setEditedData({
@@ -1030,7 +1030,7 @@ export function OrderDraftReviewModal({
                 </div>
                 <div className="col-span-2">
                   <Label>Telefon (Rechnungsadresse)</Label>
-                  <Input
+                  <Input aria-label="Telefon (Rechnungsadresse)"
                     type="tel"
                     value={editedData.billingAddress.phone || ""}
                     onChange={(e) =>
@@ -1086,7 +1086,7 @@ export function OrderDraftReviewModal({
               <CardContent className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <Label>Firma (Lieferung)</Label>
-                  <Input
+                  <Input aria-label="Firma (Lieferung)"
                     value={editedData.shippingAddress?.company || ""}
                     onChange={(e) =>
                       setEditedData({
@@ -1098,7 +1098,7 @@ export function OrderDraftReviewModal({
                 </div>
                 <div>
                   <Label>Vorname</Label>
-                  <Input
+                  <Input aria-label="Vorname"
                     value={editedData.shippingAddress?.firstName || ""}
                     onChange={(e) =>
                       setEditedData({
@@ -1110,7 +1110,7 @@ export function OrderDraftReviewModal({
                 </div>
                 <div>
                   <Label>Nachname</Label>
-                  <Input
+                  <Input aria-label="Nachname"
                     value={editedData.shippingAddress?.lastName || ""}
                     onChange={(e) =>
                       setEditedData({
@@ -1122,7 +1122,7 @@ export function OrderDraftReviewModal({
                 </div>
                 <div className="col-span-2">
                   <Label>Straße</Label>
-                  <Input
+                  <Input aria-label="Straße"
                     value={editedData.shippingAddress?.street || ""}
                     onChange={(e) =>
                       setEditedData({
@@ -1134,7 +1134,7 @@ export function OrderDraftReviewModal({
                 </div>
                 <div>
                   <Label>PLZ</Label>
-                  <Input
+                  <Input aria-label="PLZ"
                     value={editedData.shippingAddress?.zipCode || ""}
                     onChange={(e) =>
                       setEditedData({
@@ -1146,7 +1146,7 @@ export function OrderDraftReviewModal({
                 </div>
                 <div>
                   <Label>Ort</Label>
-                  <Input
+                  <Input aria-label="Ort"
                     value={editedData.shippingAddress?.city || ""}
                     onChange={(e) =>
                       setEditedData({
@@ -1158,7 +1158,7 @@ export function OrderDraftReviewModal({
                 </div>
                 <div className="col-span-2">
                   <Label>Land</Label>
-                  <Input
+                  <Input aria-label="Land"
                     value={editedData.shippingAddress?.country || ""}
                     onChange={(e) =>
                       setEditedData({
@@ -1170,7 +1170,7 @@ export function OrderDraftReviewModal({
                 </div>
                 <div className="col-span-2">
                   <Label>Telefon (Lieferadresse)</Label>
-                  <Input
+                  <Input aria-label="Telefon (Lieferadresse)"
                     type="tel"
                     value={editedData.shippingAddress?.phone || ""}
                     onChange={(e) =>
@@ -1522,7 +1522,7 @@ export function OrderDraftReviewModal({
                                 : "—"}
                         </TableCell>
                         <TableCell>
-                          <Input
+                          <Input aria-label={t("orderDrafts.review.table.quantity")}
                             type="number"
                             min={1}
                             className="h-8 w-20"
@@ -1744,7 +1744,7 @@ export function OrderDraftReviewModal({
                   <div className="w-full md:flex-1 space-y-2">
                     <Label>{t("bundles.listTitle")}</Label>
                     <Select value={selectedBundleId} onValueChange={setSelectedBundleId}>
-                      <SelectTrigger>
+                      <SelectTrigger aria-label={t("bundles.listTitle")}>
                         <SelectValue placeholder={t("bundles.create")} />
                       </SelectTrigger>
                       <SelectContent>
@@ -1758,7 +1758,7 @@ export function OrderDraftReviewModal({
                   </div>
                   <div className="w-full md:w-32 space-y-2">
                     <Label>{t("orderDrafts.review.table.quantity")}</Label>
-                    <Input
+                    <Input aria-label={t("orderDrafts.review.table.quantity")}
                       type="number"
                       min={1}
                       value={bundleQuantity}
@@ -1866,7 +1866,7 @@ export function OrderDraftReviewModal({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <Textarea value={editedData.orderNotes} readOnly rows={3} data-testid="textarea-order-notes" />
+                <Textarea aria-label={t("orderDrafts.review.orderNotes")} value={editedData.orderNotes} readOnly rows={3} data-testid="textarea-order-notes" />
               </CardContent>
             </Card>
           )}

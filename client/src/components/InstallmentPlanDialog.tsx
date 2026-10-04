@@ -309,7 +309,7 @@ export default function InstallmentPlanDialog({
                 value={String(numberOfInstallments)}
                 onValueChange={(v) => setNumberOfInstallments(Number(v) as 3 | 6 | 12)}
               >
-                <SelectTrigger>
+                <SelectTrigger aria-label={t("installmentPlan.installmentCount")}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -357,7 +357,7 @@ export default function InstallmentPlanDialog({
             {useAutoDates && (
               <div className="space-y-2">
                 <Label>{t("installmentPlan.firstDueDate")}</Label>
-                <Input type="date" value={dateStart} onChange={(e) => setDateStart(e.target.value)} />
+                <Input aria-label={t("installmentPlan.firstDueDate")} type="date" value={dateStart} onChange={(e) => setDateStart(e.target.value)} />
               </div>
             )}
             {remaining !== null && remaining > 0 && (

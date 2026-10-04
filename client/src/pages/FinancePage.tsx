@@ -122,7 +122,7 @@ export default function FinancePage() {
                 <TableHead>{t("erp.amount")}</TableHead>
                 <TableHead>{t("erp.openAmount")}</TableHead>
                 <TableHead>{t("erp.status")}</TableHead>
-                <TableHead></TableHead>
+                <TableHead><span className="sr-only">{t("common.actions")}</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -168,7 +168,7 @@ export default function FinancePage() {
           <div className="space-y-3">
             <div>
               <Label>{t("erp.type")}</Label>
-              <select
+              <select aria-label={t("erp.type")}
                 className="w-full border rounded-md h-10 px-3 bg-background"
                 value={form.type}
                 onChange={(e) => setForm({ ...form, type: e.target.value })}
@@ -179,15 +179,15 @@ export default function FinancePage() {
             </div>
             <div>
               <Label>{t("erp.name")}</Label>
-              <Input value={form.partnerName} onChange={(e) => setForm({ ...form, partnerName: e.target.value })} />
+              <Input aria-label={t("erp.name")} value={form.partnerName} onChange={(e) => setForm({ ...form, partnerName: e.target.value })} />
             </div>
             <div>
               <Label>{t("erp.number")}</Label>
-              <Input value={form.documentNumber} onChange={(e) => setForm({ ...form, documentNumber: e.target.value })} />
+              <Input aria-label={t("erp.number")} value={form.documentNumber} onChange={(e) => setForm({ ...form, documentNumber: e.target.value })} />
             </div>
             <div>
               <Label>{t("erp.amount")}</Label>
-              <Input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} />
+              <Input aria-label={t("erp.amount")} type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} />
             </div>
           </div>
           <DialogFooter>
@@ -203,7 +203,7 @@ export default function FinancePage() {
           </DialogHeader>
           <div>
             <Label>{t("erp.amount")}</Label>
-            <Input type="number" value={payAmount} onChange={(e) => setPayAmount(Number(e.target.value))} />
+            <Input aria-label={t("erp.amount")} type="number" value={payAmount} onChange={(e) => setPayAmount(Number(e.target.value))} />
           </div>
           <DialogFooter>
             <Button onClick={() => pay.mutate()}>{t("common.save")}</Button>

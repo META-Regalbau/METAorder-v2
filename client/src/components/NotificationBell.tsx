@@ -77,6 +77,7 @@ export function NotificationBell() {
           variant="ghost"
           size="icon"
           className="relative"
+          aria-label={t("notifications.title")}
           data-testid="button-notifications"
         >
           <Bell className="h-5 w-5" />

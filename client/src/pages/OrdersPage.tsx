@@ -670,7 +670,7 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
             setItemsPerPage(value);
             setCurrentPage(1);
           }}>
-            <SelectTrigger className="w-20" data-testid="select-items-per-page">
+            <SelectTrigger aria-label={t('common.itemsPerPage')} className="w-20" data-testid="select-items-per-page">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

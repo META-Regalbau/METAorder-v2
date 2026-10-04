@@ -309,7 +309,7 @@ export default function PurchasingPage() {
                     <TableHead>{t("erp.number")}</TableHead>
                     <TableHead>{t("erp.product")}</TableHead>
                     <TableHead>{t("erp.status")}</TableHead>
-                    <TableHead></TableHead>
+                    <TableHead><span className="sr-only">{t("common.actions")}</span></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -381,7 +381,7 @@ export default function PurchasingPage() {
                     <TableHead>{t("erp.number")}</TableHead>
                     <TableHead>{t("erp.name")}</TableHead>
                     <TableHead>E-Mail</TableHead>
-                    <TableHead></TableHead>
+                    <TableHead><span className="sr-only">{t("common.actions")}</span></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -482,21 +482,21 @@ export default function PurchasingPage() {
           <div className="space-y-3">
             <div>
               <Label>{t("erp.number")}</Label>
-              <Input
+              <Input aria-label={t("erp.number")}
                 value={supplierForm.number}
                 onChange={(e) => setSupplierForm({ ...supplierForm, number: e.target.value })}
               />
             </div>
             <div>
               <Label>{t("erp.name")}</Label>
-              <Input
+              <Input aria-label={t("erp.name")}
                 value={supplierForm.name}
                 onChange={(e) => setSupplierForm({ ...supplierForm, name: e.target.value })}
               />
             </div>
             <div>
               <Label>E-Mail</Label>
-              <Input
+              <Input aria-label="E-Mail"
                 value={supplierForm.email}
                 onChange={(e) => setSupplierForm({ ...supplierForm, email: e.target.value })}
               />
@@ -516,7 +516,7 @@ export default function PurchasingPage() {
           <div className="space-y-3">
             <div>
               <Label>{t("erp.purchasing.suppliers")}</Label>
-              <select
+              <select aria-label={t("erp.purchasing.suppliers")}
                 className="w-full border rounded-md h-10 px-3 bg-background"
                 value={poForm.supplierId}
                 onChange={(e) => {
@@ -535,7 +535,7 @@ export default function PurchasingPage() {
             </div>
             <div>
               <Label>{t("erp.warehouse.warehouses")}</Label>
-              <select
+              <select aria-label={t("erp.warehouse.warehouses")}
                 className="w-full border rounded-md h-10 px-3 bg-background"
                 value={poForm.warehouseId}
                 onChange={(e) => setPoForm({ ...poForm, warehouseId: e.target.value })}
@@ -560,7 +560,7 @@ export default function PurchasingPage() {
             </div>
             <div>
               <Label>{t("erp.quantity")}</Label>
-              <Input
+              <Input aria-label={t("erp.quantity")}
                 type="number"
                 value={poForm.quantity}
                 onChange={(e) => setPoForm({ ...poForm, quantity: Number(e.target.value) })}
@@ -568,7 +568,7 @@ export default function PurchasingPage() {
             </div>
             <div>
               <Label>{t("erp.unitPrice")}</Label>
-              <Input
+              <Input aria-label={t("erp.unitPrice")}
                 type="number"
                 value={poForm.unitPrice}
                 onChange={(e) => setPoForm({ ...poForm, unitPrice: Number(e.target.value) })}
@@ -610,7 +610,7 @@ export default function PurchasingPage() {
             )}
             <div>
               <Label>{t("erp.purchasing.priceList.file")}</Label>
-              <Input
+              <Input aria-label={t("erp.purchasing.priceList.file")}
                 type="file"
                 accept=".xlsx,.xls,.csv"
                 onChange={(e) => {

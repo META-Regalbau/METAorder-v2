@@ -194,7 +194,10 @@
     "outOfStock": "Nicht auf Lager",
     "error": "Fehler",
     "confirm": "Bestätigen",
-    "count": "Anzahl"
+    "count": "Anzahl",
+    "back": "Zurück",
+    "showValue": "Wert anzeigen",
+    "hideValue": "Wert verbergen"
   },
   "globalSearch": {
     "placeholder": "Semantische Suche (Produkte, Angebote, Tickets...)",
@@ -1114,7 +1117,11 @@
     "overdue": "Überfällig",
     "sendInvoiceRecipientHint": "Ohne Angabe geht die Rechnung an {{email}}.",
     "sendInvoiceRecipientLabel": "Empfänger (optional)",
-    "sendInvoiceRecipientPlaceholder": "E-Mail-Adresse"
+    "sendInvoiceRecipientPlaceholder": "E-Mail-Adresse",
+    "selection": {
+      "selectAll": "Alle Bestellungen auswählen",
+      "selectRow": "Bestellung {{orderNumber}} auswählen"
+    }
   },
   "delayedOrders": {
     "title": "Verspätete Bestellungen",
@@ -2116,7 +2123,8 @@
   "language": {
     "english": "Englisch",
     "german": "Deutsch",
-    "spanish": "Spanisch"
+    "spanish": "Spanisch",
+    "switch": "Sprache wechseln"
   },
   "salesChannel": {
     "filter": "Verkaufskanal",
@@ -2248,7 +2256,8 @@
     "pluginWarning": "Shopware‑Plugin meldet einen Fehler, Änderung wurde trotzdem gespeichert.",
     "pluginWarningTitle": "Hinweis: Shopware‑Plugin",
     "pluginWarningBody": "Ein Shopware‑Plugin erzeugt beim Speichern einen 500‑Fehler. Die Änderung wurde dennoch übernommen.",
-    "image": "Produktbild"
+    "image": "Produktbild",
+    "activeSwitch": "{{name}} aktiv"
   },
   "categories": {
     "none": "Keine Kategorien verfügbar",
@@ -3044,7 +3053,9 @@
       "computedHint": "Wird bei Bedarf per KI ermittelt (ohne KI-Konfiguration per Stichwort-Heuristik).",
       "emailHint": "Nutzt den E-Mail-Ausgang aus den Einstellungen. Ist er ausgeschaltet, schlägt die Aktion fehl und steht so in der Ausführungshistorie.",
       "placeholders": "Platzhalter",
-      "incomplete": "Regel unvollständig"
+      "incomplete": "Regel unvollständig",
+      "conditionOperator": "Operator",
+      "actionType": "Aktion"
     },
     "templates": {
       "title": "Regel-Vorlagen",
@@ -4753,6 +4764,7 @@
   },
   "appVersion": {
     "label": "Version {{version}}",
-    "details": "Commit {{commit}} vom {{date}}"
+    "details": "Commit {{commit}} vom {{date}}",
+    "regionLabel": "Programmversion"
   }
 }
