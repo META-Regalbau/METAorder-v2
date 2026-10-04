@@ -24,6 +24,14 @@ permissions:
   contents: read
   packages: write
 
+# Laeufe nacheinander statt parallel: Sonst kann ein aelterer Lauf einen neueren
+# ueberholen und zuletzt das alte Image ausrollen. Ein laufender Deploy wird nie
+# abgebrochen; wartet schon ein Lauf, ersetzt ihn der neueste (main ist linear,
+# der neueste Stand enthaelt alle aelteren). Auch Rollbacks (deploy_only) reihen sich ein.
+concurrency:
+  group: deploy-mittwald
+  cancel-in-progress: false
+
 jobs:
   # Vite/esbuild pruefen keine Typen — ohne diesen Job landen TS-Fehler unbemerkt im Image.
   typecheck:
