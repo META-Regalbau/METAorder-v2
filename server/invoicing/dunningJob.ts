@@ -3,6 +3,7 @@ import fs from "fs/promises";
 import type { IStorage } from "../storage";
 import type { DunningSettings, Order } from "@shared/schema";
 import { ShopwareClient, getRealInvoiceDocument } from "../shopware/shopware";
+import type { OrderDocument } from "../shopware/shopware";
 import { filterOrdersBySalesChannels, getMirrorOrdersLikeLive } from "../routes/routeHelpers";
 import { sendEmail } from "../email/emailOutbound";
 import { generateDunningPdf } from "./dunningPdf";
@@ -75,30 +76,54 @@ export async function enrichOrderDueDate(
 ): Promise<void> {
   if (order.invoiceDate && order.invoiceNumber) return;
   try {
-    const docs = await client.fetchOrderDocuments(order.id);
-    const invoice = getRealInvoiceDocument(docs);
-
-    if (!order.invoiceNumber && invoice?.number) {
-      order.invoiceNumber = invoice.number;
-    }
-
-    if (!order.invoiceDate) {
-      if (invoice?.createdAt) {
-        order.invoiceDate = invoice.createdAt;
-      } else {
-        const withDate = docs.filter((d) => d.createdAt).sort((a, b) => a.createdAt!.localeCompare(b.createdAt!));
-        if (withDate.length > 0) {
-          order.invoiceDate = withDate[0].createdAt!;
-        } else if (order.orderDate) {
-          order.invoiceDate = typeof order.orderDate === "string" ? order.orderDate : new Date(order.orderDate).toISOString();
-        }
-      }
-    }
+    applyDueDateFromDocuments(order, await client.fetchOrderDocuments(order.id));
   } catch (err) {
     console.warn(`[Dunning] Could not fetch documents for order ${order.id}:`, err);
-    if (!order.invoiceDate && order.orderDate) {
-      order.invoiceDate = typeof order.orderDate === "string" ? order.orderDate : new Date(order.orderDate).toISOString();
+    useOrderDateAsInvoiceDate(order);
+  }
+}
+
+/**
+ * Wie enrichOrderDueDate fuer viele Bestellungen: die Dokumente kommen gebatcht (200 Bestellungen je
+ * Abfrage) statt je Bestellung - die Mahnvorschau brauchte dafuer in Testing 615 Abfragen und ~39 s.
+ */
+export async function enrichOrdersDueDates(client: ShopwareClient, orders: Order[]): Promise<void> {
+  const pending = orders.filter((order) => !(order.invoiceDate && order.invoiceNumber));
+  if (pending.length === 0) return;
+  try {
+    const docsByOrder = await client.fetchDocumentsByOrderIds(pending.map((order) => order.id));
+    for (const order of pending) applyDueDateFromDocuments(order, docsByOrder.get(order.id) ?? []);
+  } catch (err) {
+    console.warn(`[Dunning] Could not fetch documents for ${pending.length} orders:`, err);
+    for (const order of pending) useOrderDateAsInvoiceDate(order);
+  }
+}
+
+/** Rechnungsnummer und -datum aus den Dokumenten: echte Rechnung, sonst fruehestes Dokument, sonst Bestelldatum. */
+function applyDueDateFromDocuments(order: Order, docs: OrderDocument[]): void {
+  const invoice = getRealInvoiceDocument(docs);
+
+  if (!order.invoiceNumber && invoice?.number) {
+    order.invoiceNumber = invoice.number;
+  }
+
+  if (!order.invoiceDate) {
+    if (invoice?.createdAt) {
+      order.invoiceDate = invoice.createdAt;
+    } else {
+      const withDate = docs.filter((d) => d.createdAt).sort((a, b) => a.createdAt!.localeCompare(b.createdAt!));
+      if (withDate.length > 0) {
+        order.invoiceDate = withDate[0].createdAt!;
+      } else {
+        useOrderDateAsInvoiceDate(order);
+      }
     }
+  }
+}
+
+function useOrderDateAsInvoiceDate(order: Order): void {
+  if (!order.invoiceDate && order.orderDate) {
+    order.invoiceDate = typeof order.orderDate === "string" ? order.orderDate : new Date(order.orderDate).toISOString();
   }
 }
 
@@ -202,9 +227,7 @@ export async function getDunningCandidates(
       o.customerEmail &&
       (o.invoiceNumber ?? o.customFields?.custom_order_numbers_invoice)
   );
-  for (const order of needsDueDate) {
-    await enrichOrderDueDate(client, order, dunningSettings.dueDateFieldKey);
-  }
+  await enrichOrdersDueDates(client, needsDueDate);
 
   const orderIds = orders.map((order) => order.id);
   const statuses = await storage.getOrderDunningStatuses(orderIds, tenantId);

@@ -90,6 +90,105 @@ export async function fetchOrderAmountTotalForVersion(
   }
 }
 
+/**
+ * Dokumenttyp (technicalName, normalisiert) ueber die documentTypeId, sonst aus dem Praefix der
+ * Dokumentnummer (RE-, VKRE, PF, LS-, GS-, ST-).
+ */
+function documentTypeOf(doc: any, documentTypes: Map<string, string>): string {
+  const docNumber = doc.documentNumber || doc.attributes?.documentNumber || '';
+  let docType = 'unknown';
+  const docTypeId =
+    doc.documentTypeId ??
+    doc.attributes?.documentTypeId ??
+    doc.relationships?.documentType?.data?.id;
+  if (docTypeId && documentTypes.has(docTypeId)) {
+    docType = documentTypes.get(docTypeId) || 'unknown';
+  } else if (docNumber) {
+    // Fallback: determine type from document number prefix
+    const n = docNumber.trim().toUpperCase();
+    if (n.startsWith('RE-')) {
+      docType = 'invoice';
+    } else if (n.startsWith('VKRE')) {
+      docType = 'vorkasse_invoice';
+    } else if (n.startsWith('PF')) {
+      docType = 'proforma_invoice';
+    } else if (n.startsWith('LS-')) {
+      docType = 'delivery_note';
+    } else if (n.startsWith('GS-')) {
+      docType = 'credit_note';
+    } else if (n.startsWith('ST-')) {
+      docType = 'cancellation';
+    }
+  }
+  return normalizeOrderDocumentType(docType);
+}
+
+/**
+ * Dokumente (Typ, Nummer, Anlagezeit, verschickt) vieler Bestellungen gebatcht - statt
+ * fetchOrderDocuments je Bestellung (dort zusaetzlich Betraege je Dokument-Version). Fuer das
+ * Mahnwesen: Rechnungsnummer und -datum, die in der Listen-Abfrage fehlen koennen.
+ * Je Bestellung in der Reihenfolge der Shopware-Antwort, wie fetchOrderDocuments.
+ */
+export async function fetchDocumentsByOrderIds(
+  this: ShopwareClient,
+  orderIds: string[],
+): Promise<Map<string, OrderDocument[]>> {
+  const result = new Map<string, OrderDocument[]>();
+  const ids = Array.from(new Set((orderIds || []).filter(Boolean)));
+  if (ids.length === 0) return result;
+
+  // Alle Dokumenttypen einmalig (wenige Eintraege): id -> technicalName
+  const documentTypes = new Map<string, string>();
+  const typesResponse = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/document-type`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ limit: 100, includes: { document_type: ['id', 'technicalName'] } }),
+  });
+  if (typesResponse.ok) {
+    const typesData = await typesResponse.json();
+    for (const item of typesData.data || []) documentTypes.set(item.id, readEntityTechnicalName(item));
+  }
+
+  const CHUNK = 200;
+  const PAGE_LIMIT = 500;
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const chunk = ids.slice(i, i + CHUNK);
+    for (let page = 1; ; page++) {
+      const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/document`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          limit: PAGE_LIMIT,
+          page,
+          filter: [{ type: 'equalsAny', field: 'orderId', value: chunk }],
+          includes: { document: ['id', 'orderId', 'documentTypeId', 'documentNumber', 'createdAt', 'sent'] },
+        }),
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to retrieve documents: ${response.statusText} - ${errorText}`);
+      }
+      const documents = (await response.json()).data || [];
+      for (const doc of documents) {
+        const orderId = doc.orderId ?? doc.attributes?.orderId ?? doc.relationships?.order?.data?.id;
+        if (!orderId) continue;
+        const list = result.get(orderId) ?? [];
+        list.push({
+          id: doc.id,
+          type: documentTypeOf(doc, documentTypes),
+          number: doc.documentNumber || doc.attributes?.documentNumber || '',
+          deepLinkCode: '',
+          createdAt: doc.createdAt || doc.attributes?.createdAt,
+          sent: Boolean(doc.sent ?? doc.attributes?.sent ?? false),
+        });
+        result.set(orderId, list);
+      }
+      if (documents.length < PAGE_LIMIT) break;
+    }
+  }
+  return result;
+}
+
 export async function fetchOrderDocuments(this: ShopwareClient, orderId: string): Promise<OrderDocument[]> {
   try {
     // List documents for this order; request createdAt explicitly (Admin API document list)
@@ -208,33 +307,7 @@ export async function fetchOrderDocuments(this: ShopwareClient, orderId: string)
       const orderVersionId =
         doc.orderVersionId ?? doc.attributes?.orderVersionId ?? null;
 
-      // Get document type from documentTypeId or fallback to document number prefix
-      let docType = 'unknown';
-      const docTypeId =
-        doc.documentTypeId ??
-        doc.attributes?.documentTypeId ??
-        doc.relationships?.documentType?.data?.id;
-      if (docTypeId && documentTypes.has(docTypeId)) {
-        docType = documentTypes.get(docTypeId) || 'unknown';
-      } else if (docNumber) {
-        // Fallback: determine type from document number prefix
-        const n = docNumber.trim().toUpperCase();
-        if (n.startsWith('RE-')) {
-          docType = 'invoice';
-        } else if (n.startsWith('VKRE')) {
-          docType = 'vorkasse_invoice';
-        } else if (n.startsWith('PF')) {
-          docType = 'proforma_invoice';
-        } else if (n.startsWith('LS-')) {
-          docType = 'delivery_note';
-        } else if (n.startsWith('GS-')) {
-          docType = 'credit_note';
-        } else if (n.startsWith('ST-')) {
-          docType = 'cancellation';
-        }
-      }
-
-      docType = normalizeOrderDocumentType(docType);
+      const docType = documentTypeOf(doc, documentTypes);
 
       return {
         id: doc.id,

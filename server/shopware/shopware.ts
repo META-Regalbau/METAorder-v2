@@ -345,6 +345,7 @@ export interface ShopwareClient {
   downloadDocumentPdfBuffer: typeof documentsApi.downloadDocumentPdfBuffer;
   fetchOrderAmountTotalForVersion: typeof documentsApi.fetchOrderAmountTotalForVersion;
   fetchOrderDocuments: typeof documentsApi.fetchOrderDocuments;
+  fetchDocumentsByOrderIds: typeof documentsApi.fetchDocumentsByOrderIds;
   downloadInvoicePdf: typeof documentsApi.downloadInvoicePdf;
   updateOrderDocumentNumbers: typeof documentsApi.updateOrderDocumentNumbers;
   setDocumentSent: typeof documentsApi.setDocumentSent;
