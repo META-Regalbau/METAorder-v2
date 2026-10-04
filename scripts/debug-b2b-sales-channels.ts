@@ -88,8 +88,10 @@ async function main() {
 
   console.log("\n=== Orders per channel (sample totals) ===");
   for (const ch of channels) {
-    const orders = await shopware.fetchOrdersPaginated(1, 0, [ch.id]);
-    console.log(`- ${ch.name}: ${orders.total} orders`);
+    const orders = await shopware.fetchEntitySearchFingerprint("order", {
+      filter: [{ type: "equals", field: "salesChannelId", value: ch.id }],
+    });
+    console.log(`- ${ch.name}: ${orders?.total ?? 0} orders`);
   }
 
   console.log("\n=== Raw offer-customer sample ===");
