@@ -323,8 +323,14 @@ export type Order = {
   billingAddress?: OrderAddress;
   shippingAddress?: OrderAddress;
   shippingInfo?: {
+    /** Versanddienstleister (in METAorder eingetragen, sonst die Versandart der Lieferung) */
     carrier?: string;
+    /** alle Sendungsnummern als Text ("A, B") - Anzeige, Sortierung, Export */
     trackingNumber?: string;
+    /** einzelne Sendungsnummern (aelteste Lieferung zuerst) */
+    trackingCodes?: string[];
+    /** Links zur Sendungsverfolgung, wenn die Versandart in Shopware eine Tracking-URL hat */
+    trackingLinks?: Array<{ code: string; url: string }>;
     shippedDate?: string;
   };
   invoiceNumber?: string;

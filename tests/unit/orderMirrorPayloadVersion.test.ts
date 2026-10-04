@@ -1,6 +1,6 @@
 /**
  * Bestell-Spiegel: einmaliges Neuladen bei neuer Payload-Version (v2: Versandangaben, v3: alle
- * Bestellungen auch bei mehrfach vergebener Bestellnummer), Rechnungs-
+ * Bestellungen auch bei mehrfach vergebener Bestellnummer, v4: Sendungsnummern mit Links), Rechnungs-
  * Watcher dabei nur fuer den normalen Delta-Ausschnitt, Delta-Cursor inkl. Lieferungs-Aenderungen -
  * echter syncOrdersDelta mit Test-Shop und Test-Speicher.
  * Ausführung: npm test
@@ -68,7 +68,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-const CURRENT = "v3";
+const CURRENT = "v4";
 const v1State = { lastFingerprint: "fp-a", cursorUpdatedAt: CURSOR, lastReconcileAt: new Date() };
 
 describe("Bestell-Spiegel: Payload-Version", () => {
@@ -81,10 +81,12 @@ describe("Bestell-Spiegel: Payload-Version", () => {
     expect(fetchCalls).toHaveLength(1); // danach greift der Fingerprint wieder
   });
 
-  it("auch ein Spiegel aus v2 (Versandangaben, aber ohne alle Dubletten-Kopien) wird einmal neu geladen", async () => {
-    const { fetchCalls, sync } = setup({ ...v1State, lastFingerprint: "v2:fp-a" });
-    await sync();
-    expect(fetchCalls).toEqual([{ updatedSince: null }]);
+  it("auch ein Spiegel aus v2 oder v3 (ohne Tracking-Links) wird einmal neu geladen", async () => {
+    for (const old of ["v2", "v3"]) {
+      const { fetchCalls, sync } = setup({ ...v1State, lastFingerprint: `${old}:fp-a` });
+      await sync();
+      expect(fetchCalls).toEqual([{ updatedSince: null }]);
+    }
   });
 
   it("Rechnungs-Watcher beim Neuladen nur fuer Bestellungen seit dem bisherigen Cursor", async () => {

@@ -22,13 +22,15 @@ describe("deriveShippingInfo", () => {
       [facts("d2", "shipped", ["B", "A"], "2026-09-02T00:00:00.000+00:00"), facts("d1", "shipped", ["A"], "2026-09-01T00:00:00.000+00:00")],
       {},
     );
-    expect(info).toEqual({ trackingNumber: "A, B" });
+    expect(info).toEqual({ trackingNumber: "A, B", trackingCodes: ["A", "B"] });
   });
 
   it("Zusatzfelder meta_shipped_*: Dienstleister immer, Sendungsnummer nur ohne Tracking-Code, Datum vor der Historie", () => {
     const cf = { meta_shipped_carrier: "DHL", meta_shipped_tracking: "META-1", meta_shipped_date: "2026-09-04" };
-    expect(deriveShippingInfo([facts("d1", "shipped", ["SW-1"])], cf, shippedAt)).toEqual({ carrier: "DHL", trackingNumber: "SW-1", shippedDate: "2026-09-04" });
-    expect(deriveShippingInfo([facts("d1", "open")], cf)).toEqual({ carrier: "DHL", trackingNumber: "META-1", shippedDate: "2026-09-04" });
+    expect(deriveShippingInfo([facts("d1", "shipped", ["SW-1"])], cf, shippedAt)).toEqual({ carrier: "DHL", trackingNumber: "SW-1", trackingCodes: ["SW-1"], shippedDate: "2026-09-04" });
+    expect(deriveShippingInfo([facts("d1", "open")], cf)).toEqual({ carrier: "DHL", trackingNumber: "META-1", trackingCodes: ["META-1"], shippedDate: "2026-09-04" });
+    // frueher als ein Code gespeichert ("A, B"): wieder einzelne Nummern
+    expect(deriveShippingInfo([facts("d1", "open")], { meta_shipped_tracking: "A, B" })?.trackingCodes).toEqual(["A", "B"]);
   });
 
   it("Versanddatum: letzter Uebergang nach versendet - auch zurueckgesendet, nicht wieder geoeffnet oder storniert", () => {
@@ -39,6 +41,32 @@ describe("deriveShippingInfo", () => {
     expect(deriveShippingInfo([facts("d1", "shipped")], {})).toBeUndefined();
   });
 
+  it("Links zur Sendungsverfolgung aus der Tracking-URL der Versandart der jeweiligen Lieferung", () => {
+    const dpd = "https://tracking.dpd.de/parcelstatus?query=%s&locale=de_DE";
+    const info = deriveShippingInfo(
+      [
+        { ...facts("d1", "shipped", ["0159 512", "B/2"], "2026-09-01T00:00:00Z"), shippingMethodName: "DPD", trackingUrl: dpd },
+        { ...facts("d2", "shipped", ["SP-9"], "2026-09-02T00:00:00Z"), shippingMethodName: "Spedition" },
+      ],
+      {},
+    );
+    expect(info?.trackingLinks).toEqual([
+      { code: "0159 512", url: "https://tracking.dpd.de/parcelstatus?query=0159%20512&locale=de_DE" },
+      { code: "B/2", url: "https://tracking.dpd.de/parcelstatus?query=B%2F2&locale=de_DE" },
+    ]);
+    expect(info?.trackingCodes).toEqual(["0159 512", "B/2", "SP-9"]);
+  });
+
+  it("Versanddienstleister: eingetragen, sonst Versandart der neuesten Lieferung - nur bei Versandangaben", () => {
+    const deliveries = [
+      { ...facts("d1", "shipped", ["X"], "2026-09-01T00:00:00Z"), shippingMethodName: "Spedition" },
+      { ...facts("d2", "shipped", [], "2026-09-02T00:00:00Z"), shippingMethodName: "DPD" },
+    ];
+    expect(deriveShippingInfo(deliveries, {})?.carrier).toBe("DPD");
+    expect(deriveShippingInfo(deliveries, { meta_shipped_carrier: "DHL" })?.carrier).toBe("DHL");
+    expect(deriveShippingInfo([{ ...facts("d1", "open"), shippingMethodName: "DPD" }], {})).toBeUndefined();
+  });
+
   it("Lieferung im JSON:API-Format (Status ueber included)", () => {
     const included = new Map([["state_machine_state-s1", { attributes: { technicalName: "shipped" } }]]);
     const f = deliveryShippingFacts(
@@ -46,6 +74,20 @@ describe("deriveShippingInfo", () => {
       included,
     );
     expect(f).toEqual({ id: "d9", createdAt: "2026-09-01T00:00:00Z", trackingCodes: ["X1"], state: "shipped" });
+  });
+
+  it("Versandart mit Tracking-URL: verschachtelt (translated vor Grundwert) oder ueber included", () => {
+    const nested = deliveryShippingFacts({
+      id: "d1", createdAt: "2026-09-01T00:00:00Z", trackingCodes: [],
+      shippingMethod: { name: "DPD", trackingUrl: "https://alt/%s", translated: { name: "DPD DE", trackingUrl: "https://neu/%s" } },
+    });
+    expect(nested).toMatchObject({ shippingMethodName: "DPD DE", trackingUrl: "https://neu/%s" });
+    const included = new Map([["shipping_method-m1", { attributes: { name: "DHL", trackingUrl: "https://dhl/%s" } }]]);
+    const viaIncluded = deliveryShippingFacts(
+      { id: "d2", attributes: { createdAt: "2026-09-01T00:00:00Z", trackingCodes: [] }, relationships: { shippingMethod: { data: { id: "m1" } } } },
+      included,
+    );
+    expect(viaIncluded).toMatchObject({ shippingMethodName: "DHL", trackingUrl: "https://dhl/%s" });
   });
 });
 
@@ -113,13 +155,14 @@ describe("fetchOrders: Versandangaben", () => {
     await client().fetchOrders(null);
     const req = shop.requests.find((r) => r.path === "/api/search/order")!.body;
     expect(req.includes.order_delivery).toEqual(expect.arrayContaining(["id", "createdAt", "trackingCodes", "stateMachineState"]));
+    expect(req.includes.shipping_method).toEqual(expect.arrayContaining(["name", "translated", "trackingUrl"]));
     expect(req.associations.deliveries.associations.stateMachineState).toEqual({});
   });
 
   it("Sendungsnummer aus der Lieferung, Versanddatum aus der Status-Historie (nur versendete Lieferungen ohne eigenes Datum)", async () => {
     const orders = await client().fetchOrders(null);
     expect(byId(orders)).toEqual({
-      versendet: { trackingNumber: "00340434", shippedDate: "2026-09-04T15:00:00.000+00:00" },
+      versendet: { trackingNumber: "00340434", trackingCodes: ["00340434"], shippedDate: "2026-09-04T15:00:00.000+00:00" },
       "wieder-offen": undefined,
       "datum-in-metaorder": { carrier: "DPD", shippedDate: "2026-09-06" },
       ohne: undefined,
@@ -145,7 +188,7 @@ describe("fetchOrders: Versandangaben", () => {
     const orders = await client().fetchOrders(null);
     warn.mockRestore();
     expect(orders).toHaveLength(4);
-    expect(byId(orders).versendet).toEqual({ trackingNumber: "00340434" });
+    expect(byId(orders).versendet).toEqual({ trackingNumber: "00340434", trackingCodes: ["00340434"] });
   });
 
   it("Delta-Abruf beruecksichtigt geaenderte Lieferungen (Tracking-Codes aendern die Bestellung nicht)", async () => {

@@ -2083,7 +2083,11 @@
     "trackingPlaceholder": "Enter tracking number",
     "trackingRequired": "Please enter a tracking number",
     "shippedDate": "Shipped date",
-    "shippedDateRequired": "Please enter the shipped date"
+    "shippedDateRequired": "Please enter the shipped date",
+    "tracking": "Tracking",
+    "trackingMultipleHint": "Separate multiple tracking numbers with commas.",
+    "trackingCodesDetected": "{{count}} tracking numbers detected",
+    "trackingLinkTitle": "Track shipment {{code}}"
   },
   "adminDocuments": {
     "invoiceNumber": "Invoice Number",

@@ -10,6 +10,7 @@ import { OrderStockSummaryBadge } from "./OrderStockHint";
 import type { Order } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 import SortableTableHead from "@/components/SortableTableHead";
+import TrackingCodes from "@/components/TrackingCodes";
 
 interface OrdersTableProps {
   orders: Order[];
@@ -257,9 +258,7 @@ export default function OrdersTable({
               </TableCell>
               <TableCell>
                 {order.shippingInfo?.trackingNumber ? (
-                  <span className="text-sm font-mono" data-testid={`text-tracking-${order.id}`}>
-                    {order.shippingInfo.trackingNumber}
-                  </span>
+                  <TrackingCodes shippingInfo={order.shippingInfo} testId={`text-tracking-${order.id}`} />
                 ) : (
                   <span className="text-sm text-muted-foreground">—</span>
                 )}
