@@ -358,7 +358,8 @@ export class B2BSellersClient {
       const criteria: any = {
         limit,
         page,
-        totalCountMode: 1,
+        // kebab-case: totalCountMode ignoriert Shopware still (total = Treffer auf der Seite)
+        "total-count-mode": 1,
         sort: [{ field: currentConfig.createdField, order: "DESC" }],
         filter: [],
         associations: currentConfig.associations.reduce((acc, name) => {
@@ -440,7 +441,7 @@ export class B2BSellersClient {
     if (!response) {
       response = await this.makeEntityRequest((entity) => `${this.baseUrl}/api/search/${entity}`, {
         method: "POST",
-        body: JSON.stringify({ limit, page, totalCountMode: 1 }),
+        body: JSON.stringify({ limit, page, "total-count-mode": 1 }),
       });
     }
 
