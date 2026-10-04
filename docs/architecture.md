@@ -54,6 +54,25 @@ Direkt unter `server/` liegen nur App-Einstieg und Infrastruktur: `index.ts`, `r
 | `shopware/` | Shopware-API-Client, Spiegelung, Token-Cache |
 | `tickets/` | Ticket-KI, Automatisierung |
 
+### Shopware-Client (`server/shopware/`)
+
+`ShopwareClient` (`shopware.ts`) enthält nur den Kern: Felder, Konstruktor, Authentifizierung, `makeAuthenticatedRequest` und generische Helfer (`searchEntity`, Fingerprints, Nummernkreise). Die fachlichen Methoden liegen je Ressource in `client/*.ts` als Funktionen mit `this: ShopwareClient` und werden am Ende von `shopware.ts` am Prototyp installiert (für TypeScript per Interface-Merging deklariert). Für Aufrufer ändert sich nichts: weiter `new ShopwareClient(settings)` und `client.fetchOrders(…)`.
+
+| Datei | Inhalt |
+|---|---|
+| `client/orders.ts` | Bestellungen lesen/anlegen, Status-Mapping, Fingerprints, Auswertungsdaten |
+| `client/delivery.ts` | Versand (Lieferstatus, Versandmeldung), Mondu-Transaktionen |
+| `client/documents.ts` | Rechnung, Lieferschein, Proforma, Mahnung, PDFs, Rechnungsversand |
+| `client/products.ts` | Produkte, Suche, Datenqualität, Aktiv/Bestand/Preise, Kategorien, Kanäle, 3D-Modell |
+| `client/crossSelling.ts` | Produkt-Cross-Selling in Shopware |
+| `client/customers.ts` | Kunden, B2B-Portal-Benutzer, Storefront-Login |
+| `client/pricing.ts` | Kundenpreise, Rabatte, Herstellpreise, Währungen, Individualpreis-Index |
+| `client/offers.ts` | Angebote (B2B Sellers) |
+| `client/masterData.ts` | Verkaufskanäle, Kategorien, Felder, Lieferzeiten, Standardwerte, Länder |
+| `client/types.ts`, `client/mapping.ts` | Typen bzw. Mapping-/Normalisierungsfunktionen und Konstanten |
+
+Neue Shopware-Methoden: als `export async function name(this: ShopwareClient, …)` im passenden `client/*.ts` anlegen und im `interface ShopwareClient` am Ende von `shopware.ts` eintragen.
+
 ### API-Routen (`server/routes/`)
 
 `server/routes.ts` registriert nur noch die Bereichsmodule; die Routen liegen je Bereich in einer Datei mit einer `register…Routes(app)`-Funktion. Neue Routen gehören in das passende Modul (Reihenfolge-Hinweise stehen im Kopfkommentar von `routes.ts`).
