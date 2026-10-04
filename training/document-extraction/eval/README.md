@@ -70,7 +70,7 @@ Artikelnummern auch Trennzeichen (`4032 9812345678` = `40329812345678`); Beträg
 ## Tests der Bewertungslogik
 
 ```bash
-npm run test:extraction-eval
+npx vitest run tests/unit/extractionEvalScoring.test.ts
 ```
 
 ## Echte Fälle im Datensatz (Stand September 2026)

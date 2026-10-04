@@ -140,9 +140,9 @@ Multipart-Feld **`intentHint`**: `offer` | `order` | `unclear`
 ## Tests lokal
 
 ```bash
-npm run test:strict-auto-create
-npm run test:gmail-ingest-hint
-npm run test:commercial-eml-ingest
+npx vitest run tests/unit/commercialStrictAutoCreate.test.ts
+npx vitest run tests/unit/gmailIntentHintIngest.test.ts
+npx vitest run tests/unit/commercialEmailUploadIngest.test.ts
 ```
 
 ## Smoke-Test

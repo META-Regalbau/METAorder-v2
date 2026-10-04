@@ -25,7 +25,7 @@
 **Files:**
 - Modify: `server/erp/erpStorage.ts` (`scanPickListProduct`)
 - Modify: `server/erp/erpRoutes.ts` (body zod)
-- Modify: `scripts/testErpCore.ts` (Logik-Asserts via shared helper optional; Storage-Logik in Unit-Test schwer ohne DB — Asserts für Clamp-Helfer wenn extrahiert)
+- Modify: `tests/unit/erpCore.test.ts` (Logik-Asserts via shared helper optional; Storage-Logik in Unit-Test schwer ohne DB — Asserts für Clamp-Helfer wenn extrahiert)
 
 **Interfaces:**
 - `scanPickListProduct(pickListId, productNumber, tenantId?, delta?: 1 | -1)`
@@ -33,7 +33,7 @@
 
 - [x] Clamp `pickedQuantity` auf `0…quantity`; delta -1 bei 0 = no-op
 - [x] Route parse delta
-- [x] `npm run test:erp` (bestehende Tests + neue Clamp-Helper-Tests wenn extrahiert)
+- [x] `npx vitest run tests/unit/erpCore.test.ts` (bestehende Tests + neue Clamp-Helper-Tests wenn extrahiert)
 
 ### Task 2: `BarcodeLiveScanner`
 
