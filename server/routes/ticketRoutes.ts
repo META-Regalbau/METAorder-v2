@@ -1,4 +1,5 @@
 // Tickets: Ticket-API, Kundenportal, Vorlagen, Zuweisungs- und Automatisierungsregeln, Anhaenge.
+import { validateAutomationRule, type AutomationActionInput, type AutomationConditionInput } from "@shared/automation";
 import { requireAuth, requireManageTickets, requireManageAutomations, requireViewTickets } from "../auth/auth";
 import { storage } from "../storage";
 import { z } from "zod";
@@ -15,7 +16,7 @@ import path from "path";
 import { getUploadsRoot } from "../uploadsRoot";
 import fs from "fs/promises";
 import crypto from "crypto";
-import { restoreTenantContext } from "../lib/tenantContext";
+import { getTenantIdFromContext, restoreTenantContext } from "../lib/tenantContext";
 import { objectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { parseEmailFile } from "../email/emailParser";
 import * as XLSX from "xlsx";
@@ -63,6 +64,26 @@ const escapeHtml = (value: string) =>
 
 export interface TicketRouteDeps {
   useObjectStorage: boolean;
+}
+
+/** Gespeicherte Regel mit (Teil-)Aenderungen zusammenfuehren und gegen den Katalog pruefen. */
+function validateStoredAutomationRule(
+  existing: { triggerType: string; conditions: string | null; actions: string },
+  changes: { triggerType?: string; conditions?: AutomationConditionInput[] | null; actions?: AutomationActionInput[] },
+): string[] {
+  const parse = <T,>(raw: string | null): T[] => {
+    try {
+      const v = raw ? JSON.parse(raw) : [];
+      return Array.isArray(v) ? v : [];
+    } catch {
+      return [];
+    }
+  };
+  return validateAutomationRule({
+    triggerType: changes.triggerType ?? existing.triggerType,
+    conditions: changes.conditions !== undefined ? changes.conditions ?? [] : parse<AutomationConditionInput>(existing.conditions),
+    actions: changes.actions ?? parse<AutomationActionInput>(existing.actions),
+  });
 }
 
 export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void {
@@ -202,6 +223,23 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
   });
 
   // Automation Rules - Get single automation rule
+  // Automation Rules - Benutzer des aktiven Mandanten (Auswahl fuer "zuweisen"/"benachrichtigen").
+  // Muss VOR "/api/automation-rules/:id" stehen, sonst faengt :id den Pfad "users" ab.
+  app.get("/api/automation-rules/users", requireAuth, requireManageAutomations, async (_req, res) => {
+    try {
+      const tenantId = getTenantIdFromContext();
+      const users = await storage.getAllUsers();
+      const visible = tenantId
+        ? (await Promise.all(users.map(async (u) => ((await storage.getTenantsForUser(u.id)).some((t) => t.id === tenantId) ? u : null))))
+            .filter((u): u is NonNullable<typeof u> => u !== null)
+        : users;
+      res.json(visible.map(({ id, username }) => ({ id, username })));
+    } catch (error) {
+      console.error("Error fetching automation users:", error);
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
   app.get("/api/automation-rules/:id", requireAuth, requireManageAutomations, async (req, res) => {
     try {
       const { id } = req.params;
@@ -222,6 +260,14 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
   app.post("/api/automation-rules", requireAuth, requireManageAutomations, async (req, res) => {
     try {
       const validatedData = insertAutomationRuleSchema.parse(req.body);
+      const ruleErrors = validateAutomationRule({
+        triggerType: validatedData.triggerType,
+        conditions: validatedData.conditions ?? [],
+        actions: validatedData.actions,
+      });
+      if (ruleErrors.length > 0) {
+        return res.status(400).json({ error: "Regel unvollständig", details: ruleErrors });
+      }
       
       const rule = await storage.createAutomationRule({
         name: validatedData.name,
@@ -252,6 +298,21 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
       
       const updateSchema = insertAutomationRuleSchema.partial();
       const validatedData = updateSchema.parse(req.body);
+      if (
+        validatedData.triggerType !== undefined ||
+        validatedData.conditions !== undefined ||
+        validatedData.actions !== undefined ||
+        validatedData.enabled === true
+      ) {
+        const existing = await storage.getAutomationRule(id);
+        if (!existing) {
+          return res.status(404).json({ error: "Automation rule not found" });
+        }
+        const ruleErrors = validateStoredAutomationRule(existing, validatedData);
+        if (ruleErrors.length > 0) {
+          return res.status(400).json({ error: "Regel unvollständig", details: ruleErrors });
+        }
+      }
       
       const updates: any = {};
       if (validatedData.name) updates.name = validatedData.name;
@@ -310,6 +371,16 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
 
       if (typeof enabled !== 'boolean') {
         return res.status(400).json({ error: "enabled must be a boolean" });
+      }
+      if (enabled) {
+        const existing = await storage.getAutomationRule(id);
+        if (!existing) {
+          return res.status(404).json({ error: "Automation rule not found" });
+        }
+        const ruleErrors = validateStoredAutomationRule(existing, {});
+        if (ruleErrors.length > 0) {
+          return res.status(400).json({ error: "Regel unvollständig", details: ruleErrors });
+        }
       }
 
       const rule = await storage.updateAutomationRule(id, { enabled: enabled ? 1 : 0 });

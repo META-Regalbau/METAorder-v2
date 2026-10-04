@@ -7,8 +7,8 @@ type TenantContext = {
 
 const tenantContext = new AsyncLocalStorage<TenantContext>();
 
-export function runWithTenantContext(tenantId: string | null, fn: () => void) {
-  tenantContext.run({ tenantId }, fn);
+export function runWithTenantContext<T>(tenantId: string | null, fn: () => T): T {
+  return tenantContext.run({ tenantId }, fn);
 }
 
 export function getTenantIdFromContext(): string | null {

@@ -2836,7 +2836,13 @@
       "run_ai_analysis": "KI-Analyse ausführen"
     },
     "operators": {
-      "contains": "enthält"
+      "contains": "enthält",
+      "equals": "ist",
+      "notEquals": "ist nicht",
+      "greaterThan": "größer als",
+      "lessThan": "kleiner als",
+      "greaterThanOrEqual": "mindestens",
+      "lessThanOrEqual": "höchstens"
     },
     "form": {
       "name": "Regelname",
@@ -2853,7 +2859,14 @@
       "actions": "Aktionen",
       "addAction": "Aktion hinzufügen",
       "noActions": "Mindestens eine Aktion ist erforderlich",
-      "actionParams": "Parameter (JSON)"
+      "selectUser": "Benutzer wählen",
+      "choose": "Bitte wählen",
+      "comingSoon": "folgt",
+      "enabled": "Regel aktiv",
+      "computedHint": "Wird bei Bedarf per KI ermittelt (ohne KI-Konfiguration per Stichwort-Heuristik).",
+      "emailHint": "Nutzt den E-Mail-Ausgang aus den Einstellungen. Ist er ausgeschaltet, schlägt die Aktion fehl und steht so in der Ausführungshistorie.",
+      "placeholders": "Platzhalter",
+      "incomplete": "Regel unvollständig"
     },
     "templates": {
       "title": "Regel-Vorlagen",
@@ -2867,13 +2880,68 @@
         "description": "Aktualisiert Bestellstatus automatisch von 'Bezahlt' zu 'In Bearbeitung'"
       },
       "sentimentPriority": {
-        "name": "Sentiment-basierte Priorisierung",
-        "description": "Erhöht Ticket-Priorität bei negativer Stimmungserkennung"
+        "name": "Negative Tickets priorisieren",
+        "description": "Setzt neue Tickets mit negativer Stimmung auf Priorität „Hoch“."
       },
       "smartCategorization": {
-        "name": "Intelligente Kategorisierung",
-        "description": "Kategorisiert neue Tickets automatisch mit KI"
+        "name": "Neue Tickets kategorisieren",
+        "description": "Ordnet neue Tickets per KI einer Kategorie zu, solange sie noch „Allgemein“ sind."
+      },
+      "complaintNotify": {
+        "name": "Reklamationen melden",
+        "description": "Benachrichtigt einen Benutzer, sobald eine Reklamation eingeht."
+      },
+      "customerReplied": {
+        "name": "Kunde hat geantwortet",
+        "description": "Hebt die Priorität, wenn ein Ticket von „Wartet auf Kunden“ wieder auf „Offen“ springt."
       }
+    },
+    "fields": {
+      "ticket": {
+        "priority": "Ticket: Priorität",
+        "category": "Ticket: Kategorie",
+        "status": "Ticket: Status",
+        "previousStatus": "Ticket: vorheriger Status",
+        "title": "Ticket: Titel",
+        "description": "Ticket: Beschreibung",
+        "customerEmail": "Ticket: Kunden-E-Mail",
+        "customerName": "Ticket: Kundenname",
+        "orderNumber": "Ticket: Bestellnummer",
+        "isAssigned": "Ticket: zugewiesen",
+        "fromEmail": "Ticket: aus E-Mail entstanden",
+        "sentiment": "Ticket: Stimmung (KI)"
+      }
+    },
+    "values": {
+      "yes": "ja",
+      "no": "nein",
+      "positive": "positiv",
+      "neutral": "neutral",
+      "negative": "negativ",
+      "general": "Allgemein",
+      "order_issue": "Bestellproblem",
+      "product_inquiry": "Produktanfrage",
+      "technical_support": "Technischer Support",
+      "complaint": "Reklamation",
+      "feature_request": "Funktionswunsch",
+      "discount_request": "Rabattanfrage",
+      "other": "Sonstiges"
+    },
+    "params": {
+      "userId": "Benutzer",
+      "title": "Titel",
+      "message": "Nachricht",
+      "to": "Empfänger",
+      "subject": "Betreff",
+      "body": "Text",
+      "priority": "Priorität",
+      "category": "Kategorie",
+      "description": "Beschreibung",
+      "applyCategory": "Kategorie setzen (nur wenn noch „Allgemein“)",
+      "escalateNegative": "Bei negativer Stimmung Priorität auf „Hoch“ anheben"
+    },
+    "history": {
+      "ticket": "Ticket"
     }
   },
   "offers": {

@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "crypto";
 import { eq, ne, sql as drizzleSql, desc, asc, and, isNull, lte, gt, gte, sql, inArray, not, count, or, ilike } from "drizzle-orm";
 import { db } from "./db";
 import { getTenantIdFromContext } from "./lib/tenantContext";
+import { emitDomainEvent } from "./lib/domainEvents";
 import {
   users,
   tenants,
@@ -933,7 +934,7 @@ export class DbStorage implements IStorage {
 
   async createTicket(insertTicket: InsertTicket, tenantId?: string | null): Promise<Ticket> {
     const ticketNumber = await this.generateTicketNumber();
-    
+
     const result = await db
       .insert(tickets)
       .values({
@@ -942,33 +943,35 @@ export class DbStorage implements IStorage {
         ticketNumber,
       })
       .returning();
+    // Fuer Automatisierungsregeln (Ausloeser "Ticket angelegt"); laeuft entkoppelt
+    emitDomainEvent("ticket.created", { ticket: result[0] });
     return result[0];
   }
 
   async updateTicket(id: string, updates: Partial<InsertTicket>, tenantId?: string | null): Promise<Ticket | undefined> {
     const tenantFilter = tenantFilterFor(tickets.tenantId, tenantId);
     const updateData: any = { ...updates, updatedAt: new Date() };
-    
-    if (updates.status === "resolved") {
-      const existing = await this.getTicket(id, tenantId);
-      if (existing && !existing.resolvedAt) {
-        updateData.resolvedAt = new Date();
-      }
+    // Vorheriger Stand nur bei Statusaenderung noetig (Zeitstempel + Ereignis "Status geaendert")
+    const previous = updates.status !== undefined ? await this.getTicket(id, tenantId) : undefined;
+
+    if (updates.status === "resolved" && previous && !previous.resolvedAt) {
+      updateData.resolvedAt = new Date();
     }
-    
-    if (updates.status === "closed") {
-      const existing = await this.getTicket(id, tenantId);
-      if (existing && !existing.closedAt) {
-        updateData.closedAt = new Date();
-      }
+
+    if (updates.status === "closed" && previous && !previous.closedAt) {
+      updateData.closedAt = new Date();
     }
-    
+
     const result = await db
       .update(tickets)
       .set(updateData)
       .where(and(eq(tickets.id, id), tenantFilter))
       .returning();
-    return result[0];
+    const updated = result[0];
+    if (updated && previous && previous.status !== updated.status) {
+      emitDomainEvent("ticket.statusChanged", { ticket: updated, previousStatus: previous.status });
+    }
+    return updated;
   }
 
   async deleteTicket(id: string, tenantId?: string | null): Promise<boolean> {

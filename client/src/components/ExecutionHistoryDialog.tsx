@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { X, CheckCircle, XCircle, Calendar } from "lucide-react";
+import { CheckCircle, XCircle, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
@@ -11,13 +11,20 @@ interface ExecutionHistoryDialogProps {
   onClose: () => void;
 }
 
+// So speichert server/automation/engine.ts eine Ausfuehrung (Tabelle automation_executions)
+type ExecutionResult = {
+  trigger?: string;
+  entity?: { type: string; id: string; number?: string } | null;
+  actions?: Array<{ type: string; ok: boolean; message: string }>;
+};
+
 type AutomationExecution = {
   id: string;
   ruleId: string;
-  executedAt: Date;
-  success: boolean;
-  executionData: string | null;
-  errorMessage: string | null;
+  executedAt: string;
+  status: "success" | "failure" | string;
+  result: ExecutionResult | null;
+  error: string | null;
 };
 
 export function ExecutionHistoryDialog({ ruleId, onClose }: ExecutionHistoryDialogProps) {
@@ -49,52 +56,53 @@ export function ExecutionHistoryDialog({ ruleId, onClose }: ExecutionHistoryDial
         ) : (
           <div className="space-y-3">
             {executions.map((execution) => {
-              const executionData = execution.executionData
-                ? JSON.parse(execution.executionData)
-                : null;
+              const success = execution.status === "success";
+              const result = execution.result;
 
               return (
                 <Card key={execution.id} className="p-4" data-testid={`execution-${execution.id}`}>
                   <div className="flex items-start gap-3">
-                    {execution.success ? (
+                    {success ? (
                       <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
                     ) : (
                       <XCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
                     )}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge variant={execution.success ? "success" : "destructive"}>
-                          {execution.success ? t('automation.success') : t('automation.failed')}
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <Badge variant={success ? "success" : "destructive"}>
+                          {success ? t('automation.success') : t('automation.failed')}
                         </Badge>
                         <span className="text-xs text-muted-foreground">
                           {new Date(execution.executedAt).toLocaleString()}
                         </span>
+                        {result?.entity?.number && (
+                          <span className="text-xs text-muted-foreground">
+                            {t('automation.history.ticket')} {result.entity.number}
+                          </span>
+                        )}
                       </div>
 
-                      {executionData && (
-                        <div className="mb-2">
-                          <p className="text-sm">
-                            <span className="font-medium">{t('automation.action')}:</span>{' '}
-                            {executionData.action || t('common.unknown')}
-                          </p>
-                        </div>
+                      {result?.actions && result.actions.length > 0 && (
+                        <ul className="space-y-1 text-sm">
+                          {result.actions.map((a, i) => (
+                            <li key={i} className="flex items-start gap-2">
+                              {a.ok ? (
+                                <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                              ) : (
+                                <XCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+                              )}
+                              <span>
+                                <span className="font-medium">{t(`automation.actions.${a.type}`, a.type)}:</span> {a.message}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
                       )}
 
-                      {execution.errorMessage && (
+                      {execution.error && !result?.actions?.length && (
                         <div className="mt-2 p-2 bg-destructive/10 rounded text-sm text-destructive">
-                          {execution.errorMessage}
+                          {execution.error}
                         </div>
-                      )}
-
-                      {executionData && (
-                        <details className="mt-2">
-                          <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-                            {t('automation.viewDetails')}
-                          </summary>
-                          <pre className="mt-2 p-2 bg-muted rounded text-xs overflow-x-auto">
-                            {JSON.stringify(executionData, null, 2)}
-                          </pre>
-                        </details>
                       )}
                     </div>
                   </div>
