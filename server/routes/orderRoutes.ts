@@ -657,31 +657,18 @@ export function registerOrderRoutes(app: Express): void {
       }
 
       const client = new ShopwareClient(settings);
-      const allOrders = await client.fetchOrders();
+      // Aus dem Bestell-Spiegel statt alle Bestellungen live; eine Bestellung je Bestellnummer
+      // wie zuvor bei fetchOrders.
+      const { orders: mirrorOrders } = await getOrdersWithCache(client, (req as any).tenantId ?? null);
+      const allOrders = dedupeOrdersByNumber(mirrorOrders);
 
-      // Get user information
-      const user = req.user as any;
-      const isAdmin = 
-        user?.roleDetails?.name === 'Administrator' || 
-        user?.role === 'admin';
-
-      // Filter by sales channel based on role
-      let filteredOrders = allOrders;
-      
-      if (!isAdmin) {
-        // Non-admin users: filter by their assigned sales channels
-        const userChannels = user?.salesChannelIds || [];
-        if (userChannels.length > 0) {
-          filteredOrders = allOrders.filter(order => 
-            userChannels.includes(order.salesChannelId)
-          );
-        } else {
-          // If no channels assigned, return empty result
-          filteredOrders = [];
-        }
-      } else if (salesChannelIds && salesChannelIds.length > 0) {
-        // Admin users: optionally filter by selected sales channels
-        filteredOrders = allOrders.filter(order => 
+      // Verkaufskanaele wie auf den Bestellseiten (getSalesChannelFilter: Kanaele von Nutzer und
+      // Rolle; null = alle, [] = keine). Wer alle Kanaele sehen darf, kann im Export einzelne
+      // auswaehlen (bisher nur Admins; Rollen-Kanaele wurden ignoriert).
+      const allowedChannelIds = await getSalesChannelFilter(req);
+      let filteredOrders = filterOrdersBySalesChannels(allOrders, allowedChannelIds);
+      if (allowedChannelIds === null && salesChannelIds && salesChannelIds.length > 0) {
+        filteredOrders = filteredOrders.filter(order =>
           salesChannelIds.includes(order.salesChannelId)
         );
       }
@@ -695,6 +682,14 @@ export function registerOrderRoutes(app: Express): void {
           return true;
         });
       }
+
+      // Neueste Bestellung zuerst - wie bisher der Live-Abruf; am selben Tag (orderDate ist ein
+      // Datum) nach Bestellnummer absteigend, damit der Export reproduzierbar ist.
+      filteredOrders = [...filteredOrders].sort(
+        (a, b) =>
+          new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime() ||
+          String(b.orderNumber ?? "").localeCompare(String(a.orderNumber ?? ""), "de", { numeric: true })
+      );
 
       // Extract only selected columns
       const exportData = filteredOrders.map(order => {
