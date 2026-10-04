@@ -357,7 +357,8 @@ export async function runOfferDraftPipeline(
           baseMatching.items,
           extractedData.customer?.email,
           pricingClient,
-          shopwareClient
+          shopwareClient,
+          tenantId ?? null,
         );
         timings.pricingMs = Date.now() - pricingStart;
         matchingResults = {
