@@ -76,6 +76,16 @@ describe("Ticket-Einordnung", () => {
     expect(state.calls[0]).toMatchObject({ tier: "fast", response_json: true });
   });
 
+  it("Prompt nennt die erlaubten Werte; Grossschreibung der Antwort wird akzeptiert", async () => {
+    // so antwortete Claude ohne Werteliste: "Damaged Goods" / "High" / "Negative"
+    state.reply = "```json\n" + JSON.stringify({ category: "Complaint", priority: "High", sentiment: "Negative", confidence: 0.95 }) + "\n```";
+    const result = await classifyTicketForRules(storage, ticket);
+    expect(result).toMatchObject({ category: "complaint", priority: "high", sentiment: "negative", source: "anthropic" });
+    expect(state.calls[0].user).toContain("Allowed categories: general, order_issue, product_inquiry, technical_support, complaint, feature_request, other");
+    expect(state.calls[0].user).toContain("Allowed priorities: low, normal, high, urgent");
+    expect(state.calls[0].user).toContain("Allowed sentiments: positive, neutral, negative");
+  });
+
   it("ohne Anbieter: Schluesselwoerter, kein KI-Aufruf", async () => {
     state.settings.openai_settings = NO_PROVIDER;
     const result = await classifyTicketForRules(storage, ticket);
@@ -93,7 +103,7 @@ describe("Ticket-Einordnung", () => {
 });
 
 describe("E-Mail-Einordnung", () => {
-  const routing = { defaultPriority: "normal", defaultSkill: "support", rules: [] } as any;
+  const routing = { enabled: true, confidenceThreshold: 0.6, defaultCategory: "general", defaultPriority: "normal", defaultSkill: "support", fallbackRules: [] } as const;
 
   it("Claude als Anbieter: KI-Einordnung mit Skill aus dem Katalog", async () => {
     state.reply = "```json\n" + JSON.stringify({ category: "order_issue", priority: "urgent", skill: "versand", confidence: 0.8 }) + "\n```";

@@ -97,9 +97,15 @@ export async function classifyTicketForRules(storage: IStorage, ticket: Ticket):
     confidence: z.number().min(0).max(1),
   });
 
+  // Erlaubte Werte nennen: ohne sie antworten die Modelle frei ("Damaged Goods", "High") und die
+  // Pruefung faellt auf die Schluesselwoerter zurueck
   const prompt = [
     "Classify the following ticket into category, priority and sentiment.",
     "Return JSON only with keys: category, priority, sentiment, confidence.",
+    `Allowed categories: ${schema.shape.category.options.join(", ")}`,
+    `Allowed priorities: ${schema.shape.priority.options.join(", ")}`,
+    `Allowed sentiments: ${schema.shape.sentiment.options.join(", ")}`,
+    "confidence: number between 0 and 1.",
     `Text:\n${buildText(ticket)}`,
   ].join("\n");
 
@@ -116,7 +122,12 @@ export async function classifyTicketForRules(storage: IStorage, ticket: Ticket):
 
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     const jsonText = jsonMatch ? jsonMatch[0] : raw;
-    const parsed = schema.safeParse(JSON.parse(jsonText));
+    const json = JSON.parse(jsonText);
+    // Gross-/Kleinschreibung der Werte ("High", "Negative") ist kein Grund fuer den Rueckfall
+    for (const key of ["category", "priority", "sentiment"]) {
+      if (typeof json?.[key] === "string") json[key] = json[key].trim().toLowerCase();
+    }
+    const parsed = schema.safeParse(json);
     if (!parsed.success) {
       return heuristicClassification(ticket);
     }
