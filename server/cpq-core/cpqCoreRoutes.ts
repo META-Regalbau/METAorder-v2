@@ -25,6 +25,7 @@ import {
   trackCpqKpi,
 } from "./cpqObservability";
 import { metricsCollectorService } from "../services/metricsCollector";
+import { buildBlockedReviewTransfer, decideAdapterTransfer, deriveReviewDecision } from "./submitDecision";
 
 const validateBodySchema = cpqValidateRequestSchema;
 const submitBodySchema = cpqSubmitRequestSchema;
@@ -62,25 +63,6 @@ const DEFAULT_CPQ_CORE_RULES: z.infer<typeof cpqConstraintRuleSchema>[] = [
 
 function resolveRules(rules: z.infer<typeof cpqConstraintRuleSchema>[] | undefined) {
   return rules && rules.length > 0 ? rules : DEFAULT_CPQ_CORE_RULES;
-}
-
-function deriveReviewDecision(classification: "A" | "B" | "C") {
-  const requiresReview = classification === "C";
-  return {
-    status: requiresReview ? "review_required" : "accepted",
-    requiresReview,
-    reviewStatus: requiresReview ? "pending" : "not_required",
-  } as const;
-}
-
-function buildBlockedReviewTransfer() {
-  return {
-    status: "blocked" as const,
-    reason: "review_required" as const,
-    nextAction: "review_queue" as const,
-    reviewHint:
-      "Diese Konfiguration wurde als Klasse C eingestuft. Der Checkout bleibt gesperrt, bis die technische Pruefung in METAorder abgeschlossen ist.",
-  };
 }
 
 function buildValidationSummary(validation: ReturnType<typeof evaluateCpqRules>) {
@@ -363,8 +345,9 @@ export function registerCpqCoreRoutes(
         });
       }
 
-      const rawCartItems = body.cartTransfer?.cart_items;
-      if (!rawCartItems || rawCartItems.length === 0) {
+      const rawCartItems = body.cartTransfer?.cart_items ?? [];
+      const transferDecision = decideAdapterTransfer(savedResult.decision, rawCartItems.length);
+      if (transferDecision === "skipped") {
         classification = savedResult.validation.classification;
         transferStatus = "skipped";
         return res.json({
@@ -382,7 +365,7 @@ export function registerCpqCoreRoutes(
         quantity: item.quantity ?? 1,
       }));
 
-      if (savedResult.decision.requiresReview) {
+      if (transferDecision === "blocked") {
         classification = savedResult.validation.classification;
         transferStatus = "blocked";
         return res.json({

@@ -1,8 +1,11 @@
 import { describe, it } from "vitest";
 import {
+  buildBlockedReviewTransfer,
   cpqSubmitTransferRequestSchema,
   cpqValidateRequestSchema,
   cpqValidationContextSchema,
+  decideAdapterTransfer,
+  deriveReviewDecision,
   evaluateCpqRules,
   type CpqConstraintRule,
 } from "../../server/cpq-core";
@@ -13,32 +16,9 @@ function assert(condition: boolean, message: string): void {
   }
 }
 
-function deriveSubmitStatus(classification: "A" | "B" | "C"): {
-  status: "accepted" | "review_required";
-  requiresReview: boolean;
-  reviewStatus: "pending" | "not_required";
-} {
-  const requiresReview = classification === "C";
-  return {
-    status: requiresReview ? "review_required" : "accepted",
-    requiresReview,
-    reviewStatus: requiresReview ? "pending" : "not_required",
-  };
-}
-
-function deriveAdapterTransferStatus(classification: "A" | "B" | "C", hasCartItems: boolean): "prepared" | "blocked" | "skipped" {
-  if (!hasCartItems) return "skipped";
-  return classification === "C" ? "blocked" : "prepared";
-}
-
-function deriveTransferReviewHint(transferStatus: "prepared" | "blocked" | "skipped"): string | null {
-  if (transferStatus !== "blocked") return null;
-  return "Diese Konfiguration wurde als Klasse C eingestuft. Der Checkout bleibt gesperrt, bis die technische Pruefung in METAorder abgeschlossen ist.";
-}
-
-// Aus scripts/testCpqCore.ts uebernommen: Pruefungen unveraendert, je Pruefung ein Vitest-Fall.
-// Hinweis: deriveSubmitStatus/deriveAdapterTransferStatus/deriveTransferReviewHint bilden die Logik
-// aus server/cpq-core/cpqCoreRoutes.ts nach (dort teils inline im Route-Handler).
+// Aus scripts/testCpqCore.ts uebernommen. Submit- und Transfer-Entscheidung pruefen die echten
+// Funktionen aus server/cpq-core/submitDecision.ts (frueher nachgebaute Kopien im Test); wie die
+// Routen sie zusammensetzen, prueft tests/unit/cpqCoreRoutes.test.ts.
 describe("CpqCore", () => {
   const rules: CpqConstraintRule[] = [
     {
@@ -141,9 +121,9 @@ describe("CpqCore", () => {
   });
 
   it("Submit-Status: A/B akzeptiert, C zur Prüfung", () => {
-    const submitA = deriveSubmitStatus(resultA.classification);
-    const submitB = deriveSubmitStatus(resultB.classification);
-    const submitC = deriveSubmitStatus(resultC.classification);
+    const submitA = deriveReviewDecision(resultA.classification);
+    const submitB = deriveReviewDecision(resultB.classification);
+    const submitC = deriveReviewDecision(resultC.classification);
 
     assert(submitA.status === "accepted" && !submitA.requiresReview, "Klasse A muss akzeptiert werden");
     assert(submitB.status === "accepted" && !submitB.requiresReview, "Klasse B muss akzeptiert werden");
@@ -152,15 +132,15 @@ describe("CpqCore", () => {
   });
 
   it("Transfer: A/B vorbereitet, C blockiert mit Hinweis, ohne Warenkorb übersprungen", () => {
-    const transferA = deriveAdapterTransferStatus(resultA.classification, true);
-    const transferB = deriveAdapterTransferStatus(resultB.classification, true);
-    const transferC = deriveAdapterTransferStatus(resultC.classification, true);
+    const transferA = decideAdapterTransfer(deriveReviewDecision(resultA.classification), 1);
+    const transferB = decideAdapterTransfer(deriveReviewDecision(resultB.classification), 1);
+    const transferC = decideAdapterTransfer(deriveReviewDecision(resultC.classification), 1);
     assert(transferA === "prepared", "Klasse A muss Transfer vorbereiten");
     assert(transferB === "prepared", "Klasse B muss Transfer vorbereiten");
     assert(transferC === "blocked", "Klasse C muss Transfer blockieren");
-    assert(deriveAdapterTransferStatus(resultA.classification, false) === "skipped", "Ohne Cart-Items muss Transfer uebersprungen werden");
+    assert(decideAdapterTransfer(deriveReviewDecision(resultA.classification), 0) === "skipped", "Ohne Cart-Items muss Transfer uebersprungen werden");
     assert(
-      deriveTransferReviewHint(transferC)?.includes("Checkout bleibt gesperrt"),
+      buildBlockedReviewTransfer().reviewHint.includes("Checkout bleibt gesperrt"),
       "Klasse C muss einen klaren Review-Hinweis fuer den blockierten Handover liefern"
     );
   });
