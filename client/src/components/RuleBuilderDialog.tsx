@@ -1,17 +1,35 @@
-import { useState, useEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { X, Plus, Trash2, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { AlertCircle, Plus, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useTranslation } from "react-i18next";
-import type { AutomationRule, InsertAutomationRule } from "@shared/schema";
+import type { AutomationRule } from "@shared/schema";
+import {
+  AUTOMATION_ACTION_TYPES,
+  AUTOMATION_ACTIONS,
+  AUTOMATION_FIELDS,
+  AUTOMATION_PLACEHOLDERS,
+  AUTOMATION_TRIGGERS,
+  AUTOMATION_TRIGGER_TYPES,
+  OPERATORS_BY_FIELD_TYPE,
+  fieldsForTrigger,
+  validateAutomationRule,
+  type AutomationActionInput,
+  type AutomationActionTypeId,
+  type AutomationConditionInput,
+  type AutomationParamDef,
+  type AutomationTriggerTypeId,
+} from "@shared/automation";
 
 interface RuleBuilderDialogProps {
   isOpen: boolean;
@@ -19,479 +37,437 @@ interface RuleBuilderDialogProps {
   editingRule?: AutomationRule | null;
 }
 
-type Condition = {
-  field: string;
-  operator: "equals" | "notEquals" | "greaterThan" | "lessThan" | "greaterThanOrEqual" | "lessThanOrEqual" | "contains";
-  value: string | number;
+type Template = {
+  id: string;
+  triggerType: AutomationTriggerTypeId;
+  priority: number;
+  conditions: AutomationConditionInput[];
+  actions: AutomationActionInput[];
 };
 
-type Action = {
-  type: "create_ticket" | "update_order_status" | "send_notification" | "assign_ticket" | "update_ticket_priority" | "send_email" | "run_ai_analysis";
-  params: Record<string, any>;
-};
-
-const RULE_TEMPLATES = [
+// Vorlagen nur mit verfuegbaren Ausloesern/Aktionen
+const RULE_TEMPLATES: Template[] = [
   {
-    id: "delayed_orders",
-    nameKey: "automation.templates.delayedOrders.name",
-    descriptionKey: "automation.templates.delayedOrders.description",
-    triggerType: "scheduled",
-    priority: 70,
-    enabled: true,
-    conditions: [
-      { field: "orderAge", operator: "greaterThan", value: 3 }
-    ],
-    actions: [
-      {
-        type: "create_ticket",
-        params: {
-          title: "Delayed Order Alert",
-          category: "shipping_issue",
-          priority: "high"
-        }
-      }
-    ]
-  },
-  {
-    id: "auto_status",
-    nameKey: "automation.templates.autoStatus.name",
-    descriptionKey: "automation.templates.autoStatus.description",
-    triggerType: "order_status_changed",
+    id: "sentimentPriority",
+    triggerType: "ticket_created",
     priority: 50,
-    enabled: false,
-    conditions: [
-      { field: "paymentStatus", operator: "equals", value: "paid" }
-    ],
-    actions: [
-      {
-        type: "update_order_status",
-        params: {
-          status: "in_progress"
-        }
-      }
-    ]
+    conditions: [{ field: "ticket.sentiment", operator: "equals", value: "negative" }],
+    actions: [{ type: "update_ticket_priority", params: { priority: "high" } }],
   },
   {
-    id: "sentiment_priority",
-    nameKey: "automation.templates.sentimentPriority.name",
-    descriptionKey: "automation.templates.sentimentPriority.description",
+    id: "smartCategorization",
     triggerType: "ticket_created",
-    priority: 90,
-    enabled: true,
-    conditions: [
-      { field: "sentiment", operator: "equals", value: "negative" }
-    ],
-    actions: [
-      {
-        type: "update_ticket_priority",
-        params: {
-          priority: "high"
-        }
-      }
-    ]
-  },
-  {
-    id: "smart_categorization",
-    nameKey: "automation.templates.smartCategorization.name",
-    descriptionKey: "automation.templates.smartCategorization.description",
-    triggerType: "ticket_created",
-    priority: 60,
-    enabled: true,
+    priority: 40,
     conditions: [],
-    actions: [
-      {
-        type: "run_ai_analysis",
-        params: {
-          analysisType: "categorize"
-        }
-      }
-    ]
-  }
+    actions: [{ type: "run_ai_analysis", params: { applyCategory: true, escalateNegative: false } }],
+  },
+  {
+    id: "complaintNotify",
+    triggerType: "ticket_created",
+    priority: 30,
+    conditions: [{ field: "ticket.category", operator: "equals", value: "complaint" }],
+    actions: [{ type: "send_notification", params: { userId: "", title: "Reklamation {{ticket.ticketNumber}}", message: "{{ticket.title}} ({{ticket.customerName}})" } }],
+  },
+  {
+    id: "customerReplied",
+    triggerType: "ticket_status_changed",
+    priority: 30,
+    conditions: [
+      { field: "ticket.previousStatus", operator: "equals", value: "waiting_for_customer" },
+      { field: "ticket.status", operator: "equals", value: "open" },
+    ],
+    actions: [{ type: "update_ticket_priority", params: { priority: "high" } }],
+  },
 ];
 
-export function RuleBuilderDialog({ isOpen, onClose, editingRule }: RuleBuilderDialogProps) {
-  const { toast } = useToast();
-  const { t } = useTranslation();
-  const [showTemplates, setShowTemplates] = useState(!editingRule);
+function parseArray<T>(raw: unknown): T[] {
+  if (Array.isArray(raw)) return raw as T[];
+  if (typeof raw !== "string" || !raw) return [];
+  try {
+    const v = JSON.parse(raw);
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+}
 
-  // Form state
+function defaultParams(type: AutomationActionTypeId): Record<string, unknown> {
+  const params: Record<string, unknown> = {};
+  for (const [name, def] of Object.entries(AUTOMATION_ACTIONS[type].params)) {
+    params[name] = def.kind === "boolean" ? true : "";
+  }
+  return params;
+}
+
+export function RuleBuilderDialog({ isOpen, onClose, editingRule }: RuleBuilderDialogProps) {
+  const { t } = useTranslation();
+  const { toast } = useToast();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  type TriggerType = "order_created" | "order_status_changed" | "order_payment_changed" | "ticket_created" | "ticket_status_changed" | "scheduled";
-  const [triggerType, setTriggerType] = useState<TriggerType>("order_created");
+  const [triggerType, setTriggerType] = useState<AutomationTriggerTypeId>("ticket_created");
   const [priority, setPriority] = useState(50);
-  const [enabled, setEnabled] = useState(1);
-  const [conditions, setConditions] = useState<Condition[]>([]);
-  const [actions, setActions] = useState<Action[]>([]);
+  const [enabled, setEnabled] = useState(true);
+  const [conditions, setConditions] = useState<AutomationConditionInput[]>([]);
+  const [actions, setActions] = useState<AutomationActionInput[]>([]);
+  const [showTemplates, setShowTemplates] = useState(!editingRule);
+
+  const { data: users = [] } = useQuery<Array<{ id: string; username: string }>>({
+    queryKey: ["/api/automation-rules/users"],
+    enabled: isOpen,
+  });
 
   useEffect(() => {
     if (editingRule) {
       setName(editingRule.name);
       setDescription(editingRule.description || "");
-      setTriggerType(editingRule.triggerType as any);
+      setTriggerType((editingRule.triggerType as AutomationTriggerTypeId) || "ticket_created");
       setPriority(editingRule.priority);
-      setEnabled(editingRule.enabled ? 1 : 0);
-      
-      // Parse conditions - handle both string and already-parsed arrays
-      if (editingRule.conditions) {
-        try {
-          const parsedConditions = typeof editingRule.conditions === 'string' 
-            ? JSON.parse(editingRule.conditions) 
-            : editingRule.conditions;
-          setConditions(Array.isArray(parsedConditions) ? parsedConditions : []);
-        } catch (e) {
-          console.error('Failed to parse conditions:', e);
-          setConditions([]);
-        }
-      } else {
-        setConditions([]);
-      }
-      
-      // Parse actions - handle both string and already-parsed arrays
-      if (editingRule.actions) {
-        try {
-          const parsedActions = typeof editingRule.actions === 'string'
-            ? JSON.parse(editingRule.actions)
-            : editingRule.actions;
-          setActions(Array.isArray(parsedActions) ? parsedActions : []);
-        } catch (e) {
-          console.error('Failed to parse actions:', e);
-          setActions([]);
-        }
-      } else {
-        setActions([]);
-      }
-      
+      setEnabled(editingRule.enabled === 1);
+      setConditions(parseArray<AutomationConditionInput>(editingRule.conditions));
+      setActions(parseArray<AutomationActionInput>(editingRule.actions));
       setShowTemplates(false);
     } else {
-      resetForm();
+      setName("");
+      setDescription("");
+      setTriggerType("ticket_created");
+      setPriority(50);
+      setEnabled(true);
+      setConditions([]);
+      setActions([]);
+      setShowTemplates(true);
     }
   }, [editingRule, isOpen]);
 
-  const resetForm = () => {
-    setName("");
-    setDescription("");
-    setTriggerType("order_created");
-    setPriority(50);
-    setEnabled(1);
-    setConditions([]);
-    setActions([]);
-    setShowTemplates(true);
+  const errors = useMemo(
+    () => validateAutomationRule({ triggerType, conditions, actions }),
+    [triggerType, conditions, actions],
+  );
+
+  const onSaved = (key: "createSuccess" | "updateSuccess") => () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/automation-rules"] });
+    toast({ title: t(`automation.${key}`) });
+    onClose();
   };
-
+  const onFailed = (key: "createError" | "updateError") => (error: any) => {
+    toast({ title: t(`automation.${key}`), description: error.message, variant: "destructive" });
+  };
   const createMutation = useMutation({
-    mutationFn: async (data: InsertAutomationRule) => {
-      return apiRequest("POST", "/api/automation-rules", data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/automation-rules"] });
-      toast({ title: t('automation.createSuccess') });
-      onClose();
-    },
-    onError: (error: any) => {
-      toast({ title: t('automation.createError'), description: error.message, variant: "destructive" });
-    },
+    mutationFn: (data: unknown) => apiRequest("POST", "/api/automation-rules", data),
+    onSuccess: onSaved("createSuccess"),
+    onError: onFailed("createError"),
   });
-
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<InsertAutomationRule> }) => {
-      return apiRequest("PATCH", `/api/automation-rules/${id}`, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/automation-rules"] });
-      toast({ title: t('automation.updateSuccess') });
-      onClose();
-    },
-    onError: (error: any) => {
-      toast({ title: t('automation.updateError'), description: error.message, variant: "destructive" });
-    },
+    mutationFn: ({ id, data }: { id: string; data: unknown }) => apiRequest("PATCH", `/api/automation-rules/${id}`, data),
+    onSuccess: onSaved("updateSuccess"),
+    onError: onFailed("updateError"),
   });
 
   const handleSubmit = () => {
     if (!name.trim()) {
-      toast({ title: t('automation.nameRequired'), variant: "destructive" });
+      toast({ title: t("automation.nameRequired"), variant: "destructive" });
       return;
     }
-
-    const data: any = {
-      name: name.trim(),
-      description: description.trim() || null,
-      triggerType,
-      priority,
-      enabled,
-      conditions: conditions,
-      actions: actions,
-    };
-
-    if (editingRule) {
-      updateMutation.mutate({ id: editingRule.id, data });
-    } else {
-      createMutation.mutate(data);
-    }
+    if (errors.length > 0) return;
+    const data = { name: name.trim(), description: description.trim() || null, triggerType, priority, enabled, conditions, actions };
+    if (editingRule) updateMutation.mutate({ id: editingRule.id, data });
+    else createMutation.mutate(data);
   };
 
-  const loadTemplate = (template: typeof RULE_TEMPLATES[0]) => {
-    setName(t(template.nameKey));
-    setDescription(t(template.descriptionKey));
-    setTriggerType(template.triggerType as any);
+  const loadTemplate = (template: Template) => {
+    setName(t(`automation.templates.${template.id}.name`));
+    setDescription(t(`automation.templates.${template.id}.description`));
+    setTriggerType(template.triggerType);
     setPriority(template.priority);
-    setEnabled(template.enabled ? 1 : 0);
-    setConditions(template.conditions as any);
-    setActions(template.actions as any);
+    setEnabled(true);
+    setConditions(template.conditions.map((c) => ({ ...c })));
+    setActions(template.actions.map((a) => ({ ...a, params: { ...a.params } })));
     setShowTemplates(false);
   };
 
+  const availableFields = fieldsForTrigger(triggerType);
+  const triggerEntity = AUTOMATION_TRIGGERS[triggerType].entity;
+
+  const valueLabel = (field: string, value: string) => {
+    if (field.endsWith("priority")) return t(`tickets.priorityValues.${value}`, value);
+    if (field.endsWith("status") || field.endsWith("Status")) return t(`tickets.statusValues.${value}`, value);
+    return t(`automation.values.${value}`, value);
+  };
+
+  // --- Bedingungen ---------------------------------------------------------
   const addCondition = () => {
-    setConditions([...conditions, { field: "", operator: "equals", value: "" }]);
+    const field = availableFields[0];
+    const def = AUTOMATION_FIELDS[field];
+    setConditions([...conditions, { field, operator: OPERATORS_BY_FIELD_TYPE[def.type][0], value: def.options?.[0] ?? (def.type === "boolean" ? true : "") }]);
+  };
+  const updateCondition = (index: number, updates: Partial<AutomationConditionInput>) => {
+    setConditions(conditions.map((c, i) => {
+      if (i !== index) return c;
+      const next = { ...c, ...updates };
+      if (updates.field && updates.field !== c.field) {
+        // Neues Feld: passenden Operator und Wert vorbelegen
+        const def = AUTOMATION_FIELDS[updates.field];
+        next.operator = OPERATORS_BY_FIELD_TYPE[def.type][0];
+        next.value = def.options?.[0] ?? (def.type === "boolean" ? true : "");
+      }
+      return next;
+    }));
   };
 
-  const updateCondition = (index: number, updates: Partial<Condition>) => {
-    const updated = [...conditions];
-    updated[index] = { ...updated[index], ...updates };
-    setConditions(updated);
+  // --- Aktionen ------------------------------------------------------------
+  const addAction = () => setActions([...actions, { type: "assign_ticket", params: defaultParams("assign_ticket") }]);
+  const updateAction = (index: number, updates: Partial<AutomationActionInput>) =>
+    setActions(actions.map((a, i) => (i === index ? { ...a, ...updates } : a)));
+  const setParam = (index: number, param: string, value: unknown) =>
+    setActions(actions.map((a, i) => (i === index ? { ...a, params: { ...a.params, [param]: value } } : a)));
+
+  const renderParam = (index: number, action: AutomationActionInput, param: string, def: AutomationParamDef) => {
+    const id = `action-${index}-${param}`;
+    const value = action.params?.[param];
+    const label = <Label htmlFor={id} className="text-xs">{t(`automation.params.${param}`)}{"required" in def && def.required ? " *" : ""}</Label>;
+    switch (def.kind) {
+      case "user":
+        return (
+          <div key={param} className="space-y-1">
+            {label}
+            <Select value={String(value ?? "")} onValueChange={(v) => setParam(index, param, v)}>
+              <SelectTrigger id={id} data-testid={`select-${id}`}><SelectValue placeholder={t("automation.form.selectUser")} /></SelectTrigger>
+              <SelectContent>
+                {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        );
+      case "enum":
+        return (
+          <div key={param} className="space-y-1">
+            {label}
+            <Select value={String(value ?? "")} onValueChange={(v) => setParam(index, param, v)}>
+              <SelectTrigger id={id} data-testid={`select-${id}`}><SelectValue placeholder={t("automation.form.choose")} /></SelectTrigger>
+              <SelectContent>
+                {def.options.map((o) => <SelectItem key={o} value={o}>{valueLabel(param, o)}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        );
+      case "boolean":
+        return (
+          <div key={param} className="flex items-center gap-2">
+            <Switch id={id} checked={Boolean(value)} onCheckedChange={(v) => setParam(index, param, v)} data-testid={`switch-${id}`} />
+            <Label htmlFor={id} className="text-sm font-normal">{t(`automation.params.${param}`)}</Label>
+          </div>
+        );
+      case "text":
+      case "email": {
+        const multiline = def.kind === "text" && def.multiline;
+        const Field = multiline ? Textarea : Input;
+        return (
+          <div key={param} className="space-y-1">
+            {label}
+            <Field
+              id={id}
+              value={String(value ?? "")}
+              onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setParam(index, param, e.target.value)}
+              {...(multiline ? { rows: 3 } : {})}
+              data-testid={`input-${id}`}
+            />
+          </div>
+        );
+      }
+    }
   };
 
-  const removeCondition = (index: number) => {
-    setConditions(conditions.filter((_, i) => i !== index));
-  };
-
-  const addAction = () => {
-    setActions([...actions, { type: "create_ticket", params: {} }]);
-  };
-
-  const updateAction = (index: number, updates: Partial<Action>) => {
-    const updated = [...actions];
-    updated[index] = { ...updated[index], ...updates };
-    setActions(updated);
-  };
-
-  const removeAction = (index: number) => {
-    setActions(actions.filter((_, i) => i !== index));
-  };
-
-  if (!isOpen) return null;
+  const placeholderHint = AUTOMATION_PLACEHOLDERS[triggerEntity].map((p) => `{{${p}}}`).join("  ");
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
-            {editingRule ? t('automation.editRule') : t('automation.newRule')}
-          </DialogTitle>
+          <DialogTitle>{editingRule ? t("automation.editRule") : t("automation.newRule")}</DialogTitle>
         </DialogHeader>
 
-        {showTemplates && !editingRule && (
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="w-4 h-4" />
-              <h3 className="font-medium">{t('automation.templates.title')}</h3>
+        {showTemplates && !editingRule ? (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              <h3 className="font-semibold">{t("automation.templates.title")}</h3>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               {RULE_TEMPLATES.map((template) => (
-                <Card
-                  key={template.id}
-                  className="p-3 cursor-pointer hover-elevate"
-                  onClick={() => loadTemplate(template)}
-                  data-testid={`template-${template.id}`}
-                >
-                  <h4 className="font-medium text-sm mb-1">{t(template.nameKey)}</h4>
-                  <p className="text-xs text-muted-foreground">{t(template.descriptionKey)}</p>
+                <Card key={template.id} className="p-4 cursor-pointer hover-elevate" onClick={() => loadTemplate(template)} data-testid={`template-${template.id}`}>
+                  <h4 className="font-medium mb-1">{t(`automation.templates.${template.id}.name`)}</h4>
+                  <p className="text-sm text-muted-foreground">{t(`automation.templates.${template.id}.description`)}</p>
                 </Card>
               ))}
             </div>
-            <div className="flex items-center gap-2 my-4">
-              <div className="flex-1 border-t" />
-              <span className="text-xs text-muted-foreground">{t('automation.templates.orCustom')}</span>
-              <div className="flex-1 border-t" />
+            <Button variant="outline" className="w-full" onClick={() => setShowTemplates(false)} data-testid="button-custom-rule">
+              {t("automation.templates.orCustom")}
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="rule-name">{t("automation.form.name")}</Label>
+                <Input id="rule-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("automation.form.namePlaceholder")} data-testid="input-rule-name" />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="rule-description">{t("automation.form.description")}</Label>
+                <Textarea id="rule-description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t("automation.form.descriptionPlaceholder")} rows={2} data-testid="input-rule-description" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="rule-trigger">{t("automation.form.trigger")}</Label>
+                <Select value={triggerType} onValueChange={(v) => setTriggerType(v as AutomationTriggerTypeId)}>
+                  <SelectTrigger id="rule-trigger" data-testid="select-trigger"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {AUTOMATION_TRIGGER_TYPES.map((tt) => (
+                      <SelectItem key={tt} value={tt} disabled={!AUTOMATION_TRIGGERS[tt].available}>
+                        {t(`automation.triggers.${tt}`)}{AUTOMATION_TRIGGERS[tt].available ? "" : ` (${t("automation.form.comingSoon")})`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="rule-priority">{t("automation.form.priority")}</Label>
+                <Input id="rule-priority" type="number" min={0} max={100} value={priority} onChange={(e) => setPriority(Number(e.target.value) || 0)} data-testid="input-rule-priority" />
+              </div>
+              <div className="flex items-center gap-2 sm:col-span-2">
+                <Switch id="rule-enabled" checked={enabled} onCheckedChange={setEnabled} data-testid="switch-rule-enabled" />
+                <Label htmlFor="rule-enabled" className="font-normal">{t("automation.form.enabled")}</Label>
+              </div>
             </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>{t("automation.form.conditions")}</Label>
+                <Button size="sm" variant="outline" onClick={addCondition} disabled={availableFields.length === 0} data-testid="button-add-condition">
+                  <Plus className="w-4 h-4 mr-1" />{t("automation.form.addCondition")}
+                </Button>
+              </div>
+              {conditions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t("automation.form.noConditions")}</p>
+              ) : (
+                conditions.map((condition, index) => {
+                  const def = AUTOMATION_FIELDS[condition.field];
+                  return (
+                    <Card key={index} className="p-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Select value={availableFields.includes(condition.field) ? condition.field : undefined} onValueChange={(v) => updateCondition(index, { field: v })}>
+                          <SelectTrigger className="w-56" data-testid={`select-condition-field-${index}`}>
+                            <SelectValue placeholder={condition.field || t("automation.form.conditionField")} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableFields.map((f) => <SelectItem key={f} value={f}>{t(`automation.fields.${f}`, f)}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        <Select value={condition.operator} onValueChange={(v) => updateCondition(index, { operator: v })}>
+                          <SelectTrigger className="w-40" data-testid={`select-condition-operator-${index}`}><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {(def ? OPERATORS_BY_FIELD_TYPE[def.type] : []).map((op) => <SelectItem key={op} value={op}>{t(`automation.operators.${op}`)}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        {def?.type === "enum" ? (
+                          <Select value={String(condition.value)} onValueChange={(v) => updateCondition(index, { value: v })}>
+                            <SelectTrigger className="w-48" data-testid={`select-condition-value-${index}`}><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {def.options!.map((o) => <SelectItem key={o} value={o}>{valueLabel(condition.field, o)}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        ) : def?.type === "boolean" ? (
+                          <Select value={String(condition.value)} onValueChange={(v) => updateCondition(index, { value: v === "true" })}>
+                            <SelectTrigger className="w-32" data-testid={`select-condition-value-${index}`}><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="true">{t("automation.values.yes")}</SelectItem>
+                              <SelectItem value="false">{t("automation.values.no")}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            className="flex-1 min-w-40"
+                            type={def?.type === "number" ? "number" : "text"}
+                            value={String(condition.value ?? "")}
+                            onChange={(e) => updateCondition(index, { value: def?.type === "number" ? Number(e.target.value) : e.target.value })}
+                            placeholder={t("automation.form.conditionValue")}
+                            data-testid={`input-condition-value-${index}`}
+                          />
+                        )}
+                        <Button size="icon" variant="ghost" onClick={() => setConditions(conditions.filter((_, i) => i !== index))} data-testid={`button-remove-condition-${index}`}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      {def?.computed && <p className="mt-2 text-xs text-muted-foreground">{t("automation.form.computedHint")}</p>}
+                    </Card>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>{t("automation.form.actions")}</Label>
+                <Button size="sm" variant="outline" onClick={addAction} data-testid="button-add-action">
+                  <Plus className="w-4 h-4 mr-1" />{t("automation.form.addAction")}
+                </Button>
+              </div>
+              {actions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t("automation.form.noActions")}</p>
+              ) : (
+                actions.map((action, index) => {
+                  const def = AUTOMATION_ACTIONS[action.type as AutomationActionTypeId];
+                  const hasPlaceholders = def && Object.values(def.params).some((p) => "placeholders" in p && p.placeholders);
+                  return (
+                    <Card key={index} className="p-3">
+                      <div className="flex items-start gap-2">
+                        <div className="flex-1 space-y-3">
+                          <Select value={action.type} onValueChange={(v) => updateAction(index, { type: v, params: defaultParams(v as AutomationActionTypeId) })}>
+                            <SelectTrigger data-testid={`select-action-type-${index}`}><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {AUTOMATION_ACTION_TYPES.map((type) => {
+                                const a = AUTOMATION_ACTIONS[type];
+                                const blocked = !a.available || (a.needsTicket && triggerEntity !== "ticket");
+                                return (
+                                  <SelectItem key={type} value={type} disabled={blocked}>
+                                    {t(`automation.actions.${type}`)}{a.available ? "" : ` (${t("automation.form.comingSoon")})`}
+                                  </SelectItem>
+                                );
+                              })}
+                            </SelectContent>
+                          </Select>
+                          {def && Object.entries(def.params).map(([param, p]) => renderParam(index, action, param, p))}
+                          {action.type === "send_email" && <p className="text-xs text-muted-foreground">{t("automation.form.emailHint")}</p>}
+                          {hasPlaceholders && (
+                            <p className="text-xs text-muted-foreground break-words">{t("automation.form.placeholders")}: <span className="font-mono">{placeholderHint}</span></p>
+                          )}
+                        </div>
+                        <Button size="icon" variant="ghost" onClick={() => setActions(actions.filter((_, i) => i !== index))} data-testid={`button-remove-action-${index}`}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </Card>
+                  );
+                })
+              )}
+            </div>
+
+            {errors.length > 0 && (
+              <Alert variant="destructive" data-testid="alert-rule-errors">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>{t("automation.form.incomplete")}</AlertTitle>
+                <AlertDescription>
+                  <ul className="list-disc pl-4 text-sm">{errors.map((e) => <li key={e}>{e}</li>)}</ul>
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
         )}
 
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="name">{t('automation.form.name')}</Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t('automation.form.namePlaceholder')}
-              data-testid="input-rule-name"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="description">{t('automation.form.description')}</Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder={t('automation.form.descriptionPlaceholder')}
-              data-testid="input-rule-description"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="trigger">{t('automation.form.trigger')}</Label>
-              <Select value={triggerType} onValueChange={(value) => setTriggerType(value as TriggerType)}>
-                <SelectTrigger id="trigger" data-testid="select-trigger">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="order_created">{t('automation.triggers.order_created')}</SelectItem>
-                  <SelectItem value="order_status_changed">{t('automation.triggers.order_status_changed')}</SelectItem>
-                  <SelectItem value="ticket_created">{t('automation.triggers.ticket_created')}</SelectItem>
-                  <SelectItem value="scheduled">{t('automation.triggers.scheduled')}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="priority">{t('automation.form.priority')}</Label>
-              <Input
-                id="priority"
-                type="number"
-                min="0"
-                max="100"
-                value={priority}
-                onChange={(e) => setPriority(parseInt(e.target.value) || 0)}
-                data-testid="input-priority"
-              />
-            </div>
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <Label>{t('automation.form.conditions')}</Label>
-              <Button size="sm" variant="outline" onClick={addCondition} data-testid="button-add-condition">
-                <Plus className="w-3 h-3 mr-1" />
-                {t('automation.form.addCondition')}
-              </Button>
-            </div>
-            {conditions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('automation.form.noConditions')}</p>
-            ) : (
-              <div className="space-y-2">
-                {conditions.map((condition, index) => (
-                  <Card key={index} className="p-3">
-                    <div className="flex items-center gap-2">
-                      <Input
-                        value={condition.field}
-                        onChange={(e) => updateCondition(index, { field: e.target.value })}
-                        placeholder={t('automation.form.conditionField')}
-                        className="flex-1"
-                        data-testid={`input-condition-field-${index}`}
-                      />
-                      <Select
-                        value={condition.operator}
-                        onValueChange={(value) => updateCondition(index, { operator: value as Condition["operator"] })}
-                      >
-                        <SelectTrigger className="w-32" data-testid={`select-operator-${index}`}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="equals">=</SelectItem>
-                          <SelectItem value="notEquals">≠</SelectItem>
-                          <SelectItem value="greaterThan">&gt;</SelectItem>
-                          <SelectItem value="lessThan">&lt;</SelectItem>
-                          <SelectItem value="greaterThanOrEqual">≥</SelectItem>
-                          <SelectItem value="lessThanOrEqual">≤</SelectItem>
-                          <SelectItem value="contains">{t('automation.operators.contains')}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Input
-                        value={condition.value === undefined || condition.value === null ? "" : String(condition.value)}
-                        onChange={(e) => updateCondition(index, { value: e.target.value })}
-                        placeholder={t('automation.form.conditionValue')}
-                        className="flex-1"
-                        data-testid={`input-condition-value-${index}`}
-                      />
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => removeCondition(index)}
-                        data-testid={`button-remove-condition-${index}`}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <Label>{t('automation.form.actions')}</Label>
-              <Button size="sm" variant="outline" onClick={addAction} data-testid="button-add-action">
-                <Plus className="w-3 h-3 mr-1" />
-                {t('automation.form.addAction')}
-              </Button>
-            </div>
-            {actions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('automation.form.noActions')}</p>
-            ) : (
-              <div className="space-y-2">
-                {actions.map((action, index) => (
-                  <Card key={index} className="p-3">
-                    <div className="flex items-start gap-2">
-                      <div className="flex-1 space-y-2">
-                        <Select
-                          value={action.type}
-                          onValueChange={(value) => updateAction(index, { type: value as Action["type"] })}
-                        >
-                          <SelectTrigger data-testid={`select-action-type-${index}`}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="create_ticket">{t('automation.actions.create_ticket')}</SelectItem>
-                            <SelectItem value="update_order_status">{t('automation.actions.update_order_status')}</SelectItem>
-                            <SelectItem value="send_notification">{t('automation.actions.send_notification')}</SelectItem>
-                            <SelectItem value="assign_ticket">{t('automation.actions.assign_ticket')}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Textarea
-                          value={JSON.stringify(action.params, null, 2)}
-                          onChange={(e) => {
-                            try {
-                              const params = JSON.parse(e.target.value);
-                              updateAction(index, { params });
-                            } catch {}
-                          }}
-                          placeholder={t('automation.form.actionParams')}
-                          className="font-mono text-xs"
-                          rows={3}
-                          data-testid={`textarea-action-params-${index}`}
-                        />
-                      </div>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => removeAction(index)}
-                        data-testid={`button-remove-action-${index}`}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} data-testid="button-cancel">
-            {t('common.cancel')}
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={createMutation.isPending || updateMutation.isPending}
-            data-testid="button-save-rule"
-          >
-            {editingRule ? t('common.update') : t('common.create')}
-          </Button>
+          <Button variant="outline" onClick={onClose} data-testid="button-cancel">{t("common.cancel")}</Button>
+          {!(showTemplates && !editingRule) && (
+            <Button onClick={handleSubmit} disabled={errors.length > 0 || createMutation.isPending || updateMutation.isPending} data-testid="button-save-rule">
+              {editingRule ? t("common.update") : t("common.create")}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

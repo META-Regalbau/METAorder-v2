@@ -2415,7 +2415,13 @@
       "run_ai_analysis": "Ejecutar Análisis de IA"
     },
     "operators": {
-      "contains": "contiene"
+      "contains": "contiene",
+      "equals": "es",
+      "notEquals": "no es",
+      "greaterThan": "mayor que",
+      "lessThan": "menor que",
+      "greaterThanOrEqual": "al menos",
+      "lessThanOrEqual": "como máximo"
     },
     "form": {
       "name": "Nombre de Regla",
@@ -2432,7 +2438,14 @@
       "actions": "Acciones",
       "addAction": "Añadir Acción",
       "noActions": "Se requiere al menos una acción",
-      "actionParams": "Parámetros (JSON)"
+      "selectUser": "Elegir usuario",
+      "choose": "Por favor elija",
+      "comingSoon": "próximamente",
+      "enabled": "Regla activa",
+      "computedHint": "Se determina con IA cuando hace falta (heurística por palabras clave sin configuración de IA).",
+      "emailHint": "Usa la configuración de correo saliente. Si está desactivada, la acción falla y así aparece en el historial.",
+      "placeholders": "Marcadores",
+      "incomplete": "Regla incompleta"
     },
     "templates": {
       "title": "Plantillas de Reglas",
@@ -2446,13 +2459,68 @@
         "description": "Actualiza automáticamente el estado del pedido de 'Pagado' a 'En Progreso'"
       },
       "sentimentPriority": {
-        "name": "Priorización Basada en Sentimiento",
-        "description": "Aumenta la prioridad del ticket cuando se detecta sentimiento negativo"
+        "name": "Priorizar tickets negativos",
+        "description": "Pone los tickets nuevos con sentimiento negativo en prioridad “Alta”."
       },
       "smartCategorization": {
-        "name": "Categorización Inteligente",
-        "description": "Categoriza automáticamente nuevos tickets usando IA"
+        "name": "Categorizar tickets nuevos",
+        "description": "Asigna una categoría con IA a los tickets nuevos mientras sigan en “General”."
+      },
+      "complaintNotify": {
+        "name": "Avisar de reclamaciones",
+        "description": "Notifica a un usuario en cuanto entra una reclamación."
+      },
+      "customerReplied": {
+        "name": "El cliente respondió",
+        "description": "Sube la prioridad cuando un ticket pasa de “Esperando al cliente” a “Abierto”."
       }
+    },
+    "fields": {
+      "ticket": {
+        "priority": "Ticket: prioridad",
+        "category": "Ticket: categoría",
+        "status": "Ticket: estado",
+        "previousStatus": "Ticket: estado anterior",
+        "title": "Ticket: título",
+        "description": "Ticket: descripción",
+        "customerEmail": "Ticket: correo del cliente",
+        "customerName": "Ticket: nombre del cliente",
+        "orderNumber": "Ticket: número de pedido",
+        "isAssigned": "Ticket: asignado",
+        "fromEmail": "Ticket: creado desde correo",
+        "sentiment": "Ticket: sentimiento (IA)"
+      }
+    },
+    "values": {
+      "yes": "sí",
+      "no": "no",
+      "positive": "positivo",
+      "neutral": "neutral",
+      "negative": "negativo",
+      "general": "General",
+      "order_issue": "Problema de pedido",
+      "product_inquiry": "Consulta de producto",
+      "technical_support": "Soporte técnico",
+      "complaint": "Reclamación",
+      "feature_request": "Solicitud de función",
+      "discount_request": "Solicitud de descuento",
+      "other": "Otro"
+    },
+    "params": {
+      "userId": "Usuario",
+      "title": "Título",
+      "message": "Mensaje",
+      "to": "Destinatario",
+      "subject": "Asunto",
+      "body": "Texto",
+      "priority": "Prioridad",
+      "category": "Categoría",
+      "description": "Descripción",
+      "applyCategory": "Asignar categoría (solo si sigue en “General”)",
+      "escalateNegative": "Subir la prioridad a “Alta” si el sentimiento es negativo"
+    },
+    "history": {
+      "ticket": "Ticket"
     }
   },
   "offers": {

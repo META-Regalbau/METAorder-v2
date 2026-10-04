@@ -18,7 +18,7 @@
 | Antwort-Vorschläge | 3 deutschsprachige Antwortentwürfe | `POST /api/ai/generate-replies` in [`server/routes.ts`](../server/routes.ts) (`gpt-4o-mini`) |
 | Klassifikation für Regeln | Kategorie, Priorität, Sentiment (+ Confidence); ohne API **heuristischer Fallback** | [`server/tickets/ticketAi.ts`](../server/tickets/ticketAi.ts) (`gpt-4o-mini` oder Heuristik) |
 | E-Mail-Routing | Klassifikation eingehender Mails (Kategorie, Priorität, Skill); ohne API **heuristisch** | [`server/email/emailClassifier.ts`](../server/email/emailClassifier.ts) |
-| Automatisierung | Optional: Sentiment-Analyse, Eskalation bei negativem Sentiment + niedriger Priorität; optional Kategorie-Vorschlag | [`server/tickets/automationEngine.ts`](../server/tickets/automationEngine.ts) (`runAIAnalysisAction`) |
+| Automatisierung | Regel-Aktion „KI-Analyse“ und Bedingung „Stimmung“: nutzt die Ticket-Klassifikation; setzt optional die Kategorie (nur wenn noch `general`) und hebt bei negativer Stimmung niedrige/normale Priorität auf hoch | [`server/automation/actions.ts`](../server/automation/actions.ts) (`run_ai_analysis`, nutzt `ticketAi.ts`) |
 
 ### Semantische Suche & FAQ
 
@@ -55,10 +55,10 @@
 3. **Natural Language Analytics ohne OpenAI:** Schlägt fehl mit klarer Fehlermeldung — im Gegensatz zu Ticket-Klassifikation oder semantischen Embeddings gibt es hier **keinen** echten Offline-Ersatz (siehe [`server/analytics/naturalLanguageAnalytics.ts`](../server/analytics/naturalLanguageAnalytics.ts)).
 4. **Bestimmte Endpunkte ohne Key:** z. B. `POST /api/ai/suggest-categories` und `POST /api/ai/generate-replies` antworten mit **„AI features are not enabled“**, wenn kein OpenAI verfügbar ist.
 5. **Semantische Produkt-Suche:** Nutzt `getOpenAIClient()` (Replit oder Key aus Aufrufer-Kontext). **Ohne** Integration/Key kann die KI-Interpretation ausfallen; es gibt dann **Fallback-Interpretation** im Modul — Qualität/Ergebnis sind dann nicht „volle“ KI-Suche.
-6. **Cross-Selling-Vorschläge sind nicht KI:** Endpoint ist ausdrücklich **regelbasiert** (`GET /api/products/:productId/cross-selling-suggestions` in [`server/routes.ts`](../server/routes.ts)).
+6. **Cross-Selling-Vorschläge sind nicht KI:** Endpoint ist ausdrücklich **regelbasiert** (`GET /api/products/:productId/cross-selling-suggestions` in [`server/routes/productRoutes.ts`](../server/routes/productRoutes.ts)).
 7. **FAQ-Antwort „ohne Halluzination“ nur im Sinne des Prompts:** Das Modell soll nur Quellen nutzen; **technisch** ist es weiterhin ein LLM — keine Garantie wie bei einem formal verifizierten System.
-8. **Automatisierung E-Mail:** `sendEmailAction` ist **nicht** an einen Versand angebunden (aktuell Log/TODO in [`server/tickets/automationEngine.ts`](../server/tickets/automationEngine.ts)) — das ist keine KI-Grenze, aber oft mit „Automatisierung“ verwechselt.
-9. **Bekannte Inkonsistenz (Automation vs. Ticket-Schema):** In `runAIAnalysisAction` fordert der Prompt Kategorien wie `technical`, `billing`, …; die Zuordnung zu DB-Kategorien prüft gegen ein **anderes** Enum — in der Praxis landen viele Vorschläge fälschlich bei `general` ([`server/tickets/automationEngine.ts`](../server/tickets/automationEngine.ts), Zeilen um 386–420). Das ist eher ein **Qualitäts-/Bug-Thema** als „fehlende KI“.
+8. **Automatisierung E-Mail:** Die Regel-Aktion „E-Mail senden“ nutzt den konfigurierten Ausgangs-Versand (Einstellungen → E-Mail ausgehend). Ist er ausgeschaltet, schlägt die Aktion fehl und steht so in der Ausführungshistorie — keine KI-Grenze.
+9. **Behoben (Oktober 2026):** Die frühere Automatisierungs-Engine fragte Kategorien wie `technical`/`billing` ab und prüfte gegen ein anderes Enum (Vorschläge landeten meist bei `general`). Die neue Engine nutzt die Ticket-Klassifikation (`classifyTicketForRules`) mit den echten Ticket-Kategorien.
 
 ---
 

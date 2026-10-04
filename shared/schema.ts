@@ -1701,7 +1701,7 @@ export const automationRules = pgTable("automation_rules", {
 // Schema for validating frontend input (arrays, booleans or numbers for enabled)
 export const insertAutomationRuleSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  description: z.string().optional(),
+  description: z.string().nullable().optional(),
   enabled: z.union([z.boolean(), z.number()]).transform(val => typeof val === 'boolean' ? val : !!val),
   triggerType: z.enum(["order_created", "order_status_changed", "order_payment_changed", "ticket_created", "ticket_status_changed", "scheduled"]),
   conditions: z.array(z.object({
