@@ -330,7 +330,6 @@ export interface ShopwareClient {
   reassignOrderCustomer: typeof ordersApi.reassignOrderCustomer;
   createOrder: typeof ordersApi.createOrder;
   markOrderPaid: typeof ordersApi.markOrderPaid;
-  fetchOrdersForAnalytics: typeof ordersApi.fetchOrdersForAnalytics;
   getOrderVersionId: typeof ordersApi.getOrderVersionId;
   // delivery
   updateOrderShipping: typeof deliveryApi.updateOrderShipping;
