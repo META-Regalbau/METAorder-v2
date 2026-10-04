@@ -2748,7 +2748,7 @@
       "order_payment_changed": "Payment Status Changed",
       "ticket_created": "Ticket Created",
       "ticket_status_changed": "Ticket Status Changed",
-      "scheduled": "Scheduled"
+      "scheduled": "Scheduled: check orders"
     },
     "actions": {
       "create_ticket": "Create Ticket",
@@ -2796,8 +2796,8 @@
       "title": "Rule Templates",
       "orCustom": "or create custom rule",
       "delayedOrders": {
-        "name": "Delayed Orders Escalation",
-        "description": "Automatically creates a ticket for orders not shipped after X days"
+        "name": "Delayed orders",
+        "description": "Creates a ticket when a paid order is 3 days past its latest delivery date and not yet completed."
       },
       "autoStatus": {
         "name": "Auto Status Update",
@@ -2834,6 +2834,19 @@
         "isAssigned": "Ticket: assigned",
         "fromEmail": "Ticket: created from email",
         "sentiment": "Ticket: sentiment (AI)"
+      },
+      "order": {
+        "status": "Order: status",
+        "paymentStatus": "Order: payment status",
+        "daysSinceOrder": "Order: days since order",
+        "daysPastDeliveryDate": "Order: days past latest delivery date",
+        "totalAmount": "Order: total (gross)",
+        "orderNumber": "Order: order number",
+        "customerName": "Order: customer name",
+        "customerEmail": "Order: customer email",
+        "paymentMethod": "Order: payment method",
+        "shippingMethod": "Order: shipping method",
+        "salesChannelName": "Order: sales channel"
       }
     },
     "values": {
@@ -2849,7 +2862,23 @@
       "complaint": "Complaint",
       "feature_request": "Feature request",
       "discount_request": "Discount request",
-      "other": "Other"
+      "other": "Other",
+      "orderStatus": {
+        "open": "Open",
+        "in_progress": "In progress",
+        "completed": "Completed",
+        "cancelled": "Cancelled"
+      },
+      "paymentStatus": {
+        "open": "Open",
+        "paid": "Paid",
+        "authorized": "Authorized",
+        "partially_paid": "Partially paid",
+        "refunded": "Refunded",
+        "cancelled": "Cancelled",
+        "reminded": "Reminded",
+        "failed": "Failed"
+      }
     },
     "params": {
       "userId": "User",
@@ -2865,7 +2894,16 @@
       "escalateNegative": "Raise priority to “High” on negative sentiment"
     },
     "history": {
-      "ticket": "Ticket"
+      "ticket": "Ticket",
+      "order": "Order"
+    },
+    "scheduled": {
+      "title": "Scheduled",
+      "description": "Runs regularly (hourly by default) over the orders of the last {{days}} days from the Shopware mirror. Each order at most once per rule; at most {{max}} executions per run, oldest orders first.",
+      "preview": "Preview",
+      "previewSummary": "Currently matches {{matching}} orders, {{done}} of them already handled. Next run: {{next}}.",
+      "previewError": "Preview failed",
+      "days": "days"
     }
   },
   "offers": {

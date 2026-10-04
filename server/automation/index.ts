@@ -6,6 +6,9 @@ import { classifyTicketForRules } from "../tickets/ticketAi";
 import type { AutomationDeps } from "./actions";
 import { isInsideAutomation } from "./context";
 import { runAutomationEvent } from "./engine";
+import { runScheduledAutomations } from "./scheduler";
+import { logger } from "../lib/logger";
+import { SCHEDULED_DEFAULT_INTERVAL_MINUTES } from "@shared/automation";
 
 export function createAutomationDeps(storage: IStorage): AutomationDeps {
   return {
@@ -33,4 +36,43 @@ export function registerAutomationTriggers(storage: IStorage): () => void {
     }),
   ];
   return () => offs.forEach((off) => off());
+}
+
+/** Intervall aus AUTOMATION_SCHEDULE_INTERVAL_MINUTES (mind. 5 Minuten, sonst Standard). */
+export function resolveScheduleIntervalMinutes(raw: string | undefined = process.env.AUTOMATION_SCHEDULE_INTERVAL_MINUTES): number {
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 5 ? parsed : SCHEDULED_DEFAULT_INTERVAL_MINUTES;
+}
+
+/**
+ * Startet die zeitgesteuerten Regeln (beim Serverstart). Abschaltbar per
+ * AUTOMATION_SCHEDULER_ENABLED=false. Laeufe ueberlappen nie; der erste Lauf startet nach
+ * 3 Minuten, damit der Shopware-Spiegel vorher aktualisiert ist.
+ */
+export function startAutomationScheduler(storage: IStorage): () => void {
+  if (process.env.AUTOMATION_SCHEDULER_ENABLED === "false") {
+    logger.info("Zeitgesteuerte Automatisierung deaktiviert (AUTOMATION_SCHEDULER_ENABLED=false)");
+    return () => {};
+  }
+  const minutes = resolveScheduleIntervalMinutes();
+  const deps = createAutomationDeps(storage);
+  let running = false;
+  const run = async () => {
+    if (running) return;
+    running = true;
+    try {
+      await runScheduledAutomations(deps);
+    } catch (err) {
+      logger.error({ err }, "Zeitgesteuerte Automatisierung fehlgeschlagen");
+    } finally {
+      running = false;
+    }
+  };
+  const first = setTimeout(run, 3 * 60 * 1000);
+  const timer = setInterval(run, minutes * 60 * 1000);
+  logger.info({ intervalMinutes: minutes }, "Zeitgesteuerte Automatisierung geplant");
+  return () => {
+    clearTimeout(first);
+    clearInterval(timer);
+  };
 }

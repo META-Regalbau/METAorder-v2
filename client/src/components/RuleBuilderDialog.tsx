@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertCircle, Plus, Sparkles, Trash2 } from "lucide-react";
+import { AlertCircle, Clock, Eye, Plus, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,8 @@ import {
   AUTOMATION_TRIGGERS,
   AUTOMATION_TRIGGER_TYPES,
   OPERATORS_BY_FIELD_TYPE,
+  SCHEDULED_LOOKBACK_DAYS,
+  SCHEDULED_MAX_PER_RULE_PER_RUN,
   fieldsForTrigger,
   validateAutomationRule,
   type AutomationActionInput,
@@ -47,6 +49,26 @@ type Template = {
 
 // Vorlagen nur mit verfuegbaren Ausloesern/Aktionen
 const RULE_TEMPLATES: Template[] = [
+  {
+    id: "delayedOrders",
+    triggerType: "scheduled",
+    priority: 60,
+    conditions: [
+      { field: "order.paymentStatus", operator: "equals", value: "paid" },
+      { field: "order.status", operator: "notEquals", value: "completed" },
+      { field: "order.status", operator: "notEquals", value: "cancelled" },
+      { field: "order.daysPastDeliveryDate", operator: "greaterThanOrEqual", value: 3 },
+    ],
+    actions: [{
+      type: "create_ticket",
+      params: {
+        title: "Bestellung {{order.orderNumber}} verspätet",
+        description: "Bestellung {{order.orderNumber}} von {{order.customerName}} ({{order.customerEmail}}) liegt seit {{order.daysPastDeliveryDate}} Tagen über dem spätesten Lieferdatum.",
+        priority: "high",
+        category: "order_issue",
+      },
+    }],
+  },
   {
     id: "sentimentPriority",
     triggerType: "ticket_created",
@@ -80,6 +102,13 @@ const RULE_TEMPLATES: Template[] = [
   },
 ];
 
+type PreviewResult = {
+  matching: number;
+  alreadyDone: number;
+  nextRun: number;
+  sample: Array<{ orderNumber: string; customerName: string; orderDate: string; status: string; paymentStatus: string; daysPastDeliveryDate: number | null }>;
+};
+
 function parseArray<T>(raw: unknown): T[] {
   if (Array.isArray(raw)) return raw as T[];
   if (typeof raw !== "string" || !raw) return [];
@@ -110,6 +139,8 @@ export function RuleBuilderDialog({ isOpen, onClose, editingRule }: RuleBuilderD
   const [conditions, setConditions] = useState<AutomationConditionInput[]>([]);
   const [actions, setActions] = useState<AutomationActionInput[]>([]);
   const [showTemplates, setShowTemplates] = useState(!editingRule);
+  const [preview, setPreview] = useState<PreviewResult | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   const { data: users = [] } = useQuery<Array<{ id: string; username: string }>>({
     queryKey: ["/api/automation-rules/users"],
@@ -137,6 +168,20 @@ export function RuleBuilderDialog({ isOpen, onClose, editingRule }: RuleBuilderD
       setShowTemplates(true);
     }
   }, [editingRule, isOpen]);
+
+  useEffect(() => setPreview(null), [triggerType, conditions]);
+
+  const runPreview = async () => {
+    setPreviewLoading(true);
+    try {
+      const res = await apiRequest("POST", "/api/automation-rules/preview", { triggerType, conditions, ruleId: editingRule?.id });
+      setPreview(await res.json());
+    } catch (error: any) {
+      toast({ title: t("automation.scheduled.previewError"), description: error.message, variant: "destructive" });
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
 
   const errors = useMemo(
     () => validateAutomationRule({ triggerType, conditions, actions }),
@@ -188,9 +233,20 @@ export function RuleBuilderDialog({ isOpen, onClose, editingRule }: RuleBuilderD
   const triggerEntity = AUTOMATION_TRIGGERS[triggerType].entity;
 
   const valueLabel = (field: string, value: string) => {
-    if (field.endsWith("priority")) return t(`tickets.priorityValues.${value}`, value);
-    if (field.endsWith("status") || field.endsWith("Status")) return t(`tickets.statusValues.${value}`, value);
-    return t(`automation.values.${value}`, value);
+    switch (field) {
+      case "ticket.priority":
+      case "priority":
+        return t(`tickets.priorityValues.${value}`, value);
+      case "ticket.status":
+      case "ticket.previousStatus":
+        return t(`tickets.statusValues.${value}`, value);
+      case "order.status":
+        return t(`automation.values.orderStatus.${value}`, value);
+      case "order.paymentStatus":
+        return t(`automation.values.paymentStatus.${value}`, value);
+      default:
+        return t(`automation.values.${value}`, value);
+    }
   };
 
   // --- Bedingungen ---------------------------------------------------------
@@ -336,6 +392,42 @@ export function RuleBuilderDialog({ isOpen, onClose, editingRule }: RuleBuilderD
                 <Label htmlFor="rule-enabled" className="font-normal">{t("automation.form.enabled")}</Label>
               </div>
             </div>
+
+            {triggerType === "scheduled" && (
+              <Alert data-testid="alert-scheduled-info">
+                <Clock className="h-4 w-4" />
+                <AlertTitle>{t("automation.scheduled.title")}</AlertTitle>
+                <AlertDescription className="space-y-3">
+                  <p className="text-sm">{t("automation.scheduled.description", { days: SCHEDULED_LOOKBACK_DAYS, max: SCHEDULED_MAX_PER_RULE_PER_RUN })}</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={runPreview}
+                    disabled={previewLoading || conditions.length === 0 || errors.some((e) => e.startsWith("Bedingung"))}
+                    data-testid="button-preview"
+                  >
+                    <Eye className="w-4 h-4 mr-1" />{previewLoading ? t("common.loading") : t("automation.scheduled.preview")}
+                  </Button>
+                  {preview && (
+                    <div className="space-y-2" data-testid="preview-result">
+                      <p className="text-sm font-medium">
+                        {t("automation.scheduled.previewSummary", { matching: preview.matching, done: preview.alreadyDone, next: preview.nextRun })}
+                      </p>
+                      {preview.sample.length > 0 && (
+                        <ul className="text-xs space-y-0.5 max-h-40 overflow-y-auto">
+                          {preview.sample.map((o) => (
+                            <li key={o.orderNumber} className="font-mono">
+                              {o.orderNumber} · {o.customerName} · {new Date(o.orderDate).toLocaleDateString()} · {valueLabel("order.status", o.status)} · {valueLabel("order.paymentStatus", o.paymentStatus)}
+                              {o.daysPastDeliveryDate !== null ? ` · +${o.daysPastDeliveryDate} ${t("automation.scheduled.days")}` : ""}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">

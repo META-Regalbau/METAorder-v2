@@ -1,4 +1,4 @@
-import type { InsertTicket, Notification, Ticket, TicketCategory, TicketPriority } from "@shared/schema";
+import type { InsertTicket, Notification, Order, Ticket, TicketCategory, TicketPriority } from "@shared/schema";
 import {
   AUTOMATION_ACTIONS,
   interpolate,
@@ -21,6 +21,8 @@ export type ActionEnv = {
   deps: AutomationDeps;
   tenantId: string | null;
   ticket?: Ticket;
+  /** Bei zeitgesteuerten Regeln die gepruefte Bestellung */
+  order?: Order;
   facts: AutomationFacts;
 };
 
@@ -105,10 +107,11 @@ const ACTIONS: Record<Exclude<AutomationActionTypeId, "update_order_status">, Ac
       status: "open",
       priority: (str(params.priority) || "normal") as TicketPriority,
       category: (str(params.category) || "general") as TicketCategory,
-      orderId: env.ticket?.orderId ?? null,
-      orderNumber: env.ticket?.orderNumber ?? null,
-      customerEmail: env.ticket?.customerEmail ?? null,
-      customerName: env.ticket?.customerName ?? null,
+      // Mit der Bestellung bzw. dem ausloesenden Ticket verknuepfen
+      orderId: env.order?.id ?? env.ticket?.orderId ?? null,
+      orderNumber: env.order?.orderNumber ?? env.ticket?.orderNumber ?? null,
+      customerEmail: env.order?.customerEmail ?? env.ticket?.customerEmail ?? null,
+      customerName: env.order?.customerName ?? env.ticket?.customerName ?? null,
       createdByUserId: null,
       assignedToUserId: null,
     });

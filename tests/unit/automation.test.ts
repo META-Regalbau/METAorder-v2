@@ -116,11 +116,11 @@ describe("Regel-Pruefung", () => {
 
   it("meldet nicht verfuegbare Ausloeser/Aktionen, unbekannte Felder, falsche Werte und fehlende Parameter", () => {
     const errors = validateAutomationRule({
-      triggerType: "scheduled",
+      triggerType: "order_created",
       conditions: [{ field: "orderAge", operator: "greaterThan", value: 3 }],
       actions: [{ type: "update_order_status", params: {} }, { type: "assign_ticket", params: {} }],
     });
-    expect(errors.join(" | ")).toMatch(/Auslöser "scheduled" ist noch nicht verfügbar/);
+    expect(errors.join(" | ")).toMatch(/Auslöser "order_created" ist noch nicht verfügbar/);
     expect(errors.join(" | ")).toMatch(/unbekanntes Feld "orderAge"/);
     expect(errors.join(" | ")).toMatch(/"update_order_status" ist noch nicht verfügbar/);
     expect(errors.join(" | ")).toMatch(/Benutzer fehlt/);

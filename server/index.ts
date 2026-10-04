@@ -28,7 +28,7 @@ import { assertSecureSecret } from "./lib/secretGuard";
 import { installConsoleBridge } from "./lib/consoleBridge";
 import { requestIdMiddleware } from "./lib/requestContext";
 import { errorHandler, requestLoggingMiddleware } from "./lib/httpLogging";
-import { registerAutomationTriggers } from "./automation";
+import { registerAutomationTriggers, startAutomationScheduler } from "./automation";
 
 // Ab hier landen auch alle console.*-Aufrufe strukturiert im Logger (server/lib/logger.ts).
 // Steht nach loadEnv (Imports laufen vorher), damit LOG_LEVEL/LOG_FORMAT aus .env greifen.
@@ -193,8 +193,9 @@ app.post("/ingest/:id", (req, res) => {
   
   const server = await registerRoutes(app);
 
-  // Automatisierungsregeln an Ticket-Ereignisse binden (server/automation)
+  // Automatisierungsregeln: Ticket-Ereignisse und zeitgesteuerte Regeln (server/automation)
   registerAutomationTriggers(storage);
+  startAutomationScheduler(storage);
 
   const runLearningJob = async () => {
     try {

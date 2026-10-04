@@ -77,7 +77,7 @@ export function ExecutionHistoryDialog({ ruleId, onClose }: ExecutionHistoryDial
                         </span>
                         {result?.entity?.number && (
                           <span className="text-xs text-muted-foreground">
-                            {t('automation.history.ticket')} {result.entity.number}
+                            {t(result.entity.type === 'order' ? 'automation.history.order' : 'automation.history.ticket')} {result.entity.number}
                           </span>
                         )}
                       </div>
