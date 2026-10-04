@@ -313,6 +313,7 @@ Akzeptanz:
   - CPQ-Core-Endpunkte sind dadurch im OpenAPI-Export enthalten.
 - Smoke-Basis fuer Sprint-6-Flows aktualisiert:
   - `tests/unit/cpqCore.test.ts` prueft A/B/C-Entscheidungspfad, Transfer-Entscheidung, C-Review-Hinweis sowie Kontextnormalisierung und Adapter-Payload-Guards.
+  - Die Submit-/Transfer-Entscheidung liegt in `server/cpq-core/submitDecision.ts` (vorher inline im Route-Handler, im Test nachgebaut); `tests/unit/cpqCoreRoutes.test.ts` prueft zusaetzlich die echten Routen.
 
 ### Offen nach Sprint 6
 
