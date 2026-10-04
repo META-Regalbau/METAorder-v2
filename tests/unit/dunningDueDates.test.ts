@@ -13,10 +13,12 @@ import { enrichOrderDueDate, enrichOrdersDueDates, getDunningCandidates } from "
 
 const day = 86400000;
 const daysAgo = (n: number) => new Date(Date.now() - n * day).toISOString();
+// einmal berechnet: sonst unterscheiden sich die Bestelldaten um Millisekunden und der Spiegel sortiert anders
+const ORDER_DATE = daysAgo(60);
 
 function order(id: string, overrides: Partial<Order> = {}): Order {
   return {
-    id, orderNumber: `SW-${id}`, customerName: `Kunde ${id}`, customerEmail: "kunde@example.com", orderDate: daysAgo(60),
+    id, orderNumber: `SW-${id}`, customerName: `Kunde ${id}`, customerEmail: "kunde@example.com", orderDate: ORDER_DATE,
     customFields: { custom_order_numbers_invoice: `ERP-${id}` }, totalAmount: 100, netTotalAmount: 84,
     status: "in_progress", paymentStatus: "open", salesChannelId: "sc1", items: [], ...overrides,
   } as Order;
@@ -91,7 +93,10 @@ describe("Mahnvorschau: Faelligkeit gebatcht", () => {
   it("450 Bestellungen: 3 Stapel + 1 Folgeseite statt einer Abfrage je Bestellung", async () => {
     await getDunningCandidates(storage, client(), dunning, null, "tenant-a");
     const documentSearches = shop.requests.filter((r) => r.path === "/api/search/document");
-    expect(documentSearches.map((r) => [r.body.filter[0].value.length, r.body.page])).toEqual([[200, 1], [200, 2], [200, 1], [50, 1]]);
+    // Reihenfolge der Stapel egal: 200 + 200 + 50 Bestellungen, der Stapel mit o003 (600 Dokumente) braucht Seite 2
+    const pages = documentSearches.map((r) => `${r.body.filter[0].value.length}/${r.body.page}`).sort();
+    expect(pages).toEqual(["200/1", "200/1", "50/1", `${documentSearches.find((r) => r.body.page === 2)!.body.filter[0].value.length}/2`].sort());
+    expect(documentSearches.find((r) => r.body.page === 2)!.body.filter[0].value).toContain("o003");
     expect(documentSearches.every((r) => r.body.filter[0].type === "equalsAny")).toBe(true);
     expect(shop.requests.filter((r) => r.path === "/api/search/document-type")).toHaveLength(1);
     // die vollstaendige Bestellung wird nicht abgefragt
