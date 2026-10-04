@@ -27,6 +27,16 @@ import type { Order, OrderAddress, Ticket as TicketType, Role } from "@shared/sc
 import { useTranslation } from "react-i18next";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
+/** Versanddatum fuer <input type="date">: Zeitstempel (Status-Historie in Shopware) als lokaler Tag. */
+function toDateInputValue(value?: string): string {
+  if (!value) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 function formatSettlementAmountDe(n: number): string {
   return new Intl.NumberFormat("de-DE", {
     minimumFractionDigits: 2,
@@ -1011,7 +1021,7 @@ export default function OrderDetailModal({
                 defaultValues={{
                   carrier: order.shippingInfo?.carrier || "",
                   trackingNumber: order.shippingInfo?.trackingNumber || "",
-                  shippedDate: order.shippingInfo?.shippedDate || "",
+                  shippedDate: toDateInputValue(order.shippingInfo?.shippedDate),
                 }}
                 onSubmit={(data) => {
                   onUpdateShipping(order.id, data);

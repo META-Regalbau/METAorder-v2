@@ -27,7 +27,7 @@ vi.mock("../../server/auth/auth", async (importOriginal) => {
   return { ...actual, requireAuth: pass, requireViewAnalytics: pass };
 });
 
-import { selectAnalyticsOrders, withShippingInfo } from "../../server/analytics/analyticsOrders";
+import { selectAnalyticsOrders } from "../../server/analytics/analyticsOrders";
 import { storage } from "../../server/storage";
 import { registerAnalyticsRoutes } from "../../server/routes/analyticsRoutes";
 
@@ -61,17 +61,10 @@ describe("selectAnalyticsOrders", () => {
     expect(selectAnalyticsOrders(orders, { salesChannelIds: [] })).toEqual([]);
   });
 
-  it("Versanddaten aus den Zusatzfeldern meta_shipped_*, sonst keine", () => {
-    const shipped = withShippingInfo(order("s", "2026-05-01", { customFields: { meta_shipped_date: "2026-05-03", meta_shipped_carrier: "DHL", meta_shipped_tracking: "123" } } as any));
-    expect(shipped.shippingInfo).toEqual({ shippedDate: "2026-05-03", carrier: "DHL", trackingNumber: "123" });
-    expect(withShippingInfo(order("p", "2026-05-01", { customFields: { meta_shipped_carrier: "DPD" } } as any)).shippingInfo).toEqual({ carrier: "DPD" });
-    expect(withShippingInfo(order("n", "2026-05-01", { customFields: { other: 1 } } as any)).shippingInfo).toBeUndefined();
-  });
-
-  it("die Auswahl uebernimmt die Versanddaten", () => {
-    const list = [order("s", "2026-05-01", { customFields: { meta_shipped_date: "2026-05-03" } } as any), order("n", "2026-05-02")];
+  it("die Auswahl uebernimmt die Versanddaten des Bestell-Mappings unveraendert", () => {
+    const list = [order("s", "2026-05-01", { shippingInfo: { shippedDate: "2026-05-03T09:15:00.000+00:00", trackingNumber: "T1" } }), order("n", "2026-05-02")];
     const selected = selectAnalyticsOrders(list, { salesChannelIds: null });
-    expect(selected.find((o) => o.id === "s")?.shippingInfo).toEqual({ shippedDate: "2026-05-03" });
+    expect(selected.find((o) => o.id === "s")?.shippingInfo).toEqual({ shippedDate: "2026-05-03T09:15:00.000+00:00", trackingNumber: "T1" });
     expect(selected.find((o) => o.id === "n")?.shippingInfo).toBeUndefined();
   });
 });
@@ -110,9 +103,9 @@ describe("GET /api/analytics/summary (echte Route)", () => {
     expect(r).toMatchObject({ totalOrders: 0, totalRevenue: 0 });
   });
 
-  it("Versandzeiten aus den Zusatzfeldern der Spiegel-Bestellungen", async () => {
+  it("Versandzeiten aus den Versanddaten der Spiegel-Bestellungen", async () => {
     state.orders = [
-      order("a", "2026-03-30", { customFields: { meta_shipped_date: "2026-03-31T12:00:00.000Z" } } as any),
+      order("a", "2026-03-30", { shippingInfo: { shippedDate: "2026-03-31T12:00:00.000Z" } }),
       order("b", "2026-03-31"),
     ];
     const r = await (await fetch(`${base}/api/analytics/shipping-times`)).json();

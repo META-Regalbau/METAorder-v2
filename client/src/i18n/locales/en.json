@@ -2006,7 +2006,15 @@
     "mitnahmestapler": "Pallet Jack",
     "hebebuehne": "Lift Platform",
     "noEquipment": "None",
-    "requiresEquipment": "Requires Equipment"
+    "requiresEquipment": "Requires Equipment",
+    "carrier": "Carrier",
+    "carrierPlaceholder": "e.g. DHL, DPD, freight forwarder",
+    "carrierRequired": "Please enter a carrier",
+    "trackingNumber": "Tracking number",
+    "trackingPlaceholder": "Enter tracking number",
+    "trackingRequired": "Please enter a tracking number",
+    "shippedDate": "Shipped date",
+    "shippedDateRequired": "Please enter the shipped date"
   },
   "adminDocuments": {
     "invoiceNumber": "Invoice Number",

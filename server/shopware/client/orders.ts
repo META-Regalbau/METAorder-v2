@@ -1,7 +1,7 @@
 // Shopware: Bestellungen lesen/anlegen, Status-Mapping, Rechnungsinfos, Fingerprints, Auswertungsdaten.
 import type { ShopwareClient } from "../shopware";
 import type { OrderStatus, PaymentStatus, Order, OrderItem } from "@shared/schema";
-import { normalizeOrderDocumentType, isProformaOrVorkasse, extractShopwareOrderCustomerNumber, getLatestDelivery, readEntityTechnicalName, toShopwareUuid } from "./mapping";
+import { normalizeOrderDocumentType, isProformaOrVorkasse, extractShopwareOrderCustomerNumber, getLatestDelivery, readEntityTechnicalName, toShopwareUuid, deliveryShippingFacts, deliveryIdsNeedingShippedDate, deriveShippingInfo, type DeliveryShippingFacts } from "./mapping";
 import { productCache } from "../../products/productCache";
 
 export function mapShopwareStatus(this: ShopwareClient, shopwareStatus: string): OrderStatus {
@@ -184,11 +184,13 @@ export async function fetchOrders(
     }
 
     // Delta-Sync: nur Bestellungen, die sich seit dem letzten Sync geaendert haben
-    // (Status-/Zahlungs-/Versand-Aenderung an einer aelteren Bestellung — Shopware
-    // bumpt updatedAt bei jeder Aenderung) ODER seitdem neu angelegt wurden.
+    // (Status-/Zahlungs-Aenderung an einer aelteren Bestellung) ODER seitdem neu angelegt
+    // wurden ODER deren Lieferung sich geaendert hat.
     // Neue Bestellungen haben in Shopware updatedAt = null (wird erst beim ersten
     // Update gesetzt); ein reiner updatedAt-Range-Filter uebersieht sie, solange
     // niemand etwas an ihnen aendert — deshalb zusaetzlich createdAt.
+    // Tracking-Codes an der Lieferung aendern updatedAt der Bestellung nicht (IDS: 682
+    // Lieferungen mit Code nach der letzten Bestell-Aenderung) — deshalb deliveries.updatedAt.
     if (options?.updatedSince) {
       const sinceIso =
         options.updatedSince instanceof Date
@@ -200,6 +202,7 @@ export async function fetchOrders(
         queries: [
           { type: 'range', field: 'updatedAt', parameters: { gte: sinceIso } },
           { type: 'range', field: 'createdAt', parameters: { gte: sinceIso } },
+          { type: 'range', field: 'deliveries.updatedAt', parameters: { gte: sinceIso } },
         ],
       });
     }
@@ -237,7 +240,7 @@ export async function fetchOrders(
             order_transaction: ['stateMachineState', 'paymentMethod'],
             payment_method: ['name', 'translated'],
             order_address: ['firstName', 'lastName', 'street', 'zipcode', 'city', 'country', 'company', 'phoneNumber'],
-            order_delivery: ['shippingOrderAddress', 'shippingDateEarliest', 'shippingDateLatest', 'shippingMethod'],
+            order_delivery: ['id', 'shippingOrderAddress', 'shippingDateEarliest', 'shippingDateLatest', 'shippingMethod', 'createdAt', 'trackingCodes', 'stateMachineState'],
             shipping_method: ['name', 'translated'],
             document: ['id', 'documentTypeId', 'createdAt', 'documentNumber', 'sent'],
             document_type: ['id', 'technicalName'],
@@ -252,6 +255,7 @@ export async function fetchOrders(
               associations: {
                 shippingOrderAddress: {},
                 shippingMethod: {},
+                stateMachineState: {},
               },
             },
             transactions: {
@@ -393,6 +397,26 @@ export async function fetchOrders(
     // Step 2: Fetch catalog prices for all products in one batch request
     console.log(`[fetchOrders] Found ${productIds.size} unique products across all orders`);
     const catalogPrices = await this.fetchProductPricesBatch(Array.from(productIds));
+
+    // Versandangaben: Lieferungen je Bestellung, Versanddatum versendeter Lieferungen aus der
+    // Status-Historie. Faellt die Historie aus, fehlt nur das Datum - die Bestellungen kommen trotzdem.
+    const deliveriesOf = (shopwareOrder: any): DeliveryShippingFacts[] => {
+      const raw = Array.isArray(shopwareOrder.deliveries)
+        ? shopwareOrder.deliveries
+        : (shopwareOrder.relationships?.deliveries?.data ?? [])
+            .map((ref: { id: string }) => includedMap.get(`order_delivery-${ref.id}`))
+            .filter(Boolean);
+      return raw.map((d: any) => deliveryShippingFacts(d, includedMap));
+    };
+    const shippedDeliveryIds = orders.flatMap((o: any) =>
+      deliveryIdsNeedingShippedDate(deliveriesOf(o), o.customFields || o.attributes?.customFields),
+    );
+    let shippedAtByDeliveryId = new Map<string, string>();
+    try {
+      shippedAtByDeliveryId = await this.fetchDeliveryShippedDates(shippedDeliveryIds);
+    } catch (historyError) {
+      console.warn('[fetchOrders] Versanddaten aus der Status-Historie nicht geladen:', historyError);
+    }
 
     const mappedOrders: Order[] = orders.map((shopwareOrder: any) => {
       // Get customer data from relationships or direct inclusion
@@ -878,6 +902,9 @@ export async function fetchOrders(
         customFields: shopwareOrder.customFields || undefined,
       };
 
+      const shippingInfo = deriveShippingInfo(deliveriesOf(shopwareOrder), customFields, shippedAtByDeliveryId);
+      if (shippingInfo) order.shippingInfo = shippingInfo;
+
       // Add ERP document numbers from custom fields
       if (customFields.custom_order_numbers_order) {
         order.erpNumber = customFields.custom_order_numbers_order;
@@ -1106,14 +1133,20 @@ export async function fetchLatestOrderMeta(this: ShopwareClient): Promise<{ id: 
 }
 
 /**
- * Fingerprint für Bestellungen (Count + jüngste Änderung + jüngste Anlage) inkl. Shop-Gesamtzahl.
+ * Fingerprint für Bestellungen (Count + jüngste Änderung + jüngste Anlage + jüngste Lieferungs-
+ * Änderung) inkl. Shop-Gesamtzahl.
  * Neue Bestellungen haben updatedAt = null und landen bei Sortierung nach updatedAt DESC
  * am Ende — deshalb zusaetzlich die juengste Anlage (createdAt DESC) einbeziehen.
+ * Tracking-Codes und Lieferstatus aendern updatedAt der Bestellung nicht — deshalb zusaetzlich die
+ * juengste Aenderung einer Lieferung (latestDeliveryUpdatedAt, auch fuer den Delta-Cursor).
  */
-export async function fetchOrdersFingerprintDetails(this: ShopwareClient): Promise<{ fingerprint: string; total: number } | null> {
+export async function fetchOrdersFingerprintDetails(
+  this: ShopwareClient,
+): Promise<{ fingerprint: string; total: number; latestDeliveryUpdatedAt?: string | null } | null> {
   const fp = await this.fetchEntitySearchFingerprint("order", { sortField: "updatedAt" });
   if (!fp) return null;
   const created = await this.fetchEntitySearchFingerprint("order", { sortField: "createdAt" });
+  const delivery = await this.fetchEntitySearchFingerprint("order-delivery", { sortField: "updatedAt" });
 
   const { stableFingerprint } = await import("../../lib/contentHashCache");
   const fingerprint = stableFingerprint({
@@ -1122,8 +1155,10 @@ export async function fetchOrdersFingerprintDetails(this: ShopwareClient): Promi
     latestUpdatedAt: fp.latestUpdatedAt,
     latestId: fp.latestId,
     latestCreatedId: created?.latestId ?? null,
+    latestDeliveryUpdatedAt: delivery?.latestUpdatedAt ?? null,
+    latestDeliveryId: delivery?.latestId ?? null,
   });
-  return { fingerprint, total: fp.total };
+  return { fingerprint, total: fp.total, latestDeliveryUpdatedAt: delivery?.latestUpdatedAt ?? null };
 }
 
 /** Fingerprint für Bestellungen (siehe fetchOrdersFingerprintDetails). */

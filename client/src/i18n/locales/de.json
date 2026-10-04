@@ -2035,7 +2035,15 @@
     "mitnahmestapler": "Mitnahmestapler",
     "hebebuehne": "Hebebühne",
     "noEquipment": "Keine",
-    "requiresEquipment": "Benötigt Ausrüstung"
+    "requiresEquipment": "Benötigt Ausrüstung",
+    "carrier": "Versanddienstleister",
+    "carrierPlaceholder": "z. B. DHL, DPD, Spedition",
+    "carrierRequired": "Bitte Versanddienstleister angeben",
+    "trackingNumber": "Sendungsnummer",
+    "trackingPlaceholder": "Sendungsnummer eingeben",
+    "trackingRequired": "Bitte Sendungsnummer angeben",
+    "shippedDate": "Versanddatum",
+    "shippedDateRequired": "Bitte Versanddatum angeben"
   },
   "adminDocuments": {
     "invoiceNumber": "Rechnungsnummer",

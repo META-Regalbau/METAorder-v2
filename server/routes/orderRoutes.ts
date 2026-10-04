@@ -1089,6 +1089,14 @@ export function registerOrderRoutes(app: Express): void {
       
       // Update shipping info and set status to shipped in Shopware
       await client.updateOrderShipping(orderId, shippingInfo);
+
+      // Versandangaben kommen aus dem Bestell-Spiegel: gleich abgleichen (wie beim Sammel-Tracking)
+      try {
+        const { syncShopwareMirrorForTenant } = await import("../shopware/shopwareMirror");
+        await syncShopwareMirrorForTenant(storage, client, (req as any).tenantId ?? null, { entities: ["orders"] });
+      } catch (error) {
+        console.error("[order-shipping] Spiegel-Abgleich nach dem Update fehlgeschlagen:", error);
+      }
       
       res.json({ 
         success: true,
