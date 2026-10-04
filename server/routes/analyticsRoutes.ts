@@ -2,7 +2,8 @@
 import { requireAuth, requireViewAnalytics, requireViewNaturalLanguageAnalytics, requireViewTickets, requireViewCrm, requireViewDelayedOrders, requireViewShipping } from "../auth/auth";
 import { fetchGa4Kpis, fetchAdsKpis } from "../analytics/googleKpi";
 import { storage } from "../storage";
-import { getSalesChannelFilter, filterTicketsBySalesChannels, filterOrdersBySalesChannels } from "./routeHelpers";
+import { getSalesChannelFilter, filterTicketsBySalesChannels, filterOrdersBySalesChannels, getMirrorOrdersLikeLive } from "./routeHelpers";
+import { selectDelayedOrders } from "../shopware/ordersList";
 import { ShopwareClient } from "../shopware/shopware";
 import { processNaturalLanguageQuery } from "../analytics/naturalLanguageAnalytics";
 import { executeAnalyticsQuery } from "../analytics/analyticsQueryExecutor";
@@ -858,8 +859,12 @@ export function registerAnalyticsRoutes(app: Express): void {
       // SECURITY: Get sales channel filter from user permissions (server-side, authoritative)
       const allowedChannelIds = await getSalesChannelFilter(req);
 
-      // Fetch recent orders (last 10) with channel filter
-      const { orders } = await client.fetchOrdersPaginated(10, 0, allowedChannelIds ?? undefined);
+      // Die 10 neuesten Bestellungen der eigenen Kanaele aus dem Bestell-Spiegel (frueher live -
+      // eine leere Kanalliste filterte dort gar nicht)
+      const orders = filterOrdersBySalesChannels(
+        await getMirrorOrdersLikeLive(client, (req as any).tenantId ?? null),
+        allowedChannelIds,
+      ).slice(0, 10);
 
       res.json(orders);
     } catch (error) {
@@ -886,9 +891,10 @@ export function registerAnalyticsRoutes(app: Express): void {
         ? await storage.getAllTickets() 
         : [];
       
+      // alle Bestellungen aus dem Bestell-Spiegel (frueher nur die neuesten 500 live)
       const ordersResponse = roleDetails?.permissions?.viewOrders
-        ? await client.fetchOrdersPaginated(500, 0, undefined)
-        : { orders: [], total: 0 };
+        ? { orders: await getMirrorOrdersLikeLive(client, (req as any).tenantId ?? null) }
+        : { orders: [] as Order[] };
 
       // Filter tickets assigned to current user
       const myTickets = (allTickets || []).filter(t => t.assignedToUserId === user.id);
@@ -914,15 +920,9 @@ export function registerAnalyticsRoutes(app: Express): void {
 
       const openOrders = accessibleOrders.filter((order: Order) => order.status === 'open' || order.status === 'in_progress');
 
-      // Calculate delayed orders (orders older than 7 days that are not completed/cancelled)
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      
-      const delayedOrders = roleDetails?.permissions?.viewDelayedOrders 
-        ? accessibleOrders.filter((order: Order) => {
-            const orderDate = new Date(order.orderDate);
-            return orderDate < sevenDaysAgo && order.status !== 'completed' && order.status !== 'cancelled';
-          })
+      // Verspaetete Bestellungen nach derselben Regel wie die Seite "Verspaetete Bestellungen"
+      const delayedOrders = roleDetails?.permissions?.viewDelayedOrders
+        ? selectDelayedOrders(accessibleOrders)
         : [];
 
       const kpis = {
@@ -954,43 +954,33 @@ export function registerAnalyticsRoutes(app: Express): void {
       }
 
       const client = new ShopwareClient(settings);
-      const ordersResponse = await client.fetchOrdersPaginated(500, 0, undefined);
 
       // SECURITY: Get sales channel filter from user permissions (server-side, authoritative)
       const allowedChannelIds = await getSalesChannelFilter(req);
-      
-      // SECURITY: Filter by user's assigned sales channels (server-enforced)
-      const orderItems = ordersResponse?.orders || [];
-      const accessibleOrders = filterOrdersBySalesChannels(orderItems, allowedChannelIds);
 
-      // Calculate delayed orders
-      const today = new Date();
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      const fourteenDaysAgo = new Date();
-      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
-
-      const delayedOrders = accessibleOrders.filter((order: Order) => {
-        const orderDate = new Date(order.orderDate);
-        return orderDate < sevenDaysAgo && order.status !== 'completed' && order.status !== 'cancelled';
-      });
-
-      const criticallyDelayed = delayedOrders.filter((order: Order) => {
-        const orderDate = new Date(order.orderDate);
-        return orderDate < fourteenDaysAgo;
-      });
+      // Alle Bestellungen der eigenen Kanaele aus dem Bestell-Spiegel (frueher nur die neuesten 500
+      // live), verspaetet nach derselben Regel wie die Seite; kritisch = Lieferdatum (sonst
+      // Bestelldatum) mehr als 14 Tage vorbei
+      const accessibleOrders = filterOrdersBySalesChannels(
+        await getMirrorOrdersLikeLive(client, (req as any).tenantId ?? null),
+        allowedChannelIds,
+      );
+      const delayedOrders = selectDelayedOrders(accessibleOrders);
+      const criticallyDelayed = delayedOrders.filter((order) => order.daysSinceOrder >= 14);
+      // wie bisher die neuesten fuenf (nach Bestelldatum)
+      const newestDelayed = [...delayedOrders].sort((a, b) => (a.orderDate < b.orderDate ? 1 : a.orderDate > b.orderDate ? -1 : 0));
 
       const summary = {
         total: delayedOrders.length,
         critical: criticallyDelayed.length,
-        recentOrders: delayedOrders.slice(0, 5).map((order: Order) => ({
+        recentOrders: newestDelayed.slice(0, 5).map((order) => ({
           id: order.id,
           orderNumber: order.orderNumber,
           customerName: order.customerName,
           orderDate: order.orderDate,
           totalAmount: order.totalAmount,
           status: order.status,
-          daysDelayed: Math.floor((today.getTime() - new Date(order.orderDate).getTime()) / (1000 * 60 * 60 * 24)),
+          daysDelayed: order.daysSinceOrder,
         })),
       };
 
@@ -1010,14 +1000,15 @@ export function registerAnalyticsRoutes(app: Express): void {
       }
 
       const client = new ShopwareClient(settings);
-      const ordersResponse = await client.fetchOrdersPaginated(500, 0, undefined);
 
       // SECURITY: Get sales channel filter from user permissions (server-side, authoritative)
       const allowedChannelIds = await getSalesChannelFilter(req);
-      
-      // SECURITY: Filter by user's assigned sales channels (server-enforced)
-      const orderItems = ordersResponse?.orders || [];
-      const accessibleOrders = filterOrdersBySalesChannels(orderItems, allowedChannelIds);
+
+      // Alle Bestellungen der eigenen Kanaele aus dem Bestell-Spiegel (frueher nur die neuesten 500 live)
+      const accessibleOrders = filterOrdersBySalesChannels(
+        await getMirrorOrdersLikeLive(client, (req as any).tenantId ?? null),
+        allowedChannelIds,
+      );
 
       // Filter orders ready for shipping:
       // - Status open oder in_progress (nicht completed/cancelled)

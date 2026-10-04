@@ -128,3 +128,30 @@ export function computeDuplicateOrderIds(orders: Order[]): Set<string> {
 export function paginateOrdersList<T>(items: T[], limit: number, offset: number): T[] {
   return items.slice(offset, offset + limit);
 }
+
+/**
+ * Verspaetete Bestellungen - Seite "Verspaetete Bestellungen" und Dashboard-Kacheln:
+ * nicht abgeschlossen/storniert, bezahlt, spaetestes Lieferdatum (ohne Lieferdatum: Bestelldatum)
+ * mehr als daysThreshold Tage vorbei. daysSinceOrder = Tage seit diesem Datum; am laengsten
+ * ueberfaellige zuerst.
+ */
+export function selectDelayedOrders<T extends Order>(
+  orders: T[],
+  opts: { daysThreshold?: number; now?: Date } = {},
+): Array<T & { daysSinceOrder: number }> {
+  const now = opts.now ?? new Date();
+  const thresholdDate = new Date(now.getTime() - (opts.daysThreshold ?? 3) * 24 * 60 * 60 * 1000);
+  const referenceDate = (order: Order) => new Date(order.deliveryDateLatest || order.orderDate);
+  return orders
+    .filter((order) => {
+      const isNotFinished = order.status !== "completed" && order.status !== "cancelled";
+      const hasValidPayment = order.paymentStatus === "paid";
+      return isNotFinished && hasValidPayment && referenceDate(order) < thresholdDate;
+    })
+    .map((order) => ({
+      ...order,
+      daysSinceOrder: Math.floor((now.getTime() - referenceDate(order).getTime()) / (1000 * 60 * 60 * 24)),
+    }))
+    .sort((a, b) => referenceDate(a).getTime() - referenceDate(b).getTime());
+}
+
