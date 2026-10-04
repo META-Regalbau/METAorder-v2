@@ -12,7 +12,7 @@ Diese Doku ist **nicht vollstaendig**. Die komplette Liste steht in `server/rout
 
 - **Swagger UI:** `GET /api/docs` — nur fuer **angemeldete** Nutzer (`requireAuth`); zuerst in der App einloggen, dann die URL im gleichen Browser aufrufen (Cookies `auth_token` / `csrf_token`).
 - **Rohe Spezifikation:** `GET /api/openapi.json` (ebenfalls nur angemeldet).
-- **Pfadliste aktualisieren:** `npm run openapi:generate` erzeugt `server/openapi/openapi.paths.ts` aus allen `.ts`-Dateien unter `server/` (Muster `app.get("/api/...")` usw.). Der Befehl laeuft automatisch zu Beginn von `npm run build`; die eingecheckte Datei bei Routen-Aenderungen bitte mit neu erzeugen.
+- **Pfadliste aktualisieren:** `npm run openapi:generate` erzeugt `server/openapi/openapi.paths.ts` aus allen `.ts`-Dateien unter `server/` (Muster `app.get("/api/...")` usw.). Der Befehl laeuft automatisch zu Beginn von `npm run build`; die eingecheckte Datei bei Routen-Aenderungen bitte mit neu erzeugen. Die PR-CI prueft das (`npm run openapi:check`, Job „OpenAPI-Pfadliste aktuell“) und nennt die abweichenden Operationen.
 
 ## Authentifizierung & Sicherheit
 
