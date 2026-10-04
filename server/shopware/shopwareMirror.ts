@@ -24,8 +24,10 @@ const PRODUCT_PAYLOAD_VERSION = "v2";
  * v2: Versandangaben (shippingInfo: Sendungsnummer, Versanddatum) aus den Lieferungen.
  * v3: auch Bestellungen mit mehrfach vergebener Bestellnummer - beim Neuladen fuer v2 blieben
  *     diese Kopien auf altem Stand (Live: 36 Zeilen).
+ * v4: Sendungsnummern als Liste mit Links zur Sendungsverfolgung (Tracking-URL der Versandart),
+ *     Versanddienstleister ersatzweise aus der Versandart.
  */
-const ORDER_PAYLOAD_VERSION = "v3";
+const ORDER_PAYLOAD_VERSION = "v4";
 const CUSTOMER_BATCH = 250;
 const PRICE_BATCH = 250;
 /** Sicherheitsnetz: 250 × 400 = bis zu 100.000 Preiszeilen im Voll-Snapshot. */

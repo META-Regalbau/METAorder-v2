@@ -1939,7 +1939,11 @@
     "trackingPlaceholder": "Introduzca el número de seguimiento",
     "trackingRequired": "Indique el número de seguimiento",
     "shippedDate": "Fecha de envío",
-    "shippedDateRequired": "Indique la fecha de envío"
+    "shippedDateRequired": "Indique la fecha de envío",
+    "tracking": "Seguimiento",
+    "trackingMultipleHint": "Separe varios números de seguimiento con comas.",
+    "trackingCodesDetected": "{{count}} números de seguimiento detectados",
+    "trackingLinkTitle": "Seguir el envío {{code}}"
   },
   "adminDocuments": {
     "invoiceNumber": "Número de Factura",

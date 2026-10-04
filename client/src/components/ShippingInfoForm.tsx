@@ -2,10 +2,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
+import { parseTrackingCodes } from "@shared/tracking";
 
 const createShippingInfoSchema = (t: (key: string) => string) => z.object({
   carrier: z.string().min(1, t('shipping.carrierRequired')),
@@ -39,6 +40,8 @@ export default function ShippingInfoForm({ defaultValues, onSubmit, onCancel }: 
       shippedDate: defaultValues?.shippedDate || "",
     },
   });
+
+  const trackingCodeCount = parseTrackingCodes(form.watch("trackingNumber")).length;
 
   const handleSubmit = (data: ShippingInfoFormData) => {
     console.log("Shipping info submitted:", data);
@@ -75,6 +78,11 @@ export default function ShippingInfoForm({ defaultValues, onSubmit, onCancel }: 
               <FormControl>
                 <Input placeholder={t('shipping.trackingPlaceholder')} className="font-mono" {...field} data-testid="input-tracking-number" />
               </FormControl>
+              <FormDescription data-testid="text-tracking-hint">
+                {trackingCodeCount > 1
+                  ? t('shipping.trackingCodesDetected', { count: trackingCodeCount })
+                  : t('shipping.trackingMultipleHint')}
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}

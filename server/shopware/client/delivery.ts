@@ -1,10 +1,17 @@
 // Shopware: Versand (Lieferstatus, Versandmeldung) und Mondu-Transaktionen.
 import type { ShopwareClient } from "../shopware";
-import { isMonduPluginShipError } from "./mapping";
+import { parseTrackingCodes } from "@shared/tracking";
+import { getLatestDelivery, isMonduPluginShipError } from "./mapping";
 
 /**
  * Update order shipping information and set status to "shipped"
  * This combines setting tracking codes and transitioning the delivery state
+ *
+ * Sendungsnummern: "A, B" (Komma, Semikolon oder Zeilenumbruch) sind mehrere Nummern - frueher
+ * landete die ganze Eingabe als eine Nummer in Shopware. Geschrieben wird an die neueste Lieferung
+ * (wie die Anzeige), ohne Nummern, die schon an einer anderen Lieferung haengen.
+ * trackingMode "replace" (Formular, Sammel-Eingabe): die Eingabe ist die vollstaendige Liste.
+ * "add" (Sendcloud, je Paket ein Aufruf): Nummer zu den vorhandenen hinzufuegen statt sie zu ersetzen.
  */
 export async function updateOrderShipping(
   this: ShopwareClient,
@@ -13,7 +20,8 @@ export async function updateOrderShipping(
     carrier?: string;
     trackingNumber?: string;
     shippedDate?: string;
-  }
+  },
+  options: { trackingMode?: "replace" | "add" } = {}
 ): Promise<void> {
   try {
     // Step 1: Fetch order to get delivery ID
@@ -36,12 +44,18 @@ export async function updateOrderShipping(
       throw new Error('Order has no deliveries');
     }
 
-    // Get the first delivery (most orders have only one delivery)
-    const deliveryId = deliveries[0].id;
+    // Neueste Lieferung (die Reihenfolge in der Antwort ist nicht festgelegt)
+    const delivery = getLatestDelivery(deliveries);
+    const deliveryId = delivery.id;
+    const codesOf = (d: any): string[] => (Array.isArray(d?.trackingCodes) ? d.trackingCodes.map((c: unknown) => String(c ?? "").trim()).filter(Boolean) : []);
 
     // Step 2: Update tracking codes if provided
-    if (shippingInfo.trackingNumber) {
-      const trackingCodes = [shippingInfo.trackingNumber];
+    const enteredCodes = parseTrackingCodes(shippingInfo.trackingNumber);
+    const ownCodes = codesOf(delivery);
+    const allCodes = options.trackingMode === "add" ? parseTrackingCodes([...ownCodes, ...enteredCodes].join("\n")) : enteredCodes;
+    if (enteredCodes.length > 0) {
+      const elsewhere = new Set(deliveries.filter((d: any) => d.id !== deliveryId).flatMap(codesOf));
+      const trackingCodes = allCodes.filter((code) => !elsewhere.has(code));
       
       const updateResponse = await this.makeAuthenticatedRequest(
         `${this.baseUrl}/api/order-delivery/${deliveryId}`,
@@ -67,7 +81,7 @@ export async function updateOrderShipping(
     const customFields: Record<string, string> = {};
     if (shippingInfo.shippedDate) customFields.meta_shipped_date = shippingInfo.shippedDate;
     if (shippingInfo.carrier) customFields.meta_shipped_carrier = shippingInfo.carrier;
-    if (shippingInfo.trackingNumber) customFields.meta_shipped_tracking = shippingInfo.trackingNumber;
+    if (enteredCodes.length > 0) customFields.meta_shipped_tracking = allCodes.join(", ");
     if (Object.keys(customFields).length > 0) {
       const orderPatchResponse = await this.makeAuthenticatedRequest(
         `${this.baseUrl}/api/order/${orderId}`,

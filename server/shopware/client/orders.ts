@@ -246,7 +246,8 @@ export async function fetchOrders(
             payment_method: ['name', 'translated'],
             order_address: ['firstName', 'lastName', 'street', 'zipcode', 'city', 'country', 'company', 'phoneNumber'],
             order_delivery: ['id', 'shippingOrderAddress', 'shippingDateEarliest', 'shippingDateLatest', 'shippingMethod', 'createdAt', 'trackingCodes', 'stateMachineState'],
-            shipping_method: ['name', 'translated'],
+            // trackingUrl: Link zur Sendungsverfolgung (Platzhalter %s)
+            shipping_method: ['name', 'translated', 'trackingUrl'],
             document: ['id', 'documentTypeId', 'createdAt', 'documentNumber', 'sent'],
             document_type: ['id', 'technicalName'],
           },

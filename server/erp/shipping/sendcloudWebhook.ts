@@ -270,11 +270,16 @@ export async function handleSendcloudWebhook(
       const sw = await storage.getShopwareSettings(tenantId);
       if (sw) {
         const client = new ShopwareClient(sw);
-        await client.updateOrderShipping(updated.shopwareOrderId, {
-          carrier: parsed.carrier || updated.carrierCode,
-          trackingNumber: updated.trackingNumber || undefined,
-          shippedDate: new Date().toISOString().slice(0, 10),
-        });
+        // je Paket ein Webhook: Sendungsnummer ergaenzen, nicht die der anderen Pakete ersetzen
+        await client.updateOrderShipping(
+          updated.shopwareOrderId,
+          {
+            carrier: parsed.carrier || updated.carrierCode,
+            trackingNumber: updated.trackingNumber || undefined,
+            shippedDate: new Date().toISOString().slice(0, 10),
+          },
+          { trackingMode: "add" },
+        );
       }
     } catch (e: any) {
       console.warn(`[SendcloudWebhook] Shopware sync failed: ${e?.message || e}`);

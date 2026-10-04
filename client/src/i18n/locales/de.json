@@ -2080,7 +2080,11 @@
     "trackingPlaceholder": "Sendungsnummer eingeben",
     "trackingRequired": "Bitte Sendungsnummer angeben",
     "shippedDate": "Versanddatum",
-    "shippedDateRequired": "Bitte Versanddatum angeben"
+    "shippedDateRequired": "Bitte Versanddatum angeben",
+    "tracking": "Sendungsverfolgung",
+    "trackingMultipleHint": "Mehrere Sendungsnummern mit Komma trennen.",
+    "trackingCodesDetected": "{{count}} Sendungsnummern erkannt",
+    "trackingLinkTitle": "Sendung {{code}} verfolgen"
   },
   "adminDocuments": {
     "invoiceNumber": "Rechnungsnummer",

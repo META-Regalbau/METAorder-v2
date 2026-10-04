@@ -15,6 +15,7 @@ import StatusBadge from "./StatusBadge";
 import HerstellMarginIndicator from "./HerstellMarginIndicator";
 import { OrderItemStockHint, OrderStockSummaryBadge } from "./OrderStockHint";
 import ShippingInfoForm from "./ShippingInfoForm";
+import TrackingCodes from "@/components/TrackingCodes";
 import AdminDocumentForm from "./AdminDocumentForm";
 import InstallmentPlanSection from "./InstallmentPlanSection";
 import InstallmentPlanDialog from "./InstallmentPlanDialog";
@@ -1019,10 +1020,17 @@ export default function OrderDetailModal({
           <TabsContent value="shipping" className="pt-6">
             <Card className="p-6">
               <h3 className="text-sm font-medium uppercase tracking-wide mb-4">{t('orderDetail.shippingInfo')}</h3>
+              {order.shippingInfo?.trackingLinks?.length ? (
+                <div className="mb-4 text-sm" data-testid="shipping-tracking-links">
+                  <span className="text-muted-foreground mr-2">{t('shipping.tracking')}:</span>
+                  <TrackingCodes shippingInfo={order.shippingInfo} />
+                </div>
+              ) : null}
               {canEditShipping ? (
                 <ShippingInfoForm
                   defaultValues={{
-                    carrier: order.shippingInfo?.carrier || "",
+                    // Shopware kennt keinen Versanddienstleister: sonst die Versandart vorschlagen
+                    carrier: order.shippingInfo?.carrier || order.shippingMethod || "",
                     trackingNumber: order.shippingInfo?.trackingNumber || "",
                     shippedDate: toDateInputValue(order.shippingInfo?.shippedDate),
                   }}
@@ -1040,7 +1048,9 @@ export default function OrderDetailModal({
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">{t('shipping.trackingNumber')}</p>
-                    <p className="font-medium font-mono">{order.shippingInfo?.trackingNumber || '–'}</p>
+                    <p className="font-medium">
+                      {order.shippingInfo?.trackingNumber ? <TrackingCodes shippingInfo={order.shippingInfo} /> : '–'}
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">{t('shipping.shippedDate')}</p>

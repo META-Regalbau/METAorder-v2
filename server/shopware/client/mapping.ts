@@ -1,5 +1,6 @@
 // Hilfsfunktionen und Konstanten der Shopware-Anbindung: Mapping, Normalisierung, Caches (aus server/shopware/shopware.ts ausgelagert).
-import type { ProductVariant } from "@shared/schema";
+import type { Order, ProductVariant } from "@shared/schema";
+import { parseTrackingCodes, trackingLinkFor, type TrackingLink } from "@shared/tracking";
 import type { OrderDocument, ParsedProductDeliveryTime, ShopwareAdvancedPrice, ShopwareChannelVisibility, ShopwareCustomerPrice, ShopwareProductOverview } from "./types";
 
 
@@ -416,6 +417,10 @@ export type DeliveryShippingFacts = {
   trackingCodes: string[];
   /** technicalName des Lieferstatus */
   state?: string;
+  /** Name der Versandart (z. B. "DPD") */
+  shippingMethodName?: string;
+  /** Tracking-URL der Versandart mit Platzhalter %s */
+  trackingUrl?: string;
 };
 
 /** Versandangaben einer Lieferung - aus der normalen Antwort oder dem JSON:API-Format. */
@@ -426,11 +431,17 @@ export function deliveryShippingFacts(delivery: any, includedMap?: Map<string, a
     delivery?.stateMachineState?.technicalName ??
     (stateRef ? includedMap?.get(`state_machine_state-${stateRef}`)?.attributes?.technicalName : undefined);
   const codes: unknown[] = Array.isArray(attrs.trackingCodes) ? attrs.trackingCodes : [];
+  const methodRef = delivery?.relationships?.shippingMethod?.data?.id;
+  const method = delivery?.shippingMethod ?? (methodRef ? includedMap?.get(`shipping_method-${methodRef}`)?.attributes : undefined);
+  const shippingMethodName = method?.translated?.name || method?.name;
+  const trackingUrl = method?.translated?.trackingUrl || method?.trackingUrl;
   return {
     id: String(delivery?.id ?? ""),
     createdAt: getDeliveryCreatedAt(delivery),
     trackingCodes: codes.map((c) => String(c ?? "").trim()).filter(Boolean),
     state: state || undefined,
+    ...(shippingMethodName ? { shippingMethodName: String(shippingMethodName) } : {}),
+    ...(trackingUrl ? { trackingUrl: String(trackingUrl) } : {}),
   };
 }
 
@@ -445,9 +456,11 @@ export function deliveryIdsNeedingShippedDate(
 
 /**
  * Versandangaben einer Bestellung (Order.shippingInfo):
- * - Sendungsnummer: Tracking-Codes aller Lieferungen (aelteste Lieferung zuerst, ohne Doppelte),
- *   sonst das Zusatzfeld meta_shipped_tracking (schreibt METAorder beim Versand).
- * - Versanddienstleister: Zusatzfeld meta_shipped_carrier - Shopware kennt keinen eigenen.
+ * - Sendungsnummern: Tracking-Codes aller Lieferungen (aelteste Lieferung zuerst, ohne Doppelte),
+ *   sonst das Zusatzfeld meta_shipped_tracking (schreibt METAorder beim Versand); als Liste und als
+ *   Text "A, B". Links zur Sendungsverfolgung ueber die Tracking-URL der Versandart der Lieferung.
+ * - Versanddienstleister: Zusatzfeld meta_shipped_carrier - Shopware kennt keinen eigenen; sonst
+ *   die Versandart der (neuesten) Lieferung, aber nur, wenn es ueberhaupt Versandangaben gibt.
  * - Versanddatum: Zusatzfeld meta_shipped_date (beim Versand in METAorder eingegeben), sonst der
  *   letzte Uebergang nach "versendet" laut Status-Historie, sofern die Lieferung noch als versendet
  *   (oder zurueckgesendet) gilt - nicht, wenn sie danach wieder geoeffnet oder storniert wurde.
@@ -456,11 +469,18 @@ export function deriveShippingInfo(
   deliveries: DeliveryShippingFacts[],
   customFields: Record<string, any> | null | undefined,
   shippedAtByDeliveryId?: Map<string, string>,
-): { carrier?: string; trackingNumber?: string; shippedDate?: string } | undefined {
+): NonNullable<Order["shippingInfo"]> | undefined {
   const cf = customFields ?? {};
+  const oldestFirst = [...deliveries].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   const codes: string[] = [];
-  for (const d of [...deliveries].sort((a, b) => a.createdAt.localeCompare(b.createdAt))) {
-    for (const code of d.trackingCodes) if (!codes.includes(code)) codes.push(code);
+  const links: TrackingLink[] = [];
+  for (const d of oldestFirst) {
+    for (const code of d.trackingCodes) {
+      if (codes.includes(code)) continue;
+      codes.push(code);
+      const url = trackingLinkFor(d.trackingUrl, code);
+      if (url) links.push({ code, url });
+    }
   }
   let shippedDate: string | undefined = cf.meta_shipped_date ? String(cf.meta_shipped_date) : undefined;
   if (!shippedDate && shippedAtByDeliveryId) {
@@ -469,12 +489,21 @@ export function deriveShippingInfo(
       if (at && (!shippedDate || at > shippedDate)) shippedDate = at;
     }
   }
-  const info: { carrier?: string; trackingNumber?: string; shippedDate?: string } = {};
+  const info: NonNullable<Order["shippingInfo"]> = {};
   if (cf.meta_shipped_carrier) info.carrier = String(cf.meta_shipped_carrier);
-  const trackingNumber = codes.length > 0 ? codes.join(", ") : cf.meta_shipped_tracking ? String(cf.meta_shipped_tracking) : "";
-  if (trackingNumber) info.trackingNumber = trackingNumber;
+  const trackingCodes = codes.length > 0 ? codes : parseTrackingCodes(cf.meta_shipped_tracking ? String(cf.meta_shipped_tracking) : "");
+  if (trackingCodes.length > 0) {
+    info.trackingNumber = trackingCodes.join(", ");
+    info.trackingCodes = trackingCodes;
+  }
+  if (links.length > 0) info.trackingLinks = links;
   if (shippedDate) info.shippedDate = shippedDate;
-  return Object.keys(info).length > 0 ? info : undefined;
+  if (Object.keys(info).length === 0) return undefined;
+  if (!info.carrier) {
+    const method = oldestFirst.reverse().find((d) => d.shippingMethodName)?.shippingMethodName;
+    if (method) info.carrier = method;
+  }
+  return info;
 }
 
 export function extractShopwareOrderCustomerNumber(order: any, includedMap: Map<string, any>): string | undefined {
