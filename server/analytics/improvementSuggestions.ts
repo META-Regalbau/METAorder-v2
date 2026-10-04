@@ -90,7 +90,7 @@ Antworte AUSSCHLIESSLICH mit einem gültigen JSON-Objekt im oben gezeigten Forma
 /** Sprachvorgabe: Texte in der Oberflaechensprache, Kategorie und Prioritaet bleiben Codes. */
 export function improvementLanguageInstruction(language: AnalyticsLanguage): string {
   const target = PROMPT_LANGUAGE_NAME[language];
-  return `## SPRACHE:\nSchreibe title, description, expectedImpact, actionItems, timeframe und basedOn auf ${target} (auch wenn das Beispiel oben deutsch ist). "category" und "priority" bleiben die englischen Codes aus der Liste.`;
+  return `## SPRACHE:\nSchreibe title, description, expectedImpact, actionItems, timeframe und basedOn auf ${target} (auch wenn das Beispiel oben deutsch ist). "category" und "priority" bleiben die englischen Codes aus der Liste. Alle Geldbeträge sind Euro (€), nie Dollar.`;
 }
 
 function formatNumber(num: number | unknown): string {
