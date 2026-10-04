@@ -2,37 +2,64 @@
  * Cross-Selling RuleEngine smoke tests (no Shopware).
  * Ausführung: npm test
  */
-import { test } from "vitest";
+import { describe, it } from "vitest";
 import type { CrossSellingRule, Product, RuleTargetCriteria } from "../../shared/schema";
 import { RuleEngine } from "../../server/cross-selling/ruleEngine";
 import type { ShopwareClient } from "../../server/shopware/shopware";
 
-// Aus scripts/testCrossSellRuleEngine.ts uebernommen: Pruefungen unveraendert, Rumpf als ein Vitest-Test.
-test("CrossSellRuleEngine", async () => {
-  function assert(cond: boolean, message: string) {
-    if (!cond) throw new Error(message);
-  }
+function assert(cond: boolean, message: string) {
+  if (!cond) throw new Error(message);
+}
 
-  const baseProduct = (overrides: Partial<Product> = {}): Product =>
-    ({
-      id: "src-1",
-      productNumber: "SRC-001",
-      name: "Source",
-      price: 10,
-      netPrice: 8.4,
-      currency: "EUR",
-      taxRate: 19,
-      stock: 5,
-      available: true,
-      ...overrides,
-    }) as Product;
+const baseProduct = (overrides: Partial<Product> = {}): Product =>
+  ({
+    id: "src-1",
+    productNumber: "SRC-001",
+    name: "Source",
+    price: 10,
+    netPrice: 8.4,
+    currency: "EUR",
+    taxRate: 19,
+    stock: 5,
+    available: true,
+    ...overrides,
+  }) as Product;
 
-  await (async () => {
-    console.log("=== Cross-Sell RuleEngine tests ===\n");
+// Aus scripts/testCrossSellRuleEngine.ts uebernommen: Pruefungen unveraendert, je Pruefung ein Vitest-Fall.
+describe("CrossSellRuleEngine", () => {
+  const engine = new RuleEngine();
+  const p = baseProduct();
 
-    const engine = new RuleEngine();
-    const p = baseProduct();
+  const mockClient = {
+    async fetchProducts(
+      _limit?: number,
+      _page?: number,
+      search?: string
+    ): Promise<{ products: Product[]; total: number }> {
+      if (search === "TGT-002") {
+        return {
+          products: [
+            baseProduct({
+              id: "t2",
+              productNumber: "TGT-002",
+              name: "Target B",
+              stock: 3,
+            }),
+          ],
+          total: 1,
+        };
+      }
+      return { products: [], total: 0 };
+    },
+  } as unknown as ShopwareClient;
 
+  const tgtCrit: RuleTargetCriteria = {
+    field: "productNumber",
+    matchType: "exact",
+    value: "TGT-002",
+  };
+
+  it("Quellbedingung 'equals' auf der Artikelnummer", () => {
     assert(
       engine.evaluateSourceConditions(p, [
         { field: "productNumber", operator: "equals", value: "SRC-001" },
@@ -45,38 +72,14 @@ test("CrossSellRuleEngine", async () => {
       ]) === false,
       "equals mismatch"
     );
+  });
 
-    const mockClient = {
-      async fetchProducts(
-        _limit?: number,
-        _page?: number,
-        search?: string
-      ): Promise<{ products: Product[]; total: number }> {
-        if (search === "TGT-002") {
-          return {
-            products: [
-              baseProduct({
-                id: "t2",
-                productNumber: "TGT-002",
-                name: "Target B",
-                stock: 3,
-              }),
-            ],
-            total: 1,
-          };
-        }
-        return { products: [], total: 0 };
-      },
-    } as unknown as ShopwareClient;
-
-    const tgtCrit: RuleTargetCriteria = {
-      field: "productNumber",
-      matchType: "exact",
-      value: "TGT-002",
-    };
+  it("exaktes Zielkriterium findet den Artikel", async () => {
     const matches = await engine.findMatchingProducts(p, [tgtCrit], mockClient);
     assert(matches.length === 1 && matches[0].productNumber === "TGT-002", "exact criterion resolves");
+  });
 
+  it("suggestCrossSelling übernimmt die Kategorie der Regel", async () => {
     const rule: CrossSellingRule = {
       id: "r1",
       name: "Rule 1",
@@ -93,7 +96,9 @@ test("CrossSellRuleEngine", async () => {
       (suggestions[0] as { suggestCategory?: string }).suggestCategory === "zubehoer",
       "suggestCategory from rule.category",
     );
+  });
 
+  it("sameWidthAndDepth filtert auf gleiche Breite und Tiefe", async () => {
     const srcDim = baseProduct({
       id: "src-d",
       productNumber: "SRC-D",
@@ -146,7 +151,5 @@ test("CrossSellRuleEngine", async () => {
     };
     const dimMatches = await engine.findMatchingProducts(srcDim, dimRule.targetCriteria, mockDimClient);
     assert(dimMatches.length === 1 && dimMatches[0].productNumber === "BOD-1", "sameWidthAndDepth filters pair");
-
-    console.log("All RuleEngine checks passed.\n");
-  })();
+  });
 });

@@ -6,7 +6,7 @@
  *
  *   Ausführung: npm test
  */
-import { test } from "vitest";
+import { describe, it } from "vitest";
 import assert from "node:assert/strict";
 import {
   buildAcknowledgementMail,
@@ -14,21 +14,8 @@ import {
 } from "../../server/commercial/commercialInboundAcknowledgementMail";
 import { buildOrderAcknowledgement } from "../../server/commercial/commercialOrderAcknowledgement";
 
-// Aus scripts/testInboundAcknowledgementMail.ts uebernommen: Pruefungen unveraendert, Rumpf als ein Vitest-Test.
-test("InboundAcknowledgementMail", async () => {
-  let failures = 0;
-
-  function check(name: string, fn: () => void) {
-    try {
-      fn();
-      console.log(`  ${name}: OK`);
-    } catch (error) {
-      failures += 1;
-      console.error(`  ${name}: FAILED`);
-      console.error(`    ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
+// Aus scripts/testInboundAcknowledgementMail.ts uebernommen: Pruefungen unveraendert, je Pruefung ein Vitest-Fall.
+describe("InboundAcknowledgementMail", () => {
   const allow = {
     enabled: true,
     recipientEmail: "einkauf@kunde.at",
@@ -37,25 +24,23 @@ test("InboundAcknowledgementMail", async () => {
     senderCompany: "Mustermann Logistik GmbH",
   };
 
-  console.log("\n=== Eingangsbestätigung Unit Tests ===\n");
-
-  check("Standard: ausgeschaltet sendet nicht", () => {
+  it("Standard: ausgeschaltet sendet nicht", () => {
     const d = decideAcknowledgementMail({ ...allow, enabled: false });
     assert.deepEqual(d, { send: false, reason: "disabled" });
   });
 
-  check("gültiger Empfänger wird freigegeben", () => {
+  it("gültiger Empfänger wird freigegeben", () => {
     const d = decideAcknowledgementMail(allow);
     assert.equal(d.send, true);
     if (d.send) assert.equal(d.recipient, "einkauf@kunde.at");
   });
 
-  check("nur einmal je Vorgang", () => {
+  it("nur einmal je Vorgang", () => {
     const d = decideAcknowledgementMail({ ...allow, alreadySentAt: "2026-08-14T10:00:00Z" });
     assert.deepEqual(d, { send: false, reason: "already_sent" });
   });
 
-  check("ohne Empfänger kein Versand", () => {
+  it("ohne Empfänger kein Versand", () => {
     assert.deepEqual(decideAcknowledgementMail({ ...allow, recipientEmail: null }), {
       send: false,
       reason: "no_recipient",
@@ -66,21 +51,21 @@ test("InboundAcknowledgementMail", async () => {
     });
   });
 
-  check("unplausible Adresse wird abgelehnt", () => {
+  it("unplausible Adresse wird abgelehnt", () => {
     for (const bad of ["kein-at-zeichen", "a@b", "a@b.c", "@domain.de"]) {
       const d = decideAcknowledgementMail({ ...allow, recipientEmail: bad });
       assert.equal(d.send, false, `hätte ablehnen müssen: ${bad}`);
     }
   });
 
-  check("Automaten-Adressen werden geblockt (Mailschleifen)", () => {
+  it("Automaten-Adressen werden geblockt (Mailschleifen)", () => {
     for (const local of ["noreply", "no-reply", "DoNotReply", "mailer-daemon", "postmaster", "bounces"]) {
       const d = decideAcknowledgementMail({ ...allow, recipientEmail: `${local}@kunde.at` });
       assert.deepEqual(d, { send: false, reason: "automated_recipient" }, `nicht geblockt: ${local}`);
     }
   });
 
-  check("eigene Domains werden geblockt, inkl. Subdomains", () => {
+  it("eigene Domains werden geblockt, inkl. Subdomains", () => {
     assert.deepEqual(decideAcknowledgementMail({ ...allow, recipientEmail: "a@meta-online.com" }), {
       send: false,
       reason: "own_domain",
@@ -96,7 +81,7 @@ test("InboundAcknowledgementMail", async () => {
     );
   });
 
-  check("META-eigene Absenderfirma wird geblockt", () => {
+  it("META-eigene Absenderfirma wird geblockt", () => {
     const d = decideAcknowledgementMail({
       ...allow,
       senderCompany: "META Lagertechnik Ges.m.b.H.",
@@ -144,12 +129,12 @@ test("InboundAcknowledgementMail", async () => {
     });
   }
 
-  check("Betreff nennt Belegart und Belegnummer", () => {
+  it("Betreff nennt Belegart und Belegnummer", () => {
     const mail = buildAcknowledgementMail({ acknowledgement: ackFrom(), language: "de" });
     assert.equal(mail.subject, "Ihre Bestellung PO-4711 ist bei uns eingegangen");
   });
 
-  check("Text spiegelt Positionen inklusive Mengenänderung", () => {
+  it("Text spiegelt Positionen inklusive Mengenänderung", () => {
     const mail = buildAcknowledgementMail({ acknowledgement: ackFrom(), language: "de" });
     assert.ok(mail.text.includes("PO-4711"), "Belegnummer fehlt");
     assert.ok(mail.text.includes("Holm 1000 mm"), "Position fehlt");
@@ -159,7 +144,7 @@ test("InboundAcknowledgementMail", async () => {
     assert.ok(mail.text.includes("Rückfrage nötig"), "offene Position nicht markiert");
   });
 
-  check("Text verspricht ausdrücklich keine Zusage", () => {
+  it("Text verspricht ausdrücklich keine Zusage", () => {
     const text = buildAcknowledgementMail({ acknowledgement: ackFrom(), language: "de" }).text;
     assert.ok(
       text.includes("noch keine Auftragsbestätigung"),
@@ -167,7 +152,7 @@ test("InboundAcknowledgementMail", async () => {
     );
   });
 
-  check("keine Preise in der Eingangsbestätigung", () => {
+  it("keine Preise in der Eingangsbestätigung", () => {
     // Zum Eingangszeitpunkt gibt es keinen verbindlichen Preis — es darf keiner drinstehen.
     const text = buildAcknowledgementMail({ acknowledgement: ackFrom(), language: "de" }).text;
     for (const forbidden of ["EUR", "€"]) {
@@ -175,14 +160,14 @@ test("InboundAcknowledgementMail", async () => {
     }
   });
 
-  check("englische Fassung bei englischem Beleg", () => {
+  it("englische Fassung bei englischem Beleg", () => {
     const ack = ackFrom();
     const mail = buildAcknowledgementMail({ acknowledgement: ack, language: "en" });
     assert.equal(mail.subject, "We received your order PO-4711");
     assert.ok(mail.text.includes("not yet an order confirmation"));
   });
 
-  check("Anfrage statt Bestellung wird korrekt benannt", () => {
+  it("Anfrage statt Bestellung wird korrekt benannt", () => {
     const ack = buildOrderAcknowledgement({
       draft: {
         status: "pending",
@@ -204,7 +189,7 @@ test("InboundAcknowledgementMail", async () => {
     assert.ok(mail.text.includes("keine Positionen automatisch erfassen"));
   });
 
-  check("Signatur wird angehängt, wenn gesetzt", () => {
+  it("Signatur wird angehängt, wenn gesetzt", () => {
     const mail = buildAcknowledgementMail({
       acknowledgement: ackFrom(),
       language: "de",
@@ -212,10 +197,4 @@ test("InboundAcknowledgementMail", async () => {
     });
     assert.ok(mail.text.trimEnd().endsWith("Ihr META-Team"));
   });
-
-  if (failures > 0) {
-    console.error(`\n${failures} test(s) failed.\n`);
-    throw new Error("testInboundAcknowledgementMail.ts: Pruefungen fehlgeschlagen (Details in der Ausgabe oben)");
-  }
-  console.log("\nAll tests passed.\n");
 });

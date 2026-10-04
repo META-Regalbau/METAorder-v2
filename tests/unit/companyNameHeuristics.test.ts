@@ -2,7 +2,7 @@
  * Firmenname-Heuristik – Unit-Tests.
  * Ausführung: npm test
  */
-import { test } from "vitest";
+import { describe, it } from "vitest";
 import {
   pickCompanyFromTextSources,
   extractDomainSlugsFromTextLike,
@@ -13,21 +13,20 @@ import {
 } from "../../server/commercial/companyNameHeuristics";
 import { enrichExtractedDataWithCompanyHeuristic } from "../../server/commercial/companyNameAgent";
 
-// Aus scripts/testCompanyNameHeuristics.ts uebernommen: Pruefungen unveraendert, Rumpf als ein Vitest-Test.
-test("CompanyNameHeuristics", async () => {
+// Aus scripts/testCompanyNameHeuristics.ts uebernommen: Pruefungen unveraendert, je Pruefung ein Vitest-Fall.
+describe("CompanyNameHeuristics", () => {
   function assert(cond: boolean, message: string) {
     if (!cond) throw new Error(message);
   }
+
   function assertEq<T>(actual: T, expected: T, message: string) {
     if (actual !== expected) {
       throw new Error(`${message}\n  expected: ${JSON.stringify(expected)}\n  actual:   ${JSON.stringify(actual)}`);
     }
   }
 
-  console.log("=== companyNameHeuristics Unit Tests ===\n");
-
   // --- 1. GROHE-Footer (das konkrete Beispiel des Nutzers) ---
-  {
+  it("GROHE footer + domain match", () => {
     const emailContext = `Von: Thomas Bacher
 Gesendet: Montag, 16. Februar 2026 08:47
 An: Pamela Köck
@@ -56,22 +55,20 @@ Grohe GmbH, J.-G.-Mahlstraße 11, I-39031 Bruneck (BZ)`;
     assert(r.top!.inFooter, "GROHE: muss inFooter=true sein");
     assert(r.top!.matchesEmailDomain, "GROHE: muss matchesEmailDomain=true sein (groheshop)");
     assert(r.top!.score >= 12, `GROHE: Score sollte >= 12 sein, war ${r.top!.score}`);
-    console.log("  GROHE footer + domain match: OK");
-  }
+  });
 
   // --- 2. Domain-Slug-Extraktion ---
-  {
+  it("domain slug extraction (skipping generic providers)", () => {
     const slugs = extractDomainSlugsFromTextLike(
       "Bitte an info@grohegmbh.de und thomas.bacher@groheshop.com cc max@gmail.com"
     );
     assert(slugs.includes("grohegmbh"), `domain slugs: erwarte 'grohegmbh' in ${JSON.stringify(slugs)}`);
     assert(slugs.includes("groheshop"), `domain slugs: erwarte 'groheshop' in ${JSON.stringify(slugs)}`);
     assert(!slugs.includes("gmail"), "domain slugs: generische Provider müssen rausgefiltert werden");
-    console.log("  domain slug extraction (skipping generic providers): OK");
-  }
+  });
 
   // --- 3. Mehrere Suffix-Treffer in einem Text: stärkster gewinnt ---
-  {
+  it("multi-suffix scoring (compound wins)", () => {
     const text = `Lieferadresse: Musterfirma Co. KG
 Auftraggeber: ACME Industries GmbH & Co. KG, Hauptstraße 1, 12345 Berlin
 Tel: 030/1234567`;
@@ -82,11 +79,10 @@ Tel: 030/1234567`;
       "ACME Industries GmbH & Co. KG",
       "multi-suffix: stärkstes (zusammengesetztes) Suffix muss gewinnen"
     );
-    console.log("  multi-suffix scoring (compound wins): OK");
-  }
+  });
 
   // --- 4. Italienisches Suffix (S.r.l.) ---
-  {
+  it("Italian S.r.l. + Cordiali saluti footer", () => {
     const text = `Spettabile cliente,
 in allegato il preventivo richiesto.
 Cordiali saluti,
@@ -96,11 +92,10 @@ info@acme-tools.it`;
     const r = pickCompanyFromTextSources({ sources: [{ source: "it", text }] });
     assert(!!r.top, "S.r.l.: Top-Kandidat muss existieren");
     assert(/ACME Tools/i.test(r.top!.display), `S.r.l.: erwarte 'ACME Tools …', war '${r.top!.display}'`);
-    console.log("  Italian S.r.l. + Cordiali saluti footer: OK");
-  }
+  });
 
   // --- 5. Englisches Inc. ---
-  {
+  it("English Inc. + Best regards footer", () => {
     const text = `Best regards,
 John Doe
 Procurement Lead
@@ -109,11 +104,10 @@ john@globex.com`;
     const r = pickCompanyFromTextSources({ sources: [{ source: "en", text }] });
     assert(!!r.top, "Inc.: Top-Kandidat muss existieren");
     assert(/Globex Inc/i.test(r.top!.display), `Inc.: erwarte 'Globex Inc.', war '${r.top!.display}'`);
-    console.log("  English Inc. + Best regards footer: OK");
-  }
+  });
 
   // --- 6. META-eigene Firma im Footer wird NIE als Buyer akzeptiert ---
-  {
+  it("META blocklist filters its own footers", () => {
     const text = `Mit freundlichen Grüßen,
 Max Mustermann
 META Regalbau GmbH & Co. KG
@@ -123,31 +117,28 @@ Industriestraße 1, 59757 Arnsberg`;
       !r.top || !/META Regalbau/i.test(r.top.display),
       `META-Blocklist: 'META Regalbau …' darf NICHT als top zurückkommen, war ${r.top?.display}`
     );
-    console.log("  META blocklist filters its own footers: OK");
-  }
+  });
 
   // --- 7. Schwacher Treffer ohne Footer & ohne Domain liefert KEIN top ---
-  {
+  it("no footer + no suffix → no candidate", () => {
     const text = `Hallo, anbei eine kurze Bestellung. Bitte 5x Stk Schraube M8 liefern.`;
     const r = pickCompanyFromTextSources({ sources: [{ source: "thin", text }] });
     // weder Suffix noch Footer → kein Treffer
     assert(r.top === null, "thin text: darf keinen Top-Kandidaten haben");
-    console.log("  no footer + no suffix → no candidate: OK");
-  }
+  });
 
   // --- 8. Suffix mitten in Wort darf nicht matchen (Lookbehind) ---
-  {
+  it("substring inside words is ignored", () => {
     // "Lager" enthält "Ag" als Substring — darf nicht als AG matchen.
     // "Tagebuch" enthält "AG" am Wortanfang — darf nicht als AG matchen.
     const text = `Wir liefern aus dem zentralen Lager nach München.
 Tagebuch der Bestellung vom 12.03.`;
     const r = pickCompanyFromTextSources({ sources: [{ source: "noise", text }] });
     assert(r.top === null, `noise text: dürfte kein Top haben, war ${r.top?.display}`);
-    console.log("  substring inside words is ignored: OK");
-  }
+  });
 
   // --- 9. Subagent: fill-only-Policy für die Firma (überschreibt nie) ---
-  {
+  it("fill-only policy (no overwrite for already-filled fields)", () => {
     const extractedData: Record<string, unknown> = {
       customer: { company: "Existing GmbH" },
       billingAddress: {
@@ -172,11 +163,10 @@ Grohe GmbH, Mahlstraße 11, 39031 Bruneck`,
     assertEq(bill.zipCode, "10115", "fill-only: zipCode unverändert");
     assertEq(bill.city, "Berlin", "fill-only: city unverändert");
     assertEq(bill.country, "DE", "fill-only: country unverändert");
-    console.log("  fill-only policy (no overwrite for already-filled fields): OK");
-  }
+  });
 
   // --- 10. Subagent: leere Felder werden befüllt + Trace landet in extractedData ---
-  {
+  it("fill empty + trace persisted on extractedData", () => {
     const extractedData: Record<string, unknown> = {
       customer: { firstName: "Thomas", lastName: "Bacher" },
       billingAddress: { city: "Bruneck" },
@@ -200,11 +190,10 @@ Thomas.Bacher@groheshop.com`,
     assert(trace.appliedTo.includes("customer.company"), "subagent fill: appliedTo enthält customer.company");
     assert(trace.appliedTo.includes("billingAddress.company"), "subagent fill: appliedTo enthält billingAddress.company");
     assert(!!(extractedData as Record<string, unknown>).companyNameHeuristic, "subagent fill: Trace gespeichert");
-    console.log("  fill empty + trace persisted on extractedData: OK");
-  }
+  });
 
   // --- 11. Subagent: 'n/a' wird wie leer behandelt (sanfte Aufwertung) ---
-  {
+  it("treats 'n/a' / '-' as empty", () => {
     const extractedData: Record<string, unknown> = {
       customer: { company: "n/a" },
       billingAddress: { company: "-" },
@@ -220,11 +209,10 @@ info@acme-tools.it`,
     const bill = extractedData.billingAddress as Record<string, string>;
     assert(/ACME Tools/i.test(cust.company), `n/a treated as empty: customer.company was '${cust.company}'`);
     assert(/ACME Tools/i.test(bill.company), `'-' treated as empty: billingAddress.company was '${bill.company}'`);
-    console.log("  treats 'n/a' / '-' as empty: OK");
-  }
+  });
 
   // --- 12. PDF-Footer: Impressum-Zeile mit USt-IdNr. wird erkannt ---
-  {
+  it("PDF footer (Impressum-Zeile + USt-IdNr.)", () => {
     const text = `Hirsch & Co. GmbH
 Hauptstraße 1
 12345 Musterstadt
@@ -237,11 +225,10 @@ USt-IdNr. DE123456789 · HRB 12345 Berlin · Geschäftsführer: Max Hirsch`;
     assertEq(r.address.zipCode, "12345", "PDF footer: zipCode = '12345'");
     assertEq(r.address.city, "Musterstadt", "PDF footer: city = 'Musterstadt'");
     assertEq(r.address.email, "info@hirsch-co.de", "PDF footer: email = 'info@hirsch-co.de'");
-    console.log("  PDF footer (Impressum-Zeile + USt-IdNr.): OK");
-  }
+  });
 
   // --- 13. parsePlzCityCountryFromLine: internationale Präfixe ---
-  {
+  it("parsePlzCityCountryFromLine (DE/AT/CH/IT)", () => {
     const it = parsePlzCityCountryFromLine("J.-G.-Mahlstraße 11, I-39031 Bruneck (BZ)");
     assert(!!it, "PLZ/Country: italienische Zeile muss parsen");
     assertEq(it!.zipCode, "39031", "PLZ/Country: zip = 39031");
@@ -253,11 +240,10 @@ USt-IdNr. DE123456789 · HRB 12345 Berlin · Geschäftsführer: Max Hirsch`;
     assertEq(de!.country, "DE", "PLZ/Country: 'Deutschland' Fallback");
     const ch = parsePlzCityCountryFromLine("Bahnhofstrasse 1, CH-8001 Zürich");
     assertEq(ch!.country, "CH", "PLZ/Country: CH-Präfix");
-    console.log("  parsePlzCityCountryFromLine (DE/AT/CH/IT): OK");
-  }
+  });
 
   // --- 14. parseStreetLine: Straße + Hausnummer aus diversen Mustern ---
-  {
+  it("parseStreetLine (multiple street markers, cut at PLZ)", () => {
     assertEq(parseStreetLine("J.-G.-Mahlstraße 11"), "J.-G.-Mahlstraße 11", "Street: J.-G.-Mahlstraße 11");
     assertEq(parseStreetLine("Industriestr. 5a"), "Industriestr. 5a", "Street: Industriestr. 5a");
     assertEq(parseStreetLine("Via Roma 12"), "Via Roma 12", "Street: Via Roma 12");
@@ -268,11 +254,10 @@ USt-IdNr. DE123456789 · HRB 12345 Berlin · Geschäftsführer: Max Hirsch`;
       "Street: cut off PLZ in same line"
     );
     assert(parseStreetLine("USt-IdNr. DE123456789") === null, "Street: USt-IdNr-Zeile ist KEINE Straße");
-    console.log("  parseStreetLine (multiple street markers, cut at PLZ): OK");
-  }
+  });
 
   // --- 15. extractPhoneNumbers: internationale + nationale + Trenner ---
-  {
+  it("extractPhoneNumbers (intl + national, ignore EAN)", () => {
     const phones = extractPhoneNumbers(
       `Telefon: +49 (0) 30 12345-67
 Fax: +49 30 12345-99
@@ -289,19 +274,17 @@ EAN 4026212123456`
       !phones.some((p) => p === "4026212123456"),
       `phones: 13-stellige EAN darf NICHT als Telefonnummer durchgehen, war ${JSON.stringify(phones)}`
     );
-    console.log("  extractPhoneNumbers (intl + national, ignore EAN): OK");
-  }
+  });
 
   // --- 16. extractEmails ---
-  {
+  it("extractEmails", () => {
     const emails = extractEmails("Kontakt: thomas.bacher@groheshop.com oder info@example.it");
     assert(emails.includes("thomas.bacher@groheshop.com"), "emails: thomas.bacher@groheshop.com");
     assert(emails.includes("info@example.it"), "emails: info@example.it");
-    console.log("  extractEmails: OK");
-  }
+  });
 
   // --- 17. GROHE Komplettblock: alle Adressfelder aus dem Footer-Beispiel ---
-  {
+  it("GROHE full address block (street, zip, city, country, phone, email)", () => {
     const emailContext = `Mit freundlichen Grüßen,
 Thomas Bacher
 
@@ -341,11 +324,10 @@ Grohe GmbH, J.-G.-Mahlstraße 11, I-39031 Bruneck (BZ)`;
       trace.collectedAddressTokens.some((t) => /Bruneck/.test(t)),
       `tokens: erwarte 'Bruneck' in collectedAddressTokens, war ${JSON.stringify(trace.collectedAddressTokens)}`
     );
-    console.log("  GROHE full address block (street, zip, city, country, phone, email): OK");
-  }
+  });
 
   // --- 18. Line-Item-Schutz: identische Adress-Zeile wird aus lineItems entfernt ---
-  {
+  it("line-item filter (signature tokens removed from items)", async () => {
     // Simuliert den Pipeline-Pfad: erst Heuristik, dann
     // runCommercialExtractionNormalizeSteps mit Token-basierter Filterung.
     const { runCommercialExtractionNormalizeSteps } = await import(
@@ -374,8 +356,5 @@ Thomas.Bacher@groheshop.com`,
     const notes = extractedData.offerNotes as string;
     assert(/Automatisch entfernt/.test(notes), "line-item filter: Notiz wurde angehängt");
     assert(/Grohe GmbH/.test(notes), "line-item filter: Adress-Zeile in Notiz");
-    console.log("  line-item filter (signature tokens removed from items): OK");
-  }
-
-  console.log("\nAll tests passed.\n");
+  });
 });

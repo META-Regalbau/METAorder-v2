@@ -1,8 +1,8 @@
 /**
  * Fixture-Tests für EML: Signatur-Label, verschachtelte Nachricht, Anhang-Abschnitt.
- * Ausführen: npx tsx scripts/testEmlExtraction.ts
+ * Ausführung: npm test
  */
-import { test } from "vitest";
+import { describe, it } from "vitest";
 import assert from "node:assert/strict";
 import {
   splitEmailBodyMainAndSignature,
@@ -10,20 +10,18 @@ import {
 } from "../../server/extraction/documentTextExtraction.ts";
 import { parseEmlFile } from "../../server/email/emailParser.ts";
 
-// Aus scripts/testEmlExtraction.ts uebernommen: Pruefungen unveraendert, Rumpf als ein Vitest-Test.
-test("EmlExtraction", async () => {
-  function fail(msg: string): never {
-    throw new Error(msg);
-  }
-
-  async function main() {
+// Aus scripts/testEmlExtraction.ts uebernommen: Pruefungen unveraendert, je Pruefung ein Vitest-Fall.
+describe("EmlExtraction", () => {
+  it("Signatur wird vom Haupttext getrennt", () => {
     const body =
       "Sehr geehrte Damen und Herren,\n\nbitte um ein Angebot für die unten genannten Artikel.\n\nMit freundlichen Grüßen\n\nMax Mustermann\nMuster GmbH\nmax@muster.de\n+49 30 12345";
     const split = splitEmailBodyMainAndSignature(body);
     assert.ok(split.signature, "Signatur soll erkannt werden");
     assert.match(split.signature || "", /Mit freundlichen Grüßen/);
     assert.match(split.main || "", /bitte um ein Angebot/);
+  });
 
+  it("eingebettete Nachricht (message/rfc822) landet als eigener Abschnitt im Text", async () => {
     const nestedInner =
       "From: inner@kunde.de\r\n" +
       "To: shop@meta.de\r\n" +
@@ -59,15 +57,13 @@ test("EmlExtraction", async () => {
 
     assert.match(expanded, /\[Eingebettete Nachricht:/, "Verschachtelte EML soll Abschnitt erzeugen");
     assert.match(expanded, /INNER_UNIQUE_MARKER_42/, "Inhalt der inneren Mail soll im Text landen");
+  });
 
+  it("einfache EML ohne Anhänge", async () => {
     const simpleEml =
       "From: x@y.de\r\nSubject: T\r\nMIME-Version: 1.0\r\nContent-Type: text/plain\r\n\r\nHi";
     const p2 = await parseEmlFile(Buffer.from(simpleEml, "utf8"));
     const ex2 = await formatParsedEmailForDraftExpanded(p2, { ocrEnabled: false });
     assert.match(ex2, /Betreff: T/, "Einfache EML ohne Anhänge");
-
-    console.log("testEmlExtraction: OK");
-  }
-
-  await main();
+  });
 });

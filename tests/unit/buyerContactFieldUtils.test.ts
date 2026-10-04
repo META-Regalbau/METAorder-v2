@@ -2,35 +2,32 @@
  * Tests für Telefon-Plausibilität und Legacy-Buyer-Mapping.
  * Ausführung: npm test
  */
-import { test } from "vitest";
+import { describe, it } from "vitest";
 import {
   ensureLegacyBuyerContactMapping,
   isPlausiblePhoneNumber,
   sanitizePhoneField,
 } from "../../server/extraction/buyerContactFieldUtils";
 
-// Aus scripts/testBuyerContactFieldUtils.ts uebernommen: Pruefungen unveraendert, Rumpf als ein Vitest-Test.
-test("BuyerContactFieldUtils", async () => {
-  function assert(cond: boolean, message: string) {
-    if (!cond) throw new Error(message);
-  }
+function assert(cond: boolean, message: string) {
+  if (!cond) throw new Error(message);
+}
 
-  function assertEq<T>(actual: T, expected: T, label: string) {
-    if (actual !== expected) throw new Error(`${label}: expected '${expected}' actual '${actual}'`);
-  }
+function assertEq<T>(actual: T, expected: T, label: string) {
+  if (actual !== expected) throw new Error(`${label}: expected '${expected}' actual '${actual}'`);
+}
 
-  console.log("=== buyerContactFieldUtils ===\n");
-
-  {
+// Aus scripts/testBuyerContactFieldUtils.ts uebernommen: Pruefungen unveraendert, je Pruefung ein Vitest-Fall.
+describe("BuyerContactFieldUtils", () => {
+  it("Telefon-Plausibilität: GTIN abgelehnt, echte Nummern ok", () => {
     assert(!isPlausiblePhoneNumber("4026212123456"), "13-digit GTIN rejected");
     assert(!isPlausiblePhoneNumber("4026212 309010"), "GTIN with space rejected");
     assert(isPlausiblePhoneNumber("+49 471 123456"), "+49 phone ok");
     assert(isPlausiblePhoneNumber("Tel: +39 0474 555123"), "labeled IT phone ok");
     assertEq(sanitizePhoneField("4026212123456"), undefined, "sanitize GTIN");
-    console.log("  phone plausibility: OK");
-  }
+  });
 
-  {
+  it("Legacy-Mapping mit Abgleich und GTIN-Bereinigung", () => {
     const extracted: Record<string, unknown> = {
       customer: { phone: "4026212123456", email: "buyer@test.de" },
       billingAddress: { street: "Hauptstraße 1" },
@@ -63,10 +60,9 @@ test("BuyerContactFieldUtils", async () => {
     assertEq(cust.lastName, "Mustermann", "contact lastName");
     assert(cust.phone === undefined || !cust.phone.includes("4026212"), "GTIN removed from phone");
     assertEq(bill.zipCode, "12345", "zip mapped");
-    console.log("  legacy buyer mapping + GTIN strip: OK");
-  }
+  });
 
-  {
+  it("Mapping ohne vorhandene Legacy-Felder", () => {
     const extracted: Record<string, unknown> = {
       documentExtraction: {
         buyer: {
@@ -94,10 +90,9 @@ test("BuyerContactFieldUtils", async () => {
     const cust = extracted.customer as Record<string, string>;
     assertEq(cust.company, "Grohe GmbH", "company from docExtraction only");
     assertEq(cust.phone, "+39 0474 555123", "valid phone kept");
-    console.log("  mapping without pre-existing legacy fields: OK");
-  }
+  });
 
-  {
+  it("Legacy-Felder werden nach documentExtraction.buyer zurückgespielt", () => {
     const extracted: Record<string, unknown> = {
       customer: { email: "only@test.de" },
       billingAddress: {
@@ -132,8 +127,5 @@ test("BuyerContactFieldUtils", async () => {
     assertEq(buyer.company, "Footer GmbH", "legacy company synced back to buyer");
     assertEq(buyer.street, "Industriestr. 5", "legacy street synced back to buyer");
     assertEq(buyer.zip, "39031", "legacy zip synced back to buyer");
-    console.log("  legacy → documentExtraction.buyer sync: OK");
-  }
-
-  console.log("\nAll tests passed.\n");
+  });
 });

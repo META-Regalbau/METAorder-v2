@@ -2,28 +2,23 @@
  * META-Blockliste – Unit-Tests.
  * Ausführung: npm test
  */
-import { test } from "vitest";
+import { describe, it } from "vitest";
 import { isMetaOwnCompany, META_OWN_COMPANY_NAMES } from "../../server/commercial/metaCompanyBlocklist";
 
-// Aus scripts/testMetaCompanyBlocklist.ts uebernommen: Pruefungen unveraendert, Rumpf als ein Vitest-Test.
-test("MetaCompanyBlocklist", async () => {
-  function assert(cond: boolean, message: string) {
-    if (!cond) throw new Error(message);
-  }
+function assert(cond: boolean, message: string) {
+  if (!cond) throw new Error(message);
+}
 
-  console.log("=== metaCompanyBlocklist Unit Tests ===\n");
-
-  // --- 1. Triviale Falsy-Inputs ---
-  {
+// Aus scripts/testMetaCompanyBlocklist.ts uebernommen: Pruefungen unveraendert, je Pruefung ein Vitest-Fall.
+describe("MetaCompanyBlocklist", () => {
+  it("triviale Falsy-Eingaben", () => {
     assert(isMetaOwnCompany("") === false, "empty string → not META");
     assert(isMetaOwnCompany("   ") === false, "whitespace → not META");
     assert(isMetaOwnCompany(null) === false, "null → not META");
     assert(isMetaOwnCompany(undefined) === false, "undefined → not META");
-    console.log("  trivial falsy inputs: OK");
-  }
+  });
 
-  // --- 2. Positive Matches (verschiedene Schreibweisen) ---
-  {
+  it("Treffer in verschiedenen Schreibweisen (Groß/klein, Leerzeichen, Zusätze)", () => {
     for (const variant of [
       "META Regalbau",
       "META  Regalbau", // doppeltes Leerzeichen
@@ -42,11 +37,9 @@ test("MetaCompanyBlocklist", async () => {
     ]) {
       assert(isMetaOwnCompany(variant) === true, `should block: ${variant}`);
     }
-    console.log("  positive matches (case, spacing, suffixes): OK");
-  }
+  });
 
-  // --- 3. False-Positive-Schutz (KUNDEN, die nicht geblockt werden dürfen) ---
-  {
+  it("Schutz vor Fehltreffern: echte Kunden werden nicht geblockt", () => {
     for (const real of [
       "META Mustermann GmbH",     // generischer META-Kundenname
       "Metaplast GmbH",           // META kein Whitespace dahinter
@@ -63,24 +56,17 @@ test("MetaCompanyBlocklist", async () => {
     ]) {
       assert(isMetaOwnCompany(real) === false, `should NOT block real customer: ${real}`);
     }
-    console.log("  false-positive protection (real customers): OK");
-  }
+  });
 
-  // --- 4. Trim + Mixed-Case ---
-  {
+  it("Trim und gemischte Groß-/Kleinschreibung", () => {
     assert(isMetaOwnCompany("  META Lagertechnik  ") === true, "trimmed match");
     assert(isMetaOwnCompany("meta-regalbau") === true, "lowercase hyphen variant");
     assert(isMetaOwnCompany("MeTa  ReGaLbAu") === true, "mixed-case match");
-    console.log("  trim + mixed case: OK");
-  }
+  });
 
-  // --- 5. Doku-Konstante deckt die wichtigsten Firmen ab ---
-  {
+  it("Anzeige-Konstante deckt die wichtigsten Firmen ab", () => {
     for (const name of META_OWN_COMPANY_NAMES) {
       assert(isMetaOwnCompany(name) === true, `display name should match own regex: ${name}`);
     }
-    console.log("  display constants match regex: OK");
-  }
-
-  console.log("\nAll tests passed.\n");
+  });
 });

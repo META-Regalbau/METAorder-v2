@@ -6,7 +6,7 @@
  *
  *   Ausführung: npm test
  */
-import { test } from "vitest";
+import { describe, it } from "vitest";
 import assert from "node:assert/strict";
 import {
   aggregateEvalResults,
@@ -15,21 +15,8 @@ import {
   normalizeText,
 } from "../../server/extraction/extractionEvalScoring";
 
-// Aus scripts/testExtractionEvalScoring.ts uebernommen: Pruefungen unveraendert, Rumpf als ein Vitest-Test.
-test("ExtractionEvalScoring", async () => {
-  let failures = 0;
-
-  function check(name: string, fn: () => void) {
-    try {
-      fn();
-      console.log(`  ${name}: OK`);
-    } catch (error) {
-      failures += 1;
-      console.error(`  ${name}: FAILED`);
-      console.error(`    ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
+// Aus scripts/testExtractionEvalScoring.ts uebernommen: Pruefungen unveraendert, je Pruefung ein Vitest-Fall.
+describe("ExtractionEvalScoring", () => {
   function outcomeOf(result: ReturnType<typeof compareDocumentExtraction>, field: string) {
     return result.documentFields.find((f) => f.field === field)?.outcome;
   }
@@ -44,9 +31,7 @@ test("ExtractionEvalScoring", async () => {
       ?.fields.find((f) => f.field === field)?.outcome;
   }
 
-  console.log("\n=== extractionEvalScoring Unit Tests ===\n");
-
-  check("Textnormalisierung ignoriert Formatierung, nicht Inhalt", () => {
+  it("Textnormalisierung ignoriert Formatierung, nicht Inhalt", () => {
     assert.equal(normalizeText("  Musterfirma   GmbH "), "musterfirma gmbh");
     assert.equal(normalizeText("Musterstraße 12."), "musterstraße 12");
     assert.equal(normalizeText(""), null);
@@ -54,13 +39,13 @@ test("ExtractionEvalScoring", async () => {
     assert.notEqual(normalizeText("Musterfirma AG"), normalizeText("Musterfirma GmbH"));
   });
 
-  check("Artikelnummern: Trennzeichen sind Formatierung", () => {
+  it("Artikelnummern: Trennzeichen sind Formatierung", () => {
     assert.equal(normalizeIdentifier("4032 9812345678"), "40329812345678");
     assert.equal(normalizeIdentifier("META-AB-123"), "metaab123");
     assert.notEqual(normalizeIdentifier("123"), normalizeIdentifier("1234"));
   });
 
-  check("identischer Datensatz ergibt volle Trefferquote", () => {
+  it("identischer Datensatz ergibt volle Trefferquote", () => {
     const doc = {
       document: { type: "purchase_order", number: "PO-1", currency: "EUR", total_net: 100 },
       buyer: { company: "Musterfirma GmbH", street: "Weg 1", zip: "1234", city: "Ort" },
@@ -76,7 +61,7 @@ test("ExtractionEvalScoring", async () => {
     assert.equal(summary.casesWithCorrectLineCount, 1);
   });
 
-  check("unterscheidet fehlend, erfunden und falsch", () => {
+  it("unterscheidet fehlend, erfunden und falsch", () => {
     const result = compareDocumentExtraction({
       caseId: "c2",
       expected: {
@@ -96,7 +81,7 @@ test("ExtractionEvalScoring", async () => {
     assert.equal(outcomeOf(result, "buyer.city"), "spurious");
   });
 
-  check("beidseitig leer zählt als korrekt", () => {
+  it("beidseitig leer zählt als korrekt", () => {
     const result = compareDocumentExtraction({
       caseId: "c3",
       expected: { document: { delivery_date: null }, buyer: {}, line_items: [] },
@@ -105,7 +90,7 @@ test("ExtractionEvalScoring", async () => {
     assert.equal(outcomeOf(result, "document.delivery_date"), "correct");
   });
 
-  check("Beträge werden mit Rundungstoleranz verglichen", () => {
+  it("Beträge werden mit Rundungstoleranz verglichen", () => {
     const result = compareDocumentExtraction({
       caseId: "c4",
       expected: { document: { total_net: 3041.14 }, buyer: {}, line_items: [] },
@@ -114,7 +99,7 @@ test("ExtractionEvalScoring", async () => {
     assert.equal(outcomeOf(result, "document.total_net"), "correct");
   });
 
-  check("Mengen werden exakt verglichen", () => {
+  it("Mengen werden exakt verglichen", () => {
     const result = compareDocumentExtraction({
       caseId: "c5",
       expected: { document: {}, buyer: {}, line_items: [{ position: 10, quantity: 19 }] },
@@ -123,7 +108,7 @@ test("ExtractionEvalScoring", async () => {
     assert.equal(lineOutcome(result, 10, "line.quantity"), "wrong");
   });
 
-  check("Positionen werden über die Positionsnummer zugeordnet, nicht über den Index", () => {
+  it("Positionen werden über die Positionsnummer zugeordnet, nicht über den Index", () => {
     // Klassischer Fehler: die Extraktion erzeugt eine Zeile zu viel. Position 20 muss
     // trotzdem korrekt bewertet werden statt zu verrutschen.
     const result = compareDocumentExtraction({
@@ -155,7 +140,7 @@ test("ExtractionEvalScoring", async () => {
     assert.equal(aggregateEvalResults([result]).casesWithCorrectLineCount, 0);
   });
 
-  check("fehlende Extraktion wird vollständig als Fehler gewertet", () => {
+  it("fehlende Extraktion wird vollständig als Fehler gewertet", () => {
     const result = compareDocumentExtraction({
       caseId: "c7",
       expected: {
@@ -172,7 +157,7 @@ test("ExtractionEvalScoring", async () => {
     assert.equal(lineOutcome(result, 10, "line.quantity"), "missing");
   });
 
-  check("Fehlerquellen werden absteigend sortiert", () => {
+  it("Fehlerquellen werden absteigend sortiert", () => {
     const bad = (id: string) =>
       compareDocumentExtraction({
         caseId: id,
@@ -185,7 +170,7 @@ test("ExtractionEvalScoring", async () => {
     assert.ok(!summary.worstFields.some((f) => f.field === "buyer.company"));
   });
 
-  check("Trefferquote rechnet über mehrere Fälle korrekt", () => {
+  it("Trefferquote rechnet über mehrere Fälle korrekt", () => {
     const perfect = compareDocumentExtraction({
       caseId: "p",
       expected: { document: {}, buyer: {}, line_items: [{ position: 10, quantity: 1 }] },
@@ -202,10 +187,4 @@ test("ExtractionEvalScoring", async () => {
     assert.equal(summary.lineItemFields.wrong, 1);
     assert.equal(summary.lineItemFields.accuracy, 87.5);
   });
-
-  if (failures > 0) {
-    console.error(`\n${failures} test(s) failed.\n`);
-    throw new Error("testExtractionEvalScoring.ts: Pruefungen fehlgeschlagen (Details in der Ausgabe oben)");
-  }
-  console.log("\nAll tests passed.\n");
 });

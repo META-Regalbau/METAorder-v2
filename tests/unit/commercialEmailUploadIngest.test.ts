@@ -7,7 +7,7 @@
  *
  *   Ausführung: npm test
  */
-import { test } from "vitest";
+import { describe, it } from "vitest";
 import assert from "node:assert/strict";
 import {
   deriveUploadMessageId,
@@ -15,37 +15,22 @@ import {
   splitCommercialEmailParts,
 } from "../../server/commercial/commercialEmailUploadIngest";
 
-// Aus scripts/testCommercialEmailUploadIngest.ts uebernommen: Pruefungen unveraendert, Rumpf als ein Vitest-Test.
-test("CommercialEmailUploadIngest", async () => {
-  let failures = 0;
-
-  function check(name: string, fn: () => void) {
-    try {
-      fn();
-      console.log(`  ${name}: OK`);
-    } catch (error) {
-      failures += 1;
-      console.error(`  ${name}: FAILED`);
-      console.error(`    ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  console.log("\n=== commercialEmailUploadIngest Unit Tests ===\n");
-
-  check("erkennt .eml/.msg und rfc822 als Container", () => {
+// Aus scripts/testCommercialEmailUploadIngest.ts uebernommen: Pruefungen unveraendert, je Pruefung ein Vitest-Fall.
+describe("CommercialEmailUploadIngest", () => {
+  it("erkennt .eml/.msg und rfc822 als Container", () => {
     assert.equal(isEmailContainerUpload("Bestellung.eml", "application/octet-stream"), true);
     assert.equal(isEmailContainerUpload("Anfrage.MSG", ""), true);
     assert.equal(isEmailContainerUpload("gmail-123", "message/rfc822"), true);
     assert.equal(isEmailContainerUpload("mail", "application/vnd.ms-outlook"), true);
   });
 
-  check("behandelt Einzeldokumente nicht als Container", () => {
+  it("behandelt Einzeldokumente nicht als Container", () => {
     assert.equal(isEmailContainerUpload("Bestellung.pdf", "application/pdf"), false);
     assert.equal(isEmailContainerUpload("scan.png", "image/png"), false);
     assert.equal(isEmailContainerUpload("Auftrag.docx", "application/msword"), false);
   });
 
-  check("nutzt die Message-ID aus dem Header", () => {
+  it("nutzt die Message-ID aus dem Header", () => {
     const eml = Buffer.from(
       ["From: a@b.de", "Message-ID: <abc123@mail.example.com>", "Subject: Test", "", "Body"].join(
         "\r\n"
@@ -55,12 +40,12 @@ test("CommercialEmailUploadIngest", async () => {
     assert.equal(deriveUploadMessageId(eml), "mail:abc123@mail.example.com");
   });
 
-  check("Message-ID-Erkennung ist case-insensitiv", () => {
+  it("Message-ID-Erkennung ist case-insensitiv", () => {
     const eml = Buffer.from(["message-id:  <X-9@host>", "", "Body"].join("\r\n"), "utf8");
     assert.equal(deriveUploadMessageId(eml), "mail:X-9@host");
   });
 
-  check("fällt ohne Message-ID auf einen Inhalts-Hash zurück", () => {
+  it("fällt ohne Message-ID auf einen Inhalts-Hash zurück", () => {
     const eml = Buffer.from("From: a@b.de\r\nSubject: Ohne ID\r\n\r\nBody", "utf8");
     const id = deriveUploadMessageId(eml);
     assert.ok(id.startsWith("sha256:"), `unerwartete Kennung: ${id}`);
@@ -68,13 +53,13 @@ test("CommercialEmailUploadIngest", async () => {
     assert.equal(id, deriveUploadMessageId(Buffer.from(eml)));
   });
 
-  check("unterschiedliche Mails erhalten unterschiedliche Kennungen", () => {
+  it("unterschiedliche Mails erhalten unterschiedliche Kennungen", () => {
     const a = deriveUploadMessageId(Buffer.from("Subject: A\r\n\r\nEins", "utf8"));
     const b = deriveUploadMessageId(Buffer.from("Subject: B\r\n\r\nZwei", "utf8"));
     assert.notEqual(a, b);
   });
 
-  check("PDF-Anhang wird Geschäftsdokument, Signaturlogo nicht", () => {
+  it("PDF-Anhang wird Geschäftsdokument, Signaturlogo nicht", () => {
     const pdf = Buffer.from("%PDF-1.4 Bestellung", "utf8");
     // > 80 Bytes, damit das Bild als Signaturkandidat in Frage kommt
     const logo = Buffer.alloc(2048, 7);
@@ -92,7 +77,7 @@ test("CommercialEmailUploadIngest", async () => {
     assert.equal(signatureImageBuffers[0].mimeType, "image/png");
   });
 
-  check("gescanntes Bestell-Bild bleibt Geschäftsdokument", () => {
+  it("gescanntes Bestell-Bild bleibt Geschäftsdokument", () => {
     // Ein großer Scan ohne Signatur-Merkmale darf NICHT als Signatur eingestuft werden.
     const scan = Buffer.alloc(600_000, 3);
     const { commercialParts, signatureImageBuffers } = splitCommercialEmailParts({
@@ -104,7 +89,7 @@ test("CommercialEmailUploadIngest", async () => {
     assert.equal(commercialParts[0].filename, "Scan_Bestellung.jpg");
   });
 
-  check("mehrere Bestell-PDFs ergeben mehrere Geschäftsdokumente", () => {
+  it("mehrere Bestell-PDFs ergeben mehrere Geschäftsdokumente", () => {
     const { commercialParts } = splitCommercialEmailParts({
       attachments: [
         { content: Buffer.from("%PDF a"), filename: "Bestellung_1.pdf", contentType: "application/pdf" },
@@ -115,7 +100,7 @@ test("CommercialEmailUploadIngest", async () => {
     assert.equal(commercialParts.length, 2);
   });
 
-  check("Mail ohne Anhänge liefert keine Geschäftsdokumente", () => {
+  it("Mail ohne Anhänge liefert keine Geschäftsdokumente", () => {
     const { commercialParts, signatureImageBuffers } = splitCommercialEmailParts({
       attachments: [],
       html: null,
@@ -123,10 +108,4 @@ test("CommercialEmailUploadIngest", async () => {
     assert.equal(commercialParts.length, 0);
     assert.equal(signatureImageBuffers.length, 0);
   });
-
-  if (failures > 0) {
-    console.error(`\n${failures} test(s) failed.\n`);
-    throw new Error("testCommercialEmailUploadIngest.ts: Pruefungen fehlgeschlagen (Details in der Ausgabe oben)");
-  }
-  console.log("\nAll tests passed.\n");
 });
