@@ -106,7 +106,9 @@ export async function syncShopwareSalesToErpStock(
     const settings = await storage.getShopwareSettings(tid);
     if (!settings) throw new Error("Shopware settings not configured");
     const client = new ShopwareClient(settings);
-    orders = await client.fetchOrders(undefined, { includeInvoiceInfo: false });
+    // aus dem Bestell-Spiegel statt alle live (dynamisch: routeHelpers laedt dieses Modul ebenfalls)
+    const { getMirrorOrdersLikeLive } = await import("../routes/routeHelpers");
+    orders = await getMirrorOrdersLikeLive(client, tid);
   }
 
   const sinceMs = opts?.fullScan

@@ -8,6 +8,7 @@ import { getUploadsRoot } from "../uploadsRoot";
 import path from "path";
 import type { IStorage } from "../storage";
 import { ShopwareClient } from "../shopware/shopware";
+import { getTenantIdFromContext } from "../lib/tenantContext";
 
 export const uploadRateLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -445,13 +446,33 @@ export function dedupeOrdersByNumber(orders: Order[]): Order[] {
 
 /**
  * Alle Bestellungen des Mandanten aus dem Bestell-Spiegel statt live per fetchOrders() - mit dessen
- * Reihenfolge (Bestelldatum absteigend, dann id aufsteigend) und einer Bestellung je Bestellnummer
- * (dedupeOrdersByNumber). Seiten mit Paginierung verlassen sich auf die feste Reihenfolge.
+ * Reihenfolge (Bestelldatum absteigend, dann id aufsteigend) und einer Bestellung je Bestellnummer.
+ * Seiten mit Paginierung verlassen sich auf die feste Reihenfolge.
+ * - tenantId undefined: Mandant aus dem Kontext (null waere der globale Bereich)
+ * - duplicates "latestChanged" (Standard): die zuletzt geaenderte Bestellung, wie auf den Seiten
+ *   (dedupeOrdersByNumber); "firstLikeLive": genau die Bestellung, die fetchOrders() behielt (die
+ *   erste in dieser Reihenfolge) - wo Zustand je Bestell-id haengt, z. B. Mahnstufen
+ * - refresh: vorher den normalen Delta-Abgleich anstossen (Hintergrund-Jobs mit Wirkung nach aussen)
  */
-export async function getMirrorOrdersLikeLive(client: ShopwareClient, tenantId: string | null | undefined): Promise<Order[]> {
-  const { orders } = await getOrdersWithCache(client, tenantId ?? null);
+export async function getMirrorOrdersLikeLive(
+  client: ShopwareClient,
+  tenantId: string | null | undefined,
+  opts?: { duplicates?: "latestChanged" | "firstLikeLive"; refresh?: boolean },
+): Promise<Order[]> {
+  const resolvedTenantId = tenantId === undefined ? getTenantIdFromContext() : tenantId;
+  const { orders } = await getOrdersWithCache(client, resolvedTenantId ?? null, { forceRefresh: Boolean(opts?.refresh) });
   const cmp = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
-  return dedupeOrdersByNumber(orders).sort((a, b) => cmp(String(b.orderDate ?? ""), String(a.orderDate ?? "")) || cmp(a.id, b.id));
+  const sorted = orders.slice().sort((a, b) => cmp(String(b.orderDate ?? ""), String(a.orderDate ?? "")) || cmp(a.id, b.id));
+  if (opts?.duplicates === "firstLikeLive") {
+    const seen = new Set<string>();
+    return sorted.filter((o) => {
+      if (!o.orderNumber) return true;
+      if (seen.has(o.orderNumber)) return false;
+      seen.add(o.orderNumber);
+      return true;
+    });
+  }
+  return dedupeOrdersByNumber(sorted);
 }
 
 export const defaultProformaNumberRange = {

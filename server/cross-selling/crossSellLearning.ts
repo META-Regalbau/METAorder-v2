@@ -1,6 +1,7 @@
 import type { IStorage } from "../storage";
 import type { Order, ShopwareSettings, InsertAiInsight, CrossSellEventPairStats } from "@shared/schema";
 import { ShopwareClient } from "../shopware/shopware";
+import { getMirrorOrdersLikeLive } from "../routes/routeHelpers";
 import { crossSellEventLookupKey, buildCrossSellEventStatsMap } from "./crossSellHybridRanker";
 
 export type LearningSettings = {
@@ -72,7 +73,8 @@ export async function runCrossSellLearning(
   try {
     const settings = await getCrossSellLearningSettings(storage, tenantId);
     const client = new ShopwareClient(shopwareSettings);
-    const orders = await client.fetchOrders();
+    // Bestellungen aus dem Bestell-Spiegel statt alle live aus Shopware
+    const orders = await getMirrorOrdersLikeLive(client, tenantId);
     const ordersWithProducts = orders.filter((order) => order.items?.length > 0);
 
     // Load manual rules to use as training data

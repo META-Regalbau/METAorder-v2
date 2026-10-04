@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { ShopwareClient } from "../shopware/shopware";
+import { getMirrorOrdersLikeLive } from "../routes/routeHelpers";
 import type { Product } from "@shared/schema";
 
 export interface PricingRecommendation {
@@ -48,7 +49,8 @@ interface CustomerAnalytics {
  */
 async function getCustomerAnalytics(
   shopwareClient: ShopwareClient,
-  customerEmail: string
+  customerEmail: string,
+  tenantId?: string | null,
 ): Promise<CustomerAnalytics | null> {
   try {
     // Find customer by email
@@ -60,8 +62,8 @@ async function getCustomerAnalytics(
 
     console.log(`[Smart Pricing] Fetching order history for customer: ${customerEmail}`);
     
-    // Fetch all orders from Shopware
-    const allOrders = await shopwareClient.fetchOrders();
+    // Bestellungen aus dem Bestell-Spiegel statt alle live aus Shopware
+    const allOrders = await getMirrorOrdersLikeLive(shopwareClient, tenantId);
     
     // Filter orders for this customer by email
     const customerOrders = allOrders.filter(
@@ -134,7 +136,9 @@ export async function generateSmartPricing(
   }>,
   customerEmail?: string,
   openaiClient?: OpenAI,
-  shopwareClient?: ShopwareClient
+  shopwareClient?: ShopwareClient,
+  /** Mandant fuer den Bestell-Spiegel (ohne Angabe: Mandant aus dem Kontext) */
+  tenantId?: string | null,
 ): Promise<{
   items: LineItemWithPricing[];
   pricingRecommendations: PricingRecommendation;
@@ -143,7 +147,7 @@ export async function generateSmartPricing(
   let customerAnalytics: CustomerAnalytics | null = null;
   if (shopwareClient && customerEmail) {
     try {
-      customerAnalytics = await getCustomerAnalytics(shopwareClient, customerEmail);
+      customerAnalytics = await getCustomerAnalytics(shopwareClient, customerEmail, tenantId);
     } catch (error) {
       console.warn("[Smart Pricing] Failed to fetch customer analytics:", error);
     }

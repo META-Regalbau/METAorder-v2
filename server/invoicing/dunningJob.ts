@@ -3,6 +3,7 @@ import fs from "fs/promises";
 import type { IStorage } from "../storage";
 import type { DunningSettings, Order } from "@shared/schema";
 import { ShopwareClient, getRealInvoiceDocument } from "../shopware/shopware";
+import { filterOrdersBySalesChannels, getMirrorOrdersLikeLive } from "../routes/routeHelpers";
 import { sendEmail } from "../email/emailOutbound";
 import { generateDunningPdf } from "./dunningPdf";
 import { getUploadsRoot } from "../uploadsRoot";
@@ -181,9 +182,17 @@ export async function getDunningCandidates(
   client: ShopwareClient,
   dunningSettings: DunningSettings,
   allowedChannelIds: string[] | null,
-  tenantId?: string | null
+  tenantId?: string | null,
+  opts?: { refreshMirror?: boolean },
 ): Promise<DunningCandidate[]> {
-  const orders = await client.fetchOrders(allowedChannelIds);
+  // Bestellungen aus dem Bestell-Spiegel statt alle live. Bei doppelt vergebenen Bestellnummern
+  // genau die Bestellung wie bisher (Mahnstufen haengen an der Bestell-id); der Mahn-Job gleicht
+  // vorher ab (refreshMirror), damit eine gerade bezahlte Bestellung nicht gemahnt wird.
+  // Kanalfilter hier: eine leere Liste (Nutzer ohne Kanal) heisst keine Bestellungen.
+  const orders = filterOrdersBySalesChannels(
+    await getMirrorOrdersLikeLive(client, tenantId, { duplicates: "firstLikeLive", refresh: opts?.refreshMirror }),
+    allowedChannelIds,
+  );
 
   // Fallback: enrich due date from fetchOrderDocuments when missing (e.g. documents via relationships not resolved)
   const needsDueDate = orders.filter(
@@ -331,7 +340,7 @@ export async function runDunningJob(storage: IStorage) {
       }
 
       const client = new ShopwareClient(shopwareSettings);
-      const candidates = await getDunningCandidates(storage, client, dunningSettings, null, tenantId);
+      const candidates = await getDunningCandidates(storage, client, dunningSettings, null, tenantId, { refreshMirror: true });
 
       for (const candidate of candidates) {
         const { order, dueDate, nextStage } = candidate;
