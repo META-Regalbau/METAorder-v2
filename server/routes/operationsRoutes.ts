@@ -5,6 +5,7 @@ import { ShopwareClient } from "../shopware/shopware";
 import { type Order, insertProcessUpdateSchema, insertShippingCarrierSchema } from "@shared/schema";
 import { isOrderEligibleForShippingPick } from "@shared/orderShippingEligibility";
 import { enrichOrdersWithStockAvailability } from "../erp/orderStockEnrichment";
+import { dedupeOrdersByNumber, getOrdersWithCache } from "./routeHelpers";
 import type { Express } from "express";
 
 export function registerOperationsRoutes(app: Express): void {
@@ -17,7 +18,12 @@ export function registerOperationsRoutes(app: Express): void {
       }
 
       const client = new ShopwareClient(settings);
-      const allOrders = await client.fetchOrders();
+      const tenantId = (req as any).tenantId ?? null;
+      // Aus dem Bestell-Spiegel statt alle Bestellungen live (Testing ~19 s); eine Bestellung je
+      // Bestellnummer wie zuvor bei fetchOrders. refresh=1 stoesst vorher einen Delta-Abgleich an.
+      const forceRefresh = req.query.refresh === "true" || req.query.refresh === "1";
+      const { orders: mirrorOrders } = await getOrdersWithCache(client, tenantId, { forceRefresh });
+      const allOrders = dedupeOrdersByNumber(mirrorOrders);
 
       // Filter: paid/authorized und noch offen (open oder in_progress).
       // open inkl. — Shopware belässt bezahlte Aufträge oft auf open bis „In Bearbeitung“.
@@ -25,7 +31,6 @@ export function registerOperationsRoutes(app: Express): void {
         isOrderEligibleForShippingPick(order),
       );
 
-      const tenantId = (req as any).tenantId ?? null;
       const shippingWithStock = await enrichOrdersWithStockAvailability(
         shippingOrders,
         tenantId,
