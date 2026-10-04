@@ -2525,6 +2525,17 @@ export function registerOrderRoutes(app: Express): void {
         }
       }
 
+      // Versandliste & Co. lesen aus dem Bestell-Spiegel: Aenderungen gleich uebernehmen (normaler
+      // Delta-Abgleich inkl. Aenderungserkennung), damit sie nach dem Neuladen sichtbar sind.
+      if (updated > 0) {
+        try {
+          const { syncShopwareMirrorForTenant } = await import("../shopware/shopwareMirror");
+          await syncShopwareMirrorForTenant(storage, client, (req as any).tenantId ?? null, { entities: ["orders"] });
+        } catch (error) {
+          console.error("[bulk-tracking] Spiegel-Abgleich nach dem Update fehlgeschlagen:", error);
+        }
+      }
+
       res.json({ 
         success: true, 
         updated 
