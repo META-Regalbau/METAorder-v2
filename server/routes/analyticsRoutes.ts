@@ -11,6 +11,7 @@ import type { Request, Response, Express } from "express";
 import { type Order } from "@shared/schema";
 import { isOrderEligibleForShippingPick } from "@shared/orderShippingEligibility";
 import { toImportedInquirySummary } from "../commercial/importedInquirySummary";
+import { loadAnalyticsOrders } from "../analytics/analyticsOrders";
 
 export function registerAnalyticsRoutes(app: Express): void {
   // Google KPI endpoints
@@ -60,7 +61,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       }
 
       const client = new ShopwareClient(settings);
-      const orders = await client.fetchOrdersForAnalytics(dateFrom, dateTo, salesChannelIds ?? undefined);
+      const orders = await loadAnalyticsOrders(client, (req as any).tenantId, { dateFrom, dateTo, salesChannelIds });
 
       // Calculate summary metrics
       const totalOrders = orders.length;
@@ -190,7 +191,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       }
 
       const client = new ShopwareClient(settings);
-      const orders = await client.fetchOrdersForAnalytics(dateFrom, dateTo, salesChannelIds ?? undefined);
+      const orders = await loadAnalyticsOrders(client, (req as any).tenantId, { dateFrom, dateTo, salesChannelIds });
 
       // Group by order status
       const statusDistribution: Record<string, number> = {};
@@ -220,7 +221,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       }
 
       const client = new ShopwareClient(settings);
-      const orders = await client.fetchOrdersForAnalytics(dateFrom, dateTo, salesChannelIds ?? undefined);
+      const orders = await loadAnalyticsOrders(client, (req as any).tenantId, { dateFrom, dateTo, salesChannelIds });
 
       // Group by payment status
       const paymentDistribution: Record<string, number> = {};
@@ -364,7 +365,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       }
 
       const client = new ShopwareClient(settings);
-      const orders = await client.fetchOrdersForAnalytics(dateFrom, dateTo, salesChannelIds ?? undefined);
+      const orders = await loadAnalyticsOrders(client, (req as any).tenantId, { dateFrom, dateTo, salesChannelIds });
 
       // Calculate sales by category
       const categorySales: Record<string, { revenue: number; netRevenue: number; quantity: number }> = {};
@@ -414,7 +415,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       }
 
       const client = new ShopwareClient(settings);
-      const orders = await client.fetchOrdersForAnalytics(dateFrom, dateTo, salesChannelIds ?? undefined);
+      const orders = await loadAnalyticsOrders(client, (req as any).tenantId, { dateFrom, dateTo, salesChannelIds });
 
       // Calculate product performance
       const productPerformance: Record<string, {
@@ -481,7 +482,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       }
 
       const client = new ShopwareClient(settings);
-      const orders = await client.fetchOrdersForAnalytics(dateFrom, dateTo, salesChannelIds ?? undefined);
+      const orders = await loadAnalyticsOrders(client, (req as any).tenantId, { dateFrom, dateTo, salesChannelIds });
 
       // Group by date
       const dailySales: Record<string, { date: string; revenue: number; netRevenue: number; orderCount: number }> = {};
@@ -524,7 +525,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       }
 
       const client = new ShopwareClient(settings);
-      const orders = await client.fetchOrdersForAnalytics(dateFrom, dateTo, salesChannelIds ?? undefined);
+      const orders = await loadAnalyticsOrders(client, (req as any).tenantId, { dateFrom, dateTo, salesChannelIds });
 
       const ordersWithShipping = orders.filter(
         (o) => o.shippingInfo?.shippedDate && o.orderDate
