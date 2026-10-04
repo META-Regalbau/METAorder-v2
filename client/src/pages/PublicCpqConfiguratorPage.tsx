@@ -2,7 +2,7 @@
  * Öffentlicher Einstieg in den CPQ-Konfigurator für echte Shop-Besucher (Gast
  * oder eingeloggter Kunde) — erreicht über einen Link auf der
  * Shopware-Produktseite mit einem signierten Handoff-Token (siehe
- * server/cpqHandoffToken.ts). Kein METAorder-Mitarbeiter-Login nötig.
+ * server/cpq/cpqHandoffToken.ts). Kein METAorder-Mitarbeiter-Login nötig.
  *
  * Verifiziert den Token einmal serverseitig, liest daraus die Kundenidentität
  * (oder null für Gast) und reicht sie als `customerMode` an den bestehenden

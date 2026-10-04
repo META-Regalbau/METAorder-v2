@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import type { IStorage } from "./storage";
 import { mergeErpPermissions } from "./erp/erpLogic";
-import { isKnownInsecureDefault } from "./secretGuard";
+import { isKnownInsecureDefault } from "./lib/secretGuard";
 
 export async function seedDatabase(storage: IStorage) {
   try {

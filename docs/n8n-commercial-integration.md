@@ -28,7 +28,7 @@ Details und Docker: [`docker.md`](docker.md).
    - Antwort u. a.: **`draft`**, **`draftKind`**: `"offer"` | `"order"`, Intent-Metadaten, optional **`strictAutoCreate`** (Ergebnis der Strikt-Regel).
 
    **E-Mail-Container (`.eml` / `.msg`)** werden ausgepackt statt als ein Dokument behandelt —
-   siehe [`server/commercialEmailUploadIngest.ts`](../server/commercialEmailUploadIngest.ts):
+   siehe [`server/commercial/commercialEmailUploadIngest.ts`](../server/commercial/commercialEmailUploadIngest.ts):
 
    - **ein Entwurf je handelsrelevantem Anhang** (wie beim internen Postfach-Abruf);
      ohne solchen Anhang wird die Nachricht selbst ausgewertet
@@ -63,7 +63,7 @@ Details und Docker: [`docker.md`](docker.md).
 
 Erreicht eine Kundenbestellung das Bestellpostfach über Kollegen („WG: …", „Moin, anbei eine
 Bestellung"), wertet der Commercial Agent ausschließlich die **ursprüngliche Kundenmail** aus
-([`emailForwardUnwrap.ts`](../server/emailForwardUnwrap.ts)): Ist der Kopf-Absender eine eigene
+([`emailForwardUnwrap.ts`](../server/email/emailForwardUnwrap.ts)): Ist der Kopf-Absender eine eigene
 Domain, wird die Weiterleitungskette (Outlook-Blöcke „Von/Gesendet/An/Betreff" bzw.
 „From/Sent/To/Subject") bis zum ersten externen Absender abgelaufen. Dessen Absender, Betreff
 (ohne „WG:"/„FW:"/„[External]") und Text gehen in Intent, Extraktion und Kundenzuordnung —
@@ -76,7 +76,7 @@ zudem nie als Kunden-E-Mail gewählt.
 
 Kunden schicken neben der Bestellung oft weitere Belege mit — typisch den **eigenen
 Lieferschein**, der der Sendung beizulegen ist. Jeder Anhang wird deshalb vor der
-Extraktion klassifiziert ([`commercialAttachmentClassifier.ts`](../server/commercialAttachmentClassifier.ts)):
+Extraktion klassifiziert ([`commercialAttachmentClassifier.ts`](../server/commercial/commercialAttachmentClassifier.ts)):
 
 | Belegart | Verhalten |
 |----------|-----------|
@@ -200,11 +200,11 @@ Tests: `POST /api/webhooks/test` mit `eventType`. Zustellprotokoll: `/api/webhoo
 
 ## Internes Auto-Create vs. n8n
 
-Der Commercial Agent kann nach der Pipeline **ohne UI** direkt Shopware-Angebote/-Bestellungen anlegen (`server/aiConfig.ts`, `COMMERCIAL_AGENT_*`, UI „Commercial Agent“).
+Der Commercial Agent kann nach der Pipeline **ohne UI** direkt Shopware-Angebote/-Bestellungen anlegen (`server/ai/aiConfig.ts`, `COMMERCIAL_AGENT_*`, UI „Commercial Agent“).
 
 ### Strikt-Regel (Default, „100 %-Pfad“)
 
-Mit **`strictAutoCreateOnly: true`** (Default, Env `COMMERCIAL_AGENT_STRICT_AUTO_CREATE`) gilt nur noch die Strikt-Regel in `server/commercialStrictAutoCreate.ts` — nicht die älteren weichen Schwellen (Intent 0,85 / Match 90).
+Mit **`strictAutoCreateOnly: true`** (Default, Env `COMMERCIAL_AGENT_STRICT_AUTO_CREATE`) gilt nur noch die Strikt-Regel in `server/commercial/commercialStrictAutoCreate.ts` — nicht die älteren weichen Schwellen (Intent 0,85 / Match 90).
 
 Auto-Create nur wenn u. a.: alle Pflicht-Adressfelder, Kunde per Match (≥ 95, nicht Auto-Create), jede Position mit Katalog-**confidence = 100**, Intent ≥ 0,95. Sonst `review_required` + `strictAutoCreateTrace.reasons[]`.
 

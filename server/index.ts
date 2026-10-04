@@ -13,18 +13,18 @@ import session from "express-session";
 import cookieParser from "cookie-parser";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { setupAuth } from "./auth";
+import { setupAuth } from "./auth/auth";
 import { storage } from "./storage";
 import { ensureVectorExtension } from "./db";
 import { seedDatabase } from "./seedData";
-import { runCrossSellLearning } from "./crossSellLearning";
-import { runOfferLearning } from "./offerLearning";
-import { pollInboundEmails } from "./emailInbound";
-import { runDunningJob } from "./dunningJob";
+import { runCrossSellLearning } from "./cross-selling/crossSellLearning";
+import { runOfferLearning } from "./offers/offerLearning";
+import { pollInboundEmails } from "./email/emailInbound";
+import { runDunningJob } from "./invoicing/dunningJob";
 import { metricsCollectorService } from "./services/metricsCollector";
 import { initBackendSentry } from "./observability/sentry";
-import { runShopwareMirrorSync } from "./shopwareMirror";
-import { assertSecureSecret } from "./secretGuard";
+import { runShopwareMirrorSync } from "./shopware/shopwareMirror";
+import { assertSecureSecret } from "./lib/secretGuard";
 
 const app = express();
 initBackendSentry(app);
@@ -103,7 +103,7 @@ app.use((_req, res, next) => {
 // Session configuration with configurable timeout
 const sessionTimeout = parseInt(process.env.SESSION_TIMEOUT || '86400000', 10); // Default: 24 hours
 
-// Refuse to run with a known dev-default secret (see server/secretGuard.ts for why a
+// Refuse to run with a known dev-default secret (see server/lib/secretGuard.ts for why a
 // plain "is it set" check doesn't work — docker-compose.yml always sets a fallback).
 const sessionSecret = assertSecureSecret("SESSION_SECRET", process.env.SESSION_SECRET);
 assertSecureSecret("ENCRYPTION_KEY", process.env.ENCRYPTION_KEY);
@@ -132,7 +132,7 @@ app.use(passport.session());
 
 // CSRF Protection Middleware (Double-Submit Cookie Pattern)
 // Apply to all state-changing requests except login
-import { requireCsrf } from "./auth";
+import { requireCsrf } from "./auth/auth";
 app.use((req, res, next) => {
   // Skip CSRF for login endpoint (no token exists yet)
   if (req.path === "/api/auth/login") {
@@ -317,7 +317,7 @@ app.post("/ingest/:id", (req, res) => {
   }
 
   // CPQ 3D-Modelle (GLB) – gleicher Pfad wie in cpqGlbResolve (dist/public oder client/public)
-  const { getCpqGlbDirectory } = await import("./cpqGlbResolve");
+  const { getCpqGlbDirectory } = await import("./cpq/cpqGlbResolve");
   const cpqGlbPath = getCpqGlbDirectory();
   if (fs.existsSync(cpqGlbPath)) {
     app.use("/cpq-models", express.static(cpqGlbPath));

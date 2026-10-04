@@ -3,7 +3,7 @@
  * Ausführung: npx tsx scripts/testGmailIntentHintIngest.ts
  */
 
-import type { CommercialDocumentIntent } from "../server/commercialDocumentIntent";
+import type { CommercialDocumentIntent } from "../server/commercial/commercialDocumentIntent";
 
 // applyUploadIntentHintBoost ist nicht exportiert — wir testen die Heuristik + simulieren den Boost-Pfad
 // durch Re-Import der Logik via classify path: duplicate minimal boost test inline.

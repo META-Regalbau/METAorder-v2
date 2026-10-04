@@ -7,9 +7,9 @@ import { shopwareProducts } from "@shared/schema";
 import { buildErpProductLabel, type ErpProductLabel } from "@shared/productVariantLabel";
 import { erpStorage } from "./erpStorage";
 import { requireTenantId } from "./erpLogic";
-import { syncShopwareMirrorForTenant } from "../shopwareMirror";
+import { syncShopwareMirrorForTenant } from "../shopware/shopwareMirror";
 import { storage } from "../storage";
-import { ShopwareClient } from "../shopware";
+import { ShopwareClient } from "../shopware/shopware";
 
 export type StockReconcileRow = {
   productNumber: string;

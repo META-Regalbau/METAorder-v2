@@ -8,7 +8,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import type { Order } from "../shared/schema";
-import { generateDunningPdf } from "../server/dunningPdf";
+import { generateDunningPdf } from "../server/invoicing/dunningPdf";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");

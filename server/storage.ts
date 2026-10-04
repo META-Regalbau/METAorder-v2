@@ -505,7 +505,7 @@ export interface IStorage {
   upsertWebhookConfig(config: InsertWebhookConfig, tenantId?: string | null): Promise<WebhookConfig>;
   updateWebhookConfig(eventType: WebhookEventType, updates: Partial<InsertWebhookConfig>, tenantId?: string | null): Promise<WebhookConfig | undefined>;
   
-  // SFTP-Server (DMS-Übergabe) — Secrets werden verschlüsselt gespeichert (server/sftpServers.ts)
+  // SFTP-Server (DMS-Übergabe) — Secrets werden verschlüsselt gespeichert (server/sftp/sftpServers.ts)
   getSftpServers(tenantId?: string | null): Promise<SftpServer[]>;
   getSftpServer(id: string, tenantId?: string | null): Promise<SftpServer | undefined>;
   createSftpServer(server: InsertSftpServer, tenantId?: string | null): Promise<SftpServer>;

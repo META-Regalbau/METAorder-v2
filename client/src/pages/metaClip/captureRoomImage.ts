@@ -17,7 +17,7 @@ import {
 } from "./roomSceneBuild";
 import type { RoomPlacement, RoomWallFeature } from "@/lib/roomPlannerGeometry";
 
-// server/offerConfigPdf.ts drawRoomPlanSection: gleicher Bildslot wie die Regal-Konfigurationsbilder.
+// server/offers/offerConfigPdf.ts drawRoomPlanSection: gleicher Bildslot wie die Regal-Konfigurationsbilder.
 const PDF_IMAGE_ASPECT = 468 / 248;
 
 export async function captureRoomCompositeImage(

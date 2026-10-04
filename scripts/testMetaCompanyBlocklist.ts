@@ -3,7 +3,7 @@
  * Ausführung: npx tsx scripts/testMetaCompanyBlocklist.ts
  */
 
-import { isMetaOwnCompany, META_OWN_COMPANY_NAMES } from "../server/metaCompanyBlocklist";
+import { isMetaOwnCompany, META_OWN_COMPANY_NAMES } from "../server/commercial/metaCompanyBlocklist";
 
 function assert(cond: boolean, message: string) {
   if (!cond) throw new Error(message);

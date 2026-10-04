@@ -1,5 +1,5 @@
 import pg from "pg";
-import { decrypt } from "../server/encryption";
+import { decrypt } from "../server/lib/encryption";
 
 const { Client } = pg;
 

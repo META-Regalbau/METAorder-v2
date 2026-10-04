@@ -5,12 +5,12 @@
 import {
   extractSixDigitSuffixAfterGtinRoot,
   resolveEffectiveLineIdentifiers,
-} from "../server/lineItemCatalogIdentifiers";
+} from "../server/extraction/lineItemCatalogIdentifiers";
 import {
   lineLooksLikeNumericProductReference,
   screenOfferLineItem,
   shouldSkipCatalogMatchingForLineItem,
-} from "../server/lineItemProductScreening";
+} from "../server/extraction/lineItemProductScreening";
 
 function assert(cond: boolean, msg: string) {
   if (!cond) throw new Error(msg);

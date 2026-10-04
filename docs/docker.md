@@ -107,7 +107,7 @@ Shopware, E-Mail, optionale Dienste: wie bisher ueber `.env` / Compose `environm
 | `METAORDER_BASE_URL` | Basis-URL für n8n-HTTP-Nodes (z. B. `http://host.docker.internal:5001`). |
 | `METAORDER_INTEGRATION_API_KEY` | Key für `X-METAORDER-Integration-Key` in n8n-Workflows. |
 | `LLM_DEBUG` | `true` / `1`: pro `chatCompletion` eine Zeile `[LLM_DEBUG]` (Provider, Modell, ms, Antwortlänge) — gilt für **alle** Chat-KI-Aufrufe, nicht nur Commercial Agent. |
-| `AI_MODE` | z. B. `openai_optional` / `openai_only` — siehe `server/aiConfig.ts`. |
+| `AI_MODE` | z. B. `openai_optional` / `openai_only` — siehe `server/ai/aiConfig.ts`. |
 | `METAORDER_INTEGRATION_API_KEY` | Optional: **ein** gemeinsames Secret für **Integrations-Auth** (n8n, Skripte). Header **`X-METAORDER-Integration-Key`**. Für **eine Instanz mit mehreren Mandanten** besser **mandantenspezifische Keys** über die API anlegen (`POST /api/settings/integration-api-keys`), siehe [multitenant-security.md](multitenant-security.md). |
 | `METAORDER_INTEGRATION_USER_ID` | Optional: UUID eines Benutzers, unter dem Integrations-Requests laufen. Wenn nicht gesetzt, wird **`n8n-service`** verwendet. Der Benutzer muss dem jeweiligen Mandanten in **`tenant_users`** zugeordnet sein. |
 | `METAORDER_STRICT_TENANT` | `true`: Nach JWT-Auth ist für fast alle `/api/*`-Routen ein **gewählter Mandant** Pflicht (Ausnahmen: Mandantenliste, Profil, Token). Empfohlen für Shared-SaaS. |

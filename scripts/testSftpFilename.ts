@@ -1,10 +1,10 @@
 /**
- * Schnelltest: Dateinamen-Schema für den SFTP-Upload (server/sftpUpload.ts).
+ * Schnelltest: Dateinamen-Schema für den SFTP-Upload (server/sftp/sftpUpload.ts).
  *   npm run test:sftp-filename
  */
 import assert from "node:assert/strict";
-import { renderSftpFilename } from "../server/sftpUpload";
-import { normalizeRemotePath } from "../server/sftpServers";
+import { renderSftpFilename } from "../server/sftp/sftpUpload";
+import { normalizeRemotePath } from "../server/sftp/sftpServers";
 import type { DraftAttachment } from "../shared/schema";
 
 const attachment: DraftAttachment = {

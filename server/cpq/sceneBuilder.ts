@@ -8,7 +8,7 @@ import path from "path";
 import type { CpqComponentType, CpqProductMapping } from "@shared/schema";
 import { resolveBillOfMaterials, type GetProductFn } from "./cpqBillOfMaterials";
 import type { ConfigContext } from "./ruleEvaluator";
-import { getCpqGlbDirectory } from "../cpqGlbResolve";
+import { getCpqGlbDirectory } from "./cpqGlbResolve";
 
 export type SceneInstance = {
   productMappingId: string;

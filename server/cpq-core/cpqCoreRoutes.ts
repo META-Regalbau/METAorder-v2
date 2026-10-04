@@ -15,8 +15,8 @@ import {
 import { cpqStorage } from "../cpq/cpqStorage";
 import { prepareCpqCartTransfer } from "../cpq/cpqCartTransfer";
 import type { CartItem } from "../cpq/cpqCrossSelling";
-import type { requireAuth, requireManageCPQ, requireViewCPQ } from "../auth";
-import { requireCpqHandoffToken } from "../auth";
+import type { requireAuth, requireManageCPQ, requireViewCPQ } from "../auth/auth";
+import { requireCpqHandoffToken } from "../auth/auth";
 import {
   getCpqCoreMetricsSnapshot,
   getCpqKpiReport,

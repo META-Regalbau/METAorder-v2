@@ -11,7 +11,7 @@ import {
   mergeStagingCandidatesWithQuotas,
   normalizeFootprint,
   sameWidthAndDepth,
-} from "../server/crossSellShelvingHeuristics";
+} from "../server/cross-selling/crossSellShelvingHeuristics";
 
 function assert(cond: boolean, message: string) {
   if (!cond) throw new Error(message);

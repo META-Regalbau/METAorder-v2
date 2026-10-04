@@ -18,7 +18,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../server/db";
 import { tenants } from "../shared/schema";
 import { storage } from "../server/storage";
-import { ShopwareClient } from "../server/shopware";
+import { ShopwareClient } from "../server/shopware/shopware";
 
 function arg(name: string): string | null {
   const hit = process.argv.slice(2).find((a) => a.startsWith(`--${name}=`));

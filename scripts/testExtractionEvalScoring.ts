@@ -13,7 +13,7 @@ import {
   compareDocumentExtraction,
   normalizeIdentifier,
   normalizeText,
-} from "../server/extractionEvalScoring";
+} from "../server/extraction/extractionEvalScoring";
 
 let failures = 0;
 

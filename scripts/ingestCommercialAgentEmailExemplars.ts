@@ -26,7 +26,7 @@ import fs from "fs/promises";
 import { createWriteStream } from "fs";
 import { simpleParser } from "mailparser";
 import { commercialAgentExemplars } from "../shared/schema";
-import { trimExcerpt } from "../server/commercialAgentLearning";
+import { trimExcerpt } from "../server/commercial/commercialAgentLearning";
 
 dotenv.config({ path: path.join(process.cwd(), ".env.local") });
 dotenv.config({ path: path.join(process.cwd(), "docker.env") });

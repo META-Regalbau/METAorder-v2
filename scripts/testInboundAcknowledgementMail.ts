@@ -11,8 +11,8 @@ import assert from "node:assert/strict";
 import {
   buildAcknowledgementMail,
   decideAcknowledgementMail,
-} from "../server/commercialInboundAcknowledgementMail";
-import { buildOrderAcknowledgement } from "../server/commercialOrderAcknowledgement";
+} from "../server/commercial/commercialInboundAcknowledgementMail";
+import { buildOrderAcknowledgement } from "../server/commercial/commercialOrderAcknowledgement";
 
 let failures = 0;
 

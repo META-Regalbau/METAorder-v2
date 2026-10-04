@@ -70,7 +70,7 @@ Query-Parameter werden bewusst **nicht** unterstützt (Server-, Proxy- und Brows
 
 ## Statusabbildung
 
-Interne Entwurfsstatus werden **nicht** durchgereicht ([`commercialOrderAcknowledgement.ts`](../server/commercialOrderAcknowledgement.ts)):
+Interne Entwurfsstatus werden **nicht** durchgereicht ([`commercialOrderAcknowledgement.ts`](../server/commercial/commercialOrderAcknowledgement.ts)):
 
 | intern | extern | warum |
 |--------|--------|-------|
@@ -142,7 +142,7 @@ Erfassungsfehler dem Kunden sofort auffallen statt erst beim Wareneingang.
 Einschalten unter **Einstellungen → KI → Commercial Agent → „Eingangsbestätigung an Kunden
 senden"** (Standard **aus**) oder per `COMMERCIAL_AGENT_INBOUND_ACK=true`.
 
-Sperren, die immer greifen ([`commercialInboundAcknowledgementMail.ts`](../server/commercialInboundAcknowledgementMail.ts)):
+Sperren, die immer greifen ([`commercialInboundAcknowledgementMail.ts`](../server/commercial/commercialInboundAcknowledgementMail.ts)):
 
 - nur im **E-Mail-Eingang**, nicht bei manuellen Uploads durch Mitarbeiter
 - **einmal je Vorgang** (Marker `inboundAcknowledgementSentAt` im Entwurf, gesetzt erst nach

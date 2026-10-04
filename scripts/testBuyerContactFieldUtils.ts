@@ -7,7 +7,7 @@ import {
   ensureLegacyBuyerContactMapping,
   isPlausiblePhoneNumber,
   sanitizePhoneField,
-} from "../server/buyerContactFieldUtils";
+} from "../server/extraction/buyerContactFieldUtils";
 
 function assert(cond: boolean, message: string) {
   if (!cond) throw new Error(message);

@@ -9,17 +9,17 @@ import { resolveBillOfMaterials } from "./cpqBillOfMaterials";
 import { getCpqCrossSelling, validateCpqCart } from "./cpqCrossSelling";
 import { prepareCpqCartTransfer } from "./cpqCartTransfer";
 import { evaluateDiscountLevel } from "./discountEvaluator";
-import type { requireAuth, requireViewCPQ, requireManageCPQ } from "../auth";
-import { requireCpqHandoffToken } from "../auth";
-import { createCpqHandoffToken } from "../cpqHandoffToken";
+import type { requireAuth, requireViewCPQ, requireManageCPQ } from "../auth/auth";
+import { requireCpqHandoffToken } from "../auth/auth";
+import { createCpqHandoffToken } from "./cpqHandoffToken";
 
 /** Stellt sicher, dass der Shopware-Produktcache (6h TTL) für CPQ-Matching befüllt ist. */
 async function ensureCpqProductCacheForTenant(tenantId: string | null | undefined): Promise<void> {
-  const { productCacheRegistry } = await import("../productCache");
+  const { productCacheRegistry } = await import("../products/productCache");
   const { storage } = await import("../storage");
   const settings = await storage.getShopwareSettings(tenantId ?? null);
   if (!settings) return;
-  const { ShopwareClient } = await import("../shopware");
+  const { ShopwareClient } = await import("../shopware/shopware");
   const client = new ShopwareClient(settings);
   await productCacheRegistry.for(tenantId ?? null).ensurePopulated(client);
 }
@@ -62,7 +62,7 @@ async function resolveCpqOptionsPayload(id: string, tenantId: string | null, ste
       cpqStorage.getProductMappingsBySystem(id, tenantId),
     ]);
     await ensureCpqProductCacheForTenant(tenantId);
-    const { productCache } = await import("../productCache");
+    const { productCache } = await import("../products/productCache");
     const activeMappings = mappings.filter((m) => m.status === "active");
     const heights = new Set<number>();
     const depths = new Set<number>();
@@ -153,7 +153,7 @@ async function resolveCpqBomPayload(
   }
 
   await ensureCpqProductCacheForTenant(tenantId);
-  const { productCache } = await import("../productCache");
+  const { productCache } = await import("../products/productCache");
   const getProduct = (productNumber: string) => {
     const p = productCache.getProductByIdentifier(productNumber);
     // BOM-Preise sind netto (deutsche B2B-Konvention, "Preis netto" im Konfigurator).
@@ -177,7 +177,7 @@ async function resolveCpqBomPayload(
       const { storage } = await import("../storage");
       const settings = await storage.getShopwareSettings(tenantId);
       if (settings) {
-        const { ShopwareClient } = await import("../shopware");
+        const { ShopwareClient } = await import("../shopware/shopware");
         const { applyCpqCustomerPricing } = await import("./cpqPricing");
         const client = new ShopwareClient(settings);
         const priced = await applyCpqCustomerPricing(bom.items, {
@@ -223,7 +223,7 @@ export function registerCpqRoutes(
       const settings = await storage.getShopwareSettings(req.tenantId ?? null);
       if (!settings) return res.status(400).json({ error: "Shopware-Einstellungen nicht konfiguriert" });
 
-      const { ShopwareClient } = await import("../shopware");
+      const { ShopwareClient } = await import("../shopware/shopware");
       const client = new ShopwareClient(settings);
       const customers = await client.searchCustomers(q, limit);
       res.json({ customers });
@@ -246,7 +246,7 @@ export function registerCpqRoutes(
         const { storage } = await import("../storage");
         const settings = await storage.getShopwareSettings(req.tenantId ?? null);
         if (settings) {
-          const { ShopwareClient } = await import("../shopware");
+          const { ShopwareClient } = await import("../shopware/shopware");
           const client = new ShopwareClient(settings);
           const [billing, channel] = await Promise.all([
             client.fetchCustomerBillingForPdf(customerId).catch(() => null),
@@ -254,7 +254,7 @@ export function registerCpqRoutes(
           ]);
           const a = billing?.billingAddress;
           customerName = a ? [a.company, [a.firstName, a.lastName].filter(Boolean).join(" ")].filter(Boolean).join(" · ") || null : null;
-          const { loadCpqPricingSettings } = await import("../cpqPricingSettings");
+          const { loadCpqPricingSettings } = await import("./cpqPricingSettings");
           const pricingSettings = await loadCpqPricingSettings(storage, req.tenantId ?? null);
           isPortalCustomer = !!channel?.name?.toLowerCase().startsWith(pricingSettings.portalChannelNamePrefix.toLowerCase());
         }
@@ -351,7 +351,7 @@ export function registerCpqRoutes(
       const componentTypes = await cpqStorage.getComponentTypesBySystem(id);
       const mappings = await cpqStorage.getProductMappingsBySystem(id, req.tenantId ?? null);
       await ensureCpqProductCacheForTenant(req.tenantId ?? null);
-      const { productCache } = await import("../productCache");
+      const { productCache } = await import("../products/productCache");
       const mappingsWithName = mappings.map((m) => {
         const product = productCache.getProductByIdentifier(m.shopwareProductNumber);
         const productName = m.productName ?? product?.name ?? null;
@@ -409,7 +409,7 @@ export function registerCpqRoutes(
   // productNumber = GTIN/EAN, manufacturerNumber = Artikelnummer (oft für GLB-Namen wie 10023_VZK.glb)
   app.get("/api/cpq/glb-resolve", ra, rm, async (req: Request, res: Response) => {
     try {
-      const { resolveCpqGlbFromDisk, resolveCpqGlbPresentationPlaceholder } = await import("../cpqGlbResolve");
+      const { resolveCpqGlbFromDisk, resolveCpqGlbPresentationPlaceholder } = await import("./cpqGlbResolve");
       const presentationOnly =
         req.query.presentationPlaceholder === "1" || req.query.presentationPlaceholder === "true";
       if (presentationOnly) {
@@ -527,7 +527,7 @@ export function registerCpqRoutes(
         cpqStorage.getProductMappingsBySystem(systemId, req.tenantId ?? null),
         cpqStorage.getRulesBySystem(systemId, req.tenantId ?? null),
       ]);
-      const { productCache } = await import("../productCache");
+      const { productCache } = await import("../products/productCache");
       await ensureCpqProductCacheForTenant(req.tenantId ?? null);
       const getProduct = (productNumber: string) => {
         const p = productCache.getProductByIdentifier(productNumber);

@@ -14,8 +14,8 @@ import {
   attachmentKindProducesDraft,
   classifyCommercialAttachment,
   extractAttachmentReferences,
-} from "../server/commercialAttachmentClassifier";
-import { extractPlainTextForDraft } from "../server/documentTextExtraction";
+} from "../server/commercial/commercialAttachmentClassifier";
+import { extractPlainTextForDraft } from "../server/extraction/documentTextExtraction";
 
 let failures = 0;
 async function check(name: string, fn: () => Promise<void> | void) {

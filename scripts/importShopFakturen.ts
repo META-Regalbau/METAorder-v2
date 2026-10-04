@@ -1,7 +1,7 @@
 /**
  * CLI-Import von SAP-Rechnungsnummern in den Shop.
  *
- * Die eigentliche Logik liegt in server/shopFakturenImport.ts (wird auch vom
+ * Die eigentliche Logik liegt in server/invoicing/shopFakturenImport.ts (wird auch vom
  * META-Order-Upload-Endpoint genutzt). Dieses Skript ist nur der CLI-Wrapper.
  *
  * Default ist ein Dry-Run (keine Aenderungen). Zum Anwenden: --apply
@@ -17,8 +17,8 @@
  *   --mark-unsent             SAP-Rechnungen als "vorhanden, aber nicht verschickt" markieren
  */
 import { storage } from "../server/storage";
-import { ShopwareClient } from "../server/shopware";
-import { parseFakturaRowsFromFile, runFakturaImport } from "../server/shopFakturenImport";
+import { ShopwareClient } from "../server/shopware/shopware";
+import { parseFakturaRowsFromFile, runFakturaImport } from "../server/invoicing/shopFakturenImport";
 
 const DEFAULT_FILE = "/app/Shop_Fakturen.xlsx";
 

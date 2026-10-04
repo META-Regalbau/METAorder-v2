@@ -12,7 +12,7 @@ Diese Doku ist **nicht vollstaendig**. Die komplette Liste steht in `server/rout
 
 - **Swagger UI:** `GET /api/docs` — nur fuer **angemeldete** Nutzer (`requireAuth`); zuerst in der App einloggen, dann die URL im gleichen Browser aufrufen (Cookies `auth_token` / `csrf_token`).
 - **Rohe Spezifikation:** `GET /api/openapi.json` (ebenfalls nur angemeldet).
-- **Pfadliste aktualisieren:** `npm run openapi:generate` erzeugt `server/openapi/openapi.paths.ts` aus `server/routes.ts`, `server/cpq/cpqRoutes.ts` und `server/publicOfferRoutes.ts`. Der Befehl laeuft automatisch zu Beginn von `npm run build`.
+- **Pfadliste aktualisieren:** `npm run openapi:generate` erzeugt `server/openapi/openapi.paths.ts` aus `server/routes.ts`, `server/cpq/cpqRoutes.ts` und `server/offers/publicOfferRoutes.ts`. Der Befehl laeuft automatisch zu Beginn von `npm run build`.
 
 ## Authentifizierung & Sicherheit
 
@@ -36,7 +36,7 @@ Diese Doku ist **nicht vollstaendig**. Die komplette Liste steht in `server/rout
 - `GET /api/orders/:id`
 - `PATCH /api/orders/:id/shipping`
 - `PATCH /api/orders/:id/documents` — neue Rechnungsnummer ⇒ Rechnung wird als E-Rechnung (Shopware-Dokumenttyp `zugferd_embedded_invoice`, Fallback `invoice`) erstellt und – sofern das PDF vorliegt – direkt verschickt. Body optional `sendInvoice: boolean` (Default: Mandanten-Einstellung). Antwort: `results.invoiceIsEInvoice`, `results.invoiceSend`; Versandfehler ⇒ 207.
-- Rechnungsnummer direkt in Shopware gesetzt (`custom_order_numbers_invoice`, z. B. SAP): der Bestell-Spiegel (Delta alle 3 min) erkennt die Aenderung gegenueber dem letzten Stand und erstellt/verschickt die Rechnung mit denselben Regeln (`server/invoiceNumberWatcher.ts`, Log in `erp_automation_runs` mit `metadata.source = shopware_mirror`). Nur Aenderungen zaehlen; Bestellungen mit bereits vorhandener Nummer beim ersten Sync bleiben unberuehrt.
+- Rechnungsnummer direkt in Shopware gesetzt (`custom_order_numbers_invoice`, z. B. SAP): der Bestell-Spiegel (Delta alle 3 min) erkennt die Aenderung gegenueber dem letzten Stand und erstellt/verschickt die Rechnung mit denselben Regeln (`server/invoicing/invoiceNumberWatcher.ts`, Log in `erp_automation_runs` mit `metadata.source = shopware_mirror`). Nur Aenderungen zaehlen; Bestellungen mit bereits vorhandener Nummer beim ersten Sync bleiben unberuehrt.
 - `GET|POST /api/settings/invoice-automation` — `{ eInvoice, autoSend }` pro Mandant (Default beide `true`)
 - `GET /api/orders/ticket-counts`
 - `GET /api/orders/delayed`
@@ -78,7 +78,7 @@ Speicherung in Postgres (`installment_plans`, `installment_invoices`); Rechnungs
 - `GET /api/offers`
 - `GET /api/offers/:id`
 - `GET /api/offers/:id/pdf` — Standard-PDF (Shopware/B2B, sofern konfiguriert)
-- `GET /api/offers/:id/config-pdf` — METAorder-PDF mit personalisierter Einleitung, Schnellübersicht, Versand/Montage/MwSt., Konfigurationsbild und Stückliste (MetaCalc); abschließende Hinweise (regalsystem-spezifisch + Standard). Texte aus Setting `offer_config_pdf_texts` bzw. Defaults (`server/offerConfigPdfTexts.ts`). Query `download=true` für Download (`viewOffers`)
+- `GET /api/offers/:id/config-pdf` — METAorder-PDF mit personalisierter Einleitung, Schnellübersicht, Versand/Montage/MwSt., Konfigurationsbild und Stückliste (MetaCalc); abschließende Hinweise (regalsystem-spezifisch + Standard). Texte aus Setting `offer_config_pdf_texts` bzw. Defaults (`server/offers/offerConfigPdfTexts.ts`). Query `download=true` für Download (`viewOffers`)
 - `GET /api/offers/:id/export.csv` — ERP-Import: CSV (UTF-8 mit BOM, Semikolon), Kopf- und Positionsdaten in jeder Zeile; `lineType`: `product` \| `shipping` \| `bom` (Stücklistenzeilen mit `parentLineIndex`) (`viewOffers`)
 - `GET /api/offers/:id/export.xml` — ERP-Import: XML, Namespace `https://meta-online.com/ns/metaorder/erp-export/1`, `documentKind=quotation` (Kunde mappt im ERP auf Anfrage/Auftrag) (`viewOffers`)
 - `GET /api/settings/offer-config-pdf-texts` — `{ effective, defaults, stored }` für Konfigurations-PDF-Texte (`manageSettings`)

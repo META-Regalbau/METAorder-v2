@@ -4,8 +4,8 @@
  */
 
 import type { CrossSellingRule, Product, RuleTargetCriteria } from "../shared/schema";
-import { RuleEngine } from "../server/ruleEngine";
-import type { ShopwareClient } from "../server/shopware";
+import { RuleEngine } from "../server/cross-selling/ruleEngine";
+import type { ShopwareClient } from "../server/shopware/shopware";
 
 function assert(cond: boolean, message: string) {
   if (!cond) throw new Error(message);
