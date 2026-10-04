@@ -10,6 +10,7 @@ import { B2BSellersAdminClient, type B2BCompanyListItem } from "../b2b/b2bSeller
 import { productCacheRegistry } from "../products/productCache";
 import type { Product, Order } from "@shared/schema";
 import { detectOrderChanges, emitOrderChanges } from "./orderChangeEvents";
+import { logger } from "../lib/logger";
 
 const PRODUCT_BATCH = 500;
 /**
@@ -22,6 +23,19 @@ const CUSTOMER_BATCH = 250;
 const PRICE_BATCH = 250;
 /** Sicherheitsnetz: 250 × 400 = bis zu 100.000 Preiszeilen im Voll-Snapshot. */
 const PRICE_MAX_PAGES = 400;
+
+type MirrorEntity = "products" | "orders" | "customers" | "b2b_companies" | "customer_prices";
+
+/**
+ * Log je Mandant und Bereich: component/tenantId/entity als Felder (Texte bleiben wie bisher,
+ * damit Suchen nach "[ShopwareMirror] orders: upserted=" weiter funktionieren).
+ */
+function mirrorLog(tenantId: string | null, entity?: MirrorEntity) {
+  return logger.child({ component: "shopware-mirror", ...(tenantId ? { tenantId } : {}), ...(entity ? { entity } : {}) });
+}
+
+/** Fehlermeldung fuer den Text - wie bisher bei console.error("...:", err) */
+const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 function parseSwDate(value: string | Date | null | undefined): Date | null {
   if (!value) return null;
@@ -97,6 +111,8 @@ async function syncProductsDelta(
   tenantId: string | null,
   opts?: { force?: boolean },
 ): Promise<{ upserted: number; skipped: boolean }> {
+  const log = mirrorLog(tenantId, "products");
+  const startedAt = Date.now();
   await storage.upsertShopwareSyncState("products", { status: "running", error: null }, tenantId);
   try {
     const state = await storage.getShopwareSyncState("products", tenantId);
@@ -148,7 +164,7 @@ async function syncProductsDelta(
         try {
           deliveryById = await client.resolveDeliveryTimes(missingDtIds);
         } catch (err) {
-          console.warn("[ShopwareMirror] delivery time resolve failed:", err);
+          log.warn({ err, deliveryTimeIds: missingDtIds.length }, `[ShopwareMirror] delivery time resolve failed: ${errText(err)}`);
         }
       }
 
@@ -231,7 +247,8 @@ async function syncProductsDelta(
 
       if (priceHistoryEntries.length > 0) {
         await storage.insertProductPriceHistory(priceHistoryEntries, tenantId);
-        console.log(
+        log.info(
+          { priceChanges: priceHistoryEntries.length },
           `[ShopwareMirror] products: ${priceHistoryEntries.length} Preisänderung(en) erfasst (tenant=${tenantId ?? "default"})`,
         );
       }
@@ -261,7 +278,7 @@ async function syncProductsDelta(
       const { ids } = await client.fetchAllProductIds({ includeInactive: true });
       const deleted = await storage.deleteShopwareProductMirrorsNotIn(ids, tenantId);
       if (deleted > 0) {
-        console.log(`[ShopwareMirror] products: reconciled ${deleted} deletions (tenant=${tenantId})`);
+        log.info({ deleted }, `[ShopwareMirror] products: reconciled ${deleted} deletions (tenant=${tenantId})`);
       }
       await storage.upsertShopwareSyncState(
         "products",
@@ -288,7 +305,8 @@ async function syncProductsDelta(
       tenantId,
     );
 
-    console.log(
+    log.info(
+      { upserted, durationMs: Date.now() - startedAt },
       `[ShopwareMirror] products: upserted=${upserted} skipped=false tenant=${tenantId ?? "default"}`,
     );
     return { upserted, skipped: false };
@@ -338,6 +356,8 @@ async function syncOrdersDelta(
   tenantId: string | null,
   opts?: { force?: boolean },
 ): Promise<{ upserted: number; skipped: boolean }> {
+  const log = mirrorLog(tenantId, "orders");
+  const startedAt = Date.now();
   await storage.upsertShopwareSyncState("orders", { status: "running", error: null }, tenantId);
   try {
     const state = await storage.getShopwareSyncState("orders", tenantId);
@@ -387,7 +407,11 @@ async function syncOrdersDelta(
     const orderChanges = detectOrderChanges(orders, previousStates, { initialImport });
     if (orderChanges.length > 0) {
       emitOrderChanges(orderChanges, tenantId);
-      console.log(`[ShopwareMirror] orders: ${orderChanges.length} Aenderung(en) gemeldet (tenant=${tenantId ?? "default"})`);
+      const byKind = (kind: string) => orderChanges.filter((c) => c.kind === kind).length;
+      log.info(
+        { changes: orderChanges.length, created: byKind("created"), statusChanged: byKind("statusChanged"), paymentStatusChanged: byKind("paymentStatusChanged") },
+        `[ShopwareMirror] orders: ${orderChanges.length} Aenderung(en) gemeldet (tenant=${tenantId ?? "default"})`,
+      );
     }
 
     let maxUpdated: Date | null = cursor;
@@ -431,7 +455,8 @@ async function syncOrdersDelta(
       }
 
       if (deleted > 0 || missing.length > 0) {
-        console.log(
+        log.info(
+          { deleted, missing: missing.length, fetched: reconciledMissing, shopTotal, mirrorCount },
           `[ShopwareMirror] orders: reconciled deleted=${deleted} missing=${missing.length} fetched=${reconciledMissing}` +
             ` shopTotal=${shopTotal ?? "?"} mirror=${mirrorCount} (tenant=${tenantId ?? "default"})`,
         );
@@ -457,19 +482,22 @@ async function syncOrdersDelta(
     );
 
     const upserted = orders.length + reconciledMissing;
-    console.log(
+    log.info(
+      { upserted, delta: orders.length, missing: reconciledMissing, durationMs: Date.now() - startedAt },
       `[ShopwareMirror] orders: upserted=${upserted} (delta=${orders.length}, missing=${reconciledMissing}) skipped=false tenant=${tenantId ?? "default"}`,
     );
 
     if (watcher && invoiceNumberChanges.length > 0) {
+      const watcherLog = logger.child({ component: "invoice-watcher", ...(tenantId ? { tenantId } : {}) });
       try {
         const stats = await watcher.processInvoiceNumberChanges(storage, client, tenantId, invoiceNumberChanges);
-        console.log(
+        watcherLog.info(
+          { changes: invoiceNumberChanges.length, ...stats },
           `[InvoiceWatcher] tenant=${tenantId ?? "default"} changes=${invoiceNumberChanges.length} created=${stats.created} sent=${stats.sent} skipped=${stats.skipped} failed=${stats.failed}`,
         );
       } catch (error) {
         // Fehler hier duerfen den Spiegel-Sync nicht als fehlgeschlagen markieren.
-        console.error(`[InvoiceWatcher] Verarbeitung fehlgeschlagen (tenant=${tenantId}):`, error);
+        watcherLog.error({ err: error }, `[InvoiceWatcher] Verarbeitung fehlgeschlagen (tenant=${tenantId}): ${errText(error)}`);
       }
     }
 
@@ -490,6 +518,8 @@ async function syncCustomersDelta(
   tenantId: string | null,
   opts?: { force?: boolean },
 ): Promise<{ upserted: number; skipped: boolean }> {
+  const log = mirrorLog(tenantId, "customers");
+  const startedAt = Date.now();
   await storage.upsertShopwareSyncState("customers", { status: "running", error: null }, tenantId);
   try {
     const state = await storage.getShopwareSyncState("customers", tenantId);
@@ -573,7 +603,7 @@ async function syncCustomersDelta(
       const { ids } = await client.fetchAllCustomerIds();
       const deleted = await storage.deleteShopwareCustomerMirrorsNotIn(ids, tenantId);
       if (deleted > 0) {
-        console.log(`[ShopwareMirror] customers: reconciled ${deleted} deletions (tenant=${tenantId})`);
+        log.info({ deleted }, `[ShopwareMirror] customers: reconciled ${deleted} deletions (tenant=${tenantId})`);
       }
       await storage.upsertShopwareSyncState(
         "customers",
@@ -595,7 +625,8 @@ async function syncCustomersDelta(
       tenantId,
     );
 
-    console.log(
+    log.info(
+      { upserted, durationMs: Date.now() - startedAt },
       `[ShopwareMirror] customers: upserted=${upserted} skipped=false tenant=${tenantId ?? "default"}`,
     );
     return { upserted, skipped: false };
@@ -615,6 +646,8 @@ async function syncB2bCompaniesSnapshot(
   tenantId: string | null,
   opts?: { force?: boolean },
 ): Promise<{ upserted: number; skipped: boolean }> {
+  const log = mirrorLog(tenantId, "b2b_companies");
+  const startedAt = Date.now();
   await storage.upsertShopwareSyncState("b2b_companies", { status: "running", error: null }, tenantId);
   try {
     const admin = new B2BSellersAdminClient(settings);
@@ -664,7 +697,8 @@ async function syncB2bCompaniesSnapshot(
       tenantId,
     );
 
-    console.log(
+    log.info(
+      { upserted: companies.length, durationMs: Date.now() - startedAt },
       `[ShopwareMirror] b2b_companies: upserted=${companies.length} tenant=${tenantId ?? "default"}`,
     );
     return { upserted: companies.length, skipped: false };
@@ -675,7 +709,8 @@ async function syncB2bCompaniesSnapshot(
       tenantId,
     );
     // B2B plugin optional — don't fail whole sync hard for missing plugin
-    console.warn(`[ShopwareMirror] b2b_companies sync failed:`, error?.message || error);
+    // Bewusst ohne Stacktrace: fehlt das Plugin, kommt diese Meldung bei jedem Lauf
+    log.warn({ error: error?.message || String(error) }, `[ShopwareMirror] b2b_companies sync failed: ${error?.message || error}`);
     return { upserted: 0, skipped: false };
   }
 }
@@ -686,6 +721,8 @@ async function syncCustomerPrices(
   tenantId: string | null,
   opts?: { force?: boolean },
 ): Promise<{ upserted: number; skipped: boolean }> {
+  const log = mirrorLog(tenantId, "customer_prices");
+  const startedAt = Date.now();
   await storage.upsertShopwareSyncState("customer_prices", { status: "running", error: null }, tenantId);
   try {
     const state = await storage.getShopwareSyncState("customer_prices", tenantId);
@@ -737,7 +774,8 @@ async function syncCustomerPrices(
     }
     const allPrices = Array.from(byId.values());
     if (page > PRICE_MAX_PAGES) {
-      console.warn(
+      log.warn(
+        { maxPages: PRICE_MAX_PAGES, rows: allPrices.length },
         `[ShopwareMirror] customer_prices: Seitenlimit ${PRICE_MAX_PAGES} erreicht — Snapshot evtl. unvollständig (${allPrices.length} Zeilen)`,
       );
     }
@@ -768,7 +806,8 @@ async function syncCustomerPrices(
       tenantId,
     );
 
-    console.log(
+    log.info(
+      { upserted: allPrices.length, priceEntity: entity, durationMs: Date.now() - startedAt },
       `[ShopwareMirror] customer_prices: upserted=${allPrices.length} entity=${entity} tenant=${tenantId ?? "default"}`,
     );
     return { upserted: allPrices.length, skipped: false };
@@ -778,7 +817,7 @@ async function syncCustomerPrices(
       { status: "error", error: error?.message || String(error) },
       tenantId,
     );
-    console.warn(`[ShopwareMirror] customer_prices sync failed:`, error?.message || error);
+    log.warn({ error: error?.message || String(error) }, `[ShopwareMirror] customer_prices sync failed: ${error?.message || error}`);
     return { upserted: 0, skipped: false };
   }
 }
@@ -851,7 +890,7 @@ export async function runShopwareMirrorSync(storage: IStorage): Promise<void> {
       const client = new ShopwareClient(settings);
       await syncShopwareMirrorForTenant(storage, client, tenantId, { settings });
     } catch (error) {
-      console.error(`[ShopwareMirror] Sync failed for tenant ${tenantId}:`, error);
+      mirrorLog(tenantId).error({ err: error }, `[ShopwareMirror] Sync failed for tenant ${tenantId}: ${errText(error)}`);
     }
   }
 }
@@ -864,6 +903,6 @@ export function triggerShopwareMirrorSync(
   entities?: Array<"products" | "customers" | "b2b_companies" | "customer_prices">,
 ): void {
   void syncShopwareMirrorForTenant(storage, client, tenantId, { entities }).catch((error) => {
-    console.error(`[ShopwareMirror] Background trigger failed (tenant=${tenantId}):`, error);
+    mirrorLog(tenantId).error({ err: error }, `[ShopwareMirror] Background trigger failed (tenant=${tenantId}): ${errText(error)}`);
   });
 }
