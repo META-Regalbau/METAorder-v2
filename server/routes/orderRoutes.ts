@@ -3,7 +3,7 @@ import { requireAuth, requireViewDelayedOrders, requireManageDocuments, requireC
 import { storage } from "../storage";
 import { ShopwareClient, getRealInvoiceDocument, isMonduPluginShipError, ZUGFERD_EMBEDDED_INVOICE_TYPE } from "../shopware/shopware";
 import { getSalesChannelFilter, getOrdersWithCache, filterOrdersBySalesChannels, filterTicketsBySalesChannels, defaultProformaNumberRange, resolveAttachmentPath, dedupeOrdersByNumber, checkOrderChannelAccess, getMirrorOrdersLikeLive } from "./routeHelpers";
-import { filterOrdersList, sortOrdersList, computeDuplicateOrderIds, paginateOrdersList, type OrdersListQuery } from "../shopware/ordersList";
+import { filterOrdersList, sortOrdersList, computeDuplicateOrderIds, paginateOrdersList, selectDelayedOrders, type OrdersListQuery } from "../shopware/ordersList";
 import { enrichOrdersWithProfitability, buildOrderProfitabilityAnalysisSummary, sortOrdersByMargin } from "../analytics/orderProfitabilityAnalysis";
 import { enrichOrdersWithStockAvailability } from "../erp/orderStockEnrichment";
 import { loadCrmProfitabilitySettings } from "../analytics/crmProfitabilitySettings";
@@ -579,54 +579,9 @@ export function registerOrderRoutes(app: Express): void {
       // SECURITY: Filter by user's assigned sales channels FIRST
       const accessibleOrders = filterOrdersBySalesChannels(orders, allowedChannelIds);
       
-      // Default threshold: 3 days
+      // Regel gemeinsam mit den Dashboard-Kacheln (selectDelayedOrders); Standard-Schwelle 3 Tage
       const daysThreshold = parseInt(req.query.days as string) || 3;
-      const now = new Date();
-      const thresholdDate = new Date(now.getTime() - daysThreshold * 24 * 60 * 60 * 1000);
-      
-      // Filter delayed orders: deliveryDateLatest passed or order old, not completed/cancelled, and payment is paid
-      const delayedOrders = accessibleOrders
-        .filter(order => {
-          // Must not be completed or cancelled
-          const isNotFinished = order.status !== 'completed' && order.status !== 'cancelled';
-          
-          // Payment must be paid (not failed, cancelled, or open)
-          const hasValidPayment = order.paymentStatus === 'paid';
-          
-          if (!isNotFinished || !hasValidPayment) {
-            return false;
-          }
-          
-          // Check if delivery date is overdue or order is old
-          if (order.deliveryDateLatest) {
-            const deliveryDate = new Date(order.deliveryDateLatest);
-            const isOverdue = deliveryDate < thresholdDate;
-            return isOverdue;
-          } else {
-            // Fallback to order date if no delivery date
-            const orderDate = new Date(order.orderDate);
-            const isOld = orderDate < thresholdDate;
-            return isOld;
-          }
-        })
-        .map(order => {
-          // Calculate days since expected delivery (or order date as fallback)
-          const referenceDate = order.deliveryDateLatest 
-            ? new Date(order.deliveryDateLatest)
-            : new Date(order.orderDate);
-          const daysSinceOrder = Math.floor((now.getTime() - referenceDate.getTime()) / (1000 * 60 * 60 * 24));
-          
-          return {
-            ...order,
-            daysSinceOrder,
-          };
-        })
-        .sort((a, b) => {
-          // Sort by delivery date (latest delivery date first = most overdue)
-          const dateA = a.deliveryDateLatest ? new Date(a.deliveryDateLatest) : new Date(a.orderDate);
-          const dateB = b.deliveryDateLatest ? new Date(b.deliveryDateLatest) : new Date(b.orderDate);
-          return dateA.getTime() - dateB.getTime(); // Earliest date first (most overdue)
-        });
+      const delayedOrders = selectDelayedOrders(accessibleOrders, { daysThreshold });
       
       res.json(delayedOrders);
     } catch (error: any) {
