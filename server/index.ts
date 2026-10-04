@@ -29,6 +29,7 @@ import { installConsoleBridge } from "./lib/consoleBridge";
 import { requestIdMiddleware } from "./lib/requestContext";
 import { errorHandler, requestLoggingMiddleware } from "./lib/httpLogging";
 import { registerAutomationTriggers, startAutomationScheduler } from "./automation";
+import { getAppVersion } from "./lib/appVersion";
 
 // Ab hier landen auch alle console.*-Aufrufe strukturiert im Logger (server/lib/logger.ts).
 // Steht nach loadEnv (Imports laufen vorher), damit LOG_LEVEL/LOG_FORMAT aus .env greifen.
@@ -41,6 +42,12 @@ app.use(requestIdMiddleware);
 
 app.get("/healthz", (_req, res) => {
   res.status(200).json({ status: "ok" });
+});
+
+// Versionsangabe (Sidebar unten); ohne Anmeldung - enthaelt nur Nummer, Commit und Datum
+app.get("/api/version", (_req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json(getAppVersion());
 });
 
 // Debug log server: only in development, bind to localhost for security

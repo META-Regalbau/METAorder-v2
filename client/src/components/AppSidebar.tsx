@@ -1,10 +1,13 @@
 import { LayoutDashboard, Package, Download, BarChart3, Settings, Users, Shield, Sparkles, AlertTriangle, Ticket, GitBranch, Truck, FileText, Zap, FileUp, Receipt, Briefcase, Boxes, FileSearch, Scale, Building2, Wallet, ListOrdered, Layers, FilePlus, UserPlus, Warehouse, ShoppingCart, RotateCcw, Landmark, Factory, PackageCheck, Smartphone, Eye } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
 import type { Role } from "@shared/schema";
+import { formatAppVersion, type AppVersionInfo } from "@shared/appVersion";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -358,6 +361,22 @@ export default function AppSidebar({ userRole, permissions }: AppSidebarProps) {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter>
+        <AppVersionLabel />
+      </SidebarFooter>
     </Sidebar>
+  );
+}
+
+/** Version der laufenden App (fortlaufende Nummer und Datum; Commit im Tooltip) */
+function AppVersionLabel() {
+  const { t, i18n } = useTranslation();
+  const { data } = useQuery<AppVersionInfo>({ queryKey: ["/api/version"] });
+  if (!data) return null;
+  const { label, details } = formatAppVersion(data, t, i18n.language || "de");
+  return (
+    <div className="px-2 text-xs text-muted-foreground" title={details} data-testid="text-app-version">
+      {label}
+    </div>
   );
 }

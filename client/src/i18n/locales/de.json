@@ -4746,5 +4746,9 @@
       "description": "Kunden mit den meisten Angebotsanfragen"
     },
     "impressionsShort": "Imp."
+  },
+  "appVersion": {
+    "label": "Version {{version}}",
+    "details": "Commit {{commit}} vom {{date}}"
   }
 }

@@ -62,7 +62,13 @@ services:
       - 'mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" && mc mb -p local/metaorder || true'
 
   app:
-    build: .
+    build:
+      context: .
+      # Versionsangabe; `npm run docker:build` setzt sie aus Git, sonst zeigt die App "dev"
+      args:
+        APP_VERSION: ${APP_VERSION:-}
+        APP_COMMIT: ${APP_COMMIT:-}
+        APP_COMMIT_DATE: ${APP_COMMIT_DATE:-}
     ports:
       - "${HOST_PORT:-5001}:5000"
     environment:
