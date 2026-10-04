@@ -143,7 +143,6 @@ export function requireCsrf(req: any, res: any, next: any) {
       // Same-Origin: Origin/Referer-Host stimmt mit dem Request-Host ueberein.
       if (requestHost && url.host.toLowerCase() === requestHost) return true;
       if (host === "localhost" || host === "127.0.0.1") return true;
-      if (host.endsWith(".replit.dev") || host.endsWith(".replit.app")) return true;
       if (process.env.APP_URL) {
         const allowed = new URL(process.env.APP_URL);
         return url.origin === allowed.origin;
