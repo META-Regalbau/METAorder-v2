@@ -2,20 +2,35 @@
 
 Unter **Automatisierung** lassen sich Regeln anlegen: *Wenn* ein Auslöser eintritt *und* alle Bedingungen zutreffen, *dann* werden die Aktionen der Reihe nach ausgeführt. Jede Ausführung steht in der **Ausführungshistorie** der Regel.
 
-## Verfügbar (Ausbaustufe 1)
+## Verfügbar
 
 **Auslöser**
 - **Ticket erstellt** – egal auf welchem Weg (manuell, Kundenportal, E-Mail-Eingang, Webhook).
 - **Ticket-Status geändert** – mit Zugriff auf den vorherigen Status.
+- **Zeitgesteuert: Bestellungen prüfen** – siehe unten.
 
 **Bedingungen** (alle müssen zutreffen; ohne Bedingung greift die Regel immer)
 - Ticket: Priorität, Kategorie, Status, vorheriger Status, Titel, Beschreibung, Kunden-E-Mail, Kundenname, Bestellnummer, zugewiesen (ja/nein), aus E-Mail entstanden (ja/nein)
 - Ticket: **Stimmung (KI)** – wird nur ermittelt, wenn eine Regel sie braucht; ohne KI-Konfiguration per Stichwort-Heuristik.
+- Bestellung (zeitgesteuert): Status, Zahlungsstatus, Tage seit Bestellung, **Tage über spätestem Lieferdatum** (ohne Lieferdatum: seit Bestelldatum – wie die Ansicht „Verspätete Bestellungen“), Gesamtbetrag, Bestellnummer, Kunde, Zahl-/Versandart, Verkaufskanal.
 
 **Aktionen**
 - Ticket zuweisen · Priorität setzen · KI-Analyse (Kategorie setzen solange „Allgemein“, negative Stimmung → Priorität „Hoch“)
 - Benachrichtigung an einen Benutzer · E-Mail senden (über den E-Mail-Ausgang aus den Einstellungen) · Ticket anlegen
-- Texte können **Platzhalter** enthalten, z. B. `{{ticket.ticketNumber}}`, `{{ticket.title}}`, `{{ticket.customerName}}`, `{{ticket.customerEmail}}` (auch als E-Mail-Empfänger).
+- Texte können **Platzhalter** enthalten, z. B. `{{ticket.ticketNumber}}`, `{{ticket.title}}`, `{{ticket.customerName}}`, `{{ticket.customerEmail}}` (auch als E-Mail-Empfänger), bei Bestellungen `{{order.orderNumber}}`, `{{order.customerName}}`, `{{order.daysPastDeliveryDate}}` u. a.
+- Ticket-Aktionen (zuweisen, Priorität, KI-Analyse) gibt es nur bei Ticket-Auslösern. Ein von einer Bestellregel angelegtes Ticket ist mit der Bestellung verknüpft.
+
+## Zeitgesteuerte Regeln (Bestellungen)
+
+Laufen regelmäßig (Standard: stündlich, erster Lauf 3 Minuten nach dem Start) über die Bestellungen aus dem **Shopware-Spiegel** – nicht live aus Shopware. Ist der Spiegel abgeschaltet (`SHOPWARE_SYNC_ENABLED=false`), finden sie nichts.
+
+Sicherungen gegen Massen-Ausführung:
+- nur Bestellungen der **letzten 60 Tage** (ältere „hängende“ Bestellungen bleiben unberührt);
+- **jede Bestellung höchstens einmal pro Regel** (Fehlversuche werden bis zu dreimal wiederholt);
+- höchstens **25 Ausführungen je Regel und Lauf**, älteste Bestellungen zuerst;
+- mindestens **eine Bedingung** ist Pflicht.
+
+Die **Vorschau** im Editor zeigt vor dem Speichern, auf wie viele Bestellungen die Regel gerade zutrifft, wie viele schon erledigt sind und was der nächste Lauf täte (mit Beispielen). Abschalten: `AUTOMATION_SCHEDULER_ENABLED=false`; Intervall: `AUTOMATION_SCHEDULE_INTERVAL_MINUTES` (mindestens 5).
 
 ## Verhalten
 
@@ -28,9 +43,8 @@ Unter **Automatisierung** lassen sich Regeln anlegen: *Wenn* ein Auslöser eintr
 
 ## Folgt
 
-- **Zeitgesteuert:** verzögerte Bestellungen (ohne Mehrfachausführung pro Bestellung)
-- **Bestellungen:** erstellt, Status geändert, Zahlungsstatus geändert (über die Änderungserkennung des Shopware-Spiegels)
+- **Bestell-Auslöser:** erstellt, Status geändert, Zahlungsstatus geändert (über die Änderungserkennung des Shopware-Spiegels)
 
 ## Technik
 
-Katalog (Auslöser, Felder, Operatoren, Aktionen, Prüfung): `shared/automation.ts` · Engine: `server/automation/` · Auslöser: `server/lib/domainEvents.ts` (gemeldet von `storage.createTicket/updateTicket`) · Tests: `tests/unit/automation.test.ts`.
+Katalog (Auslöser, Felder, Operatoren, Aktionen, Prüfung): `shared/automation.ts` · Engine: `server/automation/` · Auslöser: `server/lib/domainEvents.ts` (gemeldet von `storage.createTicket/updateTicket`) · Zeitsteuerung und Vorschau: `server/automation/scheduler.ts` · Tests: `tests/unit/automation.test.ts`, `tests/unit/automationScheduled.test.ts`.

@@ -1,4 +1,4 @@
-import type { AutomationRule, Ticket } from "@shared/schema";
+import type { AutomationRule, Order, Ticket } from "@shared/schema";
 import {
   AUTOMATION_FIELDS,
   evaluateConditions,
@@ -23,6 +23,10 @@ export type AutomationEvent = {
 export type ActionOutcome = { type: string; ok: boolean; message: string };
 export type RuleOutcome = { ruleId: string; ruleName: string; status: "success" | "failure"; actions: ActionOutcome[] };
 
+export type PreparedRule = { rule: AutomationRule; conditions: AutomationConditionInput[]; actions: AutomationActionInput[] };
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 export function ticketFacts(ticket: Ticket, previousStatus?: string): AutomationFacts {
   return {
     "ticket.id": ticket.id,
@@ -41,6 +45,34 @@ export function ticketFacts(ticket: Ticket, previousStatus?: string): Automation
   };
 }
 
+/** Ganze Tage seit einem Datum (abgerundet); null bei fehlendem/ungueltigem Datum. */
+function daysSince(value: string | undefined | null, now: Date): number | null {
+  if (!value) return null;
+  const t = new Date(value).getTime();
+  return Number.isNaN(t) ? null : Math.floor((now.getTime() - t) / DAY_MS);
+}
+
+export function orderFacts(order: Order, now: Date = new Date()): AutomationFacts {
+  const daysSinceOrder = daysSince(order.orderDate, now);
+  // Wie die Ansicht "Verspaetete Bestellungen": spaetestes Lieferdatum, sonst Bestelldatum
+  const daysPastDelivery = daysSince(order.deliveryDateLatest ?? order.orderDate, now);
+  return {
+    "order.id": order.id,
+    "order.orderNumber": order.orderNumber,
+    "order.orderDate": order.orderDate ? order.orderDate.slice(0, 10) : null,
+    "order.status": order.status,
+    "order.paymentStatus": order.paymentStatus,
+    "order.daysSinceOrder": daysSinceOrder,
+    "order.daysPastDeliveryDate": daysPastDelivery,
+    "order.totalAmount": typeof order.totalAmount === "number" ? order.totalAmount : null,
+    "order.customerName": order.customerName,
+    "order.customerEmail": order.customerEmail,
+    "order.paymentMethod": order.paymentMethod ?? null,
+    "order.shippingMethod": order.shippingMethod ?? null,
+    "order.salesChannelName": order.salesChannelName ?? null,
+  };
+}
+
 function parseJsonArray<T>(raw: string | null | undefined): T[] | null {
   if (!raw) return [];
   try {
@@ -52,30 +84,82 @@ function parseJsonArray<T>(raw: string | null | undefined): T[] | null {
 }
 
 /**
- * Fuehrt alle aktiven Regeln des Mandanten fuer ein Ereignis aus.
- * - Reihenfolge: Prioritaet absteigend, bei Gleichstand aelteste Regel zuerst.
- * - Bedingungen beziehen sich auf den Stand beim Ausloesen (nicht auf Aenderungen frueherer Regeln).
- * - Fehlerhafte bzw. unvollstaendige Regeln (z. B. altes Format) werden uebersprungen und geloggt.
- * - Jede Ausfuehrung landet in der Historie; eine fehlgeschlagene Aktion stoppt die folgenden nicht.
+ * Aktive, vollstaendige Regeln eines Ausloesers fuer den Mandanten aus dem Kontext.
+ * Reihenfolge: Prioritaet absteigend, bei Gleichstand aelteste zuerst. Unvollstaendige bzw.
+ * veraltete Regeln (z. B. altes Format) werden uebersprungen und geloggt.
+ */
+export async function prepareRules(deps: AutomationDeps, trigger: AutomationTriggerTypeId): Promise<PreparedRule[]> {
+  const rules = (await deps.storage.getActiveAutomationRules())
+    .filter((r) => r.triggerType === trigger)
+    .sort((a, b) => b.priority - a.priority || new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  const prepared: PreparedRule[] = [];
+  for (const rule of rules) {
+    const conditions = parseJsonArray<AutomationConditionInput>(rule.conditions);
+    const actions = parseJsonArray<AutomationActionInput>(rule.actions);
+    const errors = conditions && actions ? validateAutomationRule({ triggerType: rule.triggerType, conditions, actions }) : ["Bedingungen/Aktionen sind kein gueltiges JSON"];
+    if (errors.length > 0) {
+      logger.warn({ ruleId: rule.id, ruleName: rule.name, errors }, "Automatisierungsregel uebersprungen: unvollstaendig oder veraltet");
+      continue;
+    }
+    prepared.push({ rule, conditions: conditions!, actions: actions! });
+  }
+  return prepared;
+}
+
+/**
+ * Fuehrt die Aktionen einer Regel aus (Schleifenschutz aktiv), protokolliert die Ausfuehrung
+ * und zaehlt hoch. Eine fehlgeschlagene Aktion stoppt die folgenden nicht.
+ */
+export async function executeRule(
+  deps: AutomationDeps,
+  prepared: PreparedRule,
+  ctx: { trigger: AutomationTriggerTypeId; tenantId: string | null; facts: AutomationFacts; ticket?: Ticket; order?: Order },
+): Promise<RuleOutcome> {
+  const { rule, actions } = prepared;
+  const results: ActionOutcome[] = [];
+  await runInsideAutomation(rule.id, async () => {
+    for (const action of actions) {
+      try {
+        const message = await executeAction(action, { deps, tenantId: ctx.tenantId, ticket: ctx.ticket, order: ctx.order, facts: ctx.facts });
+        results.push({ type: action.type, ok: true, message });
+      } catch (err) {
+        results.push({ type: action.type, ok: false, message: err instanceof Error ? err.message : String(err) });
+      }
+    }
+  });
+
+  const status = results.every((r) => r.ok) ? "success" : "failure";
+  const entity = ctx.ticket
+    ? { type: "ticket", id: ctx.ticket.id, number: ctx.ticket.ticketNumber }
+    : ctx.order
+      ? { type: "order", id: ctx.order.id, number: ctx.order.orderNumber }
+      : null;
+  try {
+    await deps.storage.createAutomationExecution({
+      ruleId: rule.id,
+      status,
+      result: { trigger: ctx.trigger, entity, actions: results },
+      error: results.find((r) => !r.ok)?.message ?? null,
+    });
+    await deps.storage.incrementRuleExecutionCount(rule.id);
+  } catch (err) {
+    logger.error({ err, ruleId: rule.id }, "Ausfuehrung der Automatisierungsregel nicht protokolliert");
+  }
+  logger[status === "success" ? "info" : "warn"](
+    { ruleId: rule.id, ruleName: rule.name, trigger: ctx.trigger, entity, actions: results },
+    `Automatisierungsregel "${rule.name}" ausgefuehrt: ${status}`,
+  );
+  return { ruleId: rule.id, ruleName: rule.name, status, actions: results };
+}
+
+/**
+ * Ticket-Ereignis: alle passenden Regeln des Mandanten ausfuehren.
+ * Bedingungen beziehen sich auf den Stand beim Ausloesen (nicht auf Aenderungen frueherer Regeln).
  */
 export async function runAutomationEvent(deps: AutomationDeps, event: AutomationEvent): Promise<RuleOutcome[]> {
   return runWithTenantContext(event.tenantId, async () => {
-    const rules = (await deps.storage.getActiveAutomationRules())
-      .filter((r) => r.triggerType === event.trigger)
-      .sort((a, b) => b.priority - a.priority || new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-    if (rules.length === 0) return [];
-
-    const prepared: Array<{ rule: AutomationRule; conditions: AutomationConditionInput[]; actions: AutomationActionInput[] }> = [];
-    for (const rule of rules) {
-      const conditions = parseJsonArray<AutomationConditionInput>(rule.conditions);
-      const actions = parseJsonArray<AutomationActionInput>(rule.actions);
-      const errors = conditions && actions ? validateAutomationRule({ triggerType: rule.triggerType, conditions, actions }) : ["Bedingungen/Aktionen sind kein gueltiges JSON"];
-      if (errors.length > 0) {
-        logger.warn({ ruleId: rule.id, ruleName: rule.name, errors }, "Automatisierungsregel uebersprungen: unvollstaendig oder veraltet");
-        continue;
-      }
-      prepared.push({ rule, conditions: conditions!, actions: actions! });
-    }
+    const prepared = await prepareRules(deps, event.trigger);
+    if (prepared.length === 0) return [];
 
     const facts: AutomationFacts = event.ticket ? ticketFacts(event.ticket, event.previousStatus) : {};
     // KI-Felder nur ermitteln, wenn eine Regel sie braucht - und dann nur einmal je Ereignis
@@ -89,43 +173,9 @@ export async function runAutomationEvent(deps: AutomationDeps, event: Automation
     }
 
     const outcomes: RuleOutcome[] = [];
-    for (const { rule, conditions, actions } of prepared) {
-      if (!evaluateConditions(conditions, facts)) continue;
-
-      const results: ActionOutcome[] = [];
-      await runInsideAutomation(rule.id, async () => {
-        for (const action of actions) {
-          try {
-            const message = await executeAction(action, { deps, tenantId: event.tenantId, ticket: event.ticket, facts });
-            results.push({ type: action.type, ok: true, message });
-          } catch (err) {
-            results.push({ type: action.type, ok: false, message: err instanceof Error ? err.message : String(err) });
-          }
-        }
-      });
-
-      const status = results.every((r) => r.ok) ? "success" : "failure";
-      const firstError = results.find((r) => !r.ok)?.message ?? null;
-      try {
-        await deps.storage.createAutomationExecution({
-          ruleId: rule.id,
-          status,
-          result: {
-            trigger: event.trigger,
-            entity: event.ticket ? { type: "ticket", id: event.ticket.id, number: event.ticket.ticketNumber } : null,
-            actions: results,
-          },
-          error: firstError,
-        });
-        await deps.storage.incrementRuleExecutionCount(rule.id);
-      } catch (err) {
-        logger.error({ err, ruleId: rule.id }, "Ausfuehrung der Automatisierungsregel nicht protokolliert");
-      }
-      logger[status === "success" ? "info" : "warn"](
-        { ruleId: rule.id, ruleName: rule.name, trigger: event.trigger, ticketId: event.ticket?.id, actions: results },
-        `Automatisierungsregel "${rule.name}" ausgefuehrt: ${status}`,
-      );
-      outcomes.push({ ruleId: rule.id, ruleName: rule.name, status, actions: results });
+    for (const p of prepared) {
+      if (!evaluateConditions(p.conditions, facts)) continue;
+      outcomes.push(await executeRule(deps, p, { trigger: event.trigger, tenantId: event.tenantId, facts, ticket: event.ticket }));
     }
     return outcomes;
   });

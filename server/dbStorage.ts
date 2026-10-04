@@ -2242,6 +2242,34 @@ export class DbStorage implements IStorage {
     return result;
   }
 
+  async getAutomationEntityRunStats(
+    ruleId: string,
+    entityType: string,
+    tenantId?: string | null
+  ): Promise<Map<string, { succeeded: boolean; failures: number }>> {
+    const tenantFilter = tenantFilterFor(automationExecutions.tenantId, tenantId);
+    const rows = await db
+      .select({
+        entityId: drizzleSql<string | null>`${automationExecutions.result}->'entity'->>'id'`,
+        succeeded: drizzleSql<boolean>`bool_or(${automationExecutions.status} = 'success')`,
+        failures: drizzleSql<number>`count(*) filter (where ${automationExecutions.status} <> 'success')`,
+      })
+      .from(automationExecutions)
+      .where(
+        and(
+          eq(automationExecutions.ruleId, ruleId),
+          tenantFilter,
+          drizzleSql`${automationExecutions.result}->'entity'->>'type' = ${entityType}`,
+        ),
+      )
+      .groupBy(drizzleSql`1`);
+    const stats = new Map<string, { succeeded: boolean; failures: number }>();
+    for (const row of rows) {
+      if (row.entityId) stats.set(row.entityId, { succeeded: Boolean(row.succeeded), failures: Number(row.failures) });
+    }
+    return stats;
+  }
+
   async getAutomationExecutions(ruleId: string, limit: number = 50, tenantId?: string | null): Promise<AutomationExecution[]> {
     const tenantFilter = tenantFilterFor(automationExecutions.tenantId, tenantId);
     const executions = await db

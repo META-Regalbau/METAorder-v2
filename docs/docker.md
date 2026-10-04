@@ -113,6 +113,8 @@ Shopware, E-Mail, optionale Dienste: wie bisher ueber `.env` / Compose `environm
 | `METAORDER_STRICT_TENANT` | `true`: Nach JWT-Auth ist für fast alle `/api/*`-Routen ein **gewählter Mandant** Pflicht (Ausnahmen: Mandantenliste, Profil, Token). Empfohlen für Shared-SaaS. |
 | `METAORDER_INTEGRATION_TENANT_ID` | Bei `METAORDER_STRICT_TENANT=true` **und** Nutzung des **globalen** `METAORDER_INTEGRATION_API_KEY`: UUID des Mandanten, unter dem Integrations-Requests laufen sollen. |
 | `REQUEST_LOG_SLOW_MS` | Optional: Zahl in ms — API-Requests ab dieser Dauer erzeugen zusätzlich eine Warnung **`[slow-request]`** (Feld `slow: true`, siehe `server/lib/httpLogging.ts`). |
+| `AUTOMATION_SCHEDULER_ENABLED` | Optional: `false` schaltet die zeitgesteuerten Automatisierungsregeln ab (siehe [automatisierung.md](automatisierung.md)). |
+| `AUTOMATION_SCHEDULE_INTERVAL_MINUTES` | Optional: Intervall der zeitgesteuerten Regeln in Minuten (Default **60**, mindestens 5). |
 | `LOG_LEVEL` | Optional: `trace` · `debug` · `info` (Default) · `warn` · `error` · `fatal`. |
 | `LOG_FORMAT` | Optional: `json` (Default außer bei `NODE_ENV=development`) — eine JSON-Zeile je Eintrag mit `time`, `level`, `msg`, `requestId`, `tenantId` und weiteren Feldern; `pretty` — lesbare Zeilen (nur mit installierten devDependencies, sonst JSON). Siehe `server/lib/logger.ts`. Jede API-Antwort trägt ihre ID im Header **`X-Request-Id`**; damit lassen sich Fehlermeldungen von Nutzern den Log-Zeilen zuordnen. |
 | `PG_POOL_MAX` | Optional: Max. Verbindungen im **node-postgres**-Pool (Default **20**), nur bei klassischem `DATABASE_URL` ohne Neon-Treiber. |

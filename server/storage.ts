@@ -392,6 +392,12 @@ export interface IStorage {
   deleteAutomationRule(id: string, tenantId?: string | null): Promise<boolean>;
   incrementRuleExecutionCount(id: string, tenantId?: string | null): Promise<void>;
   createAutomationExecution(execution: InsertAutomationExecution, tenantId?: string | null): Promise<AutomationExecution>;
+  /** Je Entitaet (z. B. Bestellung): bereits erfolgreich ausgefuehrt? Anzahl Fehlversuche. */
+  getAutomationEntityRunStats(
+    ruleId: string,
+    entityType: string,
+    tenantId?: string | null
+  ): Promise<Map<string, { succeeded: boolean; failures: number }>>;
   getAutomationExecutions(ruleId: string, limit?: number, tenantId?: string | null): Promise<AutomationExecution[]>;
   
   // Order Drafts (AI-powered order creation)

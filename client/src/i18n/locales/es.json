@@ -2403,7 +2403,7 @@
       "order_payment_changed": "Estado de Pago Cambiado",
       "ticket_created": "Ticket Creado",
       "ticket_status_changed": "Estado de Ticket Cambiado",
-      "scheduled": "Programado"
+      "scheduled": "Programado: revisar pedidos"
     },
     "actions": {
       "create_ticket": "Crear Ticket",
@@ -2451,8 +2451,8 @@
       "title": "Plantillas de Reglas",
       "orCustom": "o crear regla personalizada",
       "delayedOrders": {
-        "name": "Escalación de Pedidos Retrasados",
-        "description": "Crea automáticamente un ticket para pedidos no enviados después de X días"
+        "name": "Pedidos retrasados",
+        "description": "Crea un ticket cuando un pedido pagado lleva 3 días tras su fecha de entrega más tardía y aún no está completado."
       },
       "autoStatus": {
         "name": "Actualización Automática de Estado",
@@ -2489,6 +2489,19 @@
         "isAssigned": "Ticket: asignado",
         "fromEmail": "Ticket: creado desde correo",
         "sentiment": "Ticket: sentimiento (IA)"
+      },
+      "order": {
+        "status": "Pedido: estado",
+        "paymentStatus": "Pedido: estado de pago",
+        "daysSinceOrder": "Pedido: días desde el pedido",
+        "daysPastDeliveryDate": "Pedido: días tras la fecha de entrega más tardía",
+        "totalAmount": "Pedido: importe total (bruto)",
+        "orderNumber": "Pedido: número de pedido",
+        "customerName": "Pedido: nombre del cliente",
+        "customerEmail": "Pedido: correo del cliente",
+        "paymentMethod": "Pedido: forma de pago",
+        "shippingMethod": "Pedido: forma de envío",
+        "salesChannelName": "Pedido: canal de venta"
       }
     },
     "values": {
@@ -2504,7 +2517,23 @@
       "complaint": "Reclamación",
       "feature_request": "Solicitud de función",
       "discount_request": "Solicitud de descuento",
-      "other": "Otro"
+      "other": "Otro",
+      "orderStatus": {
+        "open": "Abierto",
+        "in_progress": "En curso",
+        "completed": "Completado",
+        "cancelled": "Cancelado"
+      },
+      "paymentStatus": {
+        "open": "Abierto",
+        "paid": "Pagado",
+        "authorized": "Autorizado",
+        "partially_paid": "Pagado parcialmente",
+        "refunded": "Reembolsado",
+        "cancelled": "Cancelado",
+        "reminded": "Reclamado",
+        "failed": "Fallido"
+      }
     },
     "params": {
       "userId": "Usuario",
@@ -2520,7 +2549,16 @@
       "escalateNegative": "Subir la prioridad a “Alta” si el sentimiento es negativo"
     },
     "history": {
-      "ticket": "Ticket"
+      "ticket": "Ticket",
+      "order": "Pedido"
+    },
+    "scheduled": {
+      "title": "Programado",
+      "description": "Se ejecuta con regularidad (cada hora por defecto) sobre los pedidos de los últimos {{days}} días del espejo de Shopware. Cada pedido como máximo una vez por regla; como máximo {{max}} ejecuciones por pasada, primero los pedidos más antiguos.",
+      "preview": "Vista previa",
+      "previewSummary": "Coincide ahora con {{matching}} pedidos, {{done}} ya tratados. Próxima pasada: {{next}}.",
+      "previewError": "Vista previa fallida",
+      "days": "días"
     }
   },
   "offers": {

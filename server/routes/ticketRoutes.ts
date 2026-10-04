@@ -1,5 +1,7 @@
 // Tickets: Ticket-API, Kundenportal, Vorlagen, Zuweisungs- und Automatisierungsregeln, Anhaenge.
 import { validateAutomationRule, type AutomationActionInput, type AutomationConditionInput } from "@shared/automation";
+import { createAutomationDeps } from "../automation";
+import { previewScheduledRule } from "../automation/scheduler";
 import { requireAuth, requireManageTickets, requireManageAutomations, requireViewTickets } from "../auth/auth";
 import { storage } from "../storage";
 import { z } from "zod";
@@ -223,6 +225,33 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
   });
 
   // Automation Rules - Get single automation rule
+  // Automation Rules - Vorschau fuer zeitgesteuerte Regeln: welche Bestellungen jetzt betroffen
+  // waeren (fuehrt nichts aus). Optional ruleId, um bereits erledigte Bestellungen abzuziehen.
+  app.post("/api/automation-rules/preview", requireAuth, requireManageAutomations, async (req, res) => {
+    try {
+      const body = insertAutomationRuleSchema.pick({ triggerType: true, conditions: true }).extend({ ruleId: z.string().optional() }).parse(req.body);
+      if (body.triggerType !== "scheduled") {
+        return res.status(400).json({ error: "Vorschau gibt es nur fuer zeitgesteuerte Regeln" });
+      }
+      const conditions = body.conditions ?? [];
+      const ruleErrors = validateAutomationRule({ triggerType: body.triggerType, conditions, actions: [{ type: "create_ticket", params: { title: "x", description: "x" } }] });
+      if (ruleErrors.length > 0) {
+        return res.status(400).json({ error: "Regel unvollständig", details: ruleErrors });
+      }
+      if (body.ruleId && !(await storage.getAutomationRule(body.ruleId))) {
+        return res.status(404).json({ error: "Automation rule not found" });
+      }
+      const preview = await previewScheduledRule(createAutomationDeps(storage), getTenantIdFromContext(), conditions, body.ruleId ?? null);
+      res.json(preview);
+    } catch (error: any) {
+      if (error?.name === "ZodError") {
+        return res.status(400).json({ error: "Invalid preview data", details: error.errors });
+      }
+      console.error("Error previewing automation rule:", error);
+      res.status(500).json({ error: "Failed to preview automation rule" });
+    }
+  });
+
   // Automation Rules - Benutzer des aktiven Mandanten (Auswahl fuer "zuweisen"/"benachrichtigen").
   // Muss VOR "/api/automation-rules/:id" stehen, sonst faengt :id den Pfad "users" ab.
   app.get("/api/automation-rules/users", requireAuth, requireManageAutomations, async (_req, res) => {

@@ -8,6 +8,19 @@ export const TICKET_STATUSES = ["open", "in_progress", "waiting_for_customer", "
 export const TICKET_PRIORITIES = ["low", "normal", "high", "urgent"] as const;
 export const TICKET_CATEGORIES = ["general", "order_issue", "product_inquiry", "technical_support", "complaint", "feature_request", "discount_request", "other"] as const;
 export const SENTIMENTS = ["positive", "neutral", "negative"] as const;
+export const ORDER_STATUSES = ["open", "in_progress", "completed", "cancelled"] as const;
+export const PAYMENT_STATUSES = ["open", "paid", "authorized", "partially_paid", "refunded", "cancelled", "reminded", "failed"] as const;
+
+/**
+ * Zeitgesteuerte Regeln (Ausloeser "scheduled") pruefen regelmaessig die Bestellungen aus dem
+ * Shopware-Spiegel. Sicherungen gegen Massen-Ausfuehrung beim ersten Lauf: nur juengere
+ * Bestellungen, je Bestellung hoechstens einmal pro Regel (Fehlversuche begrenzt wiederholt),
+ * hoechstens N Ausfuehrungen je Regel und Lauf, mindestens eine Bedingung.
+ */
+export const SCHEDULED_LOOKBACK_DAYS = 60;
+export const SCHEDULED_MAX_PER_RULE_PER_RUN = 25;
+export const SCHEDULED_MAX_FAILED_ATTEMPTS = 3;
+export const SCHEDULED_DEFAULT_INTERVAL_MINUTES = 60;
 
 // ---------------------------------------------------------------------------
 // Ausloeser
@@ -30,7 +43,7 @@ export const AUTOMATION_TRIGGERS: Record<AutomationTriggerTypeId, { entity: "tic
   order_created: { entity: "order", available: false },
   order_status_changed: { entity: "order", available: false },
   order_payment_changed: { entity: "order", available: false },
-  scheduled: { entity: "order", available: false },
+  scheduled: { entity: "order", available: true },
 };
 
 // ---------------------------------------------------------------------------
@@ -59,6 +72,7 @@ export type AutomationFieldDef = {
 };
 
 const TICKET_TRIGGERS = ["ticket_created", "ticket_status_changed"] as const;
+const ORDER_TRIGGERS = ["scheduled"] as const;
 
 export const AUTOMATION_FIELDS: Record<string, AutomationFieldDef> = {
   "ticket.priority": { type: "enum", options: TICKET_PRIORITIES, triggers: TICKET_TRIGGERS },
@@ -73,6 +87,17 @@ export const AUTOMATION_FIELDS: Record<string, AutomationFieldDef> = {
   "ticket.isAssigned": { type: "boolean", triggers: TICKET_TRIGGERS },
   "ticket.fromEmail": { type: "boolean", triggers: TICKET_TRIGGERS },
   "ticket.sentiment": { type: "enum", options: SENTIMENTS, triggers: TICKET_TRIGGERS, computed: true },
+  "order.status": { type: "enum", options: ORDER_STATUSES, triggers: ORDER_TRIGGERS },
+  "order.paymentStatus": { type: "enum", options: PAYMENT_STATUSES, triggers: ORDER_TRIGGERS },
+  "order.daysSinceOrder": { type: "number", triggers: ORDER_TRIGGERS },
+  "order.daysPastDeliveryDate": { type: "number", triggers: ORDER_TRIGGERS },
+  "order.totalAmount": { type: "number", triggers: ORDER_TRIGGERS },
+  "order.orderNumber": { type: "text", triggers: ORDER_TRIGGERS },
+  "order.customerName": { type: "text", triggers: ORDER_TRIGGERS },
+  "order.customerEmail": { type: "text", triggers: ORDER_TRIGGERS },
+  "order.paymentMethod": { type: "text", triggers: ORDER_TRIGGERS },
+  "order.shippingMethod": { type: "text", triggers: ORDER_TRIGGERS },
+  "order.salesChannelName": { type: "text", triggers: ORDER_TRIGGERS },
 };
 
 export function fieldsForTrigger(trigger: AutomationTriggerTypeId): string[] {
@@ -211,7 +236,7 @@ export type AutomationActionInput = { type: string; params: Record<string, unkno
 
 export const AUTOMATION_PLACEHOLDERS: Record<"ticket" | "order", readonly string[]> = {
   ticket: ["ticket.ticketNumber", "ticket.title", "ticket.status", "ticket.previousStatus", "ticket.priority", "ticket.category", "ticket.customerName", "ticket.customerEmail", "ticket.orderNumber"],
-  order: [],
+  order: ["order.orderNumber", "order.customerName", "order.customerEmail", "order.orderDate", "order.status", "order.paymentStatus", "order.totalAmount", "order.daysSinceOrder", "order.daysPastDeliveryDate"],
 };
 
 /** Ersetzt {{feld}} durch den Wert aus den Fakten; unbekannte Platzhalter werden leer. */
@@ -244,6 +269,9 @@ export function validateAutomationRule(rule: {
   const trigger = AUTOMATION_TRIGGERS[rule.triggerType as AutomationTriggerTypeId];
   if (!trigger) return [`Unbekannter Auslöser: ${rule.triggerType}`];
   if (!trigger.available) errors.push(`Auslöser "${rule.triggerType}" ist noch nicht verfügbar`);
+  if (rule.triggerType === "scheduled" && (rule.conditions ?? []).length === 0) {
+    errors.push("Zeitgesteuerte Regeln brauchen mindestens eine Bedingung (sonst würde jede Bestellung verarbeitet)");
+  }
 
   (rule.conditions ?? []).forEach((c, i) => {
     const def = AUTOMATION_FIELDS[c.field];
