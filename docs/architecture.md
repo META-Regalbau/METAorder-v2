@@ -98,7 +98,7 @@ Neue Shopware-Methoden: als `export async function name(this: ShopwareClient, �
 | `operationsRoutes.ts` | `/api/shipping`, `/api/carriers`, `/api/process-updates`, `/api/erp-automation`, `/api/debug` |
 | `routeHelpers.ts` | gemeinsame Helfer (Verkaufskanal-Filter, Ticket-Zuweisung/-SLA, Anhang-Pfade, Bestell-Cache) |
 
-Weitere Routen-Module liegen bei ihrer Domäne: `erp/erpRoutes.ts`, `cpq/cpqRoutes.ts`, `cpq-core/cpqCoreRoutes.ts`, `b2b/b2bAdminRoutes.ts`, `offers/publicOfferRoutes.ts`, `sftp/sftpRoutes.ts`, `commercial/commercialAcknowledgementRoutes.ts`. Die OpenAPI-Pfade erzeugt `scripts/generate-openapi-paths.mjs` beim Build aus allen `.ts`-Dateien unter `server/` (Muster `app.get("/api/...")` usw.) – neue Routen-Module muss man dort also nicht eintragen.
+Weitere Routen-Module liegen bei ihrer Domäne: `erp/erpRoutes.ts`, `cpq/cpqRoutes.ts`, `cpq-core/cpqCoreRoutes.ts`, `b2b/b2bAdminRoutes.ts`, `offers/publicOfferRoutes.ts`, `sftp/sftpRoutes.ts`, `commercial/commercialAcknowledgementRoutes.ts`. Die OpenAPI-Pfade erzeugt `scripts/generate-openapi-paths.mjs` beim Build aus allen `.ts`-Dateien unter `server/` (Muster `app.get("/api/...")` usw.) – neue Routen-Module muss man dort also nicht eintragen. `tests/unit/routeRegistry.test.ts` registriert alle Routen wie beim Start und prüft, dass keine Route von einer früher registrierten Parameter-Route (z. B. `/api/orders/:orderId`) verdeckt wird und die OpenAPI-Liste genau den registrierten `/api`-Routen entspricht.
 
 ## Backend-Start und Hintergrundjobs
 
