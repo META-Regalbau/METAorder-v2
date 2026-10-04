@@ -186,6 +186,11 @@ export class B2BSellersAdminClient {
     return this.entityMapping[key];
   }
 
+  /**
+   * Admin-Suche. Gesamtzahl nur mit "total-count-mode": 1 in den Kriterien (kebab-case) - die
+   * Schreibweise totalCountMode ignoriert Shopware still und meldet dann als total nur die Anzahl
+   * der Treffer auf der Seite.
+   */
   async searchEntity(
     entityKey: keyof B2BEntityMapping,
     criteria: Record<string, unknown>,
@@ -364,7 +369,7 @@ export class B2BSellersAdminClient {
     const customerCriteria: Record<string, unknown> = {
       limit: filters.limit || 50,
       page: filters.page || 1,
-      totalCountMode: 1,
+      "total-count-mode": 1,
       sort: [{ field: "createdAt", order: "DESC" }],
       associations: {
         salesChannel: {},
@@ -426,7 +431,7 @@ export class B2BSellersAdminClient {
     const criteria: Record<string, unknown> = {
       limit: filters.limit || 50,
       page: filters.page || 1,
-      totalCountMode: 1,
+      "total-count-mode": 1,
       sort: [{ field: "createdAt", order: "DESC" }],
       associations: {
         customer: {
@@ -965,7 +970,7 @@ export class B2BSellersAdminClient {
     const criteria: Record<string, unknown> = {
       limit,
       page,
-      totalCountMode: 1,
+      "total-count-mode": 1,
       sort: [{ field: "lastName", order: "ASC" }],
       // Nur die Felder laden, die mapEmployee tatsächlich nutzt. Ohne includes
       // liefert Shopware u. a. den Passwort-Hash und alle Skalarfelder mit; die
@@ -1212,7 +1217,7 @@ export class B2BSellersAdminClient {
     // const criteria: Record<string, unknown> = {
     //   limit: filters.limit || 50,
     //   page: filters.page || 1,
-    //   totalCountMode: 1,
+    //   "total-count-mode": 1,
     //   sort: [{ field: "createdAt", order: "DESC" }],
     //   associations: this.buildAssociations(["budgetPeriodType", "customer"]),
     //   filter: [],
@@ -1228,7 +1233,7 @@ export class B2BSellersAdminClient {
     const criteria: Record<string, unknown> = {
       limit: filters.limit || 50,
       page: filters.page || 1,
-      totalCountMode: 1,
+      "total-count-mode": 1,
       sort: [{ field: "createdAt", order: "DESC" }],
       associations: this.buildAssociations(["order", "employee", "stateMachineState"]),
       filter: [],
@@ -1254,7 +1259,7 @@ export class B2BSellersAdminClient {
     const criteria: Record<string, unknown> = {
       limit: filters.limit || 50,
       page: filters.page || 1,
-      totalCountMode: 1,
+      "total-count-mode": 1,
       sort: [{ field: "createdAt", order: "DESC" }],
       associations: this.buildAssociations(["customer", "employee", "items"]),
       filter: [],
@@ -1279,7 +1284,7 @@ export class B2BSellersAdminClient {
     const criteria: Record<string, unknown> = {
       limit: filters.limit || 50,
       page: filters.page || 1,
-      totalCountMode: 1,
+      "total-count-mode": 1,
       sort: [{ field: "customerProductNumber", order: "ASC" }],
       associations: this.buildAssociations(["product"]),
       filter: [],
@@ -1305,7 +1310,7 @@ export class B2BSellersAdminClient {
     const criteria: Record<string, unknown> = {
       limit: filters.limit || 50,
       page: filters.page || 1,
-      totalCountMode: 1,
+      "total-count-mode": 1,
       associations: this.buildAssociations(["product", "customer"]),
       filter: [],
     };
@@ -1336,7 +1341,7 @@ export class B2BSellersAdminClient {
     const criteria: Record<string, unknown> = {
       limit: filters.limit || 50,
       page: filters.page || 1,
-      totalCountMode: 1,
+      "total-count-mode": 1,
       sort: [{ field: "createdAt", order: "DESC" }],
       filter: [],
     };
