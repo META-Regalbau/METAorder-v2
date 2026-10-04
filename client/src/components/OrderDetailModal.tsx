@@ -145,6 +145,8 @@ export default function OrderDetailModal({
   const canManageSettlementPdf =
     userRole === "admin" || !!userPermissions?.manageDocuments;
   const canManageAdditionalInvoice = canManageSettlementPdf;
+  /** Versandangaben aendern: Recht "Bestellungen bearbeiten" (wie der Server) */
+  const canEditShipping = userRole === "admin" || !!userPermissions?.editOrders;
 
   const additionalInvoiceTotals = useMemo(() => {
     let net = 0;
@@ -1017,18 +1019,39 @@ export default function OrderDetailModal({
           <TabsContent value="shipping" className="pt-6">
             <Card className="p-6">
               <h3 className="text-sm font-medium uppercase tracking-wide mb-4">{t('orderDetail.shippingInfo')}</h3>
-              <ShippingInfoForm
-                defaultValues={{
-                  carrier: order.shippingInfo?.carrier || "",
-                  trackingNumber: order.shippingInfo?.trackingNumber || "",
-                  shippedDate: toDateInputValue(order.shippingInfo?.shippedDate),
-                }}
-                onSubmit={(data) => {
-                  onUpdateShipping(order.id, data);
-                  onClose();
-                }}
-                onCancel={onClose}
-              />
+              {canEditShipping ? (
+                <ShippingInfoForm
+                  defaultValues={{
+                    carrier: order.shippingInfo?.carrier || "",
+                    trackingNumber: order.shippingInfo?.trackingNumber || "",
+                    shippedDate: toDateInputValue(order.shippingInfo?.shippedDate),
+                  }}
+                  onSubmit={(data) => {
+                    onUpdateShipping(order.id, data);
+                    onClose();
+                  }}
+                  onCancel={onClose}
+                />
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4" data-testid="shipping-info-readonly">
+                  <div>
+                    <p className="text-sm text-muted-foreground">{t('shipping.carrier')}</p>
+                    <p className="font-medium">{order.shippingInfo?.carrier || '–'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">{t('shipping.trackingNumber')}</p>
+                    <p className="font-medium font-mono">{order.shippingInfo?.trackingNumber || '–'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">{t('shipping.shippedDate')}</p>
+                    <p className="font-medium">
+                      {order.shippingInfo?.shippedDate
+                        ? new Date(order.shippingInfo.shippedDate).toLocaleDateString(i18n.language, { year: 'numeric', month: 'long', day: 'numeric' })
+                        : '–'}
+                    </p>
+                  </div>
+                </div>
+              )}
             </Card>
           </TabsContent>
 

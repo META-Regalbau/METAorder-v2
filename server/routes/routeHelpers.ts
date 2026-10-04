@@ -218,6 +218,36 @@ export async function getSalesChannelFilter(req: Request): Promise<string[] | nu
   return Array.from(channelIds);
 }
 
+/**
+ * Darf der Nutzer diese eine Bestellung sehen bzw. bearbeiten? Verkaufskanal-Pruefung wie auf den
+ * Bestellseiten (allowedChannelIds aus getSalesChannelFilter: null = alle, [] = keine). Der Kanal
+ * kommt aus dem Bestell-Spiegel; nur wenn die Bestellung dort (noch) fehlt, wird diese eine live
+ * geholt. Ergebnis: null = erlaubt, sonst HTTP-Status und Fehlermeldung fuer die Antwort.
+ */
+export async function checkOrderChannelAccess(
+  orderId: string,
+  allowedChannelIds: string[] | null,
+  tenantId: string | null,
+): Promise<{ status: 403 | 404 | 503; error: string } | null> {
+  if (allowedChannelIds === null) return null;
+  if (allowedChannelIds.length === 0) {
+    return { status: 403, error: "No sales channels assigned. Contact administrator for access." };
+  }
+  const mirror = await storage.getShopwareOrderMirrorByShopwareId(orderId, tenantId);
+  let salesChannelId = mirror ? mirror.salesChannelId ?? (mirror.payload as Order | null)?.salesChannelId ?? null : null;
+  if (!mirror) {
+    const settings = await storage.getShopwareSettings(tenantId);
+    if (!settings) return { status: 503, error: "Shopware settings not configured" };
+    const [order] = await new ShopwareClient(settings).fetchOrders(null, { ids: [orderId] });
+    if (!order) return { status: 404, error: "Order not found" };
+    salesChannelId = order.salesChannelId;
+  }
+  if (!salesChannelId || !allowedChannelIds.includes(salesChannelId)) {
+    return { status: 403, error: "You don't have access to this order's sales channel" };
+  }
+  return null;
+}
+
 export const DEFAULT_TICKET_SLA_SETTINGS = {
   lowDays: 7,
   normalDays: 3,

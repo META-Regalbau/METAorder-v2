@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { getApiErrorToastContent } from "@/lib/orderApiErrors";
-import type { Order } from "@shared/schema";
+import type { Order, Role, User } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
 import { de, enUS, es } from "date-fns/locale";
@@ -116,6 +116,11 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
 
   // Fetch delayed orders (aus dem Bestell-Spiegel; nach Aenderungen bzw. "Aktualisieren"
   // mit refresh=1 - der Server holt dann vorher die Aenderungen aus Shopware)
+  // Rechte fuer das Bestell-Detail (z. B. Versandangaben bearbeiten)
+  const { data: currentUser } = useQuery<{ user: User & { permissions: Role['permissions'] } }>({
+    queryKey: ['/api/auth/me'],
+  });
+
   const { data: orders = [], isLoading, error, refetch } = useQuery<DelayedOrder[]>({
     queryKey: ['/api/orders/delayed', daysThreshold],
     queryFn: async () => {
@@ -772,6 +777,7 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
             setSelectedOrder(null);
           }}
           userRole={userRole}
+          userPermissions={currentUser?.user?.permissions}
           onUpdateShipping={handleUpdateShipping}
           onUpdateDocuments={handleUpdateDocuments}
         />
