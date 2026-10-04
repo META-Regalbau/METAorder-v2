@@ -58,7 +58,7 @@ export default function RecentCommentsWidget() {
         <div>
           <div className="mcard-head-left">
             <MessageSquare className="h-5 w-5" />
-            <h3 className="mcard-title">{t("dashboard.recentComments")}</h3>
+            <h2 className="mcard-title">{t("dashboard.recentComments")}</h2>
           </div>
           <p className="mcard-desc">{t("dashboard.recentCommentsDescription")}</p>
         </div>

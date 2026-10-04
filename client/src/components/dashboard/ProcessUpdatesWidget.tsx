@@ -83,7 +83,7 @@ export default function ProcessUpdatesWidget({ userPermissions }: ProcessUpdates
         <div className="mcard-head-left">
           <Megaphone className="h-5 w-5" />
           <div>
-            <h3 className="mcard-title">{t("processUpdates.title")}</h3>
+            <h2 className="mcard-title">{t("processUpdates.title")}</h2>
             <p className="mcard-desc">{t("processUpdates.description")}</p>
           </div>
         </div>

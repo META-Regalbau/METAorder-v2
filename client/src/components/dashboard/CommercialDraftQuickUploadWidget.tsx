@@ -34,10 +34,10 @@ export default function CommercialDraftQuickUploadWidget() {
       <div className="mcard" data-testid="card-commercial-quick-upload">
         <div className="mcard-head">
           <div>
-            <h3 className="mcard-title flex items-center gap-2">
+            <h2 className="mcard-title flex items-center gap-2">
               <FileUp className="h-5 w-5" />
               {t("dashboard.commercialUpload.widgetTitle")}
-            </h3>
+            </h2>
             <p className="mcard-desc">{t("dashboard.commercialUpload.widgetDescription")}</p>
           </div>
         </div>

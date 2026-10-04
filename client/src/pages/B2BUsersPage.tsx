@@ -614,6 +614,7 @@ export default function B2BUsersPage({ userPermissions, userRole, userSalesChann
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-medium">{t("b2b.users.settings.sendEmails")}</p>
               <Switch
+                aria-label={t("b2b.users.settings.sendEmails")}
                 checked={sendEmails}
                 onCheckedChange={handleSendEmailsChange}
                 disabled={!canManage || savePortalUserSettingsMutation.isPending}
@@ -653,7 +654,7 @@ export default function B2BUsersPage({ userPermissions, userRole, userSalesChann
                       <p className="text-sm font-medium">{t("b2b.users.single.updateExisting")}</p>
                       <p className="text-xs text-muted-foreground">{t("b2b.users.single.updateExistingHint")}</p>
                     </div>
-                    <Switch checked={singleUpdateExisting} onCheckedChange={setSingleUpdateExisting} />
+                    <Switch aria-label={t("b2b.users.single.updateExisting")} checked={singleUpdateExisting} onCheckedChange={setSingleUpdateExisting} />
                   </div>
                   <FormField
                     control={form.control}
@@ -1055,7 +1056,7 @@ export default function B2BUsersPage({ userPermissions, userRole, userSalesChann
                     <p className="text-sm font-medium">{t("b2b.users.import.updateExisting")}</p>
                     <p className="text-xs text-muted-foreground">{t("b2b.users.import.updateExistingHint")}</p>
                   </div>
-                  <Switch checked={importUpdateExisting} onCheckedChange={setImportUpdateExisting} />
+                  <Switch aria-label={t("b2b.users.import.updateExisting")} checked={importUpdateExisting} onCheckedChange={setImportUpdateExisting} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">
@@ -1086,7 +1087,7 @@ export default function B2BUsersPage({ userPermissions, userRole, userSalesChann
                 {importDefaultType === "sales_rep" ? (
                   <div className="flex items-center justify-between rounded-lg border p-3 md:col-span-2">
                     <span className="text-sm font-medium">{t("b2b.users.fields.defaultSupervisor")}</span>
-                    <Switch checked={importDefaultSupervisor} onCheckedChange={setImportDefaultSupervisor} />
+                    <Switch aria-label={t("b2b.users.fields.defaultSupervisor")} checked={importDefaultSupervisor} onCheckedChange={setImportDefaultSupervisor} />
                   </div>
                 ) : null}
                 <div className="space-y-2">

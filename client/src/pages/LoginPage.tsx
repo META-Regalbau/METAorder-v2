@@ -216,13 +216,13 @@ export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: () => vo
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background p-4">
+    <main className="flex items-center justify-center min-h-screen bg-background p-4">
       <div className="w-full max-w-md">
         <MetaLogo />
         <Card>
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold text-center">
-              {t("auth.login")}
+              <h1>{t("auth.login")}</h1>
             </CardTitle>
             <CardDescription className="text-center">
               {t("auth.loginDescription")}
@@ -284,6 +284,6 @@ export default function LoginPage({ onLoginSuccess }: { onLoginSuccess: () => vo
         </Card>
       </div>
       <EmergencyResetDialog open={resetDialogOpen} onOpenChange={setResetDialogOpen} />
-    </div>
+    </main>
   );
 }

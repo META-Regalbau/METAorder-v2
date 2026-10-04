@@ -87,7 +87,7 @@ function VerdictBadge({
     verdict === "green" ? "default" : verdict === "red" ? "destructive" : "outline";
   const className =
     verdict === "green"
-      ? "bg-green-600 hover:bg-green-600/90 border-transparent"
+      ? "bg-green-700 hover:bg-green-700/90 border-transparent"
       : verdict === "none"
         ? "text-muted-foreground font-normal"
         : undefined;
@@ -476,7 +476,7 @@ export default function ProfitabilityAnalysisPage() {
             <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <div>
                 <p className="text-sm text-muted-foreground">{t("profitabilityAnalysis.kpi.crmGreenShare")}</p>
-                <p className="text-3xl font-semibold text-green-600">
+                <p className="text-3xl font-semibold text-green-700">
                   {percentFormatter.format(crmGreenShare / 100)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -572,7 +572,7 @@ export default function ProfitabilityAnalysisPage() {
                 <p className="text-sm text-muted-foreground">
                   {t("profitabilityAnalysis.stats.crmGreen", { threshold: crmThreshold })}
                 </p>
-                <p className="text-2xl font-semibold text-green-600">{summary.crmGreen}</p>
+                <p className="text-2xl font-semibold text-green-700">{summary.crmGreen}</p>
               </CardContent>
             </Card>
             <Card>
@@ -586,7 +586,7 @@ export default function ProfitabilityAnalysisPage() {
             <Card>
               <CardContent className="pt-6">
                 <p className="text-sm text-muted-foreground">{t("profitabilityAnalysis.stats.priceCheckGreen")}</p>
-                <p className="text-2xl font-semibold text-green-600">{summary.priceCheckGreen}</p>
+                <p className="text-2xl font-semibold text-green-700">{summary.priceCheckGreen}</p>
               </CardContent>
             </Card>
             <Card>
@@ -617,7 +617,18 @@ export default function ProfitabilityAnalysisPage() {
                       cx="50%"
                       cy="50%"
                       outerRadius={90}
-                      label={({ name, value }) => (value > 0 ? `${name}: ${value}` : "")}
+                      // Beschriftung selbst zeichnen: sonst reicht recharts das aria-label der Tortenstuecke an Text und Linie weiter
+                      // leere Stuecke ohne Text; null wuerde recharts als "Standardbeschriftung zeichnen" lesen
+                      label={({ x, y, textAnchor, fill, name, value }) =>
+                        value > 0 ? (
+                          <text x={x} y={y} textAnchor={textAnchor} dominantBaseline="central" fill={fill}>{`${name}: ${value}`}</text>
+                        ) : (
+                          <g />
+                        )
+                      }
+                      labelLine={({ points, stroke }: { points: Array<{ x: number; y: number }>; stroke: string }) => (
+                        <path d={`M${points[0].x},${points[0].y}L${points[1].x},${points[1].y}`} stroke={stroke} fill="none" />
+                      )}
                     >
                       {crmPieData.map((entry) => (
                         <Cell
@@ -735,7 +746,7 @@ export default function ProfitabilityAnalysisPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-green-600">
+                <CardTitle className="flex items-center gap-2 text-green-700">
                   <TrendingUp className="h-5 w-5" />
                   {t("profitabilityAnalysis.bestTitle")}
                 </CardTitle>

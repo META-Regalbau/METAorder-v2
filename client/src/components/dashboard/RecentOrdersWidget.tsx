@@ -36,7 +36,7 @@ export default function RecentOrdersWidget() {
         <div className="mcard-head-left">
           <ShoppingCart className="h-5 w-5" />
           <div>
-            <h3 className="mcard-title">{t("dashboard.recentOrders")}</h3>
+            <h2 className="mcard-title">{t("dashboard.recentOrders")}</h2>
             <p className="mcard-desc">{t("dashboard.recentOrdersDescription")}</p>
           </div>
         </div>

@@ -33,7 +33,7 @@ export default function ShippingReadyWidget() {
         <div className="mcard-head-left">
           <TruckIcon className="h-5 w-5" />
           <div>
-            <h3 className="mcard-title">{t("dashboard.shippingReady")}</h3>
+            <h2 className="mcard-title">{t("dashboard.shippingReady")}</h2>
             <p className="mcard-desc">{t("dashboard.shippingReadyDescription")}</p>
           </div>
         </div>

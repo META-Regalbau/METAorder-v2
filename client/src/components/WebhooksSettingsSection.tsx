@@ -129,7 +129,7 @@ export default function WebhooksSettingsSection() {
                 <span className="font-mono text-sm font-medium">{label}</span>
                 <div className="flex items-center gap-2">
                   <Label className="text-xs">{t("settings.enableWebhook")}</Label>
-                  <Switch
+                  <Switch aria-label={t("settings.enableWebhook")}
                     checked={r.enabled}
                     onCheckedChange={(v) =>
                       setRows((prev) => ({

@@ -428,6 +428,7 @@ export default function ProfilePage() {
                 </div>
               </div>
               <Switch
+                aria-label={t("profile.pushToggle")}
                 checked={Boolean(pushSettings?.enabled)}
                 onCheckedChange={handlePushToggle}
                 data-testid="switch-push-enabled"

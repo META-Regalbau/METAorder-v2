@@ -5,8 +5,10 @@
  * - Schaltflaechen nur mit Symbol (Button size="icon")
  * - Auswahlfelder (SelectTrigger): Rolle combobox, der Name kommt nie aus dem angezeigten Wert
  * - Eingabefelder (Input, input, Textarea, textarea, select)
+ * - Schalter und Kontrollkaestchen (Switch, Checkbox aus components/ui; der Text daneben ist kein Name)
  * Als Name gelten aria-label/aria-labelledby, eine id (verknuepftes <Label htmlFor>), FormControl
- * (react-hook-form verknuepft FormLabel), bei Eingabefeldern auch placeholder.
+ * (react-hook-form verknuepft FormLabel), bei Eingabefeldern auch placeholder, bei Schaltern ein
+ * umschliessendes <label>.
  * Ausführung: npm test
  */
 import { describe, expect, it } from "vitest";
@@ -42,10 +44,11 @@ function openingTagEnd(src: string, from: number): number {
 }
 
 type Hit = { file: string; line: number; tag: string; body: string; before: string };
-function tags(pattern: RegExp, closing?: string): Hit[] {
+function tags(pattern: RegExp, closing?: string, onlyIfImported?: RegExp): Hit[] {
   const hits: Hit[] = [];
   for (const file of sourceFiles(path.join(ROOT, "client/src"))) {
     const src = withoutComments(fs.readFileSync(file, "utf8"));
+    if (onlyIfImported && !onlyIfImported.test(src)) continue;
     for (const m of src.matchAll(pattern)) {
       const end = openingTagEnd(src, m.index! + m[0].length);
       const tag = src.slice(m.index!, end + 1);
@@ -55,7 +58,7 @@ function tags(pattern: RegExp, closing?: string): Hit[] {
         line: src.slice(0, m.index).split("\n").length,
         tag,
         body: close === -1 ? "" : src.slice(end + 1, close),
-        before: src.slice(Math.max(0, m.index! - 120), m.index),
+        before: src.slice(Math.max(0, m.index! - 400), m.index),
       });
     }
   }
@@ -90,7 +93,7 @@ describe("Barrierefreiheit: Namen fuer Bedienelemente", () => {
 
   it("Auswahlfelder (SelectTrigger)", () => {
     const missing = tags(/<SelectTrigger\b/g)
-      .filter((h) => !NAMED.test(h.tag) && !h.before.includes("<FormControl>"))
+      .filter((h) => !NAMED.test(h.tag) && !h.before.slice(-120).includes("<FormControl>"))
       .map(where);
     expect(missing).toEqual([]);
   });
@@ -98,7 +101,20 @@ describe("Barrierefreiheit: Namen fuer Bedienelemente", () => {
   it("Eingabefelder", () => {
     const missing = tags(/<(Input|input|Textarea|textarea|select)\b/g)
       .filter((h) => !/type="(hidden|checkbox|radio|submit)"|className="(hidden|sr-only)"|\bhidden\b|placeholder=/.test(h.tag))
-      .filter((h) => !NAMED.test(h.tag) && !h.before.includes("<FormControl>"))
+      .filter((h) => !NAMED.test(h.tag) && !h.before.slice(-120).includes("<FormControl>"))
+      .map(where);
+    expect(missing).toEqual([]);
+  });
+
+  it("Schalter und Kontrollkaestchen", () => {
+    const fromUi = (name: string) => new RegExp(`import \\{[^}]*\\b${name}\\b[^}]*\\} from "@/components/ui/`);
+    const missing = [
+      ...tags(/<Switch\b/g, undefined, fromUi("Switch")),
+      ...tags(/<Checkbox\b/g, undefined, fromUi("Checkbox")),
+    ]
+      .filter((h) => !NAMED.test(h.tag) && !h.before.slice(-120).includes("<FormControl>"))
+      // umschliessendes <label> ohne schliessendes dazwischen
+      .filter((h) => h.before.lastIndexOf("<label") <= h.before.lastIndexOf("</label>"))
       .map(where);
     expect(missing).toEqual([]);
   });

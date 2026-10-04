@@ -32,11 +32,12 @@ const Alert = React.forwardRef<
 ))
 Alert.displayName = "Alert"
 
+// kein Ueberschriften-Element: Hinweise stehen mitten im Inhalt und wuerden die Gliederung (h1 -> h5) springen lassen
 const AlertTitle = React.forwardRef<
-  HTMLParagraphElement,
-  React.HTMLAttributes<HTMLHeadingElement>
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-  <h5
+  <div
     ref={ref}
     className={cn("mb-1 font-medium leading-none tracking-tight", className)}
     {...props}

@@ -51,7 +51,7 @@ export default function RecentCrmInteractionsWidget() {
         <div>
           <div className="mcard-head-left">
             <MessageSquare className="h-5 w-5" />
-            <h3 className="mcard-title">{t("dashboard.recentCrmInteractions")}</h3>
+            <h2 className="mcard-title">{t("dashboard.recentCrmInteractions")}</h2>
           </div>
           <p className="mcard-desc">{t("dashboard.recentCrmInteractionsDescription")}</p>
         </div>

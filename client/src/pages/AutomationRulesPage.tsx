@@ -168,6 +168,7 @@ export default function AutomationRulesPage() {
 
                 <div className="flex items-center gap-2">
                   <Switch
+                    aria-label={`${t("automation.form.enabled")}: ${rule.name}`}
                     checked={!!rule.enabled}
                     onCheckedChange={() => handleToggle(rule)}
                     data-testid={`switch-toggle-${rule.id}`}
