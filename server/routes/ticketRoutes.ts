@@ -1,5 +1,5 @@
 // Tickets: Ticket-API, Kundenportal, Vorlagen, Zuweisungs- und Automatisierungsregeln, Anhaenge.
-import { validateAutomationRule, type AutomationActionInput, type AutomationConditionInput } from "@shared/automation";
+import { parseStoredRuleList, validateAutomationRule, type AutomationActionInput, type AutomationConditionInput } from "@shared/automation";
 import { createAutomationDeps } from "../automation";
 import { previewScheduledRule } from "../automation/scheduler";
 import { requireAuth, requireManageTickets, requireManageAutomations, requireViewTickets } from "../auth/auth";
@@ -73,14 +73,7 @@ function validateStoredAutomationRule(
   existing: { triggerType: string; conditions: string | null; actions: string },
   changes: { triggerType?: string; conditions?: AutomationConditionInput[] | null; actions?: AutomationActionInput[] },
 ): string[] {
-  const parse = <T,>(raw: string | null): T[] => {
-    try {
-      const v = raw ? JSON.parse(raw) : [];
-      return Array.isArray(v) ? v : [];
-    } catch {
-      return [];
-    }
-  };
+  const parse = <T,>(raw: string | null): T[] => parseStoredRuleList<T>(raw) ?? [];
   return validateAutomationRule({
     triggerType: changes.triggerType ?? existing.triggerType,
     conditions: changes.conditions !== undefined ? changes.conditions ?? [] : parse<AutomationConditionInput>(existing.conditions),

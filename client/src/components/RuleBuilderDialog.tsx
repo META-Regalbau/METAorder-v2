@@ -26,6 +26,7 @@ import {
   SCHEDULED_LOOKBACK_DAYS,
   SCHEDULED_MAX_PER_RULE_PER_RUN,
   fieldsForTrigger,
+  parseStoredRuleList,
   validateAutomationRule,
   type AutomationActionInput,
   type AutomationActionTypeId,
@@ -126,14 +127,7 @@ type PreviewResult = {
 };
 
 function parseArray<T>(raw: unknown): T[] {
-  if (Array.isArray(raw)) return raw as T[];
-  if (typeof raw !== "string" || !raw) return [];
-  try {
-    const v = JSON.parse(raw);
-    return Array.isArray(v) ? v : [];
-  } catch {
-    return [];
-  }
+  return parseStoredRuleList<T>(raw) ?? [];
 }
 
 function defaultParams(type: AutomationActionTypeId): Record<string, unknown> {

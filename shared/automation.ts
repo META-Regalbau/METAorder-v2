@@ -248,6 +248,25 @@ export const AUTOMATION_PLACEHOLDERS: Record<"ticket" | "order", readonly string
   order: ["order.orderNumber", "order.customerName", "order.customerEmail", "order.orderDate", "order.status", "order.previousStatus", "order.paymentStatus", "order.previousPaymentStatus", "order.totalAmount", "order.daysSinceOrder", "order.daysPastDeliveryDate"],
 };
 
+/**
+ * Bedingungen/Aktionen einer gespeicherten Regel lesen: Array, JSON-Text oder - Altbestand -
+ * doppelt kodierter JSON-Text (Route und Speicher haben frueher beide JSON.stringify angewendet).
+ * Leer/null -> []; nicht lesbar oder kein Array -> null.
+ */
+export function parseStoredRuleList<T = unknown>(raw: unknown): T[] | null {
+  let value: unknown = raw;
+  for (let depth = 0; depth < 3 && typeof value === "string"; depth++) {
+    if (!value.trim()) return [];
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  if (value === null || value === undefined) return [];
+  return Array.isArray(value) ? (value as T[]) : null;
+}
+
 /** Ersetzt {{feld}} durch den Wert aus den Fakten; unbekannte Platzhalter werden leer. */
 export function interpolate(template: string, facts: AutomationFacts): string {
   return template.replace(/\{\{\s*([a-zA-Z][\w.]*)\s*\}\}/g, (_m, key: string) => {
