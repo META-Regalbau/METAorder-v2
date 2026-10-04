@@ -306,7 +306,7 @@ export async function processNaturalLanguageQuery(
   );
 
   if (!openaiConfig) {
-    console.error('[NL Analytics] LLM not configured - neither Replit integration nor API key available');
+    console.error('[NL Analytics] LLM not configured - neither AI_INTEGRATIONS_OPENAI_* nor API key available');
     throw new Error('LLM integration not available. Please configure API key in settings.');
   }
 

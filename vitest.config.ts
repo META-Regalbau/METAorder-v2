@@ -1,7 +1,7 @@
 import { defineConfig } from "vitest/config";
 import path from "path";
 
-// Eigene Konfiguration statt vite.config.ts (dort: root=client, SPA-Build, Replit-Plugins).
+// Eigene Konfiguration statt vite.config.ts (dort: root=client, SPA-Build).
 export default defineConfig({
   resolve: {
     alias: {

@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { decrypt } from "../lib/encryption";
-import { getOpenAIClient, isReplitOpenAIAvailable } from "./openaiClient";
+import { getOpenAIClient, isEnvOpenAIConfigured } from "./openaiClient";
 import {
   DEFAULT_MODELS,
   GEMINI_OPENAI_BASE_URL,
@@ -205,7 +205,7 @@ export async function chatCompletion(
     }
 
     // provider === "openai"
-    if (isReplitOpenAIAvailable()) {
+    if (isEnvOpenAIConfigured()) {
       const { client } = getOpenAIClient();
       const model = modelOverride || resolveTierModel(settings, tier, "openai");
       const text = await completeWithOpenAI(client, model, params);
@@ -271,7 +271,7 @@ export async function isChatLlmConfigured(
     if (settings.chatProvider === "google") {
       return Boolean(settings.enabled && settings.geminiApiKey);
     }
-    if (isReplitOpenAIAvailable()) return true;
+    if (isEnvOpenAIConfigured()) return true;
     return Boolean(settings.enabled && settings.apiKey);
   } catch {
     return false;

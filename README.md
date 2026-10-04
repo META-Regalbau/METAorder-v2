@@ -53,7 +53,7 @@ npm install
 
 ### 3. Umgebungsvariablen konfigurieren
 
-Erstellen Sie eine `.env`-Datei im Projektverzeichnis oder setzen Sie die folgenden Secrets in Replit:
+Erstellen Sie eine `.env`-Datei im Projektverzeichnis:
 
 ```env
 # Datenbank
@@ -167,12 +167,6 @@ npm run build
 ```bash
 NODE_ENV=production npm start
 ```
-
-### Deployment auf Replit
-
-1. Klicken Sie auf den **"Publish"**-Button in Replit
-2. Warten Sie, bis die Veröffentlichung abgeschlossen ist
-3. Ihre App ist verfügbar unter: `https://ihr-projekt.replit.app`
 
 ### Deployment auf Mittwald (Container Hosting)
 
@@ -293,7 +287,7 @@ metaorder/
 - Passwort-Hashing mit bcryptjs
 - Permission-basierte Zugriffskontrolle
 - CSRF-Schutz durch SameSite-Cookies
-- Trust-Proxy für Production (Replit)
+- Trust-Proxy für Production (hinter einem Reverse-Proxy, der TLS terminiert)
 
 ## Troubleshooting
 

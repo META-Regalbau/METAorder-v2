@@ -5,7 +5,7 @@
  *   npx tsx scripts/testOrderPdfExtraction.ts "/absoluter/pfad/Bestellung_BL2601477.pdf"
  *
  * Optional zweites Argument: .eml für E-Mail-Kontext (Betreff + Body-Auszug).
- * API: OPENAI_API_KEY in .env / .env.local oder Replit-Variablen wie im Rest der App.
+ * API: OPENAI_API_KEY in .env / .env.local oder AI_INTEGRATIONS_OPENAI_* wie im Rest der App.
  */
 import dotenv from "dotenv";
 import path from "node:path";
@@ -14,7 +14,7 @@ import OpenAI from "openai";
 import { extractPlainTextForDraft } from "../server/extraction/documentTextExtraction";
 import { extractOrderDataFromDocument } from "../server/extraction/orderDraftExtractor";
 import { isOrderPdfTextInsufficient } from "../server/extraction/orderPdfVisionExtraction";
-import { isReplitOpenAIAvailable } from "../server/ai/openaiClient";
+import { isEnvOpenAIConfigured } from "../server/ai/openaiClient";
 
 dotenv.config({ path: path.join(process.cwd(), ".env.local") });
 dotenv.config({ path: path.join(process.cwd(), ".env") });
@@ -22,7 +22,7 @@ dotenv.config({ path: path.join(process.cwd(), "docker.env") });
 dotenv.config();
 
 function buildOpenAI(): OpenAI {
-  if (isReplitOpenAIAvailable()) {
+  if (isEnvOpenAIConfigured()) {
     return new OpenAI({
       baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
       apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -31,7 +31,7 @@ function buildOpenAI(): OpenAI {
   const key = process.env.OPENAI_API_KEY?.trim();
   if (!key) {
     throw new Error(
-      "OPENAI_API_KEY (oder Replit AI_INTEGRATIONS_*) setzen — siehe scripts/testOrderPdfExtraction.ts"
+      "OPENAI_API_KEY (oder AI_INTEGRATIONS_OPENAI_BASE_URL + AI_INTEGRATIONS_OPENAI_API_KEY) setzen — siehe scripts/testOrderPdfExtraction.ts"
     );
   }
   return new OpenAI({ apiKey: key });

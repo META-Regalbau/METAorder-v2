@@ -72,7 +72,7 @@ if (process.env.NODE_ENV !== "production") {
   debugLogServer.listen(7242, "127.0.0.1");
 }
 
-// Trust proxy for Replit (Replit terminates TLS at reverse proxy in all environments)
+// Hinter einem Reverse-Proxy (Mittwald, Docker-Setups), der TLS terminiert: X-Forwarded-* vertrauen
 app.set("trust proxy", 1);
 
 declare module 'http' {
@@ -125,7 +125,7 @@ app.use(
     saveUninitialized: false,
     proxy: true, // Trust proxy for correct cookie behavior
     cookie: {
-      // Replit always uses HTTPS, so cookies must be secure even in development
+      // 'auto': Secure-Cookie nur bei HTTPS (per X-Forwarded-Proto vom Proxy erkannt), lokal per HTTP ohne
       secure: 'auto', // Auto-detect based on proxy headers
       httpOnly: true,
       // Use "lax" for CSRF protection while allowing same-site navigation

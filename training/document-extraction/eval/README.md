@@ -8,7 +8,7 @@ npm run eval:extraction
 npm run eval:extraction -- --case=holme --json=/tmp/eval.json
 ```
 
-Voraussetzung ist ein `OPENAI_API_KEY` (oder die Replit-Integration). Datenbank und
+Voraussetzung ist ein `OPENAI_API_KEY` (oder `AI_INTEGRATIONS_OPENAI_BASE_URL` + `AI_INTEGRATIONS_OPENAI_API_KEY`). Datenbank und
 Shopware werden **nicht** gebraucht — bewertet wird ausschließlich die Extraktion.
 
 ## Wichtig: nicht mit den Few-Shots vermischen

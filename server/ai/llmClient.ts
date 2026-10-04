@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { decrypt } from "../lib/encryption";
-import { isReplitOpenAIAvailable } from "./openaiClient";
+import { isEnvOpenAIConfigured } from "./openaiClient";
 
 /**
  * Zentrale, provider-fähige LLM-Konfiguration.
@@ -124,7 +124,7 @@ function buildGeminiClient(encryptedKey: string): OpenAI {
 }
 
 function buildOpenAIClient(encryptedKey?: string): OpenAI | null {
-  if (isReplitOpenAIAvailable()) {
+  if (isEnvOpenAIConfigured()) {
     return new OpenAI({
       baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
       apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
