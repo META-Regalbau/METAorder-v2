@@ -19,6 +19,11 @@ const PRODUCT_BATCH = 500;
  * laeuft einmalig ein Voll-Resync statt eines Cursor-Deltas.
  */
 const PRODUCT_PAYLOAD_VERSION = "v2";
+/**
+ * Version des Bestell-Spiegel-Payloads, Mechanik wie bei den Produkten.
+ * v2: Versandangaben (shippingInfo: Sendungsnummer, Versanddatum) aus den Lieferungen.
+ */
+const ORDER_PAYLOAD_VERSION = "v2";
 const CUSTOMER_BATCH = 250;
 const PRICE_BATCH = 250;
 /** Sicherheitsnetz: 250 × 400 = bis zu 100.000 Preiszeilen im Voll-Snapshot. */
@@ -362,8 +367,11 @@ async function syncOrdersDelta(
   try {
     const state = await storage.getShopwareSyncState("orders", tenantId);
     const fpDetails = await client.fetchOrdersFingerprintDetails();
-    const fingerprint = fpDetails?.fingerprint ?? null;
+    const fingerprint = fpDetails?.fingerprint ? `${ORDER_PAYLOAD_VERSION}:${fpDetails.fingerprint}` : null;
     const shopTotal = fpDetails?.total ?? null;
+    // Spiegel wurde mit einer aelteren Payload-Version geschrieben -> einmalig alle Bestellungen neu
+    // laden (der gespeicherte Fingerprint ohne Versions-Praefix passt dann auch nie zum aktuellen)
+    const payloadVersionStale = !String(state?.lastFingerprint ?? "").startsWith(`${ORDER_PAYLOAD_VERSION}:`);
 
     if (
       !opts?.force &&
@@ -379,7 +387,8 @@ async function syncOrdersDelta(
       return { upserted: 0, skipped: true };
     }
 
-    const cursor = opts?.force ? null : state?.cursorUpdatedAt ?? null;
+    const previousCursor = parseSwDate(state?.cursorUpdatedAt);
+    const cursor = opts?.force || payloadVersionStale ? null : previousCursor;
     const orders = await client.fetchOrders(null, { updatedSince: cursor });
 
     // Vor dem Upsert: neue/geaenderte Rechnungsnummern gegen den alten Stand erkennen
@@ -390,8 +399,18 @@ async function syncOrdersDelta(
       process.env.INVOICE_NUMBER_WATCHER_ENABLED === "false" || orders.length === 0
         ? null
         : await import("../invoicing/invoiceNumberWatcher");
+    // Einmaliges Neuladen wegen neuer Payload-Version: der Watcher prueft nur, was der normale
+    // Delta-Lauf geliefert haette (Rechnungsnummern stehen in der Bestellung und aendern deren
+    // updatedAt) - keine Einzelabfrage je Bestellung, kein Versand fuer Altbestaende.
+    const watchedOrders =
+      payloadVersionStale && !opts?.force && previousCursor
+        ? orders.filter((o) => {
+            const changedAt = parseSwDate(o.updatedAt) ?? parseSwDate(o.createdAt);
+            return changedAt !== null && changedAt >= previousCursor;
+          })
+        : orders;
     const invoiceNumberChanges = watcher
-      ? await watcher.detectInvoiceNumberChanges(storage, orders, tenantId)
+      ? await watcher.detectInvoiceNumberChanges(storage, watchedOrders, tenantId)
       : [];
 
     // Aenderungserkennung (Automatisierung): bisherigen Stand VOR dem Upsert lesen,
@@ -420,6 +439,11 @@ async function syncOrdersDelta(
       const d = parseSwDate(o.updatedAt) ?? parseSwDate(o.createdAt);
       if (d && (!maxUpdated || d > maxUpdated)) maxUpdated = d;
     }
+    // Lieferungs-Aenderungen (Tracking-Codes, Lieferstatus) bis zum Fingerprint-Zeitpunkt sind im
+    // Abruf enthalten (Fingerprint vor dem Abruf geholt) - sonst kaemen deren Bestellungen bei jedem
+    // Lauf erneut, solange keine Bestellung juenger ist als die Lieferungs-Aenderung.
+    const latestDeliveryChange = parseSwDate(fpDetails?.latestDeliveryUpdatedAt);
+    if (latestDeliveryChange && (!maxUpdated || latestDeliveryChange > maxUpdated)) maxUpdated = latestDeliveryChange;
 
     // Loesch-/Fehl-Abgleich — periodisch (wie bei Produkten/Kunden), zusaetzlich sofort,
     // wenn Spiegel- und Shop-Anzahl auseinanderlaufen (Delta-Filter greift dann nicht).

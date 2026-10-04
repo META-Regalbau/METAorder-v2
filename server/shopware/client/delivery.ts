@@ -436,3 +436,48 @@ export async function shipDeliveryWithDocuments(this: ShopwareClient, deliveryId
     );
   }
 }
+
+/**
+ * Versanddatum je Lieferung aus der Status-Historie: Zeitpunkt des letzten Uebergangs nach
+ * "versendet" (Shopware speichert an der Lieferung selbst kein Versanddatum). Gebatcht, nur lesend.
+ */
+export async function fetchDeliveryShippedDates(this: ShopwareClient, deliveryIds: string[]): Promise<Map<string, string>> {
+  const shippedAt = new Map<string, string>();
+  const ids = Array.from(new Set(deliveryIds.filter(Boolean)));
+  const CHUNK = 200;
+  const LIMIT = 500;
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const chunk = ids.slice(i, i + CHUNK);
+    for (let page = 1; ; page++) {
+      const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/state-machine-history`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          page,
+          limit: LIMIT,
+          includes: { state_machine_history: ['referencedId', 'createdAt'] },
+          filter: [
+            { type: 'equals', field: 'entityName', value: 'order_delivery' },
+            { type: 'equals', field: 'toStateMachineState.technicalName', value: 'shipped' },
+            { type: 'equalsAny', field: 'referencedId', value: chunk },
+          ],
+        }),
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch delivery state history: ${response.statusText} - ${errorText}`);
+      }
+      const data = await response.json();
+      const entries: any[] = data?.data ?? [];
+      for (const e of entries) {
+        const id = e?.referencedId ?? e?.attributes?.referencedId;
+        const at = e?.createdAt ?? e?.attributes?.createdAt;
+        if (!id || !at) continue;
+        const current = shippedAt.get(id);
+        if (!current || at > current) shippedAt.set(id, at);
+      }
+      if (entries.length < LIMIT) break;
+    }
+  }
+  return shippedAt;
+}

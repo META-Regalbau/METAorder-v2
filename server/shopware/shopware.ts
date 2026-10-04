@@ -338,6 +338,7 @@ export interface ShopwareClient {
   getTransactionStateTechnicalName: typeof deliveryApi.getTransactionStateTechnicalName;
   cancelSupersededMonduTransactions: typeof deliveryApi.cancelSupersededMonduTransactions;
   transitionOrderDeliveryToShipped: typeof deliveryApi.transitionOrderDeliveryToShipped;
+  fetchDeliveryShippedDates: typeof deliveryApi.fetchDeliveryShippedDates;
   getMonduShipInfo: typeof deliveryApi.getMonduShipInfo;
   shipDeliveryWithDocuments: typeof deliveryApi.shipDeliveryWithDocuments;
   // documents

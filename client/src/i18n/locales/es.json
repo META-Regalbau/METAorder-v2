@@ -1695,7 +1695,15 @@
     "mitnahmestapler": "Transpaleta",
     "hebebuehne": "Plataforma Elevadora",
     "noEquipment": "Ninguno",
-    "requiresEquipment": "Requiere Equipo"
+    "requiresEquipment": "Requiere Equipo",
+    "carrier": "Transportista",
+    "carrierPlaceholder": "p. ej. DHL, DPD, agencia de transporte",
+    "carrierRequired": "Indique el transportista",
+    "trackingNumber": "Número de seguimiento",
+    "trackingPlaceholder": "Introduzca el número de seguimiento",
+    "trackingRequired": "Indique el número de seguimiento",
+    "shippedDate": "Fecha de envío",
+    "shippedDateRequired": "Indique la fecha de envío"
   },
   "adminDocuments": {
     "invoiceNumber": "Número de Factura",

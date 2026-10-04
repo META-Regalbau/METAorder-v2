@@ -1,7 +1,8 @@
 /**
  * Versandliste aus dem Bestell-Spiegel (GET /api/shipping, nur eigene Verkaufskanaele),
- * Spiegel-Abgleich nach dem Sammel-Tracking (POST /api/orders/bulk-tracking) und Kanal-Pruefung
- * der Automatisierungs-Historie einer Bestellung - echte Routen, Abhaengigkeiten gemockt.
+ * Spiegel-Abgleich nach Sammel-Tracking und einzelner Versandmeldung (POST /api/orders/bulk-tracking,
+ * PATCH /api/orders/:orderId/shipping) und Kanal-Pruefung der Automatisierungs-Historie einer
+ * Bestellung - echte Routen, Abhaengigkeiten gemockt.
  * Ausführung: npm test
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -193,6 +194,27 @@ describe("POST /api/orders/bulk-tracking", () => {
     state.failShipping = new Set(["a"]);
     const r = await (await post({ orderIds: ["a"], trackingNumbers: ["T1"] })).json();
     expect(r).toEqual({ success: true, updated: 0 });
+    expect(state.syncCalls).toEqual([]);
+  });
+});
+
+describe("PATCH /api/orders/:orderId/shipping", () => {
+  const patch = (id: string, body: unknown) =>
+    fetch(`${base}/api/orders/${id}/shipping`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+
+  it("nach der Versandmeldung wird der Bestell-Spiegel des Mandanten abgeglichen", async () => {
+    const r = await patch("a", { carrier: "DHL", trackingNumber: "T1", shippedDate: "2026-10-01" });
+    expect(r.status).toBe(200);
+    expect(state.shippingUpdates).toEqual(["a"]);
+    expect(state.syncCalls).toEqual([{ tenantId: "tenant-a", entities: ["orders"] }]);
+  });
+
+  it("schlaegt die Versandmeldung fehl, kein Abgleich", async () => {
+    state.failShipping = new Set(["a"]);
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const r = await patch("a", { trackingNumber: "T1" });
+    error.mockRestore();
+    expect(r.status).toBe(500);
     expect(state.syncCalls).toEqual([]);
   });
 });

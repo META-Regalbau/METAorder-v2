@@ -406,6 +406,77 @@ export function getLatestDelivery(deliveries: any[]): any {
   return sorted[0];
 }
 
+/** Lieferstatus, bei denen die Ware das Lager verlassen hat (auch wenn sie danach zurueckkam). */
+export const SHIPPED_DELIVERY_STATES = new Set(["shipped", "shipped_partially", "returned", "returned_partially"]);
+
+/** Versandrelevante Angaben einer Shopware-Lieferung. */
+export type DeliveryShippingFacts = {
+  id: string;
+  createdAt: string;
+  trackingCodes: string[];
+  /** technicalName des Lieferstatus */
+  state?: string;
+};
+
+/** Versandangaben einer Lieferung - aus der normalen Antwort oder dem JSON:API-Format. */
+export function deliveryShippingFacts(delivery: any, includedMap?: Map<string, any>): DeliveryShippingFacts {
+  const attrs = delivery?.attributes ?? delivery ?? {};
+  const stateRef = delivery?.relationships?.stateMachineState?.data?.id;
+  const state =
+    delivery?.stateMachineState?.technicalName ??
+    (stateRef ? includedMap?.get(`state_machine_state-${stateRef}`)?.attributes?.technicalName : undefined);
+  const codes: unknown[] = Array.isArray(attrs.trackingCodes) ? attrs.trackingCodes : [];
+  return {
+    id: String(delivery?.id ?? ""),
+    createdAt: getDeliveryCreatedAt(delivery),
+    trackingCodes: codes.map((c) => String(c ?? "").trim()).filter(Boolean),
+    state: state || undefined,
+  };
+}
+
+/** Lieferungen, deren Versanddatum aus der Status-Historie kommen muss (versendet, kein eigenes Datum). */
+export function deliveryIdsNeedingShippedDate(
+  deliveries: DeliveryShippingFacts[],
+  customFields: Record<string, any> | null | undefined,
+): string[] {
+  if (customFields?.meta_shipped_date) return [];
+  return deliveries.filter((d) => d.id && d.state && SHIPPED_DELIVERY_STATES.has(d.state)).map((d) => d.id);
+}
+
+/**
+ * Versandangaben einer Bestellung (Order.shippingInfo):
+ * - Sendungsnummer: Tracking-Codes aller Lieferungen (aelteste Lieferung zuerst, ohne Doppelte),
+ *   sonst das Zusatzfeld meta_shipped_tracking (schreibt METAorder beim Versand).
+ * - Versanddienstleister: Zusatzfeld meta_shipped_carrier - Shopware kennt keinen eigenen.
+ * - Versanddatum: Zusatzfeld meta_shipped_date (beim Versand in METAorder eingegeben), sonst der
+ *   letzte Uebergang nach "versendet" laut Status-Historie, sofern die Lieferung noch als versendet
+ *   (oder zurueckgesendet) gilt - nicht, wenn sie danach wieder geoeffnet oder storniert wurde.
+ */
+export function deriveShippingInfo(
+  deliveries: DeliveryShippingFacts[],
+  customFields: Record<string, any> | null | undefined,
+  shippedAtByDeliveryId?: Map<string, string>,
+): { carrier?: string; trackingNumber?: string; shippedDate?: string } | undefined {
+  const cf = customFields ?? {};
+  const codes: string[] = [];
+  for (const d of [...deliveries].sort((a, b) => a.createdAt.localeCompare(b.createdAt))) {
+    for (const code of d.trackingCodes) if (!codes.includes(code)) codes.push(code);
+  }
+  let shippedDate: string | undefined = cf.meta_shipped_date ? String(cf.meta_shipped_date) : undefined;
+  if (!shippedDate && shippedAtByDeliveryId) {
+    for (const id of deliveryIdsNeedingShippedDate(deliveries, cf)) {
+      const at = shippedAtByDeliveryId.get(id);
+      if (at && (!shippedDate || at > shippedDate)) shippedDate = at;
+    }
+  }
+  const info: { carrier?: string; trackingNumber?: string; shippedDate?: string } = {};
+  if (cf.meta_shipped_carrier) info.carrier = String(cf.meta_shipped_carrier);
+  const trackingNumber = codes.length > 0 ? codes.join(", ") : cf.meta_shipped_tracking ? String(cf.meta_shipped_tracking) : "";
+  if (trackingNumber) info.trackingNumber = trackingNumber;
+  if (shippedDate) info.shippedDate = shippedDate;
+  return Object.keys(info).length > 0 ? info : undefined;
+}
+
 export function extractShopwareOrderCustomerNumber(order: any, includedMap: Map<string, any>): string | undefined {
   const oc = order?.orderCustomer;
   const fromNested = oc?.customerNumber ?? oc?.attributes?.customerNumber;

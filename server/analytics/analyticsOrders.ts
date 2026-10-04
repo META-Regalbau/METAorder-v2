@@ -9,7 +9,10 @@ import { filterOrdersBySalesChannels, getOrdersWithCache } from "../routes/route
  * Bildet die fruehere Live-Abfrage (fetchOrdersForAnalytics) nach:
  * - Zeitraum: orderDate ist in Shopware ein Datum (im Spiegel Mitternacht UTC) - verglichen wird
  *   der Tag, dateFrom und dateTo jeweils einschliesslich.
- * - Versanddaten aus den Zusatzfeldern meta_shipped_* (schreibt METAorder beim Versand).
+ * - Versanddaten (shippingInfo) liefert das Bestell-Mapping: Zusatzfelder meta_shipped_* (schreibt
+ *   METAorder beim Versand), sonst Tracking-Codes und Versanddatum der Shopware-Lieferungen. Die
+ *   Live-Abfrage kannte nur die Zusatzfelder - die sind in keinem Mandanten befuellt, die
+ *   Versandzeiten blieben leer.
  * - Reihenfolge: neueste Bestellung zuerst.
  * Bewusste Unterschiede: Positionsbetraege kommen aus dem normalen Bestell-Mapping (die Live-
  * Abfrage behandelte Netto-Positionspreise als brutto); eine leere Kanalliste (Nutzer ohne Kanal)
@@ -24,25 +27,11 @@ export type AnalyticsOrderFilter = {
 
 const orderDay = (order: Order) => String(order.orderDate ?? "").slice(0, 10);
 
-/** Versanddaten aus den Shopware-Zusatzfeldern (wie bisher die Live-Abfrage). */
-export function withShippingInfo(order: Order): Order {
-  const cf = (order.customFields ?? {}) as Record<string, any>;
-  if (!cf.meta_shipped_date && !cf.meta_shipped_carrier && !cf.meta_shipped_tracking) {
-    return { ...order, shippingInfo: undefined };
-  }
-  const shippingInfo: { carrier?: string; trackingNumber?: string; shippedDate?: string } = {};
-  if (cf.meta_shipped_date) shippingInfo.shippedDate = cf.meta_shipped_date;
-  if (cf.meta_shipped_carrier) shippingInfo.carrier = cf.meta_shipped_carrier;
-  if (cf.meta_shipped_tracking) shippingInfo.trackingNumber = cf.meta_shipped_tracking;
-  return { ...order, shippingInfo };
-}
-
 export function selectAnalyticsOrders(orders: Order[], filter: AnalyticsOrderFilter): Order[] {
   const from = filter.dateFrom?.slice(0, 10);
   const to = filter.dateTo?.slice(0, 10);
   return filterOrdersBySalesChannels(orders, filter.salesChannelIds)
     .filter((o) => (!from || orderDay(o) >= from) && (!to || orderDay(o) <= to))
-    .map(withShippingInfo)
     .sort((a, b) => orderDay(b).localeCompare(orderDay(a)));
 }
 
