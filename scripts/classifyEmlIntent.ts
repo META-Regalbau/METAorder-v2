@@ -10,13 +10,13 @@ dotenv.config({ path: path.join(process.cwd(), ".env.local") });
 dotenv.config();
 import fs from "fs/promises";
 import { simpleParser } from "mailparser";
-import { encrypt } from "../server/encryption";
-import { classifyCommercialDocumentIntent } from "../server/commercialDocumentIntent";
+import { encrypt } from "../server/lib/encryption";
+import { classifyCommercialDocumentIntent } from "../server/commercial/commercialDocumentIntent";
 import {
   filterPdfPartsFromMailparserAttachments,
   buildCombinedPdfTextForIntent,
-} from "../server/commercialInboundPdfContext";
-import { maybeRefineIntentWithSubAgents } from "../server/commercialSubAgents";
+} from "../server/commercial/commercialInboundPdfContext";
+import { maybeRefineIntentWithSubAgents } from "../server/commercial/commercialSubAgents";
 import type { IStorage } from "../server/storage";
 
 function makeStorage(): IStorage {

@@ -19,13 +19,13 @@
 import fs from "fs/promises";
 import path from "path";
 import OpenAI from "openai";
-import { extractOrderDataFromDocument } from "../server/orderDraftExtractor";
+import { extractOrderDataFromDocument } from "../server/extraction/orderDraftExtractor";
 import {
   aggregateEvalResults,
   compareDocumentExtraction,
   formatEvalSummary,
   type CaseResult,
-} from "../server/extractionEvalScoring";
+} from "../server/extraction/extractionEvalScoring";
 
 const DEFAULT_DIR = "training/document-extraction/eval";
 

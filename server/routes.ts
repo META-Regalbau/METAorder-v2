@@ -7,39 +7,39 @@ import rateLimit from "express-rate-limit";
 import crypto from "crypto";
 import { storage } from "./storage";
 import type { IStorage } from "./storage";
-import { ShopwareClient, getRealInvoiceDocument, isMonduPluginShipError, ZUGFERD_EMBEDDED_INVOICE_TYPE, type ShopwareProductOverview, applyOverviewParentInheritance, isShopwareEntityId, normalizeShopwareEntityId } from "./shopware";
-import { getHashCached, invalidateMemoryHashCache, stableFingerprint, type PersistedHashCache } from "./contentHashCache";
+import { ShopwareClient, getRealInvoiceDocument, isMonduPluginShipError, ZUGFERD_EMBEDDED_INVOICE_TYPE, type ShopwareProductOverview, applyOverviewParentInheritance, isShopwareEntityId, normalizeShopwareEntityId } from "./shopware/shopware";
+import { getHashCached, invalidateMemoryHashCache, stableFingerprint, type PersistedHashCache } from "./lib/contentHashCache";
 import {
   filterOrdersList,
   sortOrdersList,
   computeDuplicateOrderIds,
   paginateOrdersList,
   type OrdersListQuery,
-} from "./ordersList";
+} from "./shopware/ordersList";
 import { isOrderEligibleForShippingPick } from "@shared/orderShippingEligibility";
-import { parseFakturaRowsFromBuffer, runFakturaImport } from "./shopFakturenImport";
-import { parseHerstellpreisRowsFromBuffer, runHerstellpreisImport } from "./herstellpreisImport";
+import { parseFakturaRowsFromBuffer, runFakturaImport } from "./invoicing/shopFakturenImport";
+import { parseHerstellpreisRowsFromBuffer, runHerstellpreisImport } from "./products/herstellpreisImport";
 import {
   parseVisibilityMatrixFromBuffer,
   runVisibilityImport,
   buildVisibilityImportTemplateBuffer,
-} from "./productVisibilityImport";
-import { productCache } from "./productCache";
-import { enrichCustomerPricesWithHerstellMargin } from "./herstellpreisMargin";
+} from "./products/productVisibilityImport";
+import { productCache } from "./products/productCache";
+import { enrichCustomerPricesWithHerstellMargin } from "./products/herstellpreisMargin";
 import {
   buildOrderProfitabilityAnalysisSummary,
   enrichOrdersWithProfitability,
   sortOrdersByMargin,
-} from "./orderProfitabilityAnalysis";
+} from "./analytics/orderProfitabilityAnalysis";
 import { enrichOrdersWithStockAvailability } from "./erp/orderStockEnrichment";
 import {
   loadCrmProfitabilitySettings,
   parseCrmProfitabilitySettings,
   saveCrmProfitabilitySettings,
-} from "./crmProfitabilitySettings";
-import { getHerstellpreisLookupKey } from "./productIdentifiers";
-import { sendOrderInvoice, getInvoiceAutomationSettings, markOrderInvoiceSentInCache, INVOICE_AUTOMATION_SETTINGS_KEY, type SendInvoiceResult } from "./invoiceSending";
-import { RuleEngine, type SuggestCrossSellingOptions } from "./ruleEngine";
+} from "./analytics/crmProfitabilitySettings";
+import { getHerstellpreisLookupKey } from "./products/productIdentifiers";
+import { sendOrderInvoice, getInvoiceAutomationSettings, markOrderInvoiceSentInCache, INVOICE_AUTOMATION_SETTINGS_KEY, type SendInvoiceResult } from "./invoicing/invoiceSending";
+import { RuleEngine, type SuggestCrossSellingOptions } from "./cross-selling/ruleEngine";
 import {
   loadCrossSellShelvingPatternConfig,
   findShelvingSupplements,
@@ -48,93 +48,93 @@ import {
   sourceIsShelf,
   normalizeFootprint,
   type CrossSellShelvingPatternConfig,
-} from "./crossSellShelvingHeuristics";
+} from "./cross-selling/crossSellShelvingHeuristics";
 import { shopwareSettingsSchema, monduSettingsSchema, proformaNumberRangeSchema, dunningSettingsSchema, invoiceAutomationSettingsSchema, type MonduSettings, insertCrossSellingRuleSchema, type Product, insertUserSchema, type Role, insertTicketSchema, insertTicketCommentSchema, insertTicketAssignmentRuleSchema, type Ticket, insertNotificationSchema, insertTicketAttachmentSchema, insertTicketTemplateSchema, insertProcessUpdateSchema, type Order, insertOrderDraftSchema, insertOfferDraftSchema, insertAutomationRuleSchema, insertShippingCarrierSchema, type CrossSellingRule, type RuleCondition, type RuleTargetCriteria, type WebhookEventType, type TicketCategory, insertCustomerInteractionSchema, insertOrderAssignmentSchema, insertDiscountRequestSchema, createInstallmentPlanBodySchema, settlementInvoicePdfBodySchema, additionalInvoiceBodySchema, type InstallmentPlan, type InstallmentInvoice, type CrossSellCooccurrence, type CrossSellEventPairStats, SHOPWARE_CROSS_SELLING_STOREFRONT_NAME, CROSS_SELL_CATEGORIES } from "@shared/schema";
 import {
   getAISettings,
   getCommercialAgentSettings,
   DEFAULT_COMMERCIAL_AGENT,
   type CommercialAgentSettings,
-} from "./aiConfig";
-import { requireAuth, requireAuthOrIntegrationKey, requireCsrf, requireViewDelayedOrders, requireManageUsers, requireManageRoles, requireManageSettings, requireManageCrossSellingGroups, requireManageCrossSellingRules, requireViewTickets, requireManageTickets, requireViewShipping, requireEditOrders, requireManageAutomations, requireManageOrderDrafts, requireManageCommercialDraftUpload, requireViewOffers, requireManageOffers, requireViewNaturalLanguageAnalytics, requireManageDocuments, requireViewDocuments, requireViewAnalytics, requireManageProducts, requireViewAccounting, requireViewCrm, requireManageCrm, requireApproveCrm, requireViewCPQ, requireManageCPQ, requireManageCPQDiscountLevels, requireApproveCPQQuotes, requireCpqHandoffToken } from "./auth";
-import { requireCustomerAuth, type CustomerRequest } from "./authCustomer";
-import { encrypt, decrypt } from "./encryption";
+} from "./ai/aiConfig";
+import { requireAuth, requireAuthOrIntegrationKey, requireCsrf, requireViewDelayedOrders, requireManageUsers, requireManageRoles, requireManageSettings, requireManageCrossSellingGroups, requireManageCrossSellingRules, requireViewTickets, requireManageTickets, requireViewShipping, requireEditOrders, requireManageAutomations, requireManageOrderDrafts, requireManageCommercialDraftUpload, requireViewOffers, requireManageOffers, requireViewNaturalLanguageAnalytics, requireManageDocuments, requireViewDocuments, requireViewAnalytics, requireManageProducts, requireViewAccounting, requireViewCrm, requireManageCrm, requireApproveCrm, requireViewCPQ, requireManageCPQ, requireManageCPQDiscountLevels, requireApproveCPQQuotes, requireCpqHandoffToken } from "./auth/auth";
+import { requireCustomerAuth, type CustomerRequest } from "./auth/authCustomer";
+import { encrypt, decrypt } from "./lib/encryption";
 import * as XLSX from 'xlsx';
-import { generateToken } from "./jwt";
-import { parseEmailFile } from "./emailParser";
-import { notificationEvents } from "./events";
-import { processNaturalLanguageQuery } from "./naturalLanguageAnalytics";
-import { executeAnalyticsQuery } from "./analyticsQueryExecutor";
-import { generateInsights } from "./automaticInsights";
-import { executeSemanticProductSearch } from "./semanticProductSearch";
-import { runSemanticIndex } from "./semanticIndexer";
-import { generateEmbedding } from "./semanticEmbeddings";
-import { generateFaqAnswer } from "./semanticFaq";
-import { webhookService, type DocumentCreatedPayload } from "./webhookService";
-import { getCrossSellLearningSettings, runCrossSellLearning, type LearningSettings } from "./crossSellLearning";
-import { hybridWeightsFromLearningSettings, buildCrossSellEventStatsMap } from "./crossSellHybridRanker";
-import { B2BSellersClient, getOfferStatusMapping, type OfferStatusMapping } from "./b2bSellersClient";
-import { getOfferLearningSettings, runOfferLearning } from "./offerLearning";
-import { enrichOrderDueDate, getDunningCandidateForOrder, getDunningCandidates, saveDunningPdfToSystem, sendDunningForOrder, sendDunningForOrderInternal } from "./dunningJob";
-import { generateDunningPdf } from "./dunningPdf";
-import { generateInstallmentAgreementPdf, type InstallmentAgreementLine } from "./installmentAgreementPdf";
-import { generateInstallmentInvoicePdf, type InstallmentInvoicePdfInput } from "./installmentInvoicePdf";
-import { generateSettlementInvoicePdf, type SettlementInvoicePdfInput } from "./settlementInvoicePdf";
-import { generateAdditionalInvoicePdf } from "./additionalInvoicePdf";
-import { applyOfferConfigPdfLayoutFromRequest, generateOfferConfigPdf } from "./offerConfigPdf";
-import { buildOfferConfigPdfInputWithCpqFallback } from "./offerConfigPdfCpqFallback";
-import { buildPlainOfferPdfInput, attachRoomPlanToPdfInput } from "./offerConfigPdfBuilder";
+import { generateToken } from "./auth/jwt";
+import { parseEmailFile } from "./email/emailParser";
+import { notificationEvents } from "./lib/events";
+import { processNaturalLanguageQuery } from "./analytics/naturalLanguageAnalytics";
+import { executeAnalyticsQuery } from "./analytics/analyticsQueryExecutor";
+import { generateInsights } from "./analytics/automaticInsights";
+import { executeSemanticProductSearch } from "./semantic/semanticProductSearch";
+import { runSemanticIndex } from "./semantic/semanticIndexer";
+import { generateEmbedding } from "./semantic/semanticEmbeddings";
+import { generateFaqAnswer } from "./semantic/semanticFaq";
+import { webhookService, type DocumentCreatedPayload } from "./lib/webhookService";
+import { getCrossSellLearningSettings, runCrossSellLearning, type LearningSettings } from "./cross-selling/crossSellLearning";
+import { hybridWeightsFromLearningSettings, buildCrossSellEventStatsMap } from "./cross-selling/crossSellHybridRanker";
+import { B2BSellersClient, getOfferStatusMapping, type OfferStatusMapping } from "./b2b/b2bSellersClient";
+import { getOfferLearningSettings, runOfferLearning } from "./offers/offerLearning";
+import { enrichOrderDueDate, getDunningCandidateForOrder, getDunningCandidates, saveDunningPdfToSystem, sendDunningForOrder, sendDunningForOrderInternal } from "./invoicing/dunningJob";
+import { generateDunningPdf } from "./invoicing/dunningPdf";
+import { generateInstallmentAgreementPdf, type InstallmentAgreementLine } from "./invoicing/installmentAgreementPdf";
+import { generateInstallmentInvoicePdf, type InstallmentInvoicePdfInput } from "./invoicing/installmentInvoicePdf";
+import { generateSettlementInvoicePdf, type SettlementInvoicePdfInput } from "./invoicing/settlementInvoicePdf";
+import { generateAdditionalInvoicePdf } from "./invoicing/additionalInvoicePdf";
+import { applyOfferConfigPdfLayoutFromRequest, generateOfferConfigPdf } from "./offers/offerConfigPdf";
+import { buildOfferConfigPdfInputWithCpqFallback } from "./offers/offerConfigPdfCpqFallback";
+import { buildPlainOfferPdfInput, attachRoomPlanToPdfInput } from "./offers/offerConfigPdfBuilder";
 import {
   buildOfferErpExportModel,
   offerErpExportToCsv,
   offerErpExportToXml,
-} from "./offerErpExport";
+} from "./offers/offerErpExport";
 import {
   enrichOfferConfigPdfInputWithTexts,
   mergeOfferConfigPdfStoredTexts,
   DEFAULT_OFFER_CONFIG_PDF_TEXTS,
   OFFER_CONFIG_PDF_TEXTS_SETTING_KEY,
   offerConfigPdfTextsPayloadSchema,
-} from "./offerConfigPdfTexts";
+} from "./offers/offerConfigPdfTexts";
 import archiver from "archiver";
 import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
 import fsSync from "fs";
-import { objectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { objectStorageService, ObjectNotFoundError } from "./lib/objectStorage";
 import { getUploadsRoot } from "./uploadsRoot";
-import { getEmailInboundSettings, saveEmailInboundSettings } from "./emailInbound";
-import { getEmailOutboundSettings, saveEmailOutboundSettings, sendEmail } from "./emailOutbound";
-import { getVapidPublicKey, notifyNewTicket } from "./notifications";
-import { parseCsv, parsePdf, matchEntries, enrichEntriesWithAI } from "./accounting";
-import { getEmailRoutingSettings, DEFAULT_EMAIL_ROUTING_SETTINGS } from "./emailRouting";
-import { buildM365AuthUrl, decodeIdToken, exchangeCodeForToken, exchangeDeviceCodeForToken, getM365Settings, saveM365Settings, startDeviceCode } from "./m365Client";
-import { fetchAdsKpis, fetchGa4Kpis, getGoogleAdsSettings, getGoogleAnalyticsSettings, parseIdsInput, saveGoogleAdsSettings, saveGoogleAnalyticsSettings } from "./googleKpi";
-import { classifyTicketForRules } from "./ticketAi";
+import { getEmailInboundSettings, saveEmailInboundSettings } from "./email/emailInbound";
+import { getEmailOutboundSettings, saveEmailOutboundSettings, sendEmail } from "./email/emailOutbound";
+import { getVapidPublicKey, notifyNewTicket } from "./lib/notifications";
+import { parseCsv, parsePdf, matchEntries, enrichEntriesWithAI } from "./invoicing/accounting";
+import { getEmailRoutingSettings, DEFAULT_EMAIL_ROUTING_SETTINGS } from "./email/emailRouting";
+import { buildM365AuthUrl, decodeIdToken, exchangeCodeForToken, exchangeDeviceCodeForToken, getM365Settings, saveM365Settings, startDeviceCode } from "./email/m365Client";
+import { fetchAdsKpis, fetchGa4Kpis, getGoogleAdsSettings, getGoogleAnalyticsSettings, parseIdsInput, saveGoogleAdsSettings, saveGoogleAnalyticsSettings } from "./analytics/googleKpi";
+import { classifyTicketForRules } from "./tickets/ticketAi";
 import { registerCpqRoutes } from "./cpq/cpqRoutes";
-import { parseObxContent, type ObxArticle, type ObxHeader } from "./obxParser";
+import { parseObxContent, type ObxArticle, type ObxHeader } from "./extraction/obxParser";
 import { registerCpqCoreRoutes } from "./cpq-core/cpqCoreRoutes";
 import { registerOpenApi } from "./openapi/registerOpenApi";
-import { runOfferDraftPipeline, runOrderDraftPipeline } from "./commercialDraftPipeline";
+import { runOfferDraftPipeline, runOrderDraftPipeline } from "./commercial/commercialDraftPipeline";
 import {
   tryCreateShopwareCustomerFromExtractedData,
   mergeDraftExtractedData,
   resolveEmailForShopwareCustomerCreate,
   type DraftBillingAddressInput,
   type DraftExtractedCustomer,
-} from "./draftCustomerEmailResolution";
-import { ensureDraftShopwareCustomerId, executeCreateOfferFromDraft, executeCreateOrderFromDraft } from "./commercialDraftShopware";
-import { fetchCustomerBoundSalesChannelId, resolveOfferSalesChannelId } from "./offerSalesChannelResolver";
-import { emitCommercialDraftWebhooks } from "./commercialWebhookNotifications";
-import { processCommercialPdfFromEmail } from "./commercialAgentOrchestrator";
-import { classifyCommercialDocumentIntent } from "./commercialDocumentIntent";
+} from "./commercial/draftCustomerEmailResolution";
+import { ensureDraftShopwareCustomerId, executeCreateOfferFromDraft, executeCreateOrderFromDraft } from "./commercial/commercialDraftShopware";
+import { fetchCustomerBoundSalesChannelId, resolveOfferSalesChannelId } from "./offers/offerSalesChannelResolver";
+import { emitCommercialDraftWebhooks } from "./commercial/commercialWebhookNotifications";
+import { processCommercialPdfFromEmail } from "./commercial/commercialAgentOrchestrator";
+import { classifyCommercialDocumentIntent } from "./commercial/commercialDocumentIntent";
 import {
   ingestCommercialEmailUpload,
   isEmailContainerUpload,
-} from "./commercialEmailUploadIngest";
-import { runStrictCommercialAutoCreateIfAllowed } from "./commercialStrictAutoCreateRunner";
-import { toImportedInquirySummary } from "./importedInquirySummary";
-import type { MatchingResult } from "./productMatcher";
+} from "./commercial/commercialEmailUploadIngest";
+import { runStrictCommercialAutoCreateIfAllowed } from "./commercial/commercialStrictAutoCreateRunner";
+import { toImportedInquirySummary } from "./commercial/importedInquirySummary";
+import type { MatchingResult } from "./products/productMatcher";
 
 function parseUploadIntentHint(raw: unknown): "offer" | "order" | "unclear" | undefined {
   if (typeof raw !== "string") return undefined;
@@ -144,25 +144,25 @@ function parseUploadIntentHint(raw: unknown): "offer" | "order" | "unclear" | un
   if (s === "unclear") return "unclear";
   return undefined;
 }
-import { extractDocumentTextPreviewForIntent } from "./documentTextExtraction";
-import { registerPublicOfferRoutes } from "./publicOfferRoutes";
-import { registerCommercialAcknowledgementRoutes } from "./commercialAcknowledgementRoutes";
-import { registerB2BAdminRoutes } from "./b2bAdminRoutes";
-import { registerSftpRoutes } from "./sftpRoutes";
-import { hasEnabledSftpServers } from "./sftpUpload";
+import { extractDocumentTextPreviewForIntent } from "./extraction/documentTextExtraction";
+import { registerPublicOfferRoutes } from "./offers/publicOfferRoutes";
+import { registerCommercialAcknowledgementRoutes } from "./commercial/commercialAcknowledgementRoutes";
+import { registerB2BAdminRoutes } from "./b2b/b2bAdminRoutes";
+import { registerSftpRoutes } from "./sftp/sftpRoutes";
+import { hasEnabledSftpServers } from "./sftp/sftpUpload";
 import { registerErpRoutes } from "./erp/erpRoutes";
 import { registerErpProductLabelRoutes } from "./erp/erpProductLabels";
-import { buildOfferDetailJson } from "./offerDetailBuilder";
-import { generateOfferPlainToken, hashOfferPublicToken } from "./offerToken";
-import { buildCommercialProductFeedbackRowsFromDraftUpdate } from "./commercialProductLearning";
-import { buildCommercialClarificationEmail } from "./customerClarificationEmail";
+import { buildOfferDetailJson } from "./offers/offerDetailBuilder";
+import { generateOfferPlainToken, hashOfferPublicToken } from "./offers/offerToken";
+import { buildCommercialProductFeedbackRowsFromDraftUpdate } from "./commercial/commercialProductLearning";
+import { buildCommercialClarificationEmail } from "./commercial/customerClarificationEmail";
 import {
   applyDraftAttachmentExportUpdate,
   listDraftAttachmentsForApi,
   parseDraftAttachmentExportUpdate,
   sendDraftAttachmentFile,
-} from "./draftAttachmentRoutes";
-import { restoreTenantContext } from "./tenantContext";
+} from "./commercial/draftAttachmentRoutes";
+import { restoreTenantContext } from "./lib/tenantContext";
 
 // Rate limiter for login endpoint - prevents brute force attacks
 const loginRateLimiter = rateLimit({
@@ -1359,7 +1359,7 @@ const CRM_INDIVIDUAL_PRICES_CACHE_KEY = "crm_individual_prices_index_v2";
 const BESTANDSKUNDEN_GROUP_TERMS = ["Portal", "Händler", "Haendler"];
 
 /**
- * Bestellungen aus dem lokalen Spiegel (server/shopwareMirror.ts) statt bei jedem
+ * Bestellungen aus dem lokalen Spiegel (server/shopware/shopwareMirror.ts) statt bei jedem
  * Laden alle Bestellungen live von Shopware zu holen. Der Spiegel wird alle 3 Minuten
  * im Hintergrund per Delta-Sync aktuell gehalten (nur updatedAt >= letzter Sync-Zeitpunkt
  * — erfasst damit auch Status-Aenderungen an aelteren Bestellungen, nicht nur neue).
@@ -1376,14 +1376,14 @@ async function getOrdersWithCache(
 
   if (needsSync) {
     try {
-      const { syncShopwareMirrorForTenant } = await import("./shopwareMirror");
+      const { syncShopwareMirrorForTenant } = await import("./shopware/shopwareMirror");
       await syncShopwareMirrorForTenant(storage, client, tenantId ?? null, { entities: ["orders"] });
     } catch (error) {
       console.error("[orders-cache] Sync fehlgeschlagen, liefere Spiegel-Stand:", error);
     }
   }
 
-  const { mirrorRowsToOrders } = await import("./shopwareMirror");
+  const { mirrorRowsToOrders } = await import("./shopware/shopwareMirror");
   const { rows } = await storage.getShopwareOrderMirrors(tenantId);
   const orders = mirrorRowsToOrders(rows);
   const fromCache = !needsSync;
@@ -3305,7 +3305,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!validated.apiKey) {
         return res.status(400).json({ success: false, error: "API key is required for testing" });
       }
-      const { MonduClient } = await import("./mondu");
+      const { MonduClient } = await import("./invoicing/mondu");
       const client = new MonduClient({
         apiKey: validated.apiKey,
         sandboxMode: validated.sandboxMode,
@@ -5615,7 +5615,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Step 3: Submit to Mondu
       console.log(`[Mondu Submit] Submitting invoice to Mondu order ${monduOrderUuid}`);
-      const { MonduClient } = await import("./mondu");
+      const { MonduClient } = await import("./invoicing/mondu");
       const monduClient = new MonduClient(monduSettings);
 
       const result = await monduClient.submitInvoice({
@@ -5972,7 +5972,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = textSchema.parse(req.body);
       const { text } = validatedData;
 
-      const { chatCompletion } = await import("./llmChat");
+      const { chatCompletion } = await import("./ai/llmChat");
       let improvedText: string;
       try {
         improvedText = await chatCompletion((key) => storage.getSetting(key), {
@@ -6011,7 +6011,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = sentimentSchema.parse(req.body);
       const { text } = validatedData;
 
-      const { chatCompletion } = await import("./llmChat");
+      const { chatCompletion } = await import("./ai/llmChat");
       let sentimentRaw: string;
       try {
         sentimentRaw = await chatCompletion((key) => storage.getSetting(key), {
@@ -6058,7 +6058,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = categorySchema.parse(req.body);
       const { title, description } = validatedData;
 
-      const { chatCompletion, parseLlmJsonResponse } = await import("./llmChat");
+      const { chatCompletion, parseLlmJsonResponse } = await import("./ai/llmChat");
       let categoryJson: string;
       try {
         categoryJson = await chatCompletion((key) => storage.getSetting(key), {
@@ -6125,7 +6125,7 @@ Die Tags sollten spezifisch und relevant sein (z.B. "Versand", "Zahlung", "Rekla
       const validatedData = replySchema.parse(req.body);
       const { title, description, category } = validatedData;
 
-      const { chatCompletion, parseLlmJsonResponse: parseRepliesJson } = await import("./llmChat");
+      const { chatCompletion, parseLlmJsonResponse: parseRepliesJson } = await import("./ai/llmChat");
       let repliesJson: string;
       try {
         repliesJson = await chatCompletion((key) => storage.getSetting(key), {
@@ -6181,8 +6181,8 @@ Antworte im JSON-Format:
   app.get("/api/settings/ai", requireAuth, requireManageSettings, async (req, res) => {
     try {
       const aiSettings = await storage.getSetting("openai_settings");
-      const { isReplitOpenAIAvailable } = await import("./openaiClient");
-      const { isChatLlmConfigured } = await import("./llmChat");
+      const { isReplitOpenAIAvailable } = await import("./ai/openaiClient");
+      const { isChatLlmConfigured } = await import("./ai/llmChat");
 
       const enabled = await isChatLlmConfigured((key) => storage.getSetting(key));
       const rawProvider = aiSettings?.chatProvider;
@@ -6938,7 +6938,7 @@ Antworte im JSON-Format:
         const mirrorCount = await storage.countShopwareProductMirrors(tenantId);
         if (mirrorCount > 0) {
           const { mirrorRowsToProducts, mirrorPayloadToOverview, triggerShopwareMirrorSync } =
-            await import("./shopwareMirror");
+            await import("./shopware/shopwareMirror");
           // Keep mirror warm in background
           triggerShopwareMirrorSync(storage, client, tenantId ?? null, ["products"]);
 
@@ -6990,7 +6990,7 @@ Antworte im JSON-Format:
           return res.json(result);
         }
         // Cold start: trigger sync and fall through to live fetch
-        const { triggerShopwareMirrorSync } = await import("./shopwareMirror");
+        const { triggerShopwareMirrorSync } = await import("./shopware/shopwareMirror");
         triggerShopwareMirrorSync(storage, client, ((req as any).tenantId as string | null) ?? null, [
           "products",
         ]);
@@ -7129,7 +7129,7 @@ Antworte im JSON-Format:
         ? allChannels.filter((c) => allowedChannelIds.includes(c.id))
         : allChannels;
 
-      const { mirrorPayloadToOverview, triggerShopwareMirrorSync } = await import("./shopwareMirror");
+      const { mirrorPayloadToOverview, triggerShopwareMirrorSync } = await import("./shopware/shopwareMirror");
       let overview: ShopwareProductOverview[] = [];
 
       const mirrorCount = await storage.countShopwareProductMirrors(tenantId);
@@ -7730,7 +7730,7 @@ Antworte im JSON-Format:
       const bundles = await storage.getAllBundles();
       const filtered = includeInactive ? bundles : bundles.filter((bundle) => bundle.active === 1);
       
-      const { productCache } = await import("./productCache");
+      const { productCache } = await import("./products/productCache");
       const bundlesWithDetails = filtered.map((bundle) => ({
         ...bundle,
         items: bundle.items.map((item) => {
@@ -7771,7 +7771,7 @@ Antworte im JSON-Format:
         return res.status(400).json({ error: "Mock product number already exists" });
       }
       
-      const { productCache } = await import("./productCache");
+      const { productCache } = await import("./products/productCache");
       const invalidProducts: string[] = [];
       const itemMap = new Map<string, number>();
       data.items.forEach((item) => {
@@ -7867,7 +7867,7 @@ Antworte im JSON-Format:
       
       let normalizedItems;
       if (data.items) {
-        const { productCache } = await import("./productCache");
+        const { productCache } = await import("./products/productCache");
         const invalidProducts: string[] = [];
         const itemMap = new Map<string, number>();
         data.items.forEach((item) => {
@@ -8551,7 +8551,7 @@ Antworte im JSON-Format:
       console.log(`[Semantic Search] Query: "${query}", Language: ${language || 'de'}`);
 
       // Use cached products (all products loaded at startup)
-      const { productCache } = await import("./productCache");
+      const { productCache } = await import("./products/productCache");
       const cacheStatus = productCache.getStatus();
       
       if (!cacheStatus.isPopulated) {
@@ -8612,7 +8612,7 @@ Antworte im JSON-Format:
   // Product Cache Status endpoint - Admin only
   app.get("/api/products/cache-status", requireAuth, requireManageSettings, async (req, res) => {
     try {
-      const { productCache } = await import("./productCache");
+      const { productCache } = await import("./products/productCache");
       const status = productCache.getStatus();
       const tenantId = (req as any).tenantId ?? null;
       const mirrorCount = await storage.countShopwareProductMirrors(tenantId);
@@ -8642,7 +8642,7 @@ Antworte im JSON-Format:
   // Product Cache Refresh endpoint - Admin only manual refresh
   app.post("/api/products/refresh-cache", requireAuth, requireManageSettings, async (req, res) => {
     try {
-      const { productCache } = await import("./productCache");
+      const { productCache } = await import("./products/productCache");
       const cacheStatus = productCache.getStatus();
       
       if (cacheStatus.isLoading) {
@@ -8657,7 +8657,7 @@ Antworte im JSON-Format:
       console.log("[Product Cache] Manual refresh requested");
       const client = new ShopwareClient(settings);
       const tenantId = (req as any).tenantId ?? null;
-      const { syncShopwareMirrorForTenant } = await import("./shopwareMirror");
+      const { syncShopwareMirrorForTenant } = await import("./shopware/shopwareMirror");
       await syncShopwareMirrorForTenant(storage, client, tenantId, {
         force: true,
         settings,
@@ -10808,7 +10808,7 @@ Antworte im JSON-Format:
       if (isForecastQuery) {
         console.log('[NL Analytics API] Step 5: Generating improvement suggestions...');
         try {
-          const { generateImprovementSuggestions } = await import('./improvementSuggestions');
+          const { generateImprovementSuggestions } = await import('./analytics/improvementSuggestions');
           improvements = await generateImprovementSuggestions(queryObj, result, storage);
           console.log(`[NL Analytics API] Generated ${improvements.length} improvement suggestions`);
         } catch (error: any) {
@@ -10962,7 +10962,7 @@ Antworte im JSON-Format:
   });
 
   // POST /api/erp-automation/trigger - Bestell-Spiegel sofort synchronisieren (Admin only).
-  // Damit greift der Rechnungsnummer-Watcher (server/invoiceNumberWatcher.ts) ohne auf
+  // Damit greift der Rechnungsnummer-Watcher (server/invoicing/invoiceNumberWatcher.ts) ohne auf
   // den naechsten 3-Minuten-Lauf zu warten.
   app.post("/api/erp-automation/trigger", requireAuth, requireManageSettings, async (req, res) => {
     try {
@@ -10974,7 +10974,7 @@ Antworte im JSON-Format:
         });
       }
 
-      const { syncShopwareMirrorForTenant } = await import("./shopwareMirror");
+      const { syncShopwareMirrorForTenant } = await import("./shopware/shopwareMirror");
       await syncShopwareMirrorForTenant(storage, new ShopwareClient(settings), tenantId, {
         entities: ["orders"],
         settings,
@@ -12494,7 +12494,7 @@ Antworte im JSON-Format:
       if (aiSettings.mode !== "local_only") {
         try {
           const openaiSettings = await storage.getSetting('openai_settings');
-          const { getOpenAIClient } = await import('./openaiClient');
+          const { getOpenAIClient } = await import('./ai/openaiClient');
           const openaiConfig = getOpenAIClient(openaiSettings?.apiKey);
           openaiClient = openaiConfig.client;
         } catch (error: any) {
@@ -12929,7 +12929,7 @@ Antworte im JSON-Format:
             const client = new ShopwareClient(settings);
             // Kundenstamm im Hintergrund spiegeln, damit die CRM-Liste den
             // vollständigen Shopware-Kundenbestand (nicht nur aktive) abbildet.
-            const { triggerShopwareMirrorSync } = await import("./shopwareMirror");
+            const { triggerShopwareMirrorSync } = await import("./shopware/shopwareMirror");
             triggerShopwareMirrorSync(storage, client, tenantId, ["customers"]);
             const { orders } = await getOrdersWithCache(client, tenantId);
 
@@ -13578,7 +13578,7 @@ Antworte im JSON-Format:
       // nicht garantiert vollständig (Seitenlimit); ohne den Fallback unten meldet das
       // Modal für einen Kunden mit echten Preisen fälschlich „keine vorhanden".
       const mirroredPrices = await storage.getShopwareCustomerPriceMirrors(tenantId);
-      let basePrices: import("./shopware").ShopwareCustomerPrice[] = [];
+      let basePrices: import("./shopware/shopware").ShopwareCustomerPrice[] = [];
       let fromMirror = false;
       let pluginEntity: string | null = null;
 
@@ -13589,7 +13589,7 @@ Antworte im JSON-Format:
             if (row.customerNumber && swCustomerNumbers.has(row.customerNumber)) return true;
             return false;
           })
-          .map((row) => row.payload as import("./shopware").ShopwareCustomerPrice)
+          .map((row) => row.payload as import("./shopware/shopware").ShopwareCustomerPrice)
           .filter((p) => {
             if (!currency) return true;
             const iso = (p.currencyIsoCode || "").toUpperCase();
@@ -13602,7 +13602,7 @@ Antworte im JSON-Format:
       }
 
       if (basePrices.length === 0) {
-        const { triggerShopwareMirrorSync } = await import("./shopwareMirror");
+        const { triggerShopwareMirrorSync } = await import("./shopware/shopwareMirror");
         triggerShopwareMirrorSync(storage, client, tenantId ?? null, ["customer_prices"]);
         // Preise für alle passenden Kunden (beide Kanäle) laden und mergen.
         // Dedup NUR innerhalb desselben Accounts (per Preis-ID) – Kanäle bleiben
@@ -13632,7 +13632,7 @@ Antworte im JSON-Format:
 
       // Jeden Preis mit seinem Verkaufskanal beschriften.
       const channelNameMap = await client.fetchSalesChannelNameMap().catch(() => new Map<string, string>());
-      const resolveChannelId = (p: import("./shopware").ShopwareCustomerPrice): string | null => {
+      const resolveChannelId = (p: import("./shopware/shopware").ShopwareCustomerPrice): string | null => {
         if (p.salesChannelId) return p.salesChannelId;
         if (p.customerId && channelByCustomerId.has(p.customerId)) return channelByCustomerId.get(p.customerId) ?? null;
         if (p.customerNumber && channelByCustomerNumber.has(p.customerNumber)) return channelByCustomerNumber.get(p.customerNumber) ?? null;
@@ -14046,7 +14046,7 @@ Antworte im JSON-Format:
           const list = (channelsByEmail[key] ??= []);
           if (!list.includes(name)) list.push(name);
         }
-        const { triggerShopwareMirrorSync } = await import("./shopwareMirror");
+        const { triggerShopwareMirrorSync } = await import("./shopware/shopwareMirror");
         triggerShopwareMirrorSync(storage, client, tenantId, ["customer_prices", "customers"]);
         return res.json({
           configured: true,
@@ -14058,7 +14058,7 @@ Antworte im JSON-Format:
         });
       }
 
-      const { triggerShopwareMirrorSync } = await import("./shopwareMirror");
+      const { triggerShopwareMirrorSync } = await import("./shopware/shopwareMirror");
       triggerShopwareMirrorSync(storage, client, tenantId, ["customer_prices", "customers"]);
 
       const { data: index } = await getHashCached({
@@ -14170,7 +14170,7 @@ Antworte im JSON-Format:
 
       // Kunden-Mirror im Hintergrund anstoßen, damit der vollständige Stamm
       // (Basis der CRM-Liste) befüllt/aktualisiert wird.
-      const { triggerShopwareMirrorSync } = await import("./shopwareMirror");
+      const { triggerShopwareMirrorSync } = await import("./shopware/shopwareMirror");
       triggerShopwareMirrorSync(storage, client, tenantId, ["customers"]);
 
       // Lokaler Kunden-Mirror + Sync-Status: zeigt, ob der vollständige
@@ -14238,7 +14238,7 @@ Antworte im JSON-Format:
             companies[key] = c.customerNumber;
           }
         }
-        const { triggerShopwareMirrorSync } = await import("./shopwareMirror");
+        const { triggerShopwareMirrorSync } = await import("./shopware/shopwareMirror");
         triggerShopwareMirrorSync(storage, client, tenantId, ["customers"]);
         return res.json({
           configured: true,
@@ -14248,7 +14248,7 @@ Antworte im JSON-Format:
         });
       }
 
-      const { triggerShopwareMirrorSync } = await import("./shopwareMirror");
+      const { triggerShopwareMirrorSync } = await import("./shopware/shopwareMirror");
       triggerShopwareMirrorSync(storage, client, tenantId, ["customers"]);
 
       const { data: cached, fromCache } = await getHashCached({
@@ -14594,7 +14594,7 @@ Antworte im JSON-Format:
     // Verify JWT token
     let userId: string;
     try {
-      const jwt = await import("./jwt");
+      const jwt = await import("./auth/jwt");
       const decoded = jwt.verifyToken(token);
       if (!decoded) {
         return res.status(401).json({ error: "Invalid token" });
@@ -14753,7 +14753,7 @@ Antworte im JSON-Format:
         if (aiSettings.mode === "openai_only") {
           try {
             const openaiSettings = await storage.getSetting("openai_settings");
-            const { getOpenAIClient } = await import("./openaiClient");
+            const { getOpenAIClient } = await import("./ai/openaiClient");
             getOpenAIClient(openaiSettings?.apiKey);
           } catch {
             await fs.unlink(file.path);
@@ -15109,7 +15109,7 @@ Antworte im JSON-Format:
         if (aiSettings.mode === "openai_only") {
           try {
             const openaiSettings = await storage.getSetting("openai_settings");
-            const { getOpenAIClient } = await import("./openaiClient");
+            const { getOpenAIClient } = await import("./ai/openaiClient");
             getOpenAIClient(openaiSettings?.apiKey);
           } catch {
             await fs.unlink(file.path);
@@ -15561,7 +15561,7 @@ Antworte im JSON-Format:
         return res.status(400).json({ error: "Bundle is inactive" });
       }
       
-      const { productCache } = await import("./productCache");
+      const { productCache } = await import("./products/productCache");
       const invalidProducts: string[] = [];
       const components = bundle.items.map((item) => {
         const product = productCache.getProductByNumber(item.productNumber);
@@ -15619,7 +15619,7 @@ Antworte im JSON-Format:
   // Body: { autoCreate?: boolean } — true (Automation) bewertet danach Strikt-Auto-Create und legt ggf. an.
   app.post("/api/order-drafts/:id/recheck", requireAuthOrIntegrationKey, requireManageOrderDrafts, requireCsrf, async (req: Request, res: Response) => {
     try {
-      const { recheckOrderDraft } = await import("./commercialDraftRecheck");
+      const { recheckOrderDraft } = await import("./commercial/commercialDraftRecheck");
       const result = await recheckOrderDraft(storage, req.params.id, {
         tenantId: req.tenantId ?? null,
         autoCreate: req.body?.autoCreate === true,
@@ -15840,7 +15840,7 @@ Antworte im JSON-Format:
         if (aiSettings.mode === "openai_only") {
           try {
             const openaiSettings = await storage.getSetting("openai_settings");
-            const { getOpenAIClient } = await import("./openaiClient");
+            const { getOpenAIClient } = await import("./ai/openaiClient");
             getOpenAIClient(openaiSettings?.apiKey);
           } catch {
             await fs.unlink(file.path);
@@ -15925,7 +15925,7 @@ Antworte im JSON-Format:
           ? previewImageBase64
           : null;
 
-      const { addCpqConfigurationToOffer } = await import("./cpqOfferAppend");
+      const { addCpqConfigurationToOffer } = await import("./cpq/cpqOfferAppend");
       await addCpqConfigurationToOffer(storage, req.tenantId ?? null, id, {
         systemId: systemId ?? null,
         systemName: systemName ?? null,
@@ -16165,11 +16165,11 @@ Antworte im JSON-Format:
       try {
         const settings = await storage.getShopwareSettings(req.tenantId ?? null);
         if (settings) {
-          const { ShopwareClient } = await import("./shopware");
+          const { ShopwareClient } = await import("./shopware/shopware");
           const client = new ShopwareClient(settings);
           const billing = await client.fetchCustomerBillingForPdf(customerId);
           if (billing?.email) {
-            const { sendEmail } = await import("./emailOutbound");
+            const { sendEmail } = await import("./email/emailOutbound");
             await sendEmail(storage, {
               to: billing.email,
               subject: "Ihre Angebotsanfrage bei META",
@@ -16498,7 +16498,7 @@ Antworte im JSON-Format:
         return res.status(400).json({ error: "Draft has no data to generate PDF" });
       }
 
-      const { generateOfferDraftPdf } = await import("./offerDraftPdf");
+      const { generateOfferDraftPdf } = await import("./offers/offerDraftPdf");
       const pdfBuffer = await generateOfferDraftPdf({
         ...draft,
         extractedData: draft.extractedData ?? undefined,
@@ -16568,7 +16568,7 @@ Antworte im JSON-Format:
         },
       });
       
-      const { recomputeOfferOverallConfidence } = await import("./lineItemProductScreening");
+      const { recomputeOfferOverallConfidence } = await import("./extraction/lineItemProductScreening");
       const overallConfidence = recomputeOfferOverallConfidence(updatedItems);
       
       // Update draft
@@ -16612,7 +16612,7 @@ Antworte im JSON-Format:
         return res.status(400).json({ error: "Bundle is inactive" });
       }
       
-      const { productCache } = await import("./productCache");
+      const { productCache } = await import("./products/productCache");
       const invalidProducts: string[] = [];
       const components = bundle.items.map((item) => {
         const product = productCache.getProductByNumber(item.productNumber);
@@ -16653,7 +16653,7 @@ Antworte im JSON-Format:
         },
       });
       
-      const { recomputeOfferOverallConfidence } = await import("./lineItemProductScreening");
+      const { recomputeOfferOverallConfidence } = await import("./extraction/lineItemProductScreening");
       const overallConfidence = recomputeOfferOverallConfidence(updatedItems);
       
       const updatedDraft = await storage.updateOfferDraft(id, {
@@ -17383,7 +17383,7 @@ Antworte im JSON-Format:
   // GET /api/offers/:id/service-catalog - alle Zusatzleistungs-Artikel (Montage, Mitnahmestapler, Ladebordwand, Fixtermin, ...) liefern
   app.get("/api/offers/:id/service-catalog", requireAuth, requireManageOffers, async (req: Request, res: Response) => {
     try {
-      const { listOfferServiceProducts } = await import("./montageLineItem");
+      const { listOfferServiceProducts } = await import("./offers/montageLineItem");
       const services = await listOfferServiceProducts(storage, req.tenantId ?? null);
       res.json({ services });
     } catch (error: any) {
@@ -17402,7 +17402,7 @@ Antworte im JSON-Format:
         quantity: z.number().int().min(1).max(20).optional(),
       });
       const { productNumber, unitPriceNet, quantity } = bodySchema.parse(req.body);
-      const { addServiceLineItemToOffer } = await import("./montageLineItem");
+      const { addServiceLineItemToOffer } = await import("./offers/montageLineItem");
       await addServiceLineItemToOffer(storage, req.tenantId ?? null, id, productNumber, unitPriceNet, quantity ?? 1);
       res.json({ success: true });
     } catch (error: any) {
@@ -17415,7 +17415,7 @@ Antworte im JSON-Format:
   app.get("/api/offers/:id/montage-suggestion", requireAuth, requireManageOffers, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { computeOfferMontageSuggestion } = await import("./montageLineItem");
+      const { computeOfferMontageSuggestion } = await import("./offers/montageLineItem");
       const suggestion = await computeOfferMontageSuggestion(storage, req.tenantId ?? null, id);
       res.json(suggestion);
     } catch (error: any) {
@@ -17433,7 +17433,7 @@ Antworte im JSON-Format:
         quantity: z.number().int().min(1).max(20).optional(),
       });
       const { unitPriceNet, quantity } = bodySchema.parse(req.body);
-      const { addMontageLineItemToOffer } = await import("./montageLineItem");
+      const { addMontageLineItemToOffer } = await import("./offers/montageLineItem");
       await addMontageLineItemToOffer(storage, req.tenantId ?? null, id, unitPriceNet, quantity ?? 1);
       res.json({ success: true });
     } catch (error: any) {
@@ -17465,9 +17465,9 @@ Antworte im JSON-Format:
   app.get("/api/offers/:id/room-layout", requireAuth, requireManageOffers, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { buildOfferDetailJson } = await import("./offerDetailBuilder");
+      const { buildOfferDetailJson } = await import("./offers/offerDetailBuilder");
       const { computeFootprintFromCpqConfig } = await import("./cpq/cpqRoomPlanner");
-      const { loadRoomPlannerSettings } = await import("./roomPlannerSettings");
+      const { loadRoomPlannerSettings } = await import("./cpq/roomPlannerSettings");
 
       const [detail, layout, plannerSettings] = await Promise.all([
         buildOfferDetailJson(storage, id, req.tenantId ?? null),
@@ -17547,9 +17547,9 @@ Antworte im JSON-Format:
         return res.status(400).json({ error: "Ungültige Wandelemente", wallFeatureErrors });
       }
 
-      const { buildOfferDetailJson } = await import("./offerDetailBuilder");
+      const { buildOfferDetailJson } = await import("./offers/offerDetailBuilder");
       const { computeFootprintFromCpqConfig, validateRoomPlacements } = await import("./cpq/cpqRoomPlanner");
-      const { loadRoomPlannerSettings } = await import("./roomPlannerSettings");
+      const { loadRoomPlannerSettings } = await import("./cpq/roomPlannerSettings");
 
       const [detail, plannerSettings] = await Promise.all([
         buildOfferDetailJson(storage, id, req.tenantId ?? null),

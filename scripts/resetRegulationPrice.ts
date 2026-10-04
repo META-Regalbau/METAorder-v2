@@ -1,5 +1,5 @@
 import { storage } from "../server/storage";
-import { ShopwareClient, type ShopwarePriceEntry } from "../server/shopware";
+import { ShopwareClient, type ShopwarePriceEntry } from "../server/shopware/shopware";
 
 const SYNC_BATCH_SIZE = 100;
 const DEFAULT_PAGE_SIZE = 500;

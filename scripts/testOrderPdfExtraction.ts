@@ -11,10 +11,10 @@ import dotenv from "dotenv";
 import path from "node:path";
 import fs from "node:fs/promises";
 import OpenAI from "openai";
-import { extractPlainTextForDraft } from "../server/documentTextExtraction";
-import { extractOrderDataFromDocument } from "../server/orderDraftExtractor";
-import { isOrderPdfTextInsufficient } from "../server/orderPdfVisionExtraction";
-import { isReplitOpenAIAvailable } from "../server/openaiClient";
+import { extractPlainTextForDraft } from "../server/extraction/documentTextExtraction";
+import { extractOrderDataFromDocument } from "../server/extraction/orderDraftExtractor";
+import { isOrderPdfTextInsufficient } from "../server/extraction/orderPdfVisionExtraction";
+import { isReplitOpenAIAvailable } from "../server/ai/openaiClient";
 
 dotenv.config({ path: path.join(process.cwd(), ".env.local") });
 dotenv.config({ path: path.join(process.cwd(), ".env") });

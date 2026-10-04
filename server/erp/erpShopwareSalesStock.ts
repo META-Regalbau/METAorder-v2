@@ -6,7 +6,7 @@ import { erpStorage } from "./erpStorage";
 import { requireTenantId } from "./erpLogic";
 import { getDefaultWarehouseOrThrow } from "./erpStockReconcile";
 import { storage } from "../storage";
-import { ShopwareClient } from "../shopware";
+import { ShopwareClient } from "../shopware/shopware";
 
 export const ERP_SHOPWARE_SALES_CURSOR_KEY = "erp_shopware_sales_stock_cursor";
 

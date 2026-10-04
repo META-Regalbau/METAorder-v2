@@ -1,7 +1,7 @@
 # Belege für die Belegart-Erkennung (Lieferschein / Bestellung / AB / Rechnung)
 
 Echte Kundenbelege (September 2026) als Regressionsfälle für
-`server/commercialAttachmentClassifier.ts`. Test: `npm run test:attachment-classifier`
+`server/commercial/commercialAttachmentClassifier.ts`. Test: `npm run test:attachment-classifier`
 (ohne Datenbank, Shopware oder OpenAI — nur PDF-Textlayer).
 
 | Datei | Erwartete Belegart | Warum im Datensatz |

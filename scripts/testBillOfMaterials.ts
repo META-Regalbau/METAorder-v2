@@ -44,7 +44,7 @@ if (!process.env.DATABASE_URL) {
 // dynamischer Import, damit DATABASE_URL-Check vor DB-Verbindung läuft
 const { cpqStorage } = await import("../server/cpq/cpqStorage");
 const { resolveBillOfMaterials } = await import("../server/cpq/cpqBillOfMaterials");
-const { productCache } = await import("../server/productCache");
+const { productCache } = await import("../server/products/productCache");
 
 const SAMPLE_CONFIG = {
   height: 2500,

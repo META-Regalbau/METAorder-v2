@@ -11,11 +11,11 @@ import {
   hashCommercialCustomerToken,
   readCustomerTokenFromRequest,
   validateCustomerToken,
-} from "../server/commercialCustomerApiToken";
+} from "../server/commercial/commercialCustomerApiToken";
 import {
   rateLimitAcknowledgement,
   resetAcknowledgementRateLimit,
-} from "../server/commercialAcknowledgementRoutes";
+} from "../server/commercial/commercialAcknowledgementRoutes";
 
 let failures = 0;
 

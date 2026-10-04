@@ -13,7 +13,7 @@ const FILES = [
   "server/routes.ts",
   "server/cpq/cpqRoutes.ts",
   "server/cpq-core/cpqCoreRoutes.ts",
-  "server/publicOfferRoutes.ts",
+  "server/offers/publicOfferRoutes.ts",
 ];
 
 const METHOD_RE = /app\.(get|post|put|patch|delete)\(\s*["']([^"']+)["']/gi;

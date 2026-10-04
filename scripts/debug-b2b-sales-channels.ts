@@ -5,8 +5,8 @@
  * npx tsx scripts/debug-b2b-sales-channels.ts
  */
 import { DbStorage } from "../server/dbStorage";
-import { createB2BAdminClient } from "../server/b2bSellersAdmin";
-import { ShopwareClient } from "../server/shopware";
+import { createB2BAdminClient } from "../server/b2b/b2bSellersAdmin";
+import { ShopwareClient } from "../server/shopware/shopware";
 
 function unwrapEntity(raw: any): any {
   if (!raw) return raw;

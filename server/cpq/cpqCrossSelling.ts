@@ -4,7 +4,7 @@
 
 import { cpqStorage } from "./cpqStorage";
 import { evaluateRules } from "./constraintEngine";
-import type { ShopwareClient } from "../shopware";
+import type { ShopwareClient } from "../shopware/shopware";
 import type { CpqProductMapping, CpqRule } from "@shared/schema";
 
 export type CartItem = {

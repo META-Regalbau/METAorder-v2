@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "crypto";
 import { eq, ne, sql as drizzleSql, desc, asc, and, isNull, lte, gt, gte, sql, inArray, not, count, or, ilike } from "drizzle-orm";
 import { db } from "./db";
-import { getTenantIdFromContext } from "./tenantContext";
+import { getTenantIdFromContext } from "./lib/tenantContext";
 import {
   users,
   tenants,
@@ -187,11 +187,11 @@ import type {
   ShopwareProductMirrorFilter,
   ShopwareSyncStatePatch,
 } from "./storage";
-import { encrypt, decrypt } from "./encryption";
+import { encrypt, decrypt } from "./lib/encryption";
 import {
   generateCommercialCustomerToken,
   hashCommercialCustomerToken,
-} from "./commercialCustomerApiToken";
+} from "./commercial/commercialCustomerApiToken";
 
 const toIsoString = (value: Date | string) => (value instanceof Date ? value.toISOString() : value);
 

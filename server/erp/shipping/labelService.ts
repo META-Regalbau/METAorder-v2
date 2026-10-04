@@ -1,6 +1,6 @@
 import type { Order } from "@shared/schema";
 import { storage } from "../../storage";
-import { ShopwareClient } from "../../shopware";
+import { ShopwareClient } from "../../shopware/shopware";
 import { erpStorage } from "../erpStorage";
 import { getLabelProvider } from "./getLabelProvider";
 import { writeLabelPdf } from "./labelFiles";

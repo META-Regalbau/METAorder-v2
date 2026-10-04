@@ -1,0 +1,1377 @@
+import { getSharedShopwareToken, invalidateSharedShopwareToken } from "../shopware/shopwareTokenCache";
+import { cachedMissingEntityResponse, traceShopwareResponse } from "../shopware/shopwareHttpTrace";
+import type { ShopwareSettings } from "@shared/schema";
+import type { B2BEntityMapping } from "@shared/b2bEntityMapping";
+import {
+  DEFAULT_B2B_ENTITY_MAPPING,
+  EMPLOYEE_CONFIGURATOR_FIELDS,
+  mergeB2BEntityMapping,
+} from "@shared/b2bEntityMapping";
+import { storage } from "../storage";
+import { enrichCustomerPricesWithHerstellMargin } from "../products/herstellpreisMargin";
+import { loadCrmProfitabilitySettings } from "../analytics/crmProfitabilitySettings";
+import { ShopwareClient, SHOPWARE_ADMIN_SEARCH_PAGE_SIZE } from "../shopware/shopware";
+export type { B2BEntityMapping };
+export { DEFAULT_B2B_ENTITY_MAPPING, mergeB2BEntityMapping };
+
+export type B2BCompanyListItem = {
+  id: string;
+  customerId: string | null;
+  company: string;
+  email: string;
+  customerNumber: string | null;
+  active: boolean;
+  createdAt: string | null;
+  salesChannelId: string | null;
+  salesChannelName: string | null;
+};
+
+export async function getStoredB2BEntityMapping(): Promise<B2BEntityMapping> {
+  const stored = (await storage.getSetting("b2b.entityMapping")) as Partial<B2BEntityMapping> | undefined;
+  return mergeB2BEntityMapping(stored);
+}
+
+function unwrapEntity(raw: any): any {
+  if (!raw) return raw;
+  if (raw.attributes && typeof raw.attributes === "object") {
+    return { id: raw.id, ...raw.attributes, ...raw };
+  }
+  return raw;
+}
+
+function getField(raw: any, field: string): any {
+  const parts = field.split(".");
+  let value = unwrapEntity(raw);
+  for (const part of parts) {
+    if (value == null) return undefined;
+    value = value[part];
+    if (value?.data?.id) value = value;
+  }
+  return value;
+}
+
+/** Wahrheitswert aus den verschiedenen Repräsentationen (bool, 0/1, "true"/"false"). */
+function coerceBool(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") return value;
+  if (value === 1 || value === "1" || value === "true") return true;
+  if (value === 0 || value === "0" || value === "false") return false;
+  return undefined;
+}
+
+/**
+ * Aktiv-Status eines B2B-Mitarbeiters ermitteln.
+ *
+ * Die B2Bsellers-Employee-Entität besitzt KEIN eigenes `active`-Feld (bestätigt
+ * gegen das Livesystem: Felder u. a. firstName, lastName, department, lastLogin,
+ * passwordActivation — aber kein active/enabled/status). Der bisherige Code las
+ * `active` und erhielt dadurch für jeden Mitarbeiter `false` → alle wurden als
+ * inaktiv angezeigt. Da B2Bsellers-Mitarbeiter keinen Deaktiviert-Zustand auf
+ * der Entität führen, werden sie als aktiv gewertet; die Kandidatenliste fängt
+ * abweichende Plugin-Versionen ab, die doch ein Flag mitliefern.
+ */
+function resolveEmployeeActive(u: any): boolean {
+  const candidates = ["active", "activeState", "isActive", "enabled", "customer.active"];
+  for (const field of candidates) {
+    const resolved = coerceBool(getField(u, field));
+    if (resolved !== undefined) return resolved;
+  }
+  return true;
+}
+
+/**
+ * Verknüpfung Mitarbeiter↔Kunde (`b2bsellers_employee_customer`).
+ *
+ * In B2Bsellers liegen Rolle (`roleId`), Administrator-Flag (`admin`) und
+ * Aktiv-Status (`active`) auf DIESER Verknüpfung — nicht am Mitarbeiter. Ein
+ * Mitarbeiter darf sich für einen Kunden nur anmelden, wenn die Verknüpfung
+ * aktiv ist UND (admin ODER roleId gesetzt); ohne Rolle/Admin wirft der Shop
+ * bei jeder Berechtigungsprüfung `InsufficientEmployeePermissionException`
+ * (z. B. `viewListing` auf Produkt-/Suchseiten), siehe B2bContextTrait.
+ * Shopware verwirft unbekannte Felder in Schreib-Requests still — `roleId`
+ * oder `active` am Mitarbeiter zu senden ist deshalb wirkungslos.
+ */
+export type EmployeeCustomerLink = {
+  id: string;
+  employeeId: string;
+  customerId: string;
+  roleId: string | null;
+  admin: boolean;
+  active: boolean;
+};
+
+const EMPLOYEE_CUSTOMER_LINK_FIELDS = ["id", "employeeId", "customerId", "roleId", "admin", "active"];
+
+function mapEmployeeCustomerLink(raw: any): EmployeeCustomerLink {
+  const u = unwrapEntity(raw);
+  return {
+    id: String(u.id),
+    employeeId: String(getField(u, "employeeId") || ""),
+    customerId: String(getField(u, "customerId") || ""),
+    roleId: getField(u, "roleId") || null,
+    admin: coerceBool(getField(u, "admin")) ?? false,
+    // Spalten-Default in B2Bsellers ist 1 — fehlender Wert zählt als aktiv.
+    active: coerceBool(getField(u, "active")) ?? true,
+  };
+}
+
+export class B2BSellersAdminClient {
+  private baseUrl: string;
+  private apiKey: string;
+  private apiSecret: string;
+  private accessToken: string | null = null;
+  private tokenExpiry = 0;
+  private entityMapping: B2BEntityMapping;
+  private shopwareSettings: ShopwareSettings;
+
+  constructor(settings: ShopwareSettings, entityMapping?: Partial<B2BEntityMapping>) {
+    this.shopwareSettings = settings;
+    const trimmedUrl = settings.shopwareUrl.replace(/\/$/, "");
+    const isLocalUrl = (url: string) => {
+      try {
+        const host = new URL(url).hostname;
+        return host === "localhost" || host === "127.0.0.1" || host === "host.docker.internal";
+      } catch {
+        return false;
+      }
+    };
+    this.baseUrl = trimmedUrl;
+    if (process.env.SHOPWARE_INTERNAL_URL && isLocalUrl(trimmedUrl)) {
+      this.baseUrl = process.env.SHOPWARE_INTERNAL_URL.replace(/\/$/, "");
+    }
+    this.apiKey = settings.apiKey;
+    this.apiSecret = settings.apiSecret;
+    this.entityMapping = mergeB2BEntityMapping(entityMapping);
+  }
+
+  getEntityMapping(): B2BEntityMapping {
+    return this.entityMapping;
+  }
+
+  private async authenticate(): Promise<string> {
+    // Instanz-Cache zuerst; sonst gemeinsames Token (siehe shopwareTokenCache.ts)
+    if (this.accessToken && Date.now() < this.tokenExpiry) {
+      return this.accessToken;
+    }
+    const shared = await getSharedShopwareToken(this.baseUrl, this.apiKey, this.apiSecret);
+    this.accessToken = shared.token;
+    this.tokenExpiry = shared.expiresAt;
+    return shared.token;
+  }
+
+  async makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<Response> {
+    const knownMissing = cachedMissingEntityResponse(url);
+    if (knownMissing) return knownMissing;
+    let token = await this.authenticate();
+    const headers = {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      ...options.headers,
+      Authorization: `Bearer ${token}`,
+    };
+    let response = await fetch(url, { ...options, headers });
+    if (response.status === 401) {
+      this.accessToken = null;
+      this.tokenExpiry = 0;
+      invalidateSharedShopwareToken(this.baseUrl, this.apiKey, this.apiSecret);
+      token = await this.authenticate();
+      response = await fetch(url, {
+        ...options,
+        headers: { ...headers, Authorization: `Bearer ${token}` },
+      });
+    }
+    return traceShopwareResponse(url, { ...options, headers }, response);
+  }
+
+  resolveEntityName(key: keyof B2BEntityMapping): string {
+    return this.entityMapping[key];
+  }
+
+  async searchEntity(
+    entityKey: keyof B2BEntityMapping,
+    criteria: Record<string, unknown>,
+    options?: { timeoutMs?: number },
+  ): Promise<{ data: any[]; total: number }> {
+    const entityName = this.resolveEntityName(entityKey);
+    // Optionales Timeout: hängt der Shopware-Query (z. B. bei sehr großen
+    // Ergebnismengen), lieber schnell mit klarer Meldung abbrechen als das
+    // gesamte Detail-Request hängen zu lassen.
+    const controller = options?.timeoutMs ? new AbortController() : undefined;
+    const timer = controller
+      ? setTimeout(() => controller.abort(), options!.timeoutMs)
+      : undefined;
+    let response: Response;
+    try {
+      response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/${entityName}`, {
+        method: "POST",
+        body: JSON.stringify(criteria),
+        signal: controller?.signal,
+      });
+    } catch (error: any) {
+      if (error?.name === "AbortError") {
+        throw new Error(
+          `Search ${entityName} timed out after ${options?.timeoutMs}ms — Ergebnismenge evtl. zu groß, bitte einschränken`,
+        );
+      }
+      throw error;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to search ${entityName}: ${response.statusText} - ${errorText}`);
+    }
+    const result = await response.json();
+    return {
+      data: result.data || [],
+      total: result.total ?? result.meta?.total ?? (result.data?.length ?? 0),
+    };
+  }
+
+  async getEntity(entityKey: keyof B2BEntityMapping, id: string, associationQuery?: string): Promise<any> {
+    const entityName = this.resolveEntityName(entityKey);
+    const query = associationQuery?.trim() ? `?${associationQuery}` : "";
+    const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/${entityName}/${id}${query}`, {
+      method: "GET",
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to fetch ${entityName}/${id}: ${response.statusText} - ${errorText}`);
+    }
+    const result = await response.json();
+    return result.data || result;
+  }
+
+  private writeRequestHeaders(skipTriggerFlow?: boolean): Record<string, string> {
+    const headers: Record<string, string> = {};
+    if (skipTriggerFlow) {
+      headers["sw-skip-trigger-flow"] = "1";
+    }
+    return headers;
+  }
+
+  async createEntity(
+    entityKey: keyof B2BEntityMapping,
+    payload: Record<string, unknown>,
+    options?: { skipTriggerFlow?: boolean },
+  ): Promise<{ id: string }> {
+    const entityName = this.resolveEntityName(entityKey);
+    const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/${entityName}`, {
+      method: "POST",
+      headers: this.writeRequestHeaders(options?.skipTriggerFlow),
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to create ${entityName}: ${response.statusText} - ${errorText}`);
+    }
+    const attributeId = typeof payload.id === "string" ? payload.id : undefined;
+    const locationHeader = response.headers.get("location") || response.headers.get("Location");
+    const locationId = locationHeader?.split("/").filter(Boolean).pop();
+    const rawBody = await response.text();
+    let bodyId: string | undefined;
+    if (rawBody.trim()) {
+      try {
+        const parsed = JSON.parse(rawBody);
+        bodyId = parsed?.data?.id ?? parsed?.id;
+      } catch {
+        /* 204 */
+      }
+    }
+    const id = attributeId ?? bodyId ?? locationId;
+    if (!id) throw new Error(`Created ${entityName} but no ID returned`);
+    return { id };
+  }
+
+  async patchEntity(
+    entityKey: keyof B2BEntityMapping,
+    id: string,
+    payload: Record<string, unknown>,
+    options?: { skipTriggerFlow?: boolean },
+  ): Promise<void> {
+    const entityName = this.resolveEntityName(entityKey);
+    const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/${entityName}/${id}`, {
+      method: "PATCH",
+      headers: this.writeRequestHeaders(options?.skipTriggerFlow),
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to update ${entityName}/${id}: ${response.statusText} - ${errorText}`);
+    }
+  }
+
+  async deleteEntity(entityKey: keyof B2BEntityMapping, id: string): Promise<void> {
+    const entityName = this.resolveEntityName(entityKey);
+    const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/${entityName}/${id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok && response.status !== 204) {
+      const errorText = await response.text();
+      throw new Error(`Failed to delete ${entityName}/${id}: ${response.statusText} - ${errorText}`);
+    }
+  }
+
+  private buildAssociations(names: string[]): Record<string, object> {
+    return names.reduce((acc, name) => {
+      acc[name] = {};
+      return acc;
+    }, {} as Record<string, object>);
+  }
+
+  private mapCustomerAsCompany(raw: any): B2BCompanyListItem {
+    const u = unwrapEntity(raw);
+    return {
+      id: u.id,
+      customerId: u.id,
+      company: getField(u, "company") || "",
+      email: getField(u, "email") || "",
+      customerNumber: getField(u, "customerNumber") || null,
+      active: getField(u, "active") ?? true,
+      createdAt: getField(u, "createdAt") || null,
+      salesChannelId: getField(u, "salesChannelId") || getField(u, "boundSalesChannelId") || null,
+      salesChannelName:
+        getField(u, "salesChannel.name") ||
+        getField(u, "salesChannel.translated.name") ||
+        null,
+    };
+  }
+
+  private dedupeCompaniesByCustomerId<T extends { id: string; customerId: string | null }>(companies: T[]): T[] {
+    const byCustomer = new Map<string, T>();
+    for (const company of companies) {
+      const key = (company.customerId || company.id || "").trim();
+      if (!key) continue;
+      const existing = byCustomer.get(key);
+      if (!existing) {
+        byCustomer.set(key, company);
+        continue;
+      }
+      const incomingIsOffer = company.id !== company.customerId;
+      const existingIsOffer = existing.id !== existing.customerId;
+      if (incomingIsOffer && !existingIsOffer) {
+        byCustomer.set(key, company);
+      }
+    }
+    return Array.from(byCustomer.values());
+  }
+
+  private buildBusinessCustomerSearchCriteria(filters: {
+    search?: string;
+    page?: number;
+    limit?: number;
+    salesChannelIds?: string[];
+  }) {
+    const customerCriteria: Record<string, unknown> = {
+      limit: filters.limit || 50,
+      page: filters.page || 1,
+      totalCountMode: 1,
+      sort: [{ field: "createdAt", order: "DESC" }],
+      associations: {
+        salesChannel: {},
+      },
+      filter: [{ type: "equals", field: "accountType", value: "business" }],
+    };
+    const directChannelFilter = this.buildSalesChannelCustomerFilter(filters.salesChannelIds, "");
+    if (directChannelFilter) {
+      (customerCriteria.filter as any[]).push(directChannelFilter);
+    }
+    if (filters.search) {
+      (customerCriteria.filter as any[]).push({
+        type: "multi",
+        operator: "or",
+        queries: [
+          { type: "contains", field: "company", value: filters.search },
+          { type: "contains", field: "email", value: filters.search },
+        ],
+      });
+    }
+    return customerCriteria;
+  }
+
+  private async searchBusinessCustomers(filters: {
+    search?: string;
+    page?: number;
+    limit?: number;
+    salesChannelIds?: string[];
+  }) {
+    const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/customer`, {
+      method: "POST",
+      body: JSON.stringify(this.buildBusinessCustomerSearchCriteria(filters)),
+    });
+    if (!response.ok) {
+      return { companies: [] as Array<ReturnType<B2BSellersAdminClient["mapCustomerAsCompany"]>>, total: 0 };
+    }
+    const parsed = await response.json();
+    const rows = (parsed.data || []).filter((c: any) => getField(c, "company"));
+    return {
+      companies: rows.map((r: any) => this.mapCustomerAsCompany(r)),
+      total: parsed.total ?? rows.length,
+    };
+  }
+
+  private sortCompaniesByCreatedAt<T extends { createdAt: string | null }>(companies: T[]): T[] {
+    return companies.toSorted((a, b) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bTime - aTime;
+    });
+  }
+
+  private buildCompanyEntitySearchCriteria(filters: {
+    search?: string;
+    page?: number;
+    limit?: number;
+    salesChannelIds?: string[];
+  }) {
+    const criteria: Record<string, unknown> = {
+      limit: filters.limit || 50,
+      page: filters.page || 1,
+      totalCountMode: 1,
+      sort: [{ field: "createdAt", order: "DESC" }],
+      associations: {
+        customer: {
+          associations: {
+            salesChannel: {},
+          },
+        },
+      },
+      filter: [],
+    };
+    const channelFilter = this.buildSalesChannelCustomerFilter(filters.salesChannelIds, "customer.");
+    if (channelFilter) {
+      (criteria.filter as any[]).push(channelFilter);
+    }
+    if (filters.search) {
+      (criteria.filter as any[]).push({
+        type: "multi",
+        operator: "or",
+        queries: [
+          { type: "contains", field: "company", value: filters.search },
+          { type: "contains", field: "customer.company", value: filters.search },
+          { type: "contains", field: "email", value: filters.search },
+        ],
+      });
+    }
+    return criteria;
+  }
+
+  private async searchAllCompanyEntities(filters: {
+    search?: string;
+    salesChannelIds?: string[];
+  }) {
+    const pageSize = SHOPWARE_ADMIN_SEARCH_PAGE_SIZE;
+    let page = 1;
+    const companies: B2BCompanyListItem[] = [];
+
+    while (true) {
+      const result = await this.searchEntity(
+        "company",
+        this.buildCompanyEntitySearchCriteria({ ...filters, limit: pageSize, page }),
+      );
+      const batch = result.data.map((row) => this.mapCompany(row));
+      companies.push(...batch);
+      if (batch.length < pageSize) break;
+      page += 1;
+    }
+
+    return companies;
+  }
+
+  private async searchAllBusinessCustomers(filters: {
+    search?: string;
+    salesChannelIds?: string[];
+  }) {
+    const pageSize = SHOPWARE_ADMIN_SEARCH_PAGE_SIZE;
+    let page = 1;
+    const companies: B2BCompanyListItem[] = [];
+
+    while (true) {
+      const result = await this.searchBusinessCustomers({ ...filters, limit: pageSize, page });
+      companies.push(...result.companies);
+      if (result.companies.length < pageSize) break;
+      page += 1;
+    }
+
+    return companies;
+  }
+
+  mapCompany(raw: any): B2BCompanyListItem {
+    const u = unwrapEntity(raw);
+    return {
+      id: u.id,
+      customerId: getField(u, "customerId") || getField(u, "customer.id") || null,
+      company: getField(u, "company") || getField(u, "customer.company") || getField(u, "name") || "",
+      email: getField(u, "email") || getField(u, "customer.email") || "",
+      customerNumber: getField(u, "customerNumber") || getField(u, "customer.customerNumber") || null,
+      active: getField(u, "active") ?? getField(u, "customer.active") ?? true,
+      createdAt: getField(u, "createdAt") || null,
+      salesChannelId:
+        getField(u, "customer.salesChannelId") ||
+        getField(u, "customer.boundSalesChannelId") ||
+        null,
+      salesChannelName:
+        getField(u, "customer.salesChannel.name") ||
+        getField(u, "customer.salesChannel.translated.name") ||
+        null,
+    };
+  }
+
+  private buildSalesChannelCustomerFilter(
+    salesChannelIds: string[] | undefined,
+    nestedPrefix: "customer." | "",
+  ): Record<string, unknown> | null {
+    if (!salesChannelIds || salesChannelIds.length === 0) return null;
+    const salesChannelField = `${nestedPrefix}salesChannelId`;
+    const boundSalesChannelField = `${nestedPrefix}boundSalesChannelId`;
+    return {
+      type: "multi",
+      operator: "or",
+      queries: [
+        { type: "equalsAny", field: salesChannelField, value: salesChannelIds },
+        { type: "equalsAny", field: boundSalesChannelField, value: salesChannelIds },
+      ],
+    };
+  }
+
+  private mapAddress(raw: any) {
+    const u = unwrapEntity(raw);
+    if (!u) return null;
+    const street = String(getField(u, "street") || "").trim();
+    const city = String(getField(u, "city") || "").trim();
+    const zipCode = String(getField(u, "zipcode") || getField(u, "zipCode") || "").trim();
+    if (!street && !city && !zipCode && !String(getField(u, "company") || "").trim()) return null;
+    return {
+      company: getField(u, "company") || null,
+      firstName: getField(u, "firstName") || null,
+      lastName: getField(u, "lastName") || null,
+      street,
+      zipCode,
+      city,
+      country: getField(u, "country.name") || getField(u, "country.translated.name") || null,
+      phoneNumber: getField(u, "phoneNumber") || null,
+    };
+  }
+
+  private async resolveCustomerContext(companyId: string): Promise<{ customerId: string; offerCustomerRaw: any | null }> {
+    const id = companyId.trim();
+    try {
+      const offer = await this.getEntity("company", id);
+      const customerId = getField(offer, "customerId") || getField(offer, "customer.id");
+      if (customerId) return { customerId, offerCustomerRaw: offer };
+    } catch {
+      /* not an offer-customer id */
+    }
+
+    try {
+      const found = await this.searchEntity("company", {
+        limit: 1,
+        filter: [{ type: "equals", field: "customerId", value: id }],
+        associations: this.buildAssociations(["customer"]),
+      });
+      if (found.data[0]) {
+        return { customerId: id, offerCustomerRaw: found.data[0] };
+      }
+    } catch {
+      /* entity may not exist */
+    }
+
+    return { customerId: id, offerCustomerRaw: null };
+  }
+
+  async fetchCompanyDetail(companyId: string, tenantId?: string | null) {
+    const { customerId, offerCustomerRaw } = await this.resolveCustomerContext(companyId);
+    const offer = offerCustomerRaw ? unwrapEntity(offerCustomerRaw) : null;
+
+    const customerResponse = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/customer`, {
+      method: "POST",
+      body: JSON.stringify({
+        limit: 1,
+        filter: [{ type: "equals", field: "id", value: customerId }],
+        associations: {
+          defaultBillingAddress: { associations: { country: {} } },
+          group: {},
+          salesChannel: {},
+        },
+      }),
+    });
+    if (!customerResponse.ok) {
+      const errorText = await customerResponse.text();
+      throw new Error(`Failed to fetch customer ${customerId}: ${customerResponse.status} ${errorText}`);
+    }
+    const customerPayload = await customerResponse.json();
+    const customerRaw = customerPayload.data?.[0];
+    if (!customerRaw) {
+      throw new Error(`Customer not found: ${customerId}`);
+    }
+    const customer = unwrapEntity(customerRaw);
+
+    const billingAddress =
+      this.mapAddress(getField(customer, "defaultBillingAddress")) ||
+      this.mapAddress(getField(offer, "customer.defaultBillingAddress"));
+
+    const vatIdsRaw = getField(customer, "vatIds");
+    const vatIds = Array.isArray(vatIdsRaw) ? vatIdsRaw.map(String) : [];
+
+    const customFields = getField(customer, "customFields") || getField(offer, "customFields") || null;
+    const customerNumber =
+      getField(offer, "customerNumber") ||
+      getField(customer, "customerNumber") ||
+      null;
+
+    const shopware = new ShopwareClient(this.shopwareSettings);
+    const [employeesResult, budgetsResult, priceCountInfo] = await Promise.all([
+      // Mitarbeiter resilient laden: ein Fehler/Timeout hier darf nicht das
+      // gesamte Firmendetail scheitern lassen (Stammdaten weiterhin anzeigen).
+      this.fetchEmployees({ customerId, limit: 200 })
+        .then((r) => ({ ...r, error: false }))
+        .catch(() => ({ employees: [], total: 0, error: true })),
+      this.fetchBudgets({ customerId, limit: 50 }).catch(() => ({ budgets: [], total: 0 })),
+      // Kundenindividuelle Preise: im Firmen-Modal genügt die ANZAHL. Preiszeilen,
+      // Produktdaten und Margen-Anreicherung werden hier NICHT geladen — das war
+      // bei Großkunden (viele Preise) die Ursache für „lädt ewig". Die Vollansicht
+      // läuft über die Sortimente-Seite.
+      this.getCustomerPriceCount(shopware, {
+        tenantId,
+        customerId,
+        customerNumber: customerNumber ? String(customerNumber) : null,
+      }).catch(() => ({ count: null, pluginDetected: false, hasAny: false })),
+    ]);
+
+    const companySalesChannelName =
+      getField(customer, "salesChannel.name") ||
+      getField(customer, "salesChannel.translated.name") ||
+      null;
+
+    // Media-Custom-Fields (z. B. Logo/Fußzeile) von der Media-ID zur öffentlichen
+    // URL auflösen, damit das Frontend statt der ID eine Bildvorschau zeigen kann.
+    const customFieldMedia: Record<string, string> = {};
+    if (customFields && typeof customFields === "object") {
+      const mediaEntries = Object.entries(customFields).filter(
+        ([key, value]) =>
+          /media/i.test(key) && typeof value === "string" && /^[0-9a-f]{32}$/i.test(value),
+      );
+      if (mediaEntries.length > 0) {
+        const urlById = await shopware.fetchMediaUrlsByIds(mediaEntries.map(([, v]) => String(v)));
+        for (const [key, value] of mediaEntries) {
+          const url = urlById[String(value)];
+          if (url) customFieldMedia[key] = url;
+        }
+      }
+    }
+
+    return {
+      offerCustomerId: offer?.id || null,
+      customerId,
+      company:
+        getField(offer, "company") ||
+        getField(customer, "company") ||
+        "",
+      email: getField(offer, "email") || getField(customer, "email") || "",
+      firstName: getField(offer, "firstName") || getField(customer, "firstName") || null,
+      lastName: getField(offer, "lastName") || getField(customer, "lastName") || null,
+      customerNumber: customerNumber ? String(customerNumber) : null,
+      active: getField(customer, "active") ?? getField(offer, "active") ?? true,
+      accountType: getField(customer, "accountType") || null,
+      vatIds,
+      phoneNumber: billingAddress?.phoneNumber || null,
+      lastLogin: getField(customer, "lastLogin") || null,
+      orderCount: getField(customer, "orderCount") ?? null,
+      orderTotalAmount: getField(customer, "orderTotalAmount") ?? null,
+      createdAt: getField(customer, "createdAt") || getField(offer, "createdAt") || null,
+      customFields: customFields && typeof customFields === "object" ? customFields : null,
+      customFieldMedia,
+      billingAddress,
+      salesChannelName: companySalesChannelName,
+      customerGroupName:
+        getField(customer, "group.name") ||
+        getField(customer, "group.translated.name") ||
+        null,
+      employees: employeesResult.employees,
+      employeeTotal: employeesResult.total,
+      employeesError: employeesResult.error,
+      budgets: budgetsResult.budgets,
+      customerPrices: {
+        // Im Firmen-Modal nur die Anzahl (bzw. „vorhanden"), keine Preiszeilen.
+        count: priceCountInfo.count,
+        hasAny: priceCountInfo.hasAny,
+        pluginDetected: priceCountInfo.pluginDetected,
+      },
+    };
+  }
+
+  /**
+   * Anzahl der kundenindividuellen Preise eines Kunden — ohne die Preiszeilen
+   * selbst zu laden. Bevorzugt aus dem lokalen Statistik-Spiegel
+   * (shopware_customer_price_stats, exakt und ohne Shopware-Roundtrip); als
+   * Fallback eine günstige Zähl-Abfrage (limit 1, keine Produkt-Assoziationen).
+   */
+  private async getCustomerPriceCount(
+    shopware: ShopwareClient,
+    opts: { tenantId?: string | null; customerId: string; customerNumber: string | null },
+  ): Promise<{ count: number | null; hasAny: boolean; pluginDetected: boolean }> {
+    try {
+      const stats = await storage.getShopwareCustomerPriceStats(opts.tenantId);
+      const row = stats.find((s) => s.customerId === opts.customerId);
+      if (row) {
+        const count = row.priceCount ?? 0;
+        return { count, hasAny: count > 0, pluginDetected: true };
+      }
+    } catch {
+      /* Spiegel evtl. nicht verfügbar — Fallback unten */
+    }
+    try {
+      const page = await shopware.fetchCustomerSpecificPrices({
+        customerId: opts.customerId,
+        customerNumber: opts.customerNumber,
+        limit: 1,
+        includeProductNames: false,
+      });
+      if (!page.entity) return { count: null, hasAny: false, pluginDetected: false };
+      // page.total ist auf dieser Plugin-Entität nicht zuverlässig — daher keine
+      // exakte Zahl behaupten, nur „vorhanden/keine" anhand der zurückgegebenen Zeile.
+      return { count: null, hasAny: page.prices.length > 0, pluginDetected: true };
+    } catch {
+      return { count: null, hasAny: false, pluginDetected: false };
+    }
+  }
+
+  mapEmployee(raw: any, link?: EmployeeCustomerLink | null) {
+    const u = unwrapEntity(raw);
+    return {
+      id: u.id,
+      email: getField(u, "email") || "",
+      firstName: getField(u, "firstName") || "",
+      lastName: getField(u, "lastName") || "",
+      department: getField(u, "department") || null,
+      phoneNumber: getField(u, "phoneNumber") || null,
+      // Aktiv-Status, Rolle und Admin-Flag stehen auf der Verknüpfung zum
+      // Kunden (siehe EmployeeCustomerLink). Ohne Verknüpfungsdaten (globale
+      // Mitarbeiterliste) gilt der Mitarbeiter als aktiv.
+      active: link ? link.active : resolveEmployeeActive(u),
+      roleId: link?.roleId ?? null,
+      admin: link?.admin ?? false,
+      // Regalplaner-Berechtigungen aus den Zusatzfeldern des Mitarbeiters.
+      configuratorPermissions: {
+        adminMode: coerceBool(getField(u, `customFields.${EMPLOYEE_CONFIGURATOR_FIELDS.adminMode}`)) ?? false,
+        expertMode: coerceBool(getField(u, `customFields.${EMPLOYEE_CONFIGURATOR_FIELDS.expertMode}`)) ?? false,
+      },
+      createdAt: getField(u, "createdAt") || null,
+      // Letzte Änderung am Datensatz — immer vorhanden.
+      updatedAt: getField(u, "updatedAt") || null,
+      // Letzter Login des Mitarbeiters (B2Bsellers-Feld `lastLogin`, gegen das
+      // Livesystem bestätigt). Ersetzt die bisherige Anzeige, die nur das
+      // Anlagedatum (createdAt) kannte.
+      lastLogin: getField(u, "lastLogin") || null,
+    };
+  }
+
+  mapRole(raw: any) {
+    const u = unwrapEntity(raw);
+    const privileges = getField(u, "privileges");
+    return {
+      id: u.id,
+      name: getField(u, "name") || getField(u, "translated.name") || "",
+      technicalName: getField(u, "technicalName") || null,
+      privileges: Array.isArray(privileges) ? (privileges as string[]) : [],
+    };
+  }
+
+  mapBudget(raw: any) {
+    const u = unwrapEntity(raw);
+    return {
+      id: u.id,
+      name: getField(u, "name") || "",
+      sum: Number(getField(u, "sum") ?? 0),
+      periodType: getField(u, "budgetPeriodType.name") || getField(u, "periodType") || null,
+      active: getField(u, "active") ?? true,
+      customerId: getField(u, "customerId") || null,
+      notificationPercentage: getField(u, "notificationPercentage") ?? null,
+      createdAt: getField(u, "createdAt") || null,
+    };
+  }
+
+  mapProductList(raw: any) {
+    const u = unwrapEntity(raw);
+    return {
+      id: u.id,
+      name: getField(u, "name") || "",
+      customerId: getField(u, "customerId") || "",
+      employeeId: getField(u, "employeeId") || null,
+      listTypeId: getField(u, "listTypeId") || null,
+      salesChannelId: getField(u, "salesChannelId") || null,
+      createdAt: getField(u, "createdAt") || null,
+    };
+  }
+
+  mapProductListItem(raw: any) {
+    const u = unwrapEntity(raw);
+    return {
+      id: u.id,
+      productListId: getField(u, "productListId") || getField(u, "listId") || null,
+      productId: getField(u, "productId") || null,
+      productNumber: getField(u, "product.productNumber") || getField(u, "productNumber") || null,
+      quantity: Number(getField(u, "quantity") ?? 1),
+    };
+  }
+
+  mapCustomerSku(raw: any) {
+    const u = unwrapEntity(raw);
+    return {
+      id: u.id,
+      customerId: getField(u, "customerId") || null,
+      productId: getField(u, "productId") || null,
+      customerProductNumber: getField(u, "customerProductNumber") || getField(u, "number") || "",
+      productNumber: getField(u, "product.productNumber") || null,
+    };
+  }
+
+  mapExplodedView(raw: any) {
+    const u = unwrapEntity(raw);
+    return {
+      id: u.id,
+      name: getField(u, "name") || getField(u, "translated.name") || "",
+      productId: getField(u, "productId") || null,
+      mediaId: getField(u, "mediaId") || null,
+      active: getField(u, "active") ?? true,
+    };
+  }
+
+  mapEmployeeOrder(raw: any) {
+    const u = unwrapEntity(raw);
+    return {
+      id: u.id,
+      orderId: getField(u, "orderId") || null,
+      orderNumber: getField(u, "order.orderNumber") || null,
+      employeeId: getField(u, "employeeId") || null,
+      status: getField(u, "status") || getField(u, "stateMachineState.name") || "pending",
+      totalPrice: Number(getField(u, "order.amountTotal") ?? getField(u, "amountTotal") ?? 0),
+      createdAt: getField(u, "createdAt") || null,
+    };
+  }
+
+  /**
+   * Vollständige Firmenliste für Snapshot-Cache (Offer-Customers + Business-Customers).
+   */
+  async loadCompaniesSnapshot(salesChannelIds?: string[]): Promise<B2BCompanyListItem[]> {
+    const [companyEntities, businessCustomers] = await Promise.all([
+      this.searchAllCompanyEntities({ salesChannelIds }),
+      this.searchAllBusinessCustomers({ salesChannelIds }),
+    ]);
+    const knownCustomerIds = new Set(companyEntities.map((c) => c.customerId || c.id));
+    const supplemental = businessCustomers.filter((c) => !knownCustomerIds.has(c.customerId || c.id));
+    return this.sortCompaniesByCreatedAt(
+      this.dedupeCompaniesByCustomerId([...companyEntities, ...supplemental]),
+    );
+  }
+
+  /**
+   * Leichter Änderungs-Fingerprint (2 Search-Calls) für den B2B-Firmen-Snapshot.
+   */
+  async fetchCompaniesSnapshotFingerprint(salesChannelIds?: string[]): Promise<string | null> {
+    const { stableFingerprint } = await import("../lib/contentHashCache");
+
+    try {
+      const companyCriteria = this.buildCompanyEntitySearchCriteria({
+        salesChannelIds,
+        limit: 1,
+        page: 1,
+      });
+      companyCriteria.sort = [{ field: "updatedAt", order: "DESC" }];
+      const companyResult = await this.searchEntity("company", companyCriteria);
+      const latestCompany = companyResult.data[0];
+      const companyAttrs = latestCompany ? unwrapEntity(latestCompany) : null;
+      const companyLatest =
+        getField(companyAttrs, "updatedAt") ||
+        getField(companyAttrs, "customer.updatedAt") ||
+        getField(companyAttrs, "createdAt") ||
+        null;
+
+      const customerCriteria = this.buildBusinessCustomerSearchCriteria({
+        salesChannelIds,
+        limit: 1,
+        page: 1,
+      });
+      customerCriteria.sort = [{ field: "updatedAt", order: "DESC" }];
+
+      let customerTotal = 0;
+      let customerLatest: string | null = null;
+      const customerResponse = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/customer`, {
+        method: "POST",
+        body: JSON.stringify(customerCriteria),
+      });
+      if (customerResponse.ok) {
+        const parsed = await customerResponse.json();
+        customerTotal = Number(parsed?.meta?.total ?? parsed?.total ?? 0);
+        const latestCustomer = parsed?.data?.[0];
+        const customerAttrs = latestCustomer ? unwrapEntity(latestCustomer) : null;
+        customerLatest =
+          getField(customerAttrs, "updatedAt") || getField(customerAttrs, "createdAt") || null;
+      }
+
+      return stableFingerprint({
+        scope: "b2b_companies",
+        entity: this.resolveEntityName("company"),
+        channels: salesChannelIds?.length ? salesChannelIds.slice().sort().join(",") : "all",
+        companyTotal: companyResult.total,
+        companyLatest,
+        customerTotal,
+        customerLatest,
+      });
+    } catch (error) {
+      console.warn("[B2B] companies snapshot fingerprint failed:", error);
+      return null;
+    }
+  }
+
+  async fetchCompanies(filters: {
+    search?: string;
+    page?: number;
+    limit?: number;
+    salesChannelIds?: string[];
+  }) {
+    const limit = filters.limit || 50;
+    const page = filters.page || 1;
+    const channelFiltered = Boolean(filters.salesChannelIds?.length);
+    try {
+      if (channelFiltered) {
+        const companies = await this.loadCompaniesSnapshot(filters.salesChannelIds);
+        const start = (page - 1) * limit;
+        return {
+          companies: companies.slice(start, start + limit),
+          total: companies.length,
+        };
+      }
+
+      const result = await this.searchEntity(
+        "company",
+        this.buildCompanyEntitySearchCriteria({ ...filters, limit, page }),
+      );
+      const companies = this.dedupeCompaniesByCustomerId(result.data.map((r) => this.mapCompany(r)));
+      return { companies, total: result.total };
+    } catch (primaryError) {
+      const business = await this.searchBusinessCustomers(filters);
+      if (business.companies.length === 0) {
+        const primaryMessage = primaryError instanceof Error ? primaryError.message : String(primaryError);
+        throw new Error(`Failed to fetch B2B companies (${primaryMessage})`);
+      }
+      const companies = this.dedupeCompaniesByCustomerId(business.companies);
+      return { companies, total: business.total };
+    }
+  }
+
+  async fetchEmployees(filters: { companyId?: string; customerId?: string; search?: string; page?: number; limit?: number }) {
+    const limit = filters.limit || 50;
+    const page = filters.page || 1;
+    const criteria: Record<string, unknown> = {
+      limit,
+      page,
+      totalCountMode: 1,
+      sort: [{ field: "lastName", order: "ASC" }],
+      // Nur die Felder laden, die mapEmployee tatsächlich nutzt. Ohne includes
+      // liefert Shopware u. a. den Passwort-Hash und alle Skalarfelder mit; die
+      // früher angeforderte customers-Assoziation wurde nie verwendet, blähte
+      // aber bei Kunden mit vielen Mitarbeitern die Antwort massiv auf (lange
+      // Laufzeit / Timeout). Entity-Key für includes = Technischer Name.
+      includes: {
+        [this.resolveEntityName("employee").replace(/-/g, "_")]: [
+          "id",
+          "email",
+          "firstName",
+          "lastName",
+          "department",
+          "phoneNumber",
+          "createdAt",
+          "updatedAt",
+          "lastLogin",
+          "customFields",
+        ],
+      },
+      filter: [],
+    };
+    if (filters.search) {
+      (criteria.filter as any[]).push({
+        type: "multi",
+        operator: "or",
+        queries: [
+          { type: "contains", field: "email", value: filters.search },
+          { type: "contains", field: "firstName", value: filters.search },
+          { type: "contains", field: "lastName", value: filters.search },
+        ],
+      });
+    }
+    // Verknüpfung je Mitarbeiter (Rolle/Admin/Aktiv), nur bei Kundenfilter befüllt.
+    const linkByEmployee = new Map<string, EmployeeCustomerLink>();
+    if (filters.customerId) {
+      try {
+        // Verknüpfungen Kunde↔Mitarbeiter: nur die schmalen Verknüpfungsfelder
+        // laden und in Seiten von je 500 durchlaufen, damit auch Kunden mit sehr
+        // vielen Mitarbeitern vollständig erfasst werden (statt bei 500 abzuschneiden).
+        let linkPage = 1;
+        // Sicherheitsobergrenze gegen Endlosschleifen (max. 10.000 Verknüpfungen).
+        for (let guard = 0; guard < 20; guard++) {
+          const links = await this.searchEntity(
+            "employeeCustomer",
+            {
+              limit: 500,
+              page: linkPage,
+              includes: { [this.linkIncludeKey()]: EMPLOYEE_CUSTOMER_LINK_FIELDS },
+              filter: [{ type: "equals", field: "customerId", value: filters.customerId }],
+            },
+            { timeoutMs: 20000 },
+          );
+          for (const raw of links.data) {
+            const link = mapEmployeeCustomerLink(raw);
+            if (link.employeeId && !linkByEmployee.has(link.employeeId)) {
+              linkByEmployee.set(link.employeeId, link);
+            }
+          }
+          if (links.data.length < 500) break;
+          linkPage += 1;
+        }
+        if (linkByEmployee.size === 0) return { employees: [], total: 0 };
+        (criteria.filter as any[]).push({ type: "equalsAny", field: "id", value: [...linkByEmployee.keys()] });
+      } catch {
+        /* entity may not exist */
+      }
+    }
+    const result = await this.searchEntity("employee", criteria, { timeoutMs: 25000 });
+    return {
+      employees: result.data.map((r) => this.mapEmployee(r, linkByEmployee.get(String(unwrapEntity(r).id)) ?? null)),
+      total: result.total,
+    };
+  }
+
+  /** Entity-Key für `includes` (technischer Name mit Unterstrichen). */
+  private linkIncludeKey(): string {
+    return this.resolveEntityName("employeeCustomer").replace(/-/g, "_");
+  }
+
+  async findEmployeeByEmail(email: string): Promise<{
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    active: boolean;
+  } | null> {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized) return null;
+    const result = await this.searchEntity("employee", {
+      limit: 1,
+      filter: [{ type: "equals", field: "email", value: normalized }],
+    });
+    const raw = result.data[0];
+    if (!raw) return null;
+    return this.mapEmployee(raw);
+  }
+
+  /** Verknüpfung eines Mitarbeiters zu einem Kunden inkl. Rolle/Admin/Aktiv, oder null. */
+  async findEmployeeCustomerLink(employeeId: string, customerId: string): Promise<EmployeeCustomerLink | null> {
+    const links = await this.searchEntity("employeeCustomer", {
+      limit: 1,
+      includes: { [this.linkIncludeKey()]: EMPLOYEE_CUSTOMER_LINK_FIELDS },
+      filter: [
+        { type: "equals", field: "employeeId", value: employeeId },
+        { type: "equals", field: "customerId", value: customerId },
+      ],
+    });
+    const raw = links.data[0];
+    return raw ? mapEmployeeCustomerLink(raw) : null;
+  }
+
+  async findCustomerIdsForEmployee(employeeId: string): Promise<string[]> {
+    const links = await this.searchEntity("employeeCustomer", {
+      limit: 50,
+      filter: [{ type: "equals", field: "employeeId", value: employeeId }],
+    });
+    return links.data
+      .map((link) => getField(unwrapEntity(link), "customerId"))
+      .filter((customerId): customerId is string => Boolean(customerId));
+  }
+
+  async hasEmployeeCustomerLink(employeeId: string, customerId: string): Promise<boolean> {
+    const links = await this.searchEntity("employeeCustomer", {
+      limit: 50,
+      filter: [{ type: "equals", field: "employeeId", value: employeeId }],
+    });
+    return links.data.some((link) => getField(unwrapEntity(link), "customerId") === customerId);
+  }
+
+  /**
+   * Verknüpfung Mitarbeiter↔Kunde sicherstellen.
+   *
+   * `roleId`, `admin` und `active` werden auf der Verknüpfung gespeichert
+   * (siehe EmployeeCustomerLink). Ist die Verknüpfung bereits vorhanden, werden
+   * nur explizit übergebene Werte nachgezogen (undefined = unverändert lassen).
+   * Beim Neuanlegen gilt: aktiv, kein Admin, Rolle wie übergeben.
+   */
+  async ensureEmployeeCustomerLink(
+    employeeId: string,
+    customerId: string,
+    options?: { skipTriggerFlow?: boolean; roleId?: string | null; admin?: boolean; active?: boolean },
+  ): Promise<{ id: string; created: boolean }> {
+    const links = await this.searchEntity("employeeCustomer", {
+      limit: 50,
+      includes: { [this.linkIncludeKey()]: EMPLOYEE_CUSTOMER_LINK_FIELDS },
+      filter: [{ type: "equals", field: "employeeId", value: employeeId }],
+    });
+    const all = links.data.map((raw) => mapEmployeeCustomerLink(raw));
+    const existing = all.find((link) => link.customerId === customerId);
+    if (existing) {
+      const patch: Record<string, unknown> = {};
+      if (options?.roleId !== undefined && options.roleId !== existing.roleId) patch.roleId = options.roleId;
+      if (options?.admin !== undefined && options.admin !== existing.admin) patch.admin = options.admin;
+      if (options?.active !== undefined && options.active !== existing.active) patch.active = options.active;
+      if (Object.keys(patch).length > 0) {
+        await this.patchEntity("employeeCustomer", existing.id, patch, { skipTriggerFlow: options?.skipTriggerFlow });
+      }
+      return { id: existing.id, created: false };
+    }
+
+    for (const link of all) {
+      await this.deleteEntity("employeeCustomer", link.id);
+    }
+
+    const created = await this.createEntity(
+      "employeeCustomer",
+      {
+        employeeId,
+        customerId,
+        roleId: options?.roleId ?? null,
+        admin: options?.admin ?? false,
+        active: options?.active ?? true,
+      },
+      { skipTriggerFlow: options?.skipTriggerFlow },
+    );
+    return { id: created.id, created: true };
+  }
+
+  /**
+   * Mitarbeiter (de)aktivieren: Der Aktiv-Status liegt auf den Verknüpfungen zu
+   * den Kunden — die Employee-Entität selbst kennt kein `active`.
+   */
+  async setEmployeeActive(employeeId: string, active: boolean): Promise<void> {
+    const links = await this.searchEntity("employeeCustomer", {
+      limit: 500,
+      includes: { [this.linkIncludeKey()]: EMPLOYEE_CUSTOMER_LINK_FIELDS },
+      filter: [{ type: "equals", field: "employeeId", value: employeeId }],
+    });
+    for (const raw of links.data) {
+      const link = mapEmployeeCustomerLink(raw);
+      if (link.active !== active) {
+        await this.patchEntity("employeeCustomer", link.id, { active });
+      }
+    }
+  }
+
+  async deleteEmployee(employeeId: string): Promise<void> {
+    try {
+      const links = await this.searchEntity("employeeCustomer", {
+        limit: 500,
+        filter: [{ type: "equals", field: "employeeId", value: employeeId }],
+      });
+      for (const link of links.data) {
+        const linkId = getField(unwrapEntity(link), "id");
+        if (linkId) {
+          await this.deleteEntity("employeeCustomer", linkId);
+        }
+      }
+    } catch {
+      /* employeeCustomer entity may not exist */
+    }
+    await this.deleteEntity("employee", employeeId);
+  }
+
+  async fetchRoles() {
+    const result = await this.searchEntity("employeeRole", {
+      limit: 200,
+      sort: [{ field: "name", order: "ASC" }],
+    });
+    return result.data.map((r) => this.mapRole(r));
+  }
+
+  /** Neue (globale) B2Bsellers-Employee-Rolle anlegen. */
+  async createRole(input: { name: string; privileges: string[] }): Promise<{ id: string }> {
+    return this.createEntity(
+      "employeeRole",
+      {
+        name: input.name,
+        privileges: input.privileges,
+        // Global (kein Kundenbezug) — wie die bestehenden Standardrollen.
+        customerId: null,
+      },
+      { skipTriggerFlow: true },
+    );
+  }
+
+  async fetchBudgets(filters: { customerId?: string; page?: number; limit?: number }) {
+    // TEMPORÄR DEAKTIVIERT: Der Search-Request an /api/search/b2bsellers-budget
+    // verursacht Exceptions im Shop-Log (Association-/Feld-Namen passen vermutlich
+    // nicht zur installierten B2Bsellers-Version). Bis das geklärt ist, senden wir
+    // keinen Request und geben ein leeres Ergebnis zurück.
+    return { budgets: [] as ReturnType<typeof this.mapBudget>[], total: 0 };
+    // const criteria: Record<string, unknown> = {
+    //   limit: filters.limit || 50,
+    //   page: filters.page || 1,
+    //   totalCountMode: 1,
+    //   sort: [{ field: "createdAt", order: "DESC" }],
+    //   associations: this.buildAssociations(["budgetPeriodType", "customer"]),
+    //   filter: [],
+    // };
+    // if (filters.customerId) {
+    //   (criteria.filter as any[]).push({ type: "equals", field: "customerId", value: filters.customerId });
+    // }
+    // const result = await this.searchEntity("budget", criteria);
+    // return { budgets: result.data.map((r) => this.mapBudget(r)), total: result.total };
+  }
+
+  async fetchPendingApprovals(filters: { page?: number; limit?: number }) {
+    const criteria: Record<string, unknown> = {
+      limit: filters.limit || 50,
+      page: filters.page || 1,
+      totalCountMode: 1,
+      sort: [{ field: "createdAt", order: "DESC" }],
+      associations: this.buildAssociations(["order", "employee", "stateMachineState"]),
+      filter: [],
+    };
+    try {
+      (criteria.filter as any[]).push({
+        type: "multi",
+        operator: "or",
+        queries: [
+          { type: "equals", field: "status", value: "pending" },
+          { type: "contains", field: "stateMachineState.name", value: "pending" },
+          { type: "contains", field: "stateMachineState.name", value: "open" },
+        ],
+      });
+      const result = await this.searchEntity("employeeOrder", criteria);
+      return { approvals: result.data.map((r) => this.mapEmployeeOrder(r)), total: result.total };
+    } catch {
+      return { approvals: [], total: 0 };
+    }
+  }
+
+  async fetchProductLists(filters: { customerId?: string; page?: number; limit?: number }) {
+    const criteria: Record<string, unknown> = {
+      limit: filters.limit || 50,
+      page: filters.page || 1,
+      totalCountMode: 1,
+      sort: [{ field: "createdAt", order: "DESC" }],
+      associations: this.buildAssociations(["customer", "employee", "items"]),
+      filter: [],
+    };
+    if (filters.customerId) {
+      (criteria.filter as any[]).push({ type: "equals", field: "customerId", value: filters.customerId });
+    }
+    const result = await this.searchEntity("productList", criteria);
+    return { lists: result.data.map((r) => this.mapProductList(r)), total: result.total };
+  }
+
+  async fetchProductListItems(listId: string) {
+    const result = await this.searchEntity("productListItem", {
+      limit: 500,
+      filter: [{ type: "equals", field: "productListId", value: listId }],
+      associations: this.buildAssociations(["product"]),
+    });
+    return result.data.map((r) => this.mapProductListItem(r));
+  }
+
+  async fetchCustomerSkus(filters: { customerId?: string; search?: string; page?: number; limit?: number }) {
+    const criteria: Record<string, unknown> = {
+      limit: filters.limit || 50,
+      page: filters.page || 1,
+      totalCountMode: 1,
+      sort: [{ field: "customerProductNumber", order: "ASC" }],
+      associations: this.buildAssociations(["product"]),
+      filter: [],
+    };
+    if (filters.customerId) {
+      (criteria.filter as any[]).push({ type: "equals", field: "customerId", value: filters.customerId });
+    }
+    if (filters.search) {
+      (criteria.filter as any[]).push({
+        type: "multi",
+        operator: "or",
+        queries: [
+          { type: "contains", field: "customerProductNumber", value: filters.search },
+          { type: "contains", field: "number", value: filters.search },
+        ],
+      });
+    }
+    const result = await this.searchEntity("customerProductNumber", criteria);
+    return { skus: result.data.map((r) => this.mapCustomerSku(r)), total: result.total };
+  }
+
+  async fetchAssortments(filters: { customerId?: string; page?: number; limit?: number }) {
+    const criteria: Record<string, unknown> = {
+      limit: filters.limit || 50,
+      page: filters.page || 1,
+      totalCountMode: 1,
+      associations: this.buildAssociations(["product", "customer"]),
+      filter: [],
+    };
+    if (filters.customerId) {
+      (criteria.filter as any[]).push({ type: "equals", field: "customerId", value: filters.customerId });
+    }
+    try {
+      const result = await this.searchEntity("customerPrice", criteria);
+      return {
+        assortments: result.data.map((r: any) => {
+          const u = unwrapEntity(r);
+          return {
+            id: u.id,
+            customerId: getField(u, "customerId") || null,
+            productId: getField(u, "productId") || null,
+            productNumber: getField(u, "product.productNumber") || null,
+            price: Number(getField(u, "price") ?? getField(u, "priceNet") ?? 0),
+          };
+        }),
+        total: result.total,
+      };
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  async fetchExplodedViews(filters: { search?: string; page?: number; limit?: number }) {
+    const criteria: Record<string, unknown> = {
+      limit: filters.limit || 50,
+      page: filters.page || 1,
+      totalCountMode: 1,
+      sort: [{ field: "createdAt", order: "DESC" }],
+      filter: [],
+    };
+    if (filters.search) {
+      (criteria.filter as any[]).push({
+        type: "contains",
+        field: "name",
+        value: filters.search,
+      });
+    }
+    const result = await this.searchEntity("productExplodedView", criteria);
+    return { views: result.data.map((r) => this.mapExplodedView(r)), total: result.total };
+  }
+
+  async fetchExplodedViewItems(viewId: string) {
+    const result = await this.searchEntity("productExplodedViewItem", {
+      limit: 500,
+      filter: [{ type: "equals", field: "productExplodedViewId", value: viewId }],
+      associations: this.buildAssociations(["product"]),
+    });
+    return result.data.map((r: any) => {
+      const u = unwrapEntity(r);
+      return {
+        id: u.id,
+        productId: getField(u, "productId") || null,
+        productNumber: getField(u, "product.productNumber") || null,
+        label: getField(u, "label") || getField(u, "name") || null,
+        positionX: getField(u, "positionX") ?? null,
+        positionY: getField(u, "positionY") ?? null,
+      };
+    });
+  }
+}
+
+export async function createB2BAdminClient(settings: ShopwareSettings): Promise<B2BSellersAdminClient> {
+  const mapping = await getStoredB2BEntityMapping();
+  return new B2BSellersAdminClient(settings, mapping);
+}

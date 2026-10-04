@@ -1,4 +1,4 @@
-/** Muss zu server/offerConfigPdf.ts applyOfferConfigPdfLayoutFromRequest passen. */
+/** Muss zu server/offers/offerConfigPdf.ts applyOfferConfigPdfLayoutFromRequest passen. */
 export const CFG_QUERY = {
   montage: "cfgMontage",
   ship: "cfgShip",

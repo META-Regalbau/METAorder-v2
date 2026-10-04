@@ -9,11 +9,11 @@
  *   npm run import:herstellpreise:dev -- <tenantId> --file="/pfad/datei.xlsx" --apply
  */
 import { storage } from "../server/storage";
-import { ShopwareClient } from "../server/shopware";
+import { ShopwareClient } from "../server/shopware/shopware";
 import {
   parseHerstellpreisRowsFromFile,
   runHerstellpreisImport,
-} from "../server/herstellpreisImport";
+} from "../server/products/herstellpreisImport";
 
 function parseArgs(argv: string[]): {
   tenantId: string | undefined;

@@ -8,7 +8,7 @@
 
 import { randomUUID } from "crypto";
 import { storage } from "../server/storage";
-import { ShopwareClient } from "../server/shopware";
+import { ShopwareClient } from "../server/shopware/shopware";
 
 const DEV_TENANT_ID = "c49bfa7e-06a8-452a-9d47-c490629aca4a";
 
