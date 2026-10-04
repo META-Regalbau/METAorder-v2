@@ -1,5 +1,5 @@
 /**
- * Extrahiert app.get/post/put/patch/delete("/api/...") aus den Server-Routen
+ * Extrahiert app.get/post/put/patch/delete("/api/...") aus allen Dateien unter server/
  * und schreibt server/openapi/openapi.paths.ts für die OpenAPI-Spezifikation.
  */
 import fs from "fs";
@@ -9,20 +9,17 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
 
-// Die frueher in server/routes.ts gesammelten Routen liegen jetzt je Bereich in server/routes/*.ts.
-const ROUTE_MODULES = fs
-  .readdirSync(path.join(root, "server", "routes"))
-  .filter((f) => f.endsWith(".ts"))
-  .sort()
-  .map((f) => `server/routes/${f}`);
+// Routen liegen verteilt (server/routes/*.ts, server/b2b/, server/erp/, server/sftp/, ...).
+// Eine feste Dateiliste ist mehrfach still veraltet - deshalb ganz server/ durchsuchen.
+function listTsFiles(dir) {
+  return fs.readdirSync(path.join(root, dir), { withFileTypes: true }).flatMap((e) => {
+    const rel = `${dir}/${e.name}`;
+    if (e.isDirectory()) return listTsFiles(rel);
+    return e.isFile() && e.name.endsWith(".ts") ? [rel] : [];
+  });
+}
 
-const FILES = [
-  "server/routes.ts",
-  ...ROUTE_MODULES,
-  "server/cpq/cpqRoutes.ts",
-  "server/cpq-core/cpqCoreRoutes.ts",
-  "server/offers/publicOfferRoutes.ts",
-];
+const FILES = listTsFiles("server").sort();
 
 const METHOD_RE = /app\.(get|post|put|patch|delete)\(\s*["']([^"']+)["']/gi;
 
