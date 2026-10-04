@@ -45,7 +45,7 @@ Angebote werden über die B2B-Sellers-Suite Admin API erstellt und verwaltet. Op
 
 ### CPQ-Modul im Docker
 
-Das CPQ-Modul (Regalsysteme, Rabatt-Ampel, Produkt-Mappings, Warenkorb-Transfer) nutzt dieselbe PostgreSQL-Datenbank. Die Migration `0003_cpq_schema.sql` wird beim App-Start automatisch ausgeführt. Manuelle E2E-Prüfliste: [docs/cpq_e2e_checklist.md](cpq_e2e_checklist.md). Automatisierte Tests: `npm run test:bom`, `npm run test:cpq-units`.
+Das CPQ-Modul (Regalsysteme, Rabatt-Ampel, Produkt-Mappings, Warenkorb-Transfer) nutzt dieselbe PostgreSQL-Datenbank. Die Migration `0003_cpq_schema.sql` wird beim App-Start automatisch ausgeführt. Manuelle E2E-Prüfliste: [docs/cpq_e2e_checklist.md](cpq_e2e_checklist.md). Automatisierte Tests: `npm run test:bom`, `npx vitest run tests/unit/cpqUnits.test.ts`.
 
 #### Konfigurator: Stückliste und 3D-Vorschau
 

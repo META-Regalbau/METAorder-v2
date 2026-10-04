@@ -25,7 +25,7 @@ Hinweis: Alle drei Endpunkte sind tenant-gebunden und liefern nur Daten fuer `re
 - Snapshot und KPI-Werte sind in-memory und damit sofort verfuegbar, aber nach Serverneustart wieder leer.
 - Fuer ad-hoc CLI-Pruefungen:
   - `npm run check:cpq-data-quality -- <tenantId>`
-  - `npm run test:cpq-core`
+  - `npx vitest run tests/unit/cpqCore.test.ts`
 
 ## 3. KPI-MVP (aktuell)
 

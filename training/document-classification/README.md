@@ -1,7 +1,7 @@
 # Belege für die Belegart-Erkennung (Lieferschein / Bestellung / AB / Rechnung)
 
 Echte Kundenbelege (September 2026) als Regressionsfälle für
-`server/commercial/commercialAttachmentClassifier.ts`. Test: `npm run test:attachment-classifier`
+`server/commercial/commercialAttachmentClassifier.ts`. Test: `npx vitest run tests/unit/commercialAttachmentClassifier.test.ts`
 (ohne Datenbank, Shopware oder OpenAI — nur PDF-Textlayer).
 
 | Datei | Erwartete Belegart | Warum im Datensatz |
@@ -13,6 +13,6 @@ Echte Kundenbelege (September 2026) als Regressionsfälle für
 | `real_delker_bestellung_21433803.pdf` | `purchase_order` | Enthält die Rechnungsadresse invoice@delker.com und wurde deshalb als Rechnung fehlklassifiziert |
 | `real_cordes_bestellung_09473957.pdf` | `purchase_order` | Gesperrter Titel B E S T E L L U N G, keine Preise |
 
-Neue Fälle: PDF hier ablegen und in `scripts/testCommercialAttachmentClassifier.ts` einen
+Neue Fälle: PDF hier ablegen und in `tests/unit/commercialAttachmentClassifier.test.ts` einen
 `check(...)` mit erwarteter Belegart und Kennnummern ergänzen. Gerade Lieferscheine anderer
 Kunden sind wertvoll — die Erkennung soll nicht an einem Layout hängen.

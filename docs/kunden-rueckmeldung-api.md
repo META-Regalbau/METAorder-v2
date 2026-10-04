@@ -159,7 +159,7 @@ Sprache folgt `document.language` (deutsch/englisch).
 ## Tests
 
 ```bash
-npm run test:order-acknowledgement   # Aufbau der Bestätigung
-npm run test:customer-api-token      # Token und Rate-Limit
-npm run test:inbound-ack             # Sperren und Text der Eingangsbestätigung
+npx vitest run tests/unit/commercialOrderAcknowledgement.test.ts   # Aufbau der Bestätigung
+npx vitest run tests/unit/commercialCustomerApiToken.test.ts      # Token und Rate-Limit
+npx vitest run tests/unit/inboundAcknowledgementMail.test.ts             # Sperren und Text der Eingangsbestätigung
 ```

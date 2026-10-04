@@ -228,7 +228,7 @@ Akzeptanz:
   - Buttons fuer `Validate`, `Price`, `Submit + Cart-Transfer vorbereiten`
   - Sichtbarer Klasse-C-Hinweis (Review erforderlich)
   - Klarer Submit-/Transfer-Status fuer Adapter-Handshake.
-- E2E-Testskript `scripts/testCpqCore.ts` deckt Sprint-3-Kernfluss ab:
+- E2E-Testskript `tests/unit/cpqCore.test.ts` deckt Sprint-3-Kernfluss ab:
   - Konfiguration -> Validate/Price/Submit
   - Klasse A/B akzeptiert
   - Klasse C `review_required`
@@ -312,7 +312,7 @@ Akzeptanz:
   - OpenAPI-Generator liest nun auch `server/cpq-core/cpqCoreRoutes.ts`,
   - CPQ-Core-Endpunkte sind dadurch im OpenAPI-Export enthalten.
 - Smoke-Basis fuer Sprint-6-Flows aktualisiert:
-  - `scripts/testCpqCore.ts` prueft A/B/C-Entscheidungspfad, Transfer-Entscheidung, C-Review-Hinweis sowie Kontextnormalisierung und Adapter-Payload-Guards.
+  - `tests/unit/cpqCore.test.ts` prueft A/B/C-Entscheidungspfad, Transfer-Entscheidung, C-Review-Hinweis sowie Kontextnormalisierung und Adapter-Payload-Guards.
 
 ### Offen nach Sprint 6
 

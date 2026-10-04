@@ -34,8 +34,9 @@ concurrency:
 
 jobs:
   # Vite/esbuild pruefen keine Typen — ohne diesen Job landen TS-Fehler unbemerkt im Image.
+  # Unit-Tests (Vitest, tests/unit) laufen im selben Job: kein Deploy bei rotem Test.
   typecheck:
-    name: Typecheck (tsc)
+    name: Typecheck & Unit-Tests
     runs-on: ubuntu-latest
     if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.deploy_only != true)
     steps:
@@ -53,6 +54,9 @@ jobs:
 
       - name: Typecheck
         run: npm run check
+
+      - name: Unit-Tests
+        run: npm test
 
   build-push:
     name: Build and push image

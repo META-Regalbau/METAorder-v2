@@ -14,7 +14,7 @@
  * Bewusst restriktiv: lieber null zurückgeben als raten. Aufrufer überschreiben
  * mit dem Ergebnis nur leere `company`-Felder.
  *
- * Tests: scripts/testCompanyNameHeuristics.ts
+ * Tests: tests/unit/companyNameHeuristics.test.ts
  */
 
 import { isMetaOwnCompany } from "./metaCompanyBlocklist";

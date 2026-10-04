@@ -1,0 +1,36 @@
+name: CI (Pull Requests)
+
+# Prueft jeden Pull Request vor dem Merge. Deployt nichts - das macht deploy-mittwald.yml
+# nach dem Merge auf main (dort laufen dieselben Pruefungen noch einmal).
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Typecheck & Unit-Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run check
+
+      - name: Unit-Tests
+        run: npm test

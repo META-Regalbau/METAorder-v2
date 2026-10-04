@@ -65,5 +65,5 @@ Stand: 2026-07-25 (Umsetzung der ERP-Gap-Roadmap)
 - Zahlungen: Betrag darf offenen OP-Betrag nicht überschreiten.
 - DATEV-Export: CSV-Injection-Schutz (`sanitizeDatevField`).
 - Credit-Note-Pfade: Basename-Whitelist gegen Path Traversal.
-- Tests: `npm run test:erp` (`scripts/testErpCore.ts`).
+- Tests: `npm test` (`tests/unit/erpCore.test.ts`).
 - Bestehende Rollen erhalten fehlende ERP-Permissions beim Seed (`mergeErpPermissions`).
