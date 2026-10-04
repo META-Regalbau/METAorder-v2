@@ -1920,53 +1920,16 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
     try {
       const { format, filters } = req.body; // format: 'csv' | 'excel', filters: optional
       const user = req.user as any;
-      const isAdmin = 
-        user?.roleDetails?.name === 'Administrator' || 
-        user?.role === 'admin';
 
-      // Get all tickets
-      let tickets = await storage.getAllTickets();
-
-      // Filter by sales channel based on role
-      if (!isAdmin) {
-        const userChannels = user?.salesChannelIds || [];
-        
-        if (userChannels.length > 0) {
-          // Get unique orderIds from all tickets
-          const uniqueOrderIds = Array.from(new Set(tickets.filter(t => t.orderId).map(t => t.orderId!)));
-          
-          // Fetch only the orders that are referenced by tickets
-          const settings = await storage.getShopwareSettings();
-          let ordersBySalesChannel: Map<string, string> = new Map();
-          
-          if (settings && uniqueOrderIds.length > 0) {
-            try {
-              const client = new ShopwareClient(settings);
-              const allOrders = await client.fetchOrders(); // Get all orders
-              
-              // Build map only for orders that are referenced in tickets
-              uniqueOrderIds.forEach(orderId => {
-                const order = allOrders.find(o => o.id === orderId);
-                if (order) {
-                  ordersBySalesChannel.set(order.id, order.salesChannelId);
-                }
-              });
-            } catch (error) {
-              console.error("Error fetching orders for ticket export filtering:", error);
-            }
-          }
-          
-          // Filter tickets by sales channel (standalone tickets are included)
-          tickets = tickets.filter(ticket => {
-            if (!ticket.orderId) return true; // Include standalone tickets
-            const orderSalesChannel = ordersBySalesChannel.get(ticket.orderId);
-            return orderSalesChannel && userChannels.includes(orderSalesChannel);
-          });
-        } else {
-          // If no channels assigned, only standalone tickets
-          tickets = tickets.filter(ticket => !ticket.orderId);
-        }
-      }
+      // Sichtbarkeit wie in der Ticketliste (GET /api/tickets): Verkaufskanaele von Nutzer und Rolle
+      // (getSalesChannelFilter), Tickets ohne Bestellbezug nur fuer Ersteller bzw. Zugewiesene,
+      // Admin alle. Der Kanal wird nur fuer die referenzierten Bestellungen nachgeschlagen.
+      let tickets = await filterTicketsBySalesChannels(
+        await storage.getAllTickets(),
+        await getSalesChannelFilter(req),
+        storage,
+        user?.id,
+      );
 
       // Apply filters if provided
       if (filters) {
