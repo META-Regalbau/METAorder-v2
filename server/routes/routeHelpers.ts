@@ -395,3 +395,19 @@ export async function getOrdersWithCache(
 
   return { orders, fromCache };
 }
+
+export const defaultProformaNumberRange = {
+  prefix: "PF-",
+  nextNumber: 1,
+  padding: 6,
+};
+
+export const defaultDunningSettings = {
+  enabled: false,
+  manualOnly: true,
+  dueDateFieldKey: "invoiceDate",
+  stageDays: [7, 14, 21] as [number, number, number],
+  documentTypeTechnicalName: "dunning",
+  emailSubjectTemplate: "Mahnung Stufe {{stage}} zu Bestellung {{orderNumber}}",
+  emailBodyTemplate: "Guten Tag {{customerName}},\n\nunsere Rechnung ist seit {{dueDate}} faellig. Dies ist Mahnstufe {{stage}}.\n\nMit freundlichen Gruessen\nIhr Team",
+};
