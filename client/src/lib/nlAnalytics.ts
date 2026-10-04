@@ -83,6 +83,15 @@ export function formatNlValue(value: unknown, kind: NlValueKind, locale: string)
   return new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(value);
 }
 
+/** Kurzform fuer Diagrammachsen ("12 Mio. €", "€12M"), damit lange Betraege nicht abgeschnitten werden */
+export function formatNlAxisValue(value: unknown, kind: NlValueKind, locale: string): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "";
+  const compact: Intl.NumberFormatOptions = { notation: "compact", maximumFractionDigits: 1 };
+  if (kind === "currency") return new Intl.NumberFormat(locale, { ...compact, style: "currency", currency: "EUR" }).format(value);
+  if (kind === "weight") return `${new Intl.NumberFormat(locale, compact).format(value)} kg`;
+  return new Intl.NumberFormat(locale, compact).format(value);
+}
+
 /** Fehlercode aus der Antwort (apiRequest wirft "Status: Antworttext") */
 export function nlErrorCode(error: unknown): NlQueryErrorCode {
   const message = error instanceof Error ? error.message : String(error ?? "");
@@ -136,7 +145,11 @@ export function nlChartPoints(
   const values = result.data.map((v) => (typeof v === "number" ? v : undefined));
   const historical = typeof result.metadata?.historicalPeriods === "number" ? result.metadata.historicalPeriods : undefined;
   if (result.forecast && historical !== undefined) {
-    return result.labels.map((label, i) => {
+    // Die Prognose beschriftet Monate als Tag ("2026-10-01"), die Ist-Werte als Monat ("2026-09")
+    const monthly = result.labels.slice(0, historical).every((l) => /^\d{4}-\d{2}$/.test(l));
+    const labelOf = (l: string) => (monthly && /^\d{4}-\d{2}-01$/.test(l) ? l.slice(0, 7) : l);
+    return result.labels.map((raw, i) => {
+      const label = labelOf(raw);
       if (i < historical) {
         return { label, historical: values[i], predicted: i === historical - 1 ? values[i] : undefined };
       }

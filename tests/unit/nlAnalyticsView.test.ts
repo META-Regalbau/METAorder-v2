@@ -8,6 +8,7 @@ import i18next, { type TFunction } from "i18next";
 import de from "../../client/src/i18n/locales/de.json";
 import es from "../../client/src/i18n/locales/es.json";
 import {
+  formatNlAxisValue,
   formatNlValue,
   nlAlgorithmKey,
   nlChartPoints,
@@ -77,6 +78,23 @@ describe("Prognose im Diagramm", () => {
       { label: "2026-09", predicted: 130, lower: 110, upper: 150 },
       { label: "2026-10", predicted: 140, lower: 115, upper: 165 },
     ]);
+  });
+
+  it("Prognose-Monate im Format der Ist-Werte (\"2026-10-01\" -> \"2026-10\"), Tage bleiben", () => {
+    const monthly = nlChartPoints(t, "revenue_forecast", {
+      labels: ["2026-08", "2026-09", "2026-10-01"], data: [1, 2, 3], metadata: { historicalPeriods: 2 }, forecast: {},
+    });
+    expect(monthly.map((p) => p.label)).toEqual(["2026-08", "2026-09", "2026-10"]);
+    const daily = nlChartPoints(t, "revenue_forecast", {
+      labels: ["2026-09-30", "2026-10-01"], data: [1, 2], metadata: { historicalPeriods: 1 }, forecast: {},
+    });
+    expect(daily.map((p) => p.label)).toEqual(["2026-09-30", "2026-10-01"]);
+  });
+
+  it("Achsen kurz (Millionen statt voller Betraege)", () => {
+    expect(formatNlAxisValue(12265482.81, "currency", "en")).toBe("€12.3M");
+    expect(formatNlAxisValue(12265482.81, "currency", "de").replace(/\u00a0/g, " ")).toBe("12,3 Mio. €");
+    expect(formatNlAxisValue(undefined, "count", "de")).toBe("");
   });
 
   it("ohne Prognose: Werte mit uebersetzter Beschriftung", () => {

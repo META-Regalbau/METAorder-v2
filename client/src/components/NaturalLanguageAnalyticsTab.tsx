@@ -23,6 +23,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { apiRequest } from "@/lib/queryClient";
 import {
+  formatNlAxisValue,
   formatNlValue,
   nlAlgorithmKey,
   nlChartPoints,
@@ -176,7 +177,7 @@ function NlResult({ response, locale }: { response: NlQueryResponse; locale: str
         <CardTitle className="text-base font-medium">{query.naturalLanguageQuery}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-5">
           {typeof summary.count === "number" && (
             <SummaryTile label={t("analytics.count")} value={formatNlValue(summary.count, "count", locale)} />
           )}
@@ -237,7 +238,9 @@ function SummaryTile({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md bg-muted/50 px-3 py-2">
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="text-lg font-semibold tabular-nums">{value}</div>
+      <div className="text-lg font-semibold tabular-nums whitespace-nowrap overflow-hidden text-ellipsis" title={value}>
+        {value}
+      </div>
     </div>
   );
 }
@@ -249,6 +252,7 @@ function NlChart({ response, locale }: { response: NlQueryResponse; locale: stri
   const points = nlChartPoints(t, type, result);
   const kind = nlDataKind(type, 1);
   const fmt = (v: unknown) => formatNlValue(v, kind, locale);
+  const axis = (v: unknown) => formatNlAxisValue(v, kind, locale);
 
   if (nlView(type) === "line") {
     const isForecast = Boolean(result.forecast);
@@ -258,7 +262,7 @@ function NlChart({ response, locale }: { response: NlQueryResponse; locale: stri
           <LineChart data={points}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="label" />
-            <YAxis tickFormatter={(v) => fmt(v)} width={90} />
+            <YAxis tickFormatter={axis} width={80} />
             <Tooltip formatter={(v) => fmt(v)} />
             <Legend />
             {isForecast ? (
@@ -285,7 +289,7 @@ function NlChart({ response, locale }: { response: NlQueryResponse; locale: stri
         <ResponsiveContainer width="100%" height={Math.max(220, rows.length * 28)}>
           <BarChart data={rows} layout="vertical" margin={{ left: 24 }}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis type="number" tickFormatter={(v) => fmt(v)} />
+            <XAxis type="number" tickFormatter={axis} />
             <YAxis type="category" dataKey="label" width={220} />
             <Tooltip formatter={(v) => fmt(v)} />
             <Bar dataKey="value" name={t("analytics.value")} fill="#3b82f6" />
