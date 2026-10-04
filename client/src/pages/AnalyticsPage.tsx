@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -10,7 +10,8 @@ import { SalesChannelSelector } from "@/components/SalesChannelSelector";
 import { format, subDays } from "date-fns";
 import { de } from "date-fns/locale";
 import { useTranslation } from "react-i18next";
-import type { SalesChannel, AiInsight, OfferLearningInsight } from "@shared/schema";
+import type { SalesChannel, AiInsight, OfferLearningInsight, Role } from "@shared/schema";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { learningInsightDescription, learningInsightPairStats, learningInsightTitle, offerStatusLabel } from "@/lib/learningInsightText";
 import {
   TrendingUp,
@@ -46,13 +47,19 @@ type DateRangePreset = "7" | "30" | "90" | "custom";
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8", "#82CA9D"];
 
+const NaturalLanguageAnalyticsTab = lazy(() => import("@/components/NaturalLanguageAnalyticsTab"));
+
 interface AnalyticsPageProps {
   userRole: "employee" | "admin";
   userSalesChannelIds?: string[] | null;
+  userPermissions?: Role["permissions"];
 }
 
-export default function AnalyticsPage({ userRole, userSalesChannelIds }: AnalyticsPageProps) {
+export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermissions }: AnalyticsPageProps) {
   const { t, i18n } = useTranslation();
+  // Reiter "Natürliche Sprache" nur mit Berechtigung (der Server prueft sie ebenfalls)
+  const canUseNaturalLanguage = Boolean(userPermissions?.viewNaturalLanguageAnalytics);
+  const [activeTab, setActiveTab] = useState<"dashboard" | "natural-language">("dashboard");
   const { toast } = useToast();
   const [dateRange, setDateRange] = useState<DateRangePreset>("30");
   const [customDateFrom, setCustomDateFrom] = useState<Date>();
@@ -512,6 +519,38 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
     }
   };
 
+  const pageHeader = (
+    <>
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold mb-1" data-testid="text-page-title">
+          {t('analytics.title')}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          {t('analytics.subtitle')}
+        </p>
+      </div>
+      {canUseNaturalLanguage && (
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="mb-6">
+          <TabsList>
+            <TabsTrigger value="dashboard" data-testid="tab-analytics-dashboard">{t('analytics.dashboardTab')}</TabsTrigger>
+            <TabsTrigger value="natural-language" data-testid="tab-analytics-natural-language">{t('analytics.nlQuery.tab')}</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
+    </>
+  );
+
+  if (canUseNaturalLanguage && activeTab === "natural-language") {
+    return (
+      <div className="w-full">
+        {pageHeader}
+        <Suspense fallback={<div className="text-sm text-muted-foreground">{t('common.loading')}</div>}>
+          <NaturalLanguageAnalyticsTab />
+        </Suspense>
+      </div>
+    );
+  }
+
   if (summaryLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -522,14 +561,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds }: Analyti
 
   return (
     <div className="w-full">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold mb-1" data-testid="text-page-title">
-          {t('analytics.title')}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {t('analytics.subtitle')}
-        </p>
-      </div>
+      {pageHeader}
 
       {/* Sales Channel Filter */}
       <div className="mb-6">

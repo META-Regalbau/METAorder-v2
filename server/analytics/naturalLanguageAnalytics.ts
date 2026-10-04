@@ -1,14 +1,15 @@
-import { getChatClientFromSettings } from "../ai/llmClient";
-import type { AnalyticsQuery, AnalyticsQueryType } from "@shared/schema";
+import { chatCompletion, isChatLlmConfigured, parseLlmJsonResponse } from "../ai/llmChat";
+import { ANALYTICS_QUERY_TYPES, type AnalyticsQuery, type AnalyticsQueryType } from "@shared/schema";
 import type { IStorage } from "../storage";
 
 /**
  * Natural Language Analytics Query Processor
  * 
- * This module processes natural language questions (German/English) about orders,
+ * This module processes natural language questions (German/English/Spanish) about orders,
  * products, and customers, converting them into structured analytics queries.
  * 
- * Uses OpenAI GPT-4o to understand the user's intent and extract relevant parameters.
+ * Uses the tenant's chat provider (OpenAI, Claude or Gemini, smart tier) to understand the user's
+ * intent and extract relevant parameters.
  */
 
 /**
@@ -23,6 +24,7 @@ function generateAnalyticsSystemPrompt(): string {
   
   return `Du bist ein intelligenter Analytics-Assistent für ein Shopware E-Commerce System.
 Deine Aufgabe ist es, natürlichsprachige Fragen in strukturierte Datenbank-Abfragen zu konvertieren.
+Die Frage kann auf Deutsch, Englisch oder Spanisch gestellt sein; die Abfrage ist immer dieselbe JSON-Struktur.
 
 ## VERFÜGBARE DATENQUELLEN:
 
@@ -287,7 +289,7 @@ Antworte AUSSCHLIESSLICH mit dem JSON-Objekt, ohne zusätzlichen Text.`;
 /**
  * Processes a natural language query and converts it to a structured analytics query
  * 
- * @param question - The natural language question (German or English)
+ * @param question - The natural language question (German, English or Spanish)
  * @param userId - The user ID making the request
  * @param storage - Storage interface to access settings
  * @returns Structured analytics query object
@@ -299,24 +301,18 @@ export async function processNaturalLanguageQuery(
 ): Promise<AnalyticsQuery> {
   console.log(`[NL Analytics] Processing query from user ${userId}: "${question}"`);
 
-  // Get OpenAI client (dual integration support)
-  const openaiConfig = await getChatClientFromSettings(
-    (key: string) => storage.getSetting(key),
-    { tier: "smart" }
-  );
-
-  if (!openaiConfig) {
-    console.error('[NL Analytics] LLM not configured - neither AI_INTEGRATIONS_OPENAI_* nor API key available');
+  // Chat-Anbieter des Mandanten (OpenAI, Claude oder Gemini)
+  const getSetting = (key: string) => storage.getSetting(key);
+  if (!(await isChatLlmConfigured(getSetting))) {
+    console.error('[NL Analytics] LLM not configured - no chat provider with API key available');
     throw new Error('LLM integration not available. Please configure API key in settings.');
   }
 
-  console.log(`[NL Analytics] Using provider ${openaiConfig.provider} (${openaiConfig.model})`);
-
   try {
     // Call the LLM to process the natural language query with timeout
-    const completion = await Promise.race([
-      openaiConfig.client.chat.completions.create({
-        model: openaiConfig.model,
+    const responseContent = await Promise.race([
+      chatCompletion(getSetting, {
+        tier: "smart",
         messages: [
           {
             role: 'system',
@@ -328,24 +324,23 @@ export async function processNaturalLanguageQuery(
           },
         ],
         temperature: 0.1, // Low temperature for consistent, deterministic results
-        response_format: { type: 'json_object' }, // Enforce JSON response
+        response_json: true,
       }),
-      new Promise((_, reject) => 
+      new Promise<string>((_, reject) => 
         setTimeout(() => reject(new Error('KI-Anfrage hat zu lange gedauert - bitte versuchen Sie es erneut')), 45000)
       )
-    ]) as any;
+    ]);
 
-    const responseContent = completion.choices[0]?.message?.content;
     if (!responseContent) {
       throw new Error('Leere Antwort von KI-Service erhalten');
     }
 
-    console.log('[NL Analytics] OpenAI response:', responseContent);
+    console.log('[NL Analytics] LLM response:', responseContent);
 
     // Parse the JSON response
     let parsedResponse: any;
     try {
-      parsedResponse = JSON.parse(responseContent);
+      parsedResponse = parseLlmJsonResponse(responseContent);
     } catch (parseError) {
       console.error('[NL Analytics] JSON parse error:', parseError);
       console.error('[NL Analytics] Raw response that failed to parse:', responseContent);
@@ -361,6 +356,9 @@ export async function processNaturalLanguageQuery(
       console.error('[NL Analytics] type value:', parsedResponse.type);
       console.error('[NL Analytics] parameters value:', parsedResponse.parameters);
       throw new Error(`Ungültige Antwortstruktur von KI-Service - erwartet 'type' und 'parameters', erhalten: ${Object.keys(parsedResponse).join(', ')}`);
+    }
+    if (!isSupportedQueryType(parsedResponse.type)) {
+      throw new Error(`Ungültiger Abfragetyp von KI-Service: ${parsedResponse.type}`);
     }
 
     console.log('[NL Analytics] Parsed parameters BEFORE conversion:', JSON.stringify(parsedResponse.parameters, null, 2));
@@ -420,28 +418,7 @@ export async function processNaturalLanguageQuery(
  * @returns True if supported, false otherwise
  */
 export function isSupportedQueryType(type: string): boolean {
-  const supportedTypes: AnalyticsQueryType[] = [
-    'top_products',
-    'delayed_orders',
-    'order_trends',
-    'revenue_trends',
-    'customer_analysis',
-    'customer_rankings',
-    'product_performance',
-    'category_performance',
-    'payment_analysis',
-    'sales_channel_analysis',
-    'order_status_distribution',
-    'general_statistics',
-    'revenue_forecast',
-    'product_demand_forecast',
-    'seasonal_analysis',
-    'trend_forecast',
-    'weight_analysis',
-    'item_count_analysis',
-  ];
-
-  return supportedTypes.includes(type as AnalyticsQueryType);
+  return (ANALYTICS_QUERY_TYPES as readonly string[]).includes(type);
 }
 
 /**

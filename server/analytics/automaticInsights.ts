@@ -1,17 +1,22 @@
-import { getChatClientFromSettings } from "../ai/llmClient";
-import type { AnalyticsResult, AnalyticsInsight, AnalyticsQueryType } from "@shared/schema";
+import { chatCompletion, isChatLlmConfigured, parseLlmJsonResponse } from "../ai/llmChat";
+import type { AnalyticsLanguage, AnalyticsResult, AnalyticsInsight, AnalyticsQueryType } from "@shared/schema";
 import type { IStorage } from "../storage";
+import { NL_TEXTS, PROMPT_LANGUAGE_NAME } from "./nlLanguage";
 
 /**
  * Automatic Insights Generator
  * 
  * This module analyzes analytics query results and generates natural language
- * insights in German using OpenAI. It detects trends, anomalies, patterns,
- * and comparisons to provide actionable business intelligence.
+ * insights in the user's interface language (German, English or Spanish) using the tenant's chat
+ * provider. It detects trends, anomalies, patterns, and comparisons to provide actionable business
+ * intelligence.
  */
 
-const INSIGHTS_SYSTEM_PROMPT = `Du bist ein KI-Assistent für Business Intelligence und Datenanalyse.
-Deine Aufgabe ist es, Analyseergebnisse zu untersuchen und aussagekräftige Insights in deutscher Sprache zu generieren.
+/** Prompt ist deutsch formuliert; die Insight-Texte entstehen in der Zielsprache. */
+export function insightsSystemPrompt(language: AnalyticsLanguage): string {
+  const target = PROMPT_LANGUAGE_NAME[language];
+  return `Du bist ein KI-Assistent für Business Intelligence und Datenanalyse.
+Deine Aufgabe ist es, Analyseergebnisse zu untersuchen und aussagekräftige Insights zu generieren. Zielsprache der Insight-Texte: ${target}.
 
 ## RICHTLINIEN FÜR INSIGHTS:
 
@@ -19,7 +24,7 @@ Deine Aufgabe ist es, Analyseergebnisse zu untersuchen und aussagekräftige Insi
 2. **Sei handlungsorientiert**: Biete wo möglich Empfehlungen oder Handlungshinweise
 3. **Sei verständlich**: Verwende klare, geschäftliche Sprache ohne zu viel Fachjargon
 4. **Sei relevant**: Konzentriere dich auf die wichtigsten Erkenntnisse
-5. **Verwende Deutsch**: Alle Insights müssen auf Deutsch sein
+5. **Verwende die Zielsprache**: Alle Insight-Texte müssen auf ${target} sein (auch wenn die Beispiele unten deutsch sind)
 
 ## ARTEN VON INSIGHTS:
 
@@ -66,7 +71,7 @@ Beispiele:
 ## AUSGABEFORMAT:
 
 Gib ein JSON-Array von Insight-Objekten zurück. Jedes Objekt hat:
-- "text": Der Insight-Text auf Deutsch
+- "text": Der Insight-Text auf ${target}
 - "type": "trend" | "anomaly" | "comparison" | "general"
 - "confidence": Optional, 0-100 (wie sicher bist du bei diesem Insight)
 
@@ -86,6 +91,7 @@ Beispiel:
 
 Generiere 3-5 aussagekräftige Insights basierend auf den bereitgestellten Daten.
 Antworte NUR mit dem JSON-Array, ohne zusätzlichen Text.`;
+}
 
 /**
  * Generates natural language insights from analytics results
@@ -93,28 +99,24 @@ Antworte NUR mit dem JSON-Array, ohne zusätzlichen Text.`;
  * @param data - The analytics result data
  * @param queryType - The type of query that generated the data
  * @param storage - Storage interface to access settings
+ * @param language - Sprache der Insight-Texte (Oberflaechensprache, Standard Deutsch)
  * @returns Array of insight objects with text and metadata
  */
 export async function generateInsights(
   data: AnalyticsResult,
   queryType: AnalyticsQueryType,
-  storage: IStorage
+  storage: IStorage,
+  language: AnalyticsLanguage = "de",
 ): Promise<AnalyticsInsight[]> {
   console.log(`[Insights Generator] Generating insights for query type: ${queryType}`);
   console.log(`[Insights Generator] Data summary:`, JSON.stringify(data.summary, null, 2));
 
-  // Get OpenAI client (dual integration support)
-  const openaiConfig = await getChatClientFromSettings(
-    (key: string) => storage.getSetting(key),
-    { tier: "smart" }
-  );
-
-  if (!openaiConfig) {
+  // Chat-Anbieter des Mandanten (OpenAI, Claude oder Gemini)
+  const getSetting = (key: string) => storage.getSetting(key);
+  if (!(await isChatLlmConfigured(getSetting))) {
     console.warn('[Insights Generator] LLM not configured - returning basic insights');
-    return generateBasicInsights(data, queryType);
+    return generateBasicInsights(data, queryType, language);
   }
-
-  console.log(`[Insights Generator] Using provider ${openaiConfig.provider} (${openaiConfig.model})`);
 
   try {
     // Prepare context for AI
@@ -123,36 +125,35 @@ export async function generateInsights(
     console.log('[Insights Generator] Prepared context for AI:', context);
 
     // Call OpenAI to generate insights with timeout
-    const completion = await Promise.race([
-      openaiConfig.client.chat.completions.create({
-        model: openaiConfig.model,
+    const responseContent = await Promise.race([
+      chatCompletion(getSetting, {
+        tier: "smart",
         messages: [
           {
             role: 'system',
-            content: INSIGHTS_SYSTEM_PROMPT,
+            content: insightsSystemPrompt(language),
           },
           {
             role: 'user',
-            content: `Analysiere folgende Daten und generiere Insights:\n\nQuery-Typ: ${queryType}\n\nDaten:\n${JSON.stringify(context, null, 2)}`,
+            content: `Analysiere folgende Daten und generiere Insights auf ${PROMPT_LANGUAGE_NAME[language]}:\n\nQuery-Typ: ${queryType}\n\nDaten:\n${JSON.stringify(context, null, 2)}`,
           },
         ],
         temperature: 0.3, // Slightly creative but still consistent
-        response_format: { type: 'json_object' },
+        response_json: true,
       }),
-      new Promise((_, reject) => 
+      new Promise<string>((_, reject) => 
         setTimeout(() => reject(new Error('TIMEOUT')), 45000)
       )
-    ]) as any;
+    ]);
 
-    const responseContent = completion.choices[0]?.message?.content;
     if (!responseContent) {
       throw new Error('EMPTY_RESPONSE');
     }
 
-    console.log('[Insights Generator] OpenAI response:', responseContent);
+    console.log('[Insights Generator] LLM response:', responseContent);
 
     // Parse the JSON response
-    const parsedResponse = JSON.parse(responseContent);
+    const parsedResponse = parseLlmJsonResponse(responseContent) as any;
     
     // Handle both array and object responses
     let insights: AnalyticsInsight[] = [];
@@ -198,7 +199,7 @@ export async function generateInsights(
     }
     
     console.log('[Insights Generator] Falling back to basic insights');
-    return generateBasicInsights(data, queryType);
+    return generateBasicInsights(data, queryType, language);
   }
 }
 
@@ -259,8 +260,13 @@ function prepareAnalyticsContext(data: AnalyticsResult, queryType: AnalyticsQuer
 /**
  * Generates basic rule-based insights when AI is not available
  */
-function generateBasicInsights(data: AnalyticsResult, queryType: AnalyticsQueryType): AnalyticsInsight[] {
+export function generateBasicInsights(
+  data: AnalyticsResult,
+  queryType: AnalyticsQueryType,
+  language: AnalyticsLanguage = "de",
+): AnalyticsInsight[] {
   console.log('[Insights Generator] Generating basic rule-based insights');
+  const texts = NL_TEXTS[language];
   
   const insights: AnalyticsInsight[] = [];
 
@@ -268,7 +274,7 @@ function generateBasicInsights(data: AnalyticsResult, queryType: AnalyticsQueryT
   if (data.summary) {
     if (data.summary.total !== undefined) {
       insights.push({
-        text: `Gesamtwert: ${data.summary.total.toFixed(2)}€`,
+        text: texts.totalValue(data.summary.total.toFixed(2)),
         type: 'general',
         confidence: 100,
       });
@@ -276,7 +282,7 @@ function generateBasicInsights(data: AnalyticsResult, queryType: AnalyticsQueryT
 
     if (data.summary.average !== undefined) {
       insights.push({
-        text: `Durchschnittswert: ${data.summary.average.toFixed(2)}€`,
+        text: texts.averageValue(data.summary.average.toFixed(2)),
         type: 'general',
         confidence: 100,
       });
@@ -284,7 +290,7 @@ function generateBasicInsights(data: AnalyticsResult, queryType: AnalyticsQueryT
 
     if (data.summary.count !== undefined) {
       insights.push({
-        text: `Anzahl Datenpunkte: ${data.summary.count}`,
+        text: texts.dataPoints(data.summary.count),
         type: 'general',
         confidence: 100,
       });
@@ -296,7 +302,7 @@ function generateBasicInsights(data: AnalyticsResult, queryType: AnalyticsQueryT
     case 'top_products':
       if (data.labels.length > 0) {
         insights.push({
-          text: `Das meistverkaufte Produkt ist "${data.labels[0]}"`,
+          text: texts.topProduct(data.labels[0]),
           type: 'comparison',
           confidence: 100,
         });
@@ -306,7 +312,7 @@ function generateBasicInsights(data: AnalyticsResult, queryType: AnalyticsQueryT
     case 'delayed_orders':
       if (data.summary?.count) {
         insights.push({
-          text: `Es gibt ${data.summary.count} verspätete Bestellungen, die Aufmerksamkeit erfordern`,
+          text: texts.delayedOrders(data.summary.count),
           type: 'general',
           confidence: 100,
         });
@@ -325,13 +331,13 @@ function generateBasicInsights(data: AnalyticsResult, queryType: AnalyticsQueryT
         
         if (change > 0) {
           insights.push({
-            text: `Positiver Trend: ${change.toFixed(1)}% Wachstum im Vergleich zur ersten Hälfte des Zeitraums`,
+            text: texts.trendUp(change.toFixed(1)),
             type: 'trend',
             confidence: 90,
           });
         } else if (change < 0) {
           insights.push({
-            text: `Negativer Trend: ${Math.abs(change).toFixed(1)}% Rückgang im Vergleich zur ersten Hälfte des Zeitraums`,
+            text: texts.trendDown(Math.abs(change).toFixed(1)),
             type: 'trend',
             confidence: 90,
           });
@@ -347,7 +353,7 @@ function generateBasicInsights(data: AnalyticsResult, queryType: AnalyticsQueryT
         const percentage = (top3Total / data.summary.total) * 100;
         
         insights.push({
-          text: `Die Top 3 Kunden generieren ${percentage.toFixed(1)}% des Gesamtumsatzes`,
+          text: texts.top3Share(percentage.toFixed(1)),
           type: 'comparison',
           confidence: 100,
         });

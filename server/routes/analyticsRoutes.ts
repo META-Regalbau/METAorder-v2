@@ -8,8 +8,9 @@ import { ShopwareClient } from "../shopware/shopware";
 import { processNaturalLanguageQuery } from "../analytics/naturalLanguageAnalytics";
 import { executeAnalyticsQuery } from "../analytics/analyticsQueryExecutor";
 import { generateInsights } from "../analytics/automaticInsights";
+import { parseAnalyticsLanguage } from "../analytics/nlLanguage";
 import type { Request, Response, Express } from "express";
-import { type Order } from "@shared/schema";
+import { type NlQueryErrorCode, type Order } from "@shared/schema";
 import { isOrderEligibleForShippingPick } from "@shared/orderShippingEligibility";
 import { toImportedInquirySummary } from "../commercial/importedInquirySummary";
 import { loadAnalyticsOrders } from "../analytics/analyticsOrders";
@@ -542,10 +543,12 @@ export function registerAnalyticsRoutes(app: Express): void {
 
       // Validate request body
       const { question } = req.body;
+      // Sprache der Oberflaeche fuer KI-Texte und feste Beschriftungen (Standard Deutsch)
+      const language = parseAnalyticsLanguage(req.body?.language);
       
       if (!question || typeof question !== 'string' || question.trim().length === 0) {
         console.error('[NL Analytics API] Invalid or missing question in request body');
-        return res.status(400).json({ error: "Invalid question. Please provide a non-empty question string." });
+        return res.status(400).json({ error: "Invalid question. Please provide a non-empty question string.", code: "invalid_question" satisfies NlQueryErrorCode });
       }
 
       console.log(`[NL Analytics API] User ${userId} asked: "${question}"`);
@@ -558,8 +561,15 @@ export function registerAnalyticsRoutes(app: Express): void {
         console.log('[NL Analytics API] Query processed successfully:', JSON.stringify(queryObj, null, 2));
       } catch (error: any) {
         console.error('[NL Analytics API] Error processing natural language query:', error);
+        if (String(error?.message ?? "").startsWith("LLM integration not available")) {
+          return res.status(503).json({
+            error: "No AI chat provider is configured for this tenant.",
+            code: "llm_unavailable" satisfies NlQueryErrorCode,
+          });
+        }
         return res.status(400).json({ 
           error: "Failed to understand the question. Please try rephrasing.",
+          code: "not_understood" satisfies NlQueryErrorCode,
           details: error.message 
         });
       }
@@ -571,7 +581,8 @@ export function registerAnalyticsRoutes(app: Express): void {
       if (!settings) {
         console.error('[NL Analytics API] No Shopware settings configured - cannot execute analytics query');
         return res.status(400).json({ 
-          error: "Shopware settings not configured. Please configure Shopware API credentials in settings." 
+          error: "Shopware settings not configured. Please configure Shopware API credentials in settings.",
+          code: "shopware_missing" satisfies NlQueryErrorCode,
         });
       }
       
@@ -592,6 +603,7 @@ export function registerAnalyticsRoutes(app: Express): void {
         console.error('[NL Analytics API] Error getting sales channel filter:', error);
         return res.status(500).json({ 
           error: "Failed to determine user permissions",
+          code: "permissions_failed" satisfies NlQueryErrorCode,
           details: error.message 
         });
       }
@@ -611,13 +623,14 @@ export function registerAnalyticsRoutes(app: Express): void {
       console.log('[NL Analytics API] Step 3: Executing analytics query...');
       let result;
       try {
-        result = await executeAnalyticsQuery(queryObj, storage, shopwareClient, allowedChannelIds, (req as any).tenantId ?? null);
+        result = await executeAnalyticsQuery(queryObj, storage, shopwareClient, allowedChannelIds, (req as any).tenantId ?? null, language);
         console.log('[NL Analytics API] Query executed successfully');
         console.log('[NL Analytics API] Result summary:', JSON.stringify(result.summary, null, 2));
       } catch (error: any) {
         console.error('[NL Analytics API] Error executing analytics query:', error);
         return res.status(500).json({ 
           error: "Failed to execute analytics query",
+          code: "execution_failed" satisfies NlQueryErrorCode,
           details: error.message 
         });
       }
@@ -626,7 +639,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       console.log('[NL Analytics API] Step 4: Generating insights...');
       let insights: any[] = [];
       try {
-        insights = await generateInsights(result, queryObj.type, storage);
+        insights = await generateInsights(result, queryObj.type, storage, language);
         console.log(`[NL Analytics API] Generated ${insights.length} insights`);
       } catch (error: any) {
         console.error('[NL Analytics API] Error generating insights:', error);
@@ -643,7 +656,7 @@ export function registerAnalyticsRoutes(app: Express): void {
         console.log('[NL Analytics API] Step 5: Generating improvement suggestions...');
         try {
           const { generateImprovementSuggestions } = await import('../analytics/improvementSuggestions');
-          improvements = await generateImprovementSuggestions(queryObj, result, storage);
+          improvements = await generateImprovementSuggestions(queryObj, result, storage, language);
           console.log(`[NL Analytics API] Generated ${improvements.length} improvement suggestions`);
         } catch (error: any) {
           console.error('[NL Analytics API] Error generating improvement suggestions:', error);
@@ -670,6 +683,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       console.error('[NL Analytics API] Unexpected error:', error);
       res.status(500).json({ 
         error: "An unexpected error occurred while processing your request",
+        code: "unexpected" satisfies NlQueryErrorCode,
         details: error.message 
       });
     }

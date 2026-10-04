@@ -2622,7 +2622,7 @@
         "confidence": "Confidence"
       },
       "tab": "Natural Language",
-      "welcome": "Welcome to Natural Language Analytics",
+      "welcome": "Natural language analytics",
       "welcomeDescription": "Simply ask questions in natural language about your orders, products and customers. Our AI analyzes your data and provides detailed insights.",
       "suggestedQuestions": "Suggested questions",
       "inputPlaceholder": "Enter a question, e.g. 'Show me the top 10 products from last month'",
@@ -2653,7 +2653,38 @@
         "revenueForecast": "Revenue forecast",
         "productDemandForecast": "Product demand forecast",
         "seasonalAnalysis": "Seasonal analysis",
-        "trendForecast": "Trend forecast"
+        "trendForecast": "Trend forecast",
+        "weightAnalysis": "Weight analysis",
+        "itemCountAnalysis": "Items per order"
+      },
+      "ask": "Ask",
+      "period": "Period: {{from}} – {{to}}",
+      "amount": "Amount",
+      "revenue": "Revenue",
+      "insightTypes": {
+        "trend": "Trend",
+        "anomaly": "Anomaly",
+        "comparison": "Comparison",
+        "general": "General",
+        "forecast": "Forecast",
+        "recommendation": "Recommendation"
+      },
+      "errors": {
+        "invalid_question": "Please enter a question.",
+        "llm_unavailable": "No AI provider is configured for this tenant. Please add an API key in the settings.",
+        "not_understood": "The question was not understood. Please rephrase it.",
+        "shopware_missing": "No Shopware credentials are configured for this tenant.",
+        "permissions_failed": "Your permissions could not be determined.",
+        "execution_failed": "The analysis failed. Please try again.",
+        "unexpected": "The query could not be processed. Please try again."
+      },
+      "examples": {
+        "q1": "Show me the top 10 products from last month",
+        "q2": "What is the revenue trend over the last 90 days?",
+        "q3": "Who are our best customers by order value?",
+        "q4": "Which orders are delayed?",
+        "q5": "Show me the distribution of order statuses",
+        "q6": "Forecast revenue for the next 3 months"
       }
     },
     "dashboardTab": "Dashboard",

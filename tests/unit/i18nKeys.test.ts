@@ -11,6 +11,14 @@ import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import {
+  ANALYTICS_INSIGHT_TYPES,
+  ANALYTICS_QUERY_TYPES,
+  IMPROVEMENT_CATEGORIES,
+  IMPROVEMENT_PRIORITIES,
+  NL_QUERY_ERROR_CODES,
+} from "../../shared/schema";
+import { nlImprovementCategoryKey, nlQueryTypeKey } from "../../client/src/lib/nlAnalytics";
+import {
   AUTOMATION_ACTION_TYPES,
   AUTOMATION_ACTIONS,
   AUTOMATION_FIELDS,
@@ -102,6 +110,17 @@ describe("Uebersetzungsschluessel (Deutsch)", () => {
     }
     expect(types.size).toBeGreaterThanOrEqual(8); // Plausibilitaet: Angebote (4) und Cross-Selling (4)
     expect(missingIn([...types].flatMap((v) => [`insights.${v}.title`, `insights.${v}.description`]))).toEqual([]);
+  });
+
+  it("Statistik, Natuerliche Sprache: Abfragetypen, Fehlercodes, Hinweisarten, Vorschlaege, Beispielfragen", () => {
+    expect(missingIn([
+      ...ANALYTICS_QUERY_TYPES.map(nlQueryTypeKey),
+      ...NL_QUERY_ERROR_CODES.map((v) => `analytics.nlQuery.errors.${v}`),
+      ...ANALYTICS_INSIGHT_TYPES.map((v) => `analytics.nlQuery.insightTypes.${v}`),
+      ...IMPROVEMENT_CATEGORIES.map(nlImprovementCategoryKey),
+      ...IMPROVEMENT_PRIORITIES.map((v) => `analytics.nlQuery.improvements.${v}`),
+      ...["q1", "q2", "q3", "q4", "q5", "q6"].map((v) => `analytics.nlQuery.examples.${v}`),
+    ])).toEqual([]);
   });
 
   it("Dokumenttypen der Shops (unbekannte zeigt die Detailansicht mit technischem Namen)", () => {
