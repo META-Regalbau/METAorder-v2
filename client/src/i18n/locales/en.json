@@ -2366,6 +2366,7 @@
     "dataQualityTitle": "Data quality",
     "dataQualityAverage": "Average data quality",
     "dataQualityDistribution": "Distribution by quality level",
+    "dataQualityAsOf": "As of {{time}} (refreshed every 15 minutes)",
     "activeProducts": "Active Products",
     "inactiveProducts": "Inactive Products",
     "totalProducts": "Total",
