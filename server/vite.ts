@@ -3,16 +3,10 @@ import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import { type Server } from "http";
+import { logger } from "./lib/logger";
 
 export function log(message: string, source = "express") {
-  const formattedTime = new Date().toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-
-  console.log(`${formattedTime} [${source}] ${message}`);
+  logger.info({ source }, message);
 }
 
 /**

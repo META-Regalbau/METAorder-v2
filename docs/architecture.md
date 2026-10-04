@@ -142,3 +142,11 @@ Ein zusammenhaengendes Mermaid-Poster (Nutzer, Stack, Persistenz, Integrationen,
 ## Mandanten, Integration, Strikter Modus
 
 Siehe [multitenant-security.md](multitenant-security.md) (Cross-Selling-Fallbacks, `METAORDER_STRICT_TENANT`, API-Keys pro Mandant, Performance-Hinweise).
+
+## Logging
+
+- **Zentraler Logger:** `server/lib/logger.ts` (pino). Produktion: eine JSON-Zeile je Eintrag; Entwicklung: lesbare Zeilen. Steuerung über `LOG_LEVEL` / `LOG_FORMAT` (siehe [docker.md](docker.md)).
+- **Kontext automatisch:** Jede Zeile während einer Anfrage trägt `requestId` (auch im Antwort-Header `X-Request-Id`) und – nach der Anmeldung – `tenantId` (`server/lib/requestContext.ts`, `server/lib/tenantContext.ts`). Hinter multer stellt `restoreTenantContext` beides wieder her.
+- **Bestehende `console.*`-Aufrufe** leitet `server/lib/consoleBridge.ts` in den Logger um (Text wie bei `console`, Fehlerobjekte als Feld `err` mit Stacktrace). **Neuer Code** nutzt direkt `logger` mit Feldern: `logger.info({ orderId }, "Bestellung angelegt")`, `logger.error({ err }, "Versand fehlgeschlagen")`.
+- **Request-Log und Fehler-Handler:** `server/lib/httpLogging.ts` — eine Zeile je API-Anfrage (Methode, Pfad, Status, Dauer, IDs), **ohne Antwort-Inhalt**; unbehandelte Fehler mit Stacktrace und `requestId`.
+- **Schwärzung:** Felder wie `password`, `token`, `apiKey`, `apiSecret`, `authorization`, `cookie` sowie der Roh-Body kaputter JSON-Anfragen (`err.body`) werden als `[REDACTED]` geloggt.

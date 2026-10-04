@@ -25,9 +25,18 @@ import { metricsCollectorService } from "./services/metricsCollector";
 import { initBackendSentry } from "./observability/sentry";
 import { runShopwareMirrorSync } from "./shopware/shopwareMirror";
 import { assertSecureSecret } from "./lib/secretGuard";
+import { installConsoleBridge } from "./lib/consoleBridge";
+import { requestIdMiddleware } from "./lib/requestContext";
+import { errorHandler, requestLoggingMiddleware } from "./lib/httpLogging";
+
+// Ab hier landen auch alle console.*-Aufrufe strukturiert im Logger (server/lib/logger.ts).
+// Steht nach loadEnv (Imports laufen vorher), damit LOG_LEVEL/LOG_FORMAT aus .env greifen.
+installConsoleBridge();
 
 const app = express();
 initBackendSentry(app);
+// Request-ID fuer jede Anfrage (Header X-Request-Id, in jeder Log-Zeile als requestId)
+app.use(requestIdMiddleware);
 
 app.get("/healthz", (_req, res) => {
   res.status(200).json({ status: "ok" });
@@ -161,45 +170,7 @@ app.use((req, res, next) => {
   requireCsrf(req, res, next);
 });
 
-app.use((req, res, next) => {
-  const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
-
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    const slowMs = Number(process.env.REQUEST_LOG_SLOW_MS || "0");
-    if (slowMs > 0 && duration >= slowMs && path.startsWith("/api")) {
-      console.warn(`[slow-request] ${duration}ms ${req.method} ${path} ${res.statusCode}`);
-    }
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
-      metricsCollectorService.collectHttpMetric({
-        route: path,
-        method: req.method,
-        statusCode: res.statusCode,
-        durationMs: duration,
-      });
-    }
-  });
-
-  next();
-});
+app.use(requestLoggingMiddleware((metric) => metricsCollectorService.collectHttpMetric(metric)));
 
 app.post("/ingest/:id", (req, res) => {
   try {
@@ -331,13 +302,7 @@ app.post("/ingest/:id", (req, res) => {
     res.status(404).json({ error: "Not found" });
   });
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
-  });
+  app.use(errorHandler);
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
