@@ -443,6 +443,17 @@ export function dedupeOrdersByNumber(orders: Order[]): Order[] {
   return orders.filter((o) => !o.orderNumber || best.get(o.orderNumber) === o);
 }
 
+/**
+ * Alle Bestellungen des Mandanten aus dem Bestell-Spiegel statt live per fetchOrders() - mit dessen
+ * Reihenfolge (Bestelldatum absteigend, dann id aufsteigend) und einer Bestellung je Bestellnummer
+ * (dedupeOrdersByNumber). Seiten mit Paginierung verlassen sich auf die feste Reihenfolge.
+ */
+export async function getMirrorOrdersLikeLive(client: ShopwareClient, tenantId: string | null | undefined): Promise<Order[]> {
+  const { orders } = await getOrdersWithCache(client, tenantId ?? null);
+  const cmp = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
+  return dedupeOrdersByNumber(orders).sort((a, b) => cmp(String(b.orderDate ?? ""), String(a.orderDate ?? "")) || cmp(a.id, b.id));
+}
+
 export const defaultProformaNumberRange = {
   prefix: "PF-",
   nextNumber: 1,

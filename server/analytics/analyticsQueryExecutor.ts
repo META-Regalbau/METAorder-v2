@@ -1,6 +1,8 @@
 import type { AnalyticsQuery, AnalyticsResult, Order, Product } from "@shared/schema";
 import { ShopwareClient } from "../shopware/shopware";
 import type { IStorage } from "../storage";
+import { getMirrorOrdersLikeLive } from "../routes/routeHelpers";
+import { getTenantIdFromContext } from "../lib/tenantContext";
 import { generateForecast } from "./forecastEngine";
 import type { ForecastConfig, ForecastInput } from "./forecastEngine";
 
@@ -18,6 +20,8 @@ interface QueryExecutionContext {
   orders?: Order[];
   products?: Product[];
   allowedChannelIds?: string[] | null; // SECURITY: Restricts data to user's assigned sales channels
+  /** Mandant fuer den Bestell-Spiegel */
+  tenantId?: string | null;
 }
 
 /**
@@ -33,7 +37,8 @@ export async function executeAnalyticsQuery(
   queryObj: AnalyticsQuery,
   storage: IStorage,
   shopwareClient?: ShopwareClient,
-  allowedChannelIds?: string[] | null
+  allowedChannelIds?: string[] | null,
+  tenantId?: string | null,
 ): Promise<AnalyticsResult> {
   console.log(`[Analytics Executor] Executing query type: ${queryObj.type}`);
   console.log(`[Analytics Executor] Parameters:`, JSON.stringify(queryObj.parameters, null, 2));
@@ -48,6 +53,8 @@ export async function executeAnalyticsQuery(
     storage,
     shopwareClient,
     allowedChannelIds,
+    // ohne Angabe der Mandant der Anfrage (null waere der globale Bereich)
+    tenantId: tenantId === undefined ? getTenantIdFromContext() : tenantId,
   };
 
   try {
@@ -130,12 +137,11 @@ async function getOrders(context: QueryExecutionContext): Promise<Order[]> {
     throw new Error('Shopware client not available');
   }
 
-  console.log('[Analytics Executor] Fetching orders from Shopware...');
-  // SECURITY: Pass allowedChannelIds to fetchOrders for server-side filtering at Shopware API level
-  const allOrders = await context.shopwareClient.fetchOrders(context.allowedChannelIds);
-  console.log(`[Analytics Executor] Fetched ${allOrders.length} orders from Shopware (filtered by sales channels)`);
+  // Bestellungen aus dem Bestell-Spiegel statt alle live aus Shopware; Kanalfilter folgt hier
+  const allOrders = await getMirrorOrdersLikeLive(context.shopwareClient, context.tenantId ?? null);
+  console.log(`[Analytics Executor] ${allOrders.length} orders from the order mirror`);
   
-  // SECURITY: Double-check filtering locally as defense-in-depth (should already be filtered by Shopware)
+  // SECURITY: Filter by the user's sales channels
   let filteredOrders: Order[];
   if (context.allowedChannelIds) {
     // User has specific channel restrictions

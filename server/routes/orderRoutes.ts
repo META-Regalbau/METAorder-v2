@@ -2,7 +2,7 @@
 import { requireAuth, requireViewDelayedOrders, requireManageDocuments, requireCsrf, requireEditOrders, requireManageAccounting } from "../auth/auth";
 import { storage } from "../storage";
 import { ShopwareClient, getRealInvoiceDocument, isMonduPluginShipError, ZUGFERD_EMBEDDED_INVOICE_TYPE } from "../shopware/shopware";
-import { getSalesChannelFilter, getOrdersWithCache, filterOrdersBySalesChannels, filterTicketsBySalesChannels, defaultProformaNumberRange, resolveAttachmentPath, dedupeOrdersByNumber, checkOrderChannelAccess } from "./routeHelpers";
+import { getSalesChannelFilter, getOrdersWithCache, filterOrdersBySalesChannels, filterTicketsBySalesChannels, defaultProformaNumberRange, resolveAttachmentPath, dedupeOrdersByNumber, checkOrderChannelAccess, getMirrorOrdersLikeLive } from "./routeHelpers";
 import { filterOrdersList, sortOrdersList, computeDuplicateOrderIds, paginateOrdersList, type OrdersListQuery } from "../shopware/ordersList";
 import { enrichOrdersWithProfitability, buildOrderProfitabilityAnalysisSummary, sortOrdersByMargin } from "../analytics/orderProfitabilityAnalysis";
 import { enrichOrdersWithStockAvailability } from "../erp/orderStockEnrichment";
@@ -457,10 +457,9 @@ export function registerOrderRoutes(app: Express): void {
       // SECURITY: Get sales channel filter from user permissions (server-side, authoritative)
       const allowedChannelIds = await getSalesChannelFilter(req);
       
-      // Fetch all orders with sales channel filtering
-      const allOrders = await client.fetchOrders(allowedChannelIds);
-      
-      // SECURITY: Double-check filtering locally as defense-in-depth
+      // Bestellungen aus dem Bestell-Spiegel (Reihenfolge und eine je Bestellnummer wie der
+      // fruehere Live-Abruf), dann nach den Verkaufskanaelen des Nutzers filtern
+      const allOrders = await getMirrorOrdersLikeLive(client, (req as any).tenantId ?? null);
       let filteredOrders = filterOrdersBySalesChannels(allOrders, allowedChannelIds);
       
       // Apply date filters
