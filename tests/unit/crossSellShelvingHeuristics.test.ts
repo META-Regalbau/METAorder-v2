@@ -2,7 +2,7 @@
  * Cross-Sell Regal-Heuristiken (ohne Shopware).
  * Ausführung: npm test
  */
-import { test } from "vitest";
+import { describe, it } from "vitest";
 import type { Product } from "../../shared/schema";
 import { CROSS_SELL_CATEGORIES } from "../../shared/schema";
 import {
@@ -13,88 +13,92 @@ import {
   sameWidthAndDepth,
 } from "../../server/cross-selling/crossSellShelvingHeuristics";
 
-// Aus scripts/testCrossSellShelvingHeuristics.ts uebernommen: Pruefungen unveraendert, Rumpf als ein Vitest-Test.
-test("CrossSellShelvingHeuristics", async () => {
-  function assert(cond: boolean, message: string) {
-    if (!cond) throw new Error(message);
-  }
+function assert(cond: boolean, message: string) {
+  if (!cond) throw new Error(message);
+}
 
-  const base = (overrides: Partial<Product> = {}): Product =>
-    ({
-      id: "x",
-      productNumber: "X",
-      name: "X",
-      price: 1,
-      netPrice: 1,
-      currency: "EUR",
-      taxRate: 19,
-      stock: 1,
-      available: true,
-      ...overrides,
-    }) as Product;
+const base = (overrides: Partial<Product> = {}): Product =>
+  ({
+    id: "x",
+    productNumber: "X",
+    name: "X",
+    price: 1,
+    netPrice: 1,
+    currency: "EUR",
+    taxRate: 19,
+    stock: 1,
+    available: true,
+    ...overrides,
+  }) as Product;
 
-  await (async () => {
-    console.log("=== crossSellShelvingHeuristics ===\n");
+// Aus scripts/testCrossSellShelvingHeuristics.ts uebernommen: Pruefungen unveraendert, je Pruefung ein Vitest-Fall.
+describe("CrossSellShelvingHeuristics", () => {
+  const src = base({
+    id: "s1",
+    productNumber: "REG-1",
+    name: "Steckrahmen 2000 x 600",
+    categoryNames: ["Regalsysteme", "Fachbodenregale"],
+    dimensions: { width: 1200, length: 600, height: 2000 },
+  });
+  const boden = base({
+    id: "b1",
+    productNumber: "FB-1",
+    name: "Fachboden 1200 x 600 vzk",
+    categoryNames: ["Fachböden"],
+    dimensions: { width: 1200, length: 600 },
+    stock: 5,
+  });
+  const diag = base({
+    id: "d1",
+    productNumber: "DV-1",
+    name: "Diagonalverstrebung 1200",
+    categoryNames: ["Verstrebungen"],
+    dimensions: { width: 1200, length: 400 },
+    stock: 2,
+  });
+  const fussEinfach = base({
+    id: "f1",
+    productNumber: "F-1",
+    name: "Fuß einfach",
+    categoryNames: ["Zubehör Regal"],
+    dimensions: { width: 80, length: 600 },
+    stock: 9,
+  });
+  const fussDoppel = base({
+    id: "f2",
+    productNumber: "F-2",
+    name: "Fuß doppel",
+    categoryNames: ["Zubehör Regal"],
+    dimensions: { width: 80, length: 600 },
+    stock: 8,
+  });
+  const zub = base({
+    id: "z1",
+    productNumber: "Z-1",
+    name: "Verbinder-Set",
+    categoryNames: ["Zubehör"],
+    dimensions: { width: 1200, length: 600 },
+    stock: 3,
+  });
+  const catalog = [src, boden, diag, fussEinfach, fussDoppel, zub];
+  const supplements = () => findShelvingSupplements(src, catalog, DEFAULT_CROSS_SELL_SHELVING_PATTERN_CONFIG);
 
-    const src = base({
-      id: "s1",
-      productNumber: "REG-1",
-      name: "Steckrahmen 2000 x 600",
-      categoryNames: ["Regalsysteme", "Fachbodenregale"],
-      dimensions: { width: 1200, length: 600, height: 2000 },
-    });
+  it("normalizeFootprint bevorzugt die Abmessungen vor dem Namen", () => {
     const fp = normalizeFootprint(src);
     assert(fp.width === 1200 && fp.depth === 600, "normalizeFootprint prefers dimensions over name");
+  });
 
-    const boden = base({
-      id: "b1",
-      productNumber: "FB-1",
-      name: "Fachboden 1200 x 600 vzk",
-      categoryNames: ["Fachböden"],
-      dimensions: { width: 1200, length: 600 },
-      stock: 5,
-    });
-    const diag = base({
-      id: "d1",
-      productNumber: "DV-1",
-      name: "Diagonalverstrebung 1200",
-      categoryNames: ["Verstrebungen"],
-      dimensions: { width: 1200, length: 400 },
-      stock: 2,
-    });
-    const fussEinfach = base({
-      id: "f1",
-      productNumber: "F-1",
-      name: "Fuß einfach",
-      categoryNames: ["Zubehör Regal"],
-      dimensions: { width: 80, length: 600 },
-      stock: 9,
-    });
-    const fussDoppel = base({
-      id: "f2",
-      productNumber: "F-2",
-      name: "Fuß doppel",
-      categoryNames: ["Zubehör Regal"],
-      dimensions: { width: 80, length: 600 },
-      stock: 8,
-    });
-    const zub = base({
-      id: "z1",
-      productNumber: "Z-1",
-      name: "Verbinder-Set",
-      categoryNames: ["Zubehör"],
-      dimensions: { width: 1200, length: 600 },
-      stock: 3,
-    });
-
-    const catalog = [src, boden, diag, fussEinfach, fussDoppel, zub];
-    const hits = findShelvingSupplements(src, catalog, DEFAULT_CROSS_SELL_SHELVING_PATTERN_CONFIG);
+  it("findShelvingSupplements findet Boden, Diagonale, Kleinteil und Zubehör", () => {
+    const hits = supplements();
     const cats = new Set(hits.map((h) => h.category));
     assert(cats.has(CROSS_SELL_CATEGORIES.BOARDS), "finds Boden");
     assert(cats.has(CROSS_SELL_CATEGORIES.DIAGONAL), "finds Diagonal");
     assert(cats.has(CROSS_SELL_CATEGORIES.SMALL_PARTS), "finds Kleinteil");
     assert(cats.has(CROSS_SELL_CATEGORIES.ACCESSORIES), "finds Zubehör");
+  });
 
+  it("mergeStagingCandidatesWithQuotas: Gesamtgrenze und keine Dubletten", () => {
+    const hits = supplements();
     const merged = mergeStagingCandidatesWithQuotas(
       [{ product: base({ id: "r1", productNumber: "R1", name: "Regalteil", dimensions: { width: 100, length: 50 } }), category: "komponenten" }],
       hits,
@@ -103,11 +107,11 @@ test("CrossSellShelvingHeuristics", async () => {
     assert(merged.length <= 10, "quota total cap");
     const pn = new Set(merged.map((m) => m.product.productNumber));
     assert(pn.size === merged.length, "dedupe merge");
+  });
 
+  it("sameWidthAndDepth mit Toleranz", () => {
     const a = { width: 1000, depth: 600 };
     const b = { width: 1002, depth: 601 };
     assert(sameWidthAndDepth(a, b, 5, 0.01), "tolerance");
-
-    console.log("All shelving heuristic checks passed.\n");
-  })();
+  });
 });

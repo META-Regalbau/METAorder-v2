@@ -2,14 +2,14 @@
  * Schnelltest: Dateinamen-Schema für den SFTP-Upload (server/sftp/sftpUpload.ts).
  *   Ausführung: npm test
  */
-import { test } from "vitest";
+import { describe, it } from "vitest";
 import assert from "node:assert/strict";
 import { renderSftpFilename } from "../../server/sftp/sftpUpload";
 import { normalizeRemotePath } from "../../server/sftp/sftpServers";
 import type { DraftAttachment } from "../../shared/schema";
 
-// Aus scripts/testSftpFilename.ts uebernommen: Pruefungen unveraendert, Rumpf als ein Vitest-Test.
-test("SftpFilename", async () => {
+// Aus scripts/testSftpFilename.ts uebernommen: Pruefungen unveraendert, je Pruefung ein Vitest-Fall.
+describe("SftpFilename", () => {
   const attachment: DraftAttachment = {
     id: "a1b2c3",
     documentKind: "delivery_note",
@@ -25,27 +25,35 @@ test("SftpFilename", async () => {
   const draft = { id: "d-1", buyerDocumentNumber: "381345/000", extractedData: { documentReferences: { customerReference: "K-77" } } };
   const order = { shopwareOrderId: "o", orderNumber: "10042", customerNumber: "K10001", customerName: "Müller" };
 
-  const a = renderSftpFilename({ template: "{orderNumber}_{documentKind}_{originalName}", attachment, draft, order });
-  assert.equal(a, "10042_delivery_note_381345_000_Lieferschein_Muller_Sohne.pdf");
+  it("Platzhalter werden ersetzt, Umlaute und Sonderzeichen bereinigt", () => {
+    const a = renderSftpFilename({ template: "{orderNumber}_{documentKind}_{originalName}", attachment, draft, order });
+    assert.equal(a, "10042_delivery_note_381345_000_Lieferschein_Muller_Sohne.pdf");
+  });
 
-  const b = renderSftpFilename({ template: "{customerNumber}/{buyerDocumentNumber}-{deliveryNoteNumber}", attachment, draft, order });
-  assert.equal(b, "K10001_381345_000-LS_1433099_1.pdf"); // Slash im Schema wird nie zum Unterordner
+  it("Slash im Schema wird nie zum Unterordner", () => {
+    const b = renderSftpFilename({ template: "{customerNumber}/{buyerDocumentNumber}-{deliveryNoteNumber}", attachment, draft, order });
+    assert.equal(b, "K10001_381345_000-LS_1433099_1.pdf"); // Slash im Schema wird nie zum Unterordner
+  });
 
-  const c = renderSftpFilename({ template: "{orderNumber}_{commission}_{customerReference}.{ext}", attachment, draft, order });
-  assert.equal(c, "10042_BV_Nord_Halle_3_K-77.pdf");
+  it("Kommission und Kundenreferenz, Endung aus {ext}", () => {
+    const c = renderSftpFilename({ template: "{orderNumber}_{commission}_{customerReference}.{ext}", attachment, draft, order });
+    assert.equal(c, "10042_BV_Nord_Halle_3_K-77.pdf");
+  });
 
-  // Fehlende Bestellnummer → kein führender Unterstrich
-  const d = renderSftpFilename({ template: "{orderNumber}_{originalName}", attachment, draft, order: { ...order, orderNumber: null } });
-  assert.equal(d, "381345_000_Lieferschein_Muller_Sohne.pdf");
+  it("fehlende Bestellnummer → kein führender Unterstrich", () => {
+    const d = renderSftpFilename({ template: "{orderNumber}_{originalName}", attachment, draft, order: { ...order, orderNumber: null } });
+    assert.equal(d, "381345_000_Lieferschein_Muller_Sohne.pdf");
+  });
 
-  // Leeres Ergebnis → Fallback auf Belegart + Anhang-ID
-  const e = renderSftpFilename({ template: "{invoiceNumber}", attachment, draft, order });
-  assert.equal(e, "delivery_note_a1b2c3.pdf");
+  it("leeres Ergebnis → Fallback auf Belegart + Anhang-ID", () => {
+    const e = renderSftpFilename({ template: "{invoiceNumber}", attachment, draft, order });
+    assert.equal(e, "delivery_note_a1b2c3.pdf");
+  });
 
-  assert.equal(normalizeRemotePath("in/lieferscheine/"), "/in/lieferscheine");
-  assert.equal(normalizeRemotePath("//a//b"), "/a/b");
-  assert.equal(normalizeRemotePath(""), "/");
-  assert.throws(() => normalizeRemotePath("/a/../b"));
-
-  console.log("testSftpFilename: OK");
+  it("Zielpfad wird normalisiert, '..' abgelehnt", () => {
+    assert.equal(normalizeRemotePath("in/lieferscheine/"), "/in/lieferscheine");
+    assert.equal(normalizeRemotePath("//a//b"), "/a/b");
+    assert.equal(normalizeRemotePath(""), "/");
+    assert.throws(() => normalizeRemotePath("/a/../b"));
+  });
 });

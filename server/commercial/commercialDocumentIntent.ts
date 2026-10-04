@@ -107,7 +107,8 @@ export type ClassifyCommercialIntentInput = {
   uploadHint?: "offer" | "order" | "unclear" | null;
 };
 
-function applyUploadIntentHintBoost(
+/** Exportiert fuer tests/unit/gmailIntentHintIngest.test.ts. */
+export function applyUploadIntentHintBoost(
   result: CommercialDocumentIntent,
   uploadHint: ClassifyCommercialIntentInput["uploadHint"]
 ): CommercialDocumentIntent {

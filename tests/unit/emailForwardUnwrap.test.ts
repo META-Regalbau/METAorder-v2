@@ -2,25 +2,12 @@
  * Interne Weiterleitungen auspacken — Unit-Tests.
  *   Ausführung: npm test
  */
-import { test } from "vitest";
+import { describe, it } from "vitest";
 import assert from "node:assert/strict";
 import { stripForwardSubjectPrefixes, unwrapInternalForward } from "../../server/email/emailForwardUnwrap";
 
-// Aus scripts/testEmailForwardUnwrap.ts uebernommen: Pruefungen unveraendert, Rumpf als ein Vitest-Test.
-test("EmailForwardUnwrap", async () => {
-  let failures = 0;
-  function check(name: string, fn: () => void) {
-    try {
-      fn();
-      console.log(`  ${name}: OK`);
-    } catch (error) {
-      failures += 1;
-      console.error(`  ${name}: FAILED\n    ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  console.log("\n=== emailForwardUnwrap Unit Tests ===\n");
-
+// Aus scripts/testEmailForwardUnwrap.ts uebernommen: Pruefungen unveraendert, je Pruefung ein Vitest-Fall.
+describe("EmailForwardUnwrap", () => {
   const DOUBLE_FORWARD = [
     "Beispielbestellung – wie besprochen",
     "",
@@ -46,7 +33,7 @@ test("EmailForwardUnwrap", async () => {
     "i.A. Stefan Behnke",
   ].join("\n");
 
-  check("doppelte interne Weiterleitung → ursprüngliche Kundenmail", () => {
+  it("doppelte interne Weiterleitung → ursprüngliche Kundenmail", () => {
     const r = unwrapInternalForward({
       from: '"META-Bestellung" <bestellung@meta-online.com>',
       subject: "WG: [External] Einkaufsbeleg EB26068068 für Lieferantennummer",
@@ -60,7 +47,7 @@ test("EmailForwardUnwrap", async () => {
     assert.ok(!/Justine|Moin|PAetzler|wie besprochen/i.test(r.body), "Weiterleitungsnotizen dürfen nicht im Text bleiben");
   });
 
-  check("einfache interne Weiterleitung (Roloff)", () => {
+  it("einfache interne Weiterleitung (Roloff)", () => {
     const r = unwrapInternalForward({
       from: "META-Bestellung <bestellung@meta-online.com>",
       subject: "WG: [External] Bestellung 112608258",
@@ -83,7 +70,7 @@ test("EmailForwardUnwrap", async () => {
     assert.ok(r.body.startsWith("Sehr geehrter Herr Willmes"));
   });
 
-  check("Mail direkt vom Kunden bleibt unverändert — auch wenn ER etwas weiterleitet", () => {
+  it("Mail direkt vom Kunden bleibt unverändert — auch wenn ER etwas weiterleitet", () => {
     const body = "Hallo,\nsiehe unten.\n\nVon: Bauleiter <bau@kunde.de>\nGesendet: Montag\nAn: Einkauf <einkauf@kunde.de>\nBetreff: Bedarf\n\n10 Regale";
     const r = unwrapInternalForward({ from: "Einkauf <einkauf@kunde.de>", subject: "WG: Bedarf", body });
     assert.equal(r.strippedForwardLevels, 0);
@@ -91,12 +78,12 @@ test("EmailForwardUnwrap", async () => {
     assert.equal(r.subject, "WG: Bedarf");
   });
 
-  check("interne Mail ohne Weiterleitungsblock bleibt unverändert", () => {
+  it("interne Mail ohne Weiterleitungsblock bleibt unverändert", () => {
     const r = unwrapInternalForward({ from: "a@meta-online.com", subject: "Test", body: "Von: nur ein Satz mit Von: am Anfang" });
     assert.equal(r.strippedForwardLevels, 0);
   });
 
-  check("englischer Outlook-Block", () => {
+  it("englischer Outlook-Block", () => {
     const r = unwrapInternalForward({
       from: "orders <bestellung@meta-online.com>",
       subject: "FW: PO 4711",
@@ -107,14 +94,8 @@ test("EmailForwardUnwrap", async () => {
     assert.ok(r.body.startsWith("Please find"));
   });
 
-  check("Betreff-Präfixe", () => {
+  it("Betreff-Präfixe", () => {
     assert.equal(stripForwardSubjectPrefixes("WG: [External] FW: Bestellung 1"), "Bestellung 1");
     assert.equal(stripForwardSubjectPrefixes("AW: Bestellung 1"), "AW: Bestellung 1");
   });
-
-  if (failures > 0) {
-    console.error(`\n${failures} Test(s) fehlgeschlagen`);
-    throw new Error("testEmailForwardUnwrap.ts: Pruefungen fehlgeschlagen (Details in der Ausgabe oben)");
-  }
-  console.log("\nAlle Tests bestanden\n");
 });

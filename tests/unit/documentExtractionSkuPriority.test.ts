@@ -3,7 +3,7 @@
  *
  *   Ausführung: npm test
  */
-import { test } from "vitest";
+import { describe, it } from "vitest";
 import assert from "node:assert/strict";
 import type { DocumentExtraction } from "../../shared/documentExtractionSchema";
 import {
@@ -13,20 +13,8 @@ import {
   isMetaCompanyName,
 } from "../../server/extraction/documentExtractionSkuPriority";
 
-// Aus scripts/testDocumentExtractionSkuPriority.ts uebernommen: Pruefungen unveraendert, Rumpf als ein Vitest-Test.
-test("DocumentExtractionSkuPriority", async () => {
-  let failures = 0;
-  function check(name: string, fn: () => void) {
-    try {
-      fn();
-      console.log(`  ${name}: OK`);
-    } catch (error) {
-      failures += 1;
-      console.error(`  ${name}: FAILED`);
-      console.error(`    ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
+// Aus scripts/testDocumentExtractionSkuPriority.ts uebernommen: Pruefungen unveraendert, je Pruefung ein Vitest-Fall.
+describe("DocumentExtractionSkuPriority", () => {
   function base(items: Array<Partial<DocumentExtraction["line_items"][number]>>, buyerCompany = "Kunde GmbH"): DocumentExtraction {
     return {
       document: { type: "purchase_order", number: "1", date: null, delivery_date: null, currency: "EUR", total_net: null, language: "de", recipient_is_meta: true },
@@ -50,9 +38,7 @@ test("DocumentExtractionSkuPriority", async () => {
     };
   }
 
-  console.log("\n=== documentExtractionSkuPriority Unit Tests ===\n");
-
-  check("Delker: EAN aus dem Rohtext ersetzt Kundennummer, Kundennummer bleibt buyer_sku", () => {
+  it("Delker: EAN aus dem Rohtext ersetzt Kundennummer, Kundennummer bleibt buyer_sku", () => {
     const ex = base([
       { supplier_sku: "9147455110", description: "Schwerlastregal Grundregal" },
       { supplier_sku: "9147455111", description: "Schwerlastregal Anbauregal" },
@@ -67,7 +53,7 @@ test("DocumentExtractionSkuPriority", async () => {
     assert.deepEqual(ex.line_items[0].alternative_skus, ["200188545"]);
   });
 
-  check("C+P: dieselbe Lieferantenartikelnummer für zwei Positionen", () => {
+  it("C+P: dieselbe Lieferantenartikelnummer für zwei Positionen", () => {
     const ex = base([
       { supplier_sku: "78820-62", description: "Grundregal 2000x1000x600" },
       { supplier_sku: "78820-62", description: "Grundregal 2000x1000x600" },
@@ -79,7 +65,7 @@ test("DocumentExtractionSkuPriority", async () => {
     assert.deepEqual(ex.line_items[0].alternative_skus, ["78820-62"]);
   });
 
-  check("EAN in der Beschreibung gewinnt gegen Spaltennummer", () => {
+  it("EAN in der Beschreibung gewinnt gegen Spaltennummer", () => {
     const ex = base([{ supplier_sku: "124583", description: "Ständer 85/20 3800 x 1100 vzk 4026212124583" }]);
     const r = applyMetaSkuPriority(ex, null);
     assert.equal(r.promotedFromLine, 1);
@@ -87,34 +73,34 @@ test("DocumentExtractionSkuPriority", async () => {
     assert.deepEqual(ex.line_items[0].alternative_skus, ["124583"]);
   });
 
-  check("Ohne META-EAN bleibt alles unverändert (Roloff), ERP-Nummer als Alternative", () => {
+  it("Ohne META-EAN bleibt alles unverändert (Roloff), ERP-Nummer als Alternative", () => {
     const ex = base([{ supplier_sku: "921018001", description: "Unterlegblech 200176896" }]);
     applyMetaSkuPriority(ex, "200176896 921018001 Unterlegblech 6 Stück");
     assert.equal(ex.line_items[0].supplier_sku, "921018001");
     assert.deepEqual(ex.line_items[0].alternative_skus, ["200176896"]);
   });
 
-  check("HMF: 6-stellige META-Kurznummer wandert von buyer_sku nach alternative_skus", () => {
+  it("HMF: 6-stellige META-Kurznummer wandert von buyer_sku nach alternative_skus", () => {
     const ex = base([{ supplier_sku: "4026212124583", buyer_sku: "124583", description: "Ständer" }]);
     applyMetaSkuPriority(ex, null);
     assert.equal(ex.line_items[0].buyer_sku, null);
     assert.deepEqual(ex.line_items[0].alternative_skus, ["124583"]);
   });
 
-  check("Delker: META-ERP-Nummer in buyer_sku wird Alternative", () => {
+  it("Delker: META-ERP-Nummer in buyer_sku wird Alternative", () => {
     const ex = base([{ supplier_sku: "4026212342529", buyer_sku: "200188545", description: "Schwerlastregal" }]);
     applyMetaSkuPriority(ex, null);
     assert.equal(ex.line_items[0].buyer_sku, null);
     assert.deepEqual(ex.line_items[0].alternative_skus, ["200188545"]);
   });
 
-  check("Echte Kundennummer bleibt buyer_sku", () => {
+  it("Echte Kundennummer bleibt buyer_sku", () => {
     const ex = base([{ supplier_sku: "4026212223842", buyer_sku: "78820-62", description: "Grundregal" }]);
     applyMetaSkuPriority(ex, null);
     assert.equal(ex.line_items[0].buyer_sku, "78820-62");
   });
 
-  check("Blumenbecker: 'Ihre Artikelnummer' ist die META-Nummer, Spaltennummer wird buyer_sku", () => {
+  it("Blumenbecker: 'Ihre Artikelnummer' ist die META-Nummer, Spaltennummer wird buyer_sku", () => {
     const ex = base([
       { supplier_sku: "1406791", buyer_sku: "20075063", description: "Kragarmregal M Grundfeld" },
       { supplier_sku: "116535", buyer_sku: "20074913", description: "Abrolldornaufnahme" },
@@ -127,7 +113,7 @@ test("DocumentExtractionSkuPriority", async () => {
     assert.equal(ex.line_items[1].buyer_sku, "116535");
   });
 
-  check("'Ihre Artikelnummer' vom Modell weggelassen → Zuordnung in Dokumentreihenfolge", () => {
+  it("'Ihre Artikelnummer' vom Modell weggelassen → Zuordnung in Dokumentreihenfolge", () => {
     const ex = base([{ supplier_sku: "1406791" }, { supplier_sku: "116535" }]);
     applyMetaSkuPriority(ex, "Ihre Artikelnummer:20075063 ... Ihre Artikelnummer: 20074913");
     assert.equal(ex.line_items[0].supplier_sku, "20075063");
@@ -135,7 +121,7 @@ test("DocumentExtractionSkuPriority", async () => {
     assert.equal(ex.line_items[1].supplier_sku, "20074913");
   });
 
-  check("Beck & Co: Sammelposition 'bestehend aus' wird in Komponenten aufgelöst (über Seitenumbruch)", () => {
+  it("Beck & Co: Sammelposition 'bestehend aus' wird in Komponenten aufgelöst (über Seitenumbruch)", () => {
     const ex = base([
       { supplier_sku: "4026212260977", buyer_sku: "D012", quantity: 1, unit_price_net: 5550, line_total_net: 5550, description: "Regalkomponenten bestehend aus: 11 x Ständer …" },
     ]);
@@ -174,20 +160,20 @@ test("DocumentExtractionSkuPriority", async () => {
     assert.ok(ex.extraction_meta.warnings.some((w) => /Pauschalpreis 5\.550,00 EUR/.test(w)));
   });
 
-  check("Keine Auflösung, wenn das Modell die Komponenten schon einzeln liefert", () => {
+  it("Keine Auflösung, wenn das Modell die Komponenten schon einzeln liefert", () => {
     const ex = base([{ supplier_sku: "4026212260977", quantity: 11 }, { supplier_sku: "4026212259438", quantity: 8 }]);
     assert.equal(explodeComponentSets(ex, "11 x 4026212260977 Ständer 8 x 4026212259438 Holm"), 0);
     assert.equal(ex.line_items.length, 2);
   });
 
-  check("Ungleiche Anzahl GTINs im Rohtext → keine Zuordnung", () => {
+  it("Ungleiche Anzahl GTINs im Rohtext → keine Zuordnung", () => {
     const ex = base([{ supplier_sku: "A" }, { supplier_sku: "B" }, { supplier_sku: "C" }]);
     const r = applyMetaSkuPriority(ex, "4026212000001 4026212000002");
     assert.equal(r.assignedFromDocument, 0);
     assert.equal(ex.line_items[0].supplier_sku, "A");
   });
 
-  check("buyer_is_meta nur bei META als Käufer", () => {
+  it("buyer_is_meta nur bei META als Käufer", () => {
     const a = base([], "META Regalbau GmbH & Co. KG");
     applyBuyerIsMetaFlag(a);
     assert.equal(a.document.buyer_is_meta, true);
@@ -196,10 +182,4 @@ test("DocumentExtractionSkuPriority", async () => {
     assert.equal(b.document.buyer_is_meta, false);
     assert.equal(isMetaCompanyName("Metallbau Schmidt GmbH"), false);
   });
-
-  if (failures > 0) {
-    console.error(`\n${failures} Test(s) fehlgeschlagen`);
-    throw new Error("testDocumentExtractionSkuPriority.ts: Pruefungen fehlgeschlagen (Details in der Ausgabe oben)");
-  }
-  console.log("\nAlle Tests bestanden\n");
 });

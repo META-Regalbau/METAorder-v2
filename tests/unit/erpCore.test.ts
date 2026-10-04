@@ -2,7 +2,7 @@
  * ERP-Kern-Tests: Logik, Tenant-Pflicht, DATEV-Sanitizing, Bestandsbuchung, Sicherheitsregeln.
  * Ausführung: npm test
  */
-import { test } from "vitest";
+import { describe, it } from "vitest";
 import {
   applyPickedQuantityDelta,
   applyStockMovementBalance,
@@ -23,8 +23,8 @@ import {
 } from "../../server/erp/erpLogic";
 import { isOrderEligibleForShippingPick } from "../../shared/orderShippingEligibility";
 
-// Aus scripts/testErpCore.ts uebernommen: Pruefungen unveraendert, Rumpf als ein Vitest-Test.
-test("ErpCore", async () => {
+// Aus scripts/testErpCore.ts uebernommen: Pruefungen unveraendert, je Pruefung ein Vitest-Fall.
+describe("ErpCore", () => {
   function assert(cond: boolean, message: string) {
     if (!cond) throw new Error(message);
   }
@@ -43,32 +43,32 @@ test("ErpCore", async () => {
     }
   }
 
-  console.log("=== ERP Core Tests ===\n");
-
   // Tenant Pflicht
-  try {
-    requireTenantId(null);
-    throw new Error("should have thrown");
-  } catch (e: any) {
-    assertEqual(e.message, "TENANT_REQUIRED", "null tenant");
-  }
-  try {
-    requireTenantId("  ");
-    throw new Error("should have thrown");
-  } catch (e: any) {
-    assertEqual(e.message, "TENANT_REQUIRED", "blank tenant");
-  }
-  assertEqual(requireTenantId("tenant-a"), "tenant-a", "valid tenant");
-  console.log("  requireTenantId: OK");
+  it("requireTenantId", () => {
+    try {
+      requireTenantId(null);
+      throw new Error("should have thrown");
+    } catch (e: any) {
+      assertEqual(e.message, "TENANT_REQUIRED", "null tenant");
+    }
+    try {
+      requireTenantId("  ");
+      throw new Error("should have thrown");
+    } catch (e: any) {
+      assertEqual(e.message, "TENANT_REQUIRED", "blank tenant");
+    }
+    assertEqual(requireTenantId("tenant-a"), "tenant-a", "valid tenant");
+  });
 
   // Bestand / Reorder
-  assertEqual(availableQuantity(10, 3), 7);
-  assert(isBelowReorder(5, 2, 4) === true, "below reorder");
-  assert(isBelowReorder(10, 1, 4) === false, "above reorder");
-  console.log("  stock helpers: OK");
+  it("stock helpers", () => {
+    assertEqual(availableQuantity(10, 3), 7);
+    assert(isBelowReorder(5, 2, 4) === true, "below reorder");
+    assert(isBelowReorder(10, 1, 4) === false, "above reorder");
+  });
 
   // Bewegungen
-  {
+  it("applyStockMovementBalance", () => {
     const receipt = applyStockMovementBalance({
       currentQty: 10,
       currentReserved: 2,
@@ -102,11 +102,10 @@ test("ErpCore", async () => {
       movementType: "release",
     });
     assertEqual(release.reservedQuantity, 3);
-  }
-  console.log("  applyStockMovementBalance: OK");
+  });
 
   // Zahlungen / OP
-  {
+  it("nextOpenAmount", () => {
     const paid = nextOpenAmount(100, 100);
     assertEqual(paid.openAmount, 0);
     assertEqual(paid.status, "paid");
@@ -118,31 +117,33 @@ test("ErpCore", async () => {
     const credit = nextOpenAmount(-50, 20);
     assertEqual(credit.openAmount, -30);
     assertEqual(credit.status, "partial");
-  }
-  console.log("  nextOpenAmount: OK");
+  });
 
   // Überzahlung ablehnen
-  assertThrows(() => assertPaymentWithinOpen(50, 51), "Payment exceeds open amount");
-  assertThrows(() => assertPaymentWithinOpen(50, 0), "Payment amount must be positive");
-  assertPaymentWithinOpen(50, 50);
-  assertPaymentWithinOpen(-80, 40);
-  console.log("  assertPaymentWithinOpen: OK");
+  it("assertPaymentWithinOpen", () => {
+    assertThrows(() => assertPaymentWithinOpen(50, 51), "Payment exceeds open amount");
+    assertThrows(() => assertPaymentWithinOpen(50, 0), "Payment amount must be positive");
+    assertPaymentWithinOpen(50, 50);
+    assertPaymentWithinOpen(-80, 40);
+  });
 
   // Doppelbuchungs-Schutz
-  assert(shouldRestockOnReturnStatus("approved", "received") === true, "restock ok");
-  assert(shouldRestockOnReturnStatus("received", "received") === false, "no double restock");
-  assert(shouldRestockOnReturnStatus("refunded", "received") === false, "no restock after refund");
-  assert(shouldBookProductionReceipt("in_progress", "completed") === true, "receipt ok");
-  assert(shouldBookProductionReceipt("completed", "completed") === false, "no double receipt");
-  console.log("  double-booking guards: OK");
+  it("double-booking guards", () => {
+    assert(shouldRestockOnReturnStatus("approved", "received") === true, "restock ok");
+    assert(shouldRestockOnReturnStatus("received", "received") === false, "no double restock");
+    assert(shouldRestockOnReturnStatus("refunded", "received") === false, "no restock after refund");
+    assert(shouldBookProductionReceipt("in_progress", "completed") === true, "receipt ok");
+    assert(shouldBookProductionReceipt("completed", "completed") === false, "no double receipt");
+  });
 
   // DATEV CSV Injection
-  assertEqual(sanitizeDatevField("=CMD()"), "'=CMD()");
-  assertEqual(sanitizeDatevField("normal;name"), "normal name");
-  assertEqual(sanitizeDatevField("ok"), "ok");
-  assertEqual(sanitizeDatevField("+1-555"), "'+1-555");
-  assertEqual(sanitizeDatevField("@SUM"), "'@SUM");
-  {
+  it("DATEV sanitize", () => {
+    assertEqual(sanitizeDatevField("=CMD()"), "'=CMD()");
+    assertEqual(sanitizeDatevField("normal;name"), "normal name");
+    assertEqual(sanitizeDatevField("ok"), "ok");
+    assertEqual(sanitizeDatevField("+1-555"), "'+1-555");
+    assertEqual(sanitizeDatevField("@SUM"), "'@SUM");
+
     const row = buildDatevRow({
       amount: 119.5,
       type: "receivable",
@@ -156,24 +157,25 @@ test("ErpCore", async () => {
     assert(row.includes("Firma Evil"), "semicolon removed");
     assert(!row.includes("Firma;Evil"), "raw semicolon gone");
     assert(row.startsWith("119,50;S;EUR;"), "amount/format");
-  }
-  console.log("  DATEV sanitize: OK");
+  });
 
   // MRP
-  assertEqual(mrpShortfall(20, 5), 15);
-  assertEqual(mrpShortfall(5, 10), 0);
-  console.log("  mrpShortfall: OK");
+  it("mrpShortfall", () => {
+    assertEqual(mrpShortfall(20, 5), 15);
+    assertEqual(mrpShortfall(5, 10), 0);
+  });
 
   // Upload basename safety (Path Traversal)
-  assert(isSafeUploadBasename("a1b2c3d4-e5f6-7890-abcd-ef1234567890") === true, "uuid ok");
-  assert(isSafeUploadBasename("../etc/passwd") === false, "traversal blocked");
-  assert(isSafeUploadBasename("abc") === false, "too short");
-  assert(isSafeUploadBasename("evil/name") === false, "slash blocked");
-  assert(isSafeUploadBasename("evil\\name") === false, "backslash blocked");
-  console.log("  isSafeUploadBasename: OK");
+  it("isSafeUploadBasename", () => {
+    assert(isSafeUploadBasename("a1b2c3d4-e5f6-7890-abcd-ef1234567890") === true, "uuid ok");
+    assert(isSafeUploadBasename("../etc/passwd") === false, "traversal blocked");
+    assert(isSafeUploadBasename("abc") === false, "too short");
+    assert(isSafeUploadBasename("evil/name") === false, "slash blocked");
+    assert(isSafeUploadBasename("evil\\name") === false, "backslash blocked");
+  });
 
   // Permission merge
-  {
+  it("mergeErpPermissions", () => {
     const merged = mergeErpPermissions({ viewOrders: true }, false);
     assertEqual(merged.viewOrders, true);
     assertEqual(merged.viewInventory, false);
@@ -184,31 +186,27 @@ test("ErpCore", async () => {
     const keep = mergeErpPermissions({ viewInventory: true, manageInventory: false }, true);
     assertEqual(keep.viewInventory, true, "existing true kept");
     assertEqual(keep.manageInventory, false, "existing false kept");
-  }
-  console.log("  mergeErpPermissions: OK");
+  });
 
-  assert(isOrderEligibleForShippingPick({ status: "open", paymentStatus: "paid" }) === true, "open+paid ok");
-  assert(isOrderEligibleForShippingPick({ status: "in_progress", paymentStatus: "authorized" }) === true, "progress+auth ok");
-  assert(isOrderEligibleForShippingPick({ status: "open", paymentStatus: "open" }) === false, "unpaid blocked");
-  assert(isOrderEligibleForShippingPick({ status: "completed", paymentStatus: "paid" }) === false, "completed blocked");
-  console.log("  isOrderEligibleForShippingPick: OK");
+  it("isOrderEligibleForShippingPick", () => {
+    assert(isOrderEligibleForShippingPick({ status: "open", paymentStatus: "paid" }) === true, "open+paid ok");
+    assert(isOrderEligibleForShippingPick({ status: "in_progress", paymentStatus: "authorized" }) === true, "progress+auth ok");
+    assert(isOrderEligibleForShippingPick({ status: "open", paymentStatus: "open" }) === false, "unpaid blocked");
+    assert(isOrderEligibleForShippingPick({ status: "completed", paymentStatus: "paid" }) === false, "completed blocked");
+  });
 
-  {
+  it("applyPickedQuantityDelta", () => {
     assertEqual(applyPickedQuantityDelta(0, 5, 1).next, 1);
     assertEqual(applyPickedQuantityDelta(5, 5, 1).next, 5);
     assertEqual(applyPickedQuantityDelta(5, 5, 1).completedLine, true);
     assertEqual(applyPickedQuantityDelta(1, 5, -1).next, 0);
     assertEqual(applyPickedQuantityDelta(0, 5, -1).next, 0);
-    console.log("  applyPickedQuantityDelta: OK");
-  }
+  });
 
-  {
+  it("pickStockStatus", () => {
     assertEqual(pickStockStatus(5, 3), "ok");
     assertEqual(pickStockStatus(2, 5), "short");
     assertEqual(pickStockStatus(0, 1), "out");
     assertEqual(aggregateStockForProduct([{ quantity: 3, reservedQuantity: 1 }, { quantity: 2, reservedQuantity: 0 }]).available, 4);
-    console.log("  pickStockStatus: OK");
-  }
-
-  console.log("\n=== All ERP core tests passed ===");
+  });
 });

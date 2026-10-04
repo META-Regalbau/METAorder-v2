@@ -3,7 +3,7 @@
  *
  *   Ausführung: npm test
  */
-import { test } from "vitest";
+import { describe, it } from "vitest";
 import assert from "node:assert/strict";
 import {
   buildOrderAcknowledgement,
@@ -11,21 +11,8 @@ import {
   mapDraftStatusToAcknowledgement,
 } from "../../server/commercial/commercialOrderAcknowledgement";
 
-// Aus scripts/testCommercialOrderAcknowledgement.ts uebernommen: Pruefungen unveraendert, Rumpf als ein Vitest-Test.
-test("CommercialOrderAcknowledgement", async () => {
-  let failures = 0;
-
-  function check(name: string, fn: () => void) {
-    try {
-      fn();
-      console.log(`  ${name}: OK`);
-    } catch (error) {
-      failures += 1;
-      console.error(`  ${name}: FAILED`);
-      console.error(`    ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
+// Aus scripts/testCommercialOrderAcknowledgement.ts uebernommen: Pruefungen unveraendert, je Pruefung ein Vitest-Fall.
+describe("CommercialOrderAcknowledgement", () => {
   const NOW = new Date("2026-08-14T09:12:00.000Z");
 
   function draftWith(overrides: Record<string, unknown> = {}) {
@@ -69,9 +56,7 @@ test("CommercialOrderAcknowledgement", async () => {
     };
   }
 
-  console.log("\n=== commercialOrderAcknowledgement Unit Tests ===\n");
-
-  check("liest die Belegnummer des Kunden", () => {
+  it("liest die Belegnummer des Kunden", () => {
     assert.equal(
       extractBuyerDocumentNumber({ documentExtraction: { document: { number: " PO-4711 " } } }),
       "PO-4711"
@@ -81,7 +66,7 @@ test("CommercialOrderAcknowledgement", async () => {
     assert.equal(extractBuyerDocumentNumber({ documentExtraction: { document: { number: "" } } }), null);
   });
 
-  check("Statusabbildung: intern → Kundensicht", () => {
+  it("Statusabbildung: intern → Kundensicht", () => {
     assert.equal(mapDraftStatusToAcknowledgement({ status: "pending" }), "in_review");
     assert.equal(mapDraftStatusToAcknowledgement({ status: "review_required" }), "in_review");
     // approved heißt intern nur „Extraktion sauber", nicht „wir liefern"
@@ -93,14 +78,14 @@ test("CommercialOrderAcknowledgement", async () => {
     );
   });
 
-  check("created ohne Shopware-Beleg gilt nicht als bestätigt", () => {
+  it("created ohne Shopware-Beleg gilt nicht als bestätigt", () => {
     assert.equal(
       mapDraftStatusToAcknowledgement({ status: "created", shopwareOrderId: null }),
       "in_review"
     );
   });
 
-  check("Mengenumrechnung wird als quantity_changed gemeldet", () => {
+  it("Mengenumrechnung wird als quantity_changed gemeldet", () => {
     const ack = buildOrderAcknowledgement({ draft: draftWith(), draftKind: "order" });
     assert.equal(ack.buyer_document_number, "PO-4711");
     assert.equal(ack.document_type, "purchase_order");
@@ -117,7 +102,7 @@ test("CommercialOrderAcknowledgement", async () => {
     assert.equal(line.note, "1 Holmebene = 2 Holme");
   });
 
-  check("in Prüfung: keine bestätigten Preise, keine Belegnummer", () => {
+  it("in Prüfung: keine bestätigten Preise, keine Belegnummer", () => {
     const ack = buildOrderAcknowledgement({ draft: draftWith(), draftKind: "order" });
     assert.equal(ack.supplier_order_number, null);
     assert.equal(ack.total_confirmed_net, null);
@@ -126,7 +111,7 @@ test("CommercialOrderAcknowledgement", async () => {
     assert.equal(ack.line_items[0].unit_price_ordered_net, 21.5);
   });
 
-  check("bestätigt: Preise stammen aus der Shopware-Bestellung", () => {
+  it("bestätigt: Preise stammen aus der Shopware-Bestellung", () => {
     const ack = buildOrderAcknowledgement({
       draft: draftWith({ status: "created", shopwareOrderId: "o1" }),
       draftKind: "order",
@@ -145,7 +130,7 @@ test("CommercialOrderAcknowledgement", async () => {
     assert.equal(ack.line_items[0].line_total_confirmed_net, 258);
   });
 
-  check("Shopware-Preise werden über die Artikelnummer zugeordnet, nicht über die Reihenfolge", () => {
+  it("Shopware-Preise werden über die Artikelnummer zugeordnet, nicht über die Reihenfolge", () => {
     const draft = draftWith({ status: "created", shopwareOrderId: "o1" });
     const ack = buildOrderAcknowledgement({
       draft,
@@ -162,7 +147,7 @@ test("CommercialOrderAcknowledgement", async () => {
     assert.equal(ack.line_items[0].unit_price_confirmed_net, 43);
   });
 
-  check("nicht zugeordnete Position fordert Klärung und nennt keine Menge", () => {
+  it("nicht zugeordnete Position fordert Klärung und nennt keine Menge", () => {
     const draft = draftWith({
       matchingResults: {
         overallConfidence: 0,
@@ -175,7 +160,7 @@ test("CommercialOrderAcknowledgement", async () => {
     assert.equal(ack.line_items[0].quantity_confirmed, null);
   });
 
-  check("übersprungenes Katalog-Matching fordert Klärung", () => {
+  it("übersprungenes Katalog-Matching fordert Klärung", () => {
     const draft = draftWith({
       matchingResults: {
         overallConfidence: 0,
@@ -196,7 +181,7 @@ test("CommercialOrderAcknowledgement", async () => {
     );
   });
 
-  check("gleiche Menge ohne Umrechnung ist schlicht bestätigt", () => {
+  it("gleiche Menge ohne Umrechnung ist schlicht bestätigt", () => {
     const draft = draftWith({
       matchingResults: {
         overallConfidence: 100,
@@ -218,7 +203,7 @@ test("CommercialOrderAcknowledgement", async () => {
     assert.equal(line.note, null);
   });
 
-  check("Angebotsanfrage wird als quote_request gemeldet", () => {
+  it("Angebotsanfrage wird als quote_request gemeldet", () => {
     const draft = draftWith({
       extractedData: {
         documentExtraction: {
@@ -235,7 +220,7 @@ test("CommercialOrderAcknowledgement", async () => {
     assert.equal(ack.line_items.length, 0);
   });
 
-  check("gibt keine internen Bewertungsdaten preis", () => {
+  it("gibt keine internen Bewertungsdaten preis", () => {
     const ack = buildOrderAcknowledgement({
       draft: draftWith({
         extractedData: {
@@ -251,7 +236,7 @@ test("CommercialOrderAcknowledgement", async () => {
     }
   });
 
-  check("kommt mit unvollständigen Daten klar", () => {
+  it("kommt mit unvollständigen Daten klar", () => {
     const ack = buildOrderAcknowledgement({
       draft: { status: "pending", createdAt: NOW, updatedAt: NOW },
       draftKind: "order",
@@ -261,10 +246,4 @@ test("CommercialOrderAcknowledgement", async () => {
     assert.equal(ack.currency, "EUR");
     assert.deepEqual(ack.line_items, []);
   });
-
-  if (failures > 0) {
-    console.error(`\n${failures} test(s) failed.\n`);
-    throw new Error("testCommercialOrderAcknowledgement.ts: Pruefungen fehlgeschlagen (Details in der Ausgabe oben)");
-  }
-  console.log("\nAll tests passed.\n");
 });
