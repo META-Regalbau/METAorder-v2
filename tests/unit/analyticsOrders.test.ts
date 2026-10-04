@@ -1,5 +1,6 @@
 /**
- * Statistik aus dem Bestell-Spiegel: Auswahl (Zeitraum, Kanaele, Versanddaten, Reihenfolge) und
+ * Statistik aus dem Bestell-Spiegel: Auswahl (Zeitraum, Kanaele, Versanddaten, Reihenfolge,
+ * mehrfach vergebene Bestellnummern) und
  * die echte Route /api/analytics/summary mit gemockten Abhaengigkeiten.
  * Ausführung: npm test
  */
@@ -67,6 +68,18 @@ describe("selectAnalyticsOrders", () => {
     expect(selected.find((o) => o.id === "s")?.shippingInfo).toEqual({ shippedDate: "2026-05-03T09:15:00.000+00:00", trackingNumber: "T1" });
     expect(selected.find((o) => o.id === "n")?.shippingInfo).toBeUndefined();
   });
+
+  it("mehrfach vergebene Bestellnummer zaehlt einmal - die zuletzt geaenderte Bestellung", () => {
+    const list = [
+      order("d1", "2026-07-07", { orderNumber: "286101", totalAmount: 26119.95, updatedAt: "2026-07-07T13:40:01Z" }),
+      order("d3", "2026-07-14", { orderNumber: "286101", totalAmount: 35861.3, updatedAt: "2026-07-14T08:00:01Z" }),
+      order("d2", "2026-07-07", { orderNumber: "286101", totalAmount: 26119.95, updatedAt: "2026-07-07T13:50:04Z" }),
+      order("e", "2026-07-08"),
+    ];
+    expect(selectAnalyticsOrders(list, { salesChannelIds: null }).map((o) => o.id)).toEqual(["d3", "e"]);
+    // der Zeitraum gilt fuer die verbleibende Bestellung
+    expect(selectAnalyticsOrders(list, { dateFrom: "2026-07-07", dateTo: "2026-07-07", salesChannelIds: null })).toEqual([]);
+  });
 });
 
 describe("GET /api/analytics/summary (echte Route)", () => {
@@ -110,6 +123,12 @@ describe("GET /api/analytics/summary (echte Route)", () => {
     ];
     const r = await (await fetch(`${base}/api/analytics/shipping-times`)).json();
     expect(r).toMatchObject({ ordersWithShippingCount: 1, averageDays: 1.5 });
+  });
+
+  it("doppelt angelegte Bestellung zaehlt bei Anzahl und Umsatz einmal", async () => {
+    state.orders.push(order("a-kopie", "2026-03-30", { orderNumber: "SW-a", totalAmount: 119, netTotalAmount: 100, updatedAt: "2026-03-30T08:00:00Z" }));
+    const r = await (await fetch(`${base}/api/analytics/summary`)).json();
+    expect(r).toMatchObject({ totalOrders: 3, totalRevenue: 1357, totalNetRevenue: 1140 });
   });
 
   it("Kanal-Einschraenkung wird angewendet", async () => {
