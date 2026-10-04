@@ -2,30 +2,23 @@ import OpenAI from "openai";
 import { decrypt } from "../lib/encryption";
 
 /**
- * Dual OpenAI Integration Support
- * 
- * This module supports TWO OpenAI integration modes:
- * 
- * 1. Replit OpenAI Integration (Test Environment):
- *    - Uses AI_INTEGRATIONS_OPENAI_BASE_URL and AI_INTEGRATIONS_OPENAI_API_KEY
- *    - No API key required - charges billed to Replit credits
- *    - Automatically detected when running on Replit
- * 
- * 2. Standard OpenAI API (Production Server):
- *    - Uses user-provided API key from encrypted settings
- *    - Required when deploying to own server
- *    - API key stored encrypted in database
+ * OpenAI-Client: entweder aus der Umgebung oder mit dem verschluesselten Key aus den Einstellungen.
+ *
+ * 1. Umgebung (hat Vorrang, z. B. fuer lokale Skripte/Tests):
+ *    AI_INTEGRATIONS_OPENAI_BASE_URL und AI_INTEGRATIONS_OPENAI_API_KEY - beide muessen gesetzt sein.
+ *    (Die Namen stammen aus der frueheren Replit-Integration und bleiben aus Kompatibilitaet.)
+ * 2. Einstellungen: verschluesselter API-Key aus openai_settings (Normalfall in Produktion).
  */
 
 export interface OpenAIConfig {
-  mode: 'replit' | 'standard';
+  mode: 'env' | 'standard';
   client: OpenAI;
 }
 
 /**
- * Check if Replit OpenAI Integration is available
+ * Ist OpenAI per Umgebung konfiguriert (AI_INTEGRATIONS_OPENAI_BASE_URL + _API_KEY)?
  */
-export function isReplitOpenAIAvailable(): boolean {
+export function isEnvOpenAIConfigured(): boolean {
   return !!(
     process.env.AI_INTEGRATIONS_OPENAI_BASE_URL && 
     process.env.AI_INTEGRATIONS_OPENAI_API_KEY
@@ -33,21 +26,16 @@ export function isReplitOpenAIAvailable(): boolean {
 }
 
 /**
- * Get OpenAI client - automatically selects between Replit and Standard integration
- * 
- * Priority:
- * 1. If Replit OpenAI env vars exist → Use Replit Integration
- * 2. Otherwise → Use provided API key (Standard OpenAI)
- * 
- * @param standardApiKey - Encrypted API key from settings (optional if using Replit)
+ * OpenAI-Client - Umgebung vor Einstellungen.
+ *
+ * @param standardApiKey - verschluesselter API-Key aus den Einstellungen (entbehrlich, wenn per Umgebung konfiguriert)
  * @returns OpenAI client configuration
  */
 export function getOpenAIClient(standardApiKey?: string): OpenAIConfig {
-  // Check for Replit OpenAI Integration first (Test Environment)
-  if (isReplitOpenAIAvailable()) {
-    console.log('[OpenAI] Using Replit AI Integration (Test Mode)');
+  if (isEnvOpenAIConfigured()) {
+    console.log('[OpenAI] OpenAI aus der Umgebung (AI_INTEGRATIONS_OPENAI_*)');
     return {
-      mode: 'replit',
+      mode: 'env',
       client: new OpenAI({
         baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
         apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -55,12 +43,11 @@ export function getOpenAIClient(standardApiKey?: string): OpenAIConfig {
     };
   }
 
-  // Fall back to Standard OpenAI API (Production Server)
   if (!standardApiKey) {
-    throw new Error('OpenAI API key not configured and Replit Integration not available');
+    throw new Error('OpenAI API key not configured (weder in den Einstellungen noch per AI_INTEGRATIONS_OPENAI_*)');
   }
 
-  console.log('[OpenAI] Using Standard OpenAI API (Production Mode)');
+  console.log('[OpenAI] OpenAI-Key aus den Einstellungen');
   const decryptedKey = decrypt(standardApiKey);
   
   return {
@@ -72,17 +59,15 @@ export function getOpenAIClient(standardApiKey?: string): OpenAIConfig {
 }
 
 /**
- * Get OpenAI client for features requiring AI (tickets, etc.)
- * Uses the same dual-integration approach
+ * OpenAI-Client fuer KI-Funktionen (Tickets usw.) - gleiche Reihenfolge wie getOpenAIClient.
  */
 export async function getOpenAIClientFromSettings(
   getSettingFn: (key: string) => Promise<any>
 ): Promise<OpenAIConfig | null> {
-  // Check for Replit OpenAI Integration first
-  if (isReplitOpenAIAvailable()) {
-    console.log('[OpenAI] Using Replit AI Integration (Test Mode)');
+  if (isEnvOpenAIConfigured()) {
+    console.log('[OpenAI] OpenAI aus der Umgebung (AI_INTEGRATIONS_OPENAI_*)');
     return {
-      mode: 'replit',
+      mode: 'env',
       client: new OpenAI({
         baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
         apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -90,13 +75,12 @@ export async function getOpenAIClientFromSettings(
     };
   }
 
-  // Fall back to Standard OpenAI API
   const openaiSettings = await getSettingFn('openai_settings');
   if (!openaiSettings || !openaiSettings.enabled || !openaiSettings.apiKey) {
     return null;
   }
 
-  console.log('[OpenAI] Using Standard OpenAI API (Production Mode)');
+  console.log('[OpenAI] OpenAI-Key aus den Einstellungen');
   const decryptedKey = decrypt(openaiSettings.apiKey);
   
   return {

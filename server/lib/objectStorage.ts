@@ -1,4 +1,3 @@
-import { Storage, type File } from "@google-cloud/storage";
 import {
   S3Client,
   PutObjectCommand,
@@ -9,34 +8,11 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { Response } from "express";
 import { randomUUID } from "crypto";
 
-const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
-
-type StorageBackend = "none" | "gcs" | "s3";
-
-let gcsStorageSingleton: Storage | null = null;
-
-function getGcsStorage(): Storage {
-  if (!gcsStorageSingleton) {
-    gcsStorageSingleton = new Storage({
-      credentials: {
-        audience: "replit",
-        subject_token_type: "access_token",
-        token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
-        type: "external_account",
-        credential_source: {
-          url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
-          format: {
-            type: "json",
-            subject_token_field_name: "access_token",
-          },
-        },
-        universe_domain: "googleapis.com",
-      } as any,
-      projectId: "",
-    });
-  }
-  return gcsStorageSingleton;
-}
+/**
+ * Objektspeicher fuer Ticket-Anhaenge: S3-kompatibel (z. B. MinIO, siehe docs/docker.md)
+ * oder - ohne S3_* - nicht konfiguriert (Anhaenge dann lokal unter uploads/).
+ */
+type StorageBackend = "none" | "s3";
 
 export class ObjectNotFoundError extends Error {
   constructor() {
@@ -75,16 +51,11 @@ export class ObjectStorageService {
       return;
     }
 
-    const privateObjectDir = process.env.PRIVATE_OBJECT_DIR || "";
-    if (privateObjectDir) {
-      this.backend = "gcs";
-      const { bucketName, objectName } = this.parseObjectPath(privateObjectDir);
-      this.bucketName = bucketName;
-      this.keyPrefix = objectName.replace(/^\/+|\/+$/g, "");
-      console.log(
-        `[ObjectStorage] Google Cloud Storage: bucket=${bucketName} prefix=${this.keyPrefix || "(keiner)"}`
+    if (process.env.PRIVATE_OBJECT_DIR) {
+      // Frueher: Google Cloud Storage ueber den Replit-Sidecar - ausserhalb von Replit nie nutzbar.
+      console.warn(
+        "[ObjectStorage] PRIVATE_OBJECT_DIR wird nicht mehr unterstützt (Google Cloud Storage über Replit). Für einen Objektspeicher S3_* setzen (siehe docs/docker.md)."
       );
-      return;
     }
 
     this.backend = "none";
@@ -106,21 +77,6 @@ export class ObjectStorageService {
     return this.backend !== "none";
   }
 
-  private parseObjectPath(path: string): { bucketName: string; objectName: string } {
-    if (!path.startsWith("/")) {
-      path = `/${path}`;
-    }
-    const pathParts = path.split("/");
-    if (pathParts.length < 2) {
-      throw new Error("Invalid path: must contain at least a bucket name");
-    }
-
-    const bucketName = pathParts[1];
-    const objectName = pathParts.slice(2).join("/");
-
-    return { bucketName, objectName };
-  }
-
   private buildObjectKey(filename: string): string {
     const objectId = randomUUID();
     const sanitizedFilename = this.sanitizeFilename(filename);
@@ -140,36 +96,18 @@ export class ObjectStorageService {
 
     const objectKey = this.buildObjectKey(filename);
 
-    if (this.backend === "s3") {
-      await this.s3Client!.send(
-        new PutObjectCommand({
-          Bucket: this.bucketName,
-          Key: objectKey,
-          Body: buffer,
-          ContentType: mimeType,
-          Metadata: {
-            originalfilename: this.sanitizeFilename(filename).slice(0, 1024),
-            uploadedat: new Date().toISOString(),
-          },
-        })
-      );
-      return {
-        objectKey,
-        publicUrl: `/api/object-storage/${objectKey}`,
-      };
-    }
-
-    const bucket = getGcsStorage().bucket(this.bucketName);
-    const file = bucket.file(objectKey);
-
-    await file.save(buffer, {
-      contentType: mimeType,
-      metadata: {
-        originalFilename: filename,
-        uploadedAt: new Date().toISOString(),
-      },
-    });
-
+    await this.s3Client!.send(
+      new PutObjectCommand({
+        Bucket: this.bucketName,
+        Key: objectKey,
+        Body: buffer,
+        ContentType: mimeType,
+        Metadata: {
+          originalfilename: this.sanitizeFilename(filename).slice(0, 1024),
+          uploadedat: new Date().toISOString(),
+        },
+      })
+    );
     return {
       objectKey,
       publicUrl: `/api/object-storage/${objectKey}`,
@@ -183,55 +121,12 @@ export class ObjectStorageService {
 
     const objectKey = this.buildObjectKey(filename);
 
-    if (this.backend === "s3") {
-      const command = new PutObjectCommand({
-        Bucket: this.bucketName,
-        Key: objectKey,
-      });
-      const signedUrl = await getSignedUrl(this.s3Client!, command, { expiresIn: 900 });
-      return { uploadUrl: signedUrl, objectKey };
-    }
-
-    const request = {
-      bucket_name: this.bucketName,
-      object_name: objectKey,
-      method: "PUT" as const,
-      expires_at: new Date(Date.now() + 900 * 1000).toISOString(),
-    };
-
-    const response = await fetch(`${REPLIT_SIDECAR_ENDPOINT}/object-storage/signed-object-url`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(request),
+    const command = new PutObjectCommand({
+      Bucket: this.bucketName,
+      Key: objectKey,
     });
-
-    if (!response.ok) {
-      throw new Error(
-        `Signed URL failed (${response.status}). GCS/Replit-Sidecar oder S3/MinIO (S3_ENDPOINT) nutzen.`
-      );
-    }
-
-    const { signed_url: signedURL } = await response.json();
-    return { uploadUrl: signedURL, objectKey };
-  }
-
-  async getFile(objectKey: string): Promise<File> {
-    if (this.backend === "s3") {
-      throw new Error("getFile is GCS-only; use downloadToResponse for S3");
-    }
-    if (!this.isConfigured()) {
-      throw new Error("Object storage not configured");
-    }
-
-    const bucket = getGcsStorage().bucket(this.bucketName);
-    const file = bucket.file(objectKey);
-
-    const [exists] = await file.exists();
-    if (!exists) {
-      throw new ObjectNotFoundError();
-    }
-
-    return file;
+    const signedUrl = await getSignedUrl(this.s3Client!, command, { expiresIn: 900 });
+    return { uploadUrl: signedUrl, objectKey };
   }
 
   async downloadToResponse(objectKey: string, res: Response): Promise<void> {
@@ -239,64 +134,33 @@ export class ObjectStorageService {
       throw new Error("Object storage not configured");
     }
 
-    if (this.backend === "s3") {
-      try {
-        const out = await this.s3Client!.send(
-          new GetObjectCommand({ Bucket: this.bucketName, Key: objectKey })
-        );
-        if (!out.Body) {
-          throw new ObjectNotFoundError();
-        }
-
-        res.set({
-          "Content-Type": out.ContentType || "application/octet-stream",
-          ...(out.ContentLength != null && { "Content-Length": String(out.ContentLength) }),
-          "Cache-Control": "private, max-age=3600",
-        });
-
-        const stream = out.Body as NodeJS.ReadableStream;
-        stream.on("error", (err) => {
-          console.error("[ObjectStorage] S3 stream error:", err);
-          if (!res.headersSent) {
-            res.status(500).json({ error: "Error streaming file" });
-          }
-        });
-        stream.pipe(res);
-      } catch (error: any) {
-        if (error?.name === "NoSuchKey" || error?.$metadata?.httpStatusCode === 404) {
-          throw new ObjectNotFoundError();
-        }
-        throw error;
-      }
-      return;
-    }
-
     try {
-      const file = await this.getFile(objectKey);
-      const [metadata] = await file.getMetadata();
+      const out = await this.s3Client!.send(
+        new GetObjectCommand({ Bucket: this.bucketName, Key: objectKey })
+      );
+      if (!out.Body) {
+        throw new ObjectNotFoundError();
+      }
 
       res.set({
-        "Content-Type": metadata.contentType || "application/octet-stream",
-        "Content-Length": metadata.size?.toString(),
+        "Content-Type": out.ContentType || "application/octet-stream",
+        ...(out.ContentLength != null && { "Content-Length": String(out.ContentLength) }),
         "Cache-Control": "private, max-age=3600",
       });
 
-      const stream = file.createReadStream();
-
+      const stream = out.Body as NodeJS.ReadableStream;
       stream.on("error", (err) => {
-        console.error("[ObjectStorage] Stream error:", err);
+        console.error("[ObjectStorage] S3 stream error:", err);
         if (!res.headersSent) {
           res.status(500).json({ error: "Error streaming file" });
         }
       });
-
       stream.pipe(res);
-    } catch (error) {
-      if (error instanceof ObjectNotFoundError) {
-        throw error;
+    } catch (error: any) {
+      if (error?.name === "NoSuchKey" || error?.$metadata?.httpStatusCode === 404) {
+        throw new ObjectNotFoundError();
       }
-      console.error("[ObjectStorage] Error downloading file:", error);
-      throw new Error("Error downloading file");
+      throw error;
     }
   }
 
@@ -305,30 +169,19 @@ export class ObjectStorageService {
       throw new Error("Object storage not configured");
     }
 
-    if (this.backend === "s3") {
-      const out = await this.s3Client!.send(
-        new GetObjectCommand({ Bucket: this.bucketName, Key: objectKey })
-      );
-      if (!out.Body) {
-        throw new ObjectNotFoundError();
-      }
-      const chunks: Buffer[] = [];
-      for await (const chunk of out.Body as AsyncIterable<Uint8Array>) {
-        chunks.push(Buffer.from(chunk));
-      }
-      return {
-        buffer: Buffer.concat(chunks),
-        contentType: out.ContentType || "application/octet-stream",
-      };
+    const out = await this.s3Client!.send(
+      new GetObjectCommand({ Bucket: this.bucketName, Key: objectKey })
+    );
+    if (!out.Body) {
+      throw new ObjectNotFoundError();
     }
-
-    const file = await this.getFile(objectKey);
-    const [metadata] = await file.getMetadata();
-    const [buffer] = await file.download();
-
+    const chunks: Buffer[] = [];
+    for await (const chunk of out.Body as AsyncIterable<Uint8Array>) {
+      chunks.push(Buffer.from(chunk));
+    }
     return {
-      buffer,
-      contentType: metadata.contentType || "application/octet-stream",
+      buffer: Buffer.concat(chunks),
+      contentType: out.ContentType || "application/octet-stream",
     };
   }
 
@@ -337,27 +190,13 @@ export class ObjectStorageService {
       throw new Error("Object storage not configured");
     }
 
-    if (this.backend === "s3") {
-      try {
-        await this.s3Client!.send(
-          new DeleteObjectCommand({ Bucket: this.bucketName, Key: objectKey })
-        );
-      } catch (e: any) {
-        if (e?.$metadata?.httpStatusCode === 404) return;
-        throw e;
-      }
-      return;
-    }
-
     try {
-      const bucket = getGcsStorage().bucket(this.bucketName);
-      const file = bucket.file(objectKey);
-      await file.delete();
-    } catch (error: any) {
-      if (error.code === 404) {
-        return;
-      }
-      throw error;
+      await this.s3Client!.send(
+        new DeleteObjectCommand({ Bucket: this.bucketName, Key: objectKey })
+      );
+    } catch (e: any) {
+      if (e?.$metadata?.httpStatusCode === 404) return;
+      throw e;
     }
   }
 }

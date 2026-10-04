@@ -844,15 +844,15 @@ export function registerSettingsRoutes(app: Express): void {
   app.get("/api/settings/ai", requireAuth, requireManageSettings, async (req, res) => {
     try {
       const aiSettings = await storage.getSetting("openai_settings");
-      const { isReplitOpenAIAvailable } = await import("../ai/openaiClient");
+      const { isEnvOpenAIConfigured } = await import("../ai/openaiClient");
       const { isChatLlmConfigured } = await import("../ai/llmChat");
 
       const enabled = await isChatLlmConfigured((key) => storage.getSetting(key));
       const rawProvider = aiSettings?.chatProvider;
       const chatProvider =
         rawProvider === "anthropic" || rawProvider === "google" ? rawProvider : "openai";
-      const mode = isReplitOpenAIAvailable()
-        ? "replit"
+      const mode = isEnvOpenAIConfigured()
+        ? "env"
         : chatProvider === "anthropic"
           ? "anthropic"
           : chatProvider === "google"

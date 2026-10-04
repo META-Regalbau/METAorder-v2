@@ -2,7 +2,7 @@
 
 ## Technische Basis (was überall gilt)
 
-- **Anbieter:** ausschließlich **OpenAI** über [`server/ai/openaiClient.ts`](../server/ai/openaiClient.ts): entweder Replit-Integration (`AI_INTEGRATIONS_OPENAI_BASE_URL` / `AI_INTEGRATIONS_OPENAI_API_KEY`) oder **verschlüsselter API-Key** in den Einstellungen (`openai_settings`, Endpoint `POST /api/settings/ai` in [`server/routes.ts`](../server/routes.ts)).
+- **Anbieter:** ausschließlich **OpenAI** über [`server/ai/openaiClient.ts`](../server/ai/openaiClient.ts): entweder per Umgebung (`AI_INTEGRATIONS_OPENAI_BASE_URL` / `AI_INTEGRATIONS_OPENAI_API_KEY`, hat Vorrang) oder **verschlüsselter API-Key** in den Einstellungen (`openai_settings`, Endpoint `POST /api/settings/ai` in [`server/routes/settingsRoutes.ts`](../server/routes/settingsRoutes.ts)).
 - **Betriebsmodi** (Extraktion, Embeddings, FAQ-Verhalten): [`server/ai/aiConfig.ts`](../server/ai/aiConfig.ts) — `local_only` | `openai_optional` | `openai_only` (teilweise per `AI_MODE` / weiteren `AI_*` Umgebungsvariablen überschreibbar).
 - **Schutz:** u. a. `aiRateLimiter` (60 req/min) und `semanticRateLimiter` (120 req/min) in [`server/routes.ts`](../server/routes.ts).
 
@@ -54,7 +54,7 @@
 2. **Kein „Allgemeiner App-Chat“:** Es gibt keine durchgängige freie Konversations-KI für beliebige Themen; alles ist **aufgaben- und Prompt-spezifisch** (Tickets, FAQ, Analytics, Extraktion, …).
 3. **Natural Language Analytics ohne OpenAI:** Schlägt fehl mit klarer Fehlermeldung — im Gegensatz zu Ticket-Klassifikation oder semantischen Embeddings gibt es hier **keinen** echten Offline-Ersatz (siehe [`server/analytics/naturalLanguageAnalytics.ts`](../server/analytics/naturalLanguageAnalytics.ts)).
 4. **Bestimmte Endpunkte ohne Key:** z. B. `POST /api/ai/suggest-categories` und `POST /api/ai/generate-replies` antworten mit **„AI features are not enabled“**, wenn kein OpenAI verfügbar ist.
-5. **Semantische Produkt-Suche:** Nutzt `getOpenAIClient()` (Replit oder Key aus Aufrufer-Kontext). **Ohne** Integration/Key kann die KI-Interpretation ausfallen; es gibt dann **Fallback-Interpretation** im Modul — Qualität/Ergebnis sind dann nicht „volle“ KI-Suche.
+5. **Semantische Produkt-Suche:** Nutzt `getOpenAIClient()` (Umgebung oder Key aus Aufrufer-Kontext). **Ohne** Integration/Key kann die KI-Interpretation ausfallen; es gibt dann **Fallback-Interpretation** im Modul — Qualität/Ergebnis sind dann nicht „volle“ KI-Suche.
 6. **Cross-Selling-Vorschläge sind nicht KI:** Endpoint ist ausdrücklich **regelbasiert** (`GET /api/products/:productId/cross-selling-suggestions` in [`server/routes/productRoutes.ts`](../server/routes/productRoutes.ts)).
 7. **FAQ-Antwort „ohne Halluzination“ nur im Sinne des Prompts:** Das Modell soll nur Quellen nutzen; **technisch** ist es weiterhin ein LLM — keine Garantie wie bei einem formal verifizierten System.
 8. **Automatisierung E-Mail:** Die Regel-Aktion „E-Mail senden“ nutzt den konfigurierten Ausgangs-Versand (Einstellungen → E-Mail ausgehend). Ist er ausgeschaltet, schlägt die Aktion fehl und steht so in der Ausführungshistorie — keine KI-Grenze.

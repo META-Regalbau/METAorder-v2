@@ -667,7 +667,7 @@ export function registerDraftRoutes(app: Express): void {
             await fs.unlink(file.path);
             return res.status(400).json({
               error:
-                "OpenAI integration not available. Please configure OpenAI API key in settings or ensure Replit OpenAI Integration is set up.",
+                "OpenAI integration not available. Please configure the OpenAI API key in the settings.",
             });
           }
         }
@@ -1398,7 +1398,7 @@ export function registerDraftRoutes(app: Express): void {
             await fs.unlink(file.path);
             return res.status(400).json({
               error:
-                "OpenAI integration not available. Please configure OpenAI API key in settings or ensure Replit OpenAI Integration is set up.",
+                "OpenAI integration not available. Please configure the OpenAI API key in the settings.",
             });
           }
         }

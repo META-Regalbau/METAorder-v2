@@ -5,7 +5,7 @@
  *   npm run eval:extraction -- --dir=training/document-extraction/eval --json=out.json
  *   npm run eval:extraction -- --case=bestellung_holme
  *
- * Voraussetzung: `OPENAI_API_KEY` (oder die Replit-Integration über
+ * Voraussetzung: `OPENAI_API_KEY` (oder OpenAI per Umgebung über
  * AI_INTEGRATIONS_OPENAI_BASE_URL / AI_INTEGRATIONS_OPENAI_API_KEY).
  *
  * Bewusst **ohne** Datenbank und Shopware: Bewertet wird ausschließlich die Extraktion.
@@ -60,7 +60,7 @@ function buildOpenAIClient(): OpenAI {
   const key = process.env.OPENAI_API_KEY?.trim();
   if (!key) {
     console.error(
-      "OPENAI_API_KEY fehlt. Setzen, oder die Replit-Integration über\n" +
+      "OPENAI_API_KEY fehlt. Setzen, oder OpenAI per Umgebung über\n" +
         "AI_INTEGRATIONS_OPENAI_BASE_URL / AI_INTEGRATIONS_OPENAI_API_KEY bereitstellen."
     );
     process.exit(1);
