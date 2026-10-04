@@ -22,8 +22,10 @@ const PRODUCT_PAYLOAD_VERSION = "v2";
 /**
  * Version des Bestell-Spiegel-Payloads, Mechanik wie bei den Produkten.
  * v2: Versandangaben (shippingInfo: Sendungsnummer, Versanddatum) aus den Lieferungen.
+ * v3: auch Bestellungen mit mehrfach vergebener Bestellnummer - beim Neuladen fuer v2 blieben
+ *     diese Kopien auf altem Stand (Live: 36 Zeilen).
  */
-const ORDER_PAYLOAD_VERSION = "v2";
+const ORDER_PAYLOAD_VERSION = "v3";
 const CUSTOMER_BATCH = 250;
 const PRICE_BATCH = 250;
 /** Sicherheitsnetz: 250 × 400 = bis zu 100.000 Preiszeilen im Voll-Snapshot. */
@@ -341,6 +343,21 @@ async function upsertOrderMirrors(storage: IStorage, orders: Order[], tenantId: 
 }
 
 /**
+ * Je Schluessel nur der erste Eintrag (Reihenfolge von fetchOrders: Bestelldatum absteigend, dann
+ * id); Eintraege ohne Schluessel bleiben alle.
+ */
+function firstPerKey<T>(items: T[], key: (item: T) => string | null): T[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const k = key(item);
+    if (k === null) return true;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+/**
  * Bestell-Spiegel: Delta-Sync statt "bei jedem Laden alle Bestellungen neu holen".
  * fetchOrders() paginiert intern selbst durch alle Treffer des Delta-Filters,
  * deshalb reicht hier ein einzelner Aufruf (anders als bei Produkten/Kunden, wo
@@ -354,6 +371,11 @@ async function upsertOrderMirrors(storage: IStorage, orders: Order[], tenantId: 
  * wenn die Anzahl im Spiegel nicht zur Anzahl im Shop passt — z. B. nach Wechsel der
  * Shop-URL eines Mandanten, wo der alte Cursor sonst alle aelteren Bestellungen des
  * neuen Shops dauerhaft ausblendet.
+ *
+ * Mehrfach vergebene Bestellnummern: Der Spiegel haelt jede Shopware-Bestellung aktuell
+ * (keepDuplicateOrderNumbers). Aenderungen werden fuer jede Bestellung erkannt, je Lauf aber nur
+ * einmal je Bestellnummer gemeldet (je Art bzw. je Rechnungsnummer) - keine doppelten
+ * Rechnungen/E-Mails/Tickets fuer doppelt angelegte Bestellungen, die sich gemeinsam aendern.
  */
 async function syncOrdersDelta(
   storage: IStorage,
@@ -389,7 +411,7 @@ async function syncOrdersDelta(
 
     const previousCursor = parseSwDate(state?.cursorUpdatedAt);
     const cursor = opts?.force || payloadVersionStale ? null : previousCursor;
-    const orders = await client.fetchOrders(null, { updatedSince: cursor });
+    const orders = await client.fetchOrders(null, { updatedSince: cursor, keepDuplicateOrderNumbers: true });
 
     // Vor dem Upsert: neue/geaenderte Rechnungsnummern gegen den alten Stand erkennen
     // (z. B. von SAP direkt in Shopware gesetzt). Verarbeitung erst nach dem Sync.
@@ -410,7 +432,9 @@ async function syncOrdersDelta(
           })
         : orders;
     const invoiceNumberChanges = watcher
-      ? await watcher.detectInvoiceNumberChanges(storage, watchedOrders, tenantId)
+      ? firstPerKey(await watcher.detectInvoiceNumberChanges(storage, watchedOrders, tenantId), (c) =>
+          c.order.orderNumber ? `${c.order.orderNumber}|${c.order.invoiceNumber ?? ""}` : null,
+        )
       : [];
 
     // Aenderungserkennung (Automatisierung): bisherigen Stand VOR dem Upsert lesen,
@@ -423,7 +447,9 @@ async function syncOrdersDelta(
 
     await upsertOrderMirrors(storage, orders, tenantId);
 
-    const orderChanges = detectOrderChanges(orders, previousStates, { initialImport });
+    const orderChanges = firstPerKey(detectOrderChanges(orders, previousStates, { initialImport }), (c) =>
+      c.order.orderNumber ? `${c.kind}|${c.order.orderNumber}` : null,
+    );
     if (orderChanges.length > 0) {
       emitOrderChanges(orderChanges, tenantId);
       const byKind = (kind: string) => orderChanges.filter((c) => c.kind === kind).length;
@@ -451,9 +477,8 @@ async function syncOrdersDelta(
     const reconcileMs = reconcileMinutes * 60 * 1000;
     const lastReconcile = state?.lastReconcileAt ? new Date(state.lastReconcileAt).getTime() : 0;
     const mirrorCount = await storage.countShopwareOrderMirrors(tenantId);
-    // Abweichung Shop vs. Spiegel: nicht bei jedem Lauf erneut abgleichen — fetchOrders()
-    // dedupliziert Bestell-Versionen ueber die Bestellnummer, dadurch bleibt eine kleine,
-    // dauerhafte Differenz zur reinen ID-Anzahl im Shop normal. Deshalb gedrosselt.
+    // Abweichung Shop vs. Spiegel: nicht bei jedem Lauf erneut abgleichen (voller ID-Abruf),
+    // sondern gedrosselt - z. B. wenn zwischen Zaehlung und Abgleich Bestellungen entstehen.
     const mismatchMinutes = Number(process.env.SHOPWARE_SYNC_MISMATCH_RECONCILE_MINUTES || 10);
     const countMismatch =
       shopTotal !== null &&
@@ -473,7 +498,10 @@ async function syncOrdersDelta(
       // unbekannt, ihre Rechnungsnummern sind keine "Aenderung", die Versand ausloesen darf.
       const MISSING_CHUNK = 500;
       for (let i = 0; i < missing.length; i += MISSING_CHUNK) {
-        const chunkOrders = await client.fetchOrders(null, { ids: missing.slice(i, i + MISSING_CHUNK) });
+        const chunkOrders = await client.fetchOrders(null, {
+          ids: missing.slice(i, i + MISSING_CHUNK),
+          keepDuplicateOrderNumbers: true,
+        });
         await upsertOrderMirrors(storage, chunkOrders, tenantId);
         reconciledMissing += chunkOrders.length;
       }
