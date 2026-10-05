@@ -23,6 +23,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { apiErrorFromBody } from "@/lib/apiError";
 
 interface ObxMissingArticle {
   artNr: string;
@@ -190,7 +191,7 @@ export default function ObxSearchPage() {
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || res.statusText);
+        throw apiErrorFromBody(res.status, err);
       }
       const data = await res.json();
       setQuickOrderResults(data.matched || []);
@@ -211,7 +212,7 @@ export default function ObxSearchPage() {
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || res.statusText);
+        throw apiErrorFromBody(res.status, err);
       }
       const data = await res.json();
       setBarcodeProduct({ productNumber: data.productNumber, name: data.name });

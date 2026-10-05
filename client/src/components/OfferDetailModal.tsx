@@ -19,6 +19,7 @@ import { Link } from "wouter";
 import "@/styles/metaAdmin.css";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
+import { apiErrorFromBody } from "@/lib/apiError";
 interface OfferDetailModalProps {
   offerId: string | null;
   isOpen: boolean;
@@ -547,9 +548,7 @@ export default function OfferDetailModal({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        throw new Error(
-          errorData?.message || errorData?.error || "Failed to download PDF",
-        );
+        throw apiErrorFromBody(response.status, errorData);
       }
 
       const blob = await response.blob();
@@ -604,7 +603,7 @@ export default function OfferDetailModal({
       });
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.error || t("offerDetail.configPdfError"));
+        throw apiErrorFromBody(response.status, errorData, t("offerDetail.configPdfError"));
       }
       const blob = await response.blob();
       const ct = response.headers.get("content-type") || "";
@@ -662,7 +661,7 @@ export default function OfferDetailModal({
       });
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.error || t("offerDetail.erpExportError"));
+        throw apiErrorFromBody(response.status, errorData, t("offerDetail.erpExportError"));
       }
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);

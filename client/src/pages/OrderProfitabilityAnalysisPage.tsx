@@ -41,6 +41,7 @@ import HerstellMarginIndicator from "@/components/HerstellMarginIndicator";
 import type { Order, OrderStatus } from "@shared/schema";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
+import { apiErrorFromBody } from "@/lib/apiError";
 type AnalysisResponse = {
   orders: Order[];
   summary: {
@@ -126,7 +127,7 @@ export default function OrderProfitabilityAnalysisPage() {
       const res = await fetch(url, { credentials: "include" });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || res.statusText);
+        throw apiErrorFromBody(res.status, body);
       }
       return res.json();
     },

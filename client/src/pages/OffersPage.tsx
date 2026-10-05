@@ -21,6 +21,7 @@ import TableSkeleton from "@/components/TableSkeleton";
 import "@/styles/metaAdmin.css";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
+import { isNotConfiguredError, apiErrorFromBody } from "@/lib/apiError";
 interface OffersPageProps {
   userRole: "employee" | "admin";
   userSalesChannelIds?: string[] | null;
@@ -260,8 +261,7 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
 
   // Show error if Shopware is not configured
   if (error) {
-    const errorMessage = (error as any)?.message || t('offers.errors.loadFailed');
-    if (errorMessage.includes('not configured')) {
+    if (isNotConfiguredError(error)) {
       return (
         <div className="madmin w-full">
           <div className="mpage-head">
@@ -313,12 +313,9 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
     try {
       const response = await fetch(`/api/offers/${offerId}/pdf?download=true`);
       if (!response.ok) {
-        // Try to get detailed error message
+        // Meldung des Servers in der Sprache der Oberflaeche, ohne Text die allgemeine PDF-Meldung
         const errorData = await response.json().catch(() => null);
-        if (errorData?.message) {
-          throw new Error(errorData.message);
-        }
-        throw new Error('Failed to download PDF');
+        throw apiErrorFromBody(response.status, errorData, t('offers.errors.pdfFailed'));
       }
 
       const blob = await response.blob();

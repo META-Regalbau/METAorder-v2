@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { apiErrorFromBody } from "@/lib/apiError";
 
 interface EmailDropZoneProps {
   onEmailParsed: (data: {
@@ -87,7 +88,7 @@ export function EmailDropZone({ onEmailParsed }: EmailDropZoneProps) {
 
           if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to parse email');
+            throw apiErrorFromBody(response.status, errorData);
           }
 
           const data = await response.json();

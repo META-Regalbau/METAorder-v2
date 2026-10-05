@@ -17,6 +17,7 @@ import { SalesChannelSelector } from "@/components/SalesChannelSelector";
 import { useLocation, useSearch } from "wouter";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
+import { apiErrorRaw } from "@/lib/apiError";
 interface Category {
   id: string;
   name: string;
@@ -205,7 +206,7 @@ export default function ProductsPage() {
       });
     },
     onError: (error: Error) => {
-      if (isShopwarePluginError(error.message)) {
+      if (isShopwarePluginError(apiErrorRaw(error))) {
         queryClient.invalidateQueries({ queryKey: ["/api/products"] });
         toast({
           title: t("products.updateSuccess"),

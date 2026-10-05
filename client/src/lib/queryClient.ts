@@ -1,9 +1,11 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import i18next from "i18next";
+import { createApiError } from "./apiError";
 
+/** Fehlerstatus -> ApiError mit Meldung in der Sprache der Oberflaeche (lib/apiError.ts) */
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    throw createApiError(res.status, await res.text());
   }
 }
 
@@ -15,15 +17,15 @@ export async function readJsonBody<T>(res: Response): Promise<T> {
   const text = await res.text();
   if (!text.trim()) {
     if (res.status === 304) {
-      throw new Error("API-Antwort unverändert (304) – bitte Seite neu laden.");
+      throw new Error(i18next.t("apiErrors.client.notModified"));
     }
-    throw new Error("Leere Server-Antwort");
+    throw new Error(i18next.t("apiErrors.client.emptyResponse"));
   }
 
   try {
     return JSON.parse(text) as T;
   } catch {
-    throw new Error(`Ungültige JSON-Antwort: ${text.slice(0, 200)}`);
+    throw new Error(i18next.t("apiErrors.client.invalidJson", { text: text.slice(0, 200) }));
   }
 }
 

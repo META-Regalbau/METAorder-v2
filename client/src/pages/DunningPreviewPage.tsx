@@ -14,6 +14,7 @@ import { de, enUS, es } from "date-fns/locale";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
+import { isNotConfiguredError } from "@/lib/apiError";
 type DunningPreviewItem = {
   order: Order;
   dueDate: string;
@@ -87,8 +88,7 @@ export default function DunningPreviewPage({ userRole }: DunningPreviewPageProps
   });
 
   if (error) {
-    const errorMessage = (error as any)?.message || t('errors.loadFailed');
-    if (errorMessage.includes('not configured')) {
+    if (isNotConfiguredError(error)) {
       return (
         <div className="w-full">
           <div className="mb-6">

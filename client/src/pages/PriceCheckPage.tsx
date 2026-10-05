@@ -26,6 +26,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
+import { apiErrorFromBody } from "@/lib/apiError";
 interface PriceCheckProduct {
   id: string;
   productNumber: string;
@@ -177,7 +178,7 @@ export default function PriceCheckPage() {
       });
       const payload = await res.json();
       if (!res.ok) {
-        throw new Error(payload.error || t("priceCheck.errorTitle"));
+        throw apiErrorFromBody(res.status, payload, t("priceCheck.errorTitle"));
       }
 
       setImportResult(payload);
