@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import metaLogoUrl from "@assets/META-Logo.svg";
 
 const MetaLogo = () => (
@@ -25,24 +26,27 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
-const emergencyResetSchema = z
-  .object({
-    username: z.string().min(1, "Benutzername erforderlich"),
-    resetKey: z.string().min(1, "Reset-Schlüssel erforderlich"),
-    newPassword: z.string().min(8, "Mindestens 8 Zeichen"),
-    confirmPassword: z.string().min(1, "Bestätigung erforderlich"),
-  })
-  .refine((data) => data.newPassword === data.confirmPassword, {
-    message: "Passwörter stimmen nicht überein",
-    path: ["confirmPassword"],
-  });
+const createEmergencyResetSchema = (t: TFunction) =>
+  z
+    .object({
+      username: z.string().min(1, t("auth.reset.usernameRequired")),
+      resetKey: z.string().min(1, t("auth.reset.resetKeyRequired")),
+      newPassword: z.string().min(8, t("auth.reset.minLength")),
+      confirmPassword: z.string().min(1, t("auth.reset.confirmRequired")),
+    })
+    .refine((data) => data.newPassword === data.confirmPassword, {
+      message: t("auth.reset.passwordMismatch"),
+      path: ["confirmPassword"],
+    });
 
-type EmergencyResetFormData = z.infer<typeof emergencyResetSchema>;
+type EmergencyResetFormData = z.infer<ReturnType<typeof createEmergencyResetSchema>>;
 
 // Versteckter Notfall-Reset: nirgends verlinkt, nur über Ctrl+Shift+Alt+R
 // erreichbar. Serverseitig nur wirksam, wenn ADMIN_RESET_KEY gesetzt ist.
 function EmergencyResetDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const { t } = useTranslation();
   const { toast } = useToast();
+  const emergencyResetSchema = useMemo(() => createEmergencyResetSchema(t), [t]);
 
   const form = useForm<EmergencyResetFormData>({
     resolver: zodResolver(emergencyResetSchema),
@@ -65,15 +69,15 @@ function EmergencyResetDialog({ open, onOpenChange }: { open: boolean; onOpenCha
     },
     onSuccess: () => {
       toast({
-        title: "Passwort zurückgesetzt",
-        description: "Sie können sich jetzt mit dem neuen Passwort anmelden.",
+        title: t("auth.reset.successTitle"),
+        description: t("auth.reset.successDescription"),
       });
       form.reset();
       onOpenChange(false);
     },
     onError: (error: Error) => {
       toast({
-        title: "Reset fehlgeschlagen",
+        title: t("auth.reset.failedTitle"),
         description: error.message,
         variant: "destructive",
       });
@@ -84,9 +88,9 @@ function EmergencyResetDialog({ open, onOpenChange }: { open: boolean; onOpenCha
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Notfall-Passwort-Reset</DialogTitle>
+          <DialogTitle>{t("auth.reset.title")}</DialogTitle>
           <DialogDescription>
-            Setzt das Passwort eines Benutzers mit dem hinterlegten Reset-Schlüssel zurück.
+            {t("auth.reset.description")}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -99,7 +103,7 @@ function EmergencyResetDialog({ open, onOpenChange }: { open: boolean; onOpenCha
               name="username"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Benutzername</FormLabel>
+                  <FormLabel>{t("auth.username")}</FormLabel>
                   <FormControl>
                     <Input {...field} autoComplete="off" data-testid="input-reset-username" />
                   </FormControl>
@@ -112,7 +116,7 @@ function EmergencyResetDialog({ open, onOpenChange }: { open: boolean; onOpenCha
               name="resetKey"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Reset-Schlüssel</FormLabel>
+                  <FormLabel>{t("auth.reset.resetKey")}</FormLabel>
                   <FormControl>
                     <Input {...field} type="password" autoComplete="off" data-testid="input-reset-key" />
                   </FormControl>
@@ -125,7 +129,7 @@ function EmergencyResetDialog({ open, onOpenChange }: { open: boolean; onOpenCha
               name="newPassword"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Neues Passwort</FormLabel>
+                  <FormLabel>{t("auth.reset.newPassword")}</FormLabel>
                   <FormControl>
                     <Input {...field} type="password" autoComplete="new-password" data-testid="input-reset-new-password" />
                   </FormControl>
@@ -138,7 +142,7 @@ function EmergencyResetDialog({ open, onOpenChange }: { open: boolean; onOpenCha
               name="confirmPassword"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Neues Passwort bestätigen</FormLabel>
+                  <FormLabel>{t("auth.reset.confirmPassword")}</FormLabel>
                   <FormControl>
                     <Input {...field} type="password" autoComplete="new-password" data-testid="input-reset-confirm-password" />
                   </FormControl>
@@ -152,7 +156,7 @@ function EmergencyResetDialog({ open, onOpenChange }: { open: boolean; onOpenCha
               disabled={resetMutation.isPending}
               data-testid="button-reset-password"
             >
-              {resetMutation.isPending ? "Wird zurückgesetzt…" : "Passwort zurücksetzen"}
+              {resetMutation.isPending ? t("auth.reset.submitting") : t("auth.reset.submit")}
             </Button>
           </form>
         </Form>

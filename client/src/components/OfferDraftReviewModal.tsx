@@ -241,7 +241,7 @@ export function OfferDraftReviewModal({
       toast({
         title: t("offerDrafts.review.offerCreated"),
         description: needsApproval
-          ? "Angebot erstellt. Freigabe wurde angefordert – warten Sie auf die Genehmigung."
+          ? t("draftReview.approval.offerCreatedApprovalRequested")
           : t("offerDrafts.review.offerCreatedDescription"),
       });
       queryClient.invalidateQueries({ queryKey: ["/api/offer-drafts"] });
@@ -433,7 +433,7 @@ export function OfferDraftReviewModal({
         `/api/offer-drafts/customer-search?q=${encodeURIComponent(debouncedCustomerSearch)}&limit=20`,
         { credentials: "include" }
       );
-      if (!res.ok) throw new Error("Kundensuche fehlgeschlagen");
+      if (!res.ok) throw new Error(t("draftReview.customerSearchFailed"));
       return res.json();
     },
     enabled: open && debouncedCustomerSearch.length >= 2,
@@ -502,7 +502,7 @@ export function OfferDraftReviewModal({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/offer-drafts"] });
       onUpdate();
-      toast({ title: "Gespeichert", description: "Adress- und Kundendaten wurden übernommen." });
+      toast({ title: t("draftReview.saved"), description: t("draftReview.savedAddressAndCustomer") });
     },
     onError: (e: Error) =>
       toast({ title: t("common.error", "Fehler"), description: e.message, variant: "destructive" }),
@@ -535,7 +535,7 @@ export function OfferDraftReviewModal({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/offer-drafts"] });
       onUpdate();
-      toast({ title: "Position aktualisiert", description: "Als Produkt eingestuft." });
+      toast({ title: t("draftReview.lineUpdated"), description: t("draftReview.markedAsProduct") });
     },
     onError: (e: Error) =>
       toast({ title: t("common.error", "Fehler"), description: e.message, variant: "destructive" }),
@@ -933,7 +933,7 @@ export function OfferDraftReviewModal({
                         customer: { ...editedData.customer, email: e.target.value },
                       })
                     }
-                    placeholder="kunde@beispiel.de"
+                    placeholder={t("draftReview.emailPlaceholder")}
                     data-testid="input-customer-email"
                     className={
                       editedData.customer.email && 
@@ -1002,7 +1002,7 @@ export function OfferDraftReviewModal({
                   onClick={() => saveExtractedDataMutation.mutate()}
                   data-testid="button-save-billing-offer"
                 >
-                  {saveExtractedDataMutation.isPending ? t("offerDrafts.review.creating") : "Adresse speichern"}
+                  {saveExtractedDataMutation.isPending ? t("offerDrafts.review.creating") : t("draftReview.saveAddress")}
                 </Button>
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-4">
@@ -1171,19 +1171,19 @@ export function OfferDraftReviewModal({
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 text-amber-600" />
-                  Freigabe erforderlich
+                  {t("cpq.admin.discountLevels.approvalRequired")}
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Dieser Rabatt erfordert eine Freigabe. Bitte geben Sie eine Begründung ein.
+                  {t("draftReview.approval.approvalRequiredHint")}
                 </p>
               </CardHeader>
               <CardContent>
-                <Label htmlFor="approval-justification">Begründung (Pflichtfeld)</Label>
+                <Label htmlFor="approval-justification">{t("draftReview.approval.justificationLabel")}</Label>
                 <Textarea
                   id="approval-justification"
                   value={approvalJustification}
                   onChange={(e) => setApprovalJustification(e.target.value)}
-                  placeholder="z.B. Strategischer Kunde, Sonderkonditionen vereinbart..."
+                  placeholder={t("draftReview.approval.justificationPlaceholder")}
                   rows={3}
                   className="mt-2"
                 />
@@ -1196,10 +1196,10 @@ export function OfferDraftReviewModal({
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2 text-destructive">
                   <XCircle className="w-4 h-4" />
-                  Rabatt nicht zulässig
+                  {t("draftReview.approval.discountNotAllowed")}
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Dieser Rabatt überschreitet die maximal zulässige Grenze. Bitte reduzieren Sie den Rabatt.
+                  {t("draftReview.approval.discountExceedsLimit")}
                 </p>
               </CardHeader>
             </Card>
@@ -1342,7 +1342,7 @@ export function OfferDraftReviewModal({
                       data-testid="switch-show-unclear-offer"
                     />
                     <Label htmlFor="show-unclear-offer" className="text-sm font-normal cursor-pointer">
-                      Unklare Treffer in Haupttabelle
+                      {t("draftReview.showUnclearInMainTable")}
                     </Label>
                   </div>
                   <Button
@@ -1352,7 +1352,7 @@ export function OfferDraftReviewModal({
                     onClick={() => setClarificationEmailOpen(true)}
                     data-testid="button-clarification-email-offer"
                   >
-                    Rückfrage an Kunde
+                    {t("draftReview.clarificationRequest")}
                   </Button>
                 </div>
               </div>
@@ -1368,7 +1368,7 @@ export function OfferDraftReviewModal({
                 <>
                   {mainIndices.length === 0 ? (
                     <p className="text-sm text-muted-foreground py-4 text-center" data-testid="text-main-products-empty">
-                      Keine Zeilen in der Haupttabelle — siehe „Klärungsbedarf“ unten oder aktivieren Sie „Unklare Treffer in Haupttabelle“.
+                      {t("draftReview.mainTableEmpty")}
                     </p>
                   ) : (
                 <Table>
@@ -1421,7 +1421,7 @@ export function OfferDraftReviewModal({
                                   <div className="space-y-1 mt-2">
                                     <div className="flex items-center gap-2">
                                       <Badge variant="secondary" className="text-xs">
-                                        Grundregal
+                                        {t("draftReview.shelfSystem.baseUnit")}
                                       </Badge>
                                       <p className="font-medium text-sm" data-testid={`text-base-product-${index}`}>
                                         {(item as any).systemMatch.baseProduct?.name}
@@ -1430,7 +1430,9 @@ export function OfferDraftReviewModal({
                                     {(item as any).systemMatch.extensionProduct && (
                                       <div className="flex items-center gap-2">
                                         <Badge variant="secondary" className="text-xs">
-                                          + {(item as any).systemMatch.extensionQuantity}x Anbauregal
+                                          {t("draftReview.shelfSystem.extensionUnits", {
+                                            quantity: (item as any).systemMatch.extensionQuantity,
+                                          })}
                                         </Badge>
                                         <p className="font-medium text-sm" data-testid={`text-ext-product-${index}`}>
                                           {(item as any).systemMatch.extensionProduct.name}
@@ -1439,7 +1441,7 @@ export function OfferDraftReviewModal({
                                     )}
                                     {(item as any).systemMatch.totalWidth && (
                                       <p className="text-xs text-muted-foreground">
-                                        = {(item as any).systemMatch.totalWidth}mm Gesamtbreite
+                                        {t("draftReview.shelfSystem.totalWidth", { width: (item as any).systemMatch.totalWidth })}
                                       </p>
                                     )}
                                   </div>
@@ -1486,7 +1488,7 @@ export function OfferDraftReviewModal({
                                         className="text-xs mt-1 border-amber-600/60 text-amber-800 dark:text-amber-200"
                                         data-testid={`badge-learning-blocked-${index}`}
                                       >
-                                        KI-Lernen: Als Nicht-Produkt markiert
+                                        {t("draftReview.learningBlocked")}
                                       </Badge>
                                     )}
                                     {item.learningHint?.type === "preferred_identifier" && (
@@ -1495,7 +1497,7 @@ export function OfferDraftReviewModal({
                                         className="text-xs mt-1 border-blue-600/60 text-blue-800 dark:text-blue-200"
                                         data-testid={`badge-learning-preferred-${index}`}
                                       >
-                                        KI-Lernen: Referenz bevorzugt
+                                        {t("draftReview.learningPreferred")}
                                       </Badge>
                                     )}
                                     <LineItemBuyerSkuLabel
@@ -1524,7 +1526,7 @@ export function OfferDraftReviewModal({
                                         data-testid={`button-show-alternatives-${index}`}
                                       >
                                         {showAlternatives[index] ? <ChevronUp className="w-3 h-3 mr-1" /> : <ChevronDown className="w-3 h-3 mr-1" />}
-                                        {item.alternativeMatches!.length} {item.alternativeMatches!.length === 1 ? 'Alternative' : 'Alternativen'}
+                                        {t("draftReview.alternativesCount", { count: item.alternativeMatches!.length })}
                                       </Button>
                                       
                                       {showAlternatives[index] && (
@@ -1606,7 +1608,7 @@ export function OfferDraftReviewModal({
                             {item.originalQuantity && item.convertedQuantity && (
                               <div className="space-y-1">
                                 <Badge variant="secondary" className="text-xs whitespace-nowrap" data-testid={`badge-conversion-${index}`}>
-                                  = {item.originalQuantity} Holme
+                                  {t("draftReview.convertedBeams", { count: Number(item.originalQuantity) })}
                                 </Badge>
                                 {item.conversionNote && (
                                   <p className="text-xs text-muted-foreground italic" data-testid={`text-conversion-note-${index}`}>
@@ -1666,9 +1668,9 @@ export function OfferDraftReviewModal({
               {clarificationIndices.length > 0 && (
                 <Card className="border-amber-500/40 bg-amber-500/5">
                   <CardHeader>
-                    <CardTitle className="text-base">Klärungsbedarf – nicht eindeutig zugeordnet</CardTitle>
+                    <CardTitle className="text-base">{t("draftReview.clarificationTitle")}</CardTitle>
                     <p className="text-xs text-muted-foreground">
-                      Diese Zeilen sind keine sicheren Katalogtreffer. Als Produkt bestätigen oder entfernen.
+                      {t("draftReview.clarificationHintOffer")}
                     </p>
                   </CardHeader>
                   <CardContent className="space-y-3">
@@ -1677,7 +1679,7 @@ export function OfferDraftReviewModal({
                       const reason =
                         item.productScreen?.reasons?.[0] ||
                         ((item as { catalogMatchSkipped?: boolean }).catalogMatchSkipped
-                          ? "Kein Katalogabgleich"
+                          ? t("draftReview.noCatalogMatch")
                           : "");
                       return (
                         <div
@@ -1704,7 +1706,7 @@ export function OfferDraftReviewModal({
                             />
                             {!item.bundle && item.alternativeMatches && item.alternativeMatches.length > 0 ? (
                               <div className="mt-3 space-y-2" data-testid={`clarification-alternatives-${index}`}>
-                                <p className="text-xs font-medium">Alternative auswählen (bestätigt = 100 %):</p>
+                                <p className="text-xs font-medium">{t("draftReview.selectAlternative")}</p>
                                 {item.alternativeMatches.map((alt: Record<string, unknown>, altIndex: number) => {
                                   const altId = String(alt.id);
                                   const isSelected =
@@ -1742,7 +1744,7 @@ export function OfferDraftReviewModal({
                                 onClick={() => applyAlternativeSelection(index, item.matchedProduct!.id!)}
                                 data-testid={`button-confirm-match-${index}`}
                               >
-                                Zuordnung bestätigen (100 %)
+                                {t("draftReview.confirmMatch")}
                               </Button>
                             ) : null}
                           </div>
@@ -1755,7 +1757,7 @@ export function OfferDraftReviewModal({
                               onClick={() => markLineAsLikelyProductMutation.mutate(index)}
                               data-testid={`button-mark-product-${index}`}
                             >
-                              Doch als Produkt
+                              {t("draftReview.markAsProduct")}
                             </Button>
                             <Button
                               type="button"
@@ -1766,7 +1768,7 @@ export function OfferDraftReviewModal({
                               onClick={() => removeLineItemMutation.mutate(index)}
                               data-testid={`button-remove-clar-${index}`}
                             >
-                              Verwerfen
+                              {t("draftReview.discard")}
                             </Button>
                           </div>
                         </div>
@@ -1950,26 +1952,26 @@ export function OfferDraftReviewModal({
               onClick={async () => {
                 try {
                   const res = await fetch(`/api/offer-drafts/${draft.id}/pdf?download=true`, { credentials: "include" });
-                  if (!res.ok) throw new Error("PDF konnte nicht geladen werden");
+                  if (!res.ok) throw new Error(t("draftReview.pdf.loadFailed"));
                   const blob = await res.blob();
                   const url = window.URL.createObjectURL(blob);
                   const a = document.createElement("a");
                   a.href = url;
-                  a.download = `Angebotsentwurf-${draft.originalFileName || draft.id}.pdf`;
+                  a.download = `${t("draftReview.pdf.fileNamePrefix")}-${draft.originalFileName || draft.id}.pdf`;
                   document.body.appendChild(a);
                   a.click();
                   window.URL.revokeObjectURL(url);
                   document.body.removeChild(a);
-                  toast({ title: "PDF heruntergeladen", description: "Der Angebotsentwurf wurde als PDF gespeichert." });
+                  toast({ title: t("draftReview.pdf.downloaded"), description: t("draftReview.pdf.downloadedDescription") });
                 } catch (e) {
-                  toast({ title: "Fehler", description: e instanceof Error ? e.message : "PDF konnte nicht geladen werden", variant: "destructive" });
+                  toast({ title: t("common.error"), description: e instanceof Error ? e.message : t("draftReview.pdf.loadFailed"), variant: "destructive" });
                 }
               }}
               disabled={createOfferMutation.isPending || deleteMutation.isPending}
               data-testid="button-download-pdf"
             >
               <FileDown className="w-4 h-4 mr-2" />
-              PDF herunterladen
+              {t("offers.downloadPDF")}
             </Button>
             <Button
               variant="destructive"
@@ -1993,7 +1995,7 @@ export function OfferDraftReviewModal({
             <Button
               onClick={() => createOfferMutation.mutate()}
               disabled={!canCreateOffer || createOfferMutation.isPending || deleteMutation.isPending}
-              title={isBlocked ? "Dieser Rabatt überschreitet die maximal zulässige Grenze. Bitte reduzieren Sie den Rabatt." : undefined}
+              title={isBlocked ? t("draftReview.approval.discountExceedsLimit") : undefined}
               data-testid="button-create-offer"
             >
               {createOfferMutation.isPending ? t("offerDrafts.review.creating") : t("offerDrafts.review.createOffer")}

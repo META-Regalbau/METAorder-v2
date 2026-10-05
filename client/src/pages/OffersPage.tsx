@@ -528,10 +528,9 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
             <div className="mcard-body">
               {recipientIsMetaPendingDrafts.length > 0 && (
                 <div className="malert destructive" data-testid="alert-recipient-is-meta-offer-drafts">
-                  <div className="malert-title">Käufer ist META — vermutlich Lieferanten-AB</div>
+                  <div className="malert-title">{t("documentExtraction.buyerIsMeta.listTitle")}</div>
                   <p>
-                    {recipientIsMetaPendingDrafts.length} Beleg(e): META tritt als Besteller auf.
-                    Bitte prüfen, ob diese überhaupt als Kunden-Anfrage verarbeitet werden sollen.
+                    {t("documentExtraction.buyerIsMeta.offerDraftsList", { count: recipientIsMetaPendingDrafts.length })}
                   </p>
                   <ul style={{ listStyle: "disc", paddingLeft: 16, marginTop: 6 }}>
                     {recipientIsMetaPendingDrafts.map((d) => (

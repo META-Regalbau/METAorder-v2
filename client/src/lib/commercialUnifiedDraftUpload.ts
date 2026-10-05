@@ -1,3 +1,5 @@
+import i18next from "i18next";
+
 export type CommercialDraftKind = "offer" | "order";
 
 export type CommercialUnifiedUploadResult = {
@@ -130,7 +132,7 @@ async function cloneFileForUpload(file: File): Promise<Blob> {
     const firstReason = firstErr instanceof Error ? firstErr.message : String(firstErr);
     if (!looksLikeCloudOnDemandError(firstReason)) {
       const stale = new Error(
-        `Die ausgewählte Datei kann nicht mehr gelesen werden (${firstReason}). Bitte erneut auswählen.`
+        i18next.t("commercialUpload.fileError.staleHandle", { reason: firstReason })
       );
       (stale as Error & { code?: string; cloud?: boolean }).code =
         COMMERCIAL_UPLOAD_FILE_HANDLE_STALE;
@@ -144,10 +146,7 @@ async function cloneFileForUpload(file: File): Promise<Blob> {
     } catch (secondErr) {
       const reason = secondErr instanceof Error ? secondErr.message : String(secondErr);
       const stale = new Error(
-        `Die Datei „${file.name}" liegt vermutlich noch in der Cloud (OneDrive/iCloud) und konnte ` +
-          `nicht heruntergeladen werden (${reason}). ` +
-          `Bitte im Finder mit Rechtsklick „Immer auf diesem Gerät behalten" wählen ` +
-          `und Upload neu starten.`
+        i18next.t("commercialUpload.fileError.cloudUnavailable", { fileName: file.name, reason })
       );
       const e = stale as Error & { code?: string; cloud?: boolean };
       e.code = COMMERCIAL_UPLOAD_FILE_HANDLE_STALE;

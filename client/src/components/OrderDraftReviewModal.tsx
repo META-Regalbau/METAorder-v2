@@ -421,7 +421,7 @@ export function OrderDraftReviewModal({
         `/api/order-drafts/customer-search?q=${encodeURIComponent(debouncedCustomerSearch)}&limit=20`,
         { credentials: "include" }
       );
-      if (!res.ok) throw new Error("Kundensuche fehlgeschlagen");
+      if (!res.ok) throw new Error(t("draftReview.customerSearchFailed"));
       return res.json();
     },
     enabled: open && debouncedCustomerSearch.length >= 2,
@@ -497,7 +497,7 @@ export function OrderDraftReviewModal({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/order-drafts"] });
       onUpdate();
-      toast({ title: "Gespeichert", description: "Kunden- und Adressdaten wurden übernommen." });
+      toast({ title: t("draftReview.saved"), description: t("draftReview.savedCustomerAndAddress") });
     },
     onError: (e: Error) =>
       toast({ title: t("common.error", "Fehler"), description: e.message, variant: "destructive" }),
@@ -525,7 +525,7 @@ export function OrderDraftReviewModal({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/order-drafts"] });
       onUpdate();
-      toast({ title: "Position aktualisiert", description: "Als Produkt eingestuft." });
+      toast({ title: t("draftReview.lineUpdated"), description: t("draftReview.markedAsProduct") });
     },
     onError: (e: Error) =>
       toast({ title: t("common.error", "Fehler"), description: e.message, variant: "destructive" }),
@@ -549,7 +549,7 @@ export function OrderDraftReviewModal({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/order-drafts"] });
       onUpdate();
-      toast({ title: "Position entfernt" });
+      toast({ title: t("offerDrafts.review.lineRemoved") });
     },
     onError: (e: Error) =>
       toast({ title: t("common.error", "Fehler"), description: e.message, variant: "destructive" }),
@@ -626,7 +626,7 @@ export function OrderDraftReviewModal({
         `/api/products?search=${encodeURIComponent(debouncedProductSearch)}&limit=10`,
         { credentials: "include" }
       );
-      if (!res.ok) throw new Error("Produktsuche fehlgeschlagen");
+      if (!res.ok) throw new Error(t("draftReview.productSearchFailed"));
       return res.json();
     },
     enabled: open && debouncedProductSearch.length >= 2,
@@ -942,7 +942,7 @@ export function OrderDraftReviewModal({
                   disabled={saveExtractedDataMutation.isPending}
                   onClick={() => saveExtractedDataMutation.mutate()}
                 >
-                  {saveExtractedDataMutation.isPending ? t("orderDrafts.review.creating") : "Adresse speichern"}
+                  {saveExtractedDataMutation.isPending ? t("orderDrafts.review.creating") : t("draftReview.saveAddress")}
                 </Button>
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-4">
@@ -1031,8 +1031,8 @@ export function OrderDraftReviewModal({
                   />
                 </div>
                 <div className="col-span-2">
-                  <Label>Telefon (Rechnungsadresse)</Label>
-                  <Input aria-label="Telefon (Rechnungsadresse)"
+                  <Label>{t("draftReview.phoneBilling")}</Label>
+                  <Input aria-label={t("draftReview.phoneBilling")}
                     type="tel"
                     value={editedData.billingAddress.phone || ""}
                     onChange={(e) =>
@@ -1052,7 +1052,7 @@ export function OrderDraftReviewModal({
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <MapPin className="w-4 h-4" />
-                  Lieferadresse
+                  {t("orderDrafts.review.shippingAddress")}
                 </CardTitle>
                 <div className="flex items-center gap-2">
                   <Switch
@@ -1079,7 +1079,7 @@ export function OrderDraftReviewModal({
                     }}
                   />
                   <Label htmlFor="separate-shipping" className="text-sm font-normal cursor-pointer">
-                    Abweichende Lieferadresse
+                    {t("draftReview.separateShippingAddress")}
                   </Label>
                 </div>
               </div>
@@ -1087,8 +1087,8 @@ export function OrderDraftReviewModal({
             {useSeparateShipping && editedData && (
               <CardContent className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
-                  <Label>Firma (Lieferung)</Label>
-                  <Input aria-label="Firma (Lieferung)"
+                  <Label>{t("draftReview.companyShipping")}</Label>
+                  <Input aria-label={t("draftReview.companyShipping")}
                     value={editedData.shippingAddress?.company || ""}
                     onChange={(e) =>
                       setEditedData({
@@ -1099,8 +1099,8 @@ export function OrderDraftReviewModal({
                   />
                 </div>
                 <div>
-                  <Label>Vorname</Label>
-                  <Input aria-label="Vorname"
+                  <Label>{t("orderDrafts.review.fields.firstName")}</Label>
+                  <Input aria-label={t("orderDrafts.review.fields.firstName")}
                     value={editedData.shippingAddress?.firstName || ""}
                     onChange={(e) =>
                       setEditedData({
@@ -1111,8 +1111,8 @@ export function OrderDraftReviewModal({
                   />
                 </div>
                 <div>
-                  <Label>Nachname</Label>
-                  <Input aria-label="Nachname"
+                  <Label>{t("orderDrafts.review.fields.lastName")}</Label>
+                  <Input aria-label={t("orderDrafts.review.fields.lastName")}
                     value={editedData.shippingAddress?.lastName || ""}
                     onChange={(e) =>
                       setEditedData({
@@ -1123,8 +1123,8 @@ export function OrderDraftReviewModal({
                   />
                 </div>
                 <div className="col-span-2">
-                  <Label>Straße</Label>
-                  <Input aria-label="Straße"
+                  <Label>{t("orderDrafts.review.fields.street")}</Label>
+                  <Input aria-label={t("orderDrafts.review.fields.street")}
                     value={editedData.shippingAddress?.street || ""}
                     onChange={(e) =>
                       setEditedData({
@@ -1135,8 +1135,8 @@ export function OrderDraftReviewModal({
                   />
                 </div>
                 <div>
-                  <Label>PLZ</Label>
-                  <Input aria-label="PLZ"
+                  <Label>{t("orderDrafts.review.fields.zipCode")}</Label>
+                  <Input aria-label={t("orderDrafts.review.fields.zipCode")}
                     value={editedData.shippingAddress?.zipCode || ""}
                     onChange={(e) =>
                       setEditedData({
@@ -1147,8 +1147,8 @@ export function OrderDraftReviewModal({
                   />
                 </div>
                 <div>
-                  <Label>Ort</Label>
-                  <Input aria-label="Ort"
+                  <Label>{t("draftReview.city")}</Label>
+                  <Input aria-label={t("draftReview.city")}
                     value={editedData.shippingAddress?.city || ""}
                     onChange={(e) =>
                       setEditedData({
@@ -1159,8 +1159,8 @@ export function OrderDraftReviewModal({
                   />
                 </div>
                 <div className="col-span-2">
-                  <Label>Land</Label>
-                  <Input aria-label="Land"
+                  <Label>{t("orderDrafts.review.fields.country")}</Label>
+                  <Input aria-label={t("orderDrafts.review.fields.country")}
                     value={editedData.shippingAddress?.country || ""}
                     onChange={(e) =>
                       setEditedData({
@@ -1171,8 +1171,8 @@ export function OrderDraftReviewModal({
                   />
                 </div>
                 <div className="col-span-2">
-                  <Label>Telefon (Lieferadresse)</Label>
-                  <Input aria-label="Telefon (Lieferadresse)"
+                  <Label>{t("draftReview.phoneShipping")}</Label>
+                  <Input aria-label={t("draftReview.phoneShipping")}
                     type="tel"
                     value={editedData.shippingAddress?.phone || ""}
                     onChange={(e) =>
@@ -1333,11 +1333,11 @@ export function OrderDraftReviewModal({
                         onCheckedChange={setShowUnclearInMainTable}
                       />
                       <Label htmlFor="show-unclear-order" className="text-sm font-normal cursor-pointer">
-                        Unklare Treffer in Haupttabelle
+                        {t("draftReview.showUnclearInMainTable")}
                       </Label>
                     </div>
                     <Button type="button" variant="outline" size="sm" onClick={() => setClarificationEmailOpen(true)}>
-                      Rückfrage an Kunde
+                      {t("draftReview.clarificationRequest")}
                     </Button>
                   </div>
                 </div>
@@ -1345,7 +1345,7 @@ export function OrderDraftReviewModal({
               <CardContent className="space-y-4">
                 {mainIndices.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">
-                    Keine Zeilen in der Haupttabelle — siehe „Klärungsbedarf“ unten oder aktivieren Sie „Unklare Treffer in Haupttabelle“.
+                    {t("draftReview.mainTableEmpty")}
                   </p>
                 ) : (
                 <Table>
@@ -1353,10 +1353,10 @@ export function OrderDraftReviewModal({
                     <TableRow>
                       <TableHead>{t("orderDrafts.review.table.extractedProduct")}</TableHead>
                       <TableHead>{t("orderDrafts.review.table.matchedProduct")}</TableHead>
-                      <TableHead>Einordnung</TableHead>
+                      <TableHead>{t("offerDrafts.review.productLikelihood")}</TableHead>
                       <TableHead>{t("orderDrafts.review.table.quantity")}</TableHead>
                       <TableHead>{t("orderDrafts.review.table.confidence")}</TableHead>
-                      <TableHead className="w-[52px] text-right">Aktion</TableHead>
+                      <TableHead className="w-[52px] text-right">{t("offerDrafts.review.actions")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1382,7 +1382,7 @@ export function OrderDraftReviewModal({
                             />
                             {item.extractedPositionNumber && (
                               <div className="text-xs text-muted-foreground" data-testid={`text-extracted-position-${index}`}>
-                                Pos. {item.extractedPositionNumber}
+                                {t("draftReview.positionNumber", { number: item.extractedPositionNumber })}
                               </div>
                             )}
                             <LineItemConfidenceWarningBadges warnings={docItem?.confidence_warnings} />
@@ -1453,7 +1453,7 @@ export function OrderDraftReviewModal({
                                   data-testid={`button-show-alternatives-${index}`}
                                 >
                                   {showAlternatives[index] ? <ChevronUp className="w-3 h-3 mr-1" /> : <ChevronDown className="w-3 h-3 mr-1" />}
-                                  {item.alternativeMatches.length} {item.alternativeMatches.length === 1 ? 'Alternative' : 'Alternativen'}
+                                  {t("draftReview.alternativesCount", { count: item.alternativeMatches.length })}
                                 </Button>
                                 
                                 {showAlternatives[index] && (
@@ -1500,7 +1500,7 @@ export function OrderDraftReviewModal({
                                 className="text-xs border-amber-600/60 text-amber-800 dark:text-amber-200"
                                 data-testid={`badge-learning-blocked-${index}`}
                               >
-                                KI-Lernen: Als Nicht-Produkt markiert
+                                {t("draftReview.learningBlocked")}
                               </Badge>
                             )}
                             {item.learningHint?.type === "preferred_identifier" && (
@@ -1509,18 +1509,18 @@ export function OrderDraftReviewModal({
                                 className="text-xs border-blue-600/60 text-blue-800 dark:text-blue-200"
                                 data-testid={`badge-learning-preferred-${index}`}
                               >
-                                KI-Lernen: Referenz bevorzugt
+                                {t("draftReview.learningPreferred")}
                               </Badge>
                             )}
                           </div>
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground align-top">
                           {item.productScreen?.likelihood === "likely_product"
-                            ? "Wahrscheinlich Produkt"
+                            ? t("offerDrafts.review.likelyProduct")
                             : item.productScreen?.likelihood === "unlikely_product"
-                              ? "Vermutlich kein Produkt"
+                              ? t("offerDrafts.review.unlikelyProduct")
                               : item.productScreen?.likelihood === "unclear"
-                                ? "Unklar"
+                                ? t("offerDrafts.review.unclearProduct")
                                 : "—"}
                         </TableCell>
                         <TableCell>
@@ -1548,7 +1548,7 @@ export function OrderDraftReviewModal({
                             className="h-8 w-8 text-destructive"
                             disabled={draft.status === "created" || removeLineItemMutation.isPending}
                             onClick={() => removeLineItemMutation.mutate(index)}
-                            title="Zeile entfernen"
+                            title={t("draftReview.removeRow")}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -1562,9 +1562,9 @@ export function OrderDraftReviewModal({
                 {clarificationIndices.length > 0 && (
                   <Card className="border-amber-500/40 bg-amber-500/5">
                     <CardHeader>
-                      <CardTitle className="text-base">Klärungsbedarf – nicht eindeutig zugeordnet</CardTitle>
+                      <CardTitle className="text-base">{t("draftReview.clarificationTitle")}</CardTitle>
                       <p className="text-xs text-muted-foreground">
-                        Bitte prüfen oder an den Kunden zurückfragen.
+                        {t("draftReview.clarificationHintOrder")}
                       </p>
                     </CardHeader>
                     <CardContent className="space-y-3">
@@ -1573,7 +1573,7 @@ export function OrderDraftReviewModal({
                         const docItem = docExtractionItems[index];
                         const reason =
                           item.productScreen?.reasons?.[0] ||
-                          (item.catalogMatchSkipped ? "Kein Katalogabgleich" : "");
+                          (item.catalogMatchSkipped ? t("draftReview.noCatalogMatch") : "");
                         return (
                           <div
                             key={`clar-${index}`}
@@ -1589,13 +1589,13 @@ export function OrderDraftReviewModal({
                                 supplierSku={docItem?.supplier_sku ?? item.extractedProductNumber ?? null}
                               />
                               {item.extractedPositionNumber && (
-                                <p className="text-xs text-muted-foreground">Pos. {item.extractedPositionNumber}</p>
+                                <p className="text-xs text-muted-foreground">{t("draftReview.positionNumber", { number: item.extractedPositionNumber })}</p>
                               )}
                               {reason && <p className="text-xs text-muted-foreground mt-1">{reason}</p>}
                               <LineItemConfidenceWarningBadges warnings={docItem?.confidence_warnings} />
                               {item.alternativeMatches && item.alternativeMatches.length > 0 ? (
                                 <div className="mt-3 space-y-2" data-testid={`clarification-alternatives-${index}`}>
-                                  <p className="text-xs font-medium">Alternative auswählen (bestätigt = 100 %):</p>
+                                  <p className="text-xs font-medium">{t("draftReview.selectAlternative")}</p>
                                   {item.alternativeMatches.map((alt, altIndex) => {
                                     const isSelected =
                                       normalizeProductId(selectedProducts[index]) === normalizeProductId(alt.id);
@@ -1631,7 +1631,7 @@ export function OrderDraftReviewModal({
                                   onClick={() => applyAlternativeSelection(index, item.matchedProduct!.id)}
                                   data-testid={`button-confirm-match-${index}`}
                                 >
-                                  Zuordnung bestätigen (100 %)
+                                  {t("draftReview.confirmMatch")}
                                 </Button>
                               ) : null}
                             </div>
@@ -1643,7 +1643,7 @@ export function OrderDraftReviewModal({
                                 disabled={draft.status === "created" || markLineAsLikelyProductMutation.isPending}
                                 onClick={() => markLineAsLikelyProductMutation.mutate(index)}
                               >
-                                Doch als Produkt
+                                {t("draftReview.markAsProduct")}
                               </Button>
                               <Button
                                 type="button"
@@ -1653,7 +1653,7 @@ export function OrderDraftReviewModal({
                                 disabled={draft.status === "created" || removeLineItemMutation.isPending}
                                 onClick={() => removeLineItemMutation.mutate(index)}
                               >
-                                Verwerfen
+                                {t("draftReview.discard")}
                               </Button>
                             </div>
                           </div>
@@ -1678,15 +1678,15 @@ export function OrderDraftReviewModal({
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Plus className="w-4 h-4" />
-                Produkt manuell hinzufügen
+                {t("draftReview.manualAdd.title")}
               </CardTitle>
               <p className="text-xs text-muted-foreground">
-                Wenn die KI keine oder falsche Positionen erkannt hat: Produkt suchen und direkt hinzufügen.
+                {t("draftReview.manualAdd.hint")}
               </p>
             </CardHeader>
             <CardContent className="space-y-2">
               <Input
-                placeholder="Produktname oder Artikelnummer (mind. 2 Zeichen)"
+                placeholder={t("draftReview.manualAdd.placeholder")}
                 value={productSearchTerm}
                 onChange={(event) => setProductSearchTerm(event.target.value)}
                 disabled={draft.status === "created"}
@@ -1695,10 +1695,10 @@ export function OrderDraftReviewModal({
               {debouncedProductSearch.length >= 2 && (
                 <div className="space-y-1 max-h-64 overflow-y-auto">
                   {isProductSearchFetching && (
-                    <p className="text-xs text-muted-foreground">Suche läuft…</p>
+                    <p className="text-xs text-muted-foreground">{t("draftReview.manualAdd.searching")}</p>
                   )}
                   {!isProductSearchFetching && productSearchResults.length === 0 && (
-                    <p className="text-xs text-muted-foreground">Keine Produkte gefunden.</p>
+                    <p className="text-xs text-muted-foreground">{t("draftReview.manualAdd.noResults")}</p>
                   )}
                   {productSearchResults.map((product) => (
                     <div
@@ -1721,7 +1721,7 @@ export function OrderDraftReviewModal({
                         data-testid={`button-manual-add-product-${product.id}`}
                       >
                         <Plus className="w-4 h-4 mr-1" />
-                        Hinzufügen
+                        {t("draftReview.manualAdd.add")}
                       </Button>
                     </div>
                   ))}

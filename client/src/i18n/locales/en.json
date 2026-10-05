@@ -104,6 +104,10 @@
       "alreadyProcessedOpened": "This message was already processed — opening the existing draft.",
       "alreadyProcessed": "This message has already been processed — no new draft was created.",
       "multipleDrafts": "Created {{count}} drafts from the email attachments."
+    },
+    "fileError": {
+      "staleHandle": "The selected file can no longer be read ({{reason}}). Please select it again.",
+      "cloudUnavailable": "The file \"{{fileName}}\" is probably still in the cloud (OneDrive/iCloud) and could not be downloaded ({{reason}}). In Finder, right-click it, choose \"Always Keep on This Device\" and restart the upload."
     }
   },
   "processUpdates": {
@@ -1045,7 +1049,24 @@
     "logoutFailed": "Logout failed",
     "welcomeBack": "Welcome back!",
     "loggingIn": "Logging in...",
-    "demoCredentials": "Demo credentials:"
+    "demoCredentials": "Demo credentials:",
+    "reset": {
+      "title": "Emergency password reset",
+      "description": "Resets a user's password using the configured reset key.",
+      "resetKey": "Reset key",
+      "newPassword": "New password",
+      "confirmPassword": "Confirm new password",
+      "usernameRequired": "Username is required",
+      "resetKeyRequired": "Reset key is required",
+      "minLength": "At least 8 characters",
+      "confirmRequired": "Confirmation is required",
+      "passwordMismatch": "Passwords do not match",
+      "successTitle": "Password reset",
+      "successDescription": "You can now sign in with the new password.",
+      "failedTitle": "Reset failed",
+      "submitting": "Resetting…",
+      "submit": "Reset password"
+    }
   },
   "roles": {
     "admin": "Admin",
@@ -2267,7 +2288,20 @@
       "resultsFound_other": "{{count}} products found"
     },
     "image": "Product image",
-    "activeSwitch": "{{name}} active"
+    "activeSwitch": "{{name}} active",
+    "preview3d": {
+      "title": "3D preview (GLB)",
+      "searching": "Looking for 3D model…",
+      "loading": "Loading 3D model…",
+      "noModel": "No 3D model (GLB) available",
+      "noModelHint": "Use product no. / manufacturer no. for GLB matching",
+      "saveTooltip": "Save GLB URL in Shopware",
+      "save": "Save in Shopware",
+      "saving": "Saving…",
+      "saveSuccess": "GLB was uploaded to Shopware media.",
+      "saveFailed": "Saving failed",
+      "footer": "GLB: {{filename}} · Pan & zoom with the mouse"
+    }
   },
   "categories": {
     "none": "No categories available",
@@ -2322,7 +2356,12 @@
     "addOneToGroup": "Add to group",
     "suggestionAddedToGroup": "The product was added to the selected group.",
     "suggestionAddError": "Could not add the product to the group.",
-    "recommendedBecause": "Recommended because"
+    "recommendedBecause": "Recommended because",
+    "job": {
+      "failed": "Job failed",
+      "notFound": "Job was not found",
+      "timeout": "Timed out waiting for the background job"
+    }
   },
   "rules": {
     "title": "Cross-Selling Rules",
@@ -2763,7 +2802,9 @@
     "categoryPlaceholder": "e.g. Shipping, Support, General",
     "contentPlaceholder": "Enter template content...",
     "titleRequired": "Title is required",
-    "contentRequired": "Content is required"
+    "contentRequired": "Content is required",
+    "editDescription": "Edit the template",
+    "createDescription": "Create a new template for frequently used replies"
   },
   "ai": {
     "title": "AI Integration",
@@ -2995,7 +3036,8 @@
     "exportSuccess": "Export successful",
     "exportDescription": "Tickets exported as {{format}}",
     "exportFailed": "Export failed",
-    "exportError": "Error exporting tickets"
+    "exportError": "Error exporting tickets",
+    "requiredFieldsMissing": "Please fill in all required fields"
   },
   "automation": {
     "title": "Automation Rules",
@@ -4217,6 +4259,10 @@
       "barcode": "Barcode / EAN",
       "barcodePlaceholder": "Scan or enter EAN",
       "lookup": "Lookup"
+    },
+    "errors": {
+      "noEmployeeSelected": "No employee selected",
+      "noCustomerSelected": "No customer selected"
     }
   },
   "notFound": {
@@ -5988,5 +6034,222 @@
       "zugangstoken_ungultig": "Invalid access token.",
       "zusatzleistungen_konnten_nicht_geladen_werden": "Failed to load additional services"
     }
+  },
+  "roomPlanner": {
+    "title": "Room planning",
+    "eyebrow": "CPQ · Offer {{offerId}}",
+    "description": "Place shelving units in the room; wall clearance and minimum clearance are checked automatically.",
+    "loading": "Loading room planning…",
+    "missingOfferId": "No offer specified (missing parameter offerId).",
+    "saving": "Saving…",
+    "saved": "Room layout saved",
+    "walls": {
+      "north": "North (top)",
+      "south": "South (bottom)",
+      "east": "East (right)",
+      "west": "West (left)"
+    },
+    "featureTypes": {
+      "door": "Door",
+      "window": "Window",
+      "gate": "Gate"
+    },
+    "toast": {
+      "invalidPositionTitle": "Invalid position",
+      "invalidPositionDescription": "This wall is {{length}} mm long — position + width do not fit.",
+      "noSpaceTitle": "No space found",
+      "noSpaceDescription": "There is no free space in the room for this shelving unit. Please enlarge the room or move other shelving units.",
+      "rotationImpossibleTitle": "Rotation not possible",
+      "rotationImpossibleDescription": "At this position, the shelving unit would collide with a wall or a neighboring shelving unit after {{degrees}}°."
+    },
+    "auto": {
+      "mode": "Arrangement",
+      "modeWalls": "Along the walls",
+      "modeRows": "In rows with aisle",
+      "aisleWidth": "Aisle width (mm)",
+      "aisle1000": "1,000 — pedestrians",
+      "aisle1200": "1,200 — pedestrians, wide",
+      "aisle1400": "1,400 — pallet truck",
+      "aisle2500": "2,500 — forklift",
+      "aisle3500": "3,500 — forklift, wide",
+      "wallClearance": "Wall clearance (mm)",
+      "apply": "Arrange automatically",
+      "undo": "Undo",
+      "openingsKeptFree": "Doors and gates are kept clear.",
+      "noConfigurations": "No configurations in the offer.",
+      "arranged": "{{count}} shelving units arranged.",
+      "arranged_one": "{{count}} shelving unit arranged.",
+      "arranged_other": "{{count}} shelving units arranged.",
+      "arrangedPartial": "{{placed}} of {{total}} arranged — no space for {{unplaced}}."
+    },
+    "violations": {
+      "title": "Invalid placement",
+      "wallCollision": "“{{name}}” extends beyond the room boundary.",
+      "minSpacing": "Minimum clearance between “{{nameA}}” and “{{nameB}}” not met.",
+      "frontClearance": "Aisle between “{{nameA}}” and “{{nameB}}” too narrow: {{actual}} instead of {{required}} mm.",
+      "gateBlocked": "“{{name}}” blocks the approach zone in front of the gate.",
+      "doorBlocked": "“{{name}}” blocks the door's swing area."
+    },
+    "dimensions": {
+      "title": "Room dimensions",
+      "name": "Name",
+      "namePlaceholder": "e.g. Warehouse 1",
+      "length": "Length (mm)",
+      "width": "Width (mm)",
+      "height": "Height (mm)",
+      "minSpacing": "Clearance side/rear (mm)",
+      "frontClearance": "Aisle in front of shelving unit (mm)"
+    },
+    "wallFeatures": {
+      "title": "Wall elements",
+      "description": "Doors, windows and gates — purely stylized, with no effect on the placement check. Can be moved along the wall by dragging in the top view.",
+      "wall": "Wall",
+      "type": "Type",
+      "offset": "Position from wall corner (mm)",
+      "width": "Width (mm)",
+      "add": "Add",
+      "rowMeta": "from {{offset}} mm, width {{width}} mm"
+    },
+    "topView": {
+      "title": "Top view",
+      "description": "▲ marks the front of the shelving unit. Closer than 50 cm to a wall, the front automatically turns away from it.",
+      "rotate90": "Rotate 90°",
+      "rotate180": "Rotate 180°",
+      "removeFromRoom": "Remove from room",
+      "fullscreen": "Show top view in full screen",
+      "unplaced": "Not yet placed",
+      "offerHasNoConfigurations": "This offer does not contain any configuration yet.",
+      "allPlaced": "All configurations are placed.",
+      "place": "Place"
+    },
+    "view3d": {
+      "title": "3D view",
+      "description": "Rotatable (drag) and zoomable (scroll); shows the current state of the planning.",
+      "hide": "Hide 3D view",
+      "show": "Show 3D view",
+      "noGeometry": "No placed shelving unit with complete 3D data yet. Place shelving units in the room to see the 3D view.",
+      "fullscreen": "Show 3D view in full screen",
+      "loading": "Loading 3D view…"
+    }
+  },
+  "draftReview": {
+    "saveAddress": "Save address",
+    "saved": "Saved",
+    "savedCustomerAndAddress": "Customer and address details have been applied.",
+    "savedAddressAndCustomer": "Address and customer details have been applied.",
+    "customerSearchFailed": "Customer search failed",
+    "productSearchFailed": "Product search failed",
+    "lineUpdated": "Line item updated",
+    "markedAsProduct": "Classified as a product.",
+    "emailPlaceholder": "customer@example.com",
+    "phoneBilling": "Phone (billing address)",
+    "phoneShipping": "Phone (shipping address)",
+    "companyShipping": "Company (delivery)",
+    "city": "City",
+    "separateShippingAddress": "Different shipping address",
+    "showUnclearInMainTable": "Unclear matches in main table",
+    "clarificationRequest": "Clarification request to customer",
+    "mainTableEmpty": "No rows in the main table — see “Needs clarification” below or enable “Unclear matches in main table”.",
+    "positionNumber": "Line {{number}}",
+    "alternativesCount": "{{count}} alternatives",
+    "alternativesCount_one": "{{count}} alternative",
+    "alternativesCount_other": "{{count}} alternatives",
+    "learningBlocked": "AI learning: marked as non-product",
+    "learningPreferred": "AI learning: reference preferred",
+    "removeRow": "Remove row",
+    "clarificationTitle": "Needs clarification – no clear match",
+    "clarificationHintOrder": "Please check or send the customer a clarification request.",
+    "clarificationHintOffer": "These rows are not reliable catalog matches. Confirm them as products or remove them.",
+    "noCatalogMatch": "No catalog matching",
+    "selectAlternative": "Select an alternative (confirmed = 100%):",
+    "confirmMatch": "Confirm match (100%)",
+    "markAsProduct": "Treat as product",
+    "discard": "Discard",
+    "convertedBeams": "= {{count}} beams",
+    "convertedBeams_one": "= {{count}} beam",
+    "convertedBeams_other": "= {{count}} beams",
+    "manualAdd": {
+      "title": "Add product manually",
+      "hint": "If the AI detected no line items or the wrong ones: search for the product and add it directly.",
+      "placeholder": "Product name or item number (min. 2 characters)",
+      "searching": "Searching…",
+      "noResults": "No products found.",
+      "add": "Add"
+    },
+    "shelfSystem": {
+      "baseUnit": "Starter unit",
+      "extensionUnits": "+ {{quantity}}x add-on unit",
+      "totalWidth": "= {{width}} mm total width"
+    },
+    "approval": {
+      "offerCreatedApprovalRequested": "Offer created. Approval has been requested – please wait for it to be granted.",
+      "approvalRequiredHint": "This discount requires approval. Please enter a justification.",
+      "justificationLabel": "Justification (required)",
+      "justificationPlaceholder": "e.g. strategic customer, special terms agreed...",
+      "discountNotAllowed": "Discount not allowed",
+      "discountExceedsLimit": "This discount exceeds the maximum allowed limit. Please reduce the discount."
+    },
+    "pdf": {
+      "loadFailed": "Could not load PDF",
+      "downloaded": "PDF downloaded",
+      "downloadedDescription": "The offer draft has been saved as a PDF.",
+      "fileNamePrefix": "Offer-draft"
+    }
+  },
+  "documentExtraction": {
+    "confidenceWarnings": {
+      "descriptionTruncated": "Description may be truncated",
+      "missingUnitPrice": "Unit price missing",
+      "missingSupplierSku": "Item no. missing",
+      "ambiguousQuantity": "Ambiguous quantity"
+    },
+    "buyerIsMeta": {
+      "title": "Buyer is META",
+      "description": "A META company appears as the buyer in this document — probably a supplier order confirmation or an internal order. Please check whether the document should be processed as a customer order / request at all.",
+      "listTitle": "Buyer is META — probably a supplier order confirmation",
+      "offerDraftsList": "{{count}} documents: META appears as the buyer. Please check whether they should be processed as customer requests at all.",
+      "offerDraftsList_one": "{{count}} document: META appears as the buyer. Please check whether it should be processed as a customer request at all.",
+      "offerDraftsList_other": "{{count}} documents: META appears as the buyer. Please check whether they should be processed as customer requests at all.",
+      "orderDraftsList": "META appears as the buyer in {{count}} documents. Please check whether they should be processed as customer orders at all.",
+      "orderDraftsList_one": "META appears as the buyer in {{count}} document. Please check whether it should be processed as a customer order at all.",
+      "orderDraftsList_other": "META appears as the buyer in {{count}} documents. Please check whether they should be processed as customer orders at all."
+    },
+    "warningsTitle": "Extraction: warnings",
+    "overallConfidence": "Overall extraction confidence:",
+    "totalMismatch": "(total differs from the calculated total)",
+    "buyerSku": "Customer SKU"
+  },
+  "clarificationEmail": {
+    "title": "Clarification request to the customer",
+    "description": "Message preview (not sent). Adjust the text and paste it into your e-mail program.",
+    "loading": "Loading…",
+    "to": "Recipient",
+    "toPlaceholder": "customer@company.com",
+    "subject": "Subject",
+    "message": "Message",
+    "copyToClipboard": "Copy to clipboard",
+    "copied": "Copied",
+    "copiedDescription": "The e-mail draft has been copied to the clipboard.",
+    "copyFailed": "Copy failed",
+    "copyFailedDescription": "Please select the text and copy it manually."
+  },
+  "draftCustomerOptions": {
+    "reason": {
+      "customerNumber": "Customer number",
+      "companyExactZip": "Company + ZIP code",
+      "companyExact": "Company",
+      "companyPartial": "Similar company"
+    },
+    "customerNumberShort": "Cust. no. {{number}}",
+    "candidatesIntro": "No customer found with this e-mail address. {{count}} existing Shopware accounts match the company — please select the right one:",
+    "candidatesIntro_one": "No customer found with this e-mail address. {{count}} existing Shopware account matches the company — please select the right one:",
+    "candidatesIntro_other": "No customer found with this e-mail address. {{count}} existing Shopware accounts match the company — please select the right one:"
+  },
+  "offerPreview": {
+    "title": "Interactive preview",
+    "noOfferSelected": "No offer selected.",
+    "loading": "Loading…",
+    "loadError": "Error while loading.",
+    "backToOffers": "Back to offers"
   }
 }

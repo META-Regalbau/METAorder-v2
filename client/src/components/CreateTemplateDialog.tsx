@@ -110,8 +110,8 @@ export default function CreateTemplateDialog({
           </DialogTitle>
           <DialogDescription>
             {editingTemplate 
-              ? "Bearbeiten Sie die Vorlage"
-              : "Erstellen Sie eine neue Vorlage für häufig verwendete Antworten"}
+              ? t('templates.editDescription')
+              : t('templates.createDescription')}
           </DialogDescription>
         </DialogHeader>
 

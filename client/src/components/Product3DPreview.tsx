@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Save } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 import Shelf3DScene from "./cpq/Shelf3DScene";
 
 type Product3DPreviewProps = {
@@ -26,6 +27,7 @@ export default function Product3DPreview({
   className = "",
   canManageProducts = false,
 }: Product3DPreviewProps) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const { data: glbData, isLoading } = useQuery<{ filename: string | null; url: string | null; mtime?: number | null }>({
     queryKey: ["/api/cpq/glb-resolve", productNumber, manufacturerNumber],
@@ -53,17 +55,17 @@ export default function Product3DPreview({
         queryClient.invalidateQueries({ queryKey: ["/api/products", productId] });
         queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       }
-      toast({ title: "GLB wurde in Shopware-Medien hochgeladen." });
+      toast({ title: t("products.preview3d.saveSuccess") });
     },
     onError: (err: Error) => {
-      toast({ title: "Speichern fehlgeschlagen", description: err.message, variant: "destructive" });
+      toast({ title: t("products.preview3d.saveFailed"), description: err.message, variant: "destructive" });
     },
   });
 
   if (isLoading) {
     return (
       <div className={`aspect-square min-h-[160px] bg-muted rounded-md flex items-center justify-center text-muted-foreground text-sm ${className}`}>
-        3D-Modell wird gesucht…
+        {t("products.preview3d.searching")}
       </div>
     );
   }
@@ -71,8 +73,8 @@ export default function Product3DPreview({
   if (!glbData?.url) {
     return (
       <div className={`aspect-square min-h-[160px] bg-muted rounded-md flex flex-col items-center justify-center text-muted-foreground text-sm p-4 ${className}`}>
-        <div>Kein 3D-Modell (GLB) vorhanden</div>
-        <div className="text-xs mt-1">Produktnr. / Manufacturer Nr. für GLB-Match nutzen</div>
+        <div>{t("products.preview3d.noModel")}</div>
+        <div className="text-xs mt-1">{t("products.preview3d.noModelHint")}</div>
       </div>
     );
   }
@@ -94,7 +96,7 @@ export default function Product3DPreview({
         <Suspense
           fallback={
             <div className="aspect-square min-h-[160px] bg-muted rounded-md flex items-center justify-center text-muted-foreground text-sm">
-              3D-Modell wird geladen…
+              {t("products.preview3d.loading")}
             </div>
           }
         >
@@ -107,15 +109,15 @@ export default function Product3DPreview({
             className="absolute bottom-2 right-2 h-8 shadow-md"
             onClick={() => saveGlbMutation.mutate()}
             disabled={saveGlbMutation.isPending}
-            title="GLB-URL in Shopware speichern"
+            title={t("products.preview3d.saveTooltip")}
           >
             <Save className="h-3.5 w-3.5 mr-1.5" />
-            {saveGlbMutation.isPending ? "Speichern…" : "In Shopware speichern"}
+            {saveGlbMutation.isPending ? t("products.preview3d.saving") : t("products.preview3d.save")}
           </Button>
         )}
       </div>
       <div className="px-2 py-1 text-xs text-muted-foreground text-center border-t mt-1 rounded-b-md bg-muted/30">
-        GLB: {glbData.filename ?? "—"} · Schwenken & Zoomen mit Maus
+        {t("products.preview3d.footer", { filename: glbData.filename ?? "—" })}
       </div>
     </div>
   );

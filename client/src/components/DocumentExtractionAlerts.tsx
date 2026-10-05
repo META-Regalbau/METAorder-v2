@@ -17,6 +17,8 @@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, AlertCircle } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
 export interface DocumentExtractionLite {
   document?: {
@@ -41,15 +43,19 @@ export interface DocumentExtractionLite {
   }>;
 }
 
-const CONFIDENCE_WARNING_LABELS_DE: Record<string, string> = {
-  description_truncated: "Beschreibung möglicherweise abgeschnitten",
-  missing_unit_price: "Einzelpreis fehlt",
-  missing_supplier_sku: "Artikel-Nr. fehlt",
-  ambiguous_quantity: "Menge mehrdeutig",
-};
-
-function localizeConfidenceWarning(code: string): string {
-  return CONFIDENCE_WARNING_LABELS_DE[code] ?? code;
+function localizeConfidenceWarning(code: string, t: TFunction): string {
+  switch (code) {
+    case "description_truncated":
+      return t("documentExtraction.confidenceWarnings.descriptionTruncated");
+    case "missing_unit_price":
+      return t("documentExtraction.confidenceWarnings.missingUnitPrice");
+    case "missing_supplier_sku":
+      return t("documentExtraction.confidenceWarnings.missingSupplierSku");
+    case "ambiguous_quantity":
+      return t("documentExtraction.confidenceWarnings.ambiguousQuantity");
+    default:
+      return code;
+  }
 }
 
 /**
@@ -65,6 +71,7 @@ export function DocumentExtractionRecipientMetaAlert({
 }: {
   extraction: DocumentExtractionLite | null | undefined;
 }) {
+  const { t } = useTranslation();
   if (!isDocumentBuyerMeta(extraction)) return null;
   return (
     <Alert
@@ -73,12 +80,9 @@ export function DocumentExtractionRecipientMetaAlert({
       data-testid="alert-recipient-is-meta"
     >
       <AlertTriangle className="h-4 w-4" />
-      <AlertTitle className="text-sm">Käufer ist META</AlertTitle>
+      <AlertTitle className="text-sm">{t("documentExtraction.buyerIsMeta.title")}</AlertTitle>
       <AlertDescription className="text-xs text-muted-foreground">
-        In diesem Beleg tritt ein META-Unternehmen als Besteller auf — vermutlich
-        eine Lieferanten-Auftragsbestätigung oder eine interne Bestellung.
-        Bitte prüfen, ob der Beleg überhaupt als Kunden-Bestellung / -Anfrage
-        verarbeitet werden soll.
+        {t("documentExtraction.buyerIsMeta.description")}
       </AlertDescription>
     </Alert>
   );
@@ -89,6 +93,7 @@ export function DocumentExtractionWarningsAlert({
 }: {
   extraction: DocumentExtractionLite | null | undefined;
 }) {
+  const { t } = useTranslation();
   const warnings = extraction?.extraction_meta?.warnings ?? [];
   const totalMatches = extraction?.extraction_meta?.total_matches_calculated;
   const overall = extraction?.extraction_meta?.overall_confidence;
@@ -96,12 +101,12 @@ export function DocumentExtractionWarningsAlert({
   return (
     <Alert className="border-amber-500/40 bg-amber-500/5" data-testid="alert-extraction-meta-warnings">
       <AlertCircle className="h-4 w-4" />
-      <AlertTitle className="text-sm">Extraktion: Warnungen</AlertTitle>
+      <AlertTitle className="text-sm">{t("documentExtraction.warningsTitle")}</AlertTitle>
       <AlertDescription className="text-xs text-muted-foreground space-y-1">
         {overall && (
           <p>
-            Gesamt-Konfidenz der Extraktion: <strong>{overall}</strong>
-            {totalMatches === false && " (Summe weicht von berechneter Summe ab)"}
+            {t("documentExtraction.overallConfidence")} <strong>{overall}</strong>
+            {totalMatches === false && ` ${t("documentExtraction.totalMismatch")}`}
           </p>
         )}
         {warnings.length > 0 && (
@@ -122,6 +127,7 @@ export function LineItemConfidenceWarningBadges({
 }: {
   warnings: string[] | undefined | null;
 }) {
+  const { t } = useTranslation();
   if (!warnings || warnings.length === 0) return null;
   return (
     <div className="flex flex-wrap gap-1 mt-1">
@@ -134,7 +140,7 @@ export function LineItemConfidenceWarningBadges({
           data-testid={`badge-confidence-warning-${code}`}
         >
           <AlertCircle className="w-2.5 h-2.5 mr-1" />
-          {localizeConfidenceWarning(code)}
+          {localizeConfidenceWarning(code, t)}
         </Badge>
       ))}
     </div>
@@ -149,12 +155,13 @@ export function LineItemBuyerSkuLabel({
   buyerSku?: string | null;
   supplierSku?: string | null;
 }) {
+  const { t } = useTranslation();
   const b = buyerSku?.trim();
   const s = supplierSku?.trim();
   if (!b || b === s) return null;
   return (
     <div className="text-[11px] text-muted-foreground mt-0.5" data-testid="text-buyer-sku">
-      Kunden-SKU: <span className="font-mono">{b}</span>
+      {t("documentExtraction.buyerSku")}: <span className="font-mono">{b}</span>
     </div>
   );
 }

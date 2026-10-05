@@ -104,6 +104,10 @@
       "alreadyProcessedOpened": "Diese Nachricht wurde bereits verarbeitet — der vorhandene Entwurf wird geöffnet.",
       "alreadyProcessed": "Diese Nachricht wurde bereits verarbeitet — es wurde kein neuer Entwurf angelegt.",
       "multipleDrafts": "{{count}} Entwürfe aus den Anhängen der E-Mail angelegt."
+    },
+    "fileError": {
+      "staleHandle": "Die ausgewählte Datei kann nicht mehr gelesen werden ({{reason}}). Bitte erneut auswählen.",
+      "cloudUnavailable": "Die Datei „{{fileName}}\" liegt vermutlich noch in der Cloud (OneDrive/iCloud) und konnte nicht heruntergeladen werden ({{reason}}). Bitte im Finder mit Rechtsklick „Immer auf diesem Gerät behalten\" wählen und Upload neu starten."
     }
   },
   "processUpdates": {
@@ -1045,7 +1049,24 @@
     "logoutFailed": "Abmeldung fehlgeschlagen",
     "welcomeBack": "Willkommen zurück!",
     "loggingIn": "Wird angemeldet...",
-    "demoCredentials": "Demo-Anmeldedaten:"
+    "demoCredentials": "Demo-Anmeldedaten:",
+    "reset": {
+      "title": "Notfall-Passwort-Reset",
+      "description": "Setzt das Passwort eines Benutzers mit dem hinterlegten Reset-Schlüssel zurück.",
+      "resetKey": "Reset-Schlüssel",
+      "newPassword": "Neues Passwort",
+      "confirmPassword": "Neues Passwort bestätigen",
+      "usernameRequired": "Benutzername erforderlich",
+      "resetKeyRequired": "Reset-Schlüssel erforderlich",
+      "minLength": "Mindestens 8 Zeichen",
+      "confirmRequired": "Bestätigung erforderlich",
+      "passwordMismatch": "Passwörter stimmen nicht überein",
+      "successTitle": "Passwort zurückgesetzt",
+      "successDescription": "Sie können sich jetzt mit dem neuen Passwort anmelden.",
+      "failedTitle": "Reset fehlgeschlagen",
+      "submitting": "Wird zurückgesetzt…",
+      "submit": "Passwort zurücksetzen"
+    }
   },
   "roles": {
     "admin": "Admin",
@@ -2264,7 +2285,20 @@
     "pluginWarningTitle": "Hinweis: Shopware‑Plugin",
     "pluginWarningBody": "Ein Shopware‑Plugin erzeugt beim Speichern einen 500‑Fehler. Die Änderung wurde dennoch übernommen.",
     "image": "Produktbild",
-    "activeSwitch": "{{name}} aktiv"
+    "activeSwitch": "{{name}} aktiv",
+    "preview3d": {
+      "title": "3D-Vorschau (GLB)",
+      "searching": "3D-Modell wird gesucht…",
+      "loading": "3D-Modell wird geladen…",
+      "noModel": "Kein 3D-Modell (GLB) vorhanden",
+      "noModelHint": "Produktnr. / Manufacturer Nr. für GLB-Match nutzen",
+      "saveTooltip": "GLB-URL in Shopware speichern",
+      "save": "In Shopware speichern",
+      "saving": "Speichern…",
+      "saveSuccess": "GLB wurde in Shopware-Medien hochgeladen.",
+      "saveFailed": "Speichern fehlgeschlagen",
+      "footer": "GLB: {{filename}} · Schwenken & Zoomen mit Maus"
+    }
   },
   "categories": {
     "none": "Keine Kategorien verfügbar",
@@ -2319,7 +2353,12 @@
     "addOneToGroup": "Zur Gruppe hinzufügen",
     "suggestionAddedToGroup": "Der Artikel wurde der gewählten Gruppe hinzugefügt.",
     "suggestionAddError": "Der Artikel konnte der Gruppe nicht hinzugefügt werden.",
-    "recommendedBecause": "Empfohlen, weil"
+    "recommendedBecause": "Empfohlen, weil",
+    "job": {
+      "failed": "Job fehlgeschlagen",
+      "notFound": "Job wurde nicht gefunden",
+      "timeout": "Zeitüberschreitung beim Warten auf den Hintergrundjob"
+    }
   },
   "rules": {
     "title": "Cross-Selling-Regeln",
@@ -2760,7 +2799,9 @@
     "categoryPlaceholder": "z.B. Versand, Support, Allgemein",
     "contentPlaceholder": "Geben Sie den Vorlageninhalt ein...",
     "titleRequired": "Titel ist erforderlich",
-    "contentRequired": "Inhalt ist erforderlich"
+    "contentRequired": "Inhalt ist erforderlich",
+    "editDescription": "Bearbeiten Sie die Vorlage",
+    "createDescription": "Erstellen Sie eine neue Vorlage für häufig verwendete Antworten"
   },
   "ai": {
     "title": "KI-Integration",
@@ -2992,7 +3033,8 @@
     "exportSuccess": "Export erfolgreich",
     "exportDescription": "Tickets wurden als {{format}} exportiert",
     "exportFailed": "Export fehlgeschlagen",
-    "exportError": "Fehler beim Exportieren der Tickets"
+    "exportError": "Fehler beim Exportieren der Tickets",
+    "requiredFieldsMissing": "Bitte füllen Sie alle Pflichtfelder aus"
   },
   "automation": {
     "title": "Automatisierungs-Regeln",
@@ -4214,6 +4256,10 @@
       "barcode": "Barcode / EAN",
       "barcodePlaceholder": "EAN scannen oder eingeben",
       "lookup": "Suchen"
+    },
+    "errors": {
+      "noEmployeeSelected": "Kein Mitarbeiter ausgewählt",
+      "noCustomerSelected": "Kein Kunde ausgewählt"
     }
   },
   "notFound": {
@@ -5985,5 +6031,222 @@
       "zugangstoken_ungultig": "Zugangstoken ungültig.",
       "zusatzleistungen_konnten_nicht_geladen_werden": "Zusatzleistungen konnten nicht geladen werden"
     }
+  },
+  "roomPlanner": {
+    "title": "Raumplanung",
+    "eyebrow": "CPQ · Angebot {{offerId}}",
+    "description": "Regale im Raum platzieren, Wandabstand und Mindestabstand werden automatisch geprüft.",
+    "loading": "Lade Raumplanung…",
+    "missingOfferId": "Kein Angebot angegeben (fehlender Parameter offerId).",
+    "saving": "Speichert…",
+    "saved": "Raum-Layout gespeichert",
+    "walls": {
+      "north": "Nord (oben)",
+      "south": "Süd (unten)",
+      "east": "Ost (rechts)",
+      "west": "West (links)"
+    },
+    "featureTypes": {
+      "door": "Tür",
+      "window": "Fenster",
+      "gate": "Tor"
+    },
+    "toast": {
+      "invalidPositionTitle": "Ungültige Position",
+      "invalidPositionDescription": "Diese Wand ist {{length}} mm lang — Position + Breite passen nicht hinein.",
+      "noSpaceTitle": "Kein Platz gefunden",
+      "noSpaceDescription": "Im Raum ist kein freier Platz für dieses Regal. Bitte Raum vergrößern oder andere Regale verschieben.",
+      "rotationImpossibleTitle": "Drehung nicht möglich",
+      "rotationImpossibleDescription": "An dieser Position würde das Regal nach {{degrees}}° mit Wand oder Nachbarregal kollidieren."
+    },
+    "auto": {
+      "mode": "Anordnung",
+      "modeWalls": "An den Wänden",
+      "modeRows": "In Reihen mit Gang",
+      "aisleWidth": "Gangbreite (mm)",
+      "aisle1000": "1.000 — Personen",
+      "aisle1200": "1.200 — Personen, breit",
+      "aisle1400": "1.400 — Ameise",
+      "aisle2500": "2.500 — Stapler",
+      "aisle3500": "3.500 — Stapler, breit",
+      "wallClearance": "Wandabstand (mm)",
+      "apply": "Automatisch anordnen",
+      "undo": "Rückgängig",
+      "openingsKeptFree": "Türen und Tore bleiben frei.",
+      "noConfigurations": "Keine Konfigurationen im Angebot.",
+      "arranged": "{{count}} Regale angeordnet.",
+      "arranged_one": "{{count}} Regal angeordnet.",
+      "arranged_other": "{{count}} Regale angeordnet.",
+      "arrangedPartial": "{{placed}} von {{total}} angeordnet — für {{unplaced}} war kein Platz."
+    },
+    "violations": {
+      "title": "Ungültige Platzierung",
+      "wallCollision": "„{{name}}“ ragt über die Raumgrenze hinaus.",
+      "minSpacing": "Mindestabstand zwischen „{{nameA}}“ und „{{nameB}}“ unterschritten.",
+      "frontClearance": "Gang zwischen „{{nameA}}“ und „{{nameB}}“ zu schmal: {{actual}} statt {{required}} mm.",
+      "gateBlocked": "„{{name}}“ verstellt die Anfahrzone vor dem Tor.",
+      "doorBlocked": "„{{name}}“ verstellt den Schwenkbereich der Tür."
+    },
+    "dimensions": {
+      "title": "Raummaße",
+      "name": "Bezeichnung",
+      "namePlaceholder": "z. B. Lagerhalle 1",
+      "length": "Länge (mm)",
+      "width": "Breite (mm)",
+      "height": "Höhe (mm)",
+      "minSpacing": "Abstand seitlich/hinten (mm)",
+      "frontClearance": "Gang vor dem Regal (mm)"
+    },
+    "wallFeatures": {
+      "title": "Wandelemente",
+      "description": "Türen, Fenster und Tore — rein stilisiert, ohne Einfluss auf die Platzierungsprüfung. In der Draufsicht per Ziehen entlang der Wand verschiebbar.",
+      "wall": "Wand",
+      "type": "Typ",
+      "offset": "Position ab Wandecke (mm)",
+      "width": "Breite (mm)",
+      "add": "Hinzufügen",
+      "rowMeta": "ab {{offset}} mm, Breite {{width}} mm"
+    },
+    "topView": {
+      "title": "Draufsicht",
+      "description": "▲ markiert die Vorderseite des Regals. Näher als 50cm an einer Wand dreht sich die Vorderseite automatisch von ihr weg.",
+      "rotate90": "Drehen 90°",
+      "rotate180": "Drehen 180°",
+      "removeFromRoom": "Aus Raum entfernen",
+      "fullscreen": "Draufsicht im Vollbild anzeigen",
+      "unplaced": "Noch nicht platziert",
+      "offerHasNoConfigurations": "Dieses Angebot enthält noch keine Konfiguration.",
+      "allPlaced": "Alle Konfigurationen sind platziert.",
+      "place": "Platzieren"
+    },
+    "view3d": {
+      "title": "3D-Ansicht",
+      "description": "Drehbar (Ziehen) und zoombar (Scrollen), zeigt den aktuellen Stand der Planung.",
+      "hide": "3D-Ansicht ausblenden",
+      "show": "3D-Ansicht anzeigen",
+      "noGeometry": "Noch kein platziertes Regal mit vollständigen 3D-Daten. Regale im Raum platzieren, um die 3D-Ansicht zu sehen.",
+      "fullscreen": "3D-Ansicht im Vollbild anzeigen",
+      "loading": "Lade 3D-Ansicht…"
+    }
+  },
+  "draftReview": {
+    "saveAddress": "Adresse speichern",
+    "saved": "Gespeichert",
+    "savedCustomerAndAddress": "Kunden- und Adressdaten wurden übernommen.",
+    "savedAddressAndCustomer": "Adress- und Kundendaten wurden übernommen.",
+    "customerSearchFailed": "Kundensuche fehlgeschlagen",
+    "productSearchFailed": "Produktsuche fehlgeschlagen",
+    "lineUpdated": "Position aktualisiert",
+    "markedAsProduct": "Als Produkt eingestuft.",
+    "emailPlaceholder": "kunde@beispiel.de",
+    "phoneBilling": "Telefon (Rechnungsadresse)",
+    "phoneShipping": "Telefon (Lieferadresse)",
+    "companyShipping": "Firma (Lieferung)",
+    "city": "Ort",
+    "separateShippingAddress": "Abweichende Lieferadresse",
+    "showUnclearInMainTable": "Unklare Treffer in Haupttabelle",
+    "clarificationRequest": "Rückfrage an Kunde",
+    "mainTableEmpty": "Keine Zeilen in der Haupttabelle — siehe „Klärungsbedarf“ unten oder aktivieren Sie „Unklare Treffer in Haupttabelle“.",
+    "positionNumber": "Pos. {{number}}",
+    "alternativesCount": "{{count}} Alternativen",
+    "alternativesCount_one": "{{count}} Alternative",
+    "alternativesCount_other": "{{count}} Alternativen",
+    "learningBlocked": "KI-Lernen: Als Nicht-Produkt markiert",
+    "learningPreferred": "KI-Lernen: Referenz bevorzugt",
+    "removeRow": "Zeile entfernen",
+    "clarificationTitle": "Klärungsbedarf – nicht eindeutig zugeordnet",
+    "clarificationHintOrder": "Bitte prüfen oder an den Kunden zurückfragen.",
+    "clarificationHintOffer": "Diese Zeilen sind keine sicheren Katalogtreffer. Als Produkt bestätigen oder entfernen.",
+    "noCatalogMatch": "Kein Katalogabgleich",
+    "selectAlternative": "Alternative auswählen (bestätigt = 100 %):",
+    "confirmMatch": "Zuordnung bestätigen (100 %)",
+    "markAsProduct": "Doch als Produkt",
+    "discard": "Verwerfen",
+    "convertedBeams": "= {{count}} Holme",
+    "convertedBeams_one": "= {{count}} Holm",
+    "convertedBeams_other": "= {{count}} Holme",
+    "manualAdd": {
+      "title": "Produkt manuell hinzufügen",
+      "hint": "Wenn die KI keine oder falsche Positionen erkannt hat: Produkt suchen und direkt hinzufügen.",
+      "placeholder": "Produktname oder Artikelnummer (mind. 2 Zeichen)",
+      "searching": "Suche läuft…",
+      "noResults": "Keine Produkte gefunden.",
+      "add": "Hinzufügen"
+    },
+    "shelfSystem": {
+      "baseUnit": "Grundregal",
+      "extensionUnits": "+ {{quantity}}x Anbauregal",
+      "totalWidth": "= {{width}}mm Gesamtbreite"
+    },
+    "approval": {
+      "offerCreatedApprovalRequested": "Angebot erstellt. Freigabe wurde angefordert – warten Sie auf die Genehmigung.",
+      "approvalRequiredHint": "Dieser Rabatt erfordert eine Freigabe. Bitte geben Sie eine Begründung ein.",
+      "justificationLabel": "Begründung (Pflichtfeld)",
+      "justificationPlaceholder": "z.B. Strategischer Kunde, Sonderkonditionen vereinbart...",
+      "discountNotAllowed": "Rabatt nicht zulässig",
+      "discountExceedsLimit": "Dieser Rabatt überschreitet die maximal zulässige Grenze. Bitte reduzieren Sie den Rabatt."
+    },
+    "pdf": {
+      "loadFailed": "PDF konnte nicht geladen werden",
+      "downloaded": "PDF heruntergeladen",
+      "downloadedDescription": "Der Angebotsentwurf wurde als PDF gespeichert.",
+      "fileNamePrefix": "Angebotsentwurf"
+    }
+  },
+  "documentExtraction": {
+    "confidenceWarnings": {
+      "descriptionTruncated": "Beschreibung möglicherweise abgeschnitten",
+      "missingUnitPrice": "Einzelpreis fehlt",
+      "missingSupplierSku": "Artikel-Nr. fehlt",
+      "ambiguousQuantity": "Menge mehrdeutig"
+    },
+    "buyerIsMeta": {
+      "title": "Käufer ist META",
+      "description": "In diesem Beleg tritt ein META-Unternehmen als Besteller auf — vermutlich eine Lieferanten-Auftragsbestätigung oder eine interne Bestellung. Bitte prüfen, ob der Beleg überhaupt als Kunden-Bestellung / -Anfrage verarbeitet werden soll.",
+      "listTitle": "Käufer ist META — vermutlich Lieferanten-AB",
+      "offerDraftsList": "{{count}} Belege: META tritt als Besteller auf. Bitte prüfen, ob diese überhaupt als Kunden-Anfrage verarbeitet werden sollen.",
+      "offerDraftsList_one": "{{count}} Beleg: META tritt als Besteller auf. Bitte prüfen, ob dieser überhaupt als Kunden-Anfrage verarbeitet werden soll.",
+      "offerDraftsList_other": "{{count}} Belege: META tritt als Besteller auf. Bitte prüfen, ob diese überhaupt als Kunden-Anfrage verarbeitet werden sollen.",
+      "orderDraftsList": "In {{count}} Belegen tritt META als Besteller auf. Bitte prüfen, ob diese überhaupt als Kunden-Bestellung verarbeitet werden sollen.",
+      "orderDraftsList_one": "In {{count}} Beleg tritt META als Besteller auf. Bitte prüfen, ob dieser überhaupt als Kunden-Bestellung verarbeitet werden soll.",
+      "orderDraftsList_other": "In {{count}} Belegen tritt META als Besteller auf. Bitte prüfen, ob diese überhaupt als Kunden-Bestellung verarbeitet werden sollen."
+    },
+    "warningsTitle": "Extraktion: Warnungen",
+    "overallConfidence": "Gesamt-Konfidenz der Extraktion:",
+    "totalMismatch": "(Summe weicht von berechneter Summe ab)",
+    "buyerSku": "Kunden-SKU"
+  },
+  "clarificationEmail": {
+    "title": "Rückfrage an den Kunden",
+    "description": "Vorschau der Nachricht (kein Versand). Text anpassen und in Ihr Mail-Programm einfügen.",
+    "loading": "Wird geladen…",
+    "to": "Empfänger",
+    "toPlaceholder": "kunde@firma.de",
+    "subject": "Betreff",
+    "message": "Nachricht",
+    "copyToClipboard": "In Zwischenablage kopieren",
+    "copied": "Kopiert",
+    "copiedDescription": "E-Mail-Entwurf wurde in die Zwischenablage kopiert.",
+    "copyFailed": "Kopieren fehlgeschlagen",
+    "copyFailedDescription": "Bitte markieren und manuell kopieren."
+  },
+  "draftCustomerOptions": {
+    "reason": {
+      "customerNumber": "Kundennummer",
+      "companyExactZip": "Firma + PLZ",
+      "companyExact": "Firma",
+      "companyPartial": "Firma ähnlich"
+    },
+    "customerNumberShort": "Kd.-Nr. {{number}}",
+    "candidatesIntro": "Kein Kunde mit dieser E-Mail-Adresse gefunden. Zur Firma passen {{count}} bestehende Shopware-Accounts — bitte den richtigen wählen:",
+    "candidatesIntro_one": "Kein Kunde mit dieser E-Mail-Adresse gefunden. Zur Firma passt {{count}} bestehender Shopware-Account — bitte den richtigen wählen:",
+    "candidatesIntro_other": "Kein Kunde mit dieser E-Mail-Adresse gefunden. Zur Firma passen {{count}} bestehende Shopware-Accounts — bitte den richtigen wählen:"
+  },
+  "offerPreview": {
+    "title": "Interaktive Vorschau",
+    "noOfferSelected": "Kein Angebot ausgewählt.",
+    "loading": "Laden…",
+    "loadError": "Fehler beim Laden.",
+    "backToOffers": "Zurück zu Angeboten"
   }
 }

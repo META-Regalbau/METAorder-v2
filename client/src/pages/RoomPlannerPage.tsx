@@ -12,6 +12,7 @@
  */
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -123,9 +124,6 @@ function FrontMarker({ rect, rotationDeg, scale, color }: { rect: RoomRect; rota
   );
 }
 
-const WALL_LABELS: Record<RoomWall, string> = { north: "Nord (oben)", south: "Süd (unten)", east: "Ost (rechts)", west: "West (links)" };
-const WALL_FEATURE_TYPE_LABELS: Record<RoomWallFeatureType, string> = { door: "Tür", window: "Fenster", gate: "Tor" };
-
 /**
  * Rein stilisierte Darstellung einer Wandöffnung: die Wandlinie wird an der
  * Öffnung "gelöscht" (Überzeichnen mit der Raum-Hintergrundfarbe) und je nach
@@ -226,7 +224,20 @@ function DimensionLine({ x1, y1, x2, y2, label, color = "var(--fg-3)" }: { x1: n
 export default function RoomPlannerPage() {
   const offerId = useMemo(() => new URLSearchParams(window.location.search).get("offerId"), []);
   const { toast } = useToast();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
+
+  const wallLabels: Record<RoomWall, string> = {
+    north: t("roomPlanner.walls.north"),
+    south: t("roomPlanner.walls.south"),
+    east: t("roomPlanner.walls.east"),
+    west: t("roomPlanner.walls.west"),
+  };
+  const wallFeatureTypeLabels: Record<RoomWallFeatureType, string> = {
+    door: t("roomPlanner.featureTypes.door"),
+    window: t("roomPlanner.featureTypes.window"),
+    gate: t("roomPlanner.featureTypes.gate"),
+  };
 
   const { data, isLoading } = useQuery<RoomLayoutResponse>({
     queryKey: [`/api/offers/${offerId}/room-layout`],
@@ -316,8 +327,8 @@ export default function RoomPlannerPage() {
     const wallLen = wallLengthMmFor(newFeatureWall, { lengthMm, widthMm });
     if (newFeatureWidthMm <= 0 || newFeatureOffsetMm < 0 || newFeatureOffsetMm + newFeatureWidthMm > wallLen) {
       toast({
-        title: "Ungültige Position",
-        description: `Diese Wand ist ${wallLen} mm lang — Position + Breite passen nicht hinein.`,
+        title: t("roomPlanner.toast.invalidPositionTitle"),
+        description: t("roomPlanner.toast.invalidPositionDescription", { length: wallLen }),
         variant: "destructive",
       });
       return;
@@ -527,8 +538,8 @@ export default function RoomPlannerPage() {
     const spot = findFreeSpot({ lengthMm, widthMm }, config.footprint, placements, footprintsByConfigKey, minSpacingMm);
     if (!spot) {
       toast({
-        title: "Kein Platz gefunden",
-        description: "Im Raum ist kein freier Platz für dieses Regal. Bitte Raum vergrößern oder andere Regale verschieben.",
+        title: t("roomPlanner.toast.noSpaceTitle"),
+        description: t("roomPlanner.toast.noSpaceDescription"),
         variant: "destructive",
       });
       return;
@@ -575,8 +586,8 @@ export default function RoomPlannerPage() {
     const others = otherRects(selectedKey);
     if (!isPlacementValid({ lengthMm, widthMm }, candidate, footprint, others, minSpacingMm, frontClearanceMm)) {
       toast({
-        title: "Drehung nicht möglich",
-        description: `An dieser Position würde das Regal nach ${deltaDeg}° mit Wand oder Nachbarregal kollidieren.`,
+        title: t("roomPlanner.toast.rotationImpossibleTitle"),
+        description: t("roomPlanner.toast.rotationImpossibleDescription", { degrees: deltaDeg }),
         variant: "destructive",
       });
       return;
@@ -617,16 +628,16 @@ export default function RoomPlannerPage() {
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Raum-Layout gespeichert" });
+      toast({ title: t("roomPlanner.saved") });
       queryClient.invalidateQueries({ queryKey: [`/api/offers/${offerId}/room-layout`] });
     },
-    onError: (e: Error) => toast({ title: "Fehler", description: e.message, variant: "destructive" }),
+    onError: (e: Error) => toast({ title: t("common.error"), description: e.message, variant: "destructive" }),
   });
 
   if (!offerId) {
     return (
       <div className="madmin" style={{ padding: 48 }}>
-        <div className="malert destructive">Kein Angebot angegeben (fehlender Parameter offerId).</div>
+        <div className="malert destructive">{t("roomPlanner.missingOfferId")}</div>
       </div>
     );
   }
@@ -634,7 +645,7 @@ export default function RoomPlannerPage() {
   if (isLoading || !initialized) {
     return (
       <div className="madmin" style={{ padding: 48, color: "var(--fg-3)" }}>
-        Lade Raumplanung…
+        {t("roomPlanner.loading")}
       </div>
     );
   }
@@ -648,7 +659,7 @@ export default function RoomPlannerPage() {
   function anordnenAutomatisch() {
     const items = configurations.map((c) => ({ configKey: c.configKey, footprint: c.footprint }));
     if (items.length === 0) {
-      setAutoHinweis("Keine Konfigurationen im Angebot.");
+      setAutoHinweis(t("roomPlanner.auto.noConfigurations"));
       return;
     }
     const ergebnis = autoLayout(autoMode, { lengthMm, widthMm }, items, {
@@ -663,8 +674,12 @@ export default function RoomPlannerPage() {
     setSelectedKey(null);
     setAutoHinweis(
       ergebnis.unplaced.length === 0
-        ? `${ergebnis.placements.length} Regale angeordnet.`
-        : `${ergebnis.placements.length} von ${items.length} angeordnet — für ${ergebnis.unplaced.length} war kein Platz.`,
+        ? t("roomPlanner.auto.arranged", { count: ergebnis.placements.length })
+        : t("roomPlanner.auto.arrangedPartial", {
+            placed: ergebnis.placements.length,
+            total: items.length,
+            unplaced: ergebnis.unplaced.length,
+          }),
     );
   }
 
@@ -680,18 +695,18 @@ export default function RoomPlannerPage() {
     <div className="madmin" style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
       <div className="mpage-head">
         <div>
-          <span className="eyebrow">CPQ · Angebot {offerId}</span>
-          <h1>Raumplanung</h1>
-          <div className="desc">Regale im Raum platzieren, Wandabstand und Mindestabstand werden automatisch geprüft.</div>
+          <span className="eyebrow">{t("roomPlanner.eyebrow", { offerId })}</span>
+          <h1>{t("roomPlanner.title")}</h1>
+          <div className="desc">{t("roomPlanner.description")}</div>
         </div>
         <button type="button" className="mbtn primary" disabled={saveMutation.isPending || violations.length > 0} onClick={() => saveMutation.mutate()}>
-          {saveMutation.isPending ? "Speichert…" : "Speichern"}
+          {saveMutation.isPending ? t("roomPlanner.saving") : t("common.save")}
         </button>
       </div>
 
       <div className="mcard" style={{ padding: 12, marginBottom: 16, display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end" }}>
         <div>
-          <label className="mlabel" htmlFor="auto-mode">Anordnung</label>
+          <label className="mlabel" htmlFor="auto-mode">{t("roomPlanner.auto.mode")}</label>
           <select
             id="auto-mode"
             className="minput"
@@ -699,13 +714,13 @@ export default function RoomPlannerPage() {
             onChange={(e) => setAutoMode(e.target.value as AutoLayoutMode)}
             data-testid="auto-layout-mode"
           >
-            <option value="walls">An den Wänden</option>
-            <option value="rows">In Reihen mit Gang</option>
+            <option value="walls">{t("roomPlanner.auto.modeWalls")}</option>
+            <option value="rows">{t("roomPlanner.auto.modeRows")}</option>
           </select>
         </div>
         {autoMode === "rows" && (
           <div>
-            <label className="mlabel" htmlFor="auto-aisle">Gangbreite (mm)</label>
+            <label className="mlabel" htmlFor="auto-aisle">{t("roomPlanner.auto.aisleWidth")}</label>
             <select
               id="auto-aisle"
               className="minput"
@@ -713,16 +728,16 @@ export default function RoomPlannerPage() {
               onChange={(e) => setAisleWidthMm(Number(e.target.value))}
               data-testid="auto-layout-aisle"
             >
-              <option value={1000}>1.000 — Personen</option>
-              <option value={1200}>1.200 — Personen, breit</option>
-              <option value={1400}>1.400 — Ameise</option>
-              <option value={2500}>2.500 — Stapler</option>
-              <option value={3500}>3.500 — Stapler, breit</option>
+              <option value={1000}>{t("roomPlanner.auto.aisle1000")}</option>
+              <option value={1200}>{t("roomPlanner.auto.aisle1200")}</option>
+              <option value={1400}>{t("roomPlanner.auto.aisle1400")}</option>
+              <option value={2500}>{t("roomPlanner.auto.aisle2500")}</option>
+              <option value={3500}>{t("roomPlanner.auto.aisle3500")}</option>
             </select>
           </div>
         )}
         <div>
-          <label className="mlabel" htmlFor="auto-wall">Wandabstand (mm)</label>
+          <label className="mlabel" htmlFor="auto-wall">{t("roomPlanner.auto.wallClearance")}</label>
           <input
             id="auto-wall"
             className="minput"
@@ -737,35 +752,48 @@ export default function RoomPlannerPage() {
           />
         </div>
         <button type="button" className="mbtn" onClick={anordnenAutomatisch} data-testid="auto-layout-apply">
-          Automatisch anordnen
+          {t("roomPlanner.auto.apply")}
         </button>
         {placementsBeforeAuto && (
           <button type="button" className="mbtn ghost" onClick={autoRueckgaengig} data-testid="auto-layout-undo">
-            Rückgängig
+            {t("roomPlanner.auto.undo")}
           </button>
         )}
         {autoHinweis && <span className="desc" style={{ alignSelf: "center" }}>{autoHinweis}</span>}
         <span className="desc" style={{ alignSelf: "center", marginLeft: "auto" }}>
-          Türen und Tore bleiben frei.
+          {t("roomPlanner.auto.openingsKeptFree")}
         </span>
       </div>
 
       {violations.length > 0 && (
         <div className="malert warning">
-          <div className="malert-title">Ungültige Platzierung</div>
+          <div className="malert-title">{t("roomPlanner.violations.title")}</div>
           {violations.map((v, i) => (
             <div key={i}>
-              {v.type === "wall-collision" && `„${configurations.find((c) => c.configKey === v.configKey)?.name ?? v.configKey}“ ragt über die Raumgrenze hinaus.`}
+              {v.type === "wall-collision" &&
+                t("roomPlanner.violations.wallCollision", {
+                  name: configurations.find((c) => c.configKey === v.configKey)?.name ?? v.configKey,
+                })}
               {v.type === "min-spacing" &&
-                `Mindestabstand zwischen „${configurations.find((c) => c.configKey === v.configKeyA)?.name ?? v.configKeyA}“ und „${configurations.find((c) => c.configKey === v.configKeyB)?.name ?? v.configKeyB}“ unterschritten.`}
+                t("roomPlanner.violations.minSpacing", {
+                  nameA: configurations.find((c) => c.configKey === v.configKeyA)?.name ?? v.configKeyA,
+                  nameB: configurations.find((c) => c.configKey === v.configKeyB)?.name ?? v.configKeyB,
+                })}
               {v.type === "front-clearance" &&
-                `Gang zwischen „${configurations.find((c) => c.configKey === v.configKeyA)?.name ?? v.configKeyA}“ und „${configurations.find((c) => c.configKey === v.configKeyB)?.name ?? v.configKeyB}“ zu schmal: ${v.actualMm} statt ${v.requiredMm} mm.`}
+                t("roomPlanner.violations.frontClearance", {
+                  nameA: configurations.find((c) => c.configKey === v.configKeyA)?.name ?? v.configKeyA,
+                  nameB: configurations.find((c) => c.configKey === v.configKeyB)?.name ?? v.configKeyB,
+                  actual: v.actualMm,
+                  required: v.requiredMm,
+                })}
               {v.type === "opening-blocked" &&
                 (() => {
                   const f = wallFeatures.find((w) => w.id === v.featureId);
-                  const art = f?.type === "gate" ? "Tor" : f?.type === "door" ? "Tür" : "Öffnung";
                   const name = configurations.find((c) => c.configKey === v.configKey)?.name ?? v.configKey;
-                  return `„${name}“ verstellt ${art === "Tor" ? "die Anfahrzone vor dem Tor" : "den Schwenkbereich der Tür"}.`;
+                  // Tor: Anfahrzone; Tür und sonstige Öffnungen: Schwenkbereich der Tür.
+                  return f?.type === "gate"
+                    ? t("roomPlanner.violations.gateBlocked", { name })
+                    : t("roomPlanner.violations.doorBlocked", { name });
                 })()}
             </div>
           ))}
@@ -775,34 +803,34 @@ export default function RoomPlannerPage() {
       <div className="mcard">
         <div className="mcard-head">
           <div className="mcard-head-left">
-            <p className="mcard-title">Raummaße</p>
+            <p className="mcard-title">{t("roomPlanner.dimensions.title")}</p>
           </div>
         </div>
         <div className="mcard-body">
           <div className="flex items-center gap-4 flex-wrap">
             <div>
-              <label className="mfield-label">Bezeichnung</label>
-              <input className="minput" style={{ width: 200 }} value={roomName} onChange={(e) => setRoomName(e.target.value)} placeholder="z. B. Lagerhalle 1" />
+              <label className="mfield-label">{t("roomPlanner.dimensions.name")}</label>
+              <input className="minput" style={{ width: 200 }} value={roomName} onChange={(e) => setRoomName(e.target.value)} placeholder={t("roomPlanner.dimensions.namePlaceholder")} />
             </div>
             <div>
-              <label className="mfield-label">Länge (mm)</label>
-              <input aria-label="Länge (mm)" type="number" className="minput" style={{ width: 110 }} value={lengthMm} min={100} onChange={(e) => setLengthMm(Math.max(100, Number(e.target.value) || 0))} />
+              <label className="mfield-label">{t("roomPlanner.dimensions.length")}</label>
+              <input aria-label={t("roomPlanner.dimensions.length")} type="number" className="minput" style={{ width: 110 }} value={lengthMm} min={100} onChange={(e) => setLengthMm(Math.max(100, Number(e.target.value) || 0))} />
             </div>
             <div>
-              <label className="mfield-label">Breite (mm)</label>
-              <input aria-label="Breite (mm)" type="number" className="minput" style={{ width: 110 }} value={widthMm} min={100} onChange={(e) => setWidthMm(Math.max(100, Number(e.target.value) || 0))} />
+              <label className="mfield-label">{t("roomPlanner.dimensions.width")}</label>
+              <input aria-label={t("roomPlanner.dimensions.width")} type="number" className="minput" style={{ width: 110 }} value={widthMm} min={100} onChange={(e) => setWidthMm(Math.max(100, Number(e.target.value) || 0))} />
             </div>
             <div>
-              <label className="mfield-label">Höhe (mm)</label>
-              <input aria-label="Höhe (mm)" type="number" className="minput" style={{ width: 110 }} value={heightMm} min={100} onChange={(e) => setHeightMm(Math.max(100, Number(e.target.value) || 0))} />
+              <label className="mfield-label">{t("roomPlanner.dimensions.height")}</label>
+              <input aria-label={t("roomPlanner.dimensions.height")} type="number" className="minput" style={{ width: 110 }} value={heightMm} min={100} onChange={(e) => setHeightMm(Math.max(100, Number(e.target.value) || 0))} />
             </div>
             <div>
-              <label className="mfield-label">Abstand seitlich/hinten (mm)</label>
-              <input aria-label="Abstand seitlich/hinten (mm)" type="number" className="minput" style={{ width: 110 }} value={minSpacingMm} min={0} onChange={(e) => setMinSpacingMm(Math.max(0, Number(e.target.value) || 0))} />
+              <label className="mfield-label">{t("roomPlanner.dimensions.minSpacing")}</label>
+              <input aria-label={t("roomPlanner.dimensions.minSpacing")} type="number" className="minput" style={{ width: 110 }} value={minSpacingMm} min={0} onChange={(e) => setMinSpacingMm(Math.max(0, Number(e.target.value) || 0))} />
             </div>
             <div>
-              <label className="mfield-label">Gang vor dem Regal (mm)</label>
-              <input aria-label="Gang vor dem Regal (mm)"
+              <label className="mfield-label">{t("roomPlanner.dimensions.frontClearance")}</label>
+              <input aria-label={t("roomPlanner.dimensions.frontClearance")}
                 type="number"
                 className="minput"
                 style={{ width: 110 }}
@@ -820,41 +848,41 @@ export default function RoomPlannerPage() {
       <div className="mcard">
         <div className="mcard-head">
           <div className="mcard-head-left">
-            <p className="mcard-title">Wandelemente</p>
-            <span className="mcard-desc">Türen, Fenster und Tore — rein stilisiert, ohne Einfluss auf die Platzierungsprüfung. In der Draufsicht per Ziehen entlang der Wand verschiebbar.</span>
+            <p className="mcard-title">{t("roomPlanner.wallFeatures.title")}</p>
+            <span className="mcard-desc">{t("roomPlanner.wallFeatures.description")}</span>
           </div>
         </div>
         <div className="mcard-body">
           <div className="flex items-center gap-4 flex-wrap">
             <div>
-              <label className="mfield-label">Wand</label>
-              <select aria-label="Wand" className="minput" style={{ width: 140 }} value={newFeatureWall} onChange={(e) => setNewFeatureWall(e.target.value as RoomWall)}>
-                {(Object.keys(WALL_LABELS) as RoomWall[]).map((w) => (
-                  <option key={w} value={w}>{WALL_LABELS[w]}</option>
+              <label className="mfield-label">{t("roomPlanner.wallFeatures.wall")}</label>
+              <select aria-label={t("roomPlanner.wallFeatures.wall")} className="minput" style={{ width: 140 }} value={newFeatureWall} onChange={(e) => setNewFeatureWall(e.target.value as RoomWall)}>
+                {(Object.keys(wallLabels) as RoomWall[]).map((w) => (
+                  <option key={w} value={w}>{wallLabels[w]}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="mfield-label">Typ</label>
-              <select aria-label="Typ" className="minput" style={{ width: 120 }} value={newFeatureType} onChange={(e) => setNewFeatureType(e.target.value as RoomWallFeatureType)}>
-                {(Object.keys(WALL_FEATURE_TYPE_LABELS) as RoomWallFeatureType[]).map((t) => (
-                  <option key={t} value={t}>{WALL_FEATURE_TYPE_LABELS[t]}</option>
+              <label className="mfield-label">{t("roomPlanner.wallFeatures.type")}</label>
+              <select aria-label={t("roomPlanner.wallFeatures.type")} className="minput" style={{ width: 120 }} value={newFeatureType} onChange={(e) => setNewFeatureType(e.target.value as RoomWallFeatureType)}>
+                {(Object.keys(wallFeatureTypeLabels) as RoomWallFeatureType[]).map((ft) => (
+                  <option key={ft} value={ft}>{wallFeatureTypeLabels[ft]}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="mfield-label">Position ab Wandecke (mm)</label>
-              <input aria-label="Position ab Wandecke (mm)" type="number" className="minput" style={{ width: 120 }} value={newFeatureOffsetMm} min={0} onChange={(e) => setNewFeatureOffsetMm(Math.max(0, Number(e.target.value) || 0))} />
+              <label className="mfield-label">{t("roomPlanner.wallFeatures.offset")}</label>
+              <input aria-label={t("roomPlanner.wallFeatures.offset")} type="number" className="minput" style={{ width: 120 }} value={newFeatureOffsetMm} min={0} onChange={(e) => setNewFeatureOffsetMm(Math.max(0, Number(e.target.value) || 0))} />
             </div>
             <div>
-              <label className="mfield-label">Breite (mm)</label>
-              <input aria-label="Breite (mm)" type="number" className="minput" style={{ width: 110 }} value={newFeatureWidthMm} min={1} onChange={(e) => setNewFeatureWidthMm(Math.max(1, Number(e.target.value) || 0))} />
+              <label className="mfield-label">{t("roomPlanner.wallFeatures.width")}</label>
+              <input aria-label={t("roomPlanner.wallFeatures.width")} type="number" className="minput" style={{ width: 110 }} value={newFeatureWidthMm} min={1} onChange={(e) => setNewFeatureWidthMm(Math.max(1, Number(e.target.value) || 0))} />
             </div>
             <button type="button" className="mbtn sm" onClick={commitWallFeature}>
-              {isEditingWallFeature ? "Aktualisieren" : "Hinzufügen"}
+              {isEditingWallFeature ? t("common.update") : t("roomPlanner.wallFeatures.add")}
             </button>
             {isEditingWallFeature && (
-              <button type="button" className="mbtn sm ghost" onClick={resetWallFeatureForm}>Abbrechen</button>
+              <button type="button" className="mbtn sm ghost" onClick={resetWallFeatureForm}>{t("common.cancel")}</button>
             )}
           </div>
 
@@ -871,10 +899,10 @@ export default function RoomPlannerPage() {
                   onClick={() => selectWallFeatureForEdit(f)}
                 >
                   <div className="mrow-main">
-                    <div className="mrow-title">{WALL_FEATURE_TYPE_LABELS[f.type]} — {WALL_LABELS[f.wall]}</div>
-                    <div className="mrow-meta">ab {f.offsetMm} mm, Breite {f.widthMm} mm</div>
+                    <div className="mrow-title">{wallFeatureTypeLabels[f.type]} — {wallLabels[f.wall]}</div>
+                    <div className="mrow-meta">{t("roomPlanner.wallFeatures.rowMeta", { offset: f.offsetMm, width: f.widthMm })}</div>
                   </div>
-                  <button type="button" className="mbtn sm destructive" onClick={(e) => { e.stopPropagation(); removeWallFeature(f.id); }}>Entfernen</button>
+                  <button type="button" className="mbtn sm destructive" onClick={(e) => { e.stopPropagation(); removeWallFeature(f.id); }}>{t("common.remove")}</button>
                 </div>
               ))}
             </div>
@@ -885,23 +913,23 @@ export default function RoomPlannerPage() {
       <div className="mcard">
         <div className="mcard-head">
           <div className="mcard-head-left">
-            <p className="mcard-title">Draufsicht</p>
-            <span className="mcard-desc">▲ markiert die Vorderseite des Regals. Näher als 50cm an einer Wand dreht sich die Vorderseite automatisch von ihr weg.</span>
+            <p className="mcard-title">{t("roomPlanner.topView.title")}</p>
+            <span className="mcard-desc">{t("roomPlanner.topView.description")}</span>
           </div>
           {selectedKey && (
             <div className="flex items-center gap-2">
               <button type="button" className="mbtn sm" onClick={() => rotateSelected(90)} data-testid="rotate-90">
-                Drehen 90°
+                {t("roomPlanner.topView.rotate90")}
               </button>
               <button type="button" className="mbtn sm" onClick={() => rotateSelected(180)} data-testid="rotate-180">
-                Drehen 180°
+                {t("roomPlanner.topView.rotate180")}
               </button>
-              <button type="button" className="mbtn sm destructive" onClick={() => removeFromRoom(selectedKey)}>Aus Raum entfernen</button>
+              <button type="button" className="mbtn sm destructive" onClick={() => removeFromRoom(selectedKey)}>{t("roomPlanner.topView.removeFromRoom")}</button>
             </div>
           )}
         </div>
         <div className="mcard-body" style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-          <FullscreenViewport label="Draufsicht im Vollbild anzeigen" stretchContent={false} style={{ background: "var(--meta-mist)" }}>
+          <FullscreenViewport label={t("roomPlanner.topView.fullscreen")} stretchContent={false} style={{ background: "var(--meta-mist)" }}>
           <svg
             width={svgW}
             height={svgH}
@@ -1026,9 +1054,9 @@ export default function RoomPlannerPage() {
           </FullscreenViewport>
 
           <div style={{ minWidth: 220 }}>
-            <p className="mfield-label" style={{ marginBottom: 8 }}>Noch nicht platziert</p>
+            <p className="mfield-label" style={{ marginBottom: 8 }}>{t("roomPlanner.topView.unplaced")}</p>
             {unplacedConfigurations.length === 0 ? (
-              <div className="mempty">{configurations.length === 0 ? "Dieses Angebot enthält noch keine Konfiguration." : "Alle Konfigurationen sind platziert."}</div>
+              <div className="mempty">{configurations.length === 0 ? t("roomPlanner.topView.offerHasNoConfigurations") : t("roomPlanner.topView.allPlaced")}</div>
             ) : (
               <div className="mlist">
                 {unplacedConfigurations.map((c) => (
@@ -1037,7 +1065,7 @@ export default function RoomPlannerPage() {
                       <div className="mrow-title">{c.name}</div>
                       <div className="mrow-meta">{Math.round(c.footprint.lengthMm)} × {Math.round(c.footprint.depthMm)} mm</div>
                     </div>
-                    <button type="button" className="mbtn sm" onClick={() => addToRoom(c)}>Platzieren</button>
+                    <button type="button" className="mbtn sm" onClick={() => addToRoom(c)}>{t("roomPlanner.topView.place")}</button>
                   </div>
                 ))}
               </div>
@@ -1049,22 +1077,22 @@ export default function RoomPlannerPage() {
       <div className="mcard">
         <div className="mcard-head">
           <div className="mcard-head-left">
-            <p className="mcard-title">3D-Ansicht</p>
-            <span className="mcard-desc">Drehbar (Ziehen) und zoombar (Scrollen), zeigt den aktuellen Stand der Planung.</span>
+            <p className="mcard-title">{t("roomPlanner.view3d.title")}</p>
+            <span className="mcard-desc">{t("roomPlanner.view3d.description")}</span>
           </div>
           <button type="button" className="mbtn sm" onClick={() => setShow3D((v) => !v)}>
-            {show3D ? "3D-Ansicht ausblenden" : "3D-Ansicht anzeigen"}
+            {show3D ? t("roomPlanner.view3d.hide") : t("roomPlanner.view3d.show")}
           </button>
         </div>
         {show3D && (
           <div className="mcard-body tight" style={{ height: 480 }}>
             {placementsWithGeometry.length === 0 ? (
               <div className="mempty" style={{ padding: 16 }}>
-                Noch kein platziertes Regal mit vollständigen 3D-Daten. Regale im Raum platzieren, um die 3D-Ansicht zu sehen.
+                {t("roomPlanner.view3d.noGeometry")}
               </div>
             ) : (
-              <FullscreenViewport label="3D-Ansicht im Vollbild anzeigen" style={{ width: "100%", height: "100%" }}>
-                <Suspense fallback={<div className="mloading" style={{ padding: 16 }}>Lade 3D-Ansicht…</div>}>
+              <FullscreenViewport label={t("roomPlanner.view3d.fullscreen")} style={{ width: "100%", height: "100%" }}>
+                <Suspense fallback={<div className="mloading" style={{ padding: 16 }}>{t("roomPlanner.view3d.loading")}</div>}>
                   <RoomScene3D
                     room={{ lengthMm, widthMm, heightMm }}
                     placements={placementsWithGeometry}

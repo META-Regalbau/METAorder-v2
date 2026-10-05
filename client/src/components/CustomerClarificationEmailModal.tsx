@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +31,7 @@ export function CustomerClarificationEmailModal({
   open,
   onOpenChange,
 }: CustomerClarificationEmailModalProps) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const basePath = kind === "offer" ? "/api/offer-drafts" : "/api/order-drafts";
 
@@ -62,11 +64,11 @@ export function CustomerClarificationEmailModal({
     const text = `An: ${to}\nBetreff: ${subject}\n\n${body}`;
     try {
       await navigator.clipboard.writeText(text);
-      toast({ title: "Kopiert", description: "E-Mail-Entwurf wurde in die Zwischenablage kopiert." });
+      toast({ title: t("clarificationEmail.copied"), description: t("clarificationEmail.copiedDescription") });
     } catch {
       toast({
-        title: "Kopieren fehlgeschlagen",
-        description: "Bitte markieren und manuell kopieren.",
+        title: t("clarificationEmail.copyFailed"),
+        description: t("clarificationEmail.copyFailedDescription"),
         variant: "destructive",
       });
     }
@@ -76,29 +78,27 @@ export function CustomerClarificationEmailModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" data-testid="dialog-clarification-email">
         <DialogHeader>
-          <DialogTitle>Rückfrage an den Kunden</DialogTitle>
-          <DialogDescription>
-            Vorschau der Nachricht (kein Versand). Text anpassen und in Ihr Mail-Programm einfügen.
-          </DialogDescription>
+          <DialogTitle>{t("clarificationEmail.title")}</DialogTitle>
+          <DialogDescription>{t("clarificationEmail.description")}</DialogDescription>
         </DialogHeader>
-        {isLoading && <p className="text-sm text-muted-foreground">Wird geladen…</p>}
+        {isLoading && <p className="text-sm text-muted-foreground">{t("clarificationEmail.loading")}</p>}
         {error && (
           <p className="text-sm text-destructive">{(error as Error).message}</p>
         )}
         {!isLoading && !error && (
           <div className="space-y-3">
             <div>
-              <Label htmlFor="clar-to">Empfänger</Label>
+              <Label htmlFor="clar-to">{t("clarificationEmail.to")}</Label>
               <Input
                 id="clar-to"
                 value={to}
                 onChange={(e) => setTo(e.target.value)}
-                placeholder="kunde@firma.de"
+                placeholder={t("clarificationEmail.toPlaceholder")}
                 data-testid="input-clarification-to"
               />
             </div>
             <div>
-              <Label htmlFor="clar-subject">Betreff</Label>
+              <Label htmlFor="clar-subject">{t("clarificationEmail.subject")}</Label>
               <Input
                 id="clar-subject"
                 value={subject}
@@ -107,7 +107,7 @@ export function CustomerClarificationEmailModal({
               />
             </div>
             <div>
-              <Label htmlFor="clar-body">Nachricht</Label>
+              <Label htmlFor="clar-body">{t("clarificationEmail.message")}</Label>
               <Textarea
                 id="clar-body"
                 value={body}
@@ -121,11 +121,11 @@ export function CustomerClarificationEmailModal({
         )}
         <DialogFooter className="gap-2 sm:gap-0">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Schließen
+            {t("common.close")}
           </Button>
           <Button type="button" onClick={handleCopy} disabled={isLoading || !!error}>
             <Copy className="w-4 h-4 mr-2" />
-            In Zwischenablage kopieren
+            {t("clarificationEmail.copyToClipboard")}
           </Button>
         </DialogFooter>
       </DialogContent>

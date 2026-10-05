@@ -394,7 +394,7 @@ export default function ProductDetailModal({
                 </div>
               )}
               <div className={!product.imageUrl ? "md:col-span-2" : ""}>
-                <p className="text-xs text-muted-foreground mb-1.5">3D-Vorschau (GLB)</p>
+                <p className="text-xs text-muted-foreground mb-1.5">{t("products.preview3d.title")}</p>
                 <Product3DPreview
                   productNumber={product.productNumber}
                   manufacturerNumber={product.manufacturerNumber}
