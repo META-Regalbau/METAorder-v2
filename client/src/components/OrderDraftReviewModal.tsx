@@ -78,6 +78,7 @@ import {
 } from "@/components/DraftCustomerOptions";
 import { DraftReferencesCard, type DraftDocumentReferencesLite } from "@/components/DraftReferencesCard";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 interface CrossSellingSuggestion {
   forProduct: {
     id: string;
@@ -241,6 +242,7 @@ export function OrderDraftReviewModal({
   onOpenChange,
   onUpdate,
 }: OrderDraftReviewModalProps) {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const { toast } = useToast();
   const [editedData, setEditedData] = useState(draft.extractedData);
@@ -1413,12 +1415,12 @@ export function OrderDraftReviewModal({
                                 <div className="text-sm text-muted-foreground font-mono" data-testid={`text-matched-number-${index}`}>
                                   {item.matchedProduct?.productNumber ??
                                     item.alternativeMatches?.find((a) => a.id === currentProductId)?.productNumber}
-                                  {' • '}€
-                                  {(
+                                  {' • '}
+                                  {fmt.currency(
                                     item.matchedProduct?.price ??
-                                    item.alternativeMatches?.find((a) => a.id === currentProductId)?.price ??
-                                    0
-                                  ).toFixed(2)}
+                                      item.alternativeMatches?.find((a) => a.id === currentProductId)?.price ??
+                                      0,
+                                  )}
                                 </div>
                                 {"catalogProductInactive" in item && (item as { catalogProductInactive?: boolean }).catalogProductInactive ? (
                                   <Badge
@@ -1477,7 +1479,7 @@ export function OrderDraftReviewModal({
                                               <p className="text-xs text-muted-foreground font-mono" data-testid={`alt-number-${index}-${altIndex}`}>
                                                 {alt.productNumber}
                                                 {alt.name && <span className="font-normal"> – {alt.name}</span>}
-                                                {' • '}€{alt.price.toFixed(2)}
+                                                {' • '}{fmt.currency(alt.price)}
                                               </p>
                                             )}
                                           </div>
@@ -1821,7 +1823,7 @@ export function OrderDraftReviewModal({
                             </div>
                             <div className="flex items-center justify-between">
                               <div className="text-sm font-medium">
-                                €{product.price.toFixed(2)}
+                                {fmt.currency(product.price)}
                               </div>
                               {product.stock > 0 ? (
                                 <Badge variant="default" className="bg-green-600 text-xs">

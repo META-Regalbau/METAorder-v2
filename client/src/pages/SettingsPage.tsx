@@ -20,6 +20,7 @@ import { queryClient } from "@/lib/queryClient";
 import type { DunningSettings, InvoiceAutomationSettings, EmailInboundSettings, EmailOutboundSettings, EmailRoutingRule, EmailRoutingSettings, GoogleAdsSettings, GoogleAnalyticsSettings, M365Settings, ProformaNumberRangeSettings, TicketCategory, TicketPriority } from "@shared/schema";
 import type { B2BEntityMapping } from "@shared/b2bEntityMapping";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 type OfferStatusMapping = {
   draft: { id?: string | null; label: string };
   submitted: { id?: string | null; label: string };
@@ -2228,6 +2229,7 @@ function TicketsTab() {
 }
 
 function EmailTab() {
+  const fmt = useLocaleFormat();
   return (
     <div className="space-y-6">
       <Card className="p-6">
@@ -2369,7 +2371,7 @@ function EmailTab() {
                       <div className="text-xs text-muted-foreground">{deviceCodeInfo.message}</div>
                     )}
                     <div className="text-xs text-muted-foreground">
-                      {t("settings.m365.deviceCodeExpires")}: {new Date(deviceCodeInfo.expiresAt).toLocaleString()}
+                      {t("settings.m365.deviceCodeExpires")}: {fmt.dateTime(deviceCodeInfo.expiresAt)}
                     </div>
                   </div>
                 )}

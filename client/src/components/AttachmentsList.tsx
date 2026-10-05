@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useState } from "react";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 interface AttachmentsListProps {
   ticketId: string;
   attachments: TicketAttachment[];
@@ -24,6 +25,7 @@ interface AttachmentsListProps {
 }
 
 export function AttachmentsList({ ticketId, attachments, canDelete = false }: AttachmentsListProps) {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const { toast } = useToast();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -124,7 +126,7 @@ export function AttachmentsList({ ticketId, attachments, canDelete = false }: At
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">{attachment.fileName}</p>
               <p className="text-xs text-muted-foreground">
-                {(attachment.fileSize / 1024).toFixed(1)} KB
+                {fmt.decimal(attachment.fileSize / 1024, 1)} KB
               </p>
             </div>
             <div className="flex items-center gap-1">

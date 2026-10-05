@@ -23,6 +23,7 @@ import {
   type CommercialUnifiedUploadResult,
 } from "@/lib/commercialUnifiedDraftUpload";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 export type { CommercialUnifiedUploadResult };
 
 function pageContextFromI18nPrefix(i18nPrefix: string): "dashboard" | "offer" | "order" {
@@ -49,6 +50,7 @@ export function CommercialUnifiedDraftUploadDialog({
   onSuccess,
   dataTestId = "dialog-commercial-unified-upload",
 }: CommercialUnifiedDraftUploadDialogProps) {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const { toast } = useToast();
   const inputId = useId();
@@ -299,7 +301,7 @@ export function CommercialUnifiedDraftUploadDialog({
                     {selectedFile.name}
                   </p>
                   <p className="text-sm text-muted-foreground" data-testid="text-selected-filesize">
-                    {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                    {fmt.decimal(selectedFile.size / 1024 / 1024, 2)} MB
                   </p>
                 </div>
                 <Button

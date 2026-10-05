@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Pencil, Plus, Trash2, Megaphone } from "lucide-react";
@@ -20,6 +19,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import type { Role } from "@shared/schema";
 import ProcessUpdateDialog from "@/components/ProcessUpdateDialog";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 interface ProcessUpdate {
   id: string;
   title: string;
@@ -35,6 +35,7 @@ interface ProcessUpdatesWidgetProps {
 }
 
 export default function ProcessUpdatesWidget({ userPermissions }: ProcessUpdatesWidgetProps) {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -117,7 +118,7 @@ export default function ProcessUpdatesWidget({ userPermissions }: ProcessUpdates
                     <div className="mrow-meta">
                       <span>
                         {t("processUpdates.effectiveDate")}{" "}
-                        {format(new Date(update.effectiveDate), "dd.MM.yyyy")}
+                        {fmt.date(update.effectiveDate)}
                       </span>
                     </div>
                   </div>
@@ -202,10 +203,7 @@ export default function ProcessUpdatesWidget({ userPermissions }: ProcessUpdates
             <DialogTitle>{selectedUpdate?.title}</DialogTitle>
             <DialogDescription>
               {selectedUpdate?.effectiveDate
-                ? `${t("processUpdates.effectiveDate")} ${format(
-                    new Date(selectedUpdate.effectiveDate),
-                    "dd.MM.yyyy"
-                  )}`
+                ? `${t("processUpdates.effectiveDate")} ${fmt.date(selectedUpdate.effectiveDate)}`
                 : ""}
             </DialogDescription>
           </DialogHeader>

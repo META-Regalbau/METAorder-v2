@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "react-i18next";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 interface ExecutionHistoryDialogProps {
   ruleId: string;
   onClose: () => void;
@@ -28,6 +29,7 @@ type AutomationExecution = {
 };
 
 export function ExecutionHistoryDialog({ ruleId, onClose }: ExecutionHistoryDialogProps) {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
 
   const { data: executions = [], isLoading } = useQuery<AutomationExecution[]>({
@@ -73,7 +75,7 @@ export function ExecutionHistoryDialog({ ruleId, onClose }: ExecutionHistoryDial
                           {success ? t('automation.success') : t('automation.failed')}
                         </Badge>
                         <span className="text-xs text-muted-foreground">
-                          {new Date(execution.executedAt).toLocaleString()}
+                          {fmt.dateTime(execution.executedAt)}
                         </span>
                         {result?.entity?.number && (
                           <span className="text-xs text-muted-foreground">

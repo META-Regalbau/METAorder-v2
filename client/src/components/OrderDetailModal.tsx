@@ -28,6 +28,7 @@ import type { Order, OrderAddress, Ticket as TicketType, Role } from "@shared/sc
 import { useTranslation } from "react-i18next";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 /** Versanddatum fuer <input type="date">: Zeitstempel (Status-Historie in Shopware) als lokaler Tag. */
 function toDateInputValue(value?: string): string {
   if (!value) return "";
@@ -112,6 +113,7 @@ export default function OrderDetailModal({
   onUpdateShipping,
   onUpdateDocuments,
 }: OrderDetailModalProps) {
+  const fmt = useLocaleFormat();
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const [isCreateTicketDialogOpen, setIsCreateTicketDialogOpen] = useState(false);
@@ -749,8 +751,8 @@ export default function OrderDetailModal({
                 <div>
                   <p className="text-sm text-muted-foreground">{t('orderDetail.totalAmount')}</p>
                   <div className="space-y-1">
-                    <p className="font-medium text-lg" data-testid="text-total-amount">€{order.totalAmount.toFixed(2)} <span className="text-xs text-muted-foreground">{t('orderDetail.gross')}</span></p>
-                    <p className="text-sm text-muted-foreground" data-testid="text-net-total-amount">€{(order.netTotalAmount || 0).toFixed(2)} <span className="text-xs">{t('orderDetail.net')}</span></p>
+                    <p className="font-medium text-lg" data-testid="text-total-amount">{fmt.currency(order.totalAmount)} <span className="text-xs text-muted-foreground">{t('orderDetail.gross')}</span></p>
+                    <p className="text-sm text-muted-foreground" data-testid="text-net-total-amount">{fmt.currency(order.netTotalAmount || 0)} <span className="text-xs">{t('orderDetail.net')}</span></p>
                   </div>
                 </div>
               </div>
@@ -946,8 +948,8 @@ export default function OrderDetailModal({
                   />
                   {order.profitability.db1Total != null ? (
                     <p className="text-xs text-muted-foreground font-mono tabular-nums">
-                      {t("orderDetail.profitability.db1Total")}: €
-                      {order.profitability.db1Total.toFixed(2)}
+                      {t("orderDetail.profitability.db1Total")}:{" "}
+                      {fmt.currency(order.profitability.db1Total)}
                     </p>
                   ) : null}
                   <p className="text-xs text-muted-foreground w-full">
@@ -978,19 +980,19 @@ export default function OrderDetailModal({
                         <p className="text-xs text-muted-foreground">{t('orderDetail.taxRate')}: {item.taxRate}%</p>
                         {item.herstellpreisNet != null ? (
                           <p className="text-xs text-muted-foreground mt-1">
-                            {t('orderDetail.profitability.herstellpreis')}: €{item.herstellpreisNet.toFixed(2)}
+                            {t('orderDetail.profitability.herstellpreis')}: {fmt.currency(item.herstellpreisNet)}
                           </p>
                         ) : null}
                       </div>
                       <div className="text-right">
                         <div className="space-y-1">
                           <div>
-                            <p className="font-medium">€{item.total.toFixed(2)} <span className="text-xs text-muted-foreground">{t('orderDetail.gross')}</span></p>
-                            <p className="text-sm text-muted-foreground">€{item.netTotal.toFixed(2)} <span className="text-xs">{t('orderDetail.net')}</span></p>
+                            <p className="font-medium">{fmt.currency(item.total)} <span className="text-xs text-muted-foreground">{t('orderDetail.gross')}</span></p>
+                            <p className="text-sm text-muted-foreground">{fmt.currency(item.netTotal)} <span className="text-xs">{t('orderDetail.net')}</span></p>
                           </div>
                           <div className="text-sm">
-                            <p className="text-muted-foreground">€{item.price.toFixed(2)} {t('orderDetail.each')} <span className="text-xs">({t('orderDetail.gross')})</span></p>
-                            <p className="text-xs text-muted-foreground">€{item.netPrice.toFixed(2)} {t('orderDetail.each')} ({t('orderDetail.net')})</p>
+                            <p className="text-muted-foreground">{fmt.currency(item.price)} {t('orderDetail.each')} <span className="text-xs">({t('orderDetail.gross')})</span></p>
+                            <p className="text-xs text-muted-foreground">{fmt.currency(item.netPrice)} {t('orderDetail.each')} ({t('orderDetail.net')})</p>
                           </div>
                           {item.marginPercent != null || item.marginOnRevenuePercent != null ? (
                             <div className="pt-1">
@@ -1001,7 +1003,7 @@ export default function OrderDetailModal({
                               />
                               {item.db1Abs != null ? (
                                 <p className="text-xs text-muted-foreground font-mono tabular-nums mt-0.5">
-                                  {t("orderDetail.profitability.db1Line")}: €{item.db1Abs.toFixed(2)}
+                                  {t("orderDetail.profitability.db1Line")}: {fmt.currency(item.db1Abs)}
                                 </p>
                               ) : null}
                             </div>

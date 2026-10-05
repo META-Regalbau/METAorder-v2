@@ -25,6 +25,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 interface PriceCheckProduct {
   id: string;
   productNumber: string;
@@ -45,17 +46,6 @@ type Verdict = "green" | "red" | "none";
 const PAGE_SIZE = 50;
 const ALL = "__all__";
 const DEFAULT_THRESHOLD = 7;
-
-const currencyFormatter = new Intl.NumberFormat("de-DE", {
-  style: "currency",
-  currency: "EUR",
-});
-
-const percentFormatter = new Intl.NumberFormat("de-DE", {
-  style: "percent",
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-});
 
 function escapeCsv(value: unknown): string {
   const s = String(value ?? "");
@@ -519,6 +509,7 @@ export default function PriceCheckPage() {
 }
 
 function PriceRowView({ row }: { row: PriceRow }) {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const dotClass =
     row.verdict === "green"
@@ -536,15 +527,15 @@ function PriceRowView({ row }: { row: PriceRow }) {
           <div className="text-xs text-muted-foreground">{row.manufacturerNumber}</div>
         ) : null}
       </TableCell>
-      <TableCell className="text-right font-mono">{currencyFormatter.format(row.priceNet)}</TableCell>
+      <TableCell className="text-right font-mono">{fmt.currency(row.priceNet)}</TableCell>
       <TableCell className="text-right font-mono">
-        {row.herstellpreisNet != null ? currencyFormatter.format(row.herstellpreisNet) : "—"}
+        {row.herstellpreisNet != null ? fmt.currency(row.herstellpreisNet) : "—"}
       </TableCell>
       <TableCell className="text-right font-mono">
-        {row.diffAbs != null ? currencyFormatter.format(row.diffAbs) : "—"}
+        {row.diffAbs != null ? fmt.currency(row.diffAbs) : "—"}
       </TableCell>
       <TableCell className="text-right font-mono">
-        {row.diffPct != null ? percentFormatter.format(row.diffPct / 100) : "—"}
+        {row.diffPct != null ? fmt.percent(row.diffPct / 100) : "—"}
       </TableCell>
       <TableCell>
         <span className="inline-flex items-center gap-2">

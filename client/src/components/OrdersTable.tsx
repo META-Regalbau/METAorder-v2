@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import SortableTableHead from "@/components/SortableTableHead";
 import TrackingCodes from "@/components/TrackingCodes";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 interface OrdersTableProps {
   orders: Order[];
   onViewOrder: (order: Order) => void;
@@ -58,6 +59,7 @@ export default function OrdersTable({
   onSendInvoice,
   sendingInvoiceOrderId,
 }: OrdersTableProps) {
+  const fmt = useLocaleFormat();
   const { t, i18n } = useTranslation();
   
   const showCheckboxes = !!onToggleOrder;
@@ -240,8 +242,8 @@ export default function OrdersTable({
               </TableCell>
               <TableCell className="text-right">
                 <div>
-                  <p className="font-medium">€{(order.totalAmount || 0).toFixed(2)}</p>
-                  <p className="text-sm text-muted-foreground">€{(order.netTotalAmount || 0).toFixed(2)} <span className="text-xs">{t('orderDetail.net')}</span></p>
+                  <p className="font-medium">{fmt.currency(order.totalAmount || 0)}</p>
+                  <p className="text-sm text-muted-foreground">{fmt.currency(order.netTotalAmount || 0)} <span className="text-xs">{t('orderDetail.net')}</span></p>
                 </div>
               </TableCell>
               <TableCell className="text-right">

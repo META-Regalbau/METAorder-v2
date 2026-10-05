@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 type Tier = {
   label: string | null;
   discountPercent: number;
@@ -45,12 +46,10 @@ type Response = {
   rows: Row[];
 };
 
-const pct = (v: number | null | undefined) =>
-  v == null ? "—" : `${v.toLocaleString("de-DE", { maximumFractionDigits: 1 })} %`;
-const eur = (v: number | null | undefined) =>
-  v == null ? "—" : v.toLocaleString("de-DE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
-
 export default function DiscountOverviewPage() {
+  const fmt = useLocaleFormat();
+  const pct = (v: number | null | undefined) => (v == null ? "—" : fmt.percentValue(v, 1));
+  const eur = (v: number | null | undefined) => (v == null ? "—" : fmt.currencyWhole(v));
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [only, setOnly] = useState("with-discount");
@@ -134,10 +133,10 @@ export default function DiscountOverviewPage() {
       {summary ? (
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
           {[
-            { label: t("discounts.kpi.customers"), value: summary.matched.toLocaleString("de-DE") },
-            { label: t("discounts.kpi.individual"), value: summary.withIndividualPrices.toLocaleString("de-DE") },
-            { label: t("discounts.kpi.standard"), value: summary.withStandardDiscount.toLocaleString("de-DE") },
-            { label: t("discounts.kpi.tiers"), value: summary.withTiers.toLocaleString("de-DE") },
+            { label: t("discounts.kpi.customers"), value: fmt.integer(summary.matched) },
+            { label: t("discounts.kpi.individual"), value: fmt.integer(summary.withIndividualPrices) },
+            { label: t("discounts.kpi.standard"), value: fmt.integer(summary.withStandardDiscount) },
+            { label: t("discounts.kpi.tiers"), value: fmt.integer(summary.withTiers) },
             { label: t("discounts.kpi.median"), value: pct(summary.medianDiscount) },
             { label: t("discounts.kpi.max"), value: pct(summary.maxDiscount) },
           ].map((k) => (
@@ -161,7 +160,7 @@ export default function DiscountOverviewPage() {
                 <div className="flex-1 h-4 bg-muted rounded-sm overflow-hidden">
                   <div className="h-full bg-primary/70" style={{ width: `${b.anteil * 100}%` }} />
                 </div>
-                <span className="w-16 tabular-nums">{b.n.toLocaleString("de-DE")}</span>
+                <span className="w-16 tabular-nums">{fmt.integer(b.n)}</span>
               </div>
             ))}
           </CardContent>
@@ -237,7 +236,7 @@ export default function DiscountOverviewPage() {
                         </TableCell>
                         <TableCell className="text-right tabular-nums">{pct(r.standardDiscountPercent)}</TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {r.individualPriceCount > 0 ? r.individualPriceCount.toLocaleString("de-DE") : "—"}
+                          {r.individualPriceCount > 0 ? fmt.integer(r.individualPriceCount) : "—"}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">{pct(r.priceListDiscountPercent)}</TableCell>
                         <TableCell className="text-right tabular-nums font-medium">
@@ -290,7 +289,7 @@ export default function DiscountOverviewPage() {
           )}
           {summary?.syncedAt ? (
             <p className="text-xs text-muted-foreground mt-4">
-              {t("discounts.syncedAt", { date: new Date(summary.syncedAt).toLocaleString("de-DE") })}
+              {t("discounts.syncedAt", { date: fmt.dateTime(summary.syncedAt) })}
             </p>
           ) : null}
         </CardContent>

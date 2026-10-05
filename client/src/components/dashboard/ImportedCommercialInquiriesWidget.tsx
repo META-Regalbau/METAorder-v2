@@ -1,8 +1,6 @@
 import { useState, type ComponentProps } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { format } from "date-fns";
-import { de, enUS, es } from "date-fns/locale";
 import { Eye, FileText, Inbox, ShoppingCart, Sparkles } from "lucide-react";
 import { Link } from "wouter";
 import type { Role } from "@shared/schema";
@@ -15,6 +13,7 @@ import {
   isLowOverallMatchingConfidence,
 } from "@/lib/commercialDraftConfidence";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 type OfferReviewDraft = ComponentProps<typeof OfferDraftReviewModal>["draft"];
 type OrderReviewDraft = ComponentProps<typeof OrderDraftReviewModal>["draft"];
 
@@ -54,7 +53,8 @@ function statusTranslationKey(status: string): string {
 export default function ImportedCommercialInquiriesWidget({
   userPermissions,
 }: ImportedCommercialInquiriesWidgetProps) {
-  const { t, i18n } = useTranslation();
+  const fmt = useLocaleFormat();
+  const { t } = useTranslation();
   const [reviewOffer, setReviewOffer] = useState<OfferReviewDraft | null>(null);
   const [reviewOrder, setReviewOrder] = useState<OrderReviewDraft | null>(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
@@ -67,16 +67,6 @@ export default function ImportedCommercialInquiriesWidget({
     retry: false,
   });
 
-  const getDateLocale = () => {
-    switch (i18n.language) {
-      case "de":
-        return de;
-      case "es":
-        return es;
-      default:
-        return enUS;
-    }
-  };
 
   const getStatusBadge = (item: ImportedInquirySummary) => {
     const ns = item.kind === "order" ? "orderDrafts.status" : "offerDrafts.status";
@@ -223,9 +213,7 @@ export default function ImportedCommercialInquiriesWidget({
                       <div className="mrow-meta">
                         <span>{customerLabel}</span>
                         <span>
-                          {format(new Date(item.createdAt), "dd.MM.yyyy HH:mm", {
-                            locale: getDateLocale(),
-                          })}
+                          {fmt.dateTime(item.createdAt)}
                         </span>
                         <span>
                           {t("dashboard.importedInquiries.lineItems", {

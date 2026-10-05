@@ -17,6 +17,7 @@ import type { DiscountRequest, OrderAssignment, Role } from "@shared/schema";
 import CustomerDetailModal, { type CustomerDetailTab } from "@/components/CustomerDetailModal";
 import { SalesChannelSelector } from "@/components/SalesChannelSelector";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 type CrmCustomer = {
   id: string | null;
   name: string;
@@ -53,6 +54,7 @@ interface CrmPageProps {
 }
 
 export default function CrmPage({ userPermissions, userRole, userSalesChannelIds }: CrmPageProps) {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
@@ -492,7 +494,7 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
                           <TableCell className="text-sm">
                             <div>{customer.lastOrderNumber || "—"}</div>
                             <div className="text-xs text-muted-foreground">
-                              {customer.lastOrderDate ? new Date(customer.lastOrderDate).toLocaleDateString() : "—"}
+                              {customer.lastOrderDate ? fmt.date(customer.lastOrderDate) : "—"}
                             </div>
                           </TableCell>
                           <TableCell className="text-sm">
@@ -513,7 +515,7 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
                                 </Badge>
                                 <div className="mt-1 text-xs text-muted-foreground">
                                   {customer.lastInteractionAt
-                                    ? new Date(customer.lastInteractionAt).toLocaleDateString()
+                                    ? fmt.date(customer.lastInteractionAt)
                                     : "—"}
                                 </div>
                               </button>
@@ -528,14 +530,14 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
                                 className="tabular-nums"
                                 title={t("crm.customers.additionalDiscountHint")}
                               >
-                                bis {additionalDiscountPercent(customer)!.toLocaleString("de-DE")} %
+                                {t("crm.customers.upToPercent", { value: fmt.percentValue(additionalDiscountPercent(customer)!) })}
                               </Badge>
                             ) : (
                               <span className="text-muted-foreground">—</span>
                             )}
                           </TableCell>
                           <TableCell className="text-right">
-                            <div className="font-medium">€{customer.totalRevenue.toFixed(2)}</div>
+                            <div className="font-medium">{fmt.currency(customer.totalRevenue)}</div>
                             <div className="text-xs text-muted-foreground">{t("crm.customers.orders", { count: customer.totalOrders })}</div>
                           </TableCell>
                           <TableCell className="text-right">
@@ -693,7 +695,7 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
                           <TableCell>
                             {request.discountType === "percent"
                               ? `${request.discountValue}%`
-                              : `€${Number(request.discountValue).toFixed(2)}`}
+                              : `${fmt.currency(Number(request.discountValue))}`}
                           </TableCell>
                           <TableCell>
                             <Badge variant={request.status === "approved" ? "success" : request.status === "rejected" ? "destructive" : "warning"}>

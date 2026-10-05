@@ -40,6 +40,7 @@ import {
 import HerstellMarginIndicator from "@/components/HerstellMarginIndicator";
 import type { Order, OrderStatus } from "@shared/schema";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 type AnalysisResponse = {
   orders: Order[];
   summary: {
@@ -64,16 +65,6 @@ type AnalysisResponse = {
   profitabilityMinMarginPercent?: number;
 };
 
-const currencyFormatter = new Intl.NumberFormat("de-DE", {
-  style: "currency",
-  currency: "EUR",
-});
-
-const percentFormatter = new Intl.NumberFormat("de-DE", {
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-});
-
 const PIE_COLORS = {
   green: "#16a34a",
   red: "#dc2626",
@@ -87,13 +78,14 @@ function escapeCsv(value: unknown): string {
 
 
 function CompactOrderRow({ order }: { order: Order }) {
+  const fmt = useLocaleFormat();
   const p = order.profitability;
   return (
     <TableRow>
       <TableCell className="font-mono">{order.orderNumber}</TableCell>
       <TableCell>{order.customerName}</TableCell>
       <TableCell className="text-right font-mono tabular-nums">
-        {p?.db1Total != null ? currencyFormatter.format(p.db1Total) : "—"}
+        {p?.db1Total != null ? fmt.currency(p.db1Total) : "—"}
       </TableCell>
       <TableCell className="text-right">
         {p ? (
@@ -111,6 +103,7 @@ function CompactOrderRow({ order }: { order: Order }) {
 }
 
 export default function OrderProfitabilityAnalysisPage() {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -336,12 +329,12 @@ export default function OrderProfitabilityAnalysisPage() {
               <div>
                 <p className="text-sm text-muted-foreground">{t("orderProfitabilityAnalysis.kpi.totalDb1")}</p>
                 <p className="text-2xl font-semibold tabular-nums">
-                  {summary.totalDb1 != null ? currencyFormatter.format(summary.totalDb1) : "—"}
+                  {summary.totalDb1 != null ? fmt.currency(summary.totalDb1) : "—"}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
                   {summary.avgDb1 != null
                     ? t("orderProfitabilityAnalysis.kpi.avgDb1Hint", {
-                        amount: currencyFormatter.format(summary.avgDb1),
+                        amount: fmt.currency(summary.avgDb1),
                       })
                     : t("orderProfitabilityAnalysis.kpi.noMarginData")}
                 </p>
@@ -350,13 +343,13 @@ export default function OrderProfitabilityAnalysisPage() {
                 <p className="text-sm text-muted-foreground">{t("orderProfitabilityAnalysis.kpi.avgMarginOnCost")}</p>
                 <p className="text-2xl font-semibold tabular-nums">
                   {summary.avgMarginPercent != null
-                    ? `${percentFormatter.format(summary.avgMarginPercent)} %`
+                    ? fmt.percent(summary.avgMarginPercent / 100)
                     : "—"}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
                   {summary.medianMarginPercent != null
                     ? t("orderProfitabilityAnalysis.kpi.medianOnCostHint", {
-                        median: percentFormatter.format(summary.medianMarginPercent),
+                        median: fmt.decimal(summary.medianMarginPercent, 1),
                       })
                     : t("orderProfitabilityAnalysis.kpi.noMarginData")}
                 </p>
@@ -436,7 +429,7 @@ export default function OrderProfitabilityAnalysisPage() {
                   <div className="flex justify-between border-t pt-3">
                     <span>{t("orderProfitabilityAnalysis.stats.totalHerstellkosten")}</span>
                     <span className="font-mono">
-                      {currencyFormatter.format(summary.totalHerstellkosten)}
+                      {fmt.currency(summary.totalHerstellkosten)}
                     </span>
                   </div>
                 ) : null}

@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiRequest } from "@/lib/queryClient";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
+import type { LocaleFormatters } from "@/lib/localeFormat";
 type SemanticResult = {
   sourceType: string;
   sourceId: string;
@@ -88,12 +90,12 @@ function getSnippet(content: string): string {
   return `${trimmed.slice(0, 157)}...`;
 }
 
-function getScore(distance: number): string {
-  const score = Math.max(0, 1 - distance);
-  return score.toFixed(2);
+function getScore(distance: number, fmt: LocaleFormatters): string {
+  return fmt.decimal(Math.max(0, 1 - distance), 2);
 }
 
 export default function SemanticSearchPage() {
+  const fmt = useLocaleFormat();
   const { t, i18n } = useTranslation();
   const [location, setLocation] = useLocation();
   const params = useMemo(() => {
@@ -370,7 +372,7 @@ export default function SemanticSearchPage() {
                   <CardContent className="text-xs text-muted-foreground space-y-2 flex-1">
                     <div className="flex items-center justify-between">
                       <span>{t(`semanticSearch.source.${result.sourceType}`, { defaultValue: result.sourceType })}</span>
-                      <span>{t("semanticSearch.globalScore")}: {getScore(result.distance)}</span>
+                      <span>{t("semanticSearch.globalScore")}: {getScore(result.distance, fmt)}</span>
                     </div>
                     <div>{getSecondaryText(result)}</div>
                     <div>{getSnippet(result.content)}</div>
@@ -440,7 +442,7 @@ export default function SemanticSearchPage() {
                       <TableCell>
                         {t(`semanticSearch.source.${result.sourceType}`, { defaultValue: result.sourceType })}
                       </TableCell>
-                      <TableCell>{getScore(result.distance)}</TableCell>
+                      <TableCell>{getScore(result.distance, fmt)}</TableCell>
                       <TableCell onClick={(event) => event.stopPropagation()}>
                         <div className="flex gap-2">
                           <Button

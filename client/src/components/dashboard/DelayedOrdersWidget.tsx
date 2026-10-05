@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Clock, AlertTriangle } from "lucide-react";
 import { Link } from "wouter";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 interface DelayedOrdersSummary {
   total: number;
   critical: number;
@@ -25,8 +26,8 @@ export default function DelayedOrdersWidget() {
     retry: false,
   });
 
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(amount);
+  const fmt = useLocaleFormat();
+  const formatCurrency = (amount: number) => fmt.currency(amount);
 
   return (
     <div className="mcard" data-testid="widget-delayed-orders">

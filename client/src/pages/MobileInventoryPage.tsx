@@ -19,6 +19,7 @@ import { BarcodeLiveScanner } from "@/components/BarcodeLiveScanner";
 import { normalizeScanCode } from "@/lib/barcode/normalizeScanCode";
 import type { ErpProductLabel } from "@shared/productVariantLabel";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 type CountLine = {
   id: string;
   productNumber: string;
@@ -57,6 +58,7 @@ function MobileInventoryList({
   warehouseById: Map<string, string>;
   warehouses: Array<{ id: string; code: string; name: string; isDefault: boolean }>;
 }) {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -101,7 +103,7 @@ function MobileInventoryList({
                   <div className="font-medium">{wh}</div>
                   {c.createdAt ? (
                     <div className="text-xs text-muted-foreground mt-1">
-                      {new Date(c.createdAt).toLocaleString()}
+                      {fmt.dateTime(c.createdAt)}
                     </div>
                   ) : null}
                   {c.notes ? (

@@ -47,21 +47,12 @@ import {
   type ProfitabilityProductInput,
 } from "@/lib/profitabilityAnalysis";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 interface OverviewResponse {
   products: ProfitabilityProductInput[];
   total: number;
   profitabilityMinMarginPercent?: number;
 }
-
-const currencyFormatter = new Intl.NumberFormat("de-DE", {
-  style: "currency",
-  currency: "EUR",
-});
-
-const percentFormatter = new Intl.NumberFormat("de-DE", {
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-});
 
 const PIE_COLORS = {
   green: "#16a34a",
@@ -112,14 +103,15 @@ function PriceCell({
   product: { listPriceNet: number; effectivePriceNet: number };
   showDiscount: boolean;
 }) {
+  const fmt = useLocaleFormat();
   if (!showDiscount) {
-    return <>{currencyFormatter.format(product.listPriceNet)}</>;
+    return <>{fmt.currency(product.listPriceNet)}</>;
   }
   return (
     <div className="text-right">
-      <div>{currencyFormatter.format(product.effectivePriceNet)}</div>
+      <div>{fmt.currency(product.effectivePriceNet)}</div>
       <div className="text-xs text-muted-foreground line-through">
-        {currencyFormatter.format(product.listPriceNet)}
+        {fmt.currency(product.listPriceNet)}
       </div>
     </div>
   );
@@ -146,6 +138,7 @@ function MarginCell({
     db1: string;
   };
 }) {
+  const fmt = useLocaleFormat();
   if (marginPercent == null) {
     return <>—</>;
   }
@@ -153,12 +146,12 @@ function MarginCell({
   return (
     <div className="text-right font-mono text-sm">
       <div>
-        <span>{`${marginPercent.toLocaleString("de-DE")} %`}</span>
+        <span>{fmt.percentValue(marginPercent)}</span>
         <span className="text-xs text-muted-foreground font-normal ml-1">{labels.onCost}</span>
       </div>
       {marginOnRevenuePercent != null ? (
         <div>
-          <span>{`${marginOnRevenuePercent.toLocaleString("de-DE")} %`}</span>
+          <span>{fmt.percentValue(marginOnRevenuePercent)}</span>
           <span className="text-xs text-muted-foreground font-normal ml-1">{labels.onRevenue}</span>
         </div>
       ) : null}
@@ -170,7 +163,7 @@ function MarginCell({
               : "text-xs text-muted-foreground font-normal"
           }
         >
-          {currencyFormatter.format(marginAbs)}
+          {fmt.currency(marginAbs)}
           <span className="ml-1">{labels.db1}</span>
         </div>
       ) : null}
@@ -182,6 +175,7 @@ function MarginCell({
 }
 
 export default function ProfitabilityAnalysisPage() {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const [activeOnly, setActiveOnly] = useState(true);
   const [dealerDiscountInput, setDealerDiscountInput] = useState("0");
@@ -447,9 +441,9 @@ export default function ProfitabilityAnalysisPage() {
               {hasScenarioDiscount ? (
                 <div className="text-sm text-muted-foreground">
                   {t("profitabilityAnalysis.dealerDiscount.activeHint", {
-                    dealer: dealerDiscountPercent.toLocaleString("de-DE"),
-                    db1: db1DiscountPercent.toLocaleString("de-DE"),
-                    threshold: crmThreshold.toLocaleString("de-DE"),
+                    dealer: fmt.number(dealerDiscountPercent),
+                    db1: fmt.number(db1DiscountPercent),
+                    threshold: fmt.number(crmThreshold),
                   })}
                 </div>
               ) : null}
@@ -462,13 +456,13 @@ export default function ProfitabilityAnalysisPage() {
               <CardDescription>
                 {hasScenarioDiscount
                   ? t("profitabilityAnalysis.executiveSummaryHintWithDiscount", {
-                      crmThreshold: crmThreshold.toLocaleString("de-DE"),
+                      crmThreshold: fmt.number(crmThreshold),
                       priceCheckThreshold: DEFAULT_PRICE_CHECK_THRESHOLD,
-                      dealer: dealerDiscountPercent.toLocaleString("de-DE"),
-                      db1: db1DiscountPercent.toLocaleString("de-DE"),
+                      dealer: fmt.number(dealerDiscountPercent),
+                      db1: fmt.number(db1DiscountPercent),
                     })
                   : t("profitabilityAnalysis.executiveSummaryHint", {
-                      crmThreshold: crmThreshold.toLocaleString("de-DE"),
+                      crmThreshold: fmt.number(crmThreshold),
                       priceCheckThreshold: DEFAULT_PRICE_CHECK_THRESHOLD,
                     })}
               </CardDescription>
@@ -477,7 +471,7 @@ export default function ProfitabilityAnalysisPage() {
               <div>
                 <p className="text-sm text-muted-foreground">{t("profitabilityAnalysis.kpi.crmGreenShare")}</p>
                 <p className="text-3xl font-semibold text-green-700">
-                  {percentFormatter.format(crmGreenShare / 100)}
+                  {fmt.percent(crmGreenShare / 100)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
                   {t("profitabilityAnalysis.kpi.crmGreenShareHint", {
@@ -491,7 +485,7 @@ export default function ProfitabilityAnalysisPage() {
                 <p className="text-3xl font-semibold text-destructive">{summary.belowCrmThresholdCount}</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   {t("profitabilityAnalysis.kpi.belowCrmHint", {
-                    threshold: crmThreshold.toLocaleString("de-DE"),
+                    threshold: fmt.number(crmThreshold),
                   })}
                 </p>
               </div>
@@ -504,13 +498,13 @@ export default function ProfitabilityAnalysisPage() {
                 <p className="text-sm text-muted-foreground">{t("profitabilityAnalysis.kpi.avgMarginOnCost")}</p>
                 <p className="text-3xl font-semibold">
                   {summary.avgMarginPercent != null
-                    ? `${summary.avgMarginPercent.toLocaleString("de-DE")} %`
+                    ? fmt.percentValue(summary.avgMarginPercent)
                     : "—"}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
                   {summary.medianMarginPercent != null
                     ? t("profitabilityAnalysis.kpi.medianOnCostHint", {
-                        median: summary.medianMarginPercent.toLocaleString("de-DE"),
+                        median: fmt.number(summary.medianMarginPercent),
                       })
                     : t("profitabilityAnalysis.kpi.noMarginData")}
                 </p>
@@ -519,23 +513,23 @@ export default function ProfitabilityAnalysisPage() {
                 <p className="text-sm text-muted-foreground">{t("profitabilityAnalysis.kpi.avgMarginOnRevenue")}</p>
                 <p className="text-3xl font-semibold">
                   {summary.avgMarginOnRevenuePercent != null
-                    ? `${summary.avgMarginOnRevenuePercent.toLocaleString("de-DE")} %`
+                    ? fmt.percentValue(summary.avgMarginOnRevenuePercent)
                     : "—"}
                 </p>
                 {summary.avgMarginAbs != null ? (
                   <p className="text-lg font-medium text-muted-foreground">
                     {t("profitabilityAnalysis.kpi.avgDb1Hint", {
-                      amount: currencyFormatter.format(summary.avgMarginAbs),
+                      amount: fmt.currency(summary.avgMarginAbs),
                     })}
                   </p>
                 ) : null}
                 <p className="text-xs text-muted-foreground mt-1">
                   {summary.medianMarginOnRevenuePercent != null
                     ? t("profitabilityAnalysis.kpi.medianOnRevenueHint", {
-                        median: summary.medianMarginOnRevenuePercent.toLocaleString("de-DE"),
+                        median: fmt.number(summary.medianMarginOnRevenuePercent),
                         medianAbs:
                           summary.medianMarginAbs != null
-                            ? currencyFormatter.format(summary.medianMarginAbs)
+                            ? fmt.currency(summary.medianMarginAbs)
                             : "—",
                       })
                     : t("profitabilityAnalysis.kpi.noMarginData")}
@@ -563,7 +557,7 @@ export default function ProfitabilityAnalysisPage() {
             <Card>
               <CardContent className="pt-6">
                 <p className="text-sm text-muted-foreground">{t("profitabilityAnalysis.stats.coverage")}</p>
-                <p className="text-2xl font-semibold">{percentFormatter.format(summary.coveragePercent / 100)}</p>
+                <p className="text-2xl font-semibold">{fmt.percent(summary.coveragePercent / 100)}</p>
                 <p className="text-xs text-muted-foreground">{summary.withHerstellpreis} / {summary.total}</p>
               </CardContent>
             </Card>
@@ -603,7 +597,7 @@ export default function ProfitabilityAnalysisPage() {
                 <CardTitle>{t("profitabilityAnalysis.charts.crmDistribution")}</CardTitle>
                 <CardDescription>
                   {t("profitabilityAnalysis.charts.crmDistributionHint", {
-                    threshold: crmThreshold.toLocaleString("de-DE"),
+                    threshold: fmt.number(crmThreshold),
                   })}
                 </CardDescription>
               </CardHeader>
@@ -724,7 +718,7 @@ export default function ProfitabilityAnalysisPage() {
                               wasGreenLabel={
                                 p.catalogMarginPercent != null
                                   ? t("profitabilityAnalysis.table.wasGreen", {
-                                      margin: p.catalogMarginPercent.toLocaleString("de-DE"),
+                                      margin: fmt.number(p.catalogMarginPercent),
                                     })
                                   : undefined
                               }
@@ -799,7 +793,7 @@ export default function ProfitabilityAnalysisPage() {
                               wasGreenLabel={
                                 p.catalogMarginPercent != null
                                   ? t("profitabilityAnalysis.table.wasGreen", {
-                                      margin: p.catalogMarginPercent.toLocaleString("de-DE"),
+                                      margin: fmt.number(p.catalogMarginPercent),
                                     })
                                   : undefined
                               }

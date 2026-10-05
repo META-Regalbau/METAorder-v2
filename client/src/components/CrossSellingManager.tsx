@@ -34,6 +34,7 @@ import {
   type CrossSellingProduct,
 } from "@shared/schema";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 interface CrossSellingManagerProps {
   product: Product;
   open: boolean;
@@ -45,6 +46,7 @@ export default function CrossSellingManager({
   open,
   onClose,
 }: CrossSellingManagerProps) {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const { toast } = useToast();
   const [newGroupName, setNewGroupName] = useState(SHOPWARE_CROSS_SELLING_STOREFRONT_NAME);
@@ -535,8 +537,8 @@ export default function CrossSellingManager({
                                 </p>
                               </div>
                               <div className="text-right">
-                                <p className="font-semibold">€{p.price.toFixed(2)}</p>
-                                <p className="text-xs text-muted-foreground">€{p.netPrice.toFixed(2)} {t('orderDetail.net')}</p>
+                                <p className="font-semibold">{fmt.currency(p.price)}</p>
+                                <p className="text-xs text-muted-foreground">{fmt.currency(p.netPrice)} {t('orderDetail.net')}</p>
                               </div>
                             </div>
                           </Card>
@@ -663,7 +665,7 @@ export default function CrossSellingManager({
                             )}
                         </p>
                         <div className="flex items-center justify-between gap-2 mb-2">
-                          <p className="font-semibold">€{p.price.toFixed(2)}</p>
+                          <p className="font-semibold">{fmt.currency(p.price)}</p>
                           {p.available && (
                             <Badge variant="secondary" className="text-xs">
                               {t("products.available")}

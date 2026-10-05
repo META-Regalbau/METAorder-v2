@@ -15,6 +15,8 @@ import { Paperclip, FileText, ExternalLink, UploadCloud, Loader2 } from "lucide-
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient, readJsonBody } from "@/lib/queryClient";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
+import type { LocaleFormatters } from "@/lib/localeFormat";
 export type DraftAttachmentApi = {
   id: string;
   documentKind: "purchase_order" | "delivery_note" | "order_confirmation" | "invoice" | "other" | "unknown";
@@ -36,11 +38,11 @@ export type DraftAttachmentApi = {
   createdAt: string;
 };
 
-function formatSize(bytes: number): string {
+function formatSize(bytes: number, fmt: LocaleFormatters): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes < 1024) return `${fmt.integer(bytes)} B`;
+  if (bytes < 1024 * 1024) return `${fmt.integer(Math.round(bytes / 1024))} KB`;
+  return `${fmt.decimal(bytes / (1024 * 1024), 1)} MB`;
 }
 
 export function DraftAttachmentsCard({
@@ -50,6 +52,7 @@ export function DraftAttachmentsCard({
   draftId: string;
   draftKind: "order" | "offer";
 }) {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const { toast } = useToast();
   const base = `/api/${draftKind}-drafts/${draftId}/attachments`;
@@ -172,7 +175,7 @@ export function DraftAttachmentsCard({
                     </Badge>
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {[formatSize(att.size), ...refs].filter(Boolean).join(" · ")}
+                    {[formatSize(att.size, fmt), ...refs].filter(Boolean).join(" · ")}
                   </div>
                 </div>
               </div>

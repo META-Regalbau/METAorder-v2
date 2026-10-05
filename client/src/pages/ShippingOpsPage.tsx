@@ -23,6 +23,7 @@ import {
   printShippingLabelPdf,
 } from "@/lib/zebra/browserPrint";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 type ShippingOrder = {
   id: string;
   orderNumber: string;
@@ -75,6 +76,7 @@ type SendcloudSettings = {
 type ShippingMethod = { id: string; code?: string; name: string; carrier?: string };
 
 export default function ShippingOpsPage() {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const { toast } = useToast();
   const [labelOpen, setLabelOpen] = useState(false);
@@ -572,7 +574,7 @@ export default function ShippingOpsPage() {
                           <TableCell>{lines.length}</TableCell>
                           <TableCell>{qtySum}</TableCell>
                           <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                            {p.createdAt ? new Date(p.createdAt).toLocaleString() : "—"}
+                            {p.createdAt ? fmt.dateTime(p.createdAt) : "—"}
                           </TableCell>
                           <TableCell className="space-x-2 whitespace-nowrap">
                             {p.status === "open" ? (

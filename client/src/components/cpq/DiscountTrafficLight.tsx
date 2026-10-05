@@ -4,6 +4,10 @@
 
 import { useQuery } from "@tanstack/react-query";
 
+import { createLocaleFormatters } from "@/lib/localeFormat";
+// Die CPQ-Verwaltung ist (noch) nur deutsch - Zahlen deshalb im deutschen Format wie der Text
+const fmt = createLocaleFormatters("de");
+
 type DiscountLevelResult = {
   levelId: string;
   name: string;
@@ -78,9 +82,10 @@ export default function DiscountTrafficLight({
 
   const message = level.messageTemplate
     ? interpolateMessage(level.messageTemplate, {
-        verlust: revenueLoss.toFixed(2),
-        marge: listPrice > 0 ? ((discountedPrice / listPrice) * 100).toFixed(1) : "0",
-        rabatt: discountPercent.toFixed(1),
+        // Platzhalter im (deutschen) Meldungstext der Rabattstufe
+        verlust: fmt.decimal(revenueLoss, 2),
+        marge: listPrice > 0 ? fmt.decimal((discountedPrice / listPrice) * 100, 1) : "0",
+        rabatt: fmt.decimal(discountPercent, 1),
         max_rabatt: level.discountMax?.toString() ?? "",
       })
     : (level.message ?? "");
@@ -111,9 +116,9 @@ export default function DiscountTrafficLight({
           <div className="text-xs text-muted-foreground">{approvalLabel}</div>
         </div>
         <div className="text-right shrink-0">
-          <div className="font-semibold">{discountPercent.toFixed(1)}% Rabatt</div>
+          <div className="font-semibold">{fmt.percentValue(discountPercent, 1)} Rabatt</div>
           {revenueLoss > 0 && (
-            <div className="text-xs text-muted-foreground">Umsatzverlust: €{revenueLoss.toFixed(2)}</div>
+            <div className="text-xs text-muted-foreground">Umsatzverlust: {fmt.currency(revenueLoss)}</div>
           )}
         </div>
       </div>

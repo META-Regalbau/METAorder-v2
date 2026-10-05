@@ -157,7 +157,7 @@ function schematic(s: MetaClipState): string {
   const stroke = "var(--meta-graphite)", thin = "var(--meta-steel)", accent = "var(--meta-red)";
   const dimCol = "var(--meta-steel)", dimTextCol = "var(--meta-red)";
   const parts: string[] = [];
-  const nfmm = (v: number) => `${new Intl.NumberFormat("de-DE").format(Math.round(v))} mm`;
+  const nfmm = (v: number) => `${formatNumber(Math.round(v), s.lang)} mm`;
   const rect = (x: number, y: number, w: number, h: number, sw: number, col: string, fill = "none") =>
     `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" fill="${fill}" stroke="${col}" stroke-width="${sw}"/>`;
   const line = (x1: number, y1: number, x2: number, y2: number, sw: number, col: string) =>

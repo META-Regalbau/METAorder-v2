@@ -9,11 +9,13 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { Role } from "@shared/schema";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 interface B2BBudgetsPageProps {
   userPermissions: Role["permissions"];
 }
 
 export default function B2BBudgetsPage({ userPermissions }: B2BBudgetsPageProps) {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -77,7 +79,7 @@ export default function B2BBudgetsPage({ userPermissions }: B2BBudgetsPageProps)
               {(budgetsData?.budgets ?? []).map((b) => (
                 <TableRow key={b.id}>
                   <TableCell>{b.name}</TableCell>
-                  <TableCell>{b.sum?.toLocaleString()} €</TableCell>
+                  <TableCell>{fmt.currency(b.sum)}</TableCell>
                   <TableCell>{b.periodType || "—"}</TableCell>
                   <TableCell>
                     <Badge variant={b.active ? "default" : "secondary"}>
@@ -116,7 +118,7 @@ export default function B2BBudgetsPage({ userPermissions }: B2BBudgetsPageProps)
               {(approvalsData?.approvals ?? []).map((a) => (
                 <TableRow key={a.id}>
                   <TableCell>{a.orderNumber || a.id}</TableCell>
-                  <TableCell>{a.totalPrice?.toLocaleString()} €</TableCell>
+                  <TableCell>{fmt.currency(a.totalPrice)}</TableCell>
                   <TableCell>{a.status}</TableCell>
                   {canApprove ? (
                     <TableCell className="space-x-2">

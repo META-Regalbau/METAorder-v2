@@ -4,7 +4,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import type { Offer, OfferStatus, OfferDraft, SalesChannel, User, Role } from "@shared/schema";
 import { useTranslation } from "react-i18next";
-import { format } from "date-fns";
 import {
   IMPORT_MATCHING_CONFIDENCE_WARNING_THRESHOLD,
   isLowOverallMatchingConfidence,
@@ -21,6 +20,7 @@ import PaginationControls from "@/components/PaginationControls";
 import TableSkeleton from "@/components/TableSkeleton";
 import "@/styles/metaAdmin.css";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 interface OffersPageProps {
   userRole: "employee" | "admin";
   userSalesChannelIds?: string[] | null;
@@ -31,6 +31,7 @@ type OfferStatusMapping = Partial<Record<OfferStatus, { label: string; id?: stri
 const STORAGE_KEY = 'metaorder-offers-filters';
 
 export default function OffersPage({ userRole, userSalesChannelIds }: OffersPageProps) {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
@@ -624,10 +625,10 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
                             )}
                           </td>
                           <td className="num" data-testid={`text-draft-total-${draft.id}`}>
-                            €{calculateDraftTotal(draft).toFixed(2)}
+                            {fmt.currency(calculateDraftTotal(draft))}
                           </td>
                           <td data-testid={`text-draft-created-${draft.id}`}>
-                            {format(new Date(draft.createdAt), "dd.MM.yyyy HH:mm")}
+                            {fmt.dateTime(draft.createdAt)}
                           </td>
                           <td className="num">
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
@@ -782,16 +783,16 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
                         {getStatusBadge(offer.status, offer.statusLabel)}
                       </td>
                       <td className="num" data-testid="text-total-price">
-                        €{offer.totalPrice?.toFixed(2) || '0.00'}
+                        {fmt.currency(offer.totalPrice ?? 0)}
                       </td>
                       <td style={{ color: "var(--fg-3)" }}>
                         {offer.createdAt && !isNaN(new Date(offer.createdAt).getTime())
-                          ? format(new Date(offer.createdAt), 'dd.MM.yyyy HH:mm')
+                          ? fmt.dateTime(offer.createdAt)
                           : '-'}
                       </td>
                       <td style={{ color: "var(--fg-3)" }}>
                         {offer.offerExpiration && !isNaN(new Date(offer.offerExpiration).getTime())
-                          ? format(new Date(offer.offerExpiration), 'dd.MM.yyyy')
+                          ? fmt.date(offer.offerExpiration)
                           : '-'}
                       </td>
                       <td className="center">

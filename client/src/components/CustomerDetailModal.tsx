@@ -26,6 +26,7 @@ import { useTranslation } from "react-i18next";
 import type { Customer, CustomerInteraction, Order, Ticket } from "@shared/schema";
 import HerstellMarginIndicator from "@/components/HerstellMarginIndicator";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 type CustomerOverview = {
   customer: Customer;
   orders: Order[];
@@ -136,22 +137,6 @@ type MergePreview = {
 };
 
 const DEFAULT_PRICE_CURRENCY = "EUR";
-const priceFormatterCache = new Map<string, Intl.NumberFormat>();
-
-function formatCustomerPrice(value: number, currencyIsoCode?: string | null): string {
-  const currency = (currencyIsoCode || "EUR").toUpperCase();
-  let formatter = priceFormatterCache.get(currency);
-  if (!formatter) {
-    try {
-      formatter = new Intl.NumberFormat("de-DE", { style: "currency", currency });
-    } catch {
-      // Unbekannter/ungültiger ISO-Code -> auf EUR zurückfallen.
-      formatter = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
-    }
-    priceFormatterCache.set(currency, formatter);
-  }
-  return formatter.format(value);
-}
 
 /** Tabs des Kunden-Modals — als Typ, damit Aufrufer (z. B. CRM-Liste) nur gültige Werte setzen. */
 export type CustomerDetailTab =
@@ -182,6 +167,7 @@ export default function CustomerDetailModal({
   canManageCrm,
   initialTab = "overview",
 }: CustomerDetailModalProps) {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const { toast } = useToast();
   const [interactionType, setInteractionType] = useState("note");
@@ -603,7 +589,7 @@ export default function CustomerDetailModal({
                   <div>
                     <div className="text-muted-foreground">{t("crm.customer.lastTouch")}</div>
                     <div className="font-medium">
-                      {interactions[0]?.createdAt ? new Date(interactions[0].createdAt).toLocaleString() : "—"}
+                      {interactions[0]?.createdAt ? fmt.dateTime(interactions[0].createdAt) : "—"}
                     </div>
                   </div>
                   <div>
@@ -612,7 +598,7 @@ export default function CustomerDetailModal({
                       {pricesLoading ? (
                         <span className="text-muted-foreground">{t("common.loading")}</span>
                       ) : individualPrices?.standardDiscountPercent != null ? (
-                        `${individualPrices.standardDiscountPercent.toLocaleString("de-DE")} %`
+                        fmt.percentValue(individualPrices.standardDiscountPercent)
                       ) : (
                         "—"
                       )}
@@ -653,8 +639,8 @@ export default function CustomerDetailModal({
                       {orders.map((order) => (
                         <TableRow key={order.id}>
                           <TableCell className="font-mono">{order.orderNumber}</TableCell>
-                          <TableCell>{new Date(order.orderDate).toLocaleDateString()}</TableCell>
-                          <TableCell className="text-right">€{order.totalAmount.toFixed(2)}</TableCell>
+                          <TableCell>{fmt.date(order.orderDate)}</TableCell>
+                          <TableCell className="text-right">{fmt.currency(order.totalAmount)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -703,7 +689,7 @@ export default function CustomerDetailModal({
                     <Card className="p-3">
                       <div className="text-sm text-muted-foreground">{t("crm.customer.individualPrices.standardDiscount")}</div>
                       <div className="text-lg font-semibold">
-                        {individualPrices.standardDiscountPercent.toLocaleString("de-DE")} %
+                        {fmt.percentValue(individualPrices.standardDiscountPercent)}
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
                         {t("crm.customer.individualPrices.standardDiscountHint")}
@@ -728,11 +714,7 @@ export default function CustomerDetailModal({
                               <div className="text-xs text-muted-foreground">
                                 {tier.thresholdAmount != null
                                   ? t("crm.customer.individualPrices.fromAmount", {
-                                      amount: tier.thresholdAmount.toLocaleString("de-DE", {
-                                        style: "currency",
-                                        currency: "EUR",
-                                        maximumFractionDigits: 0,
-                                      }),
+                                      amount: fmt.currencyWhole(tier.thresholdAmount),
                                     })
                                   : t("crm.customer.individualPrices.noThreshold")}
                                 {tier.allowStacking
@@ -741,7 +723,7 @@ export default function CustomerDetailModal({
                               </div>
                             </div>
                             <Badge variant="warning" className="shrink-0 tabular-nums">
-                              {tier.discountPercent.toLocaleString("de-DE")} %
+                              {fmt.percentValue(tier.discountPercent)}
                             </Badge>
                           </div>
                         ))}
@@ -754,7 +736,7 @@ export default function CustomerDetailModal({
                   {individualPrices?.profitabilityMinMarginPercent != null ? (
                     <p className="text-xs text-muted-foreground">
                       {t("crm.customer.individualPrices.profitabilityThresholdHint", {
-                        threshold: individualPrices.profitabilityMinMarginPercent.toLocaleString("de-DE"),
+                        threshold: fmt.number(individualPrices.profitabilityMinMarginPercent),
                       })}
                     </p>
                   ) : null}
@@ -865,7 +847,7 @@ export default function CustomerDetailModal({
                           </TableHead>
                           <TableHead className="text-right">{t("crm.customer.individualPrices.discountPercent")}</TableHead>
                           <TableHead className="text-right" title={t("crm.customer.individualPrices.herstellMarginHint", {
-                            threshold: individualPrices?.profitabilityMinMarginPercent?.toLocaleString("de-DE") ?? "—",
+                            threshold: fmt.number(individualPrices?.profitabilityMinMarginPercent) || "—",
                           })}>
                             {t("crm.customer.individualPrices.herstellMargin")}
                           </TableHead>
@@ -887,25 +869,25 @@ export default function CustomerDetailModal({
                             </TableCell>
                             <TableCell className="text-right">
                               {price.listPriceNet != null
-                                ? formatCustomerPrice(price.listPriceNet, price.currencyIsoCode)
+                                ? fmt.currencyIn(price.listPriceNet, price.currencyIsoCode?.toUpperCase())
                                 : "—"}
                             </TableCell>
                             <TableCell className="text-right">
                               {price.advancedPriceNet != null
-                                ? formatCustomerPrice(price.advancedPriceNet, price.currencyIsoCode)
+                                ? fmt.currencyIn(price.advancedPriceNet, price.currencyIsoCode?.toUpperCase())
                                 : "—"}
                             </TableCell>
                             <TableCell className="text-right font-medium">
-                              {price.priceNet != null ? formatCustomerPrice(price.priceNet, price.currencyIsoCode) : "—"}
+                              {price.priceNet != null ? fmt.currencyIn(price.priceNet, price.currencyIsoCode?.toUpperCase()) : "—"}
                             </TableCell>
                             <TableCell className={`text-right ${price.advancedPriceDifferencePercent != null && price.advancedPriceDifferencePercent < 0 ? "text-destructive" : ""}`}>
                               {price.advancedPriceDifferencePercent != null
-                                ? `${price.advancedPriceDifferencePercent.toLocaleString("de-DE")} %`
+                                ? fmt.percentValue(price.advancedPriceDifferencePercent)
                                 : "—"}
                             </TableCell>
                             <TableCell className="text-right">
                               {price.discountPercent != null
-                                ? `${price.discountPercent.toLocaleString("de-DE")} %`
+                                ? fmt.percentValue(price.discountPercent)
                                 : "—"}
                             </TableCell>
                             <TableCell className="text-right">
@@ -916,7 +898,7 @@ export default function CustomerDetailModal({
                             </TableCell>
                             <TableCell className="text-xs text-muted-foreground">
                               {price.validFrom || price.validUntil
-                                ? `${price.validFrom ? new Date(price.validFrom).toLocaleDateString() : "—"} – ${price.validUntil ? new Date(price.validUntil).toLocaleDateString() : "—"}`
+                                ? `${price.validFrom ? fmt.date(price.validFrom) : "—"} – ${price.validUntil ? fmt.date(price.validUntil) : "—"}`
                                 : t("crm.customer.individualPrices.alwaysValid")}
                             </TableCell>
                           </TableRow>
@@ -1018,7 +1000,7 @@ export default function CustomerDetailModal({
                     <Card key={interaction.id} className="p-4 space-y-1">
                       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         <Badge variant="outline">{interaction.interactionType}</Badge>
-                        <span>{new Date(interaction.createdAt).toLocaleString()}</span>
+                        <span>{fmt.dateTime(interaction.createdAt)}</span>
                       </div>
                       {interaction.subject && <div className="font-medium">{interaction.subject}</div>}
                       <div className="text-sm text-muted-foreground">{interaction.body || t("crm.interactions.noDetails")}</div>

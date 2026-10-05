@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 type AccountingMatch = {
   id: string;
   status: "matched" | "partial" | "unmatched";
@@ -46,6 +47,7 @@ type AccountingMatch = {
 };
 
 export default function AccountingPage() {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const { toast } = useToast();
   const [file, setFile] = useState<File | null>(null);
@@ -235,7 +237,7 @@ export default function AccountingPage() {
                   </Button>
                 )}
                 <div className="text-sm">
-                  {row.amount ? row.amount.toLocaleString("de-DE", { style: "currency", currency: "EUR" }) : "-"}
+                  {row.amount ? fmt.currency(row.amount) : "-"}
                 </div>
                 <Badge variant={badgeVariant(row.status)}>
                   {t(`accounting.status.${row.status}`)}

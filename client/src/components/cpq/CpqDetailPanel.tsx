@@ -12,6 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Pencil, Plus, Search, Save } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
+import { createLocaleFormatters } from "@/lib/localeFormat";
+// Die CPQ-Verwaltung ist (noch) nur deutsch - Zahlen deshalb im deutschen Format wie der Text
+const fmt = createLocaleFormatters("de");
+
 const ROLE_ICONS: Record<string, string> = {
   frame: "📐",
   beam: "🔩",
@@ -169,7 +173,7 @@ function formatDim(value: number | null | undefined): string {
 }
 function formatPrice(value: number | null | undefined): string {
   if (value == null) return "—";
-  return `€ ${value.toFixed(2)}`;
+  return fmt.currency(value);
 }
 
 export default function CpqDetailPanel({

@@ -13,6 +13,7 @@ import { format } from "date-fns";
 import { de, enUS, es } from "date-fns/locale";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 type DunningPreviewItem = {
   order: Order;
   dueDate: string;
@@ -37,6 +38,7 @@ interface DunningPreviewPageProps {
 }
 
 export default function DunningPreviewPage({ userRole }: DunningPreviewPageProps) {
+  const fmt = useLocaleFormat();
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const [searchValue, setSearchValue] = useState("");
@@ -330,7 +332,7 @@ export default function DunningPreviewPage({ userRole }: DunningPreviewPageProps
                       </td>
                       <td className="py-2">{item.lastStage}</td>
                       <td className="py-2">{item.nextStage}</td>
-                      <td className="py-2">€{item.order.totalAmount.toFixed(2)}</td>
+                      <td className="py-2">{fmt.currency(item.order.totalAmount)}</td>
                       <td className="py-2">
                         <Badge variant={getPaymentStatusBadgeVariant(item.order.paymentStatus)}>{t(`paymentStatus.${item.order.paymentStatus}`)}</Badge>
                       </td>
