@@ -2696,7 +2696,10 @@
         "shopware_missing": "Für diesen Mandanten sind keine Shopware-Zugangsdaten eingerichtet.",
         "permissions_failed": "Ihre Berechtigungen konnten nicht ermittelt werden.",
         "execution_failed": "Die Auswertung ist fehlgeschlagen. Bitte versuchen Sie es erneut.",
-        "unexpected": "Die Abfrage konnte nicht verarbeitet werden. Bitte versuchen Sie es erneut."
+        "unexpected": "Die Abfrage konnte nicht verarbeitet werden. Bitte versuchen Sie es erneut.",
+        "rate_limited": "Zu viele Fragen in kurzer Zeit. Bitte warten Sie eine Minute.",
+        "daily_limit_user": "Sie haben Ihr Tageslimit an Fragen erreicht. Morgen geht es weiter.",
+        "daily_limit_tenant": "Das Tageslimit an Fragen für diesen Mandanten ist erreicht. Morgen geht es weiter."
       },
       "examples": {
         "q1": "Zeig mir die Top 10 Produkte vom letzten Monat",
@@ -2705,7 +2708,9 @@
         "q4": "Welche Bestellungen sind verspätet?",
         "q5": "Zeige mir die Verteilung der Bestellstatus",
         "q6": "Prognostiziere den Umsatz für die nächsten 3 Monate"
-      }
+      },
+      "usageToday": "Heute {{used}} von {{limit}} Fragen gestellt",
+      "usageLimitReached": "Tageslimit erreicht ({{limit}} Fragen). Morgen geht es weiter."
     },
     "gross": "Brutto"
   },
@@ -2801,7 +2806,11 @@
     "smartTierDesc": "Nur für schwierige Aufgaben (z. B. unsicherer Intent, Extraktion). Leer lassen = gleiches Modell wie die Standard-Stufe. Beispiel: Standard auf Gemini/OpenAI, Opus nur hier.",
     "smartProvider": "Anbieter (Smart)",
     "smartProviderInherit": "Wie Standard-Stufe",
-    "smartModel": "Modell (Smart)"
+    "smartModel": "Modell (Smart)",
+    "nlLimitTitle": "Limit „Natürliche Sprache“",
+    "nlLimitDescription": "Jede Frage im Statistik-Reiter „Natürliche Sprache“ kostet 2–3 KI-Aufrufe. Gezählt wird pro Tag (deutsche Zeit); 0 sperrt die Fragen.",
+    "nlLimitPerUser": "Fragen pro Nutzer und Tag (Standard 30)",
+    "nlLimitPerTenant": "Fragen pro Mandant und Tag (Standard 300)"
   },
   "cache": {
     "title": "Produkt-Cache",

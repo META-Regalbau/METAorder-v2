@@ -2538,7 +2538,10 @@
         "shopware_missing": "No hay credenciales de Shopware configuradas para este cliente.",
         "permissions_failed": "No se han podido determinar sus permisos.",
         "execution_failed": "El análisis ha fallado. Inténtelo de nuevo.",
-        "unexpected": "No se ha podido procesar la consulta. Inténtelo de nuevo."
+        "unexpected": "No se ha podido procesar la consulta. Inténtelo de nuevo.",
+        "rate_limited": "Demasiadas preguntas en poco tiempo. Espere un minuto, por favor.",
+        "daily_limit_user": "Ha alcanzado su límite diario de preguntas. Podrá volver a preguntar mañana.",
+        "daily_limit_tenant": "Se ha alcanzado el límite diario de preguntas de este inquilino. Podrá volver a preguntar mañana."
       },
       "examples": {
         "q1": "Muéstrame los 10 productos más vendidos del mes pasado",
@@ -2547,7 +2550,9 @@
         "q4": "¿Qué pedidos están retrasados?",
         "q5": "Muéstrame la distribución de los estados de los pedidos",
         "q6": "Prevé la facturación de los próximos 3 meses"
-      }
+      },
+      "usageToday": "Hoy ha hecho {{used}} de {{limit}} preguntas",
+      "usageLimitReached": "Ha alcanzado el límite diario ({{limit}} preguntas). Podrá volver a preguntar mañana."
     },
     "dashboardTab": "Panel",
     "orderCount": "Número de pedidos",
@@ -2660,7 +2665,11 @@
     "smartTierDesc": "Solo para tareas difíciles (p. ej. intención incierta, extracción). Dejar vacío = mismo modelo que el nivel estándar. Ejemplo: estándar con Gemini/OpenAI, Opus solo aquí.",
     "smartProvider": "Proveedor (inteligente)",
     "smartProviderInherit": "Igual que el nivel estándar",
-    "smartModel": "Modelo (inteligente)"
+    "smartModel": "Modelo (inteligente)",
+    "nlLimitTitle": "Límite de «Lenguaje natural»",
+    "nlLimitDescription": "Cada pregunta en la pestaña «Lenguaje natural» de las estadísticas cuesta 2–3 llamadas a la IA. Se cuenta por día (hora de Alemania); 0 bloquea las preguntas.",
+    "nlLimitPerUser": "Preguntas por usuario y día (predeterminado: 30)",
+    "nlLimitPerTenant": "Preguntas por inquilino y día (predeterminado: 300)"
   },
   "cache": {
     "title": "Caché de Productos",

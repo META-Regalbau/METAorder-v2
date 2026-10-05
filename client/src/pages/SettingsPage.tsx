@@ -138,6 +138,12 @@ async function fetchJson<T>(url: string): Promise<T> {
 }
 
 
+/** Eingabe "Fragen pro Tag": ganze Zahl 0-10000, sonst nicht senden (Server behaelt den bisherigen Wert) */
+function parseNlLimit(value: string): number | undefined {
+  const n = Number(value.trim());
+  return value.trim() !== "" && Number.isInteger(n) && n >= 0 && n <= 10000 ? n : undefined;
+}
+
 export default function SettingsPage() {
   const { toast } = useToast();
   const { t } = useTranslation();
@@ -165,6 +171,9 @@ export default function SettingsPage() {
   const [googleModel, setGoogleModel] = useState("");
   const [smartProvider, setSmartProvider] = useState<"" | "openai" | "anthropic" | "google">("");
   const [smartModel, setSmartModel] = useState("");
+  // Fragen pro Tag im Reiter "Natuerliche Sprache" (leer = Standard des Servers)
+  const [nlLimitUser, setNlLimitUser] = useState("");
+  const [nlLimitTenant, setNlLimitTenant] = useState("");
   const [rankingSettings, setRankingSettings] = useState<SemanticRankingSettings>({
     vectorWeight: 0.65,
     textWeight: 0.25,
@@ -307,6 +316,8 @@ export default function SettingsPage() {
     googleModel?: string;
     smartProvider?: "" | "openai" | "anthropic" | "google";
     smartModel?: string;
+    nlDailyLimitPerUser?: number;
+    nlDailyLimitPerTenant?: number;
     mode?: string;
   }>({
     queryKey: ["/api/settings/ai", tenantKey],
@@ -537,6 +548,8 @@ export default function SettingsPage() {
       setGoogleModel(aiSettings.googleModel ?? "");
       setSmartProvider(aiSettings.smartProvider ?? "");
       setSmartModel(aiSettings.smartModel ?? "");
+      setNlLimitUser(aiSettings.nlDailyLimitPerUser != null ? String(aiSettings.nlDailyLimitPerUser) : "");
+      setNlLimitTenant(aiSettings.nlDailyLimitPerTenant != null ? String(aiSettings.nlDailyLimitPerTenant) : "");
     }
   }, [aiSettings]);
 
@@ -743,6 +756,8 @@ export default function SettingsPage() {
       googleModel: string;
       smartProvider: "" | "openai" | "anthropic" | "google";
       smartModel: string;
+      nlDailyLimitPerUser?: number;
+      nlDailyLimitPerTenant?: number;
     }) => {
       const response = await apiRequest("POST", "/api/settings/ai", data);
       return response.json();
@@ -3266,6 +3281,41 @@ function AiTab() {
             </div>
           </div>
 
+          <div className="space-y-2 border-t pt-4">
+            <div>
+              <Label className="text-sm font-medium">{t("ai.nlLimitTitle")}</Label>
+              <p className="text-xs text-muted-foreground">{t("ai.nlLimitDescription")}</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor="input-nl-limit-user" className="text-xs">{t("ai.nlLimitPerUser")}</Label>
+                <Input
+                  id="input-nl-limit-user"
+                  type="number"
+                  min={0}
+                  max={10000}
+                  step={1}
+                  value={nlLimitUser}
+                  onChange={(e) => setNlLimitUser(e.target.value)}
+                  data-testid="input-nl-limit-user"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="input-nl-limit-tenant" className="text-xs">{t("ai.nlLimitPerTenant")}</Label>
+                <Input
+                  id="input-nl-limit-tenant"
+                  type="number"
+                  min={0}
+                  max={10000}
+                  step={1}
+                  value={nlLimitTenant}
+                  onChange={(e) => setNlLimitTenant(e.target.value)}
+                  data-testid="input-nl-limit-tenant"
+                />
+              </div>
+            </div>
+          </div>
+
           <div className="flex justify-end pt-2">
             <Button 
               onClick={() => saveAiSettingsMutation.mutate({ 
@@ -3279,6 +3329,8 @@ function AiTab() {
                 googleModel: googleModel.trim(),
                 smartProvider,
                 smartModel: smartModel.trim(),
+                nlDailyLimitPerUser: parseNlLimit(nlLimitUser),
+                nlDailyLimitPerTenant: parseNlLimit(nlLimitTenant),
               })}
               disabled={saveAiSettingsMutation.isPending}
               data-testid="button-save-ai-settings"

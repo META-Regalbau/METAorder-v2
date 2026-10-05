@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { AlertCircle, Lightbulb, Loader2, Send, Sparkles, TrendingUp } from "lucide-react";
 import {
@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
   formatNlAxisValue,
   formatNlValue,
@@ -51,21 +51,28 @@ const TABLE_ROWS = 20;
  * Reiter "Natürliche Sprache" der Statistik: Frage in Alltagssprache, der Server waehlt die
  * Auswertung (KI), rechnet sie auf dem Bestell-Spiegel und liefert Hinweise in der Oberflaechensprache.
  */
+const NL_USAGE_URL = "/api/analytics/nl-query/usage";
+
 export default function NaturalLanguageAnalyticsTab() {
   const { t, i18n } = useTranslation();
   const language = (i18n.language || "de").split("-")[0];
   const [question, setQuestion] = useState("");
+
+  // Fragen heute / Tageslimit (server/analytics/nlQueryLimit.ts)
+  const usage = useQuery<{ used: number; limit: number }>({ queryKey: [NL_USAGE_URL] });
+  const limitReached = usage.data ? usage.data.used >= usage.data.limit : false;
 
   const ask = useMutation({
     mutationFn: async (q: string) => {
       const res = await apiRequest("POST", "/api/analytics/nl-query", { question: q, language });
       return (await res.json()) as NlQueryResponse;
     },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: [NL_USAGE_URL] }),
   });
 
   const submit = (q: string) => {
     const trimmed = q.trim();
-    if (!trimmed || ask.isPending) return;
+    if (!trimmed || ask.isPending || limitReached) return;
     setQuestion(trimmed);
     ask.mutate(trimmed);
   };
@@ -103,11 +110,18 @@ export default function NaturalLanguageAnalyticsTab() {
               className="flex-1"
               data-testid="input-nl-question"
             />
-            <Button type="submit" disabled={!question.trim() || ask.isPending} data-testid="button-nl-ask">
+            <Button type="submit" disabled={!question.trim() || ask.isPending || limitReached} data-testid="button-nl-ask">
               {ask.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               <span className="ml-2">{t("analytics.nlQuery.ask")}</span>
             </Button>
           </form>
+          {usage.data && (
+            <p className={`text-xs ${limitReached ? "text-destructive" : "text-muted-foreground"}`} data-testid="text-nl-usage">
+              {limitReached
+                ? t("analytics.nlQuery.usageLimitReached", { limit: usage.data.limit })
+                : t("analytics.nlQuery.usageToday", { used: usage.data.used, limit: usage.data.limit })}
+            </p>
+          )}
           <div>
             <div className="text-sm font-medium mb-2">{t("analytics.nlQuery.suggestedQuestions")}</div>
             <div className="flex flex-wrap gap-2">
@@ -117,7 +131,7 @@ export default function NaturalLanguageAnalyticsTab() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  disabled={ask.isPending}
+                  disabled={ask.isPending || limitReached}
                   onClick={() => submit(t(`analytics.nlQuery.examples.${key}`))}
                   data-testid={`button-nl-example-${key}`}
                 >

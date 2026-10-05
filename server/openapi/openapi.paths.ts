@@ -513,6 +513,33 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/analytics/nl-query/usage": {
+    "get": {
+      "tags": [
+        "analytics"
+      ],
+      "summary": "GET /api/analytics/nl-query/usage",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/analytics/order-status": {
     "get": {
       "tags": [

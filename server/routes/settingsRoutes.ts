@@ -19,6 +19,7 @@ import { getCommercialAgentSettings, DEFAULT_COMMERCIAL_AGENT, type CommercialAg
 import type { Request, Response, Express } from "express";
 import { webhookService } from "../lib/webhookService";
 
+import { NL_LIMIT_MAX, resolveNlLimits } from "../analytics/nlQueryLimit";
 export function registerSettingsRoutes(app: Express): void {
   
   // Shopware settings routes
@@ -858,6 +859,7 @@ export function registerSettingsRoutes(app: Express): void {
           : chatProvider === "google"
             ? "google"
             : "standard";
+      const nlLimits = resolveNlLimits(aiSettings);
       const smartProvider =
         aiSettings?.smartProvider === "anthropic" ||
         aiSettings?.smartProvider === "google" ||
@@ -877,6 +879,9 @@ export function registerSettingsRoutes(app: Express): void {
         googleModel: typeof aiSettings?.googleModel === "string" ? aiSettings.googleModel : "",
         smartProvider,
         smartModel: typeof aiSettings?.smartModel === "string" ? aiSettings.smartModel : "",
+        // Fragen im Reiter "Natuerliche Sprache" pro Tag (Standard, falls nicht gesetzt)
+        nlDailyLimitPerUser: nlLimits.perUserPerDay,
+        nlDailyLimitPerTenant: nlLimits.perTenantPerDay,
       });
     } catch (error: any) {
       console.error("Error fetching AI settings:", error);
@@ -898,6 +903,8 @@ export function registerSettingsRoutes(app: Express): void {
         googleModel: z.string().max(120).optional(),
         smartProvider: z.enum(["", "openai", "anthropic", "google"]).optional(),
         smartModel: z.string().max(120).optional(),
+        nlDailyLimitPerUser: z.number().int().min(0).max(NL_LIMIT_MAX).optional(),
+        nlDailyLimitPerTenant: z.number().int().min(0).max(NL_LIMIT_MAX).optional(),
       });
 
       const validatedData = aiSettingsSchema.parse(req.body);
@@ -912,6 +919,8 @@ export function registerSettingsRoutes(app: Express): void {
         googleModel,
         smartProvider,
         smartModel,
+        nlDailyLimitPerUser,
+        nlDailyLimitPerTenant,
       } = validatedData;
 
       // Get existing settings
@@ -944,6 +953,8 @@ export function registerSettingsRoutes(app: Express): void {
           smartModel !== undefined
             ? smartModel
             : existingSettings.smartModel ?? "",
+        nlDailyLimitPerUser: nlDailyLimitPerUser ?? existingSettings.nlDailyLimitPerUser,
+        nlDailyLimitPerTenant: nlDailyLimitPerTenant ?? existingSettings.nlDailyLimitPerTenant,
       };
 
       if (apiKey) {
