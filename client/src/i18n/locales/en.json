@@ -251,7 +251,13 @@
       "offer_draft": "Offer draft",
       "order_draft": "Order draft",
       "ticket_template": "Ticket template"
-    }
+    },
+    "faqAiGenerate": "Generate AI answer",
+    "faqAiGenerating": "AI is writing the answer…",
+    "faqAiBadge": "AI answer",
+    "faqBestMatch": "Best match (without AI)",
+    "faqAiFailed": "The AI could not write an answer – showing the best match instead.",
+    "faqAiError": "AI answer not possible. Please try again in a minute."
   },
   "nav": {
     "dashboard": "Dashboard",

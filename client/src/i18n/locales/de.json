@@ -251,7 +251,13 @@
       "offer_draft": "Angebotsentwurf",
       "order_draft": "Bestellentwurf",
       "ticket_template": "Ticket-Vorlage"
-    }
+    },
+    "faqAiGenerate": "KI-Antwort erzeugen",
+    "faqAiGenerating": "KI formuliert die Antwort…",
+    "faqAiBadge": "Antwort der KI",
+    "faqBestMatch": "Bester Treffer (ohne KI)",
+    "faqAiFailed": "Die KI konnte keine Antwort formulieren – angezeigt wird der beste Treffer.",
+    "faqAiError": "KI-Antwort nicht möglich. Bitte versuchen Sie es in einer Minute erneut."
   },
   "nav": {
     "dashboard": "Dashboard",
