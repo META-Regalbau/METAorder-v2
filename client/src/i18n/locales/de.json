@@ -5271,7 +5271,8 @@
       "other": "Anfrage fehlgeschlagen (Status {{status}})."
     },
     "codes": {
-      "rate_limited": "Zu viele Anfragen – bitte kurz warten."
+      "rate_limited": "Zu viele Anfragen – bitte kurz warten.",
+      "b2b_entity_unavailable": "Diese B2B-Funktion gibt es in diesem Shop nicht – die installierte B2Bsellers-Version bietet sie nicht an."
     },
     "client": {
       "notModified": "API-Antwort unverändert (304) – bitte Seite neu laden.",
@@ -5985,6 +5986,7 @@
       "tenant_required": "Mandant erforderlich",
       "tenant_selection_failed": "Mandantenauswahl fehlgeschlagen",
       "tenantid_required": "tenantId erforderlich",
+      "this_b2b_function_is_not_available_in_this_shop": "Diese B2B-Funktion gibt es in diesem Shop nicht",
       "ticket_not_found": "Ticket nicht gefunden",
       "token_konnte_nicht_erzeugt_werden": "Token konnte nicht erzeugt werden",
       "token_nicht_gefunden_oder_bereits_widerrufen": "Token nicht gefunden oder bereits widerrufen.",

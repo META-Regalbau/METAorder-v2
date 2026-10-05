@@ -12,7 +12,7 @@ import { apiRequest } from "@/lib/queryClient";
 import type { Role } from "@shared/schema";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
-import { apiErrorFromBody } from "@/lib/apiError";
+import { apiErrorFromBody, createApiError } from "@/lib/apiError";
 interface B2BAssortmentsPageProps {
   userPermissions: Role["permissions"];
 }
@@ -47,14 +47,14 @@ export default function B2BAssortmentsPage({ userPermissions }: B2BAssortmentsPa
     enabled: canView && Boolean(customerId.trim()),
   });
 
-  const { data: skusData } = useQuery<{ skus: any[] }>({
+  const { data: skusData, error: skusError } = useQuery<{ skus: any[] }>({
     queryKey: ["/api/b2b/customer-skus", customerId, skuSearch],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (customerId.trim()) params.set("customerId", customerId.trim());
       if (skuSearch.trim()) params.set("search", skuSearch.trim());
       const res = await fetch(`/api/b2b/customer-skus?${params}`, { credentials: "include" });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw createApiError(res.status, await res.text());
       return res.json();
     },
     enabled: canView,
@@ -151,6 +151,11 @@ export default function B2BAssortmentsPage({ userPermissions }: B2BAssortmentsPa
                   </Button>
                 </div>
               ) : null}
+              {skusError && (
+                <p className="mb-3 rounded-md border p-3 text-sm text-muted-foreground" role="status" data-testid="text-b2b-skus-error">
+                  {skusError.message}
+                </p>
+              )}
               <Table>
                 <TableHeader>
                   <TableRow>

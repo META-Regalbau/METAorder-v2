@@ -26,6 +26,35 @@ export type B2BCompanyListItem = {
   salesChannelName: string | null;
 };
 
+/**
+ * Entitaet gibt es im Shop nicht (andere B2Bsellers-Version, z. B. ohne Bestelllisten): Shopware antwortet
+ * 404 "No route found". Vorher 500 mit Rohtext; die Routen melden jetzt 404 mit Code, die Seiten einen Hinweis.
+ */
+export class B2BEntityUnavailableError extends Error {
+  readonly code = "b2b_entity_unavailable";
+  constructor(
+    readonly entityKey: string,
+    readonly entityName: string,
+  ) {
+    super(`B2B entity not available in this shop: ${entityName}`);
+    this.name = "B2BEntityUnavailableError";
+  }
+}
+
+/**
+ * Feld der Kunden-Artikelnummer: B2Bsellers nennt es je nach Version `productNumber` (Testshop/Live)
+ * oder `customerProductNumber` - vorher fest `customerProductNumber`, die Suche scheiterte mit
+ * FRAMEWORK__UNMAPPED_FIELD. Erkannt beim ersten Aufruf, gemerkt je Shop.
+ */
+export const CUSTOMER_SKU_FIELDS = ["productNumber", "customerProductNumber"] as const;
+type CustomerSkuField = (typeof CUSTOMER_SKU_FIELDS)[number];
+const customerSkuFieldByShop = new Map<string, CustomerSkuField>();
+export function resetCustomerSkuFieldCacheForTests(): void {
+  customerSkuFieldByShop.clear();
+}
+const isUnmappedField = (error: unknown, field: string) =>
+  error instanceof Error && error.message.includes("FRAMEWORK__UNMAPPED_FIELD") && error.message.includes(field);
+
 export async function getStoredB2BEntityMapping(): Promise<B2BEntityMapping> {
   const stored = (await storage.getSetting("b2b.entityMapping")) as Partial<B2BEntityMapping> | undefined;
   return mergeB2BEntityMapping(stored);
@@ -223,6 +252,9 @@ export class B2BSellersAdminClient {
     }
     if (!response.ok) {
       const errorText = await response.text();
+      if (response.status === 404 && /No route found/i.test(errorText)) {
+        throw new B2BEntityUnavailableError(entityKey, entityName);
+      }
       throw new Error(`Failed to search ${entityName}: ${response.statusText} - ${errorText}`);
     }
     const result = await response.json();
@@ -825,7 +857,7 @@ export class B2BSellersAdminClient {
       id: u.id,
       customerId: getField(u, "customerId") || null,
       productId: getField(u, "productId") || null,
-      customerProductNumber: getField(u, "customerProductNumber") || getField(u, "number") || "",
+      customerProductNumber: getField(u, "customerProductNumber") || getField(u, "productNumber") || getField(u, "number") || "",
       productNumber: getField(u, "product.productNumber") || null,
     };
   }
@@ -1280,30 +1312,62 @@ export class B2BSellersAdminClient {
     return result.data.map((r) => this.mapProductListItem(r));
   }
 
+  /** Kunden-Artikelnummern mit dem Feld dieser B2Bsellers-Version (siehe CUSTOMER_SKU_FIELDS) */
+  private async withCustomerSkuField<T>(run: (field: CustomerSkuField) => Promise<T>): Promise<T> {
+    const known = customerSkuFieldByShop.get(this.baseUrl);
+    const order = known ? [known] : [...CUSTOMER_SKU_FIELDS];
+    let lastError: unknown;
+    for (const field of order) {
+      try {
+        const result = await run(field);
+        customerSkuFieldByShop.set(this.baseUrl, field);
+        return result;
+      } catch (error) {
+        if (!isUnmappedField(error, field)) throw error;
+        lastError = error;
+      }
+    }
+    throw lastError;
+  }
+
   async fetchCustomerSkus(filters: { customerId?: string; search?: string; page?: number; limit?: number }) {
-    const criteria: Record<string, unknown> = {
-      limit: filters.limit || 50,
-      page: filters.page || 1,
-      "total-count-mode": 1,
-      sort: [{ field: "customerProductNumber", order: "ASC" }],
-      associations: this.buildAssociations(["product"]),
-      filter: [],
-    };
-    if (filters.customerId) {
-      (criteria.filter as any[]).push({ type: "equals", field: "customerId", value: filters.customerId });
-    }
-    if (filters.search) {
-      (criteria.filter as any[]).push({
-        type: "multi",
-        operator: "or",
-        queries: [
-          { type: "contains", field: "customerProductNumber", value: filters.search },
-          { type: "contains", field: "number", value: filters.search },
-        ],
-      });
-    }
-    const result = await this.searchEntity("customerProductNumber", criteria);
-    return { skus: result.data.map((r) => this.mapCustomerSku(r)), total: result.total };
+    return this.withCustomerSkuField(async (field) => {
+      const criteria: Record<string, unknown> = {
+        limit: filters.limit || 50,
+        page: filters.page || 1,
+        "total-count-mode": 1,
+        sort: [{ field, order: "ASC" }],
+        associations: this.buildAssociations(["product"]),
+        filter: [],
+      };
+      if (filters.customerId) {
+        (criteria.filter as any[]).push({ type: "equals", field: "customerId", value: filters.customerId });
+      }
+      if (filters.search) {
+        // Kunden-Artikelnummer oder unsere Artikelnummer (vorher Feld "number", das es nicht gibt)
+        (criteria.filter as any[]).push({
+          type: "multi",
+          operator: "or",
+          queries: [
+            { type: "contains", field, value: filters.search },
+            { type: "contains", field: "product.productNumber", value: filters.search },
+          ],
+        });
+      }
+      const result = await this.searchEntity("customerProductNumber", criteria);
+      return { skus: result.data.map((r) => this.mapCustomerSku(r)), total: result.total };
+    });
+  }
+
+  /** Kunden-Artikelnummer anlegen, Feldname wie beim Lesen */
+  async createCustomerSku(input: { customerId: string; productId: string; customerProductNumber: string }) {
+    return this.withCustomerSkuField((field) =>
+      this.createEntity("customerProductNumber", {
+        customerId: input.customerId,
+        productId: input.productId,
+        [field]: input.customerProductNumber,
+      }),
+    );
   }
 
   async fetchAssortments(filters: { customerId?: string; page?: number; limit?: number }) {

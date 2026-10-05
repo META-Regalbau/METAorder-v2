@@ -5274,7 +5274,8 @@
       "other": "Request failed (status {{status}})."
     },
     "codes": {
-      "rate_limited": "Too many requests – please wait a moment."
+      "rate_limited": "Too many requests – please wait a moment.",
+      "b2b_entity_unavailable": "This B2B function is not available in this shop – the installed B2Bsellers version does not provide it."
     },
     "client": {
       "notModified": "API response unchanged (304) – please reload the page.",
@@ -5988,6 +5989,7 @@
       "tenant_required": "Tenant required",
       "tenant_selection_failed": "Tenant selection failed",
       "tenantid_required": "tenantId required",
+      "this_b2b_function_is_not_available_in_this_shop": "This B2B function is not available in this shop",
       "ticket_not_found": "Ticket not found",
       "token_konnte_nicht_erzeugt_werden": "Token could not be generated",
       "token_nicht_gefunden_oder_bereits_widerrufen": "Token not found or already revoked.",

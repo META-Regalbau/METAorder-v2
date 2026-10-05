@@ -18,6 +18,7 @@ import {
   B2BSellersAdminClient,
   createB2BAdminClient,
   getStoredB2BEntityMapping,
+  B2BEntityUnavailableError,
 } from "./b2bSellersAdmin";
 import { getB2BCompaniesCached } from "./b2bCompaniesCache";
 import { webhookService } from "../lib/webhookService";
@@ -47,6 +48,16 @@ async function getAdminClient(tenantId?: string | null): Promise<B2BSellersAdmin
     throw new Error("Shopware settings not configured");
   }
   return createB2BAdminClient(settings);
+}
+
+/**
+ * Fehlende Entitaet im Shop (andere B2Bsellers-Version): 404 mit Code statt 500 mit Shopware-Rohtext -
+ * die Seiten zeigen dann einen Hinweis. true = Antwort gesendet.
+ */
+function respondB2BUnavailable(res: Response, error: unknown): boolean {
+  if (!(error instanceof B2BEntityUnavailableError)) return false;
+  res.status(404).json({ error: "This B2B function is not available in this shop", code: error.code, entity: error.entityName });
+  return true;
 }
 
 function getUserId(req: Request): string | null {
@@ -177,6 +188,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       const mapping = mergeB2BEntityMapping(stored);
       res.json({ mapping, defaults: DEFAULT_B2B_ENTITY_MAPPING, stored: stored || null });
     } catch (error: any) {
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to fetch B2B entity mapping" });
     }
   });
@@ -208,6 +220,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to save B2B entity mapping" });
     }
   });
@@ -217,6 +230,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       const mapping = await getStoredB2BEntityMapping();
       res.json({ mapping });
     } catch (error: any) {
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to fetch entity mapping" });
     }
   });
@@ -250,6 +264,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
         total: result.total,
       });
     } catch (error: any) {
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to fetch companies" });
     }
   });
@@ -268,6 +283,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
         tags: crmCustomer?.tags?.filter(Boolean) ?? [],
       });
     } catch (error: any) {
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to fetch company detail" });
     }
   });
@@ -283,6 +299,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       });
       res.json(result);
     } catch (error: any) {
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to fetch employees" });
     }
   });
@@ -298,6 +315,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       });
       res.json(result);
     } catch (error: any) {
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to fetch employees" });
     }
   });
@@ -346,6 +364,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to create employee" });
     }
   });
@@ -441,6 +460,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to create employee" });
     }
   });
@@ -498,6 +518,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to update employee" });
     }
   });
@@ -508,6 +529,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       await client.setEmployeeActive(req.params.id, false);
       res.json({ success: true });
     } catch (error: any) {
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to deactivate employee" });
     }
   });
@@ -518,6 +540,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       await client.setEmployeeActive(req.params.id, true);
       res.json({ success: true });
     } catch (error: any) {
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to activate employee" });
     }
   });
@@ -528,6 +551,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       await client.deleteEmployee(req.params.id);
       res.json({ success: true });
     } catch (error: any) {
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to delete employee" });
     }
   });
@@ -538,6 +562,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       const roles = await client.fetchRoles();
       res.json({ roles });
     } catch (error: any) {
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to fetch roles" });
     }
   });
@@ -570,6 +595,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to create role" });
     }
   });
@@ -580,6 +606,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       await client.deleteEntity("employeeRole", req.params.id);
       res.json({ success: true });
     } catch (error: any) {
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to delete role" });
     }
   });
@@ -591,6 +618,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       const groups = await client.fetchCustomerGroups();
       res.json({ groups });
     } catch (error: any) {
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to fetch customer groups" });
     }
   });
@@ -600,6 +628,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       const settings = await getB2BPortalUserSettings();
       res.json({ settings });
     } catch (error: any) {
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to fetch portal user settings" });
     }
   });
@@ -613,6 +642,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to save portal user settings" });
     }
   });
@@ -624,6 +654,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       res.setHeader("Content-Disposition", 'attachment; filename="b2b-portal-users-template.xlsx"');
       res.send(buffer);
     } catch (error: any) {
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to build template" });
     }
   });
@@ -676,6 +707,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to create portal user" });
     }
   });
@@ -735,6 +767,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to update portal user" });
     }
   });
@@ -779,6 +812,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Login verification failed" });
     }
   });
@@ -885,6 +919,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
         if (error instanceof z.ZodError) {
           return res.status(400).json({ error: error.errors[0].message });
         }
+        if (respondB2BUnavailable(res, error)) return;
         res.status(500).json({ error: error.message || "Portal-user import failed" });
       }
     },
@@ -901,6 +936,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       });
       res.json(result);
     } catch (error: any) {
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to fetch budgets" });
     }
   });
@@ -921,6 +957,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to create budget" });
     }
   });
@@ -931,6 +968,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       await client.patchEntity("budget", req.params.id, req.body);
       res.json({ success: true });
     } catch (error: any) {
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to update budget" });
     }
   });
@@ -948,6 +986,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       ]);
       res.json({ ...pending, auditLog });
     } catch (error: any) {
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to fetch approvals" });
     }
   });
@@ -985,6 +1024,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
         .catch((err) => console.error("[B2B] webhook b2b.approval_decided:", err));
       res.json({ success: true, log });
     } catch (error: any) {
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to approve" });
     }
   });
@@ -1022,6 +1062,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
         .catch((err) => console.error("[B2B] webhook b2b.approval_decided:", err));
       res.json({ success: true, log });
     } catch (error: any) {
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to reject" });
     }
   });
@@ -1037,6 +1078,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       });
       res.json(result);
     } catch (error: any) {
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to fetch assortments" });
     }
   });
@@ -1052,6 +1094,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       });
       res.json(result);
     } catch (error: any) {
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to fetch customer SKUs" });
     }
   });
@@ -1065,12 +1108,13 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       });
       const body = schema.parse(req.body);
       const client = await getAdminClient();
-      const created = await client.createEntity("customerProductNumber", body);
+      const created = await client.createCustomerSku(body);
       res.status(201).json(created);
     } catch (error: any) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to create customer SKU" });
     }
   });
@@ -1081,6 +1125,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       await client.deleteEntity("customerProductNumber", req.params.id);
       res.json({ success: true });
     } catch (error: any) {
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to delete customer SKU" });
     }
   });
@@ -1096,6 +1141,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       });
       res.json(result);
     } catch (error: any) {
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to fetch shopping lists" });
     }
   });
@@ -1106,6 +1152,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       const items = await client.fetchProductListItems(req.params.id);
       res.json({ items });
     } catch (error: any) {
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to fetch list items" });
     }
   });
@@ -1187,6 +1234,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to prepare reorder" });
     }
   });
@@ -1255,6 +1303,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to match quick order rows" });
     }
   });
@@ -1284,6 +1333,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
         ean: product.ean,
       });
     } catch (error: any) {
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Barcode lookup failed" });
     }
   });
@@ -1299,6 +1349,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       });
       res.json(result);
     } catch (error: any) {
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to fetch exploded views" });
     }
   });
@@ -1309,6 +1360,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
       const items = await client.fetchExplodedViewItems(req.params.id);
       res.json({ items });
     } catch (error: any) {
+      if (respondB2BUnavailable(res, error)) return;
       res.status(500).json({ error: error.message || "Failed to fetch exploded view items" });
     }
   });

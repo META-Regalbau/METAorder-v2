@@ -5271,7 +5271,8 @@
       "other": "La solicitud ha fallado (estado {{status}})."
     },
     "codes": {
-      "rate_limited": "Demasiadas solicitudes: espere un momento."
+      "rate_limited": "Demasiadas solicitudes: espere un momento.",
+      "b2b_entity_unavailable": "Esta función B2B no está disponible en esta tienda: la versión instalada de B2Bsellers no la ofrece."
     },
     "client": {
       "notModified": "Respuesta de la API sin cambios (304): vuelva a cargar la página.",
@@ -5985,6 +5986,7 @@
       "tenant_required": "Se requiere un inquilino",
       "tenant_selection_failed": "Error al seleccionar el inquilino",
       "tenantid_required": "Se requiere tenantId",
+      "this_b2b_function_is_not_available_in_this_shop": "Esta función B2B no está disponible en esta tienda",
       "ticket_not_found": "No se encontró el ticket",
       "token_konnte_nicht_erzeugt_werden": "No se pudo generar el token",
       "token_nicht_gefunden_oder_bereits_widerrufen": "No se encontró el token o ya fue revocado.",
