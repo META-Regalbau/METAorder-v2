@@ -14,10 +14,13 @@ Unter **Automatisierung** lassen sich Regeln anlegen: *Wenn* ein Auslöser eintr
 - Ticket: Priorität, Kategorie, Status, vorheriger Status, Titel, Beschreibung, Kunden-E-Mail, Kundenname, Bestellnummer, zugewiesen (ja/nein), aus E-Mail entstanden (ja/nein)
 - Ticket: **Stimmung (KI)** – wird nur ermittelt, wenn eine Regel sie braucht; ohne KI-Konfiguration per Stichwort-Heuristik.
 - Bestellung: Status, Zahlungsstatus (bei den Änderungs-Auslösern auch der jeweils **vorherige** Wert), Tage seit Bestellung, **Tage über spätestem Lieferdatum** (ohne Lieferdatum: seit Bestelldatum – wie die Ansicht „Verspätete Bestellungen“), Gesamtbetrag, Bestellnummer, Kunde, Zahl-/Versandart, Verkaufskanal.
+- Bestellung (ja/nein): **ERP-Auftragsnummer vorhanden**, **Rechnung vorhanden** (Rechnungsnummer oder Rechnungsdokument in Shopware), **versandt** (Versanddatum aus der Lieferung oder eine Sendungsnummer).
+- **Mehrere Werte:** „ist einer von“ bei Auswahlfeldern (z. B. Zahlungsstatus offen *oder* fehlgeschlagen) und „enthält eines von“ bei Textfeldern (z. B. Zahlart enthält „Vorkasse“ *oder* „Überweisung“; im Editor mit Komma getrennt). Sonst müssten dafür mehrere Regeln angelegt werden.
 
 **Aktionen**
 - Ticket zuweisen · Priorität setzen · KI-Analyse (Kategorie setzen solange „Allgemein“, negative Stimmung → Priorität „Hoch“)
 - Benachrichtigung an einen Benutzer · E-Mail senden (über den E-Mail-Ausgang aus den Einstellungen) · Ticket anlegen
+- **Ticket anlegen** kann das Ticket gleich einem Benutzer **zuweisen** (er bekommt eine Benachrichtigung wie beim Zuweisen von Hand; gehört er nicht zum Mandanten, wird kein Ticket angelegt und die Ausführung als fehlgeschlagen protokolliert). Mit **„Kein weiteres Ticket, solange zur Bestellung eins offen ist“** entsteht kein zweites Ticket, solange ein Ticket derselben Bestellung nicht gelöst oder geschlossen ist – etwa wenn eine Erinnerungs- und eine Eskalationsregel dieselbe Bestellung treffen. Die Ausführung gilt dann als erfolgreich (bei zeitgesteuerten Regeln also als erledigt).
 - Texte können **Platzhalter** enthalten, z. B. `{{ticket.ticketNumber}}`, `{{ticket.title}}`, `{{ticket.customerName}}`, `{{ticket.customerEmail}}` (auch als E-Mail-Empfänger), bei Bestellungen `{{order.orderNumber}}`, `{{order.customerName}}`, `{{order.daysPastDeliveryDate}}`, `{{order.previousStatus}}` u. a.
 - Ticket-Aktionen (zuweisen, Priorität, KI-Analyse) gibt es nur bei Ticket-Auslösern. Ein von einer Bestellregel angelegtes Ticket ist mit der Bestellung verknüpft.
 

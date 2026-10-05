@@ -3095,7 +3095,9 @@
       "greaterThan": "greater than",
       "lessThan": "less than",
       "greaterThanOrEqual": "at least",
-      "lessThanOrEqual": "at most"
+      "lessThanOrEqual": "at most",
+      "isOneOf": "is one of",
+      "containsAny": "contains any of"
     },
     "form": {
       "name": "Rule Name",
@@ -3121,14 +3123,16 @@
       "placeholders": "Placeholders",
       "incomplete": "Rule incomplete",
       "conditionOperator": "Operator",
-      "actionType": "Action"
+      "actionType": "Action",
+      "noUser": "nobody",
+      "listValuePlaceholder": "Separate multiple values with commas"
     },
     "templates": {
       "title": "Rule Templates",
       "orCustom": "or create custom rule",
       "delayedOrders": {
         "name": "Delayed orders",
-        "description": "Creates a ticket when a paid order is 3 days past its latest delivery date and not yet completed."
+        "description": "Creates a ticket when a paid or authorized order is 3 days past its latest delivery date and not yet shipped – at most one per order."
       },
       "autoStatus": {
         "name": "Auto Status Update",
@@ -3183,7 +3187,10 @@
         "customerEmail": "Order: customer email",
         "paymentMethod": "Order: payment method",
         "shippingMethod": "Order: shipping method",
-        "salesChannelName": "Order: sales channel"
+        "salesChannelName": "Order: sales channel",
+        "hasErpNumber": "Order: ERP order number present",
+        "hasInvoice": "Order: invoice present",
+        "isShipped": "Order: shipped"
       }
     },
     "values": {
@@ -3228,7 +3235,9 @@
       "category": "Category",
       "description": "Description",
       "applyCategory": "Set category (only while still “General”)",
-      "escalateNegative": "Raise priority to “High” on negative sentiment"
+      "escalateNegative": "Raise priority to “High” on negative sentiment",
+      "assignToUserId": "Assign to",
+      "skipIfOpenTicket": "No further ticket while one is open for the order"
     },
     "history": {
       "ticket": "Ticket",

@@ -80,6 +80,19 @@ describe("Fakten einer Bestellung", () => {
     expect(f["order.daysPastDeliveryDate"]).toBe(4);
     expect(orderFacts(order("2", { deliveryDateLatest: undefined }), NOW)["order.daysPastDeliveryDate"]).toBe(10);
   });
+
+  it("ja/nein: ERP-Auftragsnummer, Rechnung (Nummer oder Dokument), versandt (Versanddatum oder Sendungsnummer)", () => {
+    const facts = (o: Partial<Order>) => orderFacts(order("x", o), NOW);
+    const none = facts({});
+    expect([none["order.hasErpNumber"], none["order.hasInvoice"], none["order.isShipped"]]).toEqual([false, false, false]);
+    expect(facts({ erpNumber: " 0000013398 " })["order.hasErpNumber"]).toBe(true);
+    expect(facts({ erpNumber: "  " })["order.hasErpNumber"]).toBe(false);
+    expect(facts({ invoiceNumber: "RE-1" })["order.hasInvoice"]).toBe(true);
+    expect(facts({ hasInvoiceDocument: true })["order.hasInvoice"]).toBe(true);
+    expect(facts({ shippingInfo: { carrier: "DPD", shippedDate: daysAgo(1) } })["order.isShipped"]).toBe(true);
+    expect(facts({ shippingInfo: { trackingCodes: ["123"] } })["order.isShipped"]).toBe(true);
+    expect(facts({ shippingInfo: { carrier: "Spedition" } })["order.isShipped"]).toBe(false);
+  });
 });
 
 describe("Zeitgesteuerte Regeln", () => {
@@ -96,6 +109,23 @@ describe("Zeitgesteuerte Regeln", () => {
     expect(created).toHaveLength(1);
     expect(created[0]).toMatchObject({ orderId: "a1", orderNumber: "SW-a1", customerEmail: "a1@example.com", title: "SW-a1 verspätet", description: "Kunde a1: 5 Tage", tenantId: "tenant-a" });
     expect(summary).toEqual([expect.objectContaining({ tenantId: "tenant-a", matching: 1, executed: 1, remaining: 0 })]);
+  });
+
+  it("Listen-Operatoren und ja/nein-Felder", async () => {
+    const r = rule({ conditionsArr: [
+      { field: "order.paymentMethod", operator: "containsAny", value: ["Vorkasse", "Echtzeitüberweisung"] },
+      { field: "order.paymentStatus", operator: "isOneOf", value: ["open", "failed"] },
+      { field: "order.hasErpNumber", operator: "equals", value: false },
+    ] });
+    const { deps, created } = fake([r], { "tenant-a": [
+      order("v1", { paymentMethod: "Vorkasse", paymentStatus: "open" }),
+      order("v2", { paymentMethod: "Echtzeitüberweisung", paymentStatus: "failed" }),
+      order("v3", { paymentMethod: "Vorkasse", paymentStatus: "paid" }),
+      order("v4", { paymentMethod: "PayPal", paymentStatus: "open" }),
+      order("v5", { paymentMethod: "Vorkasse", paymentStatus: "open", erpNumber: "0000013398" }),
+    ] });
+    await runScheduledAutomations(deps, NOW);
+    expect(created.map((t) => t.orderId)).toEqual(["v1", "v2"]);
   });
 
   it(`ignoriert Bestellungen ausserhalb des Pruefzeitraums`, async () => {

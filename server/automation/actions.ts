@@ -30,6 +30,9 @@ type ActionImpl = (params: Record<string, unknown>, env: ActionEnv) => Promise<s
 
 const str = (v: unknown) => (v === undefined || v === null ? "" : String(v));
 
+/** Tickets in diesem Status gelten als erledigt (fuer "kein weiteres Ticket, solange eins offen ist") */
+const CLOSED_TICKET_STATUSES: readonly string[] = ["resolved", "closed"];
+
 function requireTicket(env: ActionEnv): Ticket {
   if (!env.ticket) throw new Error("Kein Ticket im Auslöser");
   return env.ticket;
@@ -101,6 +104,13 @@ const ACTIONS: Record<Exclude<AutomationActionTypeId, "update_order_status">, Ac
   },
 
   async create_ticket(params, env) {
+    const orderId = env.order?.id ?? env.ticket?.orderId ?? null;
+    if (params.skipIfOpenTicket === true && orderId) {
+      const open = (await env.deps.storage.getTicketsByOrderId(orderId)).find((t) => !CLOSED_TICKET_STATUSES.includes(t.status));
+      if (open) return `Kein neues Ticket: ${open.ticketNumber} zur Bestellung ist noch offen`;
+    }
+    // Zustaendigen vorher pruefen - sonst entstuende ein Ticket ohne die gewollte Zuweisung
+    const assignee = str(params.assignToUserId) ? await requireUserInTenant(env, str(params.assignToUserId)) : null;
     const created = await env.deps.storage.createTicket({
       title: interpolate(str(params.title), env.facts),
       description: interpolate(str(params.description), env.facts),
@@ -108,14 +118,26 @@ const ACTIONS: Record<Exclude<AutomationActionTypeId, "update_order_status">, Ac
       priority: (str(params.priority) || "normal") as TicketPriority,
       category: (str(params.category) || "general") as TicketCategory,
       // Mit der Bestellung bzw. dem ausloesenden Ticket verknuepfen
-      orderId: env.order?.id ?? env.ticket?.orderId ?? null,
+      orderId,
       orderNumber: env.order?.orderNumber ?? env.ticket?.orderNumber ?? null,
       customerEmail: env.order?.customerEmail ?? env.ticket?.customerEmail ?? null,
       customerName: env.order?.customerName ?? env.ticket?.customerName ?? null,
       createdByUserId: null,
-      assignedToUserId: null,
+      assignedToUserId: assignee?.id ?? null,
     });
-    return `Ticket ${created.ticketNumber} angelegt`;
+    if (!assignee) return `Ticket ${created.ticketNumber} angelegt`;
+    // Wie beim Zuweisen in der Oberflaeche: der Zustaendige wird benachrichtigt
+    const notification = await env.deps.storage.createNotification({
+      userId: assignee.id,
+      type: "ticket_assigned",
+      title: `Ticket ${created.ticketNumber} zugewiesen`,
+      message: created.title,
+      ticketId: created.id,
+      ticketNumber: created.ticketNumber,
+      read: 0,
+    });
+    env.deps.onNotificationCreated(notification);
+    return `Ticket ${created.ticketNumber} angelegt und ${assignee.username} zugewiesen`;
   },
 };
 

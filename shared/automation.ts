@@ -57,14 +57,18 @@ export const AUTOMATION_TRIGGERS: Record<AutomationTriggerTypeId, { entity: "tic
 // Bedingungen
 // ---------------------------------------------------------------------------
 
-export const AUTOMATION_OPERATORS = ["equals", "notEquals", "contains", "greaterThan", "lessThan", "greaterThanOrEqual", "lessThanOrEqual"] as const;
+export const AUTOMATION_OPERATORS = ["equals", "notEquals", "contains", "greaterThan", "lessThan", "greaterThanOrEqual", "lessThanOrEqual", "isOneOf", "containsAny"] as const;
 export type AutomationOperator = (typeof AUTOMATION_OPERATORS)[number];
+
+/** Operatoren mit einer Liste als Wert: "ist einer von" (Auswahl), "enthaelt eines von" (Text) */
+export const LIST_OPERATORS: readonly AutomationOperator[] = ["isOneOf", "containsAny"];
+export const isListOperator = (operator: string) => LIST_OPERATORS.includes(operator as AutomationOperator);
 
 export type AutomationFieldType = "enum" | "text" | "number" | "boolean";
 
 export const OPERATORS_BY_FIELD_TYPE: Record<AutomationFieldType, readonly AutomationOperator[]> = {
-  enum: ["equals", "notEquals"],
-  text: ["contains", "equals", "notEquals"],
+  enum: ["equals", "notEquals", "isOneOf"],
+  text: ["contains", "equals", "notEquals", "containsAny"],
   number: ["equals", "notEquals", "greaterThan", "lessThan", "greaterThanOrEqual", "lessThanOrEqual"],
   boolean: ["equals"],
 };
@@ -107,6 +111,9 @@ export const AUTOMATION_FIELDS: Record<string, AutomationFieldDef> = {
   "order.paymentMethod": { type: "text", triggers: ORDER_TRIGGERS },
   "order.shippingMethod": { type: "text", triggers: ORDER_TRIGGERS },
   "order.salesChannelName": { type: "text", triggers: ORDER_TRIGGERS },
+  "order.hasErpNumber": { type: "boolean", triggers: ORDER_TRIGGERS },
+  "order.hasInvoice": { type: "boolean", triggers: ORDER_TRIGGERS },
+  "order.isShipped": { type: "boolean", triggers: ORDER_TRIGGERS },
 };
 
 export function fieldsForTrigger(trigger: AutomationTriggerTypeId): string[] {
@@ -115,7 +122,12 @@ export function fieldsForTrigger(trigger: AutomationTriggerTypeId): string[] {
     .map(([key]) => key);
 }
 
-export type AutomationConditionInput = { field: string; operator: string; value: string | number | boolean };
+export type AutomationConditionInput = { field: string; operator: string; value: string | number | boolean | string[] };
+
+/** Eintraege eines Listen-Werts: getrimmt, leere weggelassen; kein Array -> keine Eintraege. */
+export function conditionListValues(value: unknown): string[] {
+  return Array.isArray(value) ? value.map((v) => String(v ?? "").trim()).filter(Boolean) : [];
+}
 
 export type AutomationFacts = Record<string, string | number | boolean | null | undefined>;
 
@@ -132,6 +144,8 @@ export function evaluateCondition(condition: AutomationConditionInput, facts: Au
   if (!def || !OPERATORS_BY_FIELD_TYPE[def.type].includes(condition.operator as AutomationOperator)) return false;
   const actual = facts[condition.field];
   const expected = condition.value;
+  // Listen nur bei Listen-Operatoren (und umgekehrt) - sonst trifft die Bedingung nie zu
+  if (isListOperator(condition.operator) !== Array.isArray(expected)) return false;
 
   switch (def.type) {
     case "boolean": {
@@ -155,11 +169,14 @@ export function evaluateCondition(condition: AutomationConditionInput, facts: Au
     case "enum":
     case "text": {
       const a = actual === null || actual === undefined ? "" : String(actual).trim().toLowerCase();
+      const list = conditionListValues(expected).map((v) => v.toLowerCase());
       const e = String(expected ?? "").trim().toLowerCase();
       switch (condition.operator) {
         case "equals": return a === e;
         case "notEquals": return a !== e;
         case "contains": return e !== "" && a.includes(e);
+        case "isOneOf": return list.includes(a);
+        case "containsAny": return list.some((v) => a.includes(v));
         default: return false;
       }
     }
@@ -231,6 +248,10 @@ export const AUTOMATION_ACTIONS: Record<AutomationActionTypeId, AutomationAction
       description: { kind: "text", required: true, multiline: true, placeholders: true },
       priority: { kind: "enum", options: TICKET_PRIORITIES, required: false },
       category: { kind: "enum", options: TICKET_CATEGORIES, required: false },
+      /** Ticket gleich zuweisen (der Benutzer wird benachrichtigt) */
+      assignToUserId: { kind: "user", required: false },
+      /** Kein weiteres Ticket, solange zur Bestellung eins offen ist (nicht geloest/geschlossen) */
+      skipIfOpenTicket: { kind: "boolean" },
     },
   },
   // Status in Shopware aendern - bewusst noch nicht freigegeben
@@ -245,7 +266,7 @@ export type AutomationActionInput = { type: string; params: Record<string, unkno
 
 export const AUTOMATION_PLACEHOLDERS: Record<"ticket" | "order", readonly string[]> = {
   ticket: ["ticket.ticketNumber", "ticket.title", "ticket.status", "ticket.previousStatus", "ticket.priority", "ticket.category", "ticket.customerName", "ticket.customerEmail", "ticket.orderNumber"],
-  order: ["order.orderNumber", "order.customerName", "order.customerEmail", "order.orderDate", "order.status", "order.previousStatus", "order.paymentStatus", "order.previousPaymentStatus", "order.totalAmount", "order.daysSinceOrder", "order.daysPastDeliveryDate"],
+  order: ["order.orderNumber", "order.customerName", "order.customerEmail", "order.orderDate", "order.status", "order.previousStatus", "order.paymentStatus", "order.previousPaymentStatus", "order.totalAmount", "order.paymentMethod", "order.daysSinceOrder", "order.daysPastDeliveryDate"],
 };
 
 /**
@@ -282,7 +303,7 @@ export function interpolate(template: string, facts: AutomationFacts): string {
 /** Lesbare Namen fuer Meldungen der Regelpruefung */
 const PARAM_LABELS: Record<string, string> = {
   userId: "Benutzer", title: "Titel", message: "Nachricht", to: "Empfänger", subject: "Betreff",
-  body: "Text", priority: "Priorität", category: "Kategorie", description: "Beschreibung",
+  body: "Text", priority: "Priorität", category: "Kategorie", description: "Beschreibung", assignToUserId: "Zuweisen an",
 };
 const paramLabel = (name: string) => PARAM_LABELS[name] ?? name;
 
@@ -306,6 +327,14 @@ export function validateAutomationRule(rule: {
     if (!def) return void errors.push(`Bedingung ${i + 1}: unbekanntes Feld "${c.field}"`);
     if (!def.triggers.includes(rule.triggerType as AutomationTriggerTypeId)) errors.push(`Bedingung ${i + 1}: Feld "${c.field}" passt nicht zum Auslöser`);
     if (!OPERATORS_BY_FIELD_TYPE[def.type].includes(c.operator as AutomationOperator)) errors.push(`Bedingung ${i + 1}: Operator "${c.operator}" passt nicht zum Feld`);
+    if (isListOperator(c.operator)) {
+      const list = conditionListValues(c.value);
+      if (!Array.isArray(c.value) || list.length === 0) errors.push(`Bedingung ${i + 1}: mindestens ein Wert nötig`);
+      const invalid = def.type === "enum" && def.options ? list.filter((v) => !def.options!.includes(v)) : [];
+      if (invalid.length > 0) errors.push(`Bedingung ${i + 1}: Wert "${invalid.join(", ")}" ist nicht erlaubt`);
+      return;
+    }
+    if (Array.isArray(c.value)) return void errors.push(`Bedingung ${i + 1}: mehrere Werte nur bei „ist einer von“/„enthält eines von“`);
     if (def.type === "enum" && def.options && !def.options.includes(String(c.value))) errors.push(`Bedingung ${i + 1}: Wert "${c.value}" ist nicht erlaubt`);
     if (def.type === "number" && Number.isNaN(Number(c.value))) errors.push(`Bedingung ${i + 1}: Zahl erwartet`);
     if (def.type === "boolean" && toBool(c.value) === null) errors.push(`Bedingung ${i + 1}: ja/nein erwartet`);

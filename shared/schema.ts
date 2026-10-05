@@ -1712,8 +1712,8 @@ export const insertAutomationRuleSchema = z.object({
   triggerType: z.enum(["order_created", "order_status_changed", "order_payment_changed", "ticket_created", "ticket_status_changed", "scheduled"]),
   conditions: z.array(z.object({
     field: z.string(),
-    operator: z.enum(["equals", "notEquals", "greaterThan", "lessThan", "greaterThanOrEqual", "lessThanOrEqual", "contains"]),
-    value: z.union([z.string(), z.number(), z.boolean()]),
+    operator: z.enum(["equals", "notEquals", "greaterThan", "lessThan", "greaterThanOrEqual", "lessThanOrEqual", "contains", "isOneOf", "containsAny"]),
+    value: z.union([z.string(), z.number(), z.boolean(), z.array(z.string())]),
   })).optional(),
   actions: z.array(z.object({
     type: z.enum(["create_ticket", "update_order_status", "send_notification", "assign_ticket", "update_ticket_priority", "send_email", "run_ai_analysis"]),

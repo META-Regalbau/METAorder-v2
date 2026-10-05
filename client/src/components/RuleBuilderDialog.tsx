@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -25,7 +26,9 @@ import {
   ORDER_EVENT_MAX_AGE_HOURS,
   SCHEDULED_LOOKBACK_DAYS,
   SCHEDULED_MAX_PER_RULE_PER_RUN,
+  conditionListValues,
   fieldsForTrigger,
+  isListOperator,
   parseStoredRuleList,
   validateAutomationRule,
   type AutomationActionInput,
@@ -57,9 +60,9 @@ const RULE_TEMPLATES: Template[] = [
     triggerType: "scheduled",
     priority: 60,
     conditions: [
-      { field: "order.paymentStatus", operator: "equals", value: "paid" },
-      { field: "order.status", operator: "notEquals", value: "completed" },
-      { field: "order.status", operator: "notEquals", value: "cancelled" },
+      { field: "order.paymentStatus", operator: "isOneOf", value: ["paid", "authorized"] },
+      { field: "order.status", operator: "isOneOf", value: ["open", "in_progress"] },
+      { field: "order.isShipped", operator: "equals", value: false },
       { field: "order.daysPastDeliveryDate", operator: "greaterThanOrEqual", value: 3 },
     ],
     actions: [{
@@ -69,6 +72,8 @@ const RULE_TEMPLATES: Template[] = [
         description: "Bestellung {{order.orderNumber}} von {{order.customerName}} ({{order.customerEmail}}) liegt seit {{order.daysPastDeliveryDate}} Tagen über dem spätesten Lieferdatum.",
         priority: "high",
         category: "order_issue",
+        assignToUserId: "",
+        skipIfOpenTicket: true,
       },
     }],
   },
@@ -84,6 +89,8 @@ const RULE_TEMPLATES: Template[] = [
         description: "Zahlung für Bestellung {{order.orderNumber}} von {{order.customerName}} ({{order.customerEmail}}) ist fehlgeschlagen (vorher: {{order.previousPaymentStatus}}).",
         priority: "high",
         category: "order_issue",
+        assignToUserId: "",
+        skipIfOpenTicket: true,
       },
     }],
   },
@@ -129,6 +136,15 @@ type PreviewResult = {
 
 function parseArray<T>(raw: unknown): T[] {
   return parseStoredRuleList<T>(raw) ?? [];
+}
+
+/** Auswahl "niemand" bei optionalem Benutzer (Radix-Select erlaubt keinen leeren Wert) */
+const NO_USER = "__none__";
+
+/** Wert passend zum Operator: Liste bei "ist einer von"/"enthält eines von", sonst Einzelwert */
+function valueForOperator(operator: string, value: AutomationConditionInput["value"]): AutomationConditionInput["value"] {
+  if (isListOperator(operator)) return Array.isArray(value) ? value : String(value ?? "").trim() ? [String(value)] : [];
+  return Array.isArray(value) ? (value.find((v) => v.trim()) ?? "").trim() : value;
 }
 
 function defaultParams(type: AutomationActionTypeId): Record<string, unknown> {
@@ -225,7 +241,9 @@ export function RuleBuilderDialog({ isOpen, onClose, editingRule }: RuleBuilderD
       return;
     }
     if (errors.length > 0) return;
-    const data = { name: name.trim(), description: description.trim() || null, triggerType, priority, enabled, conditions, actions };
+    // Listen-Werte bereinigen (beim Tippen bleiben Leerzeichen und leere Einträge stehen)
+    const cleanConditions = conditions.map((c) => (isListOperator(c.operator) ? { ...c, value: conditionListValues(c.value) } : c));
+    const data = { name: name.trim(), description: description.trim() || null, triggerType, priority, enabled, conditions: cleanConditions, actions };
     if (editingRule) updateMutation.mutate({ id: editingRule.id, data });
     else createMutation.mutate(data);
   };
@@ -278,6 +296,8 @@ export function RuleBuilderDialog({ isOpen, onClose, editingRule }: RuleBuilderD
         const def = AUTOMATION_FIELDS[updates.field];
         next.operator = OPERATORS_BY_FIELD_TYPE[def.type][0];
         next.value = def.options?.[0] ?? (def.type === "boolean" ? true : "");
+      } else if (updates.operator && updates.value === undefined) {
+        next.value = valueForOperator(updates.operator, c.value);
       }
       return next;
     }));
@@ -299,9 +319,10 @@ export function RuleBuilderDialog({ isOpen, onClose, editingRule }: RuleBuilderD
         return (
           <div key={param} className="space-y-1">
             {label}
-            <Select value={String(value ?? "")} onValueChange={(v) => setParam(index, param, v)}>
+            <Select value={String(value ?? "") || (def.required ? "" : NO_USER)} onValueChange={(v) => setParam(index, param, v === NO_USER ? "" : v)}>
               <SelectTrigger id={id} data-testid={`select-${id}`}><SelectValue placeholder={t("automation.form.selectUser")} /></SelectTrigger>
               <SelectContent>
+                {!def.required && <SelectItem value={NO_USER}>{t("automation.form.noUser")}</SelectItem>}
                 {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -482,7 +503,34 @@ export function RuleBuilderDialog({ isOpen, onClose, editingRule }: RuleBuilderD
                             {(def ? OPERATORS_BY_FIELD_TYPE[def.type] : []).map((op) => <SelectItem key={op} value={op}>{t(`automation.operators.${op}`)}</SelectItem>)}
                           </SelectContent>
                         </Select>
-                        {def?.type === "enum" ? (
+                        {isListOperator(condition.operator) && def?.type === "enum" ? (
+                          <div role="group" aria-label={t("automation.form.conditionValue")} className="flex flex-1 flex-wrap gap-x-4 gap-y-2" data-testid={`group-condition-values-${index}`}>
+                            {def.options!.map((o) => {
+                              const selected = conditionListValues(condition.value);
+                              const optionId = `condition-${index}-value-${o}`;
+                              return (
+                                <div key={o} className="flex items-center gap-1.5">
+                                  <Checkbox
+                                    id={optionId}
+                                    checked={selected.includes(o)}
+                                    onCheckedChange={(checked) => updateCondition(index, { value: def.options!.filter((x) => (x === o ? checked === true : selected.includes(x))) })}
+                                    data-testid={`checkbox-${optionId}`}
+                                  />
+                                  <Label htmlFor={optionId} className="text-sm font-normal">{valueLabel(condition.field, o)}</Label>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : isListOperator(condition.operator) ? (
+                          <Input
+                            className="flex-1 min-w-40"
+                            value={Array.isArray(condition.value) ? condition.value.join(",") : ""}
+                            onChange={(e) => updateCondition(index, { value: e.target.value.split(",") })}
+                            placeholder={t("automation.form.listValuePlaceholder")}
+                            aria-label={t("automation.form.conditionValue")}
+                            data-testid={`input-condition-value-${index}`}
+                          />
+                        ) : def?.type === "enum" ? (
                           <Select value={String(condition.value)} onValueChange={(v) => updateCondition(index, { value: v })}>
                             <SelectTrigger aria-label={t("automation.form.conditionValue")} className="w-48" data-testid={`select-condition-value-${index}`}><SelectValue /></SelectTrigger>
                             <SelectContent>

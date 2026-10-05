@@ -80,6 +80,10 @@ export function orderFacts(
     "order.paymentMethod": order.paymentMethod ?? null,
     "order.shippingMethod": order.shippingMethod ?? null,
     "order.salesChannelName": order.salesChannelName ?? null,
+    "order.hasErpNumber": Boolean(order.erpNumber?.trim()),
+    "order.hasInvoice": Boolean(order.invoiceNumber?.trim()) || order.hasInvoiceDocument === true,
+    // Versanddatum aus der Lieferungs-Historie oder eine Sendungsnummer
+    "order.isShipped": Boolean(order.shippingInfo?.shippedDate) || (order.shippingInfo?.trackingCodes?.length ?? 0) > 0 || Boolean(order.shippingInfo?.trackingNumber?.trim()),
   };
 }
 
