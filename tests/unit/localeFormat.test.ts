@@ -11,8 +11,11 @@ import { appLanguage, createLocaleFormatters, dateFnsLocale } from "../../client
 
 const ROOT = path.resolve(__dirname, "../..");
 const read = (p: string) => fs.readFileSync(path.join(ROOT, p), "utf8");
-/** Intl setzt geschuetzte Leerzeichen (U+00A0, U+202F) - fuer den Vergleich normale */
-const plain = (s: string) => s.replace(/[  ]/g, " ");
+/**
+ * Fuer den Vergleich ohne Leerzeichen: Intl setzt geschuetzte (U+00A0, U+202F), und je nach
+ * ICU-Version von Node steht mal "1,2 M€", mal "1,2 M €" (CI mit neuerem Node 24 als lokal).
+ */
+const plain = (s: string) => s.replace(/\s+/g, "");
 
 describe("Formate je Sprache", () => {
   const cases = {
@@ -25,7 +28,7 @@ describe("Formate je Sprache", () => {
       const f = createLocaleFormatters(lang);
       expect(
         [f.currency(1234.5), f.compactCurrency(1234567), f.integer(12345), f.decimal(3.25), f.percent(0.123), f.shortDate("2026-10-04"), f.monthYear("2026-10")].map(plain),
-      ).toEqual(expected);
+      ).toEqual(expected.map(plain));
     });
   }
 
@@ -38,7 +41,7 @@ describe("Formate je Sprache", () => {
   it("fehlende Werte bleiben leer (wie frueher x?.toLocaleString()), 0 wird gezeigt", () => {
     const f = createLocaleFormatters("de");
     expect([f.currency(undefined), f.integer(null), f.percent(Number.NaN), f.decimal(undefined), f.compactNumber("x")]).toEqual(["", "", "", "", ""]);
-    expect(plain(f.currency(0))).toBe("0,00 €");
+    expect(plain(f.currency(0))).toBe("0,00€");
     expect(f.integer(0)).toBe("0");
   });
 
