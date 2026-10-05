@@ -37,8 +37,6 @@ import {
   computeVerdict,
 } from "@/lib/profitabilityAnalysis";
 import {
-  currencyFormatter,
-  dateTimeFormatter,
   formatCustomFieldDisplay,
   formatCustomFieldValue,
   formatDeliveryTimeLabel,
@@ -49,6 +47,7 @@ import {
   type PriceHistoryEntry,
 } from "@/lib/productOverview";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 export type ProductInsightsTab = "master" | "prices" | "stock" | "assignments" | "raw";
 
 interface PricingDetailsResponse {
@@ -124,6 +123,7 @@ export default function ProductInsightsModal({
   minMarginPercent,
   onPrintLabel,
 }: ProductInsightsModalProps) {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const [tab, setTab] = useState<ProductInsightsTab>(initialTab);
 
@@ -251,8 +251,8 @@ export default function ProductInsightsModal({
           </DialogTitle>
           <DialogDescription className="flex flex-wrap items-center gap-3">
             <span>
-              {currencyFormatter.format(product.priceGross || 0)} ·{" "}
-              {currencyFormatter.format(product.priceNet || 0)} {t("productOverview.net")}
+              {fmt.currency(product.priceGross || 0)} ·{" "}
+              {fmt.currency(product.priceNet || 0)} {t("productOverview.net")}
             </span>
             {optionLabel ? <span>{optionLabel}</span> : null}
             {onPrintLabel && isPrintableSku(product) ? (
@@ -344,11 +344,11 @@ export default function ProductInsightsModal({
                 },
                 {
                   label: t("productOverview.detail.createdAt"),
-                  value: product.createdAt ? dateTimeFormatter.format(new Date(product.createdAt)) : null,
+                  value: product.createdAt ? fmt.dateTime(product.createdAt) : null,
                 },
                 {
                   label: t("productOverview.table.lastUpdated"),
-                  value: product.updatedAt ? dateTimeFormatter.format(new Date(product.updatedAt)) : null,
+                  value: product.updatedAt ? fmt.dateTime(product.updatedAt) : null,
                 },
               ]}
             />
@@ -438,10 +438,10 @@ export default function ProductInsightsModal({
                               : none}
                           </TableCell>
                           <TableCell className="text-right font-mono text-xs">
-                            {currencyFormatter.format(variant.netPrice ?? 0)}
+                            {fmt.currency(variant.netPrice ?? 0)}
                           </TableCell>
                           <TableCell className="text-right font-mono text-xs">
-                            {currencyFormatter.format(variant.price ?? 0)}
+                            {fmt.currency(variant.price ?? 0)}
                           </TableCell>
                           <TableCell className="text-right">{variant.stock}</TableCell>
                         </TableRow>
@@ -483,24 +483,24 @@ export default function ProductInsightsModal({
           <TabsContent value="prices" className="space-y-4 pt-4">
             <FieldGrid
               fields={[
-                { label: t("productOverview.csv.priceGross"), value: currencyFormatter.format(product.priceGross || 0), mono: true },
-                { label: t("productOverview.csv.priceNet"), value: currencyFormatter.format(product.priceNet || 0), mono: true },
+                { label: t("productOverview.csv.priceGross"), value: fmt.currency(product.priceGross || 0), mono: true },
+                { label: t("productOverview.csv.priceNet"), value: fmt.currency(product.priceNet || 0), mono: true },
                 { label: t("productOverview.csv.taxRate"), value: `${product.taxRate} %` },
                 {
                   label: t("productOverview.detail.purchasePriceNet"),
-                  value: product.purchasePriceNet != null ? currencyFormatter.format(product.purchasePriceNet) : null,
+                  value: product.purchasePriceNet != null ? fmt.currency(product.purchasePriceNet) : null,
                   mono: true,
                 },
                 {
                   label: t("productOverview.detail.herstellpreisNet"),
-                  value: herstellpreisNet != null ? currencyFormatter.format(herstellpreisNet) : null,
+                  value: herstellpreisNet != null ? fmt.currency(herstellpreisNet) : null,
                   mono: true,
                 },
                 {
                   label: t("productOverview.detail.maxDiscount"),
                   value:
                     pricing?.maxDiscountPercent != null
-                      ? `${pricing.maxDiscountPercent.toLocaleString("de-DE")} %`
+                      ? fmt.percentValue(pricing.maxDiscountPercent)
                       : null,
                 },
               ]}
@@ -514,7 +514,7 @@ export default function ProductInsightsModal({
                 {minMarginPercent != null ? (
                   <p className="text-xs text-muted-foreground">
                     {t("productOverview.detail.marginThreshold", {
-                      threshold: minMarginPercent.toLocaleString("de-DE"),
+                      threshold: fmt.number(minMarginPercent),
                     })}
                   </p>
                 ) : null}
@@ -563,14 +563,14 @@ export default function ProductInsightsModal({
                               {tier.ruleName || none}
                             </TableCell>
                             <TableCell className="text-right font-mono">
-                              {tier.gross != null ? currencyFormatter.format(tier.gross) : "—"}
+                              {tier.gross != null ? fmt.currency(tier.gross) : "—"}
                             </TableCell>
                             <TableCell className="text-right font-mono text-muted-foreground">
-                              {tier.net != null ? currencyFormatter.format(tier.net) : "—"}
+                              {tier.net != null ? fmt.currency(tier.net) : "—"}
                             </TableCell>
                             <TableCell className="text-right">
                               {discountPercent != null
-                                ? `${discountPercent.toLocaleString("de-DE")} %`
+                                ? fmt.percentValue(discountPercent)
                                 : "—"}
                             </TableCell>
                           </TableRow>
@@ -602,15 +602,15 @@ export default function ProductInsightsModal({
                       {historyData.history.map((entry) => (
                         <TableRow key={entry.id}>
                           <TableCell className="text-sm">
-                            {dateTimeFormatter.format(new Date(entry.changedAt))}
+                            {fmt.dateTime(entry.changedAt)}
                           </TableCell>
                           <TableCell className="text-right font-mono text-muted-foreground">
                             {entry.oldPriceGross != null
-                              ? currencyFormatter.format(entry.oldPriceGross)
+                              ? fmt.currency(entry.oldPriceGross)
                               : "—"}
                           </TableCell>
                           <TableCell className="text-right font-mono">
-                            {currencyFormatter.format(entry.newPriceGross)}
+                            {fmt.currency(entry.newPriceGross)}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -713,7 +713,7 @@ export default function ProductInsightsModal({
                         {stockData.movements.map((movement) => (
                           <TableRow key={movement.id}>
                             <TableCell className="text-sm">
-                              {dateTimeFormatter.format(new Date(movement.createdAt))}
+                              {fmt.dateTime(movement.createdAt)}
                             </TableCell>
                             <TableCell>{movement.movementType}</TableCell>
                             <TableCell className="font-mono text-xs">
@@ -880,7 +880,7 @@ export default function ProductInsightsModal({
                 {
                   label: t("productOverview.table.priceChangedAt"),
                   value: product.lastPriceChangeAt
-                    ? dateTimeFormatter.format(new Date(product.lastPriceChangeAt))
+                    ? fmt.dateTime(product.lastPriceChangeAt)
                     : null,
                 },
               ]}

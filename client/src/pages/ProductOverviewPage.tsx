@@ -49,8 +49,6 @@ import ProductInsightsModal, {
 } from "@/components/ProductInsightsModal";
 import { normalizeScanCode } from "@/lib/barcode/normalizeScanCode";
 import {
-  currencyFormatter,
-  dateTimeFormatter,
   formatCustomFieldDisplay,
   formatDeliveryTimeLabel,
   formatRestockTimeLabel,
@@ -64,6 +62,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { extractSizeColor } from "@shared/productVariantLabel";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 const PAGE_SIZE = 50;
 const NONE_CHANNEL = "__none__";
 const NONE_DELIVERY_TIME = "__none_delivery__";
@@ -86,6 +85,7 @@ function toPrintableArticle(product: OverviewProduct): PrintableArticle {
 }
 
 export default function ProductOverviewPage() {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const { toast } = useToast();
 
@@ -399,8 +399,8 @@ export default function ProductOverviewPage() {
           p.ean ?? "",
           p.manufacturerNumber ?? "",
           p.stock ?? "",
-          p.lastPriceChangeAt ? dateTimeFormatter.format(new Date(p.lastPriceChangeAt)) : "",
-          p.updatedAt ? dateTimeFormatter.format(new Date(p.updatedAt)) : "",
+          p.lastPriceChangeAt ? fmt.dateTime(p.lastPriceChangeAt) : "",
+          p.updatedAt ? fmt.dateTime(p.updatedAt) : "",
         ]
           .map(escapeCsv)
           .join(","),
@@ -1080,6 +1080,7 @@ function ProductRow({
   onPrint: () => void;
   onOpenDetail: (tab: ProductInsightsTab) => void;
 }) {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const channelNames = product.salesChannels.map((c) => c.name);
   const deliveryTimeLabel = formatDeliveryTimeLabel(product, t);
@@ -1234,11 +1235,11 @@ function ProductRow({
       </TableCell>
       <TableCell className="text-right font-mono">
         <div>
-          {currencyFormatter.format(product.priceGross || 0)}
+          {fmt.currency(product.priceGross || 0)}
           {inheritedHint("price")}
         </div>
         <div className="text-xs text-muted-foreground">
-          {currencyFormatter.format(product.priceNet || 0)} {t("productOverview.net")}
+          {fmt.currency(product.priceNet || 0)} {t("productOverview.net")}
         </div>
       </TableCell>
       <TableCell
@@ -1250,7 +1251,7 @@ function ProductRow({
       >
         {product.lastPriceChangeAt ? (
           <span className="text-sm underline decoration-dotted underline-offset-2 cursor-pointer">
-            {dateTimeFormatter.format(new Date(product.lastPriceChangeAt))}
+            {fmt.dateTime(product.lastPriceChangeAt)}
           </span>
         ) : (
           <span className="text-muted-foreground text-sm">{t("productOverview.table.none")}</span>
@@ -1262,7 +1263,7 @@ function ProductRow({
             className="text-sm text-muted-foreground"
             title={t("productOverview.table.lastUpdatedHint")}
           >
-            {dateTimeFormatter.format(new Date(product.updatedAt))}
+            {fmt.dateTime(product.updatedAt)}
           </span>
         ) : (
           <span className="text-muted-foreground text-sm">{t("productOverview.table.none")}</span>

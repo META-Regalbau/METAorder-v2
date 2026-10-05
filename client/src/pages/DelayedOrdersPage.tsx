@@ -14,9 +14,8 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { getApiErrorToastContent } from "@/lib/orderApiErrors";
 import type { Order, Role, User } from "@shared/schema";
 import { useTranslation } from "react-i18next";
-import { format } from "date-fns";
-import { de, enUS, es } from "date-fns/locale";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 type DelayedOrder = Order & {
   daysSinceOrder: number;
 };
@@ -36,6 +35,7 @@ interface DelayedOrdersPageProps {
 }
 
 export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) {
+  const fmt = useLocaleFormat();
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const [searchValue, setSearchValue] = useState("");
@@ -49,7 +49,6 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isTicketDialogOpen, setIsTicketDialogOpen] = useState(false);
 
-  const dateLocale = i18n.language === 'de' ? de : i18n.language === 'es' ? es : enUS;
 
   const currencyFormatter = useMemo(
     () => new Intl.NumberFormat(i18n.language || 'de', { style: 'currency', currency: 'EUR' }),
@@ -252,7 +251,7 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
       t('delayedOrders.ticket.orderLine', {
         orderNumber: order.orderNumber,
         customer: order.customerName,
-        date: format(new Date(order.orderDate), 'dd.MM.yyyy', { locale: dateLocale }),
+        date: fmt.date(order.orderDate),
         days: order.daysSinceOrder,
         amount: currencyFormatter.format(order.totalAmount || 0),
         invoice: order.hasInvoiceDocument
@@ -670,7 +669,7 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
                         </Badge>
                       </td>
                       <td className="p-3 text-sm text-muted-foreground" data-testid={`text-order-date-${index}`}>
-                        {format(new Date(order.orderDate), 'dd.MM.yyyy', { locale: dateLocale })}
+                        {fmt.date(order.orderDate)}
                       </td>
                       <td className="p-3">
                         <div>
@@ -683,7 +682,7 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
                         </div>
                       </td>
                       <td className="p-3 text-right font-medium" data-testid={`text-total-${index}`}>
-                        €{order.totalAmount.toFixed(2)}
+                        {fmt.currency(order.totalAmount)}
                       </td>
                       <td className="p-3">
                         <Badge variant={getStatusBadgeVariant(order.status)} data-testid={`badge-status-${index}`}>

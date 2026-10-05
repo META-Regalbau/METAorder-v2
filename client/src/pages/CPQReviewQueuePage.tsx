@@ -22,6 +22,10 @@ import {
   type CpqReviewStatus,
 } from "@shared/schema";
 
+import { createLocaleFormatters } from "@/lib/localeFormat";
+// Die CPQ-Verwaltung ist (noch) nur deutsch - Zahlen deshalb im deutschen Format wie der Text
+const fmt = createLocaleFormatters("de");
+
 type ReviewStatus = CpqReviewQueueStatus;
 
 type ReviewQueueItem = {
@@ -62,8 +66,7 @@ function toReviewStatus(value: ReviewQueueItem["reviewStatus"]): ReviewStatus {
 
 function formatDateTime(value: string | null): string {
   if (!value) return "-";
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? value : d.toLocaleString("de-DE");
+  return fmt.dateTime(value) || value;
 }
 
 export default function CPQReviewQueuePage() {

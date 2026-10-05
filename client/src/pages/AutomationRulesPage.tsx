@@ -13,7 +13,9 @@ import { ExecutionHistoryDialog } from "@/components/ExecutionHistoryDialog";
 import ErpAutomationWidget from "@/components/ErpAutomationWidget";
 import type { AutomationRule } from "@shared/schema";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 export default function AutomationRulesPage() {
+  const fmt = useLocaleFormat();
   const { toast } = useToast();
   const { t } = useTranslation();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -160,7 +162,7 @@ export default function AutomationRulesPage() {
                     </div>
                     {rule.lastExecutedAt && (
                       <div>
-                        {t('automation.lastRun')}: {new Date(rule.lastExecutedAt).toLocaleString()}
+                        {t('automation.lastRun')}: {fmt.dateTime(rule.lastExecutedAt)}
                       </div>
                     )}
                   </div>

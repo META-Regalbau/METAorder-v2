@@ -11,6 +11,10 @@ import { useState } from "react";
 import { CheckCircle, XCircle } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
+import { createLocaleFormatters } from "@/lib/localeFormat";
+// Die CPQ-Verwaltung ist (noch) nur deutsch - Zahlen deshalb im deutschen Format wie der Text
+const fmt = createLocaleFormatters("de");
+
 type CpqApprovalPanelProps = {
   offerId: string;
   canApprove?: boolean;
@@ -85,10 +89,10 @@ export default function CpqApprovalPanel({
         </Badge>
       </div>
       <div className="text-sm text-muted-foreground space-y-1">
-        <p>Rabatt: {Number(approvalStatus.discountPercent).toFixed(1)}% · Umsatzverlust: €{Number(approvalStatus.revenueLoss).toFixed(2)}</p>
+        <p>Rabatt: {fmt.percentValue(Number(approvalStatus.discountPercent), 1)} · Umsatzverlust: {fmt.currency(Number(approvalStatus.revenueLoss))}</p>
         {approvalStatus.justification && <p>Begründung: {approvalStatus.justification}</p>}
         {isApproved && approvalStatus.approvedBy && (
-          <p>Freigegeben von {approvalStatus.approvedBy} {approvalStatus.approvedAt && `am ${new Date(approvalStatus.approvedAt).toLocaleString()}`}</p>
+          <p>Freigegeben von {approvalStatus.approvedBy} {approvalStatus.approvedAt && `am ${fmt.dateTime(approvalStatus.approvedAt)}`}</p>
         )}
         {isRejected && approvalStatus.approvalComment && (
           <p>Ablehnung: {approvalStatus.approvalComment}</p>

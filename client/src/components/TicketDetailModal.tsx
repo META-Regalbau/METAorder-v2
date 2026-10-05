@@ -15,7 +15,6 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Ticket, TicketComment, User, TicketAttachment, DiscountRequest } from "@shared/schema";
 import { useTranslation } from "react-i18next";
-import { format } from "date-fns";
 import TagInput from "@/components/TagInput";
 import { DatePicker } from "@/components/ui/date-picker";
 import { FileUpload } from "@/components/FileUpload";
@@ -23,6 +22,7 @@ import { AttachmentsList } from "@/components/AttachmentsList";
 import TicketReplyComposer from "@/components/TicketReplyComposer";
 
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 interface TicketDetailModalProps {
   ticketId: string | null;
   isOpen: boolean;
@@ -40,6 +40,7 @@ export default function TicketDetailModal({
   canManageCrm,
   canApproveCrm,
 }: TicketDetailModalProps) {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const { toast } = useToast();
   const [editingTicket, setEditingTicket] = useState(false);
@@ -500,7 +501,7 @@ export default function TicketDetailModal({
                           <span className="text-sm text-muted-foreground">
                             {activeDiscountRequest.discountType === "percent"
                               ? `${activeDiscountRequest.discountValue}%`
-                              : `€${Number(activeDiscountRequest.discountValue).toFixed(2)}`}
+                              : `${fmt.currency(Number(activeDiscountRequest.discountValue))}`}
                           </span>
                         </div>
                         {activeDiscountRequest.reason && (
@@ -638,20 +639,20 @@ export default function TicketDetailModal({
                   <div>
                     <p className="text-muted-foreground mb-1">{t('tickets.createdAt')}</p>
                     <p className="font-medium" data-testid="text-created-at">
-                      {format(new Date(ticket.createdAt), 'dd.MM.yyyy HH:mm')}
+                      {fmt.dateTime(ticket.createdAt)}
                     </p>
                   </div>
                   <div>
                     <p className="text-muted-foreground mb-1">{t('tickets.updatedAt')}</p>
                     <p className="font-medium" data-testid="text-updated-at">
-                      {format(new Date(ticket.updatedAt), 'dd.MM.yyyy HH:mm')}
+                      {fmt.dateTime(ticket.updatedAt)}
                     </p>
                   </div>
                   {ticket.resolvedAt && (
                     <div>
                       <p className="text-muted-foreground mb-1">{t('tickets.resolvedAt')}</p>
                       <p className="font-medium" data-testid="text-resolved-at">
-                        {format(new Date(ticket.resolvedAt), 'dd.MM.yyyy HH:mm')}
+                        {fmt.dateTime(ticket.resolvedAt)}
                       </p>
                     </div>
                   )}
@@ -659,7 +660,7 @@ export default function TicketDetailModal({
                     <div>
                       <p className="text-muted-foreground mb-1">{t('tickets.closedAt')}</p>
                       <p className="font-medium" data-testid="text-closed-at">
-                        {format(new Date(ticket.closedAt), 'dd.MM.yyyy HH:mm')}
+                        {fmt.dateTime(ticket.closedAt)}
                       </p>
                     </div>
                   )}
@@ -724,7 +725,7 @@ export default function TicketDetailModal({
                           )}
                         </div>
                         <span className="text-sm text-muted-foreground" data-testid={`comment-time-${comment.id}`}>
-                          {format(new Date(comment.createdAt), 'dd.MM.yyyy HH:mm')}
+                          {fmt.dateTime(comment.createdAt)}
                         </span>
                       </div>
                       <p className="whitespace-pre-wrap text-sm" data-testid={`comment-content-${comment.id}`}>
@@ -772,7 +773,7 @@ export default function TicketDetailModal({
                     // Format dates
                     if (fieldName === 'dueDate' && value !== 'null') {
                       try {
-                        return format(new Date(value), 'dd.MM.yyyy HH:mm');
+                        return fmt.dateTime(value) || value;
                       } catch {
                         return value;
                       }
@@ -819,7 +820,7 @@ export default function TicketDetailModal({
                             )}
                           </div>
                           <span className="text-sm text-muted-foreground whitespace-nowrap" data-testid={`activity-time-${log.id}`}>
-                            {format(new Date(log.createdAt), 'dd.MM.yyyy HH:mm')}
+                            {fmt.dateTime(log.createdAt)}
                           </span>
                         </div>
                       </CardContent>

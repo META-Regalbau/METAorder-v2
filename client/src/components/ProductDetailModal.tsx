@@ -37,6 +37,7 @@ import { SalesChannelSelector } from "@/components/SalesChannelSelector";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 interface ProductDetailModalProps {
   product: Product | null;
   open: boolean;
@@ -48,6 +49,7 @@ export default function ProductDetailModal({
   open,
   onClose,
 }: ProductDetailModalProps) {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const { toast } = useToast();
   const [showCrossSellingManager, setShowCrossSellingManager] = useState(false);
@@ -419,10 +421,10 @@ export default function ProductDetailModal({
                 </p>
                 <div className="space-y-1">
                   <p className="font-bold text-lg" data-testid="text-price-net">
-                    €{product.netPrice.toFixed(2)} <span className="text-xs font-normal text-muted-foreground">{t('orderDetail.net')}</span>
+                    {fmt.currency(product.netPrice)} <span className="text-xs font-normal text-muted-foreground">{t('orderDetail.net')}</span>
                   </p>
                   <p className="text-sm text-muted-foreground" data-testid="text-price-gross">
-                    €{product.price.toFixed(2)} <span className="text-xs">{t('orderDetail.gross')}</span>
+                    {fmt.currency(product.price)} <span className="text-xs">{t('orderDetail.gross')}</span>
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {t('orderDetail.taxRate')}: {product.taxRate}%
@@ -460,7 +462,7 @@ export default function ProductDetailModal({
                   <p className="text-sm font-semibold">{t("products.advancedPricesTitle")}</p>
                   {productPricing?.maxDiscountPercent != null ? (
                     <Badge variant="secondary">
-                      {t("products.maxDiscountPercent")}: {productPricing.maxDiscountPercent.toLocaleString("de-DE")} %
+                      {t("products.maxDiscountPercent")}: {fmt.percentValue(productPricing.maxDiscountPercent)}
                     </Badge>
                   ) : null}
                 </div>
@@ -492,15 +494,15 @@ export default function ProductDetailModal({
                             </TableCell>
                             <TableCell className="text-right font-mono text-muted-foreground">
                               {productPricing!.listPriceNet != null
-                                ? `€${productPricing!.listPriceNet.toFixed(2)}`
+                                ? `${fmt.currency(productPricing!.listPriceNet)}`
                                 : "—"}
                             </TableCell>
                             <TableCell className="text-right font-mono">
-                              {tier.net != null ? `€${tier.net.toFixed(2)}` : "—"}
+                              {tier.net != null ? `${fmt.currency(tier.net)}` : "—"}
                             </TableCell>
                             <TableCell className="text-right">
                               {tier.discountPercent != null
-                                ? `${tier.discountPercent.toLocaleString("de-DE")} %`
+                                ? fmt.percentValue(tier.discountPercent)
                                 : "—"}
                             </TableCell>
                           </TableRow>
@@ -579,8 +581,8 @@ export default function ProductDetailModal({
                                 ? v.options.map((o) => `${o.group}: ${o.option}`).join("; ")
                                 : "—"}
                             </TableCell>
-                            <TableCell className="text-right text-xs">€{v.netPrice.toFixed(2)}</TableCell>
-                            <TableCell className="text-right text-xs">€{v.price.toFixed(2)}</TableCell>
+                            <TableCell className="text-right text-xs">{fmt.currency(v.netPrice)}</TableCell>
+                            <TableCell className="text-right text-xs">{fmt.currency(v.price)}</TableCell>
                             <TableCell className="text-right">{v.stock}</TableCell>
                             <TableCell>
                               <Badge variant={v.available ? "default" : "secondary"}>

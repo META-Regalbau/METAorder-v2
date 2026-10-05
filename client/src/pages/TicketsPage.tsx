@@ -18,14 +18,15 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import type { Ticket, User, Role } from "@shared/schema";
 import { useTranslation } from "react-i18next";
-import { format } from "date-fns";
 import { useRightSidebar } from "@/components/RightSidebarContext";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 interface TicketsPageProps {
   userPermissions: Role['permissions'];
 }
 
 export default function TicketsPage({ userPermissions }: TicketsPageProps) {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
@@ -515,7 +516,7 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
                     </span>
                   )}
                   <span data-testid={`text-created-at-${ticket.id}`}>
-                    {t('tickets.createdAt')}: {format(new Date(ticket.createdAt), 'dd.MM.yyyy HH:mm')}
+                    {t('tickets.createdAt')}: {fmt.dateTime(ticket.createdAt)}
                   </span>
                 </div>
                 {ticket.tags && ticket.tags.length > 0 && (

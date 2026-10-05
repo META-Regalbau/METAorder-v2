@@ -3579,7 +3579,8 @@
       },
       "onlyAdditionalDiscounts": "Solo clientes con descuentos adicionales",
       "additionalDiscount": "Descuento adicional",
-      "additionalDiscountHint": "Tramo más alto; se aplica desde el valor de carrito configurado"
+      "additionalDiscountHint": "Tramo más alto; se aplica desde el valor de carrito configurado",
+      "upToPercent": "hasta {{value}}"
     },
     "assignments": {
       "title": "Asignaciones de Campo",

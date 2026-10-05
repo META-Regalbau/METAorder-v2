@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Package, TruckIcon } from "lucide-react";
 import { Link } from "wouter";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 interface ShippingReadyData {
   total: number;
   orders: Array<{
@@ -24,8 +25,8 @@ export default function ShippingReadyWidget() {
     retry: false,
   });
 
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(amount);
+  const fmt = useLocaleFormat();
+  const formatCurrency = (amount: number) => fmt.currency(amount);
 
   return (
     <div className="mcard" data-testid="widget-shipping-ready">

@@ -35,6 +35,7 @@ import {
   type AutomationTriggerTypeId,
 } from "@shared/automation";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 interface RuleBuilderDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -139,6 +140,7 @@ function defaultParams(type: AutomationActionTypeId): Record<string, unknown> {
 }
 
 export function RuleBuilderDialog({ isOpen, onClose, editingRule }: RuleBuilderDialogProps) {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const { toast } = useToast();
   const [name, setName] = useState("");
@@ -429,7 +431,7 @@ export function RuleBuilderDialog({ isOpen, onClose, editingRule }: RuleBuilderD
                         <ul className="text-xs space-y-0.5 max-h-40 overflow-y-auto">
                           {preview.sample.map((o) => (
                             <li key={o.orderNumber} className="font-mono">
-                              {o.orderNumber} · {o.customerName} · {new Date(o.orderDate).toLocaleDateString()} · {valueLabel("order.status", o.status)} · {valueLabel("order.paymentStatus", o.paymentStatus)}
+                              {o.orderNumber} · {o.customerName} · {fmt.date(o.orderDate)} · {valueLabel("order.status", o.status)} · {valueLabel("order.paymentStatus", o.paymentStatus)}
                               {o.daysPastDeliveryDate !== null ? ` · +${o.daysPastDeliveryDate} ${t("automation.scheduled.days")}` : ""}
                             </li>
                           ))}

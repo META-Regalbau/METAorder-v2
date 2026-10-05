@@ -25,6 +25,7 @@ import type { Order } from "@shared/schema";
 import { FileDown, Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 export type InstallmentPlanApi = {
   id: string;
   status: string;
@@ -80,6 +81,7 @@ export default function InstallmentPlanDialog({
   onOpenChange,
   order,
 }: InstallmentPlanDialogProps) {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const { toast } = useToast();
   const [step, setStep] = useState<Step>(1);
@@ -225,8 +227,7 @@ export default function InstallmentPlanDialog({
     },
   });
 
-  const eur = (n: number) =>
-    new Intl.NumberFormat(undefined, { style: "currency", currency: "EUR" }).format(n);
+  const eur = (n: number) => fmt.currency(n);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -375,7 +376,7 @@ export default function InstallmentPlanDialog({
             <ul className="list-disc pl-5 space-y-1">
               <li>
                 {t("installmentPlan.reviewDeposit")}: {effectiveDeposit !== null ? eur(effectiveDeposit) : "—"}
-                {depositMode === "percent" && ` (${depositPercent.replace(".", ",")} %)`}
+                {depositMode === "percent" && ` (${fmt.percentValue(parseFloat(depositPercent.replace(",", ".")))})`}
                 {" — "}
                 {depositInvoiceNumber}
               </li>

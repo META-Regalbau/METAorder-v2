@@ -42,6 +42,10 @@ import CpqRuleConditionEditor from "@/components/cpq/CpqRuleConditionEditor";
 import CpqComponentSidebar from "@/components/cpq/CpqComponentSidebar";
 import CpqDetailPanel from "@/components/cpq/CpqDetailPanel";
 
+import { createLocaleFormatters } from "@/lib/localeFormat";
+// Die CPQ-Verwaltung ist (noch) nur deutsch - Zahlen deshalb im deutschen Format wie der Text
+const fmt = createLocaleFormatters("de");
+
 type CpqSystem = {
   id: string;
   name: string;
@@ -901,7 +905,7 @@ export default function CPQAdminPage() {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Umsatzverlust gesamt</p>
-                      <p className="text-xl font-semibold">€{Number(discountOverview.totalRevenueLoss).toFixed(2)}</p>
+                      <p className="text-xl font-semibold">{fmt.currency(Number(discountOverview.totalRevenueLoss))}</p>
                     </div>
                   </div>
                   <div className="rounded-lg border p-4 flex items-center gap-3">
@@ -944,7 +948,7 @@ export default function CPQAdminPage() {
                                 </div>
                               </TableCell>
                               <TableCell>{stats.count}</TableCell>
-                              <TableCell>€{Number(stats.totalRevenueLoss).toFixed(2)}</TableCell>
+                              <TableCell>{fmt.currency(Number(stats.totalRevenueLoss))}</TableCell>
                             </TableRow>
                           );
                         })}
@@ -970,11 +974,11 @@ export default function CPQAdminPage() {
                         {discountOverview.entries.map((e) => (
                           <TableRow key={e.id}>
                             <TableCell className="text-sm">
-                              {e.createdAt ? new Date(e.createdAt).toLocaleString("de-DE") : "-"}
+                              {e.createdAt ? fmt.dateTime(e.createdAt) : "-"}
                             </TableCell>
                             <TableCell><code className="text-xs">{e.offerId}</code></TableCell>
-                            <TableCell>{e.discountPercent != null ? Number(e.discountPercent).toFixed(1) + "%" : "-"}</TableCell>
-                            <TableCell>€{e.revenueLoss != null ? Number(e.revenueLoss).toFixed(2) : "0.00"}</TableCell>
+                            <TableCell>{e.discountPercent != null ? fmt.percentValue(Number(e.discountPercent), 1) : "-"}</TableCell>
+                            <TableCell>{fmt.currency(e.revenueLoss != null ? Number(e.revenueLoss) : 0)}</TableCell>
                             <TableCell>
                               <Badge variant={e.approvalStatus === "approved" ? "default" : e.approvalStatus === "rejected" ? "destructive" : "secondary"}>
                                 {e.approvalStatus || "pending"}
@@ -1358,7 +1362,7 @@ export default function CPQAdminPage() {
               ruleVersions.map((v) => (
                 <div key={v.version} className="flex items-center justify-between p-2 rounded border">
                   <span>Version {v.version}</span>
-                  <span className="text-xs text-muted-foreground">{v.changedAt ? new Date(v.changedAt).toLocaleString() : ""}</span>
+                  <span className="text-xs text-muted-foreground">{v.changedAt ? fmt.dateTime(v.changedAt) : ""}</span>
                   {v.version < (showRuleVersions?.version ?? 0) && (
                     <Button size="sm" variant="outline" onClick={() => showRuleVersions && rollbackRuleMutation.mutate({ ruleId: showRuleVersions.id, version: v.version })}>
                       Rollback

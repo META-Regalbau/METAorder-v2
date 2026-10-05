@@ -3720,7 +3720,8 @@
       },
       "onlyAdditionalDiscounts": "Nur Kunden mit Zusatzrabatten",
       "additionalDiscount": "Zusatzrabatt",
-      "additionalDiscountHint": "Höchste Zusatzrabatt-Staffel; greift ab dem hinterlegten Warenkorbwert"
+      "additionalDiscountHint": "Höchste Zusatzrabatt-Staffel; greift ab dem hinterlegten Warenkorbwert",
+      "upToPercent": "bis {{value}}"
     },
     "assignments": {
       "title": "Außendienst-Zuweisungen",

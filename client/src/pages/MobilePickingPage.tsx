@@ -15,6 +15,7 @@ import {
   printShippingLabelPdf,
 } from "@/lib/zebra/browserPrint";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 type PickListLine = {
   id?: string;
   productNumber: string;
@@ -56,6 +57,7 @@ function MobilePickingList({
   pickLists: PickListRow[];
   warehouseById: Map<string, string>;
 }) {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const openLists = pickLists.filter((p) => p.status === "open");
 
@@ -94,7 +96,7 @@ function MobilePickingList({
                   </div>
                   {p.createdAt ? (
                     <div className="text-xs text-muted-foreground mt-1">
-                      {new Date(p.createdAt).toLocaleString()}
+                      {fmt.dateTime(p.createdAt)}
                     </div>
                   ) : null}
                   {stockIssues > 0 ? (

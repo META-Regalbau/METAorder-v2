@@ -9,6 +9,7 @@ import type { Order } from "@shared/schema";
 import { FileDown, FileText, Loader2, Package, Trash2 } from "lucide-react";
 import type { InstallmentPlanApi } from "./InstallmentPlanDialog";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 interface InstallmentPlanSectionProps {
   order: Order;
   canManage: boolean;
@@ -23,6 +24,7 @@ function statusVariant(
 }
 
 export default function InstallmentPlanSection({ order, canManage }: InstallmentPlanSectionProps) {
+  const fmt = useLocaleFormat();
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
 
@@ -158,7 +160,7 @@ export default function InstallmentPlanSection({ order, canManage }: Installment
             <div className="text-sm text-muted-foreground space-y-1">
               <p>
                 {t("installmentPlan.summaryDeposit")}: {eur(plan.depositAmount)}
-                {plan.depositPercent != null && ` (${plan.depositPercent.toFixed(2).replace(".", ",")} %)`}
+                {plan.depositPercent != null && ` (${fmt.percentValue(plan.depositPercent)})`}
                 {" · "}{t("installmentPlan.summaryRemaining")}: {eur(plan.remainingAmount)}
                 {" · "}{plan.numberOfInstallments} {t("installmentPlan.rates")}
               </p>

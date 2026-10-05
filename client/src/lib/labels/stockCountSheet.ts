@@ -9,6 +9,7 @@
 
 import bwipjs from "bwip-js/browser";
 
+import { createLocaleFormatters } from "@/lib/localeFormat";
 export type StockCountRow = {
   productNumber: string;
   name: string | null;
@@ -38,6 +39,8 @@ export type StockCountSheetOptions = {
   };
   /** Zeitpunkt der Erstellung (aus dem Aufrufer, nicht hier gestempelt). */
   printedAt: Date;
+  /** Sprache fuer Zahlen und Datum (de/en/es), Standard Deutsch */
+  locale?: string;
 };
 
 function escapeHtml(value: string): string {
@@ -73,7 +76,8 @@ export function buildStockCountSheetHtml(
   opts: StockCountSheetOptions,
 ): string {
   const { labels } = opts;
-  const qtyFmt = new Intl.NumberFormat("de-DE");
+  // Zahlen und Datum in der Sprache der Beschriftungen (opts.locale = Sprache der Oberflaeche)
+  const fmt = createLocaleFormatters(opts.locale);
 
   const body = rows
     .map((row) => {
@@ -87,7 +91,7 @@ export function buildStockCountSheetHtml(
     ${variant ? `<div class="variant">${escapeHtml(variant)}</div>` : ""}
   </td>
   <td class="loc">${escapeHtml(row.locationCode || "—")}</td>
-  <td class="num">${escapeHtml(qtyFmt.format(row.erpQty))}</td>
+  <td class="num">${escapeHtml(fmt.integer(row.erpQty))}</td>
   <td class="count"></td>
   <td class="note"></td>
 </tr>`;
@@ -138,7 +142,7 @@ export function buildStockCountSheetHtml(
   <h1>${escapeHtml(opts.title)}</h1>
   <div class="meta">
     <span>${escapeHtml(opts.warehouseLabel)}</span>
-    <span>${escapeHtml(labels.date)}: ${escapeHtml(opts.printedAt.toLocaleString("de-DE"))}</span>
+    <span>${escapeHtml(labels.date)}: ${escapeHtml(fmt.dateTime(opts.printedAt))}</span>
     <span>${escapeHtml(labels.rowCount)}: ${rows.length}</span>
   </div>
 </header>

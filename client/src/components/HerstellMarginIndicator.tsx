@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "react-i18next";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 export type HerstellMarginVerdict = "green" | "red" | "none";
 
 type HerstellMarginIndicatorProps = {
@@ -16,6 +17,7 @@ export default function HerstellMarginIndicator({
   marginOnRevenuePercent,
   verdict,
 }: HerstellMarginIndicatorProps) {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
 
   const dotClass =
@@ -45,13 +47,13 @@ export default function HerstellMarginIndicator({
       <span className="inline-flex items-center gap-2 justify-end">
         <span className={`inline-block h-3 w-3 rounded-full shrink-0 ${dotClass}`} />
         <span className="font-mono text-sm tabular-nums font-medium">
-          {primaryPercent != null ? `${primaryPercent.toLocaleString("de-DE")} %` : "—"}
+          {primaryPercent != null ? fmt.percentValue(primaryPercent) : "—"}
         </span>
       </span>
       {showCostBelow ? (
         <span className="text-xs text-muted-foreground font-mono tabular-nums">
           {t("profitabilityAnalysis.table.marginOnCostShort")}{" "}
-          {marginPercent.toLocaleString("de-DE")} %
+          {fmt.percentValue(marginPercent)}
         </span>
       ) : null}
     </span>

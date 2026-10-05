@@ -33,6 +33,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
+import type { LocaleFormatters } from "@/lib/localeFormat";
 interface TopBarProps {
   userRole: "employee" | "admin";
   username: string;
@@ -75,12 +77,12 @@ function getSnippet(content: string): string {
   return `${trimmed.slice(0, 117)}...`;
 }
 
-function getScore(distance: number): string {
-  const score = Math.max(0, 1 - distance);
-  return score.toFixed(2);
+function getScore(distance: number, fmt: LocaleFormatters): string {
+  return fmt.decimal(Math.max(0, 1 - distance), 2);
 }
 
 export default function TopBar({ userRole, username, onLogout, canViewTickets = false }: TopBarProps) {
+  const fmt = useLocaleFormat();
   const { t, i18n } = useTranslation();
   const compactHeader = useMediaQuery(COMPACT_LAYOUT_QUERY);
   const theme = useThemeMode();
@@ -339,7 +341,7 @@ export default function TopBar({ userRole, username, onLogout, canViewTickets = 
                         >
                           <div className="flex items-center justify-between gap-2">
                             <div className="text-sm font-medium">{result.title}</div>
-                            <div className="text-xs text-muted-foreground">{getScore(result.distance)}</div>
+                            <div className="text-xs text-muted-foreground">{getScore(result.distance, fmt)}</div>
                           </div>
                           <div className="text-xs text-muted-foreground">
                             {t(`semanticSearch.source.${result.sourceType}`, { defaultValue: result.sourceType })}

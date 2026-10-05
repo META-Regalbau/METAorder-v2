@@ -21,9 +21,9 @@ import BulkTrackingDialog from "@/components/BulkTrackingDialog";
 import { useQuery } from "@tanstack/react-query";
 import type { Order, Role, SalesChannel } from "@shared/schema";
 import { useTranslation } from "react-i18next";
-import { format } from "date-fns";
 import SortableTableHead from "@/components/SortableTableHead";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 interface ShippingOrder extends Order {
   requiresMitnahmestapler?: boolean;
   requiresHebebuehne?: boolean;
@@ -44,6 +44,7 @@ type ShippingSortKey =
   | "equipment";
 
 export default function ShippingPage({ userRole = "employee", userPermissions }: ShippingPageProps) {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const [selectedOrder, setSelectedOrder] = useState<ShippingOrder | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -414,7 +415,7 @@ export default function ShippingPage({ userRole = "employee", userPermissions }:
                     {order.customerName}
                   </TableCell>
                   <TableCell data-testid={`text-date-${order.id}`}>
-                    {format(new Date(order.orderDate), 'dd.MM.yyyy HH:mm')}
+                    {fmt.dateTime(order.orderDate)}
                   </TableCell>
                   <TableCell data-testid={`text-sales-channel-${order.id}`}>
                     {order.salesChannelName || '-'}

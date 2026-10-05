@@ -37,6 +37,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useCrossSellProductLabels } from "@/hooks/useCrossSellProductLabels";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 // Wartet auf einen Cross-Sell-Hintergrundjob (Staging-Neuberechnung / AI-Lernlauf).
 // Der POST startet den Job (202) und dieser Poller fragt den Status ab, bis er
 // "done" oder "error" ist. Vermeidet Proxy-/Browser-Timeouts bei grossen Laeufen.
@@ -111,6 +112,7 @@ type ProductApplyPreviewResponse = {
 };
 
 export default function CrossSellingRulesPage() {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const { toast } = useToast();
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -1009,9 +1011,9 @@ export default function CrossSellingRulesPage() {
                       <TableCell className="text-sm text-muted-foreground max-w-[200px]">
                         {productName(rule.targetProductNumber) || "—"}
                       </TableCell>
-                      <TableCell>{(rule.support * 100).toFixed(1)}%</TableCell>
-                      <TableCell>{(rule.confidence * 100).toFixed(1)}%</TableCell>
-                      <TableCell>{rule.lift.toFixed(2)}</TableCell>
+                      <TableCell>{fmt.percent(rule.support)}</TableCell>
+                      <TableCell>{fmt.percent(rule.confidence)}</TableCell>
+                      <TableCell>{fmt.decimal(rule.lift, 2)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -1028,7 +1030,7 @@ export default function CrossSellingRulesPage() {
                 <p className="text-sm text-muted-foreground">
                   {stagingBatch
                     ? t("rules.stagingLatest", {
-                        date: new Date(stagingBatch.createdAt).toLocaleString(),
+                        date: fmt.dateTime(stagingBatch.createdAt),
                         defaultValue: "Letzter Snapshot: {{date}}",
                       })
                     : t("rules.stagingNone", "Kein Staging vorhanden. Bitte AI-Regeln neu berechnen.")}
@@ -1063,7 +1065,7 @@ export default function CrossSellingRulesPage() {
             </div>
             {lastStagingStats && (
               <div className="text-sm text-muted-foreground">
-                {t("rules.stagingLastRun", "Letzte Berechnung")}: {new Date(lastStagingStats.updatedAt).toLocaleString()} ·{" "}
+                {t("rules.stagingLastRun", "Letzte Berechnung")}: {fmt.dateTime(lastStagingStats.updatedAt)} ·{" "}
                 {t("rules.stagingLastRunCount", "{{count}} Vorschlaege", {
                   count: lastStagingStats.suggestionsCount,
                 })}

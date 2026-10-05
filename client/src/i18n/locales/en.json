@@ -3723,7 +3723,8 @@
       },
       "onlyAdditionalDiscounts": "Only customers with additional discounts",
       "additionalDiscount": "Additional discount",
-      "additionalDiscountHint": "Highest additional discount tier; applies from the configured cart value"
+      "additionalDiscountHint": "Highest additional discount tier; applies from the configured cart value",
+      "upToPercent": "up to {{value}}"
     },
     "assignments": {
       "title": "Field Assignments",

@@ -3,8 +3,8 @@ import { useTranslation } from "react-i18next";
 import { ShoppingCart } from "lucide-react";
 import { Link } from "wouter";
 import type { Order } from "@shared/schema";
-import { format } from "date-fns";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 export default function RecentOrdersWidget() {
   const { t } = useTranslation();
 
@@ -27,8 +27,8 @@ export default function RecentOrdersWidget() {
     }
   };
 
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(amount);
+  const fmt = useLocaleFormat();
+  const formatCurrency = (amount: number) => fmt.currency(amount);
 
   return (
     <div className="mcard" data-testid="widget-recent-orders">
@@ -62,7 +62,7 @@ export default function RecentOrdersWidget() {
                   </div>
                   <div className="mrow-meta">
                     <span>{order.customerName}</span>
-                    <span>{format(new Date(order.orderDate), "dd.MM.yyyy HH:mm")}</span>
+                    <span>{fmt.dateTime(order.orderDate)}</span>
                   </div>
                 </div>
                 <div className="mrow-side">

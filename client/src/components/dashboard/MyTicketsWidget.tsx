@@ -3,9 +3,10 @@ import { useTranslation } from "react-i18next";
 import { Ticket, AlertCircle, Clock } from "lucide-react";
 import { Link } from "wouter";
 import type { Ticket as TicketType } from "@shared/schema";
-import { format } from "date-fns";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 export default function MyTicketsWidget() {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
 
   const { data: tickets = [], isLoading } = useQuery<TicketType[]>({
@@ -80,7 +81,7 @@ export default function MyTicketsWidget() {
                     {ticket.dueDate && (
                       <div className="mrow-meta" style={{ marginTop: 0 }}>
                         <Clock className="h-3 w-3" />
-                        {format(new Date(ticket.dueDate), "dd.MM.yyyy")}
+                        {fmt.date(ticket.dueDate)}
                       </div>
                     )}
                   </div>

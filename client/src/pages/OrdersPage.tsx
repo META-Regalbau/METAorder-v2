@@ -29,6 +29,7 @@ import { getApiErrorToastContent } from "@/lib/orderApiErrors";
 import type { Order, OrderStatus, SalesChannel, User, Role } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 interface OrdersPageProps {
   userRole: "employee" | "admin";
   userSalesChannelIds?: string[] | null;
@@ -57,12 +58,8 @@ type OrdersDbSummaryResponse = {
   totalFiltered: number;
 };
 
-const currencyFormatter = new Intl.NumberFormat("de-DE", {
-  style: "currency",
-  currency: "EUR",
-});
-
 export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPageProps) {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const { toast } = useToast();
   const [location] = useLocation();
@@ -560,7 +557,7 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
         ) : dbSummary?.avgDb1 != null ? (
           <>
             <span className="text-lg font-semibold font-mono tabular-nums">
-              {currencyFormatter.format(dbSummary.avgDb1)}
+              {fmt.currency(dbSummary.avgDb1)}
             </span>
             <span className="text-xs text-muted-foreground">
               {t("orders.dbSummary.hint", {

@@ -19,6 +19,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import { createLocaleFormatters } from "@/lib/localeFormat";
+// Die CPQ-Verwaltung ist (noch) nur deutsch - Zahlen deshalb im deutschen Format wie der Text
+const fmt = createLocaleFormatters("de");
+
 const ROLE_ICONS: Record<string, string> = {
   frame: "📐",
   beam: "🔩",
@@ -63,7 +67,7 @@ const STATUS_BADGE: Record<string, { label: string; className: string }> = {
 
 function formatNum(v: number | null | undefined, unit: string): string {
   if (v === null || v === undefined) return "–";
-  return `${v.toLocaleString("de-DE")} ${unit}`;
+  return `${fmt.number(v)} ${unit}`;
 }
 
 export default function CpqTableView({
@@ -203,7 +207,7 @@ export default function CpqTableView({
                     <TableCell>{formatNum(m.productDetails?.loadCapacity, "kg")}</TableCell>
                     <TableCell>
                       {m.productDetails?.price != null
-                        ? m.productDetails.price.toLocaleString("de-DE", { style: "currency", currency: "EUR" })
+                        ? fmt.currency(m.productDetails.price)
                         : "–"}
                     </TableCell>
                     <TableCell>

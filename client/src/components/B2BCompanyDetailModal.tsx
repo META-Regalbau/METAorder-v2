@@ -41,6 +41,8 @@ import { apiRequest } from "@/lib/queryClient";
 import type { Role } from "@shared/schema";
 import { pickDefaultEmployeeRole } from "@shared/b2bEntityMapping";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
+import type { LocaleFormatters } from "@/lib/localeFormat";
 export type B2BCompanyDetail = {
   offerCustomerId: string | null;
   customerId: string;
@@ -110,8 +112,6 @@ type B2BCompanyDetailModalProps = {
   userPermissions?: Role["permissions"];
 };
 
-const dateFormatter = new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeStyle: "short" });
-const currencyFormatter = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
 
 function DetailField({ label, value }: { label: string; value: ReactNode }) {
   return (
@@ -122,10 +122,9 @@ function DetailField({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-function formatDate(value: string | null) {
+function formatDate(value: string | null, fmt: LocaleFormatters) {
   if (!value) return "—";
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? value : dateFormatter.format(parsed);
+  return fmt.dateTime(value) || value;
 }
 
 type B2BEmployee = B2BCompanyDetail["employees"][number];
@@ -654,6 +653,7 @@ export default function B2BCompanyDetailModal({
   companyName,
   userPermissions,
 }: B2BCompanyDetailModalProps) {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -777,12 +777,12 @@ export default function B2BCompanyDetailModal({
                   label={t("b2b.accounts.detail.vatIds")}
                   value={data.vatIds.length ? data.vatIds.join(", ") : "—"}
                 />
-                <DetailField label={t("b2b.accounts.detail.createdAt")} value={formatDate(data.createdAt)} />
-                <DetailField label={t("b2b.accounts.detail.lastLogin")} value={formatDate(data.lastLogin)} />
+                <DetailField label={t("b2b.accounts.detail.createdAt")} value={formatDate(data.createdAt, fmt)} />
+                <DetailField label={t("b2b.accounts.detail.lastLogin")} value={formatDate(data.lastLogin, fmt)} />
                 <DetailField label={t("b2b.accounts.detail.orderCount")} value={data.orderCount ?? "—"} />
                 <DetailField
                   label={t("b2b.accounts.detail.orderTotal")}
-                  value={data.orderTotalAmount != null ? currencyFormatter.format(data.orderTotalAmount) : "—"}
+                  value={data.orderTotalAmount != null ? fmt.currency(data.orderTotalAmount) : "—"}
                 />
                 <DetailField label={t("b2b.accounts.detail.customerId")} value={data.customerId} />
                 {data.offerCustomerId ? (
@@ -908,7 +908,7 @@ export default function B2BCompanyDetailModal({
                         <TableCell>{employee.email}</TableCell>
                         <TableCell>{employee.department || "—"}</TableCell>
                         <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                          {formatDate(employee.lastLogin)}
+                          {formatDate(employee.lastLogin, fmt)}
                         </TableCell>
                         <TableCell>
                           <Badge variant={employee.active ? "default" : "secondary"}>
@@ -998,7 +998,7 @@ export default function B2BCompanyDetailModal({
                     {data.budgets.map((budget) => (
                       <TableRow key={budget.id}>
                         <TableCell>{budget.name}</TableCell>
-                        <TableCell>{currencyFormatter.format(budget.sum)}</TableCell>
+                        <TableCell>{fmt.currency(budget.sum)}</TableCell>
                         <TableCell>{budget.periodType || "—"}</TableCell>
                         <TableCell>
                           <Badge variant={budget.active ? "default" : "secondary"}>

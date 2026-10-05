@@ -11,11 +11,13 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { Role } from "@shared/schema";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 interface B2BAssortmentsPageProps {
   userPermissions: Role["permissions"];
 }
 
 export default function B2BAssortmentsPage({ userPermissions }: B2BAssortmentsPageProps) {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -115,7 +117,7 @@ export default function B2BAssortmentsPage({ userPermissions }: B2BAssortmentsPa
                   {(assortmentsData?.assortments ?? []).map((a) => (
                     <TableRow key={a.id}>
                       <TableCell>{a.productNumber || a.productId}</TableCell>
-                      <TableCell>{a.price?.toLocaleString()} €</TableCell>
+                      <TableCell>{fmt.currency(a.price)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

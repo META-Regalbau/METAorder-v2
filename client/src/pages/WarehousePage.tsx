@@ -36,6 +36,7 @@ import { isStockReconcileDiff } from "@shared/stockReconcile";
 import PaginationControls from "@/components/PaginationControls";
 import { normalizeScanCode } from "@/lib/barcode/normalizeScanCode";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 type StockQtyFilter = "all" | "in_stock" | "out_of_stock" | "erp_positive" | "erp_zero";
 type StockDiffFilter = "all" | "diff" | "match" | "only_shopware" | "only_erp";
 type StockActiveFilter = "all" | "active" | "inactive";
@@ -393,16 +394,7 @@ export default function WarehousePage() {
     }));
   }, [reconcileAllRows, stockMain, getLabel]);
 
-  const currencyFmt = useMemo(
-    () =>
-      new Intl.NumberFormat("de-DE", {
-        style: "currency",
-        currency: "EUR",
-        maximumFractionDigits: 0,
-      }),
-    [],
-  );
-  const qtyFmt = useMemo(() => new Intl.NumberFormat("de-DE"), []);
+  const fmt = useLocaleFormat();
 
   const stockFilterOptions = useMemo(() => {
     const sizes = new Set<string>();
@@ -711,6 +703,7 @@ export default function WarehousePage() {
         title: t("erp.warehouse.countSheetTitle"),
         warehouseLabel: wh ? `${wh.code} — ${wh.name}` : "—",
         printedAt: new Date(),
+        locale: fmt.locale,
         labels: {
           productNumber: t("erp.warehouse.countSheetSku"),
           description: t("erp.warehouse.countSheetDescription"),
@@ -1278,7 +1271,7 @@ export default function WarehousePage() {
                       {t("erp.warehouse.stockStats.erpQty")}
                     </p>
                     <p className="text-lg font-semibold tabular-nums">
-                      {qtyFmt.format(stockStats.erpQtyTotal)}
+                      {fmt.integer(stockStats.erpQtyTotal)}
                     </p>
                     <p className="text-[10px] text-muted-foreground">
                       {t("erp.warehouse.stockStats.skuWithStock", {
@@ -1291,11 +1284,11 @@ export default function WarehousePage() {
                       {t("erp.warehouse.stockStats.salesValueNet")}
                     </p>
                     <p className="text-lg font-semibold tabular-nums">
-                      {currencyFmt.format(stockStats.salesValueNet)}
+                      {fmt.currencyWhole(stockStats.salesValueNet)}
                     </p>
                     <p className="text-[10px] text-muted-foreground">
                       {t("erp.warehouse.stockStats.salesValueGrossHint", {
-                        value: currencyFmt.format(stockStats.salesValueGross),
+                        value: fmt.currencyWhole(stockStats.salesValueGross),
                       })}
                       {" · "}
                       {t("erp.warehouse.stockStats.salesValuePricedHint", {
@@ -1308,7 +1301,7 @@ export default function WarehousePage() {
                       {t("erp.warehouse.stockStats.purchaseValue")}
                     </p>
                     <p className="text-lg font-semibold tabular-nums">
-                      {currencyFmt.format(stockStats.purchaseValueNet)}
+                      {fmt.currencyWhole(stockStats.purchaseValueNet)}
                     </p>
                     <p className="text-[10px] text-muted-foreground">
                       {t("erp.warehouse.stockStats.purchaseValueHint", {
@@ -1321,7 +1314,7 @@ export default function WarehousePage() {
                       {t("erp.warehouse.stockStats.shopwareQty")}
                     </p>
                     <p className="text-lg font-semibold tabular-nums">
-                      {qtyFmt.format(stockStats.shopwareQtyTotal)}
+                      {fmt.integer(stockStats.shopwareQtyTotal)}
                     </p>
                     <p className="text-[10px] text-muted-foreground">
                       {t("erp.warehouse.stockStats.diffs", { count: stockStats.diffs })}
@@ -1332,7 +1325,7 @@ export default function WarehousePage() {
                       {t("erp.warehouse.stockStats.outOfStock")}
                     </p>
                     <p className="text-lg font-semibold tabular-nums">
-                      {qtyFmt.format(stockStats.skuOutOfStock)}
+                      {fmt.integer(stockStats.skuOutOfStock)}
                     </p>
                     <p className="text-[10px] text-muted-foreground">
                       {t("erp.warehouse.stockStats.skuTotal", { count: stockStats.skuCount })}
@@ -1343,10 +1336,10 @@ export default function WarehousePage() {
                       {t("erp.warehouse.stockStats.reserved")}
                     </p>
                     <p className="text-lg font-semibold tabular-nums">
-                      {qtyFmt.format(stockStats.reservedTotal)}
+                      {fmt.integer(stockStats.reservedTotal)}
                     </p>
                     <p className="text-[10px] text-muted-foreground">
-                      {`${t("erp.warehouse.stockStats.availablePrefix")} ${qtyFmt.format(
+                      {`${t("erp.warehouse.stockStats.availablePrefix")} ${fmt.integer(
                         Math.max(0, stockStats.erpQtyTotal - stockStats.reservedTotal),
                       )}`}
                     </p>
@@ -1871,7 +1864,7 @@ export default function WarehousePage() {
                       </TableCell>
                       <TableCell>{m.quantity}</TableCell>
                       <TableCell>{m.movementType}</TableCell>
-                      <TableCell>{new Date(m.createdAt).toLocaleString()}</TableCell>
+                      <TableCell>{fmt.dateTime(m.createdAt)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -1936,7 +1929,7 @@ export default function WarehousePage() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {c.createdAt ? new Date(c.createdAt).toLocaleString() : "—"}
+                          {c.createdAt ? fmt.dateTime(c.createdAt) : "—"}
                         </TableCell>
                         <TableCell className="space-x-2">
                           <Button size="sm" variant="outline" onClick={() => openCount(c.id)}>

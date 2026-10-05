@@ -82,6 +82,7 @@ import {
 } from "@/components/DraftCustomerOptions";
 import { DraftReferencesCard, type DraftDocumentReferencesLite } from "@/components/DraftReferencesCard";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 interface BundleSummary {
   id: string;
   name: string;
@@ -106,6 +107,7 @@ export function OfferDraftReviewModal({
   onOpenChange,
   onUpdate,
 }: OfferDraftReviewModalProps) {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const { toast } = useToast();
   const [editedData, setEditedData] = useState(draft.extractedData);
@@ -611,12 +613,7 @@ export function OfferDraftReviewModal({
     }
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("de-DE", {
-      style: "currency",
-      currency: "EUR",
-    }).format(value);
-  };
+  const formatCurrency = (value: number) => fmt.currency(value);
 
   const pricingRecs = draft.matchingResults?.pricingRecommendations;
 
@@ -1144,7 +1141,7 @@ export function OfferDraftReviewModal({
                     <Label className="text-xs text-muted-foreground">{t("offerDrafts.review.totalDiscount")}</Label>
                     <p className="text-lg font-semibold flex items-center gap-1" data-testid="text-total-discount">
                       <TrendingDown className="w-4 h-4 text-green-600" />
-                      {pricingRecs.totalDiscountPercentage.toFixed(1)}%
+                      {fmt.percentValue(pricingRecs.totalDiscountPercentage, 1)}
                     </p>
                   </div>
                 </div>
@@ -1638,7 +1635,7 @@ export function OfferDraftReviewModal({
                           {item.matchedProduct?.suggestedDiscount ? (
                             <Badge variant="secondary" className="bg-green-100 text-green-800" data-testid={`badge-discount-${index}`}>
                               <TrendingDown className="w-3 h-3 mr-1" />
-                              {item.matchedProduct.suggestedDiscount.toFixed(1)}%
+                              {fmt.percentValue(item.matchedProduct.suggestedDiscount, 1)}
                             </Badge>
                           ) : (
                             <span className="text-muted-foreground" data-testid={`text-no-discount-${index}`}>-</span>
@@ -1868,7 +1865,7 @@ export function OfferDraftReviewModal({
                             </div>
                             <div className="flex items-center justify-between">
                               <div className="text-sm font-medium" data-testid={`text-price-${groupIndex}-${product.id}`}>
-                                €{product.price.toFixed(2)}
+                                {fmt.currency(product.price)}
                               </div>
                               {product.stock > 0 ? (
                                 <Badge variant="default" className="bg-green-600 text-xs" data-testid={`badge-in-stock-${groupIndex}-${product.id}`}>

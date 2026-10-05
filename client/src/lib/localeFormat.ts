@@ -24,6 +24,17 @@ export function dateFnsLocale(language?: string | null): Locale {
 
 const isNumber = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 
+/** Date, ISO-Text oder Zeitstempel -> Date; Ungueltiges -> null */
+function toDate(v: unknown): Date | null {
+  if (v instanceof Date) return Number.isNaN(v.getTime()) ? null : v;
+  if (typeof v === "number" && Number.isFinite(v)) return new Date(v);
+  if (typeof v === "string" && v.trim()) {
+    const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(v) ? `${v}T00:00:00` : v);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
+
 export type LocaleFormatters = ReturnType<typeof createLocaleFormatters>;
 
 export function createLocaleFormatters(language?: string | null) {
@@ -34,6 +45,12 @@ export function createLocaleFormatters(language?: string | null) {
   const integerFmt = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 });
   const decimalFmt = (digits: number) => new Intl.NumberFormat(locale, { minimumFractionDigits: digits, maximumFractionDigits: digits });
   const percentFmt = (digits: number) => new Intl.NumberFormat(locale, { style: "percent", minimumFractionDigits: digits, maximumFractionDigits: digits });
+  const numberFmt = (maxDigits: number) => new Intl.NumberFormat(locale, { maximumFractionDigits: maxDigits });
+  const percentValueFmt = (maxDigits: number) => new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: maxDigits });
+  const currencyWholeFmt = new Intl.NumberFormat(locale, { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+  const dateFmt = new Intl.DateTimeFormat(locale, { day: "2-digit", month: "2-digit", year: "numeric" });
+  const dateTimeFmt = new Intl.DateTimeFormat(locale, { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  const timeFmt = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" });
   const shortDateFmt = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "2-digit" });
   const monthYearFmt = new Intl.DateTimeFormat(locale, { month: "short", year: "numeric" });
 
@@ -43,16 +60,46 @@ export function createLocaleFormatters(language?: string | null) {
     locale,
     /** 1234.5 -> "1.234,50 €" / "€1,234.50" / "1234,50 €" (Spanisch trennt Tausender erst ab 5 Stellen) */
     currency: (v: unknown) => (isNumber(v) ? currencyFmt.format(v) : ""),
+    /** Betrag ohne Cent: 1234.5 -> "1.235 €" / "€1,235" */
+    currencyWhole: (v: unknown) => (isNumber(v) ? currencyWholeFmt.format(v) : ""),
+    /** Betrag in anderer Waehrung (ISO-Code, z. B. aus Shopware); unbekannter Code -> Euro */
+    currencyIn: (v: unknown, currencyCode?: string | null) => {
+      if (!isNumber(v)) return "";
+      try {
+        return new Intl.NumberFormat(locale, { style: "currency", currency: currencyCode || "EUR" }).format(v);
+      } catch {
+        return currencyFmt.format(v);
+      }
+    },
     /** Diagrammachse: 1234567 -> "1,2 Mio. €" / "€1.2M" / "1,2 M€" (Deutsch kuerzt Tausender nicht) */
     compactCurrency: (v: unknown) => (isNumber(v) ? compactCurrencyFmt.format(v) : ""),
     /** Diagrammachse ohne Waehrung: 12345 -> "12.345" / "12.3K" / "12,3 mil" */
     compactNumber: (v: unknown) => (isNumber(v) ? compactNumberFmt.format(v) : ""),
+    /** Zahl wie toLocaleString(): bis zu maxDigits Nachkommastellen, 1234.5 -> "1.234,5" / "1,234.5" */
+    number: (v: unknown, maxDigits = 3) => (isNumber(v) ? numberFmt(maxDigits).format(v) : ""),
     /** Ganze Zahl mit Tausendertrennung */
     integer: (v: unknown) => (isNumber(v) ? integerFmt.format(v) : ""),
     /** Feste Nachkommastellen, z. B. Tage: 3.25 -> "3,3" */
     decimal: (v: unknown, digits = 1) => (isNumber(v) ? decimalFmt(digits).format(v) : ""),
+    /** Wert schon in Prozent (12.5) -> "12,5 %" / "12.5%"; ohne erzwungene Nachkommastellen */
+    percentValue: (v: unknown, maxDigits = 2) => (isNumber(v) ? percentValueFmt(maxDigits).format(v / 100) : ""),
     /** Anteil 0..1 -> "12,3 %" / "12.3%" */
     percent: (ratio: unknown, digits = 1) => (isNumber(ratio) ? percentFmt(digits).format(ratio) : ""),
+    /** Datum: "04.10.2026" / "10/04/2026" / "04/10/2026" (ersetzt feste "dd.MM.yyyy") */
+    date: (v: unknown) => {
+      const d = toDate(v);
+      return d ? dateFmt.format(d) : "";
+    },
+    /** Datum mit Uhrzeit: "04.10.2026, 23:15" / "10/04/2026, 11:15 PM" */
+    dateTime: (v: unknown) => {
+      const d = toDate(v);
+      return d ? dateTimeFmt.format(d) : "";
+    },
+    /** Uhrzeit: "23:15" / "11:15 PM" */
+    time: (v: unknown) => {
+      const d = toDate(v);
+      return d ? timeFmt.format(d) : "";
+    },
     /** "2026-10-04" -> "4. Okt. 26" / "Oct 4, 26" / "4 oct 26"; unbekanntes Format bleibt */
     shortDate: (isoDate: string) => {
       // nur ISO-Daten: new Date() liest sonst auch "KW 40" (als Jahr 40)

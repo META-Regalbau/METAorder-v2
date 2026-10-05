@@ -18,6 +18,7 @@ import {
 import { Link } from "wouter";
 import "@/styles/metaAdmin.css";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 interface OfferDetailModalProps {
   offerId: string | null;
   isOpen: boolean;
@@ -95,6 +96,7 @@ export default function OfferDetailModal({
   canApproveCPQ = false,
   mode = "view",
 }: OfferDetailModalProps) {
+  const fmt = useLocaleFormat();
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -268,18 +270,8 @@ export default function OfferDetailModal({
     }
   };
 
-  const formatCurrency = (amount: number | null | undefined) => {
-    if (amount === null || amount === undefined) return '€0.00';
-    
-    try {
-      return new Intl.NumberFormat(i18n.language, {
-        style: 'currency',
-        currency: 'EUR',
-      }).format(amount);
-    } catch (e) {
-      return `€${amount.toFixed(2)}`;
-    }
-  };
+  // fehlender Betrag als 0 in der Sprache der Oberflaeche (vorher fest "€0.00")
+  const formatCurrency = (amount: number | null | undefined) => fmt.currency(amount ?? 0);
 
   const updateOfferMutation = useMutation({
     mutationFn: async () => {

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 interface FileUploadProps {
   onFilesSelected: (files: File[]) => void;
   maxFiles?: number;
@@ -20,6 +21,7 @@ const ALLOWED_MIME_TYPES = [
 ];
 
 export function FileUpload({ onFilesSelected, maxFiles = 10, className, disabled }: FileUploadProps) {
+  const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const [dragActive, setDragActive] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -156,7 +158,7 @@ export function FileUpload({ onFilesSelected, maxFiles = 10, className, disabled
               >
                 <span className="text-sm flex-1 truncate">{file.name}</span>
                 <span className="text-xs text-muted-foreground">
-                  {(file.size / 1024).toFixed(1)} KB
+                  {fmt.decimal(file.size / 1024, 1)} KB
                 </span>
                 <Button aria-label={t("common.remove")}
                   type="button"

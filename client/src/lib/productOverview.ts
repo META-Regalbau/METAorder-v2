@@ -107,16 +107,6 @@ export function formatVisibilityLabel(visibility: number | null | undefined, t: 
   return String(visibility);
 }
 
-export const currencyFormatter = new Intl.NumberFormat("de-DE", {
-  style: "currency",
-  currency: "EUR",
-});
-
-export const dateTimeFormatter = new Intl.DateTimeFormat("de-DE", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
-
 export function formatCustomFieldValue(value: unknown): string {
   if (value == null) return "";
   if (typeof value === "object") return JSON.stringify(value);
