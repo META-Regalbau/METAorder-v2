@@ -8,6 +8,7 @@ import LanguageSwitcher, { changeLanguage, languages } from "./LanguageSwitcher"
 import { NotificationBell } from "./NotificationBell";
 import RightSidebarToggle from "./RightSidebarToggle";
 import { COMPACT_LAYOUT_QUERY, useMediaQuery } from "@/hooks/useMediaQuery";
+import { HEADER_LEVEL, MAX_HEADER_LEVEL, useHeaderLevel } from "@/hooks/useHeaderLevel";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useTranslation } from "react-i18next";
 import { useLocation, useSearch } from "wouter";
@@ -97,6 +98,14 @@ export default function TopBar({ userRole, username, onLogout, canViewTickets = 
   const [searchResults, setSearchResults] = useState<SemanticResult[] | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  // Stufe nach Breite der Kopfzeile (useHeaderLevel); unter 1280 px Fensterbreite immer kompakt
+  const measuredLevel = useHeaderLevel(headerRef, searchContainerRef);
+  const level = compactHeader ? MAX_HEADER_LEVEL : measuredLevel;
+  const showTitle = level < HEADER_LEVEL.noTitle;
+  const showLabels = level < HEADER_LEVEL.noLabels;
+  const showUsername = level < HEADER_LEVEL.noUsername;
+  const inlineControls = level < HEADER_LEVEL.compact;
 
   const { data: tenantData } = useQuery<{
     tenants: TenantInfo[];
@@ -285,10 +294,10 @@ export default function TopBar({ userRole, username, onLogout, canViewTickets = 
   };
 
   return (
-    <header className="h-16 border-b bg-card flex items-center justify-between px-3 md:px-6 gap-2 md:gap-4 sticky top-0 z-50">
+    <header ref={headerRef} data-header-level={level} className="h-16 border-b bg-card flex items-center justify-between px-3 md:px-6 gap-2 md:gap-4 sticky top-0 z-50">
       <div className="flex items-center gap-2 md:gap-4">
         <SidebarTrigger data-testid="button-sidebar-toggle" />
-        <h1 className="hidden xl:block text-xl font-semibold">{t('nav.appTitle')}</h1>
+        {showTitle && <h1 className="text-xl font-semibold whitespace-nowrap">{t('nav.appTitle')}</h1>}
       </div>
 
       <div className="flex-1 min-w-0 flex justify-center">
@@ -361,61 +370,73 @@ export default function TopBar({ userRole, username, onLogout, canViewTickets = 
         </div>
       </div>
 
-      <div className="flex items-center gap-1 xl:gap-3">
-        {/* ab 1280 px; schmaler stehen Mandant, Sprache, Design und Rolle im Nutzermenue */}
-        <div className="hidden xl:flex items-center gap-3">
-          {showTenantSelect && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">
-                {t("settings.tenants.selectLabel")}
-              </span>
-              <Select
-                value={selectedTenantId || ""}
-                onValueChange={changeTenant}
-              >
-                <SelectTrigger aria-label={t("settings.tenants.selectPlaceholder")} className="h-8 w-44" data-testid="select-tenant-topbar">
-                  <SelectValue placeholder={t("settings.tenants.selectPlaceholder")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {tenants.map((tenant) => (
-                    <SelectItem key={tenant.id} value={tenant.id}>
-                      {tenant.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          <LanguageSwitcher />
-        </div>
+      <div className="flex shrink-0 items-center gap-1 xl:gap-3">
+        {/* bei wenig Platz stehen Mandant, Sprache, Design und Rolle im Nutzermenue (useHeaderLevel) */}
+        {inlineControls && (
+          <div className="flex items-center gap-3">
+            {showTenantSelect && (
+              <div className="flex items-center gap-2">
+                {showLabels && (
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    {t("settings.tenants.selectLabel")}
+                  </span>
+                )}
+                <Select
+                  value={selectedTenantId || ""}
+                  onValueChange={changeTenant}
+                >
+                  <SelectTrigger aria-label={t("settings.tenants.selectPlaceholder")} className="h-8 w-44" data-testid="select-tenant-topbar">
+                    <SelectValue placeholder={t("settings.tenants.selectPlaceholder")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tenants.map((tenant) => (
+                      <SelectItem key={tenant.id} value={tenant.id}>
+                        {tenant.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <LanguageSwitcher />
+          </div>
+        )}
         <NotificationBell />
-        <div className="hidden xl:flex items-center gap-3">
-          <ThemeToggle />
-          <Badge variant={userRole === "admin" ? "default" : "secondary"} data-testid="badge-user-role">
-            {t(`roles.${userRole}`)}
-          </Badge>
-        </div>
+        {inlineControls && (
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            {showLabels && (
+              <Badge variant={userRole === "admin" ? "default" : "secondary"} data-testid="badge-user-role">
+                {t(`roles.${userRole}`)}
+              </Badge>
+            )}
+          </div>
+        )}
         {canViewTickets && <RightSidebarToggle />}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              className="flex items-center gap-2 px-2 xl:px-4"
+              className={`flex items-center gap-2 ${showUsername ? "px-4" : "px-2"}`}
               aria-label={username}
               data-testid="button-user-menu"
             >
               <User className="h-4 w-4" />
-              <span className="hidden xl:inline text-sm font-medium" data-testid="text-username">{username}</span>
+              {showUsername && <span className="text-sm font-medium" data-testid="text-username">{username}</span>}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="max-h-[80dvh] overflow-y-auto">
-            {compactHeader && (
+            {!showLabels && (
               <>
-                <DropdownMenuLabel className="font-normal">
+                <DropdownMenuLabel className="font-normal" data-testid="menu-user-label">
                   <div className="text-sm font-medium">{username}</div>
                   <div className="text-xs text-muted-foreground">{t(`roles.${userRole}`)}</div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+              </>
+            )}
+            {!inlineControls && (
+              <>
                 {showTenantSelect && (
                   <>
                     <DropdownMenuLabel className="text-xs text-muted-foreground">

@@ -181,7 +181,7 @@
     "hideValue": "Ocultar valor"
   },
   "globalSearch": {
-    "placeholder": "Buscar (pedido, factura, ERP)",
+    "placeholder": "Búsqueda semántica (productos, ofertas, tickets...)",
     "searching": "Buscando...",
     "noResults": "No se encontraron resultados",
     "sections": {
