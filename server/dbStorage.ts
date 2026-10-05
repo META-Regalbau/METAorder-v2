@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "crypto";
 import { eq, ne, sql as drizzleSql, desc, asc, and, isNull, lte, gt, gte, sql, inArray, not, count, or, ilike, type AnyColumn } from "drizzle-orm";
+import type { PgTable } from "drizzle-orm/pg-core";
 import { db } from "./db";
 import { getTenantIdFromContext } from "./lib/tenantContext";
 import { emitDomainEvent } from "./lib/domainEvents";
@@ -201,6 +202,30 @@ import { rankSemanticCandidates } from "./semantic/semanticRanking";
 function wordRelevanceSql(column: AnyColumn, token: string) {
   return sql`CASE WHEN ${column} ~* ${`\\m${escapeRegexLiteral(token)}\\M`} THEN ${SCORE_WHOLE_WORD}
     WHEN ${column} ILIKE ${`%${token}%`} THEN ${SCORE_PART_OF_WORD} ELSE 0 END`;
+}
+
+/** Zeilen je Einfuege-Befehl: 58.080 Zeilen in einem Befehl liessen drizzle mit "Maximum call stack size exceeded" abbrechen */
+export const REPLACE_ROWS_CHUNK = 1000;
+
+/**
+ * Ergebnisse eines Lernlaufs ersetzen (Cross-Selling): alte Zeilen des Mandanten loeschen, neue in Bloecken
+ * einfuegen - in einer Transaktion. Vorher ein einziger INSERT (scheiterte ab einigen zehntausend Zeilen)
+ * und ohne Transaktion: die alten Zeilen waren dann trotzdem geloescht.
+ */
+async function replaceTenantRows<T extends Record<string, unknown>>(
+  table: PgTable,
+  tenantColumn: AnyColumn,
+  rows: T[],
+  tenantId?: string | null,
+): Promise<void> {
+  const tenantFilter = tenantFilterFor(tenantColumn as any, tenantId);
+  const tid = resolveTenantId(tenantId) ?? null;
+  await db.transaction(async (tx) => {
+    await tx.delete(table).where(tenantFilter);
+    for (let i = 0; i < rows.length; i += REPLACE_ROWS_CHUNK) {
+      await tx.insert(table).values(rows.slice(i, i + REPLACE_ROWS_CHUNK).map((row) => ({ ...row, tenantId: tid })) as any);
+    }
+  });
 }
 
 const toIsoString = (value: Date | string) => (value instanceof Date ? value.toISOString() : value);
@@ -1825,16 +1850,7 @@ export class DbStorage implements IStorage {
 
   // AI Cross-Selling learning
   async replaceCrossSellCooccurrences(rows: InsertCrossSellCooccurrence[], tenantId?: string | null): Promise<void> {
-    const tenantFilter = tenantFilterFor(crossSellCooccurrences.tenantId, tenantId);
-    await db.delete(crossSellCooccurrences).where(tenantFilter);
-    if (rows.length > 0) {
-      await db.insert(crossSellCooccurrences).values(
-        rows.map((row) => ({
-          ...row,
-          tenantId: resolveTenantId(tenantId) ?? null,
-        }))
-      );
-    }
+    await replaceTenantRows(crossSellCooccurrences, crossSellCooccurrences.tenantId, rows, tenantId);
   }
 
   async getCrossSellCooccurrences(tenantId?: string | null): Promise<CrossSellCooccurrence[]> {
@@ -1851,16 +1867,7 @@ export class DbStorage implements IStorage {
   }
 
   async replaceAiCrossSellRules(rows: InsertAiCrossSellRule[], tenantId?: string | null): Promise<void> {
-    const tenantFilter = tenantFilterFor(aiCrossSellRules.tenantId, tenantId);
-    await db.delete(aiCrossSellRules).where(tenantFilter);
-    if (rows.length > 0) {
-      await db.insert(aiCrossSellRules).values(
-        rows.map((row) => ({
-          ...row,
-          tenantId: resolveTenantId(tenantId) ?? null,
-        }))
-      );
-    }
+    await replaceTenantRows(aiCrossSellRules, aiCrossSellRules.tenantId, rows, tenantId);
   }
 
   async getAiCrossSellRules(tenantId?: string | null): Promise<AiCrossSellRule[]> {
@@ -1879,16 +1886,7 @@ export class DbStorage implements IStorage {
   }
 
   async replaceAiRecommendations(rows: InsertAiRecommendation[], tenantId?: string | null): Promise<void> {
-    const tenantFilter = tenantFilterFor(aiRecommendations.tenantId, tenantId);
-    await db.delete(aiRecommendations).where(tenantFilter);
-    if (rows.length > 0) {
-      await db.insert(aiRecommendations).values(
-        rows.map((row) => ({
-          ...row,
-          tenantId: resolveTenantId(tenantId) ?? null,
-        }))
-      );
-    }
+    await replaceTenantRows(aiRecommendations, aiRecommendations.tenantId, rows, tenantId);
   }
 
   async getAiRecommendations(productNumber?: string, limit: number = 10, tenantId?: string | null): Promise<AiRecommendation[]> {
@@ -1920,16 +1918,7 @@ export class DbStorage implements IStorage {
   }
 
   async replaceAiInsights(rows: InsertAiInsight[], tenantId?: string | null): Promise<void> {
-    const tenantFilter = tenantFilterFor(aiInsights.tenantId, tenantId);
-    await db.delete(aiInsights).where(tenantFilter);
-    if (rows.length > 0) {
-      await db.insert(aiInsights).values(
-        rows.map((row) => ({
-          ...row,
-          tenantId: resolveTenantId(tenantId) ?? null,
-        }))
-      );
-    }
+    await replaceTenantRows(aiInsights, aiInsights.tenantId, rows, tenantId);
   }
 
   async getAiInsights(tenantId?: string | null): Promise<AiInsight[]> {
