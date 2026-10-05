@@ -2301,7 +2301,11 @@
       "saveSuccess": "GLB was uploaded to Shopware media.",
       "saveFailed": "Saving failed",
       "footer": "GLB: {{filename}} · Pan & zoom with the mouse"
-    }
+    },
+    "aiInterpret": "Interpret with AI",
+    "aiInterpretHint": "The AI turns your input (e.g. “shelving 2 m high, 3 m wide”) into a search term and dimension filters.",
+    "aiInterpretApplied": "AI interpretation applied",
+    "aiInterpretFailed": "AI interpretation failed"
   },
   "categories": {
     "none": "No categories available",
@@ -5994,6 +5998,7 @@
       "token_konnte_nicht_erzeugt_werden": "Token could not be generated",
       "token_nicht_gefunden_oder_bereits_widerrufen": "Token not found or already revoked.",
       "too_many_ai_answers_please_wait_a_minute": "Too many AI answers, please wait a minute",
+      "too_many_ai_requests_please_wait_a_minute": "Too many AI requests, please wait a minute",
       "unable_to_process_request_body": "Unable to process request body",
       "unauthorized": "Unauthorized",
       "unauthorized_no_authenticated_user_found": "Unauthorized: No authenticated user found",

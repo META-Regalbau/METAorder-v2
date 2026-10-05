@@ -2298,7 +2298,11 @@
       "saveSuccess": "GLB wurde in Shopware-Medien hochgeladen.",
       "saveFailed": "Speichern fehlgeschlagen",
       "footer": "GLB: {{filename}} · Schwenken & Zoomen mit Maus"
-    }
+    },
+    "aiInterpret": "Mit KI auslegen",
+    "aiInterpretHint": "Die KI übersetzt die Eingabe (z. B. „Regal 2 m hoch, 3 m breit“) in Suchwort und Abmessungsfilter.",
+    "aiInterpretApplied": "KI-Auslegung übernommen",
+    "aiInterpretFailed": "KI-Auslegung fehlgeschlagen"
   },
   "categories": {
     "none": "Keine Kategorien verfügbar",
@@ -5991,6 +5995,7 @@
       "token_konnte_nicht_erzeugt_werden": "Token konnte nicht erzeugt werden",
       "token_nicht_gefunden_oder_bereits_widerrufen": "Token nicht gefunden oder bereits widerrufen.",
       "too_many_ai_answers_please_wait_a_minute": "Zu viele KI-Antworten, bitte warten Sie eine Minute",
+      "too_many_ai_requests_please_wait_a_minute": "Zu viele KI-Anfragen – bitte eine Minute warten",
       "unable_to_process_request_body": "Anfrageinhalt konnte nicht verarbeitet werden",
       "unauthorized": "Nicht autorisiert",
       "unauthorized_no_authenticated_user_found": "Nicht autorisiert: Kein angemeldeter Benutzer gefunden",

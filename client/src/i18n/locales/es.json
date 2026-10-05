@@ -2147,7 +2147,11 @@
       "saveSuccess": "El GLB se ha subido a los medios de Shopware.",
       "saveFailed": "Error al guardar",
       "footer": "GLB: {{filename}} · Desplazar y hacer zoom con el ratón"
-    }
+    },
+    "aiInterpret": "Interpretar con IA",
+    "aiInterpretHint": "La IA convierte su entrada (p. ej., «estantería de 2 m de alto y 3 m de ancho») en un término de búsqueda y filtros de dimensiones.",
+    "aiInterpretApplied": "Interpretación de la IA aplicada",
+    "aiInterpretFailed": "La interpretación de la IA ha fallado"
   },
   "categories": {
     "none": "No hay categorías disponibles",
@@ -5991,6 +5995,7 @@
       "token_konnte_nicht_erzeugt_werden": "No se pudo generar el token",
       "token_nicht_gefunden_oder_bereits_widerrufen": "No se encontró el token o ya fue revocado.",
       "too_many_ai_answers_please_wait_a_minute": "Demasiadas respuestas de IA, espere un minuto",
+      "too_many_ai_requests_please_wait_a_minute": "Demasiadas solicitudes a la IA: espere un minuto",
       "unable_to_process_request_body": "No se pudo procesar el cuerpo de la solicitud",
       "unauthorized": "No autorizado",
       "unauthorized_no_authenticated_user_found": "No autorizado: no se encontró ningún usuario autenticado",

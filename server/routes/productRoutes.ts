@@ -16,7 +16,11 @@ import { productCache } from "../products/productCache";
 import { type ObxArticle, type ObxHeader, parseObxContent } from "../extraction/obxParser";
 import { z } from "zod";
 import fs from "fs/promises";
-import { executeSemanticProductSearch } from "../semantic/semanticProductSearch";
+import { executeSemanticProductSearch, interpretSemanticProductQuery } from "../semantic/semanticProductSearch";
+import { takeMinuteSlot } from "../analytics/nlQueryLimit";
+
+/** KI-Produktsuche: hoechstens so viele KI-Aufrufe je Nutzer und Minute */
+export const PRODUCT_AI_PER_MINUTE = 10;
 import { getCombinedCrossSellingRules, loadCrossSellRankingBundle, crossSellSuggestOptions, dedupeAndLimitSuggestions } from "../cross-selling/crossSellService";
 import { RuleEngine } from "../cross-selling/ruleEngine";
 import type { Express } from "express";
@@ -1392,14 +1396,26 @@ export function registerProductRoutes(app: Express): void {
   // Semantic Product Search route - GPT-4o powered natural language search using cached products
   app.post("/api/products/semantic-search", requireAuth, async (req, res) => {
     try {
-      const { query, language } = req.body;
+      const { query, language, interpretOnly } = req.body;
       
       if (!query || typeof query !== 'string') {
         return res.status(400).json({ error: "Query is required" });
       }
+      if (!takeMinuteSlot(`productAi:${(req as any).tenantId ?? ""}:${(req.user as any)?.id ?? ""}`, PRODUCT_AI_PER_MINUTE)) {
+        return res.status(429).json({ error: "Too many AI requests, please wait a minute", code: "rate_limited" });
+      }
 
       const promptOverrides = (await storage.getSetting("ai_prompt_overrides")) || {};
       const promptAddon = promptOverrides.semanticSearchSystemAddon || "";
+
+      // Produktseite ("Mit KI auslegen"): nur die Auslegung - Treffer liefert die normale Produktsuche
+      if (interpretOnly === true) {
+        const interpretation = await interpretSemanticProductQuery(
+          { query, language: language === "en" || language === "es" ? language : "de" },
+          { promptAddon, getSetting: (key) => storage.getSetting(key) },
+        );
+        return res.json({ interpretation });
+      }
 
       console.log(`[Semantic Search] Query: "${query}", Language: ${language || 'de'}`);
 

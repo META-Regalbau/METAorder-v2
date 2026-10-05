@@ -33,20 +33,14 @@ interface SemanticSearchResult {
   totalResults: number;
 }
 
-export async function executeSemanticProductSearch(
+/** Anfrage per KI in Produkttyp, Abmessungen und Suchwoerter zerlegen; ohne KI/bei Fehlern einfache Woerter */
+export async function interpretSemanticProductQuery(
   input: SemanticSearchInput,
-  allProducts: Product[],
   options?: { promptAddon?: string; getSetting?: (key: string) => Promise<any> }
-): Promise<SemanticSearchResult> {
+): Promise<SemanticSearchInterpretation> {
   const { query, language = "de" } = input;
-
-  console.log(`[Semantic Search] Processing query: "${query}" (language: ${language})`);
-
   const systemPrompt = getSystemPrompt(language, options?.promptAddon);
   const userPrompt = getUserPrompt(query, language);
-
-  let interpretation: SemanticSearchInterpretation;
-
   try {
     // Chat-Anbieter des Mandanten (OpenAI, Claude oder Gemini); ohne Einstellungen nur OpenAI per Umgebung
     const getSetting = options?.getSetting ?? (async () => undefined);
@@ -64,13 +58,24 @@ export async function executeSemanticProductSearch(
     if (!parsed || Object.keys(parsed).length === 0) {
       throw new Error("Empty or invalid JSON from LLM");
     }
-    interpretation = parsed;
-    
-    console.log("[Semantic Search] AI Interpretation:", JSON.stringify(interpretation, null, 2));
+    console.log("[Semantic Search] AI Interpretation:", JSON.stringify(parsed, null, 2));
+    return parsed;
   } catch (error) {
     console.error("[Semantic Search] LLM error:", error);
-    interpretation = createFallbackInterpretation(query, language);
+    return createFallbackInterpretation(query, language);
   }
+}
+
+export async function executeSemanticProductSearch(
+  input: SemanticSearchInput,
+  allProducts: Product[],
+  options?: { promptAddon?: string; getSetting?: (key: string) => Promise<any> }
+): Promise<SemanticSearchResult> {
+  const { query, language = "de" } = input;
+
+  console.log(`[Semantic Search] Processing query: "${query}" (language: ${language})`);
+
+  const interpretation = await interpretSemanticProductQuery(input, options);
 
   // If any keyword exactly matches the productType, it's likely a specific product name (not a generic category)
   // In this case, remove productType to prioritize keyword matching

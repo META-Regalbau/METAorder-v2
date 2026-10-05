@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Package, Search, ChevronLeft, ChevronRight, Info, Filter, Ruler } from "lucide-react";
+import { Package, Search, ChevronLeft, ChevronRight, Info, Filter, Ruler, Sparkles, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import type { Product, User, Role } from "@shared/schema";
 import ProductDetailModal from "@/components/ProductDetailModal";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { filtersFromInterpretation, type ProductAiInterpretation } from "@/lib/productAiSearch";
 import { SalesChannelSelector } from "@/components/SalesChannelSelector";
 import { useLocation, useSearch } from "wouter";
 
@@ -26,7 +27,7 @@ interface Category {
 
 export default function ProductsPage() {
   const fmt = useLocaleFormat();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const [location] = useLocation();
   // Query (?search=...) reaktiv: useLocation liefert in wouter 3 nur den Pfad
@@ -105,6 +106,30 @@ export default function ProductsPage() {
   const width = widthInput ? parseFloat(widthInput) : undefined;
   const height = heightInput ? parseFloat(heightInput) : undefined;
   const depth = depthInput ? parseFloat(depthInput) : undefined;
+
+  // "Mit KI auslegen": Anfrage -> Suchwort + Abmessungsfilter (ein KI-Aufruf je Klick)
+  const aiInterpretMutation = useMutation({
+    mutationFn: async (query: string) => {
+      const response = await apiRequest("POST", "/api/products/semantic-search", {
+        query,
+        language: i18n.language,
+        interpretOnly: true,
+      });
+      return (await response.json()) as { interpretation: ProductAiInterpretation };
+    },
+    onSuccess: ({ interpretation }, query) => {
+      const filters = filtersFromInterpretation(interpretation ?? {}, query);
+      setSearchInput(filters.search);
+      setWidthInput(filters.width);
+      setHeightInput(filters.height);
+      setDepthInput(filters.depth);
+      setPage(1);
+      toast({ title: t("products.aiInterpretApplied"), description: filters.summary || undefined });
+    },
+    onError: (error: Error) => {
+      toast({ title: t("products.aiInterpretFailed"), description: error.message, variant: "destructive" });
+    },
+  });
 
   // Limit-Änderung → Seite 1
   useEffect(() => {
@@ -251,6 +276,17 @@ export default function ProductsPage() {
               data-testid="input-search-products"
             />
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => aiInterpretMutation.mutate(searchInput.trim())}
+            disabled={!searchInput.trim() || aiInterpretMutation.isPending}
+            title={t("products.aiInterpretHint")}
+            data-testid="button-ai-interpret-search"
+          >
+            {aiInterpretMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+            {t("products.aiInterpret")}
+          </Button>
           <div className="w-full sm:w-auto sm:min-w-[250px]">
             <Select 
               value={selectedCategoryId} 
