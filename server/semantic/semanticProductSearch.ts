@@ -1,6 +1,7 @@
 import type { Product } from "@shared/schema";
 import { extractProductMetadata, extractProductSeries } from "../products/productPropertyExtractor";
 import { chatCompletion, parseLlmJsonResponse } from "../ai/llmChat";
+import { productRelevance, searchTokens, sortByRelevance } from "../products/productSearchRanking";
 
 interface SemanticSearchInput {
   query: string;
@@ -95,6 +96,16 @@ export async function executeSemanticProductSearch(
   }
   
   console.log(`[Semantic Search] Found ${filteredProducts.length} matching products`);
+
+  // Beste Treffer zuerst (vorher Katalog-Reihenfolge): ganze Woerter im Namen, exakte Nummer vorn
+  const tokens = searchTokens([interpretation.productType, ...(interpretation.keywords ?? [])].filter(Boolean).join(" "));
+  filteredProducts = sortByRelevance(filteredProducts, (p) =>
+    productRelevance(p.name, tokens, {
+      query,
+      exactNumbers: [p.productNumber, p.ean, p.manufacturerNumber],
+      extraText: p.description,
+    }),
+  );
 
   return {
     interpretation,

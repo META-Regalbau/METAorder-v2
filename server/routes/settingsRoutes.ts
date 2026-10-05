@@ -20,6 +20,8 @@ import type { Request, Response, Express } from "express";
 import { webhookService } from "../lib/webhookService";
 
 import { NL_LIMIT_MAX, resolveNlLimits } from "../analytics/nlQueryLimit";
+import { SEMANTIC_RANKING_DEFAULTS } from "../semantic/semanticRanking";
+
 export function registerSettingsRoutes(app: Express): void {
   
   // Shopware settings routes
@@ -982,15 +984,7 @@ export function registerSettingsRoutes(app: Express): void {
     }
   });
 
-  const semanticRankingDefaults = {
-    vectorWeight: 0.65,
-    textWeight: 0.25,
-    metadataWeight: 0.1,
-    feedbackWeight: 0.12,
-    metadataExactBoost: 0.15,
-    metadataPartialBoost: 0.08,
-    titleTokenBoost: 0.06,
-  };
+  const semanticRankingDefaults = SEMANTIC_RANKING_DEFAULTS;
 
   app.get("/api/settings/semantic-ranking", requireAuth, requireManageSettings, async (_req, res) => {
     try {

@@ -292,10 +292,11 @@ Antworte im JSON-Format:
         return res.status(400).json({ error: "Query is required" });
       }
       const tenantId = (req as any).tenantId ?? null;
-      const { embedding } = await generateEmbedding(query, storage, {
+      const { embedding, provider } = await generateEmbedding(query, storage, {
         preferOpenAI: Boolean(useOpenAI),
       });
       const results = await storage.searchSemanticDocuments(embedding, {
+        localQueryEmbedding: provider === "local",
         limit: Number(limit) || 10,
         sourceTypes: Array.isArray(sourceTypes) ? sourceTypes : undefined,
         query,
@@ -320,10 +321,11 @@ Antworte im JSON-Format:
       if (aiAnswer && !takeMinuteSlot(`faq:${tenantId ?? ""}:${(req.user as any)?.id ?? ""}`, FAQ_AI_PER_MINUTE)) {
         return res.status(429).json({ error: "Too many AI answers, please wait a minute", code: "rate_limited" });
       }
-      const { embedding } = await generateEmbedding(query, storage, {
+      const { embedding, provider } = await generateEmbedding(query, storage, {
         preferOpenAI: Boolean(useOpenAI),
       });
       const results = await storage.searchSemanticDocuments(embedding, {
+        localQueryEmbedding: provider === "local",
         limit: Number(limit) || 6,
         sourceTypes: Array.isArray(sourceTypes) ? sourceTypes : undefined,
         query,
