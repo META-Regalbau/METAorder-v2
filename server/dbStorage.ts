@@ -197,6 +197,7 @@ import {
 
 import { escapeRegexLiteral, SCORE_EXACT_NUMBER, SCORE_PART_OF_WORD, SCORE_WHOLE_WORD, searchTokens } from "./products/productSearchRanking";
 import { rankSemanticCandidates } from "./semantic/semanticRanking";
+import { isZeroEmbedding } from "./semantic/semanticEmbeddings";
 
 /** SQL: ganzes Wort in der Spalte = SCORE_WHOLE_WORD, Teil eines Worts = SCORE_PART_OF_WORD, sonst 0 */
 function wordRelevanceSql(column: AnyColumn, token: string) {
@@ -3271,6 +3272,11 @@ export class DbStorage implements IStorage {
         )})`
       : sql`0`;
 
+    // Nullvektor (z. B. Anfrage nur aus einer EAN, lokales Embedding v2): Abstand nicht definiert, die
+    // Vektorliste waere zufaellig - dann nur die Wortsuche; ganz ohne Anfrage gibt es nichts zu suchen
+    const vectorCandidates = !isZeroEmbedding(queryEmbedding);
+    if (!vectorCandidates && tokens.length === 0) return [];
+
     const result = await db.execute(
       sql`
         WITH candidates AS (
@@ -3294,8 +3300,9 @@ export class DbStorage implements IStorage {
           FROM ${semanticDocuments}
           ${whereSql}
         )
-        (SELECT * FROM candidates ORDER BY distance ASC, text_rank DESC LIMIT ${fetchLimit})
-        ${tokens.length ? sql`UNION ALL (SELECT * FROM candidates WHERE lexical > 0 ORDER BY lexical DESC, text_rank DESC, distance ASC LIMIT ${fetchLimit})` : sql``}
+        ${vectorCandidates ? sql`(SELECT * FROM candidates ORDER BY distance ASC, text_rank DESC LIMIT ${fetchLimit})` : sql``}
+        ${vectorCandidates && tokens.length ? sql`UNION ALL` : sql``}
+        ${tokens.length ? sql`(SELECT * FROM candidates WHERE lexical > 0 ORDER BY lexical DESC, text_rank DESC, distance ASC LIMIT ${fetchLimit})` : sql``}
       `
     );
 

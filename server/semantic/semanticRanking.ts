@@ -107,7 +107,9 @@ export function rankSemanticCandidates<T extends SemanticCandidate>(
   };
 
   const scored = candidates.map((entry) => {
-    const vectorScore = Math.max(0, 1 - Number(entry.distance ?? 0));
+    // Abstand zu einem Nullvektor ist nicht definiert (NaN) - dann zaehlt der Vektor nicht
+    const distance = Number(entry.distance);
+    const vectorScore = Number.isFinite(distance) ? Math.max(0, 1 - distance) : 0;
     const rank = Number(entry.textRank ?? 0);
     const textScore = Math.max(rank > 0 ? rank / (rank + 1) : 0, lexicalScore(entry.title, entry.content, tokens));
     const feedbackScore = maxFeedbackCount

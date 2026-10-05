@@ -28,19 +28,50 @@ function hashToken(token: string): number {
   return Math.abs(hash);
 }
 
-function createLocalEmbedding(text: string): number[] {
+/** Zweiter, unabhaengiger Hash (FNV-1a) fuer das Vorzeichen */
+function signOfToken(token: string): 1 | -1 {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < token.length; i += 1) {
+    hash ^= token.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash & 1 ? 1 : -1;
+}
+
+/**
+ * Lokales Embedding (ohne KI-Anbieter): Woerter per Hash auf 1536 Faecher verteilt.
+ * v1 zaehlte jedes Vorkommen - die EAN stand in Produkttexten doppelt (Artikelnummer = EAN), ~5.700
+ * EANs belegten die Faecher, kurze Produkte gewannen per Kollision ("kragarmregal" fiel ins Fach der
+ * EAN eines "KR H Profil"). v2:
+ * - jedes Wort einmal
+ * - Ziffernfolgen ab 6 Stellen (EAN, Artikel-/Belegnummern) nicht im Vektor - die findet die Wortsuche
+ *   samt exakter Nummer (semanticRanking.ts)
+ * - Vorzeichen je Wort (+1/-1), damit sich Kollisionen im Mittel aufheben
+ * Andere Modellkennung -> der Suchindex rechnet vorhandene Dokumente neu (semanticIndexer.ts).
+ */
+export const LOCAL_EMBEDDING_MODEL = "local-hash-v2";
+const LONG_NUMBER = /^\d{6,}$/;
+
+export function createLocalEmbedding(text: string): number[] {
   const vector = new Array<number>(VECTOR_DIMENSIONS).fill(0);
   const normalized = normalizeText(text);
-  const tokens = normalized.match(/[\p{L}\p{N}]+/gu) || [];
-  if (tokens.length === 0) return vector;
+  const tokens = new Set((normalized.match(/[\p{L}\p{N}]+/gu) || []).filter((token) => !LONG_NUMBER.test(token)));
+  if (tokens.size === 0) return vector;
 
   tokens.forEach((token) => {
     const index = hashToken(token) % VECTOR_DIMENSIONS;
-    vector[index] += 1;
+    vector[index] += signOfToken(token);
   });
 
-  const magnitude = Math.sqrt(vector.reduce((sum, value) => sum + value * value, 0)) || 1;
+  const magnitude = Math.sqrt(vector.reduce((sum, value) => sum + value * value, 0));
+  // alle Woerter heben sich auf (sehr selten): kein verwertbarer Vektor
+  if (magnitude === 0) return vector;
   return vector.map((value) => value / magnitude);
+}
+
+/** Nullvektor: kein Wort im Vektor (z. B. nur eine EAN) - Abstand dazu ist nicht definiert */
+export function isZeroEmbedding(embedding: number[]): boolean {
+  return !embedding.some((value) => value !== 0);
 }
 
 function trimToMaxChars(text: string, maxChars: number): string {
@@ -76,7 +107,7 @@ export async function generateEmbedding(
   return {
     embedding: createLocalEmbedding(normalizedText),
     provider: "local",
-    model: "local-hash-v1",
+    model: LOCAL_EMBEDDING_MODEL,
   };
 }
 

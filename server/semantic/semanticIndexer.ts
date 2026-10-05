@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "../db";
 import { getTenantIdFromContext, runWithTenantContext } from "../lib/tenantContext";
-import { generateEmbedding, hashContent } from "./semanticEmbeddings";
+import { generateEmbedding, hashContent, LOCAL_EMBEDDING_MODEL } from "./semanticEmbeddings";
 import { productCache } from "../products/productCache";
 import { ShopwareClient } from "../shopware/shopware";
 import { B2BSellersClient, getOfferStatusMapping } from "../b2b/b2bSellersClient";
@@ -286,7 +286,10 @@ export function documentFingerprint(doc: Pick<IndexDoc, "title" | "content" | "m
 
 /** Zugriff auf den Index einer Quelle (Produktion: Datenbank; Tests: im Speicher) */
 export type IndexStore = {
-  listExisting(tenantId: string | null, sourceType: string): Promise<Array<{ sourceId: string; contentHash: string; embeddingProvider: string }>>;
+  listExisting(
+    tenantId: string | null,
+    sourceType: string,
+  ): Promise<Array<{ sourceId: string; contentHash: string; embeddingProvider: string; embeddingModel?: string | null }>>;
   upsert(rows: InsertSemanticDocument[], tenantId: string | null): Promise<void>;
   deleteIds(tenantId: string | null, sourceType: string, sourceIds: string[]): Promise<void>;
 };
@@ -299,6 +302,7 @@ function dbIndexStore(storage: IStorage): IndexStore {
           sourceId: semanticDocuments.sourceId,
           contentHash: semanticDocuments.contentHash,
           embeddingProvider: semanticDocuments.embeddingProvider,
+          embeddingModel: semanticDocuments.embeddingModel,
         })
         .from(semanticDocuments)
         .where(and(tenantFilter(semanticDocuments.tenantId, tenantId), eq(semanticDocuments.sourceType, sourceType))),
@@ -337,8 +341,11 @@ export async function syncSourceDocuments(
     present.add(doc.sourceId);
     const fingerprint = documentFingerprint(doc);
     const prev = existingById.get(doc.sourceId);
-    // unveraendert und passendes Embedding: nichts zu tun (OpenAI gewuenscht, aber lokal berechnet -> neu)
-    if (prev && prev.contentHash === fingerprint && (!preferOpenAI || prev.embeddingProvider === "openai")) {
+    // unveraendert und passendes Embedding: nichts zu tun. Neu berechnen: OpenAI gewuenscht, aber lokal
+    // berechnet; lokales Embedding einer aelteren Version (LOCAL_EMBEDDING_MODEL)
+    const embeddingFits =
+      prev?.embeddingProvider === "openai" || (!preferOpenAI && prev?.embeddingModel === LOCAL_EMBEDDING_MODEL);
+    if (prev && prev.contentHash === fingerprint && embeddingFits) {
       unchanged += 1;
       continue;
     }

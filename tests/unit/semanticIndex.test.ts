@@ -33,7 +33,7 @@ import { storage } from "../../server/storage";
 
 /** Index im Speicher, je Mandant getrennt; protokolliert die Mandanten-IDs jeder Operation */
 function memoryIndex() {
-  const rows = new Map<string, { sourceId: string; contentHash: string; embeddingProvider: string; tenantId: string | null; title: string }>();
+  const rows = new Map<string, { sourceId: string; contentHash: string; embeddingProvider: string; embeddingModel?: string | null; tenantId: string | null; title: string }>();
   const key = (t: string | null, type: string, id: string) => `${t}|${type}|${id}`;
   const tenantsSeen: Array<string | null> = [];
   let upserts = 0;
@@ -47,7 +47,7 @@ function memoryIndex() {
       for (const r of batch) {
         upserts += 1;
         expect(r.tenantId).toBe(t);
-        rows.set(key(t, r.sourceType, r.sourceId), { sourceId: r.sourceId, contentHash: r.contentHash, embeddingProvider: r.embeddingProvider ?? "local", tenantId: t, title: r.title });
+        rows.set(key(t, r.sourceType, r.sourceId), { sourceId: r.sourceId, contentHash: r.contentHash, embeddingProvider: r.embeddingProvider ?? "local", embeddingModel: r.embeddingModel, tenantId: t, title: r.title });
       }
     },
     deleteIds: async (t, type, ids) => {
@@ -98,6 +98,16 @@ describe("Abgleich einer Quelle", () => {
     await sync(idx.store, "t1", [doc("a"), doc("b")]);
     expect(await sync(idx.store, "t2", [doc("z")])).toEqual({ total: 1, updated: 1, unchanged: 0, removed: 0 });
     expect([...idx.rows.keys()].sort()).toEqual(["t1|ticket|a", "t1|ticket|b", "t2|ticket|z"]);
+  });
+
+  it("neues lokales Embedding (local-hash-v2): aeltere lokale Dokumente werden neu berechnet, OpenAI bleibt", async () => {
+    const idx = memoryIndex();
+    await sync(idx.store, "t1", [doc("a"), doc("b"), doc("c")]);
+    idx.rows.get("t1|ticket|a")!.embeddingModel = "local-hash-v1";
+    idx.rows.get("t1|ticket|b")!.embeddingProvider = "openai";
+    idx.rows.get("t1|ticket|b")!.embeddingModel = "text-embedding-3-small";
+    expect(await sync(idx.store, "t1", [doc("a"), doc("b"), doc("c")])).toMatchObject({ updated: 1, unchanged: 2 });
+    expect(idx.rows.get("t1|ticket|a")!.embeddingModel).toBe("local-hash-v2");
   });
 
   it("OpenAI gewuenscht: vorhandene OpenAI-Embeddings bleiben, lokal berechnete werden neu angefragt", async () => {
