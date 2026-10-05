@@ -78,9 +78,11 @@ describe("Verdrahtung", () => {
     expect(fs.readFileSync(path.join(CLIENT, "components/ui/date-picker.tsx"), "utf8")).toContain("locale={dateFnsLocale(i18n.language)}");
   });
 
-  it("CPQ-Verwaltung (nur deutsch) formatiert deutsch, Zaehlliste in der Sprache der Beschriftungen", () => {
-    for (const f of ["pages/CPQAdminPage.tsx", "pages/CPQReviewQueuePage.tsx", "components/cpq/CpqApprovalPanel.tsx", "components/cpq/DiscountTrafficLight.tsx"]) {
-      expect(fs.readFileSync(path.join(CLIENT, f), "utf8"), f).toContain('const fmt = createLocaleFormatters("de");');
+  it("CPQ-Verwaltung (seit der Uebersetzung) und Zaehlliste formatieren in der Sprache der Oberflaeche", () => {
+    for (const f of ["pages/CPQAdminPage.tsx", "pages/CPQReviewQueuePage.tsx", "components/cpq/CpqApprovalPanel.tsx", "components/cpq/DiscountTrafficLight.tsx", "components/cpq/CpqTableView.tsx", "components/cpq/CpqDetailPanel.tsx"]) {
+      const src = fs.readFileSync(path.join(CLIENT, f), "utf8");
+      expect(src, f).toContain("useLocaleFormat()");
+      expect(src, f).not.toMatch(/createLocaleFormatters\(["']de["']\)/);
     }
     expect(fs.readFileSync(path.join(CLIENT, "lib/labels/stockCountSheet.ts"), "utf8")).toContain("createLocaleFormatters(opts.locale)");
     expect(fs.readFileSync(path.join(CLIENT, "pages/WarehousePage.tsx"), "utf8")).toContain("locale: fmt.locale,");

@@ -3,10 +3,8 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
-
-import { createLocaleFormatters } from "@/lib/localeFormat";
-// Die CPQ-Verwaltung ist (noch) nur deutsch - Zahlen deshalb im deutschen Format wie der Text
-const fmt = createLocaleFormatters("de");
+import { useTranslation } from "react-i18next";
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 
 type DiscountLevelResult = {
   levelId: string;
@@ -46,6 +44,8 @@ export default function DiscountTrafficLight({
   customerGroup,
   orderValue,
 }: DiscountTrafficLightProps) {
+  const { t } = useTranslation();
+  const fmt = useLocaleFormat();
   const discountPercent = listPrice > 0 ? ((listPrice - discountedPrice) / listPrice) * 100 : 0;
   const revenueLoss = listPrice - discountedPrice;
 
@@ -70,7 +70,7 @@ export default function DiscountTrafficLight({
     return (
       <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 text-sm text-muted-foreground">
         <div className="w-3 h-3 rounded-full bg-muted animate-pulse" />
-        Rabatt-Bewertung wird berechnet…
+        {t("cpq.discountLight.loading")}
       </div>
     );
   }
@@ -92,13 +92,13 @@ export default function DiscountTrafficLight({
 
   const approvalLabel =
     level.approvalType === "none"
-      ? "Keine Freigabe erforderlich"
+      ? t("cpq.discountLight.approvalNone")
       : level.approvalType === "department_lead"
-        ? "Freigabe durch Abteilungsleiter"
+        ? t("cpq.discountLight.approvalDepartmentLead")
         : level.approvalType === "management"
-          ? "Freigabe durch Geschäftsführung"
+          ? t("cpq.discountLight.approvalManagement")
           : level.approvalType === "blocked"
-            ? "Nicht freigabefähig"
+            ? t("cpq.discountLight.approvalBlocked")
             : level.approvalType;
 
   return (
@@ -116,9 +116,9 @@ export default function DiscountTrafficLight({
           <div className="text-xs text-muted-foreground">{approvalLabel}</div>
         </div>
         <div className="text-right shrink-0">
-          <div className="font-semibold">{fmt.percentValue(discountPercent, 1)} Rabatt</div>
+          <div className="font-semibold">{t("cpq.discountLight.discount", { value: fmt.percentValue(discountPercent, 1) })}</div>
           {revenueLoss > 0 && (
-            <div className="text-xs text-muted-foreground">Umsatzverlust: {fmt.currency(revenueLoss)}</div>
+            <div className="text-xs text-muted-foreground">{t("cpq.discountLight.revenueLoss", { value: fmt.currency(revenueLoss) })}</div>
           )}
         </div>
       </div>

@@ -108,7 +108,6 @@ type Shelf3DSceneProps = {
 
 export default function Shelf3DScene({ components, compact = false }: Shelf3DSceneProps) {
   const withGlb = components.filter((c) => c.glbUrl);
-  if (withGlb.length === 0) return null;
 
   const scale = 0.001;
   const positions = withGlb.map((c) => [c.position.x * scale, c.position.y * scale, c.position.z * scale] as [number, number, number]);
@@ -125,6 +124,9 @@ export default function Shelf3DScene({ components, compact = false }: Shelf3DSce
     () => [center[0], center[1], center[2] + cameraDistance] as [number, number, number],
     [center]
   );
+
+  // erst nach den Hooks: sonst wirft React, sobald eine Szene von "keine Modelle" auf "Modelle" wechselt
+  if (withGlb.length === 0) return null;
 
   // Neutrales Grau: Modell-Darstellung unabhängig von Seiten-Theme
   const bgColor = "#e8e8e8";

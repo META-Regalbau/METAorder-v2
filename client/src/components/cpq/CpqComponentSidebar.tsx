@@ -5,6 +5,7 @@
 
 import { useState } from "react";
 import { ChevronRight, Search } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 const ROLE_ICONS: Record<string, string> = {
   frame: "📐",
@@ -48,6 +49,7 @@ export default function CpqComponentSidebar({
   selectedNodeId,
   onSelectNode,
 }: CpqComponentSidebarProps) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set(componentTypes[0]?.id ? [componentTypes[0].id] : []));
 
@@ -76,14 +78,14 @@ export default function CpqComponentSidebar({
     <div className="w-[280px] bg-muted/50 border-r flex flex-col overflow-hidden shrink-0">
       <div className="p-4 border-b">
         <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2.5">
-          Komponenten
+          {t("cpq.sidebar.title")}
         </h3>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <input
             type="text"
             className="w-full pl-9 pr-3 py-2 bg-background border rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary/50"
-            placeholder="Suche nach Artikel..."
+            placeholder={t("cpq.sidebar.searchPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -133,7 +135,7 @@ export default function CpqComponentSidebar({
                     </button>
                   ))}
                   {ctMappings.length === 0 && (
-                    <p className="px-3 py-1.5 text-xs text-muted-foreground">Keine Artikel</p>
+                    <p className="px-3 py-1.5 text-xs text-muted-foreground">{t("cpq.sidebar.noItems")}</p>
                   )}
                 </div>
               )}

@@ -176,7 +176,7 @@ export default function AppSidebar({ userRole, permissions }: AppSidebarProps) {
           permission: "viewCPQ" as keyof Role['permissions'],
         },
         {
-          titleKey: "CPQ Review Queue",
+          titleKey: "nav.cpqReviewQueue",
           url: "/cpq-review-queue",
           icon: Boxes,
           permission: "viewCPQ" as keyof Role['permissions'],

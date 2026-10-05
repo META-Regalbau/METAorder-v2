@@ -13,6 +13,7 @@
  */
 
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Info } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -145,6 +146,7 @@ export default function CpqCompatibilityMatrix({
   onSelectNode,
   className = "",
 }: CpqCompatibilityMatrixProps) {
+  const { t } = useTranslation();
   const pairs = useMemo(() => findPairs(componentTypes, rules), [componentTypes, rules]);
   const [activePairKey, setActivePairKey] = useState<string | null>(null);
 
@@ -165,11 +167,9 @@ export default function CpqCompatibilityMatrix({
       <div className={`w-full h-full flex items-center justify-center ${className}`}>
         <div className="text-center max-w-md space-y-2 p-8">
           <Info className="h-8 w-8 mx-auto text-muted-foreground" />
-          <h3 className="font-medium text-sm">Keine Kompatibilitätsregeln</h3>
+          <h3 className="font-medium text-sm">{t("cpq.matrix.noRulesTitle")}</h3>
           <p className="text-xs text-muted-foreground">
-            Für {system.name} sind keine aktiven Regeln vom Typ „Kompatibilität" hinterlegt, die zwei
-            Komponententypen verknüpfen. Legen Sie im Tab „Regeln" eine Kompatibilitätsregel an, um hier
-            eine Matrix zu sehen.
+            {t("cpq.matrix.noRulesDescription", { system: system.name })}
           </p>
         </div>
       </div>
@@ -186,12 +186,12 @@ export default function CpqCompatibilityMatrix({
       <div className={`w-full h-full flex flex-col bg-background ${className}`} data-testid="cpq-compatibility-matrix">
         {pairs.length > 1 && (
           <div className="p-3 border-b shrink-0 flex items-center gap-2">
-            <span className="text-xs text-muted-foreground shrink-0">Komponententyp-Paar</span>
+            <span className="text-xs text-muted-foreground shrink-0">{t("cpq.matrix.pairLabel")}</span>
             <Select
               value={`${activePair!.typeAId}::${activePair!.typeBId}`}
               onValueChange={(v) => setActivePairKey(v)}
             >
-              <SelectTrigger aria-label="Komponententyp-Paar" className="h-8 text-xs max-w-xs">
+              <SelectTrigger aria-label={t("cpq.matrix.pairLabel")} className="h-8 text-xs max-w-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -201,7 +201,7 @@ export default function CpqCompatibilityMatrix({
                   const b = componentTypeById.get(p.typeBId)?.name ?? "?";
                   return (
                     <SelectItem key={key} value={key}>
-                      {a} × {b} ({p.rules.length} {p.rules.length === 1 ? "Regel" : "Regeln"})
+                      {a} × {b} ({t("cpq.matrix.ruleCount", { count: p.rules.length })})
                     </SelectItem>
                   );
                 })}
@@ -213,7 +213,7 @@ export default function CpqCompatibilityMatrix({
         <div className="flex-1 overflow-auto p-3">
           {productsA.length === 0 || productsB.length === 0 ? (
             <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-              {typeA?.name ?? "?"} oder {typeB?.name ?? "?"} hat noch keine zugeordneten Artikel.
+              {t("cpq.matrix.noProducts", { typeA: typeA?.name ?? "?", typeB: typeB?.name ?? "?" })}
             </div>
           ) : (
             <table className="border-collapse text-xs">
@@ -281,7 +281,7 @@ export default function CpqCompatibilityMatrix({
                                 </button>
                               </TooltipTrigger>
                               <TooltipContent className="max-w-xs">
-                                <p className="font-medium mb-1">Nicht kompatibel</p>
+                                <p className="font-medium mb-1">{t("cpq.matrix.notCompatible")}</p>
                                 {cell.failedRules.map((r, i) => (
                                   <p key={i} className="text-xs">
                                     {r.name}
@@ -304,9 +304,9 @@ export default function CpqCompatibilityMatrix({
         </div>
 
         <div className="px-3 py-2 border-t text-xs text-muted-foreground shrink-0 flex items-center gap-3 shrink-0">
-          <Badge variant="secondary" className="bg-green-500/10 text-green-600 dark:text-green-400">✓ kompatibel</Badge>
-          <Badge variant="secondary" className="bg-destructive/10 text-destructive">✗ Regel verletzt</Badge>
-          <Badge variant="secondary" className="bg-muted text-muted-foreground/60">– keine Regel anwendbar</Badge>
+          <Badge variant="secondary" className="bg-green-500/10 text-green-600 dark:text-green-400">✓ {t("cpq.matrix.legend.compatible")}</Badge>
+          <Badge variant="secondary" className="bg-destructive/10 text-destructive">✗ {t("cpq.matrix.legend.ruleViolated")}</Badge>
+          <Badge variant="secondary" className="bg-muted text-muted-foreground/60">– {t("cpq.matrix.legend.noRuleApplicable")}</Badge>
         </div>
       </div>
     </TooltipProvider>

@@ -276,6 +276,7 @@
     "rules": "Cross-Selling-Regeln",
     "configurator": "Regal-Konfigurator",
     "cpqAdmin": "CPQ Admin (Node-System)",
+    "cpqReviewQueue": "CPQ-Prüfwarteschlange",
     "settings": "Einstellungen",
     "shipping": "Versand",
     "templates": "Vorlagen",
@@ -2379,6 +2380,7 @@
     "errors": "Fehler",
     "errorDetails": "Fehlerdetails",
     "stagingSelectTarget": "Zielprodukt wählen",
+    "stagingClearSelection": "Auswahl aufheben",
     "stagingSearchProducts": "Suche nach Artikelnummer oder Name",
     "stagingSearchMin": "Bitte mindestens 2 Zeichen eingeben",
     "stagingNoProducts": "Keine Produkte gefunden",
@@ -4771,5 +4773,403 @@
   "theme": {
     "switchToDark": "Dunkles Design",
     "switchToLight": "Helles Design"
+  },
+  "cpq": {
+    "admin": {
+      "title": "CPQ Admin – Konfigurator & Regeln",
+      "subtitle": "Regalsysteme, Regeln und Rabatt-Ampel verwalten",
+      "common": {
+        "name": "Name",
+        "status": "Status",
+        "actions": "Aktionen",
+        "cancel": "Abbrechen",
+        "create": "Erstellen",
+        "save": "Speichern",
+        "close": "Schließen",
+        "loading": "Laden…",
+        "preview": "Vorschau",
+        "yes": "Ja",
+        "no": "Nein",
+        "systemFallback": "System",
+        "discountPercent": "Rabatt %"
+      },
+      "tabs": {
+        "systems": "Systeme",
+        "graph": "Node-System / Beziehungsgraph",
+        "mappings": "Produkt-Mappings",
+        "rules": "Regeln",
+        "discountLevels": "Rabatt-Ampel",
+        "reporting": "Rabatt-Reporting"
+      },
+      "systems": {
+        "title": "Regalsysteme",
+        "newSystem": "Neues System",
+        "empty": "Noch keine Regalsysteme angelegt. Erstellen Sie ein System, um Regeln und Komponenten zu verwalten.",
+        "slug": "Slug",
+        "action": "Aktion",
+        "select": "Auswählen",
+        "createTitle": "Neues Regalsystem",
+        "createDescription": "Erstellen Sie ein neues Regalsystem (z.B. META CLIP, META FIX).",
+        "namePlaceholder": "z.B. META CLIP",
+        "descriptionLabel": "Beschreibung (optional)",
+        "descriptionPlaceholder": "Beschreibung des Regalsystems"
+      },
+      "graph": {
+        "title": "Node-System / Beziehungsgraph",
+        "intro": "Der Beziehungsgraph zeigt System → Komponententypen → Artikel. Wählen Sie zuerst ein Regalsystem im Tab \"Systeme\" aus (Button \"Auswählen\").",
+        "selectSystem": "{{name}} auswählen",
+        "noSystems": "Noch keine Systeme vorhanden. Legen Sie im Tab \"Systeme\" ein neues an.",
+        "viewGraph": "Beziehungsgraph",
+        "viewTable": "Tabellenansicht",
+        "viewMatrix": "Kompatibilitätsmatrix",
+        "zoomOut": "Verkleinern",
+        "zoomIn": "Vergrößern",
+        "noComponentTypes": "Keine Komponententypen. Legen Sie zuerst Komponententypen im Tab \"Produkt-Mappings\" an."
+      },
+      "mappings": {
+        "previewTitle": "Vorschau der Mappings",
+        "previewSummary": "{{products}} in {{componentTypes}}",
+        "productCount": "{{count}} Produkte",
+        "productCount_one": "{{count}} Produkt",
+        "productCount_other": "{{count}} Produkte",
+        "componentTypeCount": "{{count}} Komponententypen",
+        "componentTypeCount_one": "{{count}} Komponententyp",
+        "componentTypeCount_other": "{{count}} Komponententypen",
+        "title": "Produkt-Mappings für {{name}}",
+        "addComponentType": "Komponententyp",
+        "newMapping": "Neues Mapping",
+        "componentTypeFirstHint": "Erstellen Sie zuerst mindestens einen Komponententyp (z.B. Steher, Traverse, Zubehör), bevor Sie Shopware-Produkte zuordnen können.",
+        "createFirstComponentType": "Ersten Komponententyp anlegen",
+        "empty": "Noch keine Produkt-Mappings. Klicken Sie auf \"Neues Mapping\", um ein Shopware-Produkt diesem System und einem Komponententyp zuzuordnen.",
+        "columnProduct": "Artikelnummer / Produktname",
+        "columnShopwareId": "Shopware-ID",
+        "componentType": "Komponententyp",
+        "createTitle": "Neues Produkt-Mapping",
+        "createDescription": "Ordnen Sie ein Shopware-Produkt dem Regalsystem und einem Komponententyp zu.",
+        "shopwareProduct": "Shopware-Produkt",
+        "productSearchPlaceholder": "Produkt suchen (min. 2 Zeichen)",
+        "selectComponentType": "Komponententyp wählen",
+        "assignPreview": "→ wird dem Komponententyp <0>{{name}}</0> zugeordnet.",
+        "createSubmit": "Mapping erstellen"
+      },
+      "componentTypes": {
+        "title": "Komponententypen",
+        "role": "Rolle",
+        "required": "Pflicht",
+        "createTitle": "Neuer Komponententyp",
+        "createDescription": "Legen Sie einen Komponententyp für das Regalsystem an (z.B. Steher, Traverse, Zubehör).",
+        "namePlaceholder": "z.B. Steher, Traverse",
+        "roles": {
+          "frame": "Rahmen (frame)",
+          "beam": "Träger (beam)",
+          "shelf": "Boden (shelf)",
+          "connector": "Verbindung (connector)",
+          "accessory": "Zubehör (accessory)"
+        }
+      },
+      "rules": {
+        "title": "CPQ-Regeln für {{name}}",
+        "newRule": "Neue Regel",
+        "empty": "Keine Regeln für dieses System. Erstellen Sie eine Regel (Kompatibilität, physikalisch, Konfiguration, Geschäft).",
+        "type": "Typ",
+        "priority": "Priorität",
+        "version": "Version",
+        "previewTooltip": "Vorschau – Treffer gegen Test-Konfigurationen",
+        "impactAnalysis": "Impact-Analyse",
+        "versionHistory": "Versionsverlauf",
+        "types": {
+          "compatibility": "Kompatibilität",
+          "physical": "Physikalisch",
+          "configuration": "Konfiguration",
+          "business": "Geschäft"
+        },
+        "createTitle": "Neue CPQ-Regel",
+        "createDescription": "Erstellen Sie eine Regel für das gewählte System. Wählen Sie Eigenschaften aus oder nutzen Sie den Experten-Modus (JSON) für komplexe Regeln.",
+        "nameLabel": "Regelname",
+        "namePlaceholder": "z.B. Ständer und Böden – gleiche Tiefe erforderlich",
+        "priorityHint": "Priorität (niedrig = zuerst)",
+        "messageLabel": "Nachricht (optional)",
+        "messagePlaceholder": "Nutzer-sichtbare Nachricht",
+        "editTitle": "Regel bearbeiten",
+        "editDescription": "Geführter Modus oder Experten-Modus (JSON) für komplexe Regeln.",
+        "modeGuided": "Geführt",
+        "modeExpert": "Experte (JSON)",
+        "expertJsonLabel": "Bedingung & Aktion (JSON)",
+        "previewTitle": "Vorschau – Regel-Treffer",
+        "previewSummary": "Bei {{matchCount}} von {{totalTested}} Konfigurationen trifft die Regel zu.",
+        "previewSourceSaved": "Basis: gespeicherte Konfigurationen dieses Systems.",
+        "previewSourceMappings": "Basis: Kombinationen aus Produkt-Mapping-Attributen (Höhe, Tiefe, Feldzahl, Ebenen).",
+        "previewNoMatches": "Keine Treffer. Die Regel-Bedingung passt auf keine der Konfigurationen im System. Prüfen Sie die Bedingung.",
+        "previewMatchesLabel": "Treffende Konfigurationen:",
+        "previewMatchLine": "Höhe {{height}} mm, Tiefe {{depth}} mm · {{fieldCount}} Felder × {{levelCount}} Ebenen",
+        "versionsEmpty": "Keine Versionen oder laden…",
+        "versionLabel": "Version {{version}}",
+        "rollback": "Rollback"
+      },
+      "discountLevels": {
+        "title": "Rabatt-Ampel Stufen",
+        "newLevel": "Neue Stufe",
+        "empty": "Noch keine Ampelstufen angelegt. Erstellen Sie Stufen, um Rabatte nach Farbe (Grün/Gelb/Orange/Rot) zu bewerten.",
+        "color": "Farbe",
+        "approval": "Freigabe",
+        "editTitle": "Ampelstufe bearbeiten",
+        "createTitle": "Neue Ampelstufe",
+        "dialogDescription": "Definieren Sie den Rabatt-Bereich und die Farbe für diese Ampelstufe.",
+        "namePlaceholder": "z.B. Optimal, Erhöht, Kritisch",
+        "discountFrom": "Rabatt von (%)",
+        "discountTo": "Rabatt bis (%)",
+        "messageLabel": "Nachricht (optional, Platzhalter: {verlust}, {marge})",
+        "messagePlaceholder": "Standardrabatt – Angebot kann direkt raus",
+        "approvalRequired": "Freigabe erforderlich",
+        "approvalTypes": {
+          "none": "Keine",
+          "departmentLead": "Abteilungsleiter",
+          "management": "Geschäftsführung",
+          "blocked": "Gesperrt (nicht freigabefähig)"
+        },
+        "justificationRequired": "Begründung erforderlich"
+      },
+      "reporting": {
+        "title": "Rabatt-Übersicht",
+        "from": "Von",
+        "to": "Bis",
+        "totalRevenueLoss": "Umsatzverlust gesamt",
+        "entryCount": "Anzahl Einträge",
+        "byLevel": "Nach Ampelstufe",
+        "level": "Stufe",
+        "count": "Anzahl",
+        "revenueLoss": "Umsatzverlust",
+        "recentEntries": "Letzte Einträge (max. 100)",
+        "date": "Datum",
+        "offer": "Angebot",
+        "empty": "Keine Rabatt-Protokolle im gewählten Zeitraum.",
+        "loadError": "Daten konnten nicht geladen werden."
+      },
+      "toast": {
+        "error": "Fehler",
+        "systemCreated": "System erstellt",
+        "systemCreatedDescription": "Das Regalsystem wurde angelegt.",
+        "ruleUpdated": "Regel aktualisiert",
+        "ruleUpdatedDescription": "Die CPQ-Regel wurde gespeichert.",
+        "ruleCreated": "Regel erstellt",
+        "ruleCreatedDescription": "Die CPQ-Regel wurde angelegt.",
+        "rollbackDone": "Rollback durchgeführt",
+        "rollbackDoneDescription": "Die Regel wurde auf die gewählte Version zurückgesetzt.",
+        "componentTypeCreated": "Komponententyp erstellt",
+        "componentTypeCreatedDescription": "Der Komponententyp wurde angelegt.",
+        "mappingCreated": "Produkt-Mapping erstellt",
+        "mappingCreatedDescription": "Das Shopware-Produkt wurde dem CPQ-System zugeordnet.",
+        "discountLevelCreated": "Ampelstufe erstellt",
+        "discountLevelCreatedDescription": "Die Rabatt-Ampel-Stufe wurde angelegt.",
+        "discountLevelUpdated": "Ampelstufe aktualisiert",
+        "discountLevelUpdatedDescription": "Die Rabatt-Ampel-Stufe wurde gespeichert.",
+        "discountLevelDeleted": "Ampelstufe gelöscht",
+        "discountLevelDeletedDescription": "Die Rabatt-Ampel-Stufe wurde entfernt.",
+        "invalidJson": "Ungültiges JSON",
+        "invalidJsonPreview": "Ungültiges JSON für Vorschau"
+      },
+      "status": {
+        "active": "Aktiv",
+        "inactive": "Inaktiv",
+        "draft": "Entwurf",
+        "archived": "Archiviert"
+      },
+      "approvalStatus": {
+        "pending": "Ausstehend",
+        "approved": "Freigegeben",
+        "rejected": "Abgelehnt"
+      }
+    },
+    "review": {
+      "title": "CPQ-Prüfwarteschlange",
+      "subtitle": "Vertrieb verarbeitet hier Klasse-C-Konfigurationen.",
+      "queueTitle": "Warteschlange",
+      "selectStatus": "Status wählen",
+      "empty": "Keine Einträge für den gewählten Status.",
+      "columns": {
+        "name": "Name",
+        "status": "Status",
+        "received": "Eingang"
+      },
+      "detailTitle": "Detail & Statuswechsel",
+      "selectEntryHint": "Eintrag in der Warteschlange auswählen.",
+      "detail": {
+        "name": "Name:",
+        "system": "System:",
+        "customer": "Kunde:",
+        "currentStatus": "Aktueller Status:",
+        "lastReview": "Letzte Prüfung:",
+        "reviewedBy": "Geprüft von:"
+      },
+      "targetStatus": "Zielstatus",
+      "reviewNote": "Review-Notiz",
+      "reviewNotePlaceholder": "z. B. Kunde für Rückfrage kontaktieren",
+      "saving": "Speichere...",
+      "saveStatus": "Status speichern",
+      "detailLoadFailed": "Detail konnte nicht geladen werden.",
+      "status": {
+        "pending": "Ausstehend",
+        "approved": "Freigegeben",
+        "customerContactRequired": "Kundenkontakt erforderlich",
+        "rejected": "Abgelehnt"
+      },
+      "errors": {
+        "loadQueue": "Review-Queue konnte nicht geladen werden",
+        "loadDetail": "Review-Detail konnte nicht geladen werden",
+        "noEntrySelected": "Kein Queue-Eintrag ausgewählt"
+      },
+      "toast": {
+        "statusUpdated": "Status aktualisiert",
+        "statusUpdatedDescription": "Der Queue-Eintrag wurde aktualisiert.",
+        "error": "Fehler"
+      }
+    },
+    "ruleEditor": {
+      "title": "Kompatibilitätsbedingung",
+      "syntaxHint": "WENN [Komponente A] [Attribut] [Operator] [Komponente B / Fester Wert] – dann erlauben",
+      "sourceComponent": "Quelle – Komponente",
+      "sourceAttribute": "Quelle – Attribut",
+      "selectComponent": "Komponente wählen",
+      "selectAttribute": "Attribut wählen",
+      "customAttributePlaceholder": "z.B. custom_attr",
+      "operator": "Operator",
+      "selectOperator": "Operator wählen",
+      "compareWith": "Ziel – Vergleichen mit",
+      "targetModes": {
+        "otherComponent": "Andere Komponente (gleiches Attribut muss übereinstimmen)",
+        "fixedValue": "Fester Wert (Zahl oder kommagetrennte Liste)"
+      },
+      "targetComponent": "Ziel – Komponente",
+      "targetAttribute": "Ziel – Attribut",
+      "fixedValueLabel": "Fester Wert (z.B. 800 oder 400, 500, 600)",
+      "fixedValuePlaceholder": "800 oder 400, 500, 600",
+      "componentTypes": {
+        "frame": "Ständer",
+        "beam": "Traverse",
+        "shelf": "Fachboden",
+        "accessory": "Zubehör",
+        "connector": "Verbinder"
+      },
+      "attributes": {
+        "depth": "Tiefe (mm)",
+        "width": "Breite (mm)",
+        "height": "Höhe (mm)",
+        "loadCapacity": "Tragfähigkeit (kg)",
+        "holePatternStart": "Lochraster Start (mm)",
+        "holePatternPitch": "Lochraster Abstand (mm)",
+        "other": "Sonstige (Attributname eingeben)"
+      },
+      "operators": {
+        "equals": "ist gleich",
+        "notEquals": "ist ungleich",
+        "in": "ist einer von (kommagetrennt)",
+        "notIn": "ist keiner von",
+        "greaterThan": "größer als",
+        "greaterOrEqual": "größer oder gleich",
+        "lessThan": "kleiner als",
+        "lessOrEqual": "kleiner oder gleich"
+      }
+    },
+    "matrix": {
+      "noRulesTitle": "Keine Kompatibilitätsregeln",
+      "noRulesDescription": "Für {{system}} sind keine aktiven Regeln vom Typ „Kompatibilität“ hinterlegt, die zwei Komponententypen verknüpfen. Legen Sie im Tab „Regeln“ eine Kompatibilitätsregel an, um hier eine Matrix zu sehen.",
+      "pairLabel": "Komponententyp-Paar",
+      "ruleCount": "{{count}} Regeln",
+      "ruleCount_one": "{{count}} Regel",
+      "ruleCount_other": "{{count}} Regeln",
+      "noProducts": "{{typeA}} oder {{typeB}} hat noch keine zugeordneten Artikel.",
+      "notCompatible": "Nicht kompatibel",
+      "legend": {
+        "compatible": "kompatibel",
+        "ruleViolated": "Regel verletzt",
+        "noRuleApplicable": "keine Regel anwendbar"
+      }
+    },
+    "detail": {
+      "ruleType": {
+        "compatibility": "Kompatibilität",
+        "physical": "Physikalisch",
+        "configuration": "Konfiguration",
+        "business": "Geschäftsregel"
+      },
+      "geometryTitle": "CPQ-Geometrie",
+      "loading": "Laden…",
+      "glbUrl": "GLB-URL",
+      "searchGlb": "GLB aus outputs suchen",
+      "saveGeometry": "Geometrie speichern",
+      "holePattern": "Lochraster",
+      "anchorPoints": "Ankerpunkte",
+      "emptyHint": "Klicken Sie auf einen Knoten im Graphen oder in der Sidebar, um Details anzuzeigen.",
+      "allRulesMet": "Alle Regeln erfüllt",
+      "close": "Schließen",
+      "masterData": "Stammdaten (Shopware)",
+      "productNumber": "Produktnr. (GTIN/EAN)",
+      "manufacturerNumber": "Manufacturer Nr. (Artikelnummer)",
+      "height": "Höhe",
+      "depth": "Tiefe",
+      "loadCapacity": "Tragfähigkeit",
+      "listPrice": "Preis (Liste)",
+      "activeRules": "Aktive Regeln ({{count}})",
+      "noRules": "Keine Regeln für dieses System.",
+      "edit": "Bearbeiten",
+      "addRule": "Neue Regel hinzufügen"
+    },
+    "table": {
+      "status": {
+        "active": "Aktiv",
+        "draft": "Entwurf",
+        "inactive": "Inaktiv"
+      },
+      "searchPlaceholder": "Suchen in {{name}} – Artikelnummer, Name, Komponententyp …",
+      "noMappings": "Keine Produkt-Mappings in diesem System.",
+      "noResults": "Keine Treffer für die Suche.",
+      "columns": {
+        "componentType": "Komponententyp",
+        "sku": "Artikelnummer",
+        "name": "Produktname",
+        "height": "Höhe",
+        "depth": "Tiefe",
+        "loadCapacity": "Tragfähigkeit",
+        "price": "Preis",
+        "status": "Status"
+      },
+      "rowCount": "{{shown}} von {{count}} Artikel",
+      "rowCount_other": "{{shown}} von {{count}} Artikeln"
+    },
+    "approval": {
+      "title": "CPQ Rabatt-Freigabe",
+      "statusPending": "Wartet auf Freigabe",
+      "statusApproved": "Freigegeben",
+      "statusRejected": "Abgelehnt",
+      "summary": "Rabatt: {{discount}} · Umsatzverlust: {{revenueLoss}}",
+      "justification": "Begründung: {{text}}",
+      "approvedBy": "Freigegeben von {{name}}",
+      "approvedByAt": "Freigegeben von {{name}} am {{date}}",
+      "rejection": "Ablehnung: {{text}}",
+      "commentLabel": "Kommentar (optional)",
+      "commentPlaceholder": "Kommentar zur Freigabe/Ablehnung",
+      "approve": "Freigeben",
+      "reject": "Ablehnen"
+    },
+    "discountLight": {
+      "loading": "Rabatt-Bewertung wird berechnet…",
+      "approvalNone": "Keine Freigabe erforderlich",
+      "approvalDepartmentLead": "Freigabe durch Abteilungsleiter",
+      "approvalManagement": "Freigabe durch Geschäftsführung",
+      "approvalBlocked": "Nicht freigabefähig",
+      "discount": "{{value}} Rabatt",
+      "revenueLoss": "Umsatzverlust: {{value}}"
+    },
+    "sidebar": {
+      "title": "Komponenten",
+      "searchPlaceholder": "Suche nach Artikel...",
+      "noItems": "Keine Artikel"
+    },
+    "graph": {
+      "typeCount": "{{count}} Typ",
+      "typeCount_other": "{{count}} Typen",
+      "articleCount": "{{count}} Artikel",
+      "articleCount_other": "{{count}} Artikel"
+    }
   }
 }

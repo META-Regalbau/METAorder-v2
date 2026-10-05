@@ -4,6 +4,7 @@
  */
 
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
@@ -29,35 +30,6 @@ export type GuidedCondition = {
 export type GuidedAction = {
   type: string;
 };
-
-const COMPONENT_TYPE_OPTIONS = [
-  { value: "frame", label: "Ständer" },
-  { value: "beam", label: "Traverse" },
-  { value: "shelf", label: "Fachboden" },
-  { value: "accessory", label: "Zubehör" },
-  { value: "connector", label: "Verbinder" },
-];
-
-const ATTRIBUTE_OPTIONS = [
-  { value: "depth", label: "Tiefe (mm)" },
-  { value: "width", label: "Breite (mm)" },
-  { value: "height", label: "Höhe (mm)" },
-  { value: "load_capacity", label: "Tragfähigkeit (kg)" },
-  { value: "hole_pattern_start", label: "Lochraster Start (mm)" },
-  { value: "hole_pattern_pitch", label: "Lochraster Abstand (mm)" },
-  { value: "other", label: "Sonstige (Attributname eingeben)" },
-];
-
-const OPERATOR_OPTIONS = [
-  { value: "equals", label: "ist gleich" },
-  { value: "not_equals", label: "ist ungleich" },
-  { value: "in", label: "ist einer von (kommagetrennt)" },
-  { value: "not_in", label: "ist keiner von" },
-  { value: ">", label: "größer als" },
-  { value: ">=", label: "größer oder gleich" },
-  { value: "<", label: "kleiner als" },
-  { value: "<=", label: "kleiner oder gleich" },
-];
 
 export function guidedToCondition(guided: GuidedCondition): object {
   const sourceAttr = guided.sourceAttribute === "other" ? (guided.sourceAttributeCustom || "depth") : guided.sourceAttribute;
@@ -131,6 +103,36 @@ type CpqRuleConditionEditorProps = {
 };
 
 export default function CpqRuleConditionEditor({ condition, onChange }: CpqRuleConditionEditorProps) {
+  const { t } = useTranslation();
+  const COMPONENT_TYPE_OPTIONS = [
+    { value: "frame", label: t("cpq.ruleEditor.componentTypes.frame") },
+    { value: "beam", label: t("cpq.ruleEditor.componentTypes.beam") },
+    { value: "shelf", label: t("cpq.ruleEditor.componentTypes.shelf") },
+    { value: "accessory", label: t("cpq.ruleEditor.componentTypes.accessory") },
+    { value: "connector", label: t("cpq.ruleEditor.componentTypes.connector") },
+  ];
+
+  const ATTRIBUTE_OPTIONS = [
+    { value: "depth", label: t("cpq.ruleEditor.attributes.depth") },
+    { value: "width", label: t("cpq.ruleEditor.attributes.width") },
+    { value: "height", label: t("cpq.ruleEditor.attributes.height") },
+    { value: "load_capacity", label: t("cpq.ruleEditor.attributes.loadCapacity") },
+    { value: "hole_pattern_start", label: t("cpq.ruleEditor.attributes.holePatternStart") },
+    { value: "hole_pattern_pitch", label: t("cpq.ruleEditor.attributes.holePatternPitch") },
+    { value: "other", label: t("cpq.ruleEditor.attributes.other") },
+  ];
+
+  const OPERATOR_OPTIONS = [
+    { value: "equals", label: t("cpq.ruleEditor.operators.equals") },
+    { value: "not_equals", label: t("cpq.ruleEditor.operators.notEquals") },
+    { value: "in", label: t("cpq.ruleEditor.operators.in") },
+    { value: "not_in", label: t("cpq.ruleEditor.operators.notIn") },
+    { value: ">", label: t("cpq.ruleEditor.operators.greaterThan") },
+    { value: ">=", label: t("cpq.ruleEditor.operators.greaterOrEqual") },
+    { value: "<", label: t("cpq.ruleEditor.operators.lessThan") },
+    { value: "<=", label: t("cpq.ruleEditor.operators.lessOrEqual") },
+  ];
+
   const guided = conditionToGuided(condition);
 
   useEffect(() => {
@@ -149,19 +151,19 @@ export default function CpqRuleConditionEditor({ condition, onChange }: CpqRuleC
 
   return (
     <div className="space-y-4 rounded-lg border p-4 bg-muted/30">
-      <h4 className="font-medium text-sm">Kompatibilitätsbedingung</h4>
+      <h4 className="font-medium text-sm">{t("cpq.ruleEditor.title")}</h4>
       <p className="text-xs text-muted-foreground">
-        WENN [Komponente A] [Attribut] [Operator] [Komponente B / Fester Wert] – dann erlauben
+        {t("cpq.ruleEditor.syntaxHint")}
       </p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Quelle – Komponente</Label>
+          <Label>{t("cpq.ruleEditor.sourceComponent")}</Label>
           <Select
             value={guided.sourceComponentType}
             onValueChange={(v) => update({ sourceComponentType: v })}
           >
-            <SelectTrigger aria-label="Quelle – Komponente">
-              <SelectValue placeholder="Komponente wählen" />
+            <SelectTrigger aria-label={t("cpq.ruleEditor.sourceComponent")}>
+              <SelectValue placeholder={t("cpq.ruleEditor.selectComponent")} />
             </SelectTrigger>
             <SelectContent>
               {COMPONENT_TYPE_OPTIONS.map((o) => (
@@ -171,13 +173,13 @@ export default function CpqRuleConditionEditor({ condition, onChange }: CpqRuleC
           </Select>
         </div>
         <div className="space-y-2">
-          <Label>Quelle – Attribut</Label>
+          <Label>{t("cpq.ruleEditor.sourceAttribute")}</Label>
           <Select
             value={guided.sourceAttribute}
             onValueChange={(v) => update({ sourceAttribute: v })}
           >
-            <SelectTrigger aria-label="Quelle – Attribut">
-              <SelectValue placeholder="Attribut wählen" />
+            <SelectTrigger aria-label={t("cpq.ruleEditor.sourceAttribute")}>
+              <SelectValue placeholder={t("cpq.ruleEditor.selectAttribute")} />
             </SelectTrigger>
             <SelectContent>
               {ATTRIBUTE_OPTIONS.map((o) => (
@@ -187,7 +189,7 @@ export default function CpqRuleConditionEditor({ condition, onChange }: CpqRuleC
           </Select>
           {sourceAttrDisplay && (
             <Input
-              placeholder="z.B. custom_attr"
+              placeholder={t("cpq.ruleEditor.customAttributePlaceholder")}
               className="mt-1"
               value={guided.sourceAttributeCustom ?? ""}
               onChange={(e) => update({ sourceAttributeCustom: e.target.value.trim() })}
@@ -196,10 +198,10 @@ export default function CpqRuleConditionEditor({ condition, onChange }: CpqRuleC
         </div>
       </div>
       <div className="space-y-2">
-        <Label>Operator</Label>
+        <Label>{t("cpq.ruleEditor.operator")}</Label>
         <Select value={guided.operator} onValueChange={(v) => update({ operator: v })}>
-          <SelectTrigger aria-label="Operator">
-            <SelectValue placeholder="Operator wählen" />
+          <SelectTrigger aria-label={t("cpq.ruleEditor.operator")}>
+            <SelectValue placeholder={t("cpq.ruleEditor.selectOperator")} />
           </SelectTrigger>
           <SelectContent>
             {OPERATOR_OPTIONS.map((o) => (
@@ -209,32 +211,32 @@ export default function CpqRuleConditionEditor({ condition, onChange }: CpqRuleC
         </Select>
       </div>
       <div className="space-y-2">
-        <Label>Ziel – Vergleichen mit</Label>
+        <Label>{t("cpq.ruleEditor.compareWith")}</Label>
         <Select
           value={guided.targetMode}
           onValueChange={(v: "other_component" | "fixed_value") =>
             update({ targetMode: v, fixedValue: v === "fixed_value" ? guided.fixedValue : undefined })
           }
         >
-          <SelectTrigger aria-label="Ziel – Vergleichen mit">
+          <SelectTrigger aria-label={t("cpq.ruleEditor.compareWith")}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="other_component">Andere Komponente (gleiches Attribut muss übereinstimmen)</SelectItem>
-            <SelectItem value="fixed_value">Fester Wert (Zahl oder kommagetrennte Liste)</SelectItem>
+            <SelectItem value="other_component">{t("cpq.ruleEditor.targetModes.otherComponent")}</SelectItem>
+            <SelectItem value="fixed_value">{t("cpq.ruleEditor.targetModes.fixedValue")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
       {guided.targetMode === "other_component" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>Ziel – Komponente</Label>
+            <Label>{t("cpq.ruleEditor.targetComponent")}</Label>
             <Select
               value={guided.targetComponentType}
               onValueChange={(v) => update({ targetComponentType: v })}
             >
-              <SelectTrigger aria-label="Ziel – Komponente">
-                <SelectValue placeholder="Komponente wählen" />
+              <SelectTrigger aria-label={t("cpq.ruleEditor.targetComponent")}>
+                <SelectValue placeholder={t("cpq.ruleEditor.selectComponent")} />
               </SelectTrigger>
               <SelectContent>
                 {COMPONENT_TYPE_OPTIONS.map((o) => (
@@ -244,13 +246,13 @@ export default function CpqRuleConditionEditor({ condition, onChange }: CpqRuleC
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Ziel – Attribut</Label>
+            <Label>{t("cpq.ruleEditor.targetAttribute")}</Label>
             <Select
               value={guided.targetAttribute}
               onValueChange={(v) => update({ targetAttribute: v })}
             >
-              <SelectTrigger aria-label="Ziel – Attribut">
-                <SelectValue placeholder="Attribut wählen" />
+              <SelectTrigger aria-label={t("cpq.ruleEditor.targetAttribute")}>
+                <SelectValue placeholder={t("cpq.ruleEditor.selectAttribute")} />
               </SelectTrigger>
               <SelectContent>
                 {ATTRIBUTE_OPTIONS.map((o) => (
@@ -260,7 +262,7 @@ export default function CpqRuleConditionEditor({ condition, onChange }: CpqRuleC
             </Select>
             {targetAttrDisplay && (
               <Input
-                placeholder="z.B. custom_attr"
+                placeholder={t("cpq.ruleEditor.customAttributePlaceholder")}
                 className="mt-1"
                 value={guided.targetAttributeCustom ?? ""}
                 onChange={(e) => update({ targetAttributeCustom: e.target.value.trim() })}
@@ -270,11 +272,11 @@ export default function CpqRuleConditionEditor({ condition, onChange }: CpqRuleC
         </div>
       ) : (
         <div className="space-y-2">
-          <Label>Fester Wert (z.B. 800 oder 400, 500, 600)</Label>
+          <Label>{t("cpq.ruleEditor.fixedValueLabel")}</Label>
           <Input
             value={guided.fixedValue ?? ""}
             onChange={(e) => update({ fixedValue: e.target.value })}
-            placeholder="800 oder 400, 500, 600"
+            placeholder={t("cpq.ruleEditor.fixedValuePlaceholder")}
           />
         </div>
       )}

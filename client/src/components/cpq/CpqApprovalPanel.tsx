@@ -10,10 +10,8 @@ import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { CheckCircle, XCircle } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-
-import { createLocaleFormatters } from "@/lib/localeFormat";
-// Die CPQ-Verwaltung ist (noch) nur deutsch - Zahlen deshalb im deutschen Format wie der Text
-const fmt = createLocaleFormatters("de");
+import { useTranslation } from "react-i18next";
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 
 type CpqApprovalPanelProps = {
   offerId: string;
@@ -28,6 +26,8 @@ export default function CpqApprovalPanel({
   onApproved,
   onRejected,
 }: CpqApprovalPanelProps) {
+  const { t } = useTranslation();
+  const fmt = useLocaleFormat();
   const [comment, setComment] = useState("");
 
   const { data: approvalStatus, refetch } = useQuery<{
@@ -79,32 +79,32 @@ export default function CpqApprovalPanel({
   return (
     <div className="rounded-lg border p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <h4 className="font-semibold">CPQ Rabatt-Freigabe</h4>
+        <h4 className="font-semibold">{t("cpq.approval.title")}</h4>
         <Badge
           variant={isApproved ? "default" : isRejected ? "destructive" : "secondary"}
         >
-          {isPending && "Wartet auf Freigabe"}
-          {isApproved && "Freigegeben"}
-          {isRejected && "Abgelehnt"}
+          {isPending && t("cpq.approval.statusPending")}
+          {isApproved && t("cpq.approval.statusApproved")}
+          {isRejected && t("cpq.approval.statusRejected")}
         </Badge>
       </div>
       <div className="text-sm text-muted-foreground space-y-1">
-        <p>Rabatt: {fmt.percentValue(Number(approvalStatus.discountPercent), 1)} · Umsatzverlust: {fmt.currency(Number(approvalStatus.revenueLoss))}</p>
-        {approvalStatus.justification && <p>Begründung: {approvalStatus.justification}</p>}
+        <p>{t("cpq.approval.summary", { discount: fmt.percentValue(Number(approvalStatus.discountPercent), 1), revenueLoss: fmt.currency(Number(approvalStatus.revenueLoss)) })}</p>
+        {approvalStatus.justification && <p>{t("cpq.approval.justification", { text: approvalStatus.justification })}</p>}
         {isApproved && approvalStatus.approvedBy && (
-          <p>Freigegeben von {approvalStatus.approvedBy} {approvalStatus.approvedAt && `am ${fmt.dateTime(approvalStatus.approvedAt)}`}</p>
+          <p>{approvalStatus.approvedAt ? t("cpq.approval.approvedByAt", { name: approvalStatus.approvedBy, date: fmt.dateTime(approvalStatus.approvedAt) }) : t("cpq.approval.approvedBy", { name: approvalStatus.approvedBy })}</p>
         )}
         {isRejected && approvalStatus.approvalComment && (
-          <p>Ablehnung: {approvalStatus.approvalComment}</p>
+          <p>{t("cpq.approval.rejection", { text: approvalStatus.approvalComment })}</p>
         )}
       </div>
       {isPending && canApprove && (
         <div className="space-y-2 pt-2 border-t">
-          <Label>Kommentar (optional)</Label>
+          <Label>{t("cpq.approval.commentLabel")}</Label>
           <Textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder="Kommentar zur Freigabe/Ablehnung"
+            placeholder={t("cpq.approval.commentPlaceholder")}
             rows={2}
           />
           <div className="flex gap-2">
@@ -114,7 +114,7 @@ export default function CpqApprovalPanel({
               disabled={approveMutation.isPending}
             >
               <CheckCircle className="h-4 w-4 mr-2" />
-              Freigeben
+              {t("cpq.approval.approve")}
             </Button>
             <Button
               size="sm"
@@ -123,7 +123,7 @@ export default function CpqApprovalPanel({
               disabled={approveMutation.isPending}
             >
               <XCircle className="h-4 w-4 mr-2" />
-              Ablehnen
+              {t("cpq.approval.reject")}
             </Button>
           </div>
         </div>

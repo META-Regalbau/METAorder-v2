@@ -276,6 +276,7 @@
     "rules": "Cross-Selling Rules",
     "configurator": "Shelf Configurator",
     "cpqAdmin": "CPQ Admin",
+    "cpqReviewQueue": "CPQ review queue",
     "settings": "Settings",
     "shipping": "Shipping",
     "templates": "Templates",
@@ -2382,6 +2383,7 @@
     "errors": "Errors",
     "errorDetails": "Error Details",
     "stagingSelectTarget": "Select target product",
+    "stagingClearSelection": "Clear selection",
     "stagingSearchProducts": "Search by item number or name",
     "stagingSearchMin": "Please enter at least 2 characters",
     "stagingNoProducts": "No products found",
@@ -4774,5 +4776,403 @@
   "theme": {
     "switchToDark": "Dark mode",
     "switchToLight": "Light mode"
+  },
+  "cpq": {
+    "admin": {
+      "title": "CPQ Admin – Configurator & Rules",
+      "subtitle": "Manage shelving systems, rules and the discount traffic light",
+      "common": {
+        "name": "Name",
+        "status": "Status",
+        "actions": "Actions",
+        "cancel": "Cancel",
+        "create": "Create",
+        "save": "Save",
+        "close": "Close",
+        "loading": "Loading…",
+        "preview": "Preview",
+        "yes": "Yes",
+        "no": "No",
+        "systemFallback": "System",
+        "discountPercent": "Discount %"
+      },
+      "tabs": {
+        "systems": "Systems",
+        "graph": "Node system / Relationship graph",
+        "mappings": "Product mappings",
+        "rules": "Rules",
+        "discountLevels": "Discount traffic light",
+        "reporting": "Discount reporting"
+      },
+      "systems": {
+        "title": "Shelving systems",
+        "newSystem": "New system",
+        "empty": "No shelving systems yet. Create a system to manage rules and components.",
+        "slug": "Slug",
+        "action": "Action",
+        "select": "Select",
+        "createTitle": "New shelving system",
+        "createDescription": "Create a new shelving system (e.g. META CLIP, META FIX).",
+        "namePlaceholder": "e.g. META CLIP",
+        "descriptionLabel": "Description (optional)",
+        "descriptionPlaceholder": "Description of the shelving system"
+      },
+      "graph": {
+        "title": "Node system / Relationship graph",
+        "intro": "The relationship graph shows system → component types → items. First select a shelving system in the \"Systems\" tab (\"Select\" button).",
+        "selectSystem": "Select {{name}}",
+        "noSystems": "No systems yet. Create a new one in the \"Systems\" tab.",
+        "viewGraph": "Relationship graph",
+        "viewTable": "Table view",
+        "viewMatrix": "Compatibility matrix",
+        "zoomOut": "Zoom out",
+        "zoomIn": "Zoom in",
+        "noComponentTypes": "No component types. First create component types in the \"Product mappings\" tab."
+      },
+      "mappings": {
+        "previewTitle": "Mapping preview",
+        "previewSummary": "{{products}} in {{componentTypes}}",
+        "productCount": "{{count}} products",
+        "productCount_one": "{{count}} product",
+        "productCount_other": "{{count}} products",
+        "componentTypeCount": "{{count}} component types",
+        "componentTypeCount_one": "{{count}} component type",
+        "componentTypeCount_other": "{{count}} component types",
+        "title": "Product mappings for {{name}}",
+        "addComponentType": "Component type",
+        "newMapping": "New mapping",
+        "componentTypeFirstHint": "First create at least one component type (e.g. upright, beam, accessories) before you can assign Shopware products.",
+        "createFirstComponentType": "Create first component type",
+        "empty": "No product mappings yet. Click \"New mapping\" to assign a Shopware product to this system and a component type.",
+        "columnProduct": "Product number / product name",
+        "columnShopwareId": "Shopware ID",
+        "componentType": "Component type",
+        "createTitle": "New product mapping",
+        "createDescription": "Assign a Shopware product to the shelving system and a component type.",
+        "shopwareProduct": "Shopware product",
+        "productSearchPlaceholder": "Search product (min. 2 characters)",
+        "selectComponentType": "Select component type",
+        "assignPreview": "→ will be assigned to the component type <0>{{name}}</0>.",
+        "createSubmit": "Create mapping"
+      },
+      "componentTypes": {
+        "title": "Component types",
+        "role": "Role",
+        "required": "Required",
+        "createTitle": "New component type",
+        "createDescription": "Create a component type for the shelving system (e.g. upright, beam, accessories).",
+        "namePlaceholder": "e.g. upright, beam",
+        "roles": {
+          "frame": "Frame (frame)",
+          "beam": "Beam (beam)",
+          "shelf": "Shelf (shelf)",
+          "connector": "Connector (connector)",
+          "accessory": "Accessory (accessory)"
+        }
+      },
+      "rules": {
+        "title": "CPQ rules for {{name}}",
+        "newRule": "New rule",
+        "empty": "No rules for this system. Create a rule (compatibility, physical, configuration, business).",
+        "type": "Type",
+        "priority": "Priority",
+        "version": "Version",
+        "previewTooltip": "Preview – matches against test configurations",
+        "impactAnalysis": "Impact analysis",
+        "versionHistory": "Version history",
+        "types": {
+          "compatibility": "Compatibility",
+          "physical": "Physical",
+          "configuration": "Configuration",
+          "business": "Business"
+        },
+        "createTitle": "New CPQ rule",
+        "createDescription": "Create a rule for the selected system. Choose properties or use expert mode (JSON) for complex rules.",
+        "nameLabel": "Rule name",
+        "namePlaceholder": "e.g. Uprights and shelves – same depth required",
+        "priorityHint": "Priority (low = first)",
+        "messageLabel": "Message (optional)",
+        "messagePlaceholder": "Message visible to users",
+        "editTitle": "Edit rule",
+        "editDescription": "Guided mode or expert mode (JSON) for complex rules.",
+        "modeGuided": "Guided",
+        "modeExpert": "Expert (JSON)",
+        "expertJsonLabel": "Condition & Action (JSON)",
+        "previewTitle": "Preview – rule matches",
+        "previewSummary": "The rule applies to {{matchCount}} of {{totalTested}} configurations.",
+        "previewSourceSaved": "Based on: saved configurations of this system.",
+        "previewSourceMappings": "Based on: combinations of product mapping attributes (height, depth, number of bays, levels).",
+        "previewNoMatches": "No matches. The rule condition does not match any of the configurations in the system. Review the condition.",
+        "previewMatchesLabel": "Matching configurations:",
+        "previewMatchLine": "Height {{height}} mm, depth {{depth}} mm · {{fieldCount}} bays × {{levelCount}} levels",
+        "versionsEmpty": "No versions, or still loading…",
+        "versionLabel": "Version {{version}}",
+        "rollback": "Roll back"
+      },
+      "discountLevels": {
+        "title": "Discount traffic light levels",
+        "newLevel": "New level",
+        "empty": "No traffic light levels yet. Create levels to rate discounts by color (green/yellow/orange/red).",
+        "color": "Color",
+        "approval": "Approval",
+        "editTitle": "Edit traffic light level",
+        "createTitle": "New traffic light level",
+        "dialogDescription": "Define the discount range and color for this traffic light level.",
+        "namePlaceholder": "e.g. Optimal, Elevated, Critical",
+        "discountFrom": "Discount from (%)",
+        "discountTo": "Discount to (%)",
+        "messageLabel": "Message (optional, placeholders: {verlust}, {marge})",
+        "messagePlaceholder": "Standard discount – offer can be sent right away",
+        "approvalRequired": "Approval required",
+        "approvalTypes": {
+          "none": "None",
+          "departmentLead": "Department head",
+          "management": "Management",
+          "blocked": "Blocked (cannot be approved)"
+        },
+        "justificationRequired": "Justification required"
+      },
+      "reporting": {
+        "title": "Discount overview",
+        "from": "From",
+        "to": "To",
+        "totalRevenueLoss": "Total revenue loss",
+        "entryCount": "Number of entries",
+        "byLevel": "By traffic light level",
+        "level": "Level",
+        "count": "Count",
+        "revenueLoss": "Revenue loss",
+        "recentEntries": "Latest entries (max. 100)",
+        "date": "Date",
+        "offer": "Offer",
+        "empty": "No discount logs in the selected period.",
+        "loadError": "Data could not be loaded."
+      },
+      "toast": {
+        "error": "Error",
+        "systemCreated": "System created",
+        "systemCreatedDescription": "The shelving system has been created.",
+        "ruleUpdated": "Rule updated",
+        "ruleUpdatedDescription": "The CPQ rule has been saved.",
+        "ruleCreated": "Rule created",
+        "ruleCreatedDescription": "The CPQ rule has been created.",
+        "rollbackDone": "Rollback completed",
+        "rollbackDoneDescription": "The rule has been reset to the selected version.",
+        "componentTypeCreated": "Component type created",
+        "componentTypeCreatedDescription": "The component type has been created.",
+        "mappingCreated": "Product mapping created",
+        "mappingCreatedDescription": "The Shopware product has been assigned to the CPQ system.",
+        "discountLevelCreated": "Traffic light level created",
+        "discountLevelCreatedDescription": "The discount traffic light level has been created.",
+        "discountLevelUpdated": "Traffic light level updated",
+        "discountLevelUpdatedDescription": "The discount traffic light level has been saved.",
+        "discountLevelDeleted": "Traffic light level deleted",
+        "discountLevelDeletedDescription": "The discount traffic light level has been removed.",
+        "invalidJson": "Invalid JSON",
+        "invalidJsonPreview": "Invalid JSON for preview"
+      },
+      "status": {
+        "active": "Active",
+        "inactive": "Inactive",
+        "draft": "Draft",
+        "archived": "Archived"
+      },
+      "approvalStatus": {
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected"
+      }
+    },
+    "review": {
+      "title": "CPQ review queue",
+      "subtitle": "Sales processes class C configurations here.",
+      "queueTitle": "Queue",
+      "selectStatus": "Select status",
+      "empty": "No entries for the selected status.",
+      "columns": {
+        "name": "Name",
+        "status": "Status",
+        "received": "Received"
+      },
+      "detailTitle": "Details & status change",
+      "selectEntryHint": "Select an entry in the queue.",
+      "detail": {
+        "name": "Name:",
+        "system": "System:",
+        "customer": "Customer:",
+        "currentStatus": "Current status:",
+        "lastReview": "Last review:",
+        "reviewedBy": "Reviewed by:"
+      },
+      "targetStatus": "Target status",
+      "reviewNote": "Review note",
+      "reviewNotePlaceholder": "e.g. contact the customer with questions",
+      "saving": "Saving...",
+      "saveStatus": "Save status",
+      "detailLoadFailed": "Details could not be loaded.",
+      "status": {
+        "pending": "Pending",
+        "approved": "Approved",
+        "customerContactRequired": "Customer contact required",
+        "rejected": "Rejected"
+      },
+      "errors": {
+        "loadQueue": "Review queue could not be loaded",
+        "loadDetail": "Review details could not be loaded",
+        "noEntrySelected": "No queue entry selected"
+      },
+      "toast": {
+        "statusUpdated": "Status updated",
+        "statusUpdatedDescription": "The queue entry has been updated.",
+        "error": "Error"
+      }
+    },
+    "ruleEditor": {
+      "title": "Compatibility condition",
+      "syntaxHint": "IF [Component A] [Attribute] [Operator] [Component B / Fixed value] – then allow",
+      "sourceComponent": "Source – Component",
+      "sourceAttribute": "Source – Attribute",
+      "selectComponent": "Select component",
+      "selectAttribute": "Select attribute",
+      "customAttributePlaceholder": "e.g. custom_attr",
+      "operator": "Operator",
+      "selectOperator": "Select operator",
+      "compareWith": "Target – Compare with",
+      "targetModes": {
+        "otherComponent": "Other component (same attribute must match)",
+        "fixedValue": "Fixed value (number or comma-separated list)"
+      },
+      "targetComponent": "Target – Component",
+      "targetAttribute": "Target – Attribute",
+      "fixedValueLabel": "Fixed value (e.g. 800 or 400, 500, 600)",
+      "fixedValuePlaceholder": "800 or 400, 500, 600",
+      "componentTypes": {
+        "frame": "Upright frame",
+        "beam": "Beam",
+        "shelf": "Shelf",
+        "accessory": "Accessory",
+        "connector": "Connector"
+      },
+      "attributes": {
+        "depth": "Depth (mm)",
+        "width": "Width (mm)",
+        "height": "Height (mm)",
+        "loadCapacity": "Load capacity (kg)",
+        "holePatternStart": "Hole pattern start (mm)",
+        "holePatternPitch": "Hole pattern pitch (mm)",
+        "other": "Other (enter attribute name)"
+      },
+      "operators": {
+        "equals": "equals",
+        "notEquals": "does not equal",
+        "in": "is one of (comma-separated)",
+        "notIn": "is none of",
+        "greaterThan": "greater than",
+        "greaterOrEqual": "greater than or equal to",
+        "lessThan": "less than",
+        "lessOrEqual": "less than or equal to"
+      }
+    },
+    "matrix": {
+      "noRulesTitle": "No compatibility rules",
+      "noRulesDescription": "No active rules of type “Compatibility” that link two component types are defined for {{system}}. Create a compatibility rule in the “Rules” tab to see a matrix here.",
+      "pairLabel": "Component type pair",
+      "ruleCount": "{{count}} rules",
+      "ruleCount_one": "{{count}} rule",
+      "ruleCount_other": "{{count}} rules",
+      "noProducts": "{{typeA}} or {{typeB}} does not have any assigned products yet.",
+      "notCompatible": "Not compatible",
+      "legend": {
+        "compatible": "compatible",
+        "ruleViolated": "Rule violated",
+        "noRuleApplicable": "no rule applicable"
+      }
+    },
+    "detail": {
+      "ruleType": {
+        "compatibility": "Compatibility",
+        "physical": "Physical",
+        "configuration": "Configuration",
+        "business": "Business rule"
+      },
+      "geometryTitle": "CPQ geometry",
+      "loading": "Loading…",
+      "glbUrl": "GLB URL",
+      "searchGlb": "Search for GLB in outputs",
+      "saveGeometry": "Save geometry",
+      "holePattern": "Hole pattern",
+      "anchorPoints": "Anchor points",
+      "emptyHint": "Click a node in the graph or in the sidebar to view details.",
+      "allRulesMet": "All rules met",
+      "close": "Close",
+      "masterData": "Master data (Shopware)",
+      "productNumber": "Product no. (GTIN/EAN)",
+      "manufacturerNumber": "Manufacturer no. (item number)",
+      "height": "Height",
+      "depth": "Depth",
+      "loadCapacity": "Load capacity",
+      "listPrice": "List price",
+      "activeRules": "Active rules ({{count}})",
+      "noRules": "No rules for this system.",
+      "edit": "Edit",
+      "addRule": "Add new rule"
+    },
+    "table": {
+      "status": {
+        "active": "Active",
+        "draft": "Draft",
+        "inactive": "Inactive"
+      },
+      "searchPlaceholder": "Search in {{name}} – item number, name, component type …",
+      "noMappings": "No product mappings in this system.",
+      "noResults": "No results for your search.",
+      "columns": {
+        "componentType": "Component type",
+        "sku": "Item number",
+        "name": "Product name",
+        "height": "Height",
+        "depth": "Depth",
+        "loadCapacity": "Load capacity",
+        "price": "Price",
+        "status": "Status"
+      },
+      "rowCount": "{{shown}} of {{count}} item",
+      "rowCount_other": "{{shown}} of {{count}} items"
+    },
+    "approval": {
+      "title": "CPQ discount approval",
+      "statusPending": "Awaiting approval",
+      "statusApproved": "Approved",
+      "statusRejected": "Rejected",
+      "summary": "Discount: {{discount}} · Revenue loss: {{revenueLoss}}",
+      "justification": "Justification: {{text}}",
+      "approvedBy": "Approved by {{name}}",
+      "approvedByAt": "Approved by {{name}} on {{date}}",
+      "rejection": "Rejection: {{text}}",
+      "commentLabel": "Comment (optional)",
+      "commentPlaceholder": "Comment on the approval/rejection",
+      "approve": "Approve",
+      "reject": "Reject"
+    },
+    "discountLight": {
+      "loading": "Calculating discount assessment…",
+      "approvalNone": "No approval required",
+      "approvalDepartmentLead": "Approval by department head",
+      "approvalManagement": "Approval by management",
+      "approvalBlocked": "Cannot be approved",
+      "discount": "{{value}} discount",
+      "revenueLoss": "Revenue loss: {{value}}"
+    },
+    "sidebar": {
+      "title": "Components",
+      "searchPlaceholder": "Search items...",
+      "noItems": "No items"
+    },
+    "graph": {
+      "typeCount": "{{count}} type",
+      "typeCount_other": "{{count}} types",
+      "articleCount": "{{count}} item",
+      "articleCount_other": "{{count}} items"
+    }
   }
 }
