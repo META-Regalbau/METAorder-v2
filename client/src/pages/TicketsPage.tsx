@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Plus, Search, User as UserIcon, Download } from "lucide-react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -30,6 +30,8 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
+  // Query (?search=...) reaktiv: useLocation liefert in wouter 3 nur den Pfad
+  const searchString = useSearch();
   const [searchValue, setSearchValue] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
@@ -113,13 +115,13 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
   }, [userPermissions, canViewTickets, setLocation, toast, t]);
 
   useEffect(() => {
-    const params = new URLSearchParams(location.split("?")[1] ?? "");
+    const params = new URLSearchParams(searchString);
     const searchParam = params.get("search");
     if (searchParam !== null) {
       setSearchValue(searchParam);
       setCurrentPage(1);
     }
-  }, [location]);
+  }, [searchString]);
 
   // Fetch current user
   const { data: currentUser } = useQuery<{ user: User & { permissions: Role['permissions'] } }>({

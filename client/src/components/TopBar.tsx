@@ -10,7 +10,7 @@ import RightSidebarToggle from "./RightSidebarToggle";
 import { COMPACT_LAYOUT_QUERY, useMediaQuery } from "@/hooks/useMediaQuery";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useTranslation } from "react-i18next";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -88,6 +88,8 @@ export default function TopBar({ userRole, username, onLogout, canViewTickets = 
   const theme = useThemeMode();
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
+  // Query (?search=...) reaktiv: useLocation liefert in wouter 3 nur den Pfad
+  const searchString = useSearch();
   const [selectedTenantId, setSelectedTenantId] = useState("");
   const [globalSearch, setGlobalSearch] = useState("");
   const [showSearchResults, setShowSearchResults] = useState(false);
@@ -111,14 +113,14 @@ export default function TopBar({ userRole, username, onLogout, canViewTickets = 
   }, [tenantData]);
 
   useEffect(() => {
-    const params = new URLSearchParams(location.split("?")[1] ?? "");
+    const params = new URLSearchParams(searchString);
     const queryParam = params.get("q");
     const searchParam = params.get("search");
     const nextValue = queryParam ?? searchParam;
     if (nextValue !== null) {
       setGlobalSearch(nextValue);
     }
-  }, [location]);
+  }, [searchString]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

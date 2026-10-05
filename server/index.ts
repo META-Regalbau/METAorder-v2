@@ -276,6 +276,17 @@ app.post("/ingest/:id", (req, res) => {
   setTimeout(runDunning, 45 * 1000);
   setInterval(runDunning, dunningIntervalMs);
 
+  // Suchindex (FAQ, semantische Suche): vorher nie aufgebaut. Kurz nach dem Start, dann regelmaessig;
+  // inkrementell, unveraenderte Eintraege werden uebersprungen.
+  if (process.env.SEMANTIC_INDEX_ENABLED !== "false") {
+    const { runSemanticIndexAllTenants } = await import("./semantic/semanticIndexer");
+    const semanticIntervalHours = Math.max(1, Number(process.env.SEMANTIC_INDEX_INTERVAL_HOURS || 6));
+    const runSemanticIndexJob = () => runSemanticIndexAllTenants(storage, log).catch((error) => console.error("[SemanticIndex] Job failed:", error));
+    setTimeout(runSemanticIndexJob, 2 * 60 * 1000);
+    setInterval(runSemanticIndexJob, semanticIntervalHours * 60 * 60 * 1000);
+    log(`[SemanticIndex] Index scheduled every ${semanticIntervalHours} hour(s)`);
+  }
+
   const runMirrorSync = async () => {
     try {
       await runShopwareMirrorSync(storage);

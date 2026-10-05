@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Search } from "lucide-react";
@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { apiRequest } from "@/lib/queryClient";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
+import { SEARCH_INDEX_STATUS_URL, type SearchIndexStatus } from "@/components/SearchIndexCard";
 import type { LocaleFormatters } from "@/lib/localeFormat";
 type SemanticResult = {
   sourceType: string;
@@ -97,12 +98,11 @@ function getScore(distance: number, fmt: LocaleFormatters): string {
 export default function SemanticSearchPage() {
   const fmt = useLocaleFormat();
   const { t, i18n } = useTranslation();
-  const [location, setLocation] = useLocation();
-  const params = useMemo(() => {
-    const searchFromLocation = location.includes("?") ? location.split("?")[1] : "";
-    const searchFallback = typeof window !== "undefined" ? window.location.search.slice(1) : "";
-    return new URLSearchParams(searchFromLocation || searchFallback);
-  }, [location]);
+  const [, setLocation] = useLocation();
+  // Query (?q=...) reaktiv: useLocation liefert in wouter 3 nur den Pfad - Suchen auf der Seite
+  // selbst aenderte frueher nur die Adresse, die Suche lief nie
+  const searchString = useSearch();
+  const params = useMemo(() => new URLSearchParams(searchString), [searchString]);
   const queryParam = params.get("q") || "";
   const sourceParam = params.get("source") || "all";
 
@@ -130,6 +130,12 @@ export default function SemanticSearchPage() {
     : i18n.language?.startsWith("es")
     ? "es"
     : "de";
+
+  // leerer Index: Suche und FAQ koennen nichts finden - Hinweis statt stiller "keine Treffer"
+  const indexStatus = useQuery<SearchIndexStatus>({
+    queryKey: [SEARCH_INDEX_STATUS_URL],
+    refetchInterval: (query) => (query.state.data?.running ? 5000 : false),
+  });
 
   const { data, isLoading, error: searchError } = useQuery<{ results: SemanticResult[] }>({
     queryKey: ["/api/semantic/search", searchQuery, sourceFilter],
@@ -253,6 +259,14 @@ export default function SemanticSearchPage() {
         </Select>
         <Button onClick={handleSubmit}>{t("semanticSearch.globalSearch")}</Button>
       </div>
+
+      {indexStatus.data && indexStatus.data.total === 0 && (
+        <Card className="p-4 border-amber-500/60" data-testid="hint-search-index-empty">
+          <p className="text-sm">
+            {indexStatus.data.running ? t("searchIndex.emptyRunning") : t("searchIndex.emptyHint")}
+          </p>
+        </Card>
+      )}
 
       {!searchQuery && (
         <Card className="p-6">

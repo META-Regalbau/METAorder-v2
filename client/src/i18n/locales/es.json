@@ -5180,5 +5180,25 @@
       "articleCount": "{{count}} artículo",
       "articleCount_other": "{{count}} artículos"
     }
+  },
+  "searchIndex": {
+    "title": "Índice de búsqueda (FAQ y búsqueda semántica)",
+    "description": "Base de las respuestas FAQ, la búsqueda semántica y el campo de búsqueda del encabezado. Se actualiza automáticamente poco después del inicio y luego con regularidad (cada 6 horas por defecto); solo se recalculan las entradas modificadas.",
+    "run": "Actualizar ahora",
+    "running": "Actualizando…",
+    "startFailed": "No se pudo iniciar la actualización",
+    "sourceError": "Error",
+    "lastRun": "Última actualización: {{date}} ({{seconds}} s)",
+    "neverRun": "Todavía no se ha creado.",
+    "emptyHint": "El índice de búsqueda aún está vacío, por eso la búsqueda no encuentra nada. Se crea automáticamente; un administrador puede actualizarlo de inmediato en Configuración → IA.",
+    "emptyRunning": "Se está creando el índice de búsqueda. Los resultados aparecerán en breve.",
+    "sources": {
+      "product": "Productos",
+      "offer": "Ofertas",
+      "offerDraft": "Borradores de ofertas",
+      "orderDraft": "Borradores de pedidos",
+      "ticket": "Tickets",
+      "ticketTemplate": "Plantillas de tickets"
+    }
   }
 }

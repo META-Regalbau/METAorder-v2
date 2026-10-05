@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { RefreshCw, Search, ChevronDown, ChevronUp, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,6 +63,8 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
   const { t } = useTranslation();
   const { toast } = useToast();
   const [location] = useLocation();
+  // Query (?search=...) reaktiv: useLocation liefert in wouter 3 nur den Pfad
+  const searchString = useSearch();
   const [searchValue, setSearchValue] = useState("");
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">("all");
   const [invoiceFilter, setInvoiceFilter] = useState<InvoiceFilter>("all");
@@ -88,13 +90,13 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
   }, [searchValue]);
 
   useEffect(() => {
-    const params = new URLSearchParams(location.split("?")[1] ?? "");
+    const params = new URLSearchParams(searchString);
     const searchParam = params.get("search");
     if (searchParam !== null) {
       setSearchValue(searchParam);
       setCurrentPage(1);
     }
-  }, [location]);
+  }, [searchString]);
 
   // Fetch sales channels to initialize selection
   const { data: salesChannels = [] } = useQuery<SalesChannel[]>({

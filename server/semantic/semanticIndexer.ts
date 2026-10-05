@@ -1,4 +1,6 @@
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "../db";
+import { getTenantIdFromContext, runWithTenantContext } from "../lib/tenantContext";
 import { generateEmbedding, hashContent } from "./semanticEmbeddings";
 import { productCache } from "../products/productCache";
 import { ShopwareClient } from "../shopware/shopware";
@@ -10,6 +12,7 @@ import {
   tickets,
   ticketComments,
   ticketTemplates,
+  semanticDocuments,
   type InsertSemanticDocument,
   type Product,
   type Offer,
@@ -20,7 +23,6 @@ type IndexOptions = {
   preferOpenAI?: boolean;
 };
 
-type IndexResult = Record<string, number>;
 
 const DEFAULT_SOURCES = [
   "products",
@@ -152,94 +154,105 @@ function buildDraftContent(draft: { id: string; originalFileName: string; extrac
   };
 }
 
-export async function runSemanticIndex(storage: IStorage, options?: IndexOptions): Promise<IndexResult> {
-  const sources = options?.sources?.length ? options.sources : DEFAULT_SOURCES;
-  const result: IndexResult = {};
+export type SourceIndexResult = {
+  /** Dokumente mit Inhalt nach diesem Lauf */
+  total: number;
+  /** neu oder geaendert (Embedding berechnet) */
+  updated: number;
+  /** unveraendert uebersprungen */
+  unchanged: number;
+  /** nicht mehr vorhanden, aus dem Index geloescht */
+  removed: number;
+  /** Quelle nicht lesbar - ihr Index bleibt dann unveraendert */
+  error?: string;
+};
+export type IndexResult = Record<string, SourceIndexResult>;
 
-  await storage.deleteSemanticDocumentsBySourceTypes(
-    sources.map((source) => SOURCE_TYPE_MAP[source] || source)
-  );
+export type IndexDoc = { sourceType: string; sourceId: string; title: string; content: string; metadata?: any };
 
-  if (sources.includes("products")) {
-    const settings = await storage.getShopwareSettings();
-    if (settings) {
-      const client = new ShopwareClient(settings);
-      const cacheStatus = productCache.getStatus();
-      if (!cacheStatus.isPopulated) {
-        await productCache.refresh(client);
+/** Mandanten-Filter: eigener Mandant oder (ohne Mandanten) nur Zeilen ohne Mandant */
+const tenantFilter = (column: any, tenantId: string | null) => (tenantId ? eq(column, tenantId) : isNull(column));
+
+/**
+ * Suchindex (FAQ-Antworten, semantische Suche, Suchfeld in der Kopfzeile) fuer EINEN Mandanten.
+ * Frueher: ohne Mandantenfilter (Entwuerfe und Tickets aller Mandanten landeten im Index des
+ * aufrufenden), jedes Mal alles geloescht und neu berechnet, und nirgends ausgeloest - der Index
+ * war in allen Mandanten leer. Jetzt: nur Daten des Mandanten, unveraenderte Eintraege werden
+ * uebersprungen (Fingerabdruck aus Titel, Inhalt und Metadaten), entfernte geloescht; eine
+ * Quelle, die nicht lesbar ist, laesst ihren Index unveraendert.
+ */
+export async function runSemanticIndex(
+  storage: IStorage,
+  options?: IndexOptions & { tenantId?: string | null },
+): Promise<IndexResult> {
+  const tenantId = options?.tenantId !== undefined ? options.tenantId : getTenantIdFromContext();
+  // Produkt-Cache und Einstellungen lesen den Mandanten aus dem Kontext - passend setzen
+  return runWithTenantContext(tenantId, async () => {
+    const sources = options?.sources?.length ? options.sources : DEFAULT_SOURCES;
+    const result: IndexResult = {};
+    const run = async (source: string, load: () => Promise<IndexDoc[]>) => {
+      if (!sources.includes(source)) return;
+      const sourceType = SOURCE_TYPE_MAP[source] || source;
+      try {
+        const docs = await load();
+        result[source] = await syncSourceDocuments(storage, tenantId, sourceType, docs, options?.preferOpenAI);
+      } catch (error) {
+        result[source] = { total: 0, updated: 0, unchanged: 0, removed: 0, error: error instanceof Error ? error.message : String(error) };
       }
-      const products = productCache.getProducts();
-      result.products = await indexBatch(
-        storage,
-        products.map(buildProductDocument),
-        options?.preferOpenAI
-      );
-    } else {
-      result.products = 0;
-    }
-  }
+    };
 
-  if (sources.includes("offers")) {
-    const settings = await storage.getShopwareSettings();
-    if (settings) {
-      const statusMapping = (await storage.getSetting("b2b.offerStatusMapping")) || getOfferStatusMapping();
-      const client = new B2BSellersClient(settings, { statusMapping });
-      const offers = await fetchAllOffers(client);
-      result.offers = await indexBatch(
-        storage,
-        offers.map(buildOfferContent),
-        options?.preferOpenAI
-      );
-    } else {
-      result.offers = 0;
-    }
-  }
-
-  if (sources.includes("offer_drafts")) {
-    const drafts = await db.select().from(offerDrafts);
-    result.offer_drafts = await indexBatch(
-      storage,
-      drafts.map((draft) => buildDraftContent(draft, "offer_draft")),
-      options?.preferOpenAI
-    );
-  }
-
-  if (sources.includes("order_drafts")) {
-    const drafts = await db.select().from(orderDrafts);
-    result.order_drafts = await indexBatch(
-      storage,
-      drafts.map((draft) => buildDraftContent(draft, "order_draft")),
-      options?.preferOpenAI
-    );
-  }
-
-  if (sources.includes("tickets")) {
-    const allTickets = await db.select().from(tickets);
-    const comments = await db.select().from(ticketComments);
-    const commentsByTicket = new Map<string, string[]>();
-    comments.forEach((comment) => {
-      if (!comment.ticketId) return;
-      const list = commentsByTicket.get(comment.ticketId) || [];
-      list.push(comment.comment);
-      commentsByTicket.set(comment.ticketId, list);
+    await run("products", async () => {
+      const settings = await storage.getShopwareSettings(tenantId);
+      if (!settings) throw new Error("Shopware settings not configured");
+      const client = new ShopwareClient(settings);
+      if (!productCache.getStatus().isPopulated) await productCache.refresh(client);
+      return productCache.getProducts().map(buildProductDocument);
     });
 
-    const docs = allTickets.map((ticket) => {
-      const commentText = (commentsByTicket.get(ticket.id) || []).join("\n");
-      const content = compactContent([
-        ticket.title,
-        ticket.description,
-        ticket.category,
-        ticket.tags?.join(", "),
-        ticket.customerName,
-        ticket.customerEmail,
-        commentText,
-      ]);
-      return {
+    await run("offers", async () => {
+      const settings = await storage.getShopwareSettings(tenantId);
+      if (!settings) throw new Error("Shopware settings not configured");
+      const statusMapping = (await storage.getSetting("b2b.offerStatusMapping", tenantId)) || getOfferStatusMapping();
+      const client = new B2BSellersClient(settings, { statusMapping });
+      return (await fetchAllOffers(client)).map(buildOfferContent);
+    });
+
+    await run("offer_drafts", async () => {
+      const drafts = await db.select().from(offerDrafts).where(tenantFilter(offerDrafts.tenantId, tenantId));
+      return drafts.map((draft) => buildDraftContent(draft, "offer_draft"));
+    });
+
+    await run("order_drafts", async () => {
+      const drafts = await db.select().from(orderDrafts).where(tenantFilter(orderDrafts.tenantId, tenantId));
+      return drafts.map((draft) => buildDraftContent(draft, "order_draft"));
+    });
+
+    await run("tickets", async () => {
+      const allTickets = await db.select().from(tickets).where(tenantFilter(tickets.tenantId, tenantId));
+      const commentsByTicket = new Map<string, string[]>();
+      const ids = allTickets.map((ticket) => ticket.id);
+      for (let i = 0; i < ids.length; i += 500) {
+        const comments = await db.select().from(ticketComments).where(inArray(ticketComments.ticketId, ids.slice(i, i + 500)));
+        for (const comment of comments) {
+          if (!comment.ticketId) continue;
+          const list = commentsByTicket.get(comment.ticketId) || [];
+          list.push(comment.comment);
+          commentsByTicket.set(comment.ticketId, list);
+        }
+      }
+      return allTickets.map((ticket) => ({
         sourceType: "ticket",
         sourceId: ticket.id,
         title: `${ticket.ticketNumber} · ${ticket.title}`,
-        content,
+        content: compactContent([
+          ticket.title,
+          ticket.description,
+          ticket.category,
+          ticket.tags?.join(", "),
+          ticket.customerName,
+          ticket.customerEmail,
+          (commentsByTicket.get(ticket.id) || []).join("\n"),
+        ]),
         metadata: {
           status: ticket.status,
           priority: ticket.priority,
@@ -248,39 +261,88 @@ export async function runSemanticIndex(storage: IStorage, options?: IndexOptions
           customerName: ticket.customerName,
           customerEmail: ticket.customerEmail,
         },
-      };
+      }));
     });
-    result.tickets = await indexBatch(storage, docs, options?.preferOpenAI);
-  }
 
-  if (sources.includes("ticket_templates")) {
-    const templates = await db.select().from(ticketTemplates);
-    const docs = templates.map((template) => ({
-      sourceType: "ticket_template",
-      sourceId: template.id,
-      title: template.title,
-      content: compactContent([template.title, template.content]),
-      metadata: {
-        category: template.category,
-      },
-    }));
-    result.ticket_templates = await indexBatch(storage, docs, options?.preferOpenAI);
-  }
+    await run("ticket_templates", async () => {
+      const templates = await db.select().from(ticketTemplates).where(tenantFilter(ticketTemplates.tenantId, tenantId));
+      return templates.map((template) => ({
+        sourceType: "ticket_template",
+        sourceId: template.id,
+        title: template.title,
+        content: compactContent([template.title, template.content]),
+        metadata: { category: template.category },
+      }));
+    });
 
-  return result;
+    return result;
+  });
 }
 
-async function indexBatch(
+/** Fingerabdruck fuer "unveraendert": Titel, Inhalt und Metadaten (z. B. Ticket-Status) */
+export function documentFingerprint(doc: Pick<IndexDoc, "title" | "content" | "metadata">): string {
+  return hashContent(JSON.stringify([doc.title, doc.content, doc.metadata ?? {}]));
+}
+
+/** Zugriff auf den Index einer Quelle (Produktion: Datenbank; Tests: im Speicher) */
+export type IndexStore = {
+  listExisting(tenantId: string | null, sourceType: string): Promise<Array<{ sourceId: string; contentHash: string; embeddingProvider: string }>>;
+  upsert(rows: InsertSemanticDocument[], tenantId: string | null): Promise<void>;
+  deleteIds(tenantId: string | null, sourceType: string, sourceIds: string[]): Promise<void>;
+};
+
+function dbIndexStore(storage: IStorage): IndexStore {
+  return {
+    listExisting: (tenantId, sourceType) =>
+      db
+        .select({
+          sourceId: semanticDocuments.sourceId,
+          contentHash: semanticDocuments.contentHash,
+          embeddingProvider: semanticDocuments.embeddingProvider,
+        })
+        .from(semanticDocuments)
+        .where(and(tenantFilter(semanticDocuments.tenantId, tenantId), eq(semanticDocuments.sourceType, sourceType))),
+    upsert: (rows, tenantId) => storage.upsertSemanticDocuments(rows, tenantId),
+    deleteIds: async (tenantId, sourceType, sourceIds) => {
+      await db
+        .delete(semanticDocuments)
+        .where(
+          and(
+            tenantFilter(semanticDocuments.tenantId, tenantId),
+            eq(semanticDocuments.sourceType, sourceType),
+            inArray(semanticDocuments.sourceId, sourceIds),
+          ),
+        );
+    },
+  };
+}
+
+/** Index einer Quelle an die aktuellen Dokumente angleichen (nur dieser Mandant). */
+export async function syncSourceDocuments(
   storage: IStorage,
-  docs: Array<{ sourceType: string; sourceId: string; title: string; content: string; metadata?: any }>,
-  preferOpenAI?: boolean
-): Promise<number> {
+  tenantId: string | null,
+  sourceType: string,
+  docs: IndexDoc[],
+  preferOpenAI?: boolean,
+  store: IndexStore = dbIndexStore(storage),
+): Promise<SourceIndexResult> {
+  const existing = await store.listExisting(tenantId, sourceType);
+  const existingById = new Map(existing.map((row) => [row.sourceId, row]));
+
+  const present = new Set<string>();
   const rows: InsertSemanticDocument[] = [];
+  let unchanged = 0;
   for (const doc of docs) {
     if (!doc.content) continue;
-    const { embedding, provider, model } = await generateEmbedding(doc.content, storage, {
-      preferOpenAI,
-    });
+    present.add(doc.sourceId);
+    const fingerprint = documentFingerprint(doc);
+    const prev = existingById.get(doc.sourceId);
+    // unveraendert und passendes Embedding: nichts zu tun (OpenAI gewuenscht, aber lokal berechnet -> neu)
+    if (prev && prev.contentHash === fingerprint && (!preferOpenAI || prev.embeddingProvider === "openai")) {
+      unchanged += 1;
+      continue;
+    }
+    const { embedding, provider, model } = await generateEmbedding(doc.content, storage, { preferOpenAI });
     rows.push({
       sourceType: doc.sourceType,
       sourceId: doc.sourceId,
@@ -290,15 +352,19 @@ async function indexBatch(
       embedding,
       embeddingProvider: provider,
       embeddingModel: model,
-      contentHash: hashContent(doc.content),
+      contentHash: fingerprint,
+      tenantId,
     });
   }
-
-  const batchSize = 50;
-  for (let i = 0; i < rows.length; i += batchSize) {
-    await storage.upsertSemanticDocuments(rows.slice(i, i + batchSize));
+  for (let i = 0; i < rows.length; i += 50) {
+    await store.upsert(rows.slice(i, i + 50), tenantId);
   }
-  return rows.length;
+
+  const stale = existing.map((row) => row.sourceId).filter((id) => !present.has(id));
+  for (let i = 0; i < stale.length; i += 500) {
+    await store.deleteIds(tenantId, sourceType, stale.slice(i, i + 500));
+  }
+  return { total: present.size, updated: rows.length, unchanged, removed: stale.length };
 }
 
 async function fetchAllOffers(client: B2BSellersClient): Promise<Offer[]> {
@@ -314,4 +380,64 @@ async function fetchAllOffers(client: B2BSellersClient): Promise<Offer[]> {
     page += 1;
   } while (offers.length < total);
   return offers;
+}
+
+// ---- Ausloesen: ein Lauf je Mandant gleichzeitig, Ergebnis als Status in den Einstellungen ----
+
+export const SEMANTIC_INDEX_STATUS_KEY = "semantic_index_status";
+export type SemanticIndexStatus = { finishedAt: string; durationMs: number; result: IndexResult };
+
+const runningTenants = new Set<string>();
+const lockKey = (tenantId: string | null) => tenantId ?? "__no_tenant__";
+
+export function isSemanticIndexRunning(tenantId: string | null): boolean {
+  return runningTenants.has(lockKey(tenantId));
+}
+
+/** Index fuer einen Mandanten aufbauen/aktualisieren; laeuft schon einer, passiert nichts (null). */
+export async function runSemanticIndexForTenant(
+  storage: IStorage,
+  tenantId: string | null,
+  options?: IndexOptions,
+): Promise<SemanticIndexStatus | null> {
+  const key = lockKey(tenantId);
+  if (runningTenants.has(key)) return null;
+  runningTenants.add(key);
+  const startedAt = Date.now();
+  try {
+    const result = await runSemanticIndex(storage, { ...options, tenantId });
+    const status: SemanticIndexStatus = { finishedAt: new Date().toISOString(), durationMs: Date.now() - startedAt, result };
+    await storage.saveSetting(SEMANTIC_INDEX_STATUS_KEY, status, tenantId);
+    return status;
+  } finally {
+    runningTenants.delete(key);
+  }
+}
+
+/** Eintraege im Index je Quelle (nur dieser Mandant) */
+export async function getSemanticIndexCounts(tenantId: string | null): Promise<Record<string, number>> {
+  const rows = await db
+    .select({ sourceType: semanticDocuments.sourceType, count: sql<number>`count(*)::int` })
+    .from(semanticDocuments)
+    .where(tenantFilter(semanticDocuments.tenantId, tenantId))
+    .groupBy(semanticDocuments.sourceType);
+  return Object.fromEntries(rows.map((row) => [row.sourceType, Number(row.count)]));
+}
+
+/** Hintergrund-Job: alle Mandanten nacheinander (Fehler eines Mandanten halten die anderen nicht auf) */
+export async function runSemanticIndexAllTenants(storage: IStorage, log: (msg: string) => void = console.log): Promise<void> {
+  const tenants = await storage.getAllTenants();
+  const tenantIds: Array<string | null> = tenants.length > 0 ? tenants.map((t) => t.id) : [null];
+  for (const tenantId of tenantIds) {
+    try {
+      const status = await runSemanticIndexForTenant(storage, tenantId);
+      if (!status) continue;
+      const summary = Object.entries(status.result)
+        .map(([source, r]) => `${source} ${r.total}${r.error ? " (Fehler)" : ""}`)
+        .join(", ");
+      log(`[SemanticIndex] Mandant ${tenantId ?? "-"}: ${summary} in ${status.durationMs} ms`);
+    } catch (error) {
+      console.error("[SemanticIndex] Mandant fehlgeschlagen:", tenantId, error);
+    }
+  }
 }
