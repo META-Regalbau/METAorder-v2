@@ -10,8 +10,12 @@ import { getLatestDelivery, isMonduPluginShipError } from "./mapping";
  * Sendungsnummern: "A, B" (Komma, Semikolon oder Zeilenumbruch) sind mehrere Nummern - frueher
  * landete die ganze Eingabe als eine Nummer in Shopware. Geschrieben wird an die neueste Lieferung
  * (wie die Anzeige), ohne Nummern, die schon an einer anderen Lieferung haengen.
- * trackingMode "replace" (Formular, Sammel-Eingabe): die Eingabe ist die vollstaendige Liste.
+ * trackingMode "replace" (Sammel-Eingabe): die Eingabe ist die vollstaendige Liste der neuesten Lieferung.
  * "add" (Sendcloud, je Paket ein Aufruf): Nummer zu den vorhandenen hinzufuegen statt sie zu ersetzen.
+ * "all" (Formular im Bestelldetail, zeigt die Nummern aller Lieferungen): die Eingabe ist die
+ *   vollstaendige Liste der Bestellung - entfernte Nummern verschwinden auch an aelteren Lieferungen,
+ *   ein leeres Feld leert alle (vorher blieb eine Nummer an einer aelteren Lieferung stehen, und
+ *   leeren ging gar nicht).
  */
 export async function updateOrderShipping(
   this: ShopwareClient,
@@ -21,7 +25,7 @@ export async function updateOrderShipping(
     trackingNumber?: string;
     shippedDate?: string;
   },
-  options: { trackingMode?: "replace" | "add" } = {}
+  options: { trackingMode?: "replace" | "add" | "all" } = {}
 ): Promise<void> {
   try {
     // Step 1: Fetch order to get delivery ID
@@ -53,25 +57,35 @@ export async function updateOrderShipping(
     const enteredCodes = parseTrackingCodes(shippingInfo.trackingNumber);
     const ownCodes = codesOf(delivery);
     const allCodes = options.trackingMode === "add" ? parseTrackingCodes([...ownCodes, ...enteredCodes].join("\n")) : enteredCodes;
-    if (enteredCodes.length > 0) {
-      const elsewhere = new Set(deliveries.filter((d: any) => d.id !== deliveryId).flatMap(codesOf));
-      const trackingCodes = allCodes.filter((code) => !elsewhere.has(code));
-      
-      const updateResponse = await this.makeAuthenticatedRequest(
-        `${this.baseUrl}/api/order-delivery/${deliveryId}`,
-        {
-          method: 'PATCH',
-          body: JSON.stringify({
-            trackingCodes: trackingCodes,
-          }),
-        }
-      );
-
+    const patchCodes = async (id: string, trackingCodes: string[]) => {
+      const updateResponse = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/order-delivery/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ trackingCodes }),
+      });
       if (!updateResponse.ok) {
         const errorText = await updateResponse.text();
         console.warn(`Warning: Failed to update tracking codes: ${updateResponse.statusText} - ${errorText}`);
         // Continue anyway - tracking codes are optional
       }
+    };
+    const sameCodes = (a: string[], b: string[]) => a.length === b.length && a.every((code, i) => code === b[i]);
+
+    if (options.trackingMode === "all") {
+      // Aeltere Lieferungen: nur Nummern behalten, die noch in der Eingabe stehen
+      const entered = new Set(enteredCodes);
+      const kept = new Set<string>();
+      for (const other of deliveries.filter((d: any) => d.id !== deliveryId)) {
+        const before = codesOf(other);
+        const after = before.filter((code) => entered.has(code));
+        after.forEach((code) => kept.add(code));
+        if (!sameCodes(before, after)) await patchCodes(other.id, after);
+      }
+      // Neueste Lieferung: der Rest der Eingabe
+      const target = enteredCodes.filter((code) => !kept.has(code));
+      if (!sameCodes(ownCodes, target)) await patchCodes(deliveryId, target);
+    } else if (enteredCodes.length > 0) {
+      const elsewhere = new Set(deliveries.filter((d: any) => d.id !== deliveryId).flatMap(codesOf));
+      await patchCodes(deliveryId, allCodes.filter((code) => !elsewhere.has(code)));
     }
 
     // Step 3: Transition delivery state to "shipped"
@@ -81,7 +95,8 @@ export async function updateOrderShipping(
     const customFields: Record<string, string> = {};
     if (shippingInfo.shippedDate) customFields.meta_shipped_date = shippingInfo.shippedDate;
     if (shippingInfo.carrier) customFields.meta_shipped_carrier = shippingInfo.carrier;
-    if (enteredCodes.length > 0) customFields.meta_shipped_tracking = allCodes.join(", ");
+    // Kopie fuer Anzeige/Statistik; "all" auch leer, sonst zeigte die Bestellung die geloeschten Nummern weiter
+    if (enteredCodes.length > 0 || options.trackingMode === "all") customFields.meta_shipped_tracking = allCodes.join(", ");
     if (Object.keys(customFields).length > 0) {
       const orderPatchResponse = await this.makeAuthenticatedRequest(
         `${this.baseUrl}/api/order/${orderId}`,

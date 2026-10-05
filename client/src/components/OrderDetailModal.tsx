@@ -1038,7 +1038,8 @@ export default function OrderDetailModal({
                     shippedDate: toDateInputValue(order.shippingInfo?.shippedDate),
                   }}
                   onSubmit={(data) => {
-                    onUpdateShipping(order.id, data);
+                    // Das Feld zeigt die Nummern aller Lieferungen: gespeichert wird genau diese Liste
+                    onUpdateShipping(order.id, { ...data, replaceAllTracking: true });
                     onClose();
                   }}
                   onCancel={onClose}
