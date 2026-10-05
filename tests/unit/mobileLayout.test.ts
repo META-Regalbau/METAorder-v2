@@ -3,7 +3,8 @@
  * bei 390 px blieben 48 px fuer den Inhalt, am Tablet (768-1024 px) 150-400 px. In der Kopfzeile lagen
  * Mandant, Sprache, Benachrichtigungen, Design und Nutzermenue (Abmelden!) ausserhalb des Bildschirms.
  * - rechte Leiste unter 1280 px als Panel ueber dem Inhalt, startet geschlossen, Knopf in der Kopfzeile
- * - Kopfzeile unter 1280 px: Mandant, Sprache, Design und Rolle im Nutzermenue (bei 1024 px ragten sonst 6 Elemente ueber)
+ * - Kopfzeile: Mandant, Sprache, Design und Rolle im Nutzermenue, wenn der Platz fehlt (unter 1280 px immer;
+ *   breiter nach Breite der Kopfzeile, siehe headerLevel.test.ts)
  * - Design (hell/dunkel) als gemeinsamer Zustand, beim Start gesetzt
  * Statische Pruefungen der Verdrahtung; Design-Zustand mit nachgebildetem Browser.
  * Ausführung: npm test
@@ -92,18 +93,29 @@ describe("rechte Leiste unter 1280 px", () => {
   });
 });
 
-describe("Kopfzeile unter 1280 px", () => {
+describe("Kopfzeile nach verfuegbarer Breite", () => {
   const topBar = read("client/src/components/TopBar.tsx");
 
-  it("Mandant, Sprache, Design und Rolle erst ab 1280 px in der Kopfzeile", () => {
-    const desktopBlocks = topBar.split('<div className="hidden xl:flex items-center gap-3">').slice(1).map((b) => b.split("</div>\n        <")[0]);
-    expect(desktopBlocks.join("\n")).toMatch(/select-tenant-topbar[\s\S]*<LanguageSwitcher \/>/);
-    expect(desktopBlocks.join("\n")).toMatch(/<ThemeToggle \/>[\s\S]*badge-user-role/);
+  it("unter 1280 px immer kompakt, sonst Stufe nach Breite der Kopfzeile (useHeaderLevel)", () => {
+    expect(topBar).toContain("const compactHeader = useMediaQuery(COMPACT_LAYOUT_QUERY);");
+    expect(topBar).toContain("const measuredLevel = useHeaderLevel(headerRef, searchContainerRef);");
+    expect(topBar).toContain("const level = compactHeader ? MAX_HEADER_LEVEL : measuredLevel;");
+    expect(topBar).toContain("<header ref={headerRef}");
+    expect(topBar).toMatch(/<div className="relative w-full max-w-xl" ref=\{searchContainerRef\}>/);
   });
 
-  it("dafuer im Nutzermenue: Mandant, Sprache, Design", () => {
-    expect(topBar).toContain("const compactHeader = useMediaQuery(COMPACT_LAYOUT_QUERY);");
-    const menu = topBar.slice(topBar.indexOf("{compactHeader && ("));
+  it("Mandant, Sprache, Design und Rolle nur bei genug Platz in der Kopfzeile", () => {
+    const inline = topBar.split("{inlineControls && (").slice(1).map((b) => b.split("\n        )}")[0]).join("\n");
+    expect(inline).toMatch(/select-tenant-topbar[\s\S]*<LanguageSwitcher \/>/);
+    expect(inline).toMatch(/<ThemeToggle \/>[\s\S]*\{showLabels && \([\s\S]*badge-user-role/);
+    expect(topBar).not.toMatch(/hidden xl:(flex|block|inline)/);
+  });
+
+  it("dafuer im Nutzermenue: Name und Rolle, Mandant, Sprache, Design", () => {
+    const label = topBar.slice(topBar.indexOf("{!showLabels && ("), topBar.indexOf("{!inlineControls && ("));
+    expect(label).toContain("{username}");
+    expect(label).toContain("{t(`roles.${userRole}`)}");
+    const menu = topBar.slice(topBar.indexOf("{!inlineControls && ("));
     expect(menu).toContain("<DropdownMenuRadioGroup value={selectedTenantId} onValueChange={changeTenant}>");
     expect(menu).toContain("onValueChange={(code) => changeLanguage(i18n, code)}");
     expect(menu).toContain("onClick={theme.toggle}");
@@ -111,7 +123,8 @@ describe("Kopfzeile unter 1280 px", () => {
 
   it("Nutzermenue hat ohne sichtbaren Namen einen Namen, Titel und Abstaende schrumpfen", () => {
     expect(topBar).toMatch(/aria-label=\{username\}\s*data-testid="button-user-menu"/);
-    expect(topBar).toContain('<h1 className="hidden xl:block text-xl font-semibold">');
+    expect(topBar).toContain("{showUsername && <span");
+    expect(topBar).toContain("{showTitle && <h1");
     expect(topBar).toContain("px-3 md:px-6");
     expect(read("client/src/App.tsx")).toContain("p-4 md:p-6");
   });
