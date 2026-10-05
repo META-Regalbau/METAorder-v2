@@ -2397,7 +2397,7 @@
     "offerConversionRate": "aprobadas",
     "offerTotalInPeriod": "Ofertas (período)",
     "offerAcceptedCount": "Aceptadas / aprobadas",
-    "offerAcceptedShareAll": "{{pct}}% de todas las ofertas en el período",
+    "offerAcceptedShareAll": "{{pct}} de todas las ofertas en el período",
     "offerConversionHint": "respecto a enviadas, presentadas, rechazadas y aprobadas",
     "perOrder": "Por Pedido",
     "inSelectedPeriod": "En el Período Seleccionado",

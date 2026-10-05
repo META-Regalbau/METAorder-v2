@@ -3,6 +3,8 @@
  * Der Server speichert sie beim Lernlauf auf Deutsch; uebersetzt wird ueber den insightType
  * (insights.<typ>.title/description). Unbekannte Typen zeigen weiter den gespeicherten Text.
  */
+import { createLocaleFormatters } from "./localeFormat";
+
 type Translate = (key: string, options: { defaultValue: string }) => string;
 
 type InsightText = { insightType: string; title: string; description?: string | null };
@@ -24,13 +26,16 @@ export function offerStatusLabel(t: Translate, status: string): string {
 /**
  * Kennzahlen eines Paars aus den Cross-Selling-Insights: Warenkorb-Paare (top_pairs) haben Support
  * und Lift, Funnel-Paare (top_quality_pairs, low_quality_pairs) Add-Rate und Impressions.
+ * Zahlen in der Sprache der Oberflaeche (language = i18n.language).
  */
-export function learningInsightPairStats(t: Translate, pair: Record<string, unknown>): string {
+export function learningInsightPairStats(t: Translate, pair: Record<string, unknown>, language?: string): string {
+  const fmt = createLocaleFormatters(language);
   if (typeof pair.support === "number" && typeof pair.lift === "number") {
-    return `${(pair.support * 100).toFixed(1)}% · ${pair.lift.toFixed(2)}`;
+    return `${fmt.percent(pair.support)} · ${fmt.decimal(pair.lift, 2)}`;
   }
   if (typeof pair.addRatePct === "number") {
-    return `${pair.addRatePct}% / ${pair.impressions ?? 0} ${t("insights.impressionsShort", { defaultValue: "Imp." })}`;
+    const impressions = typeof pair.impressions === "number" ? pair.impressions : 0;
+    return `${fmt.percent(pair.addRatePct / 100)} / ${fmt.integer(impressions)} ${t("insights.impressionsShort", { defaultValue: "Imp." })}`;
   }
   return "";
 }

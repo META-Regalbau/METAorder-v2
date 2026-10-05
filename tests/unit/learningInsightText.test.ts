@@ -66,15 +66,17 @@ describe("Lern-Insights: Angebotsstatus und Paare", () => {
     expect(offerStatusLabel(t.en, "custom_state")).toBe("custom_state");
   });
 
-  it("Warenkorb-Paar mit Support und Lift", () => {
+  it("Warenkorb-Paar mit Support und Lift, Zahlen in der Sprache (frueher immer \"1.4%\", auch auf Deutsch)", () => {
     const pair = { source: "4026212266610", target: "4026212328479", support: 0.014010507880910683, lift: 41.52727272727273 };
-    expect(learningInsightPairStats(t.de, pair)).toBe("1.4% · 41.53");
+    expect(learningInsightPairStats(t.de, pair, "de")).toBe("1,4\u00a0% · 41,53");
+    expect(learningInsightPairStats(t.en, pair, "en")).toBe("1.4% · 41.53");
   });
 
   it("Funnel-Paar ohne Support/Lift (frueher Absturz bei pair.lift.toFixed)", () => {
     const pair = { source: "A", target: "B", impressions: 40, clicks: 6, adds: 5, addRatePct: 12.5 };
-    expect(learningInsightPairStats(t.de, pair)).toBe("12.5% / 40 Imp.");
-    expect(learningInsightPairStats(t.es, pair)).toBe("12.5% / 40 impr.");
+    expect(learningInsightPairStats(t.de, pair, "de")).toBe("12,5\u00a0% / 40 Imp.");
+    expect(learningInsightPairStats(t.es, pair, "es")).toBe("12,5\u00a0% / 40 impr.");
+    expect(learningInsightPairStats(t.en, { ...pair, impressions: 12000 }, "en")).toBe("12.5% / 12,000 imp.");
     expect(learningInsightPairStats(t.en, { source: "A", target: "B" })).toBe("");
   });
 });
