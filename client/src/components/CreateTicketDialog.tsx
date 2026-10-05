@@ -170,23 +170,12 @@ export default function CreateTicketDialog({
     // If email file data exists, use email-to-ticket API
     if (emailFileData) {
       try {
-        const response = await fetch('/api/tickets/from-email', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            filename: emailFileData.filename,
-            fileData: emailFileData.fileData,
-            category,
-            priority,
-          }),
+        await apiRequest("POST", "/api/tickets/from-email", {
+          filename: emailFileData.filename,
+          fileData: emailFileData.fileData,
+          category,
+          priority,
         });
-
-        if (!response.ok) {
-          throw new Error('Failed to create ticket from email');
-        }
 
         queryClient.invalidateQueries({ queryKey: ['/api/tickets'] });
         resetForm();

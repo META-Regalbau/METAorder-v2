@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useTranslation } from "react-i18next";
 import { formatDistanceToNow } from "date-fns";
 import { de, enUS, es } from "date-fns/locale";
@@ -58,17 +58,8 @@ export default function ErpAutomationWidget({ userRole }: ErpAutomationWidgetPro
   // Manual trigger mutation
   const triggerMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch('/api/erp-automation/trigger', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to trigger automation');
-      }
+      // apiRequest setzt den X-CSRF-Token-Header (globale CSRF-Pruefung in server/index.ts)
+      const response = await apiRequest('POST', '/api/erp-automation/trigger');
       return response.json();
     },
     onSuccess: () => {
