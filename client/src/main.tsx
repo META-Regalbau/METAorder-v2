@@ -3,6 +3,7 @@ import App from "./App";
 import "./index.css";
 import { beginGlobalLoading, endGlobalLoading } from "@/lib/globalLoading";
 import { initFrontendSentry } from "@/lib/sentry";
+import { applyStoredThemeMode } from "@/hooks/useThemeMode";
 
 const DEBUG_INGEST_ORIGIN = "http://127.0.0.1:7242";
 const DEBUG_INGEST_PATH = "/ingest/9d6671c7-ddfc-4021-9e32-b7b0d717e420";
@@ -43,6 +44,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   }
 };
 
+applyStoredThemeMode();
 createRoot(document.getElementById("root")!).render(<App />);
 void initFrontendSentry();
 

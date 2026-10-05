@@ -3,6 +3,8 @@
  * select-name) - sonst liest der Screenreader nur "Schaltflaeche", "Auswahl" oder "Eingabefeld".
  * Statische Pruefung des Client-Codes; laeuft in der CI (die Playwright-Pruefung mit axe nicht).
  * - Schaltflaechen nur mit Symbol (Button size="icon")
+ * - Schaltflaechen, deren Text auf kleinen Bildschirmen per "hidden sm:inline" verschwindet
+ *   (am Handy sonst ohne Namen; stattdessen "sr-only sm:not-sr-only")
  * - Auswahlfelder (SelectTrigger): Rolle combobox, der Name kommt nie aus dem angezeigten Wert
  * - Eingabefelder (Input, input, Textarea, textarea, select)
  * - Schalter und Kontrollkaestchen (Switch, Checkbox aus components/ui; der Text daneben ist kein Name)
@@ -66,27 +68,37 @@ function tags(pattern: RegExp, closing?: string, onlyIfImported?: RegExp): Hit[]
 }
 
 const NAMED = /aria-label|aria-labelledby|\bid=/;
+
+/** Hat die Schaltflaeche einen Namen? Sichtbarer Text ohne Tags und JSX-Ausdruecke (ausser t("...")). */
+function buttonHasName(tag: string, body: string): boolean {
+  let text = body;
+  for (let prev = ""; prev !== text; ) {
+    prev = text;
+    text = text.replace(/\{(?![^{}]*\bt\()[^{}]*\}/g, "");
+  }
+  text = text.replace(/<[^>]*>/g, "");
+  return /aria-label|aria-labelledby|title=/.test(tag) || /sr-only|aria-label=/.test(body) || /\{t\(|[A-Za-zÄÖÜäöü]{3,}/.test(text);
+}
+
+/** Elemente, die erst ab einer Breite sichtbar werden (className="hidden sm:inline" usw.), samt Inhalt. */
+const RESPONSIVE_HIDDEN = /<(\w+)\b[^>]*className="[^"]*(?<![\w:-])hidden (?:sm|md|lg|xl):[^"]*"[^>]*>[\s\S]*?<\/\1>/g;
 const where = (h: Hit) => `${h.file}:${h.line}`;
 
 describe("Barrierefreiheit: Namen fuer Bedienelemente", () => {
   it("Schaltflaechen nur mit Symbol", () => {
     const missing = tags(/<Button\b/g, "</Button>")
       .filter((h) => /size="icon"/.test(h.tag) && !h.tag.endsWith("/>"))
-      .filter((h) => {
-        // sichtbarer Text: ohne Tags und JSX-Ausdruecke (Variablen wie {isOpen ? ...} sind kein Text),
-        // ausser Uebersetzungen {t("...")}
-        let text = h.body;
-        for (let prev = ""; prev !== text; ) {
-          prev = text;
-          text = text.replace(/\{(?![^{}]*\bt\()[^{}]*\}/g, "");
-        }
-        text = text.replace(/<[^>]*>/g, "");
-        const labelled =
-          /aria-label|aria-labelledby|title=/.test(h.tag) ||
-          /sr-only|aria-label=/.test(h.body) ||
-          /\{t\(|[A-Za-zÄÖÜäöü]{3,}/.test(text);
-        return !labelled;
-      })
+      // sichtbarer Text: Variablen wie {isOpen ? ...} sind kein Text, Uebersetzungen {t("...")} schon
+      .filter((h) => !buttonHasName(h.tag, h.body))
+      .map(where);
+    expect(missing).toEqual([]);
+  });
+
+  it("Schaltflaechen mit Text nur auf breiten Bildschirmen", () => {
+    const missing = tags(/<Button\b/g, "</Button>")
+      .filter((h) => !h.tag.endsWith("/>") && new RegExp(RESPONSIVE_HIDDEN.source).test(h.body))
+      // am Handy bleibt, was nicht in einem "hidden sm:..."-Element steht
+      .filter((h) => !buttonHasName(h.tag, h.body.replace(RESPONSIVE_HIDDEN, "")))
       .map(where);
     expect(missing).toEqual([]);
   });

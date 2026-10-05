@@ -272,10 +272,11 @@ function AuthenticatedApp() {
                 userRole={user.role as "employee" | "admin"} 
                 username={user.username}
                 onLogout={() => queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] })}
+                canViewTickets={Boolean(user.permissions?.viewTickets)}
               />
               <main
                 id="main-content"
-                className="relative flex-1 overflow-auto p-6 bg-background"
+                className="relative flex-1 overflow-auto p-4 md:p-6 bg-background"
                 tabIndex={-1}
               >
                 <RouteErrorBoundary resetKey={pathname}>

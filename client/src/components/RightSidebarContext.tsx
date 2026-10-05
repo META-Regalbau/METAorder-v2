@@ -1,9 +1,13 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 type RightSidebarContextValue = {
+  /** Desktop: Leiste neben dem Inhalt, Zustand gemerkt */
   isOpen: boolean;
   toggle: () => void;
   setIsOpen: (value: boolean) => void;
+  /** Handy/Tablet: Leiste ueber dem Inhalt, startet geschlossen und wird nicht gemerkt */
+  mobileOpen: boolean;
+  setMobileOpen: (value: boolean) => void;
   activeTicketId: string | null;
   setActiveTicketId: (id: string | null) => void;
 };
@@ -14,6 +18,7 @@ const STORAGE_KEY = "metaorder-right-sidebar";
 
 export function RightSidebarProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(true);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [activeTicketId, setActiveTicketId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -43,10 +48,12 @@ export function RightSidebarProvider({ children }: { children: React.ReactNode }
       isOpen,
       toggle: () => setIsOpen((prev) => !prev),
       setIsOpen,
+      mobileOpen,
+      setMobileOpen,
       activeTicketId,
       setActiveTicketId,
     }),
-    [isOpen, activeTicketId]
+    [isOpen, mobileOpen, activeTicketId]
   );
 
   return (

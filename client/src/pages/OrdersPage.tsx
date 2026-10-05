@@ -545,7 +545,7 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
           />
           <Button variant="outline" onClick={handleRefresh} disabled={isFetching} data-testid="button-refresh-orders">
             <RefreshCw className={`h-4 w-4 mr-1 ${isFetching ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">{t('common.refresh')}</span>
+            <span className="sr-only sm:not-sr-only">{t('common.refresh')}</span>
           </Button>
         </div>
       </div>
@@ -593,7 +593,7 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
             <CollapsibleTrigger asChild>
               <Button variant="outline" className="gap-2" data-testid="button-toggle-filters">
                 <Filter className="h-4 w-4" />
-                <span className="hidden sm:inline">{t('common.filters')}</span>
+                <span className="sr-only sm:not-sr-only">{t('common.filters')}</span>
                 {activeFiltersCount > 0 && (
                   <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
                     {activeFiltersCount}
@@ -696,8 +696,8 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
                 disabled={currentPage === 1}
                 data-testid="button-first-page"
               >
-                <span className="hidden sm:inline">{t('common.first')}</span>
-                <span className="sm:hidden">«</span>
+                <span className="sr-only sm:not-sr-only">{t('common.first')}</span>
+                <span className="sm:hidden" aria-hidden="true">«</span>
               </Button>
               <Button
                 variant="outline"
@@ -706,8 +706,8 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
                 disabled={currentPage === 1}
                 data-testid="button-prev-page"
               >
-                <span className="hidden sm:inline">{t('common.previous')}</span>
-                <span className="sm:hidden">‹</span>
+                <span className="sr-only sm:not-sr-only">{t('common.previous')}</span>
+                <span className="sm:hidden" aria-hidden="true">‹</span>
               </Button>
               <Button
                 variant="outline"
@@ -716,8 +716,8 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
                 disabled={currentPage === totalPages}
                 data-testid="button-next-page"
               >
-                <span className="hidden sm:inline">{t('common.next')}</span>
-                <span className="sm:hidden">›</span>
+                <span className="sr-only sm:not-sr-only">{t('common.next')}</span>
+                <span className="sm:hidden" aria-hidden="true">›</span>
               </Button>
               <Button
                 variant="outline"
@@ -726,8 +726,8 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
                 disabled={currentPage === totalPages}
                 data-testid="button-last-page"
               >
-                <span className="hidden sm:inline">{t('common.last')}</span>
-                <span className="sm:hidden">»</span>
+                <span className="sr-only sm:not-sr-only">{t('common.last')}</span>
+                <span className="sm:hidden" aria-hidden="true">»</span>
               </Button>
             </div>
           </div>

@@ -8,19 +8,21 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useTranslation } from "react-i18next";
 
-const languages = [
+export const languages = [
   { code: 'en', nameKey: 'language.english' },
   { code: 'de', nameKey: 'language.german' },
   { code: 'es', nameKey: 'language.spanish' },
 ];
 
+export function changeLanguage(i18n: { changeLanguage: (code: string) => unknown }, langCode: string) {
+  i18n.changeLanguage(langCode);
+  localStorage.setItem('language', langCode);
+}
+
 export default function LanguageSwitcher() {
   const { t, i18n } = useTranslation();
 
-  const handleLanguageChange = (langCode: string) => {
-    i18n.changeLanguage(langCode);
-    localStorage.setItem('language', langCode);
-  };
+  const handleLanguageChange = (langCode: string) => changeLanguage(i18n, langCode);
 
   const currentLanguage = languages.find(lang => lang.code === i18n.language) || languages[0];
 
