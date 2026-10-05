@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { apiErrorFromBody } from "@/lib/apiError";
+import { apiRequest } from "@/lib/queryClient";
 
 interface EmailDropZoneProps {
   onEmailParsed: (data: {
@@ -74,22 +74,10 @@ export function EmailDropZone({ onEmailParsed }: EmailDropZoneProps) {
           const base64Content = base64Data.split(',')[1]; // Remove data:...;base64, prefix
 
           // Send to backend
-          const response = await fetch('/api/parse-email', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            credentials: 'include',
-            body: JSON.stringify({
-              filename: file.name,
-              fileData: base64Content,
-            }),
+          const response = await apiRequest('POST', '/api/parse-email', {
+            filename: file.name,
+            fileData: base64Content,
           });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw apiErrorFromBody(response.status, errorData);
-          }
 
           const data = await response.json();
           

@@ -349,13 +349,7 @@ export function OfferDraftReviewModal({
   }>({
     queryKey: ["/api/cpq/cross-selling", cpqCrossSellQueryKey],
     queryFn: async () => {
-      const res = await fetch("/api/cpq/cross-selling", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cart_items: cartItemsForCpq }),
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to fetch CPQ cross-selling");
+      const res = await apiRequest("POST", "/api/cpq/cross-selling", { cart_items: cartItemsForCpq });
       return res.json();
     },
     enabled: open && cartItemsForCpq.length > 0,

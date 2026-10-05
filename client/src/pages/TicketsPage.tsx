@@ -16,6 +16,7 @@ import TicketDetailModal from "@/components/TicketDetailModal";
 import CreateTicketDialog from "@/components/CreateTicketDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import type { Ticket, User, Role } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 import { useRightSidebar } from "@/components/RightSidebarContext";
@@ -64,17 +65,7 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
         showMyTicketsOnly,
       };
 
-      const response = await fetch('/api/tickets/export', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ format, filters }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Export failed');
-      }
+      const response = await apiRequest('POST', '/api/tickets/export', { format, filters });
 
       // Download file
       const blob = await response.blob();
