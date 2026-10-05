@@ -532,7 +532,7 @@ export interface IStorage {
   getSemanticDocumentEmbedding(sourceType: string, sourceId: string, tenantId?: string | null): Promise<number[] | null>;
   searchSemanticDocuments(
     queryEmbedding: number[],
-    options: { limit: number; sourceTypes?: string[]; query?: string },
+    options: { limit: number; sourceTypes?: string[]; query?: string; localQueryEmbedding?: boolean },
     tenantId?: string | null
   ): Promise<Array<SemanticDocument & { distance: number; textRank: number }>>;
 

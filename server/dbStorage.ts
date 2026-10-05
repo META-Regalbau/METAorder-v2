@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "crypto";
-import { eq, ne, sql as drizzleSql, desc, asc, and, isNull, lte, gt, gte, sql, inArray, not, count, or, ilike } from "drizzle-orm";
+import { eq, ne, sql as drizzleSql, desc, asc, and, isNull, lte, gt, gte, sql, inArray, not, count, or, ilike, type AnyColumn } from "drizzle-orm";
 import { db } from "./db";
 import { getTenantIdFromContext } from "./lib/tenantContext";
 import { emitDomainEvent } from "./lib/domainEvents";
@@ -193,6 +193,15 @@ import {
   generateCommercialCustomerToken,
   hashCommercialCustomerToken,
 } from "./commercial/commercialCustomerApiToken";
+
+import { escapeRegexLiteral, SCORE_EXACT_NUMBER, SCORE_PART_OF_WORD, SCORE_WHOLE_WORD, searchTokens } from "./products/productSearchRanking";
+import { rankSemanticCandidates } from "./semantic/semanticRanking";
+
+/** SQL: ganzes Wort in der Spalte = SCORE_WHOLE_WORD, Teil eines Worts = SCORE_PART_OF_WORD, sonst 0 */
+function wordRelevanceSql(column: AnyColumn, token: string) {
+  return sql`CASE WHEN ${column} ~* ${`\\m${escapeRegexLiteral(token)}\\M`} THEN ${SCORE_WHOLE_WORD}
+    WHEN ${column} ILIKE ${`%${token}%`} THEN ${SCORE_PART_OF_WORD} ELSE 0 END`;
+}
 
 const toIsoString = (value: Date | string) => (value instanceof Date ? value.toISOString() : value);
 
@@ -3246,7 +3255,7 @@ export class DbStorage implements IStorage {
 
   async searchSemanticDocuments(
     queryEmbedding: number[],
-    options: { limit: number; sourceTypes?: string[]; query?: string },
+    options: { limit: number; sourceTypes?: string[]; query?: string; localQueryEmbedding?: boolean },
     tenantId?: string | null
   ): Promise<Array<SemanticDocument & { distance: number; textRank: number }>> {
     const requestedLimit = Number(options.limit) || 10;
@@ -3264,136 +3273,48 @@ export class DbStorage implements IStorage {
     const textRankSql = textQuery
       ? sql`ts_rank_cd(to_tsvector('simple', ${semanticDocuments.content}), websearch_to_tsquery('simple', ${textQuery}))`
       : sql`0`;
+    // Kandidaten aus Vektor- und Wortsuche (server/semantic/semanticRanking.ts); Wortanteil wie Produktsuche
+    const tokens = textQuery ? searchTokens(textQuery) : [];
+    const lexicalSql = tokens.length
+      ? sql`(${sql.join(
+          tokens.map((token) => sql`${wordRelevanceSql(semanticDocuments.title, token)} + CASE WHEN ${semanticDocuments.content} ILIKE ${`%${token}%`} THEN 1 ELSE 0 END`),
+          sql` + `,
+        )})`
+      : sql`0`;
 
     const result = await db.execute(
       sql`
-        SELECT
-          ${semanticDocuments.id} AS id,
-          ${semanticDocuments.tenantId} AS tenant_id,
-          ${semanticDocuments.sourceType} AS source_type,
-          ${semanticDocuments.sourceId} AS source_id,
-          ${semanticDocuments.title} AS title,
-          ${semanticDocuments.content} AS content,
-          ${semanticDocuments.metadata} AS metadata,
-          ${semanticDocuments.embedding} AS embedding,
-          ${semanticDocuments.embeddingProvider} AS embedding_provider,
-          ${semanticDocuments.embeddingModel} AS embedding_model,
-          ${semanticDocuments.contentHash} AS content_hash,
-          ${semanticDocuments.createdAt} AS created_at,
-          ${semanticDocuments.updatedAt} AS updated_at,
-          (${semanticDocuments.embedding} <=> ${vectorSql}) AS distance,
-          ${textRankSql} AS text_rank
-        FROM ${semanticDocuments}
-        ${whereSql}
-        ORDER BY distance ASC, text_rank DESC
-        LIMIT ${fetchLimit}
+        WITH candidates AS (
+          SELECT
+            ${semanticDocuments.id} AS id,
+            ${semanticDocuments.tenantId} AS tenant_id,
+            ${semanticDocuments.sourceType} AS source_type,
+            ${semanticDocuments.sourceId} AS source_id,
+            ${semanticDocuments.title} AS title,
+            ${semanticDocuments.content} AS content,
+            ${semanticDocuments.metadata} AS metadata,
+            ${semanticDocuments.embedding} AS embedding,
+            ${semanticDocuments.embeddingProvider} AS embedding_provider,
+            ${semanticDocuments.embeddingModel} AS embedding_model,
+            ${semanticDocuments.contentHash} AS content_hash,
+            ${semanticDocuments.createdAt} AS created_at,
+            ${semanticDocuments.updatedAt} AS updated_at,
+            (${semanticDocuments.embedding} <=> ${vectorSql}) AS distance,
+            ${textRankSql} AS text_rank,
+            ${lexicalSql} AS lexical
+          FROM ${semanticDocuments}
+          ${whereSql}
+        )
+        (SELECT * FROM candidates ORDER BY distance ASC, text_rank DESC LIMIT ${fetchLimit})
+        ${tokens.length ? sql`UNION ALL (SELECT * FROM candidates WHERE lexical > 0 ORDER BY lexical DESC, text_rank DESC, distance ASC LIMIT ${fetchLimit})` : sql``}
       `
     );
 
     const rows = Array.isArray(result) ? result : result.rows;
-    const rankingSettings = (await this.getSetting("semantic_ranking", tenantId)) || {};
-    const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
-    const normalizeNumber = (value: any, fallback: number) => {
-      const parsed = Number(value);
-      return Number.isFinite(parsed) ? parsed : fallback;
-    };
-    const vectorWeight = clamp(normalizeNumber(rankingSettings.vectorWeight, 0.65), 0, 1);
-    const textWeight = clamp(normalizeNumber(rankingSettings.textWeight, 0.25), 0, 1);
-    const metadataWeight = clamp(normalizeNumber(rankingSettings.metadataWeight, 0.1), 0, 1);
-    const feedbackWeight = clamp(normalizeNumber(rankingSettings.feedbackWeight, 0.12), 0, 1);
-    const weightSum = vectorWeight + textWeight + metadataWeight + feedbackWeight || 1;
-    const normalizedWeights = {
-      vector: vectorWeight / weightSum,
-      text: textWeight / weightSum,
-      metadata: metadataWeight / weightSum,
-      feedback: feedbackWeight / weightSum,
-    };
-    const metadataExactBoost = clamp(normalizeNumber(rankingSettings.metadataExactBoost, 0.15), 0, 1);
-    const metadataPartialBoost = clamp(normalizeNumber(rankingSettings.metadataPartialBoost, 0.08), 0, 1);
-    const titleTokenBoost = clamp(normalizeNumber(rankingSettings.titleTokenBoost, 0.06), 0, 1);
-    const queryTokens =
-      textQuery?.toLowerCase().match(/[A-Za-z0-9ÄÖÜäöüß]+/g)?.filter(Boolean) || [];
-
-    const normalizeQuery = (value: string) => value.trim().toLowerCase();
-    const normalizedQuery = textQuery ? normalizeQuery(textQuery) : "";
-    const feedbackEntries = normalizedQuery
-      ? (await this.getSetting("semantic_search_feedback", tenantId)) || []
-      : [];
-    const feedbackCounts = new Map<string, number>();
-    if (Array.isArray(feedbackEntries) && normalizedQuery) {
-      feedbackEntries.forEach((entry: any) => {
-        if (!entry || typeof entry.query !== "string") return;
-        if (normalizeQuery(entry.query) !== normalizedQuery) return;
-        const sourceType = entry.sourceType;
-        const sourceId = entry.sourceId;
-        if (!sourceType || !sourceId) return;
-        const key = `${sourceType}:${sourceId}`;
-        feedbackCounts.set(key, (feedbackCounts.get(key) || 0) + 1);
-      });
-    }
-    let maxFeedbackCount = 0;
-    feedbackCounts.forEach((count) => {
-      if (count > maxFeedbackCount) maxFeedbackCount = count;
-    });
-
-    const normalizeTextRank = (rank: number) => (rank > 0 ? rank / (rank + 1) : 0);
-    const collectMetadataFields = (metadata: any): string[] => {
-      if (!metadata || typeof metadata !== "object") return [];
-      const fields: Array<string | string[] | undefined | null> = [
-        metadata.productNumber,
-        metadata.manufacturerNumber,
-        metadata.ean,
-        metadata.offerNumber,
-        metadata.ticketNumber,
-        metadata.customerName,
-        metadata.customerEmail,
-        metadata.categories,
-      ];
-      return fields
-        .flat()
-        .filter(Boolean)
-        .map((value) => String(value).toLowerCase());
-    };
-    const getMetadataBoost = (entry: any) => {
-      if (queryTokens.length === 0) return 0;
-      const metadataFields = collectMetadataFields(entry.metadata);
-      const title = String(entry.title || "").toLowerCase();
-      let boost = 0;
-      queryTokens.forEach((token) => {
-        if (!token) return;
-        if (metadataFields.some((field) => field === token)) {
-          boost = Math.max(boost, metadataExactBoost);
-          return;
-        }
-        if (metadataFields.some((field) => field.includes(token))) {
-          boost = Math.max(boost, metadataPartialBoost);
-        }
-        if (title.includes(token)) {
-          boost = Math.max(boost, titleTokenBoost);
-        }
-      });
-      return boost;
-    };
-    const getFeedbackScore = (entry: any) => {
-      if (!maxFeedbackCount) return 0;
-      const key = `${entry.source_type}:${entry.source_id}`;
-      const count = feedbackCounts.get(key) || 0;
-      return count / maxFeedbackCount;
-    };
-
-    const mapped = rows.map((row: any) => {
-      const distance = Number(row.distance ?? 0);
-      const textRank = Number(row.text_rank ?? 0);
-      const vectorScore = Math.max(0, 1 - distance);
-      const textScore = normalizeTextRank(textRank);
-      const metadataBoost = getMetadataBoost(row);
-      const feedbackScore = getFeedbackScore(row);
-      const hybridScore =
-        vectorScore * normalizedWeights.vector +
-        textScore * normalizedWeights.text +
-        metadataBoost * normalizedWeights.metadata +
-        feedbackScore * normalizedWeights.feedback;
-      return {
+    const seen = new Set<string>();
+    const mapped = rows
+      .filter((row: any) => !seen.has(row.id) && Boolean(seen.add(row.id)))
+      .map((row: any) => ({
         id: row.id,
         tenantId: row.tenant_id,
         sourceType: row.source_type,
@@ -3407,17 +3328,17 @@ export class DbStorage implements IStorage {
         contentHash: row.content_hash,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
-        distance,
-        textRank,
-        hybridScore,
-      };
+        distance: Number(row.distance ?? 0),
+        textRank: Number(row.text_rank ?? 0),
+      }));
+
+    const ranked = rankSemanticCandidates(mapped, {
+      query: textQuery,
+      rankingSettings: await this.getSetting("semantic_ranking", tenantId),
+      feedbackEntries: textQuery ? await this.getSetting("semantic_search_feedback", tenantId) : [],
+      localQueryEmbedding: options.localQueryEmbedding,
     });
-
-    const sorted = queryTokens.length
-      ? mapped.sort((a: any, b: any) => b.hybridScore - a.hybridScore || a.distance - b.distance)
-      : mapped.sort((a: any, b: any) => a.distance - b.distance);
-
-    return sorted.slice(0, requestedLimit);
+    return ranked.slice(0, requestedLimit);
   }
 
   async createInstallmentPlanWithInvoices(
@@ -3829,19 +3750,33 @@ export class DbStorage implements IStorage {
       conditions.push(eq(shopwareProducts.active, true));
     }
 
-    if (filter?.search?.trim()) {
-      const q = `%${filter.search.trim()}%`;
-      conditions.push(
-        or(
-          ilike(shopwareProducts.productNumber, q),
-          ilike(shopwareProducts.name, q),
-          ilike(shopwareProducts.manufacturerNumber, q),
-          ilike(shopwareProducts.ean, q),
-        ),
-      );
+    // Suche: jedes Wort muss vorkommen (Reihenfolge egal), sortiert nach Relevanz
+    // (server/products/productSearchRanking.ts) - vorher war die ganze Eingabe ein Teilstring
+    let relevanceOrder: ReturnType<typeof sql> | null = null;
+    const searchText = filter?.search?.trim();
+    if (searchText) {
+      const tokens = searchTokens(searchText);
+      const terms = tokens.length > 0 ? tokens : [searchText.toLowerCase()];
+      for (const term of terms) {
+        const like = `%${term}%`;
+        conditions.push(
+          or(
+            ilike(shopwareProducts.productNumber, like),
+            ilike(shopwareProducts.name, like),
+            ilike(shopwareProducts.manufacturerNumber, like),
+            ilike(shopwareProducts.ean, like),
+          ),
+        );
+      }
+      const wordScores = terms.map((term) => wordRelevanceSql(shopwareProducts.name, term));
+      const exact = searchText.toLowerCase();
+      relevanceOrder = sql`(${sql.join(wordScores, sql` + `)}
+        + CASE WHEN lower(${shopwareProducts.productNumber}) = ${exact} OR lower(coalesce(${shopwareProducts.ean}, '')) = ${exact}
+          OR lower(coalesce(${shopwareProducts.manufacturerNumber}, '')) = ${exact} THEN ${SCORE_EXACT_NUMBER} ELSE 0 END) DESC`;
     }
 
     const whereClause = and(...conditions);
+    const orderBy = relevanceOrder ? [relevanceOrder, asc(shopwareProducts.productNumber)] : [asc(shopwareProducts.productNumber)];
     const [{ value: total }] = await db
       .select({ value: count() })
       .from(shopwareProducts)
@@ -3856,7 +3791,7 @@ export class DbStorage implements IStorage {
         .select()
         .from(shopwareProducts)
         .where(whereClause)
-        .orderBy(asc(shopwareProducts.productNumber))
+        .orderBy(...orderBy)
         .limit(limit)
         .offset((page - 1) * limit);
     } else {
@@ -3864,7 +3799,7 @@ export class DbStorage implements IStorage {
         .select()
         .from(shopwareProducts)
         .where(whereClause)
-        .orderBy(asc(shopwareProducts.productNumber));
+        .orderBy(...orderBy);
     }
 
     if (filter?.salesChannelIds?.length) {

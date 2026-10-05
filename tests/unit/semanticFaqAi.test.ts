@@ -133,6 +133,12 @@ describe("Route /api/semantic/faq", () => {
     expect((await faq({ aiAnswer: true })).body).toMatchObject({ aiGenerated: true });
     expect(llm.calls).toBe(1);
     expect(embedCalls.every((c) => c.preferOpenAI === false)).toBe(true);
+    // lokales Embedding -> die Suche gewichtet den Vektor geringer (semanticRanking.ts)
+    expect(storage.searchSemanticDocuments).toHaveBeenLastCalledWith(
+      [1, 0],
+      expect.objectContaining({ query: "Kragarm", localQueryEmbedding: true }),
+      "tenant-a",
+    );
   });
 
   it("hoechstens 5 KI-Antworten je Minute; normale Suche bleibt frei", async () => {
