@@ -23,6 +23,9 @@ import { objectStorageService, ObjectNotFoundError } from "../lib/objectStorage"
 import { parseEmailFile } from "../email/emailParser";
 import * as XLSX from "xlsx";
 import { DEFAULT_TICKET_SLA_SETTINGS, assignTicketAutomatically, filterTicketsBySalesChannels, getMirrorOrdersLikeLive, getSalesChannelFilter, getTicketSlaSettings, resolveAttachmentPath, sanitizeFilename, uploadRateLimiter } from "./routeHelpers";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "routes/ticketRoutes" });
 
 function calculateDueDate(priority: string, settings: typeof DEFAULT_TICKET_SLA_SETTINGS) {
   const days =
@@ -90,7 +93,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
       const templates = await storage.getAllTicketTemplates();
       res.json(templates);
     } catch (error: any) {
-      console.error("Error fetching templates:", error);
+      moduleLog.error({ err: error }, "Error fetching templates:");
       res.status(500).json({ error: "Failed to fetch templates" });
     }
   });
@@ -102,7 +105,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
       const favorites = (await storage.getSetting(`ticketTemplates.favorites.${userId}`)) || [];
       res.json({ favorites });
     } catch (error: any) {
-      console.error("Error fetching template favorites:", error);
+      moduleLog.error({ err: error }, "Error fetching template favorites:");
       res.status(500).json({ error: "Failed to fetch template favorites" });
     }
   });
@@ -121,7 +124,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
-      console.error("Error updating template favorites:", error);
+      moduleLog.error({ err: error }, "Error updating template favorites:");
       res.status(500).json({ error: "Failed to update template favorites" });
     }
   });
@@ -138,7 +141,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
       
       res.json(template);
     } catch (error: any) {
-      console.error("Error fetching template:", error);
+      moduleLog.error({ err: error }, "Error fetching template:");
       res.status(500).json({ error: "Failed to fetch template" });
     }
   });
@@ -156,7 +159,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
 
       res.status(201).json(newTemplate);
     } catch (error: any) {
-      console.error("Error creating template:", error);
+      moduleLog.error({ err: error }, "Error creating template:");
       if (error.name === 'ZodError') {
         return res.status(400).json({ error: error.errors });
       }
@@ -184,7 +187,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
 
       res.json(updatedTemplate);
     } catch (error: any) {
-      console.error("Error updating template:", error);
+      moduleLog.error({ err: error }, "Error updating template:");
       res.status(500).json({ error: "Failed to update template" });
     }
   });
@@ -201,7 +204,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
 
       res.json({ success: true });
     } catch (error: any) {
-      console.error("Error deleting template:", error);
+      moduleLog.error({ err: error }, "Error deleting template:");
       res.status(500).json({ error: "Failed to delete template" });
     }
   });
@@ -212,7 +215,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
       const rules = await storage.getAllAutomationRules();
       res.json(rules);
     } catch (error: any) {
-      console.error("Error fetching automation rules:", error);
+      moduleLog.error({ err: error }, "Error fetching automation rules:");
       res.status(500).json({ error: "Failed to fetch automation rules" });
     }
   });
@@ -240,7 +243,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
       if (error?.name === "ZodError") {
         return res.status(400).json({ error: "Invalid preview data", details: error.errors });
       }
-      console.error("Error previewing automation rule:", error);
+      moduleLog.error({ err: error }, "Error previewing automation rule:");
       res.status(500).json({ error: "Failed to preview automation rule" });
     }
   });
@@ -257,7 +260,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
         : users;
       res.json(visible.map(({ id, username }) => ({ id, username })));
     } catch (error) {
-      console.error("Error fetching automation users:", error);
+      moduleLog.error({ err: error }, "Error fetching automation users:");
       res.status(500).json({ error: "Failed to fetch users" });
     }
   });
@@ -273,7 +276,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
 
       res.json(rule);
     } catch (error: any) {
-      console.error("Error fetching automation rule:", error);
+      moduleLog.error({ err: error }, "Error fetching automation rule:");
       res.status(500).json({ error: "Failed to fetch automation rule" });
     }
   });
@@ -305,7 +308,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
 
       res.json(rule);
     } catch (error: any) {
-      console.error("Error creating automation rule:", error);
+      moduleLog.error({ err: error }, "Error creating automation rule:");
       if (error.name === 'ZodError') {
         return res.status(400).json({ error: "Invalid rule data", details: error.errors });
       }
@@ -360,7 +363,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
 
       res.json(rule);
     } catch (error: any) {
-      console.error("Error updating automation rule:", error);
+      moduleLog.error({ err: error }, "Error updating automation rule:");
       if (error.name === 'ZodError') {
         return res.status(400).json({ error: "Invalid rule data", details: error.errors });
       }
@@ -380,7 +383,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
 
       res.json({ success: true });
     } catch (error: any) {
-      console.error("Error deleting automation rule:", error);
+      moduleLog.error({ err: error }, "Error deleting automation rule:");
       res.status(500).json({ error: "Failed to delete automation rule" });
     }
   });
@@ -413,7 +416,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
 
       res.json(rule);
     } catch (error: any) {
-      console.error("Error toggling automation rule:", error);
+      moduleLog.error({ err: error }, "Error toggling automation rule:");
       res.status(500).json({ error: "Failed to toggle automation rule" });
     }
   });
@@ -427,7 +430,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
       const executions = await storage.getAutomationExecutions(id, limit);
       res.json(executions);
     } catch (error: any) {
-      console.error("Error fetching automation executions:", error);
+      moduleLog.error({ err: error }, "Error fetching automation executions:");
       res.status(500).json({ error: "Failed to fetch automation executions" });
     }
   });
@@ -443,7 +446,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
       const usersWithoutPasswords = users.map(({ password, ...user }) => user);
       res.json(usersWithoutPasswords);
     } catch (error) {
-      console.error("Error fetching ticket assignees:", error);
+      moduleLog.error({ err: error }, "Error fetching ticket assignees:");
       res.status(500).json({ error: "Failed to fetch assignees" });
     }
   });
@@ -508,7 +511,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
       res.json(ticketsWithDetails);
       }
     } catch (error) {
-      console.error("Error fetching tickets:", error);
+      moduleLog.error({ err: error }, "Error fetching tickets:");
       res.status(500).json({ error: "Failed to fetch tickets" });
     }
   });
@@ -545,7 +548,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
                 hasAccess = true;
               }
             } catch (error) {
-            console.error("[Security] Error checking ticket access:", error);
+            moduleLog.error({ err: error }, "[Security] Error checking ticket access:");
             }
           }
           
@@ -577,7 +580,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
         createdByUsername: createdByUser?.username || null,
       });
     } catch (error) {
-      console.error("Error fetching ticket:", error);
+      moduleLog.error({ err: error }, "Error fetching ticket:");
       res.status(500).json({ error: "Failed to fetch ticket" });
     }
   });
@@ -611,7 +614,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
 
       res.json(filtered);
     } catch (error: any) {
-      console.error("Error fetching portal tickets:", error);
+      moduleLog.error({ err: error }, "Error fetching portal tickets:");
       res.status(500).json({ error: error.message || "Failed to fetch tickets" });
     }
   });
@@ -630,7 +633,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
 
       res.json(ticket);
     } catch (error: any) {
-      console.error("Error fetching portal ticket:", error);
+      moduleLog.error({ err: error }, "Error fetching portal ticket:");
       res.status(500).json({ error: error.message || "Failed to fetch ticket" });
     }
   });
@@ -661,7 +664,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
 
       res.json(visible);
     } catch (error: any) {
-      console.error("Error fetching portal comments:", error);
+      moduleLog.error({ err: error }, "Error fetching portal comments:");
       res.status(500).json({ error: error.message || "Failed to fetch comments" });
     }
   });
@@ -713,7 +716,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
         source: "portal",
         actorId: customer.customerId || customer.email || "customer",
       }).catch(err => {
-        console.error("Error triggering ticket.commented webhook:", err);
+        moduleLog.error({ err }, "Error triggering ticket.commented webhook:");
       });
 
       webhookService.trigger("ticket.customer_replied", {
@@ -730,12 +733,12 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
         source: "portal",
         actorId: customer.customerId || customer.email || "customer",
       }).catch(err => {
-        console.error("Error triggering ticket.customer_replied webhook:", err);
+        moduleLog.error({ err }, "Error triggering ticket.customer_replied webhook:");
       });
 
       res.status(201).json(comment);
     } catch (error: any) {
-      console.error("Error creating portal comment:", error);
+      moduleLog.error({ err: error }, "Error creating portal comment:");
       if (error.name === 'ZodError') {
         return res.status(400).json({ error: "Invalid comment data", details: error.errors });
       }
@@ -793,12 +796,12 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
           assignedToUserId: ticket.assignedToUserId || null,
         });
       } catch (error) {
-        console.error("Error sending push notification for portal ticket:", error);
+        moduleLog.error({ err: error }, "Error sending push notification for portal ticket:");
       }
 
       res.status(201).json(ticket);
     } catch (error: any) {
-      console.error("Error creating portal ticket:", error);
+      moduleLog.error({ err: error }, "Error creating portal ticket:");
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
@@ -851,7 +854,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
               trigger: "ticket_creation",
               actorId: "system", // Automated assignment triggered by system
             }).catch(err => {
-              console.error("Error triggering ticket.assigned webhook (auto-assign):", err);
+              moduleLog.error({ err }, "Error triggering ticket.assigned webhook (auto-assign):");
             });
           }
         }
@@ -865,7 +868,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
           assignedToUserId: ticket.assignedToUserId || null,
         });
       } catch (error) {
-        console.error("Error sending push notification for email file ticket:", error);
+        moduleLog.error({ err: error }, "Error sending push notification for email file ticket:");
       }
 
       try {
@@ -876,7 +879,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
           assignedToUserId: ticket.assignedToUserId || null,
         });
       } catch (error) {
-        console.error("Error sending push notification for ticket:", error);
+        moduleLog.error({ err: error }, "Error sending push notification for ticket:");
       }
 
       // Trigger webhook for ticket.created
@@ -893,12 +896,12 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
         source: "api",
         actorId: userId,
       }).catch(err => {
-        console.error("Error triggering ticket.created webhook:", err);
+        moduleLog.error({ err }, "Error triggering ticket.created webhook:");
       });
       
       res.status(201).json(ticket);
     } catch (error: any) {
-      console.error("Error creating ticket:", error);
+      moduleLog.error({ err: error }, "Error creating ticket:");
       if (error.name === 'ZodError') {
         return res.status(400).json({ error: "Invalid ticket data", details: error.errors });
       }
@@ -987,7 +990,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
             source: "manual_assignment",
             actorId: userId,
           }).catch(err => {
-            console.error("Error triggering ticket.assigned webhook:", err);
+            moduleLog.error({ err }, "Error triggering ticket.assigned webhook:");
           });
         }
       }
@@ -1044,13 +1047,13 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
           actorId: userId,
           fieldsChanged: changes.map(c => c.field),
         }).catch(err => {
-          console.error("Error triggering ticket.updated webhook:", err);
+          moduleLog.error({ err }, "Error triggering ticket.updated webhook:");
         });
       }
       
       res.json(updated);
     } catch (error: any) {
-      console.error("Error updating ticket:", error);
+      moduleLog.error({ err: error }, "Error updating ticket:");
       if (error.name === 'ZodError') {
         return res.status(400).json({ error: "Invalid ticket data", details: error.errors });
       }
@@ -1067,7 +1070,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
       }
       res.json({ message: "Ticket deleted successfully" });
     } catch (error) {
-      console.error("Error deleting ticket:", error);
+      moduleLog.error({ err: error }, "Error deleting ticket:");
       res.status(500).json({ error: "Failed to delete ticket" });
     }
   });
@@ -1098,7 +1101,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
       
       res.json(commentsWithUsernames);
     } catch (error) {
-      console.error("Error fetching ticket comments:", error);
+      moduleLog.error({ err: error }, "Error fetching ticket comments:");
       res.status(500).json({ error: "Failed to fetch comments" });
     }
   });
@@ -1139,7 +1142,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
           source: "api",
           actorId: userId,
         }).catch(err => {
-          console.error("Error triggering ticket.commented webhook:", err);
+          moduleLog.error({ err }, "Error triggering ticket.commented webhook:");
         });
 
         if (!comment.isInternal) {
@@ -1157,7 +1160,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
             source: "api",
             actorId: userId,
           }).catch(err => {
-            console.error("Error triggering ticket.agent_replied webhook:", err);
+            moduleLog.error({ err }, "Error triggering ticket.agent_replied webhook:");
           });
         }
 
@@ -1195,17 +1198,17 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
                 to: recipient,
               });
 
-              console.log(`[EmailOutbound] Sent reply for ticket ${ticket.ticketNumber}`);
+              moduleLog.info(`[EmailOutbound] Sent reply for ticket ${ticket.ticketNumber}`);
             }
           } catch (error) {
-            console.error("Error sending ticket reply email:", error);
+            moduleLog.error({ err: error }, "Error sending ticket reply email:");
           }
         }
       }
 
       res.status(201).json(comment);
     } catch (error: any) {
-      console.error("Error creating comment:", error);
+      moduleLog.error({ err: error }, "Error creating comment:");
       if (error.name === 'ZodError') {
         return res.status(400).json({ error: "Invalid comment data", details: error.errors });
       }
@@ -1222,7 +1225,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
       }
       res.json({ message: "Comment deleted successfully" });
     } catch (error) {
-      console.error("Error deleting comment:", error);
+      moduleLog.error({ err: error }, "Error deleting comment:");
       res.status(500).json({ error: "Failed to delete comment" });
     }
   });
@@ -1247,7 +1250,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
       
       res.json(logsWithUsernames);
     } catch (error) {
-      console.error("Error fetching ticket activity log:", error);
+      moduleLog.error({ err: error }, "Error fetching ticket activity log:");
       res.status(500).json({ error: "Failed to fetch activity log" });
     }
   });
@@ -1304,7 +1307,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
       const attachments = await storage.getTicketAttachments(req.params.ticketId);
       res.json(attachments);
     } catch (error) {
-      console.error("Error fetching ticket attachments:", error);
+      moduleLog.error({ err: error }, "Error fetching ticket attachments:");
       res.status(500).json({ error: "Failed to fetch attachments" });
     }
   });
@@ -1352,12 +1355,12 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
               );
               filePath = `obj:${result.objectKey}`; // Prefix with "obj:" to indicate Object Storage
               fileName = file.originalname;
-              console.log(`[Attachments] Uploaded to Object Storage: ${result.objectKey}`);
+              moduleLog.info(`[Attachments] Uploaded to Object Storage: ${result.objectKey}`);
             } else {
               // Local disk storage (non-persistent, fallback)
               filePath = file.path;
               fileName = file.filename;
-              console.log(`[Attachments] Saved to disk: ${file.path}`);
+              moduleLog.info(`[Attachments] Saved to disk: ${file.path}`);
             }
             
             const attachmentData = {
@@ -1375,7 +1378,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
 
         res.status(201).json(attachments);
       } catch (error: any) {
-        console.error("Error uploading attachments:", error);
+        moduleLog.error({ err: error }, "Error uploading attachments:");
         
         // Clean up any uploaded files in case of error (only for disk storage)
         if (!useObjectStorage && req.files) {
@@ -1400,25 +1403,25 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
       const attachment = await storage.getTicketAttachment(req.params.attachmentId);
       
       if (!attachment) {
-        console.error(`[Preview] Attachment not found: ${req.params.attachmentId}`);
+        moduleLog.error(`[Preview] Attachment not found: ${req.params.attachmentId}`);
         return res.status(404).json({ error: "Attachment not found" });
       }
 
       // Verify user has access to the ticket
       const ticket = await storage.getTicket(attachment.ticketId);
       if (!ticket) {
-        console.error(`[Preview] Ticket not found for attachment: ${req.params.attachmentId}`);
+        moduleLog.error(`[Preview] Ticket not found for attachment: ${req.params.attachmentId}`);
         return res.status(404).json({ error: "Associated ticket not found" });
       }
 
       // Check if this is an Object Storage file (prefix: "obj:")
       if (isObjectStorageKey(attachment.filePath)) {
         const objectKey = getObjectKey(attachment.filePath);
-        console.log(`[Preview] Serving from Object Storage: ${objectKey}`);
+        moduleLog.info(`[Preview] Serving from Object Storage: ${objectKey}`);
         
         // Verify Object Storage is configured
         if (!objectStorageService.isConfigured()) {
-          console.error(`[Preview] Object Storage not configured but file references it: ${objectKey}`);
+          moduleLog.error(`[Preview] Object Storage not configured but file references it: ${objectKey}`);
           return res.status(404).json({ error: "File not available" });
         }
         
@@ -1426,13 +1429,13 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
           // Set headers for inline preview
           res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(attachment.fileName)}"`);
           await objectStorageService.downloadToResponse(objectKey, res);
-          console.log(`[Preview] Successfully served from Object Storage: ${attachment.fileName}`);
+          moduleLog.info(`[Preview] Successfully served from Object Storage: ${attachment.fileName}`);
         } catch (error) {
           if (error instanceof ObjectNotFoundError) {
-            console.error(`[Preview] Object not found in storage: ${objectKey}`);
+            moduleLog.error(`[Preview] Object not found in storage: ${objectKey}`);
             return res.status(404).json({ error: "File not found" });
           }
-          console.error(`[Preview] Object Storage error:`, error);
+          moduleLog.error({ err: error }, "[Preview] Object Storage error:");
           return res.status(500).json({ error: "Failed to retrieve file" });
         }
         return;
@@ -1443,17 +1446,17 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
       try {
         absolutePath = resolveAttachmentPath(attachment.filePath);
       } catch (pathError) {
-        console.error(`[Preview] Invalid attachment path: ${attachment.filePath}`);
+        moduleLog.error(`[Preview] Invalid attachment path: ${attachment.filePath}`);
         return res.status(400).json({ error: "Invalid attachment path" });
       }
 
-      console.log(`[Preview] Serving from disk: ${absolutePath}`);
+      moduleLog.info(`[Preview] Serving from disk: ${absolutePath}`);
 
       // Check if file exists
       try {
         await fs.access(absolutePath);
       } catch (accessError) {
-        console.error(`[Preview] File not found on disk: ${absolutePath}`);
+        moduleLog.error(`[Preview] File not found on disk: ${absolutePath}`);
         return res.status(404).json({ 
           error: "File not found on disk",
           details: "The file may have been deleted during a server restart. Please ask the sender to re-upload."
@@ -1469,16 +1472,16 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
       // Stream the file
       res.sendFile(absolutePath, (err) => {
         if (err) {
-          console.error(`[Preview] Error sending file:`, err);
+          moduleLog.error({ err }, "[Preview] Error sending file:");
           if (!res.headersSent) {
             res.status(500).json({ error: "Failed to send file" });
           }
         } else {
-          console.log(`[Preview] Successfully served from disk: ${attachment.fileName}`);
+          moduleLog.info(`[Preview] Successfully served from disk: ${attachment.fileName}`);
         }
       });
     } catch (error) {
-      console.error("[Preview] Error previewing attachment:", error);
+      moduleLog.error({ err: error }, "[Preview] Error previewing attachment:");
       if (!res.headersSent) {
         res.status(500).json({ error: "Failed to preview attachment" });
       }
@@ -1491,25 +1494,25 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
       const attachment = await storage.getTicketAttachment(req.params.attachmentId);
       
       if (!attachment) {
-        console.error(`[Download] Attachment not found: ${req.params.attachmentId}`);
+        moduleLog.error(`[Download] Attachment not found: ${req.params.attachmentId}`);
         return res.status(404).json({ error: "Attachment not found" });
       }
 
       // Verify user has access to the ticket
       const ticket = await storage.getTicket(attachment.ticketId);
       if (!ticket) {
-        console.error(`[Download] Ticket not found for attachment: ${req.params.attachmentId}`);
+        moduleLog.error(`[Download] Ticket not found for attachment: ${req.params.attachmentId}`);
         return res.status(404).json({ error: "Associated ticket not found" });
       }
 
       // Check if this is an Object Storage file (prefix: "obj:")
       if (isObjectStorageKey(attachment.filePath)) {
         const objectKey = getObjectKey(attachment.filePath);
-        console.log(`[Download] Serving from Object Storage: ${objectKey}`);
+        moduleLog.info(`[Download] Serving from Object Storage: ${objectKey}`);
         
         // Verify Object Storage is configured
         if (!objectStorageService.isConfigured()) {
-          console.error(`[Download] Object Storage not configured but file references it: ${objectKey}`);
+          moduleLog.error(`[Download] Object Storage not configured but file references it: ${objectKey}`);
           return res.status(404).json({ error: "File not available" });
         }
         
@@ -1517,13 +1520,13 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
           // Set headers for download
           res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(attachment.fileName)}"`);
           await objectStorageService.downloadToResponse(objectKey, res);
-          console.log(`[Download] Successfully served from Object Storage: ${attachment.fileName}`);
+          moduleLog.info(`[Download] Successfully served from Object Storage: ${attachment.fileName}`);
         } catch (error) {
           if (error instanceof ObjectNotFoundError) {
-            console.error(`[Download] Object not found in storage: ${objectKey}`);
+            moduleLog.error(`[Download] Object not found in storage: ${objectKey}`);
             return res.status(404).json({ error: "File not found" });
           }
-          console.error(`[Download] Object Storage error:`, error);
+          moduleLog.error({ err: error }, "[Download] Object Storage error:");
           return res.status(500).json({ error: "Failed to retrieve file" });
         }
         return;
@@ -1534,17 +1537,17 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
       try {
         absolutePath = resolveAttachmentPath(attachment.filePath);
       } catch (pathError) {
-        console.error(`[Download] Invalid attachment path: ${attachment.filePath}`);
+        moduleLog.error(`[Download] Invalid attachment path: ${attachment.filePath}`);
         return res.status(400).json({ error: "Invalid attachment path" });
       }
 
-      console.log(`[Download] Serving from disk: ${absolutePath}`);
+      moduleLog.info(`[Download] Serving from disk: ${absolutePath}`);
 
       // Check if file exists
       try {
         await fs.access(absolutePath);
       } catch {
-        console.error(`[Download] File not found on disk: ${absolutePath}`);
+        moduleLog.error(`[Download] File not found on disk: ${absolutePath}`);
         return res.status(404).json({ 
           error: "File not found on disk",
           details: "The file may have been deleted during a server restart. Please ask the sender to re-upload."
@@ -1559,14 +1562,14 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
       // Stream the file
       res.sendFile(absolutePath, (err) => {
         if (err) {
-          console.error(`[Download] Error sending file:`, err);
+          moduleLog.error({ err }, "[Download] Error sending file:");
           if (!res.headersSent) {
             res.status(500).json({ error: "Failed to send file" });
           }
         }
       });
     } catch (error) {
-      console.error("[Download] Error downloading attachment:", error);
+      moduleLog.error({ err: error }, "[Download] Error downloading attachment:");
       if (!res.headersSent) {
       res.status(500).json({ error: "Failed to download attachment" });
       }
@@ -1589,9 +1592,9 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
           const objectKey = getObjectKey(attachment.filePath);
           if (objectStorageService.isConfigured()) {
             await objectStorageService.deleteObject(objectKey);
-            console.log(`[Delete] Deleted from Object Storage: ${objectKey}`);
+            moduleLog.info(`[Delete] Deleted from Object Storage: ${objectKey}`);
           } else {
-            console.warn(`[Delete] Object Storage not configured, skipping file deletion: ${objectKey}`);
+            moduleLog.warn(`[Delete] Object Storage not configured, skipping file deletion: ${objectKey}`);
           }
         } else {
           // Delete from disk - handle both absolute and relative paths
@@ -1599,7 +1602,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
           try {
             absolutePath = resolveAttachmentPath(attachment.filePath);
           } catch (pathError) {
-            console.error(`[Delete] Invalid attachment path: ${attachment.filePath}`);
+            moduleLog.error(`[Delete] Invalid attachment path: ${attachment.filePath}`);
             return res.status(400).json({ error: "Invalid attachment path" });
           }
           
@@ -1607,17 +1610,17 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
           try {
             await fs.access(absolutePath);
             await fs.unlink(absolutePath);
-            console.log(`[Delete] Deleted from disk: ${absolutePath}`);
+            moduleLog.info(`[Delete] Deleted from disk: ${absolutePath}`);
           } catch (accessError: any) {
             if (accessError.code === 'ENOENT') {
-              console.warn(`[Delete] File already deleted or missing: ${absolutePath}`);
+              moduleLog.warn(`[Delete] File already deleted or missing: ${absolutePath}`);
             } else {
               throw accessError;
             }
           }
         }
       } catch (error) {
-        console.error("[Delete] Error deleting file from storage:", error);
+        moduleLog.error({ err: error }, "[Delete] Error deleting file from storage:");
         // Continue with database deletion even if file delete fails
       }
 
@@ -1630,7 +1633,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
 
       res.json({ message: "Attachment deleted successfully" });
     } catch (error) {
-      console.error("Error deleting attachment:", error);
+      moduleLog.error({ err: error }, "Error deleting attachment:");
       res.status(500).json({ error: "Failed to delete attachment" });
     }
   });
@@ -1644,7 +1647,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
       const counts = await storage.getUnreadCounts(ticketId, userId);
       res.json(counts);
     } catch (error) {
-      console.error("Error fetching unread counts:", error);
+      moduleLog.error({ err: error }, "Error fetching unread counts:");
       res.status(500).json({ error: "Failed to fetch unread counts" });
     }
   });
@@ -1658,7 +1661,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
       await storage.markTicketCommentsAsRead(ticketId, userId);
       res.json({ message: "Comments marked as read" });
     } catch (error) {
-      console.error("Error marking comments as read:", error);
+      moduleLog.error({ err: error }, "Error marking comments as read:");
       res.status(500).json({ error: "Failed to mark comments as read" });
     }
   });
@@ -1672,7 +1675,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
       await storage.markTicketAttachmentsAsRead(ticketId, userId);
       res.json({ message: "Attachments marked as read" });
     } catch (error) {
-      console.error("Error marking attachments as read:", error);
+      moduleLog.error({ err: error }, "Error marking attachments as read:");
       res.status(500).json({ error: "Failed to mark attachments as read" });
     }
   });
@@ -1710,7 +1713,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
         })),
       });
     } catch (error: any) {
-      console.error("Error parsing email:", error);
+      moduleLog.error({ err: error }, "Error parsing email:");
       res.status(500).json({ error: error.message || "Failed to parse email" });
     }
   });
@@ -1750,7 +1753,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
             }
           }
         } catch (error) {
-          console.warn("Could not find order:", parsedEmail.orderNumber, error);
+          moduleLog.warn({ err: error }, `Could not find order: ${parsedEmail.orderNumber}`);
         }
       }
 
@@ -1805,7 +1808,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
             uploadedByUserId: (req.user as any).id,
           });
         } catch (error) {
-          console.error("Error saving attachment:", error);
+          moduleLog.error({ err: error }, "Error saving attachment:");
         }
       }
 
@@ -1825,7 +1828,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
         orderNumber: parsedEmail.orderNumber,
       });
     } catch (error: any) {
-      console.error("Error creating ticket from email:", error);
+      moduleLog.error({ err: error }, "Error creating ticket from email:");
       if (error.name === 'ZodError') {
         return res.status(400).json({ error: "Invalid ticket data", details: error.errors });
       }
@@ -2023,7 +2026,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
         res.status(400).json({ error: 'Invalid format. Use "csv" or "excel".' });
       }
     } catch (error) {
-      console.error("Error exporting tickets:", error);
+      moduleLog.error({ err: error }, "Error exporting tickets:");
       res.status(500).json({ error: "Failed to export tickets" });
     }
   });

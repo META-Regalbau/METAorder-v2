@@ -1,5 +1,8 @@
 import type { MonduSettings } from "@shared/schema";
 import FormData from "form-data";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "invoicing/mondu" });
 
 export interface MonduInvoiceSubmission {
   orderUuid: string;
@@ -51,12 +54,12 @@ export class MonduClient {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("[MonduClient] Invoice submission failed:", response.status, errorText);
+      moduleLog.error(`[MonduClient] Invoice submission failed: ${response.status} ${errorText}`);
       throw new Error(`Mondu invoice submission failed: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
-    console.log("[MonduClient] Invoice submitted successfully:", data);
+    moduleLog.info({ data }, "[MonduClient] Invoice submitted successfully:");
     return data;
   }
 

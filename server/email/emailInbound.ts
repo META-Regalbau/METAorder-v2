@@ -25,6 +25,9 @@ import type { CommercialAgentProcessResult } from "../commercial/commercialAgent
 import { attachSupportingDocumentsToDrafts, partitionCommercialParts } from "../commercial/commercialDraftAttachments";
 import { unwrapInternalForward } from "./emailForwardUnwrap";
 import { collectSignatureImageCandidates, isMailDecorationImage } from "../commercial/commercialSignatureImageCandidates";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "email/emailInbound" });
 
 const DEFAULT_INBOUND_SETTINGS: EmailInboundSettings = {
   enabled: false,
@@ -156,7 +159,7 @@ async function fetchGraphAttachmentFilenames(
       .map((a) => (typeof a.name === "string" && a.name.trim() ? a.name.trim() : "Anhang"))
       .slice(0, 30);
   } catch (e) {
-    console.warn("[EmailInbound] Graph-Anhangsnamen konnten nicht geladen werden:", e);
+    moduleLog.warn({ err: e }, "[EmailInbound] Graph-Anhangsnamen konnten nicht geladen werden:");
     return [];
   }
 }
@@ -190,7 +193,7 @@ async function fetchGraphFileAttachments(
     }
     return out;
   } catch (e) {
-    console.error("[EmailInbound] Graph-Anhänge konnten nicht geladen werden:", e);
+    moduleLog.error({ err: e }, "[EmailInbound] Graph-Anhänge konnten nicht geladen werden:");
     return [];
   }
 }
@@ -237,9 +240,7 @@ async function processInboundMailAttachments(options: {
   const body = unwrapped.body;
   const fromDisplayName = unwrapped.strippedForwardLevels > 0 ? unwrapped.from : options.fromDisplayName;
   if (unwrapped.strippedForwardLevels > 0) {
-    console.log(
-      `[EmailInbound] ${unwrapped.strippedForwardLevels} interne Weiterleitungsebene(n) entfernt — Kundenmail von ${unwrapped.from}`
-    );
+    moduleLog.info(`[EmailInbound] ${unwrapped.strippedForwardLevels} interne Weiterleitungsebene(n) entfernt — Kundenmail von ${unwrapped.from}`);
   }
 
   const signatureImageBuffers = collectSignatureImageCandidates(attachments, mailHtml ?? undefined);
@@ -257,9 +258,7 @@ async function processInboundMailAttachments(options: {
   const commercialParts = partition.draftParts;
   const supportingBuffers = new Set(partition.supportingParts.map((sp) => sp.part.buffer));
   for (const sp of partition.supportingParts) {
-    console.log(
-      `[EmailInbound] Anhang ${sp.part.filename} als ${sp.classification.kind} erkannt — Beilage, kein Entwurf.`
-    );
+    moduleLog.info(`[EmailInbound] Anhang ${sp.part.filename} als ${sp.classification.kind} erkannt — Beilage, kein Entwurf.`);
   }
   const pendingAgentRuns: Array<Promise<CommercialAgentProcessResult | null>> = [];
   const combinedIntent =
@@ -295,7 +294,7 @@ async function processInboundMailAttachments(options: {
           uploadedByUserId: systemUserId,
         });
       } catch (e) {
-        console.error("[EmailInbound] Ticket-Anhang-Upload fehlgeschlagen:", e);
+        moduleLog.error({ err: e }, "[EmailInbound] Ticket-Anhang-Upload fehlgeschlagen:");
       }
     } else {
       try {
@@ -312,7 +311,7 @@ async function processInboundMailAttachments(options: {
           uploadedByUserId: systemUserId,
         });
       } catch (e) {
-        console.error("[EmailInbound] Ticket-Anhang lokal (uploads/ticket-attachments) fehlgeschlagen:", e);
+        moduleLog.error({ err: e }, "[EmailInbound] Ticket-Anhang lokal (uploads/ticket-attachments) fehlgeschlagen:");
       }
     }
 
@@ -336,7 +335,7 @@ async function processInboundMailAttachments(options: {
         fromDisplayName,
         signatureImageBuffers: signatureImageBuffers.length ? signatureImageBuffers : undefined,
       }).catch((err) => {
-        console.error("[EmailInbound] Commercial agent document processing failed:", err);
+        moduleLog.error({ err }, "[EmailInbound] Commercial agent document processing failed:");
         return null;
       });
       pendingAgentRuns.push(run);
@@ -392,7 +391,7 @@ async function processInboundMailAttachments(options: {
         }
       })
       .catch((err) => {
-        console.error("[EmailInbound] Commercial agent email-only processing failed:", err);
+        moduleLog.error({ err }, "[EmailInbound] Commercial agent email-only processing failed:");
       });
   }
 }
@@ -464,7 +463,7 @@ async function getValidAccessToken(storage: IStorage, connectionId: string) {
     });
     return refreshed.access_token;
   } catch (error) {
-    console.error("[EmailInbound] M365 token refresh failed:", error);
+    moduleLog.error({ err: error }, "[EmailInbound] M365 token refresh failed:");
     return connection.accessToken;
   }
 }
@@ -530,7 +529,7 @@ export async function pollInboundEmails(storage: IStorage) {
               Object.assign(graphMsg, full);
               bodyPlain = graphMessageBodyPlain(graphMsg);
             } catch (e) {
-              console.warn("[EmailInbound] Graph: Nachrichtenkörper nachladen fehlgeschlagen:", e);
+              moduleLog.warn({ err: e }, "[EmailInbound] Graph: Nachrichtenkörper nachladen fehlgeschlagen:");
             }
           }
           let graphAttachmentNames: string[] = [];
@@ -593,7 +592,7 @@ export async function pollInboundEmails(storage: IStorage) {
               title: newTicket.title,
               assignedToUserId: newTicket.assignedToUserId || null,
             }).catch((error) => {
-              console.error("[EmailInbound] Push notify failed:", error);
+              moduleLog.error({ err: error }, "[EmailInbound] Push notify failed:");
             });
 
             try {
@@ -627,7 +626,7 @@ export async function pollInboundEmails(storage: IStorage) {
                 });
               }
             } catch (error) {
-              console.error("[EmailInbound] Failed sending auto-reply:", error);
+              moduleLog.error({ err: error }, "[EmailInbound] Failed sending auto-reply:");
             }
           } else {
             const comment = await storage.createTicketComment({
@@ -800,7 +799,7 @@ export async function pollInboundEmails(storage: IStorage) {
                 title: newTicket.title,
                 assignedToUserId: newTicket.assignedToUserId || null,
               }).catch((error) => {
-                console.error("[EmailInbound] Push notify failed:", error);
+                moduleLog.error({ err: error }, "[EmailInbound] Push notify failed:");
               });
 
               try {
@@ -834,7 +833,7 @@ export async function pollInboundEmails(storage: IStorage) {
                   });
                 }
               } catch (error) {
-                console.error("[EmailInbound] Failed sending auto-reply:", error);
+                moduleLog.error({ err: error }, "[EmailInbound] Failed sending auto-reply:");
               }
             } else {
               const comment = await storage.createTicketComment({
@@ -897,7 +896,7 @@ export async function pollInboundEmails(storage: IStorage) {
             processed += 1;
           }
         } catch (error) {
-          console.error("[EmailInbound] M365 IMAP polling failed:", error);
+          moduleLog.error({ err: error }, "[EmailInbound] M365 IMAP polling failed:");
         } finally {
           await storage.updateM365Connection(connection.id, { lastSyncAt: new Date() });
           try {
@@ -1003,7 +1002,7 @@ export async function pollInboundEmails(storage: IStorage) {
           title: newTicket.title,
           assignedToUserId: newTicket.assignedToUserId || null,
         }).catch((error) => {
-          console.error("[EmailInbound] Push notify failed:", error);
+          moduleLog.error({ err: error }, "[EmailInbound] Push notify failed:");
         });
 
         try {
@@ -1037,7 +1036,7 @@ export async function pollInboundEmails(storage: IStorage) {
             });
           }
         } catch (error) {
-          console.error("[EmailInbound] Failed sending auto-reply:", error);
+          moduleLog.error({ err: error }, "[EmailInbound] Failed sending auto-reply:");
         }
       } else {
         const comment = await storage.createTicketComment({
@@ -1104,10 +1103,10 @@ export async function pollInboundEmails(storage: IStorage) {
     }
 
     if (processed > 0) {
-      console.log(`[EmailInbound] Processed ${processed} messages from ${settings.mailbox}`);
+      moduleLog.info(`[EmailInbound] Processed ${processed} messages from ${settings.mailbox}`);
     }
   } catch (error) {
-    console.error("[EmailInbound] Polling failed:", error);
+    moduleLog.error({ err: error }, "[EmailInbound] Polling failed:");
   } finally {
     isRunning = false;
   }

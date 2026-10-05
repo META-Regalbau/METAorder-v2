@@ -5,6 +5,9 @@ import { z } from "zod";
 import { insertUserSchema } from "@shared/schema";
 import bcrypt from "bcryptjs";
 import type { Request, Express } from "express";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "routes/userRoutes" });
 
 
 // Sales Channel Filter Helper - ensures users only see data from their assigned sales channels
@@ -39,7 +42,7 @@ async function assignNewUserToTenant(req: Request, userId: string): Promise<stri
   try {
     await storage.addUserToTenant({ tenantId, userId });
   } catch (error) {
-    console.warn(`[assignNewUserToTenant] skipped for user ${userId}:`, error);
+    log.warn({ err: error }, `[assignNewUserToTenant] skipped for user ${userId}:`);
   }
 
   return tenantId;
@@ -55,7 +58,7 @@ export function registerUserRoutes(app: Express): void {
         activeTenantId: user.activeTenantId ?? null,
       });
     } catch (error: any) {
-      console.error("Error fetching tenants:", error);
+      log.error({ err: error }, "Error fetching tenants:");
       res.status(500).json({ error: error.message || "Failed to fetch tenants" });
     }
   });
@@ -86,7 +89,7 @@ export function registerUserRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
-      console.error("Error selecting tenant:", error);
+      log.error({ err: error }, "Error selecting tenant:");
       res.status(500).json({ error: error.message || "Failed to select tenant" });
     }
   });
@@ -110,7 +113,7 @@ export function registerUserRoutes(app: Express): void {
       try {
         await storage.addUserToTenant({ tenantId: tenant.id, userId: user.id });
       } catch (assignErr) {
-        console.warn(`[POST /api/tenants] assign creator failed:`, assignErr);
+        log.warn({ err: assignErr }, "[POST /api/tenants] assign creator failed:");
       }
 
       let activeTenantId = user.activeTenantId ?? null;
@@ -125,7 +128,7 @@ export function registerUserRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
-      console.error("Error creating tenant:", error);
+      log.error({ err: error }, "Error creating tenant:");
       res.status(500).json({ error: error.message || "Failed to create tenant" });
     }
   });
@@ -140,7 +143,7 @@ export function registerUserRoutes(app: Express): void {
       
       res.json(assignableUsers);
     } catch (error) {
-      console.error("Error fetching assignable users:", error);
+      log.error({ err: error }, "Error fetching assignable users:");
       res.status(500).json({ error: "Failed to fetch assignable users" });
     }
   });
@@ -163,7 +166,7 @@ export function registerUserRoutes(app: Express): void {
       
       res.json(usersWithRoles);
     } catch (error) {
-      console.error("Error fetching users:", error);
+      log.error({ err: error }, "Error fetching users:");
       res.status(500).json({ error: "Failed to fetch users" });
     }
   });
@@ -210,7 +213,7 @@ export function registerUserRoutes(app: Express): void {
         roleName: role.name,
       });
     } catch (error: any) {
-      console.error("Error creating user:", error);
+      log.error({ err: error }, "Error creating user:");
       if (error.name === 'ZodError') {
         return res.status(400).json({ error: "Invalid user data", details: error.errors });
       }
@@ -270,7 +273,7 @@ export function registerUserRoutes(app: Express): void {
         roleName: role?.name || null,
       });
     } catch (error: any) {
-      console.error("Error updating user:", error);
+      log.error({ err: error }, "Error updating user:");
       if (error.name === 'ZodError') {
         return res.status(400).json({ error: "Invalid user data", details: error.errors });
       }
@@ -288,7 +291,7 @@ export function registerUserRoutes(app: Express): void {
       
       res.json({ message: "User deleted successfully" });
     } catch (error) {
-      console.error("Error deleting user:", error);
+      log.error({ err: error }, "Error deleting user:");
       res.status(500).json({ error: "Failed to delete user" });
     }
   });
@@ -299,7 +302,7 @@ export function registerUserRoutes(app: Express): void {
       const roles = await storage.getAllRoles();
       res.json(roles);
     } catch (error) {
-      console.error("Error fetching roles:", error);
+      log.error({ err: error }, "Error fetching roles:");
       res.status(500).json({ error: "Failed to fetch roles" });
     }
   });
@@ -363,7 +366,7 @@ export function registerUserRoutes(app: Express): void {
       
       res.json(role);
     } catch (error: any) {
-      console.error("Error creating role:", error);
+      log.error({ err: error }, "Error creating role:");
       if (error.name === 'ZodError') {
         return res.status(400).json({ error: "Invalid role data", details: error.errors });
       }
@@ -431,7 +434,7 @@ export function registerUserRoutes(app: Express): void {
       
       res.json(role);
     } catch (error: any) {
-      console.error("Error updating role:", error);
+      log.error({ err: error }, "Error updating role:");
       if (error.name === 'ZodError') {
         return res.status(400).json({ error: "Invalid role data", details: error.errors });
       }
@@ -449,7 +452,7 @@ export function registerUserRoutes(app: Express): void {
       
       res.json({ message: "Role deleted successfully" });
     } catch (error) {
-      console.error("Error deleting role:", error);
+      log.error({ err: error }, "Error deleting role:");
       res.status(500).json({ error: "Failed to delete role" });
     }
   });

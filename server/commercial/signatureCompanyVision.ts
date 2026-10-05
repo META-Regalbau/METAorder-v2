@@ -1,4 +1,7 @@
 import type OpenAI from "openai";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "commercial/signatureCompanyVision" });
 
 export type SignatureVisionResult = {
   company?: string;
@@ -62,7 +65,7 @@ Antwort NUR als JSON: {"company":string|null,"firstName":string|null,"lastName":
     if (lastName) out.lastName = lastName.slice(0, 120);
     return Object.keys(out).length ? out : null;
   } catch (e) {
-    console.warn("[SignatureCompanyVision] OpenAI failed:", e);
+    log.warn({ err: e }, "[SignatureCompanyVision] OpenAI failed:");
     return null;
   }
 }

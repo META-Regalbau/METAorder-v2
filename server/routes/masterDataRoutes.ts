@@ -5,6 +5,9 @@ import { ShopwareClient } from "../shopware/shopware";
 import { getSalesChannelFilter, getOrdersWithCache, filterOrdersBySalesChannels, filterTicketsBySalesChannels } from "./routeHelpers";
 import { B2BSellersClient, type OfferStatusMapping, getOfferStatusMapping } from "../b2b/b2bSellersClient";
 import type { Request, Response, Express } from "express";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "routes/masterDataRoutes" });
 
 
 /** Kurzer In-Memory-Cache für selten änderende Shopware-Stammdaten (Verkaufskanäle,
@@ -42,7 +45,7 @@ export function registerMasterDataRoutes(app: Express): void {
       res.json(salesChannels);
     } catch (error: any) {
       const msg = error?.message || "Failed to fetch sales channels";
-      console.error("[api/sales-channels] Error:", msg, error?.stack);
+      log.error({ messageText: msg, stack: error?.stack }, "[api/sales-channels] Error:");
       res.status(500).json({ error: msg });
     }
   });
@@ -187,7 +190,7 @@ export function registerMasterDataRoutes(app: Express): void {
 
       res.json(results);
     } catch (error: any) {
-      console.error("Error executing global search:", error);
+      log.error({ err: error }, "Error executing global search:");
       res.status(500).json({ error: error.message || "Failed to execute global search" });
     }
   });
@@ -208,7 +211,7 @@ export function registerMasterDataRoutes(app: Express): void {
       res.json(categories);
     } catch (error: any) {
       const msg = error?.message || "Failed to fetch categories";
-      console.error("[api/categories] Error:", msg, error?.stack);
+      log.error({ messageText: msg, stack: error?.stack }, "[api/categories] Error:");
       res.status(500).json({ error: msg });
     }
   });
@@ -219,7 +222,7 @@ export function registerMasterDataRoutes(app: Express): void {
       const stored = (await storage.getSetting("b2b.offerStatusMapping")) as OfferStatusMapping | undefined;
       res.json(getOfferStatusMapping(stored));
     } catch (error) {
-      console.error("Error fetching B2B offer status mapping:", error);
+      log.error({ err: error }, "Error fetching B2B offer status mapping:");
       res.status(500).json({ error: "Failed to fetch offer status mapping" });
     }
   });
@@ -280,7 +283,7 @@ export function registerMasterDataRoutes(app: Express): void {
         entitySchema: entityQuery && schema ? (schema as any)[entityQuery] : undefined,
       });
     } catch (error: any) {
-      console.error("Error fetching Shopware entity schema:", error);
+      log.error({ err: error }, "Error fetching Shopware entity schema:");
       res.status(500).json({ error: error.message || "Failed to fetch entity schema" });
     }
   });
@@ -310,7 +313,7 @@ export function registerMasterDataRoutes(app: Express): void {
 
       res.json({ total: data?.total ?? rawStatuses.length, statuses });
     } catch (error: any) {
-      console.error("Error fetching offer statuses:", error);
+      log.error({ err: error }, "Error fetching offer statuses:");
       res.status(500).json({ error: error.message || "Failed to fetch offer statuses" });
     }
   });

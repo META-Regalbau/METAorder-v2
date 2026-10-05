@@ -2,6 +2,9 @@ import type { IStorage } from "../storage";
 import { logCommercialAgentDebug } from "./commercialAgentDebugLog";
 import { chatCompletion, parseLlmJsonResponse } from "../ai/llmChat";
 import { commercialIntentSchema, type CommercialDocumentIntent, type ClassifyCommercialIntentInput } from "./commercialDocumentIntent";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "commercial/commercialSubAgents" });
 
 const PDF_SPECIALIST_SYSTEM = `Du bist Sub-Agent „Dokument-Einkauf“. Du siehst NUR einen PDF-/Dokumentauszug (kein vollständiger E-Mail-Thread).
 Ordne ein, ob es primär um eine ANGEBOTSANFRAGE (quote_request), eine BESTELLUNG (purchase_order) oder UNKLARES (unclear) geht.
@@ -66,7 +69,7 @@ async function runPdfSpecialistIntent(
     if (!safe.success) return null;
     return safe.data;
   } catch (e) {
-    console.warn("[CommercialSubAgent] pdf specialist failed:", e);
+    log.warn({ err: e }, "[CommercialSubAgent] pdf specialist failed:");
     return null;
   }
 }
@@ -97,7 +100,7 @@ async function runEmailSpecialistIntent(
     if (!safe.success) return null;
     return safe.data;
   } catch (e) {
-    console.warn("[CommercialSubAgent] email specialist failed:", e);
+    log.warn({ err: e }, "[CommercialSubAgent] email specialist failed:");
     return null;
   }
 }

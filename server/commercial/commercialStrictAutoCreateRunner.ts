@@ -20,6 +20,9 @@ import {
   emitCommercialAutoOfferCreated,
   emitCommercialAutoOrderCreated,
 } from "./commercialWebhookNotifications";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "commercial/commercialStrictAutoCreateRunner" });
 
 export type StrictAutoCreateRunResult = {
   strictAllowed: boolean;
@@ -101,7 +104,7 @@ async function collectStrictAutoCreateContext(params: {
         buyerDocumentNumber,
       });
     } catch (error) {
-      console.warn("[StrictAutoCreate] Dublettenprüfung fehlgeschlagen:", error instanceof Error ? error.message : error);
+      log.warn({ err: error }, "[StrictAutoCreate] Dublettenprüfung fehlgeschlagen:");
       siblingDrafts = undefined;
     }
   }
@@ -161,7 +164,7 @@ async function collectStrictAutoCreateContext(params: {
         });
       }
     } catch (error) {
-      console.warn("[StrictAutoCreate] Preisabgleich fehlgeschlagen:", error instanceof Error ? error.message : error);
+      log.warn({ err: error }, "[StrictAutoCreate] Preisabgleich fehlgeschlagen:");
       linePriceChecks = undefined;
     }
   }

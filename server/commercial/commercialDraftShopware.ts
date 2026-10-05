@@ -4,6 +4,9 @@ import { B2BSellersClient } from "../b2b/b2bSellersClient";
 import { ShopwareClient } from "../shopware/shopware";
 import { scheduleSftpUploadAfterOrderCreate } from "../sftp/sftpUpload";
 import { buildShopwareLinePayloadFromCpqSource, type CpqSourceSnapshot } from "../cpq/cpqMetaCalcPayload";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "commercial/commercialDraftShopware" });
 
 export type CreateFromDraftFailure = { ok: false; error: string; statusCode: number };
 export type CreateOfferSuccess = { ok: true; offerId: string; draft: OfferDraft };
@@ -90,9 +93,7 @@ export async function ensureDraftShopwareCustomerId(
   const resolved = await resolveDraftShopwareCustomerId(settings, draft.shopwareCustomerId, draftCustomerEmails(draft.extractedData));
   if (!resolved.ok) return resolved;
   if (resolved.changed) {
-    console.log(
-      `[CommercialDraft] Veraltete Kunden-ID ${draft.shopwareCustomerId} → ${resolved.customerId} (${params.kind} ${params.draftId})`
-    );
+    moduleLog.info(`[CommercialDraft] Veraltete Kunden-ID ${draft.shopwareCustomerId} → ${resolved.customerId} (${params.kind} ${params.draftId})`);
     if (params.kind === "offer") {
       await storage.updateOfferDraft(params.draftId, { shopwareCustomerId: resolved.customerId }, tenantId);
     } else {
@@ -328,7 +329,7 @@ export async function executeCreateOfferFromDraft(
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Angebot konnte nicht erstellt werden";
-    console.error("[CreateOfferFromDraft] failed:", error instanceof Error ? error.stack || error.message : error);
+    moduleLog.error({ err: error }, "[CreateOfferFromDraft] failed:");
     // Claim zurücknehmen, damit der Entwurf erneut versucht werden kann.
     await storage.updateOfferDraft(draftId, { status: draft.status }, options.tenantId ?? null);
     return { ok: false, error: message, statusCode: 502 };

@@ -2,6 +2,9 @@ import { chatCompletion, isChatLlmConfigured, parseLlmJsonResponse } from "../ai
 import { ANALYTICS_INSIGHT_TYPES, type AnalyticsLanguage, type AnalyticsResult, type AnalyticsInsight, type AnalyticsQueryType } from "@shared/schema";
 import type { IStorage } from "../storage";
 import { NL_TEXTS, PROMPT_LANGUAGE_NAME } from "./nlLanguage";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "analytics/automaticInsights" });
 
 /**
  * Automatic Insights Generator
@@ -109,13 +112,13 @@ export async function generateInsights(
   storage: IStorage,
   language: AnalyticsLanguage = "de",
 ): Promise<AnalyticsInsight[]> {
-  console.log(`[Insights Generator] Generating insights for query type: ${queryType}`);
-  console.log(`[Insights Generator] Data summary:`, JSON.stringify(data.summary, null, 2));
+  moduleLog.info(`[Insights Generator] Generating insights for query type: ${queryType}`);
+  moduleLog.info(`[Insights Generator] Data summary: ${JSON.stringify(data.summary, null, 2)}`);
 
   // Chat-Anbieter des Mandanten (OpenAI, Claude oder Gemini)
   const getSetting = (key: string) => storage.getSetting(key);
   if (!(await isChatLlmConfigured(getSetting))) {
-    console.warn('[Insights Generator] LLM not configured - returning basic insights');
+    moduleLog.warn("[Insights Generator] LLM not configured - returning basic insights");
     return generateBasicInsights(data, queryType, language);
   }
 
@@ -123,7 +126,7 @@ export async function generateInsights(
     // Prepare context for AI
     const context = prepareAnalyticsContext(data, queryType);
     
-    console.log('[Insights Generator] Prepared context for AI:', context);
+    moduleLog.info({ context }, "[Insights Generator] Prepared context for AI:");
 
     // Call OpenAI to generate insights with timeout
     const responseContent = await Promise.race([
@@ -151,7 +154,7 @@ export async function generateInsights(
       throw new Error('EMPTY_RESPONSE');
     }
 
-    console.log('[Insights Generator] LLM response:', responseContent);
+    moduleLog.info(`[Insights Generator] LLM response: ${responseContent}`);
 
     // Parse the JSON response
     const parsedResponse = parseLlmJsonResponse(responseContent) as any;
@@ -166,7 +169,7 @@ export async function generateInsights(
       // Handle single insight object
       insights = [parsedResponse];
     } else {
-      console.warn('[Insights Generator] Unexpected OpenAI response format:', parsedResponse);
+      moduleLog.warn({ parsedResponse }, "[Insights Generator] Unexpected OpenAI response format:");
       // Return empty array instead of throwing - fallback will handle it
       insights = [];
     }
@@ -180,26 +183,26 @@ export async function generateInsights(
         confidence: insight.confidence || undefined,
       }));
 
-    console.log(`[Insights Generator] Generated ${validatedInsights.length} insights`);
+    moduleLog.info(`[Insights Generator] Generated ${validatedInsights.length} insights`);
     
     return validatedInsights;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('[Insights Generator] Error generating AI insights:', errorMessage);
+    moduleLog.error(`[Insights Generator] Error generating AI insights: ${errorMessage}`);
     
     // Log specific error types for debugging
     if (errorMessage.includes('TIMEOUT')) {
-      console.warn('[Insights Generator] Request timed out - falling back to basic insights');
+      moduleLog.warn("[Insights Generator] Request timed out - falling back to basic insights");
     } else if (errorMessage.includes('rate_limit') || errorMessage.includes('429')) {
-      console.warn('[Insights Generator] Rate limit exceeded - falling back to basic insights');
+      moduleLog.warn("[Insights Generator] Rate limit exceeded - falling back to basic insights");
     } else if (errorMessage.includes('authentication') || errorMessage.includes('401') || 
                errorMessage.includes('api_key') || errorMessage.includes('Incorrect API key')) {
-      console.warn('[Insights Generator] Authentication failed - falling back to basic insights');
+      moduleLog.warn("[Insights Generator] Authentication failed - falling back to basic insights");
     } else if (errorMessage.includes('EMPTY_RESPONSE')) {
-      console.warn('[Insights Generator] Empty response from OpenAI - falling back to basic insights');
+      moduleLog.warn("[Insights Generator] Empty response from OpenAI - falling back to basic insights");
     }
     
-    console.log('[Insights Generator] Falling back to basic insights');
+    moduleLog.info("[Insights Generator] Falling back to basic insights");
     return generateBasicInsights(data, queryType, language);
   }
 }
@@ -277,7 +280,7 @@ export function generateBasicInsights(
   queryType: AnalyticsQueryType,
   language: AnalyticsLanguage = "de",
 ): AnalyticsInsight[] {
-  console.log('[Insights Generator] Generating basic rule-based insights');
+  moduleLog.info("[Insights Generator] Generating basic rule-based insights");
   const texts = NL_TEXTS[language];
   
   const insights: AnalyticsInsight[] = [];
@@ -373,7 +376,7 @@ export function generateBasicInsights(
       break;
   }
 
-  console.log(`[Insights Generator] Generated ${insights.length} basic insights`);
+  moduleLog.info(`[Insights Generator] Generated ${insights.length} basic insights`);
   
   return insights;
 }

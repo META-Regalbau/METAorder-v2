@@ -11,6 +11,9 @@ import {
   toShopwareUuid,
   type B2BOfferCustomerContext,
 } from "./b2bOfferCreateContext";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "b2b/b2bSellersClient" });
 
 type OfferFilters = {
   search?: string;
@@ -341,7 +344,7 @@ export class B2BSellersClient {
       const filtered = entities.filter((name) => /offer|quote/i.test(name));
       return Array.from(new Set(filtered));
     } catch (error) {
-      console.warn("[B2B] Failed to discover offer entities:", error);
+      log.warn({ err: error }, "[B2B] Failed to discover offer entities:");
       return [];
     }
   }
@@ -675,7 +678,7 @@ export class B2BSellersClient {
       const filtered = entities.filter((name) => /offer.*item|item.*offer|offer.*position|position.*offer/i.test(name));
       return Array.from(new Set(filtered));
     } catch (error) {
-      console.warn("[B2B] Failed to discover offer item entities:", error);
+      log.warn({ err: error }, "[B2B] Failed to discover offer item entities:");
       return [];
     }
   }
@@ -797,10 +800,7 @@ export class B2BSellersClient {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(
-        `[B2BSellers] createOffer ${response.status} ${entityType} – Shopware error:`,
-        errorText
-      );
+      log.error(`[B2BSellers] createOffer ${response.status} ${entityType} – Shopware error: ${errorText}`);
       const detail = formatShopwareWriteError(errorText);
       throw new Error(`Angebot konnte nicht erstellt werden: ${detail}`);
     }

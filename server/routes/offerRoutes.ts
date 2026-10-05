@@ -14,6 +14,9 @@ import { buildOfferErpExportModel, offerErpExportToCsv, offerErpExportToXml } fr
 import { buildOfferDetailJson } from "../offers/offerDetailBuilder";
 import { generateOfferPlainToken, hashOfferPublicToken } from "../offers/offerToken";
 import { sendEmail } from "../email/emailOutbound";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "routes/offerRoutes" });
 
 export function registerOfferRoutes(app: Express): void {
   app.get("/api/offers/learning-settings", requireAuth, requireManageOffers, async (req, res) => {
@@ -22,7 +25,7 @@ export function registerOfferRoutes(app: Express): void {
       const settings = await getOfferLearningSettings(storage, tenantId);
       res.json(settings);
     } catch (error: any) {
-      console.error("Error fetching offer learning settings:", error);
+      log.error({ err: error }, "Error fetching offer learning settings:");
       res.status(500).json({ error: error.message || "Failed to fetch offer learning settings" });
     }
   });
@@ -41,7 +44,7 @@ export function registerOfferRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
-      console.error("Error saving offer learning settings:", error);
+      log.error({ err: error }, "Error saving offer learning settings:");
       res.status(500).json({ error: error.message || "Failed to save offer learning settings" });
     }
   });
@@ -73,7 +76,7 @@ export function registerOfferRoutes(app: Express): void {
       });
       res.json({ success: true });
     } catch (error: any) {
-      console.error("Error adding CPQ configuration to offer:", error);
+      log.error({ err: error }, "Error adding CPQ configuration to offer:");
       res.status(500).json({ error: error.message || "Konfiguration konnte nicht zum Angebot hinzugefügt werden" });
     }
   });
@@ -111,7 +114,7 @@ export function registerOfferRoutes(app: Express): void {
       });
       res.json({ offers, total });
     } catch (error: any) {
-      console.error("Error fetching offers:", error);
+      log.error({ err: error }, "Error fetching offers:");
       res.status(500).json({ error: error.message || "Failed to fetch offers" });
     }
   });
@@ -164,7 +167,7 @@ export function registerOfferRoutes(app: Express): void {
       }
       res.send(pdfBuffer);
     } catch (error: any) {
-      console.error("Error generating offer config PDF:", error);
+      log.error({ err: error }, "Error generating offer config PDF:");
       res.status(500).json({ error: error.message || "Failed to generate configuration PDF" });
     }
   });
@@ -217,7 +220,7 @@ export function registerOfferRoutes(app: Express): void {
       }
       res.send(pdfBuffer);
     } catch (error: any) {
-      console.error("Error generating offer PDF:", error);
+      log.error({ err: error }, "Error generating offer PDF:");
       res.status(500).json({ error: error.message || "PDF not available" });
     }
   });
@@ -241,7 +244,7 @@ export function registerOfferRoutes(app: Express): void {
       res.setHeader("Content-Disposition", `attachment; filename="${safeName}.csv"`);
       res.send(Buffer.from(csv, "utf8"));
     } catch (error: any) {
-      console.error("Error generating offer ERP CSV:", error);
+      log.error({ err: error }, "Error generating offer ERP CSV:");
       res.status(500).json({ error: error.message || "Failed to export offer CSV" });
     }
   });
@@ -265,7 +268,7 @@ export function registerOfferRoutes(app: Express): void {
       res.setHeader("Content-Disposition", `attachment; filename="${safeName}.xml"`);
       res.send(Buffer.from(xml, "utf8"));
     } catch (error: any) {
-      console.error("Error generating offer ERP XML:", error);
+      log.error({ err: error }, "Error generating offer ERP XML:");
       res.status(500).json({ error: error.message || "Failed to export offer XML" });
     }
   });
@@ -277,7 +280,7 @@ export function registerOfferRoutes(app: Express): void {
       const detail = await buildOfferDetailJson(storage, id, (req as any).tenantId);
       res.json(detail);
     } catch (error: any) {
-      console.error("Error fetching offer details:", error);
+      log.error({ err: error }, "Error fetching offer details:");
       res.status(500).json({ error: error.message || "Failed to fetch offer details" });
     }
   });
@@ -302,7 +305,7 @@ export function registerOfferRoutes(app: Express): void {
           : null,
       });
     } catch (error: any) {
-      console.error("Error fetching offer share link:", error);
+      log.error({ err: error }, "Error fetching offer share link:");
       res.status(500).json({ error: error.message || "Failed to fetch share link" });
     }
   });
@@ -378,7 +381,7 @@ export function registerOfferRoutes(app: Express): void {
           expiresAt: expiresAt.toISOString(),
         });
       } catch (error: any) {
-        console.error("Error creating offer share link:", error);
+        log.error({ err: error }, "Error creating offer share link:");
         res.status(500).json({ error: error.message || "Failed to create share link" });
       }
     }
@@ -396,7 +399,7 @@ export function registerOfferRoutes(app: Express): void {
         await storage.revokeOfferPublicLinksForOffer(id, (req as any).tenantId);
         res.json({ success: true });
       } catch (error: any) {
-        console.error("Error revoking offer share link:", error);
+        log.error({ err: error }, "Error revoking offer share link:");
         res.status(500).json({ error: error.message || "Failed to revoke share link" });
       }
     }
@@ -506,7 +509,7 @@ export function registerOfferRoutes(app: Express): void {
 
         res.json({ success: true, sentTo: to, publicUrl });
       } catch (error: any) {
-        console.error("Error sending offer email:", error);
+        log.error({ err: error }, "Error sending offer email:");
         res.status(500).json({ error: error.message || "Angebot konnte nicht per E-Mail versendet werden" });
       }
     }
@@ -537,7 +540,7 @@ export function registerOfferRoutes(app: Express): void {
       await client.updateOffer(id, validated);
       res.json({ success: true });
     } catch (error: any) {
-      console.error("Error updating offer:", error);
+      log.error({ err: error }, "Error updating offer:");
       res.status(500).json({ error: error.message || "Failed to update offer" });
     }
   });
@@ -549,7 +552,7 @@ export function registerOfferRoutes(app: Express): void {
       const services = await listOfferServiceProducts(storage, req.tenantId ?? null);
       res.json({ services });
     } catch (error: any) {
-      console.error("Error listing offer service products:", error);
+      log.error({ err: error }, "Error listing offer service products:");
       res.status(500).json({ error: error.message || "Zusatzleistungen konnten nicht geladen werden" });
     }
   });
@@ -568,7 +571,7 @@ export function registerOfferRoutes(app: Express): void {
       await addServiceLineItemToOffer(storage, req.tenantId ?? null, id, productNumber, unitPriceNet, quantity ?? 1);
       res.json({ success: true });
     } catch (error: any) {
-      console.error("Error adding service line item:", error);
+      log.error({ err: error }, "Error adding service line item:");
       res.status(500).json({ error: error.message || "Position konnte nicht hinzugefügt werden" });
     }
   });
@@ -581,7 +584,7 @@ export function registerOfferRoutes(app: Express): void {
       const suggestion = await computeOfferMontageSuggestion(storage, req.tenantId ?? null, id);
       res.json(suggestion);
     } catch (error: any) {
-      console.error("Error computing montage suggestion:", error);
+      log.error({ err: error }, "Error computing montage suggestion:");
       res.status(500).json({ error: error.message || "Montage-Berechnung fehlgeschlagen" });
     }
   });
@@ -599,7 +602,7 @@ export function registerOfferRoutes(app: Express): void {
       await addMontageLineItemToOffer(storage, req.tenantId ?? null, id, unitPriceNet, quantity ?? 1);
       res.json({ success: true });
     } catch (error: any) {
-      console.error("Error adding montage line item:", error);
+      log.error({ err: error }, "Error adding montage line item:");
       res.status(500).json({ error: error.message || "Montageposition konnte nicht hinzugefügt werden" });
     }
   });
@@ -617,7 +620,7 @@ export function registerOfferRoutes(app: Express): void {
       await client.removeOfferLineItem(id, itemId);
       res.json({ success: true });
     } catch (error: any) {
-      console.error("Error removing offer line item:", error);
+      log.error({ err: error }, "Error removing offer line item:");
       res.status(500).json({ error: error.message || "Position konnte nicht entfernt werden" });
     }
   });
@@ -650,7 +653,7 @@ export function registerOfferRoutes(app: Express): void {
         configurations,
       });
     } catch (error: any) {
-      console.error("Error loading room layout:", error);
+      log.error({ err: error }, "Error loading room layout:");
       res.status(500).json({ error: error.message || "Raum-Layout konnte nicht geladen werden" });
     }
   });
@@ -756,7 +759,7 @@ export function registerOfferRoutes(app: Express): void {
       if (error?.name === "ZodError") {
         return res.status(400).json({ error: "Ungültige Eingabe", details: error.errors });
       }
-      console.error("Error saving room layout:", error);
+      log.error({ err: error }, "Error saving room layout:");
       res.status(500).json({ error: error.message || "Raum-Layout konnte nicht gespeichert werden" });
     }
   });
@@ -775,7 +778,7 @@ export function registerOfferRoutes(app: Express): void {
       await client.approveOffer(id);
       res.json({ success: true });
     } catch (error: any) {
-      console.error("Error approving offer:", error);
+      log.error({ err: error }, "Error approving offer:");
       res.status(500).json({ error: error.message || "Failed to approve offer" });
     }
   });
@@ -795,7 +798,7 @@ export function registerOfferRoutes(app: Express): void {
       await client.rejectOffer(id, reason);
       res.json({ success: true });
     } catch (error: any) {
-      console.error("Error rejecting offer:", error);
+      log.error({ err: error }, "Error rejecting offer:");
       res.status(500).json({ error: error.message || "Failed to reject offer" });
     }
   });

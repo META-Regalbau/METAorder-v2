@@ -7,6 +7,9 @@ import { isOrderEligibleForShippingPick } from "@shared/orderShippingEligibility
 import { enrichOrdersWithStockAvailability } from "../erp/orderStockEnrichment";
 import { checkOrderChannelAccess, dedupeOrdersByNumber, filterOrdersBySalesChannels, getOrdersWithCache, getSalesChannelFilter } from "./routeHelpers";
 import type { Express } from "express";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "routes/operationsRoutes" });
 
 export function registerOperationsRoutes(app: Express): void {
   // Shipping Dashboard - Get orders ready for shipping with equipment flags
@@ -76,7 +79,7 @@ export function registerOperationsRoutes(app: Express): void {
 
       res.json(ordersWithFlags);
     } catch (error: any) {
-      console.error("Error fetching shipping orders:", error);
+      moduleLog.error({ err: error }, "Error fetching shipping orders:");
       res.status(500).json({ error: error.message || "Failed to fetch shipping orders" });
     }
   });
@@ -87,7 +90,7 @@ export function registerOperationsRoutes(app: Express): void {
       const updates = await storage.getProcessUpdates();
       res.json(updates);
     } catch (error: any) {
-      console.error("Error fetching process updates:", error);
+      moduleLog.error({ err: error }, "Error fetching process updates:");
       res.status(500).json({ error: "Failed to fetch process updates" });
     }
   });
@@ -107,7 +110,7 @@ export function registerOperationsRoutes(app: Express): void {
 
       res.status(201).json(newUpdate);
     } catch (error: any) {
-      console.error("Error creating process update:", error);
+      moduleLog.error({ err: error }, "Error creating process update:");
       if (error.name === 'ZodError') {
         return res.status(400).json({ error: error.errors });
       }
@@ -134,7 +137,7 @@ export function registerOperationsRoutes(app: Express): void {
 
       res.json(updated);
     } catch (error: any) {
-      console.error("Error updating process update:", error);
+      moduleLog.error({ err: error }, "Error updating process update:");
       if (error.name === 'ZodError') {
         return res.status(400).json({ error: error.errors });
       }
@@ -154,7 +157,7 @@ export function registerOperationsRoutes(app: Express): void {
 
       res.json({ success: true });
     } catch (error: any) {
-      console.error("Error deleting process update:", error);
+      moduleLog.error({ err: error }, "Error deleting process update:");
       res.status(500).json({ error: "Failed to delete process update" });
     }
   });
@@ -170,14 +173,14 @@ export function registerOperationsRoutes(app: Express): void {
       const client = new ShopwareClient(settings);
       const { productNumber } = req.params;
       
-      console.log(`[DEBUG] Fetching product with productNumber: ${productNumber}`);
+      moduleLog.info(`[DEBUG] Fetching product with productNumber: ${productNumber}`);
       
       // Search for the specific product - include inactive for debugging
       const result = await client.fetchProducts(10, 1, productNumber, undefined, false, undefined, undefined, undefined, true);
       
-      console.log(`[DEBUG] Found ${result.products.length} products, total: ${result.total}`);
+      moduleLog.info(`[DEBUG] Found ${result.products.length} products, total: ${result.total}`);
       if (result.products.length > 0) {
-        console.log(`[DEBUG] Product:`, JSON.stringify(result.products[0], null, 2));
+        moduleLog.info(`[DEBUG] Product: ${JSON.stringify(result.products[0], null, 2)}`);
       }
       
       res.json({
@@ -186,7 +189,7 @@ export function registerOperationsRoutes(app: Express): void {
         product: result.products[0] || null,
       });
     } catch (error: any) {
-      console.error("[DEBUG] Error fetching product:", error);
+      moduleLog.error({ err: error }, "[DEBUG] Error fetching product:");
       res.status(500).json({ error: error.message });
     }
   });
@@ -210,7 +213,7 @@ export function registerOperationsRoutes(app: Express): void {
       
       res.json(runs);
     } catch (error) {
-      console.error("[ERP Automation] Error fetching automation history:", error);
+      moduleLog.error({ err: error }, "[ERP Automation] Error fetching automation history:");
       res.status(500).json({ error: "Failed to fetch automation history" });
     }
   });
@@ -241,7 +244,7 @@ export function registerOperationsRoutes(app: Express): void {
       const runs = await storage.getErpAutomationRunsByOrderId(orderId);
       res.json(runs);
     } catch (error) {
-      console.error("[ERP Automation] Error fetching order automation history:", error);
+      moduleLog.error({ err: error }, "[ERP Automation] Error fetching order automation history:");
       res.status(500).json({ error: "Failed to fetch order automation history" });
     }
   });
@@ -270,7 +273,7 @@ export function registerOperationsRoutes(app: Express): void {
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      console.error("[ERP Automation] Error triggering manual automation:", error);
+      moduleLog.error({ err: error }, "[ERP Automation] Error triggering manual automation:");
       res.status(500).json({ error: "Failed to trigger automation" });
     }
   });
@@ -281,7 +284,7 @@ export function registerOperationsRoutes(app: Express): void {
       const carriers = await storage.getAllShippingCarriers();
       res.json(carriers);
     } catch (error) {
-      console.error("Error fetching carriers:", error);
+      moduleLog.error({ err: error }, "Error fetching carriers:");
       res.status(500).json({ error: "Failed to fetch carriers" });
     }
   });
@@ -294,7 +297,7 @@ export function registerOperationsRoutes(app: Express): void {
       const carrier = await storage.createShippingCarrier(validatedData);
       res.status(201).json(carrier);
     } catch (error: any) {
-      console.error("Error creating carrier:", error);
+      moduleLog.error({ err: error }, "Error creating carrier:");
       
       // Handle validation errors
       if (error?.name === 'ZodError') {
@@ -326,7 +329,7 @@ export function registerOperationsRoutes(app: Express): void {
       
       res.status(204).send();
     } catch (error) {
-      console.error("Error deleting carrier:", error);
+      moduleLog.error({ err: error }, "Error deleting carrier:");
       res.status(500).json({ error: "Failed to delete carrier" });
     }
   });

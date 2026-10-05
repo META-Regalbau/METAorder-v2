@@ -17,6 +17,9 @@ import { parseCsv, parsePdf, enrichEntriesWithAI, matchEntries } from "../invoic
 import { getAISettings } from "../ai/aiConfig";
 import { getInvoiceAutomationSettings } from "../invoicing/invoiceSending";
 import { parseFakturaRowsFromBuffer, runFakturaImport } from "../invoicing/shopFakturenImport";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "routes/invoicingRoutes" });
 
 export function registerInvoicingRoutes(app: Express): void {
   // Dunning preview (no sending)
@@ -47,7 +50,7 @@ export function registerInvoicingRoutes(app: Express): void {
 
       res.json({ enabled: true, items });
     } catch (error: any) {
-      console.error("Error fetching dunning preview:", error);
+      log.error({ err: error }, "Error fetching dunning preview:");
       res.status(500).json({ error: error.message || "Failed to fetch dunning preview" });
     }
   });
@@ -123,7 +126,7 @@ export function registerInvoicingRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
-      console.error("Error sending dunning:", error);
+      log.error({ err: error }, "Error sending dunning:");
       res.status(500).json({ error: error.message || "Failed to send dunning" });
     }
   });
@@ -170,7 +173,7 @@ export function registerInvoicingRoutes(app: Express): void {
       const buf = await fs.readFile(filePath);
       res.send(buf);
     } catch (error: any) {
-      console.error("Error serving dunning PDF:", error);
+      log.error({ err: error }, "Error serving dunning PDF:");
       res.status(500).json({ error: error.message || "Failed to get PDF" });
     }
   });
@@ -233,7 +236,7 @@ export function registerInvoicingRoutes(app: Express): void {
       });
       res.json({ results });
     } catch (error: any) {
-      console.error("Accounting upload failed:", error);
+      log.error({ err: error }, "Accounting upload failed:");
       res.status(500).json({ error: error.message || "Failed to process accounting file" });
     }
   });
@@ -253,7 +256,7 @@ export function registerInvoicingRoutes(app: Express): void {
       await client.markOrderPaid(orderId);
       res.json({ success: true });
     } catch (error: any) {
-      console.error("Accounting confirm failed:", error);
+      log.error({ err: error }, "Accounting confirm failed:");
       res.status(500).json({ error: error.message || "Failed to confirm payment" });
     }
   });
@@ -316,7 +319,7 @@ export function registerInvoicingRoutes(app: Express): void {
         const result = await runFakturaImport(client, tenantId, rows, options);
         res.json(result);
       } catch (error: any) {
-        console.error("Shop-Fakturen-Import failed:", error);
+        log.error({ err: error }, "Shop-Fakturen-Import failed:");
         res.status(500).json({ error: error.message || "Import fehlgeschlagen" });
       }
     },

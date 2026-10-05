@@ -8,6 +8,9 @@ import pg from "pg";
 import type { Pool as PgPoolType } from "pg";
 import ws from "ws";
 import * as schema from "../shared/schema";
+import { logger } from "./lib/logger";
+
+const log = logger.child({ component: "db" });
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 loadEnv({ path: path.resolve(__dirname, "..", "docker.env") });
@@ -45,6 +48,6 @@ export async function ensureVectorExtension(): Promise<void> {
     const queryText = "CREATE EXTENSION IF NOT EXISTS vector";
     await (pool as { query: (text: string) => Promise<unknown> }).query(queryText);
   } catch (error) {
-    console.warn("[DB] Unable to ensure pgvector extension:", error);
+    log.warn({ err: error }, "[DB] Unable to ensure pgvector extension:");
   }
 }

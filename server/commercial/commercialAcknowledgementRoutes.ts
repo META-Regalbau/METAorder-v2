@@ -26,6 +26,9 @@ import {
   type AcknowledgementShopwareOrder,
   type OrderAcknowledgement,
 } from "./commercialOrderAcknowledgement";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "commercial/commercialAcknowledgementRoutes" });
 
 /** Eigener Zähler statt des Angebots-Limiters: andere Zielgruppe, andere Last. */
 const WINDOW_MS = 60_000;
@@ -88,7 +91,7 @@ async function resolveToken(
   const token = validation.token;
   void storage
     .touchCommercialCustomerApiTokenLastUsed(token.id)
-    .catch((e) => console.warn("[Acknowledgement] lastUsed update failed:", e));
+    .catch((e) => log.warn({ err: e }, "[Acknowledgement] lastUsed update failed:"));
 
   return {
     id: token.id,
@@ -131,7 +134,7 @@ async function loadShopwareOrderForDraft(
       }),
     };
   } catch (e) {
-    console.warn("[Acknowledgement] Shopware-Bestellung konnte nicht geladen werden:", e);
+    log.warn({ err: e }, "[Acknowledgement] Shopware-Bestellung konnte nicht geladen werden:");
     return null;
   }
 }
@@ -190,7 +193,7 @@ export function registerCommercialAcknowledgementRoutes(app: Express, storage: I
           documents: acknowledgements,
         });
       } catch (error) {
-        console.error("[Acknowledgement] lookup failed:", error);
+        log.error({ err: error }, "[Acknowledgement] lookup failed:");
         return res.status(500).json({ error: "Abfrage fehlgeschlagen." });
       }
     }

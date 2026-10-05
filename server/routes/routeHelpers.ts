@@ -9,6 +9,9 @@ import path from "path";
 import type { IStorage } from "../storage";
 import { ShopwareClient } from "../shopware/shopware";
 import { getTenantIdFromContext } from "../lib/tenantContext";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "routes/routeHelpers" });
 
 export const uploadRateLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -150,7 +153,7 @@ export async function assignTicketAutomatically(ticket: Ticket): Promise<string 
             }
           }
         } catch (error) {
-          console.error("Error parsing rule conditions:", error);
+          moduleLog.error({ err: error }, "Error parsing rule conditions:");
           continue;
         }
       }
@@ -158,7 +161,7 @@ export async function assignTicketAutomatically(ticket: Ticket): Promise<string 
 
     return null; // No matching rule
   } catch (error) {
-    console.error("Error in auto-assignment:", error);
+    moduleLog.error({ err: error }, "Error in auto-assignment:");
     return null;
   }
 }
@@ -169,7 +172,7 @@ export async function resolveUserRoleForChannels(user: any): Promise<{ salesChan
   try {
     return (await storage.getRole(user.roleId)) ?? null;
   } catch (error) {
-    console.error("Error fetching role for sales channel filter:", error);
+    moduleLog.error({ err: error }, "Error fetching role for sales channel filter:");
     return null;
   }
 }
@@ -340,7 +343,7 @@ export async function filterTicketsBySalesChannels(
         ordersBySalesChannel.set(orderId, order.salesChannelId);
       });
     } catch (error) {
-      console.error("[Security] Error fetching orders for ticket filtering:", error);
+      moduleLog.error({ err: error }, "[Security] Error fetching orders for ticket filtering:");
       // SECURITY: If we can't fetch orders, return only standalone tickets with creator/assignee check
       return tickets.filter(ticket => {
         if (!ticket.orderId) {
@@ -404,7 +407,7 @@ export async function getOrdersWithCache(
       const { syncShopwareMirrorForTenant } = await import("../shopware/shopwareMirror");
       await syncShopwareMirrorForTenant(storage, client, tenantId ?? null, { entities: ["orders"] });
     } catch (error) {
-      console.error("[orders-cache] Sync fehlgeschlagen, liefere Spiegel-Stand:", error);
+      moduleLog.error({ err: error }, "[orders-cache] Sync fehlgeschlagen, liefere Spiegel-Stand:");
     }
   }
 
@@ -413,14 +416,14 @@ export async function getOrdersWithCache(
   const orders = mirrorRowsToOrders(rows);
   const fromCache = !needsSync;
 
-  console.log(`[orders-cache] ${fromCache ? "hit" : "synced"} (${orders.length} orders, mirror)`);
+  moduleLog.info(`[orders-cache] ${fromCache ? "hit" : "synced"} (${orders.length} orders, mirror)`);
 
   if (needsSync && tenantId) {
     try {
       const { triggerShopwareSalesStockSync } = await import("../erp/erpShopwareSalesStock");
       triggerShopwareSalesStockSync(tenantId, orders);
     } catch (err) {
-      console.error("[orders-cache] shopware sales stock trigger failed:", err);
+      moduleLog.error({ err }, "[orders-cache] shopware sales stock trigger failed:");
     }
   }
 

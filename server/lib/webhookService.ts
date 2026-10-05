@@ -4,6 +4,9 @@ import { storage } from "../storage";
 import crypto from "crypto";
 import { getTenantIdFromContext } from "./tenantContext";
 import { validateHttpsUrlForOutboundFetch } from "./safeOutboundUrl";
+import { logger } from "./logger";
+
+const moduleLog = logger.child({ component: "lib/webhookService" });
 
 // Webhook payload types for different events
 export type TicketCreatedPayload = {
@@ -221,7 +224,7 @@ class WebhookService {
     try {
       await this.dispatch(eventType, payload, metadata, requestId);
     } catch (error) {
-      console.error(`[WebhookService] Dispatch error for ${eventType}:`, error);
+      moduleLog.error({ err: error }, `[WebhookService] Dispatch error for ${eventType}:`);
     } finally {
       this.activeRequests--;
     }
@@ -241,16 +244,14 @@ class WebhookService {
     const config = configs.find((c) => c.eventType === eventType);
 
     if (!config || !config.enabled || !config.targetUrl) {
-      console.log(`[WebhookService] No active webhook for ${eventType}`);
+      moduleLog.info(`[WebhookService] No active webhook for ${eventType}`);
       return;
     }
 
     // Validate URL to prevent SSRF
     const urlValidation = this.validateWebhookUrl(config.targetUrl);
     if (!urlValidation.valid) {
-      console.error(
-        `[WebhookService] Invalid webhook URL for ${eventType}: ${urlValidation.error}`
-      );
+      moduleLog.error(`[WebhookService] Invalid webhook URL for ${eventType}: ${urlValidation.error}`);
       await storage.createWebhookLog({
         requestId,
         eventType,
@@ -315,9 +316,7 @@ class WebhookService {
           payload: this.trimPayload(webhookPayload),
         });
 
-        console.log(
-          `[WebhookService] Successfully delivered ${eventType} to ${targetUrl} (attempt ${attempt}/${maxAttempts})`
-        );
+        moduleLog.info(`[WebhookService] Successfully delivered ${eventType} to ${targetUrl} (attempt ${attempt}/${maxAttempts})`);
         return; // Success - exit retry loop
       } catch (error: any) {
         const durationMs = Date.now() - startTime;
@@ -340,23 +339,17 @@ class WebhookService {
 
         // Don't retry on permanent errors (4xx)
         if (isPermanentError && error.status !== 429) {
-          console.error(
-            `[WebhookService] Permanent error (${error.status}) for ${eventType} - not retrying`
-          );
+          moduleLog.error(`[WebhookService] Permanent error (${error.status}) for ${eventType} - not retrying`);
           return;
         }
 
         // If not last attempt, wait with exponential backoff
         if (!isLastAttempt) {
           const backoffMs = initialBackoffMs * Math.pow(backoffFactor, attempt - 1);
-          console.log(
-            `[WebhookService] Retry ${attempt}/${maxAttempts} for ${eventType} failed, waiting ${backoffMs}ms...`
-          );
+          moduleLog.info(`[WebhookService] Retry ${attempt}/${maxAttempts} for ${eventType} failed, waiting ${backoffMs}ms...`);
           await new Promise((resolve) => setTimeout(resolve, backoffMs));
         } else {
-          console.error(
-            `[WebhookService] All ${maxAttempts} attempts failed for ${eventType}`
-          );
+          moduleLog.error(`[WebhookService] All ${maxAttempts} attempts failed for ${eventType}`);
         }
       }
     }

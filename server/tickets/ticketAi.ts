@@ -4,6 +4,9 @@ import type { Ticket } from "@shared/schema";
 import type { IStorage } from "../storage";
 import { chatCompletion, isChatLlmConfigured, resolveChatTarget } from "../ai/llmChat";
 import type { ChatProvider } from "../ai/llmClient";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "tickets/ticketAi" });
 
 export type TicketAiResult = {
   category: TicketCategory;
@@ -140,7 +143,7 @@ export async function classifyTicketForRules(storage: IStorage, ticket: Ticket):
       source: (await resolveChatTarget(getSetting, "fast")).provider,
     };
   } catch (error) {
-    console.error("[TicketAI] Classification failed:", error);
+    log.error({ err: error }, "[TicketAI] Classification failed:");
     return heuristicClassification(ticket);
   }
 }

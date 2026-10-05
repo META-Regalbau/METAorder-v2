@@ -11,6 +11,9 @@ import { requireTenantId } from "./erpLogic";
 import { syncShopwareMirrorForTenant } from "../shopware/shopwareMirror";
 import { storage } from "../storage";
 import { ShopwareClient } from "../shopware/shopware";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "erp/erpStockReconcile" });
 
 export type StockReconcileRow = {
   productNumber: string;
@@ -182,7 +185,7 @@ export async function getDefaultWarehouseOrThrow(tenantId: string) {
       const updated = await erpStorage.updateWarehouse(def.id, { isDefault: true }, tenantId);
       if (updated) def = updated;
     } catch (err) {
-      console.warn("[erp/stock-reconcile] could not mark warehouse as default:", err);
+      log.warn({ err }, "[erp/stock-reconcile] could not mark warehouse as default:");
     }
   }
 

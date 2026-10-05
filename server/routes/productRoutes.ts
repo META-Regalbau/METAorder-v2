@@ -24,6 +24,9 @@ export const PRODUCT_AI_PER_MINUTE = 10;
 import { getCombinedCrossSellingRules, loadCrossSellRankingBundle, crossSellSuggestOptions, dedupeAndLimitSuggestions } from "../cross-selling/crossSellService";
 import { RuleEngine } from "../cross-selling/ruleEngine";
 import type { Express } from "express";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "routes/productRoutes" });
 
 export function registerProductRoutes(app: Express): void {
   // Products routes
@@ -78,9 +81,7 @@ export function registerProductRoutes(app: Express): void {
         return res.json({ products: [], total: 0 });
       }
       
-      console.log(
-        `[/api/products] User: ${user?.username}, Role: ${user?.roleDetails?.name || user?.role}, isAdmin: ${isAdmin}, showInactive: ${showInactive}, withGlb: ${withGlb}, withVariantsOnly: ${withVariantsOnly}, includeVariants: ${includeVariants}, categoryId: ${categoryId || "all"}, width: ${width || "any"}, height: ${height || "any"}, depth: ${depth || "any"}`
-      );
+      moduleLog.info(`[/api/products] User: ${user?.username}, Role: ${user?.roleDetails?.name || user?.role}, isAdmin: ${isAdmin}, showInactive: ${showInactive}, withGlb: ${withGlb}, withVariantsOnly: ${withVariantsOnly}, includeVariants: ${includeVariants}, categoryId: ${categoryId || "all"}, width: ${width || "any"}, height: ${height || "any"}, depth: ${depth || "any"}`);
 
       let result: { products: Product[]; total: number };
 
@@ -228,7 +229,7 @@ export function registerProductRoutes(app: Express): void {
       res.json(result);
     } catch (error: any) {
       const msg = error?.message || "Failed to fetch products";
-      console.error("[/api/products] Error:", msg, error?.stack);
+      moduleLog.error({ messageText: msg, stack: error?.stack }, "[/api/products] Error:");
       res.status(500).json({ error: msg });
     }
   });
@@ -250,7 +251,7 @@ export function registerProductRoutes(app: Express): void {
 
       res.json(pricing);
     } catch (error: any) {
-      console.error("[/api/products/pricing-details] Error:", error?.message || error);
+      moduleLog.error({ err: error }, "[/api/products/pricing-details] Error:");
       res.status(500).json({ error: "Failed to load product pricing details" });
     }
   });
@@ -381,12 +382,12 @@ export function registerProductRoutes(app: Express): void {
                     .where(and(...conditions));
                 }
               } catch (err) {
-                console.warn("[/api/products/overview] delivery time mirror patch failed:", err);
+                moduleLog.warn({ err }, "[/api/products/overview] delivery time mirror patch failed:");
               }
             })();
           }
         } catch (err) {
-          console.warn("[/api/products/overview] delivery time resolve failed:", err);
+          moduleLog.warn({ err }, "[/api/products/overview] delivery time resolve failed:");
         }
       }
 
@@ -409,7 +410,7 @@ export function registerProductRoutes(app: Express): void {
         try {
           entityNameById = await client.resolveEntityDisplayNames(Array.from(entityIds));
         } catch (err) {
-          console.warn("[/api/products/overview] entity name resolve failed:", err);
+          moduleLog.warn({ err }, "[/api/products/overview] entity name resolve failed:");
         }
       }
 
@@ -476,7 +477,7 @@ export function registerProductRoutes(app: Express): void {
       });
     } catch (error: any) {
       const msg = error?.message || "Produkt-Übersicht fehlgeschlagen";
-      console.error("[/api/products/overview] Error:", msg, error?.stack);
+      moduleLog.error({ messageText: msg, stack: error?.stack }, "[/api/products/overview] Error:");
       res.status(500).json({ error: msg });
     }
   });
@@ -488,7 +489,7 @@ export function registerProductRoutes(app: Express): void {
       res.json({ history });
     } catch (error: any) {
       const msg = error?.message || "Preis-Historie fehlgeschlagen";
-      console.error("[/api/products/:shopwareId/price-history] Error:", msg, error?.stack);
+      moduleLog.error({ messageText: msg, stack: error?.stack }, "[/api/products/:shopwareId/price-history] Error:");
       res.status(500).json({ error: msg });
     }
   });
@@ -541,7 +542,7 @@ export function registerProductRoutes(app: Express): void {
       res.json({ product });
     } catch (error: any) {
       const msg = error?.message || "Produkt-Details fehlgeschlagen";
-      console.error("[/api/products/:productId/detail] Error:", msg, error?.stack);
+      moduleLog.error({ messageText: msg, stack: error?.stack }, "[/api/products/:productId/detail] Error:");
       res.status(500).json({ error: msg });
     }
   });
@@ -594,7 +595,7 @@ export function registerProductRoutes(app: Express): void {
         );
         res.json(result);
       } catch (error: any) {
-        console.error("[/api/products/herstellpreise/import] Error:", error?.message || error);
+        moduleLog.error({ err: error }, "[/api/products/herstellpreise/import] Error:");
         res.status(500).json({ error: error.message || "Herstellpreis-Import fehlgeschlagen" });
       }
     },
@@ -630,7 +631,7 @@ export function registerProductRoutes(app: Express): void {
         );
         res.send(buffer);
       } catch (error: any) {
-        console.error("[/api/products/visibility/import-template] Error:", error?.message || error);
+        moduleLog.error({ err: error }, "[/api/products/visibility/import-template] Error:");
         res.status(500).json({ error: error.message || "Vorlage konnte nicht erzeugt werden" });
       }
     },
@@ -682,11 +683,11 @@ export function registerProductRoutes(app: Express): void {
           { client, products, salesChannels },
           rows,
           { apply },
-          (msg) => console.log(msg),
+          (msg) => moduleLog.info(`${msg}`),
         );
         res.json(result);
       } catch (error: any) {
-        console.error("[/api/products/visibility/import] Error:", error?.message || error);
+        moduleLog.error({ err: error }, "[/api/products/visibility/import] Error:");
         res.status(500).json({ error: error.message || "Sichtbarkeits-Import fehlgeschlagen" });
       }
     },
@@ -865,7 +866,7 @@ export function registerProductRoutes(app: Express): void {
         });
       } catch (error: any) {
         const msg = error?.message || "OBX-Suche fehlgeschlagen";
-        console.error("[/api/products/obx-search] Error:", msg, error?.stack);
+        moduleLog.error({ messageText: msg, stack: error?.stack }, "[/api/products/obx-search] Error:");
         res.status(500).json({ error: msg });
       }
     },
@@ -898,7 +899,7 @@ export function registerProductRoutes(app: Express): void {
       
       res.json({ bundles: bundlesWithDetails });
     } catch (error: any) {
-      console.error("Error fetching bundles:", error);
+      moduleLog.error({ err: error }, "Error fetching bundles:");
       res.status(500).json({ error: error.message || "Failed to fetch bundles" });
     }
   });
@@ -987,7 +988,7 @@ export function registerProductRoutes(app: Express): void {
       
       res.json(created);
     } catch (error: any) {
-      console.error("Error creating bundle:", error);
+      moduleLog.error({ err: error }, "Error creating bundle:");
       if (error.name === "ZodError") {
         return res.status(400).json({ error: "Invalid bundle data", details: error.errors });
       }
@@ -1087,7 +1088,7 @@ export function registerProductRoutes(app: Express): void {
       
       res.json(updated);
     } catch (error: any) {
-      console.error("Error updating bundle:", error);
+      moduleLog.error({ err: error }, "Error updating bundle:");
       if (error.name === "ZodError") {
         return res.status(400).json({ error: "Invalid bundle data", details: error.errors });
       }
@@ -1104,7 +1105,7 @@ export function registerProductRoutes(app: Express): void {
       }
       res.json({ success: true });
     } catch (error: any) {
-      console.error("Error deleting bundle:", error);
+      moduleLog.error({ err: error }, "Error deleting bundle:");
       res.status(500).json({ error: error.message || "Failed to delete bundle" });
     }
   });
@@ -1129,7 +1130,7 @@ export function registerProductRoutes(app: Express): void {
         return res.status(400).json({ error: error.errors[0].message });
       }
       const errorMessage = typeof error?.message === "string" ? error.message : String(error);
-      console.error("Error updating product active status:", error);
+      moduleLog.error({ err: error }, "Error updating product active status:");
       try {
         const settings = await storage.getShopwareSettings();
         if (settings) {
@@ -1144,7 +1145,7 @@ export function registerProductRoutes(app: Express): void {
           }
         }
       } catch (verifyError) {
-        console.error("Error verifying product status after failure:", verifyError);
+        moduleLog.error({ err: verifyError }, "Error verifying product status after failure:");
       }
       if (typeof desiredActive === "boolean") {
         return res.json({
@@ -1169,7 +1170,7 @@ export function registerProductRoutes(app: Express): void {
       const result = await client.fetchProductCategoryIds(req.params.productId);
       res.json(result);
     } catch (error: any) {
-      console.error("Error fetching product categories:", error);
+      moduleLog.error({ err: error }, "Error fetching product categories:");
       res.status(500).json({ error: error.message || "Failed to fetch product categories" });
     }
   });
@@ -1205,7 +1206,7 @@ export function registerProductRoutes(app: Express): void {
         return res.status(400).json({ error: error.errors[0]?.message || "glbUrl required" });
       }
       const msg = typeof error?.message === "string" ? error.message : "Failed to save GLB";
-      console.error("Error saving product GLB:", error);
+      moduleLog.error({ err: error }, "Error saving product GLB:");
       res.status(500).json({ error: msg });
     }
   });
@@ -1230,7 +1231,7 @@ export function registerProductRoutes(app: Express): void {
         return res.status(400).json({ error: error.errors[0].message });
       }
       const errorMessage = typeof error?.message === "string" ? error.message : String(error);
-      console.error("Error updating product categories:", error);
+      moduleLog.error({ err: error }, "Error updating product categories:");
       try {
         const settings = await storage.getShopwareSettings();
         if (settings) {
@@ -1245,7 +1246,7 @@ export function registerProductRoutes(app: Express): void {
           }
         }
       } catch (verifyError) {
-        console.error("Error verifying product categories after failure:", verifyError);
+        moduleLog.error({ err: verifyError }, "Error verifying product categories after failure:");
       }
       if (Array.isArray(desiredCategoryIds)) {
         return res.json({
@@ -1275,7 +1276,7 @@ export function registerProductRoutes(app: Express): void {
       }
       res.json(result);
     } catch (error: any) {
-      console.error("Error fetching product sales channels:", error);
+      moduleLog.error({ err: error }, "Error fetching product sales channels:");
       res.status(500).json({ error: error.message || "Failed to fetch product sales channels" });
     }
   });
@@ -1308,7 +1309,7 @@ export function registerProductRoutes(app: Express): void {
         return res.status(400).json({ error: error.errors[0].message });
       }
       const errorMessage = typeof error?.message === "string" ? error.message : String(error);
-      console.error("Error updating product sales channels:", error);
+      moduleLog.error({ err: error }, "Error updating product sales channels:");
       try {
         const settings = await storage.getShopwareSettings();
         if (settings) {
@@ -1323,7 +1324,7 @@ export function registerProductRoutes(app: Express): void {
           }
         }
       } catch (verifyError) {
-        console.error("Error verifying product sales channels after failure:", verifyError);
+        moduleLog.error({ err: verifyError }, "Error verifying product sales channels after failure:");
       }
       if (Array.isArray(desiredSalesChannelIds)) {
         return res.json({
@@ -1388,7 +1389,7 @@ export function registerProductRoutes(app: Express): void {
         })),
       });
     } catch (error: any) {
-      console.error("Error fetching product data quality:", error);
+      moduleLog.error({ err: error }, "Error fetching product data quality:");
       res.status(500).json({ error: error.message || "Failed to fetch product data quality" });
     }
   });
@@ -1417,14 +1418,14 @@ export function registerProductRoutes(app: Express): void {
         return res.json({ interpretation });
       }
 
-      console.log(`[Semantic Search] Query: "${query}", Language: ${language || 'de'}`);
+      moduleLog.info(`[Semantic Search] Query: "${query}", Language: ${language || 'de'}`);
 
       // Use cached products (all products loaded at startup)
       const { productCache } = await import("../products/productCache");
       const cacheStatus = productCache.getStatus();
       
       if (!cacheStatus.isPopulated) {
-        console.warn("[Semantic Search] Cache not populated, falling back to live API (batch loading all products)");
+        moduleLog.warn("[Semantic Search] Cache not populated, falling back to live API (batch loading all products)");
         
         // Fallback: Fetch ALL products from Shopware API in batches
         const settings = await storage.getShopwareSettings();
@@ -1442,14 +1443,14 @@ export function registerProductRoutes(app: Express): void {
         while (hasMore) {
           const { products } = await client.fetchProducts(BATCH_SIZE, page, undefined, undefined, false);
           allProducts.push(...products);
-          console.log(`[Semantic Search Fallback] Loaded batch ${page}: ${products.length} products (total: ${allProducts.length})`);
+          moduleLog.info(`[Semantic Search Fallback] Loaded batch ${page}: ${products.length} products (total: ${allProducts.length})`);
           
           // Continue until we get less than BATCH_SIZE products
           hasMore = products.length === BATCH_SIZE;
           page++;
         }
         
-        console.log(`[Semantic Search Fallback] Fetched ${allProducts.length} products from live API (${page - 1} batches)`);
+        moduleLog.info(`[Semantic Search Fallback] Fetched ${allProducts.length} products from live API (${page - 1} batches)`);
         
         const searchResult = await executeSemanticProductSearch(
           { query, language: language || 'de' },
@@ -1462,7 +1463,7 @@ export function registerProductRoutes(app: Express): void {
       
       // Use cached products for semantic search
       const cachedProducts = productCache.getProducts();
-      console.log(`[Semantic Search] Using ${cachedProducts.length} cached products`);
+      moduleLog.info(`[Semantic Search] Using ${cachedProducts.length} cached products`);
       
       // Execute semantic search with GPT-4o
       const searchResult = await executeSemanticProductSearch(
@@ -1473,7 +1474,7 @@ export function registerProductRoutes(app: Express): void {
 
       res.json(searchResult);
     } catch (error: any) {
-      console.error("[Semantic Search] Error:", error);
+      moduleLog.error({ err: error }, "[Semantic Search] Error:");
       res.status(500).json({ error: error.message || "Semantic search failed" });
     }
   });
@@ -1503,7 +1504,7 @@ export function registerProductRoutes(app: Express): void {
         },
       });
     } catch (error: any) {
-      console.error("[Product Cache] Error fetching cache status:", error);
+      moduleLog.error({ err: error }, "[Product Cache] Error fetching cache status:");
       res.status(500).json({ error: error.message || "Failed to fetch cache status" });
     }
   });
@@ -1523,7 +1524,7 @@ export function registerProductRoutes(app: Express): void {
         return res.status(400).json({ error: "Shopware settings not configured" });
       }
       
-      console.log("[Product Cache] Manual refresh requested");
+      moduleLog.info("[Product Cache] Manual refresh requested");
       const client = new ShopwareClient(settings);
       const tenantId = (req as any).tenantId ?? null;
       const { syncShopwareMirrorForTenant } = await import("../shopware/shopwareMirror");
@@ -1544,7 +1545,7 @@ export function registerProductRoutes(app: Express): void {
         }
       });
     } catch (error: any) {
-      console.error("[Product Cache] Error refreshing cache:", error);
+      moduleLog.error({ err: error }, "[Product Cache] Error refreshing cache:");
       res.status(500).json({ error: error.message || "Failed to refresh cache" });
     }
   });
@@ -1560,11 +1561,11 @@ export function registerProductRoutes(app: Express): void {
       const client = new ShopwareClient(settings);
       const { productId } = req.params;
       
-      console.log(`Fetching cross-selling for product ${productId}...`);
+      moduleLog.info(`Fetching cross-selling for product ${productId}...`);
       const crossSellings = await client.fetchProductCrossSelling(productId);
       
       // Fetch products for each cross-selling group
-      console.log(`Fetching products for ${crossSellings.length} cross-selling groups...`);
+      moduleLog.info(`Fetching products for ${crossSellings.length} cross-selling groups...`);
       const crossSellingsWithProducts = await Promise.all(
         crossSellings.map(async (cs) => {
           const products = await client.fetchCrossSellingProducts(productId, cs.id);
@@ -1579,7 +1580,7 @@ export function registerProductRoutes(app: Express): void {
       
       res.json({ crossSellings: crossSellingsWithProducts });
     } catch (error: any) {
-      console.error("Error fetching cross-selling:", error);
+      moduleLog.error({ err: error }, "Error fetching cross-selling:");
       res.status(500).json({ error: error.message || "Failed to fetch cross-selling" });
     }
   });
@@ -1618,7 +1619,7 @@ export function registerProductRoutes(app: Express): void {
       
       res.json({ id: crossSellingId, message: "Cross-selling created successfully" });
     } catch (error: any) {
-      console.error("Error creating cross-selling:", error);
+      moduleLog.error({ err: error }, "Error creating cross-selling:");
       res.status(500).json({ error: error.message || "Failed to create cross-selling" });
     }
   });
@@ -1644,34 +1645,34 @@ export function registerProductRoutes(app: Express): void {
       const { productId, crossSellingId } = req.params;
       const { productIds } = validation.data;
       
-      console.log(`Updating cross-selling ${crossSellingId} for product ${productId}`);
-      console.log(`New product IDs: ${JSON.stringify(productIds)}`);
+      moduleLog.info(`Updating cross-selling ${crossSellingId} for product ${productId}`);
+      moduleLog.info(`New product IDs: ${JSON.stringify(productIds)}`);
       
       // Get current products to determine what to add/remove
       const currentProducts = await client.fetchCrossSellingProducts(productId, crossSellingId);
       const currentProductIds = currentProducts.map(p => p.id);
       
-      console.log(`Current product IDs: ${JSON.stringify(currentProductIds)}`);
+      moduleLog.info(`Current product IDs: ${JSON.stringify(currentProductIds)}`);
       
       // Determine which products to add and remove
       const toAdd = productIds.filter(id => !currentProductIds.includes(id));
       const toRemove = currentProductIds.filter(id => !productIds.includes(id));
       
-      console.log(`Products to add: ${JSON.stringify(toAdd)}`);
-      console.log(`Products to remove: ${JSON.stringify(toRemove)}`);
+      moduleLog.info(`Products to add: ${JSON.stringify(toAdd)}`);
+      moduleLog.info(`Products to remove: ${JSON.stringify(toRemove)}`);
       
       // Update assignments
       if (toRemove.length > 0) {
         await client.removeProductsFromCrossSelling(crossSellingId, toRemove);
       }
       if (toAdd.length > 0) {
-        console.log(`Calling assignProductsToCrossSelling with crossSellingId=${crossSellingId}, productIds=${JSON.stringify(toAdd)}`);
+        moduleLog.info(`Calling assignProductsToCrossSelling with crossSellingId=${crossSellingId}, productIds=${JSON.stringify(toAdd)}`);
         await client.assignProductsToCrossSelling(crossSellingId, toAdd);
       }
       
       res.json({ message: "Cross-selling updated successfully" });
     } catch (error: any) {
-      console.error("Error updating cross-selling:", error);
+      moduleLog.error({ err: error }, "Error updating cross-selling:");
       res.status(500).json({ error: error.message || "Failed to update cross-selling" });
     }
   });
@@ -1690,7 +1691,7 @@ export function registerProductRoutes(app: Express): void {
       
       res.json({ message: "Cross-selling deleted successfully" });
     } catch (error: any) {
-      console.error("Error deleting cross-selling:", error);
+      moduleLog.error({ err: error }, "Error deleting cross-selling:");
       res.status(500).json({ error: error.message || "Failed to delete cross-selling" });
     }
   });
@@ -1699,11 +1700,11 @@ export function registerProductRoutes(app: Express): void {
   app.get("/api/products/:productId/cross-selling-suggestions", requireAuth, requireManageCrossSellingGroups, async (req, res) => {
     try {
       const { productId } = req.params;
-      console.log(`[Suggestions] Generating cross-selling suggestions for product ${productId}...`);
+      moduleLog.info(`[Suggestions] Generating cross-selling suggestions for product ${productId}...`);
       
       const settings = await storage.getShopwareSettings(req.tenantId ?? null);
       if (!settings) {
-        console.log("[Suggestions] Shopware settings not configured");
+        moduleLog.info("[Suggestions] Shopware settings not configured");
         return res.status(400).json({ error: "Shopware settings not configured" });
       }
 
@@ -1713,18 +1714,18 @@ export function registerProductRoutes(app: Express): void {
       const sourceProduct = byId.products[0];
 
       if (!sourceProduct) {
-        console.log(`[Suggestions] Source product ${productId} not found`);
+        moduleLog.info(`[Suggestions] Source product ${productId} not found`);
         return res.status(404).json({ error: "Product not found" });
       }
       
-      console.log(`[Suggestions] Source product found: ${sourceProduct.name} (${sourceProduct.productNumber})`);
+      moduleLog.info(`[Suggestions] Source product found: ${sourceProduct.name} (${sourceProduct.productNumber})`);
 
       // Get all active rules
       const rules = await getCombinedCrossSellingRules(req.tenantId ?? null);
       const activeRules = rules.filter(r => r.active === 1);
 
       if (activeRules.length === 0) {
-        console.log("[Suggestions] No active rules found, returning empty suggestions");
+        moduleLog.info("[Suggestions] No active rules found, returning empty suggestions");
         return res.json({ suggestions: [] });
       }
 
@@ -1740,7 +1741,7 @@ export function registerProductRoutes(app: Express): void {
       );
       
       const limitedSuggestions = dedupeAndLimitSuggestions(suggestions, 10);
-      console.log(`[Suggestions] Generated ${limitedSuggestions.length} suggestion(s) for ${sourceProduct.productNumber}`);
+      moduleLog.info(`[Suggestions] Generated ${limitedSuggestions.length} suggestion(s) for ${sourceProduct.productNumber}`);
 
       res.json({
         suggestions: limitedSuggestions.map((s) => ({
@@ -1750,8 +1751,8 @@ export function registerProductRoutes(app: Express): void {
         })),
       });
     } catch (error: any) {
-      console.error("[Suggestions] Error generating cross-selling suggestions:", error);
-      console.error("[Suggestions] Error stack:", error.stack);
+      moduleLog.error({ err: error }, "[Suggestions] Error generating cross-selling suggestions:");
+      moduleLog.error({ stack: error.stack }, "[Suggestions] Error stack:");
       res.status(500).json({ error: error.message || "Failed to generate suggestions" });
     }
   });

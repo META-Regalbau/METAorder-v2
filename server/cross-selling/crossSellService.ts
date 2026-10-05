@@ -6,6 +6,9 @@ import { storage } from "../storage";
 import { type SuggestCrossSellingOptions, RuleEngine } from "./ruleEngine";
 import { ShopwareClient } from "../shopware/shopware";
 import { loadCrossSellShelvingPatternConfig, findShelvingSupplements, mergeStagingCandidatesWithQuotas } from "./crossSellShelvingHeuristics";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "cross-selling/crossSellService" });
 
 export function getRulePairKey(rule: CrossSellingRule): string | null {
   const sourceCondition = rule.sourceConditions.find(
@@ -70,7 +73,7 @@ export async function loadCrossSellRankingBundle(tenantId: string | null): Promi
     const ttlHours = Number.isFinite(envTtl) && envTtl > 0 ? envTtl : 24;
     return { learningSettings, cooccurrences, eventStatsMap, weights, topK, ttlHours };
   } catch (e) {
-    console.warn("[CrossSell] loadRankingBundle failed:", e);
+    log.warn({ err: e }, "[CrossSell] loadRankingBundle failed:");
     return null;
   }
 }

@@ -1,4 +1,7 @@
 import { webhookService } from "../lib/webhookService";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "commercial/commercialWebhookNotifications" });
 
 type DraftLike = {
   id: string;
@@ -38,15 +41,15 @@ export function emitCommercialDraftWebhooks(params: {
 
   try {
     webhookService.trigger("commercial.draft_created", base).catch((err) =>
-      console.error("[CommercialWebhook] draft_created:", err)
+      log.error({ err }, "[CommercialWebhook] draft_created:")
     );
     if (draft.status === "review_required") {
       webhookService.trigger("commercial.draft_review_required", base).catch((err) =>
-        console.error("[CommercialWebhook] draft_review_required:", err)
+        log.error({ err }, "[CommercialWebhook] draft_review_required:")
       );
     }
   } catch (e) {
-    console.error("[CommercialWebhook] emit failed:", e);
+    log.error({ err: e }, "[CommercialWebhook] emit failed:");
   }
 }
 
@@ -63,9 +66,9 @@ export function emitCommercialAutoOfferCreated(params: {
         messageId: params.messageId,
         createdAt: new Date().toISOString(),
       })
-      .catch((err) => console.error("[CommercialWebhook] auto_offer_created:", err));
+      .catch((err) => log.error({ err }, "[CommercialWebhook] auto_offer_created:"));
   } catch (e) {
-    console.error("[CommercialWebhook] auto_offer_created emit failed:", e);
+    log.error({ err: e }, "[CommercialWebhook] auto_offer_created emit failed:");
   }
 }
 
@@ -82,8 +85,8 @@ export function emitCommercialAutoOrderCreated(params: {
         messageId: params.messageId,
         createdAt: new Date().toISOString(),
       })
-      .catch((err) => console.error("[CommercialWebhook] auto_order_created:", err));
+      .catch((err) => log.error({ err }, "[CommercialWebhook] auto_order_created:"));
   } catch (e) {
-    console.error("[CommercialWebhook] auto_order_created emit failed:", e);
+    log.error({ err: e }, "[CommercialWebhook] auto_order_created emit failed:");
   }
 }

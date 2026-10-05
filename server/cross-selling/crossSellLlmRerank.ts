@@ -3,6 +3,9 @@ import type { Product } from "@shared/schema";
 import type { IStorage } from "../storage";
 import type { HybridRankedProduct } from "./crossSellHybridRanker";
 import { chatCompletion, isChatLlmConfigured, parseLlmJsonResponse } from "../ai/llmChat";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "cross-selling/crossSellLlmRerank" });
 
 const CACHE_SETTING_KEY = "cross_sell_llm_rerank_cache";
 
@@ -176,7 +179,7 @@ Die Liste ranking muss die besten zuerst enthalten (hoechstens ${topN} Eintraege
     await writeCache(storage, tenantId, cacheKey, ranking, envInt("CROSS_SELL_LLM_RERANK_TTL_HOURS", ttlHours));
     return applyLlmRanking(candidates, ranking, topN);
   } catch (e: unknown) {
-    console.warn("[CrossSellLLM] rerank failed, fallback hybrid:", e instanceof Error ? e.message : e);
+    log.warn({ err: e }, "[CrossSellLLM] rerank failed, fallback hybrid:");
     return candidates.slice(0, topN).map((c) => ({ ...c }));
   }
 }

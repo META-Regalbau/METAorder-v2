@@ -3,6 +3,9 @@ import type { EmailRoutingSettings, TicketCategory, TicketPriority } from "@shar
 import { chatCompletion, isChatLlmConfigured, resolveChatTarget } from "../ai/llmChat";
 import type { ChatProvider } from "../ai/llmClient";
 import type { IStorage } from "../storage";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "email/emailClassifier" });
 
 export type EmailClassification = {
   category: TicketCategory;
@@ -160,7 +163,7 @@ export async function classifyIncomingEmail(
       source: (await resolveChatTarget(getSetting, "fast")).provider,
     };
   } catch (error) {
-    console.error("[EmailClassifier] LLM classification failed:", error);
+    log.error({ err: error }, "[EmailClassifier] LLM classification failed:");
     return heuristicClassification(combined, settings);
   }
 }

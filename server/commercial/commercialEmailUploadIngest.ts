@@ -33,6 +33,9 @@ import {
 } from "./commercialAgentOrchestrator";
 import { attachSupportingDocumentsToDrafts, partitionCommercialParts } from "./commercialDraftAttachments";
 import { unwrapInternalForward } from "../email/emailForwardUnwrap";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "commercial/commercialEmailUploadIngest" });
 
 /** Erkennt Uploads, die eine ganze Nachricht enthalten (statt eines Einzeldokuments). */
 export function isEmailContainerUpload(fileName: string, mimeType: string): boolean {
@@ -174,10 +177,8 @@ export async function ingestCommercialEmailUpload(
     body: parsed.body?.trim() || formBody.trim(),
   });
   if (unwrapped.strippedForwardLevels > 0) {
-    console.log(
-      `[EmailIngest] ${unwrapped.strippedForwardLevels} interne Weiterleitungsebene(n) entfernt — ` +
-        `Absender der Kundenmail: ${unwrapped.from}`
-    );
+    moduleLog.info(`${`[EmailIngest] ${unwrapped.strippedForwardLevels} interne Weiterleitungsebene(n) entfernt — ` +
+        `Absender der Kundenmail: ${unwrapped.from}`}`);
   }
   const subject = unwrapped.subject;
   const emailBody = unwrapped.body.trim();
@@ -191,10 +192,8 @@ export async function ingestCommercialEmailUpload(
   const partition = await partitionCommercialParts(allCommercialParts, { ocrEnabled });
   const commercialParts = partition.draftParts;
   for (const sp of partition.supportingParts) {
-    console.log(
-      `[EmailIngest] Anhang ${sp.part.filename} als ${sp.classification.kind} erkannt ` +
-        `(${Math.round(sp.classification.confidence * 100)} %) — wird als Beilage abgelegt, kein Entwurf.`
-    );
+    moduleLog.info(`${`[EmailIngest] Anhang ${sp.part.filename} als ${sp.classification.kind} erkannt ` +
+        `(${Math.round(sp.classification.confidence * 100)} %) — wird als Beilage abgelegt, kein Entwurf.`}`);
   }
 
   const intentDocumentTextPreview =

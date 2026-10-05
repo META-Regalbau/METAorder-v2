@@ -12,6 +12,9 @@ import { evaluateDiscountLevel } from "./discountEvaluator";
 import type { requireAuth, requireViewCPQ, requireManageCPQ } from "../auth/auth";
 import { requireCpqHandoffToken } from "../auth/auth";
 import { createCpqHandoffToken } from "./cpqHandoffToken";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "cpq/cpqRoutes" });
 
 /** Stellt sicher, dass der Shopware-Produktcache (6h TTL) für CPQ-Matching befüllt ist. */
 async function ensureCpqProductCacheForTenant(tenantId: string | null | undefined): Promise<void> {
@@ -191,7 +194,7 @@ async function resolveCpqBomPayload(
         bom.totalCatalogPrice = priced.totalCatalogPrice;
       }
     } catch (pricingError: any) {
-      console.error("[CPQ] Error applying customer pricing, falling back to catalog price:", pricingError);
+      moduleLog.error({ err: pricingError }, "[CPQ] Error applying customer pricing, falling back to catalog price:");
     }
   }
 
@@ -228,7 +231,7 @@ export function registerCpqRoutes(
       const customers = await client.searchCustomers(q, limit);
       res.json({ customers });
     } catch (error: any) {
-      console.error("[CPQ] Error searching customers:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error searching customers:");
       res.status(500).json({ error: error.message ?? "Kundensuche fehlgeschlagen" });
     }
   });
@@ -259,11 +262,11 @@ export function registerCpqRoutes(
           isPortalCustomer = !!channel?.name?.toLowerCase().startsWith(pricingSettings.portalChannelNamePrefix.toLowerCase());
         }
       } catch (e: any) {
-        console.error("[CPQ] Error resolving handoff customer info:", e);
+        moduleLog.error({ err: e }, "[CPQ] Error resolving handoff customer info:");
       }
       res.json({ valid: true, customerId, customerName, isPortalCustomer, productId });
     } catch (error: any) {
-      console.error("[CPQ] Error verifying handoff token:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error verifying handoff token:");
       res.status(500).json({ error: error.message || "Handoff-Verifikation fehlgeschlagen" });
     }
   });
@@ -285,7 +288,7 @@ export function registerCpqRoutes(
       });
       res.json({ token, expiresInMinutes: ttlMinutes });
     } catch (error: any) {
-      console.error("[CPQ] Error creating handoff token:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error creating handoff token:");
       res.status(500).json({ error: error.message || "Token konnte nicht erzeugt werden" });
     }
   });
@@ -297,7 +300,7 @@ export function registerCpqRoutes(
       const systems = await cpqStorage.getSystems(tenantId);
       res.json(systems);
     } catch (error: any) {
-      console.error("[CPQ] Error fetching systems:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error fetching systems:");
       res.status(500).json({ error: error.message || "Failed to fetch systems" });
     }
   });
@@ -309,7 +312,7 @@ export function registerCpqRoutes(
       const systems = await cpqStorage.getSystems(tenantId);
       res.json(systems);
     } catch (error: any) {
-      console.error("[CPQ] Error fetching public systems:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error fetching public systems:");
       res.status(500).json({ error: error.message || "Failed to fetch systems" });
     }
   });
@@ -325,7 +328,7 @@ export function registerCpqRoutes(
       );
       res.json(system);
     } catch (error: any) {
-      console.error("[CPQ] Error creating system:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error creating system:");
       res.status(500).json({ error: error.message || "Failed to create system" });
     }
   });
@@ -339,7 +342,7 @@ export function registerCpqRoutes(
       if (!system) return res.status(404).json({ error: "System not found" });
       res.json(system);
     } catch (error: any) {
-      console.error("[CPQ] Error fetching system:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error fetching system:");
       res.status(500).json({ error: error.message || "Failed to fetch system" });
     }
   });
@@ -368,7 +371,7 @@ export function registerCpqRoutes(
       });
       res.json({ componentTypes, mappings: mappingsWithName });
     } catch (error: any) {
-      console.error("[CPQ] Error fetching components:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error fetching components:");
       res.status(500).json({ error: error.message || "Failed to fetch components" });
     }
   });
@@ -381,7 +384,7 @@ export function registerCpqRoutes(
       if (!geometry) return res.status(404).json({ error: "No geometry for this mapping" });
       res.json(geometry);
     } catch (error: any) {
-      console.error("[CPQ] Error fetching geometry:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error fetching geometry:");
       res.status(500).json({ error: error.message || "Failed to fetch geometry" });
     }
   });
@@ -400,7 +403,7 @@ export function registerCpqRoutes(
       });
       res.json(geometry);
     } catch (error: any) {
-      console.error("[CPQ] Error upserting geometry:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error upserting geometry:");
       res.status(500).json({ error: error.message || "Failed to upsert geometry" });
     }
   });
@@ -423,7 +426,7 @@ export function registerCpqRoutes(
       }
       res.json(resolveCpqGlbFromDisk(productNumber || undefined, manufacturerNumber || undefined));
     } catch (error: any) {
-      console.error("[CPQ] Error resolving GLB:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error resolving GLB:");
       res.status(500).json({ error: error.message || "Failed to resolve GLB" });
     }
   });
@@ -436,7 +439,7 @@ export function registerCpqRoutes(
       const payload = await resolveCpqOptionsPayload(id, req.tenantId ?? null, step, req.query.config as string | undefined);
       res.json(payload);
     } catch (error: any) {
-      console.error("[CPQ] Error fetching options:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error fetching options:");
       res.status(500).json({ error: error.message || "Failed to fetch options" });
     }
   });
@@ -450,7 +453,7 @@ export function registerCpqRoutes(
       const payload = await resolveCpqOptionsPayload(id, req.tenantId ?? null, step, req.query.config as string | undefined);
       res.json(payload);
     } catch (error: any) {
-      console.error("[CPQ] Error fetching public options:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error fetching public options:");
       res.status(500).json({ error: error.message || "Failed to fetch options" });
     }
   });
@@ -464,7 +467,7 @@ export function registerCpqRoutes(
       const result = evaluateRules(rules, config);
       res.json(result);
     } catch (error: any) {
-      console.error("[CPQ] Error configuring:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error configuring:");
       res.status(500).json({ error: error.message || "Failed to configure" });
     }
   });
@@ -479,7 +482,7 @@ export function registerCpqRoutes(
       const bom = await resolveCpqBomPayload(systemId, config, req.tenantId ?? null, customerId);
       res.json(bom);
     } catch (error: any) {
-      console.error("[CPQ] Error bill-of-materials:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error bill-of-materials:");
       res.status(500).json({ error: error.message || "Failed to resolve bill of materials" });
     }
   });
@@ -496,7 +499,7 @@ export function registerCpqRoutes(
       const bom = await resolveCpqBomPayload(systemId, config, req.tenantId ?? null, customerId);
       res.json(bom);
     } catch (error: any) {
-      console.error("[CPQ] Error public bill-of-materials:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error public bill-of-materials:");
       res.status(500).json({ error: error.message || "Failed to resolve bill of materials" });
     }
   });
@@ -512,7 +515,7 @@ export function registerCpqRoutes(
       );
       res.json(config);
     } catch (error: any) {
-      console.error("[CPQ] Error saving configuration:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error saving configuration:");
       res.status(500).json({ error: error.message || "Failed to save configuration" });
     }
   });
@@ -561,7 +564,7 @@ export function registerCpqRoutes(
         config: cfg,
       });
     } catch (error: any) {
-      console.error("[CPQ] Error building scene:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error building scene:");
       res.status(500).json({ error: error.message || "Failed to build scene" });
     }
   });
@@ -574,7 +577,7 @@ export function registerCpqRoutes(
       if (!config) return res.status(404).json({ error: "Configuration not found" });
       res.json(config);
     } catch (error: any) {
-      console.error("[CPQ] Error loading configuration:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error loading configuration:");
       res.status(500).json({ error: error.message || "Failed to load configuration" });
     }
   });
@@ -587,7 +590,7 @@ export function registerCpqRoutes(
       const rules = await cpqStorage.getRulesBySystem(systemId, req.tenantId ?? null);
       res.json(rules);
     } catch (error: any) {
-      console.error("[CPQ] Error fetching rules:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error fetching rules:");
       res.status(500).json({ error: error.message || "Failed to fetch rules" });
     }
   });
@@ -615,7 +618,7 @@ export function registerCpqRoutes(
       );
       res.json(rule);
     } catch (error: any) {
-      console.error("[CPQ] Error creating rule:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error creating rule:");
       res.status(500).json({ error: error.message || "Failed to create rule" });
     }
   });
@@ -641,7 +644,7 @@ export function registerCpqRoutes(
       });
       res.json(rule);
     } catch (error: any) {
-      console.error("[CPQ] Error updating rule:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error updating rule:");
       res.status(500).json({ error: error.message || "Failed to update rule" });
     }
   });
@@ -655,7 +658,7 @@ export function registerCpqRoutes(
       await cpqStorage.updateRule(id, { status: "disabled" });
       res.json({ success: true });
     } catch (error: any) {
-      console.error("[CPQ] Error deleting rule:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error deleting rule:");
       res.status(500).json({ error: error.message || "Failed to delete rule" });
     }
   });
@@ -669,7 +672,7 @@ export function registerCpqRoutes(
       const versions = await cpqStorage.getRuleVersions(id);
       res.json(versions);
     } catch (error: any) {
-      console.error("[CPQ] Error fetching rule versions:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error fetching rule versions:");
       res.status(500).json({ error: error.message || "Failed to fetch versions" });
     }
   });
@@ -693,7 +696,7 @@ export function registerCpqRoutes(
       });
       res.json(updated);
     } catch (error: any) {
-      console.error("[CPQ] Error rolling back rule:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error rolling back rule:");
       res.status(500).json({ error: error.message || "Failed to rollback" });
     }
   });
@@ -773,7 +776,7 @@ export function registerCpqRoutes(
         source: savedConfigs.length > 0 ? "saved_configurations" : "mapping_attributes",
       });
     } catch (error: any) {
-      console.error("[CPQ] Error rule preview:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error rule preview:");
       res.status(500).json({ error: error.message || "Failed to preview rule" });
     }
   });
@@ -813,7 +816,7 @@ export function registerCpqRoutes(
         message: `${configCount} Konfiguration(en) nutzen dieses System und könnten von Regeländerungen betroffen sein.`,
       });
     } catch (error: any) {
-      console.error("[CPQ] Error impact analysis:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error impact analysis:");
       res.status(500).json({ error: error.message || "Failed to analyze impact" });
     }
   });
@@ -827,7 +830,7 @@ export function registerCpqRoutes(
         message: "Shopware-Sync wird über die bestehende META Order Produkt-API abgewickelt. Kein separater CPQ-Sync-Job.",
       });
     } catch (error: any) {
-      console.error("[CPQ] Error sync status:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error sync status:");
       res.status(500).json({ error: error.message || "Failed to fetch sync status" });
     }
   });
@@ -840,7 +843,7 @@ export function registerCpqRoutes(
       const result = await getCpqCrossSelling(cart_items, req.tenantId ?? null);
       res.json(result);
     } catch (error: any) {
-      console.error("[CPQ] Error cross-selling:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error cross-selling:");
       res.status(500).json({ error: error.message || "Failed to get cross-selling" });
     }
   });
@@ -853,7 +856,7 @@ export function registerCpqRoutes(
       const result = await validateCpqCart(cart_items, req.tenantId ?? null);
       res.json(result);
     } catch (error: any) {
-      console.error("[CPQ] Error validating cart:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error validating cart:");
       res.status(500).json({ error: error.message || "Failed to validate cart" });
     }
   });
@@ -873,7 +876,7 @@ export function registerCpqRoutes(
       });
       res.json(transfer);
     } catch (error: any) {
-      console.error("[CPQ] Error cart transfer:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error cart transfer:");
       const validationDetails = error?.details as unknown;
       if (validationDetails) {
         return res.status(400).json({
@@ -902,7 +905,7 @@ export function registerCpqRoutes(
       const levels = await cpqStorage.getDiscountLevels(req.tenantId ?? null);
       res.json(levels);
     } catch (error: any) {
-      console.error("[CPQ] Error fetching discount levels:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error fetching discount levels:");
       res.status(500).json({ error: error.message || "Failed to fetch discount levels" });
     }
   });
@@ -925,7 +928,7 @@ export function registerCpqRoutes(
       const revenueLoss = listPrice && discountedPrice ? listPrice - discountedPrice : undefined;
       res.json({ ...result, revenueLoss, listPrice, discountedPrice });
     } catch (error: any) {
-      console.error("[CPQ] Error evaluating discount:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error evaluating discount:");
       res.status(500).json({ error: error.message || "Failed to evaluate discount" });
     }
   });
@@ -936,7 +939,7 @@ export function registerCpqRoutes(
       const levels = await cpqStorage.getAllDiscountLevels(req.tenantId ?? null);
       res.json(levels);
     } catch (error: any) {
-      console.error("[CPQ] Error fetching admin discount levels:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error fetching admin discount levels:");
       res.status(500).json({ error: error.message || "Failed to fetch discount levels" });
     }
   });
@@ -961,7 +964,7 @@ export function registerCpqRoutes(
       );
       res.json(level);
     } catch (error: any) {
-      console.error("[CPQ] Error creating discount level:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error creating discount level:");
       res.status(500).json({ error: error.message || "Failed to create discount level" });
     }
   });
@@ -986,7 +989,7 @@ export function registerCpqRoutes(
       });
       res.json(updated);
     } catch (error: any) {
-      console.error("[CPQ] Error updating discount level:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error updating discount level:");
       res.status(500).json({ error: error.message || "Failed to update discount level" });
     }
   });
@@ -1000,7 +1003,7 @@ export function registerCpqRoutes(
       await cpqStorage.deleteDiscountLevel(id);
       res.json({ success: true });
     } catch (error: any) {
-      console.error("[CPQ] Error deleting discount level:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error deleting discount level:");
       res.status(500).json({ error: error.message || "Failed to delete discount level" });
     }
   });
@@ -1021,7 +1024,7 @@ export function registerCpqRoutes(
       });
       res.json(ct);
     } catch (error: any) {
-      console.error("[CPQ] Error creating component type:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error creating component type:");
       res.status(500).json({ error: error.message || "Failed to create component type" });
     }
   });
@@ -1055,7 +1058,7 @@ export function registerCpqRoutes(
       );
       res.json({ success: true, quoteLog: log });
     } catch (error: any) {
-      console.error("[CPQ] Error request approval:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error request approval:");
       res.status(500).json({ error: error.message || "Failed to request approval" });
     }
   });
@@ -1068,7 +1071,7 @@ export function registerCpqRoutes(
       if (!log) return res.json(null);
       res.json(log);
     } catch (error: any) {
-      console.error("[CPQ] Error approval status:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error approval status:");
       res.status(500).json({ error: error.message || "Failed to fetch approval status" });
     }
   });
@@ -1094,7 +1097,7 @@ export function registerCpqRoutes(
       });
       res.json({ success: true, quoteLog: updated });
     } catch (error: any) {
-      console.error("[CPQ] Error approve/reject:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error approve/reject:");
       res.status(500).json({ error: error.message || "Failed to process approval" });
     }
   });
@@ -1123,7 +1126,7 @@ export function registerCpqRoutes(
         entries: logs.slice(0, 100),
       });
     } catch (error: any) {
-      console.error("[CPQ] Error discount overview:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error discount overview:");
       res.status(500).json({ error: error.message || "Failed to fetch discount overview" });
     }
   });
@@ -1149,7 +1152,7 @@ export function registerCpqRoutes(
       );
       res.json(mapping);
     } catch (error: any) {
-      console.error("[CPQ] Error creating mapping:", error);
+      moduleLog.error({ err: error }, "[CPQ] Error creating mapping:");
       res.status(500).json({ error: error.message || "Failed to create mapping" });
     }
   });

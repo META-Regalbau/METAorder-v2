@@ -1,5 +1,8 @@
 import webpush from "web-push";
 import type { IStorage } from "../storage";
+import { logger } from "./logger";
+
+const log = logger.child({ component: "lib/notifications" });
 
 type PushSubscription = {
   endpoint: string;
@@ -69,7 +72,7 @@ export async function notifyNewTicket(
     try {
       await sendPush(user.pushSubscription as PushSubscription, payload);
     } catch (error) {
-      console.error("[Notifications] Failed sending push:", error);
+      log.error({ err: error }, "[Notifications] Failed sending push:");
     }
   }
 }

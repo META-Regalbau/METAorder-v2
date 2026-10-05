@@ -198,6 +198,9 @@ import {
 import { escapeRegexLiteral, SCORE_EXACT_NUMBER, SCORE_PART_OF_WORD, SCORE_WHOLE_WORD, searchTokens } from "./products/productSearchRanking";
 import { rankSemanticCandidates } from "./semantic/semanticRanking";
 import { isZeroEmbedding } from "./semantic/semanticEmbeddings";
+import { logger } from "./lib/logger";
+
+const moduleLog = logger.child({ component: "dbStorage" });
 
 /** SQL: ganzes Wort in der Spalte = SCORE_WHOLE_WORD, Teil eines Worts = SCORE_PART_OF_WORD, sonst 0 */
 function wordRelevanceSql(column: AnyColumn, token: string) {
@@ -262,10 +265,7 @@ function crossSellingJsonField<T>(
   try {
     return JSON.parse(raw) as T;
   } catch (e: unknown) {
-    console.error(
-      `[DbStorage] cross_selling_rules ${fieldName} JSON parse failed for rule ${ruleId}:`,
-      e instanceof Error ? e.message : e,
-    );
+    moduleLog.error({ err: e }, `[DbStorage] cross_selling_rules ${fieldName} JSON parse failed for rule ${ruleId}:`);
     return fallback;
   }
 }

@@ -14,6 +14,9 @@ import {
   buildErpProductLabel,
   type ErpProductLabel,
 } from "@shared/productVariantLabel";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "erp/erpProductLabels" });
 
 function requireTenantFromReq(req: any): string | null {
   return (req.tenantId as string | null | undefined) ?? (req.user as any)?.activeTenantId ?? null;
@@ -342,7 +345,7 @@ export async function resolveErpProductLabels(
         }
       }
     } catch (err) {
-      console.warn("[erp/product-labels] Shopware fallback failed:", err);
+      log.warn({ err }, "[erp/product-labels] Shopware fallback failed:");
     }
   }
 
@@ -397,7 +400,7 @@ export function registerErpProductLabelRoutes(app: Express) {
       }
       res.json({ products: Array.from(merged.values()).slice(0, limit) });
     } catch (error: any) {
-      console.error("[erp/products/search]", error);
+      log.error({ err: error }, "[erp/products/search]");
       res.status(500).json({ error: error.message || "Product search failed" });
     }
   });
@@ -424,7 +427,7 @@ export function registerErpProductLabelRoutes(app: Express) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0]?.message || "Invalid body" });
       }
-      console.error("[erp/product-labels]", error);
+      log.error({ err: error }, "[erp/product-labels]");
       res.status(500).json({ error: error.message || "Failed to resolve labels" });
     }
   });
@@ -509,7 +512,7 @@ export function registerErpProductLabelRoutes(app: Express) {
         if (error instanceof z.ZodError) {
           return res.status(400).json({ error: error.errors[0]?.message || "Invalid body" });
         }
-        console.error("[erp/products/active]", error);
+        log.error({ err: error }, "[erp/products/active]");
         res.status(500).json({ error: error.message || "Failed to update active status" });
       }
     },

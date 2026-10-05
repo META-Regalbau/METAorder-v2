@@ -127,10 +127,13 @@ app.use(passport.initialize());
 // CSRF Protection Middleware (Double-Submit Cookie Pattern)
 // Apply to all state-changing requests except login
 import { requireCsrf } from "./auth/auth";
+import { logger } from "./lib/logger";
+
+const moduleLog = logger.child({ component: "index" });
 app.use((req, res, next) => {
   // Skip CSRF for login endpoint (no token exists yet)
   if (req.path === "/api/auth/login") {
-    console.log('[CSRF] Skipping CSRF check for login endpoint');
+    moduleLog.info("[CSRF] Skipping CSRF check for login endpoint");
     return next();
   }
   // Notfall-Passwort-Reset: vor dem Login existiert kein CSRF-Token; die
@@ -194,11 +197,11 @@ app.post("/ingest/:id", (req, res) => {
           await runCrossSellLearning(storage, settings, tenantId);
           log(`[CrossSellLearning] Learning job completed for tenant ${tenantId ?? "default"}.`);
         } catch (error) {
-          console.error("[CrossSellLearning] Learning job failed for tenant:", tenantId, error);
+          moduleLog.error({ err: error }, `[CrossSellLearning] Learning job failed for tenant: ${tenantId}`);
         }
       }
     } catch (error) {
-      console.error("[CrossSellLearning] Learning job failed:", error);
+      moduleLog.error({ err: error }, "[CrossSellLearning] Learning job failed:");
     }
   };
 
@@ -220,11 +223,11 @@ app.post("/ingest/:id", (req, res) => {
           await runOfferLearning(storage, settings, tenantId);
           log(`[OfferLearning] Learning job completed for tenant ${tenantId ?? "default"}.`);
         } catch (error) {
-          console.error("[OfferLearning] Learning job failed for tenant:", tenantId, error);
+          moduleLog.error({ err: error }, `[OfferLearning] Learning job failed for tenant: ${tenantId}`);
         }
       }
     } catch (error) {
-      console.error("[OfferLearning] Learning job failed:", error);
+      moduleLog.error({ err: error }, "[OfferLearning] Learning job failed:");
     }
   };
 
@@ -237,7 +240,7 @@ app.post("/ingest/:id", (req, res) => {
     try {
       await pollInboundEmails(storage);
     } catch (error) {
-      console.error("[EmailInbound] Polling failed:", error);
+      moduleLog.error({ err: error }, "[EmailInbound] Polling failed:");
     }
   };
 
@@ -248,7 +251,7 @@ app.post("/ingest/:id", (req, res) => {
     try {
       await runDunningJob(storage);
     } catch (error) {
-      console.error("[DunningJob] Run failed:", error);
+      moduleLog.error({ err: error }, "[DunningJob] Run failed:");
     }
   };
 
@@ -262,7 +265,7 @@ app.post("/ingest/:id", (req, res) => {
   if (process.env.SEMANTIC_INDEX_ENABLED !== "false") {
     const { runSemanticIndexAllTenants } = await import("./semantic/semanticIndexer");
     const semanticIntervalHours = Math.max(1, Number(process.env.SEMANTIC_INDEX_INTERVAL_HOURS || 6));
-    const runSemanticIndexJob = () => runSemanticIndexAllTenants(storage, log).catch((error) => console.error("[SemanticIndex] Job failed:", error));
+    const runSemanticIndexJob = () => runSemanticIndexAllTenants(storage, log).catch((error) => moduleLog.error({ err: error }, "[SemanticIndex] Job failed:"));
     setTimeout(runSemanticIndexJob, 2 * 60 * 1000);
     setInterval(runSemanticIndexJob, semanticIntervalHours * 60 * 60 * 1000);
     log(`[SemanticIndex] Index scheduled every ${semanticIntervalHours} hour(s)`);
@@ -273,7 +276,7 @@ app.post("/ingest/:id", (req, res) => {
       await runShopwareMirrorSync(storage);
       log("[ShopwareMirror] Background sync completed.");
     } catch (error) {
-      console.error("[ShopwareMirror] Background sync failed:", error);
+      moduleLog.error({ err: error }, "[ShopwareMirror] Background sync failed:");
     }
   };
 

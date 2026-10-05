@@ -14,6 +14,9 @@
 
 import type { ShopwareClient, ShopwareCustomerPrice } from "../shopware/shopware";
 import { fetchProductPricing, readAttr, round2, searchFirst, toShopwareUuid } from "../b2b/b2bOfferCreateContext";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "commercial/commercialCustomerPricing" });
 
 export type CustomerPriceSource = "customer_specific" | "customer_discount" | "list";
 
@@ -134,20 +137,14 @@ export async function resolveCustomerUnitPrices(
     customerPrices = fetched.prices;
     customerPricesAvailable = fetched.available;
   } catch (error) {
-    console.warn(
-      "[CustomerPricing] Kundenindividuelle Preise konnten nicht geladen werden:",
-      error instanceof Error ? error.message : error
-    );
+    log.warn({ err: error }, "[CustomerPricing] Kundenindividuelle Preise konnten nicht geladen werden:");
   }
 
   let discountPercent: number | null = null;
   try {
     discountPercent = await client.fetchCustomerB2BStandardDiscount(params.customerId);
   } catch (error) {
-    console.warn(
-      "[CustomerPricing] Kundenrabatt konnte nicht geladen werden:",
-      error instanceof Error ? error.message : error
-    );
+    log.warn({ err: error }, "[CustomerPricing] Kundenrabatt konnte nicht geladen werden:");
   }
   if (discountPercent != null && (!Number.isFinite(discountPercent) || discountPercent <= 0 || discountPercent >= 100)) {
     discountPercent = null;

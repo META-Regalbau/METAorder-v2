@@ -17,6 +17,9 @@ import {
   type Product,
   type Offer,
 } from "@shared/schema";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "semantic/semanticIndexer" });
 
 type IndexOptions = {
   sources?: string[];
@@ -444,7 +447,7 @@ export async function runSemanticIndexAllTenants(storage: IStorage, log: (msg: s
         .join(", ");
       log(`[SemanticIndex] Mandant ${tenantId ?? "-"}: ${summary} in ${status.durationMs} ms`);
     } catch (error) {
-      console.error("[SemanticIndex] Mandant fehlgeschlagen:", tenantId, error);
+      moduleLog.error({ err: error }, `[SemanticIndex] Mandant fehlgeschlagen: ${tenantId}`);
     }
   }
 }

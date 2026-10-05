@@ -7,6 +7,9 @@ import { generateForecast } from "./forecastEngine";
 import type { ForecastConfig, ForecastInput } from "./forecastEngine";
 import { NL_TEXTS } from "./nlLanguage";
 import { selectDelayedOrders } from "../shopware/ordersList";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "analytics/analyticsQueryExecutor" });
 
 /**
  * Analytics Query Executor
@@ -46,13 +49,13 @@ export async function executeAnalyticsQuery(
   tenantId?: string | null,
   language: AnalyticsLanguage = "de",
 ): Promise<AnalyticsResult> {
-  console.log(`[Analytics Executor] Executing query type: ${queryObj.type}`);
-  console.log(`[Analytics Executor] Parameters:`, JSON.stringify(queryObj.parameters, null, 2));
+  moduleLog.info(`[Analytics Executor] Executing query type: ${queryObj.type}`);
+  moduleLog.info(`[Analytics Executor] Parameters: ${JSON.stringify(queryObj.parameters, null, 2)}`);
   
   if (allowedChannelIds) {
-    console.log(`[Analytics Executor] SECURITY: Filtering by allowed sales channels:`, allowedChannelIds);
+    moduleLog.info({ allowedChannelIds }, "[Analytics Executor] SECURITY: Filtering by allowed sales channels:");
   } else if (allowedChannelIds === null) {
-    console.log(`[Analytics Executor] SECURITY: Admin access - no sales channel filtering`);
+    moduleLog.info("[Analytics Executor] SECURITY: Admin access - no sales channel filtering");
   }
 
   const context: QueryExecutionContext = {
@@ -125,7 +128,7 @@ export async function executeAnalyticsQuery(
         throw new Error(`Unsupported query type: ${queryObj.type}`);
     }
   } catch (error) {
-    console.error('[Analytics Executor] Error executing query:', error);
+    moduleLog.error({ err: error }, "[Analytics Executor] Error executing query:");
     throw new Error(
       `Failed to execute analytics query: ${error instanceof Error ? error.message : 'Unknown error'}`
     );
@@ -146,7 +149,7 @@ async function getOrders(context: QueryExecutionContext): Promise<Order[]> {
 
   // Bestellungen aus dem Bestell-Spiegel statt alle live aus Shopware; Kanalfilter folgt hier
   const allOrders = await getMirrorOrdersLikeLive(context.shopwareClient, context.tenantId ?? null);
-  console.log(`[Analytics Executor] ${allOrders.length} orders from the order mirror`);
+  moduleLog.info(`[Analytics Executor] ${allOrders.length} orders from the order mirror`);
   
   // SECURITY: Filter by the user's sales channels
   let filteredOrders: Order[];
@@ -155,15 +158,15 @@ async function getOrders(context: QueryExecutionContext): Promise<Order[]> {
     filteredOrders = allOrders.filter(order => 
       context.allowedChannelIds!.includes(order.salesChannelId)
     );
-    console.log(`[Analytics Executor] SECURITY: Filtered to ${filteredOrders.length} orders from user's assigned sales channels`);
+    moduleLog.info(`[Analytics Executor] SECURITY: Filtered to ${filteredOrders.length} orders from user's assigned sales channels`);
   } else if (context.allowedChannelIds === null) {
     // Admin with full access
     filteredOrders = allOrders;
-    console.log(`[Analytics Executor] SECURITY: Admin access - returning all ${filteredOrders.length} orders`);
+    moduleLog.info(`[Analytics Executor] SECURITY: Admin access - returning all ${filteredOrders.length} orders`);
   } else {
     // Undefined means no filtering context provided (backward compatibility)
     filteredOrders = allOrders;
-    console.log(`[Analytics Executor] WARNING: No sales channel filtering context - returning all ${filteredOrders.length} orders`);
+    moduleLog.info(`[Analytics Executor] WARNING: No sales channel filtering context - returning all ${filteredOrders.length} orders`);
   }
   
   // Cache the filtered orders for reuse in downstream queries
@@ -176,32 +179,32 @@ async function getOrders(context: QueryExecutionContext): Promise<Order[]> {
  * Helper function to filter orders by date range
  */
 function filterOrdersByDate(orders: Order[], dateFrom?: string, dateTo?: string): Order[] {
-  console.log(`[filterOrdersByDate] Input: ${orders.length} orders, dateFrom: ${dateFrom}, dateTo: ${dateTo}`);
+  moduleLog.info(`[filterOrdersByDate] Input: ${orders.length} orders, dateFrom: ${dateFrom}, dateTo: ${dateTo}`);
   
   let filtered = orders;
 
   if (dateFrom) {
     const fromDate = new Date(dateFrom);
-    console.log(`[filterOrdersByDate] Filtering from date: ${fromDate.toISOString()}`);
+    moduleLog.info(`[filterOrdersByDate] Filtering from date: ${fromDate.toISOString()}`);
     const beforeFilter = filtered.length;
     filtered = filtered.filter(order => new Date(order.orderDate) >= fromDate);
-    console.log(`[filterOrdersByDate] After dateFrom filter: ${filtered.length} orders (removed ${beforeFilter - filtered.length})`);
+    moduleLog.info(`[filterOrdersByDate] After dateFrom filter: ${filtered.length} orders (removed ${beforeFilter - filtered.length})`);
     
     // Log first few order dates for debugging
     if (filtered.length > 0) {
-      console.log(`[filterOrdersByDate] Sample order dates after from filter:`, filtered.slice(0, 3).map(o => o.orderDate));
+      moduleLog.info({ details: filtered.slice(0, 3).map(o => o.orderDate) }, "[filterOrdersByDate] Sample order dates after from filter:");
     }
   }
 
   if (dateTo) {
     const toDate = new Date(dateTo);
-    console.log(`[filterOrdersByDate] Filtering to date: ${toDate.toISOString()}`);
+    moduleLog.info(`[filterOrdersByDate] Filtering to date: ${toDate.toISOString()}`);
     const beforeFilter = filtered.length;
     filtered = filtered.filter(order => new Date(order.orderDate) <= toDate);
-    console.log(`[filterOrdersByDate] After dateTo filter: ${filtered.length} orders (removed ${beforeFilter - filtered.length})`);
+    moduleLog.info(`[filterOrdersByDate] After dateTo filter: ${filtered.length} orders (removed ${beforeFilter - filtered.length})`);
   }
 
-  console.log(`[filterOrdersByDate] Final result: ${filtered.length} orders`);
+  moduleLog.info(`[filterOrdersByDate] Final result: ${filtered.length} orders`);
   return filtered;
 }
 
@@ -212,21 +215,21 @@ async function executeTopProducts(
   query: AnalyticsQuery,
   context: QueryExecutionContext
 ): Promise<AnalyticsResult> {
-  console.log('[Analytics Executor] Executing TOP_PRODUCTS query');
-  console.log('[Analytics Executor] Query parameters:', query.parameters);
+  moduleLog.info("[Analytics Executor] Executing TOP_PRODUCTS query");
+  moduleLog.info({ parameters: query.parameters }, "[Analytics Executor] Query parameters:");
   
   const orders = await getOrders(context);
-  console.log(`[Analytics Executor] Total orders: ${orders.length}`);
+  moduleLog.info(`[Analytics Executor] Total orders: ${orders.length}`);
   
   const filtered = filterOrdersByDate(orders, query.parameters.dateFrom, query.parameters.dateTo);
-  console.log(`[Analytics Executor] Filtered orders: ${filtered.length}`);
+  moduleLog.info(`[Analytics Executor] Filtered orders: ${filtered.length}`);
   
   // Count total items
   let totalItems = 0;
   for (const order of filtered) {
     totalItems += order.items?.length || 0;
   }
-  console.log(`[Analytics Executor] Total items in filtered orders: ${totalItems}`);
+  moduleLog.info(`[Analytics Executor] Total items in filtered orders: ${totalItems}`);
   
   // Aggregate products by total quantity sold
   const productStats = new Map<string, { name: string; quantity: number; revenue: number }>();
@@ -243,7 +246,7 @@ async function executeTopProducts(
     }
   }
   
-  console.log(`[Analytics Executor] Unique products found: ${productStats.size}`);
+  moduleLog.info(`[Analytics Executor] Unique products found: ${productStats.size}`);
   
   // Sort by quantity and take top N
   const limit = query.parameters.limit || 10;
@@ -251,7 +254,7 @@ async function executeTopProducts(
     .sort((a, b) => b.quantity - a.quantity)
     .slice(0, limit);
   
-  console.log(`[Analytics Executor] Found ${topProducts.length} top products`);
+  moduleLog.info(`[Analytics Executor] Found ${topProducts.length} top products`);
   
   return {
     labels: topProducts.map(p => p.name),
@@ -273,13 +276,13 @@ async function executeDelayedOrders(
   query: AnalyticsQuery,
   context: QueryExecutionContext
 ): Promise<AnalyticsResult> {
-  console.log('[Analytics Executor] Executing DELAYED_ORDERS query');
+  moduleLog.info("[Analytics Executor] Executing DELAYED_ORDERS query");
   
   const orders = await getOrders(context);
   // Dieselbe Regel wie die Seite "Verspaetete Bestellungen" und das Dashboard
   const delayedOrders = selectDelayedOrders(orders);
   
-  console.log(`[Analytics Executor] Found ${delayedOrders.length} delayed orders`);
+  moduleLog.info(`[Analytics Executor] Found ${delayedOrders.length} delayed orders`);
   
   return {
     labels: delayedOrders.map(o => o.orderNumber),
@@ -306,19 +309,19 @@ async function executeOrderTrends(
   query: AnalyticsQuery,
   context: QueryExecutionContext
 ): Promise<AnalyticsResult> {
-  console.log('[Analytics Executor] Executing ORDER_TRENDS query');
-  console.log('[Analytics Executor] Query parameters:', JSON.stringify(query.parameters, null, 2));
+  moduleLog.info("[Analytics Executor] Executing ORDER_TRENDS query");
+  moduleLog.info(`[Analytics Executor] Query parameters: ${JSON.stringify(query.parameters, null, 2)}`);
   
   const orders = await getOrders(context);
-  console.log(`[Analytics Executor] Total orders: ${orders.length}`);
+  moduleLog.info(`[Analytics Executor] Total orders: ${orders.length}`);
   
   const filtered = filterOrdersByDate(orders, query.parameters.dateFrom, query.parameters.dateTo);
-  console.log(`[Analytics Executor] Filtered orders: ${filtered.length}`);
+  moduleLog.info(`[Analytics Executor] Filtered orders: ${filtered.length}`);
   
   const groupBy = query.parameters.groupBy || 'day';
   const trends = groupOrdersByTime(filtered, groupBy);
   
-  console.log(`[Analytics Executor] Generated ${trends.labels.length} data points for order trends`);
+  moduleLog.info(`[Analytics Executor] Generated ${trends.labels.length} data points for order trends`);
   
   return {
     labels: trends.labels,
@@ -338,27 +341,27 @@ async function executeRevenueTrends(
   query: AnalyticsQuery,
   context: QueryExecutionContext
 ): Promise<AnalyticsResult> {
-  console.log('[Analytics Executor] Executing REVENUE_TRENDS query');
-  console.log('[Analytics Executor] Query parameters:', JSON.stringify(query.parameters, null, 2));
+  moduleLog.info("[Analytics Executor] Executing REVENUE_TRENDS query");
+  moduleLog.info(`[Analytics Executor] Query parameters: ${JSON.stringify(query.parameters, null, 2)}`);
   
   const orders = await getOrders(context);
-  console.log(`[Analytics Executor] Total orders: ${orders.length}`);
+  moduleLog.info(`[Analytics Executor] Total orders: ${orders.length}`);
   
   // Log some sample order dates
   if (orders.length > 0) {
     const sortedOrders = [...orders].sort((a, b) => new Date(a.orderDate).getTime() - new Date(b.orderDate).getTime());
-    console.log(`[Analytics Executor] Date range in orders: ${sortedOrders[0].orderDate} to ${sortedOrders[sortedOrders.length - 1].orderDate}`);
+    moduleLog.info(`[Analytics Executor] Date range in orders: ${sortedOrders[0].orderDate} to ${sortedOrders[sortedOrders.length - 1].orderDate}`);
   }
   
   const filtered = filterOrdersByDate(orders, query.parameters.dateFrom, query.parameters.dateTo);
-  console.log(`[Analytics Executor] Filtered orders: ${filtered.length}`);
+  moduleLog.info(`[Analytics Executor] Filtered orders: ${filtered.length}`);
   
   const groupBy = query.parameters.groupBy || 'day';
   const trends = groupOrdersByTime(filtered, groupBy, (orders) => 
     orders.reduce((sum, o) => sum + o.totalAmount, 0)
   );
   
-  console.log(`[Analytics Executor] Generated ${trends.labels.length} data points for revenue trends`);
+  moduleLog.info(`[Analytics Executor] Generated ${trends.labels.length} data points for revenue trends`);
   
   return {
     labels: trends.labels,
@@ -378,7 +381,7 @@ async function executeCustomerAnalysis(
   query: AnalyticsQuery,
   context: QueryExecutionContext
 ): Promise<AnalyticsResult> {
-  console.log('[Analytics Executor] Executing CUSTOMER_ANALYSIS query');
+  moduleLog.info("[Analytics Executor] Executing CUSTOMER_ANALYSIS query");
   
   const orders = await getOrders(context);
   const filtered = filterOrdersByDate(orders, query.parameters.dateFrom, query.parameters.dateTo);
@@ -399,7 +402,7 @@ async function executeCustomerAnalysis(
   
   const customerData = Array.from(customerStats.values());
   
-  console.log(`[Analytics Executor] Analyzed ${customerData.length} customers`);
+  moduleLog.info(`[Analytics Executor] Analyzed ${customerData.length} customers`);
   
   return {
     labels: customerData.map(c => c.name),
@@ -424,7 +427,7 @@ async function executeCustomerRankings(
   query: AnalyticsQuery,
   context: QueryExecutionContext
 ): Promise<AnalyticsResult> {
-  console.log('[Analytics Executor] Executing CUSTOMER_RANKINGS query');
+  moduleLog.info("[Analytics Executor] Executing CUSTOMER_RANKINGS query");
   
   const orders = await getOrders(context);
   const filtered = filterOrdersByDate(orders, query.parameters.dateFrom, query.parameters.dateTo);
@@ -449,7 +452,7 @@ async function executeCustomerRankings(
     .sort((a, b) => b.totalSpent - a.totalSpent)
     .slice(0, limit);
   
-  console.log(`[Analytics Executor] Found ${topCustomers.length} top customers`);
+  moduleLog.info(`[Analytics Executor] Found ${topCustomers.length} top customers`);
   
   return {
     labels: topCustomers.map(c => c.name),
@@ -472,7 +475,7 @@ async function executeProductPerformance(
   query: AnalyticsQuery,
   context: QueryExecutionContext
 ): Promise<AnalyticsResult> {
-  console.log('[Analytics Executor] Executing PRODUCT_PERFORMANCE query');
+  moduleLog.info("[Analytics Executor] Executing PRODUCT_PERFORMANCE query");
   
   const orders = await getOrders(context);
   const filtered = filterOrdersByDate(orders, query.parameters.dateFrom, query.parameters.dateTo);
@@ -496,7 +499,7 @@ async function executeProductPerformance(
   
   const products = Array.from(productStats.values());
   
-  console.log(`[Analytics Executor] Analyzed ${products.length} products`);
+  moduleLog.info(`[Analytics Executor] Analyzed ${products.length} products`);
   
   return {
     labels: products.map(p => p.name),
@@ -518,7 +521,7 @@ async function executeCategoryPerformance(
   query: AnalyticsQuery,
   context: QueryExecutionContext
 ): Promise<AnalyticsResult> {
-  console.log('[Analytics Executor] Executing CATEGORY_PERFORMANCE query');
+  moduleLog.info("[Analytics Executor] Executing CATEGORY_PERFORMANCE query");
   
   const orders = await getOrders(context);
   const filtered = filterOrdersByDate(orders, query.parameters.dateFrom, query.parameters.dateTo);
@@ -543,7 +546,7 @@ async function executeCategoryPerformance(
     .map(([name, stats]) => ({ name, ...stats }))
     .sort((a, b) => b.revenue - a.revenue);
   
-  console.log(`[Analytics Executor] Analyzed ${categories.length} categories`);
+  moduleLog.info(`[Analytics Executor] Analyzed ${categories.length} categories`);
   
   return {
     labels: categories.map(c => c.name),
@@ -565,7 +568,7 @@ async function executePaymentAnalysis(
   query: AnalyticsQuery,
   context: QueryExecutionContext
 ): Promise<AnalyticsResult> {
-  console.log('[Analytics Executor] Executing PAYMENT_ANALYSIS query');
+  moduleLog.info("[Analytics Executor] Executing PAYMENT_ANALYSIS query");
   
   const orders = await getOrders(context);
   const filtered = filterOrdersByDate(orders, query.parameters.dateFrom, query.parameters.dateTo);
@@ -584,7 +587,7 @@ async function executePaymentAnalysis(
   const statuses = Array.from(paymentStats.entries())
     .map(([status, stats]) => ({ status, ...stats }));
   
-  console.log(`[Analytics Executor] Analyzed ${statuses.length} payment statuses`);
+  moduleLog.info(`[Analytics Executor] Analyzed ${statuses.length} payment statuses`);
   
   return {
     labels: statuses.map(s => s.status),
@@ -606,7 +609,7 @@ async function executeSalesChannelAnalysis(
   query: AnalyticsQuery,
   context: QueryExecutionContext
 ): Promise<AnalyticsResult> {
-  console.log('[Analytics Executor] Executing SALES_CHANNEL_ANALYSIS query');
+  moduleLog.info("[Analytics Executor] Executing SALES_CHANNEL_ANALYSIS query");
   
   const orders = await getOrders(context);
   const filtered = filterOrdersByDate(orders, query.parameters.dateFrom, query.parameters.dateTo);
@@ -626,7 +629,7 @@ async function executeSalesChannelAnalysis(
     .map(([name, stats]) => ({ name, ...stats }))
     .sort((a, b) => b.revenue - a.revenue);
   
-  console.log(`[Analytics Executor] Analyzed ${channels.length} sales channels`);
+  moduleLog.info(`[Analytics Executor] Analyzed ${channels.length} sales channels`);
   
   return {
     labels: channels.map(c => c.name),
@@ -648,7 +651,7 @@ async function executeOrderStatusDistribution(
   query: AnalyticsQuery,
   context: QueryExecutionContext
 ): Promise<AnalyticsResult> {
-  console.log('[Analytics Executor] Executing ORDER_STATUS_DISTRIBUTION query');
+  moduleLog.info("[Analytics Executor] Executing ORDER_STATUS_DISTRIBUTION query");
   
   const orders = await getOrders(context);
   const filtered = filterOrdersByDate(orders, query.parameters.dateFrom, query.parameters.dateTo);
@@ -664,7 +667,7 @@ async function executeOrderStatusDistribution(
   const statuses = Array.from(statusStats.entries())
     .map(([status, count]) => ({ status, count }));
   
-  console.log(`[Analytics Executor] Analyzed ${statuses.length} order statuses`);
+  moduleLog.info(`[Analytics Executor] Analyzed ${statuses.length} order statuses`);
   
   return {
     labels: statuses.map(s => s.status),
@@ -683,7 +686,7 @@ async function executeGeneralStatistics(
   query: AnalyticsQuery,
   context: QueryExecutionContext
 ): Promise<AnalyticsResult> {
-  console.log('[Analytics Executor] Executing GENERAL_STATISTICS query');
+  moduleLog.info("[Analytics Executor] Executing GENERAL_STATISTICS query");
   
   const orders = await getOrders(context);
   const filtered = filterOrdersByDate(orders, query.parameters.dateFrom, query.parameters.dateTo);
@@ -698,7 +701,7 @@ async function executeGeneralStatistics(
     { label: texts.averageOrderValue, value: averageOrderValue },
   ];
   
-  console.log(`[Analytics Executor] Generated general statistics for ${filtered.length} orders`);
+  moduleLog.info(`[Analytics Executor] Generated general statistics for ${filtered.length} orders`);
   
   return {
     labels: stats.map(s => s.label),
@@ -719,7 +722,7 @@ function groupOrdersByTime(
   groupBy: 'day' | 'week' | 'month' | 'year',
   valueFn: (orders: Order[]) => number = (orders) => orders.length
 ): { labels: string[]; counts: number[] } {
-  console.log(`[groupOrdersByTime] Grouping ${orders.length} orders by ${groupBy}`);
+  moduleLog.info(`[groupOrdersByTime] Grouping ${orders.length} orders by ${groupBy}`);
   
   const groups = new Map<string, Order[]>();
   
@@ -749,9 +752,9 @@ function groupOrdersByTime(
     groups.set(key, existing);
   }
   
-  console.log(`[groupOrdersByTime] Created ${groups.size} groups`);
+  moduleLog.info(`[groupOrdersByTime] Created ${groups.size} groups`);
   if (groups.size > 0) {
-    console.log(`[groupOrdersByTime] Sample groups:`, Array.from(groups.keys()).slice(0, 5));
+    moduleLog.info({ details: Array.from(groups.keys()).slice(0, 5) }, "[groupOrdersByTime] Sample groups:");
   }
   
   // Sort by date and calculate values
@@ -782,7 +785,7 @@ async function executeRevenueForecast(
     groupBy = 'month',
   } = parameters;
 
-  console.log('[Revenue Forecast] Collecting historical revenue data...');
+  moduleLog.info("[Revenue Forecast] Collecting historical revenue data...");
 
   // Get historical revenue data
   const orders = await getOrders(context);
@@ -795,7 +798,7 @@ async function executeRevenueForecast(
     (orders) => orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0)
   );
 
-  console.log(`[Revenue Forecast] Historical data: ${grouped.labels.length} periods`);
+  moduleLog.info(`[Revenue Forecast] Historical data: ${grouped.labels.length} periods`);
 
   // Prepare forecast input
   const forecastInput: ForecastInput = {
@@ -868,7 +871,7 @@ async function executeProductDemandForecast(
     groupBy = 'month',
   } = parameters;
 
-  console.log('[Product Demand Forecast] Collecting historical product sales...');
+  moduleLog.info("[Product Demand Forecast] Collecting historical product sales...");
 
   const orders = await getOrders(context);
   let filtered = filterOrdersByDate(orders, dateFrom, dateTo);
@@ -897,7 +900,7 @@ async function executeProductDemandForecast(
     }
   );
 
-  console.log(`[Product Demand Forecast] Historical data: ${grouped.labels.length} periods`);
+  moduleLog.info(`[Product Demand Forecast] Historical data: ${grouped.labels.length} periods`);
 
   // Generate forecast
   const forecastOutput = await generateForecast(
@@ -952,7 +955,7 @@ async function executeSeasonalAnalysis(
     groupBy = 'week',
   } = parameters;
 
-  console.log('[Seasonal Analysis] Analyzing seasonal patterns...');
+  moduleLog.info("[Seasonal Analysis] Analyzing seasonal patterns...");
 
   const orders = await getOrders(context);
   const filtered = filterOrdersByDate(orders, dateFrom, dateTo);
@@ -964,7 +967,7 @@ async function executeSeasonalAnalysis(
     (orders) => orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0)
   );
 
-  console.log(`[Seasonal Analysis] Analyzing ${grouped.labels.length} periods`);
+  moduleLog.info(`[Seasonal Analysis] Analyzing ${grouped.labels.length} periods`);
 
   // Use forecast engine's seasonal detection
   const forecastOutput = await generateForecast(
@@ -1014,7 +1017,7 @@ async function executeTrendForecast(
     groupBy = 'month',
   } = parameters;
 
-  console.log('[Trend Forecast] Generating trend forecast...');
+  moduleLog.info("[Trend Forecast] Generating trend forecast...");
 
   const orders = await getOrders(context);
   const filtered = filterOrdersByDate(orders, dateFrom, dateTo);
@@ -1026,7 +1029,7 @@ async function executeTrendForecast(
     (orders) => orders.length
   );
 
-  console.log(`[Trend Forecast] Historical data: ${grouped.labels.length} periods`);
+  moduleLog.info(`[Trend Forecast] Historical data: ${grouped.labels.length} periods`);
 
   // Generate forecast
   const forecastOutput = await generateForecast(
@@ -1081,7 +1084,7 @@ async function executeWeightAnalysis(
   const { parameters } = queryObj;
   const { dateFrom, dateTo, salesChannelId } = parameters;
 
-  console.log('[Weight Analysis] Analyzing order weights...');
+  moduleLog.info("[Weight Analysis] Analyzing order weights...");
 
   let orders = await getOrders(context);
   orders = filterOrdersByDate(orders, dateFrom, dateTo);
@@ -1090,7 +1093,7 @@ async function executeWeightAnalysis(
     orders = orders.filter(o => o.salesChannelId === salesChannelId);
   }
 
-  console.log(`[Weight Analysis] Analyzing ${orders.length} orders`);
+  moduleLog.info(`[Weight Analysis] Analyzing ${orders.length} orders`);
 
   // Calculate weight statistics for each order
   const orderWeights: { orderNumber: string; weight: number; itemsWithWeight: number; totalItems: number }[] = [];
@@ -1150,8 +1153,8 @@ async function executeWeightAnalysis(
   // Sort orders by weight descending for top heavy orders
   const topHeavyOrders = [...orderWeights].sort((a, b) => b.weight - a.weight).slice(0, 10);
 
-  console.log(`[Weight Analysis] Total weight: ${totalWeight.toFixed(2)} kg, Average: ${averageWeight.toFixed(2)} kg`);
-  console.log(`[Weight Analysis] Orders with weight data: ${ordersWithWeight}/${orders.length}`);
+  moduleLog.info(`[Weight Analysis] Total weight: ${totalWeight.toFixed(2)} kg, Average: ${averageWeight.toFixed(2)} kg`);
+  moduleLog.info(`[Weight Analysis] Orders with weight data: ${ordersWithWeight}/${orders.length}`);
 
   return {
     labels: weightBuckets.map(b => b.label),
@@ -1189,7 +1192,7 @@ async function executeItemCountAnalysis(
 ): Promise<AnalyticsResult> {
   const { dateFrom, dateTo, salesChannelId } = query.parameters;
   
-  console.log('[Item Count Analysis] Analyzing item counts per order...');
+  moduleLog.info("[Item Count Analysis] Analyzing item counts per order...");
 
   let orders = await getOrders(context);
   orders = filterOrdersByDate(orders, dateFrom, dateTo);
@@ -1198,7 +1201,7 @@ async function executeItemCountAnalysis(
     orders = orders.filter(o => o.salesChannelId === salesChannelId);
   }
 
-  console.log(`[Item Count Analysis] Analyzing ${orders.length} orders`);
+  moduleLog.info(`[Item Count Analysis] Analyzing ${orders.length} orders`);
 
   // Calculate item count statistics for each order
   const orderItemCounts: { orderNumber: string; itemCount: number; totalQuantity: number }[] = [];
@@ -1264,8 +1267,8 @@ async function executeItemCountAnalysis(
   const topOrdersByQuantity = [...orderItemCounts].sort((a, b) => b.totalQuantity - a.totalQuantity).slice(0, 10);
   const topOrdersByLineItems = [...orderItemCounts].sort((a, b) => b.itemCount - a.itemCount).slice(0, 10);
 
-  console.log(`[Item Count Analysis] Total line items: ${totalLineItems}, Total quantity: ${totalQuantity}`);
-  console.log(`[Item Count Analysis] Average line items: ${averageLineItems.toFixed(2)}, Average quantity: ${averageQuantity.toFixed(2)}`);
+  moduleLog.info(`[Item Count Analysis] Total line items: ${totalLineItems}, Total quantity: ${totalQuantity}`);
+  moduleLog.info(`[Item Count Analysis] Average line items: ${averageLineItems.toFixed(2)}, Average quantity: ${averageQuantity.toFixed(2)}`);
 
   return {
     labels: itemCountBuckets.map(b => b.label),

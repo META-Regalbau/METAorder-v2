@@ -23,6 +23,9 @@ import {
   translateDocumentExtractionToLegacy,
   applyDocumentExtractionDeterministicSteps,
 } from "./documentExtractionTranslate";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "extraction/offerDraftExtractor" });
 
 export interface ExtractedOfferData {
   customer?: {
@@ -357,10 +360,10 @@ export async function extractOfferDataFromDocument(
       return normalized;
     } catch (error: any) {
       if (mode === "openai_only") {
-        console.error("Offer extraction error:", error);
+        log.error({ err: error }, "Offer extraction error:");
         throw new Error(`Failed to extract offer data: ${error.message}`);
       }
-      console.warn("[Offer Extraction] OpenAI failed, falling back to local extraction:", error);
+      log.warn({ err: error }, "[Offer Extraction] OpenAI failed, falling back to local extraction:");
     }
   }
 
@@ -383,7 +386,7 @@ export async function extractOfferDataFromDocument(
         return translateDocumentExtractionToLegacy(parsed) as ExtractedOfferData;
       }
     } catch (error) {
-      console.warn("[Offer Extraction] Chat-LLM-Extraktion fehlgeschlagen, nutze lokale Extraktion:", error);
+      log.warn({ err: error }, "[Offer Extraction] Chat-LLM-Extraktion fehlgeschlagen, nutze lokale Extraktion:");
     }
   }
 

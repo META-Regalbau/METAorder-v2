@@ -17,6 +17,9 @@ import { loadAnalyticsOrders } from "../analytics/analyticsOrders";
 import { consumeNlQuota, getNlUsage, NL_LIMIT_DEFAULTS, resolveNlLimits, type NlLimits } from "../analytics/nlQueryLimit";
 import { nlUsageStore } from "../analytics/nlQueryUsageStore";
 import { dataQualityCacheKey, fetchAllDataQualityProducts, productDataQualityCache, summarizeDataQuality } from "../analytics/productDataQuality";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "routes/analyticsRoutes" });
 
 export function registerAnalyticsRoutes(app: Express): void {
   // Google KPI endpoints
@@ -30,7 +33,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       );
       res.json(data || {});
     } catch (error: any) {
-      console.error("Error fetching GA4 KPIs:", error);
+      moduleLog.error({ err: error }, "Error fetching GA4 KPIs:");
       res.status(500).json({ error: error.message || "Failed to fetch GA4 KPIs" });
     }
   });
@@ -45,7 +48,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       );
       res.json(data || {});
     } catch (error: any) {
-      console.error("Error fetching Google Ads KPIs:", error);
+      moduleLog.error({ err: error }, "Error fetching Google Ads KPIs:");
       res.status(500).json({ error: error.message || "Failed to fetch Google Ads KPIs" });
     }
   });
@@ -89,7 +92,7 @@ export function registerAnalyticsRoutes(app: Express): void {
         dateTo,
       });
     } catch (error: any) {
-      console.error("Error fetching analytics summary:", error);
+      moduleLog.error({ err: error }, "Error fetching analytics summary:");
       res.status(500).json({ error: error.message || "Failed to fetch analytics summary" });
     }
   });
@@ -110,7 +113,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       );
       res.json(summary);
     } catch (error: any) {
-      console.error("Error fetching product data quality:", error);
+      moduleLog.error({ err: error }, "Error fetching product data quality:");
       res.status(500).json({ error: error.message || "Failed to fetch product data quality" });
     }
   });
@@ -140,7 +143,7 @@ export function registerAnalyticsRoutes(app: Express): void {
 
       res.json(statusDistribution);
     } catch (error: any) {
-      console.error("Error fetching order status distribution:", error);
+      moduleLog.error({ err: error }, "Error fetching order status distribution:");
       res.status(500).json({ error: error.message || "Failed to fetch order status distribution" });
     }
   });
@@ -170,7 +173,7 @@ export function registerAnalyticsRoutes(app: Express): void {
 
       res.json(paymentDistribution);
     } catch (error: any) {
-      console.error("Error fetching payment status distribution:", error);
+      moduleLog.error({ err: error }, "Error fetching payment status distribution:");
       res.status(500).json({ error: error.message || "Failed to fetch payment status distribution" });
     }
   });
@@ -217,7 +220,7 @@ export function registerAnalyticsRoutes(app: Express): void {
         inactive: inactiveCount,
       });
     } catch (error: any) {
-      console.error("Error fetching product overview:", error);
+      moduleLog.error({ err: error }, "Error fetching product overview:");
       res.status(500).json({ error: error.message || "Failed to fetch product overview" });
     }
   });
@@ -284,7 +287,7 @@ export function registerAnalyticsRoutes(app: Express): void {
 
       res.json({ trend });
     } catch (error: any) {
-      console.error("Error fetching product activity trend:", error);
+      moduleLog.error({ err: error }, "Error fetching product activity trend:");
       res.status(500).json({ error: error.message || "Failed to fetch product activity trend" });
     }
   });
@@ -332,7 +335,7 @@ export function registerAnalyticsRoutes(app: Express): void {
 
       res.json(sortedCategories);
     } catch (error: any) {
-      console.error("Error fetching category sales:", error);
+      moduleLog.error({ err: error }, "Error fetching category sales:");
       res.status(500).json({ error: error.message || "Failed to fetch category sales" });
     }
   });
@@ -401,7 +404,7 @@ export function registerAnalyticsRoutes(app: Express): void {
         bottomProducts,
       });
     } catch (error: any) {
-      console.error("Error fetching product performance:", error);
+      moduleLog.error({ err: error }, "Error fetching product performance:");
       res.status(500).json({ error: error.message || "Failed to fetch product performance" });
     }
   });
@@ -446,7 +449,7 @@ export function registerAnalyticsRoutes(app: Express): void {
 
       res.json(trendData);
     } catch (error: any) {
-      console.error("Error fetching sales trend:", error);
+      moduleLog.error({ err: error }, "Error fetching sales trend:");
       res.status(500).json({ error: error.message || "Failed to fetch sales trend" });
     }
   });
@@ -520,7 +523,7 @@ export function registerAnalyticsRoutes(app: Express): void {
         ],
       });
     } catch (error: any) {
-      console.error("Error fetching shipping times:", error);
+      moduleLog.error({ err: error }, "Error fetching shipping times:");
       res.status(500).json({ error: error.message || "Failed to fetch shipping times" });
     }
   });
@@ -534,7 +537,7 @@ export function registerAnalyticsRoutes(app: Express): void {
     try {
       return resolveNlLimits(await storage.getSetting("openai_settings"));
     } catch (error) {
-      console.warn("[NL Analytics API] KI-Einstellungen nicht lesbar, Standard-Limits:", error);
+      moduleLog.warn({ err: error }, "[NL Analytics API] KI-Einstellungen nicht lesbar, Standard-Limits:");
       return { ...NL_LIMIT_DEFAULTS };
     }
   };
@@ -551,7 +554,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       });
       res.json(usage);
     } catch (error: any) {
-      console.error("[NL Analytics API] Usage lookup failed:", error);
+      moduleLog.error({ err: error }, "[NL Analytics API] Usage lookup failed:");
       res.status(500).json({ error: "Failed to load usage" });
     }
   });
@@ -560,13 +563,13 @@ export function registerAnalyticsRoutes(app: Express): void {
   // Processes natural language questions and returns analytics results with insights
   app.post("/api/analytics/nl-query", requireAuth, requireViewNaturalLanguageAnalytics, async (req, res) => {
     try {
-      console.log('[NL Analytics API] Processing natural language query request');
+      moduleLog.info("[NL Analytics API] Processing natural language query request");
       
       const user = req.user as any;
       const userId = user?.id;
       
       if (!userId) {
-        console.error('[NL Analytics API] No user ID found in request');
+        moduleLog.error("[NL Analytics API] No user ID found in request");
         return res.status(401).json({ error: "User not authenticated" });
       }
 
@@ -576,7 +579,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       const language = parseAnalyticsLanguage(req.body?.language);
       
       if (!question || typeof question !== 'string' || question.trim().length === 0) {
-        console.error('[NL Analytics API] Invalid or missing question in request body');
+        moduleLog.error("[NL Analytics API] Invalid or missing question in request body");
         return res.status(400).json({ error: "Invalid question. Please provide a non-empty question string.", code: "invalid_question" satisfies NlQueryErrorCode });
       }
 
@@ -587,7 +590,7 @@ export function registerAnalyticsRoutes(app: Express): void {
         limits: await loadNlLimits(),
       });
       if (!quota.ok) {
-        console.warn(`[NL Analytics API] Limit erreicht (${quota.reason}) fuer Nutzer ${userId}: ${quota.used}/${quota.limit}`);
+        moduleLog.warn(`[NL Analytics API] Limit erreicht (${quota.reason}) fuer Nutzer ${userId}: ${quota.used}/${quota.limit}`);
         return res.status(429).json({
           error: "Question limit reached",
           code: quota.reason satisfies NlQueryErrorCode,
@@ -596,16 +599,16 @@ export function registerAnalyticsRoutes(app: Express): void {
         });
       }
 
-      console.log(`[NL Analytics API] User ${userId} asked: "${question}"`);
+      moduleLog.info(`[NL Analytics API] User ${userId} asked: "${question}"`);
 
       // Step 1: Process natural language query into structured query
-      console.log('[NL Analytics API] Step 1: Processing natural language query...');
+      moduleLog.info("[NL Analytics API] Step 1: Processing natural language query...");
       let queryObj;
       try {
         queryObj = await processNaturalLanguageQuery(question, userId, storage);
-        console.log('[NL Analytics API] Query processed successfully:', JSON.stringify(queryObj, null, 2));
+        moduleLog.info(`[NL Analytics API] Query processed successfully: ${JSON.stringify(queryObj, null, 2)}`);
       } catch (error: any) {
-        console.error('[NL Analytics API] Error processing natural language query:', error);
+        moduleLog.error({ err: error }, "[NL Analytics API] Error processing natural language query:");
         if (String(error?.message ?? "").startsWith("LLM integration not available")) {
           return res.status(503).json({
             error: "No AI chat provider is configured for this tenant.",
@@ -620,11 +623,11 @@ export function registerAnalyticsRoutes(app: Express): void {
       }
 
       // Step 2: Initialize ShopwareClient from settings
-      console.log('[NL Analytics API] Step 2: Initializing Shopware client...');
+      moduleLog.info("[NL Analytics API] Step 2: Initializing Shopware client...");
       const settings = await storage.getShopwareSettings();
       
       if (!settings) {
-        console.error('[NL Analytics API] No Shopware settings configured - cannot execute analytics query');
+        moduleLog.error("[NL Analytics API] No Shopware settings configured - cannot execute analytics query");
         return res.status(400).json({ 
           error: "Shopware settings not configured. Please configure Shopware API credentials in settings.",
           code: "shopware_missing" satisfies NlQueryErrorCode,
@@ -632,20 +635,20 @@ export function registerAnalyticsRoutes(app: Express): void {
       }
       
       const shopwareClient = new ShopwareClient(settings);
-      console.log('[NL Analytics API] Shopware client initialized successfully');
+      moduleLog.info("[NL Analytics API] Shopware client initialized successfully");
 
       // SECURITY: Get sales channel filter from user permissions (server-side, authoritative)
-      console.log('[NL Analytics API] Step 2.5: Getting sales channel filter...');
+      moduleLog.info("[NL Analytics API] Step 2.5: Getting sales channel filter...");
       let allowedChannelIds: string[] | null;
       try {
         allowedChannelIds = await getSalesChannelFilter(req);
         if (allowedChannelIds) {
-          console.log(`[NL Analytics API] SECURITY: User restricted to sales channels:`, allowedChannelIds);
+          moduleLog.info({ allowedChannelIds }, "[NL Analytics API] SECURITY: User restricted to sales channels:");
         } else {
-          console.log(`[NL Analytics API] SECURITY: Admin access - no sales channel filtering`);
+          moduleLog.info("[NL Analytics API] SECURITY: Admin access - no sales channel filtering");
         }
       } catch (error: any) {
-        console.error('[NL Analytics API] Error getting sales channel filter:', error);
+        moduleLog.error({ err: error }, "[NL Analytics API] Error getting sales channel filter:");
         return res.status(500).json({ 
           error: "Failed to determine user permissions",
           code: "permissions_failed" satisfies NlQueryErrorCode,
@@ -656,23 +659,23 @@ export function registerAnalyticsRoutes(app: Express): void {
       // SECURITY: Remove any user-provided sales channel IDs from AI-extracted parameters
       // Only server-authoritative allowedChannelIds should be used
       if ("salesChannelId" in queryObj.parameters && queryObj.parameters.salesChannelId) {
-        console.log(`[NL Analytics API] SECURITY: Stripping user-provided salesChannelId from query parameters`);
+        moduleLog.info("[NL Analytics API] SECURITY: Stripping user-provided salesChannelId from query parameters");
         delete (queryObj.parameters as Record<string, unknown>).salesChannelId;
       }
       if ("salesChannelIds" in queryObj.parameters) {
-        console.log(`[NL Analytics API] SECURITY: Stripping user-provided salesChannelIds from query parameters`);
+        moduleLog.info("[NL Analytics API] SECURITY: Stripping user-provided salesChannelIds from query parameters");
         delete (queryObj.parameters as Record<string, unknown>).salesChannelIds;
       }
       
       // Step 3: Execute the analytics query with sales channel filtering
-      console.log('[NL Analytics API] Step 3: Executing analytics query...');
+      moduleLog.info("[NL Analytics API] Step 3: Executing analytics query...");
       let result;
       try {
         result = await executeAnalyticsQuery(queryObj, storage, shopwareClient, allowedChannelIds, (req as any).tenantId ?? null, language);
-        console.log('[NL Analytics API] Query executed successfully');
-        console.log('[NL Analytics API] Result summary:', JSON.stringify(result.summary, null, 2));
+        moduleLog.info("[NL Analytics API] Query executed successfully");
+        moduleLog.info(`[NL Analytics API] Result summary: ${JSON.stringify(result.summary, null, 2)}`);
       } catch (error: any) {
-        console.error('[NL Analytics API] Error executing analytics query:', error);
+        moduleLog.error({ err: error }, "[NL Analytics API] Error executing analytics query:");
         return res.status(500).json({ 
           error: "Failed to execute analytics query",
           code: "execution_failed" satisfies NlQueryErrorCode,
@@ -681,16 +684,16 @@ export function registerAnalyticsRoutes(app: Express): void {
       }
 
       // Step 4: Generate insights from the results
-      console.log('[NL Analytics API] Step 4: Generating insights...');
+      moduleLog.info("[NL Analytics API] Step 4: Generating insights...");
       let insights: any[] = [];
       try {
         insights = await generateInsights(result, queryObj.type, storage, language);
-        console.log(`[NL Analytics API] Generated ${insights.length} insights`);
+        moduleLog.info(`[NL Analytics API] Generated ${insights.length} insights`);
       } catch (error: any) {
-        console.error('[NL Analytics API] Error generating insights:', error);
+        moduleLog.error({ err: error }, "[NL Analytics API] Error generating insights:");
         // Don't fail the request if insights generation fails - return empty insights
         insights = [];
-        console.log('[NL Analytics API] Continuing with empty insights array');
+        moduleLog.info("[NL Analytics API] Continuing with empty insights array");
       }
 
       // Step 5: Generate improvement suggestions for forecast queries
@@ -698,13 +701,13 @@ export function registerAnalyticsRoutes(app: Express): void {
       let improvements: any[] = [];
       
       if (isForecastQuery) {
-        console.log('[NL Analytics API] Step 5: Generating improvement suggestions...');
+        moduleLog.info("[NL Analytics API] Step 5: Generating improvement suggestions...");
         try {
           const { generateImprovementSuggestions } = await import('../analytics/improvementSuggestions');
           improvements = await generateImprovementSuggestions(queryObj, result, storage, language);
-          console.log(`[NL Analytics API] Generated ${improvements.length} improvement suggestions`);
+          moduleLog.info(`[NL Analytics API] Generated ${improvements.length} improvement suggestions`);
         } catch (error: any) {
-          console.error('[NL Analytics API] Error generating improvement suggestions:', error);
+          moduleLog.error({ err: error }, "[NL Analytics API] Error generating improvement suggestions:");
           // Don't fail the request if suggestions generation fails
           improvements = [];
         }
@@ -721,12 +724,12 @@ export function registerAnalyticsRoutes(app: Express): void {
         usage: { used: quota.used, limit: quota.limit },
       };
 
-      console.log('[NL Analytics API] Request completed successfully');
-      console.log(`[NL Analytics API] Response contains ${result.labels.length} data points, ${insights.length} insights, and ${improvements.length} improvement suggestions`);
+      moduleLog.info("[NL Analytics API] Request completed successfully");
+      moduleLog.info(`[NL Analytics API] Response contains ${result.labels.length} data points, ${insights.length} insights, and ${improvements.length} improvement suggestions`);
       
       res.json(response);
     } catch (error: any) {
-      console.error('[NL Analytics API] Unexpected error:', error);
+      moduleLog.error({ err: error }, "[NL Analytics API] Unexpected error:");
       res.status(500).json({ 
         error: "An unexpected error occurred while processing your request",
         code: "unexpected" satisfies NlQueryErrorCode,
@@ -739,7 +742,7 @@ export function registerAnalyticsRoutes(app: Express): void {
   // Returns a list of common analytics questions in German for user guidance
   app.get("/api/analytics/suggested-questions", requireAuth, requireViewNaturalLanguageAnalytics, async (req, res) => {
     try {
-      console.log('[NL Analytics API] Fetching suggested questions');
+      moduleLog.info("[NL Analytics API] Fetching suggested questions");
       
       const suggestedQuestions = [
         "Zeig mir die Top 10 Produkte vom letzten Monat",
@@ -756,11 +759,11 @@ export function registerAnalyticsRoutes(app: Express): void {
         "Erstelle eine saisonale Analyse für unsere Top-Kategorien",
       ];
 
-      console.log(`[NL Analytics API] Returning ${suggestedQuestions.length} suggested questions`);
+      moduleLog.info(`[NL Analytics API] Returning ${suggestedQuestions.length} suggested questions`);
       
       res.json(suggestedQuestions);
     } catch (error: any) {
-      console.error('[NL Analytics API] Error fetching suggested questions:', error);
+      moduleLog.error({ err: error }, "[NL Analytics API] Error fetching suggested questions:");
       res.status(500).json({ 
         error: "Failed to fetch suggested questions",
         details: error.message 
@@ -810,7 +813,7 @@ export function registerAnalyticsRoutes(app: Express): void {
 
       res.json(myTickets);
     } catch (error) {
-      console.error("Error fetching my tickets:", error);
+      moduleLog.error({ err: error }, "Error fetching my tickets:");
       res.status(500).json({ error: "Failed to fetch assigned tickets" });
     }
   });
@@ -861,7 +864,7 @@ export function registerAnalyticsRoutes(app: Express): void {
 
       res.json(recentComments);
     } catch (error) {
-      console.error("Error fetching ticket comments:", error);
+      moduleLog.error({ err: error }, "Error fetching ticket comments:");
       res.status(500).json({ error: "Failed to fetch ticket comments" });
     }
   });
@@ -893,7 +896,7 @@ export function registerAnalyticsRoutes(app: Express): void {
 
       res.json(enriched);
     } catch (error) {
-      console.error("Error fetching CRM interactions:", error);
+      moduleLog.error({ err: error }, "Error fetching CRM interactions:");
       res.status(500).json({ error: "Failed to fetch CRM interactions" });
     }
   });
@@ -928,7 +931,7 @@ export function registerAnalyticsRoutes(app: Express): void {
 
       res.json(orders);
     } catch (error) {
-      console.error("Error fetching recent orders:", error);
+      moduleLog.error({ err: error }, "Error fetching recent orders:");
       res.status(500).json({ error: "Failed to fetch recent orders" });
     }
   });
@@ -1000,7 +1003,7 @@ export function registerAnalyticsRoutes(app: Express): void {
 
       res.json(kpis);
     } catch (error) {
-      console.error("Error fetching KPIs:", error);
+      moduleLog.error({ err: error }, "Error fetching KPIs:");
       res.status(500).json({ error: "Failed to fetch KPIs" });
     }
   });
@@ -1046,7 +1049,7 @@ export function registerAnalyticsRoutes(app: Express): void {
 
       res.json(summary);
     } catch (error) {
-      console.error("Error fetching delayed orders summary:", error);
+      moduleLog.error({ err: error }, "Error fetching delayed orders summary:");
       res.status(500).json({ error: "Failed to fetch delayed orders summary" });
     }
   });
@@ -1095,7 +1098,7 @@ export function registerAnalyticsRoutes(app: Express): void {
         orders: limitedOrders,
       });
     } catch (error) {
-      console.error("Error fetching shipping ready orders:", error);
+      moduleLog.error({ err: error }, "Error fetching shipping ready orders:");
       res.status(500).json({ error: "Failed to fetch shipping ready orders" });
     }
   });
@@ -1138,7 +1141,7 @@ export function registerAnalyticsRoutes(app: Express): void {
         stats,
       });
     } catch (error) {
-      console.error("Error fetching imported inquiries:", error);
+      moduleLog.error({ err: error }, "Error fetching imported inquiries:");
       res.status(500).json({ error: "Failed to fetch imported inquiries" });
     }
   });

@@ -10,6 +10,9 @@ import {
   dimensionsMatchExactly,
   type ProductMetadata
 } from "./productPropertyExtractor";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "products/alternativeMatcher" });
 
 export interface AlternativeMatch {
   product: Product;
@@ -50,11 +53,11 @@ export function findIntelligentAlternatives(
 ): AlternativeMatch[] {
   const { extractedProductName, categories, matchedProduct, allProducts } = request;
   
-  console.log(`[Alternative Matcher] Finding alternatives for: "${extractedProductName}"`);
+  moduleLog.info(`[Alternative Matcher] Finding alternatives for: "${extractedProductName}"`);
   
   // Step 1: Find category profile
   const profile = findCategoryProfile(extractedProductName, categories);
-  console.log(`[Alternative Matcher] Category profile: ${profile ? profile.categoryNames.join(', ') : 'GENERIC'}`);
+  moduleLog.info(`[Alternative Matcher] Category profile: ${profile ? profile.categoryNames.join(', ') : 'GENERIC'}`);
   
   // Step 2: Extract request attributes
   const mockRequest: Product = {
@@ -74,27 +77,22 @@ export function findIntelligentAlternatives(
   const requestLoad = profile?.extractLoadCapacity(mockRequest) ?? extractLoadCapacity(mockRequest);
   const requestDimensions = extractDimensions(mockRequest);
   
-  console.log(`[Alternative Matcher] Request metadata:`, {
-    series: requestMetadata.series,
-    type: requestMetadata.type,
-    loadCapacity: requestLoad,
-    dimensions: requestDimensions,
-  });
+  moduleLog.info({ series: requestMetadata.series, type: requestMetadata.type, loadCapacity: requestLoad, dimensions: requestDimensions }, "[Alternative Matcher] Request metadata:");
   
   // Step 3: Apply profile defaults for missing dimensions
   const targetDimensions = { ...requestDimensions };
   if (profile?.defaults) {
     if (!targetDimensions.width && profile.defaults.width) {
       targetDimensions.width = profile.defaults.width;
-      console.log(`[Alternative Matcher] Applied default width: ${profile.defaults.width}mm`);
+      moduleLog.info(`[Alternative Matcher] Applied default width: ${profile.defaults.width}mm`);
     }
     if (!targetDimensions.depth && profile.defaults.depth) {
       targetDimensions.depth = profile.defaults.depth;
-      console.log(`[Alternative Matcher] Applied default depth: ${profile.defaults.depth}mm`);
+      moduleLog.info(`[Alternative Matcher] Applied default depth: ${profile.defaults.depth}mm`);
     }
     if (!targetDimensions.height && profile.defaults.height) {
       targetDimensions.height = profile.defaults.height;
-      console.log(`[Alternative Matcher] Applied default height: ${profile.defaults.height}mm`);
+      moduleLog.info(`[Alternative Matcher] Applied default height: ${profile.defaults.height}mm`);
     }
   }
   
@@ -111,7 +109,7 @@ export function findIntelligentAlternatives(
       const upgrade = profile.findLoadUpgrade(requestLoad, availableLoads);
       if (upgrade) {
         targetLoad = upgrade;
-        console.log(`[Alternative Matcher] Load ${requestLoad}kg unavailable, upgrading to ${upgrade}kg`);
+        moduleLog.info(`[Alternative Matcher] Load ${requestLoad}kg unavailable, upgrading to ${upgrade}kg`);
       }
     }
   }
@@ -225,7 +223,7 @@ export function findIntelligentAlternatives(
   candidates.sort((a, b) => b.score - a.score);
   
   const topAlternatives = candidates.slice(0, maxAlternatives);
-  console.log(`[Alternative Matcher] Found ${candidates.length} candidates, returning top ${topAlternatives.length}`);
+  moduleLog.info(`[Alternative Matcher] Found ${candidates.length} candidates, returning top ${topAlternatives.length}`);
   
   return topAlternatives;
 }

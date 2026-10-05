@@ -1,5 +1,8 @@
 import { createHash } from "crypto";
 import { storage } from "../storage";
+import { logger } from "./logger";
+
+const moduleLog = logger.child({ component: "lib/contentHashCache" });
 
 /** Persistierter Cache-Eintrag in der Settings-Tabelle. */
 export type PersistedHashCache<T> = {
@@ -72,7 +75,7 @@ export async function getHashCached<T>(options: {
     try {
       sourceFingerprint = await fetchFingerprint();
     } catch (error) {
-      console.warn(`[hash-cache] fingerprint failed for ${cacheKey}:`, error);
+      moduleLog.warn({ err: error }, `[hash-cache] fingerprint failed for ${cacheKey}:`);
     }
     const data = await fetchFull();
     const fingerprint = sourceFingerprint ?? hashPayload(data);
@@ -104,7 +107,7 @@ export async function getHashCached<T>(options: {
     try {
       sourceFingerprint = await fetchFingerprint();
     } catch (error) {
-      console.warn(`[hash-cache] fingerprint failed for ${cacheKey}:`, error);
+      moduleLog.warn({ err: error }, `[hash-cache] fingerprint failed for ${cacheKey}:`);
     }
   }
 
@@ -183,9 +186,9 @@ export async function getHashCached<T>(options: {
   });
 
   if (persisted?.fingerprint && persisted.fingerprint !== fingerprint) {
-    console.log(`[hash-cache] ${cacheKey}: source changed (${persisted.fingerprint.slice(0, 8)} → ${fingerprint.slice(0, 8)})`);
+    moduleLog.info(`[hash-cache] ${cacheKey}: source changed (${persisted.fingerprint.slice(0, 8)} → ${fingerprint.slice(0, 8)})`);
   } else if (!persisted?.fingerprint) {
-    console.log(`[hash-cache] ${cacheKey}: cold load`);
+    moduleLog.info(`[hash-cache] ${cacheKey}: cold load`);
   }
 
   return { data, fromCache: false, fingerprint };
@@ -209,7 +212,7 @@ export async function getInMemoryHashCached<T>(options: {
   try {
     sourceFingerprint = await fetchFingerprint();
   } catch (error) {
-    console.warn(`[hash-cache] in-memory fingerprint failed for ${cacheKey}:`, error);
+    moduleLog.warn({ err: error }, `[hash-cache] in-memory fingerprint failed for ${cacheKey}:`);
   }
 
   const memoryHit = memoryLayer.get(memKey) as MemoryEntry<T> | undefined;

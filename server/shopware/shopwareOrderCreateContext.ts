@@ -17,6 +17,9 @@ import {
   DEFAULT_CASH_ROUNDING,
 } from "../b2b/b2bOfferCreateContext";
 import { resolveCustomerUnitPrices } from "../commercial/commercialCustomerPricing";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "shopware/shopwareOrderCreateContext" });
 
 const ORDER_NUMBER_RANGE_TYPE = process.env.SHOPWARE_ORDER_NUMBER_RANGE_TYPE || "order";
 
@@ -33,10 +36,7 @@ async function reserveOrderNumber(client: ShopwareClient, salesChannelId: string
     try {
       return await client.reserveNumberRange(ORDER_NUMBER_RANGE_TYPE);
     } catch (error) {
-      console.warn(
-        "[ShopwareOrder] Number-Range-Reservierung fehlgeschlagen, nutze Fallback-Nummer:",
-        error instanceof Error ? error.message : error
-      );
+      log.warn({ err: error }, "[ShopwareOrder] Number-Range-Reservierung fehlgeschlagen, nutze Fallback-Nummer:");
       return `ORD-${Date.now()}`;
     }
   }
@@ -97,9 +97,7 @@ async function resolveTransactionStateId(client: ShopwareClient): Promise<string
   const list: any[] = rows?.data ?? [];
   const wanted = list.find((r) => readAttr(r, "technicalName") === AUTOMATED_ORDER_TRANSACTION_STATE);
   if (wanted?.id) return String(wanted.id);
-  console.warn(
-    `[ShopwareOrder] Zahlungsstatus "${AUTOMATED_ORDER_TRANSACTION_STATE}" nicht gefunden — Bestellung bleibt "open".`
-  );
+  log.warn(`[ShopwareOrder] Zahlungsstatus "${AUTOMATED_ORDER_TRANSACTION_STATE}" nicht gefunden — Bestellung bleibt "open".`);
   return resolveStateMachineStateId(client, "order_transaction.state");
 }
 

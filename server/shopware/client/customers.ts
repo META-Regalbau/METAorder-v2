@@ -2,6 +2,9 @@
 import type { ShopwareClient } from "../shopware";
 import { toShopwareUuid, SHOPWARE_ADMIN_SEARCH_PAGE_SIZE } from "./mapping";
 import type { OrderAddress } from "@shared/schema";
+import { logger } from "../../lib/logger";
+
+const moduleLog = logger.child({ component: "shopware/client/customers" });
 
 /**
  * Zählt die Kunden im Shop (gesamt) und pro Verkaufskanal.
@@ -229,7 +232,7 @@ export async function fetchAllCustomerIds(this: ShopwareClient): Promise<{ ids: 
  */
 export async function findCustomerByEmail(this: ShopwareClient, email: string): Promise<any | null> {
   try {
-    console.log(`[Shopware] Searching for customer with email: ${email}`);
+    moduleLog.info(`[Shopware] Searching for customer with email: ${email}`);
     
     const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/customer`, {
       method: 'POST',
@@ -256,14 +259,14 @@ export async function findCustomerByEmail(this: ShopwareClient, email: string): 
     const customers = data.data || [];
     
     if (customers.length > 0) {
-      console.log(`[Shopware] Found existing customer: ${customers[0].id}`);
+      moduleLog.info(`[Shopware] Found existing customer: ${customers[0].id}`);
       return customers[0];
     }
     
-    console.log(`[Shopware] No customer found with email: ${email}`);
+    moduleLog.info(`[Shopware] No customer found with email: ${email}`);
     return null;
   } catch (error: any) {
-    console.error('Error searching for customer:', error);
+    moduleLog.error({ err: error }, "Error searching for customer:");
     throw new Error(`Failed to search for customer: ${error.message}`);
   }
 }
@@ -302,7 +305,7 @@ export async function findCustomersByEmail(
       };
     });
   } catch (error: any) {
-    console.error('[Shopware] findCustomersByEmail error:', error?.message || error);
+    moduleLog.error({ err: error }, "[Shopware] findCustomersByEmail error:");
     return [];
   }
 }
@@ -368,7 +371,7 @@ export async function searchCustomers(this: ShopwareClient, searchTerm: string, 
       };
     });
   } catch (error: any) {
-    console.error('[Shopware] searchCustomers error:', error);
+    moduleLog.error({ err: error }, "[Shopware] searchCustomers error:");
     return [];
   }
 }
@@ -393,7 +396,7 @@ export async function fetchCustomerSalesChannelId(this: ShopwareClient, customer
     if (!channelId) return null;
     return { id: channelId, name: salesChannel?.name ?? salesChannel?.translated?.name ?? null };
   } catch (error: any) {
-    console.warn('[Shopware] fetchCustomerSalesChannelId error:', error?.message || error);
+    moduleLog.warn({ err: error }, "[Shopware] fetchCustomerSalesChannelId error:");
     return null;
   }
 }
@@ -534,7 +537,7 @@ export async function searchExistingCustomers(this: ShopwareClient, params: {
       };
     });
   } catch (error: any) {
-    console.error('[Shopware] searchExistingCustomers error:', error?.message || error);
+    moduleLog.error({ err: error }, "[Shopware] searchExistingCustomers error:");
     return [];
   }
 }
@@ -575,7 +578,7 @@ export async function getCustomerById(this: ShopwareClient, customerId: string):
       active: a.active !== false,
     };
   } catch (error: any) {
-    console.error('[Shopware] getCustomerById error:', error?.message || error);
+    moduleLog.error({ err: error }, "[Shopware] getCustomerById error:");
     return null;
   }
 }
@@ -657,7 +660,7 @@ export async function fetchBestandskundenIndex(this: ShopwareClient, groupNameTe
       if (list.length < pageSize) break;
       page += 1;
     } catch (error: any) {
-      console.error('[Shopware] fetchBestandskundenIndex error:', error?.message || error);
+      moduleLog.error({ err: error }, "[Shopware] fetchBestandskundenIndex error:");
       break;
     }
   }
@@ -751,7 +754,7 @@ export async function fetchCustomerBillingForPdf(this: ShopwareClient, customerI
     if (email) out.email = email;
     return Object.keys(out).length ? out : null;
   } catch (e) {
-    console.warn("[Shopware] fetchCustomerBillingForPdf:", e);
+    moduleLog.warn({ err: e }, "[Shopware] fetchCustomerBillingForPdf:");
     return null;
   }
 }
@@ -785,7 +788,7 @@ export async function createCustomer(this: ShopwareClient, customerData: {
   };
 }): Promise<any> {
   try {
-    console.log(`[Shopware] Creating new customer: ${customerData.email}`);
+    moduleLog.info(`[Shopware] Creating new customer: ${customerData.email}`);
     
     // Shopware requires specific structure for customer creation
     // We need to get the sales channel ID and customer group ID
@@ -885,10 +888,10 @@ export async function createCustomer(this: ShopwareClient, customerData: {
       customer = { ...(customer || {}), id: resolvedId };
     }
 
-    console.log(`[Shopware] Customer created successfully: ${customer.id}`);
+    moduleLog.info(`[Shopware] Customer created successfully: ${customer.id}`);
     return customer;
   } catch (error: any) {
-    console.error('Error creating customer:', error);
+    moduleLog.error({ err: error }, "Error creating customer:");
     throw new Error(`Failed to create customer: ${error.message}`);
   }
 }
@@ -1024,7 +1027,7 @@ export async function nextCustomerNumber(this: ShopwareClient, salesChannelId?: 
   try {
     return await this.reserveNumberRange("customer", salesChannelId);
   } catch (error) {
-    console.warn("[Shopware] Kundennummer aus Nummernkreis nicht verfügbar, Fallback auf Zeitstempel:", error);
+    moduleLog.warn({ err: error }, "[Shopware] Kundennummer aus Nummernkreis nicht verfügbar, Fallback auf Zeitstempel:");
     return `B2B-${Date.now()}`;
   }
 }
@@ -1213,13 +1216,9 @@ export async function updateB2BPortalCustomer(
     if (!employeeEmailConflict) {
       throw new Error(`Failed to update B2B portal customer: ${syncResponse.statusText} - ${syncRaw}`);
     }
-    console.warn(
-      `[Shopware] Skipping customer core update for ${id} (email linked to B2B employee); updating address only`,
-    );
+    moduleLog.warn(`[Shopware] Skipping customer core update for ${id} (email linked to B2B employee); updating address only`);
   } else if (employeeEmailConflict) {
-    console.warn(
-      `[Shopware] Sync reported employee email conflict for ${id}; continuing with address/employee updates`,
-    );
+    moduleLog.warn(`[Shopware] Sync reported employee email conflict for ${id}; continuing with address/employee updates`);
   }
 
   const billingAddressPayload: Record<string, unknown> = {

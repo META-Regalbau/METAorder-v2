@@ -23,6 +23,9 @@ import {
   applyDocumentExtractionDeterministicSteps,
 } from "./documentExtractionTranslate";
 import { runDocumentExtractionViaChatLlm, type DocumentExtractionChatLlm } from "./documentExtractionChatLlm";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "extraction/orderDraftExtractor" });
 
 export interface ExtractedOrderData {
   customer?: {
@@ -361,10 +364,10 @@ export async function extractOrderDataFromDocument(
         return normalized;
       } catch (error: any) {
         if (mode === "openai_only") {
-          console.error("Order extraction error:", error);
+          log.error({ err: error }, "Order extraction error:");
           throw new Error(`Failed to extract order data: ${error.message}`);
         }
-        console.warn("[Order Extraction] OpenAI failed, falling back to local extraction:", error);
+        log.warn({ err: error }, "[Order Extraction] OpenAI failed, falling back to local extraction:");
       }
     } else if (pdfNeedsVision) {
       try {
@@ -399,13 +402,10 @@ export async function extractOrderDataFromDocument(
         return normalized;
       } catch (error: any) {
         if (mode === "openai_only") {
-          console.error("Order PDF-Vision extraction error:", error);
+          log.error({ err: error }, "Order PDF-Vision extraction error:");
           throw new Error(`Failed to extract order data from PDF: ${error.message}`);
         }
-        console.warn(
-          "[Order Extraction] PDF-Vision fehlgeschlagen, nutze Text-Chat als Fallback:",
-          error
-        );
+        log.warn({ err: error }, "[Order Extraction] PDF-Vision fehlgeschlagen, nutze Text-Chat als Fallback:");
       }
     }
 
@@ -437,10 +437,10 @@ export async function extractOrderDataFromDocument(
       return normalized;
     } catch (error: any) {
       if (mode === "openai_only") {
-        console.error("Order extraction error:", error);
+        log.error({ err: error }, "Order extraction error:");
         throw new Error(`Failed to extract order data: ${error.message}`);
       }
-      console.warn("[Order Extraction] OpenAI failed, falling back to local extraction:", error);
+      log.warn({ err: error }, "[Order Extraction] OpenAI failed, falling back to local extraction:");
     }
   }
 
@@ -464,7 +464,7 @@ export async function extractOrderDataFromDocument(
         return translateDocumentExtractionToLegacy(parsed) as ExtractedOrderData;
       }
     } catch (error) {
-      console.warn("[Order Extraction] Chat-LLM-Extraktion fehlgeschlagen, nutze lokale Extraktion:", error);
+      log.warn({ err: error }, "[Order Extraction] Chat-LLM-Extraktion fehlgeschlagen, nutze lokale Extraktion:");
     }
   }
 

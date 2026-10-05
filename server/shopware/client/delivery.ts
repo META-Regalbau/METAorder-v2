@@ -2,6 +2,9 @@
 import type { ShopwareClient } from "../shopware";
 import { parseTrackingCodes } from "@shared/tracking";
 import { getLatestDelivery, isMonduPluginShipError } from "./mapping";
+import { logger } from "../../lib/logger";
+
+const moduleLog = logger.child({ component: "shopware/client/delivery" });
 
 /**
  * Update order shipping information and set status to "shipped"
@@ -64,7 +67,7 @@ export async function updateOrderShipping(
       });
       if (!updateResponse.ok) {
         const errorText = await updateResponse.text();
-        console.warn(`Warning: Failed to update tracking codes: ${updateResponse.statusText} - ${errorText}`);
+        moduleLog.warn(`Warning: Failed to update tracking codes: ${updateResponse.statusText} - ${errorText}`);
         // Continue anyway - tracking codes are optional
       }
     };
@@ -108,13 +111,13 @@ export async function updateOrderShipping(
       );
       if (!orderPatchResponse.ok) {
         const errorText = await orderPatchResponse.text();
-        console.warn(`Warning: Failed to persist shipping customFields on order: ${orderPatchResponse.statusText} - ${errorText}`);
+        moduleLog.warn(`Warning: Failed to persist shipping customFields on order: ${orderPatchResponse.statusText} - ${errorText}`);
       }
     }
 
-    console.log(`Order ${orderId} marked as shipped in Shopware`);
+    moduleLog.info(`Order ${orderId} marked as shipped in Shopware`);
   } catch (error) {
-    console.error('Error updating order shipping:', error);
+    moduleLog.error({ err: error }, "Error updating order shipping:");
     throw error;
   }
 }
@@ -124,7 +127,7 @@ export async function updateOrderShipping(
  */
 export async function setOrderShipped(this: ShopwareClient, orderId: string): Promise<void> {
   try {
-    console.log(`[Shopware API] Setting order ${orderId} to shipped status`);
+    moduleLog.info(`[Shopware API] Setting order ${orderId} to shipped status`);
 
     // First get the "shipped" state machine state ID
     const stateResponse = await this.makeAuthenticatedRequest(
@@ -201,9 +204,9 @@ export async function setOrderShipped(this: ShopwareClient, orderId: string): Pr
 
     await this.transitionOrderDeliveryToShipped(orderId, delivery.id);
 
-    console.log(`[Shopware API] Order ${orderId} set to shipped status successfully`);
+    moduleLog.info(`[Shopware API] Order ${orderId} set to shipped status successfully`);
   } catch (error) {
-    console.error('Error setting order to shipped:', error);
+    moduleLog.error({ err: error }, "Error setting order to shipped:");
     throw error;
   }
 }
@@ -280,14 +283,10 @@ export async function cancelSupersededMonduTransactions(this: ShopwareClient, or
 
     if (cancelResponse.ok) {
       cancelled += 1;
-      console.log(
-        `[Shopware] Cancelled superseded Mondu transaction ${transaction.id} on order ${orderId}`,
-      );
+      moduleLog.info(`[Shopware] Cancelled superseded Mondu transaction ${transaction.id} on order ${orderId}`);
     } else {
       const errorText = await cancelResponse.text();
-      console.warn(
-        `[Shopware] Could not cancel Mondu transaction ${transaction.id} on order ${orderId}: ${cancelResponse.statusText} - ${errorText}`,
-      );
+      moduleLog.warn(`[Shopware] Could not cancel Mondu transaction ${transaction.id} on order ${orderId}: ${cancelResponse.statusText} - ${errorText}`);
     }
   }
 
@@ -331,17 +330,13 @@ export async function transitionOrderDeliveryToShipped(this: ShopwareClient, ord
       monduInfo.hasHistoricalMonduTransaction &&
       isMonduPluginShipError(message)
     ) {
-      console.log(
-        `[Shopware] Mondu plugin blocked ship for order ${orderId} ` +
-          `(active payment: ${monduInfo.activePaymentMethod ?? "?"}), cleaning stale Mondu transactions…`,
-      );
+      moduleLog.info(`${`[Shopware] Mondu plugin blocked ship for order ${orderId} ` +
+          `(active payment: ${monduInfo.activePaymentMethod ?? "?"}), cleaning stale Mondu transactions…`}`);
       const cancelled = await this.cancelSupersededMonduTransactions(orderId);
       if (cancelled > 0) {
         try {
           await shipOnce();
-          console.log(
-            `[Shopware] Ship succeeded for order ${orderId} after cancelling ${cancelled} stale Mondu transaction(s)`,
-          );
+          moduleLog.info(`[Shopware] Ship succeeded for order ${orderId} after cancelling ${cancelled} stale Mondu transaction(s)`);
           return;
         } catch (retryError) {
           const retryMsg = retryError instanceof Error ? retryError.message : String(retryError);
@@ -425,10 +420,8 @@ export async function getMonduShipInfo(this: ShopwareClient, orderId: string): P
     delivery?.stateMachineState?.technicalName ?? null;
 
   if (hasHistoricalMonduTransaction) {
-    console.log(
-      `[Mondu] Order ${orderId}: aktive Zahlart "${activePaymentMethod ?? "?"}" ist nicht Mondu, ` +
-        `aber aeltere Mondu-Transaktion(en) vorhanden — Rechnungsversand per E-Mail.`,
-    );
+    moduleLog.info(`${`[Mondu] Order ${orderId}: aktive Zahlart "${activePaymentMethod ?? "?"}" ist nicht Mondu, ` +
+        `aber aeltere Mondu-Transaktion(en) vorhanden — Rechnungsversand per E-Mail.`}`);
   }
 
   return {

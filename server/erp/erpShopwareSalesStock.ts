@@ -7,6 +7,9 @@ import { requireTenantId } from "./erpLogic";
 import { getDefaultWarehouseOrThrow } from "./erpStockReconcile";
 import { storage } from "../storage";
 import { ShopwareClient } from "../shopware/shopware";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "erp/erpShopwareSalesStock" });
 
 export const ERP_SHOPWARE_SALES_CURSOR_KEY = "erp_shopware_sales_stock_cursor";
 
@@ -218,6 +221,6 @@ export function triggerShopwareSalesStockSync(
 ): void {
   if (!tenantId) return;
   void syncShopwareSalesToErpStock(tenantId, { orders }).catch((err) => {
-    console.error(`[erp/shopware-sales-stock] sync failed (tenant=${tenantId}):`, err);
+    log.error({ err }, `[erp/shopware-sales-stock] sync failed (tenant=${tenantId}):`);
   });
 }

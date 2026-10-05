@@ -8,6 +8,9 @@ import { type Order, insertCustomerInteractionSchema, insertOrderAssignmentSchem
 import { loadCrmProfitabilitySettings } from "../analytics/crmProfitabilitySettings";
 import { enrichCustomerPricesWithHerstellMargin } from "../products/herstellpreisMargin";
 import type { Express } from "express";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "routes/crmRoutes" });
 
 function filterCrmCustomersBySalesChannels<T extends { salesChannelIds?: string[] }>(
   customers: T[],
@@ -366,7 +369,7 @@ export function registerCrmRoutes(app: Express): void {
 
       res.json({ customers: filtered });
     } catch (error: any) {
-      console.error("Error loading CRM customers:", error?.message || error, error?.stack);
+      moduleLog.error({ err: error, stack: error?.stack }, "Error loading CRM customers:");
       res.status(500).json({ error: "Failed to load customers" });
     }
   });
@@ -388,7 +391,7 @@ export function registerCrmRoutes(app: Express): void {
       }
       res.json({ customer });
     } catch (error: any) {
-      console.error("Error resolving CRM customer:", error);
+      moduleLog.error({ err: error }, "Error resolving CRM customer:");
       res.status(500).json({ error: "Failed to resolve customer" });
     }
   });
@@ -442,7 +445,7 @@ export function registerCrmRoutes(app: Express): void {
         interactions,
       });
     } catch (error: any) {
-      console.error("Error loading CRM customer overview:", error);
+      moduleLog.error({ err: error }, "Error loading CRM customer overview:");
       res.status(500).json({ error: "Failed to load customer overview" });
     }
   });
@@ -560,7 +563,7 @@ export function registerCrmRoutes(app: Express): void {
         matches,
       });
     } catch (error: any) {
-      console.error("Error matching CRM customer:", error?.message || error);
+      moduleLog.error({ err: error }, "Error matching CRM customer:");
       res.status(500).json({ error: "Failed to match customer" });
     }
   });
@@ -680,7 +683,7 @@ export function registerCrmRoutes(app: Express): void {
           } as any);
         }
       } catch (logErr) {
-        console.warn("[merge] logging failed:", logErr);
+        moduleLog.warn({ err: logErr }, "[merge] logging failed:");
       }
 
       res.json({
@@ -693,7 +696,7 @@ export function registerCrmRoutes(app: Express): void {
         target: { customerNumber: target.customerNumber, email: target.email },
       });
     } catch (error: any) {
-      console.error("Error merging CRM customers:", error?.message || error);
+      moduleLog.error({ err: error }, "Error merging CRM customers:");
       res.status(500).json({ error: "Failed to merge customers" });
     }
   });
@@ -753,7 +756,7 @@ export function registerCrmRoutes(app: Express): void {
             });
           }
         } catch (resolveError: any) {
-          console.warn("[individual-prices] customer resolve failed:", resolveError?.message || resolveError);
+          moduleLog.warn({ err: resolveError }, "[individual-prices] customer resolve failed:");
         }
       }
 
@@ -908,7 +911,7 @@ export function registerCrmRoutes(app: Express): void {
         }
       } catch (tierError: any) {
         // Die Staffeln sind Zusatzinformation — ein Fehler hier darf die Preisliste nicht kippen.
-        console.warn("[individual-prices] Zusatzrabatte:", tierError?.message || tierError);
+        moduleLog.warn({ err: tierError }, "[individual-prices] Zusatzrabatte:");
       }
 
       // Kanal-Übersicht zählt über ALLE Preise des Kunden — unabhängig von Suche und Seitengröße.
@@ -1004,7 +1007,7 @@ export function registerCrmRoutes(app: Express): void {
         fromMirror,
       });
     } catch (error: any) {
-      console.error("Error loading customer individual prices:", error?.message || error);
+      moduleLog.error({ err: error }, "Error loading customer individual prices:");
       res.status(500).json({ error: "Failed to load individual prices" });
     }
   });
@@ -1028,7 +1031,7 @@ export function registerCrmRoutes(app: Express): void {
       try {
         resolved = await client.findCustomerByEmail(customer.email);
       } catch (resolveError: any) {
-        console.warn("[individual-prices/currencies] customer resolve failed:", resolveError?.message || resolveError);
+        moduleLog.warn({ err: resolveError }, "[individual-prices/currencies] customer resolve failed:");
       }
       const swCustomerId: string | undefined = resolved?.id;
       const swCustomerNumber: string | null =
@@ -1052,7 +1055,7 @@ export function registerCrmRoutes(app: Express): void {
         pluginDetected: currencies.length > 0,
       });
     } catch (error: any) {
-      console.error("Error loading customer individual price currencies:", error?.message || error);
+      moduleLog.error({ err: error }, "Error loading customer individual price currencies:");
       res.status(500).json({ error: "Failed to load individual price currencies" });
     }
   });
@@ -1125,7 +1128,7 @@ export function registerCrmRoutes(app: Express): void {
         maxPercentByEmail,
       });
     } catch (error: any) {
-      console.error("Error loading additional discounts index:", error?.message || error);
+      moduleLog.error({ err: error }, "Error loading additional discounts index:");
       res.status(500).json({ error: "Failed to load additional discounts index" });
     }
   });
@@ -1226,7 +1229,7 @@ export function registerCrmRoutes(app: Express): void {
 
       res.json({ summary, rows: rows.slice(offset, offset + limit), limit, offset });
     } catch (error: any) {
-      console.error("Error loading discount overview:", error?.message || error);
+      moduleLog.error({ err: error }, "Error loading discount overview:");
       res.status(500).json({ error: "Failed to load discount overview" });
     }
   });
@@ -1305,7 +1308,7 @@ export function registerCrmRoutes(app: Express): void {
         channelsByEmail,
       });
     } catch (error: any) {
-      console.error("Error loading individual prices index:", error?.message || error);
+      moduleLog.error({ err: error }, "Error loading individual prices index:");
       res.status(500).json({ error: "Failed to load individual prices index" });
     }
   });
@@ -1368,7 +1371,7 @@ export function registerCrmRoutes(app: Express): void {
           "Ist live.distinctCustomerId oder distinctCustomerNumber deutlich groesser, ist der angezeigte Zaehler unvollstaendig.",
       });
     } catch (error: any) {
-      console.error("Error loading individual prices diagnostics:", error?.message || error);
+      moduleLog.error({ err: error }, "Error loading individual prices diagnostics:");
       res.status(500).json({ error: "Failed to load individual prices diagnostics" });
     }
   });
@@ -1411,7 +1414,7 @@ export function registerCrmRoutes(app: Express): void {
         },
       });
     } catch (error: any) {
-      console.error("Error loading customer count:", error?.message || error);
+      moduleLog.error({ err: error }, "Error loading customer count:");
       res.status(500).json({ error: "Failed to load customer count" });
     }
   });
@@ -1487,7 +1490,7 @@ export function registerCrmRoutes(app: Express): void {
       });
 
       if (fromCache) {
-        console.log(`[hash-cache] bestandskunden index served from cache (${cached.customerCount} customers)`);
+        moduleLog.info(`[hash-cache] bestandskunden index served from cache (${cached.customerCount} customers)`);
       }
 
       res.json({
@@ -1496,7 +1499,7 @@ export function registerCrmRoutes(app: Express): void {
         companies: cached.companies,
       });
     } catch (error: any) {
-      console.error("Error loading possible-existing index:", error?.message || error);
+      moduleLog.error({ err: error }, "Error loading possible-existing index:");
       res.status(500).json({ error: "Failed to load possible-existing index" });
     }
   });
@@ -1519,7 +1522,7 @@ export function registerCrmRoutes(app: Express): void {
       if (error.name === "ZodError") {
         return res.status(400).json({ error: "Invalid interaction data", details: error.errors });
       }
-      console.error("Error creating CRM interaction:", error);
+      moduleLog.error({ err: error }, "Error creating CRM interaction:");
       res.status(500).json({ error: "Failed to create interaction" });
     }
   });
@@ -1535,7 +1538,7 @@ export function registerCrmRoutes(app: Express): void {
       }));
       res.json(simplified);
     } catch (error: any) {
-      console.error("Error loading CRM assignees:", error);
+      moduleLog.error({ err: error }, "Error loading CRM assignees:");
       res.status(500).json({ error: "Failed to load assignees" });
     }
   });
@@ -1560,7 +1563,7 @@ export function registerCrmRoutes(app: Express): void {
       }));
       res.json(enriched);
     } catch (error: any) {
-      console.error("Error loading CRM assignments:", error);
+      moduleLog.error({ err: error }, "Error loading CRM assignments:");
       res.status(500).json({ error: "Failed to load assignments" });
     }
   });
@@ -1582,7 +1585,7 @@ export function registerCrmRoutes(app: Express): void {
       if (error.name === "ZodError") {
         return res.status(400).json({ error: "Invalid assignment data", details: error.errors });
       }
-      console.error("Error creating CRM assignment:", error);
+      moduleLog.error({ err: error }, "Error creating CRM assignment:");
       res.status(500).json({ error: "Failed to create assignment" });
     }
   });
@@ -1601,7 +1604,7 @@ export function registerCrmRoutes(app: Express): void {
       });
       res.json(updated);
     } catch (error: any) {
-      console.error("Error approving CRM assignment:", error);
+      moduleLog.error({ err: error }, "Error approving CRM assignment:");
       res.status(500).json({ error: "Failed to approve assignment" });
     }
   });
@@ -1620,7 +1623,7 @@ export function registerCrmRoutes(app: Express): void {
       });
       res.json(updated);
     } catch (error: any) {
-      console.error("Error rejecting CRM assignment:", error);
+      moduleLog.error({ err: error }, "Error rejecting CRM assignment:");
       res.status(500).json({ error: "Failed to reject assignment" });
     }
   });
@@ -1644,7 +1647,7 @@ export function registerCrmRoutes(app: Express): void {
       }));
       res.json(enriched);
     } catch (error: any) {
-      console.error("Error loading CRM discount requests:", error);
+      moduleLog.error({ err: error }, "Error loading CRM discount requests:");
       res.status(500).json({ error: "Failed to load discount requests" });
     }
   });
@@ -1676,7 +1679,7 @@ export function registerCrmRoutes(app: Express): void {
       if (error.name === "ZodError") {
         return res.status(400).json({ error: "Invalid discount request data", details: error.errors });
       }
-      console.error("Error creating CRM discount request:", error);
+      moduleLog.error({ err: error }, "Error creating CRM discount request:");
       res.status(500).json({ error: "Failed to create discount request" });
     }
   });
@@ -1695,7 +1698,7 @@ export function registerCrmRoutes(app: Express): void {
       });
       res.json(updated);
     } catch (error: any) {
-      console.error("Error approving CRM discount request:", error);
+      moduleLog.error({ err: error }, "Error approving CRM discount request:");
       res.status(500).json({ error: "Failed to approve discount request" });
     }
   });
@@ -1714,7 +1717,7 @@ export function registerCrmRoutes(app: Express): void {
       });
       res.json(updated);
     } catch (error: any) {
-      console.error("Error rejecting CRM discount request:", error);
+      moduleLog.error({ err: error }, "Error rejecting CRM discount request:");
       res.status(500).json({ error: "Failed to reject discount request" });
     }
   });

@@ -14,6 +14,9 @@ import {
   decideAcknowledgementMail,
 } from "./commercialInboundAcknowledgementMail";
 import { sendEmail } from "../email/emailOutbound";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "commercial/commercialInboundAcknowledgementSend" });
 
 /** Marker im Entwurf — verhindert eine zweite Bestätigung zum selben Vorgang. */
 const SENT_MARKER = "inboundAcknowledgementSentAt";
@@ -107,8 +110,6 @@ export async function maybeSendInboundAcknowledgement(params: {
     );
   }
 
-  console.log(
-    `[CommercialAgent] Eingangsbestätigung gesendet: ${draftKind} ${draftId} -> ${decision.recipient}`
-  );
+  moduleLog.info(`[CommercialAgent] Eingangsbestätigung gesendet: ${draftKind} ${draftId} -> ${decision.recipient}`);
   return { sent: true, recipient: decision.recipient };
 }

@@ -14,6 +14,9 @@ import {
   type InvoiceAutomationSettings,
   type Order,
 } from "@shared/schema";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "invoicing/invoiceSending" });
 
 export const INVOICE_AUTOMATION_SETTINGS_KEY = "invoice_automation_settings";
 
@@ -109,7 +112,7 @@ export async function markOrderInvoiceSentInCache(
       tenantId,
     );
   } catch (error) {
-    console.warn("[orders-cache] Failed to update invoice-sent flag:", error);
+    moduleLog.warn({ err: error }, "[orders-cache] Failed to update invoice-sent flag:");
   }
 }
 
@@ -151,7 +154,7 @@ export async function sendOrderInvoice(
         options.tenantId ?? null,
       );
     } catch (logError) {
-      console.warn("[sendOrderInvoice] Failed to write automation log:", logError);
+      moduleLog.warn({ err: logError }, "[sendOrderInvoice] Failed to write automation log:");
     }
   };
 
@@ -236,10 +239,7 @@ export async function sendOrderInvoice(
       try {
         await client.setDocumentSent(invoice.id, true);
       } catch (err) {
-        console.warn(
-          `[sendOrderInvoice] Mondu-Versand ok, aber sent-Flag nicht gesetzt (${invoice.id}):`,
-          err,
-        );
+        moduleLog.warn({ err }, `[sendOrderInvoice] Mondu-Versand ok, aber sent-Flag nicht gesetzt (${invoice.id}):`);
       }
 
       await logRun("success", { invoiceId: invoice.id, emailSent: true });
@@ -265,10 +265,7 @@ export async function sendOrderInvoice(
       await client.setDocumentSent(invoice.id, true);
     } catch (err) {
       markError = err;
-      console.warn(
-        `[sendOrderInvoice] Mail gesendet, aber sent-Flag konnte nicht gesetzt werden (${invoice.id}):`,
-        err,
-      );
+      moduleLog.warn({ err }, `[sendOrderInvoice] Mail gesendet, aber sent-Flag konnte nicht gesetzt werden (${invoice.id}):`);
     }
 
     // Verifikation: tatsaechlichen sent-Status direkt aus Shopware nachlesen.

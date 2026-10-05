@@ -1,5 +1,8 @@
 import type { Express } from "express";
 import { createRequire } from "module";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "observability/sentry" });
 
 type SentryNodeSdk = {
   init: (options: Record<string, unknown>) => void;
@@ -22,7 +25,7 @@ export function initBackendSentry(app: Express): void {
 
   const sentry = getSentryNodeSdk();
   if (!sentry) {
-    console.warn("[monitoring] Sentry SDK fehlt. TODO verify: `npm i @sentry/node` ausführen.");
+    log.warn(`[monitoring] Sentry SDK fehlt. TODO verify: \`npm i @sentry/node\` ausführen.`);
     return;
   }
 

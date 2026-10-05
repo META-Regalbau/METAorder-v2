@@ -3,6 +3,9 @@ import { chatCompletion, isChatLlmConfigured, parseLlmJsonResponse } from "../ai
 import type { AnalyticsLanguage } from "@shared/schema";
 import type { IStorage } from "../storage";
 import { PROMPT_LANGUAGE_NAME } from "./nlLanguage";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "analytics/improvementSuggestions" });
 
 const IMPROVEMENT_SYSTEM_PROMPT = `Du bist ein erfahrener E-Commerce Business Analyst und Berater.
 
@@ -185,17 +188,12 @@ export async function generateImprovementSuggestions(
   storage: IStorage,
   language: AnalyticsLanguage = "de",
 ): Promise<any[]> {
-  console.log(
-    "[Improvement Suggestions] Generating suggestions for query type:",
-    query.type,
-  );
+  moduleLog.info({ type: query.type }, "[Improvement Suggestions] Generating suggestions for query type:");
 
   const llmOk = await isChatLlmConfigured((key) => storage.getSetting(key));
 
   if (!llmOk) {
-    console.log(
-      "[Improvement Suggestions] Chat LLM not configured - skipping suggestions",
-    );
+    moduleLog.info("[Improvement Suggestions] Chat LLM not configured - skipping suggestions");
     return [];
   }
 
@@ -220,7 +218,7 @@ export async function generateImprovementSuggestions(
       ),
     ])) as string;
     if (!responseContent) {
-      console.error("[Improvement Suggestions] Empty response from LLM");
+      moduleLog.error("[Improvement Suggestions] Empty response from LLM");
       return [];
     }
 
@@ -240,31 +238,26 @@ export async function generateImprovementSuggestions(
       basedOn: s.basedOn,
     }));
 
-    console.log(
-      `[Improvement Suggestions] Generated ${suggestions.length} suggestions`,
-    );
+    moduleLog.info(`[Improvement Suggestions] Generated ${suggestions.length} suggestions`);
     return suggestions;
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
-    console.error(
-      "[Improvement Suggestions] Error generating suggestions:",
-      errorMessage,
-    );
+    moduleLog.error(`[Improvement Suggestions] Error generating suggestions: ${errorMessage}`);
     if (errorMessage.includes("TIMEOUT")) {
-      console.warn("[Improvement Suggestions] Request timed out");
+      moduleLog.warn("[Improvement Suggestions] Request timed out");
     } else if (
       errorMessage.includes("rate_limit") ||
       errorMessage.includes("429")
     ) {
-      console.warn("[Improvement Suggestions] Rate limit exceeded");
+      moduleLog.warn("[Improvement Suggestions] Rate limit exceeded");
     } else if (
       errorMessage.includes("authentication") ||
       errorMessage.includes("401") ||
       errorMessage.includes("api_key") ||
       errorMessage.includes("Incorrect API key")
     ) {
-      console.warn("[Improvement Suggestions] Authentication failed");
+      moduleLog.warn("[Improvement Suggestions] Authentication failed");
     }
     return [];
   }

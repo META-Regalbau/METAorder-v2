@@ -2,6 +2,9 @@
 import type { ShopwareClient } from "../shopware";
 import type { SalesChannel } from "@shared/schema";
 import { isShopwareEntityId, normalizeShopwareEntityId, shopwareEntityName, toShopwareUuid } from "./mapping";
+import { logger } from "../../lib/logger";
+
+const moduleLog = logger.child({ component: "shopware/client/masterData" });
 
 export async function fetchSalesChannels(this: ShopwareClient): Promise<SalesChannel[]> {
   try {
@@ -36,7 +39,7 @@ export async function fetchSalesChannels(this: ShopwareClient): Promise<SalesCha
       active: channel.active !== undefined ? channel.active : (channel.attributes?.active || true),
     }));
   } catch (error) {
-    console.error('Error fetching sales channels from Shopware:', error);
+    moduleLog.error({ err: error }, "Error fetching sales channels from Shopware:");
     throw error;
   }
 }
@@ -63,7 +66,7 @@ export async function fetchSalesChannelNameMap(this: ShopwareClient): Promise<Ma
       if (id) map.set(id, name ? String(name) : id);
     }
   } catch (error: any) {
-    console.warn('[Shopware] fetchSalesChannelNameMap:', error?.message || error);
+    moduleLog.warn({ err: error }, "[Shopware] fetchSalesChannelNameMap:");
   }
   return map;
 }
@@ -101,7 +104,7 @@ export async function resolveEntityDisplayNames(this: ShopwareClient, ids: strin
         if (id && name) out.set(id, name);
       }
     } catch (err) {
-      console.warn("[shopware] resolve property_group_option names failed:", err);
+      moduleLog.warn({ err }, "[shopware] resolve property_group_option names failed:");
     }
   }
 
@@ -127,7 +130,7 @@ export async function resolveEntityDisplayNames(this: ShopwareClient, ids: strin
         if (id && label) out.set(id, label);
       }
     } catch (err) {
-      console.warn("[shopware] resolve media names failed:", err);
+      moduleLog.warn({ err }, "[shopware] resolve media names failed:");
     }
   }
 
@@ -202,7 +205,7 @@ export async function resolveDeliveryTimes(
       page += 1;
     }
   } catch (err) {
-    console.warn("[shopware] list delivery_time catalog failed:", err);
+    moduleLog.warn({ err }, "[shopware] list delivery_time catalog failed:");
   }
 
   const missing = wanted.filter((id) => !out.has(id) || !out.get(id)?.name);
@@ -220,7 +223,7 @@ export async function resolveDeliveryTimes(
         });
         for (const row of data.data || []) putRow(row);
       } catch (err) {
-        console.warn("[shopware] resolve delivery_time by id failed:", err);
+        moduleLog.warn({ err }, "[shopware] resolve delivery_time by id failed:");
       }
     }
   }
@@ -240,7 +243,7 @@ export async function resolveDeliveryTimes(
 // Fetch categories that have products by extracting them from actual products
 export async function fetchCategories(this: ShopwareClient): Promise<Array<{ id: string; name: string; parentId: string | null }>> {
   try {
-    console.log('[fetchCategories] Fetching categories with products from Shopware...');
+    moduleLog.info("[fetchCategories] Fetching categories with products from Shopware...");
     
     // Step 1: Fetch products with their category information
     const productsResponse = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/product`, {
@@ -288,10 +291,10 @@ export async function fetchCategories(this: ShopwareClient): Promise<Array<{ id:
       a.name.localeCompare(b.name)
     );
 
-    console.log(`[fetchCategories] Found ${categories.length} categories with products (from ${products.length} products)`);
+    moduleLog.info(`[fetchCategories] Found ${categories.length} categories with products (from ${products.length} products)`);
     return categories;
   } catch (error) {
-    console.error('Error fetching categories from Shopware:', error);
+    moduleLog.error({ err: error }, "Error fetching categories from Shopware:");
     throw error;
   }
 }
@@ -360,10 +363,10 @@ export async function fetchAvailableFields(this: ShopwareClient): Promise<{
           }
         });
 
-        console.log(`Fetched ${customFields.length} custom fields from Shopware`);
+        moduleLog.info(`Fetched ${customFields.length} custom fields from Shopware`);
       }
     } catch (customFieldError) {
-      console.warn('Could not fetch custom fields from Shopware:', customFieldError);
+      moduleLog.warn({ err: customFieldError }, "Could not fetch custom fields from Shopware:");
       // Continue with empty custom fields array
     }
 
@@ -372,7 +375,7 @@ export async function fetchAvailableFields(this: ShopwareClient): Promise<{
       customFields,
     };
   } catch (error) {
-    console.error('Error fetching available fields:', error);
+    moduleLog.error({ err: error }, "Error fetching available fields:");
     throw error;
   }
 }
@@ -560,7 +563,7 @@ export async function getCountryIdByName(this: ShopwareClient, countryName: stri
   const data = await response.json();
   const id = data.data?.[0]?.id || '';
   if (!id) {
-    console.warn(`[Shopware] No country entity for iso=${isoCode} (input="${countryName}")`);
+    moduleLog.warn(`[Shopware] No country entity for iso=${isoCode} (input="${countryName}")`);
   }
   return id;
 }

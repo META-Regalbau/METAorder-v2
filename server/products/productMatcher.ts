@@ -28,6 +28,9 @@ import {
   type ResolvedLineIdentifiers,
 } from "../extraction/lineItemCatalogIdentifiers";
 import { normalizeLearningLineKey } from "../commercial/commercialProductLearning";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "products/productMatcher" });
 
 /** Obergrenze für Regalsystem-Maßtreffer — reine Vorschläge, nie automatisch übernommen. */
 const SYSTEM_MATCH_MAX_CONFIDENCE = 45;
@@ -280,7 +283,7 @@ function convertHolmToHolmebene(productName: string): {
   if (hasHolm && !hasHolmebene) {
     // Replace "Holm" with "Holmebene" (preserving case)
     const searchTerm = productName.replace(/\bHolm\b/gi, 'Holmebene');
-    console.log(`[Holm Conversion] Detected standalone Holm: "${productName}" → "${searchTerm}"`);
+    moduleLog.info(`[Holm Conversion] Detected standalone Holm: "${productName}" → "${searchTerm}"`);
     return {
       searchTerm,
       isHolmConversion: true,
@@ -324,7 +327,7 @@ export async function matchProductsAgainstCatalog(
       try {
         await productCache.refresh(client);
       } catch (error) {
-        console.warn("[Product Matcher] Cache refresh failed, falling back to streaming:", error);
+        moduleLog.warn({ err: error }, "[Product Matcher] Cache refresh failed, falling back to streaming:");
       }
     }
     cachedProducts = productCache.getProducts();
@@ -348,10 +351,10 @@ export async function matchProductsAgainstCatalog(
   });
 
   let allProducts: Product[] = [];
-  console.log(`[Product Matcher] Starting product matching for ${lineItems.length} line items`);
+  moduleLog.info(`[Product Matcher] Starting product matching for ${lineItems.length} line items`);
 
   if (cachedProducts.length > 0) {
-    console.log(`[Product Matcher] Using cached catalog (${cachedProducts.length} products)`);
+    moduleLog.info(`[Product Matcher] Using cached catalog (${cachedProducts.length} products)`);
     allProducts = cachedProducts;
     lineItems.forEach((item, index) => {
       if (isLineBlockedByLearning(item, options)) {
@@ -382,13 +385,13 @@ export async function matchProductsAgainstCatalog(
     const BATCH_SIZE = 500;
     let hasMore = true;
 
-    console.log(`[Product Matcher] Will fetch products in batches of ${BATCH_SIZE}`);
+    moduleLog.info(`[Product Matcher] Will fetch products in batches of ${BATCH_SIZE}`);
 
     // Fetch and match products in batches until we run out of pages
     while (hasMore) {
       const { products, total } = await client.fetchProducts(BATCH_SIZE, page);
 
-      console.log(`[Product Matcher] Fetched page ${page} with ${products.length} products (total in catalog: ${total})`);
+      moduleLog.info(`[Product Matcher] Fetched page ${page} with ${products.length} products (total in catalog: ${total})`);
 
       allProducts.push(...products);
 
@@ -434,12 +437,12 @@ export async function matchProductsAgainstCatalog(
       page++;
 
       if (page > 100) {
-        console.warn("Product fetch exceeded 100 pages. Stopping pagination.");
+        moduleLog.warn("Product fetch exceeded 100 pages. Stopping pagination.");
         break;
       }
     }
 
-    console.log(`[Product Matcher] Finished matching. Processed ${page - 1} pages.`);
+    moduleLog.info(`[Product Matcher] Finished matching. Processed ${page - 1} pages.`);
   }
 
   for (let idx = 0; idx < lineItems.length; idx++) {
@@ -487,12 +490,12 @@ export async function matchProductsAgainstCatalog(
         reasoning: alt.reasoning, // Include intelligent reasoning
       }));
       
-      console.log(`[Product Matcher] Found ${intelligentAlternatives.length} intelligent alternatives for "${match.extractedProductName}"`);
+      moduleLog.info(`[Product Matcher] Found ${intelligentAlternatives.length} intelligent alternatives for "${match.extractedProductName}"`);
       intelligentAlternatives.forEach(alt => {
-        console.log(`  - ${alt.product.name} (score: ${alt.score.toFixed(0)}%, ${alt.reasoning})`);
+        moduleLog.info(`  - ${alt.product.name} (score: ${alt.score.toFixed(0)}%, ${alt.reasoning})`);
       });
     } else {
-      console.log(`[Product Matcher] No intelligent alternatives found for "${match.extractedProductName}"`);
+      moduleLog.info(`[Product Matcher] No intelligent alternatives found for "${match.extractedProductName}"`);
     }
     
     // Add dimension-based alternatives for "not_found" products
@@ -528,7 +531,7 @@ export async function matchProductsAgainstCatalog(
         
         if (contentChanged) {
           match.alternativeMatches = uniqueMergedAlts;
-          console.log(`[Product Matcher] Added ${dimAlts.length} dimension-based alternatives for "${match.extractedProductName}" (total: ${uniqueMergedAlts.length})`);
+          moduleLog.info(`[Product Matcher] Added ${dimAlts.length} dimension-based alternatives for "${match.extractedProductName}" (total: ${uniqueMergedAlts.length})`);
         }
       }
     }
@@ -564,7 +567,7 @@ export async function matchProductsAgainstCatalog(
           
           if (contentChanged) {
             match.alternativeMatches = uniqueMergedAlts;
-            console.log(`[Product Matcher] Merged ${shelfAlts.length} Grundregal/Anbauregal alternatives for "${match.extractedProductName}" (total: ${uniqueMergedAlts.length})`);
+            moduleLog.info(`[Product Matcher] Merged ${shelfAlts.length} Grundregal/Anbauregal alternatives for "${match.extractedProductName}" (total: ${uniqueMergedAlts.length})`);
           }
         }
       }
@@ -583,7 +586,7 @@ export async function matchProductsAgainstCatalog(
     
     // Only try system matching if we have a total width (indicates system request)
     if (requirements.totalWidth) {
-      console.log(`[Product Matcher] Detected system request for: "${item.extractedProductName}"`);
+      moduleLog.info(`[Product Matcher] Detected system request for: "${item.extractedProductName}"`);
       const systemMatch = findSystemComponents(requirements, allProducts);
       
       if (systemMatch.isSystemRequest && systemMatch.confidence > 0) {
@@ -596,9 +599,7 @@ export async function matchProductsAgainstCatalog(
         // Alternativen anbieten und den Vorschlag über `systemMatch` für die UI behalten.
         if (!currentMatch.matchedProduct && systemMatch.baseProduct) {
           const suggestionConfidence = Math.min(SYSTEM_MATCH_MAX_CONFIDENCE, systemMatch.confidence);
-          console.log(
-            `[Product Matcher] System suggestion (${systemMatch.confidence}% Maßtreffer, als Alternative mit ${suggestionConfidence}%)`
-          );
+          moduleLog.info(`[Product Matcher] System suggestion (${systemMatch.confidence}% Maßtreffer, als Alternative mit ${suggestionConfidence}%)`);
           currentMatch.systemMatch = { ...systemMatch, confidence: suggestionConfidence };
           currentMatch.status = "uncertain";
           currentMatch.confidence = 0;
@@ -664,7 +665,7 @@ function findDimensionBasedAlternatives(
   const dimensions = extractedProductName.match(dimensionPattern) || [];
   
   if (dimensions.length === 0) {
-    console.log(`[Dimension Alternatives] No dimensions found in "${extractedProductName}"`);
+    moduleLog.info(`[Dimension Alternatives] No dimensions found in "${extractedProductName}"`);
     return [];
   }
   
@@ -688,9 +689,9 @@ function findDimensionBasedAlternatives(
     normalizedExtractedName.includes(keyword)
   );
   
-  console.log(`[Dimension Alternatives] Extracted from "${extractedProductName}":`);
-  console.log(`  - Dimensions: [${normalizedDimensions.join(', ')}]`);
-  console.log(`  - Product types: [${matchedKeywords.join(', ') || 'none'}]`);
+  moduleLog.info(`[Dimension Alternatives] Extracted from "${extractedProductName}":`);
+  moduleLog.info(`  - Dimensions: [${normalizedDimensions.join(', ')}]`);
+  moduleLog.info(`  - Product types: [${matchedKeywords.join(', ') || 'none'}]`);
   
   // Find products that:
   // 1. Contain at least one dimension in their name
@@ -720,7 +721,7 @@ function findDimensionBasedAlternatives(
     return true;
   });
   
-  console.log(`[Dimension Alternatives] Found ${alternatives.length} products matching dimensions [${normalizedDimensions.join(', ')}] and types [${matchedKeywords.join(', ') || 'any'}]`);
+  moduleLog.info(`[Dimension Alternatives] Found ${alternatives.length} products matching dimensions [${normalizedDimensions.join(', ')}] and types [${matchedKeywords.join(', ') || 'any'}]`);
   
   // Sort by how many dimensions match (most matches first)
   alternatives.sort((a, b) => {
@@ -804,7 +805,7 @@ function findShelfTypeAlternatives(
     return false;
   });
   
-  console.log(`[Shelf Type Alternatives] Found ${alternatives.length} ${targetType} alternatives for ${matchedProduct.name}`);
+  moduleLog.info(`[Shelf Type Alternatives] Found ${alternatives.length} ${targetType} alternatives for ${matchedProduct.name}`);
   
   return alternatives;
 }
@@ -984,15 +985,13 @@ function matchLineItemAgainstBatch(
     originalQuantity = quantity;
     convertedQuantity = Math.ceil(quantity / 2);
     conversionNote = "1 Holmebene = 2 Holme";
-    console.log(`[Holm Conversion] Quantity: ${originalQuantity} Holme → ${convertedQuantity} Holmebenen-Sets`);
+    moduleLog.info(`[Holm Conversion] Quantity: ${originalQuantity} Holme → ${convertedQuantity} Holmebenen-Sets`);
   }
 
   const numPrimary = normalizeIdentifierValue(ids.primaryNormalized) ?? "";
   const numPrefilter = numPrimary || normalizeIdentifierValue(ids.shortNumeric) || undefined;
 
-  console.log(
-    `[Product Matcher] Matching item: "${searchTerm}" (primary: ${numPrimary || "none"}, display#: ${extractedProductNumber || "none"}) against ${products.length} products`
-  );
+  moduleLog.info(`[Product Matcher] Matching item: "${searchTerm}" (primary: ${numPrimary || "none"}, display#: ${extractedProductNumber || "none"}) against ${products.length} products`);
 
   const candidates = prefilterProducts(searchTerm, numPrefilter, products);
   const scoredProducts: ScoredProductRow[] = candidates.map((product) => {
@@ -1073,7 +1072,7 @@ function matchLineItemAgainstBatch(
     }
 
     if (confidence >= 80) {
-      console.log(`  [Match Found] ${confidence}% - ${product.name} (${product.productNumber}) - ${matchReason}`);
+      moduleLog.info(`  [Match Found] ${confidence}% - ${product.name} (${product.productNumber}) - ${matchReason}`);
     }
 
     return {
@@ -1102,7 +1101,7 @@ function matchLineItemAgainstBatch(
     const syn = findProductBySyntheticGtins(products, syntheticGtins);
     if (syn && syn.row.confidence > bestMatch.confidence) {
       bestMatch = syn.row;
-      console.log(`[Product Matcher] Synthetic GTIN hit: ${syntheticGtins.join(", ")} → ${syn.product.productNumber}`);
+      moduleLog.info(`[Product Matcher] Synthetic GTIN hit: ${syntheticGtins.join(", ")} → ${syn.product.productNumber}`);
     }
   }
 
@@ -1110,7 +1109,7 @@ function matchLineItemAgainstBatch(
     const prefHit = findProductByUniqueEanPrefix(products, six);
     if (prefHit && prefHit.row.confidence > bestMatch.confidence) {
       bestMatch = prefHit.row;
-      console.log(`[Product Matcher] Unique EAN prefix hit: ${six} → ${prefHit.product.productNumber}`);
+      moduleLog.info(`[Product Matcher] Unique EAN prefix hit: ${six} → ${prefHit.product.productNumber}`);
     }
   }
 
@@ -1118,7 +1117,7 @@ function matchLineItemAgainstBatch(
     const mfgHit = findProductByExactManufacturerNumber(products, ids.shortNumeric);
     if (mfgHit && mfgHit.row.confidence > bestMatch.confidence) {
       bestMatch = mfgHit.row;
-      console.log(`[Product Matcher] Manufacturer number hit: ${ids.shortNumeric} → ${mfgHit.product.productNumber}`);
+      moduleLog.info(`[Product Matcher] Manufacturer number hit: ${ids.shortNumeric} → ${mfgHit.product.productNumber}`);
     }
   }
 
@@ -1126,7 +1125,7 @@ function matchLineItemAgainstBatch(
     const sapHit = findProductByExactSapProductNumber(products, extractedProductNumber);
     if (sapHit && sapHit.row.confidence > bestMatch.confidence) {
       bestMatch = sapHit.row;
-      console.log(`[Product Matcher] SAP product number hit: ${extractedProductNumber} → ${sapHit.product.productNumber}`);
+      moduleLog.info(`[Product Matcher] SAP product number hit: ${extractedProductNumber} → ${sapHit.product.productNumber}`);
     }
   }
 
@@ -1149,9 +1148,7 @@ function matchLineItemAgainstBatch(
     alternatives = scoredProducts.filter(alternativeMeetsConfidenceThreshold).slice(0, 10);
   }
 
-  console.log(
-    `[Product Matcher] Best match for "${searchTerm}": ${bestMatch?.confidence || 0}% - ${bestMatch?.name || "none"} (status: ${status}, alternatives: ${alternatives.length})`
-  );
+  moduleLog.info(`[Product Matcher] Best match for "${searchTerm}": ${bestMatch?.confidence || 0}% - ${bestMatch?.name || "none"} (status: ${status}, alternatives: ${alternatives.length})`);
 
   let filteredAlternatives = alternatives;
   const productTypeKeywords = [
@@ -1182,9 +1179,7 @@ function matchLineItemAgainstBatch(
     });
 
     if (filteredAlternatives.length < alternatives.length) {
-      console.log(
-        `[Product Type Filter] Filtered alternatives for "${searchTerm}" from ${alternatives.length} to ${filteredAlternatives.length} by product types: [${matchedKeywords.join(", ")}]`
-      );
+      moduleLog.info(`[Product Type Filter] Filtered alternatives for "${searchTerm}" from ${alternatives.length} to ${filteredAlternatives.length} by product types: [${matchedKeywords.join(", ")}]`);
     }
   }
 
@@ -1200,7 +1195,7 @@ function matchLineItemAgainstBatch(
     bestStrategy === "sapProductNumber" ||
     bestStrategy === "synthetic_gtin";
   if (matchedByIdentifier && convertedQuantity !== undefined) {
-    console.log(`[Holm Conversion] übersprungen — Treffer über ${bestStrategy}, Menge bleibt ${quantity}`);
+    moduleLog.info(`[Holm Conversion] übersprungen — Treffer über ${bestStrategy}, Menge bleibt ${quantity}`);
     originalQuantity = undefined;
     convertedQuantity = undefined;
     conversionNote = undefined;

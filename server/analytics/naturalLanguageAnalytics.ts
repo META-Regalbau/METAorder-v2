@@ -1,6 +1,9 @@
 import { chatCompletion, isChatLlmConfigured, parseLlmJsonResponse } from "../ai/llmChat";
 import { ANALYTICS_QUERY_TYPES, type AnalyticsQuery, type AnalyticsQueryType } from "@shared/schema";
 import type { IStorage } from "../storage";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "analytics/naturalLanguageAnalytics" });
 
 /**
  * Natural Language Analytics Query Processor
@@ -299,12 +302,12 @@ export async function processNaturalLanguageQuery(
   userId: string,
   storage: IStorage
 ): Promise<AnalyticsQuery> {
-  console.log(`[NL Analytics] Processing query from user ${userId}: "${question}"`);
+  moduleLog.info(`[NL Analytics] Processing query from user ${userId}: "${question}"`);
 
   // Chat-Anbieter des Mandanten (OpenAI, Claude oder Gemini)
   const getSetting = (key: string) => storage.getSetting(key);
   if (!(await isChatLlmConfigured(getSetting))) {
-    console.error('[NL Analytics] LLM not configured - no chat provider with API key available');
+    moduleLog.error("[NL Analytics] LLM not configured - no chat provider with API key available");
     throw new Error('LLM integration not available. Please configure API key in settings.');
   }
 
@@ -335,33 +338,33 @@ export async function processNaturalLanguageQuery(
       throw new Error('Leere Antwort von KI-Service erhalten');
     }
 
-    console.log('[NL Analytics] LLM response:', responseContent);
+    moduleLog.info(`[NL Analytics] LLM response: ${responseContent}`);
 
     // Parse the JSON response
     let parsedResponse: any;
     try {
       parsedResponse = parseLlmJsonResponse(responseContent);
     } catch (parseError) {
-      console.error('[NL Analytics] JSON parse error:', parseError);
-      console.error('[NL Analytics] Raw response that failed to parse:', responseContent);
+      moduleLog.error({ err: parseError }, "[NL Analytics] JSON parse error:");
+      moduleLog.error(`[NL Analytics] Raw response that failed to parse: ${responseContent}`);
       throw new Error('KI-Antwort konnte nicht verarbeitet werden - ungültiges JSON-Format');
     }
 
-    console.log('[NL Analytics] Parsed response structure:', JSON.stringify(parsedResponse, null, 2));
+    moduleLog.info(`[NL Analytics] Parsed response structure: ${JSON.stringify(parsedResponse, null, 2)}`);
 
     // Validate the response structure
     if (!parsedResponse.type || !parsedResponse.parameters) {
-      console.error('[NL Analytics] Invalid response structure - missing type or parameters');
-      console.error('[NL Analytics] Response has keys:', Object.keys(parsedResponse));
-      console.error('[NL Analytics] type value:', parsedResponse.type);
-      console.error('[NL Analytics] parameters value:', parsedResponse.parameters);
+      moduleLog.error("[NL Analytics] Invalid response structure - missing type or parameters");
+      moduleLog.error({ details: Object.keys(parsedResponse) }, "[NL Analytics] Response has keys:");
+      moduleLog.error({ type: parsedResponse.type }, "[NL Analytics] type value:");
+      moduleLog.error({ parameters: parsedResponse.parameters }, "[NL Analytics] parameters value:");
       throw new Error(`Ungültige Antwortstruktur von KI-Service - erwartet 'type' und 'parameters', erhalten: ${Object.keys(parsedResponse).join(', ')}`);
     }
     if (!isSupportedQueryType(parsedResponse.type)) {
       throw new Error(`Ungültiger Abfragetyp von KI-Service: ${parsedResponse.type}`);
     }
 
-    console.log('[NL Analytics] Parsed parameters BEFORE conversion:', JSON.stringify(parsedResponse.parameters, null, 2));
+    moduleLog.info(`[NL Analytics] Parsed parameters BEFORE conversion: ${JSON.stringify(parsedResponse.parameters, null, 2)}`);
 
     // Construct the final AnalyticsQuery object
     const analyticsQuery: AnalyticsQuery = {
@@ -374,13 +377,13 @@ export async function processNaturalLanguageQuery(
     // Convert any relative date placeholders to actual ISO dates
     convertRelativeDates(analyticsQuery.parameters);
     
-    console.log('[NL Analytics] Parsed parameters AFTER conversion:', JSON.stringify(analyticsQuery.parameters, null, 2));
+    moduleLog.info(`[NL Analytics] Parsed parameters AFTER conversion: ${JSON.stringify(analyticsQuery.parameters, null, 2)}`);
 
-    console.log('[NL Analytics] Structured query:', JSON.stringify(analyticsQuery, null, 2));
+    moduleLog.info(`[NL Analytics] Structured query: ${JSON.stringify(analyticsQuery, null, 2)}`);
 
     return analyticsQuery;
   } catch (error) {
-    console.error('[NL Analytics] Error processing query:', error);
+    moduleLog.error({ err: error }, "[NL Analytics] Error processing query:");
     
     const errorMessage = error instanceof Error ? error.message : 'Unbekannter Fehler';
     
@@ -476,7 +479,7 @@ function convertRelativeDates(parameters: Record<string, any>): void {
       return dateStr;
     }
     
-    console.log(`[convertRelativeDates] Could not parse date string: "${dateStr}"`);
+    moduleLog.info(`[convertRelativeDates] Could not parse date string: "${dateStr}"`);
     return null;
   };
   
@@ -484,7 +487,7 @@ function convertRelativeDates(parameters: Record<string, any>): void {
   if (parameters.dateFrom) {
     const converted = parseRelativeDate(parameters.dateFrom);
     if (converted) {
-      console.log(`[convertRelativeDates] Converted dateFrom: "${parameters.dateFrom}" → "${converted}"`);
+      moduleLog.info(`[convertRelativeDates] Converted dateFrom: "${parameters.dateFrom}" → "${converted}"`);
       parameters.dateFrom = converted;
     }
   }
@@ -493,7 +496,7 @@ function convertRelativeDates(parameters: Record<string, any>): void {
   if (parameters.dateTo) {
     const converted = parseRelativeDate(parameters.dateTo);
     if (converted) {
-      console.log(`[convertRelativeDates] Converted dateTo: "${parameters.dateTo}" → "${converted}"`);
+      moduleLog.info(`[convertRelativeDates] Converted dateTo: "${parameters.dateTo}" → "${converted}"`);
       parameters.dateTo = converted;
     }
   }

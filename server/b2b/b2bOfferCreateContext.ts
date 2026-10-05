@@ -3,6 +3,9 @@ import type { OrderAddress, ShopwareSettings } from "@shared/schema";
 import { ShopwareClient } from "../shopware/shopware";
 import type { OfferStatusMapping } from "./b2bSellersClient";
 import { getOfferStatusMapping } from "./b2bSellersClient";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "b2b/b2bOfferCreateContext" });
 
 export type B2BOfferCustomerContext = {
   email?: string;
@@ -34,10 +37,7 @@ async function reserveOfferNumber(
     try {
       return await client.reserveNumberRange(OFFER_NUMBER_RANGE_TYPE);
     } catch (error) {
-      console.warn(
-        "[B2BOffer] Number-Range-Reservierung fehlgeschlagen, nutze Fallback-Nummer:",
-        error instanceof Error ? error.message : error
-      );
+      log.warn({ err: error }, "[B2BOffer] Number-Range-Reservierung fehlgeschlagen, nutze Fallback-Nummer:");
       return `OF-${Date.now()}`;
     }
   }
@@ -288,10 +288,7 @@ export async function resolveOfferLineItemProducts(
     }
   } catch (error) {
     // Wenn die Validierung selbst fehlschlägt, lieber unverändert weitergeben
-    console.warn(
-      "[B2BOffer] Produkt-Validierung fehlgeschlagen, überspringe Re-Resolve:",
-      error instanceof Error ? error.message : error
-    );
+    log.warn({ err: error }, "[B2BOffer] Produkt-Validierung fehlgeschlagen, überspringe Re-Resolve:");
     return { items, invalid: [] };
   }
 
