@@ -59,44 +59,6 @@ export function setupAuth(storage: IStorage) {
     })
   );
 
-  // Serialize user to session
-  passport.serializeUser((user: Express.User, done) => {
-    done(null, (user as User).id);
-  });
-
-  // Deserialize user from session
-  passport.deserializeUser(async (id: string, done) => {
-    try {
-      const user = await storage.getUser(id);
-      if (!user) {
-        return done(null, false);
-      }
-      
-      // Enrich user with role details including permissions
-      const roleId = (user as any).roleId;
-      if (roleId) {
-        const role = await storage.getRole(roleId);
-        if (role) {
-          (user as any).roleDetails = role;
-        }
-      } else {
-        // Fallback for legacy users without roleId: find role by name
-        const allRoles = await storage.getAllRoles();
-        const legacyRoleName = user.role === "admin" ? "Administrator" : "Employee";
-        const fallbackRole = allRoles.find(r => r.name === legacyRoleName);
-        if (fallbackRole) {
-          (user as any).roleDetails = fallbackRole;
-          // Update user with roleId for future requests
-          await storage.updateUser(user.id, { roleId: fallbackRole.id });
-        }
-      }
-      
-      done(null, user);
-    } catch (error) {
-      done(error);
-    }
-  });
-
   return passport;
 }
 

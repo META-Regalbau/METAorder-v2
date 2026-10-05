@@ -9,7 +9,6 @@ loadEnv({ path: path.resolve(__dirname, "..", ".env.local") });
 import express, { type Request, Response, NextFunction } from "express";
 import http from "http";
 import fs from "fs";
-import session from "express-session";
 import cookieParser from "cookie-parser";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -113,35 +112,17 @@ app.use((_req, res, next) => {
   next();
 });
 
-// Session configuration with configurable timeout
-const sessionTimeout = parseInt(process.env.SESSION_TIMEOUT || '86400000', 10); // Default: 24 hours
-
 // Refuse to run with a known dev-default secret (see server/lib/secretGuard.ts for why a
 // plain "is it set" check doesn't work — docker-compose.yml always sets a fallback).
-const sessionSecret = assertSecureSecret("SESSION_SECRET", process.env.SESSION_SECRET);
+// SESSION_SECRET ist der Ersatz fuer JWT_SECRET/CUSTOMER_JWT_SECRET (server/auth/jwt.ts, authCustomer.ts).
+assertSecureSecret("SESSION_SECRET", process.env.SESSION_SECRET);
 assertSecureSecret("ENCRYPTION_KEY", process.env.ENCRYPTION_KEY);
 
-app.use(
-  session({
-    secret: sessionSecret,
-    resave: false,
-    saveUninitialized: false,
-    proxy: true, // Trust proxy for correct cookie behavior
-    cookie: {
-      // 'auto': Secure-Cookie nur bei HTTPS (per X-Forwarded-Proto vom Proxy erkannt), lokal per HTTP ohne
-      secure: 'auto', // Auto-detect based on proxy headers
-      httpOnly: true,
-      // Use "lax" for CSRF protection while allowing same-site navigation
-      sameSite: "lax",
-      maxAge: sessionTimeout, // Configurable via SESSION_TIMEOUT env var
-    },
-  })
-);
-
-// Initialize passport
+// Anmeldung per JWT-Cookie (requireAuth); keine Server-Sitzung. Vorher lief express-session mit dem
+// MemoryStore (Warnung "not designed for a production environment"), gespeichert wurde darin nie etwas:
+// der Login ruft kein req.logIn, passport.session() fand nie einen Nutzer.
 const passport = setupAuth(storage);
 app.use(passport.initialize());
-app.use(passport.session());
 
 // CSRF Protection Middleware (Double-Submit Cookie Pattern)
 // Apply to all state-changing requests except login
