@@ -215,6 +215,7 @@
     "rules": "Reglas de Venta Cruzada",
     "configurator": "Configurador de Estanterías",
     "cpqAdmin": "CPQ Admin",
+    "cpqReviewQueue": "Cola de revisión CPQ",
     "settings": "Configuración",
     "shipping": "Envío",
     "templates": "Plantillas",
@@ -2238,6 +2239,7 @@
     "errors": "Errores",
     "errorDetails": "Detalles del Error",
     "stagingSelectTarget": "Seleccionar producto de destino",
+    "stagingClearSelection": "Quitar selección",
     "stagingSearchProducts": "Buscar por número de artículo o nombre",
     "stagingSearchMin": "Introduzca al menos 2 caracteres",
     "stagingNoProducts": "No se han encontrado productos",
@@ -4771,5 +4773,403 @@
   "theme": {
     "switchToDark": "Modo oscuro",
     "switchToLight": "Modo claro"
+  },
+  "cpq": {
+    "admin": {
+      "title": "CPQ Admin – Configurador y reglas",
+      "subtitle": "Gestione sistemas de estanterías, reglas y el semáforo de descuentos",
+      "common": {
+        "name": "Nombre",
+        "status": "Estado",
+        "actions": "Acciones",
+        "cancel": "Cancelar",
+        "create": "Crear",
+        "save": "Guardar",
+        "close": "Cerrar",
+        "loading": "Cargando…",
+        "preview": "Vista previa",
+        "yes": "Sí",
+        "no": "No",
+        "systemFallback": "Sistema",
+        "discountPercent": "Descuento %"
+      },
+      "tabs": {
+        "systems": "Sistemas",
+        "graph": "Sistema de nodos / Gráfico de relaciones",
+        "mappings": "Asignaciones de productos",
+        "rules": "Reglas",
+        "discountLevels": "Semáforo de descuentos",
+        "reporting": "Informes de descuentos"
+      },
+      "systems": {
+        "title": "Sistemas de estanterías",
+        "newSystem": "Nuevo sistema",
+        "empty": "Todavía no hay sistemas de estanterías. Cree un sistema para gestionar reglas y componentes.",
+        "slug": "Slug",
+        "action": "Acción",
+        "select": "Seleccionar",
+        "createTitle": "Nuevo sistema de estanterías",
+        "createDescription": "Cree un nuevo sistema de estanterías (p. ej., META CLIP, META FIX).",
+        "namePlaceholder": "p. ej., META CLIP",
+        "descriptionLabel": "Descripción (opcional)",
+        "descriptionPlaceholder": "Descripción del sistema de estanterías"
+      },
+      "graph": {
+        "title": "Sistema de nodos / Gráfico de relaciones",
+        "intro": "El gráfico de relaciones muestra sistema → tipos de componente → artículos. Seleccione primero un sistema de estanterías en la pestaña \"Sistemas\" (botón \"Seleccionar\").",
+        "selectSystem": "Seleccionar {{name}}",
+        "noSystems": "Todavía no hay sistemas. Cree uno nuevo en la pestaña \"Sistemas\".",
+        "viewGraph": "Gráfico de relaciones",
+        "viewTable": "Vista de tabla",
+        "viewMatrix": "Matriz de compatibilidad",
+        "zoomOut": "Reducir",
+        "zoomIn": "Ampliar",
+        "noComponentTypes": "No hay tipos de componente. Cree primero tipos de componente en la pestaña \"Asignaciones de productos\"."
+      },
+      "mappings": {
+        "previewTitle": "Vista previa de las asignaciones",
+        "previewSummary": "{{products}} en {{componentTypes}}",
+        "productCount": "{{count}} productos",
+        "productCount_one": "{{count}} producto",
+        "productCount_other": "{{count}} productos",
+        "componentTypeCount": "{{count}} tipos de componente",
+        "componentTypeCount_one": "{{count}} tipo de componente",
+        "componentTypeCount_other": "{{count}} tipos de componente",
+        "title": "Asignaciones de productos para {{name}}",
+        "addComponentType": "Tipo de componente",
+        "newMapping": "Nueva asignación",
+        "componentTypeFirstHint": "Cree primero al menos un tipo de componente (p. ej., puntal, larguero, accesorios) antes de poder asignar productos de Shopware.",
+        "createFirstComponentType": "Crear el primer tipo de componente",
+        "empty": "Todavía no hay asignaciones de productos. Haga clic en \"Nueva asignación\" para asignar un producto de Shopware a este sistema y a un tipo de componente.",
+        "columnProduct": "Número de artículo / nombre del producto",
+        "columnShopwareId": "ID de Shopware",
+        "componentType": "Tipo de componente",
+        "createTitle": "Nueva asignación de producto",
+        "createDescription": "Asigne un producto de Shopware al sistema de estanterías y a un tipo de componente.",
+        "shopwareProduct": "Producto de Shopware",
+        "productSearchPlaceholder": "Buscar producto (mín. 2 caracteres)",
+        "selectComponentType": "Seleccionar tipo de componente",
+        "assignPreview": "→ se asignará al tipo de componente <0>{{name}}</0>.",
+        "createSubmit": "Crear asignación"
+      },
+      "componentTypes": {
+        "title": "Tipos de componente",
+        "role": "Función",
+        "required": "Obligatorio",
+        "createTitle": "Nuevo tipo de componente",
+        "createDescription": "Cree un tipo de componente para el sistema de estanterías (p. ej., puntal, larguero, accesorios).",
+        "namePlaceholder": "p. ej., puntal, larguero",
+        "roles": {
+          "frame": "Bastidor (frame)",
+          "beam": "Larguero (beam)",
+          "shelf": "Estante (shelf)",
+          "connector": "Conector (connector)",
+          "accessory": "Accesorio (accessory)"
+        }
+      },
+      "rules": {
+        "title": "Reglas CPQ para {{name}}",
+        "newRule": "Nueva regla",
+        "empty": "No hay reglas para este sistema. Cree una regla (compatibilidad, física, configuración, negocio).",
+        "type": "Tipo",
+        "priority": "Prioridad",
+        "version": "Versión",
+        "previewTooltip": "Vista previa – coincidencias con configuraciones de prueba",
+        "impactAnalysis": "Análisis de impacto",
+        "versionHistory": "Historial de versiones",
+        "types": {
+          "compatibility": "Compatibilidad",
+          "physical": "Física",
+          "configuration": "Configuración",
+          "business": "Negocio"
+        },
+        "createTitle": "Nueva regla CPQ",
+        "createDescription": "Cree una regla para el sistema seleccionado. Seleccione propiedades o utilice el modo experto (JSON) para reglas complejas.",
+        "nameLabel": "Nombre de la regla",
+        "namePlaceholder": "p. ej., Puntales y estantes – se requiere la misma profundidad",
+        "priorityHint": "Prioridad (baja = primero)",
+        "messageLabel": "Mensaje (opcional)",
+        "messagePlaceholder": "Mensaje visible para los usuarios",
+        "editTitle": "Editar regla",
+        "editDescription": "Modo guiado o modo experto (JSON) para reglas complejas.",
+        "modeGuided": "Guiado",
+        "modeExpert": "Experto (JSON)",
+        "expertJsonLabel": "Condición y acción (JSON)",
+        "previewTitle": "Vista previa – coincidencias de la regla",
+        "previewSummary": "La regla se aplica a {{matchCount}} de {{totalTested}} configuraciones.",
+        "previewSourceSaved": "Base: configuraciones guardadas de este sistema.",
+        "previewSourceMappings": "Base: combinaciones de atributos de asignación de productos (altura, profundidad, número de módulos, niveles).",
+        "previewNoMatches": "Sin coincidencias. La condición de la regla no se cumple en ninguna de las configuraciones del sistema. Revise la condición.",
+        "previewMatchesLabel": "Configuraciones coincidentes:",
+        "previewMatchLine": "Altura {{height}} mm, profundidad {{depth}} mm · {{fieldCount}} módulos × {{levelCount}} niveles",
+        "versionsEmpty": "No hay versiones o se están cargando…",
+        "versionLabel": "Versión {{version}}",
+        "rollback": "Revertir"
+      },
+      "discountLevels": {
+        "title": "Niveles del semáforo de descuentos",
+        "newLevel": "Nuevo nivel",
+        "empty": "Todavía no hay niveles de semáforo. Cree niveles para evaluar los descuentos por color (verde/amarillo/naranja/rojo).",
+        "color": "Color",
+        "approval": "Aprobación",
+        "editTitle": "Editar nivel de semáforo",
+        "createTitle": "Nuevo nivel de semáforo",
+        "dialogDescription": "Defina el rango de descuento y el color de este nivel de semáforo.",
+        "namePlaceholder": "p. ej., Óptimo, Elevado, Crítico",
+        "discountFrom": "Descuento desde (%)",
+        "discountTo": "Descuento hasta (%)",
+        "messageLabel": "Mensaje (opcional, marcadores: {verlust}, {marge})",
+        "messagePlaceholder": "Descuento estándar – la oferta puede enviarse directamente",
+        "approvalRequired": "Aprobación requerida",
+        "approvalTypes": {
+          "none": "Ninguna",
+          "departmentLead": "Jefe de departamento",
+          "management": "Dirección general",
+          "blocked": "Bloqueado (no se puede aprobar)"
+        },
+        "justificationRequired": "Justificación obligatoria"
+      },
+      "reporting": {
+        "title": "Resumen de descuentos",
+        "from": "Desde",
+        "to": "Hasta",
+        "totalRevenueLoss": "Pérdida de ingresos total",
+        "entryCount": "Número de entradas",
+        "byLevel": "Por nivel de semáforo",
+        "level": "Nivel",
+        "count": "Cantidad",
+        "revenueLoss": "Pérdida de ingresos",
+        "recentEntries": "Últimas entradas (máx. 100)",
+        "date": "Fecha",
+        "offer": "Oferta",
+        "empty": "No hay registros de descuentos en el periodo seleccionado.",
+        "loadError": "No se pudieron cargar los datos."
+      },
+      "toast": {
+        "error": "Error",
+        "systemCreated": "Sistema creado",
+        "systemCreatedDescription": "Se ha creado el sistema de estanterías.",
+        "ruleUpdated": "Regla actualizada",
+        "ruleUpdatedDescription": "Se ha guardado la regla CPQ.",
+        "ruleCreated": "Regla creada",
+        "ruleCreatedDescription": "Se ha creado la regla CPQ.",
+        "rollbackDone": "Reversión realizada",
+        "rollbackDoneDescription": "La regla se ha restablecido a la versión seleccionada.",
+        "componentTypeCreated": "Tipo de componente creado",
+        "componentTypeCreatedDescription": "Se ha creado el tipo de componente.",
+        "mappingCreated": "Asignación de producto creada",
+        "mappingCreatedDescription": "El producto de Shopware se ha asignado al sistema CPQ.",
+        "discountLevelCreated": "Nivel de semáforo creado",
+        "discountLevelCreatedDescription": "Se ha creado el nivel del semáforo de descuentos.",
+        "discountLevelUpdated": "Nivel de semáforo actualizado",
+        "discountLevelUpdatedDescription": "Se ha guardado el nivel del semáforo de descuentos.",
+        "discountLevelDeleted": "Nivel de semáforo eliminado",
+        "discountLevelDeletedDescription": "Se ha eliminado el nivel del semáforo de descuentos.",
+        "invalidJson": "JSON no válido",
+        "invalidJsonPreview": "JSON no válido para la vista previa"
+      },
+      "status": {
+        "active": "Activo",
+        "inactive": "Inactivo",
+        "draft": "Borrador",
+        "archived": "Archivado"
+      },
+      "approvalStatus": {
+        "pending": "Pendiente",
+        "approved": "Aprobado",
+        "rejected": "Rechazado"
+      }
+    },
+    "review": {
+      "title": "Cola de revisión CPQ",
+      "subtitle": "Aquí, el equipo de ventas procesa las configuraciones de clase C.",
+      "queueTitle": "Cola",
+      "selectStatus": "Seleccione un estado",
+      "empty": "No hay entradas para el estado seleccionado.",
+      "columns": {
+        "name": "Nombre",
+        "status": "Estado",
+        "received": "Recibido"
+      },
+      "detailTitle": "Detalle y cambio de estado",
+      "selectEntryHint": "Seleccione una entrada de la cola.",
+      "detail": {
+        "name": "Nombre:",
+        "system": "Sistema:",
+        "customer": "Cliente:",
+        "currentStatus": "Estado actual:",
+        "lastReview": "Última revisión:",
+        "reviewedBy": "Revisado por:"
+      },
+      "targetStatus": "Estado de destino",
+      "reviewNote": "Nota de revisión",
+      "reviewNotePlaceholder": "p. ej., contactar al cliente para hacerle consultas",
+      "saving": "Guardando...",
+      "saveStatus": "Guardar estado",
+      "detailLoadFailed": "No se pudo cargar el detalle.",
+      "status": {
+        "pending": "Pendiente",
+        "approved": "Aprobado",
+        "customerContactRequired": "Se requiere contacto con el cliente",
+        "rejected": "Rechazado"
+      },
+      "errors": {
+        "loadQueue": "No se pudo cargar la cola de revisión",
+        "loadDetail": "No se pudo cargar el detalle de la revisión",
+        "noEntrySelected": "No se ha seleccionado ninguna entrada de la cola"
+      },
+      "toast": {
+        "statusUpdated": "Estado actualizado",
+        "statusUpdatedDescription": "La entrada de la cola se ha actualizado.",
+        "error": "Error"
+      }
+    },
+    "ruleEditor": {
+      "title": "Condición de compatibilidad",
+      "syntaxHint": "SI [Componente A] [Atributo] [Operador] [Componente B / Valor fijo] – entonces permitir",
+      "sourceComponent": "Origen – Componente",
+      "sourceAttribute": "Origen – Atributo",
+      "selectComponent": "Seleccione un componente",
+      "selectAttribute": "Seleccione un atributo",
+      "customAttributePlaceholder": "p. ej., custom_attr",
+      "operator": "Operador",
+      "selectOperator": "Seleccione un operador",
+      "compareWith": "Destino – Comparar con",
+      "targetModes": {
+        "otherComponent": "Otro componente (el mismo atributo debe coincidir)",
+        "fixedValue": "Valor fijo (número o lista separada por comas)"
+      },
+      "targetComponent": "Destino – Componente",
+      "targetAttribute": "Destino – Atributo",
+      "fixedValueLabel": "Valor fijo (p. ej., 800 o 400, 500, 600)",
+      "fixedValuePlaceholder": "800 o 400, 500, 600",
+      "componentTypes": {
+        "frame": "Bastidor",
+        "beam": "Larguero",
+        "shelf": "Estante",
+        "accessory": "Accesorio",
+        "connector": "Conector"
+      },
+      "attributes": {
+        "depth": "Profundidad (mm)",
+        "width": "Ancho (mm)",
+        "height": "Altura (mm)",
+        "loadCapacity": "Capacidad de carga (kg)",
+        "holePatternStart": "Inicio del patrón de perforación (mm)",
+        "holePatternPitch": "Paso del patrón de perforación (mm)",
+        "other": "Otro (introduzca el nombre del atributo)"
+      },
+      "operators": {
+        "equals": "es igual a",
+        "notEquals": "no es igual a",
+        "in": "es uno de (separados por comas)",
+        "notIn": "no es ninguno de",
+        "greaterThan": "mayor que",
+        "greaterOrEqual": "mayor o igual que",
+        "lessThan": "menor que",
+        "lessOrEqual": "menor o igual que"
+      }
+    },
+    "matrix": {
+      "noRulesTitle": "No hay reglas de compatibilidad",
+      "noRulesDescription": "Para {{system}} no hay reglas activas del tipo «Compatibilidad» que vinculen dos tipos de componente. Cree una regla de compatibilidad en la pestaña «Reglas» para ver aquí una matriz.",
+      "pairLabel": "Par de tipos de componente",
+      "ruleCount": "{{count}} reglas",
+      "ruleCount_one": "{{count}} regla",
+      "ruleCount_other": "{{count}} reglas",
+      "noProducts": "{{typeA}} o {{typeB}} aún no tiene artículos asignados.",
+      "notCompatible": "No compatible",
+      "legend": {
+        "compatible": "compatible",
+        "ruleViolated": "Regla incumplida",
+        "noRuleApplicable": "ninguna regla aplicable"
+      }
+    },
+    "detail": {
+      "ruleType": {
+        "compatibility": "Compatibilidad",
+        "physical": "Física",
+        "configuration": "Configuración",
+        "business": "Regla de negocio"
+      },
+      "geometryTitle": "Geometría CPQ",
+      "loading": "Cargando…",
+      "glbUrl": "URL del GLB",
+      "searchGlb": "Buscar GLB en outputs",
+      "saveGeometry": "Guardar geometría",
+      "holePattern": "Patrón de perforación",
+      "anchorPoints": "Puntos de anclaje",
+      "emptyHint": "Haga clic en un nodo del gráfico o de la barra lateral para ver los detalles.",
+      "allRulesMet": "Todas las reglas cumplidas",
+      "close": "Cerrar",
+      "masterData": "Datos maestros (Shopware)",
+      "productNumber": "N.º de producto (GTIN/EAN)",
+      "manufacturerNumber": "N.º de fabricante (número de artículo)",
+      "height": "Altura",
+      "depth": "Profundidad",
+      "loadCapacity": "Capacidad de carga",
+      "listPrice": "Precio de lista",
+      "activeRules": "Reglas activas ({{count}})",
+      "noRules": "No hay reglas para este sistema.",
+      "edit": "Editar",
+      "addRule": "Añadir nueva regla"
+    },
+    "table": {
+      "status": {
+        "active": "Activo",
+        "draft": "Borrador",
+        "inactive": "Inactivo"
+      },
+      "searchPlaceholder": "Buscar en {{name}}: número de artículo, nombre, tipo de componente…",
+      "noMappings": "No hay asignaciones de productos en este sistema.",
+      "noResults": "No hay resultados para su búsqueda.",
+      "columns": {
+        "componentType": "Tipo de componente",
+        "sku": "Número de artículo",
+        "name": "Nombre del producto",
+        "height": "Altura",
+        "depth": "Profundidad",
+        "loadCapacity": "Capacidad de carga",
+        "price": "Precio",
+        "status": "Estado"
+      },
+      "rowCount": "{{shown}} de {{count}} artículo",
+      "rowCount_other": "{{shown}} de {{count}} artículos"
+    },
+    "approval": {
+      "title": "Aprobación de descuento CPQ",
+      "statusPending": "Pendiente de aprobación",
+      "statusApproved": "Aprobado",
+      "statusRejected": "Rechazado",
+      "summary": "Descuento: {{discount}} · Pérdida de ingresos: {{revenueLoss}}",
+      "justification": "Justificación: {{text}}",
+      "approvedBy": "Aprobado por {{name}}",
+      "approvedByAt": "Aprobado por {{name}} el {{date}}",
+      "rejection": "Rechazo: {{text}}",
+      "commentLabel": "Comentario (opcional)",
+      "commentPlaceholder": "Comentario sobre la aprobación o el rechazo",
+      "approve": "Aprobar",
+      "reject": "Rechazar"
+    },
+    "discountLight": {
+      "loading": "Calculando la evaluación del descuento…",
+      "approvalNone": "No requiere aprobación",
+      "approvalDepartmentLead": "Aprobación del jefe de departamento",
+      "approvalManagement": "Aprobación de la dirección",
+      "approvalBlocked": "No se puede aprobar",
+      "discount": "{{value}} de descuento",
+      "revenueLoss": "Pérdida de ingresos: {{value}}"
+    },
+    "sidebar": {
+      "title": "Componentes",
+      "searchPlaceholder": "Buscar artículos...",
+      "noItems": "Sin artículos"
+    },
+    "graph": {
+      "typeCount": "{{count}} tipo",
+      "typeCount_other": "{{count}} tipos",
+      "articleCount": "{{count}} artículo",
+      "articleCount_other": "{{count}} artículos"
+    }
   }
 }

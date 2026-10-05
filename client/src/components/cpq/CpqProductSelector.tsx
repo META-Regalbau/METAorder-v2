@@ -80,7 +80,7 @@ export default function CpqProductSelector({
 
   const displayValue = value
     ? `${value.productNumber}${value.name ? ` – ${value.name}` : ""}`
-    : placeholder || t("rules.stagingSelectTarget", "Produkt wählen");
+    : placeholder || t("rules.stagingSelectTarget");
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -98,17 +98,17 @@ export default function CpqProductSelector({
       <PopoverContent className="w-[420px] p-0" align="start">
         <Command>
           <CommandInput
-            placeholder={t("rules.stagingSearchProducts", "Suche nach Artikelnummer oder Name")}
+            placeholder={t("rules.stagingSearchProducts")}
             value={search}
             onValueChange={setSearch}
           />
           <CommandList>
             <CommandEmpty>
               {search.trim().length < 2
-                ? t("rules.stagingSearchMin", "Bitte mindestens 2 Zeichen eingeben")
-                : t("rules.stagingNoProducts", "Keine Produkte gefunden")}
+                ? t("rules.stagingSearchMin")
+                : t("rules.stagingNoProducts")}
             </CommandEmpty>
-            <CommandGroup heading={t("rules.stagingResults", "Ergebnisse")}>
+            <CommandGroup heading={t("rules.stagingResults")}>
               {products.map((product) => (
                 <CommandItem
                   key={product.id}
@@ -123,7 +123,7 @@ export default function CpqProductSelector({
                   />
                   <div className="flex flex-col">
                     <span className="font-medium">
-                      {product.productNumber || t("rules.stagingUnknownNumber", "Ohne Nummer")}
+                      {product.productNumber || t("rules.stagingUnknownNumber")}
                     </span>
                     <span className="text-xs text-muted-foreground">{product.name}</span>
                   </div>
@@ -138,7 +138,7 @@ export default function CpqProductSelector({
             {value && (
               <CommandGroup>
                 <CommandItem onSelect={handleClear} className="text-destructive">
-                  Auswahl aufheben
+                  {t("rules.stagingClearSelection")}
                 </CommandItem>
               </CommandGroup>
             )}

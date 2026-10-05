@@ -42,9 +42,8 @@ import CpqRuleConditionEditor from "@/components/cpq/CpqRuleConditionEditor";
 import CpqComponentSidebar from "@/components/cpq/CpqComponentSidebar";
 import CpqDetailPanel from "@/components/cpq/CpqDetailPanel";
 
-import { createLocaleFormatters } from "@/lib/localeFormat";
-// Die CPQ-Verwaltung ist (noch) nur deutsch - Zahlen deshalb im deutschen Format wie der Text
-const fmt = createLocaleFormatters("de");
+import { useTranslation, Trans } from "react-i18next";
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 
 type CpqSystem = {
   id: string;
@@ -107,6 +106,40 @@ type CpqProductMapping = {
 };
 
 export default function CPQAdminPage() {
+  const { t } = useTranslation();
+  const fmt = useLocaleFormat();
+  // Werte aus der Datenbank fuer Abzeichen beschriften; Unbekanntes bleibt roh sichtbar
+  const label = (map: Record<string, string>, value: string | null | undefined) => (value ? map[value] ?? value : "");
+  const statusLabels: Record<string, string> = {
+    active: t("cpq.admin.status.active"),
+    inactive: t("cpq.admin.status.inactive"),
+    draft: t("cpq.admin.status.draft"),
+    archived: t("cpq.admin.status.archived"),
+  };
+  const ruleTypeLabels: Record<string, string> = {
+    compatibility: t("cpq.admin.rules.types.compatibility"),
+    physical: t("cpq.admin.rules.types.physical"),
+    configuration: t("cpq.admin.rules.types.configuration"),
+    business: t("cpq.admin.rules.types.business"),
+  };
+  const roleLabels: Record<string, string> = {
+    frame: t("cpq.admin.componentTypes.roles.frame"),
+    beam: t("cpq.admin.componentTypes.roles.beam"),
+    shelf: t("cpq.admin.componentTypes.roles.shelf"),
+    connector: t("cpq.admin.componentTypes.roles.connector"),
+    accessory: t("cpq.admin.componentTypes.roles.accessory"),
+  };
+  const approvalTypeLabels: Record<string, string> = {
+    none: t("cpq.admin.discountLevels.approvalTypes.none"),
+    department_lead: t("cpq.admin.discountLevels.approvalTypes.departmentLead"),
+    management: t("cpq.admin.discountLevels.approvalTypes.management"),
+    blocked: t("cpq.admin.discountLevels.approvalTypes.blocked"),
+  };
+  const approvalStatusLabels: Record<string, string> = {
+    pending: t("cpq.admin.approvalStatus.pending"),
+    approved: t("cpq.admin.approvalStatus.approved"),
+    rejected: t("cpq.admin.approvalStatus.rejected"),
+  };
   const { toast } = useToast();
   const [selectedSystemId, setSelectedSystemId] = useState<string | null>(null);
   const [showCreateSystem, setShowCreateSystem] = useState(false);
@@ -225,9 +258,9 @@ export default function CPQAdminPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cpq/systems"] });
       setShowCreateSystem(false);
-      toast({ title: "System erstellt", description: "Das Regalsystem wurde angelegt." });
+      toast({ title: t("cpq.admin.toast.systemCreated"), description: t("cpq.admin.toast.systemCreatedDescription") });
     },
-    onError: (e: Error) => toast({ title: "Fehler", description: e.message, variant: "destructive" }),
+    onError: (e: Error) => toast({ title: t("cpq.admin.toast.error"), description: e.message, variant: "destructive" }),
   });
 
   const updateRuleMutation = useMutation({
@@ -240,9 +273,9 @@ export default function CPQAdminPage() {
     onSuccess: () => {
       if (selectedSystemId) queryClient.invalidateQueries({ queryKey: ["/api/cpq/admin/rules", selectedSystemId] });
       setEditingRule(null);
-      toast({ title: "Regel aktualisiert", description: "Die CPQ-Regel wurde gespeichert." });
+      toast({ title: t("cpq.admin.toast.ruleUpdated"), description: t("cpq.admin.toast.ruleUpdatedDescription") });
     },
-    onError: (e: Error) => toast({ title: "Fehler", description: e.message, variant: "destructive" }),
+    onError: (e: Error) => toast({ title: t("cpq.admin.toast.error"), description: e.message, variant: "destructive" }),
   });
 
   const createRuleMutation = useMutation({
@@ -254,9 +287,9 @@ export default function CPQAdminPage() {
     onSuccess: () => {
       if (selectedSystemId) queryClient.invalidateQueries({ queryKey: ["/api/cpq/admin/rules", selectedSystemId] });
       setShowCreateRule(false);
-      toast({ title: "Regel erstellt", description: "Die CPQ-Regel wurde angelegt." });
+      toast({ title: t("cpq.admin.toast.ruleCreated"), description: t("cpq.admin.toast.ruleCreatedDescription") });
     },
-    onError: (e: Error) => toast({ title: "Fehler", description: e.message, variant: "destructive" }),
+    onError: (e: Error) => toast({ title: t("cpq.admin.toast.error"), description: e.message, variant: "destructive" }),
   });
 
   const rollbackRuleMutation = useMutation({
@@ -268,9 +301,9 @@ export default function CPQAdminPage() {
     onSuccess: () => {
       if (selectedSystemId) queryClient.invalidateQueries({ queryKey: ["/api/cpq/admin/rules", selectedSystemId] });
       setShowRuleVersions(null);
-      toast({ title: "Rollback durchgeführt", description: "Die Regel wurde auf die gewählte Version zurückgesetzt." });
+      toast({ title: t("cpq.admin.toast.rollbackDone"), description: t("cpq.admin.toast.rollbackDoneDescription") });
     },
-    onError: (e: Error) => toast({ title: "Fehler", description: e.message, variant: "destructive" }),
+    onError: (e: Error) => toast({ title: t("cpq.admin.toast.error"), description: e.message, variant: "destructive" }),
   });
 
   const createComponentTypeMutation = useMutation({
@@ -284,9 +317,9 @@ export default function CPQAdminPage() {
       setShowCreateComponentType(false);
       setNewComponentTypeName("");
       setNewComponentTypeRole("accessory");
-      toast({ title: "Komponententyp erstellt", description: "Der Komponententyp wurde angelegt." });
+      toast({ title: t("cpq.admin.toast.componentTypeCreated"), description: t("cpq.admin.toast.componentTypeCreatedDescription") });
     },
-    onError: (e: Error) => toast({ title: "Fehler", description: e.message, variant: "destructive" }),
+    onError: (e: Error) => toast({ title: t("cpq.admin.toast.error"), description: e.message, variant: "destructive" }),
   });
 
   const createMappingMutation = useMutation({
@@ -300,9 +333,9 @@ export default function CPQAdminPage() {
       setShowCreateMapping(false);
       setSelectedProduct(null);
       setNewMappingComponentTypeId("");
-      toast({ title: "Produkt-Mapping erstellt", description: "Das Shopware-Produkt wurde dem CPQ-System zugeordnet." });
+      toast({ title: t("cpq.admin.toast.mappingCreated"), description: t("cpq.admin.toast.mappingCreatedDescription") });
     },
-    onError: (e: Error) => toast({ title: "Fehler", description: e.message, variant: "destructive" }),
+    onError: (e: Error) => toast({ title: t("cpq.admin.toast.error"), description: e.message, variant: "destructive" }),
   });
 
   const createDiscountLevelMutation = useMutation({
@@ -314,9 +347,9 @@ export default function CPQAdminPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cpq/admin/discount-levels"] });
       setShowCreateDiscountLevel(false);
-      toast({ title: "Ampelstufe erstellt", description: "Die Rabatt-Ampel-Stufe wurde angelegt." });
+      toast({ title: t("cpq.admin.toast.discountLevelCreated"), description: t("cpq.admin.toast.discountLevelCreatedDescription") });
     },
-    onError: (e: Error) => toast({ title: "Fehler", description: e.message, variant: "destructive" }),
+    onError: (e: Error) => toast({ title: t("cpq.admin.toast.error"), description: e.message, variant: "destructive" }),
   });
 
   const updateDiscountLevelMutation = useMutation({
@@ -328,9 +361,9 @@ export default function CPQAdminPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cpq/admin/discount-levels"] });
       setEditingDiscountLevel(null);
-      toast({ title: "Ampelstufe aktualisiert", description: "Die Rabatt-Ampel-Stufe wurde gespeichert." });
+      toast({ title: t("cpq.admin.toast.discountLevelUpdated"), description: t("cpq.admin.toast.discountLevelUpdatedDescription") });
     },
-    onError: (e: Error) => toast({ title: "Fehler", description: e.message, variant: "destructive" }),
+    onError: (e: Error) => toast({ title: t("cpq.admin.toast.error"), description: e.message, variant: "destructive" }),
   });
 
   const deleteDiscountLevelMutation = useMutation({
@@ -340,9 +373,9 @@ export default function CPQAdminPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cpq/admin/discount-levels"] });
-      toast({ title: "Ampelstufe gelöscht", description: "Die Rabatt-Ampel-Stufe wurde entfernt." });
+      toast({ title: t("cpq.admin.toast.discountLevelDeleted"), description: t("cpq.admin.toast.discountLevelDeletedDescription") });
     },
-    onError: (e: Error) => toast({ title: "Fehler", description: e.message, variant: "destructive" }),
+    onError: (e: Error) => toast({ title: t("cpq.admin.toast.error"), description: e.message, variant: "destructive" }),
   });
 
   const componentTypes = componentsData?.componentTypes ?? [];
@@ -351,43 +384,43 @@ export default function CPQAdminPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">CPQ Admin – Konfigurator & Regeln</h1>
-        <p className="text-muted-foreground">Regalsysteme, Regeln und Rabatt-Ampel verwalten</p>
+        <h1 className="text-2xl font-bold">{t("cpq.admin.title")}</h1>
+        <p className="text-muted-foreground">{t("cpq.admin.subtitle")}</p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="systems">Systeme</TabsTrigger>
-          <TabsTrigger value="graph">Node-System / Beziehungsgraph</TabsTrigger>
-          <TabsTrigger value="mappings" disabled={!selectedSystemId}>Produkt-Mappings</TabsTrigger>
-          <TabsTrigger value="rules" disabled={!selectedSystemId}>Regeln</TabsTrigger>
-          <TabsTrigger value="discount-levels">Rabatt-Ampel</TabsTrigger>
-          <TabsTrigger value="reporting">Rabatt-Reporting</TabsTrigger>
+          <TabsTrigger value="systems">{t("cpq.admin.tabs.systems")}</TabsTrigger>
+          <TabsTrigger value="graph">{t("cpq.admin.tabs.graph")}</TabsTrigger>
+          <TabsTrigger value="mappings" disabled={!selectedSystemId}>{t("cpq.admin.tabs.mappings")}</TabsTrigger>
+          <TabsTrigger value="rules" disabled={!selectedSystemId}>{t("cpq.admin.tabs.rules")}</TabsTrigger>
+          <TabsTrigger value="discount-levels">{t("cpq.admin.tabs.discountLevels")}</TabsTrigger>
+          <TabsTrigger value="reporting">{t("cpq.admin.tabs.reporting")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="systems" className="space-y-4 mt-4">
           <Card>
             <div className="p-4 flex justify-between items-center border-b">
-              <h2 className="font-semibold">Regalsysteme</h2>
+              <h2 className="font-semibold">{t("cpq.admin.systems.title")}</h2>
               <Button onClick={() => setShowCreateSystem(true)}>
                 <Plus className="h-4 w-4 mr-2" />
-                Neues System
+                {t("cpq.admin.systems.newSystem")}
               </Button>
             </div>
             {systemsLoading ? (
               <div className="p-4"><Skeleton className="h-24 w-full" /></div>
             ) : systems.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground">
-                Noch keine Regalsysteme angelegt. Erstellen Sie ein System, um Regeln und Komponenten zu verwalten.
+                {t("cpq.admin.systems.empty")}
               </div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Slug</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Aktion</TableHead>
+                    <TableHead>{t("cpq.admin.common.name")}</TableHead>
+                    <TableHead>{t("cpq.admin.systems.slug")}</TableHead>
+                    <TableHead>{t("cpq.admin.common.status")}</TableHead>
+                    <TableHead>{t("cpq.admin.systems.action")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -395,10 +428,10 @@ export default function CPQAdminPage() {
                     <TableRow key={sys.id} className={selectedSystemId === sys.id ? "bg-muted/50" : ""}>
                       <TableCell>{sys.name}</TableCell>
                       <TableCell><code className="text-xs">{sys.slug}</code></TableCell>
-                      <TableCell><Badge variant={sys.status === "active" ? "default" : "secondary"}>{sys.status}</Badge></TableCell>
+                      <TableCell><Badge variant={sys.status === "active" ? "default" : "secondary"}>{label(statusLabels, sys.status)}</Badge></TableCell>
                       <TableCell>
                         <Button variant="outline" size="sm" onClick={() => setSelectedSystemId(sys.id)}>
-                          Auswählen
+                          {t("cpq.admin.systems.select")}
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -413,20 +446,20 @@ export default function CPQAdminPage() {
           {!selectedSystemId ? (
             <Card>
               <div className="p-8 text-center space-y-4">
-                <h2 className="font-semibold text-lg">Node-System / Beziehungsgraph</h2>
+                <h2 className="font-semibold text-lg">{t("cpq.admin.graph.title")}</h2>
                 <p className="text-muted-foreground max-w-md mx-auto">
-                  Der Beziehungsgraph zeigt System → Komponententypen → Artikel. Wählen Sie zuerst ein Regalsystem im Tab &quot;Systeme&quot; aus (Button &quot;Auswählen&quot;).
+                  {t("cpq.admin.graph.intro")}
                 </p>
                 {systems.length > 0 ? (
                   <div className="flex flex-wrap justify-center gap-2 mt-4">
                     {systems.map((sys) => (
                       <Button key={sys.id} variant="outline" onClick={() => setSelectedSystemId(sys.id)}>
-                        {sys.name} auswählen
+                        {t("cpq.admin.graph.selectSystem", { name: sys.name })}
                       </Button>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Noch keine Systeme vorhanden. Legen Sie im Tab &quot;Systeme&quot; ein neues an.</p>
+                  <p className="text-sm text-muted-foreground">{t("cpq.admin.graph.noSystems")}</p>
                 )}
               </div>
             </Card>
@@ -466,7 +499,7 @@ export default function CPQAdminPage() {
                     onClick={() => setCanvasView("graph")}
                     data-testid="button-canvas-view-graph"
                   >
-                    Beziehungsgraph
+                    {t("cpq.admin.graph.viewGraph")}
                   </button>
                   <button
                     type="button"
@@ -478,7 +511,7 @@ export default function CPQAdminPage() {
                     onClick={() => setCanvasView("table")}
                     data-testid="button-canvas-view-table"
                   >
-                    Tabellenansicht
+                    {t("cpq.admin.graph.viewTable")}
                   </button>
                   <button
                     type="button"
@@ -490,14 +523,14 @@ export default function CPQAdminPage() {
                     onClick={() => setCanvasView("matrix")}
                     data-testid="button-canvas-view-matrix"
                   >
-                    Kompatibilitätsmatrix
+                    {t("cpq.admin.graph.viewMatrix")}
                   </button>
                   <div className="flex-1" />
                   {canvasView === "graph" && (
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Button variant="outline" size="icon" className="h-7 w-7" title="Verkleinern">−</Button>
+                      <Button variant="outline" size="icon" className="h-7 w-7" title={t("cpq.admin.graph.zoomOut")}>−</Button>
                       <span>100%</span>
-                      <Button variant="outline" size="icon" className="h-7 w-7" title="Vergrößern">+</Button>
+                      <Button variant="outline" size="icon" className="h-7 w-7" title={t("cpq.admin.graph.zoomIn")}>+</Button>
                     </div>
                   )}
                 </div>
@@ -506,7 +539,7 @@ export default function CPQAdminPage() {
                 <div className="flex-1 min-h-0">
                   {componentTypes.length === 0 ? (
                     <div className="h-full flex items-center justify-center text-muted-foreground">
-                      Keine Komponententypen. Legen Sie zuerst Komponententypen im Tab &quot;Produkt-Mappings&quot; an.
+                      {t("cpq.admin.graph.noComponentTypes")}
                     </div>
                   ) : canvasView === "graph" ? (
                     <CpqRelationshipGraph
@@ -552,7 +585,7 @@ export default function CPQAdminPage() {
               <CpqDetailPanel
                 selectedNodeId={graphSelectedNodeId}
                 selectedNodeType={graphSelectedNodeType}
-                systemName={systems.find((s) => s.id === selectedSystemId)?.name ?? "System"}
+                systemName={systems.find((s) => s.id === selectedSystemId)?.name ?? t("cpq.admin.common.systemFallback")}
                 componentTypes={componentTypes}
                 mappings={mappings}
                 rules={rules}
@@ -583,9 +616,12 @@ export default function CPQAdminPage() {
               {componentTypes.length > 0 && mappings.length > 0 && (
                 <Card>
                   <div className="p-4 border-b">
-                    <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Vorschau der Mappings</h3>
+                    <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">{t("cpq.admin.mappings.previewTitle")}</h3>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {mappings.length} {mappings.length === 1 ? "Produkt" : "Produkte"} in {componentTypes.length} {componentTypes.length === 1 ? "Komponententyp" : "Komponententypen"}
+                      {t("cpq.admin.mappings.previewSummary", {
+                        products: t("cpq.admin.mappings.productCount", { count: mappings.length }),
+                        componentTypes: t("cpq.admin.mappings.componentTypeCount", { count: componentTypes.length }),
+                      })}
                     </p>
                   </div>
                   <div className="p-4 pt-0">
@@ -618,28 +654,27 @@ export default function CPQAdminPage() {
               <Card>
                 <div className="p-4 flex justify-between items-center border-b">
                   <h2 className="font-semibold">
-                    Produkt-Mappings für {systems.find((s) => s.id === selectedSystemId)?.name || "System"}
+                    {t("cpq.admin.mappings.title", { name: systems.find((s) => s.id === selectedSystemId)?.name || t("cpq.admin.common.systemFallback") })}
                   </h2>
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={() => setShowCreateComponentType(true)}>
                       <Plus className="h-4 w-4 mr-2" />
-                      Komponententyp
+                      {t("cpq.admin.mappings.addComponentType")}
                     </Button>
                     <Button onClick={() => setShowCreateMapping(true)} disabled={componentTypes.length === 0}>
                       <Link2 className="h-4 w-4 mr-2" />
-                      Neues Mapping
+                      {t("cpq.admin.mappings.newMapping")}
                     </Button>
                   </div>
                 </div>
                 {componentTypes.length === 0 && (
                   <div className="p-6 border-b bg-muted/30">
                     <p className="text-sm text-muted-foreground mb-3">
-                      Erstellen Sie zuerst mindestens einen Komponententyp (z.B. Steher, Traverse, Zubehör), 
-                      bevor Sie Shopware-Produkte zuordnen können.
+                      {t("cpq.admin.mappings.componentTypeFirstHint")}
                     </p>
                     <Button size="sm" onClick={() => setShowCreateComponentType(true)}>
                       <Plus className="h-4 w-4 mr-2" />
-                      Ersten Komponententyp anlegen
+                      {t("cpq.admin.mappings.createFirstComponentType")}
                     </Button>
                   </div>
                 )}
@@ -647,17 +682,16 @@ export default function CPQAdminPage() {
                   <div className="p-4"><Skeleton className="h-24 w-full" /></div>
                 ) : mappings.length === 0 ? (
                   <div className="p-8 text-center text-muted-foreground">
-                    Noch keine Produkt-Mappings. Klicken Sie auf &quot;Neues Mapping&quot;, um ein Shopware-Produkt 
-                    diesem System und einem Komponententyp zuzuordnen.
+                    {t("cpq.admin.mappings.empty")}
                   </div>
                 ) : (
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Artikelnummer / Produktname</TableHead>
-                        <TableHead>Shopware-ID</TableHead>
-                        <TableHead>Komponententyp</TableHead>
-                        <TableHead>Status</TableHead>
+                        <TableHead>{t("cpq.admin.mappings.columnProduct")}</TableHead>
+                        <TableHead>{t("cpq.admin.mappings.columnShopwareId")}</TableHead>
+                        <TableHead>{t("cpq.admin.mappings.componentType")}</TableHead>
+                        <TableHead>{t("cpq.admin.common.status")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -671,7 +705,7 @@ export default function CPQAdminPage() {
                           <TableCell>
                             {componentTypes.find((ct) => ct.id === m.componentTypeId)?.name || m.componentTypeId}
                           </TableCell>
-                          <TableCell><Badge variant={m.status === "active" ? "default" : "secondary"}>{m.status}</Badge></TableCell>
+                          <TableCell><Badge variant={m.status === "active" ? "default" : "secondary"}>{label(statusLabels, m.status)}</Badge></TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -681,22 +715,22 @@ export default function CPQAdminPage() {
               {componentTypes.length > 0 && (
                 <Card>
                   <div className="p-4 border-b">
-                    <h3 className="font-semibold">Komponententypen</h3>
+                    <h3 className="font-semibold">{t("cpq.admin.componentTypes.title")}</h3>
                   </div>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Rolle</TableHead>
-                        <TableHead>Pflicht</TableHead>
+                        <TableHead>{t("cpq.admin.common.name")}</TableHead>
+                        <TableHead>{t("cpq.admin.componentTypes.role")}</TableHead>
+                        <TableHead>{t("cpq.admin.componentTypes.required")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {componentTypes.map((ct) => (
                         <TableRow key={ct.id}>
                           <TableCell>{ct.name}</TableCell>
-                          <TableCell><Badge variant="outline">{ct.role}</Badge></TableCell>
-                          <TableCell>{ct.required ? "Ja" : "Nein"}</TableCell>
+                          <TableCell><Badge variant="outline">{label(roleLabels, ct.role)}</Badge></TableCell>
+                          <TableCell>{ct.required ? t("cpq.admin.common.yes") : t("cpq.admin.common.no")}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -711,37 +745,37 @@ export default function CPQAdminPage() {
           {selectedSystemId && (
             <Card>
               <div className="p-4 flex justify-between items-center border-b">
-                <h2 className="font-semibold">CPQ-Regeln für {systems.find((s) => s.id === selectedSystemId)?.name || "System"}</h2>
+                <h2 className="font-semibold">{t("cpq.admin.rules.title", { name: systems.find((s) => s.id === selectedSystemId)?.name || t("cpq.admin.common.systemFallback") })}</h2>
                 <Button onClick={() => setShowCreateRule(true)}>
                   <Plus className="h-4 w-4 mr-2" />
-                  Neue Regel
+                  {t("cpq.admin.rules.newRule")}
                 </Button>
               </div>
               {rulesLoading ? (
                 <div className="p-4"><Skeleton className="h-32 w-full" /></div>
               ) : rules.length === 0 ? (
                 <div className="p-8 text-center text-muted-foreground">
-                  Keine Regeln für dieses System. Erstellen Sie eine Regel (Kompatibilität, physikalisch, Konfiguration, Geschäft).
+                  {t("cpq.admin.rules.empty")}
                 </div>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Typ</TableHead>
-                      <TableHead>Priorität</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Version</TableHead>
-                      <TableHead>Aktionen</TableHead>
+                      <TableHead>{t("cpq.admin.common.name")}</TableHead>
+                      <TableHead>{t("cpq.admin.rules.type")}</TableHead>
+                      <TableHead>{t("cpq.admin.rules.priority")}</TableHead>
+                      <TableHead>{t("cpq.admin.common.status")}</TableHead>
+                      <TableHead>{t("cpq.admin.rules.version")}</TableHead>
+                      <TableHead>{t("cpq.admin.common.actions")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {rules.map((r) => (
                       <TableRow key={r.id}>
                         <TableCell>{r.name}</TableCell>
-                        <TableCell><Badge variant="outline">{r.type}</Badge></TableCell>
+                        <TableCell><Badge variant="outline">{label(ruleTypeLabels, r.type)}</Badge></TableCell>
                         <TableCell>{r.priority}</TableCell>
-                        <TableCell><Badge variant={r.status === "active" ? "default" : "secondary"}>{r.status}</Badge></TableCell>
+                        <TableCell><Badge variant={r.status === "active" ? "default" : "secondary"}>{label(statusLabels, r.status)}</Badge></TableCell>
                         <TableCell>{r.version}</TableCell>
                         <TableCell>
                           <Button variant="ghost" size="sm" onClick={() => {
@@ -754,7 +788,7 @@ export default function CPQAdminPage() {
                           }}>
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" title="Vorschau – Treffer gegen Test-Konfigurationen" onClick={async () => {
+                          <Button variant="ghost" size="sm" title={t("cpq.admin.rules.previewTooltip")} onClick={async () => {
                             setShowRulePreview(r);
                             setRulePreviewData(null);
                             try {
@@ -773,7 +807,7 @@ export default function CPQAdminPage() {
                           }}>
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" title="Impact-Analyse" onClick={async () => {
+                          <Button variant="ghost" size="sm" title={t("cpq.admin.rules.impactAnalysis")} onClick={async () => {
                             setShowRuleImpact(r);
                             setRuleImpactData(null);
                             try {
@@ -784,7 +818,7 @@ export default function CPQAdminPage() {
                           }}>
                             <AlertTriangle className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" title="Versionsverlauf" onClick={async () => {
+                          <Button variant="ghost" size="sm" title={t("cpq.admin.rules.versionHistory")} onClick={async () => {
                             setShowRuleVersions(r);
                             setRuleVersions([]);
                             try {
@@ -808,32 +842,32 @@ export default function CPQAdminPage() {
         <TabsContent value="discount-levels" className="space-y-4 mt-4">
           <Card>
             <div className="p-4 flex justify-between items-center border-b">
-              <h2 className="font-semibold">Rabatt-Ampel Stufen</h2>
+              <h2 className="font-semibold">{t("cpq.admin.discountLevels.title")}</h2>
               <Button onClick={() => {
                 setEditingDiscountLevel(null);
                 setDiscountLevelForm({ name: "", color: "#22c55e", discountMin: 0, discountMax: 10, messageTemplate: "", approvalType: "none", justificationRequired: false });
                 setShowCreateDiscountLevel(true);
               }}>
                 <Plus className="h-4 w-4 mr-2" />
-                Neue Stufe
+                {t("cpq.admin.discountLevels.newLevel")}
               </Button>
             </div>
             {discountLevelsLoading ? (
               <div className="p-4"><Skeleton className="h-24 w-full" /></div>
             ) : adminDiscountLevels.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground">
-                Noch keine Ampelstufen angelegt. Erstellen Sie Stufen, um Rabatte nach Farbe (Grün/Gelb/Orange/Rot) zu bewerten.
+                {t("cpq.admin.discountLevels.empty")}
               </div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Farbe</TableHead>
-                    <TableHead>Rabatt %</TableHead>
-                    <TableHead>Freigabe</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Aktionen</TableHead>
+                    <TableHead>{t("cpq.admin.common.name")}</TableHead>
+                    <TableHead>{t("cpq.admin.discountLevels.color")}</TableHead>
+                    <TableHead>{t("cpq.admin.common.discountPercent")}</TableHead>
+                    <TableHead>{t("cpq.admin.discountLevels.approval")}</TableHead>
+                    <TableHead>{t("cpq.admin.common.status")}</TableHead>
+                    <TableHead>{t("cpq.admin.common.actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -847,8 +881,8 @@ export default function CPQAdminPage() {
                         </div>
                       </TableCell>
                       <TableCell>{Number(dl.discountMin)} – {Number(dl.discountMax)}%</TableCell>
-                      <TableCell><Badge variant="outline">{dl.approvalType}</Badge></TableCell>
-                      <TableCell><Badge variant={dl.status === "active" ? "default" : "secondary"}>{dl.status}</Badge></TableCell>
+                      <TableCell><Badge variant="outline">{label(approvalTypeLabels, dl.approvalType)}</Badge></TableCell>
+                      <TableCell><Badge variant={dl.status === "active" ? "default" : "secondary"}>{label(statusLabels, dl.status)}</Badge></TableCell>
                       <TableCell>
                         <Button variant="ghost" size="sm" onClick={() => {
                           setEditingDiscountLevel(dl);
@@ -881,16 +915,16 @@ export default function CPQAdminPage() {
             <div className="p-4 flex flex-wrap items-end gap-4 border-b">
               <h2 className="font-semibold flex items-center gap-2">
                 <BarChart3 className="w-4 h-4" />
-                Rabatt-Übersicht
+                {t("cpq.admin.reporting.title")}
               </h2>
               <div className="flex items-center gap-2 ml-auto">
                 <div>
-                  <Label className="text-xs">Von</Label>
-                  <Input aria-label="Von" type="date" value={reportFrom} onChange={(e) => setReportFrom(e.target.value)} className="w-36" />
+                  <Label className="text-xs">{t("cpq.admin.reporting.from")}</Label>
+                  <Input aria-label={t("cpq.admin.reporting.from")} type="date" value={reportFrom} onChange={(e) => setReportFrom(e.target.value)} className="w-36" />
                 </div>
                 <div>
-                  <Label className="text-xs">Bis</Label>
-                  <Input aria-label="Bis" type="date" value={reportTo} onChange={(e) => setReportTo(e.target.value)} className="w-36" />
+                  <Label className="text-xs">{t("cpq.admin.reporting.to")}</Label>
+                  <Input aria-label={t("cpq.admin.reporting.to")} type="date" value={reportTo} onChange={(e) => setReportTo(e.target.value)} className="w-36" />
                 </div>
               </div>
             </div>
@@ -904,7 +938,7 @@ export default function CPQAdminPage() {
                       <TrendingDown className="w-5 h-5 text-primary" />
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Umsatzverlust gesamt</p>
+                      <p className="text-sm text-muted-foreground">{t("cpq.admin.reporting.totalRevenueLoss")}</p>
                       <p className="text-xl font-semibold">{fmt.currency(Number(discountOverview.totalRevenueLoss))}</p>
                     </div>
                   </div>
@@ -913,7 +947,7 @@ export default function CPQAdminPage() {
                       <BarChart3 className="w-5 h-5 text-muted-foreground" />
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Anzahl Einträge</p>
+                      <p className="text-sm text-muted-foreground">{t("cpq.admin.reporting.entryCount")}</p>
                       <p className="text-xl font-semibold">{discountOverview.totalEntries}</p>
                     </div>
                   </div>
@@ -921,13 +955,13 @@ export default function CPQAdminPage() {
 
                 {Object.keys(discountOverview.byLevel).length > 0 && (
                   <div>
-                    <h3 className="font-medium mb-2">Nach Ampelstufe</h3>
+                    <h3 className="font-medium mb-2">{t("cpq.admin.reporting.byLevel")}</h3>
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Stufe</TableHead>
-                          <TableHead>Anzahl</TableHead>
-                          <TableHead>Umsatzverlust</TableHead>
+                          <TableHead>{t("cpq.admin.reporting.level")}</TableHead>
+                          <TableHead>{t("cpq.admin.reporting.count")}</TableHead>
+                          <TableHead>{t("cpq.admin.reporting.revenueLoss")}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -959,15 +993,15 @@ export default function CPQAdminPage() {
 
                 {discountOverview.entries.length > 0 && (
                   <div>
-                    <h3 className="font-medium mb-2">Letzte Einträge (max. 100)</h3>
+                    <h3 className="font-medium mb-2">{t("cpq.admin.reporting.recentEntries")}</h3>
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Datum</TableHead>
-                          <TableHead>Angebot</TableHead>
-                          <TableHead>Rabatt %</TableHead>
-                          <TableHead>Umsatzverlust</TableHead>
-                          <TableHead>Status</TableHead>
+                          <TableHead>{t("cpq.admin.reporting.date")}</TableHead>
+                          <TableHead>{t("cpq.admin.reporting.offer")}</TableHead>
+                          <TableHead>{t("cpq.admin.common.discountPercent")}</TableHead>
+                          <TableHead>{t("cpq.admin.reporting.revenueLoss")}</TableHead>
+                          <TableHead>{t("cpq.admin.common.status")}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -981,7 +1015,7 @@ export default function CPQAdminPage() {
                             <TableCell>{fmt.currency(e.revenueLoss != null ? Number(e.revenueLoss) : 0)}</TableCell>
                             <TableCell>
                               <Badge variant={e.approvalStatus === "approved" ? "default" : e.approvalStatus === "rejected" ? "destructive" : "secondary"}>
-                                {e.approvalStatus || "pending"}
+                                {label(approvalStatusLabels, e.approvalStatus || "pending")}
                               </Badge>
                             </TableCell>
                           </TableRow>
@@ -992,11 +1026,11 @@ export default function CPQAdminPage() {
                 )}
 
                 {discountOverview.totalEntries === 0 && (
-                  <p className="text-muted-foreground text-center py-8">Keine Rabatt-Protokolle im gewählten Zeitraum.</p>
+                  <p className="text-muted-foreground text-center py-8">{t("cpq.admin.reporting.empty")}</p>
                 )}
               </div>
             ) : (
-              <div className="p-8 text-center text-muted-foreground">Daten konnten nicht geladen werden.</div>
+              <div className="p-8 text-center text-muted-foreground">{t("cpq.admin.reporting.loadError")}</div>
             )}
           </Card>
         </TabsContent>
@@ -1006,8 +1040,8 @@ export default function CPQAdminPage() {
       <Dialog open={showCreateSystem} onOpenChange={setShowCreateSystem}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Neues Regalsystem</DialogTitle>
-            <DialogDescription>Erstellen Sie ein neues Regalsystem (z.B. META CLIP, META FIX).</DialogDescription>
+            <DialogTitle>{t("cpq.admin.systems.createTitle")}</DialogTitle>
+            <DialogDescription>{t("cpq.admin.systems.createDescription")}</DialogDescription>
           </DialogHeader>
           <form
             onSubmit={(e) => {
@@ -1021,20 +1055,20 @@ export default function CPQAdminPage() {
             className="space-y-4"
           >
             <div>
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" name="name" placeholder="z.B. META CLIP" required />
+              <Label htmlFor="name">{t("cpq.admin.common.name")}</Label>
+              <Input id="name" name="name" placeholder={t("cpq.admin.systems.namePlaceholder")} required />
             </div>
             <div>
-              <Label htmlFor="slug">Slug</Label>
+              <Label htmlFor="slug">{t("cpq.admin.systems.slug")}</Label>
               <Input id="slug" name="slug" placeholder="meta-clip" required />
             </div>
             <div>
-              <Label htmlFor="description">Beschreibung (optional)</Label>
-              <Textarea id="description" name="description" rows={3} placeholder="Beschreibung des Regalsystems" />
+              <Label htmlFor="description">{t("cpq.admin.systems.descriptionLabel")}</Label>
+              <Textarea id="description" name="description" rows={3} placeholder={t("cpq.admin.systems.descriptionPlaceholder")} />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setShowCreateSystem(false)}>Abbrechen</Button>
-              <Button type="submit" disabled={createSystemMutation.isPending}>Erstellen</Button>
+              <Button type="button" variant="outline" onClick={() => setShowCreateSystem(false)}>{t("cpq.admin.common.cancel")}</Button>
+              <Button type="submit" disabled={createSystemMutation.isPending}>{t("cpq.admin.common.create")}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -1047,8 +1081,8 @@ export default function CPQAdminPage() {
       }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Neue CPQ-Regel</DialogTitle>
-            <DialogDescription>Erstellen Sie eine Regel für das gewählte System. Wählen Sie Eigenschaften aus oder nutzen Sie den Experten-Modus (JSON) für komplexe Regeln.</DialogDescription>
+            <DialogTitle>{t("cpq.admin.rules.createTitle")}</DialogTitle>
+            <DialogDescription>{t("cpq.admin.rules.createDescription")}</DialogDescription>
           </DialogHeader>
           <form
                 onSubmit={(e) => {
@@ -1072,20 +1106,20 @@ export default function CPQAdminPage() {
                 className="space-y-4"
               >
                 <div>
-                  <Label htmlFor="ruleName">Regelname</Label>
-                  <Input id="ruleName" name="ruleName" placeholder="z.B. Ständer und Böden – gleiche Tiefe erforderlich" required />
+                  <Label htmlFor="ruleName">{t("cpq.admin.rules.nameLabel")}</Label>
+                  <Input id="ruleName" name="ruleName" placeholder={t("cpq.admin.rules.namePlaceholder")} required />
                 </div>
                 <div>
-                  <Label htmlFor="ruleType">Typ</Label>
+                  <Label htmlFor="ruleType">{t("cpq.admin.rules.type")}</Label>
                   <Select value={newRuleType} onValueChange={setNewRuleType}>
                     <SelectTrigger id="ruleType">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="compatibility">Kompatibilität</SelectItem>
-                      <SelectItem value="physical">Physikalisch</SelectItem>
-                      <SelectItem value="configuration">Konfiguration</SelectItem>
-                      <SelectItem value="business">Geschäft</SelectItem>
+                      <SelectItem value="compatibility">{t("cpq.admin.rules.types.compatibility")}</SelectItem>
+                      <SelectItem value="physical">{t("cpq.admin.rules.types.physical")}</SelectItem>
+                      <SelectItem value="configuration">{t("cpq.admin.rules.types.configuration")}</SelectItem>
+                      <SelectItem value="business">{t("cpq.admin.rules.types.business")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1099,16 +1133,16 @@ export default function CPQAdminPage() {
                   />
                 )}
                 <div>
-                  <Label htmlFor="priority">Priorität (niedrig = zuerst)</Label>
+                  <Label htmlFor="priority">{t("cpq.admin.rules.priorityHint")}</Label>
                   <Input id="priority" name="priority" type="number" defaultValue="0" />
                 </div>
                 <div>
-                  <Label htmlFor="message">Nachricht (optional)</Label>
-                  <Input id="message" name="message" placeholder="Nutzer-sichtbare Nachricht" />
+                  <Label htmlFor="message">{t("cpq.admin.rules.messageLabel")}</Label>
+                  <Input id="message" name="message" placeholder={t("cpq.admin.rules.messagePlaceholder")} />
                 </div>
                 <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setShowCreateRule(false)}>Abbrechen</Button>
-                  <Button type="submit" disabled={createRuleMutation.isPending || !selectedSystemId}>Erstellen</Button>
+                  <Button type="button" variant="outline" onClick={() => setShowCreateRule(false)}>{t("cpq.admin.common.cancel")}</Button>
+                  <Button type="submit" disabled={createRuleMutation.isPending || !selectedSystemId}>{t("cpq.admin.common.create")}</Button>
                 </DialogFooter>
               </form>
         </DialogContent>
@@ -1118,15 +1152,15 @@ export default function CPQAdminPage() {
       <Dialog open={!!editingRule} onOpenChange={(open) => !open && setEditingRule(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Regel bearbeiten</DialogTitle>
-            <DialogDescription>Geführter Modus oder Experten-Modus (JSON) für komplexe Regeln.</DialogDescription>
+            <DialogTitle>{t("cpq.admin.rules.editTitle")}</DialogTitle>
+            <DialogDescription>{t("cpq.admin.rules.editDescription")}</DialogDescription>
           </DialogHeader>
           {editingRule && (
             <div className="space-y-4">
               <Tabs value={ruleEditorMode} onValueChange={(v) => setRuleEditorMode(v as "guided" | "expert")}>
                 <TabsList>
-                  <TabsTrigger value="guided">Geführt</TabsTrigger>
-                  <TabsTrigger value="expert">Experte (JSON)</TabsTrigger>
+                  <TabsTrigger value="guided">{t("cpq.admin.rules.modeGuided")}</TabsTrigger>
+                  <TabsTrigger value="expert">{t("cpq.admin.rules.modeExpert")}</TabsTrigger>
                 </TabsList>
                 <TabsContent value="guided" className="space-y-4 pt-4">
                   <form
@@ -1147,20 +1181,20 @@ export default function CPQAdminPage() {
                     className="space-y-4"
                   >
                     <div>
-                      <Label>Name</Label>
-                      <Input aria-label="Name" name="editRuleName" defaultValue={editingRule.name} />
+                      <Label>{t("cpq.admin.common.name")}</Label>
+                      <Input aria-label={t("cpq.admin.common.name")} name="editRuleName" defaultValue={editingRule.name} />
                     </div>
                     <div>
-                      <Label>Typ</Label>
+                      <Label>{t("cpq.admin.rules.type")}</Label>
                       <Select value={editRuleType} onValueChange={setEditRuleType}>
-                        <SelectTrigger aria-label="Typ">
+                        <SelectTrigger aria-label={t("cpq.admin.rules.type")}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="compatibility">Kompatibilität</SelectItem>
-                          <SelectItem value="physical">Physikalisch</SelectItem>
-                          <SelectItem value="configuration">Konfiguration</SelectItem>
-                          <SelectItem value="business">Geschäft</SelectItem>
+                          <SelectItem value="compatibility">{t("cpq.admin.rules.types.compatibility")}</SelectItem>
+                          <SelectItem value="physical">{t("cpq.admin.rules.types.physical")}</SelectItem>
+                          <SelectItem value="configuration">{t("cpq.admin.rules.types.configuration")}</SelectItem>
+                          <SelectItem value="business">{t("cpq.admin.rules.types.business")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -1175,18 +1209,18 @@ export default function CPQAdminPage() {
                       />
                     )}
                     <div>
-                      <Label>Priorität</Label>
-                      <Input aria-label="Priorität" name="editPriority" type="number" defaultValue={editingRule.priority} />
+                      <Label>{t("cpq.admin.rules.priority")}</Label>
+                      <Input aria-label={t("cpq.admin.rules.priority")} name="editPriority" type="number" defaultValue={editingRule.priority} />
                     </div>
                     <div>
-                      <Label>Nachricht (optional)</Label>
-                      <Input name="editMessage" defaultValue={editingRule.message || ""} placeholder="Nutzer-sichtbare Nachricht" />
+                      <Label>{t("cpq.admin.rules.messageLabel")}</Label>
+                      <Input name="editMessage" defaultValue={editingRule.message || ""} placeholder={t("cpq.admin.rules.messagePlaceholder")} />
                     </div>
                   </form>
                 </TabsContent>
                 <TabsContent value="expert" className="pt-4">
                   <div>
-                    <Label>Condition & Action (JSON)</Label>
+                    <Label>{t("cpq.admin.rules.expertJsonLabel")}</Label>
                     <Textarea
                       value={ruleExpertJson}
                       onChange={(e) => setRuleExpertJson(e.target.value)}
@@ -1207,7 +1241,7 @@ export default function CPQAdminPage() {
                           action: parsed.action ?? (editingRule.action ?? undefined),
                         });
                       } catch {
-                        toast({ title: "Ungültiges JSON", variant: "destructive" });
+                        toast({ title: t("cpq.admin.toast.invalidJson"), variant: "destructive" });
                       }
                     }}
                   />
@@ -1229,7 +1263,7 @@ export default function CPQAdminPage() {
                         cond = parsed.condition ?? null;
                         act = parsed.action ?? null;
                       } catch {
-                        toast({ title: "Ungültiges JSON für Vorschau", variant: "destructive" });
+                        toast({ title: t("cpq.admin.toast.invalidJsonPreview"), variant: "destructive" });
                         return;
                       }
                     }
@@ -1257,15 +1291,15 @@ export default function CPQAdminPage() {
                   }}
                 >
                   <Eye className="h-4 w-4 mr-2" />
-                  Vorschau
+                  {t("cpq.admin.common.preview")}
                 </Button>
-                <Button type="button" variant="outline" onClick={() => setEditingRule(null)}>Abbrechen</Button>
+                <Button type="button" variant="outline" onClick={() => setEditingRule(null)}>{t("cpq.admin.common.cancel")}</Button>
                 <Button
                   type="submit"
                   form={ruleEditorMode === "guided" ? "edit-rule-guided" : "edit-rule-expert"}
                   disabled={updateRuleMutation.isPending}
                 >
-                  Speichern
+                  {t("cpq.admin.common.save")}
                 </Button>
               </DialogFooter>
             </div>
@@ -1277,18 +1311,18 @@ export default function CPQAdminPage() {
       <Dialog open={!!showRuleImpact} onOpenChange={(open) => !open && setShowRuleImpact(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Impact-Analyse</DialogTitle>
+            <DialogTitle>{t("cpq.admin.rules.impactAnalysis")}</DialogTitle>
             <DialogDescription>{showRuleImpact?.name}</DialogDescription>
           </DialogHeader>
           <div className="py-4">
             {ruleImpactData ? (
               <p>{ruleImpactData.message}</p>
             ) : (
-              <p className="text-muted-foreground">Laden…</p>
+              <p className="text-muted-foreground">{t("cpq.admin.common.loading")}</p>
             )}
           </div>
           <DialogFooter>
-            <Button onClick={() => setShowRuleImpact(null)}>Schließen</Button>
+            <Button onClick={() => setShowRuleImpact(null)}>{t("cpq.admin.common.close")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1297,7 +1331,7 @@ export default function CPQAdminPage() {
       <Dialog open={!!showRulePreview} onOpenChange={(open) => !open && setShowRulePreview(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Vorschau – Regel-Treffer</DialogTitle>
+            <DialogTitle>{t("cpq.admin.rules.previewTitle")}</DialogTitle>
             <DialogDescription>{showRulePreview?.name}</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
@@ -1305,22 +1339,22 @@ export default function CPQAdminPage() {
               <>
                 <div className="rounded-lg border p-4 bg-muted/30">
                   <p className="text-sm font-medium">
-                    Bei {rulePreviewData.matchCount} von {rulePreviewData.totalTested} Konfigurationen trifft die Regel zu.
+                    {t("cpq.admin.rules.previewSummary", { matchCount: rulePreviewData.matchCount, totalTested: rulePreviewData.totalTested })}
                   </p>
                   {rulePreviewData.source && (
                     <p className="text-xs text-muted-foreground mt-1">
                       {rulePreviewData.source === "saved_configurations"
-                        ? "Basis: gespeicherte Konfigurationen dieses Systems."
-                        : "Basis: Kombinationen aus Produkt-Mapping-Attributen (Höhe, Tiefe, Feldzahl, Ebenen)."}
+                        ? t("cpq.admin.rules.previewSourceSaved")
+                        : t("cpq.admin.rules.previewSourceMappings")}
                     </p>
                   )}
                   {rulePreviewData.matchCount === 0 ? (
                     <p className="text-sm text-muted-foreground mt-2">
-                      Keine Treffer. Die Regel-Bedingung passt auf keine der Konfigurationen im System. Prüfen Sie die Bedingung.
+                      {t("cpq.admin.rules.previewNoMatches")}
                     </p>
                   ) : (
                     <p className="text-sm text-muted-foreground mt-2">
-                      Treffende Konfigurationen:
+                      {t("cpq.admin.rules.previewMatchesLabel")}
                     </p>
                   )}
                 </div>
@@ -1331,7 +1365,7 @@ export default function CPQAdminPage() {
                       return (
                         <div key={i} className="text-xs font-mono bg-muted/50 p-2 rounded">
                           {name && <span className="text-muted-foreground block mb-1">{name}</span>}
-                          Höhe {String(cfg.height ?? "—")} mm, Tiefe {String(cfg.depth ?? "—")} mm · {String(cfg.field_count ?? "—")} Felder × {String(cfg.level_count ?? "—")} Ebenen
+                          {t("cpq.admin.rules.previewMatchLine", { height: String(cfg.height ?? "—"), depth: String(cfg.depth ?? "—"), fieldCount: String(cfg.field_count ?? "—"), levelCount: String(cfg.level_count ?? "—") })}
                         </div>
                       );
                     })}
@@ -1339,11 +1373,11 @@ export default function CPQAdminPage() {
                 )}
               </>
             ) : (
-              <p className="text-muted-foreground">Laden…</p>
+              <p className="text-muted-foreground">{t("cpq.admin.common.loading")}</p>
             )}
           </div>
           <DialogFooter>
-            <Button onClick={() => setShowRulePreview(null)}>Schließen</Button>
+            <Button onClick={() => setShowRulePreview(null)}>{t("cpq.admin.common.close")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1352,20 +1386,20 @@ export default function CPQAdminPage() {
       <Dialog open={!!showRuleVersions} onOpenChange={(open) => !open && setShowRuleVersions(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Versionsverlauf</DialogTitle>
+            <DialogTitle>{t("cpq.admin.rules.versionHistory")}</DialogTitle>
             <DialogDescription>{showRuleVersions?.name}</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-2 max-h-64 overflow-auto">
             {ruleVersions.length === 0 ? (
-              <p className="text-muted-foreground">Keine Versionen oder laden…</p>
+              <p className="text-muted-foreground">{t("cpq.admin.rules.versionsEmpty")}</p>
             ) : (
               ruleVersions.map((v) => (
                 <div key={v.version} className="flex items-center justify-between p-2 rounded border">
-                  <span>Version {v.version}</span>
+                  <span>{t("cpq.admin.rules.versionLabel", { version: v.version })}</span>
                   <span className="text-xs text-muted-foreground">{v.changedAt ? fmt.dateTime(v.changedAt) : ""}</span>
                   {v.version < (showRuleVersions?.version ?? 0) && (
                     <Button size="sm" variant="outline" onClick={() => showRuleVersions && rollbackRuleMutation.mutate({ ruleId: showRuleVersions.id, version: v.version })}>
-                      Rollback
+                      {t("cpq.admin.rules.rollback")}
                     </Button>
                   )}
                 </div>
@@ -1373,7 +1407,7 @@ export default function CPQAdminPage() {
             )}
           </div>
           <DialogFooter>
-            <Button onClick={() => setShowRuleVersions(null)}>Schließen</Button>
+            <Button onClick={() => setShowRuleVersions(null)}>{t("cpq.admin.common.close")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1382,9 +1416,9 @@ export default function CPQAdminPage() {
       <Dialog open={showCreateComponentType} onOpenChange={setShowCreateComponentType}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Neuer Komponententyp</DialogTitle>
+            <DialogTitle>{t("cpq.admin.componentTypes.createTitle")}</DialogTitle>
             <DialogDescription>
-              Legen Sie einen Komponententyp für das Regalsystem an (z.B. Steher, Traverse, Zubehör).
+              {t("cpq.admin.componentTypes.createDescription")}
             </DialogDescription>
           </DialogHeader>
           <form
@@ -1400,34 +1434,34 @@ export default function CPQAdminPage() {
             className="space-y-4"
           >
             <div>
-              <Label htmlFor="ctName">Name</Label>
+              <Label htmlFor="ctName">{t("cpq.admin.common.name")}</Label>
               <Input
                 id="ctName"
                 value={newComponentTypeName}
                 onChange={(e) => setNewComponentTypeName(e.target.value)}
-                placeholder="z.B. Steher, Traverse"
+                placeholder={t("cpq.admin.componentTypes.namePlaceholder")}
                 required
               />
             </div>
             <div>
-              <Label htmlFor="ctRole">Rolle</Label>
+              <Label htmlFor="ctRole">{t("cpq.admin.componentTypes.role")}</Label>
               <Select value={newComponentTypeRole} onValueChange={setNewComponentTypeRole}>
                 <SelectTrigger id="ctRole">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="frame">Rahmen (frame)</SelectItem>
-                  <SelectItem value="beam">Träger (beam)</SelectItem>
-                  <SelectItem value="shelf">Boden (shelf)</SelectItem>
-                  <SelectItem value="connector">Verbindung (connector)</SelectItem>
-                  <SelectItem value="accessory">Zubehör (accessory)</SelectItem>
+                  <SelectItem value="frame">{t("cpq.admin.componentTypes.roles.frame")}</SelectItem>
+                  <SelectItem value="beam">{t("cpq.admin.componentTypes.roles.beam")}</SelectItem>
+                  <SelectItem value="shelf">{t("cpq.admin.componentTypes.roles.shelf")}</SelectItem>
+                  <SelectItem value="connector">{t("cpq.admin.componentTypes.roles.connector")}</SelectItem>
+                  <SelectItem value="accessory">{t("cpq.admin.componentTypes.roles.accessory")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setShowCreateComponentType(false)}>Abbrechen</Button>
+              <Button type="button" variant="outline" onClick={() => setShowCreateComponentType(false)}>{t("cpq.admin.common.cancel")}</Button>
               <Button type="submit" disabled={createComponentTypeMutation.isPending || !selectedSystemId || !newComponentTypeName.trim()}>
-                Erstellen
+                {t("cpq.admin.common.create")}
               </Button>
             </DialogFooter>
           </form>
@@ -1441,9 +1475,9 @@ export default function CPQAdminPage() {
       }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Neues Produkt-Mapping</DialogTitle>
+            <DialogTitle>{t("cpq.admin.mappings.createTitle")}</DialogTitle>
             <DialogDescription>
-              Ordnen Sie ein Shopware-Produkt dem Regalsystem und einem Komponententyp zu.
+              {t("cpq.admin.mappings.createDescription")}
             </DialogDescription>
           </DialogHeader>
           <form
@@ -1461,18 +1495,18 @@ export default function CPQAdminPage() {
             className="space-y-4"
           >
             <div>
-              <Label>Shopware-Produkt</Label>
+              <Label>{t("cpq.admin.mappings.shopwareProduct")}</Label>
               <CpqProductSelector
                 value={selectedProduct}
                 onChange={setSelectedProduct}
-                placeholder="Produkt suchen (min. 2 Zeichen)"
+                placeholder={t("cpq.admin.mappings.productSearchPlaceholder")}
               />
             </div>
             <div>
-              <Label htmlFor="mappingComponentType">Komponententyp</Label>
+              <Label htmlFor="mappingComponentType">{t("cpq.admin.mappings.componentType")}</Label>
               <Select value={newMappingComponentTypeId} onValueChange={setNewMappingComponentTypeId}>
-                <SelectTrigger aria-label="Komponententyp wählen">
-                  <SelectValue placeholder="Komponententyp wählen" />
+                <SelectTrigger aria-label={t("cpq.admin.mappings.selectComponentType")}>
+                  <SelectValue placeholder={t("cpq.admin.mappings.selectComponentType")} />
                 </SelectTrigger>
                 <SelectContent>
                   {componentTypes.map((ct) => (
@@ -1485,21 +1519,26 @@ export default function CPQAdminPage() {
             </div>
             {selectedProduct && newMappingComponentTypeId && (
               <div className="rounded-lg border bg-muted/40 p-3 text-sm">
-                <p className="font-medium text-muted-foreground mb-1">Vorschau</p>
+                <p className="font-medium text-muted-foreground mb-1">{t("cpq.admin.common.preview")}</p>
                 <p className="font-mono text-foreground">{selectedProduct.productNumber}</p>
                 {selectedProduct.name && <p className="text-muted-foreground mt-0.5">{selectedProduct.name}</p>}
                 <p className="text-muted-foreground mt-2">
-                  → wird dem Komponententyp <strong>{componentTypes.find((ct) => ct.id === newMappingComponentTypeId)?.name ?? ""}</strong> zugeordnet.
+                  <Trans
+                    t={t}
+                    i18nKey="cpq.admin.mappings.assignPreview"
+                    values={{ name: componentTypes.find((ct) => ct.id === newMappingComponentTypeId)?.name ?? "" }}
+                    components={[<strong key="name" />]}
+                  />
                 </p>
               </div>
             )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setShowCreateMapping(false)}>Abbrechen</Button>
+              <Button type="button" variant="outline" onClick={() => setShowCreateMapping(false)}>{t("cpq.admin.common.cancel")}</Button>
               <Button
                 type="submit"
                 disabled={createMappingMutation.isPending || !selectedSystemId || !selectedProduct || !newMappingComponentTypeId}
               >
-                Mapping erstellen
+                {t("cpq.admin.mappings.createSubmit")}
               </Button>
             </DialogFooter>
           </form>
@@ -1512,9 +1551,9 @@ export default function CPQAdminPage() {
       }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingDiscountLevel ? "Ampelstufe bearbeiten" : "Neue Ampelstufe"}</DialogTitle>
+            <DialogTitle>{editingDiscountLevel ? t("cpq.admin.discountLevels.editTitle") : t("cpq.admin.discountLevels.createTitle")}</DialogTitle>
             <DialogDescription>
-              Definieren Sie den Rabatt-Bereich und die Farbe für diese Ampelstufe.
+              {t("cpq.admin.discountLevels.dialogDescription")}
             </DialogDescription>
           </DialogHeader>
           <form
@@ -1529,17 +1568,17 @@ export default function CPQAdminPage() {
             className="space-y-4"
           >
             <div>
-              <Label htmlFor="dlName">Name</Label>
+              <Label htmlFor="dlName">{t("cpq.admin.common.name")}</Label>
               <Input
                 id="dlName"
                 value={discountLevelForm.name}
                 onChange={(e) => setDiscountLevelForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="z.B. Optimal, Erhöht, Kritisch"
+                placeholder={t("cpq.admin.discountLevels.namePlaceholder")}
                 required
               />
             </div>
             <div>
-              <Label htmlFor="dlColor">Farbe</Label>
+              <Label htmlFor="dlColor">{t("cpq.admin.discountLevels.color")}</Label>
               <div className="flex gap-2">
                 <Input
                   id="dlColor"
@@ -1557,7 +1596,7 @@ export default function CPQAdminPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="dlMin">Rabatt von (%)</Label>
+                <Label htmlFor="dlMin">{t("cpq.admin.discountLevels.discountFrom")}</Label>
                 <Input
                   id="dlMin"
                   type="number"
@@ -1568,7 +1607,7 @@ export default function CPQAdminPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="dlMax">Rabatt bis (%)</Label>
+                <Label htmlFor="dlMax">{t("cpq.admin.discountLevels.discountTo")}</Label>
                 <Input
                   id="dlMax"
                   type="number"
@@ -1580,25 +1619,25 @@ export default function CPQAdminPage() {
               </div>
             </div>
             <div>
-              <Label htmlFor="dlMessage">Nachricht (optional, Platzhalter: {"{verlust}"}, {"{marge}"})</Label>
+              <Label htmlFor="dlMessage">{t("cpq.admin.discountLevels.messageLabel")}</Label>
               <Input
                 id="dlMessage"
                 value={discountLevelForm.messageTemplate}
                 onChange={(e) => setDiscountLevelForm((f) => ({ ...f, messageTemplate: e.target.value }))}
-                placeholder="Standardrabatt – Angebot kann direkt raus"
+                placeholder={t("cpq.admin.discountLevels.messagePlaceholder")}
               />
             </div>
             <div>
-              <Label htmlFor="dlApproval">Freigabe erforderlich</Label>
+              <Label htmlFor="dlApproval">{t("cpq.admin.discountLevels.approvalRequired")}</Label>
               <Select value={discountLevelForm.approvalType} onValueChange={(v) => setDiscountLevelForm((f) => ({ ...f, approvalType: v }))}>
                 <SelectTrigger id="dlApproval">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Keine</SelectItem>
-                  <SelectItem value="department_lead">Abteilungsleiter</SelectItem>
-                  <SelectItem value="management">Geschäftsführung</SelectItem>
-                  <SelectItem value="blocked">Gesperrt (nicht freigabefähig)</SelectItem>
+                  <SelectItem value="none">{t("cpq.admin.discountLevels.approvalTypes.none")}</SelectItem>
+                  <SelectItem value="department_lead">{t("cpq.admin.discountLevels.approvalTypes.departmentLead")}</SelectItem>
+                  <SelectItem value="management">{t("cpq.admin.discountLevels.approvalTypes.management")}</SelectItem>
+                  <SelectItem value="blocked">{t("cpq.admin.discountLevels.approvalTypes.blocked")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1609,12 +1648,12 @@ export default function CPQAdminPage() {
                 checked={discountLevelForm.justificationRequired}
                 onChange={(e) => setDiscountLevelForm((f) => ({ ...f, justificationRequired: e.target.checked }))}
               />
-              <Label htmlFor="dlJustification">Begründung erforderlich</Label>
+              <Label htmlFor="dlJustification">{t("cpq.admin.discountLevels.justificationRequired")}</Label>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => { setShowCreateDiscountLevel(false); setEditingDiscountLevel(null); }}>Abbrechen</Button>
+              <Button type="button" variant="outline" onClick={() => { setShowCreateDiscountLevel(false); setEditingDiscountLevel(null); }}>{t("cpq.admin.common.cancel")}</Button>
               <Button type="submit" disabled={createDiscountLevelMutation.isPending || updateDiscountLevelMutation.isPending || !discountLevelForm.name.trim()}>
-                {editingDiscountLevel ? "Speichern" : "Erstellen"}
+                {editingDiscountLevel ? t("cpq.admin.common.save") : t("cpq.admin.common.create")}
               </Button>
             </DialogFooter>
           </form>

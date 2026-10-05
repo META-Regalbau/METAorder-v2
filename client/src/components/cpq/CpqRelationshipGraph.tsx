@@ -16,6 +16,8 @@ import {
   type Connection,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { NodeSystem } from "./CpqNodeSystem";
 import { NodeType } from "./CpqNodeType";
 import { NodeArticle } from "./CpqNodeArticle";
@@ -53,7 +55,8 @@ function buildGraph(
   componentTypes: CpqComponentType[],
   mappings: CpqProductMapping[],
   centerX: number,
-  centerY: number
+  centerY: number,
+  t: TFunction
 ): { nodes: Node[]; edges: Edge[] } {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
@@ -65,7 +68,7 @@ function buildGraph(
     position: { x: centerX - 70, y: centerY - 45 },
     data: {
       label: system.name,
-      subLabel: `${componentTypes.length} Typen · ${totalMappings} Artikel`,
+      subLabel: `${t("cpq.graph.typeCount", { count: componentTypes.length })} · ${t("cpq.graph.articleCount", { count: totalMappings })}`,
       type: "system",
     },
     selectable: true,
@@ -86,7 +89,7 @@ function buildGraph(
       position: { x: tx - 60, y: ty - 38 },
       data: {
         label: ct.name,
-        subLabel: `${mappingCount} Artikel`,
+        subLabel: t("cpq.graph.articleCount", { count: mappingCount }),
         role: ct.role,
         type: "component",
       },
@@ -145,12 +148,13 @@ export default function CpqRelationshipGraph({
   onSelectRule,
   className = "",
 }: CpqRelationshipGraphProps) {
+  const { t, i18n } = useTranslation();
   const centerX = 400;
   const centerY = 300;
 
   const { nodes: initialNodes, edges: initialEdges } = useMemo(
-    () => buildGraph(system, componentTypes, mappings, centerX, centerY),
-    [system, componentTypes, mappings]
+    () => buildGraph(system, componentTypes, mappings, centerX, centerY, t),
+    [system, componentTypes, mappings, t]
   );
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
@@ -158,13 +162,13 @@ export default function CpqRelationshipGraph({
 
   const prevStructRef = useRef<string>("");
   useEffect(() => {
-    const struct = `${system.id}|${componentTypes.map((c) => c.id).join(",")}|${mappings.map((m) => m.id).join(",")}`;
+    const struct = `${i18n.language}|${system.id}|${componentTypes.map((c) => c.id).join(",")}|${mappings.map((m) => m.id).join(",")}`;
     if (prevStructRef.current !== struct) {
       prevStructRef.current = struct;
       setNodes(initialNodes);
       setEdges(initialEdges);
     }
-  }, [system.id, componentTypes, mappings, initialNodes, initialEdges, setNodes, setEdges]);
+  }, [i18n.language, system.id, componentTypes, mappings, initialNodes, initialEdges, setNodes, setEdges]);
 
   useEffect(() => {
     setNodes((prev) =>

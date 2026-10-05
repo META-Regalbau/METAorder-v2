@@ -18,10 +18,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-import { createLocaleFormatters } from "@/lib/localeFormat";
-// Die CPQ-Verwaltung ist (noch) nur deutsch - Zahlen deshalb im deutschen Format wie der Text
-const fmt = createLocaleFormatters("de");
+import { useTranslation } from "react-i18next";
+import { useLocaleFormat } from "@/hooks/useLocaleFormat";
+import type { LocaleFormatters } from "@/lib/localeFormat";
 
 const ROLE_ICONS: Record<string, string> = {
   frame: "📐",
@@ -59,13 +58,13 @@ type CpqTableViewProps = {
 type SortKey = "componentType" | "sku" | "name" | "height" | "depth" | "loadCapacity" | "price" | "status";
 type SortDir = "asc" | "desc";
 
-const STATUS_BADGE: Record<string, { label: string; className: string }> = {
-  active: { label: "Aktiv", className: "bg-green-500/10 text-green-600 dark:text-green-400" },
-  draft: { label: "Entwurf", className: "bg-muted text-muted-foreground" },
-  inactive: { label: "Inaktiv", className: "bg-destructive/10 text-destructive" },
+const STATUS_BADGE: Record<string, { labelKey: string; className: string }> = {
+  active: { labelKey: "cpq.table.status.active", className: "bg-green-500/10 text-green-600 dark:text-green-400" },
+  draft: { labelKey: "cpq.table.status.draft", className: "bg-muted text-muted-foreground" },
+  inactive: { labelKey: "cpq.table.status.inactive", className: "bg-destructive/10 text-destructive" },
 };
 
-function formatNum(v: number | null | undefined, unit: string): string {
+function formatNum(v: number | null | undefined, unit: string, fmt: LocaleFormatters): string {
   if (v === null || v === undefined) return "–";
   return `${fmt.number(v)} ${unit}`;
 }
@@ -78,6 +77,8 @@ export default function CpqTableView({
   onSelectNode,
   className = "",
 }: CpqTableViewProps) {
+  const { t } = useTranslation();
+  const fmt = useLocaleFormat();
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("componentType");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -156,7 +157,7 @@ export default function CpqTableView({
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder={`Suchen in ${system.name} – Artikelnummer, Name, Komponententyp …`}
+          placeholder={t("cpq.table.searchPlaceholder", { name: system.name })}
           className="max-w-sm h-8 text-sm"
           data-testid="input-table-view-search"
         />
@@ -165,27 +166,27 @@ export default function CpqTableView({
         {rows.length === 0 ? (
           <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
             {mappings.length === 0
-              ? "Keine Produkt-Mappings in diesem System."
-              : "Keine Treffer für die Suche."}
+              ? t("cpq.table.noMappings")
+              : t("cpq.table.noResults")}
           </div>
         ) : (
           <Table>
             <TableHeader className="sticky top-0 bg-background z-10">
               <TableRow>
-                <SortHead label="Komponententyp" sortKeyValue="componentType" />
-                <SortHead label="Artikelnummer" sortKeyValue="sku" />
-                <SortHead label="Produktname" sortKeyValue="name" />
-                <SortHead label="Höhe" sortKeyValue="height" />
-                <SortHead label="Tiefe" sortKeyValue="depth" />
-                <SortHead label="Tragfähigkeit" sortKeyValue="loadCapacity" />
-                <SortHead label="Preis" sortKeyValue="price" />
-                <SortHead label="Status" sortKeyValue="status" />
+                <SortHead label={t("cpq.table.columns.componentType")} sortKeyValue="componentType" />
+                <SortHead label={t("cpq.table.columns.sku")} sortKeyValue="sku" />
+                <SortHead label={t("cpq.table.columns.name")} sortKeyValue="name" />
+                <SortHead label={t("cpq.table.columns.height")} sortKeyValue="height" />
+                <SortHead label={t("cpq.table.columns.depth")} sortKeyValue="depth" />
+                <SortHead label={t("cpq.table.columns.loadCapacity")} sortKeyValue="loadCapacity" />
+                <SortHead label={t("cpq.table.columns.price")} sortKeyValue="price" />
+                <SortHead label={t("cpq.table.columns.status")} sortKeyValue="status" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.map((m) => {
                 const ct = componentTypeById.get(m.componentTypeId);
-                const statusBadge = STATUS_BADGE[m.status] ?? { label: m.status, className: "bg-muted text-muted-foreground" };
+                const statusBadge = STATUS_BADGE[m.status] ?? { labelKey: "", className: "bg-muted text-muted-foreground" };
                 const isSelected = selectedNodeId === m.id;
                 return (
                   <TableRow
@@ -202,16 +203,16 @@ export default function CpqTableView({
                     </TableCell>
                     <TableCell><code className="text-xs">{m.shopwareProductNumber}</code></TableCell>
                     <TableCell className="max-w-[280px] truncate">{m.productName ?? "–"}</TableCell>
-                    <TableCell>{formatNum(m.productDetails?.height, "mm")}</TableCell>
-                    <TableCell>{formatNum(m.productDetails?.depth, "mm")}</TableCell>
-                    <TableCell>{formatNum(m.productDetails?.loadCapacity, "kg")}</TableCell>
+                    <TableCell>{formatNum(m.productDetails?.height, "mm", fmt)}</TableCell>
+                    <TableCell>{formatNum(m.productDetails?.depth, "mm", fmt)}</TableCell>
+                    <TableCell>{formatNum(m.productDetails?.loadCapacity, "kg", fmt)}</TableCell>
                     <TableCell>
                       {m.productDetails?.price != null
                         ? fmt.currency(m.productDetails.price)
                         : "–"}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className={statusBadge.className}>{statusBadge.label}</Badge>
+                      <Badge variant="secondary" className={statusBadge.className}>{statusBadge.labelKey ? t(statusBadge.labelKey) : m.status}</Badge>
                     </TableCell>
                   </TableRow>
                 );
@@ -221,7 +222,7 @@ export default function CpqTableView({
         )}
       </div>
       <div className="px-3 py-2 border-t text-xs text-muted-foreground shrink-0">
-        {rows.length} von {mappings.length} {mappings.length === 1 ? "Artikel" : "Artikeln"}
+        {t("cpq.table.rowCount", { shown: rows.length, count: mappings.length })}
       </div>
     </div>
   );
