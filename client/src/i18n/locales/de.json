@@ -2539,7 +2539,7 @@
     "offerConversionRate": "freigegeben",
     "offerTotalInPeriod": "Angebote (Zeitraum)",
     "offerAcceptedCount": "Angenommen / freigegeben",
-    "offerAcceptedShareAll": "{{pct}}% aller Angebote im Zeitraum",
+    "offerAcceptedShareAll": "{{pct}} aller Angebote im Zeitraum",
     "offerConversionHint": "bezogen auf eingereichte, versandte, abgelehnte und freigegebene Angebote",
     "perOrder": "Pro Bestellung",
     "inSelectedPeriod": "Im ausgewählten Zeitraum",

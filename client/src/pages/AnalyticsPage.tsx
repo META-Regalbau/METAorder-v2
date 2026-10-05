@@ -8,7 +8,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SalesChannelSelector } from "@/components/SalesChannelSelector";
 import { format, subDays } from "date-fns";
-import { de } from "date-fns/locale";
+import { createLocaleFormatters, dateFnsLocale } from "@/lib/localeFormat";
 import { useTranslation } from "react-i18next";
 import type { SalesChannel, AiInsight, OfferLearningInsight, Role } from "@shared/schema";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -57,6 +57,9 @@ interface AnalyticsPageProps {
 
 export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermissions }: AnalyticsPageProps) {
   const { t, i18n } = useTranslation();
+  // Zahlen, Betraege und Daten in der Sprache der Oberflaeche (vorher fest "de-DE")
+  const fmt = useMemo(() => createLocaleFormatters(i18n.language), [i18n.language]);
+  const dfLocale = dateFnsLocale(i18n.language);
   // Reiter "Natürliche Sprache" nur mit Berechtigung (der Server prueft sie ebenfalls)
   const canUseNaturalLanguage = Boolean(userPermissions?.viewNaturalLanguageAnalytics);
   const [activeTab, setActiveTab] = useState<"dashboard" | "natural-language">("dashboard");
@@ -424,17 +427,12 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
 
   const productActivityData = useMemo(() => {
     if (!productActivityTrend?.trend) return [];
-    return productActivityTrend.trend.map((item) => {
-      const date = new Date(`${item.month}-01T00:00:00`);
-      return {
-        month: Number.isNaN(date.getTime())
-          ? item.month
-          : format(date, "MMM yyyy", { locale: de }),
-        active: item.active,
-        inactive: item.inactive,
-      };
-    });
-  }, [productActivityTrend]);
+    return productActivityTrend.trend.map((item) => ({
+      month: fmt.monthYear(item.month),
+      active: item.active,
+      inactive: item.inactive,
+    }));
+  }, [productActivityTrend, fmt]);
 
   const dataQualityDistribution = useMemo(() => {
     return productDataQuality?.distribution || [];
@@ -593,11 +591,11 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
               <PopoverTrigger asChild>
                 <Button variant="outline" className="w-48" data-testid="button-date-from">
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {customDateFrom ? format(customDateFrom, "PPP", { locale: de }) : t('analytics.dateFrom')}
+                  {customDateFrom ? format(customDateFrom, "PPP", { locale: dfLocale }) : t('analytics.dateFrom')}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
-                <Calendar mode="single" selected={customDateFrom} onSelect={setCustomDateFrom} locale={de} />
+                <Calendar mode="single" selected={customDateFrom} onSelect={setCustomDateFrom} locale={dfLocale} />
               </PopoverContent>
             </Popover>
 
@@ -605,11 +603,11 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
               <PopoverTrigger asChild>
                 <Button variant="outline" className="w-48" data-testid="button-date-to">
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {customDateTo ? format(customDateTo, "PPP", { locale: de }) : t('analytics.dateTo')}
+                  {customDateTo ? format(customDateTo, "PPP", { locale: dfLocale }) : t('analytics.dateTo')}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
-                <Calendar mode="single" selected={customDateTo} onSelect={setCustomDateTo} locale={de} />
+                <Calendar mode="single" selected={customDateTo} onSelect={setCustomDateTo} locale={dfLocale} />
               </PopoverContent>
             </Popover>
           </>
@@ -646,10 +644,10 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-total-revenue">
-              {summary?.totalNetRevenue?.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+              {fmt.currency(summary?.totalNetRevenue)}
             </div>
             <p className="text-xs text-muted-foreground">
-              {t("analytics.gross")}: {summary?.totalRevenue?.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+              {t("analytics.gross")}: {fmt.currency(summary?.totalRevenue)}
             </p>
           </CardContent>
         </Card>
@@ -661,7 +659,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-total-orders">
-              {summary?.totalOrders?.toLocaleString("de-DE")}
+              {fmt.integer(summary?.totalOrders)}
             </div>
             <p className="text-xs text-muted-foreground">{t('analytics.inSelectedPeriod')}</p>
           </CardContent>
@@ -674,10 +672,10 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-average-order-value">
-              {summary?.averageNetOrderValue?.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+              {fmt.currency(summary?.averageNetOrderValue)}
             </div>
             <p className="text-xs text-muted-foreground">
-              {t("analytics.gross")}: {summary?.averageOrderValue?.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+              {t("analytics.gross")}: {fmt.currency(summary?.averageOrderValue)}
             </p>
           </CardContent>
         </Card>
@@ -689,7 +687,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-unique-customers">
-              {summary?.uniqueCustomers?.toLocaleString("de-DE")}
+              {fmt.integer(summary?.uniqueCustomers)}
             </div>
             <p className="text-xs text-muted-foreground">{t('analytics.uniqueCustomersDetail')}</p>
           </CardContent>
@@ -714,14 +712,14 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
               </CardHeader>
               <CardContent className="space-y-2">
                 <div className="text-2xl font-bold">
-                  {ga4Kpis.monthlyUsers?.toLocaleString("de-DE") || 0}
+                  {fmt.integer(ga4Kpis.monthlyUsers ?? 0)}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {t("analytics.ga4Monthly")}
                 </p>
                 <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
-                  <div>{t("analytics.ga4Daily")}: {ga4Kpis.dailyUsers?.toLocaleString("de-DE") || 0}</div>
-                  <div>{t("analytics.ga4Weekly")}: {ga4Kpis.weeklyUsers?.toLocaleString("de-DE") || 0}</div>
+                  <div>{t("analytics.ga4Daily")}: {fmt.integer(ga4Kpis.dailyUsers ?? 0)}</div>
+                  <div>{t("analytics.ga4Weekly")}: {fmt.integer(ga4Kpis.weeklyUsers ?? 0)}</div>
                 </div>
               </CardContent>
             </Card>
@@ -735,15 +733,15 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
               </CardHeader>
               <CardContent className="space-y-2">
                 <div className="text-2xl font-bold">
-                  {adsKpis.totalCost?.toLocaleString("de-DE", { style: "currency", currency: "EUR" }) || "€0"}
+                  {fmt.currency(adsKpis.totalCost ?? 0)}
                 </div>
                 <p className="text-xs text-muted-foreground">{t("analytics.adsSpend")}</p>
                 <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
                   <div>
-                    {t("analytics.adsConversionRate")}: {((adsKpis.conversionRate || 0) * 100).toFixed(1)}%
+                    {t("analytics.adsConversionRate")}: {fmt.percent(adsKpis.conversionRate || 0)}
                   </div>
                   <div>
-                    {t("analytics.adsCpa")}: {(adsKpis.costPerConversion || 0).toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+                    {t("analytics.adsCpa")}: {fmt.currency(adsKpis.costPerConversion || 0)}
                   </div>
                 </div>
               </CardContent>
@@ -767,7 +765,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
                   <div key={campaign.campaignId} className="flex items-center justify-between">
                     <span>{campaign.campaignName}</span>
                     <span>
-                      {campaign.cost.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+                      {fmt.currency(campaign.cost)}
                     </span>
                   </div>
                 ))}
@@ -820,13 +818,13 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
                   offerKpiTotals.totalOffers !== undefined &&
                   offerKpiTotals.totalOffers > 0 && (
                     <p className="mt-2 text-sm text-muted-foreground">
-                      {t("analytics.offerAcceptedShareAll", "{{pct}}% aller Angebote im Zeitraum", {
-                        pct: (offerKpiTotals.acceptedOfAllRate * 100).toFixed(1),
+                      {t("analytics.offerAcceptedShareAll", "{{pct}} aller Angebote im Zeitraum", {
+                        pct: fmt.percent(offerKpiTotals.acceptedOfAllRate),
                       })}
                     </p>
                   )}
                 <div className="mt-3 text-sm text-muted-foreground">
-                  {(offerConversionInsight.data.conversionRate * 100).toFixed(1)}%{" "}
+                  {fmt.percent(offerConversionInsight.data.conversionRate)}{" "}
                   {t("analytics.offerConversionRate", "freigegeben")}{" "}
                   <span className="text-muted-foreground/80">
                     ({t("analytics.offerConversionHint", "bezogen auf eingereichte, versandte, abgelehnte und freigegebene Angebote")})
@@ -852,7 +850,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
                 <div className="mt-3 text-sm text-muted-foreground">
                   {Object.entries(offerAvgInsight.data.avgByStatus).map(([status, avg]) => (
                     <div key={status}>
-                      {offerStatusLabel(t, status)}: {Number(avg).toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+                      {offerStatusLabel(t, status)}: {fmt.currency(Number(avg))}
                     </div>
                   ))}
                 </div>
@@ -894,7 +892,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
                 {insight.data?.pairs && Array.isArray(insight.data.pairs) && (
                   <div className="mt-3 text-sm text-muted-foreground">
                     {insight.data.pairs.slice(0, 5).map((pair: any, index: number) => {
-                      const stats = learningInsightPairStats(t, pair);
+                      const stats = learningInsightPairStats(t, pair, i18n.language);
                       return (
                         <div key={`${pair.source}-${pair.target}-${index}`}>
                           {pair.source} → {pair.target}
@@ -938,7 +936,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
                   {t('analytics.totalProducts')}
                 </div>
                 <div className="text-3xl font-bold" data-testid="text-data-quality-total">
-                  {productDataQuality?.totalProducts?.toLocaleString("de-DE") || 0}
+                  {fmt.integer(productDataQuality?.totalProducts ?? 0)}
                 </div>
               </div>
             </div>
@@ -950,8 +948,8 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
                 <BarChart data={dataQualityDistribution}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="label" />
-                  <YAxis allowDecimals={false} />
-                  <Tooltip />
+                  <YAxis allowDecimals={false} tickFormatter={fmt.integer} />
+                  <Tooltip formatter={(v) => fmt.integer(v)} />
                   <Bar dataKey="count" fill="#3b82f6" name={t('analytics.count')} />
                 </BarChart>
               </ResponsiveContainer>
@@ -982,7 +980,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
                   <span className="text-sm font-medium">{t('analytics.activeProducts')}</span>
                 </div>
                 <div className="text-3xl font-bold text-green-600" data-testid="text-active-products">
-                  {productOverview?.active?.toLocaleString("de-DE")}
+                  {fmt.integer(productOverview?.active)}
                 </div>
               </div>
               <div className="text-center">
@@ -991,7 +989,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
                   <span className="text-sm font-medium">{t('analytics.inactiveProducts')}</span>
                 </div>
                 <div className="text-3xl font-bold text-red-600" data-testid="text-inactive-products">
-                  {productOverview?.inactive?.toLocaleString("de-DE")}
+                  {fmt.integer(productOverview?.inactive)}
                 </div>
               </div>
               <div className="text-center">
@@ -1000,7 +998,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
                   <span className="text-sm font-medium">{t('analytics.totalProducts')}</span>
                 </div>
                 <div className="text-3xl font-bold" data-testid="text-total-products">
-                  {productOverview?.total?.toLocaleString("de-DE")}
+                  {fmt.integer(productOverview?.total)}
                 </div>
               </div>
             </div>
@@ -1020,8 +1018,8 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
                 <BarChart data={productActivityData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
+                  <YAxis tickFormatter={fmt.integer} />
+                  <Tooltip formatter={(v) => fmt.integer(v)} />
                   <Legend />
                   <Bar dataKey="active" stackId="a" fill="#22c55e" name={t('analytics.activeProducts')} />
                   <Bar dataKey="inactive" stackId="a" fill="#ef4444" name={t('analytics.inactiveProducts')} />
@@ -1082,7 +1080,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-semibold">{product.totalRevenue.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}</div>
+                    <div className="font-semibold">{fmt.currency(product.totalRevenue)}</div>
                   </div>
                 </div>
               ))}
@@ -1114,7 +1112,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-semibold">{product.totalRevenue.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}</div>
+                    <div className="font-semibold">{fmt.currency(product.totalRevenue)}</div>
                   </div>
                 </div>
               ))}
@@ -1147,7 +1145,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} aria-label={`${entry.name}: ${entry.value}`} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip formatter={(v) => fmt.integer(v)} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -1170,7 +1168,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} aria-label={`${entry.name}: ${entry.value}`} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip formatter={(v) => fmt.integer(v)} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -1192,9 +1190,12 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={salesTrend}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
+                  <XAxis dataKey="date" tickFormatter={fmt.shortDate} />
+                  <YAxis tickFormatter={fmt.compactNumber} />
+                  <Tooltip
+                    labelFormatter={(label) => fmt.shortDate(String(label))}
+                    formatter={(v, _name, item) => (item?.dataKey === "revenue" ? fmt.currency(v) : fmt.integer(v))}
+                  />
                   <Legend />
                   <Line type="monotone" dataKey="revenue" stroke="#8884d8" name={t('analytics.revenue')} />
                   <Line type="monotone" dataKey="orderCount" stroke="#82ca9d" name={t('analytics.orders')} />
@@ -1218,8 +1219,8 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
                 <BarChart data={categorySalesData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
-                  <YAxis />
-                  <Tooltip />
+                  <YAxis tickFormatter={fmt.compactCurrency} width={72} />
+                  <Tooltip formatter={(v) => fmt.currency(v)} />
                   <Legend />
                   <Bar dataKey="revenue" fill="#8884d8" name={t('analytics.revenue')} />
                 </BarChart>
@@ -1256,7 +1257,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
                     <div className="text-xs text-muted-foreground">{t("analytics.averageShippingDays")}</div>
                     <div className="text-2xl font-bold" data-testid="text-average-shipping-days">
                       {shippingTimes?.averageDays != null
-                        ? shippingTimes.averageDays.toFixed(1)
+                        ? fmt.decimal(shippingTimes.averageDays)
                         : "–"}{" "}
                       {t("analytics.days")}
                     </div>
@@ -1265,7 +1266,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
                     <div className="text-xs text-muted-foreground">{t("analytics.medianShippingDays")}</div>
                     <div className="text-2xl font-bold" data-testid="text-median-shipping-days">
                       {shippingTimes?.medianDays != null
-                        ? shippingTimes.medianDays.toFixed(1)
+                        ? fmt.decimal(shippingTimes.medianDays)
                         : "–"}{" "}
                       {t("analytics.days")}
                     </div>
@@ -1273,7 +1274,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
                   <div>
                     <div className="text-xs text-muted-foreground">{t("analytics.ordersWithShippingData")}</div>
                     <div className="text-2xl font-bold" data-testid="text-orders-with-shipping">
-                      {shippingTimes?.ordersWithShippingCount?.toLocaleString("de-DE") ?? "0"}
+                      {fmt.integer(shippingTimes?.ordersWithShippingCount ?? 0)}
                     </div>
                   </div>
                 </div>
@@ -1284,8 +1285,8 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
                       <BarChart data={shippingTimes.distribution}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="label" />
-                        <YAxis allowDecimals={false} />
-                        <Tooltip />
+                        <YAxis allowDecimals={false} tickFormatter={fmt.integer} />
+                        <Tooltip formatter={(v) => fmt.integer(v)} />
                         <Bar dataKey="count" fill="#3b82f6" name={t("analytics.count")} />
                       </BarChart>
                     </ResponsiveContainer>
