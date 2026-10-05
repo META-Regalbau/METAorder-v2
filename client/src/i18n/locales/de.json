@@ -3092,7 +3092,9 @@
       "greaterThan": "größer als",
       "lessThan": "kleiner als",
       "greaterThanOrEqual": "mindestens",
-      "lessThanOrEqual": "höchstens"
+      "lessThanOrEqual": "höchstens",
+      "isOneOf": "ist einer von",
+      "containsAny": "enthält eines von"
     },
     "form": {
       "name": "Regelname",
@@ -3118,14 +3120,16 @@
       "placeholders": "Platzhalter",
       "incomplete": "Regel unvollständig",
       "conditionOperator": "Operator",
-      "actionType": "Aktion"
+      "actionType": "Aktion",
+      "noUser": "niemand",
+      "listValuePlaceholder": "Mehrere Werte mit Komma trennen"
     },
     "templates": {
       "title": "Regel-Vorlagen",
       "orCustom": "oder eigene Regel erstellen",
       "delayedOrders": {
         "name": "Verspätete Bestellungen",
-        "description": "Legt ein Ticket an, wenn eine bezahlte Bestellung 3 Tage über dem spätesten Lieferdatum liegt und noch nicht abgeschlossen ist."
+        "description": "Legt ein Ticket an, wenn eine bezahlte oder autorisierte Bestellung 3 Tage über dem spätesten Lieferdatum liegt und noch nicht versandt ist – höchstens eins je Bestellung."
       },
       "autoStatus": {
         "name": "Automatische Statusaktualisierung",
@@ -3180,7 +3184,10 @@
         "customerEmail": "Bestellung: Kunden-E-Mail",
         "paymentMethod": "Bestellung: Zahlart",
         "shippingMethod": "Bestellung: Versandart",
-        "salesChannelName": "Bestellung: Verkaufskanal"
+        "salesChannelName": "Bestellung: Verkaufskanal",
+        "hasErpNumber": "Bestellung: ERP-Auftragsnummer vorhanden",
+        "hasInvoice": "Bestellung: Rechnung vorhanden",
+        "isShipped": "Bestellung: versandt"
       }
     },
     "values": {
@@ -3225,7 +3232,9 @@
       "category": "Kategorie",
       "description": "Beschreibung",
       "applyCategory": "Kategorie setzen (nur wenn noch „Allgemein“)",
-      "escalateNegative": "Bei negativer Stimmung Priorität auf „Hoch“ anheben"
+      "escalateNegative": "Bei negativer Stimmung Priorität auf „Hoch“ anheben",
+      "assignToUserId": "Zuweisen an",
+      "skipIfOpenTicket": "Kein weiteres Ticket, solange zur Bestellung eins offen ist"
     },
     "history": {
       "ticket": "Ticket",

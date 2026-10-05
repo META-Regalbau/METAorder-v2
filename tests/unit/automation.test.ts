@@ -4,8 +4,8 @@
  * Ausführung: npm test
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { AutomationRule, Ticket } from "../../shared/schema";
-import { evaluateCondition, evaluateConditions, interpolate, validateAutomationRule } from "../../shared/automation";
+import { insertAutomationRuleSchema, type AutomationRule, type Order, type Ticket } from "../../shared/schema";
+import { evaluateCondition, evaluateConditions, interpolate, validateAutomationRule, type AutomationConditionInput } from "../../shared/automation";
 import { runAutomationEvent } from "../../server/automation/engine";
 import type { AutomationDeps } from "../../server/automation/actions";
 import { registerAutomationTriggers } from "../../server/automation";
@@ -40,7 +40,7 @@ function rule(overrides: Partial<AutomationRule> & { conditionsArr?: unknown[]; 
 }
 
 /** Test-Speicher: Mandantentrennung wie DbStorage (Mandant aus dem Kontext). */
-function fakeDeps(rules: AutomationRule[], opts: { onCreateTicket?: (t: Ticket) => void } = {}) {
+function fakeDeps(rules: AutomationRule[], opts: { onCreateTicket?: (t: Ticket) => void; tickets?: Ticket[] } = {}) {
   const calls: Array<[string, ...unknown[]]> = [];
   const executions: any[] = [];
   const users: Record<string, { id: string; username: string; tenants: string[] }> = {
@@ -56,6 +56,7 @@ function fakeDeps(rules: AutomationRule[], opts: { onCreateTicket?: (t: Ticket) 
       opts.onCreateTicket?.(t);
       return t;
     },
+    getTicketsByOrderId: async (orderId: string) => (opts.tickets ?? []).filter((t) => t.orderId === orderId && (t.tenantId ?? null) === getTenantIdFromContext()),
     createNotification: async (n: any) => { calls.push(["createNotification", n]); return { id: "n1", ...n }; },
     getUser: async (id: string) => users[id] ? { id, username: users[id].username } : undefined,
     getTenantsForUser: async (id: string) => (users[id]?.tenants ?? []).map((t) => ({ id: t })),
@@ -91,6 +92,18 @@ describe("Bedingungen", () => {
   it("ja/nein-Felder akzeptieren true/false und \"true\"/\"false\"", () => {
     expect(evaluateCondition({ field: "ticket.isAssigned", operator: "equals", value: false }, facts)).toBe(true);
     expect(evaluateCondition({ field: "ticket.isAssigned", operator: "equals", value: "true" }, facts)).toBe(false);
+  });
+
+  it("Listen: 'ist einer von' (Auswahl), 'enthaelt eines von' (Text); leere Eintraege zaehlen nicht", () => {
+    expect(evaluateCondition({ field: "ticket.priority", operator: "isOneOf", value: ["urgent", "HIGH"] }, facts)).toBe(true);
+    expect(evaluateCondition({ field: "ticket.priority", operator: "isOneOf", value: ["low", "normal"] }, facts)).toBe(false);
+    expect(evaluateCondition({ field: "ticket.title", operator: "containsAny", value: ["storno", " komplett "] }, facts)).toBe(true);
+    expect(evaluateCondition({ field: "ticket.title", operator: "containsAny", value: ["", " "] }, facts)).toBe(false);
+  });
+
+  it("Liste nur mit Listen-Operator und umgekehrt", () => {
+    expect(evaluateCondition({ field: "ticket.priority", operator: "equals", value: ["high"] }, facts)).toBe(false);
+    expect(evaluateCondition({ field: "ticket.priority", operator: "isOneOf", value: "high" }, facts)).toBe(false);
   });
 
   it("unbekannte Felder und unpassende Operatoren treffen nie zu", () => {
@@ -135,6 +148,26 @@ describe("Regel-Pruefung", () => {
     expect(errors.join(" | ")).toMatch(/passt nicht zum Auslöser/);
     expect(errors.join(" | ")).toMatch(/keine E-Mail-Adresse/);
     expect(validateAutomationRule({ triggerType: "ticket_created", actions: [{ type: "send_email", params: { to: "{{ticket.customerEmail}}", subject: "x", body: "y" } }] })).toEqual([]);
+  });
+
+  it("Listen-Operatoren: mindestens ein Wert, nur erlaubte Werte, nicht bei ja/nein; Liste nur mit Listen-Operator", () => {
+    const check = (condition: AutomationConditionInput) =>
+      validateAutomationRule({ triggerType: "ticket_created", conditions: [condition], actions: [assign] }).join(" | ");
+    expect(check({ field: "ticket.priority", operator: "isOneOf", value: ["high", "urgent"] })).toBe("");
+    expect(check({ field: "ticket.title", operator: "containsAny", value: ["storno", "rückgabe"] })).toBe("");
+    expect(check({ field: "ticket.priority", operator: "isOneOf", value: [" ", ""] })).toMatch(/mindestens ein Wert/);
+    expect(check({ field: "ticket.priority", operator: "isOneOf", value: "high" })).toMatch(/mindestens ein Wert/);
+    expect(check({ field: "ticket.priority", operator: "isOneOf", value: ["high", "sofort"] })).toMatch(/Wert "sofort" ist nicht erlaubt/);
+    expect(check({ field: "ticket.isAssigned", operator: "isOneOf", value: ["true"] })).toMatch(/Operator "isOneOf" passt nicht zum Feld/);
+    expect(check({ field: "ticket.priority", operator: "equals", value: ["high"] })).toMatch(/mehrere Werte nur/);
+  });
+
+  it("Eingabe-Schema der Route nimmt Listen-Werte an", () => {
+    const parsed = insertAutomationRuleSchema.parse({
+      name: "x", enabled: true, triggerType: "scheduled", actions: [],
+      conditions: [{ field: "order.paymentStatus", operator: "isOneOf", value: ["open", "failed"] }, { field: "order.paymentMethod", operator: "containsAny", value: ["Vorkasse"] }],
+    });
+    expect(parsed.conditions?.[0].value).toEqual(["open", "failed"]);
   });
 
   it("Platzhalter werden ersetzt, unbekannte leer", () => {
@@ -252,6 +285,66 @@ describe("Engine", () => {
     await runAutomationEvent(deps, { trigger: "ticket_status_changed", tenantId: "tenant-a", ticket: ticket(), previousStatus: "waiting_for_customer" });
     await runAutomationEvent(deps, { trigger: "ticket_status_changed", tenantId: "tenant-a", ticket: ticket(), previousStatus: "in_progress" });
     expect(calls.filter((c) => c[0] === "updateTicket")).toHaveLength(1);
+  });
+});
+
+describe("Aktion 'Ticket anlegen'", () => {
+  const order = {
+    id: "o1", orderNumber: "SW-1", customerName: "Erika Muster", customerEmail: "kunde@example.com", orderDate: new Date().toISOString(),
+    totalAmount: 10, netTotalAmount: 8, status: "cancelled", paymentStatus: "open", salesChannelId: "sc", items: [],
+  } as Order;
+  const createRule = (params: Record<string, unknown>) => rule({
+    triggerType: "order_status_changed",
+    actionsArr: [{ type: "create_ticket", params: { title: "Storno {{order.orderNumber}}", description: "Bitte prüfen", ...params } }],
+  });
+  const run = (deps: AutomationDeps) => runAutomationEvent(deps, { trigger: "order_status_changed", tenantId: "tenant-a", order, previousStatus: "in_progress" });
+  const createdTickets = (calls: Array<[string, ...unknown[]]>) => calls.filter((c) => c[0] === "createTicket").map((c) => c[1]);
+
+  it("weist das Ticket gleich zu und benachrichtigt den Zustaendigen", async () => {
+    const { deps, calls, executions } = fakeDeps([createRule({ assignToUserId: "u1" })]);
+    await run(deps);
+    expect(createdTickets(calls)).toEqual([expect.objectContaining({ orderId: "o1", orderNumber: "SW-1", assignedToUserId: "u1", title: "Storno SW-1" })]);
+    expect(calls.find((c) => c[0] === "createNotification")?.[1]).toMatchObject({ userId: "u1", type: "ticket_assigned", ticketNumber: "T-2000", message: "Storno SW-1" });
+    expect(deps.onNotificationCreated).toHaveBeenCalledOnce();
+    expect(executions[0]).toMatchObject({ status: "success" });
+    expect(executions[0].result.actions[0].message).toMatch(/anna zugewiesen/);
+  });
+
+  it("ohne Zustaendigen: Ticket ohne Zuweisung, keine Benachrichtigung", async () => {
+    const { deps, calls } = fakeDeps([createRule({ assignToUserId: "" })]);
+    await run(deps);
+    expect(createdTickets(calls)).toEqual([expect.objectContaining({ assignedToUserId: null })]);
+    expect(deps.onNotificationCreated).not.toHaveBeenCalled();
+  });
+
+  it("Zustaendiger aus anderem Mandanten: kein Ticket, Ausfuehrung fehlgeschlagen", async () => {
+    const { deps, calls, executions } = fakeDeps([createRule({ assignToUserId: "u2" })]);
+    await run(deps);
+    expect(createdTickets(calls)).toEqual([]);
+    expect(executions[0].status).toBe("failure");
+    expect(executions[0].error).toMatch(/gehört nicht zu diesem Mandanten/);
+  });
+
+  it("kein weiteres Ticket, solange zur Bestellung eins offen ist - geloeste, geschlossene und fremde zaehlen nicht", async () => {
+    const open = fakeDeps([createRule({ skipIfOpenTicket: true, assignToUserId: "u1" })], { tickets: [ticket({ id: "x", orderId: "o1", status: "waiting_for_customer", ticketNumber: "T-900" })] });
+    await run(open.deps);
+    expect(createdTickets(open.calls)).toEqual([]);
+    expect(open.deps.onNotificationCreated).not.toHaveBeenCalled();
+    expect(open.executions[0]).toMatchObject({ status: "success" });
+    expect(open.executions[0].result.actions[0].message).toMatch(/T-900 zur Bestellung ist noch offen/);
+
+    const done = fakeDeps([createRule({ skipIfOpenTicket: true })], { tickets: [
+      ticket({ orderId: "o1", status: "resolved" }),
+      ticket({ orderId: "o1", status: "closed" }),
+      ticket({ orderId: "o2", status: "open" }),
+      ticket({ orderId: "o1", status: "open", tenantId: "tenant-b" }),
+    ] });
+    await run(done.deps);
+    expect(createdTickets(done.calls)).toHaveLength(1);
+
+    const off = fakeDeps([createRule({ skipIfOpenTicket: false })], { tickets: [ticket({ orderId: "o1", status: "open" })] });
+    await run(off.deps);
+    expect(createdTickets(off.calls)).toHaveLength(1);
   });
 });
 

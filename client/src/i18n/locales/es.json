@@ -2941,7 +2941,9 @@
       "greaterThan": "mayor que",
       "lessThan": "menor que",
       "greaterThanOrEqual": "al menos",
-      "lessThanOrEqual": "como máximo"
+      "lessThanOrEqual": "como máximo",
+      "isOneOf": "es uno de",
+      "containsAny": "contiene alguno de"
     },
     "form": {
       "name": "Nombre de Regla",
@@ -2967,14 +2969,16 @@
       "placeholders": "Marcadores",
       "incomplete": "Regla incompleta",
       "conditionOperator": "Operador",
-      "actionType": "Acción"
+      "actionType": "Acción",
+      "noUser": "nadie",
+      "listValuePlaceholder": "Separe varios valores con comas"
     },
     "templates": {
       "title": "Plantillas de Reglas",
       "orCustom": "o crear regla personalizada",
       "delayedOrders": {
         "name": "Pedidos retrasados",
-        "description": "Crea un ticket cuando un pedido pagado lleva 3 días tras su fecha de entrega más tardía y aún no está completado."
+        "description": "Crea un ticket cuando un pedido pagado o autorizado lleva 3 días tras su fecha de entrega más tardía y aún no se ha enviado; como máximo uno por pedido."
       },
       "autoStatus": {
         "name": "Actualización Automática de Estado",
@@ -3029,7 +3033,10 @@
         "customerEmail": "Pedido: correo del cliente",
         "paymentMethod": "Pedido: forma de pago",
         "shippingMethod": "Pedido: forma de envío",
-        "salesChannelName": "Pedido: canal de venta"
+        "salesChannelName": "Pedido: canal de venta",
+        "hasErpNumber": "Pedido: número de pedido ERP disponible",
+        "hasInvoice": "Pedido: factura disponible",
+        "isShipped": "Pedido: enviado"
       }
     },
     "values": {
@@ -3074,7 +3081,9 @@
       "category": "Categoría",
       "description": "Descripción",
       "applyCategory": "Asignar categoría (solo si sigue en “General”)",
-      "escalateNegative": "Subir la prioridad a “Alta” si el sentimiento es negativo"
+      "escalateNegative": "Subir la prioridad a “Alta” si el sentimiento es negativo",
+      "assignToUserId": "Asignar a",
+      "skipIfOpenTicket": "Ningún ticket más mientras haya uno abierto para el pedido"
     },
     "history": {
       "ticket": "Ticket",
