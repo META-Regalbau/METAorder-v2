@@ -53,6 +53,7 @@ const mirror = new Map<string, any>([
   ["o-sc2", { shopwareId: "o-sc2", salesChannelId: "sc2", payload: { id: "o-sc2", salesChannelId: "sc2" } }],
 ]);
 
+const shippingArgs: Array<{ info: unknown; options: unknown }> = [];
 let server: Server;
 let base = "";
 beforeAll(async () => {
@@ -64,7 +65,10 @@ beforeAll(async () => {
   vi.spyOn(proto, "fetchOrders").mockImplementation(async (_sc: unknown, opts?: { ids?: string[] }) =>
     opts?.ids?.[0] === "o-neu" ? [{ id: "o-neu", salesChannelId: "sc1" }] : [],
   );
-  vi.spyOn(proto, "updateOrderShipping").mockImplementation(async (id: string) => { state.calls.push(`shipping:${id}`); });
+  vi.spyOn(proto, "updateOrderShipping").mockImplementation(async (id: string, info: unknown, options: unknown) => {
+    state.calls.push(`shipping:${id}`);
+    shippingArgs.push({ info, options });
+  });
   vi.spyOn(proto, "fetchOrderDocuments").mockResolvedValue([{ id: "doc-1", type: "invoice", number: "RE-1", deepLinkCode: "dl" }]);
   vi.spyOn(proto, "setOrderShipped").mockImplementation(async (id: string) => { state.calls.push(`shipped:${id}`); });
   vi.spyOn(proto, "sendInvoiceEmail").mockImplementation(async (id: string) => { state.calls.push(`mail:${id}`); });
@@ -108,6 +112,17 @@ describe("PATCH /api/orders/:orderId/shipping", () => {
     state.permissions = { editOrders: true };
     state.channels = null;
     expect((await shipping("o-sc2")).status).toBe(200);
+  });
+
+  it("Formular (replaceAllTracking): Nummern als ganze Liste aller Lieferungen; ohne Kennzeichen wie bisher", async () => {
+    state.permissions = { editOrders: true };
+    shippingArgs.length = 0;
+    expect((await send("PATCH", "/api/orders/o-sc1/shipping", { carrier: "DPD", trackingNumber: "A, B", replaceAllTracking: true })).status).toBe(200);
+    expect((await shipping("o-sc1")).status).toBe(200);
+    expect(shippingArgs).toEqual([
+      { info: { carrier: "DPD", trackingNumber: "A, B" }, options: { trackingMode: "all" } },
+      { info: { trackingNumber: "T1" }, options: { trackingMode: "replace" } },
+    ]);
   });
 
   it("Bestellung noch nicht im Spiegel: Kanal live geprueft; unbekannt: 404", async () => {

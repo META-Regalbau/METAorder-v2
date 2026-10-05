@@ -1,10 +1,13 @@
 /**
  * Sendungsnummern nach Shopware zurueckschreiben (updateOrderShipping): mehrere Nummern statt einer
  * zusammengesetzten, Ziel ist die neueste Lieferung, Nummern anderer Lieferungen nicht doppelt,
- * Sendcloud ergaenzt je Paket statt zu ersetzen - gegen ein simuliertes Shopware.
+ * Sendcloud ergaenzt je Paket statt zu ersetzen, das Formular im Bestelldetail ersetzt die Liste
+ * ueber alle Lieferungen (auch an aelteren entfernen) - gegen ein simuliertes Shopware.
  * Ausführung: npm test
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 import { parseTrackingCodes, trackingLinkFor } from "../../shared/tracking";
 import { ShopwareClient } from "../../server/shopware/shopware";
 
@@ -77,10 +80,60 @@ describe("Sendungsnummern zurueckschreiben", () => {
     expect(deliveryPatches()[0].body).toEqual({ trackingCodes: ["P1", "P2"] });
   });
 
+  it("Formular (all): Nummer an aelterer Lieferung entfernen - vorher blieb sie stehen", async () => {
+    shop.deliveries = [
+      { id: "d-alt", createdAt: "2026-09-01T08:00:00.000+00:00", trackingCodes: ["X", "Z"] },
+      { id: "d-neu", createdAt: "2026-09-05T08:00:00.000+00:00", trackingCodes: ["Y"] },
+    ];
+    await client().updateOrderShipping("o1", { carrier: "DPD", trackingNumber: "Y, Z" }, { trackingMode: "all" });
+    // nur die aeltere Lieferung aendert sich; die neueste hat schon genau "Y"
+    expect(deliveryPatches()).toEqual([{ method: "PATCH", path: "/api/order-delivery/d-alt", body: { trackingCodes: ["Z"] } }]);
+    expect(orderPatch().customFields.meta_shipped_tracking).toBe("Y, Z");
+  });
+
+  it("Formular (all): neue Nummern an die neueste Lieferung, Nummern aelterer Lieferungen bleiben dort", async () => {
+    shop.deliveries = [
+      { id: "d-alt", createdAt: "2026-09-01T08:00:00.000+00:00", trackingCodes: ["X"] },
+      { id: "d-neu", createdAt: "2026-09-05T08:00:00.000+00:00", trackingCodes: ["Y"] },
+    ];
+    await client().updateOrderShipping("o1", { trackingNumber: "X, Y, W" }, { trackingMode: "all" });
+    expect(deliveryPatches()).toEqual([{ method: "PATCH", path: "/api/order-delivery/d-neu", body: { trackingCodes: ["Y", "W"] } }]);
+  });
+
+  it("Formular (all): leere Liste leert alle Lieferungen und die gespeicherte Kopie", async () => {
+    shop.deliveries = [
+      { id: "d-alt", createdAt: "2026-09-01T08:00:00.000+00:00", trackingCodes: ["X"] },
+      { id: "d-neu", createdAt: "2026-09-05T08:00:00.000+00:00", trackingCodes: ["Y"] },
+    ];
+    await client().updateOrderShipping("o1", { carrier: "DPD", trackingNumber: "" }, { trackingMode: "all" });
+    expect(deliveryPatches().map((r) => [r.path, r.body.trackingCodes])).toEqual([
+      ["/api/order-delivery/d-alt", []],
+      ["/api/order-delivery/d-neu", []],
+    ]);
+    expect(orderPatch().customFields.meta_shipped_tracking).toBe("");
+  });
+
+  it("Sammel-Eingabe (replace) unveraendert: aeltere Lieferungen bleiben unberuehrt", async () => {
+    shop.deliveries = [
+      { id: "d-alt", createdAt: "2026-09-01T08:00:00.000+00:00", trackingCodes: ["X"] },
+      { id: "d-neu", createdAt: "2026-09-05T08:00:00.000+00:00", trackingCodes: [] },
+    ];
+    await client().updateOrderShipping("o1", { trackingNumber: "N" });
+    expect(deliveryPatches()).toEqual([{ method: "PATCH", path: "/api/order-delivery/d-neu", body: { trackingCodes: ["N"] } }]);
+  });
+
   it("ohne Sendungsnummer keine Aenderung der Tracking-Codes", async () => {
     await client().updateOrderShipping("o1", { carrier: "DPD", trackingNumber: " , " });
     expect(deliveryPatches()).toEqual([]);
     expect(orderPatch()).toEqual({ customFields: { meta_shipped_carrier: "DPD" } });
+  });
+});
+
+describe("Formular im Bestelldetail", () => {
+  it("schickt die Nummern als ganze Liste aller Lieferungen (replaceAllTracking)", () => {
+    const modal = fs.readFileSync(path.resolve(__dirname, "../../client/src/components/OrderDetailModal.tsx"), "utf8");
+    const form = modal.slice(modal.indexOf("<ShippingInfoForm"), modal.indexOf("onCancel={onClose}", modal.indexOf("<ShippingInfoForm")));
+    expect(form).toContain("onUpdateShipping(order.id, { ...data, replaceAllTracking: true });");
   });
 });
 

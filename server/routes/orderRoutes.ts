@@ -1032,7 +1032,9 @@ export function registerOrderRoutes(app: Express): void {
       }
 
       const { orderId } = req.params;
-      const shippingInfo = req.body;
+      // Formular im Bestelldetail: Sendungsnummern sind die ganze Liste der Bestellung (alle Lieferungen)
+      const { replaceAllTracking, ...shippingInfo } = req.body ?? {};
+      const trackingMode = replaceAllTracking === true ? "all" : "replace";
 
       // Nur Bestellungen der eigenen Verkaufskanaele (wie auf den Bestellseiten)
       const denied = await checkOrderChannelAccess(orderId, await getSalesChannelFilter(req), (req as any).tenantId ?? null);
@@ -1041,14 +1043,14 @@ export function registerOrderRoutes(app: Express): void {
       }
 
       // Validate shipping info
-      if (!shippingInfo.carrier && !shippingInfo.trackingNumber && !shippingInfo.shippedDate) {
+      if (!shippingInfo.carrier && !shippingInfo.trackingNumber && !shippingInfo.shippedDate && trackingMode !== "all") {
         return res.status(400).json({ error: "At least one shipping field is required" });
       }
 
       const client = new ShopwareClient(settings);
       
       // Update shipping info and set status to shipped in Shopware
-      await client.updateOrderShipping(orderId, shippingInfo);
+      await client.updateOrderShipping(orderId, shippingInfo, { trackingMode });
 
       // Versandangaben kommen aus dem Bestell-Spiegel: gleich abgleichen (wie beim Sammel-Tracking)
       try {
