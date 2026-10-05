@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { Role } from "@shared/schema";
+import { createApiError } from "@/lib/apiError";
 
 interface B2BOrderListsPageProps {
   userPermissions: Role["permissions"];
@@ -25,21 +26,21 @@ export default function B2BOrderListsPage({ userPermissions }: B2BOrderListsPage
 
   const querySuffix = customerId.trim() ? `?customerId=${encodeURIComponent(customerId.trim())}` : "";
 
-  const { data: listsData } = useQuery<{ lists: any[] }>({
+  const { data: listsData, error: listsError } = useQuery<{ lists: any[] }>({
     queryKey: ["/api/b2b/shopping-lists", customerId],
     queryFn: async () => {
       const res = await fetch(`/api/b2b/shopping-lists${querySuffix}`, { credentials: "include" });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw createApiError(res.status, await res.text());
       return res.json();
     },
     enabled: canView,
   });
 
-  const { data: itemsData } = useQuery<{ items: any[] }>({
+  const { data: itemsData, error: itemsError } = useQuery<{ items: any[] }>({
     queryKey: ["/api/b2b/shopping-lists", selectedListId, "items"],
     queryFn: async () => {
       const res = await fetch(`/api/b2b/shopping-lists/${selectedListId}/items`, { credentials: "include" });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw createApiError(res.status, await res.text());
       return res.json();
     },
     enabled: canView && Boolean(selectedListId),
@@ -74,6 +75,13 @@ export default function B2BOrderListsPage({ userPermissions }: B2BOrderListsPage
         <h1 className="text-2xl font-semibold">{t("b2b.orderLists.title")}</h1>
         <p className="text-muted-foreground">{t("b2b.orderLists.subtitle")}</p>
       </div>
+
+      {/* z. B. B2Bsellers-Version ohne Bestelllisten: Hinweis statt stumm leerer Listen */}
+      {(listsError || itemsError) && (
+        <p className="rounded-md border p-3 text-sm text-muted-foreground" role="status" data-testid="text-b2b-order-lists-error">
+          {(listsError ?? itemsError)?.message}
+        </p>
+      )}
 
       <Input
         placeholder={t("b2b.assortments.customerIdPlaceholder")}
