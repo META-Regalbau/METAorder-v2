@@ -30,6 +30,9 @@ import { registerMasterDataRoutes } from "./routes/masterDataRoutes";
 import { registerIntegrationRoutes } from "./routes/integrationRoutes";
 import { registerInvoicingRoutes } from "./routes/invoicingRoutes";
 import { registerOperationsRoutes } from "./routes/operationsRoutes";
+import { logger } from "./lib/logger";
+
+const moduleLog = logger.child({ component: "routes" });
 
 /**
  * Registriert alle API-Routen. Die Routen selbst liegen je Bereich in server/routes/*Routes.ts
@@ -106,7 +109,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Tickets, Kundenportal, Vorlagen, Zuweisungs-/Automatisierungsregeln, Anhaenge
   registerTicketRoutes(app, { useObjectStorage });
   
-  console.log(`[Attachments] Storage mode: ${useObjectStorage ? 'Object Storage (persistent)' : 'Local Disk (non-persistent)'}`);
+  moduleLog.info(`[Attachments] Storage mode: ${useObjectStorage ? 'Object Storage (persistent)' : 'Local Disk (non-persistent)'}`);
 
   // CRM: Kunden, individuelle Preise, Zuweisungen, Rabattanfragen
   registerCrmRoutes(app);

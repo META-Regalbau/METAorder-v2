@@ -5,6 +5,9 @@ import {
   parseEmailFile,
   type ParsedEmailResult,
 } from "../email/emailParser";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "extraction/documentTextExtraction" });
 
 const require = createRequire(import.meta.url);
 const { PDFParse } = require("pdf-parse");
@@ -79,7 +82,7 @@ export async function formatParsedEmailForDraftExpanded(
         });
         out += `\n\n[Eingebettete Nachricht: ${att.filename}]\n${innerText}`;
       } catch (e) {
-        console.warn("[documentTextExtraction] Nested EML parse failed:", att.filename, e);
+        log.warn({ err: e }, `[documentTextExtraction] Nested EML parse failed: ${att.filename}`);
       }
       continue;
     }
@@ -95,7 +98,7 @@ export async function formatParsedEmailForDraftExpanded(
         out += `\n\n[Auszug aus Anhang ${att.filename} (${att.contentType})]\n${chunk.trim()}`;
       }
     } catch (e) {
-      console.warn("[documentTextExtraction] Attachment extraction failed:", att.filename, e);
+      log.warn({ err: e }, `[documentTextExtraction] Attachment extraction failed: ${att.filename}`);
     }
   }
 
@@ -184,9 +187,7 @@ export async function extractPlainTextForDraft(options: {
   }
 
   if (mimeType === "application/msword" || ext === "doc") {
-    console.warn(
-      "[documentTextExtraction] Altes Word .doc wird nicht unterstützt — bitte .docx oder PDF verwenden."
-    );
+    log.warn("[documentTextExtraction] Altes Word .doc wird nicht unterstützt — bitte .docx oder PDF verwenden.");
     return "";
   }
 

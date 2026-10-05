@@ -3,6 +3,9 @@ import type { ShopwareClient } from "../shopware";
 import type { OrderDocument } from "./types";
 import { readEntityTechnicalName, normalizeOrderDocumentType, ZUGFERD_EMBEDDED_INVOICE_TYPE, isProformaOrVorkasse, toShopwareUuid } from "./mapping";
 import { randomUUID } from "crypto";
+import { logger } from "../../lib/logger";
+
+const moduleLog = logger.child({ component: "shopware/client/documents" });
 
 export async function downloadDocumentPdf(this: ShopwareClient, documentId: string, deepLinkCode: string): Promise<Blob> {
   try {
@@ -23,7 +26,7 @@ export async function downloadDocumentPdf(this: ShopwareClient, documentId: stri
 
     return await response.blob();
   } catch (error) {
-    console.error('Error downloading document from Shopware:', error);
+    moduleLog.error({ err: error }, "Error downloading document from Shopware:");
     throw error;
   }
 }
@@ -48,7 +51,7 @@ export async function downloadDocumentPdfBuffer(this: ShopwareClient, documentId
     const arrayBuffer = await response.arrayBuffer();
     return Buffer.from(arrayBuffer);
   } catch (error) {
-    console.error('Error downloading document from Shopware:', error);
+    moduleLog.error({ err: error }, "Error downloading document from Shopware:");
     throw error;
   }
 }
@@ -345,7 +348,7 @@ export async function fetchOrderDocuments(this: ShopwareClient, orderId: string)
       }),
     );
   } catch (error) {
-    console.error('Error fetching documents from Shopware:', error);
+    moduleLog.error({ err: error }, "Error fetching documents from Shopware:");
     throw error;
   }
 }
@@ -398,16 +401,16 @@ export async function downloadInvoicePdf(this: ShopwareClient, orderId: string):
     const foreignKeys = document.extensions?.foreignKeys;
     const deepLinkCode = foreignKeys?.deepLinkCode;
 
-    console.log('Document ID:', documentId);
-    console.log('Deep Link Code:', deepLinkCode);
-    console.log('Foreign Keys object:', JSON.stringify(foreignKeys, null, 2));
+    moduleLog.info({ documentId }, "Document ID:");
+    moduleLog.info({ deepLinkCode }, "Deep Link Code:");
+    moduleLog.info(`Foreign Keys object: ${JSON.stringify(foreignKeys, null, 2)}`);
 
     if (!documentId || !deepLinkCode) {
-      console.error('Missing document fields - documentId:', documentId, 'deepLinkCode:', deepLinkCode);
+      moduleLog.error({ documentId, deepLinkCode }, "Missing document fields - documentId: deepLinkCode:");
       throw new Error(`Document ID or deep link code missing - documentId: ${documentId}, deepLinkCode: ${deepLinkCode}`);
     }
 
-    console.log(`Downloading invoice: documentId=${documentId}, deepLinkCode=${deepLinkCode}`);
+    moduleLog.info(`Downloading invoice: documentId=${documentId}, deepLinkCode=${deepLinkCode}`);
 
     // Step 2: Download the PDF using the correct Shopware 6 endpoint
     const downloadResponse = await this.makeAuthenticatedRequest(
@@ -427,7 +430,7 @@ export async function downloadInvoicePdf(this: ShopwareClient, orderId: string):
 
     return await downloadResponse.blob();
   } catch (error) {
-    console.error('Error downloading invoice from Shopware:', error);
+    moduleLog.error({ err: error }, "Error downloading invoice from Shopware:");
     throw error;
   }
 }
@@ -486,9 +489,9 @@ export async function updateOrderDocumentNumbers(
       throw new Error(`Failed to update document numbers: ${response.statusText} - ${errorText}`);
     }
 
-    console.log(`Order ${orderId} document numbers updated in Shopware:`, documents);
+    moduleLog.info({ documents }, `Order ${orderId} document numbers updated in Shopware:`);
   } catch (error) {
-    console.error('Error updating order document numbers:', error);
+    moduleLog.error({ err: error }, "Error updating order document numbers:");
     throw error;
   }
 }
@@ -516,7 +519,7 @@ export async function setDocumentSent(this: ShopwareClient, documentId: string, 
       `Failed to set document ${documentId} sent=${sent}: ${response.statusText} - ${errorText}`
     );
   }
-  console.log(`[Shopware API] Document ${documentId} marked sent=${sent}`);
+  moduleLog.info(`[Shopware API] Document ${documentId} marked sent=${sent}`);
 }
 
 /**
@@ -562,7 +565,7 @@ export async function checkExistingDocument(
       conflict: !!conflict,
     };
   } catch (error: any) {
-    console.error(`Error checking existing ${documentType} document:`, error);
+    moduleLog.error({ err: error }, `Error checking existing ${documentType} document:`);
     return { exists: false, conflict: false };
   }
 }
@@ -593,22 +596,22 @@ export async function waitForDocumentPdfGeneration(this: ShopwareClient, documen
         
         // Check if PDF has been generated (documentMediaFileId exists)
         if (document?.documentMediaFileId) {
-          console.log(`[PDF Generation] ✓ PDF generated successfully after ${attempt * 2} seconds`);
+          moduleLog.info(`[PDF Generation] ✓ PDF generated successfully after ${attempt * 2} seconds`);
           return true;
         }
       }
 
       // Wait before next attempt
       if (attempt < maxAttempts) {
-        console.log(`[PDF Generation] Waiting for PDF generation... (attempt ${attempt}/${maxAttempts})`);
+        moduleLog.info(`[PDF Generation] Waiting for PDF generation... (attempt ${attempt}/${maxAttempts})`);
         await new Promise(resolve => setTimeout(resolve, pollInterval));
       }
     } catch (error) {
-      console.error(`[PDF Generation] Error checking document status:`, error);
+      moduleLog.error({ err: error }, "[PDF Generation] Error checking document status:");
     }
   }
 
-  console.warn(`[PDF Generation] ⚠ PDF generation timeout after ${maxAttempts * 2} seconds. Document created but PDF may still be processing in background.`);
+  moduleLog.warn(`[PDF Generation] ⚠ PDF generation timeout after ${maxAttempts * 2} seconds. Document created but PDF may still be processing in background.`);
   return false;
 }
 
@@ -627,7 +630,7 @@ export async function createInvoice(
   options: { eInvoice?: boolean } = {}
 ): Promise<{ documentId: string; invoiceNumber: string; documentType: string; pdfReady: boolean }> {
   try {
-    console.log(`[Shopware API] Creating invoice for order ${orderId} with ERP invoice number: ${erpInvoiceNumber}`);
+    moduleLog.info(`[Shopware API] Creating invoice for order ${orderId} with ERP invoice number: ${erpInvoiceNumber}`);
 
     const wantedTypes = options.eInvoice ? [ZUGFERD_EMBEDDED_INVOICE_TYPE, 'invoice'] : ['invoice'];
 
@@ -666,9 +669,7 @@ export async function createInvoice(
       throw new Error('Invoice document type not found in Shopware');
     }
     if (options.eInvoice && documentType !== ZUGFERD_EMBEDDED_INVOICE_TYPE) {
-      console.warn(
-        `[Shopware API] Dokumenttyp ${ZUGFERD_EMBEDDED_INVOICE_TYPE} fehlt im Shop (Shopware < 6.7?) – erstelle klassische PDF-Rechnung.`,
-      );
+      moduleLog.warn(`[Shopware API] Dokumenttyp ${ZUGFERD_EMBEDDED_INVOICE_TYPE} fehlt im Shop (Shopware < 6.7?) – erstelle klassische PDF-Rechnung.`);
     }
 
     // Create invoice document using Shopware 6 document API
@@ -697,7 +698,7 @@ export async function createInvoice(
       requestBody.config = config;
     }
     
-    console.log('[Shopware API] Creating invoice with request body:', JSON.stringify(requestBody, null, 2));
+    moduleLog.info(`[Shopware API] Creating invoice with request body: ${JSON.stringify(requestBody, null, 2)}`);
     
     const createResponse = await this.makeAuthenticatedRequest(
       `${this.baseUrl}/api/_action/order/document/${documentType}/create`,
@@ -712,11 +713,7 @@ export async function createInvoice(
 
     if (!createResponse.ok) {
       const errorText = await createResponse.text();
-      console.error('[Shopware API] Invoice creation failed:', {
-        status: createResponse.status,
-        statusText: createResponse.statusText,
-        body: errorText,
-      });
+      moduleLog.error({ status: createResponse.status, statusText: createResponse.statusText, body: errorText }, "[Shopware API] Invoice creation failed:");
       
       // Try to parse Shopware error response to extract meaningful error message
       let errorMessage = errorText;
@@ -736,7 +733,7 @@ export async function createInvoice(
     }
 
     const responseText = await createResponse.text();
-    console.log('[Shopware API] Invoice creation response:', responseText);
+    moduleLog.info(`[Shopware API] Invoice creation response: ${responseText}`);
     
     const parsedResponse = JSON.parse(responseText);
     // Shopware liefert je nach Version entweder ein Array [{documentId,...}]
@@ -760,12 +757,12 @@ export async function createInvoice(
     const documentId = createData.documentId || createData.id || createData.data?.id;
     const invoiceNumber = createData.documentNumber || erpInvoiceNumber || '';
 
-    console.log(`[Shopware API] Invoice created successfully: ${invoiceNumber} (Document ID: ${documentId})`);
+    moduleLog.info(`[Shopware API] Invoice created successfully: ${invoiceNumber} (Document ID: ${documentId})`);
 
     // Wait for PDF generation to complete (Shopware uses async message queues)
     let pdfReady = false;
     if (documentId) {
-      console.log(`[PDF Generation] Waiting for invoice PDF generation...`);
+      moduleLog.info("[PDF Generation] Waiting for invoice PDF generation...");
       pdfReady = await this.waitForDocumentPdfGeneration(documentId);
     }
 
@@ -776,7 +773,7 @@ export async function createInvoice(
       pdfReady,
     };
   } catch (error: any) {
-    console.error('Error creating invoice in Shopware:', error);
+    moduleLog.error({ err: error }, "Error creating invoice in Shopware:");
     throw error;
   }
 }
@@ -791,7 +788,7 @@ export async function createDeliveryNote(
   erpOrderNumber?: string
 ): Promise<{ documentId: string; deliveryNoteNumber: string }> {
   try {
-    console.log(`[Shopware API] Creating delivery note for order ${orderId} with delivery note number: ${deliveryNoteNumber}`);
+    moduleLog.info(`[Shopware API] Creating delivery note for order ${orderId} with delivery note number: ${deliveryNoteNumber}`);
 
     // First, get document type ID for delivery_note
     const docTypeResponse = await this.makeAuthenticatedRequest(
@@ -847,7 +844,7 @@ export async function createDeliveryNote(
       requestBody.config = config;
     }
     
-    console.log('[Shopware API] Creating delivery note with request body:', JSON.stringify(requestBody, null, 2));
+    moduleLog.info(`[Shopware API] Creating delivery note with request body: ${JSON.stringify(requestBody, null, 2)}`);
     
     const createResponse = await this.makeAuthenticatedRequest(
       `${this.baseUrl}/api/_action/order/document/delivery_note/create`,
@@ -862,11 +859,7 @@ export async function createDeliveryNote(
 
     if (!createResponse.ok) {
       const errorText = await createResponse.text();
-      console.error('[Shopware API] Delivery note creation failed:', {
-        status: createResponse.status,
-        statusText: createResponse.statusText,
-        body: errorText,
-      });
+      moduleLog.error({ status: createResponse.status, statusText: createResponse.statusText, body: errorText }, "[Shopware API] Delivery note creation failed:");
       
       // Try to parse Shopware error response to extract meaningful error message
       let errorMessage = errorText;
@@ -886,7 +879,7 @@ export async function createDeliveryNote(
     }
 
     const responseText = await createResponse.text();
-    console.log('[Shopware API] Delivery note creation response:', responseText);
+    moduleLog.info(`[Shopware API] Delivery note creation response: ${responseText}`);
     
     const responseArray = JSON.parse(responseText);
     const [createData] = responseArray;
@@ -896,11 +889,11 @@ export async function createDeliveryNote(
     const documentId = createData.documentId || createData.data?.id;
     const finalDeliveryNoteNumber = createData.documentNumber || deliveryNoteNumber || '';
 
-    console.log(`[Shopware API] Delivery note created successfully: ${finalDeliveryNoteNumber} (Document ID: ${documentId})`);
+    moduleLog.info(`[Shopware API] Delivery note created successfully: ${finalDeliveryNoteNumber} (Document ID: ${documentId})`);
 
     // Wait for PDF generation to complete (Shopware uses async message queues)
     if (documentId) {
-      console.log(`[PDF Generation] Waiting for delivery note PDF generation...`);
+      moduleLog.info("[PDF Generation] Waiting for delivery note PDF generation...");
       await this.waitForDocumentPdfGeneration(documentId);
     }
 
@@ -909,7 +902,7 @@ export async function createDeliveryNote(
       deliveryNoteNumber: finalDeliveryNoteNumber,
     };
   } catch (error: any) {
-    console.error('Error creating delivery note in Shopware:', error);
+    moduleLog.error({ err: error }, "Error creating delivery note in Shopware:");
     throw error;
   }
 }
@@ -926,7 +919,7 @@ export async function createProformaInvoice(
   documentNumber?: string
 ): Promise<{ documentId: string; invoiceNumber: string }> {
   try {
-    console.log(`[Shopware API] Creating proforma invoice for order ${orderId}`);
+    moduleLog.info(`[Shopware API] Creating proforma invoice for order ${orderId}`);
 
     // First, check if proforma_invoice document type exists in Shopware
     let docTypeTechnicalName = 'proforma_invoice';
@@ -954,7 +947,7 @@ export async function createProformaInvoice(
     
     // Fallback: If proforma_invoice doesn't exist, use regular invoice
     if (!proformaDocType) {
-      console.log('[Shopware API] proforma_invoice document type not found, falling back to invoice');
+      moduleLog.info("[Shopware API] proforma_invoice document type not found, falling back to invoice");
       docTypeTechnicalName = 'invoice';
       
       docTypeResponse = await this.makeAuthenticatedRequest(
@@ -1012,7 +1005,7 @@ export async function createProformaInvoice(
       config,
     };
     
-    console.log('[Shopware API] Creating proforma invoice with request body:', JSON.stringify(requestBody, null, 2));
+    moduleLog.info(`[Shopware API] Creating proforma invoice with request body: ${JSON.stringify(requestBody, null, 2)}`);
     
     // Use appropriate endpoint based on document type
     const endpoint = docTypeTechnicalName === 'proforma_invoice' 
@@ -1032,11 +1025,7 @@ export async function createProformaInvoice(
 
     if (!createResponse.ok) {
       const errorText = await createResponse.text();
-      console.error('[Shopware API] Proforma invoice creation failed:', {
-        status: createResponse.status,
-        statusText: createResponse.statusText,
-        body: errorText,
-      });
+      moduleLog.error({ status: createResponse.status, statusText: createResponse.statusText, body: errorText }, "[Shopware API] Proforma invoice creation failed:");
       
       // Try to parse Shopware error response
       let errorMessage = errorText;
@@ -1054,7 +1043,7 @@ export async function createProformaInvoice(
     }
 
     const responseText = await createResponse.text();
-    console.log('[Shopware API] Proforma invoice creation response:', responseText);
+    moduleLog.info(`[Shopware API] Proforma invoice creation response: ${responseText}`);
     
     const responseJson = JSON.parse(responseText);
     const responseArray = Array.isArray(responseJson)
@@ -1069,11 +1058,11 @@ export async function createProformaInvoice(
     const documentId = createData.documentId || createData.data?.id;
     const invoiceNumber = createData.documentNumber || documentNumber || '';
 
-    console.log(`[Shopware API] Proforma invoice created successfully: ${invoiceNumber} (Document ID: ${documentId})`);
+    moduleLog.info(`[Shopware API] Proforma invoice created successfully: ${invoiceNumber} (Document ID: ${documentId})`);
 
     // Wait for PDF generation to complete
     if (documentId) {
-      console.log(`[PDF Generation] Waiting for proforma invoice PDF generation...`);
+      moduleLog.info("[PDF Generation] Waiting for proforma invoice PDF generation...");
       await this.waitForDocumentPdfGeneration(documentId);
     }
 
@@ -1082,7 +1071,7 @@ export async function createProformaInvoice(
       invoiceNumber,
     };
   } catch (error: any) {
-    console.error('Error creating proforma invoice in Shopware:', error);
+    moduleLog.error({ err: error }, "Error creating proforma invoice in Shopware:");
     throw error;
   }
 }
@@ -1097,7 +1086,7 @@ export async function createDunningDocument(
   stage: number
 ): Promise<{ documentId: string; documentNumber: string }> {
   try {
-    console.log(`[Shopware API] Creating dunning document (${documentTypeTechnicalName}) for order ${orderId} (stage ${stage})`);
+    moduleLog.info(`[Shopware API] Creating dunning document (${documentTypeTechnicalName}) for order ${orderId} (stage ${stage})`);
 
     const docTypeResponse = await this.makeAuthenticatedRequest(
       `${this.baseUrl}/api/search/document-type`,
@@ -1144,7 +1133,7 @@ export async function createDunningDocument(
       config,
     };
 
-    console.log('[Shopware API] Creating dunning document with request body:', JSON.stringify(requestBody, null, 2));
+    moduleLog.info(`[Shopware API] Creating dunning document with request body: ${JSON.stringify(requestBody, null, 2)}`);
 
     const createResponse = await this.makeAuthenticatedRequest(
       `${this.baseUrl}/api/_action/order/document/${documentTypeTechnicalName}/create`,
@@ -1159,16 +1148,12 @@ export async function createDunningDocument(
 
     if (!createResponse.ok) {
       const errorText = await createResponse.text();
-      console.error('[Shopware API] Dunning document creation failed:', {
-        status: createResponse.status,
-        statusText: createResponse.statusText,
-        body: errorText,
-      });
+      moduleLog.error({ status: createResponse.status, statusText: createResponse.statusText, body: errorText }, "[Shopware API] Dunning document creation failed:");
       throw new Error(`Failed to create dunning document: ${errorText}`);
     }
 
     const responseText = await createResponse.text();
-    console.log('[Shopware API] Dunning document creation response:', responseText);
+    moduleLog.info(`[Shopware API] Dunning document creation response: ${responseText}`);
 
     const responseJson = JSON.parse(responseText);
     const responseArray = Array.isArray(responseJson)
@@ -1184,10 +1169,10 @@ export async function createDunningDocument(
     const documentId = createData.documentId || createData.data?.id;
     const documentNumber = createData.documentNumber || '';
 
-    console.log(`[Shopware API] Dunning document created successfully: ${documentNumber} (Document ID: ${documentId})`);
+    moduleLog.info(`[Shopware API] Dunning document created successfully: ${documentNumber} (Document ID: ${documentId})`);
 
     if (documentId) {
-      console.log(`[PDF Generation] Waiting for dunning document PDF generation...`);
+      moduleLog.info("[PDF Generation] Waiting for dunning document PDF generation...");
       await this.waitForDocumentPdfGeneration(documentId);
     }
 
@@ -1196,7 +1181,7 @@ export async function createDunningDocument(
       documentNumber,
     };
   } catch (error: any) {
-    console.error('Error creating dunning document in Shopware:', error);
+    moduleLog.error({ err: error }, "Error creating dunning document in Shopware:");
     throw error;
   }
 }
@@ -1213,7 +1198,7 @@ export async function uploadOrderDocumentPdf(
   options?: { preferredTechnicalName?: string; documentNumber?: string },
 ): Promise<{ documentId?: string; documentNumber?: string }> {
   const mediaId = toShopwareUuid(randomUUID());
-  console.log(`[Shopware API] uploadOrderDocumentPdf: orderId=${orderId}, fileName=${fileName}, mediaId=${mediaId}`);
+  moduleLog.info(`[Shopware API] uploadOrderDocumentPdf: orderId=${orderId}, fileName=${fileName}, mediaId=${mediaId}`);
   try {
     const mediaPayload: Record<string, unknown> = { id: mediaId };
     const mediaFolderId = await this.getDefaultMediaFolderId();
@@ -1226,10 +1211,10 @@ export async function uploadOrderDocumentPdf(
     });
     if (!createRes.ok) {
       const errText = await createRes.text();
-      console.error("[Shopware API] Media create failed:", createRes.status, errText);
+      moduleLog.error(`[Shopware API] Media create failed: ${createRes.status} ${errText}`);
       throw new Error(`Failed to create media: ${createRes.statusText} - ${errText}`);
     }
-    console.log("[Shopware API] Media entity created");
+    moduleLog.info("[Shopware API] Media entity created");
 
     const uploadUrl = `${this.baseUrl}/api/_action/media/${mediaId}/upload?extension=pdf&fileName=${encodeURIComponent(fileName)}`;
     const uploadRes = await this.makeAuthenticatedRequest(uploadUrl, {
@@ -1239,22 +1224,22 @@ export async function uploadOrderDocumentPdf(
     });
     if (!uploadRes.ok) {
       const errText = await uploadRes.text();
-      console.error("[Shopware API] Media upload failed:", uploadRes.status, errText);
+      moduleLog.error(`[Shopware API] Media upload failed: ${uploadRes.status} ${errText}`);
       throw new Error(`Failed to upload media: ${uploadRes.statusText} - ${errText}`);
     }
-    console.log("[Shopware API] PDF binary uploaded");
+    moduleLog.info("[Shopware API] PDF binary uploaded");
 
     const documentTypeId = await this.getDocumentTypeIdForOrderDocument(
       options?.preferredTechnicalName ?? "dunning",
     );
     if (!documentTypeId) {
-      console.warn("[Shopware API] No document type dunning/invoice/delivery_note found, PDF is in Media only");
+      moduleLog.warn("[Shopware API] No document type dunning/invoice/delivery_note found, PDF is in Media only");
       return {};
     }
-    console.log("[Shopware API] Document type id:", documentTypeId);
+    moduleLog.info(`[Shopware API] Document type id: ${documentTypeId}`);
 
     const orderVersionId = await this.getOrderVersionId(orderId);
-    console.log("[Shopware API] Order versionId:", orderVersionId ?? "(null)");
+    moduleLog.info(`[Shopware API] Order versionId: ${orderVersionId ?? "(null)"}`);
     const documentId = toShopwareUuid(randomUUID());
     const deepLinkCode = randomUUID().replace(/-/g, "").slice(0, 32);
 
@@ -1277,17 +1262,17 @@ export async function uploadOrderDocumentPdf(
     });
     if (!docRes.ok) {
       const errText = await docRes.text();
-      console.error("[Shopware API] Document create failed:", docRes.status, errText);
+      moduleLog.error(`[Shopware API] Document create failed: ${docRes.status} ${errText}`);
       return {};
     }
-    console.log("[Shopware API] Document created, documentId=", documentId);
+    moduleLog.info(`[Shopware API] Document created, documentId= ${documentId}`);
     return {
       documentId,
       documentNumber:
         options?.documentNumber?.trim() || fileName.replace(/\.pdf$/i, ""),
     };
   } catch (error: any) {
-    console.error("[Shopware API] uploadOrderDocumentPdf failed:", error?.message || error);
+    moduleLog.error({ err: error }, "[Shopware API] uploadOrderDocumentPdf failed:");
     throw error;
   }
 }
@@ -1450,10 +1435,8 @@ export async function getInvoiceMailContext(this: ShopwareClient, orderId: strin
   const sendLanguageId = senderChannel?.languageId ?? order.languageId;
 
   if (!senderChannel) {
-    console.warn(
-      '[Shopware API] DE-Versand-SalesChannel (META Regalbau DE) nicht gefunden – ' +
-        `falle auf Bestell-Channel ${order.salesChannelId} zurueck.`,
-    );
+    moduleLog.warn(`${'[Shopware API] DE-Versand-SalesChannel (META Regalbau DE) nicht gefunden – ' +
+        `falle auf Bestell-Channel ${order.salesChannelId} zurueck.`}`);
   }
 
   return {
@@ -1507,9 +1490,7 @@ export async function getInvoiceMailTemplate(
     );
     if (!response.ok) {
       const errorText = await response.text();
-      console.warn(
-        `[Shopware API] mail-template lookup (${technicalName}) failed: ${response.status} - ${errorText}`,
-      );
+      moduleLog.warn(`[Shopware API] mail-template lookup (${technicalName}) failed: ${response.status} - ${errorText}`);
       return [];
     }
     const data = await response.json();
@@ -1584,9 +1565,7 @@ export async function getInvoiceMailTemplate(
  */
 export async function sendInvoiceEmail(this: ShopwareClient, orderId: string, documentId: string, overrideEmail?: string): Promise<void> {
   try {
-    console.log(
-      `[Shopware API] Sending invoice email for order ${orderId}, document ${documentId}`,
-    );
+    moduleLog.info(`[Shopware API] Sending invoice email for order ${orderId}, document ${documentId}`);
 
     const ctx = await this.getInvoiceMailContext(orderId);
     const recipientEmail = overrideEmail?.trim() || ctx.recipientEmail;
@@ -1671,11 +1650,9 @@ export async function sendInvoiceEmail(this: ShopwareClient, orderId: string, do
       );
     }
 
-    console.log(
-      `[Shopware API] Invoice email sent for order ${orderId} from ${senderEmail} to ${recipientEmail} (size=${mailSize ?? 'unbekannt'})`,
-    );
+    moduleLog.info(`[Shopware API] Invoice email sent for order ${orderId} from ${senderEmail} to ${recipientEmail} (size=${mailSize ?? 'unbekannt'})`);
   } catch (error) {
-    console.error('Error sending invoice email:', error);
+    moduleLog.error({ err: error }, "Error sending invoice email:");
     throw error;
   }
 }
@@ -1704,7 +1681,7 @@ export async function getDocumentSentStatus(this: ShopwareClient, documentId: st
     const sent = doc.sent ?? doc.attributes?.sent;
     return sent === true;
   } catch (error) {
-    console.warn(`[Shopware API] Could not read sent status for document ${documentId}:`, error);
+    moduleLog.warn({ err: error }, `[Shopware API] Could not read sent status for document ${documentId}:`);
     return null;
   }
 }

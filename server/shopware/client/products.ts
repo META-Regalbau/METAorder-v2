@@ -6,6 +6,9 @@ import type { ShopwareProductOverview, ProductPriceResetRow, ShopwarePriceEntry 
 import { parseShopwarePriceCollectionNet, firstShopwarePriceEntry } from "../../products/pricingUtils";
 import { getWduIfsProductNumber, addHerstellpreisCatalogKeys } from "../../products/productIdentifiers";
 import { randomUUID } from "crypto";
+import { logger } from "../../lib/logger";
+
+const moduleLog = logger.child({ component: "shopware/client/products" });
 
 /** Fingerprint für aktive Produkte (entspricht Product-Cache-Refresh). */
 export async function fetchActiveProductCatalogFingerprint(this: ShopwareClient): Promise<string | null> {
@@ -232,10 +235,8 @@ export async function fetchProducts(
       };
     }
 
-    console.log(
-      `[fetchProducts] Requesting products - page: ${page}, limit: ${limit}, search: ${search || "none"}, category: ${categoryId || "all"}, showInactive: ${showInactive}, width: ${width || "any"}, height: ${height || "any"}, depth: ${depth || "any"}, onlyWithVariants: ${onlyWithVariants}, includeVariantChildren: ${includeVariantChildren}`
-    );
-    console.log(`[fetchProducts] Request body filter:`, JSON.stringify(requestBody.filter, null, 2));
+    moduleLog.info(`[fetchProducts] Requesting products - page: ${page}, limit: ${limit}, search: ${search || "none"}, category: ${categoryId || "all"}, showInactive: ${showInactive}, width: ${width || "any"}, height: ${height || "any"}, depth: ${depth || "any"}, onlyWithVariants: ${onlyWithVariants}, includeVariantChildren: ${includeVariantChildren}`);
+    moduleLog.info(`[fetchProducts] Request body filter: ${JSON.stringify(requestBody.filter, null, 2)}`);
 
     const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/product`, {
       method: "POST",
@@ -269,8 +270,8 @@ export async function fetchProducts(
     const shopwareProducts = data.data || [];
     const total = data.total ?? data.meta?.total ?? shopwareProducts.length;
     
-    console.log(`[fetchProducts] Shopware API response - returned: ${shopwareProducts.length}, total in DB: ${total}`);
-    console.log(`[fetchProducts] Meta object:`, JSON.stringify(data.meta, null, 2));
+    moduleLog.info(`[fetchProducts] Shopware API response - returned: ${shopwareProducts.length}, total in DB: ${total}`);
+    moduleLog.info(`[fetchProducts] Meta object: ${JSON.stringify(data.meta, null, 2)}`);
 
     // Build a map of included entities
     const includedMap = new Map<string, any>();
@@ -533,7 +534,7 @@ export async function fetchProducts(
 
     return { products, total };
   } catch (error) {
-    console.error('Error fetching products from Shopware:', error);
+    moduleLog.error({ err: error }, "Error fetching products from Shopware:");
     throw error;
   }
 }
@@ -1195,7 +1196,7 @@ export async function searchProductsByIdentifiersIncludeInactive(this: ShopwareC
       } satisfies Product;
     });
   } catch (e) {
-    console.warn("[Shopware] searchProductsByIdentifiersIncludeInactive failed:", e);
+    moduleLog.warn({ err: e }, "[Shopware] searchProductsByIdentifiersIncludeInactive failed:");
     return [];
   }
 }
@@ -1770,7 +1771,7 @@ export async function loadIfsProductNumberCatalog(this: ShopwareClient, options?
     page += 1;
   }
 
-  console.log(`[Shopware] loadIfsProductNumberCatalog: ${catalog.size} IFS-Schlüssel geladen`);
+  moduleLog.info(`[Shopware] loadIfsProductNumberCatalog: ${catalog.size} IFS-Schlüssel geladen`);
   return catalog;
 }
 
@@ -1828,7 +1829,7 @@ export async function searchProductsByIfsProductNumbers(this: ShopwareClient, if
         });
       }
     } catch (error: any) {
-      console.warn("[Shopware] searchProductsByIfsProductNumbers:", error?.message || error);
+      moduleLog.warn({ err: error }, "[Shopware] searchProductsByIfsProductNumbers:");
     }
   }
 
@@ -1901,7 +1902,7 @@ export async function searchProductsByProductNumbers(this: ShopwareClient, produ
         });
       }
     } catch (error: any) {
-      console.warn("[Shopware] searchProductsByProductNumbers:", error?.message || error);
+      moduleLog.warn({ err: error }, "[Shopware] searchProductsByProductNumbers:");
     }
   }
 
@@ -2101,7 +2102,7 @@ export async function fetchProductSalesChannelIds(this: ShopwareClient, productI
 
     return { salesChannelIds };
   } catch (error) {
-    console.warn("Failed to fetch product visibilities via product_visibility. Falling back:", error);
+    moduleLog.warn({ err: error }, "Failed to fetch product visibilities via product_visibility. Falling back:");
   }
 
   const productResponse = await this.searchEntity("product", {
@@ -2159,7 +2160,7 @@ export async function setProductSalesChannels(this: ShopwareClient, productId: s
       salesChannelId: entry?.salesChannelId || entry?.attributes?.salesChannelId,
     }));
   } catch (error) {
-    console.warn("Failed to fetch existing product visibilities, continuing with upsert:", error);
+    moduleLog.warn({ err: error }, "Failed to fetch existing product visibilities, continuing with upsert:");
   }
 
   const currentByChannel = new Map(
@@ -2281,7 +2282,7 @@ export async function applyProductVisibilityChanges(
         null,
     }));
   } catch (error) {
-    console.warn("Failed to fetch existing product visibilities for applyProductVisibilityChanges:", error);
+    moduleLog.warn({ err: error }, "Failed to fetch existing product visibilities for applyProductVisibilityChanges:");
   }
 
   const currentByChannel = new Map(
@@ -2395,7 +2396,7 @@ export async function fetchProductPricesBatch(this: ShopwareClient, productIds: 
       return new Map();
     }
 
-    console.log(`[fetchProductPricesBatch] Fetching catalog prices for ${productIds.length} unique products...`);
+    moduleLog.info(`[fetchProductPricesBatch] Fetching catalog prices for ${productIds.length} unique products...`);
 
     // Chunk product IDs to avoid Shopware API limits (max 100 per request)
     const CHUNK_SIZE = 100;
@@ -2409,7 +2410,7 @@ export async function fetchProductPricesBatch(this: ShopwareClient, productIds: 
     // Process each chunk
     for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
       const chunk = chunks[chunkIndex];
-      console.log(`[fetchProductPricesBatch] Processing chunk ${chunkIndex + 1}/${chunks.length} (${chunk.length} products)...`);
+      moduleLog.info(`[fetchProductPricesBatch] Processing chunk ${chunkIndex + 1}/${chunks.length} (${chunk.length} products)...`);
 
       const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/product`, {
         method: 'POST',
@@ -2437,7 +2438,7 @@ export async function fetchProductPricesBatch(this: ShopwareClient, productIds: 
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`[fetchProductPricesBatch] Failed to fetch chunk ${chunkIndex + 1}: ${response.statusText} - ${errorText}`);
+        moduleLog.error(`[fetchProductPricesBatch] Failed to fetch chunk ${chunkIndex + 1}: ${response.statusText} - ${errorText}`);
         continue; // Skip this chunk but continue with others
       }
 
@@ -2489,21 +2490,21 @@ export async function fetchProductPricesBatch(this: ShopwareClient, productIds: 
 
         if (grossPrice > 0) {
           priceMap.set(product.id, { grossPrice, netPrice });
-          console.log(`[fetchProductPricesBatch] Product ${product.productNumber || product.id}: Catalog gross €${grossPrice.toFixed(2)}, net €${netPrice.toFixed(2)}`);
+          moduleLog.info(`[fetchProductPricesBatch] Product ${product.productNumber || product.id}: Catalog gross €${grossPrice.toFixed(2)}, net €${netPrice.toFixed(2)}`);
         } else {
-          console.log(`[fetchProductPricesBatch] Product ${product.productNumber || product.id}: NO PRICE FOUND`);
+          moduleLog.info(`[fetchProductPricesBatch] Product ${product.productNumber || product.id}: NO PRICE FOUND`);
         }
       });
     }
 
-    console.log(`[fetchProductPricesBatch] ✓ Retrieved catalog prices for ${priceMap.size}/${productIds.length} products`);
+    moduleLog.info(`[fetchProductPricesBatch] ✓ Retrieved catalog prices for ${priceMap.size}/${productIds.length} products`);
     if (priceMap.size < productIds.length) {
-      console.log(`[fetchProductPricesBatch] ⚠ Missing prices for ${productIds.length - priceMap.size} products`);
+      moduleLog.info(`[fetchProductPricesBatch] ⚠ Missing prices for ${productIds.length - priceMap.size} products`);
     }
     
     return priceMap;
   } catch (error) {
-    console.error('[fetchProductPricesBatch] Error fetching product prices batch:', error);
+    moduleLog.error({ err: error }, "[fetchProductPricesBatch] Error fetching product prices batch:");
     return new Map();
   }
 }
@@ -2517,7 +2518,7 @@ export async function fetchProductsByNumbers(this: ShopwareClient, productNumber
       return new Map();
     }
 
-    console.log(`[fetchProductsByNumbers] Fetching ${productNumbers.length} products...`);
+    moduleLog.info(`[fetchProductsByNumbers] Fetching ${productNumbers.length} products...`);
 
     // Chunk product numbers to avoid API limits (25 per request)
     const CHUNK_SIZE = 25;
@@ -2531,7 +2532,7 @@ export async function fetchProductsByNumbers(this: ShopwareClient, productNumber
     // Process each chunk
     for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
       const chunk = chunks[chunkIndex];
-      console.log(`[fetchProductsByNumbers] Processing chunk ${chunkIndex + 1}/${chunks.length} (${chunk.length} products)...`);
+      moduleLog.info(`[fetchProductsByNumbers] Processing chunk ${chunkIndex + 1}/${chunks.length} (${chunk.length} products)...`);
 
       const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/product`, {
         method: 'POST',
@@ -2577,7 +2578,7 @@ export async function fetchProductsByNumbers(this: ShopwareClient, productNumber
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`[fetchProductsByNumbers] Failed to fetch chunk ${chunkIndex + 1}: ${response.statusText} - ${errorText}`);
+        moduleLog.error(`[fetchProductsByNumbers] Failed to fetch chunk ${chunkIndex + 1}: ${response.statusText} - ${errorText}`);
         continue;
       }
 
@@ -2638,14 +2639,14 @@ export async function fetchProductsByNumbers(this: ShopwareClient, productNumber
       });
     }
 
-    console.log(`[fetchProductsByNumbers] ✓ Retrieved ${productMap.size}/${productNumbers.length} products`);
+    moduleLog.info(`[fetchProductsByNumbers] ✓ Retrieved ${productMap.size}/${productNumbers.length} products`);
     if (productMap.size < productNumbers.length) {
-      console.log(`[fetchProductsByNumbers] ⚠ Missing ${productNumbers.length - productMap.size} products`);
+      moduleLog.info(`[fetchProductsByNumbers] ⚠ Missing ${productNumbers.length - productMap.size} products`);
     }
     
     return productMap;
   } catch (error) {
-    console.error('[fetchProductsByNumbers] Error fetching products by numbers:', error);
+    moduleLog.error({ err: error }, "[fetchProductsByNumbers] Error fetching products by numbers:");
     return new Map();
   }
 }
@@ -2702,7 +2703,7 @@ export async function fetchProductsByIds(
 
     return result;
   } catch (error) {
-    console.error("[fetchProductsByIds] Error:", error);
+    moduleLog.error({ err: error }, "[fetchProductsByIds] Error:");
     return new Map();
   }
 }

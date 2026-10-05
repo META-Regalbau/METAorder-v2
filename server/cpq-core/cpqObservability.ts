@@ -1,4 +1,7 @@
-type CpqCoreEndpointKey = "validate" | "price" | "submit" | "adapter_submit_transfer";
+
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "cpq-core/cpqObservability" });type CpqCoreEndpointKey = "validate" | "price" | "submit" | "adapter_submit_transfer";
 
 type EndpointMetricBucket = {
   requests: number;
@@ -221,8 +224,7 @@ export function trackCpqCoreMetric(params: TrackMetricParams): void {
     bucket.lastError = errorMessage?.slice(0, 500) || `HTTP ${statusCode}`;
   }
 
-  console.log(
-    JSON.stringify({
+  moduleLog.info(`${JSON.stringify({
       event: "cpq_core_endpoint_metric",
       endpoint,
       tenantId: tenantId ?? null,
@@ -231,8 +233,7 @@ export function trackCpqCoreMetric(params: TrackMetricParams): void {
       success: statusCode >= 200 && statusCode < 400,
       errorMessage: errorMessage ?? null,
       at: nowIso(),
-    })
-  );
+    })}`);
 }
 
 export function trackCpqKpi(params: TrackKpiParams): void {

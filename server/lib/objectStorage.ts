@@ -7,6 +7,9 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { Response } from "express";
 import { randomUUID } from "crypto";
+import { logger } from "./logger";
+
+const moduleLog = logger.child({ component: "lib/objectStorage" });
 
 /**
  * Objektspeicher fuer Ticket-Anhaenge: S3-kompatibel (z. B. MinIO, siehe docs/docker.md)
@@ -45,25 +48,19 @@ export class ObjectStorageService {
         credentials: { accessKeyId: ak, secretAccessKey: sk },
         forcePathStyle,
       });
-      console.log(
-        `[ObjectStorage] S3-compatible storage (z. B. MinIO): ${endpoint} bucket=${s3Bucket} pathStyle=${forcePathStyle}`
-      );
+      moduleLog.info(`[ObjectStorage] S3-compatible storage (z. B. MinIO): ${endpoint} bucket=${s3Bucket} pathStyle=${forcePathStyle}`);
       return;
     }
 
     if (process.env.PRIVATE_OBJECT_DIR) {
       // Frueher: Google Cloud Storage ueber den Replit-Sidecar - ausserhalb von Replit nie nutzbar.
-      console.warn(
-        "[ObjectStorage] PRIVATE_OBJECT_DIR wird nicht mehr unterstützt (Google Cloud Storage über Replit). Für einen Objektspeicher S3_* setzen (siehe docs/docker.md)."
-      );
+      moduleLog.warn("[ObjectStorage] PRIVATE_OBJECT_DIR wird nicht mehr unterstützt (Google Cloud Storage über Replit). Für einen Objektspeicher S3_* setzen (siehe docs/docker.md).");
     }
 
     this.backend = "none";
     this.bucketName = "";
     this.keyPrefix = "";
-    console.warn(
-      "[ObjectStorage] Nicht konfiguriert — Ticket-Anhänge nur lokal unter uploads/ticket-attachments. Für MinIO: S3_* setzen (siehe docs/docker.md)."
-    );
+    moduleLog.warn("[ObjectStorage] Nicht konfiguriert — Ticket-Anhänge nur lokal unter uploads/ticket-attachments. Für MinIO: S3_* setzen (siehe docs/docker.md).");
   }
 
   private sanitizeFilename(value: string) {
@@ -150,7 +147,7 @@ export class ObjectStorageService {
 
       const stream = out.Body as NodeJS.ReadableStream;
       stream.on("error", (err) => {
-        console.error("[ObjectStorage] S3 stream error:", err);
+        moduleLog.error({ err }, "[ObjectStorage] S3 stream error:");
         if (!res.headersSent) {
           res.status(500).json({ error: "Error streaming file" });
         }

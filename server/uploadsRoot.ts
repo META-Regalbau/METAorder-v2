@@ -1,5 +1,8 @@
 import path from "path";
 import { fileURLToPath } from "url";
+import { logger } from "./lib/logger";
+
+const moduleLog = logger.child({ component: "uploadsRoot" });
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -27,7 +30,7 @@ export function getUploadsRoot(): string {
   if (memo === null) {
     memo = resolveUploadsRoot();
     if (process.env.NODE_ENV === "production") {
-      console.log(`[METAorder] UPLOADS_ROOT=${memo}`);
+      moduleLog.info(`[METAorder] UPLOADS_ROOT=${memo}`);
     }
   }
   return memo;

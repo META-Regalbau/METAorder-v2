@@ -8,6 +8,9 @@ import { filterOrdersBySalesChannels, getMirrorOrdersLikeLive } from "../routes/
 import { sendEmail } from "../email/emailOutbound";
 import { generateDunningPdf } from "./dunningPdf";
 import { getUploadsRoot } from "../uploadsRoot";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "invoicing/dunningJob" });
 
 /** Speichert das Mahn-PDF im System (uploads/dunning/{orderId}/). */
 export async function saveDunningPdfToSystem(
@@ -78,7 +81,7 @@ export async function enrichOrderDueDate(
   try {
     applyDueDateFromDocuments(order, await client.fetchOrderDocuments(order.id));
   } catch (err) {
-    console.warn(`[Dunning] Could not fetch documents for order ${order.id}:`, err);
+    moduleLog.warn({ err }, `[Dunning] Could not fetch documents for order ${order.id}:`);
     useOrderDateAsInvoiceDate(order);
   }
 }
@@ -94,7 +97,7 @@ export async function enrichOrdersDueDates(client: ShopwareClient, orders: Order
     const docsByOrder = await client.fetchDocumentsByOrderIds(pending.map((order) => order.id));
     for (const order of pending) applyDueDateFromDocuments(order, docsByOrder.get(order.id) ?? []);
   } catch (err) {
-    console.warn(`[Dunning] Could not fetch documents for ${pending.length} orders:`, err);
+    moduleLog.warn({ err }, `[Dunning] Could not fetch documents for ${pending.length} orders:`);
     for (const order of pending) useOrderDateAsInvoiceDate(order);
   }
 }
@@ -332,10 +335,10 @@ export async function sendDunningForOrderInternal(
     try {
       const result = await options.client.uploadOrderDocumentPdf(order.id, pdfBuffer, fileName);
       if (result.documentId) {
-        console.log("[Dunning] PDF uploaded to Shopware for order", order.orderNumber || order.id);
+        moduleLog.info(`[Dunning] PDF uploaded to Shopware for order ${order.orderNumber || order.id}`);
       }
     } catch (err) {
-      console.error("[Dunning] Save PDF to Shopware failed for order", order.orderNumber || order.id, err);
+      moduleLog.error({ err }, `[Dunning] Save PDF to Shopware failed for order ${order.orderNumber || order.id}`);
     }
   }
 
@@ -370,7 +373,7 @@ export async function runDunningJob(storage: IStorage) {
         await sendDunningForOrder(storage, client, dunningSettings, order, dueDate, nextStage, shopwareSettings.shopwareUrl, tenantId);
       }
     } catch (error) {
-      console.error("[DunningJob] Error processing tenant:", tenantId, error);
+      moduleLog.error({ err: error }, `[DunningJob] Error processing tenant: ${tenantId}`);
     }
   }
 }

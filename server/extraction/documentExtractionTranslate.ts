@@ -22,6 +22,9 @@ import type { DraftDocumentReferences } from "@shared/schema";
 import { applyBuyerIsMetaFlag, applyMetaSkuPriority, explodeComponentSets } from "./documentExtractionSkuPriority";
 import { sanitizePhoneField } from "./buyerContactFieldUtils";
 import { legacyFirstLastFromContactPerson } from "./personNameNormalize";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "extraction/documentExtractionTranslate" });
 
 /** Legacy-Form, wie sie der Pipeline-Code (matcher, normalizers, UI) erwartet. */
 export interface LegacyExtractedDocument {
@@ -373,12 +376,12 @@ export function applyDocumentExtractionDeterministicSteps(
   try {
     explodeComponentSets(extraction, rawDocumentText);
   } catch (error) {
-    console.warn("[DocumentExtraction] Auflösen von Sammelpositionen fehlgeschlagen:", error);
+    log.warn({ err: error }, "[DocumentExtraction] Auflösen von Sammelpositionen fehlgeschlagen:");
   }
   try {
     applyMetaSkuPriority(extraction, rawDocumentText);
   } catch (error) {
-    console.warn("[DocumentExtraction] META-SKU-Priorisierung fehlgeschlagen:", error);
+    log.warn({ err: error }, "[DocumentExtraction] META-SKU-Priorisierung fehlgeschlagen:");
   }
   try {
     applyBuyerIsMetaFlag(extraction);

@@ -7,6 +7,9 @@ import { productCacheRegistry } from "../products/productCache";
 import { isServiceProductId } from "./offerServiceProducts";
 import { resolveOfferCustomerDetails } from "./offerConfigPdfBuilder";
 import type { CpqRoomWallFeature, OrderAddress } from "@shared/schema";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "offers/offerDetailBuilder" });
 
 export type OfferDetailLineItemChild = {
   id: string;
@@ -127,7 +130,7 @@ export async function buildOfferDetailJson(
       const shopwareClient = new ShopwareClient(settings);
       productLookup = await shopwareClient.fetchProductsByIds(Array.from(bomProductIds));
     } catch (err) {
-      console.warn("[buildOfferDetailJson] Failed to resolve BOM product IDs:", err);
+      log.warn({ err }, "[buildOfferDetailJson] Failed to resolve BOM product IDs:");
     }
   }
 

@@ -41,6 +41,9 @@ import {
 } from "./b2bUserImport";
 
 import { getTenantIdFromContext } from "../lib/tenantContext";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "b2b/b2bAdminRoutes" });
 
 async function getAdminClient(tenantId?: string | null): Promise<B2BSellersAdminClient> {
   const settings = await storage.getShopwareSettings(tenantId ?? getTenantIdFromContext());
@@ -1021,7 +1024,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
           },
           { source: "b2b_admin" },
         )
-        .catch((err) => console.error("[B2B] webhook b2b.approval_decided:", err));
+        .catch((err) => moduleLog.error({ err }, "[B2B] webhook b2b.approval_decided:"));
       res.json({ success: true, log });
     } catch (error: any) {
       if (respondB2BUnavailable(res, error)) return;
@@ -1059,7 +1062,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
           },
           { source: "b2b_admin" },
         )
-        .catch((err) => console.error("[B2B] webhook b2b.approval_decided:", err));
+        .catch((err) => moduleLog.error({ err }, "[B2B] webhook b2b.approval_decided:"));
       res.json({ success: true, log });
     } catch (error: any) {
       if (respondB2BUnavailable(res, error)) return;

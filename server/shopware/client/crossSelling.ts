@@ -1,6 +1,9 @@
 // Shopware: Produkt-Cross-Selling (Gruppen lesen/anlegen, Produkte zuordnen/entfernen).
 import type { ShopwareClient } from "../shopware";
 import type { CrossSellingGroup, CrossSellingProduct } from "@shared/schema";
+import { logger } from "../../lib/logger";
+
+const moduleLog = logger.child({ component: "shopware/client/crossSelling" });
 
 // Cross-Selling Methods
 export async function fetchProductCrossSelling(this: ShopwareClient, productId: string): Promise<CrossSellingGroup[]> {
@@ -34,7 +37,7 @@ export async function fetchProductCrossSelling(this: ShopwareClient, productId: 
     const data = await response.json();
     
     // Debug: Log the full response to understand Shopware's structure
-    console.log('Shopware Cross-Selling Response:', JSON.stringify(data, null, 2));
+    moduleLog.info(`Shopware Cross-Selling Response: ${JSON.stringify(data, null, 2)}`);
     
     const crossSellings = data.data || data || [];
 
@@ -46,18 +49,18 @@ export async function fetchProductCrossSelling(this: ShopwareClient, productId: 
       products: [], // Will be populated separately if needed
     }));
     
-    console.log(`Found ${result.length} cross-selling groups (productList + productStream) for product ${productId}`);
+    moduleLog.info(`Found ${result.length} cross-selling groups (productList + productStream) for product ${productId}`);
     
     return result;
   } catch (error) {
-    console.error('Error fetching cross-selling from Shopware:', error);
+    moduleLog.error({ err: error }, "Error fetching cross-selling from Shopware:");
     throw error;
   }
 }
 
 export async function fetchCrossSellingProducts(this: ShopwareClient, productId: string, crossSellingId: string): Promise<CrossSellingProduct[]> {
   try {
-    console.log(`Fetching products for cross-selling group ${crossSellingId}...`);
+    moduleLog.info(`Fetching products for cross-selling group ${crossSellingId}...`);
     
     // Step 1: Get assigned product IDs
     const assignmentsResponse = await this.makeAuthenticatedRequest(
@@ -88,13 +91,13 @@ export async function fetchCrossSellingProducts(this: ShopwareClient, productId:
     const assignments = assignmentsData.data || [];
     
     if (assignments.length === 0) {
-      console.log(`No products assigned to cross-selling group ${crossSellingId}`);
+      moduleLog.info(`No products assigned to cross-selling group ${crossSellingId}`);
       return [];
     }
 
     // Step 2: Extract product IDs
     const productIds = assignments.map((a: any) => a.productId);
-    console.log(`Found ${productIds.length} assigned product IDs:`, productIds);
+    moduleLog.info({ productIds }, `Found ${productIds.length} assigned product IDs:`);
 
     // Step 3: Fetch full product details
     const productsResponse = await this.makeAuthenticatedRequest(
@@ -132,7 +135,7 @@ export async function fetchCrossSellingProducts(this: ShopwareClient, productId:
     const productsData = await productsResponse.json();
     const products = productsData.data || [];
     
-    console.log(`Fetched ${products.length} product details`);
+    moduleLog.info(`Fetched ${products.length} product details`);
 
     // Step 4: Map to CrossSellingProduct format
     const result = products.map((p: any) => {
@@ -153,11 +156,11 @@ export async function fetchCrossSellingProducts(this: ShopwareClient, productId:
       };
     });
     
-    console.log(`Found ${result.length} products in cross-selling group ${crossSellingId}`);
+    moduleLog.info(`Found ${result.length} products in cross-selling group ${crossSellingId}`);
     
     return result;
   } catch (error) {
-    console.error('Error fetching cross-selling products from Shopware:', error);
+    moduleLog.error({ err: error }, "Error fetching cross-selling products from Shopware:");
     throw error;
   }
 }
@@ -198,7 +201,7 @@ export async function createProductCrossSelling(this: ShopwareClient, productId:
         // Try data first (direct response), then data.data (wrapped response)
         createdId = data?.id || data?.data?.id;
       } catch (jsonError) {
-        console.log('Response body is not valid JSON, checking headers...');
+        moduleLog.info("Response body is not valid JSON, checking headers...");
       }
     }
 
@@ -215,20 +218,20 @@ export async function createProductCrossSelling(this: ShopwareClient, productId:
     }
 
     if (!createdId) {
-      console.error('Response headers:', Object.fromEntries(response.headers.entries()));
+      moduleLog.error({ details: Object.fromEntries(response.headers.entries()) }, "Response headers:");
       throw new Error('Failed to get cross-selling ID from response (checked body and Location header)');
     }
 
     return createdId;
   } catch (error) {
-    console.error('Error creating cross-selling in Shopware:', error);
+    moduleLog.error({ err: error }, "Error creating cross-selling in Shopware:");
     throw error;
   }
 }
 
 export async function assignProductsToCrossSelling(this: ShopwareClient, crossSellingId: string, productIds: string[]): Promise<void> {
   try {
-    console.log(`assignProductsToCrossSelling called with crossSellingId=${crossSellingId}, productIds=${JSON.stringify(productIds)}`);
+    moduleLog.info(`assignProductsToCrossSelling called with crossSellingId=${crossSellingId}, productIds=${JSON.stringify(productIds)}`);
     
     // Shopware expects assigned products to be created individually
     const assignments = productIds.map((productId, index) => ({
@@ -237,7 +240,7 @@ export async function assignProductsToCrossSelling(this: ShopwareClient, crossSe
       position: index + 1,
     }));
 
-    console.log('Assignments to send to Shopware:', JSON.stringify(assignments, null, 2));
+    moduleLog.info(`Assignments to send to Shopware: ${JSON.stringify(assignments, null, 2)}`);
 
     const requestBody = {
       'write-product-cross-selling-assigned-products': {
@@ -247,7 +250,7 @@ export async function assignProductsToCrossSelling(this: ShopwareClient, crossSe
       },
     };
     
-    console.log('Full request body:', JSON.stringify(requestBody, null, 2));
+    moduleLog.info(`Full request body: ${JSON.stringify(requestBody, null, 2)}`);
 
     const response = await this.makeAuthenticatedRequest(
       `${this.baseUrl}/api/_action/sync`,
@@ -262,13 +265,13 @@ export async function assignProductsToCrossSelling(this: ShopwareClient, crossSe
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Shopware sync error response:', errorText);
+      moduleLog.error(`Shopware sync error response: ${errorText}`);
       throw new Error(`Failed to assign products to cross-selling: ${response.statusText} - ${errorText}`);
     }
     
-    console.log('Products assigned successfully');
+    moduleLog.info("Products assigned successfully");
   } catch (error) {
-    console.error('Error assigning products to cross-selling in Shopware:', error);
+    moduleLog.error({ err: error }, "Error assigning products to cross-selling in Shopware:");
     throw error;
   }
 }
@@ -334,7 +337,7 @@ export async function removeProductsFromCrossSelling(this: ShopwareClient, cross
       throw new Error(`Failed to remove products from cross-selling: ${deleteResponse.statusText} - ${errorText}`);
     }
   } catch (error) {
-    console.error('Error removing products from cross-selling in Shopware:', error);
+    moduleLog.error({ err: error }, "Error removing products from cross-selling in Shopware:");
     throw error;
   }
 }
@@ -353,7 +356,7 @@ export async function deleteProductCrossSelling(this: ShopwareClient, crossSelli
       throw new Error(`Failed to delete cross-selling: ${response.statusText} - ${errorText}`);
     }
   } catch (error) {
-    console.error('Error deleting cross-selling from Shopware:', error);
+    moduleLog.error({ err: error }, "Error deleting cross-selling from Shopware:");
     throw error;
   }
 }

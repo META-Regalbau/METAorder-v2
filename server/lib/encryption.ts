@@ -1,4 +1,7 @@
 import crypto from 'crypto';
+import { logger } from "./logger";
+
+const log = logger.child({ component: "lib/encryption" });
 
 // Encryption algorithm
 const ALGORITHM = 'aes-256-gcm';
@@ -69,7 +72,7 @@ export function decrypt(encryptedText: string): string {
     
     return decrypted;
   } catch (error) {
-    console.error('[Encryption] Decryption failed:', error);
+    log.error({ err: error }, "[Encryption] Decryption failed:");
     // Return original text if decryption fails (might be unencrypted legacy data)
     return encryptedText;
   }

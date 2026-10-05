@@ -1,5 +1,8 @@
 // Shopware: Angebote (B2B Sellers) lesen und als PDF laden.
 import type { ShopwareClient } from "../shopware";
+import { logger } from "../../lib/logger";
+
+const log = logger.child({ component: "shopware/client/offers" });
 
 /**
  * Fetch all offers from PremSoft Individual Offer plugin
@@ -37,14 +40,14 @@ export async function fetchOffers(this: ShopwareClient): Promise<any[]> {
       
       // Safety check to avoid infinite loops
       if (page > 100) {
-        console.warn('Reached maximum page limit for offers');
+        log.warn("Reached maximum page limit for offers");
         break;
       }
     }
 
     return allOffers;
   } catch (error) {
-    console.error('Error fetching offers from Shopware:', error);
+    log.error({ err: error }, "Error fetching offers from Shopware:");
     throw error;
   }
 }
@@ -73,7 +76,7 @@ export async function fetchOfferById(this: ShopwareClient, offerId: string): Pro
     const result = await response.json();
     return result.data || result;
   } catch (error) {
-    console.error('Error fetching offer by ID:', error);
+    log.error({ err: error }, "Error fetching offer by ID:");
     throw error;
   }
 }
@@ -98,7 +101,7 @@ export async function fetchOfferPDF(this: ShopwareClient, offerId: string, custo
     const arrayBuffer = await response.arrayBuffer();
     return Buffer.from(arrayBuffer);
   } catch (error) {
-    console.error('Error fetching offer PDF:', error);
+    log.error({ err: error }, "Error fetching offer PDF:");
     throw error;
   }
 }

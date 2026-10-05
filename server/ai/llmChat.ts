@@ -11,6 +11,9 @@ import {
   resolveTierModel,
   resolveTierProvider,
 } from "./llmClient";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "ai/llmChat" });
 
 /** Jede chatCompletion: Provider, Modell, Dauer (auch UI-Chat — kann laut werden). */
 function llmTraceEnabled(): boolean {
@@ -20,7 +23,7 @@ function llmTraceEnabled(): boolean {
 
 function logLlmTrace(payload: Record<string, unknown>): void {
   if (!llmTraceEnabled()) return;
-  console.log(`[LLM_DEBUG] ${JSON.stringify({ ts: new Date().toISOString(), ...payload })}`);
+  moduleLog.info(`[LLM_DEBUG] ${JSON.stringify({ ts: new Date().toISOString(), ...payload })}`);
 }
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };

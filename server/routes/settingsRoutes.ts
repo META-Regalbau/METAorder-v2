@@ -21,6 +21,9 @@ import { webhookService } from "../lib/webhookService";
 
 import { NL_LIMIT_MAX, resolveNlLimits } from "../analytics/nlQueryLimit";
 import { SEMANTIC_RANKING_DEFAULTS } from "../semantic/semanticRanking";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "routes/settingsRoutes" });
 
 export function registerSettingsRoutes(app: Express): void {
   
@@ -38,7 +41,7 @@ export function registerSettingsRoutes(app: Express): void {
         hasSecret: !!settings.apiSecret,
       });
     } catch (error) {
-      console.error("Error fetching Shopware settings:", error);
+      log.error({ err: error }, "Error fetching Shopware settings:");
       res.status(500).json({ error: "Failed to fetch settings" });
     }
   });
@@ -68,7 +71,7 @@ export function registerSettingsRoutes(app: Express): void {
         shopwareUrl: settings.shopwareUrl,
       });
     } catch (error: any) {
-      console.error("Error saving Shopware settings:", error);
+      log.error({ err: error }, "Error saving Shopware settings:");
       if (error.name === 'ZodError') {
         return res.status(400).json({ error: "Invalid settings data", details: error.errors });
       }
@@ -82,7 +85,7 @@ export function registerSettingsRoutes(app: Express): void {
       const settings = await storage.getProformaNumberRangeSettings();
       res.json(settings ?? defaultProformaNumberRange);
     } catch (error: any) {
-      console.error("Error fetching proforma number range settings:", error);
+      log.error({ err: error }, "Error fetching proforma number range settings:");
       res.status(500).json({ error: error.message || "Failed to fetch proforma number range settings" });
     }
   });
@@ -96,7 +99,7 @@ export function registerSettingsRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
-      console.error("Error saving proforma number range settings:", error);
+      log.error({ err: error }, "Error saving proforma number range settings:");
       res.status(500).json({ error: error.message || "Failed to save proforma number range settings" });
     }
   });
@@ -107,7 +110,7 @@ export function registerSettingsRoutes(app: Express): void {
       const settings = await loadCrmProfitabilitySettings(storage, tenantId);
       res.json(settings);
     } catch (error: any) {
-      console.error("Error fetching CRM profitability settings:", error);
+      log.error({ err: error }, "Error fetching CRM profitability settings:");
       res.status(500).json({ error: error.message || "Failed to fetch CRM profitability settings" });
     }
   });
@@ -119,7 +122,7 @@ export function registerSettingsRoutes(app: Express): void {
       const saved = await saveCrmProfitabilitySettings(storage, parsed, tenantId);
       res.json(saved);
     } catch (error: any) {
-      console.error("Error saving CRM profitability settings:", error);
+      log.error({ err: error }, "Error saving CRM profitability settings:");
       res.status(500).json({ error: error.message || "Failed to save CRM profitability settings" });
     }
   });
@@ -130,7 +133,7 @@ export function registerSettingsRoutes(app: Express): void {
       const tenantId = (req as any).tenantId ?? null;
       res.json(await getInvoiceAutomationSettings(tenantId));
     } catch (error: any) {
-      console.error("Error fetching invoice automation settings:", error);
+      log.error({ err: error }, "Error fetching invoice automation settings:");
       res.status(500).json({ error: error.message || "Failed to fetch invoice automation settings" });
     }
   });
@@ -145,7 +148,7 @@ export function registerSettingsRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
-      console.error("Error saving invoice automation settings:", error);
+      log.error({ err: error }, "Error saving invoice automation settings:");
       res.status(500).json({ error: error.message || "Failed to save invoice automation settings" });
     }
   });
@@ -156,7 +159,7 @@ export function registerSettingsRoutes(app: Express): void {
       const settings = await storage.getDunningSettings();
       res.json({ ...defaultDunningSettings, ...(settings || {}) });
     } catch (error: any) {
-      console.error("Error fetching dunning settings:", error);
+      log.error({ err: error }, "Error fetching dunning settings:");
       res.status(500).json({ error: error.message || "Failed to fetch dunning settings" });
     }
   });
@@ -170,7 +173,7 @@ export function registerSettingsRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
-      console.error("Error saving dunning settings:", error);
+      log.error({ err: error }, "Error saving dunning settings:");
       res.status(500).json({ error: error.message || "Failed to save dunning settings" });
     }
   });
@@ -185,7 +188,7 @@ export function registerSettingsRoutes(app: Express): void {
       const keys = await storage.listTenantIntegrationApiKeys(tenantId);
       res.json({ keys });
     } catch (error: any) {
-      console.error("Error listing integration API keys:", error);
+      log.error({ err: error }, "Error listing integration API keys:");
       res.status(500).json({ error: error.message || "Failed to list keys" });
     }
   });
@@ -222,7 +225,7 @@ export function registerSettingsRoutes(app: Express): void {
         warning: "Den apiKey sicher speichern; er wird nicht erneut angezeigt.",
       });
     } catch (error: any) {
-      console.error("Error creating integration API key:", error);
+      log.error({ err: error }, "Error creating integration API key:");
       res.status(500).json({ error: error.message || "Failed to create key" });
     }
   });
@@ -239,7 +242,7 @@ export function registerSettingsRoutes(app: Express): void {
       }
       res.json({ ok: true });
     } catch (error: any) {
-      console.error("Error deleting integration API key:", error);
+      log.error({ err: error }, "Error deleting integration API key:");
       res.status(500).json({ error: error.message || "Failed to delete key" });
     }
   });
@@ -271,7 +274,7 @@ export function registerSettingsRoutes(app: Express): void {
         res.status(400).json({ success: false, error: "Failed to connect to Shopware" });
       }
     } catch (error: any) {
-      console.error("Error testing Shopware connection:", error);
+      log.error({ err: error }, "Error testing Shopware connection:");
       res.status(500).json({ success: false, error: error.message || "Connection test failed" });
     }
   });
@@ -282,7 +285,7 @@ export function registerSettingsRoutes(app: Express): void {
       const settings = await getTicketSlaSettings();
       res.json(settings);
     } catch (error: any) {
-      console.error("Error fetching ticket SLA settings:", error);
+      log.error({ err: error }, "Error fetching ticket SLA settings:");
       res.status(500).json({ error: error.message || "Failed to fetch SLA settings" });
     }
   });
@@ -302,7 +305,7 @@ export function registerSettingsRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
-      console.error("Error saving ticket SLA settings:", error);
+      log.error({ err: error }, "Error saving ticket SLA settings:");
       res.status(500).json({ error: error.message || "Failed to save SLA settings" });
     }
   });
@@ -319,7 +322,7 @@ export function registerSettingsRoutes(app: Express): void {
         hasPassword,
       });
     } catch (error: any) {
-      console.error("Error fetching email inbound settings:", error);
+      log.error({ err: error }, "Error fetching email inbound settings:");
       res.status(500).json({ error: error.message || "Failed to fetch email inbound settings" });
     }
   });
@@ -369,7 +372,7 @@ export function registerSettingsRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
-      console.error("Error saving email inbound settings:", error);
+      log.error({ err: error }, "Error saving email inbound settings:");
       res.status(500).json({ error: error.message || "Failed to save email inbound settings" });
     }
   });
@@ -386,7 +389,7 @@ export function registerSettingsRoutes(app: Express): void {
         hasPassword,
       });
     } catch (error: any) {
-      console.error("Error fetching email outbound settings:", error);
+      log.error({ err: error }, "Error fetching email outbound settings:");
       res.status(500).json({ error: error.message || "Failed to fetch email outbound settings" });
     }
   });
@@ -436,7 +439,7 @@ export function registerSettingsRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
-      console.error("Error saving email outbound settings:", error);
+      log.error({ err: error }, "Error saving email outbound settings:");
       res.status(500).json({ error: error.message || "Failed to save email outbound settings" });
     }
   });
@@ -447,7 +450,7 @@ export function registerSettingsRoutes(app: Express): void {
       const settings = await getEmailRoutingSettings(storage);
       res.json(settings);
     } catch (error: any) {
-      console.error("Error fetching email routing settings:", error);
+      log.error({ err: error }, "Error fetching email routing settings:");
       res.status(500).json({ error: error.message || "Failed to fetch email routing settings" });
     }
   });
@@ -489,7 +492,7 @@ export function registerSettingsRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
-      console.error("Error saving email routing settings:", error);
+      log.error({ err: error }, "Error saving email routing settings:");
       res.status(500).json({ error: error.message || "Failed to save email routing settings" });
     }
   });
@@ -504,7 +507,7 @@ export function registerSettingsRoutes(app: Express): void {
         hasClientSecret: Boolean(settings.clientSecret),
       });
     } catch (error: any) {
-      console.error("Error fetching M365 settings:", error);
+      log.error({ err: error }, "Error fetching M365 settings:");
       res.status(500).json({ error: error.message || "Failed to fetch M365 settings" });
     }
   });
@@ -555,7 +558,7 @@ export function registerSettingsRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
-      console.error("Error saving M365 settings:", error);
+      log.error({ err: error }, "Error saving M365 settings:");
       res.status(500).json({ error: error.message || "Failed to save M365 settings" });
     }
   });
@@ -570,7 +573,7 @@ export function registerSettingsRoutes(app: Express): void {
         hasServiceAccountJson: Boolean(settings.serviceAccountJson),
       });
     } catch (error: any) {
-      console.error("Error fetching GA4 settings:", error);
+      log.error({ err: error }, "Error fetching GA4 settings:");
       res.status(500).json({ error: error.message || "Failed to fetch GA4 settings" });
     }
   });
@@ -605,7 +608,7 @@ export function registerSettingsRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
-      console.error("Error saving GA4 settings:", error);
+      log.error({ err: error }, "Error saving GA4 settings:");
       res.status(500).json({ error: error.message || "Failed to save GA4 settings" });
     }
   });
@@ -626,7 +629,7 @@ export function registerSettingsRoutes(app: Express): void {
         hasRefreshToken: Boolean(settings.refreshToken),
       });
     } catch (error: any) {
-      console.error("Error fetching Google Ads settings:", error);
+      log.error({ err: error }, "Error fetching Google Ads settings:");
       res.status(500).json({ error: error.message || "Failed to fetch Google Ads settings" });
     }
   });
@@ -666,7 +669,7 @@ export function registerSettingsRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
-      console.error("Error saving Google Ads settings:", error);
+      log.error({ err: error }, "Error saving Google Ads settings:");
       res.status(500).json({ error: error.message || "Failed to save Google Ads settings" });
     }
   });
@@ -679,7 +682,7 @@ export function registerSettingsRoutes(app: Express): void {
       const mapping = getOfferStatusMapping(stored);
       res.json({ mapping, defaults, stored: stored || null });
     } catch (error: any) {
-      console.error("Error fetching B2B status mapping:", error);
+      log.error({ err: error }, "Error fetching B2B status mapping:");
       res.status(500).json({ error: error.message || "Failed to fetch status mapping" });
     }
   });
@@ -717,7 +720,7 @@ export function registerSettingsRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
-      console.error("Error saving B2B status mapping:", error);
+      log.error({ err: error }, "Error saving B2B status mapping:");
       res.status(500).json({ error: error.message || "Failed to save status mapping" });
     }
   });
@@ -736,7 +739,7 @@ export function registerSettingsRoutes(app: Express): void {
         stored: stored ?? null,
       });
     } catch (error: any) {
-      console.error("Error fetching offer config PDF texts:", error);
+      log.error({ err: error }, "Error fetching offer config PDF texts:");
       res.status(500).json({ error: error.message || "Failed to fetch offer PDF texts" });
     }
   });
@@ -756,7 +759,7 @@ export function registerSettingsRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0]?.message || "Ungültige Daten" });
       }
-      console.error("Error saving offer config PDF texts:", error);
+      log.error({ err: error }, "Error saving offer config PDF texts:");
       res.status(500).json({ error: error.message || "Failed to save offer PDF texts" });
     }
   });
@@ -775,7 +778,7 @@ export function registerSettingsRoutes(app: Express): void {
         hasApiKey: !!settings.apiKey,
       });
     } catch (error) {
-      console.error("Error fetching Mondu settings:", error);
+      log.error({ err: error }, "Error fetching Mondu settings:");
       res.status(500).json({ error: "Failed to fetch settings" });
     }
   });
@@ -814,7 +817,7 @@ export function registerSettingsRoutes(app: Express): void {
         sandboxMode: settings.sandboxMode,
       });
     } catch (error: any) {
-      console.error("Error saving Mondu settings:", error);
+      log.error({ err: error }, "Error saving Mondu settings:");
       if (error.name === 'ZodError') {
         return res.status(400).json({ error: "Invalid settings data", details: error.errors });
       }
@@ -838,7 +841,7 @@ export function registerSettingsRoutes(app: Express): void {
       // We'll just check if we can reach the API without errors
       res.json({ success: true, message: "Mondu API key validated" });
     } catch (error: any) {
-      console.error("Error testing Mondu connection:", error);
+      log.error({ err: error }, "Error testing Mondu connection:");
       res.status(500).json({ success: false, error: error.message || "Connection test failed" });
     }
   });
@@ -886,7 +889,7 @@ export function registerSettingsRoutes(app: Express): void {
         nlDailyLimitPerTenant: nlLimits.perTenantPerDay,
       });
     } catch (error: any) {
-      console.error("Error fetching AI settings:", error);
+      log.error({ err: error }, "Error fetching AI settings:");
       res.status(500).json({ error: "Failed to fetch AI settings" });
     }
   });
@@ -976,7 +979,7 @@ export function registerSettingsRoutes(app: Express): void {
         enabled: newSettings.enabled,
       });
     } catch (error: any) {
-      console.error("Error updating AI settings:", error);
+      log.error({ err: error }, "Error updating AI settings:");
       if (error.name === 'ZodError') {
         return res.status(400).json({ error: error.errors });
       }
@@ -991,7 +994,7 @@ export function registerSettingsRoutes(app: Express): void {
       const settings = (await storage.getSetting("semantic_ranking")) || {};
       res.json({ settings: { ...semanticRankingDefaults, ...settings }, defaults: semanticRankingDefaults });
     } catch (error: any) {
-      console.error("Error fetching semantic ranking settings:", error);
+      log.error({ err: error }, "Error fetching semantic ranking settings:");
       res.status(500).json({ error: "Failed to fetch semantic ranking settings" });
     }
   });
@@ -1011,7 +1014,7 @@ export function registerSettingsRoutes(app: Express): void {
       await storage.saveSetting("semantic_ranking", data);
       res.json({ success: true });
     } catch (error: any) {
-      console.error("Error updating semantic ranking settings:", error);
+      log.error({ err: error }, "Error updating semantic ranking settings:");
       if (error.name === "ZodError") {
         return res.status(400).json({ error: error.errors });
       }
@@ -1029,7 +1032,7 @@ export function registerSettingsRoutes(app: Express): void {
         },
       });
     } catch (error: any) {
-      console.error("Error fetching AI prompt overrides:", error);
+      log.error({ err: error }, "Error fetching AI prompt overrides:");
       res.status(500).json({ error: "Failed to fetch AI prompt overrides" });
     }
   });
@@ -1044,7 +1047,7 @@ export function registerSettingsRoutes(app: Express): void {
       await storage.saveSetting("ai_prompt_overrides", data);
       res.json({ success: true });
     } catch (error: any) {
-      console.error("Error updating AI prompt overrides:", error);
+      log.error({ err: error }, "Error updating AI prompt overrides:");
       if (error.name === "ZodError") {
         return res.status(400).json({ error: error.errors });
       }
@@ -1057,7 +1060,7 @@ export function registerSettingsRoutes(app: Express): void {
       const settings = await getCommercialAgentSettings(storage);
       res.json({ settings });
     } catch (error: any) {
-      console.error("Error fetching commercial agent settings:", error);
+      log.error({ err: error }, "Error fetching commercial agent settings:");
       res.status(500).json({ error: "Failed to fetch commercial agent settings" });
     }
   });
@@ -1126,7 +1129,7 @@ export function registerSettingsRoutes(app: Express): void {
       await storage.saveSetting("commercial_agent_settings", payload);
       res.json({ success: true, settings: await getCommercialAgentSettings(storage) });
     } catch (error: any) {
-      console.error("Error saving commercial agent settings:", error);
+      log.error({ err: error }, "Error saving commercial agent settings:");
       if (error.name === "ZodError") {
         return res.status(400).json({ error: error.errors });
       }
@@ -1171,7 +1174,7 @@ export function registerSettingsRoutes(app: Express): void {
           hint: "Dieses Token wird nur einmal angezeigt. Bitte sicher an den Kunden übergeben.",
         });
       } catch (error: any) {
-        console.error("Create commercial customer token error:", error);
+        log.error({ err: error }, "Create commercial customer token error:");
         res.status(500).json({ error: error.message || "Fehler" });
       }
     }
@@ -1198,7 +1201,7 @@ export function registerSettingsRoutes(app: Express): void {
         const customers = await client.searchCustomers(q, 20);
         res.json({ customers });
       } catch (error: any) {
-        console.error("Customer search for commercial tokens failed:", error);
+        log.error({ err: error }, "Customer search for commercial tokens failed:");
         res.status(500).json({ error: error.message ?? "Kundensuche fehlgeschlagen" });
       }
     }
@@ -1224,7 +1227,7 @@ export function registerSettingsRoutes(app: Express): void {
           })),
         });
       } catch (error: any) {
-        console.error("List commercial customer tokens error:", error);
+        log.error({ err: error }, "List commercial customer tokens error:");
         res.status(500).json({ error: error.message || "Fehler" });
       }
     }
@@ -1246,7 +1249,7 @@ export function registerSettingsRoutes(app: Express): void {
         }
         res.json({ revoked: true });
       } catch (error: any) {
-        console.error("Revoke commercial customer token error:", error);
+        log.error({ err: error }, "Revoke commercial customer token error:");
         res.status(500).json({ error: error.message || "Fehler" });
       }
     }
@@ -1278,7 +1281,7 @@ export function registerSettingsRoutes(app: Express): void {
       
       res.json(transformedConfigs);
     } catch (error) {
-      console.error("Error fetching webhook configs:", error);
+      log.error({ err: error }, "Error fetching webhook configs:");
       res.status(500).json({ error: "Failed to fetch webhook configurations" });
     }
   });
@@ -1300,7 +1303,7 @@ export function registerSettingsRoutes(app: Express): void {
         hasSecret: !!config.secret,     // secret presence check
       });
     } catch (error) {
-      console.error("Error fetching webhook config:", error);
+      log.error({ err: error }, "Error fetching webhook config:");
       res.status(500).json({ error: "Failed to fetch webhook configuration" });
     }
   });
@@ -1365,7 +1368,7 @@ export function registerSettingsRoutes(app: Express): void {
 
       res.json(updatedConfig);
     } catch (error) {
-      console.error("Error updating webhook config:", error);
+      log.error({ err: error }, "Error updating webhook config:");
       res.status(500).json({ error: "Failed to update webhook configuration" });
     }
   });

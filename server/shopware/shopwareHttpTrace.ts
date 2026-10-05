@@ -1,4 +1,7 @@
-/**
+
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "shopware/shopwareHttpTrace" });/**
  * Gemeinsame Hilfen für Admin-API-Aufrufe an Shopware:
  *
  * 1. Protokolliert fehlgeschlagene Aufrufe (Status >= 400) mit Methode, Host, Pfad und gesendetem
@@ -83,9 +86,7 @@ export async function traceShopwareResponse(url: string, options: RequestInit, r
 
   const headers = (options.headers ?? {}) as Record<string, string>;
   const contentType = headers["Content-Type"] ?? headers["content-type"];
-  console.warn(
-    `[ShopwareHTTP] ${(options.method || "GET").toUpperCase()} ${describeTarget(url)} → ${response.status} ${response.statusText}` +
-      (contentType ? ` (Content-Type: ${contentType})` : "")
-  );
+  log.warn(`${`[ShopwareHTTP] ${(options.method || "GET").toUpperCase()} ${describeTarget(url)} → ${response.status} ${response.statusText}` +
+      (contentType ? ` (Content-Type: ${contentType})` : "")}`);
   return response;
 }

@@ -21,6 +21,9 @@ import fs from "fs/promises";
 import { type InstallmentInvoicePdfInput, generateInstallmentInvoicePdf } from "../invoicing/installmentInvoicePdf";
 import archiver from "archiver";
 import type { Request, Response, Express } from "express";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "routes/orderRoutes" });
 
 /** Gleiche Sichtbarkeit wie GET /api/orders/:orderId — Lesezugriff auf Ratenpläne ohne viewDocuments */
 async function assertInstallmentOrderAccess(
@@ -36,7 +39,7 @@ async function assertInstallmentOrderAccess(
   try {
     allowedChannelIds = await getSalesChannelFilter(req);
   } catch (authError) {
-    console.error("[assertInstallmentOrderAccess] channel filter:", authError);
+    moduleLog.error({ err: authError }, "[assertInstallmentOrderAccess] channel filter:");
     return { ok: false, status: 403, body: { error: "Access denied: authentication error" } };
   }
   if (Array.isArray(allowedChannelIds) && allowedChannelIds.length === 0) {
@@ -249,7 +252,7 @@ export function registerOrderRoutes(app: Express): void {
         res.json(withStock);
       }
     } catch (error: any) {
-      console.error("Error fetching orders:", error);
+      moduleLog.error({ err: error }, "Error fetching orders:");
       res.status(500).json({ error: error.message || "Failed to fetch orders" });
     }
   });
@@ -284,7 +287,7 @@ export function registerOrderRoutes(app: Express): void {
         totalFiltered: summary.totalOrders,
       });
     } catch (error: any) {
-      console.error("[/api/orders/db-summary] Error:", error?.message || error);
+      moduleLog.error({ err: error }, "[/api/orders/db-summary] Error:");
       res.status(500).json({ error: error.message || "DB-Zusammenfassung fehlgeschlagen" });
     }
   });
@@ -325,7 +328,7 @@ export function registerOrderRoutes(app: Express): void {
         profitabilityMinMarginPercent: profitabilitySettings.minMarginPercent,
       });
     } catch (error: any) {
-      console.error("[/api/orders/profitability-analysis] Error:", error?.message || error);
+      moduleLog.error({ err: error }, "[/api/orders/profitability-analysis] Error:");
       res.status(500).json({ error: error.message || "Bestell-Analyse fehlgeschlagen" });
     }
   });
@@ -550,7 +553,7 @@ export function registerOrderRoutes(app: Express): void {
         },
       });
     } catch (error: any) {
-      console.error("Error querying orders:", error);
+      moduleLog.error({ err: error }, "Error querying orders:");
       if (error.name === 'ZodError') {
         return res.status(400).json({ error: "Invalid query parameters", details: error.errors });
       }
@@ -585,7 +588,7 @@ export function registerOrderRoutes(app: Express): void {
       
       res.json(delayedOrders);
     } catch (error: any) {
-      console.error("Error fetching delayed orders:", error);
+      moduleLog.error({ err: error }, "Error fetching delayed orders:");
       res.status(500).json({ error: error.message || "Failed to fetch delayed orders" });
     }
   });
@@ -716,7 +719,7 @@ export function registerOrderRoutes(app: Express): void {
         res.status(400).json({ error: 'Invalid format' });
       }
     } catch (error: any) {
-      console.error("Error exporting orders:", error);
+      moduleLog.error({ err: error }, "Error exporting orders:");
       
       // Handle Zod validation errors
       if (error.name === 'ZodError') {
@@ -739,7 +742,7 @@ export function registerOrderRoutes(app: Express): void {
       
       res.json(documents);
     } catch (error: any) {
-      console.error("Error fetching documents:", error);
+      moduleLog.error({ err: error }, "Error fetching documents:");
       res.status(500).json({ error: error.message || "Failed to fetch documents" });
     }
   });
@@ -760,7 +763,7 @@ export function registerOrderRoutes(app: Express): void {
       res.setHeader('Content-Disposition', `attachment; filename="document-${documentId}.pdf"`);
       res.send(Buffer.from(await pdfBlob.arrayBuffer()));
     } catch (error: any) {
-      console.error("Error downloading document:", error);
+      moduleLog.error({ err: error }, "Error downloading document:");
       res.status(500).json({ error: error.message || "Failed to download document" });
     }
   });
@@ -790,7 +793,7 @@ export function registerOrderRoutes(app: Express): void {
       try {
         allowedChannelIds = await getSalesChannelFilter(req);
       } catch (authError) {
-        console.error(`[/api/orders/invoices/by-order-numbers] SECURITY: Auth error during channel filter:`, authError);
+        moduleLog.error({ err: authError }, "[/api/orders/invoices/by-order-numbers] SECURITY: Auth error during channel filter:");
         return res.status(403).json({ error: "Unauthorized: No authenticated user found" });
       }
 
@@ -856,7 +859,7 @@ export function registerOrderRoutes(app: Express): void {
 
       res.json({ results });
     } catch (error: any) {
-      console.error("Error resolving invoices by order numbers:", error);
+      moduleLog.error({ err: error }, "Error resolving invoices by order numbers:");
 
       if (error.name === "ZodError") {
         return res.status(400).json({ error: error.errors[0]?.message || "Invalid request" });
@@ -886,14 +889,14 @@ export function registerOrderRoutes(app: Express): void {
       try {
         allowedChannelIds = await getSalesChannelFilter(req);
       } catch (authError) {
-        console.error(`[/api/orders/:orderId/customer-history] SECURITY: Auth error during channel filter:`, authError);
+        moduleLog.error({ err: authError }, "[/api/orders/:orderId/customer-history] SECURITY: Auth error during channel filter:");
         return res.json([]);
       }
 
       // SECURITY: If user has empty array (explicitly no access to any channel), return empty results
       // null = full access (admin), [] = no access, [...ids] = specific channel access
       if (Array.isArray(allowedChannelIds) && allowedChannelIds.length === 0) {
-        console.log(`[/api/orders/:orderId/customer-history] SECURITY: User has no channel access, returning empty results`);
+        moduleLog.info("[/api/orders/:orderId/customer-history] SECURITY: User has no channel access, returning empty results");
         return res.json([]);
       }
 
@@ -907,7 +910,7 @@ export function registerOrderRoutes(app: Express): void {
 
       res.json(customerOrders);
     } catch (error: any) {
-      console.error("Error fetching customer order history:", error);
+      moduleLog.error({ err: error }, "Error fetching customer order history:");
       res.status(500).json({ error: error.message || "Failed to fetch customer order history" });
     }
   });
@@ -936,7 +939,7 @@ export function registerOrderRoutes(app: Express): void {
 
       res.json(ticketCounts);
     } catch (error: any) {
-      console.error("Error fetching ticket counts:", error);
+      moduleLog.error({ err: error }, "Error fetching ticket counts:");
       res.status(500).json({ error: "Failed to fetch ticket counts" });
     }
   });
@@ -966,7 +969,7 @@ export function registerOrderRoutes(app: Express): void {
 
       res.json({ dunningStages, installmentCounts });
     } catch (error: any) {
-      console.error("Error fetching order badge flags:", error);
+      moduleLog.error({ err: error }, "Error fetching order badge flags:");
       res.status(500).json({ error: "Failed to fetch badge flags" });
     }
   });
@@ -986,14 +989,14 @@ export function registerOrderRoutes(app: Express): void {
       try {
         allowedChannelIds = await getSalesChannelFilter(req);
       } catch (authError) {
-        console.error(`[/api/orders/:orderId] SECURITY: Auth error during channel filter:`, authError);
+        moduleLog.error({ err: authError }, "[/api/orders/:orderId] SECURITY: Auth error during channel filter:");
         return res.status(403).json({ error: "Access denied: authentication error" });
       }
 
       // SECURITY: If user has empty array (explicitly no access to any channel), deny access
       // null = full access (admin), [] = no access, [...ids] = specific channel access
       if (Array.isArray(allowedChannelIds) && allowedChannelIds.length === 0) {
-        console.log(`[/api/orders/:orderId] SECURITY: User has no channel access, denying request`);
+        moduleLog.info("[/api/orders/:orderId] SECURITY: User has no channel access, denying request");
         return res.status(403).json({ error: "Access denied: no sales channel permissions" });
       }
 
@@ -1018,7 +1021,7 @@ export function registerOrderRoutes(app: Express): void {
 
       res.json(withStock ?? enrichedOrder ?? order);
     } catch (error: any) {
-      console.error("Error fetching order:", error);
+      moduleLog.error({ err: error }, "Error fetching order:");
       res.status(500).json({ error: error.message || "Failed to fetch order" });
     }
   });
@@ -1057,7 +1060,7 @@ export function registerOrderRoutes(app: Express): void {
         const { syncShopwareMirrorForTenant } = await import("../shopware/shopwareMirror");
         await syncShopwareMirrorForTenant(storage, client, (req as any).tenantId ?? null, { entities: ["orders"] });
       } catch (error) {
-        console.error("[order-shipping] Spiegel-Abgleich nach dem Update fehlgeschlagen:", error);
+        moduleLog.error({ err: error }, "[order-shipping] Spiegel-Abgleich nach dem Update fehlgeschlagen:");
       }
       
       res.json({ 
@@ -1067,7 +1070,7 @@ export function registerOrderRoutes(app: Express): void {
         shippingInfo
       });
     } catch (error: any) {
-      console.error("Error updating order shipping:", error);
+      moduleLog.error({ err: error }, "Error updating order shipping:");
       const message = error.message || "Failed to update shipping information";
       if (isMonduPluginShipError(message)) {
         return res.status(502).json(monduShipBlockedPayload(message));
@@ -1154,20 +1157,14 @@ export function registerOrderRoutes(app: Express): void {
       const errors: string[] = [];
       
       // ===== DEBUG LOGGING: REQUEST RECEIVED =====
-      console.log(`[DEBUG] Document creation request for order ${orderId}:`, {
-        invoiceNumber,
-        deliveryNoteNumber,
-        erpNumber,
-        invoiceCheck: invoiceCheck ? { exists: invoiceCheck.exists, documentNumber: invoiceCheck.documentNumber } : null,
-        deliveryCheck: deliveryCheck ? { exists: deliveryCheck.exists, documentNumber: deliveryCheck.documentNumber } : null,
-      });
+      moduleLog.info({ invoiceNumber, deliveryNoteNumber, erpNumber, invoiceCheck: invoiceCheck ? { exists: invoiceCheck.exists, documentNumber: invoiceCheck.documentNumber } : null, deliveryCheck: deliveryCheck ? { exists: deliveryCheck.exists, documentNumber: deliveryCheck.documentNumber } : null }, `[DEBUG] Document creation request for order ${orderId}:`);
       // ==========================================
       
       // Create invoice if needed (independent operation)
       if (invoiceNumber && invoiceCheck && !invoiceCheck.exists) {
         try {
-          console.log(`[Orders] Creating invoice ${invoiceNumber} for order ${orderId}`);
-          console.log(`[DEBUG] Calling client.createInvoice with:`, { orderId, invoiceNumber, erpNumber });
+          moduleLog.info(`[Orders] Creating invoice ${invoiceNumber} for order ${orderId}`);
+          moduleLog.info({ orderId, invoiceNumber, erpNumber }, "[DEBUG] Calling client.createInvoice with:");
           const createdInvoice = await client.createInvoice(
             orderId,
             invoiceNumber,
@@ -1177,7 +1174,7 @@ export function registerOrderRoutes(app: Express): void {
             !sendInvoiceRequested,
             { eInvoice: invoiceAutomation.eInvoice },
           );
-          console.log(`[DEBUG] ✓ client.createInvoice succeeded`);
+          moduleLog.info("[DEBUG] ✓ client.createInvoice succeeded");
           results.invoiceCreated = true;
           results.invoiceIsEInvoice = createdInvoice.documentType === ZUGFERD_EMBEDDED_INVOICE_TYPE;
 
@@ -1188,7 +1185,7 @@ export function registerOrderRoutes(app: Express): void {
             await new Promise(resolve => setTimeout(resolve, attempt === 0 ? 500 : 1000)); // First check after 0.5s
             try {
               const docs = await client.fetchOrderDocuments(orderId);
-              console.log(`[DEBUG] Poll attempt ${attempt + 1}: Found ${docs.length} documents for order ${orderId}`);
+              moduleLog.info(`[DEBUG] Poll attempt ${attempt + 1}: Found ${docs.length} documents for order ${orderId}`);
               
               // Find invoice by number, or fallback to newest invoice
               let invoice = docs.find(d => d.type === 'invoice' && d.number === invoiceNumber);
@@ -1204,13 +1201,13 @@ export function registerOrderRoutes(app: Express): void {
               if (invoice && invoice.deepLinkCode) {
                 invoiceId = invoice.id; // Capture Shopware document UUID
                 pdfUrl = `${settings.shopwareUrl}/api/_action/document/${invoice.id}/${invoice.deepLinkCode}?download=1`;
-                console.log(`[DEBUG] Invoice PDF URL found: ${pdfUrl} (doc ${invoice.number}, id ${invoiceId})`);
+                moduleLog.info(`[DEBUG] Invoice PDF URL found: ${pdfUrl} (doc ${invoice.number}, id ${invoiceId})`);
                 break;
               } else if (invoice) {
-                console.log(`[DEBUG] Invoice found but missing deepLinkCode:`, invoice);
+                moduleLog.info({ invoice }, "[DEBUG] Invoice found but missing deepLinkCode:");
               }
             } catch (err) {
-              console.error(`[DEBUG] Attempt ${attempt + 1} to fetch invoice document failed:`, err);
+              moduleLog.error({ err }, `[DEBUG] Attempt ${attempt + 1} to fetch invoice document failed:`);
             }
           }
 
@@ -1232,7 +1229,7 @@ export function registerOrderRoutes(app: Express): void {
             invoiceNumber: invoiceNumber,
             invoiceId: invoiceId, // Shopware document UUID for correlation
           }).catch(err => {
-            console.error("Error triggering document.created webhook for invoice:", err);
+            moduleLog.error({ err }, "Error triggering document.created webhook for invoice:");
           });
 
           // Versand nur, wenn die Rechnung ordnungsgemaess erstellt wurde (PDF liegt vor).
@@ -1259,16 +1256,12 @@ export function registerOrderRoutes(app: Express): void {
             }
           }
         } catch (invoiceError: any) {
-          console.error(`[Orders] Failed to create invoice for order ${orderId}:`, invoiceError);
-          console.error(`[DEBUG] Invoice error details:`, {
-            message: invoiceError.message,
-            stack: invoiceError.stack,
-            response: invoiceError.response?.data || invoiceError.response,
-          });
+          moduleLog.error({ err: invoiceError }, `[Orders] Failed to create invoice for order ${orderId}:`);
+          moduleLog.error({ message: invoiceError.message, stack: invoiceError.stack, response: invoiceError.response?.data || invoiceError.response }, "[DEBUG] Invoice error details:");
           errors.push(`Invoice creation failed: ${invoiceError.message}`);
         }
       } else if (invoiceNumber && invoiceCheck && invoiceCheck.exists) {
-        console.log(`[Orders] Invoice ${invoiceNumber} already exists for order ${orderId}, skipping creation`);
+        moduleLog.info(`[Orders] Invoice ${invoiceNumber} already exists for order ${orderId}, skipping creation`);
         results.invoiceSkipped = true;
       }
 
@@ -1278,15 +1271,15 @@ export function registerOrderRoutes(app: Express): void {
         const existingVorkasse = docs.find((d: { number: string }) => d.number === vorkasseInvoiceNumber);
         if (!existingVorkasse) {
           try {
-            console.log(`[Orders] Creating Vorkasse invoice ${vorkasseInvoiceNumber} for order ${orderId}`);
+            moduleLog.info(`[Orders] Creating Vorkasse invoice ${vorkasseInvoiceNumber} for order ${orderId}`);
             await client.createInvoice(orderId, vorkasseInvoiceNumber, erpNumber);
             results.vorkasseInvoiceCreated = true;
           } catch (vorkasseError: any) {
-            console.error(`[Orders] Failed to create Vorkasse invoice for order ${orderId}:`, vorkasseError);
+            moduleLog.error({ err: vorkasseError }, `[Orders] Failed to create Vorkasse invoice for order ${orderId}:`);
             errors.push(`Vorkasse-Rechnung: ${vorkasseError.message}`);
           }
         } else {
-          console.log(`[Orders] Vorkasse invoice ${vorkasseInvoiceNumber} already exists for order ${orderId}, skipping creation`);
+          moduleLog.info(`[Orders] Vorkasse invoice ${vorkasseInvoiceNumber} already exists for order ${orderId}, skipping creation`);
           results.vorkasseInvoiceSkipped = true;
         }
       }
@@ -1294,10 +1287,10 @@ export function registerOrderRoutes(app: Express): void {
       // Create delivery note if needed (independent operation)
       if (deliveryNoteNumber && deliveryCheck && !deliveryCheck.exists) {
         try {
-          console.log(`[Orders] Creating delivery note ${deliveryNoteNumber} for order ${orderId}`);
-          console.log(`[DEBUG] Calling client.createDeliveryNote with:`, { orderId, deliveryNoteNumber, erpNumber });
+          moduleLog.info(`[Orders] Creating delivery note ${deliveryNoteNumber} for order ${orderId}`);
+          moduleLog.info({ orderId, deliveryNoteNumber, erpNumber }, "[DEBUG] Calling client.createDeliveryNote with:");
           await client.createDeliveryNote(orderId, deliveryNoteNumber, erpNumber);
-          console.log(`[DEBUG] ✓ client.createDeliveryNote succeeded`);
+          moduleLog.info("[DEBUG] ✓ client.createDeliveryNote succeeded");
           results.deliveryNoteCreated = true;
 
           // Poll for document generation (Shopware uses async message queue)
@@ -1307,7 +1300,7 @@ export function registerOrderRoutes(app: Express): void {
             await new Promise(resolve => setTimeout(resolve, attempt === 0 ? 500 : 1000)); // First check after 0.5s
             try {
               const docs = await client.fetchOrderDocuments(orderId);
-              console.log(`[DEBUG] Poll attempt ${attempt + 1}: Found ${docs.length} documents for order ${orderId}`);
+              moduleLog.info(`[DEBUG] Poll attempt ${attempt + 1}: Found ${docs.length} documents for order ${orderId}`);
               
               // Find delivery note by number, or fallback to newest delivery note
               let deliveryNote = docs.find(d => d.type === 'delivery_note' && d.number === deliveryNoteNumber);
@@ -1323,13 +1316,13 @@ export function registerOrderRoutes(app: Express): void {
               if (deliveryNote && deliveryNote.deepLinkCode) {
                 deliveryNoteId = deliveryNote.id; // Capture Shopware document UUID
                 pdfUrl = `${settings.shopwareUrl}/api/_action/document/${deliveryNote.id}/${deliveryNote.deepLinkCode}?download=1`;
-                console.log(`[DEBUG] Delivery note PDF URL found: ${pdfUrl} (doc ${deliveryNote.number}, id ${deliveryNoteId})`);
+                moduleLog.info(`[DEBUG] Delivery note PDF URL found: ${pdfUrl} (doc ${deliveryNote.number}, id ${deliveryNoteId})`);
                 break;
               } else if (deliveryNote) {
-                console.log(`[DEBUG] Delivery note found but missing deepLinkCode:`, deliveryNote);
+                moduleLog.info({ deliveryNote }, "[DEBUG] Delivery note found but missing deepLinkCode:");
               }
             } catch (err) {
-              console.error(`[DEBUG] Attempt ${attempt + 1} to fetch delivery note document failed:`, err);
+              moduleLog.error({ err }, `[DEBUG] Attempt ${attempt + 1} to fetch delivery note document failed:`);
             }
           }
 
@@ -1351,19 +1344,15 @@ export function registerOrderRoutes(app: Express): void {
             deliveryNoteNumber: deliveryNoteNumber,
             deliveryNoteId: deliveryNoteId, // Shopware document UUID for correlation
           }).catch(err => {
-            console.error("Error triggering document.created webhook for delivery note:", err);
+            moduleLog.error({ err }, "Error triggering document.created webhook for delivery note:");
           });
         } catch (deliveryError: any) {
-          console.error(`[Orders] Failed to create delivery note for order ${orderId}:`, deliveryError);
-          console.error(`[DEBUG] Delivery note error details:`, {
-            message: deliveryError.message,
-            stack: deliveryError.stack,
-            response: deliveryError.response?.data || deliveryError.response,
-          });
+          moduleLog.error({ err: deliveryError }, `[Orders] Failed to create delivery note for order ${orderId}:`);
+          moduleLog.error({ message: deliveryError.message, stack: deliveryError.stack, response: deliveryError.response?.data || deliveryError.response }, "[DEBUG] Delivery note error details:");
           errors.push(`Delivery note creation failed: ${deliveryError.message}`);
         }
       } else if (deliveryNoteNumber && deliveryCheck && deliveryCheck.exists) {
-        console.log(`[Orders] Delivery note ${deliveryNoteNumber} already exists for order ${orderId}, skipping creation`);
+        moduleLog.info(`[Orders] Delivery note ${deliveryNoteNumber} already exists for order ${orderId}, skipping creation`);
         results.deliveryNoteSkipped = true;
       }
 
@@ -1376,9 +1365,9 @@ export function registerOrderRoutes(app: Express): void {
           erpNumber
         });
         results.customFieldsUpdated = true;
-        console.log(`[Orders] Custom fields updated for order ${orderId}`);
+        moduleLog.info(`[Orders] Custom fields updated for order ${orderId}`);
       } catch (customFieldError: any) {
-        console.error(`[Orders] Failed to update custom fields for order ${orderId}:`, customFieldError);
+        moduleLog.error({ err: customFieldError }, `[Orders] Failed to update custom fields for order ${orderId}:`);
         errors.push(`Custom field update failed: ${customFieldError.message}`);
       }
 
@@ -1390,10 +1379,7 @@ export function registerOrderRoutes(app: Express): void {
                          results.customFieldsUpdated;
       const partialSuccess = hasSuccess && hasErrors;
       
-      console.log(`[Orders] Document operation completed for order ${orderId}:`, {
-        results,
-        errors: errors.length > 0 ? errors : undefined
-      });
+      moduleLog.info({ results, errors: errors.length > 0 ? errors : undefined }, `[Orders] Document operation completed for order ${orderId}:`);
 
       // Return appropriate response
       if (!hasErrors) {
@@ -1437,7 +1423,7 @@ export function registerOrderRoutes(app: Express): void {
         });
       }
     } catch (error: any) {
-      console.error("Error in document operation:", error);
+      moduleLog.error({ err: error }, "Error in document operation:");
       
       // Handle Shopware API errors
       if (error.message?.includes('Failed to create invoice') || 
@@ -1463,7 +1449,7 @@ export function registerOrderRoutes(app: Express): void {
       const { orderId } = req.params;
       const client = new ShopwareClient(settings);
 
-      console.log(`[Proforma] Creating proforma invoice for order ${orderId}`);
+      moduleLog.info(`[Proforma] Creating proforma invoice for order ${orderId}`);
 
       // Fetch order data to get additional fields
       const order = await client.fetchOrderById(orderId, null); // null = admin access
@@ -1474,7 +1460,7 @@ export function registerOrderRoutes(app: Express): void {
       const buyerReference = order.customFields?.custom_buyerreference_invoice;
       const customerComment = order.customerComment;
 
-      console.log(`[Proforma] Order data: buyerReference=${buyerReference}, customerComment=${customerComment}`);
+      moduleLog.info(`[Proforma] Order data: buyerReference=${buyerReference}, customerComment=${customerComment}`);
 
       // Check if proforma invoice already exists
       const documents = await client.fetchOrderDocuments(orderId);
@@ -1510,14 +1496,14 @@ export function registerOrderRoutes(app: Express): void {
       );
       const finalProformaNumber = invoiceNumber || proformaNumberCandidate;
 
-      console.log(`[Proforma] Proforma invoice created: ${finalProformaNumber} (Document ID: ${documentId})`);
+      moduleLog.info(`[Proforma] Proforma invoice created: ${finalProformaNumber} (Document ID: ${documentId})`);
 
       // Update order custom field with proforma number
       await client.updateOrderDocumentNumbers(orderId, {
         proformaNumber: finalProformaNumber,
       });
 
-      console.log(`[Proforma] Updated order custom field: custom_order_proforma_number = ${finalProformaNumber}`);
+      moduleLog.info(`[Proforma] Updated order custom field: custom_order_proforma_number = ${finalProformaNumber}`);
 
       await storage.saveProformaNumberRangeSettings({
         prefix,
@@ -1535,11 +1521,11 @@ export function registerOrderRoutes(app: Express): void {
           
           if (proforma && proforma.deepLinkCode) {
             pdfUrl = `${settings.shopwareUrl}/api/_action/document/${proforma.id}/${proforma.deepLinkCode}?download=1`;
-            console.log(`[Proforma] PDF URL found: ${pdfUrl}`);
+            moduleLog.info(`[Proforma] PDF URL found: ${pdfUrl}`);
             break;
           }
         } catch (err) {
-          console.error(`[Proforma] Attempt ${attempt + 1} to fetch PDF failed:`, err);
+          moduleLog.error({ err }, `[Proforma] Attempt ${attempt + 1} to fetch PDF failed:`);
         }
       }
 
@@ -1561,7 +1547,7 @@ export function registerOrderRoutes(app: Express): void {
         proformaNumber: finalProformaNumber,
         documentId: documentId,
       }).catch(err => {
-        console.error("Error triggering document.created webhook for proforma:", err);
+        moduleLog.error({ err }, "Error triggering document.created webhook for proforma:");
       });
 
       res.json({
@@ -1573,7 +1559,7 @@ export function registerOrderRoutes(app: Express): void {
         pdfUrl,
       });
     } catch (error: any) {
-      console.error("Error creating proforma invoice:", error);
+      moduleLog.error({ err: error }, "Error creating proforma invoice:");
       
       if (error.message?.includes('Failed to create proforma invoice')) {
         return res.status(502).json({
@@ -1658,7 +1644,7 @@ export function registerOrderRoutes(app: Express): void {
         );
         res.send(pdfBuffer);
       } catch (error: any) {
-        console.error("settlement-invoice pdf:", error);
+        moduleLog.error({ err: error }, "settlement-invoice pdf:");
         res.status(500).json({ error: error.message || "Failed to generate settlement invoice PDF" });
       }
     },
@@ -1745,7 +1731,7 @@ export function registerOrderRoutes(app: Express): void {
           documentNumber: uploadResult.documentNumber,
         });
       } catch (error: any) {
-        console.error("additional-invoice:", error);
+        moduleLog.error({ err: error }, "additional-invoice:");
         res.status(500).json({ error: error.message || "Failed to create additional invoice" });
       }
     },
@@ -1768,7 +1754,7 @@ export function registerOrderRoutes(app: Express): void {
       );
       res.json(withInv);
     } catch (error: any) {
-      console.error("installment-plans list:", error);
+      moduleLog.error({ err: error }, "installment-plans list:");
       res.status(500).json({ error: error.message || "Failed to load installment plans" });
     }
   });
@@ -1868,7 +1854,7 @@ export function registerOrderRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0]?.message || "Validation failed" });
       }
-      console.error("installment-plans create:", error);
+      moduleLog.error({ err: error }, "installment-plans create:");
       res.status(500).json({ error: error.message || "Failed to create installment plan" });
     }
   });
@@ -1887,7 +1873,7 @@ export function registerOrderRoutes(app: Express): void {
       const invoices = await storage.getInstallmentInvoices(plan.id, tenantId);
       res.json(serializeInstallmentPlan(plan, invoices));
     } catch (error: any) {
-      console.error("installment-plans get:", error);
+      moduleLog.error({ err: error }, "installment-plans get:");
       res.status(500).json({ error: error.message || "Failed to load plan" });
     }
   });
@@ -1917,7 +1903,7 @@ export function registerOrderRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0]?.message || "Validation failed" });
       }
-      console.error("installment-plans patch:", error);
+      moduleLog.error({ err: error }, "installment-plans patch:");
       res.status(500).json({ error: error.message || "Failed to update plan" });
     }
   });
@@ -1935,7 +1921,7 @@ export function registerOrderRoutes(app: Express): void {
       const ok = await storage.deleteInstallmentPlan(req.params.planId, tenantId);
       res.json({ success: ok });
     } catch (error: any) {
-      console.error("installment-plans delete:", error);
+      moduleLog.error({ err: error }, "installment-plans delete:");
       res.status(500).json({ error: error.message || "Failed to delete plan" });
     }
   });
@@ -1987,7 +1973,7 @@ export function registerOrderRoutes(app: Express): void {
         pdfPath: filePath,
       });
     } catch (error: any) {
-      console.error("installment send-agreement:", error);
+      moduleLog.error({ err: error }, "installment send-agreement:");
       res.status(500).json({ error: error.message || "Failed to generate agreement" });
     }
   });
@@ -2023,7 +2009,7 @@ export function registerOrderRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0]?.message || "Validation failed" });
       }
-      console.error("installment confirm:", error);
+      moduleLog.error({ err: error }, "installment confirm:");
       res.status(500).json({ error: error.message || "Failed to confirm" });
     }
   });
@@ -2068,7 +2054,7 @@ export function registerOrderRoutes(app: Express): void {
         const finalInv = await storage.getInstallmentInvoices(plan.id, tenantId);
         res.json(serializeInstallmentPlan(planRow, finalInv));
       } catch (error: any) {
-        console.error("installment mark-paid:", error);
+        moduleLog.error({ err: error }, "installment mark-paid:");
         res.status(500).json({ error: error.message || "Failed to mark paid" });
       }
     }
@@ -2100,7 +2086,7 @@ export function registerOrderRoutes(app: Express): void {
       );
       res.send(buf);
     } catch (error: any) {
-      console.error("installment agreement-pdf:", error);
+      moduleLog.error({ err: error }, "installment agreement-pdf:");
       res.status(500).json({ error: error.message || "Failed to read PDF" });
     }
   });
@@ -2162,7 +2148,7 @@ export function registerOrderRoutes(app: Express): void {
       res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
       res.send(pdfBuffer);
     } catch (error: any) {
-      console.error("installment invoice pdf:", error);
+      moduleLog.error({ err: error }, "installment invoice pdf:");
       res.status(500).json({ error: error.message || "Failed to generate invoice PDF" });
     }
   });
@@ -2235,7 +2221,7 @@ export function registerOrderRoutes(app: Express): void {
 
       await archive.finalize();
     } catch (error: any) {
-      console.error("installment invoices zip:", error);
+      moduleLog.error({ err: error }, "installment invoices zip:");
       if (!res.headersSent) {
         res.status(500).json({ error: error.message || "Failed to generate invoice ZIP" });
       }
@@ -2270,15 +2256,15 @@ export function registerOrderRoutes(app: Express): void {
         });
       }
 
-      console.log(`[Mark Shipped] Order ${orderId} has invoice ${invoice.id}, proceeding with shipping workflow`);
+      moduleLog.info(`[Mark Shipped] Order ${orderId} has invoice ${invoice.id}, proceeding with shipping workflow`);
 
       // Step 2: Set order delivery to "shipped" status in Shopware
       await client.setOrderShipped(orderId);
-      console.log(`[Mark Shipped] Order ${orderId} delivery status set to shipped`);
+      moduleLog.info(`[Mark Shipped] Order ${orderId} delivery status set to shipped`);
 
       // Step 3: Send invoice email to customer (Mondu requirement)
       await client.sendInvoiceEmail(orderId, invoice.id);
-      console.log(`[Mark Shipped] Invoice email sent for order ${orderId}`);
+      moduleLog.info(`[Mark Shipped] Invoice email sent for order ${orderId}`);
 
       // Trigger webhook for order.ready_to_ship (using minimal data from context)
       webhookService.trigger("order.ready_to_ship", {
@@ -2295,7 +2281,7 @@ export function registerOrderRoutes(app: Express): void {
         actorId: (req.user as any)?.id || "system",
         invoiceId: invoice.id,
       }).catch(err => {
-        console.error("Error triggering order.ready_to_ship webhook:", err);
+        moduleLog.error({ err }, "Error triggering order.ready_to_ship webhook:");
       });
 
       res.json({ 
@@ -2305,7 +2291,7 @@ export function registerOrderRoutes(app: Express): void {
         invoiceId: invoice.id,
       });
     } catch (error: any) {
-      console.error("Error marking order as shipped:", error);
+      moduleLog.error({ err: error }, "Error marking order as shipped:");
       const message = error.message || "Failed to mark order as shipped";
 
       if (isMonduPluginShipError(message)) {
@@ -2372,7 +2358,7 @@ export function registerOrderRoutes(app: Express): void {
 
         res.json(result);
       } catch (error: any) {
-        console.error("Error sending invoice:", error);
+        moduleLog.error({ err: error }, "Error sending invoice:");
         res.status(500).json({ error: error.message || "Failed to send invoice" });
       }
     },
@@ -2414,7 +2400,7 @@ export function registerOrderRoutes(app: Express): void {
       const shopwareClient = new ShopwareClient(shopwareSettings);
 
       // Step 1: Fetch the invoice document from Shopware (prefer real invoice over VKRE/PF)
-      console.log(`[Mondu Submit] Fetching invoice document for order ${orderId}`);
+      moduleLog.info(`[Mondu Submit] Fetching invoice document for order ${orderId}`);
       const documents = await shopwareClient.fetchOrderDocuments(orderId);
       const invoice = getRealInvoiceDocument(documents);
 
@@ -2426,12 +2412,12 @@ export function registerOrderRoutes(app: Express): void {
       }
 
       // Step 2: Download the PDF as binary data
-      console.log(`[Mondu Submit] Downloading invoice PDF ${invoice.id}`);
+      moduleLog.info(`[Mondu Submit] Downloading invoice PDF ${invoice.id}`);
       const pdfBlob = await shopwareClient.downloadDocumentPdf(invoice.id, invoice.deepLinkCode);
       const pdfBuffer = Buffer.from(await pdfBlob.arrayBuffer());
 
       // Step 3: Submit to Mondu
-      console.log(`[Mondu Submit] Submitting invoice to Mondu order ${monduOrderUuid}`);
+      moduleLog.info(`[Mondu Submit] Submitting invoice to Mondu order ${monduOrderUuid}`);
       const { MonduClient } = await import("../invoicing/mondu");
       const monduClient = new MonduClient(monduSettings);
 
@@ -2443,7 +2429,7 @@ export function registerOrderRoutes(app: Express): void {
         invoiceFileName: `invoice-${invoiceNumber}.pdf`,
       });
 
-      console.log(`[Mondu Submit] Successfully submitted invoice to Mondu:`, result);
+      moduleLog.info({ result }, "[Mondu Submit] Successfully submitted invoice to Mondu:");
 
       res.json({ 
         success: true,
@@ -2452,7 +2438,7 @@ export function registerOrderRoutes(app: Express): void {
         monduInvoiceState: result.invoice?.state,
       });
     } catch (error: any) {
-      console.error("Error submitting invoice to Mondu:", error);
+      moduleLog.error({ err: error }, "Error submitting invoice to Mondu:");
       res.status(500).json({ 
         error: error.message || "Failed to submit invoice to Mondu" 
       });
@@ -2513,7 +2499,7 @@ export function registerOrderRoutes(app: Express): void {
           });
           updated++;
         } catch (error: any) {
-          console.error(`Error updating order ${orderId}:`, error);
+          moduleLog.error({ err: error }, `Error updating order ${orderId}:`);
           // Continue with next order even if one fails
         }
       }
@@ -2525,7 +2511,7 @@ export function registerOrderRoutes(app: Express): void {
           const { syncShopwareMirrorForTenant } = await import("../shopware/shopwareMirror");
           await syncShopwareMirrorForTenant(storage, client, (req as any).tenantId ?? null, { entities: ["orders"] });
         } catch (error) {
-          console.error("[bulk-tracking] Spiegel-Abgleich nach dem Update fehlgeschlagen:", error);
+          moduleLog.error({ err: error }, "[bulk-tracking] Spiegel-Abgleich nach dem Update fehlgeschlagen:");
         }
       }
 
@@ -2534,7 +2520,7 @@ export function registerOrderRoutes(app: Express): void {
         updated 
       });
     } catch (error: any) {
-      console.error("Error in bulk tracking update:", error);
+      moduleLog.error({ err: error }, "Error in bulk tracking update:");
       if (error.name === 'ZodError') {
         return res.status(400).json({ error: error.errors });
       }
@@ -2556,7 +2542,7 @@ export function registerOrderRoutes(app: Express): void {
       res.setHeader('Content-Disposition', `attachment; filename="invoice-${req.params.orderId}.pdf"`);
       res.send(Buffer.from(await pdfBlob.arrayBuffer()));
     } catch (error: any) {
-      console.error("Error downloading invoice:", error);
+      moduleLog.error({ err: error }, "Error downloading invoice:");
       res.status(500).json({ error: error.message || "Failed to download invoice" });
     }
   });
@@ -2575,7 +2561,7 @@ export function registerOrderRoutes(app: Express): void {
       
       res.json(filteredTickets);
     } catch (error) {
-      console.error("Error fetching tickets for order:", error);
+      moduleLog.error({ err: error }, "Error fetching tickets for order:");
       res.status(500).json({ error: "Failed to fetch tickets" });
     }
   });

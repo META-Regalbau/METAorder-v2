@@ -1,5 +1,8 @@
 import jwt from "jsonwebtoken";
 import { assertSecureSecret } from "../lib/secretGuard";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "auth/authCustomer" });
 
 export type CustomerJWTPayload = {
   customerId?: string;
@@ -41,7 +44,7 @@ export function requireCustomerAuth(req: any, res: any, next: any) {
     req.customer = payload;
     next();
   } catch (error) {
-    console.error("[requireCustomerAuth] Error:", error);
+    log.error({ err: error }, "[requireCustomerAuth] Error:");
     res.status(401).json({ error: "Customer authentication failed" });
   }
 }

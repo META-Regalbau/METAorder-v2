@@ -4,6 +4,9 @@ import { storage } from "../../storage";
 import { ShopwareClient } from "../../shopware/shopware";
 import { erpStorage } from "../erpStorage";
 import { getSendcloudSettingsDecrypted } from "./getLabelProvider";
+import { logger } from "../../lib/logger";
+
+const moduleLog = logger.child({ component: "erp/shipping/sendcloudWebhook" });
 
 /**
  * Sendcloud Parcel-Status-IDs (API v2 /parcels/statuses).
@@ -204,7 +207,7 @@ export async function handleSendcloudWebhook(
 
   // Test-Webhook ohne Parcel-Daten: trotzdem 200, damit Sendcloud „OK“ zeigt
   if (!parsed.parcelId && !parsed.trackingNumber && !parsed.orderNumber) {
-    console.log(`[SendcloudWebhook] tenant=${tenantId} test/empty payload accepted`);
+    moduleLog.info(`[SendcloudWebhook] tenant=${tenantId} test/empty payload accepted`);
     return { ok: true, status: 200, updated: false };
   }
 
@@ -220,9 +223,7 @@ export async function handleSendcloudWebhook(
   }
 
   if (!label) {
-    console.warn(
-      `[SendcloudWebhook] tenant=${tenantId} no label for parcel=${parsed.parcelId} tracking=${parsed.trackingNumber}`,
-    );
+    moduleLog.warn(`[SendcloudWebhook] tenant=${tenantId} no label for parcel=${parsed.parcelId} tracking=${parsed.trackingNumber}`);
     // 200 verhindert endlose Retries; Payload ist gültig, nur unbekanntes Parcel
     return { ok: true, status: 200, updated: false };
   }
@@ -232,7 +233,7 @@ export async function handleSendcloudWebhook(
     const incoming = Date.parse(parsed.timestamp);
     const previous = label.lastWebhookAt.getTime();
     if (Number.isFinite(incoming) && incoming < previous) {
-      console.log(`[SendcloudWebhook] ignore stale webhook for label=${label.id}`);
+      moduleLog.info(`[SendcloudWebhook] ignore stale webhook for label=${label.id}`);
       return { ok: true, status: 200, labelId: label.id, updated: false };
     }
   }
@@ -282,7 +283,7 @@ export async function handleSendcloudWebhook(
         );
       }
     } catch (e: any) {
-      console.warn(`[SendcloudWebhook] Shopware sync failed: ${e?.message || e}`);
+      moduleLog.warn(`[SendcloudWebhook] Shopware sync failed: ${e?.message || e}`);
     }
   }
 

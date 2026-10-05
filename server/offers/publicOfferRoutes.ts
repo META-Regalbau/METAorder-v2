@@ -15,6 +15,9 @@ import { resolveCpqGlbFromDisk, resolveCpqGlbPresentationPlaceholder } from "../
 import { applyOfferConfigPdfLayoutFromRequest, generateOfferConfigPdf } from "./offerConfigPdf";
 import { buildOfferConfigPdfInputWithCpqFallback } from "./offerConfigPdfCpqFallback";
 import { enrichOfferConfigPdfInputWithTexts } from "./offerConfigPdfTexts";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "offers/publicOfferRoutes" });
 
 function clientIp(req: Request): string {
   const xff = req.headers["x-forwarded-for"];
@@ -63,7 +66,7 @@ export function registerPublicOfferRoutes(app: Express): void {
         shareExpiresAt: link.expiresAt instanceof Date ? link.expiresAt.toISOString() : String(link.expiresAt),
       });
     } catch (error: any) {
-      console.error("[public offers GET]", error);
+      log.error({ err: error }, "[public offers GET]");
       res.status(500).json({ error: error.message || "Fehler beim Laden des Angebots." });
     }
   });
@@ -114,7 +117,7 @@ export function registerPublicOfferRoutes(app: Express): void {
 
       res.json({ success: true });
     } catch (error: any) {
-      console.error("[public offers accept]", error);
+      log.error({ err: error }, "[public offers accept]");
       res.status(500).json({ error: error.message || "Annahme fehlgeschlagen." });
     }
   });
@@ -169,7 +172,7 @@ export function registerPublicOfferRoutes(app: Express): void {
 
       res.json({ success: true });
     } catch (error: any) {
-      console.error("[public offers decline]", error);
+      log.error({ err: error }, "[public offers decline]");
       res.status(500).json({ error: error.message || "Ablehnung fehlgeschlagen." });
     }
   });
@@ -210,7 +213,7 @@ export function registerPublicOfferRoutes(app: Express): void {
       res.setHeader("Content-Disposition", 'attachment; filename="angebot.pdf"');
       res.send(pdfBuffer);
     } catch (error: any) {
-      console.error("[public offers pdf]", error);
+      log.error({ err: error }, "[public offers pdf]");
       res.status(400).json({ error: error.message || "PDF nicht verfügbar." });
     }
   });
@@ -278,7 +281,7 @@ export function registerPublicOfferRoutes(app: Express): void {
       );
       res.send(pdfBuffer);
     } catch (error: any) {
-      console.error("[public offers config-pdf]", error);
+      log.error({ err: error }, "[public offers config-pdf]");
       res.status(500).json({ error: error.message || "Konfigurations-PDF fehlgeschlagen." });
     }
   });
@@ -306,7 +309,7 @@ export function registerPublicOfferRoutes(app: Express): void {
       const result = resolveCpqGlbFromDisk(productNumber || undefined, manufacturerNumber || undefined);
       res.json(result);
     } catch (error: any) {
-      console.error("[public offers glb-resolve]", error);
+      log.error({ err: error }, "[public offers glb-resolve]");
       res.status(500).json({ error: error.message || "GLB-Auflösung fehlgeschlagen." });
     }
   });

@@ -7,6 +7,9 @@ import type { User } from "@shared/schema";
 import { verifyToken } from "./jwt";
 import { storage } from "../storage";
 import { runWithTenantContext } from "../lib/tenantContext";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "auth/auth" });
 
 export function isStrictTenantMode(): boolean {
   const v = process.env.METAORDER_STRICT_TENANT?.trim().toLowerCase();
@@ -32,28 +35,28 @@ export function setupAuth(storage: IStorage) {
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
-        console.log('[AUTH] Attempting login for username:', username);
+        moduleLog.info(`[AUTH] Attempting login for username: ${username}`);
         const user = await storage.getUserByUsername(username);
-        console.log('[AUTH] User found in database:', !!user, user ? `ID: ${user.id}` : 'null');
+        moduleLog.info(`[AUTH] User found in database: ${!!user} ${user ? `ID: ${user.id}` : 'null'}`);
         
         if (!user) {
-          console.log('[AUTH] No user found with username:', username);
+          moduleLog.info(`[AUTH] No user found with username: ${username}`);
           return done(null, false, { message: "Incorrect username or password" });
         }
 
-        console.log('[AUTH] Comparing password for user:', user.username);
+        moduleLog.info(`[AUTH] Comparing password for user: ${user.username}`);
         const isValidPassword = await bcrypt.compare(password, user.password);
-        console.log('[AUTH] Password valid:', isValidPassword);
+        moduleLog.info(`[AUTH] Password valid: ${isValidPassword}`);
         
         if (!isValidPassword) {
-          console.log('[AUTH] Password mismatch for user:', username);
+          moduleLog.info(`[AUTH] Password mismatch for user: ${username}`);
           return done(null, false, { message: "Incorrect username or password" });
         }
 
-        console.log('[AUTH] Login successful for user:', username);
+        moduleLog.info(`[AUTH] Login successful for user: ${username}`);
         return done(null, user);
       } catch (error) {
-        console.error('[AUTH] Error during authentication:', error);
+        moduleLog.error({ err: error }, "[AUTH] Error during authentication:");
         return done(error);
       }
     })
@@ -116,7 +119,7 @@ export function requireCsrf(req: any, res: any, next: any) {
   };
   
   if (!isOriginAllowed(origin as string | undefined)) {
-    console.warn(`[CSRF] Rejected request from origin: ${origin}`);
+    moduleLog.warn(`[CSRF] Rejected request from origin: ${origin}`);
     return res.status(403).json({ error: "Invalid origin" });
   }
   
@@ -260,7 +263,7 @@ export async function requireAuthOrIntegrationKey(req: any, res: any, next: any)
 
     return requireAuth(req, res, next);
   } catch (error) {
-    console.error("[requireAuthOrIntegrationKey] Error:", error);
+    moduleLog.error({ err: error }, "[requireAuthOrIntegrationKey] Error:");
     res.status(401).json({ error: "Authentication failed" });
   }
 }
@@ -296,7 +299,7 @@ export async function requireAuth(req: any, res: any, next: any) {
     }
     runWithTenantContext(req.tenantId, () => next());
   } catch (error) {
-    console.error("[requireAuth] Error:", error);
+    moduleLog.error({ err: error }, "[requireAuth] Error:");
     res.status(401).json({ error: "Authentication failed" });
   }
 }
@@ -324,7 +327,7 @@ export async function requireCpqHandoffToken(req: any, res: any, next: any) {
     };
     runWithTenantContext(payload.tenantId, () => next());
   } catch (error) {
-    console.error("[requireCpqHandoffToken] Error:", error);
+    moduleLog.error({ err: error }, "[requireCpqHandoffToken] Error:");
     res.status(401).json({ error: "Authentication failed" });
   }
 }
@@ -359,7 +362,7 @@ export async function requireTenant(req: any, res: any, next: any) {
     req.tenantId = resolvedTenantId;
     runWithTenantContext(resolvedTenantId, () => next());
   } catch (error) {
-    console.error("[requireTenant] Error:", error);
+    moduleLog.error({ err: error }, "[requireTenant] Error:");
     return res.status(500).json({ error: "Tenant selection failed" });
   }
 }

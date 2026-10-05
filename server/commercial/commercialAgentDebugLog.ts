@@ -1,4 +1,7 @@
 import fs from "fs/promises";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "commercial/commercialAgentDebugLog" });
 
 /**
  * Commercial-Agent / Intent-Debugging ohne Standard-Logs zu fluten.
@@ -71,11 +74,11 @@ export function logCommercialAgentDebug(
     ...body,
   }) as Record<string, unknown>;
   const line = JSON.stringify(payload);
-  console.log(`[CommercialAgent:debug] ${line}`);
+  moduleLog.info(`[CommercialAgent:debug] ${line}`);
   const path = DEBUG_FILE();
   if (path) {
     void fs.appendFile(path, `${line}\n`, "utf8").catch((err) =>
-      console.warn("[CommercialAgent:debug] append failed:", err)
+      moduleLog.warn({ err }, "[CommercialAgent:debug] append failed:")
     );
   }
 }

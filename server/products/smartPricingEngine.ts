@@ -2,6 +2,9 @@ import OpenAI from "openai";
 import { ShopwareClient } from "../shopware/shopware";
 import { getMirrorOrdersLikeLive } from "../routes/routeHelpers";
 import type { Product } from "@shared/schema";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "products/smartPricingEngine" });
 
 export interface PricingRecommendation {
   totalCatalogValue: number;
@@ -56,11 +59,11 @@ async function getCustomerAnalytics(
     // Find customer by email
     const customer = await shopwareClient.findCustomerByEmail(customerEmail);
     if (!customer) {
-      console.log(`[Smart Pricing] Customer not found: ${customerEmail}`);
+      moduleLog.info(`[Smart Pricing] Customer not found: ${customerEmail}`);
       return null;
     }
 
-    console.log(`[Smart Pricing] Fetching order history for customer: ${customerEmail}`);
+    moduleLog.info(`[Smart Pricing] Fetching order history for customer: ${customerEmail}`);
     
     // Bestellungen aus dem Bestell-Spiegel statt alle live aus Shopware
     const allOrders = await getMirrorOrdersLikeLive(shopwareClient, tenantId);
@@ -71,7 +74,7 @@ async function getCustomerAnalytics(
     );
 
     if (customerOrders.length === 0) {
-      console.log(`[Smart Pricing] No order history found for customer`);
+      moduleLog.info("[Smart Pricing] No order history found for customer");
       return {
         totalOrders: 0,
         lifetimeValue: 0,
@@ -96,7 +99,7 @@ async function getCustomerAnalytics(
     // Determine VIP status: >5 orders OR LTV > €5000
     const isVIP = totalOrders > 5 || lifetimeValue > 5000;
 
-    console.log(`[Smart Pricing] Customer analytics - Orders: ${totalOrders}, LTV: €${lifetimeValue.toFixed(2)}, VIP: ${isVIP}`);
+    moduleLog.info(`[Smart Pricing] Customer analytics - Orders: ${totalOrders}, LTV: €${lifetimeValue.toFixed(2)}, VIP: ${isVIP}`);
 
     return {
       totalOrders,
@@ -107,7 +110,7 @@ async function getCustomerAnalytics(
       isVIP,
     };
   } catch (error) {
-    console.error("[Smart Pricing] Error fetching customer analytics:", error);
+    moduleLog.error({ err: error }, "[Smart Pricing] Error fetching customer analytics:");
     return null;
   }
 }
@@ -149,7 +152,7 @@ export async function generateSmartPricing(
     try {
       customerAnalytics = await getCustomerAnalytics(shopwareClient, customerEmail, tenantId);
     } catch (error) {
-      console.warn("[Smart Pricing] Failed to fetch customer analytics:", error);
+      moduleLog.warn({ err: error }, "[Smart Pricing] Failed to fetch customer analytics:");
     }
   }
 
@@ -192,7 +195,7 @@ export async function generateSmartPricing(
       // Apply customer loyalty bonus if VIP
       if (customerAnalytics?.isVIP) {
         baseDiscount += 3; // Extra 3% for VIP customers
-        console.log(`[Smart Pricing] Applied VIP bonus: +3% for ${item.matchedProduct.name}`);
+        moduleLog.info(`[Smart Pricing] Applied VIP bonus: +3% for ${item.matchedProduct.name}`);
       }
 
       // AI-enhanced discount if OpenAI is available
@@ -213,7 +216,7 @@ export async function generateSmartPricing(
           finalDiscount = aiDiscount;
           suggestedPrice = catalogPrice * (1 - finalDiscount / 100);
         } catch (error) {
-          console.warn("[Smart Pricing] AI discount failed, using base discount:", error);
+          moduleLog.warn({ err: error }, "[Smart Pricing] AI discount failed, using base discount:");
         }
       }
 
@@ -277,7 +280,7 @@ export async function generateSmartPricing(
         customerAnalytics
       );
     } catch (error) {
-      console.warn("[Smart Pricing] AI reasoning failed:", error);
+      moduleLog.warn({ err: error }, "[Smart Pricing] AI reasoning failed:");
     }
   }
 

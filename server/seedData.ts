@@ -2,13 +2,16 @@ import bcrypt from "bcryptjs";
 import type { IStorage } from "./storage";
 import { mergeErpPermissions } from "./erp/erpLogic";
 import { isKnownInsecureDefault } from "./lib/secretGuard";
+import { logger } from "./lib/logger";
+
+const moduleLog = logger.child({ component: "seedData" });
 
 export async function seedDatabase(storage: IStorage) {
   try {
     const ensureTenant = async (name: string) => {
       const existing = await storage.getTenantByName(name);
       if (existing) return existing;
-      console.log(`Creating tenant: ${name}...`);
+      moduleLog.info(`Creating tenant: ${name}...`);
       return storage.createTenant({ name });
     };
 
@@ -48,12 +51,12 @@ export async function seedDatabase(storage: IStorage) {
         await storage.updateRole(role.id, {
           permissions: { ...role.permissions, ...merged } as any,
         });
-        console.log(`Role "${role.name}": ERP-Permissions ergänzt.`);
+        moduleLog.info(`Role "${role.name}": ERP-Permissions ergänzt.`);
       }
     }
     
     if (roles.length === 0) {
-      console.log("Seeding default roles...");
+      moduleLog.info("Seeding default roles...");
       
       const administratorRole = await storage.createRole({
         name: "Administrator",
@@ -251,13 +254,13 @@ export async function seedDatabase(storage: IStorage) {
         },
       });
       
-      console.log("Default roles created!");
+      moduleLog.info("Default roles created!");
       
       // Check if admin user already exists
       const existingAdmin = await storage.getUserByUsername("admin");
       
       if (!existingAdmin) {
-        console.log("Seeding initial users...");
+        moduleLog.info("Seeding initial users...");
         
         // Create admin user
         const adminPassword = await bcrypt.hash("admin123", 10);
@@ -297,16 +300,16 @@ export async function seedDatabase(storage: IStorage) {
           salesChannelIds: ["0193595640017e1ab0b5ae3313b4181c"],
         });
         
-        console.log("Database seeded successfully!");
-        console.log("Admin credentials: username=admin, password=admin123");
-        console.log("Employee credentials: username=austria/poland, password=employee123");
+        moduleLog.info("Database seeded successfully!");
+        moduleLog.info("Admin credentials: username=admin, password=admin123");
+        moduleLog.info("Employee credentials: username=austria/poland, password=employee123");
       }
     }
 
     // Seed process updates (internal FAQ/news) if none exist
     const existingProcessUpdates = await storage.getProcessUpdates();
     if (existingProcessUpdates.length === 0) {
-      console.log("Seeding process updates...");
+      moduleLog.info("Seeding process updates...");
       const allUsers = await storage.getAllUsers();
       const adminUser = allUsers.find((user) => user.username === "admin");
       const createdByUserId = adminUser?.id ?? null;
@@ -370,7 +373,7 @@ export async function seedDatabase(storage: IStorage) {
     let n8nServiceRole = allRoles.find(r => r.name === "N8N Service");
     
     if (!n8nServiceRole) {
-      console.log("Creating N8N Service role...");
+      moduleLog.info("Creating N8N Service role...");
       n8nServiceRole = await storage.createRole({
         name: "N8N Service",
         salesChannelIds: null, // Service accounts have no sales channel restrictions
@@ -419,7 +422,7 @@ export async function seedDatabase(storage: IStorage) {
           manageShippingLabels: false,
         },
       });
-      console.log("N8N Service role created!");
+      moduleLog.info("N8N Service role created!");
     } else {
       const p = n8nServiceRole.permissions as Record<string, boolean>;
       if (!p.manageOffers || !p.manageOrderDrafts || !p.viewOffers || !p.viewOrders) {
@@ -432,7 +435,7 @@ export async function seedDatabase(storage: IStorage) {
             manageOrderDrafts: true,
           },
         });
-        console.log("N8N Service role: Commercial-/Entwurfs-Rechte ergänzt.");
+        moduleLog.info("N8N Service role: Commercial-/Entwurfs-Rechte ergänzt.");
       }
     }
     
@@ -443,14 +446,12 @@ export async function seedDatabase(storage: IStorage) {
       try {
         const allowDevSecrets = (process.env.ALLOW_DEV_SECRETS || "").trim().toLowerCase() === "true";
         if (!process.env.N8N_SERVICE_PASSWORD) {
-          console.warn("WARNING: N8N_SERVICE_PASSWORD not set — skipping n8n-service account creation");
-          console.warn("Set N8N_SERVICE_PASSWORD to enable the n8n integration account");
+          moduleLog.warn("WARNING: N8N_SERVICE_PASSWORD not set — skipping n8n-service account creation");
+          moduleLog.warn("Set N8N_SERVICE_PASSWORD to enable the n8n integration account");
         } else if (isKnownInsecureDefault(process.env.N8N_SERVICE_PASSWORD) && !allowDevSecrets) {
-          console.warn(
-            "[SECURITY] N8N_SERVICE_PASSWORD ist auf einen bekannten, in docker-compose.yml öffentlich sichtbaren Default-Wert gesetzt — n8n-service-Konto wird NICHT angelegt. Eigenes Passwort setzen (oder ALLOW_DEV_SECRETS=true für lokale Entwicklung)."
-          );
+          moduleLog.warn("[SECURITY] N8N_SERVICE_PASSWORD ist auf einen bekannten, in docker-compose.yml öffentlich sichtbaren Default-Wert gesetzt — n8n-service-Konto wird NICHT angelegt. Eigenes Passwort setzen (oder ALLOW_DEV_SECRETS=true für lokale Entwicklung).");
         } else {
-          console.log("Creating n8n-service user...");
+          moduleLog.info("Creating n8n-service user...");
           const hashedPassword = await bcrypt.hash(process.env.N8N_SERVICE_PASSWORD, 10);
 
           const n8nUser = await storage.createUser({
@@ -464,10 +465,10 @@ export async function seedDatabase(storage: IStorage) {
             salesChannelIds: null,
           });
 
-          console.log("n8n-service user created successfully!");
+          moduleLog.info("n8n-service user created successfully!");
         }
       } catch (n8nError) {
-        console.error("Error creating n8n-service account (non-fatal):", n8nError);
+        moduleLog.error({ err: n8nError }, "Error creating n8n-service account (non-fatal):");
       }
     }
 
@@ -506,6 +507,6 @@ export async function seedDatabase(storage: IStorage) {
       }
     }
   } catch (error) {
-    console.error("Error seeding database:", error);
+    moduleLog.error({ err: error }, "Error seeding database:");
   }
 }

@@ -30,6 +30,9 @@ import { fetchCustomerBoundSalesChannelId, resolveOfferSalesChannelId } from "..
 import { hasEnabledSftpServers } from "../sftp/sftpUpload";
 import { listDraftAttachmentsForApi, sendDraftAttachmentFile, parseDraftAttachmentExportUpdate, applyDraftAttachmentExportUpdate } from "../commercial/draftAttachmentRoutes";
 import { productCache } from "../products/productCache";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "routes/draftRoutes" });
 
 
 function parseUploadIntentHint(raw: unknown): "offer" | "order" | "unclear" | undefined {
@@ -128,7 +131,7 @@ export function registerDraftRoutes(app: Express): void {
         });
         res.json({ success: true, result });
       } catch (error: any) {
-        console.error("Commercial agent process error:", error);
+        moduleLog.error({ err: error }, "Commercial agent process error:");
         res.status(500).json({ error: error.message || "Commercial Agent Verarbeitung fehlgeschlagen" });
       }
     }
@@ -147,7 +150,7 @@ export function registerDraftRoutes(app: Express): void {
         const total = await storage.countCommercialAgentExemplars(tenantId);
         res.json({ total });
       } catch (error: any) {
-        console.error("Commercial agent learning stats error:", error);
+        moduleLog.error({ err: error }, "Commercial agent learning stats error:");
         res.status(500).json({ error: error.message || "Fehler" });
       }
     }
@@ -214,7 +217,7 @@ export function registerDraftRoutes(app: Express): void {
 
         res.json({ success: true });
       } catch (error: any) {
-        console.error("Commercial agent learning feedback error:", error);
+        moduleLog.error({ err: error }, "Commercial agent learning feedback error:");
         if (error.name === "ZodError") {
           return res.status(400).json({ error: error.errors });
         }
@@ -596,7 +599,7 @@ export function registerDraftRoutes(app: Express): void {
           strictAutoCreate: strictAutoCreateOffer,
         });
       } catch (error: any) {
-        console.error("[Commercial draft upload]", error);
+        moduleLog.error({ err: error }, "[Commercial draft upload]");
         if (req.file) {
           try {
             await fs.unlink(req.file.path);
@@ -695,7 +698,7 @@ export function registerDraftRoutes(app: Express): void {
           traceId: `order-draft-upload-${Date.now()}`,
         });
 
-        console.log(`[Order Draft] Pipeline for ${file.originalname} (${aiSettings.mode})...`);
+        moduleLog.info(`[Order Draft] Pipeline for ${file.originalname} (${aiSettings.mode})...`);
         const { draft: orderDraft, timings } = await runOrderDraftPipeline({
           storage,
           tenantId: req.tenantId ?? null,
@@ -711,18 +714,18 @@ export function registerDraftRoutes(app: Express): void {
           },
         });
 
-        console.log(`[Order Draft] Created draft ${orderDraft.id} with status: ${orderDraft.status}`);
-        console.log("[Order Draft] Timings (ms):", timings);
+        moduleLog.info(`[Order Draft] Created draft ${orderDraft.id} with status: ${orderDraft.status}`);
+        moduleLog.info({ timings }, "[Order Draft] Timings (ms):");
         res.json(orderDraft);
       } catch (error: any) {
-        console.error("Error uploading order draft:", error);
+        moduleLog.error({ err: error }, "Error uploading order draft:");
         
         // Clean up uploaded file on error
         if (req.file) {
           try {
             await fs.unlink(req.file.path);
           } catch (unlinkError) {
-            console.error("Error deleting file:", unlinkError);
+            moduleLog.error({ err: unlinkError }, "Error deleting file:");
           }
         }
         
@@ -739,7 +742,7 @@ export function registerDraftRoutes(app: Express): void {
       const orderDrafts = await storage.getAllOrderDrafts();
       res.json(orderDrafts);
     } catch (error) {
-      console.error("Error fetching order drafts:", error);
+      moduleLog.error({ err: error }, "Error fetching order drafts:");
       res.status(500).json({ error: "Failed to fetch order drafts" });
     }
   });
@@ -760,7 +763,7 @@ export function registerDraftRoutes(app: Express): void {
       const customers = await client.searchCustomers(q, limit);
       res.json({ customers });
     } catch (error: any) {
-      console.error("Error searching customers for order draft:", error);
+      moduleLog.error({ err: error }, "Error searching customers for order draft:");
       res.status(500).json({ error: error.message ?? "Kundensuche fehlgeschlagen" });
     }
   });
@@ -843,13 +846,13 @@ export function registerDraftRoutes(app: Express): void {
                     });
                   }
                 } catch (productError) {
-                  console.warn(`[Cross-Selling] Failed to fetch suggestions for product ${item.matchedProduct.id}:`, productError);
+                  moduleLog.warn({ err: productError }, `[Cross-Selling] Failed to fetch suggestions for product ${item.matchedProduct.id}:`);
                 }
               }
             }
           }
         } catch (crossSellingError) {
-          console.warn("[Cross-Selling] Failed to generate suggestions:", crossSellingError);
+          moduleLog.warn({ err: crossSellingError }, "[Cross-Selling] Failed to generate suggestions:");
         }
       }
       
@@ -859,7 +862,7 @@ export function registerDraftRoutes(app: Express): void {
         crossSellingSuggestions,
       });
     } catch (error) {
-      console.error("Error fetching order draft:", error);
+      moduleLog.error({ err: error }, "Error fetching order draft:");
       res.status(500).json({ error: "Failed to fetch order draft" });
     }
   });
@@ -882,7 +885,7 @@ export function registerDraftRoutes(app: Express): void {
         });
         res.json(payload);
       } catch (error: any) {
-        console.error("Error building order draft clarification email:", error);
+        moduleLog.error({ err: error }, "Error building order draft clarification email:");
         res.status(500).json({ error: error.message ?? "Failed to build clarification email" });
       }
     }
@@ -946,12 +949,12 @@ export function registerDraftRoutes(app: Express): void {
           await storage.createCommercialProductMatchFeedback(learningRows, req.tenantId ?? null);
         }
       } catch (learningError) {
-        console.warn("[Commercial product learning] order patch feedback failed:", learningError);
+        moduleLog.warn({ err: learningError }, "[Commercial product learning] order patch feedback failed:");
       }
       
       res.json(updatedDraft);
     } catch (error: any) {
-      console.error("Error updating order draft:", error);
+      moduleLog.error({ err: error }, "Error updating order draft:");
       if (error.name === 'ZodError') {
         return res.status(400).json({ error: "Invalid update data", details: error.errors });
       }
@@ -1017,7 +1020,7 @@ export function registerDraftRoutes(app: Express): void {
         }
         res.json(updatedDraft);
       } catch (error: any) {
-        console.error("Error creating Shopware customer from order draft:", error);
+        moduleLog.error({ err: error }, "Error creating Shopware customer from order draft:");
         res.status(500).json({ error: error.message || "Anlage fehlgeschlagen" });
       }
     }
@@ -1083,7 +1086,7 @@ export function registerDraftRoutes(app: Express): void {
       
       res.json(updatedDraft);
     } catch (error: any) {
-      console.error("Error adding product to draft:", error);
+      moduleLog.error({ err: error }, "Error adding product to draft:");
       res.status(500).json({ error: "Failed to add product to draft" });
     }
   });
@@ -1162,7 +1165,7 @@ export function registerDraftRoutes(app: Express): void {
       
       res.json(updatedDraft);
     } catch (error: any) {
-      console.error("Error adding bundle to order draft:", error);
+      moduleLog.error({ err: error }, "Error adding bundle to order draft:");
       res.status(500).json({ error: "Failed to add bundle to draft" });
     }
   });
@@ -1181,7 +1184,7 @@ export function registerDraftRoutes(app: Express): void {
       }
       res.json({ draft: result.draft, summary: result.summary });
     } catch (error: any) {
-      console.error("Error rechecking order draft:", error);
+      moduleLog.error({ err: error }, "Error rechecking order draft:");
       res.status(500).json({ error: error?.message || "Erneute Prüfung fehlgeschlagen" });
     }
   });
@@ -1235,7 +1238,7 @@ export function registerDraftRoutes(app: Express): void {
           await storage.createCommercialProductMatchFeedback(learningRows, req.tenantId ?? null);
         }
       } catch (learningError) {
-        console.warn("[Commercial product learning] order create feedback failed:", learningError);
+        moduleLog.warn({ err: learningError }, "[Commercial product learning] order create feedback failed:");
       }
       res.json({
         message: "Order created successfully",
@@ -1243,7 +1246,7 @@ export function registerDraftRoutes(app: Express): void {
         order: { id: result.orderId },
       });
     } catch (error: any) {
-      console.error("Error creating order from draft:", error);
+      moduleLog.error({ err: error }, "Error creating order from draft:");
       res.status(500).json({
         error: error.message || "Failed to create order from draft",
       });
@@ -1274,7 +1277,7 @@ export function registerDraftRoutes(app: Express): void {
         attachments: listDraftAttachmentsForApi(draft.attachments),
       });
     } catch (error) {
-      console.error("Error listing order draft attachments:", error);
+      moduleLog.error({ err: error }, "Error listing order draft attachments:");
       res.status(500).json({ error: "Failed to list attachments" });
     }
   });
@@ -1285,7 +1288,7 @@ export function registerDraftRoutes(app: Express): void {
       if (!draft) return res.status(404).json({ error: "Order draft not found" });
       await sendDraftAttachmentFile(res, draft.attachments, req.params.attachmentId);
     } catch (error) {
-      console.error("Error sending order draft attachment:", error);
+      moduleLog.error({ err: error }, "Error sending order draft attachment:");
       if (!res.headersSent) res.status(500).json({ error: "Failed to send attachment" });
     }
   });
@@ -1302,7 +1305,7 @@ export function registerDraftRoutes(app: Express): void {
       const saved = await storage.updateOrderDraft(draft.id, { attachments: next }, req.tenantId ?? null);
       res.json({ attachments: listDraftAttachmentsForApi(saved?.attachments ?? next) });
     } catch (error) {
-      console.error("Error updating order draft attachment:", error);
+      moduleLog.error({ err: error }, "Error updating order draft attachment:");
       res.status(500).json({ error: "Failed to update attachment" });
     }
   });
@@ -1323,7 +1326,7 @@ export function registerDraftRoutes(app: Express): void {
         try {
           await fs.unlink(draft.originalFilePath);
         } catch (error) {
-          console.error("Error deleting file:", error);
+          moduleLog.error({ err: error }, "Error deleting file:");
           // Continue with draft deletion even if file deletion fails
         }
       }
@@ -1337,7 +1340,7 @@ export function registerDraftRoutes(app: Express): void {
       
       res.json({ message: "Order draft deleted successfully" });
     } catch (error) {
-      console.error("Error deleting order draft:", error);
+      moduleLog.error({ err: error }, "Error deleting order draft:");
       res.status(500).json({ error: "Failed to delete order draft" });
     }
   });
@@ -1426,7 +1429,7 @@ export function registerDraftRoutes(app: Express): void {
           traceId: `offer-draft-upload-${Date.now()}`,
         });
 
-        console.log(`[Offer Draft] Pipeline for ${file.originalname} (${aiSettings.mode})...`);
+        moduleLog.info(`[Offer Draft] Pipeline for ${file.originalname} (${aiSettings.mode})...`);
         const { draft: offerDraft, timings } = await runOfferDraftPipeline({
           storage,
           tenantId: req.tenantId ?? null,
@@ -1442,18 +1445,18 @@ export function registerDraftRoutes(app: Express): void {
           },
         });
 
-        console.log(`[Offer Draft] Created draft ${offerDraft.id} with status: ${offerDraft.status}`);
-        console.log("[Offer Draft] Timings (ms):", timings);
+        moduleLog.info(`[Offer Draft] Created draft ${offerDraft.id} with status: ${offerDraft.status}`);
+        moduleLog.info({ timings }, "[Offer Draft] Timings (ms):");
         res.json(offerDraft);
       } catch (error: any) {
-        console.error("Error uploading offer draft:", error);
+        moduleLog.error({ err: error }, "Error uploading offer draft:");
         
         // Clean up uploaded file on error
         if (req.file) {
           try {
             await fs.unlink(req.file.path);
           } catch (unlinkError) {
-            console.error("Error deleting file:", unlinkError);
+            moduleLog.error({ err: unlinkError }, "Error deleting file:");
           }
         }
         
@@ -1577,7 +1580,7 @@ export function registerDraftRoutes(app: Express): void {
 
       res.json(offerDraft);
     } catch (error: any) {
-      console.error("Error creating offer draft from CPQ:", error);
+      moduleLog.error({ err: error }, "Error creating offer draft from CPQ:");
       res.status(500).json({ error: error.message ?? "Fehler beim Erstellen des Angebotsentwurfs" });
     }
   });
@@ -1595,7 +1598,7 @@ export function registerDraftRoutes(app: Express): void {
       const offerDrafts = await storage.getAllOfferDrafts(req.tenantId ?? null, statuses);
       res.json(offerDrafts);
     } catch (error) {
-      console.error("Error fetching offer drafts:", error);
+      moduleLog.error({ err: error }, "Error fetching offer drafts:");
       res.status(500).json({ error: "Failed to fetch offer drafts" });
     }
   });
@@ -1616,7 +1619,7 @@ export function registerDraftRoutes(app: Express): void {
       const customers = await client.searchCustomers(q, limit);
       res.json({ customers });
     } catch (error: any) {
-      console.error("Error searching customers for offer draft:", error);
+      moduleLog.error({ err: error }, "Error searching customers for offer draft:");
       res.status(500).json({ error: error.message ?? "Kundensuche fehlgeschlagen" });
     }
   });
@@ -1703,7 +1706,7 @@ export function registerDraftRoutes(app: Express): void {
                     })),
                   };
                 } catch (productError) {
-                  console.warn(`[Cross-Selling] Failed to fetch suggestions for product ${item.matchedProduct!.id}:`, productError);
+                  moduleLog.warn({ err: productError }, `[Cross-Selling] Failed to fetch suggestions for product ${item.matchedProduct!.id}:`);
                   return null;
                 }
               }),
@@ -1711,7 +1714,7 @@ export function registerDraftRoutes(app: Express): void {
             crossSellingSuggestions = suggestionResults.filter((s): s is NonNullable<typeof s> => s !== null);
           }
         } catch (crossSellingError) {
-          console.warn("[Cross-Selling] Failed to generate suggestions:", crossSellingError);
+          moduleLog.warn({ err: crossSellingError }, "[Cross-Selling] Failed to generate suggestions:");
         }
       }
       
@@ -1721,7 +1724,7 @@ export function registerDraftRoutes(app: Express): void {
         crossSellingSuggestions,
       });
     } catch (error) {
-      console.error("Error fetching offer draft:", error);
+      moduleLog.error({ err: error }, "Error fetching offer draft:");
       res.status(500).json({ error: "Failed to fetch offer draft" });
     }
   });
@@ -1740,7 +1743,7 @@ export function registerDraftRoutes(app: Express): void {
       });
       res.json(payload);
     } catch (error: any) {
-      console.error("Error building offer draft clarification email:", error);
+      moduleLog.error({ err: error }, "Error building offer draft clarification email:");
       res.status(500).json({ error: error.message ?? "Failed to build clarification email" });
     }
   });
@@ -1799,12 +1802,12 @@ export function registerDraftRoutes(app: Express): void {
           await storage.createCommercialProductMatchFeedback(learningRows, req.tenantId ?? null);
         }
       } catch (learningError) {
-        console.warn("[Commercial product learning] offer patch feedback failed:", learningError);
+        moduleLog.warn({ err: learningError }, "[Commercial product learning] offer patch feedback failed:");
       }
       
       res.json(updatedDraft);
     } catch (error: any) {
-      console.error("Error updating offer draft:", error);
+      moduleLog.error({ err: error }, "Error updating offer draft:");
       if (error.name === 'ZodError') {
         return res.status(400).json({ error: "Invalid update data", details: error.errors });
       }
@@ -1870,7 +1873,7 @@ export function registerDraftRoutes(app: Express): void {
         }
         res.json(updatedDraft);
       } catch (error: any) {
-        console.error("Error creating Shopware customer from offer draft:", error);
+        moduleLog.error({ err: error }, "Error creating Shopware customer from offer draft:");
         res.status(500).json({ error: error.message || "Anlage fehlgeschlagen" });
       }
     }
@@ -1906,7 +1909,7 @@ export function registerDraftRoutes(app: Express): void {
       }
       res.send(pdfBuffer);
     } catch (error: any) {
-      console.error("Error generating offer draft PDF:", error);
+      moduleLog.error({ err: error }, "Error generating offer draft PDF:");
       res.status(500).json({ error: error.message || "Failed to generate PDF" });
     }
   });
@@ -1975,7 +1978,7 @@ export function registerDraftRoutes(app: Express): void {
       
       res.json(updatedDraft);
     } catch (error: any) {
-      console.error("Error adding product to offer draft:", error);
+      moduleLog.error({ err: error }, "Error adding product to offer draft:");
       res.status(500).json({ error: "Failed to add product to draft" });
     }
   });
@@ -2059,7 +2062,7 @@ export function registerDraftRoutes(app: Express): void {
       
       res.json(updatedDraft);
     } catch (error: any) {
-      console.error("Error adding bundle to offer draft:", error);
+      moduleLog.error({ err: error }, "Error adding bundle to offer draft:");
       res.status(500).json({ error: "Failed to add bundle to draft" });
     }
   });
@@ -2076,7 +2079,7 @@ export function registerDraftRoutes(app: Express): void {
         attachments: listDraftAttachmentsForApi(draft.attachments),
       });
     } catch (error) {
-      console.error("Error listing offer draft attachments:", error);
+      moduleLog.error({ err: error }, "Error listing offer draft attachments:");
       res.status(500).json({ error: "Failed to list attachments" });
     }
   });
@@ -2087,7 +2090,7 @@ export function registerDraftRoutes(app: Express): void {
       if (!draft) return res.status(404).json({ error: "Offer draft not found" });
       await sendDraftAttachmentFile(res, draft.attachments, req.params.attachmentId);
     } catch (error) {
-      console.error("Error sending offer draft attachment:", error);
+      moduleLog.error({ err: error }, "Error sending offer draft attachment:");
       if (!res.headersSent) res.status(500).json({ error: "Failed to send attachment" });
     }
   });
@@ -2103,7 +2106,7 @@ export function registerDraftRoutes(app: Express): void {
       const saved = await storage.updateOfferDraft(draft.id, { attachments: next }, req.tenantId ?? null);
       res.json({ attachments: listDraftAttachmentsForApi(saved?.attachments ?? next) });
     } catch (error) {
-      console.error("Error updating offer draft attachment:", error);
+      moduleLog.error({ err: error }, "Error updating offer draft attachment:");
       res.status(500).json({ error: "Failed to update attachment" });
     }
   });
@@ -2123,7 +2126,7 @@ export function registerDraftRoutes(app: Express): void {
         try {
           await fs.unlink(draft.originalFilePath);
         } catch (error) {
-          console.error("Error deleting file:", error);
+          moduleLog.error({ err: error }, "Error deleting file:");
           // Continue with draft deletion even if file deletion fails
         }
       }
@@ -2137,7 +2140,7 @@ export function registerDraftRoutes(app: Express): void {
       
       res.json({ message: "Offer draft deleted successfully" });
     } catch (error) {
-      console.error("Error deleting offer draft:", error);
+      moduleLog.error({ err: error }, "Error deleting offer draft:");
       res.status(500).json({ error: "Failed to delete offer draft" });
     }
   });
@@ -2192,7 +2195,7 @@ export function registerDraftRoutes(app: Express): void {
           await storage.createCommercialProductMatchFeedback(learningRows, req.tenantId ?? null);
         }
       } catch (learningError) {
-        console.warn("[Commercial product learning] offer create feedback failed:", learningError);
+        moduleLog.warn({ err: learningError }, "[Commercial product learning] offer create feedback failed:");
       }
       res.json({
         message: "Angebot in B2B-Sellers-Suite erstellt.",
@@ -2200,7 +2203,7 @@ export function registerDraftRoutes(app: Express): void {
         draft: result.draft,
       });
     } catch (error: any) {
-      console.error("Error creating offer from draft:", error);
+      moduleLog.error({ err: error }, "Error creating offer from draft:");
       res.status(500).json({
         error: error.message || "Failed to create offer from draft",
       });

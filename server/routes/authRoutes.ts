@@ -9,6 +9,9 @@ import { z } from "zod";
 import rateLimit from "express-rate-limit";
 import type { Express } from "express";
 import { getAppVersion } from "../lib/appVersion";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "routes/authRoutes" });
 
 
 // Rate limiter for login endpoint - prevents brute force attacks
@@ -42,20 +45,20 @@ export function registerAuthRoutes(app: Express): void {
 
   // Authentication routes
   app.post("/api/auth/login", loginRateLimiter, (req, res, next) => {
-    console.log('[LOGIN] Login request received', { username: req.body?.username });
+    moduleLog.info({ username: req.body?.username }, "[LOGIN] Login request received");
     passport.authenticate("local", (err: any, user: any, info: any) => {
-      console.log('[LOGIN] Passport authenticate callback', { err: !!err, user: !!user, info });
+      moduleLog.info({ details: { err: !!err, user: !!user, info } }, "[LOGIN] Passport authenticate callback");
       if (err) {
-        console.error('[LOGIN] Authentication error:', err);
+        moduleLog.error({ err }, "[LOGIN] Authentication error:");
         return res.status(500).json({ error: "Internal server error" });
       }
       
       if (!user) {
-        console.log('[LOGIN] No user found, invalid credentials');
+        moduleLog.info("[LOGIN] No user found, invalid credentials");
         return res.status(401).json({ error: info?.message || "Invalid credentials" });
       }
       
-      console.log('[LOGIN] User authenticated successfully, generating tokens');
+      moduleLog.info("[LOGIN] User authenticated successfully, generating tokens");
       // Generate JWT token
       const token = generateToken(user);
       
@@ -131,14 +134,14 @@ export function registerAuthRoutes(app: Express): void {
         return denied();
       }
       if (!configuredKey) {
-        console.warn("[EMERGENCY-RESET] Versuch, aber ADMIN_RESET_KEY ist nicht gesetzt");
+        moduleLog.warn("[EMERGENCY-RESET] Versuch, aber ADMIN_RESET_KEY ist nicht gesetzt");
         return denied();
       }
       // Timing-sicherer Vergleich über SHA-256 (gleiche Länge unabhängig von der Eingabe)
       const providedHash = crypto.createHash("sha256").update(resetKey, "utf8").digest();
       const configuredHash = crypto.createHash("sha256").update(configuredKey, "utf8").digest();
       if (!crypto.timingSafeEqual(providedHash, configuredHash)) {
-        console.warn(`[EMERGENCY-RESET] Ungültiger Reset-Schlüssel (username=${username})`);
+        moduleLog.warn(`[EMERGENCY-RESET] Ungültiger Reset-Schlüssel (username=${username})`);
         return denied();
       }
       if (newPassword.length < 8) {
@@ -151,10 +154,10 @@ export function registerAuthRoutes(app: Express): void {
       }
       const hashedPassword = await bcrypt.hash(newPassword, 10);
       await storage.updateUser(user.id, { password: hashedPassword });
-      console.log(`[EMERGENCY-RESET] Passwort für "${user.username}" wurde zurückgesetzt`);
+      moduleLog.info(`[EMERGENCY-RESET] Passwort für "${user.username}" wurde zurückgesetzt`);
       return res.json({ message: "Passwort zurückgesetzt" });
     } catch (error) {
-      console.error("[EMERGENCY-RESET] Error:", error);
+      moduleLog.error({ err: error }, "[EMERGENCY-RESET] Error:");
       return res.status(500).json({ error: "Reset fehlgeschlagen" });
     }
   });
@@ -211,7 +214,7 @@ export function registerAuthRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
-      console.error("Error updating profile:", error);
+      moduleLog.error({ err: error }, "Error updating profile:");
       res.status(500).json({ error: "Failed to update profile" });
     }
   });
@@ -252,7 +255,7 @@ export function registerAuthRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
-      console.error("Error updating password:", error);
+      moduleLog.error({ err: error }, "Error updating password:");
       res.status(500).json({ error: "Failed to update password" });
     }
   });

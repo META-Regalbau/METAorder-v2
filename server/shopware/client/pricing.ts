@@ -4,6 +4,9 @@ import type { ShopwareCustomerPrice, ProductCrmSellingContext, EnrichedShopwareC
 import { toShopwareUuid, dedupeCustomerSpecificPrices, herstellpreisLookupKeyCache, HERSTELLPREIS_LOOKUP_TTL_MS, herstellpreisLookupInflight, parseProductAdvancedPrices } from "./mapping";
 import { extractDiscountPercentFromCustomFields, parseDiscountPercentValue, productIdLookupKeys, parseShopwarePriceCollectionNet, computeDiscountPercentFromPurchaseBase } from "../../products/pricingUtils";
 import { getHerstellpreisLookupKey } from "../../products/productIdentifiers";
+import { logger } from "../../lib/logger";
+
+const log = logger.child({ component: "shopware/client/pricing" });
 
 /**
  * Kundenpreise mit updatedAt >= since (falls Feld existiert), sonst Vollseite.
@@ -49,7 +52,7 @@ export async function fetchCustomerPriceStats(this: ShopwareClient): Promise<{
         }),
       });
     } catch (error: any) {
-      console.error(`[B2B] fetchCustomerPriceStats error (${entity}):`, error?.message || error);
+      log.error({ err: error }, `[B2B] fetchCustomerPriceStats error (${entity}):`);
       continue;
     }
 
@@ -127,7 +130,7 @@ export async function fetchCustomerPricesChangedSince(
         body: JSON.stringify({ ...criteriaBase, filter }),
       });
     } catch (error: any) {
-      console.error(`[B2B] fetchCustomerPricesChangedSince error (${entity}):`, error?.message || error);
+      log.error({ err: error }, `[B2B] fetchCustomerPricesChangedSince error (${entity}):`);
       continue;
     }
 
@@ -151,7 +154,7 @@ export async function fetchCustomerPricesChangedSince(
 
     if (!response.ok) {
       const errText = await response.text().catch(() => "");
-      console.warn(`[B2B] fetchCustomerPricesChangedSince ${response.status} (${entity}): ${errText}`);
+      log.warn(`[B2B] fetchCustomerPricesChangedSince ${response.status} (${entity}): ${errText}`);
       continue;
     }
 
@@ -285,7 +288,7 @@ export async function fetchCustomerSpecificPrices(this: ShopwareClient, opts: {
         body: JSON.stringify(criteria),
       });
     } catch (error: any) {
-      console.error(`[B2B] fetchCustomerSpecificPrices request error (${entity}):`, error?.message || error);
+      log.error({ err: error }, `[B2B] fetchCustomerSpecificPrices request error (${entity}):`);
       continue;
     }
 
@@ -294,7 +297,7 @@ export async function fetchCustomerSpecificPrices(this: ShopwareClient, opts: {
 
     if (!response.ok) {
       const errText = await response.text().catch(() => "");
-      console.warn(`[B2B] fetchCustomerSpecificPrices ${response.status} (${entity}): ${errText}`);
+      log.warn(`[B2B] fetchCustomerSpecificPrices ${response.status} (${entity}): ${errText}`);
       continue;
     }
 
@@ -443,7 +446,7 @@ export async function fetchCustomerB2BStandardDiscount(this: ShopwareClient, cus
       if (fromCustomFields != null) return fromCustomFields;
     }
   } catch (error: any) {
-    console.warn("[B2B] fetchCustomerB2BStandardDiscount customer:", error?.message || error);
+    log.warn({ err: error }, "[B2B] fetchCustomerB2BStandardDiscount customer:");
   }
 
   const entityCandidates = [
@@ -526,7 +529,7 @@ export async function fetchProductListAndCatalogNetPrices(
         });
       }
     } catch (error: any) {
-      console.warn("[Shopware] fetchProductListAndCatalogNetPrices:", error?.message || error);
+      log.warn({ err: error }, "[Shopware] fetchProductListAndCatalogNetPrices:");
     }
   }
 
@@ -643,7 +646,7 @@ export async function fillHerstellpreisLookupKeys(
         if (!returnedIds.has(id) && !bucket.byId.has(id)) bucket.byId.set(id, "");
       }
     } catch (error: any) {
-      console.warn("[Shopware] fetchProductHerstellpreisLookupKeys:", error?.message || error);
+      log.warn({ err: error }, "[Shopware] fetchProductHerstellpreisLookupKeys:");
     }
   };
 
@@ -711,7 +714,7 @@ export async function fetchProductCrmSellingContext(this: ShopwareClient, produc
         });
       }
     } catch (error: any) {
-      console.warn("[Shopware] fetchProductCrmSellingContext:", error?.message || error);
+      log.warn({ err: error }, "[Shopware] fetchProductCrmSellingContext:");
     }
   }
 
@@ -843,7 +846,7 @@ export async function resolveCurrencyId(this: ShopwareClient, isoCode: string): 
       return id;
     }
   } catch (error: any) {
-    console.warn(`[Shopware] resolveCurrencyId(${iso}):`, error?.message || error);
+    log.warn({ err: error }, `[Shopware] resolveCurrencyId(${iso}):`);
   }
   return null;
 }
@@ -939,14 +942,14 @@ export async function fetchIndividualPriceCustomerIndex(this: ShopwareClient): P
         }),
       });
     } catch (error: any) {
-      console.error(`[B2B] fetchIndividualPriceCustomerIndex request error (${entity}):`, error?.message || error);
+      log.error({ err: error }, `[B2B] fetchIndividualPriceCustomerIndex request error (${entity}):`);
       continue;
     }
 
     if (response.status === 404) continue;
     if (!response.ok) {
       const errText = await response.text().catch(() => "");
-      console.warn(`[B2B] fetchIndividualPriceCustomerIndex ${response.status} (${entity}): ${errText}`);
+      log.warn(`[B2B] fetchIndividualPriceCustomerIndex ${response.status} (${entity}): ${errText}`);
       continue;
     }
 
@@ -1023,7 +1026,7 @@ export async function fetchIndividualPriceCustomerIndex(this: ShopwareClient): P
           });
         }
       } catch (error: any) {
-        console.warn("[B2B] fetchIndividualPriceCustomerIndex email resolve error:", error?.message || error);
+        log.warn({ err: error }, "[B2B] fetchIndividualPriceCustomerIndex email resolve error:");
       }
     }
 
@@ -1080,14 +1083,14 @@ export async function fetchIndividualPriceDiagnostics(this: ShopwareClient): Pro
         }),
       });
     } catch (error: any) {
-      console.error(`[B2B] fetchIndividualPriceDiagnostics request error (${entity}):`, error?.message || error);
+      log.error({ err: error }, `[B2B] fetchIndividualPriceDiagnostics request error (${entity}):`);
       continue;
     }
 
     if (response.status === 404) continue;
     if (!response.ok) {
       const errText = await response.text().catch(() => "");
-      console.warn(`[B2B] fetchIndividualPriceDiagnostics ${response.status} (${entity}): ${errText}`);
+      log.warn(`[B2B] fetchIndividualPriceDiagnostics ${response.status} (${entity}): ${errText}`);
       continue;
     }
 
@@ -1120,7 +1123,7 @@ export async function fetchIndividualPriceDiagnostics(this: ShopwareClient): Pro
         rowsWithoutCustomerId = nullData?.total ?? nullData?.meta?.total ?? 0;
       }
     } catch (error: any) {
-      console.warn(`[B2B] fetchIndividualPriceDiagnostics null-count error (${entity}):`, error?.message || error);
+      log.warn({ err: error }, `[B2B] fetchIndividualPriceDiagnostics null-count error (${entity}):`);
     }
 
     return {

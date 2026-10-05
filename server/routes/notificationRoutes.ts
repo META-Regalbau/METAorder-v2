@@ -5,6 +5,9 @@ import { storage } from "../storage";
 import { getVapidPublicKey } from "../lib/notifications";
 import { z } from "zod";
 import { notificationEvents } from "../lib/events";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "routes/notificationRoutes" });
 
 export function registerNotificationRoutes(app: Express): void {
   // ============================================
@@ -20,7 +23,7 @@ export function registerNotificationRoutes(app: Express): void {
       const notifications = await storage.getNotificationsByUserId(userId, limit);
       res.json(notifications);
     } catch (error) {
-      console.error("Error fetching notifications:", error);
+      log.error({ err: error }, "Error fetching notifications:");
       res.status(500).json({ error: "Failed to fetch notifications" });
     }
   });
@@ -32,7 +35,7 @@ export function registerNotificationRoutes(app: Express): void {
       const count = await storage.getUnreadNotificationCount(userId);
       res.json({ count });
     } catch (error) {
-      console.error("Error fetching unread count:", error);
+      log.error({ err: error }, "Error fetching unread count:");
       res.status(500).json({ error: "Failed to fetch unread count" });
     }
   });
@@ -49,7 +52,7 @@ export function registerNotificationRoutes(app: Express): void {
         publicKey,
       });
     } catch (error) {
-      console.error("Error fetching push settings:", error);
+      log.error({ err: error }, "Error fetching push settings:");
       res.status(500).json({ error: "Failed to fetch push settings" });
     }
   });
@@ -71,7 +74,7 @@ export function registerNotificationRoutes(app: Express): void {
       });
       res.json({ enabled: Boolean(updated?.pushEnabled) });
     } catch (error: any) {
-      console.error("Error saving push settings:", error);
+      log.error({ err: error }, "Error saving push settings:");
       res.status(500).json({ error: error.message || "Failed to save push settings" });
     }
   });
@@ -82,7 +85,7 @@ export function registerNotificationRoutes(app: Express): void {
       await storage.updateUser(userId, { pushEnabled: false, pushSubscription: null });
       res.json({ enabled: false });
     } catch (error) {
-      console.error("Error disabling push settings:", error);
+      log.error({ err: error }, "Error disabling push settings:");
       res.status(500).json({ error: "Failed to disable push settings" });
     }
   });
@@ -160,7 +163,7 @@ export function registerNotificationRoutes(app: Express): void {
       const updated = await storage.markNotificationAsRead(id);
       res.json(updated);
     } catch (error) {
-      console.error("Error marking notification as read:", error);
+      log.error({ err: error }, "Error marking notification as read:");
       res.status(500).json({ error: "Failed to mark notification as read" });
     }
   });
@@ -172,7 +175,7 @@ export function registerNotificationRoutes(app: Express): void {
       const count = await storage.markAllNotificationsAsRead(userId);
       res.json({ count });
     } catch (error) {
-      console.error("Error marking all notifications as read:", error);
+      log.error({ err: error }, "Error marking all notifications as read:");
       res.status(500).json({ error: "Failed to mark all notifications as read" });
     }
   });

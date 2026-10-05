@@ -10,6 +10,9 @@ import * as customersApi from "./client/customers";
 import * as pricingApi from "./client/pricing";
 import * as offersApi from "./client/offers";
 import * as masterDataApi from "./client/masterData";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "shopware/shopware" });
 
 // Bisherige oeffentliche Exporte dieser Datei bleiben erhalten.
 export type { ShopwarePriceEntry, ShopwareAdvancedPrice, ShopwareChannelVisibility, ShopwareProductOverview, ProductPriceResetRow, ShopwareCustomerPrice, EnrichedShopwareCustomerPrice, ProductCrmSellingContext, ProductAdvancedPricingDetails, OrderDocument, ParsedProductDeliveryTime } from "./client/types";
@@ -94,7 +97,7 @@ export class ShopwareClient {
         if (id && url) result[String(id)] = this.resolveMediaUrl(String(url));
       }
     } catch (error: any) {
-      console.warn("[Shopware] fetchMediaUrlsByIds:", error?.message || error);
+      log.warn({ err: error }, "[Shopware] fetchMediaUrlsByIds:");
     }
     return result;
   }
@@ -113,7 +116,7 @@ export class ShopwareClient {
     } catch (error) {
       this.accessToken = null;
       this.tokenExpiry = 0;
-      console.error('Shopware authentication error:', error);
+      log.error({ err: error }, "Shopware authentication error:");
       throw new Error('Failed to authenticate with Shopware API');
     }
   }
@@ -172,7 +175,7 @@ export class ShopwareClient {
       
       return response.ok;
     } catch (error) {
-      console.error('Connection test failed:', error);
+      log.error({ err: error }, "Connection test failed:");
       return false;
     }
   }
@@ -199,7 +202,7 @@ export class ShopwareClient {
         const schema = await response.json();
         return { source: endpoint.source, schema };
       } catch (error) {
-        console.error(`[ShopwareClient] Failed fetching ${endpoint.source}:`, error);
+        log.error({ err: error }, `[ShopwareClient] Failed fetching ${endpoint.source}:`);
       }
     }
 
@@ -289,7 +292,7 @@ export class ShopwareClient {
         latestId: (latest?.id ?? null) as string | null,
       };
     } catch (error) {
-      console.error(`[Shopware] fetchEntitySearchFingerprint(${entity}) failed:`, error);
+      log.error({ err: error }, `[Shopware] fetchEntitySearchFingerprint(${entity}) failed:`);
       return null;
     }
   }

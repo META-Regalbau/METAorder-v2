@@ -9,6 +9,9 @@ import { RuleEngine } from "../cross-selling/ruleEngine";
 import { fetchAllProductsForStaging, loadCrossSellRankingBundle, crossSellSuggestOptions, dedupeAndLimitSuggestions, getFallbackSuggestionsByProperties, getCombinedCrossSellingRules } from "../cross-selling/crossSellService";
 import { loadCrossSellShelvingPatternConfig, findShelvingSupplements, mergeStagingCandidatesWithQuotas } from "../cross-selling/crossSellShelvingHeuristics";
 import type { Express } from "express";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "routes/crossSellingRoutes" });
 
 
 type StagingApplyCategoryGroup = {
@@ -159,7 +162,7 @@ export function registerCrossSellingRoutes(app: Express): void {
       const fields = await shopware.fetchAvailableFields();
       res.json(fields);
     } catch (error: any) {
-      console.error("Error fetching available fields:", error);
+      moduleLog.error({ err: error }, "Error fetching available fields:");
       res.status(500).json({ error: error.message || "Failed to fetch available fields" });
     }
   });
@@ -170,7 +173,7 @@ export function registerCrossSellingRoutes(app: Express): void {
       const rules = await storage.getAllCrossSellingRules(tenantId);
       res.json({ rules });
     } catch (error: any) {
-      console.error("Error fetching cross-selling rules:", error);
+      moduleLog.error({ err: error }, "Error fetching cross-selling rules:");
       res.status(500).json({ error: error.message || "Failed to fetch rules" });
     }
   });
@@ -180,7 +183,7 @@ export function registerCrossSellingRoutes(app: Express): void {
       const settings = await getCrossSellLearningSettings(storage, req.tenantId ?? null);
       res.json(settings);
     } catch (error: any) {
-      console.error("Error fetching learning settings:", error);
+      moduleLog.error({ err: error }, "Error fetching learning settings:");
       res.status(500).json({ error: error.message || "Failed to fetch settings" });
     }
   });
@@ -210,7 +213,7 @@ export function registerCrossSellingRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
-      console.error("Error saving learning settings:", error);
+      moduleLog.error({ err: error }, "Error saving learning settings:");
       res.status(500).json({ error: error.message || "Failed to save settings" });
     }
   });
@@ -227,7 +230,7 @@ export function registerCrossSellingRoutes(app: Express): void {
       ]);
       res.json({ batch, rules, suggestions });
     } catch (error: any) {
-      console.error("Error fetching cross-sell staging:", error);
+      moduleLog.error({ err: error }, "Error fetching cross-sell staging:");
       res.status(500).json({ error: error.message || "Failed to fetch staging data" });
     }
   });
@@ -246,7 +249,7 @@ export function registerCrossSellingRoutes(app: Express): void {
       }
       res.json(updated);
     } catch (error: any) {
-      console.error("Error updating staging rule:", error);
+      moduleLog.error({ err: error }, "Error updating staging rule:");
       res.status(500).json({ error: error.message || "Failed to update staging rule" });
     }
   });
@@ -276,7 +279,7 @@ export function registerCrossSellingRoutes(app: Express): void {
       }
       res.json(updated);
     } catch (error: any) {
-      console.error("Error updating staging suggestion:", error);
+      moduleLog.error({ err: error }, "Error updating staging suggestion:");
       res.status(500).json({ error: error.message || "Failed to update staging suggestion" });
     }
   });
@@ -393,7 +396,7 @@ export function registerCrossSellingRoutes(app: Express): void {
         productsWithoutSuggestions,
       });
     } catch (error: any) {
-      console.error("Error regenerating staging suggestions:", error);
+      moduleLog.error({ err: error }, "Error regenerating staging suggestions:");
       res.status(500).json({ error: error.message || "Failed to regenerate staging suggestions" });
     }
   });
@@ -499,7 +502,7 @@ export function registerCrossSellingRoutes(app: Express): void {
         batchId: batch.id,
       });
     } catch (error: any) {
-      console.error("Error executing rule:", error);
+      moduleLog.error({ err: error }, "Error executing rule:");
       res.status(500).json({ error: error.message || "Failed to execute rule" });
     }
   });
@@ -627,7 +630,7 @@ export function registerCrossSellingRoutes(app: Express): void {
 
       res.json({ batchId: batch.id, sourceProductNumber: sourceProduct.productNumber, suggestionsCount: stagingSuggestions.length });
     } catch (error: any) {
-      console.error("Error generating targeted staging suggestions:", error);
+      moduleLog.error({ err: error }, "Error generating targeted staging suggestions:");
       res.status(500).json({ error: error.message || "Failed to generate targeted suggestions" });
     }
   });
@@ -662,7 +665,7 @@ export function registerCrossSellingRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0]?.message || "Invalid body" });
       }
-      console.error("Error resolving cross-selling product labels:", error);
+      moduleLog.error({ err: error }, "Error resolving cross-selling product labels:");
       res.status(500).json({ error: error.message || "Failed to resolve labels" });
     }
   });
@@ -743,7 +746,7 @@ export function registerCrossSellingRoutes(app: Express): void {
         operations,
       });
     } catch (error: any) {
-      console.error("Error building staging apply preview:", error);
+      moduleLog.error({ err: error }, "Error building staging apply preview:");
       res.status(500).json({ error: error.message || "Failed to build preview" });
     }
   });
@@ -852,7 +855,7 @@ export function registerCrossSellingRoutes(app: Express): void {
 
       res.json(results);
     } catch (error: any) {
-      console.error("Error applying staging cross-selling:", error);
+      moduleLog.error({ err: error }, "Error applying staging cross-selling:");
       res.status(500).json({ error: error.message || "Failed to apply staging" });
     }
   });
@@ -866,7 +869,7 @@ export function registerCrossSellingRoutes(app: Express): void {
       }
       res.json(rule);
     } catch (error: any) {
-      console.error("Error fetching cross-selling rule:", error);
+      moduleLog.error({ err: error }, "Error fetching cross-selling rule:");
       res.status(500).json({ error: error.message || "Failed to fetch rule" });
     }
   });
@@ -890,7 +893,7 @@ export function registerCrossSellingRoutes(app: Express): void {
       const rule = await storage.createCrossSellingRule(ruleData, tenantId);
       res.json(rule);
     } catch (error: any) {
-      console.error("Error creating cross-selling rule:", error);
+      moduleLog.error({ err: error }, "Error creating cross-selling rule:");
       res.status(500).json({ error: error.message || "Failed to create rule" });
     }
   });
@@ -920,7 +923,7 @@ export function registerCrossSellingRoutes(app: Express): void {
       }
       res.json(rule);
     } catch (error: any) {
-      console.error("Error updating cross-selling rule:", error);
+      moduleLog.error({ err: error }, "Error updating cross-selling rule:");
       res.status(500).json({ error: error.message || "Failed to update rule" });
     }
   });
@@ -933,7 +936,7 @@ export function registerCrossSellingRoutes(app: Express): void {
       }
       res.json({ message: "Rule deleted successfully" });
     } catch (error: any) {
-      console.error("Error deleting cross-selling rule:", error);
+      moduleLog.error({ err: error }, "Error deleting cross-selling rule:");
       res.status(500).json({ error: error.message || "Failed to delete rule" });
     }
   });
@@ -949,7 +952,7 @@ export function registerCrossSellingRoutes(app: Express): void {
 
       const { ruleId } = req.body; // Optional: if provided, only execute this rule
       
-      console.log(`[Bulk Execution] Starting bulk execution${ruleId ? ` for rule ${ruleId}` : ' for all rules'}...`);
+      moduleLog.info(`[Bulk Execution] Starting bulk execution${ruleId ? ` for rule ${ruleId}` : ' for all rules'}...`);
       
       const settings = await storage.getShopwareSettings(req.tenantId ?? null);
       if (!settings) {
@@ -968,13 +971,13 @@ export function registerCrossSellingRoutes(app: Express): void {
         return res.status(404).json({ error: "No rules found" });
       }
 
-      console.log(`[Bulk Execution] Executing ${rules.length} rule(s)...`);
+      moduleLog.info(`[Bulk Execution] Executing ${rules.length} rule(s)...`);
 
       const allProducts = await fetchAllProductsForStaging(client);
       const rankingBundle = await loadCrossSellRankingBundle(req.tenantId ?? null);
       const suggestOpts = crossSellSuggestOptions(req.tenantId ?? null, rankingBundle, "hybrid_only");
       
-      console.log(`[Bulk Execution] Processing ${allProducts.length} products (paginated catalog)...`);
+      moduleLog.info(`[Bulk Execution] Processing ${allProducts.length} products (paginated catalog)...`);
 
       // Track results
       const results = {
@@ -988,20 +991,20 @@ export function registerCrossSellingRoutes(app: Express): void {
       // Process each product
       for (const product of allProducts) {
         try {
-          console.log(`[Bulk Execution] Processing product: ${product.name} (${product.productNumber})`);
+          moduleLog.info(`[Bulk Execution] Processing product: ${product.name} (${product.productNumber})`);
           
           // Get cross-selling suggestions for this product using rule engine
           const suggestions = await ruleEngine.suggestCrossSelling(product, rules, client, suggestOpts);
           const limitedSuggestions = dedupeAndLimitSuggestions(suggestions, 10);
           
           if (limitedSuggestions.length === 0) {
-            console.log(`[Bulk Execution] No suggestions for product ${product.name}`);
+            moduleLog.info(`[Bulk Execution] No suggestions for product ${product.name}`);
             results.productsSkipped++;
             results.productsProcessed++;
             continue;
           }
 
-          console.log(`[Bulk Execution] Found ${limitedSuggestions.length} suggestions for product ${product.name}`);
+          moduleLog.info(`[Bulk Execution] Found ${limitedSuggestions.length} suggestions for product ${product.name}`);
 
           try {
             const existingGroups = await client.fetchProductCrossSelling(product.id);
@@ -1015,23 +1018,23 @@ export function registerCrossSellingRoutes(app: Express): void {
                 product.id,
                 SHOPWARE_CROSS_SELLING_STOREFRONT_NAME,
               );
-              console.log(`[Bulk Execution] Created cross-selling group ${crossSellingId} for product ${product.name}`);
+              moduleLog.info(`[Bulk Execution] Created cross-selling group ${crossSellingId} for product ${product.name}`);
             } else {
               const existingProducts = await client.fetchCrossSellingProducts(product.id, crossSellingId);
               const existingIds = existingProducts.map((p) => p.id).filter(Boolean) as string[];
               if (existingIds.length > 0) {
                 await client.removeProductsFromCrossSelling(crossSellingId, existingIds);
               }
-              console.log(`[Bulk Execution] Updated cross-selling group ${crossSellingId} for product ${product.name}`);
+              moduleLog.info(`[Bulk Execution] Updated cross-selling group ${crossSellingId} for product ${product.name}`);
             }
 
             const suggestionIds = limitedSuggestions.map((s) => s.id).filter(Boolean) as string[];
             await client.assignProductsToCrossSelling(crossSellingId, suggestionIds);
-            console.log(`[Bulk Execution] Assigned ${suggestionIds.length} products to cross-selling group`);
+            moduleLog.info(`[Bulk Execution] Assigned ${suggestionIds.length} products to cross-selling group`);
 
             results.crossSellingsCreated++;
           } catch (error: any) {
-            console.error(`[Bulk Execution] Error creating cross-selling for product ${product.name}:`, error);
+            moduleLog.error({ err: error }, `[Bulk Execution] Error creating cross-selling for product ${product.name}:`);
             results.errors.push({
               productId: product.id,
               productName: product.name,
@@ -1041,7 +1044,7 @@ export function registerCrossSellingRoutes(app: Express): void {
           
           results.productsProcessed++;
         } catch (error: any) {
-          console.error(`[Bulk Execution] Error processing product ${product.name}:`, error);
+          moduleLog.error({ err: error }, `[Bulk Execution] Error processing product ${product.name}:`);
           results.errors.push({
             productId: product.id,
             productName: product.name,
@@ -1051,11 +1054,11 @@ export function registerCrossSellingRoutes(app: Express): void {
         }
       }
 
-      console.log(`[Bulk Execution] Complete. Processed: ${results.productsProcessed}, Created: ${results.crossSellingsCreated}, Skipped: ${results.productsSkipped}, Errors: ${results.errors.length}`);
+      moduleLog.info(`[Bulk Execution] Complete. Processed: ${results.productsProcessed}, Created: ${results.crossSellingsCreated}, Skipped: ${results.productsSkipped}, Errors: ${results.errors.length}`);
       
       res.json(results);
     } catch (error: any) {
-      console.error("Error executing bulk cross-selling:", error);
+      moduleLog.error({ err: error }, "Error executing bulk cross-selling:");
       res.status(500).json({ error: error.message || "Failed to execute bulk cross-selling" });
     }
   });
@@ -1093,7 +1096,7 @@ export function registerCrossSellingRoutes(app: Express): void {
         userId: (req.user as { id?: string })?.id ?? null,
         ...body,
       };
-      console.info("[cross_sell_analytics]", JSON.stringify(payload));
+      moduleLog.info(`[cross_sell_analytics] ${JSON.stringify(payload)}`);
 
       const tid = req.tenantId ?? null;
       const userId = (req.user as { id?: string })?.id ?? null;
@@ -1165,7 +1168,7 @@ export function registerCrossSellingRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0]?.message || "Invalid payload" });
       }
-      console.error("[cross_sell_analytics] Error:", error);
+      moduleLog.error({ err: error }, "[cross_sell_analytics] Error:");
       res.status(500).json({ error: error.message || "Failed to record event" });
     }
   });

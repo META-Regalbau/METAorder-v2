@@ -3,6 +3,9 @@ import type { Order, ShopwareSettings, InsertAiInsight, CrossSellEventPairStats 
 import { ShopwareClient } from "../shopware/shopware";
 import { getMirrorOrdersLikeLive } from "../routes/routeHelpers";
 import { crossSellEventLookupKey, buildCrossSellEventStatsMap } from "./crossSellHybridRanker";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "cross-selling/crossSellLearning" });
 
 export type LearningSettings = {
   minSupport: number;
@@ -81,15 +84,9 @@ export async function runCrossSellLearning(
     const manualRules = await storage.getAllCrossSellingRules(tenantId);
     const categorizedManualRules = manualRules.filter(r => r.active && r.category);
 
-    console.log("[CrossSellLearning] Settings:", settings);
-    console.log("[CrossSellLearning] Orders:", {
-      total: orders.length,
-      withProducts: ordersWithProducts.length,
-    });
-    console.log("[CrossSellLearning] Manual Rules:", {
-      total: manualRules.length,
-      categorized: categorizedManualRules.length,
-    });
+    moduleLog.info({ settings }, "[CrossSellLearning] Settings:");
+    moduleLog.info({ total: orders.length, withProducts: ordersWithProducts.length }, "[CrossSellLearning] Orders:");
+    moduleLog.info({ total: manualRules.length, categorized: categorizedManualRules.length }, "[CrossSellLearning] Manual Rules:");
 
     // #endregion
 
@@ -108,25 +105,15 @@ export async function runCrossSellLearning(
     try {
       eventPairRows = await storage.getCrossSellEventStats(tenantId ?? null, sinceEvents);
     } catch (e) {
-      console.warn("[CrossSellLearning] getCrossSellEventStats failed:", e);
+      moduleLog.warn({ err: e }, "[CrossSellLearning] getCrossSellEventStats failed:");
     }
     const eventStatsMap = buildCrossSellEventStatsMap(eventPairRows);
     const rulesAdjusted = applyEventQualityToAiRules(rules, eventStatsMap);
     const eventInsights = buildEventQualityInsights(eventPairRows, new Date());
     const allInsights = [...insights, ...eventInsights];
 
-    console.log("[CrossSellLearning] Cooccurrence:", {
-      totalOrders,
-      productCount: productCounts.size,
-      pairCount: pairCounts.size,
-      cooccurrenceCount: cooccurrences.length,
-      categorizedPairs: pairCategoryMap.size,
-    });
-    console.log("[CrossSellLearning] Output:", {
-      rules: rules.length,
-      recommendations: recommendations.length,
-      insights: allInsights.length,
-    });
+    moduleLog.info({ totalOrders, productCount: productCounts.size, pairCount: pairCounts.size, cooccurrenceCount: cooccurrences.length, categorizedPairs: pairCategoryMap.size }, "[CrossSellLearning] Cooccurrence:");
+    moduleLog.info({ rules: rules.length, recommendations: recommendations.length, insights: allInsights.length }, "[CrossSellLearning] Output:");
 
     // #endregion
 

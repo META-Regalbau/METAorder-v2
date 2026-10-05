@@ -30,6 +30,9 @@ import { labelAbsolutePath } from "./shipping/labelFiles";
 import { handleSendcloudWebhook } from "./shipping/sendcloudWebhook";
 import { parseSupplierPriceListFromBuffer } from "./supplierPriceListImport";
 import { isOrderEligibleForShippingPick } from "@shared/orderShippingEligibility";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "erp/erpRoutes" });
 
 const supplierPriceListUpload = multer({
   storage: multer.memoryStorage(),
@@ -1822,7 +1825,7 @@ export function registerErpRoutes(app: Express) {
         updated: result.updated,
       });
     } catch (error: any) {
-      console.error("[SendcloudWebhook]", error?.message || error);
+      log.error({ err: error }, "[SendcloudWebhook]");
       return res.status(500).json({ error: error?.message || "Webhook failed" });
     }
   });

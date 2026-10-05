@@ -28,6 +28,9 @@ import { attachmentKindLabelDe } from "../commercial/commercialAttachmentClassif
 import { applyDraftAttachmentExportUpdate } from "../commercial/draftAttachmentRoutes";
 import { getUploadsRoot } from "../uploadsRoot";
 import { ShopwareClient } from "../shopware/shopware";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "sftp/sftpUpload" });
 
 export type SftpUploadTrigger = "order_created" | "manual" | "test";
 
@@ -304,7 +307,7 @@ async function loadOrderMeta(storage: IStorage, draft: OrderDraft, tenantId: str
       meta.customerName = order.customerName || null;
     }
   } catch (error) {
-    console.warn("[SFTP] Bestelldaten für Dateinamen nicht ladbar:", error instanceof Error ? error.message : error);
+    moduleLog.warn({ err: error }, "[SFTP] Bestelldaten für Dateinamen nicht ladbar:");
   }
   return meta;
 }
@@ -383,7 +386,7 @@ async function uploadToServer(params: {
         tenantId
       );
     } catch (logError) {
-      console.error("[SFTP] Log konnte nicht geschrieben werden:", logError);
+      moduleLog.error({ err: logError }, "[SFTP] Log konnte nicht geschrieben werden:");
     }
   };
 
@@ -460,7 +463,7 @@ async function uploadToServer(params: {
           attempts: attempt,
         });
         pending.delete(attachment.id);
-        console.log(`[SFTP] ${server.name}: ${attachment.fileName} → ${finalPath} (${durationMs} ms)`);
+        moduleLog.info(`[SFTP] ${server.name}: ${attachment.fileName} → ${finalPath} (${durationMs} ms)`);
       } catch (error) {
         const message = describeSftpError(error);
         const isLast = attempt === maxAttempts;
@@ -603,9 +606,9 @@ export function scheduleSftpUploadAfterOrderCreate(storage: IStorage, draftId: s
     uploadDraftAttachmentsToSftp({ storage, draftId, tenantId, trigger: "order_created" })
       .then((summary) => {
         if (summary.uploaded > 0 || summary.failed > 0) {
-          console.log(`[SFTP] Entwurf ${draftId}: ${summary.uploaded} hochgeladen, ${summary.failed} fehlgeschlagen`);
+          moduleLog.info(`[SFTP] Entwurf ${draftId}: ${summary.uploaded} hochgeladen, ${summary.failed} fehlgeschlagen`);
         }
       })
-      .catch((error) => console.error(`[SFTP] Upload nach Bestellanlage fehlgeschlagen (Entwurf ${draftId}):`, error));
+      .catch((error) => moduleLog.error({ err: error }, `[SFTP] Upload nach Bestellanlage fehlgeschlagen (Entwurf ${draftId}):`));
   });
 }

@@ -1,6 +1,9 @@
 import type { IStorage } from "../storage";
 import { getCommercialAgentSettings } from "../ai/aiConfig";
 import { ShopwareClient } from "../shopware/shopware";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "offers/offerSalesChannelResolver" });
 
 export type ResolveOfferSalesChannelInput = {
   tenantId?: string | null;
@@ -36,10 +39,7 @@ export async function fetchCustomerBoundSalesChannelId(
     const bound = await client.fetchCustomerSalesChannelId(shopwareCustomerId);
     return bound?.id ?? null;
   } catch (error) {
-    console.warn(
-      "[SalesChannel] Kunden-Verkaufskanal konnte nicht ermittelt werden:",
-      error instanceof Error ? error.message : error
-    );
+    log.warn({ err: error }, "[SalesChannel] Kunden-Verkaufskanal konnte nicht ermittelt werden:");
     return null;
   }
 }

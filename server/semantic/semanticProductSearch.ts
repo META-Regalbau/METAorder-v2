@@ -2,6 +2,9 @@ import type { Product } from "@shared/schema";
 import { extractProductMetadata, extractProductSeries } from "../products/productPropertyExtractor";
 import { chatCompletion, parseLlmJsonResponse } from "../ai/llmChat";
 import { productRelevance, searchTokens, sortByRelevance } from "../products/productSearchRanking";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "semantic/semanticProductSearch" });
 
 interface SemanticSearchInput {
   query: string;
@@ -58,10 +61,10 @@ export async function interpretSemanticProductQuery(
     if (!parsed || Object.keys(parsed).length === 0) {
       throw new Error("Empty or invalid JSON from LLM");
     }
-    console.log("[Semantic Search] AI Interpretation:", JSON.stringify(parsed, null, 2));
+    moduleLog.info(`[Semantic Search] AI Interpretation: ${JSON.stringify(parsed, null, 2)}`);
     return parsed;
   } catch (error) {
-    console.error("[Semantic Search] LLM error:", error);
+    moduleLog.error({ err: error }, "[Semantic Search] LLM error:");
     return createFallbackInterpretation(query, language);
   }
 }
@@ -73,7 +76,7 @@ export async function executeSemanticProductSearch(
 ): Promise<SemanticSearchResult> {
   const { query, language = "de" } = input;
 
-  console.log(`[Semantic Search] Processing query: "${query}" (language: ${language})`);
+  moduleLog.info(`[Semantic Search] Processing query: "${query}" (language: ${language})`);
 
   const interpretation = await interpretSemanticProductQuery(input, options);
 
@@ -84,7 +87,7 @@ export async function executeSemanticProductSearch(
     const productTypeLower = interpretation.productType.toLowerCase();
     const keywordsMatch = interpretation.keywords.some(kw => kw.toLowerCase() === productTypeLower);
     if (keywordsMatch) {
-      console.log(`[Semantic Search] productType "${interpretation.productType}" matches a keyword - treating as specific product name, ignoring productType filter`);
+      moduleLog.info(`[Semantic Search] productType "${interpretation.productType}" matches a keyword - treating as specific product name, ignoring productType filter`);
       adjustedInterpretation.productType = undefined;
     }
   }
@@ -94,13 +97,13 @@ export async function executeSemanticProductSearch(
   // Fallback: If productType filter resulted in 0 matches but we have keywords,
   // retry without productType to allow keyword-based matching
   if (filteredProducts.length === 0 && interpretation.productType && interpretation.keywords && interpretation.keywords.length > 0) {
-    console.log(`[Semantic Search] No results with productType "${interpretation.productType}", retrying without productType filter`);
+    moduleLog.info(`[Semantic Search] No results with productType "${interpretation.productType}", retrying without productType filter`);
     const fallbackInterpretation = { ...interpretation, productType: undefined };
     filteredProducts = filterProductsByInterpretation(allProducts, fallbackInterpretation);
-    console.log(`[Semantic Search] Fallback found ${filteredProducts.length} matching products`);
+    moduleLog.info(`[Semantic Search] Fallback found ${filteredProducts.length} matching products`);
   }
   
-  console.log(`[Semantic Search] Found ${filteredProducts.length} matching products`);
+  moduleLog.info(`[Semantic Search] Found ${filteredProducts.length} matching products`);
 
   // Beste Treffer zuerst (vorher Katalog-Reihenfolge): ganze Woerter im Namen, exakte Nummer vorn
   const tokens = searchTokens([interpretation.productType, ...(interpretation.keywords ?? [])].filter(Boolean).join(" "));
@@ -252,7 +255,7 @@ function filterProductsByInterpretation(
       p.name.toLowerCase().includes(productType) ||
       p.description?.toLowerCase().includes(productType)
     );
-    console.log(`[Semantic Search Filter] productType="${productType}": ${beforeFilter} → ${filtered.length} products`);
+    moduleLog.info(`[Semantic Search Filter] productType="${productType}": ${beforeFilter} → ${filtered.length} products`);
   }
 
   if (interpretation.dimensions?.width) {
@@ -327,7 +330,7 @@ function filterProductsByInterpretation(
         searchText.includes(keyword.toLowerCase())
       );
     });
-    console.log(`[Semantic Search Filter] keywords=${JSON.stringify(interpretation.keywords)}: ${beforeFilter} → ${filtered.length} products`);
+    moduleLog.info(`[Semantic Search Filter] keywords=${JSON.stringify(interpretation.keywords)}: ${beforeFilter} → ${filtered.length} products`);
   }
 
   return filtered;

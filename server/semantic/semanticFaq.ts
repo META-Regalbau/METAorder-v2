@@ -1,6 +1,9 @@
 import type { IStorage } from "../storage";
 import { getAISettings } from "../ai/aiConfig";
 import { chatCompletion, isChatLlmConfigured, parseLlmJsonResponse, resolveChatTarget } from "../ai/llmChat";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "semantic/semanticFaq" });
 
 type SemanticResult = {
   sourceType: string;
@@ -164,7 +167,7 @@ export async function generateFaqAnswer(
       aiGenerated: true,
     };
   } catch (error) {
-    console.error("[SemanticFAQ] LLM error:", error);
+    log.error({ err: error }, "[SemanticFAQ] LLM error:");
     return fallback();
   }
 }

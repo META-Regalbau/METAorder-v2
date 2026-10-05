@@ -5,6 +5,9 @@ import { chatCompletion, isChatLlmConfigured, parseLlmJsonResponse } from "../ai
 import { getCommercialAgentSettings } from "../ai/aiConfig";
 import { formatExemplarsForIntentPrompt } from "./commercialAgentLearning";
 import { logCommercialAgentDebug } from "./commercialAgentDebugLog";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "commercial/commercialDocumentIntent" });
 
 const require = createRequire(import.meta.url);
 const { PDFParse } = require("pdf-parse");
@@ -223,7 +226,7 @@ export async function classifyCommercialDocumentIntent(
     );
     return finalIntent;
   } catch (e) {
-    console.error("[CommercialIntent] classification failed:", e);
+    log.error({ err: e }, "[CommercialIntent] classification failed:");
     logCommercialAgentDebug("intent_classify_error", { error: String(e) }, input.traceId);
     return {
       intent: "unclear",

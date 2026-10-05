@@ -1,6 +1,9 @@
 import type OpenAI from "openai";
 import type { AIMode } from "../ai/aiConfig";
 import { truncateText } from "../ai/aiTextUtils";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "commercial/commercialExtractionRefinement" });
 
 /**
  * Optional: kleine LLM-Runde nur für leere Adressfelder (kein Überschreiben bestehender Werte).
@@ -79,7 +82,7 @@ export async function maybeRunCommercialExtractionRefinement(opts: {
     extractedData.billingAddress = next;
     (extractedData as { extractionRefinementApplied?: boolean }).extractionRefinementApplied = true;
   } catch (e) {
-    console.warn("[CommercialExtraction] refinement sub-agent failed:", e);
+    log.warn({ err: e }, "[CommercialExtraction] refinement sub-agent failed:");
   }
   timings.extractionRefinementMs = Date.now() - t0;
 }

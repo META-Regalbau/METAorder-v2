@@ -19,6 +19,9 @@ import { ensureLegacyBuyerContactMapping } from "../extraction/buyerContactField
 import { shouldSkipCatalogMatchingForLineItem } from "../extraction/lineItemProductScreening";
 import type { WebDomainVerificationResult } from "./domainWebVerification";
 import { isMetaOwnCompany } from "./metaCompanyBlocklist";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "commercial/commercialExtractionOrchestrator" });
 
 export const COMMERCIAL_EXTRACTION_ORCHESTRATOR_VERSION = "1";
 
@@ -85,29 +88,21 @@ function blockMetaOwnCompaniesFromBuyer(data: Record<string, unknown>) {
   const customer = data.customer as Record<string, string | undefined> | undefined;
   if (customer) {
     if (isMetaOwnCompany(customer.company)) {
-      console.log(
-        `[CommercialExtraction] Blocked META own company from customer.company: ${customer.company}`
-      );
+      moduleLog.info(`[CommercialExtraction] Blocked META own company from customer.company: ${customer.company}`);
       delete customer.company;
     }
     if (isMetaOwnCompany(customer.firstName)) {
-      console.log(
-        `[CommercialExtraction] Blocked META own company from customer.firstName: ${customer.firstName}`
-      );
+      moduleLog.info(`[CommercialExtraction] Blocked META own company from customer.firstName: ${customer.firstName}`);
       delete customer.firstName;
     }
     if (isMetaOwnCompany(customer.lastName)) {
-      console.log(
-        `[CommercialExtraction] Blocked META own company from customer.lastName: ${customer.lastName}`
-      );
+      moduleLog.info(`[CommercialExtraction] Blocked META own company from customer.lastName: ${customer.lastName}`);
       delete customer.lastName;
     }
   }
   const billing = data.billingAddress as Record<string, string | undefined> | undefined;
   if (billing && isMetaOwnCompany(billing.company)) {
-    console.log(
-      `[CommercialExtraction] Blocked META own company from billingAddress.company: ${billing.company}`
-    );
+    moduleLog.info(`[CommercialExtraction] Blocked META own company from billingAddress.company: ${billing.company}`);
     delete billing.company;
   }
 }
@@ -163,9 +158,7 @@ function applyHolmQuantityRule(
     let quantity = item.quantity || 1;
     if (isHolm && !isAlreadySet && quantity > 1) {
       quantity = Math.ceil(quantity / 2);
-      console.log(
-        `[CommercialExtraction] Holm quantity adjusted for "${item.extractedProductName}": ${item.quantity} → ${quantity}`
-      );
+      moduleLog.info(`[CommercialExtraction] Holm quantity adjusted for "${item.extractedProductName}": ${item.quantity} → ${quantity}`);
     }
     return expandSixDigitGtinOnLineItem(
       {

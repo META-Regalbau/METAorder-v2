@@ -29,6 +29,9 @@ import {
 } from "./commercialAttachmentClassifier";
 import type { CommercialAgentProcessResult } from "./commercialAgentOrchestrator";
 import { getUploadsRoot } from "../uploadsRoot";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "commercial/commercialDraftAttachments" });
 
 export type SupportingDocumentPart = {
   part: InboundCommercialDocPart;
@@ -166,7 +169,7 @@ export async function attachSupportingDocumentsToDrafts(params: {
         buildDraftAttachment({ part: sp.part, classification: sp.classification, filePath, size, sourceMessageId })
       );
     } catch (error) {
-      console.error(`[CommercialAttachments] Beilage ${sp.part.filename} konnte nicht abgelegt werden:`, error);
+      moduleLog.error({ err: error }, `[CommercialAttachments] Beilage ${sp.part.filename} konnte nicht abgelegt werden:`);
     }
   }
   if (attachments.length === 0) return [];
@@ -190,12 +193,10 @@ export async function attachSupportingDocumentsToDrafts(params: {
           tenantId ?? null
         );
       }
-      console.log(
-        `[CommercialAttachments] ${attachments.length} Beilage(n) an ${result.draftKind}-Entwurf ${result.draftId} gehängt: ` +
-          attachments.map((a) => `${a.fileName} (${a.documentKind})`).join(", ")
-      );
+      moduleLog.info(`${`[CommercialAttachments] ${attachments.length} Beilage(n) an ${result.draftKind}-Entwurf ${result.draftId} gehängt: ` +
+          attachments.map((a) => `${a.fileName} (${a.documentKind})`).join(", ")}`);
     } catch (error) {
-      console.error(`[CommercialAttachments] Anhänge an Entwurf ${result.draftId} fehlgeschlagen:`, error);
+      moduleLog.error({ err: error }, `[CommercialAttachments] Anhänge an Entwurf ${result.draftId} fehlgeschlagen:`);
     }
   }
   return attachments;

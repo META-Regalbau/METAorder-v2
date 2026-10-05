@@ -1,5 +1,8 @@
 import OpenAI from "openai";
 import { decrypt } from "../lib/encryption";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "ai/openaiClient" });
 
 /**
  * OpenAI-Client: entweder aus der Umgebung oder mit dem verschluesselten Key aus den Einstellungen.
@@ -33,7 +36,7 @@ export function isEnvOpenAIConfigured(): boolean {
  */
 export function getOpenAIClient(standardApiKey?: string): OpenAIConfig {
   if (isEnvOpenAIConfigured()) {
-    console.log('[OpenAI] OpenAI aus der Umgebung (AI_INTEGRATIONS_OPENAI_*)');
+    moduleLog.info("[OpenAI] OpenAI aus der Umgebung (AI_INTEGRATIONS_OPENAI_*)");
     return {
       mode: 'env',
       client: new OpenAI({
@@ -47,7 +50,7 @@ export function getOpenAIClient(standardApiKey?: string): OpenAIConfig {
     throw new Error('OpenAI API key not configured (weder in den Einstellungen noch per AI_INTEGRATIONS_OPENAI_*)');
   }
 
-  console.log('[OpenAI] OpenAI-Key aus den Einstellungen');
+  moduleLog.info("[OpenAI] OpenAI-Key aus den Einstellungen");
   const decryptedKey = decrypt(standardApiKey);
   
   return {
@@ -65,7 +68,7 @@ export async function getOpenAIClientFromSettings(
   getSettingFn: (key: string) => Promise<any>
 ): Promise<OpenAIConfig | null> {
   if (isEnvOpenAIConfigured()) {
-    console.log('[OpenAI] OpenAI aus der Umgebung (AI_INTEGRATIONS_OPENAI_*)');
+    moduleLog.info("[OpenAI] OpenAI aus der Umgebung (AI_INTEGRATIONS_OPENAI_*)");
     return {
       mode: 'env',
       client: new OpenAI({
@@ -80,7 +83,7 @@ export async function getOpenAIClientFromSettings(
     return null;
   }
 
-  console.log('[OpenAI] OpenAI-Key aus den Einstellungen');
+  moduleLog.info("[OpenAI] OpenAI-Key aus den Einstellungen");
   const decryptedKey = decrypt(openaiSettings.apiKey);
   
   return {

@@ -1,4 +1,7 @@
-/**
+
+import { logger } from "./logger";
+
+const log = logger.child({ component: "lib/secretGuard" });/**
  * Zentrale Prüfung gegen die aus docker-compose.yml bekannten Dev-Default-Secrets.
  *
  * docker-compose.yml setzt SESSION_SECRET/ENCRYPTION_KEY/N8N_SERVICE_PASSWORD immer
@@ -43,7 +46,7 @@ export function assertSecureSecret(envVarName: string, value: string | undefined
     : `[SECURITY] ${envVarName} ist nicht gesetzt und es gibt keinen sicheren Fallback.`;
 
   if (allowDevSecrets()) {
-    console.warn(`${message} (ALLOW_DEV_SECRETS=true — Start wird trotzdem fortgesetzt, nur für lokale Entwicklung/Testing gedacht.)`);
+    log.warn(`${message} (ALLOW_DEV_SECRETS=true — Start wird trotzdem fortgesetzt, nur für lokale Entwicklung/Testing gedacht.)`);
     return trimmed || envVarName;
   }
 

@@ -18,6 +18,9 @@ import type { Express } from "express";
 
 
 import { takeMinuteSlot } from "../analytics/nlQueryLimit";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "routes/aiRoutes" });
 
 /** KI-Antworten der FAQ je Nutzer und Minute (jede kostet einen Aufruf im "smart"-Modell) */
 const FAQ_AI_PER_MINUTE = 5;
@@ -69,7 +72,7 @@ export function registerAiRoutes(app: Express): void {
 
       res.json({ improvedText: improvedText?.trim() ? improvedText : text });
     } catch (error: any) {
-      console.error("Error improving text with AI:", error);
+      moduleLog.error({ err: error }, "Error improving text with AI:");
       if (error.name === 'ZodError') {
         return res.status(400).json({ error: error.errors });
       }
@@ -115,7 +118,7 @@ export function registerAiRoutes(app: Express): void {
 
       res.json({ sentiment: finalSentiment });
     } catch (error: any) {
-      console.error("Error analyzing sentiment:", error);
+      moduleLog.error({ err: error }, "Error analyzing sentiment:");
       if (error.name === 'ZodError') {
         return res.status(400).json({ error: error.errors });
       }
@@ -181,7 +184,7 @@ Die Tags sollten spezifisch und relevant sein (z.B. "Versand", "Zahlung", "Rekla
         tags: result.tags || []
       });
     } catch (error: any) {
-      console.error("Error suggesting categories:", error);
+      moduleLog.error({ err: error }, "Error suggesting categories:");
       if (error.name === 'ZodError') {
         return res.status(400).json({ error: error.errors });
       }
@@ -245,7 +248,7 @@ Antworte im JSON-Format:
         replies: result.replies || []
       });
     } catch (error: any) {
-      console.error("Error generating replies:", error);
+      moduleLog.error({ err: error }, "Error generating replies:");
       if (error.name === 'ZodError') {
         return res.status(400).json({ error: error.errors });
       }
@@ -264,7 +267,7 @@ Antworte im JSON-Format:
     void runSemanticIndexForTenant(storage, tenantId, {
       sources: Array.isArray(sources) ? sources : undefined,
       preferOpenAI: Boolean(useOpenAI),
-    }).catch((error) => console.error("[SemanticIndex] Error:", error));
+    }).catch((error) => moduleLog.error({ err: error }, "[SemanticIndex] Error:"));
     res.status(202).json({ started: true });
   });
 
@@ -280,7 +283,7 @@ Antworte im JSON-Format:
         lastRun: (await storage.getSetting(SEMANTIC_INDEX_STATUS_KEY, tenantId)) ?? null,
       });
     } catch (error: any) {
-      console.error("[SemanticIndex] Status error:", error);
+      moduleLog.error({ err: error }, "[SemanticIndex] Status error:");
       res.status(500).json({ error: error.message || "Failed to load index status" });
     }
   });
@@ -304,7 +307,7 @@ Antworte im JSON-Format:
       const sanitized = results.map(({ embedding, embeddingProvider, embeddingModel, contentHash, ...rest }) => rest);
       res.json({ results: sanitized });
     } catch (error: any) {
-      console.error("[SemanticSearch] Error:", error);
+      moduleLog.error({ err: error }, "[SemanticSearch] Error:");
       res.status(500).json({ error: error.message || "Semantic search failed" });
     }
   });
@@ -341,7 +344,7 @@ Antworte im JSON-Format:
       });
       res.json(faqAnswer);
     } catch (error: any) {
-      console.error("[SemanticFAQ] Error:", error);
+      moduleLog.error({ err: error }, "[SemanticFAQ] Error:");
       res.status(500).json({ error: error.message || "Semantic FAQ failed" });
     }
   });
@@ -367,7 +370,7 @@ Antworte im JSON-Format:
       await storage.saveSetting("semantic_faq_feedback", next, tenantId);
       res.json({ success: true });
     } catch (error: any) {
-      console.error("[SemanticFAQ] Feedback error:", error);
+      moduleLog.error({ err: error }, "[SemanticFAQ] Feedback error:");
       if (error.name === "ZodError") {
         return res.status(400).json({ error: error.errors });
       }
@@ -398,7 +401,7 @@ Antworte im JSON-Format:
       await storage.saveSetting("semantic_search_feedback", next, tenantId);
       res.json({ success: true });
     } catch (error: any) {
-      console.error("[SemanticSearch] Feedback error:", error);
+      moduleLog.error({ err: error }, "[SemanticSearch] Feedback error:");
       if (error.name === "ZodError") {
         return res.status(400).json({ error: error.errors });
       }
@@ -425,7 +428,7 @@ Antworte im JSON-Format:
         results: sanitized.filter((entry) => !(entry.sourceType === sourceType && entry.sourceId === sourceId)),
       });
     } catch (error: any) {
-      console.error("[SemanticSimilar] Error:", error);
+      moduleLog.error({ err: error }, "[SemanticSimilar] Error:");
       res.status(500).json({ error: error.message || "Semantic similar search failed" });
     }
   });
@@ -434,14 +437,14 @@ Antworte im JSON-Format:
   app.get("/api/ai/cross-selling/rules", requireAuth, requireManageCrossSellingRules, async (req, res) => {
     try {
       const rules = await storage.getAiCrossSellRules(req.tenantId ?? null);
-      console.log("[CrossSellLearning] GET /rules", {
+      moduleLog.info({ details: {
         tenantId: req.tenantId ?? null,
         rules: rules.length,
-      });
+      } }, "[CrossSellLearning] GET /rules");
       // #endregion
       res.json({ rules });
     } catch (error: any) {
-      console.error("Error fetching AI cross-selling rules:", error);
+      moduleLog.error({ err: error }, "Error fetching AI cross-selling rules:");
       res.status(500).json({ error: error.message || "Failed to fetch AI rules" });
     }
   });
@@ -451,7 +454,7 @@ Antworte im JSON-Format:
       const insights = await storage.getAiInsights(req.tenantId ?? null);
       res.json({ insights });
     } catch (error: any) {
-      console.error("Error fetching cross-selling AI insights:", error);
+      moduleLog.error({ err: error }, "Error fetching cross-selling AI insights:");
       res.status(500).json({ error: error.message || "Failed to fetch insights" });
     }
   });
@@ -463,7 +466,7 @@ Antworte im JSON-Format:
       const recommendations = await storage.getAiRecommendations(productNumber, limit, req.tenantId ?? null);
       res.json({ recommendations });
     } catch (error: any) {
-      console.error("Error fetching AI recommendations:", error);
+      moduleLog.error({ err: error }, "Error fetching AI recommendations:");
       res.status(500).json({ error: error.message || "Failed to fetch AI recommendations" });
     }
   });
@@ -473,7 +476,7 @@ Antworte im JSON-Format:
       const insights = await storage.getAiInsights(req.tenantId ?? null);
       res.json({ insights });
     } catch (error: any) {
-      console.error("Error fetching AI insights:", error);
+      moduleLog.error({ err: error }, "Error fetching AI insights:");
       res.status(500).json({ error: error.message || "Failed to fetch AI insights" });
     }
   });
@@ -483,7 +486,7 @@ Antworte im JSON-Format:
       const status = await storage.getSetting("cross_sell_learning_status", req.tenantId ?? null);
       res.json(status || { status: "idle" });
     } catch (error: any) {
-      console.error("Error fetching learning status:", error);
+      moduleLog.error({ err: error }, "Error fetching learning status:");
       res.status(500).json({ error: error.message || "Failed to fetch status" });
     }
   });
@@ -494,10 +497,10 @@ Antworte im JSON-Format:
       if (!settings) {
         return res.status(400).json({ error: "Shopware settings not configured" });
       }
-      console.log("[CrossSellLearning] POST /run", {
+      moduleLog.info({ details: {
         tenantId: req.tenantId ?? null,
         userId: (req.user as any)?.id ?? null,
-      });
+      } }, "[CrossSellLearning] POST /run");
       // #endregion
       const status = await runCrossSellLearning(storage, settings, req.tenantId ?? null);
       let staging: {
@@ -510,12 +513,12 @@ Antworte im JSON-Format:
       try {
         staging = await generateCrossSellStaging(req.tenantId ?? null, (req.user as any)?.id ?? null);
       } catch (stagingError: any) {
-        console.warn("[CrossSellLearning] Staging generation failed:", stagingError?.message || stagingError);
+        moduleLog.warn({ err: stagingError }, "[CrossSellLearning] Staging generation failed:");
       }
       // #endregion
       res.json({ ...status, staging });
     } catch (error: any) {
-      console.error("Error running cross-selling learning:", error);
+      moduleLog.error({ err: error }, "Error running cross-selling learning:");
       res.status(500).json({ error: error.message || "Failed to run learning job" });
     }
   });
@@ -527,7 +530,7 @@ Antworte im JSON-Format:
       const insights = await storage.getOfferLearningInsights(tenantId);
       res.json({ insights });
     } catch (error: any) {
-      console.error("Error fetching offer insights:", error);
+      moduleLog.error({ err: error }, "Error fetching offer insights:");
       res.status(500).json({ error: error.message || "Failed to fetch offer insights" });
     }
   });
@@ -542,7 +545,7 @@ Antworte im JSON-Format:
       const result = await runOfferLearning(storage, settings, tenantId);
       res.json(result);
     } catch (error: any) {
-      console.error("Error running offer learning:", error);
+      moduleLog.error({ err: error }, "Error running offer learning:");
       res.status(500).json({ error: error.message || "Failed to run offer learning" });
     }
   });

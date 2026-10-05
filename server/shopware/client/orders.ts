@@ -3,6 +3,9 @@ import type { ShopwareClient } from "../shopware";
 import type { OrderStatus, PaymentStatus, Order, OrderItem } from "@shared/schema";
 import { normalizeOrderDocumentType, isProformaOrVorkasse, extractShopwareOrderCustomerNumber, getLatestDelivery, readEntityTechnicalName, toShopwareUuid, deliveryShippingFacts, deliveryIdsNeedingShippedDate, deriveShippingInfo, type DeliveryShippingFacts } from "./mapping";
 import { productCache } from "../../products/productCache";
+import { logger } from "../../lib/logger";
+
+const moduleLog = logger.child({ component: "shopware/client/orders" });
 
 export function mapShopwareStatus(this: ShopwareClient, shopwareStatus: string): OrderStatus {
   const statusMap: Record<string, OrderStatus> = {
@@ -185,7 +188,7 @@ export async function fetchOrders(
         field: 'salesChannelId',
         value: salesChannelIds,
       });
-      console.log(`[fetchOrders] SECURITY: Filtering by sales channels:`, salesChannelIds);
+      moduleLog.info({ salesChannelIds }, "[fetchOrders] SECURITY: Filtering by sales channels:");
     }
 
     // Delta-Sync: nur Bestellungen, die sich seit dem letzten Sync geaendert haben
@@ -313,12 +316,12 @@ export async function fetchOrders(
       allOrders = allOrders.concat(orders);
       allIncluded = allIncluded.concat(included);
       
-      console.log(`Fetched page ${page}: ${orders.length} orders (total collected: ${allOrders.length})`);
+      moduleLog.info(`Fetched page ${page}: ${orders.length} orders (total collected: ${allOrders.length})`);
       
       // Log first order number on first page for debugging
       if (page === 1 && orders.length > 0) {
         const firstOrder = orders[0];
-        console.log(`First order (newest): ${firstOrder.orderNumber || firstOrder.attributes?.orderNumber || 'N/A'}`);
+        moduleLog.info(`First order (newest): ${firstOrder.orderNumber || firstOrder.attributes?.orderNumber || 'N/A'}`);
       }
       
       // If we got fewer results than the limit, we're done
@@ -329,7 +332,7 @@ export async function fetchOrders(
       page++;
     }
 
-    console.log(`Total orders fetched: ${allOrders.length}`);
+    moduleLog.info(`Total orders fetched: ${allOrders.length}`);
     
     // Shopware returns data and optionally included sections
     const orders = allOrders;
@@ -356,14 +359,7 @@ export async function fetchOrders(
           
           // Debug first item structure
           if (debugProductCount === 0) {
-            console.log('[Debug] First line item structure:', {
-              id: item.id,
-              type: itemType,
-              productId: item.productId,
-              referencedId: item.referencedId,
-              label: item.label,
-              keys: Object.keys(item)
-            });
+            moduleLog.info({ id: item.id, type: itemType, productId: item.productId, referencedId: item.referencedId, label: item.label, keys: Object.keys(item) }, "[Debug] First line item structure:");
           }
           
           if (productId && itemType === 'product') {
@@ -380,14 +376,7 @@ export async function fetchOrders(
           
           // Debug first item structure
           if (debugProductCount === 0 && lineItem) {
-            console.log('[Debug] First line item structure (from relationships):', {
-              id: lineItem.id,
-              type: itemType,
-              productId: lineItem.attributes?.productId,
-              referencedId: lineItem.attributes?.referencedId,
-              label: lineItem.attributes?.label,
-              keys: lineItem.attributes ? Object.keys(lineItem.attributes) : []
-            });
+            moduleLog.info({ id: lineItem.id, type: itemType, productId: lineItem.attributes?.productId, referencedId: lineItem.attributes?.referencedId, label: lineItem.attributes?.label, keys: lineItem.attributes ? Object.keys(lineItem.attributes) : [] }, "[Debug] First line item structure (from relationships):");
           }
           
           if (productId && itemType === 'product') {
@@ -398,10 +387,10 @@ export async function fetchOrders(
       }
     });
     
-    console.log(`[fetchOrders] Found ${debugProductCount} product items out of ${debugItemCount} total line items`);
+    moduleLog.info(`[fetchOrders] Found ${debugProductCount} product items out of ${debugItemCount} total line items`);
 
     // Step 2: Fetch catalog prices for all products in one batch request
-    console.log(`[fetchOrders] Found ${productIds.size} unique products across all orders`);
+    moduleLog.info(`[fetchOrders] Found ${productIds.size} unique products across all orders`);
     const catalogPrices = await this.fetchProductPricesBatch(Array.from(productIds));
 
     // Versandangaben: Lieferungen je Bestellung, Versanddatum versendeter Lieferungen aus der
@@ -421,7 +410,7 @@ export async function fetchOrders(
     try {
       shippedAtByDeliveryId = await this.fetchDeliveryShippedDates(shippedDeliveryIds);
     } catch (historyError) {
-      console.warn('[fetchOrders] Versanddaten aus der Status-Historie nicht geladen:', historyError);
+      moduleLog.warn({ err: historyError }, "[fetchOrders] Versanddaten aus der Status-Historie nicht geladen:");
     }
 
     const mappedOrders: Order[] = orders.map((shopwareOrder: any) => {
@@ -602,14 +591,14 @@ export async function fetchOrders(
           if (productId && itemType === 'product') {
             const cacheStatus = productCache.getStatus();
             if (!cacheStatus.isPopulated) {
-              console.log(`[Weight] Product cache not populated - skipping weight lookup for product ${productId}`);
+              moduleLog.info(`[Weight] Product cache not populated - skipping weight lookup for product ${productId}`);
             } else {
               const cachedProduct = productCache.getProductById(productId);
               if (cachedProduct) {
                 weight = cachedProduct.weight;
                 productNumber = cachedProduct.productNumber;
               } else {
-                console.log(`[Weight] Product ${productId} not found in cache (cache has ${cacheStatus.productCount} products)`);
+                moduleLog.info(`[Weight] Product ${productId} not found in cache (cache has ${cacheStatus.productCount} products)`);
               }
             }
           }
@@ -737,7 +726,7 @@ export async function fetchOrders(
         if (latestTransaction.stateMachineState?.technicalName) {
           paymentStatus = this.mapPaymentStatus(latestTransaction.stateMachineState.technicalName);
         } else {
-          console.warn(`Order ${shopwareOrder.orderNumber || shopwareOrder.id}: Transaction exists but missing stateMachineState`);
+          moduleLog.warn(`Order ${shopwareOrder.orderNumber || shopwareOrder.id}: Transaction exists but missing stateMachineState`);
         }
         
         // Extract payment method name
@@ -766,7 +755,7 @@ export async function fetchOrders(
         }
       } else {
         // No transactions found - log warning
-        console.warn(`Order ${shopwareOrder.orderNumber || shopwareOrder.id}: No transactions found, payment status defaults to 'open'`);
+        moduleLog.warn(`Order ${shopwareOrder.orderNumber || shopwareOrder.id}: No transactions found, payment status defaults to 'open'`);
       }
 
       // Get sales channel data
@@ -822,7 +811,7 @@ export async function fetchOrders(
           reasons.push(`${missingPrices.length} products without catalog prices`);
         }
         if (reasons.length > 0) {
-          console.log(`[Discount] Order ${shopwareOrder.orderNumber}: Using legacy discount calculation - ${reasons.join(', ')}`);
+          moduleLog.info(`[Discount] Order ${shopwareOrder.orderNumber}: Using legacy discount calculation - ${reasons.join(', ')}`);
         }
       }
       
@@ -967,9 +956,7 @@ export async function fetchOrders(
       dedupedOrders.push(o);
     }
     if (duplicateCount > 0) {
-      console.log(
-        `[fetchOrders] Removed ${duplicateCount} duplicate order(s); ${dedupedOrders.length} unique remaining`,
-      );
+      moduleLog.info(`[fetchOrders] Removed ${duplicateCount} duplicate order(s); ${dedupedOrders.length} unique remaining`);
     }
 
     // Die documents-Association wird in der Listen-Query nicht zuverlaessig
@@ -987,13 +974,13 @@ export async function fetchOrders(
           o.invoiceSent = info ? info.sent : false;
         }
       } catch (infoError) {
-        console.warn('[fetchOrders] invoice info fetch failed:', infoError);
+        moduleLog.warn({ err: infoError }, "[fetchOrders] invoice info fetch failed:");
       }
     }
 
     return dedupedOrders;
   } catch (error) {
-    console.error('Error fetching orders from Shopware:', error);
+    moduleLog.error({ err: error }, "Error fetching orders from Shopware:");
     throw error;
   }
 }
@@ -1033,7 +1020,7 @@ export async function fetchInvoiceInfoByOrderIds(
       }
     }
   } catch (e) {
-    console.warn('[fetchInvoiceInfoByOrderIds] document-type fetch failed:', e);
+    moduleLog.warn({ err: e }, "[fetchInvoiceInfoByOrderIds] document-type fetch failed:");
   }
 
   const CHUNK = 200;
@@ -1134,7 +1121,7 @@ export async function fetchLatestOrderMeta(this: ShopwareClient): Promise<{ id: 
       updatedAt: latest.updatedAt || latest.attributes?.updatedAt,
     };
   } catch (error) {
-    console.error('Error fetching latest order meta from Shopware:', error);
+    moduleLog.error({ err: error }, "Error fetching latest order meta from Shopware:");
     return null;
   }
 }
@@ -1203,7 +1190,7 @@ export async function fetchOrdersByIds(this: ShopwareClient, orderIds: string[])
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Failed to fetch orders by IDs: ${response.statusText} - ${errorText}`);
+      moduleLog.error(`Failed to fetch orders by IDs: ${response.statusText} - ${errorText}`);
       return new Map(); // Return empty map on error to fail permissively
     }
 
@@ -1222,7 +1209,7 @@ export async function fetchOrdersByIds(this: ShopwareClient, orderIds: string[])
 
     return orderMap;
   } catch (error) {
-    console.error('Error fetching orders by IDs from Shopware:', error);
+    moduleLog.error({ err: error }, "Error fetching orders by IDs from Shopware:");
     return new Map(); // Return empty map on error to fail permissively
   }
 }
@@ -1252,13 +1239,13 @@ export async function fetchCustomerOrderHistory(
     // SECURITY: Explicitly handle undefined - treat as an error condition
     // undefined should not occur if called correctly, but if it does, return empty results
     if (salesChannelIds === undefined) {
-      console.error(`[fetchCustomerOrderHistory] SECURITY: Received undefined salesChannelIds, returning empty results`);
+      moduleLog.error("[fetchCustomerOrderHistory] SECURITY: Received undefined salesChannelIds, returning empty results");
       return [];
     }
 
     // SECURITY: Empty array means no access - this should be caught at route level but double-check here
     if (salesChannelIds !== null && salesChannelIds.length === 0) {
-      console.log(`[fetchCustomerOrderHistory] SECURITY: Empty salesChannelIds array, returning empty results`);
+      moduleLog.info("[fetchCustomerOrderHistory] SECURITY: Empty salesChannelIds array, returning empty results");
       return [];
     }
 
@@ -1327,14 +1314,14 @@ export async function fetchCustomerOrderHistory(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Failed to fetch customer order history: ${response.statusText} - ${errorText}`);
+      moduleLog.error(`Failed to fetch customer order history: ${response.statusText} - ${errorText}`);
       return [];
     }
 
     const data = await response.json();
     const orders = data.data || [];
 
-    console.log(`[fetchCustomerOrderHistory] Found ${orders.length} orders for customer ${customerEmail}`);
+    moduleLog.info(`[fetchCustomerOrderHistory] Found ${orders.length} orders for customer ${customerEmail}`);
 
     return orders.map((order: any) => {
       const status = this.mapShopwareStatus(order.stateMachineState?.technicalName || 'open');
@@ -1347,7 +1334,7 @@ export async function fetchCustomerOrderHistory(
       };
     });
   } catch (error) {
-    console.error('Error fetching customer order history from Shopware:', error);
+    moduleLog.error({ err: error }, "Error fetching customer order history from Shopware:");
     return [];
   }
 }
@@ -1364,7 +1351,7 @@ export async function fetchOrderById(this: ShopwareClient, orderId: string, sale
     // SECURITY: Explicitly handle undefined - treat as an error condition
     // undefined should not occur if called correctly, but if it does, deny access
     if (salesChannelIds === undefined) {
-      console.error(`[fetchOrderById] SECURITY: Received undefined salesChannelIds, denying access`);
+      moduleLog.error("[fetchOrderById] SECURITY: Received undefined salesChannelIds, denying access");
       return null;
     }
 
@@ -1385,10 +1372,10 @@ export async function fetchOrderById(this: ShopwareClient, orderId: string, sale
         field: 'salesChannelId',
         value: salesChannelIds,
       });
-      console.log(`[fetchOrderById] SECURITY: Filtering by sales channels:`, salesChannelIds);
+      moduleLog.info({ salesChannelIds }, "[fetchOrderById] SECURITY: Filtering by sales channels:");
     } else if (salesChannelIds !== null && salesChannelIds.length === 0) {
       // Empty array means no access - this should be caught at route level but double-check here
-      console.error(`[fetchOrderById] SECURITY: Empty salesChannelIds array, denying access`);
+      moduleLog.error("[fetchOrderById] SECURITY: Empty salesChannelIds array, denying access");
       return null;
     }
 
@@ -1447,7 +1434,7 @@ export async function fetchOrderById(this: ShopwareClient, orderId: string, sale
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Failed to fetch order by ID: ${response.statusText} - ${errorText}`);
+      moduleLog.error(`Failed to fetch order by ID: ${response.statusText} - ${errorText}`);
       return null;
     }
 
@@ -1456,7 +1443,7 @@ export async function fetchOrderById(this: ShopwareClient, orderId: string, sale
     const included = data.included || [];
 
     if (orders.length === 0) {
-      console.log(`[fetchOrderById] Order ${orderId} not found or access denied`);
+      moduleLog.info(`[fetchOrderById] Order ${orderId} not found or access denied`);
       return null;
     }
 
@@ -1648,10 +1635,7 @@ export async function fetchOrderById(this: ShopwareClient, orderId: string, sale
           invoiceInfo = { hasInvoice: true, count: info.count, sent: info.sent };
         }
       } catch (fallbackErr) {
-        console.warn(
-          `[fetchOrderById] invoice info fallback failed for ${shopwareOrder.id}:`,
-          fallbackErr,
-        );
+        moduleLog.warn({ err: fallbackErr }, `[fetchOrderById] invoice info fallback failed for ${shopwareOrder.id}:`);
       }
     }
 
@@ -1692,7 +1676,7 @@ export async function fetchOrderById(this: ShopwareClient, orderId: string, sale
     
     return order;
   } catch (error) {
-    console.error('Error fetching order by ID from Shopware:', error);
+    moduleLog.error({ err: error }, "Error fetching order by ID from Shopware:");
     return null;
   }
 }
@@ -1701,7 +1685,7 @@ export async function fetchOrderByNumber(this: ShopwareClient, orderNumber: stri
   try {
     // SECURITY: Explicitly handle undefined - treat as an error condition
     if (salesChannelIds === undefined) {
-      console.error(`[fetchOrderByNumber] SECURITY: Received undefined salesChannelIds, denying access`);
+      moduleLog.error("[fetchOrderByNumber] SECURITY: Received undefined salesChannelIds, denying access");
       return null;
     }
 
@@ -1726,9 +1710,9 @@ export async function fetchOrderByNumber(this: ShopwareClient, orderNumber: stri
         field: 'salesChannelId',
         value: salesChannelIds,
       });
-      console.log(`[fetchOrderByNumber] SECURITY: Filtering by sales channels:`, salesChannelIds);
+      moduleLog.info({ salesChannelIds }, "[fetchOrderByNumber] SECURITY: Filtering by sales channels:");
     } else if (salesChannelIds !== null && salesChannelIds.length === 0) {
-      console.error(`[fetchOrderByNumber] SECURITY: Empty salesChannelIds array, denying access`);
+      moduleLog.error("[fetchOrderByNumber] SECURITY: Empty salesChannelIds array, denying access");
       return null;
     }
 
@@ -1750,7 +1734,7 @@ export async function fetchOrderByNumber(this: ShopwareClient, orderNumber: stri
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Failed to fetch order by order number: ${response.statusText} - ${errorText}`);
+      moduleLog.error(`Failed to fetch order by order number: ${response.statusText} - ${errorText}`);
       return null;
     }
 
@@ -1765,7 +1749,7 @@ export async function fetchOrderByNumber(this: ShopwareClient, orderNumber: stri
       orderNumber: order.orderNumber || order.attributes?.orderNumber || normalizedOrderNumber,
     };
   } catch (error) {
-    console.error('Error fetching order by order number from Shopware:', error);
+    moduleLog.error({ err: error }, "Error fetching order by order number from Shopware:");
     return null;
   }
 }
@@ -1849,7 +1833,7 @@ export async function findOrderCustomersByCustomerId(this: ShopwareClient, custo
       };
     });
   } catch (error: any) {
-    console.error('[Shopware] findOrderCustomersByCustomerId error:', error?.message || error);
+    moduleLog.error({ err: error }, "[Shopware] findOrderCustomersByCustomerId error:");
     return [];
   }
 }
@@ -1962,7 +1946,7 @@ export async function markOrderPaid(this: ShopwareClient, orderId: string): Prom
       throw new Error(`Failed to mark order paid: ${stateResponse.statusText} - ${errorText}`);
     }
   } catch (error) {
-    console.error("Error marking order as paid:", error);
+    moduleLog.error({ err: error }, "Error marking order as paid:");
     throw error;
   }
 }

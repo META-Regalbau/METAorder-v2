@@ -30,6 +30,9 @@ import {
   normalizeMimeTypeForDraft,
 } from "../extraction/documentTextExtraction";
 import { resolveDocumentExtractionChatLlm } from "../extraction/documentExtractionChatLlm";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "commercial/commercialDraftPipeline" });
 
 export type DraftPipelineTimings = Record<string, number>;
 
@@ -51,7 +54,7 @@ async function resolvePipelinePrimaryDocumentText(params: {
     });
     return text?.trim() || null;
   } catch (e) {
-    console.warn("[Commercial Draft Pipeline] primary document text extraction failed:", e);
+    log.warn({ err: e }, "[Commercial Draft Pipeline] primary document text extraction failed:");
     return null;
   }
 }
@@ -227,7 +230,7 @@ export async function runOfferDraftPipeline(
         siblingPdfExcerpts,
       });
     } catch (e) {
-      console.warn("[Offer Draft Pipeline] companyNameHeuristic failed:", e);
+      log.warn({ err: e }, "[Offer Draft Pipeline] companyNameHeuristic failed:");
     }
     timings.companyNameHeuristicMs = Date.now() - chStart;
   }
@@ -250,7 +253,7 @@ export async function runOfferDraftPipeline(
         enabled: true,
       });
     } catch (e) {
-      console.warn("[Offer Draft Pipeline] webDomainVerification failed:", e);
+      log.warn({ err: e }, "[Offer Draft Pipeline] webDomainVerification failed:");
     }
     timings.webDomainVerifyMs = Date.now() - wStart;
   }
@@ -284,7 +287,7 @@ export async function runOfferDraftPipeline(
       });
       ensureLegacyBuyerContactMapping(extractedData as Record<string, unknown>);
     } catch (e) {
-      console.warn("[Offer Draft Pipeline] companyNameHeuristic retry failed:", e);
+      log.warn({ err: e }, "[Offer Draft Pipeline] companyNameHeuristic retry failed:");
     }
   }
 
@@ -302,7 +305,7 @@ export async function runOfferDraftPipeline(
         extractedData: extractedData as Record<string, unknown>,
       });
     } catch (e) {
-      console.warn("[Offer Draft Pipeline] signatureCompanyVision failed:", e);
+      log.warn({ err: e }, "[Offer Draft Pipeline] signatureCompanyVision failed:");
     }
     timings.signatureCompanyVisionMs = Date.now() - vStart;
   }
@@ -367,7 +370,7 @@ export async function runOfferDraftPipeline(
           pricingRecommendations: pricingData.pricingRecommendations,
         };
       } catch (pricingError) {
-        console.warn(`[Offer Draft Pipeline] Smart pricing failed:`, pricingError);
+        log.warn({ err: pricingError }, "[Offer Draft Pipeline] Smart pricing failed:");
         matchingResults = baseMatching;
       }
     } else if (baseMatching) {
@@ -396,7 +399,7 @@ export async function runOfferDraftPipeline(
         allowCustomerAutoCreate: agentComm.customerAutoCreateEnabled === true,
       });
     } catch (e) {
-      console.error(`[Offer Draft Pipeline] Customer error:`, e);
+      log.error({ err: e }, "[Offer Draft Pipeline] Customer error:");
     }
   }
   ensureLegacyBuyerContactMapping(extractedData as Record<string, unknown>);
@@ -514,7 +517,7 @@ export async function runOrderDraftPipeline(
         siblingPdfExcerpts,
       });
     } catch (e) {
-      console.warn("[Order Draft Pipeline] companyNameHeuristic failed:", e);
+      log.warn({ err: e }, "[Order Draft Pipeline] companyNameHeuristic failed:");
     }
     timings.companyNameHeuristicMs = Date.now() - chStart;
   }
@@ -537,7 +540,7 @@ export async function runOrderDraftPipeline(
         enabled: true,
       });
     } catch (e) {
-      console.warn("[Order Draft Pipeline] webDomainVerification failed:", e);
+      log.warn({ err: e }, "[Order Draft Pipeline] webDomainVerification failed:");
     }
     timings.webDomainVerifyMs = Date.now() - wStart;
   }
@@ -571,7 +574,7 @@ export async function runOrderDraftPipeline(
       });
       ensureLegacyBuyerContactMapping(extractedData as Record<string, unknown>);
     } catch (e) {
-      console.warn("[Order Draft Pipeline] companyNameHeuristic retry failed:", e);
+      log.warn({ err: e }, "[Order Draft Pipeline] companyNameHeuristic retry failed:");
     }
   }
 
@@ -589,7 +592,7 @@ export async function runOrderDraftPipeline(
         extractedData: extractedData as Record<string, unknown>,
       });
     } catch (e) {
-      console.warn("[Order Draft Pipeline] signatureCompanyVision failed:", e);
+      log.warn({ err: e }, "[Order Draft Pipeline] signatureCompanyVision failed:");
     }
     timings.signatureCompanyVisionMs = Date.now() - vStartOrder;
   }
@@ -647,7 +650,7 @@ export async function runOrderDraftPipeline(
         allowCustomerAutoCreate: agentComm.customerAutoCreateEnabled === true,
       });
     } catch (e) {
-      console.error(`[Order Draft Pipeline] Customer error:`, e);
+      log.error({ err: e }, "[Order Draft Pipeline] Customer error:");
     }
   }
   ensureLegacyBuyerContactMapping(extractedData as Record<string, unknown>);

@@ -25,6 +25,9 @@ import {
 } from "./sftpServers";
 import { testSftpServer, uploadDraftAttachmentsToSftp } from "./sftpUpload";
 import { listDraftAttachmentsForApi } from "../commercial/draftAttachmentRoutes";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "sftp/sftpRoutes" });
 
 function zodMessage(error: z.ZodError): string {
   return error.issues.map((i) => `${i.path.join(".") || "body"}: ${i.message}`).join("; ");
@@ -90,7 +93,7 @@ export function registerSftpRoutes(app: Express): void {
       const servers = await storage.getSftpServers(req.tenantId ?? null);
       res.json(servers.map(toSftpServerApi));
     } catch (error) {
-      console.error("[SFTP] Liste fehlgeschlagen:", error);
+      log.error({ err: error }, "[SFTP] Liste fehlgeschlagen:");
       res.status(500).json({ error: "SFTP-Server konnten nicht geladen werden" });
     }
   });
@@ -105,7 +108,7 @@ export function registerSftpRoutes(app: Express): void {
       const result = await storage.getSftpUploadLogs({ serverId, status, draftId, limit, offset }, req.tenantId ?? null);
       res.json(result);
     } catch (error) {
-      console.error("[SFTP] Protokoll fehlgeschlagen:", error);
+      log.error({ err: error }, "[SFTP] Protokoll fehlgeschlagen:");
       res.status(500).json({ error: "Upload-Protokoll konnte nicht geladen werden" });
     }
   });
@@ -133,7 +136,7 @@ export function registerSftpRoutes(app: Express): void {
       const created = await storage.createSftpServer(values as Parameters<typeof storage.createSftpServer>[0], req.tenantId ?? null);
       res.status(201).json(toSftpServerApi(created));
     } catch (error) {
-      console.error("[SFTP] Anlegen fehlgeschlagen:", error);
+      log.error({ err: error }, "[SFTP] Anlegen fehlgeschlagen:");
       res.status(500).json({ error: "SFTP-Server konnte nicht angelegt werden" });
     }
   });
@@ -163,7 +166,7 @@ export function registerSftpRoutes(app: Express): void {
       if (!updated) return res.status(404).json({ error: "SFTP-Server nicht gefunden" });
       res.json(toSftpServerApi(updated));
     } catch (error) {
-      console.error("[SFTP] Ändern fehlgeschlagen:", error);
+      log.error({ err: error }, "[SFTP] Ändern fehlgeschlagen:");
       res.status(500).json({ error: "SFTP-Server konnte nicht gespeichert werden" });
     }
   });
@@ -174,7 +177,7 @@ export function registerSftpRoutes(app: Express): void {
       if (!ok) return res.status(404).json({ error: "SFTP-Server nicht gefunden" });
       res.json({ success: true });
     } catch (error) {
-      console.error("[SFTP] Löschen fehlgeschlagen:", error);
+      log.error({ err: error }, "[SFTP] Löschen fehlgeschlagen:");
       res.status(500).json({ error: "SFTP-Server konnte nicht gelöscht werden" });
     }
   });
@@ -188,7 +191,7 @@ export function registerSftpRoutes(app: Express): void {
       const result = await testSftpServer(merged);
       res.json(result);
     } catch (error) {
-      console.error("[SFTP] Verbindungstest fehlgeschlagen:", error);
+      log.error({ err: error }, "[SFTP] Verbindungstest fehlgeschlagen:");
       res.status(500).json({ ok: false, message: error instanceof Error ? error.message : "Verbindungstest fehlgeschlagen" });
     }
   };
@@ -222,7 +225,7 @@ export function registerSftpRoutes(app: Express): void {
         attachments: listDraftAttachmentsForApi(summary.attachments),
       });
     } catch (error) {
-      console.error("[SFTP] Manueller Upload fehlgeschlagen:", error);
+      log.error({ err: error }, "[SFTP] Manueller Upload fehlgeschlagen:");
       res.status(500).json({ error: "SFTP-Upload fehlgeschlagen" });
     }
   });

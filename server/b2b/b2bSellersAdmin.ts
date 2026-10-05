@@ -11,6 +11,9 @@ import { storage } from "../storage";
 import { enrichCustomerPricesWithHerstellMargin } from "../products/herstellpreisMargin";
 import { loadCrmProfitabilitySettings } from "../analytics/crmProfitabilitySettings";
 import { ShopwareClient, SHOPWARE_ADMIN_SEARCH_PAGE_SIZE } from "../shopware/shopware";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "b2b/b2bSellersAdmin" });
 export type { B2BEntityMapping };
 export { DEFAULT_B2B_ENTITY_MAPPING, mergeB2BEntityMapping };
 
@@ -955,7 +958,7 @@ export class B2BSellersAdminClient {
         customerLatest,
       });
     } catch (error) {
-      console.warn("[B2B] companies snapshot fingerprint failed:", error);
+      log.warn({ err: error }, "[B2B] companies snapshot fingerprint failed:");
       return null;
     }
   }

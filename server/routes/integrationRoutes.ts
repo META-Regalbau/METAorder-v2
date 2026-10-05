@@ -10,6 +10,9 @@ import { webhookService } from "../lib/webhookService";
 import { type WebhookEventType, type TicketCategory } from "@shared/schema";
 import rateLimit from "express-rate-limit";
 import { assignTicketAutomatically } from "./routeHelpers";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "routes/integrationRoutes" });
 
 export function registerIntegrationRoutes(app: Express): void {
   // Lightweight status endpoint for UI toggles
@@ -18,7 +21,7 @@ export function registerIntegrationRoutes(app: Express): void {
       const { settings } = await getEmailOutboundSettings(storage);
       res.json({ enabled: settings.enabled });
     } catch (error: any) {
-      console.error("Error fetching outbound status:", error);
+      moduleLog.error({ err: error }, "Error fetching outbound status:");
       res.status(500).json({ error: error.message || "Failed to fetch outbound status" });
     }
   });
@@ -39,7 +42,7 @@ export function registerIntegrationRoutes(app: Express): void {
         }))
       );
     } catch (error: any) {
-      console.error("Error fetching M365 connections:", error);
+      moduleLog.error({ err: error }, "Error fetching M365 connections:");
       res.status(500).json({ error: error.message || "Failed to fetch M365 connections" });
     }
   });
@@ -52,7 +55,7 @@ export function registerIntegrationRoutes(app: Express): void {
       }
       res.json({ success: true });
     } catch (error: any) {
-      console.error("Error deleting M365 connection:", error);
+      moduleLog.error({ err: error }, "Error deleting M365 connection:");
       res.status(500).json({ error: error.message || "Failed to delete M365 connection" });
     }
   });
@@ -74,7 +77,7 @@ export function registerIntegrationRoutes(app: Express): void {
       const url = buildM365AuthUrl(settings, state);
       res.redirect(url);
     } catch (error: any) {
-      console.error("Error starting M365 auth:", error);
+      moduleLog.error({ err: error }, "Error starting M365 auth:");
       res.status(500).json({ error: error.message || "Failed to start M365 auth" });
     }
   });
@@ -113,7 +116,7 @@ export function registerIntegrationRoutes(app: Express): void {
         message: deviceResponse.message,
       });
     } catch (error: any) {
-      console.error("Error starting M365 device code flow:", error);
+      moduleLog.error({ err: error }, "Error starting M365 device code flow:");
       res.status(500).json({ error: error.message || "Failed to start device code flow" });
     }
   });
@@ -184,7 +187,7 @@ export function registerIntegrationRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
-      console.error("Error polling M365 device code:", error);
+      moduleLog.error({ err: error }, "Error polling M365 device code:");
       res.status(500).json({ error: error.message || "Failed to poll device code" });
     }
   });
@@ -235,7 +238,7 @@ export function registerIntegrationRoutes(app: Express): void {
       await storage.saveSetting(stateKey, { consumed: true, consumedAt: new Date().toISOString() });
       res.redirect("/settings?m365=connected");
     } catch (error: any) {
-      console.error("Error handling M365 callback:", error);
+      moduleLog.error({ err: error }, "Error handling M365 callback:");
       res.status(500).json({ error: error.message || "Failed to complete M365 auth" });
     }
   });
@@ -357,12 +360,12 @@ export function registerIntegrationRoutes(app: Express): void {
           }
         }
       } catch (mailError) {
-        console.warn("[CPQ] Bestätigungsmail für Angebotsanfrage konnte nicht gesendet werden:", mailError);
+        moduleLog.warn({ err: mailError }, "[CPQ] Bestätigungsmail für Angebotsanfrage konnte nicht gesendet werden:");
       }
 
       res.json({ success: true, offerDraftId: offerDraft.id });
     } catch (error: any) {
-      console.error("Error creating public offer request from CPQ:", error);
+      moduleLog.error({ err: error }, "Error creating public offer request from CPQ:");
       res.status(500).json({ error: error.message ?? "Angebotsanfrage konnte nicht erstellt werden" });
     }
   });
@@ -399,7 +402,7 @@ export function registerIntegrationRoutes(app: Express): void {
         total,  // Use the real total from storage for pagination
       });
     } catch (error) {
-      console.error("Error fetching webhook logs:", error);
+      moduleLog.error({ err: error }, "Error fetching webhook logs:");
       res.status(500).json({ error: "Failed to fetch webhook logs" });
     }
   });
@@ -417,7 +420,7 @@ export function registerIntegrationRoutes(app: Express): void {
 
       res.json(result);
     } catch (error) {
-      console.error("Error testing webhook:", error);
+      moduleLog.error({ err: error }, "Error testing webhook:");
       res.status(500).json({ error: "Failed to test webhook" });
     }
   });
@@ -451,7 +454,7 @@ export function registerIntegrationRoutes(app: Express): void {
   function verifyWebhookSignature(rawBody: Buffer | string, signature: string, timestamp: string): boolean {
     const secret = process.env.N8N_SERVICE_PASSWORD;
     if (!secret) {
-      console.error("[Incoming Webhook] N8N_SERVICE_PASSWORD not configured");
+      moduleLog.error("[Incoming Webhook] N8N_SERVICE_PASSWORD not configured");
       return false;
     }
     
@@ -459,13 +462,13 @@ export function registerIntegrationRoutes(app: Express): void {
     const timestampMs = parseInt(timestamp);
     const now = Date.now();
     if (isNaN(timestampMs) || Math.abs(now - timestampMs) > 5 * 60 * 1000) {
-      console.warn("[Incoming Webhook] Timestamp outside acceptable window");
+      moduleLog.warn("[Incoming Webhook] Timestamp outside acceptable window");
       return false;
     }
     
     // Validate signature format (must be valid hex string)
     if (!/^[0-9a-fA-F]{64}$/.test(signature)) {
-      console.warn("[Incoming Webhook] Invalid signature format (expected 64 hex characters)");
+      moduleLog.warn("[Incoming Webhook] Invalid signature format (expected 64 hex characters)");
       return false;
     }
     
@@ -483,7 +486,7 @@ export function registerIntegrationRoutes(app: Express): void {
         Buffer.from(expectedSignature, 'hex')
       );
     } catch (err) {
-      console.error("[Incoming Webhook] Signature comparison error:", err);
+      moduleLog.error({ err }, "[Incoming Webhook] Signature comparison error:");
       return false;
     }
   }
@@ -506,7 +509,7 @@ export function registerIntegrationRoutes(app: Express): void {
       const timestamp = req.headers['x-metaorder-timestamp'] as string;
       
       if (!signature || !timestamp) {
-        console.warn("[Incoming Webhook] Missing signature or timestamp header");
+        moduleLog.warn("[Incoming Webhook] Missing signature or timestamp header");
         return res.status(401).json({ 
           error: "Unauthorized", 
           message: "Missing X-METAorder-Signature or X-METAorder-Timestamp header" 
@@ -516,7 +519,7 @@ export function registerIntegrationRoutes(app: Express): void {
       // Verify HMAC signature using raw body (set by express.json verify option in index.ts)
       const rawBody = (req as any).rawBody as Buffer | undefined;
       if (!rawBody) {
-        console.error("[Incoming Webhook] Raw body not available");
+        moduleLog.error("[Incoming Webhook] Raw body not available");
         return res.status(500).json({ 
           error: "Internal error", 
           message: "Unable to process request body" 
@@ -524,7 +527,7 @@ export function registerIntegrationRoutes(app: Express): void {
       }
       
       if (!verifyWebhookSignature(rawBody, signature, timestamp)) {
-        console.warn("[Incoming Webhook] Invalid signature");
+        moduleLog.warn("[Incoming Webhook] Invalid signature");
         return res.status(401).json({ 
           error: "Unauthorized", 
           message: "Invalid webhook signature" 
@@ -534,7 +537,7 @@ export function registerIntegrationRoutes(app: Express): void {
       // Validate payload
       const validationResult = incomingTicketWebhookSchema.safeParse(req.body);
       if (!validationResult.success) {
-        console.warn("[Incoming Webhook] Validation failed:", validationResult.error.errors);
+        moduleLog.warn({ errors: validationResult.error.errors }, "[Incoming Webhook] Validation failed:");
         return res.status(400).json({ 
           error: "Validation failed", 
           details: validationResult.error.errors 
@@ -546,7 +549,7 @@ export function registerIntegrationRoutes(app: Express): void {
       // Get or create n8n-service user for ticket creation
       const n8nUser = await storage.getUserByUsername("n8n-service");
       if (!n8nUser) {
-        console.error("[Incoming Webhook] n8n-service user not found");
+        moduleLog.error("[Incoming Webhook] n8n-service user not found");
         return res.status(500).json({ 
           error: "Internal error", 
           message: "Service account not configured" 
@@ -653,7 +656,7 @@ export function registerIntegrationRoutes(app: Express): void {
               source: "auto_assignment",
               trigger: "incoming_webhook",
               actorId: "system",
-            }).catch(err => console.error("Error triggering ticket.assigned webhook:", err));
+            }).catch(err => moduleLog.error({ err }, "Error triggering ticket.assigned webhook:"));
           }
         }
       }
@@ -671,9 +674,9 @@ export function registerIntegrationRoutes(app: Express): void {
       }, {
         source: "incoming_webhook",
         externalReference: payload.externalReference,
-      }).catch(err => console.error("Error triggering ticket.created webhook:", err));
+      }).catch(err => moduleLog.error({ err }, "Error triggering ticket.created webhook:"));
       
-      console.log(`[Incoming Webhook] Created ticket ${ticket.ticketNumber} from external source`);
+      moduleLog.info(`[Incoming Webhook] Created ticket ${ticket.ticketNumber} from external source`);
       
       // Return created ticket info
       res.status(201).json({
@@ -690,7 +693,7 @@ export function registerIntegrationRoutes(app: Express): void {
       });
       
     } catch (error: any) {
-      console.error("[Incoming Webhook] Error creating ticket:", error);
+      moduleLog.error({ err: error }, "[Incoming Webhook] Error creating ticket:");
       res.status(500).json({ 
         error: "Internal server error", 
         message: process.env.NODE_ENV === 'development' ? error.message : undefined 

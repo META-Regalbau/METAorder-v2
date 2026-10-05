@@ -1,4 +1,7 @@
-/**
+
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "analytics/forecastEngine" });/**
  * Forecast Engine
  * 
  * Implements various forecasting algorithms to predict future trends:
@@ -44,7 +47,7 @@ export async function generateForecast(
   input: ForecastInput,
   config: ForecastConfig
 ): Promise<ForecastOutput> {
-  console.log(`[Forecast Engine] Generating ${config.periods} ${config.unit} forecast using ${config.algorithm || 'auto'} algorithm`);
+  moduleLog.info(`[Forecast Engine] Generating ${config.periods} ${config.unit} forecast using ${config.algorithm || 'auto'} algorithm`);
   
   if (input.values.length < 3) {
     throw new Error('Insufficient data for forecasting - need at least 3 historical data points');
@@ -55,7 +58,7 @@ export async function generateForecast(
   
   if (!config.algorithm || config.algorithm === 'auto') {
     algorithm = selectBestAlgorithm(input, config);
-    console.log(`[Forecast Engine] Auto-selected algorithm: ${algorithm}`);
+    moduleLog.info(`[Forecast Engine] Auto-selected algorithm: ${algorithm}`);
   } else {
     algorithm = config.algorithm;
   }
@@ -77,7 +80,7 @@ export async function generateForecast(
       result = linearRegressionForecast(input, config);
   }
 
-  console.log(`[Forecast Engine] Forecast complete - Algorithm: ${result.algorithm}, Accuracy: ${result.accuracy}%`);
+  moduleLog.info(`[Forecast Engine] Forecast complete - Algorithm: ${result.algorithm}, Accuracy: ${result.accuracy}%`);
   
   return result;
 }
@@ -236,12 +239,12 @@ function seasonalDecompositionForecast(
   
   if (!seasonality.detected) {
     // Fallback to linear regression if no seasonality
-    console.log('[Forecast Engine] No seasonality detected, falling back to linear regression');
+    moduleLog.info("[Forecast Engine] No seasonality detected, falling back to linear regression");
     return linearRegressionForecast(input, config);
   }
   
   const period = seasonality.period;
-  console.log(`[Forecast Engine] Detected seasonal period: ${period}`);
+  moduleLog.info(`[Forecast Engine] Detected seasonal period: ${period}`);
   
   // Calculate seasonal indices
   const seasonalIndices = calculateSeasonalIndices(values, period);

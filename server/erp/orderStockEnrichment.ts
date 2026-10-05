@@ -8,6 +8,9 @@ import {
   pickStockStatus,
   type PickStockStatus,
 } from "./erpLogic";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "erp/orderStockEnrichment" });
 
 export type OrderStockSummary = {
   status: PickStockStatus;
@@ -96,7 +99,7 @@ export async function enrichOrdersWithStockAvailability(
       };
     });
   } catch (e) {
-    console.warn("[enrichOrdersWithStockAvailability] skipped:", (e as Error)?.message || e);
+    log.warn({ err: e }, "[enrichOrdersWithStockAvailability] skipped:");
     return orders;
   }
 }

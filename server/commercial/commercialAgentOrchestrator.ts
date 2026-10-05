@@ -25,6 +25,9 @@ import { getUploadsRoot } from "../uploadsRoot";
 import { logCommercialAgentDebug } from "./commercialAgentDebugLog";
 import { maybeSendInboundAcknowledgement } from "./commercialInboundAcknowledgementSend";
 import { isCommercialInboundDocumentAttachment } from "./commercialInboundPdfContext";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "commercial/commercialAgentOrchestrator" });
 
 const DEDUPE_SETTING_KEY = "commercial_agent_dedupe_hashes";
 
@@ -74,7 +77,7 @@ async function appendDedupeHash(storage: IStorage, hash: string): Promise<void> 
 }
 
 function logAudit(payload: Record<string, unknown>) {
-  console.log(`[CommercialAgent] AUDIT ${JSON.stringify({ ts: new Date().toISOString(), ...payload })}`);
+  moduleLog.info(`[CommercialAgent] AUDIT ${JSON.stringify({ ts: new Date().toISOString(), ...payload })}`);
 }
 
 export type ProcessCommercialDocumentParams = {
@@ -364,7 +367,7 @@ export async function processCommercialDocumentFromEmail(
           },
           tenantId
         )
-        .catch((err) => console.warn("[CommercialAgent] exemplar save failed:", err));
+        .catch((err) => moduleLog.warn({ err }, "[CommercialAgent] exemplar save failed:"));
     }
   } catch (err) {
     logAudit({
@@ -398,7 +401,7 @@ export async function processCommercialDocumentFromEmail(
       draftKind,
       draft: savedDraftForWebhook,
       agentSettings,
-    }).catch((err) => console.warn("[CommercialAgent] Eingangsbestätigung fehlgeschlagen:", err));
+    }).catch((err) => moduleLog.warn({ err }, "[CommercialAgent] Eingangsbestätigung fehlgeschlagen:"));
   }
 
   if (savedDraftForWebhook) {
@@ -435,7 +438,7 @@ export async function processCommercialDocumentFromEmail(
       }
     }
   } catch (error) {
-    console.warn("[CommercialAgent] sourceMessageId konnte nicht am Entwurf vermerkt werden:", error);
+    moduleLog.warn({ err: error }, "[CommercialAgent] sourceMessageId konnte nicht am Entwurf vermerkt werden:");
   }
 
   const savedDraftForAuto =
@@ -678,6 +681,6 @@ async function addTicketNote(storage: IStorage, ticketId: string, userId: string
       isInternal: 1,
     });
   } catch (e) {
-    console.warn("[CommercialAgent] ticket note failed:", e);
+    moduleLog.warn({ err: e }, "[CommercialAgent] ticket note failed:");
   }
 }

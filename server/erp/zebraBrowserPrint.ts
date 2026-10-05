@@ -1,4 +1,7 @@
-/**
+
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "erp/zebraBrowserPrint" });/**
  * Server-seitiger Zugriff auf die lokale Zebra Browser Print HTTP-API.
  *
  * Der Browser (besonders mit Private Network Access / CORS) kann
@@ -198,9 +201,7 @@ async function writeWithRefresh(device: ZebraDeviceDto, data: string): Promise<v
     if (!(e instanceof BrowserPrintProxyError) || e.code !== "print_failed") throw e;
     const fresh = await resolveLiveDevice(device);
     if (!fresh || fresh.uid === device.uid) throw e;
-    console.warn(
-      `[zebra] Write fehlgeschlagen, wiederhole mit aktueller Geräte-UID (alt: ${device.uid}, neu: ${fresh.uid})`,
-    );
+    log.warn(`[zebra] Write fehlgeschlagen, wiederhole mit aktueller Geräte-UID (alt: ${device.uid}, neu: ${fresh.uid})`);
     await writeToPrinter(fresh, data);
   }
 }

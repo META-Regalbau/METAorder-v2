@@ -1,6 +1,9 @@
 import type { Product } from "@shared/schema";
 import type { ShopwareClient } from "../shopware/shopware";
 import { getTenantIdFromContext } from "../lib/tenantContext";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "products/productCache" });
 
 /**
  * Product Cache System
@@ -157,7 +160,7 @@ class ProductCache {
    * Initialize cache and start auto-refresh
    */
   async initialize(client: ShopwareClient, ttl: number = this.DEFAULT_TTL): Promise<void> {
-    console.log('[Product Cache] Initializing cache system...');
+    moduleLog.info("[Product Cache] Initializing cache system...");
     
     // Load products initially
     await this.refresh(client);
@@ -168,11 +171,11 @@ class ProductCache {
     }
     
     this.refreshInterval = setInterval(async () => {
-      console.log('[Product Cache] Auto-refresh triggered');
+      moduleLog.info("[Product Cache] Auto-refresh triggered");
       await this.refresh(client);
     }, ttl);
     
-    console.log(`[Product Cache] Auto-refresh scheduled every ${ttl / (60 * 60 * 1000)} hours`);
+    moduleLog.info(`[Product Cache] Auto-refresh scheduled every ${ttl / (60 * 60 * 1000)} hours`);
   }
   
   /**
@@ -181,7 +184,7 @@ class ProductCache {
   async refresh(client: ShopwareClient): Promise<void> {
     // If refresh is already in progress, wait for it to complete
     if (this.refreshPromise) {
-      console.log('[Product Cache] Refresh already in progress, waiting for completion...');
+      moduleLog.info("[Product Cache] Refresh already in progress, waiting for completion...");
       return this.refreshPromise;
     }
     
@@ -217,9 +220,7 @@ class ProductCache {
             this.products.length > 0
           ) {
             this.lastUpdate = new Date();
-            console.log(
-              `[Product Cache] Skipping refresh — mirror catalog unchanged (${this.products.length} products)`,
-            );
+            moduleLog.info(`[Product Cache] Skipping refresh — mirror catalog unchanged (${this.products.length} products)`);
             return;
           }
 
@@ -231,7 +232,7 @@ class ProductCache {
           ) {
             const { rows } = await storage.getShopwareProductMirrors({ activeOnly: true }, tenantId);
             this.hydrateFromMirror(mirrorRowsToProducts(rows), sourceFingerprint);
-            console.log(`[Product Cache] ✓ Hydrated ${this.products.length} products from DB mirror`);
+            moduleLog.info(`[Product Cache] ✓ Hydrated ${this.products.length} products from DB mirror`);
             return;
           }
 
@@ -248,7 +249,7 @@ class ProductCache {
           }
         }
       } catch (mirrorError: any) {
-        console.warn("[Product Cache] Mirror hydrate failed, falling back to live fetch:", mirrorError?.message || mirrorError);
+        moduleLog.warn({ err: mirrorError }, "[Product Cache] Mirror hydrate failed, falling back to live fetch:");
       }
 
       const sourceFingerprint = await client.fetchActiveProductCatalogFingerprint();
@@ -258,13 +259,11 @@ class ProductCache {
         this.products.length > 0
       ) {
         this.lastUpdate = new Date();
-        console.log(
-          `[Product Cache] Skipping full refresh — catalog unchanged (${this.products.length} products, fp ${sourceFingerprint.slice(0, 8)})`,
-        );
+        moduleLog.info(`[Product Cache] Skipping full refresh — catalog unchanged (${this.products.length} products, fp ${sourceFingerprint.slice(0, 8)})`);
         return;
       }
 
-      console.log('[Product Cache] Starting product fetch...');
+      moduleLog.info("[Product Cache] Starting product fetch...");
       const allProducts: Product[] = [];
       
       // Shopware has a max limit of 500 products per request
@@ -273,7 +272,7 @@ class ProductCache {
       let hasMore = true;
       
       while (hasMore) {
-        console.log(`[Product Cache] Fetching batch ${page} (limit: ${BATCH_SIZE})...`);
+        moduleLog.info(`[Product Cache] Fetching batch ${page} (limit: ${BATCH_SIZE})...`);
         
         const { products, total } = await client.fetchProducts(
           BATCH_SIZE,
@@ -285,7 +284,7 @@ class ProductCache {
         
         allProducts.push(...products);
         
-        console.log(`[Product Cache] Batch ${page}: ${products.length} products (total so far: ${allProducts.length}, API reported total: ${total})`);
+        moduleLog.info(`[Product Cache] Batch ${page}: ${products.length} products (total so far: ${allProducts.length}, API reported total: ${total})`);
         
         // Continue fetching until we get less than BATCH_SIZE products
         // This is more reliable than trusting the API's "total" count which can be wrong
@@ -299,12 +298,12 @@ class ProductCache {
       this.lastFingerprint = sourceFingerprint;
       this.error = null;
       
-      console.log(`[Product Cache] ✓ Successfully cached ${allProducts.length} products`);
-      console.log(`[Product Cache] Last update: ${this.lastUpdate.toISOString()}`);
+      moduleLog.info(`[Product Cache] ✓ Successfully cached ${allProducts.length} products`);
+      moduleLog.info(`[Product Cache] Last update: ${this.lastUpdate.toISOString()}`);
       
     } catch (error: any) {
       this.error = error.message || 'Unknown error during cache refresh';
-      console.error('[Product Cache] ✗ Error refreshing cache:', error);
+      moduleLog.error({ err: error }, "[Product Cache] ✗ Error refreshing cache:");
       throw error;
     } finally {
       this.isLoading = false;
@@ -323,7 +322,7 @@ class ProductCache {
     this.lastUpdate = null;
     this.lastFingerprint = null;
     this.error = null;
-    console.log('[Product Cache] Cache destroyed');
+    moduleLog.info("[Product Cache] Cache destroyed");
   }
 
   /**

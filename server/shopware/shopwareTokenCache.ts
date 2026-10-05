@@ -9,6 +9,9 @@
  * Deshalb: ein Token pro Shopware + Zugangsschlüssel, parallele Anfragen warten auf denselben Abruf.
  */
 import { createHash } from "crypto";
+import { logger } from "../lib/logger";
+
+const moduleLog = logger.child({ component: "shopware/shopwareTokenCache" });
 
 type CachedToken = { token: string; expiresAt: number };
 
@@ -21,7 +24,7 @@ function cacheKey(baseUrl: string, clientId: string, clientSecret: string): stri
 }
 
 async function requestToken(baseUrl: string, clientId: string, clientSecret: string): Promise<CachedToken> {
-  console.log(`[ShopwareAuth] Neues Token für ${baseUrl.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`);
+  moduleLog.info(`[ShopwareAuth] Neues Token für ${baseUrl.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`);
   const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/api/oauth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },

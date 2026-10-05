@@ -1,6 +1,9 @@
 import type OpenAI from "openai";
 import type { ShopwareClient } from "../shopware/shopware";
 import { truncateText } from "../ai/aiTextUtils";
+import { logger } from "../lib/logger";
+
+const log = logger.child({ component: "commercial/draftCustomerEmailResolution" });
 
 const EMAIL_RE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 
@@ -157,7 +160,7 @@ Die gewählte Adresse muss exakt einer der vorgegebenen Kandidaten entsprechen.`
     const allowed = new Set(candidates.map((c) => c.toLowerCase()));
     return allowed.has(pick) ? pick : null;
   } catch (e) {
-    console.warn("[DraftCustomerEmail] LLM disambiguation failed:", e);
+    log.warn({ err: e }, "[DraftCustomerEmail] LLM disambiguation failed:");
     return null;
   }
 }
@@ -445,7 +448,7 @@ async function tryResolveCustomerByBillingAddress(
         return { match: { id: pick.id, email: pick.email }, candidates: [{ ...pick, reason: "customer_number" }] };
       }
     } catch (error) {
-      console.warn("[DraftCustomerEmail] Kundennummer-Suche fehlgeschlagen:", error);
+      log.warn({ err: error }, "[DraftCustomerEmail] Kundennummer-Suche fehlgeschlagen:");
     }
   }
 
@@ -618,7 +621,7 @@ export async function resolveShopwareCustomerForDraft(
         break;
       }
     } catch (e) {
-      console.warn(`[DraftCustomerEmail] findCustomerByEmail failed for ${tryEmail}:`, e);
+      log.warn({ err: e }, `[DraftCustomerEmail] findCustomerByEmail failed for ${tryEmail}:`);
     }
   }
 
@@ -712,7 +715,7 @@ export async function resolveShopwareCustomerForDraft(
         Math.min(100, minForAutoOffer + 8)
       );
     } else {
-      console.error("[DraftCustomerEmail] createCustomer failed:", created.error);
+      log.error(`[DraftCustomerEmail] createCustomer failed: ${created.error}`);
     }
   }
 
