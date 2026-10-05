@@ -29,6 +29,7 @@ import { useTranslation } from "react-i18next";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
+import { isNotConfiguredError } from "@/lib/apiError";
 /** Versanddatum fuer <input type="date">: Zeitstempel (Status-Historie in Shopware) als lokaler Tag. */
 function toDateInputValue(value?: string): string {
   if (!value) return "";
@@ -869,7 +870,7 @@ export default function OrderDetailModal({
               {documentsError ? (
                 <div className="text-center py-8">
                   <p className="text-destructive text-sm font-medium mb-2">{t('errors.loadFailed')}</p>
-                  {documentsError instanceof Error && documentsError.message.includes('Shopware settings not configured') ? (
+                  {isNotConfiguredError(documentsError) ? (
                     <p className="text-muted-foreground text-sm">{t('errors.notConfiguredDescription')}</p>
                   ) : (
                     <p className="text-muted-foreground text-sm">{t('orderDetail.documentsError')}</p>

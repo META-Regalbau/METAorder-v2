@@ -18,6 +18,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import type { ErpAutomationRun } from "@shared/schema";
+import { apiErrorFromBody } from "@/lib/apiError";
 
 interface ErpAutomationWidgetProps {
   userRole: "employee" | "admin";
@@ -44,8 +45,8 @@ export default function ErpAutomationWidget({ userRole }: ErpAutomationWidgetPro
         credentials: 'include',
       });
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to fetch automation history' }));
-        throw new Error(errorData.error || 'Failed to fetch automation history');
+        const errorData = await response.json().catch(() => null);
+        throw apiErrorFromBody(response.status, errorData);
       }
       return response.json();
     },

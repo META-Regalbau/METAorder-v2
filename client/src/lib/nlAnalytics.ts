@@ -5,6 +5,7 @@
  */
 import type { AnalyticsQueryType, NlQueryErrorCode } from "@shared/schema";
 import { NL_QUERY_ERROR_CODES } from "@shared/schema";
+import { apiErrorInfo } from "./apiError";
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
@@ -92,17 +93,11 @@ export function formatNlAxisValue(value: unknown, kind: NlValueKind, locale: str
   return new Intl.NumberFormat(locale, compact).format(value);
 }
 
-/** Fehlercode aus der Antwort (apiRequest wirft "Status: Antworttext") */
+/** Fehlercode aus der Antwort (ApiError bzw. altes Format "Status: Antworttext") */
 export function nlErrorCode(error: unknown): NlQueryErrorCode {
-  const message = error instanceof Error ? error.message : String(error ?? "");
-  const body = message.replace(/^\d{3}:\s*/, "");
-  try {
-    const code = (JSON.parse(body) as { code?: unknown }).code;
-    if (typeof code === "string" && (NL_QUERY_ERROR_CODES as readonly string[]).includes(code)) {
-      return code as NlQueryErrorCode;
-    }
-  } catch {
-    // kein JSON (z. B. Netzwerkfehler)
+  const code = apiErrorInfo(error)?.code;
+  if (code && (NL_QUERY_ERROR_CODES as readonly string[]).includes(code)) {
+    return code as NlQueryErrorCode;
   }
   return "unexpected";
 }

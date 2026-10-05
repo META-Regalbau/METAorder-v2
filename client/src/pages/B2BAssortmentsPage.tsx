@@ -12,6 +12,7 @@ import { apiRequest } from "@/lib/queryClient";
 import type { Role } from "@shared/schema";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
+import { apiErrorFromBody } from "@/lib/apiError";
 interface B2BAssortmentsPageProps {
   userPermissions: Role["permissions"];
 }
@@ -68,7 +69,7 @@ export default function B2BAssortmentsPage({ userPermissions }: B2BAssortmentsPa
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || "Failed");
+        throw apiErrorFromBody(res.status, err);
       }
       return res.json();
     },

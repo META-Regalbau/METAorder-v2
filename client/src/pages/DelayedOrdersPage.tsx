@@ -16,6 +16,7 @@ import type { Order, Role, User } from "@shared/schema";
 import { useTranslation } from "react-i18next";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
+import { isNotConfiguredError } from "@/lib/apiError";
 type DelayedOrder = Order & {
   daysSinceOrder: number;
 };
@@ -136,8 +137,7 @@ export default function DelayedOrdersPage({ userRole }: DelayedOrdersPageProps) 
 
   // Show error if Shopware is not configured
   if (error) {
-    const errorMessage = (error as any)?.message || t('errors.loadFailed');
-    if (errorMessage.includes('not configured')) {
+    if (isNotConfiguredError(error)) {
       return (
         <div className="w-full">
           <div className="mb-6">

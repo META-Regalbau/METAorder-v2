@@ -1,39 +1,20 @@
-/** Liest strukturierte Fehler aus apiRequest (`502: {"message":"…"}`). */
+import { apiErrorInfo, apiErrorText } from "./apiError";
+
+/** Hinweis zu einem Fehler aus apiRequest; Mondu-Fehler beim Versand mit eigenem Titel. */
 export function getApiErrorToastContent(
   error: Error,
   t: (key: string) => string,
   fallbackTitleKey = "errors.updateFailed",
 ): { title: string; description: string } {
-  const match = error.message.match(/^\d+:\s*([\s\S]+)$/);
-  if (match) {
-    try {
-      const body = JSON.parse(match[1]) as {
-        error?: string;
-        message?: string;
-        code?: string;
-      };
-      if (
-        body.error === "Mondu plugin error" ||
-        body.code?.startsWith("mondu_ship")
-      ) {
-        const description =
-          body.code === "mondu_ship_blocked_after_payment_switch"
-            ? t("orders.monduPluginErrorPaymentSwitchDescription")
-            : body.message || t("orders.monduPluginErrorDescription");
-        return {
-          title: t("orders.monduPluginError"),
-          description,
-        };
-      }
-      if (body.message) {
-        return { title: t(fallbackTitleKey), description: body.message };
-      }
-      if (body.error) {
-        return { title: t(fallbackTitleKey), description: body.error };
-      }
-    } catch {
-      // Rohtext beibehalten
-    }
+  const info = apiErrorInfo(error);
+  const body = (info?.body ?? null) as { error?: string; message?: string; code?: string } | null;
+  if (body && (body.error === "Mondu plugin error" || body.code?.startsWith("mondu_ship"))) {
+    const description =
+      body.code === "mondu_ship_blocked_after_payment_switch"
+        ? t("orders.monduPluginErrorPaymentSwitchDescription")
+        : body.message || t("orders.monduPluginErrorDescription");
+    return { title: t("orders.monduPluginError"), description };
   }
-  return { title: t(fallbackTitleKey), description: error.message };
+  // Meldung in der Sprache der Oberflaeche (ApiError.message bzw. aus dem alten Format "Status: Text")
+  return { title: t(fallbackTitleKey), description: info ? apiErrorText(info) : error.message };
 }

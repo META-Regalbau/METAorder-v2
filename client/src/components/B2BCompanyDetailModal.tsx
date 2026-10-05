@@ -43,6 +43,7 @@ import { pickDefaultEmployeeRole } from "@shared/b2bEntityMapping";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 import type { LocaleFormatters } from "@/lib/localeFormat";
+import { apiErrorFromBody } from "@/lib/apiError";
 export type B2BCompanyDetail = {
   offerCustomerId: string | null;
   customerId: string;
@@ -225,7 +226,7 @@ function EditEmployeeDialog({
       const res = await apiRequest("PATCH", `/api/b2b/employees/${employee.id}`, payload);
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: res.statusText }));
-        throw new Error(err.error || res.statusText);
+        throw apiErrorFromBody(res.status, err);
       }
       return res.json() as Promise<{ passwordChanged?: boolean }>;
     },
@@ -440,7 +441,7 @@ function NewEmployeeDialog({
         });
         if (!roleRes.ok) {
           const err = await roleRes.json().catch(() => ({ error: roleRes.statusText }));
-          throw new Error(err.error || roleRes.statusText);
+          throw apiErrorFromBody(roleRes.status, err);
         }
         const createdRole = await roleRes.json();
         effectiveRoleId = createdRole.id;
@@ -459,7 +460,7 @@ function NewEmployeeDialog({
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: res.statusText }));
-        throw new Error(err.error || res.statusText);
+        throw apiErrorFromBody(res.status, err);
       }
       return res.json();
     },
@@ -671,7 +672,7 @@ export default function B2BCompanyDetailModal({
       const res = await fetch(`/api/b2b/companies/${companyId}`, { credentials: "include" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: res.statusText }));
-        throw new Error(err.error || res.statusText);
+        throw apiErrorFromBody(res.status, err);
       }
       return res.json();
     },
@@ -692,7 +693,7 @@ export default function B2BCompanyDetailModal({
           : await apiRequest("POST", `/api/b2b/employees/${employeeId}/${action}`, {});
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: res.statusText }));
-        throw new Error(err.error || res.statusText);
+        throw apiErrorFromBody(res.status, err);
       }
       return res.json();
     },

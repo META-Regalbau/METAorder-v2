@@ -38,6 +38,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
+import { apiErrorRaw } from "@/lib/apiError";
 interface ProductDetailModalProps {
   product: Product | null;
   open: boolean;
@@ -136,9 +137,9 @@ export default function ProductDetailModal({
     },
     onError: (error: Error) => {
       if (
-        error.message.includes("MetaBundleVariants") ||
-        error.message.includes("BundleCacheInvalidationSubscriber") ||
-        error.message.includes("bin2hex()")
+        apiErrorRaw(error).includes("MetaBundleVariants") ||
+        apiErrorRaw(error).includes("BundleCacheInvalidationSubscriber") ||
+        apiErrorRaw(error).includes("bin2hex()")
       ) {
         if (product) {
           queryClient.invalidateQueries({ queryKey: ["/api/products", product.id, "categories"] });
@@ -176,9 +177,9 @@ export default function ProductDetailModal({
     },
     onError: (error: Error) => {
       if (
-        error.message.includes("MetaBundleVariants") ||
-        error.message.includes("BundleCacheInvalidationSubscriber") ||
-        error.message.includes("bin2hex()")
+        apiErrorRaw(error).includes("MetaBundleVariants") ||
+        apiErrorRaw(error).includes("BundleCacheInvalidationSubscriber") ||
+        apiErrorRaw(error).includes("bin2hex()")
       ) {
         if (product) {
           queryClient.invalidateQueries({ queryKey: ["/api/products", product.id, "sales-channels"] });

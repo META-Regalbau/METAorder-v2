@@ -10,6 +10,7 @@
  */
 
 import { apiRequest } from "@/lib/queryClient";
+import { apiErrorRaw } from "@/lib/apiError";
 
 export type ZebraDevice = {
   name: string;
@@ -49,7 +50,7 @@ export async function discoverPrinters(): Promise<{
       defaultUid: data.defaultUid ?? null,
     };
   } catch (e: any) {
-    const msg = String(e?.message || e || "");
+    const msg = apiErrorRaw(e);
     if (/502|504|unreachable|timeout|Browser Print/i.test(msg)) {
       throw new BrowserPrintUnavailableError(
         /timeout|504/i.test(msg) ? "browser_print_timeout" : "browser_print_unreachable",
@@ -112,7 +113,7 @@ export async function printShippingLabelPdf(
     const data = (await res.json()) as { ok?: boolean; printerName?: string };
     return { printerName: data.printerName };
   } catch (e: any) {
-    const msg = String(e?.message || e || "");
+    const msg = apiErrorRaw(e);
     if (/502|504|unreachable|timeout|Browser Print|No Zebra/i.test(msg)) {
       throw new BrowserPrintUnavailableError(
         /timeout|504/i.test(msg) ? "browser_print_timeout" : "browser_print_unreachable",
