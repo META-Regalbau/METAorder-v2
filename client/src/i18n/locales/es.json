@@ -4798,7 +4798,8 @@
     },
     "upsell_opportunities": {
       "title": "Potencial de upselling",
-      "description": "Recomendaciones con alto lift para la cesta"
+      "description": "Recomendaciones con alto lift para la cesta",
+      "pairStats": "{{confidence}} de probabilidad de compra · lift {{lift}}"
     },
     "top_quality_pairs": {
       "title": "Pares de mayor calidad (embudo)",

@@ -4801,7 +4801,8 @@
     },
     "upsell_opportunities": {
       "title": "Upsell potential",
-      "description": "Recommendations with high lift for the basket"
+      "description": "Recommendations with high lift for the basket",
+      "pairStats": "{{confidence}} purchase probability · lift {{lift}}"
     },
     "top_quality_pairs": {
       "title": "Top quality pairs (funnel)",

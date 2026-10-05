@@ -82,6 +82,6 @@ describe("Statistik-Seite nutzt die Sprache", () => {
   });
 
   it("Lern-Insights bekommen die Sprache", () => {
-    expect(code).toContain("learningInsightPairStats(t, pair, i18n.language)");
+    expect(code).toContain("learningInsightPairStats(t, pair, i18n.language, insight.insightType)");
   });
 });
