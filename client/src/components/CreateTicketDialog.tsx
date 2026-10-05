@@ -161,7 +161,7 @@ export default function CreateTicketDialog({
     if (!title.trim() || !description.trim()) {
       toast({
         title: t('tickets.createFailed'),
-        description: "Bitte füllen Sie alle Pflichtfelder aus",
+        description: t('tickets.requiredFieldsMissing'),
         variant: "destructive",
       });
       return;

@@ -210,7 +210,7 @@ function EditEmployeeDialog({
 
   const mutation = useMutation({
     mutationFn: async () => {
-      if (!employee) throw new Error("Kein Mitarbeiter ausgewählt");
+      if (!employee) throw new Error(t("b2b.errors.noEmployeeSelected"));
       const payload: Record<string, unknown> = {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
@@ -430,7 +430,7 @@ function NewEmployeeDialog({
 
   const mutation = useMutation({
     mutationFn: async () => {
-      if (!customerId) throw new Error("Kein Kunde ausgewählt");
+      if (!customerId) throw new Error(t("b2b.errors.noCustomerSelected"));
 
       // Ggf. zuerst die neue Rolle anlegen, dann deren ID verwenden.
       let effectiveRoleId: string | undefined = roleId || undefined;

@@ -299,7 +299,7 @@ export default function OrderDetailModal({
     try {
       const url = `/api/dunning/order/${order.id}/pdf?stage=${stage}`;
       const response = await fetch(url, { credentials: "include" });
-      if (!response.ok) throw new Error("Download fehlgeschlagen");
+      if (!response.ok) throw new Error(t('orderDetail.downloadFailed'));
       const blob = await response.blob();
       const contentDisposition = response.headers.get("Content-Disposition");
       const match = contentDisposition?.match(/filename="?([^";\n]+)"?/);

@@ -5,6 +5,8 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
 export type DraftShopwareCustomer = {
   id: string;
@@ -19,18 +21,27 @@ export type DraftShopwareCustomer = {
   reason?: "customer_number" | "company_exact_zip" | "company_exact" | "company_partial";
 };
 
-const REASON_LABEL: Record<NonNullable<DraftShopwareCustomer["reason"]>, string> = {
-  customer_number: "Kundennummer",
-  company_exact_zip: "Firma + PLZ",
-  company_exact: "Firma",
-  company_partial: "Firma ähnlich",
-};
+function reasonLabel(reason: NonNullable<DraftShopwareCustomer["reason"]>, t: TFunction): string {
+  switch (reason) {
+    case "customer_number":
+      return t("draftCustomerOptions.reason.customerNumber");
+    case "company_exact_zip":
+      return t("draftCustomerOptions.reason.companyExactZip");
+    case "company_exact":
+      return t("draftCustomerOptions.reason.companyExact");
+    case "company_partial":
+      return t("draftCustomerOptions.reason.companyPartial");
+    default:
+      return reason;
+  }
+}
 
 export function DraftCustomerOptionLabel({ customer }: { customer: DraftShopwareCustomer }) {
+  const { t } = useTranslation();
   const person = [customer.firstName, customer.lastName].filter(Boolean).join(" ");
   const place = [customer.zipCode, customer.city].filter(Boolean).join(" ");
   const meta = [
-    customer.customerNumber && `Kd.-Nr. ${customer.customerNumber}`,
+    customer.customerNumber && t("draftCustomerOptions.customerNumberShort", { number: customer.customerNumber }),
     place,
     customer.salesChannelName,
   ].filter(Boolean);
@@ -56,12 +67,12 @@ export function DraftCustomerCandidates({
   disabled?: boolean;
   testIdPrefix: string;
 }) {
+  const { t } = useTranslation();
   if (!candidates || candidates.length === 0) return null;
   return (
     <div className="space-y-1" data-testid={`${testIdPrefix}-candidates`}>
       <p className="text-sm">
-        Kein Kunde mit dieser E-Mail-Adresse gefunden. Zur Firma passen {candidates.length} bestehende
-        Shopware-Accounts — bitte den richtigen wählen:
+        {t("draftCustomerOptions.candidatesIntro", { count: candidates.length })}
       </p>
       <ul className="border rounded-md divide-y max-h-64 overflow-y-auto max-w-2xl">
         {candidates.map((c) => (
@@ -76,7 +87,7 @@ export function DraftCustomerCandidates({
               <DraftCustomerOptionLabel customer={c} />
               {c.reason && (
                 <span className="shrink-0 rounded border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                  {REASON_LABEL[c.reason]}
+                  {reasonLabel(c.reason, t)}
                 </span>
               )}
             </button>

@@ -1,5 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import i18next from "i18next";
 import { learningInsightDescription, learningInsightTitle } from "@/lib/learningInsightText";
 import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Play } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -54,10 +55,10 @@ async function pollCrossSellJob(
       onProgress?.(data.processed, data.total);
     }
     if (data.status === "done") return data.result ?? {};
-    if (data.status === "error") throw new Error(data.error || "Job fehlgeschlagen");
-    if (data.status === "idle") throw new Error("Job wurde nicht gefunden");
+    if (data.status === "error") throw new Error(data.error || i18next.t("crossSelling.job.failed"));
+    if (data.status === "idle") throw new Error(i18next.t("crossSelling.job.notFound"));
   }
-  throw new Error("Zeitüberschreitung beim Warten auf den Hintergrundjob");
+  throw new Error(i18next.t("crossSelling.job.timeout"));
 }
 
 type SortDirection = "asc" | "desc";

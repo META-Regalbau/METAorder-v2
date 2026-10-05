@@ -48,6 +48,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient, readJsonBody } from "@/lib/queryClient";
 import type { Role, SalesChannel } from "@shared/schema";
+import { createApiError } from "@/lib/apiError";
 
 type PortalUserType = "company" | "dealer" | "sales_rep";
 
@@ -308,9 +309,9 @@ export default function B2BUsersPage({ userPermissions, userRole, userSalesChann
         credentials: "include",
         cache: "no-store",
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw createApiError(res.status, await res.text());
       const text = await res.text();
-      if (!text.trim()) throw new Error("Leere Server-Antwort");
+      if (!text.trim()) throw new Error(t("apiErrors.client.emptyResponse"));
       return JSON.parse(text);
     },
     enabled: canView,
@@ -526,17 +527,17 @@ export default function B2BUsersPage({ userPermissions, userRole, userSalesChann
 
       const text = (await res.text()) || "";
       if (!res.ok) {
-        throw new Error(`${res.status}: ${text || res.statusText}`);
+        throw createApiError(res.status, text);
       }
       if (!text.trim()) {
-        throw new Error("Leere Server-Antwort");
+        throw new Error(t("apiErrors.client.emptyResponse"));
       }
 
       let data: ImportResult;
       try {
         data = JSON.parse(text) as ImportResult;
       } catch {
-        throw new Error(`Ungültige JSON-Antwort: ${text.slice(0, 200)}`);
+        throw new Error(t("apiErrors.client.invalidJson", { text: text.slice(0, 200) }));
       }
       setImportResult(data);
       if (apply) {

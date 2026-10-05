@@ -172,11 +172,10 @@ export default function OrderDraftsPage() {
           data-testid="alert-recipient-is-meta-list"
         >
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Käufer ist META — vermutlich Lieferanten-AB</AlertTitle>
+          <AlertTitle>{t("documentExtraction.buyerIsMeta.listTitle")}</AlertTitle>
           <AlertDescription className="text-sm space-y-2">
             <p>
-              In {recipientIsMetaDrafts.length} Beleg(en) tritt META als Besteller auf.
-              Bitte prüfen, ob diese überhaupt als Kunden-Bestellung verarbeitet werden sollen.
+              {t("documentExtraction.buyerIsMeta.orderDraftsList", { count: recipientIsMetaDrafts.length })}
             </p>
             <ul className="list-disc pl-4 space-y-0.5">
               {recipientIsMetaDrafts.map((d) => (

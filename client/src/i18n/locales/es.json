@@ -978,7 +978,24 @@
     "logoutFailed": "Cierre de sesión fallido",
     "welcomeBack": "¡Bienvenido de nuevo!",
     "loggingIn": "Iniciando sesión...",
-    "demoCredentials": "Credenciales de demostración:"
+    "demoCredentials": "Credenciales de demostración:",
+    "reset": {
+      "title": "Restablecimiento de contraseña de emergencia",
+      "description": "Restablece la contraseña de un usuario con la clave de restablecimiento configurada.",
+      "resetKey": "Clave de restablecimiento",
+      "newPassword": "Nueva contraseña",
+      "confirmPassword": "Confirmar nueva contraseña",
+      "usernameRequired": "El nombre de usuario es obligatorio",
+      "resetKeyRequired": "La clave de restablecimiento es obligatoria",
+      "minLength": "Al menos 8 caracteres",
+      "confirmRequired": "La confirmación es obligatoria",
+      "passwordMismatch": "Las contraseñas no coinciden",
+      "successTitle": "Contraseña restablecida",
+      "successDescription": "Ahora puede iniciar sesión con la nueva contraseña.",
+      "failedTitle": "Error al restablecer",
+      "submitting": "Restableciendo…",
+      "submit": "Restablecer contraseña"
+    }
   },
   "roles": {
     "admin": "Admin",
@@ -2117,7 +2134,20 @@
       "resultsFound_other": "{{count}} productos encontrados"
     },
     "image": "Imagen del producto",
-    "activeSwitch": "{{name}} activo"
+    "activeSwitch": "{{name}} activo",
+    "preview3d": {
+      "title": "Vista previa 3D (GLB)",
+      "searching": "Buscando modelo 3D…",
+      "loading": "Cargando modelo 3D…",
+      "noModel": "No hay modelo 3D (GLB) disponible",
+      "noModelHint": "Use el n.º de producto / n.º de fabricante para asignar el GLB",
+      "saveTooltip": "Guardar URL del GLB en Shopware",
+      "save": "Guardar en Shopware",
+      "saving": "Guardando…",
+      "saveSuccess": "El GLB se ha subido a los medios de Shopware.",
+      "saveFailed": "Error al guardar",
+      "footer": "GLB: {{filename}} · Desplazar y hacer zoom con el ratón"
+    }
   },
   "categories": {
     "none": "No hay categorías disponibles",
@@ -2172,7 +2202,12 @@
     "addOneToGroup": "Añadir al grupo",
     "suggestionAddedToGroup": "El artículo se ha añadido al grupo seleccionado.",
     "suggestionAddError": "No se ha podido añadir el artículo al grupo.",
-    "recommendedBecause": "Recomendado porque"
+    "recommendedBecause": "Recomendado porque",
+    "job": {
+      "failed": "El trabajo ha fallado",
+      "notFound": "No se ha encontrado el trabajo",
+      "timeout": "Tiempo de espera agotado esperando el trabajo en segundo plano"
+    }
   },
   "rules": {
     "title": "Reglas de Venta Cruzada",
@@ -2613,7 +2648,9 @@
     "categoryPlaceholder": "ej. Envío, Soporte, General",
     "contentPlaceholder": "Ingrese el contenido de la plantilla...",
     "titleRequired": "El título es obligatorio",
-    "contentRequired": "El contenido es obligatorio"
+    "contentRequired": "El contenido es obligatorio",
+    "editDescription": "Edite la plantilla",
+    "createDescription": "Cree una nueva plantilla para respuestas utilizadas con frecuencia"
   },
   "ai": {
     "title": "Integración de IA",
@@ -2845,7 +2882,8 @@
     "exportSuccess": "Exportación exitosa",
     "exportDescription": "Tickets exportados como {{format}}",
     "exportFailed": "Exportación fallida",
-    "exportError": "Error al exportar tickets"
+    "exportError": "Error al exportar tickets",
+    "requiredFieldsMissing": "Por favor, rellene todos los campos obligatorios"
   },
   "automation": {
     "title": "Reglas de Automatización",
@@ -4067,6 +4105,10 @@
           "overall": "Comprobación de inicio de sesión"
         }
       }
+    },
+    "errors": {
+      "noEmployeeSelected": "No se ha seleccionado ningún empleado",
+      "noCustomerSelected": "No se ha seleccionado ningún cliente"
     }
   },
   "notFound": {
@@ -4555,6 +4597,10 @@
       "alreadyProcessedOpened": "Este mensaje ya se procesó; se abre el borrador existente.",
       "alreadyProcessed": "Este mensaje ya se procesó; no se ha creado ningún borrador nuevo.",
       "multipleDrafts": "Se han creado {{count}} borradores a partir de los adjuntos del correo electrónico."
+    },
+    "fileError": {
+      "staleHandle": "El archivo seleccionado ya no se puede leer ({{reason}}). Vuelva a seleccionarlo.",
+      "cloudUnavailable": "Es probable que el archivo «{{fileName}}» siga en la nube (OneDrive/iCloud) y no se ha podido descargar ({{reason}}). En el Finder, haga clic con el botón derecho, elija «Mantener siempre en este dispositivo» y vuelva a iniciar la subida."
     }
   },
   "semanticSearch": {
@@ -5985,5 +6031,222 @@
       "zugangstoken_ungultig": "Token de acceso no válido.",
       "zusatzleistungen_konnten_nicht_geladen_werden": "No se pudieron cargar los servicios adicionales"
     }
+  },
+  "roomPlanner": {
+    "title": "Planificación de la sala",
+    "eyebrow": "CPQ · Oferta {{offerId}}",
+    "description": "Coloque las estanterías en la sala; la distancia a la pared y la distancia mínima se comprueban automáticamente.",
+    "loading": "Cargando planificación de la sala…",
+    "missingOfferId": "No se ha indicado ninguna oferta (falta el parámetro offerId).",
+    "saving": "Guardando…",
+    "saved": "Distribución de la sala guardada",
+    "walls": {
+      "north": "Norte (arriba)",
+      "south": "Sur (abajo)",
+      "east": "Este (derecha)",
+      "west": "Oeste (izquierda)"
+    },
+    "featureTypes": {
+      "door": "Puerta",
+      "window": "Ventana",
+      "gate": "Portón"
+    },
+    "toast": {
+      "invalidPositionTitle": "Posición no válida",
+      "invalidPositionDescription": "Esta pared mide {{length}} mm — la posición + el ancho no caben.",
+      "noSpaceTitle": "No se ha encontrado espacio",
+      "noSpaceDescription": "No hay espacio libre en la sala para esta estantería. Amplíe la sala o mueva otras estanterías.",
+      "rotationImpossibleTitle": "No es posible girar",
+      "rotationImpossibleDescription": "En esta posición, la estantería chocaría con la pared o con una estantería contigua tras girar {{degrees}}°."
+    },
+    "auto": {
+      "mode": "Disposición",
+      "modeWalls": "Junto a las paredes",
+      "modeRows": "En filas con pasillo",
+      "aisleWidth": "Ancho de pasillo (mm)",
+      "aisle1000": "1000 — personas",
+      "aisle1200": "1200 — personas, amplio",
+      "aisle1400": "1400 — transpaleta",
+      "aisle2500": "2500 — carretilla elevadora",
+      "aisle3500": "3500 — carretilla elevadora, amplio",
+      "wallClearance": "Distancia a la pared (mm)",
+      "apply": "Disponer automáticamente",
+      "undo": "Deshacer",
+      "openingsKeptFree": "Las puertas y los portones quedan libres.",
+      "noConfigurations": "No hay configuraciones en la oferta.",
+      "arranged": "{{count}} estanterías dispuestas.",
+      "arranged_one": "{{count}} estantería dispuesta.",
+      "arranged_other": "{{count}} estanterías dispuestas.",
+      "arrangedPartial": "{{placed}} de {{total}} dispuestas — no hubo espacio para {{unplaced}}."
+    },
+    "violations": {
+      "title": "Ubicación no válida",
+      "wallCollision": "«{{name}}» sobresale del límite de la sala.",
+      "minSpacing": "No se respeta la distancia mínima entre «{{nameA}}» y «{{nameB}}».",
+      "frontClearance": "Pasillo entre «{{nameA}}» y «{{nameB}}» demasiado estrecho: {{actual}} en lugar de {{required}} mm.",
+      "gateBlocked": "«{{name}}» obstruye la zona de acceso delante del portón.",
+      "doorBlocked": "«{{name}}» obstruye el área de apertura de la puerta."
+    },
+    "dimensions": {
+      "title": "Dimensiones de la sala",
+      "name": "Denominación",
+      "namePlaceholder": "p. ej., Nave 1",
+      "length": "Longitud (mm)",
+      "width": "Ancho (mm)",
+      "height": "Altura (mm)",
+      "minSpacing": "Distancia lateral/trasera (mm)",
+      "frontClearance": "Pasillo delante de la estantería (mm)"
+    },
+    "wallFeatures": {
+      "title": "Elementos de pared",
+      "description": "Puertas, ventanas y portones — representación meramente estilizada, sin influencia en la comprobación de ubicación. En la vista en planta se pueden desplazar a lo largo de la pared arrastrándolos.",
+      "wall": "Pared",
+      "type": "Tipo",
+      "offset": "Posición desde la esquina de la pared (mm)",
+      "width": "Ancho (mm)",
+      "add": "Añadir",
+      "rowMeta": "desde {{offset}} mm, ancho {{width}} mm"
+    },
+    "topView": {
+      "title": "Vista en planta",
+      "description": "▲ marca la parte frontal de la estantería. A menos de 50 cm de una pared, la parte frontal se gira automáticamente en sentido opuesto a ella.",
+      "rotate90": "Girar 90°",
+      "rotate180": "Girar 180°",
+      "removeFromRoom": "Quitar de la sala",
+      "fullscreen": "Mostrar la vista en planta a pantalla completa",
+      "unplaced": "Aún sin ubicar",
+      "offerHasNoConfigurations": "Esta oferta aún no contiene ninguna configuración.",
+      "allPlaced": "Todas las configuraciones están ubicadas.",
+      "place": "Ubicar"
+    },
+    "view3d": {
+      "title": "Vista 3D",
+      "description": "Se puede girar (arrastrar) y ampliar (desplazar); muestra el estado actual de la planificación.",
+      "hide": "Ocultar vista 3D",
+      "show": "Mostrar vista 3D",
+      "noGeometry": "Aún no hay ninguna estantería ubicada con datos 3D completos. Ubique estanterías en la sala para ver la vista 3D.",
+      "fullscreen": "Mostrar la vista 3D a pantalla completa",
+      "loading": "Cargando vista 3D…"
+    }
+  },
+  "draftReview": {
+    "saveAddress": "Guardar dirección",
+    "saved": "Guardado",
+    "savedCustomerAndAddress": "Se han aplicado los datos del cliente y de la dirección.",
+    "savedAddressAndCustomer": "Se han aplicado los datos de la dirección y del cliente.",
+    "customerSearchFailed": "Error en la búsqueda de clientes",
+    "productSearchFailed": "Error en la búsqueda de productos",
+    "lineUpdated": "Línea actualizada",
+    "markedAsProduct": "Clasificada como producto.",
+    "emailPlaceholder": "cliente@ejemplo.com",
+    "phoneBilling": "Teléfono (dirección de facturación)",
+    "phoneShipping": "Teléfono (dirección de envío)",
+    "companyShipping": "Empresa (entrega)",
+    "city": "Localidad",
+    "separateShippingAddress": "Dirección de envío diferente",
+    "showUnclearInMainTable": "Coincidencias dudosas en la tabla principal",
+    "clarificationRequest": "Consulta al cliente",
+    "mainTableEmpty": "No hay líneas en la tabla principal: consulte «Requiere aclaración» más abajo o active «Coincidencias dudosas en la tabla principal».",
+    "positionNumber": "Línea {{number}}",
+    "alternativesCount": "{{count}} alternativas",
+    "alternativesCount_one": "{{count}} alternativa",
+    "alternativesCount_other": "{{count}} alternativas",
+    "learningBlocked": "Aprendizaje de IA: marcado como no producto",
+    "learningPreferred": "Aprendizaje de IA: referencia preferida",
+    "removeRow": "Eliminar línea",
+    "clarificationTitle": "Requiere aclaración: sin asignación clara",
+    "clarificationHintOrder": "Revíselo o envíe una consulta al cliente.",
+    "clarificationHintOffer": "Estas líneas no son coincidencias fiables del catálogo. Confírmelas como producto o elimínelas.",
+    "noCatalogMatch": "Sin comparación con el catálogo",
+    "selectAlternative": "Seleccione una alternativa (confirmada = 100 %):",
+    "confirmMatch": "Confirmar asignación (100 %)",
+    "markAsProduct": "Tratar como producto",
+    "discard": "Descartar",
+    "convertedBeams": "= {{count}} largueros",
+    "convertedBeams_one": "= {{count}} larguero",
+    "convertedBeams_other": "= {{count}} largueros",
+    "manualAdd": {
+      "title": "Añadir producto manualmente",
+      "hint": "Si la IA no ha detectado líneas o las ha detectado mal: busque el producto y añádalo directamente.",
+      "placeholder": "Nombre del producto o número de artículo (mín. 2 caracteres)",
+      "searching": "Buscando…",
+      "noResults": "No se han encontrado productos.",
+      "add": "Añadir"
+    },
+    "shelfSystem": {
+      "baseUnit": "Módulo inicial",
+      "extensionUnits": "+ {{quantity}}x módulo adicional",
+      "totalWidth": "= {{width}} mm de ancho total"
+    },
+    "approval": {
+      "offerCreatedApprovalRequested": "Oferta creada. Se ha solicitado la aprobación; espere a que se conceda.",
+      "approvalRequiredHint": "Este descuento requiere aprobación. Introduzca una justificación.",
+      "justificationLabel": "Justificación (obligatoria)",
+      "justificationPlaceholder": "p. ej., cliente estratégico, condiciones especiales acordadas...",
+      "discountNotAllowed": "Descuento no permitido",
+      "discountExceedsLimit": "Este descuento supera el límite máximo permitido. Reduzca el descuento."
+    },
+    "pdf": {
+      "loadFailed": "No se ha podido cargar el PDF",
+      "downloaded": "PDF descargado",
+      "downloadedDescription": "El borrador de oferta se ha guardado como PDF.",
+      "fileNamePrefix": "Borrador-de-oferta"
+    }
+  },
+  "documentExtraction": {
+    "confidenceWarnings": {
+      "descriptionTruncated": "Es posible que la descripción esté truncada",
+      "missingUnitPrice": "Falta el precio unitario",
+      "missingSupplierSku": "Falta el n.º de artículo",
+      "ambiguousQuantity": "Cantidad ambigua"
+    },
+    "buyerIsMeta": {
+      "title": "El comprador es META",
+      "description": "En este documento, una empresa META figura como comprador; probablemente se trate de una confirmación de pedido del proveedor o de un pedido interno. Compruebe si el documento debe procesarse realmente como pedido o solicitud de cliente.",
+      "listTitle": "El comprador es META: probablemente una confirmación de pedido del proveedor",
+      "offerDraftsList": "{{count}} documentos: META figura como comprador. Compruebe si realmente deben procesarse como solicitudes de cliente.",
+      "offerDraftsList_one": "{{count}} documento: META figura como comprador. Compruebe si realmente debe procesarse como solicitud de cliente.",
+      "offerDraftsList_other": "{{count}} documentos: META figura como comprador. Compruebe si realmente deben procesarse como solicitudes de cliente.",
+      "orderDraftsList": "META figura como comprador en {{count}} documentos. Compruebe si realmente deben procesarse como pedidos de cliente.",
+      "orderDraftsList_one": "META figura como comprador en {{count}} documento. Compruebe si realmente debe procesarse como pedido de cliente.",
+      "orderDraftsList_other": "META figura como comprador en {{count}} documentos. Compruebe si realmente deben procesarse como pedidos de cliente."
+    },
+    "warningsTitle": "Extracción: advertencias",
+    "overallConfidence": "Confianza global de la extracción:",
+    "totalMismatch": "(el total difiere del total calculado)",
+    "buyerSku": "SKU del cliente"
+  },
+  "clarificationEmail": {
+    "title": "Consulta al cliente",
+    "description": "Vista previa del mensaje (no se envía). Ajuste el texto y péguelo en su programa de correo.",
+    "loading": "Cargando…",
+    "to": "Destinatario",
+    "toPlaceholder": "cliente@empresa.com",
+    "subject": "Asunto",
+    "message": "Mensaje",
+    "copyToClipboard": "Copiar al portapapeles",
+    "copied": "Copiado",
+    "copiedDescription": "El borrador del correo se ha copiado al portapapeles.",
+    "copyFailed": "Error al copiar",
+    "copyFailedDescription": "Seleccione el texto y cópielo manualmente."
+  },
+  "draftCustomerOptions": {
+    "reason": {
+      "customerNumber": "Número de cliente",
+      "companyExactZip": "Empresa + código postal",
+      "companyExact": "Empresa",
+      "companyPartial": "Empresa similar"
+    },
+    "customerNumberShort": "N.º de cliente {{number}}",
+    "candidatesIntro": "No se ha encontrado ningún cliente con esta dirección de correo electrónico. {{count}} cuentas de Shopware existentes coinciden con la empresa; seleccione la correcta:",
+    "candidatesIntro_one": "No se ha encontrado ningún cliente con esta dirección de correo electrónico. {{count}} cuenta de Shopware existente coincide con la empresa; seleccione la correcta:",
+    "candidatesIntro_other": "No se ha encontrado ningún cliente con esta dirección de correo electrónico. {{count}} cuentas de Shopware existentes coinciden con la empresa; seleccione la correcta:"
+  },
+  "offerPreview": {
+    "title": "Vista previa interactiva",
+    "noOfferSelected": "No se ha seleccionado ninguna oferta.",
+    "loading": "Cargando…",
+    "loadError": "Error al cargar.",
+    "backToOffers": "Volver a ofertas"
   }
 }
