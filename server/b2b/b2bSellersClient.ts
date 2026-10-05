@@ -1026,7 +1026,12 @@ export class B2BSellersClient {
       declined: status === "rejected",
       offerExpiration: expiration || "",
       createdAt: this.getField(raw, resolvedConfig.createdField) || new Date().toISOString(),
-      updatedAt: this.getField(raw, resolvedConfig.updatedField) || new Date().toISOString(),
+      // nie geaendert (Shopware liefert updatedAt null): Erstelldatum statt "jetzt" - sonst wirkt das
+      // Angebot bei jedem Abruf frisch geaendert (Sortierung, Suchindex rechnete es jedes Mal neu)
+      updatedAt:
+        this.getField(raw, resolvedConfig.updatedField) ||
+        this.getField(raw, resolvedConfig.createdField) ||
+        new Date().toISOString(),
       items: items || [],
     };
   }

@@ -5180,5 +5180,25 @@
       "articleCount": "{{count}} Artikel",
       "articleCount_other": "{{count}} Artikel"
     }
+  },
+  "searchIndex": {
+    "title": "Suchindex (FAQ und semantische Suche)",
+    "description": "Grundlage für FAQ-Antworten, die semantische Suche und das Suchfeld in der Kopfzeile. Wird kurz nach dem Start und danach regelmäßig automatisch aktualisiert (Standard alle 6 Stunden); neu berechnet werden nur geänderte Einträge.",
+    "run": "Jetzt aktualisieren",
+    "running": "Wird aktualisiert…",
+    "startFailed": "Aktualisierung konnte nicht gestartet werden",
+    "sourceError": "Fehler",
+    "lastRun": "Zuletzt aktualisiert: {{date}} ({{seconds}} s)",
+    "neverRun": "Noch nicht aufgebaut.",
+    "emptyHint": "Der Suchindex ist noch leer – deshalb findet die Suche nichts. Er wird automatisch aufgebaut; ein Administrator kann ihn unter Einstellungen → KI sofort aktualisieren.",
+    "emptyRunning": "Der Suchindex wird gerade aufgebaut. Treffer erscheinen in Kürze.",
+    "sources": {
+      "product": "Produkte",
+      "offer": "Angebote",
+      "offerDraft": "Angebotsentwürfe",
+      "orderDraft": "Bestellentwürfe",
+      "ticket": "Tickets",
+      "ticketTemplate": "Ticket-Vorlagen"
+    }
   }
 }

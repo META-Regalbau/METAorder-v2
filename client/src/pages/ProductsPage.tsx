@@ -14,7 +14,7 @@ import ProductDetailModal from "@/components/ProductDetailModal";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { SalesChannelSelector } from "@/components/SalesChannelSelector";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 interface Category {
@@ -28,6 +28,8 @@ export default function ProductsPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const [location] = useLocation();
+  // Query (?search=...) reaktiv: useLocation liefert in wouter 3 nur den Pfad
+  const searchString = useSearch();
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -60,13 +62,13 @@ export default function ProductsPage() {
   }, [isAdmin, userAllowedChannelIds]);
 
   useEffect(() => {
-    const params = new URLSearchParams(location.split("?")[1] ?? "");
+    const params = new URLSearchParams(searchString);
     const searchParam = params.get("search");
     if (searchParam !== null) {
       setSearchInput(searchParam);
       setPage(1);
     }
-  }, [location]);
+  }, [searchString]);
 
   // Debounce search input
   useEffect(() => {

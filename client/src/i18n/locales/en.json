@@ -5183,5 +5183,25 @@
       "articleCount": "{{count}} item",
       "articleCount_other": "{{count}} items"
     }
+  },
+  "searchIndex": {
+    "title": "Search index (FAQ and semantic search)",
+    "description": "Basis for FAQ answers, semantic search and the search field in the header. Updated automatically shortly after start-up and then regularly (every 6 hours by default); only changed entries are recalculated.",
+    "run": "Update now",
+    "running": "Updating…",
+    "startFailed": "Could not start the update",
+    "sourceError": "Error",
+    "lastRun": "Last updated: {{date}} ({{seconds}} s)",
+    "neverRun": "Not built yet.",
+    "emptyHint": "The search index is still empty, so search cannot find anything. It is built automatically; an administrator can update it right away under Settings → AI.",
+    "emptyRunning": "The search index is being built. Results will appear shortly.",
+    "sources": {
+      "product": "Products",
+      "offer": "Offers",
+      "offerDraft": "Offer drafts",
+      "orderDraft": "Order drafts",
+      "ticket": "Tickets",
+      "ticketTemplate": "Ticket templates"
+    }
   }
 }

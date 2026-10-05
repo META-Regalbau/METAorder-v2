@@ -2,7 +2,12 @@
 import { requireAuth, requireManageSettings, requireManageCrossSellingRules, requireViewAnalytics, requireManageOffers } from "../auth/auth";
 import { z } from "zod";
 import { storage } from "../storage";
-import { runSemanticIndex } from "../semantic/semanticIndexer";
+import {
+  getSemanticIndexCounts,
+  isSemanticIndexRunning,
+  runSemanticIndexForTenant,
+  SEMANTIC_INDEX_STATUS_KEY,
+} from "../semantic/semanticIndexer";
 import { generateEmbedding } from "../semantic/semanticEmbeddings";
 import { generateFaqAnswer } from "../semantic/semanticFaq";
 import { runCrossSellLearning } from "../cross-selling/crossSellLearning";
@@ -244,17 +249,35 @@ Antworte im JSON-Format:
     }
   });
 
+  // Index des eigenen Mandanten aufbauen/aktualisieren. Laeuft im Hintergrund (erster Aufbau mit
+  // tausenden Produkten dauert); Fortschritt ueber GET /api/semantic/index/status.
   app.post("/api/semantic/index", requireAuth, requireManageSettings, semanticRateLimiter, async (req, res) => {
+    const tenantId = (req as any).tenantId ?? null;
+    if (isSemanticIndexRunning(tenantId)) {
+      return res.status(409).json({ error: "Indexing already running", code: "running" });
+    }
+    const { sources, useOpenAI } = req.body || {};
+    void runSemanticIndexForTenant(storage, tenantId, {
+      sources: Array.isArray(sources) ? sources : undefined,
+      preferOpenAI: Boolean(useOpenAI),
+    }).catch((error) => console.error("[SemanticIndex] Error:", error));
+    res.status(202).json({ started: true });
+  });
+
+  // Stand des Index: Eintraege je Quelle, laeuft gerade, letzter Lauf (Suche zeigt bei leerem Index einen Hinweis)
+  app.get("/api/semantic/index/status", requireAuth, async (req, res) => {
     try {
-      const { sources, useOpenAI } = req.body || {};
-      const result = await runSemanticIndex(storage, {
-        sources: Array.isArray(sources) ? sources : undefined,
-        preferOpenAI: Boolean(useOpenAI),
+      const tenantId = (req as any).tenantId ?? null;
+      const counts = await getSemanticIndexCounts(tenantId);
+      res.json({
+        running: isSemanticIndexRunning(tenantId),
+        counts,
+        total: Object.values(counts).reduce((sum, n) => sum + n, 0),
+        lastRun: (await storage.getSetting(SEMANTIC_INDEX_STATUS_KEY, tenantId)) ?? null,
       });
-      res.json({ indexed: result });
     } catch (error: any) {
-      console.error("[SemanticIndex] Error:", error);
-      res.status(500).json({ error: error.message || "Semantic indexing failed" });
+      console.error("[SemanticIndex] Status error:", error);
+      res.status(500).json({ error: error.message || "Failed to load index status" });
     }
   });
 

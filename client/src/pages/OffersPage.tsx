@@ -9,7 +9,7 @@ import {
   isLowOverallMatchingConfidence,
 } from "@/lib/commercialDraftConfidence";
 import { isDocumentBuyerMeta, pickDocumentExtraction } from "@/components/DocumentExtractionAlerts";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { fetchOfferDraftForReview } from "@/lib/refreshReviewDraft";
@@ -35,6 +35,8 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
   const { t } = useTranslation();
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
+  // Query (?search=...) reaktiv: useLocation liefert in wouter 3 nur den Pfad
+  const searchString = useSearch();
 
   // Load saved filters from localStorage
   const loadSavedFilters = () => {
@@ -248,13 +250,13 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
   }, [searchValue, statusFilter, customerFilter, dateFrom, dateTo, currentPage, itemsPerPage]);
 
   useEffect(() => {
-    const params = new URLSearchParams(location.split("?")[1] ?? "");
+    const params = new URLSearchParams(searchString);
     const searchParam = params.get("search");
     if (searchParam !== null) {
       setSearchValue(searchParam);
       setCurrentPage(1);
     }
-  }, [location]);
+  }, [searchString]);
 
   // Show error if Shopware is not configured
   if (error) {

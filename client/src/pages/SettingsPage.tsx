@@ -21,6 +21,7 @@ import type { DunningSettings, InvoiceAutomationSettings, EmailInboundSettings, 
 import type { B2BEntityMapping } from "@shared/b2bEntityMapping";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
+import { SearchIndexCard } from "@/components/SearchIndexCard";
 type OfferStatusMapping = {
   draft: { id?: string | null; label: string };
   submitted: { id?: string | null; label: string };
@@ -3340,6 +3341,7 @@ function AiTab() {
           </div>
         </div>
       </Card>
+      <SearchIndexCard />
       <Card className="p-6">
         <h2 className="text-sm font-medium uppercase tracking-wide mb-4">
           {t("settings.commercialAgent.title")}
