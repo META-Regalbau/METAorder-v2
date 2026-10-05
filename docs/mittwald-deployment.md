@@ -25,7 +25,7 @@ Diese Anleitung richtet einen reproduzierbaren Deployment-Prozess fuer `METAorde
 | `MITTWALD_API_TOKEN` | ja | mStudio API-Token |
 | `MITTWALD_STACK_ID` | ja* | Stack-UUID (alternativ als **Variable** moeglich) |
 | `DATABASE_URL` | ja | PostgreSQL Connection String (siehe unten) |
-| `SESSION_SECRET` | ja | Session-Verschluesselung |
+| `SESSION_SECRET` | ja | Ersatz-Secret fuer die Anmelde-Token (`JWT_SECRET`/`CUSTOMER_JWT_SECRET`, falls nicht gesetzt); der Container prueft beim Start, dass es kein Standardwert ist. Eine Server-Sitzung gibt es nicht mehr; `SESSION_TIMEOUT` wird nicht gelesen. |
 | `ENCRYPTION_KEY` | ja | App-Verschluesselung |
 | `CPQ_HANDOFF_SECRET` | ja | Signiert den CPQ-Übergabe-Token (Shopware-Produktseite → Konfigurator). Muss mit dem "CPQ-Handoff-Secret" im MetaClipCpq-Shopware-Plugin (Systemkonfiguration) übereinstimmen. Fehlt dieser Secret, startet der Container nicht (harter Stopp in `server/lib/secretGuard.ts`). |
 | `METAORDER_INTEGRATION_API_KEY` | nein | Integration API |
