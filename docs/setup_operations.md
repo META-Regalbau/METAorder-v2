@@ -56,7 +56,10 @@ Das CPQ-Modul (Regalsysteme, Rabatt-Ampel, Produkt-Mappings, Warenkorb-Transfer)
 
 Die Doku enthaelt **nur die Schluessel**, keine Werte:
 
-- App: `NODE_ENV`, `PORT`, `APP_URL`, `SESSION_SECRET`, `ENCRYPTION_KEY`, `SESSION_TIMEOUT`
+- App: `NODE_ENV`, `PORT`, `APP_URL`, `SESSION_SECRET` (Ersatz fuer `JWT_SECRET`/`CUSTOMER_JWT_SECRET`, wird beim Start auf Standardwerte geprueft), `ENCRYPTION_KEY`, `LOG_LEVEL`, `LOG_FORMAT`
+- Anmeldung: `JWT_SECRET` (JWT-Cookie `auth_token`, 24 h; keine Server-Sitzung)
+- Suche: `SEMANTIC_INDEX_ENABLED` (`false` schaltet den automatischen Indexlauf ab), `SEMANTIC_INDEX_INTERVAL_HOURS` (Standard 6)
+- Cross-Selling: `CROSS_SELL_LLM_RERANK_ENABLED`, `CROSS_SELL_LLM_RERANK_TOPK`, `CROSS_SELL_LLM_RERANK_TTL_HOURS` (KI-Neusortierung der Vorschlaege)
 - Datenbank: `DATABASE_URL`, `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`
 - Shopware: `SHOPWARE_INTERNAL_URL`, `SHOPWARE_PUBLIC_URL`
 - B2B Sellers Suite: `B2B_SELLERS_*`

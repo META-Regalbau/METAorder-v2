@@ -27,7 +27,7 @@ docker compose up --build
 
 **Cross-Selling Bulk:** `docker-compose.yml` reicht **`CROSS_SELL_BULK_ENABLED`** aus der Host-Umgebung (z. B. `.env` neben Compose) an den App-Container durch. Siehe Tabelle **Umgebungsvariablen** unten (`false` sperrt `POST /api/cross-selling-rules/execute-bulk`).
 
-**Cross-Sell LLM-Re-Rank:** Optional **`CROSS_SELL_LLM_RERANK_ENABLED`**, **`CROSS_SELL_LLM_RERANK_TOPK`**, **`CROSS_SELL_LLM_RERANK_TTL_HOURS`** — steuern GPT-4o-Re-Ranking und Cache fuer interaktive Vorschlaege (siehe Tabelle unten).
+**Cross-Sell LLM-Re-Rank:** Optional **`CROSS_SELL_LLM_RERANK_ENABLED`**, **`CROSS_SELL_LLM_RERANK_TOPK`**, **`CROSS_SELL_LLM_RERANK_TTL_HOURS`** — steuern die KI-Neusortierung (Chat-Anbieter des Mandanten) und den Cache fuer interaktive Vorschlaege (siehe Tabelle unten).
 
 **Angebots-Modal (Tab „PDF“, Konfigurations-PDF):** Diese UI steckt in der gebauten SPA unter `dist/public` (Vite-Build im Dockerfile). Fehlt der Tab im Browser trotz aktuellem Quellcode, liegt es fast immer an einem **veralteten Image** oder daran, dass der Build-Kontext **nicht** der Ordner `METAorder-v2/` mit der aktuellen `client/`-Version ist. Nach dem Deploy: Hard-Reload / privates Fenster (siehe naechster Absatz).
 
@@ -70,7 +70,7 @@ Ohne diesen Schritt schlagen Migrationen fehl, sobald sie Tabellen referenzieren
 | Variable | Beschreibung |
 |----------|----------------|
 | `DATABASE_URL` | PostgreSQL-Connection-String (ohne diesen Wert startet die App nicht) |
-| `SESSION_SECRET` | In Produktion setzen (nicht Default) |
+| `SESSION_SECRET` | In Produktion setzen (nicht Default); dient als Ersatz fuer `JWT_SECRET`/`CUSTOMER_JWT_SECRET`. Eine Server-Sitzung gibt es nicht (Anmeldung per JWT-Cookie). |
 | `PORT` | Im Container standardmaessig **5000** (nur Host-Mapping aendern, nicht zwingend diese Variable) |
 | `PUBLIC_APP_URL` | Optional: kanonische öffentliche Basis-URL (ohne Slash am Ende), z. B. `https://auftraege.example.com` — für **Kundenlinks** zu `/angebot/...` beim Erzeugen im Angebots-Modal. Ohne Angabe: URL wird aus der aktuellen Host-Header-Anfrage abgeleitet. |
 | `CPQ_GLB_PATH` | Optional: absoluter Pfad zum GLB-Ordner. Standard: zuerst `dist/public/cpq-models` (Produktion), sonst `client/public/cpq-models` (Entwicklung). |
@@ -114,13 +114,15 @@ Shopware, E-Mail, optionale Dienste: wie bisher ueber `.env` / Compose `environm
 | `METAORDER_STRICT_TENANT` | `true`: Nach JWT-Auth ist für fast alle `/api/*`-Routen ein **gewählter Mandant** Pflicht (Ausnahmen: Mandantenliste, Profil, Token). Empfohlen für Shared-SaaS. |
 | `METAORDER_INTEGRATION_TENANT_ID` | Bei `METAORDER_STRICT_TENANT=true` **und** Nutzung des **globalen** `METAORDER_INTEGRATION_API_KEY`: UUID des Mandanten, unter dem Integrations-Requests laufen sollen. |
 | `REQUEST_LOG_SLOW_MS` | Optional: Zahl in ms — API-Requests ab dieser Dauer erzeugen zusätzlich eine Warnung **`[slow-request]`** (Feld `slow: true`, siehe `server/lib/httpLogging.ts`). |
+| `SEMANTIC_INDEX_ENABLED` | Optional: `false` schaltet den automatischen Suchindex-Lauf ab (sonst etwa 2 Minuten nach dem Start und dann im Intervall, fuer **alle** Mandanten). Lokal sinnvoll, wenn die Datenbank Mandanten mit Live-Shopware-Zugang enthaelt; dann den Index je Mandant unter Einstellungen → KI aufbauen. |
+| `SEMANTIC_INDEX_INTERVAL_HOURS` | Optional: Intervall des Suchindex-Laufs in Stunden (Default **6**, mindestens 1). |
 | `AUTOMATION_SCHEDULER_ENABLED` | Optional: `false` schaltet die zeitgesteuerten Automatisierungsregeln ab (siehe [automatisierung.md](automatisierung.md)). |
 | `AUTOMATION_SCHEDULE_INTERVAL_MINUTES` | Optional: Intervall der zeitgesteuerten Regeln in Minuten (Default **60**, mindestens 5). |
 | `LOG_LEVEL` | Optional: `trace` · `debug` · `info` (Default) · `warn` · `error` · `fatal`. |
-| `LOG_FORMAT` | Optional: `json` (Default außer bei `NODE_ENV=development`) — eine JSON-Zeile je Eintrag mit `time`, `level`, `msg`, `requestId`, `tenantId` und weiteren Feldern; `pretty` — lesbare Zeilen (nur mit installierten devDependencies, sonst JSON). Siehe `server/lib/logger.ts`. Jede API-Antwort trägt ihre ID im Header **`X-Request-Id`**; damit lassen sich Fehlermeldungen von Nutzern den Log-Zeilen zuordnen. |
+| `LOG_FORMAT` | Optional: `json` (Default außer bei `NODE_ENV=development`) — eine JSON-Zeile je Eintrag mit `time`, `level`, `msg`, `component` (Modul, z. B. `routes/orderRoutes`), `requestId`, `tenantId`, `err` und weiteren Feldern; `pretty` — lesbare Zeilen (nur mit installierten devDependencies, sonst JSON). Siehe `server/lib/logger.ts`. Jede API-Antwort trägt ihre ID im Header **`X-Request-Id`**; damit lassen sich Fehlermeldungen von Nutzern den Log-Zeilen zuordnen. |
 | `PG_POOL_MAX` | Optional: Max. Verbindungen im **node-postgres**-Pool (Default **20**), nur bei klassischem `DATABASE_URL` ohne Neon-Treiber. |
 | `CROSS_SELL_BULK_ENABLED` | Optional: `false` deaktiviert **`POST /api/cross-selling-rules/execute-bulk`** (Massen-Anlage von Cross-Selling-Gruppen in Shopware). Ohne Variable oder jeder andere Wert: Endpunkt aktiv. |
-| `CROSS_SELL_LLM_RERANK_ENABLED` | Optional: `false` / `0` schaltet **GPT-4o Re-Rank** fuer Cross-Sell-Vorschlaege aus (rein heuristischer Hybrid-Score). Default in der App: **an**, wenn OpenAI konfiguriert ist. |
+| `CROSS_SELL_LLM_RERANK_ENABLED` | Optional: `false` / `0` schaltet die **KI-Neusortierung** der Cross-Sell-Vorschlaege aus (rein heuristischer Hybrid-Score). Default: **an**, wenn ein Chat-Anbieter (OpenAI, Claude oder Gemini, Stufe „smart“) konfiguriert und die Neusortierung in den Cross-Selling-Lerneinstellungen nicht abgeschaltet ist. |
 | `CROSS_SELL_LLM_RERANK_TOPK` | Optional: Zahl — wie viele Hybrid-Kandidaten maximal an das LLM gehen (Default **25**). |
 | `CROSS_SELL_LLM_RERANK_TTL_HOURS` | Optional: Cache-TTL in Stunden fuer LLM-Re-Rank pro Quellartikel (Default **24**). |
 | `SHOPWARE_SYNC_ENABLED` | Optional: `false` deaktiviert den Hintergrund-Worker fuer den persistenten Shopware-Spiegel (Produkte, Kunden, B2B-Firmen, Kundenpreise). Default: an. |

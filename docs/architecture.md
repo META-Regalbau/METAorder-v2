@@ -131,9 +131,10 @@ Zentrale Typen/Tabellen in `shared/schema.ts`:
 
 ## Semantische Suche
 
-- Texte werden in `semantic_documents` gespeichert.
-- Embeddings via `semanticEmbeddings` erzeugt.
-- Suche und FAQ ueber dedizierte API-Endpunkte.
+- **Index:** Texte (Produkte, Angebote, Angebots-/Bestellentwuerfe, Tickets, Ticket-Vorlagen) stehen je Mandant in `semantic_documents`. Den Index pflegt `server/semantic/semanticIndexer.ts` inkrementell: Neu berechnet werden nur Dokumente mit geaendertem Inhalt oder mit einem lokalen Embedding einer aelteren Version. Er laeuft etwa 2 Minuten nach dem Start und dann alle 6 Stunden (`SEMANTIC_INDEX_ENABLED`, `SEMANTIC_INDEX_INTERVAL_HOURS`), manuell unter Einstellungen → KI.
+- **Embeddings** (`server/semantic/semanticEmbeddings.ts`): OpenAI oder lokal `local-hash-v2` (Woerter per Hash, jedes Wort einmal, lange Nummern nicht im Vektor).
+- **Suche** (`dbStorage.searchSemanticDocuments`, Reihenfolge in `server/semantic/semanticRanking.ts`): Kandidaten aus Vektor- und Wortsuche, Ranking aus Vektor, Wortanteil, Metadaten und Rueckmeldungen. Bei lokalem Embedding zaehlt der Vektor ein Viertel, eine exakte Nummer steht vorn. FAQ und Suche laufen ueber dedizierte API-Endpunkte. Details: [ki-funktionen.md](ki-funktionen.md).
+- **Produktseite** (`/api/products`): Wortsuche im Produkt-Spiegel mit Relevanz (`server/products/productSearchRanking.ts`), keine Vektoren.
 
 ## System-Poster (Gesamtdiagramm)
 
@@ -147,7 +148,8 @@ Siehe [multitenant-security.md](multitenant-security.md) (Cross-Selling-Fallback
 
 - **Zentraler Logger:** `server/lib/logger.ts` (pino). Produktion: eine JSON-Zeile je Eintrag; Entwicklung: lesbare Zeilen. Steuerung über `LOG_LEVEL` / `LOG_FORMAT` (siehe [docker.md](docker.md)).
 - **Kontext automatisch:** Jede Zeile während einer Anfrage trägt `requestId` (auch im Antwort-Header `X-Request-Id`) und – nach der Anmeldung – `tenantId` (`server/lib/requestContext.ts`, `server/lib/tenantContext.ts`). Hinter multer stellt `restoreTenantContext` beides wieder her.
-- **Bestehende `console.*`-Aufrufe** leitet `server/lib/consoleBridge.ts` in den Logger um (Text wie bei `console`, Fehlerobjekte als Feld `err` mit Stacktrace). **Neuer Code** nutzt direkt `logger` mit Feldern: `logger.info({ orderId }, "Bestellung angelegt")`, `logger.error({ err }, "Versand fehlgeschlagen")`.
+- **Modul-Logger:** Jedes Server-Modul loggt ueber `const log = logger.child({ component: "<Pfad unter server/>" })`, z. B. `routes/orderRoutes`. Fehler kommen als Feld `err` (mit Stacktrace), Werte als Felder: `log.info({ orderId }, "Bestellung angelegt")`, `log.error({ err }, "Versand fehlgeschlagen")`. Im Server gibt es kein `console.*` mehr (`tests/unit/noConsoleInServer.test.ts`); `server/lib/consoleBridge.ts` leitet nur noch `console`-Ausgaben von Bibliotheken in den Logger um.
+- **Auswerten nach Komponente** (JSON-Logs): `jq -c 'select(.component=="routes/orderRoutes" and .level=="error") | {time, msg, err: .err.message}'`.
 - **Hintergrund-Jobs ohne Anfrage** binden ihren Kontext per Kind-Logger: `logger.child({ component, tenantId })`. Ein gebundenes `tenantId` hat Vorrang vor dem Kontext (kein doppeltes Feld). Umgestellt sind Shopware-Spiegel (`component: "shopware-mirror"`, `entity`, Zählwerte, `durationMs`) und Rechnungs-Watcher (`component: "invoice-watcher"`, `orderId`, `invoiceNumber`, `outcome`); die Texte blieben dabei gleich. Beispiel (JSON-Logs): `jq -c 'select(.component=="shopware-mirror" and .durationMs) | {time, tenantId, entity, upserted, durationMs}'` listet alle Spiegel-Läufe mit Dauer.
 - **Request-Log und Fehler-Handler:** `server/lib/httpLogging.ts` — eine Zeile je API-Anfrage (Methode, Pfad, Status, Dauer, IDs), **ohne Antwort-Inhalt**; unbehandelte Fehler mit Stacktrace und `requestId`.
 - **Schwärzung:** Felder wie `password`, `token`, `apiKey`, `apiSecret`, `authorization`, `cookie` sowie der Roh-Body kaputter JSON-Anfragen (`err.body`) werden als `[REDACTED]` geloggt.
