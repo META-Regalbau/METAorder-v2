@@ -14,6 +14,8 @@ import { type NlQueryErrorCode, type Order } from "@shared/schema";
 import { isOrderEligibleForShippingPick } from "@shared/orderShippingEligibility";
 import { toImportedInquirySummary } from "../commercial/importedInquirySummary";
 import { loadAnalyticsOrders } from "../analytics/analyticsOrders";
+import { consumeNlQuota, getNlUsage, NL_LIMIT_DEFAULTS, resolveNlLimits, type NlLimits } from "../analytics/nlQueryLimit";
+import { nlUsageStore } from "../analytics/nlQueryUsageStore";
 import { dataQualityCacheKey, fetchAllDataQualityProducts, productDataQualityCache, summarizeDataQuality } from "../analytics/productDataQuality";
 
 export function registerAnalyticsRoutes(app: Express): void {
@@ -527,6 +529,33 @@ export function registerAnalyticsRoutes(app: Express): void {
   // Natural Language Analytics Routes
   // ============================================
 
+  /** Grenzen aus den KI-Einstellungen; nicht lesbar -> Standardwerte (die Grenze gilt trotzdem) */
+  const loadNlLimits = async (): Promise<NlLimits> => {
+    try {
+      return resolveNlLimits(await storage.getSetting("openai_settings"));
+    } catch (error) {
+      console.warn("[NL Analytics API] KI-Einstellungen nicht lesbar, Standard-Limits:", error);
+      return { ...NL_LIMIT_DEFAULTS };
+    }
+  };
+
+  // GET /api/analytics/nl-query/usage - Fragen heute (Anzeige "x von y Fragen heute")
+  app.get("/api/analytics/nl-query/usage", requireAuth, requireViewNaturalLanguageAnalytics, async (req, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      if (!userId) return res.status(401).json({ error: "User not authenticated" });
+      const usage = await getNlUsage(nlUsageStore, {
+        tenantId: String((req as any).tenantId ?? ""),
+        userId: String(userId),
+        limits: await loadNlLimits(),
+      });
+      res.json(usage);
+    } catch (error: any) {
+      console.error("[NL Analytics API] Usage lookup failed:", error);
+      res.status(500).json({ error: "Failed to load usage" });
+    }
+  });
+
   // POST /api/analytics/nl-query - Natural Language Query endpoint
   // Processes natural language questions and returns analytics results with insights
   app.post("/api/analytics/nl-query", requireAuth, requireViewNaturalLanguageAnalytics, async (req, res) => {
@@ -549,6 +578,22 @@ export function registerAnalyticsRoutes(app: Express): void {
       if (!question || typeof question !== 'string' || question.trim().length === 0) {
         console.error('[NL Analytics API] Invalid or missing question in request body');
         return res.status(400).json({ error: "Invalid question. Please provide a non-empty question string.", code: "invalid_question" satisfies NlQueryErrorCode });
+      }
+
+      // Limit vor dem ersten KI-Aufruf: je Minute, je Nutzer/Tag, je Mandant/Tag
+      const quota = await consumeNlQuota(nlUsageStore, {
+        tenantId: String((req as any).tenantId ?? ""),
+        userId: String(userId),
+        limits: await loadNlLimits(),
+      });
+      if (!quota.ok) {
+        console.warn(`[NL Analytics API] Limit erreicht (${quota.reason}) fuer Nutzer ${userId}: ${quota.used}/${quota.limit}`);
+        return res.status(429).json({
+          error: "Question limit reached",
+          code: quota.reason satisfies NlQueryErrorCode,
+          used: quota.used,
+          limit: quota.limit,
+        });
       }
 
       console.log(`[NL Analytics API] User ${userId} asked: "${question}"`);
@@ -673,6 +718,7 @@ export function registerAnalyticsRoutes(app: Express): void {
           improvements: improvements.length > 0 ? improvements : undefined,
         },
         insights: insights,
+        usage: { used: quota.used, limit: quota.limit },
       };
 
       console.log('[NL Analytics API] Request completed successfully');

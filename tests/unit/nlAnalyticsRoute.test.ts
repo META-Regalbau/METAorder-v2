@@ -21,6 +21,29 @@ const state = vi.hoisted(() => ({
   insightsFail: false,
   insightType: "trend",
   calls: [] as Array<{ system: string; user: string }>,
+  // Fragen-Zaehler (sonst Datenbank) und KI-Einstellungen mit den Limits
+  usage: new Map<string, number>(),
+  aiSettings: {} as Record<string, unknown>,
+}));
+
+vi.mock("../../server/analytics/nlQueryUsageStore", () => ({
+  nlUsageStore: {
+    userCount: async (t: string, u: string, d: string) => state.usage.get(`${t}|${u}|${d}`) ?? 0,
+    tenantCount: async (t: string, d: string) =>
+      [...state.usage].filter(([k]) => k.startsWith(`${t}|`) && k.endsWith(`|${d}`)).reduce((sum, [, n]) => sum + n, 0),
+    // wie das SQL: neue Zeile wird immer mit 1 angelegt (WHERE greift nur bei vorhandener Zeile)
+    incrementIfBelow: async (t: string, u: string, d: string, limit: number) => {
+      const key = `${t}|${u}|${d}`;
+      const n = state.usage.get(key);
+      if (n === undefined) {
+        state.usage.set(key, 1);
+        return 1;
+      }
+      if (n >= limit) return null;
+      state.usage.set(key, n + 1);
+      return n + 1;
+    },
+  },
 }));
 
 vi.mock("../../server/ai/llmChat", async (importOriginal) => {
@@ -58,6 +81,7 @@ vi.mock("../../server/auth/auth", async (importOriginal) => {
 import { storage } from "../../server/storage";
 import { ShopwareClient } from "../../server/shopware/shopware";
 import { registerAnalyticsRoutes } from "../../server/routes/analyticsRoutes";
+import { resetMinuteBucketsForTests } from "../../server/analytics/nlQueryLimit";
 
 const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10) + "T00:00:00.000+00:00";
 let seq = 0;
@@ -75,6 +99,7 @@ let server: Server;
 let base = "";
 beforeAll(async () => {
   vi.spyOn(storage, "getShopwareSettings").mockResolvedValue({ shopwareUrl: "https://shop.invalid", apiKey: "x", apiSecret: "y" } as any);
+  vi.spyOn(storage, "getSetting").mockImplementation(async (key: string) => (key === "openai_settings" ? state.aiSettings : undefined));
   vi.spyOn(storage, "countShopwareOrderMirrors").mockImplementation(async () => state.orders.length);
   vi.spyOn(storage, "getShopwareOrderMirrors").mockImplementation(async () => ({ rows: state.orders.map((o) => ({ shopwareId: o.id, payload: structuredClone(o) })) as any, total: state.orders.length }));
   vi.spyOn(ShopwareClient.prototype as any, "fetchOrders").mockImplementation(async () => { state.live += 1; throw new Error("Live-Abruf nicht erwartet"); });
@@ -87,6 +112,9 @@ beforeAll(async () => {
 });
 afterAll(() => new Promise<void>((r) => server.close(() => r())));
 beforeEach(() => {
+  state.usage.clear();
+  state.aiSettings = {};
+  resetMinuteBucketsForTests();
   state.channels = null;
   state.live = 0;
   state.llmConfigured = true;
@@ -215,5 +243,56 @@ describe("Natürliche Sprache: Fehlercodes", () => {
   it("unbekannter Abfragetyp der KI", async () => {
     state.query = { type: "drop_tables", parameters: {} };
     expect(await ask({ question: "Wie läuft es?" })).toMatchObject({ status: 400, body: { code: "not_understood" } });
+  });
+});
+
+describe("Natürliche Sprache: Limit je Nutzer und Tag", () => {
+  const usage = async () => (await fetch(`${base}/api/analytics/nl-query/usage`)).json();
+
+  it("bis zur Grenze beantwortet, danach 429 ohne KI-Aufruf; Stand in der Antwort und per GET", async () => {
+    state.aiSettings = { nlDailyLimitPerUser: 2 };
+    expect(await usage()).toEqual({ used: 0, limit: 2, tenantUsed: 0, tenantLimit: 300 });
+    expect((await ask({ question: "Wie läuft es?" })).body.usage).toEqual({ used: 1, limit: 2 });
+    expect((await ask({ question: "Wie läuft es?" })).body.usage).toEqual({ used: 2, limit: 2 });
+    const calls = state.calls.length;
+    expect(await ask({ question: "Wie läuft es?" })).toEqual({
+      status: 429,
+      body: { error: "Question limit reached", code: "daily_limit_user", used: 2, limit: 2 },
+    });
+    expect(state.calls.length).toBe(calls);
+    expect(await usage()).toMatchObject({ used: 2, limit: 2 });
+  });
+
+  it("leere Frage zaehlt nicht; nicht verstandene Frage zaehlt (der KI-Aufruf hat gekostet)", async () => {
+    expect(await ask({ question: "  " })).toMatchObject({ status: 400, body: { code: "invalid_question" } });
+    expect(await usage()).toMatchObject({ used: 0 });
+    state.query = { type: "drop_tables", parameters: {} };
+    expect(await ask({ question: "Wie läuft es?" })).toMatchObject({ status: 400, body: { code: "not_understood" } });
+    expect(await usage()).toMatchObject({ used: 1 });
+  });
+
+  it("Mandanten-Grenze und Minuten-Grenze mit eigenen Codes", async () => {
+    state.aiSettings = { nlDailyLimitPerUser: 50, nlDailyLimitPerTenant: 1 };
+    expect((await ask({ question: "Wie läuft es?" })).status).toBe(200);
+    expect((await ask({ question: "Wie läuft es?" })).body).toMatchObject({ code: "daily_limit_tenant", limit: 1 });
+    state.aiSettings = { nlDailyLimitPerUser: 50, nlDailyLimitPerTenant: 50 };
+    resetMinuteBucketsForTests();
+    for (let i = 0; i < 5; i++) expect((await ask({ question: "Wie läuft es?" })).status).toBe(200);
+    expect(await ask({ question: "Wie läuft es?" })).toMatchObject({ status: 429, body: { code: "rate_limited" } });
+  });
+
+  it("Datenbank nicht erreichbar: keine Frage ohne Zaehlung (unexpected statt unbegrenzt)", async () => {
+    const { nlUsageStore } = await import("../../server/analytics/nlQueryUsageStore");
+    const original = nlUsageStore.tenantCount;
+    nlUsageStore.tenantCount = async () => {
+      throw new Error("connect ECONNREFUSED");
+    };
+    try {
+      const calls = state.calls.length;
+      expect(await ask({ question: "Wie läuft es?" })).toMatchObject({ status: 500, body: { code: "unexpected" } });
+      expect(state.calls.length).toBe(calls);
+    } finally {
+      nlUsageStore.tenantCount = original;
+    }
   });
 });

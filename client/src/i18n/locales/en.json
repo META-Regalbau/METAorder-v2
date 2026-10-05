@@ -2691,7 +2691,10 @@
         "shopware_missing": "No Shopware credentials are configured for this tenant.",
         "permissions_failed": "Your permissions could not be determined.",
         "execution_failed": "The analysis failed. Please try again.",
-        "unexpected": "The query could not be processed. Please try again."
+        "unexpected": "The query could not be processed. Please try again.",
+        "rate_limited": "Too many questions in a short time. Please wait a minute.",
+        "daily_limit_user": "You have reached your daily question limit. You can ask again tomorrow.",
+        "daily_limit_tenant": "The daily question limit for this tenant has been reached. You can ask again tomorrow."
       },
       "examples": {
         "q1": "Show me the top 10 products from last month",
@@ -2700,7 +2703,9 @@
         "q4": "Which orders are delayed?",
         "q5": "Show me the distribution of order statuses",
         "q6": "Forecast revenue for the next 3 months"
-      }
+      },
+      "usageToday": "{{used}} of {{limit}} questions asked today",
+      "usageLimitReached": "Daily limit reached ({{limit}} questions). You can ask again tomorrow."
     },
     "dashboardTab": "Dashboard",
     "orderCount": "Number of orders",
@@ -2804,7 +2809,11 @@
     "smartTierDesc": "Only for hard tasks (e.g. uncertain intent, extraction). Leave empty = same model as the default tier. Example: default on Gemini/OpenAI, Opus only here.",
     "smartProvider": "Provider (smart)",
     "smartProviderInherit": "Same as default tier",
-    "smartModel": "Model (smart)"
+    "smartModel": "Model (smart)",
+    "nlLimitTitle": "“Natural Language” limit",
+    "nlLimitDescription": "Each question in the analytics tab “Natural Language” costs 2–3 AI calls. Questions are counted per day (German time); 0 blocks questions.",
+    "nlLimitPerUser": "Questions per user per day (default 30)",
+    "nlLimitPerTenant": "Questions per tenant per day (default 300)"
   },
   "cache": {
     "title": "Product Cache",

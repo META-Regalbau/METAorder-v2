@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, decimal, doublePrecision, integer, jsonb, serial, real, boolean, uniqueIndex, index, customType, pgSchema } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, decimal, doublePrecision, integer, jsonb, serial, real, boolean, uniqueIndex, index, customType, pgSchema, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -2709,8 +2709,31 @@ export const NL_QUERY_ERROR_CODES = [
   "permissions_failed",
   "execution_failed",
   "unexpected",
+  // Limit (server/analytics/nlQueryLimit.ts): zu viele Fragen pro Minute / am Tag
+  "rate_limited",
+  "daily_limit_user",
+  "daily_limit_tenant",
 ] as const;
 export type NlQueryErrorCode = (typeof NL_QUERY_ERROR_CODES)[number];
+
+/**
+ * Zaehler fuer "Natuerliche Sprache" je Mandant, Nutzer und Tag (deutsche Zeit); siehe
+ * migrations/0042_nl_query_usage.sql und server/analytics/nlQueryLimit.ts. tenant_id "" = ohne Mandant.
+ */
+export const nlQueryUsage = pgTable(
+  "nl_query_usage",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id").notNull().default(""),
+    userId: varchar("user_id").notNull(),
+    usageDate: date("usage_date").notNull(),
+    count: integer("count").notNull().default(0),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    uniqueTenantUserDay: uniqueIndex("nl_query_usage_unique").on(table.tenantId, table.userId, table.usageDate),
+  }),
+);
 
 export type AnalyticsQuery = {
   type: AnalyticsQueryType;
