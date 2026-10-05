@@ -95,7 +95,12 @@ export async function runCrossSellLearning(
 
     const { productCounts, pairCounts, totalOrders, pairCategoryMap } = buildCooccurrence(ordersWithProducts, categorizedManualRules);
     const cooccurrences = buildCooccurrenceRows(pairCounts, productCounts, totalOrders);
-    const { rules, recommendations, insights } = buildLearningOutputs(cooccurrences, settings, pairCategoryMap);
+    const { rules, recommendations, insights } = buildLearningOutputs(
+      cooccurrences,
+      settings,
+      pairCategoryMap,
+      buildProductNameMap(ordersWithProducts),
+    );
 
     const sinceEvents = new Date();
     sinceEvents.setDate(sinceEvents.getDate() - 90);
@@ -302,7 +307,37 @@ function buildCooccurrenceRows(
   return rows;
 }
 
-function buildLearningOutputs(
+/** Artikelnummer -> Name aus den Bestellpositionen (fuer die Paare der Insights) */
+export function buildProductNameMap(orders: Order[]): Map<string, string> {
+  const names = new Map<string, string>();
+  for (const order of orders) {
+    for (const item of order.items || []) {
+      const number = item.productNumber?.trim();
+      const name = item.name?.trim();
+      if (number && name && !names.has(number)) names.set(number, name);
+    }
+  }
+  return names;
+}
+
+type InsightPair = {
+  source: string;
+  target: string;
+  sourceName?: string;
+  targetName?: string;
+  support: number;
+  confidence: number;
+  lift: number;
+};
+
+/**
+ * Insights der Warenkorb-Analyse. Vorher: "Upsell-Potenzial" war eine Kopie von "Top kombinierte
+ * Artikel" unter data.recommendations - die Statistik zeigt aber nur data.pairs, die Karte blieb leer.
+ * Jedes Paar stand ausserdem doppelt drin (A->B und B->A, gleicher Lift).
+ * Jetzt: Top-Paare nach Lift, je Paar einmal; Upsell nach Kaufwahrscheinlichkeit x Lift
+ * (wer A kauft, nimmt oft B dazu), ohne die Top-Paare; beide mit Produktnamen.
+ */
+export function buildLearningOutputs(
   cooccurrences: Array<{
     productNumberA: string;
     productNumberB: string;
@@ -315,7 +350,8 @@ function buildLearningOutputs(
     lift: number;
   }>,
   settings: LearningSettings,
-  pairCategoryMap: Map<string, string> = new Map()
+  pairCategoryMap: Map<string, string> = new Map(),
+  productNames: Map<string, string> = new Map()
 ) {
   const rulesBySource = new Map<string, any[]>();
   const recommendationsBySource = new Map<string, any[]>();
@@ -388,17 +424,36 @@ function buildLearningOutputs(
       .slice(0, settings.maxRecommendationsPerProduct);
   });
 
-  const topPairs = rules
-    .slice()
-    .sort((a, b) => b.lift - a.lift)
-    .slice(0, 5)
-    .map((rule) => ({
-      source: rule.sourceProductNumber,
-      target: rule.targetProductNumber,
-      support: rule.support,
-      confidence: rule.confidence,
-      lift: rule.lift,
-    }));
+  const pairKey = (a: string, b: string) => [a, b].sort().join("||");
+  const toPair = (rule: { sourceProductNumber: string; targetProductNumber: string; support: number; confidence: number; lift: number }): InsightPair => ({
+    source: rule.sourceProductNumber,
+    target: rule.targetProductNumber,
+    sourceName: productNames.get(rule.sourceProductNumber),
+    targetName: productNames.get(rule.targetProductNumber),
+    support: rule.support,
+    confidence: rule.confidence,
+    lift: rule.lift,
+  });
+  /** die ersten `limit` Regeln, je Artikelpaar nur eine Richtung, ohne ausgeschlossene Paare */
+  const pickPairs = (sorted: typeof rules, limit: number, exclude = new Set<string>()) => {
+    const seen = new Set(exclude);
+    const picked: InsightPair[] = [];
+    for (const rule of sorted) {
+      const key = pairKey(rule.sourceProductNumber, rule.targetProductNumber);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      picked.push(toPair(rule));
+      if (picked.length >= limit) break;
+    }
+    return picked;
+  };
+
+  const topPairs = pickPairs(rules.slice().sort((a, b) => b.lift - a.lift || b.confidence - a.confidence), 5);
+  const byUpsell = rules.slice().sort((a, b) => b.confidence * b.lift - a.confidence * a.lift || b.support - a.support);
+  const topKeys = new Set(topPairs.map((pair) => pairKey(pair.source, pair.target)));
+  // Upsell ohne die Top-Paare; gibt es nur wenige Regeln, lieber dieselben Paare als eine leere Karte
+  const upsellPairs = pickPairs(byUpsell, 5, topKeys);
+  const upsell = upsellPairs.length > 0 ? upsellPairs : pickPairs(byUpsell, 5);
 
   const insights = [
     {
@@ -412,7 +467,7 @@ function buildLearningOutputs(
       insightType: "upsell_opportunities",
       title: "Upsell-Potenzial",
       description: "Empfehlungen mit hohem Lift für den Warenkorb",
-      data: { recommendations: topPairs },
+      data: { pairs: upsell },
       generatedAt: now,
     },
   ];

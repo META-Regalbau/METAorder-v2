@@ -4798,7 +4798,8 @@
     },
     "upsell_opportunities": {
       "title": "Upsell-Potenzial",
-      "description": "Empfehlungen mit hohem Lift für den Warenkorb"
+      "description": "Empfehlungen mit hohem Lift für den Warenkorb",
+      "pairStats": "{{confidence}} Kaufwahrscheinlichkeit · Lift {{lift}}"
     },
     "top_quality_pairs": {
       "title": "Top-Qualitäts-Paare (Funnel)",

@@ -10,7 +10,9 @@ import en from "../../client/src/i18n/locales/en.json";
 import es from "../../client/src/i18n/locales/es.json";
 import {
   learningInsightDescription,
+  learningInsightPairs,
   learningInsightPairStats,
+  learningInsightProductLabel,
   learningInsightTitle,
   offerStatusLabel,
 } from "../../client/src/lib/learningInsightText";
@@ -70,6 +72,25 @@ describe("Lern-Insights: Angebotsstatus und Paare", () => {
     const pair = { source: "4026212266610", target: "4026212328479", support: 0.014010507880910683, lift: 41.52727272727273 };
     expect(learningInsightPairStats(t.de, pair, "de")).toBe("1,4\u00a0% · 41,53");
     expect(learningInsightPairStats(t.en, pair, "en")).toBe("1.4% · 41.53");
+  });
+
+  it("Upsell-Paar: Kaufwahrscheinlichkeit und Lift, beschriftet und uebersetzt", () => {
+    const pair = { source: "A", target: "B", support: 0.4, confidence: 0.8, lift: 1.3333 };
+    expect(learningInsightPairStats(t.de, pair, "de", "upsell_opportunities")).toBe("80\u00a0% Kaufwahrscheinlichkeit · Lift 1,33");
+    expect(learningInsightPairStats(t.en, pair, "en", "upsell_opportunities")).toBe("80% purchase probability · lift 1.33");
+    expect(learningInsightPairStats(t.es, pair, "es", "upsell_opportunities")).toBe("80\u00a0% de probabilidad de compra · lift 1,33");
+    // andere Karten unveraendert
+    expect(learningInsightPairStats(t.de, pair, "de", "top_pairs")).toBe("40,0\u00a0% · 1,33");
+  });
+
+  it("Paare aus data.pairs, aeltere Laeufe aus data.recommendations; Name mit Nummer", () => {
+    const p = { source: "1", target: "2" };
+    expect(learningInsightPairs({ pairs: [p] })).toEqual([p]);
+    expect(learningInsightPairs({ recommendations: [p] })).toEqual([p]);
+    expect(learningInsightPairs(null)).toEqual([]);
+    expect(learningInsightPairs({ pairs: "kaputt" })).toEqual([]);
+    expect(learningInsightProductLabel("4026212289640", "Fachboden MS230")).toBe("Fachboden MS230 (4026212289640)");
+    expect(learningInsightProductLabel("4026212289640", undefined)).toBe("4026212289640");
   });
 
   it("Funnel-Paar ohne Support/Lift (frueher Absturz bei pair.lift.toFixed)", () => {

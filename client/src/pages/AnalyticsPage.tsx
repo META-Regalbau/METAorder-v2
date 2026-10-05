@@ -12,7 +12,7 @@ import { createLocaleFormatters, dateFnsLocale } from "@/lib/localeFormat";
 import { useTranslation } from "react-i18next";
 import type { SalesChannel, AiInsight, OfferLearningInsight, Role } from "@shared/schema";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { learningInsightDescription, learningInsightPairStats, learningInsightTitle, offerStatusLabel } from "@/lib/learningInsightText";
+import { learningInsightDescription, learningInsightPairStats, learningInsightPairs, learningInsightProductLabel, learningInsightTitle, offerStatusLabel } from "@/lib/learningInsightText";
 import {
   TrendingUp,
   Package,
@@ -889,13 +889,13 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
                 {learningInsightDescription(t, insight) && (
                   <p className="text-sm text-muted-foreground mt-1">{learningInsightDescription(t, insight)}</p>
                 )}
-                {insight.data?.pairs && Array.isArray(insight.data.pairs) && (
-                  <div className="mt-3 text-sm text-muted-foreground">
-                    {insight.data.pairs.slice(0, 5).map((pair: any, index: number) => {
-                      const stats = learningInsightPairStats(t, pair, i18n.language);
+                {learningInsightPairs(insight.data).length > 0 && (
+                  <div className="mt-3 space-y-1 text-sm text-muted-foreground" data-testid={`ai-insight-pairs-${insight.insightType}`}>
+                    {learningInsightPairs(insight.data).slice(0, 5).map((pair, index) => {
+                      const stats = learningInsightPairStats(t, pair, i18n.language, insight.insightType);
                       return (
-                        <div key={`${pair.source}-${pair.target}-${index}`}>
-                          {pair.source} → {pair.target}
+                        <div key={`${String(pair.source)}-${String(pair.target)}-${index}`}>
+                          {learningInsightProductLabel(pair.source, pair.sourceName)} → {learningInsightProductLabel(pair.target, pair.targetName)}
                           {stats && ` · ${stats}`}
                         </div>
                       );
