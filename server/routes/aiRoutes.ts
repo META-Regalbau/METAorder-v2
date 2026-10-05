@@ -17,6 +17,10 @@ import rateLimit from "express-rate-limit";
 import type { Express } from "express";
 
 
+import { takeMinuteSlot } from "../analytics/nlQueryLimit";
+
+/** KI-Antworten der FAQ je Nutzer und Minute (jede kostet einen Aufruf im "smart"-Modell) */
+const FAQ_AI_PER_MINUTE = 5;
 // Rate limiters for expensive endpoints
 const aiRateLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -311,6 +315,11 @@ Antworte im JSON-Format:
         return res.status(400).json({ error: "Query is required" });
       }
       const tenantId = (req as any).tenantId ?? null;
+      // KI-Antwort nur auf ausdruecklichen Wunsch (Knopf); hoechstens 5 je Nutzer und Minute
+      const aiAnswer = req.body?.aiAnswer === true;
+      if (aiAnswer && !takeMinuteSlot(`faq:${tenantId ?? ""}:${(req.user as any)?.id ?? ""}`, FAQ_AI_PER_MINUTE)) {
+        return res.status(429).json({ error: "Too many AI answers, please wait a minute", code: "rate_limited" });
+      }
       const { embedding } = await generateEmbedding(query, storage, {
         preferOpenAI: Boolean(useOpenAI),
       });
@@ -326,6 +335,7 @@ Antworte im JSON-Format:
       const faqAnswer = await generateFaqAnswer(storage, query, normalizedResults, {
         preferOpenAI: Boolean(useOpenAI),
         language: language === "en" || language === "es" ? language : "de",
+        aiAnswer,
       });
       res.json(faqAnswer);
     } catch (error: any) {

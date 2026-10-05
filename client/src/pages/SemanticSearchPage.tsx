@@ -35,6 +35,8 @@ type FaqResponse = {
   answer: string | null;
   sources: FaqSource[];
   model?: string;
+  aiAvailable?: boolean;
+  aiGenerated?: boolean;
 };
 
 const SOURCE_OPTIONS = [
@@ -164,12 +166,35 @@ export default function SemanticSearchPage() {
     enabled: Boolean(searchQuery),
   });
 
+  // KI-Antwort nur auf Knopfdruck (die Suche selbst zeigt den besten Treffer und kostet keinen KI-Aufruf)
+  const [aiFaq, setAiFaq] = useState<FaqResponse | null>(null);
+  const aiFaqMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/semantic/faq", {
+        query: searchQuery,
+        limit: 6,
+        sourceTypes,
+        language,
+        aiAnswer: true,
+      });
+      return (await response.json()) as FaqResponse;
+    },
+    onSuccess: (result) => setAiFaq(result),
+  });
+  const shownFaq = aiFaq ?? faqData;
+  // neue Suche: wieder der beste Treffer, KI-Antwort erst nach erneutem Klick
+  useEffect(() => {
+    setAiFaq(null);
+    aiFaqMutation.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, sourceFilter, language]);
+
   const faqFeedbackMutation = useMutation({
     mutationFn: async (helpful: boolean) => {
       const response = await apiRequest("POST", "/api/semantic/faq/feedback", {
         query: searchQuery,
         helpful,
-        sourceIds: faqData?.sources?.map((source) => source.sourceId) || [],
+        sourceIds: shownFaq?.sources?.map((source) => source.sourceId) || [],
       });
       return response.json();
     },
@@ -307,13 +332,33 @@ export default function SemanticSearchPage() {
           {!faqLoading && faqError && (
             <p className="text-sm text-destructive">{t("semanticSearch.faqError")}</p>
           )}
-          {!faqLoading && !faqData?.answer && (
+          {!faqLoading && !shownFaq?.answer && (
             <p className="text-sm text-muted-foreground">{t("semanticSearch.faqNoAnswer")}</p>
           )}
-          {!faqLoading && faqData?.answer && (
+          {!faqLoading && shownFaq?.answer && (
             <div className="space-y-3">
-              <div className="text-sm leading-relaxed">{faqData.answer}</div>
+              <div className="text-xs font-medium text-muted-foreground" data-testid="text-faq-answer-kind">
+                {shownFaq.aiGenerated ? t("semanticSearch.faqAiBadge") : t("semanticSearch.faqBestMatch")}
+              </div>
+              <div className="text-sm leading-relaxed" data-testid="text-faq-answer">{shownFaq.answer}</div>
+              {aiFaq && !aiFaq.aiGenerated && (
+                <p className="text-xs text-destructive" data-testid="text-faq-ai-failed">{t("semanticSearch.faqAiFailed")}</p>
+              )}
+              {aiFaqMutation.isError && (
+                <p className="text-xs text-destructive" data-testid="text-faq-ai-error">{t("semanticSearch.faqAiError")}</p>
+              )}
               <div className="flex flex-wrap gap-2">
+                {faqData?.aiAvailable && !aiFaq?.aiGenerated && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => aiFaqMutation.mutate()}
+                    disabled={aiFaqMutation.isPending}
+                    data-testid="button-faq-ai-answer"
+                  >
+                    {aiFaqMutation.isPending ? t("semanticSearch.faqAiGenerating") : t("semanticSearch.faqAiGenerate")}
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant={faqFeedback === "helpful" ? "default" : "outline"}
@@ -333,13 +378,13 @@ export default function SemanticSearchPage() {
               </div>
             </div>
           )}
-          {!faqLoading && faqData?.sources?.length ? (
+          {!faqLoading && shownFaq?.sources?.length ? (
             <div className="space-y-2">
               <div className="text-xs font-semibold uppercase text-muted-foreground">
                 {t("semanticSearch.faqSources")}
               </div>
               <div className="grid gap-3 md:grid-cols-2">
-                {faqData.sources.map((source) => {
+                {shownFaq.sources.map((source) => {
                   const target = buildResultPath({
                     sourceType: source.sourceType,
                     metadata: source.metadata,

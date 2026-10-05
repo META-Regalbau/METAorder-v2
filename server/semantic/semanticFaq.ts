@@ -22,6 +22,10 @@ export type FaqAnswer = {
   answer: string | null;
   sources: FaqSource[];
   model?: string;
+  /** KI-Antwort waere moeglich (Chat-Anbieter eingerichtet, Modus nicht "nur lokal") */
+  aiAvailable?: boolean;
+  /** diese Antwort hat die KI formuliert (sonst: bester Treffer) */
+  aiGenerated?: boolean;
 };
 
 function buildExcerpt(text: string, maxChars: number) {
@@ -78,7 +82,9 @@ export async function generateFaqAnswer(
   storage: IStorage,
   query: string,
   results: SemanticResult[],
-  options?: { preferOpenAI?: boolean; language?: "de" | "en" | "es" }
+  // aiAnswer: KI-Antwort ausdruecklich angefordert (Knopf "KI-Antwort erzeugen"); ohne bleibt es im
+  // Modus "KI optional" beim besten Treffer - die Suche selbst kostet so keinen KI-Aufruf
+  options?: { preferOpenAI?: boolean; language?: "de" | "en" | "es"; aiAnswer?: boolean }
 ): Promise<FaqAnswer> {
   const sources: FaqSource[] = results.map((result) => ({
     sourceType: result.sourceType,
@@ -104,20 +110,21 @@ export async function generateFaqAnswer(
     throw new Error("AI mode is required but no chat provider is configured.");
   }
 
-  if (!llmConfigured || aiSettings.mode === "local_only") {
-    return {
-      answer: buildFallbackAnswer(language, sources),
-      sources,
-      model: "local-fallback",
-    };
+  const aiAvailable = llmConfigured && aiSettings.mode !== "local_only";
+  const fallback = (): FaqAnswer => ({
+    answer: buildFallbackAnswer(language, sources),
+    sources,
+    model: "local-fallback",
+    aiAvailable,
+    aiGenerated: false,
+  });
+
+  if (!aiAvailable) {
+    return fallback();
   }
 
-  if (aiSettings.mode === "openai_optional" && !wantsOpenAI) {
-    return {
-      answer: buildFallbackAnswer(language, sources),
-      sources,
-      model: "local-fallback",
-    };
+  if (aiSettings.mode === "openai_optional" && !wantsOpenAI && !options?.aiAnswer) {
+    return fallback();
   }
 
   const sourceContext = sources
@@ -148,17 +155,16 @@ export async function generateFaqAnswer(
             .filter(Boolean)
         : sources;
 
+    if (!answer) return fallback();
     return {
-      answer: answer || buildFallbackAnswer(language, sources),
+      answer,
       sources: filteredSources,
       model: (await resolveChatTarget(getSetting, "smart")).model,
+      aiAvailable,
+      aiGenerated: true,
     };
   } catch (error) {
     console.error("[SemanticFAQ] LLM error:", error);
-    return {
-      answer: buildFallbackAnswer(language, sources),
-      sources,
-      model: "local-fallback",
-    };
+    return fallback();
   }
 }

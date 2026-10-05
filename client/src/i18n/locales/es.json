@@ -4597,7 +4597,13 @@
       "offer_draft": "Borrador de oferta",
       "order_draft": "Borrador de pedido",
       "ticket_template": "Plantilla de ticket"
-    }
+    },
+    "faqAiGenerate": "Generar respuesta con IA",
+    "faqAiGenerating": "La IA está redactando la respuesta…",
+    "faqAiBadge": "Respuesta de la IA",
+    "faqBestMatch": "Mejor coincidencia (sin IA)",
+    "faqAiFailed": "La IA no pudo redactar una respuesta; se muestra la mejor coincidencia.",
+    "faqAiError": "No es posible obtener una respuesta de la IA. Vuelva a intentarlo dentro de un minuto."
   },
   "installmentPlan": {
     "sectionTitle": "Pago fraccionado / a plazos",
