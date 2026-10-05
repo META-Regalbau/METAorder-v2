@@ -4766,5 +4766,9 @@
     "label": "Versión {{version}}",
     "details": "Commit {{commit}} del {{date}}",
     "regionLabel": "Versión de la aplicación"
+  },
+  "theme": {
+    "switchToDark": "Modo oscuro",
+    "switchToLight": "Modo claro"
   }
 }

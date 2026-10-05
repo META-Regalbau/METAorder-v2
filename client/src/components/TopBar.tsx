@@ -1,11 +1,14 @@
-import { User, LogOut, Search } from "lucide-react";
+import { User, LogOut, Search, Moon, Sun } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Input } from "@/components/ui/input";
 import ThemeToggle from "./ThemeToggle";
-import LanguageSwitcher from "./LanguageSwitcher";
+import LanguageSwitcher, { changeLanguage, languages } from "./LanguageSwitcher";
 import { NotificationBell } from "./NotificationBell";
+import RightSidebarToggle from "./RightSidebarToggle";
+import { COMPACT_LAYOUT_QUERY, useMediaQuery } from "@/hooks/useMediaQuery";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -16,6 +19,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -30,6 +37,8 @@ interface TopBarProps {
   userRole: "employee" | "admin";
   username: string;
   onLogout: () => void;
+  /** Handy/Tablet: Knopf fuer die Schnellbearbeitung (rechte Leiste) */
+  canViewTickets?: boolean;
 }
 
 type TenantInfo = {
@@ -71,8 +80,10 @@ function getScore(distance: number): string {
   return score.toFixed(2);
 }
 
-export default function TopBar({ userRole, username, onLogout }: TopBarProps) {
-  const { t } = useTranslation();
+export default function TopBar({ userRole, username, onLogout, canViewTickets = false }: TopBarProps) {
+  const { t, i18n } = useTranslation();
+  const compactHeader = useMediaQuery(COMPACT_LAYOUT_QUERY);
+  const theme = useThemeMode();
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
   const [selectedTenantId, setSelectedTenantId] = useState("");
@@ -220,6 +231,10 @@ export default function TopBar({ userRole, username, onLogout }: TopBarProps) {
 
   const tenants = tenantData?.tenants || [];
   const showTenantSelect = tenants.length > 0;
+  const changeTenant = (value: string) => {
+    setSelectedTenantId(value);
+    saveTenantSelectionMutation.mutate(value || null);
+  };
   
   const handleGlobalSearch = () => {
     const trimmed = globalSearch.trim();
@@ -266,13 +281,13 @@ export default function TopBar({ userRole, username, onLogout }: TopBarProps) {
   };
 
   return (
-    <header className="h-16 border-b bg-card flex items-center justify-between px-6 gap-4 sticky top-0 z-50">
-      <div className="flex items-center gap-4">
+    <header className="h-16 border-b bg-card flex items-center justify-between px-3 md:px-6 gap-2 md:gap-4 sticky top-0 z-50">
+      <div className="flex items-center gap-2 md:gap-4">
         <SidebarTrigger data-testid="button-sidebar-toggle" />
-        <h1 className="text-xl font-semibold">{t('nav.appTitle')}</h1>
+        <h1 className="hidden xl:block text-xl font-semibold">{t('nav.appTitle')}</h1>
       </div>
 
-      <div className="flex-1 flex justify-center">
+      <div className="flex-1 min-w-0 flex justify-center">
         <div className="relative w-full max-w-xl" ref={searchContainerRef}>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -293,7 +308,7 @@ export default function TopBar({ userRole, username, onLogout }: TopBarProps) {
             data-testid="input-global-search"
           />
           {showSearchResults && globalSearch.trim() && (
-            <div className="absolute left-0 right-0 top-full mt-2 rounded-lg border bg-card shadow-lg z-50">
+            <div className="fixed inset-x-2 top-16 xl:absolute xl:inset-x-0 xl:top-full mt-2 rounded-lg border bg-card shadow-lg z-50">
               <div className="max-h-[420px] overflow-y-auto p-2">
                 {isSearching && (
                   <div className="px-3 py-2 text-sm text-muted-foreground">
@@ -342,46 +357,92 @@ export default function TopBar({ userRole, username, onLogout }: TopBarProps) {
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        {showTenantSelect && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">
-              {t("settings.tenants.selectLabel")}
-            </span>
-            <Select
-              value={selectedTenantId || ""}
-              onValueChange={(value) => {
-                setSelectedTenantId(value);
-                saveTenantSelectionMutation.mutate(value || null);
-              }}
-            >
-              <SelectTrigger aria-label={t("settings.tenants.selectPlaceholder")} className="h-8 w-44" data-testid="select-tenant-topbar">
-                <SelectValue placeholder={t("settings.tenants.selectPlaceholder")} />
-              </SelectTrigger>
-              <SelectContent>
-                {tenants.map((tenant) => (
-                  <SelectItem key={tenant.id} value={tenant.id}>
-                    {tenant.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-        <LanguageSwitcher />
+      <div className="flex items-center gap-1 xl:gap-3">
+        {/* ab 1280 px; schmaler stehen Mandant, Sprache, Design und Rolle im Nutzermenue */}
+        <div className="hidden xl:flex items-center gap-3">
+          {showTenantSelect && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                {t("settings.tenants.selectLabel")}
+              </span>
+              <Select
+                value={selectedTenantId || ""}
+                onValueChange={changeTenant}
+              >
+                <SelectTrigger aria-label={t("settings.tenants.selectPlaceholder")} className="h-8 w-44" data-testid="select-tenant-topbar">
+                  <SelectValue placeholder={t("settings.tenants.selectPlaceholder")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {tenants.map((tenant) => (
+                    <SelectItem key={tenant.id} value={tenant.id}>
+                      {tenant.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <LanguageSwitcher />
+        </div>
         <NotificationBell />
-        <ThemeToggle />
-        <Badge variant={userRole === "admin" ? "default" : "secondary"} data-testid="badge-user-role">
-          {t(`roles.${userRole}`)}
-        </Badge>
+        <div className="hidden xl:flex items-center gap-3">
+          <ThemeToggle />
+          <Badge variant={userRole === "admin" ? "default" : "secondary"} data-testid="badge-user-role">
+            {t(`roles.${userRole}`)}
+          </Badge>
+        </div>
+        {canViewTickets && <RightSidebarToggle />}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2" data-testid="button-user-menu">
+            <Button
+              variant="ghost"
+              className="flex items-center gap-2 px-2 xl:px-4"
+              aria-label={username}
+              data-testid="button-user-menu"
+            >
               <User className="h-4 w-4" />
-              <span className="text-sm font-medium" data-testid="text-username">{username}</span>
+              <span className="hidden xl:inline text-sm font-medium" data-testid="text-username">{username}</span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end" className="max-h-[80dvh] overflow-y-auto">
+            {compactHeader && (
+              <>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="text-sm font-medium">{username}</div>
+                  <div className="text-xs text-muted-foreground">{t(`roles.${userRole}`)}</div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {showTenantSelect && (
+                  <>
+                    <DropdownMenuLabel className="text-xs text-muted-foreground">
+                      {t("settings.tenants.selectLabel")}
+                    </DropdownMenuLabel>
+                    <DropdownMenuRadioGroup value={selectedTenantId} onValueChange={changeTenant}>
+                      {tenants.map((tenant) => (
+                        <DropdownMenuRadioItem key={tenant.id} value={tenant.id} data-testid={`menu-tenant-${tenant.id}`}>
+                          {tenant.name}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                <DropdownMenuLabel className="text-xs text-muted-foreground">{t("language.switch")}</DropdownMenuLabel>
+                <DropdownMenuRadioGroup value={i18n.language} onValueChange={(code) => changeLanguage(i18n, code)}>
+                  {languages.map((language) => (
+                    <DropdownMenuRadioItem key={language.code} value={language.code} data-testid={`menu-language-${language.code}`}>
+                      {t(language.nameKey)}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={theme.toggle} data-testid="menu-theme-toggle">
+                  {theme.mode === "light" ? <Moon className="mr-2 h-4 w-4" /> : <Sun className="mr-2 h-4 w-4" />}
+                  {theme.mode === "light" ? t("theme.switchToDark") : t("theme.switchToLight")}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
             <DropdownMenuItem onClick={() => setLocation("/profile")}>
               {t("nav.profile")}
             </DropdownMenuItem>
