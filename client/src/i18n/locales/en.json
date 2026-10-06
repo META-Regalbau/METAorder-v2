@@ -5342,6 +5342,7 @@
       "benutzer_nicht_gefunden": "User not found",
       "bestatigung_nur_im_status_vereinbarung_ausstehend_moglich": "Confirmation only possible in status “Agreement pending”",
       "bestell_analyse_fehlgeschlagen": "Order analysis failed",
+      "bitte_kundennummer_und_eine_gultige_e_mail_adresse_angeben": "Please enter your customer number and a valid e-mail address.",
       "bitte_melden_sie_sich_im_shop_an_um_ein_angebot_anzufragen": "Please log in to the shop to request an offer.",
       "browser_print_unavailable": "Browser Print unavailable",
       "bulk_cross_selling_execution_is_disabled_cross_sell_bulk_enabled_false": "Bulk cross-selling execution is disabled (CROSS_SELL_BULK_ENABLED=false).",
@@ -6280,5 +6281,25 @@
     "loading": "Loading…",
     "loadError": "Error while loading.",
     "backToOffers": "Back to offers"
+  },
+  "portalPassword": {
+    "title": "Dealer portal password",
+    "description": "Enter your customer number and the e-mail address of your portal account. We will send you a new password by e-mail.",
+    "customerNumber": "Customer number",
+    "customerNumberPlaceholder": "e.g. 10012345",
+    "email": "E-mail address",
+    "emailPlaceholder": "name@company.com",
+    "submit": "Send password",
+    "sending": "Sending…",
+    "changeHint": "Please change the password you receive after your first login to the portal.",
+    "successTitle": "Request received",
+    "successText": "If the customer number and e-mail address match a portal account, you will receive an e-mail with your new password within a few minutes. Please also check your spam folder.",
+    "toPortal": "Go to the dealer portal",
+    "customerNumberRequired": "Please enter your customer number.",
+    "emailInvalid": "Please enter a valid e-mail address.",
+    "errorRateLimit": "Too many requests. Please try again in a few minutes.",
+    "errorGeneric": "The request could not be sent. Please try again later.",
+    "help": "No e-mail received? Please contact your META representative.",
+    "language": "Language"
   }
 }

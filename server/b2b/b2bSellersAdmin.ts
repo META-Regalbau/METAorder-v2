@@ -1104,6 +1104,56 @@ export class B2BSellersAdminClient {
     return this.mapEmployee(raw);
   }
 
+  /** Alle Mitarbeiter mit dieser E-Mail (dieselbe Adresse kann in mehreren Verkaufskanälen vorkommen). */
+  async findEmployeesByEmail(email: string): Promise<Array<ReturnType<B2BSellersAdminClient["mapEmployee"]>>> {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized) return [];
+    const result = await this.searchEntity("employee", {
+      limit: 10,
+      filter: [{ type: "equals", field: "email", value: normalized }],
+    });
+    return result.data.map((raw) => this.mapEmployee(raw));
+  }
+
+  /** Shopware-Kunden mit dieser Kundennummer (je Verkaufskanal kann es mehrere geben). */
+  async findCustomersByNumber(customerNumber: string): Promise<
+    Array<{ id: string; customerNumber: string; company: string | null; salesRepresentative: boolean }>
+  > {
+    const normalized = customerNumber.trim();
+    if (!normalized) return [];
+    const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/customer`, {
+      method: "POST",
+      body: JSON.stringify({
+        limit: 10,
+        includes: { customer: ["id", "customerNumber", "company", "customFields"] },
+        filter: [{ type: "equals", field: "customerNumber", value: normalized }],
+      }),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to search customer: ${response.statusText} - ${errorText}`);
+    }
+    const parsed = await response.json();
+    return (parsed.data || []).map((raw: any) => {
+      const c = unwrapEntity(raw);
+      return {
+        id: String(c.id),
+        customerNumber: String(getField(c, "customerNumber") || ""),
+        company: getField(c, "company") || null,
+        salesRepresentative: coerceBool(getField(c, "customFields.b2b_sales_representative")) ?? false,
+      };
+    });
+  }
+
+  /**
+   * Neues Portal-Passwort setzen. B2Bsellers prüft beim Login zuerst
+   * legacyPassword/legacyEncoder und ignoriert dann `password` — beide Felder
+   * deshalb immer mit leeren (sie sind nur nicht lesbar, schreiben geht).
+   */
+  async setEmployeePassword(employeeId: string, password: string): Promise<void> {
+    await this.patchEntity("employee", employeeId, { password, legacyPassword: null, legacyEncoder: null });
+  }
+
   /** Verknüpfung eines Mitarbeiters zu einem Kunden inkl. Rolle/Admin/Aktiv, oder null. */
   async findEmployeeCustomerLink(employeeId: string, customerId: string): Promise<EmployeeCustomerLink | null> {
     const links = await this.searchEntity("employeeCustomer", {

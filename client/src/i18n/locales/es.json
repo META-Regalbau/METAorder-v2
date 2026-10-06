@@ -5339,6 +5339,7 @@
       "benutzer_nicht_gefunden": "Usuario no encontrado",
       "bestatigung_nur_im_status_vereinbarung_ausstehend_moglich": "La confirmación solo es posible en el estado «Acuerdo pendiente»",
       "bestell_analyse_fehlgeschlagen": "Error en el análisis de pedidos",
+      "bitte_kundennummer_und_eine_gultige_e_mail_adresse_angeben": "Indique el número de cliente y una dirección de correo electrónico válida.",
       "bitte_melden_sie_sich_im_shop_an_um_ein_angebot_anzufragen": "Inicie sesión en la tienda para solicitar una oferta.",
       "browser_print_unavailable": "Browser Print no disponible",
       "bulk_cross_selling_execution_is_disabled_cross_sell_bulk_enabled_false": "La ejecución masiva de cross-selling está desactivada (CROSS_SELL_BULK_ENABLED=false).",
@@ -6277,5 +6278,25 @@
     "loading": "Cargando…",
     "loadError": "Error al cargar.",
     "backToOffers": "Volver a ofertas"
+  },
+  "portalPassword": {
+    "title": "Contraseña del portal de distribuidores",
+    "description": "Introduzca su número de cliente y la dirección de correo electrónico de su acceso al portal. Recibirá una nueva contraseña por correo electrónico.",
+    "customerNumber": "Número de cliente",
+    "customerNumberPlaceholder": "p. ej. 10012345",
+    "email": "Correo electrónico",
+    "emailPlaceholder": "nombre@empresa.com",
+    "submit": "Enviar contraseña",
+    "sending": "Enviando…",
+    "changeHint": "Cambie la contraseña recibida después de su primer inicio de sesión en el portal.",
+    "successTitle": "Solicitud recibida",
+    "successText": "Si el número de cliente y el correo electrónico corresponden a un acceso al portal, recibirá en unos minutos un correo con su nueva contraseña. Revise también la carpeta de spam.",
+    "toPortal": "Ir al portal de distribuidores",
+    "customerNumberRequired": "Introduzca su número de cliente.",
+    "emailInvalid": "Introduzca una dirección de correo electrónico válida.",
+    "errorRateLimit": "Demasiadas solicitudes. Inténtelo de nuevo en unos minutos.",
+    "errorGeneric": "No se pudo enviar la solicitud. Inténtelo de nuevo más tarde.",
+    "help": "¿No ha recibido ningún correo? Póngase en contacto con su persona de contacto en META.",
+    "language": "Idioma"
   }
 }
