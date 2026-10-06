@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { logger } from "./logger";
+import { areaForPath } from "./logAreas";
 
 /**
  * Eine Log-Zeile je API-Anfrage: Methode, Pfad, Status, Dauer, requestId, tenantId, userId.
@@ -18,6 +19,8 @@ export function requestLoggingMiddleware(onApiRequest?: (m: { route: string; met
         requestId: req.requestId,
         tenantId: req.tenantId ?? undefined,
         userId: (req.user as { id?: string } | undefined)?.id,
+        component: "http",
+        area: areaForPath(path) ?? "system",
         method: req.method,
         path,
         status: res.statusCode,
@@ -27,7 +30,9 @@ export function requestLoggingMiddleware(onApiRequest?: (m: { route: string; met
       if (slowMs > 0 && durationMs >= slowMs) {
         logger.warn({ ...fields, slow: true }, `[slow-request] ${durationMs}ms ${req.method} ${path} ${res.statusCode}`);
       }
-      logger.info(fields, `${req.method} ${path} ${res.statusCode} in ${durationMs}ms`);
+      // 5xx = Fehler, 4xx = Warnung (ausser 401 nicht angemeldet und 404), sonst Info
+      const level = res.statusCode >= 500 ? "error" : res.statusCode >= 400 && res.statusCode !== 401 && res.statusCode !== 404 ? "warn" : "info";
+      logger[level](fields, `${req.method} ${path} ${res.statusCode} in ${durationMs}ms`);
       onApiRequest?.({ route: path, method: req.method, statusCode: res.statusCode, durationMs });
     });
 
@@ -43,7 +48,7 @@ export function requestLoggingMiddleware(onApiRequest?: (m: { route: string; met
  */
 export function errorHandler(err: any, req: Request, res: Response, next: NextFunction) {
   const status = err?.status || err?.statusCode || 500;
-  const fields = { err, requestId: req.requestId, method: req.method, path: req.path, status };
+  const fields = { err, requestId: req.requestId, area: areaForPath(req.path) ?? "system", method: req.method, path: req.path, status };
   if (status >= 500) logger.error(fields, `Unbehandelter Fehler: ${req.method} ${req.path}`);
   else logger.warn(fields, `Fehler ${status}: ${req.method} ${req.path}`);
 

@@ -14,6 +14,8 @@ import type { AutomationDeps } from "./actions";
 import type { AutomationEntityRunStats } from "../storage";
 import { executeRule, orderFacts, prepareRules, resolveAssigneeName, ticketFacts, type PreparedRule } from "./engine";
 
+const log = logger.child({ component: "automation/scheduler" });
+
 /**
  * Zeitgesteuerte Regeln: prueft regelmaessig die Bestellungen aus dem Shopware-Spiegel.
  * Sicherungen: nur Bestellungen der letzten SCHEDULED_LOOKBACK_DAYS Tage; je Bestellung
@@ -143,7 +145,7 @@ async function matchTickets(
 
 function logRun(tenantId: string | null, p: PreparedRule, matching: number, executed: number, remaining: number) {
   if (executed > 0 || remaining > 0) {
-    logger.info(
+    log.info(
       { tenantId, ruleId: p.rule.id, matching, executed, remaining },
       `Zeitgesteuerte Regel "${p.rule.name}": ${executed} ausgefuehrt`,
     );
@@ -189,7 +191,7 @@ export async function runScheduledAutomations(deps: AutomationDeps, now: Date = 
         }
       });
     } catch (err) {
-      logger.error({ err, tenantId }, "Zeitgesteuerte Automatisierung fuer Mandant fehlgeschlagen");
+      log.error({ err, tenantId }, "Zeitgesteuerte Automatisierung fuer Mandant fehlgeschlagen");
     }
   }
   return summary;

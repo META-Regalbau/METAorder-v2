@@ -119,6 +119,8 @@ Shopware, E-Mail, optionale Dienste: wie bisher ueber `.env` / Compose `environm
 | `AUTOMATION_SCHEDULER_ENABLED` | Optional: `false` schaltet die zeitgesteuerten Automatisierungsregeln ab (siehe [automatisierung.md](automatisierung.md)). |
 | `AUTOMATION_SCHEDULE_INTERVAL_MINUTES` | Optional: Intervall der zeitgesteuerten Regeln in Minuten (Default **60**, mindestens 5). |
 | `LOG_LEVEL` | Optional: `trace` · `debug` · `info` (Default) · `warn` · `error` · `fatal`. |
+| `LOG_STORE` | Optional: `off` schaltet das Systemprotokoll in der Datenbank ab (Tabelle `app_logs`, Viewer `/admin/logs` für Administratoren). Standard: an. |
+| `LOG_STORE_DAYS` | Optional: Aufbewahrung des Systemprotokolls in Tagen (1–90, Standard 14); ältere Einträge löscht der Server täglich. |
 | `LOG_FORMAT` | Optional: `json` (Default außer bei `NODE_ENV=development`) — eine JSON-Zeile je Eintrag mit `time`, `level`, `msg`, `component` (Modul, z. B. `routes/orderRoutes`), `requestId`, `tenantId`, `err` und weiteren Feldern; `pretty` — lesbare Zeilen (nur mit installierten devDependencies, sonst JSON). Siehe `server/lib/logger.ts`. Jede API-Antwort trägt ihre ID im Header **`X-Request-Id`**; damit lassen sich Fehlermeldungen von Nutzern den Log-Zeilen zuordnen. |
 | `PG_POOL_MAX` | Optional: Max. Verbindungen im **node-postgres**-Pool (Default **20**), nur bei klassischem `DATABASE_URL` ohne Neon-Treiber. |
 | `CROSS_SELL_BULK_ENABLED` | Optional: `false` deaktiviert **`POST /api/cross-selling-rules/execute-bulk`** (Massen-Anlage von Cross-Selling-Gruppen in Shopware). Ohne Variable oder jeder andere Wert: Endpunkt aktiv. |

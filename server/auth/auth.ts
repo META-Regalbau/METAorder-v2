@@ -36,25 +36,25 @@ export function setupAuth(storage: IStorage) {
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
-        moduleLog.info(`[AUTH] Attempting login for username: ${username}`);
+        moduleLog.debug(`[AUTH] Attempting login for username: ${username}`);
         const user = await storage.getUserByUsername(username);
-        moduleLog.info(`[AUTH] User found in database: ${!!user} ${user ? `ID: ${user.id}` : 'null'}`);
+        moduleLog.debug(`[AUTH] User found in database: ${!!user} ${user ? `ID: ${user.id}` : 'null'}`);
         
         if (!user) {
-          moduleLog.info(`[AUTH] No user found with username: ${username}`);
+          moduleLog.warn({ username }, "Anmeldung abgelehnt: Benutzer unbekannt");
           return done(null, false, { message: "Incorrect username or password" });
         }
 
-        moduleLog.info(`[AUTH] Comparing password for user: ${user.username}`);
+        moduleLog.debug(`[AUTH] Comparing password for user: ${user.username}`);
         const isValidPassword = await bcrypt.compare(password, user.password);
-        moduleLog.info(`[AUTH] Password valid: ${isValidPassword}`);
+        moduleLog.debug(`[AUTH] Password valid: ${isValidPassword}`);
         
         if (!isValidPassword) {
-          moduleLog.info(`[AUTH] Password mismatch for user: ${username}`);
+          moduleLog.warn({ username, userId: user.id }, "Anmeldung abgelehnt: falsches Passwort");
           return done(null, false, { message: "Incorrect username or password" });
         }
 
-        moduleLog.info(`[AUTH] Login successful for user: ${username}`);
+        moduleLog.info({ username, userId: user.id }, "Anmeldung erfolgreich");
         return done(null, user);
       } catch (error) {
         moduleLog.error({ err: error }, "[AUTH] Error during authentication:");
@@ -490,6 +490,17 @@ export const requireManageProducts = (req: any, res: any, next: any) => {
   }
   return requirePermission("manageProducts")(req, res, next);
 };
+
+/** Administrator: Rolle "Administrator" oder Altbenutzer mit role "admin" */
+export function isAdministrator(user: any): boolean {
+  return user?.role === "admin" || user?.roleDetails?.name === "Administrator";
+}
+
+/** Nur Administratoren (z. B. Systemprotokoll) - unabhaengig von einzelnen Rechten */
+export function requireAdministrator(req: any, res: any, next: any) {
+  if (isAdministrator(req.user)) return next();
+  res.status(403).json({ error: "Nur für Administratoren" });
+}
 
 // Legacy middleware - kept for backwards compatibility
 // Prefer using permission-based checks (requireManageUsers, requireManageRoles, etc.)

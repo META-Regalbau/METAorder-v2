@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, decimal, doublePrecision, integer, jsonb, serial, real, boolean, uniqueIndex, index, customType, pgSchema, date } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, decimal, doublePrecision, integer, jsonb, serial, real, boolean, uniqueIndex, index, customType, pgSchema, date, bigserial, smallint } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -2734,6 +2734,36 @@ export const nlQueryUsage = pgTable(
     uniqueTenantUserDay: uniqueIndex("nl_query_usage_unique").on(table.tenantId, table.userId, table.usageDate),
   }),
 );
+
+/**
+ * Systemprotokoll fuer Admins (Viewer unter /admin/logs): Log-Eintraege aus dem Logger, gebuendelt
+ * geschrieben (server/lib/logStore.ts), Aufbewahrung LOG_STORE_DAYS (Standard 14). Ohne Fremdschluessel,
+ * damit Protokolle nichts blockieren. tenant_id null = Systemmeldung; level wie pino (30 info, 40 warn ...).
+ * Siehe migrations/0044_app_logs.sql.
+ */
+export const appLogs = pgTable(
+  "app_logs",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    time: timestamp("time", { withTimezone: true }).notNull(),
+    level: smallint("level").notNull(),
+    area: text("area").notNull(),
+    component: text("component"),
+    msg: text("msg").notNull(),
+    tenantId: varchar("tenant_id"),
+    userId: varchar("user_id"),
+    requestId: varchar("request_id"),
+    data: jsonb("data"),
+  },
+  (table) => ({
+    timeIdx: index("app_logs_time_idx").on(table.time),
+    tenantIdIdx: index("app_logs_tenant_id_idx").on(table.tenantId, table.id),
+    requestIdx: index("app_logs_request_idx").on(table.requestId),
+  }),
+);
+
+export type AppLogRow = typeof appLogs.$inferSelect;
+export type InsertAppLog = typeof appLogs.$inferInsert;
 
 export type AnalyticsQuery = {
   type: AnalyticsQueryType;

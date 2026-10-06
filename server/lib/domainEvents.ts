@@ -1,6 +1,8 @@
 import type { Order, Ticket } from "@shared/schema";
 import { logger } from "./logger";
 
+const log = logger.child({ component: "lib/domainEvents" });
+
 /**
  * Fachliche Ereignisse (z. B. "Ticket angelegt", "Bestellstatus geaendert"), die Speicher bzw.
  * Shopware-Spiegel melden und andere Module abonnieren - aktuell die Automatisierungsregeln.
@@ -39,7 +41,7 @@ export function emitDomainEvent<K extends DomainEventName>(name: K, payload: Dom
     setImmediate(() => {
       Promise.resolve()
         .then(() => handler(payload))
-        .catch((err) => logger.error({ err, event: name }, `Fehler im Handler fuer Ereignis ${name}`));
+        .catch((err) => log.error({ err, event: name }, `Fehler im Handler fuer Ereignis ${name}`));
     });
   }
 }

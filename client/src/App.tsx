@@ -43,6 +43,7 @@ const UsersPage = lazy(() => import("@/pages/UsersPage"));
 const RolesPage = lazy(() => import("@/pages/RolesPage"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
 const WebhookLogsPage = lazy(() => import("@/pages/WebhookLogsPage"));
+const SystemLogPage = lazy(() => import("@/pages/SystemLogPage"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
 const AccountingPage = lazy(() => import("@/pages/AccountingPage"));
 const B2BAccountsPage = lazy(() => import("@/pages/B2BAccountsPage"));
@@ -74,6 +75,8 @@ import type { User, Role } from "@shared/schema";
 
 type UserWithPermissions = User & {
   permissions: Role['permissions'];
+  /** Rollenname aus /api/auth/me (z. B. "Administrator") */
+  roleName?: string | null;
 };
 import "./i18n/config";
 import { useTranslation } from "react-i18next";
@@ -143,6 +146,7 @@ function Router({
       <Route path="/roles" component={RolesPage} />
       <Route path="/settings" component={SettingsPage} />
       <Route path="/webhooks/logs" component={WebhookLogsPage} />
+      <Route path="/admin/logs" component={SystemLogPage} />
       <Route path="/profile" component={ProfilePage} />
       <Route component={NotFound} />
     </Switch>
@@ -267,6 +271,7 @@ function AuthenticatedApp() {
             <AppSidebar 
               userRole={user.role as "employee" | "admin"} 
               permissions={user.permissions}
+              isAdmin={user.role === "admin" || user.roleName === "Administrator"}
             />
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <TopBar 

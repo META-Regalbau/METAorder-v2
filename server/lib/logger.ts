@@ -2,6 +2,8 @@ import { createRequire } from "node:module";
 import pino, { type DestinationStream, type Logger, type LoggerOptions } from "pino";
 import { getRequestId } from "./requestContext";
 import { getTenantIdFromContext } from "./tenantContext";
+import { areaForComponent } from "./logAreas";
+import { getLogStoreSink, logStoreEnabled } from "./logStore";
 
 /**
  * Zentraler Logger (pino).
@@ -13,6 +15,8 @@ import { getTenantIdFromContext } from "./tenantContext";
  *
  * Erst beim ersten Gebrauch erzeugt: index.ts laedt .env erst nach den Imports.
  * Bestehende console.*-Aufrufe leitet ./consoleBridge hierher um.
+ * Jede Zeile geht zusaetzlich an das Systemprotokoll (./logStore, Tabelle app_logs), ausser
+ * LOG_STORE=off oder in Tests. Modul-Logger tragen ihren Bereich (`area`, ./logAreas).
  */
 
 const REDACT_PATHS = [
@@ -57,7 +61,7 @@ export function createLogger(opts: { level?: string; format?: LogFormat; destina
   if (format === "pretty" && !opts.destination) {
     const pretty = loadPinoPretty();
     if (pretty) {
-      return pino(options, pretty({
+      return pino(options, withLogStore(pretty({
         colorize: true,
         sync: true,
         translateTime: "HH:MM:ss",
@@ -67,14 +71,33 @@ export function createLogger(opts: { level?: string; format?: LogFormat; destina
           const rid = typeof log.requestId === "string" ? `[${log.requestId.slice(0, 8)}] ` : "";
           return `${rid}${String(log[messageKey] ?? "")}`;
         },
-      }));
+      })));
     }
   }
 
   // JSON: Level als Text ("info" statt 30) - lesbarer in Log-Ansichten ohne Werkzeug
   options.formatters = { level: (label) => ({ level: label }) };
   // Synchron nach stdout wie console: auch die letzten Zeilen vor einem Absturz landen im Log
-  return pino(options, opts.destination ?? pino.destination({ dest: 1, sync: true }));
+  if (opts.destination) return pino(options, opts.destination);
+  return pino(options, withLogStore(pino.destination({ dest: 1, sync: true })));
+}
+
+/** Ausgabe zusaetzlich an das Systemprotokoll geben (gleiche JSON-Zeile) */
+function withLogStore(stream: DestinationStream): DestinationStream {
+  if (!logStoreEnabled()) return stream;
+  const store = getLogStoreSink();
+  return {
+    write(chunk: string) {
+      stream.write(chunk);
+      store.write(chunk);
+    },
+  };
+}
+
+/** Bereich aus dem Modulnamen ergaenzen, wenn nicht ausdruecklich gesetzt */
+export function withArea(bindings: Record<string, unknown>): Record<string, unknown> {
+  if (bindings.area !== undefined || typeof bindings.component !== "string") return bindings;
+  return { ...bindings, area: areaForComponent(bindings.component) ?? "system" };
 }
 
 function loadPinoPretty(): ((options: Record<string, unknown>) => DestinationStream) | null {
@@ -135,5 +158,5 @@ export const logger = {
   warn: delegate("warn"),
   error: delegate("error"),
   fatal: delegate("fatal"),
-  child: (bindings: Record<string, unknown>) => lazyChild(bindings),
+  child: (bindings: Record<string, unknown>) => lazyChild(withArea(bindings)),
 };

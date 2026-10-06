@@ -17,6 +17,7 @@ import { registerTicketRoutes } from "./routes/ticketRoutes";
 import { getSalesChannelFilter } from "./routes/routeHelpers";
 import { registerCrmRoutes } from "./routes/crmRoutes";
 import { registerSettingsRoutes } from "./routes/settingsRoutes";
+import { registerLogRoutes } from "./routes/logRoutes";
 import { registerOrderRoutes } from "./routes/orderRoutes";
 import { registerCrossSellingRoutes } from "./routes/crossSellingRoutes";
 import { registerProductRoutes } from "./routes/productRoutes";
@@ -70,6 +71,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Einstellungen (Shopware, Mondu, E-Mail, KI, Nummernkreise, Mahnwesen, ...)
   registerSettingsRoutes(app);
+
+  // Systemprotokoll (nur Administratoren)
+  registerLogRoutes(app);
 
   // Mahnwesen und Buchhaltungs-Import
   registerInvoicingRoutes(app);
