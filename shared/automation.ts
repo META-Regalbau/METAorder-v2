@@ -23,6 +23,14 @@ export const SCHEDULED_MAX_FAILED_ATTEMPTS = 3;
 export const SCHEDULED_DEFAULT_INTERVAL_MINUTES = 60;
 
 /**
+ * Zeitgesteuerte Ticket-Regeln (Ausloeser "scheduled_tickets", z. B. Wiedervorlage) pruefen alle
+ * Tickets, die nicht geloest/geschlossen sind. Je Ticket und Regel hoechstens eine Ausfuehrung, bis
+ * sich das Ticket wieder aendert (Kommentar, Status, Zuweisung ...); Aenderungen der Regel selbst
+ * zaehlen nicht. Hoechstens SCHEDULED_MAX_PER_RULE_PER_RUN je Regel und Lauf, mindestens eine Bedingung.
+ */
+export const SCHEDULED_TICKET_EXCLUDED_STATUSES: readonly string[] = ["resolved", "closed"];
+
+/**
  * Bestell-Ausloeser (erstellt / Status / Zahlungsstatus) erkennt der Shopware-Spiegel beim
  * Abgleich. Gemeldet werden nur Aenderungen, die hoechstens so lange zurueckliegen; der
  * Erstimport eines Mandanten meldet nichts.
@@ -40,6 +48,7 @@ export const AUTOMATION_TRIGGER_TYPES = [
   "order_status_changed",
   "order_payment_changed",
   "scheduled",
+  "scheduled_tickets",
 ] as const;
 export type AutomationTriggerTypeId = (typeof AUTOMATION_TRIGGER_TYPES)[number];
 
@@ -51,7 +60,11 @@ export const AUTOMATION_TRIGGERS: Record<AutomationTriggerTypeId, { entity: "tic
   order_status_changed: { entity: "order", available: true },
   order_payment_changed: { entity: "order", available: true },
   scheduled: { entity: "order", available: true },
+  scheduled_tickets: { entity: "ticket", available: true },
 };
+
+/** Zeitgesteuerte Ausloeser (Pflicht-Bedingung, Vorschau) */
+export const SCHEDULED_TRIGGERS: readonly AutomationTriggerTypeId[] = ["scheduled", "scheduled_tickets"];
 
 // ---------------------------------------------------------------------------
 // Bedingungen
@@ -82,7 +95,8 @@ export type AutomationFieldDef = {
   computed?: boolean;
 };
 
-const TICKET_TRIGGERS = ["ticket_created", "ticket_status_changed"] as const;
+const TICKET_EVENT_TRIGGERS = ["ticket_created", "ticket_status_changed"] as const;
+const TICKET_TRIGGERS = [...TICKET_EVENT_TRIGGERS, "scheduled_tickets"] as const;
 const ORDER_TRIGGERS = ["scheduled", "order_created", "order_status_changed", "order_payment_changed"] as const;
 
 export const AUTOMATION_FIELDS: Record<string, AutomationFieldDef> = {
@@ -97,7 +111,12 @@ export const AUTOMATION_FIELDS: Record<string, AutomationFieldDef> = {
   "ticket.orderNumber": { type: "text", triggers: TICKET_TRIGGERS },
   "ticket.isAssigned": { type: "boolean", triggers: TICKET_TRIGGERS },
   "ticket.fromEmail": { type: "boolean", triggers: TICKET_TRIGGERS },
-  "ticket.sentiment": { type: "enum", options: SENTIMENTS, triggers: TICKET_TRIGGERS, computed: true },
+  "ticket.assigneeName": { type: "text", triggers: TICKET_TRIGGERS },
+  // KI-Stimmung nur bei Ereignissen - zeitgesteuert waere das je Lauf und Ticket ein KI-Aufruf
+  "ticket.sentiment": { type: "enum", options: SENTIMENTS, triggers: TICKET_EVENT_TRIGGERS, computed: true },
+  "ticket.daysSinceCreated": { type: "number", triggers: ["scheduled_tickets"] },
+  "ticket.daysSinceUpdated": { type: "number", triggers: ["scheduled_tickets"] },
+  "ticket.daysPastDueDate": { type: "number", triggers: ["scheduled_tickets"] },
   "order.status": { type: "enum", options: ORDER_STATUSES, triggers: ORDER_TRIGGERS },
   "order.previousStatus": { type: "enum", options: ORDER_STATUSES, triggers: ["order_status_changed"] },
   "order.paymentStatus": { type: "enum", options: PAYMENT_STATUSES, triggers: ORDER_TRIGGERS },
@@ -265,7 +284,7 @@ export type AutomationActionInput = { type: string; params: Record<string, unkno
 // ---------------------------------------------------------------------------
 
 export const AUTOMATION_PLACEHOLDERS: Record<"ticket" | "order", readonly string[]> = {
-  ticket: ["ticket.ticketNumber", "ticket.title", "ticket.status", "ticket.previousStatus", "ticket.priority", "ticket.category", "ticket.customerName", "ticket.customerEmail", "ticket.orderNumber"],
+  ticket: ["ticket.ticketNumber", "ticket.title", "ticket.status", "ticket.previousStatus", "ticket.priority", "ticket.category", "ticket.customerName", "ticket.customerEmail", "ticket.orderNumber", "ticket.assigneeName", "ticket.daysSinceCreated", "ticket.daysSinceUpdated"],
   order: ["order.orderNumber", "order.customerName", "order.customerEmail", "order.orderDate", "order.status", "order.previousStatus", "order.paymentStatus", "order.previousPaymentStatus", "order.totalAmount", "order.paymentMethod", "order.daysSinceOrder", "order.daysPastDeliveryDate"],
 };
 
@@ -318,8 +337,10 @@ export function validateAutomationRule(rule: {
   const trigger = AUTOMATION_TRIGGERS[rule.triggerType as AutomationTriggerTypeId];
   if (!trigger) return [`Unbekannter Auslöser: ${rule.triggerType}`];
   if (!trigger.available) errors.push(`Auslöser "${rule.triggerType}" ist noch nicht verfügbar`);
-  if (rule.triggerType === "scheduled" && (rule.conditions ?? []).length === 0) {
-    errors.push("Zeitgesteuerte Regeln brauchen mindestens eine Bedingung (sonst würde jede Bestellung verarbeitet)");
+  if (SCHEDULED_TRIGGERS.includes(rule.triggerType as AutomationTriggerTypeId) && (rule.conditions ?? []).length === 0) {
+    errors.push(rule.triggerType === "scheduled"
+      ? "Zeitgesteuerte Regeln brauchen mindestens eine Bedingung (sonst würde jede Bestellung verarbeitet)"
+      : "Zeitgesteuerte Regeln brauchen mindestens eine Bedingung (sonst würde jedes Ticket verarbeitet)");
   }
 
   (rule.conditions ?? []).forEach((c, i) => {

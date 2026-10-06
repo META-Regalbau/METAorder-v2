@@ -9,10 +9,13 @@ Unter **Automatisierung** lassen sich Regeln anlegen: *Wenn* ein Auslöser eintr
 - **Ticket-Status geändert** – mit Zugriff auf den vorherigen Status.
 - **Bestellung erstellt**, **Bestellstatus geändert**, **Zahlungsstatus geändert** – siehe „Bestell-Auslöser“ unten.
 - **Zeitgesteuert: Bestellungen prüfen** – siehe unten.
+- **Zeitgesteuert: Tickets prüfen** (Wiedervorlage) – siehe unten.
 
 **Bedingungen** (alle müssen zutreffen; ohne Bedingung greift die Regel immer)
 - Ticket: Priorität, Kategorie, Status, vorheriger Status, Titel, Beschreibung, Kunden-E-Mail, Kundenname, Bestellnummer, zugewiesen (ja/nein), aus E-Mail entstanden (ja/nein)
-- Ticket: **Stimmung (KI)** – wird nur ermittelt, wenn eine Regel sie braucht; ohne KI-Konfiguration per Stichwort-Heuristik.
+- Ticket: **zuständig** (Benutzername des zugewiesenen Benutzers).
+- Ticket: **Stimmung (KI)** – wird nur ermittelt, wenn eine Regel sie braucht; ohne KI-Konfiguration per Stichwort-Heuristik. Nicht bei zeitgesteuerten Ticket-Regeln.
+- Ticket, nur zeitgesteuert: **Tage seit Erstellung**, **Tage seit letzter Änderung** (Bearbeiten, Status, Zuweisung, Kommentar), **Tage über Fälligkeit**.
 - Bestellung: Status, Zahlungsstatus (bei den Änderungs-Auslösern auch der jeweils **vorherige** Wert), Tage seit Bestellung, **Tage über spätestem Lieferdatum** (ohne Lieferdatum: seit Bestelldatum – wie die Ansicht „Verspätete Bestellungen“), Gesamtbetrag, Bestellnummer, Kunde, Zahl-/Versandart, Verkaufskanal.
 - Bestellung (ja/nein): **ERP-Auftragsnummer vorhanden**, **Rechnung vorhanden** (Rechnungsnummer oder Rechnungsdokument in Shopware), **versandt** (Versanddatum aus der Lieferung oder eine Sendungsnummer).
 - **Mehrere Werte:** „ist einer von“ bei Auswahlfeldern (z. B. Zahlungsstatus offen *oder* fehlgeschlagen) und „enthält eines von“ bei Textfeldern (z. B. Zahlart enthält „Vorkasse“ *oder* „Überweisung“; im Editor mit Komma getrennt). Sonst müssten dafür mehrere Regeln angelegt werden.
@@ -47,6 +50,15 @@ Sicherungen gegen Massen-Ausführung:
 
 Die **Vorschau** im Editor zeigt vor dem Speichern, auf wie viele Bestellungen die Regel gerade zutrifft, wie viele schon erledigt sind und was der nächste Lauf täte (mit Beispielen). Abschalten: `AUTOMATION_SCHEDULER_ENABLED=false`; Intervall: `AUTOMATION_SCHEDULE_INTERVAL_MINUTES` (mindestens 5).
 
+## Zeitgesteuerte Regeln (Tickets) – Wiedervorlage
+
+Laufen im selben Takt wie die zeitgesteuerten Bestellregeln über alle Tickets des Mandanten, die **nicht gelöst oder geschlossen** sind. Typisch: „Ticket seit 3 Tagen unverändert → Vertretung benachrichtigen“ (Vorlage „Wiedervorlage“) oder „seit 5 Tagen offen → Priorität hoch“.
+
+- **Je Ticket höchstens eine Ausführung pro Regel, bis sich das Ticket wieder ändert** (Kommentar, Status, Zuweisung, Bearbeitung). Danach kann die Regel erneut greifen, sobald ihre Bedingungen wieder zutreffen. Änderungen, die die Regel selbst vornimmt (z. B. Priorität setzen), machen das Ticket nicht erneut fällig.
+- Fehlversuche werden bis zu dreimal wiederholt; höchstens **25 Ausführungen je Regel und Lauf**, älteste Tickets zuerst; mindestens **eine Bedingung** ist Pflicht.
+- Die **Vorschau** im Editor zeigt die betroffenen Tickets (Nummer, Titel, Status, zuständig, Tage unverändert).
+- Die KI-Stimmung steht hier nicht zur Verfügung (sonst je Lauf und Ticket ein KI-Aufruf).
+
 ## Verhalten
 
 - **Mandanten:** Regeln gelten nur für Tickets und Bestellungen ihres Mandanten; zuweisen/benachrichtigen nur an Benutzer dieses Mandanten.
@@ -58,4 +70,4 @@ Die **Vorschau** im Editor zeigt vor dem Speichern, auf wie viele Bestellungen d
 
 ## Technik
 
-Katalog (Auslöser, Felder, Operatoren, Aktionen, Prüfung): `shared/automation.ts` · Engine: `server/automation/` · Auslöser: `server/lib/domainEvents.ts` (gemeldet von `storage.createTicket/updateTicket` bzw. vom Spiegel-Abgleich über `server/shopware/orderChangeEvents.ts`) · Zeitsteuerung und Vorschau: `server/automation/scheduler.ts` · Tests: `tests/unit/automation.test.ts`, `tests/unit/automationScheduled.test.ts`, `tests/unit/automationOrderEvents.test.ts`.
+Katalog (Auslöser, Felder, Operatoren, Aktionen, Prüfung): `shared/automation.ts` · Engine: `server/automation/` · Auslöser: `server/lib/domainEvents.ts` (gemeldet von `storage.createTicket/updateTicket` bzw. vom Spiegel-Abgleich über `server/shopware/orderChangeEvents.ts`) · Zeitsteuerung und Vorschau: `server/automation/scheduler.ts` · Tests: `tests/unit/automation.test.ts`, `tests/unit/automationScheduled.test.ts`, `tests/unit/automationScheduledTickets.test.ts`, `tests/unit/automationOrderEvents.test.ts`.

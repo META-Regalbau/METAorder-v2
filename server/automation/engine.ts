@@ -31,7 +31,12 @@ export type PreparedRule = { rule: AutomationRule; conditions: AutomationConditi
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export function ticketFacts(ticket: Ticket, previousStatus?: string): AutomationFacts {
+export function ticketFacts(
+  ticket: Ticket,
+  previousStatus?: string,
+  extra: { assigneeName?: string | null; now?: Date } = {},
+): AutomationFacts {
+  const now = extra.now ?? new Date();
   return {
     "ticket.id": ticket.id,
     "ticket.ticketNumber": ticket.ticketNumber,
@@ -46,11 +51,25 @@ export function ticketFacts(ticket: Ticket, previousStatus?: string): Automation
     "ticket.orderNumber": ticket.orderNumber,
     "ticket.isAssigned": Boolean(ticket.assignedToUserId),
     "ticket.fromEmail": Boolean(ticket.emailFrom || ticket.emailSubject),
+    "ticket.assigneeName": extra.assigneeName ?? null,
+    "ticket.daysSinceCreated": daysSince(ticket.createdAt, now),
+    "ticket.daysSinceUpdated": daysSince(ticket.updatedAt, now),
+    "ticket.daysPastDueDate": daysSince(ticket.dueDate, now),
   };
 }
 
+/** Benutzername des Zustaendigen (fuer Bedingung/Platzhalter); optional mit Cache je Lauf. */
+export async function resolveAssigneeName(deps: AutomationDeps, ticket: Ticket, cache?: Map<string, string | null>): Promise<string | null> {
+  const id = ticket.assignedToUserId;
+  if (!id) return null;
+  if (cache?.has(id)) return cache.get(id)!;
+  const name = (await deps.storage.getUser(id))?.username ?? null;
+  cache?.set(id, name);
+  return name;
+}
+
 /** Ganze Tage seit einem Datum (abgerundet); null bei fehlendem/ungueltigem Datum. */
-function daysSince(value: string | undefined | null, now: Date): number | null {
+function daysSince(value: string | Date | undefined | null, now: Date): number | null {
   if (!value) return null;
   const t = new Date(value).getTime();
   return Number.isNaN(t) ? null : Math.floor((now.getTime() - t) / DAY_MS);
@@ -133,11 +152,17 @@ export async function executeRule(
   });
 
   const status = results.every((r) => r.ok) ? "success" : "failure";
-  const entity = ctx.ticket
+  const entity: Record<string, string> | null = ctx.ticket
     ? { type: "ticket", id: ctx.ticket.id, number: ctx.ticket.ticketNumber }
     : ctx.order
       ? { type: "order", id: ctx.order.id, number: ctx.order.orderNumber }
       : null;
+  // Zeitgesteuerte Ticket-Regeln: behandelten Stand merken (nach den eigenen Aenderungen der Regel),
+  // erst eine spaetere Aenderung am Ticket macht es wieder faellig
+  if (ctx.trigger === "scheduled_tickets" && ctx.ticket && entity) {
+    const current = await deps.storage.getTicket(ctx.ticket.id).catch(() => undefined);
+    entity.stateAt = new Date((current ?? ctx.ticket).updatedAt).toISOString();
+  }
   try {
     await deps.storage.createAutomationExecution({
       ruleId: rule.id,
@@ -166,7 +191,7 @@ export async function runAutomationEvent(deps: AutomationDeps, event: Automation
     if (prepared.length === 0) return [];
 
     const facts: AutomationFacts = event.ticket
-      ? ticketFacts(event.ticket, event.previousStatus)
+      ? ticketFacts(event.ticket, event.previousStatus, { assigneeName: await resolveAssigneeName(deps, event.ticket) })
       : event.order
         ? orderFacts(event.order, new Date(), { status: event.previousStatus, paymentStatus: event.previousPaymentStatus })
         : {};

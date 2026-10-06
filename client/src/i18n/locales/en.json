@@ -3077,7 +3077,8 @@
       "order_payment_changed": "Payment Status Changed",
       "ticket_created": "Ticket Created",
       "ticket_status_changed": "Ticket Status Changed",
-      "scheduled": "Scheduled: check orders"
+      "scheduled": "Scheduled: check orders",
+      "scheduled_tickets": "Scheduled: check tickets"
     },
     "actions": {
       "create_ticket": "Create Ticket",
@@ -3157,6 +3158,10 @@
       "customerReplied": {
         "name": "Customer replied",
         "description": "Raises the priority when a ticket goes from “Waiting for customer” back to “Open”."
+      },
+      "ticketFollowUp": {
+        "name": "Follow-up",
+        "description": "Notifies someone (e.g. the deputy) when an open ticket has been unchanged for 3 days – again only after the next change."
       }
     },
     "fields": {
@@ -3172,7 +3177,11 @@
         "orderNumber": "Ticket: order number",
         "isAssigned": "Ticket: assigned",
         "fromEmail": "Ticket: created from email",
-        "sentiment": "Ticket: sentiment (AI)"
+        "sentiment": "Ticket: sentiment (AI)",
+        "assigneeName": "Ticket: assignee (username)",
+        "daysSinceCreated": "Ticket: days since created",
+        "daysSinceUpdated": "Ticket: days since last change",
+        "daysPastDueDate": "Ticket: days past due date"
       },
       "order": {
         "status": "Order: status",
@@ -3249,7 +3258,10 @@
       "preview": "Preview",
       "previewSummary": "Currently matches {{matching}} orders, {{done}} of them already handled. Next run: {{next}}.",
       "previewError": "Preview failed",
-      "days": "days"
+      "days": "days",
+      "ticketDescription": "Runs regularly (hourly by default) over all tickets that are not resolved or closed. At most one execution per ticket and rule until the ticket changes again (comment, status, assignment); changes made by the rule itself do not count. At most {{max}} executions per run, oldest tickets first.",
+      "previewSummaryTickets": "Currently matches {{matching}} open tickets, {{done}} of them already handled. Next run: {{next}}.",
+      "unchangedDays": "unchanged for {{days}} days"
     },
     "orderEvents": {
       "title": "On changes in Shopware",

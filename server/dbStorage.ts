@@ -182,6 +182,7 @@ import {
   type InsertB2bApprovalLog,
 } from "@shared/schema";
 import type {
+  AutomationEntityRunStats,
   IStorage,
   InsertRole,
   UpdateUser,
@@ -2256,13 +2257,15 @@ export class DbStorage implements IStorage {
     ruleId: string,
     entityType: string,
     tenantId?: string | null
-  ): Promise<Map<string, { succeeded: boolean; failures: number }>> {
+  ): Promise<Map<string, AutomationEntityRunStats>> {
     const tenantFilter = tenantFilterFor(automationExecutions.tenantId, tenantId);
     const rows = await db
       .select({
         entityId: drizzleSql<string | null>`${automationExecutions.result}->'entity'->>'id'`,
         succeeded: drizzleSql<boolean>`bool_or(${automationExecutions.status} = 'success')`,
         failures: drizzleSql<number>`count(*) filter (where ${automationExecutions.status} <> 'success')`,
+        // ISO-Zeitstempel (toISOString) - als Text vergleichbar
+        lastHandledAt: drizzleSql<string | null>`max(${automationExecutions.result}->'entity'->>'stateAt') filter (where ${automationExecutions.status} = 'success')`,
       })
       .from(automationExecutions)
       .where(
@@ -2273,9 +2276,9 @@ export class DbStorage implements IStorage {
         ),
       )
       .groupBy(drizzleSql`1`);
-    const stats = new Map<string, { succeeded: boolean; failures: number }>();
+    const stats = new Map<string, AutomationEntityRunStats>();
     for (const row of rows) {
-      if (row.entityId) stats.set(row.entityId, { succeeded: Boolean(row.succeeded), failures: Number(row.failures) });
+      if (row.entityId) stats.set(row.entityId, { succeeded: Boolean(row.succeeded), failures: Number(row.failures), lastHandledAt: row.lastHandledAt ?? null });
     }
     return stats;
   }

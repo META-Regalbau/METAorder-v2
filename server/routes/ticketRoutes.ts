@@ -1,7 +1,7 @@
 // Tickets: Ticket-API, Kundenportal, Vorlagen, Zuweisungs- und Automatisierungsregeln, Anhaenge.
 import { parseStoredRuleList, validateAutomationRule, type AutomationActionInput, type AutomationConditionInput } from "@shared/automation";
 import { createAutomationDeps } from "../automation";
-import { previewScheduledRule } from "../automation/scheduler";
+import { previewScheduledRule, previewScheduledTicketRule } from "../automation/scheduler";
 import { requireAuth, requireManageTickets, requireManageAutomations, requireViewTickets } from "../auth/auth";
 import { storage } from "../storage";
 import { z } from "zod";
@@ -221,12 +221,12 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
   });
 
   // Automation Rules - Get single automation rule
-  // Automation Rules - Vorschau fuer zeitgesteuerte Regeln: welche Bestellungen jetzt betroffen
-  // waeren (fuehrt nichts aus). Optional ruleId, um bereits erledigte Bestellungen abzuziehen.
+  // Automation Rules - Vorschau fuer zeitgesteuerte Regeln: welche Bestellungen bzw. Tickets jetzt
+  // betroffen waeren (fuehrt nichts aus). Optional ruleId, um bereits Erledigtes abzuziehen.
   app.post("/api/automation-rules/preview", requireAuth, requireManageAutomations, async (req, res) => {
     try {
       const body = insertAutomationRuleSchema.pick({ triggerType: true, conditions: true }).extend({ ruleId: z.string().optional() }).parse(req.body);
-      if (body.triggerType !== "scheduled") {
+      if (body.triggerType !== "scheduled" && body.triggerType !== "scheduled_tickets") {
         return res.status(400).json({ error: "Vorschau gibt es nur fuer zeitgesteuerte Regeln" });
       }
       const conditions = body.conditions ?? [];
@@ -237,7 +237,10 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
       if (body.ruleId && !(await storage.getAutomationRule(body.ruleId))) {
         return res.status(404).json({ error: "Automation rule not found" });
       }
-      const preview = await previewScheduledRule(createAutomationDeps(storage), getTenantIdFromContext(), conditions, body.ruleId ?? null);
+      const deps = createAutomationDeps(storage);
+      const preview = body.triggerType === "scheduled"
+        ? await previewScheduledRule(deps, getTenantIdFromContext(), conditions, body.ruleId ?? null)
+        : await previewScheduledTicketRule(deps, getTenantIdFromContext(), conditions, body.ruleId ?? null);
       res.json(preview);
     } catch (error: any) {
       if (error?.name === "ZodError") {

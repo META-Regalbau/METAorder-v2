@@ -26,7 +26,7 @@ const ALLOWED: Record<string, number> = {
   "components/ShopwareCustomerSearch.tsx": 5,
   // Inhalte statt Oberflaeche: Vorlagen fuer Benachrichtigungen (mit {{...}}-Platzhaltern der Regeln)
   // und die Mahn-E-Mail an Kunden
-  "components/RuleBuilderDialog.tsx": 4,
+  "components/RuleBuilderDialog.tsx": 5,
   "pages/SettingsPage.tsx": 2,
   // Erkennung einer Fehlermeldung ("nicht gefunden"), Beispieladresse, Dateiname des PDF-Downloads
   "lib/commercialUnifiedDraftUpload.ts": 1,

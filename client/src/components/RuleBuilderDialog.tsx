@@ -26,6 +26,7 @@ import {
   ORDER_EVENT_MAX_AGE_HOURS,
   SCHEDULED_LOOKBACK_DAYS,
   SCHEDULED_MAX_PER_RULE_PER_RUN,
+  SCHEDULED_TRIGGERS,
   conditionListValues,
   fieldsForTrigger,
   isListOperator,
@@ -95,6 +96,23 @@ const RULE_TEMPLATES: Template[] = [
     }],
   },
   {
+    id: "ticketFollowUp",
+    triggerType: "scheduled_tickets",
+    priority: 50,
+    conditions: [
+      { field: "ticket.status", operator: "isOneOf", value: ["open", "in_progress"] },
+      { field: "ticket.daysSinceUpdated", operator: "greaterThanOrEqual", value: 3 },
+    ],
+    actions: [{
+      type: "send_notification",
+      params: {
+        userId: "",
+        title: "Wiedervorlage: {{ticket.ticketNumber}}",
+        message: "{{ticket.title}} ist seit {{ticket.daysSinceUpdated}} Tagen unverändert (zuständig: {{ticket.assigneeName}}).",
+      },
+    }],
+  },
+  {
     id: "sentimentPriority",
     triggerType: "ticket_created",
     priority: 50,
@@ -127,11 +145,14 @@ const RULE_TEMPLATES: Template[] = [
   },
 ];
 
+type OrderSample = { orderNumber: string; customerName: string; orderDate: string; status: string; paymentStatus: string; daysPastDeliveryDate: number | null };
+type TicketSample = { ticketNumber: string; title: string; status: string; assigneeName: string | null; daysSinceUpdated: number | null };
+
 type PreviewResult = {
   matching: number;
   alreadyDone: number;
   nextRun: number;
-  sample: Array<{ orderNumber: string; customerName: string; orderDate: string; status: string; paymentStatus: string; daysPastDeliveryDate: number | null }>;
+  sample: Array<OrderSample | TicketSample>;
 };
 
 function parseArray<T>(raw: unknown): T[] {
@@ -428,12 +449,16 @@ export function RuleBuilderDialog({ isOpen, onClose, editingRule }: RuleBuilderD
               </div>
             </div>
 
-            {triggerType === "scheduled" && (
+            {SCHEDULED_TRIGGERS.includes(triggerType) && (
               <Alert data-testid="alert-scheduled-info">
                 <Clock className="h-4 w-4" />
                 <AlertTitle>{t("automation.scheduled.title")}</AlertTitle>
                 <AlertDescription className="space-y-3">
-                  <p className="text-sm">{t("automation.scheduled.description", { days: SCHEDULED_LOOKBACK_DAYS, max: SCHEDULED_MAX_PER_RULE_PER_RUN })}</p>
+                  <p className="text-sm">
+                    {triggerType === "scheduled"
+                      ? t("automation.scheduled.description", { days: SCHEDULED_LOOKBACK_DAYS, max: SCHEDULED_MAX_PER_RULE_PER_RUN })
+                      : t("automation.scheduled.ticketDescription", { max: SCHEDULED_MAX_PER_RULE_PER_RUN })}
+                  </p>
                   <Button
                     size="sm"
                     variant="outline"
@@ -446,11 +471,16 @@ export function RuleBuilderDialog({ isOpen, onClose, editingRule }: RuleBuilderD
                   {preview && (
                     <div className="space-y-2" data-testid="preview-result">
                       <p className="text-sm font-medium">
-                        {t("automation.scheduled.previewSummary", { matching: preview.matching, done: preview.alreadyDone, next: preview.nextRun })}
+                        {t(triggerType === "scheduled" ? "automation.scheduled.previewSummary" : "automation.scheduled.previewSummaryTickets", { matching: preview.matching, done: preview.alreadyDone, next: preview.nextRun })}
                       </p>
                       {preview.sample.length > 0 && (
                         <ul className="text-xs space-y-0.5 max-h-40 overflow-y-auto">
-                          {preview.sample.map((o) => (
+                          {preview.sample.map((o) => "ticketNumber" in o ? (
+                            <li key={o.ticketNumber} className="font-mono">
+                              {o.ticketNumber} · {o.title} · {valueLabel("ticket.status", o.status)} · {o.assigneeName ?? t("automation.form.noUser")}
+                              {o.daysSinceUpdated !== null ? ` · ${t("automation.scheduled.unchangedDays", { days: o.daysSinceUpdated })}` : ""}
+                            </li>
+                          ) : (
                             <li key={o.orderNumber} className="font-mono">
                               {o.orderNumber} · {o.customerName} · {fmt.date(o.orderDate)} · {valueLabel("order.status", o.status)} · {valueLabel("order.paymentStatus", o.paymentStatus)}
                               {o.daysPastDeliveryDate !== null ? ` · +${o.daysPastDeliveryDate} ${t("automation.scheduled.days")}` : ""}
