@@ -19,9 +19,14 @@ function makeDeps(options: {
   customers?: Array<{ id: string; customerNumber: string; company: string | null; salesRepresentative: boolean }>;
   employees?: Array<{ id: string; email: string; firstName: string; lastName: string }>;
   links?: Link[];
+  mailReady?: boolean;
+  sendMailError?: Error;
 }) {
   const setEmployeePassword = vi.fn(async () => {});
-  const sendMail = vi.fn(async () => "msg-id");
+  const sendMail = vi.fn(async () => {
+    if (options.sendMailError) throw options.sendMailError;
+    return "msg-id";
+  });
   const deps: PortalPasswordRequestDeps = {
     client: {
       findCustomersByNumber: vi.fn(async () => options.customers ?? []),
@@ -33,6 +38,7 @@ function makeDeps(options: {
       setEmployeePassword,
     },
     sendMail,
+    mailReady: async () => options.mailReady ?? true,
     loginUrl: "https://portal.example.test",
     generatePassword: () => "Abcdefgh2345",
   };
@@ -55,6 +61,30 @@ describe("processPortalPasswordRequest", () => {
     expect(mail.text).toContain("Abcdefgh2345");
     expect(mail.text).toContain("ändern Sie dieses Passwort");
     expect(deps.client.findCustomersByNumber).toHaveBeenCalledWith("10012345");
+  });
+
+  it("ändert kein Passwort, wenn der Mailversand nicht eingerichtet ist", async () => {
+    const { deps, setEmployeePassword, sendMail } = makeDeps({
+      customers: [CUSTOMER],
+      employees: [EMPLOYEE],
+      links: [LINK],
+      mailReady: false,
+    });
+    const result = await processPortalPasswordRequest(deps, { customerNumber: "10012345", email: EMPLOYEE.email });
+    expect(result.outcome).toBe("mail_disabled");
+    expect(setEmployeePassword).not.toHaveBeenCalled();
+    expect(sendMail).not.toHaveBeenCalled();
+  });
+
+  it("meldet einen fehlgeschlagenen Versand als mail_failed statt zu werfen", async () => {
+    const { deps } = makeDeps({
+      customers: [CUSTOMER],
+      employees: [EMPLOYEE],
+      links: [LINK],
+      sendMailError: new Error("SMTP down"),
+    });
+    const result = await processPortalPasswordRequest(deps, { customerNumber: "10012345", email: EMPLOYEE.email });
+    expect(result).toMatchObject({ outcome: "mail_failed", employeeId: "e1", error: "SMTP down" });
   });
 
   it("verschickt nichts, wenn die Kundennummer unbekannt ist", async () => {
