@@ -239,7 +239,8 @@
     "production": "Producción",
     "shippingOps": "Ops de envío",
     "mobilePicking": "Picking móvil",
-    "b2bUsers": "Usuarios B2B"
+    "b2bUsers": "Usuarios B2B",
+    "systemLog": "Registro del sistema"
   },
   "shopFakturen": {
     "title": "Importación de facturas SAP",
@@ -5992,6 +5993,7 @@
       "not_found": "No encontrado",
       "notification_not_found": "Notificación no encontrada",
       "nur_entwurfe_konnen_geloscht_werden": "Solo se pueden eliminar borradores",
+      "nur_fur_administratoren": "Solo para administradores",
       "oauth_state_not_found": "Estado de OAuth no encontrado",
       "offer_draft_not_found": "Borrador de oferta no encontrado",
       "offerid_listprice_discountedprice_discountpercent_discountlevelid_required": "Se requieren offerId, listPrice, discountedPrice, discountPercent, discountLevelId",
@@ -6093,6 +6095,7 @@
       "systemid_name_and_role_required": "Se requieren systemId, name y role",
       "systemid_name_and_type_required": "Se requieren systemId, name y type",
       "systemid_or_ruleid_required": "Se requiere systemId o ruleId",
+      "systemprotokoll_konnte_nicht_gelesen_werden": "No se pudo leer el registro del sistema",
       "target_customer_not_found": "Cliente de destino no encontrado",
       "template_not_found": "No se encontró la plantilla",
       "tenant_name_already_exists": "El nombre del inquilino ya existe",
@@ -6388,5 +6391,89 @@
     "errorGeneric": "No se pudo enviar la solicitud. Inténtelo de nuevo más tarde.",
     "help": "¿No ha recibido ningún correo? Póngase en contacto con su persona de contacto en META.",
     "language": "Idioma"
+  },
+  "systemLog": {
+    "title": "Registro del sistema",
+    "subtitle": "Lo que ocurre en el sistema: mensajes, avisos y errores de todas las áreas de este cliente. Las entradas se conservan {{days}} días.",
+    "copied": "Entrada copiada",
+    "errorsCount": "{{count}} errores",
+    "errorsCount_one": "{{count}} error",
+    "errorsCount_other": "{{count}} errores",
+    "warningsCount": "{{count}} avisos",
+    "warningsCount_one": "{{count}} aviso",
+    "warningsCount_other": "{{count}} avisos",
+    "noProblems": "No hay avisos ni errores en el periodo seleccionado.",
+    "period": "Periodo",
+    "periods": {
+      "1": "Última hora",
+      "24": "Últimas 24 horas",
+      "168": "Últimos 7 días",
+      "336": "Últimos 14 días"
+    },
+    "level": "Nivel",
+    "levels": {
+      "info": "Todos los mensajes",
+      "warn": "Avisos y errores",
+      "error": "Solo errores"
+    },
+    "area": "Área",
+    "allAreas": "Todas las áreas",
+    "search": "Buscar",
+    "searchPlaceholder": "Texto, número de pedido, ruta …",
+    "refresh": "Actualizar",
+    "live": "Actualizar automáticamente",
+    "includeSystem": "Mostrar mensajes del sistema",
+    "requestFilter": "Solicitud {{id}}",
+    "userFilter": "Usuario {{name}}",
+    "clearFilter": "Quitar filtro",
+    "resetFilters": "Restablecer filtros",
+    "adminOnly": "El registro del sistema solo es visible para administradores.",
+    "empty": "No hay entradas para estos filtros.",
+    "more": "Cargar entradas anteriores",
+    "copy": "Copiar entrada",
+    "columns": {
+      "time": "Hora",
+      "level": "Nivel",
+      "message": "Mensaje"
+    },
+    "levelNames": {
+      "trace": "Traza",
+      "debug": "Depuración",
+      "info": "Info",
+      "warn": "Aviso",
+      "error": "Error",
+      "fatal": "Crítico"
+    },
+    "details": {
+      "module": "Módulo",
+      "scope": "Se aplica a",
+      "tenant": "este cliente",
+      "system": "Sistema (sin cliente)",
+      "request": "Solicitud",
+      "showRequest": "Todas las entradas de esta solicitud"
+    },
+    "areas": {
+      "orders": "Pedidos",
+      "offers": "Ofertas",
+      "drafts": "Documentos y borradores",
+      "shopware": "Shopware",
+      "b2b": "Portal de distribuidores (B2B)",
+      "crm": "CRM",
+      "products": "Productos",
+      "cpq": "Configurador (CPQ)",
+      "crossSelling": "Venta cruzada",
+      "erp": "ERP y almacén",
+      "shipping": "Envío",
+      "invoicing": "Facturas y pagos",
+      "email": "Correo",
+      "integration": "Interfaces (n8n, webhooks, SFTP)",
+      "automation": "Automatización",
+      "tickets": "Tickets",
+      "ai": "IA y búsqueda",
+      "analytics": "Análisis",
+      "auth": "Acceso y usuarios",
+      "settings": "Configuración",
+      "system": "Sistema"
+    }
   }
 }

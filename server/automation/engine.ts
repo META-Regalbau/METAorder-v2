@@ -14,6 +14,8 @@ import { runWithTenantContext } from "../lib/tenantContext";
 import { executeAction, type AutomationDeps } from "./actions";
 import { runInsideAutomation } from "./context";
 
+const log = logger.child({ component: "automation/engine" });
+
 export type AutomationEvent = {
   trigger: AutomationTriggerTypeId;
   tenantId: string | null;
@@ -122,7 +124,7 @@ export async function prepareRules(deps: AutomationDeps, trigger: AutomationTrig
     const actions = parseStoredRuleList<AutomationActionInput>(rule.actions);
     const errors = conditions && actions ? validateAutomationRule({ triggerType: rule.triggerType, conditions, actions }) : ["Bedingungen/Aktionen sind kein gueltiges JSON"];
     if (errors.length > 0) {
-      logger.warn({ ruleId: rule.id, ruleName: rule.name, errors }, "Automatisierungsregel uebersprungen: unvollstaendig oder veraltet");
+      log.warn({ ruleId: rule.id, ruleName: rule.name, errors }, "Automatisierungsregel uebersprungen: unvollstaendig oder veraltet");
       continue;
     }
     prepared.push({ rule, conditions: conditions!, actions: actions! });
@@ -173,9 +175,9 @@ export async function executeRule(
     });
     await deps.storage.incrementRuleExecutionCount(rule.id);
   } catch (err) {
-    logger.error({ err, ruleId: rule.id }, "Ausfuehrung der Automatisierungsregel nicht protokolliert");
+    log.error({ err, ruleId: rule.id }, "Ausfuehrung der Automatisierungsregel nicht protokolliert");
   }
-  logger[status === "success" ? "info" : "warn"](
+  log[status === "success" ? "info" : "warn"](
     { ruleId: rule.id, ruleName: rule.name, trigger: ctx.trigger, entity, actions: results },
     `Automatisierungsregel "${rule.name}" ausgefuehrt: ${status}`,
   );
@@ -202,7 +204,7 @@ export async function runAutomationEvent(deps: AutomationDeps, event: Automation
       try {
         facts["ticket.sentiment"] = (await deps.classifyTicket(event.ticket)).sentiment;
       } catch (err) {
-        logger.warn({ err, ticketId: event.ticket.id }, "Stimmung fuer Automatisierung nicht ermittelbar");
+        log.warn({ err, ticketId: event.ticket.id }, "Stimmung fuer Automatisierung nicht ermittelbar");
       }
     }
 

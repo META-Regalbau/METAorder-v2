@@ -310,7 +310,8 @@
     "finance": "Finance",
     "production": "Production",
     "shippingOps": "Shipping Ops",
-    "mobilePicking": "Mobile Picking"
+    "mobilePicking": "Mobile Picking",
+    "systemLog": "System log"
   },
   "shopFakturen": {
     "title": "SAP Invoice Import",
@@ -5995,6 +5996,7 @@
       "not_found": "Not found",
       "notification_not_found": "Notification not found",
       "nur_entwurfe_konnen_geloscht_werden": "Only drafts can be deleted",
+      "nur_fur_administratoren": "Administrators only",
       "oauth_state_not_found": "OAuth state not found",
       "offer_draft_not_found": "Offer draft not found",
       "offerid_listprice_discountedprice_discountpercent_discountlevelid_required": "offerId, listPrice, discountedPrice, discountPercent, discountLevelId required",
@@ -6096,6 +6098,7 @@
       "systemid_name_and_role_required": "systemId, name and role required",
       "systemid_name_and_type_required": "systemId, name and type required",
       "systemid_or_ruleid_required": "systemId or ruleId required",
+      "systemprotokoll_konnte_nicht_gelesen_werden": "System log could not be read",
       "target_customer_not_found": "Target customer not found",
       "template_not_found": "Template not found",
       "tenant_name_already_exists": "Tenant name already exists",
@@ -6391,5 +6394,89 @@
     "errorGeneric": "The request could not be sent. Please try again later.",
     "help": "No e-mail received? Please contact your META representative.",
     "language": "Language"
+  },
+  "systemLog": {
+    "title": "System log",
+    "subtitle": "What happens in the system: messages, warnings and errors from all areas of this tenant. Entries are kept for {{days}} days.",
+    "copied": "Entry copied",
+    "errorsCount": "{{count}} errors",
+    "errorsCount_one": "{{count}} error",
+    "errorsCount_other": "{{count}} errors",
+    "warningsCount": "{{count}} warnings",
+    "warningsCount_one": "{{count}} warning",
+    "warningsCount_other": "{{count}} warnings",
+    "noProblems": "No warnings or errors in the selected period.",
+    "period": "Period",
+    "periods": {
+      "1": "Last hour",
+      "24": "Last 24 hours",
+      "168": "Last 7 days",
+      "336": "Last 14 days"
+    },
+    "level": "Level",
+    "levels": {
+      "info": "All messages",
+      "warn": "Warnings and errors",
+      "error": "Errors only"
+    },
+    "area": "Area",
+    "allAreas": "All areas",
+    "search": "Search",
+    "searchPlaceholder": "Text, order number, path …",
+    "refresh": "Refresh",
+    "live": "Refresh automatically",
+    "includeSystem": "Show system messages",
+    "requestFilter": "Request {{id}}",
+    "userFilter": "User {{name}}",
+    "clearFilter": "Remove filter",
+    "resetFilters": "Reset filters",
+    "adminOnly": "The system log is only visible to administrators.",
+    "empty": "No entries for these filters.",
+    "more": "Load older entries",
+    "copy": "Copy entry",
+    "columns": {
+      "time": "Time",
+      "level": "Level",
+      "message": "Message"
+    },
+    "levelNames": {
+      "trace": "Trace",
+      "debug": "Debug",
+      "info": "Info",
+      "warn": "Warning",
+      "error": "Error",
+      "fatal": "Critical"
+    },
+    "details": {
+      "module": "Module",
+      "scope": "Applies to",
+      "tenant": "this tenant",
+      "system": "System (no tenant)",
+      "request": "Request",
+      "showRequest": "All entries of this request"
+    },
+    "areas": {
+      "orders": "Orders",
+      "offers": "Offers",
+      "drafts": "Documents & drafts",
+      "shopware": "Shopware",
+      "b2b": "Dealer portal (B2B)",
+      "crm": "CRM",
+      "products": "Products",
+      "cpq": "Configurator (CPQ)",
+      "crossSelling": "Cross-selling",
+      "erp": "ERP & stock",
+      "shipping": "Shipping",
+      "invoicing": "Invoices & payments",
+      "email": "E-mail",
+      "integration": "Interfaces (n8n, webhooks, SFTP)",
+      "automation": "Automation",
+      "tickets": "Tickets",
+      "ai": "AI & search",
+      "analytics": "Analytics",
+      "auth": "Sign-in & users",
+      "settings": "Settings",
+      "system": "System"
+    }
   }
 }

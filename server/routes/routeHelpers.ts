@@ -416,7 +416,8 @@ export async function getOrdersWithCache(
   const orders = mirrorRowsToOrders(rows);
   const fromCache = !needsSync;
 
-  moduleLog.info(`[orders-cache] ${fromCache ? "hit" : "synced"} (${orders.length} orders, mirror)`);
+  // Treffer bei jeder Bestellliste: nur im Debug-Log; Abgleich bleibt sichtbar
+  moduleLog[fromCache ? "debug" : "info"](`[orders-cache] ${fromCache ? "hit" : "synced"} (${orders.length} orders, mirror)`);
 
   if (needsSync && tenantId) {
     try {

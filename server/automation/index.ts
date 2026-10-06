@@ -10,6 +10,8 @@ import { runScheduledAutomations } from "./scheduler";
 import { logger } from "../lib/logger";
 import { SCHEDULED_DEFAULT_INTERVAL_MINUTES } from "@shared/automation";
 
+const log = logger.child({ component: "automation/index" });
+
 export function createAutomationDeps(storage: IStorage): AutomationDeps {
   return {
     storage,
@@ -71,7 +73,7 @@ export function resolveScheduleIntervalMinutes(raw: string | undefined = process
  */
 export function startAutomationScheduler(storage: IStorage): () => void {
   if (process.env.AUTOMATION_SCHEDULER_ENABLED === "false") {
-    logger.info("Zeitgesteuerte Automatisierung deaktiviert (AUTOMATION_SCHEDULER_ENABLED=false)");
+    log.info("Zeitgesteuerte Automatisierung deaktiviert (AUTOMATION_SCHEDULER_ENABLED=false)");
     return () => {};
   }
   const minutes = resolveScheduleIntervalMinutes();
@@ -83,14 +85,14 @@ export function startAutomationScheduler(storage: IStorage): () => void {
     try {
       await runScheduledAutomations(deps);
     } catch (err) {
-      logger.error({ err }, "Zeitgesteuerte Automatisierung fehlgeschlagen");
+      log.error({ err }, "Zeitgesteuerte Automatisierung fehlgeschlagen");
     } finally {
       running = false;
     }
   };
   const first = setTimeout(run, 3 * 60 * 1000);
   const timer = setInterval(run, minutes * 60 * 1000);
-  logger.info({ intervalMinutes: minutes }, "Zeitgesteuerte Automatisierung geplant");
+  log.info({ intervalMinutes: minutes }, "Zeitgesteuerte Automatisierung geplant");
   return () => {
     clearTimeout(first);
     clearInterval(timer);

@@ -310,7 +310,8 @@
     "finance": "Finanzbuchhaltung",
     "production": "Produktion",
     "shippingOps": "Versand-Ops",
-    "mobilePicking": "Mobile Picking"
+    "mobilePicking": "Mobile Picking",
+    "systemLog": "Systemprotokoll"
   },
   "shopFakturen": {
     "title": "SAP-Rechnungsimport",
@@ -5992,6 +5993,7 @@
       "not_found": "Nicht gefunden",
       "notification_not_found": "Benachrichtigung nicht gefunden",
       "nur_entwurfe_konnen_geloscht_werden": "Nur Entwürfe können gelöscht werden",
+      "nur_fur_administratoren": "Nur für Administratoren",
       "oauth_state_not_found": "OAuth-Status nicht gefunden",
       "offer_draft_not_found": "Angebotsentwurf nicht gefunden",
       "offerid_listprice_discountedprice_discountpercent_discountlevelid_required": "offerId, listPrice, discountedPrice, discountPercent, discountLevelId erforderlich",
@@ -6093,6 +6095,7 @@
       "systemid_name_and_role_required": "systemId, name und role erforderlich",
       "systemid_name_and_type_required": "systemId, name und type erforderlich",
       "systemid_or_ruleid_required": "systemId oder ruleId erforderlich",
+      "systemprotokoll_konnte_nicht_gelesen_werden": "Systemprotokoll konnte nicht gelesen werden",
       "target_customer_not_found": "Zielkunde nicht gefunden",
       "template_not_found": "Vorlage nicht gefunden",
       "tenant_name_already_exists": "Mandantenname existiert bereits",
@@ -6388,5 +6391,89 @@
     "errorGeneric": "Die Anfrage konnte nicht gesendet werden. Bitte versuchen Sie es später erneut.",
     "help": "Keine E-Mail erhalten? Wenden Sie sich bitte an Ihren META-Ansprechpartner.",
     "language": "Sprache"
+  },
+  "systemLog": {
+    "title": "Systemprotokoll",
+    "subtitle": "Was im System passiert: Meldungen, Warnungen und Fehler aller Bereiche dieses Mandanten. Aufbewahrt werden {{days}} Tage.",
+    "copied": "Eintrag kopiert",
+    "errorsCount": "{{count}} Fehler",
+    "errorsCount_one": "{{count}} Fehler",
+    "errorsCount_other": "{{count}} Fehler",
+    "warningsCount": "{{count}} Warnungen",
+    "warningsCount_one": "{{count}} Warnung",
+    "warningsCount_other": "{{count}} Warnungen",
+    "noProblems": "Keine Warnungen oder Fehler im gewählten Zeitraum.",
+    "period": "Zeitraum",
+    "periods": {
+      "1": "Letzte Stunde",
+      "24": "Letzte 24 Stunden",
+      "168": "Letzte 7 Tage",
+      "336": "Letzte 14 Tage"
+    },
+    "level": "Stufe",
+    "levels": {
+      "info": "Alle Meldungen",
+      "warn": "Warnungen und Fehler",
+      "error": "Nur Fehler"
+    },
+    "area": "Bereich",
+    "allAreas": "Alle Bereiche",
+    "search": "Suche",
+    "searchPlaceholder": "Text, Bestellnummer, Pfad …",
+    "refresh": "Aktualisieren",
+    "live": "Automatisch aktualisieren",
+    "includeSystem": "Systemmeldungen einblenden",
+    "requestFilter": "Anfrage {{id}}",
+    "userFilter": "Benutzer {{name}}",
+    "clearFilter": "Filter entfernen",
+    "resetFilters": "Filter zurücksetzen",
+    "adminOnly": "Das Systemprotokoll ist nur für Administratoren sichtbar.",
+    "empty": "Keine Einträge für diese Filter.",
+    "more": "Ältere Einträge laden",
+    "copy": "Eintrag kopieren",
+    "columns": {
+      "time": "Zeit",
+      "level": "Stufe",
+      "message": "Meldung"
+    },
+    "levelNames": {
+      "trace": "Ablauf",
+      "debug": "Debug",
+      "info": "Info",
+      "warn": "Warnung",
+      "error": "Fehler",
+      "fatal": "Kritisch"
+    },
+    "details": {
+      "module": "Modul",
+      "scope": "Gilt für",
+      "tenant": "diesen Mandanten",
+      "system": "System (ohne Mandant)",
+      "request": "Anfrage",
+      "showRequest": "Alle Einträge dieser Anfrage"
+    },
+    "areas": {
+      "orders": "Bestellungen",
+      "offers": "Angebote",
+      "drafts": "Belege & Entwürfe",
+      "shopware": "Shopware",
+      "b2b": "Händlerportal (B2B)",
+      "crm": "CRM",
+      "products": "Produkte",
+      "cpq": "Konfigurator (CPQ)",
+      "crossSelling": "Cross-Selling",
+      "erp": "ERP & Lager",
+      "shipping": "Versand",
+      "invoicing": "Rechnungen & Zahlungen",
+      "email": "E-Mail",
+      "integration": "Schnittstellen (n8n, Webhooks, SFTP)",
+      "automation": "Automatisierung",
+      "tickets": "Tickets",
+      "ai": "KI & Suche",
+      "analytics": "Auswertungen",
+      "auth": "Anmeldung & Benutzer",
+      "settings": "Einstellungen",
+      "system": "System"
+    }
   }
 }

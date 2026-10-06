@@ -1,6 +1,8 @@
 import type { ShopwareClient } from "../shopware/shopware";
 import { logger } from "../lib/logger";
 
+const log = logger.child({ component: "analytics/productDataQuality" });
+
 /**
  * Datenqualitaet der Produkte fuer die Statistik-Seite (GET /api/analytics/product-data-quality).
  *
@@ -122,7 +124,7 @@ export function createDataQualityCache(opts: { freshMs?: number; maxStaleMs?: nu
       if (entry?.value && age < freshMs) return entry.value;
       if (entry?.value && age < maxStaleMs) {
         // Alter Stand sofort, Erneuerung im Hintergrund; ein Fehler dabei behaelt den alten Stand
-        refresh(key, compute).catch((err) => logger.warn({ err, key }, "Datenqualitaet: Aktualisierung im Hintergrund fehlgeschlagen"));
+        refresh(key, compute).catch((err) => log.warn({ err, key }, "Datenqualitaet: Aktualisierung im Hintergrund fehlgeschlagen"));
         return entry.value;
       }
       return refresh(key, compute);

@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, Download, BarChart3, Settings, Users, Shield, Sparkles, AlertTriangle, Ticket, GitBranch, Truck, FileText, Zap, FileUp, Receipt, Briefcase, Boxes, FileSearch, Scale, Building2, Wallet, ListOrdered, Layers, FilePlus, UserPlus, Warehouse, ShoppingCart, RotateCcw, Landmark, Factory, PackageCheck, Smartphone, Eye } from "lucide-react";
+import { LayoutDashboard, Package, Download, BarChart3, Settings, Users, Shield, Sparkles, AlertTriangle, Ticket, GitBranch, Truck, FileText, Zap, FileUp, Receipt, Briefcase, Boxes, FileSearch, Scale, Building2, Wallet, ListOrdered, Layers, FilePlus, UserPlus, Warehouse, ShoppingCart, RotateCcw, Landmark, Factory, PackageCheck, Smartphone, Eye, ScrollText } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
@@ -20,9 +20,19 @@ import {
 interface AppSidebarProps {
   userRole: "employee" | "admin";
   permissions: Role['permissions'];
+  /** Rolle Administrator (fuer Eintraege nur fuer Admins, z. B. Systemprotokoll) */
+  isAdmin?: boolean;
 }
 
-export default function AppSidebar({ userRole, permissions }: AppSidebarProps) {
+type MenuItem = {
+  titleKey: string;
+  url: string;
+  icon: typeof Settings;
+  permission: keyof Role['permissions'] | null;
+  adminOnly?: boolean;
+};
+
+export default function AppSidebar({ userRole, permissions, isAdmin = false }: AppSidebarProps) {
   const [location] = useLocation();
   const { t } = useTranslation();
 
@@ -317,6 +327,13 @@ export default function AppSidebar({ userRole, permissions }: AppSidebarProps) {
           icon: Settings,
           permission: "manageSettings" as keyof Role['permissions'],
         },
+        {
+          titleKey: "nav.systemLog",
+          url: "/admin/logs",
+          icon: ScrollText,
+          permission: null,
+          adminOnly: true,
+        },
       ],
     },
   ];
@@ -329,10 +346,12 @@ export default function AppSidebar({ userRole, permissions }: AppSidebarProps) {
           <SidebarGroupLabel>{t('nav.appTitle')}</SidebarGroupLabel>
           <SidebarGroupContent>
             {menuGroups.map((group, groupIndex) => {
-              const filteredItems = group.items.filter((item) =>
-                item.permission === null ||
-                userRole === "admin" ||
-                permissions?.[item.permission]
+              const filteredItems = (group.items as MenuItem[]).filter((item) =>
+                item.adminOnly
+                  ? isAdmin
+                  : item.permission === null ||
+                    userRole === "admin" ||
+                    permissions?.[item.permission]
               );
 
               if (filteredItems.length === 0) return null;

@@ -45,20 +45,20 @@ export function registerAuthRoutes(app: Express): void {
 
   // Authentication routes
   app.post("/api/auth/login", loginRateLimiter, (req, res, next) => {
-    moduleLog.info({ username: req.body?.username }, "[LOGIN] Login request received");
+    moduleLog.debug({ username: req.body?.username }, "[LOGIN] Login request received");
     passport.authenticate("local", (err: any, user: any, info: any) => {
-      moduleLog.info({ details: { err: !!err, user: !!user, info } }, "[LOGIN] Passport authenticate callback");
+      moduleLog.debug({ details: { err: !!err, user: !!user, info } }, "[LOGIN] Passport authenticate callback");
       if (err) {
         moduleLog.error({ err }, "[LOGIN] Authentication error:");
         return res.status(500).json({ error: "Internal server error" });
       }
       
       if (!user) {
-        moduleLog.info("[LOGIN] No user found, invalid credentials");
+        moduleLog.debug("[LOGIN] No user found, invalid credentials");
         return res.status(401).json({ error: info?.message || "Invalid credentials" });
       }
       
-      moduleLog.info("[LOGIN] User authenticated successfully, generating tokens");
+      moduleLog.debug("[LOGIN] User authenticated successfully, generating tokens");
       // Generate JWT token
       const token = generateToken(user);
       
@@ -168,7 +168,9 @@ export function registerAuthRoutes(app: Express): void {
     res.json({ 
       user: {
         ...userWithoutPassword,
-        permissions: roleDetails?.permissions || {}
+        permissions: roleDetails?.permissions || {},
+        // Rollenname fuer Admin-Bereiche im Client (z. B. Systemprotokoll)
+        roleName: roleDetails?.name ?? null,
       }
     });
   });

@@ -29,6 +29,8 @@ import { requestIdMiddleware } from "./lib/requestContext";
 import { responseCompression } from "./lib/responseCompression";
 import { errorHandler, requestLoggingMiddleware } from "./lib/httpLogging";
 import { registerAutomationTriggers, startAutomationScheduler } from "./automation";
+import { getLogStoreSink, logStoreEnabled, logStoreRetentionDays } from "./lib/logStore";
+import { insertAppLogs, pruneAppLogs } from "./lib/appLogRepository";
 
 // Ab hier landen auch alle console.*-Aufrufe strukturiert im Logger (server/lib/logger.ts).
 // Steht nach loadEnv (Imports laufen vorher), damit LOG_LEVEL/LOG_FORMAT aus .env greifen.
@@ -133,7 +135,7 @@ const moduleLog = logger.child({ component: "index" });
 app.use((req, res, next) => {
   // Skip CSRF for login endpoint (no token exists yet)
   if (req.path === "/api/auth/login") {
-    moduleLog.info("[CSRF] Skipping CSRF check for login endpoint");
+    moduleLog.debug("[CSRF] Skipping CSRF check for login endpoint");
     return next();
   }
   // Notfall-Passwort-Reset: vor dem Login existiert kein CSRF-Token; die
@@ -173,8 +175,34 @@ app.post("/ingest/:id", (req, res) => {
   res.status(204).end();
 });
 
+/**
+ * Systemprotokoll (Viewer /admin/logs): gepufferte Log-Zeilen ab jetzt in app_logs schreiben,
+ * taeglich Eintraege nach LOG_STORE_DAYS loeschen; beim Beenden (SIGTERM) Rest noch schreiben.
+ */
+function startSystemLog() {
+  if (!logStoreEnabled()) return;
+  const sink = getLogStoreSink();
+  sink.start(insertAppLogs);
+  const prune = async () => {
+    try {
+      const days = logStoreRetentionDays();
+      const deleted = await pruneAppLogs(new Date(Date.now() - days * 24 * 60 * 60 * 1000));
+      if (deleted > 0) moduleLog.info({ deleted, days }, `Systemprotokoll: ${deleted} Einträge älter als ${days} Tage gelöscht`);
+    } catch (error) {
+      moduleLog.error({ err: error }, "Systemprotokoll: Aufräumen fehlgeschlagen");
+    }
+  };
+  setTimeout(prune, 2 * 60 * 1000).unref();
+  setInterval(prune, 24 * 60 * 60 * 1000).unref();
+  process.once("SIGTERM", () => {
+    const timeout = new Promise((resolve) => setTimeout(resolve, 3000));
+    void Promise.race([sink.stop(), timeout]).finally(() => process.exit(0));
+  });
+}
+
 (async () => {
   await ensureVectorExtension();
+  startSystemLog();
   // Seed database with initial users
   await seedDatabase(storage);
   

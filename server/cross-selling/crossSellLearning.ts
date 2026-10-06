@@ -84,9 +84,9 @@ export async function runCrossSellLearning(
     const manualRules = await storage.getAllCrossSellingRules(tenantId);
     const categorizedManualRules = manualRules.filter(r => r.active && r.category);
 
-    moduleLog.info({ settings }, "[CrossSellLearning] Settings:");
-    moduleLog.info({ total: orders.length, withProducts: ordersWithProducts.length }, "[CrossSellLearning] Orders:");
-    moduleLog.info({ total: manualRules.length, categorized: categorizedManualRules.length }, "[CrossSellLearning] Manual Rules:");
+    moduleLog.debug({ settings }, "[CrossSellLearning] Settings:");
+    moduleLog.debug({ total: orders.length, withProducts: ordersWithProducts.length }, "[CrossSellLearning] Orders:");
+    moduleLog.debug({ total: manualRules.length, categorized: categorizedManualRules.length }, "[CrossSellLearning] Manual Rules:");
 
     // #endregion
 
@@ -112,7 +112,7 @@ export async function runCrossSellLearning(
     const eventInsights = buildEventQualityInsights(eventPairRows, new Date());
     const allInsights = [...insights, ...eventInsights];
 
-    moduleLog.info({ totalOrders, productCount: productCounts.size, pairCount: pairCounts.size, cooccurrenceCount: cooccurrences.length, categorizedPairs: pairCategoryMap.size }, "[CrossSellLearning] Cooccurrence:");
+    moduleLog.debug({ totalOrders, productCount: productCounts.size, pairCount: pairCounts.size, cooccurrenceCount: cooccurrences.length, categorizedPairs: pairCategoryMap.size }, "[CrossSellLearning] Cooccurrence:");
     moduleLog.info({ rules: rules.length, recommendations: recommendations.length, insights: allInsights.length }, "[CrossSellLearning] Output:");
 
     // #endregion
