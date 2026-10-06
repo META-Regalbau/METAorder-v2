@@ -334,9 +334,9 @@ export async function seedDatabase(storage: IStorage) {
       });
     }
 
-    // Initialize webhook configurations for all event types
-    const webhookConfigs = await storage.getAllWebhookConfigs();
-    const existingEventTypes = new Set(webhookConfigs.map((config) => config.eventType));
+    // Initialize webhook configurations for all event types — global und je Mandant:
+    // Einstellungen und Versand lesen die Konfiguration des aktiven Mandanten, ohne
+    // eigene Zeilen wäre die Webhook-Liste dort leer und nichts würde verschickt.
     const eventTypes = [
       'ticket.created',
       'ticket.updated',
@@ -352,20 +352,30 @@ export async function seedDatabase(storage: IStorage) {
       'commercial.auto_order_created',
       'b2b.approval_required',
       'b2b.approval_decided',
+      'b2b.portal_password_requested',
     ] as const;
 
-    for (const eventType of eventTypes) {
-      if (existingEventTypes.has(eventType)) continue;
-      await storage.upsertWebhookConfig({
-        eventType,
-        targetUrl: null,
-        enabled: 0 as 0,
-        secret: null,
-        maxAttempts: 3,
-        initialBackoffMs: 1000,
-        backoffFactor: 2.0,
-        timeoutMs: 10000,
-      });
+    const webhookTenantIds: Array<string | null> = [null, ...(await storage.getAllTenants()).map((t) => t.id)];
+    for (const webhookTenantId of webhookTenantIds) {
+      const webhookConfigs = await storage.getAllWebhookConfigs(webhookTenantId);
+      const existingEventTypes = new Set(webhookConfigs.map((config) => config.eventType));
+      for (const eventType of eventTypes) {
+        if (existingEventTypes.has(eventType)) continue;
+        await storage.upsertWebhookConfig(
+          {
+            eventType,
+            targetUrl: null,
+            enabled: 0 as 0,
+            secret: null,
+            maxAttempts: 3,
+            initialBackoffMs: 1000,
+            backoffFactor: 2.0,
+            // Mailversand über n8n/Outlook braucht etwas länger als ein reiner Hinweis-Webhook.
+            timeoutMs: eventType === 'b2b.portal_password_requested' ? 30000 : 10000,
+          },
+          webhookTenantId,
+        );
+      }
     }
 
     // Ensure N8N Service role and account exist (for webhook integrations)

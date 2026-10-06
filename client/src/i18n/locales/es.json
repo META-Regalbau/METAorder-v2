@@ -1520,6 +1520,9 @@
     "webhookUrlHelp": "El endpoint que recibirá las solicitudes POST del webhook",
     "webhookSecret": "Secreto (Opcional)",
     "webhookSecretPlaceholder": "Ingrese el secreto para verificación HMAC",
+    "webhookApiKey": "Clave API (cabecera X-API-Key, opcional)",
+    "webhookApiKeyConfigured": "La clave API está configurada: déjelo vacío para conservarla",
+    "webhookApiKeyPlaceholder": "p. ej. valor de autenticación de cabecera de n8n",
     "webhookSecretConfigured": "Secreto configurado. Ingrese un nuevo valor solo para cambiarlo.",
     "webhookSecretHelp": "Se utiliza para firmar payloads de webhook con HMAC-SHA256 para verificación",
     "enableWebhook": "Habilitar Webhook",
@@ -1567,7 +1570,8 @@
       "commercial_draft_created": "Comercial: borrador creado",
       "commercial_draft_review_required": "Comercial: borrador pendiente de revisión",
       "commercial_auto_offer_created": "Comercial: oferta creada automáticamente",
-      "commercial_auto_order_created": "Comercial: pedido creado automáticamente"
+      "commercial_auto_order_created": "Comercial: pedido creado automáticamente",
+      "b2b_portal_password_requested": "Portal de distribuidores: contraseña solicitada (correo vía n8n)"
     },
     "b2bEntityMapping": {
       "title": "Asignación de entidades B2B",

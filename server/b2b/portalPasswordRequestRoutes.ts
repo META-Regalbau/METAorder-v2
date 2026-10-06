@@ -5,8 +5,10 @@ import { createB2BAdminClient } from "./b2bSellersAdmin";
 import { getEmailOutboundSettings, sendEmail } from "../email/emailOutbound";
 import { runWithTenantContext } from "../lib/tenantContext";
 import { logger } from "../lib/logger";
+import { webhookService } from "../lib/webhookService";
 import {
   processPortalPasswordRequest,
+  type PortalPasswordOutgoingMail,
   rateLimitPortalPasswordAccount,
   rateLimitPortalPasswordIp,
 } from "./portalPasswordRequest";
@@ -37,6 +39,37 @@ const requestSchema = z.object({
   website: z.string().optional(),
 });
 
+const PORTAL_PASSWORD_WEBHOOK = "b2b.portal_password_requested" as const;
+
+async function smtpReady(): Promise<boolean> {
+  const { settings: mail } = await getEmailOutboundSettings(storage);
+  return Boolean(mail.enabled && (mail.m365ConnectionId || (mail.host && mail.fromAddress)));
+}
+
+/**
+ * Versandweg: bevorzugt der n8n-Webhook „Händlerportal: Passwort angefordert“ (n8n verschickt
+ * über Outlook), sonst der Mailversand aus den E-Mail-Einstellungen des Mandanten.
+ */
+async function sendPortalPasswordMail(mail: PortalPasswordOutgoingMail): Promise<void> {
+  if (await webhookService.isEnabled(PORTAL_PASSWORD_WEBHOOK)) {
+    const result = await webhookService.deliver(PORTAL_PASSWORD_WEBHOOK, {
+      to: mail.to,
+      subject: mail.subject,
+      text: mail.text,
+      html: mail.html,
+      customerNumber: mail.customerNumber,
+      employeeId: mail.employeeId,
+      customerId: mail.customerId,
+      requestedAt: new Date().toISOString(),
+    });
+    if (result !== "delivered") {
+      throw new Error(`n8n-Webhook nicht zugestellt (${result}) — Details unter Webhook-Logs`);
+    }
+    return;
+  }
+  await sendEmail(storage, { to: mail.to, subject: mail.subject, text: mail.text, html: mail.html });
+}
+
 async function runRequest(customerNumber: string, email: string): Promise<void> {
   const tenantId = await resolvePortalTenantId();
   await runWithTenantContext(tenantId, async () => {
@@ -49,11 +82,8 @@ async function runRequest(customerNumber: string, email: string): Promise<void> 
     const result = await processPortalPasswordRequest(
       {
         client,
-        sendMail: (mail) => sendEmail(storage, mail),
-        mailReady: async () => {
-          const { settings: mail } = await getEmailOutboundSettings(storage);
-          return Boolean(mail.enabled && (mail.m365ConnectionId || (mail.host && mail.fromAddress)));
-        },
+        sendMail: sendPortalPasswordMail,
+        mailReady: async () => (await webhookService.isEnabled(PORTAL_PASSWORD_WEBHOOK)) || (await smtpReady()),
       },
       { customerNumber, email },
     );

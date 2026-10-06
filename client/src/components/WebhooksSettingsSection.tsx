@@ -17,7 +17,10 @@ type WebhookConfigRow = {
   url: string;
   enabled: boolean;
   hasSecret: boolean;
+  hasApiKey?: boolean;
 };
+
+type WebhookRowState = { url: string; enabled: boolean; secret: string; apiKey: string };
 
 export default function WebhooksSettingsSection() {
   const { t } = useTranslation();
@@ -26,15 +29,16 @@ export default function WebhooksSettingsSection() {
     queryKey: ["/api/settings/webhooks"],
   });
 
-  const [rows, setRows] = useState<Record<string, { url: string; enabled: boolean; secret: string }>>({});
+  const [rows, setRows] = useState<Record<string, WebhookRowState>>({});
 
   useEffect(() => {
-    const next: Record<string, { url: string; enabled: boolean; secret: string }> = {};
+    const next: Record<string, WebhookRowState> = {};
     for (const c of configs) {
       next[c.eventType] = {
         url: c.url ?? "",
         enabled: !!c.enabled,
         secret: "",
+        apiKey: "",
       };
     }
     setRows(next);
@@ -44,11 +48,12 @@ export default function WebhooksSettingsSection() {
     mutationFn: async (eventType: string) => {
       const r = rows[eventType];
       if (!r) return;
-      const body: { url: string; enabled: boolean; secret?: string } = {
+      const body: { url: string; enabled: boolean; secret?: string; apiKey?: string } = {
         url: r.url.trim(),
         enabled: r.enabled,
       };
       if (r.secret.trim()) body.secret = r.secret.trim();
+      if (r.apiKey.trim()) body.apiKey = r.apiKey.trim();
       await apiRequest(
         "PATCH",
         `/api/settings/webhooks/${encodeURIComponent(eventType)}`,
@@ -63,7 +68,7 @@ export default function WebhooksSettingsSection() {
       });
       setRows((prev) => ({
         ...prev,
-        [eventType]: { ...prev[eventType], secret: "" },
+        [eventType]: { ...prev[eventType], secret: "", apiKey: "" },
       }));
     },
     onError: (e: Error) =>
@@ -115,7 +120,7 @@ export default function WebhooksSettingsSection() {
 
       <div className="space-y-6">
         {configs.map((c) => {
-          const r = rows[c.eventType] ?? { url: c.url ?? "", enabled: !!c.enabled, secret: "" };
+          const r = rows[c.eventType] ?? { url: c.url ?? "", enabled: !!c.enabled, secret: "", apiKey: "" };
           const label = t(`settings.webhookEvent.${c.eventType.replace(/\./g, "_")}`, {
             defaultValue: c.eventType,
           });
@@ -169,6 +174,26 @@ export default function WebhooksSettingsSection() {
                     setRows((prev) => ({
                       ...prev,
                       [c.eventType]: { ...r, secret: e.target.value },
+                    }))
+                  }
+                />
+              </div>
+              <div>
+                <Label className="text-xs">{t("settings.webhookApiKey")}</Label>
+                <Input
+                  type="password"
+                  autoComplete="off"
+                  className="mt-1 font-mono text-sm"
+                  placeholder={
+                    c.hasApiKey
+                      ? t("settings.webhookApiKeyConfigured")
+                      : t("settings.webhookApiKeyPlaceholder")
+                  }
+                  value={r.apiKey}
+                  onChange={(e) =>
+                    setRows((prev) => ({
+                      ...prev,
+                      [c.eventType]: { ...r, apiKey: e.target.value },
                     }))
                   }
                 />

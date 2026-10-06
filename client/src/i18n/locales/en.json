@@ -1741,6 +1741,9 @@
     "webhookUrlHelp": "The endpoint that will receive webhook POST requests",
     "webhookSecret": "Secret (Optional)",
     "webhookSecretPlaceholder": "Enter secret for HMAC verification",
+    "webhookApiKey": "API key (header X-API-Key, optional)",
+    "webhookApiKeyConfigured": "API key is set – leave empty to keep it",
+    "webhookApiKeyPlaceholder": "e.g. header auth value from n8n",
     "webhookSecretConfigured": "Secret is configured. Enter new value only to change it.",
     "webhookSecretHelp": "Used to sign webhook payloads with HMAC-SHA256 for verification",
     "enableWebhook": "Enable Webhook",
@@ -1769,7 +1772,8 @@
       "commercial_auto_offer_created": "Commercial: offer auto-created",
       "commercial_auto_order_created": "Commercial: order auto-created",
       "b2b_approval_required": "B2B: approval required",
-      "b2b_approval_decided": "B2B: approval decided"
+      "b2b_approval_decided": "B2B: approval decided",
+      "b2b_portal_password_requested": "Dealer portal: password requested (mail via n8n)"
     },
     "monduSaved": "Mondu settings saved",
     "monduSavedDesc": "Your Mondu API settings have been updated successfully.",

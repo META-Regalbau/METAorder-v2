@@ -1320,6 +1320,7 @@ export function registerSettingsRoutes(app: Express): void {
         url: config.targetUrl || "",  // targetUrl → url
         enabled: config.enabled === 1,  // integer → boolean
         hasSecret: !!config.secret,  // secret presence check
+        hasApiKey: !!config.apiKey,
         maxAttempts: config.maxAttempts,
         initialBackoffMs: config.initialBackoffMs,
         backoffFactor: Number(config.backoffFactor),
@@ -1350,6 +1351,7 @@ export function registerSettingsRoutes(app: Express): void {
         enabled: config.enabled === 1,  // integer → boolean
         url: config.targetUrl || "",    // targetUrl → url
         hasSecret: !!config.secret,     // secret presence check
+        hasApiKey: !!config.apiKey,
       });
     } catch (error) {
       log.error({ err: error }, "Error fetching webhook config:");
@@ -1361,7 +1363,7 @@ export function registerSettingsRoutes(app: Express): void {
   app.patch("/api/settings/webhooks/:eventType", requireAuth, requireManageSettings, async (req: Request, res: Response) => {
     try {
       const eventType = req.params.eventType as WebhookEventType;
-      const { url, enabled, secret } = req.body;
+      const { url, enabled, secret, apiKey } = req.body;
 
       // Validate if config exists
       const existingConfig = await storage.getWebhookConfig(eventType);
@@ -1370,10 +1372,11 @@ export function registerSettingsRoutes(app: Express): void {
       }
 
       // Transform frontend API format to DB schema format
-      const updates: Partial<{targetUrl: string | null, enabled: number, secret: string}> = {};
+      const updates: Partial<{targetUrl: string | null, enabled: number, secret: string, apiKey: string}> = {};
       if (url !== undefined) updates.targetUrl = url;
       if (enabled !== undefined) updates.enabled = enabled ? 1 : 0;
       if (secret !== undefined) updates.secret = secret;
+      if (apiKey !== undefined) updates.apiKey = apiKey;
 
       // Validate URL if provided
       if (updates.targetUrl) {
@@ -1415,7 +1418,9 @@ export function registerSettingsRoutes(app: Express): void {
       // Invalidate webhook service cache after update
       webhookService.invalidateCache();
 
-      res.json(updatedConfig);
+      // Secret und API-Key nicht zurückschicken (wie beim Lesen nur, ob sie gesetzt sind).
+      const { secret: _secret, apiKey: _apiKey, ...publicConfig } = updatedConfig;
+      res.json({ ...publicConfig, hasSecret: !!_secret, hasApiKey: !!_apiKey });
     } catch (error) {
       log.error({ err: error }, "Error updating webhook config:");
       res.status(500).json({ error: "Failed to update webhook configuration" });

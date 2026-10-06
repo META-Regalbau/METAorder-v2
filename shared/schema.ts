@@ -2876,6 +2876,7 @@ export const webhookConfigs = pgTable(
     targetUrl: text("target_url"), // Webhook URL (nullable when disabled)
     enabled: integer("enabled").notNull().default(0), // 0 = disabled, 1 = enabled
     secret: text("secret"), // Optional HMAC secret for signing (encrypted at rest)
+    apiKey: text("api_key"), // Optional: wird als Header X-API-Key mitgeschickt (z. B. n8n Header Auth)
     maxAttempts: integer("max_attempts").notNull().default(3), // Retry attempts (1-5)
     initialBackoffMs: integer("initial_backoff_ms").notNull().default(1000), // Initial backoff in ms (500-60000)
     backoffFactor: real("backoff_factor").notNull().default(2.0), // Backoff multiplier (1.0-5.0)
@@ -2886,7 +2887,7 @@ export const webhookConfigs = pgTable(
   (table) => ({
     uniqueTenantEvent: uniqueIndex("webhook_configs_tenant_event_unique").on(table.tenantId, table.eventType),
     // Check constraint for event types
-    eventTypeCheck: sql`CHECK (event_type IN ('ticket.created', 'ticket.updated', 'ticket.commented', 'ticket.assigned', 'ticket.customer_replied', 'ticket.agent_replied', 'order.ready_to_ship', 'document.created', 'commercial.draft_created', 'commercial.draft_review_required', 'commercial.auto_offer_created', 'commercial.auto_order_created', 'b2b.approval_required', 'b2b.approval_decided'))`,
+    eventTypeCheck: sql`CHECK (event_type IN ('ticket.created', 'ticket.updated', 'ticket.commented', 'ticket.assigned', 'ticket.customer_replied', 'ticket.agent_replied', 'order.ready_to_ship', 'document.created', 'commercial.draft_created', 'commercial.draft_review_required', 'commercial.auto_offer_created', 'commercial.auto_order_created', 'b2b.approval_required', 'b2b.approval_decided', 'b2b.portal_password_requested'))`,
   })
 );
 
@@ -2906,10 +2907,12 @@ export const insertWebhookConfigSchema = createInsertSchema(webhookConfigs, {
     'commercial.auto_order_created',
     'b2b.approval_required',
     'b2b.approval_decided',
+    'b2b.portal_password_requested',
   ]),
   targetUrl: z.string().url().optional().nullable(),
   enabled: z.number().int().min(0).max(1).default(0),
   secret: z.string().optional().nullable(),
+  apiKey: z.string().optional().nullable(),
   maxAttempts: z.number().int().min(1).max(5).default(3),
   initialBackoffMs: z.number().int().min(500).max(60000).default(1000),
   backoffFactor: z.number().min(1.0).max(5.0).default(2.0),
@@ -2936,7 +2939,8 @@ export type WebhookEventType =
   | 'commercial.auto_offer_created'
   | 'commercial.auto_order_created'
   | 'b2b.approval_required'
-  | 'b2b.approval_decided';
+  | 'b2b.approval_decided'
+  | 'b2b.portal_password_requested';
 
 // Webhook Logs table - tracks all webhook delivery attempts
 export const webhookLogs = pgTable("webhook_logs", {
