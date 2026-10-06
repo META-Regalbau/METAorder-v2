@@ -24,7 +24,9 @@ export type PortalPasswordRequestOutcome =
   | "employee_not_found"
   | "not_linked"
   | "link_inactive"
-  | "excluded";
+  | "excluded"
+  | "mail_disabled"
+  | "mail_failed";
 
 export type PortalPasswordMail = { subject: string; text: string; html: string };
 
@@ -177,6 +179,8 @@ export type PortalPasswordRequestDeps = {
     "findCustomersByNumber" | "findEmployeesByEmail" | "findEmployeeCustomerLink" | "setEmployeePassword"
   >;
   sendMail: (mail: PortalPasswordMail & { to: string }) => Promise<unknown>;
+  /** Mailversand eingerichtet? Ohne ihn darf kein Passwort gesetzt werden (sonst kennt es niemand). */
+  mailReady: () => Promise<boolean>;
   loginUrl?: string;
   generatePassword?: () => string;
 };
@@ -188,7 +192,7 @@ export type PortalPasswordRequestDeps = {
 export async function processPortalPasswordRequest(
   deps: PortalPasswordRequestDeps,
   input: PortalPasswordRequestInput,
-): Promise<{ outcome: PortalPasswordRequestOutcome; employeeId?: string; customerId?: string }> {
+): Promise<{ outcome: PortalPasswordRequestOutcome; employeeId?: string; customerId?: string; error?: string }> {
   const customerNumber = normalizeCustomerNumber(input.customerNumber);
   const email = normalizeEmail(input.email);
 
@@ -212,6 +216,10 @@ export async function processPortalPasswordRequest(
         continue;
       }
 
+      if (!(await deps.mailReady())) {
+        return { outcome: "mail_disabled", employeeId: employee.id, customerId: customer.id };
+      }
+
       const password = (deps.generatePassword ?? generatePortalPassword)();
       await deps.client.setEmployeePassword(employee.id, password);
       const mail = buildPortalPasswordMail({
@@ -222,7 +230,13 @@ export async function processPortalPasswordRequest(
         password,
         loginUrl: deps.loginUrl ?? portalLoginUrl(),
       });
-      await deps.sendMail({ ...mail, to: email });
+      try {
+        await deps.sendMail({ ...mail, to: email });
+      } catch (err) {
+        // Passwort ist schon gesetzt — der Händler muss es erneut anfordern.
+        const error = err instanceof Error ? err.message : String(err);
+        return { outcome: "mail_failed", employeeId: employee.id, customerId: customer.id, error };
+      }
       return { outcome: "sent", employeeId: employee.id, customerId: customer.id };
     }
   }

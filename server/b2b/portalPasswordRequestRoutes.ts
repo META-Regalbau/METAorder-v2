@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { z } from "zod";
 import { storage } from "../storage";
 import { createB2BAdminClient } from "./b2bSellersAdmin";
-import { sendEmail } from "../email/emailOutbound";
+import { getEmailOutboundSettings, sendEmail } from "../email/emailOutbound";
 import { runWithTenantContext } from "../lib/tenantContext";
 import { logger } from "../lib/logger";
 import {
@@ -50,13 +50,27 @@ async function runRequest(customerNumber: string, email: string): Promise<void> 
       {
         client,
         sendMail: (mail) => sendEmail(storage, mail),
+        mailReady: async () => {
+          const { settings: mail } = await getEmailOutboundSettings(storage);
+          return Boolean(mail.enabled && (mail.m365ConnectionId || (mail.host && mail.fromAddress)));
+        },
       },
       { customerNumber, email },
     );
-    log.info(
-      { outcome: result.outcome, customerNumber, employeeId: result.employeeId, customerId: result.customerId },
-      "[portal-password] Anforderung verarbeitet",
-    );
+    const fields = {
+      outcome: result.outcome,
+      customerNumber,
+      employeeId: result.employeeId,
+      customerId: result.customerId,
+      error: result.error,
+    };
+    if (result.outcome === "mail_disabled") {
+      log.error(fields, "[portal-password] Mailversand nicht eingerichtet — Passwort NICHT geändert");
+    } else if (result.outcome === "mail_failed") {
+      log.error(fields, "[portal-password] Passwort gesetzt, Mail fehlgeschlagen");
+    } else {
+      log.info(fields, "[portal-password] Anforderung verarbeitet");
+    }
   });
 }
 
