@@ -285,7 +285,7 @@ export type AutomationActionInput = { type: string; params: Record<string, unkno
 
 export const AUTOMATION_PLACEHOLDERS: Record<"ticket" | "order", readonly string[]> = {
   ticket: ["ticket.ticketNumber", "ticket.title", "ticket.status", "ticket.previousStatus", "ticket.priority", "ticket.category", "ticket.customerName", "ticket.customerEmail", "ticket.orderNumber", "ticket.assigneeName", "ticket.daysSinceCreated", "ticket.daysSinceUpdated"],
-  order: ["order.orderNumber", "order.customerName", "order.customerEmail", "order.orderDate", "order.status", "order.previousStatus", "order.paymentStatus", "order.previousPaymentStatus", "order.totalAmount", "order.paymentMethod", "order.daysSinceOrder", "order.daysPastDeliveryDate"],
+  order: ["order.orderNumber", "order.customerName", "order.customerEmail", "order.orderDate", "order.status", "order.previousStatus", "order.paymentStatus", "order.previousPaymentStatus", "order.totalAmount", "order.paymentMethod", "order.daysSinceOrder", "order.deliveryDateLatest", "order.daysPastDeliveryDate"],
 };
 
 /**
@@ -307,11 +307,57 @@ export function parseStoredRuleList<T = unknown>(raw: unknown): T[] | null {
   return Array.isArray(value) ? (value as T[]) : null;
 }
 
-/** Ersetzt {{feld}} durch den Wert aus den Fakten; unbekannte Platzhalter werden leer. */
+/**
+ * Ausgabe von Platzhaltern in Texten: Datum, Betrag und Statuswerte lesbar - wie die Regeltexte
+ * deutsch (die Regeln laufen im Hintergrund, ohne Sprache eines Benutzers). Bedingungen pruefen
+ * weiter die Rohwerte aus den Fakten.
+ */
+const PLACEHOLDER_LOCALE = "de-DE";
+const ORDER_STATUS_LABELS: Record<string, string> = { open: "Offen", in_progress: "In Bearbeitung", completed: "Abgeschlossen", cancelled: "Storniert" };
+const PAYMENT_STATUS_LABELS: Record<string, string> = {
+  open: "Offen", paid: "Bezahlt", authorized: "Autorisiert", partially_paid: "Teilweise bezahlt",
+  refunded: "Erstattet", cancelled: "Storniert", reminded: "Gemahnt", failed: "Fehlgeschlagen",
+};
+const TICKET_STATUS_LABELS: Record<string, string> = {
+  open: "Offen", in_progress: "In Bearbeitung", waiting_for_customer: "Wartet auf Kunden",
+  waiting_for_internal: "Wartet auf intern", resolved: "Gelöst", closed: "Geschlossen",
+};
+const TICKET_PRIORITY_LABELS: Record<string, string> = { low: "Niedrig", normal: "Normal", high: "Hoch", urgent: "Dringend" };
+const TICKET_CATEGORY_LABELS: Record<string, string> = {
+  general: "Allgemein", order_issue: "Bestellproblem", product_inquiry: "Produktanfrage", technical_support: "Technischer Support",
+  complaint: "Reklamation", feature_request: "Funktionswunsch", discount_request: "Rabattanfrage", other: "Sonstiges",
+};
+const PLACEHOLDER_LABELS: Record<string, Record<string, string>> = {
+  "order.status": ORDER_STATUS_LABELS,
+  "order.previousStatus": ORDER_STATUS_LABELS,
+  "order.paymentStatus": PAYMENT_STATUS_LABELS,
+  "order.previousPaymentStatus": PAYMENT_STATUS_LABELS,
+  "ticket.status": TICKET_STATUS_LABELS,
+  "ticket.previousStatus": TICKET_STATUS_LABELS,
+  "ticket.priority": TICKET_PRIORITY_LABELS,
+  "ticket.category": TICKET_CATEGORY_LABELS,
+};
+/** Datumswerte (Kalendertag, als JJJJ-MM-TT in den Fakten) */
+const DATE_PLACEHOLDERS = new Set(["order.orderDate", "order.deliveryDateLatest"]);
+/** Betraege: zwei Nachkommastellen, ohne Waehrung (Texte schreiben "€" selbst) */
+const AMOUNT_PLACEHOLDERS = new Set(["order.totalAmount"]);
+
+export function formatPlaceholder(key: string, value: string | number | boolean): string {
+  if (DATE_PLACEHOLDERS.has(key)) {
+    const d = new Date(String(value));
+    if (!Number.isNaN(d.getTime())) return d.toLocaleDateString(PLACEHOLDER_LOCALE, { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
+  }
+  if (AMOUNT_PLACEHOLDERS.has(key) && typeof value === "number") {
+    return value.toLocaleString(PLACEHOLDER_LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  return PLACEHOLDER_LABELS[key]?.[String(value)] ?? String(value);
+}
+
+/** Ersetzt {{feld}} durch den (lesbar formatierten) Wert aus den Fakten; unbekannte Platzhalter werden leer. */
 export function interpolate(template: string, facts: AutomationFacts): string {
   return template.replace(/\{\{\s*([a-zA-Z][\w.]*)\s*\}\}/g, (_m, key: string) => {
     const v = facts[key];
-    return v === null || v === undefined ? "" : String(v);
+    return v === null || v === undefined ? "" : formatPlaceholder(key, v);
   });
 }
 

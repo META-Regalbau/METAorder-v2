@@ -1,4 +1,5 @@
 import { X, Trash2, Link as LinkIcon, Clock } from "lucide-react";
+import { Link } from "wouter";
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -616,12 +617,16 @@ export default function TicketDetailModal({
               <h3 className="text-base font-medium">{t('tickets.relatedOrder')}</h3>
               <Card>
                 <CardContent className="pt-6">
-                  {ticket.orderId ? (
+                  {ticket.orderNumber || ticket.orderId ? (
                     <div className="flex items-center gap-2">
                       <LinkIcon className="h-4 w-4 text-muted-foreground" />
-                      <span data-testid="text-order-link">
-                        {ticket.orderNumber || ticket.orderId}
-                      </span>
+                      {ticket.orderNumber ? (
+                        <Link href={`/orders?search=${encodeURIComponent(ticket.orderNumber)}`} className="text-primary hover:underline" data-testid="text-order-link" onClick={onClose}>
+                          {ticket.orderNumber}
+                        </Link>
+                      ) : (
+                        <span data-testid="text-order-link">{ticket.orderId}</span>
+                      )}
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground" data-testid="text-no-order">

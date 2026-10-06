@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Plus, Search, User as UserIcon, Download } from "lucide-react";
-import { useLocation, useSearch } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -503,9 +503,14 @@ export default function TicketsPage({ userPermissions }: TicketsPageProps) {
                       {t('tickets.unassigned')}
                     </span>
                   )}
-                  {ticket.orderId && (
+                  {(ticket.orderNumber || ticket.orderId) && (
                     <span data-testid={`text-order-link-${ticket.id}`}>
-                      {t('tickets.relatedOrder')}: {ticket.orderId}
+                      {t('tickets.relatedOrder')}:{" "}
+                      {ticket.orderNumber ? (
+                        <Link href={`/orders?search=${encodeURIComponent(ticket.orderNumber)}`} className="text-primary hover:underline" onClick={(e) => e.stopPropagation()}>
+                          {ticket.orderNumber}
+                        </Link>
+                      ) : ticket.orderId}
                     </span>
                   )}
                   <span data-testid={`text-created-at-${ticket.id}`}>
