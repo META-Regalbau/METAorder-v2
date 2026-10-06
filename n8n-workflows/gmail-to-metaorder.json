@@ -58,16 +58,9 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.METAORDER_BASE_URL || 'http://host.docker.internal:5001' }}/api/commercial-drafts/upload",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "X-METAORDER-Integration-Key",
-              "value": "={{ $env.METAORDER_INTEGRATION_KEY }}"
-            }
-          ]
-        },
+        "url": "https://p-bbpye5.project.space/api/commercial-drafts/upload",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "contentType": "multipart-form-data",
         "bodyParameters": {
@@ -105,7 +98,10 @@
       "typeVersion": 4.2,
       "position": [780, 0],
       "notesInFlow": true,
-      "notes": "Lädt .eml hoch; Strikt-Auto-Create läuft serverseitig wenn alle Regeln erfüllt sind."
+      "notes": "Lädt .eml hoch; Strikt-Auto-Create läuft serverseitig wenn alle Regeln erfüllt sind. Zugangsdaten „METAorder Integration-Key“: Header Auth, Name X-METAORDER-Integration-Key, Wert = Schlüssel aus METAorder → Einstellungen → n8n. Lokal die URL auf http://host.docker.internal:5001 ändern.",
+      "credentials": {
+        "httpHeaderAuth": { "id": "METAORDER_INTEGRATION_KEY_CREDENTIAL_ID", "name": "METAorder Integration-Key" }
+      }
     },
     {
       "parameters": {

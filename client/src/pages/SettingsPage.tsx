@@ -3785,10 +3785,8 @@ function AiTab() {
   return (
     <div className="w-full">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold mb-1">Settings</h1>
-        <p className="text-sm text-muted-foreground">
-          Configure your Shopware connection and preferences
-        </p>
+        <h1 className="text-2xl font-semibold mb-1">{t("settings.title")}</h1>
+        <p className="text-sm text-muted-foreground">{t("settings.subtitle")}</p>
       </div>
 
       <Tabs defaultValue="general" className="w-full">

@@ -11,7 +11,15 @@ Diese Seite beschreibt, wie METAorder mit **n8n** oder anderen Automatisierungen
 3. Folge-Requests: `Authorization: Bearer <JWT>`.
 4. **Tenant:** Es gilt die `activeTenantId` des Benutzers. Der Integrations-Account sollte genau einem Tenant zugeordnet sein oder eine fest gesetzte aktive Tenant-Auswahl haben (wie bei normalem UI-Login).
 
-### Variante B: Integrations-API-Key (ohne Token-Rotation)
+### Variante B: Schlüssel je Mandant (empfohlen)
+
+METAorder → **Einstellungen → n8n → Schlüssel anlegen**. Der Klartext erscheint nur einmal.
+
+- Header: **`X-METAORDER-Integration-Key: <Schlüssel>`** — in n8n als Credential vom Typ **Header Auth** (die Vorlagen unter `n8n-workflows/` erwarten den Namen „METAorder Integration-Key“).
+- **„Arbeitet als Benutzer“:** n8n arbeitet mit den Rechten dieses Benutzers. Er muss dem Mandanten zugeordnet sein und für das Auspacken von E-Mails **`manageOffers`** und **`manageOrderDrafts`** haben. Ohne Bindung gilt der Ersatz-Benutzer (`n8n-service` bzw. `METAORDER_INTEGRATION_USER_ID`, siehe Variante C) — fehlt der (z. B. weil `N8N_SERVICE_PASSWORD` nicht gesetzt ist), scheitert jeder Aufruf mit „Kein Integrations-Benutzer gefunden“.
+- Die Schlüsselliste zeigt je Schlüssel, unter welchem Benutzer er läuft und ob Rechte oder Mandanten-Zuordnung fehlen; der Benutzer lässt sich nachträglich ändern (`PATCH /api/settings/integration-api-keys/:id` mit `userId`), ohne den Schlüssel in n8n zu tauschen.
+
+### Variante C: globaler Integrations-API-Key (ohne Token-Rotation)
 
 Wenn `METAORDER_INTEGRATION_API_KEY` gesetzt ist:
 

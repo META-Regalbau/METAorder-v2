@@ -23,6 +23,7 @@ import { NL_LIMIT_MAX, resolveNlLimits } from "../analytics/nlQueryLimit";
 import { SEMANTIC_RANKING_DEFAULTS } from "../semantic/semanticRanking";
 import { logger } from "../lib/logger";
 import { clearShopwareAuthPause } from "../shopware/shopwareTokenCache";
+import { describeIntegrationUser, listIntegrationUserCandidates, loadFallbackIntegrationUser } from "../integration/integrationKeyUsers";
 
 const log = logger.child({ component: "routes/settingsRoutes" });
 
@@ -181,6 +182,28 @@ export function registerSettingsRoutes(app: Express): void {
     }
   });
 
+  /**
+   * Benutzer fuer einen Integrations-Schluessel: leer = Ersatz-Benutzer; sonst muss er Mitglied des
+   * Schluessel-Mandanten sein - sonst entstehen Keys, die erst zur Laufzeit scheitern (verwirrend) oder,
+   * schlimmer, bei spaeteren Mitgliedschafts-Aenderungen unbemerkt scharf werden.
+   * Bei ungueltigem Benutzer antwortet sie selbst mit 400 und liefert null.
+   */
+  async function resolveKeyUser(raw: unknown, tenantId: string, res: Response): Promise<{ userId: string | null } | null> {
+    const requestedUserId = typeof raw === "string" ? raw.trim() : "";
+    if (!requestedUserId) return { userId: null };
+    const requestedUser = await storage.getUser(requestedUserId);
+    if (!requestedUser) {
+      res.status(400).json({ error: "userId nicht gefunden" });
+      return null;
+    }
+    const targetTenants = await storage.getTenantsForUser(requestedUser.id);
+    if (!targetTenants.some((t) => t.id === tenantId)) {
+      res.status(400).json({ error: "Der angegebene Benutzer ist diesem Mandanten nicht zugeordnet." });
+      return null;
+    }
+    return { userId: requestedUser.id };
+  }
+
   // Integration API keys (Automation / n8n pro Mandant; Klartext nur bei POST einmal)
   app.get("/api/settings/integration-api-keys", requireAuth, requireManageSettings, async (req, res) => {
     try {
@@ -188,8 +211,25 @@ export function registerSettingsRoutes(app: Express): void {
       if (!tenantId) {
         return res.status(400).json({ error: "Tenant required" });
       }
-      const keys = await storage.listTenantIntegrationApiKeys(tenantId);
-      res.json({ keys });
+      const [keys, users, fallback] = await Promise.all([
+        storage.listTenantIntegrationApiKeys(tenantId),
+        listIntegrationUserCandidates(storage, tenantId),
+        loadFallbackIntegrationUser(storage),
+      ]);
+      const fallbackUser = fallback ? await describeIntegrationUser(storage, fallback, tenantId) : null;
+      const byId = new Map(users.map((user) => [user.id, user]));
+      res.json({
+        // je Schluessel: unter welchem Benutzer n8n arbeitet (gebunden oder Ersatz-Benutzer) und ob das reicht
+        keys: await Promise.all(
+          keys.map(async (key) => {
+            if (!key.userId) return { ...key, user: null, effectiveUser: fallbackUser };
+            const bound = byId.get(key.userId) ?? (await storage.getUser(key.userId).then((u) => (u ? describeIntegrationUser(storage, u, tenantId) : null)));
+            return { ...key, user: bound, effectiveUser: bound };
+          }),
+        ),
+        users,
+        fallbackUser,
+      });
     } catch (error: any) {
       log.error({ err: error }, "Error listing integration API keys:");
       res.status(500).json({ error: error.message || "Failed to list keys" });
@@ -203,25 +243,9 @@ export function registerSettingsRoutes(app: Express): void {
         return res.status(400).json({ error: "Tenant required" });
       }
       const name = typeof req.body?.name === "string" ? req.body.name : "";
-      const requestedUserId = typeof req.body?.userId === "string" ? req.body.userId.trim() : "";
-      let userId: string | null = null;
-      if (requestedUserId) {
-        const requestedUser = await storage.getUser(requestedUserId);
-        if (!requestedUser) {
-          return res.status(400).json({ error: "userId nicht gefunden" });
-        }
-        // Der gebundene User muss Mitglied des Key-Mandanten sein — sonst entstehen Keys,
-        // die erst zur Laufzeit scheitern (verwirrend) oder, schlimmer, bei späteren
-        // Mitgliedschafts-Änderungen unbemerkt scharf werden.
-        const targetTenants = await storage.getTenantsForUser(requestedUser.id);
-        if (!targetTenants.some((t) => t.id === tenantId)) {
-          return res.status(400).json({
-            error: "Der angegebene Benutzer ist diesem Mandanten nicht zugeordnet.",
-          });
-        }
-        userId = requestedUser.id;
-      }
-      const created = await storage.createTenantIntegrationApiKey(tenantId, name, userId);
+      const resolved = await resolveKeyUser(req.body?.userId, tenantId, res);
+      if (!resolved) return;
+      const created = await storage.createTenantIntegrationApiKey(tenantId, name, resolved.userId);
       res.json({
         id: created.id,
         apiKey: created.apiKey,
@@ -230,6 +254,26 @@ export function registerSettingsRoutes(app: Express): void {
     } catch (error: any) {
       log.error({ err: error }, "Error creating integration API key:");
       res.status(500).json({ error: error.message || "Failed to create key" });
+    }
+  });
+
+  // Benutzer eines vorhandenen Schluessels aendern (der Schluessel in n8n bleibt gleich)
+  app.patch("/api/settings/integration-api-keys/:id", requireAuth, requireManageSettings, requireCsrf, async (req, res) => {
+    try {
+      const tenantId = (req as any).tenantId ?? null;
+      if (!tenantId) {
+        return res.status(400).json({ error: "Tenant required" });
+      }
+      const resolved = await resolveKeyUser(req.body?.userId, tenantId, res);
+      if (!resolved) return;
+      const ok = await storage.setTenantIntegrationApiKeyUser(req.params.id, tenantId, resolved.userId);
+      if (!ok) {
+        return res.status(404).json({ error: "Key not found" });
+      }
+      res.json({ ok: true, userId: resolved.userId });
+    } catch (error: any) {
+      log.error({ err: error }, "Error updating integration API key:");
+      res.status(500).json({ error: error.message || "Failed to update key" });
     }
   });
 

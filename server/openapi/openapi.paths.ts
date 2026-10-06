@@ -13210,6 +13210,31 @@ export const openApiPaths = {
           "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
         }
       }
+    },
+    "patch": {
+      "tags": [
+        "settings"
+      ],
+      "summary": "PATCH /api/settings/integration-api-keys/{id}",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
     }
   },
   "/api/settings/invoice-automation": {
