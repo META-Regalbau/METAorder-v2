@@ -22,6 +22,7 @@ import { webhookService } from "../lib/webhookService";
 import { NL_LIMIT_MAX, resolveNlLimits } from "../analytics/nlQueryLimit";
 import { SEMANTIC_RANKING_DEFAULTS } from "../semantic/semanticRanking";
 import { logger } from "../lib/logger";
+import { clearShopwareAuthPause } from "../shopware/shopwareTokenCache";
 
 const log = logger.child({ component: "routes/settingsRoutes" });
 
@@ -65,6 +66,8 @@ export function registerSettingsRoutes(app: Express): void {
         apiKey: validated.apiKey,
         apiSecret,
       });
+      // gespeichert (z. B. nach Freischalten der Integration in Shopware): sofort wieder versuchen
+      clearShopwareAuthPause(validated.shopwareUrl, validated.apiKey, apiSecret);
       
       res.json({
         message: "Settings saved successfully",
@@ -261,6 +264,8 @@ export function registerSettingsRoutes(app: Express): void {
         return res.status(400).json({ success: false, error: "API secret is required to test the connection" });
       }
 
+      // ausdruecklicher Test: auch pausierte (abgelehnte) Zugangsdaten wirklich pruefen
+      clearShopwareAuthPause(validated.shopwareUrl, validated.apiKey, apiSecret);
       const client = new ShopwareClient({
         shopwareUrl: validated.shopwareUrl,
         apiKey: validated.apiKey,

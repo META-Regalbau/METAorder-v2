@@ -102,6 +102,31 @@ type LogFn = Logger["info"];
 const delegate = (level: "trace" | "debug" | "info" | "warn" | "error" | "fatal"): LogFn =>
   ((...args: Parameters<LogFn>) => getLogger()[level](...args)) as LogFn;
 
+/**
+ * Kind-Logger, der erst beim ersten Eintrag entsteht: Module legen ihren Logger beim Laden an
+ * (const log = logger.child({ component })) - frueher als index.ts die .env liest. So gelten
+ * LOG_LEVEL/LOG_FORMAT aus der .env, und setLoggerForTests wirkt auch auf Modul-Logger.
+ */
+function lazyChild(bindings: Record<string, unknown>): Logger {
+  let base: Logger | null = null;
+  let child: Logger | null = null;
+  const resolve = (): Logger => {
+    const current = getLogger();
+    if (!child || base !== current) {
+      base = current;
+      child = current.child(bindings);
+    }
+    return child;
+  };
+  return new Proxy({} as Logger, {
+    get(_target, prop) {
+      const target = resolve() as unknown as Record<PropertyKey, unknown>;
+      const value = target[prop];
+      return typeof value === "function" ? (value as (...args: unknown[]) => unknown).bind(target) : value;
+    },
+  });
+}
+
 /** Strukturiert loggen: logger.info({ orderId }, "Bestellung angelegt"), logger.error({ err }, "...") */
 export const logger = {
   trace: delegate("trace"),
@@ -110,5 +135,5 @@ export const logger = {
   warn: delegate("warn"),
   error: delegate("error"),
   fatal: delegate("fatal"),
-  child: (bindings: Record<string, unknown>) => getLogger().child(bindings),
+  child: (bindings: Record<string, unknown>) => lazyChild(bindings),
 };
