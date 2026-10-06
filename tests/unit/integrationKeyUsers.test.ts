@@ -319,6 +319,58 @@ describe("n8n-Vorlagen", () => {
       expect(upload.notes).toContain("http://host.docker.internal:5001");
     });
   }
+
+  // Vorher lief "Prepare EML" einmal fuer alle Mails und nahm .first(): kamen in einer Abfrage
+  // mehrere Mails, ging nur die erste an METAorder (im n8n-Container nachgestellt: 3 rein, 1 raus).
+  const templates = [
+    {
+      file: "gmail-to-metaorder.json",
+      trigger: "Gmail Trigger",
+      previous: (mail: any) => ({ json: { raw: Buffer.from(`Subject: ${mail.subject}\r\n\r\nHallo ${mail.id}`).toString("base64url") } }),
+    },
+    {
+      file: "m365-to-metaorder.json",
+      trigger: "Outlook Trigger",
+      previous: (mail: any) => ({
+        json: {},
+        binary: { data: { data: Buffer.from(`Subject: ${mail.subject}\r\n\r\nHallo ${mail.id}`).toString("base64"), mimeType: "text/plain" } },
+      }),
+    },
+  ];
+  for (const { file, trigger, previous } of templates) {
+    it(`${file}: jede Mail einer Abfrage wird einzeln vorbereitet`, () => {
+      const workflow = JSON.parse(readFileSync(path.join(ROOT, "n8n-workflows", file), "utf8"));
+      const prepare = workflow.nodes.find((node: any) => node.type === "n8n-nodes-base.code");
+      expect(prepare.parameters.mode).toBe("runOnceForEachItem");
+      const mails = [
+        { id: "m1", subject: "Bestellung 4711", snippet: "", bodyPreview: "" },
+        { id: "m2", subject: "Preisanfrage Regal", snippet: "", bodyPreview: "" },
+        { id: "m3", subject: "Hallo", snippet: "", bodyPreview: "" },
+      ];
+      const previousItems = mails.map(previous);
+      // n8n je Element: $input.item / $('Trigger').item = das zugehoerige Element; first() = immer das erste
+      const run = new Function("$", "$input", "Buffer", prepare.parameters.jsCode);
+      const outputs = mails.map((_, i) =>
+        run(
+          (name: string) => {
+            expect(name).toBe(trigger);
+            return { item: { json: mails[i] }, first: () => ({ json: mails[0] }) };
+          },
+          { item: previousItems[i], first: () => previousItems[0] },
+          Buffer,
+        ),
+      );
+      expect(outputs.map((out: any) => [out.json.id, out.json.intentHint, out.binary.data.mimeType])).toEqual([
+        ["m1", "order", "message/rfc822"],
+        ["m2", "offer", "message/rfc822"],
+        ["m3", "unclear", "message/rfc822"],
+      ]);
+      outputs.forEach((out: any, i: number) => {
+        expect(out.binary.data.fileName).toContain(mails[i].id);
+        expect(Buffer.from(out.binary.data.data, "base64").toString()).toContain(`Hallo ${mails[i].id}`);
+      });
+    });
+  }
 });
 
 describe("Einstellungsseite n8n", () => {
