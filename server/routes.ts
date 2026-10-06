@@ -8,6 +8,7 @@ import { registerCpqCoreRoutes } from "./cpq-core/cpqCoreRoutes";
 import { registerOpenApi } from "./openapi/registerOpenApi";
 import { registerPublicOfferRoutes } from "./offers/publicOfferRoutes";
 import { registerCommercialAcknowledgementRoutes } from "./commercial/commercialAcknowledgementRoutes";
+import { registerPortalPasswordRequestRoutes } from "./b2b/portalPasswordRequestRoutes";
 import { registerB2BAdminRoutes } from "./b2b/b2bAdminRoutes";
 import { registerSftpRoutes } from "./sftp/sftpRoutes";
 import { registerErpRoutes } from "./erp/erpRoutes";
@@ -43,7 +44,7 @@ const moduleLog = logger.child({ component: "routes" });
  * Module teilen sich nur diese Praefixe: /api/settings (settings, sftp, b2bAdmin), /api/auth
  * (auth, integration: M365), /api/b2b (masterData, b2bAdmin), /api/cpq (cpq, integration),
  * /api/order-drafts (draft, sftp), /api/erp (erp, erpProductLabels) und /api/public
- * (publicOffer, commercialAcknowledgement). Beim Umstellen der Aufrufe hier darauf achten.
+ * (publicOffer, commercialAcknowledgement, portalPasswordRequest). Beim Umstellen der Aufrufe hier darauf achten.
  */
 export async function registerRoutes(app: Express): Promise<Server> {
   registerOpenApi(app, requireAuth);
@@ -119,6 +120,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   registerPublicOfferRoutes(app);
   registerCommercialAcknowledgementRoutes(app, storage);
+  registerPortalPasswordRequestRoutes(app);
   registerB2BAdminRoutes(app, { getSalesChannelFilter });
   registerSftpRoutes(app);
 

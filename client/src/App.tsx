@@ -66,6 +66,7 @@ import LoginPage from "@/pages/LoginPage";
 import NotFound from "@/pages/not-found";
 import PublicOfferPage from "@/pages/PublicOfferPage";
 import PublicCpqConfiguratorPage from "@/pages/PublicCpqConfiguratorPage";
+import PortalPasswordRequestPage from "@/pages/PortalPasswordRequestPage";
 import GlobalSkeletonOverlay from "@/components/GlobalSkeletonOverlay";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -314,6 +315,7 @@ function App() {
       <Switch>
         <Route path="/angebot/:token" component={PublicOfferPage} />
         <Route path="/konfigurator/:token" component={PublicCpqConfiguratorPage} />
+        <Route path="/portal-zugang" component={PortalPasswordRequestPage} />
         <Route component={AuthenticatedApp} />
       </Switch>
     </QueryClientProvider>

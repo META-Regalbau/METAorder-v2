@@ -5327,6 +5327,7 @@
       "benutzer_nicht_gefunden": "Benutzer nicht gefunden",
       "bestatigung_nur_im_status_vereinbarung_ausstehend_moglich": "Bestätigung nur im Status „Vereinbarung ausstehend“ möglich",
       "bestell_analyse_fehlgeschlagen": "Bestell-Analyse fehlgeschlagen",
+      "bitte_kundennummer_und_eine_gultige_e_mail_adresse_angeben": "Bitte Kundennummer und eine gültige E-Mail-Adresse angeben.",
       "bitte_melden_sie_sich_im_shop_an_um_ein_angebot_anzufragen": "Bitte melden Sie sich im Shop an, um ein Angebot anzufragen.",
       "browser_print_unavailable": "Browser Print nicht verfügbar",
       "bulk_cross_selling_execution_is_disabled_cross_sell_bulk_enabled_false": "Die Massenausführung von Cross-Selling ist deaktiviert (CROSS_SELL_BULK_ENABLED=false).",
@@ -6265,5 +6266,25 @@
     "loading": "Laden…",
     "loadError": "Fehler beim Laden.",
     "backToOffers": "Zurück zu Angeboten"
+  },
+  "portalPassword": {
+    "title": "Passwort für das Händlerportal",
+    "description": "Geben Sie Ihre Kundennummer und die E-Mail-Adresse Ihres Portalzugangs ein. Sie erhalten ein neues Passwort per E-Mail.",
+    "customerNumber": "Kundennummer",
+    "customerNumberPlaceholder": "z. B. 10012345",
+    "email": "E-Mail-Adresse",
+    "emailPlaceholder": "name@firma.de",
+    "submit": "Passwort zusenden",
+    "sending": "Wird gesendet…",
+    "changeHint": "Bitte ändern Sie das zugesandte Passwort nach der ersten Anmeldung im Portal.",
+    "successTitle": "Anfrage erhalten",
+    "successText": "Wenn Kundennummer und E-Mail-Adresse zu einem Portalzugang passen, erhalten Sie in wenigen Minuten eine E-Mail mit Ihrem neuen Passwort. Bitte prüfen Sie auch Ihren Spam-Ordner.",
+    "toPortal": "Zum Händlerportal",
+    "customerNumberRequired": "Bitte geben Sie Ihre Kundennummer ein.",
+    "emailInvalid": "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
+    "errorRateLimit": "Zu viele Anfragen. Bitte versuchen Sie es in einigen Minuten erneut.",
+    "errorGeneric": "Die Anfrage konnte nicht gesendet werden. Bitte versuchen Sie es später erneut.",
+    "help": "Keine E-Mail erhalten? Wenden Sie sich bitte an Ihren META-Ansprechpartner.",
+    "language": "Sprache"
   }
 }
