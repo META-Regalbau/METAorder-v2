@@ -173,12 +173,19 @@ export function buildPortalPasswordMail(params: {
   };
 }
 
+export type PortalPasswordOutgoingMail = PortalPasswordMail & {
+  to: string;
+  customerNumber: string;
+  employeeId: string;
+  customerId: string;
+};
+
 export type PortalPasswordRequestDeps = {
   client: Pick<
     B2BSellersAdminClient,
     "findCustomersByNumber" | "findEmployeesByEmail" | "findEmployeeCustomerLink" | "setEmployeePassword"
   >;
-  sendMail: (mail: PortalPasswordMail & { to: string }) => Promise<unknown>;
+  sendMail: (mail: PortalPasswordOutgoingMail) => Promise<unknown>;
   /** Mailversand eingerichtet? Ohne ihn darf kein Passwort gesetzt werden (sonst kennt es niemand). */
   mailReady: () => Promise<boolean>;
   loginUrl?: string;
@@ -231,7 +238,13 @@ export async function processPortalPasswordRequest(
         loginUrl: deps.loginUrl ?? portalLoginUrl(),
       });
       try {
-        await deps.sendMail({ ...mail, to: email });
+        await deps.sendMail({
+          ...mail,
+          to: email,
+          customerNumber: customer.customerNumber || customerNumber,
+          employeeId: employee.id,
+          customerId: customer.id,
+        });
       } catch (err) {
         // Passwort ist schon gesetzt — der Händler muss es erneut anfordern.
         const error = err instanceof Error ? err.message : String(err);

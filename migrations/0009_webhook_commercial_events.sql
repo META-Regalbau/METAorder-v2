@@ -27,5 +27,6 @@ ALTER TABLE webhook_configs ADD CONSTRAINT webhook_configs_event_type_check CHEC
   'commercial.auto_offer_created',
   'commercial.auto_order_created',
   'b2b.approval_required',
-  'b2b.approval_decided'
+  'b2b.approval_decided',
+  'b2b.portal_password_requested'
 ));

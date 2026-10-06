@@ -58,6 +58,7 @@ describe("processPortalPasswordRequest", () => {
     expect(sendMail).toHaveBeenCalledTimes(1);
     const mail = (sendMail.mock.calls[0] as any[])[0];
     expect(mail.to).toBe("einkauf@haendler.de");
+    expect(mail).toMatchObject({ customerNumber: "10012345", employeeId: "e1", customerId: "c1" });
     expect(mail.text).toContain("Abcdefgh2345");
     expect(mail.text).toContain("ändern Sie dieses Passwort");
     expect(deps.client.findCustomersByNumber).toHaveBeenCalledWith("10012345");

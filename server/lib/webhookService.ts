@@ -122,6 +122,24 @@ export type B2bApprovalDecidedPayload = {
   decidedAt: string;
 };
 
+/**
+ * Händlerportal: Passwort angefordert (Seite /portal-zugang). Enthält die fertige Mail
+ * inkl. Klartext-Passwort — n8n verschickt sie über Outlook. Das Webhook-Log speichert
+ * davon nichts (trimPayload behält nur eventType/occurredAt).
+ */
+export type PortalPasswordRequestedPayload = {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+  customerNumber: string;
+  employeeId: string;
+  customerId: string;
+  requestedAt: string;
+};
+
+export type WebhookDeliveryResult = "delivered" | "failed" | "skipped" | "not_configured";
+
 export type WebhookPayload =
   | TicketCreatedPayload
   | TicketUpdatedPayload
@@ -134,7 +152,8 @@ export type WebhookPayload =
   | CommercialAutoOfferCreatedPayload
   | CommercialAutoOrderCreatedPayload
   | B2bApprovalRequiredPayload
-  | B2bApprovalDecidedPayload;
+  | B2bApprovalDecidedPayload
+  | PortalPasswordRequestedPayload;
 
 // In-memory cache for webhook configs (60 second TTL), pro Mandant getrennt.
 // Key = tenantId aus dem AsyncLocalStorage-Kontext (oder "__global__" als Fallback).
@@ -205,6 +224,25 @@ class WebhookService {
     return requestId;
   }
 
+  /** Ist für dieses Ereignis ein aktiver Webhook mit Ziel-URL eingerichtet (aktueller Mandant)? */
+  async isEnabled(eventType: WebhookEventType): Promise<boolean> {
+    const configs = await this.getConfigs();
+    const config = configs.find((c) => c.eventType === eventType);
+    return Boolean(config?.enabled && config.targetUrl);
+  }
+
+  /**
+   * Wie trigger, wartet aber auf die Zustellung (inkl. Wiederholungen) und liefert das Ergebnis.
+   * Für Aufrufer, die wissen müssen, ob das Ziel die Nachricht angenommen hat.
+   */
+  async deliver(
+    eventType: WebhookEventType,
+    payload: WebhookPayload,
+    metadata: Record<string, any> = {},
+  ): Promise<WebhookDeliveryResult> {
+    return this.dispatch(eventType, payload, metadata, randomUUID());
+  }
+
   /**
    * Enqueue webhook dispatch with concurrency control
    */
@@ -238,14 +276,14 @@ class WebhookService {
     payload: WebhookPayload,
     metadata: Record<string, any>,
     requestId: string
-  ) {
+  ): Promise<WebhookDeliveryResult> {
     // Get webhook config for this event type
     const configs = await this.getConfigs();
     const config = configs.find((c) => c.eventType === eventType);
 
     if (!config || !config.enabled || !config.targetUrl) {
       moduleLog.info(`[WebhookService] No active webhook for ${eventType}`);
-      return;
+      return "not_configured";
     }
 
     // Validate URL to prevent SSRF
@@ -268,12 +306,13 @@ class WebhookService {
           data: payload,
         }),
       });
-      return;
+      return "skipped";
     }
 
     const {
       targetUrl,
       secret,
+      apiKey,
       maxAttempts = 3,
       initialBackoffMs = 1000,
       backoffFactor = 2.0,
@@ -297,7 +336,8 @@ class WebhookService {
           targetUrl,
           webhookPayload,
           secret,
-          timeoutMs
+          timeoutMs,
+          apiKey
         );
 
         const durationMs = Date.now() - startTime;
@@ -317,7 +357,7 @@ class WebhookService {
         });
 
         moduleLog.info(`[WebhookService] Successfully delivered ${eventType} to ${targetUrl} (attempt ${attempt}/${maxAttempts})`);
-        return; // Success - exit retry loop
+        return "delivered"; // Success - exit retry loop
       } catch (error: any) {
         const durationMs = Date.now() - startTime;
         const isLastAttempt = attempt === maxAttempts;
@@ -340,7 +380,7 @@ class WebhookService {
         // Don't retry on permanent errors (4xx)
         if (isPermanentError && error.status !== 429) {
           moduleLog.error(`[WebhookService] Permanent error (${error.status}) for ${eventType} - not retrying`);
-          return;
+          return "failed";
         }
 
         // If not last attempt, wait with exponential backoff
@@ -353,6 +393,7 @@ class WebhookService {
         }
       }
     }
+    return "failed";
   }
 
   /**
@@ -362,7 +403,8 @@ class WebhookService {
     url: string,
     payload: any,
     secret: string | null,
-    timeoutMs: number
+    timeoutMs: number,
+    apiKey?: string | null
   ): Promise<{ status: number; body: string | null }> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -379,6 +421,10 @@ class WebhookService {
         const signature = this.generateSignature(payload, secret, timestamp);
         headers["X-METAorder-Signature"] = signature;
         headers["X-METAorder-Timestamp"] = timestamp;
+      }
+      // Statischer API-Key, z. B. für die Header-Authentifizierung eines n8n-Webhooks
+      if (apiKey) {
+        headers["X-API-Key"] = apiKey;
       }
 
       const response = await fetch(url, {
@@ -506,7 +552,8 @@ class WebhookService {
         targetUrl,
         webhookPayload,
         config?.secret || null,
-        config?.timeoutMs || 10000
+        config?.timeoutMs || 10000,
+        config?.apiKey || null
       );
 
       const duration = Date.now() - startTime;
@@ -682,6 +729,19 @@ class WebhookService {
           decision: "approved",
           actorUserId: "test-user",
           decidedAt: new Date().toISOString(),
+        };
+
+      case "b2b.portal_password_requested":
+        // metadata.test = true: der n8n-Workflow verschickt dann keine Mail.
+        return {
+          to: "test@example.com",
+          subject: "Test: Ihr Passwort für das META Händlerportal",
+          text: "Testnachricht aus METAorder – es wurde kein Passwort geändert.",
+          html: "<p>Testnachricht aus METAorder – es wurde kein Passwort geändert.</p>",
+          customerNumber: "10012345",
+          employeeId: "test-employee-id",
+          customerId: "test-customer-id",
+          requestedAt: new Date().toISOString(),
         };
 
       default:
