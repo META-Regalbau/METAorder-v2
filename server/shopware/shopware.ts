@@ -1,4 +1,4 @@
-import { getSharedShopwareToken, invalidateSharedShopwareToken } from "./shopwareTokenCache";
+import { getSharedShopwareToken, invalidateSharedShopwareToken, isShopwareAuthPaused } from "./shopwareTokenCache";
 import { cachedMissingEntityResponse, traceShopwareResponse } from "./shopwareHttpTrace";
 import type { ShopwareSettings } from "@shared/schema";
 import * as ordersApi from "./client/orders";
@@ -116,6 +116,8 @@ export class ShopwareClient {
     } catch (error) {
       this.accessToken = null;
       this.tokenExpiry = 0;
+      // Anmeldung pausiert (abgelehnte Zugangsdaten/Drosselung): schon einmal geloggt, Meldung unveraendert weiter
+      if (isShopwareAuthPaused(error)) throw error;
       log.error({ err: error }, "Shopware authentication error:");
       throw new Error('Failed to authenticate with Shopware API');
     }
@@ -292,7 +294,7 @@ export class ShopwareClient {
         latestId: (latest?.id ?? null) as string | null,
       };
     } catch (error) {
-      log.error({ err: error }, `[Shopware] fetchEntitySearchFingerprint(${entity}) failed:`);
+      if (!isShopwareAuthPaused(error)) log.error({ err: error }, `[Shopware] fetchEntitySearchFingerprint(${entity}) failed:`);
       return null;
     }
   }

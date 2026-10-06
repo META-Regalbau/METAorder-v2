@@ -5,7 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import express from "express";
 import type { AddressInfo } from "node:net";
-import { createLogger, setLoggerForTests } from "../../server/lib/logger";
+import { createLogger, logger, setLoggerForTests } from "../../server/lib/logger";
 import { installConsoleBridge, uninstallConsoleBridge } from "../../server/lib/consoleBridge";
 import { getRequestId, requestIdMiddleware, resolveRequestId, runWithRequestId } from "../../server/lib/requestContext";
 import { getTenantIdFromContext, restoreTenantContext, runWithTenantContext } from "../../server/lib/tenantContext";
@@ -95,6 +95,30 @@ describe("logger", () => {
     log.info("leise");
     log.warn("laut");
     expect(lines.map((l) => l.msg)).toEqual(["laut"]);
+  });
+});
+
+describe("Modul-Logger (logger.child beim Laden des Moduls)", () => {
+  it("entsteht erst beim ersten Eintrag: .env-Einstellungen und Test-Logger gelten auch fuer Modul-Logger", () => {
+    // wie in den Modulen: Kind-Logger angelegt, bevor der eigentliche Logger feststeht
+    const moduleLog = logger.child({ component: "routes/beispiel" });
+    const lines: Array<Record<string, unknown>> = [];
+    setLoggerForTests(createLogger({ level: "info", format: "json", destination: { write: (s: string) => void lines.push(JSON.parse(s)) } }));
+    try {
+      moduleLog.info({ orderId: "o1" }, "Bestellung angelegt");
+      moduleLog.child({ step: 2 }).warn("weiter");
+      expect(lines).toMatchObject([
+        { level: "info", component: "routes/beispiel", orderId: "o1", msg: "Bestellung angelegt" },
+        { level: "warn", component: "routes/beispiel", step: 2, msg: "weiter" },
+      ]);
+      // Logger getauscht: der Modul-Logger folgt
+      const second: Array<Record<string, unknown>> = [];
+      setLoggerForTests(createLogger({ level: "info", format: "json", destination: { write: (s: string) => void second.push(JSON.parse(s)) } }));
+      moduleLog.error("danach");
+      expect(second).toMatchObject([{ level: "error", component: "routes/beispiel", msg: "danach" }]);
+    } finally {
+      setLoggerForTests(null);
+    }
   });
 });
 

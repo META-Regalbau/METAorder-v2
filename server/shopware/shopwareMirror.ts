@@ -11,6 +11,7 @@ import { productCacheRegistry } from "../products/productCache";
 import type { Product, Order } from "@shared/schema";
 import { detectOrderChanges, emitOrderChanges } from "./orderChangeEvents";
 import { logger } from "../lib/logger";
+import { isShopwareAuthPaused } from "./shopwareTokenCache";
 
 const PRODUCT_BATCH = 500;
 /**
@@ -45,6 +46,24 @@ function mirrorLog(tenantId: string | null, entity?: MirrorEntity) {
 
 /** Fehlermeldung fuer den Text - wie bisher bei console.error("...:", err) */
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+/** Je Mandant: Ende der zuletzt geloggten Anmelde-Pause (eine Zeile je Pause statt alle 3 Minuten) */
+const loggedAuthPause = new Map<string, number>();
+
+/** Fehler eines Abgleichs loggen; pausierte Anmeldung (abgelehnte Zugangsdaten) nur einmal je Pause */
+export function logSyncFailure(tenantId: string | null, error: unknown, message: string): void {
+  if (isShopwareAuthPaused(error)) {
+    const key = tenantId ?? "";
+    if (loggedAuthPause.get(key) === error.until) return;
+    loggedAuthPause.set(key, error.until);
+    mirrorLog(tenantId).warn(
+      { reason: error.reason, pausedUntil: new Date(error.until).toISOString() },
+      `[ShopwareMirror] Abgleich pausiert (tenant=${tenantId}): ${error.message}`,
+    );
+    return;
+  }
+  mirrorLog(tenantId).error({ err: error }, message);
+}
 
 function parseSwDate(value: string | Date | null | undefined): Date | null {
   if (!value) return null;
@@ -944,7 +963,7 @@ export async function runShopwareMirrorSync(storage: IStorage): Promise<void> {
       const client = new ShopwareClient(settings);
       await syncShopwareMirrorForTenant(storage, client, tenantId, { settings });
     } catch (error) {
-      mirrorLog(tenantId).error({ err: error }, `[ShopwareMirror] Sync failed for tenant ${tenantId}: ${errText(error)}`);
+      logSyncFailure(tenantId, error, `[ShopwareMirror] Sync failed for tenant ${tenantId}: ${errText(error)}`);
     }
   }
 }
@@ -957,6 +976,6 @@ export function triggerShopwareMirrorSync(
   entities?: Array<"products" | "customers" | "b2b_companies" | "customer_prices">,
 ): void {
   void syncShopwareMirrorForTenant(storage, client, tenantId, { entities }).catch((error) => {
-    mirrorLog(tenantId).error({ err: error }, `[ShopwareMirror] Background trigger failed (tenant=${tenantId}): ${errText(error)}`);
+    logSyncFailure(tenantId, error, `[ShopwareMirror] Background trigger failed (tenant=${tenantId}): ${errText(error)}`);
   });
 }
