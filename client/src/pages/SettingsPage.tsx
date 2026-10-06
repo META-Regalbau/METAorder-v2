@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import WebhooksSettingsSection from "@/components/WebhooksSettingsSection";
 import N8nSettingsSection from "@/components/N8nSettingsSection";
+import N8nConnectionSection from "@/components/N8nConnectionSection";
 import CommercialCustomerTokensSection from "@/components/CommercialCustomerTokensSection";
 import SftpServersSection from "@/components/SftpServersSection";
 import { useState, useEffect, useCallback } from "react";
@@ -3823,6 +3824,8 @@ function AiTab() {
           <AiTab />
         </TabsContent>
         <TabsContent value="integration" className="mt-0 space-y-6">
+          {/* n8n-API: welche Workflows Mails abrufen und an METAorder liefern */}
+          <N8nConnectionSection />
           <N8nSettingsSection />
           {/* Kundengebundene Token für den Rückmelde-Endpunkt (Auftragsbestätigung ans Kunden-ERP) */}
           <CommercialCustomerTokensSection />

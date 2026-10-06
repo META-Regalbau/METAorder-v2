@@ -13420,6 +13420,137 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/settings/n8n-connection": {
+    "delete": {
+      "tags": [
+        "settings"
+      ],
+      "summary": "DELETE /api/settings/n8n-connection",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    },
+    "get": {
+      "tags": [
+        "settings"
+      ],
+      "summary": "GET /api/settings/n8n-connection",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    },
+    "post": {
+      "tags": [
+        "settings"
+      ],
+      "summary": "POST /api/settings/n8n-connection",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/settings/n8n-connection/test": {
+    "post": {
+      "tags": [
+        "settings"
+      ],
+      "summary": "POST /api/settings/n8n-connection/test",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/settings/n8n-connection/workflows": {
+    "get": {
+      "tags": [
+        "settings"
+      ],
+      "summary": "GET /api/settings/n8n-connection/workflows",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/settings/offer-config-pdf-texts": {
     "get": {
       "tags": [
