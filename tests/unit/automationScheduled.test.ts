@@ -79,6 +79,8 @@ describe("Fakten einer Bestellung", () => {
     expect(f["order.daysSinceOrder"]).toBe(10);
     expect(f["order.daysPastDeliveryDate"]).toBe(4);
     expect(orderFacts(order("2", { deliveryDateLatest: undefined }), NOW)["order.daysPastDeliveryDate"]).toBe(10);
+    expect(orderFacts(order("3", { deliveryDateLatest: "2026-10-05T00:00:00.000+00:00" }), NOW)["order.deliveryDateLatest"]).toBe("2026-10-05");
+    expect(orderFacts(order("4", { deliveryDateLatest: undefined }), NOW)["order.deliveryDateLatest"]).toBeNull();
   });
 
   it("ja/nein: ERP-Auftragsnummer, Rechnung (Nummer oder Dokument), versandt (Versanddatum oder Sendungsnummer)", () => {

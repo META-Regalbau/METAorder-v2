@@ -92,6 +92,7 @@ export function orderFacts(
     "order.paymentStatus": order.paymentStatus,
     "order.previousPaymentStatus": previous.paymentStatus ?? null,
     "order.daysSinceOrder": daysSinceOrder,
+    "order.deliveryDateLatest": order.deliveryDateLatest ? order.deliveryDateLatest.slice(0, 10) : null,
     "order.daysPastDeliveryDate": daysPastDelivery,
     "order.totalAmount": typeof order.totalAmount === "number" ? order.totalAmount : null,
     "order.customerName": order.customerName,

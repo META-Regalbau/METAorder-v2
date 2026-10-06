@@ -212,7 +212,7 @@ describe("Regeln mit Bestell-Ausloeser", () => {
     expect(created).toHaveLength(0);
 
     await runAutomationEvent(deps, { trigger: "order_status_changed", tenantId: "tenant-a", order: o, previousStatus: "open" });
-    expect(created).toEqual([expect.objectContaining({ orderId: "9", orderNumber: "SW-9", title: "SW-9: open -> cancelled", description: "Kunde 9", tenantId: "tenant-a" })]);
+    expect(created).toEqual([expect.objectContaining({ orderId: "9", orderNumber: "SW-9", title: "SW-9: Offen -> Storniert", description: "Kunde 9", tenantId: "tenant-a" })]);
     expect(executions[0]).toMatchObject({ status: "success", result: { trigger: "order_status_changed", entity: { type: "order", id: "9", number: "SW-9" } } });
   });
 
@@ -239,7 +239,7 @@ describe("Regeln mit Bestell-Ausloeser", () => {
     );
     await vi.waitFor(() => expect(created).toHaveLength(4));
     expect(created.map((t) => `${t.tenantId}|${t.title}|${t.description}`)).toEqual([
-      "tenant-a|Zahlung SW-P|vorher: open",
+      "tenant-a|Zahlung SW-P|vorher: Offen",
       "tenant-a|Neu SW-N1|-",
       "tenant-a|Neu SW-N2|-",
       "tenant-a|Neu SW-N3|-",

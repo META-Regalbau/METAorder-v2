@@ -173,6 +173,20 @@ describe("Regel-Pruefung", () => {
   it("Platzhalter werden ersetzt, unbekannte leer", () => {
     expect(interpolate("Ticket {{ticket.ticketNumber}} von {{ ticket.customerName }}{{x.y}}", { "ticket.ticketNumber": "T-1", "ticket.customerName": "Erika" })).toBe("Ticket T-1 von Erika");
   });
+
+  it("Platzhalter lesbar: Datum TT.MM.JJJJ, Betrag mit zwei Nachkommastellen, Status/Prioritaet/Kategorie als Text", () => {
+    const facts = {
+      "order.orderDate": "2026-09-01", "order.deliveryDateLatest": "2026-10-05", "order.totalAmount": 2547.79,
+      "order.status": "in_progress", "order.previousPaymentStatus": "failed", "order.daysSinceOrder": 35,
+      "ticket.priority": "urgent", "ticket.category": "order_issue", "ticket.status": "waiting_for_customer",
+    };
+    expect(interpolate("vom {{order.orderDate}}, Lieferdatum {{order.deliveryDateLatest}}, {{order.totalAmount}} €, seit {{order.daysSinceOrder}} Tagen", facts))
+      .toBe("vom 01.09.2026, Lieferdatum 05.10.2026, 2.547,79 €, seit 35 Tagen");
+    expect(interpolate("{{order.status}} / {{order.previousPaymentStatus}} / {{ticket.priority}} / {{ticket.category}} / {{ticket.status}}", facts))
+      .toBe("In Bearbeitung / Fehlgeschlagen / Dringend / Bestellproblem / Wartet auf Kunden");
+    // Unbekannte Werte bleiben, wie sie sind
+    expect(interpolate("{{order.status}} {{order.totalAmount}}", { "order.status": "neu", "order.totalAmount": 5 })).toBe("neu 5,00");
+  });
 });
 
 // ---------------------------------------------------------------------------
