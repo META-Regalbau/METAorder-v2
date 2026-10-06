@@ -543,6 +543,15 @@ export class DbStorage implements IStorage {
     return rows.map((r) => ({ ...r, userId: r.userId ?? null }));
   }
 
+  async setTenantIntegrationApiKeyUser(id: string, tenantId: string, userId: string | null): Promise<boolean> {
+    const rows = await db
+      .update(tenantIntegrationApiKeys)
+      .set({ userId })
+      .where(and(eq(tenantIntegrationApiKeys.id, id), eq(tenantIntegrationApiKeys.tenantId, tenantId)))
+      .returning({ id: tenantIntegrationApiKeys.id });
+    return rows.length > 0;
+  }
+
   async deleteTenantIntegrationApiKey(id: string, tenantId: string): Promise<boolean> {
     const result = await db
       .delete(tenantIntegrationApiKeys)

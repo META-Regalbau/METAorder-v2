@@ -104,7 +104,7 @@ Shopware, E-Mail, optionale Dienste: wie bisher ueber `.env` / Compose `environm
 | `COMMERCIAL_AGENT_STRICT_PRICE_TOLERANCE` | Zulässige Abweichung in % zwischen Stückpreis im Kundendokument und dem für den Kunden in Shopware ermittelten Preis (Kundenpreis → Kundenrabatt → Liste) — nur Bestellungen (Default `1`). |
 | `COMMERCIAL_AGENT_CUSTOMER_AUTO_CREATE` | `true` = unbekannte Absender werden mit den extrahierten Belegdaten automatisch als Shopware-Kunde angelegt. Default `false`: Der Entwurf bleibt im Review, der Bearbeiter legt den Kunden bewusst über „Kunde anlegen" an. |
 | `N8N_ADMIN_USER` / `N8N_ADMIN_PASSWORD` | Basic Auth für n8n-UI (Service `n8n` in Compose). |
-| `METAORDER_BASE_URL` | Basis-URL für n8n-HTTP-Nodes (z. B. `http://host.docker.internal:5001`). |
+| `METAORDER_BASE_URL` | Nur lokaler n8n-Container: Basis-URL für eigene n8n-HTTP-Nodes (z. B. `http://host.docker.internal:5001`). Die Vorlagen unter `n8n-workflows/` nutzen eine feste URL und das Credential „METAorder Integration-Key“. |
 | `METAORDER_INTEGRATION_API_KEY` | Key für `X-METAORDER-Integration-Key` in n8n-Workflows. |
 | `LLM_DEBUG` | `true` / `1`: pro `chatCompletion` eine Zeile `[LLM_DEBUG]` (Provider, Modell, ms, Antwortlänge) — gilt für **alle** Chat-KI-Aufrufe, nicht nur Commercial Agent. |
 | `AI_MODE` | z. B. `openai_optional` / `openai_only` — siehe `server/ai/aiConfig.ts`. |
@@ -205,7 +205,7 @@ Persistenz: Volume **`metaorder_minio`**.
 3. Admin anlegen / Seed prüfen; unter **Einstellungen** Mandant wählen (falls mehrere).
 4. **Shopware**-Zugang pro Mandant in den Einstellungen speichern; Verbindungstest nutzen.
 5. Volumes: **`metaorder_pgdata`** (Backup-Strategie), **`metaorder_uploads`** (PDFs, Anhänge).
-6. Optional **n8n**: Integrations-User (`n8n-service` oder `METAORDER_INTEGRATION_USER_ID`) dem Mandanten zuordnen; API-Key per `POST /api/settings/integration-api-keys` erzeugen (oder globalen Key nur bei klarer Ein-Mandanten-Installation).
+6. Optional **n8n**: unter Einstellungen → n8n einen Schlüssel anlegen und an einen Benutzer des Mandanten mit „Angebote verwalten“ und „Bestellentwürfe verwalten“ binden (oder den Ersatz-Benutzer `n8n-service` bzw. `METAORDER_INTEGRATION_USER_ID` dem Mandanten zuordnen; globalen Key nur bei klarer Ein-Mandanten-Installation).
 
 **Spur B — eine Instanz, viele Firmen:** `METAORDER_STRICT_TENANT=true` setzen; pro Firma Mandant + Benutzer + Shopware; **kein** globaler Integrations-Key ohne `METAORDER_INTEGRATION_TENANT_ID`. Details: [multitenant-security.md](multitenant-security.md).
 

@@ -18,7 +18,7 @@ Schritt 2 ist der Ablauf identisch.
 
 - Docker Compose: `app`, `db`, optional `n8n`
 - `COMMERCIAL_AGENT_ENABLED=true` (siehe `docker.env`)
-- Integrations-API-Key: Admin → Einstellungen → Integration **oder** `METAORDER_INTEGRATION_API_KEY`
+- Integrations-Schlüssel: METAorder → Einstellungen → n8n → Schlüssel anlegen, mit **„Arbeitet als Benutzer“** = einem Benutzer des Mandanten mit „Angebote verwalten“ und „Bestellentwürfe verwalten“ (empfohlen: eigener technischer Benutzer, z. B. `n8n`). Der Status am Schlüssel zeigt, ob n8n damit durchkommt. Alternativ der globale `METAORDER_INTEGRATION_API_KEY` (nur Ein-Mandanten-Installation).
 - Shopware + B2B Sellers konfiguriert; für Auto-Angebote: `B2B_SELLERS_DEFAULT_SALES_CHANNEL` oder `autoCreateSalesChannelId`
 - OpenAI/Anthropic für Klassifikation und Extraktion
 
@@ -61,7 +61,11 @@ Dateien unter [`n8n-workflows/`](../n8n-workflows/):
 | `m365-to-metaorder.json` | **Microsoft 365 / Exchange** → Classifier → Upload → Mark Read |
 | `metaorder-auto-create-webhook.json` | Optional: Webhook für `commercial.auto_*_created` |
 
-Import in n8n → **einen** der beiden Postfach-Workflows aktivieren → passendes Credential zuweisen.
+Import in n8n → **einen** der beiden Postfach-Workflows aktivieren → Credentials zuweisen:
+
+- Postfach: Gmail OAuth2 bzw. Microsoft Outlook OAuth2 (siehe unten)
+- **METAorder Integration-Key** (Typ **Header Auth**): Name `X-METAORDER-Integration-Key`, Wert = der Schlüssel aus METAorder. Als n8n-Credential liegt er verschlüsselt; Umgebungsvariablen (`$env`) nutzen die Vorlagen nicht mehr, weil n8n Cloud den Zugriff darauf sperrt.
+- Die Upload-URL zeigt auf Produktion (`https://p-bbpye5.project.space/api/commercial-drafts/upload`); lokal auf `http://host.docker.internal:5001/api/commercial-drafts/upload` ändern.
 
 Der Workflow `gmail-to-metaorder.json` holt die Nachricht per Gmail API (`format=raw`) und baut daraus die Binary **`.eml`** (inkl. Anhänge) für den Upload.
 
@@ -88,8 +92,7 @@ Quick-Classifier (`intentHint`) und Upload-Node sind identisch.
 1. Azure App-Registrierung mit **`Mail.Read`** für das Postfach.
 2. In n8n: **Credentials → Microsoft Outlook OAuth2** anlegen und im importierten
    Workflow allen drei Outlook-Nodes zuweisen (Platzhalter `OUTLOOK_OAUTH_CREDENTIAL_ID`).
-3. `METAORDER_BASE_URL` und `METAORDER_INTEGRATION_KEY` sind bereits als Env im
-   n8n-Container gesetzt (siehe `docker-compose.yml`).
+3. Dem Upload-Knoten das Credential **METAorder Integration-Key** zuweisen (siehe „Workflows importieren“).
 
 **Wichtig:** Der Code-Node setzt Dateiname `*.eml` und MIME `message/rfc822`. Graph liefert
 `$value` als `text/plain` — ohne dieses Überschreiben würde METAorder die Mail als
@@ -103,10 +106,7 @@ Ist `$value` im Tenant gesperrt, ist der Rückfallweg `GET /me/messages/{id}/att
 mit einem Upload je Anhang — dabei entfällt allerdings die Signaturbild-Erkennung, weil
 die Zuordnung zur Nachricht verloren geht.
 
-Umgebungsvariablen im n8n-Container (bereits in `docker-compose.yml`):
-
-- `METAORDER_BASE_URL=http://host.docker.internal:5001`
-- `METAORDER_INTEGRATION_KEY=<Ihr Key>`
+Der lokale n8n-Container bekommt aus `docker-compose.yml` zusätzlich `METAORDER_BASE_URL` und `METAORDER_INTEGRATION_KEY` — für eigene Workflows; die Vorlagen nutzen Credential und feste URL.
 
 ## Strikt-Regel („100 %“)
 

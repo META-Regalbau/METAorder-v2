@@ -190,6 +190,8 @@ export interface IStorage {
     tenantId: string
   ): Promise<Array<{ id: string; name: string; createdAt: Date; userId: string | null }>>;
   deleteTenantIntegrationApiKey(id: string, tenantId: string): Promise<boolean>;
+  /** Benutzer eines Schluessels aendern (null = Ersatz-Benutzer); false, wenn der Schluessel fehlt */
+  setTenantIntegrationApiKeyUser(id: string, tenantId: string, userId: string | null): Promise<boolean>;
   
   // Roles
   getRole(id: string): Promise<Role | undefined>;

@@ -8,6 +8,7 @@ import { verifyToken } from "./jwt";
 import { storage } from "../storage";
 import { runWithTenantContext } from "../lib/tenantContext";
 import { logger } from "../lib/logger";
+import { loadFallbackIntegrationUser } from "../integration/integrationKeyUsers";
 
 const moduleLog = logger.child({ component: "auth/auth" });
 
@@ -196,10 +197,7 @@ export async function requireAuthOrIntegrationKey(req: any, res: any, next: any)
         const keyUser = await storage.getUser(keyUserId);
         return keyUser ?? null;
       }
-      const explicitUserId = process.env.METAORDER_INTEGRATION_USER_ID?.trim();
-      return explicitUserId
-        ? await storage.getUser(explicitUserId)
-        : await storage.getUserByUsername("n8n-service");
+      return loadFallbackIntegrationUser(storage);
     }
 
     if (headerKey) {
