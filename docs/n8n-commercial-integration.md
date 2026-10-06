@@ -28,6 +28,20 @@ Wenn `METAORDER_INTEGRATION_API_KEY` gesetzt ist:
 
 Details und Docker: [`docker.md`](docker.md).
 
+## n8n-Verbindung (METAorder → n8n-API)
+
+Die Gegenrichtung zu den Schlüsseln oben. Unter **Einstellungen → Integration → n8n-Verbindung** tragen Sie die Adresse der n8n-Instanz (z. B. `https://….app.n8n.cloud`) und einen **n8n-API-Key** ein. Den Key erstellen Sie in n8n unter Settings → n8n API.
+
+- Gespeichert je Mandant in `settings` (`n8n_connection`), der Key verschlüsselt mit `ENCRYPTION_KEY` wie die übrigen Zugangsdaten. Die Oberfläche bekommt ihn nie zurück; ein leeres Feld beim Speichern behält den gespeicherten Key.
+- **Verbindung testen** ruft `GET /api/v1/workflows?limit=1` mit dem Header `X-N8N-API-KEY` auf. Fehler kommen als Code zurück: Key abgelehnt, keine n8n-API unter der Adresse, nicht erreichbar.
+- **E-Mail-Workflows in n8n:** Zu jedem Workflow mit Postfach-Knoten (Outlook/M365, Gmail, IMAP) oder Upload an `/api/commercial-drafts/upload` zeigt die Seite:
+  - ob er aktiv ist und welches Postfach er liest
+  - wohin er hochlädt; ein Hinweis erscheint, wenn das Ziel nicht dieses METAorder ist (Bezug: `PUBLIC_APP_URL`) oder der Upload-Schritt fehlt
+  - die letzten 20 Ausführungen (erfolgreich/Fehler, zuletzt) und die Schritte nach Name und Typ
+- Parameter-Werte der Knoten und gepinnte Daten liest METAorder nicht aus.
+- HTTPS ist Pflicht. `http://` ist nur für lokale Hosts erlaubt (`localhost`, `n8n`, `host.docker.internal`, `*.localhost`).
+- API: `GET/POST/DELETE /api/settings/n8n-connection`, `POST /api/settings/n8n-connection/test`, `GET /api/settings/n8n-connection/workflows`.
+
 ## Happy Path API (n8n als Orchestrator)
 
 1. **`POST /api/commercial-drafts/upload`**  

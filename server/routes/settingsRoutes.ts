@@ -24,6 +24,15 @@ import { SEMANTIC_RANKING_DEFAULTS } from "../semantic/semanticRanking";
 import { logger } from "../lib/logger";
 import { clearShopwareAuthPause } from "../shopware/shopwareTokenCache";
 import { describeIntegrationUser, listIntegrationUserCandidates, loadFallbackIntegrationUser } from "../integration/integrationKeyUsers";
+import {
+  loadN8nConnection,
+  loadN8nOverview,
+  N8N_SETTING_KEY,
+  N8nApiError,
+  N8nClient,
+  n8nConnectionSettingValue,
+  normalizeN8nBaseUrl,
+} from "../integration/n8nConnection";
 
 const log = logger.child({ component: "routes/settingsRoutes" });
 
@@ -291,6 +300,109 @@ export function registerSettingsRoutes(app: Express): void {
     } catch (error: any) {
       log.error({ err: error }, "Error deleting integration API key:");
       res.status(500).json({ error: error.message || "Failed to delete key" });
+    }
+  });
+
+  // n8n-Verbindung (Public API): Adresse + API-Key je Mandant, Key verschluesselt, nie in Antworten
+  // eigene Adresse als Bezug fuer Upload-Ziele: PUBLIC_APP_URL (Produktion), sonst die aufgerufene Adresse
+  const ownOrigin = (req: Request) => {
+    const configured = process.env.PUBLIC_APP_URL?.trim();
+    if (configured) {
+      try {
+        return new URL(configured).origin;
+      } catch {
+        // ungueltig: wie ohne Angabe
+      }
+    }
+    const host = req.get("host");
+    return host ? `${req.protocol}://${host}` : null;
+  };
+  const respondN8nError = (res: Response, error: unknown, context: string) => {
+    if (error instanceof N8nApiError) {
+      log.warn({ code: error.code, status: error.status }, `n8n: ${context}`);
+      return res.status(502).json({ error: "n8n-Anfrage fehlgeschlagen", code: error.code, n8nStatus: error.status });
+    }
+    log.error({ err: error }, `n8n: ${context}`);
+    return res.status(500).json({ error: "n8n-Anfrage fehlgeschlagen" });
+  };
+
+  app.get("/api/settings/n8n-connection", requireAuth, requireManageSettings, async (_req, res) => {
+    try {
+      const stored = await storage.getSetting(N8N_SETTING_KEY);
+      res.json({
+        configured: Boolean(stored?.baseUrl && stored?.apiKey),
+        baseUrl: typeof stored?.baseUrl === "string" ? stored.baseUrl : "",
+        hasApiKey: Boolean(stored?.apiKey),
+      });
+    } catch (error: any) {
+      log.error({ err: error }, "Error fetching n8n connection:");
+      res.status(500).json({ error: "Failed to fetch settings" });
+    }
+  });
+
+  // Speichern: leerer Key = gespeicherten behalten (wie bei den anderen Zugangsdaten)
+  app.post("/api/settings/n8n-connection", requireAuth, requireManageSettings, requireCsrf, async (req, res) => {
+    try {
+      const normalized = normalizeN8nBaseUrl(req.body?.baseUrl);
+      if (!normalized.ok) {
+        return res.status(400).json({ error: "Ungültige n8n-Adresse", code: normalized.code });
+      }
+      const newKey = typeof req.body?.apiKey === "string" ? req.body.apiKey.trim() : "";
+      const existing = await loadN8nConnection((key) => storage.getSetting(key));
+      const apiKey = newKey || existing?.apiKey || "";
+      if (!apiKey) {
+        return res.status(400).json({ error: "n8n-API-Key fehlt", code: "n8n_key_missing" });
+      }
+      await storage.saveSetting(N8N_SETTING_KEY, n8nConnectionSettingValue({ baseUrl: normalized.baseUrl, apiKey }));
+      res.json({ configured: true, baseUrl: normalized.baseUrl, hasApiKey: true });
+    } catch (error: any) {
+      log.error({ err: error }, "Error saving n8n connection:");
+      res.status(500).json({ error: "Failed to save settings" });
+    }
+  });
+
+  app.delete("/api/settings/n8n-connection", requireAuth, requireManageSettings, requireCsrf, async (_req, res) => {
+    try {
+      // value ist NOT NULL: leeres Objekt = nicht verbunden
+      await storage.saveSetting(N8N_SETTING_KEY, {});
+      res.json({ configured: false, baseUrl: "", hasApiKey: false });
+    } catch (error: any) {
+      log.error({ err: error }, "Error deleting n8n connection:");
+      res.status(500).json({ error: "Failed to save settings" });
+    }
+  });
+
+  // Testen mit den Eingaben (Key leer = gespeicherter Key), ohne zu speichern
+  app.post("/api/settings/n8n-connection/test", requireAuth, requireManageSettings, requireCsrf, async (req, res) => {
+    try {
+      const existing = await loadN8nConnection((key) => storage.getSetting(key));
+      const normalized = normalizeN8nBaseUrl(req.body?.baseUrl ?? existing?.baseUrl);
+      if (!normalized.ok) {
+        return res.status(400).json({ error: "Ungültige n8n-Adresse", code: normalized.code });
+      }
+      const newKey = typeof req.body?.apiKey === "string" ? req.body.apiKey.trim() : "";
+      const apiKey = newKey || existing?.apiKey || "";
+      if (!apiKey) {
+        return res.status(400).json({ error: "n8n-API-Key fehlt", code: "n8n_key_missing" });
+      }
+      await new N8nClient({ baseUrl: normalized.baseUrl, apiKey }).test();
+      res.json({ success: true });
+    } catch (error) {
+      respondN8nError(res, error, "Verbindungstest fehlgeschlagen");
+    }
+  });
+
+  // Uebersicht: Workflows (Mail-Workflows zuerst) mit Postfach, Upload an METAorder und letzten Ausfuehrungen
+  app.get("/api/settings/n8n-connection/workflows", requireAuth, requireManageSettings, async (req, res) => {
+    try {
+      const connection = await loadN8nConnection((key) => storage.getSetting(key));
+      if (!connection) {
+        return res.status(400).json({ error: "n8n ist nicht verbunden", code: "n8n_not_configured" });
+      }
+      const origin = ownOrigin(req);
+      res.json({ workflows: await loadN8nOverview(new N8nClient(connection), origin), ownOrigin: origin });
+    } catch (error) {
+      respondN8nError(res, error, "Workflows konnten nicht geladen werden");
     }
   });
 
