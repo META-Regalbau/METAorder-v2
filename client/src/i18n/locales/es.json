@@ -2923,7 +2923,8 @@
       "order_payment_changed": "Estado de Pago Cambiado",
       "ticket_created": "Ticket Creado",
       "ticket_status_changed": "Estado de Ticket Cambiado",
-      "scheduled": "Programado: revisar pedidos"
+      "scheduled": "Programado: revisar pedidos",
+      "scheduled_tickets": "Programado: revisar tickets"
     },
     "actions": {
       "create_ticket": "Crear Ticket",
@@ -3003,6 +3004,10 @@
       "customerReplied": {
         "name": "El cliente respondió",
         "description": "Sube la prioridad cuando un ticket pasa de “Esperando al cliente” a “Abierto”."
+      },
+      "ticketFollowUp": {
+        "name": "Seguimiento",
+        "description": "Avisa (p. ej. al suplente) cuando un ticket abierto lleva 3 días sin cambios; de nuevo solo tras el siguiente cambio."
       }
     },
     "fields": {
@@ -3018,7 +3023,11 @@
         "orderNumber": "Ticket: número de pedido",
         "isAssigned": "Ticket: asignado",
         "fromEmail": "Ticket: creado desde correo",
-        "sentiment": "Ticket: sentimiento (IA)"
+        "sentiment": "Ticket: sentimiento (IA)",
+        "assigneeName": "Ticket: responsable (usuario)",
+        "daysSinceCreated": "Ticket: días desde la creación",
+        "daysSinceUpdated": "Ticket: días desde el último cambio",
+        "daysPastDueDate": "Ticket: días tras la fecha límite"
       },
       "order": {
         "status": "Pedido: estado",
@@ -3095,7 +3104,10 @@
       "preview": "Vista previa",
       "previewSummary": "Coincide ahora con {{matching}} pedidos, {{done}} ya tratados. Próxima pasada: {{next}}.",
       "previewError": "Vista previa fallida",
-      "days": "días"
+      "days": "días",
+      "ticketDescription": "Se ejecuta periódicamente (por defecto cada hora) sobre todos los tickets que no están resueltos ni cerrados. Como máximo una ejecución por ticket y regla hasta que el ticket vuelva a cambiar (comentario, estado, asignación); los cambios de la propia regla no cuentan. Como máximo {{max}} ejecuciones por pasada, primero los tickets más antiguos.",
+      "previewSummaryTickets": "Coincide actualmente con {{matching}} tickets abiertos, {{done}} de ellos ya gestionados. Próxima pasada: {{next}}.",
+      "unchangedDays": "sin cambios desde hace {{days}} días"
     },
     "orderEvents": {
       "title": "Con cambios en Shopware",

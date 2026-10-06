@@ -3074,7 +3074,8 @@
       "order_payment_changed": "Zahlungsstatus geändert",
       "ticket_created": "Ticket erstellt",
       "ticket_status_changed": "Ticket-Status geändert",
-      "scheduled": "Zeitgesteuert: Bestellungen prüfen"
+      "scheduled": "Zeitgesteuert: Bestellungen prüfen",
+      "scheduled_tickets": "Zeitgesteuert: Tickets prüfen"
     },
     "actions": {
       "create_ticket": "Ticket erstellen",
@@ -3154,6 +3155,10 @@
       "customerReplied": {
         "name": "Kunde hat geantwortet",
         "description": "Hebt die Priorität, wenn ein Ticket von „Wartet auf Kunden“ wieder auf „Offen“ springt."
+      },
+      "ticketFollowUp": {
+        "name": "Wiedervorlage",
+        "description": "Benachrichtigt (z. B. die Vertretung), wenn ein offenes Ticket seit 3 Tagen unverändert ist – erneut erst nach der nächsten Änderung."
       }
     },
     "fields": {
@@ -3169,7 +3174,11 @@
         "orderNumber": "Ticket: Bestellnummer",
         "isAssigned": "Ticket: zugewiesen",
         "fromEmail": "Ticket: aus E-Mail entstanden",
-        "sentiment": "Ticket: Stimmung (KI)"
+        "sentiment": "Ticket: Stimmung (KI)",
+        "assigneeName": "Ticket: zuständig (Benutzername)",
+        "daysSinceCreated": "Ticket: Tage seit Erstellung",
+        "daysSinceUpdated": "Ticket: Tage seit letzter Änderung",
+        "daysPastDueDate": "Ticket: Tage über Fälligkeit"
       },
       "order": {
         "status": "Bestellung: Status",
@@ -3246,7 +3255,10 @@
       "preview": "Vorschau",
       "previewSummary": "Trifft aktuell auf {{matching}} Bestellungen zu, davon {{done}} bereits erledigt. Im nächsten Lauf: {{next}}.",
       "previewError": "Vorschau fehlgeschlagen",
-      "days": "Tage"
+      "days": "Tage",
+      "ticketDescription": "Läuft regelmäßig (standardmäßig stündlich) über alle Tickets, die nicht gelöst oder geschlossen sind. Je Ticket höchstens eine Ausführung pro Regel, bis sich das Ticket wieder ändert (Kommentar, Status, Zuweisung); Änderungen der Regel selbst zählen nicht. Höchstens {{max}} Ausführungen je Lauf, älteste Tickets zuerst.",
+      "previewSummaryTickets": "Trifft aktuell auf {{matching}} offene Tickets zu, davon {{done}} bereits erledigt. Im nächsten Lauf: {{next}}.",
+      "unchangedDays": "seit {{days}} Tagen unverändert"
     },
     "orderEvents": {
       "title": "Bei Änderungen in Shopware",

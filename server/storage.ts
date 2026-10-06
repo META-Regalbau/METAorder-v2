@@ -158,6 +158,9 @@ export type UpdateUser = {
   pushSubscription?: any | null;
 };
 
+/** Ausfuehrungen einer Regel je Entitaet (zeitgesteuerte Regeln: einmal je Bestellung bzw. je Ticket-Stand) */
+export type AutomationEntityRunStats = { succeeded: boolean; failures: number; lastHandledAt: string | null };
+
 export interface IStorage {
   // Users
   getUser(id: string): Promise<User | undefined>;
@@ -392,12 +395,15 @@ export interface IStorage {
   deleteAutomationRule(id: string, tenantId?: string | null): Promise<boolean>;
   incrementRuleExecutionCount(id: string, tenantId?: string | null): Promise<void>;
   createAutomationExecution(execution: InsertAutomationExecution, tenantId?: string | null): Promise<AutomationExecution>;
-  /** Je Entitaet (z. B. Bestellung): bereits erfolgreich ausgefuehrt? Anzahl Fehlversuche. */
+  /**
+   * Je Entitaet (z. B. Bestellung): bereits erfolgreich ausgefuehrt? Anzahl Fehlversuche.
+   * lastHandledAt: juengster bei Erfolg protokollierter Stand der Entitaet (result.entity.stateAt).
+   */
   getAutomationEntityRunStats(
     ruleId: string,
     entityType: string,
     tenantId?: string | null
-  ): Promise<Map<string, { succeeded: boolean; failures: number }>>;
+  ): Promise<Map<string, AutomationEntityRunStats>>;
   getAutomationExecutions(ruleId: string, limit?: number, tenantId?: string | null): Promise<AutomationExecution[]>;
   
   // Order Drafts (AI-powered order creation)
