@@ -1231,6 +1231,7 @@
     "orderNumberLabel": "Order number",
     "orderNumberAll": "All orders",
     "orderNumberMoOnly": "MO orders only",
+    "orderNumberNonMo": "Without MO only (passed through)",
     "dateFrom": "Date From",
     "dateTo": "Date To"
   },
@@ -2840,7 +2841,13 @@
     "max": "Maximum",
     "range": "Range",
     "value": "Value",
-    "gross": "Gross"
+    "gross": "Gross",
+    "orderNumberFilter": "Order numbers",
+    "orderNumberAll": "All order numbers",
+    "orderNumberMo": "MO orders only (shop)",
+    "orderNumberNonMo": "Without MO only (passed through)",
+    "excludeCancelled": "Hide cancelled",
+    "noChannelSelected": "No sales channel selected – select at least one channel to see order figures."
   },
   "bulkActions": {
     "selectedCount": "{{count}} order selected",

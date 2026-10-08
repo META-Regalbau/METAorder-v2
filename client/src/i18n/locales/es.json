@@ -1157,6 +1157,7 @@
     "orderNumberLabel": "Número de pedido",
     "orderNumberAll": "Todos los pedidos",
     "orderNumberMoOnly": "Solo pedidos MO",
+    "orderNumberNonMo": "Solo sin MO (transferidos)",
     "dateFrom": "Fecha desde",
     "dateTo": "Fecha hasta"
   },
@@ -2686,7 +2687,13 @@
     "ordersWithShippingData": "Pedidos con fecha de envío",
     "noShippingData": "No hay datos de envío en el periodo. Registre la fecha de envío al enviar.",
     "shippingTimesDistribution": "Distribución por tiempo de envío",
-    "gross": "Bruto"
+    "gross": "Bruto",
+    "orderNumberFilter": "Números de pedido",
+    "orderNumberAll": "Todos los números de pedido",
+    "orderNumberMo": "Solo pedidos MO (tienda)",
+    "orderNumberNonMo": "Solo sin MO (transferidos)",
+    "excludeCancelled": "Ocultar cancelados",
+    "noChannelSelected": "Ningún canal de venta seleccionado: selecciona al menos un canal para ver las cifras de pedidos."
   },
   "bulkActions": {
     "selectedCount": "{{count}} pedido seleccionado",

@@ -223,6 +223,20 @@ export async function getSalesChannelFilter(req: Request): Promise<string[] | nu
 }
 
 /**
+ * Vom Client gewaehlte Kanaele (Parameter salesChannelIds, kommagetrennt) innerhalb der Berechtigung:
+ * ohne Auswahl gilt die Berechtigung, mit Auswahl nur die erlaubten der gewaehlten Kanaele. Die
+ * Auswahl kann den Zugriff nur einschraenken, nie erweitern (null = alle, [] = keine).
+ */
+export function narrowSalesChannelFilter(allowedChannelIds: string[] | null, requested: unknown): string[] | null {
+  const requestedIds = typeof requested === "string"
+    ? requested.split(",").map((id) => id.trim()).filter(Boolean)
+    : [];
+  if (requestedIds.length === 0) return allowedChannelIds;
+  if (allowedChannelIds === null) return requestedIds;
+  return requestedIds.filter((id) => allowedChannelIds.includes(id));
+}
+
+/**
  * Darf der Nutzer diese eine Bestellung sehen bzw. bearbeiten? Verkaufskanal-Pruefung wie auf den
  * Bestellseiten (allowedChannelIds aus getSalesChannelFilter: null = alle, [] = keine). Der Kanal
  * kommt aus dem Bestell-Spiegel; nur wenn die Bestellung dort (noch) fehlt, wird diese eine live

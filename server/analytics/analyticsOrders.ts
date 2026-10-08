@@ -1,6 +1,8 @@
 import type { Order } from "@shared/schema";
+import { matchesOrderNumberFilter, parseOrderNumberFilter, type OrderNumberFilter } from "@shared/orderNumberFilter";
+import type { Request } from "express";
 import type { ShopwareClient } from "../shopware/shopware";
-import { dedupeOrdersByNumber, filterOrdersBySalesChannels, getOrdersWithCache } from "../routes/routeHelpers";
+import { dedupeOrdersByNumber, filterOrdersBySalesChannels, getOrdersWithCache, getSalesChannelFilter, narrowSalesChannelFilter } from "../routes/routeHelpers";
 
 /**
  * Bestellungen fuer die Statistik-Seite aus dem lokalen Bestell-Spiegel statt bei jedem Aufruf
@@ -26,6 +28,10 @@ export type AnalyticsOrderFilter = {
   dateTo?: string;
   /** null = alle Kanaele (Admin), [] = keiner - wie getSalesChannelFilter */
   salesChannelIds: string[] | null;
+  /** Shop-Bestellungen (MO...) oder durchgeschleuste Bestellungen ohne MO; Standard alle */
+  orderNumberFilter?: OrderNumberFilter;
+  /** Stornierte Bestellungen (Status cancelled) weglassen; Standard: einbeziehen */
+  excludeCancelled?: boolean;
 };
 
 const orderDay = (order: Order) => String(order.orderDate ?? "").slice(0, 10);
@@ -33,9 +39,27 @@ const orderDay = (order: Order) => String(order.orderDate ?? "").slice(0, 10);
 export function selectAnalyticsOrders(orders: Order[], filter: AnalyticsOrderFilter): Order[] {
   const from = filter.dateFrom?.slice(0, 10);
   const to = filter.dateTo?.slice(0, 10);
+  const orderNumberFilter = filter.orderNumberFilter ?? "all";
   return filterOrdersBySalesChannels(dedupeOrdersByNumber(orders), filter.salesChannelIds)
     .filter((o) => (!from || orderDay(o) >= from) && (!to || orderDay(o) <= to))
+    .filter((o) => matchesOrderNumberFilter(o.orderNumber, orderNumberFilter))
+    .filter((o) => !filter.excludeCancelled || o.status !== "cancelled")
     .sort((a, b) => orderDay(b).localeCompare(orderDay(a)));
+}
+
+/**
+ * Filter der Statistik-Seite aus der Anfrage. Kanaele: Auswahl des Nutzers innerhalb seiner
+ * Berechtigung (bis Oktober 2026 wurde die Auswahl ignoriert, der Kanalfilter wirkte nicht).
+ */
+export async function analyticsFilterFromRequest(req: Request): Promise<AnalyticsOrderFilter> {
+  const str = (key: string) => (typeof req.query[key] === "string" ? (req.query[key] as string) : undefined);
+  return {
+    dateFrom: str("dateFrom"),
+    dateTo: str("dateTo"),
+    salesChannelIds: narrowSalesChannelFilter(await getSalesChannelFilter(req), req.query.salesChannelIds),
+    orderNumberFilter: parseOrderNumberFilter(str("orderNumberFilter")),
+    excludeCancelled: str("excludeCancelled") === "true",
+  };
 }
 
 export async function loadAnalyticsOrders(
