@@ -72,8 +72,8 @@ beforeEach(() => {
   state.tenant = `tenant-${state.n}`;
 });
 
-const customers = async () => {
-  const r = await fetch(`${base}/api/crm/customers`);
+const customers = async (query = "") => {
+  const r = await fetch(`${base}/api/crm/customers${query}`);
   const json = await r.json();
   return Object.fromEntries(json.customers.map((c: any) => [c.email, c]));
 };
@@ -98,5 +98,20 @@ describe("GET /api/crm/customers", () => {
       order("d2", "d@example.com", { orderNumber: "286101", totalAmount: 26119.95, orderDate: "2026-07-07T00:00:00.000+00:00", updatedAt: "2026-07-07T13:50:04Z" }),
     ];
     expect((await customers())["d@example.com"]).toMatchObject({ totalOrders: 1, totalRevenue: 35861.3, lastOrderDate: "2026-07-14T00:00:00.000+00:00" });
+  });
+
+  it("Bestellnummern-Filter: nur MO ohne durchgeschleuste Bestellungen, ohne Parameter alle", async () => {
+    state.orders = [
+      order("m1", "muster@example.com", { orderNumber: "294829", totalAmount: 50000 }),
+      order("k1", "k@example.com", { orderNumber: "MO100", totalAmount: 100, orderDate: "2026-05-01T00:00:00.000+00:00" }),
+      order("k2", "k@example.com", { orderNumber: "295000", totalAmount: 900, orderDate: "2026-06-01T00:00:00.000+00:00" }),
+    ];
+    const mo = await customers("?orderNumberFilter=mo");
+    expect(mo["muster@example.com"]).toMatchObject({ totalOrders: 0, totalRevenue: 0, lastOrderNumber: null });
+    expect(mo["k@example.com"]).toMatchObject({ totalOrders: 1, totalRevenue: 100, lastOrderNumber: "MO100" });
+    expect(mo["k@example.com"]).not.toHaveProperty("orderStatsByFilter");
+    const all = await customers();
+    expect(all["k@example.com"]).toMatchObject({ totalOrders: 2, totalRevenue: 1000, lastOrderNumber: "295000" });
+    expect(all["muster@example.com"]).toMatchObject({ totalOrders: 1, totalRevenue: 50000 });
   });
 });

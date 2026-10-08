@@ -18,6 +18,8 @@ import type { AnalyticsInsight, AnalyticsQuery, AnalyticsResult, ImprovementSugg
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { OrderNumberFilter } from "@shared/orderNumberFilter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
@@ -57,6 +59,8 @@ export default function NaturalLanguageAnalyticsTab() {
   const { t, i18n } = useTranslation();
   const language = (i18n.language || "de").split("-")[0];
   const [question, setQuestion] = useState("");
+  // wie auf der Statistik-Seite: Standard nur Shop-Bestellungen (ohne durchgeschleuste ohne MO)
+  const [orderNumberFilter, setOrderNumberFilter] = useState<OrderNumberFilter>("mo");
 
   // Fragen heute / Tageslimit (server/analytics/nlQueryLimit.ts)
   const usage = useQuery<{ used: number; limit: number }>({ queryKey: [NL_USAGE_URL] });
@@ -64,7 +68,7 @@ export default function NaturalLanguageAnalyticsTab() {
 
   const ask = useMutation({
     mutationFn: async (q: string) => {
-      const res = await apiRequest("POST", "/api/analytics/nl-query", { question: q, language });
+      const res = await apiRequest("POST", "/api/analytics/nl-query", { question: q, language, orderNumberFilter });
       return (await res.json()) as NlQueryResponse;
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: [NL_USAGE_URL] }),
@@ -115,6 +119,16 @@ export default function NaturalLanguageAnalyticsTab() {
               <span className="ml-2">{t("analytics.nlQuery.ask")}</span>
             </Button>
           </form>
+          <Select value={orderNumberFilter} onValueChange={(value) => setOrderNumberFilter(value as OrderNumberFilter)}>
+            <SelectTrigger aria-label={t("analytics.orderNumberFilter")} className="w-72" data-testid="select-nl-order-number-filter">
+              <SelectValue placeholder={t("analytics.orderNumberMo")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("analytics.orderNumberAll")}</SelectItem>
+              <SelectItem value="mo">{t("analytics.orderNumberMo")}</SelectItem>
+              <SelectItem value="non-mo">{t("analytics.orderNumberNonMo")}</SelectItem>
+            </SelectContent>
+          </Select>
           {usage.data && (
             <p className={`text-xs ${limitReached ? "text-destructive" : "text-muted-foreground"}`} data-testid="text-nl-usage">
               {limitReached

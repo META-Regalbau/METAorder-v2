@@ -1,7 +1,7 @@
 /**
  * Dashboard-Kacheln aus dem Bestell-Spiegel (frueher die neuesten 10 bzw. 500 Bestellungen live):
  * neueste Bestellungen, Kennzahlen, verspaetete Bestellungen (Regel wie die Seite) und
- * versandbereite Bestellungen - echte Routen, Anmeldung, Kanaele, Spiegel und Shopware gemockt;
+ * versandbereite Bestellungen; nur Shop-Bestellungen (MO...), durchgeschleuste ohne MO zaehlen nicht - echte Routen, Anmeldung, Kanaele, Spiegel und Shopware gemockt;
  * ein Live-Abruf laesst den Test scheitern.
  * Ausführung: npm test
  */
@@ -34,7 +34,7 @@ function order(overrides: Partial<Order> = {}): Order {
   seq += 1;
   const id = `o${String(seq).padStart(4, "0")}`;
   return {
-    id, orderNumber: `SW-${id}`, customerName: `Kunde ${id}`, customerEmail: `${id}@example.com`, orderDate: daysAgo(1),
+    id, orderNumber: `MO${id}`, customerName: `Kunde ${id}`, customerEmail: `${id}@example.com`, orderDate: daysAgo(1),
     totalAmount: 100, netTotalAmount: 84, status: "open", paymentStatus: "paid", salesChannelId: "sc1", items: [], ...overrides,
   } as Order;
 }
@@ -113,5 +113,25 @@ describe("Dashboard-Kacheln aus dem Spiegel", () => {
     state.channels = ["sc1"];
     expect((await get("/api/dashboard/shipping-ready")).total).toBe(513);
     expect(state.live).toBe(0);
+  });
+
+  it("durchgeschleuste Bestellungen ohne MO zaehlen auf keiner Kachel (orderNumberFilter=all schaltet ab)", async () => {
+    const before = {
+      recent: (await get("/api/dashboard/recent-orders")).map((o: Order) => o.orderNumber),
+      kpis: (await get("/api/dashboard/kpis")).orders,
+      delayed: (await get("/api/dashboard/delayed-orders-summary")).total,
+      ready: (await get("/api/dashboard/shipping-ready")).total,
+    };
+    state.orders.push(
+      order({ orderNumber: "294829", status: "in_progress", paymentStatus: "authorized", orderDate: daysAgo(0) }),
+      order({ orderNumber: "294830", status: "in_progress", orderDate: daysAgo(30), deliveryDateLatest: daysAgo(20) }),
+    );
+    expect((await get("/api/dashboard/recent-orders")).map((o: Order) => o.orderNumber)).toEqual(before.recent);
+    expect((await get("/api/dashboard/kpis")).orders).toEqual(before.kpis);
+    expect((await get("/api/dashboard/delayed-orders-summary")).total).toBe(before.delayed);
+    expect((await get("/api/dashboard/shipping-ready")).total).toBe(before.ready);
+
+    expect((await get("/api/dashboard/kpis?orderNumberFilter=all")).orders).toMatchObject({ open: before.kpis.open + 2, delayed: before.kpis.delayed + 1 });
+    expect((await get("/api/dashboard/recent-orders?orderNumberFilter=all")).map((o: Order) => o.orderNumber)).toContain("294829");
   });
 });

@@ -2,6 +2,7 @@ import type { AnalyticsLanguage, AnalyticsQuery, AnalyticsResult, Order, Product
 import { ShopwareClient } from "../shopware/shopware";
 import type { IStorage } from "../storage";
 import { getMirrorOrdersLikeLive } from "../routes/routeHelpers";
+import { matchesOrderNumberFilter, type OrderNumberFilter } from "@shared/orderNumberFilter";
 import { getTenantIdFromContext } from "../lib/tenantContext";
 import { generateForecast } from "./forecastEngine";
 import type { ForecastConfig, ForecastInput } from "./forecastEngine";
@@ -29,6 +30,8 @@ interface QueryExecutionContext {
   tenantId?: string | null;
   /** Sprache fester Beschriftungen (Kennzahlen, Gruppen, Platzhalter) */
   language: AnalyticsLanguage;
+  /** Shop-Bestellungen (MO...) oder durchgeschleuste ohne MO - wie auf der Statistik-Seite */
+  orderNumberFilter: OrderNumberFilter;
 }
 
 /**
@@ -39,6 +42,7 @@ interface QueryExecutionContext {
  * @param shopwareClient - Optional Shopware client for API access
  * @param allowedChannelIds - Optional sales channel filter for user permissions (null = admin, [] = no access, [...ids] = specific channels)
  * @param language - Sprache fester Beschriftungen der Antwort (Standard Deutsch)
+ * @param orderNumberFilter - nur MO-Bestellungen, nur ohne MO oder alle (Standard)
  * @returns Formatted analytics results with labels and data
  */
 export async function executeAnalyticsQuery(
@@ -48,6 +52,7 @@ export async function executeAnalyticsQuery(
   allowedChannelIds?: string[] | null,
   tenantId?: string | null,
   language: AnalyticsLanguage = "de",
+  orderNumberFilter: OrderNumberFilter = "all",
 ): Promise<AnalyticsResult> {
   moduleLog.info(`[Analytics Executor] Executing query type: ${queryObj.type}`);
   moduleLog.info(`[Analytics Executor] Parameters: ${JSON.stringify(queryObj.parameters, null, 2)}`);
@@ -65,6 +70,7 @@ export async function executeAnalyticsQuery(
     // ohne Angabe der Mandant der Anfrage (null waere der globale Bereich)
     tenantId: tenantId === undefined ? getTenantIdFromContext() : tenantId,
     language,
+    orderNumberFilter,
   };
 
   try {
@@ -169,6 +175,11 @@ async function getOrders(context: QueryExecutionContext): Promise<Order[]> {
     moduleLog.info(`[Analytics Executor] WARNING: No sales channel filtering context - returning all ${filteredOrders.length} orders`);
   }
   
+  if (context.orderNumberFilter !== "all") {
+    filteredOrders = filteredOrders.filter((order) => matchesOrderNumberFilter(order.orderNumber, context.orderNumberFilter));
+    moduleLog.info(`[Analytics Executor] Order number filter "${context.orderNumberFilter}": ${filteredOrders.length} orders`);
+  }
+
   // Cache the filtered orders for reuse in downstream queries
   context.orders = filteredOrders;
   
