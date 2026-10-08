@@ -1,8 +1,10 @@
-import { useState, useMemo, useEffect, lazy, Suspense } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo, useEffect, useRef, lazy, Suspense } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -11,6 +13,7 @@ import { format, subDays } from "date-fns";
 import { createLocaleFormatters, dateFnsLocale } from "@/lib/localeFormat";
 import { useTranslation } from "react-i18next";
 import type { SalesChannel, AiInsight, OfferLearningInsight, Role } from "@shared/schema";
+import type { OrderNumberFilter } from "@shared/orderNumberFilter";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { learningInsightDescription, learningInsightPairStats, learningInsightPairs, learningInsightProductLabel, learningInsightTitle, offerStatusLabel } from "@/lib/learningInsightText";
 import {
@@ -68,6 +71,10 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
   const [customDateFrom, setCustomDateFrom] = useState<Date>();
   const [customDateTo, setCustomDateTo] = useState<Date>();
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
+  // Standard: nur Shop-Bestellungen (MO) ohne Stornos - die durchgeschleusten Bestellungen ohne MO
+  // im Haendlerportal (Live 2026 rund 54 Mio. Euro brutto) verzerren sonst Umsatz und Bestellwert.
+  const [orderNumberFilter, setOrderNumberFilter] = useState<OrderNumberFilter>("mo");
+  const [excludeCancelled, setExcludeCancelled] = useState(true);
   const [productSortBy, setProductSortBy] = useState<"quantity" | "revenue">("quantity");
 
   // Fetch sales channels
@@ -76,18 +83,18 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
     retry: false,
   });
 
-  // Initialize selected channels based on user permissions
+  // Vorauswahl einmalig nach dem Laden der Kanaele. Vorher lief sie bei jeder leeren Auswahl erneut -
+  // "Keine" waehlte sofort wieder alle Kanaele.
+  const channelsInitialized = useRef(false);
   useEffect(() => {
-    if (salesChannels.length > 0 && selectedChannelIds.length === 0) {
-      if (userRole === "admin" || !userSalesChannelIds) {
-        // Admin sees all channels by default
-        setSelectedChannelIds(salesChannels.map(c => c.id));
-      } else {
-        // Non-admin users see only their assigned channels
-        setSelectedChannelIds(userSalesChannelIds);
-      }
+    if (channelsInitialized.current || salesChannels.length === 0) return;
+    channelsInitialized.current = true;
+    if (userRole === "admin" || !userSalesChannelIds?.length) {
+      setSelectedChannelIds(salesChannels.map(c => c.id));
+    } else {
+      setSelectedChannelIds(userSalesChannelIds);
     }
-  }, [salesChannels, userRole, userSalesChannelIds, selectedChannelIds.length]);
+  }, [salesChannels, userRole, userSalesChannelIds]);
 
   // Calculate date range based on preset
   const { dateFrom, dateTo } = useMemo(() => {
@@ -108,6 +115,34 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
     };
   }, [dateRange, customDateFrom, customDateTo]);
 
+  // Gemeinsame Filter aller Bestell-Auswertungen. Der Server beschraenkt die Kanaele auf die
+  // Berechtigung des Nutzers.
+  const orderFilterParams = useMemo(() => {
+    const params = new URLSearchParams();
+    if (dateFrom) params.append("dateFrom", dateFrom);
+    if (dateTo) params.append("dateTo", dateTo);
+    if (selectedChannelIds.length > 0) params.append("salesChannelIds", selectedChannelIds.join(","));
+    if (orderNumberFilter !== "all") params.append("orderNumberFilter", orderNumberFilter);
+    if (excludeCancelled) params.append("excludeCancelled", "true");
+    return params.toString();
+  }, [dateFrom, dateTo, selectedChannelIds, orderNumberFilter, excludeCancelled]);
+  const hasChannelSelection = selectedChannelIds.length > 0;
+  // Bei Filterwechsel bleiben die bisherigen Zahlen stehen, bis die neuen da sind (vorher ersetzte
+  // "Laden..." die ganze Seite und schloss die Kanalauswahl nach jedem Klick).
+  // Ohne Kanal keine alten Zahlen stehen lassen.
+  const orderQueryOptions = {
+    enabled: hasChannelSelection,
+    placeholderData: hasChannelSelection ? keepPreviousData : undefined,
+  };
+
+  const fetchOrderAnalytics = async (path: string, extra?: Record<string, string>) => {
+    const params = new URLSearchParams(orderFilterParams);
+    for (const [key, value] of Object.entries(extra ?? {})) params.append(key, value);
+    const response = await fetch(`${path}?${params}`, { credentials: "include" });
+    if (!response.ok) throw new Error(`Failed to fetch ${path}`);
+    return response.json();
+  };
+
   // Fetch analytics data
   const { data: summary, isLoading: summaryLoading } = useQuery<{
     totalOrders: number;
@@ -119,19 +154,9 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
     dateFrom?: string;
     dateTo?: string;
   }>({
-    queryKey: ["/api/analytics/summary", dateFrom, dateTo, selectedChannelIds],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (dateFrom) params.append("dateFrom", dateFrom);
-      if (dateTo) params.append("dateTo", dateTo);
-      if (selectedChannelIds.length > 0) params.append("salesChannelIds", selectedChannelIds.join(','));
-      const response = await fetch(`/api/analytics/summary?${params}`, {
-        credentials: 'include',
-      });
-      if (!response.ok) throw new Error("Failed to fetch summary");
-      return response.json();
-    },
-    enabled: selectedChannelIds.length > 0,
+    queryKey: ["/api/analytics/summary", orderFilterParams],
+    queryFn: () => fetchOrderAnalytics("/api/analytics/summary"),
+    ...orderQueryOptions,
   });
 
   const { data: aiInsightsData } = useQuery<{ insights: AiInsight[] }>({
@@ -184,35 +209,15 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
   }, [offerConversionInsight, offerStatusInsight]);
 
   const { data: orderStatus } = useQuery<Record<string, number>>({
-    queryKey: ["/api/analytics/order-status", dateFrom, dateTo, selectedChannelIds],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (dateFrom) params.append("dateFrom", dateFrom);
-      if (dateTo) params.append("dateTo", dateTo);
-      if (selectedChannelIds.length > 0) params.append("salesChannelIds", selectedChannelIds.join(','));
-      const response = await fetch(`/api/analytics/order-status?${params}`, {
-        credentials: 'include',
-      });
-      if (!response.ok) throw new Error("Failed to fetch order status");
-      return response.json();
-    },
-    enabled: selectedChannelIds.length > 0,
+    queryKey: ["/api/analytics/order-status", orderFilterParams],
+    queryFn: () => fetchOrderAnalytics("/api/analytics/order-status"),
+    ...orderQueryOptions,
   });
 
   const { data: paymentStatus } = useQuery<Record<string, number>>({
-    queryKey: ["/api/analytics/payment-status", dateFrom, dateTo, selectedChannelIds],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (dateFrom) params.append("dateFrom", dateFrom);
-      if (dateTo) params.append("dateTo", dateTo);
-      if (selectedChannelIds.length > 0) params.append("salesChannelIds", selectedChannelIds.join(','));
-      const response = await fetch(`/api/analytics/payment-status?${params}`, {
-        credentials: 'include',
-      });
-      if (!response.ok) throw new Error("Failed to fetch payment status");
-      return response.json();
-    },
-    enabled: selectedChannelIds.length > 0,
+    queryKey: ["/api/analytics/payment-status", orderFilterParams],
+    queryFn: () => fetchOrderAnalytics("/api/analytics/payment-status"),
+    ...orderQueryOptions,
   });
 
   const { data: productOverview } = useQuery<{
@@ -250,29 +255,20 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
   }>({
     queryKey: ["/api/analytics/product-data-quality", selectedChannelIds],
     queryFn: async () => {
-      const response = await fetch("/api/analytics/product-data-quality", {
+      const params = new URLSearchParams({ salesChannelIds: selectedChannelIds.join(",") });
+      const response = await fetch(`/api/analytics/product-data-quality?${params}`, {
         credentials: "include",
       });
       if (!response.ok) throw new Error("Failed to fetch product data quality");
       return response.json();
     },
-    enabled: selectedChannelIds.length > 0,
+    ...orderQueryOptions,
   });
 
   const { data: categorySales } = useQuery<Array<{ name: string; revenue: number; netRevenue: number; quantity: number }>>({
-    queryKey: ["/api/analytics/category-sales", dateFrom, dateTo, selectedChannelIds],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (dateFrom) params.append("dateFrom", dateFrom);
-      if (dateTo) params.append("dateTo", dateTo);
-      if (selectedChannelIds.length > 0) params.append("salesChannelIds", selectedChannelIds.join(','));
-      const response = await fetch(`/api/analytics/category-sales?${params}`, {
-        credentials: 'include',
-      });
-      if (!response.ok) throw new Error("Failed to fetch category sales");
-      return response.json();
-    },
-    enabled: selectedChannelIds.length > 0,
+    queryKey: ["/api/analytics/category-sales", orderFilterParams],
+    queryFn: () => fetchOrderAnalytics("/api/analytics/category-sales"),
+    ...orderQueryOptions,
   });
 
   const { data: productPerformance } = useQuery<{
@@ -291,20 +287,9 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
       orderCount: number;
     }>;
   }>({
-    queryKey: ["/api/analytics/product-performance", dateFrom, dateTo, selectedChannelIds],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (dateFrom) params.append("dateFrom", dateFrom);
-      if (dateTo) params.append("dateTo", dateTo);
-      if (selectedChannelIds.length > 0) params.append("salesChannelIds", selectedChannelIds.join(','));
-      params.append("minQuantity", "1");
-      const response = await fetch(`/api/analytics/product-performance?${params}`, {
-        credentials: 'include',
-      });
-      if (!response.ok) throw new Error("Failed to fetch product performance");
-      return response.json();
-    },
-    enabled: selectedChannelIds.length > 0,
+    queryKey: ["/api/analytics/product-performance", orderFilterParams],
+    queryFn: () => fetchOrderAnalytics("/api/analytics/product-performance", { minQuantity: "1" }),
+    ...orderQueryOptions,
   });
 
   const { data: salesTrend } = useQuery<Array<{
@@ -313,19 +298,9 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
     netRevenue: number;
     orderCount: number;
   }>>({
-    queryKey: ["/api/analytics/sales-trend", dateFrom, dateTo, selectedChannelIds],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (dateFrom) params.append("dateFrom", dateFrom);
-      if (dateTo) params.append("dateTo", dateTo);
-      if (selectedChannelIds.length > 0) params.append("salesChannelIds", selectedChannelIds.join(','));
-      const response = await fetch(`/api/analytics/sales-trend?${params}`, {
-        credentials: 'include',
-      });
-      if (!response.ok) throw new Error("Failed to fetch sales trend");
-      return response.json();
-    },
-    enabled: selectedChannelIds.length > 0,
+    queryKey: ["/api/analytics/sales-trend", orderFilterParams],
+    queryFn: () => fetchOrderAnalytics("/api/analytics/sales-trend"),
+    ...orderQueryOptions,
   });
 
   const { data: shippingTimes } = useQuery<{
@@ -336,19 +311,9 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
     medianHours: number;
     distribution: Array<{ label: string; count: number }>;
   }>({
-    queryKey: ["/api/analytics/shipping-times", dateFrom, dateTo, selectedChannelIds],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (dateFrom) params.append("dateFrom", dateFrom);
-      if (dateTo) params.append("dateTo", dateTo);
-      if (selectedChannelIds.length > 0) params.append("salesChannelIds", selectedChannelIds.join(","));
-      const response = await fetch(`/api/analytics/shipping-times?${params}`, {
-        credentials: "include",
-      });
-      if (!response.ok) throw new Error("Failed to fetch shipping times");
-      return response.json();
-    },
-    enabled: selectedChannelIds.length > 0,
+    queryKey: ["/api/analytics/shipping-times", orderFilterParams],
+    queryFn: () => fetchOrderAnalytics("/api/analytics/shipping-times"),
+    ...orderQueryOptions,
   });
 
   const { data: ga4Kpis } = useQuery<{
@@ -549,7 +514,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
     );
   }
 
-  if (summaryLoading) {
+  if (summaryLoading && !summary) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-lg">{t('common.loading')}</div>
@@ -561,15 +526,42 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
     <div className="w-full">
       {pageHeader}
 
-      {/* Sales Channel Filter */}
-      <div className="mb-6">
+      {/* Bestellfilter: Verkaufskanal, Art der Bestellnummer, Stornierte */}
+      <div className="flex flex-wrap items-center gap-4 mb-6">
         <SalesChannelSelector
           selectedChannelIds={selectedChannelIds}
           onSelectionChange={setSelectedChannelIds}
           userAllowedChannelIds={userSalesChannelIds}
           isAdmin={userRole === "admin"}
         />
+        <Select value={orderNumberFilter} onValueChange={(value) => setOrderNumberFilter(value as OrderNumberFilter)}>
+          <SelectTrigger aria-label={t('analytics.orderNumberFilter')} className="w-72" data-testid="select-analytics-order-number-filter">
+            <SelectValue placeholder={t('analytics.orderNumberAll')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('analytics.orderNumberAll')}</SelectItem>
+            <SelectItem value="mo">{t('analytics.orderNumberMo')}</SelectItem>
+            <SelectItem value="non-mo">{t('analytics.orderNumberNonMo')}</SelectItem>
+          </SelectContent>
+        </Select>
+        <div className="flex items-center gap-2">
+          <Switch
+            id="analytics-exclude-cancelled"
+            checked={excludeCancelled}
+            onCheckedChange={setExcludeCancelled}
+            data-testid="switch-analytics-exclude-cancelled"
+          />
+          <Label htmlFor="analytics-exclude-cancelled" className="text-sm font-normal">
+            {t('analytics.excludeCancelled')}
+          </Label>
+        </div>
       </div>
+
+      {!hasChannelSelection && (
+        <p className="mb-6 text-sm text-muted-foreground" role="status" data-testid="text-analytics-no-channel">
+          {t('analytics.noChannelSelected')}
+        </p>
+      )}
 
       {/* Date Range Filter and Export */}
       <div className="flex flex-wrap gap-4 mb-6">

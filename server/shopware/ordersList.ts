@@ -1,7 +1,8 @@
 import type { Order, OrderStatus } from "@shared/schema";
+import { matchesOrderNumberFilter, type OrderNumberFilter } from "@shared/orderNumberFilter";
 
 export type OrdersListInvoiceFilter = "all" | "with" | "without" | "unsent";
-export type OrdersListOrderNumberFilter = "all" | "mo";
+export type OrdersListOrderNumberFilter = OrderNumberFilter;
 export type OrdersListSortKey =
   | "orderNumber"
   | "customerName"
@@ -47,9 +48,7 @@ export function filterOrdersList(orders: Order[], query: OrdersListQuery): Order
     const matchesDateTo =
       !query.dateTo || new Date(order.orderDate) <= new Date(query.dateTo);
 
-    const orderNumberFilter = query.orderNumberFilter ?? "all";
-    const matchesOrderNumber =
-      orderNumberFilter === "all" || order.orderNumber.toUpperCase().startsWith("MO");
+    const matchesOrderNumber = matchesOrderNumberFilter(order.orderNumber, query.orderNumberFilter ?? "all");
 
     return (
       matchesSearch &&

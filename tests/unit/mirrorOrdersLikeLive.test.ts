@@ -113,4 +113,12 @@ describe("KI-Abfrage (executeAnalyticsQuery)", () => {
     expect(state.mirrorTenants).toEqual(["tenant-a"]);
     expect(live).toBe(0);
   });
+
+  it("Bestellnummern-Filter: nur MO bzw. nur ohne MO", async () => {
+    const stats = async (filter: "mo" | "non-mo") =>
+      (await executeAnalyticsQuery({ type: "general_statistics", parameters: {} } as any, storage, client(), ["sc1"], "tenant-a", "de", filter)).summary;
+    // die Testbestellungen tragen SW-Nummern, also keine MO-Bestellungen
+    expect(await stats("mo")).toMatchObject({ count: 0 });
+    expect(await stats("non-mo")).toMatchObject({ count: 4, total: 350 });
+  });
 });

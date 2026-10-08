@@ -9,6 +9,8 @@ import { loadCrmProfitabilitySettings } from "../analytics/crmProfitabilitySetti
 import { enrichCustomerPricesWithHerstellMargin } from "../products/herstellpreisMargin";
 import type { Express } from "express";
 import { logger } from "../lib/logger";
+import { parseOrderNumberFilter } from "@shared/orderNumberFilter";
+import { addOrderToCrmStats, pickCrmOrderStats, type CrmOrderStatsByFilter } from "../analytics/crmOrderStats";
 
 const moduleLog = logger.child({ component: "routes/crmRoutes" });
 
@@ -56,7 +58,7 @@ function individualPricesIndexCustomers(index: {
 }
 
 // v6: Bestellanzahl/Umsatz je Kunde ohne doppelt angelegte Bestellungen (gespeicherte v5-Summen zaehlten sie mit)
-const CRM_CUSTOMERS_CACHE_KEY = "crm_customers_cache_v6";
+const CRM_CUSTOMERS_CACHE_KEY = "crm_customers_cache_v7";
 
 const CRM_INDIVIDUAL_PRICES_CACHE_KEY = "crm_individual_prices_index_v2";
 
@@ -92,6 +94,8 @@ export function registerCrmRoutes(app: Express): void {
         /** Manuell erfasste Interaktionen (Notiz/Anruf/E-Mail/Termin) — s. Kunden-Detail, Tab „Interaktionen". */
         interactionCount: number;
         lastInteractionAt: string | null;
+        /** Bestellkennzahlen je Art der Bestellnummer (nur im Zwischenspeicher, s. crmOrderStats) */
+        orderStatsByFilter?: CrmOrderStatsByFilter;
       };
 
       const { data: list } = await getHashCached<CrmListItem[]>({
@@ -140,6 +144,7 @@ export function registerCrmRoutes(app: Express): void {
             lastOrderNumber?: string | null;
             lastOrderDate?: string | null;
             salesChannelIds: Set<string>;
+            orderStatsByFilter?: CrmOrderStatsByFilter;
           }>();
 
           const settings = await storage.getShopwareSettings(tenantId);
@@ -178,6 +183,7 @@ export function registerCrmRoutes(app: Express): void {
                 existing.lastOrderDate = orderDate;
                 existing.lastOrderNumber = order.orderNumber;
               }
+              addOrderToCrmStats((existing.orderStatsByFilter ??= {}), order);
               aggregation.set(emailKey, existing);
             });
 
@@ -352,18 +358,22 @@ export function registerCrmRoutes(app: Express): void {
               hasIndividualPrice: individualPriceEmailsForList.has(emailKey),
               interactionCount: interaction?.count ?? 0,
               lastInteractionAt: interaction?.lastAt ? new Date(interaction.lastAt).toISOString() : null,
+              orderStatsByFilter: data.orderStatsByFilter,
             };
           });
         },
       });
 
+      // Shop-Bestellungen (MO...) / ohne MO / alle; ohne Parameter alle
+      const orderNumberFilter = parseOrderNumberFilter(req.query.orderNumberFilter);
+      const withStats = list.map((item) => pickCrmOrderStats(item, orderNumberFilter));
       const searched = rawQuery
-        ? list.filter((item) =>
+        ? withStats.filter((item) =>
             [item.name, item.email, item.company, item.lastOrderNumber]
               .filter(Boolean)
               .some((value) => String(value).toLowerCase().includes(rawQuery))
           )
-        : list;
+        : withStats;
 
       const filtered = filterCrmCustomersBySalesChannels(searched, allowedChannelIds);
 

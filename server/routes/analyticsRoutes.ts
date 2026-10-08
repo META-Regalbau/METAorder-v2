@@ -2,7 +2,7 @@
 import { requireAuth, requireViewAnalytics, requireViewNaturalLanguageAnalytics, requireViewTickets, requireViewCrm, requireViewDelayedOrders, requireViewShipping } from "../auth/auth";
 import { fetchGa4Kpis, fetchAdsKpis } from "../analytics/googleKpi";
 import { storage } from "../storage";
-import { getSalesChannelFilter, filterTicketsBySalesChannels, filterOrdersBySalesChannels, getMirrorOrdersLikeLive } from "./routeHelpers";
+import { getSalesChannelFilter, narrowSalesChannelFilter, filterTicketsBySalesChannels, filterOrdersBySalesChannels, getMirrorOrdersLikeLive } from "./routeHelpers";
 import { selectDelayedOrders } from "../shopware/ordersList";
 import { ShopwareClient } from "../shopware/shopware";
 import { processNaturalLanguageQuery } from "../analytics/naturalLanguageAnalytics";
@@ -11,15 +11,31 @@ import { generateInsights } from "../analytics/automaticInsights";
 import { parseAnalyticsLanguage } from "../analytics/nlLanguage";
 import type { Request, Response, Express } from "express";
 import { type NlQueryErrorCode, type Order } from "@shared/schema";
+import { matchesOrderNumberFilter, parseOrderNumberFilter, type OrderNumberFilter } from "@shared/orderNumberFilter";
 import { isOrderEligibleForShippingPick } from "@shared/orderShippingEligibility";
 import { toImportedInquirySummary } from "../commercial/importedInquirySummary";
-import { loadAnalyticsOrders } from "../analytics/analyticsOrders";
+import { analyticsFilterFromRequest, loadAnalyticsOrders } from "../analytics/analyticsOrders";
 import { consumeNlQuota, getNlUsage, NL_LIMIT_DEFAULTS, resolveNlLimits, type NlLimits } from "../analytics/nlQueryLimit";
 import { nlUsageStore } from "../analytics/nlQueryUsageStore";
 import { dataQualityCacheKey, fetchAllDataQualityProducts, productDataQualityCache, summarizeDataQuality } from "../analytics/productDataQuality";
 import { logger } from "../lib/logger";
 
 const moduleLog = logger.child({ component: "routes/analyticsRoutes" });
+
+/**
+ * Dashboard-Kacheln zaehlen nur Shop-Bestellungen (MO...): die durchgeschleusten Bestellungen ohne
+ * MO im Haendlerportal (Live 2026 rund 1.600, fast alle "in Bearbeitung") fuellten sonst "offene
+ * Bestellungen", Versandbereit und die neuesten Bestellungen. Parameter orderNumberFilter=all
+ * schaltet das ab.
+ */
+function dashboardOrderNumberFilter(req: Request): OrderNumberFilter {
+  return req.query.orderNumberFilter === undefined ? "mo" : parseOrderNumberFilter(req.query.orderNumberFilter);
+}
+
+function dashboardOrders(orders: Order[], req: Request): Order[] {
+  const filter = dashboardOrderNumberFilter(req);
+  return orders.filter((order) => matchesOrderNumberFilter(order.orderNumber, filter));
+}
 
 export function registerAnalyticsRoutes(app: Express): void {
   // Google KPI endpoints
@@ -56,12 +72,8 @@ export function registerAnalyticsRoutes(app: Express): void {
   // Analytics Endpoints
   app.get("/api/analytics/summary", requireAuth, async (req, res) => {
     try {
-      const dateFrom = req.query.dateFrom as string | undefined;
-      const dateTo = req.query.dateTo as string | undefined;
-      
-      // SECURITY: Get sales channel filter from user permissions (server-side, authoritative)
-      // IGNORE client-provided salesChannelIds query parameter - it's not trusted
-      const salesChannelIds = await getSalesChannelFilter(req);
+      // Kanaele: Auswahl des Nutzers, serverseitig auf seine Berechtigung beschraenkt
+      const filter = await analyticsFilterFromRequest(req);
 
       const settings = await storage.getShopwareSettings();
       if (!settings) {
@@ -69,7 +81,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       }
 
       const client = new ShopwareClient(settings);
-      const orders = await loadAnalyticsOrders(client, (req as any).tenantId, { dateFrom, dateTo, salesChannelIds });
+      const orders = await loadAnalyticsOrders(client, (req as any).tenantId, filter);
 
       // Calculate summary metrics
       const totalOrders = orders.length;
@@ -88,8 +100,8 @@ export function registerAnalyticsRoutes(app: Express): void {
         averageOrderValue,
         averageNetOrderValue,
         uniqueCustomers,
-        dateFrom,
-        dateTo,
+        dateFrom: filter.dateFrom,
+        dateTo: filter.dateTo,
       });
     } catch (error: any) {
       moduleLog.error({ err: error }, "Error fetching analytics summary:");
@@ -105,7 +117,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       }
 
       const client = new ShopwareClient(settings);
-      const salesChannelIds = await getSalesChannelFilter(req);
+      const salesChannelIds = narrowSalesChannelFilter(await getSalesChannelFilter(req), req.query.salesChannelIds);
       // Zwischengespeichert je Mandant und Kanalfilter (siehe server/analytics/productDataQuality.ts)
       const summary = await productDataQualityCache.get(
         dataQualityCacheKey((req as any).tenantId, salesChannelIds),
@@ -120,12 +132,8 @@ export function registerAnalyticsRoutes(app: Express): void {
 
   app.get("/api/analytics/order-status", requireAuth, async (req, res) => {
     try {
-      const dateFrom = req.query.dateFrom as string | undefined;
-      const dateTo = req.query.dateTo as string | undefined;
-      
-      // SECURITY: Get sales channel filter from user permissions (server-side, authoritative)
-      // IGNORE client-provided salesChannelIds query parameter - it's not trusted
-      const salesChannelIds = await getSalesChannelFilter(req);
+      // Kanaele: Auswahl des Nutzers, serverseitig auf seine Berechtigung beschraenkt
+      const filter = await analyticsFilterFromRequest(req);
 
       const settings = await storage.getShopwareSettings();
       if (!settings) {
@@ -133,7 +141,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       }
 
       const client = new ShopwareClient(settings);
-      const orders = await loadAnalyticsOrders(client, (req as any).tenantId, { dateFrom, dateTo, salesChannelIds });
+      const orders = await loadAnalyticsOrders(client, (req as any).tenantId, filter);
 
       // Group by order status
       const statusDistribution: Record<string, number> = {};
@@ -150,12 +158,8 @@ export function registerAnalyticsRoutes(app: Express): void {
 
   app.get("/api/analytics/payment-status", requireAuth, async (req, res) => {
     try {
-      const dateFrom = req.query.dateFrom as string | undefined;
-      const dateTo = req.query.dateTo as string | undefined;
-      
-      // SECURITY: Get sales channel filter from user permissions (server-side, authoritative)
-      // IGNORE client-provided salesChannelIds query parameter - it's not trusted
-      const salesChannelIds = await getSalesChannelFilter(req);
+      // Kanaele: Auswahl des Nutzers, serverseitig auf seine Berechtigung beschraenkt
+      const filter = await analyticsFilterFromRequest(req);
 
       const settings = await storage.getShopwareSettings();
       if (!settings) {
@@ -163,7 +167,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       }
 
       const client = new ShopwareClient(settings);
-      const orders = await loadAnalyticsOrders(client, (req as any).tenantId, { dateFrom, dateTo, salesChannelIds });
+      const orders = await loadAnalyticsOrders(client, (req as any).tenantId, filter);
 
       // Group by payment status
       const paymentDistribution: Record<string, number> = {};
@@ -294,12 +298,8 @@ export function registerAnalyticsRoutes(app: Express): void {
 
   app.get("/api/analytics/category-sales", requireAuth, async (req, res) => {
     try {
-      const dateFrom = req.query.dateFrom as string | undefined;
-      const dateTo = req.query.dateTo as string | undefined;
-      
-      // SECURITY: Get sales channel filter from user permissions (server-side, authoritative)
-      // IGNORE client-provided salesChannelIds query parameter - it's not trusted
-      const salesChannelIds = await getSalesChannelFilter(req);
+      // Kanaele: Auswahl des Nutzers, serverseitig auf seine Berechtigung beschraenkt
+      const filter = await analyticsFilterFromRequest(req);
 
       const settings = await storage.getShopwareSettings();
       if (!settings) {
@@ -307,7 +307,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       }
 
       const client = new ShopwareClient(settings);
-      const orders = await loadAnalyticsOrders(client, (req as any).tenantId, { dateFrom, dateTo, salesChannelIds });
+      const orders = await loadAnalyticsOrders(client, (req as any).tenantId, filter);
 
       // Calculate sales by category
       const categorySales: Record<string, { revenue: number; netRevenue: number; quantity: number }> = {};
@@ -342,12 +342,8 @@ export function registerAnalyticsRoutes(app: Express): void {
 
   app.get("/api/analytics/product-performance", requireAuth, async (req, res) => {
     try {
-      const dateFrom = req.query.dateFrom as string | undefined;
-      const dateTo = req.query.dateTo as string | undefined;
-      
-      // SECURITY: Get sales channel filter from user permissions (server-side, authoritative)
-      // IGNORE client-provided salesChannelIds query parameter - it's not trusted
-      const salesChannelIds = await getSalesChannelFilter(req);
+      // Kanaele: Auswahl des Nutzers, serverseitig auf seine Berechtigung beschraenkt
+      const filter = await analyticsFilterFromRequest(req);
       
       const minQuantity = parseInt(req.query.minQuantity as string) || 1;
 
@@ -357,7 +353,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       }
 
       const client = new ShopwareClient(settings);
-      const orders = await loadAnalyticsOrders(client, (req as any).tenantId, { dateFrom, dateTo, salesChannelIds });
+      const orders = await loadAnalyticsOrders(client, (req as any).tenantId, filter);
 
       // Calculate product performance
       const productPerformance: Record<string, {
@@ -411,12 +407,8 @@ export function registerAnalyticsRoutes(app: Express): void {
 
   app.get("/api/analytics/sales-trend", requireAuth, async (req, res) => {
     try {
-      const dateFrom = req.query.dateFrom as string | undefined;
-      const dateTo = req.query.dateTo as string | undefined;
-      
-      // SECURITY: Get sales channel filter from user permissions (server-side, authoritative)
-      // IGNORE client-provided salesChannelIds query parameter - it's not trusted
-      const salesChannelIds = await getSalesChannelFilter(req);
+      // Kanaele: Auswahl des Nutzers, serverseitig auf seine Berechtigung beschraenkt
+      const filter = await analyticsFilterFromRequest(req);
 
       const settings = await storage.getShopwareSettings();
       if (!settings) {
@@ -424,7 +416,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       }
 
       const client = new ShopwareClient(settings);
-      const orders = await loadAnalyticsOrders(client, (req as any).tenantId, { dateFrom, dateTo, salesChannelIds });
+      const orders = await loadAnalyticsOrders(client, (req as any).tenantId, filter);
 
       // Group by date
       const dailySales: Record<string, { date: string; revenue: number; netRevenue: number; orderCount: number }> = {};
@@ -456,10 +448,8 @@ export function registerAnalyticsRoutes(app: Express): void {
 
   app.get("/api/analytics/shipping-times", requireAuth, async (req, res) => {
     try {
-      const dateFrom = req.query.dateFrom as string | undefined;
-      const dateTo = req.query.dateTo as string | undefined;
-
-      const salesChannelIds = await getSalesChannelFilter(req);
+      // Kanaele: Auswahl des Nutzers, serverseitig auf seine Berechtigung beschraenkt
+      const filter = await analyticsFilterFromRequest(req);
 
       const settings = await storage.getShopwareSettings();
       if (!settings) {
@@ -467,7 +457,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       }
 
       const client = new ShopwareClient(settings);
-      const orders = await loadAnalyticsOrders(client, (req as any).tenantId, { dateFrom, dateTo, salesChannelIds });
+      const orders = await loadAnalyticsOrders(client, (req as any).tenantId, filter);
 
       const ordersWithShipping = orders.filter(
         (o) => o.shippingInfo?.shippedDate && o.orderDate
@@ -671,7 +661,10 @@ export function registerAnalyticsRoutes(app: Express): void {
       moduleLog.info("[NL Analytics API] Step 3: Executing analytics query...");
       let result;
       try {
-        result = await executeAnalyticsQuery(queryObj, storage, shopwareClient, allowedChannelIds, (req as any).tenantId ?? null, language);
+        result = await executeAnalyticsQuery(
+          queryObj, storage, shopwareClient, allowedChannelIds, (req as any).tenantId ?? null, language,
+          parseOrderNumberFilter(req.body?.orderNumberFilter),
+        );
         moduleLog.info("[NL Analytics API] Query executed successfully");
         moduleLog.info(`[NL Analytics API] Result summary: ${JSON.stringify(result.summary, null, 2)}`);
       } catch (error: any) {
@@ -925,7 +918,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       // Die 10 neuesten Bestellungen der eigenen Kanaele aus dem Bestell-Spiegel (frueher live -
       // eine leere Kanalliste filterte dort gar nicht)
       const orders = filterOrdersBySalesChannels(
-        await getMirrorOrdersLikeLive(client, (req as any).tenantId ?? null),
+        dashboardOrders(await getMirrorOrdersLikeLive(client, (req as any).tenantId ?? null), req),
         allowedChannelIds,
       ).slice(0, 10);
 
@@ -969,7 +962,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       
       // SECURITY: Filter orders by user's assigned sales channels (server-enforced)
       const orderItems = ordersResponse?.orders || [];
-      const accessibleOrders = filterOrdersBySalesChannels(orderItems, allowedChannelIds);
+      const accessibleOrders = filterOrdersBySalesChannels(dashboardOrders(orderItems, req), allowedChannelIds);
 
       // Calculate order statistics
       const today = new Date();
@@ -1025,7 +1018,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       // live), verspaetet nach derselben Regel wie die Seite; kritisch = Lieferdatum (sonst
       // Bestelldatum) mehr als 14 Tage vorbei
       const accessibleOrders = filterOrdersBySalesChannels(
-        await getMirrorOrdersLikeLive(client, (req as any).tenantId ?? null),
+        dashboardOrders(await getMirrorOrdersLikeLive(client, (req as any).tenantId ?? null), req),
         allowedChannelIds,
       );
       const delayedOrders = selectDelayedOrders(accessibleOrders);
@@ -1069,7 +1062,7 @@ export function registerAnalyticsRoutes(app: Express): void {
 
       // Alle Bestellungen der eigenen Kanaele aus dem Bestell-Spiegel (frueher nur die neuesten 500 live)
       const accessibleOrders = filterOrdersBySalesChannels(
-        await getMirrorOrdersLikeLive(client, (req as any).tenantId ?? null),
+        dashboardOrders(await getMirrorOrdersLikeLive(client, (req as any).tenantId ?? null), req),
         allowedChannelIds,
       );
 

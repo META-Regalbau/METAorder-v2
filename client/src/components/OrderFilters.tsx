@@ -6,9 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { useTranslation } from "react-i18next";
 import type { OrderStatus } from "@shared/schema";
+import type { OrderNumberFilter } from "@shared/orderNumberFilter";
 
 export type InvoiceFilter = "all" | "with" | "without" | "unsent";
-export type OrderNumberFilter = "all" | "mo";
+export type { OrderNumberFilter };
 
 interface OrderFiltersProps {
   statusFilter: OrderStatus | "all";
@@ -112,6 +113,7 @@ export default function OrderFilters({
             <SelectContent>
               <SelectItem value="all">{t("filters.orderNumberAll")}</SelectItem>
               <SelectItem value="mo">{t("filters.orderNumberMoOnly")}</SelectItem>
+              <SelectItem value="non-mo">{t("filters.orderNumberNonMo")}</SelectItem>
             </SelectContent>
           </Select>
         </div>

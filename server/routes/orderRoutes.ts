@@ -11,6 +11,7 @@ import { z } from "zod";
 import * as XLSX from "xlsx";
 import { getInvoiceAutomationSettings, type SendInvoiceResult, sendOrderInvoice, markOrderInvoiceSentInCache } from "../invoicing/invoiceSending";
 import { webhookService, type DocumentCreatedPayload } from "../lib/webhookService";
+import { parseOrderNumberFilter } from "@shared/orderNumberFilter";
 import { settlementInvoicePdfBodySchema, additionalInvoiceBodySchema, createInstallmentPlanBodySchema, type Order, type InstallmentPlan, type InstallmentInvoice } from "@shared/schema";
 import { type SettlementInvoicePdfInput, generateSettlementInvoicePdf } from "../invoicing/settlementInvoicePdf";
 import { generateAdditionalInvoicePdf } from "../invoicing/additionalInvoicePdf";
@@ -164,7 +165,7 @@ function parseOrdersListQuery(query: Record<string, unknown>): OrdersListQuery {
       invoiceFilter === "unsent"
         ? invoiceFilter
         : "all",
-    orderNumberFilter: orderNumberFilter === "mo" ? "mo" : "all",
+    orderNumberFilter: parseOrderNumberFilter(orderNumberFilter),
     dateFrom: str("dateFrom"),
     dateTo: str("dateTo"),
     sortKey:

@@ -1228,6 +1228,7 @@
     "orderNumberLabel": "Bestellnummer",
     "orderNumberAll": "Alle Bestellungen",
     "orderNumberMoOnly": "Nur MO-Bestellungen",
+    "orderNumberNonMo": "Nur ohne MO (durchgeschleust)",
     "dateFrom": "Datum von",
     "dateTo": "Datum bis"
   },
@@ -2837,7 +2838,13 @@
       "usageToday": "Heute {{used}} von {{limit}} Fragen gestellt",
       "usageLimitReached": "Tageslimit erreicht ({{limit}} Fragen). Morgen geht es weiter."
     },
-    "gross": "Brutto"
+    "gross": "Brutto",
+    "orderNumberFilter": "Bestellnummern",
+    "orderNumberAll": "Alle Bestellnummern",
+    "orderNumberMo": "Nur MO-Bestellungen (Shop)",
+    "orderNumberNonMo": "Nur ohne MO (durchgeschleust)",
+    "excludeCancelled": "Stornierte ausblenden",
+    "noChannelSelected": "Kein Verkaufskanal ausgewählt – bitte mindestens einen Kanal wählen, um Bestellzahlen zu sehen."
   },
   "bulkActions": {
     "selectedCount": "{{count}} Bestellung ausgewählt",

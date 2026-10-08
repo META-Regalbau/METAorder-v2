@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -14,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTranslation } from "react-i18next";
 import type { DiscountRequest, OrderAssignment, Role } from "@shared/schema";
+import type { OrderNumberFilter } from "@shared/orderNumberFilter";
 import CustomerDetailModal, { type CustomerDetailTab } from "@/components/CustomerDetailModal";
 import { SalesChannelSelector } from "@/components/SalesChannelSelector";
 
@@ -66,6 +68,8 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
   const [onlyAdditionalDiscounts, setOnlyAdditionalDiscounts] = useState(false);
   const [onlyPossibleExisting, setOnlyPossibleExisting] = useState(false);
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
+  // Bestellanzahl/Umsatz je Kunde: Standard nur Shop-Bestellungen (MO...), wie die Statistik
+  const [orderNumberFilter, setOrderNumberFilter] = useState<OrderNumberFilter>("mo");
   const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -74,10 +78,14 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
   const canApproveCrm = userPermissions?.approveCrm || false;
 
   const { data: customersData, isLoading: customersLoading } = useQuery<{ customers: CrmCustomer[] }>({
-    queryKey: ["/api/crm/customers", searchValue],
+    queryKey: ["/api/crm/customers", searchValue, orderNumberFilter],
     queryFn: async () => {
+      const params = new URLSearchParams();
       const query = searchValue.trim();
-      const url = query ? `/api/crm/customers?q=${encodeURIComponent(query)}` : "/api/crm/customers";
+      if (query) params.set("q", query);
+      if (orderNumberFilter !== "all") params.set("orderNumberFilter", orderNumberFilter);
+      const qs = params.toString();
+      const url = qs ? `/api/crm/customers?${qs}` : "/api/crm/customers";
       const response = await fetch(url, { credentials: "include" });
       if (!response.ok) {
         throw new Error(await response.text());
@@ -350,7 +358,7 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
         <TabsContent value="customers" className="mt-4">
           <Card>
             <CardHeader className="flex flex-col gap-3">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
                 <div className="flex items-center gap-2">
                   <CardTitle>{t("crm.customers.title")}</CardTitle>
                   {individualPricesIndex?.pluginDetected && (
@@ -364,7 +372,7 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
                     </Badge>
                   )}
                 </div>
-                <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center md:w-auto">
+                <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center 2xl:w-auto">
                   <SalesChannelSelector
                     selectedChannelIds={selectedChannelIds}
                     onSelectionChange={setSelectedChannelIds}
@@ -372,6 +380,16 @@ export default function CrmPage({ userPermissions, userRole, userSalesChannelIds
                     isAdmin={userRole === "admin"}
                     enabled={canViewCrm}
                   />
+                  <Select value={orderNumberFilter} onValueChange={(value) => setOrderNumberFilter(value as OrderNumberFilter)}>
+                    <SelectTrigger aria-label={t("analytics.orderNumberFilter")} className="w-full sm:w-64" data-testid="select-crm-order-number-filter">
+                      <SelectValue placeholder={t("analytics.orderNumberMo")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t("analytics.orderNumberAll")}</SelectItem>
+                      <SelectItem value="mo">{t("analytics.orderNumberMo")}</SelectItem>
+                      <SelectItem value="non-mo">{t("analytics.orderNumberNonMo")}</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <div className="flex w-full max-w-sm items-center gap-2">
                     <Input
                       value={searchValue}

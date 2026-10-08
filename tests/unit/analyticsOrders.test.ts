@@ -29,6 +29,7 @@ vi.mock("../../server/auth/auth", async (importOriginal) => {
 });
 
 import { selectAnalyticsOrders } from "../../server/analytics/analyticsOrders";
+import { narrowSalesChannelFilter } from "../../server/routes/routeHelpers";
 import { storage } from "../../server/storage";
 import { registerAnalyticsRoutes } from "../../server/routes/analyticsRoutes";
 
@@ -82,6 +83,47 @@ describe("selectAnalyticsOrders", () => {
   });
 });
 
+describe("Bestellnummern- und Storno-Filter", () => {
+  const orders = [
+    order("mo", "2026-05-01", { orderNumber: "MO12345" }),
+    order("mo-klein", "2026-05-01", { orderNumber: "mo777" }),
+    order("durch", "2026-05-01", { orderNumber: "294829" }),
+    order("at", "2026-05-01", { orderNumber: "1234-AT" }),
+    order("storno", "2026-05-01", { orderNumber: "MO99", status: "cancelled" }),
+  ];
+  const ids = (filter: Partial<Parameters<typeof selectAnalyticsOrders>[1]>) =>
+    selectAnalyticsOrders(orders, { salesChannelIds: null, ...filter }).map((o) => o.id).sort();
+
+  it("MO = Shop-Bestellungen (Gross-/Kleinschreibung egal), ohne MO = alles andere", () => {
+    expect(ids({ orderNumberFilter: "mo" })).toEqual(["mo", "mo-klein", "storno"]);
+    expect(ids({ orderNumberFilter: "non-mo" })).toEqual(["at", "durch"]);
+    expect(ids({ orderNumberFilter: "all" })).toHaveLength(5);
+  });
+
+  it("Stornierte nur auf Wunsch weglassen", () => {
+    expect(ids({})).toContain("storno");
+    expect(ids({ excludeCancelled: true, orderNumberFilter: "mo" })).toEqual(["mo", "mo-klein"]);
+  });
+});
+
+describe("narrowSalesChannelFilter", () => {
+  it("ohne Auswahl gilt die Berechtigung", () => {
+    expect(narrowSalesChannelFilter(null, undefined)).toBeNull();
+    expect(narrowSalesChannelFilter(["sc1"], "")).toEqual(["sc1"]);
+    expect(narrowSalesChannelFilter([], undefined)).toEqual([]);
+  });
+
+  it("Admin: gewaehlte Kanaele", () => {
+    expect(narrowSalesChannelFilter(null, "sc1, sc2")).toEqual(["sc1", "sc2"]);
+  });
+
+  it("Auswahl schraenkt nur ein, erweitert nie die Berechtigung", () => {
+    expect(narrowSalesChannelFilter(["sc1", "sc2"], "sc2,sc3")).toEqual(["sc2"]);
+    expect(narrowSalesChannelFilter(["sc1"], "sc3")).toEqual([]);
+    expect(narrowSalesChannelFilter([], "sc1")).toEqual([]);
+  });
+});
+
 describe("GET /api/analytics/summary (echte Route)", () => {
   let server: Server;
   let base = "";
@@ -129,6 +171,29 @@ describe("GET /api/analytics/summary (echte Route)", () => {
     state.orders.push(order("a-kopie", "2026-03-30", { orderNumber: "SW-a", totalAmount: 119, netTotalAmount: 100, updatedAt: "2026-03-30T08:00:00Z" }));
     const r = await (await fetch(`${base}/api/analytics/summary`)).json();
     expect(r).toMatchObject({ totalOrders: 3, totalRevenue: 1357, totalNetRevenue: 1140 });
+  });
+
+  it("gewaehlte Kanaele wirken (frueher ignoriert)", async () => {
+    const r = await (await fetch(`${base}/api/analytics/summary?salesChannelIds=sc1`)).json();
+    expect(r).toMatchObject({ totalOrders: 2, totalRevenue: 357 });
+  });
+
+  it("Auswahl eines nicht erlaubten Kanals liefert keine Bestellungen", async () => {
+    state.channels = ["sc2"];
+    const r = await (await fetch(`${base}/api/analytics/summary?salesChannelIds=sc1`)).json();
+    expect(r).toMatchObject({ totalOrders: 0, totalRevenue: 0 });
+  });
+
+  it("Bestellnummern- und Storno-Filter wirken auf allen Bestell-Auswertungen", async () => {
+    state.orders = [
+      order("a", "2026-03-30", { orderNumber: "MO1", status: "completed" }),
+      order("b", "2026-03-30", { orderNumber: "MO2", status: "cancelled" }),
+      order("c", "2026-03-30", { orderNumber: "294829", status: "in_progress" }),
+    ];
+    const summary = await (await fetch(`${base}/api/analytics/summary?orderNumberFilter=mo&excludeCancelled=true`)).json();
+    expect(summary).toMatchObject({ totalOrders: 1 });
+    const status = await (await fetch(`${base}/api/analytics/order-status?orderNumberFilter=non-mo`)).json();
+    expect(status).toEqual({ in_progress: 1 });
   });
 
   it("Kanal-Einschraenkung wird angewendet", async () => {
