@@ -1628,8 +1628,7 @@
       "commercial_draft_created": "Comercial: borrador creado",
       "commercial_draft_review_required": "Comercial: borrador pendiente de revisión",
       "commercial_auto_offer_created": "Comercial: oferta creada automáticamente",
-      "commercial_auto_order_created": "Comercial: pedido creado automáticamente",
-      "b2b_portal_password_requested": "Portal de distribuidores: contraseña solicitada (correo vía n8n)"
+      "commercial_auto_order_created": "Comercial: pedido creado automáticamente"
     },
     "b2bEntityMapping": {
       "title": "Asignación de entidades B2B",
@@ -6374,16 +6373,16 @@
   },
   "portalPassword": {
     "title": "Contraseña del portal de distribuidores",
-    "description": "Introduzca su número de cliente y la dirección de correo electrónico de su acceso al portal. Recibirá una nueva contraseña por correo electrónico.",
+    "description": "Introduzca su número de cliente y la dirección de correo electrónico de su acceso al portal. Recibirá un correo con un enlace para establecer su contraseña.",
     "customerNumber": "Número de cliente",
     "customerNumberPlaceholder": "p. ej. 10012345",
     "email": "Correo electrónico",
     "emailPlaceholder": "nombre@empresa.com",
-    "submit": "Enviar contraseña",
+    "submit": "Solicitar enlace",
     "sending": "Enviando…",
-    "changeHint": "Cambie la contraseña recibida después de su primer inicio de sesión en el portal.",
+    "changeHint": "El enlace es válido durante 2 horas. Su contraseña actual sigue siendo válida hasta que establezca una nueva.",
     "successTitle": "Solicitud recibida",
-    "successText": "Si el número de cliente y el correo electrónico corresponden a un acceso al portal, recibirá en unos minutos un correo con su nueva contraseña. Revise también la carpeta de spam.",
+    "successText": "Si el número de cliente y el correo electrónico corresponden a un acceso al portal, recibirá en unos minutos un correo con un enlace para establecer su contraseña. Revise también la carpeta de spam.",
     "toPortal": "Ir al portal de distribuidores",
     "customerNumberRequired": "Introduzca su número de cliente.",
     "emailInvalid": "Introduzca una dirección de correo electrónico válida.",

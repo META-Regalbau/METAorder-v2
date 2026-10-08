@@ -20,21 +20,18 @@ vi.mock("../../server/storage", () => ({
 const { webhookService } = await import("../../server/lib/webhookService");
 
 const PAYLOAD = {
-  to: "einkauf@haendler.de",
-  subject: "Passwort",
-  text: "Passwort: Abcdefgh2345",
-  html: "<p>Passwort: Abcdefgh2345</p>",
-  customerNumber: "10012345",
-  employeeId: "e1",
-  customerId: "c1",
-  requestedAt: "2026-10-06T12:00:00.000Z",
+  referenceId: "employee-order-1",
+  referenceType: "employee_order",
+  decision: "approved" as const,
+  actorUserId: "geheimer-bearbeiter",
+  decidedAt: "2026-10-06T12:00:00.000Z",
 };
 
 function setConfig(overrides: Record<string, unknown> = {}) {
   configs.length = 0;
   configs.push({
-    eventType: "b2b.portal_password_requested",
-    targetUrl: "https://n8n.example.com/webhook/metaorder-portal-password",
+    eventType: "b2b.approval_decided",
+    targetUrl: "https://n8n.example.com/webhook/metaorder-approval",
     enabled: 1,
     secret: null,
     apiKey: "geheimer-key",
@@ -60,39 +57,39 @@ describe("webhookService.deliver", () => {
     const fetchMock = vi.fn(async () => new Response('{"ok":true}', { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    expect(await webhookService.isEnabled("b2b.portal_password_requested")).toBe(true);
-    const result = await webhookService.deliver("b2b.portal_password_requested", PAYLOAD);
+    expect(await webhookService.isEnabled("b2b.approval_decided")).toBe(true);
+    const result = await webhookService.deliver("b2b.approval_decided", PAYLOAD);
 
     expect(result).toBe("delivered");
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe("https://n8n.example.com/webhook/metaorder-portal-password");
+    expect(url).toBe("https://n8n.example.com/webhook/metaorder-approval");
     expect((init.headers as Record<string, string>)["X-API-Key"]).toBe("geheimer-key");
-    expect(JSON.parse(String(init.body)).data.to).toBe("einkauf@haendler.de");
+    expect(JSON.parse(String(init.body)).data.referenceId).toBe("employee-order-1");
   });
 
-  it("speichert das Passwort nicht im Webhook-Log", async () => {
+  it("speichert den Inhalt nicht im Webhook-Log", async () => {
     setConfig();
     vi.stubGlobal("fetch", vi.fn(async () => new Response("ok", { status: 200 })));
-    await webhookService.deliver("b2b.portal_password_requested", PAYLOAD);
+    await webhookService.deliver("b2b.approval_decided", PAYLOAD);
     expect(logs).toHaveLength(1);
-    expect(JSON.stringify(logs[0])).not.toContain("Abcdefgh2345");
+    expect(JSON.stringify(logs[0])).not.toContain("geheimer-bearbeiter");
   });
 
   it("meldet failed bei Fehlerantwort und not_configured ohne aktiven Webhook", async () => {
     setConfig();
     vi.stubGlobal("fetch", vi.fn(async () => new Response("nope", { status: 500 })));
-    expect(await webhookService.deliver("b2b.portal_password_requested", PAYLOAD)).toBe("failed");
+    expect(await webhookService.deliver("b2b.approval_decided", PAYLOAD)).toBe("failed");
 
     setConfig({ enabled: 0 });
-    expect(await webhookService.isEnabled("b2b.portal_password_requested")).toBe(false);
-    expect(await webhookService.deliver("b2b.portal_password_requested", PAYLOAD)).toBe("not_configured");
+    expect(await webhookService.isEnabled("b2b.approval_decided")).toBe(false);
+    expect(await webhookService.deliver("b2b.approval_decided", PAYLOAD)).toBe("not_configured");
   });
 
   it("ohne API-Key wird kein X-API-Key-Header gesendet", async () => {
     setConfig({ apiKey: null });
     const fetchMock = vi.fn(async () => new Response("ok", { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
-    await webhookService.deliver("b2b.portal_password_requested", PAYLOAD);
+    await webhookService.deliver("b2b.approval_decided", PAYLOAD);
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect((init.headers as Record<string, string>)["X-API-Key"]).toBeUndefined();
   });

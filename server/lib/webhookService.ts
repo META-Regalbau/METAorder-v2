@@ -122,22 +122,6 @@ export type B2bApprovalDecidedPayload = {
   decidedAt: string;
 };
 
-/**
- * Händlerportal: Passwort angefordert (Seite /portal-zugang). Enthält die fertige Mail
- * inkl. Klartext-Passwort — n8n verschickt sie über Outlook. Das Webhook-Log speichert
- * davon nichts (trimPayload behält nur eventType/occurredAt).
- */
-export type PortalPasswordRequestedPayload = {
-  to: string;
-  subject: string;
-  text: string;
-  html: string;
-  customerNumber: string;
-  employeeId: string;
-  customerId: string;
-  requestedAt: string;
-};
-
 export type WebhookDeliveryResult = "delivered" | "failed" | "skipped" | "not_configured";
 
 export type WebhookPayload =
@@ -152,8 +136,7 @@ export type WebhookPayload =
   | CommercialAutoOfferCreatedPayload
   | CommercialAutoOrderCreatedPayload
   | B2bApprovalRequiredPayload
-  | B2bApprovalDecidedPayload
-  | PortalPasswordRequestedPayload;
+  | B2bApprovalDecidedPayload;
 
 // In-memory cache for webhook configs (60 second TTL), pro Mandant getrennt.
 // Key = tenantId aus dem AsyncLocalStorage-Kontext (oder "__global__" als Fallback).
@@ -729,19 +712,6 @@ class WebhookService {
           decision: "approved",
           actorUserId: "test-user",
           decidedAt: new Date().toISOString(),
-        };
-
-      case "b2b.portal_password_requested":
-        // metadata.test = true: der n8n-Workflow verschickt dann keine Mail.
-        return {
-          to: "test@example.com",
-          subject: "Test: Ihr Passwort für das META Händlerportal",
-          text: "Testnachricht aus METAorder – es wurde kein Passwort geändert.",
-          html: "<p>Testnachricht aus METAorder – es wurde kein Passwort geändert.</p>",
-          customerNumber: "10012345",
-          employeeId: "test-employee-id",
-          customerId: "test-customer-id",
-          requestedAt: new Date().toISOString(),
         };
 
       default:
