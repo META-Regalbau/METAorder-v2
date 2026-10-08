@@ -4,7 +4,7 @@ Händler fordern auf der öffentlichen Seite `/portal-zugang` mit **Kundennummer
 
 ## Ablauf
 
-1. `POST /api/public/portal-password-request` mit Kundennummer und E-Mail. Die Antwort ist immer gleich; das Ergebnis steht nur im Container-Log (`[portal-password]`).
+1. `POST /api/public/portal-password-request` mit Kundennummer und E-Mail. Die Seite meldet, ob ein Link verschickt wurde: `404 not_found` (kein Zugang zu Kundennummer + E-Mail, auch META-eigene/Vertrieb), `403 inactive`, `429 already_requested` (Link vor weniger als 15 Minuten angefordert), `502 send_failed`. Das Ergebnis steht zusätzlich im Container-Log (`[portal-password]`).
 2. METAorder prüft im Shop: Kunde mit dieser Kundennummer, Mitarbeiter mit dieser E-Mail, aktive Verknüpfung. Ausgeschlossen sind META-eigene Adressen und Vertriebszugänge.
 3. Bei einem Treffer ruft METAorder die Store-API von B2Bsellers auf (`POST /store-api/b2b/employee/recovery-password`, `sw-access-key` des Kanals, an den der Mitarbeiter gebunden ist – beim Händlerportal „META Händler Portal DE“).
 4. B2Bsellers setzt einen Wiederherstellungs-Hash und löst den Shopware-Flow `b2b.employee.recovery.request` aus. Der Flow verschickt die Vorlage „Mitarbeiter Passwort Wiederherstellung“ mit dem Link `<Portal>/employee/recover/password?hash=…` (2 Stunden gültig).

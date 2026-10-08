@@ -30,8 +30,18 @@ export default function PortalPasswordRequestPage() {
         credentials: "omit",
         body: JSON.stringify({ customerNumber: customerNumber.trim(), email: email.trim(), website }),
       });
+      if (res.ok) return;
+      const body = (await res.json().catch(() => ({}))) as { code?: string };
+      // Eigene Texte je Fehlercode statt der (deutschen) Servertexte.
+      const messageKey: Record<string, string> = {
+        not_found: "portalPassword.errorNotFound",
+        inactive: "portalPassword.errorInactive",
+        already_requested: "portalPassword.errorAlreadyRequested",
+        send_failed: "portalPassword.errorGeneric",
+      };
+      if (body.code && messageKey[body.code]) throw new Error(t(messageKey[body.code]));
       if (res.status === 429) throw new Error(t("portalPassword.errorRateLimit"));
-      if (!res.ok) throw new Error(t("portalPassword.errorGeneric"));
+      throw new Error(t("portalPassword.errorGeneric"));
     },
   });
 
@@ -46,6 +56,7 @@ export default function PortalPasswordRequestPage() {
       return;
     }
     setFieldError(null);
+    requestMut.reset();
     requestMut.mutate();
   };
 
