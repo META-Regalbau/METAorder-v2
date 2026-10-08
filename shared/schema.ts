@@ -2917,6 +2917,8 @@ export const webhookConfigs = pgTable(
   (table) => ({
     uniqueTenantEvent: uniqueIndex("webhook_configs_tenant_event_unique").on(table.tenantId, table.eventType),
     // Check constraint for event types
+    // b2b.portal_password_requested: nicht mehr benutzt (0044 löscht die Einträge), bleibt in der Regel,
+    // weil 0009/0017 bei jedem Start vor 0044 laufen.
     eventTypeCheck: sql`CHECK (event_type IN ('ticket.created', 'ticket.updated', 'ticket.commented', 'ticket.assigned', 'ticket.customer_replied', 'ticket.agent_replied', 'order.ready_to_ship', 'document.created', 'commercial.draft_created', 'commercial.draft_review_required', 'commercial.auto_offer_created', 'commercial.auto_order_created', 'b2b.approval_required', 'b2b.approval_decided', 'b2b.portal_password_requested'))`,
   })
 );
@@ -2937,7 +2939,6 @@ export const insertWebhookConfigSchema = createInsertSchema(webhookConfigs, {
     'commercial.auto_order_created',
     'b2b.approval_required',
     'b2b.approval_decided',
-    'b2b.portal_password_requested',
   ]),
   targetUrl: z.string().url().optional().nullable(),
   enabled: z.number().int().min(0).max(1).default(0),
@@ -2969,8 +2970,7 @@ export type WebhookEventType =
   | 'commercial.auto_offer_created'
   | 'commercial.auto_order_created'
   | 'b2b.approval_required'
-  | 'b2b.approval_decided'
-  | 'b2b.portal_password_requested';
+  | 'b2b.approval_decided';
 
 // Webhook Logs table - tracks all webhook delivery attempts
 export const webhookLogs = pgTable("webhook_logs", {

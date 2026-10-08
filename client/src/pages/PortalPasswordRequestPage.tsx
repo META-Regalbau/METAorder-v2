@@ -13,7 +13,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * Öffentliche Seite /portal-zugang: Händler fordern mit Kundennummer und E-Mail
- * ein neues Passwort für das Händlerportal an (Server: portalPasswordRequestRoutes).
+ * einen Link zum Festlegen ihres Händlerportal-Passworts an (Server: portalPasswordRequestRoutes).
  */
 export default function PortalPasswordRequestPage() {
   const { t, i18n } = useTranslation();

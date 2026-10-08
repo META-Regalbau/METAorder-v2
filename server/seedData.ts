@@ -352,7 +352,6 @@ export async function seedDatabase(storage: IStorage) {
       'commercial.auto_order_created',
       'b2b.approval_required',
       'b2b.approval_decided',
-      'b2b.portal_password_requested',
     ] as const;
 
     const webhookTenantIds: Array<string | null> = [null, ...(await storage.getAllTenants()).map((t) => t.id)];
@@ -370,8 +369,7 @@ export async function seedDatabase(storage: IStorage) {
             maxAttempts: 3,
             initialBackoffMs: 1000,
             backoffFactor: 2.0,
-            // Mailversand über n8n/Outlook braucht etwas länger als ein reiner Hinweis-Webhook.
-            timeoutMs: eventType === 'b2b.portal_password_requested' ? 30000 : 10000,
+            timeoutMs: 10000,
           },
           webhookTenantId,
         );

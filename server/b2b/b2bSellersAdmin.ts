@@ -1105,19 +1105,30 @@ export class B2BSellersAdminClient {
   }
 
   /** Alle Mitarbeiter mit dieser E-Mail (dieselbe Adresse kann in mehreren Verkaufskanälen vorkommen). */
-  async findEmployeesByEmail(email: string): Promise<Array<ReturnType<B2BSellersAdminClient["mapEmployee"]>>> {
+  async findEmployeesByEmail(
+    email: string,
+  ): Promise<Array<ReturnType<B2BSellersAdminClient["mapEmployee"]> & { boundSalesChannelId: string | null }>> {
     const normalized = email.trim().toLowerCase();
     if (!normalized) return [];
     const result = await this.searchEntity("employee", {
       limit: 10,
       filter: [{ type: "equals", field: "email", value: normalized }],
     });
-    return result.data.map((raw) => this.mapEmployee(raw));
+    return result.data.map((raw) => ({
+      ...this.mapEmployee(raw),
+      boundSalesChannelId: getField(raw, "boundSalesChannelId") || null,
+    }));
   }
 
   /** Shopware-Kunden mit dieser Kundennummer (je Verkaufskanal kann es mehrere geben). */
   async findCustomersByNumber(customerNumber: string): Promise<
-    Array<{ id: string; customerNumber: string; company: string | null; salesRepresentative: boolean }>
+    Array<{
+      id: string;
+      customerNumber: string;
+      company: string | null;
+      salesChannelId: string | null;
+      salesRepresentative: boolean;
+    }>
   > {
     const normalized = customerNumber.trim();
     if (!normalized) return [];
@@ -1125,7 +1136,7 @@ export class B2BSellersAdminClient {
       method: "POST",
       body: JSON.stringify({
         limit: 10,
-        includes: { customer: ["id", "customerNumber", "company", "customFields"] },
+        includes: { customer: ["id", "customerNumber", "company", "salesChannelId", "customFields"] },
         filter: [{ type: "equals", field: "customerNumber", value: normalized }],
       }),
     });
@@ -1140,6 +1151,7 @@ export class B2BSellersAdminClient {
         id: String(c.id),
         customerNumber: String(getField(c, "customerNumber") || ""),
         company: getField(c, "company") || null,
+        salesChannelId: getField(c, "salesChannelId") || null,
         salesRepresentative: coerceBool(getField(c, "customFields.b2b_sales_representative")) ?? false,
       };
     });
@@ -1152,6 +1164,45 @@ export class B2BSellersAdminClient {
    */
   async setEmployeePassword(employeeId: string, password: string): Promise<void> {
     await this.patchEntity("employee", employeeId, { password, legacyPassword: null, legacyEncoder: null });
+  }
+
+  /** Zugriffsschlüssel (sw-access-key) eines Verkaufskanals für Store-API-Aufrufe. */
+  async getSalesChannelAccessKey(salesChannelId: string): Promise<string | null> {
+    const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/sales-channel`, {
+      method: "POST",
+      body: JSON.stringify({ ids: [salesChannelId], includes: { sales_channel: ["id", "accessKey"] } }),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to load sales channel ${salesChannelId}: ${response.statusText} - ${errorText}`);
+    }
+    const parsed = await response.json();
+    return getField(parsed.data?.[0], "accessKey") || null;
+  }
+
+  /**
+   * „Passwort vergessen“ von B2Bsellers auslösen (Store-API, wie die Portal-Seite /account/recover):
+   * B2Bsellers setzt einen Wiederherstellungs-Hash am Mitarbeiter und der Shopware-Flow
+   * „b2b.employee.recovery.request“ verschickt die Mail mit dem Link <storefrontUrl>/employee/recover/password.
+   * Das Passwort selbst ändert sich erst, wenn der Händler den Link nutzt.
+   * Der Mitarbeiter muss an den Kanal gebunden sein (oder an keinen).
+   */
+  async requestEmployeePasswordRecovery(params: {
+    salesChannelId: string;
+    email: string;
+    storefrontUrl: string;
+  }): Promise<void> {
+    const accessKey = await this.getSalesChannelAccessKey(params.salesChannelId);
+    if (!accessKey) throw new Error(`Verkaufskanal ${params.salesChannelId} hat keinen Zugriffsschlüssel`);
+    const response = await fetch(`${this.baseUrl}/store-api/b2b/employee/recovery-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json", "sw-access-key": accessKey },
+      body: JSON.stringify({ email: params.email, storefrontUrl: params.storefrontUrl }),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Password recovery failed: ${response.status} ${response.statusText} - ${errorText.slice(0, 300)}`);
+    }
   }
 
   /** Verknüpfung eines Mitarbeiters zu einem Kunden inkl. Rolle/Admin/Aktiv, oder null. */
