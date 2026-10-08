@@ -6151,7 +6151,11 @@
       "zu_viele_anfragen_bitte_kurz_warten": "Zu viele Anfragen. Bitte kurz warten.",
       "zugangstoken_fehlt": "Zugangstoken fehlt.",
       "zugangstoken_ungultig": "Zugangstoken ungültig.",
-      "zusatzleistungen_konnten_nicht_geladen_werden": "Zusatzleistungen konnten nicht geladen werden"
+      "zusatzleistungen_konnten_nicht_geladen_werden": "Zusatzleistungen konnten nicht geladen werden",
+      "zu_dieser_kundennummer_gibt_es_keinen_portalzugang_mit_dieser_e_mail_adresse": "Zu dieser Kundennummer gibt es keinen Portalzugang mit dieser E-Mail-Adresse.",
+      "dieser_portalzugang_ist_deaktiviert": "Dieser Portalzugang ist deaktiviert.",
+      "fur_diesen_zugang_wurde_gerade_schon_ein_link_angefordert": "Für diesen Zugang wurde gerade schon ein Link angefordert.",
+      "der_link_konnte_nicht_versendet_werden_bitte_spater_erneut_versuchen": "Der Link konnte nicht versendet werden. Bitte später erneut versuchen."
     }
   },
   "roomPlanner": {
@@ -6381,15 +6385,18 @@
     "submit": "Link anfordern",
     "sending": "Wird gesendet…",
     "changeHint": "Der Link ist 2 Stunden gültig. Bis Sie ein neues Passwort festlegen, bleibt Ihr bisheriges gültig.",
-    "successTitle": "Anfrage erhalten",
-    "successText": "Wenn Kundennummer und E-Mail-Adresse zu einem Portalzugang passen, erhalten Sie in wenigen Minuten eine E-Mail mit einem Link zum Festlegen Ihres Passworts. Bitte prüfen Sie auch Ihren Spam-Ordner.",
+    "successTitle": "E-Mail ist unterwegs",
+    "successText": "Wir haben Ihnen eine E-Mail mit einem Link zum Festlegen Ihres Passworts geschickt. Sie sollte in wenigen Minuten ankommen. Bitte prüfen Sie auch Ihren Spam-Ordner.",
     "toPortal": "Zum Händlerportal",
     "customerNumberRequired": "Bitte geben Sie Ihre Kundennummer ein.",
     "emailInvalid": "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
     "errorRateLimit": "Zu viele Anfragen. Bitte versuchen Sie es in einigen Minuten erneut.",
     "errorGeneric": "Die Anfrage konnte nicht gesendet werden. Bitte versuchen Sie es später erneut.",
     "help": "Keine E-Mail erhalten? Wenden Sie sich bitte an Ihren META-Ansprechpartner.",
-    "language": "Sprache"
+    "language": "Sprache",
+    "errorNotFound": "Zu dieser Kundennummer gibt es keinen Portalzugang mit dieser E-Mail-Adresse. Bitte prüfen Sie Ihre Eingaben.",
+    "errorInactive": "Dieser Portalzugang ist deaktiviert. Bitte wenden Sie sich an Ihren META-Ansprechpartner.",
+    "errorAlreadyRequested": "Für diesen Zugang wurde gerade schon ein Link angefordert. Bitte prüfen Sie Ihr Postfach oder versuchen Sie es in 15 Minuten erneut."
   },
   "systemLog": {
     "title": "Systemprotokoll",

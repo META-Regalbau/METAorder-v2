@@ -6151,7 +6151,11 @@
       "zu_viele_anfragen_bitte_kurz_warten": "Demasiadas solicitudes. Espere un momento.",
       "zugangstoken_fehlt": "Falta el token de acceso.",
       "zugangstoken_ungultig": "Token de acceso no válido.",
-      "zusatzleistungen_konnten_nicht_geladen_werden": "No se pudieron cargar los servicios adicionales"
+      "zusatzleistungen_konnten_nicht_geladen_werden": "No se pudieron cargar los servicios adicionales",
+      "zu_dieser_kundennummer_gibt_es_keinen_portalzugang_mit_dieser_e_mail_adresse": "No existe ningún acceso al portal con este correo electrónico para este número de cliente.",
+      "dieser_portalzugang_ist_deaktiviert": "Este acceso al portal está desactivado.",
+      "fur_diesen_zugang_wurde_gerade_schon_ein_link_angefordert": "Se acaba de solicitar un enlace para este acceso.",
+      "der_link_konnte_nicht_versendet_werden_bitte_spater_erneut_versuchen": "No se pudo enviar el enlace. Inténtelo de nuevo más tarde."
     }
   },
   "roomPlanner": {
@@ -6381,15 +6385,18 @@
     "submit": "Solicitar enlace",
     "sending": "Enviando…",
     "changeHint": "El enlace es válido durante 2 horas. Su contraseña actual sigue siendo válida hasta que establezca una nueva.",
-    "successTitle": "Solicitud recibida",
-    "successText": "Si el número de cliente y el correo electrónico corresponden a un acceso al portal, recibirá en unos minutos un correo con un enlace para establecer su contraseña. Revise también la carpeta de spam.",
+    "successTitle": "El correo está en camino",
+    "successText": "Le hemos enviado un correo con un enlace para establecer su contraseña. Debería llegar en unos minutos. Revise también la carpeta de spam.",
     "toPortal": "Ir al portal de distribuidores",
     "customerNumberRequired": "Introduzca su número de cliente.",
     "emailInvalid": "Introduzca una dirección de correo electrónico válida.",
     "errorRateLimit": "Demasiadas solicitudes. Inténtelo de nuevo en unos minutos.",
     "errorGeneric": "No se pudo enviar la solicitud. Inténtelo de nuevo más tarde.",
     "help": "¿No ha recibido ningún correo? Póngase en contacto con su persona de contacto en META.",
-    "language": "Idioma"
+    "language": "Idioma",
+    "errorNotFound": "No existe ningún acceso al portal con este correo electrónico para este número de cliente. Revise los datos introducidos.",
+    "errorInactive": "Este acceso al portal está desactivado. Póngase en contacto con su persona de contacto en META.",
+    "errorAlreadyRequested": "Se acaba de solicitar un enlace para este acceso. Revise su bandeja de entrada o inténtelo de nuevo en 15 minutos."
   },
   "systemLog": {
     "title": "Registro del sistema",

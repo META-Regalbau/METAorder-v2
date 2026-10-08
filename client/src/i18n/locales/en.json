@@ -6154,7 +6154,11 @@
       "zu_viele_anfragen_bitte_kurz_warten": "Too many requests. Please wait a moment.",
       "zugangstoken_fehlt": "Access token missing.",
       "zugangstoken_ungultig": "Invalid access token.",
-      "zusatzleistungen_konnten_nicht_geladen_werden": "Failed to load additional services"
+      "zusatzleistungen_konnten_nicht_geladen_werden": "Failed to load additional services",
+      "zu_dieser_kundennummer_gibt_es_keinen_portalzugang_mit_dieser_e_mail_adresse": "There is no portal account with this e-mail address for this customer number.",
+      "dieser_portalzugang_ist_deaktiviert": "This portal account is deactivated.",
+      "fur_diesen_zugang_wurde_gerade_schon_ein_link_angefordert": "A link was just requested for this account.",
+      "der_link_konnte_nicht_versendet_werden_bitte_spater_erneut_versuchen": "The link could not be sent. Please try again later."
     }
   },
   "roomPlanner": {
@@ -6384,15 +6388,18 @@
     "submit": "Request link",
     "sending": "Sending…",
     "changeHint": "The link is valid for 2 hours. Your current password remains valid until you set a new one.",
-    "successTitle": "Request received",
-    "successText": "If the customer number and e-mail address match a portal account, you will receive an e-mail with a link to set your password within a few minutes. Please also check your spam folder.",
+    "successTitle": "E-mail is on its way",
+    "successText": "We have sent you an e-mail with a link to set your password. It should arrive within a few minutes. Please also check your spam folder.",
     "toPortal": "Go to the dealer portal",
     "customerNumberRequired": "Please enter your customer number.",
     "emailInvalid": "Please enter a valid e-mail address.",
     "errorRateLimit": "Too many requests. Please try again in a few minutes.",
     "errorGeneric": "The request could not be sent. Please try again later.",
     "help": "No e-mail received? Please contact your META representative.",
-    "language": "Language"
+    "language": "Language",
+    "errorNotFound": "There is no portal account with this e-mail address for this customer number. Please check your entries.",
+    "errorInactive": "This portal account is deactivated. Please contact your META representative.",
+    "errorAlreadyRequested": "A link was just requested for this account. Please check your inbox or try again in 15 minutes."
   },
   "systemLog": {
     "title": "System log",
