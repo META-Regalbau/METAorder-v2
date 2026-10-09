@@ -282,10 +282,20 @@ export function OfferDraftReviewModal({
   });
 
   const addProductMutation = useMutation({
-    mutationFn: async ({ productId, quantity }: { productId: string; quantity: number }) => {
+    mutationFn: async ({
+      productId,
+      quantity,
+      crossSell,
+    }: {
+      productId: string;
+      quantity: number;
+      /** Klick auf einen Cross-Selling-Vorschlag: Ausgangsartikel und Rang (fuer das Lernen). */
+      crossSell?: { sourceProductNumber: string; rank: number };
+    }) => {
       const response = await apiRequest("POST", `/api/offer-drafts/${draft.id}/add-product`, {
         productId,
         quantity,
+        ...(crossSell ? { crossSell } : {}),
       });
       return await response.json();
     },
@@ -1876,7 +1886,15 @@ export function OfferDraftReviewModal({
                             <Button
                               size="sm"
                               className="w-full"
-                              onClick={() => addProductMutation.mutate({ productId: product.id, quantity: 1 })}
+                              onClick={() =>
+                                addProductMutation.mutate({
+                                  productId: product.id,
+                                  quantity: 1,
+                                  crossSell: suggestion.forProduct?.productNumber
+                                    ? { sourceProductNumber: suggestion.forProduct.productNumber, rank: sugIdx + 1 }
+                                    : undefined,
+                                })
+                              }
                               disabled={addProductMutation.isPending || draft.status === "created"}
                               data-testid={`button-add-suggestion-${groupIndex}-${product.id}`}
                             >

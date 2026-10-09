@@ -1957,6 +1957,70 @@ export class DbStorage implements IStorage {
     });
   }
 
+  async recordCrossSellEventsOncePerDraft(
+    rows: Array<{ sourceProductNumber: string; targetProductNumber: string; metadata?: Record<string, unknown> | null }>,
+    ctx: { eventType: string; draftId: string; context?: string | null; userId?: string | null },
+    tenantId?: string | null,
+  ): Promise<number> {
+    if (rows.length === 0) return 0;
+    const resolvedTenant = resolveTenantId(tenantId) ?? null;
+    const key = (s: string, t: string) => `${s}\u0000${t}`;
+    const existing = await db
+      .select({ s: crossSellEvents.sourceProductNumber, t: crossSellEvents.targetProductNumber })
+      .from(crossSellEvents)
+      .where(
+        and(
+          tenantFilterFor(crossSellEvents.tenantId, resolvedTenant),
+          eq(crossSellEvents.draftId, ctx.draftId),
+          eq(crossSellEvents.eventType, ctx.eventType),
+        ),
+      );
+    const seen = new Set(existing.map((r) => key(r.s, r.t)));
+    const fresh: InsertCrossSellEvent[] = [];
+    for (const row of rows) {
+      const src = row.sourceProductNumber.trim();
+      const tgt = row.targetProductNumber.trim();
+      if (!src || !tgt || src === tgt) continue;
+      const k = key(src, tgt);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      fresh.push({
+        tenantId: resolvedTenant,
+        eventType: ctx.eventType,
+        sourceProductNumber: src,
+        targetProductNumber: tgt,
+        context: ctx.context ?? null,
+        draftId: ctx.draftId,
+        userId: ctx.userId ?? null,
+        metadata: row.metadata ?? null,
+      });
+    }
+    if (fresh.length > 0) {
+      await db.insert(crossSellEvents).values(fresh);
+    }
+    return fresh.length;
+  }
+
+  async getCrossSellDraftEventPairs(
+    draftId: string,
+    eventType: string,
+    tenantId?: string | null,
+  ): Promise<Array<{ sourceProductNumber: string; targetProductNumber: string }>> {
+    return db
+      .selectDistinct({
+        sourceProductNumber: crossSellEvents.sourceProductNumber,
+        targetProductNumber: crossSellEvents.targetProductNumber,
+      })
+      .from(crossSellEvents)
+      .where(
+        and(
+          tenantFilterFor(crossSellEvents.tenantId, tenantId),
+          eq(crossSellEvents.draftId, draftId),
+          eq(crossSellEvents.eventType, eventType),
+        ),
+      );
+  }
+
   async getCrossSellEventStats(tenantId: string | null, since: Date): Promise<CrossSellEventPairStats[]> {
     const tenantFilter = tenantFilterFor(crossSellEvents.tenantId, tenantId);
     const rows = await db
