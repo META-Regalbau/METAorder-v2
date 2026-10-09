@@ -21,6 +21,7 @@ import type { Order } from "@shared/schema";
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 import { apiErrorFromBody } from "@/lib/apiError";
 import { downloadCsv } from "@/lib/csvDownload";
+import { MISSING_HK_ROW_CLASS } from "@/lib/profitabilityStyles";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import OfferProfitabilityResultView from "@/components/OfferProfitabilityResult";
 import type { OfferProfitabilityResult } from "@shared/offerProfitability";
@@ -185,7 +186,14 @@ function SingleOrderResult({ order, crmThreshold }: { order: Order; crmThreshold
           </TableHeader>
           <TableBody>
             {order.items.map((item) => (
-              <TableRow key={item.id}>
+              <TableRow
+                key={item.id}
+                className={
+                  (item.productId || item.productNumber) && item.herstellpreisNet == null
+                    ? MISSING_HK_ROW_CLASS
+                    : undefined
+                }
+              >
                 <TableCell>
                   <div>{item.name}</div>
                   {item.productNumber ? (
@@ -210,7 +218,11 @@ function SingleOrderResult({ order, crmThreshold }: { order: Order; crmThreshold
                       </div>
                     </>
                   ) : (
+                    (item.productId || item.productNumber) ? (
+                    t("offerProfitability.partMissingHk")
+                  ) : (
                     "—"
+                  )
                   )}
                 </TableCell>
                 <TableCell
