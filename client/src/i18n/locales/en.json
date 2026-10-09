@@ -928,6 +928,45 @@
       "marginOnCost": "Margin",
       "coverage": "MC coverage",
       "crmVerdict": "CRM"
+    },
+    "lookup": {
+      "title": "Calculate a single order",
+      "description": "Enter an order number – contribution margin (CM1) and margin for exactly this order, broken down by line item.",
+      "label": "Order number",
+      "placeholder": "e.g. MO12345",
+      "submit": "Calculate",
+      "reset": "Reset",
+      "loading": "Calculating order…",
+      "notFound": "No order with number “{{orderNumber}}” found.",
+      "multipleHits": "This order number is used {{count}} times – each order is calculated separately.",
+      "openOrder": "Open in order overview",
+      "missingHkHint": "{{count}} line items without manufacturing cost are not included in CM1 and margin.",
+      "missingHkHint_one": "{{count}} line item without manufacturing cost is not included in CM1 and margin.",
+      "missingHkHint_other": "{{count}} line items without manufacturing cost are not included in CM1 and margin.",
+      "kpi": {
+        "netTotal": "Order value (net)",
+        "netTotalHint": "incl. shipping and discounts per order",
+        "revenueWithHk": "Revenue with cost data",
+        "coverageHint": "{{withData}} of {{total}} line items with manufacturing cost",
+        "herstellkosten": "Manufacturing costs",
+        "db1": "CM1",
+        "margin": "Margin (CRM from {{threshold}} %)"
+      },
+      "table": {
+        "productNumber": "Product no.",
+        "name": "Description",
+        "quantity": "Qty",
+        "netPrice": "Net price / unit",
+        "netTotal": "Net total",
+        "hkUnit": "Cost / unit",
+        "hkTotal": "Cost total",
+        "db1": "CM1",
+        "marginOnCost": "Margin",
+        "marginOnRevenue": "Margin on revenue %",
+        "sumWithHk": "Total (line items with cost)",
+        "perUnit": "{{amount}} / unit",
+        "db1AndMargin": "CM1 / margin"
+      }
     }
   },
   "bundles": {
@@ -1272,7 +1311,9 @@
       "db1Total": "Total DB1 (lines with MC)",
       "db1Line": "DB1",
       "herstellpreis": "MC net",
-      "coverageHint": "MC data for {{withData}} of {{total}} product lines"
+      "coverageHint": "MC data for {{withData}} of {{total}} product lines",
+      "openCalculation": "Open CM calculation",
+      "openCalculationFor": "Open CM calculation for order {{orderNumber}}"
     },
     "shippingInfo": "Shipping Information",
     "shippingUpdated": "Shipping updated",
@@ -5434,6 +5475,7 @@
       "benutzer_nicht_gefunden": "User not found",
       "bestatigung_nur_im_status_vereinbarung_ausstehend_moglich": "Confirmation only possible in status “Agreement pending”",
       "bestell_analyse_fehlgeschlagen": "Order analysis failed",
+      "bestellnummer_fehlt": "Order number missing",
       "bitte_kundennummer_und_eine_gultige_e_mail_adresse_angeben": "Please enter your customer number and a valid e-mail address.",
       "bitte_melden_sie_sich_im_shop_an_um_ein_angebot_anzufragen": "Please log in to the shop to request an offer.",
       "browser_print_unavailable": "Browser Print unavailable",

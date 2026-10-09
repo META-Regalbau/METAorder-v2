@@ -38,6 +38,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import HerstellMarginIndicator from "@/components/HerstellMarginIndicator";
+import OrderProfitabilityLookup from "@/components/OrderProfitabilityLookup";
 import type { Order, OrderStatus } from "@shared/schema";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
@@ -237,6 +238,8 @@ export default function OrderProfitabilityAnalysisPage() {
           </Button>
         </div>
       </div>
+
+      <OrderProfitabilityLookup />
 
       <Card>
         <CardHeader>

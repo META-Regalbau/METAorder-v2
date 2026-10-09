@@ -124,6 +124,18 @@ export function computeDuplicateOrderIds(orders: Order[]): Set<string> {
   return duplicates;
 }
 
+/**
+ * Bestellungen zu genau einer Bestellnummer (Gross-/Kleinschreibung und Leerzeichen egal), neueste
+ * zuerst. Shopware-Nummern sind nicht eindeutig - deshalb kann es mehrere Treffer geben.
+ */
+export function findOrdersByOrderNumber<T extends Order>(orders: T[], orderNumber: string): T[] {
+  const wanted = orderNumber.trim().toLowerCase();
+  if (!wanted) return [];
+  return orders
+    .filter((order) => (order.orderNumber ?? "").trim().toLowerCase() === wanted)
+    .toSorted((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
+}
+
 export function paginateOrdersList<T>(items: T[], limit: number, offset: number): T[] {
   return items.slice(offset, offset + limit);
 }

@@ -1,4 +1,5 @@
-import { X, FileDown, Loader2, Ticket, ExternalLink, Plus, Trash2 } from "lucide-react";
+import { X, FileDown, Loader2, Ticket, ExternalLink, Plus, Trash2, Calculator } from "lucide-react";
+import { Link } from "wouter";
 import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -30,6 +31,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 import { isNotConfiguredError } from "@/lib/apiError";
+import { orderProfitabilityHref } from "@/lib/orderProfitabilityLink";
 /** Versanddatum fuer <input type="date">: Zeitstempel (Status-Historie in Shopware) als lokaler Tag. */
 function toDateInputValue(value?: string): string {
   if (!value) return "";
@@ -928,7 +930,17 @@ export default function OrderDetailModal({
 
           <TabsContent value="items" className="pt-6">
             <Card className="p-6">
-              <h3 className="text-sm font-medium uppercase tracking-wide mb-4">{t('orderDetail.orderItems')}</h3>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-sm font-medium uppercase tracking-wide">{t('orderDetail.orderItems')}</h3>
+                {order.items?.length ? (
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={orderProfitabilityHref(order.orderNumber)} data-testid="link-order-db-calculation">
+                      <Calculator className="h-4 w-4 mr-2" />
+                      {t('orderDetail.profitability.openCalculation')}
+                    </Link>
+                  </Button>
+                ) : null}
+              </div>
               {order.stockSummary?.lineCount ? (
                 <div className="mb-4">
                   <OrderStockSummaryBadge

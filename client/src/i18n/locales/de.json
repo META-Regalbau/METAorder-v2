@@ -928,6 +928,45 @@
       "marginOnCost": "Marge",
       "coverage": "HK-Abdeckung",
       "crmVerdict": "CRM"
+    },
+    "lookup": {
+      "title": "Einzelne Bestellung berechnen",
+      "description": "Bestellnummer eingeben – Deckungsbeitrag (DB1) und Marge genau dieser Bestellung, aufgeschlüsselt je Position.",
+      "label": "Bestellnummer",
+      "placeholder": "z. B. MO12345",
+      "submit": "Berechnen",
+      "reset": "Zurücksetzen",
+      "loading": "Bestellung wird berechnet…",
+      "notFound": "Keine Bestellung mit der Nummer „{{orderNumber}}“ gefunden.",
+      "multipleHits": "Diese Bestellnummer ist {{count}}-mal vergeben – alle Bestellungen werden einzeln berechnet.",
+      "openOrder": "In Bestellübersicht öffnen",
+      "missingHkHint": "{{count}} Positionen ohne Herstellpreis sind in DB1 und Marge nicht enthalten.",
+      "missingHkHint_one": "{{count}} Position ohne Herstellpreis ist in DB1 und Marge nicht enthalten.",
+      "missingHkHint_other": "{{count}} Positionen ohne Herstellpreis sind in DB1 und Marge nicht enthalten.",
+      "kpi": {
+        "netTotal": "Bestellwert netto",
+        "netTotalHint": "inkl. Versand und Rabatte laut Bestellung",
+        "revenueWithHk": "Umsatz mit HK-Daten",
+        "coverageHint": "{{withData}} von {{total}} Positionen mit Herstellpreis",
+        "herstellkosten": "Herstellkosten",
+        "db1": "DB1",
+        "margin": "Marge (CRM ab {{threshold}} %)"
+      },
+      "table": {
+        "productNumber": "Artikelnr.",
+        "name": "Bezeichnung",
+        "quantity": "Menge",
+        "netPrice": "VK netto / Stk.",
+        "netTotal": "VK netto gesamt",
+        "hkUnit": "HK / Stk.",
+        "hkTotal": "HK gesamt",
+        "db1": "DB1",
+        "marginOnCost": "Marge",
+        "marginOnRevenue": "Marge auf Umsatz %",
+        "sumWithHk": "Summe (Positionen mit HK)",
+        "perUnit": "je Stk. {{amount}}",
+        "db1AndMargin": "DB1 / Marge"
+      }
     }
   },
   "bundles": {
@@ -1269,7 +1308,9 @@
       "db1Total": "DB1 gesamt (Positionen mit HK)",
       "db1Line": "DB1",
       "herstellpreis": "HK netto",
-      "coverageHint": "HK-Daten für {{withData}} von {{total}} Produktpositionen"
+      "coverageHint": "HK-Daten für {{withData}} von {{total}} Produktpositionen",
+      "openCalculation": "DB-Berechnung öffnen",
+      "openCalculationFor": "DB-Berechnung für Bestellung {{orderNumber}} öffnen"
     },
     "shippingInfo": "Versandinformationen",
     "shippingUpdated": "Versand aktualisiert",
@@ -5431,6 +5472,7 @@
       "benutzer_nicht_gefunden": "Benutzer nicht gefunden",
       "bestatigung_nur_im_status_vereinbarung_ausstehend_moglich": "Bestätigung nur im Status „Vereinbarung ausstehend“ möglich",
       "bestell_analyse_fehlgeschlagen": "Bestell-Analyse fehlgeschlagen",
+      "bestellnummer_fehlt": "Bestellnummer fehlt",
       "bitte_kundennummer_und_eine_gultige_e_mail_adresse_angeben": "Bitte Kundennummer und eine gültige E-Mail-Adresse angeben.",
       "bitte_melden_sie_sich_im_shop_an_um_ein_angebot_anzufragen": "Bitte melden Sie sich im Shop an, um ein Angebot anzufragen.",
       "browser_print_unavailable": "Browser Print nicht verfügbar",

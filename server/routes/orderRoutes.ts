@@ -3,7 +3,7 @@ import { requireAuth, requireViewDelayedOrders, requireManageDocuments, requireC
 import { storage } from "../storage";
 import { ShopwareClient, getRealInvoiceDocument, isMonduPluginShipError, ZUGFERD_EMBEDDED_INVOICE_TYPE } from "../shopware/shopware";
 import { getSalesChannelFilter, getOrdersWithCache, filterOrdersBySalesChannels, filterTicketsBySalesChannels, defaultProformaNumberRange, resolveAttachmentPath, dedupeOrdersByNumber, checkOrderChannelAccess, getMirrorOrdersLikeLive } from "./routeHelpers";
-import { filterOrdersList, sortOrdersList, computeDuplicateOrderIds, paginateOrdersList, selectDelayedOrders, type OrdersListQuery } from "../shopware/ordersList";
+import { filterOrdersList, sortOrdersList, computeDuplicateOrderIds, paginateOrdersList, selectDelayedOrders, findOrdersByOrderNumber, type OrdersListQuery } from "../shopware/ordersList";
 import { enrichOrdersWithProfitability, buildOrderProfitabilityAnalysisSummary, sortOrdersByMargin } from "../analytics/orderProfitabilityAnalysis";
 import { enrichOrdersWithStockAvailability } from "../erp/orderStockEnrichment";
 import { loadCrmProfitabilitySettings } from "../analytics/crmProfitabilitySettings";
@@ -330,6 +330,48 @@ export function registerOrderRoutes(app: Express): void {
       });
     } catch (error: any) {
       moduleLog.error({ err: error }, "[/api/orders/profitability-analysis] Error:");
+      res.status(500).json({ error: error.message || "Bestell-Analyse fehlgeschlagen" });
+    }
+  });
+
+  // DB-Berechnung fuer genau eine Bestellnummer (alle Bestellungen mit dieser Nummer, mit Positionen)
+  app.get("/api/orders/profitability-by-number", requireAuth, async (req, res) => {
+    try {
+      const orderNumber = typeof req.query.orderNumber === "string" ? req.query.orderNumber.trim() : "";
+      if (!orderNumber) {
+        return res.status(400).json({ error: "Bestellnummer fehlt" });
+      }
+
+      const tenantId = (req as any).tenantId ?? null;
+      const settings = await storage.getShopwareSettings(tenantId);
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const client = new ShopwareClient(settings);
+      const allowedChannelIds = await getSalesChannelFilter(req);
+      const forceRefresh = req.query.refresh === "true" || req.query.refresh === "1";
+
+      const { orders: cachedOrders } = await getOrdersWithCache(client, tenantId, { forceRefresh });
+      const matches = findOrdersByOrderNumber(
+        filterOrdersBySalesChannels(cachedOrders, allowedChannelIds),
+        orderNumber,
+      );
+
+      const enrichedOrders = await enrichOrdersWithProfitability(matches, {
+        storage,
+        client,
+        tenantId,
+      });
+      const profitabilitySettings = await loadCrmProfitabilitySettings(storage, tenantId);
+
+      res.json({
+        orderNumber,
+        orders: enrichedOrders,
+        profitabilityMinMarginPercent: profitabilitySettings.minMarginPercent,
+      });
+    } catch (error: any) {
+      moduleLog.error({ err: error }, "[/api/orders/profitability-by-number] Error:");
       res.status(500).json({ error: error.message || "Bestell-Analyse fehlgeschlagen" });
     }
   });
