@@ -20,6 +20,7 @@ import { registerSettingsRoutes } from "./routes/settingsRoutes";
 import { registerLogRoutes } from "./routes/logRoutes";
 import { registerOrderRoutes } from "./routes/orderRoutes";
 import { registerCrossSellingRoutes } from "./routes/crossSellingRoutes";
+import { registerCrossSellAutomationRoutes } from "./routes/crossSellAutomationRoutes";
 import { registerProductRoutes } from "./routes/productRoutes";
 import { registerDraftRoutes } from "./routes/draftRoutes";
 import { registerOfferRoutes } from "./routes/offerRoutes";
@@ -104,6 +105,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Cross-Selling: Vorschlaege, Staging, Analytics, Regeln
   registerCrossSellingRoutes(app);
+  registerCrossSellAutomationRoutes(app);
 
   // Angebote: Details, PDF/Export, Teilen-Link, Versand, Positionen, Raumplan, Freigabe
   registerOfferRoutes(app);

@@ -6235,7 +6235,13 @@
       "failed_to_reset_pair": "Paar konnte nicht zurückgesetzt werden",
       "failed_to_start_import": "Einlesen konnte nicht gestartet werden",
       "failed_to_fetch_runs": "Läufe konnten nicht geladen werden",
-      "failed_to_fetch_change_log": "Änderungsprotokoll konnte nicht geladen werden"
+      "failed_to_fetch_change_log": "Änderungsprotokoll konnte nicht geladen werden",
+      "failed_to_fetch_review_queue": "Prüfliste konnte nicht geladen werden",
+      "failed_to_save_decision": "Entscheidung konnte nicht gespeichert werden",
+      "failed_to_start_candidate_run": "Vorschlagslauf konnte nicht gestartet werden",
+      "change_not_found": "Änderung nicht gefunden",
+      "failed_to_undo_change": "Änderung konnte nicht rückgängig gemacht werden",
+      "failed_to_undo_run": "Lauf konnte nicht rückgängig gemacht werden"
     }
   },
   "roomPlanner": {
@@ -6620,6 +6626,151 @@
       "alternative": "Alternative statt Ergänzung",
       "not_relevant": "Passt fachlich nicht",
       "other": "Sonstiges"
+    }
+  },
+  "crossSellReview": {
+    "tab": "Prüfliste",
+    "title": "Prüfliste",
+    "hint": "Vorschläge aus Bestellungen und Regeln mit KI-Fachprüfung. Freigeben schreibt in die verwaltete Liste im Shop, Ablehnen merkt sich das Paar dauerhaft.",
+    "runButton": "Vorschläge jetzt berechnen",
+    "runRunning": "Berechne Vorschläge …",
+    "runDone": "Vorschläge berechnet",
+    "runError": "Berechnung fehlgeschlagen",
+    "runSummary": "{{queued}} in der Prüfliste, {{eligible}} erfüllen alle Bedingungen, {{applied}} automatisch gesetzt, {{llm}} per KI geprüft",
+    "skipped": {
+      "globally_disabled": "Die Automatik ist auf dem Server abgeschaltet (CROSS_SELL_AUTOMATION_ENABLED=false).",
+      "mode_off": "Die Automatik ist ausgeschaltet.",
+      "already_ran": "Heute gab es schon einen Lauf."
+    },
+    "selected": "{{count}} ausgewählt",
+    "approveSelected": "Ausgewählte freigeben",
+    "rejectSelected": "Ausgewählte ablehnen",
+    "selectAll": "Alle auswählen",
+    "selectItem": "{{source}} → {{target}} auswählen",
+    "empty": "Keine offenen Vorschläge.",
+    "count": "{{shown}} von {{total}} Vorschlägen",
+    "pair": "Quelle → Ziel",
+    "evidence": "Begründung",
+    "aiCheck": "KI-Fachprüfung",
+    "score": "Wert",
+    "approve": "Freigeben",
+    "fromRule": "aus Regel",
+    "ordersFromCustomers": "{{orders}} gemeinsame Bestellungen von {{customers}} Kunden",
+    "lift": "{{lift}}× häufiger als zufällig",
+    "wouldAutoApply": "würde automatisch gesetzt",
+    "notAutoBecause": "Nicht automatisch:",
+    "notChecked": "noch nicht geprüft",
+    "approvedTitle": "Freigabe gespeichert",
+    "approvedSummary": "{{approved}} gesetzt, {{already}} schon im Shop, {{full}} Liste voll, {{failed}} Fehler",
+    "rejectedCount": "{{count}} Paare abgelehnt",
+    "decideError": "Entscheidung fehlgeschlagen",
+    "verdict": {
+      "fit": "passt",
+      "unsure": "unsicher",
+      "no_fit": "passt nicht"
+    },
+    "relation": {
+      "accessory": "Zubehör",
+      "component": "Bauteil/Erweiterung",
+      "consumable": "Kleinteil/Verbrauch",
+      "alternative": "Alternative",
+      "unrelated": "ohne Bezug"
+    },
+    "gates": {
+      "min_pair_orders": "zu wenige Bestellungen",
+      "min_customers": "zu wenige Kunden",
+      "confidence": "zu selten zusammen",
+      "lift": "kaum häufiger als zufällig",
+      "llm_missing": "KI-Prüfung fehlt",
+      "llm_not_fit": "KI: passt nicht sicher",
+      "llm_relation": "KI: keine Ergänzung",
+      "llm_confidence": "KI zu unsicher",
+      "target_not_eligible": "Ziel nicht aktiv/sichtbar",
+      "blocked": "abgelehnt",
+      "already_in_shop": "schon im Shop",
+      "same_family": "gleiche Familie",
+      "negative_signal": "wird selten übernommen",
+      "no_order_evidence": "keine Bestellungen"
+    }
+  },
+  "crossSellAutomation": {
+    "tab": "Automatik",
+    "title": "Automatik",
+    "hint": "Steuert, was das System selbst tun darf. Entfernen geschieht nie automatisch.",
+    "mode": "Modus",
+    "managedGroupName": "Name der verwalteten Liste im Shop",
+    "managedGroupNameHint": "Eigener Tab im Shop, getrennt von handgepflegten Gruppen. Bei Änderung werden bestehende Listen mit dem alten Namen nicht umbenannt.",
+    "modes": {
+      "off": "Aus",
+      "review": "Nur Prüfliste",
+      "auto_dry_run": "Testlauf",
+      "auto": "Teilautomatisch"
+    },
+    "modeHints": {
+      "off": "Kein täglicher Lauf. „Vorschläge jetzt berechnen“ füllt nur die Prüfliste.",
+      "review": "Täglich neue Vorschläge in der Prüfliste; in den Shop nur nach Freigabe.",
+      "auto_dry_run": "Wie „Nur Prüfliste“, dazu wird markiert und protokolliert, was automatisch gesetzt worden wäre. Empfohlen für 2–4 Wochen vor „Teilautomatisch“.",
+      "auto": "Sichere Ergänzungen setzt das System selbst (innerhalb der Grenzen), alles andere kommt in die Prüfliste."
+    },
+    "groups": {
+      "limits": "Grenzen",
+      "gates": "Bedingungen für automatisches Setzen",
+      "llm": "KI-Fachprüfung"
+    },
+    "fields": {
+      "maxAutoApplyPerRun": "Höchstens automatisch je Lauf",
+      "maxAutoApplyPerSource": "Höchstens automatisch je Artikel",
+      "maxTargetsPerManagedGroup": "Höchstens Produkte in der verwalteten Liste",
+      "maxNewQueueItemsPerRun": "Neue Vorschläge je Lauf",
+      "queueMinScore": "Mindestwert für die Prüfliste (0–1)",
+      "minPairOrders": "Mindestens gemeinsame Bestellungen",
+      "minDistinctCustomers": "Mindestens verschiedene Kunden",
+      "minConfidenceLB": "Mindest-Confidence (Untergrenze, 0–1)",
+      "minLiftLB": "Mindest-Lift (Untergrenze)",
+      "minLlmConfidence": "Mindest-Sicherheit der KI (0–1)",
+      "llmMaxCallsPerRun": "KI-Anfragen je Lauf",
+      "llmMaxCallsPerMonth": "KI-Anfragen je Monat",
+      "llmRecheckDays": "KI-Urteil erneuern nach Tagen"
+    },
+    "saved": "Einstellungen gespeichert",
+    "saveError": "Speichern fehlgeschlagen"
+  },
+  "crossSellLog": {
+    "tab": "Protokoll",
+    "title": "Änderungen im Shop",
+    "hint": "Jeder Schreibvorgang nach Shopware, auch Testläufe. Hinzufügen und Entfernen lassen sich rückgängig machen.",
+    "runsTitle": "Vorschlagsläufe",
+    "runsEmpty": "Noch keine Läufe.",
+    "startedAt": "Gestartet",
+    "result": "Ergebnis",
+    "runSummary": "{{queued}} in der Prüfliste · {{eligible}} sicher · {{applied}} gesetzt · {{dryRun}} im Testlauf · {{llm}} KI-geprüft",
+    "runFailed": "Fehlgeschlagen: {{error}}",
+    "runRunning": "Läuft …",
+    "undoRun": "Lauf rückgängig",
+    "undo": "Rückgängig",
+    "undone": "rückgängig gemacht",
+    "undoDone": "{{count}} Änderungen rückgängig gemacht",
+    "undoSkipped": "{{count}} übersprungen (schon geändert oder nicht im Shop)",
+    "undoError": "Rückgängig fehlgeschlagen",
+    "empty": "Noch keine Änderungen.",
+    "when": "Zeitpunkt",
+    "action": "Aktion",
+    "group": "Liste",
+    "actions": {
+      "add": "hinzugefügt",
+      "remove": "entfernt",
+      "reposition": "umsortiert",
+      "create_group": "Liste angelegt",
+      "delete_group": "Liste gelöscht"
+    },
+    "modes": {
+      "staging": "Staging",
+      "bulk": "Massenausführung",
+      "product_ui": "Produkt-Dialog",
+      "auto": "automatisch",
+      "approved": "freigegeben",
+      "undo": "rückgängig",
+      "dry_run": "Testlauf"
     }
   }
 }

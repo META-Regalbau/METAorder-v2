@@ -5,6 +5,9 @@ import type { IStorage } from "../storage";
 import type { ShopwareSettings } from "@shared/schema";
 import { runCrossSellLearning } from "./crossSellLearning";
 import { runWithTenantContext } from "../lib/tenantContext";
+import { ShopwareClient } from "../shopware/shopware";
+import { getMirrorOrdersLikeLive } from "../routes/routeHelpers";
+import { runCrossSellCandidates } from "./crossSellCandidates";
 import { logger } from "../lib/logger";
 
 const moduleLog = logger.child({ component: "cross-selling/crossSellScheduler" });
@@ -12,6 +15,8 @@ const moduleLog = logger.child({ component: "cross-selling/crossSellScheduler" }
 export type CrossSellSchedulerDeps = {
   storage: Pick<IStorage, "getAllTenants" | "getShopwareSettings">;
   runLearning: (settings: ShopwareSettings, tenantId: string | null) => Promise<unknown>;
+  /** Taeglicher Kandidatenlauf (Teilautomatik); prueft Modus und Tagessperre selbst. */
+  runCandidates?: (settings: ShopwareSettings, tenantId: string | null) => Promise<unknown>;
 };
 
 /** Ein Durchlauf ueber alle Mandanten mit Shopware-Anbindung. */
@@ -25,6 +30,13 @@ export async function runCrossSellLearningForAllTenants(deps: CrossSellScheduler
         if (!settings) return;
         await deps.runLearning(settings, tenantId);
         moduleLog.info({ tenantId }, "Cross-Selling-Lernlauf abgeschlossen");
+        if (deps.runCandidates) {
+          try {
+            await deps.runCandidates(settings, tenantId);
+          } catch (err) {
+            moduleLog.error({ err, tenantId }, "Cross-Selling-Kandidatenlauf fehlgeschlagen");
+          }
+        }
       } catch (err) {
         moduleLog.error({ err, tenantId }, "Cross-Selling-Lernlauf fehlgeschlagen");
       }
@@ -45,6 +57,7 @@ export function startCrossSellScheduler(storage: IStorage): () => void {
   const deps: CrossSellSchedulerDeps = {
     storage,
     runLearning: (settings, tenantId) => runCrossSellLearning(storage, settings, tenantId),
+    runCandidates: (settings, tenantId) => runCandidatesForTenant(storage, settings, tenantId, "scheduled"),
   };
   let running = false;
   const run = async () => {
@@ -66,4 +79,29 @@ export function startCrossSellScheduler(storage: IStorage): () => void {
     clearTimeout(first);
     clearInterval(timer);
   };
+}
+
+/** Kandidatenlauf fuer einen Mandanten mit echten Abhaengigkeiten (Scheduler und Route). */
+export async function runCandidatesForTenant(
+  storage: IStorage,
+  settings: ShopwareSettings,
+  tenantId: string | null,
+  trigger: "scheduled" | "manual",
+  userId?: string | null,
+) {
+  const client = new ShopwareClient(settings);
+  return runCrossSellCandidates(
+    {
+      storage,
+      client: {
+        fetchProductCrossSelling: client.fetchProductCrossSelling.bind(client),
+        fetchCrossSellingAssignments: client.fetchCrossSellingAssignments.bind(client),
+        createProductCrossSelling: client.createProductCrossSelling.bind(client),
+        syncCrossSellingAssignments: client.syncCrossSellingAssignments.bind(client),
+      },
+      loadOrders: () => getMirrorOrdersLikeLive(client, tenantId),
+      getSetting: (key) => storage.getSetting(key, tenantId),
+    },
+    { tenantId, userId, trigger },
+  );
 }

@@ -2086,12 +2086,33 @@ export class DbStorage implements IStorage {
   async appendCrossSellChangeLog(
     rows: Array<Omit<InsertCrossSellChangeLogEntry, "id" | "tenantId" | "createdAt">>,
     tenantId?: string | null,
-  ): Promise<void> {
-    if (rows.length === 0) return;
+  ): Promise<number[]> {
+    if (rows.length === 0) return [];
     const tenantKey = crossSellTenantKey(tenantId);
+    const ids: number[] = [];
     for (let i = 0; i < rows.length; i += 500) {
-      await db.insert(crossSellChangeLog).values(rows.slice(i, i + 500).map((r) => ({ ...r, tenantId: tenantKey })));
+      const inserted = await db
+        .insert(crossSellChangeLog)
+        .values(rows.slice(i, i + 500).map((r) => ({ ...r, tenantId: tenantKey })))
+        .returning({ id: crossSellChangeLog.id });
+      ids.push(...inserted.map((r) => r.id));
     }
+    return ids;
+  }
+
+  async getCrossSellChangeLogEntry(id: number, tenantId?: string | null): Promise<CrossSellChangeLogEntry | undefined> {
+    const [row] = await db
+      .select()
+      .from(crossSellChangeLog)
+      .where(and(eq(crossSellChangeLog.id, id), eq(crossSellChangeLog.tenantId, crossSellTenantKey(tenantId))));
+    return row;
+  }
+
+  async markCrossSellChangeUndone(id: number, undoneById: number, tenantId?: string | null): Promise<void> {
+    await db
+      .update(crossSellChangeLog)
+      .set({ undoneById })
+      .where(and(eq(crossSellChangeLog.id, id), eq(crossSellChangeLog.tenantId, crossSellTenantKey(tenantId))));
   }
 
   async getCrossSellChangeLog(
@@ -2192,6 +2213,20 @@ export class DbStorage implements IStorage {
       .where(and(...conditions))
       .orderBy(desc(crossSellRuns.startedAt))
       .limit(Math.min(filter.limit ?? 20, 200));
+  }
+
+  async getShopwareProductMirrorsByNumbers(productNumbers: string[], tenantId?: string | null): Promise<(typeof shopwareProducts.$inferSelect)[]> {
+    const unique = Array.from(new Set(productNumbers.filter(Boolean)));
+    const out: (typeof shopwareProducts.$inferSelect)[] = [];
+    for (let i = 0; i < unique.length; i += 500) {
+      out.push(
+        ...(await db
+          .select()
+          .from(shopwareProducts)
+          .where(and(tenantFilterFor(shopwareProducts.tenantId, tenantId), inArray(shopwareProducts.productNumber, unique.slice(i, i + 500))))),
+      );
+    }
+    return out;
   }
 
   async getShopwareProductIdentities(tenantId?: string | null): Promise<ShopwareProductIdentity[]> {

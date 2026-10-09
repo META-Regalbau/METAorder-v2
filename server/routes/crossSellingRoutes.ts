@@ -395,7 +395,8 @@ export function registerCrossSellingRoutes(app: Express): void {
   // Status der Hintergrund-Jobs (Staging-Neuberechnung, KI-Lernlauf).
   app.get("/api/cross-selling/jobs/status", requireAuth, requireManageCrossSellingRules, async (req, res) => {
     try {
-      const type = req.query.type === "ai" ? "ai" : req.query.type === "import" ? "import" : "staging";
+      const known = ["staging", "ai", "import", "candidates"] as const;
+      const type = (known as readonly string[]).includes(String(req.query.type)) ? (req.query.type as (typeof known)[number]) : "staging";
       res.json(await getCrossSellJobStatus(storage, req.tenantId ?? null, type));
     } catch (error: any) {
       moduleLog.error({ err: error }, "Error fetching cross-selling job status:");

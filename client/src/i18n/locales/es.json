@@ -6235,7 +6235,13 @@
       "failed_to_reset_pair": "No se pudo restablecer el par",
       "failed_to_start_import": "No se pudo iniciar la importación",
       "failed_to_fetch_runs": "No se pudieron cargar las ejecuciones",
-      "failed_to_fetch_change_log": "No se pudo cargar el registro de cambios"
+      "failed_to_fetch_change_log": "No se pudo cargar el registro de cambios",
+      "failed_to_fetch_review_queue": "No se pudo cargar la lista de revisión",
+      "failed_to_save_decision": "No se pudo guardar la decisión",
+      "failed_to_start_candidate_run": "No se pudo iniciar la ejecución de sugerencias",
+      "change_not_found": "Cambio no encontrado",
+      "failed_to_undo_change": "No se pudo deshacer el cambio",
+      "failed_to_undo_run": "No se pudo deshacer la ejecución"
     }
   },
   "roomPlanner": {
@@ -6620,6 +6626,151 @@
       "alternative": "Alternativa, no complemento",
       "not_relevant": "No encaja",
       "other": "Otro"
+    }
+  },
+  "crossSellReview": {
+    "tab": "Lista de revisión",
+    "title": "Lista de revisión",
+    "hint": "Sugerencias de pedidos y reglas con revisión experta por IA. Aprobar escribe en la lista gestionada de la tienda; rechazar recuerda el par de forma permanente.",
+    "runButton": "Calcular sugerencias ahora",
+    "runRunning": "Calculando sugerencias …",
+    "runDone": "Sugerencias calculadas",
+    "runError": "Error en el cálculo",
+    "runSummary": "{{queued}} en la lista de revisión, {{eligible}} cumplen todas las condiciones, {{applied}} aplicadas automáticamente, {{llm}} revisadas por IA",
+    "skipped": {
+      "globally_disabled": "La automatización está desactivada en el servidor (CROSS_SELL_AUTOMATION_ENABLED=false).",
+      "mode_off": "La automatización está desactivada.",
+      "already_ran": "Hoy ya hubo una ejecución."
+    },
+    "selected": "{{count}} seleccionados",
+    "approveSelected": "Aprobar seleccionados",
+    "rejectSelected": "Rechazar seleccionados",
+    "selectAll": "Seleccionar todos",
+    "selectItem": "Seleccionar {{source}} → {{target}}",
+    "empty": "No hay sugerencias pendientes.",
+    "count": "{{shown}} de {{total}} sugerencias",
+    "pair": "Origen → destino",
+    "evidence": "Motivo",
+    "aiCheck": "Revisión experta por IA",
+    "score": "Valor",
+    "approve": "Aprobar",
+    "fromRule": "de regla",
+    "ordersFromCustomers": "{{orders}} pedidos conjuntos de {{customers}} clientes",
+    "lift": "{{lift}}× más frecuente que al azar",
+    "wouldAutoApply": "se aplicaría automáticamente",
+    "notAutoBecause": "No automático:",
+    "notChecked": "aún no revisado",
+    "approvedTitle": "Aprobación guardada",
+    "approvedSummary": "{{approved}} aplicadas, {{already}} ya en la tienda, {{full}} lista llena, {{failed}} errores",
+    "rejectedCount": "{{count}} pares rechazados",
+    "decideError": "Error en la decisión",
+    "verdict": {
+      "fit": "encaja",
+      "unsure": "dudoso",
+      "no_fit": "no encaja"
+    },
+    "relation": {
+      "accessory": "accesorio",
+      "component": "componente/ampliación",
+      "consumable": "pieza pequeña/consumible",
+      "alternative": "alternativa",
+      "unrelated": "sin relación"
+    },
+    "gates": {
+      "min_pair_orders": "muy pocos pedidos",
+      "min_customers": "muy pocos clientes",
+      "confidence": "rara vez juntos",
+      "lift": "apenas más que al azar",
+      "llm_missing": "falta revisión por IA",
+      "llm_not_fit": "IA: no encaja con seguridad",
+      "llm_relation": "IA: no es complemento",
+      "llm_confidence": "IA poco segura",
+      "target_not_eligible": "destino no activo/visible",
+      "blocked": "rechazado",
+      "already_in_shop": "ya en la tienda",
+      "same_family": "misma familia",
+      "negative_signal": "rara vez se acepta",
+      "no_order_evidence": "sin pedidos"
+    }
+  },
+  "crossSellAutomation": {
+    "tab": "Automatización",
+    "title": "Automatización",
+    "hint": "Controla lo que el sistema puede hacer por sí solo. Nunca se elimina nada automáticamente.",
+    "mode": "Modo",
+    "managedGroupName": "Nombre de la lista gestionada en la tienda",
+    "managedGroupNameHint": "Pestaña propia en la tienda, separada de los grupos mantenidos a mano. Al cambiarlo no se renombran las listas existentes con el nombre anterior.",
+    "modes": {
+      "off": "Desactivado",
+      "review": "Solo lista de revisión",
+      "auto_dry_run": "Prueba",
+      "auto": "Semiautomático"
+    },
+    "modeHints": {
+      "off": "Sin ejecución diaria. «Calcular sugerencias ahora» solo llena la lista de revisión.",
+      "review": "Nuevas sugerencias cada día en la lista de revisión; en la tienda solo tras aprobación.",
+      "auto_dry_run": "Como «Solo lista de revisión», y además marca y registra lo que se habría aplicado automáticamente. Recomendado durante 2–4 semanas antes de «Semiautomático».",
+      "auto": "El sistema aplica por sí mismo los complementos seguros (dentro de los límites); todo lo demás va a la lista de revisión."
+    },
+    "groups": {
+      "limits": "Límites",
+      "gates": "Condiciones para aplicar automáticamente",
+      "llm": "Revisión experta por IA"
+    },
+    "fields": {
+      "maxAutoApplyPerRun": "Máx. automáticos por ejecución",
+      "maxAutoApplyPerSource": "Máx. automáticos por artículo",
+      "maxTargetsPerManagedGroup": "Máx. productos en la lista gestionada",
+      "maxNewQueueItemsPerRun": "Nuevas sugerencias por ejecución",
+      "queueMinScore": "Valor mínimo para la lista de revisión (0–1)",
+      "minPairOrders": "Mín. pedidos conjuntos",
+      "minDistinctCustomers": "Mín. clientes distintos",
+      "minConfidenceLB": "Confianza mínima (límite inferior, 0–1)",
+      "minLiftLB": "Lift mínimo (límite inferior)",
+      "minLlmConfidence": "Seguridad mínima de la IA (0–1)",
+      "llmMaxCallsPerRun": "Consultas de IA por ejecución",
+      "llmMaxCallsPerMonth": "Consultas de IA por mes",
+      "llmRecheckDays": "Renovar juicio de la IA tras días"
+    },
+    "saved": "Ajustes guardados",
+    "saveError": "Error al guardar"
+  },
+  "crossSellLog": {
+    "tab": "Registro",
+    "title": "Cambios en la tienda",
+    "hint": "Cada escritura en Shopware, también las pruebas. Añadir y eliminar se pueden deshacer.",
+    "runsTitle": "Ejecuciones de sugerencias",
+    "runsEmpty": "Aún no hay ejecuciones.",
+    "startedAt": "Iniciada",
+    "result": "Resultado",
+    "runSummary": "{{queued}} en la lista de revisión · {{eligible}} seguras · {{applied}} aplicadas · {{dryRun}} en prueba · {{llm}} revisadas por IA",
+    "runFailed": "Fallida: {{error}}",
+    "runRunning": "En curso …",
+    "undoRun": "Deshacer ejecución",
+    "undo": "Deshacer",
+    "undone": "deshecho",
+    "undoDone": "{{count}} cambios deshechos",
+    "undoSkipped": "{{count}} omitidos (ya modificados o no en la tienda)",
+    "undoError": "Error al deshacer",
+    "empty": "Aún no hay cambios.",
+    "when": "Momento",
+    "action": "Acción",
+    "group": "Lista",
+    "actions": {
+      "add": "añadido",
+      "remove": "eliminado",
+      "reposition": "reordenado",
+      "create_group": "lista creada",
+      "delete_group": "lista eliminada"
+    },
+    "modes": {
+      "staging": "staging",
+      "bulk": "ejecución masiva",
+      "product_ui": "diálogo de producto",
+      "auto": "automático",
+      "approved": "aprobado",
+      "undo": "deshacer",
+      "dry_run": "prueba"
     }
   }
 }
