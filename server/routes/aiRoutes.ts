@@ -12,6 +12,7 @@ import { generateEmbedding } from "../semantic/semanticEmbeddings";
 import { generateFaqAnswer } from "../semantic/semanticFaq";
 import { runCrossSellLearning } from "../cross-selling/crossSellLearning";
 import { generateCrossSellStaging } from "../cross-selling/crossSellService";
+import { startCrossSellJob } from "../cross-selling/crossSellJobs";
 import { runOfferLearning } from "../offers/offerLearning";
 import rateLimit from "express-rate-limit";
 import type { Express } from "express";
@@ -491,32 +492,29 @@ Antworte im JSON-Format:
     }
   });
 
+  // Lernlauf + Staging laufen im Hintergrund (202); Status per GET /api/cross-selling/jobs/status?type=ai.
   app.post("/api/ai/cross-selling/run", requireAuth, requireManageCrossSellingRules, aiRateLimiter, async (req, res) => {
     try {
-      const settings = await storage.getShopwareSettings(req.tenantId ?? null);
+      const tenantId = req.tenantId ?? null;
+      const userId = (req.user as any)?.id ?? null;
+      const settings = await storage.getShopwareSettings(tenantId);
       if (!settings) {
         return res.status(400).json({ error: "Shopware settings not configured" });
       }
-      moduleLog.info({ details: {
-        tenantId: req.tenantId ?? null,
-        userId: (req.user as any)?.id ?? null,
-      } }, "[CrossSellLearning] POST /run");
-      // #endregion
-      const status = await runCrossSellLearning(storage, settings, req.tenantId ?? null);
-      let staging: {
-        batchId: string;
-        rulesCount: number;
-        suggestionsCount: number;
-        productsWithSuggestions: number;
-        productsWithoutSuggestions: number;
-      } | null = null;
-      try {
-        staging = await generateCrossSellStaging(req.tenantId ?? null, (req.user as any)?.id ?? null);
-      } catch (stagingError: any) {
-        moduleLog.warn({ err: stagingError }, "[CrossSellLearning] Staging generation failed:");
-      }
-      // #endregion
-      res.json({ ...status, staging });
+      moduleLog.info({ tenantId, userId }, "[CrossSellLearning] POST /run");
+
+      const { started, state } = startCrossSellJob(storage, tenantId, "ai", async () => {
+        const status = await runCrossSellLearning(storage, settings, tenantId);
+        let staging: Awaited<ReturnType<typeof generateCrossSellStaging>> | null = null;
+        try {
+          staging = await generateCrossSellStaging(tenantId, userId);
+        } catch (stagingError: any) {
+          moduleLog.warn({ err: stagingError }, "[CrossSellLearning] Staging generation failed:");
+        }
+        return { ...status, staging };
+      });
+
+      res.status(202).json({ started, alreadyRunning: !started, status: state.status });
     } catch (error: any) {
       moduleLog.error({ err: error }, "Error running cross-selling learning:");
       res.status(500).json({ error: error.message || "Failed to run learning job" });

@@ -16,7 +16,7 @@ import { setupAuth } from "./auth/auth";
 import { storage } from "./storage";
 import { ensureVectorExtension } from "./db";
 import { seedDatabase } from "./seedData";
-import { runCrossSellLearning } from "./cross-selling/crossSellLearning";
+import { startCrossSellScheduler } from "./cross-selling/crossSellScheduler";
 import { runOfferLearning } from "./offers/offerLearning";
 import { pollInboundEmails } from "./email/emailInbound";
 import { runDunningJob } from "./invoicing/dunningJob";
@@ -212,31 +212,8 @@ function startSystemLog() {
   registerAutomationTriggers(storage);
   startAutomationScheduler(storage);
 
-  const runLearningJob = async () => {
-    try {
-      const tenants = await storage.getAllTenants();
-      const tenantIds: Array<string | null> = tenants.length > 0 ? tenants.map((t) => t.id) : [null];
-      for (const tenantId of tenantIds) {
-        try {
-          const settings = await storage.getShopwareSettings(tenantId);
-          if (!settings) {
-            continue;
-          }
-          await runCrossSellLearning(storage, settings, tenantId);
-          log(`[CrossSellLearning] Learning job completed for tenant ${tenantId ?? "default"}.`);
-        } catch (error) {
-          moduleLog.error({ err: error }, `[CrossSellLearning] Learning job failed for tenant: ${tenantId}`);
-        }
-      }
-    } catch (error) {
-      moduleLog.error({ err: error }, "[CrossSellLearning] Learning job failed:");
-    }
-  };
-
-  const intervalHours = Number(process.env.CROSS_SELL_LEARNING_INTERVAL_HOURS || 24);
-  const intervalMs = intervalHours * 60 * 60 * 1000;
-  setTimeout(runLearningJob, 30 * 1000);
-  setInterval(runLearningJob, intervalMs);
+  // Cross-Selling-Lernlauf je Mandant (server/cross-selling/crossSellScheduler.ts)
+  startCrossSellScheduler(storage);
 
   const runOfferLearningJob = async () => {
     try {

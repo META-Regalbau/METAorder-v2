@@ -1,6 +1,7 @@
 // Shopware: Produkt-Cross-Selling (Gruppen lesen/anlegen, Produkte zuordnen/entfernen).
 import type { ShopwareClient } from "../shopware";
 import type { CrossSellingGroup, CrossSellingProduct } from "@shared/schema";
+import { createHash } from "node:crypto";
 import { logger } from "../../lib/logger";
 
 const moduleLog = logger.child({ component: "shopware/client/crossSelling" });
@@ -35,10 +36,6 @@ export async function fetchProductCrossSelling(this: ShopwareClient, productId: 
     }
 
     const data = await response.json();
-    
-    // Debug: Log the full response to understand Shopware's structure
-    moduleLog.info(`Shopware Cross-Selling Response: ${JSON.stringify(data, null, 2)}`);
-    
     const crossSellings = data.data || data || [];
 
     const result = crossSellings.map((cs: any) => ({
@@ -46,10 +43,11 @@ export async function fetchProductCrossSelling(this: ShopwareClient, productId: 
       name: cs.name || cs.attributes?.name || 'Unnamed Group',
       type: cs.type || cs.attributes?.type || 'productList',
       active: cs.active !== undefined ? cs.active : (cs.attributes?.active || false),
+      position: typeof (cs.position ?? cs.attributes?.position) === 'number' ? (cs.position ?? cs.attributes?.position) : undefined,
       products: [], // Will be populated separately if needed
     }));
     
-    moduleLog.info(`Found ${result.length} cross-selling groups (productList + productStream) for product ${productId}`);
+    moduleLog.debug(`Found ${result.length} cross-selling groups (productList + productStream) for product ${productId}`);
     
     return result;
   } catch (error) {
@@ -60,8 +58,6 @@ export async function fetchProductCrossSelling(this: ShopwareClient, productId: 
 
 export async function fetchCrossSellingProducts(this: ShopwareClient, productId: string, crossSellingId: string): Promise<CrossSellingProduct[]> {
   try {
-    moduleLog.info(`Fetching products for cross-selling group ${crossSellingId}...`);
-    
     // Step 1: Get assigned product IDs
     const assignmentsResponse = await this.makeAuthenticatedRequest(
       `${this.baseUrl}/api/search/product-cross-selling-assigned-products`,
@@ -91,13 +87,12 @@ export async function fetchCrossSellingProducts(this: ShopwareClient, productId:
     const assignments = assignmentsData.data || [];
     
     if (assignments.length === 0) {
-      moduleLog.info(`No products assigned to cross-selling group ${crossSellingId}`);
       return [];
     }
 
-    // Step 2: Extract product IDs
-    const productIds = assignments.map((a: any) => a.productId);
-    moduleLog.info({ productIds }, `Found ${productIds.length} assigned product IDs:`);
+    // Step 2: Extract product IDs (in Shopware-Reihenfolge)
+    const sortedAssignments = [...assignments].sort((a: any, b: any) => (a.position ?? 0) - (b.position ?? 0));
+    const productIds = sortedAssignments.map((a: any) => a.productId);
 
     // Step 3: Fetch full product details
     const productsResponse = await this.makeAuthenticatedRequest(
@@ -133,9 +128,10 @@ export async function fetchCrossSellingProducts(this: ShopwareClient, productId:
     }
 
     const productsData = await productsResponse.json();
-    const products = productsData.data || [];
-    
-    moduleLog.info(`Fetched ${products.length} product details`);
+    const rank = new Map<string, number>(productIds.map((id: string, i: number) => [id, i]));
+    const products = [...(productsData.data || [])].sort(
+      (a: any, b: any) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0),
+    );
 
     // Step 4: Map to CrossSellingProduct format
     const result = products.map((p: any) => {
@@ -155,9 +151,7 @@ export async function fetchCrossSellingProducts(this: ShopwareClient, productId:
         available: p.available || false,
       };
     });
-    
-    moduleLog.info(`Found ${result.length} products in cross-selling group ${crossSellingId}`);
-    
+
     return result;
   } catch (error) {
     moduleLog.error({ err: error }, "Error fetching cross-selling products from Shopware:");
@@ -165,7 +159,13 @@ export async function fetchCrossSellingProducts(this: ShopwareClient, productId:
   }
 }
 
-export async function createProductCrossSelling(this: ShopwareClient, productId: string, name: string, type: 'productList' | 'productStream' = 'productList'): Promise<string> {
+export async function createProductCrossSelling(
+  this: ShopwareClient,
+  productId: string,
+  name: string,
+  type: 'productList' | 'productStream' = 'productList',
+  position: number = 1,
+): Promise<string> {
   try {
     const response = await this.makeAuthenticatedRequest(
       `${this.baseUrl}/api/product-cross-selling`,
@@ -179,7 +179,7 @@ export async function createProductCrossSelling(this: ShopwareClient, productId:
           name,
           type,
           active: true,
-          position: 1,
+          position,
         }),
       }
     );
@@ -229,50 +229,111 @@ export async function createProductCrossSelling(this: ShopwareClient, productId:
   }
 }
 
-export async function assignProductsToCrossSelling(this: ShopwareClient, crossSellingId: string, productIds: string[]): Promise<void> {
-  try {
-    moduleLog.info(`assignProductsToCrossSelling called with crossSellingId=${crossSellingId}, productIds=${JSON.stringify(productIds)}`);
-    
-    // Shopware expects assigned products to be created individually
-    const assignments = productIds.map((productId, index) => ({
-      crossSellingId: crossSellingId, // Shopware expects 'crossSellingId', not 'productCrossSellingId'
+/**
+ * Haengt Produkte an eine Gruppe an. Ohne startPosition beginnen die Positionen bei 1
+ * (frische Gruppe); beim Ergaenzen einer bestehenden Gruppe max(Position)+1 uebergeben.
+ */
+export async function assignProductsToCrossSelling(
+  this: ShopwareClient,
+  crossSellingId: string,
+  productIds: string[],
+  startPosition: number = 1,
+): Promise<void> {
+  if (productIds.length === 0) return;
+  await syncCrossSellingAssignments.call(this, crossSellingId, {
+    upsert: productIds.map((productId, index) => ({
+      id: crossSellingAssignmentId(crossSellingId, productId),
       productId,
-      position: index + 1,
-    }));
+      position: startPosition + index,
+    })),
+    deleteIds: [],
+  });
+}
 
-    moduleLog.info(`Assignments to send to Shopware: ${JSON.stringify(assignments, null, 2)}`);
+export type CrossSellingAssignment = {
+  id: string;
+  productId: string;
+  position: number;
+  createdAt?: string | null;
+};
 
-    const requestBody = {
-      'write-product-cross-selling-assigned-products': {
-        entity: 'product_cross_selling_assigned_products',
-        action: 'upsert',
-        payload: assignments,
-      },
-    };
-    
-    moduleLog.info(`Full request body: ${JSON.stringify(requestBody, null, 2)}`);
-
-    const response = await this.makeAuthenticatedRequest(
-      `${this.baseUrl}/api/_action/sync`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      moduleLog.error(`Shopware sync error response: ${errorText}`);
-      throw new Error(`Failed to assign products to cross-selling: ${response.statusText} - ${errorText}`);
+/** Zuordnungen einer Gruppe (ID, Produkt, Position), sortiert nach Position. */
+export async function fetchCrossSellingAssignments(this: ShopwareClient, crossSellingId: string): Promise<CrossSellingAssignment[]> {
+  const response = await this.makeAuthenticatedRequest(
+    `${this.baseUrl}/api/search/product-cross-selling-assigned-products`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        limit: 500,
+        filter: [{ type: 'equals', field: 'crossSellingId', value: crossSellingId }],
+        sort: [{ field: 'position', order: 'ASC' }],
+      }),
     }
-    
-    moduleLog.info("Products assigned successfully");
-  } catch (error) {
-    moduleLog.error({ err: error }, "Error assigning products to cross-selling in Shopware:");
-    throw error;
+  );
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to fetch cross-selling assignments: ${response.statusText} - ${errorText}`);
+  }
+  const data = await response.json();
+  return ((data.data || []) as any[])
+    .map((a) => ({
+      id: String(a.id),
+      productId: String(a.productId),
+      position: typeof a.position === 'number' ? a.position : 0,
+      createdAt: a.createdAt ?? null,
+    }))
+    .sort((a, b) => a.position - b.position);
+}
+
+/**
+ * Deterministische Zuordnungs-ID (32 hex) je Gruppe+Produkt: ein wiederholter Upsert nach
+ * Abbruch legt keine Dublette an.
+ */
+function crossSellingAssignmentId(crossSellingId: string, productId: string): string {
+  return createHash('md5').update(`${crossSellingId}|${productId}`).digest('hex');
+}
+
+/**
+ * Ein einziger Sync-Aufruf: erst Upsert (neue Produkte, Positionen), dann Delete. So ist die
+ * Gruppe im Shop nie leer, auch wenn Shopware die Operationen nicht atomar ausfuehrt.
+ */
+export async function syncCrossSellingAssignments(
+  this: ShopwareClient,
+  crossSellingId: string,
+  ops: { upsert: Array<{ id?: string; productId: string; position: number }>; deleteIds: string[] },
+): Promise<void> {
+  const body: Record<string, unknown> = {};
+  if (ops.upsert.length > 0) {
+    body['upsert-assigned-products'] = {
+      entity: 'product_cross_selling_assigned_products',
+      action: 'upsert',
+      payload: ops.upsert.map((u) => ({
+        id: u.id ?? crossSellingAssignmentId(crossSellingId, u.productId),
+        crossSellingId,
+        productId: u.productId,
+        position: u.position,
+      })),
+    };
+  }
+  if (ops.deleteIds.length > 0) {
+    body['delete-assigned-products'] = {
+      entity: 'product_cross_selling_assigned_products',
+      action: 'delete',
+      payload: ops.deleteIds.map((id) => ({ id })),
+    };
+  }
+  if (Object.keys(body).length === 0) return;
+
+  const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/_action/sync`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    moduleLog.error(`Shopware sync error response: ${errorText}`);
+    throw new Error(`Failed to sync cross-selling assignments: ${response.statusText} - ${errorText}`);
   }
 }
 
@@ -290,7 +351,7 @@ export async function removeProductsFromCrossSelling(this: ShopwareClient, cross
           filter: [
             {
               type: 'equals',
-              field: 'productCrossSellingId',
+              field: 'crossSellingId',
               value: crossSellingId,
             },
             {

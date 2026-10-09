@@ -247,9 +247,138 @@ export function getFallbackSuggestionsByProperties(
   return scored.slice(0, limit).map((entry) => entry.product);
 }
 
+export type CrossSellStagingRow = { product: Product; category: string };
+
+/**
+ * Staging-Ziele fuer EINEN Ausgangsartikel: Regeln (bzw. Eigenschafts-Fallback) plus
+ * Regal-Heuristik, zusammengefuehrt mit Kategorie-Quoten. Gleiche Logik fuer den
+ * kompletten Staging-Lauf und die Artikel-Vorschau.
+ */
+export async function computeStagingRowsForProduct(
+  client: ShopwareClient,
+  ruleEngine: RuleEngine,
+  product: Product,
+  rules: CrossSellingRule[],
+  allProducts: Product[],
+  suggestOpts: SuggestCrossSellingOptions | undefined,
+  shelfCfg: Awaited<ReturnType<typeof loadCrossSellShelvingPatternConfig>>,
+): Promise<CrossSellStagingRow[]> {
+  const suggestions = await ruleEngine.suggestCrossSelling(product, rules, client, suggestOpts);
+  const rulesLimited = dedupeAndLimitSuggestions(suggestions, 40);
+
+  let fallbackLimited: Product[] = [];
+  if (rulesLimited.length === 0) {
+    fallbackLimited = dedupeAndLimitSuggestions(
+      getFallbackSuggestionsByProperties(product, allProducts, 40),
+      40,
+    );
+  }
+
+  const ruleHits = rulesLimited.map((s) => ({
+    product: s,
+    category:
+      (s as Product & { suggestCategory?: string }).suggestCategory ??
+      CROSS_SELL_CATEGORIES.COMPONENTS,
+  }));
+  const fallbackHits = fallbackLimited.map((s) => ({
+    product: s,
+    category: CROSS_SELL_CATEGORIES.OTHER,
+  }));
+  const ruleOrFallback = ruleHits.length > 0 ? ruleHits : fallbackHits;
+
+  const heur = findShelvingSupplements(product, allProducts, shelfCfg);
+  return mergeStagingCandidatesWithQuotas(ruleOrFallback, heur, shelfCfg);
+}
+
+export type CrossSellStagingProgress = (processed: number, total: number) => void;
+
+/** Berechnet die Staging-Vorschlaege fuer alle Artikel und ersetzt sie im Batch. */
+async function fillStagingSuggestions(
+  tenantId: string | null,
+  batchId: string,
+  rules: CrossSellingRule[],
+  onProgress?: CrossSellStagingProgress,
+): Promise<{ suggestionsCount: number; productsWithSuggestions: number; productsWithoutSuggestions: number }> {
+  const settings = await storage.getShopwareSettings(tenantId);
+  if (!settings) {
+    throw new Error("Shopware settings not configured");
+  }
+  const client = new ShopwareClient(settings);
+  const ruleEngine = new RuleEngine();
+
+  const allProducts = await fetchAllProductsForStaging(client);
+  const rankingBundle = await loadCrossSellRankingBundle(tenantId);
+  const suggestOpts = crossSellSuggestOptions(tenantId, rankingBundle, "hybrid_only");
+  const shelfCfg = await loadCrossSellShelvingPatternConfig((k, t) => storage.getSetting(k, t), tenantId);
+  const stagingSuggestions: Array<{
+    batchId: string;
+    tenantId: string | null;
+    sourceProductId: string | null;
+    sourceProductNumber: string;
+    targetProductId: string | null;
+    targetProductNumber: string;
+    category?: string | null;
+    active: number;
+  }> = [];
+  let productsWithSuggestions = 0;
+  let productsWithoutSuggestions = 0;
+  let processed = 0;
+  onProgress?.(0, allProducts.length);
+
+  for (const product of allProducts) {
+    processed += 1;
+    if (processed % 25 === 0) onProgress?.(processed, allProducts.length);
+    if (!product.productNumber) {
+      continue;
+    }
+    const merged = await computeStagingRowsForProduct(
+      client,
+      ruleEngine,
+      product,
+      rules,
+      allProducts,
+      suggestOpts,
+      shelfCfg,
+    );
+
+    if (merged.length === 0) {
+      productsWithoutSuggestions += 1;
+      continue;
+    }
+
+    productsWithSuggestions += 1;
+    for (const row of merged) {
+      const suggestion = row.product;
+      if (!suggestion.productNumber) {
+        continue;
+      }
+      stagingSuggestions.push({
+        batchId,
+        tenantId,
+        sourceProductId: product.id ?? null,
+        sourceProductNumber: product.productNumber,
+        targetProductId: suggestion.id ?? null,
+        targetProductNumber: suggestion.productNumber,
+        category: row.category,
+        active: 1,
+      });
+    }
+  }
+  onProgress?.(allProducts.length, allProducts.length);
+
+  await storage.replaceCrossSellStagingSuggestions(batchId, stagingSuggestions, tenantId);
+
+  return {
+    suggestionsCount: stagingSuggestions.length,
+    productsWithSuggestions,
+    productsWithoutSuggestions,
+  };
+}
+
 export async function generateCrossSellStaging(
   tenantId: string | null,
-  userId: string | null
+  userId: string | null,
+  onProgress?: CrossSellStagingProgress,
 ): Promise<{
   batchId: string;
   rulesCount: number;
@@ -261,9 +390,6 @@ export async function generateCrossSellStaging(
   if (!settings) {
     throw new Error("Shopware settings not configured");
   }
-
-  const client = new ShopwareClient(settings);
-  const ruleEngine = new RuleEngine();
 
   const combined = await getCombinedCrossSellingRulesWithSource(tenantId);
   const rules = combined.map((entry) => entry.rule);
@@ -297,84 +423,38 @@ export async function generateCrossSellStaging(
 
   await storage.replaceCrossSellStagingRules(batch.id, stagingRules, tenantId);
 
-  const allProducts = await fetchAllProductsForStaging(client);
-  const rankingBundle = await loadCrossSellRankingBundle(tenantId);
-  const suggestOpts = crossSellSuggestOptions(tenantId, rankingBundle, "hybrid_only");
-  const shelfCfg = await loadCrossSellShelvingPatternConfig((k, t) => storage.getSetting(k, t), tenantId);
-  const stagingSuggestions: Array<{
-    batchId: string;
-    tenantId: string | null;
-    sourceProductId: string | null;
-    sourceProductNumber: string;
-    targetProductId: string | null;
-    targetProductNumber: string;
-    category?: string | null;
-    active: number;
-  }> = [];
-  let productsWithSuggestions = 0;
-  let productsWithoutSuggestions = 0;
-
-  for (const product of allProducts) {
-    if (!product.productNumber) {
-      continue;
-    }
-    const suggestions = await ruleEngine.suggestCrossSelling(product, rules, client, suggestOpts);
-    const rulesLimited = dedupeAndLimitSuggestions(suggestions, 40);
-
-    let fallbackLimited: Product[] = [];
-    if (rulesLimited.length === 0) {
-      fallbackLimited = dedupeAndLimitSuggestions(
-        getFallbackSuggestionsByProperties(product, allProducts, 40),
-        40,
-      );
-    }
-
-    const ruleHits = rulesLimited.map((s) => ({
-      product: s,
-      category:
-        (s as Product & { suggestCategory?: string }).suggestCategory ??
-        CROSS_SELL_CATEGORIES.COMPONENTS,
-    }));
-    const fallbackHits = fallbackLimited.map((s) => ({
-      product: s,
-      category: CROSS_SELL_CATEGORIES.OTHER,
-    }));
-    const ruleOrFallback = ruleHits.length > 0 ? ruleHits : fallbackHits;
-
-    const heur = findShelvingSupplements(product, allProducts, shelfCfg);
-    const merged = mergeStagingCandidatesWithQuotas(ruleOrFallback, heur, shelfCfg);
-
-    if (merged.length === 0) {
-      productsWithoutSuggestions += 1;
-      continue;
-    }
-
-    productsWithSuggestions += 1;
-    for (const row of merged) {
-      const suggestion = row.product;
-      if (!suggestion.productNumber) {
-        continue;
-      }
-      stagingSuggestions.push({
-        batchId: batch.id,
-        tenantId,
-        sourceProductId: product.id ?? null,
-        sourceProductNumber: product.productNumber,
-        targetProductId: suggestion.id ?? null,
-        targetProductNumber: suggestion.productNumber,
-        category: row.category,
-        active: 1,
-      });
-    }
-  }
-
-  await storage.replaceCrossSellStagingSuggestions(batch.id, stagingSuggestions, tenantId);
+  const filled = await fillStagingSuggestions(tenantId, batch.id, rules, onProgress);
 
   return {
     batchId: batch.id,
     rulesCount: stagingRules.length,
-    suggestionsCount: stagingSuggestions.length,
-    productsWithSuggestions,
-    productsWithoutSuggestions,
+    ...filled,
   };
+}
+
+/**
+ * Berechnet die Vorschlaege eines bestehenden Batches neu – mit dessen (ggf. bearbeiteten)
+ * aktiven Staging-Regeln.
+ */
+export async function regenerateCrossSellStagingBatch(
+  tenantId: string | null,
+  batchId: string,
+  onProgress?: CrossSellStagingProgress,
+): Promise<{ batchId: string; suggestionsCount: number; productsWithSuggestions: number; productsWithoutSuggestions: number }> {
+  const stagingRules = await storage.getCrossSellStagingRules(batchId, tenantId);
+  const rules: CrossSellingRule[] = stagingRules
+    .filter((rule) => rule.active === 1)
+    .map((rule) => ({
+      id: rule.id,
+      name: rule.name,
+      description: rule.description ?? undefined,
+      active: rule.active,
+      category: rule.category ?? undefined,
+      sourceConditions: rule.sourceConditions as RuleCondition[],
+      targetCriteria: rule.targetCriteria as RuleTargetCriteria[],
+      createdAt: rule.createdAt,
+      updatedAt: rule.updatedAt,
+    }));
+  const filled = await fillStagingSuggestions(tenantId, batchId, rules, onProgress);
+  return { batchId, ...filled };
 }
