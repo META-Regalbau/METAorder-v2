@@ -6238,7 +6238,13 @@
       "failed_to_reset_pair": "Could not reset the pair",
       "failed_to_start_import": "Could not start the import",
       "failed_to_fetch_runs": "Could not load the runs",
-      "failed_to_fetch_change_log": "Could not load the change log"
+      "failed_to_fetch_change_log": "Could not load the change log",
+      "failed_to_fetch_review_queue": "Could not load the review list",
+      "failed_to_save_decision": "Could not save the decision",
+      "failed_to_start_candidate_run": "Could not start the suggestion run",
+      "change_not_found": "Change not found",
+      "failed_to_undo_change": "Could not undo the change",
+      "failed_to_undo_run": "Could not undo the run"
     }
   },
   "roomPlanner": {

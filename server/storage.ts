@@ -398,10 +398,13 @@ export interface IStorage {
     patch: Partial<Omit<InsertCrossSellPairState, "id" | "tenantId" | "createdAt">>,
     tenantId?: string | null,
   ): Promise<CrossSellPairState | undefined>;
+  /** Liefert die IDs der neuen Eintraege. */
   appendCrossSellChangeLog(
     rows: Array<Omit<InsertCrossSellChangeLogEntry, "id" | "tenantId" | "createdAt">>,
     tenantId?: string | null,
-  ): Promise<void>;
+  ): Promise<number[]>;
+  getCrossSellChangeLogEntry(id: number, tenantId?: string | null): Promise<CrossSellChangeLogEntry | undefined>;
+  markCrossSellChangeUndone(id: number, undoneById: number, tenantId?: string | null): Promise<void>;
   getCrossSellChangeLog(
     filter: { limit?: number; runId?: string; sourceProductNumber?: string },
     tenantId?: string | null,
@@ -422,6 +425,8 @@ export interface IStorage {
     tenantId?: string | null,
   ): Promise<void>;
   getCrossSellRuns(filter: { kind?: CrossSellRunKind; limit?: number }, tenantId?: string | null): Promise<CrossSellRun[]>;
+  /** Spiegel-Zeilen (mit payload) zu Artikelnummern, fuer gezielte Detailabfragen. */
+  getShopwareProductMirrorsByNumbers(productNumbers: string[], tenantId?: string | null): Promise<ShopwareProductMirror[]>;
   /** Schlanke Produktliste aus dem Spiegel (ID, Nummer, Hauptprodukt) fuer Zuordnungen. */
   getShopwareProductIdentities(tenantId?: string | null): Promise<ShopwareProductIdentity[]>;
   /** Paare eines Ereignistyps fuer einen Entwurf (z. B. per Vorschlag hinzugefuegte Ziele). */

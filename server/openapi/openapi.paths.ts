@@ -5270,12 +5270,66 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/cross-selling/candidates/run": {
+    "post": {
+      "tags": [
+        "cross-selling"
+      ],
+      "summary": "POST /api/cross-selling/candidates/run",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/cross-selling/change-log": {
     "get": {
       "tags": [
         "cross-selling"
       ],
       "summary": "GET /api/cross-selling/change-log",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/cross-selling/change-log/{id}/undo": {
+    "post": {
+      "tags": [
+        "cross-selling"
+      ],
+      "summary": "POST /api/cross-selling/change-log/{id}/undo",
       "responses": {
         "200": {
           "description": "OK",
@@ -5538,12 +5592,93 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/cross-selling/review-queue": {
+    "get": {
+      "tags": [
+        "cross-selling"
+      ],
+      "summary": "GET /api/cross-selling/review-queue",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/cross-selling/review-queue/decide": {
+    "post": {
+      "tags": [
+        "cross-selling"
+      ],
+      "summary": "POST /api/cross-selling/review-queue/decide",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/cross-selling/runs": {
     "get": {
       "tags": [
         "cross-selling"
       ],
       "summary": "GET /api/cross-selling/runs",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/cross-selling/runs/{id}/undo": {
+    "post": {
+      "tags": [
+        "cross-selling"
+      ],
+      "summary": "POST /api/cross-selling/runs/{id}/undo",
       "responses": {
         "200": {
           "description": "OK",

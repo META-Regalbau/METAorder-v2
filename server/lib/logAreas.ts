@@ -16,7 +16,7 @@ const COMPONENT_RULES: Rule[] = [
   [/^routes\/(analyticsRoutes)$/, "analytics"],
   [/^routes\/(authRoutes|userRoutes)$/, "auth"],
   [/^routes\/crmRoutes$/, "crm"],
-  [/^routes\/crossSellingRoutes$/, "crossSelling"],
+  [/^routes\/(crossSellingRoutes|crossSellAutomationRoutes)$/, "crossSelling"],
   [/^routes\/draftRoutes$/, "drafts"],
   [/^routes\/integrationRoutes$/, "integration"],
   [/^routes\/invoicingRoutes$/, "invoicing"],

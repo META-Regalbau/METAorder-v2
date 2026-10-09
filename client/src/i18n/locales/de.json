@@ -6235,7 +6235,13 @@
       "failed_to_reset_pair": "Paar konnte nicht zurückgesetzt werden",
       "failed_to_start_import": "Einlesen konnte nicht gestartet werden",
       "failed_to_fetch_runs": "Läufe konnten nicht geladen werden",
-      "failed_to_fetch_change_log": "Änderungsprotokoll konnte nicht geladen werden"
+      "failed_to_fetch_change_log": "Änderungsprotokoll konnte nicht geladen werden",
+      "failed_to_fetch_review_queue": "Prüfliste konnte nicht geladen werden",
+      "failed_to_save_decision": "Entscheidung konnte nicht gespeichert werden",
+      "failed_to_start_candidate_run": "Vorschlagslauf konnte nicht gestartet werden",
+      "change_not_found": "Änderung nicht gefunden",
+      "failed_to_undo_change": "Änderung konnte nicht rückgängig gemacht werden",
+      "failed_to_undo_run": "Lauf konnte nicht rückgängig gemacht werden"
     }
   },
   "roomPlanner": {

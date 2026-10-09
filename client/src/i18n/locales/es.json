@@ -6235,7 +6235,13 @@
       "failed_to_reset_pair": "No se pudo restablecer el par",
       "failed_to_start_import": "No se pudo iniciar la importación",
       "failed_to_fetch_runs": "No se pudieron cargar las ejecuciones",
-      "failed_to_fetch_change_log": "No se pudo cargar el registro de cambios"
+      "failed_to_fetch_change_log": "No se pudo cargar el registro de cambios",
+      "failed_to_fetch_review_queue": "No se pudo cargar la lista de revisión",
+      "failed_to_save_decision": "No se pudo guardar la decisión",
+      "failed_to_start_candidate_run": "No se pudo iniciar la ejecución de sugerencias",
+      "change_not_found": "Cambio no encontrado",
+      "failed_to_undo_change": "No se pudo deshacer el cambio",
+      "failed_to_undo_run": "No se pudo deshacer la ejecución"
     }
   },
   "roomPlanner": {
