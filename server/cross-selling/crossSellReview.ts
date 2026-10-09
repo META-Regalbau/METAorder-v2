@@ -226,3 +226,94 @@ export async function undoCrossSellChanges(
   }
   return out;
 }
+
+export type RemovalOutcome = { removed: string[]; notInShop: string[]; failed: Array<{ id: string; error: string }> };
+
+/**
+ * Entfernen-Vorschlaege bestaetigen: das Ziel aus jeder festen Liste der Quelle nehmen, in der
+ * es laut Gedaechtnis steht (auch Handgruppen - "Mitverwalten"). Gruppen bleiben bestehen.
+ */
+export async function approveCrossSellRemovals(
+  deps: { storage: IStorage; client: Pick<ReviewClient, "fetchCrossSellingAssignments" | "syncCrossSellingAssignments">; catalog: CrossSellCatalog },
+  pairs: CrossSellPairState[],
+  ctx: { tenantId: string | null; userId: string | null },
+): Promise<RemovalOutcome> {
+  const out: RemovalOutcome = { removed: [], notInShop: [], failed: [] };
+  const recorder = createCrossSellChangeRecorder(deps.storage, deps.catalog, { tenantId: ctx.tenantId, userId: ctx.userId, origin: "ai" });
+  for (const pair of pairs) {
+    if (pair.pendingAction !== "remove") {
+      out.failed.push({ id: pair.id, error: "not_pending_remove" });
+      continue;
+    }
+    try {
+      const refs = pair.shopRefs ?? [];
+      let removedAny = false;
+      for (const groupId of Array.from(new Set(refs.map((r) => r.groupId)))) {
+        const groupRefs = refs.filter((r) => r.groupId === groupId);
+        const before = await deps.client.fetchCrossSellingAssignments(groupId);
+        const targetIds = new Set(groupRefs.map((r) => r.productId));
+        const toRemove = before.filter((a) => targetIds.has(a.productId)).map((a) => ({ id: a.id, productId: a.productId }));
+        if (toRemove.length === 0) continue;
+        await deps.client.syncCrossSellingAssignments(groupId, { upsert: [], deleteIds: toRemove.map((r) => r.id) });
+        removedAny = true;
+        await recorder({
+          mode: "approved",
+          dryRun: false,
+          sourceProductId: groupRefs[0].ownerProductId,
+          sourceProductNumber: pair.sourceProductNumber,
+          crossSellingId: groupId,
+          groupName: groupRefs[0].groupName,
+          createdGroup: false,
+          before,
+          diff: { toAdd: [], toRemove, reposition: [], skippedForCap: [], unchanged: before.length - toRemove.length },
+        });
+      }
+      await deps.storage.updateCrossSellPairState(
+        pair.id,
+        {
+          pendingAction: null,
+          status: "removed",
+          shopRefs: [],
+          decisionSource: "user",
+          decidedByUserId: ctx.userId,
+          decidedAt: new Date(),
+          removedAt: new Date(),
+          cooldownUntil: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
+        },
+        ctx.tenantId,
+      );
+      (removedAny ? out.removed : out.notInShop).push(pair.id);
+    } catch (err: any) {
+      out.failed.push({ id: pair.id, error: err?.message || "error" });
+    }
+  }
+  return out;
+}
+
+/** Entfernen-Vorschlag ablehnen: Paar bleibt im Shop und wird kuenftig nicht mehr vorgeschlagen. */
+export async function keepCrossSellPairs(
+  storage: Pick<IStorage, "updateCrossSellPairState">,
+  pairs: CrossSellPairState[],
+  ctx: { tenantId: string | null; userId: string | null; note?: string | null },
+): Promise<number> {
+  let n = 0;
+  for (const pair of pairs) {
+    if (pair.pendingAction !== "remove") continue;
+    await storage.updateCrossSellPairState(
+      pair.id,
+      {
+        pendingAction: null,
+        status: "applied",
+        protected: true,
+        decisionSource: "user",
+        decidedByUserId: ctx.userId,
+        decidedAt: new Date(),
+        decisionReasonCode: "keep",
+        decisionNote: ctx.note?.trim() || null,
+      },
+      ctx.tenantId,
+    );
+    n += 1;
+  }
+  return n;
+}

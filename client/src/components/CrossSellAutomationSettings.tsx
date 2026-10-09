@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { pollCrossSellJob } from "@/lib/crossSellJobs";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -27,6 +29,10 @@ type Settings = {
   llmMaxCallsPerRun: number;
   llmMaxCallsPerMonth: number;
   llmRecheckDays: number;
+  monthlyReviewEnabled: boolean;
+  reportEmail: string;
+  reviewDayOfMonth: number;
+  reviewHourLocal: number;
   [key: string]: unknown;
 };
 
@@ -68,6 +74,29 @@ export default function CrossSellAutomationSettings() {
     },
     onError: (error: Error) => {
       toast({ title: t("crossSellAutomation.saveError"), description: error.message, variant: "destructive" });
+    },
+  });
+
+  const reviewMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/cross-selling/monthly-review/run", {});
+      return pollCrossSellJob("review");
+    },
+    onSuccess: (result: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cross-selling/runs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cross-selling/review-queue"] });
+      toast({
+        title: t("crossSellAutomation.reviewDone"),
+        description: result?.skipped
+          ? t(`crossSellReview.skipped.${result.skipped}`, { defaultValue: result.skipped })
+          : t("crossSellAutomation.reviewSummary", {
+              checked: result?.report?.pairsChecked ?? 0,
+              proposals: result?.report?.proposals ?? 0,
+            }),
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: t("crossSellAutomation.reviewError"), description: error.message, variant: "destructive" });
     },
   });
 
@@ -133,6 +162,64 @@ export default function CrossSellAutomationSettings() {
           </div>
         </div>
       ))}
+
+      <div className="space-y-3 rounded-md border p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold">{t("crossSellAutomation.monthlyTitle")}</h3>
+            <p className="text-xs text-muted-foreground">{t("crossSellAutomation.monthlyHint")}</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => reviewMutation.mutate()} disabled={reviewMutation.isPending}>
+            {reviewMutation.isPending ? t("crossSellAutomation.reviewRunning") : t("crossSellAutomation.reviewNow")}
+          </Button>
+        </div>
+        <div className="flex items-center gap-2">
+          <Switch
+            id="cs-monthly-enabled"
+            checked={draft.monthlyReviewEnabled}
+            onCheckedChange={(v) => set("monthlyReviewEnabled", v)}
+          />
+          <Label htmlFor="cs-monthly-enabled" className="text-sm">
+            {t("crossSellAutomation.monthlyEnabled")}
+          </Label>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="space-y-1">
+            <Label htmlFor="cs-report-email" className="text-xs">{t("crossSellAutomation.reportEmail")}</Label>
+            <Input
+              id="cs-report-email"
+              type="email"
+              value={draft.reportEmail}
+              maxLength={320}
+              placeholder="crossselling@example.com"
+              onChange={(e) => set("reportEmail", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="cs-review-day" className="text-xs">{t("crossSellAutomation.reviewDay")}</Label>
+            <Input
+              id="cs-review-day"
+              type="number"
+              min={1}
+              max={28}
+              value={String(draft.reviewDayOfMonth)}
+              onChange={(e) => set("reviewDayOfMonth", Number(e.target.value) || 1)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="cs-review-hour" className="text-xs">{t("crossSellAutomation.reviewHour")}</Label>
+            <Input
+              id="cs-review-hour"
+              type="number"
+              min={0}
+              max={23}
+              value={String(draft.reviewHourLocal)}
+              onChange={(e) => set("reviewHourLocal", Number(e.target.value) || 0)}
+            />
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">{t("crossSellAutomation.monthlyRecipients")}</p>
+      </div>
 
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={() => data && setDraft(data)} disabled={saveMutation.isPending}>

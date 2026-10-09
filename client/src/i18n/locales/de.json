@@ -6241,7 +6241,8 @@
       "failed_to_start_candidate_run": "Vorschlagslauf konnte nicht gestartet werden",
       "change_not_found": "Änderung nicht gefunden",
       "failed_to_undo_change": "Änderung konnte nicht rückgängig gemacht werden",
-      "failed_to_undo_run": "Lauf konnte nicht rückgängig gemacht werden"
+      "failed_to_undo_run": "Lauf konnte nicht rückgängig gemacht werden",
+      "failed_to_start_monthly_review": "Monatsprüfung konnte nicht gestartet werden"
     }
   },
   "roomPlanner": {
@@ -6691,6 +6692,23 @@
       "same_family": "gleiche Familie",
       "negative_signal": "wird selten übernommen",
       "no_order_evidence": "keine Bestellungen"
+    },
+    "removalProposed": "Entfernen vorgeschlagen",
+    "inLists": "In: {{lists}}",
+    "confirmRemove": "Entfernen",
+    "keep": "Behalten",
+    "keptCount": "{{count}} Zuordnungen behalten (werden nicht wieder vorgeschlagen)",
+    "removalReasons": {
+      "target_missing": "Ziel nicht mehr im Katalog",
+      "target_inactive": "Ziel ist inaktiv",
+      "target_hidden": "Ziel im Verkaufskanal nicht sichtbar",
+      "llm_no_fit": "KI: passt fachlich nicht",
+      "ineffective": "seit dem Setzen ohne messbare Wirkung"
+    },
+    "filter": {
+      "all": "Alle ({{count}})",
+      "remove": "Entfernen ({{count}})",
+      "add": "Ergänzen ({{count}})"
     }
   },
   "crossSellAutomation": {
@@ -6733,7 +6751,19 @@
       "llmRecheckDays": "KI-Urteil erneuern nach Tagen"
     },
     "saved": "Einstellungen gespeichert",
-    "saveError": "Speichern fehlgeschlagen"
+    "saveError": "Speichern fehlgeschlagen",
+    "monthlyTitle": "Monatsprüfung",
+    "monthlyHint": "Prüft einmal im Monat alle Zuordnungen im Shop (auch handgepflegte): Ziel inaktiv oder unsichtbar, KI-Urteil, Wirkung seit dem Setzen. Entfernen wird nur vorgeschlagen.",
+    "monthlyEnabled": "Monatsprüfung einschalten",
+    "reportEmail": "Bericht per E-Mail an",
+    "reviewDay": "Tag im Monat (1–28)",
+    "reviewHour": "Uhrzeit (0–23, deutsche Zeit)",
+    "monthlyRecipients": "Eine Benachrichtigung in der App bekommen alle mit dem Recht „Crossselling-Regeln verwalten“. Änderungen erst speichern, dann wirken sie.",
+    "reviewNow": "Prüfung jetzt starten",
+    "reviewRunning": "Prüfung läuft …",
+    "reviewDone": "Monatsprüfung abgeschlossen",
+    "reviewSummary": "{{checked}} Zuordnungen geprüft, {{proposals}} zum Entfernen vorgeschlagen",
+    "reviewError": "Prüfung fehlgeschlagen"
   },
   "crossSellLog": {
     "tab": "Protokoll",
@@ -6771,6 +6801,30 @@
       "approved": "freigegeben",
       "undo": "rückgängig",
       "dry_run": "Testlauf"
+    }
+  },
+  "crossSellMonthly": {
+    "title": "Monatsprüfungen",
+    "empty": "Noch keine Monatsprüfung.",
+    "summary": "{{checked}} geprüft · {{proposals}} zum Entfernen vorgeschlagen",
+    "shop": "Shop: {{pairs}} Paare in {{lists}} Listen, {{removed}} von Hand entfernt",
+    "llm": "KI: {{checked}} geprüft, {{open}} offen (Budget)",
+    "notified": "benachrichtigt: {{users}} Nutzer, E-Mail {{email}}",
+    "email": {
+      "sent": "gesendet",
+      "skipped": "ungültige Adresse",
+      "failed": "fehlgeschlagen",
+      "none": "nicht eingerichtet"
+    },
+    "reasons": {
+      "target_missing": "Ziel fehlt",
+      "target_inactive": "Ziel inaktiv",
+      "target_hidden": "Ziel unsichtbar",
+      "llm_no_fit": "KI: passt nicht",
+      "ineffective": "ohne Wirkung",
+      "source_inactive": "Quelle inaktiv",
+      "stale": "seit 12 Monaten nicht zusammen gekauft",
+      "positive": "wirkt"
     }
   }
 }

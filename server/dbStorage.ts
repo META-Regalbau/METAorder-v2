@@ -2188,7 +2188,7 @@ export class DbStorage implements IStorage {
 
   async finishCrossSellRun(
     id: string,
-    result: { status: "completed" | "failed"; stats?: Record<string, unknown>; report?: Record<string, unknown>; error?: string | null },
+    result: { status: "completed" | "failed"; stats?: Record<string, unknown>; report?: Record<string, unknown>; error?: string | null; notifiedAt?: Date },
     tenantId?: string | null,
   ): Promise<void> {
     await db
@@ -2199,6 +2199,7 @@ export class DbStorage implements IStorage {
         heartbeatAt: new Date(),
         ...(result.stats ? { stats: result.stats } : {}),
         ...(result.report ? { report: result.report } : {}),
+        ...(result.notifiedAt ? { notifiedAt: result.notifiedAt } : {}),
         error: result.error ?? null,
       })
       .where(and(eq(crossSellRuns.id, id), eq(crossSellRuns.tenantId, crossSellTenantKey(tenantId))));
@@ -2213,6 +2214,29 @@ export class DbStorage implements IStorage {
       .where(and(...conditions))
       .orderBy(desc(crossSellRuns.startedAt))
       .limit(Math.min(filter.limit ?? 20, 200));
+  }
+
+  async getUsersWithPermissionInTenant(
+    permission: string,
+    tenantId: string | null,
+  ): Promise<Array<{ id: string; username: string; email: string | null }>> {
+    const base = db
+      .select({ id: users.id, username: users.username, email: users.email, permissions: roles.permissions })
+      .from(users)
+      .innerJoin(roles, eq(users.roleId, roles.id));
+    const rows = tenantId
+      ? await base.innerJoin(tenantUsers, eq(tenantUsers.userId, users.id)).where(eq(tenantUsers.tenantId, tenantId))
+      : await base;
+    const seen = new Set<string>();
+    return rows
+      .filter((r) => {
+        const p = r.permissions as unknown;
+        const has = Array.isArray(p) ? p.includes(permission) : Boolean(p && (p as Record<string, unknown>)[permission]);
+        if (!has || seen.has(r.id)) return false;
+        seen.add(r.id);
+        return true;
+      })
+      .map((r) => ({ id: r.id, username: r.username, email: r.email ?? null }));
   }
 
   async getShopwareProductMirrorsByNumbers(productNumbers: string[], tenantId?: string | null): Promise<(typeof shopwareProducts.$inferSelect)[]> {

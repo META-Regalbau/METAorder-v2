@@ -7,9 +7,9 @@ import { storage } from "../storage";
 import { ShopwareClient } from "../shopware/shopware";
 import { getCrossSellAutomationSettings } from "../cross-selling/crossSellAutomationSettings";
 import { loadCrossSellCatalog } from "../cross-selling/crossSellCatalog";
-import { approveCrossSellPairs, rejectQueuedCrossSellPairs, undoCrossSellChanges } from "../cross-selling/crossSellReview";
+import { approveCrossSellPairs, approveCrossSellRemovals, keepCrossSellPairs, rejectQueuedCrossSellPairs, undoCrossSellChanges } from "../cross-selling/crossSellReview";
 import { startCrossSellJob } from "../cross-selling/crossSellJobs";
-import { runCandidatesForTenant } from "../cross-selling/crossSellScheduler";
+import { runCandidatesForTenant, runMonthlyReviewForTenant } from "../cross-selling/crossSellScheduler";
 import type { CrossSellPairState } from "@shared/schema";
 import { logger } from "../lib/logger";
 
@@ -42,12 +42,30 @@ export function registerCrossSellAutomationRoutes(app: Express): void {
       const tenantId = req.tenantId ?? null;
       const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 500);
       const offset = Math.max(Number(req.query.offset) || 0, 0);
-      const all = await storage.getCrossSellPairStates({ pendingOnly: true }, tenantId);
-      all.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+      const action = req.query.action === "add" || req.query.action === "remove" ? req.query.action : null;
+      const all = (await storage.getCrossSellPairStates({ pendingOnly: true }, tenantId)).filter(
+        (p) => !action || p.pendingAction === action,
+      );
+      // Entfernen zuerst (nach Dringlichkeit), danach Ergaenzungen nach Wert
+      const removalRank = (r: string | null) => {
+        const i = ["target_missing", "target_inactive", "target_hidden", "llm_no_fit", "ineffective"].indexOf(r ?? "");
+        return i < 0 ? 99 : i;
+      };
+      all.sort((a, b) => {
+        if (a.pendingAction !== b.pendingAction) return a.pendingAction === "remove" ? -1 : 1;
+        if (a.pendingAction === "remove") return removalRank(a.proposalReason) - removalRank(b.proposalReason);
+        return (b.score ?? 0) - (a.score ?? 0);
+      });
+      const counts = { add: 0, remove: 0 };
+      for (const p of await storage.getCrossSellPairStates({ pendingOnly: true }, tenantId)) {
+        if (p.pendingAction === "add") counts.add += 1;
+        else if (p.pendingAction === "remove") counts.remove += 1;
+      }
       const catalog = await loadCrossSellCatalog(storage, tenantId);
       const name = (pn: string) => catalog.byNumber.get(pn)?.name ?? null;
       res.json({
         total: all.length,
+        counts,
         items: all.slice(offset, offset + limit).map((p) => ({
           ...p,
           sourceName: name(p.sourceProductNumber),
@@ -75,34 +93,35 @@ export function registerCrossSellAutomationRoutes(app: Express): void {
         })
         .parse(req.body ?? {});
       const pairs = await loadPairs(body.ids, tenantId);
+      const adds = pairs.filter((p) => p.pendingAction === "add");
+      const removals = pairs.filter((p) => p.pendingAction === "remove");
       const catalog = await loadCrossSellCatalog(storage, tenantId);
 
       if (body.decision === "reject") {
-        const rejected = await rejectQueuedCrossSellPairs({ storage, catalog }, pairs, {
+        const rejected = await rejectQueuedCrossSellPairs({ storage, catalog }, adds, {
           tenantId,
           userId,
           reasonCode: body.reasonCode ?? "other",
           note: body.note,
           bothDirections: body.bothDirections,
         });
-        return res.json({ rejected });
+        const kept = await keepCrossSellPairs(storage, removals, { tenantId, userId, note: body.note });
+        return res.json({ rejected, kept });
       }
 
       const settings = await storage.getShopwareSettings(tenantId);
       if (!settings) {
         return res.status(400).json({ error: "Shopware settings not configured" });
       }
+      const client = reviewClient(new ShopwareClient(settings));
       const outcome = await approveCrossSellPairs(
-        {
-          storage,
-          client: reviewClient(new ShopwareClient(settings)),
-          catalog,
-          settings: await getCrossSellAutomationSettings(storage, tenantId),
-        },
-        pairs,
+        { storage, client, catalog, settings: await getCrossSellAutomationSettings(storage, tenantId) },
+        adds,
         { tenantId, userId },
       );
-      res.json(outcome);
+      const removalOutcome = await approveCrossSellRemovals({ storage, client, catalog }, removals, { tenantId, userId });
+      const outcomeAll = { ...outcome, ...removalOutcome, failed: [...outcome.failed, ...removalOutcome.failed] };
+      res.json(outcomeAll);
     } catch (error: any) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0]?.message || "Invalid payload" });
@@ -128,6 +147,25 @@ export function registerCrossSellAutomationRoutes(app: Express): void {
     } catch (error: any) {
       moduleLog.error({ err: error }, "Error starting cross-selling candidate run:");
       res.status(500).json({ error: error.message || "Failed to start candidate run" });
+    }
+  });
+
+  /** Monatspruefung jetzt starten (202, Status per jobs/status?type=review); zaehlt nicht als Monatslauf. */
+  app.post("/api/cross-selling/monthly-review/run", requireAuth, requireManageCrossSellingRules, async (req, res) => {
+    try {
+      const tenantId = req.tenantId ?? null;
+      const settings = await storage.getShopwareSettings(tenantId);
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+      const userId = (req.user as any)?.id ?? null;
+      const { started, state } = startCrossSellJob(storage, tenantId, "review", async () =>
+        runMonthlyReviewForTenant(storage, settings, tenantId, "manual", userId),
+      );
+      res.status(202).json({ started, alreadyRunning: !started, status: state.status });
+    } catch (error: any) {
+      moduleLog.error({ err: error }, "Error starting cross-selling monthly review:");
+      res.status(500).json({ error: error.message || "Failed to start monthly review" });
     }
   });
 

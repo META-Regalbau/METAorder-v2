@@ -6244,7 +6244,8 @@
       "failed_to_start_candidate_run": "Could not start the suggestion run",
       "change_not_found": "Change not found",
       "failed_to_undo_change": "Could not undo the change",
-      "failed_to_undo_run": "Could not undo the run"
+      "failed_to_undo_run": "Could not undo the run",
+      "failed_to_start_monthly_review": "Could not start the monthly review"
     }
   },
   "roomPlanner": {
@@ -6694,6 +6695,23 @@
       "same_family": "same family",
       "negative_signal": "rarely taken",
       "no_order_evidence": "no orders"
+    },
+    "removalProposed": "Removal proposed",
+    "inLists": "In: {{lists}}",
+    "confirmRemove": "Remove",
+    "keep": "Keep",
+    "keptCount": "{{count}} assignments kept (will not be proposed again)",
+    "removalReasons": {
+      "target_missing": "Target no longer in the catalogue",
+      "target_inactive": "Target is inactive",
+      "target_hidden": "Target not visible in the sales channel",
+      "llm_no_fit": "AI: not a good fit",
+      "ineffective": "no measurable effect since it was set"
+    },
+    "filter": {
+      "all": "All ({{count}})",
+      "remove": "Remove ({{count}})",
+      "add": "Add ({{count}})"
     }
   },
   "crossSellAutomation": {
@@ -6736,7 +6754,19 @@
       "llmRecheckDays": "Renew AI verdict after days"
     },
     "saved": "Settings saved",
-    "saveError": "Saving failed"
+    "saveError": "Saving failed",
+    "monthlyTitle": "Monthly review",
+    "monthlyHint": "Checks all assignments in the shop once a month (including hand-curated ones): target inactive or hidden, AI verdict, effect since it was set. Removal is only proposed.",
+    "monthlyEnabled": "Enable monthly review",
+    "reportEmail": "Send report by e-mail to",
+    "reviewDay": "Day of month (1–28)",
+    "reviewHour": "Hour (0–23, German time)",
+    "monthlyRecipients": "Everyone with the “Manage cross-selling rules” permission gets an in-app notification. Save changes first for them to take effect.",
+    "reviewNow": "Run review now",
+    "reviewRunning": "Review running …",
+    "reviewDone": "Monthly review finished",
+    "reviewSummary": "{{checked}} assignments checked, {{proposals}} proposed for removal",
+    "reviewError": "Review failed"
   },
   "crossSellLog": {
     "tab": "Log",
@@ -6774,6 +6804,30 @@
       "approved": "approved",
       "undo": "undo",
       "dry_run": "dry run"
+    }
+  },
+  "crossSellMonthly": {
+    "title": "Monthly reviews",
+    "empty": "No monthly review yet.",
+    "summary": "{{checked}} checked · {{proposals}} proposed for removal",
+    "shop": "Shop: {{pairs}} pairs in {{lists}} lists, {{removed}} removed by hand",
+    "llm": "AI: {{checked}} checked, {{open}} open (budget)",
+    "notified": "notified: {{users}} users, e-mail {{email}}",
+    "email": {
+      "sent": "sent",
+      "skipped": "invalid address",
+      "failed": "failed",
+      "none": "not set up"
+    },
+    "reasons": {
+      "target_missing": "target missing",
+      "target_inactive": "target inactive",
+      "target_hidden": "target hidden",
+      "llm_no_fit": "AI: no fit",
+      "ineffective": "no effect",
+      "source_inactive": "source inactive",
+      "stale": "not bought together for 12 months",
+      "positive": "effective"
     }
   }
 }

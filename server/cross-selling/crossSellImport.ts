@@ -169,6 +169,33 @@ export async function fetchAllCrossSellingGroups(client: ImportClient, onPage?: 
   return all;
 }
 
+/**
+ * Shop-Stand ins Gedaechtnis uebernehmen (ohne eigenen Lauf). Nutzt der Import und die
+ * Monatspruefung. Liefert die Gruppen fuer weitere Pruefungen mit.
+ */
+export async function syncShopAssignmentsIntoMemory(
+  storage: IStorage,
+  client: ImportClient,
+  args: { tenantId: string | null; onProgress?: (loaded: number) => void; now?: Date },
+): Promise<{ stats: CrossSellImportStats; groups: CrossSellingGroupWithAssignments[]; catalog: CrossSellCatalog }> {
+  const settings = await getCrossSellAutomationSettings(storage, args.tenantId);
+  const [groups, catalog, existing] = await Promise.all([
+    fetchAllCrossSellingGroups(client, args.onProgress),
+    loadCrossSellCatalog(storage, args.tenantId, { fresh: true }),
+    storage.getCrossSellPairStates({}, args.tenantId),
+  ]);
+  const plan = planCrossSellImport(groups, existing, catalog, settings.managedGroupName, args.now ?? new Date());
+  const shopColumns: CrossSellPairStateUpdateColumn[] = ["shopRefs", "lastSeenInShopAt", "sourceProductId", "targetProductId"];
+  await storage.upsertCrossSellPairStates(plan.live, [...shopColumns, "status", "appliedAt", "removedAt", "cooldownUntil"], args.tenantId);
+  await storage.upsertCrossSellPairStates(plan.keepStatus, shopColumns, args.tenantId);
+  await storage.upsertCrossSellPairStates(
+    plan.removed,
+    ["status", "decisionSource", "removedAt", "cooldownUntil", "shopRefs"],
+    args.tenantId,
+  );
+  return { stats: plan.stats, groups, catalog };
+}
+
 export async function runCrossSellImport(
   storage: IStorage,
   client: ImportClient,
@@ -179,24 +206,10 @@ export async function runCrossSellImport(
     args.tenantId,
   );
   try {
-    const settings = await getCrossSellAutomationSettings(storage, args.tenantId);
-    const [groups, catalog, existing] = await Promise.all([
-      fetchAllCrossSellingGroups(client, args.onProgress),
-      loadCrossSellCatalog(storage, args.tenantId, { fresh: true }),
-      storage.getCrossSellPairStates({}, args.tenantId),
-    ]);
-    const plan = planCrossSellImport(groups, existing, catalog, settings.managedGroupName, new Date());
-    const shopColumns: CrossSellPairStateUpdateColumn[] = ["shopRefs", "lastSeenInShopAt", "sourceProductId", "targetProductId"];
-    await storage.upsertCrossSellPairStates(plan.live, [...shopColumns, "status", "appliedAt", "removedAt", "cooldownUntil"], args.tenantId);
-    await storage.upsertCrossSellPairStates(plan.keepStatus, shopColumns, args.tenantId);
-    await storage.upsertCrossSellPairStates(
-      plan.removed,
-      ["status", "decisionSource", "removedAt", "cooldownUntil", "shopRefs"],
-      args.tenantId,
-    );
-    if (run) await storage.finishCrossSellRun(run.id, { status: "completed", stats: plan.stats }, args.tenantId);
-    moduleLog.info({ tenantId: args.tenantId, ...plan.stats, byGroupName: undefined }, "Shop-Zuordnungen eingelesen");
-    return { runId: run?.id ?? null, stats: plan.stats };
+    const { stats } = await syncShopAssignmentsIntoMemory(storage, client, args);
+    if (run) await storage.finishCrossSellRun(run.id, { status: "completed", stats }, args.tenantId);
+    moduleLog.info({ tenantId: args.tenantId, ...stats, byGroupName: undefined }, "Shop-Zuordnungen eingelesen");
+    return { runId: run?.id ?? null, stats };
   } catch (err: any) {
     if (run) await storage.finishCrossSellRun(run.id, { status: "failed", error: err?.message || String(err) }, args.tenantId);
     throw err;

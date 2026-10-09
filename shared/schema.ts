@@ -1750,7 +1750,7 @@ export type DiscountRequest = typeof discountRequests.$inferSelect;
 export type InsertDiscountRequest = z.infer<typeof insertDiscountRequestSchema>;
 
 // Notifications for real-time user alerts
-export type NotificationType = "ticket_assigned" | "ticket_updated" | "comment_added" | "due_date_warning" | "ticket_status_changed";
+export type NotificationType = "ticket_assigned" | "ticket_updated" | "comment_added" | "due_date_warning" | "ticket_status_changed" | "cross_selling_review";
 
 export const notifications = pgTable("notifications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1769,7 +1769,7 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
   id: true,
   createdAt: true,
 }).extend({
-  type: z.enum(["ticket_assigned", "ticket_updated", "comment_added", "due_date_warning", "ticket_status_changed"]),
+  type: z.enum(["ticket_assigned", "ticket_updated", "comment_added", "due_date_warning", "ticket_status_changed", "cross_selling_review"]),
 });
 
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;

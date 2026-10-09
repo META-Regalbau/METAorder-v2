@@ -8,6 +8,9 @@ import { runWithTenantContext } from "../lib/tenantContext";
 import { ShopwareClient } from "../shopware/shopware";
 import { getMirrorOrdersLikeLive } from "../routes/routeHelpers";
 import { runCrossSellCandidates } from "./crossSellCandidates";
+import { runCrossSellMonthlyReview } from "./crossSellMonthlyReview";
+import { sendEmail } from "../email/emailOutbound";
+import { notificationEvents } from "../lib/events";
 import { logger } from "../lib/logger";
 
 const moduleLog = logger.child({ component: "cross-selling/crossSellScheduler" });
@@ -75,9 +78,27 @@ export function startCrossSellScheduler(storage: IStorage): () => void {
   const first = setTimeout(run, 30 * 1000);
   const timer = setInterval(run, hours * 60 * 60 * 1000);
   moduleLog.info({ intervalHours: hours }, "Cross-Selling-Lernlauf geplant");
+
+  // Monatspruefung: stuendlicher Takt, faellig ab Tag/Stunde der Einstellung; ein Lauf je Monat (Sperre).
+  let reviewRunning = false;
+  const reviewTick = async () => {
+    if (reviewRunning) return;
+    reviewRunning = true;
+    try {
+      await forEachShopTenant(storage, (settings, tenantId) => runMonthlyReviewForTenant(storage, settings, tenantId, "scheduled"));
+    } catch (err) {
+      moduleLog.error({ err }, "Cross-Selling-Monatspruefung fehlgeschlagen");
+    } finally {
+      reviewRunning = false;
+    }
+  };
+  const reviewFirst = setTimeout(reviewTick, 5 * 60 * 1000);
+  const reviewTimer = setInterval(reviewTick, 60 * 60 * 1000);
   return () => {
     clearTimeout(first);
     clearInterval(timer);
+    clearTimeout(reviewFirst);
+    clearInterval(reviewTimer);
   };
 }
 
@@ -101,6 +122,47 @@ export async function runCandidatesForTenant(
       },
       loadOrders: () => getMirrorOrdersLikeLive(client, tenantId),
       getSetting: (key) => storage.getSetting(key, tenantId),
+    },
+    { tenantId, userId, trigger },
+  );
+}
+
+async function forEachShopTenant(
+  storage: Pick<IStorage, "getAllTenants" | "getShopwareSettings">,
+  fn: (settings: ShopwareSettings, tenantId: string | null) => Promise<unknown>,
+): Promise<void> {
+  const tenants = await storage.getAllTenants();
+  const tenantIds: Array<string | null> = tenants.length > 0 ? tenants.map((t) => t.id) : [null];
+  for (const tenantId of tenantIds) {
+    await runWithTenantContext(tenantId, async () => {
+      try {
+        const settings = await storage.getShopwareSettings(tenantId);
+        if (settings) await fn(settings, tenantId);
+      } catch (err) {
+        moduleLog.error({ err, tenantId }, "Cross-Selling-Monatspruefung fuer Mandant fehlgeschlagen");
+      }
+    });
+  }
+}
+
+/** Monatspruefung fuer einen Mandanten mit echten Abhaengigkeiten (Scheduler und Route). */
+export async function runMonthlyReviewForTenant(
+  storage: IStorage,
+  settings: ShopwareSettings,
+  tenantId: string | null,
+  trigger: "scheduled" | "manual",
+  userId?: string | null,
+) {
+  const client = new ShopwareClient(settings);
+  return runCrossSellMonthlyReview(
+    {
+      storage,
+      client: { searchCrossSellingGroups: client.searchCrossSellingGroups.bind(client) },
+      loadOrders: () => getMirrorOrdersLikeLive(client, tenantId),
+      getSetting: (key) => storage.getSetting(key, tenantId),
+      sendEmail: (params) => sendEmail(storage, params),
+      onNotificationCreated: (n) => notificationEvents.emitNotificationCreated(n),
+      appUrl: process.env.PUBLIC_APP_URL?.trim() || process.env.APP_URL?.trim() || null,
     },
     { tenantId, userId, trigger },
   );
