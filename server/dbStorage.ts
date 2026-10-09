@@ -14,6 +14,9 @@ import {
   crossSellingRules,
   crossSellCooccurrences,
   crossSellEvents,
+  crossSellPairStates,
+  crossSellChangeLog,
+  crossSellRuns,
   aiCrossSellRules,
   aiRecommendations,
   aiInsights,
@@ -180,9 +183,18 @@ import {
   type InsertOfferPublicEvent,
   type B2bApprovalLog,
   type InsertB2bApprovalLog,
+  type CrossSellPairState,
+  type InsertCrossSellPairState,
+  type CrossSellChangeLogEntry,
+  type InsertCrossSellChangeLogEntry,
+  type CrossSellRun,
+  type CrossSellRunKind,
 } from "@shared/schema";
 import type {
   AutomationEntityRunStats,
+  CrossSellPairStateFilter,
+  CrossSellPairStateUpdateColumn,
+  ShopwareProductIdentity,
   IStorage,
   InsertRole,
   UpdateUser,
@@ -297,6 +309,8 @@ function mapCrossSellingRuleRow(rule: CrossSellingRuleRow): CrossSellingRule {
 
 const resolveTenantId = (tenantId?: string | null) =>
   tenantId === undefined ? getTenantIdFromContext() : tenantId;
+/** Cross-Selling-Gedaechtnis: tenant_id ist NOT NULL, kein Mandant = "". */
+const crossSellTenantKey = (tenantId?: string | null) => resolveTenantId(tenantId) ?? "";
 const tenantFilterFor = <T>(column: T, tenantId?: string | null) => {
   const resolved = resolveTenantId(tenantId);
   return resolved ? eq(column as any, resolved) : isNull(column as any);
@@ -1999,6 +2013,199 @@ export class DbStorage implements IStorage {
       await db.insert(crossSellEvents).values(fresh);
     }
     return fresh.length;
+  }
+
+  async getCrossSellPairStates(filter: CrossSellPairStateFilter, tenantId?: string | null): Promise<CrossSellPairState[]> {
+    const conditions: any[] = [eq(crossSellPairStates.tenantId, crossSellTenantKey(tenantId))];
+    if (filter.statuses && filter.statuses.length > 0) conditions.push(inArray(crossSellPairStates.status, filter.statuses));
+    if (filter.sourceProductNumber) conditions.push(eq(crossSellPairStates.sourceProductNumber, filter.sourceProductNumber));
+    if (filter.pendingOnly) conditions.push(sql`${crossSellPairStates.pendingAction} IS NOT NULL`);
+    let query = db
+      .select()
+      .from(crossSellPairStates)
+      .where(and(...conditions))
+      .orderBy(desc(crossSellPairStates.updatedAt))
+      .$dynamic();
+    if (filter.limit) query = query.limit(filter.limit);
+    if (filter.offset) query = query.offset(filter.offset);
+    return query;
+  }
+
+  async getCrossSellPairState(id: string, tenantId?: string | null): Promise<CrossSellPairState | undefined> {
+    const [row] = await db
+      .select()
+      .from(crossSellPairStates)
+      .where(and(eq(crossSellPairStates.id, id), eq(crossSellPairStates.tenantId, crossSellTenantKey(tenantId))));
+    return row;
+  }
+
+  async upsertCrossSellPairStates(
+    rows: Array<Omit<InsertCrossSellPairState, "id" | "tenantId" | "createdAt" | "updatedAt">>,
+    updateColumns: CrossSellPairStateUpdateColumn[],
+    tenantId?: string | null,
+  ): Promise<CrossSellPairState[]> {
+    if (rows.length === 0) return [];
+    const tenantKey = crossSellTenantKey(tenantId);
+    const set: Record<string, unknown> = { updatedAt: sql`now()` };
+    for (const col of updateColumns) {
+      set[col] = sql.raw(`excluded."${(crossSellPairStates as any)[col].name}"`);
+    }
+    const out: CrossSellPairState[] = [];
+    // Doppelte Paare im selben Aufruf: letzte Zeile gewinnt (Postgres erlaubt kein doppeltes ON CONFLICT je Befehl).
+    const unique = new Map<string, (typeof rows)[number]>();
+    for (const r of rows) unique.set(`${r.sourceProductNumber}\u0000${r.targetProductNumber}`, r);
+    const list = Array.from(unique.values());
+    for (let i = 0; i < list.length; i += 500) {
+      const chunk = list.slice(i, i + 500).map((r) => ({ ...r, tenantId: tenantKey }));
+      const result = await db
+        .insert(crossSellPairStates)
+        .values(chunk)
+        .onConflictDoUpdate({
+          target: [crossSellPairStates.tenantId, crossSellPairStates.sourceProductNumber, crossSellPairStates.targetProductNumber],
+          set,
+        })
+        .returning();
+      out.push(...result);
+    }
+    return out;
+  }
+
+  async updateCrossSellPairState(
+    id: string,
+    patch: Partial<Omit<InsertCrossSellPairState, "id" | "tenantId" | "createdAt">>,
+    tenantId?: string | null,
+  ): Promise<CrossSellPairState | undefined> {
+    const [row] = await db
+      .update(crossSellPairStates)
+      .set({ ...patch, updatedAt: new Date() })
+      .where(and(eq(crossSellPairStates.id, id), eq(crossSellPairStates.tenantId, crossSellTenantKey(tenantId))))
+      .returning();
+    return row;
+  }
+
+  async appendCrossSellChangeLog(
+    rows: Array<Omit<InsertCrossSellChangeLogEntry, "id" | "tenantId" | "createdAt">>,
+    tenantId?: string | null,
+  ): Promise<void> {
+    if (rows.length === 0) return;
+    const tenantKey = crossSellTenantKey(tenantId);
+    for (let i = 0; i < rows.length; i += 500) {
+      await db.insert(crossSellChangeLog).values(rows.slice(i, i + 500).map((r) => ({ ...r, tenantId: tenantKey })));
+    }
+  }
+
+  async getCrossSellChangeLog(
+    filter: { limit?: number; runId?: string; sourceProductNumber?: string },
+    tenantId?: string | null,
+  ): Promise<CrossSellChangeLogEntry[]> {
+    const conditions: any[] = [eq(crossSellChangeLog.tenantId, crossSellTenantKey(tenantId))];
+    if (filter.runId) conditions.push(eq(crossSellChangeLog.runId, filter.runId));
+    if (filter.sourceProductNumber) conditions.push(eq(crossSellChangeLog.sourceProductNumber, filter.sourceProductNumber));
+    return db
+      .select()
+      .from(crossSellChangeLog)
+      .where(and(...conditions))
+      .orderBy(desc(crossSellChangeLog.id))
+      .limit(Math.min(filter.limit ?? 200, 1000));
+  }
+
+  async acquireCrossSellRun(
+    args: { kind: CrossSellRunKind; periodKey: string; userId?: string | null; staleAfterMinutes?: number; maxAttempts?: number },
+    tenantId?: string | null,
+  ): Promise<CrossSellRun | null> {
+    const tenantKey = crossSellTenantKey(tenantId);
+    const [created] = await db
+      .insert(crossSellRuns)
+      .values({
+        tenantId: tenantKey,
+        kind: args.kind,
+        periodKey: args.periodKey,
+        status: "running",
+        triggeredByUserId: args.userId ?? null,
+      })
+      .onConflictDoNothing({ target: [crossSellRuns.tenantId, crossSellRuns.kind, crossSellRuns.periodKey] })
+      .returning();
+    if (created) return created;
+
+    const staleMinutes = Math.max(1, Math.floor(args.staleAfterMinutes ?? 120));
+    const maxAttempts = Math.max(1, Math.floor(args.maxAttempts ?? 3));
+    const [taken] = await db
+      .update(crossSellRuns)
+      .set({
+        status: "running",
+        attempt: sql`${crossSellRuns.attempt} + 1`,
+        startedAt: sql`now()`,
+        heartbeatAt: sql`now()`,
+        finishedAt: null,
+        error: null,
+        triggeredByUserId: args.userId ?? null,
+      })
+      .where(
+        and(
+          eq(crossSellRuns.tenantId, tenantKey),
+          eq(crossSellRuns.kind, args.kind),
+          eq(crossSellRuns.periodKey, args.periodKey),
+          or(
+            and(
+              eq(crossSellRuns.status, "running"),
+              sql`${crossSellRuns.heartbeatAt} < now() - make_interval(mins => ${staleMinutes})`,
+            ),
+            and(eq(crossSellRuns.status, "failed"), sql`${crossSellRuns.attempt} < ${maxAttempts}`),
+          ),
+        ),
+      )
+      .returning();
+    return taken ?? null;
+  }
+
+  async heartbeatCrossSellRun(id: string, stats?: Record<string, unknown>, tenantId?: string | null): Promise<void> {
+    await db
+      .update(crossSellRuns)
+      .set({ heartbeatAt: new Date(), ...(stats ? { stats } : {}) })
+      .where(and(eq(crossSellRuns.id, id), eq(crossSellRuns.tenantId, crossSellTenantKey(tenantId))));
+  }
+
+  async finishCrossSellRun(
+    id: string,
+    result: { status: "completed" | "failed"; stats?: Record<string, unknown>; report?: Record<string, unknown>; error?: string | null },
+    tenantId?: string | null,
+  ): Promise<void> {
+    await db
+      .update(crossSellRuns)
+      .set({
+        status: result.status,
+        finishedAt: new Date(),
+        heartbeatAt: new Date(),
+        ...(result.stats ? { stats: result.stats } : {}),
+        ...(result.report ? { report: result.report } : {}),
+        error: result.error ?? null,
+      })
+      .where(and(eq(crossSellRuns.id, id), eq(crossSellRuns.tenantId, crossSellTenantKey(tenantId))));
+  }
+
+  async getCrossSellRuns(filter: { kind?: CrossSellRunKind; limit?: number }, tenantId?: string | null): Promise<CrossSellRun[]> {
+    const conditions: any[] = [eq(crossSellRuns.tenantId, crossSellTenantKey(tenantId))];
+    if (filter.kind) conditions.push(eq(crossSellRuns.kind, filter.kind));
+    return db
+      .select()
+      .from(crossSellRuns)
+      .where(and(...conditions))
+      .orderBy(desc(crossSellRuns.startedAt))
+      .limit(Math.min(filter.limit ?? 20, 200));
+  }
+
+  async getShopwareProductIdentities(tenantId?: string | null): Promise<ShopwareProductIdentity[]> {
+    const rows = await db
+      .select({
+        id: shopwareProducts.shopwareId,
+        productNumber: shopwareProducts.productNumber,
+        parentId: sql<string | null>`${shopwareProducts.payload}->>'parentId'`,
+        name: shopwareProducts.name,
+        active: shopwareProducts.active,
+      })
+      .from(shopwareProducts)
+      .where(tenantFilterFor(shopwareProducts.tenantId, tenantId));
+    return rows.map((r) => ({ ...r, parentId: r.parentId || null }));
   }
 
   async getCrossSellDraftEventPairs(

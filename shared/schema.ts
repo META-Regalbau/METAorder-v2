@@ -865,8 +865,15 @@ export type CrossSellingGroup = {
   products: CrossSellingProduct[];
 };
 
-/** Shopware-Tabname (Storefront) fuer Cross-Selling-Gruppen, die METAorder anlegt oder befuellt. */
+/**
+ * Frueherer Tabname der von METAorder befuellten Gruppen. Im Shop heisst so auch eine dynamische
+ * Produktgruppe (productStream); neue Gruppen bekommen deshalb einen eigenen, einstellbaren
+ * Namen (cross_sell_automation_settings.managedGroupName). Bleibt fuer die Einordnung beim Import.
+ */
 export const SHOPWARE_CROSS_SELLING_STOREFRONT_NAME = "Passende Produkte";
+
+/** Standardname der vom System verwalteten Cross-Selling-Liste im Shop. */
+export const DEFAULT_MANAGED_CROSS_SELLING_GROUP_NAME = "Das passt dazu";
 
 // Rule-based cross-selling system
 export type RuleConditionOperator = "equals" | "notEquals" | "contains" | "notContains" | "greaterThan" | "lessThan" | "greaterThanOrEqual" | "lessThanOrEqual" | "matchesDimensions";
@@ -1048,6 +1055,146 @@ export const aiCrossSellRules = pgTable("ai_cross_sell_rules", {
 });
 
 export type InsertAiCrossSellRule = typeof aiCrossSellRules.$inferInsert;
+
+// --- Cross-Selling-Gedaechtnis (Migration 0046) ---
+// tenant_id ist NOT NULL DEFAULT '' (kein Mandant = ''), damit die Unique-Indizes greifen.
+
+export type CrossSellPairStatus = "suggested" | "approved" | "rejected" | "applied" | "removal_proposed" | "removed";
+export type CrossSellPairOrigin = "ai" | "manual_rule" | "heuristic" | "user" | "shopware_manual" | "legacy_metaorder";
+export type CrossSellPairShopRef = {
+  groupId: string;
+  groupName: string;
+  groupActive: boolean;
+  ownerProductId: string;
+  assignmentId: string;
+  productId: string;
+  position: number;
+  createdAt?: string | null;
+};
+
+/** Ein Eintrag je gerichtetem Paar (Familien-Artikelnummern): Status, Entscheidung, Shop-Stand. */
+export const crossSellPairStates = pgTable(
+  "cross_sell_pair_state",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id").notNull().default(""),
+    sourceProductNumber: text("source_product_number").notNull(),
+    targetProductNumber: text("target_product_number").notNull(),
+    sourceProductId: varchar("source_product_id"),
+    targetProductId: varchar("target_product_id"),
+    status: text("status").notNull().$type<CrossSellPairStatus>(),
+    origin: text("origin").notNull().$type<CrossSellPairOrigin>(),
+    pendingAction: text("pending_action").$type<"add" | "remove" | "replace">(),
+    proposalReason: text("proposal_reason"),
+    replacesPairId: varchar("replaces_pair_id"),
+    autoEligible: boolean("auto_eligible").notNull().default(false),
+    protected: boolean("protected").notNull().default(false),
+    cooldownUntil: timestamp("cooldown_until", { withTimezone: true }),
+    score: real("score"),
+    scoreComponents: jsonb("score_components").$type<Record<string, number>>(),
+    stats: jsonb("stats").$type<Record<string, unknown>>(),
+    llmVerdict: text("llm_verdict").$type<"fit" | "unsure" | "no_fit">(),
+    llmRelation: text("llm_relation"),
+    llmConfidence: real("llm_confidence"),
+    llmReason: text("llm_reason"),
+    llmModel: text("llm_model"),
+    llmInputHash: text("llm_input_hash"),
+    llmCheckedAt: timestamp("llm_checked_at", { withTimezone: true }),
+    decisionSource: text("decision_source").$type<"user" | "batch" | "auto" | "external" | "undo" | "import">(),
+    decidedByUserId: varchar("decided_by_user_id"),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    decisionReasonCode: text("decision_reason_code"),
+    decisionNote: text("decision_note"),
+    shopRefs: jsonb("shop_refs").$type<CrossSellPairShopRef[]>(),
+    appliedAt: timestamp("applied_at", { withTimezone: true }),
+    removedAt: timestamp("removed_at", { withTimezone: true }),
+    lastSeenInShopAt: timestamp("last_seen_in_shop_at", { withTimezone: true }),
+    baseline: jsonb("baseline").$type<Record<string, unknown>>(),
+    effect: jsonb("effect").$type<Record<string, unknown>>(),
+    lastReviewedAt: timestamp("last_reviewed_at", { withTimezone: true }),
+    lastRunId: varchar("last_run_id"),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    uniquePair: uniqueIndex("cross_sell_pair_state_unique").on(table.tenantId, table.sourceProductNumber, table.targetProductNumber),
+    tenantStatusIdx: index("cross_sell_pair_state_status_idx").on(table.tenantId, table.status),
+    tenantTargetIdx: index("cross_sell_pair_state_target_idx").on(table.tenantId, table.targetProductNumber),
+    tenantPendingIdx: index("cross_sell_pair_state_pending_idx")
+      .on(table.tenantId, table.pendingAction)
+      .where(sql`pending_action IS NOT NULL`),
+  }),
+);
+
+export type CrossSellPairState = typeof crossSellPairStates.$inferSelect;
+export type InsertCrossSellPairState = typeof crossSellPairStates.$inferInsert;
+
+/** Jeder Schreibvorgang nach Shopware (auch Testlaeufe), nur anhaengen. */
+export const crossSellChangeLog = pgTable(
+  "cross_sell_change_log",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    tenantId: varchar("tenant_id").notNull().default(""),
+    runId: varchar("run_id"),
+    pairStateId: varchar("pair_state_id"),
+    action: text("action").notNull().$type<"add" | "remove" | "reposition" | "create_group" | "delete_group">(),
+    mode: text("mode").notNull(),
+    userId: varchar("user_id"),
+    sourceProductId: varchar("source_product_id"),
+    sourceProductNumber: text("source_product_number"),
+    targetProductId: varchar("target_product_id"),
+    targetProductNumber: text("target_product_number"),
+    crossSellingId: varchar("cross_selling_id"),
+    groupName: text("group_name"),
+    assignmentId: varchar("assignment_id"),
+    position: integer("position"),
+    success: boolean("success").notNull(),
+    error: text("error"),
+    before: jsonb("before"),
+    after: jsonb("after"),
+    undoOfId: integer("undo_of_id"),
+    undoneById: integer("undone_by_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    tenantCreatedIdx: index("cross_sell_change_log_created_idx").on(table.tenantId, table.createdAt),
+    tenantRunIdx: index("cross_sell_change_log_run_idx").on(table.tenantId, table.runId),
+    tenantSourceIdx: index("cross_sell_change_log_source_idx").on(table.tenantId, table.sourceProductNumber),
+  }),
+);
+
+export type CrossSellChangeLogEntry = typeof crossSellChangeLog.$inferSelect;
+export type InsertCrossSellChangeLogEntry = typeof crossSellChangeLog.$inferInsert;
+
+export type CrossSellRunKind = "learning" | "candidates" | "monthly_review" | "import";
+
+/** Laeufe (Sperre gegen Doppellaeufe, Verlauf, Berichte). */
+export const crossSellRuns = pgTable(
+  "cross_sell_runs",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id").notNull().default(""),
+    kind: text("kind").notNull().$type<CrossSellRunKind>(),
+    periodKey: text("period_key").notNull(),
+    status: text("status").notNull().$type<"running" | "completed" | "failed">(),
+    attempt: integer("attempt").notNull().default(1),
+    triggeredByUserId: varchar("triggered_by_user_id"),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    stats: jsonb("stats").$type<Record<string, unknown>>(),
+    report: jsonb("report").$type<Record<string, unknown>>(),
+    notifiedAt: timestamp("notified_at", { withTimezone: true }),
+    error: text("error"),
+  },
+  (table) => ({
+    uniquePeriod: uniqueIndex("cross_sell_runs_period_unique").on(table.tenantId, table.kind, table.periodKey),
+    tenantKindStartedIdx: index("cross_sell_runs_kind_started_idx").on(table.tenantId, table.kind, table.startedAt),
+  }),
+);
+
+export type CrossSellRun = typeof crossSellRuns.$inferSelect;
 
 export type CrossSellStagingBatch = {
   id: string;

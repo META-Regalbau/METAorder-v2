@@ -421,3 +421,61 @@ export async function deleteProductCrossSelling(this: ShopwareClient, crossSelli
     throw error;
   }
 }
+
+export type CrossSellingGroupWithAssignments = {
+  id: string;
+  name: string;
+  type: 'productList' | 'productStream';
+  active: boolean;
+  position: number;
+  productId: string;
+  assignedProducts: CrossSellingAssignment[];
+};
+
+/**
+ * Alle Cross-Selling-Gruppen des Shops seitenweise (inkl. Zuordnungen), z. B. fuer den Import
+ * ins Gedaechtnis und die Monatspruefung. Nur lesend.
+ */
+export async function searchCrossSellingGroups(
+  this: ShopwareClient,
+  page: number,
+  limit: number = 250,
+): Promise<{ groups: CrossSellingGroupWithAssignments[]; hasMore: boolean }> {
+  const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/product-cross-selling`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      page,
+      limit,
+      sort: [{ field: 'id', order: 'ASC' }],
+      associations: { assignedProducts: { limit: 500 } },
+      includes: {
+        product_cross_selling: ['id', 'name', 'type', 'active', 'position', 'productId', 'assignedProducts'],
+        product_cross_selling_assigned_products: ['id', 'productId', 'position', 'createdAt'],
+      },
+    }),
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to search cross-selling groups: ${response.statusText} - ${errorText}`);
+  }
+  const data = await response.json();
+  const rows = (data.data || []) as any[];
+  const groups = rows.map((g) => ({
+    id: String(g.id),
+    name: String(g.name ?? ''),
+    type: g.type === 'productStream' ? 'productStream' as const : 'productList' as const,
+    active: g.active !== false,
+    position: typeof g.position === 'number' ? g.position : 0,
+    productId: String(g.productId),
+    assignedProducts: ((g.assignedProducts || []) as any[])
+      .map((a) => ({
+        id: String(a.id),
+        productId: String(a.productId),
+        position: typeof a.position === 'number' ? a.position : 0,
+        createdAt: a.createdAt ?? null,
+      }))
+      .sort((a, b) => a.position - b.position),
+  }));
+  return { groups, hasMore: rows.length >= limit };
+}

@@ -34,6 +34,8 @@ export type SuggestCrossSellingOptions = {
     ttlHours: number;
     useLlmFromSettings: boolean;
   };
+  /** Abgelehnte bzw. gesperrte Paare (Cross-Selling-Gedaechtnis) nie vorschlagen. */
+  excludePairs?: (sourceProductNumber: string | null | undefined, targetProductNumber: string | null | undefined) => boolean;
 };
 
 export class RuleEngine {
@@ -96,7 +98,7 @@ export class RuleEngine {
     /** Deduplicate identical Shopware searches within one rule evaluation */
     searchTermCache?: Map<string, Promise<Product[]>>
   ): Promise<Product[]> {
-    moduleLog.info(`[RuleEngine] Finding products using Shopware search for ${criteria.length} criteria...`);
+    moduleLog.debug(`[RuleEngine] Finding products using Shopware search for ${criteria.length} criteria...`);
     
     if (criteria.length === 0) {
       return [];
@@ -155,9 +157,9 @@ export class RuleEngine {
       if (!searchTerm) {
         return [] as Product[];
       }
-      moduleLog.info(`[RuleEngine] Searching Shopware with term: "${searchTerm}" for field: ${criterion.field}`);
+      moduleLog.debug(`[RuleEngine] Searching Shopware with term: "${searchTerm}" for field: ${criterion.field}`);
       const products = await loadProductsForSearchTerm(searchTerm);
-      moduleLog.info(`[RuleEngine] Shopware returned ${products.length} products for search term "${searchTerm}"`);
+      moduleLog.debug(`[RuleEngine] Shopware returned ${products.length} products for search term "${searchTerm}"`);
       return products;
     });
 
@@ -170,7 +172,7 @@ export class RuleEngine {
       }
     }
     
-    moduleLog.info(`[RuleEngine] Total candidate products from Shopware: ${candidateProducts.size}`);
+    moduleLog.debug(`[RuleEngine] Total candidate products from Shopware: ${candidateProducts.size}`);
     
     // Now filter candidates: they must match ALL criteria (AND logic)
     const matches = Array.from(candidateProducts.values()).filter((targetProduct) => {
@@ -182,7 +184,7 @@ export class RuleEngine {
       return matchesAllCriteria;
     });
     
-    moduleLog.info(`[RuleEngine] ${matches.length} of ${candidateProducts.size} products matched ALL criteria`);
+    moduleLog.debug(`[RuleEngine] ${matches.length} of ${candidateProducts.size} products matched ALL criteria`);
     
     return matches;
   }
@@ -205,16 +207,16 @@ export class RuleEngine {
         // Get the value from the source product and use it as search term
         const sourceValue = this.getFieldValue(sourceProduct, criterion.field);
         if (sourceValue !== undefined && sourceValue !== null) {
-          moduleLog.info(`[RuleEngine] Using source product's ${criterion.field} value (${sourceValue}) for search`);
+          moduleLog.debug(`[RuleEngine] Using source product's ${criterion.field} value (${sourceValue}) for search`);
           return String(sourceValue);
         }
-        moduleLog.info(`[RuleEngine] Source product has no value for field: ${criterion.field}`);
+        moduleLog.debug(`[RuleEngine] Source product has no value for field: ${criterion.field}`);
         return null;
       
       case "sameDimensions":
         // For dimension matching, we can't use a simple search term
         // We need to fetch products and filter them manually
-        moduleLog.info(`[RuleEngine] Skipping Shopware search for criterion type: ${criterion.matchType}`);
+        moduleLog.debug(`[RuleEngine] Skipping Shopware search for criterion type: ${criterion.matchType}`);
         return null;
 
       case "sameWidthAndDepth":
@@ -256,7 +258,7 @@ export class RuleEngine {
         const match = this.compareEquals(sourceValue, targetPropertyValue);
         
         if (!match) {
-          moduleLog.info(`[RuleEngine] sameProperty mismatch: source=${sourceValue} (${typeof sourceValue}) vs target=${targetPropertyValue} (${typeof targetPropertyValue}) for field ${criterion.field} in product ${targetProduct.productNumber}`);
+          moduleLog.debug(`[RuleEngine] sameProperty mismatch: source=${sourceValue} (${typeof sourceValue}) vs target=${targetPropertyValue} (${typeof targetPropertyValue}) for field ${criterion.field} in product ${targetProduct.productNumber}`);
         }
         
         return match;
@@ -477,7 +479,7 @@ export class RuleEngine {
     // Filter to only active rules (active === 1)
     const activeRules = rules.filter((rule) => rule.active === 1);
     
-    moduleLog.info(`[RuleEngine] Processing ${activeRules.length} active rules for product ${product.name}`);
+    moduleLog.debug(`[RuleEngine] Processing ${activeRules.length} active rules for product ${product.name}`);
 
     const searchTermCache = new Map<string, Promise<Product[]>>();
     const scoreByProductId = new Map<string, number>();
@@ -487,7 +489,7 @@ export class RuleEngine {
 
     for (let ruleIndex = 0; ruleIndex < activeRules.length; ruleIndex++) {
       const rule = activeRules[ruleIndex];
-      moduleLog.info(`[RuleEngine] Evaluating rule: ${rule.name}`);
+      moduleLog.debug(`[RuleEngine] Evaluating rule: ${rule.name}`);
 
       if (this.evaluateSourceConditions(product, rule.sourceConditions)) {
         const matches = await this.findMatchingProducts(
@@ -496,7 +498,7 @@ export class RuleEngine {
           shopwareClient,
           searchTermCache
         );
-        moduleLog.info(`[RuleEngine] Found ${matches.length} matching products`);
+        moduleLog.debug(`[RuleEngine] Found ${matches.length} matching products`);
         const ruleWeight = Math.max(1, 250 - ruleIndex * 5);
         for (const match of matches) {
           const id = match.id;
@@ -524,7 +526,10 @@ export class RuleEngine {
       (p as Product & { suggestCategory?: string }).suggestCategory = normalizeSuggestCategory(cat);
     }
 
-    const ranked = Array.from(productById.values()).sort((a, b) => {
+    const excludePairs = options?.excludePairs;
+    const ranked = Array.from(productById.values())
+      .filter((p) => !excludePairs || !excludePairs(product.productNumber, p.productNumber))
+      .sort((a, b) => {
       const sa = scoreByProductId.get(a.id) ?? 0;
       const sb = scoreByProductId.get(b.id) ?? 0;
       if (sb !== sa) return sb - sa;
@@ -576,7 +581,7 @@ export class RuleEngine {
       });
     }
 
-    moduleLog.info(`[RuleEngine] Total suggestions: ${out.length}`);
+    moduleLog.debug(`[RuleEngine] Total suggestions: ${out.length}`);
     return out;
   }
 }

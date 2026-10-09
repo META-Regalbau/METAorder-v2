@@ -2653,7 +2653,8 @@
     "stagingAppliedSummary": "{{added}} hinzugefügt, {{removed}} entfernt, {{errors}} Fehler",
     "previewCurrentInShop": "Jetzt im Shop ({{count}})",
     "previewAddOnly": "Würde ergänzt ({{count}})",
-    "previewReplaceRemoves": "Beim Ersetzen entfernt ({{count}})"
+    "previewReplaceRemoves": "Beim Ersetzen entfernt ({{count}})",
+    "previewInOtherGroups": "{{count}} Ziele stehen schon in einer anderen Liste dieses Artikels und werden nicht doppelt gesetzt: {{items}}"
   },
   "ruleBuilder": {
     "basicTab": "Grundlagen",
@@ -6226,7 +6227,15 @@
       "der_link_konnte_nicht_versendet_werden_bitte_spater_erneut_versuchen": "Der Link konnte nicht versendet werden. Bitte später erneut versuchen.",
       "angebotsnummer_fehlt": "Angebotsnummer fehlt",
       "angebots_analyse_fehlgeschlagen": "Angebots-Analyse fehlgeschlagen",
-      "failed_to_fetch_job_status": "Job-Status konnte nicht geladen werden"
+      "failed_to_fetch_job_status": "Job-Status konnte nicht geladen werden",
+      "invalid_settings": "Ungültige Einstellungen",
+      "failed_to_fetch_pairs": "Paare konnten nicht geladen werden",
+      "failed_to_reject_pair": "Paar konnte nicht abgelehnt werden",
+      "pair_not_found": "Paar nicht gefunden",
+      "failed_to_reset_pair": "Paar konnte nicht zurückgesetzt werden",
+      "failed_to_start_import": "Einlesen konnte nicht gestartet werden",
+      "failed_to_fetch_runs": "Läufe konnten nicht geladen werden",
+      "failed_to_fetch_change_log": "Änderungsprotokoll konnte nicht geladen werden"
     }
   },
   "roomPlanner": {
@@ -6578,6 +6587,39 @@
     "table": {
       "discountShare": "Rabattanteil (Positionen mit HK)",
       "afterDiscount": "Nach Rabatt"
+    }
+  },
+  "crossSellMemory": {
+    "title": "Gedächtnis",
+    "hint": "Merkt sich Entscheidungen: Abgelehnte Paare werden nie wieder vorgeschlagen, Shop-Zuordnungen fließen in die Prüfung ein.",
+    "importButton": "Shop-Zuordnungen einlesen",
+    "importRunning": "Lese ein … {{count}} Gruppen",
+    "importDone": "Shop-Zuordnungen eingelesen",
+    "importSummary": "{{pairs}} Paare im Shop, davon {{fresh}} neu; {{removed}} von Hand entfernt",
+    "importError": "Einlesen fehlgeschlagen",
+    "lastImport": "Zuletzt eingelesen: {{date}} · {{pairs}} Paare aus {{groups}} Listen ({{streams}} dynamische Gruppen nicht berücksichtigt)",
+    "lastImportFailed": "Letztes Einlesen am {{date}} fehlgeschlagen",
+    "rejectedTitle": "Dauerhaft abgelehnt ({{count}})",
+    "rejectedEmpty": "Noch keine abgelehnten Paare.",
+    "reason": "Grund",
+    "note": "Notiz (optional)",
+    "decidedAt": "Entschieden am",
+    "reset": "Zurücksetzen",
+    "resetDone": "Ablehnung aufgehoben – das Paar kann wieder vorgeschlagen werden",
+    "resetError": "Zurücksetzen fehlgeschlagen",
+    "rejectTitle": "Dauerhaft ablehnen",
+    "rejectDescription": "Das Paar wird nie wieder vorgeschlagen – nicht im Staging, nicht in Entwürfen und nicht beim Lernen. Die Ablehnung gilt für alle Größen derselben Artikelfamilie.",
+    "bothDirections": "Auch umgekehrt ablehnen (Ziel → Quelle)",
+    "rejectConfirm": "Ablehnen",
+    "rejected": "Paar abgelehnt",
+    "rejectedDescription": "{{count}} Staging-Vorschläge abgewählt",
+    "rejectError": "Ablehnen fehlgeschlagen",
+    "reasons": {
+      "incompatible": "Technisch nicht kompatibel",
+      "other_system": "Anderes Regalsystem",
+      "alternative": "Alternative statt Ergänzung",
+      "not_relevant": "Passt fachlich nicht",
+      "other": "Sonstiges"
     }
   }
 }

@@ -2656,7 +2656,8 @@
     "stagingAppliedSummary": "{{added}} added, {{removed}} removed, {{errors}} errors",
     "previewCurrentInShop": "Currently in the shop ({{count}})",
     "previewAddOnly": "Would be added ({{count}})",
-    "previewReplaceRemoves": "Removed when replacing ({{count}})"
+    "previewReplaceRemoves": "Removed when replacing ({{count}})",
+    "previewInOtherGroups": "{{count}} targets are already in another list of this item and will not be added twice: {{items}}"
   },
   "ruleBuilder": {
     "basicTab": "Basics",
@@ -6229,7 +6230,15 @@
       "der_link_konnte_nicht_versendet_werden_bitte_spater_erneut_versuchen": "The link could not be sent. Please try again later.",
       "angebotsnummer_fehlt": "Quote number missing",
       "angebots_analyse_fehlgeschlagen": "Quote analysis failed",
-      "failed_to_fetch_job_status": "Could not load the job status"
+      "failed_to_fetch_job_status": "Could not load the job status",
+      "invalid_settings": "Invalid settings",
+      "failed_to_fetch_pairs": "Could not load the pairs",
+      "failed_to_reject_pair": "Could not reject the pair",
+      "pair_not_found": "Pair not found",
+      "failed_to_reset_pair": "Could not reset the pair",
+      "failed_to_start_import": "Could not start the import",
+      "failed_to_fetch_runs": "Could not load the runs",
+      "failed_to_fetch_change_log": "Could not load the change log"
     }
   },
   "roomPlanner": {
@@ -6581,6 +6590,39 @@
     "table": {
       "discountShare": "Discount share (items with cost)",
       "afterDiscount": "After discount"
+    }
+  },
+  "crossSellMemory": {
+    "title": "Memory",
+    "hint": "Remembers decisions: rejected pairs are never suggested again, shop assignments are included in the review.",
+    "importButton": "Read shop assignments",
+    "importRunning": "Reading … {{count}} groups",
+    "importDone": "Shop assignments read",
+    "importSummary": "{{pairs}} pairs in the shop, {{fresh}} of them new; {{removed}} removed by hand",
+    "importError": "Reading failed",
+    "lastImport": "Last read: {{date}} · {{pairs}} pairs from {{groups}} lists ({{streams}} dynamic groups not included)",
+    "lastImportFailed": "Last read on {{date}} failed",
+    "rejectedTitle": "Permanently rejected ({{count}})",
+    "rejectedEmpty": "No rejected pairs yet.",
+    "reason": "Reason",
+    "note": "Note (optional)",
+    "decidedAt": "Decided on",
+    "reset": "Reset",
+    "resetDone": "Rejection lifted – the pair can be suggested again",
+    "resetError": "Reset failed",
+    "rejectTitle": "Reject permanently",
+    "rejectDescription": "The pair will never be suggested again – not in staging, not in drafts and not when learning. The rejection applies to all sizes of the same product family.",
+    "bothDirections": "Also reject the reverse (target → source)",
+    "rejectConfirm": "Reject",
+    "rejected": "Pair rejected",
+    "rejectedDescription": "{{count}} staging suggestions deselected",
+    "rejectError": "Rejecting failed",
+    "reasons": {
+      "incompatible": "Technically incompatible",
+      "other_system": "Different shelving system",
+      "alternative": "Alternative, not a complement",
+      "not_relevant": "Not a good fit",
+      "other": "Other"
     }
   }
 }

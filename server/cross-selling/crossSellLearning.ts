@@ -3,6 +3,7 @@ import type { Order, ShopwareSettings, InsertAiInsight, CrossSellEventPairStats 
 import { ShopwareClient } from "../shopware/shopware";
 import { getMirrorOrdersLikeLive } from "../routes/routeHelpers";
 import { crossSellEventLookupKey, buildCrossSellEventStatsMap } from "./crossSellHybridRanker";
+import { loadCrossSellPairFilter } from "./crossSellMemory";
 import { logger } from "../lib/logger";
 
 const moduleLog = logger.child({ component: "cross-selling/crossSellLearning" });
@@ -90,13 +91,21 @@ export async function runCrossSellLearning(
 
     // #endregion
 
-    const { productCounts, pairCounts, totalOrders, pairCategoryMap } = buildCooccurrence(ordersWithProducts, categorizedManualRules);
+    // Gedaechtnis: abgelehnte Paare nie als Regel, einzeln freigegebene verstaerken
+    const pairFilter = await loadCrossSellPairFilter(storage, tenantId ?? null);
+
+    const { productCounts, pairCounts, totalOrders, pairCategoryMap } = buildCooccurrence(
+      ordersWithProducts,
+      categorizedManualRules,
+      pairFilter.approvedPairs,
+    );
     const cooccurrences = buildCooccurrenceRows(pairCounts, productCounts, totalOrders);
     const { rules, recommendations, insights } = buildLearningOutputs(
       cooccurrences,
       settings,
       pairCategoryMap,
       buildProductNameMap(ordersWithProducts),
+      { isBlocked: pairFilter.isBlocked },
     );
 
     const sinceEvents = new Date();
@@ -154,7 +163,11 @@ function isNegativeBasketOrder(order: Order): boolean {
   );
 }
 
-function buildCooccurrence(orders: Order[], manualRules: any[] = []): {
+export function buildCooccurrence(
+  orders: Order[],
+  manualRules: any[] = [],
+  approvedPairs: Array<{ source: string; target: string }> = [],
+): {
   productCounts: Map<string, number>;
   pairCounts: Map<string, number>;
   totalOrders: number;
@@ -243,6 +256,15 @@ function buildCooccurrence(orders: Order[], manualRules: any[] = []): {
         });
       }
     });
+  });
+
+  // Einzeln freigegebene Paare (Cross-Selling-Gedaechtnis) wie Handregeln verstaerken.
+  approvedPairs.forEach(({ source, target }) => {
+    if (!source || !target || source === target) return;
+    const key = [source, target].sort().join("||");
+    pairCounts.set(key, (pairCounts.get(key) || 0) + 5);
+    productCounts.set(source, (productCounts.get(source) || 0) + 5);
+    productCounts.set(target, (productCounts.get(target) || 0) + 5);
   });
 
   return { productCounts, pairCounts, totalOrders, pairCategoryMap };
@@ -338,7 +360,8 @@ export function buildLearningOutputs(
   }>,
   settings: LearningSettings,
   pairCategoryMap: Map<string, string> = new Map(),
-  productNames: Map<string, string> = new Map()
+  productNames: Map<string, string> = new Map(),
+  options: { isBlocked?: (source: string, target: string) => boolean } = {},
 ) {
   const rulesBySource = new Map<string, any[]>();
   const recommendationsBySource = new Map<string, any[]>();
@@ -355,6 +378,7 @@ export function buildLearningOutputs(
     if (support < settings.minSupport) return;
     if (confidence < settings.minConfidence) return;
     if (lift < settings.minLift) return;
+    if (options.isBlocked?.(source, target)) return;
     const reason = `Gemeinsam in ${(support * 100).toFixed(1)}% der Bestellungen`;
     const entry = {
       sourceProductNumber: source,

@@ -118,7 +118,36 @@ import {
   type CpqRoomLayout,
   type CpqRoomPlacement,
   type CpqRoomWallFeature,
+  type CrossSellPairState,
+  type CrossSellPairStatus,
+  type InsertCrossSellPairState,
+  type CrossSellChangeLogEntry,
+  type InsertCrossSellChangeLogEntry,
+  type CrossSellRun,
+  type CrossSellRunKind,
 } from "@shared/schema";
+
+export type CrossSellPairStateFilter = {
+  statuses?: CrossSellPairStatus[];
+  sourceProductNumber?: string;
+  pendingOnly?: boolean;
+  limit?: number;
+  offset?: number;
+};
+
+/** Spalten, die ein Upsert bei bestehendem Paar ueberschreibt (Rest bleibt). */
+export type CrossSellPairStateUpdateColumn = Exclude<
+  keyof InsertCrossSellPairState,
+  "id" | "tenantId" | "sourceProductNumber" | "targetProductNumber" | "createdAt" | "updatedAt"
+>;
+
+export type ShopwareProductIdentity = {
+  id: string;
+  productNumber: string;
+  parentId: string | null;
+  name: string | null;
+  active: boolean | null;
+};
 
 export type ShopwareMirrorSyncEntity =
   | "products"
@@ -355,6 +384,46 @@ export interface IStorage {
     ctx: { eventType: string; draftId: string; context?: string | null; userId?: string | null },
     tenantId?: string | null,
   ): Promise<number>;
+  // Cross-Selling-Gedaechtnis (cross_sell_pair_state, cross_sell_change_log, cross_sell_runs)
+  getCrossSellPairStates(filter: CrossSellPairStateFilter, tenantId?: string | null): Promise<CrossSellPairState[]>;
+  getCrossSellPairState(id: string, tenantId?: string | null): Promise<CrossSellPairState | undefined>;
+  /** Upsert je Paar; bei bestehendem Paar nur `updateColumns` ueberschreiben. Liefert die Zeilen. */
+  upsertCrossSellPairStates(
+    rows: Array<Omit<InsertCrossSellPairState, "id" | "tenantId" | "createdAt" | "updatedAt">>,
+    updateColumns: CrossSellPairStateUpdateColumn[],
+    tenantId?: string | null,
+  ): Promise<CrossSellPairState[]>;
+  updateCrossSellPairState(
+    id: string,
+    patch: Partial<Omit<InsertCrossSellPairState, "id" | "tenantId" | "createdAt">>,
+    tenantId?: string | null,
+  ): Promise<CrossSellPairState | undefined>;
+  appendCrossSellChangeLog(
+    rows: Array<Omit<InsertCrossSellChangeLogEntry, "id" | "tenantId" | "createdAt">>,
+    tenantId?: string | null,
+  ): Promise<void>;
+  getCrossSellChangeLog(
+    filter: { limit?: number; runId?: string; sourceProductNumber?: string },
+    tenantId?: string | null,
+  ): Promise<CrossSellChangeLogEntry[]>;
+  /**
+   * Lauf-Sperre: legt den Lauf (kind, periodKey) an oder uebernimmt einen haengenden
+   * (Heartbeat aelter als staleAfterMinutes) bzw. fehlgeschlagenen (attempt < maxAttempts).
+   * Liefert null, wenn ein anderer Prozess laeuft oder der Lauf schon abgeschlossen ist.
+   */
+  acquireCrossSellRun(
+    args: { kind: CrossSellRunKind; periodKey: string; userId?: string | null; staleAfterMinutes?: number; maxAttempts?: number },
+    tenantId?: string | null,
+  ): Promise<CrossSellRun | null>;
+  heartbeatCrossSellRun(id: string, stats?: Record<string, unknown>, tenantId?: string | null): Promise<void>;
+  finishCrossSellRun(
+    id: string,
+    result: { status: "completed" | "failed"; stats?: Record<string, unknown>; report?: Record<string, unknown>; error?: string | null },
+    tenantId?: string | null,
+  ): Promise<void>;
+  getCrossSellRuns(filter: { kind?: CrossSellRunKind; limit?: number }, tenantId?: string | null): Promise<CrossSellRun[]>;
+  /** Schlanke Produktliste aus dem Spiegel (ID, Nummer, Hauptprodukt) fuer Zuordnungen. */
+  getShopwareProductIdentities(tenantId?: string | null): Promise<ShopwareProductIdentity[]>;
   /** Paare eines Ereignistyps fuer einen Entwurf (z. B. per Vorschlag hinzugefuegte Ziele). */
   getCrossSellDraftEventPairs(
     draftId: string,

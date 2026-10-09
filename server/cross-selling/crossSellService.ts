@@ -6,6 +6,7 @@ import { storage } from "../storage";
 import { type SuggestCrossSellingOptions, RuleEngine } from "./ruleEngine";
 import { ShopwareClient } from "../shopware/shopware";
 import { loadCrossSellShelvingPatternConfig, findShelvingSupplements, mergeStagingCandidatesWithQuotas } from "./crossSellShelvingHeuristics";
+import { type CrossSellPairFilter, loadCrossSellPairFilter } from "./crossSellMemory";
 import { logger } from "../lib/logger";
 
 const log = logger.child({ component: "cross-selling/crossSellService" });
@@ -56,6 +57,8 @@ export type CrossSellRankingBundle = {
   weights: ReturnType<typeof hybridWeightsFromLearningSettings>;
   topK: number;
   ttlHours: number;
+  /** Cross-Selling-Gedaechtnis: abgelehnte bzw. gesperrte Paare. */
+  pairFilter: CrossSellPairFilter;
 };
 
 export async function loadCrossSellRankingBundle(tenantId: string | null): Promise<CrossSellRankingBundle | null> {
@@ -71,7 +74,8 @@ export async function loadCrossSellRankingBundle(tenantId: string | null): Promi
     const topK = Number.isFinite(envTopK) && envTopK > 0 ? Math.floor(envTopK) : 25;
     const envTtl = Number(process.env.CROSS_SELL_LLM_RERANK_TTL_HOURS);
     const ttlHours = Number.isFinite(envTtl) && envTtl > 0 ? envTtl : 24;
-    return { learningSettings, cooccurrences, eventStatsMap, weights, topK, ttlHours };
+    const pairFilter = await loadCrossSellPairFilter(storage, tenantId);
+    return { learningSettings, cooccurrences, eventStatsMap, weights, topK, ttlHours, pairFilter };
   } catch (e) {
     log.warn({ err: e }, "[CrossSell] loadRankingBundle failed:");
     return null;
@@ -91,11 +95,13 @@ export function crossSellSuggestOptions(
     eventStatsMap: bundle.eventStatsMap,
     weights: bundle.weights,
   };
+  const excludePairs = bundle.pairFilter.isBlocked;
   if (mode === "hybrid_only") {
-    return { hybridRank };
+    return { hybridRank, excludePairs };
   }
   return {
     hybridRank,
+    excludePairs,
     llmRerank: {
       storage,
       topK: bundle.topK,
@@ -176,22 +182,33 @@ export async function getCombinedCrossSellingRulesWithSource(tenantId?: string |
   return result;
 }
 
-export async function fetchAllProductsForStaging(client: ShopwareClient): Promise<Product[]> {
-  const limit = 200;
+/**
+ * Obergrenze fuer den Live-Katalog der Staging-Berechnung. Frueher endete die Schleife
+ * unbeabsichtigt nach einer Seite (200 Artikel); der ganze Katalog (Testing: 8.200 Artikel)
+ * lief im Test in einen Speicherueberlauf der App. Bis die Kandidaten aus dem Spiegel
+ * berechnet werden (Teilautomatik), bleibt die Berechnung deshalb bewusst begrenzt.
+ */
+export const STAGING_CATALOG_LIMIT = 200;
+
+export async function fetchAllProductsForStaging(
+  client: ShopwareClient,
+  maxProducts: number = STAGING_CATALOG_LIMIT,
+): Promise<Product[]> {
+  const limit = Math.min(200, maxProducts);
   let page = 1;
   const allProducts: Product[] = [];
 
-  while (true) {
+  // Bis zur ersten unvollstaendigen Seite bzw. bis maxProducts (fetchProducts liefert keine Gesamtzahl).
+  while (allProducts.length < maxProducts) {
     const result = await client.fetchProducts(limit, page, undefined, undefined, false, undefined, undefined, undefined, true);
     allProducts.push(...result.products);
-    const total = result.total ?? allProducts.length;
-    if (result.products.length === 0 || allProducts.length >= total) {
+    if (result.products.length < limit) {
       break;
     }
     page += 1;
   }
 
-  return allProducts;
+  return allProducts.slice(0, maxProducts);
 }
 
 export function getFallbackSuggestionsByProperties(
@@ -286,8 +303,11 @@ export async function computeStagingRowsForProduct(
   }));
   const ruleOrFallback = ruleHits.length > 0 ? ruleHits : fallbackHits;
 
+  const exclude = suggestOpts?.excludePairs;
+  const allowed = <T extends { product: Product }>(rows: T[]) =>
+    exclude ? rows.filter((r) => !exclude(product.productNumber, r.product.productNumber)) : rows;
   const heur = findShelvingSupplements(product, allProducts, shelfCfg);
-  return mergeStagingCandidatesWithQuotas(ruleOrFallback, heur, shelfCfg);
+  return mergeStagingCandidatesWithQuotas(allowed(ruleOrFallback), allowed(heur), shelfCfg);
 }
 
 export type CrossSellStagingProgress = (processed: number, total: number) => void;
