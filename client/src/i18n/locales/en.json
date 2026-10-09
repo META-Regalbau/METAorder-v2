@@ -6630,5 +6630,150 @@
       "not_relevant": "Not a good fit",
       "other": "Other"
     }
+  },
+  "crossSellReview": {
+    "tab": "Review list",
+    "title": "Review list",
+    "hint": "Suggestions from orders and rules with an AI expert check. Approving writes to the managed list in the shop, rejecting remembers the pair permanently.",
+    "runButton": "Calculate suggestions now",
+    "runRunning": "Calculating suggestions …",
+    "runDone": "Suggestions calculated",
+    "runError": "Calculation failed",
+    "runSummary": "{{queued}} in the review list, {{eligible}} meet all conditions, {{applied}} applied automatically, {{llm}} checked by AI",
+    "skipped": {
+      "globally_disabled": "Automation is switched off on the server (CROSS_SELL_AUTOMATION_ENABLED=false).",
+      "mode_off": "Automation is switched off.",
+      "already_ran": "There was already a run today."
+    },
+    "selected": "{{count}} selected",
+    "approveSelected": "Approve selected",
+    "rejectSelected": "Reject selected",
+    "selectAll": "Select all",
+    "selectItem": "Select {{source}} → {{target}}",
+    "empty": "No open suggestions.",
+    "count": "{{shown}} of {{total}} suggestions",
+    "pair": "Source → target",
+    "evidence": "Reason",
+    "aiCheck": "AI expert check",
+    "score": "Score",
+    "approve": "Approve",
+    "fromRule": "from rule",
+    "ordersFromCustomers": "{{orders}} joint orders from {{customers}} customers",
+    "lift": "{{lift}}× more often than chance",
+    "wouldAutoApply": "would be applied automatically",
+    "notAutoBecause": "Not automatic:",
+    "notChecked": "not checked yet",
+    "approvedTitle": "Approval saved",
+    "approvedSummary": "{{approved}} applied, {{already}} already in the shop, {{full}} list full, {{failed}} errors",
+    "rejectedCount": "{{count}} pairs rejected",
+    "decideError": "Decision failed",
+    "verdict": {
+      "fit": "fits",
+      "unsure": "unsure",
+      "no_fit": "does not fit"
+    },
+    "relation": {
+      "accessory": "accessory",
+      "component": "component/extension",
+      "consumable": "small part/consumable",
+      "alternative": "alternative",
+      "unrelated": "unrelated"
+    },
+    "gates": {
+      "min_pair_orders": "too few orders",
+      "min_customers": "too few customers",
+      "confidence": "rarely bought together",
+      "lift": "hardly more often than chance",
+      "llm_missing": "AI check missing",
+      "llm_not_fit": "AI: no clear fit",
+      "llm_relation": "AI: not a complement",
+      "llm_confidence": "AI too unsure",
+      "target_not_eligible": "target not active/visible",
+      "blocked": "rejected",
+      "already_in_shop": "already in the shop",
+      "same_family": "same family",
+      "negative_signal": "rarely taken",
+      "no_order_evidence": "no orders"
+    }
+  },
+  "crossSellAutomation": {
+    "tab": "Automation",
+    "title": "Automation",
+    "hint": "Controls what the system may do on its own. Removing never happens automatically.",
+    "mode": "Mode",
+    "managedGroupName": "Name of the managed list in the shop",
+    "managedGroupNameHint": "Its own tab in the shop, separate from hand-curated groups. Changing it does not rename existing lists with the old name.",
+    "modes": {
+      "off": "Off",
+      "review": "Review list only",
+      "auto_dry_run": "Dry run",
+      "auto": "Semi-automatic"
+    },
+    "modeHints": {
+      "off": "No daily run. “Calculate suggestions now” only fills the review list.",
+      "review": "New suggestions in the review list every day; written to the shop only after approval.",
+      "auto_dry_run": "Like “Review list only”, and additionally marks and logs what would have been applied automatically. Recommended for 2–4 weeks before “Semi-automatic”.",
+      "auto": "The system applies safe complements itself (within the limits); everything else goes to the review list."
+    },
+    "groups": {
+      "limits": "Limits",
+      "gates": "Conditions for automatic application",
+      "llm": "AI expert check"
+    },
+    "fields": {
+      "maxAutoApplyPerRun": "Max. automatic per run",
+      "maxAutoApplyPerSource": "Max. automatic per item",
+      "maxTargetsPerManagedGroup": "Max. products in the managed list",
+      "maxNewQueueItemsPerRun": "New suggestions per run",
+      "queueMinScore": "Minimum score for the review list (0–1)",
+      "minPairOrders": "Min. joint orders",
+      "minDistinctCustomers": "Min. distinct customers",
+      "minConfidenceLB": "Min. confidence (lower bound, 0–1)",
+      "minLiftLB": "Min. lift (lower bound)",
+      "minLlmConfidence": "Min. AI confidence (0–1)",
+      "llmMaxCallsPerRun": "AI requests per run",
+      "llmMaxCallsPerMonth": "AI requests per month",
+      "llmRecheckDays": "Renew AI verdict after days"
+    },
+    "saved": "Settings saved",
+    "saveError": "Saving failed"
+  },
+  "crossSellLog": {
+    "tab": "Log",
+    "title": "Changes in the shop",
+    "hint": "Every write to Shopware, including dry runs. Adding and removing can be undone.",
+    "runsTitle": "Suggestion runs",
+    "runsEmpty": "No runs yet.",
+    "startedAt": "Started",
+    "result": "Result",
+    "runSummary": "{{queued}} in the review list · {{eligible}} safe · {{applied}} applied · {{dryRun}} in dry run · {{llm}} AI-checked",
+    "runFailed": "Failed: {{error}}",
+    "runRunning": "Running …",
+    "undoRun": "Undo run",
+    "undo": "Undo",
+    "undone": "undone",
+    "undoDone": "{{count}} changes undone",
+    "undoSkipped": "{{count}} skipped (already changed or not in the shop)",
+    "undoError": "Undo failed",
+    "empty": "No changes yet.",
+    "when": "Time",
+    "action": "Action",
+    "group": "List",
+    "actions": {
+      "add": "added",
+      "remove": "removed",
+      "reposition": "reordered",
+      "create_group": "list created",
+      "delete_group": "list deleted"
+    },
+    "modes": {
+      "staging": "staging",
+      "bulk": "bulk execution",
+      "product_ui": "product dialog",
+      "auto": "automatic",
+      "approved": "approved",
+      "undo": "undo",
+      "dry_run": "dry run"
+    }
   }
 }

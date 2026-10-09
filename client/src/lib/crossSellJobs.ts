@@ -5,7 +5,7 @@ import { apiRequest } from "@/lib/queryClient";
 // Der POST startet den Job (202) und dieser Poller fragt den Status ab, bis er
 // "done" oder "error" ist. Vermeidet Proxy-/Browser-Timeouts bei grossen Laeufen.
 export async function pollCrossSellJob(
-  type: "staging" | "ai" | "import",
+  type: "staging" | "ai" | "import" | "candidates",
   onProgress?: (processed: number, total: number) => void,
 ): Promise<any> {
   const maxAttempts = 720; // ~30 min bei 2.5s Intervall

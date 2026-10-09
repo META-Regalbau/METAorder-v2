@@ -42,6 +42,9 @@ import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 import { pollCrossSellJob } from "@/lib/crossSellJobs";
 import CrossSellMemoryPanel from "@/components/CrossSellMemoryPanel";
 import RejectCrossSellPairDialog from "@/components/RejectCrossSellPairDialog";
+import CrossSellReviewQueue from "@/components/CrossSellReviewQueue";
+import CrossSellAutomationSettings from "@/components/CrossSellAutomationSettings";
+import CrossSellChangeLog from "@/components/CrossSellChangeLog";
 type SortDirection = "asc" | "desc";
 type RuleSortKey = "name" | "description" | "status" | "conditions";
 
@@ -123,7 +126,11 @@ export default function CrossSellingRulesPage() {
   const [editingRule, setEditingRule] = useState<CrossSellingRule | null>(null);
   const [editingStagingRule, setEditingStagingRule] = useState<CrossSellStagingRule | null>(null);
   const [showBulkDialog, setShowBulkDialog] = useState(false);
-  const [activeTab, setActiveTab] = useState("manual");
+  // ?tab=review usw. (Links aus Benachrichtigungen)
+  const [activeTab, setActiveTab] = useState(() => {
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    return tab && ["manual", "ai", "staging", "review", "automation", "log"].includes(tab) ? tab : "manual";
+  });
   const [sortKey, setSortKey] = useState<RuleSortKey>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [stagingEdits, setStagingEdits] = useState<Record<string, string>>({});
@@ -695,6 +702,9 @@ export default function CrossSellingRulesPage() {
           <TabsTrigger value="manual">{t('rules.manualTab', 'Manuelle Regeln')}</TabsTrigger>
           <TabsTrigger value="ai">{t('rules.aiTab', 'AI-Regeln')}</TabsTrigger>
           <TabsTrigger value="staging">{t('rules.stagingTab', 'Staging')}</TabsTrigger>
+          <TabsTrigger value="review">{t("crossSellReview.tab")}</TabsTrigger>
+          <TabsTrigger value="automation">{t("crossSellAutomation.tab")}</TabsTrigger>
+          <TabsTrigger value="log">{t("crossSellLog.tab")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="manual">
@@ -1516,6 +1526,18 @@ export default function CrossSellingRulesPage() {
               </>
             )}
           </Card>
+        </TabsContent>
+
+        <TabsContent value="review">
+          <CrossSellReviewQueue />
+        </TabsContent>
+
+        <TabsContent value="automation">
+          <CrossSellAutomationSettings />
+        </TabsContent>
+
+        <TabsContent value="log">
+          <CrossSellChangeLog />
         </TabsContent>
       </Tabs>
 
