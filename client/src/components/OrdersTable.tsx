@@ -9,6 +9,8 @@ import HerstellMarginIndicator from "./HerstellMarginIndicator";
 import { OrderStockSummaryBadge } from "./OrderStockHint";
 import type { Order } from "@shared/schema";
 import { useTranslation } from "react-i18next";
+import { Link } from "wouter";
+import { orderProfitabilityHref } from "@/lib/orderProfitabilityLink";
 import SortableTableHead from "@/components/SortableTableHead";
 import TrackingCodes from "@/components/TrackingCodes";
 
@@ -249,11 +251,21 @@ export default function OrdersTable({
               <TableCell className="text-right">
                 {order.profitability?.marginPercent != null ||
                 order.profitability?.marginOnRevenuePercent != null ? (
-                  <HerstellMarginIndicator
-                    marginPercent={order.profitability.marginPercent}
-                    marginOnRevenuePercent={order.profitability.marginOnRevenuePercent}
-                    verdict={order.profitability.crmVerdict}
-                  />
+                  // stopPropagation: Link zur DB-Berechnung soll nicht zusätzlich das Detail öffnen.
+                  <Link
+                    href={orderProfitabilityHref(order.orderNumber)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="inline-block rounded-md hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    title={t('orderDetail.profitability.openCalculation')}
+                    aria-label={t('orderDetail.profitability.openCalculationFor', { orderNumber: order.orderNumber })}
+                    data-testid={`link-db-calculation-${order.id}`}
+                  >
+                    <HerstellMarginIndicator
+                      marginPercent={order.profitability.marginPercent}
+                      marginOnRevenuePercent={order.profitability.marginOnRevenuePercent}
+                      verdict={order.profitability.crmVerdict}
+                    />
+                  </Link>
                 ) : (
                   <span className="text-sm text-muted-foreground">—</span>
                 )}

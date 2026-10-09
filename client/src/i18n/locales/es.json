@@ -857,6 +857,43 @@
       "marginOnCost": "Margen",
       "coverage": "Cobertura CF",
       "crmVerdict": "CRM"
+    },
+    "lookup": {
+      "title": "Calcular un pedido",
+      "description": "Introduzca un número de pedido: margen de contribución (MC1) y margen exactamente de este pedido, desglosado por posición.",
+      "label": "Número de pedido",
+      "placeholder": "p. ej. MO12345",
+      "submit": "Calcular",
+      "reset": "Restablecer",
+      "loading": "Calculando pedido…",
+      "notFound": "No se encontró ningún pedido con el número «{{orderNumber}}».",
+      "multipleHits": "Este número de pedido se usa {{count}} veces: cada pedido se calcula por separado.",
+      "openOrder": "Abrir en la vista de pedidos",
+      "missingHkHint": "{{count}} posiciones sin coste de fabricación no se incluyen en MC1 ni en el margen.",
+      "missingHkHint_one": "{{count}} posición sin coste de fabricación no se incluye en MC1 ni en el margen.",
+      "missingHkHint_other": "{{count}} posiciones sin coste de fabricación no se incluyen en MC1 ni en el margen.",
+      "kpi": {
+        "netTotal": "Valor del pedido (neto)",
+        "netTotalHint": "incl. envío y descuentos según el pedido",
+        "revenueWithHk": "Ventas con datos de coste",
+        "coverageHint": "{{withData}} de {{total}} posiciones con coste de fabricación",
+        "herstellkosten": "Costes de fabricación",
+        "db1": "MC1",
+        "margin": "Margen (CRM desde {{threshold}} %)"
+      },
+      "table": {
+        "productNumber": "N.º de artículo",
+        "name": "Descripción",
+        "quantity": "Cant.",
+        "netPrice": "Precio neto / ud.",
+        "netTotal": "Total neto",
+        "hkUnit": "Coste / ud.",
+        "hkTotal": "Coste total",
+        "db1": "MC1",
+        "marginOnCost": "Margen",
+        "marginOnRevenue": "Margen sobre ventas %",
+        "sumWithHk": "Total (posiciones con coste)"
+      }
     }
   },
   "bundles": {
@@ -1195,7 +1232,9 @@
       "db1Total": "DB1 total (líneas con CF)",
       "db1Line": "DB1",
       "herstellpreis": "CF neto",
-      "coverageHint": "Datos CF para {{withData}} de {{total}} líneas de producto"
+      "coverageHint": "Datos CF para {{withData}} de {{total}} líneas de producto",
+      "openCalculation": "Abrir cálculo de MC",
+      "openCalculationFor": "Abrir cálculo de MC del pedido {{orderNumber}}"
     },
     "shippingInfo": "Información de Envío",
     "shippingUpdated": "Envío actualizado",
@@ -5431,6 +5470,7 @@
       "benutzer_nicht_gefunden": "Usuario no encontrado",
       "bestatigung_nur_im_status_vereinbarung_ausstehend_moglich": "La confirmación solo es posible en el estado «Acuerdo pendiente»",
       "bestell_analyse_fehlgeschlagen": "Error en el análisis de pedidos",
+      "bestellnummer_fehlt": "Falta el número de pedido",
       "bitte_kundennummer_und_eine_gultige_e_mail_adresse_angeben": "Indique el número de cliente y una dirección de correo electrónico válida.",
       "bitte_melden_sie_sich_im_shop_an_um_ein_angebot_anzufragen": "Inicie sesión en la tienda para solicitar una oferta.",
       "browser_print_unavailable": "Browser Print no disponible",
