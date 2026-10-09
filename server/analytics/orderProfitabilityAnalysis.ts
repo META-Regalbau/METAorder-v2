@@ -22,8 +22,11 @@ function computeMarginOnRevenuePercent(
   return Math.round(((priceNet - herstellpreisNet) / priceNet) * 1000) / 10;
 }
 
+/** Artikel-Bezug fuer die Herstellpreis-Suche (Bestell- oder Angebotsposition, Stuecklistenteil). */
+export type HerstellpreisRef = { productId?: string | null; productNumber?: string | null };
+
 function resolveHerstellpreisLookupKey(
-  item: OrderItem,
+  item: HerstellpreisRef,
   lookupKeyByProductId: Map<string, string>,
 ): string | undefined {
   if (item.productId) {
@@ -32,17 +35,51 @@ function resolveHerstellpreisLookupKey(
       if (hit) return hit;
     }
   }
-  return getHerstellpreisLookupKey(undefined, item.productNumber);
+  return getHerstellpreisLookupKey(undefined, item.productNumber ?? undefined);
+}
+
+/**
+ * Herstellpreise (netto je Einheit) fuer eine Menge Artikel-Bezuege laden; liefert eine Suche je
+ * Bezug (null = kein Herstellpreis). Schluessel wie bei Bestellungen: WDU-IFS-Nummer des Produkts,
+ * sonst die Artikelnummer.
+ */
+export async function createHerstellpreisResolver(
+  refs: HerstellpreisRef[],
+  opts: { storage: IStorage; client: ShopwareClient; tenantId?: string | null },
+): Promise<(ref: HerstellpreisRef) => number | null> {
+  const productIds = new Set<string>();
+  for (const ref of refs) {
+    if (ref.productId) productIds.add(ref.productId);
+  }
+
+  const lookupKeyByProductId =
+    productIds.size > 0
+      ? await opts.client.fetchProductHerstellpreisLookupKeys([...productIds])
+      : new Map<string, string>();
+
+  const lookupKeys = new Set<string>();
+  for (const ref of refs) {
+    const key = resolveHerstellpreisLookupKey(ref, lookupKeyByProductId);
+    if (key) lookupKeys.add(key);
+  }
+
+  const herstellMap =
+    lookupKeys.size > 0
+      ? await opts.storage.getProductHerstellpreiseByProductNumbers([...lookupKeys], opts.tenantId)
+      : new Map<string, number>();
+
+  return (ref) => {
+    const key = resolveHerstellpreisLookupKey(ref, lookupKeyByProductId);
+    const value = key ? herstellMap.get(key) : undefined;
+    return value != null && value > 0 ? value : null;
+  };
 }
 
 function enrichOrderItem(
   item: OrderItem,
-  lookupKeyByProductId: Map<string, string>,
-  herstellMap: Map<string, number>,
+  herstellpreisNet: number | null,
   minMarginPercent: number,
 ): OrderItem {
-  const lookupKey = resolveHerstellpreisLookupKey(item, lookupKeyByProductId);
-  const herstellpreisNet = lookupKey ? (herstellMap.get(lookupKey) ?? null) : null;
   if (herstellpreisNet == null || herstellpreisNet <= 0) {
     return {
       ...item,
@@ -72,7 +109,16 @@ function enrichOrderItem(
   };
 }
 
-function summarizeOrderItems(items: OrderItem[], minMarginPercent: number): OrderProfitabilitySummary {
+/** Felder einer Position, die die DB-Zusammenfassung braucht (Bestellung wie Angebot). */
+export type ProfitabilityLineInput = Pick<
+  OrderItem,
+  "productId" | "productNumber" | "quantity" | "netTotal" | "herstellpreisNet" | "herstellkostenTotal"
+>;
+
+export function summarizeOrderItems(
+  items: ProfitabilityLineInput[],
+  minMarginPercent: number,
+): OrderProfitabilitySummary {
   const productLines = items.filter((item) => item.productId || item.productNumber);
   const linesWithHerstellpreis = productLines.filter(
     (item) => item.herstellpreisNet != null && item.herstellpreisNet > 0,
@@ -238,34 +284,14 @@ export async function enrichOrdersWithProfitability(
   const profitabilitySettings = await loadCrmProfitabilitySettings(opts.storage, opts.tenantId);
   const minMarginPercent = opts.minMarginPercent ?? profitabilitySettings.minMarginPercent;
 
-  const productIds = new Set<string>();
-  for (const order of orders) {
-    for (const item of order.items) {
-      if (item.productId) productIds.add(item.productId);
-    }
-  }
-
-  const lookupKeyByProductId =
-    productIds.size > 0
-      ? await opts.client.fetchProductHerstellpreisLookupKeys([...productIds])
-      : new Map<string, string>();
-
-  const lookupKeys = new Set<string>();
-  for (const order of orders) {
-    for (const item of order.items) {
-      const key = resolveHerstellpreisLookupKey(item, lookupKeyByProductId);
-      if (key) lookupKeys.add(key);
-    }
-  }
-
-  const herstellMap =
-    lookupKeys.size > 0
-      ? await opts.storage.getProductHerstellpreiseByProductNumbers([...lookupKeys], opts.tenantId)
-      : new Map<string, number>();
+  const herstellpreisOf = await createHerstellpreisResolver(
+    orders.flatMap((order) => order.items),
+    opts,
+  );
 
   return orders.map((order) => {
     const items = order.items.map((item) =>
-      enrichOrderItem(item, lookupKeyByProductId, herstellMap, minMarginPercent),
+      enrichOrderItem(item, herstellpreisOf(item), minMarginPercent),
     );
     const profitability = summarizeOrderItems(items, minMarginPercent);
     return { ...order, items, profitability };

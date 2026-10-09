@@ -930,14 +930,14 @@
       "crmVerdict": "CRM"
     },
     "lookup": {
-      "title": "Einzelne Bestellung berechnen",
-      "description": "Bestellnummer eingeben – Deckungsbeitrag (DB1) und Marge genau dieser Bestellung, aufgeschlüsselt je Position.",
+      "title": "Einzelne Bestellung oder einzelnes Angebot berechnen",
+      "description": "Bestell- oder Angebotsnummer eingeben – Deckungsbeitrag (DB1) und Marge genau dieses Vorgangs, aufgeschlüsselt je Position.",
       "label": "Bestellnummer",
       "placeholder": "z. B. MO12345",
       "submit": "Berechnen",
       "reset": "Zurücksetzen",
       "loading": "Bestellung wird berechnet…",
-      "notFound": "Keine Bestellung mit der Nummer „{{orderNumber}}“ gefunden.",
+      "notFound": "Keine Bestellung mit der Nummer „{{number}}“ gefunden.",
       "multipleHits": "Diese Bestellnummer ist {{count}}-mal vergeben – alle Bestellungen werden einzeln berechnet.",
       "openOrder": "In Bestellübersicht öffnen",
       "missingHkHint": "{{count}} Positionen ohne Herstellpreis sind in DB1 und Marge nicht enthalten.",
@@ -966,6 +966,15 @@
         "sumWithHk": "Summe (Positionen mit HK)",
         "perUnit": "je Stk. {{amount}}",
         "db1AndMargin": "DB1 / Marge"
+      },
+      "modeOrder": "Bestellung",
+      "modeOffer": "Angebot",
+      "offer": {
+        "label": "Angebotsnummer",
+        "placeholder": "z. B. 1619",
+        "loading": "Angebot wird berechnet…",
+        "notFound": "Kein Angebot mit der Nummer „{{number}}“ gefunden.",
+        "multipleHits": "Diese Angebotsnummer ist {{count}}-mal vergeben – alle Angebote werden einzeln berechnet."
       }
     }
   },
@@ -3442,7 +3451,9 @@
       "loadFailed": "Fehler beim Laden der Angebote",
       "pdfFailed": "Fehler beim Laden der PDF",
       "pdfNotPdf": "Antwort ist kein PDF"
-    }
+    },
+    "openCalculation": "DB-Berechnung öffnen",
+    "openCalculationFor": "DB-Berechnung für Angebot {{offerNumber}} öffnen"
   },
   "offerDetail": {
     "title": "Angebot {{offerNumber}}",
@@ -6204,7 +6215,9 @@
       "zu_dieser_kundennummer_gibt_es_keinen_portalzugang_mit_dieser_e_mail_adresse": "Zu dieser Kundennummer gibt es keinen Portalzugang mit dieser E-Mail-Adresse.",
       "dieser_portalzugang_ist_deaktiviert": "Dieser Portalzugang ist deaktiviert.",
       "fur_diesen_zugang_wurde_gerade_schon_ein_link_angefordert": "Für diesen Zugang wurde gerade schon ein Link angefordert.",
-      "der_link_konnte_nicht_versendet_werden_bitte_spater_erneut_versuchen": "Der Link konnte nicht versendet werden. Bitte später erneut versuchen."
+      "der_link_konnte_nicht_versendet_werden_bitte_spater_erneut_versuchen": "Der Link konnte nicht versendet werden. Bitte später erneut versuchen.",
+      "angebotsnummer_fehlt": "Angebotsnummer fehlt",
+      "angebots_analyse_fehlgeschlagen": "Angebots-Analyse fehlgeschlagen"
     }
   },
   "roomPlanner": {
@@ -6529,6 +6542,33 @@
       "auth": "Anmeldung & Benutzer",
       "settings": "Einstellungen",
       "system": "System"
+    }
+  },
+  "offerProfitability": {
+    "heading": "Angebot {{offerNumber}}",
+    "toggleParts": "Stückliste von {{label}} ein- oder ausblenden",
+    "configuration": "Konfiguration · HK {{withData}}/{{total}} Teile",
+    "optional": "optional",
+    "discount": "Rabatt",
+    "partMissingHk": "kein HK",
+    "grossHint": "Brutto-Angebot – Preise je Position netto gerechnet.",
+    "openOffer": "In Angebotsübersicht öffnen",
+    "missingHkHint": "{{count}} Positionen ohne (vollständigen) Herstellpreis sind in DB1 und Marge nicht enthalten. Bei Konfigurationen fehlt dann mindestens einem Stücklistenteil der Herstellpreis.",
+    "missingHkHint_one": "{{count}} Position ohne (vollständigen) Herstellpreis ist in DB1 und Marge nicht enthalten. Bei Konfigurationen fehlt dann mindestens einem Stücklistenteil der Herstellpreis.",
+    "missingHkHint_other": "{{count}} Positionen ohne (vollständigen) Herstellpreis sind in DB1 und Marge nicht enthalten. Bei Konfigurationen fehlt dann mindestens einem Stücklistenteil der Herstellpreis.",
+    "discountHint": "Angebotsrabatte gesamt {{amount}} – anteilig nach Umsatz auf die Positionen mit Herstellpreis verteilt.",
+    "csv": {
+      "type": "Art",
+      "part": "Stücklistenteil"
+    },
+    "kpi": {
+      "netTotal": "Angebotswert netto",
+      "netTotalHint": "laut Angebot, inkl. Rabatte",
+      "db1DiscountHint": "vor Rabatt {{before}}, Rabattanteil {{discount}}"
+    },
+    "table": {
+      "discountShare": "Rabattanteil (Positionen mit HK)",
+      "afterDiscount": "Nach Rabatt"
     }
   }
 }

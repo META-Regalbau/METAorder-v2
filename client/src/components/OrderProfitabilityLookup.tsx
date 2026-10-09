@@ -20,16 +20,34 @@ import HerstellMarginIndicator from "@/components/HerstellMarginIndicator";
 import type { Order } from "@shared/schema";
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 import { apiErrorFromBody } from "@/lib/apiError";
+import { downloadCsv } from "@/lib/csvDownload";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import OfferProfitabilityResultView from "@/components/OfferProfitabilityResult";
+import type { OfferProfitabilityResult } from "@shared/offerProfitability";
 
-type LookupResponse = {
+type OrderLookupResponse = {
   orderNumber: string;
   orders: Order[];
   profitabilityMinMarginPercent?: number;
 };
 
-function escapeCsv(value: unknown): string {
-  const s = String(value ?? "");
-  return /[",\n\r;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+type OfferLookupResponse = {
+  offerNumber: string;
+  offers: OfferProfitabilityResult[];
+  profitabilityMinMarginPercent?: number;
+};
+
+type LookupMode = "order" | "offer";
+
+const MODE_PARAM: Record<LookupMode, string> = { order: "orderNumber", offer: "offerNumber" };
+
+async function fetchJson<T>(url: string): Promise<T> {
+  const res = await fetch(url, { credentials: "include" });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw apiErrorFromBody(res.status, body);
+  }
+  return res.json();
 }
 
 function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
@@ -62,35 +80,22 @@ function SingleOrderResult({ order, crmThreshold }: { order: Order; crmThreshold
       t("orderProfitabilityAnalysis.lookup.table.marginOnCost"),
       t("orderProfitabilityAnalysis.lookup.table.marginOnRevenue"),
     ];
-    const lines = [header.map(escapeCsv).join(",")];
-    for (const item of order.items) {
-      lines.push(
-        [
-          item.productNumber ?? "",
-          item.name,
-          item.quantity,
-          item.netPrice,
-          item.netTotal,
-          item.herstellpreisNet ?? "",
-          item.herstellkostenTotal ?? "",
-          item.db1Abs ?? "",
-          item.marginPercent ?? "",
-          item.marginOnRevenuePercent ?? "",
-        ]
-          .map(escapeCsv)
-          .join(","),
-      );
-    }
-    const csv = "﻿" + lines.join("\r\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `db-berechnung-${order.orderNumber}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    downloadCsv(
+      `db-berechnung-${order.orderNumber}.csv`,
+      header,
+      order.items.map((item) => [
+        item.productNumber ?? "",
+        item.name,
+        item.quantity,
+        item.netPrice,
+        item.netTotal,
+        item.herstellpreisNet ?? "",
+        item.herstellkostenTotal ?? "",
+        item.db1Abs ?? "",
+        item.marginPercent ?? "",
+        item.marginOnRevenuePercent ?? "",
+      ]),
+    );
   };
 
   return (
@@ -263,53 +268,68 @@ function SingleOrderResult({ order, crmThreshold }: { order: Order; crmThreshold
   );
 }
 
-/** DB-Berechnung fuer genau eine Bestellnummer (Bestell-DB-Analyse, auch per ?orderNumber=...). */
+/**
+ * DB-Berechnung fuer genau eine Bestellung oder ein Angebot (Bestell-DB-Analyse,
+ * auch per ?orderNumber=... bzw. ?offerNumber=...).
+ */
 export default function OrderProfitabilityLookup() {
   const { t } = useTranslation();
   const searchString = useSearch();
   const [location, navigate] = useLocation();
+  const [mode, setMode] = useState<LookupMode>("order");
   const [input, setInput] = useState("");
-  const [orderNumber, setOrderNumber] = useState("");
+  const [submitted, setSubmitted] = useState<{ mode: LookupMode; number: string } | null>(null);
 
   useEffect(() => {
-    const fromUrl = new URLSearchParams(searchString).get("orderNumber")?.trim();
-    if (fromUrl) {
-      setInput(fromUrl);
-      setOrderNumber(fromUrl);
+    const params = new URLSearchParams(searchString);
+    for (const m of ["order", "offer"] as const) {
+      const fromUrl = params.get(MODE_PARAM[m])?.trim();
+      if (fromUrl) {
+        setMode(m);
+        setInput(fromUrl);
+        setSubmitted({ mode: m, number: fromUrl });
+        return;
+      }
     }
   }, [searchString]);
 
-  const { data, isFetching, isError, error } = useQuery<LookupResponse>({
-    queryKey: ["/api/orders/profitability-by-number", orderNumber],
-    enabled: orderNumber !== "",
-    queryFn: async () => {
-      const res = await fetch(
-        `/api/orders/profitability-by-number?orderNumber=${encodeURIComponent(orderNumber)}`,
-        { credentials: "include" },
-      );
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw apiErrorFromBody(res.status, body);
-      }
-      return res.json();
-    },
+  const orderQuery = useQuery<OrderLookupResponse>({
+    queryKey: ["/api/orders/profitability-by-number", submitted?.number],
+    enabled: submitted?.mode === "order",
+    queryFn: () =>
+      fetchJson(`/api/orders/profitability-by-number?orderNumber=${encodeURIComponent(submitted!.number)}`),
   });
+  const offerQuery = useQuery<OfferLookupResponse>({
+    queryKey: ["/api/offers/profitability-by-number", submitted?.number],
+    enabled: submitted?.mode === "offer",
+    queryFn: () =>
+      fetchJson(`/api/offers/profitability-by-number?offerNumber=${encodeURIComponent(submitted!.number)}`),
+  });
+  const active = submitted?.mode === "offer" ? offerQuery : orderQuery;
 
-  // Bestellnummer in der Adresse mitfuehren, damit der Link geteilt werden kann
+  // Nummer in der Adresse mitfuehren, damit der Link geteilt werden kann
   const submit = (e: FormEvent) => {
     e.preventDefault();
     const value = input.trim();
-    setOrderNumber(value);
-    navigate(`${location}?orderNumber=${encodeURIComponent(value)}`, { replace: true });
+    setSubmitted({ mode, number: value });
+    navigate(`${location}?${MODE_PARAM[mode]}=${encodeURIComponent(value)}`, { replace: true });
   };
 
   const reset = () => {
     setInput("");
-    setOrderNumber("");
+    setSubmitted(null);
     navigate(location, { replace: true });
   };
 
-  const crmThreshold = data?.profitabilityMinMarginPercent ?? 20;
+  const changeMode = (value: string) => {
+    setMode(value as LookupMode);
+    if (submitted) reset();
+  };
+
+  const results =
+    submitted?.mode === "offer" ? (offerQuery.data?.offers.length ?? 0) : (orderQuery.data?.orders.length ?? 0);
+  const crmThreshold = active.data?.profitabilityMinMarginPercent ?? 20;
+  const textKey = mode === "offer" ? "orderProfitabilityAnalysis.lookup.offer" : "orderProfitabilityAnalysis.lookup";
 
   return (
     <Card>
@@ -321,23 +341,29 @@ export default function OrderProfitabilityLookup() {
         <CardDescription>{t("orderProfitabilityAnalysis.lookup.description")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <Tabs value={mode} onValueChange={changeMode}>
+          <TabsList>
+            <TabsTrigger value="order">{t("orderProfitabilityAnalysis.lookup.modeOrder")}</TabsTrigger>
+            <TabsTrigger value="offer">{t("orderProfitabilityAnalysis.lookup.modeOffer")}</TabsTrigger>
+          </TabsList>
+        </Tabs>
         <form onSubmit={submit} className="flex flex-wrap gap-2 items-end">
           <div className="space-y-1">
-            <Label htmlFor="db-lookup-order-number">{t("orderProfitabilityAnalysis.lookup.label")}</Label>
+            <Label htmlFor="db-lookup-number">{t(`${textKey}.label`)}</Label>
             <Input
-              id="db-lookup-order-number"
+              id="db-lookup-number"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={t("orderProfitabilityAnalysis.lookup.placeholder")}
+              placeholder={t(`${textKey}.placeholder`)}
               className="w-56 font-mono"
               autoComplete="off"
             />
           </div>
-          <Button type="submit" disabled={input.trim() === "" || isFetching}>
+          <Button type="submit" disabled={input.trim() === "" || active.isFetching}>
             <Search className="h-4 w-4 mr-2" />
             {t("orderProfitabilityAnalysis.lookup.submit")}
           </Button>
-          {orderNumber ? (
+          {submitted ? (
             <Button type="button" variant="ghost" onClick={reset}>
               <X className="h-4 w-4 mr-2" />
               {t("orderProfitabilityAnalysis.lookup.reset")}
@@ -345,27 +371,29 @@ export default function OrderProfitabilityLookup() {
           ) : null}
         </form>
 
-        {orderNumber === "" ? null : isFetching && !data ? (
-          <p className="text-muted-foreground">{t("orderProfitabilityAnalysis.lookup.loading")}</p>
-        ) : isError ? (
+        {!submitted ? null : active.isFetching && !active.data ? (
+          <p className="text-muted-foreground">{t(`${textKey}.loading`)}</p>
+        ) : active.isError ? (
           <p className="flex items-center gap-2 text-destructive">
             <AlertCircle className="h-5 w-5" />
-            {error instanceof Error ? error.message : t("orderProfitabilityAnalysis.errorTitle")}
+            {active.error instanceof Error ? active.error.message : t("orderProfitabilityAnalysis.errorTitle")}
           </p>
-        ) : data && data.orders.length === 0 ? (
-          <p className="text-muted-foreground">
-            {t("orderProfitabilityAnalysis.lookup.notFound", { orderNumber: data.orderNumber })}
-          </p>
-        ) : data ? (
+        ) : active.data && results === 0 ? (
+          <p className="text-muted-foreground">{t(`${textKey}.notFound`, { number: submitted.number })}</p>
+        ) : active.data ? (
           <div className="space-y-4">
-            {data.orders.length > 1 ? (
+            {results > 1 ? (
               <p className="text-sm text-amber-700 dark:text-amber-500">
-                {t("orderProfitabilityAnalysis.lookup.multipleHits", { count: data.orders.length })}
+                {t(`${textKey}.multipleHits`, { count: results })}
               </p>
             ) : null}
-            {data.orders.map((order) => (
-              <SingleOrderResult key={order.id} order={order} crmThreshold={crmThreshold} />
-            ))}
+            {submitted.mode === "offer"
+              ? offerQuery.data?.offers.map((offer) => (
+                  <OfferProfitabilityResultView key={offer.id} offer={offer} crmThreshold={crmThreshold} />
+                ))
+              : orderQuery.data?.orders.map((order) => (
+                  <SingleOrderResult key={order.id} order={order} crmThreshold={crmThreshold} />
+                ))}
           </div>
         ) : null}
       </CardContent>

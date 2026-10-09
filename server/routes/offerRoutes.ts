@@ -6,6 +6,10 @@ import { z } from "zod";
 import type { Request, Response, Express } from "express";
 import { B2BSellersClient } from "../b2b/b2bSellersClient";
 import { getSalesChannelFilter } from "./routeHelpers";
+import { ShopwareClient } from "../shopware/shopware";
+import { createHerstellpreisResolver } from "../analytics/orderProfitabilityAnalysis";
+import { loadCrmProfitabilitySettings } from "../analytics/crmProfitabilitySettings";
+import { buildOfferProfitability, collectOfferHerstellpreisRefs, matchOffersByNumber } from "../analytics/offerProfitability";
 import { buildOfferConfigPdfInputWithCpqFallback } from "../offers/offerConfigPdfCpqFallback";
 import { enrichOfferConfigPdfInputWithTexts } from "../offers/offerConfigPdfTexts";
 import { attachRoomPlanToPdfInput, buildPlainOfferPdfInput } from "../offers/offerConfigPdfBuilder";
@@ -116,6 +120,72 @@ export function registerOfferRoutes(app: Express): void {
     } catch (error: any) {
       log.error({ err: error }, "Error fetching offers:");
       res.status(500).json({ error: error.message || "Failed to fetch offers" });
+    }
+  });
+
+  // DB-Berechnung fuer genau eine Angebotsnummer (Haendlerportal und Onlineshop, mit Positionen)
+  app.get("/api/offers/profitability-by-number", requireAuth, requireViewOffers, async (req: Request, res: Response) => {
+    try {
+      const offerNumber = typeof req.query.offerNumber === "string" ? req.query.offerNumber.trim() : "";
+      if (!offerNumber) {
+        return res.status(400).json({ error: "Angebotsnummer fehlt" });
+      }
+
+      const tenantId = (req as any).tenantId ?? null;
+      const settings = await storage.getShopwareSettings(tenantId);
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+
+      const profitabilitySettings = await loadCrmProfitabilitySettings(storage, tenantId);
+      // null = alle Kanaele, [] = kein Kanal (fetchOffers filtert eine leere Liste nicht)
+      const allowedChannelIds = await getSalesChannelFilter(req);
+      if (Array.isArray(allowedChannelIds) && allowedChannelIds.length === 0) {
+        return res.json({ offerNumber, offers: [], profitabilityMinMarginPercent: profitabilitySettings.minMarginPercent });
+      }
+
+      const statusMapping = await storage.getSetting("b2b.offerStatusMapping", tenantId);
+      const b2bClient = new B2BSellersClient(settings, { statusMapping });
+      const { offers: candidates } = await b2bClient.fetchOffers({
+        search: offerNumber,
+        limit: 50,
+        salesChannelIds: allowedChannelIds,
+      });
+      const matches = matchOffersByNumber(candidates, offerNumber).filter(
+        (offer) => !allowedChannelIds || allowedChannelIds.includes(offer.salesChannelId),
+      );
+
+      const details = await Promise.all(
+        matches.map(async (match) => {
+          const raw = await b2bClient.fetchOfferById(match.id);
+          const offer = b2bClient.mapOffer(raw.data, undefined, raw.included);
+          const price = raw.data?.price ?? raw.data?.attributes?.price;
+          return { offer, taxStatus: typeof price?.taxStatus === "string" ? price.taxStatus : null };
+        }),
+      );
+
+      const shopwareClient = new ShopwareClient(settings);
+      const [herstellpreisOf, channelNames] = await Promise.all([
+        createHerstellpreisResolver(
+          details.flatMap((d) => collectOfferHerstellpreisRefs(d.offer.items ?? [])),
+          { storage, client: shopwareClient, tenantId },
+        ),
+        details.length > 0 ? shopwareClient.fetchSalesChannelNameMap().catch(() => new Map<string, string>()) : new Map<string, string>(),
+      ]);
+
+      const offers = details
+        .map(({ offer, taxStatus }) =>
+          buildOfferProfitability(
+            { ...offer, salesChannelName: channelNames.get(offer.salesChannelId) ?? offer.salesChannelName },
+            { taxStatus, herstellpreisOf, minMarginPercent: profitabilitySettings.minMarginPercent },
+          ),
+        )
+        .sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime());
+
+      res.json({ offerNumber, offers, profitabilityMinMarginPercent: profitabilitySettings.minMarginPercent });
+    } catch (error: any) {
+      log.error({ err: error }, "[/api/offers/profitability-by-number] Error:");
+      res.status(500).json({ error: error.message || "Angebots-Analyse fehlgeschlagen" });
     }
   });
 

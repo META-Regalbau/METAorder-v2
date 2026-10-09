@@ -1,4 +1,4 @@
-import { FileDown, Loader2, ChevronDown, ChevronRight, Package, Layers, FileSpreadsheet, FileCode2, Trash2 } from "lucide-react";
+import { FileDown, Loader2, ChevronDown, ChevronRight, Package, Layers, FileSpreadsheet, FileCode2, Trash2, Calculator } from "lucide-react";
 import { useState, useEffect, Fragment, useMemo, useRef } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -16,6 +16,7 @@ import {
   type OfferConfigPdfDialogState,
 } from "@/lib/offerConfigPdfOptions";
 import { Link } from "wouter";
+import { offerProfitabilityHref } from "@/lib/orderProfitabilityLink";
 import "@/styles/metaAdmin.css";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
@@ -805,6 +806,14 @@ export default function OfferDetailModal({
                 )}
                 {t("offerDetail.downloadErpXml")}
               </button>
+              <Link
+                href={offerProfitabilityHref(offer.offerNumber)}
+                className="mbtn sm"
+                data-testid="link-offer-db-calculation"
+              >
+                <Calculator className="h-4 w-4" />
+                {t("offers.openCalculation")}
+              </Link>
               {canManage && (
                 <>
                   <button

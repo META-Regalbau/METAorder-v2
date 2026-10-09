@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { RefreshCw, Search, Download, Sparkles, FileText, Eye, Trash2, CheckCircle, AlertCircle, XCircle } from "lucide-react";
+import { RefreshCw, Search, Download, Sparkles, FileText, Eye, Trash2, CheckCircle, AlertCircle, XCircle, Calculator } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import type { Offer, OfferStatus, OfferDraft, SalesChannel, User, Role } from "@shared/schema";
@@ -9,7 +9,8 @@ import {
   isLowOverallMatchingConfidence,
 } from "@/lib/commercialDraftConfidence";
 import { isDocumentBuyerMeta, pickDocumentExtraction } from "@/components/DocumentExtractionAlerts";
-import { useLocation, useSearch } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
+import { offerProfitabilityHref } from "@/lib/orderProfitabilityLink";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { fetchOfferDraftForReview } from "@/lib/refreshReviewDraft";
@@ -806,6 +807,17 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
                           >
                             <Download className="h-4 w-4" />
                           </button>
+                          {/* stopPropagation: Link zur DB-Berechnung soll nicht zusätzlich das Detail öffnen. */}
+                          <Link
+                            href={offerProfitabilityHref(offer.offerNumber)}
+                            className="mbtn icon ghost"
+                            onClick={(e) => e.stopPropagation()}
+                            title={t('offers.openCalculation')}
+                            aria-label={t('offers.openCalculationFor', { offerNumber: offer.offerNumber })}
+                            data-testid="link-offer-db-calculation"
+                          >
+                            <Calculator className="h-4 w-4" />
+                          </Link>
                           {canManageOffers && (
                             <>
                               <button
