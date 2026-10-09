@@ -346,6 +346,21 @@ export interface IStorage {
   replaceAiInsights(rows: InsertAiInsight[], tenantId?: string | null): Promise<void>;
   getAiInsights(tenantId?: string | null): Promise<AiInsight[]>;
   recordCrossSellEvent(row: InsertCrossSellEvent, tenantId?: string | null): Promise<void>;
+  /**
+   * Ereignisse je Entwurf und Paar hoechstens einmal (Impressionen beim Oeffnen, Hinzufuegen).
+   * Liefert die Zahl neu gespeicherter Zeilen.
+   */
+  recordCrossSellEventsOncePerDraft(
+    rows: Array<{ sourceProductNumber: string; targetProductNumber: string; metadata?: Record<string, unknown> | null }>,
+    ctx: { eventType: string; draftId: string; context?: string | null; userId?: string | null },
+    tenantId?: string | null,
+  ): Promise<number>;
+  /** Paare eines Ereignistyps fuer einen Entwurf (z. B. per Vorschlag hinzugefuegte Ziele). */
+  getCrossSellDraftEventPairs(
+    draftId: string,
+    eventType: string,
+    tenantId?: string | null,
+  ): Promise<Array<{ sourceProductNumber: string; targetProductNumber: string }>>;
   getCrossSellEventStats(tenantId: string | null, since: Date): Promise<CrossSellEventPairStats[]>;
 
   // Cross-Sell Staging

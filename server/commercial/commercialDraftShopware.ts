@@ -5,6 +5,7 @@ import { ShopwareClient } from "../shopware/shopware";
 import { scheduleSftpUploadAfterOrderCreate } from "../sftp/sftpUpload";
 import { buildShopwareLinePayloadFromCpqSource, type CpqSourceSnapshot } from "../cpq/cpqMetaCalcPayload";
 import { logger } from "../lib/logger";
+import { recordDraftSuggestionConversions } from "../cross-selling/crossSellDraftSignals";
 
 const moduleLog = logger.child({ component: "commercial/commercialDraftShopware" });
 
@@ -348,6 +349,13 @@ export async function executeCreateOfferFromDraft(
     return { ok: false, error: "Failed to update offer draft", statusCode: 500 };
   }
 
+  await recordDraftSuggestionConversions(storage, {
+    tenantId: options.tenantId ?? null,
+    draftId,
+    kind: "offer_draft",
+    items: draft.matchingResults?.items,
+  });
+
   return { ok: true, offerId: created.id, draft: updatedDraft };
 }
 
@@ -563,6 +571,13 @@ export async function executeCreateOrderFromDraft(
   if (!updatedDraft) {
     return { ok: false, error: "Failed to update order draft", statusCode: 500 };
   }
+
+  await recordDraftSuggestionConversions(storage, {
+    tenantId: options.tenantId ?? null,
+    draftId,
+    kind: "order_draft",
+    items: draft.matchingResults?.items,
+  });
 
   // Beilagen (Kundenlieferschein u. a.) an die SFTP-Server des Mandanten (Lobster → d.3) —
   // asynchron, die Bestellanlage wartet nicht darauf. Gilt für manuelle und automatische Anlage.

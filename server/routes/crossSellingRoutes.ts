@@ -10,6 +10,7 @@ import { fetchAllProductsForStaging, loadCrossSellRankingBundle, crossSellSugges
 import { loadCrossSellShelvingPatternConfig } from "../cross-selling/crossSellShelvingHeuristics";
 import { applyCrossSellPlan, diffAssignments, DEFAULT_MAX_TARGETS_PER_MANAGED_GROUP, type CrossSellApplyOperation } from "../cross-selling/crossSellApply";
 import { startCrossSellJob, getCrossSellJobStatus } from "../cross-selling/crossSellJobs";
+import { productCacheRegistry } from "../products/productCache";
 import type { Express } from "express";
 import { logger } from "../lib/logger";
 
@@ -166,6 +167,9 @@ async function resolveCrossSellProductNumberForAnalytics(
   if (n) return n;
   const id = productId?.trim();
   if (!id) return null;
+  // Erst der Produkt-Cache des Mandanten (aus dem Spiegel), nur bei Fehlschlag Shopware.
+  const cached = productCacheRegistry.for(tenantId).getProductById(id)?.productNumber?.trim();
+  if (cached) return cached;
   const settings = await storage.getShopwareSettings(tenantId);
   if (!settings) return null;
   const client = new ShopwareClient(settings);
@@ -1156,6 +1160,19 @@ export function registerCrossSellingRoutes(app: Express): void {
 
       if (body.event === "product_suggestion_impression" && sourceNum && targetNum) {
         await persistPair("product_suggestion_impression", sourceNum, targetNum, body.metadata as Record<string, unknown> | null);
+      }
+
+      if (body.event === "draft_suggestions_impression" && body.draftId && sourceNum) {
+        const targets = (body.metadata as Record<string, unknown> | undefined)?.suggestionProductNumbers;
+        if (Array.isArray(targets)) {
+          await storage.recordCrossSellEventsOncePerDraft(
+            targets
+              .filter((t): t is string => typeof t === "string" && t.trim().length > 0)
+              .map((t, i) => ({ sourceProductNumber: sourceNum, targetProductNumber: t.trim(), metadata: { rank: i + 1 } })),
+            { eventType: "draft_suggestions_impression", draftId: body.draftId, context: body.context ?? null, userId },
+            tid,
+          );
+        }
       }
 
       if (body.event === "product_suggestions_impression") {

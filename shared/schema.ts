@@ -1002,6 +1002,7 @@ export const crossSellEvents = pgTable(
       table.eventType,
     ),
     tenantCreatedIdx: index("cross_sell_events_tenant_created_idx").on(table.tenantId, table.createdAt),
+    tenantDraftEvtIdx: index("cross_sell_events_tenant_draft_evt_idx").on(table.tenantId, table.draftId, table.eventType),
   }),
 );
 

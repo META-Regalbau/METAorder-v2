@@ -592,10 +592,20 @@ export function OrderDraftReviewModal({
   });
 
   const addProductMutation = useMutation({
-    mutationFn: async ({ productId, quantity }: { productId: string; quantity: number }) => {
+    mutationFn: async ({
+      productId,
+      quantity,
+      crossSell,
+    }: {
+      productId: string;
+      quantity: number;
+      /** Klick auf einen Cross-Selling-Vorschlag: Ausgangsartikel und Rang (fuer das Lernen). */
+      crossSell?: { sourceProductNumber: string; rank: number };
+    }) => {
       const response = await apiRequest("POST", `/api/order-drafts/${draft.id}/add-product`, {
         productId,
         quantity,
+        ...(crossSell ? { crossSell } : {}),
       });
       return await response.json();
     },
@@ -1801,7 +1811,7 @@ export function OrderDraftReviewModal({
                       {t("orderDrafts.crossSelling.suggestionsFor")}: {suggestion.forProduct.name}
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {suggestion.suggestions.map((product) => (
+                      {suggestion.suggestions.map((product, sugIdx) => (
                         <Card key={product.id} className="hover-elevate overflow-hidden">
                           <CardContent className="p-3 space-y-2">
                             {product.imageUrl && (
@@ -1838,7 +1848,15 @@ export function OrderDraftReviewModal({
                             <Button
                               size="sm"
                               className="w-full"
-                              onClick={() => addProductMutation.mutate({ productId: product.id, quantity: 1 })}
+                              onClick={() =>
+                                addProductMutation.mutate({
+                                  productId: product.id,
+                                  quantity: 1,
+                                  crossSell: suggestion.forProduct?.productNumber
+                                    ? { sourceProductNumber: suggestion.forProduct.productNumber, rank: sugIdx + 1 }
+                                    : undefined,
+                                })
+                              }
                               disabled={addProductMutation.isPending || draft.status === "created"}
                               data-testid={`button-add-suggestion-${groupIndex}-${product.id}`}
                             >

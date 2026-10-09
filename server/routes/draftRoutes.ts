@@ -21,6 +21,7 @@ import { runStrictCommercialAutoCreateIfAllowed } from "../commercial/commercial
 import type { MatchingResult } from "../products/productMatcher";
 import { ShopwareClient } from "../shopware/shopware";
 import { getCombinedCrossSellingRules, loadCrossSellRankingBundle, crossSellSuggestOptions, dedupeAndLimitSuggestions } from "../cross-selling/crossSellService";
+import { recordDraftSuggestionImpressions, recordDraftSuggestionAdd } from "../cross-selling/crossSellDraftSignals";
 import { RuleEngine } from "../cross-selling/ruleEngine";
 import { buildCommercialClarificationEmail } from "../commercial/customerClarificationEmail";
 import { buildCommercialProductFeedbackRowsFromDraftUpdate } from "../commercial/commercialProductLearning";
@@ -856,6 +857,14 @@ export function registerDraftRoutes(app: Express): void {
         }
       }
       
+      recordDraftSuggestionImpressions(storage, {
+        tenantId: req.tenantId ?? null,
+        userId: (req.user as { id?: string } | undefined)?.id ?? null,
+        draftId: id,
+        kind: "order_draft",
+        groups: crossSellingSuggestions,
+      });
+
       // Return draft with cross-selling suggestions
       res.json({
         ...orderDraft,
@@ -1030,6 +1039,7 @@ export function registerDraftRoutes(app: Express): void {
   app.post("/api/order-drafts/:id/add-product", requireAuth, requireManageOrderDrafts, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
+      // crossSell (optional): { sourceProductNumber, rank } wenn der Klick von einem Vorschlag kommt
       const { productId, quantity = 1 } = req.body;
       
       if (!productId) {
@@ -1082,6 +1092,15 @@ export function registerDraftRoutes(app: Express): void {
           items: updatedItems,
           overallConfidence,
         },
+      });
+      
+      await recordDraftSuggestionAdd(storage, {
+        tenantId: req.tenantId ?? null,
+        userId: (req.user as { id?: string } | undefined)?.id ?? null,
+        draftId: id,
+        kind: "order_draft",
+        crossSell: req.body?.crossSell,
+        targetProductNumber: product.productNumber,
       });
       
       res.json(updatedDraft);
@@ -1718,6 +1737,14 @@ export function registerDraftRoutes(app: Express): void {
         }
       }
       
+      recordDraftSuggestionImpressions(storage, {
+        tenantId: req.tenantId ?? null,
+        userId: (req.user as { id?: string } | undefined)?.id ?? null,
+        draftId: id,
+        kind: "offer_draft",
+        groups: crossSellingSuggestions,
+      });
+
       // Return draft with cross-selling suggestions
       res.json({
         ...offerDraft,
@@ -1918,6 +1945,7 @@ export function registerDraftRoutes(app: Express): void {
   app.post("/api/offer-drafts/:id/add-product", requireAuth, requireManageOffers, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
+      // crossSell (optional): { sourceProductNumber, rank } wenn der Klick von einem Vorschlag kommt
       const { productId, quantity = 1 } = req.body;
       
       if (!productId) {
@@ -1974,6 +2002,15 @@ export function registerDraftRoutes(app: Express): void {
           items: updatedItems,
           overallConfidence,
         },
+      });
+      
+      await recordDraftSuggestionAdd(storage, {
+        tenantId: req.tenantId ?? null,
+        userId: (req.user as { id?: string } | undefined)?.id ?? null,
+        draftId: id,
+        kind: "offer_draft",
+        crossSell: req.body?.crossSell,
+        targetProductNumber: product.productNumber,
       });
       
       res.json(updatedDraft);
