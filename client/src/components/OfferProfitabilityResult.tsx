@@ -17,6 +17,7 @@ import HerstellMarginIndicator from "@/components/HerstellMarginIndicator";
 import type { OfferProfitabilityLine, OfferProfitabilityResult } from "@shared/offerProfitability";
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 import { downloadCsv } from "@/lib/csvDownload";
+import { MISSING_HK_ROW_CLASS } from "@/lib/profitabilityStyles";
 
 function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
@@ -33,10 +34,11 @@ function LineRow({ line }: { line: OfferProfitabilityLine }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const muted = !line.countsForDb;
+  const missingHk = line.countsForDb && line.herstellkostenTotal == null;
 
   return (
     <Fragment>
-      <TableRow className={muted ? "text-muted-foreground" : undefined}>
+      <TableRow className={muted ? "text-muted-foreground" : missingHk ? MISSING_HK_ROW_CLASS : undefined}>
         <TableCell>
           <div className="flex items-start gap-1">
             {line.parts?.length ? (
@@ -93,6 +95,8 @@ function LineRow({ line }: { line: OfferProfitabilityLine }) {
                 {t("orderProfitabilityAnalysis.lookup.table.perUnit", { amount: fmt.currency(line.herstellpreisNet) })}
               </div>
             </>
+          ) : missingHk ? (
+            t("offerProfitability.partMissingHk")
           ) : (
             "—"
           )}
@@ -120,7 +124,10 @@ function LineRow({ line }: { line: OfferProfitabilityLine }) {
       </TableRow>
       {open && line.parts
         ? line.parts.map((part, idx) => (
-            <TableRow key={`${line.id}-part-${idx}`} className="bg-muted/30 text-xs">
+            <TableRow
+              key={`${line.id}-part-${idx}`}
+              className={`text-xs ${part.herstellpreisNet == null ? MISSING_HK_ROW_CLASS : "bg-muted/30"}`}
+            >
               <TableCell className="pl-10">
                 <div>{part.label}</div>
                 {part.productNumber ? (
@@ -140,7 +147,7 @@ function LineRow({ line }: { line: OfferProfitabilityLine }) {
                     </div>
                   </>
                 ) : (
-                  <span className="text-amber-700 dark:text-amber-500">{t("offerProfitability.partMissingHk")}</span>
+                  t("offerProfitability.partMissingHk")
                 )}
               </TableCell>
               <TableCell />
