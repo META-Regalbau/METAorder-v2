@@ -963,7 +963,9 @@
         "db1": "CM1",
         "marginOnCost": "Margin",
         "marginOnRevenue": "Margin on revenue %",
-        "sumWithHk": "Total (line items with cost)"
+        "sumWithHk": "Total (line items with cost)",
+        "perUnit": "{{amount}} / unit",
+        "db1AndMargin": "CM1 / margin"
       }
     }
   },

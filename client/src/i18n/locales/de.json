@@ -963,7 +963,9 @@
         "db1": "DB1",
         "marginOnCost": "Marge",
         "marginOnRevenue": "Marge auf Umsatz %",
-        "sumWithHk": "Summe (Positionen mit HK)"
+        "sumWithHk": "Summe (Positionen mit HK)",
+        "perUnit": "je Stk. {{amount}}",
+        "db1AndMargin": "DB1 / Marge"
       }
     }
   },

@@ -892,7 +892,9 @@
         "db1": "MC1",
         "marginOnCost": "Margen",
         "marginOnRevenue": "Margen sobre ventas %",
-        "sumWithHk": "Total (posiciones con coste)"
+        "sumWithHk": "Total (posiciones con coste)",
+        "perUnit": "{{amount}} / ud.",
+        "db1AndMargin": "MC1 / margen"
       }
     }
   },

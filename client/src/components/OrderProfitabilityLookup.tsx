@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useSearch } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { AlertCircle, ArrowRight, Calculator, Download, Search, X } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -168,47 +168,65 @@ function SingleOrderResult({ order, crmThreshold }: { order: Order; crmThreshold
       </div>
 
       <div className="overflow-x-auto" tabIndex={0}>
-        <Table>
+        <Table className="text-sm [&_td]:px-2 [&_th]:px-2">
           <TableHeader>
             <TableRow>
-              <TableHead>{t("orderProfitabilityAnalysis.lookup.table.productNumber")}</TableHead>
-              <TableHead>{t("orderProfitabilityAnalysis.lookup.table.name")}</TableHead>
+              <TableHead className="min-w-[150px]">{t("orderProfitabilityAnalysis.lookup.table.name")}</TableHead>
               <TableHead className="text-right">{t("orderProfitabilityAnalysis.lookup.table.quantity")}</TableHead>
-              <TableHead className="text-right">{t("orderProfitabilityAnalysis.lookup.table.netPrice")}</TableHead>
               <TableHead className="text-right">{t("orderProfitabilityAnalysis.lookup.table.netTotal")}</TableHead>
-              <TableHead className="text-right">{t("orderProfitabilityAnalysis.lookup.table.hkUnit")}</TableHead>
               <TableHead className="text-right">{t("orderProfitabilityAnalysis.lookup.table.hkTotal")}</TableHead>
-              <TableHead className="text-right">{t("orderProfitabilityAnalysis.lookup.table.db1")}</TableHead>
-              <TableHead className="text-right">{t("orderProfitabilityAnalysis.lookup.table.marginOnCost")}</TableHead>
+              <TableHead className="text-right">{t("orderProfitabilityAnalysis.lookup.table.db1AndMargin")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {order.items.map((item) => (
               <TableRow key={item.id}>
-                <TableCell className="font-mono">{item.productNumber ?? "—"}</TableCell>
-                <TableCell>{item.name}</TableCell>
-                <TableCell className="text-right tabular-nums">{fmt.number(item.quantity)}</TableCell>
-                <TableCell className="text-right font-mono tabular-nums">{fmt.currency(item.netPrice)}</TableCell>
-                <TableCell className="text-right font-mono tabular-nums">{fmt.currency(item.netTotal)}</TableCell>
-                <TableCell className="text-right font-mono tabular-nums">
-                  {item.herstellpreisNet != null ? fmt.currency(item.herstellpreisNet) : "—"}
+                <TableCell>
+                  <div>{item.name}</div>
+                  {item.productNumber ? (
+                    <div className="text-xs font-mono text-muted-foreground">{item.productNumber}</div>
+                  ) : null}
                 </TableCell>
-                <TableCell className="text-right font-mono tabular-nums">
-                  {item.herstellkostenTotal != null ? fmt.currency(item.herstellkostenTotal) : "—"}
+                <TableCell className="text-right tabular-nums whitespace-nowrap">{fmt.number(item.quantity)}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums whitespace-nowrap">
+                  <div>{fmt.currency(item.netTotal)}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {t("orderProfitabilityAnalysis.lookup.table.perUnit", { amount: fmt.currency(item.netPrice) })}
+                  </div>
+                </TableCell>
+                <TableCell className="text-right font-mono tabular-nums whitespace-nowrap">
+                  {item.herstellkostenTotal != null && item.herstellpreisNet != null ? (
+                    <>
+                      <div>{fmt.currency(item.herstellkostenTotal)}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {t("orderProfitabilityAnalysis.lookup.table.perUnit", {
+                          amount: fmt.currency(item.herstellpreisNet),
+                        })}
+                      </div>
+                    </>
+                  ) : (
+                    "—"
+                  )}
                 </TableCell>
                 <TableCell
-                  className={`text-right font-mono tabular-nums ${
+                  className={`text-right font-mono tabular-nums whitespace-nowrap ${
                     item.db1Abs != null && item.db1Abs < 0 ? "text-destructive" : ""
                   }`}
                 >
-                  {item.db1Abs != null ? fmt.currency(item.db1Abs) : "—"}
-                </TableCell>
-                <TableCell className="text-right">
-                  <HerstellMarginIndicator
-                    marginPercent={item.marginPercent ?? null}
-                    marginOnRevenuePercent={item.marginOnRevenuePercent ?? null}
-                    verdict={item.crmVerdict ?? "none"}
-                  />
+                  {item.db1Abs != null ? (
+                    <>
+                      <div>{fmt.currency(item.db1Abs)}</div>
+                      <div className="mt-1 font-sans">
+                        <HerstellMarginIndicator
+                          marginPercent={item.marginPercent ?? null}
+                          marginOnRevenuePercent={item.marginOnRevenuePercent ?? null}
+                          verdict={item.crmVerdict ?? "none"}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    "—"
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -216,20 +234,18 @@ function SingleOrderResult({ order, crmThreshold }: { order: Order; crmThreshold
           {p?.db1Total != null ? (
             <TableFooter>
               <TableRow>
-                <TableCell colSpan={4}>{t("orderProfitabilityAnalysis.lookup.table.sumWithHk")}</TableCell>
-                <TableCell className="text-right font-mono tabular-nums">
+                <TableCell colSpan={2}>{t("orderProfitabilityAnalysis.lookup.table.sumWithHk")}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums whitespace-nowrap">
                   {revenueWithHk != null ? fmt.currency(revenueWithHk) : "—"}
                 </TableCell>
-                <TableCell />
-                <TableCell className="text-right font-mono tabular-nums">
+                <TableCell className="text-right font-mono tabular-nums whitespace-nowrap">
                   {p.herstellkostenTotal != null ? fmt.currency(p.herstellkostenTotal) : "—"}
                 </TableCell>
                 <TableCell
-                  className={`text-right font-mono tabular-nums ${p.db1Total < 0 ? "text-destructive" : ""}`}
+                  className={`text-right font-mono tabular-nums whitespace-nowrap ${p.db1Total < 0 ? "text-destructive" : ""}`}
                 >
                   {fmt.currency(p.db1Total)}
                 </TableCell>
-                <TableCell />
               </TableRow>
             </TableFooter>
           ) : null}
@@ -251,6 +267,7 @@ function SingleOrderResult({ order, crmThreshold }: { order: Order; crmThreshold
 export default function OrderProfitabilityLookup() {
   const { t } = useTranslation();
   const searchString = useSearch();
+  const [location, navigate] = useLocation();
   const [input, setInput] = useState("");
   const [orderNumber, setOrderNumber] = useState("");
 
@@ -278,14 +295,18 @@ export default function OrderProfitabilityLookup() {
     },
   });
 
+  // Bestellnummer in der Adresse mitfuehren, damit der Link geteilt werden kann
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    setOrderNumber(input.trim());
+    const value = input.trim();
+    setOrderNumber(value);
+    navigate(`${location}?orderNumber=${encodeURIComponent(value)}`, { replace: true });
   };
 
   const reset = () => {
     setInput("");
     setOrderNumber("");
+    navigate(location, { replace: true });
   };
 
   const crmThreshold = data?.profitabilityMinMarginPercent ?? 20;
