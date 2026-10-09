@@ -2488,7 +2488,8 @@
     "job": {
       "failed": "Job fehlgeschlagen",
       "notFound": "Job wurde nicht gefunden",
-      "timeout": "Zeitüberschreitung beim Warten auf den Hintergrundjob"
+      "timeout": "Zeitüberschreitung beim Warten auf den Hintergrundjob",
+      "interrupted": "Der Lauf wurde durch einen Neustart des Servers abgebrochen. Bitte erneut starten."
     }
   },
   "rules": {
@@ -2641,11 +2642,18 @@
     "previewEmpty": "Keine Vorschläge generiert",
     "goToStaging": "Zum Staging wechseln",
     "shopwareApplyPreviewTitle": "Vorschau: Übertragung nach Shopware",
-    "shopwareApplyPreviewDesc": "So werden die aktuell gespeicherten Staging-Vorschläge gruppiert und je Kategorie als Cross-Selling-Gruppe geschrieben (alle passenden Ziele, ohne Begrenzung). Hinweis: Es wird der gespeicherte Stand angezeigt – nach Regel-/Logikänderungen zuerst „Vorschläge neu berechnen“.",
+    "shopwareApplyPreviewDesc": "So werden die aktuell gespeicherten Staging-Vorschläge je Ausgangsartikel in die Gruppe „Passende Produkte“ geschrieben (höchstens 10 Ziele je Gruppe). Hinweis: Es wird der gespeicherte Stand angezeigt – nach Regel-/Logikänderungen zuerst „Vorschläge neu berechnen“.",
     "shopwareApplySummary": "{{active}} aktive Vorschläge → {{ops}} Shopware-Operationen",
     "shopwareApplyPreviewEmpty": "Keine aktiven Vorschläge zum Übertragen.",
     "shopwareTargetLimit": "Limit",
-    "stagingApplyConfirm": "Jetzt in Shopware übertragen"
+    "stagingApplyConfirm": "Jetzt in Shopware übertragen",
+    "replaceManagedGroup": "Gruppe „Passende Produkte“ ersetzen",
+    "replaceManagedGroupOffHint": "Aus: Neue Vorschläge werden nur ergänzt (bis {{max}} je Gruppe). Bestehende Einträge bleiben, andere Gruppen werden nicht angefasst.",
+    "replaceManagedGroupOnHint": "An: Die Gruppe „Passende Produkte“ wird auf die ersten {{max}} Vorschläge gebracht. Nicht vorgeschlagene Einträge in dieser Gruppe werden entfernt, auch von Hand gepflegte. Andere Gruppen bleiben unberührt.",
+    "stagingAppliedSummary": "{{added}} hinzugefügt, {{removed}} entfernt, {{errors}} Fehler",
+    "previewCurrentInShop": "Jetzt im Shop ({{count}})",
+    "previewAddOnly": "Würde ergänzt ({{count}})",
+    "previewReplaceRemoves": "Beim Ersetzen entfernt ({{count}})"
   },
   "ruleBuilder": {
     "basicTab": "Grundlagen",
@@ -6217,7 +6225,8 @@
       "fur_diesen_zugang_wurde_gerade_schon_ein_link_angefordert": "Für diesen Zugang wurde gerade schon ein Link angefordert.",
       "der_link_konnte_nicht_versendet_werden_bitte_spater_erneut_versuchen": "Der Link konnte nicht versendet werden. Bitte später erneut versuchen.",
       "angebotsnummer_fehlt": "Angebotsnummer fehlt",
-      "angebots_analyse_fehlgeschlagen": "Angebots-Analyse fehlgeschlagen"
+      "angebots_analyse_fehlgeschlagen": "Angebots-Analyse fehlgeschlagen",
+      "failed_to_fetch_job_status": "Job-Status konnte nicht geladen werden"
     }
   },
   "roomPlanner": {

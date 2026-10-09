@@ -860,6 +860,8 @@ export type CrossSellingGroup = {
   name: string;
   type: "productList" | "productStream"; // Shopware supports both
   active: boolean;
+  /** Reihenfolge der Tabs im Storefront. */
+  position?: number;
   products: CrossSellingProduct[];
 };
 

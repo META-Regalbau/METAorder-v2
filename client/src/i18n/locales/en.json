@@ -2491,7 +2491,8 @@
     "job": {
       "failed": "Job failed",
       "notFound": "Job was not found",
-      "timeout": "Timed out waiting for the background job"
+      "timeout": "Timed out waiting for the background job",
+      "interrupted": "The run was interrupted by a server restart. Please start it again."
     }
   },
   "rules": {
@@ -2644,11 +2645,18 @@
     "previewEmpty": "No suggestions generated",
     "goToStaging": "Go to staging",
     "shopwareApplyPreviewTitle": "Preview: transfer to Shopware",
-    "shopwareApplyPreviewDesc": "This is how the currently saved staging suggestions are grouped and written as a cross-selling group per category (all matching targets, no limit). Note: the saved state is shown – after rule/logic changes, first use “Recalculate suggestions”.",
+    "shopwareApplyPreviewDesc": "This is how the currently saved staging suggestions are written into the “Passende Produkte” group per source item (at most 10 targets per group). Note: the saved state is shown – after rule/logic changes, first use “Recalculate suggestions”.",
     "shopwareApplySummary": "{{active}} active suggestions → {{ops}} Shopware operations",
     "shopwareApplyPreviewEmpty": "No active suggestions to transfer.",
     "shopwareTargetLimit": "Limit",
-    "stagingApplyConfirm": "Transfer to Shopware now"
+    "stagingApplyConfirm": "Transfer to Shopware now",
+    "replaceManagedGroup": "Replace the “Passende Produkte” group",
+    "replaceManagedGroupOffHint": "Off: new suggestions are only added (up to {{max}} per group). Existing entries stay, other groups are not touched.",
+    "replaceManagedGroupOnHint": "On: the “Passende Produkte” group is set to the first {{max}} suggestions. Entries in this group that are not suggested are removed, including hand-picked ones. Other groups stay untouched.",
+    "stagingAppliedSummary": "{{added}} added, {{removed}} removed, {{errors}} errors",
+    "previewCurrentInShop": "Currently in the shop ({{count}})",
+    "previewAddOnly": "Would be added ({{count}})",
+    "previewReplaceRemoves": "Removed when replacing ({{count}})"
   },
   "ruleBuilder": {
     "basicTab": "Basics",
@@ -6220,7 +6228,8 @@
       "fur_diesen_zugang_wurde_gerade_schon_ein_link_angefordert": "A link was just requested for this account.",
       "der_link_konnte_nicht_versendet_werden_bitte_spater_erneut_versuchen": "The link could not be sent. Please try again later.",
       "angebotsnummer_fehlt": "Quote number missing",
-      "angebots_analyse_fehlgeschlagen": "Quote analysis failed"
+      "angebots_analyse_fehlgeschlagen": "Quote analysis failed",
+      "failed_to_fetch_job_status": "Could not load the job status"
     }
   },
   "roomPlanner": {

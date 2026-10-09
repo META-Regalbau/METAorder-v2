@@ -55,7 +55,13 @@ async function pollCrossSellJob(
       onProgress?.(data.processed, data.total);
     }
     if (data.status === "done") return data.result ?? {};
-    if (data.status === "error") throw new Error(data.error || i18next.t("crossSelling.job.failed"));
+    if (data.status === "error") {
+      throw new Error(
+        data.code === "interrupted"
+          ? i18next.t("crossSelling.job.interrupted")
+          : data.error || i18next.t("crossSelling.job.failed"),
+      );
+    }
     if (data.status === "idle") throw new Error(i18next.t("crossSelling.job.notFound"));
   }
   throw new Error(i18next.t("crossSelling.job.timeout"));
@@ -91,6 +97,7 @@ type AiInsightRow = {
 
 type StagingApplyPreviewResponse = {
   batchId: string;
+  maxTargetsPerGroup?: number;
   summary: { activeSuggestions: number; operations: number };
   operations: Array<{
     sourceProductNumber: string;
@@ -110,7 +117,27 @@ type ProductApplyPreviewResponse = {
   targetsTotalBeforeCap: number;
   targetsApplied: number;
   targets: Array<{ productNumber: string; name: string | null; category: string | null }>;
+  current?: Array<{ productNumber: string; name: string | null }>;
+  addOnly?: { toAdd: Array<{ productNumber: string; name: string | null }> };
+  replace?: {
+    toAdd: Array<{ productNumber: string; name: string | null }>;
+    toRemove: Array<{ productNumber: string; name: string | null }>;
+  };
 };
+
+function PreviewProductList({ items }: { items: Array<{ productNumber: string; name: string | null }> }) {
+  if (items.length === 0) return <p className="text-xs text-muted-foreground">—</p>;
+  return (
+    <ul className="space-y-0.5">
+      {items.map((item) => (
+        <li key={item.productNumber} className="text-xs">
+          <span className="font-mono">{item.productNumber}</span>
+          {item.name && <span className="text-muted-foreground"> — {item.name}</span>}
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export default function CrossSellingRulesPage() {
   const fmt = useLocaleFormat();
@@ -154,6 +181,8 @@ export default function CrossSellingRulesPage() {
   } | null>(null);
   const [stagingJobProgress, setStagingJobProgress] = useState<{ processed: number; total: number } | null>(null);
   const [showShopwareApplyPreview, setShowShopwareApplyPreview] = useState(false);
+  // Standard: nur hinzufuegen. Ersetzen entfernt nicht vorgeschlagene Eintraege aus "Passende Produkte".
+  const [replaceManagedGroup, setReplaceManagedGroup] = useState(false);
   const [previewProductNumber, setPreviewProductNumber] = useState("");
   const [productApplyPreview, setProductApplyPreview] = useState<ProductApplyPreviewResponse | null>(null);
 
@@ -461,7 +490,7 @@ export default function CrossSellingRulesPage() {
 
   const applyStagingMutation = useMutation({
     mutationFn: async () => {
-      const body = stagingBatch?.id ? { batchId: stagingBatch.id } : {};
+      const body = { ...(stagingBatch?.id ? { batchId: stagingBatch.id } : {}), replaceManagedGroup };
       const response = await apiRequest("POST", "/api/cross-selling/staging/apply", body);
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
@@ -469,12 +498,20 @@ export default function CrossSellingRulesPage() {
       }
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (result: any) => {
       setShowShopwareApplyPreview(false);
+      setReplaceManagedGroup(false);
       queryClient.invalidateQueries({ queryKey: ["/api/cross-selling/staging"] });
       queryClient.invalidateQueries({ queryKey: ["/api/cross-selling/staging/apply-preview"] });
+      const errorCount = Array.isArray(result?.errors) ? result.errors.length : 0;
       toast({
         title: t("rules.stagingApplied", "Staging in Shopware uebertragen"),
+        description: t("rules.stagingAppliedSummary", {
+          added: result?.productsAdded ?? 0,
+          removed: result?.productsRemoved ?? 0,
+          errors: errorCount,
+        }),
+        variant: errorCount > 0 ? "destructive" : undefined,
       });
     },
     onError: (error: any) => {
@@ -1150,6 +1187,28 @@ export default function CrossSellingRulesPage() {
                       </TableBody>
                     </Table>
                   )}
+                  {productApplyPreview.addOnly && productApplyPreview.replace && (
+                    <div className="grid gap-3 sm:grid-cols-3 text-sm">
+                      <div>
+                        <p className="font-medium">
+                          {t("rules.previewCurrentInShop", { count: productApplyPreview.current?.length ?? 0 })}
+                        </p>
+                        <PreviewProductList items={productApplyPreview.current ?? []} />
+                      </div>
+                      <div>
+                        <p className="font-medium">
+                          {t("rules.previewAddOnly", { count: productApplyPreview.addOnly.toAdd.length })}
+                        </p>
+                        <PreviewProductList items={productApplyPreview.addOnly.toAdd} />
+                      </div>
+                      <div>
+                        <p className="font-medium">
+                          {t("rules.previewReplaceRemoves", { count: productApplyPreview.replace.toRemove.length })}
+                        </p>
+                        <PreviewProductList items={productApplyPreview.replace.toRemove} />
+                      </div>
+                    </div>
+                  )}
                   {productApplyPreview.targetsTotalBeforeCap > productApplyPreview.targetsApplied && (
                     <p className="text-xs text-amber-700 dark:text-amber-400">
                       {t(
@@ -1643,6 +1702,24 @@ export default function CrossSellingRulesPage() {
                 )}
               </>
             )}
+          </div>
+
+          <div className="flex items-start gap-3 rounded-md border p-3">
+            <Switch
+              id="replace-managed-group"
+              checked={replaceManagedGroup}
+              onCheckedChange={setReplaceManagedGroup}
+            />
+            <div className="space-y-1">
+              <Label htmlFor="replace-managed-group" className="text-sm font-medium">
+                {t("rules.replaceManagedGroup")}
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {replaceManagedGroup
+                  ? t("rules.replaceManagedGroupOnHint", { max: applyPreviewData?.maxTargetsPerGroup ?? 10 })
+                  : t("rules.replaceManagedGroupOffHint", { max: applyPreviewData?.maxTargetsPerGroup ?? 10 })}
+              </p>
+            </div>
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">

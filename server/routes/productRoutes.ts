@@ -23,6 +23,7 @@ import { takeMinuteSlot } from "../analytics/nlQueryLimit";
 export const PRODUCT_AI_PER_MINUTE = 10;
 import { getCombinedCrossSellingRules, loadCrossSellRankingBundle, crossSellSuggestOptions, dedupeAndLimitSuggestions } from "../cross-selling/crossSellService";
 import { RuleEngine } from "../cross-selling/ruleEngine";
+import { diffAssignments } from "../cross-selling/crossSellApply";
 import type { Express } from "express";
 import { logger } from "../lib/logger";
 
@@ -1607,9 +1608,14 @@ export function registerProductRoutes(app: Express): void {
       const { productId } = req.params;
       const { productIds } = validation.data;
 
+      // Neue Gruppe hinter die bestehenden Tabs setzen (handgepflegte Tabs bleiben vorn).
+      const existingGroups = await client.fetchProductCrossSelling(productId);
+      const nextGroupPosition = existingGroups.reduce((m, g) => Math.max(m, g.position ?? 0), 0) + 1;
       const crossSellingId = await client.createProductCrossSelling(
         productId,
         SHOPWARE_CROSS_SELLING_STOREFRONT_NAME,
+        "productList",
+        nextGroupPosition,
       );
       
       // Assign products to the group
@@ -1645,30 +1651,20 @@ export function registerProductRoutes(app: Express): void {
       const { productId, crossSellingId } = req.params;
       const { productIds } = validation.data;
       
-      moduleLog.info(`Updating cross-selling ${crossSellingId} for product ${productId}`);
-      moduleLog.info(`New product IDs: ${JSON.stringify(productIds)}`);
-      
-      // Get current products to determine what to add/remove
-      const currentProducts = await client.fetchCrossSellingProducts(productId, crossSellingId);
-      const currentProductIds = currentProducts.map(p => p.id);
-      
-      moduleLog.info(`Current product IDs: ${JSON.stringify(currentProductIds)}`);
-      
-      // Determine which products to add and remove
-      const toAdd = productIds.filter(id => !currentProductIds.includes(id));
-      const toRemove = currentProductIds.filter(id => !productIds.includes(id));
-      
-      moduleLog.info(`Products to add: ${JSON.stringify(toAdd)}`);
-      moduleLog.info(`Products to remove: ${JSON.stringify(toRemove)}`);
-      
-      // Update assignments
-      if (toRemove.length > 0) {
-        await client.removeProductsFromCrossSelling(crossSellingId, toRemove);
-      }
-      if (toAdd.length > 0) {
-        moduleLog.info(`Calling assignProductsToCrossSelling with crossSellingId=${crossSellingId}, productIds=${JSON.stringify(toAdd)}`);
-        await client.assignProductsToCrossSelling(crossSellingId, toAdd);
-      }
+      // Abgleich in einem Sync-Aufruf: neue Produkte, Positionen in Listen-Reihenfolge, Entfernte.
+      const current = await client.fetchCrossSellingAssignments(crossSellingId);
+      const diff = diffAssignments(current, productIds, { removeMissing: true, maxTargets: Number.MAX_SAFE_INTEGER });
+      await client.syncCrossSellingAssignments(crossSellingId, {
+        upsert: [
+          ...diff.toAdd.map((a) => ({ productId: a.productId, position: a.position })),
+          ...diff.reposition.map((a) => ({ id: a.id, productId: a.productId, position: a.position })),
+        ],
+        deleteIds: diff.toRemove.map((r) => r.id),
+      });
+      moduleLog.info(
+        { productId, crossSellingId, added: diff.toAdd.length, removed: diff.toRemove.length },
+        "Cross-Selling-Gruppe aktualisiert",
+      );
       
       res.json({ message: "Cross-selling updated successfully" });
     } catch (error: any) {

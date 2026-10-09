@@ -2337,7 +2337,8 @@
     "job": {
       "failed": "El trabajo ha fallado",
       "notFound": "No se ha encontrado el trabajo",
-      "timeout": "Tiempo de espera agotado esperando el trabajo en segundo plano"
+      "timeout": "Tiempo de espera agotado esperando el trabajo en segundo plano",
+      "interrupted": "La ejecución se interrumpió por un reinicio del servidor. Vuelva a iniciarla."
     }
   },
   "rules": {
@@ -2490,11 +2491,18 @@
     "previewEmpty": "No se han generado sugerencias",
     "goToStaging": "Ir al staging",
     "shopwareApplyPreviewTitle": "Vista previa: transferencia a Shopware",
-    "shopwareApplyPreviewDesc": "Así se agrupan las sugerencias de staging guardadas actualmente y se escriben como grupo de venta cruzada por categoría (todos los destinos que coinciden, sin límite). Aviso: se muestra el estado guardado; tras cambios en las reglas o la lógica, use primero «Recalcular sugerencias».",
+    "shopwareApplyPreviewDesc": "Así se escriben las sugerencias de staging guardadas actualmente en el grupo «Passende Produkte» de cada artículo de origen (como máximo 10 destinos por grupo). Aviso: se muestra el estado guardado; tras cambios en las reglas o la lógica, use primero «Recalcular sugerencias».",
     "shopwareApplySummary": "{{active}} sugerencias activas → {{ops}} operaciones en Shopware",
     "shopwareApplyPreviewEmpty": "No hay sugerencias activas para transferir.",
     "shopwareTargetLimit": "Límite",
-    "stagingApplyConfirm": "Transferir a Shopware ahora"
+    "stagingApplyConfirm": "Transferir a Shopware ahora",
+    "replaceManagedGroup": "Sustituir el grupo «Passende Produkte»",
+    "replaceManagedGroupOffHint": "Desactivado: las nuevas sugerencias solo se añaden (hasta {{max}} por grupo). Las entradas existentes se mantienen y no se modifican otros grupos.",
+    "replaceManagedGroupOnHint": "Activado: el grupo «Passende Produkte» se ajusta a las primeras {{max}} sugerencias. Las entradas de este grupo que no se sugieren se eliminan, también las añadidas a mano. Los demás grupos no se modifican.",
+    "stagingAppliedSummary": "{{added}} añadidos, {{removed}} eliminados, {{errors}} errores",
+    "previewCurrentInShop": "Ahora en la tienda ({{count}})",
+    "previewAddOnly": "Se añadiría ({{count}})",
+    "previewReplaceRemoves": "Se eliminaría al sustituir ({{count}})"
   },
   "ruleBuilder": {
     "basicTab": "Básico",
@@ -6217,7 +6225,8 @@
       "fur_diesen_zugang_wurde_gerade_schon_ein_link_angefordert": "Se acaba de solicitar un enlace para este acceso.",
       "der_link_konnte_nicht_versendet_werden_bitte_spater_erneut_versuchen": "No se pudo enviar el enlace. Inténtelo de nuevo más tarde.",
       "angebotsnummer_fehlt": "Falta el número de oferta",
-      "angebots_analyse_fehlgeschlagen": "Error en el análisis de ofertas"
+      "angebots_analyse_fehlgeschlagen": "Error en el análisis de ofertas",
+      "failed_to_fetch_job_status": "No se pudo cargar el estado del trabajo"
     }
   },
   "roomPlanner": {
