@@ -859,14 +859,14 @@
       "crmVerdict": "CRM"
     },
     "lookup": {
-      "title": "Calcular un pedido",
-      "description": "Introduzca un número de pedido: margen de contribución (MC1) y margen exactamente de este pedido, desglosado por posición.",
+      "title": "Calcular un pedido o una oferta",
+      "description": "Introduzca un número de pedido u oferta: margen de contribución (MC1) y margen exactamente de esta operación, desglosado por posición.",
       "label": "Número de pedido",
       "placeholder": "p. ej. MO12345",
       "submit": "Calcular",
       "reset": "Restablecer",
       "loading": "Calculando pedido…",
-      "notFound": "No se encontró ningún pedido con el número «{{orderNumber}}».",
+      "notFound": "No se encontró ningún pedido con el número «{{number}}».",
       "multipleHits": "Este número de pedido se usa {{count}} veces: cada pedido se calcula por separado.",
       "openOrder": "Abrir en la vista de pedidos",
       "missingHkHint": "{{count}} posiciones sin coste de fabricación no se incluyen en MC1 ni en el margen.",
@@ -895,6 +895,15 @@
         "sumWithHk": "Total (posiciones con coste)",
         "perUnit": "{{amount}} / ud.",
         "db1AndMargin": "MC1 / margen"
+      },
+      "modeOrder": "Pedido",
+      "modeOffer": "Oferta",
+      "offer": {
+        "label": "Número de oferta",
+        "placeholder": "p. ej. 1619",
+        "loading": "Calculando oferta…",
+        "notFound": "No se encontró ninguna oferta con el número «{{number}}».",
+        "multipleHits": "Este número de oferta se usa {{count}} veces: cada oferta se calcula por separado."
       }
     }
   },
@@ -3291,7 +3300,9 @@
       "loadFailed": "Error al cargar las ofertas",
       "pdfFailed": "Error al cargar el PDF",
       "pdfNotPdf": "La respuesta no es un PDF"
-    }
+    },
+    "openCalculation": "Abrir cálculo de MC",
+    "openCalculationFor": "Abrir cálculo de MC de la oferta {{offerNumber}}"
   },
   "offerDetail": {
     "title": "Oferta {{offerNumber}}",
@@ -6204,7 +6215,9 @@
       "zu_dieser_kundennummer_gibt_es_keinen_portalzugang_mit_dieser_e_mail_adresse": "No existe ningún acceso al portal con este correo electrónico para este número de cliente.",
       "dieser_portalzugang_ist_deaktiviert": "Este acceso al portal está desactivado.",
       "fur_diesen_zugang_wurde_gerade_schon_ein_link_angefordert": "Se acaba de solicitar un enlace para este acceso.",
-      "der_link_konnte_nicht_versendet_werden_bitte_spater_erneut_versuchen": "No se pudo enviar el enlace. Inténtelo de nuevo más tarde."
+      "der_link_konnte_nicht_versendet_werden_bitte_spater_erneut_versuchen": "No se pudo enviar el enlace. Inténtelo de nuevo más tarde.",
+      "angebotsnummer_fehlt": "Falta el número de oferta",
+      "angebots_analyse_fehlgeschlagen": "Error en el análisis de ofertas"
     }
   },
   "roomPlanner": {
@@ -6529,6 +6542,33 @@
       "auth": "Acceso y usuarios",
       "settings": "Configuración",
       "system": "Sistema"
+    }
+  },
+  "offerProfitability": {
+    "heading": "Oferta {{offerNumber}}",
+    "toggleParts": "Mostrar u ocultar la lista de materiales de {{label}}",
+    "configuration": "Configuración · coste {{withData}}/{{total}} piezas",
+    "optional": "opcional",
+    "discount": "Descuento",
+    "partMissingHk": "sin coste",
+    "grossHint": "Oferta bruta: precios convertidos a neto por posición.",
+    "openOffer": "Abrir en la vista de ofertas",
+    "missingHkHint": "{{count}} posiciones sin coste de fabricación (completo) no se incluyen en MC1 ni en el margen. En configuraciones, falta el coste de al menos una pieza de la lista de materiales.",
+    "missingHkHint_one": "{{count}} posición sin coste de fabricación (completo) no se incluye en MC1 ni en el margen. En configuraciones, falta el coste de al menos una pieza de la lista de materiales.",
+    "missingHkHint_other": "{{count}} posiciones sin coste de fabricación (completo) no se incluyen en MC1 ni en el margen. En configuraciones, falta el coste de al menos una pieza de la lista de materiales.",
+    "discountHint": "Descuentos de la oferta en total {{amount}}: repartidos según las ventas entre las posiciones con coste de fabricación.",
+    "csv": {
+      "type": "Tipo",
+      "part": "Pieza de la lista"
+    },
+    "kpi": {
+      "netTotal": "Valor de la oferta (neto)",
+      "netTotalHint": "según la oferta, incl. descuentos",
+      "db1DiscountHint": "antes del descuento {{before}}, parte del descuento {{discount}}"
+    },
+    "table": {
+      "discountShare": "Parte del descuento (posiciones con coste)",
+      "afterDiscount": "Después del descuento"
     }
   }
 }

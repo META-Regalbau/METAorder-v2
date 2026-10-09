@@ -51,6 +51,8 @@ type OfferEntityConfig = {
   totalField: string;
   netField: string;
   itemsField: string;
+  /** Kurzname des Angebots (B2Bsellers: matchCode, camelCase - "matchcode" lehnt Shopware mit 400 ab) */
+  matchCodeField?: string;
   associations: string[];
   /** Zusätzliche verschachtelte Assoziationen für GET ?associations[…] (z. B. Rechnungsadresse) */
   nestedAssociationQuery?: string;
@@ -227,6 +229,7 @@ export class B2BSellersClient {
       totalField: TOTAL_FIELD,
       netField: NET_FIELD,
       itemsField: ITEMS_FIELD,
+      matchCodeField: "matchCode",
       associations: ["offerCustomer", "status", "items"],
       nestedAssociationQuery:
         "associations[offerCustomer][associations][defaultBillingAddress][]=true" +
@@ -396,7 +399,9 @@ export class B2BSellersClient {
             { type: "contains", field: currentConfig.numberField, value: filters.search },
             { type: "contains", field: currentConfig.customerNameField, value: filters.search },
             { type: "contains", field: currentConfig.customerEmailField, value: filters.search },
-            { type: "contains", field: "matchcode", value: filters.search },
+            ...(currentConfig.matchCodeField
+              ? [{ type: "contains", field: currentConfig.matchCodeField, value: filters.search }]
+              : []),
           ],
         });
       }
@@ -408,7 +413,9 @@ export class B2BSellersClient {
           queries: [
             { type: "contains", field: currentConfig.customerNameField, value: filters.customer },
             { type: "contains", field: currentConfig.customerEmailField, value: filters.customer },
-            { type: "contains", field: "matchcode", value: filters.customer },
+            ...(currentConfig.matchCodeField
+              ? [{ type: "contains", field: currentConfig.matchCodeField, value: filters.customer }]
+              : []),
           ],
         });
       }
@@ -437,8 +444,10 @@ export class B2BSellersClient {
         this.resolvedEntityName = candidate;
         this.resolvedEntityConfig = currentConfig;
         config = currentConfig;
-        break;
       }
+      // anderer Fehler (z. B. 400 bei unbekanntem Filterfeld): Entitaet gibt es - Fehler melden,
+      // statt weitere Namen zu probieren und am Ende ein irrefuehrendes 404 zu zeigen
+      break;
     }
 
     if (!response) {
@@ -1004,7 +1013,7 @@ export class B2BSellersClient {
         resolvedConfig.customerNameField,
         "offerCustomer.name",
         "offerCustomer.company",
-        "matchcode",
+        // bewusst ohne matchCode: das ist die Kurzbezeichnung des Angebots, kein Kundenname
         "customer.name",
         "customer.company",
       ]),

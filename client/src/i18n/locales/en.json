@@ -930,14 +930,14 @@
       "crmVerdict": "CRM"
     },
     "lookup": {
-      "title": "Calculate a single order",
-      "description": "Enter an order number – contribution margin (CM1) and margin for exactly this order, broken down by line item.",
+      "title": "Calculate a single order or quote",
+      "description": "Enter an order or quote number – contribution margin (CM1) and margin for exactly this transaction, broken down by line item.",
       "label": "Order number",
       "placeholder": "e.g. MO12345",
       "submit": "Calculate",
       "reset": "Reset",
       "loading": "Calculating order…",
-      "notFound": "No order with number “{{orderNumber}}” found.",
+      "notFound": "No order with number “{{number}}” found.",
       "multipleHits": "This order number is used {{count}} times – each order is calculated separately.",
       "openOrder": "Open in order overview",
       "missingHkHint": "{{count}} line items without manufacturing cost are not included in CM1 and margin.",
@@ -966,6 +966,15 @@
         "sumWithHk": "Total (line items with cost)",
         "perUnit": "{{amount}} / unit",
         "db1AndMargin": "CM1 / margin"
+      },
+      "modeOrder": "Order",
+      "modeOffer": "Quote",
+      "offer": {
+        "label": "Quote number",
+        "placeholder": "e.g. 1619",
+        "loading": "Calculating quote…",
+        "notFound": "No quote with number “{{number}}” found.",
+        "multipleHits": "This quote number is used {{count}} times – each quote is calculated separately."
       }
     }
   },
@@ -3445,7 +3454,9 @@
       "loadFailed": "Failed to load offers",
       "pdfFailed": "Failed to load PDF",
       "pdfNotPdf": "Response is not a PDF"
-    }
+    },
+    "openCalculation": "Open CM calculation",
+    "openCalculationFor": "Open CM calculation for quote {{offerNumber}}"
   },
   "offerDetail": {
     "title": "Offer {{offerNumber}}",
@@ -6207,7 +6218,9 @@
       "zu_dieser_kundennummer_gibt_es_keinen_portalzugang_mit_dieser_e_mail_adresse": "There is no portal account with this e-mail address for this customer number.",
       "dieser_portalzugang_ist_deaktiviert": "This portal account is deactivated.",
       "fur_diesen_zugang_wurde_gerade_schon_ein_link_angefordert": "A link was just requested for this account.",
-      "der_link_konnte_nicht_versendet_werden_bitte_spater_erneut_versuchen": "The link could not be sent. Please try again later."
+      "der_link_konnte_nicht_versendet_werden_bitte_spater_erneut_versuchen": "The link could not be sent. Please try again later.",
+      "angebotsnummer_fehlt": "Quote number missing",
+      "angebots_analyse_fehlgeschlagen": "Quote analysis failed"
     }
   },
   "roomPlanner": {
@@ -6532,6 +6545,33 @@
       "auth": "Sign-in & users",
       "settings": "Settings",
       "system": "System"
+    }
+  },
+  "offerProfitability": {
+    "heading": "Quote {{offerNumber}}",
+    "toggleParts": "Show or hide bill of materials of {{label}}",
+    "configuration": "Configuration · cost {{withData}}/{{total}} parts",
+    "optional": "optional",
+    "discount": "Discount",
+    "partMissingHk": "no cost",
+    "grossHint": "Gross quote – prices converted to net per line item.",
+    "openOffer": "Open in quote overview",
+    "missingHkHint": "{{count}} line items without (complete) manufacturing cost are not included in CM1 and margin. For configurations, at least one bill-of-materials part is missing its manufacturing cost.",
+    "missingHkHint_one": "{{count}} line item without (complete) manufacturing cost is not included in CM1 and margin. For configurations, at least one bill-of-materials part is missing its manufacturing cost.",
+    "missingHkHint_other": "{{count}} line items without (complete) manufacturing cost are not included in CM1 and margin. For configurations, at least one bill-of-materials part is missing its manufacturing cost.",
+    "discountHint": "Quote discounts total {{amount}} – allocated by revenue share to line items with manufacturing cost.",
+    "csv": {
+      "type": "Type",
+      "part": "BOM part"
+    },
+    "kpi": {
+      "netTotal": "Quote value (net)",
+      "netTotalHint": "per quote, incl. discounts",
+      "db1DiscountHint": "before discount {{before}}, discount share {{discount}}"
+    },
+    "table": {
+      "discountShare": "Discount share (items with cost)",
+      "afterDiscount": "After discount"
     }
   }
 }
