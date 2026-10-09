@@ -404,6 +404,7 @@ export interface ShopwareClient {
   deleteProductCrossSelling: typeof crossSellingApi.deleteProductCrossSelling;
   fetchCrossSellingAssignments: typeof crossSellingApi.fetchCrossSellingAssignments;
   syncCrossSellingAssignments: typeof crossSellingApi.syncCrossSellingAssignments;
+  searchCrossSellingGroups: typeof crossSellingApi.searchCrossSellingGroups;
   // customers
   fetchCustomerCounts: typeof customersApi.fetchCustomerCounts;
   fetchCustomersChangedSince: typeof customersApi.fetchCustomersChangedSince;

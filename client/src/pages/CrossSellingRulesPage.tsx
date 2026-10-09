@@ -2,7 +2,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import i18next from "i18next";
 import { learningInsightDescription, learningInsightTitle } from "@/lib/learningInsightText";
-import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Play } from "lucide-react";
+import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Play, Ban } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -39,34 +39,9 @@ import { Label } from "@/components/ui/label";
 import { useCrossSellProductLabels } from "@/hooks/useCrossSellProductLabels";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
-// Wartet auf einen Cross-Sell-Hintergrundjob (Staging-Neuberechnung / AI-Lernlauf).
-// Der POST startet den Job (202) und dieser Poller fragt den Status ab, bis er
-// "done" oder "error" ist. Vermeidet Proxy-/Browser-Timeouts bei grossen Laeufen.
-async function pollCrossSellJob(
-  type: "staging" | "ai",
-  onProgress?: (processed: number, total: number) => void,
-): Promise<any> {
-  const maxAttempts = 720; // ~30 min bei 2.5s Intervall
-  for (let i = 0; i < maxAttempts; i++) {
-    await new Promise((resolve) => setTimeout(resolve, 2500));
-    const resp = await apiRequest("GET", `/api/cross-selling/jobs/status?type=${type}`);
-    const data = await resp.json();
-    if (typeof data.processed === "number" && typeof data.total === "number") {
-      onProgress?.(data.processed, data.total);
-    }
-    if (data.status === "done") return data.result ?? {};
-    if (data.status === "error") {
-      throw new Error(
-        data.code === "interrupted"
-          ? i18next.t("crossSelling.job.interrupted")
-          : data.error || i18next.t("crossSelling.job.failed"),
-      );
-    }
-    if (data.status === "idle") throw new Error(i18next.t("crossSelling.job.notFound"));
-  }
-  throw new Error(i18next.t("crossSelling.job.timeout"));
-}
-
+import { pollCrossSellJob } from "@/lib/crossSellJobs";
+import CrossSellMemoryPanel from "@/components/CrossSellMemoryPanel";
+import RejectCrossSellPairDialog from "@/components/RejectCrossSellPairDialog";
 type SortDirection = "asc" | "desc";
 type RuleSortKey = "name" | "description" | "status" | "conditions";
 
@@ -118,6 +93,7 @@ type ProductApplyPreviewResponse = {
   targetsApplied: number;
   targets: Array<{ productNumber: string; name: string | null; category: string | null }>;
   current?: Array<{ productNumber: string; name: string | null }>;
+  inOtherGroups?: Array<{ productNumber: string; name: string | null }>;
   addOnly?: { toAdd: Array<{ productNumber: string; name: string | null }> };
   replace?: {
     toAdd: Array<{ productNumber: string; name: string | null }>;
@@ -183,6 +159,7 @@ export default function CrossSellingRulesPage() {
   const [showShopwareApplyPreview, setShowShopwareApplyPreview] = useState(false);
   // Standard: nur hinzufuegen. Ersetzen entfernt nicht vorgeschlagene Eintraege aus "Passende Produkte".
   const [replaceManagedGroup, setReplaceManagedGroup] = useState(false);
+  const [rejectPair, setRejectPair] = useState<{ sourceProductNumber: string; targetProductNumber: string; sourceName?: string | null; targetName?: string | null } | null>(null);
   const [previewProductNumber, setPreviewProductNumber] = useState("");
   const [productApplyPreview, setProductApplyPreview] = useState<ProductApplyPreviewResponse | null>(null);
 
@@ -1084,7 +1061,7 @@ export default function CrossSellingRulesPage() {
                 <Button
                   variant="outline"
                   onClick={() => regenerateStagingMutation.mutate()}
-                  disabled={!stagingBatch || regenerateStagingMutation.isPending}
+                  disabled={regenerateStagingMutation.isPending}
                 >
                   {regenerateStagingMutation.isPending && stagingJobProgress
                     ? t("rules.stagingRegenerateProgress", "Berechne… {{processed}}/{{total}}", {
@@ -1101,6 +1078,7 @@ export default function CrossSellingRulesPage() {
                 </Button>
               </div>
             </div>
+            <CrossSellMemoryPanel productName={productName} />
             {lastStagingStats && (
               <div className="text-sm text-muted-foreground">
                 {t("rules.stagingLastRun", "Letzte Berechnung")}: {fmt.dateTime(lastStagingStats.updatedAt)} ·{" "}
@@ -1208,6 +1186,14 @@ export default function CrossSellingRulesPage() {
                         <PreviewProductList items={productApplyPreview.replace.toRemove} />
                       </div>
                     </div>
+                  )}
+                  {(productApplyPreview.inOtherGroups?.length ?? 0) > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {t("rules.previewInOtherGroups", {
+                        count: productApplyPreview.inOtherGroups!.length,
+                        items: productApplyPreview.inOtherGroups!.map((i) => i.productNumber).join(", "),
+                      })}
+                    </p>
                   )}
                   {productApplyPreview.targetsTotalBeforeCap > productApplyPreview.targetsApplied && (
                     <p className="text-xs text-amber-700 dark:text-amber-400">
@@ -1424,6 +1410,22 @@ export default function CrossSellingRulesPage() {
                                   disabled={!isDirty || updateStagingSuggestionMutation.isPending}
                                 >
                                   {t("common.save")}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() =>
+                                    setRejectPair({
+                                      sourceProductNumber: suggestion.sourceProductNumber,
+                                      targetProductNumber: suggestion.targetProductNumber,
+                                      sourceName: productName(suggestion.sourceProductNumber),
+                                      targetName: productName(suggestion.targetProductNumber),
+                                    })
+                                  }
+                                  title={t("crossSellMemory.rejectTitle")}
+                                  aria-label={t("crossSellMemory.rejectTitle")}
+                                >
+                                  <Ban className="h-4 w-4" />
                                 </Button>
                               </div>
                             </TableCell>
@@ -1742,6 +1744,7 @@ export default function CrossSellingRulesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <RejectCrossSellPairDialog pair={rejectPair} onClose={() => setRejectPair(null)} />
     </div>
   );
 }

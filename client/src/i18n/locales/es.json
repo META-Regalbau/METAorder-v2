@@ -2502,7 +2502,8 @@
     "stagingAppliedSummary": "{{added}} añadidos, {{removed}} eliminados, {{errors}} errores",
     "previewCurrentInShop": "Ahora en la tienda ({{count}})",
     "previewAddOnly": "Se añadiría ({{count}})",
-    "previewReplaceRemoves": "Se eliminaría al sustituir ({{count}})"
+    "previewReplaceRemoves": "Se eliminaría al sustituir ({{count}})",
+    "previewInOtherGroups": "{{count}} destinos ya están en otra lista de este artículo y no se añadirán dos veces: {{items}}"
   },
   "ruleBuilder": {
     "basicTab": "Básico",
@@ -6226,7 +6227,15 @@
       "der_link_konnte_nicht_versendet_werden_bitte_spater_erneut_versuchen": "No se pudo enviar el enlace. Inténtelo de nuevo más tarde.",
       "angebotsnummer_fehlt": "Falta el número de oferta",
       "angebots_analyse_fehlgeschlagen": "Error en el análisis de ofertas",
-      "failed_to_fetch_job_status": "No se pudo cargar el estado del trabajo"
+      "failed_to_fetch_job_status": "No se pudo cargar el estado del trabajo",
+      "invalid_settings": "Ajustes no válidos",
+      "failed_to_fetch_pairs": "No se pudieron cargar los pares",
+      "failed_to_reject_pair": "No se pudo rechazar el par",
+      "pair_not_found": "Par no encontrado",
+      "failed_to_reset_pair": "No se pudo restablecer el par",
+      "failed_to_start_import": "No se pudo iniciar la importación",
+      "failed_to_fetch_runs": "No se pudieron cargar las ejecuciones",
+      "failed_to_fetch_change_log": "No se pudo cargar el registro de cambios"
     }
   },
   "roomPlanner": {
@@ -6578,6 +6587,39 @@
     "table": {
       "discountShare": "Parte del descuento (posiciones con coste)",
       "afterDiscount": "Después del descuento"
+    }
+  },
+  "crossSellMemory": {
+    "title": "Memoria",
+    "hint": "Recuerda las decisiones: los pares rechazados no se vuelven a sugerir y las asignaciones de la tienda se incluyen en la revisión.",
+    "importButton": "Leer asignaciones de la tienda",
+    "importRunning": "Leyendo … {{count}} grupos",
+    "importDone": "Asignaciones de la tienda leídas",
+    "importSummary": "{{pairs}} pares en la tienda, {{fresh}} nuevos; {{removed}} eliminados a mano",
+    "importError": "Error al leer",
+    "lastImport": "Última lectura: {{date}} · {{pairs}} pares de {{groups}} listas ({{streams}} grupos dinámicos no incluidos)",
+    "lastImportFailed": "La última lectura del {{date}} falló",
+    "rejectedTitle": "Rechazados de forma permanente ({{count}})",
+    "rejectedEmpty": "Aún no hay pares rechazados.",
+    "reason": "Motivo",
+    "note": "Nota (opcional)",
+    "decidedAt": "Decidido el",
+    "reset": "Restablecer",
+    "resetDone": "Rechazo anulado: el par puede volver a sugerirse",
+    "resetError": "Error al restablecer",
+    "rejectTitle": "Rechazar de forma permanente",
+    "rejectDescription": "El par no se volverá a sugerir: ni en staging, ni en borradores, ni al aprender. El rechazo se aplica a todos los tamaños de la misma familia de artículos.",
+    "bothDirections": "Rechazar también a la inversa (destino → origen)",
+    "rejectConfirm": "Rechazar",
+    "rejected": "Par rechazado",
+    "rejectedDescription": "{{count}} sugerencias de staging desmarcadas",
+    "rejectError": "Error al rechazar",
+    "reasons": {
+      "incompatible": "Técnicamente incompatible",
+      "other_system": "Otro sistema de estanterías",
+      "alternative": "Alternativa, no complemento",
+      "not_relevant": "No encaja",
+      "other": "Otro"
     }
   }
 }

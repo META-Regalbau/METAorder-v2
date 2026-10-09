@@ -3,7 +3,7 @@ import { requireAuth, requireCsrf, requireManageProducts, requireManageSettings,
 import { storage } from "../storage";
 import { ShopwareClient, type ShopwareProductOverview, applyOverviewParentInheritance, normalizeShopwareEntityId, isShopwareEntityId } from "../shopware/shopware";
 import { getSalesChannelFilter, uploadRateLimiter } from "./routeHelpers";
-import { type Product, SHOPWARE_CROSS_SELLING_STOREFRONT_NAME } from "@shared/schema";
+import { type Product } from "@shared/schema";
 import path from "path";
 import fsSync from "fs";
 import { getHerstellpreisLookupKey } from "../products/productIdentifiers";
@@ -23,11 +23,46 @@ import { takeMinuteSlot } from "../analytics/nlQueryLimit";
 export const PRODUCT_AI_PER_MINUTE = 10;
 import { getCombinedCrossSellingRules, loadCrossSellRankingBundle, crossSellSuggestOptions, dedupeAndLimitSuggestions } from "../cross-selling/crossSellService";
 import { RuleEngine } from "../cross-selling/ruleEngine";
-import { diffAssignments } from "../cross-selling/crossSellApply";
+import { diffAssignments, type AssignmentDiff } from "../cross-selling/crossSellApply";
+import { loadCrossSellCatalog } from "../cross-selling/crossSellCatalog";
+import { createCrossSellChangeRecorder } from "../cross-selling/crossSellMemory";
+import type { CrossSellingAssignment } from "../shopware/client/crossSelling";
 import type { Express } from "express";
 import { logger } from "../lib/logger";
 
 const moduleLog = logger.child({ component: "routes/productRoutes" });
+
+/** Aenderung im Produkt-Dialog ins Cross-Selling-Gedaechtnis (Protokoll + Paar-Zustand). */
+async function recordProductDialogChange(
+  req: { tenantId?: string | null; user?: unknown },
+  productId: string,
+  crossSellingId: string,
+  groupName: string,
+  before: CrossSellingAssignment[],
+  diff: AssignmentDiff,
+  createdGroup: boolean,
+): Promise<void> {
+  const tenantId = req.tenantId ?? null;
+  try {
+    const catalog = await loadCrossSellCatalog(storage, tenantId);
+    await createCrossSellChangeRecorder(storage, catalog, {
+      tenantId,
+      userId: (req.user as { id?: string } | undefined)?.id ?? null,
+      origin: "user",
+    })({
+      mode: "product_ui",
+      dryRun: false,
+      sourceProductId: productId,
+      crossSellingId,
+      groupName,
+      createdGroup,
+      before,
+      diff,
+    });
+  } catch (err) {
+    moduleLog.warn({ err, productId }, "Cross-Selling-Aenderung aus dem Produkt-Dialog nicht protokolliert");
+  }
+}
 
 export function registerProductRoutes(app: Express): void {
   // Products routes
@@ -1606,22 +1641,25 @@ export function registerProductRoutes(app: Express): void {
 
       const client = new ShopwareClient(settings);
       const { productId } = req.params;
-      const { productIds } = validation.data;
+      const { productIds, name } = validation.data;
 
       // Neue Gruppe hinter die bestehenden Tabs setzen (handgepflegte Tabs bleiben vorn).
       const existingGroups = await client.fetchProductCrossSelling(productId);
       const nextGroupPosition = existingGroups.reduce((m, g) => Math.max(m, g.position ?? 0), 0) + 1;
-      const crossSellingId = await client.createProductCrossSelling(
-        productId,
-        SHOPWARE_CROSS_SELLING_STOREFRONT_NAME,
-        "productList",
-        nextGroupPosition,
-      );
+      const groupName = name.trim();
+      const crossSellingId = await client.createProductCrossSelling(productId, groupName, "productList", nextGroupPosition);
       
       // Assign products to the group
       if (productIds.length > 0) {
         await client.assignProductsToCrossSelling(crossSellingId, productIds);
       }
+      await recordProductDialogChange(req, productId, crossSellingId, groupName, [], {
+        toAdd: productIds.map((id, i) => ({ productId: id, position: i + 1 })),
+        toRemove: [],
+        reposition: [],
+        skippedForCap: [],
+        unchanged: 0,
+      }, true);
       
       res.json({ id: crossSellingId, message: "Cross-selling created successfully" });
     } catch (error: any) {
@@ -1661,6 +1699,8 @@ export function registerProductRoutes(app: Express): void {
         ],
         deleteIds: diff.toRemove.map((r) => r.id),
       });
+      const groupName = (await client.fetchProductCrossSelling(productId)).find((g) => g.id === crossSellingId)?.name ?? "";
+      await recordProductDialogChange(req, productId, crossSellingId, groupName, current, diff, false);
       moduleLog.info(
         { productId, crossSellingId, added: diff.toAdd.length, removed: diff.toRemove.length },
         "Cross-Selling-Gruppe aktualisiert",
@@ -1681,9 +1721,19 @@ export function registerProductRoutes(app: Express): void {
       }
 
       const client = new ShopwareClient(settings);
-      const { crossSellingId } = req.params;
-      
+      const { productId, crossSellingId } = req.params;
+
+      // Vorher lesen, damit das Gedaechtnis die Paare der Gruppe als entfernt fuehrt.
+      const group = (await client.fetchProductCrossSelling(productId)).find((g) => g.id === crossSellingId);
+      const before = group?.type === "productList" ? await client.fetchCrossSellingAssignments(crossSellingId) : [];
       await client.deleteProductCrossSelling(crossSellingId);
+      await recordProductDialogChange(req, productId, crossSellingId, group?.name ?? "", before, {
+        toAdd: [],
+        toRemove: before.map((a) => ({ id: a.id, productId: a.productId })),
+        reposition: [],
+        skippedForCap: [],
+        unchanged: 0,
+      }, false);
       
       res.json({ message: "Cross-selling deleted successfully" });
     } catch (error: any) {

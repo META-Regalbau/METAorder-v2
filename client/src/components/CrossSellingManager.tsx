@@ -28,7 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCrossSellProductLabels } from "@/hooks/useCrossSellProductLabels";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
-  SHOPWARE_CROSS_SELLING_STOREFRONT_NAME,
+  DEFAULT_MANAGED_CROSS_SELLING_GROUP_NAME,
   type Product,
   type CrossSellingGroup,
   type CrossSellingProduct,
@@ -49,14 +49,27 @@ export default function CrossSellingManager({
   const fmt = useLocaleFormat();
   const { t } = useTranslation();
   const { toast } = useToast();
-  const [newGroupName, setNewGroupName] = useState(SHOPWARE_CROSS_SELLING_STOREFRONT_NAME);
+  const [newGroupName, setNewGroupName] = useState(DEFAULT_MANAGED_CROSS_SELLING_GROUP_NAME);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [showCreateFromSuggestions, setShowCreateFromSuggestions] = useState(false);
   const [newGroupFromSuggestionsName, setNewGroupFromSuggestionsName] = useState(
-    SHOPWARE_CROSS_SELLING_STOREFRONT_NAME,
+    DEFAULT_MANAGED_CROSS_SELLING_GROUP_NAME,
   );
+
+  // Vorgabe fuer neue Gruppen: Name der vom System verwalteten Liste (je Mandant einstellbar).
+  const { data: managedGroup } = useQuery<{ name: string }>({
+    queryKey: ["/api/cross-selling/managed-group"],
+    queryFn: async () => (await apiRequest("GET", "/api/cross-selling/managed-group")).json(),
+    enabled: open,
+    staleTime: 5 * 60_000,
+  });
+  useEffect(() => {
+    if (!managedGroup?.name) return;
+    setNewGroupName((prev) => (prev === DEFAULT_MANAGED_CROSS_SELLING_GROUP_NAME ? managedGroup.name : prev));
+    setNewGroupFromSuggestionsName((prev) => (prev === DEFAULT_MANAGED_CROSS_SELLING_GROUP_NAME ? managedGroup.name : prev));
+  }, [managedGroup?.name]);
   const [suggestionTargetGroupId, setSuggestionTargetGroupId] = useState<string | null>(null);
   const suggestionsImpressionLogged = useRef(false);
 
