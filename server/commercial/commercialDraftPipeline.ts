@@ -405,26 +405,17 @@ export async function runOfferDraftPipeline(
   }
   ensureLegacyBuyerContactMapping(extractedData as Record<string, unknown>);
 
-  let status = "pending";
-  const offerOverall =
-    matchingResults && typeof (matchingResults as { overallConfidence?: number }).overallConfidence === "number"
-      ? (matchingResults as { overallConfidence: number }).overallConfidence
-      : undefined;
-  if (offerOverall !== undefined) {
-    if (offerOverall >= 90) status = "approved";
-    else if (offerOverall >= 60) status = "review_required";
-    else status = "review_required";
-  }
-
-  const minIntentReview = agentComm.intentReviewMinConfidence ?? 0.6;
-  if (commercialIntentMetadata) {
-    const m = commercialIntentMetadata;
-    const lowIntent = m.confidence < minIntentReview || m.intent === "unclear";
-    const mismatch = Boolean((extractedData as { commercialIntentVsUploadMismatch?: boolean }).commercialIntentVsUploadMismatch);
-    if (lowIntent || m.intentRoutedAsOfferDueToPermission || mismatch) {
-      status = "review_required";
-    }
-  }
+  const status = determineInitialDraftStatus({
+    overallConfidence:
+      matchingResults && typeof (matchingResults as { overallConfidence?: number }).overallConfidence === "number"
+        ? (matchingResults as { overallConfidence: number }).overallConfidence
+        : undefined,
+    intent: commercialIntentMetadata,
+    intentVsUploadMismatch: Boolean(
+      (extractedData as { commercialIntentVsUploadMismatch?: boolean }).commercialIntentVsUploadMismatch,
+    ),
+    minIntentReview: agentComm.intentReviewMinConfidence ?? 0.6,
+  });
 
   const draft = await storage.createOfferDraft(
     {
@@ -447,6 +438,37 @@ export async function runOfferDraftPipeline(
 
   timings.totalMs = Date.now() - requestStart;
   return { draft, timings };
+}
+
+/**
+ * Anfangsstatus eines neuen Entwurfs (vor der Strikt-Regel):
+ * - ohne Artikelabgleich "pending" (nichts zum Anlegen),
+ * - Gesamt-Genauigkeit ab 90 % "approved", sonst "review_required",
+ * - immer "review_required" bei unsicherer/unklarer Art, Umleitung wegen fehlender Rechte oder
+ *   Widerspruch zwischen erkannter Art und Upload.
+ */
+export function determineInitialDraftStatus(params: {
+  overallConfidence: number | undefined;
+  intent?: {
+    intent: string;
+    confidence: number;
+    intentRoutedAsOfferDueToPermission?: boolean;
+  } | null;
+  intentVsUploadMismatch: boolean;
+  minIntentReview: number;
+}): "pending" | "approved" | "review_required" {
+  let status: "pending" | "approved" | "review_required" = "pending";
+  if (params.overallConfidence !== undefined) {
+    status = params.overallConfidence >= 90 ? "approved" : "review_required";
+  }
+  const m = params.intent;
+  if (m) {
+    const lowIntent = m.confidence < params.minIntentReview || m.intent === "unclear";
+    if (lowIntent || m.intentRoutedAsOfferDueToPermission || params.intentVsUploadMismatch) {
+      status = "review_required";
+    }
+  }
+  return status;
 }
 
 export type RunOrderDraftPipelineParams = RunOfferDraftPipelineParams;
@@ -659,22 +681,14 @@ export async function runOrderDraftPipeline(
   }
   ensureLegacyBuyerContactMapping(extractedData as Record<string, unknown>);
 
-  let status = "pending";
-  if (matchingResults) {
-    if (matchingResults.overallConfidence >= 90) status = "approved";
-    else if (matchingResults.overallConfidence >= 60) status = "review_required";
-    else status = "review_required";
-  }
-
-  const minIntentReviewOrder = agentComm.intentReviewMinConfidence ?? 0.6;
-  if (commercialIntentMetadata) {
-    const m = commercialIntentMetadata;
-    const lowIntent = m.confidence < minIntentReviewOrder || m.intent === "unclear";
-    const mismatch = Boolean((extractedData as { commercialIntentVsUploadMismatch?: boolean }).commercialIntentVsUploadMismatch);
-    if (lowIntent || m.intentRoutedAsOfferDueToPermission || mismatch) {
-      status = "review_required";
-    }
-  }
+  const status = determineInitialDraftStatus({
+    overallConfidence: matchingResults?.overallConfidence,
+    intent: commercialIntentMetadata,
+    intentVsUploadMismatch: Boolean(
+      (extractedData as { commercialIntentVsUploadMismatch?: boolean }).commercialIntentVsUploadMismatch,
+    ),
+    minIntentReview: agentComm.intentReviewMinConfidence ?? 0.6,
+  });
 
   const draft = await storage.createOrderDraft(
     {
