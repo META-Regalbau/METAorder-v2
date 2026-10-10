@@ -76,8 +76,10 @@ async function appendDedupeHash(storage: IStorage, hash: string): Promise<void> 
   await storage.saveSetting(DEDUPE_SETTING_KEY, { hashes });
 }
 
+/** Vorgänge der E-Mail-Automatik als Felder (im Systemprotokoll nach draftId/messageId suchbar). */
 function logAudit(payload: Record<string, unknown>) {
-  moduleLog.info(`[CommercialAgent] AUDIT ${JSON.stringify({ ts: new Date().toISOString(), ...payload })}`);
+  const event = typeof payload.event === "string" ? payload.event : "unknown";
+  moduleLog.info({ ...payload, event: `commercial_agent.${event}` }, `[CommercialAgent] ${event}`);
 }
 
 export type ProcessCommercialDocumentParams = {
@@ -545,6 +547,7 @@ export async function processCommercialDocumentFromEmail(
         });
       } else {
         const result = await executeCreateOfferFromDraft(storage, draftId, {
+          source: "auto",
           salesChannelId: channelResult.salesChannelId,
           tenantId: tenantId ?? null,
         });
@@ -618,6 +621,7 @@ export async function processCommercialDocumentFromEmail(
         });
       } else {
         const result = await executeCreateOrderFromDraft(storage, draftId, {
+          source: "auto",
           salesChannelId: channelResult.salesChannelId,
           tenantId: tenantId ?? null,
         });

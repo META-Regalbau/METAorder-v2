@@ -9,6 +9,28 @@ import { logger } from "../lib/logger";
 
 const log = logger.child({ component: "routes/userRoutes" });
 
+/** Wer hat geändert (Protokoll). */
+function actor(req: any): { userId: string | null; username: string | null } {
+  return { userId: req.user?.id ?? null, username: req.user?.username ?? null };
+}
+
+/** Rechte-Unterschied für das Protokoll: neu erteilte und entzogene Rechte. */
+export function permissionDiff(
+  before: Record<string, unknown> | null | undefined,
+  after: Record<string, unknown> | null | undefined,
+): { granted: string[]; revoked: string[] } {
+  const keys = new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})]);
+  const granted: string[] = [];
+  const revoked: string[] = [];
+  for (const key of [...keys].sort()) {
+    const was = Boolean(before?.[key]);
+    const is = Boolean(after?.[key]);
+    if (!was && is) granted.push(key);
+    if (was && !is) revoked.push(key);
+  }
+  return { granted, revoked };
+}
+
 
 // Sales Channel Filter Helper - ensures users only see data from their assigned sales channels
 // SECURITY: This is the ONLY source of truth for sales channel access control
@@ -206,6 +228,10 @@ export function registerUserRoutes(app: Express): void {
       
       const updatedUser = await storage.getUser(user.id);
       const { password, ...userWithoutPassword } = updatedUser!;
+      log.info(
+        { event: "user.created", ...actor(req), targetUserId: user.id, targetUsername: user.username, roleName: role.name },
+        "Benutzer angelegt",
+      );
       
       res.json({
         ...userWithoutPassword,
@@ -258,6 +284,7 @@ export function registerUserRoutes(app: Express): void {
         updates.salesChannelIds = normalizeStoredSalesChannelIds(validated.salesChannelIds);
       }
       
+      const userBefore = await storage.getUser(req.params.id);
       const user = await storage.updateUser(req.params.id, updates);
       
       if (!user) {
@@ -266,6 +293,19 @@ export function registerUserRoutes(app: Express): void {
       
       const { password, ...userWithoutPassword } = user;
       const role = validated.roleId ? await storage.getRole(validated.roleId) : null;
+      const roleBefore = (userBefore as any)?.roleId ? await storage.getRole((userBefore as any).roleId) : null;
+      log.info(
+        {
+          event: "user.updated",
+          ...actor(req),
+          targetUserId: user.id,
+          targetUsername: user.username,
+          // Felder ohne Werte (Passwort nie)
+          changedFields: Object.keys(updates),
+          ...(role && role.id !== roleBefore?.id ? { roleBefore: roleBefore?.name ?? null, roleAfter: role.name } : {}),
+        },
+        "Benutzer geändert",
+      );
       
       res.json({
         ...userWithoutPassword,
@@ -283,11 +323,16 @@ export function registerUserRoutes(app: Express): void {
 
   app.delete("/api/users/:id", requireAuth, requireManageUsers, async (req, res) => {
     try {
+      const userBefore = await storage.getUser(req.params.id);
       const deleted = await storage.deleteUser(req.params.id);
       
       if (!deleted) {
         return res.status(404).json({ error: "User not found" });
       }
+      log.info(
+        { event: "user.deleted", ...actor(req), targetUserId: req.params.id, targetUsername: userBefore?.username ?? null },
+        "Benutzer gelöscht",
+      );
       
       res.json({ message: "User deleted successfully" });
     } catch (error) {
@@ -364,6 +409,16 @@ export function registerUserRoutes(app: Express): void {
         ...validated,
         salesChannelIds: validated.salesChannelIds || null,
       });
+      log.info(
+        {
+          event: "role.created",
+          ...actor(req),
+          roleId: role.id,
+          roleName: role.name,
+          permissions: permissionDiff({}, role.permissions as Record<string, unknown>).granted,
+        },
+        "Rolle angelegt",
+      );
       
       res.json(role);
     } catch (error: any) {
@@ -428,8 +483,31 @@ export function registerUserRoutes(app: Express): void {
       });
       
       const validated = roleSchema.parse(req.body);
+      const roleBefore = await storage.getRole(req.params.id);
       const role = await storage.updateRole(req.params.id, validated);
       
+      if (role) {
+        const diff = permissionDiff(
+          roleBefore?.permissions as Record<string, unknown> | undefined,
+          role.permissions as Record<string, unknown>,
+        );
+        log.info(
+          {
+            event: "role.updated",
+            ...actor(req),
+            roleId: role.id,
+            roleName: role.name,
+            ...(roleBefore && roleBefore.name !== role.name ? { roleNameBefore: roleBefore.name } : {}),
+            permissionsGranted: diff.granted,
+            permissionsRevoked: diff.revoked,
+            // Zugriff auf genaue DB-Werte gesondert sichtbar
+            ...(diff.granted.includes("viewMarginDetails") ? { marginDetailsAccess: "granted" } : {}),
+            ...(diff.revoked.includes("viewMarginDetails") ? { marginDetailsAccess: "revoked" } : {}),
+          },
+          "Rolle geändert",
+        );
+      }
+
       if (!role) {
         return res.status(404).json({ error: "Role not found" });
       }
@@ -446,11 +524,13 @@ export function registerUserRoutes(app: Express): void {
 
   app.delete("/api/roles/:id", requireAuth, requireManageRoles, async (req, res) => {
     try {
+      const roleBefore = await storage.getRole(req.params.id);
       const deleted = await storage.deleteRole(req.params.id);
       
       if (!deleted) {
         return res.status(404).json({ error: "Role not found" });
       }
+      log.info({ event: "role.deleted", ...actor(req), roleId: req.params.id, roleName: roleBefore?.name ?? null }, "Rolle gelöscht");
       
       res.json({ message: "Role deleted successfully" });
     } catch (error) {

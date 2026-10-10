@@ -132,7 +132,18 @@ export function registerSettingsRoutes(app: Express): void {
     try {
       const tenantId = (req as any).tenantId as string | null | undefined;
       const parsed = parseCrmProfitabilitySettings(req.body);
+      const before = await loadCrmProfitabilitySettings(storage, tenantId);
       const saved = await saveCrmProfitabilitySettings(storage, parsed, tenantId);
+      log.info(
+        {
+          event: "settings.margin_thresholds.saved",
+          userId: (req.user as any)?.id ?? null,
+          username: (req.user as any)?.username ?? null,
+          before,
+          after: saved,
+        },
+        "Schwellen der DB-Ampel gespeichert",
+      );
       res.json(saved);
     } catch (error: any) {
       log.error({ err: error }, "Error saving CRM profitability settings:");

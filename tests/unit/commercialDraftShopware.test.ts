@@ -5,7 +5,8 @@
  * Folgeschritte (Cross-Selling, SFTP, eingefrorene DB, Rabatt-Freigabe).
  * Ausführung: npm test
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createLogger, setLoggerForTests } from "../../server/lib/logger";
 
 const sw = vi.hoisted(() => ({
   customerExists: true,
@@ -64,6 +65,17 @@ vi.mock("../../server/commercial/offerDraftDiscountGate", () => ({
 const { executeCreateOrderFromDraft, executeCreateOfferFromDraft } = await import(
   "../../server/commercial/commercialDraftShopware"
 );
+
+
+function captureLogs() {
+  const lines: Record<string, any>[] = [];
+  setLoggerForTests(
+    createLogger({ level: "info", format: "json", destination: { write: (chunk: string) => lines.push(JSON.parse(chunk)) } }),
+  );
+  return lines;
+}
+const events = (lines: Record<string, any>[]) => lines.filter((l) => typeof l.event === "string" && l.event.startsWith("draft.")).map((l) => l.event);
+afterEach(() => setLoggerForTests(null));
 
 type Draft = Record<string, any>;
 
@@ -214,6 +226,38 @@ describe("Bestellung: erfolgreiche Anlage", () => {
     expect(sw.recordConversions).toHaveBeenCalledTimes(1);
     expect(sw.sftp).toHaveBeenCalledWith(storage, "d1", "t1");
     expect(sw.refresh).toHaveBeenCalledWith(expect.objectContaining({ kind: "order", draftId: "d1", frozen: true }));
+  });
+
+  it("Protokoll: angelegt mit Quelle und Benutzer, abgelehnt mit Grund, Sperre ohne Doppelzeile", async () => {
+    const logs = captureLogs();
+    await executeCreateOrderFromDraft(fakeStorage(orderDraft()).storage, "d1", {
+      ...options,
+      source: "review",
+      userId: "u1",
+      username: "sb",
+    });
+    expect(logs.find((l) => l.event === "draft.create.succeeded")).toMatchObject({
+      draftKind: "order",
+      draftId: "d1",
+      shopwareId: "sw-order-1",
+      source: "review",
+      userId: "u1",
+      username: "sb",
+      salesChannelId: "sc-1",
+    });
+
+    await executeCreateOrderFromDraft(fakeStorage(orderDraft({ status: "pending" })).storage, "d1", { ...options, source: "auto" });
+    expect(logs.find((l) => l.event === "draft.create.rejected")).toMatchObject({ level: "warn", source: "auto", statusCode: 400 });
+
+    sw.marginGate = { ok: false, error: "DB zu niedrig", statusCode: 409, code: "margin_approval_required" };
+    const before = logs.length;
+    await executeCreateOrderFromDraft(fakeStorage(orderDraft()).storage, "d1", options);
+    expect(logs.slice(before).filter((l) => String(l.event).startsWith("draft.create."))).toEqual([]);
+
+    sw.marginGate = { ok: true };
+    sw.createOrder.mockRejectedValueOnce(new Error("Shopware 500"));
+    await executeCreateOrderFromDraft(fakeStorage(orderDraft()).storage, "d1", options);
+    expect(logs.find((l) => l.event === "draft.create.failed")).toMatchObject({ level: "error", statusCode: 502, error: "Shopware 500" });
   });
 
   it("ohne Beilagen kein SFTP", async () => {

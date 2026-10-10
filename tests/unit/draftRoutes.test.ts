@@ -6,6 +6,7 @@
  * Ausführung: npm test
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { createLogger, setLoggerForTests } from "../../server/lib/logger";
 import express from "express";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
@@ -181,7 +182,20 @@ describe("PATCH /api/order-drafts/:id", () => {
 
 describe("PATCH /api/order-drafts/:id/line-price", () => {
   it("setzt Preis mit Protokoll und liefert DB samt Freigabe-Zustand", async () => {
+    const lines: Record<string, any>[] = [];
+    setLoggerForTests(createLogger({ level: "info", format: "json", destination: { write: (c: string) => lines.push(JSON.parse(c)) } }));
     const res = await call("PATCH", "/api/order-drafts/d1/line-price", { index: 0, unitPriceNet: 130 });
+    setLoggerForTests(null);
+    expect(lines.find((l) => l.event === "draft.price.changed")).toMatchObject({
+      draftId: "d1",
+      userId: "u-sb",
+      username: "sb",
+      lineIndex: 0,
+      productNumber: "A",
+      previousManualUnitPriceNet: 120,
+      manualUnitPriceNet: 130,
+      verdictAfter: "green",
+    });
     expect(res.status).toBe(200);
     expect(drafts.d1.matchingResults.items[0].matchedProduct).toMatchObject({ manualUnitPriceNet: 130, manualPriceChangedBy: "sb" });
     // Sachbearbeiter: keine Beträge

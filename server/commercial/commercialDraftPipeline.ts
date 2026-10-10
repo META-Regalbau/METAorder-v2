@@ -32,6 +32,7 @@ import {
 import { resolveDocumentExtractionChatLlm } from "../extraction/documentExtractionChatLlm";
 import { logger } from "../lib/logger";
 import { refreshDraftProfitability } from "./draftProfitability";
+import { logDraftEvent } from "./draftAuditLog";
 
 const log = logger.child({ component: "commercial/commercialDraftPipeline" });
 
@@ -433,6 +434,26 @@ export async function runOfferDraftPipeline(
     tenantId ?? null
   );
 
+  logDraftEvent(
+    "info",
+    "draft.created",
+    {
+      draftKind: "offer",
+      draftId: draft.id,
+      tenantId: tenantId ?? null,
+      userId: createdByUserId ?? null,
+      status,
+      fileName: originalFileName,
+      lineCount: draft.matchingResults?.items?.length ?? 0,
+      overallConfidence: (draft.matchingResults as { overallConfidence?: number } | null)?.overallConfidence ?? null,
+      intent: commercialIntentMetadata?.intent ?? null,
+      intentConfidence: commercialIntentMetadata?.confidence ?? null,
+      customerAssigned: Boolean(shopwareCustomerId),
+      durationMs: Date.now() - requestStart,
+    },
+    "Angebotsentwurf angelegt",
+  );
+
   // DB-Ampel gleich mit dem Entwurf (Listen, Prüffenster, später Strikt-Regel)
   await refreshDraftProfitability({ storage, tenantId: tenantId ?? null, kind: "offer", draftId: draft.id, draft });
 
@@ -704,6 +725,26 @@ export async function runOrderDraftPipeline(
       createdByUserId,
     },
     tenantId ?? null
+  );
+
+  logDraftEvent(
+    "info",
+    "draft.created",
+    {
+      draftKind: "order",
+      draftId: draft.id,
+      tenantId: tenantId ?? null,
+      userId: createdByUserId ?? null,
+      status,
+      fileName: originalFileName,
+      lineCount: draft.matchingResults?.items?.length ?? 0,
+      overallConfidence: (draft.matchingResults as { overallConfidence?: number } | null)?.overallConfidence ?? null,
+      intent: commercialIntentMetadata?.intent ?? null,
+      intentConfidence: commercialIntentMetadata?.confidence ?? null,
+      customerAssigned: Boolean(shopwareCustomerId),
+      durationMs: Date.now() - requestStart,
+    },
+    "Bestellentwurf angelegt",
   );
 
   // DB-Ampel gleich mit dem Entwurf (Listen, Prüffenster, später Strikt-Regel)

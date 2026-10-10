@@ -9,6 +9,7 @@ import { recordDraftSuggestionConversions } from "../cross-selling/crossSellDraf
 import { refreshDraftProfitability } from "./draftProfitability";
 import { checkMarginGateForCreate } from "./draftMarginApproval";
 import { checkOfferDraftDiscount, recordOfferDiscountApproval } from "./offerDraftDiscountGate";
+import { logDraftEvent } from "./draftAuditLog";
 
 const moduleLog = logger.child({ component: "commercial/commercialDraftShopware" });
 
@@ -152,17 +153,91 @@ async function retryDraftUpdate<T>(
   return undefined;
 }
 
+/** Woher die Anlage kommt (Vorgangsprotokoll): Prüffenster, Integration (n8n) oder Automatik. */
+export type CreateFromDraftSource = "review" | "integration" | "auto";
+
+type CreateOfferOptions = {
+  salesChannelId: string;
+  tenantId?: string | null;
+  /** Begründung für einen freigabepflichtigen Rabatt (Prüffenster); Automatik hat keine */
+  discountJustification?: string | null;
+  /** wer anlegt (Freigabe-Eintrag des Rabatts, Protokoll) */
+  userId?: string | null;
+  username?: string | null;
+  source?: CreateFromDraftSource;
+};
+
+type CreateOrderOptions = {
+  salesChannelId: string;
+  tenantId?: string | null;
+  userId?: string | null;
+  username?: string | null;
+  source?: CreateFromDraftSource;
+};
+
+/** Ergebnis jeder Anlage ins Vorgangsprotokoll (Sperren mit eigenem Ereignis nicht doppelt). */
+function logCreateOutcome(
+  kind: "order" | "offer",
+  draftId: string,
+  options: CreateOrderOptions,
+  result: CreateOfferSuccess | CreateOrderSuccess | CreateFromDraftFailure,
+  durationMs: number,
+): void {
+  const fields = {
+    draftKind: kind,
+    draftId,
+    tenantId: options.tenantId ?? null,
+    userId: options.userId ?? null,
+    username: options.username ?? null,
+    source: options.source ?? "review",
+    salesChannelId: options.salesChannelId,
+    durationMs,
+  };
+  if (result.ok) {
+    const shopwareId = "orderId" in result ? result.orderId : result.offerId;
+    logDraftEvent(
+      "info",
+      "draft.create.succeeded",
+      { ...fields, shopwareId },
+      kind === "order" ? "Bestellung aus Entwurf in Shopware angelegt" : "Angebot aus Entwurf in B2Bsellers angelegt",
+    );
+    return;
+  }
+  if (result.code === "margin_approval_required" || result.code?.startsWith("discount_")) return;
+  logDraftEvent(
+    result.statusCode >= 500 ? "error" : "warn",
+    result.statusCode >= 500 ? "draft.create.failed" : "draft.create.rejected",
+    { ...fields, statusCode: result.statusCode, code: result.code, error: result.error },
+    result.statusCode >= 500 ? "Anlage aus Entwurf fehlgeschlagen" : "Anlage aus Entwurf abgelehnt",
+  );
+}
+
 export async function executeCreateOfferFromDraft(
   storage: IStorage,
   draftId: string,
-  options: {
-    salesChannelId: string;
-    tenantId?: string | null;
-    /** Begründung für einen freigabepflichtigen Rabatt (Prüffenster); Automatik hat keine */
-    discountJustification?: string | null;
-    /** wer anlegt (Freigabe-Eintrag des Rabatts) */
-    userId?: string | null;
-  }
+  options: CreateOfferOptions
+): Promise<CreateOfferSuccess | CreateFromDraftFailure> {
+  const started = Date.now();
+  const result = await createOfferFromDraft(storage, draftId, options);
+  logCreateOutcome("offer", draftId, options, result, Date.now() - started);
+  return result;
+}
+
+export async function executeCreateOrderFromDraft(
+  storage: IStorage,
+  draftId: string,
+  options: CreateOrderOptions
+): Promise<CreateOrderSuccess | CreateFromDraftFailure> {
+  const started = Date.now();
+  const result = await createOrderFromDraft(storage, draftId, options);
+  logCreateOutcome("order", draftId, options, result, Date.now() - started);
+  return result;
+}
+
+async function createOfferFromDraft(
+  storage: IStorage,
+  draftId: string,
+  options: CreateOfferOptions
 ): Promise<CreateOfferSuccess | CreateFromDraftFailure> {
   const draft = await storage.getOfferDraft(draftId, options.tenantId ?? null);
   if (!draft) {
@@ -334,7 +409,25 @@ export async function executeCreateOfferFromDraft(
     tenantId: options.tenantId ?? null,
     justification: options.discountJustification,
   });
-  if (!discountCheck.ok) return discountCheck;
+  if (!discountCheck.ok) {
+    logDraftEvent(
+      "warn",
+      discountCheck.code === "discount_blocked" ? "draft.discount.blocked" : "draft.discount.justification_missing",
+      {
+        draftKind: "offer",
+        draftId,
+        tenantId: options.tenantId ?? null,
+        userId: options.userId ?? null,
+        username: options.username ?? null,
+        source: options.source ?? "review",
+        error: discountCheck.error,
+      },
+      discountCheck.code === "discount_blocked"
+        ? "Anlage gesperrt: Rabatt nicht erlaubt"
+        : "Anlage gesperrt: Rabatt braucht Freigabe mit Begründung",
+    );
+    return discountCheck;
+  }
 
   // DB rot: Anlage nur mit Freigabe (gilt für Prüffenster, n8n und Automatik)
   const marginGate = await checkMarginGateForCreate({
@@ -418,6 +511,22 @@ export async function executeCreateOfferFromDraft(
   });
 
   if (discountCheck.approval) {
+    logDraftEvent(
+      "info",
+      "draft.discount.approval_recorded",
+      {
+        draftKind: "offer",
+        draftId,
+        tenantId: options.tenantId ?? null,
+        userId: options.userId ?? null,
+        username: options.username ?? null,
+        offerId: created.id,
+        approvalType: discountCheck.approval.approvalType,
+        discountPercent: discountCheck.approval.totals.discountPercent,
+        justification: options.discountJustification ?? null,
+      },
+      "Rabatt-Freigabe für das neue Angebot angefordert",
+    );
     await recordOfferDiscountApproval({
       offerId: created.id,
       approval: discountCheck.approval,
@@ -440,10 +549,10 @@ export async function executeCreateOfferFromDraft(
   return { ok: true, offerId: created.id, draft: updatedDraft };
 }
 
-export async function executeCreateOrderFromDraft(
+async function createOrderFromDraft(
   storage: IStorage,
   draftId: string,
-  options: { salesChannelId: string; tenantId?: string | null }
+  options: CreateOrderOptions
 ): Promise<CreateOrderSuccess | CreateFromDraftFailure> {
   const draft = await storage.getOrderDraft(draftId, options.tenantId ?? null);
   if (!draft) {
