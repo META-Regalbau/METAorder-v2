@@ -6241,7 +6241,8 @@
       "failed_to_start_candidate_run": "No se pudo iniciar la ejecución de sugerencias",
       "change_not_found": "Cambio no encontrado",
       "failed_to_undo_change": "No se pudo deshacer el cambio",
-      "failed_to_undo_run": "No se pudo deshacer la ejecución"
+      "failed_to_undo_run": "No se pudo deshacer la ejecución",
+      "failed_to_start_monthly_review": "No se pudo iniciar la revisión mensual"
     }
   },
   "roomPlanner": {
@@ -6691,6 +6692,23 @@
       "same_family": "misma familia",
       "negative_signal": "rara vez se acepta",
       "no_order_evidence": "sin pedidos"
+    },
+    "removalProposed": "Eliminación propuesta",
+    "inLists": "En: {{lists}}",
+    "confirmRemove": "Eliminar",
+    "keep": "Mantener",
+    "keptCount": "{{count}} asignaciones mantenidas (no se volverán a proponer)",
+    "removalReasons": {
+      "target_missing": "El destino ya no está en el catálogo",
+      "target_inactive": "El destino está inactivo",
+      "target_hidden": "El destino no es visible en el canal de venta",
+      "llm_no_fit": "IA: no encaja",
+      "ineffective": "sin efecto medible desde que se asignó"
+    },
+    "filter": {
+      "all": "Todas ({{count}})",
+      "remove": "Eliminar ({{count}})",
+      "add": "Añadir ({{count}})"
     }
   },
   "crossSellAutomation": {
@@ -6733,7 +6751,19 @@
       "llmRecheckDays": "Renovar juicio de la IA tras días"
     },
     "saved": "Ajustes guardados",
-    "saveError": "Error al guardar"
+    "saveError": "Error al guardar",
+    "monthlyTitle": "Revisión mensual",
+    "monthlyHint": "Revisa una vez al mes todas las asignaciones de la tienda (también las mantenidas a mano): destino inactivo u oculto, juicio de la IA, efecto desde la asignación. La eliminación solo se propone.",
+    "monthlyEnabled": "Activar revisión mensual",
+    "reportEmail": "Enviar informe por correo a",
+    "reviewDay": "Día del mes (1–28)",
+    "reviewHour": "Hora (0–23, hora alemana)",
+    "monthlyRecipients": "Todos con el permiso «Gestionar reglas de venta cruzada» reciben una notificación en la aplicación. Guarde primero los cambios para que surtan efecto.",
+    "reviewNow": "Iniciar revisión ahora",
+    "reviewRunning": "Revisión en curso …",
+    "reviewDone": "Revisión mensual finalizada",
+    "reviewSummary": "{{checked}} asignaciones revisadas, {{proposals}} propuestas para eliminar",
+    "reviewError": "Error en la revisión"
   },
   "crossSellLog": {
     "tab": "Registro",
@@ -6771,6 +6801,30 @@
       "approved": "aprobado",
       "undo": "deshacer",
       "dry_run": "prueba"
+    }
+  },
+  "crossSellMonthly": {
+    "title": "Revisiones mensuales",
+    "empty": "Aún no hay revisión mensual.",
+    "summary": "{{checked}} revisadas · {{proposals}} propuestas para eliminar",
+    "shop": "Tienda: {{pairs}} pares en {{lists}} listas, {{removed}} eliminados a mano",
+    "llm": "IA: {{checked}} revisados, {{open}} pendientes (presupuesto)",
+    "notified": "notificados: {{users}} usuarios, correo {{email}}",
+    "email": {
+      "sent": "enviado",
+      "skipped": "dirección no válida",
+      "failed": "fallido",
+      "none": "no configurado"
+    },
+    "reasons": {
+      "target_missing": "falta el destino",
+      "target_inactive": "destino inactivo",
+      "target_hidden": "destino oculto",
+      "llm_no_fit": "IA: no encaja",
+      "ineffective": "sin efecto",
+      "source_inactive": "origen inactivo",
+      "stale": "no comprados juntos en 12 meses",
+      "positive": "funciona"
     }
   }
 }

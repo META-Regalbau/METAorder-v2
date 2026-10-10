@@ -17,7 +17,8 @@ import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 import RejectCrossSellPairDialog, { REJECT_REASON_CODES, type RejectReasonCode } from "@/components/RejectCrossSellPairDialog";
 
 type QueueItem = CrossSellPairState & { sourceName: string | null; targetName: string | null };
-type QueueResponse = { total: number; items: QueueItem[] };
+type QueueResponse = { total: number; counts?: { add: number; remove: number }; items: QueueItem[] };
+type ActionFilter = "all" | "add" | "remove";
 type PairStatsView = {
   pairOrders?: number;
   distinctCustomers?: number;
@@ -36,10 +37,12 @@ export default function CrossSellReviewQueue() {
   const [bulkReason, setBulkReason] = useState<RejectReasonCode>("alternative");
   const [rejectPair, setRejectPair] = useState<QueueItem | null>(null);
   const [runProgress, setRunProgress] = useState(false);
+  const [actionFilter, setActionFilter] = useState<ActionFilter>("all");
 
   const { data, isLoading } = useQuery<QueueResponse>({
-    queryKey: QUEUE_KEY,
-    queryFn: async () => (await apiRequest("GET", "/api/cross-selling/review-queue?limit=200")).json(),
+    queryKey: [...QUEUE_KEY, actionFilter],
+    queryFn: async () =>
+      (await apiRequest("GET", `/api/cross-selling/review-queue?limit=200${actionFilter === "all" ? "" : `&action=${actionFilter}`}`)).json(),
   });
   const items = data?.items ?? [];
   const allSelected = items.length > 0 && items.every((i) => selected.has(i.id));
@@ -57,14 +60,17 @@ export default function CrossSellReviewQueue() {
       setSelected(new Set());
       refresh();
       if (args.decision === "reject") {
-        toast({ title: t("crossSellReview.rejectedCount", { count: result?.rejected ?? 0 }) });
+        toast({
+          title: t("crossSellReview.rejectedCount", { count: result?.rejected ?? 0 }),
+          description: (result?.kept ?? 0) > 0 ? t("crossSellReview.keptCount", { count: result.kept }) : undefined,
+        });
         return;
       }
       const failed = (result?.failed?.length ?? 0) + (result?.groupFull?.length ?? 0);
       toast({
         title: t("crossSellReview.approvedTitle"),
         description: t("crossSellReview.approvedSummary", {
-          approved: result?.approved?.length ?? 0,
+          approved: (result?.approved?.length ?? 0) + (result?.removed?.length ?? 0),
           already: result?.alreadyInShop?.length ?? 0,
           full: result?.groupFull?.length ?? 0,
           failed: result?.failed?.length ?? 0,
@@ -126,6 +132,24 @@ export default function CrossSellReviewQueue() {
         <Button variant="outline" onClick={() => runMutation.mutate()} disabled={runMutation.isPending}>
           {runProgress ? t("crossSellReview.runRunning") : t("crossSellReview.runButton")}
         </Button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {(["all", "remove", "add"] as const).map((f) => (
+          <Button
+            key={f}
+            size="sm"
+            variant={actionFilter === f ? "default" : "outline"}
+            onClick={() => {
+              setActionFilter(f);
+              setSelected(new Set());
+            }}
+          >
+            {t(`crossSellReview.filter.${f}`, {
+              count: f === "all" ? (data?.counts ? data.counts.add + data.counts.remove : 0) : (data?.counts?.[f] ?? 0),
+            })}
+          </Button>
+        ))}
       </div>
 
       {selectedIds.length > 0 && (
@@ -209,22 +233,37 @@ export default function CrossSellReviewQueue() {
                       </div>
                     </TableCell>
                     <TableCell className="text-xs space-y-1 min-w-[180px]">
-                      {item.origin === "manual_rule" && <Badge variant="outline">{t("crossSellReview.fromRule")}</Badge>}
-                      <div>
-                        {t("crossSellReview.ordersFromCustomers", {
-                          orders: st.pairOrders ?? 0,
-                          customers: st.distinctCustomers ?? 0,
-                        })}
-                      </div>
-                      {typeof st.liftLB === "number" && st.liftLB > 0 && (
-                        <div className="text-muted-foreground">{t("crossSellReview.lift", { lift: fmt.decimal(st.liftLB, 1) })}</div>
-                      )}
-                      {item.autoEligible && <Badge>{t("crossSellReview.wouldAutoApply")}</Badge>}
-                      {!item.autoEligible && (st.gateFailures?.length ?? 0) > 0 && (
-                        <div className="text-muted-foreground">
-                          {t("crossSellReview.notAutoBecause")}{" "}
-                          {st.gateFailures!.map((g) => t(`crossSellReview.gates.${g}`, { defaultValue: g })).join(", ")}
+                      {item.pendingAction === "remove" && (
+                        <div className="space-y-1">
+                          <Badge variant="destructive">{t("crossSellReview.removalProposed")}</Badge>
+                          <div>{t(`crossSellReview.removalReasons.${item.proposalReason}`, { defaultValue: item.proposalReason ?? "" })}</div>
+                          {(item.shopRefs?.length ?? 0) > 0 && (
+                            <div className="text-muted-foreground">
+                              {t("crossSellReview.inLists", { lists: Array.from(new Set(item.shopRefs!.map((r) => r.groupName))).join(", ") })}
+                            </div>
+                          )}
                         </div>
+                      )}
+                      {item.origin === "manual_rule" && <Badge variant="outline">{t("crossSellReview.fromRule")}</Badge>}
+                      {item.pendingAction === "add" && (
+                        <>
+                          <div>
+                            {t("crossSellReview.ordersFromCustomers", {
+                              orders: st.pairOrders ?? 0,
+                              customers: st.distinctCustomers ?? 0,
+                            })}
+                          </div>
+                          {typeof st.liftLB === "number" && st.liftLB > 0 && (
+                            <div className="text-muted-foreground">{t("crossSellReview.lift", { lift: fmt.decimal(st.liftLB, 1) })}</div>
+                          )}
+                          {item.autoEligible && <Badge>{t("crossSellReview.wouldAutoApply")}</Badge>}
+                          {!item.autoEligible && (st.gateFailures?.length ?? 0) > 0 && (
+                            <div className="text-muted-foreground">
+                              {t("crossSellReview.notAutoBecause")}{" "}
+                              {st.gateFailures!.map((g) => t(`crossSellReview.gates.${g}`, { defaultValue: g })).join(", ")}
+                            </div>
+                          )}
+                        </>
                       )}
                     </TableCell>
                     <TableCell className="text-xs min-w-[220px] max-w-[320px] space-y-1">
@@ -243,25 +282,48 @@ export default function CrossSellReviewQueue() {
                     <TableCell className="text-right text-sm">{fmt.percent(item.score ?? 0, 0)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1 whitespace-nowrap">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => decideMutation.mutate({ ids: [item.id], decision: "approve" })}
-                          disabled={decideMutation.isPending}
-                          aria-label={t("crossSellReview.approve")}
-                        >
-                          <Check className="h-4 w-4 mr-1" />
-                          {t("crossSellReview.approve")}
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => setRejectPair(item)}
-                          title={t("crossSellMemory.rejectTitle")}
-                          aria-label={t("crossSellMemory.rejectTitle")}
-                        >
-                          <Ban className="h-4 w-4" />
-                        </Button>
+                        {item.pendingAction === "remove" ? (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => decideMutation.mutate({ ids: [item.id], decision: "approve" })}
+                              disabled={decideMutation.isPending}
+                            >
+                              {t("crossSellReview.confirmRemove")}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => decideMutation.mutate({ ids: [item.id], decision: "reject" })}
+                              disabled={decideMutation.isPending}
+                            >
+                              {t("crossSellReview.keep")}
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => decideMutation.mutate({ ids: [item.id], decision: "approve" })}
+                              disabled={decideMutation.isPending}
+                              aria-label={t("crossSellReview.approve")}
+                            >
+                              <Check className="h-4 w-4 mr-1" />
+                              {t("crossSellReview.approve")}
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => setRejectPair(item)}
+                              title={t("crossSellMemory.rejectTitle")}
+                              aria-label={t("crossSellMemory.rejectTitle")}
+                            >
+                              <Ban className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

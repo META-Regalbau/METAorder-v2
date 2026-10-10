@@ -12,6 +12,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 import { useCrossSellProductLabels } from "@/hooks/useCrossSellProductLabels";
+import CrossSellMonthlyReports from "@/components/CrossSellMonthlyReports";
 
 const UNDOABLE = new Set(["add", "remove"]);
 
@@ -64,6 +65,7 @@ export default function CrossSellChangeLog() {
 
   return (
     <div className="space-y-6">
+      <CrossSellMonthlyReports />
       <Card className="p-6 space-y-3">
         <h2 className="text-lg font-semibold">{t("crossSellLog.runsTitle")}</h2>
         {runs.length === 0 ? (

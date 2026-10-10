@@ -421,10 +421,12 @@ export interface IStorage {
   heartbeatCrossSellRun(id: string, stats?: Record<string, unknown>, tenantId?: string | null): Promise<void>;
   finishCrossSellRun(
     id: string,
-    result: { status: "completed" | "failed"; stats?: Record<string, unknown>; report?: Record<string, unknown>; error?: string | null },
+    result: { status: "completed" | "failed"; stats?: Record<string, unknown>; report?: Record<string, unknown>; error?: string | null; notifiedAt?: Date },
     tenantId?: string | null,
   ): Promise<void>;
   getCrossSellRuns(filter: { kind?: CrossSellRunKind; limit?: number }, tenantId?: string | null): Promise<CrossSellRun[]>;
+  /** Nutzer eines Mandanten, deren Rolle die Berechtigung hat (Array- und Objektformat). */
+  getUsersWithPermissionInTenant(permission: string, tenantId: string | null): Promise<Array<{ id: string; username: string; email: string | null }>>;
   /** Spiegel-Zeilen (mit payload) zu Artikelnummern, fuer gezielte Detailabfragen. */
   getShopwareProductMirrorsByNumbers(productNumbers: string[], tenantId?: string | null): Promise<ShopwareProductMirror[]>;
   /** Schlanke Produktliste aus dem Spiegel (ID, Nummer, Hauptprodukt) fuer Zuordnungen. */
