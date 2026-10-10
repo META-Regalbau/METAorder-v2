@@ -818,7 +818,7 @@ export default function AnalyticsPage({ userRole, userSalesChannelIds, userPermi
                 <div className="mt-3 text-sm text-muted-foreground">
                   {fmt.percent(offerConversionInsight.data.conversionRate)}{" "}
                   {t("analytics.offerConversionRate", "freigegeben")}{" "}
-                  <span className="text-muted-foreground/80">
+                  <span className="text-muted-foreground">
                     ({t("analytics.offerConversionHint", "bezogen auf eingereichte, versandte, abgelehnte und freigegebene Angebote")})
                   </span>
                 </div>
