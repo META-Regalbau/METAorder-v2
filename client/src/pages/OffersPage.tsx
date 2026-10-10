@@ -487,7 +487,8 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
   const calculateDraftTotal = (draft: OfferDraft) => {
     if (!draft.matchingResults?.items) return 0;
     return draft.matchingResults.items.reduce((total, item) => {
-      const price = item.matchedProduct?.suggestedPrice || item.matchedProduct?.catalogPrice || 0;
+      const price =
+        item.matchedProduct?.manualUnitPriceNet ?? (item.matchedProduct?.suggestedPrice || item.matchedProduct?.catalogPrice || 0);
       return total + (price * item.quantity);
     }, 0);
   };

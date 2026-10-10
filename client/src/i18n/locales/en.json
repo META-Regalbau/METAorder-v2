@@ -6255,7 +6255,10 @@
       "failed_to_fetch_backfill_state": "Could not load the initial fill status",
       "failed_to_start_backfill": "Could not start the initial fill",
       "failed_to_stop_backfill": "Could not pause the initial fill",
-      "db_berechnung_fehlgeschlagen": "Margin calculation failed"
+      "db_berechnung_fehlgeschlagen": "Margin calculation failed",
+      "ungultiger_preis": "Invalid price",
+      "entwurf_ist_bereits_angelegt": "Draft has already been created",
+      "preis_konnte_nicht_gespeichert_werden": "Price could not be saved"
     }
   },
   "roomPlanner": {
@@ -6904,6 +6907,14 @@
       "customer_discount": "Customer discount",
       "list": "List price",
       "unresolved": "No price"
-    }
+    },
+    "priceColumn": "Net price / margin",
+    "priceSaveError": "Price could not be saved",
+    "priceInvalid": "Please enter a valid price",
+    "priceInputLabel": "Net unit price line {{position}}",
+    "priceNone": "no price",
+    "priceReset": "Use determined price",
+    "priceChangedBy": "changed by {{user}}",
+    "lineTotal": "Total {{total}}"
   }
 }

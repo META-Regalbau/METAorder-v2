@@ -9596,6 +9596,33 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/offer-drafts/{id}/line-price": {
+    "patch": {
+      "tags": [
+        "offer-drafts"
+      ],
+      "summary": "PATCH /api/offer-drafts/{id}/line-price",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/offer-drafts/{id}/pdf": {
     "get": {
       "tags": [
@@ -10722,6 +10749,33 @@ export const openApiPaths = {
         "order-drafts"
       ],
       "summary": "POST /api/order-drafts/{id}/create-shopware-customer",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/order-drafts/{id}/line-price": {
+    "patch": {
+      "tags": [
+        "order-drafts"
+      ],
+      "summary": "PATCH /api/order-drafts/{id}/line-price",
       "responses": {
         "200": {
           "description": "OK",

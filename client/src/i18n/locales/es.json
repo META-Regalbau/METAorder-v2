@@ -6252,7 +6252,10 @@
       "failed_to_fetch_backfill_state": "No se pudo cargar el estado del llenado inicial",
       "failed_to_start_backfill": "No se pudo iniciar el llenado inicial",
       "failed_to_stop_backfill": "No se pudo pausar el llenado inicial",
-      "db_berechnung_fehlgeschlagen": "Error al calcular el margen"
+      "db_berechnung_fehlgeschlagen": "Error al calcular el margen",
+      "ungultiger_preis": "Precio no válido",
+      "entwurf_ist_bereits_angelegt": "El borrador ya se ha creado",
+      "preis_konnte_nicht_gespeichert_werden": "No se pudo guardar el precio"
     }
   },
   "roomPlanner": {
@@ -6901,6 +6904,14 @@
       "customer_discount": "Descuento de cliente",
       "list": "Precio de lista",
       "unresolved": "Sin precio"
-    }
+    },
+    "priceColumn": "Precio neto / margen",
+    "priceSaveError": "No se pudo guardar el precio",
+    "priceInvalid": "Introduce un precio válido",
+    "priceInputLabel": "Precio unitario neto posición {{position}}",
+    "priceNone": "sin precio",
+    "priceReset": "Usar precio determinado",
+    "priceChangedBy": "cambiado por {{user}}",
+    "lineTotal": "Total {{total}}"
   }
 }
