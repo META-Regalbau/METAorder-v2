@@ -3595,7 +3595,8 @@
       "reviewRequired": "Überprüfung erforderlich",
       "review_required": "Überprüfung erforderlich",
       "rejected": "Abgelehnt",
-      "created": "Erstellt"
+      "created": "Erstellt",
+      "creating": "Wird angelegt"
     },
     "table": {
       "document": "Dokument",
@@ -3734,7 +3735,8 @@
       "approved": "Genehmigt",
       "reviewRequired": "Überprüfung erforderlich",
       "rejected": "Abgelehnt",
-      "created": "Erstellt"
+      "created": "Erstellt",
+      "creating": "Wird angelegt"
     },
     "table": {
       "document": "Dokument",
@@ -6257,7 +6259,11 @@
       "entwurf_ist_bereits_angelegt": "Entwurf ist bereits angelegt",
       "preis_konnte_nicht_gespeichert_werden": "Preis konnte nicht gespeichert werden",
       "ungultige_anfrage": "Ungültige Anfrage",
-      "freigabe_konnte_nicht_gespeichert_werden": "Freigabe konnte nicht gespeichert werden"
+      "freigabe_konnte_nicht_gespeichert_werden": "Freigabe konnte nicht gespeichert werden",
+      "ungultige_shopware_id": "Ungültige Shopware-ID",
+      "entwurf_hangt_nicht_in_der_anlage": "Entwurf hängt nicht in der Anlage",
+      "anlage_lauft_womoglich_noch_bitte_spater_erneut_versuchen": "Anlage läuft womöglich noch, bitte später erneut versuchen",
+      "anlage_sperre_konnte_nicht_gelost_werden": "Anlage-Sperre konnte nicht gelöst werden"
     }
   },
   "roomPlanner": {
@@ -6951,5 +6957,56 @@
     "saveError": "Freigabe konnte nicht gespeichert werden",
     "createBlocked": "DB zu niedrig: Anlage erst nach Freigabe",
     "draftNotFound": "Entwurf nicht gefunden"
+  },
+  "strictAutoCreate": {
+    "title": "Warum nicht automatisch angelegt",
+    "shopwareError": "Anlage in Shopware fehlgeschlagen: {{error}}",
+    "evaluatedAt": "Geprüft am {{date}}",
+    "intentConfidenceBelow": "KI ist nicht sicher genug, ob Bestellung oder Anfrage (unter {{min}} %)",
+    "customerMatchBelow": "Kundenzuordnung unsicher (unter {{min}} %)",
+    "reason": {
+      "commercial_agent_disabled": "Automatik ist ausgeschaltet",
+      "auto_create_offers_disabled": "Automatische Angebote sind ausgeschaltet",
+      "auto_create_orders_disabled": "Automatische Bestellungen sind ausgeschaltet",
+      "intent_unclear": "Unklar, ob Bestellung oder Anfrage",
+      "missing_billing_company": "Rechnungsadresse: Firma fehlt",
+      "missing_billing_street": "Rechnungsadresse: Straße fehlt",
+      "missing_billing_zipCode": "Rechnungsadresse: PLZ fehlt",
+      "missing_billing_city": "Rechnungsadresse: Ort fehlt",
+      "missing_billing_country": "Rechnungsadresse: Land fehlt",
+      "missing_contact_email_or_phone": "Weder E-Mail noch Telefon erkannt",
+      "missing_shopware_customer_id": "Kein Shopware-Kunde zugeordnet",
+      "customer_was_auto_created_not_matched": "Kunde wurde neu angelegt statt gefunden",
+      "missing_sales_channel_id": "Kein Verkaufskanal",
+      "duplicate_buyer_document_number": "Belegnummer des Kunden steckt schon in einem anderen Entwurf",
+      "address_review_hints_present": "Adresse hat Prüfhinweise",
+      "intent_vs_upload_mismatch": "Erkannte Art passt nicht zum Upload",
+      "company_heuristic_low_score": "Firmenname unsicher",
+      "company_heuristic_no_candidate": "Kein Firmenname erkannt",
+      "no_line_items": "Keine Positionen erkannt",
+      "no_matching_results": "Kein Artikelabgleich",
+      "line_item_count_mismatch": "Anzahl der Positionen passt nicht zum Abgleich",
+      "price_check_unavailable": "Preisabgleich nicht möglich",
+      "margin_below_minimum": "DB zu niedrig (rote Ampel)"
+    },
+    "line": {
+      "catalog_matching_skipped": "Position {{line}}: kein Katalogabgleich",
+      "not_matched": "Position {{line}}: kein Artikel zugeordnet",
+      "confidence_below_100": "Position {{line}}: Zuordnung nicht eindeutig",
+      "price_mismatch": "Position {{line}}: Preis im Dokument weicht vom Kundenpreis ab",
+      "price_missing_in_document": "Position {{line}}: kein Preis im Dokument",
+      "price_unresolved": "Position {{line}}: Kundenpreis nicht ermittelbar"
+    }
+  },
+  "stuckDraftCreation": {
+    "title": "Anlage hängt",
+    "text": "Der Entwurf ist seit {{date}} für die Anlage gesperrt, aber nicht als angelegt markiert. Womöglich ist der Beleg in Shopware trotzdem entstanden.",
+    "adminHint": "Bitte in Shopware prüfen. Gibt es den Beleg, die Shopware-ID eintragen und verknüpfen. Sonst die Sperre lösen; der Entwurf geht zurück in die Prüfung.",
+    "shopwareIdLabel": "Shopware-ID des Belegs",
+    "link": "Als angelegt verknüpfen",
+    "release": "Sperre lösen",
+    "waitHint": "Ein Administrator kann die Sperre nach 10 Minuten lösen.",
+    "released": "Anlage-Sperre gelöst",
+    "releaseError": "Sperre konnte nicht gelöst werden"
   }
 }

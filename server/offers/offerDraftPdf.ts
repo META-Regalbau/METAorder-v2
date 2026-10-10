@@ -4,6 +4,7 @@
 
 import PDFDocument from "pdfkit";
 import { eur } from "../pdf/metaRegalBriefpapier";
+import { computeOfferDraftDiscountTotals } from "@shared/offerDraftDiscount";
 
 type DraftCustomer = {
   firstName?: string;
@@ -168,19 +169,10 @@ function totalsFromItems(items: MatchingItem[]): {
   totalSuggestedValue: number;
   totalDiscountPercentage: number;
 } {
-  let totalCatalogValue = 0;
-  let totalSuggestedValue = 0;
-  for (const item of items) {
-    const qty = item.quantity ?? 1;
-    const catalog = item.matchedProduct?.catalogPrice ?? 0;
-    const price = item.matchedProduct?.manualUnitPriceNet ?? item.matchedProduct?.suggestedPrice ?? catalog;
-    totalCatalogValue += catalog * qty;
-    totalSuggestedValue += price * qty;
-  }
+  const totals = computeOfferDraftDiscountTotals(items);
   return {
-    totalCatalogValue,
-    totalSuggestedValue,
-    totalDiscountPercentage:
-      totalCatalogValue > 0 ? (1 - totalSuggestedValue / totalCatalogValue) * 100 : 0,
+    totalCatalogValue: totals.totalCatalogValue,
+    totalSuggestedValue: totals.totalOfferValue,
+    totalDiscountPercentage: totals.discountPercent,
   };
 }

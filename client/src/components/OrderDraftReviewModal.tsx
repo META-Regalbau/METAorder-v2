@@ -74,8 +74,11 @@ import {
   DraftCustomerCandidates,
   DraftCustomerOptionLabel,
   useCustomerCreateEnabled,
+  useDraftReviewThresholds,
   type DraftShopwareCustomer,
 } from "@/components/DraftCustomerOptions";
+import { StrictAutoCreateTraceAlert, type StrictAutoCreateTrace } from "@/components/StrictAutoCreateTraceAlert";
+import { StuckDraftCreationNotice } from "@/components/StuckDraftCreationNotice";
 import { DraftReferencesCard, type DraftDocumentReferencesLite } from "@/components/DraftReferencesCard";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
@@ -118,7 +121,7 @@ interface OrderDraft {
   id: string;
   createdAt: string;
   updatedAt: string;
-  status: "pending" | "approved" | "review_required" | "rejected" | "created";
+  status: "pending" | "approved" | "review_required" | "rejected" | "created" | "creating";
   createdByUserId: string | null;
   originalFileName: string;
   originalFilePath: string | null;
@@ -424,6 +427,7 @@ export function OrderDraftReviewModal({
 
   type ShopwareCustomer = DraftShopwareCustomer;
   const customerCreateEnabled = useCustomerCreateEnabled();
+  const reviewThresholds = useDraftReviewThresholds();
   const { data: customerSearchData } = useQuery<{ customers: ShopwareCustomer[] }>({
     queryKey: ["/api/order-drafts/customer-search", debouncedCustomerSearch],
     queryFn: async () => {
@@ -755,10 +759,12 @@ export function OrderDraftReviewModal({
   const intentConf = ed?.commercialIntentConfidence;
   const showCommercialHint =
     typeof intentConf === "number" &&
-    (intentConf < 0.6 || ed?.commercialIntent === "unclear" || Boolean(ed?.commercialIntentVsUploadMismatch));
+    (intentConf < reviewThresholds.intentMin ||
+      ed?.commercialIntent === "unclear" ||
+      Boolean(ed?.commercialIntentVsUploadMismatch));
   const showRerouteHint = Boolean(ed?.commercialIntentRoutedAsOfferDueToPermission);
   const custMatch = ed?.customer?.customerMatchConfidence;
-  const showCustomerMatchHint = typeof custMatch === "number" && custMatch < 72;
+  const showCustomerMatchHint = typeof custMatch === "number" && custMatch < reviewThresholds.customerMatchMin;
   const showLowMatchingHint = isLowOverallMatchingConfidence(mergedMatchingResults ?? draft.matchingResults);
   const lowMatchingScore =
     mergedMatchingResults?.overallConfidence ?? draft.matchingResults?.overallConfidence;
@@ -811,6 +817,14 @@ export function OrderDraftReviewModal({
             </AlertDescription>
           </Alert>
         )}
+
+        {draft.status === "creating" && (
+          <StuckDraftCreationNotice kind="order" draftId={draft.id} updatedAt={draft.updatedAt} onReleased={onUpdate} />
+        )}
+
+        <StrictAutoCreateTraceAlert
+          trace={(draft.extractedData as { strictAutoCreateTrace?: StrictAutoCreateTrace } | null)?.strictAutoCreateTrace}
+        />
 
         {(showCommercialHint || showRerouteHint || showCustomerMatchHint) && (
           <Alert className="border-amber-500/40 bg-amber-500/5">

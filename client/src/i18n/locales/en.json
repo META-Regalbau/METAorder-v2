@@ -3588,7 +3588,8 @@
       "approved": "Approved",
       "rejected": "Rejected",
       "created": "Created",
-      "reviewRequired": "Review required"
+      "reviewRequired": "Review required",
+      "creating": "Being created"
     },
     "title": "Offer Drafts",
     "description": "AI-powered offer creation from documents and emails",
@@ -3737,7 +3738,8 @@
       "approved": "Approved",
       "reviewRequired": "Review Required",
       "rejected": "Rejected",
-      "created": "Created"
+      "created": "Created",
+      "creating": "Being created"
     },
     "table": {
       "document": "Document",
@@ -6260,7 +6262,11 @@
       "entwurf_ist_bereits_angelegt": "Draft has already been created",
       "preis_konnte_nicht_gespeichert_werden": "Price could not be saved",
       "ungultige_anfrage": "Invalid request",
-      "freigabe_konnte_nicht_gespeichert_werden": "Approval could not be saved"
+      "freigabe_konnte_nicht_gespeichert_werden": "Approval could not be saved",
+      "ungultige_shopware_id": "Invalid Shopware ID",
+      "entwurf_hangt_nicht_in_der_anlage": "Draft is not stuck in creation",
+      "anlage_lauft_womoglich_noch_bitte_spater_erneut_versuchen": "Creation may still be running, please try again later",
+      "anlage_sperre_konnte_nicht_gelost_werden": "Creation lock could not be released"
     }
   },
   "roomPlanner": {
@@ -6954,5 +6960,56 @@
     "saveError": "Approval could not be saved",
     "createBlocked": "Margin too low: creation only after approval",
     "draftNotFound": "Draft not found"
+  },
+  "strictAutoCreate": {
+    "title": "Why it was not created automatically",
+    "shopwareError": "Creation in Shopware failed: {{error}}",
+    "evaluatedAt": "Checked on {{date}}",
+    "intentConfidenceBelow": "AI not confident enough whether order or inquiry (below {{min}}%)",
+    "customerMatchBelow": "Customer match uncertain (below {{min}}%)",
+    "reason": {
+      "commercial_agent_disabled": "Automation is switched off",
+      "auto_create_offers_disabled": "Automatic offers are switched off",
+      "auto_create_orders_disabled": "Automatic orders are switched off",
+      "intent_unclear": "Unclear whether order or inquiry",
+      "missing_billing_company": "Billing address: company missing",
+      "missing_billing_street": "Billing address: street missing",
+      "missing_billing_zipCode": "Billing address: postcode missing",
+      "missing_billing_city": "Billing address: city missing",
+      "missing_billing_country": "Billing address: country missing",
+      "missing_contact_email_or_phone": "Neither email nor phone found",
+      "missing_shopware_customer_id": "No Shopware customer assigned",
+      "customer_was_auto_created_not_matched": "Customer was newly created instead of matched",
+      "missing_sales_channel_id": "No sales channel",
+      "duplicate_buyer_document_number": "Customer document number already used in another draft",
+      "address_review_hints_present": "Address has review hints",
+      "intent_vs_upload_mismatch": "Detected type does not match the upload",
+      "company_heuristic_low_score": "Company name uncertain",
+      "company_heuristic_no_candidate": "No company name found",
+      "no_line_items": "No line items found",
+      "no_matching_results": "No product matching",
+      "line_item_count_mismatch": "Number of lines does not match the matching",
+      "price_check_unavailable": "Price check not possible",
+      "margin_below_minimum": "Margin too low (red light)"
+    },
+    "line": {
+      "catalog_matching_skipped": "Line {{line}}: no catalog matching",
+      "not_matched": "Line {{line}}: no product matched",
+      "confidence_below_100": "Line {{line}}: match not certain",
+      "price_mismatch": "Line {{line}}: document price differs from customer price",
+      "price_missing_in_document": "Line {{line}}: no price in document",
+      "price_unresolved": "Line {{line}}: customer price could not be determined"
+    }
+  },
+  "stuckDraftCreation": {
+    "title": "Creation stuck",
+    "text": "The draft has been locked for creation since {{date}} but is not marked as created. The document may still have been created in Shopware.",
+    "adminHint": "Please check in Shopware. If the document exists, enter its Shopware ID and link it. Otherwise release the lock; the draft goes back to review.",
+    "shopwareIdLabel": "Shopware ID of the document",
+    "link": "Link as created",
+    "release": "Release lock",
+    "waitHint": "An administrator can release the lock after 10 minutes.",
+    "released": "Creation lock released",
+    "releaseError": "Lock could not be released"
   }
 }

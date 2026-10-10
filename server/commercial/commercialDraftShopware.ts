@@ -8,6 +8,7 @@ import { logger } from "../lib/logger";
 import { recordDraftSuggestionConversions } from "../cross-selling/crossSellDraftSignals";
 import { refreshDraftProfitability } from "./draftProfitability";
 import { checkMarginGateForCreate } from "./draftMarginApproval";
+import { checkOfferDraftDiscount, recordOfferDiscountApproval } from "./offerDraftDiscountGate";
 
 const moduleLog = logger.child({ component: "commercial/commercialDraftShopware" });
 
@@ -130,10 +131,38 @@ async function assertDraftShopwareCustomerExists(
   return null;
 }
 
+/** Statuswechsel nach erfolgreicher Shopware-Anlage: bis zu drei Versuche, dann laut protokollieren. */
+async function retryDraftUpdate<T>(
+  update: () => Promise<T | undefined>,
+  context: { draftId: string; kind: "order" | "offer"; shopwareId: string },
+): Promise<T | undefined> {
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const result = await update();
+      if (result) return result;
+    } catch (error) {
+      moduleLog.warn({ err: error, attempt, ...context }, "[CreateFromDraft] Statuswechsel fehlgeschlagen");
+    }
+    if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+  }
+  moduleLog.error(
+    context,
+    "[CreateFromDraft] Beleg in Shopware angelegt, Entwurf aber nicht aktualisiert: bleibt auf 'creating' (Admin: Sperre lösen und Shopware-ID eintragen)",
+  );
+  return undefined;
+}
+
 export async function executeCreateOfferFromDraft(
   storage: IStorage,
   draftId: string,
-  options: { salesChannelId: string; tenantId?: string | null }
+  options: {
+    salesChannelId: string;
+    tenantId?: string | null;
+    /** Begründung für einen freigabepflichtigen Rabatt (Prüffenster); Automatik hat keine */
+    discountJustification?: string | null;
+    /** wer anlegt (Freigabe-Eintrag des Rabatts) */
+    userId?: string | null;
+  }
 ): Promise<CreateOfferSuccess | CreateFromDraftFailure> {
   const draft = await storage.getOfferDraft(draftId, options.tenantId ?? null);
   if (!draft) {
@@ -299,6 +328,14 @@ export async function executeCreateOfferFromDraft(
     };
   } | null;
 
+  // Rabatt-Ampel: gesperrte Rabatte nie, freigabepflichtige nur mit Begründung
+  const discountCheck = await checkOfferDraftDiscount({
+    items: draft.matchingResults.items,
+    tenantId: options.tenantId ?? null,
+    justification: options.discountJustification,
+  });
+  if (!discountCheck.ok) return discountCheck;
+
   // DB rot: Anlage nur mit Freigabe (gilt für Prüffenster, n8n und Automatik)
   const marginGate = await checkMarginGateForCreate({
     storage,
@@ -354,13 +391,19 @@ export async function executeCreateOfferFromDraft(
     return { ok: false, error: message, statusCode: 502 };
   }
 
-  const updatedDraft = await storage.updateOfferDraft(
-    draftId,
-    {
-      status: "created",
-      shopwareOfferId: created.id,
-    },
-    options.tenantId ?? null
+  // Beleg existiert jetzt in Shopware: Statuswechsel mehrfach versuchen, sonst bliebe der
+  // Entwurf auf "creating" hängen (und ein erneuter Versuch würde doppelt anlegen)
+  const updatedDraft = await retryDraftUpdate(
+    () =>
+      storage.updateOfferDraft(
+        draftId,
+        {
+          status: "created",
+          shopwareOfferId: created.id,
+        },
+        options.tenantId ?? null
+      ),
+    { draftId, kind: "offer", shopwareId: created.id }
   );
 
   if (!updatedDraft) {
@@ -373,6 +416,16 @@ export async function executeCreateOfferFromDraft(
     kind: "offer_draft",
     items: draft.matchingResults?.items,
   });
+
+  if (discountCheck.approval) {
+    await recordOfferDiscountApproval({
+      offerId: created.id,
+      approval: discountCheck.approval,
+      justification: options.discountJustification,
+      userId: options.userId,
+      tenantId: options.tenantId ?? null,
+    });
+  }
 
   // DB-Stand bei der Anlage festhalten (im Hintergrund, die Anlage wartet nicht darauf)
   void refreshDraftProfitability({
@@ -597,13 +650,19 @@ export async function executeCreateOrderFromDraft(
     };
   }
 
-  const updatedDraft = await storage.updateOrderDraft(
-    draftId,
-    {
-      status: "created",
-      shopwareOrderId: shopwareOrder.id,
-    },
-    options.tenantId ?? null
+  // Beleg existiert jetzt in Shopware: Statuswechsel mehrfach versuchen, sonst bliebe der
+  // Entwurf auf "creating" hängen (und ein erneuter Versuch würde doppelt anlegen)
+  const updatedDraft = await retryDraftUpdate(
+    () =>
+      storage.updateOrderDraft(
+        draftId,
+        {
+          status: "created",
+          shopwareOrderId: shopwareOrder.id,
+        },
+        options.tenantId ?? null
+      ),
+    { draftId, kind: "order", shopwareId: shopwareOrder.id }
   );
 
   if (!updatedDraft) {
