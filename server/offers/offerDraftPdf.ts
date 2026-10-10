@@ -29,6 +29,7 @@ type MatchingItem = {
     catalogPrice?: number;
     suggestedPrice?: number;
     suggestedDiscount?: number;
+    manualUnitPriceNet?: number;
   };
   bundle?: {
     name?: string;
@@ -121,8 +122,13 @@ export async function generateOfferDraftPdf(draft: OfferDraftForPdf): Promise<Bu
         const productNumber = item.bundle?.mockProductNumber ?? item.matchedProduct?.productNumber ?? "";
         const qty = item.quantity ?? 1;
         const catalogPrice = item.matchedProduct?.catalogPrice ?? 0;
-        const suggestedPrice = item.matchedProduct?.suggestedPrice ?? catalogPrice;
-        const discount = item.matchedProduct?.suggestedDiscount ?? 0;
+        // gleiche Reihenfolge wie bei der Anlage: manueller Preis, Vorschlag, Katalog
+        const manualPrice = item.matchedProduct?.manualUnitPriceNet;
+        const suggestedPrice = manualPrice ?? item.matchedProduct?.suggestedPrice ?? catalogPrice;
+        const discount =
+          manualPrice != null
+            ? catalogPrice > 0 ? (1 - manualPrice / catalogPrice) * 100 : 0
+            : (item.matchedProduct?.suggestedDiscount ?? 0);
 
         doc.fontSize(10);
         doc.text(`${name} ${productNumber ? `(${productNumber})` : ""}`);
@@ -134,8 +140,9 @@ export async function generateOfferDraftPdf(draft: OfferDraftForPdf): Promise<Bu
 
       doc.moveDown(0.5);
 
-      // Totals
-      const recs = matchingResults?.pricingRecommendations;
+      // Totals (mit manuellen Preisen aus den Positionen neu, sonst wie empfohlen)
+      const hasManualPrices = items.some((item) => item.matchedProduct?.manualUnitPriceNet != null);
+      const recs = hasManualPrices ? totalsFromItems(items) : matchingResults?.pricingRecommendations;
       if (recs) {
         doc.fontSize(10).font("Helvetica-Bold");
         doc.text(`Katalogwert gesamt: ${formatCurrency(recs.totalCatalogValue)}`);
@@ -154,4 +161,26 @@ export async function generateOfferDraftPdf(draft: OfferDraftForPdf): Promise<Bu
 
     doc.end();
   });
+}
+
+function totalsFromItems(items: MatchingItem[]): {
+  totalCatalogValue: number;
+  totalSuggestedValue: number;
+  totalDiscountPercentage: number;
+} {
+  let totalCatalogValue = 0;
+  let totalSuggestedValue = 0;
+  for (const item of items) {
+    const qty = item.quantity ?? 1;
+    const catalog = item.matchedProduct?.catalogPrice ?? 0;
+    const price = item.matchedProduct?.manualUnitPriceNet ?? item.matchedProduct?.suggestedPrice ?? catalog;
+    totalCatalogValue += catalog * qty;
+    totalSuggestedValue += price * qty;
+  }
+  return {
+    totalCatalogValue,
+    totalSuggestedValue,
+    totalDiscountPercentage:
+      totalCatalogValue > 0 ? (1 - totalSuggestedValue / totalCatalogValue) * 100 : 0,
+  };
 }

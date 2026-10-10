@@ -83,7 +83,12 @@ import {
 import { DraftReferencesCard, type DraftDocumentReferencesLite } from "@/components/DraftReferencesCard";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
-import { DraftLineMargin, DraftProfitabilityCard, useDraftProfitability } from "@/components/DraftProfitability";
+import {
+  DraftLineMargin,
+  DraftLinePriceEditor,
+  DraftProfitabilityCard,
+  useDraftProfitability,
+} from "@/components/DraftProfitability";
 interface BundleSummary {
   id: string;
   name: string;
@@ -1399,7 +1404,7 @@ export function OfferDraftReviewModal({
                       <TableHead data-testid="table-head-catalog-price">{t("offerDrafts.review.catalogPrice")}</TableHead>
                       <TableHead data-testid="table-head-suggested-price">{t("offerDrafts.review.suggestedPrice")}</TableHead>
                       <TableHead data-testid="table-head-discount">{t("offerDrafts.review.discount")}</TableHead>
-                      <TableHead className="text-right">{t("draftProfitability.column")}</TableHead>
+                      <TableHead className="text-right">{t("draftProfitability.priceColumn")}</TableHead>
                       <TableHead data-testid="table-head-confidence">{t("offerDrafts.review.confidence")}</TableHead>
                       <TableHead className="w-[52px] text-right">{t("offerDrafts.review.actions", "Aktion")}</TableHead>
                     </TableRow>
@@ -1664,7 +1669,21 @@ export function OfferDraftReviewModal({
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          <DraftLineMargin line={profitabilityLineByIndex.get(index)} />
+                          <div className="flex flex-col items-end gap-2">
+                            {item.matchedProduct && !item.bundle ? (
+                              <DraftLinePriceEditor
+                                kind="offer"
+                                draftId={draft.id}
+                                index={index}
+                                line={profitabilityLineByIndex.get(index)}
+                                manualUnitPriceNet={(item.matchedProduct as { manualUnitPriceNet?: number }).manualUnitPriceNet}
+                                manualPriceChangedBy={(item.matchedProduct as { manualPriceChangedBy?: string }).manualPriceChangedBy}
+                                disabled={draft.status === "created"}
+                                onChanged={onUpdate}
+                              />
+                            ) : null}
+                            <DraftLineMargin line={profitabilityLineByIndex.get(index)} />
+                          </div>
                         </TableCell>
                         <TableCell>{getConfidenceBadge(item.confidence ?? 0)}</TableCell>
                         <TableCell className="text-right align-middle">

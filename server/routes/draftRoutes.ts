@@ -1,6 +1,7 @@
 // KI-Entwuerfe: gemeinsamer Upload, Bestell- und Angebotsentwuerfe (Pruefen, Kunde/Produkte zuordnen, Anhaenge, Anlage in Shopware) sowie Commercial Agent.
 import multer from "multer";
 import { requireAuth, requireManageSettings, requireAuthOrIntegrationKey, requireManageCommercialDraftUpload, requireCsrf, requireManageOrderDrafts, requireManageOffers, requireViewOffers, canViewMarginDetails } from "../auth/auth";
+import { applyManualLinePrice, preserveManualLinePrices } from "../commercial/draftLinePrice";
 import {
   loadDraftProfitabilityForView,
   scheduleDraftProfitabilityBackfill,
@@ -821,6 +822,74 @@ export function registerDraftRoutes(app: Express): void {
     }
   });
 
+  // PATCH /api/{order,offer}-drafts/:id/line-price - manueller Netto-Stückpreis je Position
+  // (null = zurück zum ermittelten Preis); liefert die neu berechnete DB gleich mit.
+  const lineDraftPriceHandler = (kind: "order" | "offer") =>
+    async (req: Request, res: Response) => {
+      try {
+        const body = z
+          .object({ index: z.number().int().min(0), unitPriceNet: z.number().nullable() })
+          .safeParse(req.body);
+        if (!body.success) {
+          return res.status(400).json({ error: "Ungültiger Preis" });
+        }
+        const tenantId = req.tenantId ?? null;
+        const draft =
+          kind === "order"
+            ? await storage.getOrderDraft(req.params.id)
+            : await storage.getOfferDraft(req.params.id, tenantId);
+        if (!draft) {
+          return res.status(404).json({ error: kind === "order" ? "Order draft not found" : "Offer draft not found" });
+        }
+        if (draft.status === "created" || draft.status === "creating") {
+          return res.status(409).json({ error: "Entwurf ist bereits angelegt" });
+        }
+        const result = applyManualLinePrice(
+          (draft.matchingResults?.items ?? []) as Array<Record<string, any>>,
+          body.data.index,
+          body.data.unitPriceNet,
+          (req.user as { username?: string } | undefined)?.username ?? "unbekannt",
+        );
+        if (!result.ok) {
+          return res.status(result.statusCode).json({ error: result.error });
+        }
+        const matchingResults = { ...draft.matchingResults!, items: result.items } as any;
+        const updated =
+          kind === "order"
+            ? await storage.updateOrderDraft(draft.id, { matchingResults })
+            : await storage.updateOfferDraft(draft.id, { matchingResults }, tenantId);
+        if (!updated) {
+          return res.status(404).json({ error: kind === "order" ? "Order draft not found" : "Offer draft not found" });
+        }
+        const profitability = await loadDraftProfitabilityForView({
+          storage,
+          tenantId,
+          kind,
+          draftId: updated.id,
+          draft: updated,
+          canViewDetails: canViewMarginDetails(req.user),
+        });
+        res.json({ draft: updated, profitability });
+      } catch (error) {
+        moduleLog.error({ err: error, kind }, "Error setting draft line price:");
+        res.status(500).json({ error: "Preis konnte nicht gespeichert werden" });
+      }
+    };
+  app.patch(
+    "/api/order-drafts/:id/line-price",
+    requireAuthOrIntegrationKey,
+    requireManageOrderDrafts,
+    requireCsrf,
+    lineDraftPriceHandler("order"),
+  );
+  app.patch(
+    "/api/offer-drafts/:id/line-price",
+    requireAuthOrIntegrationKey,
+    requireManageOffers,
+    requireCsrf,
+    lineDraftPriceHandler("offer"),
+  );
+
   // GET /api/order-drafts/:id - Get single order draft with cross-selling suggestions
   app.get("/api/order-drafts/:id", requireAuthOrIntegrationKey, requireManageOrderDrafts, async (req: Request, res: Response) => {
     try {
@@ -992,6 +1061,13 @@ export function registerDraftRoutes(app: Express): void {
       }
 
       // Update order draft
+      // Manuelle Preise ändert nur PATCH .../line-price (Stand des Prüffensters kann älter sein)
+      if (validated.matchingResults?.items && Array.isArray(validated.matchingResults.items)) {
+        validated.matchingResults = {
+          ...validated.matchingResults,
+          items: preserveManualLinePrices(existingDraft.matchingResults?.items as any[] | undefined, validated.matchingResults.items),
+        };
+      }
       const updatedDraft = await storage.updateOrderDraft(id, validated);
       
       if (!updatedDraft) {
@@ -1885,6 +1961,13 @@ export function registerDraftRoutes(app: Express): void {
       };
 
       // Update offer draft
+      // Manuelle Preise ändert nur PATCH .../line-price (Stand des Prüffensters kann älter sein)
+      if (validated.matchingResults?.items && Array.isArray(validated.matchingResults.items)) {
+        validated.matchingResults = {
+          ...validated.matchingResults,
+          items: preserveManualLinePrices(existingDraft.matchingResults?.items as any[] | undefined, validated.matchingResults.items),
+        };
+      }
       const updatedDraft = await storage.updateOfferDraft(id, validated);
       
       if (!updatedDraft) {

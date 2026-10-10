@@ -2387,6 +2387,10 @@ export const orderDrafts = pgTable("order_drafts", {
         productNumber: string;
         name: string;
         price: number;
+        /** Manuell gesetzter Netto-Stückpreis aus dem Prüffenster → an Shopware */
+        manualUnitPriceNet?: number;
+        manualPriceChangedBy?: string;
+        manualPriceChangedAt?: string;
       };
       bundle?: BundlePayload;
       alternativeMatches?: Array<{
@@ -2634,6 +2638,8 @@ export const offerDrafts = pgTable(
         suggestedPrice?: number; // AI-suggested price
         suggestedDiscount?: number; // AI-suggested discount percentage
         manualUnitPriceNet?: number; // Manuell gesetzter Netto-Stückpreis (Angebots-Builder) → an Shopware
+        manualPriceChangedBy?: string;
+        manualPriceChangedAt?: string;
       };
       bundle?: BundlePayload;
       alternativeMatches?: Array<{

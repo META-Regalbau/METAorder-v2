@@ -6252,7 +6252,10 @@
       "failed_to_fetch_backfill_state": "Stand der Erstbefüllung konnte nicht geladen werden",
       "failed_to_start_backfill": "Erstbefüllung konnte nicht gestartet werden",
       "failed_to_stop_backfill": "Erstbefüllung konnte nicht angehalten werden",
-      "db_berechnung_fehlgeschlagen": "DB-Berechnung fehlgeschlagen"
+      "db_berechnung_fehlgeschlagen": "DB-Berechnung fehlgeschlagen",
+      "ungultiger_preis": "Ungültiger Preis",
+      "entwurf_ist_bereits_angelegt": "Entwurf ist bereits angelegt",
+      "preis_konnte_nicht_gespeichert_werden": "Preis konnte nicht gespeichert werden"
     }
   },
   "roomPlanner": {
@@ -6901,6 +6904,14 @@
       "customer_discount": "Kundenrabatt",
       "list": "Listenpreis",
       "unresolved": "Kein Preis"
-    }
+    },
+    "priceColumn": "Preis netto / DB",
+    "priceSaveError": "Preis konnte nicht gespeichert werden",
+    "priceInvalid": "Bitte einen gültigen Preis eingeben",
+    "priceInputLabel": "Netto-Stückpreis Position {{position}}",
+    "priceNone": "kein Preis",
+    "priceReset": "Ermittelten Preis verwenden",
+    "priceChangedBy": "geändert von {{user}}",
+    "lineTotal": "Summe {{total}}"
   }
 }
