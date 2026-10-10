@@ -17,6 +17,7 @@ import {
   scorePair,
   selectWithinCaps,
   statScore,
+  patternStrength,
   type GateFailure,
   type LlmVerdict,
   type PairStats,
@@ -24,6 +25,7 @@ import {
 import { checkCrossSellFit, fitInputHash, LLM_FIT_MAX_TARGETS, type FitProduct } from "./crossSellLlmFit";
 import { applyCrossSellPlan, type CrossSellApplyOperation } from "./crossSellApply";
 import { getRulePairKey } from "./crossSellService";
+import { productSignature, buildCrossSellPatterns, applyCrossSellPatterns, type ProductSignature } from "./crossSellPatterns";
 import { logger } from "../lib/logger";
 
 const moduleLog = logger.child({ component: "cross-selling/crossSellCandidates" });
@@ -32,6 +34,11 @@ const STATS_WINDOW_DAYS = 730;
 const MIN_QUEUE_PAIR_ORDERS = 2;
 const MIN_QUEUE_POINT_LIFT = 1.2;
 const LLM_NO_FIT_HIDE_CONFIDENCE = 0.7;
+
+/** Stunde (00-23) in Europe/Berlin, Schluessel fuer die stuendlichen Laeufe der Erstbefuellung. */
+export function berlinHour(now: Date): string {
+  return new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Berlin", hour: "2-digit", hourCycle: "h23" }).format(now);
+}
 
 /** Kalendertag in Europe/Berlin (YYYY-MM-DD), Schluessel fuer den taeglichen Lauf. */
 export function berlinDateKey(now: Date): string {
@@ -54,6 +61,10 @@ export type CandidateRunStats = {
   llmNotConfigured: boolean;
   applyErrors: number;
   gateFailures: Partial<Record<GateFailure, number>>;
+  /** Kandidaten aus Mustern (aehnliche Produkte) */
+  patternCandidates: number;
+  /** nach dem Lauf noch ohne KI-Pruefung (Erstbefuellung: Fortschritt) */
+  remainingUnchecked: number;
 };
 
 type CandidateClient = Pick<
@@ -112,8 +123,14 @@ type Candidate = {
   origin: CrossSellPairOrigin;
   stats: PairStats;
   statScore: number;
+  /** Sortierwert vor der KI-Pruefung (Kaufstatistik bzw. Musterstaerke) */
+  preScore: number;
+  pattern?: { sources: number; orders: number; key: string };
   existing?: CrossSellPairState;
 };
+
+/** Hoechstens so viele Kandidaten je Ausgangsartikel (vor der KI-Pruefung). */
+const MAX_CANDIDATES_PER_SOURCE = 10;
 
 const pk = (s: string, t: string) => `${s}\u0000${t}`;
 
@@ -132,8 +149,17 @@ function manualRulePairs(rules: Awaited<ReturnType<IStorage["getAllCrossSellingR
 
 export async function runCrossSellCandidates(
   deps: CandidateRunDeps,
-  args: { tenantId: string | null; userId?: string | null; trigger: "scheduled" | "manual" },
+  args: {
+    tenantId: string | null;
+    userId?: string | null;
+    trigger: "scheduled" | "manual";
+    /** "backfill": Erstbefuellung ueber den ganzen Katalog mit eigenem KI-Budget */
+    kind?: "daily" | "backfill";
+    /** Erstbefuellung: bisher verbrauchte KI-Anfragen */
+    backfillLlmUsed?: number;
+  },
 ): Promise<{ runId: string | null; skipped?: string; stats?: CandidateRunStats }> {
+  const backfill = args.kind === "backfill";
   const { storage, tenantId } = { storage: deps.storage, tenantId: args.tenantId };
   const now = deps.now?.() ?? new Date();
   const settings = await getCrossSellAutomationSettings(storage, tenantId);
@@ -144,8 +170,13 @@ export async function runCrossSellCandidates(
 
   const run = await storage.acquireCrossSellRun(
     {
-      kind: "candidates",
-      periodKey: args.trigger === "scheduled" ? berlinDateKey(now) : `manual:${now.toISOString()}`,
+      kind: backfill ? "backfill" : "candidates",
+      periodKey:
+        args.trigger === "scheduled"
+          ? backfill
+            ? `${berlinDateKey(now)}T${berlinHour(now)}`
+            : berlinDateKey(now)
+          : `manual:${now.toISOString()}`,
       userId: args.userId ?? null,
     },
     tenantId,
@@ -168,6 +199,8 @@ export async function runCrossSellCandidates(
     llmNotConfigured: false,
     applyErrors: 0,
     gateFailures: {},
+    patternCandidates: 0,
+    remainingUnchecked: 0,
   };
 
   try {
@@ -185,6 +218,24 @@ export async function runCrossSellCandidates(
     for (const p of manualRulePairs(await storage.getAllCrossSellingRules(tenantId), catalog)) {
       raw.set(pk(p.source, p.target), { ...p, origin: "manual_rule" });
     }
+
+    // Produkte aus dem Spiegel (einmal laden): Signaturen fuer Muster, Details fuer Pruefungen
+    const mirrorRows = (await storage.getShopwareProductMirrors({ includeInactive: true }, tenantId)).rows;
+    const info = new Map<string, MirrorInfo>();
+    const signatures = new Map<string, ProductSignature>();
+    for (const row of mirrorRows) {
+      info.set(row.productNumber, mirrorInfo(row));
+      if (!(row.payload as { parentId?: string | null } | null)?.parentId) signatures.set(row.productNumber, productSignature(row));
+    }
+    // Muster: was bei aehnlichen Produkten zusammen gekauft wird (fuer Produkte ohne eigene Bestellungen)
+    const patternInfo = new Map<string, { sources: number; orders: number; key: string }>();
+    for (const c of applyCrossSellPatterns(buildCrossSellPatterns(basket, signatures), signatures, { minSources: settings.patternMinSources })) {
+      const key = pk(c.source, c.target);
+      if (raw.has(key)) continue;
+      raw.set(key, { source: c.source, target: c.target, origin: "pattern" });
+      patternInfo.set(key, { sources: c.patternSources, orders: c.patternOrders, key: c.patternKey });
+    }
+    stats.patternCandidates = patternInfo.size;
     stats.candidatePairs = raw.size;
 
     const candidates: Candidate[] = [];
@@ -199,19 +250,29 @@ export async function runCrossSellCandidates(
         const baseRate = st.totalOrders > 0 ? st.targetOrders / st.totalOrders : 0;
         if (baseRate <= 0 || pointConf / baseRate < MIN_QUEUE_POINT_LIFT) continue;
       }
-      candidates.push({ ...c, stats: st, statScore: statScore(st), existing });
+      const pattern = patternInfo.get(key);
+      const ss = statScore(st);
+      candidates.push({
+        ...c,
+        stats: st,
+        statScore: ss,
+        preScore: pattern ? 0.6 * patternStrength(pattern.sources) : ss,
+        pattern,
+        existing,
+      });
     }
-    // Nur die staerksten Kandidaten im Detail bewerten (Speicher, KI-Budget)
-    candidates.sort((a, b) => b.statScore - a.statScore);
-    const evaluated = candidates.slice(0, Math.max(50, Math.min(600, settings.maxNewQueueItemsPerRun * 3)));
+    // Je Ausgangsartikel die staerksten Kandidaten; taeglich nur die besten insgesamt,
+    // bei der Erstbefuellung alle (KI-Budget begrenzt die Menge je Lauf)
+    candidates.sort((a, b) => b.preScore - a.preScore);
+    const perSourceCount = new Map<string, number>();
+    const capped = candidates.filter((c) => {
+      const n = perSourceCount.get(c.source) ?? 0;
+      if (n >= MAX_CANDIDATES_PER_SOURCE) return false;
+      perSourceCount.set(c.source, n + 1);
+      return true;
+    });
+    const evaluated = backfill ? capped : capped.slice(0, Math.max(50, Math.min(600, settings.maxNewQueueItemsPerRun * 3)));
     stats.evaluated = evaluated.length;
-
-    const families = new Set<string>();
-    for (const c of evaluated) families.add(c.source).add(c.target);
-    const info = new Map<string, MirrorInfo>();
-    for (const row of await storage.getShopwareProductMirrorsByNumbers(Array.from(families), tenantId)) {
-      info.set(row.productNumber, mirrorInfo(row));
-    }
 
     // Reaktionen (90 Tage) und Freigabequote je Ziel
     const signals = new Map<string, { impressions: number; clicks: number; adds: number }>();
@@ -241,7 +302,9 @@ export async function runCrossSellCandidates(
       if (berlinDateKey(new Date(r.startedAt)).slice(0, 7) !== monthPrefix) continue;
       usedThisMonth += Number((r.stats as any)?.llmCalls) || 0;
     }
-    let llmBudget = Math.max(0, Math.min(settings.llmMaxCallsPerRun, settings.llmMaxCallsPerMonth - usedThisMonth));
+    let llmBudget = backfill
+      ? Math.max(0, Math.min(settings.backfillLlmPerRun, settings.backfillLlmBudget - (args.backfillLlmUsed ?? 0)))
+      : Math.max(0, Math.min(settings.llmMaxCallsPerRun, settings.llmMaxCallsPerMonth - usedThisMonth));
     const llmByKey = new Map<string, { verdict: LlmVerdict; reason: string; model: string; hash: string; checkedAt: Date }>();
     const fitProduct = (n: string): FitProduct => {
       const m = info.get(n);
@@ -272,7 +335,7 @@ export async function runCrossSellCandidates(
     const checkFit = deps.checkFit ?? checkCrossSellFit;
     // Quellen mit den staerksten Kandidaten zuerst
     const sourceOrder = Array.from(bySource.entries()).sort(
-      (a, b) => Math.max(...b[1].map((c) => c.statScore)) - Math.max(...a[1].map((c) => c.statScore)),
+      (a, b) => Math.max(...b[1].map((c) => c.preScore)) - Math.max(...a[1].map((c) => c.preScore)),
     );
     for (const [source, list] of sourceOrder) {
       for (let i = 0; i < list.length; i += LLM_FIT_MAX_TARGETS) {
@@ -283,6 +346,7 @@ export async function runCrossSellCandidates(
         }
         llmBudget -= 1;
         stats.llmCalls += 1;
+        if (stats.llmCalls % 10 === 0) await storage.heartbeatCrossSellRun(run.id, { llmCalls: stats.llmCalls }, tenantId);
         const outcome = await checkFit({
           getSetting: deps.getSetting,
           source: fitProduct(source),
@@ -340,7 +404,13 @@ export async function runCrossSellCandidates(
           : null);
       const llmCurrent = !!llm && !needsCheckAfter(llm, c, fresh !== undefined);
       const signal = signals.get(key) ?? null;
-      const { score, components } = scorePair({ stats: c.stats, llm: llm?.verdict ?? null, signal, feedback: feedback.get(c.target) ?? null });
+      const { score, components } = scorePair({
+        stats: c.stats,
+        statOverride: c.pattern ? patternStrength(c.pattern.sources) : undefined,
+        llm: llm?.verdict ?? null,
+        signal,
+        feedback: feedback.get(c.target) ?? null,
+      });
       const fails = evaluateAutoGates(
         {
           stats: c.stats,
@@ -351,12 +421,19 @@ export async function runCrossSellCandidates(
           alreadyInShop: false,
           sameFamily: c.source === c.target,
           heuristicOnly: c.origin === "manual_rule" && c.stats.pairOrders === 0,
+          pattern: c.pattern ? { sources: c.pattern.sources } : null,
         },
         settings,
       );
       for (const f of fails) stats.gateFailures[f] = (stats.gateFailures[f] ?? 0) + 1;
       const hiddenByLlm = llm?.verdict.verdict === "no_fit" && llm.verdict.confidence >= LLM_NO_FIT_HIDE_CONFIDENCE;
-      const queue = !hiddenByLlm && score >= settings.queueMinScore && isTargetEligible(info.get(c.source), info.get(c.target));
+      // Muster-Kandidaten und Erstbefuellung: nur KI-geprueft in die Pruefliste (sonst zu viele)
+      const needsLlmForQueue = backfill || !!c.pattern;
+      const queue =
+        !hiddenByLlm &&
+        (!needsLlmForQueue || (!!llm && llm.verdict.verdict !== "no_fit")) &&
+        score >= settings.queueMinScore &&
+        isTargetEligible(info.get(c.source), info.get(c.target));
       scored.push({ ...c, score, components: components as Record<string, number>, llm, fails, queue });
     }
     function needsCheckAfter(llm: { hash: string; checkedAt: Date }, c: Candidate, isFresh: boolean): boolean {
@@ -367,7 +444,13 @@ export async function runCrossSellCandidates(
 
     const eligible = scored.filter((s) => s.fails.length === 0);
     stats.autoEligible = eligible.length;
-    const selected = mode === "review" ? [] : selectWithinCaps(eligible, { perRun: settings.maxAutoApplyPerRun, perSource: settings.maxAutoApplyPerSource });
+    const selected =
+      mode === "review"
+        ? []
+        : selectWithinCaps(eligible, {
+            perRun: backfill ? settings.backfillMaxAutoPerRun : settings.maxAutoApplyPerRun,
+            perSource: backfill ? settings.backfillMaxAutoPerSource : settings.maxAutoApplyPerSource,
+          });
     const selectedKeys = new Set(selected.map((s) => pk(s.source, s.target)));
 
     // Automatisch setzen (auto) bzw. nur durchspielen (auto_dry_run)
@@ -404,7 +487,7 @@ export async function runCrossSellCandidates(
     }
 
     // Gedaechtnis nachfuehren: Pruefliste, KI-Urteile, Kennzahlen
-    const queueLimit = settings.maxNewQueueItemsPerRun;
+    const queueLimit = backfill ? settings.backfillMaxQueuePerRun : settings.maxNewQueueItemsPerRun;
     let newQueued = 0;
     const rows: Parameters<IStorage["upsertCrossSellPairStates"]>[0] = [];
     for (const s of scored.sort((a, b) => b.score - a.score)) {
@@ -430,7 +513,12 @@ export async function runCrossSellCandidates(
         autoEligible: s.fails.length === 0 && selectedKeys.has(key),
         score: s.score,
         scoreComponents: Object.fromEntries(Object.entries(s.components).filter(([, v]) => typeof v === "number")),
-        stats: { ...s.stats, gateFailures: s.fails, windowDays: STATS_WINDOW_DAYS },
+        stats: {
+          ...s.stats,
+          gateFailures: s.fails,
+          windowDays: STATS_WINDOW_DAYS,
+          ...(s.pattern ? { patternSources: s.pattern.sources, patternOrders: s.pattern.orders, patternKey: s.pattern.key } : {}),
+        },
         llmVerdict: s.llm?.verdict.verdict ?? null,
         llmRelation: s.llm?.verdict.relation ?? null,
         llmConfidence: s.llm?.verdict.confidence ?? null,
@@ -475,6 +563,7 @@ export async function runCrossSellCandidates(
       );
     }
 
+    stats.remainingUnchecked = evaluated.filter((c) => !llmByKey.has(pk(c.source, c.target)) && needsCheck(c)).length;
     await storage.finishCrossSellRun(run.id, { status: "completed", stats: stats as unknown as Record<string, unknown> }, tenantId);
     moduleLog.info({ tenantId, ...stats, gateFailures: undefined }, "Cross-Selling-Kandidatenlauf abgeschlossen");
     return { runId: run.id, stats };

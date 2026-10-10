@@ -50,17 +50,75 @@ export type FitResult = {
   reason: string;
 };
 
-const responseSchema = z.object({
-  results: z.array(
-    z.object({
-      productNumber: z.string(),
-      verdict: z.enum(["fit", "unsure", "no_fit"]),
-      relation: z.enum(["accessory", "component", "consumable", "alternative", "unrelated"]),
-      confidence: z.number().min(0).max(1),
-      reason: z.string().max(400),
-    }),
-  ),
+const RELATIONS = ["accessory", "component", "consumable", "alternative", "unrelated"] as const;
+
+const requiredText = z.union([z.string().min(1), z.number()]).transform(String);
+
+const rawItemSchema = z.object({
+  productNumber: requiredText,
+  verdict: requiredText,
+  relation: z.coerce.string().optional(),
+  confidence: z.coerce.number().optional(),
+  reason: z.coerce.string().optional(),
 });
+
+/**
+ * KI-Antwort tolerant einlesen: jeder Eintrag einzeln; Ausreisser (unbekannter Beziehungstyp,
+ * Sicherheit als Text oder in Prozent, zu lange Begruendung) werden normalisiert statt die
+ * ganze Antwort zu verwerfen.
+ */
+export function parseFitResponse(parsed: unknown): Array<FitResult & { productNumber: string }> | null {
+  const list = Array.isArray(parsed) ? parsed : Array.isArray((parsed as { results?: unknown })?.results) ? (parsed as { results: unknown[] }).results : null;
+  if (!list) return null;
+  const out: Array<FitResult & { productNumber: string }> = [];
+  for (const item of list) {
+    const r = rawItemSchema.safeParse(item);
+    if (!r.success) continue;
+    const v = r.data.verdict.trim().toLowerCase().replace(/[\s-]+/g, "_");
+    const verdict: FitResult["verdict"] = v === "fit" || v === "no_fit" || v === "unsure" ? v : v === "nofit" ? "no_fit" : "unsure";
+    const rel = (r.data.relation ?? "").trim().toLowerCase();
+    const relation: FitResult["relation"] = (RELATIONS as readonly string[]).includes(rel)
+      ? (rel as FitResult["relation"])
+      : /part|teil|component|bauteil|extension/.test(rel)
+        ? "component"
+        : /zubeh|access/.test(rel)
+          ? "accessory"
+          : "unrelated";
+    let confidence = Number.isFinite(r.data.confidence) ? (r.data.confidence as number) : 0;
+    if (confidence > 1 && confidence <= 100) confidence /= 100;
+    confidence = Math.max(0, Math.min(1, confidence));
+    out.push({ productNumber: r.data.productNumber.trim(), verdict, relation, confidence, reason: (r.data.reason ?? "").slice(0, 200) });
+  }
+  return out;
+}
+
+/**
+ * JSON aus der KI-Antwort holen: direkt, sonst den Block zwischen erster "{" und letzter "}"
+ * (Text davor/danach), sonst die einzelnen Eintraege (abgeschnittene Antwort).
+ */
+export function extractFitJson(text: string): unknown {
+  const direct = parseLlmJsonResponse(text);
+  if (direct && typeof direct === "object" && (Array.isArray(direct) || Array.isArray((direct as { results?: unknown }).results))) return direct;
+  const first = text.indexOf("{");
+  const last = text.lastIndexOf("}");
+  if (first >= 0 && last > first) {
+    try {
+      const block = JSON.parse(text.slice(first, last + 1));
+      if (block && Array.isArray((block as { results?: unknown }).results)) return block;
+    } catch {
+      // weiter mit einzelnen Eintraegen
+    }
+  }
+  const items: unknown[] = [];
+  for (const m of text.matchAll(/\{[^{}]*"productNumber"[^{}]*\}/g)) {
+    try {
+      items.push(JSON.parse(m[0]));
+    } catch {
+      // unvollstaendiger Eintrag
+    }
+  }
+  return items.length > 0 ? { results: items } : direct;
+}
 
 const SYSTEM_PROMPT = `Du bist Fachberater fuer Lager- und Fachbodenregale (Hersteller META) und pruefst Cross-Selling-Vorschlaege fuer einen Onlineshop.
 Fuer jedes ZIEL entscheidest du, ob es als Ergaenzung zur QUELLE angeboten werden sollte.
@@ -105,25 +163,35 @@ export async function checkCrossSellFit(params: {
 
   try {
     const { model } = await resolveChatTarget(params.getSetting, "smart");
-    const text = await chatCompletion(params.getSetting, {
-      tier: "smart",
-      temperature: 0.1,
-      max_tokens: 1800,
-      response_json: true,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: lines.join("\n") },
-      ],
-    });
-    const parsed = responseSchema.safeParse(parseLlmJsonResponse(text));
-    if (!parsed.success) {
+    const ask = () =>
+      chatCompletion(params.getSetting, {
+        tier: "smart",
+        temperature: 0.1,
+        max_tokens: 2600,
+        response_json: true,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: lines.join("\n") },
+        ],
+      });
+    // Gelegentlich bricht eine Antwort nach wenigen Zeichen ab: dann genau einmal neu fragen
+    let text = await ask();
+    let items = parseFitResponse(extractFitJson(text));
+    if (!items || items.length === 0) {
+      text = await ask();
+      items = parseFitResponse(extractFitJson(text));
+    }
+    if (!items) {
+      moduleLog.warn(
+        { source: params.source.productNumber, length: text.length, start: text.slice(0, 200), end: text.slice(-200) },
+        "KI-Fachpruefung: Antwort nicht lesbar",
+      );
       return { ok: false, reason: "error", error: "invalid_response" };
     }
     const allowed = new Set(targets.map((t) => t.productNumber));
     const results = new Map<string, FitResult>();
-    for (const r of parsed.data.results) {
-      if (!allowed.has(r.productNumber)) continue;
-      results.set(r.productNumber, { ...r, reason: r.reason.slice(0, 200) });
+    for (const { productNumber, ...r } of items) {
+      if (allowed.has(productNumber)) results.set(productNumber, r);
     }
     return { ok: true, results, model };
   } catch (err: any) {

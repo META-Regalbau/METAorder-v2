@@ -9,7 +9,8 @@ import { getCrossSellAutomationSettings } from "../cross-selling/crossSellAutoma
 import { loadCrossSellCatalog } from "../cross-selling/crossSellCatalog";
 import { approveCrossSellPairs, approveCrossSellRemovals, keepCrossSellPairs, rejectQueuedCrossSellPairs, undoCrossSellChanges } from "../cross-selling/crossSellReview";
 import { startCrossSellJob } from "../cross-selling/crossSellJobs";
-import { runCandidatesForTenant, runMonthlyReviewForTenant } from "../cross-selling/crossSellScheduler";
+import { runCandidatesForTenant, runMonthlyReviewForTenant, runBackfillForTenant } from "../cross-selling/crossSellScheduler";
+import { getBackfillState, startBackfill, stopBackfill } from "../cross-selling/crossSellBackfill";
 import type { CrossSellPairState } from "@shared/schema";
 import { logger } from "../lib/logger";
 
@@ -166,6 +167,48 @@ export function registerCrossSellAutomationRoutes(app: Express): void {
     } catch (error: any) {
       moduleLog.error({ err: error }, "Error starting cross-selling monthly review:");
       res.status(500).json({ error: error.message || "Failed to start monthly review" });
+    }
+  });
+
+  /** Erstbefuellung: Zustand und Budget. */
+  app.get("/api/cross-selling/backfill", requireAuth, requireManageCrossSellingRules, async (req, res) => {
+    try {
+      const tenantId = req.tenantId ?? null;
+      const [state, settings] = await Promise.all([getBackfillState(storage, tenantId), getCrossSellAutomationSettings(storage, tenantId)]);
+      res.json({ state, budget: settings.backfillLlmBudget, mode: settings.mode });
+    } catch (error: any) {
+      moduleLog.error({ err: error }, "Error fetching cross-selling backfill state:");
+      res.status(500).json({ error: error.message || "Failed to fetch backfill state" });
+    }
+  });
+
+  /** Erstbefuellung starten: erster Schritt sofort (202), danach stuendlich im Hintergrund. */
+  app.post("/api/cross-selling/backfill/start", requireAuth, requireManageCrossSellingRules, async (req, res) => {
+    try {
+      const tenantId = req.tenantId ?? null;
+      const settings = await storage.getShopwareSettings(tenantId);
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+      const userId = (req.user as any)?.id ?? null;
+      const current = await getBackfillState(storage, tenantId);
+      if (current.status !== "running") await startBackfill(storage, tenantId, userId);
+      const { started, state } = startCrossSellJob(storage, tenantId, "backfill", async () =>
+        runBackfillForTenant(storage, settings, tenantId, "manual", userId),
+      );
+      res.status(202).json({ started, alreadyRunning: !started, status: state.status });
+    } catch (error: any) {
+      moduleLog.error({ err: error }, "Error starting cross-selling backfill:");
+      res.status(500).json({ error: error.message || "Failed to start backfill" });
+    }
+  });
+
+  app.post("/api/cross-selling/backfill/stop", requireAuth, requireManageCrossSellingRules, async (req, res) => {
+    try {
+      res.json({ state: await stopBackfill(storage, req.tenantId ?? null) });
+    } catch (error: any) {
+      moduleLog.error({ err: error }, "Error stopping cross-selling backfill:");
+      res.status(500).json({ error: error.message || "Failed to stop backfill" });
     }
   });
 

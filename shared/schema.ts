@@ -1060,7 +1060,7 @@ export type InsertAiCrossSellRule = typeof aiCrossSellRules.$inferInsert;
 // tenant_id ist NOT NULL DEFAULT '' (kein Mandant = ''), damit die Unique-Indizes greifen.
 
 export type CrossSellPairStatus = "suggested" | "approved" | "rejected" | "applied" | "removal_proposed" | "removed";
-export type CrossSellPairOrigin = "ai" | "manual_rule" | "heuristic" | "user" | "shopware_manual" | "legacy_metaorder";
+export type CrossSellPairOrigin = "ai" | "manual_rule" | "heuristic" | "pattern" | "user" | "shopware_manual" | "legacy_metaorder";
 export type CrossSellPairShopRef = {
   groupId: string;
   groupName: string;
@@ -1167,7 +1167,7 @@ export const crossSellChangeLog = pgTable(
 export type CrossSellChangeLogEntry = typeof crossSellChangeLog.$inferSelect;
 export type InsertCrossSellChangeLogEntry = typeof crossSellChangeLog.$inferInsert;
 
-export type CrossSellRunKind = "learning" | "candidates" | "monthly_review" | "import";
+export type CrossSellRunKind = "learning" | "candidates" | "monthly_review" | "import" | "backfill";
 
 /** Laeufe (Sperre gegen Doppellaeufe, Verlauf, Berichte). */
 export const crossSellRuns = pgTable(

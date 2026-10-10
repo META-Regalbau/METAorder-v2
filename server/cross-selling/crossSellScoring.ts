@@ -137,6 +137,8 @@ export type LlmVerdict = {
 
 export type ScoreInputs = {
   stats: PairStats;
+  /** Statt der eigenen Kaufstatistik (z. B. Musterstaerke bei Produkten ohne Bestellungen) */
+  statOverride?: number;
   llm: LlmVerdict | null;
   /** Reaktionen in METAorder (Vorschau/Entwuerfe) */
   signal: { impressions: number; clicks: number; adds: number } | null;
@@ -183,7 +185,7 @@ export function feedbackScore(feedback: ScoreInputs["feedback"]): number {
  * Ohne KI-Urteil faellt dessen Gewicht weg, die anderen werden hochgerechnet.
  */
 export function scorePair(inputs: ScoreInputs): ScoreResult {
-  const stat = statScore(inputs.stats);
+  const stat = inputs.statOverride ?? statScore(inputs.stats);
   const llm = llmScore(inputs.llm);
   const signal = signalScore(inputs.signal);
   const feedback = feedbackScore(inputs.feedback);
@@ -202,6 +204,8 @@ export type AutoGateInput = {
   alreadyInShop: boolean;
   sameFamily: boolean;
   heuristicOnly?: boolean;
+  /** Kandidat aus einem Muster (aehnliche Produkte mit Bestellungen) statt eigener Bestellungen */
+  pattern?: { sources: number } | null;
 };
 
 export type GateFailure =
@@ -218,24 +222,32 @@ export type GateFailure =
   | "already_in_shop"
   | "same_family"
   | "negative_signal"
-  | "no_order_evidence";
+  | "no_order_evidence"
+  | "pattern_sources";
 
 const COMPLEMENT_RELATIONS = new Set(["accessory", "component", "consumable"]);
 
 /** Bedingungen fuer automatisches Setzen; leere Liste = alle erfuellt. */
 export function evaluateAutoGates(input: AutoGateInput, settings: CrossSellAutomationSettings): GateFailure[] {
   const fails: GateFailure[] = [];
-  if (input.heuristicOnly) fails.push("no_order_evidence");
-  if (input.stats.pairOrders < settings.minPairOrders) fails.push("min_pair_orders");
-  if (input.stats.distinctCustomers < settings.minDistinctCustomers) fails.push("min_customers");
-  if (input.stats.confLB < settings.minConfidenceLB) fails.push("confidence");
-  if (input.stats.liftLB < settings.minLiftLB) fails.push("lift");
+  const pattern = input.pattern ?? null;
+  if (pattern) {
+    // Muster: Beleg ueber aehnliche Produkte statt eigener Bestellungen, dafuer strengere KI-Schwelle
+    if (pattern.sources < settings.patternMinSources) fails.push("pattern_sources");
+  } else {
+    if (input.heuristicOnly) fails.push("no_order_evidence");
+    if (input.stats.pairOrders < settings.minPairOrders) fails.push("min_pair_orders");
+    if (input.stats.distinctCustomers < settings.minDistinctCustomers) fails.push("min_customers");
+    if (input.stats.confLB < settings.minConfidenceLB) fails.push("confidence");
+    if (input.stats.liftLB < settings.minLiftLB) fails.push("lift");
+  }
+  const minLlm = pattern ? settings.patternMinLlmConfidence : settings.minLlmConfidence;
   if (!input.llm || !input.llm.current) {
     fails.push("llm_missing");
   } else {
     if (input.llm.verdict !== "fit") fails.push("llm_not_fit");
     if (!input.llm.relation || !COMPLEMENT_RELATIONS.has(input.llm.relation)) fails.push("llm_relation");
-    if (input.llm.confidence < settings.minLlmConfidence) fails.push("llm_confidence");
+    if (input.llm.confidence < minLlm) fails.push("llm_confidence");
   }
   if (!input.targetEligible) fails.push("target_not_eligible");
   if (input.blocked) fails.push("blocked");
@@ -263,4 +275,9 @@ export function selectWithinCaps<T extends { source: string; score: number }>(
     out.push(item);
   }
   return out;
+}
+
+/** Musterstaerke 0..1 (10 belegte Produkte = voll). */
+export function patternStrength(sources: number): number {
+  return clamp01(sources / 10);
 }

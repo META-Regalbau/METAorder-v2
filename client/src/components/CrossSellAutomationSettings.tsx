@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { pollCrossSellJob } from "@/lib/crossSellJobs";
+import CrossSellBackfillPanel from "@/components/CrossSellBackfillPanel";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -37,7 +38,7 @@ type Settings = {
 };
 
 const MODES: Mode[] = ["off", "review", "auto_dry_run", "auto"];
-const NUMBER_FIELDS: Array<{ key: keyof Settings; step: number; group: "limits" | "gates" | "llm" }> = [
+const NUMBER_FIELDS: Array<{ key: keyof Settings; step: number; group: "limits" | "gates" | "llm" | "backfill" }> = [
   { key: "maxAutoApplyPerRun", step: 1, group: "limits" },
   { key: "maxAutoApplyPerSource", step: 1, group: "limits" },
   { key: "maxTargetsPerManagedGroup", step: 1, group: "limits" },
@@ -51,6 +52,13 @@ const NUMBER_FIELDS: Array<{ key: keyof Settings; step: number; group: "limits" 
   { key: "llmMaxCallsPerRun", step: 1, group: "llm" },
   { key: "llmMaxCallsPerMonth", step: 10, group: "llm" },
   { key: "llmRecheckDays", step: 1, group: "llm" },
+  { key: "patternMinSources", step: 1, group: "backfill" },
+  { key: "patternMinLlmConfidence", step: 0.05, group: "backfill" },
+  { key: "backfillLlmBudget", step: 100, group: "backfill" },
+  { key: "backfillLlmPerRun", step: 10, group: "backfill" },
+  { key: "backfillMaxAutoPerRun", step: 10, group: "backfill" },
+  { key: "backfillMaxAutoPerSource", step: 1, group: "backfill" },
+  { key: "backfillMaxQueuePerRun", step: 10, group: "backfill" },
 ];
 
 export default function CrossSellAutomationSettings() {
@@ -140,7 +148,7 @@ export default function CrossSellAutomationSettings() {
         </div>
       </div>
 
-      {(["limits", "gates", "llm"] as const).map((group) => (
+      {(["limits", "gates", "llm", "backfill"] as const).map((group) => (
         <div key={group} className="space-y-3">
           <h3 className="text-sm font-semibold">{t(`crossSellAutomation.groups.${group}`)}</h3>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -162,6 +170,8 @@ export default function CrossSellAutomationSettings() {
           </div>
         </div>
       ))}
+
+      <CrossSellBackfillPanel />
 
       <div className="space-y-3 rounded-md border p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">

@@ -6245,7 +6245,10 @@
       "change_not_found": "Change not found",
       "failed_to_undo_change": "Could not undo the change",
       "failed_to_undo_run": "Could not undo the run",
-      "failed_to_start_monthly_review": "Could not start the monthly review"
+      "failed_to_start_monthly_review": "Could not start the monthly review",
+      "failed_to_fetch_backfill_state": "Could not load the initial fill status",
+      "failed_to_start_backfill": "Could not start the initial fill",
+      "failed_to_stop_backfill": "Could not pause the initial fill"
     }
   },
   "roomPlanner": {
@@ -6694,7 +6697,8 @@
       "already_in_shop": "already in the shop",
       "same_family": "same family",
       "negative_signal": "rarely taken",
-      "no_order_evidence": "no orders"
+      "no_order_evidence": "no orders",
+      "pattern_sources": "too few similar products as evidence"
     },
     "removalProposed": "Removal proposed",
     "inLists": "In: {{lists}}",
@@ -6712,7 +6716,8 @@
       "all": "All ({{count}})",
       "remove": "Remove ({{count}})",
       "add": "Add ({{count}})"
-    }
+    },
+    "fromPattern": "from pattern ({{count}} similar products)"
   },
   "crossSellAutomation": {
     "tab": "Automation",
@@ -6736,7 +6741,8 @@
     "groups": {
       "limits": "Limits",
       "gates": "Conditions for automatic application",
-      "llm": "AI expert check"
+      "llm": "AI expert check",
+      "backfill": "Patterns and initial fill"
     },
     "fields": {
       "maxAutoApplyPerRun": "Max. automatic per run",
@@ -6751,7 +6757,14 @@
       "minLlmConfidence": "Min. AI confidence (0–1)",
       "llmMaxCallsPerRun": "AI requests per run",
       "llmMaxCallsPerMonth": "AI requests per month",
-      "llmRecheckDays": "Renew AI verdict after days"
+      "llmRecheckDays": "Renew AI verdict after days",
+      "patternMinSources": "Patterns: min. supporting products",
+      "patternMinLlmConfidence": "Patterns: AI confidence for automatic (0–1)",
+      "backfillLlmBudget": "Initial fill: total AI budget",
+      "backfillLlmPerRun": "Initial fill: AI requests per step",
+      "backfillMaxAutoPerRun": "Initial fill: max. automatic per step",
+      "backfillMaxAutoPerSource": "Initial fill: max. automatic per item",
+      "backfillMaxQueuePerRun": "Initial fill: new review entries per step"
     },
     "saved": "Settings saved",
     "saveError": "Saving failed",
@@ -6828,6 +6841,30 @@
       "source_inactive": "source inactive",
       "stale": "not bought together for 12 months",
       "positive": "effective"
+    }
+  },
+  "crossSellBackfill": {
+    "title": "Initial fill (whole catalogue)",
+    "hint": "One-off for all active products: candidates from orders, from patterns of similar products and from rules; the AI checks everything. Runs hourly in the background with its own AI budget until everything is checked. What gets applied follows the mode above: dry run only marks, semi-automatic applies safe complements.",
+    "start": "Start initial fill",
+    "restart": "Start again",
+    "stop": "Pause",
+    "started": "Initial fill started",
+    "startedHint": "The first step is running now, further steps every hour.",
+    "stopped": "Initial fill paused",
+    "error": "Initial fill failed",
+    "modeOff": "Automation is off: only this first step runs (review list only). Set the mode to dry run or semi-automatic for the hourly steps.",
+    "since": "since {{date}}",
+    "lastRun": "last step {{date}}",
+    "budgetLabel": "AI budget",
+    "budget": "AI requests: {{used}} of {{budget}}",
+    "counts": "{{runs}} steps · {{applied}} applied · {{dryRun}} marked in dry run · {{queued}} new in the review list · {{remaining}} candidates not yet checked",
+    "llmMissing": "No AI configured – nothing is applied automatically without the AI check.",
+    "status": {
+      "idle": "not started",
+      "running": "running",
+      "done": "finished",
+      "stopped": "paused"
     }
   }
 }

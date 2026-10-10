@@ -8,7 +8,7 @@ import { runWithTenantContext } from "../lib/tenantContext";
 
 const moduleLog = logger.child({ component: "cross-selling/crossSellJobs" });
 
-export type CrossSellJobType = "staging" | "ai" | "import" | "candidates" | "review";
+export type CrossSellJobType = "staging" | "ai" | "import" | "candidates" | "review" | "backfill";
 
 export type CrossSellJobState = {
   type: CrossSellJobType;
