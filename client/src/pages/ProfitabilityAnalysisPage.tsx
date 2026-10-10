@@ -71,11 +71,17 @@ function VerdictBadge({
   verdict,
   label,
 }: {
-  verdict: "green" | "red" | "none";
+  verdict: "green" | "yellow" | "red" | "none";
   label: string;
 }) {
   const variant =
-    verdict === "green" ? "default" : verdict === "red" ? "destructive" : "outline";
+    verdict === "green"
+      ? "default"
+      : verdict === "yellow"
+        ? "warning"
+        : verdict === "red"
+          ? "destructive"
+          : "outline";
   const className =
     verdict === "green"
       ? "bg-green-700 hover:bg-green-700/90 border-transparent"

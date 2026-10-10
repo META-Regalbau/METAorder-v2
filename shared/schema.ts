@@ -72,6 +72,8 @@ export const roles = pgTable("roles", {
     viewProduction: boolean;
     manageProduction: boolean;
     manageShippingLabels: boolean;
+    /** Genaue DB-Werte (Herstellkosten, DB1, Marge in %) sehen; ohne das Recht nur die Ampel. */
+    viewMarginDetails?: boolean;
   }>(),
 });
 
@@ -361,7 +363,7 @@ export type Order = {
   };
 };
 
-export type OrderProfitabilityVerdict = "green" | "red" | "none";
+export type OrderProfitabilityVerdict = "green" | "yellow" | "red" | "none";
 
 /** Deckungsbeitrags-Kennzahlen je Bestellung (VK aus Auftrag vs. importierte HK). */
 export type OrderProfitabilitySummary = {

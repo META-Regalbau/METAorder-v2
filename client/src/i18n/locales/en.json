@@ -842,6 +842,7 @@
     },
     "verdict": {
       "green": "Green",
+      "yellow": "Yellow",
       "red": "Red",
       "none": "No manufacturing cost"
     },
@@ -905,6 +906,7 @@
     "stats": {
       "title": "Statistics",
       "crmGreen": "CRM green (≥ {{threshold}}%)",
+      "crmYellow": "CRM yellow ({{warn}} to < {{threshold}}%)",
       "crmRed": "CRM red (< {{threshold}}%)",
       "noHerstellpreis": "Without MC data",
       "loss": "Loss orders",
@@ -916,6 +918,7 @@
     },
     "verdict": {
       "green": "Green",
+      "yellow": "Yellow",
       "red": "Red",
       "none": "No manufacturing cost"
     },
@@ -1784,9 +1787,11 @@
       "proformaSaveError": "Save failed",
       "proformaSaveErrorDesc": "The proforma number range could not be saved.",
       "crmProfitabilityTitle": "CRM profitability",
-      "crmProfitabilityDescription": "Minimum contribution margin on manufacturing costs for the traffic light in customer-specific prices (incl. overhead target).",
+      "crmProfitabilityDescription": "Thresholds of the margin traffic light on manufacturing costs: customer-specific prices, orders and drafts (including overhead target).",
       "crmProfitabilityMinMargin": "Minimum margin (%)",
-      "crmProfitabilityMinMarginHint": "Green from this markup on imported manufacturing costs. Example: At 20%, a 16% margin is unprofitable (red).",
+      "crmProfitabilityMinMarginHint": "Green from this markup on imported manufacturing costs. Example: with 20% minimum margin and 7% warning threshold, a margin of 16% is yellow and 5% is red.",
+      "crmProfitabilityWarnMargin": "Warning threshold (%)",
+      "crmProfitabilityWarnMarginHint": "Below this markup the traffic light is red; between warning threshold and minimum margin it is yellow. Also applies to order and offer drafts.",
       "crmProfitabilitySave": "Save CRM profitability",
       "crmProfitabilitySaving": "Saving...",
       "crmProfitabilitySaveSuccess": "CRM profitability saved",
@@ -4059,7 +4064,7 @@
         "advancedPriceDifferenceHint": "Percentage difference of the customer price to the advanced price (Shopware tier price). Positive = customer price is below it.",
         "discountPercent": "Discount",
         "herstellMargin": "Profitability (mfg. cost)",
-        "herstellMarginHint": "Contribution margin on imported manufacturing costs. Green from {{threshold}}% (minimum margin incl. overhead), below that red.",
+        "herstellMarginHint": "Contribution margin on imported manufacturing costs. Green from {{threshold}}% (minimum margin incl. overhead), below that yellow, below the warning threshold red.",
         "herstellMarginNone": "No manufacturing cost",
         "profitabilityThresholdHint": "Profitability indicator: green from {{threshold}}% margin on manufacturing costs (Settings → Tenant → CRM profitability).",
         "searchPlaceholder": "Search product number…",
@@ -5939,6 +5944,7 @@
       "forbidden_no_role_assigned": "Forbidden: No role assigned",
       "forbidden_viewdocuments_or_viewaccounting_permission_required": "Forbidden: viewDocuments or viewAccounting permission required",
       "forbidden_vieworders_permission_required": "Forbidden: viewOrders permission required",
+      "forbidden_viewmargindetails_permission_required": "Access denied: permission “View Margin Details” required",
       "glb_auflosung_fehlgeschlagen": "Failed to resolve GLB.",
       "glburl_required": "glbUrl required",
       "handoff_verifikation_fehlgeschlagen": "Handoff verification failed",
@@ -6866,5 +6872,12 @@
       "done": "finished",
       "stopped": "paused"
     }
+  },
+  "marginTrafficLight": {
+    "green": "Margin good",
+    "yellow": "Margin tight",
+    "red": "Margin too low",
+    "forbiddenTitle": "Not permitted",
+    "forbiddenText": "This page shows exact contribution margin values (manufacturing costs, DB1, margin). Your role needs the permission “View Margin Details”. Orders show the margin traffic light."
   }
 }

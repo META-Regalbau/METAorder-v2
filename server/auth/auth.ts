@@ -502,6 +502,22 @@ export function requireAdministrator(req: any, res: any, next: any) {
   res.status(403).json({ error: "Nur für Administratoren" });
 }
 
+/**
+ * Genaue DB-Werte (Herstellkosten, DB1, Marge in %): Recht viewMarginDetails oder Administrator.
+ * Ohne das Recht liefern die Endpunkte nur die Ampel.
+ */
+export function canViewMarginDetails(user: any): boolean {
+  if (isAdministrator(user)) return true;
+  const permissions = user?.roleDetails?.permissions;
+  if (Array.isArray(permissions)) return permissions.includes("viewMarginDetails");
+  return Boolean(permissions?.viewMarginDetails);
+}
+
+export function requireViewMarginDetails(req: any, res: any, next: any) {
+  if (canViewMarginDetails(req.user)) return next();
+  res.status(403).json({ error: "Forbidden: viewMarginDetails permission required" });
+}
+
 // Legacy middleware - kept for backwards compatibility
 // Prefer using permission-based checks (requireManageUsers, requireManageRoles, etc.)
 export function requireAdmin(req: any, res: any, next: any) {

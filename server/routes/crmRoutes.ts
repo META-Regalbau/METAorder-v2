@@ -1,5 +1,6 @@
 // CRM: Kundenliste, Kundenuebersicht, individuelle Preise/Rabatte, Zuweisungen, Rabattanfragen.
-import { requireAuth, requireViewCrm, requireAuthOrIntegrationKey, requireManageCrm, requireCsrf, requireApproveCrm } from "../auth/auth";
+import { requireAuth, requireViewCrm, requireAuthOrIntegrationKey, requireManageCrm, requireCsrf, requireApproveCrm, canViewMarginDetails } from "../auth/auth";
+import { applyCustomerPriceMarginVisibility } from "../analytics/profitabilityVisibility";
 import { getSalesChannelFilter, filterTicketsBySalesChannels, filterOrdersBySalesChannels, getOrdersWithCache, dedupeOrdersByNumber } from "./routeHelpers";
 import { storage } from "../storage";
 import { getHashCached, stableFingerprint } from "../lib/contentHashCache";
@@ -962,13 +963,17 @@ export function registerCrmRoutes(app: Express): void {
       // über alle Preise wäre das bei hunderten Positionen der teuerste Teil der Antwort.
       const pricesWithDiscounts = await client.enrichCustomerSpecificPricesWithDiscounts(pageSlice);
       const profitabilitySettings = await loadCrmProfitabilitySettings(storage, tenantId);
-      const prices = await enrichCustomerPricesWithHerstellMargin(pricesWithDiscounts, {
-        storage,
-        client,
-        tenantId,
-        standardDiscountPercent,
-        minMarginPercent: profitabilitySettings.minMarginPercent,
-      });
+      const prices = applyCustomerPriceMarginVisibility(
+        await enrichCustomerPricesWithHerstellMargin(pricesWithDiscounts, {
+          storage,
+          client,
+          tenantId,
+          standardDiscountPercent,
+          minMarginPercent: profitabilitySettings.minMarginPercent,
+          warnMarginPercent: profitabilitySettings.warnMarginPercent,
+        }),
+        canViewMarginDetails(req.user),
+      );
       const channelsSeen = new Set<string>();
       const channels: Array<{
         salesChannelId: string | null;
@@ -1005,7 +1010,7 @@ export function registerCrmRoutes(app: Express): void {
         salesChannelId: salesChannelFilter,
         channels,
         standardDiscountPercent,
-        profitabilityMinMarginPercent: profitabilitySettings.minMarginPercent,
+        profitabilityMinMarginPercent: profitabilitySettings.minMarginPercent, profitabilityWarnMarginPercent: profitabilitySettings.warnMarginPercent,
         resolved: true,
         configured: true,
         customerId: primaryCustomerId ?? null,

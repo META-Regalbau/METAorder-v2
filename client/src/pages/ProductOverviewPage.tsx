@@ -898,6 +898,7 @@ export default function ProductOverviewPage() {
         }}
         initialTab={detailTab}
         minMarginPercent={data?.profitabilityMinMarginPercent}
+        warnMarginPercent={data?.profitabilityWarnMarginPercent}
         onPrintLabel={
           detailProduct ? () => openLabelDialog([toPrintableArticle(detailProduct)]) : undefined
         }

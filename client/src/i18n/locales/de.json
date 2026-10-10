@@ -842,6 +842,7 @@
     },
     "verdict": {
       "green": "Grün",
+      "yellow": "Gelb",
       "red": "Rot",
       "none": "Kein Herstellpreis"
     },
@@ -905,6 +906,7 @@
     "stats": {
       "title": "Kennzahlen",
       "crmGreen": "CRM grün (≥ {{threshold}} %)",
+      "crmYellow": "CRM gelb ({{warn}} bis < {{threshold}} %)",
       "crmRed": "CRM rot (< {{threshold}} %)",
       "noHerstellpreis": "Ohne HK-Daten",
       "loss": "Verlust-Aufträge",
@@ -916,6 +918,7 @@
     },
     "verdict": {
       "green": "Grün",
+      "yellow": "Gelb",
       "red": "Rot",
       "none": "Kein Herstellpreis"
     },
@@ -1781,9 +1784,11 @@
       "proformaSaveError": "Speichern fehlgeschlagen",
       "proformaSaveErrorDesc": "Der Proforma-Nummernkreis konnte nicht gespeichert werden.",
       "crmProfitabilityTitle": "CRM-Rentabilität",
-      "crmProfitabilityDescription": "Mindest-Deckungsbeitrag auf Herstellkosten für die Ampel in kundenindividuellen Preisen (inkl. Ziel für Gemeinkosten).",
+      "crmProfitabilityDescription": "Schwellen der DB-Ampel auf Herstellkosten: in kundenindividuellen Preisen, Bestellungen und Entwürfen (inkl. Ziel für Gemeinkosten).",
       "crmProfitabilityMinMargin": "Mindestmarge (%)",
-      "crmProfitabilityMinMarginHint": "Grün ab diesem Aufschlag auf die importierten Herstellkosten. Beispiel: Bei 20 % gilt eine Marge von 16 % als unrentabel (rot).",
+      "crmProfitabilityMinMarginHint": "Grün ab diesem Aufschlag auf die importierten Herstellkosten. Beispiel: Bei 20 % Mindestmarge und 7 % Warnschwelle ist eine Marge von 16 % gelb, von 5 % rot.",
+      "crmProfitabilityWarnMargin": "Warnschwelle (%)",
+      "crmProfitabilityWarnMarginHint": "Unter diesem Aufschlag ist die Ampel rot, zwischen Warnschwelle und Mindestmarge gelb. Gilt auch für Bestell- und Angebotsentwürfe.",
       "crmProfitabilitySave": "CRM-Rentabilität speichern",
       "crmProfitabilitySaving": "Speichere...",
       "crmProfitabilitySaveSuccess": "CRM-Rentabilität gespeichert",
@@ -4056,7 +4061,7 @@
         "advancedPriceDifferenceHint": "Prozentuale Differenz des Kundenpreises zum erweiterten Preis (Shopware-Staffelpreis). Positiv = Kundenpreis liegt darunter.",
         "discountPercent": "Rabatt",
         "herstellMargin": "Rentabilität (HK)",
-        "herstellMarginHint": "Deckungsbeitrag auf importierte Herstellkosten. Grün ab {{threshold}} % (Mindestmarge inkl. Gemeinkosten), darunter rot.",
+        "herstellMarginHint": "Deckungsbeitrag auf importierte Herstellkosten. Grün ab {{threshold}} % (Mindestmarge inkl. Gemeinkosten), darunter gelb, unter der Warnschwelle rot.",
         "herstellMarginNone": "Kein Herstellpreis",
         "profitabilityThresholdHint": "Rentabilitäts-Ampel: grün ab {{threshold}} % Marge auf Herstellkosten (Einstellungen → Mandant → CRM-Rentabilität).",
         "searchPlaceholder": "Artikelnummer suchen…",
@@ -5936,6 +5941,7 @@
       "forbidden_no_role_assigned": "Zugriff verweigert: Keine Rolle zugewiesen",
       "forbidden_viewdocuments_or_viewaccounting_permission_required": "Zugriff verweigert: Berechtigung viewDocuments oder viewAccounting erforderlich",
       "forbidden_vieworders_permission_required": "Zugriff verweigert: Berechtigung viewOrders erforderlich",
+      "forbidden_viewmargindetails_permission_required": "Zugriff verweigert: Berechtigung „DB-Werte sehen“ erforderlich",
       "glb_auflosung_fehlgeschlagen": "GLB-Auflösung fehlgeschlagen.",
       "glburl_required": "glbUrl erforderlich",
       "handoff_verifikation_fehlgeschlagen": "Handoff-Verifikation fehlgeschlagen",
@@ -6863,5 +6869,12 @@
       "done": "fertig",
       "stopped": "angehalten"
     }
+  },
+  "marginTrafficLight": {
+    "green": "DB gut",
+    "yellow": "DB knapp",
+    "red": "DB zu niedrig",
+    "forbiddenTitle": "Keine Berechtigung",
+    "forbiddenText": "Diese Seite zeigt genaue DB-Werte (Herstellkosten, DB1, Marge). Dafür braucht deine Rolle das Recht „DB-Werte sehen“. In Bestellungen siehst du die DB-Ampel."
   }
 }

@@ -399,6 +399,7 @@ function normalizeRolePermissions(role: Role): Role {
     viewB2B: false,
     manageB2B: false,
     approveB2BBudgets: false,
+    viewMarginDetails: false,
   };
 
   const mergedPermissions = {
@@ -413,6 +414,7 @@ function normalizeRolePermissions(role: Role): Role {
     mergedPermissions.viewB2B = true;
     mergedPermissions.manageB2B = true;
     mergedPermissions.approveB2BBudgets = true;
+    mergedPermissions.viewMarginDetails = true;
   } else if (role.name === "Employee" || role.name === "Warehouse Manager") {
     mergedPermissions.viewCrm = true;
     mergedPermissions.manageCrm = true;

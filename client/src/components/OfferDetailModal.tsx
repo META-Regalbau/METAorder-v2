@@ -17,6 +17,7 @@ import {
 } from "@/lib/offerConfigPdfOptions";
 import { Link } from "wouter";
 import { offerProfitabilityHref } from "@/lib/orderProfitabilityLink";
+import { useCanViewMarginDetails } from "@/hooks/useMarginVisibility";
 import "@/styles/metaAdmin.css";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
@@ -101,6 +102,7 @@ export default function OfferDetailModal({
   const fmt = useLocaleFormat();
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
+  const canViewMarginDetails = useCanViewMarginDetails();
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfError, setPdfError] = useState<boolean>(false);
   const [configPdfLoading, setConfigPdfLoading] = useState(false);
@@ -806,14 +808,16 @@ export default function OfferDetailModal({
                 )}
                 {t("offerDetail.downloadErpXml")}
               </button>
-              <Link
-                href={offerProfitabilityHref(offer.offerNumber)}
-                className="mbtn sm"
-                data-testid="link-offer-db-calculation"
-              >
-                <Calculator className="h-4 w-4" />
-                {t("offers.openCalculation")}
-              </Link>
+              {canViewMarginDetails && (
+                <Link
+                  href={offerProfitabilityHref(offer.offerNumber)}
+                  className="mbtn sm"
+                  data-testid="link-offer-db-calculation"
+                >
+                  <Calculator className="h-4 w-4" />
+                  {t("offers.openCalculation")}
+                </Link>
+              )}
               {canManage && (
                 <>
                   <button

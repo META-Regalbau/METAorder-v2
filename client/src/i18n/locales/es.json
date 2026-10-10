@@ -771,6 +771,7 @@
     },
     "verdict": {
       "green": "Verde",
+      "yellow": "Amarillo",
       "red": "Rojo",
       "none": "Sin coste de fabricación"
     },
@@ -834,6 +835,7 @@
     "stats": {
       "title": "Estadísticas",
       "crmGreen": "CRM verde (≥ {{threshold}}%)",
+      "crmYellow": "CRM amarillo ({{warn}} a < {{threshold}} %)",
       "crmRed": "CRM rojo (< {{threshold}}%)",
       "noHerstellpreis": "Sin datos CF",
       "loss": "Pedidos con pérdida",
@@ -845,6 +847,7 @@
     },
     "verdict": {
       "green": "Verde",
+      "yellow": "Amarillo",
       "red": "Rojo",
       "none": "Sin coste de fabricación"
     },
@@ -1563,9 +1566,11 @@
       "proformaSaveError": "Error al guardar",
       "proformaSaveErrorDesc": "No se pudo guardar el rango de numeracion proforma.",
       "crmProfitabilityTitle": "Rentabilidad CRM",
-      "crmProfitabilityDescription": "Margen minimo de contribucion sobre costes de fabricacion para el semaforo en precios individuales (incl. objetivo de gastos generales).",
+      "crmProfitabilityDescription": "Umbrales del semáforo de margen sobre costes de fabricación: precios individuales, pedidos y borradores (incl. objetivo de gastos generales).",
       "crmProfitabilityMinMargin": "Margen minimo (%)",
-      "crmProfitabilityMinMarginHint": "Verde a partir de este recargo sobre los costes de fabricacion importados. Ejemplo: con 20 %, un margen del 16 % se considera no rentable (rojo).",
+      "crmProfitabilityMinMarginHint": "Verde a partir de este recargo sobre los costes de fabricación importados. Ejemplo: con 20 % de margen mínimo y 7 % de umbral de aviso, un margen del 16 % es amarillo y del 5 % rojo.",
+      "crmProfitabilityWarnMargin": "Umbral de aviso (%)",
+      "crmProfitabilityWarnMarginHint": "Por debajo de este recargo el semáforo es rojo; entre el umbral de aviso y el margen mínimo, amarillo. También se aplica a borradores de pedidos y ofertas.",
       "crmProfitabilitySave": "Guardar rentabilidad CRM",
       "crmProfitabilitySaving": "Guardando...",
       "crmProfitabilitySaveSuccess": "Rentabilidad CRM guardada",
@@ -3905,7 +3910,7 @@
         "advancedPriceDifferenceHint": "Diferencia porcentual del precio del cliente respecto al precio avanzado (precio escalonado de Shopware). Positivo = el precio del cliente esta por debajo.",
         "discountPercent": "Descuento",
         "herstellMargin": "Rentabilidad (coste fab.)",
-        "herstellMarginHint": "Margen de contribucion sobre costes de fabricacion importados. Verde desde {{threshold}} % (margen minimo incl. gastos generales), por debajo rojo.",
+        "herstellMarginHint": "Margen de contribución sobre costes de fabricación importados. Verde desde {{threshold}} % (margen mínimo incl. gastos generales), por debajo amarillo, por debajo del umbral de aviso rojo.",
         "herstellMarginNone": "Sin coste de fabricacion",
         "profitabilityThresholdHint": "Indicador de rentabilidad: verde desde {{threshold}} % de margen sobre costes de fabricacion (Ajustes → Inquilino → Rentabilidad CRM).",
         "searchPlaceholder": "Buscar número de artículo…",
@@ -5936,6 +5941,7 @@
       "forbidden_no_role_assigned": "Acceso denegado: no tiene ningún rol asignado",
       "forbidden_viewdocuments_or_viewaccounting_permission_required": "Acceso prohibido: se requiere el permiso viewDocuments o viewAccounting",
       "forbidden_vieworders_permission_required": "Acceso denegado: se requiere el permiso viewOrders",
+      "forbidden_viewmargindetails_permission_required": "Acceso denegado: se requiere el permiso «Ver detalles de margen»",
       "glb_auflosung_fehlgeschlagen": "No se pudo resolver el GLB.",
       "glburl_required": "Se requiere glbUrl",
       "handoff_verifikation_fehlgeschlagen": "Error al verificar el traspaso",
@@ -6863,5 +6869,12 @@
       "done": "terminado",
       "stopped": "pausado"
     }
+  },
+  "marginTrafficLight": {
+    "green": "Margen bueno",
+    "yellow": "Margen justo",
+    "red": "Margen demasiado bajo",
+    "forbiddenTitle": "Sin permiso",
+    "forbiddenText": "Esta página muestra valores exactos de margen de contribución (costes de fabricación, DB1, margen). Tu rol necesita el permiso «Ver detalles de margen». En los pedidos verás el semáforo de margen."
   }
 }

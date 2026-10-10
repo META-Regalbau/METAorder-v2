@@ -123,19 +123,19 @@ export default function AppSidebar({ userRole, permissions, isAdmin = false }: A
           titleKey: "nav.priceCheck",
           url: "/price-check",
           icon: Scale,
-          permission: "viewOrders" as keyof Role['permissions'],
+          permission: "viewMarginDetails" as keyof Role['permissions'],
         },
         {
           titleKey: "nav.profitabilityAnalysis",
           url: "/profitability-analysis",
           icon: BarChart3,
-          permission: "viewOrders" as keyof Role['permissions'],
+          permission: "viewMarginDetails" as keyof Role['permissions'],
         },
         {
           titleKey: "nav.orderProfitabilityAnalysis",
           url: "/order-profitability-analysis",
           icon: BarChart3,
-          permission: "viewOrders" as keyof Role['permissions'],
+          permission: "viewMarginDetails" as keyof Role['permissions'],
         },
         {
           titleKey: "nav.bundles",

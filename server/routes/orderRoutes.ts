@@ -1,5 +1,6 @@
 // Bestellungen: Liste/Abfrage/Export, Details, Dokumente, Rechnungen, Versand, Mondu, Teilzahlungsplaene.
-import { requireAuth, requireViewDelayedOrders, requireManageDocuments, requireCsrf, requireEditOrders, requireManageAccounting } from "../auth/auth";
+import { requireAuth, requireViewDelayedOrders, requireManageDocuments, requireCsrf, requireEditOrders, requireManageAccounting, canViewMarginDetails, requireViewMarginDetails } from "../auth/auth";
+import { applyOrderMarginVisibility } from "../analytics/profitabilityVisibility";
 import { storage } from "../storage";
 import { ShopwareClient, getRealInvoiceDocument, isMonduPluginShipError, ZUGFERD_EMBEDDED_INVOICE_TYPE } from "../shopware/shopware";
 import { getSalesChannelFilter, getOrdersWithCache, filterOrdersBySalesChannels, filterTicketsBySalesChannels, defaultProformaNumberRange, resolveAttachmentPath, dedupeOrdersByNumber, checkOrderChannelAccess, getMirrorOrdersLikeLive } from "./routeHelpers";
@@ -235,7 +236,10 @@ export function registerOrderRoutes(app: Express): void {
           client,
           tenantId,
         });
-        const withStock = await enrichOrdersWithStockAvailability(enrichedPage, tenantId);
+        const withStock = await enrichOrdersWithStockAvailability(
+          applyOrderMarginVisibility(enrichedPage, canViewMarginDetails(req.user)),
+          tenantId,
+        );
 
         res.json({
           orders: withStock,
@@ -258,7 +262,7 @@ export function registerOrderRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/orders/db-summary", requireAuth, async (req, res) => {
+  app.get("/api/orders/db-summary", requireAuth, requireViewMarginDetails, async (req, res) => {
     try {
       const tenantId = (req as any).tenantId ?? null;
       const settings = await storage.getShopwareSettings(tenantId);
@@ -293,7 +297,7 @@ export function registerOrderRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/orders/profitability-analysis", requireAuth, async (req, res) => {
+  app.get("/api/orders/profitability-analysis", requireAuth, requireViewMarginDetails, async (req, res) => {
     try {
       const tenantId = (req as any).tenantId ?? null;
       const settings = await storage.getShopwareSettings(tenantId);
@@ -326,7 +330,7 @@ export function registerOrderRoutes(app: Express): void {
         worstOrders,
         bestOrders,
         total: enrichedOrders.length,
-        profitabilityMinMarginPercent: profitabilitySettings.minMarginPercent,
+        profitabilityMinMarginPercent: profitabilitySettings.minMarginPercent, profitabilityWarnMarginPercent: profitabilitySettings.warnMarginPercent,
       });
     } catch (error: any) {
       moduleLog.error({ err: error }, "[/api/orders/profitability-analysis] Error:");
@@ -335,7 +339,7 @@ export function registerOrderRoutes(app: Express): void {
   });
 
   // DB-Berechnung fuer genau eine Bestellnummer (alle Bestellungen mit dieser Nummer, mit Positionen)
-  app.get("/api/orders/profitability-by-number", requireAuth, async (req, res) => {
+  app.get("/api/orders/profitability-by-number", requireAuth, requireViewMarginDetails, async (req, res) => {
     try {
       const orderNumber = typeof req.query.orderNumber === "string" ? req.query.orderNumber.trim() : "";
       if (!orderNumber) {
@@ -368,7 +372,7 @@ export function registerOrderRoutes(app: Express): void {
       res.json({
         orderNumber,
         orders: enrichedOrders,
-        profitabilityMinMarginPercent: profitabilitySettings.minMarginPercent,
+        profitabilityMinMarginPercent: profitabilitySettings.minMarginPercent, profitabilityWarnMarginPercent: profitabilitySettings.warnMarginPercent,
       });
     } catch (error: any) {
       moduleLog.error({ err: error }, "[/api/orders/profitability-by-number] Error:");
@@ -1057,12 +1061,13 @@ export function registerOrderRoutes(app: Express): void {
         tenantId,
       });
 
-      const [withStock] = await enrichOrdersWithStockAvailability(
+      const [visibleOrder] = applyOrderMarginVisibility(
         [enrichedOrder ?? order],
-        tenantId,
+        canViewMarginDetails(req.user),
       );
+      const [withStock] = await enrichOrdersWithStockAvailability([visibleOrder!], tenantId);
 
-      res.json(withStock ?? enrichedOrder ?? order);
+      res.json(withStock ?? visibleOrder);
     } catch (error: any) {
       moduleLog.error({ err: error }, "Error fetching order:");
       res.status(500).json({ error: error.message || "Failed to fetch order" });

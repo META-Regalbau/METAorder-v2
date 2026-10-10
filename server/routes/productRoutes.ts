@@ -1,5 +1,5 @@
 // Produkte: Liste/Uebersicht/Details, Preise und Herstellpreise, Sichtbarkeits-Import, OBX-Suche, Kategorien/Kanaele/3D-Modell je Produkt, Shopware-Cross-Selling, Produktcache und Bundles.
-import { requireAuth, requireCsrf, requireManageProducts, requireManageSettings, requireManageCrossSellingGroups } from "../auth/auth";
+import { requireAuth, requireCsrf, requireManageProducts, requireManageSettings, requireManageCrossSellingGroups, canViewMarginDetails } from "../auth/auth";
 import { storage } from "../storage";
 import { ShopwareClient, type ShopwareProductOverview, applyOverviewParentInheritance, normalizeShopwareEntityId, isShopwareEntityId } from "../shopware/shopware";
 import { getSalesChannelFilter, uploadRateLimiter } from "./routeHelpers";
@@ -470,9 +470,13 @@ export function registerProductRoutes(app: Express): void {
         return display;
       };
 
-      const lookupKeys = overview
-        .map((p) => getHerstellpreisLookupKey(p.customFields as Record<string, unknown> | undefined, p.productNumber))
-        .filter((key): key is string => Boolean(key));
+      // Herstellkosten nur mit Recht „DB-Werte sehen“; ohne bleibt die Spalte leer.
+      const showHerstellpreise = canViewMarginDetails(req.user);
+      const lookupKeys = showHerstellpreise
+        ? overview
+            .map((p) => getHerstellpreisLookupKey(p.customFields as Record<string, unknown> | undefined, p.productNumber))
+            .filter((key): key is string => Boolean(key))
+        : [];
       const herstellMap = await storage.getProductHerstellpreiseByProductNumbers(lookupKeys, tenantId);
       const profitabilitySettings = await loadCrmProfitabilitySettings(storage, tenantId);
 
@@ -508,7 +512,7 @@ export function registerProductRoutes(app: Express): void {
         products: rows,
         salesChannels: visibleChannels.map((c) => ({ id: c.id, name: c.name })),
         total: rows.length,
-        profitabilityMinMarginPercent: profitabilitySettings.minMarginPercent,
+        profitabilityMinMarginPercent: profitabilitySettings.minMarginPercent, profitabilityWarnMarginPercent: profitabilitySettings.warnMarginPercent,
         fromMirror: mirrorCount > 0,
       });
     } catch (error: any) {

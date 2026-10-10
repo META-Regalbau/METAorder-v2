@@ -30,6 +30,7 @@ import { useTranslation } from "react-i18next";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
+import { useCanViewMarginDetails } from "@/hooks/useMarginVisibility";
 import { isNotConfiguredError } from "@/lib/apiError";
 import { orderProfitabilityHref } from "@/lib/orderProfitabilityLink";
 /** Versanddatum fuer <input type="date">: Zeitstempel (Status-Historie in Shopware) als lokaler Tag. */
@@ -117,6 +118,7 @@ export default function OrderDetailModal({
   onUpdateDocuments,
 }: OrderDetailModalProps) {
   const fmt = useLocaleFormat();
+  const canViewMarginDetails = useCanViewMarginDetails();
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const [isCreateTicketDialogOpen, setIsCreateTicketDialogOpen] = useState(false);
@@ -932,7 +934,7 @@ export default function OrderDetailModal({
             <Card className="p-6">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-sm font-medium uppercase tracking-wide">{t('orderDetail.orderItems')}</h3>
-                {order.items?.length ? (
+                {order.items?.length && canViewMarginDetails ? (
                   <Button variant="outline" size="sm" asChild>
                     <Link href={orderProfitabilityHref(order.orderNumber)} data-testid="link-order-db-calculation">
                       <Calculator className="h-4 w-4 mr-2" />
@@ -951,8 +953,7 @@ export default function OrderDetailModal({
                   />
                 </div>
               ) : null}
-              {order.profitability?.marginPercent != null ||
-              order.profitability?.marginOnRevenuePercent != null ? (
+              {order.profitability && order.profitability.crmVerdict !== "none" ? (
                 <div className="mb-4 rounded-lg border bg-muted/30 p-4 flex flex-wrap items-center justify-between gap-3">
                   <HerstellMarginIndicator
                     marginPercent={order.profitability.marginPercent}
@@ -1007,7 +1008,7 @@ export default function OrderDetailModal({
                             <p className="text-muted-foreground">{fmt.currency(item.price)} {t('orderDetail.each')} <span className="text-xs">({t('orderDetail.gross')})</span></p>
                             <p className="text-xs text-muted-foreground">{fmt.currency(item.netPrice)} {t('orderDetail.each')} ({t('orderDetail.net')})</p>
                           </div>
-                          {item.marginPercent != null || item.marginOnRevenuePercent != null ? (
+                          {item.crmVerdict && item.crmVerdict !== "none" ? (
                             <div className="pt-1">
                               <HerstellMarginIndicator
                                 marginPercent={item.marginPercent ?? null}

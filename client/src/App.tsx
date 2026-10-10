@@ -69,6 +69,7 @@ import PublicOfferPage from "@/pages/PublicOfferPage";
 import PublicCpqConfiguratorPage from "@/pages/PublicCpqConfiguratorPage";
 import PortalPasswordRequestPage from "@/pages/PortalPasswordRequestPage";
 import GlobalSkeletonOverlay from "@/components/GlobalSkeletonOverlay";
+import MarginDetailsGuard from "@/components/MarginDetailsGuard";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { User, Role } from "@shared/schema";
@@ -101,9 +102,9 @@ function Router({
       <Route path="/products" component={ProductsPage} />
       <Route path="/obx-search" component={ObxSearchPage} />
       <Route path="/product-overview" component={ProductOverviewPage} />
-      <Route path="/price-check" component={PriceCheckPage} />
-      <Route path="/profitability-analysis" component={ProfitabilityAnalysisPage} />
-      <Route path="/order-profitability-analysis" component={OrderProfitabilityAnalysisPage} />
+      <Route path="/price-check" component={() => <MarginDetailsGuard><PriceCheckPage /></MarginDetailsGuard>} />
+      <Route path="/profitability-analysis" component={() => <MarginDetailsGuard><ProfitabilityAnalysisPage /></MarginDetailsGuard>} />
+      <Route path="/order-profitability-analysis" component={() => <MarginDetailsGuard><OrderProfitabilityAnalysisPage /></MarginDetailsGuard>} />
       <Route path="/bundles" component={BundlesPage} />
       <Route path="/visibility-import" component={VisibilityImportPage} />
       <Route path="/tickets" component={() => <TicketsPage userPermissions={userPermissions} />} />
