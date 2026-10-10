@@ -22,7 +22,7 @@ import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 import { apiErrorFromBody } from "@/lib/apiError";
 import { downloadCsv } from "@/lib/csvDownload";
 import { MISSING_HK_ROW_CLASS } from "@/lib/profitabilityStyles";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import OfferProfitabilityResultView from "@/components/OfferProfitabilityResult";
 import type { OfferProfitabilityResult } from "@shared/offerProfitability";
 
@@ -358,56 +358,61 @@ export default function OrderProfitabilityLookup() {
             <TabsTrigger value="order">{t("orderProfitabilityAnalysis.lookup.modeOrder")}</TabsTrigger>
             <TabsTrigger value="offer">{t("orderProfitabilityAnalysis.lookup.modeOffer")}</TabsTrigger>
           </TabsList>
-        </Tabs>
-        <form onSubmit={submit} className="flex flex-wrap gap-2 items-end">
-          <div className="space-y-1">
-            <Label htmlFor="db-lookup-number">{t(`${textKey}.label`)}</Label>
-            <Input
-              id="db-lookup-number"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={t(`${textKey}.placeholder`)}
-              className="w-56 font-mono"
-              autoComplete="off"
-            />
-          </div>
-          <Button type="submit" disabled={input.trim() === "" || active.isFetching}>
-            <Search className="h-4 w-4 mr-2" />
-            {t("orderProfitabilityAnalysis.lookup.submit")}
-          </Button>
-          {submitted ? (
-            <Button type="button" variant="ghost" onClick={reset}>
-              <X className="h-4 w-4 mr-2" />
-              {t("orderProfitabilityAnalysis.lookup.reset")}
-            </Button>
-          ) : null}
-        </form>
+          {/* je Reiter ein Inhaltsbereich: Reiter verweisen per aria-controls darauf (Radix rendert inaktive versteckt) */}
+          {(["order", "offer"] as const).map((m) => (
+            <TabsContent key={m} value={m} className="space-y-4 mt-4">
+              <form onSubmit={submit} className="flex flex-wrap gap-2 items-end">
+                <div className="space-y-1">
+                  <Label htmlFor="db-lookup-number">{t(`${textKey}.label`)}</Label>
+                  <Input
+                    id="db-lookup-number"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder={t(`${textKey}.placeholder`)}
+                    className="w-56 font-mono"
+                    autoComplete="off"
+                  />
+                </div>
+                <Button type="submit" disabled={input.trim() === "" || active.isFetching}>
+                  <Search className="h-4 w-4 mr-2" />
+                  {t("orderProfitabilityAnalysis.lookup.submit")}
+                </Button>
+                {submitted ? (
+                  <Button type="button" variant="ghost" onClick={reset}>
+                    <X className="h-4 w-4 mr-2" />
+                    {t("orderProfitabilityAnalysis.lookup.reset")}
+                  </Button>
+                ) : null}
+              </form>
 
-        {!submitted ? null : active.isFetching && !active.data ? (
-          <p className="text-muted-foreground">{t(`${textKey}.loading`)}</p>
-        ) : active.isError ? (
-          <p className="flex items-center gap-2 text-destructive">
-            <AlertCircle className="h-5 w-5" />
-            {active.error instanceof Error ? active.error.message : t("orderProfitabilityAnalysis.errorTitle")}
-          </p>
-        ) : active.data && results === 0 ? (
-          <p className="text-muted-foreground">{t(`${textKey}.notFound`, { number: submitted.number })}</p>
-        ) : active.data ? (
-          <div className="space-y-4">
-            {results > 1 ? (
-              <p className="text-sm text-amber-700 dark:text-amber-500">
-                {t(`${textKey}.multipleHits`, { count: results })}
-              </p>
-            ) : null}
-            {submitted.mode === "offer"
-              ? offerQuery.data?.offers.map((offer) => (
-                  <OfferProfitabilityResultView key={offer.id} offer={offer} crmThreshold={crmThreshold} />
-                ))
-              : orderQuery.data?.orders.map((order) => (
-                  <SingleOrderResult key={order.id} order={order} crmThreshold={crmThreshold} />
-                ))}
-          </div>
-        ) : null}
+              {!submitted ? null : active.isFetching && !active.data ? (
+                <p className="text-muted-foreground">{t(`${textKey}.loading`)}</p>
+              ) : active.isError ? (
+                <p className="flex items-center gap-2 text-destructive">
+                  <AlertCircle className="h-5 w-5" />
+                  {active.error instanceof Error ? active.error.message : t("orderProfitabilityAnalysis.errorTitle")}
+                </p>
+              ) : active.data && results === 0 ? (
+                <p className="text-muted-foreground">{t(`${textKey}.notFound`, { number: submitted.number })}</p>
+              ) : active.data ? (
+                <div className="space-y-4">
+                  {results > 1 ? (
+                    <p className="text-sm text-amber-700 dark:text-amber-500">
+                      {t(`${textKey}.multipleHits`, { count: results })}
+                    </p>
+                  ) : null}
+                  {submitted.mode === "offer"
+                    ? offerQuery.data?.offers.map((offer) => (
+                        <OfferProfitabilityResultView key={offer.id} offer={offer} crmThreshold={crmThreshold} />
+                      ))
+                    : orderQuery.data?.orders.map((order) => (
+                        <SingleOrderResult key={order.id} order={order} crmThreshold={crmThreshold} />
+                      ))}
+                </div>
+              ) : null}
+            </TabsContent>
+          ))}
+        </Tabs>
       </CardContent>
     </Card>
   );
