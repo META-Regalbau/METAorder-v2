@@ -11,6 +11,7 @@ import {
 import { isDocumentBuyerMeta, pickDocumentExtraction } from "@/components/DocumentExtractionAlerts";
 import { Link, useLocation, useSearch } from "wouter";
 import { offerProfitabilityHref } from "@/lib/orderProfitabilityLink";
+import { useCanViewMarginDetails } from "@/hooks/useMarginVisibility";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { fetchOfferDraftForReview } from "@/lib/refreshReviewDraft";
@@ -123,6 +124,7 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
   });
 
   const canManageOffers = !!(currentUser?.user?.permissions as any)?.manageOffers;
+  const canViewMarginDetails = useCanViewMarginDetails();
   const canApproveCPQQuotes = !!(currentUser?.user?.permissions as any)?.approveCPQQuotes;
 
   // Fetch offer drafts — nur pending/review_required, das Einzige, was diese Seite anzeigt
@@ -808,16 +810,18 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
                             <Download className="h-4 w-4" />
                           </button>
                           {/* stopPropagation: Link zur DB-Berechnung soll nicht zusätzlich das Detail öffnen. */}
-                          <Link
-                            href={offerProfitabilityHref(offer.offerNumber)}
-                            className="mbtn icon ghost"
-                            onClick={(e) => e.stopPropagation()}
-                            title={t('offers.openCalculation')}
-                            aria-label={t('offers.openCalculationFor', { offerNumber: offer.offerNumber })}
-                            data-testid="link-offer-db-calculation"
-                          >
-                            <Calculator className="h-4 w-4" />
-                          </Link>
+                          {canViewMarginDetails && (
+                            <Link
+                              href={offerProfitabilityHref(offer.offerNumber)}
+                              className="mbtn icon ghost"
+                              onClick={(e) => e.stopPropagation()}
+                              title={t('offers.openCalculation')}
+                              aria-label={t('offers.openCalculationFor', { offerNumber: offer.offerNumber })}
+                              data-testid="link-offer-db-calculation"
+                            >
+                              <Calculator className="h-4 w-4" />
+                            </Link>
+                          )}
                           {canManageOffers && (
                             <>
                               <button

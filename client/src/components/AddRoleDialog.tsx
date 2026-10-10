@@ -58,6 +58,7 @@ const addRoleSchema = z.object({
     viewProduction: z.boolean(),
     manageProduction: z.boolean(),
     manageShippingLabels: z.boolean(),
+    viewMarginDetails: z.boolean(),
   }),
 });
 
@@ -110,6 +111,7 @@ const permissionLabels = {
   viewProduction: { label: "View Production", description: "Can view production orders and MRP" },
   manageProduction: { label: "Manage Production", description: "Can create and complete production orders" },
   manageShippingLabels: { label: "Manage Shipping Labels", description: "Can create shipping labels and pick lists" },
+  viewMarginDetails: { label: "View Margin Details", description: "Can see exact contribution margin values (manufacturing costs, DB1, margin %); without it only the traffic light" },
 };
 
 export default function AddRoleDialog({ onAddRole }: AddRoleDialogProps) {
@@ -165,6 +167,7 @@ export default function AddRoleDialog({ onAddRole }: AddRoleDialogProps) {
         viewProduction: false,
         manageProduction: false,
         manageShippingLabels: false,
+        viewMarginDetails: false,
       },
     },
   });

@@ -15,6 +15,7 @@ import SortableTableHead from "@/components/SortableTableHead";
 import TrackingCodes from "@/components/TrackingCodes";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
+import { useCanViewMarginDetails } from "@/hooks/useMarginVisibility";
 interface OrdersTableProps {
   orders: Order[];
   onViewOrder: (order: Order) => void;
@@ -62,6 +63,7 @@ export default function OrdersTable({
   sendingInvoiceOrderId,
 }: OrdersTableProps) {
   const fmt = useLocaleFormat();
+  const canViewMarginDetails = useCanViewMarginDetails();
   const { t, i18n } = useTranslation();
   
   const showCheckboxes = !!onToggleOrder;
@@ -249,8 +251,9 @@ export default function OrdersTable({
                 </div>
               </TableCell>
               <TableCell className="text-right">
-                {order.profitability?.marginPercent != null ||
-                order.profitability?.marginOnRevenuePercent != null ? (
+                {canViewMarginDetails &&
+                (order.profitability?.marginPercent != null ||
+                  order.profitability?.marginOnRevenuePercent != null) ? (
                   // stopPropagation: Link zur DB-Berechnung soll nicht zusätzlich das Detail öffnen.
                   <Link
                     href={orderProfitabilityHref(order.orderNumber)}
@@ -266,6 +269,12 @@ export default function OrdersTable({
                       verdict={order.profitability.crmVerdict}
                     />
                   </Link>
+                ) : order.profitability && order.profitability.crmVerdict !== "none" ? (
+                  // Ohne Recht „DB-Werte sehen“: nur die Ampel, kein Link zur DB-Berechnung
+                  <HerstellMarginIndicator
+                    marginPercent={null}
+                    verdict={order.profitability.crmVerdict}
+                  />
                 ) : (
                   <span className="text-sm text-muted-foreground">—</span>
                 )}

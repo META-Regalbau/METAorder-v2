@@ -88,6 +88,8 @@ export function buildOfferProfitability(
     taxStatus: string | null;
     herstellpreisOf: (ref: HerstellpreisRef) => number | null;
     minMarginPercent: number;
+    /** Rot unter dieser Schwelle, zwischen warn und min gelb (fehlt: nur grün/rot). */
+    warnMarginPercent?: number;
   },
 ): OfferProfitabilityResult {
   const gross = opts.taxStatus === "gross";
@@ -160,7 +162,7 @@ export function buildOfferProfitability(
       db1Abs,
       marginPercent,
       marginOnRevenuePercent,
-      crmVerdict: hasHk ? computeCrmProfitabilityVerdict(marginPercent, opts.minMarginPercent) : "none",
+      crmVerdict: hasHk ? computeCrmProfitabilityVerdict(marginPercent, opts.minMarginPercent, opts.warnMarginPercent) : "none",
     });
   }
 
@@ -174,7 +176,7 @@ export function buildOfferProfitability(
       herstellpreisNet: line.herstellpreisNet,
       herstellkostenTotal: line.herstellkostenTotal,
     })),
-    opts.minMarginPercent,
+    { minMarginPercent: opts.minMarginPercent, warnMarginPercent: opts.warnMarginPercent },
   );
 
   const discountTotal = roundMoney(
@@ -208,7 +210,7 @@ export function buildOfferProfitability(
       db1Total,
       marginPercent,
       marginOnRevenuePercent: revenueWithHk > 0 ? roundPercent((db1Total / revenueWithHk) * 100) : null,
-      crmVerdict: computeCrmProfitabilityVerdict(marginPercent, opts.minMarginPercent),
+      crmVerdict: computeCrmProfitabilityVerdict(marginPercent, opts.minMarginPercent, opts.warnMarginPercent),
       discountTotal,
       discountShareWithHk,
       db1BeforeDiscount: base.db1Total,

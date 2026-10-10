@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import HerstellMarginIndicator from "@/components/HerstellMarginIndicator";
+import { canViewMarginDetailsFor } from "@/hooks/useMarginVisibility";
 import Product3DPreview from "@/components/Product3DPreview";
 import {
   computeMarginOnRevenuePercent,
@@ -112,6 +113,8 @@ interface ProductInsightsModalProps {
   initialTab?: ProductInsightsTab;
   /** Mindest-Deckungsbeitrag aus den CRM-Einstellungen — Schwelle der Margen-Ampel. */
   minMarginPercent?: number;
+  /** Darunter rot, zwischen dieser Schwelle und minMarginPercent gelb. */
+  warnMarginPercent?: number;
   onPrintLabel?: () => void;
 }
 
@@ -121,6 +124,7 @@ export default function ProductInsightsModal({
   onOpenChange,
   initialTab = "master",
   minMarginPercent,
+  warnMarginPercent,
   onPrintLabel,
 }: ProductInsightsModalProps) {
   const fmt = useLocaleFormat();
@@ -137,6 +141,8 @@ export default function ProductInsightsModal({
     retry: false,
   });
   const isAdmin = userData?.user?.role === "admin";
+  // Herstellkosten liefert der Server nur mit Recht „DB-Werte sehen“; ohne bleibt der Block weg.
+  const canViewMarginDetails = canViewMarginDetailsFor(userData?.user);
   const canManageProducts = isAdmin || Boolean(userData?.user?.permissions?.manageProducts);
   const canViewInventory = isAdmin || Boolean(userData?.user?.permissions?.viewInventory);
   const canViewCrossSelling =
@@ -219,7 +225,7 @@ export default function ProductInsightsModal({
   const herstellpreisNet = product.herstellpreisNet ?? null;
   const marginOnCost = computeMarginPercent(product.priceNet, herstellpreisNet);
   const marginOnRevenue = computeMarginOnRevenuePercent(product.priceNet, herstellpreisNet);
-  const marginVerdict = computeVerdict(marginOnCost, minMarginPercent ?? 0);
+  const marginVerdict = computeVerdict(marginOnCost, minMarginPercent ?? 0, warnMarginPercent);
   // Solange die Detail-Preise laden, die Staffeln aus der Übersichtszeile zeigen (ohne Rabatt-%).
   const advancedPrices: Array<{
     quantityStart: number;
@@ -491,11 +497,15 @@ export default function ProductInsightsModal({
                   value: product.purchasePriceNet != null ? fmt.currency(product.purchasePriceNet) : null,
                   mono: true,
                 },
-                {
-                  label: t("productOverview.detail.herstellpreisNet"),
-                  value: herstellpreisNet != null ? fmt.currency(herstellpreisNet) : null,
-                  mono: true,
-                },
+                ...(canViewMarginDetails
+                  ? [
+                      {
+                        label: t("productOverview.detail.herstellpreisNet"),
+                        value: herstellpreisNet != null ? fmt.currency(herstellpreisNet) : null,
+                        mono: true,
+                      },
+                    ]
+                  : []),
                 {
                   label: t("productOverview.detail.maxDiscount"),
                   value:
@@ -506,6 +516,7 @@ export default function ProductInsightsModal({
               ]}
             />
 
+            {canViewMarginDetails && (
             <Card className="p-3 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs text-muted-foreground">
@@ -525,6 +536,7 @@ export default function ProductInsightsModal({
                 verdict={marginVerdict}
               />
             </Card>
+            )}
 
             <Card className="p-3 space-y-2">
               <p className="text-sm font-semibold flex items-center gap-2">

@@ -283,6 +283,7 @@ export default function SettingsPage() {
     padding: 6,
   });
   const [crmProfitabilityMinMargin, setCrmProfitabilityMinMargin] = useState(20);
+  const [crmProfitabilityWarnMargin, setCrmProfitabilityWarnMargin] = useState(7);
   const [dunningSettings, setDunningSettings] = useState<DunningSettings>({
     enabled: false,
     manualOnly: true,
@@ -367,7 +368,7 @@ export default function SettingsPage() {
     retry: false,
   });
 
-  const { data: crmProfitabilitySettings } = useQuery<{ minMarginPercent: number }>({
+  const { data: crmProfitabilitySettings } = useQuery<{ minMarginPercent: number; warnMarginPercent?: number }>({
     queryKey: ["/api/settings/crm-profitability", tenantKey],
     queryFn: () => fetchJson("/api/settings/crm-profitability"),
     retry: false,
@@ -524,6 +525,9 @@ export default function SettingsPage() {
   useEffect(() => {
     if (crmProfitabilitySettings?.minMarginPercent != null) {
       setCrmProfitabilityMinMargin(crmProfitabilitySettings.minMarginPercent);
+      setCrmProfitabilityWarnMargin(
+        crmProfitabilitySettings.warnMarginPercent ?? crmProfitabilitySettings.minMarginPercent,
+      );
     }
   }, [crmProfitabilitySettings]);
 
@@ -1225,11 +1229,13 @@ export default function SettingsPage() {
     mutationFn: async () => {
       const response = await apiRequest("POST", "/api/settings/crm-profitability", {
         minMarginPercent: crmProfitabilityMinMargin,
+        warnMarginPercent: crmProfitabilityWarnMargin,
       });
       return response.json();
     },
-    onSuccess: (data: { minMarginPercent: number }) => {
+    onSuccess: (data: { minMarginPercent: number; warnMarginPercent: number }) => {
       setCrmProfitabilityMinMargin(data.minMarginPercent);
+      setCrmProfitabilityWarnMargin(data.warnMarginPercent);
       queryClient.invalidateQueries({ queryKey: ["/api/settings/crm-profitability", tenantKey] });
       toast({
         title: t("settings.tenants.crmProfitabilitySaveSuccess"),
@@ -1579,6 +1585,24 @@ function GeneralTab() {
                   />
                   <p className="text-xs text-muted-foreground">
                     {t("settings.tenants.crmProfitabilityMinMarginHint")}
+                  </p>
+                </div>
+                <div className="grid gap-2">
+                  <Label className="text-sm font-medium">{t("settings.tenants.crmProfitabilityWarnMargin")}</Label>
+                  <Input aria-label={t("settings.tenants.crmProfitabilityWarnMargin")}
+                    type="number"
+                    min={0}
+                    max={500}
+                    step={0.1}
+                    value={crmProfitabilityWarnMargin}
+                    onChange={(e) => {
+                      const value = Number(e.target.value);
+                      setCrmProfitabilityWarnMargin(Number.isFinite(value) ? value : crmProfitabilityWarnMargin);
+                    }}
+                    data-testid="input-crm-profitability-warn-margin"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t("settings.tenants.crmProfitabilityWarnMarginHint")}
                   </p>
                 </div>
                 <div className="flex justify-end gap-2 pt-2">

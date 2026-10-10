@@ -50,6 +50,7 @@ type AnalysisResponse = {
     ordersWithHerstellpreis: number;
     coveragePercent: number;
     crmGreen: number;
+    crmYellow?: number;
     crmRed: number;
     crmNone: number;
     lossCount: number;
@@ -65,10 +66,12 @@ type AnalysisResponse = {
   bestOrders: Order[];
   total: number;
   profitabilityMinMarginPercent?: number;
+  profitabilityWarnMarginPercent?: number;
 };
 
 const PIE_COLORS = {
   green: "#16a34a",
+  yellow: "#d97706",
   red: "#dc2626",
   none: "#94a3b8",
 };
@@ -135,6 +138,7 @@ export default function OrderProfitabilityAnalysisPage() {
   });
 
   const crmThreshold = data?.profitabilityMinMarginPercent ?? 20;
+  const crmWarnThreshold = data?.profitabilityWarnMarginPercent ?? crmThreshold;
   const summary = data?.summary;
 
   const crmPieData = useMemo(
@@ -145,6 +149,11 @@ export default function OrderProfitabilityAnalysisPage() {
               name: t("orderProfitabilityAnalysis.verdict.green"),
               value: summary.crmGreen,
               key: "green",
+            },
+            {
+              name: t("orderProfitabilityAnalysis.verdict.yellow"),
+              value: summary.crmYellow ?? 0,
+              key: "yellow",
             },
             {
               name: t("orderProfitabilityAnalysis.verdict.red"),
@@ -418,7 +427,16 @@ export default function OrderProfitabilityAnalysisPage() {
                   <span className="font-mono">{summary.crmGreen}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>{t("orderProfitabilityAnalysis.stats.crmRed", { threshold: crmThreshold })}</span>
+                  <span>
+                    {t("orderProfitabilityAnalysis.stats.crmYellow", {
+                      warn: crmWarnThreshold,
+                      threshold: crmThreshold,
+                    })}
+                  </span>
+                  <span className="font-mono">{summary.crmYellow ?? 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>{t("orderProfitabilityAnalysis.stats.crmRed", { threshold: crmWarnThreshold })}</span>
                   <span className="font-mono">{summary.crmRed}</span>
                 </div>
                 <div className="flex justify-between">

@@ -1,4 +1,4 @@
-export type ProfitabilityVerdict = "green" | "red" | "none";
+export type ProfitabilityVerdict = "green" | "yellow" | "red" | "none";
 
 export type ProfitabilityProductInput = {
   id: string;
@@ -114,12 +114,15 @@ export function computeMarginOnRevenuePercent(
   return Math.round(((priceNet - herstellpreisNet) / priceNet) * 1000) / 10;
 }
 
+/** Ampel: grün ab threshold, gelb ab warnThreshold, darunter rot (ohne warnThreshold nur grün/rot). */
 export function computeVerdict(
   marginPercent: number | null,
   threshold: number,
+  warnThreshold: number = threshold,
 ): ProfitabilityVerdict {
   if (marginPercent == null) return "none";
-  return marginPercent >= threshold ? "green" : "red";
+  if (marginPercent >= threshold) return "green";
+  return marginPercent >= warnThreshold ? "yellow" : "red";
 }
 
 function median(values: number[]): number | null {

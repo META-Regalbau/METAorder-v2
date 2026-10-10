@@ -355,6 +355,7 @@ export function registerUserRoutes(app: Express): void {
           viewProduction: z.boolean(),
           manageProduction: z.boolean(),
           manageShippingLabels: z.boolean(),
+          viewMarginDetails: z.boolean().optional(),
         }),
       });
       
@@ -422,6 +423,7 @@ export function registerUserRoutes(app: Express): void {
           viewProduction: z.boolean(),
           manageProduction: z.boolean(),
           manageShippingLabels: z.boolean(),
+          viewMarginDetails: z.boolean().optional(),
         }).optional(),
       });
       

@@ -57,6 +57,7 @@ const editRoleSchema = z.object({
     viewProduction: z.boolean(),
     manageProduction: z.boolean(),
     manageShippingLabels: z.boolean(),
+    viewMarginDetails: z.boolean(),
   }),
 });
 
@@ -112,6 +113,7 @@ const permissionLabels = {
   viewProduction: { label: "View Production", description: "Can view production orders and MRP" },
   manageProduction: { label: "Manage Production", description: "Can create and complete production orders" },
   manageShippingLabels: { label: "Manage Shipping Labels", description: "Can create shipping labels and pick lists" },
+  viewMarginDetails: { label: "View Margin Details", description: "Can see exact contribution margin values (manufacturing costs, DB1, margin %); without it only the traffic light" },
 };
 
 export default function EditRoleDialog({ role, open, onClose, onUpdateRole }: EditRoleDialogProps) {
@@ -166,6 +168,7 @@ export default function EditRoleDialog({ role, open, onClose, onUpdateRole }: Ed
         viewProduction: !!(role.permissions as any).viewProduction,
         manageProduction: !!(role.permissions as any).manageProduction,
         manageShippingLabels: !!(role.permissions as any).manageShippingLabels,
+        viewMarginDetails: !!(role.permissions as any).viewMarginDetails,
       },
     } : undefined,
   });

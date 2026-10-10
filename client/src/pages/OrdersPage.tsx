@@ -30,6 +30,7 @@ import type { Order, OrderStatus, SalesChannel, User, Role } from "@shared/schem
 import { useTranslation } from "react-i18next";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
+import { useCanViewMarginDetails } from "@/hooks/useMarginVisibility";
 import { isNotConfiguredError } from "@/lib/apiError";
 interface OrdersPageProps {
   userRole: "employee" | "admin";
@@ -61,6 +62,7 @@ type OrdersDbSummaryResponse = {
 
 export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPageProps) {
   const fmt = useLocaleFormat();
+  const canViewMarginDetails = useCanViewMarginDetails();
   const { t } = useTranslation();
   const { toast } = useToast();
   const [location] = useLocation();
@@ -199,6 +201,8 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
       }
       return response.json();
     },
+    // Ø DB1 in € nur mit Recht „DB-Werte sehen“ (der Server antwortet sonst mit 403)
+    enabled: canViewMarginDetails,
     retry: false,
     placeholderData: (previous) => previous,
   });
@@ -316,7 +320,7 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
   const handleRefresh = async () => {
     refreshOnNextFetch.current = true;
     try {
-      await Promise.all([refetch(), refetchDbSummary()]);
+      await Promise.all([refetch(), canViewMarginDetails ? refetchDbSummary() : null]);
       toast({
         title: t('orders.refreshed'),
         description: t('orders.refreshSuccess'),
@@ -549,6 +553,7 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
         </div>
       </div>
 
+      {canViewMarginDetails && (
       <div
         className="rounded-lg border bg-muted/30 px-4 py-3 flex flex-wrap items-baseline gap-x-4 gap-y-1"
         data-testid="orders-db-summary"
@@ -572,6 +577,7 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
           <span className="text-sm text-muted-foreground">{t("orders.dbSummary.noData")}</span>
         )}
       </div>
+      )}
 
       {/* Filters Section */}
       <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>

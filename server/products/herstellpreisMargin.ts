@@ -8,7 +8,7 @@ import { productIdLookupKeys, computePriceDifferencePercent } from "./pricingUti
 import { getHerstellpreisLookupKey } from "./productIdentifiers";
 import { loadCrmProfitabilitySettings } from "../analytics/crmProfitabilitySettings";
 
-export type HerstellMarginVerdict = "green" | "red" | "none";
+export type HerstellMarginVerdict = "green" | "yellow" | "red" | "none";
 
 /** Schwellwert nur für die Preisprüfung (Kalkulation), nicht für CRM. */
 export const PRICE_CHECK_MARGIN_THRESHOLD_PERCENT = 7;
@@ -33,13 +33,18 @@ export function computeHerstellMarginVerdict(
   return marginPercent >= threshold ? "green" : "red";
 }
 
-/** CRM/BWL: rentabel wenn Marge den Mindest-Deckungsbeitrag erreicht (Gemeinkosten). */
+/**
+ * CRM/BWL-Ampel auf den Aufschlag auf Herstellkosten: grün ab Mindest-Deckungsbeitrag
+ * (Gemeinkosten), gelb ab der Warnschwelle, darunter rot. Ohne Warnschwelle nur grün/rot.
+ */
 export function computeCrmProfitabilityVerdict(
   marginPercent: number | null,
   minMarginPercent: number,
+  warnMarginPercent: number = minMarginPercent,
 ): HerstellMarginVerdict {
   if (marginPercent == null) return "none";
-  return marginPercent >= minMarginPercent ? "green" : "red";
+  if (marginPercent >= minMarginPercent) return "green";
+  return marginPercent >= warnMarginPercent ? "yellow" : "red";
 }
 
 /** Passende Staffel aus Shopware-Erweiterpreisen für eine Menge wählen. */
@@ -143,12 +148,17 @@ export async function enrichCustomerPricesWithHerstellMargin(
     tenantId?: string | null;
     standardDiscountPercent?: number | null;
     minMarginPercent?: number;
+    warnMarginPercent?: number;
   },
 ): Promise<CustomerPriceWithHerstellMargin[]> {
   if (prices.length === 0) return [];
 
   const profitabilitySettings = await loadCrmProfitabilitySettings(opts.storage, opts.tenantId);
   const minMarginPercent = opts.minMarginPercent ?? profitabilitySettings.minMarginPercent;
+  const warnMarginPercent = Math.min(
+    opts.warnMarginPercent ?? profitabilitySettings.warnMarginPercent,
+    minMarginPercent,
+  );
 
   const productIds = [
     ...new Set(prices.filter((p) => p.productId).map((p) => String(p.productId))),
@@ -184,7 +194,11 @@ export async function enrichCustomerPricesWithHerstellMargin(
     });
 
     const herstellMarginPercent = computeHerstellMarginPercent(sellingPriceNet, herstellpreisNet);
-    const herstellMarginVerdict = computeCrmProfitabilityVerdict(herstellMarginPercent, minMarginPercent);
+    const herstellMarginVerdict = computeCrmProfitabilityVerdict(
+      herstellMarginPercent,
+      minMarginPercent,
+      warnMarginPercent,
+    );
 
     // Erweiterter Preis (Shopware-Staffelpreis) passend zur Mengenstaffel des Kundenpreises.
     const advancedTier = pickAdvancedPriceTier(sellingContext?.advancedPrices ?? [], price.from);

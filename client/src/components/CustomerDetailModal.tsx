@@ -48,7 +48,7 @@ type CustomerIndividualPrice = {
   advancedPriceNet?: number | null;
   advancedPriceDifferencePercent?: number | null;
   herstellMarginPercent?: number | null;
-  herstellMarginVerdict?: "green" | "red" | "none";
+  herstellMarginVerdict?: "green" | "yellow" | "red" | "none";
   currencyIsoCode: string | null;
   validFrom: string | null;
   validUntil: string | null;

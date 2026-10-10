@@ -76,6 +76,7 @@ export interface OverviewResponse {
   total: number;
   /** Mindest-Deckungsbeitrag aus den CRM-Einstellungen (Schwelle für die Margen-Ampel). */
   profitabilityMinMarginPercent?: number;
+  profitabilityWarnMarginPercent?: number;
   fromMirror?: boolean;
 }
 

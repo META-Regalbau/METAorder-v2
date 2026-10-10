@@ -1,5 +1,5 @@
 // Angebote: Liste/Details, PDF und Export, Teilen-Link, Versand, Positionen (Service/Montage), Raumplan, Freigabe sowie Lern-Einstellungen.
-import { requireAuth, requireManageOffers, requireCsrf, requireAuthOrIntegrationKey, requireViewOffers } from "../auth/auth";
+import { requireAuth, requireManageOffers, requireCsrf, requireAuthOrIntegrationKey, requireViewOffers, requireViewMarginDetails } from "../auth/auth";
 import { getOfferLearningSettings } from "../offers/offerLearning";
 import { storage } from "../storage";
 import { z } from "zod";
@@ -124,7 +124,7 @@ export function registerOfferRoutes(app: Express): void {
   });
 
   // DB-Berechnung fuer genau eine Angebotsnummer (Haendlerportal und Onlineshop, mit Positionen)
-  app.get("/api/offers/profitability-by-number", requireAuth, requireViewOffers, async (req: Request, res: Response) => {
+  app.get("/api/offers/profitability-by-number", requireAuth, requireViewOffers, requireViewMarginDetails, async (req: Request, res: Response) => {
     try {
       const offerNumber = typeof req.query.offerNumber === "string" ? req.query.offerNumber.trim() : "";
       if (!offerNumber) {
@@ -141,7 +141,7 @@ export function registerOfferRoutes(app: Express): void {
       // null = alle Kanaele, [] = kein Kanal (fetchOffers filtert eine leere Liste nicht)
       const allowedChannelIds = await getSalesChannelFilter(req);
       if (Array.isArray(allowedChannelIds) && allowedChannelIds.length === 0) {
-        return res.json({ offerNumber, offers: [], profitabilityMinMarginPercent: profitabilitySettings.minMarginPercent });
+        return res.json({ offerNumber, offers: [], profitabilityMinMarginPercent: profitabilitySettings.minMarginPercent, profitabilityWarnMarginPercent: profitabilitySettings.warnMarginPercent });
       }
 
       const statusMapping = await storage.getSetting("b2b.offerStatusMapping", tenantId);
@@ -177,12 +177,17 @@ export function registerOfferRoutes(app: Express): void {
         .map(({ offer, taxStatus }) =>
           buildOfferProfitability(
             { ...offer, salesChannelName: channelNames.get(offer.salesChannelId) ?? offer.salesChannelName },
-            { taxStatus, herstellpreisOf, minMarginPercent: profitabilitySettings.minMarginPercent },
+            {
+              taxStatus,
+              herstellpreisOf,
+              minMarginPercent: profitabilitySettings.minMarginPercent,
+              warnMarginPercent: profitabilitySettings.warnMarginPercent,
+            },
           ),
         )
         .sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime());
 
-      res.json({ offerNumber, offers, profitabilityMinMarginPercent: profitabilitySettings.minMarginPercent });
+      res.json({ offerNumber, offers, profitabilityMinMarginPercent: profitabilitySettings.minMarginPercent, profitabilityWarnMarginPercent: profitabilitySettings.warnMarginPercent });
     } catch (error: any) {
       log.error({ err: error }, "[/api/offers/profitability-by-number] Error:");
       res.status(500).json({ error: error.message || "Angebots-Analyse fehlgeschlagen" });

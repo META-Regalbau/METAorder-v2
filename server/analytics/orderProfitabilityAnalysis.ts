@@ -1,11 +1,10 @@
-import type { Order, OrderItem, OrderProfitabilitySummary } from "@shared/schema";
+import type { Order, OrderItem, OrderProfitabilitySummary, OrderProfitabilityVerdict } from "@shared/schema";
 import type { IStorage } from "../storage";
 import type { ShopwareClient } from "../shopware/shopware";
 import { loadCrmProfitabilitySettings } from "./crmProfitabilitySettings";
 import {
   computeCrmProfitabilityVerdict,
   computeHerstellMarginPercent,
-  type HerstellMarginVerdict,
 } from "../products/herstellpreisMargin";
 import { productIdLookupKeys } from "../products/pricingUtils";
 import { getHerstellpreisLookupKey } from "../products/productIdentifiers";
@@ -75,10 +74,28 @@ export async function createHerstellpreisResolver(
   };
 }
 
-function enrichOrderItem(
+/** Ampel-Schwellen in % Aufschlag auf Herstellkosten (siehe crmProfitabilitySettings). */
+export type ProfitabilityThresholds = { minMarginPercent: number; warnMarginPercent?: number };
+
+function toThresholds(value: number | ProfitabilityThresholds): ProfitabilityThresholds {
+  return typeof value === "number" ? { minMarginPercent: value } : value;
+}
+
+function verdictFor(
+  marginPercent: number | null,
+  thresholds: ProfitabilityThresholds,
+): OrderProfitabilityVerdict {
+  return computeCrmProfitabilityVerdict(
+    marginPercent,
+    thresholds.minMarginPercent,
+    thresholds.warnMarginPercent,
+  );
+}
+
+export function enrichOrderItem(
   item: OrderItem,
   herstellpreisNet: number | null,
-  minMarginPercent: number,
+  thresholds: number | ProfitabilityThresholds,
 ): OrderItem {
   if (herstellpreisNet == null || herstellpreisNet <= 0) {
     return {
@@ -96,7 +113,7 @@ function enrichOrderItem(
   const db1Abs = roundMoney(item.netTotal - herstellkostenTotal);
   const marginPercent = computeHerstellMarginPercent(item.netPrice, herstellpreisNet);
   const marginOnRevenuePercent = computeMarginOnRevenuePercent(item.netPrice, herstellpreisNet);
-  const crmVerdict = computeCrmProfitabilityVerdict(marginPercent, minMarginPercent);
+  const crmVerdict = verdictFor(marginPercent, toThresholds(thresholds));
 
   return {
     ...item,
@@ -117,7 +134,7 @@ export type ProfitabilityLineInput = Pick<
 
 export function summarizeOrderItems(
   items: ProfitabilityLineInput[],
-  minMarginPercent: number,
+  thresholds: number | ProfitabilityThresholds,
 ): OrderProfitabilitySummary {
   const productLines = items.filter((item) => item.productId || item.productNumber);
   const linesWithHerstellpreis = productLines.filter(
@@ -156,7 +173,7 @@ export function summarizeOrderItems(
     netRevenueWithHk > 0
       ? Math.round(((netRevenueWithHk - herstellkostenTotal) / netRevenueWithHk) * 1000) / 10
       : null;
-  const crmVerdict = computeCrmProfitabilityVerdict(marginPercent, minMarginPercent);
+  const crmVerdict = verdictFor(marginPercent, toThresholds(thresholds));
 
   return {
     herstellkostenTotal,
@@ -178,6 +195,7 @@ export type OrderProfitabilityAnalysisSummary = {
   ordersWithHerstellpreis: number;
   coveragePercent: number;
   crmGreen: number;
+  crmYellow: number;
   crmRed: number;
   crmNone: number;
   lossCount: number;
@@ -211,6 +229,7 @@ export function buildOrderProfitabilityAnalysisSummary(
   const db1Values: number[] = [];
   let ordersWithHerstellpreis = 0;
   let crmGreen = 0;
+  let crmYellow = 0;
   let crmRed = 0;
   let crmNone = 0;
   let lossCount = 0;
@@ -222,6 +241,7 @@ export function buildOrderProfitabilityAnalysisSummary(
   for (const order of orders) {
     const p = order.profitability;
     if (p.crmVerdict === "green") crmGreen += 1;
+    else if (p.crmVerdict === "yellow") crmYellow += 1;
     else if (p.crmVerdict === "red") crmRed += 1;
     else crmNone += 1;
 
@@ -230,7 +250,7 @@ export function buildOrderProfitabilityAnalysisSummary(
     ordersWithHerstellpreis += 1;
     margins.push(p.marginPercent);
     if (p.marginPercent < 0) lossCount += 1;
-    if (p.crmVerdict === "red") belowCrmThresholdCount += 1;
+    if (p.crmVerdict === "red" || p.crmVerdict === "yellow") belowCrmThresholdCount += 1;
     if (p.db1Total != null) db1Values.push(p.db1Total);
 
     if (p.herstellkostenTotal != null && p.db1Total != null) {
@@ -257,6 +277,7 @@ export function buildOrderProfitabilityAnalysisSummary(
         ? Math.round((ordersWithHerstellpreis / orders.length) * 1000) / 10
         : 0,
     crmGreen,
+    crmYellow,
     crmRed,
     crmNone,
     lossCount,
@@ -283,6 +304,10 @@ export async function enrichOrdersWithProfitability(
 
   const profitabilitySettings = await loadCrmProfitabilitySettings(opts.storage, opts.tenantId);
   const minMarginPercent = opts.minMarginPercent ?? profitabilitySettings.minMarginPercent;
+  const thresholds: ProfitabilityThresholds = {
+    minMarginPercent,
+    warnMarginPercent: Math.min(profitabilitySettings.warnMarginPercent, minMarginPercent),
+  };
 
   const herstellpreisOf = await createHerstellpreisResolver(
     orders.flatMap((order) => order.items),
@@ -291,9 +316,9 @@ export async function enrichOrdersWithProfitability(
 
   return orders.map((order) => {
     const items = order.items.map((item) =>
-      enrichOrderItem(item, herstellpreisOf(item), minMarginPercent),
+      enrichOrderItem(item, herstellpreisOf(item), thresholds),
     );
-    const profitability = summarizeOrderItems(items, minMarginPercent);
+    const profitability = summarizeOrderItems(items, thresholds);
     return { ...order, items, profitability };
   });
 }
