@@ -99,10 +99,28 @@ export function DraftCustomerCandidates({
 }
 
 /** true, wenn die manuelle Kundenanlage serverseitig freigeschaltet ist (Default: aus). */
-export function useCustomerCreateEnabled(): boolean {
-  const { data } = useQuery<{ customerCreateEnabled: boolean }>({
+type CommercialDraftCapabilities = {
+  customerCreateEnabled: boolean;
+  intentReviewMinConfidence?: number;
+  customerMatchReviewMinConfidence?: number;
+};
+
+function useCommercialDraftCapabilities() {
+  return useQuery<CommercialDraftCapabilities>({
     queryKey: ["/api/commercial-drafts/capabilities"],
     staleTime: 5 * 60 * 1000,
-  });
-  return data?.customerCreateEnabled === true;
+  }).data;
+}
+
+export function useCustomerCreateEnabled(): boolean {
+  return useCommercialDraftCapabilities()?.customerCreateEnabled === true;
+}
+
+/** Hinweis-Schwellen im Prüffenster aus den Commercial-Agent-Einstellungen (Standard 0,6 / 72). */
+export function useDraftReviewThresholds(): { intentMin: number; customerMatchMin: number } {
+  const caps = useCommercialDraftCapabilities();
+  return {
+    intentMin: caps?.intentReviewMinConfidence ?? 0.6,
+    customerMatchMin: caps?.customerMatchReviewMinConfidence ?? 72,
+  };
 }

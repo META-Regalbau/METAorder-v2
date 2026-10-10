@@ -35,6 +35,9 @@ type OfferStatusMapping = Partial<Record<OfferStatus, { label: string; id?: stri
 
 const STORAGE_KEY = 'metaorder-offers-filters';
 
+/** Angebotsentwürfe, die noch nicht angelegt sind. */
+const OPEN_OFFER_DRAFT_STATUSES: string[] = ["pending", "review_required", "approved", "creating"];
+
 export default function OffersPage({ userRole, userSalesChannelIds }: OffersPageProps) {
   const fmt = useLocaleFormat();
   const { t } = useTranslation();
@@ -139,14 +142,14 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
   const canViewMarginDetails = useCanViewMarginDetails();
   const canApproveCPQQuotes = !!(currentUser?.user?.permissions as any)?.approveCPQQuotes;
 
-  // Fetch offer drafts — nur pending/review_required, das Einzige, was diese Seite anzeigt
+  // Fetch offer drafts — alle noch nicht angelegten (offen, Prüfung, freigegeben, hängend in der Anlage)
   // (statt der kompletten Entwurfshistorie inkl. großer JSONB-Spalten). Der queryKey behält
   // "/api/offer-drafts" als erstes Element, damit die zahlreichen invalidateQueries({queryKey:
   // ["/api/offer-drafts"]})-Aufrufe an anderer Stelle im Code diese Query weiterhin treffen.
   const { data: drafts = [], isLoading: draftsLoading, refetch: refetchDrafts } = useQuery<OfferDraft[]>({
-    queryKey: ["/api/offer-drafts", "pending,review_required"],
+    queryKey: ["/api/offer-drafts", OPEN_OFFER_DRAFT_STATUSES.join(",")],
     queryFn: async () => {
-      const response = await fetch("/api/offer-drafts?status=pending,review_required", {
+      const response = await fetch(`/api/offer-drafts?status=${OPEN_OFFER_DRAFT_STATUSES.join(",")}`, {
         credentials: "include",
       });
       if (!response.ok) {
@@ -157,16 +160,15 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
     },
   });
 
-  // Filter drafts to show only pending and review_required
-  const pendingDrafts = drafts.filter(
-    (draft) => draft.status === "pending" || draft.status === "review_required"
-  );
+  // Freigegebene (≥ 90 %, nicht automatisch angelegt) und hängende Entwürfe gehören dazu,
+  // sonst verschwinden sie aus jeder Liste
+  const pendingDrafts = drafts.filter((draft) => OPEN_OFFER_DRAFT_STATUSES.includes(draft.status));
 
   const lowConfidencePendingDrafts = useMemo(
     () =>
       drafts.filter(
         (d) =>
-          (d.status === "pending" || d.status === "review_required") &&
+          OPEN_OFFER_DRAFT_STATUSES.includes(d.status) &&
           isLowOverallMatchingConfidence(d.matchingResults)
       ),
     [drafts]
@@ -467,6 +469,13 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
           <span className="mbadge b-success" data-testid={`badge-draft-status-${status}`}>
             <CheckCircle className="w-3 h-3" />
             {t("offerDrafts.status.created")}
+          </span>
+        );
+      case "creating":
+        return (
+          <span className="mbadge b-warning" data-testid={`badge-draft-status-${status}`}>
+            <AlertCircle className="w-3 h-3" />
+            {t("offerDrafts.status.creating")}
           </span>
         );
     }

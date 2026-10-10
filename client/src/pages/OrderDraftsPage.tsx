@@ -34,7 +34,7 @@ interface OrderDraft {
   id: string;
   createdAt: string;
   updatedAt: string;
-  status: "pending" | "approved" | "review_required" | "rejected" | "created";
+  status: "pending" | "approved" | "review_required" | "rejected" | "created" | "creating";
   createdByUserId: string | null;
   originalFileName: string;
   originalFilePath: string | null;
@@ -136,6 +136,13 @@ export default function OrderDraftsPage() {
           <Badge variant="success" data-testid={`badge-status-${status}`}>
             <CheckCircle className="w-3 h-3 mr-1" />
             {t("orderDrafts.status.created")}
+          </Badge>
+        );
+      case "creating":
+        return (
+          <Badge variant="warning" data-testid={`badge-status-${status}`}>
+            <AlertCircle className="w-3 h-3 mr-1" />
+            {t("orderDrafts.status.creating")}
           </Badge>
         );
     }

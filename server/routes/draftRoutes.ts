@@ -1,6 +1,6 @@
 // KI-Entwuerfe: gemeinsamer Upload, Bestell- und Angebotsentwuerfe (Pruefen, Kunde/Produkte zuordnen, Anhaenge, Anlage in Shopware) sowie Commercial Agent.
 import multer from "multer";
-import { requireAuth, requireManageSettings, requireAuthOrIntegrationKey, requireManageCommercialDraftUpload, requireCsrf, requireManageOrderDrafts, requireManageOffers, requireViewOffers, canViewMarginDetails, requireViewMarginDetails } from "../auth/auth";
+import { requireAuth, requireManageSettings, requireAuthOrIntegrationKey, requireManageCommercialDraftUpload, requireCsrf, requireManageOrderDrafts, requireManageOffers, requireViewOffers, canViewMarginDetails, requireViewMarginDetails, requireAdministrator } from "../auth/auth";
 import { applyManualLinePrice, preserveManualLinePrices } from "../commercial/draftLinePrice";
 import {
   decideMarginApproval,
@@ -11,6 +11,8 @@ import {
 import type { DraftMarginApprovalView } from "@shared/draftMarginApproval";
 import type { DraftProfitability } from "@shared/draftProfitability";
 import {
+  CREATION_STUCK_MINUTES,
+  refreshDraftProfitability,
   hideDraftProfitabilityDetails,
   type DraftForProfitability,
   loadDraftProfitabilityForView,
@@ -954,6 +956,72 @@ export function registerDraftRoutes(app: Express): void {
     marginApprovalHandler("offer", "decide"),
   );
 
+  // POST /api/{order,offer}-drafts/:id/release-creation - nur Administratoren: Entwurf, der auf
+  // "creating" hängt (Absturz/Fehler nach dem Sperren), freigeben. Mit shopwareEntityId wird er als
+  // angelegt verknüpft (Beleg existiert in Shopware), sonst zurück in die Prüfung. Erst nach
+  // CREATION_STUCK_MINUTES, damit eine laufende Anlage nicht gestört wird.
+  const releaseCreationHandler = (kind: "order" | "offer") =>
+    async (req: Request, res: Response) => {
+      try {
+        const body = z
+          .object({ shopwareEntityId: z.string().trim().regex(/^[0-9a-fA-F-]{32,36}$/).optional() })
+          .safeParse(req.body ?? {});
+        if (!body.success) {
+          return res.status(400).json({ error: "Ungültige Shopware-ID" });
+        }
+        const tenantId = req.tenantId ?? null;
+        const draft =
+          kind === "order"
+            ? await storage.getOrderDraft(req.params.id)
+            : await storage.getOfferDraft(req.params.id, tenantId);
+        if (!draft) {
+          return res.status(404).json({ error: kind === "order" ? "Order draft not found" : "Offer draft not found" });
+        }
+        if (draft.status !== "creating") {
+          return res.status(409).json({ error: "Entwurf hängt nicht in der Anlage" });
+        }
+        const stuckSince = new Date(draft.updatedAt).getTime();
+        if (Date.now() - stuckSince < CREATION_STUCK_MINUTES * 60_000) {
+          return res.status(409).json({ error: "Anlage läuft womöglich noch, bitte später erneut versuchen" });
+        }
+        const shopwareEntityId = body.data.shopwareEntityId?.replace(/-/g, "").toLowerCase();
+        const updates = shopwareEntityId
+          ? kind === "order"
+            ? { status: "created", shopwareOrderId: shopwareEntityId }
+            : { status: "created", shopwareOfferId: shopwareEntityId }
+          : { status: "review_required" };
+        const updated =
+          kind === "order"
+            ? await storage.updateOrderDraft(draft.id, updates)
+            : await storage.updateOfferDraft(draft.id, updates, tenantId);
+        moduleLog.warn(
+          { draftId: draft.id, kind, shopwareEntityId: shopwareEntityId ?? null, by: (req.user as { username?: string })?.username },
+          "Hängende Entwurfsanlage manuell gelöst",
+        );
+        if (shopwareEntityId && updated) {
+          void refreshDraftProfitability({ storage, tenantId, kind, draftId: updated.id, draft: updated, frozen: true });
+        }
+        res.json(updated);
+      } catch (error) {
+        moduleLog.error({ err: error, kind }, "Error releasing stuck draft creation:");
+        res.status(500).json({ error: "Anlage-Sperre konnte nicht gelöst werden" });
+      }
+    };
+  app.post(
+    "/api/order-drafts/:id/release-creation",
+    requireAuth,
+    requireAdministrator,
+    requireCsrf,
+    releaseCreationHandler("order"),
+  );
+  app.post(
+    "/api/offer-drafts/:id/release-creation",
+    requireAuth,
+    requireAdministrator,
+    requireCsrf,
+    releaseCreationHandler("offer"),
+  );
+
   const lineDraftPriceHandler = (kind: "order" | "offer") =>
     async (req: Request, res: Response) => {
       try {
@@ -1529,7 +1597,12 @@ export function registerDraftRoutes(app: Express): void {
   // Was das Review-Modal anbieten darf (ohne Settings-Recht lesbar)
   app.get("/api/commercial-drafts/capabilities", requireAuth, async (_req: Request, res: Response) => {
     const agent = await getCommercialAgentSettings(storage);
-    res.json({ customerCreateEnabled: agent.customerManualCreateEnabled === true });
+    res.json({
+      customerCreateEnabled: agent.customerManualCreateEnabled === true,
+      // Hinweis-Schwellen im Prüffenster wie in der Pipeline (Einstellungen des Commercial Agent)
+      intentReviewMinConfidence: agent.intentReviewMinConfidence ?? 0.6,
+      customerMatchReviewMinConfidence: agent.customerMatchAutoMinConfidence ?? 72,
+    });
   });
 
   app.get("/api/order-drafts/:id/attachments", requireAuthOrIntegrationKey, requireManageOrderDrafts, async (req: Request, res: Response) => {
@@ -2485,6 +2558,9 @@ export function registerDraftRoutes(app: Express): void {
       const result = await executeCreateOfferFromDraft(storage, id, {
         salesChannelId: channelResult.salesChannelId,
         tenantId: req.tenantId ?? null,
+        discountJustification:
+          typeof req.body?.discount_justification === "string" ? req.body.discount_justification : null,
+        userId: (req.user as { id?: string } | undefined)?.id ?? null,
       });
       if (!result.ok) {
         return res.status(result.statusCode).json({ error: result.error, ...(result.code ? { code: result.code } : {}) });

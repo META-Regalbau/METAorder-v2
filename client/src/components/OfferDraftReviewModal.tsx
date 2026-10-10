@@ -78,11 +78,15 @@ import {
   DraftCustomerCandidates,
   DraftCustomerOptionLabel,
   useCustomerCreateEnabled,
+  useDraftReviewThresholds,
   type DraftShopwareCustomer,
 } from "@/components/DraftCustomerOptions";
+import { StrictAutoCreateTraceAlert, type StrictAutoCreateTrace } from "@/components/StrictAutoCreateTraceAlert";
+import { StuckDraftCreationNotice } from "@/components/StuckDraftCreationNotice";
 import { DraftReferencesCard, type DraftDocumentReferencesLite } from "@/components/DraftReferencesCard";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
+import { computeOfferDraftDiscountTotals } from "@shared/offerDraftDiscount";
 import {
   DraftLineMargin,
   DraftLinePriceEditor,
@@ -222,28 +226,12 @@ export function OfferDraftReviewModal({
         matchingResults: mergedMatchingResults,
         status: draft.status === "pending" ? "approved" : undefined,
       });
-      // Angebot erstellen
-      const response = await apiRequest("POST", `/api/offer-drafts/${draft.id}/create-offer`);
-      const offer = await response.json();
-      const offerId = offer?.id;
-      if (!offerId) return offer;
-
-      // Bei Rabatt mit Freigabepflicht: request-approval aufrufen
-      const needsApproval = discountLevel &&
-        (discountLevel.approvalType === "department_lead" || discountLevel.approvalType === "management");
-      if (needsApproval && discountLevel && pricingRecs) {
-        const listPrice = pricingRecs.totalCatalogValue;
-        const discountedPrice = pricingRecs.totalSuggestedValue;
-        const discPct = listPrice > 0 ? ((listPrice - discountedPrice) / listPrice) * 100 : 0;
-        await apiRequest("POST", `/api/cpq/offers/${offerId}/request-approval`, {
-          justification: approvalJustification.trim() || null,
-          listPrice,
-          discountedPrice,
-          discountPercent: discPct,
-          discountLevelId: discountLevel.levelId,
-        });
-      }
-      return offer;
+      // Angebot erstellen; der Server prüft die Rabatt-Ampel und legt bei Freigabepflicht
+      // den Freigabe-Eintrag mit dieser Begründung selbst an
+      const response = await apiRequest("POST", `/api/offer-drafts/${draft.id}/create-offer`, {
+        discount_justification: approvalJustification.trim() || null,
+      });
+      return response.json();
     },
     onSuccess: () => {
       const needsApproval = discountLevel &&
@@ -440,6 +428,7 @@ export function OfferDraftReviewModal({
 
   type ShopwareCustomer = DraftShopwareCustomer;
   const customerCreateEnabled = useCustomerCreateEnabled();
+  const reviewThresholds = useDraftReviewThresholds();
   const { data: customerSearchData } = useQuery<{ customers: ShopwareCustomer[] }>({
     queryKey: ["/api/offer-drafts/customer-search", debouncedCustomerSearch],
     queryFn: async () => {
@@ -631,9 +620,9 @@ export function OfferDraftReviewModal({
 
   const pricingRecs = draft.matchingResults?.pricingRecommendations;
 
-  const discountPercent = pricingRecs && pricingRecs.totalCatalogValue > 0
-    ? ((pricingRecs.totalCatalogValue - pricingRecs.totalSuggestedValue) / pricingRecs.totalCatalogValue) * 100
-    : 0;
+  // gleiche Rechnung wie der Server bei der Anlage (inkl. manueller Preise)
+  const discountTotals = computeOfferDraftDiscountTotals(draft.matchingResults?.items ?? []);
+  const discountPercent = discountTotals.discountPercent;
 
   const { data: discountLevel } = useQuery<{
     levelId: string;
@@ -643,16 +632,17 @@ export function OfferDraftReviewModal({
     queryKey: ["/api/cpq/discount-levels/evaluate", discountPercent],
     queryFn: async () => {
       const params = new URLSearchParams({
-        discount: discountPercent.toFixed(2),
-        list_price: String(pricingRecs?.totalCatalogValue ?? 0),
-        discounted_price: String(pricingRecs?.totalSuggestedValue ?? 0),
+        discount: String(discountPercent),
+        order_value: String(discountTotals.totalOfferValue),
+        list_price: String(discountTotals.totalCatalogValue),
+        discounted_price: String(discountTotals.totalOfferValue),
       });
       const res = await fetch(`/api/cpq/discount-levels/evaluate?${params}`, { credentials: "include" });
       if (!res.ok) return null;
       const data = await res.json();
       return data;
     },
-    enabled: open && !!pricingRecs && pricingRecs.totalCatalogValue > 0,
+    enabled: open && discountTotals.totalCatalogValue > 0 && discountPercent > 0,
   });
 
   const requiresApproval =
@@ -678,12 +668,13 @@ export function OfferDraftReviewModal({
   const intentConfOffer = ext?.commercialIntentConfidence;
   const showCommercialHintOffer =
     typeof intentConfOffer === "number" &&
-    (intentConfOffer < 0.6 ||
+    (intentConfOffer < reviewThresholds.intentMin ||
       ext?.commercialIntent === "unclear" ||
       Boolean(ext?.commercialIntentVsUploadMismatch));
   const showRerouteHintOffer = Boolean(ext?.commercialIntentRoutedAsOfferDueToPermission);
   const custMatchOffer = ext?.customer?.customerMatchConfidence;
-  const showCustomerMatchHintOffer = typeof custMatchOffer === "number" && custMatchOffer < 72;
+  const showCustomerMatchHintOffer =
+    typeof custMatchOffer === "number" && custMatchOffer < reviewThresholds.customerMatchMin;
   const effectiveOfferMatching =
     mergedMatchingResults ?? (draft.matchingResults ? { ...draft.matchingResults } : null);
   const showLowMatchingHintOffer = isLowOverallMatchingConfidence(effectiveOfferMatching);
@@ -739,6 +730,14 @@ export function OfferDraftReviewModal({
             </AlertDescription>
           </Alert>
         )}
+
+        {draft.status === "creating" && (
+          <StuckDraftCreationNotice kind="offer" draftId={draft.id} updatedAt={draft.updatedAt} onReleased={onUpdate} />
+        )}
+
+        <StrictAutoCreateTraceAlert
+          trace={(draft.extractedData as { strictAutoCreateTrace?: StrictAutoCreateTrace } | null)?.strictAutoCreateTrace}
+        />
 
         {(showCommercialHintOffer || showRerouteHintOffer || showCustomerMatchHintOffer) && (
           <Alert className="border-amber-500/40 bg-amber-500/5">

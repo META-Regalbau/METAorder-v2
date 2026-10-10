@@ -23,3 +23,12 @@ export function useCanViewMarginDetails(): boolean {
   });
   return canViewMarginDetailsFor(data?.user);
 }
+
+/** Administrator (Rolle „Administrator“ oder Altbenutzer „admin“). */
+export function useIsAdministrator(): boolean {
+  const { data } = useQuery<MeResponse>({
+    queryKey: ["/api/auth/me"],
+    retry: false,
+  });
+  return data?.user?.role === "admin" || data?.user?.roleName === "Administrator";
+}

@@ -30,6 +30,9 @@ const log = logger.child({ component: "commercial/draftProfitability" });
 
 export type DraftKind = "order" | "offer";
 
+/** Ab dieser Dauer gilt ein Entwurf auf "creating" als hängend (Admin darf die Sperre lösen). */
+export const CREATION_STUCK_MINUTES = 10;
+
 /** Ein Artikel einer Position (bei Sets mehrere) mit Menge je Stück/Set. */
 export type DraftLinePart = {
   ref: HerstellpreisRef;

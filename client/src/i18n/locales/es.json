@@ -3434,7 +3434,8 @@
       "approved": "Aprobado",
       "rejected": "Rechazado",
       "created": "Creado",
-      "reviewRequired": "Revisión necesaria"
+      "reviewRequired": "Revisión necesaria",
+      "creating": "Creándose"
     },
     "title": "Borradores de ofertas",
     "description": "Creación de ofertas con IA a partir de documentos y correos electrónicos",
@@ -3583,7 +3584,8 @@
       "approved": "Aprobado",
       "reviewRequired": "Revisión Requerida",
       "rejected": "Rechazado",
-      "created": "Creado"
+      "created": "Creado",
+      "creating": "Creándose"
     },
     "table": {
       "document": "Documento",
@@ -6257,7 +6259,11 @@
       "entwurf_ist_bereits_angelegt": "El borrador ya se ha creado",
       "preis_konnte_nicht_gespeichert_werden": "No se pudo guardar el precio",
       "ungultige_anfrage": "Solicitud no válida",
-      "freigabe_konnte_nicht_gespeichert_werden": "No se pudo guardar la aprobación"
+      "freigabe_konnte_nicht_gespeichert_werden": "No se pudo guardar la aprobación",
+      "ungultige_shopware_id": "ID de Shopware no válido",
+      "entwurf_hangt_nicht_in_der_anlage": "El borrador no está bloqueado en la creación",
+      "anlage_lauft_womoglich_noch_bitte_spater_erneut_versuchen": "Puede que la creación siga en curso, inténtalo más tarde",
+      "anlage_sperre_konnte_nicht_gelost_werden": "No se pudo liberar el bloqueo de creación"
     }
   },
   "roomPlanner": {
@@ -6951,5 +6957,56 @@
     "saveError": "No se pudo guardar la aprobación",
     "createBlocked": "Margen demasiado bajo: creación solo tras aprobación",
     "draftNotFound": "Borrador no encontrado"
+  },
+  "strictAutoCreate": {
+    "title": "Por qué no se creó automáticamente",
+    "shopwareError": "Falló la creación en Shopware: {{error}}",
+    "evaluatedAt": "Comprobado el {{date}}",
+    "intentConfidenceBelow": "La IA no está lo bastante segura de si es pedido o consulta (por debajo del {{min}} %)",
+    "customerMatchBelow": "Asignación de cliente dudosa (por debajo del {{min}} %)",
+    "reason": {
+      "commercial_agent_disabled": "La automatización está desactivada",
+      "auto_create_offers_disabled": "Las ofertas automáticas están desactivadas",
+      "auto_create_orders_disabled": "Los pedidos automáticos están desactivados",
+      "intent_unclear": "No está claro si es pedido o consulta",
+      "missing_billing_company": "Dirección de facturación: falta la empresa",
+      "missing_billing_street": "Dirección de facturación: falta la calle",
+      "missing_billing_zipCode": "Dirección de facturación: falta el código postal",
+      "missing_billing_city": "Dirección de facturación: falta la ciudad",
+      "missing_billing_country": "Dirección de facturación: falta el país",
+      "missing_contact_email_or_phone": "No se encontró ni correo ni teléfono",
+      "missing_shopware_customer_id": "No hay cliente de Shopware asignado",
+      "customer_was_auto_created_not_matched": "El cliente se creó en lugar de encontrarse",
+      "missing_sales_channel_id": "Sin canal de venta",
+      "duplicate_buyer_document_number": "El número de documento del cliente ya está en otro borrador",
+      "address_review_hints_present": "La dirección tiene avisos de revisión",
+      "intent_vs_upload_mismatch": "El tipo detectado no coincide con la subida",
+      "company_heuristic_low_score": "Nombre de empresa dudoso",
+      "company_heuristic_no_candidate": "No se encontró nombre de empresa",
+      "no_line_items": "No se encontraron posiciones",
+      "no_matching_results": "Sin comparación de artículos",
+      "line_item_count_mismatch": "El número de posiciones no coincide",
+      "price_check_unavailable": "No es posible comparar precios",
+      "margin_below_minimum": "Margen demasiado bajo (semáforo rojo)"
+    },
+    "line": {
+      "catalog_matching_skipped": "Posición {{line}}: sin comparación con el catálogo",
+      "not_matched": "Posición {{line}}: ningún artículo asignado",
+      "confidence_below_100": "Posición {{line}}: asignación no segura",
+      "price_mismatch": "Posición {{line}}: el precio del documento difiere del precio del cliente",
+      "price_missing_in_document": "Posición {{line}}: sin precio en el documento",
+      "price_unresolved": "Posición {{line}}: no se pudo determinar el precio del cliente"
+    }
+  },
+  "stuckDraftCreation": {
+    "title": "Creación bloqueada",
+    "text": "El borrador está bloqueado para la creación desde {{date}}, pero no figura como creado. Es posible que el documento se haya creado igualmente en Shopware.",
+    "adminHint": "Comprueba en Shopware. Si el documento existe, introduce su ID de Shopware y vincúlalo. Si no, libera el bloqueo; el borrador vuelve a revisión.",
+    "shopwareIdLabel": "ID de Shopware del documento",
+    "link": "Vincular como creado",
+    "release": "Liberar bloqueo",
+    "waitHint": "Un administrador puede liberar el bloqueo después de 10 minutos.",
+    "released": "Bloqueo liberado",
+    "releaseError": "No se pudo liberar el bloqueo"
   }
 }
