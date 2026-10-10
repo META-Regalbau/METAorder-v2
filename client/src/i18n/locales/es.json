@@ -1548,7 +1548,7 @@
         "maxPerRunHint": "n8n se ejecuta cada 2 minutos, los correos más antiguos primero.",
         "otherSection": "Ni pedido ni oferta",
         "forwardTo": "Reenviar a",
-        "forwardToHint": "Outlook reenvía el correo original con el motivo de la clasificación arriba. Las respuestas van al remitente original.",
+        "forwardToHint": "Outlook reenvía el correo original con el motivo de la clasificación arriba. Las respuestas van al remitente original. Las respuestas automáticas de ausencia y el spam solo se marcan y se mueven.",
         "forwardToEmpty": "Sin dirección, \"otro\" solo se marca y se mueve a la carpeta de destino.",
         "otherMinConfidence": "Como otro a partir de seguridad (%)",
         "otherMinConfidenceHint": "Por debajo se crea un borrador por precaución, para no perder ningún pedido.",

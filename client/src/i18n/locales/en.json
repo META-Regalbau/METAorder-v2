@@ -1702,7 +1702,7 @@
         "maxPerRunHint": "n8n runs every 2 minutes, oldest mail first.",
         "otherSection": "Neither order nor quote",
         "forwardTo": "Forward to",
-        "forwardToHint": "Outlook forwards the original mail with the reason for the classification on top. Replies go to the original sender.",
+        "forwardToHint": "Outlook forwards the original mail with the reason for the classification on top. Replies go to the original sender. Out-of-office replies and spam are only tagged and moved.",
         "forwardToEmpty": "Without an address, \"other\" mail is only tagged and moved to the target folder.",
         "otherMinConfidence": "Treat as other from confidence (%)",
         "otherMinConfidenceHint": "Below that a draft is created to be safe, so no order gets lost.",

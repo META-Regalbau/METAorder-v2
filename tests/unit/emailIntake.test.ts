@@ -197,10 +197,25 @@ describe("E-Mail-Eingang: Entscheidung je Mail", () => {
     assert.equal(plan.problems.length, 0);
   });
 
+  it("Abwesenheitsnotiz und Spam: nur Kategorie, keine Weiterleitung", () => {
+    for (const otherType of ["auto_reply", "spam"] as const) {
+      const plan = planEmailIntake({
+        skippedAsOther: true,
+        triage: { kind: "other", otherType, confidence: 0.99, reason: "", source: "heuristic" },
+        outcomes: [],
+        existingDraftKind: null,
+        settings: settingsAll,
+      });
+      assert.equal(plan.outcome, "other");
+      assert.deepEqual(plan.categories, [EMAIL_INTAKE_CATEGORIES.other]);
+      assert.equal(plan.forward, null, otherType);
+    }
+  });
+
   it("Sonstiges ohne Weiterleitungsadresse: nur Kategorie", () => {
     const plan = planEmailIntake({
       skippedAsOther: true,
-      triage: { kind: "other", otherType: "spam", confidence: 0.99, reason: "", source: "llm" },
+      triage: { kind: "other", otherType: "newsletter", confidence: 0.99, reason: "", source: "llm" },
       outcomes: [],
       existingDraftKind: null,
       settings: { ...settingsAll, forwardOtherTo: "" },

@@ -80,8 +80,8 @@ Bei Problemen kommt zusätzlich `METAorder: Ticket` dazu.
   normal verarbeitet. Die Vorprüfung läuft nur beim Abruf über den Integrations-Schlüssel, nicht beim
   Hochladen in der Oberfläche.
 - **Weiterleitung**: Graph `POST /messages/{id}/forward` mit Hinweis oben (Einordnung, Sicherheit, Begründung).
-  Antworten gehen an den ursprünglichen Absender. Ohne Adresse in den Einstellungen wird nur markiert und
-  verschoben.
+  Antworten gehen an den ursprünglichen Absender. Abwesenheitsnotizen und Spam werden nie weitergeleitet,
+  nur markiert und verschoben. Ohne Adresse in den Einstellungen gilt das für alles „Sonstige“.
 
 ### Problem-Tickets
 

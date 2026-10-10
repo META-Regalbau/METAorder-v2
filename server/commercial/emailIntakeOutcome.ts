@@ -6,6 +6,7 @@ import {
   EMAIL_INTAKE_CATEGORIES,
   EMAIL_INTAKE_OTHER_TYPE_LABELS,
   isValidIntakeEmail,
+  type EmailIntakeOtherType,
   type EmailIntakeOutcome,
   type EmailIntakeProblemReason,
   type EmailIntakeResponse,
@@ -13,6 +14,9 @@ import {
 } from "@shared/emailIntake";
 import type { CommercialAgentProcessOutcome } from "./commercialAgentOrchestrator";
 import type { EmailTriageResult } from "./emailIntakeTriage";
+
+/** Werden nicht weitergeleitet, nur markiert und verschoben */
+export const NOT_FORWARDED: readonly EmailIntakeOtherType[] = ["auto_reply", "spam"];
 
 export type PlannedProblem = {
   reason: EmailIntakeProblemReason;
@@ -56,10 +60,12 @@ export function planEmailIntake(input: {
 
   if (input.skippedAsOther && input.triage?.kind === "other") {
     const to = settings.forwardOtherTo.trim();
+    // Abwesenheitsnotizen und Spam nur markieren und verschieben (Entscheidung 10.10.2026)
+    const forwardable = !NOT_FORWARDED.includes(input.triage.otherType);
     return {
       outcome: "other",
       categories: [EMAIL_INTAKE_CATEGORIES.other],
-      forward: to && isValidIntakeEmail(to) ? { to, comment: buildForwardComment(input.triage) } : null,
+      forward: forwardable && to && isValidIntakeEmail(to) ? { to, comment: buildForwardComment(input.triage) } : null,
       other: { type: input.triage.otherType, confidence: input.triage.confidence, reason: input.triage.reason },
       problems: [],
     };

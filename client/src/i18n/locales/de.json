@@ -1699,7 +1699,7 @@
         "maxPerRunHint": "n8n läuft alle 2 Minuten, die ältesten Mails zuerst.",
         "otherSection": "Weder Bestellung noch Angebot",
         "forwardTo": "Weiterleiten an",
-        "forwardToHint": "Outlook leitet die Originalmail weiter, oben steht der Grund der Einordnung. Antworten gehen an den ursprünglichen Absender.",
+        "forwardToHint": "Outlook leitet die Originalmail weiter, oben steht der Grund der Einordnung. Antworten gehen an den ursprünglichen Absender. Abwesenheitsnotizen und Spam werden nur markiert und verschoben.",
         "forwardToEmpty": "Ohne Adresse wird „Sonstiges“ nur markiert und in den Zielordner verschoben.",
         "otherMinConfidence": "Ab Sicherheit (%) als Sonstiges",
         "otherMinConfidenceHint": "Darunter wird vorsichtshalber ein Entwurf angelegt, damit keine Bestellung verloren geht.",
