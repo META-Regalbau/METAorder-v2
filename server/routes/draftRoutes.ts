@@ -1,8 +1,18 @@
 // KI-Entwuerfe: gemeinsamer Upload, Bestell- und Angebotsentwuerfe (Pruefen, Kunde/Produkte zuordnen, Anhaenge, Anlage in Shopware) sowie Commercial Agent.
 import multer from "multer";
-import { requireAuth, requireManageSettings, requireAuthOrIntegrationKey, requireManageCommercialDraftUpload, requireCsrf, requireManageOrderDrafts, requireManageOffers, requireViewOffers, canViewMarginDetails } from "../auth/auth";
+import { requireAuth, requireManageSettings, requireAuthOrIntegrationKey, requireManageCommercialDraftUpload, requireCsrf, requireManageOrderDrafts, requireManageOffers, requireViewOffers, canViewMarginDetails, requireViewMarginDetails } from "../auth/auth";
 import { applyManualLinePrice, preserveManualLinePrices } from "../commercial/draftLinePrice";
 import {
+  decideMarginApproval,
+  evaluateMarginApproval,
+  loadMarginApprovalView,
+  requestMarginApproval,
+} from "../commercial/draftMarginApproval";
+import type { DraftMarginApprovalView } from "@shared/draftMarginApproval";
+import type { DraftProfitability } from "@shared/draftProfitability";
+import {
+  hideDraftProfitabilityDetails,
+  type DraftForProfitability,
   loadDraftProfitabilityForView,
   scheduleDraftProfitabilityBackfill,
   toDraftProfitabilityBadge,
@@ -43,6 +53,33 @@ import { logger } from "../lib/logger";
 const moduleLog = logger.child({ component: "routes/draftRoutes" });
 
 
+/** Antwort der DB-Endpunkte: DB (ohne Recht nur Ampeln) und Freigabe-Zustand. */
+async function draftProfitabilityResponse(
+  kind: "order" | "offer",
+  draft: { id: string; status?: string | null } & DraftForProfitability,
+  req: Request,
+  freshSnapshot?: DraftProfitability,
+): Promise<{ profitability: DraftProfitability | null; marginApproval: DraftMarginApprovalView }> {
+  const tenantId = req.tenantId ?? null;
+  const canView = canViewMarginDetails(req.user);
+  const profitability = freshSnapshot
+    ? canView
+      ? freshSnapshot
+      : hideDraftProfitabilityDetails(freshSnapshot)
+    : await loadDraftProfitabilityForView({ storage, tenantId, kind, draftId: draft.id, draft, canViewDetails: canView });
+  // Freigabe-Zustand immer gegen die ungekürzte Berechnung (Fingerprint braucht die Preise)
+  const stored = await storage.getDraftProfitability(kind, draft.id, tenantId);
+  const marginApproval = await loadMarginApprovalView({
+    storage,
+    tenantId,
+    kind,
+    draftId: draft.id,
+    snapshot: freshSnapshot ?? stored?.snapshot ?? null,
+    canViewDetails: canView,
+  });
+  return { profitability, marginApproval };
+}
+
 /** Entwurfslisten um die DB-Ampel ergänzen (Beträge nur mit Recht „DB-Werte sehen“). */
 async function withProfitabilityBadges<T extends { id: string }>(
   kind: "order" | "offer",
@@ -63,8 +100,21 @@ async function withProfitabilityBadges<T extends { id: string }>(
     drafts: drafts as unknown as Parameters<typeof scheduleDraftProfitabilityBackfill>[0]["drafts"],
     existingDraftIds: new Set(rows.keys()),
   });
+  let approvals = new Map<string, Awaited<ReturnType<typeof storage.getDraftMarginApprovals>>[number]>();
+  try {
+    approvals = await storage.getLatestDraftMarginApprovals(kind, drafts.map((d) => d.id), req.tenantId ?? null);
+  } catch (error) {
+    moduleLog.warn({ err: error }, "Freigaben der Entwurfsliste konnten nicht geladen werden:");
+  }
   const canView = canViewMarginDetails(req.user);
-  return drafts.map((draft) => ({ ...draft, profitability: toDraftProfitabilityBadge(rows.get(draft.id), canView) }));
+  return drafts.map((draft) => {
+    const row = rows.get(draft.id);
+    const badge = toDraftProfitabilityBadge(row, canView);
+    if (!badge || !row) return { ...draft, profitability: badge };
+    const latest = approvals.get(draft.id);
+    const approvalState = evaluateMarginApproval(row.snapshot, latest ? [latest] : [], false).state;
+    return { ...draft, profitability: { ...badge, approvalState } };
+  });
 }
 
 function parseUploadIntentHint(raw: unknown): "offer" | "order" | "unclear" | undefined {
@@ -807,15 +857,7 @@ export function registerDraftRoutes(app: Express): void {
       if (!draft) {
         return res.status(404).json({ error: "Order draft not found" });
       }
-      const profitability = await loadDraftProfitabilityForView({
-        storage,
-        tenantId: req.tenantId ?? null,
-        kind: "order",
-        draftId: draft.id,
-        draft,
-        canViewDetails: canViewMarginDetails(req.user),
-      });
-      res.json({ profitability });
+      res.json(await draftProfitabilityResponse("order", draft, req));
     } catch (error) {
       moduleLog.error({ err: error }, "Error computing order draft profitability:");
       res.status(500).json({ error: "DB-Berechnung fehlgeschlagen" });
@@ -824,6 +866,94 @@ export function registerDraftRoutes(app: Express): void {
 
   // PATCH /api/{order,offer}-drafts/:id/line-price - manueller Netto-Stückpreis je Position
   // (null = zurück zum ermittelten Preis); liefert die neu berechnete DB gleich mit.
+  // POST /api/{order,offer}-drafts/:id/margin-approval/request - DB rot: Freigabe mit Begründung anfordern
+  // POST /api/{order,offer}-drafts/:id/margin-approval/decide - freigeben/ablehnen (Recht „DB-Werte sehen“)
+  const marginApprovalHandler = (kind: "order" | "offer", action: "request" | "decide") =>
+    async (req: Request, res: Response) => {
+      try {
+        const body = z
+          .object({
+            reason: z.string().max(2000).optional(),
+            decision: z.enum(["approve", "reject"]).optional(),
+            comment: z.string().max(2000).nullable().optional(),
+          })
+          .safeParse(req.body ?? {});
+        if (!body.success || (action === "decide" && !body.data.decision)) {
+          return res.status(400).json({ error: "Ungültige Anfrage" });
+        }
+        const tenantId = req.tenantId ?? null;
+        const draft =
+          kind === "order"
+            ? await storage.getOrderDraft(req.params.id)
+            : await storage.getOfferDraft(req.params.id, tenantId);
+        if (!draft) {
+          return res.status(404).json({ error: kind === "order" ? "Order draft not found" : "Offer draft not found" });
+        }
+        if (draft.status === "created" || draft.status === "creating") {
+          return res.status(409).json({ error: "Entwurf ist bereits angelegt" });
+        }
+        const user = req.user as { id: string; username: string };
+        const result =
+          action === "request"
+            ? await requestMarginApproval({
+                storage,
+                tenantId,
+                kind,
+                draftId: draft.id,
+                draft,
+                user,
+                reason: body.data.reason ?? "",
+              })
+            : await decideMarginApproval({
+                storage,
+                tenantId,
+                kind,
+                draftId: draft.id,
+                draft,
+                user,
+                decision: body.data.decision!,
+                comment: body.data.comment ?? null,
+              });
+        if (!result.ok) {
+          return res.status(result.statusCode).json({ error: result.error });
+        }
+        res.json(await draftProfitabilityResponse(kind, draft, req, result.profitability));
+      } catch (error) {
+        moduleLog.error({ err: error, kind, action }, "Error handling draft margin approval:");
+        res.status(500).json({ error: "Freigabe konnte nicht gespeichert werden" });
+      }
+    };
+  app.post(
+    "/api/order-drafts/:id/margin-approval/request",
+    requireAuthOrIntegrationKey,
+    requireManageOrderDrafts,
+    requireCsrf,
+    marginApprovalHandler("order", "request"),
+  );
+  app.post(
+    "/api/order-drafts/:id/margin-approval/decide",
+    requireAuthOrIntegrationKey,
+    requireManageOrderDrafts,
+    requireViewMarginDetails,
+    requireCsrf,
+    marginApprovalHandler("order", "decide"),
+  );
+  app.post(
+    "/api/offer-drafts/:id/margin-approval/request",
+    requireAuthOrIntegrationKey,
+    requireManageOffers,
+    requireCsrf,
+    marginApprovalHandler("offer", "request"),
+  );
+  app.post(
+    "/api/offer-drafts/:id/margin-approval/decide",
+    requireAuthOrIntegrationKey,
+    requireManageOffers,
+    requireViewMarginDetails,
+    requireCsrf,
+    marginApprovalHandler("offer", "decide"),
+  );
+
   const lineDraftPriceHandler = (kind: "order" | "offer") =>
     async (req: Request, res: Response) => {
       try {
@@ -861,15 +991,7 @@ export function registerDraftRoutes(app: Express): void {
         if (!updated) {
           return res.status(404).json({ error: kind === "order" ? "Order draft not found" : "Offer draft not found" });
         }
-        const profitability = await loadDraftProfitabilityForView({
-          storage,
-          tenantId,
-          kind,
-          draftId: updated.id,
-          draft: updated,
-          canViewDetails: canViewMarginDetails(req.user),
-        });
-        res.json({ draft: updated, profitability });
+        res.json({ draft: updated, ...(await draftProfitabilityResponse(kind, updated, req)) });
       } catch (error) {
         moduleLog.error({ err: error, kind }, "Error setting draft line price:");
         res.status(500).json({ error: "Preis konnte nicht gespeichert werden" });
@@ -1369,7 +1491,7 @@ export function registerDraftRoutes(app: Express): void {
         tenantId: req.tenantId ?? null,
       });
       if (!result.ok) {
-        return res.status(result.statusCode).json({ error: result.error });
+        return res.status(result.statusCode).json({ error: result.error, ...(result.code ? { code: result.code } : {}) });
       }
       try {
         const learningRows = buildCommercialProductFeedbackRowsFromDraftUpdate({
@@ -1779,15 +1901,7 @@ export function registerDraftRoutes(app: Express): void {
       if (!draft) {
         return res.status(404).json({ error: "Offer draft not found" });
       }
-      const profitability = await loadDraftProfitabilityForView({
-        storage,
-        tenantId: req.tenantId ?? null,
-        kind: "offer",
-        draftId: draft.id,
-        draft,
-        canViewDetails: canViewMarginDetails(req.user),
-      });
-      res.json({ profitability });
+      res.json(await draftProfitabilityResponse("offer", draft, req));
     } catch (error) {
       moduleLog.error({ err: error }, "Error computing offer draft profitability:");
       res.status(500).json({ error: "DB-Berechnung fehlgeschlagen" });
@@ -2373,7 +2487,7 @@ export function registerDraftRoutes(app: Express): void {
         tenantId: req.tenantId ?? null,
       });
       if (!result.ok) {
-        return res.status(result.statusCode).json({ error: result.error });
+        return res.status(result.statusCode).json({ error: result.error, ...(result.code ? { code: result.code } : {}) });
       }
       try {
         const learningRows = buildCommercialProductFeedbackRowsFromDraftUpdate({

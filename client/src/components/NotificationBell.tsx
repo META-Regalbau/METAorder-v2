@@ -1,4 +1,4 @@
-import { Bell, Ticket, FileEdit, MessageSquare, Clock, RefreshCw, ListChecks } from "lucide-react";
+import { Bell, Ticket, FileEdit, MessageSquare, Clock, RefreshCw, ListChecks, Calculator } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -67,6 +67,8 @@ export function NotificationBell() {
         return <RefreshCw className={iconClass} />;
       case "cross_selling_review":
         return <ListChecks className={iconClass} />;
+      case "draft_margin_approval":
+        return <Calculator className={iconClass} />;
       default:
         return <Bell className={iconClass} />;
     }
@@ -130,7 +132,9 @@ export function NotificationBell() {
                 <Link
                   key={notification.id}
                   href={
-                    notification.type === "cross_selling_review"
+                    notification.link
+                      ? notification.link
+                      : notification.type === "cross_selling_review"
                       ? "/cross-selling-rules?tab=review"
                       : notification.ticketId
                         ? `/tickets?ticketId=${notification.ticketId}`

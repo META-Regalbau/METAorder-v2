@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +61,17 @@ export default function OrderDraftsPage() {
   const [, setLocation] = useLocation();
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedDraft, setSelectedDraft] = useState<OrderDraft | null>(null);
+
+  // Direktlink ?draftId=… (z. B. aus der Benachrichtigung „DB-Freigabe angefordert“)
+  const searchString = useSearch();
+  useEffect(() => {
+    const draftId = new URLSearchParams(searchString).get("draftId");
+    if (!draftId) return;
+    setLocation("/order-drafts", { replace: true });
+    void fetchOrderDraftForReview(draftId)
+      .then(setSelectedDraft)
+      .catch(() => toast({ title: t("draftMarginApproval.draftNotFound"), variant: "destructive" }));
+  }, [searchString, setLocation, toast, t]);
 
   const { data: drafts, isLoading, refetch } = useQuery<OrderDraft[]>({
     queryKey: ["/api/order-drafts"],

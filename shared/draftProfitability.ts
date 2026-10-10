@@ -46,4 +46,6 @@ export type DraftProfitabilityBadge = {
   marginPercent: number | null;
   db1Total: number | null;
   frozen: boolean;
+  /** Freigabe bei Rot (siehe DraftMarginApprovalView.state) */
+  approvalState?: import("./draftMarginApproval").DraftMarginApprovalState;
 };

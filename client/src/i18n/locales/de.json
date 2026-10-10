@@ -6255,7 +6255,9 @@
       "db_berechnung_fehlgeschlagen": "DB-Berechnung fehlgeschlagen",
       "ungultiger_preis": "Ungültiger Preis",
       "entwurf_ist_bereits_angelegt": "Entwurf ist bereits angelegt",
-      "preis_konnte_nicht_gespeichert_werden": "Preis konnte nicht gespeichert werden"
+      "preis_konnte_nicht_gespeichert_werden": "Preis konnte nicht gespeichert werden",
+      "ungultige_anfrage": "Ungültige Anfrage",
+      "freigabe_konnte_nicht_gespeichert_werden": "Freigabe konnte nicht gespeichert werden"
     }
   },
   "roomPlanner": {
@@ -6913,5 +6915,41 @@
     "priceReset": "Ermittelten Preis verwenden",
     "priceChangedBy": "geändert von {{user}}",
     "lineTotal": "Summe {{total}}"
+  },
+  "draftMarginApproval": {
+    "listState": {
+      "missing": "Freigabe nötig",
+      "stale": "Freigabe nötig",
+      "requested": "Freigabe angefordert",
+      "approved": "freigegeben",
+      "rejected": "Freigabe abgelehnt"
+    },
+    "title": {
+      "not_required": "DB-Freigabe",
+      "missing": "DB zu niedrig – Anlage nur mit Freigabe",
+      "stale": "Freigabe gilt nicht mehr",
+      "requested": "Freigabe angefordert",
+      "approved": "DB-Freigabe erteilt",
+      "rejected": "Freigabe abgelehnt"
+    },
+    "requestedBy": "Angefordert von {{user}} am {{date}}",
+    "atMargin": "Aufschlag damals {{margin}}",
+    "decidedBy": {
+      "approved": "Freigegeben von {{user}} am {{date}}",
+      "rejected": "Abgelehnt von {{user}} am {{date}}",
+      "requested": "Offen seit {{date}}"
+    },
+    "staleHint": "Preise, Mengen oder Positionen wurden danach geändert. Bitte neu anfordern bzw. freigeben.",
+    "commentLabel": "Kommentar (optional)",
+    "reject": "Ablehnen",
+    "approve": "Freigeben",
+    "waiting": "Wartet auf Freigabe durch jemanden mit dem Recht „DB-Werte sehen“.",
+    "reasonLabel": "Begründung (mindestens 10 Zeichen)",
+    "reasonPlaceholder": "z. B. Rahmenvertrag, Folgeauftrag erwartet, Wettbewerbspreis …",
+    "approveDirect": "Mit Begründung freigeben",
+    "request": "Freigabe anfordern",
+    "saveError": "Freigabe konnte nicht gespeichert werden",
+    "createBlocked": "DB zu niedrig: Anlage erst nach Freigabe",
+    "draftNotFound": "Entwurf nicht gefunden"
   }
 }

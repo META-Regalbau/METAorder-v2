@@ -87,6 +87,8 @@ export function evaluateStrictAutoCreate(params: {
    * Bestellung = Abgleich konnte nicht durchgeführt werden → Review.
    */
   linePriceChecks?: StrictAutoCreateLinePriceCheck[] | null;
+  /** DB-Ampel des Entwurfs; bei Rot nie automatisch anlegen (Freigabe nötig). */
+  marginVerdict?: "green" | "yellow" | "red" | "none" | null;
 }): StrictAutoCreateEvaluation {
   const {
     draftKind,
@@ -98,8 +100,13 @@ export function evaluateStrictAutoCreate(params: {
     customerSalesChannelId,
     siblingDrafts,
     linePriceChecks,
+    marginVerdict,
   } = params;
   const reasons: string[] = [];
+
+  if (marginVerdict === "red") {
+    reasons.push("margin_below_minimum");
+  }
 
   if (!agentSettings.enabled) {
     reasons.push("commercial_agent_disabled");

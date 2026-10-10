@@ -1763,6 +1763,8 @@ export const notifications = pgTable("notifications", {
   message: text("message").notNull(),
   ticketId: varchar("ticket_id").references(() => tickets.id, { onDelete: "cascade" }),
   ticketNumber: text("ticket_number"), // Denormalized for quick access
+  /** Ziel im Client (z. B. /order-drafts?draftId=…), wenn kein Ticket */
+  link: text("link"),
   read: integer("read").notNull().default(0), // 0 = unread, 1 = read
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -1771,7 +1773,7 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
   id: true,
   createdAt: true,
 }).extend({
-  type: z.enum(["ticket_assigned", "ticket_updated", "comment_added", "due_date_warning", "ticket_status_changed", "cross_selling_review"]),
+  type: z.enum(["ticket_assigned", "ticket_updated", "comment_added", "due_date_warning", "ticket_status_changed", "cross_selling_review", "draft_margin_approval"]),
 });
 
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
@@ -2746,6 +2748,41 @@ export const commercialDraftProfitability = pgTable(
 );
 
 export type CommercialDraftProfitabilityRow = typeof commercialDraftProfitability.$inferSelect;
+
+/**
+ * Freigabe roter Entwürfe (DB unter der Warnschwelle): Sachbearbeiter fordert mit Begründung an,
+ * jemand mit Recht „DB-Werte sehen“ gibt frei oder lehnt ab. Je Entwurf beliebig viele Zeilen
+ * (Verlauf); maßgeblich ist die neueste. fingerprint = Stand aus Positionen, Mengen und Preisen —
+ * ändert sich der Entwurf danach, gilt die Freigabe nicht mehr.
+ */
+export const commercialDraftMarginApprovals = pgTable(
+  "commercial_draft_margin_approvals",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id"),
+    draftKind: text("draft_kind").notNull(),
+    draftId: varchar("draft_id").notNull(),
+    status: text("status").notNull(), // requested | approved | rejected
+    reason: text("reason").notNull(),
+    fingerprint: text("fingerprint").notNull(),
+    verdict: text("verdict").notNull(),
+    marginPercent: doublePrecision("margin_percent"),
+    db1Total: doublePrecision("db1_total"),
+    requestedByUserId: varchar("requested_by_user_id"),
+    requestedByName: text("requested_by_name").notNull(),
+    requestedAt: timestamp("requested_at").notNull().defaultNow(),
+    decidedByUserId: varchar("decided_by_user_id"),
+    decidedByName: text("decided_by_name"),
+    decidedAt: timestamp("decided_at"),
+    decisionComment: text("decision_comment"),
+  },
+  (table) => ({
+    draftIdx: index("commercial_draft_margin_approvals_draft_idx").on(table.draftKind, table.draftId, table.requestedAt),
+  }),
+);
+
+export type CommercialDraftMarginApproval = typeof commercialDraftMarginApprovals.$inferSelect;
+export type InsertCommercialDraftMarginApproval = typeof commercialDraftMarginApprovals.$inferInsert;
 
 /** Few-Shot-Lernbeispiele für Commercial Agent (Intent / Muster aus E-Mail+PDF) */
 export const commercialAgentExemplars = pgTable("commercial_agent_exemplars", {

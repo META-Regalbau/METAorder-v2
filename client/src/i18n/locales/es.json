@@ -6255,7 +6255,9 @@
       "db_berechnung_fehlgeschlagen": "Error al calcular el margen",
       "ungultiger_preis": "Precio no válido",
       "entwurf_ist_bereits_angelegt": "El borrador ya se ha creado",
-      "preis_konnte_nicht_gespeichert_werden": "No se pudo guardar el precio"
+      "preis_konnte_nicht_gespeichert_werden": "No se pudo guardar el precio",
+      "ungultige_anfrage": "Solicitud no válida",
+      "freigabe_konnte_nicht_gespeichert_werden": "No se pudo guardar la aprobación"
     }
   },
   "roomPlanner": {
@@ -6913,5 +6915,41 @@
     "priceReset": "Usar precio determinado",
     "priceChangedBy": "cambiado por {{user}}",
     "lineTotal": "Total {{total}}"
+  },
+  "draftMarginApproval": {
+    "listState": {
+      "missing": "Requiere aprobación",
+      "stale": "Requiere aprobación",
+      "requested": "Aprobación solicitada",
+      "approved": "aprobado",
+      "rejected": "Aprobación rechazada"
+    },
+    "title": {
+      "not_required": "Aprobación de margen",
+      "missing": "Margen demasiado bajo – creación solo con aprobación",
+      "stale": "La aprobación ya no es válida",
+      "requested": "Aprobación solicitada",
+      "approved": "Margen aprobado",
+      "rejected": "Aprobación rechazada"
+    },
+    "requestedBy": "Solicitado por {{user}} el {{date}}",
+    "atMargin": "recargo en ese momento {{margin}}",
+    "decidedBy": {
+      "approved": "Aprobado por {{user}} el {{date}}",
+      "rejected": "Rechazado por {{user}} el {{date}}",
+      "requested": "Abierto desde {{date}}"
+    },
+    "staleHint": "Después se cambiaron precios, cantidades o posiciones. Solicita o aprueba de nuevo.",
+    "commentLabel": "Comentario (opcional)",
+    "reject": "Rechazar",
+    "approve": "Aprobar",
+    "waiting": "Esperando la aprobación de alguien con el permiso «Ver detalles de margen».",
+    "reasonLabel": "Motivo (mínimo 10 caracteres)",
+    "reasonPlaceholder": "p. ej. contrato marco, pedido posterior previsto, precio de la competencia …",
+    "approveDirect": "Aprobar con motivo",
+    "request": "Solicitar aprobación",
+    "saveError": "No se pudo guardar la aprobación",
+    "createBlocked": "Margen demasiado bajo: creación solo tras aprobación",
+    "draftNotFound": "Borrador no encontrado"
   }
 }

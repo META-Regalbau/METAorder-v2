@@ -740,7 +740,10 @@ export function OrderDraftReviewModal({
     }
   };
 
+  // DB rot ohne Freigabe für diesen Stand: Anlage gesperrt (Server prüft ebenso)
+  const marginBlocked = profitabilityQuery.data?.marginApproval?.canCreate === false;
   const canCreateOrder =
+    !marginBlocked &&
     draft.status !== "created" &&
     !!draft.shopwareCustomerId &&
     !!mergedMatchingResults?.items?.length &&
@@ -1342,6 +1345,10 @@ export function OrderDraftReviewModal({
               profitability={profitabilityQuery.data?.profitability}
               isLoading={profitabilityQuery.isLoading}
               isError={profitabilityQuery.isError}
+              kind="order"
+              draftId={draft.id}
+              marginApproval={profitabilityQuery.data?.marginApproval}
+              readOnly={draft.status === "created"}
             />
           )}
 
@@ -1984,6 +1991,7 @@ export function OrderDraftReviewModal({
               <Button
                 onClick={() => createOrderMutation.mutate()}
                 disabled={!canCreateOrder || createOrderMutation.isPending || recheckMutation.isPending}
+                title={marginBlocked ? t("draftMarginApproval.createBlocked") : undefined}
                 data-testid="button-create-order"
               >
                 {createOrderMutation.isPending ? (

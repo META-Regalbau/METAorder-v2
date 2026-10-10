@@ -220,6 +220,11 @@ export async function runStrictCommercialAutoCreateIfAllowed(params: {
     customerSalesChannelId: context.customerSalesChannelId,
     siblingDrafts: context.siblingDrafts,
     linePriceChecks: context.linePriceChecks,
+    // von der Pipeline gespeicherte DB-Ampel; die Anlage-Funktion prüft zusätzlich frisch
+    marginVerdict: await storage
+      .getDraftProfitability(draftKind, draftId, tenantId ?? null)
+      .then((row) => (row?.verdict as "green" | "yellow" | "red" | "none" | undefined) ?? null)
+      .catch(() => null),
   });
 
   attachStrictAutoCreateTraceToExtractedData(extractedData, evaluation);

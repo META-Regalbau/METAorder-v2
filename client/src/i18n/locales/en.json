@@ -6258,7 +6258,9 @@
       "db_berechnung_fehlgeschlagen": "Margin calculation failed",
       "ungultiger_preis": "Invalid price",
       "entwurf_ist_bereits_angelegt": "Draft has already been created",
-      "preis_konnte_nicht_gespeichert_werden": "Price could not be saved"
+      "preis_konnte_nicht_gespeichert_werden": "Price could not be saved",
+      "ungultige_anfrage": "Invalid request",
+      "freigabe_konnte_nicht_gespeichert_werden": "Approval could not be saved"
     }
   },
   "roomPlanner": {
@@ -6916,5 +6918,41 @@
     "priceReset": "Use determined price",
     "priceChangedBy": "changed by {{user}}",
     "lineTotal": "Total {{total}}"
+  },
+  "draftMarginApproval": {
+    "listState": {
+      "missing": "Approval needed",
+      "stale": "Approval needed",
+      "requested": "Approval requested",
+      "approved": "approved",
+      "rejected": "Approval rejected"
+    },
+    "title": {
+      "not_required": "Margin approval",
+      "missing": "Margin too low – creation only with approval",
+      "stale": "Approval no longer valid",
+      "requested": "Approval requested",
+      "approved": "Margin approved",
+      "rejected": "Approval rejected"
+    },
+    "requestedBy": "Requested by {{user}} on {{date}}",
+    "atMargin": "markup at the time {{margin}}",
+    "decidedBy": {
+      "approved": "Approved by {{user}} on {{date}}",
+      "rejected": "Rejected by {{user}} on {{date}}",
+      "requested": "Open since {{date}}"
+    },
+    "staleHint": "Prices, quantities or lines changed afterwards. Please request or approve again.",
+    "commentLabel": "Comment (optional)",
+    "reject": "Reject",
+    "approve": "Approve",
+    "waiting": "Waiting for approval by someone with the permission “View Margin Details”.",
+    "reasonLabel": "Reason (at least 10 characters)",
+    "reasonPlaceholder": "e.g. framework contract, follow-up order expected, competitor price …",
+    "approveDirect": "Approve with reason",
+    "request": "Request approval",
+    "saveError": "Approval could not be saved",
+    "createBlocked": "Margin too low: creation only after approval",
+    "draftNotFound": "Draft not found"
   }
 }

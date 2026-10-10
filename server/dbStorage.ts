@@ -17,6 +17,9 @@ import {
   crossSellPairStates,
   commercialDraftProfitability,
   type CommercialDraftProfitabilityRow,
+  commercialDraftMarginApprovals,
+  type CommercialDraftMarginApproval,
+  type InsertCommercialDraftMarginApproval,
   crossSellChangeLog,
   crossSellRuns,
   aiCrossSellRules,
@@ -2223,9 +2226,17 @@ export class DbStorage implements IStorage {
   async getUsersWithPermissionInTenant(
     permission: string,
     tenantId: string | null,
+    options?: { includeAdministrators?: boolean },
   ): Promise<Array<{ id: string; username: string; email: string | null }>> {
     const base = db
-      .select({ id: users.id, username: users.username, email: users.email, permissions: roles.permissions })
+      .select({
+        id: users.id,
+        username: users.username,
+        email: users.email,
+        legacyRole: users.role,
+        roleName: roles.name,
+        permissions: roles.permissions,
+      })
       .from(users)
       .innerJoin(roles, eq(users.roleId, roles.id));
     const rows = tenantId
@@ -2235,7 +2246,9 @@ export class DbStorage implements IStorage {
     return rows
       .filter((r) => {
         const p = r.permissions as unknown;
-        const has = Array.isArray(p) ? p.includes(permission) : Boolean(p && (p as Record<string, unknown>)[permission]);
+        const isAdmin = options?.includeAdministrators && (r.roleName === "Administrator" || r.legacyRole === "admin");
+        const has =
+          isAdmin || (Array.isArray(p) ? p.includes(permission) : Boolean(p && (p as Record<string, unknown>)[permission]));
         if (!has || seen.has(r.id)) return false;
         seen.add(r.id);
         return true;
@@ -2721,6 +2734,72 @@ export class DbStorage implements IStorage {
           ),
         );
       for (const row of rows) map.set(row.draftId, row);
+    }
+    return map;
+  }
+
+  async createDraftMarginApproval(
+    row: Omit<InsertCommercialDraftMarginApproval, "id" | "tenantId">,
+    tenantId?: string | null,
+  ): Promise<CommercialDraftMarginApproval> {
+    const result = await db
+      .insert(commercialDraftMarginApprovals)
+      .values({ ...row, tenantId: resolveTenantId(tenantId) ?? null })
+      .returning();
+    return result[0]!;
+  }
+
+  async updateDraftMarginApproval(
+    id: string,
+    updates: Partial<Omit<InsertCommercialDraftMarginApproval, "id" | "tenantId">>,
+    tenantId?: string | null,
+  ): Promise<CommercialDraftMarginApproval | undefined> {
+    const result = await db
+      .update(commercialDraftMarginApprovals)
+      .set(updates)
+      .where(and(eq(commercialDraftMarginApprovals.id, id), tenantFilterFor(commercialDraftMarginApprovals.tenantId, tenantId)))
+      .returning();
+    return result[0];
+  }
+
+  async getDraftMarginApprovals(
+    draftKind: "order" | "offer",
+    draftId: string,
+    tenantId?: string | null,
+  ): Promise<CommercialDraftMarginApproval[]> {
+    return db
+      .select()
+      .from(commercialDraftMarginApprovals)
+      .where(
+        and(
+          eq(commercialDraftMarginApprovals.draftKind, draftKind),
+          eq(commercialDraftMarginApprovals.draftId, draftId),
+          tenantFilterFor(commercialDraftMarginApprovals.tenantId, tenantId),
+        ),
+      )
+      .orderBy(desc(commercialDraftMarginApprovals.requestedAt))
+      .limit(50);
+  }
+
+  async getLatestDraftMarginApprovals(
+    draftKind: "order" | "offer",
+    draftIds: string[],
+    tenantId?: string | null,
+  ): Promise<Map<string, CommercialDraftMarginApproval>> {
+    const map = new Map<string, CommercialDraftMarginApproval>();
+    for (let i = 0; i < draftIds.length; i += 500) {
+      const rows = await db
+        .select()
+        .from(commercialDraftMarginApprovals)
+        .where(
+          and(
+            eq(commercialDraftMarginApprovals.draftKind, draftKind),
+            inArray(commercialDraftMarginApprovals.draftId, draftIds.slice(i, i + 500)),
+            tenantFilterFor(commercialDraftMarginApprovals.tenantId, tenantId),
+          ),
+        )
+        .orderBy(desc(commercialDraftMarginApprovals.requestedAt));
+      for (const row of rows) if (!map.has(row.draftId)) map.set(row.draftId, row);
     }
     return map;
   }

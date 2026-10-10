@@ -9,11 +9,28 @@ import { parseLocalePrice } from "@/lib/parseLocalePrice";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import HerstellMarginIndicator, { herstellMarginDotClass } from "@/components/HerstellMarginIndicator";
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
+import { useState } from "react";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { useCanViewMarginDetails } from "@/hooks/useMarginVisibility";
 import type {
   DraftProfitability,
   DraftProfitabilityBadge,
   DraftProfitabilityLine,
 } from "@shared/draftProfitability";
+import type { DraftMarginApprovalView } from "@shared/draftMarginApproval";
+
+export type DraftProfitabilityResponse = {
+  profitability: DraftProfitability | null;
+  marginApproval?: DraftMarginApprovalView;
+};
+
+/** Listen und Entwurf neu laden, die DB nicht noch einmal rechnen lassen. */
+function invalidateDraftListsAndDraft(kind: "order" | "offer") {
+  queryClient.invalidateQueries({
+    predicate: (query) => query.queryKey[0] === `/api/${kind}-drafts` && query.queryKey[2] !== "profitability",
+  });
+}
 
 /**
  * DB der Bestell-/Angebotsentwürfe. Der Server rechnet und lässt ohne Recht „DB-Werte sehen“
@@ -21,7 +38,7 @@ import type {
  * Der Aufschlag auf Herstellkosten steht groß, weil die Ampel daran hängt.
  */
 export function useDraftProfitability(kind: "order" | "offer", draftId: string | undefined, enabled = true) {
-  return useQuery<{ profitability: DraftProfitability | null }>({
+  return useQuery<DraftProfitabilityResponse>({
     // Präfix "/api/<kind>-drafts": jede Entwurfs-Mutation (invalidateQueries) rechnet neu
     queryKey: [`/api/${kind}-drafts`, draftId, "profitability"],
     enabled: enabled && Boolean(draftId),
@@ -33,10 +50,19 @@ export function DraftProfitabilityCard({
   profitability,
   isLoading,
   isError,
+  kind,
+  draftId,
+  marginApproval,
+  readOnly,
 }: {
   profitability: DraftProfitability | null | undefined;
   isLoading: boolean;
   isError: boolean;
+  kind?: "order" | "offer";
+  draftId?: string;
+  marginApproval?: DraftMarginApprovalView;
+  /** angelegter Entwurf: Freigabe nur anzeigen */
+  readOnly?: boolean;
 }) {
   const { t } = useTranslation();
   const fmt = useLocaleFormat();
@@ -121,6 +147,14 @@ export function DraftProfitabilityCard({
             {hidden ? (
               <p className="text-xs text-muted-foreground">{t("draftProfitability.hiddenHint")}</p>
             ) : null}
+            {kind && draftId && marginApproval && (marginApproval.required || marginApproval.latest?.status === "approved") ? (
+              <DraftMarginApprovalPanel
+                kind={kind}
+                draftId={draftId}
+                view={marginApproval}
+                readOnly={readOnly}
+              />
+            ) : null}
           </>
         )}
       </CardContent>
@@ -189,16 +223,14 @@ export function DraftLinePriceEditor({
   const mutation = useMutation({
     mutationFn: async (unitPriceNet: number | null) => {
       const res = await apiRequest("PATCH", `/api/${kind}-drafts/${draftId}/line-price`, { index, unitPriceNet });
-      return (await res.json()) as { profitability: DraftProfitability | null };
+      return (await res.json()) as DraftProfitabilityResponse;
     },
     onSuccess: (data) => {
       queryClient.setQueryData([`/api/${kind}-drafts`, draftId, "profitability"], {
         profitability: data.profitability,
+        marginApproval: data.marginApproval,
       });
-      // Listen und Entwurf neu laden, die DB nicht noch einmal rechnen lassen
-      queryClient.invalidateQueries({
-        predicate: (query) => query.queryKey[0] === `/api/${kind}-drafts` && query.queryKey[2] !== "profitability",
-      });
+      invalidateDraftListsAndDraft(kind);
       onChanged?.();
     },
     onError: (error: Error) =>
@@ -269,10 +301,179 @@ export function DraftLinePriceEditor({
   );
 }
 
-/** Ampel in Entwurfslisten (Beträge nur, wenn der Server sie mitschickt). */
+/** Ampel in Entwurfslisten (Beträge nur, wenn der Server sie mitschickt), bei Rot mit Freigabe-Stand. */
 export function DraftProfitabilityBadgeCell({ badge }: { badge: DraftProfitabilityBadge | null | undefined }) {
+  const { t } = useTranslation();
   if (!badge) return <span className="text-sm text-muted-foreground">—</span>;
+  const approval = badge.approvalState && badge.approvalState !== "not_required" ? badge.approvalState : null;
   return (
-    <HerstellMarginIndicator marginPercent={badge.marginPercent} verdict={badge.crmVerdict} emphasis="markup" />
+    <span className="inline-flex flex-col items-end gap-0.5">
+      <HerstellMarginIndicator marginPercent={badge.marginPercent} verdict={badge.crmVerdict} emphasis="markup" />
+      {approval ? (
+        <span
+          className={`text-xs whitespace-nowrap ${approval === "approved" ? "text-green-700 dark:text-green-400" : "text-destructive"}`}
+          data-testid="text-draft-approval-state"
+        >
+          {t(`draftMarginApproval.listState.${approval}`)}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+/**
+ * Freigabe bei roter DB: Sachbearbeiter fordern mit Begründung an; wer das Recht
+ * „DB-Werte sehen“ hat, gibt frei oder lehnt ab (oder gibt ohne Anforderung direkt frei).
+ */
+export function DraftMarginApprovalPanel({
+  kind,
+  draftId,
+  view,
+  readOnly,
+}: {
+  kind: "order" | "offer";
+  draftId: string;
+  view: DraftMarginApprovalView;
+  readOnly?: boolean;
+}) {
+  const { t } = useTranslation();
+  const fmt = useLocaleFormat();
+  const { toast } = useToast();
+  const canDecide = useCanViewMarginDetails();
+  const [text, setText] = useState("");
+
+  const mutation = useMutation({
+    mutationFn: async (payload: { action: "request" | "decide"; body: Record<string, unknown> }) => {
+      const res = await apiRequest("POST", `/api/${kind}-drafts/${draftId}/margin-approval/${payload.action}`, payload.body);
+      return (await res.json()) as DraftProfitabilityResponse;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData([`/api/${kind}-drafts`, draftId, "profitability"], data);
+      invalidateDraftListsAndDraft(kind);
+      setText("");
+    },
+    onError: (error: Error) =>
+      toast({ title: t("draftMarginApproval.saveError"), description: error.message, variant: "destructive" }),
+  });
+
+  const latest = view.latest;
+  const approved = view.state === "approved" || (!view.required && latest?.status === "approved");
+  const needsNew = view.state === "missing" || view.state === "stale" || view.state === "rejected";
+  const textValid = text.trim().length >= 10;
+
+  return (
+    <div
+      className={`mt-2 rounded-md border p-3 space-y-2 ${
+        approved ? "border-green-600/40 bg-green-600/5" : "border-destructive/40 bg-destructive/5"
+      }`}
+      data-testid={`panel-margin-approval-${view.state}`}
+    >
+      <p className="text-sm font-medium">
+        {approved ? t("draftMarginApproval.title.approved") : t(`draftMarginApproval.title.${view.state}`)}
+      </p>
+      {latest && (view.state !== "missing") ? (
+        <div className="text-xs text-muted-foreground space-y-1">
+          <p>
+            {t("draftMarginApproval.requestedBy", {
+              user: latest.requestedByName,
+              date: fmt.dateTime(latest.requestedAt),
+            })}
+            {latest.marginPercent != null
+              ? ` · ${t("draftMarginApproval.atMargin", { margin: fmt.percentValue(latest.marginPercent) })}`
+              : ""}
+          </p>
+          <p className="italic">„{latest.reason}“</p>
+          {latest.decidedByName ? (
+            <p>
+              {t(`draftMarginApproval.decidedBy.${latest.status}`, {
+                user: latest.decidedByName,
+                date: fmt.dateTime(latest.decidedAt),
+              })}
+              {latest.decisionComment ? `: „${latest.decisionComment}“` : ""}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+      {view.state === "stale" ? (
+        <p className="text-xs text-muted-foreground">{t("draftMarginApproval.staleHint")}</p>
+      ) : null}
+
+      {readOnly || approved ? null : view.state === "requested" ? (
+        canDecide ? (
+          <div className="space-y-2">
+            <Label htmlFor={`margin-approval-comment-${draftId}`} className="text-xs">
+              {t("draftMarginApproval.commentLabel")}
+            </Label>
+            <Textarea
+              id={`margin-approval-comment-${draftId}`}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              rows={2}
+              data-testid="textarea-margin-approval-comment"
+            />
+            <div className="flex flex-wrap gap-2 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={mutation.isPending}
+                onClick={() => mutation.mutate({ action: "decide", body: { decision: "reject", comment: text } })}
+                data-testid="button-margin-reject"
+              >
+                {t("draftMarginApproval.reject")}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={mutation.isPending}
+                onClick={() => mutation.mutate({ action: "decide", body: { decision: "approve", comment: text } })}
+                data-testid="button-margin-approve"
+              >
+                {t("draftMarginApproval.approve")}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-xs">{t("draftMarginApproval.waiting")}</p>
+        )
+      ) : needsNew ? (
+        <div className="space-y-2">
+          <Label htmlFor={`margin-approval-reason-${draftId}`} className="text-xs">
+            {t("draftMarginApproval.reasonLabel")}
+          </Label>
+          <Textarea
+            id={`margin-approval-reason-${draftId}`}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={2}
+            placeholder={t("draftMarginApproval.reasonPlaceholder")}
+            data-testid="textarea-margin-approval-reason"
+          />
+          <div className="flex justify-end">
+            {canDecide ? (
+              <Button
+                type="button"
+                size="sm"
+                disabled={!textValid || mutation.isPending}
+                onClick={() => mutation.mutate({ action: "decide", body: { decision: "approve", comment: text } })}
+                data-testid="button-margin-approve-direct"
+              >
+                {t("draftMarginApproval.approveDirect")}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                disabled={!textValid || mutation.isPending}
+                onClick={() => mutation.mutate({ action: "request", body: { reason: text } })}
+                data-testid="button-margin-request"
+              >
+                {t("draftMarginApproval.request")}
+              </Button>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
