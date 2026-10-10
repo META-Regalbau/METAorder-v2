@@ -15,6 +15,8 @@ import {
   crossSellCooccurrences,
   crossSellEvents,
   crossSellPairStates,
+  commercialDraftProfitability,
+  type CommercialDraftProfitabilityRow,
   crossSellChangeLog,
   crossSellRuns,
   aiCrossSellRules,
@@ -2679,6 +2681,79 @@ export class DbStorage implements IStorage {
       .where(and(eq(orderDrafts.id, id), tenantFilter))
       .returning();
     return result.length > 0;
+  }
+
+  async getDraftProfitability(
+    draftKind: "order" | "offer",
+    draftId: string,
+    tenantId?: string | null,
+  ): Promise<CommercialDraftProfitabilityRow | undefined> {
+    const rows = await db
+      .select()
+      .from(commercialDraftProfitability)
+      .where(
+        and(
+          eq(commercialDraftProfitability.draftKind, draftKind),
+          eq(commercialDraftProfitability.draftId, draftId),
+          tenantFilterFor(commercialDraftProfitability.tenantId, tenantId),
+        ),
+      )
+      .limit(1);
+    return rows[0];
+  }
+
+  async getDraftProfitabilityByDraftIds(
+    draftKind: "order" | "offer",
+    draftIds: string[],
+    tenantId?: string | null,
+  ): Promise<Map<string, CommercialDraftProfitabilityRow>> {
+    const map = new Map<string, CommercialDraftProfitabilityRow>();
+    if (draftIds.length === 0) return map;
+    for (let i = 0; i < draftIds.length; i += 500) {
+      const rows = await db
+        .select()
+        .from(commercialDraftProfitability)
+        .where(
+          and(
+            eq(commercialDraftProfitability.draftKind, draftKind),
+            inArray(commercialDraftProfitability.draftId, draftIds.slice(i, i + 500)),
+            tenantFilterFor(commercialDraftProfitability.tenantId, tenantId),
+          ),
+        );
+      for (const row of rows) map.set(row.draftId, row);
+    }
+    return map;
+  }
+
+  async saveDraftProfitability(
+    draftKind: "order" | "offer",
+    draftId: string,
+    snapshot: import("@shared/draftProfitability").DraftProfitability,
+    tenantId?: string | null,
+  ): Promise<void> {
+    const values = {
+      tenantId: resolveTenantId(tenantId) ?? null,
+      draftKind,
+      draftId,
+      verdict: snapshot.summary.crmVerdict,
+      frozen: snapshot.frozen,
+      snapshot,
+      computedAt: new Date(snapshot.computedAt),
+    };
+    await db
+      .insert(commercialDraftProfitability)
+      .values(values)
+      .onConflictDoUpdate({
+        target: [commercialDraftProfitability.draftKind, commercialDraftProfitability.draftId],
+        set: {
+          verdict: values.verdict,
+          frozen: values.frozen,
+          snapshot: values.snapshot,
+          computedAt: values.computedAt,
+        },
+        // Stand bei der Anlage bleibt erhalten
+        setWhere: snapshot.frozen ? undefined : eq(commercialDraftProfitability.frozen, false),
+      });
   }
 
   async claimOrderDraftForCreation(id: string, tenantId?: string | null): Promise<OrderDraft | undefined> {

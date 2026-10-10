@@ -31,6 +31,7 @@ import {
 } from "../extraction/documentTextExtraction";
 import { resolveDocumentExtractionChatLlm } from "../extraction/documentExtractionChatLlm";
 import { logger } from "../lib/logger";
+import { refreshDraftProfitability } from "./draftProfitability";
 
 const log = logger.child({ component: "commercial/commercialDraftPipeline" });
 
@@ -441,6 +442,9 @@ export async function runOfferDraftPipeline(
     tenantId ?? null
   );
 
+  // DB-Ampel gleich mit dem Entwurf (Listen, Prüffenster, später Strikt-Regel)
+  await refreshDraftProfitability({ storage, tenantId: tenantId ?? null, kind: "offer", draftId: draft.id, draft });
+
   timings.totalMs = Date.now() - requestStart;
   return { draft, timings };
 }
@@ -687,6 +691,9 @@ export async function runOrderDraftPipeline(
     },
     tenantId ?? null
   );
+
+  // DB-Ampel gleich mit dem Entwurf (Listen, Prüffenster, später Strikt-Regel)
+  await refreshDraftProfitability({ storage, tenantId: tenantId ?? null, kind: "order", draftId: draft.id, draft });
 
   timings.totalMs = Date.now() - requestStart;
   return { draft, timings };

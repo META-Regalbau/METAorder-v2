@@ -83,6 +83,7 @@ import {
 import { DraftReferencesCard, type DraftDocumentReferencesLite } from "@/components/DraftReferencesCard";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
+import { DraftLineMargin, DraftProfitabilityCard, useDraftProfitability } from "@/components/DraftProfitability";
 interface BundleSummary {
   id: string;
   name: string;
@@ -112,6 +113,10 @@ export function OfferDraftReviewModal({
   const { toast } = useToast();
   const [editedData, setEditedData] = useState(draft.extractedData);
   const [selectedProducts, setSelectedProducts] = useState<Record<number, string>>({}); // index -> productId
+  const profitabilityQuery = useDraftProfitability("offer", draft.id, open);
+  const profitabilityLineByIndex = new Map(
+    (profitabilityQuery.data?.profitability?.lines ?? []).map((line) => [line.index, line]),
+  );
   const [confirmedLines, setConfirmedLines] = useState<Record<number, boolean>>({});
   const [showAlternatives, setShowAlternatives] = useState<Record<number, boolean>>({});
   const [selectedBundleId, setSelectedBundleId] = useState<string>("");
@@ -767,7 +772,8 @@ export function OfferDraftReviewModal({
           </Alert>
         )}
 
-        <div className="space-y-6">
+        {/* min-w-0: breite Tabellen scrollen innen, statt das Fenster (Grid) zu verbreitern */}
+        <div className="space-y-6 min-w-0">
           <DraftReferencesCard
             references={
               ((editedData ?? draft.extractedData) as { documentReferences?: DraftDocumentReferencesLite } | null)
@@ -1330,6 +1336,15 @@ export function OfferDraftReviewModal({
             </CardContent>
           </Card>
 
+          {/* Deckungsbeitrag (Ampel; genaue Werte nur mit Recht „DB-Werte sehen“) */}
+          {(draft.matchingResults?.items?.length ?? 0) > 0 && (
+            <DraftProfitabilityCard
+              profitability={profitabilityQuery.data?.profitability}
+              isLoading={profitabilityQuery.isLoading}
+              isError={profitabilityQuery.isError}
+            />
+          )}
+
           <Card>
             <CardHeader className="space-y-3">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1384,6 +1399,7 @@ export function OfferDraftReviewModal({
                       <TableHead data-testid="table-head-catalog-price">{t("offerDrafts.review.catalogPrice")}</TableHead>
                       <TableHead data-testid="table-head-suggested-price">{t("offerDrafts.review.suggestedPrice")}</TableHead>
                       <TableHead data-testid="table-head-discount">{t("offerDrafts.review.discount")}</TableHead>
+                      <TableHead className="text-right">{t("draftProfitability.column")}</TableHead>
                       <TableHead data-testid="table-head-confidence">{t("offerDrafts.review.confidence")}</TableHead>
                       <TableHead className="w-[52px] text-right">{t("offerDrafts.review.actions", "Aktion")}</TableHead>
                     </TableRow>
@@ -1646,6 +1662,9 @@ export function OfferDraftReviewModal({
                           ) : (
                             <span className="text-muted-foreground" data-testid={`text-no-discount-${index}`}>-</span>
                           )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DraftLineMargin line={profitabilityLineByIndex.get(index)} />
                         </TableCell>
                         <TableCell>{getConfidenceBadge(item.confidence ?? 0)}</TableCell>
                         <TableCell className="text-right align-middle">

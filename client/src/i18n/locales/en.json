@@ -6254,7 +6254,8 @@
       "failed_to_start_monthly_review": "Could not start the monthly review",
       "failed_to_fetch_backfill_state": "Could not load the initial fill status",
       "failed_to_start_backfill": "Could not start the initial fill",
-      "failed_to_stop_backfill": "Could not pause the initial fill"
+      "failed_to_stop_backfill": "Could not pause the initial fill",
+      "db_berechnung_fehlgeschlagen": "Margin calculation failed"
     }
   },
   "roomPlanner": {
@@ -6879,5 +6880,30 @@
     "red": "Margin too low",
     "forbiddenTitle": "Not permitted",
     "forbiddenText": "This page shows exact contribution margin values (manufacturing costs, DB1, margin). Your role needs the permission “View Margin Details”. Orders show the margin traffic light."
+  },
+  "draftProfitability": {
+    "title": "Contribution margin",
+    "loading": "Calculating margin …",
+    "error": "Margin could not be calculated.",
+    "markup": "Markup on manufacturing costs",
+    "db1": "DB1",
+    "db1Short": "DB1",
+    "herstellkosten": "Manufacturing costs",
+    "marginOnRevenue": "Margin on revenue",
+    "coverage": "Manufacturing costs for {{withData}} of {{total}} priced lines",
+    "unpriced": "Lines without selling price: {{count}}",
+    "thresholds": "Red below {{warn}}%, yellow up to {{min}}%, green from {{min}}% markup",
+    "computedAt": "Calculated on {{date}} with current prices",
+    "frozen": "As of creation on {{date}}",
+    "hiddenHint": "Exact values are only visible with the permission “View Margin Details”.",
+    "column": "Margin",
+    "priceSource": {
+      "manual": "Manual price",
+      "suggested": "Suggested price",
+      "customer_specific": "Customer price",
+      "customer_discount": "Customer discount",
+      "list": "List price",
+      "unresolved": "No price"
+    }
   }
 }

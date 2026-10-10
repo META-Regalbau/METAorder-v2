@@ -119,6 +119,7 @@ import {
   type CpqRoomPlacement,
   type CpqRoomWallFeature,
   type CrossSellPairState,
+  type CommercialDraftProfitabilityRow,
   type CrossSellPairStatus,
   type InsertCrossSellPairState,
   type CrossSellChangeLogEntry,
@@ -526,6 +527,25 @@ export interface IStorage {
   /** Atomarer "Claim" — siehe claimOrderDraftForCreation. */
   claimOfferDraftForCreation(id: string, tenantId?: string | null): Promise<OfferDraft | undefined>;
   deleteOfferDraft(id: string, tenantId?: string | null): Promise<boolean>;
+
+  // DB-Berechnung je Entwurf (eigene Tabelle, nur über DB-Endpunkte ausgeliefert)
+  getDraftProfitability(
+    draftKind: "order" | "offer",
+    draftId: string,
+    tenantId?: string | null,
+  ): Promise<CommercialDraftProfitabilityRow | undefined>;
+  getDraftProfitabilityByDraftIds(
+    draftKind: "order" | "offer",
+    draftIds: string[],
+    tenantId?: string | null,
+  ): Promise<Map<string, CommercialDraftProfitabilityRow>>;
+  /** Speichert die Berechnung; ein eingefrorener Stand (frozen) wird nur von einem neuen eingefrorenen ersetzt. */
+  saveDraftProfitability(
+    draftKind: "order" | "offer",
+    draftId: string,
+    snapshot: import("@shared/draftProfitability").DraftProfitability,
+    tenantId?: string | null,
+  ): Promise<void>;
 
   // Commercial Agent — Few-Shot-Lernexemplare
   createCommercialAgentExemplar(

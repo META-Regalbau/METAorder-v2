@@ -6251,7 +6251,8 @@
       "failed_to_start_monthly_review": "No se pudo iniciar la revisión mensual",
       "failed_to_fetch_backfill_state": "No se pudo cargar el estado del llenado inicial",
       "failed_to_start_backfill": "No se pudo iniciar el llenado inicial",
-      "failed_to_stop_backfill": "No se pudo pausar el llenado inicial"
+      "failed_to_stop_backfill": "No se pudo pausar el llenado inicial",
+      "db_berechnung_fehlgeschlagen": "Error al calcular el margen"
     }
   },
   "roomPlanner": {
@@ -6876,5 +6877,30 @@
     "red": "Margen demasiado bajo",
     "forbiddenTitle": "Sin permiso",
     "forbiddenText": "Esta página muestra valores exactos de margen de contribución (costes de fabricación, DB1, margen). Tu rol necesita el permiso «Ver detalles de margen». En los pedidos verás el semáforo de margen."
+  },
+  "draftProfitability": {
+    "title": "Margen de contribución",
+    "loading": "Calculando margen …",
+    "error": "No se pudo calcular el margen.",
+    "markup": "Recargo sobre costes de fabricación",
+    "db1": "DB1",
+    "db1Short": "DB1",
+    "herstellkosten": "Costes de fabricación",
+    "marginOnRevenue": "Margen sobre ventas",
+    "coverage": "Costes de fabricación para {{withData}} de {{total}} posiciones con precio",
+    "unpriced": "Posiciones sin precio de venta: {{count}}",
+    "thresholds": "Rojo por debajo de {{warn}} %, amarillo hasta {{min}} %, verde desde {{min}} % de recargo",
+    "computedAt": "Calculado el {{date}} con los precios actuales",
+    "frozen": "Estado al crear el {{date}}",
+    "hiddenHint": "Los valores exactos solo son visibles con el permiso «Ver detalles de margen».",
+    "column": "Margen",
+    "priceSource": {
+      "manual": "Precio manual",
+      "suggested": "Precio sugerido",
+      "customer_specific": "Precio de cliente",
+      "customer_discount": "Descuento de cliente",
+      "list": "Precio de lista",
+      "unresolved": "Sin precio"
+    }
   }
 }

@@ -27,6 +27,8 @@ import { OrderDraftUploadDialog } from "@/components/OrderDraftUploadDialog";
 import { OrderDraftReviewModal } from "@/components/OrderDraftReviewModal";
 import { queryClient } from "@/lib/queryClient";
 import { fetchOrderDraftForReview } from "@/lib/refreshReviewDraft";
+import { DraftProfitabilityBadgeCell } from "@/components/DraftProfitability";
+import type { DraftProfitabilityBadge } from "@shared/draftProfitability";
 
 interface OrderDraft {
   id: string;
@@ -49,6 +51,8 @@ interface OrderDraft {
   } | null;
   shopwareCustomerId: string | null;
   shopwareOrderId: string | null;
+  /** DB-Ampel (Beträge nur mit Recht „DB-Werte sehen“) */
+  profitability?: DraftProfitabilityBadge | null;
 }
 
 export default function OrderDraftsPage() {
@@ -250,6 +254,7 @@ export default function OrderDraftsPage() {
                 <TableHead data-testid="table-head-status">{t("orderDrafts.table.status")}</TableHead>
                 <TableHead data-testid="table-head-confidence">{t("orderDrafts.table.confidence")}</TableHead>
                 <TableHead data-testid="table-head-items">{t("orderDrafts.table.items")}</TableHead>
+                <TableHead className="text-right">{t("draftProfitability.column")}</TableHead>
                 <TableHead className="text-right" data-testid="table-head-actions">
                   {t("orderDrafts.table.actions")}
                 </TableHead>
@@ -290,6 +295,9 @@ export default function OrderDraftsPage() {
                   </TableCell>
                   <TableCell data-testid={`text-item-count-${draft.id}`}>
                     {draft.matchingResults?.items.length || 0} {t("orderDrafts.table.itemsCount")}
+                  </TableCell>
+                  <TableCell className="text-right" data-testid={`cell-db-${draft.id}`}>
+                    <DraftProfitabilityBadgeCell badge={draft.profitability} />
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">

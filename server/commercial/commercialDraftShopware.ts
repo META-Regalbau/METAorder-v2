@@ -6,6 +6,7 @@ import { scheduleSftpUploadAfterOrderCreate } from "../sftp/sftpUpload";
 import { buildShopwareLinePayloadFromCpqSource, type CpqSourceSnapshot } from "../cpq/cpqMetaCalcPayload";
 import { logger } from "../lib/logger";
 import { recordDraftSuggestionConversions } from "../cross-selling/crossSellDraftSignals";
+import { refreshDraftProfitability } from "./draftProfitability";
 
 const moduleLog = logger.child({ component: "commercial/commercialDraftShopware" });
 
@@ -356,6 +357,16 @@ export async function executeCreateOfferFromDraft(
     items: draft.matchingResults?.items,
   });
 
+  // DB-Stand bei der Anlage festhalten (im Hintergrund, die Anlage wartet nicht darauf)
+  void refreshDraftProfitability({
+    storage,
+    tenantId: options.tenantId ?? null,
+    kind: "offer",
+    draftId,
+    draft: updatedDraft,
+    frozen: true,
+  });
+
   return { ok: true, offerId: created.id, draft: updatedDraft };
 }
 
@@ -584,6 +595,16 @@ export async function executeCreateOrderFromDraft(
   if ((updatedDraft.attachments ?? []).length > 0) {
     scheduleSftpUploadAfterOrderCreate(storage, draftId, options.tenantId ?? null);
   }
+
+  // DB-Stand bei der Anlage festhalten (im Hintergrund, die Anlage wartet nicht darauf)
+  void refreshDraftProfitability({
+    storage,
+    tenantId: options.tenantId ?? null,
+    kind: "order",
+    draftId,
+    draft: updatedDraft,
+    frozen: true,
+  });
 
   return { ok: true, orderId: shopwareOrder.id, draft: updatedDraft };
 }

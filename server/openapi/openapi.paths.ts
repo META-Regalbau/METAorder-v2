@@ -9623,6 +9623,33 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/offer-drafts/{id}/profitability": {
+    "get": {
+      "tags": [
+        "offer-drafts"
+      ],
+      "summary": "GET /api/offer-drafts/{id}/profitability",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/offer-drafts/customer-search": {
     "get": {
       "tags": [
@@ -10695,6 +10722,33 @@ export const openApiPaths = {
         "order-drafts"
       ],
       "summary": "POST /api/order-drafts/{id}/create-shopware-customer",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/order-drafts/{id}/profitability": {
+    "get": {
+      "tags": [
+        "order-drafts"
+      ],
+      "summary": "GET /api/order-drafts/{id}/profitability",
       "responses": {
         "200": {
           "description": "OK",
