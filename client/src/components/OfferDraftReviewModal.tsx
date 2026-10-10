@@ -661,7 +661,10 @@ export function OfferDraftReviewModal({
   const isBlocked = discountLevel?.approvalType === "blocked";
   const needsJustification = requiresApproval && (discountLevel?.justificationRequired ?? true);
 
+  // DB rot ohne Freigabe für diesen Stand: Anlage gesperrt (Server prüft ebenso)
+  const marginBlocked = profitabilityQuery.data?.marginApproval?.canCreate === false;
   const canCreateOffer =
+    !marginBlocked &&
     draft.status !== "created" &&
     !isBlocked &&
     !!draft.shopwareCustomerId &&
@@ -1347,6 +1350,10 @@ export function OfferDraftReviewModal({
               profitability={profitabilityQuery.data?.profitability}
               isLoading={profitabilityQuery.isLoading}
               isError={profitabilityQuery.isError}
+              kind="offer"
+              draftId={draft.id}
+              marginApproval={profitabilityQuery.data?.marginApproval}
+              readOnly={draft.status === "created"}
             />
           )}
 
@@ -2045,7 +2052,13 @@ export function OfferDraftReviewModal({
             <Button
               onClick={() => createOfferMutation.mutate()}
               disabled={!canCreateOffer || createOfferMutation.isPending || deleteMutation.isPending}
-              title={isBlocked ? t("draftReview.approval.discountExceedsLimit") : undefined}
+              title={
+                isBlocked
+                  ? t("draftReview.approval.discountExceedsLimit")
+                  : marginBlocked
+                    ? t("draftMarginApproval.createBlocked")
+                    : undefined
+              }
               data-testid="button-create-offer"
             >
               {createOfferMutation.isPending ? t("offerDrafts.review.creating") : t("offerDrafts.review.createOffer")}

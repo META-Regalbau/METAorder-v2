@@ -120,6 +120,8 @@ import {
   type CpqRoomWallFeature,
   type CrossSellPairState,
   type CommercialDraftProfitabilityRow,
+  type CommercialDraftMarginApproval,
+  type InsertCommercialDraftMarginApproval,
   type CrossSellPairStatus,
   type InsertCrossSellPairState,
   type CrossSellChangeLogEntry,
@@ -427,7 +429,12 @@ export interface IStorage {
   ): Promise<void>;
   getCrossSellRuns(filter: { kind?: CrossSellRunKind; limit?: number }, tenantId?: string | null): Promise<CrossSellRun[]>;
   /** Nutzer eines Mandanten, deren Rolle die Berechtigung hat (Array- und Objektformat). */
-  getUsersWithPermissionInTenant(permission: string, tenantId: string | null): Promise<Array<{ id: string; username: string; email: string | null }>>;
+  /** includeAdministrators: Rolle Administrator bzw. Altbenutzer "admin" zählen mit (deren Rechte stehen nicht immer in der DB). */
+  getUsersWithPermissionInTenant(
+    permission: string,
+    tenantId: string | null,
+    options?: { includeAdministrators?: boolean },
+  ): Promise<Array<{ id: string; username: string; email: string | null }>>;
   /** Spiegel-Zeilen (mit payload) zu Artikelnummern, fuer gezielte Detailabfragen. */
   getShopwareProductMirrorsByNumbers(productNumbers: string[], tenantId?: string | null): Promise<ShopwareProductMirror[]>;
   /** Schlanke Produktliste aus dem Spiegel (ID, Nummer, Hauptprodukt) fuer Zuordnungen. */
@@ -539,6 +546,26 @@ export interface IStorage {
     draftIds: string[],
     tenantId?: string | null,
   ): Promise<Map<string, CommercialDraftProfitabilityRow>>;
+  // Freigaben roter Entwürfe (Verlauf, neueste zuerst)
+  createDraftMarginApproval(
+    row: Omit<InsertCommercialDraftMarginApproval, "id" | "tenantId">,
+    tenantId?: string | null,
+  ): Promise<CommercialDraftMarginApproval>;
+  updateDraftMarginApproval(
+    id: string,
+    updates: Partial<Omit<InsertCommercialDraftMarginApproval, "id" | "tenantId">>,
+    tenantId?: string | null,
+  ): Promise<CommercialDraftMarginApproval | undefined>;
+  getDraftMarginApprovals(
+    draftKind: "order" | "offer",
+    draftId: string,
+    tenantId?: string | null,
+  ): Promise<CommercialDraftMarginApproval[]>;
+  getLatestDraftMarginApprovals(
+    draftKind: "order" | "offer",
+    draftIds: string[],
+    tenantId?: string | null,
+  ): Promise<Map<string, CommercialDraftMarginApproval>>;
   /** Speichert die Berechnung; ein eingefrorener Stand (frozen) wird nur von einem neuen eingefrorenen ersetzt. */
   saveDraftProfitability(
     draftKind: "order" | "offer",

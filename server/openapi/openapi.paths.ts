@@ -9623,6 +9623,60 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/offer-drafts/{id}/margin-approval/decide": {
+    "post": {
+      "tags": [
+        "offer-drafts"
+      ],
+      "summary": "POST /api/offer-drafts/{id}/margin-approval/decide",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/offer-drafts/{id}/margin-approval/request": {
+    "post": {
+      "tags": [
+        "offer-drafts"
+      ],
+      "summary": "POST /api/offer-drafts/{id}/margin-approval/request",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/offer-drafts/{id}/pdf": {
     "get": {
       "tags": [
@@ -10776,6 +10830,60 @@ export const openApiPaths = {
         "order-drafts"
       ],
       "summary": "PATCH /api/order-drafts/{id}/line-price",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/order-drafts/{id}/margin-approval/decide": {
+    "post": {
+      "tags": [
+        "order-drafts"
+      ],
+      "summary": "POST /api/order-drafts/{id}/margin-approval/decide",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/order-drafts/{id}/margin-approval/request": {
+    "post": {
+      "tags": [
+        "order-drafts"
+      ],
+      "summary": "POST /api/order-drafts/{id}/margin-approval/request",
       "responses": {
         "200": {
           "description": "OK",

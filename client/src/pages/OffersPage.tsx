@@ -71,6 +71,16 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedDraft, setSelectedDraft] = useState<OfferDraft | null>(null);
 
+  // Direktlink ?draftId=… (z. B. aus der Benachrichtigung „DB-Freigabe angefordert“)
+  useEffect(() => {
+    const draftId = new URLSearchParams(searchString).get("draftId");
+    if (!draftId) return;
+    setLocation("/offers", { replace: true });
+    void fetchOfferDraftForReview(draftId)
+      .then(setSelectedDraft)
+      .catch(() => toast({ title: t("draftMarginApproval.draftNotFound"), variant: "destructive" }));
+  }, [searchString, setLocation, toast, t]);
+
   // Track if this is the initial mount to prevent pagination reset
   const isInitialMount = useRef(true);
 

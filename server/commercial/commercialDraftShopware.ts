@@ -7,10 +7,17 @@ import { buildShopwareLinePayloadFromCpqSource, type CpqSourceSnapshot } from ".
 import { logger } from "../lib/logger";
 import { recordDraftSuggestionConversions } from "../cross-selling/crossSellDraftSignals";
 import { refreshDraftProfitability } from "./draftProfitability";
+import { checkMarginGateForCreate } from "./draftMarginApproval";
 
 const moduleLog = logger.child({ component: "commercial/commercialDraftShopware" });
 
-export type CreateFromDraftFailure = { ok: false; error: string; statusCode: number };
+export type CreateFromDraftFailure = {
+  ok: false;
+  error: string;
+  statusCode: number;
+  /** z. B. "margin_approval_required": DB rot, keine Freigabe für diesen Stand */
+  code?: string;
+};
 export type CreateOfferSuccess = { ok: true; offerId: string; draft: OfferDraft };
 export type CreateOrderSuccess = { ok: true; orderId: string; draft: OrderDraft };
 
@@ -292,6 +299,16 @@ export async function executeCreateOfferFromDraft(
     };
   } | null;
 
+  // DB rot: Anlage nur mit Freigabe (gilt für Prüffenster, n8n und Automatik)
+  const marginGate = await checkMarginGateForCreate({
+    storage,
+    tenantId: options.tenantId ?? null,
+    kind: "offer",
+    draftId,
+    draft,
+  });
+  if (!marginGate.ok) return marginGate;
+
   // Atomarer Claim direkt vor dem Shopware-Call: verhindert doppelte Angebote bei
   // gleichzeitigen Requests (Doppelklick, Webhook-Retry) — siehe dbStorage.ts.
   const claimed = await storage.claimOfferDraftForCreation(draftId, options.tenantId ?? null);
@@ -506,6 +523,16 @@ export async function executeCreateOrderFromDraft(
   if (orderCustomerError) return orderCustomerError;
 
   const { buildOrderCreateAttributes } = await import("../shopware/shopwareOrderCreateContext");
+
+  // DB rot: Anlage nur mit Freigabe (gilt für Prüffenster, n8n und Automatik)
+  const marginGate = await checkMarginGateForCreate({
+    storage,
+    tenantId: options.tenantId ?? null,
+    kind: "order",
+    draftId,
+    draft,
+  });
+  if (!marginGate.ok) return marginGate;
 
   // Atomarer Claim direkt vor dem Shopware-Call: verhindert doppelte Bestellungen bei
   // gleichzeitigen Requests (Doppelklick, Webhook-Retry) — siehe dbStorage.ts.
