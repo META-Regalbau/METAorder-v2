@@ -222,7 +222,8 @@ describe("Bestellung: erfolgreiche Anlage", () => {
     );
     expect(input.lineItems).toHaveLength(4);
 
-    expect(updates.at(-1)).toEqual({ status: "created", shopwareOrderId: "sw-order-1" });
+    // ohne angemeldeten Benutzer kein Sachbearbeiter (Zuweisung von Mail-Tickets)
+    expect(updates.at(-1)).toEqual({ status: "created", shopwareOrderId: "sw-order-1", shopwareCreatedByUserId: null });
     expect(sw.recordConversions).toHaveBeenCalledTimes(1);
     expect(sw.sftp).toHaveBeenCalledWith(storage, "d1", "t1");
     expect(sw.refresh).toHaveBeenCalledWith(expect.objectContaining({ kind: "order", draftId: "d1", frozen: true }));
@@ -320,7 +321,8 @@ describe("Angebot", () => {
       { productId: "pB", quantity: 1, productNumber: "B", unitPriceNet: 40 },
       { productId: "pC", quantity: 1, productNumber: "C" },
     ]);
-    expect(updates.at(-1)).toEqual({ status: "created", shopwareOfferId: "sw-offer-1" });
+    // Anlage im Prüffenster: der Sachbearbeiter wird gemerkt (Zuweisung von Mail-Tickets)
+    expect(updates.at(-1)).toEqual({ status: "created", shopwareOfferId: "sw-offer-1", shopwareCreatedByUserId: "u-sb" });
     expect(sw.recordDiscount).toHaveBeenCalledWith({
       offerId: "sw-offer-1",
       approval,

@@ -10,6 +10,19 @@ export interface ParsedEmailResult {
   orderNumber?: string;
   /** Roh-HTML der Nachricht (CID-Referenzen der Signaturbilder) */
   html?: string | null;
+  /** Empfänger aus An/CC (klein geschrieben); nur bei .eml */
+  toAddresses?: string[];
+  ccAddresses?: string[];
+  /** Kopfzeile Auto-Submitted (Abwesenheitsnotizen, Systemmails); nur bei .eml */
+  autoSubmitted?: string | null;
+}
+
+function addressList(value: ParsedMail["to"]): string[] {
+  const objects = Array.isArray(value) ? value : value ? [value] : [];
+  return objects
+    .flatMap((o) => o.value ?? [])
+    .map((a) => (a.address ?? "").trim().toLowerCase())
+    .filter(Boolean);
 }
 
 export interface ParsedAttachment {
@@ -53,6 +66,12 @@ export async function parseEmlFile(buffer: Buffer): Promise<ParsedEmailResult> {
     attachments,
     orderNumber,
     html: typeof parsed.html === "string" ? parsed.html : null,
+    toAddresses: addressList(parsed.to),
+    ccAddresses: addressList(parsed.cc),
+    autoSubmitted: (() => {
+      const v = parsed.headers?.get("auto-submitted");
+      return typeof v === "string" ? v : null;
+    })(),
   };
 }
 
@@ -206,14 +225,18 @@ export async function parseEmailFile(
 /**
  * EML vs. MSG anhand des Inhalts erraten (z. B. falsche Dateiendung / generischer Multer-Name).
  */
+/** Outlook-.msg ist eine OLE-Verbunddatei (CFB) mit fester Signatur; alles andere ist RFC822-Text. */
+const CFB_SIGNATURE = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+
 export async function parseEmailBufferAutodetect(buffer: Buffer): Promise<ParsedEmailResult> {
-  const head = buffer.slice(0, Math.min(400, buffer.length)).toString("latin1").trimStart();
-  if (/^(received:|mime-version:|from |return-path:)/im.test(head)) {
-    return parseEmlFile(buffer);
+  // Früher wurde an der ersten Kopfzeile geraten: Mails, die mit „From:“, „Delivered-To:“ o. Ä.
+  // beginnen, liefen als .msg durch und kamen ohne Betreff, Text und Anhänge zurück.
+  if (buffer.length >= CFB_SIGNATURE.length && buffer.subarray(0, CFB_SIGNATURE.length).equals(CFB_SIGNATURE)) {
+    try {
+      return await parseMsgFile(buffer);
+    } catch {
+      return parseEmlFile(buffer);
+    }
   }
-  try {
-    return await parseMsgFile(buffer);
-  } catch {
-    return parseEmlFile(buffer);
-  }
+  return parseEmlFile(buffer);
 }

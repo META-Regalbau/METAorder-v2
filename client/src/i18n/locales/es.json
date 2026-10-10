@@ -1530,6 +1530,38 @@
           "new": "nueva",
           "unknown": "desconocido"
         }
+      },
+      "emailIntake": {
+        "title": "Entrada de correo (n8n)",
+        "description": "n8n recoge los correos de Microsoft 365 y consulta esta configuración en cada ejecución. METAorder detecta pedido, solicitud de oferta u otro, crea borradores y notifica los problemas como tickets. n8n mueve los correos tramitados a la carpeta de destino y los marca con categorías de Outlook.",
+        "enabled": "Entrada de correo activa",
+        "enabledHint": "Desactivada: n8n deja todos los correos en la bandeja de entrada.",
+        "mailboxSection": "Buzón",
+        "mailbox": "Buzón compartido",
+        "mailboxPlaceholder": "pedidos@meta-online.com",
+        "mailboxHint": "Vacío = buzón de la cuenta de Outlook en n8n. Un buzón compartido requiere permisos de lectura, escritura y \"Enviar como\" para esa cuenta.",
+        "folder": "Carpeta de destino para correos tramitados",
+        "folderHint": "Subcarpeta de la bandeja de entrada; n8n la crea en la primera ejecución. Lo que queda en la bandeja se reintenta en la siguiente ejecución.",
+        "processSince": "Procesar correos desde",
+        "processSinceHint": "Los correos anteriores no se tocan. Al activar se propone la fecha de hoy.",
+        "maxPerRun": "Correos por ejecución",
+        "maxPerRunHint": "n8n se ejecuta cada 2 minutos, los correos más antiguos primero.",
+        "otherSection": "Ni pedido ni oferta",
+        "forwardTo": "Reenviar a",
+        "forwardToHint": "Outlook reenvía el correo original con el motivo de la clasificación arriba. Las respuestas van al remitente original. Las respuestas automáticas de ausencia y el spam solo se marcan y se mueven.",
+        "forwardToEmpty": "Sin dirección, \"otro\" solo se marca y se mueve a la carpeta de destino.",
+        "otherMinConfidence": "Como otro a partir de seguridad (%)",
+        "otherMinConfidenceHint": "Por debajo se crea un borrador por precaución, para no perder ningún pedido.",
+        "ticketSection": "Tickets en caso de problemas",
+        "ticketOnFailure": "No se pudo procesar el correo",
+        "ticketOnShopwareError": "Falló la creación automática en Shopware",
+        "ticketOnMarginRed": "Margen demasiado bajo (rojo), se requiere aprobación",
+        "defaultAssignee": "Responsable por defecto",
+        "noAssignee": "Nadie (ticket sin asignar)",
+        "assigneeChain": "Asignación: primero un compañero que reenvió el correo o figura en Para/CC, luego quien creó el último borrador de este cliente o tuvo un ticket de este correo de cliente, por último el responsable por defecto.",
+        "categoriesHint": "Categorías de Outlook que asigna n8n:",
+        "workflowHint": "Plantilla de flujo: n8n-workflows/m365-to-metaorder.json. En n8n asigne la cuenta de Outlook y la credencial de cabecera \"METAorder Integration-Key\", revise la dirección de METAorder en el nodo \"Einstellungen\" y active el flujo.",
+        "saved": "Entrada de correo guardada"
       }
     },
     "shopwareConfig": "Configuración de Shopware",
@@ -5457,7 +5489,10 @@
       "n8n_unreachable": "No se puede acceder a n8n en esta dirección.",
       "n8n_unauthorized": "n8n rechaza la clave API.",
       "n8n_no_api": "En esta dirección no responde ninguna API de n8n; compruebe la dirección.",
-      "n8n_failed": "n8n informa de un error."
+      "n8n_failed": "n8n informa de un error.",
+      "email_intake_forward_invalid": "La dirección de reenvío no es válida.",
+      "email_intake_mailbox_invalid": "La dirección del buzón no es válida.",
+      "email_intake_assignee_invalid": "El responsable por defecto no puede ver tickets."
     },
     "client": {
       "notModified": "Respuesta de la API sin cambios (304): vuelva a cargar la página.",
@@ -6263,7 +6298,20 @@
       "ungultige_shopware_id": "ID de Shopware no válido",
       "entwurf_hangt_nicht_in_der_anlage": "El borrador no está bloqueado en la creación",
       "anlage_lauft_womoglich_noch_bitte_spater_erneut_versuchen": "Puede que la creación siga en curso, inténtalo más tarde",
-      "anlage_sperre_konnte_nicht_gelost_werden": "No se pudo liberar el bloqueo de creación"
+      "anlage_sperre_konnte_nicht_gelost_werden": "No se pudo liberar el bloqueo de creación",
+      "die_entwurfs_automatik_commercial_agent_ist_ausgeschaltet": "La automatización de borradores (Commercial Agent) está desactivada.",
+      "der_n8n_benutzer_braucht_die_rechte_bestellentwurfe_und_angebote_verwalten": "El usuario de n8n necesita los permisos para gestionar borradores de pedido Y ofertas.",
+      "diese_mail_wird_gerade_schon_verarbeitet": "Este correo ya se está procesando.",
+      "einstellungen_konnten_nicht_geladen_werden": "No se pudo cargar la configuración",
+      "ungultige_einstellungen": "Configuración no válida",
+      "ungultige_weiterleitungsadresse": "Dirección de reenvío no válida",
+      "ungultige_postfach_adresse": "Dirección de buzón no válida",
+      "der_standard_bearbeiter_darf_keine_tickets_sehen": "El responsable por defecto no puede ver tickets",
+      "einstellungen_konnten_nicht_gespeichert_werden": "No se pudo guardar la configuración",
+      "konfiguration_konnte_nicht_geladen_werden": "No se pudo cargar la configuración del flujo",
+      "ungultige_problem_meldung": "Notificación de problema no válida",
+      "internetmessageid_oder_graphmessageid_fehlt": "Falta internetMessageId o graphMessageId",
+      "problem_meldung_konnte_nicht_verarbeitet_werden": "No se pudo procesar la notificación del problema"
     }
   },
   "roomPlanner": {

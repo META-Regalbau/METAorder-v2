@@ -298,7 +298,8 @@ describe("requireAuthOrIntegrationKey mit Mandanten-Schluessel", () => {
 });
 
 describe("n8n-Vorlagen", () => {
-  for (const file of ["gmail-to-metaorder.json", "m365-to-metaorder.json"]) {
+  // m365-to-metaorder.json ist seit dem E-Mail-Eingang ein anderer Workflow: Prüfungen in emailIntake.test.ts
+  for (const file of ["gmail-to-metaorder.json"]) {
     it(`${file}: Upload mit Header-Auth-Credential und Produktions-URL, ohne $env`, () => {
       const raw = readFileSync(path.join(ROOT, "n8n-workflows", file), "utf8");
       // n8n Cloud sperrt $env in Ausdruecken - die Vorlagen duerfen es nicht brauchen
@@ -327,14 +328,6 @@ describe("n8n-Vorlagen", () => {
       file: "gmail-to-metaorder.json",
       trigger: "Gmail Trigger",
       previous: (mail: any) => ({ json: { raw: Buffer.from(`Subject: ${mail.subject}\r\n\r\nHallo ${mail.id}`).toString("base64url") } }),
-    },
-    {
-      file: "m365-to-metaorder.json",
-      trigger: "Outlook Trigger",
-      previous: (mail: any) => ({
-        json: {},
-        binary: { data: { data: Buffer.from(`Subject: ${mail.subject}\r\n\r\nHallo ${mail.id}`).toString("base64"), mimeType: "text/plain" } },
-      }),
     },
   ];
   for (const { file, trigger, previous } of templates) {

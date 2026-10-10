@@ -19,6 +19,7 @@ const COMPONENT_RULES: Rule[] = [
   [/^routes\/(crossSellingRoutes|crossSellAutomationRoutes)$/, "crossSelling"],
   [/^routes\/draftRoutes$/, "drafts"],
   [/^routes\/integrationRoutes$/, "integration"],
+  [/^routes\/emailIntakeRoutes$/, "email"],
   [/^routes\/invoicingRoutes$/, "invoicing"],
   [/^routes\/(masterDataRoutes|productRoutes)$/, "products"],
   [/^routes\/offerRoutes$/, "offers"],
@@ -27,6 +28,7 @@ const COMPONENT_RULES: Rule[] = [
   [/^routes\/ticketRoutes$/, "tickets"],
   [/^routes\/notificationRoutes$/, "system"],
   [/^shopware(\/|-|$)/, "shopware"],
+  [/^commercial\/emailIntake/, "email"],
   [/^(commercial|extraction)\//, "drafts"],
   [/^offers\//, "offers"],
   [/^b2b\//, "b2b"],
@@ -48,7 +50,7 @@ const COMPONENT_RULES: Rule[] = [
 /** Pfad ohne /api/ -> Bereich */
 const PATH_RULES: Rule[] = [
   [/^settings\/(integration-api-keys|n8n-connection|webhooks|sftp-servers|commercial-customer-tokens)\b/, "integration"],
-  [/^settings\/(email-inbound|email-outbound|email-routing|m365)\b/, "email"],
+  [/^settings\/(email-inbound|email-outbound|email-routing|email-intake|m365)\b/, "email"],
   [/^settings\/(ai|ai-prompts|semantic-ranking)\b/, "ai"],
   [/^settings\/(mondu|dunning|invoice-automation|proforma-number-range)\b/, "invoicing"],
   [/^settings\/shopware\b/, "shopware"],

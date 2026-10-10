@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import WebhooksSettingsSection from "@/components/WebhooksSettingsSection";
 import N8nSettingsSection from "@/components/N8nSettingsSection";
 import N8nConnectionSection from "@/components/N8nConnectionSection";
+import EmailIntakeSection from "@/components/EmailIntakeSection";
 import CommercialCustomerTokensSection from "@/components/CommercialCustomerTokensSection";
 import SftpServersSection from "@/components/SftpServersSection";
 import { useState, useEffect, useCallback } from "react";
@@ -3850,6 +3851,8 @@ function AiTab() {
         <TabsContent value="integration" className="mt-0 space-y-6">
           {/* n8n-API: welche Workflows Mails abrufen und an METAorder liefern */}
           <N8nConnectionSection />
+          {/* E-Mail-Eingang: Postfach, Weiterleitung „Sonstiges“, Problem-Tickets (liest der n8n-Workflow) */}
+          <EmailIntakeSection />
           <N8nSettingsSection />
           {/* Kundengebundene Token für den Rückmelde-Endpunkt (Auftragsbestätigung ans Kunden-ERP) */}
           <CommercialCustomerTokensSection />

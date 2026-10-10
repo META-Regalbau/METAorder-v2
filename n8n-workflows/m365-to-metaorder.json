@@ -1,26 +1,139 @@
 {
-  "name": "Microsoft 365 → METAorder Commercial Upload",
+  "name": "Microsoft 365 → METAorder E-Mail-Eingang",
   "nodes": [
     {
       "parameters": {
-        "pollTimes": {
-          "item": [
+        "rule": {
+          "interval": [
             {
-              "mode": "everyMinute"
+              "field": "minutes",
+              "minutesInterval": 2
             }
           ]
-        },
-        "event": "messageReceived",
-        "filters": {},
-        "options": {}
+        }
       },
-      "id": "outlook-trigger-1",
-      "name": "Outlook Trigger",
-      "type": "n8n-nodes-base.microsoftOutlookTrigger",
-      "typeVersion": 1,
+      "id": "alle-2-minuten",
+      "name": "Alle 2 Minuten",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
       "position": [
         0,
         0
+      ],
+      "notes": "Überlappende Läufe sind unkritisch: METAorder sperrt jede Mail, solange sie verarbeitet wird.",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "metaorder-url",
+              "name": "metaorderUrl",
+              "value": "https://p-bbpye5.project.space",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "einstellungen",
+      "name": "Einstellungen",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ],
+      "notes": "Einzige Stelle mit der METAorder-Adresse. Lokal: http://host.docker.internal:5001",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.metaorderUrl }}/api/email-intake/config",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "metaorder-konfiguration",
+      "name": "METAorder: Konfiguration",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "METAORDER_INTEGRATION_KEY_CREDENTIAL_ID",
+          "name": "METAorder Integration-Key"
+        }
+      },
+      "notes": "Postfach, Zielordner, Menge je Lauf und an/aus kommen aus METAorder → Einstellungen → Integration → E-Mail-Eingang.",
+      "notesInFlow": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "Eingang aktiv?",
+              "leftValue": "={{ $json.enabled === true && $json.ready === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "eingang-aktiv",
+      "name": "Eingang aktiv?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ],
+      "notes": "Aus oder nicht bereit (z. B. Commercial Agent aus): Mails bleiben im Posteingang.",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.graphBase }}/mailFolders/inbox/childFolders",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOutlookOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "$filter",
+              "value": "=displayName eq '{{ $json.processedFolderName.replace(/'/g, \"''\") }}'"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "zielordner-suchen",
+      "name": "Zielordner suchen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        -100
       ],
       "credentials": {
         "microsoftOutlookOAuth2Api": {
@@ -28,12 +141,148 @@
           "name": "Microsoft Outlook account"
         }
       },
-      "notesInFlow": true,
-      "notes": "Pollt neue Nachrichten. Re-Verarbeitung ist unkritisch: METAorder dedupliziert über die Message-ID."
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
     },
     {
       "parameters": {
-        "url": "=https://graph.microsoft.com/v1.0/me/messages/{{ $json.id }}/$value",
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "Zielordner da?",
+              "leftValue": "={{ Array.isArray($json.value) && $json.value.length > 0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "zielordner-da",
+      "name": "Zielordner da?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('METAorder: Konfiguration').first().json.graphBase }}/mailFolders/inbox/childFolders",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOutlookOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ displayName: $('METAorder: Konfiguration').first().json.processedFolderName }) }}",
+        "options": {}
+      },
+      "id": "zielordner-anlegen",
+      "name": "Zielordner anlegen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        0
+      ],
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "OUTLOOK_OAUTH_CREDENTIAL_ID",
+          "name": "Microsoft Outlook account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Antwort von „suchen“ (value[]) oder „anlegen“ (Ordner direkt)\nconst cfg = $('METAorder: Konfiguration').first().json;\nconst j = $input.first().json;\nconst folderId = Array.isArray(j.value) ? (j.value[0] && j.value[0].id) : j.id;\nif (!folderId) {\n  throw new Error('Zielordner „' + cfg.processedFolderName + '“ weder gefunden noch angelegt');\n}\nreturn [{ json: { ...cfg, folderId } }];\n"
+      },
+      "id": "ordner-id",
+      "name": "Ordner-ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.graphBase }}/mailFolders/inbox/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOutlookOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "$filter",
+              "value": "=receivedDateTime ge {{ $json.receivedAfter }}"
+            },
+            {
+              "name": "$orderby",
+              "value": "receivedDateTime asc"
+            },
+            {
+              "name": "$top",
+              "value": "={{ $json.maxPerRun }}"
+            },
+            {
+              "name": "$select",
+              "value": "id,subject,from,toRecipients,ccRecipients,receivedDateTime,internetMessageId,categories"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "mails-abrufen",
+      "name": "Mails abrufen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        -100
+      ],
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "OUTLOOK_OAUTH_CREDENTIAL_ID",
+          "name": "Microsoft Outlook account"
+        }
+      },
+      "notes": "Alles, was noch im Posteingang liegt, ist offen: verarbeitete Mails wandern in den Zielordner. Älteste zuerst, ab dem Startdatum aus METAorder.",
+      "notesInFlow": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Je Mail ein Eintrag; keine Mail → Lauf endet hier\nconst cfg = $('Ordner-ID').first().json;\nconst list = ($input.first().json.value) || [];\nreturn list.filter((m) => m && m.id).map((message) => ({ json: { cfg, message } }));\n"
+      },
+      "id": "mails-einzeln",
+      "name": "Mails einzeln",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.cfg.graphBase }}/messages/{{ $json.message.id }}/$value",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "microsoftOutlookOAuth2Api",
         "options": {
@@ -45,13 +294,13 @@
           }
         }
       },
-      "id": "graph-get-mime-1",
-      "name": "Graph Get MIME",
+      "id": "mail-holen-mime",
+      "name": "Mail holen (MIME)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        260,
-        0
+        2200,
+        -100
       ],
       "credentials": {
         "microsoftOutlookOAuth2Api": {
@@ -59,29 +308,63 @@
           "name": "Microsoft Outlook account"
         }
       },
+      "notes": "$value = komplette Mail mit Anhängen. Scheitert das dreimal, meldet der Workflow ein Problem an METAorder.",
       "notesInFlow": true,
-      "notes": "$value = vollständige RFC822/MIME inkl. Anhänge, direkt als Binary (kein Base64-Dekodieren nötig)."
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "mode": "runOnceForEachItem",
-        "jsCode": "// Je Mail einzeln: kommen in einer Abfrage mehrere Mails, wird jede hochgeladen (vorher nur die erste)\nconst trigger = $('Outlook Trigger').item.json;\nconst item = $input.item;\n\nif (!item.binary || !item.binary.data) {\n  throw new Error(\n    'Graph lieferte kein MIME — $value-Zugriff, Berechtigung Mail.Read und Message-ID pruefen. ' +\n    'Ist $value im Tenant gesperrt, siehe Fallback in docs/gmail-to-shopware-automation.md.'\n  );\n}\n\nconst subject = trigger.subject || '';\nconst bodyRaw = trigger.bodyPreview || (trigger.body && trigger.body.content) || '';\nconst body = String(bodyRaw).slice(0, 500);\n\n// Quick-Classifier: nur ein Vorschlag. METAorder wertet ihn als leichten Boost\n// und laesst das LLM nie ueberschreiben (siehe commercialDocumentIntent.ts).\nconst text = `${subject}\\n${body}`.toLowerCase();\nlet intentHint = 'unclear';\nif (/\\b(bestell|bestellung|purchase order|p\\.?\\s*o\\.?|auftrag)\\b/i.test(text)) {\n  intentHint = 'order';\n} else if (/\\b(angebot|preisanfrage|quote|rfq|offerta|preventivo|kostenvoranschlag)\\b/i.test(text)) {\n  intentHint = 'offer';\n}\n\n// METAorder erkennt den E-Mail-Container ueber Dateiname ODER MIME-Typ.\n// Graph liefert $value als text/plain — beides hier explizit setzen, sonst\n// laeuft die Mail als Einzeldokument statt ausgepackt durch die Pipeline.\nconst binary = item.binary.data;\nbinary.mimeType = 'message/rfc822';\nbinary.fileName = `outlook-${trigger.id || 'message'}.eml`;\n\nreturn {\n  json: {\n    ...trigger,\n    intentHint,\n    metaorderSubject: subject,\n    metaorderBody: body,\n  },\n  binary: { data: binary },\n};"
+        "jsCode": "// Dateiname .eml + MIME message/rfc822 — sonst packt METAorder die Mail nicht aus.\n// Fehlt die Mail: erst beim 3. Fehlversuch in Folge Problem melden (vorübergehende Graph-Störung ≠ Ticket)\nconst STRIKES = 3;\nconst store = $getWorkflowStaticData('global');\nstore.failures = store.failures || {};\nconst out = [];\nconst items = $input.all();\nfor (let i = 0; i < items.length; i++) {\n  const ctx = $('Mails einzeln').itemMatching(i).json;\n  const item = items[i];\n  const key = ctx.message.id + ':mime';\n  if (!item.binary || !item.binary.data) {\n    const strikes = (store.failures[key] || 0) + 1;\n    store.failures[key] = strikes;\n    if (strikes < STRIKES) continue; // liegen lassen, nächster Lauf versucht es erneut\n    delete store.failures[key];\n    const err = item.json && item.json.error;\n    out.push({\n      json: {\n        ...ctx,\n        ok: false,\n        stage: 'mime',\n        statusCode: null,\n        errorText: (err && (err.message || JSON.stringify(err))) || 'Graph lieferte die Mail nicht ($value)',\n      },\n      pairedItem: { item: i },\n    });\n    continue;\n  }\n  delete store.failures[key];\n  const binary = item.binary.data;\n  binary.mimeType = 'message/rfc822';\n  binary.fileName = 'outlook-' + String(ctx.message.id).slice(-32).replace(/[^A-Za-z0-9_-]/g, '_') + '.eml';\n  out.push({ json: { ...ctx, ok: true }, binary: { data: binary }, pairedItem: { item: i } });\n}\nreturn out;\n"
       },
-      "id": "code-prepare-eml-1",
-      "name": "Prepare EML + Classifier",
+      "id": "mail-vorbereiten",
+      "name": "Mail vorbereiten",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        520,
-        0
-      ],
-      "notesInFlow": true,
-      "notes": "Setzt Dateiname .eml + MIME message/rfc822 — sonst packt METAorder die Mail nicht aus."
+        2420,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "Mail geholt?",
+              "leftValue": "={{ $json.ok === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "mail-geholt",
+      "name": "Mail geholt?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        -100
+      ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "https://p-bbpye5.project.space/api/commercial-drafts/upload",
+        "url": "={{ $('Einstellungen').first().json.metaorderUrl }}/api/commercial-drafts/upload",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
@@ -95,39 +378,174 @@
             },
             {
               "name": "subject",
-              "value": "={{ $json.metaorderSubject }}"
-            },
-            {
-              "name": "body",
-              "value": "={{ $json.metaorderBody }}"
-            },
-            {
-              "name": "intentHint",
-              "value": "={{ $json.intentHint }}"
+              "value": "={{ $json.message.subject || '' }}"
             }
           ]
         },
         "options": {
           "response": {
             "response": {
-              "fullResponse": true
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 600000,
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 0
             }
           }
         }
       },
-      "id": "http-upload-1",
-      "name": "POST commercial-drafts/upload",
+      "id": "an-metaorder-senden",
+      "name": "An METAorder senden",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        780,
+        2860,
+        -200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "METAORDER_INTEGRATION_KEY_CREDENTIAL_ID",
+          "name": "METAorder Integration-Key"
+        }
+      },
+      "notes": "METAorder erkennt Bestellung / Angebot / Sonstiges, legt Entwürfe und bei Problemen Tickets an und sagt im Block „intake“, was mit der Mail passiert.",
+      "notesInFlow": true,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 10000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 2xx mit intake → erledigen; 409 läuft schon / 503 nicht bereit / 429 zu viele → nächster Lauf.\n// Sonst (METAorder-Fehler, nicht erreichbar) erst beim 3. Fehlversuch in Folge Problem melden.\nconst STRIKES = 3;\nconst store = $getWorkflowStaticData('global');\nstore.failures = store.failures || {};\nconst out = [];\nconst items = $input.all();\nfor (let i = 0; i < items.length; i++) {\n  const ctx = $('Mail vorbereiten').itemMatching(i).json;\n  const key = ctx.message.id + ':upload';\n  const r = items[i].json || {};\n  const status = typeof r.statusCode === 'number' ? r.statusCode : null;\n  let body = r.body;\n  if (typeof body === 'string') {\n    try { body = JSON.parse(body); } catch (e) { body = {}; }\n  }\n  body = body && typeof body === 'object' ? body : {};\n  if (status === 409 || status === 503 || status === 429) continue;\n  if (status !== null && status >= 200 && status < 300) {\n    delete store.failures[key];\n    const intake = body.intake || { outcome: 'unknown', categories: [], forward: null, move: true, tickets: [] };\n    out.push({ json: { ...ctx, action: 'done', intake }, pairedItem: { item: i } });\n    continue;\n  }\n  const strikes = (store.failures[key] || 0) + 1;\n  store.failures[key] = strikes;\n  if (strikes < STRIKES) continue;\n  delete store.failures[key];\n  const errorText = body.error || (r.error && (r.error.message || String(r.error))) || 'METAorder nicht erreichbar';\n  out.push({ json: { ...ctx, action: 'report', stage: 'upload', statusCode: status, errorText }, pairedItem: { item: i } });\n}\nreturn out;\n"
+      },
+      "id": "ergebnis-auswerten",
+      "name": "Ergebnis auswerten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3080,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "done",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "erledigen"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "report",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Problem melden"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "naechster-schritt",
+      "name": "Nächster Schritt",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        3300,
+        -200
+      ],
+      "notes": "Mails, die liegen bleiben (läuft schon, nicht bereit, erster/zweiter Fehlversuch), sind schon aussortiert.",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Einstellungen').first().json.metaorderUrl }}/api/email-intake/problem",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ internetMessageId: $json.message.internetMessageId || null, graphMessageId: $json.message.id, subject: $json.message.subject || '', fromName: ($json.message.from && $json.message.from.emailAddress && $json.message.from.emailAddress.name) || null, fromAddress: ($json.message.from && $json.message.from.emailAddress && $json.message.from.emailAddress.address) || null, toAddresses: ($json.message.toRecipients || []).map(r => r.emailAddress && r.emailAddress.address).filter(Boolean), ccAddresses: ($json.message.ccRecipients || []).map(r => r.emailAddress && r.emailAddress.address).filter(Boolean), stage: $json.stage, statusCode: $json.statusCode, error: $json.errorText }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "problem-melden",
+      "name": "Problem melden",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3520,
         0
       ],
-      "notesInFlow": true,
-      "notes": "Ein Entwurf je handelsrelevantem Anhang. Antwort: draftCount, drafts[], deduplicated. Strikt-Auto-Create läuft serverseitig. Zugangsdaten „METAorder Integration-Key“: Header Auth, Name X-METAORDER-Integration-Key, Wert = Schlüssel aus METAorder → Einstellungen → n8n. Lokal die URL auf http://host.docker.internal:5001 ändern.",
       "credentials": {
-        "httpHeaderAuth": { "id": "METAORDER_INTEGRATION_KEY_CREDENTIAL_ID", "name": "METAorder Integration-Key" }
-      }
+        "httpHeaderAuth": {
+          "id": "METAORDER_INTEGRATION_KEY_CREDENTIAL_ID",
+          "name": "METAorder Integration-Key"
+        }
+      },
+      "notes": "METAorder legt ein Ticket an (einmal je Mail) und weist es zu. Ist auch das nicht erreichbar, bleibt die Mail im Posteingang.",
+      "notesInFlow": true,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ticket angelegt → Mail erledigen (Kategorie Fehler, verschieben); sonst liegen lassen\nconst out = [];\nconst items = $input.all();\nfor (let i = 0; i < items.length; i++) {\n  // Ausgabe von „Problem melden“ ist nur die HTTP-Antwort: Mail-Kontext aus „Mail vorbereiten“\n  const ctx = $('Mail vorbereiten').itemMatching(i).json;\n  const r = items[i].json || {};\n  let body = r.body;\n  if (typeof body === 'string') {\n    try { body = JSON.parse(body); } catch (e) { body = {}; }\n  }\n  const ok = typeof r.statusCode === 'number' && r.statusCode >= 200 && r.statusCode < 300;\n  if (ok && body && body.intake) out.push({ json: { ...ctx, action: 'done', intake: body.intake } });\n}\nreturn out;\n"
+      },
+      "id": "meldung-auswerten",
+      "name": "Meldung auswerten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3740,
+        0
+      ]
     },
     {
       "parameters": {
@@ -135,25 +553,17 @@
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "strict"
+            "typeValidation": "loose"
           },
           "conditions": [
             {
-              "id": "ok-upload",
-              "leftValue": "={{ $json.statusCode }}",
-              "rightValue": 299,
+              "id": "Weiterleiten?",
+              "leftValue": "={{ !!($json.intake && $json.intake.forward && $json.intake.forward.to) }}",
+              "rightValue": "",
               "operator": {
-                "type": "number",
-                "operation": "lte"
-              }
-            },
-            {
-              "id": "ok-upload-min",
-              "leftValue": "={{ $json.statusCode }}",
-              "rightValue": 200,
-              "operator": {
-                "type": "number",
-                "operation": "gte"
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
               }
             }
           ],
@@ -161,103 +571,494 @@
         },
         "options": {}
       },
-      "id": "if-upload-ok-1",
-      "name": "Upload OK?",
+      "id": "weiterleiten",
+      "name": "Weiterleiten?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1040,
-        0
+        3960,
+        -200
       ],
-      "notesInFlow": true,
-      "notes": "Bereits verarbeitete Mails antworten mit 200 und deduplicated:true — bewusst OK, damit sie als gelesen markiert werden."
+      "notes": "Nur bei „Sonstiges“ und eingetragener Adresse.",
+      "notesInFlow": true
     },
     {
       "parameters": {
-        "resource": "message",
-        "operation": "update",
-        "messageId": "={{ $('Outlook Trigger').item.json.id }}",
-        "updateFields": {
-          "isRead": true
+        "method": "POST",
+        "url": "={{ $json.cfg.graphBase }}/messages/{{ $json.message.id }}/forward",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOutlookOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ comment: $json.intake.forward.comment, toRecipients: [{ emailAddress: { address: $json.intake.forward.to } }] }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
         }
       },
-      "id": "outlook-mark-read-1",
-      "name": "Outlook Mark Read",
-      "type": "n8n-nodes-base.microsoftOutlook",
-      "typeVersion": 2,
+      "id": "weiterleiten",
+      "name": "Weiterleiten",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
-        1300,
-        0
+        4180,
+        -300
       ],
       "credentials": {
         "microsoftOutlookOAuth2Api": {
           "id": "OUTLOOK_OAUTH_CREDENTIAL_ID",
           "name": "Microsoft Outlook account"
         }
-      }
+      },
+      "notes": "Outlook leitet die Originalmail weiter, der Hinweis aus METAorder steht oben.",
+      "notesInFlow": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 202 = weitergeleitet. Gescheitert → Mail bleibt im Posteingang, nächster Lauf versucht es erneut\nconst out = [];\nconst items = $input.all();\nfor (let i = 0; i < items.length; i++) {\n  const r = items[i].json || {};\n  const ok = typeof r.statusCode === 'number' ? r.statusCode >= 200 && r.statusCode < 300 : !r.error;\n  if (ok) out.push({ json: $('Weiterleiten?').itemMatching(i).json });\n}\nreturn out;\n"
+      },
+      "id": "weiterleitung-pruefen",
+      "name": "Weiterleitung prüfen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4400,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Vorhandene Kategorien behalten, die von METAorder dazu\nconst ctx = $input.item.json;\nconst current = Array.isArray(ctx.message.categories) ? ctx.message.categories : [];\nconst add = (ctx.intake && Array.isArray(ctx.intake.categories)) ? ctx.intake.categories : [];\nconst categories = [...new Set([...current, ...add])];\nreturn { json: { ...ctx, patchBody: { categories } } };\n",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "kategorien-vorbereiten",
+      "name": "Kategorien vorbereiten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4620,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $json.cfg.graphBase }}/messages/{{ $json.message.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOutlookOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.patchBody) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "kategorien-setzen",
+      "name": "Kategorien setzen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4840,
+        -200
+      ],
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "OUTLOOK_OAUTH_CREDENTIAL_ID",
+          "name": "Microsoft Outlook account"
+        }
+      },
+      "notes": "Kategorien zeigen in Outlook, was METAorder erkannt hat (Bestellung, Angebot, Sonstiges, Ticket, Fehler).",
+      "notesInFlow": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "Verschieben?",
+              "leftValue": "={{ $('Kategorien vorbereiten').item.json.intake.move !== false }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "verschieben",
+      "name": "Verschieben?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        5060,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Kategorien vorbereiten').item.json.cfg.graphBase }}/messages/{{ $('Kategorien vorbereiten').item.json.message.id }}/move",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOutlookOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ destinationId: $('Kategorien vorbereiten').item.json.cfg.folderId }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "in-zielordner-verschieben",
+      "name": "In Zielordner verschieben",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5280,
+        -300
+      ],
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "OUTLOOK_OAUTH_CREDENTIAL_ID",
+          "name": "Microsoft Outlook account"
+        }
+      },
+      "notes": "Raus aus dem Posteingang = erledigt. Was im Posteingang bleibt, versucht der nächste Lauf erneut.",
+      "notesInFlow": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
     }
   ],
   "connections": {
-    "Outlook Trigger": {
+    "Alle 2 Minuten": {
       "main": [
         [
           {
-            "node": "Graph Get MIME",
+            "node": "Einstellungen",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Graph Get MIME": {
+    "Einstellungen": {
       "main": [
         [
           {
-            "node": "Prepare EML + Classifier",
+            "node": "METAorder: Konfiguration",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Prepare EML + Classifier": {
+    "METAorder: Konfiguration": {
       "main": [
         [
           {
-            "node": "POST commercial-drafts/upload",
+            "node": "Eingang aktiv?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "POST commercial-drafts/upload": {
+    "Eingang aktiv?": {
       "main": [
         [
           {
-            "node": "Upload OK?",
+            "node": "Zielordner suchen",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Upload OK?": {
+    "Zielordner suchen": {
       "main": [
         [
           {
-            "node": "Outlook Mark Read",
+            "node": "Zielordner da?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zielordner da?": {
+      "main": [
+        [
+          {
+            "node": "Ordner-ID",
             "type": "main",
             "index": 0
           }
         ],
-        []
+        [
+          {
+            "node": "Zielordner anlegen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zielordner anlegen": {
+      "main": [
+        [
+          {
+            "node": "Ordner-ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ordner-ID": {
+      "main": [
+        [
+          {
+            "node": "Mails abrufen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mails abrufen": {
+      "main": [
+        [
+          {
+            "node": "Mails einzeln",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mails einzeln": {
+      "main": [
+        [
+          {
+            "node": "Mail holen (MIME)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mail holen (MIME)": {
+      "main": [
+        [
+          {
+            "node": "Mail vorbereiten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mail vorbereiten": {
+      "main": [
+        [
+          {
+            "node": "Mail geholt?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mail geholt?": {
+      "main": [
+        [
+          {
+            "node": "An METAorder senden",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Problem melden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "An METAorder senden": {
+      "main": [
+        [
+          {
+            "node": "Ergebnis auswerten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ergebnis auswerten": {
+      "main": [
+        [
+          {
+            "node": "Nächster Schritt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nächster Schritt": {
+      "main": [
+        [
+          {
+            "node": "Weiterleiten?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Problem melden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Problem melden": {
+      "main": [
+        [
+          {
+            "node": "Meldung auswerten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Meldung auswerten": {
+      "main": [
+        [
+          {
+            "node": "Weiterleiten?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weiterleiten?": {
+      "main": [
+        [
+          {
+            "node": "Weiterleiten",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Kategorien vorbereiten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weiterleiten": {
+      "main": [
+        [
+          {
+            "node": "Weiterleitung prüfen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weiterleitung prüfen": {
+      "main": [
+        [
+          {
+            "node": "Kategorien vorbereiten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kategorien vorbereiten": {
+      "main": [
+        [
+          {
+            "node": "Kategorien setzen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kategorien setzen": {
+      "main": [
+        [
+          {
+            "node": "Verschieben?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verschieben?": {
+      "main": [
+        [
+          {
+            "node": "In Zielordner verschieben",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
   },
   "meta": {
     "templateCredsSetupCompleted": false

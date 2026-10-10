@@ -170,9 +170,19 @@ function uploadTarget(url: unknown): string | null {
   return withoutQuery.replace(/\{\{[\s\S]*?\}\}/g, "{…}");
 }
 
+/** Postfach eines Knotens; HTTP-Knoten mit Outlook-Zugang lesen über Microsoft Graph (E-Mail-Eingang) */
+function mailSourceOfNode(node: any): MailSource | undefined {
+  const direct = MAIL_NODE_TYPES[node?.type];
+  if (direct) return direct;
+  if (node?.type === "n8n-nodes-base.httpRequest" && node?.parameters?.nodeCredentialType === "microsoftOutlookOAuth2Api") {
+    return "m365";
+  }
+  return undefined;
+}
+
 export function summarizeN8nWorkflow(workflow: any, ownOrigin: string | null): Omit<N8nWorkflowSummary, "executions"> {
   const nodes: any[] = Array.isArray(workflow?.nodes) ? workflow.nodes : [];
-  const mailSources = [...new Set(nodes.map((node) => MAIL_NODE_TYPES[node?.type]).filter(Boolean))] as MailSource[];
+  const mailSources = [...new Set(nodes.map(mailSourceOfNode).filter(Boolean))] as MailSource[];
   const metaorderUploads = nodes
     .filter((node) => node?.type === "n8n-nodes-base.httpRequest" && !node.disabled)
     .map((node) => uploadTarget(node?.parameters?.url))

@@ -28,9 +28,11 @@ import {
   type SignatureImageCandidate,
 } from "./commercialSignatureImageCandidates";
 import {
-  processCommercialDocumentFromEmail,
+  processCommercialDocumentDetailed,
+  type CommercialAgentProcessOutcome,
   type CommercialAgentProcessResult,
 } from "./commercialAgentOrchestrator";
+import { triageInboundEmail, type EmailTriageResult, type TriageLlm } from "./emailIntakeTriage";
 import { attachSupportingDocumentsToDrafts, partitionCommercialParts } from "./commercialDraftAttachments";
 import { unwrapInternalForward } from "../email/emailForwardUnwrap";
 import { logger } from "../lib/logger";
@@ -125,6 +127,23 @@ export type IngestCommercialEmailUploadParams = {
   uploadHint?: "offer" | "order" | "unclear" | null;
   /** Dedupe überspringen (Re-Upload, dessen Entwurf gelöscht wurde) */
   forceReprocess?: boolean;
+  /**
+   * Vorprüfung „Bestellung/Anfrage oder Sonstiges“ (n8n-Abruf). Ab `otherMinConfidence` entsteht
+   * für „Sonstiges“ kein Entwurf. Beim manuellen Upload aus: wer eine Mail hochlädt, will einen Entwurf.
+   */
+  triage?: { otherMinConfidence: number; llm?: TriageLlm } | null;
+};
+
+export type IngestMailEnvelope = {
+  /** Kopf-Absender (bei interner Weiterleitung: der Kollege) */
+  headerFrom: string;
+  /** Absender der eigentlichen Kundenmail (nach dem Auspacken interner Weiterleitungen) */
+  customerFrom: string;
+  customerEmail: string | null;
+  toAddresses: string[];
+  ccAddresses: string[];
+  /** Interne Weiterleitung erkannt: Kopf-Absender ist ein Kollege */
+  internalForward: boolean;
 };
 
 export type IngestCommercialEmailUploadResult = {
@@ -137,6 +156,13 @@ export type IngestCommercialEmailUploadResult = {
   subject: string;
   /** Dateinamen der Anhänge, aus denen Entwürfe entstehen (für die Suche nach vorhandenen Entwürfen bei Dedupe) */
   draftPartFileNames: string[];
+  /** Ausgang je Dokument (auch „gescheitert“ und „schon verarbeitet“) */
+  outcomes: Array<{ filename: string; outcome: CommercialAgentProcessOutcome }>;
+  /** Ergebnis der Vorprüfung; null = nicht gelaufen */
+  triage: EmailTriageResult | null;
+  /** true: als „Sonstiges“ erkannt, kein Entwurf angelegt */
+  skippedAsOther: boolean;
+  envelope: IngestMailEnvelope;
 };
 
 /**
@@ -162,6 +188,7 @@ export async function ingestCommercialEmailUpload(
     ocrEnabled,
     uploadHint = null,
     forceReprocess = false,
+    triage: triageOptions = null,
   } = params;
 
   const parsed = await parseEmailBufferAutodetect(fileBuffer);
@@ -183,6 +210,14 @@ export async function ingestCommercialEmailUpload(
   const subject = unwrapped.subject;
   const emailBody = unwrapped.body.trim();
   const fromDisplayName = unwrapped.from.trim() || undefined;
+  const envelope: IngestMailEnvelope = {
+    headerFrom: (parsed.from || "").trim(),
+    customerFrom: unwrapped.from.trim(),
+    customerEmail: unwrapped.fromEmail,
+    toAddresses: parsed.toAddresses ?? [],
+    ccAddresses: parsed.ccAddresses ?? [],
+    internalForward: unwrapped.strippedForwardLevels > 0,
+  };
 
   const { commercialParts: allCommercialParts, signatureImageBuffers } = splitCommercialEmailParts(parsed);
 
@@ -203,10 +238,53 @@ export async function ingestCommercialEmailUpload(
         ).trim() || undefined
       : undefined;
 
+  // Vorprüfung: weder Bestellung noch Anfrage → kein Entwurf, n8n leitet weiter
+  let triageResult: EmailTriageResult | null = null;
+  if (triageOptions) {
+    triageResult = await triageInboundEmail(
+      storage,
+      {
+        subject,
+        body: emailBody,
+        from: envelope.customerFrom || envelope.headerFrom,
+        autoSubmitted: parsed.autoSubmitted ?? null,
+        draftParts: commercialParts.map((part) => ({
+          filename: part.filename,
+          classification: partition.classifications.get(part),
+        })),
+        supportingParts: partition.supportingParts.map((sp) => ({
+          filename: sp.part.filename,
+          kind: sp.classification.kind,
+        })),
+        documentTextPreview: intentDocumentTextPreview,
+      },
+      triageOptions.llm,
+    );
+    moduleLog.info(
+      { event: "email_intake.triage", messageId, kind: triageResult.kind, confidence: triageResult.confidence, source: triageResult.source },
+      `[EmailIngest] Vorprüfung: ${triageResult.kind} (${Math.round(triageResult.confidence * 100)} %) — ${triageResult.reason}`,
+    );
+    if (triageResult.kind === "other" && triageResult.confidence >= triageOptions.otherMinConfidence) {
+      return {
+        results: [],
+        attachmentsProcessed: 0,
+        usedEmailOnlyFallback: false,
+        messageId,
+        subject,
+        draftPartFileNames: [],
+        outcomes: [],
+        triage: triageResult,
+        skippedAsOther: true,
+        envelope,
+      };
+    }
+  }
+
   const results: CommercialAgentProcessResult[] = [];
+  const outcomes: Array<{ filename: string; outcome: CommercialAgentProcessOutcome }> = [];
 
   for (const part of commercialParts) {
-    const result = await processCommercialDocumentFromEmail({
+    const outcome = await processCommercialDocumentDetailed({
       storage,
       tenantId,
       messageId,
@@ -224,7 +302,8 @@ export async function ingestCommercialEmailUpload(
       uploadHint,
       skipDedupe: forceReprocess,
     });
-    if (result) results.push(result);
+    outcomes.push({ filename: part.filename, outcome });
+    if (outcome.status === "created") results.push(outcome.result);
   }
 
   if (commercialParts.length > 0) {
@@ -242,12 +321,16 @@ export async function ingestCommercialEmailUpload(
       messageId,
       subject,
       draftPartFileNames: commercialParts.map((p) => p.filename),
+      outcomes,
+      triage: triageResult,
+      skippedAsOther: false,
+      envelope,
     };
   }
 
   // Kein handelsrelevanter Anhang: die Nachricht selbst auswerten. Der Orchestrator
   // extrahiert aus dem rfc822-Buffer Betreff, Body, Signatur und Anhangstexte.
-  const emailOnly = await processCommercialDocumentFromEmail({
+  const emailOnly = await processCommercialDocumentDetailed({
     storage,
     tenantId,
     messageId,
@@ -266,7 +349,8 @@ export async function ingestCommercialEmailUpload(
     uploadHint,
     skipDedupe: forceReprocess,
   });
-  if (emailOnly) results.push(emailOnly);
+  outcomes.push({ filename: fileName, outcome: emailOnly });
+  if (emailOnly.status === "created") results.push(emailOnly.result);
 
   // Nur Beilagen, keine Bestellung als Anhang (z. B. Lieferschein zur Bestellung im Mailtext):
   // Beilagen an den Mail-Entwurf hängen.
@@ -285,5 +369,9 @@ export async function ingestCommercialEmailUpload(
     messageId,
     subject,
     draftPartFileNames: [fileName],
+    outcomes,
+    triage: triageResult,
+    skippedAsOther: false,
+    envelope,
   };
 }

@@ -2444,6 +2444,8 @@ export const orderDrafts = pgTable("order_drafts", {
    */
   attachments: jsonb("attachments").$type<DraftAttachment[]>(),
   createdByUserId: varchar("created_by_user_id").references(() => users.id),
+  /** Wer den Entwurf in Shopware angelegt hat (leer bei Automatik); Zuweisung von Mail-Tickets */
+  shopwareCreatedByUserId: varchar("shopware_created_by_user_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => ({
@@ -2699,6 +2701,8 @@ export const offerDrafts = pgTable(
    */
   attachments: jsonb("attachments").$type<DraftAttachment[]>(),
   createdByUserId: varchar("created_by_user_id").references(() => users.id),
+  /** Wer den Entwurf in Shopware angelegt hat (leer bei Automatik); Zuweisung von Mail-Tickets */
+  shopwareCreatedByUserId: varchar("shopware_created_by_user_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

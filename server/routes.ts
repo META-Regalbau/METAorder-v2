@@ -23,6 +23,7 @@ import { registerCrossSellingRoutes } from "./routes/crossSellingRoutes";
 import { registerCrossSellAutomationRoutes } from "./routes/crossSellAutomationRoutes";
 import { registerProductRoutes } from "./routes/productRoutes";
 import { registerDraftRoutes } from "./routes/draftRoutes";
+import { registerEmailIntakeRoutes } from "./routes/emailIntakeRoutes";
 import { registerOfferRoutes } from "./routes/offerRoutes";
 import { registerAiRoutes } from "./routes/aiRoutes";
 import { registerAnalyticsRoutes } from "./routes/analyticsRoutes";
@@ -99,6 +100,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // KI-Entwuerfe: Upload, Bestell-/Angebotsentwuerfe, Commercial Agent
   registerDraftRoutes(app);
+  // E-Mail-Eingang über n8n: Einstellungen, Workflow-Konfiguration, Problem-Meldungen
+  registerEmailIntakeRoutes(app);
 
   // Produkte inkl. Imports, Shopware-Cross-Selling, Produktcache und Bundles
   registerProductRoutes(app);

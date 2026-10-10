@@ -1681,6 +1681,38 @@
           "new": "neu",
           "unknown": "unbekannt"
         }
+      },
+      "emailIntake": {
+        "title": "E-Mail-Eingang (n8n)",
+        "description": "n8n holt die Mails aus Microsoft 365 ab und fragt bei jedem Lauf diese Einstellungen ab. METAorder erkennt Bestellung, Angebotsanfrage oder Sonstiges, legt Entwürfe an und meldet Probleme als Ticket. Erledigte Mails verschiebt n8n in den Zielordner und markiert sie mit Outlook-Kategorien.",
+        "enabled": "E-Mail-Eingang aktiv",
+        "enabledHint": "Aus: n8n lässt alle Mails im Posteingang liegen.",
+        "mailboxSection": "Postfach",
+        "mailbox": "Freigegebenes Postfach",
+        "mailboxPlaceholder": "bestellung@meta-online.com",
+        "mailboxHint": "Leer = Postfach des Outlook-Zugangs in n8n. Für ein freigegebenes Postfach braucht dieser Zugang Lese-, Schreib- und „Senden als“-Rechte.",
+        "folder": "Zielordner für erledigte Mails",
+        "folderHint": "Unterordner des Posteingangs; n8n legt ihn beim ersten Lauf an. Was im Posteingang bleibt, wird beim nächsten Lauf erneut versucht.",
+        "processSince": "Mails verarbeiten ab",
+        "processSinceHint": "Ältere Mails im Posteingang bleiben unangetastet. Beim Einschalten wird heute vorgeschlagen.",
+        "maxPerRun": "Mails je Lauf",
+        "maxPerRunHint": "n8n läuft alle 2 Minuten, die ältesten Mails zuerst.",
+        "otherSection": "Weder Bestellung noch Angebot",
+        "forwardTo": "Weiterleiten an",
+        "forwardToHint": "Outlook leitet die Originalmail weiter, oben steht der Grund der Einordnung. Antworten gehen an den ursprünglichen Absender. Abwesenheitsnotizen und Spam werden nur markiert und verschoben.",
+        "forwardToEmpty": "Ohne Adresse wird „Sonstiges“ nur markiert und in den Zielordner verschoben.",
+        "otherMinConfidence": "Ab Sicherheit (%) als Sonstiges",
+        "otherMinConfidenceHint": "Darunter wird vorsichtshalber ein Entwurf angelegt, damit keine Bestellung verloren geht.",
+        "ticketSection": "Tickets bei Problemen",
+        "ticketOnFailure": "Mail konnte nicht verarbeitet werden",
+        "ticketOnShopwareError": "Automatische Anlage in Shopware fehlgeschlagen",
+        "ticketOnMarginRed": "DB zu niedrig (rote Ampel), Freigabe nötig",
+        "defaultAssignee": "Standard-Bearbeiter",
+        "noAssignee": "Niemand (Ticket ohne Zuweisung)",
+        "assigneeChain": "Zuweisung: zuerst ein Kollege, der die Mail weitergeleitet hat oder in An/CC steht, dann wer zuletzt einen Entwurf dieses Kunden angelegt oder ein Ticket zu dieser Kunden-Mail hatte, zuletzt der Standard-Bearbeiter.",
+        "categoriesHint": "Outlook-Kategorien, die n8n setzt:",
+        "workflowHint": "Workflow-Vorlage: n8n-workflows/m365-to-metaorder.json. In n8n den Outlook-Zugang und den Header-Zugang „METAorder Integration-Key“ zuordnen, im Knoten „Einstellungen“ die METAorder-Adresse prüfen und den Workflow aktivieren.",
+        "saved": "E-Mail-Eingang gespeichert"
       }
     },
     "semanticRanking": {
@@ -5457,7 +5489,10 @@
       "n8n_unreachable": "n8n ist unter dieser Adresse nicht erreichbar.",
       "n8n_unauthorized": "n8n lehnt den API-Key ab.",
       "n8n_no_api": "Unter dieser Adresse antwortet keine n8n-API – bitte die Adresse prüfen.",
-      "n8n_failed": "n8n meldet einen Fehler."
+      "n8n_failed": "n8n meldet einen Fehler.",
+      "email_intake_forward_invalid": "Die Weiterleitungsadresse ist ungültig.",
+      "email_intake_mailbox_invalid": "Die Postfach-Adresse ist ungültig.",
+      "email_intake_assignee_invalid": "Der Standard-Bearbeiter darf keine Tickets sehen."
     },
     "client": {
       "notModified": "API-Antwort unverändert (304) – bitte Seite neu laden.",
@@ -6263,7 +6298,20 @@
       "ungultige_shopware_id": "Ungültige Shopware-ID",
       "entwurf_hangt_nicht_in_der_anlage": "Entwurf hängt nicht in der Anlage",
       "anlage_lauft_womoglich_noch_bitte_spater_erneut_versuchen": "Anlage läuft womöglich noch, bitte später erneut versuchen",
-      "anlage_sperre_konnte_nicht_gelost_werden": "Anlage-Sperre konnte nicht gelöst werden"
+      "anlage_sperre_konnte_nicht_gelost_werden": "Anlage-Sperre konnte nicht gelöst werden",
+      "die_entwurfs_automatik_commercial_agent_ist_ausgeschaltet": "Die Entwurfs-Automatik (Commercial Agent) ist ausgeschaltet.",
+      "der_n8n_benutzer_braucht_die_rechte_bestellentwurfe_und_angebote_verwalten": "Der n8n-Benutzer braucht die Rechte Bestellentwürfe UND Angebote verwalten.",
+      "diese_mail_wird_gerade_schon_verarbeitet": "Diese Mail wird gerade schon verarbeitet.",
+      "einstellungen_konnten_nicht_geladen_werden": "Einstellungen konnten nicht geladen werden",
+      "ungultige_einstellungen": "Ungültige Einstellungen",
+      "ungultige_weiterleitungsadresse": "Ungültige Weiterleitungsadresse",
+      "ungultige_postfach_adresse": "Ungültige Postfach-Adresse",
+      "der_standard_bearbeiter_darf_keine_tickets_sehen": "Der Standard-Bearbeiter darf keine Tickets sehen",
+      "einstellungen_konnten_nicht_gespeichert_werden": "Einstellungen konnten nicht gespeichert werden",
+      "konfiguration_konnte_nicht_geladen_werden": "Konfiguration konnte nicht geladen werden",
+      "ungultige_problem_meldung": "Ungültige Problem-Meldung",
+      "internetmessageid_oder_graphmessageid_fehlt": "internetMessageId oder graphMessageId fehlt",
+      "problem_meldung_konnte_nicht_verarbeitet_werden": "Problem-Meldung konnte nicht verarbeitet werden"
     }
   },
   "roomPlanner": {
