@@ -17,6 +17,7 @@ import type {
 import { refreshDraftProfitability, type DraftForProfitability, type DraftKind } from "./draftProfitability";
 import { notificationEvents } from "../lib/events";
 import { logger } from "../lib/logger";
+import { logDraftEvent } from "./draftAuditLog";
 
 const log = logger.child({ component: "commercial/draftMarginApproval" });
 
@@ -92,6 +93,20 @@ export async function checkMarginGateForCreate(params: {
   if (!snapshot || snapshot.summary.crmVerdict !== "red") return { ok: true };
   const view = await loadMarginApprovalView({ ...params, snapshot, canViewDetails: false });
   if (view.canCreate) return { ok: true };
+  logDraftEvent(
+    "warn",
+    "draft.margin.create_blocked",
+    {
+      draftKind: params.kind,
+      draftId: params.draftId,
+      tenantId: params.tenantId,
+      verdict: snapshot.summary.crmVerdict,
+      marginPercent: snapshot.summary.marginPercent,
+      db1Total: snapshot.summary.db1Total,
+      approvalState: view.state,
+    },
+    "Anlage gesperrt: DB rot ohne Freigabe für diesen Stand",
+  );
   return {
     ok: false,
     statusCode: 409,
@@ -182,6 +197,23 @@ export async function requestMarginApproval(params: {
   const recipients = await params.storage.getUsersWithPermissionInTenant("viewMarginDetails", params.tenantId, {
     includeAdministrators: true,
   });
+  logDraftEvent(
+    "info",
+    "draft.margin.approval_requested",
+    {
+      draftKind: params.kind,
+      draftId: params.draftId,
+      tenantId: params.tenantId,
+      userId: params.user.id,
+      username: params.user.username,
+      approvalId: approval.id,
+      reason,
+      marginPercent: snapshot.summary.marginPercent,
+      db1Total: snapshot.summary.db1Total,
+      notifiedUsers: recipients.filter((u) => u.id !== params.user.id).map((u) => u.username),
+    },
+    "DB-Freigabe angefordert",
+  );
   // Benachrichtigung auf Deutsch wie die übrigen Servertexte: Dezimalkomma
   const margin =
     snapshot.summary.marginPercent != null
@@ -247,6 +279,23 @@ export async function decideMarginApproval(params: {
       },
       params.tenantId,
     );
+    logDraftEvent(
+      "info",
+      "draft.margin.approved",
+      {
+        draftKind: params.kind,
+        draftId: params.draftId,
+        tenantId: params.tenantId,
+        userId: params.user.id,
+        username: params.user.username,
+        approvalId: approval.id,
+        direct: true,
+        reason: comment,
+        marginPercent: snapshot.summary.marginPercent,
+        db1Total: snapshot.summary.db1Total,
+      },
+      "DB-Freigabe direkt erteilt (ohne Anforderung)",
+    );
     return { ok: true, profitability: snapshot, approval };
   }
 
@@ -262,6 +311,25 @@ export async function decideMarginApproval(params: {
     params.tenantId,
   );
   if (!approval) return { ok: false, statusCode: 404, error: "Anforderung nicht gefunden" };
+  logDraftEvent(
+    "info",
+    params.decision === "approve" ? "draft.margin.approved" : "draft.margin.rejected",
+    {
+      draftKind: params.kind,
+      draftId: params.draftId,
+      tenantId: params.tenantId,
+      userId: params.user.id,
+      username: params.user.username,
+      approvalId: approval.id,
+      direct: false,
+      requestedBy: pending.requestedByName,
+      reason: pending.reason,
+      comment,
+      marginPercent: snapshot.summary.marginPercent,
+      db1Total: snapshot.summary.db1Total,
+    },
+    params.decision === "approve" ? "DB-Freigabe erteilt" : "DB-Freigabe abgelehnt",
+  );
 
   if (pending.requestedByUserId && pending.requestedByUserId !== params.user.id) {
     const verb = params.decision === "approve" ? "freigegeben" : "abgelehnt";

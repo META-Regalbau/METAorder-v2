@@ -21,6 +21,7 @@ import {
   emitCommercialAutoOrderCreated,
 } from "./commercialWebhookNotifications";
 import { logger } from "../lib/logger";
+import { logDraftEvent } from "./draftAuditLog";
 
 const log = logger.child({ component: "commercial/commercialStrictAutoCreateRunner" });
 
@@ -228,6 +229,21 @@ export async function runStrictCommercialAutoCreateIfAllowed(params: {
   });
 
   attachStrictAutoCreateTraceToExtractedData(extractedData, evaluation);
+  logDraftEvent(
+    "info",
+    "draft.auto_create.evaluated",
+    {
+      draftKind,
+      draftId,
+      tenantId: tenantId ?? null,
+      allowed: evaluation.allowed,
+      reasons: evaluation.reasons,
+      executeShopware,
+    },
+    evaluation.allowed
+      ? "Automatik: Entwurf erfüllt alle Bedingungen, wird angelegt"
+      : "Automatik: Entwurf wird nicht automatisch angelegt (Prüfung nötig)",
+  );
 
   if (!evaluation.allowed) {
     if (draftKind === "offer") {
@@ -292,6 +308,7 @@ export async function runStrictCommercialAutoCreateIfAllowed(params: {
       };
     }
     const result = await executeCreateOfferFromDraft(storage, draftId, {
+      source: "auto",
       salesChannelId: channelResult.salesChannelId,
       tenantId: tenantId ?? null,
     });
@@ -349,6 +366,7 @@ export async function runStrictCommercialAutoCreateIfAllowed(params: {
   }
 
   const result = await executeCreateOrderFromDraft(storage, draftId, {
+    source: "auto",
     salesChannelId: orderChannelResult.salesChannelId,
     tenantId: tenantId ?? null,
   });

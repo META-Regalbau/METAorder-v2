@@ -2,6 +2,7 @@
 import multer from "multer";
 import { requireAuth, requireManageSettings, requireAuthOrIntegrationKey, requireManageCommercialDraftUpload, requireCsrf, requireManageOrderDrafts, requireManageOffers, requireViewOffers, canViewMarginDetails, requireViewMarginDetails, requireAdministrator } from "../auth/auth";
 import { applyManualLinePrice, preserveManualLinePrices } from "../commercial/draftLinePrice";
+import { auditUser, logDraftEvent } from "../commercial/draftAuditLog";
 import {
   decideMarginApproval,
   evaluateMarginApproval,
@@ -994,9 +995,21 @@ export function registerDraftRoutes(app: Express): void {
           kind === "order"
             ? await storage.updateOrderDraft(draft.id, updates)
             : await storage.updateOfferDraft(draft.id, updates, tenantId);
-        moduleLog.warn(
-          { draftId: draft.id, kind, shopwareEntityId: shopwareEntityId ?? null, by: (req.user as { username?: string })?.username },
-          "Hängende Entwurfsanlage manuell gelöst",
+        logDraftEvent(
+          "warn",
+          "draft.creation.released",
+          {
+            draftKind: kind,
+            draftId: draft.id,
+            tenantId,
+            ...auditUser(req.user),
+            shopwareEntityId: shopwareEntityId ?? null,
+            stuckSince: new Date(draft.updatedAt).toISOString(),
+            newStatus: shopwareEntityId ? "created" : "review_required",
+          },
+          shopwareEntityId
+            ? "Hängende Entwurfsanlage gelöst: mit Shopware-Beleg verknüpft"
+            : "Hängende Entwurfsanlage gelöst: zurück in die Prüfung",
         );
         if (shopwareEntityId && updated) {
           void refreshDraftProfitability({ storage, tenantId, kind, draftId: updated.id, draft: updated, frozen: true });
@@ -1059,7 +1072,29 @@ export function registerDraftRoutes(app: Express): void {
         if (!updated) {
           return res.status(404).json({ error: kind === "order" ? "Order draft not found" : "Offer draft not found" });
         }
-        res.json({ draft: updated, ...(await draftProfitabilityResponse(kind, updated, req)) });
+        const response = await draftProfitabilityResponse(kind, updated, req);
+        const before = (draft.matchingResults?.items?.[body.data.index] as { matchedProduct?: Record<string, unknown> } | undefined)
+          ?.matchedProduct;
+        const after = (result.items[body.data.index] as { matchedProduct?: Record<string, unknown> }).matchedProduct;
+        logDraftEvent(
+          "info",
+          body.data.unitPriceNet === null ? "draft.price.reset" : "draft.price.changed",
+          {
+            draftKind: kind,
+            draftId: draft.id,
+            tenantId,
+            ...auditUser(req.user),
+            lineIndex: body.data.index,
+            productNumber: (after?.productNumber as string | undefined) ?? null,
+            previousManualUnitPriceNet: (before?.manualUnitPriceNet as number | undefined) ?? null,
+            manualUnitPriceNet: (after?.manualUnitPriceNet as number | undefined) ?? null,
+            verdictAfter: response.profitability?.summary.crmVerdict ?? null,
+          },
+          body.data.unitPriceNet === null
+            ? "Manueller Preis einer Entwurfsposition zurückgesetzt"
+            : "Preis einer Entwurfsposition geändert",
+        );
+        res.json({ draft: updated, ...response });
       } catch (error) {
         moduleLog.error({ err: error, kind }, "Error setting draft line price:");
         res.status(500).json({ error: "Preis konnte nicht gespeichert werden" });
@@ -1263,6 +1298,24 @@ export function registerDraftRoutes(app: Express): void {
       if (!updatedDraft) {
         return res.status(404).json({ error: "Order draft not found" });
       }
+      logDraftEvent(
+        "info",
+        "draft.updated",
+        {
+          draftKind: "order",
+          draftId: id,
+          tenantId: req.tenantId ?? null,
+          ...auditUser(req.user),
+          changedFields: Object.keys(req.body ?? {}),
+          ...(validated.status && validated.status !== existingDraft.status
+            ? { statusBefore: existingDraft.status, statusAfter: validated.status }
+            : {}),
+          ...(validated.shopwareCustomerId !== undefined && validated.shopwareCustomerId !== existingDraft.shopwareCustomerId
+            ? { customerBefore: existingDraft.shopwareCustomerId ?? null, customerAfter: validated.shopwareCustomerId }
+            : {}),
+        },
+        "Entwurf bearbeitet",
+      );
 
       try {
         const learningRows = buildCommercialProductFeedbackRowsFromDraftUpdate({
@@ -1557,6 +1610,8 @@ export function registerDraftRoutes(app: Express): void {
       const result = await executeCreateOrderFromDraft(storage, id, {
         salesChannelId: channelResult.salesChannelId,
         tenantId: req.tenantId ?? null,
+        ...auditUser(req.user),
+        source: (req as { integrationKeyAuth?: boolean }).integrationKeyAuth ? "integration" : "review",
       });
       if (!result.ok) {
         return res.status(result.statusCode).json({ error: result.error, ...(result.code ? { code: result.code } : {}) });
@@ -1679,6 +1734,19 @@ export function registerDraftRoutes(app: Express): void {
       if (!deleted) {
         return res.status(404).json({ error: "Order draft not found" });
       }
+      logDraftEvent(
+        "info",
+        "draft.deleted",
+        {
+          draftKind: "order",
+          draftId: draft.id,
+          tenantId: req.tenantId ?? null,
+          ...auditUser(req.user),
+          status: draft.status,
+          fileName: draft.originalFileName,
+        },
+        "Entwurf gelöscht",
+      );
       
       res.json({ message: "Order draft deleted successfully" });
     } catch (error) {
@@ -2160,6 +2228,24 @@ export function registerDraftRoutes(app: Express): void {
       if (!updatedDraft) {
         return res.status(404).json({ error: "Offer draft not found" });
       }
+      logDraftEvent(
+        "info",
+        "draft.updated",
+        {
+          draftKind: "offer",
+          draftId: id,
+          tenantId: req.tenantId ?? null,
+          ...auditUser(req.user),
+          changedFields: Object.keys(req.body ?? {}),
+          ...(validated.status && validated.status !== existingDraft.status
+            ? { statusBefore: existingDraft.status, statusAfter: validated.status }
+            : {}),
+          ...(validated.shopwareCustomerId !== undefined && validated.shopwareCustomerId !== existingDraft.shopwareCustomerId
+            ? { customerBefore: existingDraft.shopwareCustomerId ?? null, customerAfter: validated.shopwareCustomerId }
+            : {}),
+        },
+        "Entwurf bearbeitet",
+      );
 
       try {
         const learningRows = buildCommercialProductFeedbackRowsFromDraftUpdate({
@@ -2518,6 +2604,19 @@ export function registerDraftRoutes(app: Express): void {
       if (!deleted) {
         return res.status(404).json({ error: "Offer draft not found" });
       }
+      logDraftEvent(
+        "info",
+        "draft.deleted",
+        {
+          draftKind: "offer",
+          draftId: draft.id,
+          tenantId: req.tenantId ?? null,
+          ...auditUser(req.user),
+          status: draft.status,
+          fileName: draft.originalFileName,
+        },
+        "Entwurf gelöscht",
+      );
       
       res.json({ message: "Offer draft deleted successfully" });
     } catch (error) {
@@ -2560,7 +2659,8 @@ export function registerDraftRoutes(app: Express): void {
         tenantId: req.tenantId ?? null,
         discountJustification:
           typeof req.body?.discount_justification === "string" ? req.body.discount_justification : null,
-        userId: (req.user as { id?: string } | undefined)?.id ?? null,
+        ...auditUser(req.user),
+        source: (req as { integrationKeyAuth?: boolean }).integrationKeyAuth ? "integration" : "review",
       });
       if (!result.ok) {
         return res.status(result.statusCode).json({ error: result.error, ...(result.code ? { code: result.code } : {}) });

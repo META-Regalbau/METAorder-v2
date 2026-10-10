@@ -4,7 +4,8 @@
  * Benachrichtigungen und Grund in der Strikt-Regel.
  * Ausführung: npm test
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createLogger, setLoggerForTests } from "../../server/lib/logger";
 import type { CommercialDraftMarginApproval } from "../../shared/schema";
 import type { DraftProfitability } from "../../shared/draftProfitability";
 
@@ -23,6 +24,16 @@ const {
   requestMarginApproval,
 } = await import("../../server/commercial/draftMarginApproval");
 const { evaluateStrictAutoCreate } = await import("../../server/commercial/commercialStrictAutoCreate");
+
+function captureLogs() {
+  const lines: Record<string, any>[] = [];
+  setLoggerForTests(
+    createLogger({ level: "info", format: "json", destination: { write: (chunk: string) => lines.push(JSON.parse(chunk)) } }),
+  );
+  return lines;
+}
+const events = (lines: Record<string, any>[]) => lines.filter((l) => typeof l.event === "string" && l.event.startsWith("draft.")).map((l) => l.event);
+afterEach(() => setLoggerForTests(null));
 const { DEFAULT_COMMERCIAL_AGENT } = await import("../../server/ai/aiConfig");
 
 function snapshot(verdict: "green" | "red", price = 105): DraftProfitability {
@@ -179,6 +190,7 @@ describe("Ablauf anfordern, ablehnen, neu anfordern, freigeben", () => {
   });
 
   it("vollständiger Ablauf mit Sperre und Benachrichtigungen", async () => {
+    const logs = captureLogs();
     const draft = draftWithPrice(105); // 5 % Aufschlag → rot
     expect(await checkMarginGateForCreate({ ...base, draft })).toMatchObject({
       ok: false,
@@ -215,6 +227,27 @@ describe("Ablauf anfordern, ablehnen, neu anfordern, freigeben", () => {
 
     // danach geändert → Freigabe gilt nicht mehr
     expect((await checkMarginGateForCreate({ ...base, draft: draftWithPrice(104) })).ok).toBe(false);
+
+    // Vorgangsprotokoll in Reihenfolge (DB-Berechnungen ohne Fake-Vorgänger: erstmals berechnet)
+    expect(events(logs).filter((e) => !e.startsWith("draft.db."))).toEqual([
+      "draft.margin.create_blocked",
+      "draft.margin.approval_requested",
+      "draft.margin.rejected",
+      "draft.margin.create_blocked",
+      "draft.margin.approval_requested",
+      "draft.margin.approved",
+      "draft.margin.create_blocked",
+    ]);
+    const requestedLog = logs.find((l) => l.event === "draft.margin.approval_requested");
+    expect(requestedLog).toMatchObject({
+      draftId: "d1",
+      userId: "u-sb",
+      username: "sb",
+      reason: "Rahmenvertrag mit Sonderpreis",
+      notifiedUsers: ["admin"],
+      area: "drafts",
+    });
+    expect(logs.find((l) => l.event === "draft.margin.rejected")).toMatchObject({ username: "admin", comment: "zu niedrig", requestedBy: "sb" });
   });
 
   it("Freigebende können ohne Anforderung direkt freigeben, aber nur mit Begründung", async () => {

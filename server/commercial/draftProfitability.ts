@@ -25,6 +25,7 @@ import {
 import { loadCrmProfitabilitySettings } from "../analytics/crmProfitabilitySettings";
 import { computeCrmProfitabilityVerdict, computeHerstellMarginPercent } from "../products/herstellpreisMargin";
 import { logger } from "../lib/logger";
+import { logDraftEvent } from "./draftAuditLog";
 
 const log = logger.child({ component: "commercial/draftProfitability" });
 
@@ -366,6 +367,38 @@ export function hideDraftProfitabilityDetails(profitability: DraftProfitability)
   };
 }
 
+/** Vorgangsprotokoll: jede Berechnung (debug), Ampelwechsel und Stand bei der Anlage (info). */
+function logDraftProfitabilityChange(
+  params: { kind: DraftKind; draftId: string; tenantId: string | null },
+  snapshot: DraftProfitability,
+  previous: DraftProfitability | null,
+  durationMs: number,
+): void {
+  const summary = snapshot.summary;
+  const fields = {
+    draftKind: params.kind,
+    draftId: params.draftId,
+    tenantId: params.tenantId,
+    verdict: summary.crmVerdict,
+    marginPercent: summary.marginPercent,
+    db1Total: summary.db1Total,
+    linesWithHerstellpreis: summary.linesWithHerstellpreis,
+    productLineCount: summary.productLineCount,
+    unpricedLineCount: snapshot.unpricedLineCount,
+  };
+  logDraftEvent("debug", "draft.db.calculated", { ...fields, durationMs }, "DB eines Entwurfs berechnet");
+  if (snapshot.frozen) {
+    logDraftEvent("info", "draft.db.frozen", fields, "DB-Stand bei der Anlage festgehalten");
+  } else if (!previous || previous.summary.crmVerdict !== summary.crmVerdict) {
+    logDraftEvent(
+      "info",
+      "draft.db.verdict_changed",
+      { ...fields, previousVerdict: previous?.summary.crmVerdict ?? null, previousMarginPercent: previous?.summary.marginPercent ?? null },
+      previous ? "DB-Ampel eines Entwurfs hat sich geändert" : "DB-Ampel eines Entwurfs erstmals berechnet",
+    );
+  }
+}
+
 /**
  * Berechnen und speichern; Fehler werden protokolliert und liefern null (die DB-Anzeige ist
  * nie Voraussetzung für Entwurf oder Anlage).
@@ -379,8 +412,14 @@ export async function refreshDraftProfitability(params: {
   frozen?: boolean;
 }): Promise<DraftProfitability | null> {
   try {
+    const started = Date.now();
+    // alter Stand nur fürs Protokoll (Ampelwechsel) — darf die Berechnung nie verhindern
+    const previous = await Promise.resolve()
+      .then(() => params.storage.getDraftProfitability(params.kind, params.draftId, params.tenantId))
+      .catch(() => undefined);
     const snapshot = await computeDraftProfitability(params);
     await params.storage.saveDraftProfitability(params.kind, params.draftId, snapshot, params.tenantId);
+    logDraftProfitabilityChange(params, snapshot, previous?.snapshot ?? null, Date.now() - started);
     return snapshot;
   } catch (error) {
     log.warn({ err: error, draftId: params.draftId, kind: params.kind }, "[DraftProfitability] Berechnung fehlgeschlagen:");
