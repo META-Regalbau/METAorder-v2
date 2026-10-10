@@ -6251,7 +6251,8 @@
       "failed_to_start_monthly_review": "Monatsprüfung konnte nicht gestartet werden",
       "failed_to_fetch_backfill_state": "Stand der Erstbefüllung konnte nicht geladen werden",
       "failed_to_start_backfill": "Erstbefüllung konnte nicht gestartet werden",
-      "failed_to_stop_backfill": "Erstbefüllung konnte nicht angehalten werden"
+      "failed_to_stop_backfill": "Erstbefüllung konnte nicht angehalten werden",
+      "db_berechnung_fehlgeschlagen": "DB-Berechnung fehlgeschlagen"
     }
   },
   "roomPlanner": {
@@ -6876,5 +6877,30 @@
     "red": "DB zu niedrig",
     "forbiddenTitle": "Keine Berechtigung",
     "forbiddenText": "Diese Seite zeigt genaue DB-Werte (Herstellkosten, DB1, Marge). Dafür braucht deine Rolle das Recht „DB-Werte sehen“. In Bestellungen siehst du die DB-Ampel."
+  },
+  "draftProfitability": {
+    "title": "Deckungsbeitrag",
+    "loading": "DB wird berechnet …",
+    "error": "DB konnte nicht berechnet werden.",
+    "markup": "Aufschlag auf Herstellkosten",
+    "db1": "DB1",
+    "db1Short": "DB1",
+    "herstellkosten": "Herstellkosten",
+    "marginOnRevenue": "Marge auf Umsatz",
+    "coverage": "Herstellkosten für {{withData}} von {{total}} bepreisten Positionen",
+    "unpriced": "Positionen ohne Verkaufspreis: {{count}}",
+    "thresholds": "Rot unter {{warn}} %, Gelb bis {{min}} %, Grün ab {{min}} % Aufschlag",
+    "computedAt": "Berechnet am {{date}} mit den aktuellen Preisen",
+    "frozen": "Stand bei der Anlage am {{date}}",
+    "hiddenHint": "Genaue Werte sieht nur, wer das Recht „DB-Werte sehen“ hat.",
+    "column": "DB",
+    "priceSource": {
+      "manual": "Preis manuell",
+      "suggested": "Preisvorschlag",
+      "customer_specific": "Kundenpreis",
+      "customer_discount": "Kundenrabatt",
+      "list": "Listenpreis",
+      "unresolved": "Kein Preis"
+    }
   }
 }

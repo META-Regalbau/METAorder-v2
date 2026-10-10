@@ -1,6 +1,12 @@
 // KI-Entwuerfe: gemeinsamer Upload, Bestell- und Angebotsentwuerfe (Pruefen, Kunde/Produkte zuordnen, Anhaenge, Anlage in Shopware) sowie Commercial Agent.
 import multer from "multer";
-import { requireAuth, requireManageSettings, requireAuthOrIntegrationKey, requireManageCommercialDraftUpload, requireCsrf, requireManageOrderDrafts, requireManageOffers, requireViewOffers } from "../auth/auth";
+import { requireAuth, requireManageSettings, requireAuthOrIntegrationKey, requireManageCommercialDraftUpload, requireCsrf, requireManageOrderDrafts, requireManageOffers, requireViewOffers, canViewMarginDetails } from "../auth/auth";
+import {
+  loadDraftProfitabilityForView,
+  scheduleDraftProfitabilityBackfill,
+  toDraftProfitabilityBadge,
+} from "../commercial/draftProfitability";
+import type { DraftProfitabilityBadge } from "@shared/draftProfitability";
 import { uploadRateLimiter, sanitizeFilename, getSalesChannelFilter } from "./routeHelpers";
 import { restoreTenantContext } from "../lib/tenantContext";
 import type { Request, Response, Express } from "express";
@@ -35,6 +41,30 @@ import { logger } from "../lib/logger";
 
 const moduleLog = logger.child({ component: "routes/draftRoutes" });
 
+
+/** Entwurfslisten um die DB-Ampel ergänzen (Beträge nur mit Recht „DB-Werte sehen“). */
+async function withProfitabilityBadges<T extends { id: string }>(
+  kind: "order" | "offer",
+  drafts: T[],
+  req: Request,
+): Promise<Array<T & { profitability: DraftProfitabilityBadge | null }>> {
+  let rows = new Map<string, Awaited<ReturnType<typeof storage.getDraftProfitability>> & {}>();
+  try {
+    rows = await storage.getDraftProfitabilityByDraftIds(kind, drafts.map((d) => d.id), req.tenantId ?? null);
+  } catch (error) {
+    moduleLog.warn({ err: error }, "DB-Ampeln der Entwurfsliste konnten nicht geladen werden:");
+  }
+  // Ältere offene Entwürfe ohne Berechnung: im Hintergrund nachrechnen, beim nächsten Laden sichtbar
+  scheduleDraftProfitabilityBackfill({
+    storage,
+    tenantId: req.tenantId ?? null,
+    kind,
+    drafts: drafts as unknown as Parameters<typeof scheduleDraftProfitabilityBackfill>[0]["drafts"],
+    existingDraftIds: new Set(rows.keys()),
+  });
+  const canView = canViewMarginDetails(req.user);
+  return drafts.map((draft) => ({ ...draft, profitability: toDraftProfitabilityBadge(rows.get(draft.id), canView) }));
+}
 
 function parseUploadIntentHint(raw: unknown): "offer" | "order" | "unclear" | undefined {
   if (typeof raw !== "string") return undefined;
@@ -741,7 +771,7 @@ export function registerDraftRoutes(app: Express): void {
   app.get("/api/order-drafts", requireAuthOrIntegrationKey, requireManageOrderDrafts, async (req: Request, res: Response) => {
     try {
       const orderDrafts = await storage.getAllOrderDrafts();
-      res.json(orderDrafts);
+      res.json(await withProfitabilityBadges("order", orderDrafts, req));
     } catch (error) {
       moduleLog.error({ err: error }, "Error fetching order drafts:");
       res.status(500).json({ error: "Failed to fetch order drafts" });
@@ -766,6 +796,28 @@ export function registerDraftRoutes(app: Express): void {
     } catch (error: any) {
       moduleLog.error({ err: error }, "Error searching customers for order draft:");
       res.status(500).json({ error: error.message ?? "Kundensuche fehlgeschlagen" });
+    }
+  });
+
+  // GET /api/order-drafts/:id/profitability - DB des Entwurfs (ohne Recht „DB-Werte sehen“ nur Ampeln)
+  app.get("/api/order-drafts/:id/profitability", requireAuthOrIntegrationKey, requireManageOrderDrafts, async (req: Request, res: Response) => {
+    try {
+      const draft = await storage.getOrderDraft(req.params.id);
+      if (!draft) {
+        return res.status(404).json({ error: "Order draft not found" });
+      }
+      const profitability = await loadDraftProfitabilityForView({
+        storage,
+        tenantId: req.tenantId ?? null,
+        kind: "order",
+        draftId: draft.id,
+        draft,
+        canViewDetails: canViewMarginDetails(req.user),
+      });
+      res.json({ profitability });
+    } catch (error) {
+      moduleLog.error({ err: error }, "Error computing order draft profitability:");
+      res.status(500).json({ error: "DB-Berechnung fehlgeschlagen" });
     }
   });
 
@@ -1615,7 +1667,7 @@ export function registerDraftRoutes(app: Express): void {
         ? statusParam.split(",").map((s) => s.trim()).filter(Boolean)
         : undefined;
       const offerDrafts = await storage.getAllOfferDrafts(req.tenantId ?? null, statuses);
-      res.json(offerDrafts);
+      res.json(await withProfitabilityBadges("offer", offerDrafts, req));
     } catch (error) {
       moduleLog.error({ err: error }, "Error fetching offer drafts:");
       res.status(500).json({ error: "Failed to fetch offer drafts" });
@@ -1644,6 +1696,28 @@ export function registerDraftRoutes(app: Express): void {
   });
 
   // GET /api/offer-drafts/:id - Get single offer draft with cross-selling suggestions
+  // GET /api/offer-drafts/:id/profitability - DB des Entwurfs (ohne Recht „DB-Werte sehen“ nur Ampeln)
+  app.get("/api/offer-drafts/:id/profitability", requireAuthOrIntegrationKey, requireViewOffers, async (req: Request, res: Response) => {
+    try {
+      const draft = await storage.getOfferDraft(req.params.id, req.tenantId ?? null);
+      if (!draft) {
+        return res.status(404).json({ error: "Offer draft not found" });
+      }
+      const profitability = await loadDraftProfitabilityForView({
+        storage,
+        tenantId: req.tenantId ?? null,
+        kind: "offer",
+        draftId: draft.id,
+        draft,
+        canViewDetails: canViewMarginDetails(req.user),
+      });
+      res.json({ profitability });
+    } catch (error) {
+      moduleLog.error({ err: error }, "Error computing offer draft profitability:");
+      res.status(500).json({ error: "DB-Berechnung fehlgeschlagen" });
+    }
+  });
+
   app.get("/api/offer-drafts/:id", requireAuthOrIntegrationKey, requireViewOffers, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;

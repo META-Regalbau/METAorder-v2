@@ -2717,6 +2717,30 @@ export type OfferDraftWithCrossSelling = OfferDraft & {
   crossSellingSuggestions?: CrossSellingDraftSuggestionGroup[];
 };
 
+/**
+ * DB-Berechnung je Bestell-/Angebotsentwurf. Eigene Tabelle statt Spalte am Entwurf, damit die
+ * Beträge nur über die DB-Endpunkte (mit Rechteprüfung) ausgeliefert werden. frozen = Stand bei
+ * der Anlage in Shopware.
+ */
+export const commercialDraftProfitability = pgTable(
+  "commercial_draft_profitability",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id"),
+    draftKind: text("draft_kind").notNull(),
+    draftId: varchar("draft_id").notNull(),
+    verdict: text("verdict").notNull(),
+    frozen: boolean("frozen").notNull().default(false),
+    snapshot: jsonb("snapshot").notNull().$type<import("./draftProfitability").DraftProfitability>(),
+    computedAt: timestamp("computed_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    draftUnique: uniqueIndex("commercial_draft_profitability_draft_unique").on(table.draftKind, table.draftId),
+  }),
+);
+
+export type CommercialDraftProfitabilityRow = typeof commercialDraftProfitability.$inferSelect;
+
 /** Few-Shot-Lernbeispiele für Commercial Agent (Intent / Muster aus E-Mail+PDF) */
 export const commercialAgentExemplars = pgTable("commercial_agent_exemplars", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

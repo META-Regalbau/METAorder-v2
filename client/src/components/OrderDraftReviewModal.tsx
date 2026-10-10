@@ -79,6 +79,7 @@ import {
 import { DraftReferencesCard, type DraftDocumentReferencesLite } from "@/components/DraftReferencesCard";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
+import { DraftLineMargin, DraftProfitabilityCard, useDraftProfitability } from "@/components/DraftProfitability";
 interface CrossSellingSuggestion {
   forProduct: {
     id: string;
@@ -248,6 +249,10 @@ export function OrderDraftReviewModal({
   const [editedData, setEditedData] = useState(draft.extractedData);
   const [showAlternatives, setShowAlternatives] = useState<Record<number, boolean>>({});
   const [selectedProducts, setSelectedProducts] = useState<Record<number, string>>({});
+  const profitabilityQuery = useDraftProfitability("order", draft.id, open);
+  const profitabilityLineByIndex = new Map(
+    (profitabilityQuery.data?.profitability?.lines ?? []).map((line) => [line.index, line]),
+  );
   const [confirmedLines, setConfirmedLines] = useState<Record<number, boolean>>({});
   const [selectedBundleId, setSelectedBundleId] = useState<string>("");
   const [bundleQuantity, setBundleQuantity] = useState(1);
@@ -839,7 +844,8 @@ export function OrderDraftReviewModal({
           </Alert>
         )}
 
-        <div className="space-y-6">
+        {/* min-w-0: breite Tabellen scrollen innen, statt das Fenster (Grid) zu verbreitern */}
+        <div className="space-y-6 min-w-0">
           {/* Customer Information */}
           {editedData?.customer && (
             <Card>
@@ -1325,6 +1331,15 @@ export function OrderDraftReviewModal({
             />
           )}
 
+          {/* Deckungsbeitrag (Ampel; genaue Werte nur mit Recht „DB-Werte sehen“) */}
+          {mergedMatchingResults && mergedMatchingResults.items.length > 0 && (
+            <DraftProfitabilityCard
+              profitability={profitabilityQuery.data?.profitability}
+              isLoading={profitabilityQuery.isLoading}
+              isError={profitabilityQuery.isError}
+            />
+          )}
+
           {/* Product Matching */}
           {mergedMatchingResults && mergedMatchingResults.items.length > 0 && (
             <>
@@ -1366,6 +1381,7 @@ export function OrderDraftReviewModal({
                       <TableHead>{t("offerDrafts.review.productLikelihood")}</TableHead>
                       <TableHead>{t("orderDrafts.review.table.quantity")}</TableHead>
                       <TableHead>{t("orderDrafts.review.table.confidence")}</TableHead>
+                      <TableHead className="text-right">{t("draftProfitability.column")}</TableHead>
                       <TableHead className="w-[52px] text-right">{t("offerDrafts.review.actions")}</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1550,6 +1566,9 @@ export function OrderDraftReviewModal({
                           />
                         </TableCell>
                         <TableCell>{getConfidenceBadge(item.confidence)}</TableCell>
+                        <TableCell className="text-right">
+                          <DraftLineMargin line={profitabilityLineByIndex.get(index)} />
+                        </TableCell>
                         <TableCell className="text-right">
                           <Button
                             type="button"

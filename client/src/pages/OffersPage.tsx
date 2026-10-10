@@ -12,6 +12,8 @@ import { isDocumentBuyerMeta, pickDocumentExtraction } from "@/components/Docume
 import { Link, useLocation, useSearch } from "wouter";
 import { offerProfitabilityHref } from "@/lib/orderProfitabilityLink";
 import { useCanViewMarginDetails } from "@/hooks/useMarginVisibility";
+import { DraftProfitabilityBadgeCell } from "@/components/DraftProfitability";
+import type { DraftProfitabilityBadge } from "@shared/draftProfitability";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { fetchOfferDraftForReview } from "@/lib/refreshReviewDraft";
@@ -586,6 +588,7 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
                           {t("offerDrafts.table.matchingConfidence", "Genauigkeit")}
                         </th>
                         <th className="num" data-testid="table-head-draft-total">{t("offerDrafts.table.totalValue")}</th>
+                        <th className="num">{t("draftProfitability.column")}</th>
                         <th data-testid="table-head-draft-created">{t("offerDrafts.table.created")}</th>
                         <th className="num" data-testid="table-head-draft-actions">
                           {t("offerDrafts.table.actions")}
@@ -627,6 +630,11 @@ export default function OffersPage({ userRole, userSalesChannelIds }: OffersPage
                           </td>
                           <td className="num" data-testid={`text-draft-total-${draft.id}`}>
                             {fmt.currency(calculateDraftTotal(draft))}
+                          </td>
+                          <td className="num" data-testid={`cell-draft-db-${draft.id}`}>
+                            <DraftProfitabilityBadgeCell
+                              badge={(draft as { profitability?: DraftProfitabilityBadge | null }).profitability}
+                            />
                           </td>
                           <td data-testid={`text-draft-created-${draft.id}`}>
                             {fmt.dateTime(draft.createdAt)}

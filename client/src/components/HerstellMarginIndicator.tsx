@@ -10,6 +10,8 @@ type HerstellMarginIndicatorProps = {
   verdict: HerstellMarginVerdict;
   /** Wenn gesetzt: Umsatzmarge prominent, marginPercent klein darunter. */
   marginOnRevenuePercent?: number | null;
+  /** "markup": Aufschlag auf Herstellkosten groß (Grundlage der Ampel), Umsatzmarge klein darunter. */
+  emphasis?: "revenue" | "markup";
 };
 
 export function herstellMarginDotClass(verdict: HerstellMarginVerdict): string {
@@ -33,15 +35,18 @@ export default function HerstellMarginIndicator({
   marginPercent,
   marginOnRevenuePercent,
   verdict,
+  emphasis = "revenue",
 }: HerstellMarginIndicatorProps) {
   const fmt = useLocaleFormat();
   const { t } = useTranslation();
 
   const dotClass = herstellMarginDotClass(verdict);
 
-  const primaryPercent = marginOnRevenuePercent ?? marginPercent;
-  const showCostBelow =
-    marginOnRevenuePercent != null && marginPercent != null;
+  const markupFirst = emphasis === "markup";
+  const primaryPercent = markupFirst
+    ? (marginPercent ?? marginOnRevenuePercent)
+    : (marginOnRevenuePercent ?? marginPercent);
+  const showSecondary = marginOnRevenuePercent != null && marginPercent != null;
 
   if (verdict === "none") {
     return (
@@ -78,10 +83,11 @@ export default function HerstellMarginIndicator({
           {fmt.percentValue(primaryPercent)}
         </span>
       </span>
-      {showCostBelow ? (
+      {showSecondary ? (
         <span className="text-xs text-muted-foreground font-mono tabular-nums">
-          {t("profitabilityAnalysis.table.marginOnCostShort")}{" "}
-          {fmt.percentValue(marginPercent)}
+          {markupFirst
+            ? `${t("profitabilityAnalysis.table.marginOnRevenueShort")} ${fmt.percentValue(marginOnRevenuePercent)}`
+            : `${t("profitabilityAnalysis.table.marginOnCostShort")} ${fmt.percentValue(marginPercent)}`}
         </span>
       ) : null}
     </span>
