@@ -32,7 +32,11 @@ import path from "path";
 import { getUploadsRoot } from "../uploadsRoot";
 import fs from "fs/promises";
 import crypto from "crypto";
-import { isEmailContainerUpload, ingestCommercialEmailUpload } from "../commercial/commercialEmailUploadIngest";
+import { isEmailContainerUpload, ingestCommercialEmailUpload, deriveUploadMessageId } from "../commercial/commercialEmailUploadIngest";
+import { acquireIntakeLock, failEmailIntake, finalizeEmailIntake, releaseIntakeLock } from "../commercial/emailIntakeUpload";
+import { getEmailIntakeSettings } from "../commercial/emailIntakeSettings";
+import { parseEmailBufferAutodetect } from "../email/emailParser";
+import { unwrapInternalForward } from "../email/emailForwardUnwrap";
 import { extractDocumentTextPreviewForIntent } from "../extraction/documentTextExtraction";
 import { classifyCommercialDocumentIntent } from "../commercial/commercialDocumentIntent";
 import { runOrderDraftPipeline, runOfferDraftPipeline } from "../commercial/commercialDraftPipeline";
@@ -441,98 +445,165 @@ export function registerDraftRoutes(app: Express): void {
         // Permission-Downgrade (Bestellung → Angebot) des Einzeldokument-Pfads unten nicht,
         // und welcher Anhang welche Art hat, steht erst nach der Klassifikation fest.
         const agentSettingsForUpload = await getCommercialAgentSettings(storage);
+        const isMailContainer = isEmailContainerUpload(file.originalname, file.mimetype);
+        // E-Mail-Eingang über n8n (Integrations-Schlüssel): Vorprüfung „Sonstiges“, Problem-Tickets, intake-Block
+        const intakeMode = isMailContainer && (req as { integrationKeyAuth?: boolean }).integrationKeyAuth === true;
+        if (intakeMode && !(agentSettingsForUpload.enabled && canOrder && canOffer)) {
+          await fs.unlink(file.path).catch(() => {});
+          // 503: n8n lässt die Mail im Posteingang und versucht es später — kein Ticket je Mail
+          return res.status(503).json({
+            error: !agentSettingsForUpload.enabled
+              ? "Die Entwurfs-Automatik (Commercial Agent) ist ausgeschaltet."
+              : "Der n8n-Benutzer braucht die Rechte Bestellentwürfe UND Angebote verwalten.",
+            code: "email_intake_not_ready",
+          });
+        }
         if (
-          isEmailContainerUpload(file.originalname, file.mimetype) &&
+          isMailContainer &&
           agentSettingsForUpload.enabled &&
           canOrder &&
           canOffer
         ) {
-          const ingestParams = {
-            storage,
-            tenantId: req.tenantId ?? null,
-            fileBuffer,
-            fileName: file.originalname,
-            formSubject: subject,
-            formBody: bodyNote,
-            createdByUserId: userId,
-            ocrEnabled: aiSettings.ocrEnabled,
-            uploadHint: uploadIntentHint ?? null,
-          };
-          let ingest = await ingestCommercialEmailUpload(ingestParams);
-
-          // Bereits verarbeitete Mail: vorhandenen Entwurf zurückgeben statt „kein Entwurf".
-          // Wurde der Entwurf inzwischen gelöscht, bei manuellem Upload neu verarbeiten —
-          // sonst bliebe die Mail für immer gesperrt (n8n-Retries bleiben dedupliziert).
-          let existingForDedupe: { draft: unknown; draftKind: "order" | "offer" } | null = null;
-          if (ingest.results.length === 0) {
-            const tenantForLookup = req.tenantId ?? null;
-            const fromThisMail = (d: { tenantId?: string | null; extractedData?: unknown }) =>
-              (d.tenantId ?? null) === tenantForLookup &&
-              (d.extractedData as { sourceMessageId?: string } | null)?.sourceMessageId === ingest.messageId;
-            const [allOrders, allOffers] = await Promise.all([storage.getAllOrderDrafts(), storage.getAllOfferDrafts()]);
-            const candidates = [
-              ...allOrders
-                .filter(fromThisMail)
-                .map((d) => ({ draft: d, draftKind: "order" as const, at: new Date(d.createdAt).getTime() })),
-              ...allOffers
-                .filter(fromThisMail)
-                .map((d) => ({ draft: d, draftKind: "offer" as const, at: new Date(d.createdAt).getTime() })),
-            ].sort((a, b) => b.at - a.at);
-            if (candidates.length > 0) {
-              existingForDedupe = { draft: candidates[0].draft, draftKind: candidates[0].draftKind };
-            } else if ((req as { integrationKeyAuth?: boolean }).integrationKeyAuth !== true) {
-              ingest = await ingestCommercialEmailUpload({ ...ingestParams, forceReprocess: true });
-            }
-          }
-
-          // Der Orchestrator legt eigene Kopien je Anhang ab; das hochgeladene
-          // Container-File wird von keinem Entwurf referenziert.
-          try {
-            await fs.unlink(file.path);
-          } catch {
-            /* ignore */
-          }
-
-          const ingestedDrafts = [];
-          for (const result of ingest.results) {
-            const draft =
-              result.draftKind === "order"
-                ? await storage.getOrderDraft(result.draftId, req.tenantId ?? null)
-                : await storage.getOfferDraft(result.draftId, req.tenantId ?? null);
-            ingestedDrafts.push({
-              draft: draft ?? null,
-              draftKind: result.draftKind,
-              commercialIntent: result.intent,
-              commercialIntentConfidence: result.intentConfidence,
-              // Strikt-Auto-Create lief bereits im Orchestrator — Ergebnis steckt im Entwurf.
-              strictAutoCreateTrace:
-                (draft?.extractedData as Record<string, unknown> | undefined)
-                  ?.strictAutoCreateTrace ?? null,
+          const intakeSettings = intakeMode ? await getEmailIntakeSettings(storage, req.tenantId ?? null) : null;
+          const lockKey = `${req.tenantId ?? ""}:${deriveUploadMessageId(fileBuffer)}`;
+          if (intakeMode && !acquireIntakeLock(lockKey)) {
+            await fs.unlink(file.path).catch(() => {});
+            return res.status(409).json({
+              error: "Diese Mail wird gerade schon verarbeitet.",
+              code: "email_intake_in_progress",
             });
           }
+          try {
+            const ingestParams = {
+              storage,
+              tenantId: req.tenantId ?? null,
+              fileBuffer,
+              fileName: file.originalname,
+              formSubject: subject,
+              formBody: bodyNote,
+              createdByUserId: userId,
+              ocrEnabled: aiSettings.ocrEnabled,
+              uploadHint: uploadIntentHint ?? null,
+              triage: intakeSettings ? { otherMinConfidence: intakeSettings.otherMinConfidence } : null,
+            };
+            let ingest: Awaited<ReturnType<typeof ingestCommercialEmailUpload>>;
+            try {
+              ingest = await ingestCommercialEmailUpload(ingestParams);
+            } catch (error) {
+              if (!intakeSettings) throw error;
+              // n8n-Abruf: Absturz → Ticket mit der Originalmail statt 500 (sonst nur ein n8n-Fehler ohne Mail)
+              moduleLog.error({ err: error }, "[EmailIntake] Verarbeitung abgestürzt");
+              const parsed = await parseEmailBufferAutodetect(fileBuffer).catch(() => null);
+              const unwrapped = unwrapInternalForward({ from: parsed?.from, subject: parsed?.subject || subject, body: parsed?.body || bodyNote });
+              await fs.unlink(file.path).catch(() => {});
+              const intake = await failEmailIntake({
+                storage,
+                tenantId: req.tenantId ?? null,
+                settings: intakeSettings,
+                messageId: deriveUploadMessageId(fileBuffer),
+                subject: unwrapped.subject,
+                envelope: {
+                  headerFrom: parsed?.from ?? "",
+                  customerFrom: unwrapped.from,
+                  customerEmail: unwrapped.fromEmail,
+                  toAddresses: parsed?.toAddresses ?? [],
+                  ccAddresses: parsed?.ccAddresses ?? [],
+                },
+                error: error instanceof Error ? error.message : String(error),
+                rawEmail: { buffer: fileBuffer, fileName: file.originalname },
+                integrationUser: { id: userId, email: user?.email ?? null },
+              });
+              return res.json({ source: "email_container" as const, drafts: [], draftCount: 0, deduplicated: false, intake });
+            }
 
-          const first = ingestedDrafts[0];
-          return res.json({
-            // Rückwärtskompatible Felder für UI und bestehende Clients (erster Entwurf).
-            // Bei Dedupe: der bereits vorhandene Entwurf — nie ein erfundenes „offer".
-            draft: first?.draft ?? existingForDedupe?.draft ?? null,
-            draftKind: first?.draftKind ?? existingForDedupe?.draftKind ?? null,
-            existingDraftReturned: Boolean(!first && existingForDedupe),
-            commercialIntent: first?.commercialIntent ?? "unclear",
-            commercialIntentConfidence: first?.commercialIntentConfidence ?? 0,
-            commercialIntentRationale: null,
-            intentRoutedAsOfferDueToPermission: false,
-            uploadIntentHint: uploadIntentHint ?? null,
-            strictAutoCreate: first?.strictAutoCreateTrace ?? null,
-            // Neu: vollständiges Ergebnis der Mail-Zerlegung
-            source: "email_container" as const,
-            drafts: ingestedDrafts,
-            draftCount: ingestedDrafts.length,
-            attachmentsProcessed: ingest.attachmentsProcessed,
-            usedEmailOnlyFallback: ingest.usedEmailOnlyFallback,
-            // 0 Entwürfe bei vorhandenen Anhängen = bereits verarbeitete Nachricht
-            deduplicated: ingestedDrafts.length === 0,
-          });
+            // Bereits verarbeitete Mail: vorhandenen Entwurf zurückgeben statt „kein Entwurf".
+            // Wurde der Entwurf inzwischen gelöscht, bei manuellem Upload neu verarbeiten —
+            // sonst bliebe die Mail für immer gesperrt (n8n-Retries bleiben dedupliziert).
+            let existingForDedupe: { draft: unknown; draftKind: "order" | "offer" } | null = null;
+            if (ingest.results.length === 0) {
+              const tenantForLookup = req.tenantId ?? null;
+              const fromThisMail = (d: { tenantId?: string | null; extractedData?: unknown }) =>
+                (d.tenantId ?? null) === tenantForLookup &&
+                (d.extractedData as { sourceMessageId?: string } | null)?.sourceMessageId === ingest.messageId;
+              const [allOrders, allOffers] = await Promise.all([storage.getAllOrderDrafts(), storage.getAllOfferDrafts()]);
+              const candidates = [
+                ...allOrders
+                  .filter(fromThisMail)
+                  .map((d) => ({ draft: d, draftKind: "order" as const, at: new Date(d.createdAt).getTime() })),
+                ...allOffers
+                  .filter(fromThisMail)
+                  .map((d) => ({ draft: d, draftKind: "offer" as const, at: new Date(d.createdAt).getTime() })),
+              ].sort((a, b) => b.at - a.at);
+              if (candidates.length > 0) {
+                existingForDedupe = { draft: candidates[0].draft, draftKind: candidates[0].draftKind };
+              } else if ((req as { integrationKeyAuth?: boolean }).integrationKeyAuth !== true) {
+                ingest = await ingestCommercialEmailUpload({ ...ingestParams, forceReprocess: true });
+              }
+            }
+
+            // Der Orchestrator legt eigene Kopien je Anhang ab; das hochgeladene
+            // Container-File wird von keinem Entwurf referenziert.
+            try {
+              await fs.unlink(file.path);
+            } catch {
+              /* ignore */
+            }
+
+            const ingestedDrafts = [];
+            for (const result of ingest.results) {
+              const draft =
+                result.draftKind === "order"
+                  ? await storage.getOrderDraft(result.draftId, req.tenantId ?? null)
+                  : await storage.getOfferDraft(result.draftId, req.tenantId ?? null);
+              ingestedDrafts.push({
+                draft: draft ?? null,
+                draftKind: result.draftKind,
+                commercialIntent: result.intent,
+                commercialIntentConfidence: result.intentConfidence,
+                // Strikt-Auto-Create lief bereits im Orchestrator — Ergebnis steckt im Entwurf.
+                strictAutoCreateTrace:
+                  (draft?.extractedData as Record<string, unknown> | undefined)
+                    ?.strictAutoCreateTrace ?? null,
+              });
+            }
+
+            const first = ingestedDrafts[0];
+            const intake = intakeSettings
+              ? await finalizeEmailIntake({
+                  storage,
+                  tenantId: req.tenantId ?? null,
+                  settings: intakeSettings,
+                  ingest,
+                  existingDraftKind: existingForDedupe?.draftKind ?? null,
+                  rawEmail: { buffer: fileBuffer, fileName: file.originalname },
+                  integrationUser: { id: userId, email: user?.email ?? null },
+                })
+              : undefined;
+            return res.json({
+              // Rückwärtskompatible Felder für UI und bestehende Clients (erster Entwurf).
+              // Bei Dedupe: der bereits vorhandene Entwurf — nie ein erfundenes „offer".
+              draft: first?.draft ?? existingForDedupe?.draft ?? null,
+              draftKind: first?.draftKind ?? existingForDedupe?.draftKind ?? null,
+              existingDraftReturned: Boolean(!first && existingForDedupe),
+              commercialIntent: first?.commercialIntent ?? "unclear",
+              commercialIntentConfidence: first?.commercialIntentConfidence ?? 0,
+              commercialIntentRationale: null,
+              intentRoutedAsOfferDueToPermission: false,
+              uploadIntentHint: uploadIntentHint ?? null,
+              strictAutoCreate: first?.strictAutoCreateTrace ?? null,
+              // Neu: vollständiges Ergebnis der Mail-Zerlegung
+              source: "email_container" as const,
+              drafts: ingestedDrafts,
+              draftCount: ingestedDrafts.length,
+              attachmentsProcessed: ingest.attachmentsProcessed,
+              usedEmailOnlyFallback: ingest.usedEmailOnlyFallback,
+              // 0 Entwürfe bei vorhandenen Anhängen = bereits verarbeitete Nachricht
+              deduplicated: intake ? intake.outcome === "duplicate" : ingestedDrafts.length === 0,
+              ...(intake ? { intake } : {}),
+            });
+          } finally {
+            if (intakeMode) releaseIntakeLock(lockKey);
+          }
         }
 
         const docPreview = await extractDocumentTextPreviewForIntent(

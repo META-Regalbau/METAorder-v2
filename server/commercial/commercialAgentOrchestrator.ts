@@ -14,7 +14,7 @@ import {
 import { runOfferDraftPipeline, runOrderDraftPipeline } from "./commercialDraftPipeline";
 import { ensureDraftShopwareCustomerId, executeCreateOfferFromDraft, executeCreateOrderFromDraft } from "./commercialDraftShopware";
 import { fetchCustomerBoundSalesChannelId, resolveOfferSalesChannelId } from "../offers/offerSalesChannelResolver";
-import { runStrictCommercialAutoCreateIfAllowed } from "./commercialStrictAutoCreateRunner";
+import { runStrictCommercialAutoCreateIfAllowed, type StrictAutoCreateRunResult } from "./commercialStrictAutoCreateRunner";
 import type { MatchingResult } from "../products/productMatcher";
 import {
   emitCommercialAutoOfferCreated,
@@ -125,7 +125,15 @@ export type CommercialAgentProcessResult = {
   draftKind: "offer" | "order";
   intent: string;
   intentConfidence: number;
+  /** Ergebnis der strengen Automatik (fehlt, wenn sie nicht lief) */
+  strict?: StrictAutoCreateRunResult;
 };
+
+/** Ausgang je Dokument: der E-Mail-Eingang über n8n braucht „gescheitert“ getrennt von „schon verarbeitet“. */
+export type CommercialAgentProcessOutcome =
+  | { status: "created"; result: CommercialAgentProcessResult }
+  | { status: "skipped"; reason: "agent_disabled" | "not_processable" | "duplicate" }
+  | { status: "failed"; error: string };
 
 /**
  * Verarbeitet ein Geschäftsdokument aus dem E-Mail-Eingang (PDF, Word, Bild, E-Mail-Datei oder reiner E-Mail-Text im Buffer).
@@ -133,6 +141,28 @@ export type CommercialAgentProcessResult = {
 export async function processCommercialDocumentFromEmail(
   params: ProcessCommercialDocumentParams
 ): Promise<CommercialAgentProcessResult | null> {
+  const outcome = await processCommercialDocumentDetailed(params);
+  return outcome.status === "created" ? outcome.result : null;
+}
+
+/** Wie processCommercialDocumentFromEmail, aber mit Grund, wenn kein Entwurf entstand. */
+export async function processCommercialDocumentDetailed(
+  params: ProcessCommercialDocumentParams
+): Promise<CommercialAgentProcessOutcome> {
+  try {
+    const result = await processCommercialDocumentInner(params);
+    return "status" in result ? result : { status: "created", result };
+  } catch (err) {
+    // Fehler vor/nach der Pipeline (Intent, Ablage, Automatik) — sonst ginge die Mail kommentarlos verloren
+    const error = err instanceof Error ? err.message : String(err);
+    logAudit({ event: "process_failed", messageId: params.messageId, filename: params.filename, error });
+    return { status: "failed", error };
+  }
+}
+
+async function processCommercialDocumentInner(
+  params: ProcessCommercialDocumentParams
+): Promise<CommercialAgentProcessResult | Exclude<CommercialAgentProcessOutcome, { status: "created" }>> {
   const {
     storage,
     tenantId,
@@ -154,17 +184,17 @@ export async function processCommercialDocumentFromEmail(
 
   const agentSettings = await getCommercialAgentSettings(storage);
   if (!agentSettings.enabled) {
-    return null;
+    return { status: "skipped", reason: "agent_disabled" };
   }
 
   if (!primaryContainsEmailBody && !isProcessableCommercialAttachment(mimeType, filename)) {
-    return null;
+    return { status: "skipped", reason: "not_processable" };
   }
 
   const dedupeHash = attachmentDedupeHash(messageId, filename, buffer);
   if (!skipDedupe && (await hasDedupeHash(storage, dedupeHash))) {
     logAudit({ event: "skip_duplicate", messageId, filename });
-    return null;
+    return { status: "skipped", reason: "duplicate" };
   }
 
   let docPreview = "";
@@ -372,18 +402,19 @@ export async function processCommercialDocumentFromEmail(
         .catch((err) => moduleLog.warn({ err }, "[CommercialAgent] exemplar save failed:"));
     }
   } catch (err) {
+    const error = err instanceof Error ? err.message : String(err);
     logAudit({
       event: "draft_failed",
       messageId,
       filename,
-      error: err instanceof Error ? err.message : String(err),
+      error,
     });
     try {
       await fs.unlink(filePath);
     } catch {
       /* ignore */
     }
-    return null;
+    return { status: "failed", error };
   }
 
   await appendDedupeHash(storage, dedupeHash);
@@ -489,6 +520,7 @@ export async function processCommercialDocumentFromEmail(
       draftKind,
       intent: intent.intent,
       intentConfidence: intent.confidence,
+      strict: strictResult,
     };
   }
 

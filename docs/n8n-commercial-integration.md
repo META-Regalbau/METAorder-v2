@@ -42,6 +42,87 @@ Die Gegenrichtung zu den Schlüsseln oben. Unter **Einstellungen → Integration
 - HTTPS ist Pflicht. `http://` ist nur für lokale Hosts erlaubt (`localhost`, `n8n`, `host.docker.internal`, `*.localhost`).
 - API: `GET/POST/DELETE /api/settings/n8n-connection`, `POST /api/settings/n8n-connection/test`, `GET /api/settings/n8n-connection/workflows`.
 
+## E-Mail-Eingang (Microsoft 365)
+
+n8n holt die Mails ab; METAorder darf M365 nicht selbst anbinden. Vorlage:
+[`n8n-workflows/m365-to-metaorder.json`](../n8n-workflows/m365-to-metaorder.json). Einstellungen in METAorder:
+**Einstellungen → Integration → E-Mail-Eingang (n8n)** (je Mandant, `settings.email_intake_settings`).
+
+### Ablauf je Lauf (alle 2 Minuten)
+
+1. `GET /api/email-intake/config` (Integrations-Schlüssel): an/aus, Postfach (`/me` oder `/users/{postfach}`),
+   Zielordner, Mails je Lauf, Startdatum. Ist der Eingang aus oder nicht bereit (Commercial Agent aus,
+   n8n-Benutzer ohne `manageOrderDrafts` + `manageOffers`), passiert nichts.
+2. Zielordner (Unterordner des Posteingangs, Standard „METAorder verarbeitet“) suchen, sonst anlegen.
+3. Posteingang ab Startdatum lesen, älteste zuerst. **Alles im Posteingang gilt als offen**: erledigte Mails
+   wandern in den Zielordner. Schlägt etwas vorübergehend fehl, bleibt die Mail liegen und der nächste Lauf
+   versucht es erneut.
+4. Je Mail die komplette MIME-Nachricht (`$value`) holen und an `POST /api/commercial-drafts/upload` schicken,
+   eine nach der anderen.
+5. METAorder antwortet mit dem Block `intake`, n8n handelt danach: weiterleiten (nur „Sonstiges“),
+   Outlook-Kategorien setzen, in den Zielordner verschieben.
+
+### Was METAorder entscheidet
+
+| Ausgang | Wann | Outlook-Kategorie |
+|---------|------|-------------------|
+| `order` / `offer` / `mixed` | Entwürfe angelegt (ggf. schon in Shopware) | `METAorder: Bestellung` / `METAorder: Angebot` |
+| `other` | Vorprüfung: weder Bestellung noch Anfrage (Rechnung, Lieferavis, Rückfrage zu laufendem Vorgang, Reklamation, Newsletter, Abwesenheitsnotiz, Bewerbung, Spam) ab der eingestellten Sicherheit (Standard 70 %) | `METAorder: Sonstiges` |
+| `duplicate` | Mail war schon verarbeitet (Message-ID) | Kategorie des vorhandenen Entwurfs |
+| `failed` | Kein Entwurf entstanden | `METAorder: Fehler` |
+
+Bei Problemen kommt zusätzlich `METAorder: Ticket` dazu.
+
+- **Vorprüfung** (`server/commercial/emailIntakeTriage.ts`): Abwesenheitsnotizen (Kopfzeile `Auto-Submitted`,
+  Betreff) und Unzustellbarkeitsmeldungen ohne KI. Ein Anhang mit dem Belegtitel „Bestellung“/„Anfrage“ geht
+  ohne KI in die Pipeline. Sonst entscheidet die KI (Chat-Anbieter des Mandanten, Stufe `fast`). **Im Zweifel
+  entsteht ein Entwurf**: Bei KI-Fehler, unbrauchbarer Antwort oder Sicherheit unter der Schwelle wird
+  normal verarbeitet. Die Vorprüfung läuft nur beim Abruf über den Integrations-Schlüssel, nicht beim
+  Hochladen in der Oberfläche.
+- **Weiterleitung**: Graph `POST /messages/{id}/forward` mit Hinweis oben (Einordnung, Sicherheit, Begründung).
+  Antworten gehen an den ursprünglichen Absender. Ohne Adresse in den Einstellungen wird nur markiert und
+  verschoben.
+
+### Problem-Tickets
+
+Ein Ticket je Mail, Grund und Entwurf (Tag `intake:<hash>`, Wiederholungen finden das vorhandene).
+Jeder Grund lässt sich in den Einstellungen abschalten.
+
+| Grund | Auslöser |
+|-------|----------|
+| Verarbeitung gescheitert | Kein Entwurf (auch teilweise: ein Anhang scheiterte), Absturz in METAorder, oder n8n meldet per `POST /api/email-intake/problem` (Mail nicht abrufbar, METAorder antwortet dreimal hintereinander mit Fehler). Originalmail hängt am Ticket, sofern METAorder sie hatte. |
+| Shopware-Anlage gescheitert | Strikt-Regel erfüllt, Shopware lehnt ab (`shopwareError`) |
+| DB zu niedrig | Strikt-Regel stoppt mit `margin_below_minimum`; Sachbearbeiter fordert die Freigabe an |
+
+Ein normaler Entwurf zur Prüfung (z. B. Kunde nicht sicher erkannt) bekommt **kein** Ticket.
+
+**Zuweisung** (`server/commercial/emailIntakeAssignee.ts`), nur Benutzer des Mandanten mit `viewTickets`:
+
+1. ein Kollege, der die Mail intern weitergeleitet hat (Kopf-Absender aus eigener Domain) oder in An/CC steht.
+   Eingangspostfach und n8n-Benutzer zählen nie.
+2. wer zuletzt einen Entwurf dieses Shopware-Kunden **im Prüffenster** angelegt hat
+   (`shopware_created_by_user_id`, Migration 0049, wird erst ab jetzt gefüllt), sonst wer zuletzt ein Ticket
+   zu dieser Kunden-Mail hatte
+3. Standard-Bearbeiter aus den Einstellungen
+
+Der Zuständige bekommt eine Benachrichtigung wie beim Zuweisen in der Oberfläche.
+
+### Einrichtung
+
+1. In METAorder: technischer Benutzer (z. B. `n8n`) mit „Angebote verwalten“ und „Bestellentwürfe verwalten“,
+   Integrations-Schlüssel an diesen Benutzer binden (siehe oben).
+2. Einstellungen → Integration → E-Mail-Eingang: Postfach (leer = Postfach des Outlook-Zugangs),
+   Startdatum, Weiterleitungsadresse, Standard-Bearbeiter. Der Eingang ist ab Werk **aus**.
+3. In n8n den Workflow importieren und zuweisen: Credential **Microsoft Outlook OAuth2** an alle Graph-Knoten
+   (Platzhalter `OUTLOOK_OAUTH_CREDENTIAL_ID`), **METAorder Integration-Key** (Header Auth) an die drei
+   METAorder-Knoten. Im Knoten **Einstellungen** steht die METAorder-Adresse (lokal
+   `http://host.docker.internal:5001`). Workflow aktivieren.
+4. Rechte des Outlook-Zugangs: `Mail.ReadWrite` und `Mail.Send` für das eigene Postfach, bei einem
+   freigegebenen Postfach `Mail.ReadWrite.Shared`, `Mail.Send.Shared` und „Senden als“.
+
+Der Fehlerzähler (drei Fehlversuche bis zum Ticket) liegt in den statischen Workflow-Daten von n8n. Er zählt
+nur in aktiven Workflows, nicht bei manuellen Testläufen.
+
 ## Happy Path API (n8n als Orchestrator)
 
 1. **`POST /api/commercial-drafts/upload`**  
@@ -241,6 +322,7 @@ Details und Gmail-Setup: [`gmail-to-shopware-automation.md`](gmail-to-shopware-a
 
 | Datei | Zweck |
 |-------|--------|
+| [`n8n-workflows/m365-to-metaorder.json`](../n8n-workflows/m365-to-metaorder.json) | E-Mail-Eingang Microsoft 365 (siehe oben) |
 | [`n8n-workflows/gmail-to-metaorder.json`](../n8n-workflows/gmail-to-metaorder.json) | Gmail Trigger + Quick-Classifier + Upload + Mark Read |
 | [`n8n-commercial-workflow.example.json`](n8n-commercial-workflow.example.json) | Manueller Start, Upload, optional create-offer/order |
 | [`n8n-workflows/metaorder-auto-create-webhook.json`](../n8n-workflows/metaorder-auto-create-webhook.json) | Webhook-Empfang für Auto-Create-Events |

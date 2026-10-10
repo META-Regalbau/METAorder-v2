@@ -58,7 +58,7 @@ Dateien unter [`n8n-workflows/`](../n8n-workflows/):
 | Datei | Zweck |
 |-------|--------|
 | `gmail-to-metaorder.json` | Gmail → Classifier → Upload → Mark Read |
-| `m365-to-metaorder.json` | **Microsoft 365 / Exchange** → Classifier → Upload → Mark Read |
+| `m365-to-metaorder.json` | **Microsoft 365 / Exchange**: E-Mail-Eingang mit Erkennung „Sonstiges“, Weiterleitung, Problem-Tickets, Zielordner |
 | `metaorder-auto-create-webhook.json` | Optional: Webhook für `commercial.auto_*_created` |
 
 Import in n8n → **einen** der beiden Postfach-Workflows aktivieren → Credentials zuweisen:
@@ -75,36 +75,10 @@ Signaturbild-Erkennung. Details: [`n8n-commercial-integration.md`](n8n-commercia
 
 ### Microsoft 365 / Exchange
 
-Fertiger Workflow: [`m365-to-metaorder.json`](../n8n-workflows/m365-to-metaorder.json).
-Gegenüber der Gmail-Variante unterscheiden sich nur Abruf und Statuswechsel:
-
-| Gmail | Microsoft 365 |
-|-------|---------------|
-| Gmail Trigger | **Microsoft Outlook Trigger** |
-| `…/messages/{id}?format=raw` | `GET https://graph.microsoft.com/v1.0/me/messages/{id}/$value` |
-| Base64url → Buffer im Code-Node | entfällt — `$value` kommt direkt als Binary |
-| Gmail Mark Read | Outlook `isRead = true` |
-
-Quick-Classifier (`intentHint`) und Upload-Node sind identisch.
-
-**Einrichtung**
-
-1. Azure App-Registrierung mit **`Mail.Read`** für das Postfach.
-2. In n8n: **Credentials → Microsoft Outlook OAuth2** anlegen und im importierten
-   Workflow allen drei Outlook-Nodes zuweisen (Platzhalter `OUTLOOK_OAUTH_CREDENTIAL_ID`).
-3. Dem Upload-Knoten das Credential **METAorder Integration-Key** zuweisen (siehe „Workflows importieren“).
-
-**Wichtig:** Der Code-Node setzt Dateiname `*.eml` und MIME `message/rfc822`. Graph liefert
-`$value` als `text/plain` — ohne dieses Überschreiben würde METAorder die Mail als
-Einzeldokument behandeln statt sie auszupacken.
-
-Ein erneutes Abholen derselben Nachricht ist unkritisch: METAorder dedupliziert über die
-`Message-ID` und antwortet dann mit `200` und `deduplicated: true`, ohne einen zweiten
-Entwurf anzulegen.
-
-Ist `$value` im Tenant gesperrt, ist der Rückfallweg `GET /me/messages/{id}/attachments`
-mit einem Upload je Anhang — dabei entfällt allerdings die Signaturbild-Erkennung, weil
-die Zuordnung zur Nachricht verloren geht.
+Seit Oktober 2026 ist [`m365-to-metaorder.json`](../n8n-workflows/m365-to-metaorder.json) der
+**E-Mail-Eingang**: Abruf per Zeitplan statt Outlook-Trigger, Erkennung „weder Bestellung noch Angebot“
+mit Weiterleitung, Problem-Tickets und Zielordner für erledigte Mails. Einrichtung und Ablauf:
+[`n8n-commercial-integration.md` → E-Mail-Eingang](n8n-commercial-integration.md#e-mail-eingang-microsoft-365).
 
 Der lokale n8n-Container bekommt aus `docker-compose.yml` zusätzlich `METAORDER_BASE_URL` und `METAORDER_INTEGRATION_KEY` — für eigene Workflows; die Vorlagen nutzen Credential und feste URL.
 

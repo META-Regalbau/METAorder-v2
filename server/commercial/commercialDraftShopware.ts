@@ -175,6 +175,12 @@ type CreateOrderOptions = {
   source?: CreateFromDraftSource;
 };
 
+/** Sachbearbeiter, der im Prüffenster angelegt hat; Automatik und n8n zählen nicht (Zuweisung von Mail-Tickets). */
+function humanCreator(options: CreateOrderOptions): string | null {
+  if (options.source === "auto" || options.source === "integration") return null;
+  return options.userId ?? null;
+}
+
 /** Ergebnis jeder Anlage ins Vorgangsprotokoll (Sperren mit eigenem Ereignis nicht doppelt). */
 function logCreateOutcome(
   kind: "order" | "offer",
@@ -493,6 +499,7 @@ async function createOfferFromDraft(
         {
           status: "created",
           shopwareOfferId: created.id,
+          shopwareCreatedByUserId: humanCreator(options),
         },
         options.tenantId ?? null
       ),
@@ -768,6 +775,7 @@ async function createOrderFromDraft(
         {
           status: "created",
           shopwareOrderId: shopwareOrder.id,
+          shopwareCreatedByUserId: humanCreator(options),
         },
         options.tenantId ?? null
       ),

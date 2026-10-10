@@ -1684,6 +1684,38 @@
           "new": "new",
           "unknown": "unknown"
         }
+      },
+      "emailIntake": {
+        "title": "Email intake (n8n)",
+        "description": "n8n fetches mail from Microsoft 365 and reads these settings on every run. METAorder detects order, quote request or other, creates drafts and reports problems as tickets. n8n moves handled mail to the target folder and tags it with Outlook categories.",
+        "enabled": "Email intake active",
+        "enabledHint": "Off: n8n leaves all mail in the inbox.",
+        "mailboxSection": "Mailbox",
+        "mailbox": "Shared mailbox",
+        "mailboxPlaceholder": "orders@meta-online.com",
+        "mailboxHint": "Empty = mailbox of the Outlook account in n8n. A shared mailbox needs read, write and \"Send as\" permissions for that account.",
+        "folder": "Target folder for handled mail",
+        "folderHint": "Subfolder of the inbox; n8n creates it on the first run. Mail left in the inbox is retried on the next run.",
+        "processSince": "Process mail from",
+        "processSinceHint": "Older mail in the inbox stays untouched. Today is suggested when switching on.",
+        "maxPerRun": "Mails per run",
+        "maxPerRunHint": "n8n runs every 2 minutes, oldest mail first.",
+        "otherSection": "Neither order nor quote",
+        "forwardTo": "Forward to",
+        "forwardToHint": "Outlook forwards the original mail with the reason for the classification on top. Replies go to the original sender.",
+        "forwardToEmpty": "Without an address, \"other\" mail is only tagged and moved to the target folder.",
+        "otherMinConfidence": "Treat as other from confidence (%)",
+        "otherMinConfidenceHint": "Below that a draft is created to be safe, so no order gets lost.",
+        "ticketSection": "Tickets for problems",
+        "ticketOnFailure": "Mail could not be processed",
+        "ticketOnShopwareError": "Automatic creation in Shopware failed",
+        "ticketOnMarginRed": "Margin too low (red), approval required",
+        "defaultAssignee": "Default assignee",
+        "noAssignee": "Nobody (unassigned ticket)",
+        "assigneeChain": "Assignment: first a colleague who forwarded the mail or is in To/CC, then whoever last created a draft for this customer or handled a ticket for this customer email, finally the default assignee.",
+        "categoriesHint": "Outlook categories set by n8n:",
+        "workflowHint": "Workflow template: n8n-workflows/m365-to-metaorder.json. In n8n assign the Outlook account and the header credential \"METAorder Integration-Key\", check the METAorder address in the \"Einstellungen\" node and activate the workflow.",
+        "saved": "Email intake saved"
       }
     },
     "semanticRanking": {
@@ -5460,7 +5492,10 @@
       "n8n_unreachable": "n8n cannot be reached at this address.",
       "n8n_unauthorized": "n8n rejects the API key.",
       "n8n_no_api": "No n8n API responds at this address – please check the address.",
-      "n8n_failed": "n8n reports an error."
+      "n8n_failed": "n8n reports an error.",
+      "email_intake_forward_invalid": "The forwarding address is invalid.",
+      "email_intake_mailbox_invalid": "The mailbox address is invalid.",
+      "email_intake_assignee_invalid": "The default assignee is not allowed to view tickets."
     },
     "client": {
       "notModified": "API response unchanged (304) – please reload the page.",
@@ -6266,7 +6301,20 @@
       "ungultige_shopware_id": "Invalid Shopware ID",
       "entwurf_hangt_nicht_in_der_anlage": "Draft is not stuck in creation",
       "anlage_lauft_womoglich_noch_bitte_spater_erneut_versuchen": "Creation may still be running, please try again later",
-      "anlage_sperre_konnte_nicht_gelost_werden": "Creation lock could not be released"
+      "anlage_sperre_konnte_nicht_gelost_werden": "Creation lock could not be released",
+      "die_entwurfs_automatik_commercial_agent_ist_ausgeschaltet": "The draft automation (Commercial Agent) is switched off.",
+      "der_n8n_benutzer_braucht_die_rechte_bestellentwurfe_und_angebote_verwalten": "The n8n user needs the permissions to manage order drafts AND offers.",
+      "diese_mail_wird_gerade_schon_verarbeitet": "This email is already being processed.",
+      "einstellungen_konnten_nicht_geladen_werden": "Settings could not be loaded",
+      "ungultige_einstellungen": "Invalid settings",
+      "ungultige_weiterleitungsadresse": "Invalid forwarding address",
+      "ungultige_postfach_adresse": "Invalid mailbox address",
+      "der_standard_bearbeiter_darf_keine_tickets_sehen": "The default assignee is not allowed to view tickets",
+      "einstellungen_konnten_nicht_gespeichert_werden": "Settings could not be saved",
+      "konfiguration_konnte_nicht_geladen_werden": "Configuration could not be loaded",
+      "ungultige_problem_meldung": "Invalid problem report",
+      "internetmessageid_oder_graphmessageid_fehlt": "internetMessageId or graphMessageId is missing",
+      "problem_meldung_konnte_nicht_verarbeitet_werden": "Problem report could not be processed"
     }
   },
   "roomPlanner": {
