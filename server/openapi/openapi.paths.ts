@@ -5270,6 +5270,87 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/cross-selling/backfill": {
+    "get": {
+      "tags": [
+        "cross-selling"
+      ],
+      "summary": "GET /api/cross-selling/backfill",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/cross-selling/backfill/start": {
+    "post": {
+      "tags": [
+        "cross-selling"
+      ],
+      "summary": "POST /api/cross-selling/backfill/start",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/cross-selling/backfill/stop": {
+    "post": {
+      "tags": [
+        "cross-selling"
+      ],
+      "summary": "POST /api/cross-selling/backfill/stop",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/cross-selling/candidates/run": {
     "post": {
       "tags": [

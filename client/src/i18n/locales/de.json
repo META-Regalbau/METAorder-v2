@@ -6242,7 +6242,10 @@
       "change_not_found": "Änderung nicht gefunden",
       "failed_to_undo_change": "Änderung konnte nicht rückgängig gemacht werden",
       "failed_to_undo_run": "Lauf konnte nicht rückgängig gemacht werden",
-      "failed_to_start_monthly_review": "Monatsprüfung konnte nicht gestartet werden"
+      "failed_to_start_monthly_review": "Monatsprüfung konnte nicht gestartet werden",
+      "failed_to_fetch_backfill_state": "Stand der Erstbefüllung konnte nicht geladen werden",
+      "failed_to_start_backfill": "Erstbefüllung konnte nicht gestartet werden",
+      "failed_to_stop_backfill": "Erstbefüllung konnte nicht angehalten werden"
     }
   },
   "roomPlanner": {
@@ -6691,7 +6694,8 @@
       "already_in_shop": "schon im Shop",
       "same_family": "gleiche Familie",
       "negative_signal": "wird selten übernommen",
-      "no_order_evidence": "keine Bestellungen"
+      "no_order_evidence": "keine Bestellungen",
+      "pattern_sources": "zu wenige ähnliche Produkte belegt"
     },
     "removalProposed": "Entfernen vorgeschlagen",
     "inLists": "In: {{lists}}",
@@ -6709,7 +6713,8 @@
       "all": "Alle ({{count}})",
       "remove": "Entfernen ({{count}})",
       "add": "Ergänzen ({{count}})"
-    }
+    },
+    "fromPattern": "aus Muster ({{count}} ähnliche Produkte)"
   },
   "crossSellAutomation": {
     "tab": "Automatik",
@@ -6733,7 +6738,8 @@
     "groups": {
       "limits": "Grenzen",
       "gates": "Bedingungen für automatisches Setzen",
-      "llm": "KI-Fachprüfung"
+      "llm": "KI-Fachprüfung",
+      "backfill": "Muster und Erstbefüllung"
     },
     "fields": {
       "maxAutoApplyPerRun": "Höchstens automatisch je Lauf",
@@ -6748,7 +6754,14 @@
       "minLlmConfidence": "Mindest-Sicherheit der KI (0–1)",
       "llmMaxCallsPerRun": "KI-Anfragen je Lauf",
       "llmMaxCallsPerMonth": "KI-Anfragen je Monat",
-      "llmRecheckDays": "KI-Urteil erneuern nach Tagen"
+      "llmRecheckDays": "KI-Urteil erneuern nach Tagen",
+      "patternMinSources": "Muster: mindestens belegte Produkte",
+      "patternMinLlmConfidence": "Muster: KI-Sicherheit für automatisch (0–1)",
+      "backfillLlmBudget": "Erstbefüllung: KI-Budget gesamt",
+      "backfillLlmPerRun": "Erstbefüllung: KI-Anfragen je Schritt",
+      "backfillMaxAutoPerRun": "Erstbefüllung: höchstens automatisch je Schritt",
+      "backfillMaxAutoPerSource": "Erstbefüllung: höchstens automatisch je Artikel",
+      "backfillMaxQueuePerRun": "Erstbefüllung: neue Prüflisten-Einträge je Schritt"
     },
     "saved": "Einstellungen gespeichert",
     "saveError": "Speichern fehlgeschlagen",
@@ -6825,6 +6838,30 @@
       "source_inactive": "Quelle inaktiv",
       "stale": "seit 12 Monaten nicht zusammen gekauft",
       "positive": "wirkt"
+    }
+  },
+  "crossSellBackfill": {
+    "title": "Erstbefüllung (ganzer Katalog)",
+    "hint": "Einmalig für alle aktiven Produkte: Kandidaten aus Bestellungen, aus Mustern ähnlicher Produkte und aus Regeln; die KI prüft alles. Läuft stündlich im Hintergrund mit eigenem KI-Budget, bis alles geprüft ist. Gesetzt wird nach dem Modus oben: Testlauf markiert nur, Teilautomatisch setzt sichere Ergänzungen.",
+    "start": "Erstbefüllung starten",
+    "restart": "Erneut starten",
+    "stop": "Anhalten",
+    "started": "Erstbefüllung gestartet",
+    "startedHint": "Der erste Schritt läuft jetzt, weitere jede Stunde.",
+    "stopped": "Erstbefüllung angehalten",
+    "error": "Erstbefüllung fehlgeschlagen",
+    "modeOff": "Die Automatik ist aus: Es läuft nur dieser erste Schritt (nur Prüfliste). Für die stündlichen Schritte den Modus auf Testlauf oder Teilautomatisch stellen.",
+    "since": "seit {{date}}",
+    "lastRun": "letzter Schritt {{date}}",
+    "budgetLabel": "KI-Budget",
+    "budget": "KI-Anfragen: {{used}} von {{budget}}",
+    "counts": "{{runs}} Schritte · {{applied}} gesetzt · {{dryRun}} im Testlauf markiert · {{queued}} neu in der Prüfliste · {{remaining}} Kandidaten noch ungeprüft",
+    "llmMissing": "Keine KI eingerichtet – ohne KI-Prüfung wird nichts automatisch gesetzt.",
+    "status": {
+      "idle": "nicht gestartet",
+      "running": "läuft",
+      "done": "fertig",
+      "stopped": "angehalten"
     }
   }
 }

@@ -245,9 +245,14 @@ export default function CrossSellReviewQueue() {
                         </div>
                       )}
                       {item.origin === "manual_rule" && <Badge variant="outline">{t("crossSellReview.fromRule")}</Badge>}
+                      {item.origin === "pattern" && (
+                        <Badge variant="outline">
+                          {t("crossSellReview.fromPattern", { count: (item.stats as { patternSources?: number } | null)?.patternSources ?? 0 })}
+                        </Badge>
+                      )}
                       {item.pendingAction === "add" && (
                         <>
-                          <div>
+                          <div className={item.origin === "pattern" ? "text-muted-foreground" : undefined}>
                             {t("crossSellReview.ordersFromCustomers", {
                               orders: st.pairOrders ?? 0,
                               customers: st.distinctCustomers ?? 0,

@@ -28,6 +28,16 @@ export const crossSellAutomationSettingsSchema = z.object({
   llmMaxCallsMonthlyRun: z.number().int().min(0).max(5000),
   llmMaxCallsPerMonth: z.number().int().min(0).max(20000),
   llmRecheckDays: z.number().int().min(1).max(3650),
+  /** Muster: mindestens so viele aehnliche Produkte mit echten Bestellungen */
+  patternMinSources: z.number().int().min(1).max(100),
+  /** Muster: KI-Sicherheit fuer automatisches Setzen */
+  patternMinLlmConfidence: z.number().min(0).max(1),
+  /** Erstbefuellung: einmaliges KI-Budget (getrennt vom Monatsbudget) */
+  backfillLlmBudget: z.number().int().min(0).max(20000),
+  backfillLlmPerRun: z.number().int().min(0).max(1000),
+  backfillMaxAutoPerRun: z.number().int().min(0).max(5000),
+  backfillMaxAutoPerSource: z.number().int().min(0).max(20),
+  backfillMaxQueuePerRun: z.number().int().min(0).max(2000),
 });
 
 export type CrossSellAutomationSettings = z.infer<typeof crossSellAutomationSettingsSchema>;
@@ -53,6 +63,13 @@ export const DEFAULT_CROSS_SELL_AUTOMATION_SETTINGS: CrossSellAutomationSettings
   llmMaxCallsMonthlyRun: 300,
   llmMaxCallsPerMonth: 800,
   llmRecheckDays: 180,
+  patternMinSources: 3,
+  patternMinLlmConfidence: 0.9,
+  backfillLlmBudget: 5000,
+  backfillLlmPerRun: 150,
+  backfillMaxAutoPerRun: 300,
+  backfillMaxAutoPerSource: 5,
+  backfillMaxQueuePerRun: 200,
 };
 
 type SettingsStore = {

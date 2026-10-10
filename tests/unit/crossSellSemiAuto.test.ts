@@ -176,6 +176,11 @@ function fakeWorld(mode: string, opts: { existing?: Partial<CrossSellPairState>[
     finishCrossSellRun: async (id: string, result: any) => Object.assign(runs.find((r) => r.id === id), result),
     getCrossSellRuns: async () => runs,
     getAllCrossSellingRules: async () => [],
+    heartbeatCrossSellRun: async () => undefined,
+    getShopwareProductMirrors: async () => ({
+      rows: products.map((p) => ({ shopwareId: p.id, productNumber: p.productNumber, name: p.name, active: true, payload: { salesChannelVisibilities: [{ salesChannelId: "de", visibility: 30 }] } })),
+      total: products.length,
+    }),
     getShopwareProductMirrorsByNumbers: async (nums: string[]) =>
       nums.map((pn) => ({ shopwareId: `id-${pn}`, productNumber: pn, name: `Artikel ${pn}`, active: true, payload: { salesChannelVisibilities: [{ salesChannelId: "de", visibility: 30 }] } })),
     getCrossSellEventStats: async () => [],

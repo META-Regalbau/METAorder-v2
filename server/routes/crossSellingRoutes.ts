@@ -395,7 +395,7 @@ export function registerCrossSellingRoutes(app: Express): void {
   // Status der Hintergrund-Jobs (Staging-Neuberechnung, KI-Lernlauf).
   app.get("/api/cross-selling/jobs/status", requireAuth, requireManageCrossSellingRules, async (req, res) => {
     try {
-      const known = ["staging", "ai", "import", "candidates", "review"] as const;
+      const known = ["staging", "ai", "import", "candidates", "review", "backfill"] as const;
       const type = (known as readonly string[]).includes(String(req.query.type)) ? (req.query.type as (typeof known)[number]) : "staging";
       res.json(await getCrossSellJobStatus(storage, req.tenantId ?? null, type));
     } catch (error: any) {
@@ -1387,7 +1387,7 @@ export function registerCrossSellingRoutes(app: Express): void {
 
   app.get("/api/cross-selling/runs", requireAuth, requireManageCrossSellingRules, async (req, res) => {
     try {
-      const kinds = ["learning", "candidates", "monthly_review", "import"] as const;
+      const kinds = ["learning", "candidates", "monthly_review", "import", "backfill"] as const;
       const kind = (kinds as readonly string[]).includes(String(req.query.kind)) ? (req.query.kind as (typeof kinds)[number]) : undefined;
       const runs = await storage.getCrossSellRuns({ kind, limit: Number(req.query.limit) || 20 }, req.tenantId ?? null);
       res.json({ runs });

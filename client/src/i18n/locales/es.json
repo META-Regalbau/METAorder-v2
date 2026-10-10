@@ -6242,7 +6242,10 @@
       "change_not_found": "Cambio no encontrado",
       "failed_to_undo_change": "No se pudo deshacer el cambio",
       "failed_to_undo_run": "No se pudo deshacer la ejecución",
-      "failed_to_start_monthly_review": "No se pudo iniciar la revisión mensual"
+      "failed_to_start_monthly_review": "No se pudo iniciar la revisión mensual",
+      "failed_to_fetch_backfill_state": "No se pudo cargar el estado del llenado inicial",
+      "failed_to_start_backfill": "No se pudo iniciar el llenado inicial",
+      "failed_to_stop_backfill": "No se pudo pausar el llenado inicial"
     }
   },
   "roomPlanner": {
@@ -6691,7 +6694,8 @@
       "already_in_shop": "ya en la tienda",
       "same_family": "misma familia",
       "negative_signal": "rara vez se acepta",
-      "no_order_evidence": "sin pedidos"
+      "no_order_evidence": "sin pedidos",
+      "pattern_sources": "muy pocos productos similares como respaldo"
     },
     "removalProposed": "Eliminación propuesta",
     "inLists": "En: {{lists}}",
@@ -6709,7 +6713,8 @@
       "all": "Todas ({{count}})",
       "remove": "Eliminar ({{count}})",
       "add": "Añadir ({{count}})"
-    }
+    },
+    "fromPattern": "de patrón ({{count}} productos similares)"
   },
   "crossSellAutomation": {
     "tab": "Automatización",
@@ -6733,7 +6738,8 @@
     "groups": {
       "limits": "Límites",
       "gates": "Condiciones para aplicar automáticamente",
-      "llm": "Revisión experta por IA"
+      "llm": "Revisión experta por IA",
+      "backfill": "Patrones y llenado inicial"
     },
     "fields": {
       "maxAutoApplyPerRun": "Máx. automáticos por ejecución",
@@ -6748,7 +6754,14 @@
       "minLlmConfidence": "Seguridad mínima de la IA (0–1)",
       "llmMaxCallsPerRun": "Consultas de IA por ejecución",
       "llmMaxCallsPerMonth": "Consultas de IA por mes",
-      "llmRecheckDays": "Renovar juicio de la IA tras días"
+      "llmRecheckDays": "Renovar juicio de la IA tras días",
+      "patternMinSources": "Patrones: mín. productos que lo respaldan",
+      "patternMinLlmConfidence": "Patrones: seguridad de la IA para automático (0–1)",
+      "backfillLlmBudget": "Llenado inicial: presupuesto total de IA",
+      "backfillLlmPerRun": "Llenado inicial: consultas de IA por paso",
+      "backfillMaxAutoPerRun": "Llenado inicial: máx. automáticos por paso",
+      "backfillMaxAutoPerSource": "Llenado inicial: máx. automáticos por artículo",
+      "backfillMaxQueuePerRun": "Llenado inicial: nuevas entradas de revisión por paso"
     },
     "saved": "Ajustes guardados",
     "saveError": "Error al guardar",
@@ -6825,6 +6838,30 @@
       "source_inactive": "origen inactivo",
       "stale": "no comprados juntos en 12 meses",
       "positive": "funciona"
+    }
+  },
+  "crossSellBackfill": {
+    "title": "Llenado inicial (catálogo completo)",
+    "hint": "Una sola vez para todos los productos activos: candidatos de pedidos, de patrones de productos similares y de reglas; la IA lo revisa todo. Se ejecuta cada hora en segundo plano con su propio presupuesto de IA hasta revisarlo todo. Lo que se aplica depende del modo de arriba: la prueba solo marca, semiautomático aplica los complementos seguros.",
+    "start": "Iniciar llenado inicial",
+    "restart": "Iniciar de nuevo",
+    "stop": "Pausar",
+    "started": "Llenado inicial iniciado",
+    "startedHint": "El primer paso se ejecuta ahora, los siguientes cada hora.",
+    "stopped": "Llenado inicial pausado",
+    "error": "Error en el llenado inicial",
+    "modeOff": "La automatización está desactivada: solo se ejecuta este primer paso (solo lista de revisión). Para los pasos horarios, ponga el modo en prueba o semiautomático.",
+    "since": "desde {{date}}",
+    "lastRun": "último paso {{date}}",
+    "budgetLabel": "Presupuesto de IA",
+    "budget": "Consultas de IA: {{used}} de {{budget}}",
+    "counts": "{{runs}} pasos · {{applied}} aplicados · {{dryRun}} marcados en prueba · {{queued}} nuevos en la lista de revisión · {{remaining}} candidatos aún sin revisar",
+    "llmMissing": "No hay IA configurada: sin revisión de IA no se aplica nada automáticamente.",
+    "status": {
+      "idle": "no iniciado",
+      "running": "en curso",
+      "done": "terminado",
+      "stopped": "pausado"
     }
   }
 }
