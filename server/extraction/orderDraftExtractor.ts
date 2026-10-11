@@ -8,6 +8,7 @@ import {
   type DraftExtractionMailContext,
 } from "../commercial/draftExtractionContext";
 import { extractProductNumberFromLineRest } from "./articleNumberNormalize";
+import { isLowQualityLocalExtraction } from "./localExtractionQuality";
 import { extractPlainTextForDraft, normalizeMimeTypeForDraft } from "./documentTextExtraction";
 import { extractOrderDataWithPdfVision, isOrderPdfTextInsufficient } from "./orderPdfVisionExtraction";
 import type { DocumentExtraction } from "@shared/documentExtractionSchema";
@@ -567,10 +568,7 @@ export function isBinaryDocumentMime(mimeType: string, fileName: string): boolea
 }
 
 function isLowQualityLocalOrder(data: ExtractedOrderData): boolean {
-  if (!data.lineItems || data.lineItems.length === 0) return true;
-  const hasAnyEmail = !!data.customer?.email;
-  const hasAnyAddress = !!data.billingAddress?.street;
-  return !hasAnyEmail && !hasAnyAddress;
+  return isLowQualityLocalExtraction(data);
 }
 
 /** Minimales Parse nach LLM/lokaler Extraktion — Post-Processing läuft in commercialExtractionOrchestrator. */

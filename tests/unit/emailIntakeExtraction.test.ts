@@ -3,6 +3,7 @@
  * - Positionen nur mit EAN (Beschreibung leer) liefen nicht in den Katalogabgleich
  * - Kopfzeile „Info Oliver <info@…>“ ergab Vorname „Info“
  * - HTML im Mailtext landete in der Adress-/Firmenerkennung
+ * - der lokale Parser galt trotz unsinniger Adresse als gut genug, die KI kam nicht dran
  *
  *   Ausführung: npm test
  */
@@ -13,6 +14,7 @@ import { parseEmailHeaderContact } from "../../server/extraction/emailHeaderCont
 import { translateDocumentExtractionToLegacy } from "../../server/extraction/documentExtractionTranslate";
 import { htmlToPlainText, parseEmailBufferAutodetect } from "../../server/email/emailParser";
 import { EMPTY_DOCUMENT_EXTRACTION_REFERENCES } from "../../shared/documentExtractionSchema";
+import { isLowQualityLocalExtraction, localAddressLooksPlausible } from "../../server/extraction/localExtractionQuality";
 
 describe("Positionen nur mit Artikelnummer", () => {
   it("EAN ohne Beschreibung geht in den Katalogabgleich", () => {
@@ -82,5 +84,40 @@ describe("HTML im Mailtext", () => {
     ].join("\r\n");
     const parsed = await parseEmailBufferAutodetect(Buffer.from(eml));
     assert.equal(parsed.body, "Schüttweg 3\n59494 Soest");
+  });
+});
+
+describe("Lokaler Parser oder KI", () => {
+  const lines = [
+    { extractedProductName: "4026212325393", extractedProductNumber: "4026212325393" },
+    { extractedProductName: "4026212434125", extractedProductNumber: "4026212434125" },
+  ];
+
+  it("Live-Fall 11.10.2026: Positionen gut, Adresse Unsinn → KI", () => {
+    assert.equal(
+      isLowQualityLocalExtraction({
+        lineItems: lines,
+        customer: { email: "info@indiesemsinne.de" },
+        billingAddress: {
+          street: "Hallo zusammen",
+          zipCode: "25393",
+          city: "2 x 4026212434125 Liebe Grüße Oliver indiesemsinne. de Schüttweg 3 59494 Soest",
+        },
+      }),
+      true,
+    );
+  });
+
+  it("PLZ aus der EAN und Ort mit Ziffern sind nicht plausibel", () => {
+    assert.equal(localAddressLooksPlausible({ street: "Schüttweg 3", zipCode: "25393", city: "Soest" }, lines), false);
+    assert.equal(localAddressLooksPlausible({ street: "Schüttweg 3", zipCode: "59494", city: "Soest 2" }, lines), false);
+  });
+
+  it("saubere Adresse oder nur E-Mail: lokales Ergebnis reicht", () => {
+    const good = { street: "Schüttweg 3", zipCode: "59494", city: "Soest" };
+    assert.equal(localAddressLooksPlausible(good, lines), true);
+    assert.equal(isLowQualityLocalExtraction({ lineItems: lines, customer: { email: "a@b.de" }, billingAddress: good }), false);
+    assert.equal(isLowQualityLocalExtraction({ lineItems: lines, customer: { email: "a@b.de" } }), false);
+    assert.equal(isLowQualityLocalExtraction({ lineItems: [], customer: { email: "a@b.de" }, billingAddress: good }), true);
   });
 });
