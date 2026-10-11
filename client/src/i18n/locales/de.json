@@ -6476,7 +6476,26 @@
     },
     "aiSuggestion": "KI-Vorschlag ({{confidence}} %)",
     "aiReason": "Begründung: {{reason}}",
-    "learnedCustomer": "Für diesen Kunden gelernt"
+    "learnedCustomer": "Für diesen Kunden gelernt",
+    "offerReference": {
+      "applied": "Positionen aus Angebot {{number}} übernommen",
+      "notApplied": "Bestellung verweist auf Angebot {{number}}",
+      "totals": "Bestellwert {{document}} netto, Angebot {{offer}} netto",
+      "totalsDiffer": "Werte weichen ab, bitte prüfen",
+      "originalLines_one": "{{count}} Originalposition der Bestellung anzeigen",
+      "originalLines_other": "{{count}} Originalpositionen der Bestellung anzeigen",
+      "notes": {
+        "not_found": "Das Angebot wurde in Shopware nicht gefunden.",
+        "other_customer": "Das Angebot gehört zu einem anderen Kunden und wurde nicht übernommen.",
+        "already_matched": "Alle Positionen waren schon sicher zugeordnet, nur der Verweis wurde vermerkt.",
+        "products_missing_one": "{{count}} Angebotsposition gibt es nicht im Katalog, deshalb nicht übernommen.",
+        "products_missing_other": "{{count}} Angebotspositionen gibt es nicht im Katalog, deshalb nicht übernommen.",
+        "no_lines": "Das Angebot hat keine übernehmbaren Positionen.",
+        "optional_skipped_one": "{{count}} optionale Angebotsposition wurde nicht übernommen.",
+        "optional_skipped_other": "{{count}} optionale Angebotspositionen wurden nicht übernommen."
+      },
+      "originalLines": "{{count}} Originalpositionen der Bestellung anzeigen"
+    }
   },
   "documentExtraction": {
     "confidenceWarnings": {

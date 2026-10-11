@@ -87,6 +87,20 @@ Händler schicken eigene Artikelnummern und Bezeichnungen. Ein Beispiel ist Rolo
 
 Abschaltbar über `commercial_agent_settings.aiCatalogMatchEnabled` oder die Umgebungsvariable `COMMERCIAL_AGENT_AI_CATALOG_MATCH=false`. Im Testshop mit den vier Roloff-Positionen hat die KI alle richtig gewählt, in rund 5 s.
 
+### Bestellung „laut Angebot …“ (seit 11.10.2026)
+
+Verweist eine Bestellung auf ein META-Angebot (`references.supplier_offer_number` oder Text wie „Laut Angebot 1632“), sucht METAorder das Angebot über B2Bsellers (`server/commercial/draftOfferReference.ts`, vor dem KI-Abgleich).
+
+- **Wann übernommen wird:** Gehört das Angebot zum zugeordneten Kunden und ist noch nicht alles sicher zugeordnet, werden die Angebotspositionen zu den Entwurfspositionen (Treffer 100 %, Strategie `offer`).
+  - Konfigurationen werden in ihre Stückliste aufgelöst, optionale Positionen weggelassen.
+  - Fehlt auch nur ein Teil im Katalog, wird nichts übernommen.
+- **Preis:**
+  - Normale Angebotspositionen behalten ihren Angebotspreis.
+  - Bei Konfigurationen wird der Gesamtpreis im Verhältnis der Katalogpreise auf die Teile verteilt.
+  - Der Preis steht als `manualUnitPriceNet` an der Position („geändert von Angebot 1632“), die Anlage in Shopware übernimmt ihn.
+- **Im Prüffenster:** ein Hinweis mit Bestell- und Angebotswert und den Originalzeilen der Bestellung.
+- **Nicht übernommen:** Bei einem fremden Kunden, einem nicht gefundenen Angebot oder einem fehlenden Teil bleibt die Bestellung unverändert; der Grund steht als Hinweis da.
+
 ## Was das System **nicht kann** bzw. wo harte Grenzen sind
 
 1. **Mehrere Anbieter nur für Chat:** Bilderkennung, Embeddings, Smart Pricing, Buchhaltungs-Hinweise und Teile der Commercial-Pipeline laufen nur über OpenAI. Ohne OpenAI-Key fallen sie weg bzw. nutzen lokale Verfahren (z. B. lokale Embeddings).

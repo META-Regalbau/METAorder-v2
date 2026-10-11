@@ -6476,7 +6476,26 @@
     },
     "aiSuggestion": "Sugerencia de IA ({{confidence}} %)",
     "aiReason": "Motivo: {{reason}}",
-    "learnedCustomer": "Aprendido para este cliente"
+    "learnedCustomer": "Aprendido para este cliente",
+    "offerReference": {
+      "applied": "Posiciones tomadas de la oferta {{number}}",
+      "notApplied": "El pedido hace referencia a la oferta {{number}}",
+      "totals": "Valor del pedido {{document}} neto, oferta {{offer}} neto",
+      "totalsDiffer": "los valores difieren, compruébelo",
+      "originalLines_one": "Mostrar {{count}} posición original del pedido",
+      "originalLines_other": "Mostrar {{count}} posiciones originales del pedido",
+      "notes": {
+        "not_found": "La oferta no se encontró en Shopware.",
+        "other_customer": "La oferta pertenece a otro cliente y no se adoptó.",
+        "already_matched": "Todas las posiciones ya estaban asignadas; solo se anotó la referencia.",
+        "products_missing_one": "{{count}} posición de la oferta no está en el catálogo, por eso no se adoptó.",
+        "products_missing_other": "{{count}} posiciones de la oferta no están en el catálogo, por eso no se adoptaron.",
+        "no_lines": "La oferta no tiene posiciones que se puedan adoptar.",
+        "optional_skipped_one": "{{count}} posición opcional de la oferta no se adoptó.",
+        "optional_skipped_other": "{{count}} posiciones opcionales de la oferta no se adoptaron."
+      },
+      "originalLines": "Mostrar {{count}} posiciones originales del pedido"
+    }
   },
   "documentExtraction": {
     "confidenceWarnings": {

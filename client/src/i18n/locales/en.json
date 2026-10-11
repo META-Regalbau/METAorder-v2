@@ -6479,7 +6479,26 @@
     },
     "aiSuggestion": "AI suggestion ({{confidence}} %)",
     "aiReason": "Reason: {{reason}}",
-    "learnedCustomer": "Learned for this customer"
+    "learnedCustomer": "Learned for this customer",
+    "offerReference": {
+      "applied": "Lines taken from offer {{number}}",
+      "notApplied": "Order refers to offer {{number}}",
+      "totals": "Order value {{document}} net, offer {{offer}} net",
+      "totalsDiffer": "values differ, please check",
+      "originalLines_one": "Show {{count}} original order line",
+      "originalLines_other": "Show {{count}} original order lines",
+      "notes": {
+        "not_found": "The offer was not found in Shopware.",
+        "other_customer": "The offer belongs to another customer and was not taken over.",
+        "already_matched": "All lines were already matched; only the reference was noted.",
+        "products_missing_one": "{{count}} offer line is not in the catalog, so nothing was taken over.",
+        "products_missing_other": "{{count}} offer lines are not in the catalog, so nothing was taken over.",
+        "no_lines": "The offer has no lines that can be taken over.",
+        "optional_skipped_one": "{{count}} optional offer line was not taken over.",
+        "optional_skipped_other": "{{count}} optional offer lines were not taken over."
+      },
+      "originalLines": "Show {{count}} original order lines"
+    }
   },
   "documentExtraction": {
     "confidenceWarnings": {

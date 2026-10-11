@@ -1,4 +1,5 @@
 import { DraftLineMatchSource } from "@/components/DraftLineMatchSource";
+import { DraftOfferReferenceNotice } from "@/components/DraftOfferReferenceNotice";
 import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -683,7 +684,10 @@ export function OfferDraftReviewModal({
   const documentExtractionOffer = pickDocumentExtraction(
     (editedData ?? draft.extractedData) as Record<string, unknown> | null
   );
-  const docExtractionItemsOffer = documentExtractionOffer?.line_items ?? [];
+  const offerReferenceAppliedOffer = Boolean(
+    ((editedData ?? draft.extractedData) as { offerReference?: { applied?: boolean } } | null)?.offerReference?.applied,
+  );
+  const docExtractionItemsOffer = offerReferenceAppliedOffer ? [] : documentExtractionOffer?.line_items ?? [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1395,6 +1399,7 @@ export function OfferDraftReviewModal({
                   {t("offerDrafts.review.productScreenHint")}
                 </AlertDescription>
               </Alert>
+              <DraftOfferReferenceNotice extractedData={editedData ?? draft.extractedData} />
               {mergedMatchingResults?.items && mergedMatchingResults.items.length > 0 ? (
                 <>
                   {mainIndices.length === 0 ? (
