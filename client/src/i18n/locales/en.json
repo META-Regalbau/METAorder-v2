@@ -6510,7 +6510,9 @@
       "priceDistributed": "The total price {{total}} is distributed proportionally across the parts.",
       "priceOpen": "The total price {{total}} is not distributed yet because not every part has a suggestion.",
       "showOriginal": "Show original line"
-    }
+    },
+    "numberConflict": "Number does not match the description",
+    "numberRealigned": "Number column shifted – realigned"
   },
   "documentExtraction": {
     "confidenceWarnings": {

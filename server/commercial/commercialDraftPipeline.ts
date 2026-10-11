@@ -1,4 +1,5 @@
 import { runDraftLineAiMatchStep } from "./draftLineAiMatch";
+import { checkNumberMatches } from "./draftNumberMatchCheck";
 import { runDraftOfferReferenceStep } from "./draftOfferReference";
 import { runDraftBomPriceStep, runDraftBomSplitStep } from "./draftBomSplit";
 import type { MatchingResult } from "../products/productMatcher";
@@ -346,6 +347,8 @@ export async function runOfferDraftPipeline(
       const screenStart = stepStart();
       await applyProductScreeningToOfferMatching(baseMatching, extractedData.lineItems);
       timings.productScreeningMs = Date.now() - screenStart;
+      // Nummern-Treffer gegen die Bezeichnung prüfen (verrutschte Spalte, falscher Artikel)
+      checkNumberMatches({ lineItems: extractedData.lineItems, matchingResults: baseMatching });
     }
 
     if (baseMatching?.items?.length) {
@@ -719,6 +722,8 @@ export async function runOrderDraftPipeline(
       const screenStart = stepStart();
       await applyProductScreeningToOfferMatching(matchingResults, extractedData.lineItems);
       timings.productScreeningMs = (timings.productScreeningMs ?? 0) + (Date.now() - screenStart);
+      // Nummern-Treffer gegen die Bezeichnung prüfen (verrutschte Spalte, falscher Artikel)
+      checkNumberMatches({ lineItems: extractedData.lineItems, matchingResults });
     }
   }
 

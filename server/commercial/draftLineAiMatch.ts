@@ -208,6 +208,8 @@ export function applyHolmebeneConversion(item: LineItemMatch, line: Line, produc
 function lineNeedsHelp(item: LineItemMatch & { bundle?: unknown; productScreen?: { likelihood?: string } }): boolean {
   if (item.catalogMatchSkipped || item.bundle) return false;
   if (item.productScreen?.likelihood === "unlikely_product") return false;
+  // Zurechtgerückte Nummer (verrutschte Spalte): Artikel steht fest, nur die Zeile war falsch
+  if (item.numberCheck?.kind === "realigned" && item.matchedProduct) return false;
   return !(item.status === "matched" && item.confidence >= 90 && item.matchedProduct);
 }
 

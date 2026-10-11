@@ -95,6 +95,8 @@ export interface LineItemMatch {
     reason: string;
     candidateCount: number;
   };
+  /** Nummern-Treffer passt nicht zur Bezeichnung bzw. Nummernspalte war verrutscht (draftNumberMatchCheck.ts) */
+  numberCheck?: { kind: "conflict" | "realigned"; note: string };
 }
 
 function buildCatalogSkippedLineMatch(item: {
