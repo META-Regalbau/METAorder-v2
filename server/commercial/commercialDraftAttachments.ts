@@ -113,7 +113,93 @@ export async function partitionCommercialParts(
     }
   }
 
+  // Bestellung + Lieferschein mit derselben Belegnummer: nur die Bestellung wird Entwurf
+  demoteSameOrderCompanions(draftParts, supportingParts, classifications);
+
   return { draftParts, supportingParts, classifications };
+}
+
+const DELIVERY_SIGNALS = new Set([
+  "filename_delivery_note",
+  "title_lieferschein",
+  "ls_number_label",
+  "receipt_confirmation_text",
+  "delivery_note_number_found",
+  "packages",
+]);
+
+/** Belegnummern eines Anhangs: Bestellnummer aus dem Text und nummernartige Teile des Dateinamens. */
+function orderKeysOf(part: InboundCommercialDocPart, classification: AttachmentClassification | undefined): Set<string> {
+  const keys = new Set<string>();
+  const add = (v: string | null | undefined) => {
+    const k = (v ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/^0+/, "");
+    // Datumsangaben („20261011“, „11102026“) sind keine Belegnummern: Scans eines Tages teilen sie
+    const dateLike = /^(?:20[1-3]\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])|(?:0[1-9]|[12]\d|3[01])(?:0[1-9]|1[0-2])20[1-3]\d)$/.test(k);
+    if (k.length >= 5 && /\d{4,}/.test(k) && !dateLike) keys.add(k);
+  };
+  add(classification?.references.orderNumber);
+  for (const token of part.filename.replace(/\.[a-z0-9]{2,4}$/i, "").split(/[^A-Za-z0-9]+/)) add(token);
+  return keys;
+}
+
+/**
+ * Bestellung und Lieferschein derselben Bestellung in einer Mail (Heinrich & Schleyer:
+ * „Best_BE730134.pdf“ + „Lief_BE730134.pdf“, Live 11.10.2026): Wurde der Lieferschein nicht als
+ * solcher erkannt, entstanden zwei Entwürfe. Teilen sich Anhänge eine Belegnummer, bleibt nur die
+ * eigentliche Bestellung Entwurf; die anderen werden Beilage – außer sie tragen selbst den Titel
+ * „Bestellung“ und kein Lieferschein-Signal (z. B. zwei Teile einer Bestellung).
+ */
+export function demoteSameOrderCompanions(
+  draftParts: InboundCommercialDocPart[],
+  supportingParts: SupportingDocumentPart[],
+  classifications: Map<InboundCommercialDocPart, AttachmentClassification>
+): void {
+  if (draftParts.length < 2) return;
+  const keys = new Map(draftParts.map((p) => [p, orderKeysOf(p, classifications.get(p))]));
+  const sharesKey = (a: InboundCommercialDocPart, b: InboundCommercialDocPart) => [...keys.get(a)!].some((k) => keys.get(b)!.has(k));
+  const hasDelivery = (c: AttachmentClassification | undefined) => Boolean(c?.signals.some((sig) => DELIVERY_SIGNALS.has(sig)));
+  const hasOrderTitle = (c: AttachmentClassification | undefined) => Boolean(c?.signals.includes("title_bestellung"));
+  const rank = (p: InboundCommercialDocPart) => {
+    const c = classifications.get(p);
+    return (
+      (c?.kind === "purchase_order" ? 2 : c?.kind === "unknown" ? 1 : 0) +
+      (hasOrderTitle(c) ? 2 : 0) +
+      (c?.signals.includes("filename_purchase_order") ? 1 : 0) -
+      (hasDelivery(c) ? 3 : 0)
+    );
+  };
+
+  const handled = new Set<InboundCommercialDocPart>();
+  for (const part of [...draftParts]) {
+    if (handled.has(part)) continue;
+    const group = draftParts.filter((p) => p === part || sharesKey(part, p));
+    group.forEach((p) => handled.add(p));
+    if (group.length < 2) continue;
+    const keeper = [...group].sort((a, b) => rank(b) - rank(a))[0];
+    const keeperIsOrder = classifications.get(keeper)?.kind === "purchase_order";
+    for (const other of group) {
+      if (other === keeper) continue;
+      const c = classifications.get(other);
+      if (hasOrderTitle(c) && !hasDelivery(c)) continue;
+      // Ohne erkannte Bestellung (z. B. zwei Scans ohne Text) nur mit Lieferschein-Signal zurückstufen
+      if (!keeperIsOrder && !hasDelivery(c)) continue;
+      const base = c ?? { kind: "unknown" as const, confidence: 0, signals: [], references: {} };
+      const classification: AttachmentClassification = {
+        ...base,
+        // Bestellkopie bleibt „Bestellung“ (Beilage), Unbestimmtes wird „Sonstiges“
+        kind: hasDelivery(base) ? "delivery_note" : base.kind === "unknown" ? "other" : base.kind,
+        confidence: Math.max(0.6, base.confidence),
+        signals: [...base.signals, "same_order_number_as_draft"],
+      };
+      classifications.set(other, classification);
+      draftParts.splice(draftParts.indexOf(other), 1);
+      supportingParts.push({ part: other, classification });
+      moduleLog.info(
+        { event: "attachment_same_order_demoted", file: other.filename, keeper: keeper.filename, kind: classification.kind },
+        `[CommercialAttachments] ${other.filename} gehört zur selben Bestellung wie ${keeper.filename} – Beilage statt eigener Entwurf`
+      );
+    }
+  }
 }
 
 /** XML-Anhang: bekannte Bestellformate sicher als Bestellung, anderes Bestell-XML offen, Rest Beilage. */
