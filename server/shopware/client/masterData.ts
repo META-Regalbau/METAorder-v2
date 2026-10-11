@@ -91,7 +91,8 @@ export async function resolveEntityDisplayNames(this: ShopwareClient, ids: strin
   for (let i = 0; i < unique.length; i += CHUNK) {
     const chunk = unique.slice(i, i + CHUNK);
     try {
-      const data = await this.searchEntity("property_group_option", {
+      // URL-Pfad mit Bindestrichen (Unterstriche → 404), includes-Schlüssel bleibt der Entitätsname
+      const data = await this.searchEntity("property-group-option", {
         limit: chunk.length,
         filter: [{ type: "equalsAny", field: "id", value: chunk }],
         includes: {
