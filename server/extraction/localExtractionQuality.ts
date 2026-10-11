@@ -51,12 +51,22 @@ const CITY_ONLY_RE = /^[A-ZÄÖÜ][a-zäöüß]+(?:[\s-]+(?:an der|am|im|in|bei|
  * fünf Ziffern vor einem reinen Ortsnamen – eine Menge schreibt niemand so.
  */
 export function localLineIsZipCity(line: string): boolean {
-  const m = line.trim().match(/^(?:D-|A-|CH-)?(\d{4,5})\s+(.+)$/);
+  // NFC: PDF-Text liefert Umlaute oft zerlegt („o“ + Trema)
+  const m = line.normalize("NFC").trim().match(/^(?:D-|A-|CH-)?(\d{4,5})\s+(.+)$/);
   if (!m) return false;
   const [, digits, rest] = m;
   if (!(digits.startsWith("0") || digits.length === 5 || /^(?:D|A|CH)-/.test(line.trim()))) return false;
   const words = rest.trim().split(/\s+/);
   return words.length <= 4 && CITY_ONLY_RE.test(rest.trim());
+}
+
+/**
+ * Enthält der Text PLZ-Ort-Zeilen (Adressblock, Signatur)? Dann stehen Adressen zwischen den
+ * Positionen; Rechnungs- vs. Lieferadresse und Kundennummer trennt nur die KI sauber
+ * (Mercateo: Plattform in Köthen, Lieferung nach Gudensberg, „Kundennummer 42592“).
+ */
+export function localTextHasZipCityLines(text: string): boolean {
+  return text.split(/\r?\n/).some((line) => localLineIsZipCity(line));
 }
 
 /** Menge ab 1000 vor einem Text ohne jede Ziffer: eher PLZ/Hausnummer als Bestellmenge. */

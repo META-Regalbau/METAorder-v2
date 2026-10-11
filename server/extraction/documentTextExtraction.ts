@@ -6,6 +6,7 @@ import {
   type ParsedEmailResult,
 } from "../email/emailParser";
 import { logger } from "../lib/logger";
+import { repairUtf8Mojibake } from "../email/mojibake";
 import { orderXmlToReadableText, parseOrderXml, xmlToPlainText } from "./orderXmlParser";
 
 const log = logger.child({ component: "extraction/documentTextExtraction" });
@@ -177,7 +178,8 @@ export async function extractPlainTextForDraft(options: {
     const parser = new PDFParse({ data: fileBuffer });
     const pdfData = await parser.getText();
     await parser.destroy();
-    return pdfData.text || "";
+    // iText-PDFs (Mercateo-Lieferschein) liefern teils doppelt kodierte Umlaute („RudolphstraÃŸe“)
+    return repairUtf8Mojibake(pdfData.text || "");
   }
 
   if (mimeType === "application/xml") {

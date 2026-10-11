@@ -67,11 +67,19 @@ export function triageByHeuristics(input: EmailTriageInput): EmailTriageResult |
   return null;
 }
 
+// Tolerant: „otherType“: null bei Bestellungen, unbekannter Untertyp, Confidence als Text oder in
+// Prozent und lange Begründungen ließen früher die ganze Antwort verwerfen (Mercateo, 11.10.2026)
 const triageSchema = z.object({
-  category: z.enum(["order", "quote_request", "other"]),
-  otherType: z.enum(EMAIL_INTAKE_OTHER_TYPES).optional(),
-  confidence: z.number().min(0).max(1),
-  reason: z.string().max(400).optional(),
+  category: z.preprocess((v) => (typeof v === "string" ? v.trim().toLowerCase() : v), z.enum(["order", "quote_request", "other"])),
+  otherType: z.preprocess(
+    (v) => (typeof v === "string" && (EMAIL_INTAKE_OTHER_TYPES as readonly string[]).includes(v.trim().toLowerCase()) ? v.trim().toLowerCase() : undefined),
+    z.enum(EMAIL_INTAKE_OTHER_TYPES).optional(),
+  ),
+  confidence: z.preprocess((v) => {
+    const n = typeof v === "string" ? Number(v.replace(",", ".").replace("%", "")) : v;
+    return typeof n === "number" && n > 1 && n <= 100 ? n / 100 : n;
+  }, z.number().min(0).max(1)),
+  reason: z.preprocess((v) => (typeof v === "string" ? v.slice(0, 400) : undefined), z.string().optional()),
 });
 
 const TRIAGE_SYSTEM = `Du sortierst eingehende E-Mails eines B2B-Herstellers (Regalsysteme) im Bestell-Postfach.

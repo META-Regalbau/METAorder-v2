@@ -10,11 +10,15 @@ import {
   isLowQualityLocalExtraction,
   localLineIsZipCity,
   localLinesHaveImplausibleQuantity,
+  localTextHasZipCityLines,
 } from "../../server/extraction/localExtractionQuality";
+import { interpretTriageResponse } from "../../server/commercial/emailIntakeTriage";
 import { repairUtf8Mojibake } from "../../server/email/mojibake";
 import {
   EMAIL_DOMAIN_MATCH_MAX_CONFIDENCE,
   computeCustomerMatchConfidence,
+  normZip,
+  resolveShopwareCustomerForDraft,
   tryResolveCustomerByEmailDomain,
 } from "../../server/commercial/draftCustomerEmailResolution";
 
@@ -86,5 +90,43 @@ describe("Kunde über die Mail-Domain", () => {
     );
     assert.equal(none.match, null);
     assert.equal(searched, false);
+  });
+});
+
+describe("Mailtext mit Adressblock geht an die KI", () => {
+  it("PLZ-Ort-Zeile im Text, auch mit zerlegtem Umlaut aus PDF-Text", () => {
+    assert.equal(localTextHasZipCityLines("Bestellung\n2 Packtisch 970 x 2000\nMercateo Deutschland AG\n06354 Ko\u0308then"), true);
+    assert.equal(localTextHasZipCityLines("Bitte 2 Packtische liefern.\nDanke"), false);
+  });
+});
+
+describe("Vorprüfung: tolerante KI-Antwort", () => {
+  it("otherType null, Confidence in Prozent, lange Begründung", () => {
+    const r = interpretTriageResponse(JSON.stringify({ category: "order", otherType: null, confidence: 95, reason: "x".repeat(900) }));
+    assert.equal(r?.kind, "commercial");
+    assert.equal(r?.confidence, 0.95);
+    const o = interpretTriageResponse('{"category":"Other","otherType":"irgendwas","confidence":"0,8"}');
+    assert.equal(o?.kind, "other");
+    assert.equal(o?.otherType, "general");
+    assert.equal(o?.confidence, 0.8);
+  });
+});
+
+describe("Kundennummer aus dem Beleg trotz anderer PLZ", () => {
+  it("Mercateo druckt 06354, im Shop steht 6366 Köthen: Ort entscheidet", async () => {
+    assert.equal(normZip("06366"), normZip("6366"));
+    const unite = { id: "unite", company: "Unite Procurement Deutschland AG", email: "heike.eichler@mercateo.com", customerNumber: "20000042592", zipCode: "6366", city: "Köthen" };
+    const client = {
+      findCustomerByEmail: async () => null,
+      findCustomersByEmail: async () => [],
+      searchCustomers: async (term: string) => (term === "42592" ? [unite] : []),
+    } as never;
+    const data: Record<string, any> = {
+      customer: { email: "operations@mercateo.com" },
+      billingAddress: { company: "Mercateo Deutschland AG", street: "Museumsgasse 4-5", zipCode: "06354", city: "Köthen", country: "DE" },
+      documentExtraction: { buyer: { customer_number: "42592" } },
+    };
+    const id = await resolveShopwareCustomerForDraft(client, data as never, {});
+    assert.equal(id, "unite");
   });
 });

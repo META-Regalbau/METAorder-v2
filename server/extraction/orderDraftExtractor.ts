@@ -8,7 +8,7 @@ import {
   type DraftExtractionMailContext,
 } from "../commercial/draftExtractionContext";
 import { extractProductNumberFromLineRest } from "./articleNumberNormalize";
-import { isLowQualityLocalExtraction, localLineIsZipCity } from "./localExtractionQuality";
+import { isLowQualityLocalExtraction, localLineIsZipCity, localTextHasZipCityLines } from "./localExtractionQuality";
 import { extractLegacyFromOrderXml } from "./orderXmlParser";
 import { extractPlainTextForDraft, normalizeMimeTypeForDraft } from "./documentTextExtraction";
 import { extractOrderDataWithPdfVision, isOrderPdfTextInsufficient } from "./orderPdfVisionExtraction";
@@ -289,7 +289,8 @@ export async function extractOrderDataFromDocument(
       Boolean(redactPromptPII)
     );
     const localData = normalizeExtractedData(localExtractOrderData(normalizedText));
-    const lowQuality = isLowQualityLocalOrder(localData);
+    // Adressblöcke im Text: lieber die KI (siehe localTextHasZipCityLines)
+    const lowQuality = isLowQualityLocalOrder(localData) || localTextHasZipCityLines(normalizedText);
 
     if (!lowQuality) {
       if (debugStore) {
