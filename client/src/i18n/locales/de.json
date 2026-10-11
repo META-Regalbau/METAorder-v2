@@ -6507,7 +6507,9 @@
       "priceDistributed": "Der Gesamtpreis {{total}} ist anteilig auf die Teile verteilt.",
       "priceOpen": "Der Gesamtpreis {{total}} ist noch nicht verteilt, weil nicht alle Teile einen Vorschlag haben.",
       "showOriginal": "Originalposition anzeigen"
-    }
+    },
+    "numberConflict": "Nummer passt nicht zur Bezeichnung",
+    "numberRealigned": "Nummernspalte verrutscht – zurechtgerückt"
   },
   "documentExtraction": {
     "confidenceWarnings": {

@@ -6507,7 +6507,9 @@
       "priceDistributed": "El precio total {{total}} se reparte proporcionalmente entre las piezas.",
       "priceOpen": "El precio total {{total}} aún no se ha repartido porque no todas las piezas tienen sugerencia.",
       "showOriginal": "Mostrar posición original"
-    }
+    },
+    "numberConflict": "El número no coincide con la descripción",
+    "numberRealigned": "Columna de números desplazada – corregida"
   },
   "documentExtraction": {
     "confidenceWarnings": {

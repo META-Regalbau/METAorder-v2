@@ -2418,6 +2418,7 @@ export const orderDrafts = pgTable("order_drafts", {
       };
       /** KI-Vorschlag (draftLineAiMatch): Sicherheit der KI und Begründung */
       aiMatch?: { confidence: number; reason: string; candidateCount: number };
+      numberCheck?: { kind: "conflict" | "realigned"; note: string };
       catalogProductInactive?: boolean;
       inactiveMatchedProduct?: {
         id: string;
@@ -2678,6 +2679,7 @@ export const offerDrafts = pgTable(
       };
       /** KI-Vorschlag (draftLineAiMatch): Sicherheit der KI und Begründung */
       aiMatch?: { confidence: number; reason: string; candidateCount: number };
+      numberCheck?: { kind: "conflict" | "realigned"; note: string };
       catalogProductInactive?: boolean;
       inactiveMatchedProduct?: {
         id: string;
