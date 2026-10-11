@@ -20,6 +20,7 @@ import { shouldSkipCatalogMatchingForLineItem } from "../extraction/lineItemProd
 import type { WebDomainVerificationResult } from "./domainWebVerification";
 import { isMetaOwnCompany } from "./metaCompanyBlocklist";
 import { logger } from "../lib/logger";
+import { moveShippingAndNoticeLines } from "../extraction/shippingCostLines";
 
 const moduleLog = logger.child({ component: "commercial/commercialExtractionOrchestrator" });
 
@@ -245,6 +246,8 @@ export function runCommercialExtractionNormalizeSteps(
       extractedData[notesKey] = prev ? `${prev}\n\n${note}` : note;
     }
   }
+  // Fracht- und Hinweiszeilen sind keine Artikel: raus aus den Positionen, Betrag in die Notizen
+  moveShippingAndNoticeLines(extractedData as Record<string, unknown>, notesKey);
   timings.lineItemSanitizeMs = (timings.lineItemSanitizeMs ?? 0) + (Date.now() - t0);
   pushTrace(trace, "LineItemSanitization", t0);
 
