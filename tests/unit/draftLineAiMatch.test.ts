@@ -235,3 +235,15 @@ describe("KI-Abgleich: robuste Antwort, Zerlegung, Holmebene (Steinke-Stücklist
     assert.equal(other.quantity, 4);
   });
 });
+
+describe("KI-Antwort im Claude-Stil (VS Möbel 7186233, Live 11.10.2026: „KI-Antwort unbrauchbar“)", () => {
+  it("Satz vor dem JSON, Code-Block mitten im Text, Liste statt Objekt", () => {
+    const withProse = 'Hier ist die Zuordnung der Positionen:\n{"lines":[{"line":1,"candidate":2,"confidence":85,"reason":"CLIP Grundregal 2500x1000x400"}]}\nHinweis: Breite 1056 = Außenmaß.';
+    assert.equal(parseAiLines(withProse)?.[0].candidate, 2);
+    const fenced = 'Gerne:\n```json\n{"lines":[{"line":1,"candidate":1,"confidence":90}]}\n```';
+    assert.equal(parseAiLines(fenced)?.[0].candidate, 1);
+    assert.equal(parseAiLines('[{"line":1,"candidate":3,"confidence":70}]')?.[0].candidate, 3);
+    assert.equal(parseAiLines('{"zuordnungen":[{"line":1,"candidate":4,"confidence":70}]}')?.[0].candidate, 4);
+    assert.equal(parseAiLines("Leider kann ich das nicht zuordnen."), null);
+  });
+});
