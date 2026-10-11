@@ -75,3 +75,56 @@ export function DraftOfferReferenceNotice({ extractedData }: { extractedData: un
     </Alert>
   );
 }
+
+type BomSplitEntry = {
+  originalPosition: number;
+  originalLine: { extractedProductName?: string; quantity?: number; extractedPrice?: number };
+  componentCount: number;
+  totalNet: number | null;
+  priceDistributed: boolean;
+};
+
+/** Stückliste einer Bestellposition in Einzelteile zerlegt (server/commercial/draftBomSplit.ts) */
+export function DraftBomSplitNotice({ extractedData }: { extractedData: unknown }) {
+  const { t } = useTranslation();
+  const fmt = useLocaleFormat();
+  const [open, setOpen] = useState<number | null>(null);
+  const entries = (extractedData as { bomSplit?: BomSplitEntry[] } | null | undefined)?.bomSplit;
+  if (!entries?.length) return null;
+  return (
+    <Alert className="mb-3" data-testid="alert-bom-split">
+      <FileText className="h-4 w-4" aria-hidden="true" />
+      <AlertTitle>{t("draftReview.bomSplit.title")}</AlertTitle>
+      <AlertDescription className="space-y-2 text-sm">
+        {entries.map((entry) => (
+          <div key={entry.originalPosition}>
+            <p>
+              {t("draftReview.bomSplit.entry", { position: entry.originalPosition, count: entry.componentCount })}{" "}
+              {entry.totalNet != null
+                ? entry.priceDistributed
+                  ? t("draftReview.bomSplit.priceDistributed", { total: fmt.currency(entry.totalNet) })
+                  : t("draftReview.bomSplit.priceOpen", { total: fmt.currency(entry.totalNet) })
+                : null}
+            </p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-xs"
+              aria-expanded={open === entry.originalPosition}
+              onClick={() => setOpen((v) => (v === entry.originalPosition ? null : entry.originalPosition))}
+              data-testid={`button-bom-original-${entry.originalPosition}`}
+            >
+              {t("draftReview.bomSplit.showOriginal")}
+            </Button>
+            {open === entry.originalPosition ? (
+              <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                {entry.originalLine.quantity ?? "?"} × {entry.originalLine.extractedProductName}
+              </p>
+            ) : null}
+          </div>
+        ))}
+      </AlertDescription>
+    </Alert>
+  );
+}

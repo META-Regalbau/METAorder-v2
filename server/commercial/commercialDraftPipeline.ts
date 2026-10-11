@@ -1,5 +1,6 @@
 import { runDraftLineAiMatchStep } from "./draftLineAiMatch";
 import { runDraftOfferReferenceStep } from "./draftOfferReference";
+import { runDraftBomPriceStep, runDraftBomSplitStep } from "./draftBomSplit";
 import type { MatchingResult } from "../products/productMatcher";
 import fs from "fs/promises";
 import type { IStorage } from "../storage";
@@ -420,6 +421,19 @@ export async function runOfferDraftPipeline(
   });
   if (offerRef) timings.offerReferenceMs = Date.now() - offerRefStart;
 
+  // Kein Angebot übernommen: Stückliste im Positionstext in Einzelteile zerlegen (KI)
+  if (!offerRef?.applied) {
+    const bomStart = stepStart();
+    const bom = await runDraftBomSplitStep({
+      storage,
+      enabled: agentComm.aiCatalogMatchEnabled !== false,
+      aiMode: aiSettings.mode,
+      extractedData: extractedData as Record<string, unknown>,
+      matchingResults: matchingResults as MatchingResult | null,
+    });
+    if (bom.length) timings.bomSplitMs = Date.now() - bomStart;
+  }
+
   // Positionen ohne sicheren Treffer: gelernt pro Kunde, sonst KI-Vorschlag (nie automatisch angelegt)
   const aiMatchStart = stepStart();
   const aiMatch = await runDraftLineAiMatchStep({
@@ -432,6 +446,11 @@ export async function runOfferDraftPipeline(
     shopwareCustomerId,
   });
   if (aiMatch) timings.aiCatalogMatchMs = Date.now() - aiMatchStart;
+  // Zerlegte Stücklisten: Gesamtpreis der Originalposition auf die vorgeschlagenen Teile verteilen
+  await runDraftBomPriceStep({
+    extractedData: extractedData as Record<string, unknown>,
+    matchingResults: matchingResults as MatchingResult | null,
+  });
 
   const status = determineInitialDraftStatus({
     overallConfidence:
@@ -740,6 +759,19 @@ export async function runOrderDraftPipeline(
   });
   if (offerRef) timings.offerReferenceMs = Date.now() - offerRefStart;
 
+  // Kein Angebot übernommen: Stückliste im Positionstext in Einzelteile zerlegen (KI)
+  if (!offerRef?.applied) {
+    const bomStart = stepStart();
+    const bom = await runDraftBomSplitStep({
+      storage,
+      enabled: agentComm.aiCatalogMatchEnabled !== false,
+      aiMode: aiSettings.mode,
+      extractedData: extractedData as Record<string, unknown>,
+      matchingResults: matchingResults as MatchingResult | null,
+    });
+    if (bom.length) timings.bomSplitMs = Date.now() - bomStart;
+  }
+
   // Positionen ohne sicheren Treffer: gelernt pro Kunde, sonst KI-Vorschlag (nie automatisch angelegt)
   const aiMatchStart = stepStart();
   const aiMatch = await runDraftLineAiMatchStep({
@@ -752,6 +784,11 @@ export async function runOrderDraftPipeline(
     shopwareCustomerId,
   });
   if (aiMatch) timings.aiCatalogMatchMs = Date.now() - aiMatchStart;
+  // Zerlegte Stücklisten: Gesamtpreis der Originalposition auf die vorgeschlagenen Teile verteilen
+  await runDraftBomPriceStep({
+    extractedData: extractedData as Record<string, unknown>,
+    matchingResults: matchingResults as MatchingResult | null,
+  });
 
   const status = determineInitialDraftStatus({
     overallConfidence: matchingResults?.overallConfidence,

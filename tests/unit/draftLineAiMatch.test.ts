@@ -7,8 +7,11 @@ import { describe, it } from "vitest";
 import assert from "node:assert/strict";
 import {
   AI_MATCH_MAX_CONFIDENCE,
+  applyHolmebeneConversion,
   buildCandidateShortlist,
+  parseAiLines,
   refineUnmatchedDraftLines,
+  tokenize,
 } from "../../server/commercial/draftLineAiMatch";
 import type { MatchingResult } from "../../server/products/productMatcher";
 
@@ -185,5 +188,50 @@ describe("KI-Abgleich", () => {
       },
     });
     assert.equal(res.considered, 0);
+  });
+});
+
+describe("KI-Abgleich: robuste Antwort, Zerlegung, Holmebene (Steinke-Stückliste)", () => {
+  it("lange Begründung, Kandidat 0 und eine kaputte Zeile verwerfen nicht die ganze Antwort", () => {
+    const lines = parseAiLines(
+      JSON.stringify({
+        lines: [
+          { line: 1, candidate: 0, confidence: 20, reason: "kein Ständer in der Auswahl" },
+          { line: 2, candidate: "3", confidence: "88", reason: "x".repeat(900) },
+          { line: "kaputt" },
+        ],
+      }),
+    );
+    assert.equal(lines?.length, 2);
+    assert.equal(lines?.[0].candidate, null);
+    assert.equal(lines?.[1].candidate, 3);
+    assert.equal(lines?.[1].reason?.length, 400);
+    assert.equal(parseAiLines("kein json"), null);
+  });
+
+  it("Maße und Typ-Kürzel werden zerlegt", () => {
+    assert.deepEqual(tokenize("Ständer 120/20 4400x800"), ["staender", "120", "20", "4400", "800"]);
+    assert.ok(tokenize("Holmebene 2700 mm | HN140/15").includes("140"));
+  });
+
+  it("Vorauswahl findet Ständerrahmen und Holmebene trotz anderer Namen", () => {
+    const cat = [
+      product("4026212179804", "META MULTIPAL | Ständerrahmen | 4400 x 800 mm | 100/20 | verzinkt"),
+      product("4026212124590", "META MULTIPAL | Ständerrahmen | 4400 x 1100 mm | 100/20 | verzinkt"),
+      product("4026212144666", "META MULTIPAL | Kabeltrommelauflage-Paar | Typ 3 /A-Ständer"),
+      product("4026212441314", "META MULTIPAL | Holmebene 2700 mm | HN140/15 | RAL 2001"),
+      product("4026212441260", "META MULTIPAL | Holmebene 2700 mm | HN85/15 | RAL 2001"),
+    ];
+    assert.equal(buildCandidateShortlist({ extractedProductName: "Ständer 120/20 4400x800 vzk kpl. multipal S", quantity: 3 }, cat)[0].productNumber, "4026212179804");
+    assert.equal(buildCandidateShortlist({ extractedProductName: "Holm 4HS 140/15x2700 RAL 2001 kpl.", quantity: 20 }, cat)[0].productNumber, "4026212441314");
+  });
+
+  it("Holme bestellt, Holmebene gewählt: Menge halbiert", () => {
+    const item: any = { extractedProductName: "Holm", quantity: 20, confidence: 80, status: "uncertain" };
+    applyHolmebeneConversion(item, { extractedProductName: "Holm 4HS 140/15x2700 RAL 2001 kpl.", quantity: 20 }, product("h", "META MULTIPAL | Holmebene 2700 mm | HN140/15 | RAL 2001"));
+    assert.deepEqual([item.quantity, item.originalQuantity, item.convertedQuantity], [10, 20, 10]);
+    const other: any = { quantity: 4 };
+    applyHolmebeneConversion(other, { extractedProductName: "Rückwandgitter QR 2700x1100", quantity: 4 }, product("r", "META MULTIPAL | Rückwandgitter | 1100 x 2700 mm"));
+    assert.equal(other.quantity, 4);
   });
 });
