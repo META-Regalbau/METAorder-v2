@@ -182,6 +182,21 @@ describe("openTRANS 1.0 (Mercateo)", () => {
   });
 });
 
+describe("Kodierung und Bemerkungen", () => {
+  it("Deklaration ISO-8859-1, Inhalt UTF-8 (Mercateo)", () => {
+    const e = parseOrderXml(Buffer.from(OPENTRANS_1, "utf-8"))!.extraction;
+    assert.equal(e.delivery_address.street, "Rudolphstraße 1");
+    assert.equal(e.buyer.city, "Köthen");
+  });
+
+  it("Bemerkungstyp order ohne Präfix, delivery deutsch", () => {
+    const xml = OPENTRANS_1.replace('<REMARK type="delivery">', '<REMARK type="order">Link zur Bestellung</REMARK><REMARK type="delivery">');
+    const notes = parseOrderXml(latin1(xml))!.extraction.terms.notes ?? "";
+    assert.match(notes, /^Link zur Bestellung$/m);
+    assert.match(notes, /^Lieferung: Anlieferung nur/m);
+  });
+});
+
 describe("openTRANS 2.1", () => {
   it("Parteien über PARTY_ROLE/IDREF, Preis je Preiseinheit", () => {
     const e = parseOrderXml(Buffer.from(OPENTRANS_21))!.extraction;

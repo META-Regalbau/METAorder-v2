@@ -18,6 +18,7 @@ import type {
   DocumentExtractionLineItem,
 } from "@shared/documentExtractionSchema";
 import { EMPTY_DOCUMENT_EXTRACTION_REFERENCES } from "@shared/documentExtractionSchema";
+import { repairUtf8Mojibake } from "../email/mojibake";
 import {
   applyDocumentExtractionDeterministicSteps,
   applyExtractionPostValidation,
@@ -48,8 +49,17 @@ export function decodeXmlBuffer(buffer: Buffer): string {
   let label = "utf-8";
   if (/^(iso-8859-1|latin-?1|iso-8859-15)$/.test(enc)) label = "latin1";
   else if (/^(windows|cp)-?1252$/.test(enc)) label = "windows-1252";
+  // Mercateo (Live 11.10.2026): Deklaration ISO-8859-1, Inhalt UTF-8 → „RudolphstraÃ\u009fe“.
+  // Gültiges UTF-8 mit Umlauten ist als Latin-1-Text praktisch ausgeschlossen, also gewinnt UTF-8.
+  if (label !== "utf-8" && buffer.some((b) => b >= 0x80)) {
+    try {
+      return repairUtf8Mojibake(new TextDecoder("utf-8", { fatal: true }).decode(buffer)).replace(/^﻿/, "");
+    } catch {
+      /* echtes Latin-1 */
+    }
+  }
   try {
-    return new TextDecoder(label).decode(buffer).replace(/^﻿/, "");
+    return repairUtf8Mojibake(new TextDecoder(label).decode(buffer)).replace(/^﻿/, "");
   } catch {
     return buffer.toString("utf-8").replace(/^﻿/, "");
   }
@@ -316,11 +326,24 @@ function readOpenTransItem(item: XmlNode, index: number, taxFallback: number | n
   };
 }
 
+/** REMARK type → Beschriftung in den Notizen ("" = ohne Präfix) */
+const REMARK_LABELS: Record<string, string> = {
+  order: "",
+  general: "",
+  delivery: "Lieferung",
+  deliverynote: "Lieferschein",
+  delivery_note: "Lieferschein",
+  invoice: "Rechnung",
+  transport: "Transport",
+  packing: "Verpackung",
+};
+
 function remarksOf(node: XmlNode | null): string[] {
   return findAll(node, "REMARK")
     .map((r) => {
       const t = textOf(r);
-      const type = r.attrs.type ? `${r.attrs.type}: ` : "";
+      const label = REMARK_LABELS[(r.attrs.type ?? "").toLowerCase()];
+      const type = label === undefined ? (r.attrs.type ? `${r.attrs.type}: ` : "") : label ? `${label}: ` : "";
       return t ? `${type}${t}` : "";
     })
     .filter(Boolean);
