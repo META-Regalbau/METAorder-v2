@@ -76,7 +76,8 @@ const PURCHASE_ORDER_BODY: Rule[] = [
 ];
 
 const FILENAME_RULES: Array<{ re: RegExp; kind: TitleKind; weight: number; signal: string }> = [
-  { re: /lieferschein|liefsch|delivery[-_ ]?note|packing/i, kind: "delivery_note", weight: 3, signal: "filename_delivery_note" },
+  // „Lief_BE730134.pdf“, „LS 32135328.pdf“, „LS_4711.pdf“ (Heinrich & Schleyer, Hommel; Live 11.10.2026)
+  { re: /lieferschein|liefsch|delivery[-_ ]?note|packing|(?:^|[^a-z])lief(?:[_\-\s.]|$)|(?:^|[^a-z])ls[_\-\s]?\d/i, kind: "delivery_note", weight: 3, signal: "filename_delivery_note" },
   { re: /rechnung|invoice|gutschrift/i, kind: "invoice", weight: 3, signal: "filename_invoice" },
   { re: /auftragsbest|order[-_ ]?conf|\bab[-_]?\d/i, kind: "order_confirmation", weight: 3, signal: "filename_order_confirmation" },
   { re: /bestell|order|purchase|auftrag|anfrage|rfq|\bpo[-_ ]?\d/i, kind: "purchase_order", weight: 2, signal: "filename_purchase_order" },
