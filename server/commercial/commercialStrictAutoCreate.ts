@@ -38,13 +38,18 @@ export type StrictAutoCreateLinePriceCheck = {
   source?: "customer_specific" | "customer_discount" | "list" | "bundle" | "unresolved";
   /** Vom Prüfer im Entwurf gesetzter Netto-Stückpreis — überstimmt den Abgleich */
   manualUnitPriceNet?: number | null;
+  /**
+   * Erreichte Stufe der Zusatzrabatt-Staffel des Händlers (Prozent auf den Warenwert). Belege
+   * enthalten ihn teils schon im Stückpreis: dann gilt auch Preis × (1 − Zusatzrabatt) als passend.
+   */
+  additionalDiscountPercent?: number | null;
 };
 
 export type StrictAutoCreateEvaluation = {
   allowed: boolean;
   reasons: string[];
   version: string;
-  priceChecks?: Array<StrictAutoCreateLinePriceCheck & { deviationPercent: number | null; ok: boolean }>;
+  priceChecks?: Array<StrictAutoCreateLinePriceCheck & { deviationPercent: number | null; ok: boolean; withAdditionalDiscount?: boolean }>;
 };
 
 function isEmptyField(v: unknown): boolean {
@@ -271,6 +276,7 @@ export function evaluateStrictAutoCreate(params: {
             : null;
         let ok = true;
         let deviationPercent: number | null = null;
+        let withAdditionalDiscount = false;
         if (manual != null) {
           // Ein Prüfer hat den Preis bewusst gesetzt — das ist die Entscheidung, nicht der Abgleich.
           ok = true;
@@ -281,15 +287,23 @@ export function evaluateStrictAutoCreate(params: {
           reasons.push(`line_${n}_price_unresolved`);
           ok = false;
         } else {
+          const within = (target: number) => Math.abs(doc - target) <= Math.max(0.01, (target * tolerancePercent) / 100);
           const diff = Math.abs(doc - expected);
           deviationPercent = expected > 0 ? Math.round((diff / expected) * 10000) / 100 : diff > 0 ? 100 : 0;
-          const allowedAbs = Math.max(0.01, (expected * tolerancePercent) / 100);
-          if (diff > allowedAbs) {
-            reasons.push(`line_${n}_price_mismatch`);
-            ok = false;
+          const extra = check.additionalDiscountPercent;
+          if (!within(expected)) {
+            // Händler mit Zusatzrabatt-Staffel rechnen ihn teils schon in den Stückpreis ein
+            const afterExtra = extra && extra > 0 ? Math.round(expected * (1 - extra / 100) * 100) / 100 : null;
+            if (afterExtra != null && within(afterExtra)) {
+              withAdditionalDiscount = true;
+              deviationPercent = afterExtra > 0 ? Math.round((Math.abs(doc - afterExtra) / afterExtra) * 10000) / 100 : 0;
+            } else {
+              reasons.push(`line_${n}_price_mismatch`);
+              ok = false;
+            }
           }
         }
-        priceChecksOut!.push({ ...check, deviationPercent, ok });
+        priceChecksOut!.push({ ...check, deviationPercent, ok, ...(withAdditionalDiscount ? { withAdditionalDiscount } : {}) });
       });
     }
   }

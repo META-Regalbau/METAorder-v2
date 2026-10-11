@@ -6314,7 +6314,10 @@
       "konfiguration_konnte_nicht_geladen_werden": "Konfiguration konnte nicht geladen werden",
       "ungultige_problem_meldung": "Ungültige Problem-Meldung",
       "internetmessageid_oder_graphmessageid_fehlt": "internetMessageId oder graphMessageId fehlt",
-      "problem_meldung_konnte_nicht_verarbeitet_werden": "Problem-Meldung konnte nicht verarbeitet werden"
+      "problem_meldung_konnte_nicht_verarbeitet_werden": "Problem-Meldung konnte nicht verarbeitet werden",
+      "kundennummer_fehlt_oder_ist_ungultig": "Kundennummer fehlt oder ist ungültig",
+      "shopware_ist_nicht_eingerichtet": "Shopware ist nicht eingerichtet",
+      "preis_diagnose_fehlgeschlagen": "Preis-Diagnose fehlgeschlagen"
     }
   },
   "roomPlanner": {
@@ -7013,7 +7016,8 @@
     "priceNone": "kein Preis",
     "priceReset": "Ermittelten Preis verwenden",
     "priceChangedBy": "geändert von {{user}}",
-    "lineTotal": "Summe {{total}}"
+    "lineTotal": "Summe {{total}}",
+    "additionalDiscount": "Zusatzrabatt {{percent}} % (Warenwert ab {{from}}) ist in den Verkaufspreisen abgezogen."
   },
   "draftMarginApproval": {
     "listState": {

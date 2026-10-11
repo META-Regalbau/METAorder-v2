@@ -7,6 +7,8 @@
  *   2. Kunden-Standardrabatt (B2Bsellers Discount-Rate-Addon / Customfield) auf den
  *      Listenpreis
  *   3. Listenpreis des Produkts (product.price in der Kanalwährung)
+ *   Danach (nicht je Position): Zusatzrabatt-Staffel des Händlers auf den Warenwert, höchste
+ *   erreichte Stufe (shared/additionalDiscountScale.ts) – geliefert als additionalDiscountTiers.
  *
  * Ein manueller Netto-Override aus dem Entwurf (manualUnitPriceNet) hat in den
  * Aufrufern Vorrang vor allen drei Stufen.
@@ -15,6 +17,11 @@
 import type { ShopwareClient, ShopwareCustomerPrice } from "../shopware/shopware";
 import { fetchProductPricing, readAttr, round2, searchFirst, toShopwareUuid } from "../b2b/b2bOfferCreateContext";
 import { logger } from "../lib/logger";
+import {
+  ADDITIONAL_DISCOUNT_SCALE_FIELD,
+  parseAdditionalDiscountScale,
+  type AdditionalDiscountTier,
+} from "@shared/additionalDiscountScale";
 
 const log = logger.child({ component: "commercial/commercialCustomerPricing" });
 
@@ -114,10 +121,16 @@ export async function resolveCustomerUnitPrices(
     currencyId: string;
     items: ResolveCustomerUnitPricesInput[];
   }
-): Promise<{ prices: Map<string, ResolvedUnitPrice>; customerPricesAvailable: boolean; discountPercent: number | null }> {
+): Promise<{
+  prices: Map<string, ResolvedUnitPrice>;
+  customerPricesAvailable: boolean;
+  discountPercent: number | null;
+  /** Zusatzrabatt-Staffel des Händlers (greift zuletzt auf den Warenwert, höchste erreichte Stufe) */
+  additionalDiscountTiers: AdditionalDiscountTier[];
+}> {
   const result = new Map<string, ResolvedUnitPrice>();
   if (params.items.length === 0) {
-    return { prices: result, customerPricesAvailable: false, discountPercent: null };
+    return { prices: result, customerPricesAvailable: false, discountPercent: null, additionalDiscountTiers: [] };
   }
 
   const productIds = Array.from(new Set(params.items.map((i) => toShopwareUuid(i.productId))));
@@ -145,6 +158,12 @@ export async function resolveCustomerUnitPrices(
     discountPercent = await client.fetchCustomerB2BStandardDiscount(params.customerId);
   } catch (error) {
     log.warn({ err: error }, "[CustomerPricing] Kundenrabatt konnte nicht geladen werden:");
+  }
+  let additionalDiscountTiers: AdditionalDiscountTier[] = [];
+  try {
+    additionalDiscountTiers = await fetchCustomerAdditionalDiscountTiers(client, params.customerId);
+  } catch (error) {
+    log.warn({ err: error }, "[CustomerPricing] Zusatzrabatt-Staffel konnte nicht geladen werden:");
   }
   if (discountPercent != null && (!Number.isFinite(discountPercent) || discountPercent <= 0 || discountPercent >= 100)) {
     discountPercent = null;
@@ -187,5 +206,16 @@ export async function resolveCustomerUnitPrices(
     result.set(productId, { ...base, net: round2(listNet), source: "list" });
   }
 
-  return { prices: result, customerPricesAvailable, discountPercent };
+  return { prices: result, customerPricesAvailable, discountPercent, additionalDiscountTiers };
+}
+
+/** Zusatzrabatt-Staffel aus dem Kunden-Zusatzfeld (WDU Partner Daten). */
+export async function fetchCustomerAdditionalDiscountTiers(client: ShopwareClient, customerId: string): Promise<AdditionalDiscountTier[]> {
+  const row = await searchFirst(client, "customer", {
+    limit: 1,
+    filter: [{ type: "equals", field: "id", value: toShopwareUuid(customerId) }],
+    includes: { customer: ["id", "customFields"] },
+  });
+  const customFields = readAttr(row, "customFields") as Record<string, unknown> | null | undefined;
+  return parseAdditionalDiscountScale(customFields?.[ADDITIONAL_DISCOUNT_SCALE_FIELD]);
 }

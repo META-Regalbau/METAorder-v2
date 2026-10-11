@@ -163,6 +163,16 @@ async function collectStrictAutoCreateContext(params: {
             ? { ...base, expectedUnitPriceNet: price.net, source: price.source }
             : { ...base, expectedUnitPriceNet: null, source: "unresolved" as const };
         });
+        // Zusatzrabatt-Staffel: Stufe nach dem Warenwert zu Kundenpreisen (höchste erreichte Stufe)
+        if (resolved.additionalDiscountTiers.length) {
+          const { pickAdditionalDiscount } = await import("@shared/additionalDiscountScale");
+          const goodsNet = linePriceChecks.reduce(
+            (sum, c) => sum + (c.expectedUnitPriceNet ?? 0) * (items[c.index]?.quantity ?? 0),
+            0,
+          );
+          const tier = pickAdditionalDiscount(resolved.additionalDiscountTiers, goodsNet);
+          if (tier) linePriceChecks = linePriceChecks.map((c) => ({ ...c, additionalDiscountPercent: tier.percent }));
+        }
       }
     } catch (error) {
       log.warn({ err: error }, "[StrictAutoCreate] Preisabgleich fehlgeschlagen:");
