@@ -38,6 +38,8 @@ export type DraftBomSplitEntry = {
   priceDistributed: boolean;
   /** Indizes der Teile in lineItems */
   componentIndices: number[];
+  /** Woher die Zerlegung kommt: KI (Stückliste im Text) oder Konfigurator-Text (draftConfiguratorRows.ts) */
+  source?: "ai" | "configurator";
 };
 
 const ITEM_COUNT_RE = /(?:^|[;:,.]\s*|\s)(\d{1,4})\s*[x×]\s+[A-Za-zÄÖÜäöü]/g;

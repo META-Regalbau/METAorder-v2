@@ -46,7 +46,9 @@ export type CatalogMatchStrategy =
   /** Kunden-Artikelnummer, für diesen Kunden schon einmal bestätigt */
   | "learned_customer"
   /** Position aus dem META-Angebot übernommen, auf das die Bestellung verweist (draftOfferReference.ts) */
-  | "offer";
+  | "offer"
+  /** Aus einem Konfigurator-Text zerlegt (draftConfiguratorRows.ts) */
+  | "configurator";
 
 export interface ProductMatch {
   id: string;
@@ -97,6 +99,8 @@ export interface LineItemMatch {
   };
   /** Nummern-Treffer passt nicht zur Bezeichnung bzw. Nummernspalte war verrutscht (draftNumberMatchCheck.ts) */
   numberCheck?: { kind: "conflict" | "realigned"; note: string };
+  /** Herkunft/Abweichung bei Zerlegung einer Konfigurator-Zeile (draftConfiguratorRows.ts) */
+  configuratorNote?: string;
 }
 
 function buildCatalogSkippedLineMatch(item: {
