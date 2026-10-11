@@ -3,6 +3,8 @@
  * Fill-only — bestehende LLM-/Nutzerwerte bleiben unangetastet.
  */
 
+import { isOwnOperatorEmail } from "../commercial/draftCustomerEmailResolution";
+
 type LooseRecord = Record<string, unknown>;
 
 function isEmpty(v: unknown): boolean {
@@ -78,6 +80,8 @@ export function enrichExtractedDataFromEmailHeaders(
   const text = typeof primaryDocumentText === "string" ? primaryDocumentText : "";
   const parsed = parseEmailHeaderContact(text);
   if (!parsed) return false;
+  // Interne Weiterleitung: der Kopf-Absender ist ein Kollege, kein Kundenkontakt
+  if (parsed.email && isOwnOperatorEmail(parsed.email)) return false;
 
   let applied = false;
   const cust = ensureObject(extractedData, "customer");
