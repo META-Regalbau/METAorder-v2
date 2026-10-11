@@ -6551,7 +6551,8 @@
       "customerNumber": "Customer number",
       "companyExactZip": "Company + ZIP code",
       "companyExact": "Company",
-      "companyPartial": "Similar company"
+      "companyPartial": "Similar company",
+      "emailDomain": "same email domain"
     },
     "customerNumberShort": "Cust. no. {{number}}",
     "candidatesIntro": "No customer found with this e-mail address. {{count}} existing Shopware accounts match the company — please select the right one:",

@@ -6,6 +6,7 @@ import {
   type ParsedEmailResult,
 } from "../email/emailParser";
 import { logger } from "../lib/logger";
+import { orderXmlToReadableText, parseOrderXml, xmlToPlainText } from "./orderXmlParser";
 
 const log = logger.child({ component: "extraction/documentTextExtraction" });
 
@@ -121,6 +122,9 @@ export function normalizeMimeTypeForDraft(fileName: string, mimeType: string): s
   if (ext === "pdf" && m !== "application/pdf") {
     m = "application/pdf";
   }
+  if (ext === "xml" || m === "text/xml" || m.endsWith("+xml")) {
+    m = "application/xml";
+  }
   if (ext === "docx") {
     m = isDocxMime(m)
       ? m
@@ -174,6 +178,12 @@ export async function extractPlainTextForDraft(options: {
     const pdfData = await parser.getText();
     await parser.destroy();
     return pdfData.text || "";
+  }
+
+  if (mimeType === "application/xml") {
+    // Bestell-XML (openTRANS/cXML) als lesbare Bestellung, anderes XML als „Pfad: Wert“-Zeilen
+    const order = parseOrderXml(fileBuffer);
+    return order ? orderXmlToReadableText(order) : xmlToPlainText(fileBuffer);
   }
 
   if (mimeType.startsWith("image/")) {

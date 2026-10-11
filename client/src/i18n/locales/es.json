@@ -6548,7 +6548,8 @@
       "customerNumber": "Número de cliente",
       "companyExactZip": "Empresa + código postal",
       "companyExact": "Empresa",
-      "companyPartial": "Empresa similar"
+      "companyPartial": "Empresa similar",
+      "emailDomain": "mismo dominio de correo"
     },
     "customerNumberShort": "N.º de cliente {{number}}",
     "candidatesIntro": "No se ha encontrado ningún cliente con esta dirección de correo electrónico. {{count}} cuentas de Shopware existentes coinciden con la empresa; seleccione la correcta:",

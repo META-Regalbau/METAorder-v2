@@ -1,6 +1,8 @@
 import { simpleParser, ParsedMail, Attachment } from 'mailparser';
 import MsgReader from '@kenjiuno/msgreader';
 import { fileTypeFromBuffer } from 'file-type';
+import { isOrderRelevantXml, isXmlAttachment } from '../extraction/orderXmlParser';
+import { repairUtf8Mojibake } from './mojibake';
 
 export interface ParsedEmailResult {
   subject: string;
@@ -91,11 +93,11 @@ export async function parseEmlFile(buffer: Buffer): Promise<ParsedEmailResult> {
   // Ohne Textteil (oder mit HTML im Textteil) kam bisher rohes HTML in die Auswertung:
   // Firmen-/Adresserkennung las dann „<table border=…“ als Straße
   const rawBody = parsed.text?.trim() ? parsed.text : typeof parsed.html === "string" ? parsed.html : "";
-  const bodyText = looksLikeHtml(rawBody) ? htmlToPlainText(rawBody) : rawBody;
+  const bodyText = repairUtf8Mojibake(looksLikeHtml(rawBody) ? htmlToPlainText(rawBody) : rawBody);
   const orderNumber = extractOrderNumber(bodyText);
 
   return {
-    subject: parsed.subject || 'Kein Betreff',
+    subject: repairUtf8Mojibake(parsed.subject || 'Kein Betreff'),
     from: parsed.from?.text || 'Unbekannt',
     body: bodyText,
     attachments,
@@ -131,7 +133,12 @@ export async function parseMsgFile(buffer: Buffer): Promise<ParsedEmailResult> {
       
       if (attachment && attachment.content) {
         const buffer = Buffer.from(attachment.content);
-        
+
+        if (attachment.fileName && isXmlAttachment(attachment.fileName, "") && isOrderRelevantXml(buffer)) {
+          attachments.push({ filename: attachment.fileName, contentType: "application/xml", size: buffer.length, content: buffer });
+          continue;
+        }
+
         // Nur PDFs und Bilder
         const fileType = await fileTypeFromBuffer(buffer);
         if (fileType) {
@@ -185,6 +192,18 @@ async function filterRelevantAttachments(
         contentType: "message/rfc822",
         size: buffer.length,
         content: buffer,
+      });
+      continue;
+    }
+
+    // Bestell-XML von Beschaffungsplattformen (Mercateo/Unite: openTRANS, cXML)
+    if (isXmlAttachment(fn, ct) && isOrderRelevantXml(buffer)) {
+      relevant.push({
+        filename: attachment.filename || "bestellung.xml",
+        contentType: "application/xml",
+        size: buffer.length,
+        content: buffer,
+        contentDisposition: attachment.contentDisposition,
       });
       continue;
     }

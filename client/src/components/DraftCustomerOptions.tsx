@@ -18,7 +18,7 @@ export type DraftShopwareCustomer = {
   zipCode?: string;
   city?: string;
   salesChannelName?: string;
-  reason?: "customer_number" | "company_exact_zip" | "company_exact" | "company_partial";
+  reason?: "customer_number" | "company_exact_zip" | "company_exact" | "company_partial" | "email_domain";
 };
 
 function reasonLabel(reason: NonNullable<DraftShopwareCustomer["reason"]>, t: TFunction): string {
@@ -31,6 +31,8 @@ function reasonLabel(reason: NonNullable<DraftShopwareCustomer["reason"]>, t: TF
       return t("draftCustomerOptions.reason.companyExact");
     case "company_partial":
       return t("draftCustomerOptions.reason.companyPartial");
+    case "email_domain":
+      return t("draftCustomerOptions.reason.emailDomain");
     default:
       return reason;
   }

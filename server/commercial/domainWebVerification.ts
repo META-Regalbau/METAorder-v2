@@ -1,4 +1,5 @@
 import { buildRankedCustomerEmails } from "./draftCustomerEmailResolution";
+import { FREEMAIL_DOMAINS } from "./freemailDomains";
 import { buildSafeHttpsUrl, validateHttpsUrlForOutboundFetch } from "../lib/safeOutboundUrl";
 
 const USER_AGENT = "METAorder-CommercialAgent/1.0 (+https://metaorder; domain verification)";
@@ -6,34 +7,6 @@ const MAX_RESPONSE_BYTES = 600_000;
 const FETCH_TIMEOUT_MS = 10_000;
 const MAX_URLS_TO_TRY = 3;
 
-const FREEMAIL_DOMAINS = new Set(
-  [
-    "gmail.com",
-    "googlemail.com",
-    "outlook.com",
-    "hotmail.com",
-    "live.com",
-    "msn.com",
-    "gmx.de",
-    "gmx.net",
-    "gmx.at",
-    "web.de",
-    "t-online.de",
-    "yahoo.com",
-    "yahoo.de",
-    "icloud.com",
-    "me.com",
-    "aol.com",
-    "protonmail.com",
-    "proton.me",
-    "mailbox.org",
-    "posteo.de",
-    "mail.de",
-    "yandex.com",
-    "yandex.ru",
-    "zoho.com",
-  ].map((d) => d.toLowerCase())
-);
 
 export type WebDomainVerificationChecks = {
   zipMatch: boolean;

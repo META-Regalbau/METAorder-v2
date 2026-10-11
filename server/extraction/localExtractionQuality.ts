@@ -8,7 +8,7 @@
  */
 
 type LocalAddress = { street?: string; zipCode?: string; city?: string } | undefined;
-type LocalLine = { extractedProductNumber?: string; extractedProductName?: string };
+type LocalLine = { extractedProductNumber?: string; extractedProductName?: string; quantity?: number };
 
 /** Plausible Postadresse: Straße mit Hausnummer, PLZ 4–5 Ziffern (nicht aus einer Artikelnummer), kurzer Ort ohne Ziffern. */
 export function localAddressLooksPlausible(address: LocalAddress, lineItems: LocalLine[] = []): boolean {
@@ -43,6 +43,27 @@ export function localLineColumnsLookMerged(lineItems: LocalLine[] = []): boolean
   });
 }
 
+const CITY_ONLY_RE = /^[A-ZÄÖÜ][a-zäöüß]+(?:[\s-]+(?:an der|am|im|in|bei|ob der|[A-ZÄÖÜ][a-zäöüß]+\.?|\(\w+\)))*$/;
+
+/**
+ * „06354 Köthen“, „34821 Gudensberg“: PLZ + Ort aus Signatur oder Adressblock, keine Position
+ * (Mercateo-Mail, Live 11.10.2026: zwei Positionen „Köthen“ mit Menge 6354). Führende Null oder
+ * fünf Ziffern vor einem reinen Ortsnamen – eine Menge schreibt niemand so.
+ */
+export function localLineIsZipCity(line: string): boolean {
+  const m = line.trim().match(/^(?:D-|A-|CH-)?(\d{4,5})\s+(.+)$/);
+  if (!m) return false;
+  const [, digits, rest] = m;
+  if (!(digits.startsWith("0") || digits.length === 5 || /^(?:D|A|CH)-/.test(line.trim()))) return false;
+  const words = rest.trim().split(/\s+/);
+  return words.length <= 4 && CITY_ONLY_RE.test(rest.trim());
+}
+
+/** Menge ab 1000 vor einem Text ohne jede Ziffer: eher PLZ/Hausnummer als Bestellmenge. */
+export function localLinesHaveImplausibleQuantity(lineItems: LocalLine[] = []): boolean {
+  return lineItems.some((l) => (l.quantity ?? 0) >= 1000 && !/\d/.test(l.extractedProductName ?? "") && !l.extractedProductNumber);
+}
+
 /** true: lieber die KI extrahieren lassen. */
 export function isLowQualityLocalExtraction(data: {
   lineItems?: LocalLine[];
@@ -51,6 +72,7 @@ export function isLowQualityLocalExtraction(data: {
 }): boolean {
   if (!data.lineItems || data.lineItems.length === 0) return true;
   if (localLineColumnsLookMerged(data.lineItems)) return true;
+  if (localLinesHaveImplausibleQuantity(data.lineItems)) return true;
   const billing = data.billingAddress;
   const hasAddressFields = Boolean(billing && (billing.street || billing.zipCode || billing.city));
   // Eine erkannte, aber unsinnige Adresse wäre schlimmer als keine: dann die KI

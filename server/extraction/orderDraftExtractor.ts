@@ -8,7 +8,8 @@ import {
   type DraftExtractionMailContext,
 } from "../commercial/draftExtractionContext";
 import { extractProductNumberFromLineRest } from "./articleNumberNormalize";
-import { isLowQualityLocalExtraction } from "./localExtractionQuality";
+import { isLowQualityLocalExtraction, localLineIsZipCity } from "./localExtractionQuality";
+import { extractLegacyFromOrderXml } from "./orderXmlParser";
 import { extractPlainTextForDraft, normalizeMimeTypeForDraft } from "./documentTextExtraction";
 import { extractOrderDataWithPdfVision, isOrderPdfTextInsufficient } from "./orderPdfVisionExtraction";
 import type { DocumentExtraction } from "@shared/documentExtractionSchema";
@@ -234,6 +235,12 @@ export async function extractOrderDataFromDocument(
 
   /** Multer/Browser: PDF oft `application/octet-stream` — PDF-Vision prüfte bisher nur exakt `application/pdf`. */
   const effectiveMime = normalizeMimeTypeForDraft(fileName, mimeType);
+
+  // Bestell-XML (openTRANS/cXML, z. B. Mercateo): Daten stehen strukturiert drin – direkt übernehmen
+  if (effectiveMime === "application/xml") {
+    const fromXml = extractLegacyFromOrderXml(fileBuffer);
+    if (fromXml) return normalizeExtractedData(fromXml as ExtractedOrderData);
+  }
 
   let cachedPrimaryDocumentText: string | null = primaryDocumentText ?? null;
   const readPrimaryDocumentText = async () => {
@@ -541,6 +548,7 @@ function extractAddress(lines: string[]): ExtractedOrderData["billingAddress"] |
 function extractLineItems(lines: string[]): ExtractedOrderData["lineItems"] {
   const items: ExtractedOrderData["lineItems"] = [];
   for (const line of lines) {
+    if (localLineIsZipCity(line)) continue;
     const match = line.match(/^(\d+)\s*(x|stk|stück|pcs|pc|st\.)?\s+(.+)/i);
     if (!match) continue;
     const quantity = Number(match[1]);
@@ -564,6 +572,8 @@ export function isBinaryDocumentMime(mimeType: string, fileName: string): boolea
   if (mt === "application/pdf" || fn.endsWith(".pdf")) return true;
   if (mt.startsWith("image/")) return true;
   if (mt.includes("wordprocessingml") || mt === "application/msword") return true;
+  // XML: der lokale Zeilenparser liest Tags als Positionen
+  if (mt === "application/xml" || mt === "text/xml" || fn.endsWith(".xml")) return true;
   return /\.(docx?|png|jpe?g|gif|webp|tiff?|bmp)$/.test(fn);
 }
 

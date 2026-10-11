@@ -30,6 +30,7 @@ import {
 import type { CommercialAgentProcessResult } from "./commercialAgentOrchestrator";
 import { getUploadsRoot } from "../uploadsRoot";
 import { logger } from "../lib/logger";
+import { isOrderRelevantXml, isXmlAttachment, parseOrderXml } from "../extraction/orderXmlParser";
 
 const moduleLog = logger.child({ component: "commercial/commercialDraftAttachments" });
 
@@ -63,7 +64,16 @@ export async function partitionCommercialParts(
   const supportingParts: SupportingDocumentPart[] = [];
   const classifications = new Map<InboundCommercialDocPart, AttachmentClassification>();
 
+  const orderXmlParts = new Set<InboundCommercialDocPart>();
   for (const part of parts) {
+    if (isXmlAttachment(part.filename, part.contentType)) {
+      const classification = classifyXmlAttachment(part.buffer);
+      classifications.set(part, classification);
+      if (classification.signals.some((sig) => sig.startsWith("order_xml_"))) orderXmlParts.add(part);
+      if (attachmentKindProducesDraft(classification.kind, classification.confidence)) draftParts.push(part);
+      else supportingParts.push({ part, classification });
+      continue;
+    }
     let text = "";
     try {
       // Rohtext MIT Zeilenumbrüchen: die Titelzeilen-Erkennung braucht die Zeilenstruktur.
@@ -86,7 +96,39 @@ export async function partitionCommercialParts(
     }
   }
 
+  // Bestellung als XML UND als PDF (Mercateo, Beschaffungsportale): die XML ist eindeutig,
+  // die PDF wird Beilage – sonst entstünden zwei Entwürfe derselben Bestellung.
+  if (orderXmlParts.size > 0) {
+    for (const part of [...draftParts]) {
+      if (orderXmlParts.has(part)) continue;
+      draftParts.splice(draftParts.indexOf(part), 1);
+      const base = classifications.get(part) ?? { kind: "purchase_order" as const, confidence: 0, signals: [], references: {} };
+      const classification: AttachmentClassification = {
+        ...base,
+        kind: base.kind === "unknown" ? "purchase_order" : base.kind,
+        signals: [...base.signals, "order_xml_preferred"],
+      };
+      classifications.set(part, classification);
+      supportingParts.push({ part, classification });
+    }
+  }
+
   return { draftParts, supportingParts, classifications };
+}
+
+/** XML-Anhang: bekannte Bestellformate sicher als Bestellung, anderes Bestell-XML offen, Rest Beilage. */
+export function classifyXmlAttachment(buffer: Buffer): AttachmentClassification {
+  const parsed = parseOrderXml(buffer);
+  if (parsed) {
+    return {
+      kind: "purchase_order",
+      confidence: 0.99,
+      signals: [`order_xml_${parsed.format}`],
+      references: { orderNumber: parsed.extraction.document.number, documentDate: parsed.extraction.document.date },
+    };
+  }
+  if (isOrderRelevantXml(buffer)) return { kind: "unknown", confidence: 0, signals: ["xml_unknown_order_format"], references: {} };
+  return { kind: "other", confidence: 0.9, signals: ["xml_not_order"], references: {} };
 }
 
 function safeFilename(name: string): string {
