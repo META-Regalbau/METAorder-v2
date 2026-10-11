@@ -6506,10 +6506,13 @@
       "entry": "La posición {{position}} se desglosó en {{count}} piezas.",
       "priceDistributed": "El precio total {{total}} se reparte proporcionalmente entre las piezas.",
       "priceOpen": "El precio total {{total}} aún no se ha repartido porque no todas las piezas tienen sugerencia.",
-      "showOriginal": "Mostrar posición original"
+      "showOriginal": "Mostrar posición original",
+      "titleConfigurator": "Fila de estanterías del configurador dividida en módulos base y de ampliación",
+      "configuratorDifferences": "Diferencia con el catálogo: {{list}}"
     },
     "numberConflict": "El número no coincide con la descripción",
-    "numberRealigned": "Columna de números desplazada – corregida"
+    "numberRealigned": "Columna de números desplazada – corregida",
+    "configuratorMatch": "Del texto del configurador"
   },
   "documentExtraction": {
     "confidenceWarnings": {

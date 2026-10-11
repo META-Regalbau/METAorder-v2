@@ -11,7 +11,12 @@ export function DraftLineMatchSource({
   item,
   index,
 }: {
-  item: { matchStrategy?: string; aiMatch?: { confidence: number; reason: string }; numberCheck?: { kind: "conflict" | "realigned"; note: string } };
+  item: {
+    matchStrategy?: string;
+    aiMatch?: { confidence: number; reason: string };
+    numberCheck?: { kind: "conflict" | "realigned"; note: string };
+    configuratorNote?: string;
+  };
   index: number;
 }) {
   const { t } = useTranslation();
@@ -36,6 +41,16 @@ export function DraftLineMatchSource({
         {item.aiMatch.reason ? (
           <p className="text-xs text-muted-foreground">{t("draftReview.aiReason", { reason: item.aiMatch.reason })}</p>
         ) : null}
+      </div>
+    );
+  }
+  if (item.matchStrategy === "configurator") {
+    return (
+      <div className="mt-1 space-y-0.5" data-testid={`configurator-match-${index}`}>
+        <Badge variant="outline" className="text-xs border-sky-600/60 text-sky-800 dark:text-sky-200">
+          {t("draftReview.configuratorMatch")}
+        </Badge>
+        {item.configuratorNote ? <p className="text-xs text-muted-foreground">{item.configuratorNote}</p> : null}
       </div>
     );
   }

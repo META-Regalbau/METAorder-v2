@@ -82,6 +82,7 @@ type BomSplitEntry = {
   componentCount: number;
   totalNet: number | null;
   priceDistributed: boolean;
+  source?: "ai" | "configurator";
 };
 
 /** Stückliste einer Bestellposition in Einzelteile zerlegt (server/commercial/draftBomSplit.ts) */
@@ -89,12 +90,18 @@ export function DraftBomSplitNotice({ extractedData }: { extractedData: unknown 
   const { t } = useTranslation();
   const fmt = useLocaleFormat();
   const [open, setOpen] = useState<number | null>(null);
-  const entries = (extractedData as { bomSplit?: BomSplitEntry[] } | null | undefined)?.bomSplit;
+  const data = extractedData as
+    | { bomSplit?: BomSplitEntry[]; configuratorRows?: Array<{ originalPosition: number; differences: string[] }> }
+    | null
+    | undefined;
+  const entries = data?.bomSplit;
   if (!entries?.length) return null;
+  const allConfigurator = entries.every((e) => e.source === "configurator");
+  const differencesOf = (position: number) => data?.configuratorRows?.find((r) => r.originalPosition === position)?.differences ?? [];
   return (
     <Alert className="mb-3" data-testid="alert-bom-split">
       <FileText className="h-4 w-4" aria-hidden="true" />
-      <AlertTitle>{t("draftReview.bomSplit.title")}</AlertTitle>
+      <AlertTitle>{t(allConfigurator ? "draftReview.bomSplit.titleConfigurator" : "draftReview.bomSplit.title")}</AlertTitle>
       <AlertDescription className="space-y-2 text-sm">
         {entries.map((entry) => (
           <div key={entry.originalPosition}>
@@ -106,6 +113,11 @@ export function DraftBomSplitNotice({ extractedData }: { extractedData: unknown 
                   : t("draftReview.bomSplit.priceOpen", { total: fmt.currency(entry.totalNet) })
                 : null}
             </p>
+            {differencesOf(entry.originalPosition).length ? (
+              <p className="text-xs text-amber-800 dark:text-amber-200" data-testid={`configurator-differences-${entry.originalPosition}`}>
+                {t("draftReview.bomSplit.configuratorDifferences", { list: differencesOf(entry.originalPosition).join("; ") })}
+              </p>
+            ) : null}
             <Button
               type="button"
               variant="ghost"

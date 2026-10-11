@@ -6506,10 +6506,13 @@
       "entry": "Position {{position}} wurde in {{count}} Teile zerlegt.",
       "priceDistributed": "Der Gesamtpreis {{total}} ist anteilig auf die Teile verteilt.",
       "priceOpen": "Der Gesamtpreis {{total}} ist noch nicht verteilt, weil nicht alle Teile einen Vorschlag haben.",
-      "showOriginal": "Originalposition anzeigen"
+      "showOriginal": "Originalposition anzeigen",
+      "titleConfigurator": "Konfigurator-Regalzeile in Grund- und Anbauregale zerlegt",
+      "configuratorDifferences": "Abweichung zum Katalog: {{list}}"
     },
     "numberConflict": "Nummer passt nicht zur Bezeichnung",
-    "numberRealigned": "Nummernspalte verrutscht – zurechtgerückt"
+    "numberRealigned": "Nummernspalte verrutscht – zurechtgerückt",
+    "configuratorMatch": "Aus Konfigurator-Text"
   },
   "documentExtraction": {
     "confidenceWarnings": {

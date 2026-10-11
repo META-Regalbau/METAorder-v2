@@ -6509,10 +6509,13 @@
       "entry": "Line {{position}} was split into {{count}} parts.",
       "priceDistributed": "The total price {{total}} is distributed proportionally across the parts.",
       "priceOpen": "The total price {{total}} is not distributed yet because not every part has a suggestion.",
-      "showOriginal": "Show original line"
+      "showOriginal": "Show original line",
+      "titleConfigurator": "Configurator shelving row split into starter and add-on units",
+      "configuratorDifferences": "Difference from catalogue: {{list}}"
     },
     "numberConflict": "Number does not match the description",
-    "numberRealigned": "Number column shifted – realigned"
+    "numberRealigned": "Number column shifted – realigned",
+    "configuratorMatch": "From configurator text"
   },
   "documentExtraction": {
     "confidenceWarnings": {

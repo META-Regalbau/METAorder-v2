@@ -1,5 +1,6 @@
 import { runDraftLineAiMatchStep } from "./draftLineAiMatch";
 import { checkNumberMatches } from "./draftNumberMatchCheck";
+import { runDraftConfiguratorRowsStep } from "./draftConfiguratorRows";
 import { runDraftOfferReferenceStep } from "./draftOfferReference";
 import { runDraftBomPriceStep, runDraftBomSplitStep } from "./draftBomSplit";
 import type { MatchingResult } from "../products/productMatcher";
@@ -426,6 +427,11 @@ export async function runOfferDraftPipeline(
 
   // Kein Angebot übernommen: Stückliste im Positionstext in Einzelteile zerlegen (KI)
   if (!offerRef?.applied) {
+    // Konfigurator-Regalzeilen ohne KI zerlegen (CLIP: Grund- + Anbauregale), danach Stücklisten-KI
+    await runDraftConfiguratorRowsStep({
+      extractedData: extractedData as Record<string, unknown>,
+      matchingResults: matchingResults as MatchingResult | null,
+    });
     const bomStart = stepStart();
     const bom = await runDraftBomSplitStep({
       storage,
@@ -766,6 +772,11 @@ export async function runOrderDraftPipeline(
 
   // Kein Angebot übernommen: Stückliste im Positionstext in Einzelteile zerlegen (KI)
   if (!offerRef?.applied) {
+    // Konfigurator-Regalzeilen ohne KI zerlegen (CLIP: Grund- + Anbauregale), danach Stücklisten-KI
+    await runDraftConfiguratorRowsStep({
+      extractedData: extractedData as Record<string, unknown>,
+      matchingResults: matchingResults as MatchingResult | null,
+    });
     const bomStart = stepStart();
     const bom = await runDraftBomSplitStep({
       storage,

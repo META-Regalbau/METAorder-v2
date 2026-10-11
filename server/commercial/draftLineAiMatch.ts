@@ -210,6 +210,8 @@ function lineNeedsHelp(item: LineItemMatch & { bundle?: unknown; productScreen?:
   if (item.productScreen?.likelihood === "unlikely_product") return false;
   // Zurechtgerückte Nummer (verrutschte Spalte): Artikel steht fest, nur die Zeile war falsch
   if (item.numberCheck?.kind === "realigned" && item.matchedProduct) return false;
+  // Aus dem Konfigurator-Text zerlegt: Artikel per Maß/Fachlast gewählt, nicht von der KI überschreiben
+  if (item.matchStrategy === "configurator" && item.matchedProduct) return false;
   return !(item.status === "matched" && item.confidence >= 90 && item.matchedProduct);
 }
 
