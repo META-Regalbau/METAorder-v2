@@ -17,6 +17,7 @@ import {
   DEFAULT_CASH_ROUNDING,
 } from "../b2b/b2bOfferCreateContext";
 import { resolveCustomerUnitPrices } from "../commercial/commercialCustomerPricing";
+import { resolveDealerShipping, resolveSmallVolumeSurcharge, type DealerShipping, type SmallVolumeSurcharge } from "./dealerShipping";
 import { logger } from "../lib/logger";
 
 const log = logger.child({ component: "shopware/shopwareOrderCreateContext" });
@@ -146,6 +147,8 @@ export async function buildOrderCreateAttributes(
     lineItems: OrderLineItemInput[];
     customerContext?: OrderCustomerContext;
     customerComment?: string;
+    /** Wird gefüllt: Fracht nach Lieferbedingung (null = keine Regel, Standard-Versandart ohne Fracht) */
+    info?: { shipping?: DealerShipping | null; smallVolume?: SmallVolumeSurcharge | null };
   }
 ): Promise<Record<string, unknown>> {
   const client = new ShopwareClient(settings);
@@ -240,30 +243,83 @@ export async function buildOrderCreateAttributes(
     };
   });
 
+  // Mindermengenzuschlag wie im Portal: eigene Position mit dem Service-Artikel (Warenwert vorher)
+  const goodsNet = positionNet;
+  let smallVolume: SmallVolumeSurcharge | null = null;
+  try {
+    smallVolume = await resolveSmallVolumeSurcharge(client, { customerId: params.shopwareCustomerId, goodsNet });
+  } catch (error) {
+    log.warn({ err: error }, "[ShopwareOrder] Mindermengenzuschlag nicht ermittelt, Bestellung ohne Zuschlag");
+  }
+  if (params.info) params.info.smallVolume = smallVolume;
+  if (smallVolume) {
+    const calc = buildCalculatedItemPrice(smallVolume.net, 1, smallVolume.taxRate);
+    positionNet = round2(positionNet + calc.totalPrice);
+    taxByRate.set(smallVolume.taxRate, round2((taxByRate.get(smallVolume.taxRate) ?? 0) + calc.calculatedTaxes[0].tax));
+    lineItemsPayload.push({
+      identifier: "wdu-minimum-quantity-surcharge",
+      productId: smallVolume.productId,
+      referencedId: smallVolume.productId,
+      type: "product",
+      label: smallVolume.label,
+      quantity: 1,
+      position: lineItemsPayload.length + 1,
+      // wie das Portal-Plugin, plus Artikelnummer (Shopware verlangt sie für Produkt-Positionen)
+      payload: { productNumber: smallVolume.productNumber, wduServiceType: "minimum_quantity_surcharge", wduIsServiceItem: true } as never,
+      price: calc,
+      priceDefinition: buildQuantityPriceDefinition(smallVolume.net, 1, smallVolume.taxRate),
+    });
+  }
+
   const calculatedTaxes = Array.from(taxByRate.entries()).map(([taxRate, tax]) => ({
     tax,
     taxRate,
     price: positionNet,
   }));
   const taxRules = Array.from(taxByRate.keys()).map((taxRate) => ({ taxRate, percentage: 100 }));
-  const totalTax = Array.from(taxByRate.values()).reduce((sum, t) => round2(sum + t), 0);
   const dominantTaxRate = taxRules[0]?.taxRate ?? 0;
 
+  // Fracht nach Lieferbedingung des Händlers (Kunden-Tag → Versandregel → Warenwert-Staffel).
+  // Das Portal rechnet sie nur im Warenkorb; ohne Regel bleibt es bei der Standard-Versandart.
+  let shipping: DealerShipping | null = null;
+  try {
+    shipping = await resolveDealerShipping(client, {
+      customerId: params.shopwareCustomerId,
+      goodsNet,
+      preferredShippingMethodId: channelDefaults.shippingMethodId,
+    });
+  } catch (error) {
+    log.warn({ err: error }, "[ShopwareOrder] Fracht nach Lieferbedingung nicht ermittelt, Bestellung ohne Fracht");
+  }
+  if (params.info) params.info.shipping = shipping;
+  const shippingNet = shipping?.costNet ?? 0;
+  const shippingTax = round2((shippingNet * dominantTaxRate) / 100);
+  if (shippingNet > 0) {
+    taxByRate.set(dominantTaxRate, round2((taxByRate.get(dominantTaxRate) ?? 0) + shippingTax));
+    const entry = calculatedTaxes.find((t) => t.taxRate === dominantTaxRate);
+    if (entry) {
+      entry.tax = round2(entry.tax + shippingTax);
+      entry.price = round2(entry.price + shippingNet);
+    }
+  }
+  const totalTax = Array.from(taxByRate.values()).reduce((sum, t) => round2(sum + t), 0);
+  const netTotal = round2(positionNet + shippingNet);
+
   const orderPrice = {
-    netPrice: positionNet,
-    totalPrice: round2(positionNet + totalTax),
+    netPrice: netTotal,
+    totalPrice: round2(netTotal + totalTax),
     positionPrice: positionNet,
-    rawTotal: positionNet,
-    calculatedTaxes: calculatedTaxes.length > 0 ? calculatedTaxes : [{ tax: 0, taxRate: 0, price: positionNet }],
+    rawTotal: round2(netTotal + totalTax),
+    calculatedTaxes: calculatedTaxes.length > 0 ? calculatedTaxes : [{ tax: 0, taxRate: 0, price: netTotal }],
     taxRules: taxRules.length > 0 ? taxRules : [{ taxRate: 0, percentage: 100 }],
     taxStatus: "net",
   };
 
-  const zeroShippingCosts = {
-    unitPrice: 0,
-    totalPrice: 0,
+  const shippingCosts = {
+    unitPrice: shippingNet,
+    totalPrice: shippingNet,
     quantity: 1,
-    calculatedTaxes: [{ tax: 0, taxRate: dominantTaxRate, price: 0 }],
+    calculatedTaxes: [{ tax: shippingTax, taxRate: dominantTaxRate, price: shippingNet }],
     taxRules: [{ taxRate: dominantTaxRate, percentage: 100 }],
   };
 
@@ -284,17 +340,17 @@ export async function buildOrderCreateAttributes(
     price: orderPrice,
     itemRounding: DEFAULT_CASH_ROUNDING,
     totalRounding: DEFAULT_CASH_ROUNDING,
-    shippingCosts: zeroShippingCosts,
+    shippingCosts,
     lineItems: lineItemsPayload,
     tags: [automatedOrderTag],
     deliveries: [
       {
         stateId: deliveryStateId,
-        shippingMethodId: channelDefaults.shippingMethodId,
+        shippingMethodId: shipping?.shippingMethodId ?? channelDefaults.shippingMethodId,
         shippingOrderAddress: shippingAddress,
         shippingDateEarliest: now,
         shippingDateLatest: now,
-        shippingCosts: zeroShippingCosts,
+        shippingCosts,
       },
     ],
     transactions: [
