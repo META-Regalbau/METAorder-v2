@@ -55,19 +55,23 @@ export function looksLikeHtml(text: string): boolean {
 const HTML_ENTITIES: Record<string, string> = {
   nbsp: " ", amp: "&", lt: "<", gt: ">", quot: '"', apos: "'",
   auml: "ä", ouml: "ö", uuml: "ü", Auml: "Ä", Ouml: "Ö", Uuml: "Ü", szlig: "ß", euro: "€",
+  zwj: "", zwnj: "", shy: "",
 };
 
 /** Einfache HTML→Text-Umwandlung für Mailtexte: Zeilenumbrüche an Block-Enden, Tags weg, Entities auflösen. */
 export function htmlToPlainText(html: string): string {
   return html
     .replace(/<(style|script|head)\b[\s\S]*?<\/\1>/gi, "")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(p|div|tr|li|h[1-6]|table)>/gi, "\n")
+    // Apple Mail schreibt <br class=""> und <div class="">: Tags mit Attributen mitnehmen
+    .replace(/<br\b[^>]*>/gi, "\n")
+    .replace(/<\/(p|div|tr|li|h[1-6]|table|blockquote)\s*>/gi, "\n")
     .replace(/<\/td>/gi, " ")
     .replace(/<[^>]+>/g, "")
     .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
     .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
     .replace(/&([a-z]+);/gi, (m, name) => HTML_ENTITIES[name] ?? HTML_ENTITIES[name.toLowerCase()] ?? m)
+    // unsichtbare Zeichen aus Signaturen (Zero-Width-Joiner, BOM)
+    .replace(/[\u200b-\u200d\u2060\ufeff]/g, "")
     .replace(/[ \t\u00a0]+/g, " ")
     .replace(/ *\n */g, "\n")
     .replace(/\n{3,}/g, "\n\n")

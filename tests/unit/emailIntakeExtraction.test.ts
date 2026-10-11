@@ -63,6 +63,14 @@ describe("HTML im Mailtext", () => {
     assert.match(text, /4x 4026212325393\nindiesemsinne\.de\nSchüttweg 3\n59494 Soest/);
   });
 
+  it("Apple Mail: <br class=\"\"> und <div class=\"\"> trennen Zeilen, unsichtbare Zeichen fallen weg", () => {
+    // so kam die zweite Live-Testmail an: alles zusammengeklebt, PLZ aus der EAN gelesen
+    const text = htmlToPlainText(
+      '<div class="">2x 4026212434125</div><div class=""><br class=""></div><div class="">Liebe Grüße<br class="">Oliver<br class="">indiesemsinne.de<br class="">Schüttweg 3<br class="">59494 Soest<br class="">USt.ID: DE815873054&zwj;\u200d</div>',
+    );
+    assert.equal(text, "2x 4026212434125\n\nLiebe Grüße\nOliver\nindiesemsinne.de\nSchüttweg 3\n59494 Soest\nUSt.ID: DE815873054");
+  });
+
   it("Textteil mit HTML wird beim Lesen der Mail umgewandelt", async () => {
     const eml = [
       "Received: x",
