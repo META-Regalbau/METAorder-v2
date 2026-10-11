@@ -46,6 +46,34 @@ function normalizeEmlBufferForParsing(buffer: Buffer): Buffer {
   return Buffer.from(s.replace(/\r\r\n/g, "\r\n"), "latin1");
 }
 
+const HTML_TAG_RE = /<(html|body|table|tr|td|div|p|br|span|font)\b[^>]*>/i;
+
+export function looksLikeHtml(text: string): boolean {
+  return HTML_TAG_RE.test(text);
+}
+
+const HTML_ENTITIES: Record<string, string> = {
+  nbsp: " ", amp: "&", lt: "<", gt: ">", quot: '"', apos: "'",
+  auml: "ä", ouml: "ö", uuml: "ü", Auml: "Ä", Ouml: "Ö", Uuml: "Ü", szlig: "ß", euro: "€",
+};
+
+/** Einfache HTML→Text-Umwandlung für Mailtexte: Zeilenumbrüche an Block-Enden, Tags weg, Entities auflösen. */
+export function htmlToPlainText(html: string): string {
+  return html
+    .replace(/<(style|script|head)\b[\s\S]*?<\/\1>/gi, "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|tr|li|h[1-6]|table)>/gi, "\n")
+    .replace(/<\/td>/gi, " ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
+    .replace(/&([a-z]+);/gi, (m, name) => HTML_ENTITIES[name] ?? HTML_ENTITIES[name.toLowerCase()] ?? m)
+    .replace(/[ \t\u00a0]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 /**
  * Parst .eml Dateien (Standard E-Mail Format)
  */
@@ -56,7 +84,10 @@ export async function parseEmlFile(buffer: Buffer): Promise<ParsedEmailResult> {
     parsed.attachments || []
   );
 
-  const bodyText = parsed.text || parsed.html || '';
+  // Ohne Textteil (oder mit HTML im Textteil) kam bisher rohes HTML in die Auswertung:
+  // Firmen-/Adresserkennung las dann „<table border=…“ als Straße
+  const rawBody = parsed.text?.trim() ? parsed.text : typeof parsed.html === "string" ? parsed.html : "";
+  const bodyText = looksLikeHtml(rawBody) ? htmlToPlainText(rawBody) : rawBody;
   const orderNumber = extractOrderNumber(bodyText);
 
   return {

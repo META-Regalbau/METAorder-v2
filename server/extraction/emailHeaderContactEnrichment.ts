@@ -11,8 +11,16 @@ function isEmpty(v: unknown): boolean {
   return !s || /^[-–—.•·]+$/.test(s);
 }
 
+/** Anzeigenamen von Sammelpostfächern („Info“, „Einkauf“ …) sind keine Personen */
+const ROLE_NAME_RE =
+  /^(info|infos|office|team|service|kontakt|contact|mail|post|bestellung|bestellungen|order|orders|einkauf|purchasing|verkauf|vertrieb|sales|buchhaltung|rechnung|rechnungen|invoice|support|zentrale|empfang|noreply|no-reply|admin|shop)$/i;
+
 function splitPersonName(full: string): { firstName?: string; lastName?: string } {
-  const parts = full.trim().split(/\s+/).filter(Boolean);
+  const parts = full
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter((part) => !ROLE_NAME_RE.test(part.replace(/[.,:;]+$/, "")));
   if (parts.length === 0) return {};
   if (parts.length === 1) return { lastName: parts[0] };
   return { firstName: parts.slice(0, -1).join(" "), lastName: parts[parts.length - 1] };
