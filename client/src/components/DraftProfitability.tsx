@@ -133,6 +133,14 @@ export function DraftProfitabilityCard({
                 ? ` · ${t("draftProfitability.unpriced", { count: profitability.unpricedLineCount })}`
                 : ""}
             </p>
+            {profitability.additionalDiscount ? (
+              <p className="text-xs text-muted-foreground" data-testid="text-additional-discount">
+                {t("draftProfitability.additionalDiscount", {
+                  percent: fmt.number(profitability.additionalDiscount.percent),
+                  from: fmt.currency(profitability.additionalDiscount.fromAmount),
+                })}
+              </p>
+            ) : null}
             <p className="text-xs text-muted-foreground">
               {t("draftProfitability.thresholds", {
                 warn: fmt.number(profitability.thresholds.warnMarginPercent),

@@ -26,6 +26,8 @@ import { loadCrmProfitabilitySettings } from "../analytics/crmProfitabilitySetti
 import { computeCrmProfitabilityVerdict, computeHerstellMarginPercent } from "../products/herstellpreisMargin";
 import { logger } from "../lib/logger";
 import { logDraftEvent } from "./draftAuditLog";
+import { pickAdditionalDiscount, type AdditionalDiscountTier } from "@shared/additionalDiscountScale";
+import type { DraftAdditionalDiscount } from "@shared/draftProfitability";
 
 const log = logger.child({ component: "commercial/draftProfitability" });
 
@@ -236,14 +238,14 @@ async function fillMissingPrices(
   tenantId: string | null,
   customerId: string | null,
   lines: PricedDraftLine[],
-): Promise<void> {
+): Promise<AdditionalDiscountTier[]> {
   const missing = lines.flatMap((line) =>
     line.parts.filter((part) => part.unitPriceNet == null && part.ref.productId).map((part) => ({ line, part })),
   );
-  if (missing.length === 0) return;
+  if (missing.length === 0) return [];
 
   const settings = await storage.getShopwareSettings(tenantId);
-  if (!settings) return;
+  if (!settings) return [];
 
   const { ShopwareClient } = await import("../shopware/shopware");
   const { fetchSalesChannelOfferDefaults, fetchProductPricing, toShopwareUuid } = await import(
@@ -260,7 +262,7 @@ async function fillMissingPrices(
     customerChannelId: await fetchCustomerBoundSalesChannelId(storage, tenantId, customerId),
     allowedChannelIds: null,
   });
-  if (!channel.ok) return;
+  if (!channel.ok) return [];
   const { currencyId } = await fetchSalesChannelOfferDefaults(client, channel.salesChannelId);
 
   // Gleiche Artikel mit derselben Gesamtmenge abfragen (Mengenstaffel der Kundenpreise)
@@ -277,12 +279,14 @@ async function fillMissingPrices(
   }
 
   const priceById = new Map<string, { net: number; source: DraftPriceSource }>();
+  let tiers: AdditionalDiscountTier[] = [];
   if (customerId) {
     const resolved = await resolveCustomerUnitPrices(client, {
       customerId,
       currencyId,
       items: [...quantityById.values()],
     });
+    tiers = resolved.additionalDiscountTiers;
     for (const [id, price] of resolved.prices) {
       if (price.net > 0) priceById.set(normalizeId(id), { net: price.net, source: price.source });
     }
@@ -305,6 +309,32 @@ async function fillMissingPrices(
     }
     if (line.priceSource === "unresolved" && source) line.priceSource = source;
   }
+  return tiers;
+}
+
+const SHOP_PRICE_SOURCES = new Set<DraftPriceSource>(["customer_specific", "customer_discount", "list"]);
+
+/**
+ * Zusatzrabatt-Staffel auf den Warenwert anwenden (höchste erreichte Stufe): Positionen mit
+ * Shop-Preis werden um den Prozentsatz gemindert, von Hand gesetzte Preise nicht.
+ */
+export function applyAdditionalDiscount(
+  lines: PricedDraftLine[],
+  tiers: AdditionalDiscountTier[],
+): DraftAdditionalDiscount | null {
+  if (!tiers.length) return null;
+  const unitOf = (line: PricedDraftLine) =>
+    line.parts.every((p) => p.unitPriceNet != null) ? line.parts.reduce((s, p) => s + p.unitPriceNet! * p.quantityPerUnit, 0) : null;
+  const goodsNet = round2(lines.reduce((sum, line) => sum + (unitOf(line) ?? 0) * line.quantity, 0));
+  const tier = pickAdditionalDiscount(tiers, goodsNet);
+  if (!tier) return null;
+  for (const line of lines) {
+    if (!SHOP_PRICE_SOURCES.has(line.priceSource)) continue;
+    for (const part of line.parts) {
+      if (part.unitPriceNet != null) part.unitPriceNet = round2(part.unitPriceNet * (1 - tier.percent / 100));
+    }
+  }
+  return { percent: tier.percent, fromAmount: tier.fromAmount, goodsNet };
 }
 
 /** DB eines Entwurfs berechnen (Preise und Herstellkosten frisch aus Shopware/DB). */
@@ -325,8 +355,10 @@ export async function computeDraftProfitability(params: {
   const { productCache } = await import("../products/productCache");
   const lines = collectDraftLines(draft, kind, (productNumber) => productCache.getProductByNumber(productNumber)?.id);
 
+  let additionalDiscount: DraftAdditionalDiscount | null = null;
   try {
-    await fillMissingPrices(storage, tenantId, draft.shopwareCustomerId ?? null, lines);
+    const tiers = await fillMissingPrices(storage, tenantId, draft.shopwareCustomerId ?? null, lines);
+    additionalDiscount = applyAdditionalDiscount(lines, tiers);
   } catch (error) {
     log.warn({ err: error }, "[DraftProfitability] Preise konnten nicht ermittelt werden:");
   }
@@ -341,7 +373,8 @@ export async function computeDraftProfitability(params: {
     );
   }
 
-  return buildDraftProfitability(lines, herstellpreisOf, thresholds, { frozen: params.frozen });
+  const result = buildDraftProfitability(lines, herstellpreisOf, thresholds, { frozen: params.frozen });
+  return additionalDiscount ? { ...result, additionalDiscount } : result;
 }
 
 /** Ohne Recht „DB-Werte sehen“: nur Ampeln, Abdeckung und Preisquelle bleiben. */

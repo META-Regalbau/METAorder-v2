@@ -38,7 +38,11 @@ export type DraftProfitability = {
   unpricedLineCount: number;
   /** Ohne Recht „DB-Werte sehen“ fehlen alle Beträge und Prozente; nur die Ampel bleibt. */
   detailsHidden?: boolean;
+  /** Erreichte Stufe der Zusatzrabatt-Staffel des Händlers; in den Verkaufspreisen schon abgezogen */
+  additionalDiscount?: DraftAdditionalDiscount;
 };
+
+export type DraftAdditionalDiscount = { percent: number; fromAmount: number; goodsNet: number };
 
 /** Kurzform für Entwurfslisten. */
 export type DraftProfitabilityBadge = {

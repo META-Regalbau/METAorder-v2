@@ -5008,6 +5008,33 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/crm/pricing-diagnostics": {
+    "get": {
+      "tags": [
+        "crm"
+      ],
+      "summary": "GET /api/crm/pricing-diagnostics",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/cross-selling-rules": {
     "get": {
       "tags": [

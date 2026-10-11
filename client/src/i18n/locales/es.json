@@ -6314,7 +6314,10 @@
       "konfiguration_konnte_nicht_geladen_werden": "No se pudo cargar la configuración del flujo",
       "ungultige_problem_meldung": "Notificación de problema no válida",
       "internetmessageid_oder_graphmessageid_fehlt": "Falta internetMessageId o graphMessageId",
-      "problem_meldung_konnte_nicht_verarbeitet_werden": "No se pudo procesar la notificación del problema"
+      "problem_meldung_konnte_nicht_verarbeitet_werden": "No se pudo procesar la notificación del problema",
+      "kundennummer_fehlt_oder_ist_ungultig": "Falta el número de cliente o no es válido",
+      "shopware_ist_nicht_eingerichtet": "Shopware no está configurado",
+      "preis_diagnose_fehlgeschlagen": "Error en el diagnóstico de precios"
     }
   },
   "roomPlanner": {
@@ -7013,7 +7016,8 @@
     "priceNone": "sin precio",
     "priceReset": "Usar precio determinado",
     "priceChangedBy": "cambiado por {{user}}",
-    "lineTotal": "Total {{total}}"
+    "lineTotal": "Total {{total}}",
+    "additionalDiscount": "El descuento adicional del {{percent}} % (valor de mercancía desde {{from}}) está descontado de los precios de venta."
   },
   "draftMarginApproval": {
     "listState": {
