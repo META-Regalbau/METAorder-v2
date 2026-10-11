@@ -1,4 +1,5 @@
 import { extractDocumentTextPreviewForIntent } from "../extraction/documentTextExtraction";
+import { isXmlAttachment } from "../extraction/orderXmlParser";
 
 export type InboundPdfPart = {
   filename: string;
@@ -134,6 +135,8 @@ export function isCommercialInboundDocumentAttachment(filename: string, contentT
   if (ct === "message/rfc822" || ct === "application/vnd.ms-outlook") return true;
   if (ct.startsWith("image/")) return true;
   if (["png", "jpg", "jpeg", "gif", "webp", "tif", "tiff", "bmp"].includes(ext)) return true;
+  // Bestell-XML (openTRANS/cXML); ob es wirklich eine Bestellung ist, entscheidet die Klassifikation
+  if (isXmlAttachment(fn, ct)) return true;
   return false;
 }
 

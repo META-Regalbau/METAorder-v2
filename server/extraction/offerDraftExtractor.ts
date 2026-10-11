@@ -8,8 +8,9 @@ import {
   type DraftExtractionMailContext,
 } from "../commercial/draftExtractionContext";
 import { extractProductNumberFromLineRest } from "./articleNumberNormalize";
-import { isLowQualityLocalExtraction } from "./localExtractionQuality";
-import { extractPlainTextForDraft } from "./documentTextExtraction";
+import { isLowQualityLocalExtraction, localLineIsZipCity } from "./localExtractionQuality";
+import { extractLegacyFromOrderXml } from "./orderXmlParser";
+import { extractPlainTextForDraft, normalizeMimeTypeForDraft } from "./documentTextExtraction";
 import type { DocumentExtraction } from "@shared/documentExtractionSchema";
 import {
   DOCUMENT_EXTRACTION_SYSTEM_PROMPT,
@@ -234,6 +235,12 @@ export async function extractOfferDataFromDocument(
     siblingPdfExcerpts,
     primaryDocumentText,
   } = options;
+
+  // Bestell-XML (openTRANS/cXML, z. B. Mercateo RFQ): direkt übernehmen, siehe orderDraftExtractor.ts
+  if (normalizeMimeTypeForDraft(fileName, mimeType) === "application/xml") {
+    const fromXml = extractLegacyFromOrderXml(fileBuffer);
+    if (fromXml) return normalizeExtractedData(fromXml as ExtractedOfferData);
+  }
 
   const readPrimaryDocumentText = async () =>
     primaryDocumentText != null
@@ -463,6 +470,7 @@ function extractAddress(lines: string[]): ExtractedOfferData["billingAddress"] |
 function extractLineItems(lines: string[]): ExtractedOfferData["lineItems"] {
   const items: ExtractedOfferData["lineItems"] = [];
   for (const line of lines) {
+    if (localLineIsZipCity(line)) continue;
     const match = line.match(/^(\d+)\s*(x|stk|stück|pcs|pc|st\.)?\s+(.+)/i);
     if (!match) continue;
     const quantity = Number(match[1]);

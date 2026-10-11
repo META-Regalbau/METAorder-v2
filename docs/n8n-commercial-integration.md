@@ -192,6 +192,35 @@ Die Erkennung ist deterministisch (Titelbegriffe wie „Lieferschein", „LS-Nr.
 „Beigefügte Dokumente" mit Belegart, Kennnummern (LS-Nr., Bestell-Nr., Kommission) und
 Archiv-Status.
 
+### Bestell-XML (Mercateo/Unite, Beschaffungsportale; seit 11.10.2026)
+
+Beschaffungsplattformen schicken die Bestellung zusätzlich als XML mit. METAorder liest sie
+direkt ([`orderXmlParser.ts`](../server/extraction/orderXmlParser.ts)), ohne KI und ohne
+Zeilen-Raten:
+
+| Format | Erkennung | Inhalt |
+|--------|-----------|--------|
+| openTRANS 1.0 | Wurzel `ORDER`, `ARTICLE_ID/SUPPLIER_AID` | Parteien `BUYER_PARTY`, `INVOICE_PARTY`, `DELIVERY_PARTY` |
+| openTRANS 2.x | Wurzel `ORDER`, `PRODUCT_ID/SUPPLIER_PID`, `bmecat:`-Präfixe | Parteien mit `PARTY_ROLE` bzw. `*_IDREF` |
+| openTRANS RFQ | Wurzel `RFQ` | wird Angebotsanfrage |
+| cXML | `cXML/Request/OrderRequest` | `BillTo`, `ShipTo`, `Contact role="buyer"`, `ItemOut` |
+
+- **Rechnungsadresse** = Rechnungsempfänger (bei Mercateo die Plattform), sonst der Besteller;
+  **Lieferadresse** = Lieferpartei (der Endkunde). Kundennummer aus `PARTY_ID type="supplier_specific"`
+  → Kundensuche über die Nummer.
+- **Positionen**: META-EAN (4026212…) vor `SUPPLIER_AID`, weitere Nummern als Alternativen,
+  Kundennummer des Artikels als `buyer_sku`; Preis je Preiseinheit (`PRICE_QUANTITY`) wird auf
+  Stückpreis umgerechnet, Bruttopreise mit `TAX` auf netto.
+- Liegt dieselbe Bestellung **auch als PDF** bei, wird die PDF Beilage (Signal
+  `order_xml_preferred`), damit kein zweiter Entwurf entsteht.
+- Anderes XML mit Bestell-Wurzel (`<Bestellung>`, `<PurchaseOrder>` …) geht als „Pfad: Wert“-Text
+  an die normale Extraktion; Rechnungs-, Lieferavis- und Katalog-XML werden nicht ausgewertet.
+
+Ohne XML gilt: Mailtext-Zeilen wie „06354 Köthen“ (PLZ + Ort) sind keine Positionen; Mengen ab
+1000 vor reinem Text schicken die Mail an die KI statt an den lokalen Zeilenparser. Passt weder
+E-Mail noch Firma, wird über die Firmen-Domain gesucht (genau ein Konto → Vorschlag mit höchstens
+66 % Sicherheit, sonst Auswahlliste).
+
 ### Übergabe an das DMS (Lobster → d.3)
 
 ```

@@ -6548,7 +6548,8 @@
       "customerNumber": "Kundennummer",
       "companyExactZip": "Firma + PLZ",
       "companyExact": "Firma",
-      "companyPartial": "Firma ähnlich"
+      "companyPartial": "Firma ähnlich",
+      "emailDomain": "gleiche E-Mail-Domain"
     },
     "customerNumberShort": "Kd.-Nr. {{number}}",
     "candidatesIntro": "Kein Kunde mit dieser E-Mail-Adresse gefunden. Zur Firma passen {{count}} bestehende Shopware-Accounts — bitte den richtigen wählen:",

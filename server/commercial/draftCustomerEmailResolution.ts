@@ -2,6 +2,7 @@ import type OpenAI from "openai";
 import type { ShopwareClient } from "../shopware/shopware";
 import { truncateText } from "../ai/aiTextUtils";
 import { logger } from "../lib/logger";
+import { isFreemailDomain } from "./freemailDomains";
 
 const log = logger.child({ component: "commercial/draftCustomerEmailResolution" });
 
@@ -196,8 +197,11 @@ export function computeCustomerMatchConfidence(params: {
    * Mehrere Konten mit derselben Adresse (z. B. Portal und Shop) zählen nicht.
    */
   exactUniqueEmailMatch?: boolean;
+  /** Nur über die Firmen-Domain zugeordnet (anderer Ansprechpartner): Vorschlag, nie automatisch sicher */
+  emailDomainMatch?: boolean;
 }): number {
   if (params.shopwareCustomerId && params.exactUniqueEmailMatch) return EXACT_UNIQUE_EMAIL_MATCH_CONFIDENCE;
+  if (params.shopwareCustomerId && params.emailDomainMatch) return EMAIL_DOMAIN_MATCH_MAX_CONFIDENCE;
   const top = params.ranked[0];
   if (!params.shopwareCustomerId) {
     if (!top && !params.addressSecondaryMatch) return 0;
@@ -402,7 +406,7 @@ export type ShopwareCustomerCandidate = {
   salesChannelId?: string;
   salesChannelName?: string;
   /** Warum vorgeschlagen: exakte Firma, Firma + PLZ, Firma enthält … */
-  reason: "customer_number" | "company_exact_zip" | "company_exact" | "company_partial";
+  reason: "customer_number" | "company_exact_zip" | "company_exact" | "company_partial" | "email_domain";
 };
 
 /** Rechtsform-Varianten angleichen („GmbH & Co. KG" / „GmbH+Co.KG"), damit Firmennamen vergleichbar sind. */
@@ -484,7 +488,7 @@ async function tryResolveCustomerByBillingAddress(
     if (byId.size > 0) break;
   }
 
-  const rank = { customer_number: -1, company_exact_zip: 0, company_exact: 1, company_partial: 2 } as const;
+  const rank = { customer_number: -1, company_exact_zip: 0, company_exact: 1, company_partial: 2, email_domain: 3 } as const;
   const candidates = [...byId.values()].sort((a, b) => rank[a.reason] - rank[b.reason]).slice(0, 12);
 
   // Kundennummer aus dem Beleg schlägt alles: „Unsere Kontonr.: 11006" ↔ Shop „20000011006".
@@ -503,6 +507,41 @@ async function tryResolveCustomerByBillingAddress(
   const exact = candidates.filter((c) => c.reason !== "company_partial");
   const unique = exactZip.length === 1 ? exactZip[0] : exact.length === 1 && candidates.length === 1 ? exact[0] : null;
   return { match: unique ? { id: unique.id, email: unique.email } : null, candidates };
+}
+
+/** Höchstens so sicher ist eine Zuordnung nur über die Mail-Domain (unter der Auto-Schwelle 72). */
+export const EMAIL_DOMAIN_MATCH_MAX_CONFIDENCE = 66;
+
+/**
+ * Letzter Versuch, wenn weder E-Mail noch Firma passen: Konten mit derselben Firmen-Domain.
+ * Mercateo (Live 11.10.2026): Mail von operations@mercateo.com, Beleg-Firma „Mercateo Deutschland AG“,
+ * im Shop heißt das Konto „Unite Procurement Deutschland AG“ (heike.eichler@mercateo.com). Genau ein
+ * Konto mit der Domain → Vorschlag mit begrenzter Sicherheit; mehrere → nur zur Auswahl.
+ * Freemail und eigene Domains zählen nicht.
+ */
+export async function tryResolveCustomerByEmailDomain(
+  shopwareClient: { searchCustomers: (term: string, limit: number) => Promise<Array<Omit<ShopwareCustomerCandidate, "reason">>> },
+  emails: string[]
+): Promise<{ match: { id: string; email?: string } | null; candidates: ShopwareCustomerCandidate[] }> {
+  const domains = [
+    ...new Set(
+      emails
+        .map((e) => e.split("@")[1]?.trim().toLowerCase() ?? "")
+        .filter((d) => d.includes(".") && !isFreemailDomain(d) && !isOwnOperatorEmail(`x@${d}`))
+    ),
+  ].slice(0, 2);
+  for (const domain of domains) {
+    try {
+      const hits = await shopwareClient.searchCustomers(domain, 25);
+      const sameDomain = hits.filter((h) => (h.email ?? "").trim().toLowerCase().endsWith(`@${domain}`));
+      if (!sameDomain.length) continue;
+      const candidates = sameDomain.slice(0, 12).map((h) => ({ ...h, reason: "email_domain" as const }));
+      return { match: sameDomain.length === 1 ? { id: sameDomain[0].id, email: sameDomain[0].email } : null, candidates };
+    } catch (error) {
+      log.warn({ err: error }, `[DraftCustomerEmail] Domain-Suche fehlgeschlagen: ${domain}`);
+    }
+  }
+  return { match: null, candidates: [] };
 }
 
 /**
@@ -662,6 +701,23 @@ export async function resolveShopwareCustomerForDraft(
     }
   }
 
+  let emailDomainMatch = false;
+  const hasCandidates = Boolean(
+    (extractedData.customer as { shopwareCustomerCandidates?: unknown[] }).shopwareCustomerCandidates?.length
+  );
+  if (!shopwareCustomerId && !hasCandidates) {
+    const domainResult = await tryResolveCustomerByEmailDomain(shopwareClient, ordered);
+    if (domainResult.match) {
+      shopwareCustomerId = domainResult.match.id;
+      chosenEmail = domainResult.match.email?.trim() || chosenEmail;
+      emailDomainMatch = true;
+    }
+    if (domainResult.candidates.length > 0) {
+      (extractedData.customer as { shopwareCustomerCandidates?: ShopwareCustomerCandidate[] }).shopwareCustomerCandidates =
+        domainResult.candidates;
+    }
+  }
+
   const minForAutoOffer = options.customerMatchAutoMinConfidence ?? 72;
   const minForAutoCreate = options.customerAutoCreateMinConfidence ?? 50;
   const minRankedScore = options.minRankedEmailScoreForAutoCreate ?? 12;
@@ -671,6 +727,7 @@ export async function resolveShopwareCustomerForDraft(
     usedLlm,
     addressSecondaryMatch,
     exactUniqueEmailMatch,
+    emailDomainMatch,
   });
   extractedData.customer.customerMatchConfidence = matchConfidence;
 
@@ -763,6 +820,7 @@ export async function resolveShopwareCustomerForDraft(
     ...(shopwareCustomerId && chosenEmail ? { shopwareAccountEmail: chosenEmail } : {}),
     method,
     ...(exactUniqueEmailMatch ? { exactUniqueAccount: true } : {}),
+    ...(emailDomainMatch ? { emailDomainMatch: true } : {}),
   };
 
   return shopwareCustomerId;
