@@ -90,6 +90,24 @@ export function extractProductType(product: Product): string | null {
 }
 
 /**
+ * Beschriftete Maße aus Kundenbelegen: „H3300xB1825xT1100mm“, „B 1825 x H 3300 x T 1100“, „H=3300 B=1825 T=1100“.
+ * Händler schreiben so (Roloff, 11.10.2026); das „3300 x 1825 x 1100“-Muster greift dort nicht, übrig
+ * blieb nur „1100mm“ als Länge und die Vorschläge hatten falsche Maße.
+ */
+export function parseLabeledShelfDimensions(text: string): { height: number; width: number; depth: number } | null {
+  const found: Partial<Record<"H" | "B" | "T", number>> = {};
+  // „3300xB1825“: das Trenn-x direkt vor dem Kürzel zählt nicht als Buchstabe davor
+  const normalized = text.replace(/(\d)\s*[x×*]\s*(?=(?:H|B|T|Höhe|Hoehe|Breite|Tiefe)\s*[:=]?\s*\d)/gi, "$1 ");
+  const re = /(?:^|[^A-Za-zÄÖÜäöü])(H|B|T|Höhe|Hoehe|Breite|Tiefe)\s*[:=]?\s*(\d{3,5})(?=\s*(?:mm|x|×|\*|,|;|\s|$))/gi;
+  for (const m of normalized.matchAll(re)) {
+    const key = m[1][0].toUpperCase() as "H" | "B" | "T";
+    if (found[key] === undefined) found[key] = parseInt(m[2], 10);
+  }
+  if (found.H === undefined || found.B === undefined || found.T === undefined) return null;
+  return { height: found.H, width: found.B, depth: found.T };
+}
+
+/**
  * Extracts exact dimensions from properties or name
  * Returns dimensions in mm (no tolerance!)
  */
@@ -174,10 +192,18 @@ export function extractDimensions(product: Product): {
     // Pattern: "3300 x 2700 x 1100" (WxHxD for shelves)
     const xPattern = /(\d+)\s*x\s*(\d+)\s*x\s*(\d+)/i;
     const xMatch = product.name.match(xPattern);
+    const labeled = xMatch ? null : parseLabeledShelfDimensions(product.name);
     if (xMatch) {
       dimensions.width = parseInt(xMatch[1]);
       dimensions.height = parseInt(xMatch[2]);
       dimensions.depth = parseInt(xMatch[3]);
+    } else if (labeled) {
+      // META-Namen stehen in der Reihenfolge Höhe x Breite x Tiefe; die Felder oben folgen der Position
+      // im Namen. Beschriftete Kundenangaben deshalb in dieselbe Reihenfolge bringen.
+      delete dimensions.length;
+      dimensions.width = labeled.height;
+      dimensions.height = labeled.width;
+      dimensions.depth = labeled.depth;
     }
   }
 
