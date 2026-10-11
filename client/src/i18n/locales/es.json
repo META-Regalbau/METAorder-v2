@@ -6495,6 +6495,15 @@
         "optional_skipped_other": "{{count}} posiciones opcionales de la oferta no se adoptaron."
       },
       "originalLines": "Mostrar {{count}} posiciones originales del pedido"
+    },
+    "bomSplit": {
+      "title": "Lista de piezas desglosada en piezas individuales (sugerencias de IA)",
+      "entry_one": "La posición {{position}} se desglosó en {{count}} pieza.",
+      "entry_other": "La posición {{position}} se desglosó en {{count}} piezas.",
+      "entry": "La posición {{position}} se desglosó en {{count}} piezas.",
+      "priceDistributed": "El precio total {{total}} se reparte proporcionalmente entre las piezas.",
+      "priceOpen": "El precio total {{total}} aún no se ha repartido porque no todas las piezas tienen sugerencia.",
+      "showOriginal": "Mostrar posición original"
     }
   },
   "documentExtraction": {

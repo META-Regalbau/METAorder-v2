@@ -1,5 +1,5 @@
 import { DraftLineMatchSource } from "@/components/DraftLineMatchSource";
-import { DraftOfferReferenceNotice } from "@/components/DraftOfferReferenceNotice";
+import { DraftBomSplitNotice, DraftOfferReferenceNotice } from "@/components/DraftOfferReferenceNotice";
 import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -1376,6 +1376,7 @@ export function OrderDraftReviewModal({
 
           {/* Product Matching */}
           <DraftOfferReferenceNotice extractedData={editedData ?? draft.extractedData} />
+          <DraftBomSplitNotice extractedData={editedData ?? draft.extractedData} />
           {mergedMatchingResults && mergedMatchingResults.items.length > 0 && (
             <>
             <Card>

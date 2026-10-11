@@ -6498,6 +6498,15 @@
         "optional_skipped_other": "{{count}} optional offer lines were not taken over."
       },
       "originalLines": "Show {{count}} original order lines"
+    },
+    "bomSplit": {
+      "title": "Parts list split into individual parts (AI suggestions)",
+      "entry_one": "Line {{position}} was split into {{count}} part.",
+      "entry_other": "Line {{position}} was split into {{count}} parts.",
+      "entry": "Line {{position}} was split into {{count}} parts.",
+      "priceDistributed": "The total price {{total}} is distributed proportionally across the parts.",
+      "priceOpen": "The total price {{total}} is not distributed yet because not every part has a suggestion.",
+      "showOriginal": "Show original line"
     }
   },
   "documentExtraction": {

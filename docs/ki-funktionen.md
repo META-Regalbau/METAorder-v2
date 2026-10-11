@@ -101,6 +101,17 @@ Verweist eine Bestellung auf ein META-Angebot (`references.supplier_offer_number
 - **Im Prüffenster:** ein Hinweis mit Bestell- und Angebotswert und den Originalzeilen der Bestellung.
 - **Nicht übernommen:** Bei einem fremden Kunden, einem nicht gefundenen Angebot oder einem fehlenden Teil bleibt die Bestellung unverändert; der Grund steht als Hinweis da.
 
+### Stückliste im Positionstext auflösen (seit 11.10.2026)
+
+Ein Händler bestellt eine konfigurierte Anlage als **eine** Position und schreibt die Stückliste in den Text (Steinke: „… Zubehör: 3x U-Rammschutz …; Stückliste: 3x Ständer …; 20x Holm …“). Konnte kein Angebot übernommen werden, greift `server/commercial/draftBomSplit.ts`:
+
+1. **Erkennen:** Schlüsselwort (Stückliste, Zubehör, bestehend aus) plus mindestens 2 Mengenangaben, oder mindestens 4 Mengenangaben.
+2. **Zerlegen:** Die KI (Stufe `smart`) zerlegt den Text in körperliche Teile mit Stückzahl. Gleiche Teile aus mehreren Abschnitten werden zusammengezählt; Kenngrößen wie Fachlast oder Gesamthöhe fallen weg. Die Teile werden eigene Positionen (Nummern „2.1“, „2.2“ …).
+3. **Zuordnen:** Der KI-Abgleich ordnet die Teile Katalogartikeln zu. Dabei versteht er „Ständer“ als „Ständerrahmen“ und zerlegt Maße und Typen wie „4400x800“ oder „HN140/15“. Wird für Holme eine Holmebene gewählt, halbiert er die Menge.
+4. **Preis:** Haben alle Teile einen Vorschlag mit Katalogpreis, wird der Gesamtpreis der Originalposition anteilig nach Katalogpreis verteilt („geändert von Bestellposition 2“).
+
+Alles bleibt Vorschlag (status `uncertain`). Im Prüffenster steht ein Hinweis mit der Originalposition. Abschalten zusammen mit dem KI-Abgleich (`aiCatalogMatchEnabled`). Mit der Steinke-Stückliste im Testshop: 8 Teile, alle 8 richtig zugeordnet, Summe nach Verteilung 3.889,14 € statt 3.889,21 € (Rundung), etwa 20 s.
+
 ## Was das System **nicht kann** bzw. wo harte Grenzen sind
 
 1. **Mehrere Anbieter nur für Chat:** Bilderkennung, Embeddings, Smart Pricing, Buchhaltungs-Hinweise und Teile der Commercial-Pipeline laufen nur über OpenAI. Ohne OpenAI-Key fallen sie weg bzw. nutzen lokale Verfahren (z. B. lokale Embeddings).

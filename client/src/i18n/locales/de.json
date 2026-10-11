@@ -6495,6 +6495,15 @@
         "optional_skipped_other": "{{count}} optionale Angebotspositionen wurden nicht übernommen."
       },
       "originalLines": "{{count}} Originalpositionen der Bestellung anzeigen"
+    },
+    "bomSplit": {
+      "title": "Stückliste in Einzelteile aufgelöst (KI-Vorschläge)",
+      "entry_one": "Position {{position}} wurde in {{count}} Teil zerlegt.",
+      "entry_other": "Position {{position}} wurde in {{count}} Teile zerlegt.",
+      "entry": "Position {{position}} wurde in {{count}} Teile zerlegt.",
+      "priceDistributed": "Der Gesamtpreis {{total}} ist anteilig auf die Teile verteilt.",
+      "priceOpen": "Der Gesamtpreis {{total}} ist noch nicht verteilt, weil nicht alle Teile einen Vorschlag haben.",
+      "showOriginal": "Originalposition anzeigen"
     }
   },
   "documentExtraction": {

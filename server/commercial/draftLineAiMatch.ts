@@ -58,8 +58,11 @@ const SYNONYMS: Record<string, string[]> = {
   traverse: ["holm", "holmebene"],
   traversen: ["holm", "holmebene"],
   holm: ["holmebene"],
-  rahmen: ["staender", "ständer"],
-  stirnrahmen: ["staender", "ständer"],
+  rahmen: ["staender", "staenderrahmen"],
+  stirnrahmen: ["staender", "staenderrahmen"],
+  staender: ["staenderrahmen"],
+  rammschutz: ["rammschutzwand", "anfahrschutz"],
+  gitterrost: ["gitterrostboden"],
   verzinkt: ["vzk"],
   zn: ["vzk", "verzinkt"],
   fachboden: ["boden"],
@@ -74,6 +77,10 @@ export function tokenize(text: string): string[] {
     .replace(/ö/g, "oe")
     .replace(/ü/g, "ue")
     .replace(/ß/g, "ss")
+    // „4400x800“ → 4400 800, „hn140“ → hn 140, „4hs“ → 4 hs: Maße und Typen vergleichbar machen
+    .replace(/(\d)\s*[x×*]\s*(?=\d)/g, "$1 ")
+    .replace(/([a-z])(\d)/g, "$1 $2")
+    .replace(/(\d)([a-z])/g, "$1 $2")
     .split(/[^a-z0-9]+/)
     .filter((t) => t.length >= 2 && !STOPWORDS.has(t));
 }
@@ -121,16 +128,30 @@ export function buildCandidateShortlist(
   return scored.slice(0, size).map((s) => s.product);
 }
 
-const aiResponseSchema = z.object({
-  lines: z.array(
-    z.object({
-      line: z.number().int(),
-      candidate: z.number().int().nullable(),
-      confidence: z.number().min(0).max(100),
-      reason: z.string().max(400).optional(),
-    }),
-  ),
+const aiLineSchema = z.object({
+  line: z.coerce.number().int(),
+  candidate: z.coerce.number().int().nullable().optional(),
+  confidence: z.coerce.number().min(0).max(100),
+  reason: z.string().optional(),
 });
+type AiLine = z.infer<typeof aiLineSchema>;
+
+/** Je Zeile prüfen: eine kaputte Zeile verwirft nicht die ganze Antwort; „0“ heißt kein Kandidat. */
+export function parseAiLines(raw: string): AiLine[] | null {
+  const parsed = parseLlmJsonResponse(raw) as { lines?: unknown };
+  if (!parsed || !Array.isArray(parsed.lines)) return null;
+  const out: AiLine[] = [];
+  for (const entry of parsed.lines) {
+    const safe = aiLineSchema.safeParse(entry);
+    if (!safe.success) continue;
+    out.push({
+      ...safe.data,
+      candidate: safe.data.candidate && safe.data.candidate > 0 ? safe.data.candidate : null,
+      reason: (safe.data.reason ?? "").slice(0, 400),
+    });
+  }
+  return out;
+}
 
 export type AiMatchLlm = (system: string, user: string) => Promise<string>;
 
@@ -138,6 +159,8 @@ const AI_SYSTEM = `Du ordnest Bestellpositionen eines Händlers Artikeln aus dem
 Die Händler benutzen eigene Artikelnummern und Bezeichnungen. Maßangaben: H = Höhe, B = Breite, T = Tiefe; META-Namen nennen Maße als Höhe x Breite x Tiefe.
 Abkürzungen der Händler: „8xP“ = 8 Palettenplätze, „4E“ = 4 Ebenen, „zn“ = verzinkt, „/2001“ = RAL 2001, „GR“ = Grundregal, „AR“ = Anbauregal.
 Wähle je Position genau einen Kandidaten oder null, wenn keiner wirklich passt. Rate nicht: Maße, Regaltyp (Grund-/Anbauregal), Anzahl Ebenen/Palettenplätze und Stärke müssen stimmen.
+Gibt es eine Ausführung nicht genau (z. B. Profil 120/20 bestellt, im Katalog nur 100/20), darfst du die nächstliegende wählen, dann confidence höchstens 70 und die Abweichung in der Begründung nennen.
+Ständer heißen bei META „Ständerrahmen“. Holme werden als „Holmebene“ (Paar = 2 Holme) verkauft: für bestellte Holme die passende Holmebene wählen.
 Verpackungseinheiten beachten: Steht im Artikelnamen z. B. „10 Stück“, nenne das in der Begründung („VE 10 Stück – Menge prüfen“), weil die bestellte Menge sich auf Einzelteile beziehen kann.
 confidence: 90–100 nur bei eindeutiger Übereinstimmung aller Angaben, 60–89 wenn sehr wahrscheinlich, darunter unsicher.
 Antworte NUR mit JSON: {"lines":[{"line":1,"candidate":3,"confidence":85,"reason":"kurz, deutsch"}]}`;
@@ -160,6 +183,17 @@ function buildAiPrompt(entries: Array<{ lineNo: number; line: Line; candidates: 
 
 function toProductMatch(product: Product, confidence: number, reasoning?: string): ProductMatch {
   return { id: product.id, productNumber: product.productNumber, name: product.name, price: product.price, confidence, reasoning };
+}
+
+/** Holme bestellt, Holmebene (Paar) gewählt: Menge halbieren – wie der Regelabgleich (convertHolmToHolmebene). */
+export function applyHolmebeneConversion(item: LineItemMatch, line: Line, product: Product): void {
+  const ordered = line.extractedProductName.toLowerCase();
+  if (!/\bholm/.test(ordered) || /holmebene/.test(ordered) || !/holmebene/i.test(product.name)) return;
+  if (item.originalQuantity !== undefined) return;
+  item.originalQuantity = line.quantity;
+  item.convertedQuantity = Math.ceil(line.quantity / 2);
+  item.quantity = item.convertedQuantity;
+  item.conversionNote = "1 Holmebene = 2 Holme";
 }
 
 function lineNeedsHelp(item: LineItemMatch & { bundle?: unknown; productScreen?: { likelihood?: string } }): boolean {
@@ -237,17 +271,16 @@ export async function refineUnmatchedDraftLines(params: {
     return result;
   }
 
-  let parsed: z.infer<typeof aiResponseSchema> | null = null;
+  let parsed: AiLine[] | null = null;
   try {
     const raw = await params.llm(AI_SYSTEM, buildAiPrompt(entries));
-    const safe = aiResponseSchema.safeParse(parseLlmJsonResponse(raw));
-    parsed = safe.success ? safe.data : null;
+    parsed = parseAiLines(raw);
     if (!parsed) log.warn("[DraftLineAiMatch] KI-Antwort unbrauchbar");
   } catch (err) {
     log.warn({ err }, "[DraftLineAiMatch] KI-Abgleich fehlgeschlagen");
   }
   if (parsed) {
-    for (const answer of parsed.lines) {
+    for (const answer of parsed) {
       const entry = entries.find((e) => e.lineNo === answer.line);
       if (!entry || answer.candidate == null) continue;
       const product = entry.candidates[answer.candidate - 1];
@@ -265,6 +298,7 @@ export async function refineUnmatchedDraftLines(params: {
         entry.item.matchStrategy = "ai";
         entry.item.alternativeMatches = [...previous, ...others].slice(0, 8);
         entry.item.aiMatch = { confidence: Math.round(answer.confidence), reason, candidateCount: entry.candidates.length };
+        applyHolmebeneConversion(entry.item, entry.line, product);
         result.ai += 1;
       } else {
         entry.item.alternativeMatches = [suggestion, ...others].slice(0, 8);
