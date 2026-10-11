@@ -6549,12 +6549,17 @@
       "companyExactZip": "Firma + PLZ",
       "companyExact": "Firma",
       "companyPartial": "Firma ähnlich",
-      "emailDomain": "gleiche E-Mail-Domain"
+      "emailDomain": "gleiche E-Mail-Domain",
+      "portalAccount": "Portal-Konto",
+      "shopAccount": "Shop-Konto"
     },
     "customerNumberShort": "Kd.-Nr. {{number}}",
     "candidatesIntro": "Kein Kunde mit dieser E-Mail-Adresse gefunden. Zur Firma passen {{count}} bestehende Shopware-Accounts — bitte den richtigen wählen:",
     "candidatesIntro_one": "Kein Kunde mit dieser E-Mail-Adresse gefunden. Zur Firma passt {{count}} bestehender Shopware-Account — bitte den richtigen wählen:",
-    "candidatesIntro_other": "Kein Kunde mit dieser E-Mail-Adresse gefunden. Zur Firma passen {{count}} bestehende Shopware-Accounts — bitte den richtigen wählen:"
+    "candidatesIntro_other": "Kein Kunde mit dieser E-Mail-Adresse gefunden. Zur Firma passen {{count}} bestehende Shopware-Accounts — bitte den richtigen wählen:",
+    "portalSwitch": "Portal-Konto {{to}} ({{channel}}) statt Shop-Konto {{from}} zugeordnet: Die Firma wird über das Portal abgewickelt.",
+    "portalChoice": "Die Firma hat mehrere Portal-Konten. Bitte das richtige Konto wählen, Bestellungen laufen über das Portal.",
+    "portalFallbackName": "Händlerportal"
   },
   "offerPreview": {
     "title": "Interaktive Vorschau",

@@ -3,6 +3,15 @@ import type { ShopwareClient } from "../shopware/shopware";
 import { truncateText } from "../ai/aiTextUtils";
 import { logger } from "../lib/logger";
 import { isFreemailDomain } from "./freemailDomains";
+import {
+  findPortalAlternatives,
+  isPortalAccount,
+  loadPortalChannelIds,
+  pickPreferredAccount,
+  PORTAL_SWITCH_MAX_CONFIDENCE,
+  type AccountLike,
+  type PortalChannelIds,
+} from "./portalAccountPreference";
 
 const log = logger.child({ component: "commercial/draftCustomerEmailResolution" });
 
@@ -406,7 +415,7 @@ export type ShopwareCustomerCandidate = {
   salesChannelId?: string;
   salesChannelName?: string;
   /** Warum vorgeschlagen: exakte Firma, Firma + PLZ, Firma enthält … */
-  reason: "customer_number" | "company_exact_zip" | "company_exact" | "company_partial" | "email_domain";
+  reason: "customer_number" | "company_exact_zip" | "company_exact" | "company_partial" | "email_domain" | "portal_account" | "shop_account";
 };
 
 /** Rechtsform-Varianten angleichen („GmbH & Co. KG" / „GmbH+Co.KG"), damit Firmennamen vergleichbar sind. */
@@ -497,7 +506,7 @@ async function tryResolveCustomerByBillingAddress(
     if (byId.size > 0) break;
   }
 
-  const rank = { customer_number: -1, company_exact_zip: 0, company_exact: 1, company_partial: 2, email_domain: 3 } as const;
+  const rank = { customer_number: -1, company_exact_zip: 0, company_exact: 1, company_partial: 2, email_domain: 3, portal_account: 4, shop_account: 5 } as const;
   const candidates = [...byId.values()].sort((a, b) => rank[a.reason] - rank[b.reason]).slice(0, 12);
 
   // Kundennummer aus dem Beleg schlägt alles: „Unsere Kontonr.: 11006" ↔ Shop „20000011006".
@@ -573,6 +582,71 @@ export function shouldRunShopwareCustomerResolutionForDraft(
       ? extractedData.billingAddress.email.trim()
       : "";
   return be.length > 0 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(be);
+}
+
+/** Vermerk am Entwurf, wenn statt des Shop-Kontos das Portal-Konto der Firma genommen wurde */
+export type PortalAccountSwitch = {
+  fromCustomerId: string;
+  fromCustomerNumber: string | null;
+  toCustomerId: string;
+  toCustomerNumber: string | null;
+  toSalesChannelName: string | null;
+};
+
+/**
+ * Shop-Konto zugeordnet → Portal-Konto derselben Firma suchen (Entscheidung 11.10.2026).
+ * Genau eins: wechseln (Vermerk `portalAccountSwitch`); mehrere: Zuordnung aufheben, Bearbeiter
+ * wählt aus Portal-Konten + Shop-Konto (`portalAccountChoiceRequired`).
+ */
+async function preferPortalAccount(
+  shopwareClient: ShopwareClient,
+  extractedData: { customer?: DraftExtractedCustomer; billingAddress?: { company?: string } },
+  matched: AccountLike,
+  emails: string[],
+  portalChannelIds: PortalChannelIds,
+): Promise<{ switchedTo?: AccountLike; choiceRequired?: boolean } | null> {
+  let account = matched;
+  if (portalChannelIds && !account.salesChannelId && typeof shopwareClient.fetchCustomerSalesChannelId === "function") {
+    const bound = await shopwareClient.fetchCustomerSalesChannelId(account.id).catch(() => null);
+    if (bound?.id) account = { ...account, salesChannelId: bound.id, salesChannelName: bound.name ?? undefined };
+  }
+  if (!account.salesChannelId && !account.salesChannelName && !account.customerNumber) return null; // Kanal unbekannt: nichts raten
+  if (isPortalAccount(account, portalChannelIds)) return null;
+
+  const alternatives = await findPortalAlternatives(
+    shopwareClient as never,
+    {
+      excludeId: account.id,
+      companies: [extractedData.billingAddress?.company, extractedData.customer?.company, account.company],
+      emails: [...emails, account.email ?? ""],
+      isOwnDomain: (d) => isOwnOperatorEmail(`x@${d}`),
+    },
+    portalChannelIds,
+  );
+  if (!alternatives.length) return null;
+  const customer = extractedData.customer as DraftExtractedCustomer & {
+    portalAccountSwitch?: PortalAccountSwitch;
+    portalAccountChoiceRequired?: boolean;
+    shopwareCustomerCandidates?: ShopwareCustomerCandidate[];
+  };
+  if (alternatives.length === 1) {
+    const to = alternatives[0];
+    customer.portalAccountSwitch = {
+      fromCustomerId: account.id,
+      fromCustomerNumber: account.customerNumber ?? null,
+      toCustomerId: to.id,
+      toCustomerNumber: to.customerNumber ?? null,
+      toSalesChannelName: to.salesChannelName ?? null,
+    };
+    log.info({ from: account.customerNumber, to: to.customerNumber }, "[DraftCustomerEmail] Portal-Konto statt Shop-Konto");
+    return { switchedTo: to };
+  }
+  customer.portalAccountChoiceRequired = true;
+  customer.shopwareCustomerCandidates = [
+    ...alternatives.map((a) => ({ ...a, customerNumber: a.customerNumber ?? undefined, salesChannelId: a.salesChannelId ?? undefined, reason: "portal_account" as const })),
+    { ...account, customerNumber: account.customerNumber ?? undefined, salesChannelId: account.salesChannelId ?? undefined, reason: "shop_account" as const },
+  ];
+  return { choiceRequired: true };
 }
 
 export async function resolveShopwareCustomerForDraft(
@@ -669,17 +743,28 @@ export async function resolveShopwareCustomerForDraft(
   let shopwareCustomerId: string | null = null;
   let chosenEmail: string | null = null;
   let exactUniqueEmailMatch = false;
+  /** Das zugeordnete Konto mit Kanal/Kundennummer (für „Portal vor Onlineshop“) */
+  let matchedAccount: AccountLike | null = null;
+  let portalChannelIds: PortalChannelIds | undefined;
+  const portalIds = async () => {
+    if (portalChannelIds === undefined) portalChannelIds = await loadPortalChannelIds(shopwareClient as never);
+    return portalChannelIds;
+  };
 
   for (const [index, tryEmail] of ordered.entries()) {
     try {
-      const customer = await shopwareClient.findCustomerByEmail(tryEmail);
+      // Alle Konten zur Adresse: dieselbe E-Mail kann im Shop UND im Portal ein Konto haben →
+      // das Portal-Konto gewinnt (Bestellung läuft über den Kanal des Kontos)
+      const accounts = await shopwareClient.findCustomersByEmail(tryEmail, 10).catch(() => []);
+      const preferred = accounts.length > 1 ? pickPreferredAccount(accounts, await portalIds()) : accounts[0] ?? null;
+      const customer = preferred ?? (await shopwareClient.findCustomerByEmail(tryEmail));
       if (customer?.id) {
         shopwareCustomerId = customer.id;
-        chosenEmail = (customer.email as string)?.trim() || tryEmail;
+        matchedAccount = { ...(customer as AccountLike), email: tryEmail };
+        chosenEmail = ((customer as { email?: string }).email as string)?.trim() || tryEmail;
         // Sicher nur, wenn es die erste Wahl war (Beleg/Absender), die Kontoadresse genau passt
         // und Shopware genau ein Konto mit dieser Adresse kennt
         if (index === 0 && chosenEmail.toLowerCase() === tryEmail.toLowerCase()) {
-          const accounts = await shopwareClient.findCustomersByEmail(tryEmail, 2).catch(() => []);
           exactUniqueEmailMatch = accounts.length === 1 && accounts[0].id === customer.id;
         }
         break;
@@ -699,9 +784,21 @@ export async function resolveShopwareCustomerForDraft(
       extractedData.billingAddress,
       docCustomerNumber
     );
-    if (addrResult.match) {
-      shopwareCustomerId = addrResult.match.id;
-      chosenEmail = addrResult.match.email?.trim() || chosenEmail;
+    // Mehrere exakte Treffer (Shop- und Portal-Konto derselben Firma): genau ein Portal-Konto gewinnt
+    const exactPortal = addrResult.match
+      ? []
+      : addrResult.candidates.filter((c) => c.reason !== "company_partial");
+    const portalOnly = exactPortal.length > 1 ? exactPortal.filter((c) => isPortalAccount(c, portalChannelIds ?? null)) : [];
+    if (exactPortal.length > 1 && portalOnly.length === 0) {
+      // Kanalliste erst bei Bedarf laden
+      const ids = await portalIds();
+      portalOnly.push(...exactPortal.filter((c) => isPortalAccount(c, ids)));
+    }
+    const addrMatch = addrResult.match ?? (portalOnly.length === 1 ? { id: portalOnly[0].id, email: portalOnly[0].email } : null);
+    if (addrMatch) {
+      shopwareCustomerId = addrMatch.id;
+      matchedAccount = addrResult.candidates.find((c) => c.id === addrMatch.id) ?? { id: addrMatch.id };
+      chosenEmail = addrMatch.email?.trim() || chosenEmail;
       addressSecondaryMatch = true;
     } else if (addrResult.candidates.length > 0) {
       // Mehrere passende Accounts: nicht raten, sondern im Review zur Auswahl anbieten.
@@ -718,6 +815,7 @@ export async function resolveShopwareCustomerForDraft(
     const domainResult = await tryResolveCustomerByEmailDomain(shopwareClient, ordered);
     if (domainResult.match) {
       shopwareCustomerId = domainResult.match.id;
+      matchedAccount = domainResult.candidates.find((c) => c.id === domainResult.match!.id) ?? { id: domainResult.match.id };
       chosenEmail = domainResult.match.email?.trim() || chosenEmail;
       emailDomainMatch = true;
     }
@@ -725,6 +823,17 @@ export async function resolveShopwareCustomerForDraft(
       (extractedData.customer as { shopwareCustomerCandidates?: ShopwareCustomerCandidate[] }).shopwareCustomerCandidates =
         domainResult.candidates;
     }
+  }
+
+  // Portal vor Onlineshop: Shop-Konto gefunden, aber die Firma hat ein Portal-Konto
+  const portalCheck = shopwareCustomerId && matchedAccount
+    ? await preferPortalAccount(shopwareClient, extractedData, matchedAccount, ordered, await portalIds())
+    : null;
+  if (portalCheck?.switchedTo) {
+    shopwareCustomerId = portalCheck.switchedTo.id;
+    chosenEmail = portalCheck.switchedTo.email?.trim() || chosenEmail;
+  } else if (portalCheck?.choiceRequired) {
+    shopwareCustomerId = null;
   }
 
   const minForAutoOffer = options.customerMatchAutoMinConfidence ?? 72;
@@ -738,7 +847,9 @@ export async function resolveShopwareCustomerForDraft(
     exactUniqueEmailMatch,
     emailDomainMatch,
   });
-  extractedData.customer.customerMatchConfidence = matchConfidence;
+  extractedData.customer.customerMatchConfidence = portalCheck?.switchedTo
+    ? Math.min(matchConfidence, PORTAL_SWITCH_MAX_CONFIDENCE)
+    : matchConfidence;
 
   const createEmailRaw = (chosenEmail ?? ordered[0] ?? "").trim();
   const createEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(createEmailRaw);
@@ -774,6 +885,7 @@ export async function resolveShopwareCustomerForDraft(
   const canAutoCreate =
     options.allowCustomerAutoCreate === true &&
     !shopwareCustomerId &&
+    !portalCheck?.choiceRequired &&
     createEmailValid &&
     fullBillingForCreate &&
     companyForCreate &&

@@ -6552,12 +6552,17 @@
       "companyExactZip": "Company + ZIP code",
       "companyExact": "Company",
       "companyPartial": "Similar company",
-      "emailDomain": "same email domain"
+      "emailDomain": "same email domain",
+      "portalAccount": "portal account",
+      "shopAccount": "shop account"
     },
     "customerNumberShort": "Cust. no. {{number}}",
     "candidatesIntro": "No customer found with this e-mail address. {{count}} existing Shopware accounts match the company — please select the right one:",
     "candidatesIntro_one": "No customer found with this e-mail address. {{count}} existing Shopware account matches the company — please select the right one:",
-    "candidatesIntro_other": "No customer found with this e-mail address. {{count}} existing Shopware accounts match the company — please select the right one:"
+    "candidatesIntro_other": "No customer found with this e-mail address. {{count}} existing Shopware accounts match the company — please select the right one:",
+    "portalSwitch": "Portal account {{to}} ({{channel}}) assigned instead of shop account {{from}}: this company is handled via the portal.",
+    "portalChoice": "This company has several portal accounts. Please choose the right one; orders are handled via the portal.",
+    "portalFallbackName": "dealer portal"
   },
   "offerPreview": {
     "title": "Interactive preview",
