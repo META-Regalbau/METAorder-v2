@@ -43,6 +43,24 @@ describe("Positionen nur mit Artikelnummer", () => {
     assert.equal(legacy.lineItems?.[0].extractedProductName, "4026212325393");
     assert.equal(legacy.lineItems?.[1].extractedProductName, "Fachboden 1000x400");
   });
+
+  it("META-Nummer aus alternative_skus schlägt die Kundennummer (Roloff)", () => {
+    const base = { position: 1, quantity: 1, unit: "Stück", description: "Paletten-Grundregal 8xP 1000kg H3300xB1825xT1100mm 4E", unit_price_net: 360.12, line_total_net: null, attributes: { color: null, system: null, surface: null, dimensions_raw: null }, confidence_warnings: [] };
+    const legacy = translateDocumentExtractionToLegacy({
+      document: { type: "purchase_order", number: "112608258", date: null, delivery_date: null, currency: "EUR", language: "de", total_net: null, buyer_is_meta: false, recipient_is_meta: true },
+      buyer: { company: "Roloff GmbH", contact_person: null, street: null, zip: null, city: null, country: null, email: null, phone: null, vat_id: null, customer_number: null },
+      delivery_address: { same_as_buyer: true, company: null, street: null, zip: null, city: null, country: null, delivery_window: null },
+      line_items: [
+        { ...base, supplier_sku: null, buyer_sku: "921027516", alternative_skus: ["200189962"] },
+        { ...base, supplier_sku: null, buyer_sku: "921027604", alternative_skus: [] },
+        { ...base, supplier_sku: "200185328", buyer_sku: "921027604", alternative_skus: ["124583"] },
+      ],
+      terms: { payment: null, incoterms: null, partial_delivery_allowed: null, notes: null },
+      references: EMPTY_DOCUMENT_EXTRACTION_REFERENCES,
+      extraction_meta: { overall_confidence: "high", warnings: [], calculated_total_net: null, total_matches_calculated: null },
+    } as never);
+    assert.deepEqual(legacy.lineItems?.map((l) => l.extractedProductNumber), ["200189962", "921027604", "200185328"]);
+  });
 });
 
 describe("Kopfzeile: Sammelpostfächer sind keine Personen", () => {

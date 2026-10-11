@@ -135,6 +135,12 @@ function referencesToLegacy(refs: DocumentExtractionReferences | undefined): Dra
 function pickProductNumber(item: DocumentExtractionLineItem): string | undefined {
   const sup = item.supplier_sku?.trim();
   if (sup) return sup;
+  // alternative_skus sind laut Prompt immer META-seitig (Kurznummer, ERP-Nummer 2001…) und schlagen
+  // die Kundennummer. Roloff (Live 11.10.2026): META-Nummer 200189962 stand hier, supplier_sku war leer,
+  // abgeglichen wurde Roloffs eigene 921027516 – kein Treffer. Ob die KI die Nummer hierhin oder nach
+  // supplier_sku schreibt, schwankt von Lauf zu Lauf.
+  const meta = (item.alternative_skus ?? []).map((v) => (typeof v === "string" ? v.trim() : "")).find(Boolean);
+  if (meta) return meta;
   const buyer = item.buyer_sku?.trim();
   if (buyer) return buyer;
   return undefined;
