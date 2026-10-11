@@ -235,6 +235,23 @@ export default function EmailIntakeSection() {
               </Select>
             </div>
             <p className="text-xs text-muted-foreground">{t("settings.integration.emailIntake.assigneeChain")}</p>
+            <div>
+              <Label className="text-xs" htmlFor="email-intake-teams">{t("settings.integration.emailIntake.teamsWebhook")}</Label>
+              <Input
+                id="email-intake-teams"
+                className="mt-1 font-mono text-xs"
+                type="url"
+                placeholder="https://….logic.azure.com/workflows/…"
+                value={form.teamsWebhookUrl}
+                onChange={(e) => set("teamsWebhookUrl", e.target.value)}
+                data-testid="input-email-intake-teams"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {form.teamsWebhookUrl.trim()
+                  ? t("settings.integration.emailIntake.teamsWebhookHint")
+                  : t("settings.integration.emailIntake.teamsWebhookEmpty")}
+              </p>
+            </div>
           </fieldset>
 
           {categories.length > 0 ? (

@@ -758,6 +758,52 @@
       "maxTries": 3,
       "waitBetweenTries": 3000,
       "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// METAorder liefert fertige Karten (nur neue Tickets, Webhook aus den E-Mail-Eingang-Einstellungen)\nconst out = [];\nfor (const item of $input.all()) {\n  const teams = item.json.intake && item.json.intake.teams;\n  if (!teams || !teams.webhookUrl || !Array.isArray(teams.messages)) continue;\n  for (const message of teams.messages) out.push({ json: { webhookUrl: teams.webhookUrl, message } });\n}\nreturn out;\n"
+      },
+      "id": "teams-nachrichten",
+      "name": "Teams-Nachrichten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3960,
+        200
+      ],
+      "notes": "Karte mit @Erwähnung des Zuständigen in den Teams-Kanal; ohne Zuständigen ohne Erwähnung.",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.webhookUrl }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.message) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "an-teams-senden",
+      "name": "An Teams senden",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4180,
+        200
+      ],
+      "notes": "Teams-Workflow „Bei Eingang einer Webhookanforderung in einem Kanal posten“. Fehler hier ändern nichts an der Mail.",
+      "notesInFlow": true,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
     }
   ],
   "connections": {
@@ -947,6 +993,11 @@
             "node": "Weiterleiten?",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Teams-Nachrichten",
+            "type": "main",
+            "index": 0
           }
         ],
         [
@@ -974,6 +1025,11 @@
         [
           {
             "node": "Weiterleiten?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Teams-Nachrichten",
             "type": "main",
             "index": 0
           }
@@ -1047,6 +1103,17 @@
         [
           {
             "node": "In Zielordner verschieben",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Teams-Nachrichten": {
+      "main": [
+        [
+          {
+            "node": "An Teams senden",
             "type": "main",
             "index": 0
           }

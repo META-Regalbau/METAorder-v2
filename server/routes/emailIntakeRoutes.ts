@@ -19,6 +19,7 @@ import {
 } from "@shared/emailIntake";
 import { getEmailIntakeSettings, saveEmailIntakeSettings, workflowConfigFromSettings } from "../commercial/emailIntakeSettings";
 import { createIntakeProblemTicket } from "../commercial/emailIntakeTickets";
+import { buildIntakeTeamsBlock, publicAppBaseUrl } from "../commercial/emailIntakeTeams";
 import { unwrapInternalForward } from "../email/emailForwardUnwrap";
 import { logger } from "../lib/logger";
 
@@ -179,6 +180,11 @@ export function registerEmailIntakeRoutes(app: Express): void {
           move: Boolean(ticket),
           tickets: ticket ? [ticket] : [],
           other: null,
+          teams: buildIntakeTeamsBlock(
+            settings.teamsWebhookUrl,
+            ticket ? [ticket] : [],
+            publicAppBaseUrl(`${req.protocol}://${req.get("host") || ""}`),
+          ),
         };
         res.json({ intake });
       } catch (error) {

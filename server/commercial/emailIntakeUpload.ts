@@ -12,6 +12,7 @@ import {
 import type { IngestCommercialEmailUploadResult, IngestMailEnvelope } from "./commercialEmailUploadIngest";
 import { planEmailIntake } from "./emailIntakeOutcome";
 import { createIntakeProblemTicket } from "./emailIntakeTickets";
+import { buildIntakeTeamsBlock } from "./emailIntakeTeams";
 import { logger } from "../lib/logger";
 
 const log = logger.child({ component: "commercial/emailIntakeUpload" });
@@ -32,7 +33,7 @@ export function releaseIntakeLock(key: string): void {
   inFlight.delete(key);
 }
 
-type DraftInfo = { shopwareCustomerId: string | null; fileName: string | null };
+type DraftInfo = { shopwareCustomerId: string | null; fileName: string | null; company: string | null };
 
 export async function finalizeEmailIntake(params: {
   storage: IStorage;
@@ -42,6 +43,8 @@ export async function finalizeEmailIntake(params: {
   existingDraftKind: "order" | "offer" | null;
   rawEmail: { buffer: Buffer; fileName: string };
   integrationUser: { id: string; email?: string | null };
+  /** Basisadresse für Links in der Teams-Info */
+  appBaseUrl?: string | null;
 }): Promise<EmailIntakeResponse> {
   const { storage, tenantId, settings, ingest } = params;
   const plan = planEmailIntake({
@@ -60,7 +63,12 @@ export async function finalizeEmailIntake(params: {
         problem.draft.kind === "order"
           ? await storage.getOrderDraft(problem.draft.id, tenantId)
           : await storage.getOfferDraft(problem.draft.id, tenantId);
-      draft = { shopwareCustomerId: row?.shopwareCustomerId ?? null, fileName: row?.originalFileName ?? null };
+      const extracted = (row?.extractedData ?? null) as { billingAddress?: { company?: string }; customer?: { company?: string } } | null;
+      draft = {
+        shopwareCustomerId: row?.shopwareCustomerId ?? null,
+        fileName: row?.originalFileName ?? null,
+        company: extracted?.billingAddress?.company ?? extracted?.customer?.company ?? null,
+      };
     }
     const ref = await createIntakeProblemTicket(storage, {
       tenantId,
@@ -103,6 +111,7 @@ export async function finalizeEmailIntake(params: {
     move: true,
     tickets,
     other: plan.other,
+    teams: buildIntakeTeamsBlock(settings.teamsWebhookUrl, tickets, params.appBaseUrl ?? null),
   };
 }
 
@@ -117,6 +126,7 @@ export async function failEmailIntake(params: {
   error: string;
   rawEmail: { buffer: Buffer; fileName: string };
   integrationUser: { id: string; email?: string | null };
+  appBaseUrl?: string | null;
 }): Promise<EmailIntakeResponse> {
   const tickets: EmailIntakeTicketRef[] = [];
   if (params.settings.ticketOnFailure) {
@@ -145,5 +155,6 @@ export async function failEmailIntake(params: {
     move: true,
     tickets,
     other: null,
+    teams: buildIntakeTeamsBlock(params.settings.teamsWebhookUrl, tickets, params.appBaseUrl ?? null),
   };
 }

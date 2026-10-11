@@ -32,7 +32,32 @@ export const emailIntakeSettingsSchema = z.object({
   ticketOnFailure: z.boolean(),
   ticketOnShopwareError: z.boolean(),
   ticketOnMarginRed: z.boolean(),
+  /**
+   * Teams-Workflow-Webhook („Post to a channel when a webhook request is received“): n8n postet dorthin
+   * je neuem Problem-Ticket eine Karte mit @Erwähnung des Zuständigen. Leer = keine Teams-Info.
+   */
+  teamsWebhookUrl: z.union([
+    z.literal(""),
+    z
+      .string()
+      .trim()
+      .max(2000)
+      .url()
+      .refine((v) => isAllowedTeamsWebhookUrl(v), "Nur https-Adressen von Microsoft (Power Automate / Logic Apps / Teams)"),
+  ]),
 });
+
+const TEAMS_WEBHOOK_HOST_RE = /(^|\.)(logic\.azure\.com|powerplatform\.com|powerautomate\.com|webhook\.office\.com)$/i;
+
+/** Teams-Webhooks laufen über Microsoft-Dienste; andere Ziele würden Ticketdaten nach außen geben. */
+export function isAllowedTeamsWebhookUrl(value: string): boolean {
+  try {
+    const u = new URL(value);
+    return u.protocol === "https:" && TEAMS_WEBHOOK_HOST_RE.test(u.hostname);
+  } catch {
+    return false;
+  }
+}
 
 export type EmailIntakeSettings = z.infer<typeof emailIntakeSettingsSchema>;
 
@@ -49,6 +74,7 @@ export const DEFAULT_EMAIL_INTAKE_SETTINGS: EmailIntakeSettings = {
   ticketOnFailure: true,
   ticketOnShopwareError: true,
   ticketOnMarginRed: true,
+  teamsWebhookUrl: "",
 };
 
 const SIMPLE_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -120,7 +146,24 @@ export type EmailIntakeOutcome =
 export type EmailIntakeTicketRef = {
   ticketNumber: string;
   reason: EmailIntakeProblemReason;
+  /** Benutzername des Zuständigen */
   assignedTo: string | null;
+  ticketId?: string;
+  /** false: Ticket gab es schon (n8n-Wiederholung) → keine zweite Teams-Info */
+  isNew?: boolean;
+  /** E-Mail des Zuständigen (= Teams-Anmeldename für die @Erwähnung) */
+  assignedToEmail?: string | null;
+  subject?: string;
+  /** Firma bzw. Absender der Kundenmail */
+  customer?: string | null;
+  /** Relativer Link zum Entwurf */
+  draftPath?: string | null;
+};
+
+/** Fertige Teams-Nachrichten; n8n schickt jede per POST an `webhookUrl`. */
+export type EmailIntakeTeamsBlock = {
+  webhookUrl: string;
+  messages: Array<Record<string, unknown>>;
 };
 
 export type EmailIntakeProblemReason = "processing_failed" | "shopware_failed" | "margin_red";
@@ -137,6 +180,8 @@ export type EmailIntakeResponse = {
   tickets: EmailIntakeTicketRef[];
   /** Einordnung „Sonstiges“: Art und Begründung */
   other: { type: EmailIntakeOtherType; confidence: number; reason: string } | null;
+  /** Teams-Info zu neuen Problem-Tickets; null = nichts posten */
+  teams?: EmailIntakeTeamsBlock | null;
 };
 
 /** Konfiguration, die n8n zu Beginn jedes Laufs abruft */
