@@ -107,6 +107,28 @@ Ein normaler Entwurf zur Prüfung (z. B. Kunde nicht sicher erkannt) bekommt **k
 
 Der Zuständige bekommt eine Benachrichtigung wie beim Zuweisen in der Oberfläche.
 
+### Teams-Info (seit 11.10.2026)
+
+Zu jedem **neuen** Problem-Ticket postet n8n eine Karte in einen Teams-Kanal
+([`emailIntakeTeams.ts`](../server/commercial/emailIntakeTeams.ts)). Inhalt der Karte:
+- Grund, Ticketnummer, Betreff, Kunde und Zuständiger.
+- Buttons „Ticket öffnen“ und „Entwurf öffnen“.
+- @Erwähnung des Zuständigen über seine E-Mail in METAorder (= Teams-Anmeldename).
+
+Ohne Zuständigen oder ohne E-Mail erscheint die Karte ohne Erwähnung. Wiederholungen derselben Mail
+posten nicht erneut. METAorder baut die Karte und liefert sie im Block `intake.teams`
+(`webhookUrl`, `messages[]`); die n8n-Knoten **Teams-Nachrichten** → **An Teams senden** schicken
+jede Nachricht per POST. Das läuft parallel zur Mail: Scheitert Teams, wird die Mail trotzdem erledigt.
+
+Einrichtung:
+1. In Teams im Zielkanal: **Workflows** → Vorlage „Bei Eingang einer Webhookanforderung in einem
+   Kanal posten“ („Post to a channel when a webhook request is received“). Die erzeugte Adresse kopieren.
+2. METAorder: Einstellungen → Integration → E-Mail-Eingang → **Teams-Kanal (Workflow-Webhook)**.
+   Erlaubt sind nur https-Adressen von Microsoft (`*.logic.azure.com`, `*.powerplatform.com`,
+   `*.powerautomate.com`, `*.webhook.office.com`).
+3. Für die Erwähnung muss der Zuständige in METAorder die E-Mail haben, mit der er sich bei Teams anmeldet.
+4. Die Links in der Karte nutzen `PUBLIC_APP_URL`, sonst die Adresse, unter der n8n METAorder aufruft.
+
 ### Einrichtung
 
 1. In METAorder: technischer Benutzer (z. B. `n8n`) mit „Angebote verwalten“ und „Bestellentwürfe verwalten“,

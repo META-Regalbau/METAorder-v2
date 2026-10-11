@@ -29,7 +29,7 @@ export type IntakeProblem = {
   messageId: string;
   subject: string;
   envelope: Pick<IngestMailEnvelope, "headerFrom" | "customerFrom" | "customerEmail" | "toAddresses" | "ccAddresses">;
-  draft?: { kind: "order" | "offer"; id: string; fileName?: string | null; shopwareCustomerId?: string | null } | null;
+  draft?: { kind: "order" | "offer"; id: string; fileName?: string | null; shopwareCustomerId?: string | null; company?: string | null } | null;
   /** Fehlertext (Verarbeitung/Shopware) */
   error?: string | null;
   /** Wo es scheiterte (n8n meldet z. B. „mime“ oder „upload“) */
@@ -130,6 +130,16 @@ export function buildIntakeTicket(
   };
 }
 
+/** Angaben für die Teams-Info (Betreff, Kunde, Entwurfslink). */
+function ticketRefDetails(problem: IntakeProblem): Pick<EmailIntakeTicketRef, "subject" | "customer" | "draftPath"> {
+  const sender = (problem.envelope.customerFrom || problem.envelope.headerFrom || "").replace(/"/g, "").trim();
+  return {
+    subject: problem.subject.trim() || "(ohne Betreff)",
+    customer: problem.draft?.company?.trim() || sender || null,
+    draftPath: problem.draft ? draftLink(problem.draft.kind, problem.draft.id) : null,
+  };
+}
+
 async function attachRawEmail(
   storage: IStorage,
   ticketId: string,
@@ -175,7 +185,15 @@ export async function createIntakeProblemTicket(
     const existing = (await storage.getAllTickets(tenantId)).find((t) => (t.tags ?? []).includes(key));
     if (existing) {
       const assignee = existing.assignedToUserId ? await storage.getUser(existing.assignedToUserId) : undefined;
-      return { ticketNumber: existing.ticketNumber, reason: problem.reason, assignedTo: assignee?.username ?? null };
+      return {
+        ...ticketRefDetails(problem),
+        ticketNumber: existing.ticketNumber,
+        ticketId: existing.id,
+        reason: problem.reason,
+        assignedTo: assignee?.username ?? null,
+        assignedToEmail: assignee?.email ?? null,
+        isNew: false,
+      };
     }
 
     const assignee = await resolveIntakeAssignee(storage, {
@@ -237,7 +255,16 @@ export async function createIntakeProblemTicket(
       },
       `[EmailIntake] Ticket ${ticket.ticketNumber} (${problem.reason}) angelegt`,
     );
-    return { ticketNumber: ticket.ticketNumber, reason: problem.reason, assignedTo: assignee.user?.username ?? null };
+    const assigneeEmail = assignee.user ? (await storage.getUser(assignee.user.id))?.email ?? null : null;
+    return {
+      ...ticketRefDetails(problem),
+      ticketNumber: ticket.ticketNumber,
+      ticketId: ticket.id,
+      reason: problem.reason,
+      assignedTo: assignee.user?.username ?? null,
+      assignedToEmail: assigneeEmail,
+      isNew: true,
+    };
   } catch (err) {
     log.error({ err, reason: problem.reason, messageId: problem.messageId }, "[EmailIntake] Problem-Ticket nicht angelegt");
     return null;

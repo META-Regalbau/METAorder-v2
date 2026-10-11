@@ -1715,7 +1715,10 @@
         "assigneeChain": "Assignment: first a colleague who forwarded the mail or is in To/CC, then whoever last created a draft for this customer or handled a ticket for this customer email, finally the default assignee.",
         "categoriesHint": "Outlook categories set by n8n:",
         "workflowHint": "Workflow template: n8n-workflows/m365-to-metaorder.json. In n8n assign the Outlook account and the header credential \"METAorder Integration-Key\", check the METAorder address in the \"Einstellungen\" node and activate the workflow.",
-        "saved": "Email intake saved"
+        "saved": "Email intake saved",
+        "teamsWebhook": "Teams channel (workflow webhook)",
+        "teamsWebhookHint": "For every new problem ticket n8n posts a card to this channel and @mentions the assignee (via their email in METAorder). Without an assignee the card is posted without a mention.",
+        "teamsWebhookEmpty": "Empty: no Teams message. In Teams, add the channel workflow “Post to a channel when a webhook request is received” and enter its URL here."
       }
     },
     "semanticRanking": {

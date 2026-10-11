@@ -1561,7 +1561,10 @@
         "assigneeChain": "Asignación: primero un compañero que reenvió el correo o figura en Para/CC, luego quien creó el último borrador de este cliente o tuvo un ticket de este correo de cliente, por último el responsable por defecto.",
         "categoriesHint": "Categorías de Outlook que asigna n8n:",
         "workflowHint": "Plantilla de flujo: n8n-workflows/m365-to-metaorder.json. En n8n asigne la cuenta de Outlook y la credencial de cabecera \"METAorder Integration-Key\", revise la dirección de METAorder en el nodo \"Einstellungen\" y active el flujo.",
-        "saved": "Entrada de correo guardada"
+        "saved": "Entrada de correo guardada",
+        "teamsWebhook": "Canal de Teams (webhook de flujo de trabajo)",
+        "teamsWebhookHint": "Por cada nuevo ticket de problema, n8n publica una tarjeta en este canal y @menciona al responsable (mediante su correo en METAorder). Sin responsable, la tarjeta se publica sin mención.",
+        "teamsWebhookEmpty": "Vacío: sin aviso en Teams. En Teams, cree en el canal el flujo «Publicar en un canal cuando se reciba una solicitud de webhook» e introduzca aquí su dirección."
       }
     },
     "shopwareConfig": "Configuración de Shopware",

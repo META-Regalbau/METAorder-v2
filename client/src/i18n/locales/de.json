@@ -1712,7 +1712,10 @@
         "assigneeChain": "Zuweisung: zuerst ein Kollege, der die Mail weitergeleitet hat oder in An/CC steht, dann wer zuletzt einen Entwurf dieses Kunden angelegt oder ein Ticket zu dieser Kunden-Mail hatte, zuletzt der Standard-Bearbeiter.",
         "categoriesHint": "Outlook-Kategorien, die n8n setzt:",
         "workflowHint": "Workflow-Vorlage: n8n-workflows/m365-to-metaorder.json. In n8n den Outlook-Zugang und den Header-Zugang „METAorder Integration-Key“ zuordnen, im Knoten „Einstellungen“ die METAorder-Adresse prüfen und den Workflow aktivieren.",
-        "saved": "E-Mail-Eingang gespeichert"
+        "saved": "E-Mail-Eingang gespeichert",
+        "teamsWebhook": "Teams-Kanal (Workflow-Webhook)",
+        "teamsWebhookHint": "Für jedes neue Problem-Ticket postet n8n eine Karte in diesen Kanal und @erwähnt den Zuständigen (über seine E-Mail in METAorder). Ohne Zuständigen erscheint die Karte ohne Erwähnung.",
+        "teamsWebhookEmpty": "Leer: keine Teams-Info. In Teams im Kanal unter „Workflows“ die Vorlage „Bei Eingang einer Webhookanforderung in einem Kanal posten“ anlegen und die Adresse hier eintragen."
       }
     },
     "semanticRanking": {

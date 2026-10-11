@@ -34,6 +34,7 @@ import fs from "fs/promises";
 import crypto from "crypto";
 import { isEmailContainerUpload, ingestCommercialEmailUpload, deriveUploadMessageId } from "../commercial/commercialEmailUploadIngest";
 import { acquireIntakeLock, failEmailIntake, finalizeEmailIntake, releaseIntakeLock } from "../commercial/emailIntakeUpload";
+import { publicAppBaseUrl } from "../commercial/emailIntakeTeams";
 import { getEmailIntakeSettings } from "../commercial/emailIntakeSettings";
 import { parseEmailBufferAutodetect } from "../email/emailParser";
 import { unwrapInternalForward } from "../email/emailForwardUnwrap";
@@ -512,6 +513,7 @@ export function registerDraftRoutes(app: Express): void {
                 error: error instanceof Error ? error.message : String(error),
                 rawEmail: { buffer: fileBuffer, fileName: file.originalname },
                 integrationUser: { id: userId, email: user?.email ?? null },
+                appBaseUrl: publicAppBaseUrl(`${req.protocol}://${req.get("host") || ""}`),
               });
               return res.json({ source: "email_container" as const, drafts: [], draftCount: 0, deduplicated: false, intake });
             }
@@ -577,6 +579,7 @@ export function registerDraftRoutes(app: Express): void {
                   existingDraftKind: existingForDedupe?.draftKind ?? null,
                   rawEmail: { buffer: fileBuffer, fileName: file.originalname },
                   integrationUser: { id: userId, email: user?.email ?? null },
+                  appBaseUrl: publicAppBaseUrl(`${req.protocol}://${req.get("host") || ""}`),
                 })
               : undefined;
             return res.json({
