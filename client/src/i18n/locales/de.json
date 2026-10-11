@@ -6473,7 +6473,10 @@
       "downloaded": "PDF heruntergeladen",
       "downloadedDescription": "Der Angebotsentwurf wurde als PDF gespeichert.",
       "fileNamePrefix": "Angebotsentwurf"
-    }
+    },
+    "aiSuggestion": "KI-Vorschlag ({{confidence}} %)",
+    "aiReason": "Begründung: {{reason}}",
+    "learnedCustomer": "Für diesen Kunden gelernt"
   },
   "documentExtraction": {
     "confidenceWarnings": {

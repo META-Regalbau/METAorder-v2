@@ -40,7 +40,11 @@ export type CatalogMatchStrategy =
   | "productNumber"
   | "manufacturerNumber"
   | "sapProductNumber"
-  | "synthetic_gtin";
+  | "synthetic_gtin"
+  /** KI-Abgleich gegen eine Vorauswahl (nur Vorschlag, siehe draftLineAiMatch.ts) */
+  | "ai"
+  /** Kunden-Artikelnummer, für diesen Kunden schon einmal bestätigt */
+  | "learned_customer";
 
 export interface ProductMatch {
   id: string;
@@ -82,6 +86,12 @@ export interface LineItemMatch {
   learningHint?: {
     type: "blocked_line" | "preferred_identifier";
     identifier?: string;
+  };
+  /** KI-Vorschlag: Sicherheit der KI und Begründung (Anzeige im Prüffenster) */
+  aiMatch?: {
+    confidence: number;
+    reason: string;
+    candidateCount: number;
   };
 }
 

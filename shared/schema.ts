@@ -2411,11 +2411,13 @@ export const orderDrafts = pgTable("order_drafts", {
       originalQuantity?: number; // Original quantity from request (e.g., 12 Holme)
       convertedQuantity?: number; // Converted quantity (e.g., 6 Holmebenen sets)
       conversionNote?: string; // Conversion explanation (e.g., "1 Holmebene = 2 Holme")
-      matchStrategy?: "ean" | "productNumber" | "manufacturerNumber" | "sapProductNumber" | "synthetic_gtin";
+      matchStrategy?: "ean" | "productNumber" | "manufacturerNumber" | "sapProductNumber" | "synthetic_gtin" | "ai" | "learned_customer";
       learningHint?: {
         type: "blocked_line" | "preferred_identifier";
         identifier?: string;
       };
+      /** KI-Vorschlag (draftLineAiMatch): Sicherheit der KI und Begründung */
+      aiMatch?: { confidence: number; reason: string; candidateCount: number };
       catalogProductInactive?: boolean;
       inactiveMatchedProduct?: {
         id: string;
@@ -2669,11 +2671,13 @@ export const offerDrafts = pgTable(
         likelihood: "likely_product" | "unclear" | "unlikely_product";
         reasons?: string[];
       };
-      matchStrategy?: "ean" | "productNumber" | "manufacturerNumber" | "sapProductNumber" | "synthetic_gtin";
+      matchStrategy?: "ean" | "productNumber" | "manufacturerNumber" | "sapProductNumber" | "synthetic_gtin" | "ai" | "learned_customer";
       learningHint?: {
         type: "blocked_line" | "preferred_identifier";
         identifier?: string;
       };
+      /** KI-Vorschlag (draftLineAiMatch): Sicherheit der KI und Begründung */
+      aiMatch?: { confidence: number; reason: string; candidateCount: number };
       catalogProductInactive?: boolean;
       inactiveMatchedProduct?: {
         id: string;
@@ -2830,6 +2834,8 @@ export const commercialProductMatchFeedback = pgTable(
     selectedProductId: text("selected_product_id"), // bestätigtes Shopware-Produkt
     selectedIdentifier: text("selected_identifier"), // bevorzugte Referenz (z. B. productNumber/SAP)
     selectedStrategy: text("selected_strategy"), // ean/productNumber/manufacturerNumber/sapProductNumber/...
+    /** Kunde des Entwurfs: Kunden-Artikelnummer (sourceIdentifier) → Produkt gilt pro Kunde */
+    shopwareCustomerId: text("shopware_customer_id"),
     createdByUserId: varchar("created_by_user_id").references(() => users.id),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },

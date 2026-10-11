@@ -1,3 +1,4 @@
+import { DraftLineMatchSource } from "@/components/DraftLineMatchSource";
 import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -1531,6 +1532,7 @@ export function OfferDraftReviewModal({
                                         {t("draftReview.learningPreferred")}
                                       </Badge>
                                     )}
+                                    <DraftLineMatchSource item={item} index={index} />
                                     <LineItemBuyerSkuLabel
                                       buyerSku={docExtractionItemsOffer[index]?.buyer_sku ?? null}
                                       supplierSku={

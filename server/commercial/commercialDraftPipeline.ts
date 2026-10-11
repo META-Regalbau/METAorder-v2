@@ -1,3 +1,5 @@
+import { runDraftLineAiMatchStep } from "./draftLineAiMatch";
+import type { MatchingResult } from "../products/productMatcher";
 import fs from "fs/promises";
 import type { IStorage } from "../storage";
 import type { OfferDraft, OrderDraft } from "@shared/schema";
@@ -406,6 +408,19 @@ export async function runOfferDraftPipeline(
   }
   ensureLegacyBuyerContactMapping(extractedData as Record<string, unknown>);
 
+  // Positionen ohne sicheren Treffer: gelernt pro Kunde, sonst KI-Vorschlag (nie automatisch angelegt)
+  const aiMatchStart = stepStart();
+  const aiMatch = await runDraftLineAiMatchStep({
+    storage,
+    tenantId: tenantId ?? null,
+    enabled: agentComm.aiCatalogMatchEnabled !== false,
+    aiMode: aiSettings.mode,
+    lineItems: extractedData.lineItems,
+    matchingResults: matchingResults as MatchingResult | null,
+    shopwareCustomerId,
+  });
+  if (aiMatch) timings.aiCatalogMatchMs = Date.now() - aiMatchStart;
+
   const status = determineInitialDraftStatus({
     overallConfidence:
       matchingResults && typeof (matchingResults as { overallConfidence?: number }).overallConfidence === "number"
@@ -701,6 +716,19 @@ export async function runOrderDraftPipeline(
     }
   }
   ensureLegacyBuyerContactMapping(extractedData as Record<string, unknown>);
+
+  // Positionen ohne sicheren Treffer: gelernt pro Kunde, sonst KI-Vorschlag (nie automatisch angelegt)
+  const aiMatchStart = stepStart();
+  const aiMatch = await runDraftLineAiMatchStep({
+    storage,
+    tenantId: tenantId ?? null,
+    enabled: agentComm.aiCatalogMatchEnabled !== false,
+    aiMode: aiSettings.mode,
+    lineItems: extractedData.lineItems,
+    matchingResults: matchingResults as MatchingResult | null,
+    shopwareCustomerId,
+  });
+  if (aiMatch) timings.aiCatalogMatchMs = Date.now() - aiMatchStart;
 
   const status = determineInitialDraftStatus({
     overallConfidence: matchingResults?.overallConfidence,

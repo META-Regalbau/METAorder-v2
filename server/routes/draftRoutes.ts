@@ -1395,6 +1395,7 @@ export function registerDraftRoutes(app: Express): void {
           tenantId: req.tenantId ?? null,
           draftKind: "order",
           createdByUserId: (req.user as { id?: string } | undefined)?.id ?? null,
+          shopwareCustomerId: validated.shopwareCustomerId ?? existingDraft.shopwareCustomerId ?? null,
         });
         if (learningRows.length > 0) {
           await storage.createCommercialProductMatchFeedback(learningRows, req.tenantId ?? null);
@@ -1696,6 +1697,7 @@ export function registerDraftRoutes(app: Express): void {
           tenantId: req.tenantId ?? null,
           draftKind: "order",
           createdByUserId: (req.user as { id?: string } | undefined)?.id ?? null,
+          shopwareCustomerId: result.draft.shopwareCustomerId ?? null,
         });
         if (learningRows.length > 0) {
           await storage.createCommercialProductMatchFeedback(learningRows, req.tenantId ?? null);
@@ -2325,6 +2327,7 @@ export function registerDraftRoutes(app: Express): void {
           tenantId: req.tenantId ?? null,
           draftKind: "offer",
           createdByUserId: (req.user as { id?: string } | undefined)?.id ?? null,
+          shopwareCustomerId: validated.shopwareCustomerId ?? existingDraft.shopwareCustomerId ?? null,
         });
         if (learningRows.length > 0) {
           await storage.createCommercialProductMatchFeedback(learningRows, req.tenantId ?? null);
@@ -2745,6 +2748,7 @@ export function registerDraftRoutes(app: Express): void {
           tenantId: req.tenantId ?? null,
           draftKind: "offer",
           createdByUserId: (req.user as { id?: string } | undefined)?.id ?? null,
+          shopwareCustomerId: result.draft.shopwareCustomerId ?? null,
         });
         if (learningRows.length > 0) {
           await storage.createCommercialProductMatchFeedback(learningRows, req.tenantId ?? null);

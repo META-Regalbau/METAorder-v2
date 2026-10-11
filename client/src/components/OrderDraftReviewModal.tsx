@@ -1,3 +1,4 @@
+import { DraftLineMatchSource } from "@/components/DraftLineMatchSource";
 import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -226,6 +227,8 @@ interface OrderDraft {
         type: "blocked_line" | "preferred_identifier";
         identifier?: string;
       };
+      matchStrategy?: string;
+      aiMatch?: { confidence: number; reason: string; candidateCount?: number };
       confidence: number;
       status: "matched" | "uncertain" | "not_found";
       productScreen?: { likelihood?: string; reasons?: string[] };
@@ -1484,6 +1487,7 @@ export function OrderDraftReviewModal({
                                     {t("orderDrafts.review.catalogProductInactive")}
                                   </Badge>
                                 ) : null}
+                                <DraftLineMatchSource item={item} index={index} />
                               </div>
                             ) : (
                               <Badge variant="destructive" data-testid={`badge-not-found-${index}`}>
