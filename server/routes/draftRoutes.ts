@@ -45,9 +45,7 @@ import { emitCommercialDraftWebhooks } from "../commercial/commercialWebhookNoti
 import { runStrictCommercialAutoCreateIfAllowed } from "../commercial/commercialStrictAutoCreateRunner";
 import type { MatchingResult } from "../products/productMatcher";
 import { ShopwareClient } from "../shopware/shopware";
-import { getCombinedCrossSellingRules, loadCrossSellRankingBundle, crossSellSuggestOptions, dedupeAndLimitSuggestions } from "../cross-selling/crossSellService";
 import { recordDraftSuggestionImpressions, recordDraftSuggestionAdd } from "../cross-selling/crossSellDraftSignals";
-import { RuleEngine } from "../cross-selling/ruleEngine";
 import { buildCommercialClarificationEmail } from "../commercial/customerClarificationEmail";
 import { buildCommercialProductFeedbackRowsFromDraftUpdate } from "../commercial/commercialProductLearning";
 import { mergeDraftExtractedData, resolveEmailForShopwareCustomerCreate, tryCreateShopwareCustomerFromExtractedData, type DraftExtractedCustomer, type DraftBillingAddressInput } from "../commercial/draftCustomerEmailResolution";
@@ -56,6 +54,7 @@ import { fetchCustomerBoundSalesChannelId, resolveOfferSalesChannelId } from "..
 import { hasEnabledSftpServers } from "../sftp/sftpUpload";
 import { listDraftAttachmentsForApi, sendDraftAttachmentFile, parseDraftAttachmentExportUpdate, applyDraftAttachmentExportUpdate } from "../commercial/draftAttachmentRoutes";
 import { productCache } from "../products/productCache";
+import { buildDraftCrossSellSuggestions, type DraftSuggestionGroup } from "../cross-selling/draftCrossSellSuggestions";
 import { logger } from "../lib/logger";
 
 const moduleLog = logger.child({ component: "routes/draftRoutes" });
@@ -1199,84 +1198,23 @@ export function registerDraftRoutes(app: Express): void {
         return res.status(404).json({ error: "Order draft not found" });
       }
       
-      // Generate cross-selling suggestions for matched products
-      let crossSellingSuggestions: any[] = [];
-      
+      // Crossselling-Vorschläge: Produkt-Cache, 10 min gemerkt, begrenzt parallel (draftCrossSellSuggestions.ts)
+      let crossSellingSuggestions: DraftSuggestionGroup[] = [];
       if (orderDraft.matchingResults?.items) {
         try {
-          // Get Shopware client and cross-selling rules
           const shopwareSettings = await storage.getShopwareSettings(req.tenantId ?? null);
           if (shopwareSettings) {
-            const shopwareClient = new ShopwareClient(shopwareSettings);
-            
-            // Get all active cross-selling rules (manual + AI)
-            const crossSellingRules = await getCombinedCrossSellingRules(req.tenantId ?? null);
-            const ruleEngine = new RuleEngine();
-            const rankingBundle = await loadCrossSellRankingBundle(req.tenantId ?? null);
-            const suggestOpts = crossSellSuggestOptions(req.tenantId ?? null, rankingBundle, "full");
-            
-            // For each matched product, find cross-selling suggestions
-            for (const item of orderDraft.matchingResults.items) {
-              if (item.matchedProduct && item.status === "matched") {
-                try {
-                  const productNumber = item.matchedProduct.productNumber;
-                  if (!productNumber) {
-                    continue;
-                  }
-                  const { products } = await shopwareClient.fetchProducts(
-                    25,
-                    1,
-                    productNumber,
-                    undefined,
-                    false,
-                    undefined,
-                    undefined,
-                    undefined,
-                    true
-                  );
-                  const fullProduct = products.find((p) => p.productNumber === productNumber) || products[0];
-                  if (fullProduct) {
-                    // Get cross-selling suggestions using rule engine
-                    const suggestions = await ruleEngine.suggestCrossSelling(
-                      fullProduct,
-                      crossSellingRules,
-                      shopwareClient,
-                      suggestOpts,
-                    );
-                    const limitedSuggestions = dedupeAndLimitSuggestions(suggestions, 10);
-                    
-                    // Add suggestions for this product (limit to top 10)
-                    crossSellingSuggestions.push({
-                      forProduct: {
-                        id: item.matchedProduct.id,
-                        name: item.matchedProduct.name,
-                        productNumber: item.matchedProduct.productNumber,
-                      },
-                      suggestions: limitedSuggestions.map(s => ({
-                        id: s.id,
-                        productNumber: s.productNumber,
-                        name: s.name,
-                        price: s.price,
-                        netPrice: s.netPrice,
-                        imageUrl: s.imageUrl,
-                        stock: s.stock,
-                        available: s.available,
-                        crossSellReason: (s as { crossSellReason?: string }).crossSellReason,
-                        hybridScore: (s as { hybridScore?: number }).hybridScore,
-                      })),
-                    });
-                  }
-                } catch (productError) {
-                  moduleLog.warn({ err: productError }, `[Cross-Selling] Failed to fetch suggestions for product ${item.matchedProduct.id}:`);
-                }
-              }
-            }
+            crossSellingSuggestions = await buildDraftCrossSellSuggestions({
+              tenantId: req.tenantId ?? null,
+              shopwareSettings,
+              items: orderDraft.matchingResults.items,
+            });
           }
         } catch (crossSellingError) {
           moduleLog.warn({ err: crossSellingError }, "[Cross-Selling] Failed to generate suggestions:");
         }
       }
-      
+
       recordDraftSuggestionImpressions(storage, {
         tenantId: req.tenantId ?? null,
         userId: (req.user as { id?: string } | undefined)?.id ?? null,
@@ -2134,90 +2072,23 @@ export function registerDraftRoutes(app: Express): void {
         return res.status(404).json({ error: "Offer draft not found" });
       }
       
-      // Generate cross-selling suggestions for matched products
-      let crossSellingSuggestions: any[] = [];
-      
+      // Crossselling-Vorschläge: Produkt-Cache, 10 min gemerkt, begrenzt parallel (draftCrossSellSuggestions.ts)
+      let crossSellingSuggestions: DraftSuggestionGroup[] = [];
       if (offerDraft.matchingResults?.items) {
         try {
-          // Get Shopware client and cross-selling rules
           const shopwareSettings = await storage.getShopwareSettings(req.tenantId ?? null);
           if (shopwareSettings) {
-            const shopwareClient = new ShopwareClient(shopwareSettings);
-            
-            // Get all active cross-selling rules
-            const crossSellingRules = await getCombinedCrossSellingRules(req.tenantId ?? null);
-            const ruleEngine = new RuleEngine();
-            const rankingBundle = await loadCrossSellRankingBundle(req.tenantId ?? null);
-            const suggestOpts = crossSellSuggestOptions(req.tenantId ?? null, rankingBundle, "full");
-            
-            // Für jedes gematchte Produkt Cross-Selling-Vorschläge ermitteln — die
-            // "vollständiges Produkt"-Auflösung läuft primär über den lokalen Produktcache
-            // (O(1), kein Shopware-Roundtrip); nur bei Cache-Miss wird gezielt nachgesucht.
-            // Die restlichen, unabhängigen Items laufen parallel statt sequenziell.
-            const matchedItems = offerDraft.matchingResults.items.filter(
-              (item) => item.matchedProduct && item.status === "matched" && item.matchedProduct.productNumber,
-            );
-            const suggestionResults = await Promise.all(
-              matchedItems.map(async (item) => {
-                try {
-                  const productNumber = item.matchedProduct!.productNumber;
-                  let fullProduct = productCache.getProductByNumber(productNumber);
-                  if (!fullProduct) {
-                    const { products } = await shopwareClient.fetchProducts(
-                      25,
-                      1,
-                      productNumber,
-                      undefined,
-                      false,
-                      undefined,
-                      undefined,
-                      undefined,
-                      true
-                    );
-                    fullProduct = products.find((p) => p.productNumber === productNumber) || products[0];
-                  }
-                  if (!fullProduct) return null;
-
-                  const suggestions = await ruleEngine.suggestCrossSelling(
-                    fullProduct,
-                    crossSellingRules,
-                    shopwareClient,
-                    suggestOpts,
-                  );
-                  const limitedSuggestions = dedupeAndLimitSuggestions(suggestions, 10);
-
-                  return {
-                    forProduct: {
-                      id: item.matchedProduct!.id,
-                      name: item.matchedProduct!.name,
-                      productNumber: item.matchedProduct!.productNumber,
-                    },
-                    suggestions: limitedSuggestions.map(s => ({
-                      id: s.id,
-                      productNumber: s.productNumber,
-                      name: s.name,
-                      price: s.price,
-                      netPrice: s.netPrice,
-                      imageUrl: s.imageUrl,
-                      stock: s.stock,
-                      available: s.available,
-                      crossSellReason: (s as { crossSellReason?: string }).crossSellReason,
-                      hybridScore: (s as { hybridScore?: number }).hybridScore,
-                    })),
-                  };
-                } catch (productError) {
-                  moduleLog.warn({ err: productError }, `[Cross-Selling] Failed to fetch suggestions for product ${item.matchedProduct!.id}:`);
-                  return null;
-                }
-              }),
-            );
-            crossSellingSuggestions = suggestionResults.filter((s): s is NonNullable<typeof s> => s !== null);
+            crossSellingSuggestions = await buildDraftCrossSellSuggestions({
+              tenantId: req.tenantId ?? null,
+              shopwareSettings,
+              items: offerDraft.matchingResults.items,
+            });
           }
         } catch (crossSellingError) {
           moduleLog.warn({ err: crossSellingError }, "[Cross-Selling] Failed to generate suggestions:");
         }
       }
-      
+
       recordDraftSuggestionImpressions(storage, {
         tenantId: req.tenantId ?? null,
         userId: (req.user as { id?: string } | undefined)?.id ?? null,
