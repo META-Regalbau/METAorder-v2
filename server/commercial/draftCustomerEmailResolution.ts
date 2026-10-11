@@ -426,9 +426,14 @@ function normCompany(s: string): string {
  * passt (exakte Firma, bevorzugt mit gleicher PLZ). Bei mehreren Treffern entscheidet der
  * Bearbeiter — die Treffer werden als Vorschläge am Entwurf abgelegt.
  */
+/** PLZ vergleichbar machen: Shopware speichert ostdeutsche PLZ teils ohne führende Null („6366“). */
+export function normZip(zip: string | null | undefined): string {
+  return (zip ?? "").replace(/\s/g, "").replace(/^0+/, "");
+}
+
 async function tryResolveCustomerByBillingAddress(
   shopwareClient: ShopwareClient,
-  billing: { company?: string; zipCode?: string; street?: string },
+  billing: { company?: string; zipCode?: string; street?: string; city?: string },
   /** Kundennummer aus dem Beleg („Kundennummer", „Unsere Kontonr.") — oft nur die letzten Stellen der Shop-Nummer */
   documentCustomerNumber?: string | null
 ): Promise<{ match: { id: string; email?: string } | null; candidates: ShopwareCustomerCandidate[] }> {
@@ -447,13 +452,17 @@ async function tryResolveCustomerByBillingAddress(
       // den Portal-Kunden 20000011247 (richtige Firma, Nordhorn) treffen. Deshalb nicht blind den
       // exakten Treffer nehmen, sondern nur einen, der zu PLZ/Firma der Rechnungsadresse passt.
       const needleCompany = company ? normCompany(company) : "";
+      // Plausibel: gleiche PLZ, gleicher Ort oder Firma enthält sich gegenseitig. Ort zählt mit, weil
+      // Plattformen wie Mercateo eine andere PLZ als das Shop-Konto drucken (06354 vs. 6366 Köthen).
+      const city = norm(billing.city ?? "");
       const plausible = byNumber.filter((h) => {
-        if (zip && h.zipCode?.trim()) return h.zipCode.trim() === zip;
+        if (zip && h.zipCode?.trim() && normZip(h.zipCode) === normZip(zip)) return true;
+        if (city && h.city && norm(h.city) === city) return true;
         if (needleCompany && h.company) {
           const hc = normCompany(h.company);
-          return hc.includes(needleCompany) || needleCompany.includes(hc);
+          if (hc.includes(needleCompany) || needleCompany.includes(hc)) return true;
         }
-        return !zip && !needleCompany;
+        return !zip && !needleCompany && !city;
       });
       const exactPlausible = plausible.filter((h) => (h.customerNumber ?? "").replace(/\D/g, "") === docNoDirect);
       const pick = exactPlausible.length === 1 ? exactPlausible[0] : plausible.length === 1 ? plausible[0] : null;
@@ -480,7 +489,7 @@ async function tryResolveCustomerByBillingAddress(
       if (!h.company || byId.has(h.id)) continue;
       const hc = normCompany(h.company);
       let reason: ShopwareCustomerCandidate["reason"] | null = null;
-      if (hc === needle) reason = zip && h.zipCode?.trim() === zip ? "company_exact_zip" : "company_exact";
+      if (hc === needle) reason = zip && normZip(h.zipCode) === normZip(zip) ? "company_exact_zip" : "company_exact";
       else if (hc.includes(needle) || needle.includes(hc)) reason = "company_partial";
       if (!reason) continue;
       byId.set(h.id, { ...h, reason });
