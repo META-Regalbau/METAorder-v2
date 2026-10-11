@@ -11,6 +11,7 @@ import { checkMarginGateForCreate } from "./draftMarginApproval";
 import { checkOfferDraftDiscount, recordOfferDiscountApproval } from "./offerDraftDiscountGate";
 import { logDraftEvent } from "./draftAuditLog";
 import type { DealerShipping, SmallVolumeSurcharge } from "../shopware/dealerShipping";
+import type { DraftAdditionalDiscount } from "@shared/draftProfitability";
 
 const moduleLog = logger.child({ component: "commercial/commercialDraftShopware" });
 
@@ -716,7 +717,11 @@ async function createOrderFromDraft(
   }
 
   let shopwareOrder: { id: string };
-  const createInfo: { shipping?: DealerShipping | null; smallVolume?: SmallVolumeSurcharge | null } = {};
+  const createInfo: {
+    shipping?: DealerShipping | null;
+    smallVolume?: SmallVolumeSurcharge | null;
+    additionalDiscount?: DraftAdditionalDiscount | null;
+  } = {};
   try {
     const attributes = await buildOrderCreateAttributes(shopwareSettings, {
       info: createInfo,
@@ -780,12 +785,13 @@ async function createOrderFromDraft(
           shopwareOrderId: shopwareOrder.id,
           shopwareCreatedByUserId: humanCreator(options),
           // Fracht nach Lieferbedingung und Mindermengenzuschlag, die METAorder in die Bestellung geschrieben hat
-          ...(createInfo.shipping || createInfo.smallVolume
+          ...(createInfo.shipping || createInfo.smallVolume || createInfo.additionalDiscount
             ? {
                 extractedData: {
                   ...(draft.extractedData as Record<string, unknown>),
                   ...(createInfo.shipping ? { shopwareShipping: createInfo.shipping } : {}),
                   ...(createInfo.smallVolume ? { shopwareSmallVolumeSurcharge: createInfo.smallVolume } : {}),
+                  ...(createInfo.additionalDiscount ? { shopwareAdditionalDiscount: createInfo.additionalDiscount } : {}),
                 } as never,
               }
             : {}),

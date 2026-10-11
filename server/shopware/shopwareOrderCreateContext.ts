@@ -17,6 +17,8 @@ import {
   DEFAULT_CASH_ROUNDING,
 } from "../b2b/b2bOfferCreateContext";
 import { resolveCustomerUnitPrices } from "../commercial/commercialCustomerPricing";
+import { pickAdditionalDiscount } from "@shared/additionalDiscountScale";
+import type { DraftAdditionalDiscount } from "@shared/draftProfitability";
 import { resolveDealerShipping, resolveSmallVolumeSurcharge, type DealerShipping, type SmallVolumeSurcharge } from "./dealerShipping";
 import { logger } from "../lib/logger";
 
@@ -148,7 +150,11 @@ export async function buildOrderCreateAttributes(
     customerContext?: OrderCustomerContext;
     customerComment?: string;
     /** Wird gefüllt: Fracht nach Lieferbedingung (null = keine Regel, Standard-Versandart ohne Fracht) */
-    info?: { shipping?: DealerShipping | null; smallVolume?: SmallVolumeSurcharge | null };
+    info?: {
+      shipping?: DealerShipping | null;
+      smallVolume?: SmallVolumeSurcharge | null;
+      additionalDiscount?: DraftAdditionalDiscount | null;
+    };
   }
 ): Promise<Record<string, unknown>> {
   const client = new ShopwareClient(settings);
@@ -200,8 +206,9 @@ export async function buildOrderCreateAttributes(
   const shippingAddress = buildOfferAddressPayload(shippingMerged, salutationId, shippingCountryId);
 
   // Gleiche Preisbasis wie das B2B-Angebot: kundenindividueller Preis → Kundenrabatt → Listenpreis
-  // (siehe commercialCustomerPricing.ts). Ein manueller Override aus dem Entwurf hat Vorrang.
-  const { prices: pricing } = await resolveCustomerUnitPrices(client, {
+  // (siehe commercialCustomerPricing.ts), danach die Zusatzrabatt-Staffel auf den Positionen.
+  // Ein manueller Override aus dem Entwurf hat Vorrang.
+  const { prices: pricing, additionalDiscountTiers } = await resolveCustomerUnitPrices(client, {
     customerId: params.shopwareCustomerId,
     currencyId: channelDefaults.currencyId,
     items: params.lineItems.map((item) => ({
@@ -214,13 +221,29 @@ export async function buildOrderCreateAttributes(
   let positionNet = 0;
   const taxByRate = new Map<number, number>();
 
+  const isManual = (item: OrderLineItemInput) =>
+    typeof item.unitPriceNet === "number" && Number.isFinite(item.unitPriceNet) && item.unitPriceNet >= 0;
+  // Zusatzrabatt-Staffel wie im Portal: Stufe nach dem Warenwert, abgezogen auf den Positionen.
+  // Von Hand gesetzte Preise bleiben, wie sie sind.
+  const goodsBeforeDiscount = round2(
+    params.lineItems.reduce((sum, item) => {
+      const net = isManual(item) ? item.unitPriceNet! : pricing.get(toShopwareUuid(item.productId))?.net ?? 0;
+      return sum + net * item.quantity;
+    }, 0),
+  );
+  const discountTier = pickAdditionalDiscount(additionalDiscountTiers, goodsBeforeDiscount);
+  if (params.info) {
+    params.info.additionalDiscount = discountTier
+      ? { percent: discountTier.percent, fromAmount: discountTier.fromAmount, goodsNet: goodsBeforeDiscount }
+      : null;
+  }
+
   const lineItemsPayload = params.lineItems.map((item, index) => {
     const productId = toShopwareUuid(item.productId);
     const price = pricing.get(productId);
-    const net =
-      typeof item.unitPriceNet === "number" && Number.isFinite(item.unitPriceNet) && item.unitPriceNet >= 0
-        ? round2(item.unitPriceNet)
-        : price?.net ?? 0;
+    const net = isManual(item)
+      ? round2(item.unitPriceNet!)
+      : round2((price?.net ?? 0) * (discountTier ? 1 - discountTier.percent / 100 : 1));
     const taxRate = price?.taxRate ?? 0;
     const quantity = item.quantity;
 
@@ -243,7 +266,8 @@ export async function buildOrderCreateAttributes(
     };
   });
 
-  // Mindermengenzuschlag wie im Portal: eigene Position mit dem Service-Artikel (Warenwert vorher)
+  // Mindermengenzuschlag wie im Portal: eigene Position mit dem Service-Artikel (Warenwert nach
+  // Zusatzrabatt, ohne Zuschlag)
   const goodsNet = positionNet;
   let smallVolume: SmallVolumeSurcharge | null = null;
   try {
