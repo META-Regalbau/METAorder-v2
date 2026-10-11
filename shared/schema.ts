@@ -2310,6 +2310,8 @@ export const orderDrafts = pgTable("order_drafts", {
         chosenEmail?: string;
         /** Login-E-Mail des zugeordneten Shopware-Kontos (kann von der Beleg-Kontaktadresse abweichen) */
         shopwareAccountEmail?: string;
+        /** Belegadresse = Login genau eines Shopware-Kontos → Zuordnung gilt als sicher */
+        exactUniqueAccount?: boolean;
         method?: "heuristic" | "llm" | "extracted_only";
       };
       /** 0–100, KI/heuristische Sicherheit der E-Mail-/Kundenzuordnung */
@@ -2548,6 +2550,8 @@ export const offerDrafts = pgTable(
         chosenEmail?: string;
         /** Login-E-Mail des zugeordneten Shopware-Kontos (kann von der Beleg-Kontaktadresse abweichen) */
         shopwareAccountEmail?: string;
+        /** Belegadresse = Login genau eines Shopware-Kontos → Zuordnung gilt als sicher */
+        exactUniqueAccount?: boolean;
         method?: "heuristic" | "llm" | "extracted_only";
       };
       customerMatchConfidence?: number;

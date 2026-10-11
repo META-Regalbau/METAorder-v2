@@ -183,12 +183,21 @@ export type DraftExtractedCustomer = {
   shopwareCustomerAutoCreated?: boolean;
 };
 
+/** Sicherheit bei eindeutigem, exaktem E-Mail-Treffer (über der Strikt-Schwelle von 95) */
+export const EXACT_UNIQUE_EMAIL_MATCH_CONFIDENCE = 100;
+
 export function computeCustomerMatchConfidence(params: {
   ranked: Array<{ email: string; score: number }>;
   shopwareCustomerId: string | null;
   usedLlm: boolean;
   addressSecondaryMatch?: boolean;
+  /**
+   * Belegadresse = Login-Adresse genau eines Shopware-Kontos (Entscheidung 11.10.2026: gilt als sicher).
+   * Mehrere Konten mit derselben Adresse (z. B. Portal und Shop) zählen nicht.
+   */
+  exactUniqueEmailMatch?: boolean;
 }): number {
+  if (params.shopwareCustomerId && params.exactUniqueEmailMatch) return EXACT_UNIQUE_EMAIL_MATCH_CONFIDENCE;
   const top = params.ranked[0];
   if (!params.shopwareCustomerId) {
     if (!top && !params.addressSecondaryMatch) return 0;
@@ -611,13 +620,20 @@ export async function resolveShopwareCustomerForDraft(
 
   let shopwareCustomerId: string | null = null;
   let chosenEmail: string | null = null;
+  let exactUniqueEmailMatch = false;
 
-  for (const tryEmail of ordered) {
+  for (const [index, tryEmail] of ordered.entries()) {
     try {
       const customer = await shopwareClient.findCustomerByEmail(tryEmail);
       if (customer?.id) {
         shopwareCustomerId = customer.id;
         chosenEmail = (customer.email as string)?.trim() || tryEmail;
+        // Sicher nur, wenn es die erste Wahl war (Beleg/Absender), die Kontoadresse genau passt
+        // und Shopware genau ein Konto mit dieser Adresse kennt
+        if (index === 0 && chosenEmail.toLowerCase() === tryEmail.toLowerCase()) {
+          const accounts = await shopwareClient.findCustomersByEmail(tryEmail, 2).catch(() => []);
+          exactUniqueEmailMatch = accounts.length === 1 && accounts[0].id === customer.id;
+        }
         break;
       }
     } catch (e) {
@@ -654,6 +670,7 @@ export async function resolveShopwareCustomerForDraft(
     shopwareCustomerId,
     usedLlm,
     addressSecondaryMatch,
+    exactUniqueEmailMatch,
   });
   extractedData.customer.customerMatchConfidence = matchConfidence;
 
@@ -745,6 +762,7 @@ export async function resolveShopwareCustomerForDraft(
     chosenEmail: extractedData.customer.email,
     ...(shopwareCustomerId && chosenEmail ? { shopwareAccountEmail: chosenEmail } : {}),
     method,
+    ...(exactUniqueEmailMatch ? { exactUniqueAccount: true } : {}),
   };
 
   return shopwareCustomerId;
