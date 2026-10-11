@@ -106,7 +106,15 @@ export function shouldSkipCatalogMatchingForLineItem(line: {
   quantity: number;
 }): { skip: boolean; reason?: string } {
   const name = (line.extractedProductName || "").trim();
-  if (!name) return { skip: true, reason: "leer" };
+  if (!name) {
+    // Strukturierte Extraktion liefert oft nur die Nummer (description leer, supplier_sku = EAN):
+    // dann zählt die Nummer, sonst ginge eine eindeutige EAN-Bestellung am Katalog vorbei
+    const number = (line.extractedProductNumber || "").trim();
+    if (number && (hasStrongSkuOrGtin(line) || lineLooksLikeNumericProductReference(number, number))) {
+      return { skip: false };
+    }
+    return { skip: true, reason: "leer" };
+  }
 
   if (PRODUCT_HINT_RE.test(name) || MULTIPAL_AND_TYP_RE.test(name)) {
     return { skip: false };

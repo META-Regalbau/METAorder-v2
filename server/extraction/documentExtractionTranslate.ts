@@ -179,6 +179,8 @@ export function translateDocumentExtractionToLegacy(
     };
     const num = pickProductNumber(item);
     if (num) legacy.extractedProductNumber = num;
+    // Nur Nummer, keine Beschreibung („4x 4026212325393“): Nummer auch als Name, wie die ältere Extraktion
+    if (num && !legacy.extractedProductName.trim()) legacy.extractedProductName = num;
     if (typeof item.position === "number" && Number.isFinite(item.position)) {
       legacy.extractedPositionNumber = String(item.position);
     }
