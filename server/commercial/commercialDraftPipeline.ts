@@ -1,4 +1,5 @@
 import { runDraftLineAiMatchStep } from "./draftLineAiMatch";
+import { runDraftOfferReferenceStep } from "./draftOfferReference";
 import type { MatchingResult } from "../products/productMatcher";
 import fs from "fs/promises";
 import type { IStorage } from "../storage";
@@ -408,6 +409,17 @@ export async function runOfferDraftPipeline(
   }
   ensureLegacyBuyerContactMapping(extractedData as Record<string, unknown>);
 
+  // Bestellung „laut Angebot …“: Positionen aus dem META-Angebot übernehmen
+  const offerRefStart = stepStart();
+  const offerRef = await runDraftOfferReferenceStep({
+    storage,
+    tenantId: tenantId ?? null,
+    extractedData: extractedData as Record<string, unknown>,
+    matchingResults: matchingResults as MatchingResult | null,
+    shopwareCustomerId,
+  });
+  if (offerRef) timings.offerReferenceMs = Date.now() - offerRefStart;
+
   // Positionen ohne sicheren Treffer: gelernt pro Kunde, sonst KI-Vorschlag (nie automatisch angelegt)
   const aiMatchStart = stepStart();
   const aiMatch = await runDraftLineAiMatchStep({
@@ -716,6 +728,17 @@ export async function runOrderDraftPipeline(
     }
   }
   ensureLegacyBuyerContactMapping(extractedData as Record<string, unknown>);
+
+  // Bestellung „laut Angebot …“: Positionen aus dem META-Angebot übernehmen
+  const offerRefStart = stepStart();
+  const offerRef = await runDraftOfferReferenceStep({
+    storage,
+    tenantId: tenantId ?? null,
+    extractedData: extractedData as Record<string, unknown>,
+    matchingResults: matchingResults as MatchingResult | null,
+    shopwareCustomerId,
+  });
+  if (offerRef) timings.offerReferenceMs = Date.now() - offerRefStart;
 
   // Positionen ohne sicheren Treffer: gelernt pro Kunde, sonst KI-Vorschlag (nie automatisch angelegt)
   const aiMatchStart = stepStart();

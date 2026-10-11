@@ -44,7 +44,9 @@ export type CatalogMatchStrategy =
   /** KI-Abgleich gegen eine Vorauswahl (nur Vorschlag, siehe draftLineAiMatch.ts) */
   | "ai"
   /** Kunden-Artikelnummer, für diesen Kunden schon einmal bestätigt */
-  | "learned_customer";
+  | "learned_customer"
+  /** Position aus dem META-Angebot übernommen, auf das die Bestellung verweist (draftOfferReference.ts) */
+  | "offer";
 
 export interface ProductMatch {
   id: string;

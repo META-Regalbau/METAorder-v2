@@ -1,4 +1,5 @@
 import { DraftLineMatchSource } from "@/components/DraftLineMatchSource";
+import { DraftOfferReferenceNotice } from "@/components/DraftOfferReferenceNotice";
 import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -774,7 +775,11 @@ export function OrderDraftReviewModal({
   const documentExtraction = pickDocumentExtraction(
     (editedData ?? draft.extractedData) as Record<string, unknown> | null
   );
-  const docExtractionItems = documentExtraction?.line_items ?? [];
+  // Nach Übernahme aus einem Angebot passen die Zeilen der Original-Extraktion nicht mehr zu den Positionen
+  const offerReferenceApplied = Boolean(
+    ((editedData ?? draft.extractedData) as { offerReference?: { applied?: boolean } } | null)?.offerReference?.applied,
+  );
+  const docExtractionItems = offerReferenceApplied ? [] : documentExtraction?.line_items ?? [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1370,6 +1375,7 @@ export function OrderDraftReviewModal({
           )}
 
           {/* Product Matching */}
+          <DraftOfferReferenceNotice extractedData={editedData ?? draft.extractedData} />
           {mergedMatchingResults && mergedMatchingResults.items.length > 0 && (
             <>
             <Card>
