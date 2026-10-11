@@ -138,10 +138,18 @@ type AiLine = z.infer<typeof aiLineSchema>;
 
 /** Je Zeile prüfen: eine kaputte Zeile verwirft nicht die ganze Antwort; „0“ heißt kein Kandidat. */
 export function parseAiLines(raw: string): AiLine[] | null {
-  const parsed = parseLlmJsonResponse(raw) as { lines?: unknown };
-  if (!parsed || !Array.isArray(parsed.lines)) return null;
+  const parsed = parseLlmJsonResponse(raw) as unknown;
+  // {"lines":[…]}, ein anderer Schlüssel mit der Liste oder gleich die Liste
+  const list = Array.isArray(parsed)
+    ? parsed
+    : parsed && typeof parsed === "object"
+      ? (Array.isArray((parsed as { lines?: unknown }).lines)
+          ? (parsed as { lines: unknown[] }).lines
+          : Object.values(parsed as Record<string, unknown>).find((v) => Array.isArray(v)))
+      : undefined;
+  if (!Array.isArray(list)) return null;
   const out: AiLine[] = [];
-  for (const entry of parsed.lines) {
+  for (const entry of list) {
     const safe = aiLineSchema.safeParse(entry);
     if (!safe.success) continue;
     out.push({
@@ -163,7 +171,8 @@ Gibt es eine Ausführung nicht genau (z. B. Profil 120/20 bestellt, im Katalog n
 Ständer heißen bei META „Ständerrahmen“. Holme werden als „Holmebene“ (Paar = 2 Holme) verkauft: für bestellte Holme die passende Holmebene wählen.
 Verpackungseinheiten beachten: Steht im Artikelnamen z. B. „10 Stück“, nenne das in der Begründung („VE 10 Stück – Menge prüfen“), weil die bestellte Menge sich auf Einzelteile beziehen kann.
 confidence: 90–100 nur bei eindeutiger Übereinstimmung aller Angaben, 60–89 wenn sehr wahrscheinlich, darunter unsicher.
-Antworte NUR mit JSON: {"lines":[{"line":1,"candidate":3,"confidence":85,"reason":"kurz, deutsch"}]}`;
+Begründung kurz halten (höchstens 150 Zeichen). Antworte NUR mit JSON, ohne Text davor oder danach:
+{"lines":[{"line":1,"candidate":3,"confidence":85,"reason":"kurz, deutsch"}]}`;
 
 function buildAiPrompt(entries: Array<{ lineNo: number; line: Line; candidates: Product[] }>): string {
   return entries
@@ -275,7 +284,8 @@ export async function refineUnmatchedDraftLines(params: {
   try {
     const raw = await params.llm(AI_SYSTEM, buildAiPrompt(entries));
     parsed = parseAiLines(raw);
-    if (!parsed) log.warn("[DraftLineAiMatch] KI-Antwort unbrauchbar");
+    // Ausschnitt ins Protokoll: nur Positionen und Katalogartikel, keine Kundendaten
+    if (!parsed) log.warn({ rawSnippet: String(raw ?? "").slice(0, 400), rawLength: String(raw ?? "").length }, "[DraftLineAiMatch] KI-Antwort unbrauchbar");
   } catch (err) {
     log.warn({ err }, "[DraftLineAiMatch] KI-Abgleich fehlgeschlagen");
   }
@@ -342,7 +352,7 @@ export async function runDraftLineAiMatchStep(params: {
               tier: "smart",
               temperature: 0,
               response_json: true,
-              max_tokens: 1500,
+              max_tokens: 3000,
               messages: [
                 { role: "system", content: system },
                 { role: "user", content: user },

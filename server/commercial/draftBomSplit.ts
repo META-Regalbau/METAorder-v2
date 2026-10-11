@@ -67,7 +67,7 @@ Liste nur körperliche Teile mit Stückzahl auf (Ständer, Holme, Böden, Gitter
 Keine Kenngrößen wie Gesamthöhe, Anzahl Felder, Fachlast, Flächenpressung.
 Gleiche Teile aus mehreren Abschnitten zusammenzählen (z. B. „Abschnitt 1: 5x Gitterrost …“ und „Abschnitt 2: 5x Gitterrost …“ = 10).
 Die Stückzahlen gelten für EINE Anlage. Beschreibung so übernehmen, wie sie im Text steht (mit Maßen, Farbe, Oberfläche).
-Antworte NUR mit JSON: {"components":[{"quantity":3,"description":"Ständer 120/20 4400x800 vzk kpl. multipal S"}]}`;
+Antworte NUR mit JSON, ohne Text davor oder danach: {"components":[{"quantity":3,"description":"Ständer 120/20 4400x800 vzk kpl. multipal S"}]}`;
 
 /**
  * Zerlegt Stücklisten-Positionen (in place: lineItems, matchingResults.items, extractedData.bomSplit).
@@ -94,7 +94,7 @@ export async function splitBomLines(params: {
       const raw = await llm(BOM_SYSTEM, `Bestellmenge: ${line.quantity}\nPositionstext:\n${line.extractedProductName.slice(0, 6000)}`);
       const parsed = componentsSchema.safeParse(parseLlmJsonResponse(raw));
       components = parsed.success ? parsed.data.components : [];
-      if (!parsed.success) log.warn({ index }, "[DraftBomSplit] KI-Antwort unbrauchbar");
+      if (!parsed.success) log.warn({ index, rawSnippet: String(raw ?? "").slice(0, 400) }, "[DraftBomSplit] KI-Antwort unbrauchbar");
     } catch (err) {
       log.warn({ err, index }, "[DraftBomSplit] Stückliste nicht zerlegt");
     }

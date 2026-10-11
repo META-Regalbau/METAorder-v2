@@ -107,27 +107,43 @@ async function completeWithAnthropic(
   const { system, params: anthropicMessages } = mergeAnthropicMessages(messages);
   const baseRequest = {
     model,
-    max_tokens: params.max_tokens ?? 4096,
+    // Neuere Claude-Modelle (z. B. claude-sonnet-5) denken standardmäßig, und das Denken zählt zu
+    // max_tokens. Kleine Grenzen (300–3000) schnitten die Antwort dann mitten im JSON ab (Live
+    // 11.10.2026: KI-Abgleich „unbrauchbar“). Bezahlt wird nur, was erzeugt wird; die Länge der
+    // eigentlichen Antwort steuert der Prompt.
+    max_tokens: Math.max(params.max_tokens ?? 4096, ANTHROPIC_MIN_MAX_TOKENS),
     system: system || undefined,
     messages: anthropicMessages,
+  };
+  const finish = (res: Anthropic.Message): string => {
+    if (res.stop_reason === "max_tokens") {
+      moduleLog.warn(
+        { model, maxTokens: baseRequest.max_tokens, outputTokens: res.usage?.output_tokens },
+        "[llmChat] Claude-Antwort an max_tokens abgeschnitten",
+      );
+    }
+    return anthropicTextFromMessage(res);
   };
   try {
     const res = await client.messages.create({
       ...baseRequest,
       ...(typeof params.temperature === "number" ? { temperature: params.temperature } : {}),
     });
-    return anthropicTextFromMessage(res);
+    return finish(res);
   } catch (error) {
     // Neuere Claude-Modelle lehnen `temperature` ab („temperature is deprecated for this model").
     // Dann ohne den Parameter wiederholen statt die ganze Anfrage scheitern zu lassen.
     const message = error instanceof Error ? error.message : String(error);
     if (typeof params.temperature === "number" && /temperature/i.test(message) && /deprecated|not supported|unsupported/i.test(message)) {
       const res = await client.messages.create(baseRequest);
-      return anthropicTextFromMessage(res);
+      return finish(res);
     }
     throw error;
   }
 }
+
+/** Puffer für Denken + Antwort (Empfehlung für Anfragen ohne Streaming: ~16000). */
+export const ANTHROPIC_MIN_MAX_TOKENS = 16000;
 
 async function completeWithOpenAI(
   client: OpenAI,
@@ -265,16 +281,35 @@ export async function resolveChatTarget(
   return { provider, model: resolveTierModel(settings, tier, provider) };
 }
 
-/** JSON aus LLM-Antworten (inkl. optionaler ```json```-Fences von Claude). */
+/**
+ * JSON aus LLM-Antworten (inkl. ```json```-Fences von Claude). Claude schreibt trotz JSON-Wunsch
+ * gelegentlich einen Satz davor oder danach („Hier ist die Zuordnung: {…}“) – dann wird das äußerste
+ * Objekt bzw. Array herausgeschnitten (Live 11.10.2026: KI-Abgleich verwarf sonst die ganze Antwort).
+ */
 export function parseLlmJsonResponse(raw: string): unknown {
   let s = (raw || "").trim();
-  const fenced = s.match(/^```(?:json)?\s*([\s\S]*?)```$/i);
+  const fenced = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
   if (fenced) s = fenced[1].trim();
   try {
     return JSON.parse(s || "{}");
   } catch {
-    return {};
+    /* weiter unten: eingebettetes JSON suchen */
   }
+  for (const [open, close] of [
+    ["{", "}"],
+    ["[", "]"],
+  ] as const) {
+    const start = s.indexOf(open);
+    const end = s.lastIndexOf(close);
+    if (start >= 0 && end > start) {
+      try {
+        return JSON.parse(s.slice(start, end + 1));
+      } catch {
+        /* nächste Form versuchen */
+      }
+    }
+  }
+  return {};
 }
 
 export async function isChatLlmConfigured(
