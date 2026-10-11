@@ -6549,12 +6549,17 @@
       "companyExactZip": "Empresa + código postal",
       "companyExact": "Empresa",
       "companyPartial": "Empresa similar",
-      "emailDomain": "mismo dominio de correo"
+      "emailDomain": "mismo dominio de correo",
+      "portalAccount": "cuenta del portal",
+      "shopAccount": "cuenta de la tienda"
     },
     "customerNumberShort": "N.º de cliente {{number}}",
     "candidatesIntro": "No se ha encontrado ningún cliente con esta dirección de correo electrónico. {{count}} cuentas de Shopware existentes coinciden con la empresa; seleccione la correcta:",
     "candidatesIntro_one": "No se ha encontrado ningún cliente con esta dirección de correo electrónico. {{count}} cuenta de Shopware existente coincide con la empresa; seleccione la correcta:",
-    "candidatesIntro_other": "No se ha encontrado ningún cliente con esta dirección de correo electrónico. {{count}} cuentas de Shopware existentes coinciden con la empresa; seleccione la correcta:"
+    "candidatesIntro_other": "No se ha encontrado ningún cliente con esta dirección de correo electrónico. {{count}} cuentas de Shopware existentes coinciden con la empresa; seleccione la correcta:",
+    "portalSwitch": "Se asignó la cuenta del portal {{to}} ({{channel}}) en lugar de la cuenta de la tienda {{from}}: esta empresa se gestiona a través del portal.",
+    "portalChoice": "La empresa tiene varias cuentas en el portal. Elija la correcta; los pedidos se gestionan a través del portal.",
+    "portalFallbackName": "portal de distribuidores"
   },
   "offerPreview": {
     "title": "Vista previa interactiva",

@@ -82,6 +82,7 @@ import {
   useCustomerCreateEnabled,
   useDraftReviewThresholds,
   type DraftShopwareCustomer,
+  DraftPortalAccountNotice,
 } from "@/components/DraftCustomerOptions";
 import { StrictAutoCreateTraceAlert, type StrictAutoCreateTrace } from "@/components/StrictAutoCreateTraceAlert";
 import { StuckDraftCreationNotice } from "@/components/StuckDraftCreationNotice";
@@ -803,6 +804,10 @@ export function OfferDraftReviewModal({
               </CardTitle>
             </CardHeader>
             <CardContent>
+              <DraftPortalAccountNotice
+                customer={((editedData ?? draft.extractedData) as { customer?: Parameters<typeof DraftPortalAccountNotice>[0]["customer"] } | null)?.customer}
+                assignedCustomerId={draft.shopwareCustomerId}
+              />
               {draft.shopwareCustomerId ? (
                 <div className="flex items-center justify-between gap-4">
                   <div className="text-sm text-muted-foreground">
