@@ -1,4 +1,5 @@
 import { runDraftLineAiMatchStep } from "./draftLineAiMatch";
+import { stripInternalContacts } from "../extraction/internalContactGuard";
 import { checkNumberMatches } from "./draftNumberMatchCheck";
 import { runDraftConfiguratorRowsStep } from "./draftConfiguratorRows";
 import { runDraftOfferReferenceStep } from "./draftOfferReference";
@@ -388,6 +389,14 @@ export async function runOfferDraftPipeline(
     }
   }
 
+  // Namen/Adressen aus der internen Weiterleitung (META-Kollegen) sind keine Kundenkontakte
+  const strippedInternal = stripInternalContacts(extractedData as Record<string, unknown>, [
+    resolvedPrimaryDocumentText,
+    emailContext,
+    siblingPdfExcerpts,
+  ]);
+  if (strippedInternal.length) log.info({ fields: strippedInternal }, "[Commercial Draft Pipeline] Interne Kontakte entfernt");
+
   let shopwareCustomerId: string | null = null;
   if (shouldRunShopwareCustomerResolutionForDraft(extractedData, emailContext, siblingPdfExcerpts)) {
     try {
@@ -732,6 +741,14 @@ export async function runOrderDraftPipeline(
       checkNumberMatches({ lineItems: extractedData.lineItems, matchingResults });
     }
   }
+
+  // Namen/Adressen aus der internen Weiterleitung (META-Kollegen) sind keine Kundenkontakte
+  const strippedInternal = stripInternalContacts(extractedData as Record<string, unknown>, [
+    resolvedPrimaryDocumentText,
+    emailContext,
+    siblingPdfExcerpts,
+  ]);
+  if (strippedInternal.length) log.info({ fields: strippedInternal }, "[Commercial Draft Pipeline] Interne Kontakte entfernt");
 
   let shopwareCustomerId: string | null = null;
   if (shouldRunShopwareCustomerResolutionForDraft(extractedData, emailContext, siblingPdfExcerpts)) {
