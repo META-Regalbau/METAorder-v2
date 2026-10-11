@@ -6473,7 +6473,10 @@
       "downloaded": "PDF descargado",
       "downloadedDescription": "El borrador de oferta se ha guardado como PDF.",
       "fileNamePrefix": "Borrador-de-oferta"
-    }
+    },
+    "aiSuggestion": "Sugerencia de IA ({{confidence}} %)",
+    "aiReason": "Motivo: {{reason}}",
+    "learnedCustomer": "Aprendido para este cliente"
   },
   "documentExtraction": {
     "confidenceWarnings": {

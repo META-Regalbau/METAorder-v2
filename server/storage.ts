@@ -590,6 +590,12 @@ export interface IStorage {
     tenantId?: string | null,
     limit?: number
   ): Promise<CommercialProductMatchFeedback[]>;
+  /** Bestätigte Zuordnungen eines Kunden zu seinen Artikelnummern (sourceIdentifier, wie im Dokument) */
+  getCommercialProductFeedbackForCustomer(
+    shopwareCustomerId: string,
+    sourceIdentifiers: string[],
+    tenantId?: string | null,
+  ): Promise<CommercialProductMatchFeedback[]>;
 
   // Kundenseitiger Rückmelde-Endpunkt (Auftragsbestätigung für das ERP des Kunden)
   /**

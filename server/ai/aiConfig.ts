@@ -106,6 +106,11 @@ export type CommercialAgentSettings = {
    */
   companyNameHeuristicEnabled?: boolean;
   /**
+   * KI-Abgleich für Positionen ohne sicheren Katalogtreffer (Vorauswahl + KI-Wahl, nur Vorschlag)
+   * und gelernte Zuordnung „Kunden-Artikelnummer → Produkt“. Siehe draftLineAiMatch.ts.
+   */
+  aiCatalogMatchEnabled?: boolean;
+  /**
    * Nur Strikt-Regel für Auto-Create (kein „weicher“ Intent/Match-Schwellen-Pfad).
    * Default true — siehe commercialStrictAutoCreate.ts
    */
@@ -160,6 +165,7 @@ export const DEFAULT_COMMERCIAL_AGENT: CommercialAgentSettings = {
   webDomainVerifyEnabled: false,
   extractionRefinementSubAgentsEnabled: false,
   companyNameHeuristicEnabled: true,
+  aiCatalogMatchEnabled: true,
   strictAutoCreateOnly: true,
   strictMinIntentConfidence: 0.95,
   strictMinCustomerMatchConfidence: 95,
@@ -324,6 +330,10 @@ export async function getCommercialAgentSettings(storage: IStorage): Promise<Com
         ? stored.companyNameHeuristicEnabled
         : undefined) ??
       DEFAULT_COMMERCIAL_AGENT.companyNameHeuristicEnabled,
+    aiCatalogMatchEnabled:
+      (process.env.COMMERCIAL_AGENT_AI_CATALOG_MATCH === "false" ? false : undefined) ??
+      (typeof stored.aiCatalogMatchEnabled === "boolean" ? stored.aiCatalogMatchEnabled : undefined) ??
+      DEFAULT_COMMERCIAL_AGENT.aiCatalogMatchEnabled,
     strictAutoCreateOnly:
       envStrictOnlyBool ??
       (typeof stored.strictAutoCreateOnly === "boolean"

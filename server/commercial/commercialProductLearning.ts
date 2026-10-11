@@ -69,8 +69,11 @@ export function buildCommercialProductFeedbackRowsFromDraftUpdate(params: {
   tenantId?: string | null;
   draftKind: DraftKind;
   createdByUserId?: string | null;
+  /** Kunde des Entwurfs: macht die Bestätigung zur Zuordnung „Kunden-Artikelnummer → Produkt“ */
+  shopwareCustomerId?: string | null;
 }): InsertCommercialProductMatchFeedback[] {
   const { existingDraft, updatedDraft, tenantId, draftKind, createdByUserId } = params;
+  const shopwareCustomerId = params.shopwareCustomerId ?? null;
   const updatedItems = updatedDraft?.matchingResults?.items ?? [];
   const rows: InsertCommercialProductMatchFeedback[] = [];
 
@@ -106,6 +109,7 @@ export function buildCommercialProductFeedbackRowsFromDraftUpdate(params: {
         selectedProductId: null,
         selectedIdentifier: null,
         selectedStrategy: null,
+        shopwareCustomerId,
         createdByUserId: createdByUserId ?? null,
       });
       continue;
@@ -126,6 +130,7 @@ export function buildCommercialProductFeedbackRowsFromDraftUpdate(params: {
         selectedProductId: matched.id,
         selectedIdentifier: chosenIdentifier ?? null,
         selectedStrategy: current.matchStrategy ?? null,
+        shopwareCustomerId,
         createdByUserId: createdByUserId ?? null,
       });
     }

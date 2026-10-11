@@ -3024,6 +3024,28 @@ export class DbStorage implements IStorage {
     return inserted.length;
   }
 
+  async getCommercialProductFeedbackForCustomer(
+    shopwareCustomerId: string,
+    sourceIdentifiers: string[],
+    tenantId?: string | null,
+  ): Promise<CommercialProductMatchFeedback[]> {
+    const ids = Array.from(new Set(sourceIdentifiers.map((v) => v.trim()).filter(Boolean))).slice(0, 200);
+    if (!shopwareCustomerId || !ids.length) return [];
+    const tenantFilter = tenantFilterFor(commercialProductMatchFeedback.tenantId, tenantId);
+    return db
+      .select()
+      .from(commercialProductMatchFeedback)
+      .where(
+        and(
+          tenantFilter,
+          eq(commercialProductMatchFeedback.shopwareCustomerId, shopwareCustomerId),
+          inArray(commercialProductMatchFeedback.sourceIdentifier, ids),
+        ),
+      )
+      .orderBy(desc(commercialProductMatchFeedback.createdAt))
+      .limit(500);
+  }
+
   async getCommercialProductMatchFeedbackByLineKeys(
     lineKeys: string[],
     tenantId?: string | null,

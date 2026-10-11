@@ -29,6 +29,20 @@ export function localAddressLooksPlausible(address: LocalAddress, lineItems: Loc
   return Boolean(street || zip || city);
 }
 
+const NAME_STARTS_WITH_QUANTITY_RE = /^\s*\d+([.,]\d+)?\s*(x|st|stk|stck|stück|stueck|pcs|pc|pack|ve)\b\.?/i;
+const NAME_ENDS_WITH_PRICE_RE = /\s\d{1,6},\d{2}\s*(€|eur)?\s*$/i;
+
+/**
+ * Hat der Parser die Tabellenspalten nicht getrennt? „6 St 921018001 Unterlegblech … 0,33“ als Name,
+ * Menge aus „1mm“ gelesen (lokaler Test 11.10.2026). Dann stimmt auch die Menge nicht.
+ */
+export function localLineColumnsLookMerged(lineItems: LocalLine[] = []): boolean {
+  return lineItems.some((l) => {
+    const name = l.extractedProductName ?? "";
+    return NAME_STARTS_WITH_QUANTITY_RE.test(name) || NAME_ENDS_WITH_PRICE_RE.test(name);
+  });
+}
+
 /** true: lieber die KI extrahieren lassen. */
 export function isLowQualityLocalExtraction(data: {
   lineItems?: LocalLine[];
@@ -36,6 +50,7 @@ export function isLowQualityLocalExtraction(data: {
   billingAddress?: LocalAddress;
 }): boolean {
   if (!data.lineItems || data.lineItems.length === 0) return true;
+  if (localLineColumnsLookMerged(data.lineItems)) return true;
   const billing = data.billingAddress;
   const hasAddressFields = Boolean(billing && (billing.street || billing.zipCode || billing.city));
   // Eine erkannte, aber unsinnige Adresse wäre schlimmer als keine: dann die KI

@@ -113,6 +113,21 @@ describe("Lokaler Parser oder KI", () => {
     assert.equal(localAddressLooksPlausible({ street: "Schüttweg 3", zipCode: "59494", city: "Soest 2" }, lines), false);
   });
 
+  it("Tabellenspalten nicht getrennt (Menge/Preis im Namen) → KI", () => {
+    const merged = [
+      { extractedProductName: "6 St 921018001 Unterlegblech/Ausgleichsblech Höhe 1mm f.Palettenregal 0,33", extractedProductNumber: "921018001" },
+    ];
+    assert.equal(isLowQualityLocalExtraction({ lineItems: merged, customer: { email: "a@b.de" } }), true);
+    assert.equal(
+      isLowQualityLocalExtraction({ lineItems: [{ extractedProductName: "Fachboden 1000x400 verzinkt 12,50 €" }], customer: { email: "a@b.de" } }),
+      true,
+    );
+    assert.equal(
+      isLowQualityLocalExtraction({ lineItems: [{ extractedProductName: "Fachboden 1000x400 verzinkt" }, { extractedProductName: "4026212325393" }], customer: { email: "a@b.de" } }),
+      false,
+    );
+  });
+
   it("saubere Adresse oder nur E-Mail: lokales Ergebnis reicht", () => {
     const good = { street: "Schüttweg 3", zipCode: "59494", city: "Soest" };
     assert.equal(localAddressLooksPlausible(good, lines), true);

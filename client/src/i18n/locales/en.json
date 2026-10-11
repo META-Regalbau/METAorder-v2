@@ -6476,7 +6476,10 @@
       "downloaded": "PDF downloaded",
       "downloadedDescription": "The offer draft has been saved as a PDF.",
       "fileNamePrefix": "Offer-draft"
-    }
+    },
+    "aiSuggestion": "AI suggestion ({{confidence}} %)",
+    "aiReason": "Reason: {{reason}}",
+    "learnedCustomer": "Learned for this customer"
   },
   "documentExtraction": {
     "confidenceWarnings": {

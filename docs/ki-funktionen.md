@@ -74,6 +74,19 @@ Stand: Oktober 2026.
 
 ---
 
+### KI-Abgleich für Positionen ohne Katalogtreffer (seit 11.10.2026)
+
+Händler schicken eigene Artikelnummern und Bezeichnungen. Ein Beispiel ist Roloff mit „921027516 Paletten-Grundregal 8xP 1000kg H3300xB1825xT1100mm 4E“ oder „Unterlegblech 1 mm“. Der Regelabgleich (EAN, Artikelnummer, Namensähnlichkeit) findet dafür nichts. Für solche Positionen gibt es nach der Kundenzuordnung zwei Schritte (`server/commercial/draftLineAiMatch.ts`):
+
+1. **Gelernt pro Kunde:** Wurde diese Kunden-Artikelnummer bei diesem Kunden schon einmal bestätigt, ist das ein sicherer Treffer (100 %, „Für diesen Kunden gelernt“). Als Bestätigung zählt die Anlage in Shopware oder eine Korrektur im Prüffenster (`commercial_product_match_feedback.shopware_customer_id`, Migration 0050).
+2. **KI-Vorschlag:**
+   - METAorder wählt je Position etwa 25 Katalogartikel vor: Stichworte mit Synonymen (Unterlegblech → Unterlegplatte, GR/AR, zn → vzk), gleiche Maße (auch „H…xB…xT…“) und die bisherigen Vorschläge.
+   - Die KI (Stufe `smart`, ein Aufruf je Entwurf) wählt daraus und begründet die Wahl. Sie nennt auch Verpackungseinheiten („10 Stück“).
+   - Das Ergebnis ist immer nur ein **Vorschlag**: Status „unsicher“, höchstens 89 %. Die strenge Automatik legt damit nichts an.
+   - Unter 60 % KI-Sicherheit erscheint die Wahl nur als Alternative.
+
+Abschaltbar über `commercial_agent_settings.aiCatalogMatchEnabled` oder die Umgebungsvariable `COMMERCIAL_AGENT_AI_CATALOG_MATCH=false`. Im Testshop mit den vier Roloff-Positionen hat die KI alle richtig gewählt, in rund 5 s.
+
 ## Was das System **nicht kann** bzw. wo harte Grenzen sind
 
 1. **Mehrere Anbieter nur für Chat:** Bilderkennung, Embeddings, Smart Pricing, Buchhaltungs-Hinweise und Teile der Commercial-Pipeline laufen nur über OpenAI. Ohne OpenAI-Key fallen sie weg bzw. nutzen lokale Verfahren (z. B. lokale Embeddings).
