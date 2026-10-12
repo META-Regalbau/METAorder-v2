@@ -12,6 +12,7 @@ import { checkOfferDraftDiscount, recordOfferDiscountApproval } from "./offerDra
 import { logDraftEvent } from "./draftAuditLog";
 import type { DealerShipping, SmallVolumeSurcharge } from "../shopware/dealerShipping";
 import type { DraftAdditionalDiscount } from "@shared/draftProfitability";
+import { getOrderFieldMapping, resolveDraftOrderFieldValues } from "../shopware/orderFieldMappingService";
 
 const moduleLog = logger.child({ component: "commercial/commercialDraftShopware" });
 
@@ -722,9 +723,23 @@ async function createOrderFromDraft(
     smallVolume?: SmallVolumeSurcharge | null;
     additionalDiscount?: DraftAdditionalDiscount | null;
   } = {};
+  let orderFields: Awaited<ReturnType<typeof resolveDraftOrderFieldValues>> | null = null;
   try {
+    // Zusatzfelder (Kommission, Besteller, Wunschtermin …) laut Einstellung; Fehler hier
+    // verhindern die Bestellung nicht
+    try {
+      orderFields = await resolveDraftOrderFieldValues({
+        mapping: await getOrderFieldMapping(storage, options.tenantId ?? null),
+        shopwareSettings,
+        customerId: draft.shopwareCustomerId,
+        draft,
+      });
+    } catch (error) {
+      moduleLog.warn({ err: error, draftId }, "[DraftShopware] Zusatzfelder nicht ermittelt – Bestellung ohne Zusatzfelder");
+    }
     const attributes = await buildOrderCreateAttributes(shopwareSettings, {
       info: createInfo,
+      fieldValues: orderFields ?? undefined,
       shopwareCustomerId: draft.shopwareCustomerId,
       salesChannelId: options.salesChannelId,
       lineItems,
@@ -785,13 +800,16 @@ async function createOrderFromDraft(
           shopwareOrderId: shopwareOrder.id,
           shopwareCreatedByUserId: humanCreator(options),
           // Fracht nach Lieferbedingung und Mindermengenzuschlag, die METAorder in die Bestellung geschrieben hat
-          ...(createInfo.shipping || createInfo.smallVolume || createInfo.additionalDiscount
+          ...(createInfo.shipping || createInfo.smallVolume || createInfo.additionalDiscount || orderFields?.applied.length
             ? {
                 extractedData: {
                   ...(draft.extractedData as Record<string, unknown>),
                   ...(createInfo.shipping ? { shopwareShipping: createInfo.shipping } : {}),
                   ...(createInfo.smallVolume ? { shopwareSmallVolumeSurcharge: createInfo.smallVolume } : {}),
                   ...(createInfo.additionalDiscount ? { shopwareAdditionalDiscount: createInfo.additionalDiscount } : {}),
+                  ...(orderFields?.applied.length
+                    ? { shopwareOrderFields: { applied: orderFields.applied, people: orderFields.people } }
+                    : {}),
                 } as never,
               }
             : {}),
@@ -838,6 +856,7 @@ async function createOrderFromDraft(
  */
 export function buildOrderCustomerComment(extractedData: {
   orderNotes?: string;
+  documentExtraction?: { document?: { delivery_date?: string | null } | null } | null;
   documentReferences?: {
     customerReference?: string;
     commission?: string;
@@ -860,6 +879,8 @@ export function buildOrderCustomerComment(extractedData: {
     .join(", ");
   if (contact) lines.push(`Lieferkontakt: ${contact}`);
   if (refs.deliveryNoteInstructions) lines.push(`Lieferschein/Anlieferung: ${refs.deliveryNoteInstructions}`);
+  const wish = extractedData.documentExtraction?.document?.delivery_date?.trim();
+  if (wish) lines.push(`Wunschtermin: ${wish}`);
   if (refs.orderConfirmationEmail) lines.push(`AB an: ${refs.orderConfirmationEmail}`);
   if (refs.invoiceEmail) lines.push(`Rechnung an: ${refs.invoiceEmail}`);
   const notes = extractedData.orderNotes?.trim();

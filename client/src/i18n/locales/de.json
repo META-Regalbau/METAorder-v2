@@ -2248,6 +2248,92 @@
           "skipped": "Übersprungen"
         }
       }
+    },
+    "orderFieldMapping": {
+      "title": "Übergabe in die Bestellung",
+      "description": "Welche Angaben aus dem Entwurf in die Zusatzfelder der Shopware-Bestellung gehen. Zeigen mehrere Angaben auf dasselbe Feld, werden sie mit „ / “ verbunden. Der Kundenkommentar bleibt unverändert.",
+      "enabled": "Aktiv",
+      "catalogAdminOnly": "Die Feldliste des Shops sehen nur Administratoren; technische Feldnamen lassen sich eintippen.",
+      "catalogFailed": "Feldliste des Shops nicht verfügbar – technische Feldnamen lassen sich eintippen.",
+      "deliveryDateField": "Lieferdatum der Lieferung (Standardfeld)",
+      "notTransferred": "nicht übergeben",
+      "remove": "Entfernen",
+      "addField": "Feld hinzufügen",
+      "manualPlaceholder": "technischer Feldname",
+      "reset": "Standard",
+      "save": "Speichern",
+      "saving": "Speichert…",
+      "saved": "Übergabe gespeichert",
+      "saveFailed": "Speichern fehlgeschlagen",
+      "previewTitle": "Vorschau für einen Entwurf",
+      "previewHint": "Zeigt, was mit der gespeicherten Einstellung in die Bestellung ginge. Es wird nichts angelegt.",
+      "previewPlaceholder": "ID des Bestellentwurfs",
+      "previewRun": "Vorschau",
+      "previewFailed": "Vorschau fehlgeschlagen",
+      "previewEmpty": "Nichts zu übergeben",
+      "previewLines": "Positionen mit Text: {{count}}",
+      "previewPeople": "Besteller: {{orderer}} · Vertriebsmitarbeiter: {{salesRep}}",
+      "sources": {
+        "customerOrderNumber": {
+          "label": "Bestellnummer des Kunden",
+          "hint": "Belegnummer aus der Bestellung des Kunden"
+        },
+        "commission": {
+          "label": "Kommission",
+          "hint": "Kommission/Projekt aus dem Beleg"
+        },
+        "customerReference": {
+          "label": "Kundenreferenz",
+          "hint": "Zeichen/Ansprechpartner des Kunden"
+        },
+        "notes": {
+          "label": "Anmerkungen",
+          "hint": "Hinweise aus dem Beleg und zur Anlieferung"
+        },
+        "confirmationEmail": {
+          "label": "E-Mail für die AB",
+          "hint": "Wohin die Auftragsbestätigung gehen soll"
+        },
+        "invoiceEmail": {
+          "label": "Rechnungs-E-Mail",
+          "hint": "Wohin die Rechnung gehen soll"
+        },
+        "offer": {
+          "label": "Übernommenes Angebot",
+          "hint": "B2B-Angebot, auf das sich die Bestellung bezieht"
+        },
+        "orderer": {
+          "label": "Besteller",
+          "hint": "B2B-Mitarbeiter des Kunden mit der Absender-E-Mail (nur eindeutige Treffer)"
+        },
+        "salesRepresentative": {
+          "label": "Vertriebsmitarbeiter",
+          "hint": "Dem Kunden in B2B Sellers zugeordneter Vertriebsmitarbeiter"
+        },
+        "deliveryDate": {
+          "label": "Wunschliefertermin",
+          "hint": "Datum oder Kalenderwoche aus dem Beleg"
+        },
+        "lineCustomerText": {
+          "label": "Positionstext des Kunden",
+          "hint": "Kunden-Artikelnummer und Originaltext je Position"
+        }
+      },
+      "people": {
+        "orderer": {
+          "found": "gefunden",
+          "no_email": "keine E-Mail",
+          "not_found": "kein B2B-Mitarbeiter",
+          "ambiguous": "nicht eindeutig",
+          "error": "Fehler bei der Abfrage"
+        },
+        "salesRep": {
+          "found": "gefunden",
+          "none": "keiner zugeordnet",
+          "ambiguous": "nicht eindeutig",
+          "error": "Fehler bei der Abfrage"
+        }
+      }
     }
   },
   "webhookLogs": {
@@ -6318,7 +6404,13 @@
       "kundennummer_fehlt_oder_ist_ungultig": "Kundennummer fehlt oder ist ungültig",
       "shopware_ist_nicht_eingerichtet": "Shopware ist nicht eingerichtet",
       "preis_diagnose_fehlgeschlagen": "Preis-Diagnose fehlgeschlagen",
-      "zusatzfelder_des_shops_konnten_nicht_gelesen_werden": "Zusatzfelder des Shops konnten nicht gelesen werden"
+      "zusatzfelder_des_shops_konnten_nicht_gelesen_werden": "Zusatzfelder des Shops konnten nicht gelesen werden",
+      "einstellung_fur_die_ubergabe_in_die_bestellung_konnte_nicht_gelesen_werden": "Einstellung für die Übergabe in die Bestellung konnte nicht gelesen werden",
+      "ungultige_einstellung_fur_die_ubergabe_in_die_bestellung": "Ungültige Einstellung für die Übergabe in die Bestellung",
+      "einstellung_fur_die_ubergabe_in_die_bestellung_konnte_nicht_gespeichert_werden": "Einstellung für die Übergabe in die Bestellung konnte nicht gespeichert werden",
+      "entwurf_fehlt_oder_ist_ungultig": "Entwurf fehlt oder ist ungültig",
+      "entwurf_hat_keinen_shopware_kunden": "Entwurf hat keinen Shopware-Kunden",
+      "vorschau_der_ubergabe_in_die_bestellung_fehlgeschlagen": "Vorschau der Übergabe in die Bestellung fehlgeschlagen"
     }
   },
   "roomPlanner": {

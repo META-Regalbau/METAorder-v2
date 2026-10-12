@@ -19,6 +19,7 @@ const sw = vi.hoisted(() => ({
   recordConversions: vi.fn(async () => undefined),
   sftp: vi.fn(),
   recordDiscount: vi.fn(async () => undefined),
+  fieldValues: vi.fn(async (_params: unknown): Promise<any> => ({ order: {}, lineItems: new Map(), delivery: {}, applied: [], people: null })),
 }));
 
 vi.mock("../../server/shopware/shopware", () => ({
@@ -57,6 +58,10 @@ vi.mock("../../server/cross-selling/crossSellDraftSignals", () => ({
 }));
 vi.mock("../../server/commercial/draftProfitability", () => ({ refreshDraftProfitability: sw.refresh }));
 vi.mock("../../server/commercial/draftMarginApproval", () => ({ checkMarginGateForCreate: async () => sw.marginGate }));
+vi.mock("../../server/shopware/orderFieldMappingService", () => ({
+  getOrderFieldMapping: async () => ({ enabled: true }),
+  resolveDraftOrderFieldValues: (params: unknown) => sw.fieldValues(params),
+}));
 vi.mock("../../server/commercial/offerDraftDiscountGate", () => ({
   checkOfferDraftDiscount: async () => sw.discount,
   recordOfferDiscountApproval: sw.recordDiscount,
@@ -259,6 +264,28 @@ describe("Bestellung: erfolgreiche Anlage", () => {
     sw.createOrder.mockRejectedValueOnce(new Error("Shopware 500"));
     await executeCreateOrderFromDraft(fakeStorage(orderDraft()).storage, "d1", options);
     expect(logs.find((l) => l.event === "draft.create.failed")).toMatchObject({ level: "error", statusCode: 502, error: "Shopware 500" });
+  });
+
+  it("Zusatzfelder: an die Payload übergeben und im Entwurf vermerkt; Fehler verhindern die Bestellung nicht", async () => {
+    const values = {
+      order: { b2b_order_customer_commission: "4500662763 / Halle 3" },
+      lineItems: new Map([["pa", { b2b_order_line_item_comment: "Kd.-Art.-Nr. 77 · Boden" }]]),
+      delivery: { shippingDateEarliest: "2026-10-20T00:00:00.000Z", shippingDateLatest: "2026-10-20T00:00:00.000Z" },
+      applied: [{ source: "commission", field: "b2b_order_customer_commission", value: "4500662763 / Halle 3" }],
+      people: { ordererEmployeeId: null, ordererNote: "not_found", salesRepresentativeId: null, salesRepNote: "none" },
+    };
+    sw.fieldValues.mockResolvedValueOnce(values);
+    const { storage, updates } = fakeStorage(orderDraft());
+    expect(await executeCreateOrderFromDraft(storage, "d1", options)).toMatchObject({ ok: true });
+    const input = sw.buildAttrs.mock.calls[0]![1] as { fieldValues: unknown };
+    expect(input.fieldValues).toBe(values);
+    expect((updates.at(-1) as any).extractedData.shopwareOrderFields).toEqual({ applied: values.applied, people: values.people });
+
+    sw.buildAttrs.mockClear();
+    sw.fieldValues.mockRejectedValueOnce(new Error("Shop weg"));
+    const second = fakeStorage(orderDraft());
+    expect(await executeCreateOrderFromDraft(second.storage, "d1", options)).toMatchObject({ ok: true });
+    expect((sw.buildAttrs.mock.calls[0]![1] as { fieldValues?: unknown }).fieldValues).toBeUndefined();
   });
 
   it("ohne Beilagen kein SFTP", async () => {

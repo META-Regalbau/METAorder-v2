@@ -2251,6 +2251,92 @@
           "skipped": "Skipped"
         }
       }
+    },
+    "orderFieldMapping": {
+      "title": "Order handover",
+      "description": "Which draft details are written to the custom fields of the Shopware order. If several details point to the same field, they are joined with \" / \". The customer comment stays unchanged.",
+      "enabled": "Active",
+      "catalogAdminOnly": "Only administrators see the shop's field list; technical field names can be typed in.",
+      "catalogFailed": "Shop field list not available – technical field names can be typed in.",
+      "deliveryDateField": "Delivery date of the shipment (standard field)",
+      "notTransferred": "not transferred",
+      "remove": "Remove",
+      "addField": "Add field",
+      "manualPlaceholder": "technical field name",
+      "reset": "Defaults",
+      "save": "Save",
+      "saving": "Saving…",
+      "saved": "Handover saved",
+      "saveFailed": "Saving failed",
+      "previewTitle": "Preview for a draft",
+      "previewHint": "Shows what the saved settings would write to the order. Nothing is created.",
+      "previewPlaceholder": "Order draft ID",
+      "previewRun": "Preview",
+      "previewFailed": "Preview failed",
+      "previewEmpty": "Nothing to transfer",
+      "previewLines": "Lines with text: {{count}}",
+      "previewPeople": "Orderer: {{orderer}} · Sales rep: {{salesRep}}",
+      "sources": {
+        "customerOrderNumber": {
+          "label": "Customer order number",
+          "hint": "Document number from the customer's order"
+        },
+        "commission": {
+          "label": "Commission",
+          "hint": "Commission/project from the document"
+        },
+        "customerReference": {
+          "label": "Customer reference",
+          "hint": "Customer's reference/contact"
+        },
+        "notes": {
+          "label": "Notes",
+          "hint": "Notes from the document and delivery instructions"
+        },
+        "confirmationEmail": {
+          "label": "Order confirmation e-mail",
+          "hint": "Where the order confirmation should go"
+        },
+        "invoiceEmail": {
+          "label": "Invoice e-mail",
+          "hint": "Where the invoice should go"
+        },
+        "offer": {
+          "label": "Referenced offer",
+          "hint": "B2B offer the order refers to"
+        },
+        "orderer": {
+          "label": "Orderer",
+          "hint": "Customer's B2B employee with the sender e-mail (unique matches only)"
+        },
+        "salesRepresentative": {
+          "label": "Sales representative",
+          "hint": "Sales representative assigned to the customer in B2B Sellers"
+        },
+        "deliveryDate": {
+          "label": "Requested delivery date",
+          "hint": "Date or calendar week from the document"
+        },
+        "lineCustomerText": {
+          "label": "Customer line text",
+          "hint": "Customer article number and original text per line"
+        }
+      },
+      "people": {
+        "orderer": {
+          "found": "found",
+          "no_email": "no e-mail",
+          "not_found": "no B2B employee",
+          "ambiguous": "ambiguous",
+          "error": "lookup failed"
+        },
+        "salesRep": {
+          "found": "found",
+          "none": "none assigned",
+          "ambiguous": "ambiguous",
+          "error": "lookup failed"
+        }
+      }
     }
   },
   "webhookLogs": {
@@ -6321,7 +6407,13 @@
       "kundennummer_fehlt_oder_ist_ungultig": "Customer number is missing or invalid",
       "shopware_ist_nicht_eingerichtet": "Shopware is not set up",
       "preis_diagnose_fehlgeschlagen": "Price diagnostics failed",
-      "zusatzfelder_des_shops_konnten_nicht_gelesen_werden": "Shop custom fields could not be read"
+      "zusatzfelder_des_shops_konnten_nicht_gelesen_werden": "Shop custom fields could not be read",
+      "einstellung_fur_die_ubergabe_in_die_bestellung_konnte_nicht_gelesen_werden": "Order handover settings could not be read",
+      "ungultige_einstellung_fur_die_ubergabe_in_die_bestellung": "Invalid order handover settings",
+      "einstellung_fur_die_ubergabe_in_die_bestellung_konnte_nicht_gespeichert_werden": "Order handover settings could not be saved",
+      "entwurf_fehlt_oder_ist_ungultig": "Draft missing or invalid",
+      "entwurf_hat_keinen_shopware_kunden": "Draft has no Shopware customer",
+      "vorschau_der_ubergabe_in_die_bestellung_fehlgeschlagen": "Order handover preview failed"
     }
   },
   "roomPlanner": {

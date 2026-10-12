@@ -24,7 +24,7 @@ const COMPONENT_RULES: Rule[] = [
   [/^routes\/(masterDataRoutes|productRoutes)$/, "products"],
   [/^routes\/offerRoutes$/, "offers"],
   [/^routes\/(orderRoutes|operationsRoutes|routeHelpers)$/, "orders"],
-  [/^routes\/settingsRoutes$/, "settings"],
+  [/^routes\/(settingsRoutes|orderFieldMappingRoutes)$/, "settings"],
   [/^routes\/ticketRoutes$/, "tickets"],
   [/^routes\/notificationRoutes$/, "system"],
   [/^shopware(\/|-|$)/, "shopware"],
