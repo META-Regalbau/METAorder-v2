@@ -2097,6 +2097,92 @@
         "documentNumber": "número de documento",
         "yourToken": "token"
       }
+    },
+    "orderFieldMapping": {
+      "title": "Traspaso al pedido",
+      "description": "Qué datos del borrador se escriben en los campos personalizados del pedido de Shopware. Si varios datos apuntan al mismo campo, se unen con \" / \". El comentario del cliente no cambia.",
+      "enabled": "Activo",
+      "catalogAdminOnly": "Solo los administradores ven la lista de campos; los nombres técnicos se pueden escribir.",
+      "catalogFailed": "Lista de campos no disponible: se pueden escribir los nombres técnicos.",
+      "deliveryDateField": "Fecha de entrega del envío (campo estándar)",
+      "notTransferred": "no se transfiere",
+      "remove": "Quitar",
+      "addField": "Añadir campo",
+      "manualPlaceholder": "nombre técnico del campo",
+      "reset": "Valores por defecto",
+      "save": "Guardar",
+      "saving": "Guardando…",
+      "saved": "Traspaso guardado",
+      "saveFailed": "Error al guardar",
+      "previewTitle": "Vista previa de un borrador",
+      "previewHint": "Muestra lo que la configuración guardada escribiría en el pedido. No se crea nada.",
+      "previewPlaceholder": "ID del borrador de pedido",
+      "previewRun": "Vista previa",
+      "previewFailed": "Error en la vista previa",
+      "previewEmpty": "Nada que transferir",
+      "previewLines": "Posiciones con texto: {{count}}",
+      "previewPeople": "Solicitante: {{orderer}} · Representante: {{salesRep}}",
+      "sources": {
+        "customerOrderNumber": {
+          "label": "Número de pedido del cliente",
+          "hint": "Número del documento del pedido del cliente"
+        },
+        "commission": {
+          "label": "Comisión",
+          "hint": "Comisión/proyecto del documento"
+        },
+        "customerReference": {
+          "label": "Referencia del cliente",
+          "hint": "Referencia/contacto del cliente"
+        },
+        "notes": {
+          "label": "Observaciones",
+          "hint": "Notas del documento e instrucciones de entrega"
+        },
+        "confirmationEmail": {
+          "label": "E-mail para la confirmación",
+          "hint": "A dónde debe ir la confirmación del pedido"
+        },
+        "invoiceEmail": {
+          "label": "E-mail de factura",
+          "hint": "A dónde debe ir la factura"
+        },
+        "offer": {
+          "label": "Oferta de referencia",
+          "hint": "Oferta B2B a la que se refiere el pedido"
+        },
+        "orderer": {
+          "label": "Solicitante",
+          "hint": "Empleado B2B del cliente con el e-mail del remitente (solo coincidencias únicas)"
+        },
+        "salesRepresentative": {
+          "label": "Representante de ventas",
+          "hint": "Representante asignado al cliente en B2B Sellers"
+        },
+        "deliveryDate": {
+          "label": "Fecha de entrega deseada",
+          "hint": "Fecha o semana del documento"
+        },
+        "lineCustomerText": {
+          "label": "Texto de posición del cliente",
+          "hint": "Número de artículo del cliente y texto original por posición"
+        }
+      },
+      "people": {
+        "orderer": {
+          "found": "encontrado",
+          "no_email": "sin e-mail",
+          "not_found": "ningún empleado B2B",
+          "ambiguous": "ambiguo",
+          "error": "error en la consulta"
+        },
+        "salesRep": {
+          "found": "encontrado",
+          "none": "ninguno asignado",
+          "ambiguous": "ambiguo",
+          "error": "error en la consulta"
+        }
+      }
     }
   },
   "webhookLogs": {
@@ -6318,7 +6404,13 @@
       "kundennummer_fehlt_oder_ist_ungultig": "Falta el número de cliente o no es válido",
       "shopware_ist_nicht_eingerichtet": "Shopware no está configurado",
       "preis_diagnose_fehlgeschlagen": "Error en el diagnóstico de precios",
-      "zusatzfelder_des_shops_konnten_nicht_gelesen_werden": "No se pudieron leer los campos personalizados de la tienda"
+      "zusatzfelder_des_shops_konnten_nicht_gelesen_werden": "No se pudieron leer los campos personalizados de la tienda",
+      "einstellung_fur_die_ubergabe_in_die_bestellung_konnte_nicht_gelesen_werden": "No se pudo leer la configuración de traspaso al pedido",
+      "ungultige_einstellung_fur_die_ubergabe_in_die_bestellung": "Configuración de traspaso al pedido no válida",
+      "einstellung_fur_die_ubergabe_in_die_bestellung_konnte_nicht_gespeichert_werden": "No se pudo guardar la configuración de traspaso al pedido",
+      "entwurf_fehlt_oder_ist_ungultig": "Borrador ausente o no válido",
+      "entwurf_hat_keinen_shopware_kunden": "El borrador no tiene cliente de Shopware",
+      "vorschau_der_ubergabe_in_die_bestellung_fehlgeschlagen": "Falló la vista previa del traspaso al pedido"
     }
   },
   "roomPlanner": {

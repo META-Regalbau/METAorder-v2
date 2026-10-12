@@ -25,6 +25,7 @@ import { registerProductRoutes } from "./routes/productRoutes";
 import { registerDraftRoutes } from "./routes/draftRoutes";
 import { registerEmailIntakeRoutes } from "./routes/emailIntakeRoutes";
 import { registerPricingDiagnosticsRoutes } from "./routes/pricingDiagnosticsRoutes";
+import { registerOrderFieldMappingRoutes } from "./routes/orderFieldMappingRoutes";
 import { registerOfferRoutes } from "./routes/offerRoutes";
 import { registerAiRoutes } from "./routes/aiRoutes";
 import { registerAnalyticsRoutes } from "./routes/analyticsRoutes";
@@ -105,6 +106,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerEmailIntakeRoutes(app);
   // Preis-Diagnose je Händler (nur lesend, Admin)
   registerPricingDiagnosticsRoutes(app);
+  registerOrderFieldMappingRoutes(app);
 
   // Produkte inkl. Imports, Shopware-Cross-Selling, Produktcache und Bundles
   registerProductRoutes(app);

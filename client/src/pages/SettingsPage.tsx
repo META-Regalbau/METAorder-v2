@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import WebhooksSettingsSection from "@/components/WebhooksSettingsSection";
 import N8nSettingsSection from "@/components/N8nSettingsSection";
+import OrderFieldMappingSection from "@/components/OrderFieldMappingSection";
 import N8nConnectionSection from "@/components/N8nConnectionSection";
 import EmailIntakeSection from "@/components/EmailIntakeSection";
 import CommercialCustomerTokensSection from "@/components/CommercialCustomerTokensSection";
@@ -2040,6 +2041,7 @@ function ShopwareTab() {
           </div>
         )}
       </Card>
+      <OrderFieldMappingSection />
       <WebhooksSettingsSection />
     </div>
   );

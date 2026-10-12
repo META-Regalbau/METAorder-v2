@@ -149,6 +149,13 @@ export async function buildOrderCreateAttributes(
     lineItems: OrderLineItemInput[];
     customerContext?: OrderCustomerContext;
     customerComment?: string;
+    /** Zusatzfelder aus dem Entwurf (Einstellung „Übergabe in die Bestellung“) */
+    fieldValues?: {
+      order?: Record<string, unknown>;
+      /** je Produkt-ID (ohne Bindestriche, klein) */
+      lineItems?: Map<string, Record<string, unknown>>;
+      delivery?: { shippingDateEarliest?: string; shippingDateLatest?: string };
+    };
     /** Wird gefüllt: Fracht nach Lieferbedingung (null = keine Regel, Standard-Versandart ohne Fracht) */
     info?: {
       shipping?: DealerShipping | null;
@@ -238,6 +245,10 @@ export async function buildOrderCreateAttributes(
       : null;
   }
 
+  const lineCustomFields = (productId: string) => {
+    const fields = params.fieldValues?.lineItems?.get(productId.replace(/-/g, "").toLowerCase());
+    return fields && Object.keys(fields).length ? fields : undefined;
+  };
   const lineItemsPayload = params.lineItems.map((item, index) => {
     const productId = toShopwareUuid(item.productId);
     const price = pricing.get(productId);
@@ -261,6 +272,7 @@ export async function buildOrderCreateAttributes(
       quantity,
       position: index + 1,
       payload: item.productNumber ? { productNumber: item.productNumber } : undefined,
+      ...(lineCustomFields(productId) ? { customFields: lineCustomFields(productId) } : {}),
       price: calc,
       priceDefinition: buildQuantityPriceDefinition(net, quantity, taxRate),
     };
@@ -372,8 +384,9 @@ export async function buildOrderCreateAttributes(
         stateId: deliveryStateId,
         shippingMethodId: shipping?.shippingMethodId ?? channelDefaults.shippingMethodId,
         shippingOrderAddress: shippingAddress,
-        shippingDateEarliest: now,
-        shippingDateLatest: now,
+        // Wunschtermin aus dem Beleg, sonst wie bisher das Anlagedatum
+        shippingDateEarliest: params.fieldValues?.delivery?.shippingDateEarliest ?? now,
+        shippingDateLatest: params.fieldValues?.delivery?.shippingDateLatest ?? params.fieldValues?.delivery?.shippingDateEarliest ?? now,
         shippingCosts,
       },
     ],
@@ -394,6 +407,9 @@ export async function buildOrderCreateAttributes(
 
   if (params.customerComment && params.customerComment.trim()) {
     attributes.customerComment = params.customerComment.trim();
+  }
+  if (params.fieldValues?.order && Object.keys(params.fieldValues.order).length) {
+    attributes.customFields = { ...params.fieldValues.order };
   }
 
   return attributes;
