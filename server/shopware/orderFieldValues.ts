@@ -182,6 +182,17 @@ export function parseRequestedDeliveryDate(raw: unknown, now = new Date()): { ea
   return { earliest: dayAt(date), latest: dayAt(date) };
 }
 
+/**
+ * Lieferfenster („KW 39/26“) als Ersatz, wenn der Beleg kein Lieferdatum hat – nur wenn dort
+ * ausschließlich ein Datum oder eine Woche steht. Annahmezeiten oder Sperrtage („am 28.09.26 keine
+ * Warenannahme“) dürfen kein Liefertermin werden.
+ */
+export function parseDeliveryWindow(raw: unknown, now = new Date()): { earliest: string; latest: string } | null {
+  const s = typeof raw === "string" ? raw.trim() : "";
+  if (!/^(?:(?:kw|kalenderwoche)\s*\.?\s*\d{1,2}(?:\s*[/.\-\s]\s*\d{2,4})?|\d{1,2}\.\d{1,2}\.\d{2,4}|\d{4}-\d{2}-\d{2})$/i.test(s)) return null;
+  return parseRequestedDeliveryDate(s, now);
+}
+
 type Loose = Record<string, any>;
 
 type MatchItem = {
@@ -242,7 +253,7 @@ export function collectOrderFieldInputs(
     confirmationEmail: clean(refs.orderConfirmationEmail),
     invoiceEmail: clean(refs.invoiceEmail),
     offerId,
-    deliveryDate: parseRequestedDeliveryDate(doc.delivery_date, now),
+    deliveryDate: parseRequestedDeliveryDate(doc.delivery_date, now) ?? parseDeliveryWindow((ed.documentExtraction as Loose | undefined)?.delivery_address?.delivery_window, now),
     lineCustomerText: collectLineCustomerTexts(ed, draft.matchingResults?.items ?? []),
   };
 }

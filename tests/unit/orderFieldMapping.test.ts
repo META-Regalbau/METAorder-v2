@@ -17,6 +17,7 @@ import {
   collectLineCustomerTexts,
   collectOrderFieldInputs,
   ordererEmailCandidates,
+  parseDeliveryWindow,
   parseRequestedDeliveryDate,
 } from "../../server/shopware/orderFieldValues";
 import { resolveOrderPeople, salesRepIdOf, type PeopleLookup } from "../../server/shopware/orderPeople";
@@ -107,6 +108,20 @@ describe("Wunschtermin", () => {
     assert.equal(parseRequestedDeliveryDate("31.02.2027", NOW), null);
     assert.equal(parseRequestedDeliveryDate("asap", NOW), null);
     assert.equal(parseRequestedDeliveryDate(null, NOW), null);
+  });
+});
+
+describe("Lieferfenster als Ersatz", () => {
+  it("nur reine Datums- oder Wochenangaben; Annahmezeiten und Sperrtage nicht", () => {
+    assert.deepEqual(parseDeliveryWindow("KW 44/26", NOW), { earliest: "2026-10-26T00:00:00.000Z", latest: "2026-10-30T00:00:00.000Z" });
+    assert.equal(parseDeliveryWindow("KW 45.2026", NOW)?.earliest, "2026-11-02T00:00:00.000Z");
+    assert.equal(parseDeliveryWindow("Mo.-Do. 7-14 Uhr, am 28.10.26 keine Warenannahme", NOW), null);
+    assert.equal(parseDeliveryWindow("KW 39/26", NOW), null);
+    // im Entwurf: Lieferdatum hat Vorrang, sonst Fenster
+    const d = (doc: object, window: string | null) =>
+      collectOrderFieldInputs({ extractedData: { documentExtraction: { document: doc, delivery_address: { delivery_window: window } } } }, NOW).deliveryDate?.earliest ?? null;
+    assert.equal(d({ delivery_date: "2026-11-25" }, "KW 44/26"), "2026-11-25T00:00:00.000Z");
+    assert.equal(d({ delivery_date: null }, "KW 44/26"), "2026-10-26T00:00:00.000Z");
   });
 });
 
