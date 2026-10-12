@@ -6317,7 +6317,8 @@
       "problem_meldung_konnte_nicht_verarbeitet_werden": "Problem-Meldung konnte nicht verarbeitet werden",
       "kundennummer_fehlt_oder_ist_ungultig": "Kundennummer fehlt oder ist ungültig",
       "shopware_ist_nicht_eingerichtet": "Shopware ist nicht eingerichtet",
-      "preis_diagnose_fehlgeschlagen": "Preis-Diagnose fehlgeschlagen"
+      "preis_diagnose_fehlgeschlagen": "Preis-Diagnose fehlgeschlagen",
+      "zusatzfelder_des_shops_konnten_nicht_gelesen_werden": "Zusatzfelder des Shops konnten nicht gelesen werden"
     }
   },
   "roomPlanner": {

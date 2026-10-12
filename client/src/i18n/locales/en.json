@@ -6320,7 +6320,8 @@
       "problem_meldung_konnte_nicht_verarbeitet_werden": "Problem report could not be processed",
       "kundennummer_fehlt_oder_ist_ungultig": "Customer number is missing or invalid",
       "shopware_ist_nicht_eingerichtet": "Shopware is not set up",
-      "preis_diagnose_fehlgeschlagen": "Price diagnostics failed"
+      "preis_diagnose_fehlgeschlagen": "Price diagnostics failed",
+      "zusatzfelder_des_shops_konnten_nicht_gelesen_werden": "Shop custom fields could not be read"
     }
   },
   "roomPlanner": {
