@@ -13,11 +13,17 @@ import { storage } from "../storage";
 import { getCommercialAgentSettings } from "../ai/aiConfig";
 import {
   EMAIL_INTAKE_CATEGORIES,
+  findIntakeMailbox,
   emailIntakeSettingsSchema,
   isValidIntakeEmail,
   type EmailIntakeResponse,
 } from "@shared/emailIntake";
-import { getEmailIntakeSettings, saveEmailIntakeSettings, workflowConfigFromSettings } from "../commercial/emailIntakeSettings";
+import {
+  getEmailIntakeSettings,
+  intakeMailboxAddresses,
+  saveEmailIntakeSettings,
+  workflowConfigFromSettings,
+} from "../commercial/emailIntakeSettings";
 import { createIntakeProblemTicket } from "../commercial/emailIntakeTickets";
 import { buildIntakeTeamsBlock, publicAppBaseUrl } from "../commercial/emailIntakeTeams";
 import { unwrapInternalForward } from "../email/emailForwardUnwrap";
@@ -53,6 +59,8 @@ const problemSchema = z.object({
   ccAddresses: z.array(z.string().max(320)).max(100).optional(),
   /** Schritt in n8n, z. B. mime (Mail holen) oder upload (an METAorder senden) */
   stage: z.string().trim().max(60),
+  /** Postfach wie in der Konfiguration (neuer Workflow); persönlich = nicht verschieben */
+  mailbox: z.string().trim().max(254).optional().nullable(),
   statusCode: z.number().int().optional().nullable(),
   error: z.string().max(4000).optional().nullable(),
 });
@@ -86,7 +94,7 @@ export function registerEmailIntakeRoutes(app: Express): void {
       if (settings.forwardOtherTo && !isValidIntakeEmail(settings.forwardOtherTo)) {
         return res.status(400).json({ error: "Ungültige Weiterleitungsadresse", code: "email_intake_forward_invalid" });
       }
-      if (settings.mailbox && !isValidIntakeEmail(settings.mailbox)) {
+      if (settings.mailboxes.some((m) => m.address && !isValidIntakeEmail(m.address))) {
         return res.status(400).json({ error: "Ungültige Postfach-Adresse", code: "email_intake_mailbox_invalid" });
       }
       const tenantId = req.tenantId ?? null;
@@ -154,7 +162,7 @@ export function registerEmailIntakeRoutes(app: Express): void {
           ? await createIntakeProblemTicket(storage, {
               tenantId,
               integrationUserId: user.id,
-              excludeEmails: [settings.mailbox, user.email ?? ""].filter(Boolean),
+              excludeEmails: [...intakeMailboxAddresses(settings), user.email ?? ""].filter(Boolean),
               defaultAssigneeUserId: settings.defaultAssigneeUserId,
               problem: {
                 reason: "processing_failed",
@@ -176,8 +184,9 @@ export function registerEmailIntakeRoutes(app: Express): void {
           outcome: "failed",
           categories: [EMAIL_INTAKE_CATEGORIES.failed, ...(ticket ? [EMAIL_INTAKE_CATEGORIES.ticket] : [])],
           forward: null,
-          // Mit Ticket kümmert sich jemand → verschieben; ohne Ticket bleibt die Mail für den nächsten Versuch liegen
-          move: Boolean(ticket),
+          // Mit Ticket kümmert sich jemand → verschieben (nie im persönlichen Postfach). Ohne Ticket bleibt
+          // die Mail mit Kategorie „Fehler“ liegen; Kategorie entfernen = erneut verarbeiten
+          move: Boolean(ticket) && findIntakeMailbox(settings, body.mailbox ?? "")?.mode !== "personal",
           tickets: ticket ? [ticket] : [],
           other: null,
           teams: buildIntakeTeamsBlock(

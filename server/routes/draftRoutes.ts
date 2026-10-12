@@ -36,6 +36,7 @@ import { isEmailContainerUpload, ingestCommercialEmailUpload, deriveUploadMessag
 import { acquireIntakeLock, failEmailIntake, finalizeEmailIntake, releaseIntakeLock } from "../commercial/emailIntakeUpload";
 import { publicAppBaseUrl } from "../commercial/emailIntakeTeams";
 import { getEmailIntakeSettings } from "../commercial/emailIntakeSettings";
+import { findIntakeMailbox, internalDomainsFor } from "@shared/emailIntake";
 import { parseEmailBufferAutodetect } from "../email/emailParser";
 import { unwrapInternalForward } from "../email/emailForwardUnwrap";
 import { extractDocumentTextPreviewForIntent } from "../extraction/documentTextExtraction";
@@ -465,6 +466,12 @@ export function registerDraftRoutes(app: Express): void {
           canOffer
         ) {
           const intakeSettings = intakeMode ? await getEmailIntakeSettings(storage, req.tenantId ?? null) : null;
+          // Neuer Workflow (Postfach-Liste) schickt das Postfach mit: dann Filter und Art des Postfachs.
+          // Ältere Workflows (ohne Feld) schließen markierte Mails nicht aus → kein Filter, Bestellpostfach.
+          const intakeMailboxField = typeof req.body?.intake_mailbox === "string" ? req.body.intake_mailbox : null;
+          const intakeMailbox =
+            intakeSettings && intakeMailboxField !== null ? findIntakeMailbox(intakeSettings, intakeMailboxField) : null;
+          const intakeMailboxMode = intakeMailbox?.mode ?? "order";
           const lockKey = `${req.tenantId ?? ""}:${deriveUploadMessageId(fileBuffer)}`;
           if (intakeMode && !acquireIntakeLock(lockKey)) {
             await fs.unlink(file.path).catch(() => {});
@@ -485,6 +492,10 @@ export function registerDraftRoutes(app: Express): void {
               ocrEnabled: aiSettings.ocrEnabled,
               uploadHint: uploadIntentHint ?? null,
               triage: intakeSettings ? { otherMinConfidence: intakeSettings.otherMinConfidence } : null,
+              filter:
+                intakeSettings && intakeMailboxField !== null
+                  ? { settings: intakeSettings.filter, internalDomains: internalDomainsFor(intakeSettings) }
+                  : null,
             };
             let ingest: Awaited<ReturnType<typeof ingestCommercialEmailUpload>>;
             try {
@@ -513,6 +524,7 @@ export function registerDraftRoutes(app: Express): void {
                 rawEmail: { buffer: fileBuffer, fileName: file.originalname },
                 integrationUser: { id: userId, email: user?.email ?? null },
                 appBaseUrl: publicAppBaseUrl(`${req.protocol}://${req.get("host") || ""}`),
+                mailboxMode: intakeMailboxMode,
               });
               return res.json({ source: "email_container" as const, drafts: [], draftCount: 0, deduplicated: false, intake });
             }
@@ -579,6 +591,7 @@ export function registerDraftRoutes(app: Express): void {
                   rawEmail: { buffer: fileBuffer, fileName: file.originalname },
                   integrationUser: { id: userId, email: user?.email ?? null },
                   appBaseUrl: publicAppBaseUrl(`${req.protocol}://${req.get("host") || ""}`),
+                  mailboxMode: intakeMailboxMode,
                 })
               : undefined;
             return res.json({

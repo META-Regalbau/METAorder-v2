@@ -9,11 +9,78 @@ import { z } from "zod";
 
 export const EMAIL_INTAKE_SETTING_KEY = "email_intake_settings";
 
+/**
+ * Ein abgerufenes Postfach. „order“ = Bestellpostfach: erledigte Mails werden verschoben,
+ * „Sonstiges“ weitergeleitet. „personal“ = persönliches Postfach: nichts wird verschoben oder
+ * weitergeleitet, METAorder setzt nur Kategorien (die Mail bleibt, wo sie ist).
+ */
+export const emailIntakeMailboxSchema = z.object({
+  /** Freigegebenes Postfach (z. B. bestellung@…); leer = Postfach des n8n-Outlook-Zugangs */
+  address: z.string().trim().max(254),
+  mode: z.enum(["order", "personal"]),
+  enabled: z.boolean(),
+});
+export type EmailIntakeMailbox = z.infer<typeof emailIntakeMailboxSchema>;
+export type EmailIntakeMailboxMode = EmailIntakeMailbox["mode"];
+
+/** Absender als volle Adresse (name@firma.de) oder Domain (firma.de bzw. @firma.de) */
+const senderPatternSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .transform((v) => v.replace(/^@/, ""))
+  .pipe(z.string().regex(/^([^\s@]+@)?[a-z0-9.-]+\.[a-z]{2,}$/, "Adresse oder Domain"));
+
+const domainSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .transform((v) => v.replace(/^@/, ""))
+  .pipe(z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/, "Domain"));
+
+/**
+ * Filter vor der Einordnung (ohne KI): aussortierte Mails bekommen nur die Kategorie
+ * „METAorder: ignoriert“ und bleiben im Posteingang — kein Entwurf, keine Weiterleitung.
+ * Reihenfolge: Erlaubtliste → Sperrliste → Betreff-Stichwörter → intern → Newsletter.
+ */
+export const emailIntakeFilterSchema = z.object({
+  /** Newsletter und Massenmails (List-Unsubscribe, Precedence: bulk, noreply-Absender) */
+  ignoreBulk: z.boolean(),
+  /** Mails von Kollegen (interne Domains); weitergeleitete Kundenmails bleiben drin */
+  ignoreInternal: z.boolean(),
+  /** Eigene Domains zusätzlich zu den Domains der Postfächer */
+  internalDomains: z.array(domainSchema).max(20),
+  /** Immer ignorieren */
+  blockSenders: z.array(senderPatternSchema).max(200),
+  /** Immer verarbeiten (vor allen anderen Regeln) */
+  allowSenders: z.array(senderPatternSchema).max(200),
+  /** Betreff enthält eines dieser Stichwörter → ignorieren */
+  blockSubjectKeywords: z.array(z.string().trim().min(2).max(100)).max(100),
+});
+export type EmailIntakeFilterSettings = z.infer<typeof emailIntakeFilterSchema>;
+
+export const DEFAULT_EMAIL_INTAKE_FILTER: EmailIntakeFilterSettings = {
+  ignoreBulk: true,
+  ignoreInternal: true,
+  internalDomains: [],
+  blockSenders: [],
+  allowSenders: [],
+  blockSubjectKeywords: [],
+};
+
 export const emailIntakeSettingsSchema = z.object({
   /** Aus: der Workflow holt keine Mails (n8n fragt die Einstellungen bei jedem Lauf ab) */
   enabled: z.boolean(),
-  /** Freigegebenes Postfach (z. B. bestellung@…); leer = Postfach des n8n-Outlook-Zugangs */
-  mailbox: z.string().trim().max(254),
+  /** Abgerufene Postfächer (ein Workflow für alle) */
+  mailboxes: z
+    .array(emailIntakeMailboxSchema)
+    .min(1)
+    .max(10)
+    .refine(
+      (list) => new Set(list.map((m) => m.address.toLowerCase())).size === list.length,
+      "Jedes Postfach nur einmal",
+    ),
+  filter: emailIntakeFilterSchema,
   /** Unterordner des Posteingangs, in den verarbeitete Mails verschoben werden */
   processedFolderName: z.string().trim().min(1).max(120),
   /** Mails je Lauf (der Workflow läuft alle 2 Minuten) */
@@ -64,7 +131,8 @@ export type EmailIntakeSettings = z.infer<typeof emailIntakeSettingsSchema>;
 export const DEFAULT_EMAIL_INTAKE_SETTINGS: EmailIntakeSettings = {
   // Aus, bis jemand Postfach und Startdatum geprüft hat: sonst verarbeitet der erste Lauf schon Erledigtes
   enabled: false,
-  mailbox: "",
+  mailboxes: [{ address: "", mode: "order", enabled: true }],
+  filter: DEFAULT_EMAIL_INTAKE_FILTER,
   processedFolderName: "METAorder verarbeitet",
   maxPerRun: 10,
   processSince: "",
@@ -85,14 +153,47 @@ export function isValidIntakeEmail(value: string): boolean {
 
 /** Gespeicherten Wert mit Standardwerten auffüllen; Unbrauchbares fällt auf den Standard zurück. */
 export function normalizeEmailIntakeSettings(stored: unknown): EmailIntakeSettings {
-  const raw = stored && typeof stored === "object" ? (stored as Record<string, unknown>) : {};
+  const raw = stored && typeof stored === "object" ? { ...(stored as Record<string, unknown>) } : {};
+  // Bis 12.10.2026 gab es nur ein Postfach (Feld `mailbox`): als Bestellpostfach übernehmen
+  if (!("mailboxes" in raw) && typeof raw.mailbox === "string") {
+    raw.mailboxes = [{ address: raw.mailbox, mode: "order", enabled: true }];
+  }
   const out: EmailIntakeSettings = { ...DEFAULT_EMAIL_INTAKE_SETTINGS };
   for (const key of Object.keys(DEFAULT_EMAIL_INTAKE_SETTINGS) as Array<keyof EmailIntakeSettings>) {
     if (!(key in raw)) continue;
+    if (key === "filter") {
+      out.filter = normalizeFilter(raw.filter);
+      continue;
+    }
     const field = emailIntakeSettingsSchema.shape[key].safeParse(raw[key]);
     if (field.success) (out as Record<string, unknown>)[key] = field.data;
   }
   return out;
+}
+
+function normalizeFilter(stored: unknown): EmailIntakeFilterSettings {
+  const raw = stored && typeof stored === "object" ? (stored as Record<string, unknown>) : {};
+  const out: EmailIntakeFilterSettings = { ...DEFAULT_EMAIL_INTAKE_FILTER };
+  for (const key of Object.keys(DEFAULT_EMAIL_INTAKE_FILTER) as Array<keyof EmailIntakeFilterSettings>) {
+    if (!(key in raw)) continue;
+    const field = emailIntakeFilterSchema.shape[key].safeParse(raw[key]);
+    if (field.success) (out as Record<string, unknown>)[key] = field.data;
+  }
+  return out;
+}
+
+/** Postfach-Eintrag zu einer Adresse ("" bzw. unbekannt = Postfach des n8n-Zugangs bzw. null) */
+export function findIntakeMailbox(settings: EmailIntakeSettings, address: string | null | undefined): EmailIntakeMailbox | null {
+  const wanted = (address ?? "").trim().toLowerCase();
+  return settings.mailboxes.find((m) => m.address.trim().toLowerCase() === wanted) ?? null;
+}
+
+/** Domains, die als „intern“ gelten: eingetragene plus die der Postfächer */
+export function internalDomainsFor(settings: EmailIntakeSettings): string[] {
+  const fromMailboxes = settings.mailboxes
+    .map((m) => m.address.trim().toLowerCase().split("@")[1] ?? "")
+    .filter(Boolean);
+  return [...new Set([...settings.filter.internalDomains, ...fromMailboxes])];
 }
 
 /** Outlook-Kategorien, die n8n an die Mail hängt (in Outlook für alle sichtbar). */
@@ -102,6 +203,8 @@ export const EMAIL_INTAKE_CATEGORIES = {
   other: "METAorder: Sonstiges",
   ticket: "METAorder: Ticket",
   failed: "METAorder: Fehler",
+  /** Vom Filter aussortiert (Newsletter, intern, Sperrliste): bleibt im Posteingang */
+  ignored: "METAorder: ignoriert",
 } as const;
 
 /** Art der Mail, wenn sie weder Bestellung noch Anfrage ist (für Hinweis und Ticket) */
@@ -141,7 +244,9 @@ export type EmailIntakeOutcome =
   /** Schon verarbeitet (n8n-Wiederholung) */
   | "duplicate"
   /** Konnte nicht verarbeitet werden — Ticket angelegt */
-  | "failed";
+  | "failed"
+  /** Vom Filter aussortiert (ohne KI, ohne Entwurf, bleibt im Posteingang) */
+  | "ignored";
 
 export type EmailIntakeTicketRef = {
   ticketNumber: string;
@@ -182,19 +287,51 @@ export type EmailIntakeResponse = {
   other: { type: EmailIntakeOtherType; confidence: number; reason: string } | null;
   /** Teams-Info zu neuen Problem-Tickets; null = nichts posten */
   teams?: EmailIntakeTeamsBlock | null;
+  /** Filter-Regel, die die Mail aussortiert hat */
+  filter?: { rule: EmailIntakeFilterRule; reason: string } | null;
+};
+
+export type EmailIntakeFilterRule = "allow_list" | "block_list" | "subject_keyword" | "internal" | "bulk";
+
+/** Ein Postfach im Lauf: alles, was n8n für Abruf und Ablage braucht */
+export type EmailIntakeWorkflowMailbox = {
+  /** Graph-Basis: /me oder /users/{postfach} */
+  graphBase: string;
+  /** Adresse wie in den Einstellungen; null = Postfach des n8n-Zugangs (an METAorder zurückgeben) */
+  mailbox: string | null;
+  mode: EmailIntakeMailboxMode;
+  /** Unterordner für erledigte Mails (nur Bestellpostfach) */
+  processedFolderName: string;
+  maxPerRun: number;
+  /** Untergrenze für receivedDateTime (ISO, UTC) */
+  receivedAfter: string;
+  /**
+   * Fertiger Graph-$filter: ab receivedAfter und ohne METAorder-Kategorie. So holt n8n weder
+   * aussortierte noch im persönlichen Postfach liegengelassene Mails erneut.
+   */
+  messageFilter: string;
 };
 
 /** Konfiguration, die n8n zu Beginn jedes Laufs abruft */
 export type EmailIntakeWorkflowConfig = {
   enabled: boolean;
-  /** Graph-Basis: /me oder /users/{postfach} */
+  /** Aktive Postfächer */
+  mailboxes: EmailIntakeWorkflowMailbox[];
+  /** Ältere Workflows (ein Postfach): erstes aktives Postfach */
   graphBase: string;
   mailbox: string | null;
   processedFolderName: string;
   maxPerRun: number;
-  /** Untergrenze für receivedDateTime (ISO, UTC) */
   receivedAfter: string;
 };
+
+/** Graph-$filter: ab dem Startzeitpunkt und ohne eine der METAorder-Kategorien */
+export function intakeMessageFilter(receivedAfter: string): string {
+  const notCategorized = Object.values(EMAIL_INTAKE_CATEGORIES)
+    .map((c) => `not(categories/any(c:c eq '${c.replace(/'/g, "''")}'))`)
+    .join(" and ");
+  return `receivedDateTime ge ${receivedAfter} and ${notCategorized}`;
+}
 
 const FALLBACK_LOOKBACK_MS = 2 * 24 * 60 * 60 * 1000;
 

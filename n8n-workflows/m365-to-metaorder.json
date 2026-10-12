@@ -1,5 +1,5 @@
 {
-  "name": "Microsoft 365 → METAorder E-Mail-Eingang",
+  "name": "Microsoft 365 → METAorder E-Mail-Eingang (mehrere Postfächer)",
   "nodes": [
     {
       "parameters": {
@@ -132,7 +132,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        880,
+        1320,
         -100
       ],
       "credentials": {
@@ -143,7 +143,8 @@
       },
       "retryOnFail": true,
       "maxTries": 3,
-      "waitBetweenTries": 3000
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -174,19 +175,19 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1100,
+        1540,
         -100
       ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $('METAorder: Konfiguration').first().json.graphBase }}/mailFolders/inbox/childFolders",
+        "url": "={{ $('Postfächer einzeln').item.json.graphBase }}/mailFolders/inbox/childFolders",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "microsoftOutlookOAuth2Api",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ displayName: $('METAorder: Konfiguration').first().json.processedFolderName }) }}",
+        "jsonBody": "={{ JSON.stringify({ displayName: $('Postfächer einzeln').item.json.processedFolderName }) }}",
         "options": {}
       },
       "id": "zielordner-anlegen",
@@ -194,7 +195,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1320,
+        1760,
         0
       ],
       "credentials": {
@@ -202,18 +203,19 @@
           "id": "OUTLOOK_OAUTH_CREDENTIAL_ID",
           "name": "Microsoft Outlook account"
         }
-      }
+      },
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "// Antwort von „suchen“ (value[]) oder „anlegen“ (Ordner direkt)\nconst cfg = $('METAorder: Konfiguration').first().json;\nconst j = $input.first().json;\nconst folderId = Array.isArray(j.value) ? (j.value[0] && j.value[0].id) : j.id;\nif (!folderId) {\n  throw new Error('Zielordner „' + cfg.processedFolderName + '“ weder gefunden noch angelegt');\n}\nreturn [{ json: { ...cfg, folderId } }];\n"
+        "jsCode": "// Je Postfach: Zielordner aus „suchen“ (value[]) oder „anlegen“ (Ordner direkt).\n// Persönliches Postfach: kein Zielordner (METAorder setzt dort nur Kategorien).\nconst out = [];\nconst items = $input.all();\nfor (let i = 0; i < items.length; i++) {\n  const mailbox = $('Postfächer einzeln').itemMatching(i).json;\n  if (mailbox.mode === 'personal') {\n    out.push({ json: { ...mailbox, folderId: null }, pairedItem: { item: i } });\n    continue;\n  }\n  const j = items[i].json || {};\n  const folderId = Array.isArray(j.value) ? (j.value[0] && j.value[0].id) : j.id;\n  // Ohne Zielordner (z. B. kein Zugriff auf das Postfach) dieses Postfach auslassen, die anderen laufen weiter\n  if (!folderId) continue;\n  out.push({ json: { ...mailbox, folderId }, pairedItem: { item: i } });\n}\nreturn out;\n"
       },
       "id": "ordner-id",
       "name": "Ordner-ID",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1540,
+        1980,
         -100
       ]
     },
@@ -228,7 +230,7 @@
           "parameters": [
             {
               "name": "$filter",
-              "value": "=receivedDateTime ge {{ $json.receivedAfter }}"
+              "value": "={{ $json.messageFilter }}"
             },
             {
               "name": "$orderby",
@@ -251,7 +253,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1760,
+        2200,
         -100
       ],
       "credentials": {
@@ -264,18 +266,19 @@
       "notesInFlow": true,
       "retryOnFail": true,
       "maxTries": 3,
-      "waitBetweenTries": 3000
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "// Je Mail ein Eintrag; keine Mail → Lauf endet hier\nconst cfg = $('Ordner-ID').first().json;\nconst list = ($input.first().json.value) || [];\nreturn list.filter((m) => m && m.id).map((message) => ({ json: { cfg, message } }));\n"
+        "jsCode": "// Je Mail ein Eintrag mit seinem Postfach; keine Mail → Lauf endet hier.\n// Abruf gescheitert (z. B. Postfach ohne Zugriff): dieses Postfach auslassen.\nconst out = [];\nconst items = $input.all();\nfor (let i = 0; i < items.length; i++) {\n  const cfg = $('Ordner-ID').itemMatching(i).json;\n  const list = (items[i].json && items[i].json.value) || [];\n  for (const message of list) {\n    if (message && message.id) out.push({ json: { cfg, message }, pairedItem: { item: i } });\n  }\n}\nreturn out;\n"
       },
       "id": "mails-einzeln",
       "name": "Mails einzeln",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1980,
+        2420,
         -100
       ]
     },
@@ -299,7 +302,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2200,
+        2640,
         -100
       ],
       "credentials": {
@@ -324,7 +327,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2420,
+        2860,
         -100
       ]
     },
@@ -357,7 +360,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        2640,
+        3080,
         -100
       ]
     },
@@ -379,6 +382,10 @@
             {
               "name": "subject",
               "value": "={{ $json.message.subject || '' }}"
+            },
+            {
+              "name": "intake_mailbox",
+              "value": "={{ $json.cfg.mailbox || '' }}"
             }
           ]
         },
@@ -403,7 +410,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2860,
+        3300,
         -200
       ],
       "credentials": {
@@ -428,7 +435,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3080,
+        3520,
         -200
       ]
     },
@@ -489,7 +496,7 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        3300,
+        3740,
         -200
       ],
       "notes": "Mails, die liegen bleiben (läuft schon, nicht bereit, erster/zweiter Fehlversuch), sind schon aussortiert.",
@@ -503,7 +510,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ internetMessageId: $json.message.internetMessageId || null, graphMessageId: $json.message.id, subject: $json.message.subject || '', fromName: ($json.message.from && $json.message.from.emailAddress && $json.message.from.emailAddress.name) || null, fromAddress: ($json.message.from && $json.message.from.emailAddress && $json.message.from.emailAddress.address) || null, toAddresses: ($json.message.toRecipients || []).map(r => r.emailAddress && r.emailAddress.address).filter(Boolean), ccAddresses: ($json.message.ccRecipients || []).map(r => r.emailAddress && r.emailAddress.address).filter(Boolean), stage: $json.stage, statusCode: $json.statusCode, error: $json.errorText }) }}",
+        "jsonBody": "={{ JSON.stringify({ internetMessageId: $json.message.internetMessageId || null, graphMessageId: $json.message.id, subject: $json.message.subject || '', fromName: ($json.message.from && $json.message.from.emailAddress && $json.message.from.emailAddress.name) || null, fromAddress: ($json.message.from && $json.message.from.emailAddress && $json.message.from.emailAddress.address) || null, toAddresses: ($json.message.toRecipients || []).map(r => r.emailAddress && r.emailAddress.address).filter(Boolean), ccAddresses: ($json.message.ccRecipients || []).map(r => r.emailAddress && r.emailAddress.address).filter(Boolean), stage: $json.stage, statusCode: $json.statusCode, error: $json.errorText, mailbox: ($json.cfg && $json.cfg.mailbox) || '' }) }}",
         "options": {
           "response": {
             "response": {
@@ -518,7 +525,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3520,
+        3960,
         0
       ],
       "credentials": {
@@ -543,7 +550,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3740,
+        4180,
         0
       ]
     },
@@ -576,7 +583,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        3960,
+        4400,
         -200
       ],
       "notes": "Nur bei „Sonstiges“ und eingetragener Adresse.",
@@ -605,7 +612,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        4180,
+        4620,
         -300
       ],
       "credentials": {
@@ -630,7 +637,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4400,
+        4840,
         -300
       ]
     },
@@ -644,7 +651,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4620,
+        5060,
         -200
       ]
     },
@@ -671,7 +678,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        4840,
+        5280,
         -200
       ],
       "credentials": {
@@ -716,7 +723,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        5060,
+        5500,
         -200
       ]
     },
@@ -743,7 +750,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        5280,
+        5720,
         -300
       ],
       "credentials": {
@@ -768,7 +775,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3960,
+        4400,
         200
       ],
       "notes": "Karte mit @Erwähnung des Zuständigen in den Teams-Kanal; ohne Zuständigen ohne Erwähnung.",
@@ -795,7 +802,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        4180,
+        4620,
         200
       ],
       "notes": "Teams-Workflow „Bei Eingang einer Webhookanforderung in einem Kanal posten“. Fehler hier ändern nichts an der Mail.",
@@ -804,6 +811,50 @@
       "maxTries": 2,
       "waitBetweenTries": 5000,
       "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Je aktivem Postfach ein Eintrag (Postfach-Liste aus METAorder). Ältere METAorder-Versionen\n// liefern nur ein Postfach ohne Liste.\nconst cfg = $input.first().json;\nconst list = Array.isArray(cfg.mailboxes) && cfg.mailboxes.length > 0\n  ? cfg.mailboxes\n  : [{\n      graphBase: cfg.graphBase,\n      mailbox: cfg.mailbox,\n      mode: 'order',\n      processedFolderName: cfg.processedFolderName,\n      maxPerRun: cfg.maxPerRun,\n      receivedAfter: cfg.receivedAfter,\n      messageFilter: 'receivedDateTime ge ' + cfg.receivedAfter,\n    }];\nreturn list.map((mailbox) => ({ json: mailbox }));\n"
+      },
+      "name": "Postfächer einzeln",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "Bestellpostfach?",
+              "leftValue": "={{ $json.mode !== 'personal' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Bestellpostfach?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        0
+      ]
     }
   ],
   "connections": {
@@ -844,7 +895,7 @@
       "main": [
         [
           {
-            "node": "Zielordner suchen",
+            "node": "Postfächer einzeln",
             "type": "main",
             "index": 0
           }
@@ -1114,6 +1165,35 @@
         [
           {
             "node": "An Teams senden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postfächer einzeln": {
+      "main": [
+        [
+          {
+            "node": "Bestellpostfach?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bestellpostfach?": {
+      "main": [
+        [
+          {
+            "node": "Zielordner suchen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ordner-ID",
             "type": "main",
             "index": 0
           }
