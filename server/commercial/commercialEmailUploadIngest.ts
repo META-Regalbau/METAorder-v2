@@ -33,6 +33,8 @@ import {
   type CommercialAgentProcessResult,
 } from "./commercialAgentOrchestrator";
 import { triageInboundEmail, type EmailTriageResult, type TriageLlm } from "./emailIntakeTriage";
+import { evaluateEmailIntakeFilter } from "./emailIntakeFilter";
+import type { EmailIntakeFilterRule, EmailIntakeFilterSettings } from "@shared/emailIntake";
 import { attachSupportingDocumentsToDrafts, partitionCommercialParts } from "./commercialDraftAttachments";
 import { unwrapInternalForward } from "../email/emailForwardUnwrap";
 import { logger } from "../lib/logger";
@@ -132,6 +134,11 @@ export type IngestCommercialEmailUploadParams = {
    * für „Sonstiges“ kein Entwurf. Beim manuellen Upload aus: wer eine Mail hochlädt, will einen Entwurf.
    */
   triage?: { otherMinConfidence: number; llm?: TriageLlm } | null;
+  /**
+   * Filter des E-Mail-Eingangs (n8n-Abruf mit Postfach-Liste): aussortierte Mails werden gar
+   * nicht ausgewertet. Beim manuellen Upload aus.
+   */
+  filter?: { settings: EmailIntakeFilterSettings; internalDomains: string[] } | null;
 };
 
 export type IngestMailEnvelope = {
@@ -162,6 +169,8 @@ export type IngestCommercialEmailUploadResult = {
   triage: EmailTriageResult | null;
   /** true: als „Sonstiges“ erkannt, kein Entwurf angelegt */
   skippedAsOther: boolean;
+  /** Vom Filter aussortiert (vor jeder Auswertung); null = nicht aussortiert */
+  ignoredByFilter: { rule: EmailIntakeFilterRule; reason: string } | null;
   envelope: IngestMailEnvelope;
 };
 
@@ -189,6 +198,7 @@ export async function ingestCommercialEmailUpload(
     uploadHint = null,
     forceReprocess = false,
     triage: triageOptions = null,
+    filter: filterOptions = null,
   } = params;
 
   const parsed = await parseEmailBufferAutodetect(fileBuffer);
@@ -218,6 +228,43 @@ export async function ingestCommercialEmailUpload(
     ccAddresses: parsed.ccAddresses ?? [],
     internalForward: unwrapped.strippedForwardLevels > 0,
   };
+
+  // Filter vor jeder Auswertung: Newsletter, interne Post, Sperrliste → nur Kategorie „ignoriert“
+  if (filterOptions) {
+    const decision = evaluateEmailIntakeFilter(
+      {
+        headerFrom: envelope.headerFrom,
+        customerEmail: envelope.customerEmail,
+        internalForward: envelope.internalForward,
+        subject,
+        listUnsubscribe: parsed.listUnsubscribe ?? null,
+        listId: parsed.listId ?? null,
+        precedence: parsed.precedence ?? null,
+        attachmentNames: (parsed.attachments ?? []).map((a) => a.filename),
+      },
+      filterOptions.settings,
+      filterOptions.internalDomains,
+    );
+    moduleLog.info(
+      { event: "email_intake.filter", messageId, action: decision.action, rule: decision.rule, reason: decision.reason },
+      `[EmailIngest] Filter: ${decision.action === "ignore" ? "ignoriert" : "verarbeiten"} — ${decision.reason}`,
+    );
+    if (decision.action === "ignore") {
+      return {
+        results: [],
+        attachmentsProcessed: 0,
+        usedEmailOnlyFallback: false,
+        messageId,
+        subject,
+        draftPartFileNames: [],
+        outcomes: [],
+        triage: null,
+        skippedAsOther: false,
+        ignoredByFilter: { rule: decision.rule, reason: decision.reason },
+        envelope,
+      };
+    }
+  }
 
   const { commercialParts: allCommercialParts, signatureImageBuffers } = splitCommercialEmailParts(parsed);
 
@@ -275,6 +322,7 @@ export async function ingestCommercialEmailUpload(
         outcomes: [],
         triage: triageResult,
         skippedAsOther: true,
+        ignoredByFilter: null,
         envelope,
       };
     }
@@ -324,6 +372,7 @@ export async function ingestCommercialEmailUpload(
       outcomes,
       triage: triageResult,
       skippedAsOther: false,
+      ignoredByFilter: null,
       envelope,
     };
   }
@@ -372,6 +421,7 @@ export async function ingestCommercialEmailUpload(
     outcomes,
     triage: triageResult,
     skippedAsOther: false,
+    ignoredByFilter: null,
     envelope,
   };
 }

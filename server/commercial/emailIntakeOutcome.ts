@@ -11,6 +11,8 @@ import {
   type EmailIntakeProblemReason,
   type EmailIntakeResponse,
   type EmailIntakeSettings,
+  type EmailIntakeFilterRule,
+  type EmailIntakeMailboxMode,
 } from "@shared/emailIntake";
 import type { CommercialAgentProcessOutcome } from "./commercialAgentOrchestrator";
 import type { EmailTriageResult } from "./emailIntakeTriage";
@@ -27,6 +29,9 @@ export type PlannedProblem = {
 export type EmailIntakePlan = {
   outcome: EmailIntakeOutcome;
   categories: string[];
+  /** In den Verarbeitet-Ordner verschieben (nie im persönlichen Postfach, nie aussortierte Mails) */
+  move: boolean;
+  filter: EmailIntakeResponse["filter"];
   forward: EmailIntakeResponse["forward"];
   other: EmailIntakeResponse["other"];
   problems: PlannedProblem[];
@@ -49,6 +54,10 @@ export function buildForwardComment(triage: Extract<EmailTriageResult, { kind: "
 }
 
 export function planEmailIntake(input: {
+  /** Art des Postfachs; persönlich = nur Kategorien, nichts verschieben oder weiterleiten */
+  mailboxMode?: EmailIntakeMailboxMode;
+  /** Vom Filter aussortiert */
+  ignoredByFilter?: { rule: EmailIntakeFilterRule; reason: string } | null;
   skippedAsOther: boolean;
   triage: EmailTriageResult | null;
   outcomes: Array<{ filename: string; outcome: CommercialAgentProcessOutcome }>;
@@ -56,7 +65,30 @@ export function planEmailIntake(input: {
   existingDraftKind: "order" | "offer" | null;
   settings: Pick<EmailIntakeSettings, "forwardOtherTo" | "ticketOnFailure" | "ticketOnShopwareError" | "ticketOnMarginRed">;
 }): EmailIntakePlan {
+  const plan = planByOutcome(input);
+  const personal = input.mailboxMode === "personal";
+  // Im persönlichen Postfach ist die Kategorie die einzige Markierung „erledigt“: ohne sie holt
+  // n8n die Mail beim nächsten Lauf erneut
+  if (personal && plan.categories.length === 0) plan.categories.push(EMAIL_INTAKE_CATEGORIES.other);
+  return {
+    ...plan,
+    move: plan.outcome !== "ignored" && !personal,
+    forward: personal ? null : plan.forward,
+  };
+}
+
+function planByOutcome(input: Parameters<typeof planEmailIntake>[0]): Omit<EmailIntakePlan, "move"> {
   const { settings } = input;
+  if (input.ignoredByFilter) {
+    return {
+      outcome: "ignored",
+      categories: [EMAIL_INTAKE_CATEGORIES.ignored],
+      forward: null,
+      other: null,
+      problems: [],
+      filter: { rule: input.ignoredByFilter.rule, reason: input.ignoredByFilter.reason },
+    };
+  }
 
   if (input.skippedAsOther && input.triage?.kind === "other") {
     const to = settings.forwardOtherTo.trim();
@@ -68,6 +100,7 @@ export function planEmailIntake(input: {
       forward: forwardable && to && isValidIntakeEmail(to) ? { to, comment: buildForwardComment(input.triage) } : null,
       other: { type: input.triage.otherType, confidence: input.triage.confidence, reason: input.triage.reason },
       problems: [],
+      filter: null,
     };
   }
 
@@ -120,5 +153,5 @@ export function planEmailIntake(input: {
   }
   if (outcome === "failed") categories.push(EMAIL_INTAKE_CATEGORIES.failed);
 
-  return { outcome, categories, forward: null, other: null, problems };
+  return { outcome, categories, forward: null, other: null, problems, filter: null };
 }

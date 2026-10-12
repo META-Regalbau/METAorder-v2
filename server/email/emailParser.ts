@@ -17,6 +17,18 @@ export interface ParsedEmailResult {
   ccAddresses?: string[];
   /** Kopfzeile Auto-Submitted (Abwesenheitsnotizen, Systemmails); nur bei .eml */
   autoSubmitted?: string | null;
+  /** Kopfzeilen von Newslettern/Massenmails (Filter des E-Mail-Eingangs); nur bei .eml */
+  listUnsubscribe?: string | null;
+  listId?: string | null;
+  precedence?: string | null;
+}
+
+/** Rohwert einer Kopfzeile (ohne „Name:“); mailparser zerlegt List-* sonst in Objekte */
+function rawHeader(parsed: ParsedMail, name: string): string | null {
+  const line = (parsed.headerLines ?? []).find((h) => h.key === name)?.line;
+  if (!line) return null;
+  const value = line.slice(line.indexOf(":") + 1).replace(/\r?\n[ \t]+/g, " ").trim();
+  return value || null;
 }
 
 function addressList(value: ParsedMail["to"]): string[] {
@@ -109,6 +121,9 @@ export async function parseEmlFile(buffer: Buffer): Promise<ParsedEmailResult> {
       const v = parsed.headers?.get("auto-submitted");
       return typeof v === "string" ? v : null;
     })(),
+    listUnsubscribe: rawHeader(parsed, "list-unsubscribe"),
+    listId: rawHeader(parsed, "list-id"),
+    precedence: rawHeader(parsed, "precedence"),
   };
 }
 

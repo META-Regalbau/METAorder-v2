@@ -8,12 +8,14 @@ import {
   type EmailIntakeResponse,
   type EmailIntakeSettings,
   type EmailIntakeTicketRef,
+  type EmailIntakeMailboxMode,
 } from "@shared/emailIntake";
 import type { IngestCommercialEmailUploadResult, IngestMailEnvelope } from "./commercialEmailUploadIngest";
 import { planEmailIntake } from "./emailIntakeOutcome";
 import { createIntakeProblemTicket } from "./emailIntakeTickets";
 import { buildIntakeTeamsBlock } from "./emailIntakeTeams";
 import { logger } from "../lib/logger";
+import { intakeMailboxAddresses } from "./emailIntakeSettings";
 
 const log = logger.child({ component: "commercial/emailIntakeUpload" });
 
@@ -45,9 +47,13 @@ export async function finalizeEmailIntake(params: {
   integrationUser: { id: string; email?: string | null };
   /** Basisadresse für Links in der Teams-Info */
   appBaseUrl?: string | null;
+  /** Art des Postfachs, aus dem die Mail kommt */
+  mailboxMode?: EmailIntakeMailboxMode;
 }): Promise<EmailIntakeResponse> {
   const { storage, tenantId, settings, ingest } = params;
   const plan = planEmailIntake({
+    mailboxMode: params.mailboxMode,
+    ignoredByFilter: ingest.ignoredByFilter,
     skippedAsOther: ingest.skippedAsOther,
     triage: ingest.triage,
     outcomes: ingest.outcomes,
@@ -73,7 +79,7 @@ export async function finalizeEmailIntake(params: {
     const ref = await createIntakeProblemTicket(storage, {
       tenantId,
       integrationUserId: params.integrationUser.id,
-      excludeEmails: [settings.mailbox, params.integrationUser.email ?? ""].filter(Boolean),
+      excludeEmails: [...intakeMailboxAddresses(settings), params.integrationUser.email ?? ""].filter(Boolean),
       defaultAssigneeUserId: settings.defaultAssigneeUserId,
       problem: {
         reason: problem.reason,
@@ -100,6 +106,9 @@ export async function finalizeEmailIntake(params: {
       drafts: ingest.results.map((r) => `${r.draftKind}:${r.draftId}`),
       tickets: tickets.map((t) => t.ticketNumber),
       forwarded: Boolean(plan.forward),
+      moved: plan.move,
+      mailboxMode: params.mailboxMode ?? "order",
+      filterRule: plan.filter?.rule ?? null,
     },
     `[EmailIntake] ${plan.outcome}: ${ingest.subject}`,
   );
@@ -108,10 +117,11 @@ export async function finalizeEmailIntake(params: {
     outcome: plan.outcome,
     categories,
     forward: plan.forward,
-    move: true,
+    move: plan.move,
     tickets,
     other: plan.other,
     teams: buildIntakeTeamsBlock(settings.teamsWebhookUrl, tickets, params.appBaseUrl ?? null),
+    filter: plan.filter,
   };
 }
 
@@ -127,13 +137,14 @@ export async function failEmailIntake(params: {
   rawEmail: { buffer: Buffer; fileName: string };
   integrationUser: { id: string; email?: string | null };
   appBaseUrl?: string | null;
+  mailboxMode?: EmailIntakeMailboxMode;
 }): Promise<EmailIntakeResponse> {
   const tickets: EmailIntakeTicketRef[] = [];
   if (params.settings.ticketOnFailure) {
     const ref = await createIntakeProblemTicket(params.storage, {
       tenantId: params.tenantId,
       integrationUserId: params.integrationUser.id,
-      excludeEmails: [params.settings.mailbox, params.integrationUser.email ?? ""].filter(Boolean),
+      excludeEmails: [...intakeMailboxAddresses(params.settings), params.integrationUser.email ?? ""].filter(Boolean),
       defaultAssigneeUserId: params.settings.defaultAssigneeUserId,
       problem: {
         reason: "processing_failed",
@@ -152,7 +163,8 @@ export async function failEmailIntake(params: {
     categories: [EMAIL_INTAKE_CATEGORIES.failed, ...(tickets.length ? [EMAIL_INTAKE_CATEGORIES.ticket] : [])],
     forward: null,
     // Auch ohne Ticket verschieben: sonst liefe dieselbe kaputte Mail alle zwei Minuten erneut durch die KI
-    move: true,
+    // persönliches Postfach: nur Kategorie „Fehler“, Mail bleibt im Posteingang
+    move: params.mailboxMode !== "personal",
     tickets,
     other: null,
     teams: buildIntakeTeamsBlock(params.settings.teamsWebhookUrl, tickets, params.appBaseUrl ?? null),

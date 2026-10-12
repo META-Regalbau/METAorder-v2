@@ -92,9 +92,14 @@ describe("E-Mail-Eingang: Einstellungen", () => {
   it("Startdatum begrenzt den Abruf, ohne Datum die letzten 2 Tage", () => {
     assert.equal(receivedAfterFor("2026-10-01"), "2026-10-01T00:00:00Z");
     assert.equal(receivedAfterFor("", new Date("2026-10-10T12:00:00Z")), "2026-10-08T12:00:00Z");
-    const cfg = workflowConfigFromSettings({ ...DEFAULT_EMAIL_INTAKE_SETTINGS, mailbox: " bestellung@meta.de ", processSince: "2026-10-05" });
+    const cfg = workflowConfigFromSettings({
+      ...DEFAULT_EMAIL_INTAKE_SETTINGS,
+      mailboxes: [{ address: " bestellung@meta.de ", mode: "order", enabled: true }],
+      processSince: "2026-10-05",
+    });
     assert.equal(cfg.mailbox, "bestellung@meta.de");
     assert.equal(cfg.receivedAfter, "2026-10-05T00:00:00Z");
+    assert.equal(cfg.mailboxes[0]?.messageFilter.startsWith("receivedDateTime ge 2026-10-05T00:00:00Z and not("), true);
   });
 });
 

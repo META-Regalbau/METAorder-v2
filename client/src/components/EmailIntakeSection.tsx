@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Inbox, Loader2 } from "lucide-react";
+import { Inbox, Loader2, Plus, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,13 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { DEFAULT_EMAIL_INTAKE_SETTINGS, type EmailIntakeSettings } from "@shared/emailIntake";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  DEFAULT_EMAIL_INTAKE_SETTINGS,
+  type EmailIntakeFilterSettings,
+  type EmailIntakeMailbox,
+  type EmailIntakeSettings,
+} from "@shared/emailIntake";
 
 /**
  * E-Mail-Eingang über n8n (Einstellungen -> Integration): n8n holt die Mails ab und fragt bei jedem
@@ -27,6 +33,52 @@ type IntakeResponse = {
 
 const KEY = ["/api/settings/email-intake"] as const;
 const NO_ASSIGNEE = "__none__";
+
+const MAX_MAILBOXES = 10;
+
+/** Liste als Textfeld, ein Eintrag je Zeile (eigener Text-Zustand, damit Leerzeilen beim Tippen bleiben) */
+function LinesField({
+  id,
+  label,
+  hint,
+  value,
+  onChange,
+  placeholder,
+}: {
+  id: string;
+  label: string;
+  hint: string;
+  value: string[];
+  onChange: (lines: string[]) => void;
+  placeholder?: string;
+}) {
+  const [text, setText] = useState(value.join("\n"));
+  useEffect(() => {
+    // Nur übernehmen, wenn sich der gespeicherte Stand inhaltlich unterscheidet (z. B. nach dem Laden)
+    setText((current) => {
+      const parsed = current.split("\n").map((l) => l.trim()).filter(Boolean);
+      return parsed.join("\n") === value.join("\n") ? current : value.join("\n");
+    });
+  }, [value]);
+  return (
+    <div>
+      <Label className="text-xs" htmlFor={id}>{label}</Label>
+      <Textarea
+        id={id}
+        className="mt-1 font-mono text-xs"
+        rows={3}
+        placeholder={placeholder}
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          onChange(e.target.value.split("\n").map((l) => l.trim()).filter(Boolean));
+        }}
+        data-testid={`textarea-${id}`}
+      />
+      <p className="text-xs text-muted-foreground mt-1">{hint}</p>
+    </div>
+  );
+}
 
 function today(): string {
   const d = new Date();
@@ -46,6 +98,13 @@ export default function EmailIntakeSection() {
 
   const set = <K extends keyof EmailIntakeSettings>(key: K, value: EmailIntakeSettings[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
+  const setFilter = <K extends keyof EmailIntakeFilterSettings>(key: K, value: EmailIntakeFilterSettings[K]) =>
+    setForm((prev) => ({ ...prev, filter: { ...prev.filter, [key]: value } }));
+  const setMailbox = (index: number, patch: Partial<EmailIntakeMailbox>) =>
+    setForm((prev) => ({
+      ...prev,
+      mailboxes: prev.mailboxes.map((m, i) => (i === index ? { ...m, ...patch } : m)),
+    }));
 
   const save = useMutation({
     mutationFn: async () => {
@@ -105,18 +164,85 @@ export default function EmailIntakeSection() {
 
           <fieldset className="grid gap-3 md:grid-cols-2">
             <legend className="text-xs font-medium mb-2">{t("settings.integration.emailIntake.mailboxSection")}</legend>
-            <div>
-              <Label className="text-xs" htmlFor="email-intake-mailbox">{t("settings.integration.emailIntake.mailbox")}</Label>
-              <Input
-                id="email-intake-mailbox"
-                className="mt-1"
-                type="email"
-                placeholder={t("settings.integration.emailIntake.mailboxPlaceholder")}
-                value={form.mailbox}
-                onChange={(e) => set("mailbox", e.target.value)}
-                data-testid="input-email-intake-mailbox"
-              />
-              <p className="text-xs text-muted-foreground mt-1">{t("settings.integration.emailIntake.mailboxHint")}</p>
+            <div className="md:col-span-2 space-y-2" data-testid="list-email-intake-mailboxes">
+              {form.mailboxes.map((mailbox, index) => (
+                <div key={index} className="flex flex-wrap items-end gap-2 rounded-md border p-2">
+                  <div className="flex-1 min-w-56">
+                    <Label className="text-xs" htmlFor={`email-intake-mailbox-${index}`}>
+                      {t("settings.integration.emailIntake.mailbox")}
+                    </Label>
+                    <Input
+                      id={`email-intake-mailbox-${index}`}
+                      className="mt-1"
+                      type="email"
+                      placeholder={t("settings.integration.emailIntake.mailboxPlaceholder")}
+                      value={mailbox.address}
+                      onChange={(e) => setMailbox(index, { address: e.target.value })}
+                      data-testid={`input-email-intake-mailbox-${index}`}
+                    />
+                  </div>
+                  <div className="w-56">
+                    <Label className="text-xs" htmlFor={`email-intake-mailbox-mode-${index}`}>
+                      {t("settings.integration.emailIntake.mailboxMode")}
+                    </Label>
+                    <Select
+                      value={mailbox.mode}
+                      onValueChange={(value) => setMailbox(index, { mode: value as EmailIntakeMailbox["mode"] })}
+                    >
+                      <SelectTrigger
+                        id={`email-intake-mailbox-mode-${index}`}
+                        className="mt-1"
+                        data-testid={`select-email-intake-mailbox-mode-${index}`}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="order">{t("settings.integration.emailIntake.mailboxModeOrder")}</SelectItem>
+                        <SelectItem value="personal">{t("settings.integration.emailIntake.mailboxModePersonal")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center gap-2 pb-2">
+                    <Switch
+                      id={`email-intake-mailbox-enabled-${index}`}
+                      checked={mailbox.enabled}
+                      onCheckedChange={(checked) => setMailbox(index, { enabled: checked })}
+                      aria-label={t("settings.integration.emailIntake.mailboxEnabled")}
+                      data-testid={`switch-email-intake-mailbox-${index}`}
+                    />
+                    <Label htmlFor={`email-intake-mailbox-enabled-${index}`} className="text-xs font-normal">
+                      {t("settings.integration.emailIntake.mailboxEnabled")}
+                    </Label>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    disabled={form.mailboxes.length <= 1}
+                    onClick={() => set("mailboxes", form.mailboxes.filter((_, i) => i !== index))}
+                    aria-label={t("settings.integration.emailIntake.mailboxRemove")}
+                    title={t("settings.integration.emailIntake.mailboxRemove")}
+                    data-testid={`button-email-intake-mailbox-remove-${index}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={form.mailboxes.length >= MAX_MAILBOXES}
+                onClick={() =>
+                  set("mailboxes", [...form.mailboxes, { address: "", mode: "personal", enabled: true }])
+                }
+                data-testid="button-email-intake-mailbox-add"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                {t("settings.integration.emailIntake.mailboxAdd")}
+              </Button>
+              <p className="text-xs text-muted-foreground">{t("settings.integration.emailIntake.mailboxHint")}</p>
+              <p className="text-xs text-muted-foreground">{t("settings.integration.emailIntake.mailboxModeHint")}</p>
             </div>
             <div>
               <Label className="text-xs" htmlFor="email-intake-folder">{t("settings.integration.emailIntake.folder")}</Label>
@@ -155,6 +281,64 @@ export default function EmailIntakeSection() {
               />
               <p className="text-xs text-muted-foreground mt-1">{t("settings.integration.emailIntake.maxPerRunHint")}</p>
             </div>
+          </fieldset>
+
+          <fieldset className="grid gap-3 md:grid-cols-2" data-testid="fieldset-email-intake-filter">
+            <legend className="text-xs font-medium mb-2">{t("settings.integration.emailIntake.filterSection")}</legend>
+            <p className="md:col-span-2 text-xs text-muted-foreground">{t("settings.integration.emailIntake.filterHint")}</p>
+            {(
+              [
+                ["ignoreBulk", "filterIgnoreBulk"],
+                ["ignoreInternal", "filterIgnoreInternal"],
+              ] as const
+            ).map(([key, label]) => (
+              <div key={key} className="flex items-start justify-between gap-4 rounded-md border p-3">
+                <div>
+                  <Label htmlFor={`email-intake-filter-${key}`} className="text-sm font-normal">
+                    {t(`settings.integration.emailIntake.${label}`)}
+                  </Label>
+                  <p className="text-xs text-muted-foreground">{t(`settings.integration.emailIntake.${label}Hint`)}</p>
+                </div>
+                <Switch
+                  id={`email-intake-filter-${key}`}
+                  checked={form.filter[key]}
+                  onCheckedChange={(checked) => setFilter(key, checked)}
+                  data-testid={`switch-email-intake-filter-${key}`}
+                />
+              </div>
+            ))}
+            <LinesField
+              id="email-intake-filter-allow"
+              label={t("settings.integration.emailIntake.filterAllowSenders")}
+              hint={t("settings.integration.emailIntake.filterAllowSendersHint")}
+              placeholder={"einkauf@kunde.de\nmercateo.com"}
+              value={form.filter.allowSenders}
+              onChange={(lines) => setFilter("allowSenders", lines)}
+            />
+            <LinesField
+              id="email-intake-filter-block"
+              label={t("settings.integration.emailIntake.filterBlockSenders")}
+              hint={t("settings.integration.emailIntake.filterBlockSendersHint")}
+              placeholder={"newsletter@lieferant.de\nlinkedin.com"}
+              value={form.filter.blockSenders}
+              onChange={(lines) => setFilter("blockSenders", lines)}
+            />
+            <LinesField
+              id="email-intake-filter-keywords"
+              label={t("settings.integration.emailIntake.filterSubjectKeywords")}
+              hint={t("settings.integration.emailIntake.filterSubjectKeywordsHint")}
+              placeholder={"Einladung\nWebinar"}
+              value={form.filter.blockSubjectKeywords}
+              onChange={(lines) => setFilter("blockSubjectKeywords", lines)}
+            />
+            <LinesField
+              id="email-intake-filter-internal"
+              label={t("settings.integration.emailIntake.filterInternalDomains")}
+              hint={t("settings.integration.emailIntake.filterInternalDomainsHint")}
+              placeholder="meta-online.com"
+              value={form.filter.internalDomains}
+              onChange={(lines) => setFilter("internalDomains", lines)}
+            />
           </fieldset>
 
           <fieldset className="grid gap-3 md:grid-cols-2">
