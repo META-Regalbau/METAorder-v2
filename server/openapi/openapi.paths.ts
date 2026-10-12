@@ -14993,6 +14993,33 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/settings/shopware-custom-fields": {
+    "get": {
+      "tags": [
+        "settings"
+      ],
+      "summary": "GET /api/settings/shopware-custom-fields",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/settings/shopware/test": {
     "post": {
       "tags": [
