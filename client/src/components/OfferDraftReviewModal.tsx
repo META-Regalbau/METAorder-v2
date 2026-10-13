@@ -1,4 +1,5 @@
 import { DraftLineMatchSource } from "@/components/DraftLineMatchSource";
+import { DraftLineConfirm } from "@/components/DraftLineConfirm";
 import { DraftBomSplitNotice, DraftOfferReferenceNotice } from "@/components/DraftOfferReferenceNotice";
 import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -60,6 +61,9 @@ import {
   normalizeProductId,
   recomputeOfferOverallConfidence,
   type AlternativeSelectionInput,
+  partitionDraftLines,
+  lineCanBeConfirmed,
+  isLineConfirmed,
 } from "@/lib/offerDraftLineItems";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
@@ -178,24 +182,10 @@ export function OfferDraftReviewModal({
   );
 
   const itemsForPartition = mergedMatchingResults?.items ?? [];
-  const { mainIndices, clarificationIndices } = useMemo(() => {
-    const main: number[] = [];
-    const clar: number[] = [];
-    itemsForPartition.forEach((item, index) => {
-      const lik = item.productScreen?.likelihood;
-      const skip = Boolean((item as { catalogMatchSkipped?: boolean }).catalogMatchSkipped);
-      if (skip || lik === "unlikely_product") {
-        clar.push(index);
-        return;
-      }
-      if (!showUnclearInMainTable && lik === "unclear") {
-        clar.push(index);
-        return;
-      }
-      main.push(index);
-    });
-    return { mainIndices: main, clarificationIndices: clar };
-  }, [itemsForPartition, showUnclearInMainTable]);
+  const { mainIndices, clarificationIndices } = useMemo(
+    () => partitionDraftLines(itemsForPartition as Parameters<typeof partitionDraftLines>[0], showUnclearInMainTable),
+    [itemsForPartition, showUnclearInMainTable],
+  );
 
   const persistAlternativeSelectionMutation = useMutation({
     mutationFn: async (input: AlternativeSelectionInput) => {
@@ -1673,24 +1663,37 @@ export function OfferDraftReviewModal({
                             </div>
                           </TableCell>
                           <TableCell className="align-top">
-                            {likelihood === "likely_product" ? (
-                              <Badge variant="default" className="bg-emerald-600 text-xs whitespace-normal text-left h-auto py-1">
-                                {t("offerDrafts.review.likelyProduct", "Wahrscheinlich Produkt")}
-                              </Badge>
-                            ) : likelihood === "unlikely_product" ? (
-                              <Badge variant="destructive" className="text-xs whitespace-normal text-left h-auto py-1">
-                                {t("offerDrafts.review.unlikelyProduct", "Vermutlich kein Produkt")}
-                              </Badge>
-                            ) : (
-                              <Badge variant="secondary" className="text-xs whitespace-normal text-left h-auto py-1 bg-amber-100 text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
-                                {t("offerDrafts.review.unclearProduct", "Unklar")}
-                              </Badge>
+                            {isLineConfirmed(item) ? null : (
+                              <>
+                                {likelihood === "likely_product" ? (
+                                  <Badge variant="default" className="bg-emerald-600 text-xs whitespace-normal text-left h-auto py-1">
+                                    {t("offerDrafts.review.likelyProduct", "Wahrscheinlich Produkt")}
+                                  </Badge>
+                                ) : likelihood === "unlikely_product" ? (
+                                  <Badge variant="destructive" className="text-xs whitespace-normal text-left h-auto py-1">
+                                    {t("offerDrafts.review.unlikelyProduct", "Vermutlich kein Produkt")}
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="secondary" className="text-xs whitespace-normal text-left h-auto py-1 bg-amber-100 text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
+                                    {t("offerDrafts.review.unclearProduct", "Unklar")}
+                                  </Badge>
+                                )}
+                                {item.productScreen?.reasons?.[0] && (
+                                  <p className="text-[10px] text-muted-foreground mt-1.5 leading-snug max-w-[140px]">
+                                    {item.productScreen.reasons[0]}
+                                  </p>
+                                )}
+                              </>
                             )}
-                            {item.productScreen?.reasons?.[0] && (
-                              <p className="text-[10px] text-muted-foreground mt-1.5 leading-snug max-w-[140px]">
-                                {item.productScreen.reasons[0]}
-                              </p>
-                            )}
+                            <div className={isLineConfirmed(item) ? undefined : "mt-2"}>
+                              <DraftLineConfirm
+                                index={index}
+                                confirmed={isLineConfirmed(item)}
+                                canConfirm={lineCanBeConfirmed(item, currentProductId)}
+                                disabled={draft.status === "created"}
+                                onConfirm={() => applyAlternativeSelection(index, currentProductId!)}
+                              />
+                            </div>
                           </TableCell>
                         <TableCell>
                           <div className="flex flex-col gap-1">
@@ -1845,10 +1848,7 @@ export function OfferDraftReviewModal({
                                 })}
                               </div>
                             ) : null}
-                            {!item.bundle &&
-                            item.matchedProduct?.id &&
-                            (item.confidence ?? 0) < 100 &&
-                            !(item.alternativeMatches?.length) ? (
+                            {lineCanBeConfirmed(item, item.matchedProduct?.id) ? (
                               <Button
                                 type="button"
                                 size="sm"
