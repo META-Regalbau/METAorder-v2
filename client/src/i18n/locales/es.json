@@ -3659,6 +3659,7 @@
       "notFound": "No encontrado",
       "catalogProductInactive": "Inactivo en el catálogo",
       "catalogProductInactiveHint": "El artículo existe en Shopware, pero está desactivado.",
+      "requestedAs": "Solicitado: {{text}}",
       "noProducts": "No se han encontrado productos",
       "notes": "Notas",
       "creating": "Creando...",
@@ -3819,6 +3820,7 @@
       "recheckHint": "Volver a asignar productos y cliente sin subir de nuevo",
       "recheckDone": "Comprobado de nuevo",
       "recheckProducts": "{{after}} de {{lines}} posiciones asignadas (antes {{before}}).",
+      "recheckSuggested": "Sugerencias por confirmar: {{count}}.",
       "recheckCustomerKept": "Cliente asignado manualmente – sin cambios.",
       "recheckCustomerChanged": "Cliente reasignado.",
       "recheckCustomerSame": "Cliente sin cambios.",
@@ -6629,7 +6631,8 @@
     },
     "numberConflict": "El número no coincide con la descripción",
     "numberRealigned": "Columna de números desplazada – corregida",
-    "configuratorMatch": "Del texto del configurador"
+    "configuratorMatch": "Del texto del configurador",
+    "clipSpecMatch": "Según descripción y medidas"
   },
   "documentExtraction": {
     "confidenceWarnings": {

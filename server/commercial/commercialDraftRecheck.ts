@@ -1,5 +1,5 @@
 /**
- * „Nochmal prüfen" für KI-Bestellentwürfe: wiederholt Produktabgleich und Kundenzuordnung
+ * „Nochmal prüfen" für KI-Bestell- und Angebotsentwürfe: wiederholt Produktabgleich und Kundenzuordnung
  * auf dem bereits extrahierten Entwurf — ohne Dokument neu hochzuladen oder neu zu extrahieren.
  *
  * Gedacht für zwei Fälle:
@@ -11,7 +11,7 @@
  * Ein im Review manuell zugeordneter Kunde wird nicht angetastet.
  */
 import type { IStorage } from "../storage";
-import type { OrderDraft } from "@shared/schema";
+import type { OfferDraft, OrderDraft } from "@shared/schema";
 import type { MatchingResult } from "../products/productMatcher";
 import { getAISettings, getCommercialAgentSettings } from "../ai/aiConfig";
 import { matchProductsAgainstCatalog } from "../products/productMatcher";
@@ -23,17 +23,23 @@ import {
 } from "./draftCustomerEmailResolution";
 import { runStrictCommercialAutoCreateIfAllowed } from "./commercialStrictAutoCreateRunner";
 import { ShopwareClient } from "../shopware/shopware";
+import { runDraftClipSpecRowsStep } from "./draftClipSpecRows";
+import { fillMissingOfferCatalogPrices } from "./offerDraftCatalogPrices";
 
 type DraftMatching = NonNullable<OrderDraft["matchingResults"]>;
 type MatchItem = DraftMatching["items"][number];
 
-export type RecheckOrderDraftResult =
+export type RecheckDraftKind = "order" | "offer";
+
+export type RecheckOrderDraftResult<D = OrderDraft> =
   | {
       ok: true;
-      draft: OrderDraft;
+      draft: D;
       summary: {
         matchedBefore: number;
         matchedAfter: number;
+        /** Positionen mit Artikelvorschlag, noch nicht bestätigt (KI, Konfigurator, CLIP-Maße) */
+        suggestedAfter: number;
         lines: number;
         customerBefore: string | null;
         customerAfter: string | null;
@@ -46,6 +52,10 @@ export type RecheckOrderDraftResult =
 
 function countMatched(items: MatchItem[] | undefined): number {
   return (items ?? []).filter((i) => i.status === "matched" && (i.matchedProduct || i.bundle)).length;
+}
+
+function countSuggested(items: MatchItem[] | undefined): number {
+  return (items ?? []).filter((i) => i.status !== "matched" && i.matchedProduct).length;
 }
 
 function overallConfidence(items: MatchItem[]): number {
@@ -73,10 +83,12 @@ function mergeLineMatches(previous: MatchItem[], fresh: MatchItem[], lineCount: 
       merged.push(old);
       continue;
     }
-    if (nextMatched && old.matchedProduct && old.matchedProduct.id === next.matchedProduct!.id) {
-      const manualNet = (old.matchedProduct as { manualUnitPriceNet?: number }).manualUnitPriceNet;
-      if (typeof manualNet === "number") {
-        (next.matchedProduct as { manualUnitPriceNet?: number }).manualUnitPriceNet = manualNet;
+    if (next.matchedProduct && old.matchedProduct && old.matchedProduct.id === next.matchedProduct.id) {
+      // Gleicher Artikel: manueller Preis und (Angebot) Katalog-/Vorschlagspreis bleiben
+      const from = old.matchedProduct as Record<string, unknown>;
+      const to = next.matchedProduct as Record<string, unknown>;
+      for (const key of ["manualUnitPriceNet", "manualPriceChangedBy", "manualPriceChangedAt", "catalogPrice", "suggestedPrice", "suggestedDiscount"]) {
+        if (from[key] !== undefined && to[key] === undefined) to[key] = from[key];
       }
     }
     merged.push(nextMatched || !oldMatched ? next : old);
@@ -103,16 +115,34 @@ function resetCustomerResolution(extractedData: Record<string, unknown>): string
   return candidates.length > 0 ? candidates.join("\n") : undefined;
 }
 
-export async function recheckOrderDraft(
+type RecheckOptions = { tenantId?: string | null; autoCreate?: boolean };
+
+export function recheckOrderDraft(storage: IStorage, draftId: string, options: RecheckOptions = {}) {
+  return recheckDraft<OrderDraft>(storage, "order", draftId, options);
+}
+
+export function recheckOfferDraft(storage: IStorage, draftId: string, options: RecheckOptions = {}) {
+  return recheckDraft<OfferDraft>(storage, "offer", draftId, options);
+}
+
+async function recheckDraft<D extends OrderDraft | OfferDraft>(
   storage: IStorage,
+  kind: RecheckDraftKind,
   draftId: string,
-  options: { tenantId?: string | null; autoCreate?: boolean } = {}
-): Promise<RecheckOrderDraftResult> {
+  options: RecheckOptions
+): Promise<RecheckOrderDraftResult<D>> {
   const tenantId = options.tenantId ?? null;
-  const draft = await storage.getOrderDraft(draftId, tenantId);
-  if (!draft) return { ok: false, error: "Order draft not found", statusCode: 404 };
-  if (draft.status === "created" || draft.shopwareOrderId) {
-    return { ok: false, error: "Aus diesem Entwurf wurde bereits eine Bestellung angelegt.", statusCode: 409 };
+  const load = async () =>
+    (kind === "order" ? await storage.getOrderDraft(draftId, tenantId) : await storage.getOfferDraft(draftId, tenantId)) as D | undefined;
+  const draft = await load();
+  if (!draft) return { ok: false, error: kind === "order" ? "Order draft not found" : "Offer draft not found", statusCode: 404 };
+  const createdId = kind === "order" ? (draft as OrderDraft).shopwareOrderId : (draft as OfferDraft).shopwareOfferId;
+  if (draft.status === "created" || createdId) {
+    return {
+      ok: false,
+      error: kind === "order" ? "Aus diesem Entwurf wurde bereits eine Bestellung angelegt." : "Aus diesem Entwurf wurde bereits ein Angebot angelegt.",
+      statusCode: 409,
+    };
   }
   if (draft.status === "rejected") {
     return { ok: false, error: "Abgelehnte Entwürfe können nicht erneut geprüft werden.", statusCode: 400 };
@@ -125,11 +155,11 @@ export async function recheckOrderDraft(
   const extractedData = structuredClone(draft.extractedData ?? {}) as Record<string, unknown> & {
     lineItems?: Array<{ extractedProductName: string; extractedProductNumber?: string; quantity: number }>;
   };
-  const previousItems = (draft.matchingResults?.items ?? []) as MatchItem[];
+  const previousItems = ((draft.matchingResults as DraftMatching | null)?.items ?? []) as MatchItem[];
   const lineItems = Array.isArray(extractedData.lineItems) ? extractedData.lineItems : [];
 
   // 1) Produktabgleich
-  let matchingResults: DraftMatching | null = draft.matchingResults ?? null;
+  let matchingResults = (draft.matchingResults ?? null) as DraftMatching | null;
   if (lineItems.length > 0) {
     const hints = await buildCommercialProductLearningHints({ storage, tenantId, lineItems });
     const fresh = await matchProductsAgainstCatalog(
@@ -147,7 +177,11 @@ export async function recheckOrderDraft(
       await applyProductScreeningToOfferMatching(fresh, lineItems as never);
     }
     const items = mergeLineMatches(previousItems, (fresh?.items ?? []) as MatchItem[], lineItems.length);
-    matchingResults = { ...(fresh ?? {}), items, overallConfidence: overallConfidence(items) } as DraftMatching;
+    matchingResults = { ...(fresh ?? {}), items } as DraftMatching;
+    // CLIP-Kurzbezeichnungen + Maße (auch aus documentExtraction älterer Entwürfe)
+    await runDraftClipSpecRowsStep({ extractedData, matchingResults: matchingResults as unknown as MatchingResult });
+    if (kind === "offer") fillMissingOfferCatalogPrices(matchingResults.items as never);
+    matchingResults.overallConfidence = overallConfidence(matchingResults.items as MatchItem[]);
   }
 
   // 2) Kundenzuordnung (nicht bei manueller Zuordnung im Review)
@@ -178,16 +212,16 @@ export async function recheckOrderDraft(
     ? "review_required"
     : draft.status;
 
-  let updated = await storage.updateOrderDraft(
-    draftId,
-    { extractedData: extractedData as never, matchingResults: matchingResults as never, shopwareCustomerId: customerAfter, status },
-    tenantId
-  );
-  if (!updated) return { ok: false, error: "Order draft not found", statusCode: 404 };
+  const updates = { extractedData: extractedData as never, matchingResults: matchingResults as never, shopwareCustomerId: customerAfter, status };
+  let updated = (kind === "order"
+    ? await storage.updateOrderDraft(draftId, updates, tenantId)
+    : await storage.updateOfferDraft(draftId, updates, tenantId)) as D | undefined;
+  if (!updated) return { ok: false, error: kind === "order" ? "Order draft not found" : "Offer draft not found", statusCode: 404 };
 
-  const summary: Extract<RecheckOrderDraftResult, { ok: true }>["summary"] = {
+  const summary: Extract<RecheckOrderDraftResult<D>, { ok: true }>["summary"] = {
     matchedBefore: countMatched(previousItems),
     matchedAfter: countMatched(matchingResults?.items),
+    suggestedAfter: countSuggested(matchingResults?.items),
     lines: lineItems.length,
     customerBefore,
     customerAfter,
@@ -201,13 +235,13 @@ export async function recheckOrderDraft(
       storage,
       tenantId,
       draftId,
-      draftKind: "order",
+      draftKind: kind,
       agentSettings: agentComm,
       extractedData: structuredClone(updated.extractedData ?? {}) as Record<string, unknown>,
       matchingResults: (updated.matchingResults ?? null) as MatchingResult | null,
       shopwareCustomerId: updated.shopwareCustomerId ?? null,
       intent: {
-        intent: String(extractedData.commercialIntent ?? "purchase_order"),
+        intent: String(extractedData.commercialIntent ?? (kind === "order" ? "purchase_order" : "quote_request")),
         confidence: Number(extractedData.commercialIntentConfidence ?? 1),
       },
     });
@@ -218,7 +252,7 @@ export async function recheckOrderDraft(
       reasons: strict.strictReasons,
       error: strict.shopwareError,
     };
-    updated = (await storage.getOrderDraft(draftId, tenantId)) ?? updated;
+    updated = (await load()) ?? updated;
   }
 
   return { ok: true, draft: updated, summary };

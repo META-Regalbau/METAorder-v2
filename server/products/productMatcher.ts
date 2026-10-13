@@ -48,7 +48,9 @@ export type CatalogMatchStrategy =
   /** Position aus dem META-Angebot übernommen, auf das die Bestellung verweist (draftOfferReference.ts) */
   | "offer"
   /** Aus einem Konfigurator-Text zerlegt (draftConfiguratorRows.ts) */
-  | "configurator";
+  | "configurator"
+  /** CLIP-Kurzbezeichnung + Maße ohne Artikelnummer (draftClipSpecRows.ts) */
+  | "clip_spec";
 
 export interface ProductMatch {
   id: string;

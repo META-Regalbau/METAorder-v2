@@ -14,6 +14,7 @@ export type DraftAuditEvent =
   | "draft.created"
   | "draft.updated"
   | "draft.deleted"
+  | "draft.rechecked"
   | "draft.db.calculated"
   | "draft.db.verdict_changed"
   | "draft.db.frozen"

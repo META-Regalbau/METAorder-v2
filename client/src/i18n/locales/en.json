@@ -3813,6 +3813,7 @@
       "notFound": "Not found",
       "catalogProductInactive": "Inactive in catalog",
       "catalogProductInactiveHint": "The item exists in Shopware but is deactivated.",
+      "requestedAs": "Requested: {{text}}",
       "noProducts": "No products found",
       "notes": "Notes",
       "creating": "Creating...",
@@ -4002,6 +4003,7 @@
       "recheckHint": "Re-match products and customer without uploading again",
       "recheckDone": "Checked again",
       "recheckProducts": "{{after}} of {{lines}} lines matched (before {{before}}).",
+      "recheckSuggested": "Suggestions to confirm: {{count}}.",
       "recheckCustomerKept": "Customer assigned manually – unchanged.",
       "recheckCustomerChanged": "Customer reassigned.",
       "recheckCustomerSame": "Customer unchanged.",
@@ -6632,7 +6634,8 @@
     },
     "numberConflict": "Number does not match the description",
     "numberRealigned": "Number column shifted – realigned",
-    "configuratorMatch": "From configurator text"
+    "configuratorMatch": "From configurator text",
+    "clipSpecMatch": "From description and dimensions"
   },
   "documentExtraction": {
     "confidenceWarnings": {

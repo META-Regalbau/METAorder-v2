@@ -212,6 +212,8 @@ function lineNeedsHelp(item: LineItemMatch & { bundle?: unknown; productScreen?:
   if (item.numberCheck?.kind === "realigned" && item.matchedProduct) return false;
   // Aus dem Konfigurator-Text zerlegt: Artikel per Maß/Fachlast gewählt, nicht von der KI überschreiben
   if (item.matchStrategy === "configurator" && item.matchedProduct) return false;
+  // CLIP-Kurzbezeichnung + Maße (draftClipSpecRows): Artikel per Maß/Fachlast gewählt
+  if (item.matchStrategy === "clip_spec" && item.matchedProduct) return false;
   return !(item.status === "matched" && item.confidence >= 90 && item.matchedProduct);
 }
 

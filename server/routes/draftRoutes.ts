@@ -125,6 +125,31 @@ async function withProfitabilityBadges<T extends { id: string }>(
   });
 }
 
+/** Vorgangsprotokoll für „Nochmal prüfen“ */
+function logRecheck(
+  draftKind: "order" | "offer",
+  req: Request,
+  summary: { matchedBefore: number; matchedAfter: number; suggestedAfter: number; lines: number; customerChanged: boolean; autoCreate?: { created: boolean } },
+): void {
+  logDraftEvent(
+    "info",
+    "draft.rechecked",
+    {
+      draftKind,
+      draftId: req.params.id,
+      tenantId: req.tenantId ?? null,
+      ...auditUser(req.user),
+      matchedBefore: summary.matchedBefore,
+      matchedAfter: summary.matchedAfter,
+      suggestedAfter: summary.suggestedAfter,
+      lines: summary.lines,
+      customerChanged: summary.customerChanged,
+      autoCreated: summary.autoCreate?.created,
+    },
+    `Entwurf erneut geprüft: ${summary.matchedAfter} von ${summary.lines} Positionen zugeordnet (vorher ${summary.matchedBefore}), ${summary.suggestedAfter} mit Vorschlag`,
+  );
+}
+
 function parseUploadIntentHint(raw: unknown): "offer" | "order" | "unclear" | undefined {
   if (typeof raw !== "string") return undefined;
   const s = raw.trim().toLowerCase();
@@ -1598,6 +1623,7 @@ export function registerDraftRoutes(app: Express): void {
       if (!result.ok) {
         return res.status(result.statusCode).json({ error: result.error });
       }
+      logRecheck("order", req, result.summary);
       res.json({ draft: result.draft, summary: result.summary });
     } catch (error: any) {
       moduleLog.error({ err: error }, "Error rechecking order draft:");
@@ -2583,6 +2609,25 @@ export function registerDraftRoutes(app: Express): void {
     } catch (error) {
       moduleLog.error({ err: error }, "Error deleting offer draft:");
       res.status(500).json({ error: "Failed to delete offer draft" });
+    }
+  });
+
+  // POST /api/offer-drafts/:id/recheck - Produktabgleich + Kundenzuordnung erneut ausführen (ohne Neu-Upload).
+  app.post("/api/offer-drafts/:id/recheck", requireAuthOrIntegrationKey, requireManageOffers, requireCsrf, async (req: Request, res: Response) => {
+    try {
+      const { recheckOfferDraft } = await import("../commercial/commercialDraftRecheck");
+      const result = await recheckOfferDraft(storage, req.params.id, {
+        tenantId: req.tenantId ?? null,
+        autoCreate: req.body?.autoCreate === true,
+      });
+      if (!result.ok) {
+        return res.status(result.statusCode).json({ error: result.error });
+      }
+      logRecheck("offer", req, result.summary);
+      res.json({ draft: result.draft, summary: result.summary });
+    } catch (error: any) {
+      moduleLog.error({ err: error }, "Error rechecking offer draft:");
+      res.status(500).json({ error: error?.message || "Erneute Prüfung fehlgeschlagen" });
     }
   });
 

@@ -132,6 +132,29 @@ function referencesToLegacy(refs: DocumentExtractionReferences | undefined): Dra
   return Object.keys(out).length ? out : undefined;
 }
 
+/**
+ * Maße und Farbe aus attributes an die Bezeichnung hängen, wenn sie dort fehlen: Tabellen ohne
+ * Artikelnummer („S3 CLIP 230 AR“ + Spalten H/B/T/Böden) sind sonst nicht zuzuordnen, und das
+ * Prüffenster zeigt die Maße nicht (Live 13.10.2026, BHTronik).
+ */
+export function withAttributes(description: string, attributes: DocumentExtractionLineItem["attributes"] | undefined): string {
+  const text = description.trim();
+  if (!text) return description;
+  const lower = text.toLowerCase();
+  const missing = (v: string | null | undefined) => {
+    const value = (v ?? "").trim().toLowerCase();
+    if (!value || lower.includes(value)) return false;
+    // „2000 x 1000 x 500 mm“ steht schon in der Bezeichnung, nur anders geschrieben
+    const numbers = value.match(/\d+/g);
+    return !(numbers && numbers.every((n) => new RegExp(`(?<!\\d)${n}(?!\\d)`).test(lower)));
+  };
+  const extra: string[] = [];
+  // Maße nur mit Zahlen (kein „siehe Zeichnung“)
+  if (missing(attributes?.dimensions_raw) && /\d/.test(attributes!.dimensions_raw!)) extra.push(attributes!.dimensions_raw!.trim());
+  if (missing(attributes?.color)) extra.push(attributes!.color!.trim());
+  return extra.length ? `${text} | ${extra.join(" | ")}` : description;
+}
+
 function pickProductNumber(item: DocumentExtractionLineItem): string | undefined {
   const sup = item.supplier_sku?.trim();
   if (sup) return sup;
@@ -180,7 +203,7 @@ export function translateDocumentExtractionToLegacy(
   type LegacyLineItem = NonNullable<LegacyExtractedDocument["lineItems"]>[number];
   const lineItems: LegacyLineItem[] = (extraction.line_items ?? []).map((item) => {
     const legacy: LegacyLineItem = {
-      extractedProductName: item.description ?? "",
+      extractedProductName: withAttributes(item.description ?? "", item.attributes),
       quantity: typeof item.quantity === "number" ? item.quantity : 0,
     };
     const num = pickProductNumber(item);
