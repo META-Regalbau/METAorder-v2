@@ -1,4 +1,5 @@
 import { DraftLineMatchSource } from "@/components/DraftLineMatchSource";
+import { DraftLineConfirm } from "@/components/DraftLineConfirm";
 import { DraftBomSplitNotice, DraftOfferReferenceNotice } from "@/components/DraftOfferReferenceNotice";
 import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -58,6 +59,9 @@ import {
   normalizeProductId,
   recomputeOfferOverallConfidence,
   type AlternativeSelectionInput,
+  partitionDraftLines,
+  lineCanBeConfirmed,
+  isLineConfirmed,
 } from "@/lib/offerDraftLineItems";
 import {
   IMPORT_MATCHING_CONFIDENCE_WARNING_THRESHOLD,
@@ -311,24 +315,10 @@ export function OrderDraftReviewModal({
   );
 
   const matchItems = mergedMatchingResults?.items ?? [];
-  const { mainIndices, clarificationIndices } = useMemo(() => {
-    const main: number[] = [];
-    const clar: number[] = [];
-    matchItems.forEach((item, index) => {
-      const lik = item.productScreen?.likelihood;
-      const skip = Boolean(item.catalogMatchSkipped);
-      if (skip || lik === "unlikely_product") {
-        clar.push(index);
-        return;
-      }
-      if (!showUnclearInMainTable && lik === "unclear") {
-        clar.push(index);
-        return;
-      }
-      main.push(index);
-    });
-    return { mainIndices: main, clarificationIndices: clar };
-  }, [matchItems, showUnclearInMainTable]);
+  const { mainIndices, clarificationIndices } = useMemo(
+    () => partitionDraftLines(matchItems as Parameters<typeof partitionDraftLines>[0], showUnclearInMainTable),
+    [matchItems, showUnclearInMainTable],
+  );
 
   const persistAlternativeSelectionMutation = useMutation({
     mutationFn: async (input: AlternativeSelectionInput) => {
@@ -1583,13 +1573,24 @@ export function OrderDraftReviewModal({
                           </div>
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground align-top">
-                          {item.productScreen?.likelihood === "likely_product"
-                            ? t("offerDrafts.review.likelyProduct")
-                            : item.productScreen?.likelihood === "unlikely_product"
-                              ? t("offerDrafts.review.unlikelyProduct")
-                              : item.productScreen?.likelihood === "unclear"
-                                ? t("offerDrafts.review.unclearProduct")
-                                : "—"}
+                          {isLineConfirmed(item)
+                            ? null
+                            : item.productScreen?.likelihood === "likely_product"
+                              ? t("offerDrafts.review.likelyProduct")
+                              : item.productScreen?.likelihood === "unlikely_product"
+                                ? t("offerDrafts.review.unlikelyProduct")
+                                : item.productScreen?.likelihood === "unclear"
+                                  ? t("offerDrafts.review.unclearProduct")
+                                  : "—"}
+                          <div className={isLineConfirmed(item) ? undefined : "mt-2"}>
+                            <DraftLineConfirm
+                              index={index}
+                              confirmed={isLineConfirmed(item)}
+                              canConfirm={lineCanBeConfirmed(item, currentProductId)}
+                              disabled={draft.status === "created"}
+                              onConfirm={() => applyAlternativeSelection(index, currentProductId!)}
+                            />
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Input aria-label={t("orderDrafts.review.table.quantity")}
@@ -1704,9 +1705,7 @@ export function OrderDraftReviewModal({
                                   })}
                                 </div>
                               ) : null}
-                              {item.matchedProduct?.id &&
-                              (item.confidence ?? 0) < 100 &&
-                              !(item.alternativeMatches?.length) ? (
+                              {lineCanBeConfirmed(item, item.matchedProduct?.id) ? (
                                 <Button
                                   type="button"
                                   size="sm"

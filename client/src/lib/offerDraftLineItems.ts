@@ -60,10 +60,13 @@ function buildUserConfirmedMatchItem(
     price?: number;
   }
 ): OfferDraftMatchItem {
+  // Gleicher Artikel („Passt so“): Felder wie manueller Preis oder Katalogpreis behalten
+  const sameProduct = item.matchedProduct && normalizeProductId(item.matchedProduct.id) === normalizeProductId(product.id);
   return {
     ...item,
     userConfirmedMatch: true,
     matchedProduct: {
+      ...(sameProduct ? item.matchedProduct : {}),
       id: product.id,
       productNumber: product.productNumber,
       name: product.name,
@@ -186,4 +189,40 @@ export function buildAlternativeSelectionFromDraftItems(
     }
   });
   return { selectedProducts, confirmedLines };
+}
+
+/** Zeile von Hand freigegeben („Passt so“ oder Alternative gewählt) */
+export function isLineConfirmed(item: OfferDraftMatchItem): boolean {
+  return Boolean(item.userConfirmedMatch);
+}
+
+/** „Passt so“ anbieten: Artikel steht fest, ist aber nur Vorschlag (unsicher, unklar, unter 100 %) */
+export function lineCanBeConfirmed(item: OfferDraftMatchItem, currentProductId: string | undefined | null): boolean {
+  if (item.bundle || !currentProductId || isLineConfirmed(item)) return false;
+  return item.status !== "matched" || (item.confidence ?? 0) < 100;
+}
+
+/**
+ * Haupttabelle vs. Klärung: übersprungene, „kein Produkt“ und (ohne Schalter) unklare Zeilen gehen
+ * in die Klärung — außer sie sind von Hand freigegeben.
+ */
+export function partitionDraftLines(
+  items: Array<OfferDraftMatchItem & { catalogMatchSkipped?: boolean }>,
+  showUnclearInMainTable: boolean,
+): { mainIndices: number[]; clarificationIndices: number[] } {
+  const main: number[] = [];
+  const clar: number[] = [];
+  items.forEach((item, index) => {
+    const lik = item.productScreen?.likelihood;
+    if (isLineConfirmed(item) && item.matchedProduct?.id) {
+      main.push(index);
+      return;
+    }
+    if (item.catalogMatchSkipped || lik === "unlikely_product" || (!showUnclearInMainTable && lik === "unclear")) {
+      clar.push(index);
+      return;
+    }
+    main.push(index);
+  });
+  return { mainIndices: main, clarificationIndices: clar };
 }
