@@ -44,11 +44,11 @@ export function DraftLineMatchSource({
       </div>
     );
   }
-  if (item.matchStrategy === "configurator") {
+  if (item.matchStrategy === "configurator" || item.matchStrategy === "clip_spec") {
     return (
-      <div className="mt-1 space-y-0.5" data-testid={`configurator-match-${index}`}>
+      <div className="mt-1 space-y-0.5" data-testid={`${item.matchStrategy === "clip_spec" ? "clip-spec" : "configurator"}-match-${index}`}>
         <Badge variant="outline" className="text-xs border-sky-600/60 text-sky-800 dark:text-sky-200">
-          {t("draftReview.configuratorMatch")}
+          {t(item.matchStrategy === "clip_spec" ? "draftReview.clipSpecMatch" : "draftReview.configuratorMatch")}
         </Badge>
         {item.configuratorNote ? <p className="text-xs text-muted-foreground">{item.configuratorNote}</p> : null}
       </div>

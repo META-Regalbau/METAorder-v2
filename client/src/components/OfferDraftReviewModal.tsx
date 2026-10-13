@@ -48,6 +48,7 @@ import {
   ChevronDown,
   ChevronUp,
   Plus,
+  RefreshCw,
 } from "lucide-react";
 import type { OfferDraftWithCrossSelling } from "@shared/schema";
 import DiscountTrafficLight from "@/components/cpq/DiscountTrafficLight";
@@ -112,6 +113,16 @@ interface OfferDraftReviewModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdate: () => void;
+}
+
+/** Kundentext der Position, Maße aus der Extraktion ergänzt, wenn sie im Text fehlen (ältere Entwürfe) */
+function requestText(
+  name: string,
+  docItem: { description?: string | null; attributes?: { dimensions_raw?: string | null } | null } | undefined,
+): string {
+  const dims = docItem?.attributes?.dimensions_raw?.trim();
+  const sameLine = Boolean(docItem?.description?.trim()) && name.startsWith(docItem!.description!.trim());
+  return dims && sameLine && !name.includes(dims) ? `${name} | ${dims}` : name;
 }
 
 export function OfferDraftReviewModal({
@@ -205,6 +216,41 @@ export function OfferDraftReviewModal({
         description: e.message,
         variant: "destructive",
       });
+    },
+  });
+
+  // „Nochmal prüfen": Produktabgleich + Kundenzuordnung wiederholen, ohne neu hochzuladen.
+  // Offene Änderungen vorher speichern, sonst gehen sie verloren.
+  const recheckMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("PATCH", `/api/offer-drafts/${draft.id}`, {
+        extractedData: editedData,
+        matchingResults: mergedMatchingResults ?? draft.matchingResults,
+      });
+      const response = await apiRequest("POST", `/api/offer-drafts/${draft.id}/recheck`, {});
+      return (await response.json()) as {
+        summary: { matchedBefore: number; matchedAfter: number; suggestedAfter?: number; lines: number; customerChanged: boolean; customerKeptManual: boolean };
+      };
+    },
+    onSuccess: ({ summary }) => {
+      const customerNote = summary.customerKeptManual
+        ? t("orderDrafts.review.recheckCustomerKept")
+        : summary.customerChanged
+          ? t("orderDrafts.review.recheckCustomerChanged")
+          : t("orderDrafts.review.recheckCustomerSame");
+      toast({
+        title: t("orderDrafts.review.recheckDone"),
+        description: `${t("orderDrafts.review.recheckProducts", {
+          after: summary.matchedAfter,
+          lines: summary.lines,
+          before: summary.matchedBefore,
+        })} ${summary.suggestedAfter ? `${t("orderDrafts.review.recheckSuggested", { count: summary.suggestedAfter })} ` : ""}${customerNote}`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/offer-drafts"] });
+      onUpdate();
+    },
+    onError: (error: Error) => {
+      toast({ title: t("orderDrafts.review.recheckError"), description: error.message, variant: "destructive" });
     },
   });
 
@@ -1501,6 +1547,13 @@ export function OfferDraftReviewModal({
                                         {displayName && displayName !== displayProductNumber && <span className="font-normal"> – {displayName}</span>}
                                       </p>
                                     )}
+                                    {!isBundle && item.extractedProductName && displayName !== item.extractedProductName ? (
+                                      <p className="text-xs text-muted-foreground" data-testid={`text-requested-as-${index}`}>
+                                        {t("offerDrafts.review.requestedAs", {
+                                          text: requestText(item.extractedProductName, docExtractionItemsOffer[index]),
+                                        })}
+                                      </p>
+                                    ) : null}
                                     {isBundle && item.bundle?.components && (
                                       <div className="mt-2 space-y-1 text-xs text-muted-foreground">
                                         {item.bundle.components.map((component: Record<string, any>, componentIndex: number) => (
@@ -2062,8 +2115,18 @@ export function OfferDraftReviewModal({
               {t("common.close")}
             </Button>
             <Button
+              variant="outline"
+              onClick={() => recheckMutation.mutate()}
+              disabled={recheckMutation.isPending || createOfferMutation.isPending || deleteMutation.isPending || draft.status === "created"}
+              title={t("orderDrafts.review.recheckHint")}
+              data-testid="button-recheck-draft"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2${recheckMutation.isPending ? " animate-spin" : ""}`} />
+              {recheckMutation.isPending ? t("orderDrafts.review.rechecking") : t("orderDrafts.review.recheck")}
+            </Button>
+            <Button
               onClick={() => createOfferMutation.mutate()}
-              disabled={!canCreateOffer || createOfferMutation.isPending || deleteMutation.isPending}
+              disabled={!canCreateOffer || createOfferMutation.isPending || deleteMutation.isPending || recheckMutation.isPending}
               title={
                 isBlocked
                   ? t("draftReview.approval.discountExceedsLimit")

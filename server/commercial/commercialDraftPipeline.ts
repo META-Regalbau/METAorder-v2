@@ -2,6 +2,8 @@ import { runDraftLineAiMatchStep } from "./draftLineAiMatch";
 import { stripInternalContacts } from "../extraction/internalContactGuard";
 import { checkNumberMatches } from "./draftNumberMatchCheck";
 import { runDraftConfiguratorRowsStep } from "./draftConfiguratorRows";
+import { runDraftClipSpecRowsStep } from "./draftClipSpecRows";
+import { fillMissingOfferCatalogPrices } from "./offerDraftCatalogPrices";
 import { runDraftOfferReferenceStep } from "./draftOfferReference";
 import { runDraftBomPriceStep, runDraftBomSplitStep } from "./draftBomSplit";
 import type { MatchingResult } from "../products/productMatcher";
@@ -441,6 +443,11 @@ export async function runOfferDraftPipeline(
       extractedData: extractedData as Record<string, unknown>,
       matchingResults: matchingResults as MatchingResult | null,
     });
+    // CLIP-Kurzbezeichnungen mit Maßen („S3 CLIP 230 AR“, H/B/T, Böden) ohne Artikelnummer
+    await runDraftClipSpecRowsStep({
+      extractedData: extractedData as Record<string, unknown>,
+      matchingResults: matchingResults as MatchingResult | null,
+    });
     const bomStart = stepStart();
     const bom = await runDraftBomSplitStep({
       storage,
@@ -481,6 +488,9 @@ export async function runOfferDraftPipeline(
     ),
     minIntentReview: agentComm.intentReviewMinConfidence ?? 0.6,
   });
+
+  // Nach der Preisberechnung zugeordnete Positionen: Katalogpreis nachtragen
+  fillMissingOfferCatalogPrices((matchingResults as { items?: never[] } | null)?.items);
 
   const draft = await storage.createOfferDraft(
     {
@@ -791,6 +801,11 @@ export async function runOrderDraftPipeline(
   if (!offerRef?.applied) {
     // Konfigurator-Regalzeilen ohne KI zerlegen (CLIP: Grund- + Anbauregale), danach Stücklisten-KI
     await runDraftConfiguratorRowsStep({
+      extractedData: extractedData as Record<string, unknown>,
+      matchingResults: matchingResults as MatchingResult | null,
+    });
+    // CLIP-Kurzbezeichnungen mit Maßen („S3 CLIP 230 AR“, H/B/T, Böden) ohne Artikelnummer
+    await runDraftClipSpecRowsStep({
       extractedData: extractedData as Record<string, unknown>,
       matchingResults: matchingResults as MatchingResult | null,
     });

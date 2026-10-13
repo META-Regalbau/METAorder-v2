@@ -40,6 +40,8 @@ export interface DocumentExtractionLite {
     supplier_sku?: string | null;
     buyer_sku?: string | null;
     confidence_warnings?: string[];
+    description?: string | null;
+    attributes?: { dimensions_raw?: string | null } | null;
   }>;
 }
 

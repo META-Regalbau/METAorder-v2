@@ -401,7 +401,7 @@ export function OrderDraftReviewModal({
       });
       const response = await apiRequest("POST", `/api/order-drafts/${draft.id}/recheck`, {});
       return (await response.json()) as {
-        summary: { matchedBefore: number; matchedAfter: number; lines: number; customerChanged: boolean; customerKeptManual: boolean };
+        summary: { matchedBefore: number; matchedAfter: number; suggestedAfter?: number; lines: number; customerChanged: boolean; customerKeptManual: boolean };
       };
     },
     onSuccess: ({ summary }) => {
@@ -416,7 +416,7 @@ export function OrderDraftReviewModal({
           after: summary.matchedAfter,
           lines: summary.lines,
           before: summary.matchedBefore,
-        })} ${customerNote}`,
+        })} ${summary.suggestedAfter ? `${t("orderDrafts.review.recheckSuggested", { count: summary.suggestedAfter })} ` : ""}${customerNote}`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/order-drafts"] });
       onUpdate();

@@ -2411,7 +2411,7 @@ export const orderDrafts = pgTable("order_drafts", {
       originalQuantity?: number; // Original quantity from request (e.g., 12 Holme)
       convertedQuantity?: number; // Converted quantity (e.g., 6 Holmebenen sets)
       conversionNote?: string; // Conversion explanation (e.g., "1 Holmebene = 2 Holme")
-      matchStrategy?: "ean" | "productNumber" | "manufacturerNumber" | "sapProductNumber" | "synthetic_gtin" | "ai" | "learned_customer" | "offer" | "configurator";
+      matchStrategy?: "ean" | "productNumber" | "manufacturerNumber" | "sapProductNumber" | "synthetic_gtin" | "ai" | "learned_customer" | "offer" | "configurator" | "clip_spec";
       configuratorNote?: string;
       learningHint?: {
         type: "blocked_line" | "preferred_identifier";
@@ -2673,7 +2673,7 @@ export const offerDrafts = pgTable(
         likelihood: "likely_product" | "unclear" | "unlikely_product";
         reasons?: string[];
       };
-      matchStrategy?: "ean" | "productNumber" | "manufacturerNumber" | "sapProductNumber" | "synthetic_gtin" | "ai" | "learned_customer" | "offer" | "configurator";
+      matchStrategy?: "ean" | "productNumber" | "manufacturerNumber" | "sapProductNumber" | "synthetic_gtin" | "ai" | "learned_customer" | "offer" | "configurator" | "clip_spec";
       configuratorNote?: string;
       learningHint?: {
         type: "blocked_line" | "preferred_identifier";
