@@ -115,7 +115,13 @@ export function selectMetaCandidates(products: ProductMetaSource[]): MetaSelecti
     selection.products += 1;
     const marker = readMarker(product);
     const sourceHash = productSourceHash(product);
-    const sourceChanged = marker.sourceHash !== sourceHash;
+    // Eigene Texte, die die aktuellen Pruefregeln nicht mehr bestehen, werden neu erzeugt
+    const ownTitle = marker.metaTitle !== undefined && product.metaTitle === marker.metaTitle;
+    const ownDescription = marker.metaDescription !== undefined && product.metaDescription === marker.metaDescription;
+    const failsRules =
+      (ownTitle || ownDescription) &&
+      validateGeneratedMeta(product, { metaTitle: product.metaTitle ?? "", metaDescription: product.metaDescription ?? "" }) !== null;
+    const sourceChanged = marker.sourceHash !== sourceHash || failsRules;
     const title = decideField(product.metaTitle, marker.metaTitle, sourceChanged);
     const description = decideField(product.metaDescription, marker.metaDescription, sourceChanged);
     if (title === "manual") selection.keptManualTitle += 1;
@@ -176,6 +182,36 @@ function digitForms(text: string): Set<string> {
 
 export type GeneratedMeta = { metaTitle: string; metaDescription: string };
 
+const KG_PATTERN = /(\d+(?:[.,]\d+)?)\s*kg/gi;
+const DIMENSIONS_PATTERN = /(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)/gi;
+const digitsOnly = (v: string) => v.replace(/[.,]/g, "");
+
+function kgValues(text: string): string[] {
+  return [...text.matchAll(KG_PATTERN)].map((m) => digitsOnly(m[1]));
+}
+
+function dimensionTriples(text: string): string[] {
+  return [...text.matchAll(DIMENSIONS_PATTERN)].map((m) => [m[1], m[2], m[3]].map(digitsOnly).join("x"));
+}
+
+/**
+ * Werte aus dem Namen haben Vorrang: Eigenschaften widersprechen dem Namen teils (Live:
+ * "Fachlast 80 kg" im Namen, "max. Fachlast: 200 kg" in den Eigenschaften).
+ */
+function nameValueConflict(name: string, text: string): string | null {
+  const nameKg = kgValues(name);
+  if (nameKg.length > 0) {
+    const wrong = kgValues(text).find((v) => !nameKg.includes(v));
+    if (wrong) return `name_kg_${wrong}`;
+  }
+  const nameDims = dimensionTriples(name);
+  if (nameDims.length > 0) {
+    const wrong = dimensionTriples(text).find((v) => !nameDims.includes(v));
+    if (wrong) return `name_dimensions_${wrong}`;
+  }
+  return null;
+}
+
 /** null = in Ordnung, sonst Grund. */
 export function validateGeneratedMeta(product: ProductMetaSource, gen: GeneratedMeta): string | null {
   const title = gen.metaTitle.trim();
@@ -190,6 +226,8 @@ export function validateGeneratedMeta(product: ProductMetaSource, gen: Generated
     const runs = token.match(/\d+/g) ?? [];
     if (!allowed.has(whole) && !runs.every((r) => allowed.has(r))) return `number_${token}`;
   }
+  const conflict = nameValueConflict(product.name, `${title} ${description}`);
+  if (conflict) return conflict;
   for (const [pattern, reason] of CLAIM_RULES) {
     if (pattern.test(`${title} ${description}`) && !pattern.test(source)) return `claim_${reason}`;
   }
@@ -207,7 +245,7 @@ Regeln:
 - Nur Fakten aus Name, Eigenschaften und Beschreibung. Keine Zahl, kein Maß, keine Last, Stückzahl oder Farbe, die dort nicht steht.
 - Keine Preise, Rabatte, Lieferzeiten, Versandkosten, Garantie, Zertifikate oder Herkunftsangaben, außer sie stehen ausdrücklich im Artikel.
 - Oberfläche genau so nennen wie im Artikel (z. B. "verzinkt", "RAL 7035"); aus einer RAL-Farbe nicht "pulverbeschichtet" oder "lackiert" machen.
-- Widersprechen sich Name und Eigenschaften, gelten die Eigenschaften.
+- Nennt der Name Maße oder Fachlast (neue Namen mit "|"), gelten genau diese Werte – auch wenn Eigenschaften oder Beschreibung andere nennen. Weitere Lasten (z. B. Feldlast) dann nicht nennen. Nur bei alten Kurznamen ohne solche Angaben die Eigenschaften nutzen.
 - Abkürzungen: "kpl" = komplett (vollständiger Satz, nicht "montiert"), "vzk" = verzinkt, "ER"/"DR" = einseitig/doppelseitig, "GR"/"AR" = Grundregal/Anbauregal.
 - Ein Anbauregal ist eine Erweiterung (braucht ein Grundregal); ein Grundregal steht für sich. Zubehör nicht als komplettes Regal beschreiben.
 - Alte, abgekürzte Namen (z. B. "KR H Fuß 220 DR 400 R5010") mit Hilfe der Eigenschaften verständlich ausschreiben; was sich nicht sicher deuten lässt, weglassen.
