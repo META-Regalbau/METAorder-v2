@@ -25,6 +25,7 @@ import type { B2BEntityMapping } from "@shared/b2bEntityMapping";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 import { SearchIndexCard } from "@/components/SearchIndexCard";
+import ProductImageTextsSection from "@/components/ProductImageTextsSection";
 type OfferStatusMapping = {
   draft: { id?: string | null; label: string };
   submitted: { id?: string | null; label: string };
@@ -3094,6 +3095,8 @@ function MarketingTab() {
           </div>
         )}
       </Card>
+      {/* ALT/TITLE der Produktbilder im Shop (server/products/productImageTexts.ts) */}
+      <ProductImageTextsSection tenantKey={tenantKey} />
     </div>
   );
 }

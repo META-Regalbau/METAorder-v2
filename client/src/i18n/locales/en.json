@@ -2136,6 +2136,35 @@
       "saveSuccessDesc": "Google Ads settings updated.",
       "saveError": "Failed to save Google Ads"
     },
+    "productImageTexts": {
+      "title": "Product image texts (ALT/TITLE)",
+      "description": "Fills the ALT and TITLE text of product images in the shop: ALT = product name + view from the file name (e.g. \"– Ansicht in Blickhöhe\"), TITLE = product name. Texts are written in German; other languages fall back to it. Manually maintained texts stay unchanged.",
+      "enabled": "Check and fill daily",
+      "enabledDesc": "New images and renamed products get their texts once a day.",
+      "hour": "Time of the daily run",
+      "hourOption": "from {{hour}}:00",
+      "dryRun": "Test run (write nothing)",
+      "applyNow": "Write to shop now",
+      "confirmApply": "Write image texts to the shop now? Manually maintained texts stay unchanged.",
+      "saved": "Settings saved",
+      "saveError": "Saving failed",
+      "runError": "Run could not be started",
+      "running": "Run in progress … this takes one to two minutes.",
+      "noRun": "No run yet.",
+      "lastRun": "Last run: {{time}}",
+      "lastDryRun": "Last test run: {{time}}",
+      "trigger": {
+        "manual": "manual",
+        "scheduled": "daily run",
+        "script": "script"
+      },
+      "failed": "Failed: {{error}}",
+      "summary": "{{images}} product images checked, {{changed}} changed ({{alt}} ALT, {{title}} TITLE).",
+      "summaryDry": "{{images}} product images checked, {{changed}} would be changed ({{alt}} ALT, {{title}} TITLE).",
+      "keptManual": "Manually maintained and unchanged: {{alt}} ALT, {{title}} TITLE.",
+      "examples": "Examples",
+      "colFile": "File"
+    },
     "emailRouting": {
       "title": "Email routing",
       "description": "Classify emails and route by skills with fallback rules.",
@@ -6450,7 +6479,11 @@
       "entwurf_fehlt_oder_ist_ungultig": "Draft missing or invalid",
       "entwurf_hat_keinen_shopware_kunden": "Draft has no Shopware customer",
       "vorschau_der_ubergabe_in_die_bestellung_fehlgeschlagen": "Order handover preview failed",
-      "rabatte_konnten_nicht_ubernommen_werden": "Discounts could not be accepted"
+      "rabatte_konnten_nicht_ubernommen_werden": "Discounts could not be accepted",
+      "failed_to_load_product_image_text_settings": "Failed to load product image text settings",
+      "failed_to_save_product_image_text_settings": "Failed to save product image text settings",
+      "product_image_text_run_already_in_progress": "Product image text run already in progress",
+      "failed_to_start_product_image_text_run": "Failed to start product image text run"
     }
   },
   "roomPlanner": {
