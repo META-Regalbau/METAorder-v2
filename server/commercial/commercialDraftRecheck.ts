@@ -24,6 +24,8 @@ import {
 import { runStrictCommercialAutoCreateIfAllowed } from "./commercialStrictAutoCreateRunner";
 import { ShopwareClient } from "../shopware/shopware";
 import { runDraftClipSpecRowsStep } from "./draftClipSpecRows";
+import { checkNumberMatches } from "./draftNumberMatchCheck";
+import { CONFIDENCE_WARNING_MISSING_SKU } from "../extraction/documentExtractionPrompt";
 import { fillMissingOfferCatalogPrices } from "./offerDraftCatalogPrices";
 
 type DraftMatching = NonNullable<OrderDraft["matchingResults"]>;
@@ -58,17 +60,61 @@ function countSuggested(items: MatchItem[] | undefined): number {
   return (items ?? []).filter((i) => i.status !== "matched" && i.matchedProduct).length;
 }
 
+type ExtractionLine = { position?: number | null; description?: string | null; supplier_sku?: string | null; confidence_warnings?: string[] };
+
+/**
+ * Artikelnummern, die die strukturierte Extraktion selbst als „fehlt“ markiert hat, aus den Zeilen
+ * entfernen (THW Mannheim, Live 14.10.2026: EAN von Pos. 1 stand auch bei Pos. 2). Neue Entwürfe
+ * bereinigt schon dropCopiedSupplierSkus; hier für vorher angelegte.
+ */
+export function dropCopiedLineNumbers(extractedData: Record<string, unknown>): number {
+  const lines = (extractedData.lineItems as Array<{ extractedProductName?: string; extractedProductNumber?: string; extractedPositionNumber?: string }> | undefined) ?? [];
+  const docLines = ((extractedData.documentExtraction as { line_items?: ExtractionLine[] } | undefined)?.line_items) ?? [];
+  let dropped = 0;
+  for (const line of lines) {
+    const number = line.extractedProductNumber?.trim();
+    if (!number) continue;
+    const doc = docLines.find(
+      (d) =>
+        d.position != null &&
+        String(d.position) === line.extractedPositionNumber &&
+        Boolean(d.description?.trim()) &&
+        (line.extractedProductName ?? "").startsWith(d.description!.trim()),
+    );
+    if (!doc?.confidence_warnings?.includes(CONFIDENCE_WARNING_MISSING_SKU) || doc.supplier_sku?.trim() !== number) continue;
+    delete line.extractedProductNumber;
+    doc.supplier_sku = null;
+    dropped++;
+  }
+  return dropped;
+}
+
 function overallConfidence(items: MatchItem[]): number {
   if (items.length === 0) return 0;
   return Math.round(items.reduce((sum, i) => sum + (i.confidence || 0), 0) / items.length);
 }
 
-/** Neues Ergebnis je Zeile nur übernehmen, wenn es besser ist — manuelle Wahl/Preis bleibt. */
-function mergeLineMatches(previous: MatchItem[], fresh: MatchItem[], lineCount: number): MatchItem[] {
+const NUMBER_STRATEGIES = new Set(["ean", "productNumber", "manufacturerNumber", "sapProductNumber", "synthetic_gtin"]);
+
+/**
+ * Neues Ergebnis je Zeile nur übernehmen, wenn es besser ist — manuelle Wahl/Preis bleibt.
+ * Von Hand freigegebene Zeilen (userConfirmedMatch) bleiben immer stehen. Ein alter Treffer über eine
+ * Nummer, die es in der Zeile nicht mehr gibt (kopierte EAN entfernt), zählt nicht mehr als sicher.
+ */
+export function mergeLineMatches(
+  previous: MatchItem[],
+  fresh: MatchItem[],
+  lineCount: number,
+  lineNumbers: Array<string | undefined> = [],
+): MatchItem[] {
   const merged: MatchItem[] = [];
   for (let i = 0; i < lineCount; i++) {
     const old = previous[i];
     const next = fresh[i];
+    if (old && (old as { userConfirmedMatch?: boolean }).userConfirmedMatch && (old.matchedProduct || old.bundle)) {
+      merged.push(old);
+      continue;
+    }
     if (!next) {
       if (old) merged.push(old);
       continue;
@@ -77,7 +123,8 @@ function mergeLineMatches(previous: MatchItem[], fresh: MatchItem[], lineCount: 
       merged.push(next);
       continue;
     }
-    const oldMatched = old.status === "matched" && (old.matchedProduct || old.bundle);
+    const numberGone = NUMBER_STRATEGIES.has(old.matchStrategy ?? "") && !lineNumbers[i]?.trim();
+    const oldMatched = old.status === "matched" && (old.matchedProduct || old.bundle) && !numberGone;
     const nextMatched = next.status === "matched" && next.matchedProduct;
     if (old.bundle || (oldMatched && !nextMatched)) {
       merged.push(old);
@@ -157,6 +204,8 @@ async function recheckDraft<D extends OrderDraft | OfferDraft>(
   };
   const previousItems = ((draft.matchingResults as DraftMatching | null)?.items ?? []) as MatchItem[];
   const lineItems = Array.isArray(extractedData.lineItems) ? extractedData.lineItems : [];
+  // Ältere Entwürfe: von der KI kopierte Artikelnummern (Warnung „fehlt“) aus den Zeilen nehmen
+  dropCopiedLineNumbers(extractedData);
 
   // 1) Produktabgleich
   let matchingResults = (draft.matchingResults ?? null) as DraftMatching | null;
@@ -175,8 +224,15 @@ async function recheckDraft<D extends OrderDraft | OfferDraft>(
     );
     if (fresh?.items?.length) {
       await applyProductScreeningToOfferMatching(fresh, lineItems as never);
+      // Nummer passt nicht zur Bezeichnung → Vorschlag statt sicherer Treffer (wie beim Anlegen)
+      checkNumberMatches({ lineItems: lineItems as never, matchingResults: fresh });
     }
-    const items = mergeLineMatches(previousItems, (fresh?.items ?? []) as MatchItem[], lineItems.length);
+    const items = mergeLineMatches(
+      previousItems,
+      (fresh?.items ?? []) as MatchItem[],
+      lineItems.length,
+      lineItems.map((l) => l.extractedProductNumber),
+    );
     matchingResults = { ...(fresh ?? {}), items } as DraftMatching;
     // CLIP-Kurzbezeichnungen + Maße (auch aus documentExtraction älterer Entwürfe)
     await runDraftClipSpecRowsStep({ extractedData, matchingResults: matchingResults as unknown as MatchingResult });
