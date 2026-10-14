@@ -29,6 +29,7 @@ import {
 } from "../extraction/lineItemCatalogIdentifiers";
 import { normalizeLearningLineKey } from "../commercial/commercialProductLearning";
 import { logger } from "../lib/logger";
+import { productNetPrice } from "./productNetPrice";
 
 const moduleLog = logger.child({ component: "products/productMatcher" });
 
@@ -268,7 +269,7 @@ async function applyInactiveCatalogHintIfNeeded(
     id: picked.product.id,
     productNumber: picked.product.productNumber,
     name: picked.product.name,
-    price: picked.product.price,
+    price: productNetPrice(picked.product),
     confidence: 88,
   };
   match.inactiveMatchedProduct = {
@@ -505,7 +506,7 @@ export async function matchProductsAgainstCatalog(
         id: alt.product.id,
         productNumber: alt.product.productNumber,
         name: alt.product.name,
-        price: alt.product.price,
+        price: productNetPrice(alt.product),
         confidence: alt.score,
         reasoning: alt.reasoning, // Include intelligent reasoning
       }));
@@ -534,7 +535,7 @@ export async function matchProductsAgainstCatalog(
           id: alt.id,
           productNumber: alt.productNumber,
           name: alt.name,
-          price: alt.price,
+          price: productNetPrice(alt),
           confidence: 70 // Medium-high confidence for dimension matches
         }));
         
@@ -570,7 +571,7 @@ export async function matchProductsAgainstCatalog(
             id: alt.id,
             productNumber: alt.productNumber,
             name: alt.name,
-            price: alt.price,
+            price: productNetPrice(alt),
             confidence: 85 // High confidence for variant alternatives
           }));
           
@@ -632,7 +633,7 @@ export async function matchProductsAgainstCatalog(
             id: systemMatch.baseProduct.id,
             productNumber: systemMatch.baseProduct.productNumber,
             name: systemMatch.baseProduct.name,
-            price: systemMatch.baseProduct.price,
+            price: productNetPrice(systemMatch.baseProduct),
             confidence: suggestionConfidence,
             reasoning,
           });
@@ -641,7 +642,7 @@ export async function matchProductsAgainstCatalog(
               id: systemMatch.extensionProduct.id,
               productNumber: systemMatch.extensionProduct.productNumber,
               name: `${systemMatch.extensionProduct.name} (${systemMatch.extensionQuantity}x)`,
-              price: systemMatch.extensionProduct.price,
+              price: productNetPrice(systemMatch.extensionProduct),
               confidence: suggestionConfidence,
               reasoning,
             });
@@ -857,7 +858,7 @@ function findProductBySyntheticGtins(
             id: p.id,
             productNumber: p.productNumber,
             name: p.name,
-            price: p.price,
+            price: productNetPrice(p),
             confidence: 100,
             matchStrategy: "synthetic_gtin",
           },
@@ -875,7 +876,7 @@ function findProductBySyntheticGtins(
             id: p.id,
             productNumber: p.productNumber,
             name: p.name,
-            price: p.price,
+            price: productNetPrice(p),
             confidence: 100,
             matchStrategy: "synthetic_gtin",
           },
@@ -906,7 +907,7 @@ function findProductByUniqueEanPrefix(
       id: p.id,
       productNumber: p.productNumber,
       name: p.name,
-      price: p.price,
+      price: productNetPrice(p),
       confidence: 94,
       matchStrategy: "ean",
     },
@@ -927,7 +928,7 @@ function findProductByExactManufacturerNumber(
           id: p.id,
           productNumber: p.productNumber,
           name: p.name,
-          price: p.price,
+          price: productNetPrice(p),
           confidence: 100,
           matchStrategy: "manufacturerNumber",
         },
@@ -952,7 +953,7 @@ function findProductByExactSapProductNumber(
         id: p.id,
         productNumber: p.productNumber,
         name: p.name,
-        price: p.price,
+        price: productNetPrice(p),
         confidence: 100,
         matchStrategy: "sapProductNumber",
       },
@@ -1099,7 +1100,7 @@ function matchLineItemAgainstBatch(
       id: product.id,
       productNumber: product.productNumber,
       name: product.name,
-      price: product.price,
+      price: productNetPrice(product),
       confidence,
       matchStrategy,
       nameSimilarityOnly: nameSimilarityOnly || undefined,

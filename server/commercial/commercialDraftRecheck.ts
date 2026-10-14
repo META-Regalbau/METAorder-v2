@@ -26,7 +26,7 @@ import { ShopwareClient } from "../shopware/shopware";
 import { runDraftClipSpecRowsStep } from "./draftClipSpecRows";
 import { checkNumberMatches } from "./draftNumberMatchCheck";
 import { CONFIDENCE_WARNING_MISSING_SKU } from "../extraction/documentExtractionPrompt";
-import { fillMissingOfferCatalogPrices } from "./offerDraftCatalogPrices";
+import { catalogListNetLookup, fillMissingOfferCatalogPrices, repairGrossOfferPrices } from "./offerDraftCatalogPrices";
 
 type DraftMatching = NonNullable<OrderDraft["matchingResults"]>;
 type MatchItem = DraftMatching["items"][number];
@@ -236,7 +236,10 @@ async function recheckDraft<D extends OrderDraft | OfferDraft>(
     matchingResults = { ...(fresh ?? {}), items } as DraftMatching;
     // CLIP-Kurzbezeichnungen + Maße (auch aus documentExtraction älterer Entwürfe)
     await runDraftClipSpecRowsStep({ extractedData, matchingResults: matchingResults as unknown as MatchingResult });
-    if (kind === "offer") fillMissingOfferCatalogPrices(matchingResults.items as never);
+    if (kind === "offer") {
+      fillMissingOfferCatalogPrices(matchingResults.items as never);
+      repairGrossOfferPrices(matchingResults.items as never, await catalogListNetLookup(matchingResults.items as never, storage, tenantId));
+    }
     matchingResults.overallConfidence = overallConfidence(matchingResults.items as MatchItem[]);
   }
 

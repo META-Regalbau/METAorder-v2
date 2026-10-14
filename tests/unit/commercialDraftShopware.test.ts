@@ -50,7 +50,11 @@ vi.mock("../../server/shopware/shopwareOrderCreateContext", () => ({
   buildOrderCreateAttributes: (settings: unknown, input: unknown) => sw.buildAttrs(settings, input),
 }));
 vi.mock("../../server/products/productCache", () => ({
-  productCache: { getProductByNumber: (n: string) => (n === "S2" ? { id: "s2" } : undefined) },
+  productCache: {
+    getProductByNumber: (n: string) => (n === "S2" ? { id: "s2" } : undefined),
+    // Netto-Listenpreis für die Brutto-Korrektur (G: 100 netto, 119 brutto)
+    getProductById: (id: string) => (id === "pG" ? { id: "pG", productNumber: "G", price: 119, netPrice: 100 } : undefined),
+  },
 }));
 vi.mock("../../server/sftp/sftpUpload", () => ({ scheduleSftpUploadAfterOrderCreate: sw.sftp }));
 vi.mock("../../server/cross-selling/crossSellDraftSignals", () => ({
@@ -358,6 +362,19 @@ describe("Angebot", () => {
       tenantId: "t1",
     });
     expect(sw.refresh).toHaveBeenCalledWith(expect.objectContaining({ kind: "offer", frozen: true }));
+  });
+
+  it("Bruttopreis aus älterem Entwurf: vor der Anlage auf netto, Rabatt bleibt (Angebote 1924/1942)", async () => {
+    sw.discount = { ok: true };
+    const draft = offerDraft({
+      matchingResults: { items: [{ quantity: 3, matchedProduct: { id: "pG", productNumber: "G", catalogPrice: 119, suggestedPrice: 116.62, suggestedDiscount: 2 } }] },
+    });
+    const { storage, updates } = fakeStorage(draft);
+    expect(await executeCreateOfferFromDraft(storage, "d1", options)).toMatchObject({ ok: true });
+    const input = sw.createOffer.mock.calls[0]![0] as { lineItems: Array<Record<string, unknown>> };
+    expect(input.lineItems).toEqual([{ productId: "pG", quantity: 3, productNumber: "G", unitPriceNet: 98 }]);
+    // Korrektur im Entwurf gespeichert
+    expect(updates[0]).toMatchObject({ matchingResults: { items: [{ matchedProduct: { catalogPrice: 100, suggestedPrice: 98 } }] } });
   });
 
   it("B2Bsellers-Fehler: Claim zurück, kein Freigabe-Eintrag", async () => {

@@ -17,6 +17,7 @@ import type { Product } from "@shared/schema";
 import type { LineItemMatch, MatchingResult, ProductMatch } from "../products/productMatcher";
 import type { DraftBomSplitEntry } from "./draftBomSplit";
 import { logger } from "../lib/logger";
+import { productNetPrice } from "../products/productNetPrice";
 
 const log = logger.child({ component: "commercial/draftConfiguratorRows" });
 
@@ -162,8 +163,7 @@ export function pickClipProduct(catalog: Catalog[], spec: ClipRowSpec, section: 
 }
 
 function toMatch(product: Product, confidence: number, reasoning: string): ProductMatch {
-  const net = (product as Product & { netPrice?: number }).netPrice;
-  return { id: product.id, productNumber: product.productNumber, name: product.name, price: typeof net === "number" ? net : product.price, confidence, reasoning };
+  return { id: product.id, productNumber: product.productNumber, name: product.name, price: productNetPrice(product), confidence, reasoning };
 }
 
 export type ConfiguratorRowEntry = { originalPosition: number; summary: string; differences: string[] };

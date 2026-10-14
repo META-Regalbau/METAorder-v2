@@ -6578,7 +6578,8 @@
       "placeholder": "Nombre del producto o número de artículo (mín. 2 caracteres)",
       "searching": "Buscando…",
       "noResults": "No se han encontrado productos.",
-      "add": "Añadir"
+      "add": "Añadir",
+      "netPrice": "{{price}} neto"
     },
     "shelfSystem": {
       "baseUnit": "Módulo inicial",

@@ -5,6 +5,7 @@ import { ShopwareClient } from "../shopware/shopware";
 import { scheduleSftpUploadAfterOrderCreate } from "../sftp/sftpUpload";
 import { buildShopwareLinePayloadFromCpqSource, type CpqSourceSnapshot } from "../cpq/cpqMetaCalcPayload";
 import { logger } from "../lib/logger";
+import { repairOfferDraftPrices } from "./offerDraftCatalogPrices";
 import { recordDraftSuggestionConversions } from "../cross-selling/crossSellDraftSignals";
 import { refreshDraftProfitability } from "./draftProfitability";
 import { checkMarginGateForCreate } from "./draftMarginApproval";
@@ -248,10 +249,12 @@ async function createOfferFromDraft(
   draftId: string,
   options: CreateOfferOptions
 ): Promise<CreateOfferSuccess | CreateFromDraftFailure> {
-  const draft = await storage.getOfferDraft(draftId, options.tenantId ?? null);
-  if (!draft) {
+  const loaded = await storage.getOfferDraft(draftId, options.tenantId ?? null);
+  if (!loaded) {
     return { ok: false, error: "Offer draft not found", statusCode: 404 };
   }
+  // Bruttopreise aus älteren Entwürfen nie als Nettopreis an Shopware (Angebote 1924, 1942)
+  const draft = await repairOfferDraftPrices(storage, loaded, options.tenantId ?? null);
   if (draft.status === "rejected") {
     return { ok: false, error: "Cannot create offer from rejected draft", statusCode: 400 };
   }

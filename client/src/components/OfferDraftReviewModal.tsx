@@ -1,5 +1,6 @@
 import { DraftLineMatchSource } from "@/components/DraftLineMatchSource";
 import { DraftLineConfirm } from "@/components/DraftLineConfirm";
+import { DraftManualProductAdd } from "@/components/DraftManualProductAdd";
 import { DraftBomSplitNotice, DraftOfferReferenceNotice } from "@/components/DraftOfferReferenceNotice";
 import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -1337,6 +1338,14 @@ export function OfferDraftReviewModal({
               </CardContent>
             </Card>
           )}
+
+          {/* Produkt aus dem Katalog hinzufügen */}
+          <DraftManualProductAdd
+            open={open}
+            disabled={draft.status === "created"}
+            pending={addProductMutation.isPending}
+            onAdd={(productId) => addProductMutation.mutate({ productId, quantity: 1 })}
+          />
 
           <Card>
             <CardHeader>

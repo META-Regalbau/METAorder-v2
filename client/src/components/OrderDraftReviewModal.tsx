@@ -1,5 +1,6 @@
 import { DraftLineMatchSource } from "@/components/DraftLineMatchSource";
 import { DraftLineConfirm } from "@/components/DraftLineConfirm";
+import { DraftManualProductAdd } from "@/components/DraftManualProductAdd";
 import { DraftBomSplitNotice, DraftOfferReferenceNotice } from "@/components/DraftOfferReferenceNotice";
 import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -278,18 +279,12 @@ export function OrderDraftReviewModal({
   const [useSeparateShipping, setUseSeparateShipping] = useState(false);
   const [customerSearchTerm, setCustomerSearchTerm] = useState("");
   const [debouncedCustomerSearch, setDebouncedCustomerSearch] = useState("");
-  const [productSearchTerm, setProductSearchTerm] = useState("");
-  const [debouncedProductSearch, setDebouncedProductSearch] = useState("");
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedCustomerSearch(customerSearchTerm), 300);
     return () => clearTimeout(t);
   }, [customerSearchTerm]);
 
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedProductSearch(productSearchTerm), 300);
-    return () => clearTimeout(t);
-  }, [productSearchTerm]);
 
   // Reset editedData whenever draft.id changes to prevent stale data
   useEffect(() => {
@@ -635,22 +630,6 @@ export function OrderDraftReviewModal({
     },
   });
 
-  type ManualSearchProduct = { id: string; productNumber: string; name: string; price: number };
-  const { data: productSearchData, isFetching: isProductSearchFetching } = useQuery<{
-    products: ManualSearchProduct[];
-  }>({
-    queryKey: ["/api/products", "manual-add", debouncedProductSearch],
-    queryFn: async () => {
-      const res = await fetch(
-        `/api/products?search=${encodeURIComponent(debouncedProductSearch)}&limit=10`,
-        { credentials: "include" }
-      );
-      if (!res.ok) throw new Error(t("draftReview.productSearchFailed"));
-      return res.json();
-    },
-    enabled: open && debouncedProductSearch.length >= 2,
-  });
-  const productSearchResults = productSearchData?.products ?? [];
 
   const updateQuantityMutation = useMutation({
     mutationFn: async ({ index, quantity }: { index: number; quantity: number }) => {
@@ -1758,61 +1737,12 @@ export function OrderDraftReviewModal({
           )}
 
           {/* Add Product Manually */}
-          <Card data-testid="card-add-product-manually">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Plus className="w-4 h-4" />
-                {t("draftReview.manualAdd.title")}
-              </CardTitle>
-              <p className="text-xs text-muted-foreground">
-                {t("draftReview.manualAdd.hint")}
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Input
-                placeholder={t("draftReview.manualAdd.placeholder")}
-                value={productSearchTerm}
-                onChange={(event) => setProductSearchTerm(event.target.value)}
-                disabled={draft.status === "created"}
-                data-testid="input-manual-product-search"
-              />
-              {debouncedProductSearch.length >= 2 && (
-                <div className="space-y-1 max-h-64 overflow-y-auto">
-                  {isProductSearchFetching && (
-                    <p className="text-xs text-muted-foreground">{t("draftReview.manualAdd.searching")}</p>
-                  )}
-                  {!isProductSearchFetching && productSearchResults.length === 0 && (
-                    <p className="text-xs text-muted-foreground">{t("draftReview.manualAdd.noResults")}</p>
-                  )}
-                  {productSearchResults.map((product) => (
-                    <div
-                      key={product.id}
-                      className="flex items-center justify-between gap-2 rounded-md border p-2 text-sm"
-                      data-testid={`manual-product-result-${product.id}`}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium truncate">{product.name}</p>
-                        <p className="text-xs text-muted-foreground font-mono">
-                          {product.productNumber} • €{product.price?.toFixed?.(2) ?? product.price}
-                        </p>
-                      </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={addProductMutation.isPending || draft.status === "created"}
-                        onClick={() => addProductMutation.mutate({ productId: product.id, quantity: 1 })}
-                        data-testid={`button-manual-add-product-${product.id}`}
-                      >
-                        <Plus className="w-4 h-4 mr-1" />
-                        {t("draftReview.manualAdd.add")}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <DraftManualProductAdd
+            open={open}
+            disabled={draft.status === "created"}
+            pending={addProductMutation.isPending}
+            onAdd={(productId) => addProductMutation.mutate({ productId, quantity: 1 })}
+          />
 
           {/* Add Bundle */}
           <Card>
