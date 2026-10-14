@@ -55,9 +55,12 @@ describe("validateGeneratedMeta", () => {
   });
 
   it("Tausenderpunkt gilt als dieselbe Zahl", () => {
-    expect(
-      validateGeneratedMeta(p, { ...GOOD, metaDescription: `${GOOD.metaDescription.slice(0, 100)} Feldlast 1.650 kg.` }),
-    ).toBeNull();
+    const old = product({ productNumber: "4026212101089", name: "CL GR 2000 1300 400 vzk kpl" });
+    const meta: GeneratedMeta = {
+      metaTitle: "META CLIP Grundregal 2000x1300x400 mm | verzinkt | komplett",
+      metaDescription: "META CLIP Grundregal 2000x1300x400 mm, verzinkt, als kompletter Satz. Fachlast 230 kg, Feldlast 1.650 kg – für Lager und Werkstatt.",
+    };
+    expect(validateGeneratedMeta(old, meta)).toBeNull();
   });
 
   it("Laengen", () => {
@@ -71,6 +74,35 @@ describe("validateGeneratedMeta", () => {
     const withGarantie = product({ productNumber: "1", description: "Mit 5 Jahren Garantie auf alle Teile." });
     const desc2 = "META CLIP Anbauregal mit 230 kg Fachlast und 5 Jahren Garantie – robust, verzinkt und schnell montiert für Lager und Werkstatt.";
     expect(validateGeneratedMeta(withGarantie, { ...GOOD, metaDescription: desc2 })).toBeNull();
+  });
+
+  it("Fachlast und Masse aus dem Namen haben Vorrang vor den Eigenschaften", () => {
+    const shelf = product({
+      productNumber: "4026212238204",
+      name: "META CLIP S3 | Schrägbodenregal | Anbauregal | 2000 x 1300 x 1228 mm | Fachlast 80 kg | 4 Ebenen | verzinkt",
+      properties: [{ group: "max. Fachlast", option: "200 kg" }, { group: "Tiefe", option: "1300 mm" }],
+    });
+    const ok: GeneratedMeta = {
+      metaTitle: "META CLIP S3 Schrägbodenregal 2000x1300x1228 mm | 80 kg | 4 Ebenen",
+      metaDescription: "META CLIP S3 Schrägbodenregal als Anbauregal, 2000x1300x1228 mm, 80 kg Fachlast, 4 Ebenen, verzinkt – für FIFO-Lagerung von Kartons.",
+    };
+    expect(validateGeneratedMeta(shelf, ok)).toBeNull();
+    expect(validateGeneratedMeta(shelf, { ...ok, metaTitle: ok.metaTitle.replace("80 kg", "200 kg") })).toBe("name_kg_200");
+    expect(validateGeneratedMeta(shelf, { ...ok, metaTitle: ok.metaTitle.replace("2000x1300x1228", "2000x1300x1300") })).toBe("name_dimensions_2000x1300x1300");
+  });
+
+  it("alte Kurznamen ohne kg/Masse: Werte aus den Eigenschaften erlaubt", () => {
+    const foot = product({
+      productNumber: "4026212393408",
+      name: "KR H Fuß 220 DR 400 R5010",
+      description: "",
+      properties: [{ group: "Tiefe", option: "500 mm" }, { group: "Höhe", option: "220 mm" }],
+    });
+    const meta: GeneratedMeta = {
+      metaTitle: "Kragarm Fußteil doppelseitig 220 mm RAL 5010 | MULTISTRONG H",
+      metaDescription: "Fußteil doppelseitig für MULTISTRONG H Kragarmregale, Höhe 220 mm, Tiefe 500 mm, RAL 5010. Für stabilen Stand im Lager und in der Werkstatt.",
+    };
+    expect(validateGeneratedMeta(foot, meta)).toBeNull();
   });
 
   it("RAL-Farbe ist keine Pulverbeschichtung", () => {
@@ -101,6 +133,11 @@ describe("selectMetaCandidates", () => {
     const marker = { ...GOOD, sourceHash: productSourceHash(base) };
     const same = { ...base, customFields: { [PRODUCT_META_TEXTS_MARKER]: marker } };
     expect(selectMetaCandidates([same]).unchanged).toBe(1);
+    const wrongLoad = { ...base, metaTitle: GOOD.metaTitle.replace("230 kg", "1650 kg") };
+    const own = { ...wrongLoad, customFields: { [PRODUCT_META_TEXTS_MARKER]: { ...marker, metaTitle: wrongLoad.metaTitle } } };
+    const healed = selectMetaCandidates([own]);
+    expect(healed.candidates).toHaveLength(1);
+    expect(healed.candidates[0].writeTitle).toBe(true);
     const renamed = { ...same, name: "META CLIP | Fachbodenregal | Anbauregal | NEU" };
     const sel = selectMetaCandidates([renamed]);
     expect(sel.candidates).toHaveLength(1);
