@@ -41,3 +41,30 @@ describe("Beschriftete Regalmaße", () => {
     assert.equal(alternatives[0]?.product.productNumber, "4026212348316");
   });
 });
+
+describe("Regalmaße als Höhe x Breite x Tiefe (THW, 14.10.2026)", () => {
+  it("Regal-Namen: erster Wert ist die Höhe", () => {
+    const d = extractDimensions(product("x", "META MULTIPAL | Palettenregal | Grundregal | 3300 x 2700 x 800 mm"));
+    assert.deepEqual({ h: d.height, w: d.width, t: d.depth }, { h: 3300, w: 2700, t: 800 });
+    const old = extractDimensions(product("y", "META multipal GR 3300 x 2700 x 800 bis 1000 kg vzk / RAL 2001 kpl. S"));
+    assert.deepEqual({ h: old.height, w: old.width, t: old.depth }, { h: 3300, w: 2700, t: 800 });
+    const request = extractDimensions(product("", "Grund-Palettenregal 4 Ebenen mit ca. 2000kg Fachlast | 3300x2700x800"));
+    assert.deepEqual({ h: request.height, w: request.width, t: request.depth }, { h: 3300, w: 2700, t: 800 });
+  });
+
+  it("Teile behalten die Reihenfolge des Namens", () => {
+    const boden = extractDimensions(product("z", "Regalboden 1000 x 400 x 30 vzk"));
+    assert.equal(boden.width, 1000);
+  });
+
+  it("Begründung nennt Höhe und Breite richtig", () => {
+    const [alt] = findIntelligentAlternatives({
+      extractedProductName: "Grund-Palettenregal 4 Ebenen mit ca. 2000kg Fachlast | 3300x2700x800",
+      allProducts: [product("4026212249866", "Mittelschweres Multipal GR 3300 x 2700 x 1100 vzk / RAL 2001 kpl. S mit Holm 100/20 & 3 Lagerebenen Fachlast 2400 kg")],
+    });
+    assert.match(alt.reasoning, /2700mm breit/);
+    assert.match(alt.reasoning, /1100mm tief \(abweichend von 800mm\)/);
+    assert.match(alt.reasoning, /3300mm hoch/);
+    assert.doesNotMatch(alt.reasoning, /3300mm breit/);
+  });
+});
