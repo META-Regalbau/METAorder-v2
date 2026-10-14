@@ -11,6 +11,7 @@ import * as pricingApi from "./client/pricing";
 import * as offersApi from "./client/offers";
 import * as masterDataApi from "./client/masterData";
 import * as mediaApi from "./client/media";
+import * as productMetaApi from "./client/productMeta";
 import { logger } from "../lib/logger";
 
 const log = logger.child({ component: "shopware/shopware" });
@@ -475,9 +476,12 @@ export interface ShopwareClient {
   fetchProductImageProducts: typeof mediaApi.fetchProductImageProducts;
   fetchMediaTexts: typeof mediaApi.fetchMediaTexts;
   syncMediaTexts: typeof mediaApi.syncMediaTexts;
+  // productMeta
+  fetchProductMetaSources: typeof productMetaApi.fetchProductMetaSources;
+  syncProductMetaTexts: typeof productMetaApi.syncProductMetaTexts;
 }
 
-for (const api of [ordersApi, deliveryApi, documentsApi, productsApi, crossSellingApi, customersApi, pricingApi, offersApi, masterDataApi, mediaApi]) {
+for (const api of [ordersApi, deliveryApi, documentsApi, productsApi, crossSellingApi, customersApi, pricingApi, offersApi, masterDataApi, mediaApi, productMetaApi]) {
   for (const [name, fn] of Object.entries(api)) {
     if (Object.prototype.hasOwnProperty.call(ShopwareClient.prototype, name)) {
       throw new Error(`ShopwareClient.${name} ist doppelt definiert`);

@@ -1,0 +1,162 @@
+import { describe, expect, it, vi } from "vitest";
+import {
+  descriptionText,
+  pickStyleExamples,
+  PRODUCT_META_TEXTS_MARKER,
+  productSourceHash,
+  runProductMetaTexts,
+  selectMetaCandidates,
+  validateGeneratedMeta,
+  type GeneratedMeta,
+  type MetaGenerator,
+} from "../../server/products/productMetaTexts";
+import type { ProductMetaSource } from "../../server/shopware/client/productMeta";
+
+function product(partial: Partial<ProductMetaSource> & { productNumber: string }): ProductMetaSource {
+  return {
+    id: `id-${partial.productNumber}`,
+    active: true,
+    visible: true,
+    name: "META CLIP | Fachbodenregal | Anbauregal | 2000 x 1300 x 400 mm | Fachlast 230 kg | 5 Ebenen | verzinkt",
+    description: "<p>Unser META CLIP Fachbodenregal eignet sich ideal f&uuml;r Kleinteile.</p>",
+    properties: [
+      { group: "Regal-Typ", option: "Anbauregal" },
+      { group: "max. Fachlast", option: "230 kg" },
+      { group: "max. Feldlast", option: "1650 kg" },
+    ],
+    metaTitle: null,
+    metaDescription: null,
+    customFields: null,
+    ...partial,
+  };
+}
+
+const GOOD: GeneratedMeta = {
+  metaTitle: "META CLIP Anbauregal 2000x1300x400 mm | 5 Ebenen | 230 kg | verzinkt",
+  metaDescription:
+    "Verzinktes META CLIP Anbauregal 2000x1300x400 mm mit 5 Ebenen und 230 kg Fachlast – zur Erweiterung Ihres Grundregals in Lager und Werkstatt.",
+};
+
+describe("descriptionText", () => {
+  it("entfernt HTML und loest Entitaeten auf", () => {
+    expect(descriptionText("<p>F&uuml;r Lager&nbsp;&amp; Werkstatt</p><ul><li>230 kg</li></ul>")).toBe("Für Lager & Werkstatt 230 kg");
+  });
+});
+
+describe("validateGeneratedMeta", () => {
+  const p = product({ productNumber: "4026212439502" });
+
+  it("akzeptiert passende Texte", () => {
+    expect(validateGeneratedMeta(p, GOOD)).toBeNull();
+  });
+
+  it("Zahlen muessen im Artikel stehen", () => {
+    expect(validateGeneratedMeta(p, { ...GOOD, metaTitle: "META CLIP Anbauregal 2000x1300x400 mm | 6 Ebenen | 230 kg" })).toBe("number_6");
+  });
+
+  it("Tausenderpunkt gilt als dieselbe Zahl", () => {
+    expect(
+      validateGeneratedMeta(p, { ...GOOD, metaDescription: `${GOOD.metaDescription.slice(0, 100)} Feldlast 1.650 kg.` }),
+    ).toBeNull();
+  });
+
+  it("Laengen", () => {
+    expect(validateGeneratedMeta(p, { ...GOOD, metaTitle: "x".repeat(71) })).toBe("title_length_71");
+    expect(validateGeneratedMeta(p, { ...GOOD, metaDescription: "zu kurz" })).toBe("description_length_7");
+  });
+
+  it("keine Versprechen, die der Artikel nicht hergibt", () => {
+    const desc = "Verzinktes META CLIP Anbauregal mit 5 Ebenen und 230 kg Fachlast – versandkostenfrei und robust für Lager und Werkstatt.";
+    expect(validateGeneratedMeta(p, { ...GOOD, metaDescription: desc })).toBe("claim_shipping");
+    const withGarantie = product({ productNumber: "1", description: "Mit 5 Jahren Garantie auf alle Teile." });
+    const desc2 = "META CLIP Anbauregal mit 230 kg Fachlast und 5 Jahren Garantie – robust, verzinkt und schnell montiert für Lager und Werkstatt.";
+    expect(validateGeneratedMeta(withGarantie, { ...GOOD, metaDescription: desc2 })).toBeNull();
+  });
+
+  it("RAL-Farbe ist keine Pulverbeschichtung", () => {
+    const desc = "META CLIP Anbauregal mit 5 Ebenen und 230 kg Fachlast, pulverbeschichtet in Lichtgrau – robust für Lager und Werkstatt im Alltag.";
+    expect(validateGeneratedMeta(p, { ...GOOD, metaDescription: desc })).toBe("claim_surface");
+  });
+});
+
+describe("selectMetaCandidates", () => {
+  it("nur aktive, sichtbare Artikel; leere Felder werden geschrieben, eigene Texte bleiben", () => {
+    const sel = selectMetaCandidates([
+      product({ productNumber: "a" }),
+      product({ productNumber: "b", active: false }),
+      product({ productNumber: "c", visible: false }),
+      product({ productNumber: "d", metaTitle: "Eigener Titel", metaDescription: "Eigene Beschreibung" }),
+      product({ productNumber: "e", metaTitle: "Eigener Titel" }),
+    ]);
+    expect(sel.products).toBe(3);
+    expect(sel.candidates.map((c) => c.product.productNumber)).toEqual(["a", "e"]);
+    expect(sel.candidates[1].writeTitle).toBe(false);
+    expect(sel.candidates[1].writeDescription).toBe(true);
+    expect(sel.keptManualTitle).toBe(2);
+    expect(sel.keptManualDescription).toBe(1);
+  });
+
+  it("eigene Texte: unveraendert bei gleicher Quelle, neu bei geaenderter Quelle", () => {
+    const base = product({ productNumber: "a", ...GOOD });
+    const marker = { ...GOOD, sourceHash: productSourceHash(base) };
+    const same = { ...base, customFields: { [PRODUCT_META_TEXTS_MARKER]: marker } };
+    expect(selectMetaCandidates([same]).unchanged).toBe(1);
+    const renamed = { ...same, name: "META CLIP | Fachbodenregal | Anbauregal | NEU" };
+    const sel = selectMetaCandidates([renamed]);
+    expect(sel.candidates).toHaveLength(1);
+    expect(sel.candidates[0].writeTitle && sel.candidates[0].writeDescription).toBe(true);
+  });
+});
+
+describe("pickStyleExamples", () => {
+  it("nimmt nur von Hand gepflegte Texte, je Familie einen", () => {
+    const ex = pickStyleExamples([
+      product({ productNumber: "1", name: "META CLIP | A", ...GOOD }),
+      product({ productNumber: "2", name: "META CLIP | B", ...GOOD }),
+      product({ productNumber: "3", name: "META MULTIPAL | C", ...GOOD }),
+      product({ productNumber: "4", name: "META FIX | D", ...GOOD, customFields: { [PRODUCT_META_TEXTS_MARKER]: GOOD } }),
+    ]);
+    expect(ex.map((p) => p.productNumber)).toEqual(["1", "3"]);
+  });
+});
+
+describe("runProductMetaTexts", () => {
+  const products = [product({ productNumber: "4026212439502" }), product({ productNumber: "4026212439503" })];
+  const client = () => ({
+    fetchProductMetaSources: vi.fn().mockResolvedValue(products),
+    syncProductMetaTexts: vi.fn().mockResolvedValue(undefined),
+  });
+
+  it("schreibt gepruefte Texte mit Markierung; Verworfenes wird einmal neu angefragt", async () => {
+    const c = client();
+    const generate = vi.fn<MetaGenerator>()
+      .mockResolvedValueOnce(
+        new Map([
+          ["4026212439502", GOOD],
+          ["4026212439503", { ...GOOD, metaTitle: "zu kurz" }],
+        ]),
+      )
+      .mockResolvedValueOnce(new Map([["4026212439503", GOOD]]));
+    const summary = await runProductMetaTexts(c, generate, { dryRun: false, trigger: "manual", maxProducts: 100 });
+    expect(generate).toHaveBeenCalledTimes(2);
+    expect(generate.mock.calls[1][0].map((p) => p.productNumber)).toEqual(["4026212439503"]);
+    expect(generate.mock.calls[1][2]?.get("4026212439503")).toBe("title_length_7");
+    expect(summary.written).toBe(2);
+    expect(summary.rejected).toBe(0);
+    const updates = c.syncProductMetaTexts.mock.calls[0][0];
+    expect(updates[0]).toMatchObject({ id: "id-4026212439502", metaTitle: GOOD.metaTitle, metaDescription: GOOD.metaDescription });
+    expect(updates[0].customFields[PRODUCT_META_TEXTS_MARKER]).toMatchObject({ ...GOOD, sourceHash: productSourceHash(products[0]) });
+  });
+
+  it("Testlauf schreibt nichts, Grenze je Lauf greift, Fehlschlag bleibt unveraendert", async () => {
+    const c = client();
+    const generate = vi.fn<MetaGenerator>().mockResolvedValue(new Map([["4026212439502", { ...GOOD, metaTitle: "x" }]]));
+    const summary = await runProductMetaTexts(c, generate, { dryRun: true, trigger: "manual", maxProducts: 1 });
+    expect(c.syncProductMetaTexts).not.toHaveBeenCalled();
+    expect(summary.processed).toBe(1);
+    expect(summary.remaining).toBe(1);
+    expect(summary.written).toBe(0);
+    expect(summary.rejected).toBe(1);
+    expect(summary.rejectedExamples[0].reason).toBe("title_length_1");
+  });
+});

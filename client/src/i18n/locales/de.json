@@ -2162,6 +2162,28 @@
       "examples": "Beispiele",
       "colFile": "Datei"
     },
+    "productMetaTexts": {
+      "title": "Meta-Title und Meta-Description der Artikel (KI)",
+      "description": "Schreibt per KI Meta-Title (höchstens 70 Zeichen) und Meta-Description (höchstens 160 Zeichen) für aktive, sichtbare Artikel ohne eigene Texte – im Stil der schon gepflegten Texte, auf Deutsch. Jeder Text wird geprüft (Länge, nur Zahlen aus dem Artikel, keine Preis-, Versand- oder Garantieaussagen). Von Hand gepflegte Texte bleiben unverändert.",
+      "enabled": "Täglich prüfen und ergänzen",
+      "enabledDesc": "Neu aktivierte und geänderte Artikel bekommen einmal am Tag ihre Texte.",
+      "hour": "Uhrzeit des Tageslaufs",
+      "maxPerRun": "Höchstens Artikel je Lauf",
+      "dryRun": "Testlauf (20 Artikel, nichts schreiben)",
+      "applyNow": "Jetzt in den Shop schreiben",
+      "confirmApply": "Meta-Texte jetzt per KI erzeugen und in den Shop schreiben (höchstens {{max}} Artikel)? Von Hand gepflegte Texte bleiben unverändert.",
+      "saved": "Einstellungen gespeichert",
+      "saveError": "Speichern fehlgeschlagen",
+      "runError": "Lauf konnte nicht gestartet werden",
+      "running": "Lauf startet …",
+      "runningProgress": "Lauf läuft: {{done}} von {{total}} Artikeln …",
+      "summary": "{{products}} aktive Artikel, {{candidates}} ohne passende Texte. Bearbeitet: {{processed}}, geschrieben: {{written}}, verworfen: {{rejected}}.",
+      "summaryDry": "{{products}} aktive Artikel, {{candidates}} ohne passende Texte. Testweise erzeugt: {{written}} von {{processed}}, verworfen: {{rejected}}.",
+      "remaining": "Noch offen für spätere Läufe: {{count}} Artikel.",
+      "keptManual": "Von Hand gepflegt und unverändert: {{title}} Meta-Title, {{description}} Meta-Description.",
+      "colProduct": "Artikel",
+      "rejectedTitle": "Verworfen (Artikel bleibt unverändert):"
+    },
     "emailRouting": {
       "title": "E-Mail Routing",
       "description": "E-Mails klassifizieren und per Skills zuweisen.",
@@ -6480,7 +6502,11 @@
       "failed_to_load_product_image_text_settings": "Einstellungen der Bildtexte konnten nicht geladen werden",
       "failed_to_save_product_image_text_settings": "Einstellungen der Bildtexte konnten nicht gespeichert werden",
       "product_image_text_run_already_in_progress": "Ein Lauf der Bildtexte läuft bereits",
-      "failed_to_start_product_image_text_run": "Lauf der Bildtexte konnte nicht gestartet werden"
+      "failed_to_start_product_image_text_run": "Lauf der Bildtexte konnte nicht gestartet werden",
+      "failed_to_load_product_meta_text_settings": "Einstellungen der Meta-Texte konnten nicht geladen werden",
+      "failed_to_save_product_meta_text_settings": "Einstellungen der Meta-Texte konnten nicht gespeichert werden",
+      "product_meta_text_run_already_in_progress": "Ein Lauf der Meta-Texte läuft bereits",
+      "failed_to_start_product_meta_text_run": "Lauf der Meta-Texte konnte nicht gestartet werden"
     }
   },
   "roomPlanner": {

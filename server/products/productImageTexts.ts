@@ -378,7 +378,12 @@ export function berlinDayAndHour(now: Date): { day: string; hour: number } {
   return { day: `${get("year")}-${get("month")}-${get("day")}`, hour: Number(get("hour")) };
 }
 
-export function isScheduledRunDue(now: Date, settings: ProductImageTextsSettings, state: ProductImageTextsState): boolean {
+/** Tageslauf faellig? Gilt auch fuer die Meta-Texte (gleiche Felder). */
+export function isScheduledRunDue(
+  now: Date,
+  settings: Pick<ProductImageTextsSettings, "enabled" | "hourLocal">,
+  state: { lastScheduledDay?: string },
+): boolean {
   if (!settings.enabled) return false;
   const { day, hour } = berlinDayAndHour(now);
   return hour >= settings.hourLocal && state.lastScheduledDay !== day;

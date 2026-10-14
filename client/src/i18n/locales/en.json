@@ -2165,6 +2165,28 @@
       "examples": "Examples",
       "colFile": "File"
     },
+    "productMetaTexts": {
+      "title": "Product meta title and meta description (AI)",
+      "description": "Uses AI to write meta titles (max. 70 characters) and meta descriptions (max. 160 characters) for active, visible products without their own texts – in the style of the texts already maintained, in German. Every text is checked (length, only numbers from the product, no price, shipping or warranty claims). Manually maintained texts stay unchanged.",
+      "enabled": "Check and fill daily",
+      "enabledDesc": "Newly activated and changed products get their texts once a day.",
+      "hour": "Time of the daily run",
+      "maxPerRun": "Max. products per run",
+      "dryRun": "Test run (20 products, write nothing)",
+      "applyNow": "Write to shop now",
+      "confirmApply": "Generate meta texts with AI and write them to the shop now (max. {{max}} products)? Manually maintained texts stay unchanged.",
+      "saved": "Settings saved",
+      "saveError": "Saving failed",
+      "runError": "Run could not be started",
+      "running": "Run starting …",
+      "runningProgress": "Run in progress: {{done}} of {{total}} products …",
+      "summary": "{{products}} active products, {{candidates}} without suitable texts. Processed: {{processed}}, written: {{written}}, rejected: {{rejected}}.",
+      "summaryDry": "{{products}} active products, {{candidates}} without suitable texts. Generated as a test: {{written}} of {{processed}}, rejected: {{rejected}}.",
+      "remaining": "Still open for later runs: {{count}} products.",
+      "keptManual": "Manually maintained and unchanged: {{title}} meta titles, {{description}} meta descriptions.",
+      "colProduct": "Product",
+      "rejectedTitle": "Rejected (product stays unchanged):"
+    },
     "emailRouting": {
       "title": "Email routing",
       "description": "Classify emails and route by skills with fallback rules.",
@@ -6483,7 +6505,11 @@
       "failed_to_load_product_image_text_settings": "Failed to load product image text settings",
       "failed_to_save_product_image_text_settings": "Failed to save product image text settings",
       "product_image_text_run_already_in_progress": "Product image text run already in progress",
-      "failed_to_start_product_image_text_run": "Failed to start product image text run"
+      "failed_to_start_product_image_text_run": "Failed to start product image text run",
+      "failed_to_load_product_meta_text_settings": "Failed to load product meta text settings",
+      "failed_to_save_product_meta_text_settings": "Failed to save product meta text settings",
+      "product_meta_text_run_already_in_progress": "Product meta text run already in progress",
+      "failed_to_start_product_meta_text_run": "Failed to start product meta text run"
     }
   },
   "roomPlanner": {
