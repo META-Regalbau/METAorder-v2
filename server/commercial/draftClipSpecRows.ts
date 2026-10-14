@@ -15,6 +15,7 @@ import type { Product } from "@shared/schema";
 import type { LineItemMatch, MatchingResult, ProductMatch } from "../products/productMatcher";
 import { CONFIGURATOR_APPROX_CONFIDENCE, CONFIGURATOR_EXACT_CONFIDENCE, parseClipConfiguratorRow } from "./draftConfiguratorRows";
 import { logger } from "../lib/logger";
+import { productNetPrice } from "../products/productNetPrice";
 
 const log = logger.child({ component: "commercial/draftClipSpecRows" });
 
@@ -303,8 +304,7 @@ export function pickMultipalProduct(catalog: MultipalEntry[], spec: MultipalLine
 }
 
 function toMatch(product: Product, confidence: number, reasoning: string): ProductMatch {
-  const net = (product as Product & { netPrice?: number }).netPrice;
-  return { id: product.id, productNumber: product.productNumber, name: product.name, price: typeof net === "number" ? net : product.price, confidence, reasoning };
+  return { id: product.id, productNumber: product.productNumber, name: product.name, price: productNetPrice(product), confidence, reasoning };
 }
 
 type ExtractionLine = { position?: number | null; description?: string | null; attributes?: { dimensions_raw?: string | null; color?: string | null } | null };

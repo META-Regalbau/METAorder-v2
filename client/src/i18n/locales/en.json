@@ -6581,7 +6581,8 @@
       "placeholder": "Product name or item number (min. 2 characters)",
       "searching": "Searching…",
       "noResults": "No products found.",
-      "add": "Add"
+      "add": "Add",
+      "netPrice": "{{price}} net"
     },
     "shelfSystem": {
       "baseUnit": "Starter unit",

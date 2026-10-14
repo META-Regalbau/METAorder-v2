@@ -18,6 +18,7 @@ import type { Offer, Product } from "@shared/schema";
 import type { IStorage } from "../storage";
 import type { LineItemMatch, MatchingResult } from "../products/productMatcher";
 import { logger } from "../lib/logger";
+import { productNetPrice } from "../products/productNetPrice";
 
 const log = logger.child({ component: "commercial/draftOfferReference" });
 
@@ -266,7 +267,7 @@ export async function applyOfferReference(params: {
       id: product!.id,
       productNumber: product!.productNumber,
       name: product!.name,
-      price: product!.price,
+      price: productNetPrice(product!),
       confidence: 100,
       reasoning: `Aus Angebot ${offerNumber}${line.fromConfiguration ? " (Stückliste der Konfiguration)" : ""}`,
       // Angebotspreis gilt (wie ein im Prüffenster geänderter Preis; die Anlage übernimmt ihn)

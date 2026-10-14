@@ -3,6 +3,8 @@ import multer from "multer";
 import { requireAuth, requireManageSettings, requireAuthOrIntegrationKey, requireManageCommercialDraftUpload, requireCsrf, requireManageOrderDrafts, requireManageOffers, requireViewOffers, canViewMarginDetails, requireViewMarginDetails, requireAdministrator } from "../auth/auth";
 import { applyManualLinePrice, preserveManualLinePrices } from "../commercial/draftLinePrice";
 import { auditUser, logDraftEvent } from "../commercial/draftAuditLog";
+import { productNetPrice } from "../products/productNetPrice";
+import { repairOfferDraftPrices } from "../commercial/offerDraftCatalogPrices";
 import {
   decideMarginApproval,
   evaluateMarginApproval,
@@ -1498,7 +1500,7 @@ export function registerDraftRoutes(app: Express): void {
           id: product.id,
           productNumber: product.productNumber,
           name: product.name,
-          price: product.price,
+          price: productNetPrice(product),
         },
         confidence: 100, // Manually added = 100% confidence
         status: "matched",
@@ -2058,7 +2060,9 @@ export function registerDraftRoutes(app: Express): void {
       const statuses = statusParam
         ? statusParam.split(",").map((s) => s.trim()).filter(Boolean)
         : undefined;
-      const offerDrafts = await storage.getAllOfferDrafts(req.tenantId ?? null, statuses);
+      const loaded = await storage.getAllOfferDrafts(req.tenantId ?? null, statuses);
+      // Offene Entwürfe mit Bruttopreisen korrigieren (nur offene; Cache-Abfragen, keine Shop-Aufrufe)
+      const offerDrafts = await Promise.all(loaded.map((d) => repairOfferDraftPrices(storage, d, req.tenantId ?? null)));
       res.json(await withProfitabilityBadges("offer", offerDrafts, req));
     } catch (error) {
       moduleLog.error({ err: error }, "Error fetching offer drafts:");
@@ -2105,11 +2109,13 @@ export function registerDraftRoutes(app: Express): void {
   app.get("/api/offer-drafts/:id", requireAuthOrIntegrationKey, requireViewOffers, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const offerDraft = await storage.getOfferDraft(id);
+      const loaded = await storage.getOfferDraft(id);
       
-      if (!offerDraft) {
+      if (!loaded) {
         return res.status(404).json({ error: "Offer draft not found" });
       }
+      // Ältere Entwürfe mit Bruttopreisen: auf netto korrigieren und speichern
+      const offerDraft = await repairOfferDraftPrices(storage, loaded, req.tenantId ?? null);
       
       // Crossselling-Vorschläge: Produkt-Cache, 10 min gemerkt, begrenzt parallel (draftCrossSellSuggestions.ts)
       let crossSellingSuggestions: DraftSuggestionGroup[] = [];
@@ -2329,10 +2335,11 @@ export function registerDraftRoutes(app: Express): void {
       const { id } = req.params;
       const { download } = req.query;
 
-      const draft = await storage.getOfferDraft(id);
-      if (!draft) {
+      const loaded = await storage.getOfferDraft(id);
+      if (!loaded) {
         return res.status(404).json({ error: "Offer draft not found" });
       }
+      const draft = await repairOfferDraftPrices(storage, loaded, req.tenantId ?? null);
 
       if (!draft.matchingResults?.items?.length && !draft.extractedData) {
         return res.status(400).json({ error: "Draft has no data to generate PDF" });
@@ -2399,7 +2406,8 @@ export function registerDraftRoutes(app: Express): void {
           id: product.id,
           productNumber: product.productNumber,
           name: product.name,
-          catalogPrice: product.price,
+          // Netto: product.price ist der Bruttopreis
+          catalogPrice: productNetPrice(product),
         },
         confidence: 100, // Manually added = 100% confidence
         status: "matched",

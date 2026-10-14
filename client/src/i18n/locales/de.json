@@ -6578,7 +6578,8 @@
       "placeholder": "Produktname oder Artikelnummer (mind. 2 Zeichen)",
       "searching": "Suche läuft…",
       "noResults": "Keine Produkte gefunden.",
-      "add": "Hinzufügen"
+      "add": "Hinzufügen",
+      "netPrice": "{{price}} netto"
     },
     "shelfSystem": {
       "baseUnit": "Grundregal",

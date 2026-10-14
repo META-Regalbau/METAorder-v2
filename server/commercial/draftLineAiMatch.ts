@@ -23,6 +23,7 @@ import { recomputeOfferOverallConfidence, type ProductScreenMeta } from "../extr
 import { normalizeLearningIdentifier } from "./commercialProductLearning";
 import { parseLlmJsonResponse } from "../ai/llmChat";
 import { logger } from "../lib/logger";
+import { productNetPrice } from "../products/productNetPrice";
 
 const log = logger.child({ component: "commercial/draftLineAiMatch" });
 
@@ -191,7 +192,7 @@ function buildAiPrompt(entries: Array<{ lineNo: number; line: Line; candidates: 
 }
 
 function toProductMatch(product: Product, confidence: number, reasoning?: string): ProductMatch {
-  return { id: product.id, productNumber: product.productNumber, name: product.name, price: product.price, confidence, reasoning };
+  return { id: product.id, productNumber: product.productNumber, name: product.name, price: productNetPrice(product), confidence, reasoning };
 }
 
 /** Holme bestellt, Holmebene (Paar) gewählt: Menge halbieren – wie der Regelabgleich (convertHolmToHolmebene). */
