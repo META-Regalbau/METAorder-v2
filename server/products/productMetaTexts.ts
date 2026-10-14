@@ -54,12 +54,15 @@ export function descriptionText(html: string): string {
     .trim();
 }
 
-export function productSourceText(p: Pick<ProductMetaSource, "name" | "properties" | "description">): string {
+export function productSourceText(
+  p: Pick<ProductMetaSource, "name" | "properties" | "description">,
+  descriptionChars = DESCRIPTION_CHARS,
+): string {
   const props = p.properties
     .slice(0, MAX_PROPERTIES)
     .map((x) => `${x.group}: ${x.option}`)
     .join("; ");
-  const desc = descriptionText(p.description).slice(0, DESCRIPTION_CHARS);
+  const desc = descriptionText(p.description).slice(0, descriptionChars);
   return [`Name: ${p.name}`, props ? `Eigenschaften: ${props}` : "", desc ? `Beschreibung: ${desc}` : ""]
     .filter(Boolean)
     .join("\n");
@@ -160,7 +163,7 @@ export function pickStyleExamples(products: ProductMetaSource[], count = STYLE_E
 // Pruefen
 
 /** Aussagen, die nur stehen duerfen, wenn der Artikel sie selbst hergibt. */
-const CLAIM_RULES: Array<[RegExp, string]> = [
+export const CLAIM_RULES: Array<[RegExp, string]> = [
   [/versandkostenfrei|kostenlos|gratis/i, "shipping"],
   [/lieferzeit|sofort lieferbar|lieferbar in|\b24\s*h\b/i, "delivery"],
   [/€|\beuro\b|\bpreis|günstig|billig|rabatt|sonderangebot/i, "price"],
@@ -171,7 +174,7 @@ const CLAIM_RULES: Array<[RegExp, string]> = [
   [/pulverbeschicht|lackiert|feuerverzinkt|edelstahl|eloxiert/i, "surface"],
 ];
 
-function digitForms(text: string): Set<string> {
+export function digitForms(text: string): Set<string> {
   const forms = new Set<string>();
   for (const token of text.match(/\d+(?:[.,]\d+)*/g) ?? []) {
     forms.add(token.replace(/[.,]/g, ""));
@@ -198,7 +201,7 @@ function dimensionTriples(text: string): string[] {
  * Werte aus dem Namen haben Vorrang: Eigenschaften widersprechen dem Namen teils (Live:
  * "Fachlast 80 kg" im Namen, "max. Fachlast: 200 kg" in den Eigenschaften).
  */
-function nameValueConflict(name: string, text: string): string | null {
+export function nameValueConflict(name: string, text: string): string | null {
   const nameKg = kgValues(name);
   if (nameKg.length > 0) {
     const wrong = kgValues(text).find((v) => !nameKg.includes(v));
