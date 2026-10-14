@@ -18,6 +18,7 @@ import { ensureVectorExtension } from "./db";
 import { seedDatabase } from "./seedData";
 import { startCrossSellScheduler } from "./cross-selling/crossSellScheduler";
 import { startProductImageTextsScheduler } from "./products/productImageTextsJobs";
+import { startProductMetaTextsScheduler } from "./products/productMetaTextsJobs";
 import { runOfferLearning } from "./offers/offerLearning";
 import { pollInboundEmails } from "./email/emailInbound";
 import { runDunningJob } from "./invoicing/dunningJob";
@@ -218,6 +219,8 @@ function startSystemLog() {
 
   // Bildtexte (ALT/TITLE) der Produktbilder: Tageslauf je Mandant, wenn eingeschaltet
   startProductImageTextsScheduler(storage);
+  // Meta-Title/-Description der Artikel (KI): Tageslauf je Mandant, wenn eingeschaltet
+  startProductMetaTextsScheduler(storage);
 
   const runOfferLearningJob = async () => {
     try {
