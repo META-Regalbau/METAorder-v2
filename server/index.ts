@@ -17,6 +17,7 @@ import { storage } from "./storage";
 import { ensureVectorExtension } from "./db";
 import { seedDatabase } from "./seedData";
 import { startCrossSellScheduler } from "./cross-selling/crossSellScheduler";
+import { startProductImageTextsScheduler } from "./products/productImageTextsJobs";
 import { runOfferLearning } from "./offers/offerLearning";
 import { pollInboundEmails } from "./email/emailInbound";
 import { runDunningJob } from "./invoicing/dunningJob";
@@ -214,6 +215,9 @@ function startSystemLog() {
 
   // Cross-Selling-Lernlauf je Mandant (server/cross-selling/crossSellScheduler.ts)
   startCrossSellScheduler(storage);
+
+  // Bildtexte (ALT/TITLE) der Produktbilder: Tageslauf je Mandant, wenn eingeschaltet
+  startProductImageTextsScheduler(storage);
 
   const runOfferLearningJob = async () => {
     try {

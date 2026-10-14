@@ -22,6 +22,7 @@ import { registerOrderRoutes } from "./routes/orderRoutes";
 import { registerCrossSellingRoutes } from "./routes/crossSellingRoutes";
 import { registerCrossSellAutomationRoutes } from "./routes/crossSellAutomationRoutes";
 import { registerProductRoutes } from "./routes/productRoutes";
+import { registerProductImageTextRoutes } from "./routes/productImageTextRoutes";
 import { registerDraftRoutes } from "./routes/draftRoutes";
 import { registerEmailIntakeRoutes } from "./routes/emailIntakeRoutes";
 import { registerPricingDiagnosticsRoutes } from "./routes/pricingDiagnosticsRoutes";
@@ -110,6 +111,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Produkte inkl. Imports, Shopware-Cross-Selling, Produktcache und Bundles
   registerProductRoutes(app);
+  registerProductImageTextRoutes(app);
 
   // Cross-Selling: Vorschlaege, Staging, Analytics, Regeln
   registerCrossSellingRoutes(app);

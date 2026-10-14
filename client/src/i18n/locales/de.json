@@ -2133,6 +2133,35 @@
       "saveSuccessDesc": "Google Ads‑Einstellungen aktualisiert.",
       "saveError": "Google Ads konnte nicht gespeichert werden"
     },
+    "productImageTexts": {
+      "title": "Bildtexte der Produktbilder (ALT/TITLE)",
+      "description": "Füllt ALT- und TITLE-Text der Produktbilder im Shop: ALT = Produktname + Ansicht aus dem Dateinamen (z. B. „– Ansicht in Blickhöhe“), TITLE = Produktname. Geschrieben wird auf Deutsch; andere Sprachen greifen darauf zurück. Von Hand gepflegte Texte bleiben unverändert.",
+      "enabled": "Täglich prüfen und ergänzen",
+      "enabledDesc": "Neue Bilder und umbenannte Artikel bekommen einmal am Tag ihre Texte.",
+      "hour": "Uhrzeit des Tageslaufs",
+      "hourOption": "ab {{hour}}:00 Uhr",
+      "dryRun": "Testlauf (nichts schreiben)",
+      "applyNow": "Jetzt in den Shop schreiben",
+      "confirmApply": "Bildtexte jetzt in den Shop schreiben? Von Hand gepflegte Texte bleiben unverändert.",
+      "saved": "Einstellungen gespeichert",
+      "saveError": "Speichern fehlgeschlagen",
+      "runError": "Lauf konnte nicht gestartet werden",
+      "running": "Lauf läuft … das dauert ein bis zwei Minuten.",
+      "noRun": "Noch kein Lauf.",
+      "lastRun": "Letzter Lauf: {{time}}",
+      "lastDryRun": "Letzter Testlauf: {{time}}",
+      "trigger": {
+        "manual": "von Hand",
+        "scheduled": "Tageslauf",
+        "script": "Skript"
+      },
+      "failed": "Fehlgeschlagen: {{error}}",
+      "summary": "{{images}} Produktbilder geprüft, {{changed}} geändert ({{alt}} ALT, {{title}} TITLE).",
+      "summaryDry": "{{images}} Produktbilder geprüft, {{changed}} würden geändert ({{alt}} ALT, {{title}} TITLE).",
+      "keptManual": "Von Hand gepflegt und unverändert: {{alt}} ALT, {{title}} TITLE.",
+      "examples": "Beispiele",
+      "colFile": "Datei"
+    },
     "emailRouting": {
       "title": "E-Mail Routing",
       "description": "E-Mails klassifizieren und per Skills zuweisen.",
@@ -6447,7 +6476,11 @@
       "entwurf_fehlt_oder_ist_ungultig": "Entwurf fehlt oder ist ungültig",
       "entwurf_hat_keinen_shopware_kunden": "Entwurf hat keinen Shopware-Kunden",
       "vorschau_der_ubergabe_in_die_bestellung_fehlgeschlagen": "Vorschau der Übergabe in die Bestellung fehlgeschlagen",
-      "rabatte_konnten_nicht_ubernommen_werden": "Rabatte konnten nicht übernommen werden"
+      "rabatte_konnten_nicht_ubernommen_werden": "Rabatte konnten nicht übernommen werden",
+      "failed_to_load_product_image_text_settings": "Einstellungen der Bildtexte konnten nicht geladen werden",
+      "failed_to_save_product_image_text_settings": "Einstellungen der Bildtexte konnten nicht gespeichert werden",
+      "product_image_text_run_already_in_progress": "Ein Lauf der Bildtexte läuft bereits",
+      "failed_to_start_product_image_text_run": "Lauf der Bildtexte konnte nicht gestartet werden"
     }
   },
   "roomPlanner": {
