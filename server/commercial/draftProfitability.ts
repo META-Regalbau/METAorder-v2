@@ -197,18 +197,18 @@ export function collectDraftLines(
 
     const matched = item.matchedProduct;
     if (!matched?.id) return;
+    // Rabattvorschläge zählen erst, wenn übernommen (dann manueller Preis); sonst Kundenpreis aus Shopware
     const manual = validPrice(matched.manualUnitPriceNet);
-    const suggested = kind === "offer" ? validPrice(matched.suggestedPrice) : null;
     lines.push({
       index,
       quantity,
       isBundle: false,
-      priceSource: manual != null ? "manual" : suggested != null ? "suggested" : "unresolved",
+      priceSource: manual != null ? "manual" : "unresolved",
       parts: [
         {
           ref: { productId: matched.id, productNumber: matched.productNumber ?? null },
           quantityPerUnit: 1,
-          unitPriceNet: manual ?? suggested,
+          unitPriceNet: manual,
         },
       ],
     });

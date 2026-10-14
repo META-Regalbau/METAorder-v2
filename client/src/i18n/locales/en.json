@@ -3867,6 +3867,19 @@
       "productAdded": "Product added",
       "productAddedDescription": "The product was added to the draft successfully",
       "addProductError": "Failed to add"
+    },
+    "discountProposal": {
+      "title": "Discount suggestion",
+      "hint": "Prices start at the customer's price (customer price, dealer discount or shop price). Suggested volume discounts only apply once you accept them.",
+      "customerValue": "Customer price",
+      "proposedValue": "With discount",
+      "acceptAll": "Accept all discounts ({{count}})",
+      "allAccepted": "All suggested discounts have been accepted.",
+      "acceptLine": "Accept",
+      "acceptLineHint": "Apply the discount to the customer's price ({{price}})",
+      "lineAccepted": "accepted",
+      "accepted": "Discount accepted: {{count}} line(s)",
+      "acceptError": "Discounts could not be accepted"
     }
   },
   "orderDrafts": {
@@ -6436,7 +6449,8 @@
       "einstellung_fur_die_ubergabe_in_die_bestellung_konnte_nicht_gespeichert_werden": "Order handover settings could not be saved",
       "entwurf_fehlt_oder_ist_ungultig": "Draft missing or invalid",
       "entwurf_hat_keinen_shopware_kunden": "Draft has no Shopware customer",
-      "vorschau_der_ubergabe_in_die_bestellung_fehlgeschlagen": "Order handover preview failed"
+      "vorschau_der_ubergabe_in_die_bestellung_fehlgeschlagen": "Order handover preview failed",
+      "rabatte_konnten_nicht_ubernommen_werden": "Discounts could not be accepted"
     }
   },
   "roomPlanner": {

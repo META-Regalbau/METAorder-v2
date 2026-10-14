@@ -96,6 +96,7 @@ import { DraftReferencesCard, type DraftDocumentReferencesLite } from "@/compone
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 import { computeOfferDraftDiscountTotals } from "@shared/offerDraftDiscount";
+import { buildDiscountProposals, summarizeOpenProposals } from "@/lib/offerDraftDiscountProposals";
 import {
   DraftLineMargin,
   DraftLinePriceEditor,
@@ -145,6 +146,12 @@ export function OfferDraftReviewModal({
   const profitabilityLineByIndex = new Map(
     (profitabilityQuery.data?.profitability?.lines ?? []).map((line) => [line.index, line]),
   );
+  // Rabattvorschläge: Preis startet beim Preis des Kunden, Rabatt erst nach „Übernehmen“
+  const discountProposals = buildDiscountProposals(
+    (draft.matchingResults?.items ?? []) as Parameters<typeof buildDiscountProposals>[0],
+    profitabilityLineByIndex as Map<number, { unitPriceNet: number | null; priceSource: string }>,
+  );
+  const openProposals = summarizeOpenProposals(discountProposals);
   const [confirmedLines, setConfirmedLines] = useState<Record<number, boolean>>({});
   const [showAlternatives, setShowAlternatives] = useState<Record<number, boolean>>({});
   const [selectedBundleId, setSelectedBundleId] = useState<string>("");
@@ -242,6 +249,21 @@ export function OfferDraftReviewModal({
     },
     onError: (error: Error) => {
       toast({ title: t("orderDrafts.review.recheckError"), description: error.message, variant: "destructive" });
+    },
+  });
+
+  const acceptDiscountsMutation = useMutation({
+    mutationFn: async (indices?: number[]) => {
+      const response = await apiRequest("POST", `/api/offer-drafts/${draft.id}/accept-discounts`, indices ? { indices } : {});
+      return (await response.json()) as { accepted: unknown[] };
+    },
+    onSuccess: ({ accepted }) => {
+      toast({ title: t("offerDrafts.discountProposal.accepted", { count: accepted.length }) });
+      queryClient.invalidateQueries({ queryKey: ["/api/offer-drafts"] });
+      onUpdate();
+    },
+    onError: (error: Error) => {
+      toast({ title: t("offerDrafts.discountProposal.acceptError"), description: error.message, variant: "destructive" });
     },
   });
 
@@ -1179,54 +1201,61 @@ export function OfferDraftReviewModal({
             </Card>
           )}
 
-          {pricingRecs && (
-            <Card className="border-primary/20 bg-primary/5">
+          {discountProposals.size > 0 && (
+            <Card className="border-primary/20 bg-primary/5" data-testid="card-discount-proposal">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Sparkles className="w-4 h-4 text-primary" />
-                  {t("offerDrafts.review.smartPricing")}
+                  {t("offerDrafts.discountProposal.title")}
                 </CardTitle>
+                <p className="text-sm text-muted-foreground">{t("offerDrafts.discountProposal.hint")}</p>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">{t("offerDrafts.review.catalogValue")}</Label>
-                    <p className="text-lg font-semibold" data-testid="text-catalog-value">
-                      {formatCurrency(pricingRecs.totalCatalogValue)}
-                    </p>
+                {openProposals.count > 0 ? (
+                  <div className="flex flex-wrap items-end justify-between gap-4">
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">{t("offerDrafts.discountProposal.customerValue")}</Label>
+                        <p className="text-lg font-semibold" data-testid="text-catalog-value">{formatCurrency(openProposals.baseTotal)}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">{t("offerDrafts.discountProposal.proposedValue")}</Label>
+                        <p className="text-lg font-semibold text-primary" data-testid="text-suggested-value">{formatCurrency(openProposals.proposedTotal)}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">{t("offerDrafts.review.totalDiscount")}</Label>
+                        <p className="text-lg font-semibold flex items-center gap-1" data-testid="text-total-discount">
+                          <TrendingDown className="w-4 h-4 text-green-600" />
+                          {fmt.percentValue(openProposals.discountPercent, 1)}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      disabled={draft.status === "created" || acceptDiscountsMutation.isPending}
+                      onClick={() => acceptDiscountsMutation.mutate(undefined)}
+                      data-testid="button-accept-all-discounts"
+                    >
+                      {t("offerDrafts.discountProposal.acceptAll", { count: openProposals.count })}
+                    </Button>
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">{t("offerDrafts.review.suggestedValue")}</Label>
-                    <p className="text-lg font-semibold text-primary" data-testid="text-suggested-value">
-                      {formatCurrency(pricingRecs.totalSuggestedValue)}
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">{t("offerDrafts.review.totalDiscount")}</Label>
-                    <p className="text-lg font-semibold flex items-center gap-1" data-testid="text-total-discount">
-                      <TrendingDown className="w-4 h-4 text-green-600" />
-                      {fmt.percentValue(pricingRecs.totalDiscountPercentage, 1)}
-                    </p>
-                  </div>
-                </div>
-                {pricingRecs.reasoning && (
+                ) : (
+                  <p className="text-sm" data-testid="text-discounts-all-accepted">{t("offerDrafts.discountProposal.allAccepted")}</p>
+                )}
+                {pricingRecs?.reasoning && (
                   <div className="pt-3 border-t">
-                    <Label className="text-xs text-muted-foreground mb-2 block">
-                      {t("offerDrafts.review.aiReasoning")}
-                    </Label>
-                    <p className="text-sm" data-testid="text-ai-reasoning">
-                      {pricingRecs.reasoning}
-                    </p>
+                    <Label className="text-xs text-muted-foreground mb-2 block">{t("offerDrafts.review.aiReasoning")}</Label>
+                    <p className="text-sm" data-testid="text-ai-reasoning">{pricingRecs.reasoning}</p>
                   </div>
                 )}
               </CardContent>
             </Card>
           )}
 
-          {pricingRecs && pricingRecs.totalCatalogValue > 0 && (
+          {discountTotals.totalCatalogValue > 0 && discountTotals.discountPercent > 0 && (
             <DiscountTrafficLight
-              listPrice={pricingRecs.totalCatalogValue}
-              discountedPrice={pricingRecs.totalSuggestedValue}
+              listPrice={discountTotals.totalCatalogValue}
+              discountedPrice={discountTotals.totalOfferValue}
             />
           )}
 
@@ -1737,20 +1766,46 @@ export function OfferDraftReviewModal({
                         </TableCell>
                         <TableCell>
                           <p className="font-medium text-primary" data-testid={`text-suggested-price-${index}`}>
-                            {item.matchedProduct?.suggestedPrice
-                              ? formatCurrency(item.matchedProduct.suggestedPrice)
-                              : "-"}
+                            {discountProposals.get(index) ? formatCurrency(discountProposals.get(index)!.proposedPriceNet) : "-"}
                           </p>
                         </TableCell>
                         <TableCell>
-                          {item.matchedProduct?.suggestedDiscount ? (
-                            <Badge variant="secondary" className="bg-green-100 text-green-800" data-testid={`badge-discount-${index}`}>
-                              <TrendingDown className="w-3 h-3 mr-1" />
-                              {fmt.percentValue(item.matchedProduct.suggestedDiscount, 1)}
-                            </Badge>
-                          ) : (
-                            <span className="text-muted-foreground" data-testid={`text-no-discount-${index}`}>-</span>
-                          )}
+                          {(() => {
+                            const proposal = discountProposals.get(index);
+                            if (!proposal) {
+                              return <span className="text-muted-foreground" data-testid={`text-no-discount-${index}`}>-</span>;
+                            }
+                            return (
+                              <div className="flex flex-col items-start gap-1">
+                                <Badge
+                                  variant="secondary"
+                                  className={proposal.accepted ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100"}
+                                  data-testid={`badge-discount-${index}`}
+                                >
+                                  <TrendingDown className="w-3 h-3 mr-1" />
+                                  {fmt.percentValue(proposal.discountPercent, 1)}
+                                </Badge>
+                                {proposal.accepted ? (
+                                  <span className="text-xs text-muted-foreground" data-testid={`text-discount-accepted-${index}`}>
+                                    {t("offerDrafts.discountProposal.lineAccepted")}
+                                  </span>
+                                ) : (
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 px-2 text-xs"
+                                    disabled={draft.status === "created" || acceptDiscountsMutation.isPending}
+                                    title={t("offerDrafts.discountProposal.acceptLineHint", { price: formatCurrency(proposal.basePriceNet) })}
+                                    onClick={() => acceptDiscountsMutation.mutate([index])}
+                                    data-testid={`button-accept-discount-${index}`}
+                                  >
+                                    {t("offerDrafts.discountProposal.acceptLine")}
+                                  </Button>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex flex-col items-end gap-2">

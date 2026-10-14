@@ -1,7 +1,7 @@
 // KI-Entwuerfe: gemeinsamer Upload, Bestell- und Angebotsentwuerfe (Pruefen, Kunde/Produkte zuordnen, Anhaenge, Anlage in Shopware) sowie Commercial Agent.
 import multer from "multer";
 import { requireAuth, requireManageSettings, requireAuthOrIntegrationKey, requireManageCommercialDraftUpload, requireCsrf, requireManageOrderDrafts, requireManageOffers, requireViewOffers, canViewMarginDetails, requireViewMarginDetails, requireAdministrator } from "../auth/auth";
-import { applyManualLinePrice, preserveManualLinePrices } from "../commercial/draftLinePrice";
+import { applyManualLinePrice, preserveManualLinePrices, acceptSuggestedDiscounts } from "../commercial/draftLinePrice";
 import { auditUser, logDraftEvent } from "../commercial/draftAuditLog";
 import { productNetPrice } from "../products/productNetPrice";
 import { repairOfferDraftPrices } from "../commercial/offerDraftCatalogPrices";
@@ -1228,6 +1228,60 @@ export function registerDraftRoutes(app: Express): void {
     lineDraftPriceHandler("offer"),
   );
 
+  // POST /api/offer-drafts/:id/accept-discounts - Rabattvorschläge übernehmen ({ indices?: number[] },
+  // ohne = alle offenen): Preis = Kundenpreis × (1 − Vorschlag %), danach wie ein manueller Preis
+  app.post("/api/offer-drafts/:id/accept-discounts", requireAuthOrIntegrationKey, requireManageOffers, requireCsrf, async (req: Request, res: Response) => {
+    try {
+      const body = z.object({ indices: z.array(z.number().int().min(0)).max(500).optional() }).safeParse(req.body ?? {});
+      if (!body.success) return res.status(400).json({ error: "Ungültige Anfrage" });
+      const tenantId = req.tenantId ?? null;
+      const loaded = await storage.getOfferDraft(req.params.id, tenantId);
+      if (!loaded) return res.status(404).json({ error: "Offer draft not found" });
+      if (loaded.status === "created" || loaded.status === "creating") {
+        return res.status(409).json({ error: "Entwurf ist bereits angelegt" });
+      }
+      const draft = await repairOfferDraftPrices(storage, loaded, tenantId);
+      // Kundenpreis je Position (Kundenpreis, Händlerrabatt bzw. Liste des Kanals)
+      const current = await draftProfitabilityResponse("offer", draft, req);
+      const baseByIndex = new Map<number, number>();
+      for (const line of current.profitability?.lines ?? []) {
+        if (line.priceSource !== "manual" && typeof line.unitPriceNet === "number" && line.unitPriceNet > 0) {
+          baseByIndex.set(line.index, line.unitPriceNet);
+        }
+      }
+      const username = (req.user as { username?: string } | undefined)?.username ?? "unbekannt";
+      const { items, accepted } = acceptSuggestedDiscounts(
+        (draft.matchingResults?.items ?? []) as Array<Record<string, any>>,
+        baseByIndex,
+        username,
+        body.data.indices,
+      );
+      if (!accepted.length) {
+        return res.json({ draft, accepted, ...current });
+      }
+      const updated = await storage.updateOfferDraft(draft.id, { matchingResults: { ...draft.matchingResults!, items } as any }, tenantId);
+      if (!updated) return res.status(404).json({ error: "Offer draft not found" });
+      const response = await draftProfitabilityResponse("offer", updated, req);
+      logDraftEvent(
+        "info",
+        "draft.discount.suggestion_accepted",
+        {
+          draftKind: "offer",
+          draftId: draft.id,
+          tenantId,
+          ...auditUser(req.user),
+          lines: accepted.map((a) => ({ index: a.index, discountPercent: a.discountPercent, basePriceNet: a.basePriceNet, unitPriceNet: a.unitPriceNet })),
+          verdictAfter: response.profitability?.summary.crmVerdict ?? null,
+        },
+        `Rabattvorschlag übernommen: ${accepted.length} Position(en)`,
+      );
+      res.json({ draft: updated, accepted, ...response });
+    } catch (error) {
+      moduleLog.error({ err: error }, "Error accepting discount suggestions:");
+      res.status(500).json({ error: "Rabatte konnten nicht übernommen werden" });
+    }
+  });
+
   // GET /api/order-drafts/:id - Get single order draft with cross-selling suggestions
   app.get("/api/order-drafts/:id", requireAuthOrIntegrationKey, requireManageOrderDrafts, async (req: Request, res: Response) => {
     try {
@@ -2345,9 +2399,20 @@ export function registerDraftRoutes(app: Express): void {
         return res.status(400).json({ error: "Draft has no data to generate PDF" });
       }
 
+      // Preis des Kunden je Position (wie bei der Anlage ohne Handpreis)
+      let customerPrices: Array<number | null> = [];
+      try {
+        const current = await draftProfitabilityResponse("offer", draft, req);
+        customerPrices = (draft.matchingResults?.items ?? []).map(
+          (_, index) => current.profitability?.lines.find((l) => l.index === index && l.priceSource !== "manual")?.unitPriceNet ?? null,
+        );
+      } catch (error) {
+        moduleLog.warn({ err: error }, "Kundenpreise für das Entwurfs-PDF nicht ermittelt");
+      }
       const { generateOfferDraftPdf } = await import("../offers/offerDraftPdf");
       const pdfBuffer = await generateOfferDraftPdf({
         ...draft,
+        customerPrices,
         extractedData: draft.extractedData ?? undefined,
         matchingResults: draft.matchingResults ?? undefined,
       });

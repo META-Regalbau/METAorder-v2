@@ -329,10 +329,9 @@ async function createOfferFromDraft(
     if (item.matchedProduct!.productNumber) {
       productNumberById.set(productId, item.matchedProduct!.productNumber);
     }
-    // Manuelle Preis-Override hat Vorrang; sonst greift der von der Smart-Pricing-Engine
-    // vorgeschlagene (und dem Prüfer im Review sowie im Kunden-PDF bereits gezeigte) Preis —
-    // sonst wird der im Review sichtbare Rabatt beim echten Shopware-Angebot nie angewendet.
-    const manualNet = item.matchedProduct!.manualUnitPriceNet ?? item.matchedProduct!.suggestedPrice;
+    // Nur manuelle bzw. übernommene Rabatt-Preise; sonst rechnet Shopware den Preis des Kunden
+    // (Kundenpreis, Händlerrabatt, Kanal). Rabattvorschläge gelten erst nach „Übernehmen“.
+    const manualNet = item.matchedProduct!.manualUnitPriceNet;
     if (typeof manualNet === "number" && Number.isFinite(manualNet) && manualNet >= 0 && !manualNetById.has(productId)) {
       manualNetById.set(productId, manualNet);
     }
