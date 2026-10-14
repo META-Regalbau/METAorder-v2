@@ -111,6 +111,9 @@ export function parseLabeledShelfDimensions(text: string): { height: number; wid
  * Extracts exact dimensions from properties or name
  * Returns dimensions in mm (no tolerance!)
  */
+/** Ganze Regale (Grund-/Anbauregal, Palettenregal …): Maße im Namen als Höhe x Breite x Tiefe */
+const RACK_NAME_RE = /regal(?!boden|zubeh|teil)|\b(GR|AR)\b/i;
+
 export function extractDimensions(product: Product): {
   width?: number;
   height?: number;
@@ -189,20 +192,24 @@ export function extractDimensions(product: Product): {
       });
     }
 
-    // Pattern: "3300 x 2700 x 1100" (WxHxD for shelves)
+    // Pattern: "3300 x 2700 x 1100". Regale heißen bei META Höhe x Breite x Tiefe
+    // („META MULTIPAL | Palettenregal | Grundregal | 3300 x 1825 x 1100 mm“); Teile wie
+    // „Fachboden 1000 x 400 x 30“ nennen Breite zuerst und bleiben in der Reihenfolge des Namens.
     const xPattern = /(\d+)\s*x\s*(\d+)\s*x\s*(\d+)/i;
     const xMatch = product.name.match(xPattern);
     const labeled = xMatch ? null : parseLabeledShelfDimensions(product.name);
-    if (xMatch) {
+    if (xMatch && RACK_NAME_RE.test(product.name)) {
+      dimensions.height = parseInt(xMatch[1]);
+      dimensions.width = parseInt(xMatch[2]);
+      dimensions.depth = parseInt(xMatch[3]);
+    } else if (xMatch) {
       dimensions.width = parseInt(xMatch[1]);
       dimensions.height = parseInt(xMatch[2]);
       dimensions.depth = parseInt(xMatch[3]);
     } else if (labeled) {
-      // META-Namen stehen in der Reihenfolge Höhe x Breite x Tiefe; die Felder oben folgen der Position
-      // im Namen. Beschriftete Kundenangaben deshalb in dieselbe Reihenfolge bringen.
       delete dimensions.length;
-      dimensions.width = labeled.height;
-      dimensions.height = labeled.width;
+      dimensions.height = labeled.height;
+      dimensions.width = labeled.width;
       dimensions.depth = labeled.depth;
     }
   }
