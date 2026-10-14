@@ -9,14 +9,21 @@ import { decideOfferDiscount } from "../../server/commercial/offerDraftDiscountG
 import { describeStrictReason, groupStrictReasons } from "../../client/src/lib/strictAutoCreateReasons";
 
 describe("Rabatt eines Angebotsentwurfs", () => {
-  it("manueller Preis vor Vorschlag vor Katalog", () => {
+  it("manueller Preis zählt, Rabattvorschlag erst nach Übernehmen", () => {
     expect(
       computeOfferDraftDiscountTotals([
         { quantity: 2, matchedProduct: { catalogPrice: 100, suggestedPrice: 90, manualUnitPriceNet: 80 } },
         { quantity: 1, matchedProduct: { catalogPrice: 50, suggestedPrice: 45 } },
         { quantity: 1, matchedProduct: { catalogPrice: 50 } },
       ]),
-    ).toEqual({ totalCatalogValue: 300, totalOfferValue: 255, discountPercent: 15 });
+    ).toEqual({ totalCatalogValue: 300, totalOfferValue: 260, discountPercent: 13.33 });
+  });
+
+  it("übernommener Rabatt zählt gegen den Preis des Kunden, nicht gegen den Katalog", () => {
+    // Händler: Katalog 100, Kundenpreis 60, Vorschlag 5 % → 57
+    expect(
+      computeOfferDraftDiscountTotals([{ quantity: 1, matchedProduct: { catalogPrice: 100, basePriceNet: 60, manualUnitPriceNet: 57 } }]),
+    ).toEqual({ totalCatalogValue: 60, totalOfferValue: 57, discountPercent: 5 });
   });
 
   it("ohne Katalogwert kein Rabatt", () => {

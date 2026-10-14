@@ -336,7 +336,7 @@ describe("Angebot", () => {
     expect(sw.createOffer).not.toHaveBeenCalled();
   });
 
-  it("Preise: manuell vor Vorschlag, ohne beides Shopware-Preis; Freigabe-Eintrag mit Begründung", async () => {
+  it("Preise: nur manuell bzw. übernommen, sonst Shopware-Preis; Freigabe-Eintrag mit Begründung", async () => {
     const approval = { levelId: "lvl", approvalType: "management", totals: {} };
     sw.discount = { ok: true, approval };
     const { storage, updates } = fakeStorage(offerDraft());
@@ -348,7 +348,8 @@ describe("Angebot", () => {
     expect(result).toMatchObject({ ok: true, offerId: "sw-offer-1" });
     const input = sw.createOffer.mock.calls[0]![0] as { lineItems: Array<Record<string, unknown>> };
     expect(input.lineItems).toEqual([
-      { productId: "pA", quantity: 2, productNumber: "A", unitPriceNet: 100 },
+      // Rabattvorschlag ohne „Übernehmen“: Shopware rechnet den Preis des Kunden
+      { productId: "pA", quantity: 2, productNumber: "A" },
       { productId: "pB", quantity: 1, productNumber: "B", unitPriceNet: 40 },
       { productId: "pC", quantity: 1, productNumber: "C" },
     ]);
@@ -372,7 +373,8 @@ describe("Angebot", () => {
     const { storage, updates } = fakeStorage(draft);
     expect(await executeCreateOfferFromDraft(storage, "d1", options)).toMatchObject({ ok: true });
     const input = sw.createOffer.mock.calls[0]![0] as { lineItems: Array<Record<string, unknown>> };
-    expect(input.lineItems).toEqual([{ productId: "pG", quantity: 3, productNumber: "G", unitPriceNet: 98 }]);
+    // Vorschlag nicht übernommen → kein Preis an Shopware; korrigiert wird trotzdem
+    expect(input.lineItems).toEqual([{ productId: "pG", quantity: 3, productNumber: "G" }]);
     // Korrektur im Entwurf gespeichert
     expect(updates[0]).toMatchObject({ matchingResults: { items: [{ matchedProduct: { catalogPrice: 100, suggestedPrice: 98 } }] } });
   });

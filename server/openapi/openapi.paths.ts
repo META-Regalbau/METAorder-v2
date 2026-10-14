@@ -9461,6 +9461,33 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/offer-drafts/{id}/accept-discounts": {
+    "post": {
+      "tags": [
+        "offer-drafts"
+      ],
+      "summary": "POST /api/offer-drafts/{id}/accept-discounts",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/offer-drafts/{id}/add-bundle": {
     "post": {
       "tags": [

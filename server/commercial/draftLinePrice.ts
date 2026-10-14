@@ -14,6 +14,9 @@ type DraftItemWithProduct = {
     manualUnitPriceNet?: number;
     manualPriceChangedBy?: string;
     manualPriceChangedAt?: string;
+    /** Übernommener Rabattvorschlag: Kundenpreis als Bezug und Rabatt in % */
+    basePriceNet?: number;
+    acceptedDiscountPercent?: number;
   } | null;
   bundle?: unknown;
 };
@@ -46,13 +49,15 @@ export function applyManualLinePrice<T extends DraftItemWithProduct>(
     return { ok: false, error: "Ungültiger Preis", statusCode: 400 };
   }
 
-  const { manualUnitPriceNet: _old, manualPriceChangedBy: _by, manualPriceChangedAt: _at, ...rest } =
+  // Von Hand gesetzt: kein übernommener Rabattvorschlag mehr; zurückgesetzt: auch kein Bezugspreis
+  const { manualUnitPriceNet: _old, manualPriceChangedBy: _by, manualPriceChangedAt: _at, acceptedDiscountPercent: _acc, basePriceNet, ...rest } =
     item.matchedProduct;
   const matchedProduct =
     unitPriceNet === null
       ? rest
       : {
           ...rest,
+          ...(typeof basePriceNet === "number" ? { basePriceNet } : {}),
           manualUnitPriceNet: Math.round(unitPriceNet * 100) / 100,
           manualPriceChangedBy: changedBy,
           manualPriceChangedAt: now.toISOString(),
@@ -62,7 +67,49 @@ export function applyManualLinePrice<T extends DraftItemWithProduct>(
   return { ok: true, items: next };
 }
 
-const MANUAL_PRICE_FIELDS = ["manualUnitPriceNet", "manualPriceChangedBy", "manualPriceChangedAt"] as const;
+const MANUAL_PRICE_FIELDS = [
+  "manualUnitPriceNet",
+  "manualPriceChangedBy",
+  "manualPriceChangedAt",
+  "basePriceNet",
+  "acceptedDiscountPercent",
+] as const;
+
+/**
+ * Rabattvorschläge übernehmen (Angebotsentwurf): Preis = Kundenpreis × (1 − Vorschlag %).
+ * Nur Positionen mit Vorschlag, ohne manuellen Preis und mit bekanntem Kundenpreis.
+ */
+export function acceptSuggestedDiscounts<T extends DraftItemWithProduct>(
+  items: T[],
+  basePriceByIndex: Map<number, number>,
+  changedBy: string,
+  indices?: number[],
+  now = new Date(),
+): { items: T[]; accepted: Array<{ index: number; discountPercent: number; basePriceNet: number; unitPriceNet: number }> } {
+  const wanted = indices ? new Set(indices) : null;
+  const accepted: Array<{ index: number; discountPercent: number; basePriceNet: number; unitPriceNet: number }> = [];
+  const next = items.map((item, index) => {
+    const product = item.matchedProduct;
+    if ((wanted && !wanted.has(index)) || item.bundle || !product) return item;
+    const discount = Number((product as { suggestedDiscount?: unknown }).suggestedDiscount);
+    const base = basePriceByIndex.get(index);
+    if (!(discount > 0 && discount < 100) || typeof product.manualUnitPriceNet === "number" || !base || base <= 0) return item;
+    const unitPriceNet = Math.round(base * (1 - discount / 100) * 100) / 100;
+    accepted.push({ index, discountPercent: discount, basePriceNet: base, unitPriceNet });
+    return {
+      ...item,
+      matchedProduct: {
+        ...product,
+        manualUnitPriceNet: unitPriceNet,
+        manualPriceChangedBy: `${changedBy} (Rabattvorschlag ${discount} %)`,
+        manualPriceChangedAt: now.toISOString(),
+        basePriceNet: base,
+        acceptedDiscountPercent: discount,
+      },
+    };
+  });
+  return { items: next, accepted };
+}
 
 /**
  * Allgemeines Speichern des Entwurfs (Menge, Alternativen, …) schickt die ganze Positionsliste aus

@@ -41,11 +41,11 @@ const draft: DraftForProfitability = {
 };
 
 describe("Positionen aus dem Entwurf", () => {
-  it("Angebot: manueller Preis vor Vorschlag, Rest ohne Preis; Sets mit Bestandteilen", () => {
+  it("Angebot: manueller Preis zählt, Rabattvorschlag erst nach Übernehmen; Sets mit Bestandteilen", () => {
     const lines = collectDraftLines(draft, "offer", (n) => (n === "S2" ? "s2" : undefined));
     expect(lines.map((l) => [l.index, l.priceSource, l.parts[0]!.unitPriceNet])).toEqual([
       [0, "manual", 130],
-      [1, "suggested", 54],
+      [1, "unresolved", null],
       [2, "unresolved", null],
       [4, "unresolved", null],
     ]);
@@ -65,6 +65,8 @@ describe("Positionen aus dem Entwurf", () => {
 describe("DB je Position und Entwurf", () => {
   const lines = collectDraftLines(draft, "offer", () => undefined);
   // Shopware-Preise wie fillMissingPrices sie setzen würde
+  lines[1]!.parts[0]!.unitPriceNet = 54;
+  lines[1]!.priceSource = "list";
   lines[2]!.parts[0]!.unitPriceNet = 10;
   lines[2]!.priceSource = "list";
   lines[3]!.parts[0]!.unitPriceNet = 30;
@@ -83,8 +85,8 @@ describe("DB je Position und Entwurf", () => {
     });
   });
 
-  it("Vorschlag 54 auf HK 50: 8 % = gelb", () => {
-    expect(result.lines[1]).toMatchObject({ marginPercent: 8, crmVerdict: "yellow", priceSource: "suggested" });
+  it("Preis 54 auf HK 50: 8 % = gelb", () => {
+    expect(result.lines[1]).toMatchObject({ marginPercent: 8, crmVerdict: "yellow", priceSource: "list" });
   });
 
   it("Artikel ohne Herstellpreis: Preis ja, Ampel nein", () => {
@@ -124,7 +126,8 @@ describe("DB je Position und Entwurf", () => {
     partial[3]!.parts[0]!.unitPriceNet = 30;
     const r = buildDraftProfitability(partial, herstellpreisOf, thresholds, { now });
     expect(r.lines[3]).toMatchObject({ unitPriceNet: null, priceSource: "unresolved", crmVerdict: "none" });
-    expect(r.unpricedLineCount).toBe(2);
+    // ohne Shopware-Preise auch Pos. 1 (nur Rabattvorschlag) und Pos. 2
+    expect(r.unpricedLineCount).toBe(3);
   });
 
   it("niedriger Gesamtaufschlag macht den Entwurf rot", () => {

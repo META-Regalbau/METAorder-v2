@@ -4,7 +4,6 @@
 
 import PDFDocument from "pdfkit";
 import { eur } from "../pdf/metaRegalBriefpapier";
-import { computeOfferDraftDiscountTotals } from "@shared/offerDraftDiscount";
 
 type DraftCustomer = {
   firstName?: string;
@@ -61,6 +60,8 @@ type OfferDraftForPdf = {
   originalFileName?: string;
   extractedData?: DraftExtractedData;
   matchingResults?: DraftMatchingResults;
+  /** Preis, den der Kunde ohne Handpreis zahlt (DB-Berechnung: Kundenpreis/Händlerrabatt/Liste), je Position */
+  customerPrices?: Array<number | null>;
 };
 
 const formatCurrency = eur;
@@ -118,18 +119,20 @@ export async function generateOfferDraftPdf(draft: OfferDraftForPdf): Promise<Bu
       doc.fontSize(12).text("Positionen", { underline: true });
       doc.moveDown(0.5);
 
-      for (const item of items) {
+      let totalCatalogValue = 0;
+      let totalOfferValue = 0;
+      items.forEach((item, index) => {
         const name = item.bundle?.name ?? item.matchedProduct?.name ?? item.extractedProductName ?? "-";
         const productNumber = item.bundle?.mockProductNumber ?? item.matchedProduct?.productNumber ?? "";
         const qty = item.quantity ?? 1;
         const catalogPrice = item.matchedProduct?.catalogPrice ?? 0;
-        // gleiche Reihenfolge wie bei der Anlage: manueller Preis, Vorschlag, Katalog
+        // wie bei der Anlage: manueller bzw. übernommener Rabatt-Preis, sonst der Preis des Kunden
+        // (Rabattvorschläge zählen erst nach „Übernehmen“)
         const manualPrice = item.matchedProduct?.manualUnitPriceNet;
-        const suggestedPrice = manualPrice ?? item.matchedProduct?.suggestedPrice ?? catalogPrice;
-        const discount =
-          manualPrice != null
-            ? catalogPrice > 0 ? (1 - manualPrice / catalogPrice) * 100 : 0
-            : (item.matchedProduct?.suggestedDiscount ?? 0);
+        const suggestedPrice = manualPrice ?? draft.customerPrices?.[index] ?? catalogPrice;
+        const discount = catalogPrice > 0 ? (1 - suggestedPrice / catalogPrice) * 100 : 0;
+        totalCatalogValue += catalogPrice * qty;
+        totalOfferValue += suggestedPrice * qty;
 
         doc.fontSize(10);
         doc.text(`${name} ${productNumber ? `(${productNumber})` : ""}`);
@@ -137,18 +140,16 @@ export async function generateOfferDraftPdf(draft: OfferDraftForPdf): Promise<Bu
         doc.text(`  Menge: ${qty} · Listenpreis: ${formatCurrency(catalogPrice)} · Angebotspreis: ${formatCurrency(suggestedPrice)} · Rabatt: ${discount.toFixed(1)}%`);
         doc.fillColor("#000");
         doc.moveDown(0.3);
-      }
+      });
 
       doc.moveDown(0.5);
 
-      // Totals (mit manuellen Preisen aus den Positionen neu, sonst wie empfohlen)
-      const hasManualPrices = items.some((item) => item.matchedProduct?.manualUnitPriceNet != null);
-      const recs = hasManualPrices ? totalsFromItems(items) : matchingResults?.pricingRecommendations;
-      if (recs) {
+      if (totalCatalogValue > 0) {
+        const totalDiscount = (1 - totalOfferValue / totalCatalogValue) * 100;
         doc.fontSize(10).font("Helvetica-Bold");
-        doc.text(`Katalogwert gesamt: ${formatCurrency(recs.totalCatalogValue)}`);
-        doc.text(`Angebotswert gesamt: ${formatCurrency(recs.totalSuggestedValue)}`);
-        doc.text(`Rabatt gesamt: ${recs.totalDiscountPercentage.toFixed(1)}%`);
+        doc.text(`Katalogwert gesamt: ${formatCurrency(totalCatalogValue)}`);
+        doc.text(`Angebotswert gesamt: ${formatCurrency(totalOfferValue)}`);
+        doc.text(`Rabatt gesamt: ${totalDiscount.toFixed(1)}%`);
         doc.font("Helvetica");
         doc.moveDown(1);
       }
@@ -164,15 +165,3 @@ export async function generateOfferDraftPdf(draft: OfferDraftForPdf): Promise<Bu
   });
 }
 
-function totalsFromItems(items: MatchingItem[]): {
-  totalCatalogValue: number;
-  totalSuggestedValue: number;
-  totalDiscountPercentage: number;
-} {
-  const totals = computeOfferDraftDiscountTotals(items);
-  return {
-    totalCatalogValue: totals.totalCatalogValue,
-    totalSuggestedValue: totals.totalOfferValue,
-    totalDiscountPercentage: totals.discountPercent,
-  };
-}

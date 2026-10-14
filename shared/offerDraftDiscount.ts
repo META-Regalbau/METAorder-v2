@@ -1,7 +1,9 @@
 /**
- * Gesamtrabatt eines Angebotsentwurfs gegenüber dem Katalog — eine Rechnung für Prüffenster
- * (Rabatt-Ampel), Server-Prüfung bei der Anlage und Entwurfs-PDF.
- * Angebotspreis je Position wie bei der Anlage: manueller Preis, sonst Vorschlag, sonst Katalog.
+ * Gesamtrabatt eines Angebotsentwurfs — eine Rechnung für Prüffenster (Rabatt-Ampel), Server-Prüfung
+ * bei der Anlage und Entwurfs-PDF.
+ * Angebotspreis je Position wie bei der Anlage: manueller (auch übernommener Rabatt-)Preis, sonst der
+ * Preis, den der Kunde ohnehin zahlt. Bezugspreis: Kundenpreis beim Übernehmen (basePriceNet), sonst
+ * Katalog. Ein Rabattvorschlag zählt erst, wenn er übernommen ist (seit 14.10.2026).
  */
 export type OfferDraftDiscountItem = {
   quantity?: number | null;
@@ -9,6 +11,8 @@ export type OfferDraftDiscountItem = {
     catalogPrice?: number | null;
     suggestedPrice?: number | null;
     manualUnitPriceNet?: number | null;
+    /** Kundenpreis, auf den ein übernommener Rabattvorschlag gerechnet wurde */
+    basePriceNet?: number | null;
   } | null;
 };
 
@@ -24,9 +28,9 @@ export function computeOfferDraftDiscountTotals(items: OfferDraftDiscountItem[])
   let totalOfferValue = 0;
   for (const item of items) {
     const qty = item.quantity ?? 1;
-    const catalog = item.matchedProduct?.catalogPrice ?? 0;
-    const price = item.matchedProduct?.manualUnitPriceNet ?? item.matchedProduct?.suggestedPrice ?? catalog;
-    totalCatalogValue += catalog * qty;
+    const reference = item.matchedProduct?.basePriceNet ?? item.matchedProduct?.catalogPrice ?? 0;
+    const price = item.matchedProduct?.manualUnitPriceNet ?? reference;
+    totalCatalogValue += reference * qty;
     totalOfferValue += price * qty;
   }
   const discountPercent =

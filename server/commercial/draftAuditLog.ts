@@ -27,6 +27,7 @@ export type DraftAuditEvent =
   | "draft.discount.blocked"
   | "draft.discount.justification_missing"
   | "draft.discount.approval_recorded"
+  | "draft.discount.suggestion_accepted"
   | "draft.create.started"
   | "draft.create.succeeded"
   | "draft.create.failed"

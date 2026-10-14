@@ -3713,6 +3713,19 @@
       "productAdded": "Producto añadido",
       "productAddedDescription": "El producto se ha añadido correctamente al borrador",
       "addProductError": "Error al añadir"
+    },
+    "discountProposal": {
+      "title": "Propuesta de descuento",
+      "hint": "Los precios parten del precio del cliente (precio de cliente, descuento de distribuidor o precio de tienda). Los descuentos por cantidad propuestos solo se aplican cuando los aceptas.",
+      "customerValue": "Precio del cliente",
+      "proposedValue": "Con descuento",
+      "acceptAll": "Aceptar todos los descuentos ({{count}})",
+      "allAccepted": "Todos los descuentos propuestos están aceptados.",
+      "acceptLine": "Aceptar",
+      "acceptLineHint": "Aplicar el descuento al precio del cliente ({{price}})",
+      "lineAccepted": "aceptado",
+      "accepted": "Descuento aceptado: {{count}} posición(es)",
+      "acceptError": "No se pudieron aceptar los descuentos"
     }
   },
   "orderDrafts": {
@@ -6433,7 +6446,8 @@
       "einstellung_fur_die_ubergabe_in_die_bestellung_konnte_nicht_gespeichert_werden": "No se pudo guardar la configuración de traspaso al pedido",
       "entwurf_fehlt_oder_ist_ungultig": "Borrador ausente o no válido",
       "entwurf_hat_keinen_shopware_kunden": "El borrador no tiene cliente de Shopware",
-      "vorschau_der_ubergabe_in_die_bestellung_fehlgeschlagen": "Falló la vista previa del traspaso al pedido"
+      "vorschau_der_ubergabe_in_die_bestellung_fehlgeschlagen": "Falló la vista previa del traspaso al pedido",
+      "rabatte_konnten_nicht_ubernommen_werden": "No se pudieron aceptar los descuentos"
     }
   },
   "roomPlanner": {

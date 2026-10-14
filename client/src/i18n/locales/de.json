@@ -3864,6 +3864,19 @@
       "productAdded": "Produkt hinzugefügt",
       "productAddedDescription": "Das Produkt wurde erfolgreich zum Entwurf hinzugefügt",
       "addProductError": "Fehler beim Hinzufügen"
+    },
+    "discountProposal": {
+      "title": "Rabattvorschlag",
+      "hint": "Die Preise starten beim Preis des Kunden (Kundenpreis, Händlerrabatt oder Shop-Preis). Vorgeschlagene Mengenrabatte gelten erst, wenn du sie übernimmst.",
+      "customerValue": "Preis des Kunden",
+      "proposedValue": "Mit Rabatt",
+      "acceptAll": "Alle Rabatte übernehmen ({{count}})",
+      "allAccepted": "Alle vorgeschlagenen Rabatte sind übernommen.",
+      "acceptLine": "Übernehmen",
+      "acceptLineHint": "Rabatt auf den Preis des Kunden ({{price}}) übernehmen",
+      "lineAccepted": "übernommen",
+      "accepted": "Rabatt übernommen: {{count}} Position(en)",
+      "acceptError": "Rabatte konnten nicht übernommen werden"
     }
   },
   "orderDrafts": {
@@ -6433,7 +6446,8 @@
       "einstellung_fur_die_ubergabe_in_die_bestellung_konnte_nicht_gespeichert_werden": "Einstellung für die Übergabe in die Bestellung konnte nicht gespeichert werden",
       "entwurf_fehlt_oder_ist_ungultig": "Entwurf fehlt oder ist ungültig",
       "entwurf_hat_keinen_shopware_kunden": "Entwurf hat keinen Shopware-Kunden",
-      "vorschau_der_ubergabe_in_die_bestellung_fehlgeschlagen": "Vorschau der Übergabe in die Bestellung fehlgeschlagen"
+      "vorschau_der_ubergabe_in_die_bestellung_fehlgeschlagen": "Vorschau der Übergabe in die Bestellung fehlgeschlagen",
+      "rabatte_konnten_nicht_ubernommen_werden": "Rabatte konnten nicht übernommen werden"
     }
   },
   "roomPlanner": {
