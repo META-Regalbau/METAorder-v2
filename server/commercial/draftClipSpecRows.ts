@@ -198,6 +198,110 @@ export function pickClipSpecProduct(catalog: Entry[], spec: ClipLineSpec): ClipS
   return { product: best.product, exact: differences.length === 0, differences, alternatives: ranked.slice(1, 5).map((c) => c.product) };
 }
 
+// ── MULTIPAL: Palettenregale / Großfachregale nach Bezeichnung und Maßen ─────────────────────
+// Live 14.10.2026 (THW Mannheim): „Grund-Palettenregal 4 Ebenen mit ca. 2000kg Fachlast | 3300x2700x800“
+// ohne Artikelnummer. Den Grundrahmen gibt es nur unter dem alten Namen „META multipal GR 3300 x 2700 x
+// 800 bis 1000 kg …“; die Alternativen-Suche schlug 1100 tief vor. Maße wie im Katalog: H x B x T.
+
+export type MultipalFamily = "Palettenregal" | "Großfachregal";
+export type MultipalLineSpec = {
+  family: MultipalFamily;
+  kind: "Grundregal" | "Anbauregal";
+  height: number;
+  width: number;
+  depth: number;
+  levels: number | null;
+  load: number | null;
+};
+
+const TRIPLE = new RegExp(`${N}\\s*[x×]\\s*${N}\\s*[x×]\\s*${N}`, "i");
+
+function rackKind(text: string): "Grundregal" | "Anbauregal" | null {
+  const grund = /\bGR\b/.test(text) || /grund/i.test(text);
+  const anbau = /\bAR\b/.test(text) || /anbau/i.test(text);
+  return grund && !anbau ? "Grundregal" : anbau && !grund ? "Anbauregal" : null;
+}
+
+function rackFamily(text: string): MultipalFamily | null {
+  if (/gro(ß|ss)fach/i.test(text)) return "Großfachregal";
+  if (/palettenregal|multipal/i.test(text)) return "Palettenregal";
+  return null;
+}
+
+export function parseMultipalLineSpec(text: string): MultipalLineSpec | null {
+  const t = (text || "").replace(/\s+/g, " ").trim();
+  if (/\bCLIP\b|doppel|kragarm|gefahrstoff/i.test(t)) return null;
+  const family = rackFamily(t);
+  const kind = rackKind(t);
+  if (!family || !kind) return null;
+  let height = mm(t, /(?:\bH|H[öo]he)\s*[:=]?\s*(\d[\d.]{2,5})\s*(?:mm)?\b/i);
+  let width = mm(t, /(?:\bB|Breite)\s*[:=]?\s*(\d[\d.]{2,5})\s*(?:mm)?\b/i);
+  let depth = mm(t, /(?:\bT|Tiefe)\s*[:=]?\s*(\d[\d.]{2,5})\s*(?:mm)?\b/i);
+  const triple = t.match(TRIPLE);
+  if (triple && (height == null || width == null || depth == null)) {
+    height ??= toMm(triple[1]);
+    width ??= toMm(triple[2]);
+    depth ??= toMm(triple[3]);
+  }
+  if (height == null || width == null || depth == null) return null;
+  const levels = t.match(/(\d{1,2})\s*(?:Lager)?ebenen/i);
+  const load = t.match(/(\d[\d.]{2,5})\s*kg/i);
+  return { family, kind, height, width, depth, levels: levels ? Number(levels[1]) : null, load: load ? toMm(load[1]) : null };
+}
+
+type MultipalEntry = { product: Product; family: MultipalFamily; kind: "Grundregal" | "Anbauregal"; h: number; b: number; t: number; levels: number | null; load: number | null; modern: boolean };
+
+export function multipalCatalog(products: Product[]): MultipalEntry[] {
+  const out: MultipalEntry[] = [];
+  for (const product of products) {
+    const name = product.name || "";
+    if (!/multipal/i.test(name) || /2 Felder|doppel|gefahrstoff|kragarm|\bKTC\b/i.test(name)) continue;
+    const family = /gro(ß|ss)fachregal/i.test(name)
+      ? "Großfachregal"
+      : /palettenregal/i.test(name) || /^(META |Mittelschweres |Schweres )?multipal (GR|AR) /i.test(name)
+        ? "Palettenregal"
+        : null;
+    const kind = /Grundregal|\bGR\b/.test(name) ? "Grundregal" : /Anbauregal|\bAR\b/.test(name) ? "Anbauregal" : null;
+    const dims = name.match(/(\d{3,4})\s*x\s*(\d{3,4})\s*x\s*(\d{3,4})/);
+    if (!family || !kind || !dims) continue;
+    const levels = name.match(/(\d{1,2})(\+1)?\s*(?:Lager)?[Ee]benen/);
+    const load = name.match(/(?:Fachlast|bis|à)\s*(\d{3,4})\s*kg/i);
+    out.push({
+      product,
+      family,
+      kind,
+      h: Number(dims[1]),
+      b: Number(dims[2]),
+      t: Number(dims[3]),
+      levels: levels ? Number(levels[1]) + (levels[2] ? 1 : 0) : null,
+      load: load ? Number(load[1]) : null,
+      modern: /^META MULTIPAL \|/.test(name),
+    });
+  }
+  return out;
+}
+
+export function pickMultipalProduct(catalog: MultipalEntry[], spec: MultipalLineSpec): ClipSpecPick | null {
+  const pool = catalog.filter((c) => c.kind === spec.kind && c.h === spec.height && c.b === spec.width && c.t === spec.depth);
+  if (!pool.length) return null;
+  const loadClose = (c: MultipalEntry) => spec.load != null && c.load != null && Math.abs(c.load - spec.load) / spec.load <= 0.15;
+  const score = (c: MultipalEntry) =>
+    (c.family === spec.family ? 4 : -4) +
+    (spec.levels != null && c.levels != null ? (c.levels === spec.levels ? 2 : -Math.abs(c.levels - spec.levels)) : 0) +
+    (loadClose(c) ? 1 : 0) +
+    (c.modern ? 0.5 : 0);
+  const ranked = [...pool].sort((a, b) => score(b) - score(a));
+  const best = ranked[0];
+  const differences: string[] = [];
+  if (best.family !== spec.family) differences.push(`${spec.family} angefragt, Katalogartikel ${best.family}`);
+  if (spec.levels != null && best.levels == null) differences.push(`Anfrage ${spec.levels} Ebenen, Katalogartikel ohne Ebenen-Angabe`);
+  else if (spec.levels != null && best.levels !== spec.levels) differences.push(`Anfrage ${spec.levels} Ebenen, Katalogartikel ${best.levels} Ebenen`);
+  if (spec.load != null && best.load != null && !loadClose(best)) {
+    differences.push(`Fachlast angefragt ${spec.load} kg, Katalogartikel ${best.load} kg (je Fach oder je Palette prüfen)`);
+  }
+  return { product: best.product, exact: differences.length === 0, differences, alternatives: ranked.slice(1, 5).map((c) => c.product) };
+}
+
 function toMatch(product: Product, confidence: number, reasoning: string): ProductMatch {
   const net = (product as Product & { netPrice?: number }).netPrice;
   return { id: product.id, productNumber: product.productNumber, name: product.name, price: typeof net === "number" ? net : product.price, confidence, reasoning };
@@ -238,20 +342,21 @@ export function resolveClipSpecRows(params: {
   const lines = (extractedData.lineItems as Line[] | undefined) ?? [];
   if (!matchingResults?.items?.length || lines.length !== matchingResults.items.length) return 0;
   const catalog = clipCatalog(params.products);
-  if (!catalog.length) return 0;
+  const racks = multipalCatalog(params.products);
+  if (!catalog.length && !racks.length) return 0;
 
   let resolved = 0;
   lines.forEach((line, index) => {
     const current = matchingResults.items[index] as LineItemMatch & { productScreen?: unknown; aiMatch?: unknown };
     if (!lineOpen(current)) return;
     const text = `${line.extractedProductName} ${extractionAttributes(extractedData, line, index, lines.length)}`;
-    const spec = parseClipLineSpec(text);
-    if (!spec) return;
-    const pick = pickClipSpecProduct(catalog, spec);
+    const clip = parseClipLineSpec(text);
+    const rack = clip ? null : parseMultipalLineSpec(text);
+    const pick = clip ? pickClipSpecProduct(catalog, clip) : rack ? pickMultipalProduct(racks, rack) : null;
     if (!pick) return;
     const confidence = pick.exact ? CONFIGURATOR_EXACT_CONFIDENCE : CONFIGURATOR_APPROX_CONFIDENCE;
     const reason = pick.exact
-      ? "Aus Bezeichnung und Maßen (Art, Maße, Fachlast, Ausführung passen)"
+      ? `Aus Bezeichnung und Maßen (${clip ? "Art, Maße, Fachlast, Ausführung" : "Art, Maße, Ebenen, Fachlast"} passen)`
       : `Aus Bezeichnung und Maßen; Abweichung: ${pick.differences.join("; ")}`;
     const next: LineItemMatch = {
       ...current,
@@ -268,7 +373,7 @@ export function resolveClipSpecRows(params: {
     resolved++;
   });
   if (resolved) {
-    log.info({ event: "draft_clip_spec_rows", resolved, lines: lines.length }, `[ClipSpecRows] ${resolved} CLIP-Position(en) aus Maßen zugeordnet`);
+    log.info({ event: "draft_clip_spec_rows", resolved, lines: lines.length }, `[ClipSpecRows] ${resolved} Regal-Position(en) aus Maßen zugeordnet`);
   }
   return resolved;
 }
@@ -279,7 +384,7 @@ export async function runDraftClipSpecRowsStep(params: {
   matchingResults: MatchingResult | null;
 }): Promise<number> {
   const lines = (params.extractedData.lineItems as Line[] | undefined) ?? [];
-  if (!lines.some((l) => /\bCLIP\b/i.test(l.extractedProductName || ""))) return 0;
+  if (!lines.some((l) => /\bCLIP\b|multipal|palettenregal|gro(ß|ss)fachregal/i.test(l.extractedProductName || ""))) return 0;
   try {
     const { productCache } = await import("../products/productCache");
     return resolveClipSpecRows({ ...params, products: productCache.getProducts() });

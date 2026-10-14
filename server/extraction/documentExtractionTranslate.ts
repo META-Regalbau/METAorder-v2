@@ -18,6 +18,7 @@ import type {
   DocumentExtractionReferences,
 } from "@shared/documentExtractionSchema";
 import { EMPTY_DOCUMENT_EXTRACTION_REFERENCES } from "@shared/documentExtractionSchema";
+import { CONFIDENCE_WARNING_MISSING_SKU } from "./documentExtractionPrompt";
 import type { DraftDocumentReferences } from "@shared/schema";
 import { applyBuyerIsMetaFlag, applyMetaSkuPriority, explodeComponentSets } from "./documentExtractionSkuPriority";
 import { sanitizePhoneField } from "./buyerContactFieldUtils";
@@ -400,10 +401,47 @@ export function applyExtractionPostValidation(extraction: DocumentExtraction): v
  *  - META-Artikelnummern priorisieren (EAN aus Zeile oder Rohtext), siehe documentExtractionSkuPriority.ts
  *  - `buyer_is_meta` aus dem Käufer-Firmennamen setzen (Lieferanten-AB-Erkennung)
  */
+/**
+ * Von der KI kopierte Artikelnummern entfernen (Live 14.10.2026, THW Mannheim): Position 2 hatte
+ * keine Nummer, die KI schrieb die EAN von Position 1 hinein und meldete selbst „missing_supplier_sku“.
+ * - Nummer + Warnung „fehlt“ widersprechen sich → Nummer weg
+ * - dieselbe Nummer bei mehreren Positionen, im Text aber seltener → bei den späteren Positionen weg
+ */
+export function dropCopiedSupplierSkus(extraction: DocumentExtraction, rawDocumentText: string | null | undefined): number {
+  const digitsText = (rawDocumentText ?? "").replace(/[\s.\-]/g, "");
+  const occurrences = (sku: string) => {
+    const compact = sku.replace(/[\s.\-]/g, "");
+    return compact ? digitsText.split(compact).length - 1 : 0;
+  };
+  const used = new Map<string, number>();
+  let dropped = 0;
+  for (const it of extraction.line_items ?? []) {
+    const sku = it.supplier_sku?.trim();
+    if (!sku) continue;
+    const warnings = it.confidence_warnings ?? [];
+    const seen = used.get(sku) ?? 0;
+    const copied = seen > 0 && rawDocumentText != null && occurrences(sku) <= seen;
+    if (warnings.includes(CONFIDENCE_WARNING_MISSING_SKU) || copied) {
+      it.supplier_sku = null;
+      if (!warnings.includes(CONFIDENCE_WARNING_MISSING_SKU)) it.confidence_warnings = [...warnings, CONFIDENCE_WARNING_MISSING_SKU];
+      dropped++;
+      continue;
+    }
+    used.set(sku, seen + 1);
+  }
+  if (dropped) log.info({ dropped }, "[DocumentExtraction] Kopierte Artikelnummern entfernt");
+  return dropped;
+}
+
 export function applyDocumentExtractionDeterministicSteps(
   extraction: DocumentExtraction,
   rawDocumentText: string | null | undefined
 ): void {
+  try {
+    dropCopiedSupplierSkus(extraction, rawDocumentText);
+  } catch (error) {
+    log.warn({ err: error }, "[DocumentExtraction] Prüfung kopierter Artikelnummern fehlgeschlagen:");
+  }
   try {
     explodeComponentSets(extraction, rawDocumentText);
   } catch (error) {

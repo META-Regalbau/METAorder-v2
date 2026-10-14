@@ -7,9 +7,9 @@
  */
 import { describe, it } from "vitest";
 import assert from "node:assert/strict";
-import { clipCatalog, parseClipLineSpec, pickClipSpecProduct, resolveClipSpecRows } from "../../server/commercial/draftClipSpecRows";
+import { clipCatalog, multipalCatalog, parseClipLineSpec, parseMultipalLineSpec, pickClipSpecProduct, pickMultipalProduct, resolveClipSpecRows } from "../../server/commercial/draftClipSpecRows";
 import { CONFIGURATOR_APPROX_CONFIDENCE, CONFIGURATOR_EXACT_CONFIDENCE } from "../../server/commercial/draftConfiguratorRows";
-import { withAttributes } from "../../server/extraction/documentExtractionTranslate";
+import { dropCopiedSupplierSkus, withAttributes } from "../../server/extraction/documentExtractionTranslate";
 import { fillMissingOfferCatalogPrices } from "../../server/commercial/offerDraftCatalogPrices";
 import type { MatchingResult } from "../../server/products/productMatcher";
 
@@ -216,5 +216,93 @@ describe("Angebot: Katalogpreis nachtragen", () => {
     assert.equal(fillMissingOfferCatalogPrices(items), 1);
     assert.equal(items[0].matchedProduct!.catalogPrice, 444);
     assert.equal((items[1].matchedProduct as { catalogPrice: number }).catalogPrice, 12);
+  });
+});
+
+/** MULTIPAL-Ausschnitt Live-Katalog (14.10.2026), THW-Anfrage */
+const RACKS = [
+  P("4026212136043", "META multipal GR 3300 x 2700 x 800 bis 1000 kg vzk / RAL 2001 kpl. S", 937),
+  P("4026212136050", "META multipal AR 3300 x 2700 x 800 bis 1000 kg vzk / RAL 2001 kpl. S", 715),
+  P("4026212132533", "META MULTIPAL | Großfachregal | Grundregal | 3300 x 2700 x 800 mm | Fachlast 1900 kg | 5 Ebenen | Stahlpaneele | verzinkt", 2434),
+  P("4026212249866", "Mittelschweres Multipal GR 3300 x 2700 x 1100 vzk / RAL 2001 kpl. S mit Holm 100/20 & 3 Lagerebenen Fachlast 2400 kg", 960),
+  P("4026212358568", "META MULTIPAL | Palettenregal | Anbauregal | 3300 x 1825 x 1100 mm | Fachlast 1100 kg | 3 Ebenen | 6 Paletten | verzinkt", 529),
+  P("4026212358629", "META MULTIPAL | Palettenregal | Anbauregal | 3300 x 1825 x 1100 mm | Fachlast 1120 kg | 4 Ebenen | 8 Paletten | verzinkt", 669),
+  P("4026212342468", "Schweres Multipal AR 3300 x 1825 x 1100 vzk / RAL 2001 kpl. mit Holm 85/15 & 3 Lagerebenen", 584),
+  P("4026212342659", "META MULTIPAL | Großfachregal | Anbauregal | 3300 x 1825 x 1100 mm | Fachlast 1800 kg | 5 Ebenen | Stahlpaneele | verzinkt", 1948),
+  P("4026212323467", "META MULTIPAL | Palettenregal | 2 Felder | 3300 x 2700 x 1100 mm | Fachlast 490 kg | 3 Ebenen | 8 Paletten | verzinkt", 1364),
+];
+
+describe("MULTIPAL nach Bezeichnung und Maßen", () => {
+  const racks = multipalCatalog(RACKS);
+
+  it("Anfrage lesen: Art, Familie, H x B x T, Ebenen, Fachlast", () => {
+    assert.deepEqual(parseMultipalLineSpec("Grund-Palettenregal 4 Ebenen mit ca. 2000kg Fachlast | 3300x2700x800"), {
+      family: "Palettenregal",
+      kind: "Grundregal",
+      height: 3300,
+      width: 2700,
+      depth: 800,
+      levels: 4,
+      load: 2000,
+    });
+    assert.equal(parseMultipalLineSpec("Palettenregal 3300x2700x800"), null);
+    assert.equal(parseMultipalLineSpec("META CLIP Grundregal 2000 x 1000 x 500"), null);
+  });
+
+  it("THW Pos. 2: Grundrahmen 3300 x 2700 x 800 (alter Name), Großfachregal nur Alternative", () => {
+    const pick = pickMultipalProduct(racks, parseMultipalLineSpec("Grund-Palettenregal 4 Ebenen mit ca. 2000kg Fachlast | 3300x2700x800")!)!;
+    assert.equal((pick.product as { productNumber: string }).productNumber, "4026212136043");
+    assert.equal(pick.exact, false);
+    assert.match(pick.differences.join(" "), /ohne Ebenen-Angabe/);
+    assert.match(pick.differences.join(" "), /Fachlast angefragt 2000 kg, Katalogartikel 1000 kg/);
+    assert.deepEqual(pick.alternatives.map((p) => (p as { productNumber: string }).productNumber), ["4026212132533"]);
+  });
+
+  it("THW Pos. 1 ohne EAN: Anbauregal mit 4 Ebenen", () => {
+    const pick = pickMultipalProduct(racks, parseMultipalLineSpec("Anbau-Palettenregal 4 Ebenen mit 2250kg Fachlast | 3300x1825x1100")!)!;
+    assert.equal((pick.product as { productNumber: string }).productNumber, "4026212358629");
+  });
+
+  it("andere Tiefe: kein Vorschlag", () => {
+    assert.equal(pickMultipalProduct(racks, parseMultipalLineSpec("Grund-Palettenregal 3300x2700x900")!), null);
+  });
+
+  it("im Entwurf: Vorschlag mit Hinweis", () => {
+    const lineItems = [{ extractedProductName: "Grund-Palettenregal 4 Ebenen mit ca. 2000kg Fachlast | 3300x2700x800", extractedPositionNumber: "2", quantity: 1 }];
+    const matchingResults = { overallConfidence: 0, items: [{ ...lineItems[0], status: "not_found", confidence: 0 }] } as unknown as MatchingResult;
+    assert.equal(resolveClipSpecRows({ extractedData: { lineItems }, matchingResults, products: RACKS }), 1);
+    assert.equal(matchingResults.items[0].matchedProduct?.productNumber, "4026212136043");
+    assert.equal(matchingResults.items[0].confidence, CONFIGURATOR_APPROX_CONFIDENCE);
+  });
+});
+
+describe("Kopierte Artikelnummern", () => {
+  const base = { quantity: 1, unit: "Stück", buyer_sku: null, alternative_skus: [], unit_price_net: null, line_total_net: null, attributes: { color: null, system: null, surface: null, dimensions_raw: null } };
+  const extraction = (items: Array<Record<string, unknown>>) => ({ line_items: items.map((it, i) => ({ ...base, position: i + 1, ...it })) }) as never;
+
+  it("THW: EAN von Pos. 1 bei Pos. 2 (Warnung „fehlt“) wird entfernt", () => {
+    const ex = extraction([
+      { description: "Anbau-Palettenregal", supplier_sku: "4026212358629", confidence_warnings: [] },
+      { description: "Grund-Palettenregal", supplier_sku: "4026212358629", confidence_warnings: ["missing_quantity", "missing_supplier_sku"] },
+    ]);
+    assert.equal(dropCopiedSupplierSkus(ex, "Anbau-Palettenregal EAN 4026212358629\nGrund-Palettenregal 3300x2700x800"), 1);
+    assert.deepEqual((ex as { line_items: Array<{ supplier_sku: string | null }> }).line_items.map((l) => l.supplier_sku), ["4026212358629", null]);
+  });
+
+  it("gleiche Nummer ohne Warnung, im Text nur einmal: bei der späteren Position weg", () => {
+    const ex = extraction([
+      { description: "A", supplier_sku: "4026212358629", confidence_warnings: [] },
+      { description: "B", supplier_sku: "4026212358629", confidence_warnings: [] },
+    ]);
+    assert.equal(dropCopiedSupplierSkus(ex, "A 4026212358629, B ohne Nummer"), 1);
+    assert.deepEqual((ex as { line_items: Array<{ confidence_warnings: string[] }> }).line_items[1].confidence_warnings, ["missing_supplier_sku"]);
+  });
+
+  it("dieselbe Nummer steht zweimal im Text: bleibt", () => {
+    const ex = extraction([
+      { description: "A", supplier_sku: "4026212358629", confidence_warnings: [] },
+      { description: "A", supplier_sku: "4026212358629", confidence_warnings: [] },
+    ]);
+    assert.equal(dropCopiedSupplierSkus(ex, "2x 4026212358629 Lager 1\n1x 4026212358629 Lager 2"), 0);
   });
 });
