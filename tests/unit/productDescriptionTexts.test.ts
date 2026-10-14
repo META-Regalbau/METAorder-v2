@@ -4,6 +4,7 @@ import {
   CLOSING_SENTENCES,
   generateDescriptions,
   productFamily,
+  reasonHint,
   validateGeneratedDescription,
   type DescriptionGenerator,
   type GeneratedDescription,
@@ -60,6 +61,18 @@ describe("validateGeneratedDescription", () => {
   it("Fachlast aus dem Namen hat Vorrang", () => {
     expect(validateGeneratedDescription(p, { ...GOOD, bullets: GOOD.bullets.map((b) => b.replace("80 kg", "200 kg")) })).toBe("name_kg_200");
   });
+  it("Feldlast aus den Eigenschaften ist erlaubt, Fachlast nur wie im Namen", () => {
+    const shelf = product({ productNumber: "4026212011036", properties: [{ group: "max. Feldlast", option: "1650 kg" }] });
+    const bullets = [...GOOD.bullets.slice(0, 4), "Feldlast: max. 1.650 kg"];
+    expect(validateGeneratedDescription(shelf, { ...GOOD, bullets })).toBeNull();
+    expect(validateGeneratedDescription(shelf, { ...GOOD, bullets: [...bullets.slice(0, 4), "Traglast 1650 kg je Feld"] })).toBe("name_kg_1650");
+  });
+
+  it("Hinweise fuer den Neuversuch sind verstaendlich", () => {
+    expect(reasonHint("claim_certificate")).toContain("keine Zertifikate");
+    expect(reasonHint("number_20")).toBe("die Zahl 20 steht nicht im Artikel – weglassen");
+  });
+
   it("keine Firmenangaben im KI-Teil", () => {
     expect(validateGeneratedDescription(p, { ...GOOD, suitableFor: "Geeignet für Lager – Made in Germany." })).toBe("company_claim");
   });

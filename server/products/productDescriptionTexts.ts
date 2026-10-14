@@ -8,7 +8,7 @@
 import { z } from "zod";
 import type { ProductMetaSource } from "../shopware/client/productMeta";
 import { chatCompletion, parseLlmJsonResponse } from "../ai/llmChat";
-import { CLAIM_RULES, descriptionText, digitForms, nameValueConflict, productSourceText } from "./productMetaTexts";
+import { CLAIM_RULES, descriptionText, digitForms, productSourceText } from "./productMetaTexts";
 
 export const DESCRIPTION_PROMPT_VERSION = "desc-v1";
 
@@ -72,6 +72,49 @@ export function bodyText(gen: GeneratedDescription): string {
   return [gen.intro, ...gen.bullets, gen.suitableFor].join(" ");
 }
 
+const digitsOnly = (v: string) => v.replace(/[.,]/g, "");
+const LOAD_LABEL = /(?:fachlast|traglast|tragkraft|belastbarkeit)[^0-9]{0,25}(\d+(?:[.,]\d+)?)\s*kg|(\d+(?:[.,]\d+)?)\s*kg\s+(?:fachlast|traglast|tragkraft)/gi;
+const DIMENSIONS = /(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)/gi;
+
+/**
+ * Werte aus dem Namen haben Vorrang (Eigenschaften widersprechen ihm teils): Fach-/Traglast und
+ * Masse H x B x T muessen zum Namen passen. Andere Lasten (z. B. Feldlast aus den Eigenschaften)
+ * sind in der Datenliste erlaubt, solange sie im Artikel stehen.
+ */
+export function nameLoadOrDimensionConflict(name: string, text: string): string | null {
+  const nameKg = [...name.matchAll(/(\d+(?:[.,]\d+)?)\s*kg/gi)].map((m) => digitsOnly(m[1]));
+  if (nameKg.length > 0) {
+    for (const m of text.matchAll(LOAD_LABEL)) {
+      const value = digitsOnly(m[1] ?? m[2]);
+      if (!nameKg.includes(value)) return `name_kg_${value}`;
+    }
+  }
+  const triples = (t: string) => [...t.matchAll(DIMENSIONS)].map((m) => [m[1], m[2], m[3]].map(digitsOnly).join("x"));
+  const nameDims = triples(name);
+  if (nameDims.length > 0) {
+    const wrong = triples(text).find((v) => !nameDims.includes(v));
+    if (wrong) return `name_dimensions_${wrong}`;
+  }
+  return null;
+}
+
+/** Verstaendlicher Hinweis fuer den Neuversuch der KI. */
+export function reasonHint(reason: string): string {
+  if (reason.startsWith("name_kg")) return "Fachlast/Traglast muss genau dem Wert im Namen entsprechen";
+  if (reason.startsWith("name_dimensions")) return "Maße H x B x T genau wie im Namen angeben";
+  if (reason.startsWith("number_")) return `die Zahl ${reason.slice(7)} steht nicht im Artikel – weglassen`;
+  if (reason === "company_claim" || reason.startsWith("claim_certificate") || reason.startsWith("claim_warranty") || reason.startsWith("claim_origin")) {
+    return "keine Zertifikate, Normen, Garantie, Herkunft oder Firmenangaben im Text";
+  }
+  if (reason.startsWith("claim_")) return "keine Angaben zu Preis, Versand, Lieferzeit oder Oberflächenbehandlung, die nicht im Artikel stehen";
+  if (reason.startsWith("intro_length")) return `Einleitung ${INTRO_MIN}–${INTRO_MAX} Zeichen`;
+  if (reason.startsWith("bullets_count")) return "4–6 Stichpunkte";
+  if (reason.startsWith("bullet_length")) return `Stichpunkte höchstens ${BULLET_MAX} Zeichen`;
+  if (reason.startsWith("body_length")) return `Gesamttext ${BODY_MIN}–${BODY_MAX} Zeichen`;
+  if (reason === "third_party_as_meta") return "Fremdware nicht als META-Produkt bezeichnen";
+  return reason;
+}
+
 /** null = in Ordnung, sonst Grund. */
 export function validateGeneratedDescription(product: ProductMetaSource, gen: GeneratedDescription): string | null {
   const intro = gen.intro.trim();
@@ -94,7 +137,7 @@ export function validateGeneratedDescription(product: ProductMetaSource, gen: Ge
     const runs = token.match(/\d+/g) ?? [];
     if (!allowed.has(whole) && !runs.every((r) => allowed.has(r))) return `number_${token}`;
   }
-  const conflict = nameValueConflict(product.name, body);
+  const conflict = nameLoadOrDimensionConflict(product.name, body);
   if (conflict) return conflict;
   for (const [pattern, reason] of CLAIM_RULES) {
     if (pattern.test(body) && !pattern.test(source)) return `claim_${reason}`;
@@ -147,7 +190,7 @@ function buildUserPrompt(batch: ProductMetaSource[], feedback?: Map<string, stri
       lines.push("HINWEIS: Fremdware, nicht von META hergestellt – nicht als META-Produkt bezeichnen (\"passend für META …\" ist erlaubt).");
     }
     const note = feedback?.get(p.productNumber);
-    if (note) lines.push(`HINWEIS: Der letzte Vorschlag wurde verworfen (${note}). Bitte die Regeln genau einhalten.`);
+    if (note) lines.push(`HINWEIS: Der letzte Vorschlag wurde verworfen: ${reasonHint(note)}.`);
   }
   return lines.join("\n");
 }
