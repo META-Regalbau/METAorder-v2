@@ -88,6 +88,10 @@ async function main(): Promise<void> {
     if (products.length === 0) continue; // Service-/Download-Seiten ohne Produkte
     const url = (c.seoUrls ?? []).find((u: any) => u.salesChannelId === de.id && u.languageId === DE_LANG && u.isCanonical && !u.isDeleted)?.seoPathInfo ?? "";
     const facts = buildCategoryFacts({ id: c.id, name: c.name, url: `/${url}`, breadcrumb: byName(c) }, products);
+    if (process.argv.includes("--facts-only")) {
+      console.log(`FAKTEN ${c.name} | Herstellerangaben: ${facts.familyClaims ? "ja" : "nein"} | Systeme: ${facts.systems.join(", ")}`);
+      continue;
+    }
     process.stdout.write(`${c.name} (${products.length} Artikel) … `);
     const { text, problem } = await generateCategoryText(facts, generate);
     const html = text ? buildCategoryHtml(facts, text) : null;

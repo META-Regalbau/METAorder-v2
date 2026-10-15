@@ -35,9 +35,9 @@ export type CategoryFacts = {
 };
 
 const FAMILY_CLAIMS: Array<[RegExp, string]> = [
-  [/\bCLIP\b/, "META CLIP ist „Made in Germany“, mit 5 Jahren META-Qualitätsgarantie und Ersatzteilservice; Zertifizierungen u. a. GS, DIN EN ISO 9001:2015, RAL-Gütesicherung."],
-  [/MULTIPAL/, "META MULTIPAL Palettenregale sind gütegesichert nach RAL-RG 614/2, tragen das GS-Zeichen und sind DIBt-zugelassen; statische Nachweise nach DIN EN 15512."],
-  [/ATLAS/, "META ATLAS ST ist durch GS-Zertifikat und RAL-Gütezeichen bestätigt, mit 5 Jahren Herstellergarantie."],
+  [/\bCLIP\b|^CL\s/i, "META CLIP ist „Made in Germany“, mit 5 Jahren META-Qualitätsgarantie und Ersatzteilservice; Zertifizierungen u. a. GS, DIN EN ISO 9001:2015, RAL-Gütesicherung."],
+  [/MULTIPAL|^MP\s/i, "META MULTIPAL Palettenregale sind gütegesichert nach RAL-RG 614/2, tragen das GS-Zeichen und sind DIBt-zugelassen; statische Nachweise nach DIN EN 15512."],
+  [/ATLAS/i, "META ATLAS ST ist durch GS-Zertifikat und RAL-Gütezeichen bestätigt, mit 5 Jahren Herstellergarantie."],
 ];
 
 const uniqSorted = (values: number[]) => [...new Set(values.filter((v) => Number.isFinite(v) && v > 0))].sort((a, b) => a - b);
@@ -102,11 +102,17 @@ export function buildCategoryFacts(
     const values = uniq(products.flatMap((p) => p.properties.filter((x) => re.test(x.group)).map((x) => x.option)));
     if (values.length > 0 && values.length <= 6) features.push({ label, values });
   }
-  const family = FAMILY_CLAIMS.find(([re]) => re.test(`${meta.name} ${systems.join(" ")}`));
+  // Herstellerangaben nur, wenn die Kategorie selbst zur Familie gehoert UND ihre Artikel ueberwiegend
+  // (mind. 80 %) aus dieser Familie stammen - ein einzelner Kombi-Artikel reicht nicht.
+  const family = FAMILY_CLAIMS.find(([re]) => {
+    if (!re.test(meta.name)) return false;
+    const inFamily = products.filter((p) => re.test(parseCatalogName(p.name)?.system ?? p.name)).length;
+    return products.length > 0 && inFamily / products.length >= 0.8;
+  });
   return {
     ...meta,
     productCount: products.length,
-    systems: uniq(systems),
+    systems: uniq(systems.filter((x) => /^META\s/.test(x))),
     shelfTypes: uniq(shelfTypes),
     heights: uniqSorted(heights),
     widths: uniqSorted(widths),
@@ -248,7 +254,8 @@ export function validateCategoryText(f: CategoryFacts, g: GeneratedCategoryText)
   }
   const claims = f.familyClaims ?? "";
   for (const m of plain.match(new RegExp(COMPANY_CLAIMS.source, "gi")) ?? []) {
-    if (!claims.toLowerCase().includes(m.toLowerCase())) return `Herstellerangabe „${m}“ ist für diese Kategorie nicht belegt – weglassen`;
+    const term = m.trim().replace(/[- ]+$/, "").toLowerCase();
+    if (!claims.toLowerCase().includes(term)) return `Herstellerangabe „${m}“ ist für diese Kategorie nicht belegt – weglassen`;
   }
   const sourceExpanded = expandAbbreviations(source);
   for (const [pattern, reason] of CLAIM_RULES) {

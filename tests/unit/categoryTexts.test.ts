@@ -31,6 +31,20 @@ describe("Kategorietexte", () => {
     expect(facts.features.find((f) => f.label === "Aufbauart")?.values).toEqual(["Schraubregal"]);
   });
 
+  it("Herstellerangaben nur bei Familien-Kategorie mit überwiegend Familienartikeln", () => {
+    const mixed = [
+      { name: "META MULTIPAL/MINI-RACK | Zusatzboden | 1000 x 500 mm | verzinkt", properties: [] },
+      { name: "META MINI-RACK | Zusatzboden Stahlpaneele | 1400 x 1050 mm | verzinkt", properties: [] },
+      { name: "META SPEED-RACK | Zusatzboden | 2000 x 600 mm | verzinkt", properties: [] },
+    ];
+    expect(buildCategoryFacts({ id: "x", name: "Weitspannregal Zubehör", url: "", breadcrumb: "" }, mixed).familyClaims).toBeNull();
+    const clip = [{ name: "META CLIP | Fachbodenregal | Grundregal | 2000 x 1000 x 400 mm | Fachlast 230 kg | 5 Ebenen | verzinkt", properties: [] }];
+    expect(buildCategoryFacts({ id: "y", name: "CLIP Grundregale", url: "", breadcrumb: "" }, clip).familyClaims).toContain("Made in Germany");
+    expect(buildCategoryFacts({ id: "z", name: "Zubehör", url: "", breadcrumb: "" }, clip).familyClaims).toBeNull();
+    const junk = [{ name: "Etikettenschiene | 1000 mm | grau", properties: [] }, ...clip];
+    expect(buildCategoryFacts({ id: "y", name: "CLIP Zubehör", url: "", breadcrumb: "" }, junk).systems).toEqual(["META CLIP"]);
+  });
+
   it("Maßtabelle aus den Fakten", () => {
     const table = factsTableHtml(facts);
     expect(table).toContain("<th>Höhen</th><td>2.000, 2.500 mm</td>");
