@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildNameRulePairs, parseCatalogName } from "../../server/cross-selling/crossSellNameRules";
+import { buildNameRulePairs, isNameRulePair, parseCatalogName } from "../../server/cross-selling/crossSellNameRules";
 import { runNameRuleCrossSelling } from "../../server/cross-selling/crossSellNameRulesRun";
 import { DEFAULT_CROSS_SELL_AUTOMATION_SETTINGS } from "../../server/cross-selling/crossSellAutomationSettings";
 
@@ -47,6 +47,16 @@ describe("buildNameRulePairs", () => {
   });
   it("Grenze je Quelle", () => {
     expect(buildNameRulePairs(products, { maxPerSource: 2 }).filter((p) => p.source === "anbau")).toHaveLength(2);
+  });
+});
+
+describe("isNameRulePair", () => {
+  it("erkennt Regel-Paare an den Namen (Richtung zählt)", () => {
+    expect(isNameRulePair(N.anbau, N.grund)).toBe(true);
+    expect(isNameRulePair(N.anbau, N.board)).toBe(true);
+    expect(isNameRulePair(N.board, N.anbau)).toBe(false);
+    expect(isNameRulePair(N.grundRal, N.board)).toBe(false);
+    expect(isNameRulePair(null, N.grund)).toBe(false);
   });
 });
 

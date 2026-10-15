@@ -98,6 +98,21 @@ function isSideWall(p: ParsedName): boolean {
 
 export type NameRuleOptions = { maxPerSource?: number };
 
+/**
+ * Ist (Quelle → Ziel) ein Paar der festen Namensregeln? Fuer die Monatspruefung: Paare, die ein
+ * anderes METAorder (oder ein Import) ohne Herkunft "heuristic" kennt, bleiben so ebenfalls geschuetzt.
+ */
+export function isNameRulePair(sourceName: string | null | undefined, targetName: string | null | undefined): boolean {
+  if (!sourceName || !targetName) return false;
+  return buildNameRulePairs(
+    [
+      { productNumber: "s", name: sourceName },
+      { productNumber: "t", name: targetName },
+    ],
+    { maxPerSource: 50 },
+  ).some((p) => p.source === "s" && p.target === "t");
+}
+
 /** Alle Regel-Paare (Quelle → Ziel), je Quelle nach Rang sortiert und begrenzt. */
 export function buildNameRulePairs(products: NameRuleProduct[], options: NameRuleOptions = {}): NameRulePair[] {
   const maxPerSource = options.maxPerSource ?? 10;

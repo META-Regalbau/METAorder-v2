@@ -12,6 +12,7 @@ import { buildOrderBasketStats, pairStatsFor } from "./crossSellScoring";
 import { computeCrossSellEffect, prepareEffectOrders, EFFECT_MIN_SOURCE_ORDERS, type EffectResult } from "./crossSellEffect";
 import { checkCrossSellFit, fitInputHash, LLM_FIT_MAX_TARGETS, type FitProduct } from "./crossSellLlmFit";
 import { isTargetEligible } from "./crossSellCandidates";
+import { isNameRulePair } from "./crossSellNameRules";
 import { logger } from "../lib/logger";
 
 const moduleLog = logger.child({ component: "cross-selling/crossSellMonthlyReview" });
@@ -228,10 +229,13 @@ export async function runCrossSellMonthlyReview(
     }
     let budget = Math.max(0, Math.min(settings.llmMaxCallsMonthlyRun, settings.llmMaxCallsPerMonth - usedThisMonth));
     const llmFresh = new Map<string, { verdict: string; relation: string; confidence: number; reason: string; model: string; hash: string }>();
+    // Feste Namensregel: Herkunft "heuristic" oder (z. B. nach Import) an den Namen erkannt
+    const ruleBased = (s: CrossSellPairState) =>
+      s.origin === "heuristic" || isNameRulePair(info.get(s.sourceProductNumber)?.name, info.get(s.targetProductNumber)?.name);
     const bySource = new Map<string, CrossSellPairState[]>();
     for (const s of live) {
       // Regel-Paare brauchen keine KI-Fachpruefung
-      if (s.origin === "heuristic" || !info.has(s.targetProductNumber) || !needsCheck(s)) continue;
+      if (ruleBased(s) || !info.has(s.targetProductNumber) || !needsCheck(s)) continue;
       const list = bySource.get(s.sourceProductNumber) ?? [];
       list.push(s);
       bySource.set(s.sourceProductNumber, list);
@@ -286,7 +290,7 @@ export async function runCrossSellMonthlyReview(
         llm,
         effect,
         stale,
-        ruleBased: s.origin === "heuristic",
+        ruleBased: ruleBased(s),
       });
       for (const r of reasons) {
         report.counts[r] = (report.counts[r] ?? 0) + 1;
