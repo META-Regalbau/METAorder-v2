@@ -9,7 +9,7 @@ import { chatCompletion, parseLlmJsonResponse } from "../ai/llmChat";
 import { CLAIM_RULES, digitForms, expandAbbreviations } from "./productMetaTexts";
 import { parseCatalogName } from "../cross-selling/crossSellNameRules";
 
-export const CATEGORY_PROMPT_VERSION = "cat-v1";
+export const CATEGORY_PROMPT_VERSION = "cat-v2";
 
 export type CategoryProduct = { name: string; properties: Array<{ group: string; option: string }> };
 
@@ -75,7 +75,9 @@ export function buildCategoryFacts(
       for (const seg of parsed.segments) {
         const load = seg.match(/^(Fachlast|Feldlast|Armlast)\s+(\d[\d.,]*)\s*kg$/i);
         if (load) loadMap.set(load[1], [...(loadMap.get(load[1]) ?? []), Number(load[2].replace(/\./g, ""))]);
-        if (/Ebenen$/.test(seg)) levels.push(seg.replace(/\s*Ebenen$/, ""));
+        // nur saubere Werte ("5", "4+1"); kaputte Namen wie "Fachlast 2800 kg| 3 Ebenen" auslassen
+        const level = seg.match(/^(\d+(?:\+\d+)?)\s*Ebenen$/);
+        if (level) levels.push(level[1]);
       }
       if (parsed.surface) surfaces.push(parsed.segments.find((s) => s.toLowerCase() === parsed.surface) ?? parsed.surface);
     } else {
@@ -99,7 +101,8 @@ export function buildCategoryFacts(
   ];
   const features: Array<{ label: string; values: string[] }> = [];
   for (const [re, label] of featureGroups) {
-    const values = uniq(products.flatMap((p) => p.properties.filter((x) => re.test(x.group)).map((x) => x.option)));
+    // "0 mm" (z. B. Verstellraster bei festen Kragarmen) ist kein Merkmal, sondern "nicht vorhanden"
+    const values = uniq(products.flatMap((p) => p.properties.filter((x) => re.test(x.group)).map((x) => x.option))).filter((v) => !/^0\s*mm$/i.test(v));
     if (values.length > 0 && values.length <= 6) features.push({ label, values });
   }
   // Herstellerangaben nur, wenn die Kategorie selbst zur Familie gehoert UND ihre Artikel ueberwiegend
@@ -189,6 +192,7 @@ Regeln:
 - Nur Fakten aus den gelieferten Kategoriedaten. Zahlen (Maße, Lasten, Ebenen, Anzahl) nur, wenn sie dort stehen. Keine erfundenen Normen, Zertifikate, Garantien, Herkunftsangaben – außer wörtlich aus "Belegte Herstellerangaben".
 - Keine Preise, Rabatte, Lieferzeiten, Versandkosten.
 - Ein Anbauregal braucht ein Grundregal und nutzt dessen Rahmen mit; ein Grundregal steht für sich. Bei Kragarmregalen heißen die Rahmen „Ständer“ (an ihnen hängen die Kragarme), bei Fachboden-, Paletten- und Weitspannregalen „Seitenrahmen“ bzw. „Ständerrahmen“. Das ist allgemeines Regalwissen und darf erklärt werden.
+- Ein Doppelregal sind zwei Regalzeilen Rücken an Rücken. Das Wort „doppeltief“ nicht verwenden (bedeutet etwas anderes).
 - Konkrete Daten aus den Kategoriedaten nutzen (Maßbereiche, Lasten, Ebenen, Aufbauart, Raster) – sie helfen Kunden und KI-Suchen; nichts darüber hinaus erfinden.
 - Typkürzel (T1 N, SR 120/25 …) nicht ausdeuten.
 - Kein HTML, keine Emojis, keine Aufzählungszeichen im Text.
@@ -245,6 +249,7 @@ export function validateCategoryText(f: CategoryFacts, g: GeneratedCategoryText)
   if (longFaq) return `FAQ-Antwort höchstens 350 Zeichen (eine hatte ${longFaq.a.length})`;
   const plain = categoryTextPlain(g);
   if (/<[a-z/][^>]*>/i.test(plain)) return "kein HTML im Text";
+  if (/doppeltief/i.test(plain)) return "„doppeltief“ ist falsch – ein Doppelregal sind zwei Regalzeilen Rücken an Rücken; das Wort weglassen";
   const source = factsText(f);
   const allowed = digitForms(source);
   for (const token of plain.match(/\d+(?:[.,]\d+)*/g) ?? []) {
