@@ -9,7 +9,7 @@ import { getCrossSellAutomationSettings } from "../cross-selling/crossSellAutoma
 import { loadCrossSellCatalog } from "../cross-selling/crossSellCatalog";
 import { approveCrossSellPairs, approveCrossSellRemovals, keepCrossSellPairs, rejectQueuedCrossSellPairs, undoCrossSellChanges } from "../cross-selling/crossSellReview";
 import { startCrossSellJob } from "../cross-selling/crossSellJobs";
-import { runCandidatesForTenant, runMonthlyReviewForTenant, runBackfillForTenant } from "../cross-selling/crossSellScheduler";
+import { runCandidatesForTenant, runMonthlyReviewForTenant, runBackfillForTenant, runNameRulesForTenant } from "../cross-selling/crossSellScheduler";
 import { getBackfillState, startBackfill, stopBackfill } from "../cross-selling/crossSellBackfill";
 import type { CrossSellPairState } from "@shared/schema";
 import { logger } from "../lib/logger";
@@ -148,6 +148,35 @@ export function registerCrossSellAutomationRoutes(app: Express): void {
     } catch (error: any) {
       moduleLog.error({ err: error }, "Error starting cross-selling candidate run:");
       res.status(500).json({ error: error.message || "Failed to start candidate run" });
+    }
+  });
+
+  /** Feste Namensregeln jetzt: Testlauf oder Schreiben (202, Status per jobs/status?type=name_rules). */
+  app.post("/api/cross-selling/name-rules/run", requireAuth, requireManageCrossSellingRules, async (req, res) => {
+    try {
+      const tenantId = req.tenantId ?? null;
+      const { apply } = z.object({ apply: z.boolean() }).parse(req.body ?? {});
+      const settings = await storage.getShopwareSettings(tenantId);
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+      const userId = (req.user as any)?.id ?? null;
+      const { started, state } = startCrossSellJob(storage, tenantId, "name_rules", async (job) =>
+        runNameRulesForTenant(storage, settings, tenantId, {
+          trigger: "manual",
+          dryRun: !apply,
+          userId,
+          onProgress: (processed, total) => {
+            job.processed = processed;
+            job.total = total;
+          },
+        }),
+      );
+      res.status(202).json({ started, alreadyRunning: !started, status: state.status });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) return res.status(400).json({ error: "Invalid request" });
+      moduleLog.error({ err: error }, "Error starting cross-selling name rule run:");
+      res.status(500).json({ error: error.message || "Failed to start name rule run" });
     }
   });
 

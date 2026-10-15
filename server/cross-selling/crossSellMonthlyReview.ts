@@ -133,13 +133,15 @@ export function classifyLivePair(input: {
   llm: { verdict: string | null; confidence: number | null } | null;
   effect: EffectResult | null;
   stale: boolean;
+  /** Feste Namensregel (origin "heuristic"): passt per Definition, Wirkung kein Entfernungsgrund */
+  ruleBased?: boolean;
 }): ReviewReason[] {
   const reasons: ReviewReason[] = [];
   if (!input.targetKnown) reasons.push("target_missing");
   else if (input.target && !input.target.active) reasons.push("target_inactive");
   else if (input.target && !isTargetEligible(input.source ? { ...input.source, id: "", productNumber: "" } : undefined, { ...input.target, id: "", productNumber: "" })) reasons.push("target_hidden");
-  if (input.llm?.verdict === "no_fit" && (input.llm.confidence ?? 0) >= LLM_NO_FIT_PROPOSE_CONFIDENCE) reasons.push("llm_no_fit");
-  if (input.effect?.verdict === "ineffective") reasons.push("ineffective");
+  if (!input.ruleBased && input.llm?.verdict === "no_fit" && (input.llm.confidence ?? 0) >= LLM_NO_FIT_PROPOSE_CONFIDENCE) reasons.push("llm_no_fit");
+  if (!input.ruleBased && input.effect?.verdict === "ineffective") reasons.push("ineffective");
   if (input.effect?.verdict === "positive") reasons.push("positive");
   if (input.source && !input.source.active) reasons.push("source_inactive");
   if (input.stale) reasons.push("stale");
@@ -228,7 +230,8 @@ export async function runCrossSellMonthlyReview(
     const llmFresh = new Map<string, { verdict: string; relation: string; confidence: number; reason: string; model: string; hash: string }>();
     const bySource = new Map<string, CrossSellPairState[]>();
     for (const s of live) {
-      if (!info.has(s.targetProductNumber) || !needsCheck(s)) continue;
+      // Regel-Paare brauchen keine KI-Fachpruefung
+      if (s.origin === "heuristic" || !info.has(s.targetProductNumber) || !needsCheck(s)) continue;
       const list = bySource.get(s.sourceProductNumber) ?? [];
       list.push(s);
       bySource.set(s.sourceProductNumber, list);
@@ -283,6 +286,7 @@ export async function runCrossSellMonthlyReview(
         llm,
         effect,
         stale,
+        ruleBased: s.origin === "heuristic",
       });
       for (const r of reasons) {
         report.counts[r] = (report.counts[r] ?? 0) + 1;

@@ -38,6 +38,8 @@ export const crossSellAutomationSettingsSchema = z.object({
   backfillMaxAutoPerRun: z.number().int().min(0).max(5000),
   backfillMaxAutoPerSource: z.number().int().min(0).max(20),
   backfillMaxQueuePerRun: z.number().int().min(0).max(2000),
+  /** Feste Namensregeln (Grund/Anbau, Zubehoer gleiches System) taeglich setzen */
+  nameRulesEnabled: z.boolean(),
 });
 
 export type CrossSellAutomationSettings = z.infer<typeof crossSellAutomationSettingsSchema>;
@@ -70,6 +72,7 @@ export const DEFAULT_CROSS_SELL_AUTOMATION_SETTINGS: CrossSellAutomationSettings
   backfillMaxAutoPerRun: 300,
   backfillMaxAutoPerSource: 5,
   backfillMaxQueuePerRun: 200,
+  nameRulesEnabled: false,
 };
 
 type SettingsStore = {

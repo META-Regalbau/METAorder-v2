@@ -94,6 +94,14 @@ describe("Pruefregeln", () => {
     expect(classifyLivePair({ targetKnown: true, target: info(true), source: info(true), llm: { verdict: "no_fit", confidence: 0.8 }, effect: null, stale: true })).toEqual(["llm_no_fit", "stale"]);
     expect(classifyLivePair({ targetKnown: true, target: info(true), source: info(true), llm: { verdict: "no_fit", confidence: 0.5 }, effect: null, stale: false })).toEqual([]);
   });
+
+  it("Regel-Paare: kein Entfernen wegen KI-Urteil oder Wirkung, aber bei inaktivem Ziel", () => {
+    const ineffective = { verdict: "ineffective" } as any;
+    expect(
+      classifyLivePair({ targetKnown: true, target: info(true), source: info(true), llm: { verdict: "no_fit", confidence: 0.9 }, effect: ineffective, stale: false, ruleBased: true }),
+    ).toEqual([]);
+    expect(classifyLivePair({ targetKnown: true, target: info(false), source: info(true), llm: null, effect: null, stale: false, ruleBased: true })).toEqual(["target_inactive"]);
+  });
 });
 
 // ---- Lauf mit simulierten Abhaengigkeiten ----

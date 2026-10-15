@@ -6509,7 +6509,8 @@
       "failed_to_load_product_meta_text_settings": "Failed to load product meta text settings",
       "failed_to_save_product_meta_text_settings": "Failed to save product meta text settings",
       "product_meta_text_run_already_in_progress": "Product meta text run already in progress",
-      "failed_to_start_product_meta_text_run": "Failed to start product meta text run"
+      "failed_to_start_product_meta_text_run": "Failed to start product meta text run",
+      "failed_to_start_name_rule_run": "Failed to start name rule run"
     }
   },
   "roomPlanner": {
@@ -7125,6 +7126,31 @@
       "approved": "approved",
       "undo": "undo",
       "dry_run": "dry run"
+    }
+  },
+  "crossSellNameRules": {
+    "title": "Fixed rules from product names",
+    "hint": "Adds matching products to the “Das passt dazu” list without AI or order statistics: add-on shelf ↔ base shelf (same name except the shelf type) plus additional shelf, back and side panel of the same system with identical dimensions, load and surface. Rejected pairs are not set again; the monthly review does not propose rule pairs for removal based on the AI verdict or effect.",
+    "dryRun": "Test run",
+    "apply": "Write to shop now",
+    "confirmApply": "Write rule pairs to the shop now? The run can be undone in the log.",
+    "daily": "Run daily for new products",
+    "running": "Run in progress …",
+    "progress": "{{processed}} of {{total}} products reconciled …",
+    "done": "Rule run finished",
+    "error": "Rule run failed",
+    "lastRun": "Last run",
+    "lastDryRun": "Last test run",
+    "summary": "{{sources}} products with rule pairs ({{pairs}} pairs), {{count}} newly written to the shop.",
+    "summaryDry": "{{sources}} products with rule pairs ({{pairs}} pairs), {{count}} would be newly written to the shop.",
+    "kinds": "Partner shelf {{partner}} · Additional shelf {{board}} · Back panel {{back}} · Side panel {{side}}",
+    "skipped": "skipped: {{other}} already in another list, {{cap}} list full, {{rejected}} rejected",
+    "examples": "Examples",
+    "kind": {
+      "partner_shelf": "Partner shelf",
+      "board": "Additional shelf",
+      "back_wall": "Back panel",
+      "side_wall": "Side panel"
     }
   },
   "crossSellMonthly": {
