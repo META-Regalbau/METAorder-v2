@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { pollCrossSellJob } from "@/lib/crossSellJobs";
 import CrossSellBackfillPanel from "@/components/CrossSellBackfillPanel";
+import CrossSellNameRulesPanel from "@/components/CrossSellNameRulesPanel";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -170,6 +171,8 @@ export default function CrossSellAutomationSettings() {
           </div>
         </div>
       ))}
+
+      <CrossSellNameRulesPanel />
 
       <CrossSellBackfillPanel />
 

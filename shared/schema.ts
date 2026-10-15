@@ -1169,7 +1169,7 @@ export const crossSellChangeLog = pgTable(
 export type CrossSellChangeLogEntry = typeof crossSellChangeLog.$inferSelect;
 export type InsertCrossSellChangeLogEntry = typeof crossSellChangeLog.$inferInsert;
 
-export type CrossSellRunKind = "learning" | "candidates" | "monthly_review" | "import" | "backfill";
+export type CrossSellRunKind = "learning" | "candidates" | "monthly_review" | "import" | "backfill" | "name_rules";
 
 /** Laeufe (Sperre gegen Doppellaeufe, Verlauf, Berichte). */
 export const crossSellRuns = pgTable(

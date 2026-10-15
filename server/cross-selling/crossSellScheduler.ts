@@ -10,6 +10,9 @@ import { getMirrorOrdersLikeLive } from "../routes/routeHelpers";
 import { runCrossSellCandidates } from "./crossSellCandidates";
 import { runCrossSellMonthlyReview } from "./crossSellMonthlyReview";
 import { runBackfillStep } from "./crossSellBackfill";
+import { runNameRuleCrossSelling } from "./crossSellNameRulesRun";
+import { loadCrossSellCatalog } from "./crossSellCatalog";
+import { crossSellAutomationGloballyEnabled, getCrossSellAutomationSettings } from "./crossSellAutomationSettings";
 import { sendEmail } from "../email/emailOutbound";
 import { notificationEvents } from "../lib/events";
 import { logger } from "../lib/logger";
@@ -21,6 +24,8 @@ export type CrossSellSchedulerDeps = {
   runLearning: (settings: ShopwareSettings, tenantId: string | null) => Promise<unknown>;
   /** Taeglicher Kandidatenlauf (Teilautomatik); prueft Modus und Tagessperre selbst. */
   runCandidates?: (settings: ShopwareSettings, tenantId: string | null) => Promise<unknown>;
+  /** Taeglich: feste Namensregeln (nur wenn eingeschaltet). */
+  runNameRules?: (settings: ShopwareSettings, tenantId: string | null) => Promise<unknown>;
 };
 
 /** Ein Durchlauf ueber alle Mandanten mit Shopware-Anbindung. */
@@ -39,6 +44,13 @@ export async function runCrossSellLearningForAllTenants(deps: CrossSellScheduler
             await deps.runCandidates(settings, tenantId);
           } catch (err) {
             moduleLog.error({ err, tenantId }, "Cross-Selling-Kandidatenlauf fehlgeschlagen");
+          }
+        }
+        if (deps.runNameRules) {
+          try {
+            await deps.runNameRules(settings, tenantId);
+          } catch (err) {
+            moduleLog.error({ err, tenantId }, "Cross-Selling-Namensregeln fehlgeschlagen");
           }
         }
       } catch (err) {
@@ -62,6 +74,11 @@ export function startCrossSellScheduler(storage: IStorage): () => void {
     storage,
     runLearning: (settings, tenantId) => runCrossSellLearning(storage, settings, tenantId),
     runCandidates: (settings, tenantId) => runCandidatesForTenant(storage, settings, tenantId, "scheduled"),
+    runNameRules: async (settings, tenantId) => {
+      const automation = await getCrossSellAutomationSettings(storage, tenantId);
+      if (!automation.nameRulesEnabled || !crossSellAutomationGloballyEnabled()) return;
+      return runNameRulesForTenant(storage, settings, tenantId, { trigger: "scheduled", dryRun: false });
+    },
   };
   let running = false;
   const run = async () => {
@@ -129,6 +146,31 @@ export async function runBackfillForTenant(
   userId?: string | null,
 ) {
   return runBackfillStep(candidateDeps(storage, settings, tenantId), { tenantId, userId, trigger });
+}
+
+/** Feste Namensregeln fuer einen Mandanten (Scheduler und Route). */
+export async function runNameRulesForTenant(
+  storage: IStorage,
+  settings: ShopwareSettings,
+  tenantId: string | null,
+  args: { trigger: "scheduled" | "manual"; dryRun: boolean; userId?: string | null; onProgress?: (processed: number, total: number) => void },
+) {
+  const client = new ShopwareClient(settings);
+  return runNameRuleCrossSelling(
+    {
+      storage,
+      client: {
+        fetchProductCrossSelling: client.fetchProductCrossSelling.bind(client),
+        fetchCrossSellingAssignments: client.fetchCrossSellingAssignments.bind(client),
+        createProductCrossSelling: client.createProductCrossSelling.bind(client),
+        syncCrossSellingAssignments: client.syncCrossSellingAssignments.bind(client),
+        fetchProductMetaSources: client.fetchProductMetaSources.bind(client),
+      },
+      loadCatalog: () => loadCrossSellCatalog(storage, tenantId, { fresh: true }),
+      settings: await getCrossSellAutomationSettings(storage, tenantId),
+    },
+    { tenantId, ...args },
+  );
 }
 
 /** Kandidatenlauf fuer einen Mandanten mit echten Abhaengigkeiten (Scheduler und Route). */

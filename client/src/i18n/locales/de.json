@@ -6506,7 +6506,8 @@
       "failed_to_load_product_meta_text_settings": "Einstellungen der Meta-Texte konnten nicht geladen werden",
       "failed_to_save_product_meta_text_settings": "Einstellungen der Meta-Texte konnten nicht gespeichert werden",
       "product_meta_text_run_already_in_progress": "Ein Lauf der Meta-Texte läuft bereits",
-      "failed_to_start_product_meta_text_run": "Lauf der Meta-Texte konnte nicht gestartet werden"
+      "failed_to_start_product_meta_text_run": "Lauf der Meta-Texte konnte nicht gestartet werden",
+      "failed_to_start_name_rule_run": "Regel-Lauf konnte nicht gestartet werden"
     }
   },
   "roomPlanner": {
@@ -7122,6 +7123,31 @@
       "approved": "freigegeben",
       "undo": "rückgängig",
       "dry_run": "Testlauf"
+    }
+  },
+  "crossSellNameRules": {
+    "title": "Feste Regeln aus den Artikelnamen",
+    "hint": "Setzt passende Produkte ohne KI und ohne Bestellstatistik in die Liste „Das passt dazu“: Anbauregal ↔ Grundregal (gleicher Name bis auf die Regalart) sowie Zusatz-Fachboden, Rück- und Seitenwand desselben Systems mit gleichen Maßen, Fachlast und Oberfläche. Abgelehnte Paare werden nicht erneut gesetzt; Regel-Paare schlägt die Monatsprüfung nicht wegen KI-Urteil oder Wirkung zum Entfernen vor.",
+    "dryRun": "Testlauf",
+    "apply": "Jetzt in den Shop schreiben",
+    "confirmApply": "Regel-Paare jetzt in den Shop schreiben? Der Lauf lässt sich im Protokoll rückgängig machen.",
+    "daily": "Täglich für neue Artikel ausführen",
+    "running": "Lauf läuft …",
+    "progress": "{{processed}} von {{total}} Artikeln abgeglichen …",
+    "done": "Regel-Lauf abgeschlossen",
+    "error": "Regel-Lauf fehlgeschlagen",
+    "lastRun": "Letzter Lauf",
+    "lastDryRun": "Letzter Testlauf",
+    "summary": "{{sources}} Artikel mit Regel-Paaren ({{pairs}} Paare), {{count}} neu in den Shop geschrieben.",
+    "summaryDry": "{{sources}} Artikel mit Regel-Paaren ({{pairs}} Paare), {{count}} würden neu in den Shop geschrieben.",
+    "kinds": "Partnerregal {{partner}} · Zusatzboden {{board}} · Rückwand {{back}} · Seitenwand {{side}}",
+    "skipped": "übersprungen: {{other}} schon in anderer Liste, {{cap}} Liste voll, {{rejected}} abgelehnt",
+    "examples": "Beispiele",
+    "kind": {
+      "partner_shelf": "Partnerregal",
+      "board": "Zusatzboden",
+      "back_wall": "Rückwand",
+      "side_wall": "Seitenwand"
     }
   },
   "crossSellMonthly": {
