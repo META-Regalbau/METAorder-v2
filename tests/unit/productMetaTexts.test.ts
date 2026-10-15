@@ -77,6 +77,12 @@ describe("validateGeneratedMeta", () => {
     expect(validateGeneratedMeta(withGarantie, { ...GOOD, metaDescription: desc2 })).toBeNull();
   });
 
+  it("nur META: Wettbewerber nur, wenn der Artikel sie selbst nennt", () => {
+    const desc = "META CLIP Anbauregal mit 5 Ebenen und 230 kg Fachlast – stabil wie bei Tegometall, verzinkt für Lager und Werkstatt.";
+    expect(validateGeneratedMeta(p, { ...GOOD, metaDescription: desc })).toBe("claim_competitor");
+    expect(metaReasonHint("claim_competitor")).toContain("nur META");
+  });
+
   it("Fachlast und Masse aus dem Namen haben Vorrang vor den Eigenschaften", () => {
     const shelf = product({
       productNumber: "4026212238204",

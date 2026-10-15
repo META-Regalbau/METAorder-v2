@@ -40,6 +40,9 @@ type Protocol = {
   faqQuestions: Array<{ id: string; question: string; answer: string }>;
   createdSections: string[];
   createdFaqGroups: string[];
+  /** Fragen eigener FAQ-Gruppen, die beim Aktualisieren ersetzt wurden (zum Wiederherstellen) */
+  replacedFaqQuestions?: any[];
+  createdFaqQuestions?: string[];
 };
 
 function arg(name: string): string | undefined {
@@ -81,6 +84,8 @@ async function main(): Promise<void> {
     for (const s of log.slots) await api("PATCH", `cms-slot/${s.id}`, { config: s.config });
     for (const q of log.faqQuestions) await api("PATCH", `hueb-seo-faq-questions/${q.id}`, { question: q.question, answer: q.answer });
     for (const id of log.createdSections) await api("DELETE", `cms-section/${id}`).catch((e) => console.log("Abschnitt", e.message));
+    for (const id of log.createdFaqQuestions ?? []) await api("DELETE", `hueb-seo-faq-questions/${id}`).catch((e) => console.log("FAQ-Frage", e.message));
+    for (const q of log.replacedFaqQuestions ?? []) await api("POST", "hueb-seo-faq-questions", q);
     for (const id of log.createdFaqGroups) await api("DELETE", `hueb-seo-faq-group/${id}`).catch((e) => console.log("FAQ-Gruppe", e.message));
     console.log(`Zurückgebaut: ${log.slots.length} Slots, ${log.faqQuestions.length} FAQ, ${log.createdSections.length} Abschnitte, ${log.createdFaqGroups.length} FAQ-Gruppen`);
     return;
@@ -119,7 +124,9 @@ async function main(): Promise<void> {
     return { total: Number(d.total ?? 0), ids: shelves.map((p: any) => String(p.id)) };
   };
 
-  const log: Protocol = { tenantId, at: new Date().toISOString(), slots: [], faqQuestions: [], createdSections: [], createdFaqGroups: [] };
+  const log: Protocol = { tenantId, at: new Date().toISOString(), slots: [], faqQuestions: [], createdSections: [], createdFaqGroups: [], replacedFaqQuestions: [], createdFaqQuestions: [] };
+  // FAQ eigener Gruppen neu: alte Fragen loeschen (im Protokoll gesichert), neue anlegen
+  const faqReplacements: Array<{ groupId: string; old: any[]; questions: Array<{ q: string; a: string }>; what: string }> = [];
   const slotUpdates: Array<{ id: string; config: any; what: string }> = [];
   const faqUpdates: Array<{ id: string; question: string; answer: string; old: { question: string; answer: string } }> = [];
   const sectionCreates: Array<{ section: any; faqGroup?: any; what: string }> = [];
@@ -175,10 +182,16 @@ async function main(): Promise<void> {
     }
 
     // 3. SEO-Abschnitt ersetzen (erster passender Block bekommt den Text, weitere werden geleert)
-    if (cfg.replaceSeoText && hasText) {
-      const matches = textSlots.filter((x: any) => cfg.replaceSeoText!.test(html(x.slot)) || html(x.slot).includes(SEO_MARKER));
-      if (matches.length === 0) console.log(`  ${cfg.key}: SEO-Abschnitt nicht gefunden`);
-      matches.forEach((x: any, i: number) => setHtml(x.slot, i === 0 ? seoHtml(row) : "", i === 0 ? "SEO-Text" : "alter Textblock geleert"));
+    if ((cfg.replaceSeoText || cfg.addSections) && hasText) {
+      const matches = textSlots.filter((x: any) => cfg.replaceSeoText?.test(html(x.slot)) || html(x.slot).includes(SEO_MARKER));
+      // bei Seiten mit eigenen Abschnitten gibt es den SEO-Block erst nach dem ersten Lauf
+      if (cfg.addSections && !cfg.replaceSeoText && matches.length === 0) {
+        /* wird unten mit den neuen Abschnitten angelegt */
+      } else
+      {
+        if (matches.length === 0) console.log(`  ${cfg.key}: SEO-Abschnitt nicht gefunden`);
+        matches.forEach((x: any, i: number) => setHtml(x.slot, i === 0 ? seoHtml(row) : "", i === 0 ? "SEO-Text" : "alter Textblock geleert"));
+      }
     }
 
     // 4. Textkorrekturen
@@ -211,7 +224,15 @@ async function main(): Promise<void> {
     if (cfg.addSections && hasText) {
       const marker = `metaorder-landing-${cfg.key}`;
       if (textSlots.some((x: any) => html(x.slot).includes(marker))) {
-        console.log(`  ${cfg.key}: neue Abschnitte sind schon da – übersprungen`);
+        // Abschnitte gibt es schon: SEO-Text wurde oben aktualisiert, hier die Fragen der eigenen FAQ-Gruppe
+        const faqSlot = sections.flatMap(slotsOf).find((x: any) => /hueb-faq/.test(x.type) && sections.some((sec: any) => slotsOf(sec).includes(x) && slotsOf(sec).some((y: any) => html(y).includes(SEO_MARKER))));
+        const groupId = faqSlot?.config?.group?.value;
+        const faq = JSON.parse(String(row["FAQ neu (JSON)"] ?? "[]")) as Array<{ q: string; a: string }>;
+        if (groupId) {
+          const old = (await api("POST", "search/hueb-seo-faq-questions", { limit: 50, filter: [{ type: "equals", field: "group", value: groupId }], sort: [{ field: "questionPosition", order: "ASC" }] })).data ?? [];
+          const same = old.length === faq.length && old.every((q: any, i: number) => (q.translated?.question ?? q.question) === faq[i].q && (q.translated?.answer ?? q.answer) === faq[i].a);
+          if (!same) faqReplacements.push({ groupId, old, questions: faq, what: `${cfg.key}: FAQ ersetzt (${old.length} → ${faq.length} Fragen)` });
+        }
       } else {
         const links: CategoryLink[] = [];
         const sliderIds: string[][] = [];
@@ -283,7 +304,8 @@ async function main(): Promise<void> {
   for (const u of slotUpdates) console.log(`${apply ? "SCHREIBE" : "würde schreiben"} Slot ${u.id.slice(0, 8)} – ${u.what}`);
   for (const f of faqUpdates) console.log(`${apply ? "SCHREIBE" : "würde schreiben"} FAQ „${f.old.question}“${f.question !== f.old.question ? ` → „${f.question}“` : ""}${f.answer !== f.old.answer ? " (neue Antwort)" : ""}`);
   for (const c of sectionCreates) console.log(`${apply ? "LEGE AN" : "würde anlegen"} Abschnitt – ${c.what}`);
-  if (!apply) return;
+  for (const r of faqReplacements) console.log(`${apply ? "SCHREIBE" : "würde schreiben"} ${r.what}`);
+  if (!apply || (slotUpdates.length + faqUpdates.length + sectionCreates.length + faqReplacements.length === 0)) return;
 
   log.faqQuestions = faqUpdates.map((f) => ({ id: f.id, ...f.old }));
   const file = `${xlsx}.protokoll-${tenantId.slice(0, 8)}-${Date.now()}.json`;
@@ -304,7 +326,20 @@ async function main(): Promise<void> {
     log.createdSections.push(c.section.id);
     writeFileSync(file, JSON.stringify(log, null, 1));
   }
-  console.log(`FERTIG: ${slotUpdates.length} Slots, ${faqUpdates.length} FAQ, ${sectionCreates.length} neue Abschnitte`);
+  for (const r of faqReplacements) {
+    log.replacedFaqQuestions!.push(
+      ...r.old.map((q: any) => ({ id: q.id, group: r.groupId, name: q.name ?? "ID", active: q.active ?? true, questionPosition: q.questionPosition, question: q.translated?.question ?? q.question, answer: q.translated?.answer ?? q.answer })),
+    );
+    writeFileSync(file, JSON.stringify(log, null, 1));
+    for (const q of r.old) await api("DELETE", `hueb-seo-faq-questions/${q.id}`);
+    for (const [i, x] of r.questions.entries()) {
+      const id = newId();
+      await api("POST", "hueb-seo-faq-questions", { id, group: r.groupId, name: "ID", active: true, questionPosition: i + 1, question: x.q, answer: x.a });
+      log.createdFaqQuestions!.push(id);
+      writeFileSync(file, JSON.stringify(log, null, 1));
+    }
+  }
+  console.log(`FERTIG: ${slotUpdates.length} Slots, ${faqUpdates.length} FAQ, ${sectionCreates.length} neue Abschnitte, ${faqReplacements.length} FAQ-Gruppen aktualisiert`);
 }
 
 main()

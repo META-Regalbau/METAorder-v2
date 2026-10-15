@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildCategoryFacts } from "../../server/products/categoryTexts";
-import { keyFigureText, keyFiguresFromProducts, replaceKeyFigure } from "../../server/products/landingPageTexts";
+import { keyFigureText, keyFiguresFromProducts, mainTypeProducts, replaceKeyFigure } from "../../server/products/landingPageTexts";
 
 const p = (name: string) => ({ name, properties: [] });
 
@@ -20,6 +20,12 @@ describe("Landingpages: Kennzahlen", () => {
       "800 mm bis 1.100 mm Tiefe",
       "bis 5.500 kg Feldlast",
     ]);
+  });
+
+  it("Texte nur aus dem Hauptregaltyp, Zeilenlaenge zaehlt nicht als Breite", () => {
+    expect(mainTypeProducts(products, { mainType: /^Palettenregal$/ }).map((x) => x.name.split(" | ")[1])).toEqual(["Palettenregal", "Palettenregal"]);
+    const atlas = [p("META ATLAS ST | Kragarmregal | 3 Felder | 2000 x 4050 x 500 mm | Armlast 200 kg | einseitig | 5+1 Ebenen"), p("META MULTISTRONG M | Kragarmregal | Grundregal | 2500 x 1300 x 800 mm | Armlast 535 kg | einseitig | 4+1 Ebenen")];
+    expect(keyFiguresFromProducts(atlas, { mainType: /^Kragarmregal$/, loadLabel: "Armlast" })[1]).toBe("1.300 mm Breite");
   });
 
   it("keepFigures uebernimmt den bisherigen Wert, fehlende Last bleibt leer", () => {
@@ -50,13 +56,13 @@ describe("Landingpages: Kennzahlen", () => {
     expect(replaceKeyFigure(digits, "400 mm bis 800 mm Tiefe")).toBe(digits);
   });
 
-  it("Fakten: kaputte Ebenen-Angaben und 0-mm-Merkmale fallen raus", () => {
+  it("Fakten: kaputte Ebenen-Angaben fallen raus, 0 mm heisst nicht verstellbar", () => {
     const facts = buildCategoryFacts({ id: "x", name: "Test", url: "/", breadcrumb: "Test" }, [
       { name: "META MULTIPAL | Palettenregal | Grundregal | 4400 x 2700 x 1100 mm | Fachlast 2800 kg| 3 Ebenen | verzinkt", properties: [] },
       { name: "META MULTIPAL | Palettenregal | Grundregal | 4400 x 2700 x 1100 mm | 4 Ebenen | verzinkt", properties: [{ group: "Verstellraster (Höhe)", option: "0 mm" }] },
       { name: "META MULTIPAL | Palettenregal | Grundregal | 4400 x 2700 x 1100 mm | 5 Ebenen | verzinkt", properties: [{ group: "Verstellraster (Höhe)", option: "100 mm" }] },
     ]);
     expect(facts.levels).toEqual(["4", "5"]);
-    expect(facts.features.find((f) => f.label === "Verstellraster (Höhe)")?.values).toEqual(["100 mm"]);
+    expect(facts.features.find((f) => f.label === "Verstellraster (Höhe)")?.values).toEqual(["nicht verstellbar", "100 mm"]);
   });
 });

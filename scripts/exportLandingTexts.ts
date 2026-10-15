@@ -16,9 +16,10 @@ import {
   factsTableHtml,
   generateCategoryText,
   llmCategoryTextGenerator,
+  llmCategoryTextReviewer,
   type CategoryProduct,
 } from "../server/products/categoryTexts";
-import { LANDING_PAGES, keyFigureText, keyFiguresFromProducts, needsGeneratedText } from "../server/products/landingPageTexts";
+import { LANDING_PAGES, keyFigureText, keyFiguresFromProducts, mainTypeProducts, needsGeneratedText } from "../server/products/landingPageTexts";
 
 const DE_CHANNEL_NAME = "META Regalbau DE";
 const DE_LANG = "2fbb5fe2e29a4d70aa5854ce7ce3e20b";
@@ -63,6 +64,7 @@ async function main(): Promise<void> {
     (await admin("search/hueb-seo-faq-questions", { limit: 50, filter: [{ type: "equals", field: "group", value: groupId }], sort: [{ field: "questionPosition", order: "ASC" }] })).data ?? [];
 
   const generate = llmCategoryTextGenerator((k) => storage.getSetting(k, llmTenant));
+  const review = llmCategoryTextReviewer((k) => storage.getSetting(k, llmTenant));
   const rows: any[] = [];
   for (const cfg of LANDING_PAGES) {
     if (only.size && !only.has(cfg.key)) continue;
@@ -97,16 +99,17 @@ async function main(): Promise<void> {
         if (els.length < 100) break;
       }
     }
-    const facts = buildCategoryFacts({ id: cfg.landingPageId, name: cfg.factsName, url: cfg.url, breadcrumb: cfg.factsName }, products);
+    // Texte beschreiben nur den Hauptregaltyp der Seite (Sonderregale und Altnamen verzerren die Spannen)
+    const facts = buildCategoryFacts({ id: cfg.landingPageId, name: cfg.factsName, url: cfg.url, breadcrumb: cfg.factsName }, mainTypeProducts(products, cfg));
     const figures = keyFiguresFromProducts(products, cfg, currentFigures);
     process.stdout.write(`${cfg.key} (${products.length} Regale) … `);
-    const { text, problem } = needsGeneratedText(cfg) ? await generateCategoryText(facts, generate) : { text: null, problem: "" };
+    const { text, problem } = needsGeneratedText(cfg) ? await generateCategoryText(facts, generate, review) : { text: null, problem: "" };
     const html = text ? buildCategoryHtml(facts, text) : null;
     console.log(problem ? `PRÜFHINWEIS: ${problem}` : "ok");
     rows.push({
       Landingpage: cfg.key,
       URL: cfg.url,
-      "Regale (Artikel)": products.length,
+      "Regale (Artikel)": `${facts.productCount} von ${products.length} (Hauptregaltyp)`,
       "Was wird geändert": cfg.plan,
       "Kennzahlen bisher": currentFigures.join("\n"),
       "Kennzahlen neu (aus Shopdaten)": figures.map((f, i) => (cfg.keepFigures?.includes(i) ? `${f} (bleibt)` : f)).join("\n"),
@@ -126,6 +129,7 @@ async function main(): Promise<void> {
       "Maßtabelle (aus Produktdaten)": factsTableHtml(facts),
       "Herstellerangaben belegt": facts.familyClaims ?? "",
       Prüfhinweis: problem,
+      Plausibilitätsprüfung: problem ? "offen – siehe Prüfhinweis" : needsGeneratedText(cfg) ? "geprüft: Zahlen gegen Produktdaten, Herstellerangaben, Wettbewerber, KI-Gegenlesen" : "",
       "Landingpage-ID": cfg.landingPageId,
     });
   }

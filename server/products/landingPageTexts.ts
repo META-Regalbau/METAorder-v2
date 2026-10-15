@@ -17,7 +17,7 @@ export type LandingPageConfig = {
   shelfCategories: RegExp;
   /** Kategorien, auf die die Seite verlinkt ("Direkt zu …") */
   linkCategories: RegExp;
-  /** Hauptregaltyp (2. Namensteil) fuer die Kennzahlen – Sonderregale verzerren sonst die Spannen */
+  /** Hauptregaltyp (2. Namensteil) fuer Kennzahlen und Texte – Sonderregale verzerren sonst die Spannen */
   mainType: RegExp;
   /** Welche Last im roten Band steht */
   loadLabel: "Fachlast" | "Feldlast" | "Armlast";
@@ -34,6 +34,14 @@ export type LandingPageConfig = {
   /** Was auf der Seite geaendert wird (fuer die Freigabe) */
   plan: string;
 };
+
+/** Produkte des Hauptregaltyps (nur Namen im neuen Schema): Grundlage fuer Fakten und Texte der Seite. */
+export function mainTypeProducts<T extends { name: string }>(products: T[], cfg: Pick<LandingPageConfig, "mainType">): T[] {
+  return products.filter((p) => {
+    const n = parseCatalogName(p.name);
+    return Boolean(n && cfg.mainType.test(n.type));
+  });
+}
 
 /** Braucht die Seite KI-Texte (Kopf, SEO-Text, FAQ)? Sonst nur Kennzahlen und Korrekturen. */
 export const needsGeneratedText = (cfg: LandingPageConfig) => Boolean(cfg.replaceHero || cfg.replaceSeoText || cfg.addSections);
@@ -79,7 +87,7 @@ export const LANDING_PAGES: LandingPageConfig[] = [
     url: "/kragarmregale/",
     shelfCategories: /^(MULTISTRONG Grundregale|MULTISTRONG Anbauregale|ATLAS ST Komplettregale)$/,
     linkCategories: /^(MULTISTRONG Grundregale|MULTISTRONG Anbauregale|ATLAS ST Komplettregale|Kragarmregal Zubehör)$/,
-    mainType: /^Kragarmregal$/,
+    mainType: /^(Kragarmregal|Langgutregal)$/,
     loadLabel: "Armlast",
     keepFigures: [1], // Achsmaß (1.030/1.330 mm) steht in den Eigenschaften, nicht im Namen
     addSections: true,
@@ -141,7 +149,9 @@ export function keyFiguresFromProducts(
     const n = parseCatalogName(p.name);
     if (!n || !cfg.mainType.test(n.type) || n.dims.length !== 3) continue;
     heights.push(n.dims[0]);
-    widths.push(n.dims[1]);
+    // mehrere Felder: zweites Mass ist die Zeilenlaenge, keine Regalbreite
+    const fields = n.segments.map((seg) => seg.match(/^(\d+)\s*Felder$/)).find(Boolean);
+    if (!fields || Number(fields[1]) <= 1) widths.push(n.dims[1]);
     depths.push(n.dims[2]);
     for (const seg of n.segments) {
       const m = seg.match(loadRe);

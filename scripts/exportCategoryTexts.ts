@@ -16,6 +16,7 @@ import {
   factsTableHtml,
   generateCategoryText,
   llmCategoryTextGenerator,
+  llmCategoryTextReviewer,
   type CategoryProduct,
 } from "../server/products/categoryTexts";
 
@@ -63,6 +64,7 @@ async function main(): Promise<void> {
 
   const rows: any[] = [];
   const generate = llmCategoryTextGenerator((k) => storage.getSetting(k, llmTenant));
+  const review = llmCategoryTextReviewer((k) => storage.getSetting(k, llmTenant));
   for (const c of cats.data) {
     if (only.size && !only.has(c.name)) continue;
     if (/^Alles zu/.test(c.name)) continue; // Landingpages haben eigenen Inhalt
@@ -93,7 +95,7 @@ async function main(): Promise<void> {
       continue;
     }
     process.stdout.write(`${c.name} (${products.length} Artikel) … `);
-    const { text, problem } = await generateCategoryText(facts, generate);
+    const { text, problem } = await generateCategoryText(facts, generate, review);
     const html = text ? buildCategoryHtml(facts, text) : null;
     console.log(problem ? `PRÜFHINWEIS: ${problem}` : "ok");
     rows.push({

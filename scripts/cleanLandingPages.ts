@@ -3,7 +3,8 @@
  * A  loescht Agentur-Platzhalter, die nur fuer den Kanal "Headless" freigegeben sind (Lorem ipsum,
  *    CLIP-Kopien auf fremden Seiten, "noch kein Video verfuegbar") und Kacheln in Rasterzellen, die es
  *    in der Raster-Konfiguration nicht gibt (werden nie angezeigt)
- * B  repariert sichtbare Reste (verwaiste Ueberschrift, geleerte Textbloecke, Kachel-Links, FAQ-Ueberschrift)
+ * B  repariert sichtbare Reste (verwaiste Ueberschrift, geleerte Textbloecke, Kachel-Links, FAQ-Ueberschrift) und
+ *    unplausible Altinhalte (Zubehoer, das es nicht gibt; Verweis auf fehlende Tabellen; CLIP-Hinweise auf fremden Seiten)
  * C  blendet echten Inhalt ein (Kragarm: Montagevideo, Planmasse/Sicherheit;
  *    Weitspann: Planmasse/Sicherheit) und ordnet die Abschnitte: Links + Topseller nach oben,
  *    SEO-Text/FAQ/Beratung ans Ende
@@ -35,6 +36,10 @@ type Rules = {
   tileUrlStrip?: RegExp;
   /** Textblock, dessen ganzer Text passt, bekommt neues HTML */
   replaceText?: Array<{ match: RegExp; html: string }>;
+  /** Plausibilitaet (User 15.10.2026): Ersetzungen im HTML sichtbarer Textbloecke */
+  htmlReplace?: Array<{ find: RegExp; replace: string; note: string }>;
+  /** Plausibilitaet: sichtbare Textbloecke loeschen, deren ganzer Text passt */
+  deleteBlockText?: Array<{ match: RegExp; note: string }>;
   /** Abschnitte neu ordnen (Links + Topseller nach den Kacheln, SEO-Text/FAQ ans Ende) */
   reorder?: boolean;
 };
@@ -43,6 +48,7 @@ const RULES: Record<string, Rules> = {
   fachboden: {
     tileUrlStrip: /(order=name-asc&|p=1&)/g,
     replaceText: [{ match: /^FAQ$/, html: `<h2 class="fs-4 fw-bold mt-2 mb-0">Häufige Fragen</h2>` }],
+    htmlReplace: [{ find: /Rückwandgitter/g, replace: "Rückwände", note: "kein Rückwandgitter im Sortiment, nur Rückwände" }],
   },
   paletten: {
     deleteHidden: [/Lorem ipsum/, /Längsriegeln/, /Diagonalverstrebung/, /Standard-Rahmenhöhe/, /Rahmeninnenmaß/],
@@ -52,17 +58,21 @@ const RULES: Record<string, Rules> = {
     deleteHidden: [/Lorem ipsum/],
     // Systemvergleich LIGHT/MEDIUM bleibt aus: weisse Schrift auf hellgrau, ATLAS/MULTISTRONG doppelt (Agentur)
     unhide: [/Montage META MULTISTRONG/, /Kragarmregale – Planmaße/, /Höhen-\/Tiefenverhältnis/],
+    deleteBlockText: [{ match: /^Reifenregale und Regale mit Schubladen müssen immer mittels Fußverankerung gegen Kippen gesichert werden!$/, note: "CLIP-Hinweis, solche Regale gibt es hier nicht" }],
     reorder: true,
   },
   weitspann: {
     deleteHidden: [/Lorem ipsum/, /noch kein Video/, /^Grundregale Anbauregale Einzeilige Regale Doppelzeilige Regale$/],
     // "Einseitig oder beidseitig bedienen" bleibt aus: Abschnitt "grey-l" zeigt den Absatz weiss auf hellgrau
     unhide: [/SPEED-RACK und MINI-RACK – Planmaße/, /Höhen-\/Tiefenverhältnis/],
+    deleteBlockText: [{ match: /^Reifenregale und Regale mit Schubladen müssen immer mittels Fußverankerung gegen Kippen gesichert werden!$/, note: "CLIP-Hinweis, solche Regale gibt es hier nicht" }],
     reorder: true,
   },
   buero: {
     deleteHidden: [/COMPACT verzinkt Fest verschweißte/],
     tileLinks: { Grundregale: "/compact-grundregale", Anbauregale: "/compact-anbauregale" },
+    htmlReplace: [{ find: /<li>Feldlast: siehe Tabellen<\/li>/g, replace: "", note: "„siehe Tabellen“ – auf der Seite gibt es keine Tabellen" }],
+    deleteBlockText: [{ match: /^Reifenregale und Regale mit Schubladen müssen immer mittels Fußverankerung gegen Kippen gesichert werden!$/, note: "CLIP-Hinweis, solche Regale gibt es hier nicht" }],
   },
 };
 
@@ -200,6 +210,30 @@ async function main(): Promise<void> {
           }
         }
       });
+    }
+
+    // B (Plausibilitaet): HTML-Ersetzungen und unpassende Textbloecke – sichtbar oder gleich eingeblendet
+    const willShow = (sec: any) => !isHeadlessOnly(sec) || rules.unhide?.some((re) => re.test(sectionText(sec)));
+    for (const sec of sections.filter((x: any) => !deleted.has(x.id) && willShow(x))) {
+      for (const b of blocksOf(sec)) {
+        const slot = b.slots?.length === 1 && b.slots[0].type === "text" ? b.slots[0] : null;
+        if (!slot) continue;
+        const raw = String(slot.config?.content?.value ?? "");
+        const del = rules.deleteBlockText?.find((r) => r.match.test(plain(raw)));
+        if (del) {
+          log.deletedBlocks.push({ ...blockData(b), sectionId: sec.id });
+          ops.push({ what: `${cfg.key}: Block löschen (${del.note}): „${plain(raw).slice(0, 50)}“`, run: () => api("DELETE", `cms-block/${b.id}`) });
+          continue;
+        }
+        let next = raw;
+        const notes: string[] = [];
+        for (const r of rules.htmlReplace ?? []) {
+          const replaced = next.replace(r.find, r.replace);
+          if (replaced !== next) notes.push(r.note);
+          next = replaced;
+        }
+        if (next !== raw && !log.slots.some((x) => x.id === slot.id)) setSlotConfig(slot, { ...slot.config, content: { ...slot.config.content, value: next } }, `Text korrigiert (${notes.join("; ")})`);
+      }
     }
 
     // C: einblenden
