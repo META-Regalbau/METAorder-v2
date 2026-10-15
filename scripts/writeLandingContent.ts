@@ -169,8 +169,9 @@ async function main(): Promise<void> {
     slotsOf(sections[1])
       .filter((s: any) => s.type === "text")
       .forEach((slot: any, i: number) => {
-        const f = (figures[i] ?? "").trim();
+        let f = (figures[i] ?? "").trim();
         if (!f || f.endsWith("(bleibt)")) return;
+        f = f.replace(/\s*\(Katalog\)$/, "");
         const next = replaceKeyFigure(html(slot), f);
         if (next !== html(slot)) setHtml(slot, next, `Kennzahl ${i + 1} → ${f}`);
       });
@@ -208,7 +209,7 @@ async function main(): Promise<void> {
       const groupId = faqSlot?.config?.group?.value;
       const questions = groupId ? (await api("POST", "search/hueb-seo-faq-questions", { limit: 50, filter: [{ type: "equals", field: "group", value: groupId }] })).data ?? [] : [];
       for (const fix of cfg.faqFixes) {
-        const q = questions.find((x: any) => fix.question.test(String(x.translated?.question ?? x.question ?? "").trim()));
+        const q = questions.find((x: any) => fix.question.test(String(x.translated?.question ?? x.question ?? "").replace(/\s+/g, " ").trim()));
         if (!q) {
           console.log(`  ${cfg.key}: FAQ „${fix.question.source}“ nicht gefunden (schon korrigiert?)`);
           continue;

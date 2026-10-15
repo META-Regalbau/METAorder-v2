@@ -8,8 +8,9 @@ import { z } from "zod";
 import { chatCompletion, parseLlmJsonResponse } from "../ai/llmChat";
 import { CLAIM_RULES, digitForms, expandAbbreviations } from "./productMetaTexts";
 import { parseCatalogName } from "../cross-selling/crossSellNameRules";
+import { catalogFactsFor, ignoredShopFeaturesFor } from "./catalogFacts";
 
-export const CATEGORY_PROMPT_VERSION = "cat-v5";
+export const CATEGORY_PROMPT_VERSION = "cat-v6";
 
 export type CategoryProduct = { name: string; properties: Array<{ group: string; option: string }> };
 
@@ -34,12 +35,18 @@ export type CategoryFacts = {
   topProducts: string[];
   /** Belegte Herstellerangaben der Familie (aus den heutigen Texten) */
   familyClaims: string | null;
+  /** Belegte Systemaussagen aus dem META-Bestellkatalog (catalogFacts.ts), mit Seitenzahl */
+  catalogFacts: Array<{ text: string; page: number; system: string }>;
 };
 
+// Katalog S. 14: Produktion in Deutschland nur CLIP, FIX, MINI-RACK, SPEED-RACK, MULTIPAL; Garantie auf einen
+// Grossteil der Fachboden-, Weitspann-, Paletten- und Kragarmregale; ISO 9001 ist ein Unternehmenszertifikat.
 const FAMILY_CLAIMS: Array<[RegExp, string]> = [
-  [/\bCLIP\b|^CL\s/i, "META CLIP ist „Made in Germany“, mit 5 Jahren META-Qualitätsgarantie und Ersatzteilservice; Zertifizierungen u. a. GS, DIN EN ISO 9001:2015, RAL-Gütesicherung."],
-  [/MULTIPAL|^MP\s/i, "META MULTIPAL Palettenregale sind gütegesichert nach RAL-RG 614/2, tragen das GS-Zeichen und sind DIBt-zugelassen; statische Nachweise nach DIN EN 15512."],
+  [/\bCLIP\b|^CL\s/i, "META CLIP wird am Unternehmensstandort Deutschland produziert („Made in Germany“). META gibt eine 5-jährige Qualitätsgarantie auf einen Großteil der stationären Fachbodenregale (Ausnahmen in den Garantiebedingungen) und bietet Ersatzteilservice. META CLIP trägt das GS-Zeichen (Schranktüren und Schubladen ausgenommen), ist RAL-gütegesichert (RAL-RG 614/1) und hat eine DIBt-Teilzulassung; META ist nach DIN EN ISO 9001:2015 zertifiziert."],
+  [/MULTIPAL|^MP\s/i, "META MULTIPAL Palettenregale sind gütegesichert nach RAL-RG 614/2, tragen das GS-Zeichen und sind DIBt-zugelassen; statische Nachweise nach DIN EN 15512. META MULTIPAL wird am Unternehmensstandort Deutschland produziert („Made in Germany“); 5-jährige Qualitätsgarantie auf einen Großteil der stationären Palettenregale."],
+  [/MINI-?RACK|SPEED-?RACK/i, "META MINI-RACK und META SPEED-RACK werden am Unternehmensstandort Deutschland produziert („Made in Germany“); 5-jährige Qualitätsgarantie auf einen Großteil der stationären Weitspannregale."],
   [/ATLAS/i, "META ATLAS ST ist durch GS-Zertifikat und RAL-Gütezeichen bestätigt, mit 5 Jahren Herstellergarantie."],
+  [/MULTISTRONG/i, "META MULTISTRONG LIGHT und MEDIUM sind gütegesichert nach RAL-RG 614/5; 5-jährige Qualitätsgarantie auf einen Großteil der stationären Kragarmregale."],
 ];
 
 const uniqSorted = (values: number[]) => [...new Set(values.filter((v) => Number.isFinite(v) && v > 0))].sort((a, b) => a - b);
@@ -109,11 +116,14 @@ export function buildCategoryFacts(
     [/^Verstellraster \(Höhe\)$/i, "Verstellraster (Höhe)"],
     [/^Ständertyp$|^Rahmentyp/i, "Rahmen-/Ständertyp"],
     // Eigenschaft sagt nur, ob Rahmen/Staender vormontiert sind – nicht das ganze Regal
-    [/^Rahmen vormontiert\?$|^Ständer vormontiert\?$/i, "Rahmen/Ständer vormontiert"],
+    [/^Rahmen vormontiert\?$/i, "Rahmen vormontiert"],
+    [/^Ständer vormontiert\?$/i, "Ständer vormontiert"],
     [/^Fahrbar\?$/i, "fahrbar"],
   ];
   const features: Array<{ label: string; values: string[] }> = [];
-  for (const [re, label] of featureGroups) {
+  // Wo der Katalog den Aufbau beschreibt, gilt die Shop-Eigenschaft nicht (z. B. "Schraubregal" bei MULTIPAL)
+  const ignored = ignoredShopFeaturesFor(meta.name);
+  for (const [re, label] of featureGroups.filter(([, l]) => !ignored.has(l))) {
     // "0 mm" (z. B. Verstellraster bei festen Kragarmen) ist kein Merkmal, sondern "nicht vorhanden"
     const values = uniq(products.flatMap((p) => p.properties.filter((x) => re.test(x.group)).map((x) => featureValue(x.option))));
     if (values.length > 0 && values.length <= 6) features.push({ label, values });
@@ -141,7 +151,7 @@ export function buildCategoryFacts(
       const load = seg.match(/^(Fachlast|Feldlast|Armlast)\s+(\d[\d.,]*)\s*kg$/i);
       if (load) addSys(sys, `${load[1]} (kg)`, load[2].replace(/\./g, ""));
     }
-    for (const [re, label] of featureGroups) {
+    for (const [re, label] of featureGroups.filter(([, l]) => !ignored.has(l))) {
       for (const x of p.properties.filter((o) => re.test(o.group))) addSys(sys, label, featureValue(x.option));
     }
   }
@@ -187,6 +197,7 @@ export function buildCategoryFacts(
     systemFeatures,
     topProducts: products.slice(0, 8).map((p) => p.name),
     familyClaims: family ? family[1] : null,
+    catalogFacts: catalogFactsFor(meta.name),
   };
 }
 
@@ -209,7 +220,7 @@ export function factsTableHtml(f: CategoryFacts): string {
   for (const l of f.loads) rows.push([l.label, range(l.values, "kg")]);
   if (f.levels.length) rows.push(["Ebenen", f.levels.length <= 8 ? f.levels.join(", ") : `${f.levels[0]} bis ${f.levels[f.levels.length - 1]}`]);
   if (f.surfaces.length) rows.push(["Oberflächen", f.surfaces.join(", ")]);
-  for (const feat of f.features) if (!/^(Rahmen\/Ständer vormontiert|fahrbar)$/.test(feat.label)) rows.push([feat.label, feat.values.join(", ")]);
+  for (const feat of f.features) if (!/^(Rahmen vormontiert|Ständer vormontiert|fahrbar)$/.test(feat.label)) rows.push([feat.label, feat.values.join(", ")]);
   if (rows.length < 2) return "";
   return `<table><tbody>${rows.map(([k, v]) => `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(v)}</td></tr>`).join("")}</tbody></table>`;
 }
@@ -230,6 +241,9 @@ export function factsText(f: CategoryFacts): string {
     ...(f.systemFeatures ?? []).map((x) => `Je System – ${x.system}: ${x.values.join("; ")}`),
     `Beispielartikel: ${f.topProducts.join(" ; ")}`,
     f.familyClaims ? `Belegte Herstellerangaben: ${f.familyClaims}` : "Belegte Herstellerangaben: keine",
+    ...((f.catalogFacts ?? []).length
+      ? ["Belegte Katalogangaben (META-Bestellkatalog, beschreiben das System – das Shop-Sortiment kann kleiner sein):", ...f.catalogFacts.map((c) => `- ${c.system}: ${c.text}`)]
+      : []),
   ];
   return lines.filter(Boolean).join("\n");
 }
@@ -246,11 +260,15 @@ export type GeneratedCategoryText = {
 
 /** Fachregeln fuer Schreiber und Pruefer (Plausibilitaet, User 15.10.2026). */
 const DOMAIN_RULES = `- Ein Anbauregal braucht ein Grundregal und nutzt dessen Rahmen mit; ein Grundregal steht für sich.
-- Bei Kragarmregalen heißen die Rahmen „Ständer“ (an ihnen hängen die Kragarme). Ein Kragarm-Grundregal hat zwei Ständer, ein Anbauregal nutzt EINEN Ständer des Nachbarregals mit und spart damit genau einen Ständer (kein Ständerpaar).
+- Bei Fachboden-, Paletten- und Weitspannregalen heißen die Rahmen „Seitenrahmen“ bzw. „Ständerrahmen“ – beides ist richtig. Bei Kragarmregalen heißen sie „Ständer“ (an ihnen hängen die Kragarme). Ein Kragarm-Grundregal hat zwei Ständer, ein Anbauregal nutzt EINEN Ständer des Nachbarregals mit und spart damit genau einen Ständer (kein Ständerpaar).
 - Doppelregal: bei Fachboden-, Paletten- und Weitspannregalen zwei Regalzeilen Rücken an Rücken; bei Kragarmregalen heißt doppelseitig, dass die Kragarme an beiden Seiten derselben Ständer sitzen. Das Wort „doppeltief“ nicht verwenden.
 - Fachboden- und Büroregale sind für Kleinteile, Kartons, Behälter, Ordner – nicht für Paletten oder palettierte Ware.
 - Ein Doppelregal ist beidseitig nutzbar; „einseitig oder beidseitig“ nicht auf Doppelregale beziehen.
-- „Rahmen/Ständer vormontiert: ja“ heißt nur, dass Rahmen bzw. Ständer vormontiert sind – nicht das ganze Regal.
+- „Rahmen vormontiert: ja“ bzw. „Ständer vormontiert: ja“ heißt nur, dass die Rahmen bzw. Ständer vormontiert sind – nicht das ganze Regal.
+- „Belegte Katalogangaben“ dürfen genutzt werden (Aufbau, Sicherheit, Systemwerte). Systemwerte aus dem Katalog als Möglichkeit des Systems kennzeichnen („im System bis …“, „auf Anfrage“), Sortimentswerte aus den Kategoriedaten. Keine Katalog- oder Seitenverweise im Text.
+- Sicherheitshinweise nicht miteinander verknüpfen: „nur für Handbedienung“ gilt immer, nicht nur bei Verankerung.
+- Die Shop-„Breite“ bei Kragarmregalen ist die Feldbreite (1.000/1.300 mm), das Katalog-„Achsmaß“ (1.030/1.330/1.350 mm) ist ein anderes Maß – nicht gleichsetzen.
+- Sicherheitshinweise aus dem Katalog genau wiedergeben (z. B. „über 4 : 1“, „nur für Handbedienung“), nicht abschwächen.
 - Alle Angaben beschreiben das Sortiment im Shop, nicht die grundsätzlichen Möglichkeiten eines Systems (nicht „reines Anbauregal-System“, sondern „im Shop als … erhältlich“).
 - Regalarten, Maße, Lasten und Aufbauart, die unter „Je System“ stehen, gelten nur für dieses System. Gibt es eine Regalart (z. B. Grund-/Anbauregal) nur bei einem System, nicht für alle behaupten.
 - Keine Aussagen über die Darstellung im Shop (Kennzeichnung, Filter, Produktübersicht, Konfigurator).
@@ -333,7 +351,7 @@ export function validateCategoryText(f: CategoryFacts, g: GeneratedCategoryText)
     const runs = token.match(/\d+/g) ?? [];
     if (!allowed.has(whole) && !runs.every((r) => allowed.has(r))) return `die Zahl ${token} steht nicht in den Kategoriedaten – weglassen`;
   }
-  const claims = f.familyClaims ?? "";
+  const claims = `${f.familyClaims ?? ""} ${(f.catalogFacts ?? []).map((c) => c.text).join(" ")}`;
   for (const m of plain.match(new RegExp(COMPANY_CLAIMS.source, "gi")) ?? []) {
     const term = m.trim().replace(/[- ]+$/, "").toLowerCase();
     if (!claims.toLowerCase().includes(term)) return `Herstellerangabe „${m}“ ist für diese Kategorie nicht belegt – weglassen`;

@@ -26,9 +26,14 @@ const good: GeneratedCategoryText = {
 
 describe("Kategorietexte", () => {
   it("Fakten aus Namen und Eigenschaften", () => {
-    expect(facts).toMatchObject({ heights: [2000, 2500], widths: [1000, 1300], depths: [500, 800], levels: ["4+1", "5+1"], familyClaims: null });
+    expect(facts).toMatchObject({ heights: [2000, 2500], widths: [1000, 1300], depths: [500, 800], levels: ["4+1", "5+1"] });
+    // Katalog S. 14: RAL-RG 614/5 fuer MULTISTRONG LIGHT/MEDIUM – aber nicht „Made in Germany“
+    expect(facts.familyClaims).toContain("RAL-RG 614/5");
+    expect(facts.familyClaims).not.toMatch(/Made in Germany/);
     expect(facts.loads).toEqual([{ label: "Armlast", values: [175, 250] }]);
-    expect(facts.features.find((f) => f.label === "Aufbauart")?.values).toEqual(["Schraubregal"]);
+    // Katalog: MULTISTRONG-Kragarme sind eingesteckt – die Shop-Eigenschaft "Schraubregal" gilt nicht als Fakt
+    expect(facts.features.find((f) => f.label === "Aufbauart")).toBeUndefined();
+    expect(buildCategoryFacts({ id: "w", name: "MINI-RACK Grundregale", url: "", breadcrumb: "" }, [{ name: "x", properties: [{ group: "Aufbauart", option: "Schraubregal" }] }]).features.find((f) => f.label === "Aufbauart")?.values).toEqual(["Schraubregal"]);
   });
 
   it("Herstellerangaben nur bei Familien-Kategorie mit überwiegend Familienartikeln", () => {
@@ -53,7 +58,7 @@ describe("Kategorietexte", () => {
 
   it("akzeptiert belegte Texte, verwirft erfundene Zahlen und unbelegte Herstellerangaben", () => {
     expect(validateCategoryText(facts, good)).toBeNull();
-    expect(validateCategoryText(facts, { ...good, faq: [...good.faq.slice(0, 3), { q: "Wie hoch?", a: "Bis 3000 mm." }] })).toContain("3000");
+    expect(validateCategoryText(facts, { ...good, faq: [...good.faq.slice(0, 3), { q: "Wie hoch?", a: "Bis 3700 mm." }] })).toContain("3700");
     expect(validateCategoryText(facts, { ...good, intro: `${good.intro} Made in Germany.` })).toContain("nicht belegt");
   });
 

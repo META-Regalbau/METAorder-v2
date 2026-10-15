@@ -47,12 +47,33 @@ type Rules = {
 const RULES: Record<string, Rules> = {
   fachboden: {
     tileUrlStrip: /(order=name-asc&|p=1&)/g,
-    replaceText: [{ match: /^FAQ$/, html: `<h2 class="fs-4 fw-bold mt-2 mb-0">Häufige Fragen</h2>` }],
-    htmlReplace: [{ find: /Rückwandgitter/g, replace: "Rückwände", note: "kein Rückwandgitter im Sortiment, nur Rückwände" }],
+    htmlReplace: [
+      { find: /Rückwandgitter/g, replace: "Rückwände", note: "kein Rückwandgitter im Sortiment, nur Rückwände" },
+      {
+        find: /Das <font color="#ff0002"><b>CLIP-Fachbodenregal<\/b><\/font>-System zeichnet sich durch seine besondere Flexibilität aus\. Alle Regale mit gleicher Fachtiefe sind kombinierbar und durch Zubehör wie Schüttgutmulden, Rückwände, Seitenwände,/,
+        replace: 'Das <font color="#ff0002"><b>META CLIP</b></font> Fachbodenregalsystem besteht aus nur zwei Systembausteinen – Rahmen und Fachböden – und wird ohne Werkzeug gesteckt. Mit Zubehör wie Schüttgutmulden, Rückwänden, Seitenwänden,',
+        note: "Kopf: „alle Regale kombinierbar“ unbelegt, Katalog S. 19",
+      },
+      { find: /mit ihren Anforderungen/g, replace: "mit Ihren Anforderungen", note: "Tippfehler" },
+    ],
+    replaceText: [
+      { match: /^FAQ$/, html: `<h2 class="fs-4 fw-bold mt-2 mb-0">Häufige Fragen</h2>` },
+      {
+        match: /^Informationen Regale mit dem Höhen-\/Tiefenverhältnis/,
+        html: `<h3>Informationen</h3><ul><li>Regale mit einem Höhen-/Tiefenverhältnis über 4 : 1 mit Wand- oder Fußverankerung gegen Kippen sichern.</li><li>Fach-/Feldlasten gelten bei gleichmäßig verteilter Last.</li><li>Feldlastangaben gelten für Regalzeilen mit 3 und mehr Feldern.</li><li>Reifenregale und Regale mit Schubladen müssen immer mittels Fußverankerung gegen Kippen gesichert werden.</li><li>Nur für Handbedienung. Die Regale sind für eine reine Innenaufstellung konzipiert.</li></ul>`,
+      },
+    ],
   },
   paletten: {
     deleteHidden: [/Lorem ipsum/, /Längsriegeln/, /Diagonalverstrebung/, /Standard-Rahmenhöhe/, /Rahmeninnenmaß/],
     deleteVisibleExact: [/^Einseitig oder beidseitig bedienen$/],
+    replaceText: [
+      {
+        // bisher CLIP-Regeln (3 Felder, 4 : 1); MULTIPAL laut Katalog S. 125/135
+        match: /^Informationen Regale mit dem Höhen-\/Tiefenverhältnis/,
+        html: `<h3>Informationen</h3><ul><li>Die Fach- und Feldlasten gelten bei gleichmäßig verteilter Last für Regalzeilen mit mindestens 4 Regalfeldern und mindestens 2 Holmpaaren; bei weniger als 4 Feldern werden die Belastungswerte abgemindert.</li><li>Palettenregale werden auf Beton der Mindestgüte C20/25 (ca. 200 mm stark) aufgestellt und zur Lage- und Kippsicherung mit Ankern fixiert.</li><li>Äußere Ständer im Eckbereich und an Durchfahrten sind mit Rammschutzecken gegen Anprall zu schützen.</li><li>Nicht zur Be- und Entladung vorgesehene Seiten müssen gegen Herabfallen von Lagergut gesichert sein.</li><li>Lastangaben dienen der Orientierung und ersetzen keine statische Auslegung im Einzelfall. Die Regale sind für eine reine Innenaufstellung konzipiert.</li></ul>`,
+      },
+    ],
   },
   kragarm: {
     deleteHidden: [/Lorem ipsum/],
@@ -60,6 +81,18 @@ const RULES: Record<string, Rules> = {
     unhide: [/Montage META MULTISTRONG/, /Kragarmregale – Planmaße/, /Höhen-\/Tiefenverhältnis/],
     deleteBlockText: [{ match: /^Reifenregale und Regale mit Schubladen müssen immer mittels Fußverankerung gegen Kippen gesichert werden!$/, note: "CLIP-Hinweis, solche Regale gibt es hier nicht" }],
     reorder: true,
+    htmlReplace: [{ find: /ideal zur (<b>)?liegenden Lagerung(<\/b>)? schwerer und langer Ware/g, replace: "für <b>liegende Langgutlagerung</b> sowie Tafel- und Plattenware", note: "Video-Text: ATLAS-Formulierung bei MULTISTRONG, Katalog S. 162" }],
+    replaceText: [
+      {
+        // Kopf: „perfekte“, „für schweres Material“ (LIGHT/MEDIUM = leicht/mittel), Handbedienung ist eine Einschränkung
+        match: /^META ATLAS ST und MULTISTRONG Kragarmregale Der perfekte Lagerplatz/,
+        html: `<h1>META ATLAS ST und MULTISTRONG Kragarmregale</h1>\n<p>Für die liegende Lagerung von Langgut wie Rohren, Stangen und Profilen sowie von Tafel- und Plattenware. <b><font color="#ff0002">META MULTISTRONG</font></b> gibt es als LIGHT für leichte und als MEDIUM für mittlere Belastungen, mit eingesteckten, im 100-mm-Raster verstellbaren Kragarmen. <b><font color="#ff0002">META ATLAS ST</font></b> mit geschweißten Kragarmständern ist für leichte Belastungen ausgelegt.</p>`,
+      },
+      {
+        match: /^Regale mit dem Höhen-\/Tiefenverhältnis ≥ 4 : 1 gegen Kippen sichern\. Kragarmbelastung/,
+        html: `<ul><li>Wenn das Höhen-/Tiefenverhältnis über 4 : 1 liegt oder die betrieblichen Bedingungen es erfordern, sind Fußverankerungen zu verwenden.</li><li>Kragarmbelastung gilt bei gleichmäßig verteilter Last; die Fußlagerebene ist wie ein Kragarm belastbar.</li><li>Nur für Handbedienung. Die Regale sind für eine reine Innenaufstellung konzipiert.</li></ul>`,
+      },
+    ],
   },
   weitspann: {
     deleteHidden: [/Lorem ipsum/, /noch kein Video/, /^Grundregale Anbauregale Einzeilige Regale Doppelzeilige Regale$/],
@@ -67,12 +100,42 @@ const RULES: Record<string, Rules> = {
     unhide: [/SPEED-RACK und MINI-RACK – Planmaße/, /Höhen-\/Tiefenverhältnis/],
     deleteBlockText: [{ match: /^Reifenregale und Regale mit Schubladen müssen immer mittels Fußverankerung gegen Kippen gesichert werden!$/, note: "CLIP-Hinweis, solche Regale gibt es hier nicht" }],
     reorder: true,
+    htmlReplace: [{ find: /an ihre Lageranforderungen/g, replace: "an Ihre Lageranforderungen", note: "Tippfehler" }],
+    replaceText: [
+      {
+        match: /^Regale mit dem Höhen-\/Tiefenverhältnis ≥ 4 : 1 gegen Kippen sichern Fach-\/Feldlasten/,
+        html: `<ul><li>Regale mit einem Höhen-/Tiefenverhältnis über 4 : 1 gegen Kippen sichern; beim META MINI-RACK werden pro Rahmen 2 Bodenanker benötigt.</li><li>Fach-/Feldlasten gelten bei gleichmäßig verteilter Last, beim META MINI-RACK ab Regalzeilen mit 4 und mehr Feldern.</li><li>Nur für Handbedienung. Die Regale sind für eine reine Innenaufstellung konzipiert.</li></ul>`,
+      },
+    ],
   },
   buero: {
     deleteHidden: [/COMPACT verzinkt Fest verschweißte/],
     tileLinks: { Grundregale: "/compact-grundregale", Anbauregale: "/compact-anbauregale" },
-    htmlReplace: [{ find: /<li>Feldlast: siehe Tabellen<\/li>/g, replace: "", note: "„siehe Tabellen“ – auf der Seite gibt es keine Tabellen" }],
+    htmlReplace: [
+      { find: /<li>Feldlast: siehe Tabellen<\/li>/g, replace: "", note: "„siehe Tabellen“ – auf der Seite gibt es keine Tabellen" },
+      { find: />Einzeilige Regale</g, replace: ">Einseitige Regale<", note: "COMPACT kennt ein-/doppelseitig, nicht ein-/doppelzeilig (Katalog S. 101)" },
+      { find: />Doppelzeilige Regale</g, replace: ">Doppelseitige Regale<", note: "COMPACT kennt ein-/doppelseitig, nicht ein-/doppelzeilig (Katalog S. 101)" },
+    ],
     deleteBlockText: [{ match: /^Reifenregale und Regale mit Schubladen müssen immer mittels Fußverankerung gegen Kippen gesichert werden!$/, note: "CLIP-Hinweis, solche Regale gibt es hier nicht" }],
+    replaceText: [
+      {
+        match: /^META COMPACT Büroregale Das META COMPACT Regal ist das ideale Aktenregal/,
+        html: `<h1>META COMPACT Büroregale</h1>\n<p>Das <font color="#ff0002"><b>META COMPACT</b></font> Büro-Steckregal für Büro, Meisterbüro und Archiv wird ohne Werkzeug gesteckt. Je nach Höhe und Länge fasst ein Regal mit 300 mm Tiefe 45 bis 105 Ordner – doppelseitig mit 600 mm Tiefe doppelt so viele.</p>`,
+      },
+      {
+        // von CLIP kopiert („durchlagern … Langgut“, Spannschlösser) – COMPACT laut Katalog S. 100/101
+        match: /^Regale mit Längsriegeln/,
+        html: `<h2>Regale mit Längsriegeln – doppelseitig bedienbar</h2><ul><li>doppelseitige Regale werden durch Längsriegel ausgesteift</li><li>Fachböden mit End- und Mittelanschlag, im 25-mm-Raster höhenverstellbar</li><li>Steckmontage ohne Werkzeug</li></ul>`,
+      },
+      {
+        match: /^Regale mit Diagonalverstrebung/,
+        html: `<h2>Regale mit Diagonalverstrebung – einseitig bedienbar</h2><ul><li>einseitige Regale werden durch Diagonalstreben an der Rückseite ausgesteift</li><li>zur Aufstellung an Wänden – das einseitige Regal muss gegen Kippen gesichert werden</li><li>Fachböden im 25-mm-Raster höhenverstellbar</li></ul>`,
+      },
+      {
+        match: /^Regale mit dem Höhen-\/Tiefenverhältnis ≥ 4 : 1 gegen Kippen sichern Fach-\/Feldlasten gelten bei gleichmäßig verteilter Last\. Feldlastangaben/,
+        html: `<ul><li>Das einseitige Regal muss gegen Kippen gesichert werden, da die Regalhöhe mehr als das 4-Fache der Regaltiefe beträgt – zum Beispiel mit Wandbefestigung oder Fußverdübelung.</li><li>Fach-/Feldlasten gelten bei gleichmäßig verteilter Last und mindestens 3 Feldern.</li><li>Nur für Handbedienung. Die Regale sind für eine reine Innenaufstellung konzipiert.</li></ul>`,
+      },
+    ],
   },
 };
 
@@ -206,7 +269,7 @@ async function main(): Promise<void> {
           if (slot.type === "text") {
             const t = plain(String(slot.config?.content?.value ?? ""));
             const r = rules.replaceText?.find((x) => x.match.test(t));
-            if (r) setSlotConfig(slot, { ...slot.config, content: { source: "static", value: r.html } }, `Text „${t}“ ersetzt`);
+            if (r && String(slot.config?.content?.value ?? "") !== r.html) setSlotConfig(slot, { ...slot.config, content: { source: "static", value: r.html } }, `Text „${t.slice(0, 50)}“ ersetzt`);
           }
         }
       });
@@ -216,23 +279,26 @@ async function main(): Promise<void> {
     const willShow = (sec: any) => !isHeadlessOnly(sec) || rules.unhide?.some((re) => re.test(sectionText(sec)));
     for (const sec of sections.filter((x: any) => !deleted.has(x.id) && willShow(x))) {
       for (const b of blocksOf(sec)) {
-        const slot = b.slots?.length === 1 && b.slots[0].type === "text" ? b.slots[0] : null;
-        if (!slot) continue;
-        const raw = String(slot.config?.content?.value ?? "");
-        const del = rules.deleteBlockText?.find((r) => r.match.test(plain(raw)));
-        if (del) {
+        // Block loeschen nur bei reinen Textbloecken; Ersetzungen in jedem Text-Slot (auch Kopf mit Bild + Text)
+        const only = b.slots?.length === 1 && b.slots[0].type === "text" ? b.slots[0] : null;
+        const del = only ? rules.deleteBlockText?.find((r) => r.match.test(plain(String(only.config?.content?.value ?? "")))) : undefined;
+        if (del && only) {
+          const raw = String(only.config?.content?.value ?? "");
           log.deletedBlocks.push({ ...blockData(b), sectionId: sec.id });
           ops.push({ what: `${cfg.key}: Block löschen (${del.note}): „${plain(raw).slice(0, 50)}“`, run: () => api("DELETE", `cms-block/${b.id}`) });
           continue;
         }
-        let next = raw;
-        const notes: string[] = [];
-        for (const r of rules.htmlReplace ?? []) {
-          const replaced = next.replace(r.find, r.replace);
-          if (replaced !== next) notes.push(r.note);
-          next = replaced;
+        for (const slot of (b.slots ?? []).filter((x: any) => x.type === "text")) {
+          const raw = String(slot.config?.content?.value ?? "");
+          let next = raw;
+          const notes: string[] = [];
+          for (const r of rules.htmlReplace ?? []) {
+            const replaced = next.replace(r.find, r.replace);
+            if (replaced !== next) notes.push(r.note);
+            next = replaced;
+          }
+          if (next !== raw && !log.slots.some((x) => x.id === slot.id)) setSlotConfig(slot, { ...slot.config, content: { ...slot.config.content, value: next } }, `Text korrigiert (${notes.join("; ")})`);
         }
-        if (next !== raw && !log.slots.some((x) => x.id === slot.id)) setSlotConfig(slot, { ...slot.config, content: { ...slot.config.content, value: next } }, `Text korrigiert (${notes.join("; ")})`);
       }
     }
 
