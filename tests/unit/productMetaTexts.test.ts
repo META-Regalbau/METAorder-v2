@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   descriptionText,
+  metaReasonHint,
   pickStyleExamples,
   PRODUCT_META_TEXTS_MARKER,
   productSourceHash,
@@ -105,9 +106,25 @@ describe("validateGeneratedMeta", () => {
     expect(validateGeneratedMeta(foot, meta)).toBeNull();
   });
 
+  it("fvzk im Namen erlaubt feuerverzinkt", () => {
+    const pipe = product({ productNumber: "4026212141696", name: "Rohr D33,7 2,5 250 fvzk", description: "", properties: [] });
+    const meta: GeneratedMeta = {
+      metaTitle: "Rohr Ø 33,7 x 2,5 mm | Länge 250 mm | feuerverzinkt",
+      metaDescription: "Feuerverzinktes Stahlrohr mit 33,7 mm Durchmesser, 2,5 mm Wandstärke und 250 mm Länge – robust für den Einsatz im Regalbau.",
+    };
+    expect(validateGeneratedMeta(pipe, meta)).toBeNull();
+  });
+
   it("RAL-Farbe ist keine Pulverbeschichtung", () => {
     const desc = "META CLIP Anbauregal mit 5 Ebenen und 230 kg Fachlast, pulverbeschichtet in Lichtgrau – robust für Lager und Werkstatt im Alltag.";
     expect(validateGeneratedMeta(p, { ...GOOD, metaDescription: desc })).toBe("claim_surface");
+  });
+});
+
+describe("metaReasonHint", () => {
+  it("uebersetzt Pruefcodes fuer den Neuversuch", () => {
+    expect(metaReasonHint("claim_surface")).toContain("NICHT \"pulverbeschichtet\"");
+    expect(metaReasonHint("title_length_77")).toBe("Meta-Title 25–70 Zeichen (war 77)");
   });
 });
 
@@ -138,6 +155,15 @@ describe("selectMetaCandidates", () => {
     const healed = selectMetaCandidates([own]);
     expect(healed.candidates).toHaveLength(1);
     expect(healed.candidates[0].writeTitle).toBe(true);
+    // Eigene Beschreibung + zu langer, von Hand gepflegter Titel: kein Dauer-Neuerzeugen
+    const manualLongTitle = {
+      ...base,
+      metaTitle: "x".repeat(77),
+      customFields: { [PRODUCT_META_TEXTS_MARKER]: { metaDescription: GOOD.metaDescription, sourceHash: marker.sourceHash } },
+    };
+    const mixed = selectMetaCandidates([manualLongTitle]);
+    expect(mixed.candidates).toHaveLength(0);
+    expect(mixed.keptManualTitle).toBe(1);
     const renamed = { ...same, name: "META CLIP | Fachbodenregal | Anbauregal | NEU" };
     const sel = selectMetaCandidates([renamed]);
     expect(sel.candidates).toHaveLength(1);

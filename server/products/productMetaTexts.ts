@@ -121,9 +121,10 @@ export function selectMetaCandidates(products: ProductMetaSource[]): MetaSelecti
     // Eigene Texte, die die aktuellen Pruefregeln nicht mehr bestehen, werden neu erzeugt
     const ownTitle = marker.metaTitle !== undefined && product.metaTitle === marker.metaTitle;
     const ownDescription = marker.metaDescription !== undefined && product.metaDescription === marker.metaDescription;
+    // je Feld: ein von Hand gepflegtes Nachbarfeld darf eigene Texte nicht dauernd neu ausloesen
     const failsRules =
-      (ownTitle || ownDescription) &&
-      validateGeneratedMeta(product, { metaTitle: product.metaTitle ?? "", metaDescription: product.metaDescription ?? "" }) !== null;
+      (ownTitle && validateMetaTitle(product, product.metaTitle ?? "") !== null) ||
+      (ownDescription && validateMetaDescription(product, product.metaDescription ?? "") !== null);
     const sourceChanged = marker.sourceHash !== sourceHash || failsRules;
     const title = decideField(product.metaTitle, marker.metaTitle, sourceChanged);
     const description = decideField(product.metaDescription, marker.metaDescription, sourceChanged);
@@ -183,6 +184,11 @@ export function digitForms(text: string): Set<string> {
   return forms;
 }
 
+/** Kurzformen in Artikelnamen, die eine Pruefregel sonst als erfunden werten wuerde. */
+export function expandAbbreviations(source: string): string {
+  return source.replace(/\bfvzk\b/gi, "feuerverzinkt").replace(/\bvzk\b/gi, "verzinkt");
+}
+
 export type GeneratedMeta = { metaTitle: string; metaDescription: string };
 
 const KG_PATTERN = /(\d+(?:[.,]\d+)?)\s*kg/gi;
@@ -215,26 +221,41 @@ export function nameValueConflict(name: string, text: string): string | null {
   return null;
 }
 
-/** null = in Ordnung, sonst Grund. */
-export function validateGeneratedMeta(product: ProductMetaSource, gen: GeneratedMeta): string | null {
-  const title = gen.metaTitle.trim();
-  const description = gen.metaDescription.trim();
-  if (title.length < META_TITLE_MIN || title.length > META_TITLE_MAX) return `title_length_${title.length}`;
-  if (description.length < META_DESCRIPTION_MIN || description.length > META_DESCRIPTION_MAX) return `description_length_${description.length}`;
-  if (/[\r\n]/.test(title + description) || /^["'„“]|["'“”]$/.test(title)) return "format";
-  const source = productSourceText({ ...product, description: product.description });
+/** Inhaltliche Pruefung eines Texts (Zahlen, Werte aus dem Namen, Aussagen). null = in Ordnung. */
+function validateMetaContent(product: ProductMetaSource, text: string): string | null {
+  const source = productSourceText(product);
   const allowed = digitForms(source);
-  for (const token of `${title} ${description}`.match(/\d+(?:[.,]\d+)*/g) ?? []) {
+  for (const token of text.match(/\d+(?:[.,]\d+)*/g) ?? []) {
     const whole = token.replace(/[.,]/g, "");
     const runs = token.match(/\d+/g) ?? [];
     if (!allowed.has(whole) && !runs.every((r) => allowed.has(r))) return `number_${token}`;
   }
-  const conflict = nameValueConflict(product.name, `${title} ${description}`);
+  const conflict = nameValueConflict(product.name, text);
   if (conflict) return conflict;
+  const sourceExpanded = expandAbbreviations(source);
   for (const [pattern, reason] of CLAIM_RULES) {
-    if (pattern.test(`${title} ${description}`) && !pattern.test(source)) return `claim_${reason}`;
+    if (pattern.test(text) && !pattern.test(sourceExpanded)) return `claim_${reason}`;
   }
   return null;
+}
+
+export function validateMetaTitle(product: ProductMetaSource, metaTitle: string): string | null {
+  const title = metaTitle.trim();
+  if (title.length < META_TITLE_MIN || title.length > META_TITLE_MAX) return `title_length_${title.length}`;
+  if (/[\r\n]/.test(title) || /^["'„“]|["'“”]$/.test(title)) return "format";
+  return validateMetaContent(product, title);
+}
+
+export function validateMetaDescription(product: ProductMetaSource, metaDescription: string): string | null {
+  const description = metaDescription.trim();
+  if (description.length < META_DESCRIPTION_MIN || description.length > META_DESCRIPTION_MAX) return `description_length_${description.length}`;
+  if (/[\r\n]/.test(description)) return "format";
+  return validateMetaContent(product, description);
+}
+
+/** null = in Ordnung, sonst Grund. */
+export function validateGeneratedMeta(product: ProductMetaSource, gen: GeneratedMeta): string | null {
+  return validateMetaTitle(product, gen.metaTitle) ?? validateMetaDescription(product, gen.metaDescription);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -249,11 +270,24 @@ Regeln:
 - Keine Preise, Rabatte, Lieferzeiten, Versandkosten, Garantie, Zertifikate oder Herkunftsangaben, außer sie stehen ausdrücklich im Artikel.
 - Oberfläche genau so nennen wie im Artikel (z. B. "verzinkt", "RAL 7035"); aus einer RAL-Farbe nicht "pulverbeschichtet" oder "lackiert" machen.
 - Nennt der Name Maße oder Fachlast (neue Namen mit "|"), gelten genau diese Werte – auch wenn Eigenschaften oder Beschreibung andere nennen. Weitere Lasten (z. B. Feldlast) dann nicht nennen. Nur bei alten Kurznamen ohne solche Angaben die Eigenschaften nutzen.
-- Abkürzungen: "kpl" = komplett (vollständiger Satz, nicht "montiert"), "vzk" = verzinkt, "ER"/"DR" = einseitig/doppelseitig, "GR"/"AR" = Grundregal/Anbauregal.
+- Abkürzungen: "kpl" = komplett (vollständiger Satz, nicht "montiert"), "vzk" = verzinkt, "fvzk" = feuerverzinkt, "ER"/"DR" = einseitig/doppelseitig, "GR"/"AR" = Grundregal/Anbauregal.
 - Ein Anbauregal ist eine Erweiterung (braucht ein Grundregal); ein Grundregal steht für sich. Zubehör nicht als komplettes Regal beschreiben.
 - Alte, abgekürzte Namen (z. B. "KR H Fuß 220 DR 400 R5010") mit Hilfe der Eigenschaften verständlich ausschreiben; was sich nicht sicher deuten lässt, weglassen.
 - Abwechslungsreich formulieren, nicht jede Beschreibung mit demselben Satz enden lassen.
 Antworte nur mit JSON: {"items":[{"nr":"<Artikelnummer>","metaTitle":"...","metaDescription":"..."}]} – für jeden Artikel genau ein Eintrag.`;
+
+/** Verstaendlicher Hinweis fuer den Neuversuch der KI (statt des Pruefcodes). */
+export function metaReasonHint(reason: string): string {
+  if (reason.startsWith("title_length")) return `Meta-Title ${META_TITLE_MIN}–${META_TITLE_MAX} Zeichen (war ${reason.split("_").pop()})`;
+  if (reason.startsWith("description_length")) return `Meta-Description ${META_DESCRIPTION_MIN}–${META_DESCRIPTION_MAX} Zeichen (war ${reason.split("_").pop()})`;
+  if (reason.startsWith("number_")) return `die Zahl ${reason.slice(7)} steht nicht im Artikel – weglassen`;
+  if (reason.startsWith("name_kg")) return "Fachlast genau wie im Namen angeben, keine anderen kg-Werte";
+  if (reason.startsWith("name_dimensions")) return "Maße H x B x T genau wie im Namen angeben";
+  if (reason === "claim_surface") return "Oberfläche nur wie im Artikel nennen (z. B. \"RAL 5010\") – NICHT \"pulverbeschichtet\", \"lackiert\" o. ä.";
+  if (reason.startsWith("claim_")) return "keine Angaben zu Preis, Versand, Lieferzeit, Garantie, Zertifikaten oder Herkunft";
+  if (reason === "format") return "keine Anführungszeichen und Zeilenumbrüche";
+  return reason;
+}
 
 function buildUserPrompt(batch: ProductMetaSource[], examples: ProductMetaSource[], feedback?: Map<string, string>): string {
   const lines: string[] = [];
@@ -268,7 +302,7 @@ function buildUserPrompt(batch: ProductMetaSource[], examples: ProductMetaSource
   for (const p of batch) {
     lines.push(`### nr=${p.productNumber}\n${productSourceText(p)}`);
     const note = feedback?.get(p.productNumber);
-    if (note) lines.push(`HINWEIS: Der letzte Vorschlag wurde verworfen (${note}). Bitte die Regeln genau einhalten.`);
+    if (note) lines.push(`HINWEIS: Der letzte Vorschlag wurde verworfen: ${metaReasonHint(note)}.`);
   }
   return lines.join("\n");
 }
