@@ -11,7 +11,7 @@
  *
  * Ohne --apply nur Testlauf. Vor dem Schreiben Sicherung der bisherigen Feldwerte.
  * Aufruf (im App-Container):
- *   NODE_ENV=development npx tsx scripts/writeCategoryContent.ts <tenantId> <texte.xlsx> [--only "A,B"] [--apply]
+ *   NODE_ENV=development npx tsx scripts/writeCategoryContent.ts <tenantId> <texte.xlsx> [--only "A,B"] [--apply] [--with-downloads]
  */
 import { writeFileSync } from "fs";
 import XLSXmod from "xlsx";
@@ -108,7 +108,8 @@ async function main(): Promise<void> {
     return r.ok ? Number(((await r.json()) as any).total ?? 0) : 0;
   };
   const byName = (n: string) => cats.data.find((c: any) => c.name === n && c.type === "page");
-  const downloads: CategoryLink[] = ["Datenblätter", "Montageanleitungen", "Kataloge"]
+  // Downloads erst wieder mit --with-downloads (Links passen noch nicht, User 15.10.2026)
+  const downloads: CategoryLink[] = !process.argv.includes("--with-downloads") ? [] : ["Datenblätter", "Montageanleitungen", "Kataloge"]
     .map((n) => ({ label: n, url: byName(n) ? urlOf(byName(n)) : null }))
     .filter((l): l is CategoryLink => Boolean(l.url));
 
