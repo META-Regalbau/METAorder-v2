@@ -32,11 +32,11 @@ export function introHtml(introParagraphHtml: string, badges: string[], related:
 }
 
 /** SEO-Text/FAQ: Theme-Klassen fuer Ueberschriften, Tabelle und FAQ-Kaesten. */
-export function styleSeoHtml(html: string): string {
+export function styleSeoHtml(html: string, headingClass = "h4 mt-4 mb-2"): string {
   return html
     .replace(/<table>/g, '<table class="table table-sm table-striped mb-4">')
     .replace(/<th>/g, '<th scope="row" class="w-25">')
-    .replace(/<h2>/g, '<h2 class="h4 mt-4 mb-2">');
+    .replace(/<h2>/g, `<h2 class="${headingClass}">`);
 }
 
 export function faqHtmlBoxes(items: Array<{ q: string; a: string }>): string {
@@ -58,7 +58,25 @@ export function sidebarHtml(related: CategoryLink[], downloads: CategoryLink[]):
   return (
     (related.length ? box("Passend dazu", list(related, "›")) : "") +
     (downloads.length ? box("Downloads", list(downloads, "↓")) : "") +
-    `<div class="rounded-3 p-3 mb-3 bg-light"><div class="fw-bold mb-1">Beratung</div><p class="small mb-2">Sie planen eine größere Anlage? Wir beraten Sie und erstellen Ihnen gern ein Angebot.</p>` +
-    `<a class="btn btn-primary w-100 mb-2" href="tel:${BERATUNG_PHONE.tel}">☎ ${BERATUNG_PHONE.display}</a><div class="small text-muted text-center">${BERATUNG_PHONE.hours}</div></div>`
+    beratungBoxHtml()
+  );
+}
+
+/** Beratungskasten mit Telefonknopf (Seitenleiste der Kategorien, Ende der Landingpages). */
+export function beratungBoxHtml(wide = false): string {
+  const button = `<a class="btn btn-primary ${wide ? "px-4" : "w-100"} mb-2" href="tel:${BERATUNG_PHONE.tel}">☎ ${BERATUNG_PHONE.display}</a>`;
+  return (
+    `<div class="rounded-3 p-3 mb-3 bg-light${wide ? " text-center" : ""}"><div class="fw-bold mb-1">Beratung</div><p class="small mb-2">Sie planen eine größere Anlage? Wir beraten Sie und erstellen Ihnen gern ein Angebot.</p>` +
+    `${button}<div class="small text-muted${wide ? "" : " text-center"}">${BERATUNG_PHONE.hours}</div></div>`
+  );
+}
+
+/** Schnelllinks als Knoepfe (z. B. "Direkt zu den Regalen" auf Landingpages). */
+export function linkPillsHtml(title: string, links: CategoryLink[], headingClass = "h4 mb-3"): string {
+  if (links.length === 0) return "";
+  return (
+    `<h2 class="${headingClass}">${esc(title)}</h2><div class="d-flex flex-wrap gap-2">` +
+    links.map((l) => `<a class="btn btn-outline-dark rounded-pill px-3" href="${esc(l.url)}">${esc(l.label)}</a>`).join("") +
+    `</div>`
   );
 }
