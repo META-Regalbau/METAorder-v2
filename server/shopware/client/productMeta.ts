@@ -23,6 +23,12 @@ export type ProductMetaSource = {
   customFields: Record<string, unknown> | null;
 };
 
+export type ProductDescriptionUpdate = {
+  id: string;
+  description: string;
+  customFields: Record<string, unknown>;
+};
+
 export type ProductMetaUpdate = {
   id: string;
   metaTitle?: string;
@@ -96,6 +102,22 @@ export async function syncProductMetaTexts(this: ShopwareClient, updates: Produc
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`Failed to sync product meta texts: ${response.status} - ${errorText.slice(0, 300)}`);
+    }
+  }
+}
+
+/** Schreibt Produktbeschreibungen (HTML) per Sync-API in der Systemsprache, in Bloecken zu 50. */
+export async function syncProductDescriptions(this: ShopwareClient, updates: ProductDescriptionUpdate[]): Promise<void> {
+  for (let i = 0; i < updates.length; i += 50) {
+    const chunk = updates.slice(i, i + 50);
+    const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/_action/sync`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "sw-language-id": SYSTEM_LANGUAGE_ID },
+      body: JSON.stringify({ "product-descriptions": { entity: "product", action: "upsert", payload: chunk } }),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to sync product descriptions: ${response.status} - ${errorText.slice(0, 300)}`);
     }
   }
 }

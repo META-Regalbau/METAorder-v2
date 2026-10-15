@@ -479,6 +479,7 @@ export interface ShopwareClient {
   // productMeta
   fetchProductMetaSources: typeof productMetaApi.fetchProductMetaSources;
   syncProductMetaTexts: typeof productMetaApi.syncProductMetaTexts;
+  syncProductDescriptions: typeof productMetaApi.syncProductDescriptions;
 }
 
 for (const api of [ordersApi, deliveryApi, documentsApi, productsApi, crossSellingApi, customersApi, pricingApi, offersApi, masterDataApi, mediaApi, productMetaApi]) {
