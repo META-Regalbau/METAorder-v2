@@ -21,7 +21,14 @@ import type { ProductDescriptionUpdate } from "../server/shopware/client/product
 
 const MARKER = "metaorder_description";
 const hash = (html: string) => createHash("sha256").update(html).digest("hex").slice(0, 16);
-const norm = (html: string | null | undefined) => (html ?? "").replace(/\s+/g, " ").trim();
+// Shopware normalisiert beim Speichern HTML-Zeichen (z. B. &quot; -> "): fuer den Vergleich aufloesen
+const norm = (html: string | null | undefined) =>
+  (html ?? "")
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;|&apos;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(name);
