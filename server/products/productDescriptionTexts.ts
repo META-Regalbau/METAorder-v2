@@ -8,7 +8,7 @@
 import { z } from "zod";
 import type { ProductMetaSource } from "../shopware/client/productMeta";
 import { chatCompletion, parseLlmJsonResponse } from "../ai/llmChat";
-import { CLAIM_RULES, descriptionText, digitForms, productSourceText } from "./productMetaTexts";
+import { CLAIM_RULES, descriptionText, digitForms, expandAbbreviations, productSourceText } from "./productMetaTexts";
 
 export const DESCRIPTION_PROMPT_VERSION = "desc-v1";
 
@@ -139,8 +139,9 @@ export function validateGeneratedDescription(product: ProductMetaSource, gen: Ge
   }
   const conflict = nameLoadOrDimensionConflict(product.name, body);
   if (conflict) return conflict;
+  const sourceExpanded = expandAbbreviations(source);
   for (const [pattern, reason] of CLAIM_RULES) {
-    if (pattern.test(body) && !pattern.test(source)) return `claim_${reason}`;
+    if (pattern.test(body) && !pattern.test(sourceExpanded)) return `claim_${reason}`;
   }
   return null;
 }
@@ -178,7 +179,7 @@ Regeln:
 - Keine Preise, Rabatte, Lieferzeiten, Versandkosten. Oberfläche genau wie im Artikel; aus einer RAL-Farbe nicht „pulverbeschichtet“ machen, außer es steht im Artikel.
 - Ein Anbauregal ist eine Erweiterung (braucht ein Grundregal); ein Grundregal steht für sich. Zubehör nicht als komplettes Regal beschreiben.
 - Typkürzel und Bezeichnungen wie "VW2 N", "T1 N", "SR 120/25", "4HN", "FAZ II" unverändert übernehmen und NICHT ausdeuten (nicht raten, wofür sie stehen).
-- Abkürzungen: "kpl" = komplett, "vzk" = verzinkt, "ER"/"DR" = einseitig/doppelseitig, "GR"/"AR" = Grundregal/Anbauregal, "KR" = Kragarm, "MP" = MULTIPAL, "CL" = CLIP. Was sich nicht sicher deuten lässt, weglassen.
+- Abkürzungen: "kpl" = komplett, "vzk" = verzinkt, "fvzk" = feuerverzinkt, "ER"/"DR" = einseitig/doppelseitig, "GR"/"AR" = Grundregal/Anbauregal, "KR" = Kragarm, "MP" = MULTIPAL, "CL" = CLIP. Was sich nicht sicher deuten lässt, weglassen.
 - Sie-Form oder neutral, kein HTML, keine Emojis, keine Ausrufezeichen-Reihen. Abwechslungsreich formulieren.
 Antworte nur mit JSON: {"items":[{"nr":"<Artikelnummer>","intro":"...","bullets":["...","..."],"suitableFor":"Geeignet für ..."}]} – für jeden Artikel genau ein Eintrag.`;
 
