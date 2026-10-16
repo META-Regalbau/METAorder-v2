@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { INDUSTRY_PAGES, fillPrices, formatEuro, referencedNumbers } from "../../server/products/industryPages";
 import { COMPETITOR_NAMES } from "../../server/products/productMetaTexts";
-import { IndustryPageHtml, industryPageCss, scopeCss } from "../../server/products/industryPageHtml";
+import { IndustryPageHtml, homeTeaserHtml, industryPageCss, scopeCss } from "../../server/products/industryPageHtml";
 
 const allText = (p: (typeof INDUSTRY_PAGES)[number]) => JSON.stringify({ ...p, notes: undefined });
 
@@ -72,5 +72,16 @@ describe("industryPages", () => {
     expect(html).toContain('action="/checkout/line-item/add"');
     expect(html).toContain('name="lineItems[id4026212328516][quantity]" value="5"');
     expect(html).not.toContain('class="note"');
+  });
+
+  it("verlinkt auf der Startseite alle Branchenseiten mit belegter Kennzahl und Beratung", () => {
+    const products = Object.fromEntries(INDUSTRY_PAGES.map((p) => [p.hero.number, { name: p.hero.number, priceNet: 1, image: `https://x/${p.key}.webp` }]));
+    const html = homeTeaserHtml(INDUSTRY_PAGES, products, (p) => p.url);
+    for (const p of INDUSTRY_PAGES) {
+      expect(html).toContain(`href="${p.url}"`);
+      expect(html).toContain(p.teaser.fact.replace(/&/g, "&amp;"));
+    }
+    expect(html.match(/class="ht-tile"/g)).toHaveLength(INDUSTRY_PAGES.length);
+    expect(html).toContain('href="tel:+4929329570"');
   });
 });

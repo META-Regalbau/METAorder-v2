@@ -1,7 +1,7 @@
 // HTML der Branchen-Landingpages – gemeinsam fuer Design-Entwuerfe (scripts/exportIndustryPages.ts) und den Shop
 // (scripts/writeIndustryPages.ts, HTML-Element der Erlebniswelten). Das Shop-HTML-Element laesst eigenes CSS zu;
 // dort wird das Stylesheet auf den Seitenrahmen `.mbp` begrenzt, damit Theme und Seite sich nicht stoeren.
-import { CONTACT, fillPrices, formatEuro, type IndustryIcon, type IndustryNote, type IndustryNoteKey, type IndustryPage } from "./industryPages";
+import { CONTACT, HOME_TEASER, fillPrices, formatEuro, type IndustryIcon, type IndustryNote, type IndustryNoteKey, type IndustryPage } from "./industryPages";
 
 export type IndustryShopProduct = { id?: string; name: string; priceNet: number; deliveryTime?: string; url?: string | null; image?: string | null };
 
@@ -324,6 +324,34 @@ ${this.page.products
   }
 }
 
+/** Startseiten-Teaser: 5 Branchenkacheln und eine Beratungskachel (Bild = Hauptbild der Branchenseite). */
+export function homeTeaserHtml(pages: IndustryPage[], products: Record<string, IndustryShopProduct>, hrefFor: (p: IndustryPage) => string): string {
+  const t = HOME_TEASER;
+  const tiles = pages
+    .map((p) => {
+      const img = products[p.hero.number]?.image;
+      return `<a class="ht-tile" href="${esc(hrefFor(p))}">
+      <div class="ht-img">${img ? `<img src="${esc(img)}" alt="${esc(p.hero.alt)}" loading="lazy">` : ""}</div>
+      <div class="ht-body"><strong>${esc(p.short)}</strong><span class="ht-goods">${esc(p.teaser.goods)}</span><span class="ht-fact">${esc(p.teaser.fact)}</span><span class="ht-more">${esc(t.more)} →</span></div>
+    </a>`;
+    })
+    .join("\n");
+  return `<section class="ht"><div class="wrap">
+  <div class="sec-head"><div>
+    <span class="eyebrow">${esc(t.eyebrow)}</span>
+    <h2>${esc(t.title)}</h2>
+    <p>${esc(t.intro)}</p>
+  </div></div>
+  <div class="ht-grid">
+${tiles}
+    <div class="ht-tile ht-advice">
+      <div class="ht-body"><strong>${esc(t.advice.title)}</strong><span class="ht-goods">${esc(t.advice.text)}</span>
+        <a class="tel" href="tel:${CONTACT.tel}">${esc(CONTACT.phone)}</a><small>Montag bis Freitag, ${esc(CONTACT.hours)}</small></div>
+    </div>
+  </div>
+</div></section>`;
+}
+
 /** Zusaetze zum Stylesheet: Erklaerungen im roten Abschnitt, Meta-Vorschau (Entwurf), Platzhalter-Kachel. */
 const EXTRA_CSS = `
 .sec-red .note{color:var(--note-ink)}
@@ -333,6 +361,26 @@ body.notes .meta-preview{display:block}
 .meta-preview i{display:block;color:#006621;font-style:normal}
 .more span.soon{border:1px dashed var(--line);padding:16px;display:flex;flex-direction:column;gap:4px;opacity:.6}
 .more span.soon span{font-size:12.5px;color:var(--muted)}
+.ht{padding:56px 0 48px;background:#fff}
+.ht .sec-head{margin-bottom:22px}
+.ht-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.ht-tile{display:grid;grid-template-columns:150px 1fr;border:1px solid var(--line);background:#fff;text-decoration:none;color:var(--text);transition:border-color .15s,box-shadow .15s;min-height:150px}
+.ht-tile:hover{border-color:var(--red);box-shadow:inset 0 -3px 0 var(--red)}
+.ht-img{background:var(--bg-stage);display:grid;place-items:center;overflow:hidden}
+.ht-img img{width:86%;max-height:140px;object-fit:contain;mix-blend-mode:multiply}
+.ht-body{padding:16px 18px;display:flex;flex-direction:column;gap:6px}
+.ht-body strong{color:var(--ink);font-size:16px;line-height:1.3}
+.ht-goods{font-size:13.5px;color:#444;line-height:1.45}
+.ht-fact{font-size:12.5px;font-weight:600;color:var(--ink);background:var(--bg-grey);padding:4px 8px;align-self:flex-start}
+.ht-more{margin-top:auto;font-size:13.5px;font-weight:600;color:var(--ink);border-bottom:1.5px solid var(--red);align-self:flex-start;padding-bottom:1px}
+.ht-advice{grid-template-columns:1fr;background:var(--ink);border-color:var(--ink);color:#d8d8d8}
+.ht-advice:hover{border-color:var(--ink);box-shadow:none}
+.ht-advice strong{color:#fff}
+.ht-advice .ht-goods{color:#c9c9c9}
+.ht-advice .tel{margin-top:auto;color:#fff;font-size:24px;font-weight:800;text-decoration:none;letter-spacing:-.01em}
+.ht-advice small{font-size:12.5px;color:#a8a8a8}
+@media (max-width:1100px){.ht-grid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:760px){.ht{padding:40px 0 32px}.ht-grid{grid-template-columns:1fr;gap:10px}.ht-tile{grid-template-columns:96px 1fr;min-height:0}.ht-img img{max-height:96px}.ht-body{padding:12px 14px;gap:4px}.ht-body strong{font-size:15px}.ht-goods{font-size:13px}.ht-advice{grid-template-columns:1fr}}
 `;
 
 /** Anpassungen nur im Shop: Theme-Bootstrap (.btn, .card, Ueberschriften) neutralisieren, Abstaende des Elements. */
