@@ -84,4 +84,19 @@ describe("industryPages", () => {
     expect(html.match(/class="ht-tile"/g)).toHaveLength(INDUSTRY_PAGES.length);
     expect(html).toContain('href="tel:+4929329570"');
   });
+
+  it("zeigt unter dem Bild nur Kennzahlen des abgebildeten Systems", () => {
+    // Systemnamen bzw. Regalarten, die in einer Kennzahl nur stehen duerfen, wenn das Bild dieses System zeigt
+    const systems = ["CLIP", "COMPACT", "MULTIPAL", "MULTISTRONG", "MINI-RACK", "SPEED-RACK", "Packtisch", "Schrägbod", "Kragarm", "Weitspann", "Kabeltrommel", "Reifen", "Palett"];
+    for (const p of INDUSTRY_PAGES) {
+      const shown = `${p.hero.tag} ${p.hero.alt}`.toLowerCase();
+      for (const f of p.facts) {
+        for (const sys of systems) {
+          if (`${f.value} ${f.label}`.toLowerCase().includes(sys.toLowerCase())) expect(shown, `${p.key}: „${f.value} ${f.label}“`).toContain(sys.toLowerCase());
+        }
+      }
+      // die Startseiten-Kachel zeigt dasselbe Bild
+      for (const sys of systems) if (p.teaser.fact.toLowerCase().includes(sys.toLowerCase())) expect(shown, `${p.key}: Startseite „${p.teaser.fact}“`).toContain(sys.toLowerCase());
+    }
+  });
 });
