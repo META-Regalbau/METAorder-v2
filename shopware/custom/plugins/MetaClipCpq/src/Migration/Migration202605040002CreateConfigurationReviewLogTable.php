@@ -11,7 +11,7 @@ class Migration202605040002CreateConfigurationReviewLogTable extends MigrationSt
 {
     public function getCreationTimestamp(): int
     {
-        return 202605040002;
+        return 1777852920; // 2026-05-04, Schritt 2
     }
 
     public function update(Connection $connection): void

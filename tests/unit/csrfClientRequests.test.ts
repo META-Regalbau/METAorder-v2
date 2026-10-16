@@ -1,7 +1,8 @@
 /**
  * Schreibende Aufrufe aus dem Client brauchen den X-CSRF-Token-Header: server/index.ts prueft jeden
  * POST/PUT/PATCH/DELETE (Double-Submit: Header == Cookie csrf_token), ausser Login, Notfall-Reset,
- * Integrations-Key und /api/public/. Ein rohes fetch ohne Header endet mit 403 "CSRF token missing" -
+ * Integrations-Key, /api/public/ und dem öffentlichen Regalplaner (/api/cpq/public/,
+ * /api/cpq-core/public/ – Autorisierung über den Shop-Handoff-Token). Ein rohes fetch ohne Header endet mit 403 "CSRF token missing" -
  * so beim ERP-Automatisierungs-Ausloeser, Ticket aus E-Mail, E-Mail-Dropzone, CPQ-Cross-Selling im
  * Angebotsentwurf und Ticket-Export. Normalweg ist apiRequest (lib/queryClient.ts), das den Header setzt.
  * Statische Pruefung: jedes fetch mit schreibender Methode traegt den Token im Options-Objekt

@@ -11,7 +11,7 @@ class Migration202605030004CreateGeometryTable extends MigrationStep
 {
     public function getCreationTimestamp(): int
     {
-        return 202605030004;
+        return 1777766640; // 2026-05-03, Schritt 4
     }
 
     public function update(Connection $connection): void

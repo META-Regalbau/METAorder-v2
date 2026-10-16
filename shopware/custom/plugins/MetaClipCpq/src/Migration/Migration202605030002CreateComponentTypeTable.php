@@ -11,7 +11,7 @@ class Migration202605030002CreateComponentTypeTable extends MigrationStep
 {
     public function getCreationTimestamp(): int
     {
-        return 202605030002;
+        return 1777766520; // 2026-05-03, Schritt 2
     }
 
     public function update(Connection $connection): void

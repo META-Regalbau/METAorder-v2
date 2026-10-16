@@ -28,6 +28,15 @@
             <helpText>Muss exakt mit CPQ_HANDOFF_SECRET auf dem METAorder-Server übereinstimmen.</helpText>
             <helpText lang="de-DE">Muss exakt mit CPQ_HANDOFF_SECRET auf dem METAorder-Server übereinstimmen.</helpText>
         </input-field>
+
+        <input-field type="text">
+            <name>productNamePrefix</name>
+            <label>Button nur bei Artikeln mit Namensanfang</label>
+            <label lang="de-DE">Button nur bei Artikeln mit Namensanfang</label>
+            <defaultValue>META CLIP</defaultValue>
+            <helpText>"Regal konfigurieren" erscheint nur auf Produktseiten, deren Artikelname so beginnt. Leer = auf allen Produktseiten.</helpText>
+            <helpText lang="de-DE">„Regal konfigurieren“ erscheint nur auf Produktseiten, deren Artikelname so beginnt. Leer = auf allen Produktseiten.</helpText>
+        </input-field>
     </card>
 
     <card>
@@ -38,7 +47,6 @@
             <name>lobsterWebhookUrl</name>
             <label>Lobster Webhook URL</label>
             <label lang="de-DE">Lobster Webhook URL</label>
-            <required>true</required>
         </input-field>
 
         <input-field type="password">

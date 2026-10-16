@@ -11,7 +11,7 @@ class Migration202605030001CreateSystemTable extends MigrationStep
 {
     public function getCreationTimestamp(): int
     {
-        return 202605030001;
+        return 1777766460; // 2026-05-03, Schritt 1
     }
 
     public function update(Connection $connection): void

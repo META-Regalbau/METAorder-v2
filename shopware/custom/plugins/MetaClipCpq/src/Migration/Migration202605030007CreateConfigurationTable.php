@@ -11,7 +11,7 @@ class Migration202605030007CreateConfigurationTable extends MigrationStep
 {
     public function getCreationTimestamp(): int
     {
-        return 202605030007;
+        return 1777766820; // 2026-05-03, Schritt 7
     }
 
     public function update(Connection $connection): void

@@ -13,14 +13,15 @@ class Migration202605040003CreateReviewMailTemplates extends MigrationStep
 {
     public function getCreationTimestamp(): int
     {
-        return 202605040003;
+        return 1777852980; // 2026-05-04, Schritt 3
     }
 
     public function update(Connection $connection): void
     {
+        // Schlüssel = Locale-Code, Wert = Sprach-ID (so greifen die Aufrufer unten zu: $languageRows['de-DE']).
         $languageRows = $connection->fetchAllKeyValue(
             <<<'SQL'
-            SELECT LOWER(HEX(`id`)), `locale`.`code`
+            SELECT `locale`.`code`, LOWER(HEX(`language`.`id`))
             FROM `language`
             INNER JOIN `locale` ON `locale`.`id` = `language`.`locale_id`
             WHERE `locale`.`code` IN ('de-DE', 'en-GB');
