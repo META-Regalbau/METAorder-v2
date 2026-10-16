@@ -3725,3 +3725,98 @@ export const shopContentPublications = pgTable(
 export type ShopContentItemRow = typeof shopContentItems.$inferSelect;
 export type ShopContentVersionRow = typeof shopContentVersions.$inferSelect;
 export type ShopContentPublicationRow = typeof shopContentPublications.$inferSelect;
+
+/**
+ * Portal-Registrierungen (shared/portalRegistrations.ts): je Anmelde-Mail eine Zeile mit
+ * ausgelesenen Daten, Kundentreffer, Plan und Verlauf. Dedupe über die Message-ID je Mandant.
+ */
+export const portalRegistrations = pgTable(
+  "portal_registrations",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id").references(() => tenants.id),
+    messageId: text("message_id").notNull(),
+    graphMessageId: text("graph_message_id"),
+    mailbox: text("mailbox"),
+    subject: text("subject").notNull().default(""),
+    fromEmail: text("from_email"),
+    fromName: text("from_name"),
+    /** Interner Kollege, der die Anmeldung weitergeleitet hat */
+    forwardedBy: text("forwarded_by"),
+    receivedAt: timestamp("received_at").notNull().defaultNow(),
+    bodyText: text("body_text").notNull().default(""),
+    /** Originalmail (.eml, base64) für die Mail an den Kundenstamm */
+    rawEmlBase64: text("raw_eml_base64"),
+    status: text("status").notNull(),
+    extraction: jsonb("extraction"),
+    /** Aktuelle Anmeldedaten (Auslesung, ggf. vom Bearbeiter korrigiert) */
+    data: jsonb("data"),
+    match: jsonb("match"),
+    plan: jsonb("plan"),
+    events: jsonb("events").notNull().default(sql`'[]'::jsonb`),
+    customerId: text("customer_id"),
+    employeeId: text("employee_id"),
+    passwordResetAt: timestamp("password_reset_at"),
+    salesRepNotifiedAt: timestamp("sales_rep_notified_at"),
+    masterDataRequestedAt: timestamp("master_data_requested_at"),
+    lastCheckedAt: timestamp("last_checked_at"),
+    lastError: text("last_error"),
+    handledByUserId: varchar("handled_by_user_id"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    tenantMessageIdx: uniqueIndex("portal_registrations_tenant_message_idx").on(table.tenantId, table.messageId),
+    tenantStatusIdx: index("portal_registrations_tenant_status_idx").on(table.tenantId, table.status, table.receivedAt),
+  }),
+);
+
+export type PortalRegistrationRow = typeof portalRegistrations.$inferSelect;
+export type InsertPortalRegistrationRow = typeof portalRegistrations.$inferInsert;
+
+/** Postausgang der Registrierungen: n8n holt die Mails ab und verschickt sie über Graph. */
+export const portalRegistrationOutbox = pgTable(
+  "portal_registration_outbox",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id").references(() => tenants.id),
+    registrationId: varchar("registration_id").notNull(),
+    kind: text("kind").notNull(),
+    toAddresses: jsonb("to_addresses").$type<string[]>().notNull(),
+    ccAddresses: jsonb("cc_addresses").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    subject: text("subject").notNull(),
+    html: text("html").notNull(),
+    attachOriginal: boolean("attach_original").notNull().default(false),
+    /** pending | sent | failed */
+    status: text("status").notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+    claimedAt: timestamp("claimed_at"),
+    sentAt: timestamp("sent_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    tenantStatusIdx: index("portal_registration_outbox_tenant_status_idx").on(table.tenantId, table.status, table.createdAt),
+    registrationIdx: index("portal_registration_outbox_registration_idx").on(table.registrationId),
+  }),
+);
+
+export type PortalRegistrationOutboxRow = typeof portalRegistrationOutbox.$inferSelect;
+
+/** Zuordnung Kundennummer → META-Außendienst (Liste aus dem Vertrieb, per Import gepflegt) */
+export const salesRepAssignments = pgTable(
+  "sales_rep_assignments",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id").references(() => tenants.id),
+    customerNumber: text("customer_number").notNull(),
+    repName: text("rep_name").notNull().default(""),
+    repEmail: text("rep_email").notNull(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    tenantCustomerIdx: uniqueIndex("sales_rep_assignments_tenant_customer_idx").on(table.tenantId, table.customerNumber),
+  }),
+);
+
+export type SalesRepAssignmentRow = typeof salesRepAssignments.$inferSelect;

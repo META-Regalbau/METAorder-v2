@@ -297,6 +297,7 @@
     "crm": "CRM",
     "b2bAccounts": "B2B Unternehmen",
     "b2bUsers": "B2B Nutzer",
+    "portalRegistrations": "Portal-Registrierungen",
     "b2bBudgets": "B2B Budgets",
     "b2bAssortments": "B2B Sortimente",
     "b2bOrderLists": "B2B Bestelllisten",
@@ -5669,7 +5670,26 @@
       "n8n_failed": "n8n meldet einen Fehler.",
       "email_intake_forward_invalid": "Die Weiterleitungsadresse ist ungültig.",
       "email_intake_mailbox_invalid": "Die Postfach-Adresse ist ungültig.",
-      "email_intake_assignee_invalid": "Der Standard-Bearbeiter darf keine Tickets sehen."
+      "email_intake_assignee_invalid": "Der Standard-Bearbeiter darf keine Tickets sehen.",
+      "portal_registration_in_progress": "Diese Registrierung wird gerade schon verarbeitet.",
+      "portal_registration_not_found": "Registrierung nicht gefunden.",
+      "portal_registration_no_plan": "Noch kein Kunde zugeordnet.",
+      "portal_registration_done": "Die Registrierung ist schon erledigt.",
+      "portal_registration_customer_missing": "Kunde nicht im Shop gefunden.",
+      "portal_registration_customer_ambiguous": "Mehrere Portal-Kunden haben diese Nummer.",
+      "portal_registration_not_portal": "Der Kunde ist nicht im Händlerportal.",
+      "portal_registration_no_master_data_email": "Keine Kundenstamm-Adresse eingestellt.",
+      "portal_registration_no_data": "Die Anmeldung ist noch nicht ausgelesen.",
+      "portal_registration_no_employee": "Noch kein Mitarbeiter angelegt.",
+      "portal_registration_no_channel": "Der Kunde hat keinen Verkaufskanal.",
+      "portal_registration_reset_failed": "Die Passwort-Mail konnte nicht ausgelöst werden.",
+      "portal_registration_mail_not_found": "Mail nicht gefunden.",
+      "portal_registration_mailbox_invalid": "Ungültige Postfach-Adresse.",
+      "portal_registration_master_data_invalid": "Ungültige Kundenstamm-Adresse.",
+      "portal_registration_upload_type": "Bitte eine .eml- oder .msg-Datei hochladen.",
+      "portal_registration_no_original": "Die Originalmail ist nicht gespeichert.",
+      "shopware_not_configured": "Shopware ist für diesen Mandanten nicht eingerichtet.",
+      "sales_rep_import_empty": "Keine gültigen Zeilen gefunden – Spalten Kundennummer und E-Mail prüfen."
     },
     "client": {
       "notModified": "API-Antwort unverändert (304) – bitte Seite neu laden.",
@@ -6509,7 +6529,12 @@
       "failed_to_save_product_meta_text_settings": "Einstellungen der Meta-Texte konnten nicht gespeichert werden",
       "product_meta_text_run_already_in_progress": "Ein Lauf der Meta-Texte läuft bereits",
       "failed_to_start_product_meta_text_run": "Lauf der Meta-Texte konnte nicht gestartet werden",
-      "failed_to_start_name_rule_run": "Regel-Lauf konnte nicht gestartet werden"
+      "failed_to_start_name_rule_run": "Regel-Lauf konnte nicht gestartet werden",
+      "ungultige_kundenstamm_adresse": "Ungültige Kundenstamm-Adresse.",
+      "keine_gultigen_zeilen_gefunden": "Keine gültigen Zeilen gefunden.",
+      "nur_eml_oder_msg": "Nur .eml- oder .msg-Dateien.",
+      "registrierung_nicht_gefunden": "Registrierung nicht gefunden.",
+      "originalmail_nicht_vorhanden": "Originalmail nicht vorhanden."
     }
   },
   "roomPlanner": {
@@ -6798,6 +6823,243 @@
     "errorNotFound": "Zu dieser Kundennummer gibt es keinen Portalzugang mit dieser E-Mail-Adresse. Bitte prüfen Sie Ihre Eingaben.",
     "errorInactive": "Dieser Portalzugang ist deaktiviert. Bitte wenden Sie sich an Ihren META-Ansprechpartner.",
     "errorAlreadyRequested": "Für diesen Zugang wurde gerade schon ein Link angefordert. Bitte prüfen Sie Ihr Postfach oder versuchen Sie es in 15 Minuten erneut."
+  },
+  "portalRegistrations": {
+    "title": "Portal-Registrierungen",
+    "subtitle": "Anmeldungen fürs Händlerportal aus dem Registrierungs-Postfach. METAorder liest sie aus, sucht den Kunden im Portal, legt den Admin-Mitarbeiter an und schickt die Passwort-Mail. Fehlt der Kunde im Portal, geht die Anmeldung zur Prüfung an den Kundenstamm.",
+    "refresh": "Aktualisieren",
+    "uploadMail": "Mail hochladen",
+    "uploaded": "Mail verarbeitet: {{outcome}}",
+    "uploadFailed": "Mail konnte nicht verarbeitet werden",
+    "filterLabel": "Nach Status filtern",
+    "tabs": {
+      "registrations": "Registrierungen",
+      "salesReps": "Außendienst-Zuordnung",
+      "settings": "Einstellungen"
+    },
+    "filters": {
+      "open": "Offen",
+      "waiting": "Beim Kundenstamm",
+      "completed": "Erledigt",
+      "discarded": "Verworfen",
+      "all": "Alle"
+    },
+    "empty": "Keine Registrierungen in dieser Ansicht.",
+    "columns": {
+      "received": "Eingang",
+      "company": "Firma",
+      "contact": "Ansprechpartner",
+      "customer": "Kunde im Portal",
+      "expertMode": "Expertenmodus",
+      "status": "Status"
+    },
+    "via": "über {{name}}",
+    "unknownCompany": "Firma nicht erkannt",
+    "fromMail": "laut Mail {{number}}",
+    "expertYes": "gewünscht",
+    "statuses": {
+      "processing": "In Arbeit",
+      "review": "Prüfen",
+      "ready": "Bereit",
+      "completed": "Erledigt",
+      "waiting_master_data": "Beim Kundenstamm",
+      "failed": "Fehler",
+      "discarded": "Verworfen"
+    },
+    "match": {
+      "matched": "eindeutig",
+      "ambiguous": "unklar",
+      "not_found": "nicht im Portal"
+    },
+    "outcomes": {
+      "completed": "erledigt",
+      "ready": "bereit zum Ausführen",
+      "review": "bitte prüfen",
+      "waiting_master_data": "an Kundenstamm gegeben",
+      "not_registration": "keine Registrierung",
+      "duplicate": "war schon da",
+      "failed": "Fehler"
+    },
+    "detailTitle": "Registrierung",
+    "detailMeta": "Eingang {{date}} von {{from}}",
+    "actionFailed": "Aktion fehlgeschlagen",
+    "mailRequeued": "Mail wird erneut verschickt",
+    "noData": "Noch keine Anmeldedaten ausgelesen.",
+    "notChecked": "Noch nicht mit dem Portal abgeglichen.",
+    "inactive": "inaktiv",
+    "chosen": "gewählt",
+    "pickByNumber": "Kunde per Kundennummer",
+    "shopAccounts": "Konten im Onlineshop (nicht Portal): {{list}}",
+    "cc": "CC",
+    "showMail": "Mailtext anzeigen",
+    "hideMail": "Mailtext ausblenden",
+    "extractionSource": {
+      "ai": "Von der KI ausgelesen ({{percent}})",
+      "rules": "Nur mit festen Regeln ausgelesen ({{percent}})"
+    },
+    "sections": {
+      "data": "Anmeldedaten",
+      "customer": "Kunde im Portal",
+      "plan": "Das passiert beim Ausführen",
+      "planDone": "Ausgeführt",
+      "mails": "Mails",
+      "history": "Verlauf"
+    },
+    "fields": {
+      "company": "Firma",
+      "customerNumber": "Kundennummer",
+      "vatId": "USt-IdNr.",
+      "phone": "Telefon Firma",
+      "street": "Straße",
+      "zipCode": "PLZ",
+      "city": "Ort",
+      "country": "Land",
+      "salutation": "Anrede",
+      "firstName": "Vorname",
+      "lastName": "Nachname",
+      "email": "E-Mail (wird Login)",
+      "contactPhone": "Telefon Ansprechpartner",
+      "expertMode": "Expertenmodus",
+      "adminMode": "Adminmodus",
+      "notes": "Hinweis aus der Mail"
+    },
+    "salutations": {
+      "none": "keine Angabe",
+      "mr": "Herr",
+      "mrs": "Frau"
+    },
+    "tri": {
+      "unset": "nicht erwähnt",
+      "yes": "ja",
+      "no": "nein"
+    },
+    "matchDetail": {
+      "matched": "Eindeutiger Portal-Kunde gefunden.",
+      "ambiguous": "Kein eindeutiger Treffer – bitte den richtigen Kunden wählen.",
+      "not_found": "Kein passender Kunde im Portal."
+    },
+    "matchNotes": {
+      "number_company_mismatch": "Die Kundennummer gehört zu einer Firma mit anderem Namen.",
+      "several_portal_accounts": "Mehrere Portal-Kunden passen gleich gut.",
+      "close_candidates": "Nur ähnliche Kunden gefunden.",
+      "number_not_found": "Die Kundennummer aus der Mail gibt es im Portal nicht.",
+      "sales_rep_account": "Ein internes META-Konto passt – das ist nie der Händler."
+    },
+    "plan": {
+      "employee_create": "Admin-Mitarbeiter {{name}} <{{email}}> anlegen",
+      "employee_update": "Vorhandenen Mitarbeiter {{name}} <{{email}}> übernehmen",
+      "link_create": "Als Administrator mit {{customer}} verknüpfen",
+      "link_update": "Admin-Recht und Aktiv-Status bei {{customer}} sicherstellen",
+      "link_none": "Verknüpfung bleibt",
+      "expertMode": "Regalplaner-Expertenmodus einschalten",
+      "adminMode": "Regalplaner-Adminmodus einschalten",
+      "customerChanges": "Kunde anpassen:",
+      "sendPasswordReset": "Passwort-Mail an {{email}} auslösen"
+    },
+    "changes": {
+      "active": "Kunde aktivieren",
+      "platformAccess": "B2B-Plattformzugang freischalten",
+      "vatId": "USt-IdNr. {{to}} ergänzen",
+      "phone": "Telefon {{to}} ergänzen"
+    },
+    "blockers": {
+      "missing_email": "Die E-Mail des Ansprechpartners fehlt.",
+      "missing_name": "Vor- oder Nachname fehlt.",
+      "internal_email": "Die E-Mail ist eine META-Adresse – das ist nie der Händler-Admin.",
+      "employee_other_customer": "Diese E-Mail gehört schon einem Mitarbeiter eines anderen Kunden. Bitte im B2B-Bereich klären.",
+      "no_customer": "Kein Kunde gewählt.",
+      "no_sales_channel": "Der Kunde hat keinen Verkaufskanal."
+    },
+    "actions": {
+      "saveData": "Daten speichern und neu abgleichen",
+      "resetData": "Verwerfen",
+      "chooseCustomer": "Diesen Kunden wählen",
+      "assign": "Zuordnen",
+      "execute": "Ausführen",
+      "recheck": "Neu prüfen",
+      "reextract": "Neu auslesen",
+      "masterData": "An Kundenstamm geben",
+      "passwordReset": "Passwort-Mail erneut",
+      "discard": "Verwerfen",
+      "downloadOriginal": "Originalmail",
+      "retryMail": "Erneut senden"
+    },
+    "toasts": {
+      "dataSaved": "Daten gespeichert und neu abgeglichen",
+      "customerChosen": "Kunde zugeordnet",
+      "planSaved": "Plan geändert",
+      "executed": "Ausgeführt",
+      "rechecked": "Neu geprüft",
+      "masterData": "Bitte an den Kundenstamm im Postausgang",
+      "passwordReset": "Passwort-Mail ausgelöst",
+      "discarded": "Verworfen"
+    },
+    "mailKinds": {
+      "master_data_request": "Kundenstamm",
+      "sales_rep_info": "Außendienst"
+    },
+    "mailStatuses": {
+      "pending": "wartet auf n8n",
+      "sent": "verschickt",
+      "failed": "gescheitert"
+    },
+    "salesReps": {
+      "intro": "Wer ist für welchen Kunden zuständig? Nach einer erfolgreichen Registrierung bekommt der Außendienst eine Info-Mail. Excel oder CSV mit den Spalten Kundennummer, Außendienst (Name) und E-Mail.",
+      "file": "Datei",
+      "mode": "Import",
+      "modeReplace": "Liste ersetzen",
+      "modeMerge": "Ergänzen / überschreiben",
+      "check": "Prüfen",
+      "import": "Übernehmen",
+      "imported": "{{count}} Zuordnungen übernommen",
+      "importFailed": "Import fehlgeschlagen",
+      "previewSummary": "{{rows}} gültige Zeilen, {{errors}} fehlerhaft. Spalten: Kundennummer = {{number}}, E-Mail = {{email}}, Name = {{name}}",
+      "rowError": "Zeile {{row}}: {{message}}",
+      "customerNumber": "Kundennummer",
+      "repName": "Außendienst",
+      "repEmail": "E-Mail",
+      "add": "Hinzufügen",
+      "saved": "Zuordnung gespeichert",
+      "saveFailed": "Zuordnung nicht gespeichert",
+      "search": "Suchen",
+      "count": "{{count}} Zuordnungen, {{shown}} angezeigt",
+      "count_one": "{{count}} Zuordnung, {{shown}} angezeigt",
+      "count_other": "{{count}} Zuordnungen, {{shown}} angezeigt",
+      "empty": "Noch keine Zuordnung importiert.",
+      "delete": "Löschen",
+      "deleteRow": "Zuordnung {{number}} löschen"
+    },
+    "settings": {
+      "enabled": "Registrierungs-Eingang aktiv",
+      "enabledHint": "Aus: n8n holt keine Mails ab und verschickt nichts.",
+      "autoExecute": "Sichere Treffer automatisch ausführen",
+      "autoExecuteHint": "Mitarbeiter anlegen, Passwort-Mail und Außendienst-Info ohne Klick, wenn Kunde und Daten eindeutig sind. Aus: jede Anmeldung wartet auf „Ausführen“.",
+      "mailbox": "Registrierungs-Postfach",
+      "mailboxHint": "Leer = Postfach des Outlook-Zugangs in n8n.",
+      "masterDataEmail": "Kundenstamm-Team (E-Mail)",
+      "masterDataEmailHint": "Bekommt Anmeldungen, deren Kunde im Portal fehlt – mit der Originalmail im Anhang.",
+      "processedFolderName": "Ordner für erledigte Mails",
+      "processSince": "Mails ab",
+      "processSinceHint": "Leer = die letzten 2 Tage.",
+      "maxPerRun": "Mails je Lauf",
+      "recheckHours": "Wartende neu prüfen alle … Stunden",
+      "recheckHoursHint": "0 = nur von Hand über „Neu prüfen“.",
+      "customerUpdate": "Kundendaten aus der Anmeldung",
+      "customerUpdateFillEmpty": "Nur leere Felder ergänzen",
+      "customerUpdateNone": "Nie ändern",
+      "customerUpdateHint": "Firmenname und Adresse bleiben immer, wie sie im Shop stehen. Inaktive Kunden werden aktiviert.",
+      "storefrontUrl": "Portal-Adresse für den Passwort-Link",
+      "notifySalesRep": "Außendienst informieren",
+      "notifySalesRepHint": "Info-Mail an den zuständigen Außendienst laut Zuordnungsliste.",
+      "ccForwarder": "Weiterleitenden Kollegen in CC",
+      "ccForwarderHint": "Wer die Anmeldung weitergeleitet hat, bekommt die Mails an Kundenstamm und Außendienst in Kopie.",
+      "n8nTitle": "n8n-Workflow",
+      "n8nHint": "Vorlage n8n-workflows/m365-portal-registrations.json importieren, Outlook- und METAorder-Zugang zuordnen und aktivieren. Der METAorder-Benutzer von n8n braucht das Recht „B2B verwalten“.",
+      "categories": "Outlook-Kategorien: {{list}}",
+      "save": "Speichern",
+      "saved": "Einstellungen gespeichert",
+      "saveFailed": "Einstellungen nicht gespeichert"
+    }
   },
   "systemLog": {
     "title": "Systemprotokoll",
