@@ -12,9 +12,14 @@
  * nur im DE-Kanal über moorl_section_config). Ersetzt beim zweiten Lauf nur den eigenen Abschnitt; --revert
  * entfernt ihn und schiebt die folgenden Abschnitte zurück.
  *
+ * --home-sections: ersetzt den Inhalt der bestehenden Startseiten-Abschnitte „Rabattstaffel“ und „B2B-Zahlung
+ * (Mondu)“ durch Fassungen im Design der Branchenseiten (server/products/homeSections.ts); beide nur im DE-Kanal.
+ * Altes HTML, Kanal-Einstellung und Hintergrund kommen ins Protokoll, --revert stellt sie wieder her.
+ *
  * Aufruf (im App-Container):
  *   NODE_ENV=development npx tsx scripts/writeIndustryPages.ts <tenantId> [--only kfz,handwerk] [--apply] [--live] [--image-fallback <shop-stand.json>]
  *   NODE_ENV=development npx tsx scripts/writeIndustryPages.ts <tenantId> --home [--apply] [--live] [--image-fallback <shop-stand.json>]
+ *   NODE_ENV=development npx tsx scripts/writeIndustryPages.ts <tenantId> --home-sections [--apply] [--live]
  *   NODE_ENV=development npx tsx scripts/writeIndustryPages.ts <tenantId> --revert <protokoll.json>
  */
 import { createHash } from "crypto";
@@ -23,6 +28,7 @@ import { storage } from "../server/storage";
 import { ShopwareClient } from "../server/shopware/shopware";
 import { INDUSTRY_PAGES, referencedNumbers, type IndustryPage } from "../server/products/industryPages";
 import { IndustryPageHtml, homeTeaserHtml, industryPageCss, type IndustryShopProduct } from "../server/products/industryPageHtml";
+import { HOME_SECTION_IDS, HOME_SECTION_MARKERS, monduSectionHtml, rabattSectionHtml } from "../server/products/homeSections";
 
 const DE_CHANNEL_NAME = "META Regalbau DE";
 const DE_LANG = "2fbb5fe2e29a4d70aa5854ce7ce3e20b";
@@ -41,6 +47,8 @@ type Protocol = {
   faqGroups: string[];
   /** Startseiten-Teaser (--home) */
   home?: { pageId: string; sectionId: string };
+  /** Ersetzte Startseiten-Abschnitte (--home-sections): Werte vor dem Lauf */
+  homeSlots?: Array<{ sectionId: string; slotId: string; config: unknown; customFields: unknown; backgroundColor: string | null }>;
 };
 
 function arg(name: string): string | undefined {
@@ -160,6 +168,11 @@ async function main(): Promise<void> {
     if (log.tenantId !== tenantId) throw new Error(`Protokoll gehört zu Mandant ${log.tenantId}`);
     await deleteOwn(log);
     if (log.home) await removeHomeSection(log.home.pageId, log.home.sectionId);
+    for (const h of log.homeSlots ?? []) {
+      await api("PATCH", `cms-slot/${h.slotId}`, { config: h.config });
+      await api("PATCH", `cms-section/${h.sectionId}`, { customFields: h.customFields, backgroundColor: h.backgroundColor });
+    }
+    if (log.homeSlots?.length) console.log(`Startseiten-Abschnitte zurückgesetzt: ${log.homeSlots.length}`);
     if (isTest) await api("DELETE", "_action/cache").catch(() => undefined);
     console.log(`Zurückgebaut: ${log.landingPages.length} Seiten, ${log.cmsPages.length} Layouts, ${log.faqGroups.length} FAQ-Gruppen`);
     return;
@@ -176,6 +189,46 @@ async function main(): Promise<void> {
   const de = channels.data.find((c: any) => c.name === DE_CHANNEL_NAME);
   if (!de) throw new Error(`Verkaufskanal ${DE_CHANNEL_NAME} fehlt`);
   const domain = ((de.domains ?? []).map((d: any) => d.url).find((u: string) => /shop\.meta-online\.com|test\./.test(u)) ?? base).replace(/\/$/, "");
+
+  if (process.argv.includes("--home-sections")) {
+    const parts = [
+      { key: "rabatt" as const, html: rabattSectionHtml() },
+      { key: "mondu" as const, html: monduSectionHtml() },
+    ];
+    const plans: Array<{ key: string; sec: any; slot: any; html: string; own: boolean }> = [];
+    for (const part of parts) {
+      const sec = (await api("POST", "search/cms-section", { ids: [HOME_SECTION_IDS[part.key]], associations: { blocks: { associations: { slots: {} } } } }))?.data?.[0];
+      const slot = sec?.blocks?.flatMap((b: any) => b.slots ?? []).find((x: any) => x.type === "html");
+      const current = String(slot?.config?.content?.value ?? "");
+      const marker = HOME_SECTION_MARKERS[part.key];
+      const own = current.includes(marker.own);
+      if (!slot || !(own || marker.old.test(current))) throw new Error(`Abschnitt ${part.key} (${HOME_SECTION_IDS[part.key]}) nicht gefunden oder Inhalt unbekannt – nichts geändert`);
+      plans.push({ key: part.key, sec, slot, html: part.html, own });
+      console.log(`${apply ? "SCHREIBE" : "würde schreiben"} Startseite „${part.key}“ (Position ${sec.position}, bisher ${own ? "eigene Fassung" : "Agentur-Fassung"}), nur Kanal ${DE_CHANNEL_NAME}, HTML ${Math.round(part.html.length / 1024)} KB`);
+    }
+    if (!apply) return;
+    const file = `/app/tmp-claude/startseite-abschnitte-${tenantId.slice(0, 8)}-${Date.now()}.json`;
+    const log: Protocol = {
+      tenantId,
+      at: new Date().toISOString(),
+      landingPages: [],
+      cmsPages: [],
+      faqGroups: [],
+      homeSlots: plans.map((x) => ({ sectionId: x.sec.id, slotId: x.slot.id, config: x.slot.config, customFields: x.sec.customFields ?? null, backgroundColor: x.sec.backgroundColor ?? null })),
+    };
+    writeFileSync(file, JSON.stringify(log, null, 1));
+    for (const x of plans) {
+      await api("PATCH", `cms-slot/${x.slot.id}`, { config: { ...(x.slot.config ?? {}), content: { source: "static", value: x.html } } });
+      // Rabattstaffel und Mondu gibt es nur im DE-Shop (AT: nur Stripe, PL: keine Mondu-Zahlart)
+      const cfg = (x.sec.customFields ?? {}).moorl_section_config ?? {};
+      await api("PATCH", `cms-section/${x.sec.id}`, { backgroundColor: null, customFields: { ...(x.sec.customFields ?? {}), moorl_section_config: { color: null, ...cfg, salesChannel: [de.id] } } });
+    }
+    console.log(`Protokoll: ${file}`);
+    if (isTest) await api("DELETE", "_action/cache").catch((e) => console.log("Cache", e.message));
+    const body = await (await fetch(`${domain}/?mbp=${Date.now()}`)).text();
+    for (const x of plans) console.log(`${x.key}: ${body.includes(`data-mbp="${x.key}"`) ? "auf der Startseite sichtbar" : "NICHT im HTML"}`);
+    return;
+  }
 
   // Artikel aus dem Ziel-Shop: ID, Netto-Preis, Bild, Lieferzeit, URL
   const numbers = home ? [...new Set(pages.map((p) => p.hero.number))] : [...new Set(pages.flatMap(referencedNumbers))];
