@@ -154,6 +154,11 @@ app.use((req, res, next) => {
   if (req.path.startsWith("/api/public/")) {
     return next();
   }
+  // Öffentlicher Regalplaner aus dem Shop (Autorisierung über den signierten
+  // CPQ-Handoff-Token im Request, kein METAorder-Login/-Cookie beteiligt)
+  if (req.path.startsWith("/api/cpq/public/") || req.path.startsWith("/api/cpq-core/public/")) {
+    return next();
+  }
   // Skip CSRF for debug ingest endpoint
   if (req.path.startsWith("/ingest/")) {
     return next();

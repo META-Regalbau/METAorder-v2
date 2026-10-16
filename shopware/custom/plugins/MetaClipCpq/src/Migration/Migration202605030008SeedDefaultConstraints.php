@@ -12,7 +12,7 @@ class Migration202605030008SeedDefaultConstraints extends MigrationStep
 {
     public function getCreationTimestamp(): int
     {
-        return 202605030008;
+        return 1777766880; // 2026-05-03, Schritt 8
     }
 
     public function update(Connection $connection): void

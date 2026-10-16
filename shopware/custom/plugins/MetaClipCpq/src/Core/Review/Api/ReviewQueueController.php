@@ -9,7 +9,7 @@ use Meta\ClipCpq\Core\Review\ReviewQueueService;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\Routing\RoutingException;
 use Shopware\Core\Framework\Validation\DataBag\RequestDataBag;
-use Shopware\Core\System\SalesChannel\Context\AdminApiSource;
+use Shopware\Core\Framework\Api\Context\AdminApiSource;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;

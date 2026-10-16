@@ -11,7 +11,7 @@ class Migration202605030006CreateRuleVersionTable extends MigrationStep
 {
     public function getCreationTimestamp(): int
     {
-        return 202605030006;
+        return 1777766760; // 2026-05-03, Schritt 6
     }
 
     public function update(Connection $connection): void

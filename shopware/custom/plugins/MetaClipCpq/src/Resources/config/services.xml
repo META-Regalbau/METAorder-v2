@@ -34,22 +34,26 @@
             <tag name="kernel.event_subscriber"/>
         </service>
         <service id="Meta\ClipCpq\Core\Checkout\Subscriber\OrderRoutingSubscriber">
-            <argument type="service" id="meta_clip_configuration.repository"/>
+            <argument key="$configurationRepository" type="service" id="meta_clip_configuration.repository"/>
             <tag name="kernel.event_subscriber"/>
         </service>
 
         <service id="Meta\ClipCpq\Core\Notification\SlackNotifier">
-            <argument type="service" id="meta_clip_configuration_review_log.repository"/>
+            <argument key="$reviewLogRepository" type="service" id="meta_clip_configuration_review_log.repository"/>
         </service>
 
         <service id="Meta\ClipCpq\Core\Review\ReviewQueueService">
-            <argument type="service" id="meta_clip_configuration.repository"/>
-            <argument type="service" id="meta_clip_configuration_review_log.repository"/>
+            <argument key="$configurationRepository" type="service" id="meta_clip_configuration.repository"/>
+            <argument key="$reviewLogRepository" type="service" id="meta_clip_configuration_review_log.repository"/>
+            <argument key="$mailService" type="service" id="Shopware\Core\Content\Mail\Service\MailService"/>
         </service>
 
+        <service id="Meta\ClipCpq\Core\Lobster\OrderPositionMapper"/>
+        <service id="Meta\ClipCpq\Core\Lobster\LobsterDispatcher"/>
+
         <service id="Meta\ClipCpq\Core\Lobster\Message\DispatchToLobsterMessageHandler">
-            <argument type="service" id="meta_clip_configuration.repository"/>
-            <argument type="service" id="order.repository"/>
+            <argument key="$configurationRepository" type="service" id="meta_clip_configuration.repository"/>
+            <argument key="$orderRepository" type="service" id="order.repository"/>
             <tag name="messenger.message_handler"/>
         </service>
 
