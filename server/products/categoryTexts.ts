@@ -8,8 +8,9 @@ import { z } from "zod";
 import { chatCompletion, parseLlmJsonResponse } from "../ai/llmChat";
 import { CLAIM_RULES, digitForms, expandAbbreviations } from "./productMetaTexts";
 import { parseCatalogName } from "../cross-selling/crossSellNameRules";
+import { catalogFactsFor, catalogSystemsFor, ignoredShopFeaturesFor } from "./catalogFacts";
 
-export const CATEGORY_PROMPT_VERSION = "cat-v2";
+export const CATEGORY_PROMPT_VERSION = "cat-v7";
 
 export type CategoryProduct = { name: string; properties: Array<{ group: string; option: string }> };
 
@@ -29,15 +30,25 @@ export type CategoryFacts = {
   surfaces: string[];
   /** Weitere Merkmale aus den Eigenschaften (Gruppe -> Werte), nur wenige verschiedene Werte */
   features: Array<{ label: string; values: string[] }>;
+  /** Merkmale je System, wenn sie sich zwischen den Systemen unterscheiden (z. B. MINI-RACK Schraub-, SPEED-RACK Steckregal) */
+  systemFeatures: Array<{ system: string; values: string[] }>;
   topProducts: string[];
   /** Belegte Herstellerangaben der Familie (aus den heutigen Texten) */
   familyClaims: string | null;
+  /** Belegte Systemaussagen aus dem META-Bestellkatalog (catalogFacts.ts), mit Seitenzahl */
+  catalogFacts: Array<{ text: string; page: number; system: string }>;
+  /** Systemwerte laut Katalog je System (Bemaßungsvarianten, Lasten) */
+  catalogSpans: Array<{ system: string; page: number; rows: Array<[string, string]> }>;
 };
 
+// Katalog S. 14: Produktion in Deutschland nur CLIP, FIX, MINI-RACK, SPEED-RACK, MULTIPAL; Garantie auf einen
+// Grossteil der Fachboden-, Weitspann-, Paletten- und Kragarmregale; ISO 9001 ist ein Unternehmenszertifikat.
 const FAMILY_CLAIMS: Array<[RegExp, string]> = [
-  [/\bCLIP\b|^CL\s/i, "META CLIP ist „Made in Germany“, mit 5 Jahren META-Qualitätsgarantie und Ersatzteilservice; Zertifizierungen u. a. GS, DIN EN ISO 9001:2015, RAL-Gütesicherung."],
-  [/MULTIPAL|^MP\s/i, "META MULTIPAL Palettenregale sind gütegesichert nach RAL-RG 614/2, tragen das GS-Zeichen und sind DIBt-zugelassen; statische Nachweise nach DIN EN 15512."],
+  [/\bCLIP\b|^CL\s/i, "META CLIP wird am Unternehmensstandort Deutschland produziert („Made in Germany“). META gibt eine 5-jährige Qualitätsgarantie auf einen Großteil der stationären Fachbodenregale (Ausnahmen in den Garantiebedingungen) und bietet Ersatzteilservice. META CLIP trägt das GS-Zeichen (Schranktüren und Schubladen ausgenommen), ist RAL-gütegesichert (RAL-RG 614/1) und hat eine DIBt-Teilzulassung; META ist nach DIN EN ISO 9001:2015 zertifiziert."],
+  [/MULTIPAL|^MP\s/i, "META MULTIPAL Palettenregale sind gütegesichert nach RAL-RG 614/2, tragen das GS-Zeichen und sind DIBt-zugelassen; statische Nachweise nach DIN EN 15512. META MULTIPAL wird am Unternehmensstandort Deutschland produziert („Made in Germany“); 5-jährige Qualitätsgarantie auf einen Großteil der stationären Palettenregale."],
+  [/MINI-?RACK|SPEED-?RACK/i, "META MINI-RACK und META SPEED-RACK werden am Unternehmensstandort Deutschland produziert („Made in Germany“); 5-jährige Qualitätsgarantie auf einen Großteil der stationären Weitspannregale."],
   [/ATLAS/i, "META ATLAS ST ist durch GS-Zertifikat und RAL-Gütezeichen bestätigt, mit 5 Jahren Herstellergarantie."],
+  [/MULTISTRONG/i, "META MULTISTRONG LIGHT und MEDIUM sind gütegesichert nach RAL-RG 614/5; 5-jährige Qualitätsgarantie auf einen Großteil der stationären Kragarmregale."],
 ];
 
 const uniqSorted = (values: number[]) => [...new Set(values.filter((v) => Number.isFinite(v) && v > 0))].sort((a, b) => a - b);
@@ -47,6 +58,14 @@ function propNumber(p: CategoryProduct, group: RegExp): number | null {
   const prop = p.properties.find((x) => group.test(x.group));
   const m = prop?.option.match(/(\d[\d.,]*)/);
   return m ? Number(m[1].replace(/\./g, "").replace(",", ".")) : null;
+}
+
+/** Ab so vielen Artikeln bekommt ein System eigene Angaben "Je System". */
+const MIN_SYSTEM_PRODUCTS = 5;
+
+/** "0 mm" beim Verstellraster heisst: fest, nicht verstellbar (z. B. Kragarme bei ATLAS ST). */
+function featureValue(option: string): string {
+  return /^0\s*mm$/i.test(option.trim()) ? "nicht verstellbar" : option.trim();
 }
 
 /** Fakten einer Kategorie aus ihren Produkten (Name im neuen Schema hat Vorrang vor Eigenschaften). */
@@ -69,7 +88,9 @@ export function buildCategoryFacts(
       if (parsed.role) shelfTypes.push(parsed.role);
       if (parsed.dims.length === 3) {
         heights.push(parsed.dims[0]);
-        widths.push(parsed.dims[1]);
+        // "4 Felder | 2000 x 5400 x 500 mm": 5400 ist die Laenge der Regalzeile, keine Regalbreite
+        const fields = parsed.segments.map((seg) => seg.match(/^(\d+)\s*Felder$/)).find(Boolean);
+        if (!fields || Number(fields[1]) <= 1) widths.push(parsed.dims[1]);
         depths.push(parsed.dims[2]);
       }
       for (const seg of parsed.segments) {
@@ -96,14 +117,65 @@ export function buildCategoryFacts(
     [/^Nutzung$/i, "Nutzung"],
     [/^Verstellraster \(Höhe\)$/i, "Verstellraster (Höhe)"],
     [/^Ständertyp$|^Rahmentyp/i, "Rahmen-/Ständertyp"],
-    [/^Rahmen vormontiert\?$|^Ständer vormontiert\?$/i, "vormontiert"],
+    // Eigenschaft sagt nur, ob Rahmen/Staender vormontiert sind – nicht das ganze Regal
+    [/^Rahmen vormontiert\?$/i, "Rahmen vormontiert"],
+    [/^Ständer vormontiert\?$/i, "Ständer vormontiert"],
     [/^Fahrbar\?$/i, "fahrbar"],
   ];
   const features: Array<{ label: string; values: string[] }> = [];
-  for (const [re, label] of featureGroups) {
+  // Wo der Katalog den Aufbau beschreibt, gilt die Shop-Eigenschaft nicht (z. B. "Schraubregal" bei MULTIPAL)
+  const ignored = ignoredShopFeaturesFor(meta.name);
+  for (const [re, label] of featureGroups.filter(([, l]) => !ignored.has(l))) {
     // "0 mm" (z. B. Verstellraster bei festen Kragarmen) ist kein Merkmal, sondern "nicht vorhanden"
-    const values = uniq(products.flatMap((p) => p.properties.filter((x) => re.test(x.group)).map((x) => x.option))).filter((v) => !/^0\s*mm$/i.test(v));
+    const values = uniq(products.flatMap((p) => p.properties.filter((x) => re.test(x.group)).map((x) => featureValue(x.option))));
     if (values.length > 0 && values.length <= 6) features.push({ label, values });
+  }
+  // Merkmale je System: nur wenn es mehrere Systeme gibt und sich die Werte unterscheiden
+  const perSystem = new Map<string, Map<string, Set<string>>>();
+  const addSys = (sys: string, label: string, value: string) => {
+    if (!perSystem.has(sys)) perSystem.set(sys, new Map());
+    const m = perSystem.get(sys)!;
+    if (!m.has(label)) m.set(label, new Set());
+    m.get(label)!.add(value);
+  };
+  for (const p of products) {
+    const parsed = parseCatalogName(p.name);
+    const sys = parsed?.system;
+    if (!sys || !/^META\s/.test(sys)) continue;
+    if (parsed && parsed.dims.length === 3) addSys(sys, "Regalart", parsed.role ?? "Komplettregal");
+    if (parsed && parsed.dims.length === 3) {
+      addSys(sys, "Höhen (mm)", String(parsed.dims[0]));
+      const fields = parsed.segments.map((seg) => seg.match(/^(\d+)\s*Felder$/)).find(Boolean);
+      if (!fields || Number(fields[1]) <= 1) addSys(sys, "Breiten (mm)", String(parsed.dims[1]));
+      addSys(sys, "Tiefen (mm)", String(parsed.dims[2]));
+    }
+    for (const seg of parsed?.segments ?? []) {
+      const load = seg.match(/^(Fachlast|Feldlast|Armlast)\s+(\d[\d.,]*)\s*kg$/i);
+      if (load) addSys(sys, `${load[1]} (kg)`, load[2].replace(/\./g, ""));
+    }
+    for (const [re, label] of featureGroups.filter(([, l]) => !ignored.has(l))) {
+      for (const x of p.properties.filter((o) => re.test(o.group))) addSys(sys, label, featureValue(x.option));
+    }
+  }
+  // Systeme mit sehr wenigen Artikeln (z. B. 1 CLIP SPLIT) sagen nichts ueber das System aus
+  const systemCounts = new Map<string, number>();
+  for (const p of products) {
+    const sys = parseCatalogName(p.name)?.system;
+    if (sys) systemCounts.set(sys, (systemCounts.get(sys) ?? 0) + 1);
+  }
+  for (const sys of [...perSystem.keys()]) if ((systemCounts.get(sys) ?? 0) < MIN_SYSTEM_PRODUCTS) perSystem.delete(sys);
+  const systemFeatures: Array<{ system: string; values: string[] }> = [];
+  if (perSystem.size > 1) {
+    const labels = new Set([...perSystem.values()].flatMap((m) => [...m.keys()]));
+    // nur Merkmale, die alle Systeme haben (fehlende Eigenschaft ist kein Unterschied)
+    const differing = [...labels].filter(
+      (label) => [...perSystem.values()].every((m) => m.has(label)) && new Set([...perSystem.values()].map((m) => [...m.get(label)!].sort().join("/"))).size > 1,
+    );
+    for (const [sys, m] of perSystem) {
+      const sorted = (l: string) => [...m.get(l)!].sort((a, b) => (Number(a) && Number(b) ? Number(a) - Number(b) : a.localeCompare(b)));
+      const values = differing.filter((l) => m.has(l)).map((l) => `${l}: ${sorted(l).join(", ")}`);
+      if (values.length) systemFeatures.push({ system: sys, values });
+    }
   }
   // Herstellerangaben nur, wenn die Kategorie selbst zur Familie gehoert UND ihre Artikel ueberwiegend
   // (mind. 80 %) aus dieser Familie stammen - ein einzelner Kombi-Artikel reicht nicht.
@@ -124,8 +196,11 @@ export function buildCategoryFacts(
     levels: uniq(levels).sort((a, b) => parseInt(a) - parseInt(b)),
     surfaces: uniq(surfaces),
     features,
+    systemFeatures,
     topProducts: products.slice(0, 8).map((p) => p.name),
     familyClaims: family ? family[1] : null,
+    catalogFacts: catalogFactsFor(meta.name),
+    catalogSpans: catalogSystemsFor(meta.name).filter((x) => x.spans).map((x) => ({ system: x.label, page: x.spans!.page, rows: x.spans!.rows })),
   };
 }
 
@@ -148,14 +223,19 @@ export function factsTableHtml(f: CategoryFacts): string {
   for (const l of f.loads) rows.push([l.label, range(l.values, "kg")]);
   if (f.levels.length) rows.push(["Ebenen", f.levels.length <= 8 ? f.levels.join(", ") : `${f.levels[0]} bis ${f.levels[f.levels.length - 1]}`]);
   if (f.surfaces.length) rows.push(["Oberflächen", f.surfaces.join(", ")]);
-  for (const feat of f.features) if (!/^(vormontiert|fahrbar)$/.test(feat.label)) rows.push([feat.label, feat.values.join(", ")]);
+  for (const feat of f.features) if (!/^(Rahmen vormontiert|Ständer vormontiert|fahrbar)$/.test(feat.label)) rows.push([feat.label, feat.values.join(", ")]);
   if (rows.length < 2) return "";
   return `<table><tbody>${rows.map(([k, v]) => `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(v)}</td></tr>`).join("")}</tbody></table>`;
 }
 
 export function factsText(f: CategoryFacts): string {
+  const spans = f.catalogSpans ?? [];
   const lines = [
     `Kategorie: ${f.name} (${f.breadcrumb})`,
+    ...(spans.length
+      ? ["SYSTEMWERTE LAUT META-KATALOG (das kann das System – maßgeblich für Aussagen über das System):", ...spans.flatMap((x) => x.rows.map(([k, v]) => `- ${x.system}: ${k}: ${v}`))]
+      : []),
+    spans.length ? "IM SHOP DIREKT BESTELLBAR (Auswahl, keine Grenze des Systems):" : "",
     `Anzahl Artikel: ${f.productCount}`,
     f.systems.length ? `Systeme: ${f.systems.join(", ")}` : "",
     f.shelfTypes.length ? `Ausführungen: ${f.shelfTypes.join(", ")}` : "",
@@ -166,8 +246,12 @@ export function factsText(f: CategoryFacts): string {
     f.levels.length ? `Ebenen: ${f.levels.join(", ")}` : "",
     f.surfaces.length ? `Oberflächen: ${f.surfaces.join(", ")}` : "",
     ...f.features.map((x) => `${x.label}: ${x.values.join(", ")}`),
+    ...(f.systemFeatures ?? []).map((x) => `Je System – ${x.system}: ${x.values.join("; ")}`),
     `Beispielartikel: ${f.topProducts.join(" ; ")}`,
     f.familyClaims ? `Belegte Herstellerangaben: ${f.familyClaims}` : "Belegte Herstellerangaben: keine",
+    ...((f.catalogFacts ?? []).length
+      ? ["Belegte Katalogangaben (META-Bestellkatalog, beschreiben das System – das Shop-Sortiment kann kleiner sein):", ...f.catalogFacts.map((c) => `- ${c.system}: ${c.text}`)]
+      : []),
   ];
   return lines.filter(Boolean).join("\n");
 }
@@ -182,6 +266,24 @@ export type GeneratedCategoryText = {
   faq: Array<{ q: string; a: string }>;
 };
 
+/** Fachregeln fuer Schreiber und Pruefer (Plausibilitaet, User 15.10.2026). */
+const DOMAIN_RULES = `- Ein Anbauregal braucht ein Grundregal und nutzt dessen Rahmen mit; ein Grundregal steht für sich.
+- Bei Fachboden-, Paletten- und Weitspannregalen heißen die Rahmen „Seitenrahmen“ bzw. „Ständerrahmen“ – beides ist richtig. Bei Kragarmregalen heißen sie „Ständer“ (an ihnen hängen die Kragarme). Ein Kragarm-Grundregal hat zwei Ständer, ein Anbauregal nutzt EINEN Ständer des Nachbarregals mit und spart damit genau einen Ständer (kein Ständerpaar).
+- Doppelregal: bei Fachboden-, Paletten- und Weitspannregalen zwei Regalzeilen Rücken an Rücken; bei Kragarmregalen heißt doppelseitig, dass die Kragarme an beiden Seiten derselben Ständer sitzen. Das Wort „doppeltief“ nicht verwenden.
+- Fachboden- und Büroregale sind für Kleinteile, Kartons, Behälter, Ordner – nicht für Paletten oder palettierte Ware.
+- Ein Doppelregal ist beidseitig nutzbar; „einseitig oder beidseitig“ nicht auf Doppelregale beziehen.
+- „Rahmen vormontiert: ja“ bzw. „Ständer vormontiert: ja“ heißt nur, dass die Rahmen bzw. Ständer vormontiert sind – nicht das ganze Regal.
+- Gibt es „Systemwerte laut META-Katalog“, beschreiben Maße, Lasten und Ebenen das System nach diesen Werten. Werte unter „Im Shop direkt bestellbar“ sind nur eine Auswahl: nie als Grenze formulieren (nicht „nur“, „beträgt“, „fest“, „ausschließlich“, „die Tiefe ist 1.100 mm“), sondern z. B. „direkt im Shop bestellbar sind …“. Weichen Katalog und Shop ab, gilt für Systemaussagen der Katalog.
+- „Belegte Katalogangaben“ dürfen genutzt werden (Aufbau, Sicherheit, Systemwerte). Systemwerte aus dem Katalog als Möglichkeit des Systems kennzeichnen („im System bis …“, „auf Anfrage“), Sortimentswerte aus den Kategoriedaten. Keine Katalog- oder Seitenverweise im Text.
+- Sicherheitshinweise nicht miteinander verknüpfen: „nur für Handbedienung“ gilt immer, nicht nur bei Verankerung.
+- Die Shop-„Breite“ bei Kragarmregalen ist die Feldbreite (1.000/1.300 mm), das Katalog-„Achsmaß“ (1.030/1.330/1.350 mm) ist ein anderes Maß – nicht gleichsetzen.
+- Sicherheitshinweise aus dem Katalog genau wiedergeben (z. B. „über 4 : 1“, „nur für Handbedienung“), nicht abschwächen.
+- Alle Angaben beschreiben das Sortiment im Shop, nicht die grundsätzlichen Möglichkeiten eines Systems (nicht „reines Anbauregal-System“, sondern „im Shop als … erhältlich“).
+- Regalarten, Maße, Lasten und Aufbauart, die unter „Je System“ stehen, gelten nur für dieses System. Gibt es eine Regalart (z. B. Grund-/Anbauregal) nur bei einem System, nicht für alle behaupten.
+- Keine Aussagen über die Darstellung im Shop (Kennzeichnung, Filter, Produktübersicht, Konfigurator).
+- Keine allgemeinen Qualitäts- oder Eignungsfloskeln ohne Daten („für den Dauereinsatz geeignet“, „langlebig“, „robust“), keine Leistungsversprechen (Durchsatz, Ersparnis, „beliebig erweiterbar“).
+- Nur META-Inhalte: keine anderen Hersteller, Marken oder Wettbewerber, keine Vergleiche mit ihnen.`;
+
 const SYSTEM_PROMPT = `Du schreibst Texte für Kategorieseiten im Onlineshop von META Regalbau (Regale und Lagertechnik, B2B). Ziel: Sichtbarkeit in Google und in KI-Suchen (GEO) und eine gute Kaufentscheidung. Sachlich, konkret, keine Werbefloskeln, Sie-Form.
 Liefere als JSON:
 - h1: Überschrift der Seite (höchstens 60 Zeichen), Suchbegriff zuerst, z. B. "Fachbodenregale – Grundregale von META CLIP".
@@ -191,10 +293,11 @@ Liefere als JSON:
 Regeln:
 - Nur Fakten aus den gelieferten Kategoriedaten. Zahlen (Maße, Lasten, Ebenen, Anzahl) nur, wenn sie dort stehen. Keine erfundenen Normen, Zertifikate, Garantien, Herkunftsangaben – außer wörtlich aus "Belegte Herstellerangaben".
 - Keine Preise, Rabatte, Lieferzeiten, Versandkosten.
-- Ein Anbauregal braucht ein Grundregal und nutzt dessen Rahmen mit; ein Grundregal steht für sich. Bei Kragarmregalen heißen die Rahmen „Ständer“ (an ihnen hängen die Kragarme), bei Fachboden-, Paletten- und Weitspannregalen „Seitenrahmen“ bzw. „Ständerrahmen“. Das ist allgemeines Regalwissen und darf erklärt werden.
-- Ein Doppelregal sind zwei Regalzeilen Rücken an Rücken. Das Wort „doppeltief“ nicht verwenden (bedeutet etwas anderes).
+${DOMAIN_RULES}
+- Allgemeines Regalwissen nur, wenn es für die gelieferten META-Daten zutrifft; im Zweifel weglassen.
 - Konkrete Daten aus den Kategoriedaten nutzen (Maßbereiche, Lasten, Ebenen, Aufbauart, Raster) – sie helfen Kunden und KI-Suchen; nichts darüber hinaus erfinden.
-- Typkürzel (T1 N, SR 120/25 …) nicht ausdeuten.
+- Typkürzel (T1 N, SR 120/25 …) nicht ausdeuten und nicht aufzählen.
+- Keine Quellenverweise im Text („laut Daten“, „laut Beispielkonfigurationen“, „in den Produktdaten“); Negativ-Aussagen („nicht fahrbar“) nur, wenn sie für die Auswahl wichtig sind.
 - Kein HTML, keine Emojis, keine Aufzählungszeichen im Text.
 Antworte nur mit JSON: {"h1":"…","intro":"…","sections":[{"heading":"…","paragraphs":["…"]}],"faq":[{"q":"…","a":"…"}]}`;
 
@@ -257,7 +360,7 @@ export function validateCategoryText(f: CategoryFacts, g: GeneratedCategoryText)
     const runs = token.match(/\d+/g) ?? [];
     if (!allowed.has(whole) && !runs.every((r) => allowed.has(r))) return `die Zahl ${token} steht nicht in den Kategoriedaten – weglassen`;
   }
-  const claims = f.familyClaims ?? "";
+  const claims = `${f.familyClaims ?? ""} ${(f.catalogFacts ?? []).map((c) => c.text).join(" ")}`;
   for (const m of plain.match(new RegExp(COMPANY_CLAIMS.source, "gi")) ?? []) {
     const term = m.trim().replace(/[- ]+$/, "").toLowerCase();
     if (!claims.toLowerCase().includes(term)) return `Herstellerangabe „${m}“ ist für diese Kategorie nicht belegt – weglassen`;
@@ -265,16 +368,47 @@ export function validateCategoryText(f: CategoryFacts, g: GeneratedCategoryText)
   const sourceExpanded = expandAbbreviations(source);
   for (const [pattern, reason] of CLAIM_RULES) {
     if (reason === "certificate" || reason === "warranty" || reason === "origin") continue; // oben über familyClaims geprüft
-    if (pattern.test(plain) && !pattern.test(sourceExpanded)) return `keine Angaben zu ${reason === "price" ? "Preisen" : reason === "delivery" || reason === "shipping" ? "Lieferung/Versand" : "Oberflächenbehandlung"}, die nicht in den Daten stehen`;
+    if (pattern.test(plain) && !pattern.test(sourceExpanded)) {
+      if (reason === "competitor") return "keine anderen Hersteller oder Wettbewerber nennen – nur META";
+      return `keine Angaben zu ${reason === "price" ? "Preisen" : reason === "delivery" || reason === "shipping" ? "Lieferung/Versand" : "Oberflächenbehandlung"}, die nicht in den Daten stehen`;
+    }
   }
   return null;
 }
 
-export function buildCategoryHtml(f: CategoryFacts, g: GeneratedCategoryText): { introHtml: string; seoHtml: string; faqHtml: string; faqJson: string } {
+/** Systemwerte laut Katalog als Tabelle (ein System: Merkmal | Wert; mehrere: eine Spalte je System). */
+export function catalogTableHtml(f: CategoryFacts): string {
+  const spans = f.catalogSpans ?? [];
+  if (spans.length === 0) return "";
+  const labels = [...new Set(spans.flatMap((x) => x.rows.map(([k]) => k)))];
+  const cell = (x: (typeof spans)[number], k: string) => escapeHtml(x.rows.find(([l]) => l === k)?.[1] ?? "–");
+  if (spans.length === 1) return `<table><tbody>${labels.map((k) => `<tr><th>${escapeHtml(k)}</th><td>${cell(spans[0], k)}</td></tr>`).join("")}</tbody></table>`;
+  const short = (name: string) => name.replace(/^META\s+/, "").replace(/\s+(Fachboden|Büro|Paletten|Kragarm|Weitspann)regale$/, "");
+  return `<table><thead><tr><th></th>${spans.map((x) => `<th>${escapeHtml(short(x.system))}</th>`).join("")}</tr></thead><tbody>${labels.map((k) => `<tr><th>${escapeHtml(k)}</th>${spans.map((x) => `<td>${cell(x, k)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+}
+
+/** Was davon direkt im Shop bestellbar ist (Satz unter der Katalogtabelle). */
+export function shopSelectionHtml(f: CategoryFacts): string {
+  const parts = [
+    f.heights.length ? `Höhen ${range(f.heights, "mm")}` : "",
+    f.widths.length ? `Breiten ${range(f.widths, "mm")}` : "",
+    f.depths.length ? `Tiefen ${range(f.depths, "mm")}` : "",
+  ].filter(Boolean);
+  if (parts.length === 0) return "";
+  return `<p><strong>Direkt im Shop bestellbar:</strong> ${escapeHtml(parts.join(", "))}. Weitere Ausführungen des Systems auf Anfrage – sprechen Sie uns an.</p>`;
+}
+
+export function buildCategoryHtml(
+  f: CategoryFacts,
+  g: GeneratedCategoryText,
+  options: { table?: "shop" | "catalog" } = {},
+): { introHtml: string; seoHtml: string; faqHtml: string; faqJson: string } {
   const p = (t: string) => `<p>${escapeHtml(t.trim())}</p>`;
-  const table = factsTableHtml(f);
+  const catalog = options.table === "catalog" ? catalogTableHtml(f) : "";
+  const table = catalog ? `${catalog}${shopSelectionHtml(f)}` : factsTableHtml(f);
+  const heading = catalog ? `${escapeHtml(f.name)}: Systemwerte im Überblick` : `${escapeHtml(f.name)}: Maße und Ausführungen im Überblick`;
   const sections = g.sections.map((s) => `<h2>${escapeHtml(s.heading.trim())}</h2>${s.paragraphs.map(p).join("")}`);
-  if (table) sections.splice(Math.min(1, sections.length), 0, `<h2>${escapeHtml(f.name)}: Maße und Ausführungen im Überblick</h2>${table}`);
+  if (table) sections.splice(Math.min(1, sections.length), 0, `<h2>${heading}</h2>${table}`);
   return {
     introHtml: p(g.intro),
     seoHtml: sections.join(""),
@@ -283,9 +417,73 @@ export function buildCategoryHtml(f: CategoryFacts, g: GeneratedCategoryText): {
   };
 }
 
+export type PlausibilityIssue = { quote: string; reason: string };
+/** Zweiter Leser: meldet unbelegte oder unplausible Aussagen (leere Liste = in Ordnung). */
+export type CategoryTextReviewer = (facts: CategoryFacts, text: GeneratedCategoryText) => Promise<PlausibilityIssue[]>;
+
+const norm = (v: string) => v.toLowerCase().replace(/[„“"'.,;:!?()–-]/g, " ").replace(/\s+/g, " ").trim();
+const sentences = (v: string) => v.split(/(?<=[.!?])\s+/).map((x) => x.trim()).filter(Boolean);
+
+/**
+ * Entfernt die beanstandeten Saetze (Zitat ist Teil des Satzes). Leere Absaetze, Abschnitte und FAQ
+ * fallen weg; ob der Rest noch reicht, entscheidet danach validateCategoryText.
+ */
+export function removeQuotedSentences(g: GeneratedCategoryText, quotes: string[]): GeneratedCategoryText {
+  const qs = quotes.map(norm).filter((q) => q.length >= 8);
+  const hit = (sentence: string) => qs.some((q) => norm(sentence).includes(q) || q.includes(norm(sentence)));
+  const clean = (text: string) => sentences(text).filter((x) => !hit(x)).join(" ");
+  return {
+    h1: g.h1,
+    intro: clean(g.intro),
+    sections: g.sections
+      .map((sec) => ({ heading: sec.heading, paragraphs: sec.paragraphs.map(clean).filter(Boolean) }))
+      .filter((sec) => sec.paragraphs.length > 0),
+    faq: g.faq.filter((x) => !hit(x.q)).map((x) => ({ q: x.q, a: clean(x.a) })).filter((x) => x.a),
+  };
+}
+
+const issuesText = (issues: PlausibilityIssue[]) => issues.map((i) => `„${i.quote.trim()}“ – ${i.reason.trim()}`).join("; ");
+
+const REVIEW_PROMPT = `Du prüfst einen Shop-Text von META Regalbau (Hersteller von Regalen) auf Plausibilität, bevor er veröffentlicht wird.
+Grundlage sind NUR die gelieferten Kategoriedaten (Produkte von META) und allgemein gültiges, unstrittiges Regalwissen.
+Melde jede Aussage, die
+- in den Daten nicht belegt ist und kein unstrittiges Regalwissen ist (z. B. erfundene Eigenschaften, Zubehör, Einsatzorte, die nicht zu den Produkten passen),
+- den Daten widerspricht oder Werte falsch zuordnet (z. B. Zeilenlänge als Breite, Fachlast als Feldlast, falsche Aufbauart),
+- technisch unplausibel ist,
+- andere Hersteller/Wettbewerber nennt oder ein Leistungsversprechen ohne Daten macht (Durchsatz, Ersparnis, Superlative).
+- Merkmale falsch einem System zuordnet oder verwischt, obwohl die Daten sie unter „Je System“ trennen,
+- bei Kragarmregalen „doppelseitig“ als zwei Regalzeilen Rücken an Rücken beschreibt (richtig: Kragarme an beiden Seiten derselben Ständer),
+- etwas über die Darstellung im Shop behauptet (Kennzeichnung, Filter, Produktübersicht).
+- Shop-Sortimentswerte als Grenze des Systems darstellt („nur“, „beträgt“, „fest“), obwohl die Systemwerte laut Katalog weiter reichen, oder Systemwerte falsch wiedergibt.
+Diese Fachregeln gelten; melde jeden Verstoß:
+${DOMAIN_RULES}
+Nicht melden: Stil, Länge, Wiederholungen, Formulierungen ohne inhaltliches Problem.
+Antworte nur mit JSON: {"issues":[{"quote":"wörtliches Zitat","reason":"kurz, warum"}]} – leere Liste, wenn alles plausibel ist.`;
+
+const reviewSchema = z.object({ issues: z.array(z.object({ quote: z.string(), reason: z.string() })) });
+
+export function llmCategoryTextReviewer(getSetting: (key: string) => Promise<any>): CategoryTextReviewer {
+  return async (facts, g) => {
+    const text = await chatCompletion(getSetting, {
+      tier: "smart",
+      temperature: 0,
+      max_tokens: 2000,
+      response_json: true,
+      messages: [
+        { role: "system", content: REVIEW_PROMPT },
+        { role: "user", content: `KATEGORIEDATEN:\n${factsText(facts)}\n\nTEXT:\n${categoryTextPlain(g)}` },
+      ],
+    });
+    const parsed = reviewSchema.safeParse(parseLlmJsonResponse(text));
+    if (!parsed.success) return [{ quote: "", reason: "Plausibilitätsprüfung: Antwort nicht lesbar" }];
+    return parsed.data.issues.filter((i) => i.quote.trim());
+  };
+}
+
 export async function generateCategoryText(
   facts: CategoryFacts,
   generate: CategoryTextGenerator,
+  review?: CategoryTextReviewer,
 ): Promise<{ text: GeneratedCategoryText | null; problem: string }> {
   let feedback: string | undefined;
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -302,8 +500,19 @@ export async function generateCategoryText(
       continue;
     }
     const reason = validateCategoryText(facts, g);
-    if (!reason) return { text: g, problem: "" };
-    feedback = reason;
+    if (reason) {
+      feedback = reason;
+      continue;
+    }
+    if (!review) return { text: g, problem: "" };
+    const issues = await review(facts, g);
+    if (issues.length === 0) return { text: g, problem: "" };
+    // Beanstandete Saetze streichen; reicht der Rest und besteht er die Pruefung erneut, ist er gut
+    const repaired = removeQuotedSentences(g, issues.map((i) => i.quote));
+    if (!validateCategoryText(facts, repaired) && (await review(facts, repaired)).length === 0) return { text: repaired, problem: "" };
+    // letzter Versuch: Text behalten, Zweifel als Pruefhinweis (wird dann nicht geschrieben)
+    if (attempt === 2) return { text: g, problem: `Plausibilität: ${issuesText(issues)}` };
+    feedback = `Diese Aussagen sind unbelegt oder unplausibel – weglassen oder korrigieren: ${issuesText(issues)}`;
   }
   return { text: null, problem: feedback ?? "unbekannt" };
 }

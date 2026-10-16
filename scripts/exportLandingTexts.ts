@@ -7,19 +7,23 @@
  * Aufruf (im App-Container):
  *   NODE_ENV=development npx tsx scripts/exportLandingTexts.ts <shopTenantId> <out.xlsx> [--llm-tenant <tenantId>] [--only fachboden,paletten]
  */
-import * as XLSX from "xlsx";
+import { existsSync } from "fs";
+import XLSXmod from "xlsx";
 import { storage } from "../server/storage";
 import { ShopwareClient } from "../server/shopware/shopware";
 import {
   buildCategoryFacts,
   buildCategoryHtml,
   factsTableHtml,
+  catalogTableHtml,
   generateCategoryText,
   llmCategoryTextGenerator,
+  llmCategoryTextReviewer,
   type CategoryProduct,
 } from "../server/products/categoryTexts";
-import { LANDING_PAGES, keyFigureText, keyFiguresFromProducts, needsGeneratedText } from "../server/products/landingPageTexts";
+import { LANDING_PAGES, keyFigureText, keyFiguresFromProducts, mainTypeProducts, needsGeneratedText } from "../server/products/landingPageTexts";
 
+const XLSX: any = (XLSXmod as any).readFile ? XLSXmod : (XLSXmod as any).default;
 const DE_CHANNEL_NAME = "META Regalbau DE";
 const DE_LANG = "2fbb5fe2e29a4d70aa5854ce7ce3e20b";
 
@@ -63,6 +67,7 @@ async function main(): Promise<void> {
     (await admin("search/hueb-seo-faq-questions", { limit: 50, filter: [{ type: "equals", field: "group", value: groupId }], sort: [{ field: "questionPosition", order: "ASC" }] })).data ?? [];
 
   const generate = llmCategoryTextGenerator((k) => storage.getSetting(k, llmTenant));
+  const review = llmCategoryTextReviewer((k) => storage.getSetting(k, llmTenant));
   const rows: any[] = [];
   for (const cfg of LANDING_PAGES) {
     if (only.size && !only.has(cfg.key)) continue;
@@ -97,19 +102,27 @@ async function main(): Promise<void> {
         if (els.length < 100) break;
       }
     }
-    const facts = buildCategoryFacts({ id: cfg.landingPageId, name: cfg.factsName, url: cfg.url, breadcrumb: cfg.factsName }, products);
+    // Texte beschreiben nur den Hauptregaltyp der Seite (Sonderregale und Altnamen verzerren die Spannen)
+    const facts = buildCategoryFacts({ id: cfg.landingPageId, name: cfg.factsName, url: cfg.url, breadcrumb: cfg.factsName }, mainTypeProducts(products, cfg));
+    if (cfg.ignoreNameLoads) {
+      facts.loads = [];
+      // auch nicht ueber die Beispielnamen; Oberflaeche aus den Namen gilt nur fuer die Staender (Holme RAL 2001)
+      facts.topProducts = facts.topProducts.map((n) => n.replace(/\s*\|\s*(Fachlast|Feldlast)\s+[\d.]+\s*kg/gi, "").replace(/\s*\|\s*(verzinkt|RAL \d{4})$/i, ""));
+      facts.surfaces = [];
+      facts.systemFeatures = facts.systemFeatures.map((x) => ({ ...x, values: x.values.filter((v) => !/^(Fachlast|Feldlast|Armlast) \(kg\)/.test(v)) }));
+    }
     const figures = keyFiguresFromProducts(products, cfg, currentFigures);
     process.stdout.write(`${cfg.key} (${products.length} Regale) … `);
-    const { text, problem } = needsGeneratedText(cfg) ? await generateCategoryText(facts, generate) : { text: null, problem: "" };
-    const html = text ? buildCategoryHtml(facts, text) : null;
+    const { text, problem } = needsGeneratedText(cfg) ? await generateCategoryText(facts, generate, review) : { text: null, problem: "" };
+    const html = text ? buildCategoryHtml(facts, text, { table: "catalog" }) : null;
     console.log(problem ? `PRÜFHINWEIS: ${problem}` : "ok");
     rows.push({
       Landingpage: cfg.key,
       URL: cfg.url,
-      "Regale (Artikel)": products.length,
+      "Regale (Artikel)": `${facts.productCount} von ${products.length} (Hauptregaltyp)`,
       "Was wird geändert": cfg.plan,
       "Kennzahlen bisher": currentFigures.join("\n"),
-      "Kennzahlen neu (aus Shopdaten)": figures.map((f, i) => (cfg.keepFigures?.includes(i) ? `${f} (bleibt)` : f)).join("\n"),
+      "Kennzahlen neu": figures.map((f, i) => (cfg.keepFigures?.includes(i) ? `${f} (bleibt)` : cfg.figureOverrides?.[i] ? `${f} (Katalog)` : f)).join("\n"),
       "Wird verwendet": [
         cfg.replaceHero ? "H1 + Einleitung (Kopf)" : "",
         cfg.replaceSeoText || cfg.addSections ? "SEO-Text" : "",
@@ -124,18 +137,27 @@ async function main(): Promise<void> {
       "FAQ neu (JSON)": html?.faqJson ?? "",
       "FAQ bisher": currentFaq.map((q: any) => `${q.translated?.question ?? q.question}\n→ ${plain(String(q.translated?.answer ?? q.answer ?? ""))}`).join("\n\n"),
       "Maßtabelle (aus Produktdaten)": factsTableHtml(facts),
+      "Systemwerte (Katalog)": catalogTableHtml(facts),
       "Herstellerangaben belegt": facts.familyClaims ?? "",
+      "Katalogangaben (Seite)": facts.catalogFacts.map((c) => `S. ${c.page} – ${c.system}: ${c.text}`).join("\n"),
       Prüfhinweis: problem,
+      Plausibilitätsprüfung: problem ? "offen – siehe Prüfhinweis" : needsGeneratedText(cfg) ? "geprüft: Zahlen gegen Produktdaten, Herstellerangaben, Wettbewerber, KI-Gegenlesen" : "",
       "Landingpage-ID": cfg.landingPageId,
     });
   }
 
+  // Mit --only: Zeilen der anderen Seiten aus der vorhandenen Datei uebernehmen (Reihenfolge wie LANDING_PAGES)
+  if (only.size && existsSync(out)) {
+    const old = XLSX.utils.sheet_to_json(XLSX.readFile(out).Sheets["Landingpages"]) as any[];
+    const merged = LANDING_PAGES.map((c) => rows.find((r) => r.Landingpage === c.key) ?? old.find((r) => r.Landingpage === c.key)).filter(Boolean);
+    rows.splice(0, rows.length, ...merged);
+  }
   const sheet = XLSX.utils.json_to_sheet(rows);
   sheet["!cols"] = [{ wch: 12 }, { wch: 18 }, { wch: 8 }, { wch: 60 }, { wch: 32 }, { wch: 36 }, { wch: 50 }, { wch: 50 }, { wch: 40 }, { wch: 70 }, { wch: 90 }, { wch: 70 }, { wch: 70 }, { wch: 50 }, { wch: 40 }, { wch: 30 }, { wch: 34 }];
   const info = XLSX.utils.aoa_to_sheet([
     ["Landingpages – Texte und Kennzahlen zur Freigabe (nichts ist im Shop)"],
     [`Erstellt: ${new Date().toISOString()} aus ${base}, Kanal ${DE_CHANNEL_NAME}`],
-    ["Kennzahlen neu: aus den Artikelnamen der Regal-Kategorien (was Kunden im Shop kaufen können). Spalte darf geändert werden."],
+    ["Kennzahlen neu: Systemwerte laut META-Katalog (Katalog), sonst aus den Artikelnamen. Spalte darf geändert werden."],
     ["Texte: wie bei den Kategorieseiten geprüft – jede Zahl muss in den Produktdaten stehen, Herstellerangaben nur, wo belegt."],
     ["Was nicht in „Was wird geändert“ steht, bleibt unverändert (auch die nur für „Headless“ freigegebenen Agentur-Abschnitte)."],
   ]);

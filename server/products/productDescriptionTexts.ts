@@ -106,6 +106,7 @@ export function reasonHint(reason: string): string {
   if (reason === "company_claim" || reason.startsWith("claim_certificate") || reason.startsWith("claim_warranty") || reason.startsWith("claim_origin")) {
     return "keine Zertifikate, Normen, Garantie, Herkunft oder Firmenangaben im Text";
   }
+  if (reason === "claim_competitor") return "keine anderen Hersteller oder Wettbewerber nennen – nur META";
   if (reason.startsWith("claim_")) return "keine Angaben zu Preis, Versand, Lieferzeit oder Oberflächenbehandlung, die nicht im Artikel stehen";
   if (reason.startsWith("intro_length")) return `Einleitung ${INTRO_MIN}–${INTRO_MAX} Zeichen`;
   if (reason.startsWith("bullets_count")) return "4–6 Stichpunkte";

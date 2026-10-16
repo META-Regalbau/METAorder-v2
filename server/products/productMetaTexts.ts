@@ -163,6 +163,16 @@ export function pickStyleExamples(products: ProductMetaSource[], count = STYLE_E
 // ---------------------------------------------------------------------------------------------
 // Pruefen
 
+/** Regal- und Lagertechnik-Wettbewerber (User 15.10.2026: nur META-Inhalte, nichts von Wettbewerbern). */
+export const COMPETITOR_NAMES = [
+  "SSI Schäfer", "Schäfer Regal", "Tegometall", "Dexion", "Mecalux", "Jungheinrich", "Lista", "Kaiser\\s*[+&]\\s*Kraft", "Hofe",
+  "Bito", "Stow", "Constructor", "Hänel", "Kardex", "Ohra", "Polypal", "Nedcon", "Averys", "Esmena", "Schulte Lagertechnik",
+  "Gerdmann", "Certeo", "Hünersdorff", "Kasten-?Regal", "Proregal", "Regalwelt", "Linde", "Still GmbH", "Bott", "Hoffmann Group",
+];
+function COMPETITOR_PATTERN(): RegExp {
+  return new RegExp(`\\b(${COMPETITOR_NAMES.join("|")})\\b`, "i");
+}
+
 /** Aussagen, die nur stehen duerfen, wenn der Artikel sie selbst hergibt. */
 export const CLAIM_RULES: Array<[RegExp, string]> = [
   [/versandkostenfrei|kostenlos|gratis/i, "shipping"],
@@ -173,6 +183,8 @@ export const CLAIM_RULES: Array<[RegExp, string]> = [
   [/garantie/i, "warranty"],
   // RAL-Farbe heisst nicht automatisch pulverbeschichtet
   [/pulverbeschicht|lackiert|feuerverzinkt|edelstahl|eloxiert/i, "surface"],
+  // Nur META-Inhalte: Wettbewerber nur, wenn der Artikel selbst sie nennt (z. B. Fremdartikel im Sortiment)
+  [COMPETITOR_PATTERN(), "competitor"],
 ];
 
 export function digitForms(text: string): Set<string> {
@@ -283,6 +295,7 @@ export function metaReasonHint(reason: string): string {
   if (reason.startsWith("number_")) return `die Zahl ${reason.slice(7)} steht nicht im Artikel – weglassen`;
   if (reason.startsWith("name_kg")) return "Fachlast genau wie im Namen angeben, keine anderen kg-Werte";
   if (reason.startsWith("name_dimensions")) return "Maße H x B x T genau wie im Namen angeben";
+  if (reason === "claim_competitor") return "keine anderen Hersteller oder Wettbewerber nennen – nur META";
   if (reason === "claim_surface") return "Oberfläche nur wie im Artikel nennen (z. B. \"RAL 5010\") – NICHT \"pulverbeschichtet\", \"lackiert\" o. ä.";
   if (reason.startsWith("claim_")) return "keine Angaben zu Preis, Versand, Lieferzeit, Garantie, Zertifikaten oder Herkunft";
   if (reason === "format") return "keine Anführungszeichen und Zeilenumbrüche";
