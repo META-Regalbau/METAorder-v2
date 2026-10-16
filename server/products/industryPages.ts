@@ -49,6 +49,8 @@ export type IndustryPage = {
   short: string;
   /** Unterzeile in „Weitere Branchen“ */
   tagline: string;
+  /** Kachel auf der Startseite: typisches Lagergut und eine belegte Kennzahl der Seite */
+  teaser: { goods: string; fact: string };
   url: string;
   metaTitle: string;
   metaDescription: string;
@@ -120,6 +122,15 @@ const NOTE_WHY: IndustryNote = {
   src: "Katalog S. 11, 14, 19; Shop-Header",
 };
 
+/** Teaser „Regale für Ihre Branche“ auf der Startseite (nur DE-Kanal, nach „META Bestseller“). */
+export const HOME_TEASER = {
+  eyebrow: "Branchenlösungen",
+  title: "Regale für Ihre Branche",
+  intro: "Welches Regal passt zu Ihrem Betrieb? Wählen Sie Ihre Branche – mit Planungshilfe, Beispielrechnung und den passenden Regalen zum Bestellen.",
+  more: "Zur Branchenlösung",
+  advice: { title: "Ihre Branche ist nicht dabei?", text: "Wir beraten Sie persönlich und stellen die passenden Regale für Ihr Lager zusammen." },
+};
+
 export const INDUSTRY_PAGES: IndustryPage[] = [
   // ───────────────────────────── Kfz ─────────────────────────────
   {
@@ -127,6 +138,7 @@ export const INDUSTRY_PAGES: IndustryPage[] = [
     name: "Kfz-Werkstatt, Autohaus & Reifenhandel",
     short: "Kfz & Reifen",
     tagline: "Reifen, Ersatzteile, Betriebsstoffe",
+    teaser: { goods: "Reifen, Ersatzteile, Öle und Betriebsstoffe", fact: "Reifenregale mit bis zu 16 Reifen je Feld" },
     url: "/branchen/kfz-werkstatt-reifenhandel",
     metaTitle: "Reifenregale & Werkstattregale für Kfz-Betriebe | META",
     metaDescription:
@@ -260,6 +272,7 @@ export const INDUSTRY_PAGES: IndustryPage[] = [
     name: "Handwerk & Werkstatt",
     short: "Handwerk & Werkstatt",
     tagline: "Elektro, SHK, Metallbau",
+    teaser: { goods: "Kabeltrommeln, Rohre, Profile und Kleinteile", fact: "Kabeltrommelregale bis 5.500 kg Feldlast" },
     url: "/branchen/handwerk-werkstatt",
     metaTitle: "Werkstattregale & Kabeltrommelregale fürs Handwerk | META",
     metaDescription:
@@ -397,6 +410,7 @@ export const INDUSTRY_PAGES: IndustryPage[] = [
     name: "Industrie & Produktion",
     short: "Industrie & Produktion",
     tagline: "Ersatzteil- und Palettenlager",
+    teaser: { goods: "Ersatzteile, Betriebsmittel, Paletten und Gefahrstoffe", fact: "Palettenregale mit RAL-Gütezeichen und GS" },
     url: "/branchen/industrie-produktion",
     metaTitle: "Regale für Industrie: Ersatzteil- & Palettenlager | META",
     metaDescription:
@@ -523,6 +537,7 @@ export const INDUSTRY_PAGES: IndustryPage[] = [
     name: "Büro, Archiv & Verwaltung",
     short: "Büro, Archiv & Verwaltung",
     tagline: "Ordner, Akten, Behörden",
+    teaser: { goods: "Ordner, Akten und Archivkartons", fact: "Bis 105 Ordner je Regalfeld" },
     url: "/branchen/buero-archiv-verwaltung",
     metaTitle: "Büroregale & Archivregale für Ordner und Akten | META",
     metaDescription:
@@ -657,6 +672,7 @@ export const INDUSTRY_PAGES: IndustryPage[] = [
     name: "Handel, Versand & E-Commerce",
     short: "Handel & Versand",
     tagline: "Kommissionieren, Packen",
+    teaser: { goods: "Kommissionierlager, Packplatz und Paletten-Nachschub", fact: "Packtische mit 970 mm Arbeitshöhe" },
     url: "/branchen/handel-versand",
     metaTitle: "Lagerregale für Handel, Versand & E-Commerce | META",
     metaDescription:

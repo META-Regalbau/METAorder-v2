@@ -8,8 +8,13 @@
  * fremde Inhalte werden nie angefasst. Ohne --apply nur Testlauf. Mit --apply Protokoll; --revert löscht
  * die angelegten Seiten wieder. Schreibt nur in Shops mit „test.“ in der URL, außer mit --live.
  *
+ * --home: Teaser „Regale für Ihre Branche“ als eigener Abschnitt auf der Startseite (nach „META Bestseller“,
+ * nur im DE-Kanal über moorl_section_config). Ersetzt beim zweiten Lauf nur den eigenen Abschnitt; --revert
+ * entfernt ihn und schiebt die folgenden Abschnitte zurück.
+ *
  * Aufruf (im App-Container):
  *   NODE_ENV=development npx tsx scripts/writeIndustryPages.ts <tenantId> [--only kfz,handwerk] [--apply] [--live] [--image-fallback <shop-stand.json>]
+ *   NODE_ENV=development npx tsx scripts/writeIndustryPages.ts <tenantId> --home [--apply] [--live] [--image-fallback <shop-stand.json>]
  *   NODE_ENV=development npx tsx scripts/writeIndustryPages.ts <tenantId> --revert <protokoll.json>
  */
 import { createHash } from "crypto";
@@ -17,7 +22,7 @@ import { readFileSync, writeFileSync } from "fs";
 import { storage } from "../server/storage";
 import { ShopwareClient } from "../server/shopware/shopware";
 import { INDUSTRY_PAGES, referencedNumbers, type IndustryPage } from "../server/products/industryPages";
-import { IndustryPageHtml, industryPageCss, type IndustryShopProduct } from "../server/products/industryPageHtml";
+import { IndustryPageHtml, homeTeaserHtml, industryPageCss, type IndustryShopProduct } from "../server/products/industryPageHtml";
 
 const DE_CHANNEL_NAME = "META Regalbau DE";
 const DE_LANG = "2fbb5fe2e29a4d70aa5854ce7ce3e20b";
@@ -34,6 +39,8 @@ type Protocol = {
   landingPages: string[];
   cmsPages: string[];
   faqGroups: string[];
+  /** Startseiten-Teaser (--home) */
+  home?: { pageId: string; sectionId: string };
 };
 
 function arg(name: string): string | undefined {
@@ -133,11 +140,26 @@ async function main(): Promise<void> {
     }
   };
 
+  const homeSections = async (pageId: string) =>
+    ((await api("POST", "search/cms-section", { limit: 100, filter: [{ type: "equals", field: "pageId", value: pageId }], associations: { blocks: {} }, includes: { cms_section: ["id", "position", "blocks"], cms_block: ["type"] } }))?.data ?? []).sort(
+      (a: any, b: any) => a.position - b.position,
+    );
+  /** Eigenen Abschnitt loeschen und die folgenden Abschnitte um eins nach oben schieben */
+  const removeHomeSection = async (pageId: string, sectionId: string) => {
+    const secs = await homeSections(pageId);
+    const own = secs.find((x: any) => x.id === sectionId);
+    if (!own) return console.log("Startseiten-Abschnitt schon entfernt");
+    await api("DELETE", `cms-section/${sectionId}`);
+    for (const x of secs.filter((x: any) => x.position > own.position)) await api("PATCH", `cms-section/${x.id}`, { position: x.position - 1 });
+    console.log("Startseiten-Abschnitt entfernt");
+  };
+
   const revertFile = arg("--revert");
   if (revertFile) {
     const log = JSON.parse(readFileSync(revertFile, "utf8")) as Protocol;
     if (log.tenantId !== tenantId) throw new Error(`Protokoll gehört zu Mandant ${log.tenantId}`);
     await deleteOwn(log);
+    if (log.home) await removeHomeSection(log.home.pageId, log.home.sectionId);
     if (isTest) await api("DELETE", "_action/cache").catch(() => undefined);
     console.log(`Zurückgebaut: ${log.landingPages.length} Seiten, ${log.cmsPages.length} Layouts, ${log.faqGroups.length} FAQ-Gruppen`);
     return;
@@ -146,15 +168,17 @@ async function main(): Promise<void> {
   const apply = process.argv.includes("--apply");
   if (apply && !isTest && !process.argv.includes("--live")) throw new Error(`${base} ist kein Testshop – für Live ausdrücklich --live angeben`);
   const only = new Set((arg("--only") ?? "").split(",").map((s) => s.trim()).filter(Boolean));
-  const pages = INDUSTRY_PAGES.filter((p) => only.size === 0 || only.has(p.key));
+  const home = process.argv.includes("--home");
+  // Der Teaser zeigt immer alle Branchen
+  const pages = home ? INDUSTRY_PAGES : INDUSTRY_PAGES.filter((p) => only.size === 0 || only.has(p.key));
 
-  const channels = await api("POST", "search/sales-channel", { limit: 50, associations: { domains: {} }, includes: { sales_channel: ["id", "name", "domains"], sales_channel_domain: ["url"] } });
+  const channels = await api("POST", "search/sales-channel", { limit: 50, associations: { domains: {} }, includes: { sales_channel: ["id", "name", "domains", "navigationCategoryId", "homeCmsPageId"], sales_channel_domain: ["url"] } });
   const de = channels.data.find((c: any) => c.name === DE_CHANNEL_NAME);
   if (!de) throw new Error(`Verkaufskanal ${DE_CHANNEL_NAME} fehlt`);
   const domain = ((de.domains ?? []).map((d: any) => d.url).find((u: string) => /shop\.meta-online\.com|test\./.test(u)) ?? base).replace(/\/$/, "");
 
   // Artikel aus dem Ziel-Shop: ID, Netto-Preis, Bild, Lieferzeit, URL
-  const numbers = [...new Set(pages.flatMap(referencedNumbers))];
+  const numbers = home ? [...new Set(pages.map((p) => p.hero.number))] : [...new Set(pages.flatMap(referencedNumbers))];
   const found = await api("POST", "search/product", {
     limit: numbers.length + 10,
     filter: [{ type: "equalsAny", field: "productNumber", value: numbers }],
@@ -199,6 +223,52 @@ async function main(): Promise<void> {
     }
   }
   if (problems.length) throw new Error(`Artikel nicht verwendbar:\n${problems.join("\n")}`);
+
+  if (home) {
+    // Teaser verlinkt die Branchenseiten: die muessen im Ziel-Shop existieren und aktiv sein
+    const lpIds = pages.map((p) => industryEntityId(p.key, "lp"));
+    const lps = ((await api("POST", "search/landing-page", { ids: lpIds, includes: { landing_page: ["id", "active"] } }))?.data ?? []) as any[];
+    const missing = pages.filter((p) => !lps.some((l) => l.id === industryEntityId(p.key, "lp") && l.active));
+    if (missing.length) throw new Error(`Branchenseiten fehlen im Shop: ${missing.map((p) => p.url).join(", ")} – erst ohne --home schreiben`);
+    const pageId =
+      de.homeCmsPageId ?? (await api("POST", "search/category", { ids: [de.navigationCategoryId], includes: { category: ["cmsPageId"] } }))?.data?.[0]?.cmsPageId;
+    if (!pageId) throw new Error("Layout der Startseite nicht gefunden");
+    const secs = await homeSections(pageId);
+    const sectionId = industryEntityId("home", "section");
+    const existingSec = secs.find((x: any) => x.id === sectionId);
+    const anchor = secs.find((x: any) => (x.blocks ?? []).some((b: any) => b.type === "ssik-extra-products"));
+    if (!existingSec && !anchor) throw new Error("Abschnitt „META Bestseller“ (ssik-extra-products) auf der Startseite nicht gefunden");
+    const position = existingSec ? existingSec.position : anchor.position + 1;
+    const html = `<style>${industryPageCss(".mbp")}</style><div class="mbp">${homeTeaserHtml(pages, products, (p) => p.url)}</div>`;
+    const section = {
+      id: sectionId,
+      pageId,
+      type: "default",
+      position,
+      sizingMode: "full_width",
+      mobileBehavior: "wrap",
+      visibility: ALL_DEVICES,
+      // Startseiten-Layout teilen sich mehrere Kanaele, die Branchenseiten gibt es nur im DE-Shop
+      customFields: { moorl_section_config: { color: null, salesChannel: [de.id] } },
+      blocks: [htmlBlock(industryEntityId("home", "block"), 0, html)],
+    };
+    console.log(
+      `${apply ? (existingSec ? "ERSETZE" : "LEGE AN") : existingSec ? "würde ersetzen" : "würde anlegen"} Startseiten-Teaser an Position ${position} (nach „META Bestseller“), nur Kanal ${DE_CHANNEL_NAME}, HTML ${Math.round(html.length / 1024)} KB`,
+    );
+    if (!apply) return;
+    const file = `/app/tmp-claude/branchen-startseite-${tenantId.slice(0, 8)}-${Date.now()}.json`;
+    const log: Protocol = { tenantId, at: new Date().toISOString(), landingPages: [], cmsPages: [], faqGroups: [], home: { pageId, sectionId } };
+    writeFileSync(file, JSON.stringify(log, null, 1));
+    if (existingSec) await api("DELETE", `cms-section/${sectionId}`);
+    else for (const x of [...secs].reverse().filter((x: any) => x.position >= position)) await api("PATCH", `cms-section/${x.id}`, { position: x.position + 1 });
+    await api("POST", "cms-section", section);
+    console.log(`Protokoll: ${file}`);
+    if (isTest) await api("DELETE", "_action/cache").catch((e) => console.log("Cache", e.message));
+    const r = await fetch(`${domain}/`);
+    const body = await r.text();
+    console.log(`${r.status} ${domain}/ – Teaser ${body.includes('class="ht-grid"') ? "sichtbar" : "NICHT im HTML (Cache?)"}`);
+    return;
+  }
 
   // Adressen duerfen nicht schon von fremden Seiten belegt sein
   const paths = pages.map((p) => p.url.replace(/^\//, ""));
