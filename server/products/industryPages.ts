@@ -61,6 +61,7 @@ export type IndustryPage = {
   ctaPrimary: string;
   ctaSecondary: string;
   hero: { number: string; tag: string; alt: string };
+  /** Kennzahlen unter dem Bild: nur Werte des abgebildeten Systems (siehe Test) */
   facts: Array<{ value: string; label: string }>;
   areasTitle: string;
   areasIntro: string;
@@ -288,8 +289,8 @@ export const INDUSTRY_PAGES: IndustryPage[] = [
     facts: [
       { value: "bis 5.500 kg", label: "Feldlast Kabeltrommelregal" },
       { value: "3 Typen", label: "Kabeltrommelauflagen" },
-      { value: "12°", label: "Neigung der Schrägböden" },
-      { value: "25 mm", label: "Raster der CLIP-Fachböden" },
+      { value: "900–1.300 mm", label: "Fachbreiten" },
+      { value: "Ø 42 / 60 mm", label: "Kabeltrommel-Achsen" },
     ],
     areasTitle: "Was im Handwerksbetrieb gelagert wird",
     areasIntro: "Vom Kabel bis zur Schraube: sechs Lagerbereiche – jeweils mit dem META-Regal, das dafür gebaut ist.",
@@ -391,6 +392,7 @@ export const INDUSTRY_PAGES: IndustryPage[] = [
     ],
     advice: { title: "Sie richten Lager oder Werkstatt neu ein?", text: "Sagen Sie uns, was Sie lagern – Kabeltrommeln, Rohre, Kleinteile – und wie viel Platz Sie haben. Wir stellen die passenden Regale und das Zubehör zusammen." },
     notes: {
+      facts: { text: "Kennzahlen nur zum abgebildeten Kabeltrommelregal: Feldlast mit 3 Holmen, Auflagen Typ 1–3, Fachbreiten und Achsdurchmesser (Shop-Artikel).", src: "Katalog S. 148–153; Shop-Artikel Kabeltrommelregal und -Achsen" },
       nav: { text: "URL /branchen/handwerk-werkstatt. Suchbegriffe: Kabeltrommelregal, Regal für Rohre, Werkstattregal. Ersetzt die fehlerhafte Kampagne /metaxecommerce nicht – die geht an „Handel & Versand“." },
       hero: { text: "„Made in Germany“ nur mit Systemnamen, weil MULTISTRONG laut Katalog nicht darunter fällt. Bild: Kabeltrommelregal, weil Elektro die größte Handwerksgruppe im Shop ist (26 von 105 Firmen).", src: "Katalog S. 14, 148–151; Bestellspiegel Shop DE" },
       areas: { text: "Profillagerregal: Katalog beschreibt die stehende Lagerung beim MULTIPAL-Profillagerregal; im Shop gibt es MINI-RACK- und MULTIPAL-Profillagerregale. Arbeitsschutzregal: Kleiderstange 60 kg, Fachböden 100 kg.", src: "Katalog S. 57, 58, 61, 147, 158–161" },
@@ -424,10 +426,10 @@ export const INDUSTRY_PAGES: IndustryPage[] = [
     ctaSecondary: "Alle Industrie-Regale",
     hero: { number: "4026212334678", tag: "META MULTIPAL Palettenregal", alt: "META MULTIPAL Palettenregal, Grundregal 4400 x 2700 x 1100 mm, verzinkt" },
     facts: [
-      { value: "bis 330 kg", label: "Fachlast je CLIP-Fachboden" },
-      { value: "bis 1.120 kg", label: "Tragkraft je Palette (Shop)" },
-      { value: "600 kg", label: "Fachlast MINI-RACK" },
-      { value: "50 mm", label: "Raster der MULTIPAL-Holme" },
+      { value: "bis 1.120 kg", label: "Tragkraft je Palette" },
+      { value: "9 oder 12", label: "Europaletten je Feld (2.700 mm)" },
+      { value: "2.700–5.500 mm", label: "Regalhöhen" },
+      { value: "50 mm", label: "Raster der Holme" },
     ],
     areasTitle: "Was in Produktion und Instandhaltung gelagert wird",
     areasIntro: "Sechs Lagerbereiche vom Kleinteil bis zur Palette – jeweils mit dem passenden META-System.",
@@ -518,6 +520,7 @@ export const INDUSTRY_PAGES: IndustryPage[] = [
     ],
     advice: { title: "Sie planen ein Ersatzteil- oder Palettenlager?", text: "Schicken Sie uns Hallenmaße, Palettengewichte und Artikelzahl – wir stellen die passenden Regale zusammen oder planen die Anlage mit Ihnen vor Ort." },
     notes: {
+      facts: { text: "Kennzahlen nur zum abgebildeten MULTIPAL-Palettenregal: höchste Tragkraft je Palette im Shop (3.300 × 1.825 mm, 4 Ebenen), Plätze je 2.700-mm-Feld, Regalhöhen der Shop-Artikel (1.100 mm tief), Holmraster.", src: "Katalog S. 121, 131; Shop-Artikel MULTIPAL Palettenregal" },
       nav: { text: "URL /branchen/industrie-produktion. Größte Käufergruppe im Shop (322 Firmen, CLIP 46 %, MULTIPAL 42 %)." },
       hero: { text: "RAL-RG 614/2, GS und DIN EN 15512 für MULTIPAL laut Katalog S. 121. „bis 1.120 kg Tragkraft je Palette“ = höchster Wert im Shop (3.300 × 1.825, 4 Ebenen).", src: "Katalog S. 14, 121, 131", checks: ["Shop-Artikelnamen nennen die Tragkraft je Palette als „Fachlast“ (z. B. 980 kg, Eigenschaft „max. Fachlast“ 2.930 kg) – Namen korrigieren?"] },
       areas: { text: "Ersatzteilmagazine laut Katalog S. 19 ausdrücklich für Industrie und Handwerk. Gitterbox/Winkelauflagen S. 210; Winkelauflagerahmen im Shop vorhanden.", src: "Katalog S. 19, 48, 111, 144, 158, 210" },
@@ -672,7 +675,7 @@ export const INDUSTRY_PAGES: IndustryPage[] = [
     name: "Handel, Versand & E-Commerce",
     short: "Handel & Versand",
     tagline: "Kommissionieren, Packen",
-    teaser: { goods: "Kommissionierlager, Packplatz und Paletten-Nachschub", fact: "Packtische mit 970 mm Arbeitshöhe" },
+    teaser: { goods: "Kommissionierlager, Packplatz und Paletten-Nachschub", fact: "Kommissionierregale beidseitig bedienbar" },
     url: "/branchen/handel-versand",
     metaTitle: "Lagerregale für Handel, Versand & E-Commerce | META",
     metaDescription:
@@ -686,10 +689,10 @@ export const INDUSTRY_PAGES: IndustryPage[] = [
     ctaSecondary: "Alle Lagerregale",
     hero: { number: "4026212324228", tag: "META CLIP mit Längsriegeln", alt: "META CLIP S3 Fachbodenregal mit Längsriegeln, Grundregal 2000 x 1000 x 400 mm, verzinkt" },
     facts: [
+      { value: "beidseitig", label: "bedienbar mit Längsriegeln" },
+      { value: "150 / 230 kg", label: "Fachlast je Fachboden" },
       { value: "25 mm", label: "Raster der Fachböden" },
       { value: "50 mm", label: "Lochung für Fachteiler" },
-      { value: "970 mm", label: "Arbeitshöhe Packtisch" },
-      { value: "bis 500 kg", label: "Fachlast SPEED-RACK" },
     ],
     areasTitle: "Was in Lager und Versand gebraucht wird",
     areasIntro: "Vom Kommissionierlager bis zum Packplatz – sechs Bereiche mit dem passenden META-Regal.",
@@ -782,6 +785,7 @@ export const INDUSTRY_PAGES: IndustryPage[] = [
     ],
     advice: { title: "Sie richten ein Lager oder einen Versand ein?", text: "Nennen Sie uns Fläche, Artikelzahl und Versandmenge – wir stellen Regale und Packplatz zusammen und planen bei Bedarf die größere Anlage." },
     notes: {
+      facts: { text: "Kennzahlen nur zum abgebildeten CLIP-Regal mit Längsriegeln: beidseitig bedienbar, Fachlasten der Längsriegel-Regale im Shop, Raster und Fachteiler-Lochung.", src: "Katalog S. 19, 23; Shop-Artikel CLIP S3 mit Längsriegeln" },
       nav: { text: "URL /branchen/handel-versand. Ersetzt die Kampagne /metaxecommerce (301): Überschrift E-Commerce, Inhalt Handwerk, zweifelhafte Aussage „MINI-RACK Bereitstellregal mit Rollenbahnen“." },
       hero: { text: "„Made in Germany“ belegt für CLIP, SPEED-RACK, MINI-RACK und MULTIPAL – alle Systeme der Seite. Handel: 61 Firmen, aber ein Online-Händler = 47 % des Umsatzes.", src: "Katalog S. 14, 19, 106, 108; Bestellspiegel Shop DE" },
       areas: { text: "Fachmarkteinrichtung und Beispiele (Werkzeug-/Maschinenhandel, Sanitär-Fachgroßhandel) laut Katalog S. 88 – nicht im Shop, deshalb Projekt. Transport-Stapelkästen gibt es im Shop, aber ohne Produktbild.", src: "Katalog S. 19, 23, 88, 106, 108, 177", checks: ["Produktbilder für Transport-Stapelkästen fehlen im Shop"] },
