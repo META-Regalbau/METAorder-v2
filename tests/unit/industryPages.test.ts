@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { INDUSTRY_PAGES, fillPrices, formatEuro, referencedNumbers } from "../../server/products/industryPages";
 import { COMPETITOR_NAMES } from "../../server/products/productMetaTexts";
+import { IndustryPageHtml, industryPageCss, scopeCss } from "../../server/products/industryPageHtml";
 
 const allText = (p: (typeof INDUSTRY_PAGES)[number]) => JSON.stringify({ ...p, notes: undefined });
 
@@ -51,5 +52,25 @@ describe("industryPages", () => {
     expect(nums).toContain("4026212303186"); // Beispielrechnung
     expect(nums).toContain("4026212275650"); // Preistabelle
     expect(nums).toContain(kfz.hero.number);
+  });
+
+  it("begrenzt das Stylesheet im Shop auf den Seitenrahmen", () => {
+    expect(scopeCss(":root{--a:1} .btn,h2{color:red} @media (max-width:10px){.x{top:0}}", ".mbp")).toBe(
+      ".mbp{--a:1}\n.mbp .btn,.mbp h2{color:red}\n@media (max-width:10px){.mbp .x{top:0}}",
+    );
+    const css = industryPageCss(".mbp");
+    // jede Regel ausserhalb von @media beginnt mit dem Rahmen (oder ist die Theme-Korrektur der Bootstrap-Zeile)
+    for (const rule of css.split("\n").filter((l) => l.includes("{") && !l.startsWith("@media") && !l.startsWith("/*"))) {
+      expect(rule.startsWith(".mbp") || rule.startsWith(".cms-block-container-row"), rule).toBe(true);
+    }
+  });
+
+  it("baut im Shop ein Warenkorb-Formular mit allen Positionen der Beispielrechnung", () => {
+    const kfz = INDUSTRY_PAGES.find((p) => p.key === "kfz")!;
+    const products = Object.fromEntries(referencedNumbers(kfz).map((n) => [n, { id: `id${n}`, name: n, priceNet: 10 }]));
+    const html = new IndustryPageHtml(kfz, products, { notes: false, cartForm: true, linkHref: (t) => t }).planning();
+    expect(html).toContain('action="/checkout/line-item/add"');
+    expect(html).toContain('name="lineItems[id4026212328516][quantity]" value="5"');
+    expect(html).not.toContain('class="note"');
   });
 });
