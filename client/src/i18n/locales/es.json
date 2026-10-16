@@ -240,6 +240,7 @@
     "shippingOps": "Ops de envío",
     "mobilePicking": "Picking móvil",
     "b2bUsers": "Usuarios B2B",
+    "portalRegistrations": "Registros del portal",
     "systemLog": "Registro del sistema"
   },
   "shopFakturen": {
@@ -5668,7 +5669,26 @@
       "n8n_failed": "n8n informa de un error.",
       "email_intake_forward_invalid": "La dirección de reenvío no es válida.",
       "email_intake_mailbox_invalid": "La dirección del buzón no es válida.",
-      "email_intake_assignee_invalid": "El responsable por defecto no puede ver tickets."
+      "email_intake_assignee_invalid": "El responsable por defecto no puede ver tickets.",
+      "portal_registration_in_progress": "Este registro ya se está procesando.",
+      "portal_registration_not_found": "Registro no encontrado.",
+      "portal_registration_no_plan": "Aún no se ha asignado cliente.",
+      "portal_registration_done": "El registro ya está hecho.",
+      "portal_registration_customer_missing": "Cliente no encontrado en la tienda.",
+      "portal_registration_customer_ambiguous": "Varios clientes del portal tienen este número.",
+      "portal_registration_not_portal": "El cliente no está en el portal de distribuidores.",
+      "portal_registration_no_master_data_email": "No hay dirección de datos maestros configurada.",
+      "portal_registration_no_data": "El alta aún no se ha leído.",
+      "portal_registration_no_employee": "Aún no se ha creado ningún empleado.",
+      "portal_registration_no_channel": "El cliente no tiene canal de venta.",
+      "portal_registration_reset_failed": "No se pudo enviar el correo de contraseña.",
+      "portal_registration_mail_not_found": "Correo no encontrado.",
+      "portal_registration_mailbox_invalid": "Dirección de buzón no válida.",
+      "portal_registration_master_data_invalid": "Dirección de datos maestros no válida.",
+      "portal_registration_upload_type": "Suba un archivo .eml o .msg.",
+      "portal_registration_no_original": "El correo original no está guardado.",
+      "shopware_not_configured": "Shopware no está configurado para este cliente.",
+      "sales_rep_import_empty": "No se encontraron filas válidas: compruebe las columnas número de cliente y correo."
     },
     "client": {
       "notModified": "Respuesta de la API sin cambios (304): vuelva a cargar la página.",
@@ -6507,7 +6527,12 @@
       "failed_to_save_product_meta_text_settings": "No se pudo guardar la configuración de los meta textos",
       "product_meta_text_run_already_in_progress": "Ya hay una ejecución de meta textos en curso",
       "failed_to_start_product_meta_text_run": "No se pudo iniciar la ejecución de meta textos",
-      "failed_to_start_name_rule_run": "No se pudo iniciar la ejecución de reglas"
+      "failed_to_start_name_rule_run": "No se pudo iniciar la ejecución de reglas",
+      "ungultige_kundenstamm_adresse": "Dirección de datos maestros no válida.",
+      "keine_gultigen_zeilen_gefunden": "No se encontraron filas válidas.",
+      "nur_eml_oder_msg": "Solo archivos .eml o .msg.",
+      "registrierung_nicht_gefunden": "Registro no encontrado.",
+      "originalmail_nicht_vorhanden": "Correo original no disponible."
     }
   },
   "roomPlanner": {
@@ -6796,6 +6821,243 @@
     "errorNotFound": "No existe ningún acceso al portal con este correo electrónico para este número de cliente. Revise los datos introducidos.",
     "errorInactive": "Este acceso al portal está desactivado. Póngase en contacto con su persona de contacto en META.",
     "errorAlreadyRequested": "Se acaba de solicitar un enlace para este acceso. Revise su bandeja de entrada o inténtelo de nuevo en 15 minutos."
+  },
+  "portalRegistrations": {
+    "title": "Registros del portal",
+    "subtitle": "Solicitudes de alta para el portal de distribuidores desde el buzón de registros. METAorder las lee, busca al cliente en el portal, crea el empleado administrador y envía el correo de contraseña. Si el cliente no está en el portal, la solicitud se envía al equipo de datos maestros para su revisión.",
+    "refresh": "Actualizar",
+    "uploadMail": "Subir correo",
+    "uploaded": "Correo procesado: {{outcome}}",
+    "uploadFailed": "No se pudo procesar el correo",
+    "filterLabel": "Filtrar por estado",
+    "tabs": {
+      "registrations": "Registros",
+      "salesReps": "Asignación de comerciales",
+      "settings": "Configuración"
+    },
+    "filters": {
+      "open": "Abiertos",
+      "waiting": "En datos maestros",
+      "completed": "Hechos",
+      "discarded": "Descartados",
+      "all": "Todos"
+    },
+    "empty": "No hay registros en esta vista.",
+    "columns": {
+      "received": "Entrada",
+      "company": "Empresa",
+      "contact": "Contacto",
+      "customer": "Cliente en el portal",
+      "expertMode": "Modo experto",
+      "status": "Estado"
+    },
+    "via": "a través de {{name}}",
+    "unknownCompany": "Empresa no reconocida",
+    "fromMail": "según correo {{number}}",
+    "expertYes": "solicitado",
+    "statuses": {
+      "processing": "En proceso",
+      "review": "Revisar",
+      "ready": "Listo",
+      "completed": "Hecho",
+      "waiting_master_data": "En datos maestros",
+      "failed": "Error",
+      "discarded": "Descartado"
+    },
+    "match": {
+      "matched": "único",
+      "ambiguous": "dudoso",
+      "not_found": "no está en el portal"
+    },
+    "outcomes": {
+      "completed": "hecho",
+      "ready": "listo para ejecutar",
+      "review": "revisar",
+      "waiting_master_data": "enviado a datos maestros",
+      "not_registration": "no es un registro",
+      "duplicate": "ya recibido",
+      "failed": "error"
+    },
+    "detailTitle": "Registro",
+    "detailMeta": "Entrada {{date}} de {{from}}",
+    "actionFailed": "La acción ha fallado",
+    "mailRequeued": "El correo se enviará de nuevo",
+    "noData": "Aún no se han leído datos de alta.",
+    "notChecked": "Aún no se ha comparado con el portal.",
+    "inactive": "inactivo",
+    "chosen": "elegido",
+    "pickByNumber": "Cliente por número",
+    "shopAccounts": "Cuentas en la tienda online (no portal): {{list}}",
+    "cc": "CC",
+    "showMail": "Mostrar texto del correo",
+    "hideMail": "Ocultar texto del correo",
+    "extractionSource": {
+      "ai": "Leído por la IA ({{percent}})",
+      "rules": "Leído solo con reglas fijas ({{percent}})"
+    },
+    "sections": {
+      "data": "Datos de alta",
+      "customer": "Cliente en el portal",
+      "plan": "Qué ocurre al ejecutar",
+      "planDone": "Ejecutado",
+      "mails": "Correos",
+      "history": "Historial"
+    },
+    "fields": {
+      "company": "Empresa",
+      "customerNumber": "Número de cliente",
+      "vatId": "NIF-IVA",
+      "phone": "Teléfono empresa",
+      "street": "Calle",
+      "zipCode": "Código postal",
+      "city": "Ciudad",
+      "country": "País",
+      "salutation": "Tratamiento",
+      "firstName": "Nombre",
+      "lastName": "Apellido",
+      "email": "Correo (será el acceso)",
+      "contactPhone": "Teléfono contacto",
+      "expertMode": "Modo experto",
+      "adminMode": "Modo administrador",
+      "notes": "Nota del correo"
+    },
+    "salutations": {
+      "none": "sin indicar",
+      "mr": "Sr.",
+      "mrs": "Sra."
+    },
+    "tri": {
+      "unset": "no mencionado",
+      "yes": "sí",
+      "no": "no"
+    },
+    "matchDetail": {
+      "matched": "Cliente único encontrado en el portal.",
+      "ambiguous": "Sin coincidencia única: elija el cliente correcto.",
+      "not_found": "Ningún cliente coincidente en el portal."
+    },
+    "matchNotes": {
+      "number_company_mismatch": "El número de cliente pertenece a una empresa con otro nombre.",
+      "several_portal_accounts": "Varios clientes del portal coinciden igual de bien.",
+      "close_candidates": "Solo se encontraron clientes parecidos.",
+      "number_not_found": "El número de cliente del correo no existe en el portal.",
+      "sales_rep_account": "Coincide una cuenta interna de META: nunca es el distribuidor."
+    },
+    "plan": {
+      "employee_create": "Crear empleado administrador {{name}} <{{email}}>",
+      "employee_update": "Usar el empleado existente {{name}} <{{email}}>",
+      "link_create": "Vincular como administrador con {{customer}}",
+      "link_update": "Asegurar derecho de administrador y estado activo en {{customer}}",
+      "link_none": "El vínculo se mantiene",
+      "expertMode": "Activar el modo experto del planificador",
+      "adminMode": "Activar el modo administrador del planificador",
+      "customerChanges": "Ajustar cliente:",
+      "sendPasswordReset": "Enviar correo de contraseña a {{email}}"
+    },
+    "changes": {
+      "active": "Activar cliente",
+      "platformAccess": "Habilitar acceso a la plataforma B2B",
+      "vatId": "Añadir NIF-IVA {{to}}",
+      "phone": "Añadir teléfono {{to}}"
+    },
+    "blockers": {
+      "missing_email": "Falta el correo del contacto.",
+      "missing_name": "Falta el nombre o el apellido.",
+      "internal_email": "El correo es una dirección de META: nunca es el administrador del distribuidor.",
+      "employee_other_customer": "Este correo ya pertenece a un empleado de otro cliente. Aclárelo en el área B2B.",
+      "no_customer": "No se ha elegido cliente.",
+      "no_sales_channel": "El cliente no tiene canal de venta."
+    },
+    "actions": {
+      "saveData": "Guardar datos y comparar de nuevo",
+      "resetData": "Descartar",
+      "chooseCustomer": "Elegir este cliente",
+      "assign": "Asignar",
+      "execute": "Ejecutar",
+      "recheck": "Revisar de nuevo",
+      "reextract": "Leer de nuevo",
+      "masterData": "Enviar a datos maestros",
+      "passwordReset": "Reenviar correo de contraseña",
+      "discard": "Descartar",
+      "downloadOriginal": "Correo original",
+      "retryMail": "Enviar de nuevo"
+    },
+    "toasts": {
+      "dataSaved": "Datos guardados y comparados de nuevo",
+      "customerChosen": "Cliente asignado",
+      "planSaved": "Plan modificado",
+      "executed": "Ejecutado",
+      "rechecked": "Revisado de nuevo",
+      "masterData": "Solicitud a datos maestros en cola",
+      "passwordReset": "Correo de contraseña enviado",
+      "discarded": "Descartado"
+    },
+    "mailKinds": {
+      "master_data_request": "Datos maestros",
+      "sales_rep_info": "Comercial"
+    },
+    "mailStatuses": {
+      "pending": "esperando a n8n",
+      "sent": "enviado",
+      "failed": "fallido"
+    },
+    "salesReps": {
+      "intro": "¿Quién se ocupa de qué cliente? Tras un registro correcto, el comercial recibe un correo informativo. Excel o CSV con las columnas número de cliente, comercial (nombre) y correo.",
+      "file": "Archivo",
+      "mode": "Importación",
+      "modeReplace": "Sustituir lista",
+      "modeMerge": "Añadir / sobrescribir",
+      "check": "Comprobar",
+      "import": "Aplicar",
+      "imported": "{{count}} asignaciones aplicadas",
+      "importFailed": "La importación ha fallado",
+      "previewSummary": "{{rows}} filas válidas, {{errors}} con errores. Columnas: número de cliente = {{number}}, correo = {{email}}, nombre = {{name}}",
+      "rowError": "Fila {{row}}: {{message}}",
+      "customerNumber": "Número de cliente",
+      "repName": "Comercial",
+      "repEmail": "Correo",
+      "add": "Añadir",
+      "saved": "Asignación guardada",
+      "saveFailed": "Asignación no guardada",
+      "search": "Buscar",
+      "count": "{{count}} asignaciones, {{shown}} mostradas",
+      "count_one": "{{count}} asignación, {{shown}} mostradas",
+      "count_other": "{{count}} asignaciones, {{shown}} mostradas",
+      "empty": "Aún no se ha importado ninguna asignación.",
+      "delete": "Eliminar",
+      "deleteRow": "Eliminar asignación {{number}}"
+    },
+    "settings": {
+      "enabled": "Entrada de registros activa",
+      "enabledHint": "Desactivado: n8n no recoge correos ni envía nada.",
+      "autoExecute": "Ejecutar automáticamente las coincidencias seguras",
+      "autoExecuteHint": "Crear el empleado, el correo de contraseña y el aviso al comercial sin clic cuando cliente y datos son únicos. Desactivado: cada alta espera a «Ejecutar».",
+      "mailbox": "Buzón de registros",
+      "mailboxHint": "Vacío = buzón de la cuenta de Outlook en n8n.",
+      "masterDataEmail": "Equipo de datos maestros (correo)",
+      "masterDataEmailHint": "Recibe las altas cuyo cliente falta en el portal, con el correo original adjunto.",
+      "processedFolderName": "Carpeta para correos tramitados",
+      "processSince": "Correos desde",
+      "processSinceHint": "Vacío = los últimos 2 días.",
+      "maxPerRun": "Correos por ejecución",
+      "recheckHours": "Revisar los pendientes cada … horas",
+      "recheckHoursHint": "0 = solo a mano con «Revisar de nuevo».",
+      "customerUpdate": "Datos del cliente desde el alta",
+      "customerUpdateFillEmpty": "Completar solo campos vacíos",
+      "customerUpdateNone": "No cambiar nunca",
+      "customerUpdateHint": "El nombre de la empresa y la dirección se mantienen siempre como en la tienda. Los clientes inactivos se activan.",
+      "storefrontUrl": "Dirección del portal para el enlace de contraseña",
+      "notifySalesRep": "Informar al comercial",
+      "notifySalesRepHint": "Correo informativo al comercial responsable según la lista de asignación.",
+      "ccForwarder": "Compañero que reenvió en CC",
+      "ccForwarderHint": "Quien reenvió el alta recibe copia de los correos a datos maestros y al comercial.",
+      "n8nTitle": "Flujo de n8n",
+      "n8nHint": "Importe la plantilla n8n-workflows/m365-portal-registrations.json, asigne los accesos de Outlook y METAorder y actívela. El usuario de METAorder de n8n necesita el permiso «Gestionar B2B».",
+      "categories": "Categorías de Outlook: {{list}}",
+      "save": "Guardar",
+      "saved": "Configuración guardada",
+      "saveFailed": "Configuración no guardada"
+    }
   },
   "systemLog": {
     "title": "Registro del sistema",

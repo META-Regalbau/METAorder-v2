@@ -297,6 +297,7 @@
     "crm": "CRM",
     "b2bAccounts": "B2B Accounts",
     "b2bUsers": "B2B Users",
+    "portalRegistrations": "Portal registrations",
     "b2bBudgets": "B2B Budgets",
     "b2bAssortments": "B2B Assortments",
     "b2bOrderLists": "B2B Order Lists",
@@ -5671,7 +5672,26 @@
       "n8n_failed": "n8n reports an error.",
       "email_intake_forward_invalid": "The forwarding address is invalid.",
       "email_intake_mailbox_invalid": "The mailbox address is invalid.",
-      "email_intake_assignee_invalid": "The default assignee is not allowed to view tickets."
+      "email_intake_assignee_invalid": "The default assignee is not allowed to view tickets.",
+      "portal_registration_in_progress": "This registration is already being processed.",
+      "portal_registration_not_found": "Registration not found.",
+      "portal_registration_no_plan": "No customer assigned yet.",
+      "portal_registration_done": "The registration is already done.",
+      "portal_registration_customer_missing": "Customer not found in the shop.",
+      "portal_registration_customer_ambiguous": "Several portal customers have this number.",
+      "portal_registration_not_portal": "The customer is not in the dealer portal.",
+      "portal_registration_no_master_data_email": "No master data address configured.",
+      "portal_registration_no_data": "The sign-up has not been read yet.",
+      "portal_registration_no_employee": "No employee created yet.",
+      "portal_registration_no_channel": "The customer has no sales channel.",
+      "portal_registration_reset_failed": "The password email could not be sent.",
+      "portal_registration_mail_not_found": "Email not found.",
+      "portal_registration_mailbox_invalid": "Invalid mailbox address.",
+      "portal_registration_master_data_invalid": "Invalid master data address.",
+      "portal_registration_upload_type": "Please upload an .eml or .msg file.",
+      "portal_registration_no_original": "The original email is not stored.",
+      "shopware_not_configured": "Shopware is not set up for this tenant.",
+      "sales_rep_import_empty": "No valid rows found – check the customer number and email columns."
     },
     "client": {
       "notModified": "API response unchanged (304) – please reload the page.",
@@ -6510,7 +6530,12 @@
       "failed_to_save_product_meta_text_settings": "Failed to save product meta text settings",
       "product_meta_text_run_already_in_progress": "Product meta text run already in progress",
       "failed_to_start_product_meta_text_run": "Failed to start product meta text run",
-      "failed_to_start_name_rule_run": "Failed to start name rule run"
+      "failed_to_start_name_rule_run": "Failed to start name rule run",
+      "ungultige_kundenstamm_adresse": "Invalid master data address.",
+      "keine_gultigen_zeilen_gefunden": "No valid rows found.",
+      "nur_eml_oder_msg": "Only .eml or .msg files.",
+      "registrierung_nicht_gefunden": "Registration not found.",
+      "originalmail_nicht_vorhanden": "Original email not available."
     }
   },
   "roomPlanner": {
@@ -6799,6 +6824,243 @@
     "errorNotFound": "There is no portal account with this e-mail address for this customer number. Please check your entries.",
     "errorInactive": "This portal account is deactivated. Please contact your META representative.",
     "errorAlreadyRequested": "A link was just requested for this account. Please check your inbox or try again in 15 minutes."
+  },
+  "portalRegistrations": {
+    "title": "Portal registrations",
+    "subtitle": "Dealer portal sign-ups from the registration mailbox. METAorder reads them, finds the customer in the portal, creates the admin employee and sends the password email. If the customer is missing in the portal, the sign-up goes to the master data team for review.",
+    "refresh": "Refresh",
+    "uploadMail": "Upload email",
+    "uploaded": "Email processed: {{outcome}}",
+    "uploadFailed": "Email could not be processed",
+    "filterLabel": "Filter by status",
+    "tabs": {
+      "registrations": "Registrations",
+      "salesReps": "Sales rep assignment",
+      "settings": "Settings"
+    },
+    "filters": {
+      "open": "Open",
+      "waiting": "With master data",
+      "completed": "Done",
+      "discarded": "Discarded",
+      "all": "All"
+    },
+    "empty": "No registrations in this view.",
+    "columns": {
+      "received": "Received",
+      "company": "Company",
+      "contact": "Contact",
+      "customer": "Portal customer",
+      "expertMode": "Expert mode",
+      "status": "Status"
+    },
+    "via": "via {{name}}",
+    "unknownCompany": "Company not recognised",
+    "fromMail": "per email {{number}}",
+    "expertYes": "requested",
+    "statuses": {
+      "processing": "Processing",
+      "review": "Review",
+      "ready": "Ready",
+      "completed": "Done",
+      "waiting_master_data": "With master data",
+      "failed": "Error",
+      "discarded": "Discarded"
+    },
+    "match": {
+      "matched": "unique",
+      "ambiguous": "unclear",
+      "not_found": "not in portal"
+    },
+    "outcomes": {
+      "completed": "done",
+      "ready": "ready to run",
+      "review": "please review",
+      "waiting_master_data": "sent to master data",
+      "not_registration": "not a registration",
+      "duplicate": "already received",
+      "failed": "error"
+    },
+    "detailTitle": "Registration",
+    "detailMeta": "Received {{date}} from {{from}}",
+    "actionFailed": "Action failed",
+    "mailRequeued": "Email will be sent again",
+    "noData": "No sign-up data read yet.",
+    "notChecked": "Not matched against the portal yet.",
+    "inactive": "inactive",
+    "chosen": "chosen",
+    "pickByNumber": "Customer by number",
+    "shopAccounts": "Online shop accounts (not portal): {{list}}",
+    "cc": "CC",
+    "showMail": "Show email text",
+    "hideMail": "Hide email text",
+    "extractionSource": {
+      "ai": "Read by AI ({{percent}})",
+      "rules": "Read with fixed rules only ({{percent}})"
+    },
+    "sections": {
+      "data": "Sign-up data",
+      "customer": "Portal customer",
+      "plan": "What running it does",
+      "planDone": "Done",
+      "mails": "Emails",
+      "history": "History"
+    },
+    "fields": {
+      "company": "Company",
+      "customerNumber": "Customer number",
+      "vatId": "VAT ID",
+      "phone": "Company phone",
+      "street": "Street",
+      "zipCode": "Postcode",
+      "city": "City",
+      "country": "Country",
+      "salutation": "Salutation",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "email": "Email (becomes login)",
+      "contactPhone": "Contact phone",
+      "expertMode": "Expert mode",
+      "adminMode": "Admin mode",
+      "notes": "Note from the email"
+    },
+    "salutations": {
+      "none": "not specified",
+      "mr": "Mr",
+      "mrs": "Ms"
+    },
+    "tri": {
+      "unset": "not mentioned",
+      "yes": "yes",
+      "no": "no"
+    },
+    "matchDetail": {
+      "matched": "Unique portal customer found.",
+      "ambiguous": "No unique match – please choose the right customer.",
+      "not_found": "No matching customer in the portal."
+    },
+    "matchNotes": {
+      "number_company_mismatch": "The customer number belongs to a company with a different name.",
+      "several_portal_accounts": "Several portal customers match equally well.",
+      "close_candidates": "Only similar customers found.",
+      "number_not_found": "The customer number from the email does not exist in the portal.",
+      "sales_rep_account": "An internal META account matches – that is never the dealer."
+    },
+    "plan": {
+      "employee_create": "Create admin employee {{name}} <{{email}}>",
+      "employee_update": "Use existing employee {{name}} <{{email}}>",
+      "link_create": "Link as administrator to {{customer}}",
+      "link_update": "Ensure admin right and active status at {{customer}}",
+      "link_none": "Link stays as is",
+      "expertMode": "Enable shelf planner expert mode",
+      "adminMode": "Enable shelf planner admin mode",
+      "customerChanges": "Update customer:",
+      "sendPasswordReset": "Send password email to {{email}}"
+    },
+    "changes": {
+      "active": "Activate customer",
+      "platformAccess": "Enable B2B platform access",
+      "vatId": "Add VAT ID {{to}}",
+      "phone": "Add phone {{to}}"
+    },
+    "blockers": {
+      "missing_email": "The contact's email is missing.",
+      "missing_name": "First or last name is missing.",
+      "internal_email": "The email is a META address – that is never the dealer admin.",
+      "employee_other_customer": "This email already belongs to an employee of another customer. Please resolve in the B2B area.",
+      "no_customer": "No customer chosen.",
+      "no_sales_channel": "The customer has no sales channel."
+    },
+    "actions": {
+      "saveData": "Save data and match again",
+      "resetData": "Discard",
+      "chooseCustomer": "Choose this customer",
+      "assign": "Assign",
+      "execute": "Run",
+      "recheck": "Check again",
+      "reextract": "Read again",
+      "masterData": "Send to master data",
+      "passwordReset": "Resend password email",
+      "discard": "Discard",
+      "downloadOriginal": "Original email",
+      "retryMail": "Send again"
+    },
+    "toasts": {
+      "dataSaved": "Data saved and matched again",
+      "customerChosen": "Customer assigned",
+      "planSaved": "Plan changed",
+      "executed": "Done",
+      "rechecked": "Checked again",
+      "masterData": "Request to master data queued",
+      "passwordReset": "Password email sent",
+      "discarded": "Discarded"
+    },
+    "mailKinds": {
+      "master_data_request": "Master data",
+      "sales_rep_info": "Sales rep"
+    },
+    "mailStatuses": {
+      "pending": "waiting for n8n",
+      "sent": "sent",
+      "failed": "failed"
+    },
+    "salesReps": {
+      "intro": "Who is responsible for which customer? After a successful registration the sales rep gets an info email. Excel or CSV with the columns customer number, sales rep (name) and email.",
+      "file": "File",
+      "mode": "Import",
+      "modeReplace": "Replace list",
+      "modeMerge": "Add / overwrite",
+      "check": "Check",
+      "import": "Apply",
+      "imported": "{{count}} assignments applied",
+      "importFailed": "Import failed",
+      "previewSummary": "{{rows}} valid rows, {{errors}} with errors. Columns: customer number = {{number}}, email = {{email}}, name = {{name}}",
+      "rowError": "Row {{row}}: {{message}}",
+      "customerNumber": "Customer number",
+      "repName": "Sales rep",
+      "repEmail": "Email",
+      "add": "Add",
+      "saved": "Assignment saved",
+      "saveFailed": "Assignment not saved",
+      "search": "Search",
+      "count": "{{count}} assignments, {{shown}} shown",
+      "count_one": "{{count}} assignment, {{shown}} shown",
+      "count_other": "{{count}} assignments, {{shown}} shown",
+      "empty": "No assignment imported yet.",
+      "delete": "Delete",
+      "deleteRow": "Delete assignment {{number}}"
+    },
+    "settings": {
+      "enabled": "Registration intake active",
+      "enabledHint": "Off: n8n fetches no emails and sends nothing.",
+      "autoExecute": "Run sure matches automatically",
+      "autoExecuteHint": "Create employee, password email and sales rep info without a click when customer and data are unique. Off: every sign-up waits for “Run”.",
+      "mailbox": "Registration mailbox",
+      "mailboxHint": "Empty = mailbox of the Outlook account in n8n.",
+      "masterDataEmail": "Master data team (email)",
+      "masterDataEmailHint": "Receives sign-ups whose customer is missing in the portal – with the original email attached.",
+      "processedFolderName": "Folder for handled emails",
+      "processSince": "Emails from",
+      "processSinceHint": "Empty = the last 2 days.",
+      "maxPerRun": "Emails per run",
+      "recheckHours": "Re-check waiting ones every … hours",
+      "recheckHoursHint": "0 = only by hand via “Check again”.",
+      "customerUpdate": "Customer data from the sign-up",
+      "customerUpdateFillEmpty": "Only fill empty fields",
+      "customerUpdateNone": "Never change",
+      "customerUpdateHint": "Company name and address always stay as they are in the shop. Inactive customers are activated.",
+      "storefrontUrl": "Portal address for the password link",
+      "notifySalesRep": "Inform sales rep",
+      "notifySalesRepHint": "Info email to the responsible sales rep according to the assignment list.",
+      "ccForwarder": "CC the forwarding colleague",
+      "ccForwarderHint": "Whoever forwarded the sign-up gets a copy of the emails to master data and sales rep.",
+      "n8nTitle": "n8n workflow",
+      "n8nHint": "Import the template n8n-workflows/m365-portal-registrations.json, assign the Outlook and METAorder credentials and activate it. The METAorder user of n8n needs the “Manage B2B” permission.",
+      "categories": "Outlook categories: {{list}}",
+      "save": "Save",
+      "saved": "Settings saved",
+      "saveFailed": "Settings not saved"
+    }
   },
   "systemLog": {
     "title": "System log",
