@@ -5,6 +5,7 @@
 //   nur Kanal META Regalbau DE; „ab 5000 Euro“ zusaetzlich nur bei Rechnungsadresse Deutschland.
 // - Mondu: im DE-Kanal aktiv: Rechnungskauf (30 Tage), SEPA-Lastschrift (30 Tage), Ratenkauf (3, 6, 12 Monaten),
 //   Echtzeitüberweisung; dazu PayPal und Kredit-/Debitkarte. In AT und PL gibt es Mondu nicht.
+import type { HomeMondu, HomeRabatt } from "@shared/shopContent";
 import { esc, industryPageCss, scopeCss } from "./industryPageHtml";
 
 /** Bestehende Abschnitte der Startseite (gleiche IDs in Live und Testshop). */
@@ -19,7 +20,7 @@ export const HOME_SECTION_MARKERS = {
   mondu: { old: /sw-landing[\s\S]*Mondu/i, own: 'data-mbp="mondu"' },
 } as const;
 
-export const RABATT = {
+export const RABATT: HomeRabatt = {
   eyebrow: "Rabattstaffel",
   title: "Mehr bestellen, mehr sparen",
   intro: "Ab 5.000 € Warenwert ziehen wir den Rabatt automatisch im Warenkorb ab – ganz ohne Rabattcode.",
@@ -31,7 +32,7 @@ export const RABATT = {
   note: "Gilt im META Onlineshop Deutschland für Bestellungen mit Rechnungsadresse in Deutschland. Der Rabatt erscheint automatisch im Warenkorb und im Checkout.",
 };
 
-export const MONDU = {
+export const MONDU: HomeMondu = {
   eyebrow: "Bezahlen für Geschäftskunden",
   title: "B2B-Zahlung leicht gemacht",
   intro: "Gemeinsam mit unserem Partner Mondu bieten wir Geschäftskunden Zahlarten mit Zahlungsziel – direkt im Checkout auswählbar.",
@@ -85,8 +86,8 @@ const PAY_ICONS = [
 
 const style = (scope: string) => `<style>${industryPageCss(scope)}\n${scopeCss(HOME_CSS, scope)}</style>`;
 
-export function rabattSectionHtml(scope = ".mbp"): string {
-  const r = RABATT;
+/** `r`: Inhalt aus der Pflegeoberflaeche (Shop-Inhalte), Standard = Ausgangsdaten oben */
+export function rabattSectionHtml(scope = ".mbp", r: HomeRabatt = RABATT): string {
   const tiers = r.tiers
     .map((t, i) => `<div class="rb-tier${i === r.tiers.length - 1 ? " top" : ""}"><strong>${esc(t.pct)}</strong><span class="from">${esc(t.from)}</span><span class="range">${esc(t.range)}</span></div>`)
     .join("");
@@ -97,9 +98,8 @@ export function rabattSectionHtml(scope = ".mbp"): string {
 </div></section></div>`;
 }
 
-export function monduSectionHtml(scope = ".mbp"): string {
-  const m = MONDU;
-  const methods = m.methods.map((x, i) => `<div><svg viewBox="0 0 40 40" aria-hidden="true">${PAY_ICONS[i]}</svg><strong>${esc(x.name)}</strong><span>${esc(x.fact)}</span></div>`).join("");
+export function monduSectionHtml(scope = ".mbp", m: HomeMondu = MONDU): string {
+  const methods = m.methods.map((x, i) => `<div><svg viewBox="0 0 40 40" aria-hidden="true">${PAY_ICONS[i % PAY_ICONS.length]}</svg><strong>${esc(x.name)}</strong><span>${esc(x.fact)}</span></div>`).join("");
   const faq = m.faq.map((f) => `<div><h3>${esc(f.q)}</h3><p>${esc(f.a)}</p></div>`).join("");
   return `${style(scope)}<div class="${scope.slice(1)}" data-mbp="mondu"><section class="pay"><div class="wrap">
   <div class="sec-head"><div><span class="eyebrow">${esc(m.eyebrow)}</span><h2>${esc(m.title)}</h2><p>${esc(m.intro)}</p></div></div>

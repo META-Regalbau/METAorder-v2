@@ -1,87 +1,15 @@
 // Inhalte der Branchen-Landingpages (Konzept 15.10.2026, Welle 1). Eine Quelle fuer Design-Entwuerfe,
-// Freigabe-Excel und spaeter das Schreibskript in den Shop.
+// Freigabe-Excel und das Schreibskript in den Shop. Seit der Pflegeoberflaeche (Shop-Inhalte, 16.10.2026)
+// sind das die Ausgangsdaten: „Aus Code übernehmen“ legt sie als Version 1 in der Datenbank an.
 // Regel des Users: nur belegte META-Inhalte, nichts Erfundenes, keine Wettbewerber (siehe categoryTexts.ts).
 // Jede Zahl steht im META-Bestellkatalog (Seitenangabe in `src`) oder kommt aus dem Shop-Artikel.
 // Preise stehen nie im Text, sondern als Platzhalter {p:<Artikelnummer>} und werden beim Erzeugen
 // aus dem Shop-Stand eingesetzt.
 
-export type IndustryIcon =
-  | "tire" | "cart" | "grid" | "drop" | "cabinet" | "pallet" | "drum" | "profiles" | "pipes" | "screws"
-  | "helmet" | "folder" | "archive" | "lock" | "box" | "package" | "store" | "heavy" | "warning" | "move";
+// Typen und Schema: shared/shopContent.ts (dieselbe Form speichert die Pflegeoberflaeche in der Datenbank).
+import type { IndustryCommon, IndustryNote, IndustryPage, HomeTeaser } from "@shared/shopContent";
 
-export type IndustryNote = { text: string; src?: string; checks?: string[] };
-
-export type IndustryArea = {
-  icon: IndustryIcon;
-  title: string;
-  text: string;
-  solution: string;
-  linkLabel: string;
-  /** Ziel im Shop: Suchbegriff oder Pfad. Wird beim Bau auf gefilterte Listen gemappt. */
-  linkTarget: string;
-};
-
-export type IndustryTable = {
-  head: string[];
-  rows: string[][];
-  /** Spalten (0-basiert), die rechtsbuendig/zahlig sind */
-  numCols?: number[];
-  /** Spalten, die am Handy ausgeblendet werden */
-  hideMobile?: number[];
-  caption?: string;
-};
-
-export type IndustryExample = {
-  title: string;
-  sub: string;
-  lines: Array<{ qty: number; number: string; label: string }>;
-  /** Kennzahl nach der Summe: Summe / divisor je unit */
-  perLabel?: { divisor: number; unit: string; extra?: string };
-  /** Klartext nach der Summe, wenn keine Kennzahl sinnvoll ist */
-  info?: string;
-  warn?: string;
-  cta: string;
-};
-
-export type IndustryPage = {
-  key: string;
-  name: string;
-  short: string;
-  /** Unterzeile in „Weitere Branchen“ */
-  tagline: string;
-  /** Kachel auf der Startseite: typisches Lagergut und eine belegte Kennzahl der Seite */
-  teaser: { goods: string; fact: string };
-  url: string;
-  metaTitle: string;
-  metaDescription: string;
-  eyebrow: string;
-  h1: string;
-  lead: string;
-  proof: string[];
-  ctaPrimary: string;
-  ctaSecondary: string;
-  hero: { number: string; tag: string; alt: string };
-  /** Kennzahlen unter dem Bild: nur Werte des abgebildeten Systems (siehe Test) */
-  facts: Array<{ value: string; label: string }>;
-  areasTitle: string;
-  areasIntro: string;
-  areas: IndustryArea[];
-  /** stacked: Beispielrechnung unter den Tabellen (für breite Tabellen mit 4+ Textspalten) */
-  planning: { title: string; intro: string; tables: IndustryTable[]; example?: IndustryExample; stacked?: boolean };
-  productsTitle: string;
-  products: Array<{ number: string; use: string; spec: string; title: string }>;
-  duties: { meta: string[]; operator: string[]; hint: string };
-  why: Array<{ title: string; text: string }>;
-  project: { eyebrow: string; title: string; text: string; cta: string; link?: { label: string; href: string } };
-  docs: Array<{ label: string; where: string }>;
-  faqTitle: string;
-  faq: Array<{ q: string; a: string }>;
-  advice: { title: string; text: string };
-  notes: Partial<Record<IndustryNoteKey, IndustryNote>>;
-};
-
-export type IndustryNoteKey =
-  | "nav" | "hero" | "facts" | "areas" | "planning" | "products" | "duties" | "why" | "project" | "faq" | "advice";
+export type { IndustryArea, IndustryExample, IndustryIcon, IndustryNote, IndustryNoteKey, IndustryPage, IndustryTable } from "@shared/shopContent";
 
 export const CONTACT = { phone: "02932 957-0", tel: "+4929329570", hours: "8:15 bis 16:30 Uhr", mail: "digital-service@meta-online.com" };
 
@@ -123,8 +51,20 @@ const NOTE_WHY: IndustryNote = {
   src: "Katalog S. 11, 14, 19; Shop-Header",
 };
 
+/** Gemeinsame Texte aller Branchenseiten – Ausgangsdaten fuer die Pflege in METAorder (kind = common). */
+export const INDUSTRY_COMMON: IndustryCommon = {
+  contact: CONTACT,
+  operator: OPERATOR_COMMON,
+  dutyHint: DUTY_HINT,
+  why: WHY_CLIP,
+  docs: DOCS_COMMON,
+  faq: [FAQ_INSPECTION],
+  noteDuties: NOTE_DUTIES,
+  noteWhy: NOTE_WHY,
+};
+
 /** Teaser „Regale für Ihre Branche“ auf der Startseite (nur DE-Kanal, nach „META Bestseller“). */
-export const HOME_TEASER = {
+export const HOME_TEASER: HomeTeaser = {
   eyebrow: "Branchenlösungen",
   title: "Regale für Ihre Branche",
   intro: "Welches Regal passt zu Ihrem Betrieb? Wählen Sie Ihre Branche – mit Planungshilfe, Beispielrechnung und den passenden Regalen zum Bestellen.",

@@ -14,6 +14,9 @@ import { z } from "zod";
 import type { ProductMetaSource, ProductMetaUpdate } from "../shopware/client/productMeta";
 import { chatCompletion, parseLlmJsonResponse } from "../ai/llmChat";
 import { logger } from "../lib/logger";
+import { COMPETITOR_NAMES } from "@shared/competitorNames";
+
+export { COMPETITOR_NAMES };
 
 const moduleLog = logger.child({ component: "products/productMetaTexts" });
 
@@ -163,12 +166,6 @@ export function pickStyleExamples(products: ProductMetaSource[], count = STYLE_E
 // ---------------------------------------------------------------------------------------------
 // Pruefen
 
-/** Regal- und Lagertechnik-Wettbewerber (User 15.10.2026: nur META-Inhalte, nichts von Wettbewerbern). */
-export const COMPETITOR_NAMES = [
-  "SSI Schäfer", "Schäfer Regal", "Tegometall", "Dexion", "Mecalux", "Jungheinrich", "Lista", "Kaiser\\s*[+&]\\s*Kraft", "Hofe",
-  "Bito", "Stow", "Constructor", "Hänel", "Kardex", "Ohra", "Polypal", "Nedcon", "Averys", "Esmena", "Schulte Lagertechnik",
-  "Gerdmann", "Certeo", "Hünersdorff", "Kasten-?Regal", "Proregal", "Regalwelt", "Linde", "Still GmbH", "Bott", "Hoffmann Group",
-];
 function COMPETITOR_PATTERN(): RegExp {
   return new RegExp(`\\b(${COMPETITOR_NAMES.join("|")})\\b`, "i");
 }

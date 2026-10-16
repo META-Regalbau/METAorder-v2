@@ -2,6 +2,7 @@
 // (scripts/writeIndustryPages.ts, HTML-Element der Erlebniswelten). Das Shop-HTML-Element laesst eigenes CSS zu;
 // dort wird das Stylesheet auf den Seitenrahmen `.mbp` begrenzt, damit Theme und Seite sich nicht stoeren.
 import { CONTACT, HOME_TEASER, fillPrices, formatEuro, type IndustryIcon, type IndustryNote, type IndustryNoteKey, type IndustryPage } from "./industryPages";
+import type { HomeTeaser, IndustryContact } from "@shared/shopContent";
 
 export type IndustryShopProduct = { id?: string; name: string; priceNet: number; deliveryTime?: string; url?: string | null; image?: string | null };
 
@@ -12,6 +13,8 @@ export type IndustryHtmlOptions = {
   linkHref: (target: string) => string;
   /** Beispielrechnung als echtes Warenkorb-Formular (nur Shop, braucht Produkt-IDs) */
   cartForm: boolean;
+  /** Telefon, Zeiten, E-Mail (gemeinsame Texte); Standard: CONTACT */
+  contact?: IndustryContact;
 };
 
 export const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -87,6 +90,10 @@ export class IndustryPageHtml {
     private opts: IndustryHtmlOptions,
   ) {}
 
+  private get contact(): IndustryContact {
+    return this.opts.contact ?? CONTACT;
+  }
+
   product(num: string): IndustryShopProduct {
     const p = this.products[num];
     if (!p) throw new Error(`${this.page.key}: Artikel ${num} fehlt im Shop-Stand`);
@@ -132,7 +139,7 @@ export class IndustryPageHtml {
 
   jump(): string {
     return `<nav class="jump" aria-label="Auf dieser Seite"><div class="wrap">
-  <a href="#bereiche">Lagerbereiche</a><a href="#planung">Planungshilfe</a><a href="#produkte">Produkte</a><a href="#sicherheit">Sicherheit &amp; Pflichten</a><a href="#unterlagen">Unterlagen</a><a href="#faq">Häufige Fragen</a><a class="cta" href="#beratung">Beratung ${esc(CONTACT.phone)}</a>
+  <a href="#bereiche">Lagerbereiche</a><a href="#planung">Planungshilfe</a><a href="#produkte">Produkte</a><a href="#sicherheit">Sicherheit &amp; Pflichten</a><a href="#unterlagen">Unterlagen</a><a href="#faq">Häufige Fragen</a><a class="cta" href="#beratung">Beratung ${esc(this.contact.phone)}</a>
 </div></nav>`;
   }
 
@@ -302,9 +309,9 @@ ${this.page.products
       <p>${esc(p.advice.text)}</p>
     </div>
     <div class="r">
-      <a class="tel" href="tel:${CONTACT.tel}">${esc(CONTACT.phone)}</a>
-      <small>Montag bis Freitag, ${esc(CONTACT.hours)}</small>
-      <a class="btn white" href="mailto:${CONTACT.mail}" style="align-self:flex-start">E-Mail an den Digital-Service</a>
+      <a class="tel" href="tel:${esc(this.contact.tel)}">${esc(this.contact.phone)}</a>
+      <small>Montag bis Freitag, ${esc(this.contact.hours)}</small>
+      <a class="btn white" href="mailto:${esc(this.contact.mail)}" style="align-self:flex-start">E-Mail an den Digital-Service</a>
     </div>
   </div>
   ${this.note("advice")}`;
@@ -325,8 +332,13 @@ ${this.page.products
 }
 
 /** Startseiten-Teaser: 5 Branchenkacheln und eine Beratungskachel (Bild = Hauptbild der Branchenseite). */
-export function homeTeaserHtml(pages: IndustryPage[], products: Record<string, IndustryShopProduct>, hrefFor: (p: IndustryPage) => string): string {
-  const t = HOME_TEASER;
+export function homeTeaserHtml(
+  pages: IndustryPage[],
+  products: Record<string, IndustryShopProduct>,
+  hrefFor: (p: IndustryPage) => string,
+  t: HomeTeaser = HOME_TEASER,
+  contact: IndustryContact = CONTACT,
+): string {
   const tiles = pages
     .map((p) => {
       const img = products[p.hero.number]?.image;
@@ -346,7 +358,7 @@ export function homeTeaserHtml(pages: IndustryPage[], products: Record<string, I
 ${tiles}
     <div class="ht-tile ht-advice">
       <div class="ht-body"><strong>${esc(t.advice.title)}</strong><span class="ht-goods">${esc(t.advice.text)}</span>
-        <a class="tel" href="tel:${CONTACT.tel}">${esc(CONTACT.phone)}</a><small>Montag bis Freitag, ${esc(CONTACT.hours)}</small></div>
+        <a class="tel" href="tel:${esc(contact.tel)}">${esc(contact.phone)}</a><small>Montag bis Freitag, ${esc(contact.hours)}</small></div>
     </div>
   </div>
 </div></section>`;
