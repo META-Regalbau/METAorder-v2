@@ -8,9 +8,9 @@ import { z } from "zod";
 import { chatCompletion, parseLlmJsonResponse } from "../ai/llmChat";
 import { CLAIM_RULES, digitForms, expandAbbreviations } from "./productMetaTexts";
 import { parseCatalogName } from "../cross-selling/crossSellNameRules";
-import { catalogFactsFor, ignoredShopFeaturesFor } from "./catalogFacts";
+import { catalogFactsFor, catalogSystemsFor, ignoredShopFeaturesFor } from "./catalogFacts";
 
-export const CATEGORY_PROMPT_VERSION = "cat-v6";
+export const CATEGORY_PROMPT_VERSION = "cat-v7";
 
 export type CategoryProduct = { name: string; properties: Array<{ group: string; option: string }> };
 
@@ -37,6 +37,8 @@ export type CategoryFacts = {
   familyClaims: string | null;
   /** Belegte Systemaussagen aus dem META-Bestellkatalog (catalogFacts.ts), mit Seitenzahl */
   catalogFacts: Array<{ text: string; page: number; system: string }>;
+  /** Systemwerte laut Katalog je System (Bemaßungsvarianten, Lasten) */
+  catalogSpans: Array<{ system: string; page: number; rows: Array<[string, string]> }>;
 };
 
 // Katalog S. 14: Produktion in Deutschland nur CLIP, FIX, MINI-RACK, SPEED-RACK, MULTIPAL; Garantie auf einen
@@ -198,6 +200,7 @@ export function buildCategoryFacts(
     topProducts: products.slice(0, 8).map((p) => p.name),
     familyClaims: family ? family[1] : null,
     catalogFacts: catalogFactsFor(meta.name),
+    catalogSpans: catalogSystemsFor(meta.name).filter((x) => x.spans).map((x) => ({ system: x.label, page: x.spans!.page, rows: x.spans!.rows })),
   };
 }
 
@@ -226,8 +229,13 @@ export function factsTableHtml(f: CategoryFacts): string {
 }
 
 export function factsText(f: CategoryFacts): string {
+  const spans = f.catalogSpans ?? [];
   const lines = [
     `Kategorie: ${f.name} (${f.breadcrumb})`,
+    ...(spans.length
+      ? ["SYSTEMWERTE LAUT META-KATALOG (das kann das System – maßgeblich für Aussagen über das System):", ...spans.flatMap((x) => x.rows.map(([k, v]) => `- ${x.system}: ${k}: ${v}`))]
+      : []),
+    spans.length ? "IM SHOP DIREKT BESTELLBAR (Auswahl, keine Grenze des Systems):" : "",
     `Anzahl Artikel: ${f.productCount}`,
     f.systems.length ? `Systeme: ${f.systems.join(", ")}` : "",
     f.shelfTypes.length ? `Ausführungen: ${f.shelfTypes.join(", ")}` : "",
@@ -265,6 +273,7 @@ const DOMAIN_RULES = `- Ein Anbauregal braucht ein Grundregal und nutzt dessen R
 - Fachboden- und Büroregale sind für Kleinteile, Kartons, Behälter, Ordner – nicht für Paletten oder palettierte Ware.
 - Ein Doppelregal ist beidseitig nutzbar; „einseitig oder beidseitig“ nicht auf Doppelregale beziehen.
 - „Rahmen vormontiert: ja“ bzw. „Ständer vormontiert: ja“ heißt nur, dass die Rahmen bzw. Ständer vormontiert sind – nicht das ganze Regal.
+- Gibt es „Systemwerte laut META-Katalog“, beschreiben Maße, Lasten und Ebenen das System nach diesen Werten. Werte unter „Im Shop direkt bestellbar“ sind nur eine Auswahl: nie als Grenze formulieren (nicht „nur“, „beträgt“, „fest“, „ausschließlich“, „die Tiefe ist 1.100 mm“), sondern z. B. „direkt im Shop bestellbar sind …“. Weichen Katalog und Shop ab, gilt für Systemaussagen der Katalog.
 - „Belegte Katalogangaben“ dürfen genutzt werden (Aufbau, Sicherheit, Systemwerte). Systemwerte aus dem Katalog als Möglichkeit des Systems kennzeichnen („im System bis …“, „auf Anfrage“), Sortimentswerte aus den Kategoriedaten. Keine Katalog- oder Seitenverweise im Text.
 - Sicherheitshinweise nicht miteinander verknüpfen: „nur für Handbedienung“ gilt immer, nicht nur bei Verankerung.
 - Die Shop-„Breite“ bei Kragarmregalen ist die Feldbreite (1.000/1.300 mm), das Katalog-„Achsmaß“ (1.030/1.330/1.350 mm) ist ein anderes Maß – nicht gleichsetzen.
@@ -367,11 +376,39 @@ export function validateCategoryText(f: CategoryFacts, g: GeneratedCategoryText)
   return null;
 }
 
-export function buildCategoryHtml(f: CategoryFacts, g: GeneratedCategoryText): { introHtml: string; seoHtml: string; faqHtml: string; faqJson: string } {
+/** Systemwerte laut Katalog als Tabelle (ein System: Merkmal | Wert; mehrere: eine Spalte je System). */
+export function catalogTableHtml(f: CategoryFacts): string {
+  const spans = f.catalogSpans ?? [];
+  if (spans.length === 0) return "";
+  const labels = [...new Set(spans.flatMap((x) => x.rows.map(([k]) => k)))];
+  const cell = (x: (typeof spans)[number], k: string) => escapeHtml(x.rows.find(([l]) => l === k)?.[1] ?? "–");
+  if (spans.length === 1) return `<table><tbody>${labels.map((k) => `<tr><th>${escapeHtml(k)}</th><td>${cell(spans[0], k)}</td></tr>`).join("")}</tbody></table>`;
+  const short = (name: string) => name.replace(/^META\s+/, "").replace(/\s+(Fachboden|Büro|Paletten|Kragarm|Weitspann)regale$/, "");
+  return `<table><thead><tr><th></th>${spans.map((x) => `<th>${escapeHtml(short(x.system))}</th>`).join("")}</tr></thead><tbody>${labels.map((k) => `<tr><th>${escapeHtml(k)}</th>${spans.map((x) => `<td>${cell(x, k)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+}
+
+/** Was davon direkt im Shop bestellbar ist (Satz unter der Katalogtabelle). */
+export function shopSelectionHtml(f: CategoryFacts): string {
+  const parts = [
+    f.heights.length ? `Höhen ${range(f.heights, "mm")}` : "",
+    f.widths.length ? `Breiten ${range(f.widths, "mm")}` : "",
+    f.depths.length ? `Tiefen ${range(f.depths, "mm")}` : "",
+  ].filter(Boolean);
+  if (parts.length === 0) return "";
+  return `<p><strong>Direkt im Shop bestellbar:</strong> ${escapeHtml(parts.join(", "))}. Weitere Ausführungen des Systems auf Anfrage – sprechen Sie uns an.</p>`;
+}
+
+export function buildCategoryHtml(
+  f: CategoryFacts,
+  g: GeneratedCategoryText,
+  options: { table?: "shop" | "catalog" } = {},
+): { introHtml: string; seoHtml: string; faqHtml: string; faqJson: string } {
   const p = (t: string) => `<p>${escapeHtml(t.trim())}</p>`;
-  const table = factsTableHtml(f);
+  const catalog = options.table === "catalog" ? catalogTableHtml(f) : "";
+  const table = catalog ? `${catalog}${shopSelectionHtml(f)}` : factsTableHtml(f);
+  const heading = catalog ? `${escapeHtml(f.name)}: Systemwerte im Überblick` : `${escapeHtml(f.name)}: Maße und Ausführungen im Überblick`;
   const sections = g.sections.map((s) => `<h2>${escapeHtml(s.heading.trim())}</h2>${s.paragraphs.map(p).join("")}`);
-  if (table) sections.splice(Math.min(1, sections.length), 0, `<h2>${escapeHtml(f.name)}: Maße und Ausführungen im Überblick</h2>${table}`);
+  if (table) sections.splice(Math.min(1, sections.length), 0, `<h2>${heading}</h2>${table}`);
   return {
     introHtml: p(g.intro),
     seoHtml: sections.join(""),
@@ -417,6 +454,7 @@ Melde jede Aussage, die
 - Merkmale falsch einem System zuordnet oder verwischt, obwohl die Daten sie unter „Je System“ trennen,
 - bei Kragarmregalen „doppelseitig“ als zwei Regalzeilen Rücken an Rücken beschreibt (richtig: Kragarme an beiden Seiten derselben Ständer),
 - etwas über die Darstellung im Shop behauptet (Kennzeichnung, Filter, Produktübersicht).
+- Shop-Sortimentswerte als Grenze des Systems darstellt („nur“, „beträgt“, „fest“), obwohl die Systemwerte laut Katalog weiter reichen, oder Systemwerte falsch wiedergibt.
 Diese Fachregeln gelten; melde jeden Verstoß:
 ${DOMAIN_RULES}
 Nicht melden: Stil, Länge, Wiederholungen, Formulierungen ohne inhaltliches Problem.

@@ -165,7 +165,7 @@ async function main(): Promise<void> {
     // 1. Kennzahlen im roten Band
     const hasText = Boolean(row["H1 neu"] && row["SEO-Text neu (HTML)"] && !row["Prüfhinweis"]);
     if (!hasText && (cfg.replaceHero || cfg.replaceSeoText || cfg.addSections)) console.log(`  ${cfg.key}: kein geprüfter Text – nur Kennzahlen und Korrekturen`);
-    const figures = String(row["Kennzahlen neu (aus Shopdaten)"] ?? "").split("\n");
+    const figures = String((row["Kennzahlen neu"] ?? row["Kennzahlen neu (aus Shopdaten)"]) ?? "").split("\n");
     slotsOf(sections[1])
       .filter((s: any) => s.type === "text")
       .forEach((slot: any, i: number) => {

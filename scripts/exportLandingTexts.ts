@@ -15,6 +15,7 @@ import {
   buildCategoryFacts,
   buildCategoryHtml,
   factsTableHtml,
+  catalogTableHtml,
   generateCategoryText,
   llmCategoryTextGenerator,
   llmCategoryTextReviewer,
@@ -113,7 +114,7 @@ async function main(): Promise<void> {
     const figures = keyFiguresFromProducts(products, cfg, currentFigures);
     process.stdout.write(`${cfg.key} (${products.length} Regale) … `);
     const { text, problem } = needsGeneratedText(cfg) ? await generateCategoryText(facts, generate, review) : { text: null, problem: "" };
-    const html = text ? buildCategoryHtml(facts, text) : null;
+    const html = text ? buildCategoryHtml(facts, text, { table: "catalog" }) : null;
     console.log(problem ? `PRÜFHINWEIS: ${problem}` : "ok");
     rows.push({
       Landingpage: cfg.key,
@@ -121,7 +122,7 @@ async function main(): Promise<void> {
       "Regale (Artikel)": `${facts.productCount} von ${products.length} (Hauptregaltyp)`,
       "Was wird geändert": cfg.plan,
       "Kennzahlen bisher": currentFigures.join("\n"),
-      "Kennzahlen neu (aus Shopdaten)": figures.map((f, i) => (cfg.keepFigures?.includes(i) ? `${f} (bleibt)` : cfg.figureOverrides?.[i] ? `${f} (Katalog)` : f)).join("\n"),
+      "Kennzahlen neu": figures.map((f, i) => (cfg.keepFigures?.includes(i) ? `${f} (bleibt)` : cfg.figureOverrides?.[i] ? `${f} (Katalog)` : f)).join("\n"),
       "Wird verwendet": [
         cfg.replaceHero ? "H1 + Einleitung (Kopf)" : "",
         cfg.replaceSeoText || cfg.addSections ? "SEO-Text" : "",
@@ -136,6 +137,7 @@ async function main(): Promise<void> {
       "FAQ neu (JSON)": html?.faqJson ?? "",
       "FAQ bisher": currentFaq.map((q: any) => `${q.translated?.question ?? q.question}\n→ ${plain(String(q.translated?.answer ?? q.answer ?? ""))}`).join("\n\n"),
       "Maßtabelle (aus Produktdaten)": factsTableHtml(facts),
+      "Systemwerte (Katalog)": catalogTableHtml(facts),
       "Herstellerangaben belegt": facts.familyClaims ?? "",
       "Katalogangaben (Seite)": facts.catalogFacts.map((c) => `S. ${c.page} – ${c.system}: ${c.text}`).join("\n"),
       Prüfhinweis: problem,
@@ -155,7 +157,7 @@ async function main(): Promise<void> {
   const info = XLSX.utils.aoa_to_sheet([
     ["Landingpages – Texte und Kennzahlen zur Freigabe (nichts ist im Shop)"],
     [`Erstellt: ${new Date().toISOString()} aus ${base}, Kanal ${DE_CHANNEL_NAME}`],
-    ["Kennzahlen neu: aus den Artikelnamen der Regal-Kategorien (was Kunden im Shop kaufen können). Spalte darf geändert werden."],
+    ["Kennzahlen neu: Systemwerte laut META-Katalog (Katalog), sonst aus den Artikelnamen. Spalte darf geändert werden."],
     ["Texte: wie bei den Kategorieseiten geprüft – jede Zahl muss in den Produktdaten stehen, Herstellerangaben nur, wo belegt."],
     ["Was nicht in „Was wird geändert“ steht, bleibt unverändert (auch die nur für „Headless“ freigegebenen Agentur-Abschnitte)."],
   ]);

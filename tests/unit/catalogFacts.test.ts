@@ -51,3 +51,35 @@ describe("Katalog-Fakten", () => {
     expect(keyFiguresFromProducts(p, { mainType: /^Palettenregal$/, loadLabel: "Fachlast", figureOverrides: { 3: "bis 5.500 kg Fachlast" } })[3]).toBe("bis 5.500 kg Fachlast");
   });
 });
+
+describe("Systemwerte laut Katalog", () => {
+  const products = [
+    { name: "META MULTIPAL | Palettenregal | Grundregal | 4400 x 2700 x 1100 mm | Fachlast 960 kg | 3 Ebenen | verzinkt", properties: [] },
+    { name: "META MULTIPAL | Palettenregal | Anbauregal | 2700 x 1825 x 1100 mm | Fachlast 490 kg | 3 Ebenen | verzinkt", properties: [] },
+  ];
+  const f = buildCategoryFacts({ id: "p", name: "META MULTIPAL Palettenregale", url: "", breadcrumb: "" }, products);
+
+  it("Systemwerte stehen vor dem Shop-Sortiment, Sortiment ist als Auswahl gekennzeichnet", () => {
+    const t = factsText(f);
+    expect(t.indexOf("SYSTEMWERTE LAUT META-KATALOG")).toBeLessThan(t.indexOf("IM SHOP DIREKT BESTELLBAR"));
+    expect(t).toContain("Tiefen: 800, 1.100 mm");
+    expect(t).toContain("2.200 bis 12.000 mm");
+  });
+
+  it("Landingpage-Tabelle zeigt die Systemwerte und darunter die Shop-Auswahl", async () => {
+    const { buildCategoryHtml } = await import("../../server/products/categoryTexts");
+    const g = { h1: "x", intro: "x", sections: [{ heading: "A", paragraphs: ["a"] }, { heading: "B", paragraphs: ["b"] }], faq: [] };
+    const html = buildCategoryHtml(f, g as any, { table: "catalog" }).seoHtml;
+    expect(html).toContain("Systemwerte im Überblick");
+    expect(html).toContain("<th>Tiefen</th><td>800, 1.100 mm</td>");
+    expect(html).toContain("Direkt im Shop bestellbar:</strong> Höhen 2.700, 4.400 mm, Breiten 1.825, 2.700 mm, Tiefen 1.100 mm");
+  });
+
+  it("mehrere Systeme: eine Spalte je System", async () => {
+    const { catalogTableHtml } = await import("../../server/products/categoryTexts");
+    const k = buildCategoryFacts({ id: "k", name: "META Kragarmregale MULTISTRONG und ATLAS ST", url: "", breadcrumb: "" }, []);
+    const html = catalogTableHtml(k);
+    expect(html).toContain("<th>MULTISTRONG</th><th>ATLAS ST</th>");
+    expect(html).toContain("<th>Achsmaße</th><td>1.030, 1.330 mm</td><td>1.350 mm</td>");
+  });
+});

@@ -60,6 +60,8 @@ export const LANDING_PAGES: LandingPageConfig[] = [
     linkCategories: /^CLIP (Grundregale|Anbauregale|Komplettregale|Zubehör|Böden und Auflagen)$/,
     mainType: /^Fachbodenregal$/,
     loadLabel: "Fachlast",
+    // Systemwerte laut Katalog S. 20/21 (1.000 und über 3.000 mm Höhe auf Anfrage)
+    figureOverrides: { 0: "1.000 mm bis 4.500 mm Höhe", 1: "750 mm bis 1.700 mm Breite", 2: "300 mm bis 800 mm Tiefe", 3: "bis 330 kg Fachlast" },
     replaceSeoText: /Effizient lagern mit System/,
     faqFixes: [
       {
@@ -101,7 +103,8 @@ export const LANDING_PAGES: LandingPageConfig[] = [
     loadLabel: "Fachlast", // Feldlast steht nur bei Sonderregalen (Kabeltrommel) im Namen
     // Artikelnamen fuehren teils die Tragkraft je Palette als "Fachlast" (470 kg = 1.400 kg / 3, Katalog S. 131)
     ignoreNameLoads: true,
-    figureOverrides: { 3: "bis 5.500 kg Fachlast" }, // Katalog S. 123: Einzel-Fachlasten bis 5,5 t
+    // Systemwerte laut Katalog S. 123: Ständerrahmen 2.200–12.000 mm, Holmlängen 1.825–3.600 mm, Tiefen 800/1.100 mm, Fachlast bis 5,5 t
+    figureOverrides: { 0: "2.200 mm bis 12.000 mm Höhe", 1: "1.825 mm bis 3.600 mm Breite", 2: "800 mm bis 1.100 mm Tiefe", 3: "bis 5.500 kg Fachlast" },
     replaceHero: true,
     replaceSeoText: /Robuste Lagerlösung|Ideal für Lager, Logistik|Eigenschaften &amp; Vorteile im Überblick/,
     faqFixes: [
@@ -135,7 +138,7 @@ export const LANDING_PAGES: LandingPageConfig[] = [
     mainType: /^(Kragarmregal|Langgutregal)$/,
     loadLabel: "Armlast",
     // Achsmaß steht nicht im Namen: MULTISTRONG 1.030/1.330 mm, ATLAS ST 1.350 mm (Katalog S. 156/158)
-    figureOverrides: { 1: "1.030 mm bis 1.350 mm Achsmaß" },
+    figureOverrides: { 0: "2.000 mm bis 3.000 mm Höhe", 1: "1.030 mm bis 1.350 mm Achsmaß", 2: "400 mm bis 800 mm Tiefe", 3: "bis 535 kg Armlast" }, // Katalog S. 156/158/159
     addSections: true,
     plan: "Neue Abschnitte unter den Kacheln: Links zu den Kategorien, Topseller-Slider, SEO-Text mit Maßtabelle, FAQ, Beratung; Kennzahlen aus Shopdaten (Achsmaß bleibt).",
   },
@@ -148,6 +151,7 @@ export const LANDING_PAGES: LandingPageConfig[] = [
     linkCategories: /^(MINI-RACK Grundregale|MINI-RACK Anbauregale|SPEED-RACK Komplettregale|Weitspann-Spezialregale|Weitspannregal Komponenten|Weitspannregal Zubehör)$/,
     mainType: /^Weitspannregal$/,
     loadLabel: "Fachlast",
+    figureOverrides: { 0: "1.970 mm bis 3.000 mm Höhe", 1: "1.400 mm bis 2.600 mm Breite", 2: "400 mm bis 1.050 mm Tiefe", 3: "bis 600 kg Fachlast" }, // Katalog S. 104/111
     addSections: true,
     plan: "Neue Abschnitte unter den Kennzahlen: Links zu den Kategorien, Topseller-Slider, SEO-Text mit Maßtabelle, FAQ, Beratung; Kennzahlen aus Shopdaten.",
   },

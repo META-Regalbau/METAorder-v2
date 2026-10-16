@@ -10,6 +10,8 @@ export type CatalogSystem = {
   label: string;
   match: RegExp;
   facts: CatalogFact[];
+  /** Systemwerte laut Katalog (Bemaßungsvarianten, Lasten) fuer Masstabelle und Kennzahlen; Seite in page */
+  spans?: { page: number; rows: Array<[string, string]> };
   /** Shop-Eigenschaften, die dem Katalog widersprechen und deshalb nicht als Fakt gelten (z. B. "Aufbauart: Schraubregal" bei eingehaengten Holmen) */
   ignoreShopFeatures?: string[];
 };
@@ -29,6 +31,19 @@ export const CATALOG_SYSTEMS: CatalogSystem[] = [
     label: "META CLIP Fachbodenregale",
     // nicht COMPACT (eigenes System im Katalog), nicht die Laendervarianten anderer Systeme
     match: /^(?!.*COMPACT).*(\bCLIP\b|Fachboden)/i,
+    spans: {
+      page: 21,
+      rows: [
+        ["Höhen", "1.500 bis 3.000 mm (1.000 und 3.500 bis 4.500 mm auf Anfrage)"],
+        ["Fachbodenlängen", "750, 1.000, 1.250, 1.300, 1.500, 1.700 mm"],
+        ["Tiefen", "300, 400, 500, 600, 800 mm"],
+        ["Fachlasten", "80, 150, 200, 230, 330 kg"],
+        ["Feldlast", "bis 4.400 kg"],
+        ["Rahmen", "zerlegt (S3) oder vorgefertigt (geclincht)"],
+        ["Oberflächen", "verzinkt oder RAL 7035 lichtgrau"],
+        ["Verstellraster", "25 mm"],
+      ],
+    },
     facts: [
       { text: "META CLIP ist ein Fachbodenregalsystem aus zwei Systembausteinen (Rahmen und Fachböden) für alle Anwendungen der Kleinteilelagerung, z. B. Ersatzteilmagazine in Industrie und Handwerk.", page: 19 },
       { text: "Steckmontage ohne Werkzeug.", page: 19 },
@@ -51,6 +66,18 @@ export const CATALOG_SYSTEMS: CatalogSystem[] = [
     key: "compact",
     label: "META COMPACT Büroregale",
     match: /COMPACT|Büro/i,
+    spans: {
+      page: 99,
+      rows: [
+        ["Höhen", "1.850, 2.200, 2.500 mm"],
+        ["Längen", "750, 1.000, 1.250 mm"],
+        ["Tiefen", "300, 600 mm"],
+        ["Fachlasten", "80 bis 100 kg"],
+        ["Ordnerkapazität (300 mm tief)", "45 bis 105 Ordner"],
+        ["Oberflächen", "verzinkt oder RAL 7035 lichtgrau"],
+        ["Verstellraster", "25 mm"],
+      ],
+    },
     facts: [
       { text: "META COMPACT ist ein Büro-Steckregal für Büro, Meisterbüro und Archiv; Steckmontage ohne Werkzeug.", page: 99 },
       { text: "Höhen 1.850, 2.200 und 2.500 mm, Längen 750, 1.000 und 1.250 mm, Tiefen 300 und 600 mm.", page: 99 },
@@ -68,6 +95,19 @@ export const CATALOG_SYSTEMS: CatalogSystem[] = [
     key: "multipal",
     label: "META MULTIPAL Palettenregale",
     match: /MULTIPAL|Paletten/i,
+    spans: {
+      page: 123,
+      rows: [
+        ["Höhen (Ständerrahmen)", "2.200 bis 12.000 mm verzinkt, bis 6.000 mm in RAL 5010"],
+        ["Holmlängen", "1.825, 2.225, 2.700, 3.300, 3.600 mm"],
+        ["Tiefen", "800, 1.100 mm"],
+        ["Fachlast", "bis 5,5 t"],
+        ["Feldlast", "bis 25 t"],
+        ["Lagerebenen", "Holme im 50-mm-Raster frei einhängbar"],
+        ["Oberflächen", "Ständer verzinkt oder RAL 5010, Holme RAL 2001"],
+        ["Andere Abmessungen", "auf Anfrage"],
+      ],
+    },
     facts: [
       { text: "META MULTIPAL ist ein Palettenregalsystem für die Paletten- und Stückgutlagerung; Längs- und Quereinlagerung möglich.", page: 121 },
       { text: "Die Holme im Kastenprofil werden mit der 4-Haken-Agraffe im 50-mm-Raster höhenverstellbar eingehängt und mit Sicherungsstiften gesichert.", page: 121 },
@@ -90,6 +130,17 @@ export const CATALOG_SYSTEMS: CatalogSystem[] = [
     key: "multistrong",
     label: "META MULTISTRONG Kragarmregale",
     match: /MULTISTRONG|Kragarm/i,
+    spans: {
+      page: 158,
+      rows: [
+        ["Höhen", "2.000, 2.500, 3.000 mm"],
+        ["Achsmaße", "1.030, 1.330 mm"],
+        ["Kragarmtiefen", "LIGHT 400 bis 600 mm, MEDIUM 400 bis 800 mm"],
+        ["Armlast", "LIGHT bis 220 kg, MEDIUM bis 535 kg"],
+        ["Ständerlast", "LIGHT bis 1.750 kg (doppelseitig 3.500 kg), MEDIUM bis 2.880 kg (doppelseitig 5.760 kg)"],
+        ["Verstellraster Kragarme", "100 mm"],
+      ],
+    },
     facts: [
       { text: "META MULTISTRONG für die liegende Langgutlagerung sowie Tafel- und Plattenware, als LIGHT für leichte und MEDIUM für mittlere Belastungen; im Shop als MULTISTRONG L und M bezeichnet.", page: 162 },
       { text: "MULTISTRONG LIGHT: Ständer IPE 120, Kragarm-Querschnitt 40 x 30 mm, Höhen 2.000, 2.500 und 3.000 mm, Achsmaße 1.030 und 1.330 mm, Kragarmtiefen 400, 500 und 600 mm, Kragarmbelastung bis 220 kg, Ständerlast einseitig bis 1.750 kg, doppelseitig bis 3.500 kg.", page: 158 },
@@ -109,6 +160,16 @@ export const CATALOG_SYSTEMS: CatalogSystem[] = [
     key: "atlas",
     label: "META ATLAS ST Kragarmregale",
     match: /ATLAS|Kragarm/i,
+    spans: {
+      page: 156,
+      rows: [
+        ["Höhen", "2.000 mm"],
+        ["Achsmaße", "1.350 mm"],
+        ["Kragarmtiefen", "500 mm je Seite"],
+        ["Armlast", "200 kg"],
+        ["Regallängen", "2.700 bis 6.750 mm (2 bis 5 Felder)"],
+      ],
+    },
     facts: [
       { text: "META ATLAS ST für die liegende Lagerung langer Ware: geschweißte Kragarmständer aus warm- und kaltgewalzten Stahlprofilen, Kragarme mit gleicher Armlänge, für leichte Belastungen, Tragkraft 200 kg pro Arm.", page: 156 },
       { text: "ATLAS ST: Höhe 2.000 mm, Nutztiefe der Arme 500 mm je Seite, Achsmaß 1.350 mm, ein- und doppelseitig, RAL 5010 enzianblau, nur für Handbedienung.", page: 156 },
@@ -119,6 +180,17 @@ export const CATALOG_SYSTEMS: CatalogSystem[] = [
     key: "speedrack",
     label: "META SPEED-RACK Weitspannregale",
     match: /SPEED-?RACK|Weitspann/i,
+    spans: {
+      page: 104,
+      rows: [
+        ["Höhen", "1.970, 2.470, 2.970 mm"],
+        ["Fachlängen", "1.700, 2.000, 2.500 mm"],
+        ["Tiefen", "400, 600, 800 mm"],
+        ["Fachlast", "bis 500 kg (bei 2.500 mm Länge 400 kg)"],
+        ["Feldlast", "bis 3.000 kg"],
+        ["Bauweise", "Komplettregal, gesteckt"],
+      ],
+    },
     facts: [
       { text: "META SPEED-RACK: konstruktiv einfaches Weitspannregal mit Winkelprofilen, Aufbau durch Steckmontage, nur in Grundregalbauweise als Komplettregal; Nennmaße = Istmaße.", page: 106 },
       { text: "SPEED-RACK: Höhen 1.970, 2.470 und 2.970 mm, Tiefen 400, 600 und 800 mm, Fachlängen 1.700, 2.000 und 2.500 mm; Fachlast bis 500 kg, bei 2.500 mm Länge 400 kg; Feldlast bis 3.000 kg, bei 2.500 mm Länge 2.800 kg.", page: 106 },
@@ -131,6 +203,17 @@ export const CATALOG_SYSTEMS: CatalogSystem[] = [
     key: "minirack",
     label: "META MINI-RACK Weitspannregale",
     match: /MINI-?RACK|Weitspann/i,
+    spans: {
+      page: 111,
+      rows: [
+        ["Höhen", "2.200, 2.500, 3.000 mm"],
+        ["Fachlängen", "1.400, 1.800, 2.200, 2.600 mm"],
+        ["Tiefen", "650, 800, 1.050 mm"],
+        ["Fachlast", "bis 600 kg (bei 2.600 mm Länge 490 kg)"],
+        ["Feldlast", "bis 4.600 kg"],
+        ["Bauweise", "Grund- und Anbauregal, verschraubte Rahmen"],
+      ],
+    },
     facts: [
       { text: "META MINI-RACK: Weitspannregal für großes und schweres Einzelgut, Einlagerung liegend oder stehend; die Rahmen werden aus Stützenprofilen, diagonalen und horizontalen Profilen und Fußplatten verschraubt.", page: 111 },
       { text: "MINI-RACK: Höhen 2.200, 2.500 und 3.000 mm, Tiefen 650, 800 und 1.050 mm, Fachlängen 1.400, 1.800, 2.200 und 2.600 mm; Fachlast 600 kg bei 1.400 bis 2.200 mm Länge, 490 kg bei 2.600 mm.", page: 114 },
@@ -140,6 +223,11 @@ export const CATALOG_SYSTEMS: CatalogSystem[] = [
     ],
   },
 ];
+
+/** Systeme mit Systemwerten fuer eine Kategorie/Landingpage. */
+export function catalogSystemsFor(name: string): CatalogSystem[] {
+  return CATALOG_SYSTEMS.filter((s) => s.match.test(name));
+}
 
 /** Shop-Eigenschaften, die fuer diese Kategorie/Landingpage nicht als Fakt gelten. */
 export function ignoredShopFeaturesFor(name: string): Set<string> {
