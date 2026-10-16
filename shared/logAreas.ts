@@ -10,6 +10,7 @@ export const LOG_AREAS = [
   "b2b",
   "crm",
   "products",
+  "shopContent",
   "cpq",
   "crossSelling",
   "erp",

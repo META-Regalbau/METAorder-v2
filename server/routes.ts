@@ -19,6 +19,7 @@ import { getSalesChannelFilter } from "./routes/routeHelpers";
 import { registerCrmRoutes } from "./routes/crmRoutes";
 import { registerSettingsRoutes } from "./routes/settingsRoutes";
 import { registerLogRoutes } from "./routes/logRoutes";
+import { registerShopContentRoutes } from "./routes/shopContentRoutes";
 import { registerOrderRoutes } from "./routes/orderRoutes";
 import { registerCrossSellingRoutes } from "./routes/crossSellingRoutes";
 import { registerCrossSellAutomationRoutes } from "./routes/crossSellAutomationRoutes";
@@ -81,6 +82,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Systemprotokoll (nur Administratoren)
   registerLogRoutes(app);
+
+  // Shop-Inhalte: Branchenseiten und Startseiten-Abschnitte (nur Administratoren)
+  registerShopContentRoutes(app);
 
   // Mahnwesen und Buchhaltungs-Import
   registerInvoicingRoutes(app);

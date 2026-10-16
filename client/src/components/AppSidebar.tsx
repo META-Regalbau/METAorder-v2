@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, Download, BarChart3, Settings, Users, Shield, Sparkles, AlertTriangle, Ticket, GitBranch, Truck, FileText, Zap, FileUp, Receipt, Briefcase, Boxes, FileSearch, Scale, Building2, Wallet, ListOrdered, Layers, FilePlus, UserPlus, Warehouse, ShoppingCart, RotateCcw, Landmark, Factory, PackageCheck, Smartphone, Eye, ScrollText, MailCheck } from "lucide-react";
+import { LayoutDashboard, Package, Download, BarChart3, Settings, Users, Shield, Sparkles, AlertTriangle, Ticket, GitBranch, Truck, FileText, Zap, FileUp, Receipt, Briefcase, Boxes, FileSearch, Scale, Building2, Wallet, ListOrdered, Layers, FilePlus, UserPlus, Warehouse, ShoppingCart, RotateCcw, Landmark, Factory, PackageCheck, Smartphone, Eye, ScrollText, LayoutTemplate, MailCheck } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
@@ -337,6 +337,13 @@ export default function AppSidebar({ userRole, permissions, isAdmin = false }: A
           titleKey: "nav.systemLog",
           url: "/admin/logs",
           icon: ScrollText,
+          permission: null,
+          adminOnly: true,
+        },
+        {
+          titleKey: "nav.shopContent",
+          url: "/admin/shop-inhalte",
+          icon: LayoutTemplate,
           permission: null,
           adminOnly: true,
         },

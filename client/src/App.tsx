@@ -44,6 +44,7 @@ const RolesPage = lazy(() => import("@/pages/RolesPage"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
 const WebhookLogsPage = lazy(() => import("@/pages/WebhookLogsPage"));
 const SystemLogPage = lazy(() => import("@/pages/SystemLogPage"));
+const ShopContentPage = lazy(() => import("@/pages/ShopContentPage"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
 const AccountingPage = lazy(() => import("@/pages/AccountingPage"));
 const B2BAccountsPage = lazy(() => import("@/pages/B2BAccountsPage"));
@@ -150,6 +151,7 @@ function Router({
       <Route path="/settings" component={SettingsPage} />
       <Route path="/webhooks/logs" component={WebhookLogsPage} />
       <Route path="/admin/logs" component={SystemLogPage} />
+      <Route path="/admin/shop-inhalte" component={ShopContentPage} />
       <Route path="/profile" component={ProfilePage} />
       <Route component={NotFound} />
     </Switch>

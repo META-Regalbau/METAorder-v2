@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { INDUSTRY_PAGES, fillPrices, formatEuro, referencedNumbers } from "../../server/products/industryPages";
-import { COMPETITOR_NAMES } from "../../server/products/productMetaTexts";
+import { checkIndustryPage } from "../../shared/shopContentRules";
 import { IndustryPageHtml, homeTeaserHtml, industryPageCss, scopeCss } from "../../server/products/industryPageHtml";
-
-const allText = (p: (typeof INDUSTRY_PAGES)[number]) => JSON.stringify({ ...p, notes: undefined });
 
 describe("industryPages", () => {
   it("hat eindeutige Schlüssel und URLs unter /branchen/", () => {
@@ -12,31 +10,10 @@ describe("industryPages", () => {
     for (const p of INDUSTRY_PAGES) expect(p.url).toMatch(/^\/branchen\/[a-z0-9-]+$/);
   });
 
-  it("hält die Längen für Suchergebnisse ein", () => {
-    for (const p of INDUSTRY_PAGES) {
-      expect(p.metaTitle.length, p.key).toBeLessThanOrEqual(60);
-      expect(p.metaDescription.length, p.key).toBeLessThanOrEqual(160);
-    }
-  });
-
-  it("nennt keine Wettbewerber und keine zurückgezogene DGUV-Regel", () => {
-    const competitor = new RegExp(`\\b(${COMPETITOR_NAMES.join("|")})\\b`, "i");
-    for (const p of INDUSTRY_PAGES) {
-      expect(allText(p), p.key).not.toMatch(competitor);
-      expect(allText(p), p.key).not.toMatch(/108-007/);
-    }
-  });
-
-  it("schreibt keine Preise als Text, nur als Artikelverweis", () => {
-    for (const p of INDUSTRY_PAGES) expect(allText(p).replace(/\{p:[0-9A-Z-]+\}/g, ""), p.key).not.toMatch(/\d\s*€/);
-  });
-
-  it("hat je Seite 6 Lagerbereiche, 8 Produkte und eine Beispielrechnung", () => {
-    for (const p of INDUSTRY_PAGES) {
-      expect(p.areas, p.key).toHaveLength(6);
-      expect(p.products, p.key).toHaveLength(8);
-      expect(p.planning.example?.lines.length, p.key).toBeGreaterThan(0);
-    }
+  it("besteht alle Prüfregeln der Pflegeoberfläche (shared/shopContentRules.ts)", () => {
+    // Längen, Wettbewerber, DGUV 108-007, Preise nur als {p:…}, Beispielrechnung, Kennzahlen des abgebildeten Systems,
+    // 6 Lagerbereiche, 8 Produkte, erlaubtes HTML, Links
+    for (const p of INDUSTRY_PAGES) expect(checkIndustryPage(p, { pages: INDUSTRY_PAGES }), p.key).toEqual([]);
   });
 
   it("setzt Preise ein und bricht bei fehlenden Artikeln ab", () => {
@@ -83,20 +60,5 @@ describe("industryPages", () => {
     }
     expect(html.match(/class="ht-tile"/g)).toHaveLength(INDUSTRY_PAGES.length);
     expect(html).toContain('href="tel:+4929329570"');
-  });
-
-  it("zeigt unter dem Bild nur Kennzahlen des abgebildeten Systems", () => {
-    // Systemnamen bzw. Regalarten, die in einer Kennzahl nur stehen duerfen, wenn das Bild dieses System zeigt
-    const systems = ["CLIP", "COMPACT", "MULTIPAL", "MULTISTRONG", "MINI-RACK", "SPEED-RACK", "Packtisch", "Schrägbod", "Kragarm", "Weitspann", "Kabeltrommel", "Reifen", "Palett"];
-    for (const p of INDUSTRY_PAGES) {
-      const shown = `${p.hero.tag} ${p.hero.alt}`.toLowerCase();
-      for (const f of p.facts) {
-        for (const sys of systems) {
-          if (`${f.value} ${f.label}`.toLowerCase().includes(sys.toLowerCase())) expect(shown, `${p.key}: „${f.value} ${f.label}“`).toContain(sys.toLowerCase());
-        }
-      }
-      // die Startseiten-Kachel zeigt dasselbe Bild
-      for (const sys of systems) if (p.teaser.fact.toLowerCase().includes(sys.toLowerCase())) expect(shown, `${p.key}: Startseite „${p.teaser.fact}“`).toContain(sys.toLowerCase());
-    }
   });
 });

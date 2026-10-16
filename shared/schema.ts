@@ -3658,6 +3658,75 @@ export const customerDiscountTiers = pgTable(
 export type CustomerDiscountTier = typeof customerDiscountTiers.$inferSelect;
 
 /**
+ * Shop-Inhalte (Pflegeoberflaeche, Konzept 16.10.2026): Branchenseiten und Startseiten-Abschnitte je Mandant
+ * mit Versionen und Veroeffentlichungen. Form der Inhalte: shared/shopContent.ts. Siehe migrations/0052_shop_content.sql.
+ */
+export const shopContentItems = pgTable(
+  "shop_content_items",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id"),
+    kind: text("kind").notNull(), // industry_page | home_teaser | home_rabatt | home_mondu | common
+    key: text("key").notNull(),
+    name: text("name").notNull(),
+    position: integer("position").notNull().default(0),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    tenantKindKeyIdx: uniqueIndex("shop_content_items_tenant_kind_key_idx").on(table.tenantId, table.kind, table.key),
+  }),
+);
+
+export const shopContentVersions = pgTable(
+  "shop_content_versions",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id"),
+    itemId: varchar("item_id").notNull(),
+    versionNo: integer("version_no").notNull(),
+    data: jsonb("data").notNull(),
+    comment: text("comment"),
+    checkResult: jsonb("check_result"),
+    createdByUserId: varchar("created_by_user_id"),
+    createdByName: text("created_by_name"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    itemNoIdx: uniqueIndex("shop_content_versions_item_no_idx").on(table.itemId, table.versionNo),
+  }),
+);
+
+export const shopContentPublications = pgTable(
+  "shop_content_publications",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id"),
+    itemId: varchar("item_id").notNull(),
+    versionId: varchar("version_id"),
+    target: text("target").notNull(), // test | live
+    targetTenantId: varchar("target_tenant_id"),
+    status: text("status").notNull(), // running | ok | failed | reverted
+    protocol: jsonb("protocol"),
+    written: jsonb("written"),
+    error: text("error"),
+    publishedByUserId: varchar("published_by_user_id"),
+    publishedByName: text("published_by_name"),
+    publishedAt: timestamp("published_at").notNull().defaultNow(),
+    revertedAt: timestamp("reverted_at"),
+    revertedByName: text("reverted_by_name"),
+  },
+  (table) => ({
+    itemIdx: index("shop_content_publications_item_idx").on(table.itemId, table.target, table.publishedAt),
+  }),
+);
+
+export type ShopContentItemRow = typeof shopContentItems.$inferSelect;
+export type ShopContentVersionRow = typeof shopContentVersions.$inferSelect;
+export type ShopContentPublicationRow = typeof shopContentPublications.$inferSelect;
+
+/**
  * Portal-Registrierungen (shared/portalRegistrations.ts): je Anmelde-Mail eine Zeile mit
  * ausgelesenen Daten, Kundentreffer, Plan und Verlauf. Dedupe über die Message-ID je Mandant.
  */

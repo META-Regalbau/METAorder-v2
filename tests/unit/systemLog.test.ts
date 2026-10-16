@@ -65,6 +65,8 @@ describe("Bereiche", () => {
     expect(areaForComponent("routes/draftRoutes")).toBe("drafts");
     expect(areaForComponent("routes/routeHelpers")).toBe("orders");
     expect(areaForComponent("routes/userRoutes")).toBe("auth");
+    expect(areaForComponent("routes/shopContentRoutes")).toBe("shopContent");
+    expect(areaForComponent("shopContent/shopContentService")).toBe("shopContent");
     expect(areaForComponent("lib/objectStorage")).toBeNull();
     expect(areaForComponent("")).toBeNull();
     expect(areaForComponent(undefined)).toBeNull();
@@ -99,6 +101,7 @@ describe("Bereiche", () => {
     expect(areaForPath("/api/erp/pick-lists/1")).toBe("shipping");
     expect(areaForPath("/api/erp/stock/2")).toBe("erp");
     expect(areaForPath("/api/orders/abc")).toBe("orders");
+    expect(areaForPath("/api/shop-content/abc/preview")).toBe("shopContent");
     expect(areaForPath("/api/ai/cross-selling/x")).toBe("crossSelling");
     expect(areaForPath("/api/commercial-drafts/upload")).toBe("drafts");
     expect(areaForPath("/api/public/portal-password-request")).toBe("b2b");

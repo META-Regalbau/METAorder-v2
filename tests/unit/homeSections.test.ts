@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { HOME_SECTION_MARKERS, MONDU, RABATT, monduSectionHtml, rabattSectionHtml } from "../../server/products/homeSections";
+import { checkHomeMondu, checkHomeRabatt } from "../../shared/shopContentRules";
 
 const text = (html: string) => html.replace(/<style[\s\S]*?<\/style>/g, "").replace(/<[^>]+>/g, " ");
 
@@ -9,6 +10,11 @@ describe("homeSections", () => {
       const t = text(html);
       expect(t).not.toMatch(/keine Bedingungen|100\s*%|versteckt|Liquidität|\bNeu\b|Alle registrierten/i);
     }
+  });
+
+  it("besteht die Prüfregeln der Pflegeoberfläche", () => {
+    expect(checkHomeRabatt(RABATT)).toEqual([]);
+    expect(checkHomeMondu(MONDU)).toEqual([]);
   });
 
   it("nennt die Rabattstaffel mit Warenwert-Grenzen und Bedingung Deutschland", () => {
