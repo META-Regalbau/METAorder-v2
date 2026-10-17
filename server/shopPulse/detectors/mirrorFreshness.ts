@@ -8,6 +8,8 @@ import type { ShopPulseDetector } from "./types";
 
 /** Ab so vielen Minuten ohne erfolgreichen Abgleich wird gemeldet */
 export const MIRROR_STALE_MINUTES = 30;
+/** Schlüssel des Funds; solange er besteht, setzen die Umsatz-Prüfungen aus */
+export const MIRROR_SIGNAL_KEY = "system:mirror:orders";
 
 export type MirrorSyncStateLike = { status: string; error: string | null; lastDeltaAt: Date | null; updatedAt: Date } | undefined;
 
@@ -19,7 +21,7 @@ export function mirrorFreshnessDetections(state: MirrorSyncStateLike, now: Date)
   const failing = state.status === "error";
   return [
     {
-      key: "system:mirror:orders",
+      key: MIRROR_SIGNAL_KEY,
       source: "system",
       code: failing ? "mirrorError" : "mirrorStale",
       severity: "critical",

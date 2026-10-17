@@ -5,7 +5,11 @@
  * 1. alle Prüfungen nacheinander (server/shopPulse/detectors), Funde → Meldungen (shopPulseSignals.ts)
  * 2. Sofort-Meldungen (kritisch, neu oder schlimmer) und Entwarnungen: Teams-Direktnachricht über n8n und
  *    Glocke der Administratoren
- * 3. Tagesbericht Montag bis Samstag ab 8 Uhr (Berlin), einmal je Tag, nur mit offenen Meldungen
+ * 3. Tagesbericht Montag bis Samstag ab 8 Uhr (Berlin), einmal je Tag: Zahlen von gestern (montags vom
+ *    Wochenende) und die offenen Meldungen
+ *
+ * Hängt der Bestellabgleich (Fund der Spiegel-Frische), setzen die Umsatz-Prüfungen aus; ihre offenen
+ * Meldungen bleiben offen, und der Tagesbericht lässt die Zahlen weg.
  *
  * In der Lernwoche wird alles gesammelt, aber nichts gesendet. Mandanten nacheinander, nie zwei Läufe
  * für denselben Mandanten gleichzeitig.
@@ -13,7 +17,7 @@
 import { randomUUID } from "crypto";
 import type { IStorage } from "../storage";
 import type { InsertNotification, Notification } from "@shared/schema";
-import { isLearning, type ShopPulseSignal, type ShopPulseSource, type ShopPulseState } from "@shared/shopPulse";
+import { isLearning, type ShopPulseDetection, type ShopPulseSignal, type ShopPulseSource, type ShopPulseState } from "@shared/shopPulse";
 import { runWithTenantContext } from "../lib/tenantContext";
 import { notificationEvents } from "../lib/events";
 import { logger } from "../lib/logger";
@@ -21,6 +25,9 @@ import { enqueueTeamsMessage } from "../lib/teamsOutbox";
 import { publicAppBaseUrl } from "../commercial/emailIntakeTeams";
 import { berlinDayHour } from "../shopContent/shopWatchScheduler";
 import { SHOP_PULSE_DETECTORS } from "./detectors";
+import { MIRROR_SIGNAL_KEY } from "./detectors/mirrorFreshness";
+import { dailyNumbers, type DailyNumbers } from "./detectors/revenue";
+import { loadPulseOrders, type PulseOrder } from "./pulseOrders";
 import type { ShopPulseDetector } from "./detectors/types";
 import * as repo from "./shopPulseRepository";
 import { dailyReportSignals, reconcileSignals, type ReconcileResult, type ShopPulseNotice } from "./shopPulseSignals";
@@ -39,6 +46,8 @@ export const SHOP_PULSE_TICK_MS = 15 * 60 * 1000;
 const DAILY_FROM_HOUR = 8;
 /** Später am Tag (z. B. nach einem Neustart) keinen Tagesbericht mehr nachschicken */
 const DAILY_TO_HOUR = 12;
+/** So weit zurück lesen die Umsatz-Prüfungen den Spiegel (Vorjahreswoche + Puffer) */
+const ORDERS_LOOKBACK_DAYS = 400;
 
 export type ShopPulseRepo = Pick<typeof repo, "listSignalsBySources" | "applyReconcile" | "listOpenSignals">;
 
@@ -46,6 +55,7 @@ export type ShopPulseDeps = {
   storage: Pick<IStorage, "getAllTenants" | "getShopwareSettings" | "getSetting" | "saveSetting" | "getUsersWithPermissionInTenant" | "createNotification" | "getShopwareSyncState">;
   repo: ShopPulseRepo;
   detectors: ShopPulseDetector[];
+  loadOrders: (tenantId: string | null, since: Date) => Promise<PulseOrder[]>;
   onNotificationCreated: (n: Notification) => void;
   baseUrl: string | null;
   now?: () => Date;
@@ -96,7 +106,7 @@ export type ShopPulseRunResult = {
   detectors: NonNullable<ShopPulseState["detectors"]>;
   result: ReconcileResult;
   notices: ShopPulseNotice[];
-  dailyReport: { sent: boolean; signals: number } | null;
+  dailyReport: { sent: boolean; signals: number; numbers: boolean } | null;
 };
 
 /** Ein Lauf für einen Mandanten (Zeitplan und „Jetzt prüfen“) */
@@ -110,13 +120,24 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
     // Ausgeschaltet („Jetzt prüfen“) oder Lernwoche: sammeln, nichts senden
     const silent = !settings.enabled || isLearning(settings, now);
 
+    // Bestellungen höchstens einmal je Lauf aus dem Spiegel lesen
+    let ordersPromise: Promise<PulseOrder[]> | null = null;
+    const orders = () => (ordersPromise ??= deps.loadOrders(tenantId, new Date(now.getTime() - ORDERS_LOOKBACK_DAYS * 24 * 60 * 60 * 1000)));
+
     // 1. Prüfungen nacheinander; eine Quelle ist vollständig, wenn alle ihre Prüfungen liefen
-    const detections = [];
+    const detections: ShopPulseDetection[] = [];
     const detectorState: NonNullable<ShopPulseState["detectors"]> = {};
     const failedSources = new Set<ShopPulseSource>();
+    const mirrorStale = () => detections.some((d) => d.key === MIRROR_SIGNAL_KEY) || detectorState.mirrorFreshness?.ok === false;
     for (const d of deps.detectors) {
+      if (d.needsFreshMirror && mirrorStale()) {
+        // ausgesetzt: zählt als unvollständig, damit offene Meldungen nicht still erledigt werden
+        failedSources.add(d.source);
+        detectorState[d.id] = { at: now.toISOString(), ok: true, skipped: "mirror", findings: 0 };
+        continue;
+      }
       try {
-        const found = await d.run({ storage: deps.storage, tenantId, now });
+        const found = await d.run({ storage: deps.storage, tenantId, now, orders });
         detections.push(...found);
         detectorState[d.id] = { at: now.toISOString(), ok: true, findings: found.length };
       } catch (err) {
@@ -148,12 +169,20 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
     if (settings.enabled && isDailyReportDue(state, now)) {
       patch.lastDailyReportDay = berlinDayHour(now).day;
       const open: ShopPulseSignal[] = dailyReportSignals(await deps.repo.listOpenSignals(tenantId), now);
-      const send = !silent && open.length > 0;
-      if (send) {
-        if (webhook) await enqueueTeamsMessage(deps.storage, SHOP_PULSE_TEAMS_OUTBOX_KEY, tenantId, buildShopPulseDailyCard(open, now, deps.baseUrl), now);
-        await notifyAdmins(deps, tenantId, buildShopPulseDailyBellText(open, now), SHOP_PULSE_PAGE_PATH);
+      let numbers: DailyNumbers | null = null;
+      if (!mirrorStale()) {
+        try {
+          numbers = dailyNumbers(await orders(), now);
+        } catch (err) {
+          log.warn({ err, tenantId }, "Shop-Puls: Zahlen für den Tagesbericht nicht gelesen");
+        }
       }
-      dailyReport = { sent: send, signals: open.length };
+      const send = !silent && (open.length > 0 || numbers !== null);
+      if (send) {
+        if (webhook) await enqueueTeamsMessage(deps.storage, SHOP_PULSE_TEAMS_OUTBOX_KEY, tenantId, buildShopPulseDailyCard(open, now, deps.baseUrl, numbers), now);
+        await notifyAdmins(deps, tenantId, buildShopPulseDailyBellText(open, now, numbers), SHOP_PULSE_PAGE_PATH);
+      }
+      dailyReport = { sent: send, signals: open.length, numbers: numbers !== null };
     }
     await patchShopPulseState(deps.storage, tenantId, patch);
 
@@ -188,6 +217,7 @@ export function shopPulseDeps(storage: IStorage): ShopPulseDeps {
     storage,
     repo,
     detectors: SHOP_PULSE_DETECTORS,
+    loadOrders: loadPulseOrders,
     onNotificationCreated: (n) => notificationEvents.emitNotificationCreated(n),
     baseUrl: publicAppBaseUrl(process.env.APP_URL?.trim() || null),
   };

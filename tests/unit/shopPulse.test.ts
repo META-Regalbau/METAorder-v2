@@ -309,6 +309,7 @@ describe("Lauf mit simulierter Datenbank", () => {
       } as any,
       repo,
       detectors: [mirrorFreshnessDetector],
+      loadOrders: async () => [],
       onNotificationCreated: () => undefined,
       baseUrl: "https://app.example",
       now: () => now,

@@ -7855,7 +7855,7 @@
   },
   "shopPulse": {
     "title": "Pulso de la tienda",
-    "subtitle": "Avisa de lo que no va bien en la tienda online: lo crítico al instante como mensaje directo de Teams, lo demás en el informe diario a partir de las 8. Por ahora comprueba la sincronización de pedidos; ventas, disponibilidad de compra y GA4 vendrán después.",
+    "subtitle": "Avisa de lo que no va bien en la tienda online: lo crítico al instante como mensaje directo de Teams, lo demás en el informe diario a partir de las 8. Por ahora comprueba la sincronización de pedidos y las ventas; la disponibilidad de compra y GA4 vendrán después.",
     "runNow": "Comprobar ahora",
     "running": "Comprobando …",
     "runDone": "Comprobación terminada",
@@ -7865,7 +7865,7 @@
     "settings": {
       "title": "Ajustes",
       "enable": "Activar pulso de la tienda",
-      "enableHint": "Comprueba cada 15 minutos. Informe diario de lunes a sábado a partir de las 8, solo si hay avisos abiertos.",
+      "enableHint": "Comprueba cada 15 minutos. Informe diario de lunes a sábado a partir de las 8 con las cifras de ayer (los lunes, del fin de semana) y los avisos abiertos.",
       "saved": "Guardado",
       "saveFailed": "No se pudo guardar",
       "learning": "Semana de aprendizaje hasta el {{date}}: los avisos se recogen, pero no se envían.",
@@ -7938,6 +7938,26 @@
       "mirrorError": {
         "title": "La sincronización de pedidos con la tienda falla",
         "message": "Ninguna sincronización de pedidos correcta desde hace {{minutes}} minutos. Último error: {{error}}"
+      },
+      "orderGap": {
+        "title": "Hoy todavía ningún pedido en la tienda",
+        "message": "Hasta ahora no ha entrado ningún pedido en la tienda online hoy. En los últimos 8 días de la misma semana llegaron de media {{expected}} hasta las 15:00. Revisa la tienda, el pago y los métodos de pago."
+      },
+      "paymentGone": {
+        "title": "Método de pago «{{method}}» sin pedidos desde hace {{days}} días",
+        "message": "Normalmente llegan unos {{perWeek}} pedidos por semana con «{{method}}», en los últimos {{days}} días ninguno. Comprueba si el método de pago se ofrece en la tienda y funciona."
+      },
+      "weekOrdersDown": {
+        "title": "Claramente menos pedidos en la tienda (−{{pct}} %)",
+        "message": "Del {{from}} al {{to}}: {{current}} pedidos, de media {{expected}} por semana en las 4 semanas anteriores. Misma semana del año pasado: {{yearOrders}}."
+      },
+      "weekRevenueDown": {
+        "title": "Claramente menos ventas en la tienda (−{{pct}} %)",
+        "message": "Del {{from}} al {{to}}: {{current}} de ventas, de media {{expected}} por semana en las 4 semanas anteriores. Misma semana del año pasado: {{yearRevenue}}."
+      },
+      "weekAovDown": {
+        "title": "Valor medio del pedido claramente más bajo (−{{pct}} %)",
+        "message": "Del {{from}} al {{to}}: {{current}} por pedido de media, {{expected}} en las 4 semanas anteriores."
       }
     },
     "detectors": {
@@ -7948,8 +7968,12 @@
       "failed": "fallida: {{error}}",
       "findings": "{{count}} hallazgo(s)",
       "names": {
-        "mirrorFreshness": "Sincronización de pedidos (actualidad del espejo)"
-      }
+        "mirrorFreshness": "Sincronización de pedidos (actualidad del espejo)",
+        "orderGap": "Hueco de pedidos (hoy hasta las 15:00)",
+        "paymentGone": "Métodos de pago (7 días sin pedidos)",
+        "weekComparison": "Semana frente a semanas anteriores y año pasado"
+      },
+      "skipped": "en pausa mientras la sincronización de pedidos esté parada"
     },
     "notify": {
       "since": "Desde",
@@ -7968,7 +7992,14 @@
       "more": "… y {{count}} más",
       "testTitle": "Pulso de la tienda: mensaje de prueba",
       "testText": "El mensaje directo funciona ({{at}}). A partir de ahora llegarán aquí los avisos del pulso de la tienda.",
-      "bellPrefix": "Pulso de la tienda"
+      "bellPrefix": "Pulso de la tienda",
+      "numbersYesterday": "Ayer ({{date}})",
+      "numbersWeekend": "Fin de semana ({{from}} al {{to}})",
+      "numbersLine": "{{orders}} pedido(s) en la tienda · {{revenue}} · media {{aov}}",
+      "numbersPrev": "Media de las 4 semanas anteriores: {{orders}} pedido(s) · {{revenue}}",
+      "numbersYear": "Año pasado: {{orders}} pedido(s) · {{revenue}}",
+      "numbersNoYear": "Año pasado: sin datos",
+      "dailyNone": "No hay avisos abiertos."
     }
   }
 }

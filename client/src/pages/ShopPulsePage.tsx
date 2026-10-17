@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useSearch } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Activity, AlertTriangle, BellOff, BellRing, CheckCircle2, Loader2, MessageSquare, Play, Send, XCircle } from "lucide-react";
+import { Activity, AlertTriangle, BellOff, BellRing, CheckCircle2, Loader2, MessageSquare, PauseCircle, Play, Send, XCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isAllowedTeamsWebhookUrl } from "@shared/emailIntake";
-import type { ShopPulseOverview, ShopPulseSeverity, ShopPulseSignal } from "@shared/shopPulse";
+import { formatShopPulseParams, SHOP_PULSE_DETECTOR_IDS, type ShopPulseOverview, type ShopPulseSeverity, type ShopPulseSignal } from "@shared/shopPulse";
 
 /**
  * Shop-Puls (nur Administratoren): Meldungen zu dem, was im Onlineshop nicht gut läuft, Einstellungen
@@ -103,8 +103,15 @@ export default function ShopPulsePage() {
     onError: (error: Error) => toast({ title: t("shopPulse.signals.actionFailed"), description: error.message, variant: "destructive" }),
   });
 
-  const title = (s: ShopPulseSignal) => t(`shopPulse.codes.${s.code}.title`, { ...s.params });
-  const message = (s: ShopPulseSignal) => t(`shopPulse.codes.${s.code}.message`, { ...s.params });
+  const signalParams = (s: ShopPulseSignal) =>
+    formatShopPulseParams(s.code, s.params, { money: (v) => fmt.currencyWhole(v), date: (d) => fmt.date(`${d}T12:00:00`), number: (v) => fmt.integer(v) });
+  const title = (s: ShopPulseSignal) => t(`shopPulse.codes.${s.code}.title`, signalParams(s));
+  const message = (s: ShopPulseSignal) => t(`shopPulse.codes.${s.code}.message`, signalParams(s));
+  // Die Datenbank (jsonb) sortiert die Schlüssel um; angezeigt wird in Lauf-Reihenfolge
+  const detectorRank = (id: string) => {
+    const i = (SHOP_PULSE_DETECTOR_IDS as readonly string[]).indexOf(id);
+    return i === -1 ? SHOP_PULSE_DETECTOR_IDS.length : i;
+  };
   const muted = (s: ShopPulseSignal) => !!s.mutedUntil && Date.parse(s.mutedUntil) > Date.now();
   const webhookValid = webhook.trim() !== "" && isAllowedTeamsWebhookUrl(webhook.trim());
   const busy = settingsMutation.isPending;
@@ -346,16 +353,27 @@ export default function ShopPulsePage() {
             {data.state.lastTickAt ? <p className="text-xs text-muted-foreground">{t("shopPulse.detectors.lastRun", { at: fmt.dateTime(data.state.lastTickAt) })}</p> : null}
             {data.state.detectors && Object.keys(data.state.detectors).length ? (
               <ul className="text-sm space-y-1" data-testid="shop-pulse-detectors">
-                {Object.entries(data.state.detectors).map(([id, d]) => (
-                  <li key={id} className="flex flex-wrap items-center gap-2">
-                    {d.ok ? <CheckCircle2 className="h-4 w-4 text-green-600" aria-hidden="true" /> : <XCircle className="h-4 w-4 text-destructive" aria-hidden="true" />}
-                    <span>{t(`shopPulse.detectors.names.${id}`, { defaultValue: id })}</span>
-                    <span className="text-muted-foreground">
-                      {d.ok ? t("shopPulse.detectors.ok") : t("shopPulse.detectors.failed", { error: d.error ?? "" })}
-                      {d.ok ? ` · ${t("shopPulse.detectors.findings", { count: d.findings })}` : ""}
-                    </span>
-                  </li>
-                ))}
+                {Object.entries(data.state.detectors)
+                  .sort(([a], [b]) => detectorRank(a) - detectorRank(b))
+                  .map(([id, d]) => (
+                    <li key={id} className="flex flex-wrap items-center gap-2">
+                      {d.skipped ? (
+                        <PauseCircle className="h-4 w-4 text-amber-600" aria-hidden="true" />
+                      ) : d.ok ? (
+                        <CheckCircle2 className="h-4 w-4 text-green-600" aria-hidden="true" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-destructive" aria-hidden="true" />
+                      )}
+                      <span>{t(`shopPulse.detectors.names.${id}`, { defaultValue: id })}</span>
+                      <span className="text-muted-foreground">
+                        {d.skipped
+                          ? t("shopPulse.detectors.skipped")
+                          : d.ok
+                            ? `${t("shopPulse.detectors.ok")} · ${t("shopPulse.detectors.findings", { count: d.findings })}`
+                            : t("shopPulse.detectors.failed", { error: d.error ?? "" })}
+                      </span>
+                    </li>
+                  ))}
               </ul>
             ) : (
               <p className="text-sm text-muted-foreground">{t("shopPulse.detectors.none")}</p>
