@@ -24,9 +24,11 @@ export type GlossaryTerm = {
   /** Anker auf der Seite (/regal-lexikon#key) */
   key: string;
   term: string;
-  /** Weitere Schreibweisen: Suche auf der Seite, Erklär-Links auf Produktseiten (Stufe 2) */
+  /** Weitere Schreibweisen: Suche auf der Seite, Erklär-Hinweise im Shop (Stufe 2) */
   aliases?: string[];
   topic: GlossaryTopic;
+  /** Erklär-Hinweis „i“ auf Produkt- und Kategorieseiten (glossaryHints.ts, scripts/writeGlossaryHints.ts) */
+  hint?: boolean;
   text: string;
   /** Beispiel mit META-Werten */
   example?: string;
@@ -357,6 +359,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     key: "fachlast",
     term: "Fachlast",
     topic: "last",
+    hint: true,
     text: "So viel darf auf einem einzelnen Fachboden oder einer Fachebene liegen – gleichmäßig über die ganze Fläche verteilt. Alle Fachlasten eines Regalfeldes zusammen dürfen die [[feldlast|Feldlast]] nicht überschreiten.",
     example: "META CLIP gibt es mit 80, 150, 200, 230 und 330 kg Fachlast.",
     link: { label: "CLIP Grundregale", href: "/clip-grundregale" },
@@ -366,6 +369,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     key: "feldlast",
     term: "Feldlast",
     topic: "last",
+    hint: true,
     text: "Die Gesamttragkraft eines [[regalfeld|Regalfeldes]], also des Bereichs zwischen zwei Rahmen. Die Fachlasten übereinander dürfen zusammen nicht mehr ergeben. Wie hoch die Feldlast ist, hängt von der [[fachhoehe|Fachhöhe]] ab.",
     example: "CLIP-Steckregal mit Diagonalverstrebung: bis 1.650 kg mit S3-Rahmen, bis 2.400 kg mit geclinchten Rahmen. Die Angaben gelten bei CLIP für Regalzeilen ab 3 Feldern, bei MULTIPAL und MINI-RACK ab 4 Feldern.",
     src: "Katalog S. 25, 29, 114, 125, 210",
@@ -391,6 +395,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     term: "Armlast",
     aliases: ["Kragarmbelastung", "Kragarmlast"],
     topic: "last",
+    hint: true,
     text: "So viel darf auf einem einzelnen [[kragarm|Kragarm]] liegen. Je länger der Arm, desto weniger trägt er.",
     example: "MULTISTRONG LIGHT: 220 kg bei 400 mm, 175 kg bei 500 mm, 140 kg bei 600 mm Armlänge. MULTISTRONG MEDIUM: 535 kg bei 400 mm bis 250 kg bei 800 mm.",
     src: "Katalog S. 163",
@@ -399,6 +404,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     key: "staenderlast",
     term: "Ständerlast",
     topic: "last",
+    hint: true,
     text: "Die Gesamtlast, die ein [[kragarmstaender|Kragarmständer]] mit allen seinen Armen tragen darf. Doppelseitige Ständer tragen doppelt so viel wie einseitige.",
     example: "MULTISTRONG LIGHT einseitig bis 1.750 kg, doppelseitig bis 3.500 kg; MEDIUM 2.880 bzw. 5.760 kg.",
     src: "Katalog S. 158, 159",
@@ -566,6 +572,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     key: "grundregal",
     term: "Grundregal",
     topic: "aufbau",
+    hint: true,
     text: "Ein Regal, das für sich allein steht: mit zwei Rahmen und je nach System Böden oder Holme. Jede [[regalzeile|Regalzeile]] beginnt mit einem Grundregal; daneben kommen [[anbauregal|Anbauregale]].",
     src: "Katalog S. 100, 130",
   },
@@ -573,6 +580,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     key: "anbauregal",
     term: "Anbauregal",
     topic: "aufbau",
+    hint: true,
     text: "Erweiterung für ein vorhandenes Regal. Es hat nur einen Rahmen und nutzt den Rahmen des Nachbarregals mit. So wird die Regalzeile Feld für Feld verlängert.",
     link: { label: "CLIP Anbauregale", href: "/clip-anbauregale" },
     src: "Katalog S. 100, 130",
@@ -581,6 +589,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     key: "komplettregal",
     term: "Komplettregal",
     topic: "aufbau",
+    hint: true,
     text: "Ein Regal mit allen Teilen, das als ein Artikel bestellt wird. Das Weitspannregal SPEED-RACK gibt es nur so, als Grundregal ohne Anbauregale.",
     src: "Katalog S. 106",
   },
@@ -632,6 +641,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     term: "Diagonalverstrebung",
     aliases: ["Diagonalaussteifung", "Spannkreuz"],
     topic: "aufbau",
+    hint: true,
     text: "Gekreuzte Diagonalstäbe an der Rückseite des Regals. Weil sie Zugkräfte aufnehmen, ist das eine sehr effiziente Aussteifung. Regale mit Diagonalverstrebung sind einseitig bedienbar und ideal für die Aufstellung an Wänden; ausgerichtet wird mit [[spannschloss|Spannschlössern]].",
     src: "Katalog S. 23, 210",
   },
@@ -640,6 +650,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     term: "Längsriegel",
     aliases: ["Längsriegelaussteifung"],
     topic: "aufbau",
+    hint: true,
     text: "Winkelprofile mit je einer [[agraffe|Agraffe]] rechts und links, die Steckregale in festen Abständen aussteifen. Der Boden wird in die Winkel eingelegt. Regale mit Längsriegeln sind von beiden Seiten bedienbar; es gibt sie mit zerlegten S3-Rahmen.",
     src: "Katalog S. 23, 210",
   },
@@ -655,6 +666,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     term: "Höhen-/Tiefenverhältnis 4 : 1",
     aliases: ["Kippsicherung", "4:1"],
     topic: "aufbau",
+    hint: true,
     text: "Ist ein Regal mehr als viermal so hoch wie tief, muss es gegen Kippen gesichert werden – mit einer [[fussverankerung|Wandbefestigung oder Fußverankerung]]. Reifenregale und Regale mit Schubladen werden immer mit Fußverankerung gesichert, einseitige COMPACT-Büroregale immer.",
     example: "2.500 mm hoch und 500 mm tief ergibt 5 : 1 – das Regal muss gesichert werden. 2.000 mm hoch und 600 mm tief ergibt gut 3 : 1.",
     src: "Katalog S. 25, 100, 211",
@@ -726,6 +738,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     term: "Sendzimirverzinkt",
     aliases: ["verzinkt", "Sendzimirverzinkung"],
     topic: "oberflaeche",
+    hint: true,
     text: "Grundausführung der META-Regale. Das Stahlband wird vor der Verarbeitung im Durchlaufofen gereinigt und durch ein flüssiges Zinkbad geführt; die Zinkschicht wird danach genau eingestellt.",
     src: "Katalog S. 17, 210",
   },
@@ -750,6 +763,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     term: "Geclincht",
     aliases: ["Clinchen", "geclinchter Rahmen", "vorgefertigter Rahmen"],
     topic: "oberflaeche",
+    hint: true,
     text: "Clinchen ist ein Druck-Füge-Verfahren: Stütze und Tiefensteifen werden ohne Schweißen kraftschlüssig verbunden. Die vorgefertigten CLIP-Rahmen kommen fertig montiert, sind sehr tragfähig, und nichts behindert den Einbau der Böden. Das Verfahren ist deutlich umweltfreundlicher als Schweißen.",
     link: { label: "Vergleich S3 oder geclincht", href: "#vergleich-s3-geclincht" },
     src: "Katalog S. 28, 210",
@@ -759,6 +773,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     term: "S3-Rahmen",
     aliases: ["CLIP S3", "zerlegter Rahmen"],
     topic: "oberflaeche",
+    hint: true,
     text: "Zerlegter CLIP-Rahmen, der ohne Werkzeug in drei Klicks zusammengesteckt wird. Im Shop heißen diese Regale „META CLIP S3“. Die Tiefensteifen sind immer verzinkt.",
     link: { label: "Vergleich S3 oder geclincht", href: "#vergleich-s3-geclincht" },
     src: "Katalog S. 25, 28",
@@ -792,6 +807,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     term: "Planmaß",
     aliases: ["Außenmaß", "Gesamtlänge"],
     topic: "masse",
+    hint: true,
     text: "Der tatsächliche Platzbedarf eines Regals. Damit planen Sie, ob die Regalzeile an die Wand passt.",
     example: "CLIP: Grundregal Nennlänge + 56 mm, jedes Anbauregal + 6 mm, Tiefe + 36 mm. MINI-RACK: Grundregal + 107 mm, Anbauregal + 51 mm. MULTIPAL (Ständertyp 85): Grundregal Holmlänge + 170 mm, Anbauregal + 85 mm. SPEED-RACK: Nennmaße = Istmaße.",
     link: { label: "Gesamtlänge im Schnellkonfigurator berechnen", href: "/regal-schnellkonfigurator" },
@@ -801,6 +817,7 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     key: "achsmass",
     term: "Achsmaß",
     topic: "masse",
+    hint: true,
     text: "Beim Kragarmregal der Abstand von Mitte zu Mitte zweier Kragarmständer.",
     example: "MULTISTRONG: Achsmaß 1.030 oder 1.330 mm; die Länge eines Grundregals ist das Achsmaß plus 64 mm (LIGHT) bzw. 73 mm (MEDIUM). ATLAS ST: 1.350 mm.",
     src: "Katalog S. 158, 211",
