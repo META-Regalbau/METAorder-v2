@@ -1,0 +1,224 @@
+/* METAorder: Anpassungen der Suchergebnisseite (siehe search-page.js).
+   Feste px-Werte, weil das META-Theme die Grundschrift auf 10px setzt (1rem = 10px). */
+
+/* 1. Hinweis über den Treffern */
+.meta-search-hint {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: -12px 0 24px;
+  padding: 16px 20px;
+  border-left: 4px solid var(--bs-primary, #ff0002);
+  background: #f5f5f5;
+  color: #121212;
+  font-size: 15px;
+  line-height: 1.4;
+}
+.meta-search-hint__title {
+  margin: 0;
+}
+.meta-search-hint__main {
+  color: #121212;
+  font-size: 18px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.meta-search-hint__main::after {
+  content: " \2192";
+  color: var(--bs-primary, #ff0002);
+}
+.meta-search-hint__main:hover,
+.meta-search-hint__main:focus-visible {
+  text-decoration: underline;
+}
+.meta-search-hint__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.meta-search-hint__label {
+  color: #5f5f5f;
+}
+.meta-search-hint__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.meta-search-hint__link {
+  display: inline-block;
+  padding: 6px 12px;
+  border: 1px solid #c6c6c6;
+  background: #fff;
+  color: #121212;
+  font-size: 14px;
+  text-decoration: none;
+}
+.meta-search-hint__link:hover,
+.meta-search-hint__link:focus-visible {
+  border-color: #121212;
+}
+/* Am Handy eine wischbare Zeile statt untereinander, damit die Treffer nicht nach unten rutschen */
+@media (max-width: 767.98px) {
+  .meta-search-hint {
+    gap: 10px;
+    margin: -8px 0 16px;
+    padding: 12px 0 12px 14px;
+  }
+  .meta-search-hint__main {
+    font-size: 16px;
+  }
+  .meta-search-hint__label {
+    display: none;
+  }
+  .meta-search-hint__row,
+  .meta-search-hint__links {
+    flex-wrap: nowrap;
+    min-width: 0;
+  }
+  .meta-search-hint__links {
+    overflow-x: auto;
+    padding-right: 14px;
+    scrollbar-width: none;
+  }
+  .meta-search-hint__link {
+    padding: 5px 10px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+}
+
+/* 2. Filter kürzen – nur am Desktop; am Handy liegen alle Filter im Seitenmenü */
+.meta-search-filters__more {
+  display: none;
+}
+@media (min-width: 992px) {
+  .meta-search-filters.is-collapsed > .meta-search-filter--extra {
+    display: none !important;
+  }
+  .meta-search-filters__more {
+    display: inline-block;
+    align-self: flex-start;
+    margin: 0 8px 8px 0;
+    padding: 9px 14px;
+    border: 1px solid #121212;
+    background: #fff;
+    color: #121212;
+    font-size: 15px;
+    line-height: 16px;
+    cursor: pointer;
+  }
+  .meta-search-filters__more:hover,
+  .meta-search-filters__more:focus-visible {
+    background: #121212;
+    color: #fff;
+  }
+}
+
+/* 3. Leere Treffer */
+.meta-search-help {
+  display: grid;
+  gap: 24px;
+  margin: 24px 0 8px;
+  color: #121212;
+  font-size: 15px;
+  line-height: 1.5;
+}
+@media (min-width: 992px) {
+  .meta-search-help {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  }
+  .meta-search-help__systems {
+    grid-column: 1;
+  }
+  .meta-search-help__contact {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+}
+.meta-search-help__heading {
+  margin: 0 0 12px;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.meta-search-help__list {
+  margin: 0;
+  padding-left: 20px;
+}
+.meta-search-help__list li + li {
+  margin-top: 4px;
+}
+.meta-search-help__systems {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@media (min-width: 768px) {
+  .meta-search-help__systems {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.meta-search-help__system {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  height: 100%;
+  padding: 14px 16px;
+  border: 1px solid #c6c6c6;
+  background: #fff;
+  color: #121212;
+  text-decoration: none;
+}
+.meta-search-help__system:hover,
+.meta-search-help__system:focus-visible {
+  border-color: var(--bs-primary, #ff0002);
+}
+.meta-search-help__system-name {
+  font-size: 16px;
+  font-weight: 600;
+}
+.meta-search-help__system-name::after {
+  content: " \2192";
+  color: var(--bs-primary, #ff0002);
+}
+.meta-search-help__system-sub {
+  color: #5f5f5f;
+  font-size: 13px;
+}
+.meta-search-help__contact {
+  padding: 20px;
+  background: #f5f5f5;
+}
+.meta-search-help__contact p {
+  margin: 0 0 12px;
+}
+.meta-search-help__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-bottom: 8px;
+}
+.meta-search-help__phone {
+  padding: 10px 16px;
+  font-size: 16px;
+}
+.meta-search-help__mail {
+  color: #121212;
+  word-break: break-all;
+}
+.meta-search-help__hours {
+  color: #5f5f5f;
+  font-size: 14px;
+}
+.meta-search-help__config a {
+  color: #121212;
+  font-weight: 600;
+}
