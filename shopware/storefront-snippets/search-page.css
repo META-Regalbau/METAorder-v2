@@ -214,11 +214,8 @@
   color: #121212;
   word-break: break-all;
 }
-.meta-search-help__hours {
+.meta-search-help__contact .meta-search-help__hours {
+  margin-bottom: 0;
   color: #5f5f5f;
   font-size: 14px;
-}
-.meta-search-help__config a {
-  color: #121212;
-  font-weight: 600;
 }
