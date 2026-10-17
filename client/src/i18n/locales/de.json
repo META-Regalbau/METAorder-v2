@@ -7795,6 +7795,7 @@
       "descriptions": "Produktbeschreibungen",
       "crossSelling": "Crossselling-Tabs",
       "montageTag": "Montagekosten-Tag",
+      "promotion": "Aktion mit Rabattcode",
       "plugins": "Benötigte Plugins"
     },
     "findings": {

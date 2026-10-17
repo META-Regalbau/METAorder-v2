@@ -1,0 +1,415 @@
+/* METAorder: Newsletter-Modal mit Willkommensrabatt beim Verlassen der Seite (siehe exit-intent.js).
+   Feste px-Werte, weil das META-Theme die Grundschrift auf 10px setzt (1rem = 10px).
+   Rot dunkler als --bs-primary (#ff0002), damit weiße Schrift auf der Fläche genug Kontrast hat. */
+.meta-exit {
+  --meta-exit-red: #d90003;
+  --meta-exit-red-dark: #a80002;
+  --meta-exit-ink: #121212;
+  --meta-exit-muted: #5c5c5c;
+  --meta-exit-line: #dcdcdc;
+  position: fixed;
+  inset: 0;
+  /* Wie der Chat (Userlike, 2147483647); liegt durch die DOM-Reihenfolge darüber (siehe open()) */
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  font-family: var(--bs-body-font-family, "Inter", sans-serif);
+  color: var(--meta-exit-ink);
+}
+.meta-exit[hidden] {
+  display: none;
+}
+/* Nur html sperren: html und body zusammen setzen im META-Theme (beide 100 % hoch) die Scrollposition auf 0 */
+html.meta-exit-open {
+  overflow: hidden;
+}
+
+.meta-exit__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(18, 18, 18, 0.62);
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+.meta-exit.is-visible .meta-exit__backdrop {
+  opacity: 1;
+}
+
+.meta-exit__dialog {
+  position: relative;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  width: 100%;
+  max-width: 780px;
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  background: #fff;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.28);
+  opacity: 0;
+  transform: translateY(16px) scale(0.98);
+  transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.meta-exit.is-visible .meta-exit__dialog {
+  opacity: 1;
+  transform: none;
+}
+
+.meta-exit__close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--meta-exit-ink);
+  cursor: pointer;
+}
+.meta-exit__close:hover {
+  background: #f2f2f2;
+}
+.meta-exit__close:focus-visible,
+.meta-exit__decline:focus-visible,
+.meta-exit__copy:focus-visible,
+.meta-exit__legal a:focus-visible {
+  outline: 2px solid var(--meta-exit-ink);
+  outline-offset: 2px;
+}
+
+/* --- Angebotsfläche ------------------------------------------------------------------------ */
+.meta-exit__visual {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 100%;
+  padding: 32px 28px;
+  overflow: hidden;
+  background: linear-gradient(160deg, var(--meta-exit-red) 0%, var(--meta-exit-red-dark) 100%);
+  color: #fff;
+}
+/* Feines Raster wie Regalfelder (Ständer und Ebenen) */
+.meta-exit__visual-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.14) 2px, transparent 2px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+  background-size: 70px 100%, 100% 46px;
+  background-position: 18px 0, 0 22px;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.35) 60%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.35) 60%, transparent 100%);
+  pointer-events: none;
+}
+.meta-exit__visual > :not(.meta-exit__visual-grid) {
+  position: relative;
+  z-index: 1;
+}
+.meta-exit__visual-kicker {
+  align-self: flex-start;
+  margin-bottom: 14px;
+  padding: 5px 10px;
+  background: #fff;
+  color: var(--meta-exit-red-dark);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+.meta-exit__visual-value {
+  display: flex;
+  align-items: flex-start;
+  font-size: 128px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 0.86;
+}
+.meta-exit__visual-unit {
+  margin: 8px 0 0 4px;
+  font-size: 56px;
+  letter-spacing: 0;
+}
+.meta-exit__visual-note {
+  margin-top: 14px;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+/* --- Inhalt -------------------------------------------------------------------------------- */
+.meta-exit__body {
+  padding: 40px 40px 28px;
+}
+.meta-exit__step[hidden] {
+  display: none;
+}
+.meta-exit__step:focus {
+  outline: none;
+}
+.meta-exit__eyebrow {
+  margin: 0 0 8px;
+  color: var(--meta-exit-red);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.meta-exit__title {
+  margin: 0 0 12px;
+  padding-right: 32px;
+  color: var(--meta-exit-ink);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.18;
+}
+.meta-exit__lead {
+  margin: 0 0 22px;
+  color: var(--meta-exit-muted);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.meta-exit__label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.meta-exit__row {
+  display: flex;
+  gap: 8px;
+}
+.meta-exit__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid #bdbdbd;
+  border-radius: 0;
+  background: #fff;
+  color: var(--meta-exit-ink);
+  font-size: 16px;
+}
+.meta-exit__input:focus {
+  border-color: var(--meta-exit-ink);
+  outline: 2px solid var(--meta-exit-ink);
+  outline-offset: -1px;
+}
+.meta-exit__input[aria-invalid="true"] {
+  border-color: var(--meta-exit-red);
+}
+.meta-exit .btn.meta-exit__submit,
+.meta-exit .btn.meta-exit__apply {
+  flex: 0 0 auto;
+  width: auto;
+  height: 48px;
+  padding: 0 20px;
+  border-radius: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 48px;
+  white-space: nowrap;
+}
+.meta-exit .btn.meta-exit__submit.is-loading {
+  opacity: 0.7;
+  cursor: progress;
+}
+.meta-exit__hp {
+  position: absolute !important;
+  left: -9999px !important;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.meta-exit__error {
+  min-height: 20px;
+  margin: 6px 0 0;
+  color: var(--meta-exit-red);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.meta-exit__error:empty {
+  min-height: 0;
+}
+
+.meta-exit__legal {
+  margin: 14px 0 0;
+  color: var(--meta-exit-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.meta-exit__legal a {
+  color: inherit;
+  text-decoration: underline;
+}
+.meta-exit__decline {
+  display: inline-block;
+  margin-top: 18px;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  color: var(--meta-exit-muted);
+  font-size: 14px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.meta-exit__decline:hover {
+  color: var(--meta-exit-ink);
+}
+
+/* --- Erfolg -------------------------------------------------------------------------------- */
+.meta-exit__check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 14px;
+  background: #41a700;
+  color: #fff;
+}
+.meta-exit__code {
+  display: flex;
+  align-items: stretch;
+  margin-bottom: 12px;
+  border: 2px dashed var(--meta-exit-ink);
+}
+.meta-exit__code-value {
+  flex: 1 1 auto;
+  padding: 12px 16px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
+  user-select: all;
+}
+.meta-exit__copy {
+  flex: 0 0 auto;
+  min-width: 108px;
+  padding: 0 16px;
+  border: 0;
+  border-left: 2px dashed var(--meta-exit-ink);
+  background: #f5f5f5;
+  color: var(--meta-exit-ink);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.meta-exit__copy:hover {
+  background: #ebebeb;
+}
+.meta-exit__copy.is-done {
+  color: #2f7a00;
+}
+.meta-exit .btn.meta-exit__apply {
+  width: 100%;
+}
+.meta-exit .btn.meta-exit__apply.is-done {
+  border-color: #41a700;
+  background: #41a700;
+  opacity: 1;
+}
+.meta-exit__status {
+  margin: 8px 0 0;
+  color: var(--meta-exit-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.meta-exit__status:empty {
+  display: none;
+}
+.meta-exit__notice {
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  border-left: 3px solid var(--meta-exit-red);
+  background: #f7f7f7;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* --- Handy: Bottom-Sheet, Angebot als schmaler Streifen ------------------------------------ */
+@media (max-width: 679px) {
+  .meta-exit {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .meta-exit__dialog {
+    grid-template-columns: 1fr;
+    max-height: 92vh;
+    transform: translateY(100%);
+  }
+  .meta-exit__visual {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: 14px;
+    min-height: 0;
+    padding: 18px 64px 18px 20px;
+  }
+  .meta-exit__visual-kicker {
+    grid-column: 1 / -1;
+    justify-self: start;
+    margin-bottom: 10px;
+  }
+  .meta-exit__visual-value {
+    font-size: 64px;
+  }
+  .meta-exit__visual-unit {
+    margin-top: 4px;
+    font-size: 30px;
+  }
+  .meta-exit__visual-note {
+    margin-top: 0;
+    font-size: 16px;
+  }
+  .meta-exit__close {
+    color: #fff;
+  }
+  .meta-exit__close:hover {
+    background: rgba(255, 255, 255, 0.16);
+  }
+  .meta-exit__close:focus-visible {
+    outline-color: #fff;
+  }
+  .meta-exit__body {
+    padding: 22px 20px calc(18px + env(safe-area-inset-bottom, 0px));
+  }
+  .meta-exit__title {
+    padding-right: 0;
+    font-size: 23px;
+  }
+  .meta-exit__lead {
+    margin-bottom: 18px;
+    font-size: 14px;
+  }
+  .meta-exit__row {
+    flex-direction: column;
+  }
+  .meta-exit .btn.meta-exit__submit {
+    width: 100%;
+  }
+  .meta-exit__code-value {
+    font-size: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .meta-exit__backdrop,
+  .meta-exit__dialog {
+    transition: none;
+  }
+  .meta-exit__dialog {
+    transform: none;
+  }
+}

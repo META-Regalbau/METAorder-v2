@@ -7795,6 +7795,7 @@
       "descriptions": "Descripciones de producto",
       "crossSelling": "Pestañas de venta cruzada",
       "montageTag": "Etiqueta de montaje",
+      "promotion": "Promoción con código de descuento",
       "plugins": "Plugins necesarios"
     },
     "findings": {
