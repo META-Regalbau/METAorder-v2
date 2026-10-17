@@ -4,6 +4,10 @@
  * dazu der Standard-Produkt-Slider (Preise, Lieferzeit, Warenkorb live) und das FAQ-Plugin (hueb SEO FAQ).
  * Preise in Tabellen und Beispielrechnung kommen beim Schreiben aus dem Ziel-Shop.
  *
+ * FAQ: Fragen, die in INDUSTRY_COMMON.faq stehen (Prüfpflicht, Regal-Lexikon), liegen in einer gemeinsamen FAQ-Gruppe
+ * „Sicherheit und Regalprüfung“, die jede Seite als zweites FAQ-Element zeigt. So stehen sie auf /faq (dort zeigt das
+ * Plugin alle Gruppen) nur einmal. Die Gruppe wird bei jedem Lauf mit allen Seiten auf den Stand des Codes gebracht.
+ *
  * Alle Entitäten sind neu und haben feste IDs je Branche: ein zweiter Lauf ersetzt die eigenen Seiten,
  * fremde Inhalte werden nie angefasst. Ohne --apply nur Testlauf. Mit --apply Protokoll; --revert löscht
  * die angelegten Seiten wieder. Schreibt nur in Shops mit „test.“ in der URL, außer mit --live.
@@ -25,7 +29,7 @@
 import { createHash } from "crypto";
 import { readFileSync, writeFileSync } from "fs";
 import { storage } from "../server/storage";
-import { INDUSTRY_PAGES, referencedNumbers, type IndustryPage } from "../server/products/industryPages";
+import { INDUSTRY_COMMON, INDUSTRY_PAGES, referencedNumbers, type IndustryPage } from "../server/products/industryPages";
 import { IndustryPageHtml, homeTeaserHtml, industryPageCss, type IndustryShopProduct } from "../server/products/industryPageHtml";
 import { HOME_SECTION_IDS, HOME_SECTION_MARKERS, monduSectionHtml, rabattSectionHtml } from "../server/products/homeSections";
 import { industryEntityId } from "../server/shopContent/shopEntityIds";
@@ -44,6 +48,8 @@ type Protocol = {
   faqGroups: string[];
   /** Startseiten-Teaser (--home) */
   home?: { pageId: string; sectionId: string };
+  /** Gemeinsame FAQ-Gruppe: neu angelegt (Rückbau löscht sie) oder Fragen vor dem Lauf (Rückbau stellt sie her) */
+  commonFaq?: { groupId: string; created: boolean; before: Array<{ id: string; question: string; answer: string; questionPosition: number }> };
   /** Ersetzte Startseiten-Abschnitte (--home-sections): Werte vor dem Lauf */
   homeSlots?: Array<{ sectionId: string; slotId: string; config: unknown; customFields: unknown; backgroundColor: string | null }>;
 };
@@ -62,6 +68,10 @@ const htmlBlock = (id: string, position: number, html: string) => ({
   visibility: ALL_DEVICES,
   slots: [{ id: createHash("md5").update(`${id}:slot`).digest("hex"), type: "html", slot: "content", config: { content: { source: "static", value: html } } }],
 });
+
+/** Gemeinsame FAQ-Gruppe aller Branchenseiten */
+const COMMON_FAQ_GROUP = { id: industryEntityId("common", "faq"), name: "Sicherheit und Regalprüfung", active: true, position: 5 };
+const isCommonFaq = (f: { q: string }) => INDUSTRY_COMMON.faq.some((c) => c.q === f.q);
 
 function buildCmsPage(page: IndustryPage, products: Record<string, IndustryShopProduct>, faqGroupId: string) {
   const id = (part: string) => industryEntityId(page.key, part);
@@ -109,7 +119,9 @@ function buildCmsPage(page: IndustryPage, products: Record<string, IndustryShopP
     section("middle", 2, "full_width", [htmlBlock(id("block-middle"), 0, wrap(h.duties() + h.why() + h.project()))]),
     section("faq", 3, "boxed", [
       htmlBlock(id("block-faq-head"), 0, wrap(`<div class="wrap" id="faq" style="padding-top:56px">${h.faqHead()}</div>`)),
-      { id: id("block-faq"), type: "text", position: 1, sectionPosition: "main", ...SLIDER_MARGINS, visibility: ALL_DEVICES, slots: [{ id: id("slot-faq"), type: "hueb-faq-element", slot: "content", config: { group: { source: "static", value: faqGroupId } } }] },
+      // Eigene und gemeinsame Fragen sollen wie eine Liste aussehen: kein Abstand zwischen den beiden FAQ-Elementen
+      { id: id("block-faq"), type: "text", position: 1, sectionPosition: "main", ...SLIDER_MARGINS, marginBottom: "0", visibility: ALL_DEVICES, slots: [{ id: id("slot-faq"), type: "hueb-faq-element", slot: "content", config: { group: { source: "static", value: faqGroupId } } }] },
+      { id: id("block-faq-common"), type: "text", position: 2, sectionPosition: "main", ...SLIDER_MARGINS, visibility: ALL_DEVICES, slots: [{ id: id("slot-faq-common"), type: "hueb-faq-element", slot: "content", config: { group: { source: "static", value: COMMON_FAQ_GROUP.id } } }] },
     ]),
     section("bottom", 4, "full_width", [
       htmlBlock(id("block-bottom"), 0, wrap(`<section id="beratung" style="padding:32px 0 64px"><div class="wrap">${h.advice()}${h.more(INDUSTRY_PAGES, (o) => o.url)}</div></section>`)),
@@ -156,6 +168,13 @@ async function main(): Promise<void> {
     const log = JSON.parse(readFileSync(revertFile, "utf8")) as Protocol;
     if (log.tenantId !== tenantId) throw new Error(`Protokoll gehört zu Mandant ${log.tenantId}`);
     await deleteOwn(log);
+    if (log.commonFaq) {
+      const qs = (await api("POST", "search/hueb-seo-faq-questions", { limit: 100, filter: [{ type: "equals", field: "group", value: log.commonFaq.groupId }] }))?.data ?? [];
+      for (const q of qs) await api("DELETE", `hueb-seo-faq-questions/${q.id}`);
+      if (log.commonFaq.created) await api("DELETE", `hueb-seo-faq-group/${log.commonFaq.groupId}`).catch((e) => console.log("FAQ-Gruppe", e.message));
+      else for (const q of log.commonFaq.before) await api("POST", "hueb-seo-faq-questions", { ...q, group: log.commonFaq.groupId, name: "ID", active: true });
+      console.log(`Gemeinsame FAQ-Gruppe ${log.commonFaq.created ? "gelöscht" : "zurückgesetzt"}`);
+    }
     if (log.home) await removeHomeSection(log.home.pageId, log.home.sectionId);
     for (const h of log.homeSlots ?? []) {
       await api("PATCH", `cms-slot/${h.slotId}`, { config: h.config });
@@ -313,7 +332,7 @@ async function main(): Promise<void> {
       cmsPageId: cms.id,
     };
     const faqGroup = { id: faqGroupId, name: `Branchenseite ${page.name}`, active: true, position: 60 };
-    const questions = page.faq.map((f, i) => ({ id: industryEntityId(page.key, `faq-${i}`), group: faqGroupId, name: "ID", active: true, questionPosition: i + 1, question: f.q, answer: f.a }));
+    const questions = page.faq.filter((f) => !isCommonFaq(f)).map((f, i) => ({ id: industryEntityId(page.key, `faq-${i}`), group: faqGroupId, name: "ID", active: true, questionPosition: i + 1, question: f.q, answer: f.a }));
     const htmlSize = cms.sections.flatMap((s) => s.blocks).flatMap((b: any) => b.slots).reduce((n: number, sl: any) => n + String(sl.config?.content?.value ?? "").length, 0);
     return { page, lpId, cms, landingPage, faqGroup, questions, replace: existing.has(lpId), htmlSize };
   });
@@ -322,9 +341,25 @@ async function main(): Promise<void> {
     console.log(
       `${apply ? (p.replace ? "ERSETZE" : "LEGE AN") : p.replace ? "würde ersetzen" : "würde anlegen"} ${domain}${p.page.url} – ${p.cms.sections.length} Abschnitte, ${p.page.products.length} Produkte im Slider, ${p.questions.length} FAQ, HTML ${Math.round(p.htmlSize / 1024)} KB`,
     );
+  const commonQuestions = INDUSTRY_COMMON.faq.map((f, i) => ({ id: industryEntityId("common", `faq-${i}`), group: COMMON_FAQ_GROUP.id, name: "ID", active: true, questionPosition: i + 1, question: f.q, answer: f.a }));
+  console.log(`${apply ? "SCHREIBE" : "würde schreiben"} gemeinsame FAQ-Gruppe „${COMMON_FAQ_GROUP.name}“ mit ${commonQuestions.length} Fragen`);
   if (!apply) return;
 
   const file = `/app/tmp-claude/branchenseiten-${tenantId.slice(0, 8)}-${Date.now()}.json`;
+  // Gemeinsame Gruppe zuerst: die Seiten verweisen darauf
+  const commonExisting = (await api("POST", "search/hueb-seo-faq-group", { ids: [COMMON_FAQ_GROUP.id] }))?.data?.[0];
+  const commonBefore = commonExisting
+    ? (((await api("POST", "search/hueb-seo-faq-questions", { limit: 100, filter: [{ type: "equals", field: "group", value: COMMON_FAQ_GROUP.id }] }))?.data ?? []) as any[])
+    : [];
+  log.commonFaq = {
+    groupId: COMMON_FAQ_GROUP.id,
+    created: !commonExisting,
+    before: commonBefore.map((q) => ({ id: q.id, question: q.question, answer: q.answer, questionPosition: q.questionPosition })),
+  };
+  writeFileSync(file, JSON.stringify(log, null, 1));
+  if (!commonExisting) await api("POST", "hueb-seo-faq-group", COMMON_FAQ_GROUP);
+  for (const q of commonBefore) await api("DELETE", `hueb-seo-faq-questions/${q.id}`);
+  for (const q of commonQuestions) await api("POST", "hueb-seo-faq-questions", q);
   for (const p of plans) {
     if (p.replace) await deleteOwn({ landingPages: [p.lpId], cmsPages: [p.cms.id], faqGroups: [p.faqGroup.id] });
     // Das FAQ-Plugin nimmt die Fragen nicht verschachtelt mit der Gruppe an: erst Gruppe, dann Fragen
