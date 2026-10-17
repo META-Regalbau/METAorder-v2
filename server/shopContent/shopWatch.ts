@@ -7,6 +7,7 @@
 import { readFileSync } from "fs";
 import path from "path";
 import {
+  fingerprintComplete,
   worstStatus,
   type ShopWatchBaseline,
   type ShopWatchCheckResult,
@@ -211,13 +212,46 @@ export function isShopWatchRunning(tenantId: string | null): boolean {
 }
 
 /**
+ * Leichter Deploy-Abgleich (alle 15 Minuten): nur Shopware-Version, Plugins und Theme-Dateien der
+ * Startseite, verglichen mit dem Fingerabdruck des letzten Laufs. Unter derselben Sperre wie ein Lauf.
+ */
+export async function checkShopWatchFingerprint(
+  store: SettingsStore,
+  tenantId: string | null,
+  opts: { fetchImpl?: FetchLike } = {},
+): Promise<{ complete: boolean; changes: ShopWatchDeployChange[]; fingerprint: ShopWatchDeployFingerprint }> {
+  const key = tenantKey(tenantId);
+  if (running.has(key)) throw new Error("Shop watch run already in progress");
+  running.add(key);
+  try {
+    const settings = await store.getShopwareSettings(tenantId);
+    if (!settings) throw new Error("Shopware settings not configured");
+    const { api, base } = shopApi(settings);
+    const channel = await findDeChannel(api, base);
+    const state = await getShopWatchState(store, tenantId);
+    const ctx = createShopWatchContext({ api, channelId: channel.id, storefront: channel.domain, baseline: null, fetchImpl: opts.fetchImpl });
+    const fingerprint = await deployFingerprint(ctx);
+    const complete = fingerprintComplete(fingerprint);
+    return { complete, changes: complete ? diffFingerprint(state.lastRun?.fingerprint, fingerprint) : [], fingerprint };
+  } finally {
+    running.delete(key);
+  }
+}
+
+/**
  * Ein Lauf für einen Mandanten: alle Prüfpunkte (oder nur die stündlichen), Ergebnis speichern.
  * Ohne Soll-Stand wird der erste vollständige Lauf zum Soll-Stand.
  */
 export async function runShopWatch(
   store: SettingsStore,
   tenantId: string | null,
-  opts: { trigger: ShopWatchRun["trigger"]; cadence?: "all" | "hourly"; fetchImpl?: FetchLike } = { trigger: "manual" },
+  opts: {
+    trigger: ShopWatchRun["trigger"];
+    cadence?: "all" | "hourly";
+    fetchImpl?: FetchLike;
+    /** Läuft noch unter der Sperre des Mandanten (Meldungen, Zeitplan-Stand) */
+    afterRun?: (run: ShopWatchRun) => Promise<void>;
+  } = { trigger: "manual" },
 ): Promise<ShopWatchRun> {
   const key = tenantKey(tenantId);
   if (running.has(key)) throw new Error("Shop watch run already in progress");
@@ -230,7 +264,9 @@ export async function runShopWatch(
     const [state, baseline] = await Promise.all([getShopWatchState(store, tenantId), getShopWatchBaseline(store, tenantId)]);
     const ctx = createShopWatchContext({ api, channelId: channel.id, storefront: channel.domain, baseline, fetchImpl: opts.fetchImpl });
     const startedAt = new Date().toISOString();
-    const fingerprint = await deployFingerprint(ctx);
+    // Unvollständig gelesene Merkmale (Shop kurz nicht erreichbar) nicht vergleichen und nicht speichern
+    const read = await deployFingerprint(ctx);
+    const fingerprint = fingerprintComplete(read) ? read : state.lastRun?.fingerprint ?? read;
     const checks = opts.cadence === "hourly" ? SHOP_WATCH_CHECKS.filter((c) => c.cadence === "hourly") : SHOP_WATCH_CHECKS;
     const { results, categoryFields } = await runShopWatchChecks(ctx, checks, { tenantId: tenantId ?? "<tenantId>", live: !isTest });
     // Ergebnisse der nicht geprüften Massendaten aus dem letzten Lauf übernehmen, damit die Übersicht vollständig bleibt
@@ -244,7 +280,7 @@ export async function runShopWatch(
       status: worstStatus(all.map((r) => r.status)),
       results: all,
       fingerprint,
-      deployChanges: diffFingerprint(state.lastRun?.fingerprint, fingerprint),
+      deployChanges: fingerprintComplete(read) ? diffFingerprint(state.lastRun?.fingerprint, read) : [],
       categoryFields: categoryFields ?? state.lastRun?.categoryFields,
     };
     const entry: ShopWatchHistoryEntry = {
@@ -263,7 +299,15 @@ export async function runShopWatch(
       log[level]({ tenantId, check: r.id, status: r.status, findings: r.findings }, `Shop-Wächter: ${r.label} – ${r.status}`);
     }
     if (run.deployChanges.length) log.warn({ tenantId, changes: run.deployChanges }, "Shop-Wächter: Änderung an Shopware, Plugins oder Theme erkannt");
+    if (!fingerprintComplete(read)) log.warn({ tenantId, fingerprint: read }, "Shop-Wächter: Deploy-Merkmale unvollständig gelesen, kein Vergleich");
     log.info({ tenantId, status: run.status, checks: results.length, ms: Date.parse(run.finishedAt) - Date.parse(startedAt) }, "Shop-Wächter: Lauf beendet");
+    if (opts.afterRun) {
+      try {
+        await opts.afterRun(run);
+      } catch (err) {
+        log.error({ err, tenantId }, "Shop-Wächter: Nachbereitung (Meldungen) fehlgeschlagen");
+      }
+    }
     return run;
   } finally {
     running.delete(key);

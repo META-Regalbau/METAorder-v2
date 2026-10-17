@@ -6543,6 +6543,11 @@
       "failed_to_load_shop_watch_state": "Failed to load shop watch state",
       "shop_watch_run_already_in_progress": "Shop watch run already in progress",
       "failed_to_save_shop_watch_baseline": "Failed to save shop watch baseline",
+      "invalid_shop_watch_settings": "Invalid shop watch settings",
+      "failed_to_save_shop_watch_settings": "Failed to save shop watch settings",
+      "failed_to_load_shop_watch_teams_outbox": "Failed to load shop watch Teams outbox",
+      "invalid_shop_watch_teams_acknowledgement": "Invalid shop watch Teams acknowledgement",
+      "failed_to_acknowledge_shop_watch_teams_outbox": "Failed to acknowledge shop watch Teams outbox",
       "no_shop_watch_run_yet": "No check yet – run “Check now” first"
     }
   },
@@ -7726,6 +7731,8 @@
     "noBaseline": "No target state yet",
     "deployDetected": "Change to Shopware, plugins or theme since the previous check",
     "deployBadge": "Deploy detected",
+    "themeRebuiltBadge": "Theme rebuilt",
+    "themeRebuiltHint": "Only the theme was rebuilt; Shopware version and plugins are unchanged. Our write scripts and every save in the theme manager do this too – so this is only a hint, not an alert. The checks below show whether everything is still there.",
     "deploy": {
       "shopwareVersion": "Shopware version: {{before}} → {{after}}",
       "plugins": "Plugins removed/old: {{before}} · new: {{after}}",
@@ -7813,6 +7820,25 @@
       "pluginInactive": "Plugin {{name}} is deactivated",
       "checkFailed": "Check failed: {{message}}"
     },
-    "showCommand": "Show command"
+    "showCommand": "Show command",
+    "schedule": {
+      "title": "Automatic monitoring",
+      "enable": "Check and alert automatically",
+      "description": "Every 15 minutes a deploy check (Shopware version, plugins, theme files). If something changed, the full check runs immediately; otherwise the key checks run hourly and everything including bulk data runs at night. Alerts are sent when a check turns yellow or red, after a deploy and when everything is green again – not again on every run.",
+      "teamsOn": "Teams: n8n picks up alerts and posts them to the channel from the email intake settings.",
+      "teamsPending": "{{count}} alert(s) waiting to be picked up by n8n.",
+      "teamsOff": "Teams: no webhook configured (Settings → Email intake) – alerts only via the bell.",
+      "lastFingerprint": "Last deploy check: {{at}}",
+      "lastFullRun": "Last full check: {{at}}",
+      "lastNotice": "Last alert: {{at}} – {{kind}}",
+      "never": "never",
+      "saved": "Monitoring saved",
+      "saveFailed": "Monitoring could not be saved",
+      "notice": {
+        "alert": "Finding",
+        "allClear": "All clear",
+        "deploy": "Deploy detected"
+      }
+    }
   }
 }

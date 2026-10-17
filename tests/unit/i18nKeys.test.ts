@@ -133,6 +133,7 @@ describe("Uebersetzungsschluessel (Deutsch)", () => {
       ...["manual", "schedule", "deploy"].map((v) => `shopWatch.trigger.${v}`),
       ...["shopwareVersion", "plugins", "themeAsset"].map((v) => `shopWatch.deploy.${v}`),
       ...["auto", "manual", "none"].map((v) => `shopWatch.repair.${v}`),
+      ...["alert", "allClear", "deploy"].map((v) => `shopWatch.schedule.notice.${v}`),
     ])).toEqual([]);
   });
 

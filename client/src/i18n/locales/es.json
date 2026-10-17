@@ -6540,6 +6540,11 @@
       "failed_to_load_shop_watch_state": "No se pudo cargar el estado del vigilante de la tienda",
       "shop_watch_run_already_in_progress": "Ya hay una comprobación del vigilante en curso",
       "failed_to_save_shop_watch_baseline": "No se pudo guardar el estado objetivo",
+      "invalid_shop_watch_settings": "Ajustes del vigilante de la tienda no válidos",
+      "failed_to_save_shop_watch_settings": "No se pudieron guardar los ajustes del vigilante de la tienda",
+      "failed_to_load_shop_watch_teams_outbox": "No se pudo cargar la cola de Teams del vigilante",
+      "invalid_shop_watch_teams_acknowledgement": "Confirmación no válida para la cola de Teams",
+      "failed_to_acknowledge_shop_watch_teams_outbox": "No se pudo confirmar la cola de Teams",
       "no_shop_watch_run_yet": "Aún no hay comprobación: primero «Comprobar ahora»"
     }
   },
@@ -7723,6 +7728,8 @@
     "noBaseline": "Aún no hay estado objetivo",
     "deployDetected": "Cambio en Shopware, plugins o tema desde la comprobación anterior",
     "deployBadge": "Despliegue detectado",
+    "themeRebuiltBadge": "Tema recompilado",
+    "themeRebuiltHint": "Solo se recompiló el tema; la versión de Shopware y los plugins no cambiaron. Nuestros scripts de escritura y cada guardado en el gestor de temas también lo hacen, por eso es solo un aviso y no una alerta. Las comprobaciones de abajo muestran si todo sigue ahí.",
     "deploy": {
       "shopwareVersion": "Versión de Shopware: {{before}} → {{after}}",
       "plugins": "Plugins eliminados/antiguos: {{before}} · nuevos: {{after}}",
@@ -7810,6 +7817,25 @@
       "pluginInactive": "El plugin {{name}} está desactivado",
       "checkFailed": "Comprobación fallida: {{message}}"
     },
-    "showCommand": "Mostrar comando"
+    "showCommand": "Mostrar comando",
+    "schedule": {
+      "title": "Vigilancia automática",
+      "enable": "Comprobar y avisar automáticamente",
+      "description": "Cada 15 minutos se comprueba si hubo un despliegue (versión de Shopware, plugins, archivos del tema). Si algo cambió, se ejecuta de inmediato la comprobación completa; si no, cada hora las comprobaciones principales y por la noche todo, incluidos los datos masivos. Se avisa cuando una comprobación pasa a amarillo o rojo, tras un despliegue y cuando todo vuelve a estar en verde, no en cada ejecución.",
+      "teamsOn": "Teams: n8n recoge los avisos y los publica en el canal de los ajustes de entrada de correo.",
+      "teamsPending": "{{count}} aviso(s) esperando a que n8n los recoja.",
+      "teamsOff": "Teams: no hay webhook configurado (Ajustes → Entrada de correo); avisos solo en la campana.",
+      "lastFingerprint": "Última comprobación de despliegue: {{at}}",
+      "lastFullRun": "Última comprobación completa: {{at}}",
+      "lastNotice": "Último aviso: {{at}} – {{kind}}",
+      "never": "nunca",
+      "saved": "Vigilancia guardada",
+      "saveFailed": "No se pudo guardar la vigilancia",
+      "notice": {
+        "alert": "Hallazgo",
+        "allClear": "Todo en orden",
+        "deploy": "Despliegue detectado"
+      }
+    }
   }
 }

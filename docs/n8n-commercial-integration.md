@@ -377,3 +377,4 @@ Details und Gmail-Setup: [`gmail-to-shopware-automation.md`](gmail-to-shopware-a
 | [`n8n-workflows/gmail-to-metaorder.json`](../n8n-workflows/gmail-to-metaorder.json) | Gmail Trigger + Quick-Classifier + Upload + Mark Read |
 | [`n8n-commercial-workflow.example.json`](n8n-commercial-workflow.example.json) | Manueller Start, Upload, optional create-offer/order |
 | [`n8n-workflows/metaorder-auto-create-webhook.json`](../n8n-workflows/metaorder-auto-create-webhook.json) | Webhook-Empfang für Auto-Create-Events |
+| [`n8n-workflows/shop-watch-teams.json`](../n8n-workflows/shop-watch-teams.json) | Shop-Wächter: holt alle 5 Min. fertige Teams-Karten ab (`GET /api/shop-content/watch/teams-outbox`), postet sie an den Teams-Webhook aus dem E-Mail-Eingang und quittiert (`POST …/teams-outbox/ack`) |

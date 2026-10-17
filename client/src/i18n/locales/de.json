@@ -6540,6 +6540,11 @@
       "failed_to_load_shop_watch_state": "Stand des Shop-Wächters konnte nicht geladen werden",
       "shop_watch_run_already_in_progress": "Eine Prüfung des Shop-Wächters läuft bereits",
       "failed_to_save_shop_watch_baseline": "Soll-Stand konnte nicht gespeichert werden",
+      "invalid_shop_watch_settings": "Ungültige Einstellungen für den Shop-Wächter",
+      "failed_to_save_shop_watch_settings": "Einstellungen des Shop-Wächters konnten nicht gespeichert werden",
+      "failed_to_load_shop_watch_teams_outbox": "Teams-Warteschlange des Shop-Wächters konnte nicht geladen werden",
+      "invalid_shop_watch_teams_acknowledgement": "Ungültige Quittung für die Teams-Warteschlange",
+      "failed_to_acknowledge_shop_watch_teams_outbox": "Teams-Warteschlange konnte nicht quittiert werden",
       "no_shop_watch_run_yet": "Noch keine Prüfung – erst „Jetzt prüfen“"
     }
   },
@@ -7723,6 +7728,8 @@
     "noBaseline": "Noch kein Soll-Stand",
     "deployDetected": "Änderung an Shopware, Plugins oder Theme seit der vorigen Prüfung",
     "deployBadge": "Deploy erkannt",
+    "themeRebuiltBadge": "Theme neu erstellt",
+    "themeRebuiltHint": "Nur das Theme wurde neu erstellt, Shopware-Version und Plugins sind gleich. Das tun auch unsere Schreibskripte und jedes Speichern im Theme-Manager – deshalb nur ein Hinweis, keine eigene Meldung. Ob noch alles da ist, zeigt die Prüfung unten.",
     "deploy": {
       "shopwareVersion": "Shopware-Version: {{before}} → {{after}}",
       "plugins": "Plugins entfernt/alt: {{before}} · neu: {{after}}",
@@ -7810,6 +7817,25 @@
       "pluginInactive": "Plugin {{name}} ist deaktiviert",
       "checkFailed": "Prüfung gescheitert: {{message}}"
     },
-    "showCommand": "Befehl anzeigen"
+    "showCommand": "Befehl anzeigen",
+    "schedule": {
+      "title": "Automatische Überwachung",
+      "enable": "Automatisch prüfen und melden",
+      "description": "Alle 15 Minuten Abgleich auf Deploys (Shopware-Version, Plugins, Theme-Dateien). Bei einer Änderung sofort die Vollprüfung, sonst stündlich die wichtigsten Prüfpunkte und nachts alles inklusive Massendaten. Gemeldet wird, wenn ein Prüfpunkt gelb oder rot wird, nach einem Deploy und zur Entwarnung – nicht bei jedem Lauf erneut.",
+      "teamsOn": "Teams: Meldungen holt n8n ab und postet sie in den Kanal aus den E-Mail-Eingang-Einstellungen.",
+      "teamsPending": "{{count}} Meldung(en) warten auf Abholung durch n8n.",
+      "teamsOff": "Teams: kein Webhook hinterlegt (Einstellungen → E-Mail-Eingang) – Meldungen nur über die Glocke.",
+      "lastFingerprint": "Letzter Deploy-Abgleich: {{at}}",
+      "lastFullRun": "Letzte Vollprüfung: {{at}}",
+      "lastNotice": "Letzte Meldung: {{at}} – {{kind}}",
+      "never": "noch nie",
+      "saved": "Überwachung gespeichert",
+      "saveFailed": "Überwachung konnte nicht gespeichert werden",
+      "notice": {
+        "alert": "Befund",
+        "allClear": "Entwarnung",
+        "deploy": "Deploy erkannt"
+      }
+    }
   }
 }
