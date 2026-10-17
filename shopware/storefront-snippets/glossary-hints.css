@@ -1,0 +1,146 @@
+/* METAorder: Erklär-Hinweise aus dem Regal-Lexikon (siehe glossary-hints.js).
+   Feste px-Werte, weil das META-Theme die Grundschrift auf 10px setzt (1rem = 10px). */
+.meta-gh-term {
+  white-space: nowrap;
+}
+.meta-gh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin: 0 0 0 2px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  vertical-align: middle;
+  cursor: pointer;
+  line-height: 1;
+}
+.meta-gh-btn::before {
+  content: "i";
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1;
+}
+.meta-gh-btn:hover::before,
+.meta-gh-btn.is-open::before {
+  background: #121212;
+  border-color: #121212;
+  color: #fff;
+}
+.meta-gh-btn:focus-visible {
+  outline: 2px solid var(--bs-primary, #ff0002);
+  outline-offset: 1px;
+  border-radius: 50%;
+}
+
+/* Filtertitel: Das „i“ liegt in der Zeile des Aufklapp-Knopfs vor dem Pfeil (ein Knopf im Knopf wäre ungültig);
+   der Pfeil-Bereich hält den Platz frei, die Pfeile bleiben bündig. */
+.filter-panel-item.meta-gh-filter > .filter-panel-item-toggle {
+  grid-row: 1;
+  grid-column: 1;
+}
+.filter-panel-item.meta-gh-filter > .meta-gh-btn {
+  position: relative;
+  z-index: 1;
+  grid-row: 1;
+  grid-column: 1;
+  justify-self: end;
+  align-self: center;
+  margin: 0 14px 0 0;
+}
+.filter-panel-item.meta-gh-filter .icon-filter-panel-item-toggle {
+  padding-left: 32px;
+}
+
+/* Kasten: am Desktop als Tooltip, am Handy (.is-inline) unter der Zeile */
+.meta-gh-box {
+  position: absolute;
+  z-index: 1060;
+  box-sizing: border-box;
+  width: 320px;
+  max-width: calc(100vw - 24px);
+  padding: 14px 40px 14px 16px;
+  border: 1px solid #c6c6c6;
+  background: #fff;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14);
+  color: #121212;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.45;
+  text-align: left;
+  white-space: normal;
+}
+.meta-gh-box.is-inline {
+  position: relative;
+  z-index: auto;
+  width: auto;
+  max-width: none;
+  margin: 8px 0 12px;
+  box-shadow: none;
+}
+.meta-gh-box__term {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.meta-gh-box__text {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+.meta-gh-box__more {
+  color: #121212;
+  font-weight: 600;
+  text-decoration: underline;
+}
+.meta-gh-box__more:hover,
+.meta-gh-box__more:focus-visible {
+  color: #121212;
+  text-decoration: none;
+}
+.meta-gh-box__more:focus-visible,
+.meta-gh-box__close:focus-visible {
+  outline: 2px solid var(--bs-primary, #ff0002);
+  outline-offset: 2px;
+}
+.meta-gh-box__close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #5f5f5f;
+  cursor: pointer;
+}
+.meta-gh-box__close::before {
+  content: "\00d7";
+  font-size: 22px;
+  line-height: 30px;
+}
+.meta-gh-box__close:hover {
+  color: #121212;
+}
+.table > tbody > .meta-gh-row > td {
+  padding-top: 0;
+  background: transparent;
+  box-shadow: none;
+}
+/* Kasten in der Tabelle: füllt die Zeile, verbreitert aber keine Spalte */
+.meta-gh-row .meta-gh-box.is-inline {
+  width: 0;
+  min-width: 100%;
+}

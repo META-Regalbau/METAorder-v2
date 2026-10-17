@@ -24,6 +24,8 @@ export type StorefrontSnippet = {
   file: string;
   script: string;
   protocolPrefix: string;
+  /** Daten vor dem Einspielen ins JS schreiben (z. B. Lexikon-Begriffe für glossary-hints.js) */
+  transformJs?: (js: string) => string;
 };
 
 type Entry = { id: string; name: string; description: string | null; active: boolean; js: string | null; css: string | null; salesChannelIds: string[] };
@@ -123,7 +125,7 @@ async function run(snippet: StorefrontSnippet) {
     name: snippet.name,
     description: `Von METAorder verwaltet (scripts/${snippet.script}). Änderungen hier überschreibt der nächste Lauf.`,
     active: true,
-    js: readFileSync(path.join(SNIPPET_DIR, `${snippet.file}.js`), "utf8"),
+    js: (snippet.transformJs ?? ((js: string) => js))(readFileSync(path.join(SNIPPET_DIR, `${snippet.file}.js`), "utf8")),
     css: readFileSync(path.join(SNIPPET_DIR, `${snippet.file}.css`), "utf8"),
     salesChannelIds: [channel.id],
   };
