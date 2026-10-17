@@ -6,7 +6,10 @@
  *                    META Regalbau DE und META Lagertechnik AT (beide Deutsch, wie die Landingpage Büroregale).
  *   --menu           Menüpunkt „Regal-Lexikon“ in der Hauptnavigation nach „Zubehör“ (Link auf die Seite).
  *                    Die Hauptnavigation teilen sich DE, AT, PL und die Händlerportale.
- *   --seo            Nur die Adresse /regal-lexikon je Kanal prüfen und fehlende setzen (Reparatur).
+ *   --seo            Nur die Adresse /regal-lexikon je Kanal prüfen und fehlende setzen (Reparatur). Live 17.10.2026
+ *                    war die Adresse nach dem Neuschreiben der Branchenseiten (writeIndustryPages.ts) wieder weg –
+ *                    Shopwares Adress-Indexer für Landingpages entfernt sie. Nach jedem Lauf, der Landingpages
+ *                    anlegt oder ersetzt, deshalb --seo --apply ausführen.
  *   --faq            Korrigiert die Agentur-Fragen auf /faq (Fachboden-/Palettenregale) nach landingPageTexts.ts
  *                    (faqFixes): „verschweißt“ → geclincht, „Stecksystem“, Schwerlast-Fragen. Nur die Fragen, sonst nichts.
  *
