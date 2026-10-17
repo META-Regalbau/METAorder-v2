@@ -11,6 +11,8 @@ import { approveCrossSellPairs, approveCrossSellRemovals, keepCrossSellPairs, re
 import { startCrossSellJob } from "../cross-selling/crossSellJobs";
 import { runCandidatesForTenant, runMonthlyReviewForTenant, runBackfillForTenant, runNameRulesForTenant } from "../cross-selling/crossSellScheduler";
 import { getBackfillState, startBackfill, stopBackfill } from "../cross-selling/crossSellBackfill";
+import { proposeSystemAccessories } from "../cross-selling/crossSellSystemAccessories";
+import { getMirrorOrdersLikeLive } from "./routeHelpers";
 import type { CrossSellPairState } from "@shared/schema";
 import { logger } from "../lib/logger";
 
@@ -238,6 +240,55 @@ export function registerCrossSellAutomationRoutes(app: Express): void {
     } catch (error: any) {
       moduleLog.error({ err: error }, "Error stopping cross-selling backfill:");
       res.status(500).json({ error: error.message || "Failed to stop backfill" });
+    }
+  });
+
+  /**
+   * Vorschlag Standardzubehoer je System (aus Bestellungen) und die freigegebene Liste.
+   * Freigeben ueber PUT automation-settings (nameRuleSystemAccessories).
+   */
+  app.get("/api/cross-selling/name-rules/accessory-proposals", requireAuth, requireManageCrossSellingRules, async (req, res) => {
+    try {
+      const tenantId = req.tenantId ?? null;
+      const settings = await storage.getShopwareSettings(tenantId);
+      if (!settings) {
+        return res.status(400).json({ error: "Shopware settings not configured" });
+      }
+      const [{ rows }, orders, automation] = await Promise.all([
+        storage.getShopwareProductMirrors({ includeInactive: true }, tenantId),
+        getMirrorOrdersLikeLive(new ShopwareClient(settings), tenantId),
+        getCrossSellAutomationSettings(storage, tenantId),
+      ]);
+      const products = rows
+        .filter((r) => !(r.payload as { parentId?: string | null } | null)?.parentId)
+        .map((r) => {
+          const p = (r.payload ?? {}) as { properties?: Array<{ groupName?: string; optionName?: string }>; customFields?: Record<string, unknown> | null };
+          return {
+            productNumber: r.productNumber,
+            name: r.name ?? "",
+            active: r.active !== false,
+            regalSystem: p.properties?.find((x) => x.groupName === "Regal-System")?.optionName ?? null,
+            isService: Boolean(p.customFields?.wdu_service_type),
+          };
+        });
+      const since = Date.now() - 730 * 24 * 60 * 60 * 1000;
+      const accessoryOrders = orders
+        .filter((o) => o.status !== "cancelled" && new Date(o.orderDate || 0).getTime() >= since)
+        .map((o) => ({
+          customerKey: o.customerNumber || o.customerEmail || o.orderNumber,
+          productNumbers: (o.items || []).map((i) => i.productNumber).filter((pn): pn is string => !!pn),
+        }));
+      const names = new Map(products.map((p) => [p.productNumber, p.name]));
+      const approved = Object.fromEntries(
+        Object.entries(automation.nameRuleSystemAccessories).map(([sys, list]) => [
+          sys,
+          list.map((pn) => ({ productNumber: pn, name: names.get(pn) ?? null })),
+        ]),
+      );
+      res.json({ proposals: proposeSystemAccessories(products, accessoryOrders), approved });
+    } catch (error: any) {
+      moduleLog.error({ err: error }, "Error building accessory proposals:");
+      res.status(500).json({ error: error.message || "Failed to build accessory proposals" });
     }
   });
 

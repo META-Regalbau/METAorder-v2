@@ -6236,6 +6236,33 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/cross-selling/name-rules/accessory-proposals": {
+    "get": {
+      "tags": [
+        "cross-selling"
+      ],
+      "summary": "GET /api/cross-selling/name-rules/accessory-proposals",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/cross-selling/name-rules/run": {
     "post": {
       "tags": [

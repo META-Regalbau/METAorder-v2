@@ -16,9 +16,10 @@ const moduleLog = logger.child({ component: "cross-selling/crossSellImport" });
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Gruppen, die METAorder (oder fruehere Versionen) angelegt hat; alles andere gilt als Handpflege. */
-export function classifyCrossSellGroupOrigin(groupName: string, managedGroupName: string): CrossSellPairOrigin {
+export function classifyCrossSellGroupOrigin(groupName: string, managedGroupName: string | string[]): CrossSellPairOrigin {
+  const own = (Array.isArray(managedGroupName) ? managedGroupName : [managedGroupName]).map((n) => n.trim());
   const name = groupName.trim();
-  if (name === managedGroupName.trim() || name === SHOPWARE_CROSS_SELLING_STOREFRONT_NAME) return "legacy_metaorder";
+  if (own.includes(name) || name === SHOPWARE_CROSS_SELLING_STOREFRONT_NAME) return "legacy_metaorder";
   if (/^(Auto|Staging) Cross-Selling \(/.test(name)) return "legacy_metaorder";
   return "shopware_manual";
 }
@@ -48,7 +49,7 @@ export function planCrossSellImport(
   groups: CrossSellingGroupWithAssignments[],
   existing: Array<Pick<CrossSellPairState, "sourceProductNumber" | "targetProductNumber" | "status" | "appliedAt" | "lastSeenInShopAt">>,
   catalog: Pick<CrossSellCatalog, "canonicalNumberForId">,
-  managedGroupName: string,
+  managedGroupName: string | string[],
   now: Date,
 ): { live: PairRow[]; keepStatus: PairRow[]; removed: PairRow[]; stats: CrossSellImportStats } {
   const stats: CrossSellImportStats = {
@@ -184,7 +185,13 @@ export async function syncShopAssignmentsIntoMemory(
     loadCrossSellCatalog(storage, args.tenantId, { fresh: true }),
     storage.getCrossSellPairStates({}, args.tenantId),
   ]);
-  const plan = planCrossSellImport(groups, existing, catalog, settings.managedGroupName, args.now ?? new Date());
+  const plan = planCrossSellImport(
+    groups,
+    existing,
+    catalog,
+    [settings.managedGroupName, settings.extendGroupName, settings.partsGroupName],
+    args.now ?? new Date(),
+  );
   const shopColumns: CrossSellPairStateUpdateColumn[] = ["shopRefs", "lastSeenInShopAt", "sourceProductId", "targetProductId"];
   await storage.upsertCrossSellPairStates(plan.live, [...shopColumns, "status", "appliedAt", "removedAt", "cooldownUntil"], args.tenantId);
   await storage.upsertCrossSellPairStates(plan.keepStatus, shopColumns, args.tenantId);

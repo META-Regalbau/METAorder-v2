@@ -18,6 +18,10 @@ type Mode = "off" | "review" | "auto_dry_run" | "auto";
 type Settings = {
   mode: Mode;
   managedGroupName: string;
+  extendGroupName: string;
+  partsGroupName: string;
+  maxTargetsExtendGroup: number;
+  maxTargetsPartsGroup: number;
   maxAutoApplyPerRun: number;
   maxAutoApplyPerSource: number;
   maxTargetsPerManagedGroup: number;
@@ -43,6 +47,8 @@ const NUMBER_FIELDS: Array<{ key: keyof Settings; step: number; group: "limits" 
   { key: "maxAutoApplyPerRun", step: 1, group: "limits" },
   { key: "maxAutoApplyPerSource", step: 1, group: "limits" },
   { key: "maxTargetsPerManagedGroup", step: 1, group: "limits" },
+  { key: "maxTargetsExtendGroup", step: 1, group: "limits" },
+  { key: "maxTargetsPartsGroup", step: 1, group: "limits" },
   { key: "maxNewQueueItemsPerRun", step: 1, group: "limits" },
   { key: "queueMinScore", step: 0.05, group: "limits" },
   { key: "minPairOrders", step: 1, group: "gates" },
@@ -146,6 +152,15 @@ export default function CrossSellAutomationSettings() {
             onChange={(e) => set("managedGroupName", e.target.value)}
           />
           <p className="text-xs text-muted-foreground">{t("crossSellAutomation.managedGroupNameHint")}</p>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="cs-extend-name">{t("crossSellAutomation.extendGroupName")}</Label>
+          <Input id="cs-extend-name" value={draft.extendGroupName} maxLength={80} onChange={(e) => set("extendGroupName", e.target.value)} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="cs-parts-name">{t("crossSellAutomation.partsGroupName")}</Label>
+          <Input id="cs-parts-name" value={draft.partsGroupName} maxLength={80} onChange={(e) => set("partsGroupName", e.target.value)} />
+          <p className="text-xs text-muted-foreground">{t("crossSellAutomation.tabNamesHint")}</p>
         </div>
       </div>
 

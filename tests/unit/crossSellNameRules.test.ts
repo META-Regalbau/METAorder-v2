@@ -33,6 +33,8 @@ describe("buildNameRulePairs", () => {
 
   it("Anbauregal bekommt Grundregal zuerst, dann passendes Zubehör desselben Systems", () => {
     expect(targets("anbau")).toEqual(["partner_shelf:grund", "board:board", "back_wall:back", "side_wall:side"]);
+    expect(pairs.find((p) => p.source === "anbau" && p.target === "grund")?.tab).toBe("extend");
+    expect(pairs.find((p) => p.source === "anbau" && p.target === "board")?.tab).toBe("accessories");
   });
   it("andere Oberfläche, andere Fachlast und anderes System passen nicht", () => {
     expect(targets("grundRal")).toEqual([]);
@@ -45,8 +47,9 @@ describe("buildNameRulePairs", () => {
   it("L+M-Zubehör passt zu MULTISTRONG L", () => {
     expect(targets("msL")).toContain("board:msLM");
   });
-  it("Grenze je Quelle", () => {
-    expect(buildNameRulePairs(products, { maxPerSource: 2 }).filter((p) => p.source === "anbau")).toHaveLength(2);
+  it("Grenze je Quelle und Tab", () => {
+    const limited = buildNameRulePairs(products, { maxPerTab: { accessories: 1 } }).filter((p) => p.source === "anbau");
+    expect(limited.map((p) => `${p.tab}:${p.target}`)).toEqual(["extend:grund", "accessories:board"]);
   });
 });
 
@@ -91,20 +94,21 @@ describe("runNameRuleCrossSelling", () => {
         products.map((p) => ({ id: `id-${p.productNumber}`, productNumber: p.productNumber, name: p.name, active: true, visible: true, description: "", properties: [], metaTitle: null, metaDescription: null, customFields: null })),
       fetchProductCrossSelling: async (pid: string) => groups.get(pid) ?? [],
       fetchCrossSellingAssignments: async (gid: string) => assignments.get(gid) ?? [],
-      createProductCrossSelling: async (pid: string, name: string) => {
-        const id = `g-${pid}`;
-        groups.set(pid, [{ id, name, type: "productList", active: true, position: 1, products: [] }]);
+      createProductCrossSelling: async (pid: string, name: string, _type?: string, position = 1) => {
+        const id = `g-${pid}-${name}`;
+        groups.set(pid, [...(groups.get(pid) ?? []), { id, name, type: "productList", active: true, position, products: [] }]);
         return id;
       },
       syncCrossSellingAssignments: async (gid: string, ops: any) => {
         writes.push(gid);
-        assignments.set(gid, ops.upsert.map((u: any) => ({ id: `as-${u.productId}`, productId: u.productId, position: u.position })));
+        const kept = (assignments.get(gid) ?? []).filter((a) => !ops.deleteIds.includes(a.id));
+        assignments.set(gid, [...kept, ...ops.upsert.map((u: any) => ({ id: `as-${u.productId}`, productId: u.productId, position: u.position }))]);
       },
     };
     const byId = new Map(products.map((p) => [`id-${p.productNumber}`, p.productNumber]));
     const catalog = { byId: new Map(), byNumber: new Map(), canonicalNumber: (n: string) => n, canonicalNumberForId: (id: string) => byId.get(id) ?? null, numberForId: (id: string) => byId.get(id) ?? null } as any;
     const deps = { storage: storage as any, client: client as any, loadCatalog: async () => catalog, settings: DEFAULT_CROSS_SELL_AUTOMATION_SETTINGS };
-    return { deps, runs, log, pairStates, writes };
+    return { deps, runs, log, pairStates, writes, groups, assignments };
   }
 
   it("Testlauf schreibt nichts, protokolliert aber", async () => {
@@ -125,5 +129,137 @@ describe("runNameRuleCrossSelling", () => {
     expect(w.pairStates.some((p) => p.sourceProductNumber === "anbau" && p.targetProductNumber === "grund")).toBe(false);
     expect(w.pairStates.find((p) => p.sourceProductNumber === "anbau" && p.targetProductNumber === "board")).toMatchObject({ origin: "heuristic", status: "applied" });
     expect(w.log.filter((e) => e.action === "add").every((e) => e.mode === "auto")).toBe(true);
+  });
+});
+
+describe("Anreicherung: andere Breiten, Einzelteile, Zubehör mit Maß", () => {
+  const E = {
+    grund: "META CLIP | Fachbodenregal | Grundregal | 2000 x 1000 x 400 mm | Fachlast 150 kg | 5 Ebenen | verzinkt",
+    anbau1000: "META CLIP | Fachbodenregal | Anbauregal | 2000 x 1000 x 400 mm | Fachlast 150 kg | 5 Ebenen | verzinkt",
+    anbau1300: "META CLIP | Fachbodenregal | Anbauregal | 2000 x 1300 x 400 mm | Fachlast 230 kg | 5 Ebenen | verzinkt",
+    anbau750: "META CLIP | Fachbodenregal | Anbauregal | 2000 x 750 x 400 mm | Fachlast 150 kg | 5 Ebenen | verzinkt",
+    anbauTief: "META CLIP | Fachbodenregal | Anbauregal | 2000 x 1300 x 600 mm | Fachlast 230 kg | 5 Ebenen | verzinkt",
+    anbauRal: "META CLIP | Fachbodenregal | Anbauregal | 2000 x 1300 x 400 mm | Fachlast 230 kg | 5 Ebenen | RAL 7035",
+    rahmen: "META CLIP | Ständerrahmen T1N | 2000 x 400 mm | verzinkt",
+    rahmenRal: "META CLIP | Ständerrahmen Vollwand | 2000 x 400 mm | RAL 7035",
+    rahmenHoch: "META CLIP | Ständerrahmen T1N | 2500 x 400 mm | verzinkt",
+    ms150: "META CLIP | Fachboden MS150 | 1000 x 400 mm | verzinkt",
+    ms230: "META CLIP | Fachboden MS230 | 1000 x 400 mm | verzinkt",
+    diag: "META CLIP | Diagonalstab | für Regalbreite 1000 mm | verzinkt",
+    teiler: "META CLIP | Fachteiler durchgehend | 300 x 400 mm | verzinkt | 10 Stück",
+    pal: "META MULTIPAL | Palettenregal | Grundregal | 4400 x 2700 x 1100 mm | Fachlast 470 kg | 3 Ebenen | 9 Paletten | verzinkt",
+    holm: "META MULTIPAL | Holmebene 2700 mm | HN100/20 | RAL 2001",
+    holmKurz: "META MULTIPAL | Holmebene 1825 mm | HN100/20 | RAL 2001",
+    gitter: "META MULTIPAL | Gitterrostboden eingelegt | 2700 x 1100 mm | 1000 kg/m² | feuerverzinkt",
+    durchschub: "META MULTIPAL | Durchschubsicherung light | 2700 mm | LA 100 mm | verzinkt",
+    tiefe: "META MULTIPAL | Tiefenauflage leicht | 1100 mm | verzinkt",
+    palRahmen: "META MULTIPAL | Ständerrahmen | 4400 x 1100 mm | 100/20 | verzinkt",
+    kabel: "META MULTIPAL | Kabeltrommelregal | Grundregal | 4400 x 2700 x 1100 mm | Feldlast 4000 kg | 2 Ebenen | Typ 1 | verzinkt",
+    krag: "META MULTISTRONG M | Kragarmregal | Grundregal | 2500 x 1000 x 800 mm | Armlast 250 kg | doppelseitig | 4+1 Ebenen",
+    staender: "META MULTISTRONG M | Ständer | doppelseitig | 2500 x 800 mm | RAL 5010",
+    staenderEin: "META MULTISTRONG M | Ständer | einseitig | 2500 x 800 mm | RAL 5010",
+    arm: "META MULTISTRONG M | Kragarm | 70/30 | 800 mm | RAL 5010",
+    armL: "META MULTISTRONG L | Kragarm | 40/30 | 800 mm | RAL 5010",
+    sockel: "META MULTISTRONG L+M | Sockelboden | 1000 x 800 mm | verzinkt",
+    spann: "META CLIP | Spannschloss | für CLIP Diagonalstab | verzinkt",
+    klammer: "META CLIP | Profilklammer für Doppelregal | verzinkt",
+  };
+  const prods = Object.entries(E).map(([k, name]) => ({ productNumber: k, name }));
+  const pairs = buildNameRulePairs(prods, {
+    maxPerTab: { extend: 12, accessories: 20, parts: 30 },
+    systemAccessories: { "META CLIP": ["spann", "klammer"] },
+  });
+  const tab = (src: string, t: string) => pairs.filter((p) => p.source === src && p.tab === t).map((p) => p.target);
+
+  it("Regal erweitern: Partner, dann Anbauregale anderer Breite (gleiche Fachlast zuerst); Tiefe und Oberfläche müssen passen", () => {
+    expect(tab("grund", "extend")).toEqual(["anbau1000", "anbau750", "anbau1300"]);
+  });
+  it("Einzelteile: Ständerrahmen in Höhe x Tiefe (gleiche Oberfläche zuerst) und alle Fachböden der Größe", () => {
+    expect(tab("grund", "parts")).toEqual(["rahmen", "rahmenRal", "ms150", "ms230"]);
+  });
+  it("Das passt dazu: Standardzubehör und Zubehör mit Maß; Doppelregal-Teile nicht am Einfachregal", () => {
+    expect(tab("grund", "accessories")).toEqual(["spann", "diag", "teiler"]);
+  });
+  it("Palettenregal: Holmebene der Feldbreite, Gitterrost, Ständerrahmen, Durchschubsicherung, Tiefenauflage", () => {
+    expect(tab("pal", "parts")).toEqual(["palRahmen", "holm", "gitter"]);
+    expect(tab("pal", "accessories")).toEqual(["durchschub", "tiefe"]);
+  });
+  it("Kabeltrommelregal bekommt kein Palettenregal-Zubehör", () => {
+    expect(tab("kabel", "accessories")).toEqual([]);
+  });
+  it("Kragarmregal: Ständer gleicher Seitigkeit, Kragarm gleicher Länge im System, Sockelboden", () => {
+    expect(tab("krag", "parts")).toEqual(["staender", "arm"]);
+    expect(tab("krag", "accessories")).toEqual(["sockel"]);
+  });
+});
+
+describe("Mehrere Tabs im Lauf", () => {
+  it("verschiebt das Partnerregal aus 'Das passt dazu' nach 'Regal erweitern'", async () => {
+    const runs: any[] = [];
+    const groups = new Map<string, any[]>([["id-anbau", [{ id: "g-old", name: "Das passt dazu", type: "productList", active: true, position: 1, products: [] }]]]);
+    const assignments = new Map<string, any[]>([["g-old", [{ id: "as-grund", productId: "id-grund", position: 1 }]]]);
+    const deleted: string[] = [];
+    const created: string[] = [];
+    const client = {
+      fetchProductMetaSources: async () =>
+        products.map((p) => ({ id: `id-${p.productNumber}`, productNumber: p.productNumber, name: p.name, active: true, visible: true, description: "", properties: [], metaTitle: null, metaDescription: null, customFields: null })),
+      fetchProductCrossSelling: async (pid: string) => groups.get(pid) ?? [],
+      fetchCrossSellingAssignments: async (gid: string) => assignments.get(gid) ?? [],
+      createProductCrossSelling: async (pid: string, name: string, _t?: string, position = 1) => {
+        const id = `g-${pid}-${name}`;
+        created.push(`${pid}:${name}:${position}`);
+        groups.set(pid, [...(groups.get(pid) ?? []), { id, name, type: "productList", active: true, position, products: [] }]);
+        return id;
+      },
+      syncCrossSellingAssignments: async (gid: string, ops: any) => {
+        deleted.push(...ops.deleteIds.map((d: string) => `${gid}:${d}`));
+        const kept = (assignments.get(gid) ?? []).filter((a) => !ops.deleteIds.includes(a.id));
+        assignments.set(gid, [...kept, ...ops.upsert.map((u: any) => ({ id: `as-${u.productId}`, productId: u.productId, position: u.position }))]);
+      },
+    };
+    const byId = new Map(products.map((p) => [`id-${p.productNumber}`, p.productNumber]));
+    const catalog = { byId: new Map(), byNumber: new Map(), canonicalNumber: (n: string) => n, canonicalNumberForId: (id: string) => byId.get(id) ?? null, numberForId: (id: string) => byId.get(id) ?? null } as any;
+    const storage = {
+      acquireCrossSellRun: async (a: any) => (runs.push({ id: "r", ...a }), runs[0]),
+      finishCrossSellRun: async () => undefined,
+      getCrossSellPairStates: async () => [],
+      appendCrossSellChangeLog: async () => [],
+      upsertCrossSellPairStates: async () => [],
+    };
+    const out = await runNameRuleCrossSelling(
+      { storage: storage as any, client: client as any, loadCatalog: async () => catalog, settings: DEFAULT_CROSS_SELL_AUTOMATION_SETTINGS },
+      { tenantId: "t", trigger: "manual", dryRun: false },
+    );
+    expect(deleted).toContain("g-old:as-grund");
+    expect(assignments.get("g-id-anbau-Regal erweitern")?.map((a) => a.productId)).toEqual(["id-grund"]);
+    expect(assignments.get("g-old")?.map((a) => a.productId)).toEqual(["id-board", "id-back", "id-side"]);
+    expect(created).toContain("id-anbau:Regal erweitern:2");
+    expect(out.stats?.moved).toBeGreaterThanOrEqual(1);
+  });
+});
+
+import { proposeSystemAccessories } from "../../server/cross-selling/crossSellSystemAccessories";
+
+describe("Standardzubehör-Vorschlag aus Bestellungen", () => {
+  const shelf = (pn: string) => ({ productNumber: pn, name: `META CLIP | Fachbodenregal | Grundregal | 2000 x 1000 x 400 mm | Fachlast 150 kg | ${pn} Ebenen | verzinkt`, active: true, regalSystem: "CLIP", isService: false });
+  const products = [
+    shelf("r1"),
+    shelf("r2"),
+    { productNumber: "spann", name: "META CLIP | Spannschloss | für CLIP Diagonalstab | verzinkt", active: true, regalSystem: "CLIP", isService: false },
+    { productNumber: "rahmen", name: "META CLIP | Ständerrahmen T1N | 2000 x 400 mm | verzinkt", active: true, regalSystem: "CLIP", isService: false },
+    { productNumber: "montage", name: "Montage", active: true, regalSystem: null, isService: true },
+    { productNumber: "fremd", name: "META MULTIPAL | Rammschutzecke | RAL 1003", active: true, regalSystem: "MULTIPAL", isService: false },
+  ];
+  const orders = Array.from({ length: 10 }, (_, i) => ({
+    customerKey: `k${i % 5}`,
+    productNumbers: [i % 2 ? "r1" : "r2", ...(i < 6 ? ["spann", "rahmen", "montage", "fremd"] : [])],
+  }));
+  const res = proposeSystemAccessories(products, orders);
+
+  it("schlägt häufiges Zubehör vor, nicht Teile mit Maß-Regel, Services oder anderes System", () => {
+    expect(res).toHaveLength(1);
+    expect(res[0]).toMatchObject({ system: "META CLIP", shelfOrders: 10 });
+    expect(res[0].items.map((i) => i.productNumber)).toEqual(["spann"]);
+    expect(res[0].items[0]).toMatchObject({ orders: 6, customers: 5, recommended: true });
   });
 });

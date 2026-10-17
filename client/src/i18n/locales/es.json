@@ -6534,7 +6534,8 @@
       "keine_gultigen_zeilen_gefunden": "No se encontraron filas válidas.",
       "nur_eml_oder_msg": "Solo archivos .eml o .msg.",
       "registrierung_nicht_gefunden": "Registro no encontrado.",
-      "originalmail_nicht_vorhanden": "Correo original no disponible."
+      "originalmail_nicht_vorhanden": "Correo original no disponible.",
+      "failed_to_build_accessory_proposals": "No se pudieron calcular las sugerencias de accesorios"
     }
   },
   "roomPlanner": {
@@ -7335,7 +7336,9 @@
       "backfillLlmPerRun": "Llenado inicial: consultas de IA por paso",
       "backfillMaxAutoPerRun": "Llenado inicial: máx. automáticos por paso",
       "backfillMaxAutoPerSource": "Llenado inicial: máx. automáticos por artículo",
-      "backfillMaxQueuePerRun": "Llenado inicial: nuevas entradas de revisión por paso"
+      "backfillMaxQueuePerRun": "Llenado inicial: nuevas entradas de revisión por paso",
+      "maxTargetsExtendGroup": "Máx. productos en «Ampliar estantería»",
+      "maxTargetsPartsGroup": "Máx. productos en «Piezas sueltas»"
     },
     "saved": "Ajustes guardados",
     "saveError": "Error al guardar",
@@ -7350,7 +7353,10 @@
     "reviewRunning": "Revisión en curso …",
     "reviewDone": "Revisión mensual finalizada",
     "reviewSummary": "{{checked}} asignaciones revisadas, {{proposals}} propuestas para eliminar",
-    "reviewError": "Error en la revisión"
+    "reviewError": "Error en la revisión",
+    "extendGroupName": "Nombre de la pestaña «Ampliar estantería»",
+    "partsGroupName": "Nombre de la pestaña «Piezas sueltas»",
+    "tabNamesHint": "Pestañas propias en la tienda para las reglas fijas. Al cambiar el nombre no se renombran las pestañas existentes con el nombre anterior."
   },
   "crossSellLog": {
     "tab": "Registro",
@@ -7392,7 +7398,7 @@
   },
   "crossSellNameRules": {
     "title": "Reglas fijas a partir de los nombres de artículo",
-    "hint": "Añade productos adecuados a la lista «Das passt dazu» sin IA ni estadísticas de pedidos: estantería adicional ↔ estantería base (mismo nombre salvo el tipo) y balda adicional, panel trasero y lateral del mismo sistema con las mismas medidas, carga y superficie. Los pares rechazados no se vuelven a añadir; la revisión mensual no propone eliminar pares de regla por el veredicto de la IA o el efecto.",
+    "hint": "Reglas fijas a partir de los nombres de los artículos, sin IA, solo dentro del mismo sistema: ampliar estantería (estantería pareja y adosadas de otros anchos con la misma altura y fondo), combina con (baldas adicionales, paneles, accesorios con medida y accesorios estándar aprobados) y piezas sueltas (montantes, baldas, largueros, brazos, rejillas).",
     "dryRun": "Prueba",
     "apply": "Escribir ahora en la tienda",
     "confirmApply": "¿Escribir ahora los pares de regla en la tienda? La ejecución se puede deshacer en el registro.",
@@ -7412,8 +7418,17 @@
       "partner_shelf": "Estantería pareja",
       "board": "Balda adicional",
       "back_wall": "Panel trasero",
-      "side_wall": "Panel lateral"
-    }
+      "side_wall": "Panel lateral",
+      "other_width": "estantería adosada de otro ancho",
+      "accessory": "accesorio",
+      "system_accessory": "accesorio estándar",
+      "frame": "bastidor/montante",
+      "shelf_board": "balda",
+      "beam": "nivel de largueros",
+      "arm": "brazo voladizo",
+      "grating": "rejilla/paneles"
+    },
+    "tabs": "Ampliar estantería {{extend}} · Combina con {{accessories}} · Piezas sueltas {{parts}} · movidos {{moved}}"
   },
   "crossSellMonthly": {
     "title": "Revisiones mensuales",
@@ -7664,5 +7679,20 @@
       "articleInactive": "El artículo {{number}} no está activo en el canal META Regalbau DE",
       "articleNoPrice": "El artículo {{number}} no tiene precio"
     }
+  },
+  "crossSellSystemAccessories": {
+    "title": "Accesorios estándar por sistema",
+    "hint": "Accesorios sin medida (p. ej. tensor, soportes de balda, protección antichoque) que se piden a menudo con estanterías de un sistema. Selecciónelos y apruébelos una vez; después, la siguiente ejecución de reglas los añade en «Combina con» a todas las estanterías del sistema. Las piezas para estanterías dobles solo van a estanterías dobles.",
+    "load": "Mostrar sugerencias",
+    "approve": "Aprobar selección",
+    "empty": "No hay sugerencias de los pedidos.",
+    "shelfOrders": "{{count}} pedidos con estantería",
+    "approved": "aprobado",
+    "stats": "en el {{share}} de los pedidos, {{customers}} clientes",
+    "addPlaceholder": "Elegir otro artículo",
+    "add": "Añadir",
+    "saved": "Accesorios estándar aprobados",
+    "savedHint": "Se aplica en la siguiente ejecución de reglas.",
+    "saveError": "Error al aprobar"
   }
 }
