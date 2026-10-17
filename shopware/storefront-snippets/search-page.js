@@ -111,8 +111,7 @@ var MetaSearchPage = (function () {
       phone: '02932 957-0',
       phoneHref: 'tel:+4929329570',
       hours: 'Montag bis Freitag, 8:15 bis 16:30 Uhr',
-      email: 'digital-service@meta-online.com',
-      configuratorHref: 'https://metacalc.meta-online.com/'
+      email: 'digital-service@meta-online.com'
     }
   };
 
@@ -295,13 +294,6 @@ var MetaSearchPage = (function () {
     actions.appendChild(link('meta-search-help__mail', 'mailto:' + c.email, c.email));
     contact.appendChild(actions);
     contact.appendChild(el('p', 'meta-search-help__hours', c.hours));
-    var config = el('p', 'meta-search-help__config');
-    config.appendChild(document.createTextNode('Regal selbst zusammenstellen: '));
-    var cl = link(null, c.configuratorHref, 'Produktkonfigurator');
-    cl.target = '_blank';
-    cl.rel = 'noopener';
-    config.appendChild(cl);
-    contact.appendChild(config);
     section.appendChild(contact);
     return section;
   }
