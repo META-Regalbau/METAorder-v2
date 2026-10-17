@@ -1,8 +1,9 @@
 /**
  * Spielt den Regal-Schnellkonfigurator in den Shop ein (shopware/storefront-snippets/quick-configurator.js
- * + .css): Formular auf /regal-schnellkonfigurator, Einstiegskasten auf der Fachbodenregal-Seite und den
- * CLIP-Listen, Link auf den Produktseiten der CLIP-Regale. Die Seite selbst und die Artikeltabelle schreibt
- * scripts/writeQuickConfiguratorPage.ts.
+ * + .css): Formular auf /regal-schnellkonfigurator (Fachboden-, Paletten-, Weitspann-, Kragarm-, Großfach- und
+ * Büroregale), kleines Formular auf der Startseite, Einstiegskasten auf den Seiten und Listen der Regalarten,
+ * Link auf den Produktseiten der Grund- und Anbauregale. Seite, Artikeltabelle und Startseiten-Abschnitt
+ * schreibt scripts/writeQuickConfiguratorPage.ts.
  * Ablauf, Protokoll und Rückbau: scripts/lib/storefrontSnippetEntry.ts.
  *
  * Aufruf (im App-Container):

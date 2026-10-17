@@ -289,3 +289,43 @@
 .meta-qc-product__text {
   color: #5f5f5f;
 }
+.meta-qc__plan .meta-qc__hint {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
+/* Startseite: kleines Formular, führt zur Konfigurator-Seite */
+.meta-qc-home__form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px 16px;
+  align-items: end;
+  color: #121212;
+  font-size: 15px;
+}
+.meta-qc-home .form-select,
+.meta-qc-home .form-control {
+  height: 44px;
+  font-size: 15px;
+}
+.meta-qc-home__actions {
+  display: flex;
+  align-items: end;
+}
+.meta-qc-home__submit,
+.meta-qc-home__form > .btn {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 20px;
+  font-size: 15px;
+}
+@media (max-width: 575px) {
+  .meta-qc-home__form {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .meta-qc-home__field:first-child,
+  .meta-qc-home__actions {
+    grid-column: 1 / -1;
+  }
+}
