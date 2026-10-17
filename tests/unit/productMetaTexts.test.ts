@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  isServiceArticle,
   descriptionText,
   metaReasonHint,
   pickStyleExamples,
@@ -227,5 +228,12 @@ describe("runProductMetaTexts", () => {
     expect(summary.written).toBe(0);
     expect(summary.rejected).toBe(1);
     expect(summary.rejectedExamples[0].reason).toBe("title_length_1");
+  });
+
+  it("Service-Artikel (wdu_service_type) sind von den automatischen Meta-Texten ausgenommen", () => {
+    const svc = product({ productNumber: "stapler", name: "Mitnahmestapler", customFields: { wdu_service_type: "forklift" } } as any);
+    expect(isServiceArticle(svc)).toBe(true);
+    expect(isServiceArticle(product({ productNumber: "1" }))).toBe(false);
+    expect(selectMetaCandidates([{ ...svc, metaTitle: null, metaDescription: null } as any]).candidates).toHaveLength(0);
   });
 });

@@ -15,6 +15,7 @@
 import { createHash } from "crypto";
 import { readFileSync, writeFileSync } from "fs";
 import { storage } from "../server/storage";
+import { isServiceArticle } from "../server/products/productMetaTexts";
 import { ShopwareClient } from "../server/shopware/shopware";
 import type { DescriptionRow } from "../server/products/productDescriptionTexts";
 import type { ProductDescriptionUpdate } from "../server/shopware/client/productMeta";
@@ -73,6 +74,7 @@ async function main(): Promise<void> {
       notInShop += 1;
       continue;
     }
+    if (isServiceArticle(p)) continue; // Service-Artikel: Texte von Hand (User 17.10.2026)
     const current = norm(p.description);
     const marker = p.customFields?.[MARKER] as { hash?: string } | undefined;
     if (current === norm(row.html)) {

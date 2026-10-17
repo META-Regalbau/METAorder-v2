@@ -114,10 +114,19 @@ export type MetaSelection = {
   unchanged: number;
 };
 
+/**
+ * Service-Artikel (Montage, Terminzustellung, Ladebordwand, Mitnahmestapler, Mindermengenzuschlag …) tragen
+ * das Feld wdu_service_type. Sie beschreiben eine Leistung, kein Produkt – ihre Texte werden von Hand gepflegt
+ * und von den automatischen Textlaeufen ausgenommen (User 17.10.2026).
+ */
+export function isServiceArticle(product: { customFields?: Record<string, unknown> | null }): boolean {
+  return Boolean(product.customFields?.wdu_service_type);
+}
+
 export function selectMetaCandidates(products: ProductMetaSource[]): MetaSelection {
   const selection: MetaSelection = { products: 0, candidates: [], keptManualTitle: 0, keptManualDescription: 0, unchanged: 0 };
   for (const product of products) {
-    if (!product.active || !product.visible || !product.name) continue;
+    if (!product.active || !product.visible || !product.name || isServiceArticle(product)) continue;
     selection.products += 1;
     const marker = readMarker(product);
     const sourceHash = productSourceHash(product);

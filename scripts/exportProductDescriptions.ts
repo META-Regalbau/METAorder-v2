@@ -12,6 +12,7 @@
 import { appendFileSync, existsSync, readFileSync } from "fs";
 import * as XLSX from "xlsx";
 import { storage } from "../server/storage";
+import { isServiceArticle } from "../server/products/productMetaTexts";
 import { ShopwareClient } from "../server/shopware/shopware";
 import {
   CLOSING_SENTENCES,
@@ -40,7 +41,7 @@ async function main(): Promise<void> {
   if (!settings) throw new Error(`Keine Shopware-Settings für ${tenantId}`);
   const client = new ShopwareClient(settings);
   const products = (await client.fetchProductMetaSources())
-    .filter((p) => p.active && p.visible && p.name)
+    .filter((p) => p.active && p.visible && p.name && !isServiceArticle(p)) // Service-Artikel: Texte von Hand
     .sort((a, b) => a.productNumber.localeCompare(b.productNumber));
 
   const done = new Map<string, DescriptionRow>();
