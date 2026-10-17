@@ -7855,7 +7855,7 @@
   },
   "shopPulse": {
     "title": "Shop-Puls",
-    "subtitle": "Meldet, was im Onlineshop nicht gut läuft: Kritisches sofort als Teams-Direktnachricht, alles andere im Tagesbericht ab 8 Uhr. Bisher prüft er den Bestellabgleich; Umsatz, Kaufbarkeit und GA4 folgen.",
+    "subtitle": "Meldet, was im Onlineshop nicht gut läuft: Kritisches sofort als Teams-Direktnachricht, alles andere im Tagesbericht ab 8 Uhr. Bisher prüft er Bestellabgleich und Umsatz; Kaufbarkeit und GA4 folgen.",
     "runNow": "Jetzt prüfen",
     "running": "Prüft …",
     "runDone": "Prüfung abgeschlossen",
@@ -7865,7 +7865,7 @@
     "settings": {
       "title": "Einstellungen",
       "enable": "Shop-Puls einschalten",
-      "enableHint": "Prüft alle 15 Minuten. Tagesbericht Montag bis Samstag ab 8 Uhr, nur wenn Meldungen offen sind.",
+      "enableHint": "Prüft alle 15 Minuten. Tagesbericht Montag bis Samstag ab 8 Uhr mit den Zahlen von gestern (montags vom Wochenende) und den offenen Meldungen.",
       "saved": "Gespeichert",
       "saveFailed": "Speichern fehlgeschlagen",
       "learning": "Lernwoche bis {{date}}: Meldungen werden gesammelt, aber nicht gesendet.",
@@ -7938,6 +7938,26 @@
       "mirrorError": {
         "title": "Bestellabgleich mit dem Shop schlägt fehl",
         "message": "Seit {{minutes}} Minuten kein erfolgreicher Abgleich der Bestellungen. Letzter Fehler: {{error}}"
+      },
+      "orderGap": {
+        "title": "Heute noch keine Shop-Bestellung",
+        "message": "Bis jetzt ist heute keine Bestellung im Onlineshop eingegangen. An den letzten 8 gleichen Wochentagen kamen bis 15 Uhr im Schnitt {{expected}}. Bitte Shop, Kasse und Zahlarten prüfen."
+      },
+      "paymentGone": {
+        "title": "Zahlart „{{method}}“ seit {{days}} Tagen ohne Bestellung",
+        "message": "Sonst kommen im Schnitt {{perWeek}} Bestellungen pro Woche mit „{{method}}“, in den letzten {{days}} Tagen keine. Bitte prüfen, ob die Zahlart im Shop angeboten wird und funktioniert."
+      },
+      "weekOrdersDown": {
+        "title": "Deutlich weniger Shop-Bestellungen (−{{pct}} %)",
+        "message": "{{from}} bis {{to}}: {{current}} Bestellungen, in den 4 Wochen davor im Schnitt {{expected}} pro Woche. Vorjahreswoche: {{yearOrders}}."
+      },
+      "weekRevenueDown": {
+        "title": "Deutlich weniger Shop-Umsatz (−{{pct}} %)",
+        "message": "{{from}} bis {{to}}: {{current}} Umsatz, in den 4 Wochen davor im Schnitt {{expected}} pro Woche. Vorjahreswoche: {{yearRevenue}}."
+      },
+      "weekAovDown": {
+        "title": "Ø-Bestellwert deutlich gesunken (−{{pct}} %)",
+        "message": "{{from}} bis {{to}}: im Schnitt {{current}} pro Bestellung, in den 4 Wochen davor {{expected}}."
       }
     },
     "detectors": {
@@ -7948,8 +7968,12 @@
       "failed": "fehlgeschlagen: {{error}}",
       "findings": "{{count}} Fund(e)",
       "names": {
-        "mirrorFreshness": "Bestellabgleich (Spiegel-Frische)"
-      }
+        "mirrorFreshness": "Bestellabgleich (Spiegel-Frische)",
+        "orderGap": "Bestell-Lücke (heute bis 15 Uhr)",
+        "paymentGone": "Zahlarten (7 Tage ohne Bestellung)",
+        "weekComparison": "Woche gegen Vorwochen und Vorjahr"
+      },
+      "skipped": "ausgesetzt, solange der Bestellabgleich hängt"
     },
     "notify": {
       "since": "Seit",
@@ -7968,7 +7992,14 @@
       "more": "… und {{count}} weitere",
       "testTitle": "Shop-Puls: Testnachricht",
       "testText": "Die Direktnachricht funktioniert ({{at}}). Ab jetzt kommen hier die Meldungen des Shop-Puls an.",
-      "bellPrefix": "Shop-Puls"
+      "bellPrefix": "Shop-Puls",
+      "numbersYesterday": "Gestern ({{date}})",
+      "numbersWeekend": "Wochenende ({{from}} bis {{to}})",
+      "numbersLine": "{{orders}} Shop-Bestellung(en) · {{revenue}} · Ø {{aov}}",
+      "numbersPrev": "Schnitt der 4 Wochen davor: {{orders}} Bestellung(en) · {{revenue}}",
+      "numbersYear": "Vorjahr: {{orders}} Bestellung(en) · {{revenue}}",
+      "numbersNoYear": "Vorjahr: keine Daten",
+      "dailyNone": "Keine offenen Meldungen."
     }
   }
 }

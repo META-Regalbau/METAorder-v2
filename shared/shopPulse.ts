@@ -8,7 +8,7 @@
  */
 import { isAllowedTeamsWebhookUrl } from "./emailIntake";
 
-/** Woher ein Fund kommt; PR A bringt nur „system“, Umsatz/Kaufbarkeit/GA4 folgen (PR B–E) */
+/** Woher ein Fund kommt; Kaufbarkeit und GA4 folgen (PR C–E) */
 export const SHOP_PULSE_SOURCES = ["system", "revenue", "buyability", "ga4"] as const;
 export type ShopPulseSource = (typeof SHOP_PULSE_SOURCES)[number];
 
@@ -20,8 +20,11 @@ export const SHOP_PULSE_STATUSES = ["open", "resolved"] as const;
 export type ShopPulseStatus = (typeof SHOP_PULSE_STATUSES)[number];
 
 /** Fund-Arten (je eine Übersetzung shopPulse.codes.<code>) */
-export const SHOP_PULSE_CODES = ["mirrorStale", "mirrorError"] as const;
+export const SHOP_PULSE_CODES = ["mirrorStale", "mirrorError", "orderGap", "paymentGone", "weekOrdersDown", "weekRevenueDown", "weekAovDown"] as const;
 export type ShopPulseCode = (typeof SHOP_PULSE_CODES)[number];
+
+/** Prüfungen in Lauf-Reihenfolge (server/shopPulse/detectors); die Seite zeigt sie so an */
+export const SHOP_PULSE_DETECTOR_IDS = ["mirrorFreshness", "orderGap", "paymentGone", "weekComparison"] as const;
 
 export const SEVERITY_RANK: Record<ShopPulseSeverity, number> = { warning: 1, critical: 2 };
 
@@ -101,7 +104,8 @@ export type ShopPulseState = {
   lastTickAt?: string;
   /** Kalendertag (Berlin) des letzten Tagesberichts */
   lastDailyReportDay?: string;
-  detectors?: Record<string, { at: string; ok: boolean; error?: string; findings: number }>;
+  /** skipped "mirror": ausgesetzt, weil der Bestellabgleich hängt */
+  detectors?: Record<string, { at: string; ok: boolean; error?: string; skipped?: "mirror"; findings: number }>;
 };
 
 /** Antwort von GET /api/shop-pulse */
@@ -113,3 +117,35 @@ export type ShopPulseOverview = {
   teamsPending: number;
   running: boolean;
 };
+
+/** Parameter, die vor dem Einsetzen formatiert werden (Seite in der Sprache der Oberfläche, Teams deutsch) */
+const PARAM_KINDS: Partial<Record<ShopPulseCode, Record<string, "money" | "date" | "number">>> = {
+  orderGap: { expected: "number" },
+  paymentGone: { perWeek: "number" },
+  weekOrdersDown: { from: "date", to: "date", current: "number", expected: "number", yearOrders: "number" },
+  weekRevenueDown: { from: "date", to: "date", current: "money", expected: "money", yearRevenue: "money" },
+  weekAovDown: { from: "date", to: "date", current: "money", expected: "money" },
+};
+
+export type ShopPulseParamFormatters = {
+  money: (v: number) => string;
+  date: (isoDay: string) => string;
+  number: (v: number) => string;
+};
+
+export function formatShopPulseParams(
+  code: ShopPulseCode,
+  params: Record<string, string | number>,
+  f: ShopPulseParamFormatters,
+): Record<string, string | number> {
+  const kinds = PARAM_KINDS[code];
+  if (!kinds) return params;
+  const out: Record<string, string | number> = { ...params };
+  for (const [name, kind] of Object.entries(kinds)) {
+    const v = params[name];
+    if (v === undefined || v === null || v === "") continue;
+    if (kind === "date") out[name] = f.date(String(v));
+    else if (typeof v === "number") out[name] = kind === "money" ? f.money(v) : f.number(v);
+  }
+  return out;
+}

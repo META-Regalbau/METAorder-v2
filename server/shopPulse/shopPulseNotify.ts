@@ -4,9 +4,10 @@
  * und Teams dasselbe sagen.
  */
 import deLocale from "../../client/src/i18n/locales/de.json";
-import type { ShopPulseSignal } from "@shared/shopPulse";
+import { formatShopPulseParams, type ShopPulseSignal } from "@shared/shopPulse";
 import { adaptiveCardMessage, teamsPlain } from "../lib/teamsOutbox";
 import type { ShopPulseNotice } from "./shopPulseSignals";
+import type { DailyNumbers } from "./detectors/revenue";
 
 export const SHOP_PULSE_PAGE_PATH = "/admin/shop-puls";
 /** So viele Meldungen stehen höchstens im Tagesbericht */
@@ -23,8 +24,6 @@ const t = (path: string, params?: Record<string, string | number>): string => {
   return typeof value === "string" ? interpolate(value, params) : path;
 };
 
-export const signalTitle = (s: Pick<ShopPulseSignal, "code" | "params">) => t(`codes.${s.code}.title`, s.params);
-export const signalMessage = (s: Pick<ShopPulseSignal, "code" | "params">) => t(`codes.${s.code}.message`, s.params);
 
 const BERLIN_TIME = new Intl.DateTimeFormat("de-DE", {
   timeZone: "Europe/Berlin",
@@ -36,6 +35,29 @@ const BERLIN_TIME = new Intl.DateTimeFormat("de-DE", {
 });
 const BERLIN_DATE = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric" });
 const EURO = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+
+const INTEGER = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 });
+const DECIMAL1 = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 });
+const dayDate = (isoDay: string) => BERLIN_DATE.format(new Date(`${isoDay}T12:00:00Z`));
+
+const params = (s: Pick<ShopPulseSignal, "code" | "params">) =>
+  formatShopPulseParams(s.code, s.params, { money: (v) => EURO.format(v), date: dayDate, number: (v) => INTEGER.format(v) });
+
+export const signalTitle = (s: Pick<ShopPulseSignal, "code" | "params">) => t(`codes.${s.code}.title`, params(s));
+export const signalMessage = (s: Pick<ShopPulseSignal, "code" | "params">) => t(`codes.${s.code}.message`, params(s));
+
+/** Zahlen von gestern (montags vom Wochenende) mit Vergleich, je Zeile ein Text */
+export function dailyNumbersLines(n: DailyNumbers): string[] {
+  const head =
+    n.period === "weekend"
+      ? t("notify.numbersWeekend", { from: dayDate(n.days[0]), to: dayDate(n.days[n.days.length - 1]) })
+      : t("notify.numbersYesterday", { date: dayDate(n.days[0]) });
+  return [
+    `${head}: ${t("notify.numbersLine", { orders: INTEGER.format(n.current.orders), revenue: EURO.format(n.current.revenue), aov: EURO.format(n.current.aov) })}`,
+    t("notify.numbersPrev", { orders: DECIMAL1.format(n.previous4.orders), revenue: EURO.format(n.previous4.revenue) }),
+    n.yearAgo ? t("notify.numbersYear", { orders: INTEGER.format(n.yearAgo.orders), revenue: EURO.format(n.yearAgo.revenue) }) : t("notify.numbersNoYear"),
+  ];
+}
 
 const ICON = { critical: "🔴", warning: "🟡", resolved: "✅" } as const;
 
@@ -73,12 +95,25 @@ export function buildShopPulseNoticeCard(notice: ShopPulseNotice, baseUrl: strin
 }
 
 /** Tagesbericht: offene Meldungen, kritisch zuerst (Reihenfolge kommt sortiert an) */
-export function buildShopPulseDailyCard(signals: ShopPulseSignal[], now: Date, baseUrl: string | null): Record<string, unknown> {
+export function buildShopPulseDailyCard(
+  signals: ShopPulseSignal[],
+  now: Date,
+  baseUrl: string | null,
+  numbers: DailyNumbers | null = null,
+): Record<string, unknown> {
   const critical = signals.filter((s) => s.severity === "critical").length;
   const body: Record<string, unknown>[] = [
     { type: "TextBlock", text: t("notify.dailyTitle", { date: BERLIN_DATE.format(now) }), weight: "Bolder", size: "Medium", wrap: true },
-    { type: "TextBlock", text: t("notify.dailySummary", { count: signals.length, critical }), wrap: true },
   ];
+  if (numbers) {
+    dailyNumbersLines(numbers).forEach((line, i) => body.push({ type: "TextBlock", text: line, wrap: true, spacing: i ? "None" : "Small", ...(i ? { isSubtle: true } : {}) }));
+  }
+  body.push({
+    type: "TextBlock",
+    text: signals.length ? t("notify.dailySummary", { count: signals.length, critical }) : t("notify.dailyNone"),
+    wrap: true,
+    spacing: "Medium",
+  });
   for (const s of signals.slice(0, MAX_LISTED)) {
     const loss = s.lossPerHour ? ` (${t("notify.lossValue", { amount: EURO.format(s.lossPerHour) })})` : "";
     body.push({ type: "TextBlock", text: `${ICON[s.severity]} ${teamsPlain(signalTitle(s), 200)}${loss}`, wrap: true, spacing: "Small" });
@@ -108,10 +143,16 @@ export function buildShopPulseBellText(notice: ShopPulseNotice): { title: string
   };
 }
 
-export function buildShopPulseDailyBellText(signals: ShopPulseSignal[], now: Date): { title: string; message: string } {
+export function buildShopPulseDailyBellText(signals: ShopPulseSignal[], now: Date, numbers: DailyNumbers | null = null): { title: string; message: string } {
   const critical = signals.filter((s) => s.severity === "critical").length;
   return {
     title: t("notify.dailyTitle", { date: BERLIN_DATE.format(now) }),
-    message: [t("notify.dailySummary", { count: signals.length, critical }), ...signals.slice(0, 3).map((s) => `- ${signalTitle(s)}`)].join("\n").slice(0, 1000),
+    message: [
+      ...(numbers ? dailyNumbersLines(numbers).slice(0, 1) : []),
+      signals.length ? t("notify.dailySummary", { count: signals.length, critical }) : t("notify.dailyNone"),
+      ...signals.slice(0, 3).map((s) => `- ${signalTitle(s)}`),
+    ]
+      .join("\n")
+      .slice(0, 1000),
   };
 }

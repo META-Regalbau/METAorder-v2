@@ -7858,7 +7858,7 @@
   },
   "shopPulse": {
     "title": "Shop pulse",
-    "subtitle": "Reports what is not going well in the online shop: critical issues immediately as a Teams direct message, everything else in the daily report from 8 am. So far it checks the order sync; revenue, buyability and GA4 follow.",
+    "subtitle": "Reports what is not going well in the online shop: critical issues immediately as a Teams direct message, everything else in the daily report from 8 am. So far it checks the order sync and revenue; buyability and GA4 follow.",
     "runNow": "Check now",
     "running": "Checking …",
     "runDone": "Check finished",
@@ -7868,7 +7868,7 @@
     "settings": {
       "title": "Settings",
       "enable": "Turn on shop pulse",
-      "enableHint": "Checks every 15 minutes. Daily report Monday to Saturday from 8 am, only when alerts are open.",
+      "enableHint": "Checks every 15 minutes. Daily report Monday to Saturday from 8 am with yesterday's figures (on Mondays the weekend) and the open alerts.",
       "saved": "Saved",
       "saveFailed": "Saving failed",
       "learning": "Learning week until {{date}}: alerts are collected but not sent.",
@@ -7941,6 +7941,26 @@
       "mirrorError": {
         "title": "Order sync with the shop is failing",
         "message": "No successful order sync for {{minutes}} minutes. Last error: {{error}}"
+      },
+      "orderGap": {
+        "title": "No shop order yet today",
+        "message": "No online shop order has come in today so far. On the last 8 same weekdays an average of {{expected}} arrived by 3 pm. Please check the shop, checkout and payment methods."
+      },
+      "paymentGone": {
+        "title": "Payment method “{{method}}” without orders for {{days}} days",
+        "message": "Usually about {{perWeek}} orders per week use “{{method}}”, none in the last {{days}} days. Please check whether the payment method is offered in the shop and works."
+      },
+      "weekOrdersDown": {
+        "title": "Clearly fewer shop orders (−{{pct}} %)",
+        "message": "{{from}} to {{to}}: {{current}} orders, an average of {{expected}} per week in the 4 weeks before. Same week last year: {{yearOrders}}."
+      },
+      "weekRevenueDown": {
+        "title": "Clearly less shop revenue (−{{pct}} %)",
+        "message": "{{from}} to {{to}}: {{current}} revenue, an average of {{expected}} per week in the 4 weeks before. Same week last year: {{yearRevenue}}."
+      },
+      "weekAovDown": {
+        "title": "Average order value clearly lower (−{{pct}} %)",
+        "message": "{{from}} to {{to}}: {{current}} per order on average, {{expected}} in the 4 weeks before."
       }
     },
     "detectors": {
@@ -7951,8 +7971,12 @@
       "failed": "failed: {{error}}",
       "findings": "{{count}} finding(s)",
       "names": {
-        "mirrorFreshness": "Order sync (mirror freshness)"
-      }
+        "mirrorFreshness": "Order sync (mirror freshness)",
+        "orderGap": "Order gap (today until 3 pm)",
+        "paymentGone": "Payment methods (7 days without orders)",
+        "weekComparison": "Week vs. previous weeks and last year"
+      },
+      "skipped": "paused while the order sync is stuck"
     },
     "notify": {
       "since": "Since",
@@ -7971,7 +7995,14 @@
       "more": "… and {{count}} more",
       "testTitle": "Shop pulse: test message",
       "testText": "The direct message works ({{at}}). Shop pulse alerts will arrive here from now on.",
-      "bellPrefix": "Shop pulse"
+      "bellPrefix": "Shop pulse",
+      "numbersYesterday": "Yesterday ({{date}})",
+      "numbersWeekend": "Weekend ({{from}} to {{to}})",
+      "numbersLine": "{{orders}} shop order(s) · {{revenue}} · avg. {{aov}}",
+      "numbersPrev": "Average of the 4 weeks before: {{orders}} order(s) · {{revenue}}",
+      "numbersYear": "Last year: {{orders}} order(s) · {{revenue}}",
+      "numbersNoYear": "Last year: no data",
+      "dailyNone": "No open alerts."
     }
   }
 }
