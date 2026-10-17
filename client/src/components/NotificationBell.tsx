@@ -1,4 +1,4 @@
-import { Bell, Ticket, FileEdit, MessageSquare, Clock, RefreshCw, ListChecks, Calculator } from "lucide-react";
+import { Bell, Ticket, FileEdit, MessageSquare, Clock, RefreshCw, ListChecks, Calculator, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -69,6 +69,8 @@ export function NotificationBell() {
         return <ListChecks className={iconClass} />;
       case "draft_margin_approval":
         return <Calculator className={iconClass} />;
+      case "shop_watch":
+        return <ShieldCheck className={iconClass} />;
       default:
         return <Bell className={iconClass} />;
     }

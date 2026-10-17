@@ -19,6 +19,7 @@ import { seedDatabase } from "./seedData";
 import { startCrossSellScheduler } from "./cross-selling/crossSellScheduler";
 import { startProductImageTextsScheduler } from "./products/productImageTextsJobs";
 import { startProductMetaTextsScheduler } from "./products/productMetaTextsJobs";
+import { startShopWatchScheduler } from "./shopContent/shopWatchScheduler";
 import { runOfferLearning } from "./offers/offerLearning";
 import { pollInboundEmails } from "./email/emailInbound";
 import { runDunningJob } from "./invoicing/dunningJob";
@@ -226,6 +227,8 @@ function startSystemLog() {
   startProductImageTextsScheduler(storage);
   // Meta-Title/-Description der Artikel (KI): Tageslauf je Mandant, wenn eingeschaltet
   startProductMetaTextsScheduler(storage);
+  // Shop-Wächter: Deploy-Abgleich alle 15 Min., stündliche und nächtliche Prüfung, wenn eingeschaltet
+  startShopWatchScheduler(storage);
 
   const runOfferLearningJob = async () => {
     try {

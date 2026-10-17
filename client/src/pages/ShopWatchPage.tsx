@@ -1,27 +1,33 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle2, ExternalLink, Loader2, Play, Rocket, ShieldCheck, Target, XCircle } from "lucide-react";
+import { AlertTriangle, BellRing, CheckCircle2, ExternalLink, Loader2, Paintbrush, Play, Rocket, ShieldCheck, Target, XCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
   SHOP_WATCH_GROUPS,
+  classifyDeployChanges,
   type ShopWatchCheckResult,
   type ShopWatchDeployChange,
   type ShopWatchFinding,
+  type ShopWatchNotice,
   type ShopWatchRun,
+  type ShopWatchSettings,
   type ShopWatchStatus,
 } from "@shared/shopWatch";
 
 /**
  * Shop-Wächter (nur Administratoren): sind die Inhalte, die METAorder in den Shop geschrieben hat, noch da
  * und sichtbar (z. B. nach einem Deploy der Agentur)? Ampel je Prüfpunkt, Befunde, Reparatur-Weg.
- * Schritt 1 von 4 (Konzept 17.10.2026): nur prüfen; Zeitplan, Meldung und Reparatur folgen.
+ * Schritte 1–2 von 4 (Konzept 17.10.2026): prüfen, Zeitplan und Meldungen (Teams über n8n, Glocke);
+ * Reparatur folgt.
  * Server: server/routes/shopWatchRoutes.ts, Prüfkatalog server/shopContent/shopWatchChecks.ts.
  */
 
@@ -31,6 +37,14 @@ type WatchResponse = {
   history: HistoryEntry[];
   baseline: { takenAt: string; counts: Record<string, number>; categories: number } | null;
   running: boolean;
+  settings: ShopWatchSettings;
+  schedule: {
+    lastFingerprintAt: string | null;
+    lastFullRunAt: string | null;
+    lastNotice: ShopWatchNotice | null;
+    teamsConfigured: boolean;
+    teamsPending: number;
+  };
 };
 
 const QUERY_KEY = ["/api/shop-content/watch"];
@@ -75,9 +89,20 @@ export default function ShopWatchPage() {
     onError: (error: Error) => toast({ title: t("shopWatch.baselineFailed"), description: error.message, variant: "destructive" }),
   });
 
+  const settingsMutation = useMutation({
+    mutationFn: async (settings: ShopWatchSettings) => apiRequest("PUT", "/api/shop-content/watch/settings", settings),
+    onSuccess: () => {
+      toast({ title: t("shopWatch.schedule.saved") });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+    },
+    onError: (error: Error) => toast({ title: t("shopWatch.schedule.saveFailed"), description: error.message, variant: "destructive" }),
+  });
+
   const statusText = (s: ShopWatchStatus) => t(`shopWatch.status.${s}`);
   const findingText = (f: ShopWatchFinding) => t(`shopWatch.findings.${f.code}`, { ...(f.params ?? {}) });
   const changeText = (c: ShopWatchDeployChange) => t(`shopWatch.deploy.${c.field}`, { before: c.before, after: c.after });
+  const orNever = (iso: string | null | undefined) => (iso ? date(iso) : t("shopWatch.schedule.never"));
+  const changeKind = (changes: ShopWatchDeployChange[]) => classifyDeployChanges(changes);
 
   const statusBadge = (s: ShopWatchStatus) => (
     <Badge
@@ -165,6 +190,52 @@ export default function ShopWatchPage() {
         </div>
       </div>
 
+      {data ? (
+        <Card className="p-4 space-y-3" data-testid="shop-watch-schedule">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-1 max-w-3xl">
+              <h2 className="font-semibold flex items-center gap-2">
+                <BellRing className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                {t("shopWatch.schedule.title")}
+              </h2>
+              <p className="text-xs text-muted-foreground">{t("shopWatch.schedule.description")}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                id="shop-watch-enabled"
+                checked={data.settings.enabled}
+                disabled={settingsMutation.isPending}
+                onCheckedChange={(enabled) => settingsMutation.mutate({ enabled })}
+                data-testid="switch-shop-watch-enabled"
+              />
+              <Label htmlFor="shop-watch-enabled">{t("shopWatch.schedule.enable")}</Label>
+            </div>
+          </div>
+          <ul className="text-sm space-y-1">
+            <li className={data.schedule.teamsConfigured ? "" : "text-amber-700 dark:text-amber-300"} data-testid="text-shop-watch-teams">
+              {data.schedule.teamsConfigured ? t("shopWatch.schedule.teamsOn") : t("shopWatch.schedule.teamsOff")}
+              {data.schedule.teamsConfigured && data.schedule.teamsPending > 0
+                ? ` ${t("shopWatch.schedule.teamsPending", { count: data.schedule.teamsPending })}`
+                : null}
+            </li>
+            {data.settings.enabled ? (
+              <li className="flex flex-wrap gap-x-6 gap-y-1 text-muted-foreground">
+                <span>{t("shopWatch.schedule.lastFingerprint", { at: orNever(data.schedule.lastFingerprintAt) })}</span>
+                <span>{t("shopWatch.schedule.lastFullRun", { at: orNever(data.schedule.lastFullRunAt) })}</span>
+                {data.schedule.lastNotice ? (
+                  <span data-testid="text-shop-watch-last-notice">
+                    {t("shopWatch.schedule.lastNotice", {
+                      at: date(data.schedule.lastNotice.at),
+                      kind: t(`shopWatch.schedule.notice.${data.schedule.lastNotice.kind}`),
+                    })}
+                  </span>
+                ) : null}
+              </li>
+            ) : null}
+          </ul>
+        </Card>
+      ) : null}
+
       {query.isLoading ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -192,9 +263,16 @@ export default function ShopWatchPage() {
           {run.deployChanges.length > 0 ? (
             <Card className="p-4 space-y-2 border-amber-400" role="status" data-testid="shop-watch-deploy">
               <h2 className="font-semibold flex items-center gap-2">
-                <Rocket className="h-4 w-4" aria-hidden="true" />
-                {t("shopWatch.deployDetected")}
+                {changeKind(run.deployChanges) === "themeRebuilt" ? (
+                  <Paintbrush className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <Rocket className="h-4 w-4" aria-hidden="true" />
+                )}
+                {changeKind(run.deployChanges) === "themeRebuilt" ? t("shopWatch.themeRebuiltBadge") : t("shopWatch.deployDetected")}
               </h2>
+              {changeKind(run.deployChanges) === "themeRebuilt" ? (
+                <p className="text-xs text-muted-foreground">{t("shopWatch.themeRebuiltHint")}</p>
+              ) : null}
               <ul className="text-sm space-y-1">
                 {run.deployChanges.map((c, i) => (
                   <li key={i} className="break-words">{changeText(c)}</li>
@@ -238,7 +316,12 @@ export default function ShopWatchPage() {
                     <span>{date(h.startedAt)}</span>
                     <span className="text-muted-foreground">{t(`shopWatch.trigger.${h.trigger}`)}</span>
                     <span className="text-muted-foreground">{t("shopWatch.historyCounts", { failed: h.failed, warned: h.warned })}</span>
-                    {h.deployChanges.length > 0 ? <Badge variant="outline">{t("shopWatch.deployBadge")}</Badge> : null}
+                    {changeKind(h.deployChanges) === "deploy" ? <Badge variant="outline">{t("shopWatch.deployBadge")}</Badge> : null}
+                    {changeKind(h.deployChanges) === "themeRebuilt" ? (
+                      <Badge variant="outline" className="border-amber-400 text-amber-900 dark:text-amber-200">
+                        {t("shopWatch.themeRebuiltBadge")}
+                      </Badge>
+                    ) : null}
                   </li>
                 ))}
               </ul>
