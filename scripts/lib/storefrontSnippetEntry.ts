@@ -8,28 +8,20 @@
  * Ohne --apply nur Testlauf. Mit --apply Protokoll (Stand vorher); --revert stellt ihn wieder her
  * bzw. löscht den Eintrag. Schreibt nur in Shops mit „test.“ in der URL, außer mit --live.
  */
-import { createHash } from "crypto";
 import { readFileSync, writeFileSync } from "fs";
 import path from "path";
 import { storage } from "../../server/storage";
+import { snippetEntryId, type StorefrontSnippetDef } from "../../server/shopContent/shopEntityIds";
 import { findDeChannel, shopApi, type ShopApi } from "../../server/shopContent/shopProducts";
 
 const SNIPPET_DIR = path.resolve(import.meta.dirname, "..", "..", "shopware", "storefront-snippets");
 
-export type StorefrontSnippet = {
-  /** Grundlage der festen Eintrags-ID (md5), nie ändern – sonst entsteht ein zweiter Eintrag. */
-  key: string;
-  name: string;
-  /** Dateiname ohne Endung in shopware/storefront-snippets (.js und .css). */
-  file: string;
-  script: string;
-  protocolPrefix: string;
-};
+export type StorefrontSnippet = StorefrontSnippetDef;
 
 type Entry = { id: string; name: string; description: string | null; active: boolean; js: string | null; css: string | null; salesChannelIds: string[] };
 type Protocol = { tenantId: string; at: string; base: string; before: Entry | null };
 
-export const entryId = (key: string) => createHash("md5").update(key).digest("hex");
+export const entryId = snippetEntryId;
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(name);

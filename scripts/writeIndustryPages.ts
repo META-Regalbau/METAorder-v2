@@ -28,14 +28,13 @@ import { storage } from "../server/storage";
 import { INDUSTRY_PAGES, referencedNumbers, type IndustryPage } from "../server/products/industryPages";
 import { IndustryPageHtml, homeTeaserHtml, industryPageCss, type IndustryShopProduct } from "../server/products/industryPageHtml";
 import { HOME_SECTION_IDS, HOME_SECTION_MARKERS, monduSectionHtml, rabattSectionHtml } from "../server/products/homeSections";
+import { industryEntityId } from "../server/shopContent/shopEntityIds";
 import { DE_CHANNEL_NAME, DE_LANG, findDeChannel, loadIndustryShopProducts, productProblemText, shopApi } from "../server/shopContent/shopProducts";
 
 const ALL_DEVICES = { mobile: true, tablet: true, desktop: true };
 const NO_MARGINS = { marginTop: "0", marginBottom: "0", marginLeft: "0", marginRight: "0" };
 const SLIDER_MARGINS = { marginTop: "0", marginBottom: "20px", marginLeft: "20px", marginRight: "20px" };
 
-/** Feste ID je Branche und Teil – ein zweiter Lauf findet seine eigenen Entitäten wieder. */
-export const industryEntityId = (key: string, part: string) => createHash("md5").update(`metaorder-industry:${key}:${part}`).digest("hex");
 
 type Protocol = {
   tenantId: string;

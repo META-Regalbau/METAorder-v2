@@ -242,7 +242,8 @@
     "b2bUsers": "Usuarios B2B",
     "portalRegistrations": "Registros del portal",
     "systemLog": "Registro del sistema",
-    "shopContent": "Contenidos de la tienda"
+    "shopContent": "Contenidos de la tienda",
+    "shopWatch": "Vigilante de la tienda"
   },
   "shopFakturen": {
     "title": "Importación de facturas SAP",
@@ -6535,7 +6536,11 @@
       "nur_eml_oder_msg": "Solo archivos .eml o .msg.",
       "registrierung_nicht_gefunden": "Registro no encontrado.",
       "originalmail_nicht_vorhanden": "Correo original no disponible.",
-      "failed_to_build_accessory_proposals": "No se pudieron calcular las sugerencias de accesorios"
+      "failed_to_build_accessory_proposals": "No se pudieron calcular las sugerencias de accesorios",
+      "failed_to_load_shop_watch_state": "No se pudo cargar el estado del vigilante de la tienda",
+      "shop_watch_run_already_in_progress": "Ya hay una comprobación del vigilante en curso",
+      "failed_to_save_shop_watch_baseline": "No se pudo guardar el estado objetivo",
+      "no_shop_watch_run_yet": "Aún no hay comprobación: primero «Comprobar ahora»"
     }
   },
   "roomPlanner": {
@@ -7699,5 +7704,112 @@
     "saved": "Accesorios estándar aprobados",
     "savedHint": "Se aplica en la siguiente ejecución de reglas.",
     "saveError": "Error al aprobar"
+  },
+  "shopWatch": {
+    "title": "Vigilante de la tienda",
+    "subtitle": "Comprueba si todo lo que METAorder ha escrito en la tienda sigue ahí y se muestra, por ejemplo tras un despliegue de la agencia. Se comprueba mediante la API de Shopware y las páginas reales de la tienda. Solo lectura.",
+    "loading": "Cargando estado …",
+    "loadError": "No se pudo cargar el estado.",
+    "empty": "Aún no hay comprobación. Empiece con «Comprobar ahora»: la primera ejecución será el estado objetivo.",
+    "runNow": "Comprobar ahora",
+    "running": "Comprobación en curso …",
+    "runStarted": "Comprobación iniciada",
+    "runFailed": "No se pudo iniciar la comprobación",
+    "takeBaseline": "Usar como objetivo",
+    "baselineSaved": "El estado actual es ahora el estado objetivo",
+    "baselineFailed": "No se pudo guardar el estado objetivo",
+    "lastRun": "Última comprobación {{at}} ({{trigger}})",
+    "baselineInfo": "Estado objetivo del {{at}}, {{categories}} categorías con textos",
+    "noBaseline": "Aún no hay estado objetivo",
+    "deployDetected": "Cambio en Shopware, plugins o tema desde la comprobación anterior",
+    "deployBadge": "Despliegue detectado",
+    "deploy": {
+      "shopwareVersion": "Versión de Shopware: {{before}} → {{after}}",
+      "plugins": "Plugins eliminados/antiguos: {{before}} · nuevos: {{after}}",
+      "themeAsset": "Tema regenerado: {{before}} → {{after}}"
+    },
+    "history": "Historial",
+    "historyCounts": "{{failed}} en rojo, {{warned}} en amarillo",
+    "noFindings": "Todo en orden",
+    "target": "Objetivo {{n}}",
+    "trigger": {
+      "manual": "manual",
+      "schedule": "programada",
+      "deploy": "tras despliegue"
+    },
+    "status": {
+      "ok": "OK",
+      "warn": "Revisar",
+      "fail": "Falta",
+      "error": "Comprobación fallida"
+    },
+    "columns": {
+      "status": "Estado",
+      "check": "Punto de control",
+      "findings": "Hallazgo",
+      "count": "Cantidad",
+      "repair": "Reparación"
+    },
+    "repair": {
+      "auto": "Volver a escribir",
+      "manual": "Revisar primero, luego volver a escribir",
+      "none": "Corregir a mano"
+    },
+    "groups": {
+      "own": {
+        "title": "Contenidos propios",
+        "hint": "Creados por METAorder (ID fijos). Si falta algo, se vuelve a escribir."
+      },
+      "agency": {
+        "title": "Contenidos de la agencia modificados",
+        "hint": "Contenidos de la agencia que hemos modificado. Antes de volver a escribirlos, aclare si la agencia los cambió a propósito."
+      },
+      "bulk": {
+        "title": "Datos masivos",
+        "hint": "Textos y asignaciones en muchos artículos, comparados con el estado objetivo (basta una vez al día)."
+      },
+      "platform": {
+        "title": "Plugins",
+        "hint": "Plugins de la agencia en los que se basan nuestros contenidos."
+      }
+    },
+    "kinds": {
+      "snippet": "Módulo «CSS/JS propio»",
+      "quickConfigPage": "Página del configurador rápido",
+      "quickConfigHome": "Configurador rápido en la página de inicio",
+      "industryPage": "Página sectorial",
+      "industryHome": "Teaser sectorial en la página de inicio",
+      "homeSection": "Sección de la página de inicio",
+      "categoryFields": "Textos de categoría",
+      "listingDefaults": "Listados de categoría",
+      "redirect": "Direcciones",
+      "imageTexts": "Textos de imagen",
+      "metaTexts": "Metatextos",
+      "descriptions": "Descripciones de producto",
+      "crossSelling": "Pestañas de venta cruzada",
+      "montageTag": "Etiqueta de montaje",
+      "plugins": "Plugins necesarios"
+    },
+    "findings": {
+      "entityMissing": "{{entity}} «{{name}}» falta en la tienda",
+      "entityInactive": "{{entity}} «{{name}}» está inactivo",
+      "channelMissing": "«{{name}}» ya no está asignado al canal META Regalbau DE",
+      "differsFromRepo": "El contenido de «{{name}}» difiere del repositorio (cambiado en la tienda o nueva versión aún no aplicada)",
+      "assetMarkerMissing": "El {{asset}} compilado del tema no contiene «{{marker}}»: el módulo no se entrega",
+      "pageStatus": "{{path}} responde con estado {{status}}",
+      "pageMarkerMissing": "{{path}}: falta la marca «{{marker}}»",
+      "pageTextMissing": "{{path}}: el texto «{{text}} …» no se muestra",
+      "redirectWrong": "{{path}} no redirige con 301 a {{to}} (estado {{status}}, destino {{location}})",
+      "countDropped": "Menos que en el estado objetivo: {{after}} en lugar de {{before}}",
+      "fieldsChanged": "{{n}} categorías con textos modificados: {{names}}",
+      "fieldsEmpty": "{{n}} categorías sin textos: {{ids}}",
+      "overwritten": "{{n}} sobrescritos (estado objetivo {{before}})",
+      "settingChanged": "Se ha cambiado el ajuste {{setting}} (ahora {{value}})",
+      "filterVisible": "{{path}}: el filtro «{{filter}}» vuelve a ser visible",
+      "pluginMissing": "El plugin {{name}} no está instalado",
+      "pluginInactive": "El plugin {{name}} está desactivado",
+      "checkFailed": "Comprobación fallida: {{message}}"
+    },
+    "showCommand": "Mostrar comando"
   }
 }
