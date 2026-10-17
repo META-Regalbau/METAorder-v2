@@ -1,19 +1,19 @@
 /*
- * METAorder: Regal-Schnellkonfigurator für META CLIP und META CLIP S3 Fachbodenregale.
+ * METAorder: Regal-Schnellkonfigurator für Fachboden-, Paletten-, Weitspann-, Kragarm-, Großfach- und Büroregale.
  *
  * Quelle: shopware/storefront-snippets/quick-configurator.js im METAorder-Repo.
  * Eingespielt über das Plugin „Eigenes CSS/JS" (DneCustomCssJs) per
  * scripts/writeQuickConfigurator.ts. Änderungen im Shop-Admin überschreibt der nächste Lauf.
  *
- * Drei Stellen im Shop:
+ * Vier Stellen im Shop:
  * - Seite /regal-schnellkonfigurator (Erlebniswelt aus scripts/writeQuickConfiguratorPage.ts):
- *   Höhe, Feldbreite, Tiefe, Fachlast, Farbe, Bauform und verfügbare Länge eingeben. Das Skript
- *   stellt die Regalzeile aus 1 Grundregal und n Anbauregalen zusammen (so lang wie möglich, nie
- *   länger als angegeben), zeigt bei Bedarf eine Zeile mit gemischten Feldbreiten, holt die Preise in
- *   der Sitzung des Kunden von den Produktseiten (Händler- und Kundenpreise stimmen) und legt alles
- *   mit einem Klick in den Warenkorb.
- * - Einstiegskasten auf der Fachbodenregal-Seite und den CLIP-Listen.
- * - Produktseite eines CLIP-Regals: Link zum Konfigurator mit den Maßen des Artikels.
+ *   Regalart, Maße, Last und verfügbare Länge eingeben. Das Skript stellt die Regalzeile aus
+ *   1 Grundregal und n Anbauregalen zusammen (so lang wie möglich, nie länger als angegeben), zeigt bei
+ *   Bedarf eine Zeile mit gemischten Feldbreiten, holt die Preise in der Sitzung des Kunden von den
+ *   Produktseiten (Händler- und Kundenpreise stimmen) und legt alles mit einem Klick in den Warenkorb.
+ * - Startseite: kleines Formular (Abschnitt aus writeQuickConfiguratorPage.ts --home), das zur Seite führt.
+ * - Einstiegskasten auf den Seiten und Listen der Regalarten.
+ * - Produktseite eines Grund- oder Anbauregals: Link zum Konfigurator mit den Maßen des Artikels.
  *
  * Die Artikeltabelle (Datei in den Shop-Medien) steht im Attribut data-catalog der Seite und wird
  * nur dort geladen. Fehler bleiben still: ohne Tabelle erscheint ein Hinweis statt des Formulars.
@@ -22,26 +22,88 @@ var MetaQuickConfigurator = (function () {
   'use strict';
 
   var CONFIG = {
-    version: '1',
+    version: '2',
     // Nur der Onlineshop „META Regalbau DE" (gleiche ID im Testshop und im Live-Shop).
     salesChannelIds: ['018ec134507f703b82a76467791e7e61'],
     pagePath: '/regal-schnellkonfigurator',
-    teaserPaths: ['/fachbodenregale', '/clip-grundregale', '/clip-anbauregale', '/clip-komplettregale'],
-    // Breite eines Ständerrahmens; Gesamtlänge = Feldbreiten + (Felder + 1) × Rahmen (wie im Regalplaner).
-    postMm: 40,
     // Gemischte Feldbreiten nur zeigen, wenn die Zeile damit spürbar länger wird.
     minMixGainMm: 100,
     maxFields: 60,
     maxLines: 4,
-    timeoutMs: 10000,
-    productName: /^META CLIP( S3)? \| Fachbodenregal \| (Doppel-)?(Grund|Anbau)regal \|/
+    timeoutMs: 10000
   };
 
+  /*
+   * Gesamtlänge einer Zeile = start + Summe(Feldbreite + per).
+   * - CLIP/COMPACT: 40 mm je Ständerrahmen (wie im Regalplaner) → start 40, per 40
+   * - MINI-RACK laut Katalog S. 114: Grundregal = Nennlänge + 107 mm, Anbauregal = Nennlänge + 51 mm
+   * - MULTISTRONG: Achsmaß = Feldbreite + 30 mm (Katalog: 1.030/1.330 mm) plus Ständerbreite
+   *   (IPE 120: 64 mm bei LIGHT, IPE 140: 73 mm bei MEDIUM)
+   * - MULTIPAL: Stützenbreite je Artikel aus dem Shop (Stützentyp „85/20" → 85 mm), steht in der Tabelle
+   */
+  var RULES = {
+    'META CLIP': { start: 40, per: 40 },
+    'META CLIP S3': { start: 40, per: 40 },
+    'META CLIP COMPACT': { start: 40, per: 40 },
+    'META CLIP COMPACT S3': { start: 40, per: 40 },
+    'META MINI-RACK': { start: 56, per: 51 },
+    'META MULTISTRONG L': { start: 64, per: 30 },
+    'META MULTISTRONG M': { start: 73, per: 30 }
+  };
+
+  var KINDS = {
+    fachboden: {
+      label: 'Fachbodenregal', type: 'Fachbodenregal', systems: ['META CLIP', 'META CLIP S3'],
+      sides: ['Einzelregal', 'Doppelregal'], width: 'Feldbreite', depth: 'Tiefe', load: 'Fachlast',
+      defaults: { h: 2000, b: 1000, t: 500, load: 150 }, tipping: true,
+      paths: ['/fachbodenregale', '/clip-grundregale', '/clip-anbauregale', '/clip-komplettregale'],
+      lengthNote: 'Gesamtlänge gerechnet mit 40 mm je Ständerrahmen.'
+    },
+    palette: {
+      label: 'Palettenregal', type: 'Palettenregal', systems: ['META MULTIPAL'],
+      width: 'Holmlänge', depth: 'Tiefe', load: 'Fachlast', pallet: true,
+      defaults: { h: 3300, b: 2700, t: 1100, weight: 800 }, minFields: 4,
+      paths: ['/palettenregale', '/multipal-grundregale', '/multipal-anbauregale'],
+      lengthNote: 'Gesamtlänge gerechnet mit der Stützenbreite des Ständerrahmens (Stützentyp).'
+    },
+    weitspann: {
+      label: 'Weitspannregal', type: 'Weitspannregal', systems: ['META MINI-RACK'],
+      width: 'Fachlänge', depth: 'Tiefe', load: 'Fachlast',
+      defaults: { h: 2500, b: 1800, t: 800, load: 490 }, tipping: true, minFields: 4,
+      paths: ['/weitspannregale', '/mini-rack-grundregale', '/mini-rack-anbauregale'],
+      lengthNote: 'Gesamtlänge nach Planmaß laut META-Katalog: Grundregal = Fachlänge + 107 mm, Anbauregal = Fachlänge + 51 mm.'
+    },
+    kragarm: {
+      label: 'Kragarmregal', type: 'Kragarmregal', systems: ['META MULTISTRONG L', 'META MULTISTRONG M'],
+      sides: ['einseitig', 'doppelseitig'], width: 'Feldbreite', depth: 'Armlänge', load: 'Armlast',
+      defaults: { h: 2500, b: 1000, t: 500, load: 175 },
+      paths: ['/kragarmregale', '/multistrong-grundregale', '/multistrong-anbauregale'],
+      lengthNote: 'Gesamtlänge aus dem Achsmaß (Feldbreite + 30 mm) plus Ständerbreite (IPE 120: 64 mm, IPE 140: 73 mm).'
+    },
+    grossfach: {
+      label: 'Großfachregal', type: 'Großfachregal', systems: ['META MULTIPAL'],
+      width: 'Fachlänge', depth: 'Tiefe', load: 'Fachlast',
+      defaults: { h: 2700, b: 1825, t: 800, load: 1000 }, minFields: 4,
+      paths: [],
+      lengthNote: 'Gesamtlänge gerechnet mit der Stützenbreite des Ständerrahmens (Profil).'
+    },
+    buero: {
+      label: 'Büroregal', type: 'Büro-Steckregal', systems: ['META CLIP COMPACT', 'META CLIP COMPACT S3'],
+      width: 'Fachbreite', depth: 'Tiefe', load: 'Fachlast',
+      defaults: { h: 2200, b: 1000, t: 300, load: 80 },
+      paths: ['/bueroregale', '/compact-grundregale', '/compact-anbauregale'],
+      lengthNote: 'Gesamtlänge gerechnet mit 40 mm je Ständerrahmen.'
+    }
+  };
+  var KIND_ORDER = ['fachboden', 'palette', 'weitspann', 'kragarm', 'grossfach', 'buero'];
+
   var TEXT = {
-    surface: { 'verzinkt': 'Verzinkt', 'RAL 7035': 'RAL 7035 lichtgrau', 'RAL 9005': 'RAL 9005 tiefschwarz' },
+    surface: { 'verzinkt': 'Verzinkt', 'RAL 7035': 'RAL 7035 lichtgrau', 'RAL 9005': 'RAL 9005 tiefschwarz', 'RAL 5010': 'RAL 5010 enzianblau' },
     frame: {
       'META CLIP': 'Rahmen vorgefertigt (geclincht), fertig montiert geliefert',
-      'META CLIP S3': 'Zerlegter S3-Rahmen, ohne Werkzeug zusammengesteckt'
+      'META CLIP S3': 'Zerlegter S3-Rahmen, ohne Werkzeug zusammengesteckt',
+      'META MULTISTRONG L': 'MULTISTRONG LIGHT, Ständer IPE 120',
+      'META MULTISTRONG M': 'MULTISTRONG MEDIUM, Ständer IPE 140'
     },
     // Laut META-Katalog (S. 23, 29)
     bracing: {
@@ -69,8 +131,17 @@ var MetaQuickConfigurator = (function () {
     return Math.round(n);
   }
 
+  function parseWeight(raw) {
+    var n = toNumber(String(raw == null ? '' : raw).toLowerCase().replace(/kg$/, ''));
+    return isFinite(n) && n > 0 ? Math.round(n) : null;
+  }
+
+  function formatNumber(n) {
+    return new Intl.NumberFormat('de-DE').format(Math.round(n));
+  }
+
   function formatMm(mm) {
-    return new Intl.NumberFormat('de-DE').format(Math.round(mm)) + ' mm';
+    return formatNumber(mm) + ' mm';
   }
 
   function formatPrice(value) {
@@ -82,88 +153,143 @@ var MetaQuickConfigurator = (function () {
   }
 
   function decodeCatalog(raw) {
-    if (!raw || raw.v !== 1 || !Array.isArray(raw.items)) return [];
+    if (!raw || !Array.isArray(raw.items)) return [];
+    if (raw.v === 1) {
+      // Erste Fassung: nur CLIP/CLIP S3 Fachbodenregale
+      return raw.items.map(function (r) {
+        var role = raw.roles[r[2]] || '';
+        return {
+          id: r[0], kind: 'fachboden', system: raw.systems[r[1]], role: role, double: role.indexOf('Doppel-') === 0,
+          base: /Grundregal$/.test(role), h: r[3], b: r[4], t: r[5], load: r[6], levels: raw.levels[r[7]], pallets: 0,
+          surface: raw.surfaces[r[9]], board: null, feature: r[8] === 1 ? 'Längsriegel' : null, post: 0
+        };
+      });
+    }
+    if (raw.v !== 2) return [];
     return raw.items.map(function (r) {
-      var role = raw.roles[r[2]] || '';
+      var role = raw.roles[r[3]] || '';
       return {
         id: r[0],
-        system: raw.systems[r[1]],
+        kind: raw.kinds[r[1]],
+        system: raw.systems[r[2]],
         role: role,
-        double: role.indexOf('Doppel-') === 0,
+        double: r[11] === 1,
         base: /Grundregal$/.test(role),
-        h: r[3],
-        b: r[4],
-        t: r[5],
-        load: r[6],
-        levels: raw.levels[r[7]],
-        lr: r[8] === 1,
-        surface: raw.surfaces[r[9]]
+        h: r[4],
+        b: r[5],
+        t: r[6],
+        load: r[7],
+        levels: raw.levels[r[8]],
+        pallets: r[9],
+        surface: r[10] >= 0 ? raw.surfaces[r[10]] : null,
+        board: r[12] >= 0 ? raw.boards[r[12]] : null,
+        feature: r[13] >= 0 ? raw.features[r[13]] : null,
+        post: r[14] || 0
       };
-    });
+    }).filter(function (i) { return KINDS[i.kind] && (i.post || RULES[i.system]); });
   }
 
-  function rowLength(widths) {
-    var sum = widths.reduce(function (n, w) { return n + w; }, 0);
-    return sum + (widths.length + 1) * CONFIG.postMm;
+  // Rechenregel für die Gesamtlänge (Stützenbreite des Artikels vor der Regel des Systems).
+  function ruleFor(item) {
+    if (item && item.post) return { start: item.post, per: item.post };
+    return (item && RULES[item.system]) || RULES['META CLIP'];
+  }
+
+  function rowLength(widths, rule) {
+    rule = rule || RULES['META CLIP'];
+    return widths.reduce(function (n, w) { return n + w + rule.per; }, rule.start);
   }
 
   // Größte Feldzahl mit gleicher Breite, die in die Länge passt (0, wenn nicht einmal ein Feld passt).
-  function fieldCount(length, width) {
-    var n = Math.floor((length - CONFIG.postMm) / (width + CONFIG.postMm));
+  function fieldCount(length, width, rule) {
+    rule = rule || RULES['META CLIP'];
+    var n = Math.floor((length - rule.start) / (width + rule.per));
     return Math.max(0, Math.min(CONFIG.maxFields, n));
   }
 
+  function unique(values) {
+    return values.filter(function (v, i) { return v != null && values.indexOf(v) === i; });
+  }
+
   function sortNumbers(values) {
-    return values.filter(function (v, i) { return values.indexOf(v) === i; }).sort(function (a, b) { return a - b; });
+    return unique(values).sort(function (a, b) { return a - b; });
   }
 
-  // Auswahlwerte je Bauform aus der Tabelle.
-  function choices(items, double) {
-    var list = items.filter(function (i) { return i.double === !!double; });
+  // Nötige Last: bei Palettenregalen das Gewicht je Palette (die „Fachlast" im Namen der MULTIPAL-
+  // Palettenregale gilt je Palettenplatz: 980 kg ↔ max. Fachlast 2.930 kg je Ebene mit 3 Paletten),
+  // sonst die gewählte Last.
+  function requiredLoad(item, q) {
+    if (KINDS[q.kind] && KINDS[q.kind].pallet) return q.weight || 0;
+    return q.load || 0;
+  }
+
+  function ofKind(items, kind, double) {
+    return items.filter(function (i) { return i.kind === kind && (double == null || i.double === !!double); });
+  }
+
+  // Auswahlwerte je Regalart und Bauform aus der Tabelle.
+  function choices(items, kind, double) {
+    var list = ofKind(items, kind, double);
     var pick = function (key) { return list.map(function (i) { return i[key]; }); };
-    var surfaces = pick('surface').filter(function (v, i, a) { return a.indexOf(v) === i; });
+    var surfaces = unique(pick('surface'));
     surfaces.sort(function (a, b) { return (a === 'verzinkt' ? 0 : 1) - (b === 'verzinkt' ? 0 : 1) || a.localeCompare(b); });
-    return { h: sortNumbers(pick('h')), b: sortNumbers(pick('b')), t: sortNumbers(pick('t')), load: sortNumbers(pick('load')), surface: surfaces };
+    return {
+      double: unique(ofKind(items, kind).map(function (i) { return i.double; })).sort(),
+      h: sortNumbers(pick('h')),
+      b: sortNumbers(pick('b')),
+      t: sortNumbers(pick('t')),
+      load: sortNumbers(pick('load')),
+      surface: surfaces,
+      board: unique(pick('board')).sort()
+    };
   }
 
-  function lineKey(i) {
-    return [i.system, i.lr ? 'lr' : 'd', i.levels, i.load].join('|');
+  function variantKey(i) {
+    return [i.system, i.feature || '', i.levels, i.board || '', i.pallets].join('|');
   }
 
-  // Ausführungen (System, Verstrebung, Ebenen, Fachlast), in denen es Grund- und Anbauregal in der Breite gibt.
-  function findLines(items, q) {
+  function matches(i, q) {
+    return i.kind === q.kind && i.double === !!q.double && i.h === q.h && i.t === q.t &&
+      (i.surface || null) === (q.surface || null) && (i.board || null) === (q.board || null);
+  }
+
+  // Ausführungen (System, Ausstattung, Ebenen, Böden, Last), in denen es Grund- und Anbauregal in der Breite gibt.
+  // Ohne allLoads je Ausführung nur die kleinste passende Last.
+  function findLines(items, q, allLoads) {
     var groups = {};
     items.forEach(function (i) {
-      if (i.double !== !!q.double || i.h !== q.h || i.t !== q.t || i.surface !== q.surface || i.load < q.load) return;
-      var key = lineKey(i);
-      var g = groups[key] || (groups[key] = { key: key, system: i.system, lr: i.lr, levels: i.levels, load: i.load, base: {}, add: {} });
+      if (!matches(i, q) || i.load < requiredLoad(i, q)) return;
+      var key = variantKey(i) + '|' + i.load;
+      var g = groups[key] || (groups[key] = { key: key, variant: variantKey(i), system: i.system, feature: i.feature, levels: i.levels, board: i.board, pallets: i.pallets, load: i.load, base: {}, add: {} });
       (i.base ? g.base : g.add)[i.b] = i;
     });
-    // Höhere Fachlast nur als Ersatz: je System, Verstrebung und Ebenen die kleinste passende.
+    // Höhere Last nur als Ersatz: je Ausführung die kleinste passende.
     var lowest = {};
     var lines = Object.keys(groups).map(function (k) { return groups[k]; })
       .filter(function (g) { return g.base[q.b] && g.add[q.b]; });
     lines.forEach(function (g) {
-      var variant = [g.system, g.lr, g.levels].join('|');
-      if (lowest[variant] == null || g.load < lowest[variant]) lowest[variant] = g.load;
+      if (lowest[g.variant] == null || g.load < lowest[g.variant]) lowest[g.variant] = g.load;
     });
     return lines
-      .filter(function (g) { return g.load === lowest[[g.system, g.lr, g.levels].join('|')]; })
+      .filter(function (g) { return allLoads || g.load === lowest[g.variant]; })
       .map(function (g) {
-        return { key: g.key, system: g.system, lr: g.lr, levels: g.levels, load: g.load, base: g.base[q.b], add: g.add[q.b], adds: g.add };
+        return {
+          key: g.key, system: g.system, feature: g.feature, lr: g.feature === 'Längsriegel', levels: g.levels, board: g.board,
+          pallets: g.pallets, load: g.load, base: g.base[q.b], add: g.add[q.b], rule: ruleFor(g.base[q.b])
+        };
       })
       .sort(function (a, b) {
-        return (a.load - b.load) || ((a.lr ? 1 : 0) - (b.lr ? 1 : 0)) || a.system.localeCompare(b.system) || b.levels.localeCompare(a.levels);
+        return (a.load - b.load) || ((a.feature ? 1 : 0) - (b.feature ? 1 : 0)) || a.system.localeCompare(b.system) || b.levels.localeCompare(a.levels);
       });
   }
 
-  // Anbauregale anderer Breiten für gemischte Zeilen: gleiches System, gleiche Verstrebung, Höhe, Tiefe und
-  // Farbe, Fachlast mindestens wie gewünscht (gleiche Fachlast, dann gleiche Ebenen bevorzugt).
+  // Anbauregale anderer Breiten für gemischte Zeilen: gleiches System, gleiche Ausstattung, Höhe, Tiefe,
+  // Farbe und Böden, gleiche Stützenbreite, Last mindestens wie gewünscht (gleiche Last, dann gleiche Ebenen bevorzugt).
   function mixAdds(items, line, q) {
     var best = {};
     items.forEach(function (i) {
-      if (i.base || i.double !== !!q.double || i.system !== line.system || i.lr !== line.lr) return;
-      if (i.h !== q.h || i.t !== q.t || i.surface !== q.surface || i.load < q.load || i.b === q.b) return;
+      if (i.base || !matches(i, q) || i.system !== line.system || (i.feature || null) !== (line.feature || null)) return;
+      if (i.b === q.b || i.load < requiredLoad(i, q) || ruleFor(i).per !== line.rule.per) return;
       var score = (i.load === line.load ? 0 : 2) + (i.levels === line.levels ? 0 : 1);
       var cur = best[i.b];
       if (!cur || score < cur.score) best[i.b] = { item: i, score: score };
@@ -176,10 +302,11 @@ var MetaQuickConfigurator = (function () {
 
   // Beste Zeile aus 1 Grundregal (Breite baseWidth) und Anbauregalen der Breiten in addWidths:
   // möglichst lang, höchstens length; bei gleicher Länge weniger Felder, dann mehr Felder in baseWidth.
-  function bestMix(length, baseWidth, addWidths) {
+  function bestMix(length, baseWidth, addWidths, rule) {
+    rule = rule || RULES['META CLIP'];
     var widths = addWidths.slice().sort(function (a, b) { return b - a; });
-    var step = function (w) { return w + CONFIG.postMm; };
-    var room = length - (baseWidth + 2 * CONFIG.postMm);
+    var step = function (w) { return w + rule.per; };
+    var room = length - rowLength([baseWidth], rule);
     if (room < 0) return null;
     var best = { used: 0, fields: 0, main: 0, counts: {} };
     function better(used, fields, main) {
@@ -207,13 +334,13 @@ var MetaQuickConfigurator = (function () {
         walk(idx + 1, left - k * step(wi), next, fields + k);
       }
     }
-    if (!widths.length) return { widths: [baseWidth], length: rowLength([baseWidth]), counts: {} };
+    if (!widths.length) return { widths: [baseWidth], length: rowLength([baseWidth], rule), counts: {} };
     walk(0, room, {}, 0);
     var all = [baseWidth];
     widths.forEach(function (w) { for (var i = 0; i < (best.counts[w] || 0); i++) all.push(w); });
     var counts = {};
     widths.forEach(function (w) { if (best.counts[w]) counts[w] = best.counts[w]; });
-    return { widths: all, length: rowLength(all), counts: counts };
+    return { widths: all, length: rowLength(all, rule), counts: counts };
   }
 
   function positionsFor(base, adds, counts) {
@@ -226,7 +353,8 @@ var MetaQuickConfigurator = (function () {
 
   // Regalzeile für eine Ausführung: gleiche Breite, dazu wenn sinnvoll eine gemischte Zeile.
   function planLine(items, line, q, length) {
-    var n = fieldCount(length, q.b);
+    var rule = line.rule;
+    var n = fieldCount(length, q.b, rule);
     if (n < 1) return null;
     var counts = {};
     if (n > 1) counts[q.b] = n - 1;
@@ -236,8 +364,8 @@ var MetaQuickConfigurator = (function () {
     sameWidth[q.b] = line.add;
     var main = {
       fields: n,
-      length: rowLength(widths),
-      nextLength: n < CONFIG.maxFields ? rowLength(widths.concat([q.b])) : null,
+      length: rowLength(widths, rule),
+      nextLength: n < CONFIG.maxFields ? rowLength(widths.concat([q.b]), rule) : null,
       widths: widths,
       positions: positionsFor(line.base, sameWidth, counts)
     };
@@ -245,7 +373,7 @@ var MetaQuickConfigurator = (function () {
     var mixWidths = Object.keys(adds).map(Number);
     var mix = null;
     if (mixWidths.length > 1) {
-      var m = bestMix(length, q.b, mixWidths);
+      var m = bestMix(length, q.b, mixWidths, rule);
       var usesOther = m && Object.keys(m.counts).some(function (w) { return Number(w) !== q.b; });
       if (m && usesOther && m.length - main.length >= CONFIG.minMixGainMm) {
         mix = { fields: m.widths.length, length: m.length, widths: m.widths, positions: positionsFor(line.base, adds, m.counts) };
@@ -257,8 +385,10 @@ var MetaQuickConfigurator = (function () {
   // Wenn es die Kombination nicht gibt: Werte, mit denen sie es gibt (je ein Merkmal geändert).
   function alternatives(items, q) {
     var result = [];
-    var c = choices(items, q.double);
-    ['b', 'h', 't', 'load', 'surface'].forEach(function (key) {
+    var c = choices(items, q.kind, q.double);
+    var keys = ['b', 'h', 't', 'surface', 'board'];
+    if (!KINDS[q.kind].pallet) keys.push('load');
+    keys.forEach(function (key) {
       c[key].forEach(function (v) {
         if (v === q[key]) return;
         var alt = Object.assign({}, q);
@@ -268,28 +398,42 @@ var MetaQuickConfigurator = (function () {
     });
     var other = Object.assign({}, q, { double: !q.double });
     if (findLines(items, other).length) result.push({ key: 'double', value: !q.double });
+    if (KINDS[q.kind].pallet) {
+      // Höchstes Palettengewicht, das es in diesen Maßen gibt
+      var max = findLines(items, Object.assign({}, q, { weight: 0 }), true).reduce(function (m, l) { return Math.max(m, l.load); }, 0);
+      if (max && max < (q.weight || 0)) result.unshift({ key: 'weight', value: max });
+    }
     return result;
   }
 
-  // Maße und Ausführung eines Artikels für den Link von der Produktseite.
+  // Regalart, Maße und Ausführung eines Artikels für den Link von der Produktseite.
   function parseShelfName(name) {
     var text = String(name || '').replace(/\s+/g, ' ').trim();
-    if (!CONFIG.productName.test(text)) return null;
     var seg = text.split(' | ');
-    var dims = text.match(/(\d+) x (\d+) x (\d+) mm/);
-    var load = text.match(/Fachlast (\d+) kg/);
-    if (!dims) return null;
-    return {
+    if (seg.length < 5 || !/^(Doppel-)?(Grund|Anbau)regal$/.test(seg[2])) return null;
+    var kind = KIND_ORDER.filter(function (k) { return KINDS[k].type === seg[1] && KINDS[k].systems.indexOf(seg[0]) >= 0; })[0];
+    var dims = text.match(/\| (\d+) x (\d+) x (\d+) mm/);
+    if (!kind || !dims) return null;
+    var load = text.match(/\| (?:Fachlast|Armlast) (\d+) kg/);
+    var surface = seg.filter(function (s) { return /^(verzinkt|RAL \d{4})$/.test(s); })[0] || null;
+    var board = /Spanplattenböden/.test(text) ? 'Spanplatte' : /Stahlpaneel/.test(text) ? 'Stahlpaneel' : null;
+    var q = {
+      kind: kind,
       h: Number(dims[1]),
       b: Number(dims[2]),
       t: Number(dims[3]),
-      load: load ? Number(load[1]) : null,
-      surface: seg[seg.length - 1],
-      double: /^Doppel-/.test(seg[2])
+      surface: surface,
+      double: /^Doppel-/.test(seg[2]) || seg.indexOf('doppelseitig') >= 0
     };
+    if (board) q.board = board;
+    if (load && !KINDS[kind].pallet) q.load = Number(load[1]);
+    return q;
   }
 
-  var PARAMS = { h: 'hoehe', b: 'breite', t: 'tiefe', load: 'fachlast', surface: 'farbe', double: 'bauform', length: 'laenge' };
+  var PARAMS = {
+    kind: 'regalart', h: 'hoehe', b: 'breite', t: 'tiefe', load: 'last', weight: 'palettengewicht',
+    surface: 'farbe', board: 'boden', double: 'bauform', length: 'laenge'
+  };
 
   function toQuery(q) {
     var parts = [];
@@ -309,11 +453,14 @@ var MetaQuickConfigurator = (function () {
       var i = pair.indexOf('=');
       var k = decodeURIComponent((i < 0 ? pair : pair.slice(0, i)).replace(/\+/g, ' '));
       var v = decodeURIComponent((i < 0 ? '' : pair.slice(i + 1)).replace(/\+/g, ' '));
+      // Adressen der ersten Fassung (nur Fachbodenregale) gelten weiter
+      if (k === 'fachlast') k = 'last';
       Object.keys(PARAMS).forEach(function (key) {
         if (PARAMS[key] !== k) return;
         if (key === 'double') q.double = v === 'doppel';
-        else if (key === 'surface') q.surface = v;
+        else if (key === 'surface' || key === 'board' || key === 'kind') q[key] = v;
         else if (key === 'length') q.length = parseLength(v);
+        else if (key === 'weight') q.weight = parseWeight(v);
         else if (isFinite(Number(v)) && v !== '') q[key] = Number(v);
       });
     });
@@ -326,25 +473,43 @@ var MetaQuickConfigurator = (function () {
     return values.reduce(function (best, x) { return Math.abs(x - v) < Math.abs(best - v) ? x : best; }, values[0]);
   }
 
-  // Werte der Auswahl auf vorhandene setzen (Fachlast: nächsthöhere, sonst höchste).
+  function availableKinds(items) {
+    return KIND_ORDER.filter(function (k) { return items.some(function (i) { return i.kind === k; }); });
+  }
+
+  // Werte der Auswahl auf vorhandene setzen (Last: nächsthöhere, sonst höchste).
   function normalizeQuery(items, q) {
-    var c = choices(items, q.double);
-    var load = c.load.filter(function (v) { return v >= (q.load || 0); })[0];
-    return {
-      double: !!q.double,
-      h: c.h.indexOf(q.h) >= 0 ? q.h : closest(c.h, q.h != null ? q.h : 2000),
-      b: c.b.indexOf(q.b) >= 0 ? q.b : closest(c.b, q.b != null ? q.b : 1000),
-      t: c.t.indexOf(q.t) >= 0 ? q.t : closest(c.t, q.t != null ? q.t : 500),
-      load: load != null ? load : c.load[c.load.length - 1],
-      surface: c.surface.indexOf(q.surface) >= 0 ? q.surface : c.surface[0],
+    var kinds = availableKinds(items);
+    var kind = kinds.indexOf(q.kind) >= 0 ? q.kind : kinds[0];
+    var def = KINDS[kind].defaults;
+    var sides = choices(items, kind).double;
+    var double = sides.indexOf(!!q.double) >= 0 ? !!q.double : sides[0];
+    var c = choices(items, kind, double);
+    var wantLoad = q.load != null ? q.load : def.load || 0;
+    var load = c.load.filter(function (v) { return v >= wantLoad; })[0];
+    var pick = function (key) { return c[key].indexOf(q[key]) >= 0 ? q[key] : closest(c[key], q[key] != null ? q[key] : def[key]); };
+    var result = {
+      kind: kind,
+      double: double,
+      h: pick('h'),
+      b: pick('b'),
+      t: pick('t'),
+      surface: c.surface.indexOf(q.surface) >= 0 ? q.surface : (c.surface[0] || null),
+      board: c.board.indexOf(q.board) >= 0 ? q.board : (c.board[0] || null),
       length: q.length || null
     };
+    if (KINDS[kind].pallet) result.weight = q.weight || def.weight;
+    else result.load = load != null ? load : c.load[c.load.length - 1];
+    return result;
   }
 
   var api = {
     config: CONFIG,
+    kinds: KINDS,
+    rules: RULES,
     parseLength: parseLength,
     decodeCatalog: decodeCatalog,
+    ruleFor: ruleFor,
     rowLength: rowLength,
     fieldCount: fieldCount,
     choices: choices,
@@ -457,25 +622,48 @@ var MetaQuickConfigurator = (function () {
 
   // ---------- Konfigurator-Seite ----------
 
-  function lineTitle(line) {
-    return line.system + ' · ' + line.levels + ' Ebenen · Fachlast ' + line.load + ' kg';
+  function lineTitle(line, q) {
+    var load = KINDS[q.kind].pallet ? 'bis ' + formatNumber(line.load) + ' kg je Palette' : KINDS[q.kind].load + ' ' + formatNumber(line.load) + ' kg';
+    // „6+0 Ebenen" (Büroregale ohne Abdeckboden) als „6 Ebenen"
+    return line.system + ' · ' + String(line.levels).replace(/\+0$/, '') + ' Ebenen · ' + load;
+  }
+
+  function lineFacts(line, q) {
+    var facts = [];
+    if (TEXT.frame[line.system]) facts.push(TEXT.frame[line.system]);
+    if (q.kind === 'fachboden') {
+      var bracing = q.double ? (line.lr ? 'doubleLr' : 'doubleDiagonal') : (line.lr ? 'lr' : 'diagonal');
+      facts.push(TEXT.bracing[bracing]);
+    }
+    if (q.kind === 'kragarm') facts.push(q.double ? 'Doppelseitig: Kragarme auf beiden Seiten' : 'Einseitig: Kragarme auf einer Seite');
+    if (line.feature && q.kind !== 'fachboden') facts.push('Mit ' + line.feature);
+    if (line.board) facts.push('Böden: ' + line.board);
+    if (line.pallets) facts.push(line.pallets + ' Palettenplätze je Feld inkl. Bodenebene');
+    return facts;
   }
 
   function widthsText(widths) {
     var counts = {};
     widths.forEach(function (w) { counts[w] = (counts[w] || 0) + 1; });
     return Object.keys(counts).map(Number).sort(function (a, b) { return b - a; })
-      .map(function (w) { return counts[w] + ' × ' + new Intl.NumberFormat('de-DE').format(w); }).join(' + ') + ' mm';
+      .map(function (w) { return counts[w] + ' × ' + formatNumber(w); }).join(' + ') + ' mm';
   }
 
-  function renderPlan(card, plan, q) {
+  function renderPlan(card, plan, q, line) {
     var body = card.querySelector('.meta-qc__plan');
     body.innerHTML = '';
     var summary = el('p', 'meta-qc__summary');
     var strong = el('strong', null, plan.fields + (plan.fields === 1 ? ' Feld' : ' Felder') + ' · Gesamtlänge ca. ' + formatMm(plan.length));
     summary.appendChild(strong);
-    summary.appendChild(document.createTextNode(' (' + widthsText(plan.widths) + ', Rest ' + formatMm(q.length - plan.length) + ')'));
+    var extra = ' (' + widthsText(plan.widths) + ', Rest ' + formatMm(q.length - plan.length);
+    var places = plan.positions.reduce(function (n, p) { return n + (p.item.pallets || 0) * p.qty; }, 0);
+    if (places) extra += ', ' + formatNumber(places) + ' Palettenplätze';
+    summary.appendChild(document.createTextNode(extra + ')'));
     body.appendChild(summary);
+    var minFields = KINDS[q.kind].minFields;
+    if (minFields && plan.fields < minFields) {
+      body.appendChild(el('p', 'meta-qc__hint', 'Laut META-Katalog gelten die Fach- und Feldlasten für Regalzeilen ab ' + minFields + ' Feldern.'));
+    }
 
     var table = el('table', 'meta-qc__positions');
     var caption = el('caption', 'visually-hidden', 'Artikel dieser Regalzeile');
@@ -549,15 +737,15 @@ var MetaQuickConfigurator = (function () {
     var headingId = 'meta-qc-line-' + (++idCounter);
     card.setAttribute('aria-labelledby', headingId);
     var head = el('div', 'meta-qc__line-head');
-    var h3 = el('h3', 'meta-qc__line-title', lineTitle(result.line));
+    var h3 = el('h3', 'meta-qc__line-title', lineTitle(result.line, q));
     h3.id = headingId;
     head.appendChild(h3);
     card.appendChild(head);
     var facts = el('ul', 'meta-qc__facts');
-    facts.appendChild(el('li', null, TEXT.frame[result.line.system] || result.line.system));
-    var bracing = q.double ? (result.line.lr ? 'doubleLr' : 'doubleDiagonal') : (result.line.lr ? 'lr' : 'diagonal');
-    facts.appendChild(el('li', null, TEXT.bracing[bracing]));
-    if (result.line.load > q.load) facts.appendChild(el('li', 'meta-qc__hint', 'Fachlast ' + result.line.load + ' kg – mehr als gewünscht, in ' + q.load + ' kg gibt es diese Ausführung nicht'));
+    lineFacts(result.line, q).forEach(function (f) { facts.appendChild(el('li', null, f)); });
+    if (!KINDS[q.kind].pallet && result.line.load > q.load) {
+      facts.appendChild(el('li', 'meta-qc__hint', KINDS[q.kind].load + ' ' + formatNumber(result.line.load) + ' kg – mehr als gewünscht, in ' + formatNumber(q.load) + ' kg gibt es diese Ausführung nicht'));
+    }
     card.appendChild(facts);
 
     var plan = el('div', 'meta-qc__plan');
@@ -566,7 +754,7 @@ var MetaQuickConfigurator = (function () {
     var current = result.main;
     if (result.mix) {
       var toggle = el('div', 'meta-qc__mix');
-      var text = el('p', null, 'Mit gemischten Feldbreiten (' + widthsText(result.mix.widths) + ') wird die Zeile ' + formatMm(result.mix.length) + ' lang, ' + formatMm(result.mix.length - result.main.length) + ' mehr.');
+      var text = el('p', null, 'Mit gemischten Breiten (' + widthsText(result.mix.widths) + ') wird die Zeile ' + formatMm(result.mix.length) + ' lang, ' + formatMm(result.mix.length - result.main.length) + ' mehr.');
       var button = el('button', 'btn btn-outline-primary btn-sm', 'Gemischte Breiten zeigen');
       button.type = 'button';
       button.setAttribute('aria-pressed', 'false');
@@ -575,7 +763,7 @@ var MetaQuickConfigurator = (function () {
         var mixed = current === result.mix;
         button.setAttribute('aria-pressed', mixed ? 'true' : 'false');
         button.textContent = mixed ? 'Nur ' + formatMm(q.b) + ' zeigen' : 'Gemischte Breiten zeigen';
-        renderPlan(card, current, q);
+        renderPlan(card, current, q, result.line);
       });
       toggle.appendChild(text);
       toggle.appendChild(button);
@@ -583,15 +771,19 @@ var MetaQuickConfigurator = (function () {
     } else if (result.main.nextLength) {
       card.appendChild(el('p', 'meta-qc__note', 'Mit einem Feld mehr wäre die Zeile ' + formatMm(result.main.nextLength) + ' lang.'));
     }
-    return { card: card, ready: renderPlan(card, current, q) };
+    return { card: card, ready: renderPlan(card, current, q, result.line) };
   }
 
-  var LABEL = { h: 'Höhe', b: 'Feldbreite', t: 'Tiefe', load: 'Fachlast', surface: 'Farbe', double: 'Bauform' };
+  function label(kind, key) {
+    var k = KINDS[kind];
+    return { h: 'Höhe', b: k.width, t: k.depth, load: k.load, surface: 'Farbe', board: 'Böden', double: 'Bauform', weight: 'Gewicht je Palette' }[key];
+  }
 
-  function valueText(key, v) {
+  function valueText(kind, key, v) {
     if (key === 'surface') return surfaceLabel(v);
-    if (key === 'double') return v ? 'Doppelregal' : 'Einzelregal';
-    if (key === 'load') return v + ' kg';
+    if (key === 'board') return v;
+    if (key === 'double') return (KINDS[kind].sides || ['Einzelregal', 'Doppelregal'])[v ? 1 : 0];
+    if (key === 'load' || key === 'weight') return formatNumber(v) + ' kg';
     return formatMm(v);
   }
 
@@ -603,12 +795,23 @@ var MetaQuickConfigurator = (function () {
     var form = el('form', 'meta-qc__form');
     form.setAttribute('novalidate', 'novalidate');
     form.addEventListener('submit', function (e) { e.preventDefault(); update(); });
+    root.appendChild(form);
+
+    var status = el('p', 'meta-qc__status');
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    root.appendChild(status);
+    var results = el('div', 'meta-qc__results');
+    root.appendChild(results);
 
     var fields = {};
-    function field(key, label, control, hint) {
+    var lengthInput = null;
+    var weightInput = null;
+
+    function field(key, text, control, hint) {
       var wrap = el('div', 'meta-qc__field meta-qc__field--' + key);
       var id = 'meta-qc-' + key;
-      var lab = el('label', 'meta-qc__label', label);
+      var lab = el('label', 'meta-qc__label', text);
       lab.htmlFor = id;
       control.id = id;
       wrap.appendChild(lab);
@@ -624,73 +827,98 @@ var MetaQuickConfigurator = (function () {
       return control;
     }
 
-    var bauform = el('select', 'form-select');
-    [['einzel', 'Einzelregal'], ['doppel', 'Doppelregal']].forEach(function (o) {
-      var opt = el('option', null, o[1]);
-      opt.value = o[0];
-      bauform.appendChild(opt);
-    });
-    field('double', 'Bauform', bauform);
-    ['h', 'b', 't', 'load', 'surface'].forEach(function (key) { field(key, LABEL[key], el('select', 'form-select')); });
-    var lengthInput = el('input', 'form-control');
-    lengthInput.type = 'text';
-    lengthInput.inputMode = 'decimal';
-    lengthInput.autocomplete = 'off';
-    lengthInput.placeholder = 'z. B. 5000';
-    field('length', 'Verfügbare Länge in mm', lengthInput, 'Die Regalzeile wird so lang wie möglich, aber nie länger.');
-    root.appendChild(form);
-
-    var status = el('p', 'meta-qc__status');
-    status.setAttribute('role', 'status');
-    status.setAttribute('aria-live', 'polite');
-    root.appendChild(status);
-    var results = el('div', 'meta-qc__results');
-    root.appendChild(results);
-
-    function fillSelect(key) {
-      var select = fields[key];
-      var values = choices(items, q.double)[key];
-      select.innerHTML = '';
+    function select(key, values) {
+      var s = el('select', 'form-select');
       values.forEach(function (v) {
-        var opt = el('option', null, valueText(key, v));
+        var opt = el('option', null, valueText(q.kind, key, v));
         opt.value = String(v);
-        select.appendChild(opt);
+        s.appendChild(opt);
       });
-      select.value = String(q[key]);
+      s.value = String(q[key]);
+      return s;
     }
 
-    function syncForm() {
-      bauform.value = q.double ? 'doppel' : 'einzel';
-      ['h', 'b', 't', 'load', 'surface'].forEach(fillSelect);
-      if (q.length && document.activeElement !== lengthInput) lengthInput.value = String(q.length);
+    function textInput(placeholder, value) {
+      var input = el('input', 'form-control');
+      input.type = 'text';
+      input.inputMode = 'decimal';
+      input.autocomplete = 'off';
+      input.placeholder = placeholder;
+      if (value) input.value = String(value);
+      return input;
+    }
+
+    // Formular je Regalart neu aufbauen (Felder und Beschriftungen unterscheiden sich).
+    function buildForm() {
+      var typed = lengthInput ? lengthInput.value : (q.length ? String(q.length) : '');
+      form.innerHTML = '';
+      fields = {};
+      var kindSelect = el('select', 'form-select');
+      availableKinds(items).forEach(function (k) {
+        var opt = el('option', null, KINDS[k].label);
+        opt.value = k;
+        kindSelect.appendChild(opt);
+      });
+      kindSelect.value = q.kind;
+      field('kind', 'Regalart', kindSelect);
+      var c = choices(items, q.kind, q.double);
+      if (choices(items, q.kind).double.length > 1) field('double', 'Bauform', select('double', [false, true]));
+      ['h', 'b', 't'].forEach(function (key) { field(key, label(q.kind, key), select(key, c[key])); });
+      if (KINDS[q.kind].pallet) {
+        weightInput = field('weight', 'Gewicht je Palette in kg', textInput('z. B. 800', q.weight));
+      } else {
+        weightInput = null;
+        field('load', label(q.kind, 'load'), select('load', c.load));
+      }
+      if (c.surface.length > 1) field('surface', 'Farbe', select('surface', c.surface));
+      if (c.board.length > 1) field('board', 'Böden', select('board', c.board));
+      lengthInput = field('length', 'Verfügbare Länge in mm', textInput('z. B. 5000', typed), 'Die Regalzeile wird so lang wie möglich, aber nie länger.');
+      lengthInput.addEventListener('input', onTyping);
+      if (weightInput) weightInput.addEventListener('input', onTyping);
     }
 
     function readForm() {
-      var next = {
-        double: bauform.value === 'doppel',
-        h: Number(fields.h.value),
-        b: Number(fields.b.value),
-        t: Number(fields.t.value),
-        load: Number(fields.load.value),
-        surface: fields.surface.value,
-        length: parseLength(lengthInput.value)
-      };
-      if (next.double !== q.double) next = normalizeQuery(items, next);
-      q = next;
+      var next = Object.assign({}, q);
+      var kindChanged = fields.kind.value !== q.kind;
+      next.kind = fields.kind.value;
+      if (fields.double) next.double = fields.double.value === 'true';
+      ['h', 'b', 't', 'load'].forEach(function (key) { if (fields[key]) next[key] = Number(fields[key].value); });
+      if (fields.surface) next.surface = fields.surface.value;
+      if (fields.board) next.board = fields.board.value;
+      if (weightInput) next.weight = parseWeight(weightInput.value);
+      next.length = parseLength(lengthInput.value);
+      if (kindChanged) next = { kind: next.kind, length: next.length };
+      var weight = next.weight;
+      q = normalizeQuery(items, next);
+      if (KINDS[q.kind].pallet && !kindChanged) q.weight = weight;
+      return kindChanged || next.double !== q.double;
+    }
+
+    var typing = null;
+    function onTyping() {
+      clearTimeout(typing);
+      typing = setTimeout(function () { readForm(); update(); }, 400);
     }
 
     function setQuery(change) {
       q = normalizeQuery(items, Object.assign({}, q, change));
-      syncForm();
+      buildForm();
       update();
     }
 
     function update() {
       results.innerHTML = '';
       try { window.history.replaceState(null, '', window.location.pathname + toQuery(q)); } catch (e) { /* still */ }
+      var kind = KINDS[q.kind];
+      if (kind.pallet && !q.weight) {
+        status.textContent = 'Bitte das Gewicht je Palette eingeben.';
+        return;
+      }
       var lines = findLines(items, q);
       if (!lines.length) {
-        status.textContent = 'Diese Kombination gibt es nicht als Standardregal.';
+        status.textContent = kind.pallet
+          ? 'Für ' + formatNumber(q.weight) + ' kg je Palette gibt es diese Kombination nicht als Standardregal.'
+          : 'Diese Kombination gibt es nicht als Standardregal.';
         var alts = alternatives(items, q);
         if (alts.length) {
           var box = el('div', 'meta-qc__alts');
@@ -698,7 +926,7 @@ var MetaQuickConfigurator = (function () {
           var list = el('ul', 'meta-qc__chips');
           alts.forEach(function (a) {
             var li = el('li');
-            var b = el('button', 'meta-qc__chip', LABEL[a.key] + ' ' + valueText(a.key, a.value));
+            var b = el('button', 'meta-qc__chip', label(q.kind, a.key) + (a.key === 'weight' ? ' bis ' : ' ') + valueText(q.kind, a.key, a.value));
             b.type = 'button';
             b.addEventListener('click', function () {
               var change = {};
@@ -717,18 +945,21 @@ var MetaQuickConfigurator = (function () {
         status.textContent = 'Bitte die verfügbare Länge eingeben.';
         return;
       }
-      var single = rowLength([q.b]);
-      if (q.length < single) {
-        status.textContent = 'Ein Grundregal mit ' + formatMm(q.b) + ' Feldbreite ist ' + formatMm(single) + ' lang, also länger als ' + formatMm(q.length) + '.';
+      var planned = lines.slice(0, CONFIG.maxLines).map(function (line) { return planLine(items, line, q, q.length); }).filter(Boolean);
+      if (!planned.length) {
+        var single = rowLength([q.b], lines[0].rule);
+        status.textContent = 'Ein Grundregal mit ' + formatMm(q.b) + ' ' + kind.width + ' ist ca. ' + formatMm(single) + ' lang, also länger als ' + formatMm(q.length) + '.';
         return;
       }
-      var planned = lines.slice(0, CONFIG.maxLines).map(function (line) { return planLine(items, line, q, q.length); }).filter(Boolean);
       var first = planned[0];
       status.textContent = 'Für ' + formatMm(q.length) + ': ' + first.main.fields + (first.main.fields === 1 ? ' Feld' : ' Felder') +
-        ' mit ' + formatMm(q.b) + ' Feldbreite, Gesamtlänge ca. ' + formatMm(first.main.length) + '. ' +
-        (planned.length > 1 ? planned.length + ' Ausführungen zur Auswahl.' : '');
-      if (!q.double && q.h / q.t > 4) {
+        ' mit ' + formatMm(q.b) + ' ' + kind.width + ', Gesamtlänge ca. ' + formatMm(first.main.length) + '.' +
+        (planned.length > 1 ? ' ' + planned.length + ' Ausführungen zur Auswahl.' : '');
+      if (kind.tipping && !q.double && q.h / q.t > 4) {
         results.appendChild(el('p', 'meta-qc__warning', 'Höhe zu Tiefe über 4 : 1 – laut META-Katalog das Regal mit Wand- oder Fußverankerung gegen Kippen sichern.'));
+      }
+      if (kind.pallet) {
+        results.appendChild(el('p', 'meta-qc__warning', 'Laut META-Katalog werden Palettenregale auf Beton (mindestens C20/25) aufgestellt und mit Ankern fixiert; Grund- und Anbauregale enthalten die Bodenanker.'));
       }
       var cards = planned.map(function (p) {
         var r = renderLine(p, q);
@@ -742,21 +973,17 @@ var MetaQuickConfigurator = (function () {
         var badge = el('span', 'meta-qc__badge', 'Günstigste Ausführung');
         cards[i].card.querySelector('.meta-qc__line-head').appendChild(badge);
       });
-      results.appendChild(el('p', 'meta-qc__footnote', 'Gesamtlänge gerechnet mit ' + CONFIG.postMm + ' mm je Ständerrahmen. Zubehör wie Rückwände, Fachteiler oder Zusatzböden finden Sie auf den Produktseiten unter „Das passt dazu".'));
+      results.appendChild(el('p', 'meta-qc__footnote', kind.lengthNote + ' Zubehör finden Sie auf den Produktseiten unter „Das passt dazu".'));
     }
 
     form.addEventListener('change', function (e) {
-      readForm();
-      if (e.target === bauform) syncForm();
+      if (e.target === lengthInput || e.target === weightInput) return;
+      if (readForm()) buildForm();
+      else if (e.target === fields.kind || e.target === fields.double) buildForm();
       update();
     });
-    var typing = null;
-    lengthInput.addEventListener('input', function () {
-      clearTimeout(typing);
-      typing = setTimeout(function () { readForm(); update(); }, 400);
-    });
 
-    syncForm();
+    buildForm();
     update();
   }
 
@@ -766,7 +993,7 @@ var MetaQuickConfigurator = (function () {
     var src = root.getAttribute('data-catalog');
     var fail = function () {
       root.innerHTML = '';
-      root.appendChild(el('p', 'meta-qc__error', 'Der Schnellkonfigurator ist gerade nicht verfügbar. Alle Fachbodenregale finden Sie unter Fachbodenregale.'));
+      root.appendChild(el('p', 'meta-qc__error', 'Der Schnellkonfigurator ist gerade nicht verfügbar. Alle Regale finden Sie über das Menü.'));
       var link = el('a', 'btn btn-primary', 'Zu den Fachbodenregalen');
       link.href = '/fachbodenregale/';
       root.appendChild(link);
@@ -782,18 +1009,123 @@ var MetaQuickConfigurator = (function () {
       .catch(fail);
   }
 
+  // ---------- Startseite: kleines Formular, führt zur Konfigurator-Seite ----------
+
+  function startHome() {
+    var root = document.querySelector('[data-meta-quick-config-home]');
+    if (!root || root.classList.contains('meta-qc-home--ready')) return;
+    var options;
+    try { options = JSON.parse(root.getAttribute('data-options') || '{}'); } catch (e) { return; }
+    var kinds = KIND_ORDER.filter(function (k) { return options[k] && options[k].h && options[k].h.length; });
+    if (!kinds.length) return;
+    root.classList.add('meta-qc-home--ready');
+    var form = root.querySelector('form.meta-qc-home__form');
+    if (!form) return;
+    form.innerHTML = '';
+    var state = { kind: kinds[0] };
+
+    function control(key, text, node, wide) {
+      var wrap = el('div', 'meta-qc__field meta-qc-home__field' + (wide ? ' meta-qc-home__field--wide' : ''));
+      var id = 'meta-qc-home-' + key;
+      var lab = el('label', 'meta-qc__label', text);
+      lab.htmlFor = id;
+      node.id = id;
+      wrap.appendChild(lab);
+      wrap.appendChild(node);
+      return wrap;
+    }
+
+    function selectOf(values, current, format) {
+      var s = el('select', 'form-select');
+      values.forEach(function (v) {
+        var opt = el('option', null, format(v));
+        opt.value = String(v);
+        s.appendChild(opt);
+      });
+      s.value = String(closest(values, current));
+      return s;
+    }
+
+    var refs = {};
+    function build() {
+      var keep = refs.length ? refs.length.value : '';
+      form.innerHTML = '';
+      var kind = KINDS[state.kind];
+      var o = options[state.kind];
+      var kindSelect = el('select', 'form-select');
+      kinds.forEach(function (k) {
+        var opt = el('option', null, KINDS[k].label);
+        opt.value = k;
+        kindSelect.appendChild(opt);
+      });
+      kindSelect.value = state.kind;
+      kindSelect.addEventListener('change', function () { state.kind = kindSelect.value; build(); });
+      form.appendChild(control('kind', 'Regalart', kindSelect));
+      refs = {};
+      refs.h = selectOf(o.h, kind.defaults.h, formatMm);
+      refs.b = selectOf(o.b, kind.defaults.b, formatMm);
+      refs.t = selectOf(o.t, kind.defaults.t, formatMm);
+      form.appendChild(control('h', 'Höhe', refs.h));
+      form.appendChild(control('b', kind.width, refs.b));
+      form.appendChild(control('t', kind.depth, refs.t));
+      if (kind.pallet) {
+        refs.weight = el('input', 'form-control');
+        refs.weight.type = 'text';
+        refs.weight.inputMode = 'decimal';
+        refs.weight.value = String(kind.defaults.weight);
+        form.appendChild(control('weight', 'Gewicht je Palette (kg)', refs.weight));
+      } else {
+        refs.load = selectOf(o.load, kind.defaults.load, function (v) { return formatNumber(v) + ' kg'; });
+        form.appendChild(control('load', kind.load, refs.load));
+      }
+      refs.length = el('input', 'form-control');
+      refs.length.type = 'text';
+      refs.length.inputMode = 'decimal';
+      refs.length.placeholder = 'z. B. 5000';
+      refs.length.value = keep;
+      form.appendChild(control('length', 'Verfügbare Länge (mm)', refs.length));
+      var button = el('button', 'btn btn-primary meta-qc-home__submit', 'Regalzeile berechnen');
+      button.type = 'submit';
+      var actions = el('div', 'meta-qc-home__actions');
+      actions.appendChild(button);
+      form.appendChild(actions);
+    }
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var q = {
+        kind: state.kind,
+        h: Number(refs.h.value),
+        b: Number(refs.b.value),
+        t: Number(refs.t.value),
+        length: parseLength(refs.length.value)
+      };
+      if (refs.weight) q.weight = parseWeight(refs.weight.value);
+      else q.load = Number(refs.load.value);
+      window.location.href = CONFIG.pagePath + toQuery(q);
+    });
+    build();
+  }
+
   // ---------- Einstiegskasten und Produktseite ----------
 
+  function teaserKind() {
+    return KIND_ORDER.filter(function (k) { return KINDS[k].paths.indexOf(path) >= 0; })[0];
+  }
+
   function startTeaser() {
-    if (CONFIG.teaserPaths.indexOf(path) === -1 || document.querySelector('.meta-qc-teaser')) return;
+    var kind = teaserKind();
+    if (!kind || document.querySelector('.meta-qc-teaser')) return;
+    var k = KINDS[kind];
     var box = el('aside', 'meta-qc-teaser');
     box.setAttribute('aria-label', 'Regal-Schnellkonfigurator');
     var text = el('div', 'meta-qc-teaser__text');
-    text.appendChild(el('p', 'meta-qc-teaser__title', 'Regalzeile in einer Minute berechnen'));
-    text.appendChild(el('p', 'meta-qc-teaser__body', 'Höhe, Feldbreite, Tiefe, Fachlast und verfügbare Länge eingeben – der Schnellkonfigurator stellt Grund- und Anbauregale zusammen und legt sie in den Warenkorb.'));
+    text.appendChild(el('p', 'meta-qc-teaser__title', k.label + '-Zeile in einer Minute berechnen'));
+    text.appendChild(el('p', 'meta-qc-teaser__body', 'Höhe, ' + k.width + ', ' + k.depth + ', ' + (k.pallet ? 'Gewicht je Palette' : k.load) +
+      ' und verfügbare Länge eingeben – der Schnellkonfigurator stellt Grund- und Anbauregale zusammen und legt sie in den Warenkorb.'));
     box.appendChild(text);
     var link = el('a', 'btn btn-primary meta-qc-teaser__link', 'Zum Schnellkonfigurator');
-    link.href = CONFIG.pagePath;
+    link.href = CONFIG.pagePath + toQuery({ kind: kind });
     box.appendChild(link);
 
     var listing = document.querySelector('.cms-section-sidebar-main-content');
@@ -827,6 +1159,7 @@ var MetaQuickConfigurator = (function () {
   function start() {
     if (path === CONFIG.pagePath) startPage();
     else startTeaser();
+    startHome();
     startProduct();
   }
 
