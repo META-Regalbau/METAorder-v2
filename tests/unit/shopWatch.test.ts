@@ -20,6 +20,7 @@ import {
   type ShopWatchCheckDef,
 } from "../../server/shopContent/shopWatchChecks";
 import { snippetEntryId, STOREFRONT_SNIPPETS } from "../../server/shopContent/shopEntityIds";
+import { CHECKOUT_NEWSLETTER_LABEL } from "../../server/shopContent/checkoutNewsletter";
 import { worstStatus, type ShopWatchBaseline } from "../../shared/shopWatch";
 
 const SHOP = "https://shop.example";
@@ -229,6 +230,33 @@ describe("Prüfpunkte gegen einen simulierten Shop", () => {
       "pluginMissing:SsikExtraElements",
       "pluginInactive:MetaClipCpq",
     ]);
+  });
+
+  it("Newsletter-Checkbox: abgeschaltet oder vorausgewählt rot, fehlender Text rot, geänderter Text gelb", async () => {
+    const api = (config: Record<string, unknown>, value: string | null) =>
+      fakeApi({
+        "POST search/plugin": () => ({ data: [{ name: "NewsletterSendinblue", version: "5.1.3", active: true }] }),
+        "GET _action/system-config?domain=Sendinblue.config": () => config,
+        "POST search/sales-channel-domain": () => ({ data: [{ url: `${SHOP}/`, snippetSetId: "set-de" }, { url: "https://other.example", snippetSetId: "set-x" }] }),
+        "POST search/snippet": (b) => ({
+          data: value !== null && b.filter.some((f: any) => f.field === "setId" && f.value === "set-de")
+            ? [{ id: "s1", setId: "set-de", translationKey: "brevo.checkoutConfirm.optInDefaultLabel", value, author: "METAorder" }]
+            : [],
+        }),
+      });
+    const run = async (config: Record<string, unknown>, value: string | null) =>
+      (await runShopWatchChecks(ctxWith(api(config, value), {}), [check("checkout-newsletter:opt-in")], opts)).results[0];
+    const on = { "Sendinblue.config.isDisplayOptInEnabled": true, "Sendinblue.config.isDisplayOptInChecked": false };
+
+    expect((await run(on, CHECKOUT_NEWSLETTER_LABEL)).status).toBe("ok");
+    expect((await run(on, "im Admin geändert")).findings).toEqual([{ code: "differsFromRepo", severity: "warn", params: { name: "Newsletter-Checkbox" } }]);
+    expect((await run(on, null)).findings.map((f) => `${f.code}:${f.severity}`)).toEqual(["entityMissing:fail"]);
+    const off = await run({ "Sendinblue.config.isDisplayOptInEnabled": false, "Sendinblue.config.isDisplayOptInChecked": true }, CHECKOUT_NEWSLETTER_LABEL);
+    expect(off.findings.map((f) => `${f.params?.setting}=${f.params?.value}`)).toEqual([
+      "Sendinblue.config.isDisplayOptInEnabled=false",
+      "Sendinblue.config.isDisplayOptInChecked=true",
+    ]);
+    expect(off.repair.command).toContain("writeCheckoutNewsletterLabel.ts");
   });
 
   it("Fehler in einer Prüfung (Netz, API) stoppt den Lauf nicht und wird Status error", async () => {
