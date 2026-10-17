@@ -7798,6 +7798,7 @@
       "descriptions": "Product descriptions",
       "crossSelling": "Cross-selling tabs",
       "montageTag": "Assembly cost tag",
+      "promotion": "Promotion with discount code",
       "plugins": "Required plugins"
     },
     "findings": {

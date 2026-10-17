@@ -20,6 +20,7 @@ import { HOME_SECTION_IDS, HOME_SECTION_MARKERS } from "../products/homeSections
 import { CATEGORY_CONTENT_FIELDS } from "../products/categoryPageHtml";
 import { DEFAULT_MANAGED_CROSS_SELLING_GROUP_NAME } from "@shared/schema";
 import { industryEntityId, quickConfigId, snippetEntryId, STOREFRONT_SNIPPETS, type StorefrontSnippetDef } from "./shopEntityIds";
+import { EXIT_INTENT_CODE, EXIT_INTENT_IDS, EXIT_INTENT_PROMOTION_NAME, EXIT_INTENT_RULE_NAME } from "./exitIntentPromotion";
 import { DE_LANG, type ShopApi } from "./shopProducts";
 
 export type ShopPage = { status: number; html: string; location: string | null };
@@ -536,9 +537,28 @@ const plugins: ShopWatchCheckDef = {
   },
 };
 
+/** Aktion zum Code im Exit-Intent-Modal: ohne sie zeigt das Modal einen Code, der nicht funktioniert */
+const exitIntentPromotion: ShopWatchCheckDef = {
+  id: "exit-intent:promotion",
+  group: "own",
+  kind: "promotion",
+  label: `Newsletter-Willkommensrabatt (${EXIT_INTENT_CODE})`,
+  cadence: "hourly",
+  repair: (o) => ({ mode: "auto", command: cmd("writeExitIntentPromotion.ts", "--apply", o) }),
+  async run(ctx) {
+    return {
+      findings: [
+        ...(await entityFindings(ctx.api, "promotion", "Aktion", EXIT_INTENT_IDS.promotion, EXIT_INTENT_PROMOTION_NAME, true)),
+        ...(await entityFindings(ctx.api, "rule", "Regel", EXIT_INTENT_IDS.rule, EXIT_INTENT_RULE_NAME)),
+      ],
+    };
+  },
+};
+
 export const SHOP_WATCH_CHECKS: ShopWatchCheckDef[] = [
   plugins,
   ...STOREFRONT_SNIPPETS.map(snippetCheck),
+  exitIntentPromotion,
   quickConfigPage,
   quickConfigHome,
   ...industryPageChecks,
