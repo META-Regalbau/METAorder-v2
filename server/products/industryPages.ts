@@ -42,6 +42,12 @@ const FAQ_INSPECTION = {
   a: "Ja. Regale sind Arbeitsmittel und unterliegen nach § 14 Betriebssicherheitsverordnung der Prüfpflicht. Die Inspektion muss mindestens alle 12 Monate durch eine fachkundige Person erfolgen. META bietet die Regalinspektion als Service an.",
 };
 
+/** Verweis aufs Regal-Lexikon (server/products/glossary.ts); erst schreiben, wenn /regal-lexikon im Shop steht */
+const FAQ_GLOSSARY = {
+  q: "Wo werden Fachbegriffe wie Fachlast und Feldlast erklärt?",
+  a: 'Im <a href="/regal-lexikon">META Regal-Lexikon</a>: Dort erklären wir über 70 Fachbegriffe rund ums Regal und vergleichen die Bauweisen mit ihren Vor- und Nachteilen.',
+};
+
 const NOTE_DUTIES: IndustryNote = {
   text: "Roter Abschnitt wie auf den System-Landingpages. Trennt META-Leistung und Betreiberpflicht – Einkäufer brauchen das für die interne Freigabe. DGUV Regel 108-007 bewusst nicht genannt (zurückgezogen, ersetzt durch DGUV Information 208-061).",
   src: "Katalog S. 11, 16, 17, 25",
@@ -58,7 +64,7 @@ export const INDUSTRY_COMMON: IndustryCommon = {
   dutyHint: DUTY_HINT,
   why: WHY_CLIP,
   docs: DOCS_COMMON,
-  faq: [FAQ_INSPECTION],
+  faq: [FAQ_INSPECTION, FAQ_GLOSSARY],
   noteDuties: NOTE_DUTIES,
   noteWhy: NOTE_WHY,
 };
@@ -191,6 +197,7 @@ export const INDUSTRY_PAGES: IndustryPage[] = [
       { q: "Wie aufwendig ist die Montage?", a: "META CLIP S3 wird ohne Werkzeug gesteckt; durch das CLIP-EASY-Verfahren ist ein falsches Zusammenstecken nicht möglich. Wenn Sie nicht selbst aufbauen möchten, übernehmen geschulte META-Montageteams den Aufbau." },
       { q: "Kann ich Reifen auch mobil lagern?", a: "Mit dem META CLIP Regalwagen für Reifen bringen Sie die Räder direkt an die Hebebühne. Der Wagen misst 1.850 × 1.300 × 400 mm und hat Rollen mit 125 mm Durchmesser, die beiden vorderen Lenkrollen sind gebremst." },
       FAQ_INSPECTION,
+      FAQ_GLOSSARY,
     ],
     advice: { title: "Sie planen ein Reifenlager oder richten eine Werkstatt ein?", text: "Schicken Sie uns Raummaße und Anzahl der Radsätze – wir stellen die passenden Regale zusammen und sagen Ihnen, was Sie für die Befestigung brauchen." },
     notes: {
@@ -329,6 +336,7 @@ export const INDUSTRY_PAGES: IndustryPage[] = [
       { q: "Wie viel trägt ein Kragarm?", a: "Beim MULTISTRONG LIGHT trägt ein Kragarm 220 kg bei 400 mm Armlänge, 175 kg bei 500 mm und 140 kg bei 600 mm – jeweils bei gleichmäßig verteilter Last." },
       { q: "Wofür ist ein Schrägbodenregal gut?", a: "Die Böden sind um 12° geneigt, dadurch gleitet die Ware zur Entnahmeseite. Das ist ideal für Kartonware wie Schraubenpäckchen oder Kunststoffkästen mit loser Ware und gibt einen guten Überblick über die Bestände." },
       FAQ_INSPECTION,
+      FAQ_GLOSSARY,
     ],
     advice: { title: "Sie richten Lager oder Werkstatt neu ein?", text: "Sagen Sie uns, was Sie lagern – Kabeltrommeln, Rohre, Kleinteile – und wie viel Platz Sie haben. Wir stellen die passenden Regale und das Zubehör zusammen." },
     notes: {
@@ -457,6 +465,7 @@ export const INDUSTRY_PAGES: IndustryPage[] = [
       { q: "Wie lagere ich Gefahrstoffe im Palettenregal?", a: "Das MULTIPAL Gefahrstoffregal wird mit Regal-Bodenwannen nach WHG kombiniert. So lassen sich wassergefährdende Stoffe der GHS-Kategorien 1 bis 4 und entzündbare Flüssigkeiten der GHS-Kategorien 1 bis 3 lagern. Die Regale werden ohne Wannen geliefert." },
       { q: "Lässt sich ein Ersatzteilregal später umbauen?", a: "Ja. Die CLIP-Fachböden sind im 25-mm-Raster höhenverstellbar und im 50-mm-Raster für Fachteiler gelocht (außer bei 80-kg-Fachböden). Mit Anbauregalen wird die Regalzeile verlängert." },
       FAQ_INSPECTION,
+      FAQ_GLOSSARY,
     ],
     advice: { title: "Sie planen ein Ersatzteil- oder Palettenlager?", text: "Schicken Sie uns Hallenmaße, Palettengewichte und Artikelzahl – wir stellen die passenden Regale zusammen oder planen die Anlage mit Ihnen vor Ort." },
     notes: {
@@ -593,6 +602,7 @@ export const INDUSTRY_PAGES: IndustryPage[] = [
       { q: "Kann ich auf Rechnung kaufen?", a: "Ja, im Shop ist der Kauf auf Rechnung mit 30 Tagen Zahlungsziel möglich. Für Ihre Beschaffung erstellen wir auch ein Angebot." },
       { q: "Gibt es die Regale auch in Lichtgrau?", a: "Ja. COMPACT gibt es verzinkt mit zerlegten S3-Rahmen oder in RAL 7035 lichtgrau mit vorgefertigten Rahmen." },
       FAQ_INSPECTION,
+      FAQ_GLOSSARY,
     ],
     advice: { title: "Sie richten ein Archiv oder Büro ein?", text: "Nennen Sie uns Raummaße und Ordnerzahl – wir stellen die passenden Regale zusammen und erstellen Ihnen ein Angebot für die Beschaffung." },
     notes: {
@@ -722,6 +732,7 @@ export const INDUSTRY_PAGES: IndustryPage[] = [
       { q: "Welches Regal eignet sich für Stapelkästen?", a: "Das SPEED-RACK Weitspannregal mit 1.700 mm Länge eignet sich besonders für den Einsatz von Stapelkästen." },
       { q: "Lassen sich die Fachböden umstellen, wenn sich das Sortiment ändert?", a: "Ja. Die CLIP-Fachböden sind im 25-mm-Raster höhenverstellbar, die SPEED-RACK-Fachebenen im 50-mm-Raster." },
       FAQ_INSPECTION,
+      FAQ_GLOSSARY,
     ],
     advice: { title: "Sie richten ein Lager oder einen Versand ein?", text: "Nennen Sie uns Fläche, Artikelzahl und Versandmenge – wir stellen Regale und Packplatz zusammen und planen bei Bedarf die größere Anlage." },
     notes: {
