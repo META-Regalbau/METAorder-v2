@@ -20,6 +20,7 @@ import { startCrossSellScheduler } from "./cross-selling/crossSellScheduler";
 import { startProductImageTextsScheduler } from "./products/productImageTextsJobs";
 import { startProductMetaTextsScheduler } from "./products/productMetaTextsJobs";
 import { startShopWatchScheduler } from "./shopContent/shopWatchScheduler";
+import { startShopPulseScheduler } from "./shopPulse/shopPulseScheduler";
 import { runOfferLearning } from "./offers/offerLearning";
 import { pollInboundEmails } from "./email/emailInbound";
 import { runDunningJob } from "./invoicing/dunningJob";
@@ -229,6 +230,8 @@ function startSystemLog() {
   startProductMetaTextsScheduler(storage);
   // Shop-Wächter: Deploy-Abgleich alle 15 Min., stündliche und nächtliche Prüfung, wenn eingeschaltet
   startShopWatchScheduler(storage);
+  // Shop-Puls: Prüfungen alle 15 Min., Sofort-Meldungen und Tagesbericht, wenn eingeschaltet
+  startShopPulseScheduler(storage);
 
   const runOfferLearningJob = async () => {
     try {

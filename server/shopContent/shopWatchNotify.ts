@@ -13,7 +13,7 @@
  * n8n-workflows/shop-watch-teams.json holt sie ab, postet sie an den Teams-Webhook aus den
  * E-Mail-Eingang-Einstellungen und quittiert. Ohne Webhook nur die Glocke.
  */
-import { randomUUID } from "crypto";
+import { ackTeamsOutbox, enqueueTeamsMessage, getTeamsOutbox, type SettingsRW, type TeamsOutboxItem } from "../lib/teamsOutbox";
 import deLocale from "../../client/src/i18n/locales/de.json";
 import {
   classifyDeployChanges,
@@ -30,9 +30,6 @@ import {
 } from "@shared/shopWatch";
 
 export const SHOP_WATCH_TEAMS_OUTBOX_KEY = "shop_watch_teams_outbox";
-/** Unabgeholte Nachrichten verfallen (n8n nicht eingerichtet oder Webhook kaputt) */
-const OUTBOX_MAX_AGE_MS = 48 * 60 * 60 * 1000;
-const OUTBOX_MAX_ITEMS = 20;
 /** So viele Prüfpunkte stehen höchstens in einer Nachricht */
 const MAX_LISTED = 12;
 export const SHOP_WATCH_PAGE_PATH = "/admin/shop-waechter";
@@ -203,34 +200,19 @@ export function buildShopWatchTeamsMessage(
 }
 
 // ---------------------------------------------------------------------------------------------
-// Warteschlange für n8n
+// Warteschlange für n8n (gemeinsam mit dem Shop-Puls: server/lib/teamsOutbox.ts)
 
-export type ShopWatchTeamsOutboxItem = { id: string; createdAt: string; message: Record<string, unknown> };
+export type ShopWatchTeamsOutboxItem = TeamsOutboxItem;
 
-type SettingsRW = {
-  getSetting(key: string, tenantId?: string | null): Promise<any>;
-  saveSetting(key: string, value: any, tenantId?: string | null): Promise<any>;
-};
-
-function freshItems(raw: unknown, now: Date): ShopWatchTeamsOutboxItem[] {
-  const items = raw && typeof raw === "object" && Array.isArray((raw as any).items) ? ((raw as any).items as ShopWatchTeamsOutboxItem[]) : [];
-  return items.filter((i) => i && typeof i.id === "string" && now.getTime() - Date.parse(i.createdAt) < OUTBOX_MAX_AGE_MS);
+export function getShopWatchTeamsOutbox(store: SettingsRW, tenantId: string | null, now = new Date()): Promise<ShopWatchTeamsOutboxItem[]> {
+  return getTeamsOutbox(store, SHOP_WATCH_TEAMS_OUTBOX_KEY, tenantId, now);
 }
 
-export async function getShopWatchTeamsOutbox(store: SettingsRW, tenantId: string | null, now = new Date()): Promise<ShopWatchTeamsOutboxItem[]> {
-  return freshItems(await store.getSetting(SHOP_WATCH_TEAMS_OUTBOX_KEY, tenantId), now);
-}
-
-export async function enqueueShopWatchTeamsMessage(store: SettingsRW, tenantId: string | null, message: Record<string, unknown>, now = new Date()): Promise<void> {
-  const items = await getShopWatchTeamsOutbox(store, tenantId, now);
-  items.push({ id: randomUUID(), createdAt: now.toISOString(), message });
-  await store.saveSetting(SHOP_WATCH_TEAMS_OUTBOX_KEY, { items: items.slice(-OUTBOX_MAX_ITEMS) }, tenantId);
+export function enqueueShopWatchTeamsMessage(store: SettingsRW, tenantId: string | null, message: Record<string, unknown>, now = new Date()): Promise<void> {
+  return enqueueTeamsMessage(store, SHOP_WATCH_TEAMS_OUTBOX_KEY, tenantId, message, now);
 }
 
 /** n8n quittiert gepostete Nachrichten; unbekannte IDs werden ignoriert */
-export async function ackShopWatchTeamsOutbox(store: SettingsRW, tenantId: string | null, ids: string[], now = new Date()): Promise<number> {
-  const items = await getShopWatchTeamsOutbox(store, tenantId, now);
-  const rest = items.filter((i) => !ids.includes(i.id));
-  await store.saveSetting(SHOP_WATCH_TEAMS_OUTBOX_KEY, { items: rest }, tenantId);
-  return items.length - rest.length;
+export function ackShopWatchTeamsOutbox(store: SettingsRW, tenantId: string | null, ids: string[], now = new Date()): Promise<number> {
+  return ackTeamsOutbox(store, SHOP_WATCH_TEAMS_OUTBOX_KEY, tenantId, ids, now);
 }

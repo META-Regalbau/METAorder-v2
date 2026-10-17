@@ -1752,7 +1752,7 @@ export type DiscountRequest = typeof discountRequests.$inferSelect;
 export type InsertDiscountRequest = z.infer<typeof insertDiscountRequestSchema>;
 
 // Notifications for real-time user alerts
-export type NotificationType = "ticket_assigned" | "ticket_updated" | "comment_added" | "due_date_warning" | "ticket_status_changed" | "cross_selling_review" | "draft_margin_approval" | "shop_watch";
+export type NotificationType = "ticket_assigned" | "ticket_updated" | "comment_added" | "due_date_warning" | "ticket_status_changed" | "cross_selling_review" | "draft_margin_approval" | "shop_watch" | "shop_pulse";
 
 export const notifications = pgTable("notifications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1773,7 +1773,7 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
   id: true,
   createdAt: true,
 }).extend({
-  type: z.enum(["ticket_assigned", "ticket_updated", "comment_added", "due_date_warning", "ticket_status_changed", "cross_selling_review", "draft_margin_approval", "shop_watch"]),
+  type: z.enum(["ticket_assigned", "ticket_updated", "comment_added", "due_date_warning", "ticket_status_changed", "cross_selling_review", "draft_margin_approval", "shop_watch", "shop_pulse"]),
 });
 
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
@@ -3820,3 +3820,38 @@ export const salesRepAssignments = pgTable(
 );
 
 export type SalesRepAssignmentRow = typeof salesRepAssignments.$inferSelect;
+
+/**
+ * Shop-Puls: je Mandant und Fund-Schlüssel eine Meldung (shared/shopPulse.ts, migrations/0054_shop_pulse_signals.sql).
+ * Offen, solange der Fund besteht; derselbe Fund öffnet die Zeile später wieder.
+ */
+export const shopPulseSignals = pgTable(
+  "shop_pulse_signals",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id"),
+    key: text("key").notNull(),
+    source: text("source").notNull(),
+    code: text("code").notNull(),
+    severity: text("severity").notNull(),
+    status: text("status").notNull().default("open"),
+    params: jsonb("params").notNull().default({}),
+    evidence: jsonb("evidence").notNull().default({}),
+    lossPerHour: doublePrecision("loss_per_hour"),
+    firstSeenAt: timestamp("first_seen_at").notNull().defaultNow(),
+    lastSeenAt: timestamp("last_seen_at").notNull().defaultNow(),
+    resolvedAt: timestamp("resolved_at"),
+    resolvedBy: text("resolved_by"),
+    mutedUntil: timestamp("muted_until"),
+    notifiedAt: timestamp("notified_at"),
+    notifiedSeverity: text("notified_severity"),
+    reopenCount: integer("reopen_count").notNull().default(0),
+  },
+  (table) => ({
+    tenantKeyIdx: uniqueIndex("shop_pulse_signals_tenant_key_idx").on(table.tenantId, table.key),
+    tenantStatusIdx: index("shop_pulse_signals_tenant_status_idx").on(table.tenantId, table.status, table.lastSeenAt),
+  }),
+);
+
+export type ShopPulseSignalRow = typeof shopPulseSignals.$inferSelect;
+export type InsertShopPulseSignalRow = typeof shopPulseSignals.$inferInsert;

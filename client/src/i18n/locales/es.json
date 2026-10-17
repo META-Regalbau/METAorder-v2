@@ -243,7 +243,8 @@
     "portalRegistrations": "Registros del portal",
     "systemLog": "Registro del sistema",
     "shopContent": "Contenidos de la tienda",
-    "shopWatch": "Vigilante de la tienda"
+    "shopWatch": "Vigilante de la tienda",
+    "shopPulse": "Pulso de la tienda"
   },
   "shopFakturen": {
     "title": "Importación de facturas SAP",
@@ -6545,7 +6546,20 @@
       "failed_to_load_shop_watch_teams_outbox": "No se pudo cargar la cola de Teams del vigilante",
       "invalid_shop_watch_teams_acknowledgement": "Confirmación no válida para la cola de Teams",
       "failed_to_acknowledge_shop_watch_teams_outbox": "No se pudo confirmar la cola de Teams",
-      "no_shop_watch_run_yet": "Aún no hay comprobación: primero «Comprobar ahora»"
+      "no_shop_watch_run_yet": "Aún no hay comprobación: primero «Comprobar ahora»",
+      "failed_to_load_shop_pulse": "No se pudo cargar el pulso de la tienda",
+      "invalid_shop_pulse_settings": "Ajustes del pulso de la tienda no válidos",
+      "failed_to_save_shop_pulse_settings": "No se pudieron guardar los ajustes del pulso de la tienda",
+      "shop_pulse_run_already_in_progress": "Ya se está ejecutando una comprobación del pulso de la tienda",
+      "shop_pulse_run_failed": "La comprobación del pulso de la tienda ha fallado",
+      "teams_webhook_not_configured": "No hay ninguna dirección de Teams configurada",
+      "failed_to_queue_shop_pulse_test_message": "No se pudo preparar el mensaje de prueba",
+      "shop_pulse_signal_not_found": "Aviso no encontrado",
+      "failed_to_update_shop_pulse_signal": "No se pudo actualizar el aviso",
+      "invalid_shop_pulse_mute": "Duración de silencio no válida",
+      "failed_to_load_shop_pulse_teams_outbox": "No se pudo cargar la cola de Teams del pulso de la tienda",
+      "invalid_shop_pulse_teams_acknowledgement": "Confirmación no válida para la cola de Teams",
+      "failed_to_acknowledge_shop_pulse_teams_outbox": "No se pudo confirmar la cola de Teams"
     }
   },
   "roomPlanner": {
@@ -7836,6 +7850,124 @@
         "allClear": "Todo en orden",
         "deploy": "Despliegue detectado"
       }
+    }
+  },
+  "shopPulse": {
+    "title": "Pulso de la tienda",
+    "subtitle": "Avisa de lo que no va bien en la tienda online: lo crítico al instante como mensaje directo de Teams, lo demás en el informe diario a partir de las 8. Por ahora comprueba la sincronización de pedidos; ventas, disponibilidad de compra y GA4 vendrán después.",
+    "runNow": "Comprobar ahora",
+    "running": "Comprobando …",
+    "runDone": "Comprobación terminada",
+    "runFailed": "La comprobación ha fallado",
+    "loading": "Cargando pulso de la tienda …",
+    "loadError": "No se pudo cargar el pulso de la tienda.",
+    "settings": {
+      "title": "Ajustes",
+      "enable": "Activar pulso de la tienda",
+      "enableHint": "Comprueba cada 15 minutos. Informe diario de lunes a sábado a partir de las 8, solo si hay avisos abiertos.",
+      "saved": "Guardado",
+      "saveFailed": "No se pudo guardar",
+      "learning": "Semana de aprendizaje hasta el {{date}}: los avisos se recogen, pero no se envían.",
+      "learningEnd": "Terminar semana de aprendizaje",
+      "learningPending": "Al activarlo por primera vez empieza una semana de aprendizaje: 7 días solo recoger, luego enviar.",
+      "learningOver": "Semana de aprendizaje terminada el {{date}}.",
+      "teamsTitle": "Mensaje directo de Teams",
+      "teamsOn": "Configurado. n8n recoge los mensajes cada 5 minutos.",
+      "teamsOff": "Aún no configurado. Sin dirección solo queda la campana de METAorder.",
+      "teamsPending": "{{count}} mensaje(s) esperando a que n8n los recoja.",
+      "webhookLabel": "Dirección del webhook de Teams",
+      "webhookPlaceholder": "https://…powerplatform.com/…",
+      "webhookSave": "Guardar dirección",
+      "webhookRemove": "Quitar dirección",
+      "webhookInvalid": "Solo direcciones https de Microsoft (Power Automate, Logic Apps, Teams).",
+      "webhookHelp": "Cómo configurarlo: en Teams abre Aplicaciones → Workflows, elige la plantilla «Publicar en un chat cuando se reciba una solicitud de webhook», publicar como bot de Flow en el chat con el bot de Flow, destinatario tú. Pega aquí la dirección que aparece. En n8n importa y activa el workflow «METAorder Shop-Puls → Teams».",
+      "test": "Enviar mensaje de prueba",
+      "testQueued": "El mensaje de prueba está listo. n8n lo recoge en 5 minutos como máximo.",
+      "testFailed": "El mensaje de prueba ha fallado",
+      "shopWatchDirect": "Enviar también los avisos del vigilante de la tienda como mensaje directo",
+      "shopWatchDirectHint": "En lugar del canal de Teams de la entrada de correo."
+    },
+    "signals": {
+      "title": "Avisos",
+      "empty": "No hay avisos.",
+      "columns": {
+        "severity": "Gravedad",
+        "signal": "Aviso",
+        "since": "Desde",
+        "status": "Estado",
+        "actions": "Acciones"
+      },
+      "lastSeen": "visto por última vez {{at}}",
+      "resolvedAt": "resuelto el {{at}}",
+      "resolvedBy": "resuelto por {{name}} el {{at}}",
+      "mutedUntil": "silenciado hasta {{at}}",
+      "loss": "estimado {{amount}} por hora",
+      "resolve": "Resuelto",
+      "mute1": "Silenciar 1 día",
+      "mute7": "Silenciar 7 días",
+      "unmute": "Volver a avisar",
+      "resolvedToast": "Marcado como resuelto",
+      "mutedToast": "Silenciado",
+      "unmutedToast": "Se volverá a avisar",
+      "actionFailed": "La acción ha fallado",
+      "resolveHint": "Si un hallazgo vuelve, su aviso se abre de nuevo.",
+      "confirmMute": "¿Silenciar este aviso 7 días?",
+      "confirmMuteButton": "Silenciar 7 días",
+      "cancel": "Cancelar"
+    },
+    "severity": {
+      "warning": "Advertencia",
+      "critical": "Crítico"
+    },
+    "status": {
+      "open": "Abierto",
+      "resolved": "Resuelto"
+    },
+    "source": {
+      "system": "Sistema",
+      "revenue": "Ventas",
+      "buyability": "Disponibilidad de compra",
+      "ga4": "GA4"
+    },
+    "codes": {
+      "mirrorStale": {
+        "title": "La sincronización de pedidos con la tienda está parada",
+        "message": "La última sincronización correcta de pedidos fue hace {{minutes}} minutos (normalmente cada 3 minutos). Hasta entonces, las estadísticas y el pulso de la tienda no ven pedidos nuevos."
+      },
+      "mirrorError": {
+        "title": "La sincronización de pedidos con la tienda falla",
+        "message": "Ninguna sincronización de pedidos correcta desde hace {{minutes}} minutos. Último error: {{error}}"
+      }
+    },
+    "detectors": {
+      "title": "Comprobaciones",
+      "none": "Todavía no se ha ejecutado.",
+      "lastRun": "Última ejecución {{at}}",
+      "ok": "correcto",
+      "failed": "fallida: {{error}}",
+      "findings": "{{count}} hallazgo(s)",
+      "names": {
+        "mirrorFreshness": "Sincronización de pedidos (actualidad del espejo)"
+      }
+    },
+    "notify": {
+      "since": "Desde",
+      "lastSeen": "Última comprobación",
+      "resolvedAt": "Resuelto",
+      "loss": "Pérdida estimada",
+      "lossValue": "unos {{amount}} por hora (estimación)",
+      "resolvedPrefix": "Resuelto",
+      "escalatedPrefix": "Agravado",
+      "resolvedText": "El hallazgo no apareció en la última comprobación.",
+      "open": "Abrir en METAorder",
+      "mute": "Silenciar 7 días",
+      "openPage": "Abrir pulso de la tienda",
+      "dailyTitle": "Pulso de la tienda: informe diario del {{date}}",
+      "dailySummary": "{{count}} aviso(s) abierto(s), {{critical}} crítico(s).",
+      "more": "… y {{count}} más",
+      "testTitle": "Pulso de la tienda: mensaje de prueba",
+      "testText": "El mensaje directo funciona ({{at}}). A partir de ahora llegarán aquí los avisos del pulso de la tienda.",
+      "bellPrefix": "Pulso de la tienda"
     }
   }
 }

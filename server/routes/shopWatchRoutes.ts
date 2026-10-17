@@ -21,7 +21,7 @@ import {
   shopWatchDeps,
 } from "../shopContent/shopWatchScheduler";
 import { ackShopWatchTeamsOutbox, getShopWatchTeamsOutbox } from "../shopContent/shopWatchNotify";
-import { getEmailIntakeSettings } from "../commercial/emailIntakeSettings";
+import { shopWatchTeamsWebhookUrl } from "../shopPulse/shopPulseSettings";
 
 const moduleLog = logger.child({ component: "routes/shopWatchRoutes" });
 
@@ -40,12 +40,12 @@ export function registerShopWatchRoutes(app: Express): void {
   app.get("/api/shop-content/watch", requireAuth, requireAdministrator, async (req: Request, res: Response) => {
     try {
       const tenantId = tenantOf(req);
-      const [state, baseline, settings, schedule, intake, outbox] = await Promise.all([
+      const [state, baseline, settings, schedule, teamsWebhook, outbox] = await Promise.all([
         getShopWatchState(storage, tenantId),
         getShopWatchBaseline(storage, tenantId),
         getShopWatchSettings(storage, tenantId),
         getShopWatchScheduleState(storage, tenantId),
-        getEmailIntakeSettings(storage, tenantId),
+        shopWatchTeamsWebhookUrl(storage, tenantId),
         getShopWatchTeamsOutbox(storage, tenantId),
       ]);
       const { categoryFields: _fields, ...lastRun } = state.lastRun ?? ({} as NonNullable<typeof state.lastRun>);
@@ -59,7 +59,7 @@ export function registerShopWatchRoutes(app: Express): void {
           lastFingerprintAt: schedule.lastFingerprintAt ?? null,
           lastFullRunAt: schedule.lastFullRunAt ?? null,
           lastNotice: schedule.lastNotice ?? null,
-          teamsConfigured: !!intake.teamsWebhookUrl.trim(),
+          teamsConfigured: !!teamsWebhook,
           teamsPending: outbox.length,
         },
       });
@@ -108,12 +108,13 @@ export function registerShopWatchRoutes(app: Express): void {
 
   /**
    * n8n holt fertige Teams-Karten ab (Workflow n8n-workflows/shop-watch-teams.json) und postet sie an
-   * den Webhook aus den E-Mail-Eingang-Einstellungen; danach quittieren. Ohne Webhook leer.
+   * den Webhook aus den E-Mail-Eingang-Einstellungen (oder an die Direktnachricht des Shop-Puls, wenn dort
+   * eingestellt); danach quittieren. Ohne Webhook leer.
    */
   app.get("/api/shop-content/watch/teams-outbox", requireAuthOrIntegrationKey, requireIntegrationOrAdministrator, async (req: Request, res: Response) => {
     try {
       const tenantId = tenantOf(req);
-      const webhookUrl = (await getEmailIntakeSettings(storage, tenantId)).teamsWebhookUrl.trim();
+      const webhookUrl = await shopWatchTeamsWebhookUrl(storage, tenantId);
       const items = webhookUrl ? await getShopWatchTeamsOutbox(storage, tenantId) : [];
       res.json({ webhookUrl, items });
     } catch (error) {

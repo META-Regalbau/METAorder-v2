@@ -22,7 +22,7 @@ import {
 import { runWithTenantContext } from "../lib/tenantContext";
 import { notificationEvents } from "../lib/events";
 import { logger } from "../lib/logger";
-import { getEmailIntakeSettings } from "../commercial/emailIntakeSettings";
+import { shopWatchTeamsWebhookUrl } from "../shopPulse/shopPulseSettings";
 import { publicAppBaseUrl } from "../commercial/emailIntakeTeams";
 import { checkShopWatchFingerprint, getShopWatchState, isShopWatchRunning, runShopWatch } from "./shopWatch";
 import {
@@ -50,7 +50,7 @@ export type ShopWatchDeps = {
     IStorage,
     "getAllTenants" | "getShopwareSettings" | "getSetting" | "saveSetting" | "getUsersWithPermissionInTenant" | "createNotification"
   >;
-  /** Teams-Webhook aus den E-Mail-Eingang-Einstellungen ("" = keine Teams-Nachricht) */
+  /** Teams-Webhook: Kanal aus dem E-Mail-Eingang oder Direktnachricht des Shop-Puls ("" = keine Teams-Nachricht) */
   teamsWebhookUrl: (tenantId: string | null) => Promise<string>;
   onNotificationCreated: (n: Notification) => void;
   baseUrl: string | null;
@@ -212,7 +212,7 @@ export async function runShopWatchTick(deps: ShopWatchDeps): Promise<void> {
 export function shopWatchDeps(storage: IStorage): ShopWatchDeps {
   return {
     storage,
-    teamsWebhookUrl: async (tenantId) => (await getEmailIntakeSettings(storage, tenantId)).teamsWebhookUrl,
+    teamsWebhookUrl: (tenantId) => shopWatchTeamsWebhookUrl(storage, tenantId),
     onNotificationCreated: (n) => notificationEvents.emitNotificationCreated(n),
     baseUrl: publicAppBaseUrl(process.env.APP_URL?.trim() || null),
   };

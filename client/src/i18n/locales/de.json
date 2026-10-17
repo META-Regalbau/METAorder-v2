@@ -314,7 +314,8 @@
     "mobilePicking": "Mobile Picking",
     "systemLog": "Systemprotokoll",
     "shopContent": "Shop-Inhalte",
-    "shopWatch": "Shop-Wächter"
+    "shopWatch": "Shop-Wächter",
+    "shopPulse": "Shop-Puls"
   },
   "shopFakturen": {
     "title": "SAP-Rechnungsimport",
@@ -6545,7 +6546,20 @@
       "failed_to_load_shop_watch_teams_outbox": "Teams-Warteschlange des Shop-Wächters konnte nicht geladen werden",
       "invalid_shop_watch_teams_acknowledgement": "Ungültige Quittung für die Teams-Warteschlange",
       "failed_to_acknowledge_shop_watch_teams_outbox": "Teams-Warteschlange konnte nicht quittiert werden",
-      "no_shop_watch_run_yet": "Noch keine Prüfung – erst „Jetzt prüfen“"
+      "no_shop_watch_run_yet": "Noch keine Prüfung – erst „Jetzt prüfen“",
+      "failed_to_load_shop_pulse": "Shop-Puls konnte nicht geladen werden",
+      "invalid_shop_pulse_settings": "Ungültige Einstellungen für den Shop-Puls",
+      "failed_to_save_shop_pulse_settings": "Einstellungen des Shop-Puls konnten nicht gespeichert werden",
+      "shop_pulse_run_already_in_progress": "Eine Prüfung des Shop-Puls läuft bereits",
+      "shop_pulse_run_failed": "Prüfung des Shop-Puls fehlgeschlagen",
+      "teams_webhook_not_configured": "Keine Teams-Adresse hinterlegt",
+      "failed_to_queue_shop_pulse_test_message": "Testnachricht konnte nicht bereitgelegt werden",
+      "shop_pulse_signal_not_found": "Meldung nicht gefunden",
+      "failed_to_update_shop_pulse_signal": "Meldung konnte nicht geändert werden",
+      "invalid_shop_pulse_mute": "Ungültige Dauer zum Ruhigstellen",
+      "failed_to_load_shop_pulse_teams_outbox": "Teams-Warteschlange des Shop-Puls konnte nicht geladen werden",
+      "invalid_shop_pulse_teams_acknowledgement": "Ungültige Quittung für die Teams-Warteschlange",
+      "failed_to_acknowledge_shop_pulse_teams_outbox": "Teams-Warteschlange konnte nicht quittiert werden"
     }
   },
   "roomPlanner": {
@@ -7836,6 +7850,124 @@
         "allClear": "Entwarnung",
         "deploy": "Deploy erkannt"
       }
+    }
+  },
+  "shopPulse": {
+    "title": "Shop-Puls",
+    "subtitle": "Meldet, was im Onlineshop nicht gut läuft: Kritisches sofort als Teams-Direktnachricht, alles andere im Tagesbericht ab 8 Uhr. Bisher prüft er den Bestellabgleich; Umsatz, Kaufbarkeit und GA4 folgen.",
+    "runNow": "Jetzt prüfen",
+    "running": "Prüft …",
+    "runDone": "Prüfung abgeschlossen",
+    "runFailed": "Prüfung fehlgeschlagen",
+    "loading": "Lade Shop-Puls …",
+    "loadError": "Shop-Puls konnte nicht geladen werden.",
+    "settings": {
+      "title": "Einstellungen",
+      "enable": "Shop-Puls einschalten",
+      "enableHint": "Prüft alle 15 Minuten. Tagesbericht Montag bis Samstag ab 8 Uhr, nur wenn Meldungen offen sind.",
+      "saved": "Gespeichert",
+      "saveFailed": "Speichern fehlgeschlagen",
+      "learning": "Lernwoche bis {{date}}: Meldungen werden gesammelt, aber nicht gesendet.",
+      "learningEnd": "Lernwoche beenden",
+      "learningPending": "Beim ersten Einschalten beginnt eine Lernwoche: 7 Tage nur sammeln, danach senden.",
+      "learningOver": "Lernwoche beendet am {{date}}.",
+      "teamsTitle": "Teams-Direktnachricht",
+      "teamsOn": "Eingerichtet. n8n holt die Nachrichten alle 5 Minuten ab.",
+      "teamsOff": "Noch nicht eingerichtet. Ohne Adresse gibt es nur die Glocke in METAorder.",
+      "teamsPending": "{{count}} Nachricht(en) warten auf Abholung durch n8n.",
+      "webhookLabel": "Webhook-Adresse aus Teams",
+      "webhookPlaceholder": "https://…powerplatform.com/…",
+      "webhookSave": "Adresse speichern",
+      "webhookRemove": "Adresse entfernen",
+      "webhookInvalid": "Nur https-Adressen von Microsoft (Power Automate, Logic Apps, Teams).",
+      "webhookHelp": "So richtest du sie ein: In Teams unter Apps → Workflows die Vorlage „Bei Empfang einer Webhook-Anforderung in einem Chat posten“ wählen, posten als Flow-Bot im Chat mit dem Flow-Bot, Empfänger du selbst. Die angezeigte Adresse hier einfügen. In n8n den Workflow „METAorder Shop-Puls → Teams“ importieren und aktivieren.",
+      "test": "Testnachricht senden",
+      "testQueued": "Testnachricht liegt bereit. n8n holt sie in spätestens 5 Minuten ab.",
+      "testFailed": "Testnachricht fehlgeschlagen",
+      "shopWatchDirect": "Meldungen des Shop-Wächters ebenfalls als Direktnachricht",
+      "shopWatchDirectHint": "Statt in den Teams-Kanal aus dem E-Mail-Eingang."
+    },
+    "signals": {
+      "title": "Meldungen",
+      "empty": "Keine Meldungen.",
+      "columns": {
+        "severity": "Schwere",
+        "signal": "Meldung",
+        "since": "Seit",
+        "status": "Status",
+        "actions": "Aktionen"
+      },
+      "lastSeen": "zuletzt {{at}}",
+      "resolvedAt": "erledigt am {{at}}",
+      "resolvedBy": "erledigt von {{name}} am {{at}}",
+      "mutedUntil": "ruhig bis {{at}}",
+      "loss": "geschätzt {{amount}} pro Stunde",
+      "resolve": "Erledigt",
+      "mute1": "1 Tag ruhig",
+      "mute7": "7 Tage ruhig",
+      "unmute": "Wieder melden",
+      "resolvedToast": "Als erledigt markiert",
+      "mutedToast": "Ruhig gestellt",
+      "unmutedToast": "Wird wieder gemeldet",
+      "actionFailed": "Aktion fehlgeschlagen",
+      "resolveHint": "Kommt ein Fund wieder, öffnet sich seine Meldung erneut.",
+      "confirmMute": "Diese Meldung 7 Tage ruhig stellen?",
+      "confirmMuteButton": "7 Tage ruhig stellen",
+      "cancel": "Abbrechen"
+    },
+    "severity": {
+      "warning": "Warnung",
+      "critical": "Kritisch"
+    },
+    "status": {
+      "open": "Offen",
+      "resolved": "Erledigt"
+    },
+    "source": {
+      "system": "System",
+      "revenue": "Umsatz",
+      "buyability": "Kaufbarkeit",
+      "ga4": "GA4"
+    },
+    "codes": {
+      "mirrorStale": {
+        "title": "Bestellabgleich mit dem Shop hängt",
+        "message": "Der letzte erfolgreiche Abgleich der Bestellungen ist {{minutes}} Minuten her (normal alle 3 Minuten). Statistik und Shop-Puls sehen bis dahin keine neuen Bestellungen."
+      },
+      "mirrorError": {
+        "title": "Bestellabgleich mit dem Shop schlägt fehl",
+        "message": "Seit {{minutes}} Minuten kein erfolgreicher Abgleich der Bestellungen. Letzter Fehler: {{error}}"
+      }
+    },
+    "detectors": {
+      "title": "Prüfungen",
+      "none": "Noch kein Lauf.",
+      "lastRun": "Letzter Lauf {{at}}",
+      "ok": "in Ordnung",
+      "failed": "fehlgeschlagen: {{error}}",
+      "findings": "{{count}} Fund(e)",
+      "names": {
+        "mirrorFreshness": "Bestellabgleich (Spiegel-Frische)"
+      }
+    },
+    "notify": {
+      "since": "Seit",
+      "lastSeen": "Zuletzt geprüft",
+      "resolvedAt": "Behoben",
+      "loss": "Geschätzter Verlust",
+      "lossValue": "rund {{amount}} pro Stunde (Schätzung)",
+      "resolvedPrefix": "Behoben",
+      "escalatedPrefix": "Verschärft",
+      "resolvedText": "Der Fund ist bei der letzten Prüfung nicht mehr aufgetreten.",
+      "open": "In METAorder öffnen",
+      "mute": "7 Tage ruhig stellen",
+      "openPage": "Shop-Puls öffnen",
+      "dailyTitle": "Shop-Puls: Tagesbericht vom {{date}}",
+      "dailySummary": "{{count}} offene Meldung(en), davon {{critical}} kritisch.",
+      "more": "… und {{count}} weitere",
+      "testTitle": "Shop-Puls: Testnachricht",
+      "testText": "Die Direktnachricht funktioniert ({{at}}). Ab jetzt kommen hier die Meldungen des Shop-Puls an.",
+      "bellPrefix": "Shop-Puls"
     }
   }
 }

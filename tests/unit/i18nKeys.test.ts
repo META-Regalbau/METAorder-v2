@@ -31,6 +31,8 @@ import {
   TICKET_STATUSES,
 } from "../../shared/automation";
 import { SHOP_WATCH_FINDING_CODES, SHOP_WATCH_GROUPS, SHOP_WATCH_KINDS, SHOP_WATCH_STATUSES } from "../../shared/shopWatch";
+import { SHOP_PULSE_CODES, SHOP_PULSE_SEVERITIES, SHOP_PULSE_SOURCES, SHOP_PULSE_STATUSES } from "../../shared/shopPulse";
+import { SHOP_PULSE_DETECTORS } from "../../server/shopPulse/detectors";
 
 const ROOT = path.resolve(__dirname, "../..");
 const flatten = (obj: Record<string, unknown>, prefix = ""): Record<string, unknown> =>
@@ -134,6 +136,16 @@ describe("Uebersetzungsschluessel (Deutsch)", () => {
       ...["shopwareVersion", "plugins", "themeAsset"].map((v) => `shopWatch.deploy.${v}`),
       ...["auto", "manual", "none"].map((v) => `shopWatch.repair.${v}`),
       ...["alert", "allClear", "deploy"].map((v) => `shopWatch.schedule.notice.${v}`),
+    ])).toEqual([]);
+  });
+
+  it("Shop-Puls: Fund-Arten, Schwere, Quellen, Status, Prüfungen", () => {
+    expect(missingIn([
+      ...SHOP_PULSE_CODES.flatMap((v) => [`shopPulse.codes.${v}.title`, `shopPulse.codes.${v}.message`]),
+      ...SHOP_PULSE_SEVERITIES.map((v) => `shopPulse.severity.${v}`),
+      ...SHOP_PULSE_SOURCES.map((v) => `shopPulse.source.${v}`),
+      ...SHOP_PULSE_STATUSES.map((v) => `shopPulse.status.${v}`),
+      ...SHOP_PULSE_DETECTORS.map((d) => `shopPulse.detectors.names.${d.id}`),
     ])).toEqual([]);
   });
 

@@ -314,7 +314,8 @@
     "mobilePicking": "Mobile Picking",
     "systemLog": "System log",
     "shopContent": "Shop content",
-    "shopWatch": "Shop watch"
+    "shopWatch": "Shop watch",
+    "shopPulse": "Shop pulse"
   },
   "shopFakturen": {
     "title": "SAP Invoice Import",
@@ -6548,7 +6549,20 @@
       "failed_to_load_shop_watch_teams_outbox": "Failed to load shop watch Teams outbox",
       "invalid_shop_watch_teams_acknowledgement": "Invalid shop watch Teams acknowledgement",
       "failed_to_acknowledge_shop_watch_teams_outbox": "Failed to acknowledge shop watch Teams outbox",
-      "no_shop_watch_run_yet": "No check yet – run “Check now” first"
+      "no_shop_watch_run_yet": "No check yet – run “Check now” first",
+      "failed_to_load_shop_pulse": "Shop pulse could not be loaded",
+      "invalid_shop_pulse_settings": "Invalid shop pulse settings",
+      "failed_to_save_shop_pulse_settings": "Shop pulse settings could not be saved",
+      "shop_pulse_run_already_in_progress": "A shop pulse check is already running",
+      "shop_pulse_run_failed": "Shop pulse check failed",
+      "teams_webhook_not_configured": "No Teams address configured",
+      "failed_to_queue_shop_pulse_test_message": "Test message could not be queued",
+      "shop_pulse_signal_not_found": "Alert not found",
+      "failed_to_update_shop_pulse_signal": "Alert could not be updated",
+      "invalid_shop_pulse_mute": "Invalid mute duration",
+      "failed_to_load_shop_pulse_teams_outbox": "Shop pulse Teams outbox could not be loaded",
+      "invalid_shop_pulse_teams_acknowledgement": "Invalid acknowledgement for the Teams outbox",
+      "failed_to_acknowledge_shop_pulse_teams_outbox": "Teams outbox could not be acknowledged"
     }
   },
   "roomPlanner": {
@@ -7839,6 +7853,124 @@
         "allClear": "All clear",
         "deploy": "Deploy detected"
       }
+    }
+  },
+  "shopPulse": {
+    "title": "Shop pulse",
+    "subtitle": "Reports what is not going well in the online shop: critical issues immediately as a Teams direct message, everything else in the daily report from 8 am. So far it checks the order sync; revenue, buyability and GA4 follow.",
+    "runNow": "Check now",
+    "running": "Checking …",
+    "runDone": "Check finished",
+    "runFailed": "Check failed",
+    "loading": "Loading shop pulse …",
+    "loadError": "Shop pulse could not be loaded.",
+    "settings": {
+      "title": "Settings",
+      "enable": "Turn on shop pulse",
+      "enableHint": "Checks every 15 minutes. Daily report Monday to Saturday from 8 am, only when alerts are open.",
+      "saved": "Saved",
+      "saveFailed": "Saving failed",
+      "learning": "Learning week until {{date}}: alerts are collected but not sent.",
+      "learningEnd": "End learning week",
+      "learningPending": "Turning it on for the first time starts a learning week: collect only for 7 days, then send.",
+      "learningOver": "Learning week ended on {{date}}.",
+      "teamsTitle": "Teams direct message",
+      "teamsOn": "Set up. n8n picks up the messages every 5 minutes.",
+      "teamsOff": "Not set up yet. Without an address there is only the bell in METAorder.",
+      "teamsPending": "{{count}} message(s) waiting for n8n to pick them up.",
+      "webhookLabel": "Webhook address from Teams",
+      "webhookPlaceholder": "https://…powerplatform.com/…",
+      "webhookSave": "Save address",
+      "webhookRemove": "Remove address",
+      "webhookInvalid": "Only https addresses from Microsoft (Power Automate, Logic Apps, Teams).",
+      "webhookHelp": "How to set it up: in Teams open Apps → Workflows, choose the template “Post to a chat when a webhook request is received”, post as Flow bot in the chat with Flow bot, recipient yourself. Paste the address shown here. In n8n import and activate the workflow “METAorder Shop-Puls → Teams”.",
+      "test": "Send test message",
+      "testQueued": "Test message is ready. n8n picks it up within 5 minutes.",
+      "testFailed": "Test message failed",
+      "shopWatchDirect": "Also send shop watch alerts as a direct message",
+      "shopWatchDirectHint": "Instead of the Teams channel from the email intake."
+    },
+    "signals": {
+      "title": "Alerts",
+      "empty": "No alerts.",
+      "columns": {
+        "severity": "Severity",
+        "signal": "Alert",
+        "since": "Since",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "lastSeen": "last seen {{at}}",
+      "resolvedAt": "resolved on {{at}}",
+      "resolvedBy": "resolved by {{name}} on {{at}}",
+      "mutedUntil": "muted until {{at}}",
+      "loss": "estimated {{amount}} per hour",
+      "resolve": "Done",
+      "mute1": "Mute 1 day",
+      "mute7": "Mute 7 days",
+      "unmute": "Report again",
+      "resolvedToast": "Marked as done",
+      "mutedToast": "Muted",
+      "unmutedToast": "Will be reported again",
+      "actionFailed": "Action failed",
+      "resolveHint": "If a finding comes back, its alert opens again.",
+      "confirmMute": "Mute this alert for 7 days?",
+      "confirmMuteButton": "Mute for 7 days",
+      "cancel": "Cancel"
+    },
+    "severity": {
+      "warning": "Warning",
+      "critical": "Critical"
+    },
+    "status": {
+      "open": "Open",
+      "resolved": "Done"
+    },
+    "source": {
+      "system": "System",
+      "revenue": "Revenue",
+      "buyability": "Buyability",
+      "ga4": "GA4"
+    },
+    "codes": {
+      "mirrorStale": {
+        "title": "Order sync with the shop is stuck",
+        "message": "The last successful order sync was {{minutes}} minutes ago (normally every 3 minutes). Until then, analytics and shop pulse see no new orders."
+      },
+      "mirrorError": {
+        "title": "Order sync with the shop is failing",
+        "message": "No successful order sync for {{minutes}} minutes. Last error: {{error}}"
+      }
+    },
+    "detectors": {
+      "title": "Checks",
+      "none": "No run yet.",
+      "lastRun": "Last run {{at}}",
+      "ok": "OK",
+      "failed": "failed: {{error}}",
+      "findings": "{{count}} finding(s)",
+      "names": {
+        "mirrorFreshness": "Order sync (mirror freshness)"
+      }
+    },
+    "notify": {
+      "since": "Since",
+      "lastSeen": "Last checked",
+      "resolvedAt": "Resolved",
+      "loss": "Estimated loss",
+      "lossValue": "about {{amount}} per hour (estimate)",
+      "resolvedPrefix": "Resolved",
+      "escalatedPrefix": "Escalated",
+      "resolvedText": "The finding did not occur in the last check.",
+      "open": "Open in METAorder",
+      "mute": "Mute for 7 days",
+      "openPage": "Open shop pulse",
+      "dailyTitle": "Shop pulse: daily report of {{date}}",
+      "dailySummary": "{{count}} open alert(s), {{critical}} of them critical.",
+      "more": "… and {{count}} more",
+      "testTitle": "Shop pulse: test message",
+      "testText": "The direct message works ({{at}}). Shop pulse alerts will arrive here from now on.",
+      "bellPrefix": "Shop pulse"
     }
   }
 }
