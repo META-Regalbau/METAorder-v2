@@ -25,6 +25,7 @@ export const SHOP_WATCH_KINDS = [
   "crossSelling",
   "montageTag",
   "promotion",
+  "newsletterOptIn",
   "plugins",
 ] as const;
 export type ShopWatchKind = (typeof SHOP_WATCH_KINDS)[number];

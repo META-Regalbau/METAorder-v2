@@ -7813,6 +7813,7 @@
       "crossSelling": "Cross-selling tabs",
       "montageTag": "Assembly cost tag",
       "promotion": "Promotion with discount code",
+      "newsletterOptIn": "Newsletter checkbox in checkout",
       "plugins": "Required plugins"
     },
     "findings": {
