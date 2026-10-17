@@ -7,12 +7,7 @@
  *   NODE_ENV=development npx tsx scripts/writeCheckoutCrossSelling.ts <tenantId> [--apply] [--live]
  *   NODE_ENV=development npx tsx scripts/writeCheckoutCrossSelling.ts <tenantId> --revert <protokoll.json> [--live]
  */
+import { storefrontSnippet } from "../server/shopContent/shopEntityIds";
 import { runStorefrontSnippetScript } from "./lib/storefrontSnippetEntry";
 
-runStorefrontSnippetScript({
-  key: "metaorder-checkout-cross-selling",
-  name: "METAorder: Das passt dazu im Warenkorb",
-  file: "checkout-cross-selling",
-  script: "writeCheckoutCrossSelling.ts",
-  protocolPrefix: "Warenkorb-Crossselling-Protokoll",
-});
+runStorefrontSnippetScript(storefrontSnippet("metaorder-checkout-cross-selling"));

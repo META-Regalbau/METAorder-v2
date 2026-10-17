@@ -313,7 +313,8 @@
     "shippingOps": "Versand-Ops",
     "mobilePicking": "Mobile Picking",
     "systemLog": "Systemprotokoll",
-    "shopContent": "Shop-Inhalte"
+    "shopContent": "Shop-Inhalte",
+    "shopWatch": "Shop-Wächter"
   },
   "shopFakturen": {
     "title": "SAP-Rechnungsimport",
@@ -6535,7 +6536,11 @@
       "nur_eml_oder_msg": "Nur .eml- oder .msg-Dateien.",
       "registrierung_nicht_gefunden": "Registrierung nicht gefunden.",
       "originalmail_nicht_vorhanden": "Originalmail nicht vorhanden.",
-      "failed_to_build_accessory_proposals": "Zubehör-Vorschläge konnten nicht berechnet werden"
+      "failed_to_build_accessory_proposals": "Zubehör-Vorschläge konnten nicht berechnet werden",
+      "failed_to_load_shop_watch_state": "Stand des Shop-Wächters konnte nicht geladen werden",
+      "shop_watch_run_already_in_progress": "Eine Prüfung des Shop-Wächters läuft bereits",
+      "failed_to_save_shop_watch_baseline": "Soll-Stand konnte nicht gespeichert werden",
+      "no_shop_watch_run_yet": "Noch keine Prüfung – erst „Jetzt prüfen“"
     }
   },
   "roomPlanner": {
@@ -7699,5 +7704,112 @@
     "saved": "Standardzubehör freigegeben",
     "savedHint": "Wirkt beim nächsten Lauf der Namensregeln.",
     "saveError": "Freigabe fehlgeschlagen"
+  },
+  "shopWatch": {
+    "title": "Shop-Wächter",
+    "subtitle": "Prüft, ob alles, was METAorder in den Shop geschrieben hat, noch da ist und angezeigt wird – zum Beispiel nach einem Deploy der Agentur. Geprüft wird über die Shopware-API und über die echten Shop-Seiten. Nur lesend.",
+    "loading": "Stand wird geladen …",
+    "loadError": "Stand konnte nicht geladen werden.",
+    "empty": "Noch keine Prüfung. Mit „Jetzt prüfen“ starten – der erste Lauf wird zum Soll-Stand.",
+    "runNow": "Jetzt prüfen",
+    "running": "Prüfung läuft …",
+    "runStarted": "Prüfung gestartet",
+    "runFailed": "Prüfung konnte nicht gestartet werden",
+    "takeBaseline": "Als Soll übernehmen",
+    "baselineSaved": "Aktueller Stand ist jetzt der Soll-Stand",
+    "baselineFailed": "Soll-Stand konnte nicht gespeichert werden",
+    "lastRun": "Letzte Prüfung {{at}} ({{trigger}})",
+    "baselineInfo": "Soll-Stand vom {{at}}, {{categories}} Kategorien mit Texten",
+    "noBaseline": "Noch kein Soll-Stand",
+    "deployDetected": "Änderung an Shopware, Plugins oder Theme seit der vorigen Prüfung",
+    "deployBadge": "Deploy erkannt",
+    "deploy": {
+      "shopwareVersion": "Shopware-Version: {{before}} → {{after}}",
+      "plugins": "Plugins entfernt/alt: {{before}} · neu: {{after}}",
+      "themeAsset": "Theme neu erstellt: {{before}} → {{after}}"
+    },
+    "history": "Verlauf",
+    "historyCounts": "{{failed}} rot, {{warned}} gelb",
+    "noFindings": "Alles in Ordnung",
+    "target": "Soll {{n}}",
+    "trigger": {
+      "manual": "von Hand",
+      "schedule": "Zeitplan",
+      "deploy": "nach Deploy"
+    },
+    "status": {
+      "ok": "OK",
+      "warn": "Prüfen",
+      "fail": "Fehlt",
+      "error": "Prüfung gescheitert"
+    },
+    "columns": {
+      "status": "Status",
+      "check": "Prüfpunkt",
+      "findings": "Befund",
+      "count": "Anzahl",
+      "repair": "Reparatur"
+    },
+    "repair": {
+      "auto": "Neu einspielen",
+      "manual": "Erst prüfen, dann neu einspielen",
+      "none": "Von Hand beheben"
+    },
+    "groups": {
+      "own": {
+        "title": "Eigene Inhalte",
+        "hint": "Von METAorder angelegt (feste IDs). Fehlt etwas, wird es neu eingespielt."
+      },
+      "agency": {
+        "title": "Geänderte Agentur-Inhalte",
+        "hint": "Inhalte der Agentur, die wir geändert haben. Vor dem Neueinspielen klären, ob die Agentur bewusst geändert hat."
+      },
+      "bulk": {
+        "title": "Massendaten",
+        "hint": "Texte und Zuordnungen an vielen Artikeln, verglichen mit dem Soll-Stand (einmal täglich reicht)."
+      },
+      "platform": {
+        "title": "Plugins",
+        "hint": "Plugins der Agentur, auf denen unsere Inhalte aufbauen."
+      }
+    },
+    "kinds": {
+      "snippet": "Baustein „Eigenes CSS/JS“",
+      "quickConfigPage": "Seite Schnellkonfigurator",
+      "quickConfigHome": "Schnellkonfigurator auf der Startseite",
+      "industryPage": "Branchenseite",
+      "industryHome": "Branchen-Teaser auf der Startseite",
+      "homeSection": "Startseiten-Abschnitt",
+      "categoryFields": "Kategorietexte",
+      "listingDefaults": "Kategorielisten",
+      "redirect": "Adressen",
+      "imageTexts": "Bildtexte",
+      "metaTexts": "Meta-Texte",
+      "descriptions": "Produktbeschreibungen",
+      "crossSelling": "Crossselling-Tabs",
+      "montageTag": "Montagekosten-Tag",
+      "plugins": "Benötigte Plugins"
+    },
+    "findings": {
+      "entityMissing": "{{entity}} „{{name}}“ fehlt im Shop",
+      "entityInactive": "{{entity}} „{{name}}“ ist inaktiv",
+      "channelMissing": "„{{name}}“ ist dem Kanal META Regalbau DE nicht mehr zugeordnet",
+      "differsFromRepo": "Inhalt von „{{name}}“ weicht vom Repo ab (im Shop geändert oder neue Fassung noch nicht eingespielt)",
+      "assetMarkerMissing": "Kompiliertes Theme-{{asset}} enthält „{{marker}}“ nicht – der Baustein wird nicht ausgeliefert",
+      "pageStatus": "{{path}} antwortet mit Status {{status}}",
+      "pageMarkerMissing": "{{path}}: Kennzeichen „{{marker}}“ fehlt",
+      "pageTextMissing": "{{path}}: Text „{{text}} …“ wird nicht angezeigt",
+      "redirectWrong": "{{path}} leitet nicht per 301 auf {{to}} weiter (Status {{status}}, Ziel {{location}})",
+      "countDropped": "Weniger als im Soll-Stand: {{after}} statt {{before}}",
+      "fieldsChanged": "{{n}} Kategorien mit geänderten Texten: {{names}}",
+      "fieldsEmpty": "{{n}} Kategorien ohne Texte: {{ids}}",
+      "overwritten": "{{n}} überschrieben (Soll-Stand {{before}})",
+      "settingChanged": "Einstellung {{setting}} wurde geändert (jetzt {{value}})",
+      "filterVisible": "{{path}}: Filter „{{filter}}“ ist wieder sichtbar",
+      "pluginMissing": "Plugin {{name}} ist nicht installiert",
+      "pluginInactive": "Plugin {{name}} ist deaktiviert",
+      "checkFailed": "Prüfung gescheitert: {{message}}"
+    },
+    "showCommand": "Befehl anzeigen"
   }
 }

@@ -9,12 +9,7 @@
  *   NODE_ENV=development npx tsx scripts/writeProductVariants.ts <tenantId> [--apply] [--live]
  *   NODE_ENV=development npx tsx scripts/writeProductVariants.ts <tenantId> --revert <protokoll.json> [--live]
  */
+import { storefrontSnippet } from "../server/shopContent/shopEntityIds";
 import { runStorefrontSnippetScript } from "./lib/storefrontSnippetEntry";
 
-runStorefrontSnippetScript({
-  key: "metaorder-product-variants",
-  name: "METAorder: Auch erhältlich in (Produktseite)",
-  file: "product-variants",
-  script: "writeProductVariants.ts",
-  protocolPrefix: "Auch-erhaeltlich-Protokoll",
-});
+runStorefrontSnippetScript(storefrontSnippet("metaorder-product-variants"));

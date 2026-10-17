@@ -21,19 +21,19 @@
  *   NODE_ENV=development npx tsx scripts/writeQuickConfiguratorPage.ts <tenantId> --home [--apply] [--live]
  *   NODE_ENV=development npx tsx scripts/writeQuickConfiguratorPage.ts <tenantId> --revert <protokoll.json> [--live]
  */
-import { createHash } from "crypto";
 import { readFileSync, writeFileSync } from "fs";
 import { storage } from "../server/storage";
 import { ShopwareClient } from "../server/shopware/shopware";
 import { CONTACT } from "../server/products/industryPages";
 import { buildQuickConfigCatalog, loadQuickConfigProducts, quickConfigSummary, type QuickConfigCatalog } from "../server/shopContent/quickConfiguratorCatalog";
+import { quickConfigId } from "../server/shopContent/shopEntityIds";
 import { DE_LANG, findDeChannel, shopApi } from "../server/shopContent/shopProducts";
 
 const PAGE_URL = "regal-schnellkonfigurator";
 const FILE_NAME = "metaorder-regal-schnellkonfigurator";
 const ALL_DEVICES = { mobile: true, tablet: true, desktop: true };
 
-const qcId = (part: string) => createHash("md5").update(`metaorder-quick-config:${part}`).digest("hex");
+const qcId = quickConfigId;
 const IDS = {
   media: qcId("catalog"),
   lp: qcId("lp"),

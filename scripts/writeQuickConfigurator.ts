@@ -10,12 +10,7 @@
  *   NODE_ENV=development npx tsx scripts/writeQuickConfigurator.ts <tenantId> [--apply] [--live]
  *   NODE_ENV=development npx tsx scripts/writeQuickConfigurator.ts <tenantId> --revert <protokoll.json> [--live]
  */
+import { storefrontSnippet } from "../server/shopContent/shopEntityIds";
 import { runStorefrontSnippetScript } from "./lib/storefrontSnippetEntry";
 
-runStorefrontSnippetScript({
-  key: "metaorder-quick-configurator",
-  name: "METAorder: Regal-Schnellkonfigurator",
-  file: "quick-configurator",
-  script: "writeQuickConfigurator.ts",
-  protocolPrefix: "Schnellkonfigurator-Protokoll",
-});
+runStorefrontSnippetScript(storefrontSnippet("metaorder-quick-configurator"));

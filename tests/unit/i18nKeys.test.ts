@@ -30,6 +30,7 @@ import {
   TICKET_PRIORITIES,
   TICKET_STATUSES,
 } from "../../shared/automation";
+import { SHOP_WATCH_FINDING_CODES, SHOP_WATCH_GROUPS, SHOP_WATCH_KINDS, SHOP_WATCH_STATUSES } from "../../shared/shopWatch";
 
 const ROOT = path.resolve(__dirname, "../..");
 const flatten = (obj: Record<string, unknown>, prefix = ""): Record<string, unknown> =>
@@ -120,6 +121,18 @@ describe("Uebersetzungsschluessel (Deutsch)", () => {
       ...IMPROVEMENT_CATEGORIES.map(nlImprovementCategoryKey),
       ...IMPROVEMENT_PRIORITIES.map((v) => `analytics.nlQuery.improvements.${v}`),
       ...["q1", "q2", "q3", "q4", "q5", "q6"].map((v) => `analytics.nlQuery.examples.${v}`),
+    ])).toEqual([]);
+  });
+
+  it("Shop-Wächter: Arten, Befunde, Gruppen, Status, Auslöser, Deploy-Felder, Reparatur", () => {
+    expect(missingIn([
+      ...SHOP_WATCH_KINDS.map((v) => `shopWatch.kinds.${v}`),
+      ...SHOP_WATCH_FINDING_CODES.map((v) => `shopWatch.findings.${v}`),
+      ...SHOP_WATCH_GROUPS.flatMap((v) => [`shopWatch.groups.${v}.title`, `shopWatch.groups.${v}.hint`]),
+      ...SHOP_WATCH_STATUSES.map((v) => `shopWatch.status.${v}`),
+      ...["manual", "schedule", "deploy"].map((v) => `shopWatch.trigger.${v}`),
+      ...["shopwareVersion", "plugins", "themeAsset"].map((v) => `shopWatch.deploy.${v}`),
+      ...["auto", "manual", "none"].map((v) => `shopWatch.repair.${v}`),
     ])).toEqual([]);
   });
 

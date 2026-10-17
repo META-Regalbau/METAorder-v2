@@ -8,12 +8,7 @@
  *   NODE_ENV=development npx tsx scripts/writeSearchPage.ts <tenantId> [--apply] [--live]
  *   NODE_ENV=development npx tsx scripts/writeSearchPage.ts <tenantId> --revert <protokoll.json> [--live]
  */
+import { storefrontSnippet } from "../server/shopContent/shopEntityIds";
 import { runStorefrontSnippetScript } from "./lib/storefrontSnippetEntry";
 
-runStorefrontSnippetScript({
-  key: "metaorder-search-page",
-  name: "METAorder: Suchergebnisseite",
-  file: "search-page",
-  script: "writeSearchPage.ts",
-  protocolPrefix: "Suchseite-Protokoll",
-});
+runStorefrontSnippetScript(storefrontSnippet("metaorder-search-page"));

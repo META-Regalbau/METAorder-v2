@@ -313,7 +313,8 @@
     "shippingOps": "Shipping Ops",
     "mobilePicking": "Mobile Picking",
     "systemLog": "System log",
-    "shopContent": "Shop content"
+    "shopContent": "Shop content",
+    "shopWatch": "Shop watch"
   },
   "shopFakturen": {
     "title": "SAP Invoice Import",
@@ -6538,7 +6539,11 @@
       "nur_eml_oder_msg": "Only .eml or .msg files.",
       "registrierung_nicht_gefunden": "Registration not found.",
       "originalmail_nicht_vorhanden": "Original email not available.",
-      "failed_to_build_accessory_proposals": "Could not compute the accessory suggestions"
+      "failed_to_build_accessory_proposals": "Could not compute the accessory suggestions",
+      "failed_to_load_shop_watch_state": "Failed to load shop watch state",
+      "shop_watch_run_already_in_progress": "Shop watch run already in progress",
+      "failed_to_save_shop_watch_baseline": "Failed to save shop watch baseline",
+      "no_shop_watch_run_yet": "No check yet – run “Check now” first"
     }
   },
   "roomPlanner": {
@@ -7702,5 +7707,112 @@
     "saved": "Standard accessories approved",
     "savedHint": "Takes effect with the next name-rule run.",
     "saveError": "Approval failed"
+  },
+  "shopWatch": {
+    "title": "Shop watch",
+    "subtitle": "Checks whether everything METAorder has written to the shop is still there and displayed – for example after an agency deploy. Checks run against the Shopware API and the live shop pages. Read-only.",
+    "loading": "Loading status …",
+    "loadError": "Status could not be loaded.",
+    "empty": "No check yet. Start with “Check now” – the first run becomes the target state.",
+    "runNow": "Check now",
+    "running": "Check running …",
+    "runStarted": "Check started",
+    "runFailed": "Check could not be started",
+    "takeBaseline": "Use as target",
+    "baselineSaved": "Current state is now the target state",
+    "baselineFailed": "Target state could not be saved",
+    "lastRun": "Last check {{at}} ({{trigger}})",
+    "baselineInfo": "Target state from {{at}}, {{categories}} categories with texts",
+    "noBaseline": "No target state yet",
+    "deployDetected": "Change to Shopware, plugins or theme since the previous check",
+    "deployBadge": "Deploy detected",
+    "deploy": {
+      "shopwareVersion": "Shopware version: {{before}} → {{after}}",
+      "plugins": "Plugins removed/old: {{before}} · new: {{after}}",
+      "themeAsset": "Theme rebuilt: {{before}} → {{after}}"
+    },
+    "history": "History",
+    "historyCounts": "{{failed}} red, {{warned}} yellow",
+    "noFindings": "All fine",
+    "target": "Target {{n}}",
+    "trigger": {
+      "manual": "manual",
+      "schedule": "schedule",
+      "deploy": "after deploy"
+    },
+    "status": {
+      "ok": "OK",
+      "warn": "Review",
+      "fail": "Missing",
+      "error": "Check failed"
+    },
+    "columns": {
+      "status": "Status",
+      "check": "Check",
+      "findings": "Finding",
+      "count": "Count",
+      "repair": "Repair"
+    },
+    "repair": {
+      "auto": "Write again",
+      "manual": "Review first, then write again",
+      "none": "Fix by hand"
+    },
+    "groups": {
+      "own": {
+        "title": "Own content",
+        "hint": "Created by METAorder (fixed IDs). If something is missing it is written again."
+      },
+      "agency": {
+        "title": "Changed agency content",
+        "hint": "Agency content we changed. Before writing it again, clarify whether the agency changed it on purpose."
+      },
+      "bulk": {
+        "title": "Bulk data",
+        "hint": "Texts and assignments on many products, compared with the target state (once a day is enough)."
+      },
+      "platform": {
+        "title": "Plugins",
+        "hint": "Agency plugins our content builds on."
+      }
+    },
+    "kinds": {
+      "snippet": "“Custom CSS/JS” module",
+      "quickConfigPage": "Quick configurator page",
+      "quickConfigHome": "Quick configurator on the home page",
+      "industryPage": "Industry page",
+      "industryHome": "Industry teaser on the home page",
+      "homeSection": "Home page section",
+      "categoryFields": "Category texts",
+      "listingDefaults": "Category listings",
+      "redirect": "URLs",
+      "imageTexts": "Image texts",
+      "metaTexts": "Meta texts",
+      "descriptions": "Product descriptions",
+      "crossSelling": "Cross-selling tabs",
+      "montageTag": "Assembly cost tag",
+      "plugins": "Required plugins"
+    },
+    "findings": {
+      "entityMissing": "{{entity}} “{{name}}” is missing in the shop",
+      "entityInactive": "{{entity}} “{{name}}” is inactive",
+      "channelMissing": "“{{name}}” is no longer assigned to the META Regalbau DE channel",
+      "differsFromRepo": "Content of “{{name}}” differs from the repo (changed in the shop or new version not yet deployed)",
+      "assetMarkerMissing": "Compiled theme {{asset}} does not contain “{{marker}}” – the module is not delivered",
+      "pageStatus": "{{path}} responds with status {{status}}",
+      "pageMarkerMissing": "{{path}}: marker “{{marker}}” missing",
+      "pageTextMissing": "{{path}}: text “{{text}} …” is not displayed",
+      "redirectWrong": "{{path}} does not redirect with 301 to {{to}} (status {{status}}, target {{location}})",
+      "countDropped": "Fewer than in the target state: {{after}} instead of {{before}}",
+      "fieldsChanged": "{{n}} categories with changed texts: {{names}}",
+      "fieldsEmpty": "{{n}} categories without texts: {{ids}}",
+      "overwritten": "{{n}} overwritten (target state {{before}})",
+      "settingChanged": "Setting {{setting}} was changed (now {{value}})",
+      "filterVisible": "{{path}}: filter “{{filter}}” is visible again",
+      "pluginMissing": "Plugin {{name}} is not installed",
+      "pluginInactive": "Plugin {{name}} is deactivated",
+      "checkFailed": "Check failed: {{message}}"
+    },
+    "showCommand": "Show command"
   }
 }

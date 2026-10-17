@@ -16275,6 +16275,87 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/shop-content/watch": {
+    "get": {
+      "tags": [
+        "shop-content"
+      ],
+      "summary": "GET /api/shop-content/watch",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/shop-content/watch/baseline": {
+    "post": {
+      "tags": [
+        "shop-content"
+      ],
+      "summary": "POST /api/shop-content/watch/baseline",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/shop-content/watch/run": {
+    "post": {
+      "tags": [
+        "shop-content"
+      ],
+      "summary": "POST /api/shop-content/watch/run",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/templates": {
     "get": {
       "tags": [
