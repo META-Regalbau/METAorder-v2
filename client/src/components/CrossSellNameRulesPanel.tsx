@@ -14,14 +14,28 @@ import { pollCrossSellJob } from "@/lib/crossSellJobs";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
+import CrossSellSystemAccessories from "@/components/CrossSellSystemAccessories";
 
-type Kind = "partner_shelf" | "board" | "back_wall" | "side_wall";
+type Kind =
+  | "partner_shelf"
+  | "other_width"
+  | "board"
+  | "back_wall"
+  | "side_wall"
+  | "accessory"
+  | "system_accessory"
+  | "frame"
+  | "shelf_board"
+  | "beam"
+  | "arm"
+  | "grating";
 type Stats = {
   dryRun: boolean;
   products: number;
   sources: number;
   pairs: number;
-  byKind: Record<Kind, number>;
+  byKind: Partial<Record<Kind, number>>;
+  moved?: number;
   skippedRejected: number;
   autoApplied: number;
   dryRunFlagged: number;
@@ -169,11 +183,12 @@ export default function CrossSellNameRulesPanel() {
                 })}
               </p>
               <p className="text-muted-foreground">
-                {t("crossSellNameRules.kinds", {
-                  partner: stats.byKind.partner_shelf,
-                  board: stats.byKind.board,
-                  back: stats.byKind.back_wall,
-                  side: stats.byKind.side_wall,
+                {t("crossSellNameRules.tabs", {
+                  extend: (stats.byKind.partner_shelf ?? 0) + (stats.byKind.other_width ?? 0),
+                  accessories:
+                    (stats.byKind.board ?? 0) + (stats.byKind.accessory ?? 0) + (stats.byKind.system_accessory ?? 0) + (stats.byKind.back_wall ?? 0) + (stats.byKind.side_wall ?? 0),
+                  parts: (stats.byKind.frame ?? 0) + (stats.byKind.shelf_board ?? 0) + (stats.byKind.beam ?? 0) + (stats.byKind.arm ?? 0) + (stats.byKind.grating ?? 0),
+                  moved: stats.moved ?? 0,
                 })}
                 {" · "}
                 {t("crossSellNameRules.skipped", {
@@ -207,6 +222,7 @@ export default function CrossSellNameRulesPanel() {
           )}
         </div>
       )}
+      <CrossSellSystemAccessories />
     </div>
   );
 }

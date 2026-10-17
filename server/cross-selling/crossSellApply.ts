@@ -80,6 +80,8 @@ export type CrossSellApplyOperation = {
   sourceProductNumber?: string | null;
   /** Gewuenschte Ziel-Produkt-IDs in Reihenfolge (beste zuerst). */
   targetProductIds: string[];
+  /** Diese Ziele aus der Gruppe nehmen (z. B. in einen anderen eigenen Tab verschoben). */
+  removeTargetProductIds?: string[];
 };
 
 export type CrossSellApplyMode = "staging" | "bulk" | "product_ui" | "auto" | "approved" | "undo";
@@ -106,6 +108,8 @@ export type CrossSellApplyOptions = {
   dryRun?: boolean;
   /** Ziel nicht setzen, wenn es schon in einer anderen productList-Gruppe der Quelle steht. */
   skipTargetsInOtherGroups?: boolean;
+  /** Eigene Tabs (z. B. "Regal erweitern"): zaehlen beim Duplikat-Check nicht als andere Gruppe. */
+  ownGroupNames?: string[];
   onChange?: (change: CrossSellApplyChange) => Promise<void> | void;
 };
 
@@ -173,15 +177,25 @@ export async function applyCrossSellPlan(
       let skippedInOtherGroups: string[] = [];
       if (opts.skipTargetsInOtherGroups !== false) {
         const inOther = new Set<string>();
+        const own = new Set(opts.ownGroupNames ?? []);
         for (const g of listGroups) {
-          if (g.id === managed?.id) continue;
+          if (g.id === managed?.id || own.has(g.name)) continue;
           for (const a of await client.fetchCrossSellingAssignments(g.id)) inOther.add(a.productId);
         }
         skippedInOtherGroups = desired.filter((id) => inOther.has(id));
         desired = desired.filter((id) => !inOther.has(id));
       }
 
-      const diff = diffAssignments(before, desired, { removeMissing: opts.replace === true, maxTargets });
+      // Ausdruecklich zu entfernende Ziele (Umzug in einen anderen eigenen Tab)
+      const removeSet = new Set(op.removeTargetProductIds ?? []);
+      const moving = before.filter((a) => removeSet.has(a.productId));
+      desired = desired.filter((id) => !removeSet.has(id));
+      const diff = diffAssignments(
+        before.filter((a) => !removeSet.has(a.productId)),
+        desired,
+        { removeMissing: opts.replace === true, maxTargets },
+      );
+      diff.toRemove.push(...moving.map((a) => ({ id: a.id, productId: a.productId })));
       const hasWrites = diff.toAdd.length > 0 || diff.toRemove.length > 0 || diff.reposition.length > 0;
 
       let crossSellingId = managed?.id ?? null;

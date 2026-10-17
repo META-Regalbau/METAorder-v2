@@ -40,6 +40,14 @@ export const crossSellAutomationSettingsSchema = z.object({
   backfillMaxQueuePerRun: z.number().int().min(0).max(2000),
   /** Feste Namensregeln (Grund/Anbau, Zubehoer gleiches System) taeglich setzen */
   nameRulesEnabled: z.boolean(),
+  /** Feste Regeln: Tab "Regal erweitern" (Partnerregal, Anbauregale anderer Breiten) */
+  extendGroupName: z.string().trim().min(1).max(80),
+  maxTargetsExtendGroup: z.number().int().min(1).max(50),
+  /** Feste Regeln: Tab "Einzelteile" (Ständer, Fachböden, Holme, Kragarme …) */
+  partsGroupName: z.string().trim().min(1).max(80),
+  maxTargetsPartsGroup: z.number().int().min(1).max(60),
+  /** Freigegebenes Standardzubehör je System ("META CLIP" → Artikelnummern in Reihenfolge) */
+  nameRuleSystemAccessories: z.record(z.array(z.string().trim().min(1).max(64)).max(40)),
 });
 
 export type CrossSellAutomationSettings = z.infer<typeof crossSellAutomationSettingsSchema>;
@@ -53,7 +61,7 @@ export const DEFAULT_CROSS_SELL_AUTOMATION_SETTINGS: CrossSellAutomationSettings
   reviewHourLocal: 6,
   maxAutoApplyPerRun: 15,
   maxAutoApplyPerSource: 2,
-  maxTargetsPerManagedGroup: 10,
+  maxTargetsPerManagedGroup: 20,
   maxNewQueueItemsPerRun: 100,
   queueMinScore: 0.35,
   minPairOrders: 5,
@@ -73,6 +81,11 @@ export const DEFAULT_CROSS_SELL_AUTOMATION_SETTINGS: CrossSellAutomationSettings
   backfillMaxAutoPerSource: 5,
   backfillMaxQueuePerRun: 200,
   nameRulesEnabled: false,
+  extendGroupName: "Regal erweitern",
+  maxTargetsExtendGroup: 12,
+  partsGroupName: "Einzelteile",
+  maxTargetsPartsGroup: 30,
+  nameRuleSystemAccessories: {},
 };
 
 type SettingsStore = {

@@ -6537,7 +6537,8 @@
       "keine_gultigen_zeilen_gefunden": "No valid rows found.",
       "nur_eml_oder_msg": "Only .eml or .msg files.",
       "registrierung_nicht_gefunden": "Registration not found.",
-      "originalmail_nicht_vorhanden": "Original email not available."
+      "originalmail_nicht_vorhanden": "Original email not available.",
+      "failed_to_build_accessory_proposals": "Could not compute the accessory suggestions"
     }
   },
   "roomPlanner": {
@@ -7338,7 +7339,9 @@
       "backfillLlmPerRun": "Initial fill: AI requests per step",
       "backfillMaxAutoPerRun": "Initial fill: max. automatic per step",
       "backfillMaxAutoPerSource": "Initial fill: max. automatic per item",
-      "backfillMaxQueuePerRun": "Initial fill: new review entries per step"
+      "backfillMaxQueuePerRun": "Initial fill: new review entries per step",
+      "maxTargetsExtendGroup": "Max. products in the “extend shelf” tab",
+      "maxTargetsPartsGroup": "Max. products in the “single parts” tab"
     },
     "saved": "Settings saved",
     "saveError": "Saving failed",
@@ -7353,7 +7356,10 @@
     "reviewRunning": "Review running …",
     "reviewDone": "Monthly review finished",
     "reviewSummary": "{{checked}} assignments checked, {{proposals}} proposed for removal",
-    "reviewError": "Review failed"
+    "reviewError": "Review failed",
+    "extendGroupName": "Name of the “extend shelf” tab",
+    "partsGroupName": "Name of the “single parts” tab",
+    "tabNamesHint": "Separate tabs in the shop for the fixed rules. Changing a name does not rename existing tabs with the old name."
   },
   "crossSellLog": {
     "tab": "Log",
@@ -7395,7 +7401,7 @@
   },
   "crossSellNameRules": {
     "title": "Fixed rules from product names",
-    "hint": "Adds matching products to the “Das passt dazu” list without AI or order statistics: add-on shelf ↔ base shelf (same name except the shelf type) plus additional shelf, back and side panel of the same system with identical dimensions, load and surface. Rejected pairs are not set again; the monthly review does not propose rule pairs for removal based on the AI verdict or effect.",
+    "hint": "Fixed rules from the product names, without AI, only within the same system: extend shelf (partner shelf and add-on shelves of other widths with the same height and depth), goes with it (extra shelves, walls, dimensioned accessories and approved standard accessories) and single parts (uprights, shelves, beams, arms, gratings).",
     "dryRun": "Test run",
     "apply": "Write to shop now",
     "confirmApply": "Write rule pairs to the shop now? The run can be undone in the log.",
@@ -7415,8 +7421,17 @@
       "partner_shelf": "Partner shelf",
       "board": "Additional shelf",
       "back_wall": "Back panel",
-      "side_wall": "Side panel"
-    }
+      "side_wall": "Side panel",
+      "other_width": "add-on shelf, other width",
+      "accessory": "accessory",
+      "system_accessory": "standard accessory",
+      "frame": "upright/frame",
+      "shelf_board": "shelf",
+      "beam": "beam level",
+      "arm": "cantilever arm",
+      "grating": "grating/panels"
+    },
+    "tabs": "Extend shelf {{extend}} · Goes with it {{accessories}} · Single parts {{parts}} · moved {{moved}}"
   },
   "crossSellMonthly": {
     "title": "Monthly reviews",
@@ -7667,5 +7682,20 @@
       "articleInactive": "Article {{number}} is not active in channel META Regalbau DE",
       "articleNoPrice": "Article {{number}} has no price"
     }
+  },
+  "crossSellSystemAccessories": {
+    "title": "Standard accessories per system",
+    "hint": "Accessories without dimensions (e.g. turnbuckle, shelf supports, impact protection) that are often ordered with shelves of a system. Select and approve once – afterwards the next name-rule run adds them to “goes with it” for all shelves of the system. Parts for double shelves only go to double shelves.",
+    "load": "Show suggestions",
+    "approve": "Approve selection",
+    "empty": "No suggestions from the orders.",
+    "shelfOrders": "{{count}} orders with shelves",
+    "approved": "approved",
+    "stats": "in {{share}} of the orders, {{customers}} customers",
+    "addPlaceholder": "Choose another item",
+    "add": "Add",
+    "saved": "Standard accessories approved",
+    "savedHint": "Takes effect with the next name-rule run.",
+    "saveError": "Approval failed"
   }
 }

@@ -6534,7 +6534,8 @@
       "keine_gultigen_zeilen_gefunden": "Keine gültigen Zeilen gefunden.",
       "nur_eml_oder_msg": "Nur .eml- oder .msg-Dateien.",
       "registrierung_nicht_gefunden": "Registrierung nicht gefunden.",
-      "originalmail_nicht_vorhanden": "Originalmail nicht vorhanden."
+      "originalmail_nicht_vorhanden": "Originalmail nicht vorhanden.",
+      "failed_to_build_accessory_proposals": "Zubehör-Vorschläge konnten nicht berechnet werden"
     }
   },
   "roomPlanner": {
@@ -7335,7 +7336,9 @@
       "backfillLlmPerRun": "Erstbefüllung: KI-Anfragen je Schritt",
       "backfillMaxAutoPerRun": "Erstbefüllung: höchstens automatisch je Schritt",
       "backfillMaxAutoPerSource": "Erstbefüllung: höchstens automatisch je Artikel",
-      "backfillMaxQueuePerRun": "Erstbefüllung: neue Prüflisten-Einträge je Schritt"
+      "backfillMaxQueuePerRun": "Erstbefüllung: neue Prüflisten-Einträge je Schritt",
+      "maxTargetsExtendGroup": "Höchstens Produkte im Tab „Regal erweitern“",
+      "maxTargetsPartsGroup": "Höchstens Produkte im Tab „Einzelteile“"
     },
     "saved": "Einstellungen gespeichert",
     "saveError": "Speichern fehlgeschlagen",
@@ -7350,7 +7353,10 @@
     "reviewRunning": "Prüfung läuft …",
     "reviewDone": "Monatsprüfung abgeschlossen",
     "reviewSummary": "{{checked}} Zuordnungen geprüft, {{proposals}} zum Entfernen vorgeschlagen",
-    "reviewError": "Prüfung fehlgeschlagen"
+    "reviewError": "Prüfung fehlgeschlagen",
+    "extendGroupName": "Name des Tabs „Regal erweitern“",
+    "partsGroupName": "Name des Tabs „Einzelteile“",
+    "tabNamesHint": "Eigene Tabs im Shop für die festen Regeln. Bei Änderung werden bestehende Tabs mit dem alten Namen nicht umbenannt."
   },
   "crossSellLog": {
     "tab": "Protokoll",
@@ -7392,7 +7398,7 @@
   },
   "crossSellNameRules": {
     "title": "Feste Regeln aus den Artikelnamen",
-    "hint": "Setzt passende Produkte ohne KI und ohne Bestellstatistik in die Liste „Das passt dazu“: Anbauregal ↔ Grundregal (gleicher Name bis auf die Regalart) sowie Zusatz-Fachboden, Rück- und Seitenwand desselben Systems mit gleichen Maßen, Fachlast und Oberfläche. Abgelehnte Paare werden nicht erneut gesetzt; Regel-Paare schlägt die Monatsprüfung nicht wegen KI-Urteil oder Wirkung zum Entfernen vor.",
+    "hint": "Feste Regeln aus den Artikelnamen, ohne KI, nur im gleichen System: Regal erweitern (Partnerregal und Anbauregale anderer Breite bei gleicher Höhe und Tiefe), Das passt dazu (Zusatzböden, Wände, Zubehör mit Maß und freigegebenes Standardzubehör) und Einzelteile (Ständer, Fachböden, Holme, Kragarme, Gitterroste).",
     "dryRun": "Testlauf",
     "apply": "Jetzt in den Shop schreiben",
     "confirmApply": "Regel-Paare jetzt in den Shop schreiben? Der Lauf lässt sich im Protokoll rückgängig machen.",
@@ -7412,8 +7418,17 @@
       "partner_shelf": "Partnerregal",
       "board": "Zusatzboden",
       "back_wall": "Rückwand",
-      "side_wall": "Seitenwand"
-    }
+      "side_wall": "Seitenwand",
+      "other_width": "Anbauregal andere Breite",
+      "accessory": "Zubehör",
+      "system_accessory": "Standardzubehör",
+      "frame": "Ständer/Ständerrahmen",
+      "shelf_board": "Fachboden",
+      "beam": "Holmebene",
+      "arm": "Kragarm",
+      "grating": "Gitterrost/Paneele"
+    },
+    "tabs": "Regal erweitern {{extend}} · Das passt dazu {{accessories}} · Einzelteile {{parts}} · verschoben {{moved}}"
   },
   "crossSellMonthly": {
     "title": "Monatsprüfungen",
@@ -7664,5 +7679,20 @@
       "articleInactive": "Artikel {{number}} ist im Kanal META Regalbau DE nicht aktiv",
       "articleNoPrice": "Artikel {{number}} hat keinen Preis"
     }
+  },
+  "crossSellSystemAccessories": {
+    "title": "Standardzubehör je System",
+    "hint": "Zubehör ohne Maß (z. B. Spannschloss, Fachbodenträger, Rammschutz), das häufig mit Regalen eines Systems bestellt wird. Einmal auswählen und freigeben – danach kommt es beim nächsten Lauf der Namensregeln bei allen Regalen des Systems in „Das passt dazu“. Teile für Doppelregale nur an Doppelregale.",
+    "load": "Vorschläge anzeigen",
+    "approve": "Auswahl freigeben",
+    "empty": "Keine Vorschläge aus den Bestellungen.",
+    "shelfOrders": "{{count}} Bestellungen mit Regal",
+    "approved": "freigegeben",
+    "stats": "in {{share}} der Bestellungen, {{customers}} Kunden",
+    "addPlaceholder": "Weiteren Artikel wählen",
+    "add": "Hinzufügen",
+    "saved": "Standardzubehör freigegeben",
+    "savedHint": "Wirkt beim nächsten Lauf der Namensregeln.",
+    "saveError": "Freigabe fehlgeschlagen"
   }
 }
