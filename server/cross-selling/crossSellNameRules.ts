@@ -226,6 +226,12 @@ export function nameRuleSystem(name: string): string | null {
   return parseCatalogName(name)?.system ?? null;
 }
 
+/**
+ * Teile eines Grundsystems, die auch an einem Untersystem passen (User-Entscheidung 17.10.2026):
+ * CLIP-Böden, -Wände und -Zubehör gleicher Maße auch für CLIP S3 (S3 hat nur eigene Rahmen).
+ */
+const SHARED_PARTS_SYSTEMS: Record<string, string[]> = { "META CLIP S3": ["META CLIP"] };
+
 export type NameRuleOptions = {
   /** Obergrenze je Quelle und Tab */
   maxPerTab?: Partial<Record<NameRuleTab, number>>;
@@ -296,7 +302,10 @@ export function buildNameRulePairs(products: NameRuleProduct[], options: NameRul
     };
     const [height, width, depth] = n.dims;
     const role = n.role as ShelfRole;
-    const sys = (x: ParsedName) => systemMatches(x.system, n.system);
+    // Rahmen nur im eigenen System; Böden, Wände und Zubehör auch aus dem Grundsystem (CLIP → CLIP S3)
+    const ownSys = (x: ParsedName) => systemMatches(x.system, n.system);
+    const sharedSystems = SHARED_PARTS_SYSTEMS[n.system] ?? [];
+    const sys = (x: ParsedName) => ownSys(x) || sharedSystems.some((s) => systemMatches(x.system, s));
     const sameSurface = (a: ParsedName) => !a.surface || !n.surface || a.surface === n.surface;
     // Varianten mit anderer Oberflaeche nach hinten
     const surfaceOrder = (a: ParsedName) => (a.surface && n.surface && a.surface !== n.surface ? 1 : 0);
@@ -323,7 +332,7 @@ export function buildNameRulePairs(products: NameRuleProduct[], options: NameRul
       if (!sameSurface(b.n)) continue;
       add(b.p, "board", isSockel ? 1 : 0);
     }
-    (options.systemAccessories?.[n.system] ?? []).forEach((pn, i) => {
+    [...(options.systemAccessories?.[n.system] ?? []), ...sharedSystems.flatMap((s) => options.systemAccessories?.[s] ?? [])].forEach((pn, i) => {
       const target = byNumber.get(pn);
       if (!target) return;
       // Teile fuer Doppel- bzw. Einfachregale nur an die passende Bauart
@@ -349,7 +358,7 @@ export function buildNameRulePairs(products: NameRuleProduct[], options: NameRul
 
     // --- Einzelteile (alle Varianten, gleiche Oberflaeche zuerst) ---
     for (const f of frames) {
-      if (!sys(f.n) || f.n.dims[0] !== height || f.n.dims[1] !== depth) continue;
+      if (!ownSys(f.n) || f.n.dims[0] !== height || f.n.dims[1] !== depth) continue;
       if (f.n.sides && n.sides && f.n.sides !== n.sides) continue;
       add(f.p, "frame", surfaceOrder(f.n));
     }

@@ -263,3 +263,28 @@ describe("Standardzubehör-Vorschlag aus Bestellungen", () => {
     expect(res[0].items[0]).toMatchObject({ orders: 6, customers: 5, recommended: true });
   });
 });
+
+describe("CLIP-Teile auch für CLIP S3", () => {
+  const P = {
+    s3: "META CLIP S3 | Fachbodenregal | Grundregal | 2000 x 1000 x 400 mm | Fachlast 150 kg | 5 Ebenen | Längsriegel | verzinkt",
+    s3Rahmen: "META CLIP S3 | Ständerrahmen T1N | 2000 x 400 mm | vzk",
+    clipRahmen: "META CLIP | Ständerrahmen T1N | 2000 x 400 mm | verzinkt",
+    clipBoden: "META CLIP | Zusatz-Fachboden | 1000 x 400 mm | 150 kg | verzinkt",
+    clipMs150: "META CLIP | Fachboden MS150 | 1000 x 400 mm | verzinkt",
+    clipDiag: "META CLIP | Diagonalstab | für Regalbreite 1000 mm | verzinkt",
+    clipRueck: "META CLIP | Euroloch-Rückwand | 2000 x 1000 mm | verzinkt",
+    clipSpann: "META CLIP | Spannschloss | für CLIP Diagonalstab | verzinkt",
+    compact: "META CLIP COMPACT | Büro-Steckregal | Grundregal | 2000 x 1000 x 400 mm | Fachlast 150 kg | 5 Ebenen | verzinkt",
+  };
+  const prods = Object.entries(P).map(([k, name]) => ({ productNumber: k, name }));
+  const pairs = buildNameRulePairs(prods, { maxPerTab: { extend: 12, accessories: 20, parts: 30 }, systemAccessories: { "META CLIP": ["clipSpann"] } });
+  const tab = (src: string, t: string) => pairs.filter((p) => p.source === src && p.tab === t).map((p) => p.target);
+
+  it("S3 bekommt CLIP-Böden, -Wände, -Zubehör und CLIP-Standardzubehör, aber nur die eigenen Rahmen", () => {
+    expect(tab("s3", "accessories")).toEqual(["clipBoden", "clipSpann", "clipDiag", "clipRueck"]);
+    expect(tab("s3", "parts")).toEqual(["s3Rahmen", "clipMs150"]);
+  });
+  it("andere CLIP-Untersysteme bleiben unverändert", () => {
+    expect(tab("compact", "accessories")).toEqual([]);
+  });
+});
