@@ -28,7 +28,10 @@ type Kind =
   | "shelf_board"
   | "beam"
   | "arm"
-  | "grating";
+  | "grating"
+  | "other_height"
+  | "other_depth"
+  | "other_surface";
 type Stats = {
   dryRun: boolean;
   products: number;
@@ -188,6 +191,7 @@ export default function CrossSellNameRulesPanel() {
                   accessories:
                     (stats.byKind.board ?? 0) + (stats.byKind.accessory ?? 0) + (stats.byKind.system_accessory ?? 0) + (stats.byKind.back_wall ?? 0) + (stats.byKind.side_wall ?? 0),
                   parts: (stats.byKind.frame ?? 0) + (stats.byKind.shelf_board ?? 0) + (stats.byKind.beam ?? 0) + (stats.byKind.arm ?? 0) + (stats.byKind.grating ?? 0),
+                  variants: (stats.byKind.other_height ?? 0) + (stats.byKind.other_depth ?? 0) + (stats.byKind.other_surface ?? 0),
                   moved: stats.moved ?? 0,
                 })}
                 {" · "}

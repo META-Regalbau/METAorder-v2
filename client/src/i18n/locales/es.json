@@ -7338,7 +7338,8 @@
       "backfillMaxAutoPerSource": "Llenado inicial: máx. automáticos por artículo",
       "backfillMaxQueuePerRun": "Llenado inicial: nuevas entradas de revisión por paso",
       "maxTargetsExtendGroup": "Máx. productos en «Ampliar estantería»",
-      "maxTargetsPartsGroup": "Máx. productos en «Piezas sueltas»"
+      "maxTargetsPartsGroup": "Máx. productos en «Piezas sueltas»",
+      "maxTargetsVariantsGroup": "Máx. productos en «También disponible en»"
     },
     "saved": "Ajustes guardados",
     "saveError": "Error al guardar",
@@ -7356,6 +7357,7 @@
     "reviewError": "Error en la revisión",
     "extendGroupName": "Nombre de la pestaña «Ampliar estantería»",
     "partsGroupName": "Nombre de la pestaña «Piezas sueltas»",
+    "variantsGroupName": "Nombre de la pestaña «También disponible en» (arriba en la ficha como selección de altura/fondo/color)",
     "tabNamesHint": "Pestañas propias en la tienda para las reglas fijas. Al cambiar el nombre no se renombran las pestañas existentes con el nombre anterior."
   },
   "crossSellLog": {
@@ -7398,7 +7400,7 @@
   },
   "crossSellNameRules": {
     "title": "Reglas fijas a partir de los nombres de artículo",
-    "hint": "Reglas fijas a partir de los nombres de los artículos, sin IA, solo dentro del mismo sistema: ampliar estantería (estantería pareja y adosadas de otros anchos con la misma altura y fondo), combina con (baldas adicionales, paneles, accesorios con medida y accesorios estándar aprobados) y piezas sueltas (montantes, baldas, largueros, brazos, rejillas).",
+    "hint": "Reglas fijas a partir de los nombres de los artículos, sin IA, solo dentro del mismo sistema: ampliar estantería (estantería pareja y adosadas de otros anchos con la misma altura y fondo), combina con (baldas adicionales, paneles, accesorios con medida y accesorios estándar aprobados) piezas sueltas (montantes, baldas, largueros, brazos, rejillas) y también disponible en (la misma estantería en otra altura, fondo o color).",
     "dryRun": "Prueba",
     "apply": "Escribir ahora en la tienda",
     "confirmApply": "¿Escribir ahora los pares de regla en la tienda? La ejecución se puede deshacer en el registro.",
@@ -7426,9 +7428,12 @@
       "shelf_board": "balda",
       "beam": "nivel de largueros",
       "arm": "brazo voladizo",
-      "grating": "rejilla/paneles"
+      "grating": "rejilla/paneles",
+      "other_height": "otra altura",
+      "other_depth": "otro fondo",
+      "other_surface": "otro color"
     },
-    "tabs": "Ampliar estantería {{extend}} · Combina con {{accessories}} · Piezas sueltas {{parts}} · movidos {{moved}}"
+    "tabs": "Ampliar estantería {{extend}} · Combina con {{accessories}} · Piezas sueltas {{parts}} · También disponible en {{variants}} · movidos {{moved}}"
   },
   "crossSellMonthly": {
     "title": "Revisiones mensuales",

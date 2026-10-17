@@ -7338,7 +7338,8 @@
       "backfillMaxAutoPerSource": "Erstbefüllung: höchstens automatisch je Artikel",
       "backfillMaxQueuePerRun": "Erstbefüllung: neue Prüflisten-Einträge je Schritt",
       "maxTargetsExtendGroup": "Höchstens Produkte im Tab „Regal erweitern“",
-      "maxTargetsPartsGroup": "Höchstens Produkte im Tab „Einzelteile“"
+      "maxTargetsPartsGroup": "Höchstens Produkte im Tab „Einzelteile“",
+      "maxTargetsVariantsGroup": "Höchstens Produkte im Tab „Auch erhältlich in“"
     },
     "saved": "Einstellungen gespeichert",
     "saveError": "Speichern fehlgeschlagen",
@@ -7356,6 +7357,7 @@
     "reviewError": "Prüfung fehlgeschlagen",
     "extendGroupName": "Name des Tabs „Regal erweitern“",
     "partsGroupName": "Name des Tabs „Einzelteile“",
+    "variantsGroupName": "Name des Tabs „Auch erhältlich in“ (im Shop oben als Auswahl Höhe/Tiefe/Farbe)",
     "tabNamesHint": "Eigene Tabs im Shop für die festen Regeln. Bei Änderung werden bestehende Tabs mit dem alten Namen nicht umbenannt."
   },
   "crossSellLog": {
@@ -7398,7 +7400,7 @@
   },
   "crossSellNameRules": {
     "title": "Feste Regeln aus den Artikelnamen",
-    "hint": "Feste Regeln aus den Artikelnamen, ohne KI, nur im gleichen System: Regal erweitern (Partnerregal und Anbauregale anderer Breite bei gleicher Höhe und Tiefe), Das passt dazu (Zusatzböden, Wände, Zubehör mit Maß und freigegebenes Standardzubehör) und Einzelteile (Ständer, Fachböden, Holme, Kragarme, Gitterroste).",
+    "hint": "Feste Regeln aus den Artikelnamen, ohne KI, nur im gleichen System: Regal erweitern (Partnerregal und Anbauregale anderer Breite bei gleicher Höhe und Tiefe), Das passt dazu (Zusatzböden, Wände, Zubehör mit Maß und freigegebenes Standardzubehör) Einzelteile (Ständer, Fachböden, Holme, Kragarme, Gitterroste) und Auch erhältlich in (dasselbe Regal in anderer Höhe, Tiefe oder Farbe).",
     "dryRun": "Testlauf",
     "apply": "Jetzt in den Shop schreiben",
     "confirmApply": "Regel-Paare jetzt in den Shop schreiben? Der Lauf lässt sich im Protokoll rückgängig machen.",
@@ -7426,9 +7428,12 @@
       "shelf_board": "Fachboden",
       "beam": "Holmebene",
       "arm": "Kragarm",
-      "grating": "Gitterrost/Paneele"
+      "grating": "Gitterrost/Paneele",
+      "other_height": "andere Höhe",
+      "other_depth": "andere Tiefe",
+      "other_surface": "andere Farbe"
     },
-    "tabs": "Regal erweitern {{extend}} · Das passt dazu {{accessories}} · Einzelteile {{parts}} · verschoben {{moved}}"
+    "tabs": "Regal erweitern {{extend}} · Das passt dazu {{accessories}} · Einzelteile {{parts}} · Auch erhältlich in {{variants}} · verschoben {{moved}}"
   },
   "crossSellMonthly": {
     "title": "Monatsprüfungen",

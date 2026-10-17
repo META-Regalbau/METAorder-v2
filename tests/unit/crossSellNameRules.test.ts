@@ -37,7 +37,8 @@ describe("buildNameRulePairs", () => {
     expect(pairs.find((p) => p.source === "anbau" && p.target === "board")?.tab).toBe("accessories");
   });
   it("andere Oberfläche, andere Fachlast und anderes System passen nicht", () => {
-    expect(targets("grundRal")).toEqual([]);
+    // nur als andere Ausführung im Tab "Auch erhältlich in"
+    expect(targets("grundRal")).toEqual(["other_surface:grund"]);
     expect(targets("grund")).not.toContain("board:boardHeavy");
     expect(targets("grund")).not.toContain("board:boardS3");
   });
@@ -235,6 +236,42 @@ describe("Mehrere Tabs im Lauf", () => {
     expect(assignments.get("g-old")?.map((a) => a.productId)).toEqual(["id-board", "id-back", "id-side"]);
     expect(created).toContain("id-anbau:Regal erweitern:2");
     expect(out.stats?.moved).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("Auch erhältlich in: dasselbe Regal in anderer Höhe, Tiefe oder Farbe", () => {
+  const V = {
+    grund: "META CLIP | Fachbodenregal | Grundregal | 2000 x 1000 x 400 mm | Fachlast 230 kg | 5 Ebenen | verzinkt",
+    hoch: "META CLIP | Fachbodenregal | Grundregal | 2500 x 1000 x 400 mm | Fachlast 230 kg | 6 Ebenen | verzinkt",
+    hochSchwer: "META CLIP | Fachbodenregal | Grundregal | 2500 x 1000 x 400 mm | Fachlast 330 kg | 6 Ebenen | verzinkt",
+    tief: "META CLIP | Fachbodenregal | Grundregal | 2000 x 1000 x 600 mm | Fachlast 330 kg | 5 Ebenen | verzinkt",
+    ral: "META CLIP | Fachbodenregal | Grundregal | 2000 x 1000 x 400 mm | Fachlast 230 kg | 5 Ebenen | RAL 7035",
+    ralSchwer: "META CLIP | Fachbodenregal | Grundregal | 2000 x 1000 x 400 mm | Fachlast 330 kg | 5 Ebenen | RAL 7035",
+    // zwei Merkmale anders, andere Breite, andere Rolle, anderes System: keine Ausführung
+    hochRal: "META CLIP | Fachbodenregal | Grundregal | 2500 x 1000 x 400 mm | Fachlast 230 kg | 6 Ebenen | RAL 7035",
+    breit: "META CLIP | Fachbodenregal | Grundregal | 2000 x 1300 x 400 mm | Fachlast 230 kg | 5 Ebenen | verzinkt",
+    anbau: "META CLIP | Fachbodenregal | Anbauregal | 2500 x 1000 x 400 mm | Fachlast 230 kg | 6 Ebenen | verzinkt",
+    s3: "META CLIP S3 | Fachbodenregal | Grundregal | 2500 x 1000 x 400 mm | Fachlast 230 kg | 6 Ebenen | verzinkt",
+    krag: "META MULTISTRONG L | Kragarmregal | Grundregal | 3000 x 1000 x 400 mm | Armlast 220 kg | einseitig | 5+1 Ebenen",
+    kragTief: "META MULTISTRONG L | Kragarmregal | Grundregal | 3000 x 1000 x 600 mm | Armlast 140 kg | einseitig | 5+1 Ebenen",
+    kragDoppel: "META MULTISTRONG L | Kragarmregal | Grundregal | 3000 x 1000 x 600 mm | Armlast 140 kg | doppelseitig | 5+1 Ebenen",
+  };
+  const prods = Object.entries(V).map(([k, name]) => ({ productNumber: k, name }));
+  const pairs = buildNameRulePairs(prods, { maxPerTab: { variants: 24 } });
+  const variants = (src: string) => pairs.filter((p) => p.source === src && p.tab === "variants").map((p) => `${p.kind}:${p.target}`);
+
+  it("je Höhe, Tiefe und Farbe ein Artikel, gleiche Fachlast zuerst; Ebenen dürfen abweichen", () => {
+    expect(variants("grund")).toEqual(["other_height:hoch", "other_depth:tief", "other_surface:ral"]);
+  });
+  it("ohne gleiche Fachlast die nächstliegende", () => {
+    expect(variants("tief")).toContain("other_depth:grund");
+    expect(variants("ralSchwer")).toEqual(["other_height:hochRal", "other_surface:grund"]);
+  });
+  it("Seitigkeit gehört zur Ausführung, Armlast darf abweichen", () => {
+    expect(variants("krag")).toEqual(["other_depth:kragTief"]);
+  });
+  it("Paare liegen nur im Tab variants", () => {
+    expect(pairs.filter((p) => p.kind.startsWith("other_") && p.kind !== "other_width").every((p) => p.tab === "variants")).toBe(true);
   });
 });
 
