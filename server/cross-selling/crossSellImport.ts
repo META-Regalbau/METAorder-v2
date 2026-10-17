@@ -189,7 +189,7 @@ export async function syncShopAssignmentsIntoMemory(
     groups,
     existing,
     catalog,
-    [settings.managedGroupName, settings.extendGroupName, settings.partsGroupName],
+    [settings.managedGroupName, settings.extendGroupName, settings.partsGroupName, settings.variantsGroupName],
     args.now ?? new Date(),
   );
   const shopColumns: CrossSellPairStateUpdateColumn[] = ["shopRefs", "lastSeenInShopAt", "sourceProductId", "targetProductId"];

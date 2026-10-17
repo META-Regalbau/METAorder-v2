@@ -100,6 +100,7 @@ export async function runNameRuleCrossSelling(
         accessories: settings.maxTargetsPerManagedGroup,
         extend: settings.maxTargetsExtendGroup,
         parts: settings.maxTargetsPartsGroup,
+        variants: settings.maxTargetsVariantsGroup,
       },
       systemAccessories: settings.nameRuleSystemAccessories,
     });
@@ -124,10 +125,13 @@ export async function runNameRuleCrossSelling(
 
     // Je Tab eine eigene Liste im Shop; Ziele, die jetzt in einen anderen eigenen Tab gehoeren
     // (z. B. Partnerregal von "Das passt dazu" nach "Regal erweitern"), wandern dorthin.
-    const tabs: Array<{ tab: NameRuleTab; groupName: string; maxTargets: number }> = [
-      { tab: "accessories", groupName: settings.managedGroupName, maxTargets: settings.maxTargetsPerManagedGroup },
-      { tab: "extend", groupName: settings.extendGroupName, maxTargets: settings.maxTargetsExtendGroup },
-      { tab: "parts", groupName: settings.partsGroupName, maxTargets: settings.maxTargetsPartsGroup },
+    // "Auch erhältlich in" zeigt der Shop oben als Auswahl; dort zaehlen alle Ausfuehrungen, auch wenn
+    // ein alter Tab sie schon listet.
+    const tabs: Array<{ tab: NameRuleTab; groupName: string; maxTargets: number; skipTargetsInOtherGroups: boolean }> = [
+      { tab: "accessories", groupName: settings.managedGroupName, maxTargets: settings.maxTargetsPerManagedGroup, skipTargetsInOtherGroups: true },
+      { tab: "extend", groupName: settings.extendGroupName, maxTargets: settings.maxTargetsExtendGroup, skipTargetsInOtherGroups: true },
+      { tab: "parts", groupName: settings.partsGroupName, maxTargets: settings.maxTargetsPartsGroup, skipTargetsInOtherGroups: true },
+      { tab: "variants", groupName: settings.variantsGroupName, maxTargets: settings.maxTargetsVariantsGroup, skipTargetsInOtherGroups: false },
     ];
     const ownGroupNames = tabs.map((t) => t.groupName);
     const bySource = new Map<string, typeof pairs>();
@@ -164,8 +168,8 @@ export async function runNameRuleCrossSelling(
     });
     const total = tabs.reduce((n, t) => n + operationsByTab.get(t.tab)!.length, 0);
     let done = 0;
-    // Reihenfolge der Tabs im Shop: "Das passt dazu", "Regal erweitern", "Einzelteile"
-    for (const { tab, groupName, maxTargets } of tabs) {
+    // Reihenfolge der Tabs im Shop: "Das passt dazu", "Regal erweitern", "Einzelteile", "Auch erhältlich in"
+    for (const { tab, groupName, maxTargets, skipTargetsInOtherGroups } of tabs) {
       const operations = operationsByTab.get(tab)!;
       for (let i = 0; i < operations.length; i += CHUNK) {
         const result = await applyCrossSellPlan(deps.client, operations.slice(i, i + CHUNK), {
@@ -174,7 +178,7 @@ export async function runNameRuleCrossSelling(
           maxTargets,
           replace: false,
           dryRun: args.dryRun,
-          skipTargetsInOtherGroups: true,
+          skipTargetsInOtherGroups,
           ownGroupNames,
           onChange: recorder,
         });

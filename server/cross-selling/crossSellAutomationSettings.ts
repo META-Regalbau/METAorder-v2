@@ -46,6 +46,9 @@ export const crossSellAutomationSettingsSchema = z.object({
   /** Feste Regeln: Tab "Einzelteile" (Ständer, Fachböden, Holme, Kragarme …) */
   partsGroupName: z.string().trim().min(1).max(80),
   maxTargetsPartsGroup: z.number().int().min(1).max(60),
+  /** Feste Regeln: Tab "Auch erhältlich in" (gleiches Regal in anderer Höhe, Tiefe, Farbe) */
+  variantsGroupName: z.string().trim().min(1).max(80),
+  maxTargetsVariantsGroup: z.number().int().min(1).max(60),
   /** Freigegebenes Standardzubehör je System ("META CLIP" → Artikelnummern in Reihenfolge) */
   nameRuleSystemAccessories: z.record(z.array(z.string().trim().min(1).max(64)).max(40)),
 });
@@ -85,6 +88,8 @@ export const DEFAULT_CROSS_SELL_AUTOMATION_SETTINGS: CrossSellAutomationSettings
   maxTargetsExtendGroup: 12,
   partsGroupName: "Einzelteile",
   maxTargetsPartsGroup: 30,
+  variantsGroupName: "Auch erhältlich in",
+  maxTargetsVariantsGroup: 24,
   nameRuleSystemAccessories: {},
 };
 

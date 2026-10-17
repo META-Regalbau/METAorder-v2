@@ -8,6 +8,10 @@
 //   Standardzubehör je System
 // - "Einzelteile": Ständer/Ständerrahmen, Fachböden, Holmebenen, Kragarme, Gitterrost/Paneele –
 //   alle passenden Varianten, gleiche Oberfläche zuerst
+// Vierter Tab "Auch erhältlich in" (User-Wunsch 17.10.2026): dasselbe Regal (gleiche Rolle und
+// Breite) in anderer Höhe, Tiefe oder Farbe – je Wert ein Artikel, der sich nur darin unterscheidet
+// (Fachlast und Ebenen dürfen abweichen, gleiche Fachlast zuerst). Im Shop zeigt
+// shopware/storefront-snippets/product-variants.js den Tab als Auswahl über den Vorteilen an.
 
 export type NameRuleProduct = { productNumber: string; name: string };
 
@@ -23,9 +27,12 @@ export type NameRuleKind =
   | "shelf_board"
   | "beam"
   | "arm"
-  | "grating";
+  | "grating"
+  | "other_height"
+  | "other_depth"
+  | "other_surface";
 
-export type NameRuleTab = "extend" | "accessories" | "parts";
+export type NameRuleTab = "extend" | "accessories" | "parts" | "variants";
 
 /** Tab je Regelart. */
 export const NAME_RULE_TAB: Record<NameRuleKind, NameRuleTab> = {
@@ -41,6 +48,9 @@ export const NAME_RULE_TAB: Record<NameRuleKind, NameRuleTab> = {
   beam: "parts",
   arm: "parts",
   grating: "parts",
+  other_height: "variants",
+  other_depth: "variants",
+  other_surface: "variants",
 };
 
 export type NameRulePair = {
@@ -65,6 +75,9 @@ const RANK: Record<NameRuleKind, number> = {
   beam: 2,
   arm: 3,
   grating: 4,
+  other_height: 0,
+  other_depth: 1,
+  other_surface: 2,
 };
 
 const SHELF_ROLES = ["Doppel-Anbauregal", "Doppel-Grundregal", "Anbauregal", "Grundregal"] as const;
@@ -197,6 +210,16 @@ function shapeKey(n: ParsedName): string {
     .join(" | ");
 }
 
+/** Wie shapeKey, aber ohne Oberfläche – für "Auch erhältlich in". */
+function variantKey(n: ParsedName): string {
+  const rest = shapeKey(n)
+    .split(" | ")
+    .filter((s) => !n.surface || s.toLowerCase() !== n.surface);
+  return [n.system, n.type, n.role, n.dims[1], ...rest].join("||");
+}
+
+const levelsOf = (n: ParsedName) => n.segments.find((s) => /^\d+(\+\d+)?\s+Ebenen$/i.test(s)) ?? null;
+
 /** Holmebene "Holmebene 2700 mm" → 2700 */
 function beamWidth(n: ParsedName): number | null {
   const m = n.type.match(/(\d[\d.,]*)\s*mm/i);
@@ -252,7 +275,7 @@ export function isNameRulePair(sourceName: string | null | undefined, targetName
       { productNumber: "s", name: sourceName },
       { productNumber: "t", name: targetName },
     ],
-    { maxPerTab: { extend: 100, accessories: 100, parts: 100 } },
+    { maxPerTab: { extend: 100, accessories: 100, parts: 100, variants: 100 } },
   ).some((p) => p.source === "s" && p.target === "t");
 }
 
@@ -263,6 +286,7 @@ export function buildNameRulePairs(products: NameRuleProduct[], options: NameRul
     extend: options.maxPerTab?.extend ?? fallback,
     accessories: options.maxPerTab?.accessories ?? fallback,
     parts: options.maxPerTab?.parts ?? fallback,
+    variants: options.maxPerTab?.variants ?? fallback,
   };
   const parsed = products
     .map((p) => ({ p, n: parseCatalogName(p.name) }))
@@ -291,6 +315,11 @@ export function buildNameRulePairs(products: NameRuleProduct[], options: NameRul
   for (const s of shelves) {
     const key = `${s.n.system}||${s.n.type}||${shapeKey(s.n)}`;
     shelvesByShape.set(key, [...(shelvesByShape.get(key) ?? []), s]);
+  }
+  const shelvesByVariant = new Map<string, typeof shelves>();
+  for (const s of shelves) {
+    const key = variantKey(s.n);
+    shelvesByVariant.set(key, [...(shelvesByVariant.get(key) ?? []), s]);
   }
 
   const out: NameRulePair[] = [];
@@ -371,7 +400,31 @@ export function buildNameRulePairs(products: NameRuleProduct[], options: NameRul
     for (const b of beams) if (sys(b.n) && beamWidth(b.n) === width) add(b.p, "beam", surfaceOrder(b.n));
     for (const a of arms) if (sys(a.n) && a.n.length === depth) add(a.p, "arm", surfaceOrder(a.n));
 
-    for (const tab of ["extend", "accessories", "parts"] as const) {
+    // --- Auch erhältlich in: je Höhe, Tiefe bzw. Farbe der Artikel, der sonst gleich ist ---
+    const siblings = shelvesByVariant.get(variantKey(n)) ?? [];
+    const variantAttrs = [
+      { kind: "other_height" as const, value: (x: ParsedName) => x.dims[0] },
+      { kind: "other_depth" as const, value: (x: ParsedName) => x.dims[2] },
+      { kind: "other_surface" as const, value: (x: ParsedName) => x.surface },
+    ];
+    for (const attr of variantAttrs) {
+      const own = attr.value(n);
+      if (own === null) continue;
+      const best = new Map<string | number, { s: (typeof shelves)[number]; score: number }>();
+      for (const s of siblings) {
+        const v = attr.value(s.n);
+        if (v === null || v === own) continue;
+        // die anderen beiden Merkmale muessen gleich sein
+        if (variantAttrs.some((o) => o !== attr && o.value(s.n) !== o.value(n))) continue;
+        const loadGap = s.n.loadKg !== null && n.loadKg !== null ? Math.abs(s.n.loadKg - n.loadKg) : 1e6;
+        const score = loadGap * 10 + (levelsOf(s.n) === levelsOf(n) ? 0 : 1);
+        const prev = best.get(v);
+        if (!prev || score < prev.score || (score === prev.score && s.p.productNumber < prev.s.p.productNumber)) best.set(v, { s, score });
+      }
+      for (const [v, { s }] of best) add(s.p, attr.kind, typeof v === "number" ? v : 0);
+    }
+
+    for (const tab of ["extend", "accessories", "parts", "variants"] as const) {
       const list = pairs
         .filter((x) => x.tab === tab)
         .sort((a, b) => a.rank - b.rank || a.order - b.order || a.target.localeCompare(b.target))

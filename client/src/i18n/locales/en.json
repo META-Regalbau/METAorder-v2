@@ -7341,7 +7341,8 @@
       "backfillMaxAutoPerSource": "Initial fill: max. automatic per item",
       "backfillMaxQueuePerRun": "Initial fill: new review entries per step",
       "maxTargetsExtendGroup": "Max. products in the “extend shelf” tab",
-      "maxTargetsPartsGroup": "Max. products in the “single parts” tab"
+      "maxTargetsPartsGroup": "Max. products in the “single parts” tab",
+      "maxTargetsVariantsGroup": "Max. products in the “also available in” tab"
     },
     "saved": "Settings saved",
     "saveError": "Saving failed",
@@ -7359,6 +7360,7 @@
     "reviewError": "Review failed",
     "extendGroupName": "Name of the “extend shelf” tab",
     "partsGroupName": "Name of the “single parts” tab",
+    "variantsGroupName": "Name of the “also available in” tab (shown at the top of the product page as height/depth/colour choice)",
     "tabNamesHint": "Separate tabs in the shop for the fixed rules. Changing a name does not rename existing tabs with the old name."
   },
   "crossSellLog": {
@@ -7401,7 +7403,7 @@
   },
   "crossSellNameRules": {
     "title": "Fixed rules from product names",
-    "hint": "Fixed rules from the product names, without AI, only within the same system: extend shelf (partner shelf and add-on shelves of other widths with the same height and depth), goes with it (extra shelves, walls, dimensioned accessories and approved standard accessories) and single parts (uprights, shelves, beams, arms, gratings).",
+    "hint": "Fixed rules from the product names, without AI, only within the same system: extend shelf (partner shelf and add-on shelves of other widths with the same height and depth), goes with it (extra shelves, walls, dimensioned accessories and approved standard accessories) single parts (uprights, shelves, beams, arms, gratings) and also available in (the same shelf in another height, depth or colour).",
     "dryRun": "Test run",
     "apply": "Write to shop now",
     "confirmApply": "Write rule pairs to the shop now? The run can be undone in the log.",
@@ -7429,9 +7431,12 @@
       "shelf_board": "shelf",
       "beam": "beam level",
       "arm": "cantilever arm",
-      "grating": "grating/panels"
+      "grating": "grating/panels",
+      "other_height": "other height",
+      "other_depth": "other depth",
+      "other_surface": "other colour"
     },
-    "tabs": "Extend shelf {{extend}} · Goes with it {{accessories}} · Single parts {{parts}} · moved {{moved}}"
+    "tabs": "Extend shelf {{extend}} · Goes with it {{accessories}} · Single parts {{parts}} · Also available in {{variants}} · moved {{moved}}"
   },
   "crossSellMonthly": {
     "title": "Monthly reviews",
