@@ -11,8 +11,8 @@
 import { createHash } from "crypto";
 import { readFileSync, writeFileSync } from "fs";
 import path from "path";
-import { storage } from "../storage";
-import { findDeChannel, shopApi, type ShopApi } from "./shopProducts";
+import { storage } from "../../server/storage";
+import { findDeChannel, shopApi, type ShopApi } from "../../server/shopContent/shopProducts";
 
 const SNIPPET_DIR = path.resolve(import.meta.dirname, "..", "..", "shopware", "storefront-snippets");
 
