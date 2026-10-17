@@ -1,0 +1,243 @@
+{
+  "name": "METAorder Shop-Puls → Teams",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "alle-5-minuten",
+      "name": "Alle 5 Minuten",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "notes": "Der Shop-Puls prüft alle 15 Minuten; Nachrichten warten in METAorder, bis sie abgeholt und quittiert sind (höchstens 48 Stunden).",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "metaorder-url",
+              "name": "metaorderUrl",
+              "value": "https://p-bbpye5.project.space",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "einstellungen",
+      "name": "Einstellungen",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ],
+      "notes": "Einzige Stelle mit der METAorder-Adresse. Lokal: http://host.docker.internal:5001",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.metaorderUrl }}/api/shop-pulse/teams-outbox",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "metaorder-meldungen",
+      "name": "METAorder: Meldungen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "METAORDER_INTEGRATION_KEY_CREDENTIAL_ID",
+          "name": "METAorder Integration-Key"
+        }
+      },
+      "notes": "Fertige Teams-Karten des Shop-Puls; Webhook = Teams-Direktnachricht aus METAorder → Shop-Puls.",
+      "notesInFlow": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Je Meldung ein Item; ohne Webhook liefert METAorder keine\nconst out = [];\nfor (const item of $input.all()) {\n  const { webhookUrl, items } = item.json;\n  if (!webhookUrl || !Array.isArray(items)) continue;\n  for (const entry of items) out.push({ json: { webhookUrl, id: entry.id, message: entry.message } });\n}\nreturn out;\n"
+      },
+      "id": "meldungen-einzeln",
+      "name": "Meldungen einzeln",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.webhookUrl }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.message) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "an-teams-senden",
+      "name": "An Teams senden",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        0
+      ],
+      "notes": "Teams-Workflow „Bei Empfang einer Webhook-Anforderung in einem Chat posten“ (Flow-Bot, Direktnachricht).",
+      "notesInFlow": true,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Nur erfolgreich gepostete Meldungen quittieren; der Rest wird beim nächsten Lauf erneut versucht\nconst sent = $('Meldungen einzeln').all();\nconst ids = [];\n$input.all().forEach((item, i) => {\n  const status = Number(item.json.statusCode || 0);\n  if (status >= 200 && status < 300 && sent[i]) ids.push(sent[i].json.id);\n});\nreturn ids.length ? [{ json: { metaorderUrl: $('Einstellungen').first().json.metaorderUrl, ids } }] : [];\n"
+      },
+      "id": "gesendete-sammeln",
+      "name": "Gesendete sammeln",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.metaorderUrl }}/api/shop-pulse/teams-outbox/ack",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ ids: $json.ids }) }}",
+        "options": {}
+      },
+      "id": "metaorder-quittieren",
+      "name": "METAorder: quittieren",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "METAORDER_INTEGRATION_KEY_CREDENTIAL_ID",
+          "name": "METAorder Integration-Key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    }
+  ],
+  "connections": {
+    "Alle 5 Minuten": {
+      "main": [
+        [
+          {
+            "node": "Einstellungen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Einstellungen": {
+      "main": [
+        [
+          {
+            "node": "METAorder: Meldungen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "METAorder: Meldungen": {
+      "main": [
+        [
+          {
+            "node": "Meldungen einzeln",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Meldungen einzeln": {
+      "main": [
+        [
+          {
+            "node": "An Teams senden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "An Teams senden": {
+      "main": [
+        [
+          {
+            "node": "Gesendete sammeln",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gesendete sammeln": {
+      "main": [
+        [
+          {
+            "node": "METAorder: quittieren",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "none"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

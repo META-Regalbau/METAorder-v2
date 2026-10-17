@@ -21,6 +21,7 @@ import { registerSettingsRoutes } from "./routes/settingsRoutes";
 import { registerLogRoutes } from "./routes/logRoutes";
 import { registerShopContentRoutes } from "./routes/shopContentRoutes";
 import { registerShopWatchRoutes } from "./routes/shopWatchRoutes";
+import { registerShopPulseRoutes } from "./routes/shopPulseRoutes";
 import { registerOrderRoutes } from "./routes/orderRoutes";
 import { registerCrossSellingRoutes } from "./routes/crossSellingRoutes";
 import { registerCrossSellAutomationRoutes } from "./routes/crossSellAutomationRoutes";
@@ -87,6 +88,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Shop-Inhalte: Shop-Wächter (vor /api/shop-content/:id), Branchenseiten und Startseiten-Abschnitte (nur Administratoren)
   registerShopWatchRoutes(app);
   registerShopContentRoutes(app);
+  // Shop-Puls: Meldungen zu Umsatz, Kaufbarkeit, GA4 (nur Administratoren)
+  registerShopPulseRoutes(app);
 
   // Mahnwesen und Buchhaltungs-Import
   registerInvoicingRoutes(app);
