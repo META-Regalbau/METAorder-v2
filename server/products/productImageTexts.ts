@@ -120,9 +120,9 @@ export function looksLikeFileName(value: string, fileName: string): boolean {
   return a.length > 0 && a === norm(fileName);
 }
 
-type Marker = { alt?: string; title?: string };
+export type Marker = { alt?: string; title?: string };
 
-function readMarker(media: MediaTexts): Marker {
+export function readMarker(media: Pick<MediaTexts, "customFields">): Marker {
   const raw = media.customFields?.[PRODUCT_IMAGE_TEXTS_MARKER];
   if (!raw || typeof raw !== "object") return {};
   const m = raw as Record<string, unknown>;
