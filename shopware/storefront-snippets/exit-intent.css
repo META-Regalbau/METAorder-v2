@@ -316,8 +316,10 @@ html.meta-exit-open {
   width: 100%;
 }
 .meta-exit .btn.meta-exit__apply.is-done {
+  pointer-events: none;
   border-color: #41a700;
   background: #41a700;
+  color: #fff;
   opacity: 1;
 }
 .meta-exit__status {

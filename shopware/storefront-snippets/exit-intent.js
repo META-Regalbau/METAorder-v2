@@ -13,7 +13,8 @@
  *
  * Anmeldung: dasselbe Formular wie im Footer (POST /form/newsletter, Double-Opt-in von Shopware,
  * Abgleich mit Brevo über das Plugin). Danach zeigt das Modal den Code und kann ihn direkt im
- * Warenkorb hinterlegen (POST /checkout/promotion/add).
+ * Warenkorb hinterlegen (POST /checkout/promotion/add). Ist der Warenkorb noch leer, wird der Code
+ * vorgemerkt und beim ersten Artikel im Warenkorb hinterlegt (Shopware verwirft Codes im leeren Warenkorb).
  *
  * Zum Testen: window.MetaExitIntent.open() öffnet das Modal sofort, .reset() vergisst die Auswahl.
  */
@@ -371,21 +372,74 @@ var MetaExitIntent = (function () {
     sel.addRange(range);
   }
 
-  function applyCode() {
-    applyBtn.disabled = true;
-    applyStatus.textContent = '';
+  function cartCount() {
+    var badge = document.querySelector('.header-cart-badge');
+    return badge ? parseInt(badge.textContent, 10) || 0 : 0;
+  }
+
+  // Shopware verwirft Codes in einem leeren Warenkorb. Deshalb erst hinterlegen, wenn etwas drin liegt.
+  function postCode() {
     var data = new FormData();
     data.set('code', CONFIG.code);
-    fetch('/checkout/promotion/add', {
+    return fetch('/checkout/promotion/add', {
       method: 'POST',
       body: data,
       credentials: 'same-origin',
       headers: { 'X-Requested-With': 'XMLHttpRequest' }
-    })
-      .then(function (res) {
-        if (!res.ok && res.status !== 302) throw new Error('HTTP ' + res.status);
-        applyBtn.textContent = 'Im Warenkorb hinterlegt';
-        applyBtn.classList.add('is-done');
+    }).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      var state = readState() || {};
+      state.pendingApply = false;
+      state.applied = true;
+      writeState(state);
+    });
+  }
+
+  var cartObserver = null;
+  /** Vorgemerkten Code hinterlegen, sobald der Warenkorb-Zähler im Kopf etwas zeigt (auch nach Ajax-Nachladen) */
+  function watchCartForCode() {
+    var state = readState();
+    if (!state || state.status !== 'subscribed' || !state.pendingApply || state.applied) return;
+    if (cartCount() > 0) {
+      postCode().then(function () { track('apply:auto'); }, function () { /* nächster Seitenaufruf */ });
+      return;
+    }
+    var widget = document.querySelector('[data-cart-widget]') || document.querySelector('.header-cart');
+    if (!widget || cartObserver || typeof MutationObserver === 'undefined') return;
+    cartObserver = new MutationObserver(function () {
+      if (cartCount() === 0) return;
+      cartObserver.disconnect();
+      cartObserver = null;
+      watchCartForCode();
+    });
+    cartObserver.observe(widget, { childList: true, subtree: true, characterData: true });
+  }
+
+  // Fertig-Zustand ohne disabled: das Theme färbt deaktivierte Buttons mit !important grau
+  function markApplied(label) {
+    applyBtn.disabled = false;
+    applyBtn.setAttribute('aria-disabled', 'true');
+    applyBtn.textContent = label;
+    applyBtn.classList.add('is-done');
+  }
+
+  function applyCode() {
+    if (applyBtn.getAttribute('aria-disabled') === 'true') return;
+    applyBtn.disabled = true;
+    applyStatus.textContent = '';
+    if (cartCount() === 0) {
+      var state = readState() || { status: 'subscribed', at: Date.now(), v: CONFIG.version };
+      state.pendingApply = true;
+      writeState(state);
+      markApplied('Code ist vorgemerkt');
+      applyStatus.textContent = 'Ihr Warenkorb ist noch leer. Wir hinterlegen den Code automatisch, sobald Sie etwas hineinlegen.';
+      track('apply:pending');
+      watchCartForCode();
+      return;
+    }
+    postCode()
+      .then(function () {
+        markApplied('Im Warenkorb hinterlegt');
         applyStatus.textContent = 'Der Rabatt wird an der Kasse abgezogen, sobald Sie angemeldet sind oder Ihre Daten eingegeben haben.';
         track('apply');
       })
@@ -497,6 +551,7 @@ var MetaExitIntent = (function () {
   }
 
   function init() {
+    watchCartForCode();
     if (isExcludedPath(window.location.pathname)) return;
     if (isLoggedIn()) return;
     if (!allowedByState(readState(), Date.now()) || shownThisSession()) return;
