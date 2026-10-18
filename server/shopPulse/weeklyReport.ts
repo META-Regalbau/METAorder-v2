@@ -22,6 +22,8 @@
  *    den 13 Wochen bis dahin, dazu die Verteilung der Bestellwerte. Geschäftskunde = Firma in der
  *    Rechnungsadresse oder Kundennummer einer B2Bsellers-Firma (Firmen-Spiegel). Grundlage der Schwelle des
  *    Warenkorb-Alarms (S2-3, Vorschlag 1.000 € netto).
+ * 7. Google Ads (S2-4): Kosten der Woche, Kosten je Conversion gegen Ø Deckungsbeitrag, Vorschläge für
+ *    auszuschließende Suchbegriffe (zuerst an Oliver, nicht direkt an Smarketer).
  */
 import { summarizeOrderItems } from "../analytics/orderProfitabilityAnalysis";
 import {
@@ -43,8 +45,10 @@ import {
   type ShopPulseWeeklyDone,
   type ShopPulseWeeklyNumbers,
   type ShopPulseWeeklyReportData,
+  type ShopPulseWeeklyAds,
 } from "@shared/shopPulseWeekly";
 import type { ShopPulseWeeklyEffect } from "@shared/shopPulseEffects";
+import type { AdsSetupProblem } from "@shared/shopPulse";
 import type { ShopPulseLossEstimate, ShopPulseSignal, ShopPulseState } from "@shared/shopPulse";
 import { addDays, berlinTime, weekdayOfDay, type PulseOrder, type PulseOrderCustomer } from "./pulseOrders";
 import { compareSignals, isMuted } from "./shopPulseSignals";
@@ -123,6 +127,27 @@ export function weekFigures(orders: PulseOrder[], from: string, hkOf: Herstellpr
     db1,
     db1CoveragePercent: db1 != null && productNet > 0 ? Math.round((coveredNet / productNet) * 1000) / 10 : null,
   };
+}
+
+/**
+ * Ø Deckungsbeitrag (DB1 netto) je MO-Bestellung von bis (Kalendertage), nur Bestellungen mit mindestens
+ * einer Position mit Herstellpreis (wie Bestellliste und CRM); null = keine solche Bestellung
+ */
+export function avgDb1PerOrder(orders: PulseOrder[], from: string, to: string, hkOf: HerstellpreisOf): number | null {
+  let total = 0;
+  let count = 0;
+  for (const o of orders) {
+    if (o.day < from || o.day > to) continue;
+    const lines = (o.items ?? []).map((i) => {
+      const hk = hkOf(i.productNumber);
+      return { productNumber: i.productNumber, quantity: i.quantity, netTotal: i.netTotal, herstellpreisNet: hk, herstellkostenTotal: hk != null ? round2(hk * i.quantity) : null };
+    });
+    const summary = summarizeOrderItems(lines, 0);
+    if (summary.db1Total == null) continue;
+    total += summary.db1Total;
+    count += 1;
+  }
+  return count ? round2(total / count) : null;
 }
 
 /** Woche, Vorwoche und Vorjahreswoche (52 Wochen davor; null ohne Bestellungen) */
@@ -313,6 +338,38 @@ export function b2bShare(orders: PulseOrder[], weekStart: string, b2bCustomerNum
   };
 }
 
+// ---------------------------------------------------------------------------------------------
+// Google Ads (S2-4)
+
+const ADS_SUGGESTIONS_MAX = 10;
+
+/**
+ * Ads-Abschnitt: Kosten der Woche, Kosten je Conversion gegen den Ø Deckungsbeitrag je MO-Bestellung, offene
+ * Ads-Meldungen und die Vorschläge auszuschließender Suchbegriffe (aus der offenen Meldung). problem gesetzt =
+ * Ads nicht eingerichtet.
+ */
+export function adsWeekly(
+  week: { cost: number; clicks: number; conversions: number } | null,
+  avgDb1: number | null,
+  signals: ShopPulseSignal[],
+  problem?: AdsSetupProblem,
+): ShopPulseWeeklyAds {
+  if (problem) return { configured: false, problem };
+  const open = signals.filter((s) => s.status === "open" && s.key.startsWith("ads:"));
+  const terms = open.find((s) => s.code === "adsSearchTermsWaste");
+  const raw = Array.isArray(terms?.evidence.suggestions) ? (terms!.evidence.suggestions as Array<Record<string, unknown>>) : [];
+  return {
+    configured: true,
+    cost: week?.cost ?? null,
+    clicks: week?.clicks ?? null,
+    conversions: week?.conversions ?? null,
+    costPerConversion: week && week.conversions > 0 ? round2(week.cost / week.conversions) : null,
+    avgDb1PerOrder: avgDb1,
+    openCount: open.length,
+    suggestions: raw.slice(0, ADS_SUGGESTIONS_MAX).map((r) => ({ term: String(r.term ?? ""), cost: Number(r.cost) || 0, clicks: Number(r.clicks) || 0, negative: String(r.negative ?? "") })),
+  };
+}
+
 export function weeklyReportData(input: {
   numbers: ShopPulseWeeklyNumbers | null;
   signals: ShopPulseSignal[];
@@ -321,6 +378,7 @@ export function weeklyReportData(input: {
   now: Date;
   b2b?: ShopPulseB2bShare | null;
   effects?: ShopPulseWeeklyEffect[] | null;
+  ads?: ShopPulseWeeklyAds;
 }): ShopPulseWeeklyReportData {
   const all = rankLevers(input.signals, input.estimates, input.now);
   const levers = all.slice(0, LEVERS_MAX);
@@ -334,6 +392,7 @@ export function weeklyReportData(input: {
     offers: offerSummary(input.signals.filter((s) => !isMuted(s, input.now))),
     b2b: input.b2b ?? null,
     effects: input.effects ?? null,
+    ...(input.ads ? { ads: input.ads } : {}),
   };
 }
 
@@ -386,6 +445,18 @@ export function weeklyPayload(data: ShopPulseWeeklyReportData, now: Date): Recor
           umsatzNettoIn28Tagen: e.revenueEffect,
         }))
       : "keine gesicherte Wirkung",
+    googleAds: !data.ads
+      ? "nicht erfasst"
+      : data.ads.configured
+        ? {
+            kostenWoche: data.ads.cost,
+            conversionsWoche: data.ads.conversions,
+            kostenJeConversion: data.ads.costPerConversion,
+            durchschnittDeckungsbeitragJeBestellung: data.ads.avgDb1PerOrder,
+            offeneAdsMeldungen: data.ads.openCount,
+            vorschlaegeAuszuschliessen: data.ads.suggestions.map((x) => ({ begriff: x.term, kosten28Tage: x.cost })),
+          }
+        : "nicht eingerichtet",
     angebotsanfragen: data.offers
       ? {
           unbeantwortet: data.offers.unanswered,

@@ -10,7 +10,7 @@
  * Wochenbericht (Tabelle shop_pulse_weekly_reports): montags statt des Tagesberichts, je Woche einer.
  */
 import { z } from "zod";
-import type { ShopPulseAiRejection, ShopPulseCode, ShopPulseLossBasis, ShopPulseSeverity } from "./shopPulse";
+import type { AdsSetupProblem, ShopPulseAiRejection, ShopPulseCode, ShopPulseLossBasis, ShopPulseSeverity } from "./shopPulse";
 import type { ShopPulseWeeklyEffect } from "./shopPulseEffects";
 
 // ---------------------------------------------------------------------------------------------
@@ -114,7 +114,7 @@ export const SHOP_PULSE_OWNER_NAMES: Record<ShopPulseOwnerId, string> = {
 };
 
 /** Nächster Schritt je Art von Meldung (Texte shopPulse.weekly.nextSteps.<step>) */
-export const SHOP_PULSE_NEXT_STEPS = ["mirror", "orderGap", "storefront", "payment", "product", "delivery", "price", "demand", "traffic", "search", "notFound", "offer", "offerEmpty", "offerBacklog"] as const;
+export const SHOP_PULSE_NEXT_STEPS = ["mirror", "orderGap", "storefront", "payment", "product", "delivery", "price", "demand", "traffic", "search", "notFound", "offer", "offerEmpty", "offerBacklog", "ads", "adsShopping", "adsMeasurement"] as const;
 export type ShopPulseNextStep = (typeof SHOP_PULSE_NEXT_STEPS)[number];
 
 /** Zuständiger und nächster Schritt je Fund-Art (fest, damit Seite, Teams und KI dasselbe sagen) */
@@ -164,6 +164,13 @@ export const SHOP_PULSE_RESPONSIBILITY: Record<ShopPulseCode, { owner: ShopPulse
   offerUnanswered: { owner: "sales", step: "offer" },
   offerEmpty: { owner: "sales", step: "offerEmpty" },
   offerBacklog: { owner: "sales", step: "offerBacklog" },
+  // Google Ads (S2-4): Vorschläge gehen zuerst an Oliver, er entscheidet, was an Smarketer weitergeht
+  adsCostNoResult: { owner: "oliver", step: "ads" },
+  adsCostAboveMargin: { owner: "oliver", step: "ads" },
+  adsShoppingUnbuyable: { owner: "oliver", step: "adsShopping" },
+  adsSearchTermsWaste: { owner: "oliver", step: "ads" },
+  adsMeasurementDrop: { owner: "oliver", step: "adsMeasurement" },
+  adsBudgetLimited: { owner: "oliver", step: "ads" },
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -314,7 +321,29 @@ export type ShopPulseWeeklyReportData = {
    * Wirkung „sicher“ ist; null = nicht berechnet; fehlt in älteren Berichten
    */
   effects?: ShopPulseWeeklyEffect[] | null;
+  /** Google Ads der Woche (S2-4); fehlt in älteren Berichten */
+  ads?: ShopPulseWeeklyAds;
 };
+
+/** Vorschlag zum Ausschließen eines Suchbegriffs (aus der Meldung „teure Suchbegriffe“, 28 Tage) */
+export type ShopPulseAdsSuggestion = { term: string; cost: number; clicks: number; negative: string };
+
+/** Google Ads im Wochenbericht: Kosten der Woche, Kosten je Conversion gegen Ø Deckungsbeitrag, Vorschläge */
+export type ShopPulseWeeklyAds =
+  | {
+      configured: true;
+      /** null = Woche nicht gelesen (Fehler) */
+      cost: number | null;
+      clicks: number | null;
+      conversions: number | null;
+      costPerConversion: number | null;
+      /** Ø Deckungsbeitrag je MO-Bestellung der Woche; null = keiner */
+      avgDb1PerOrder: number | null;
+      /** offene Ads-Meldungen */
+      openCount: number;
+      suggestions: ShopPulseAdsSuggestion[];
+    }
+  | { configured: false; problem: AdsSetupProblem };
 
 export type ShopPulseWeeklyReport = {
   id: string;

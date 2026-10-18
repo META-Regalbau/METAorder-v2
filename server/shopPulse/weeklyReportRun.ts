@@ -4,12 +4,14 @@
  * der Seite baut ihn ohne zu senden. Datenquellen sind austauschbar (Tests in tests/unit/shopPulseWeekly.test.ts).
  *
  * Nur lesend aus der eigenen Datenbank: Bestell- und Produktspiegel, Herstellpreise, Maßnahmen-Protokoll,
- * B2B-Firmen-Spiegel (B2B-Anteil, S2-2); GA4 nur, wenn eingerichtet (zwei Abfragen nacheinander).
+ * B2B-Firmen-Spiegel (B2B-Anteil, S2-2); GA4 nur, wenn eingerichtet (zwei Abfragen nacheinander); Google Ads
+ * nur, wenn eingerichtet (eine Abfrage je Konto, S2-4).
  */
 import { and, eq, inArray, isNull, sql, type AnyColumn } from "drizzle-orm";
 import { shopwareB2bCompanies, shopwareProducts } from "@shared/schema";
 import type { ShopPulseLossEstimate, ShopPulseSignal } from "@shared/shopPulse";
 import type { ShopPulseActionEffect, ShopPulseWeeklyEffect } from "@shared/shopPulseEffects";
+import type { ShopPulseWeeklyAds } from "@shared/shopPulseWeekly";
 import type { ShopPulseAction, ShopPulseB2bShare, ShopPulseWeeklyNumbers, ShopPulseWeeklyReport, ShopPulseWeeklyReportData } from "@shared/shopPulseWeekly";
 import type { IStorage } from "../storage";
 import { db } from "../db";
@@ -21,7 +23,8 @@ import { listActions, saveWeeklyReport } from "./actionLogRepository";
 import { syncActionLog } from "./actionSync";
 import type { ShopPulseAiDeps } from "./shopPulseAi";
 import { weeklyEffects } from "./effects";
-import { b2bShare, berlinMidnight, ga4WeekFrom, reportedWeekStart, weeklyAiText, weeklyNumbers, weeklyReportData } from "./weeklyReport";
+import { adsAccess, AdsNotConfiguredError, loadAdsWeek } from "./adsClient";
+import { adsWeekly, avgDb1PerOrder, b2bShare, berlinMidnight, ga4WeekFrom, reportedWeekStart, weeklyAiText, weeklyNumbers, weeklyReportData } from "./weeklyReport";
 
 const log = logger.child({ component: "shopPulse/weeklyReportRun" });
 
@@ -41,6 +44,8 @@ export type ShopPulseWeeklyDeps = {
   listActions(tenantId: string | null, from: Date, to: Date): Promise<ShopPulseAction[]>;
   /** Wirkung der Maßnahmen neu rechnen (S2-6); fehlt sie, steht im Bericht keine gesicherte Wirkung */
   effects?(tenantId: string | null, now: Date): Promise<{ effects: ShopPulseActionEffect[]; actions: ShopPulseAction[] }>;
+  /** Google-Ads-Kosten der Woche (S2-4); wirft AdsNotConfiguredError, wenn nicht eingerichtet; fehlt es, kein Ads-Abschnitt */
+  adsWeek?(tenantId: string | null, from: string, to: string): Promise<{ cost: number; clicks: number; conversions: number }>;
   saveReport(
     tenantId: string | null,
     report: { weekStart: string; data: ShopPulseWeeklyReportData; ai: ShopPulseWeeklyReport["ai"]; sentAt: Date | null },
@@ -59,7 +64,7 @@ export type WeeklyBuildInput = {
 };
 
 /** Zahlen der Woche und B2B-Anteil; fehlende Herstellpreise, B2B-Firmen oder GA4 sind kein Fehler, nur Lücken */
-async function numbersFor(deps: ShopPulseWeeklyDeps, tenantId: string | null, weekStart: string): Promise<{ numbers: ShopPulseWeeklyNumbers; b2b: ShopPulseB2bShare | null }> {
+async function numbersFor(deps: ShopPulseWeeklyDeps, tenantId: string | null, weekStart: string): Promise<{ numbers: ShopPulseWeeklyNumbers; b2b: ShopPulseB2bShare | null; avgDb1: number | null }> {
   const orders = await deps.loadOrders(tenantId, berlinMidnight(addDays(weekStart, -364)));
   let flagged = new Set<string>();
   try {
@@ -80,7 +85,12 @@ async function numbersFor(deps: ShopPulseWeeklyDeps, tenantId: string | null, we
   } catch (err) {
     log.warn({ err: err instanceof Error ? err.message : String(err), tenantId }, "Wochenbericht: GA4 nicht gelesen");
   }
-  return { numbers: weeklyNumbers(orders, weekStart, hk ? (pn) => hk!.get(pn) ?? null : null, ga4), b2b: b2bShare(orders, weekStart, flagged) };
+  const hkOf = hk ? (pn: string) => hk!.get(pn) ?? null : null;
+  return {
+    numbers: weeklyNumbers(orders, weekStart, hkOf, ga4),
+    b2b: b2bShare(orders, weekStart, flagged),
+    avgDb1: hkOf ? avgDb1PerOrder(orders, weekStart, addDays(weekStart, 6), hkOf) : null,
+  };
 }
 
 /** Bericht der abgeschlossenen Woche bauen (ohne speichern und senden) */
@@ -105,7 +115,19 @@ export async function buildWeeklyReport(deps: ShopPulseWeeklyDeps, input: Weekly
       log.warn({ err, tenantId }, "Wochenbericht: Wirkung nicht berechnet");
     }
   }
-  const data = weeklyReportData({ numbers: figures?.numbers ?? null, signals: input.openSignals, estimates, actions, now, b2b: figures?.b2b ?? null, effects });
+  let ads: ShopPulseWeeklyAds | undefined;
+  if (deps.adsWeek) {
+    try {
+      ads = adsWeekly(await deps.adsWeek(tenantId, weekStart, addDays(weekStart, 6)), figures?.avgDb1 ?? null, input.openSignals);
+    } catch (err) {
+      if (err instanceof AdsNotConfiguredError) ads = adsWeekly(null, null, [], err.reason);
+      else {
+        log.warn({ err: err instanceof Error ? err.message : String(err), tenantId }, "Wochenbericht: Google Ads nicht gelesen");
+        ads = adsWeekly(null, figures?.avgDb1 ?? null, input.openSignals);
+      }
+    }
+  }
+  const data = weeklyReportData({ numbers: figures?.numbers ?? null, signals: input.openSignals, estimates, actions, now, b2b: figures?.b2b ?? null, effects, ads });
 
   let ai: ShopPulseWeeklyReport["ai"] = null;
   if (input.ai) {
@@ -177,6 +199,7 @@ export function shopPulseWeeklyDeps(storage: IStorage): ShopPulseWeeklyDeps {
     },
     syncActions: (tenantId, now) => syncActionLog(storage, tenantId, now),
     listActions: (tenantId, from, to) => listActions(tenantId, { from, to, limit: 500 }),
+    adsWeek: async (tenantId, from, to) => loadAdsWeek(await adsAccess(storage, tenantId).account(), from, to),
     saveReport: saveWeeklyReport,
   };
 }

@@ -8062,7 +8062,8 @@
       "revenue": "Ventas",
       "buyability": "Disponibilidad de compra",
       "ga4": "GA4",
-      "b2b": "B2B"
+      "b2b": "B2B",
+      "ads": "Google Ads"
     },
     "codes": {
       "mirrorStale": {
@@ -8244,6 +8245,30 @@
       "offerBacklog": {
         "title": "{{count}} solicitudes de oferta antiguas siguen en «Solicitado por el cliente»",
         "message": "{{count}} solicitudes de oferta por un total de {{net}} netos tienen más de 4 semanas y siguen en «Solicitado por el cliente», la más antigua ({{oldestNumber}}) desde el {{oldestSince}}. Normalmente se respondieron por otra vía: actualiza el estado en B2Bsellers (Abierta, Rechazada o Archivada)."
+      },
+      "adsCostNoResult": {
+        "title": "Google Ads: {{cost}} sin pedido en «{{adGroup}}»",
+        "message": "El grupo de anuncios «{{adGroup}}» (campaña «{{campaign}}») costó {{cost}} en {{days}} días ({{clicks}} clics) y, según Google Ads, no trajo ningún pedido. Propuesta: revisar y, si procede, pasarlo a Smarketer para pausarlo o rehacerlo."
+      },
+      "adsCostAboveMargin": {
+        "title": "Google Ads: «{{campaign}}» cuesta más por pedido de lo que aporta",
+        "message": "La campaña «{{campaign}}» costó {{cost}} en 28 días con {{conversions}} conversiones, es decir {{costPerConversion}} por pedido. Un pedido de la tienda aporta de media {{avgDb1}} de margen de contribución. Propuesta: hablar de pujas o CPA objetivo con Smarketer."
+      },
+      "adsShoppingUnbuyable": {
+        "title": "Google Shopping anuncia {{count}} artículos que no se pueden comprar",
+        "message": "En los últimos 7 días, los anuncios de Shopping de {{count}} artículos que no se pueden comprar en la tienda (faltan, inactivos, fuera del canal, precio 0 o agotados) costaron en total {{cost}}. Ejemplos: {{examples}}. Propuesta: revisar los artículos en la tienda o pedir a Smarketer que los excluya de Shopping."
+      },
+      "adsSearchTermsWaste": {
+        "title": "Google Ads: {{count}} términos de búsqueda caros sin pedido",
+        "message": "{{count}} términos de búsqueda costaron en total {{cost}} en 28 días sin pedido, p. ej. {{terms}}. La lista de propuestas para excluir está en el informe semanal; primero revisar y luego pasar a Smarketer."
+      },
+      "adsMeasurementDrop": {
+        "title": "Google Ads apenas cuenta pedidos",
+        "message": "Del {{from}} al {{to}}, Google Ads contó conversiones para {{current}} de los {{orders}} pedidos de la tienda; lo habitual es {{expected}}. Probablemente la medición de conversiones falla (etiqueta, consentimiento, cambio en la tienda). Sin medición, Google puja a ciegas: revisarlo con Smarketer y la agencia."
+      },
+      "adsBudgetLimited": {
+        "title": "Google Ads: probablemente compensa más presupuesto para «{{campaign}}»",
+        "message": "La campaña «{{campaign}}» pierde el {{lost}} de las impresiones por el presupuesto. En 28 días costó {{cost}} con {{conversions}} conversiones, unos {{estDb1}} de margen de contribución estimado (conversiones × margen medio por pedido). Propuesta: hablar de aumentar el presupuesto con Smarketer."
       }
     },
     "detectors": {
@@ -8268,11 +8293,13 @@
         "ga4LandingPages": "GA4 páginas de entrada y «página no encontrada»",
         "ga4SearchTerms": "GA4 términos de búsqueda sin resultados",
         "ga4Measurement": "GA4 medición (compras por pedido MO)",
-        "offerWatch": "Solicitudes de oferta (B2Bsellers, cada hora)"
+        "offerWatch": "Solicitudes de oferta (B2Bsellers, cada hora)",
+        "googleAds": "Google Ads (a diario desde las 7, solo lectura)"
       },
       "skipped": "en pausa mientras la sincronización de pedidos esté parada",
       "skippedBusy": "en pausa, el vigilante de la tienda está consultando la tienda",
-      "skippedGa4": "en pausa, GA4 no está configurado"
+      "skippedGa4": "en pausa, GA4 no está configurado",
+      "skippedAds": "en pausa: Google Ads no configurado"
     },
     "notify": {
       "since": "Desde",
@@ -8395,7 +8422,10 @@
         "notFound": "Pasar enlaces rotos o redirecciones que faltan a la agencia.",
         "offer": "Responder a la solicitud o pasarla al responsable (comercial según la asignación, si no el responsable por defecto).",
         "offerEmpty": "Revisar la cuenta del cliente (marca de distribuidor, canal principal) y preguntar al cliente por las posiciones deseadas.",
-        "offerBacklog": "Actualizar el estado de las solicitudes antiguas en B2Bsellers."
+        "offerBacklog": "Actualizar el estado de las solicitudes antiguas en B2Bsellers.",
+        "ads": "Revisar y, si procede, pasarlo a Smarketer como propuesta (METAorder no cambia campañas).",
+        "adsShopping": "Revisar los artículos en la tienda (Jana/agencia) o pedir a Smarketer que los excluya de Shopping.",
+        "adsMeasurement": "Revisar la medición de conversiones con Smarketer y la agencia."
       },
       "scope": {
         "shop": "toda la tienda",
@@ -8424,7 +8454,14 @@
         "db1": "margen de contribución",
         "revenue": "facturación neta"
       },
-      "effectsBell": "Impacto confirmado: {{count}} medida(s)"
+      "effectsBell": "Impacto confirmado: {{count}} medida(s)",
+      "adsTitle": "Google Ads",
+      "adsNone": "Google Ads no configurado: {{problem}}",
+      "adsLine": "Coste {{cost}}, {{clicks}} clics, {{conversions}} conversiones, coste por conversión {{cpa}} (margen de contribución medio por pedido {{db1}})",
+      "adsNotRead": "Coste de la semana no leído.",
+      "adsOpen": "Avisos de Ads abiertos: {{count}}",
+      "adsSuggestions": "Propuestas para excluir (28 días sin pedido): {{terms}}",
+      "adsHint": "Las propuestas son para tu revisión, no se envían directamente a Smarketer. Las conversiones las cuenta Google Ads."
     },
     "weeklyPage": {
       "title": "Informes semanales",
@@ -8525,7 +8562,19 @@
       "effectsTitle": "Impacto confirmado",
       "effectsNotComputed": "Impacto no calculado para este informe (sincronización de pedidos detenida o error).",
       "effectsNone": "Ninguna medida cuyos 28 días terminaron esta semana tiene un impacto confirmado.",
-      "effectsHint": "Solo medidas clasificadas como «seguro» (28 días, ámbito frente al resto de la tienda). Todas las clasificaciones están en el registro de medidas."
+      "effectsHint": "Solo medidas clasificadas como «seguro» (28 días, ámbito frente al resto de la tienda). Todas las clasificaciones están en el registro de medidas.",
+      "adsTitle": "Google Ads",
+      "adsNone": "Google Ads no configurado: {{problem}}",
+      "adsCost": "Coste de la semana",
+      "adsClicks": "Clics",
+      "adsConversions": "Conversiones (según Ads)",
+      "adsCpa": "Coste por conversión",
+      "adsDb1": "Margen de contribución medio por pedido",
+      "adsNotRead": "No se pudo leer el coste de la semana.",
+      "adsOpen": "Avisos de Ads abiertos: {{count}} (en «Avisos»)",
+      "adsSuggestions": "Propuestas para excluir (exactas, 28 días sin pedido):",
+      "adsSuggestionCost": "{{cost}} · {{clicks}} clics",
+      "adsHint": "Solo propuestas para tu revisión; METAorder no cambia campañas ni escribe a Smarketer."
     },
     "actions": {
       "title": "Registro de medidas",
@@ -8744,6 +8793,15 @@
       "alarmedTo": "Alerta {{date}} a {{to}}",
       "mailed": "por correo",
       "orderedAt": "pedido {{date}} ({{order}})"
+    },
+    "adsSetup": {
+      "title": "Google Ads no configurado",
+      "hint": "Configurar en Ajustes → Google Ads: ID de cliente de la cuenta de la tienda, token de desarrollador (aprobado por Google), cliente OAuth y token de actualización con permisos de lectura (o el MCC de Smarketer). Hasta entonces la comprobación de Ads no encuentra nada. METAorder solo lee y no cambia campañas.",
+      "problems": {
+        "disabled": "Google Ads está desactivado en los ajustes.",
+        "noCustomer": "No hay ningún ID de cliente.",
+        "noCredentials": "Faltan el token de desarrollador, el cliente OAuth o el token de actualización."
+      }
     }
   },
   "mondu": {

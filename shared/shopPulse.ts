@@ -9,7 +9,7 @@
 import { isAllowedTeamsWebhookUrl } from "./emailIntake";
 
 /** Woher ein Fund kommt */
-export const SHOP_PULSE_SOURCES = ["system", "revenue", "buyability", "ga4", "b2b"] as const;
+export const SHOP_PULSE_SOURCES = ["system", "revenue", "buyability", "ga4", "b2b", "ads"] as const;
 export type ShopPulseSource = (typeof SHOP_PULSE_SOURCES)[number];
 
 /** critical = sofort melden, warning = Tagesbericht */
@@ -66,6 +66,12 @@ export const SHOP_PULSE_CODES = [
   "offerUnanswered",
   "offerEmpty",
   "offerBacklog",
+  "adsCostNoResult",
+  "adsCostAboveMargin",
+  "adsShoppingUnbuyable",
+  "adsSearchTermsWaste",
+  "adsMeasurementDrop",
+  "adsBudgetLimited",
 ] as const;
 export type ShopPulseCode = (typeof SHOP_PULSE_CODES)[number];
 
@@ -99,6 +105,7 @@ export const SHOP_PULSE_DETECTOR_IDS = [
   "ga4SearchTerms",
   "ga4Measurement",
   "offerWatch",
+  "googleAds",
 ] as const;
 
 /**
@@ -107,6 +114,13 @@ export const SHOP_PULSE_DETECTOR_IDS = [
  */
 export const GA4_SETUP_PROBLEMS = ["disabled", "noProperty", "measurementId", "invalidProperty", "noServiceAccount", "invalidServiceAccount"] as const;
 export type Ga4SetupProblem = (typeof GA4_SETUP_PROBLEMS)[number];
+
+/**
+ * Warum Google Ads nicht eingerichtet ist (Einstellungen → Google Ads, Stufe 2 S2-4): ausgeschaltet, keine
+ * Kunden-ID, Zugangsdaten (Developer-Token, OAuth-Client, Refresh-Token) unvollständig
+ */
+export const ADS_SETUP_PROBLEMS = ["disabled", "noCustomer", "noCredentials"] as const;
+export type AdsSetupProblem = (typeof ADS_SETUP_PROBLEMS)[number];
 
 export const SEVERITY_RANK: Record<ShopPulseSeverity, number> = { warning: 1, critical: 2 };
 
@@ -252,11 +266,12 @@ export type ShopPulseState = {
   lastDailyAi?: { at: string; text: string | null; rejected?: ShopPulseAiRejection };
   /**
    * skipped "mirror": ausgesetzt, weil der Bestellabgleich hängt; "busy": der Shop-Wächter fragt den Shop
-   * gerade ab; "ga4": GA4 nicht eingerichtet (ga4Problem sagt, was fehlt)
+   * gerade ab; "ga4": GA4 nicht eingerichtet (ga4Problem sagt, was fehlt); "ads": Google Ads nicht
+   * eingerichtet (adsProblem)
    */
   detectors?: Record<
     string,
-    { at: string; ok: boolean; error?: string; skipped?: "mirror" | "busy" | "ga4"; ga4Problem?: Ga4SetupProblem; findings: number }
+    { at: string; ok: boolean; error?: string; skipped?: "mirror" | "busy" | "ga4" | "ads"; ga4Problem?: Ga4SetupProblem; adsProblem?: AdsSetupProblem; findings: number }
   >;
 };
 
@@ -330,6 +345,12 @@ const PARAM_KINDS: Partial<Record<ShopPulseCode, Record<string, "money" | "date"
   offerUnanswered: { net: "money", since: "date", businessDays: "number" },
   offerEmpty: { since: "date", businessDays: "number" },
   offerBacklog: { count: "number", net: "money", oldestSince: "date" },
+  adsCostNoResult: { cost: "money", clicks: "number" },
+  adsCostAboveMargin: { cost: "money", conversions: "number", costPerConversion: "money", avgDb1: "money" },
+  adsShoppingUnbuyable: { count: "number", cost: "money" },
+  adsSearchTermsWaste: { count: "number", cost: "money" },
+  adsMeasurementDrop: { from: "date", to: "date", current: "percent", expected: "percent", orders: "number" },
+  adsBudgetLimited: { lost: "percent", cost: "money", estDb1: "money", conversions: "number" },
 };
 
 export type ShopPulseParamFormatters = {

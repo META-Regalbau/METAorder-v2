@@ -8062,7 +8062,8 @@
       "revenue": "Umsatz",
       "buyability": "Kaufbarkeit",
       "ga4": "GA4",
-      "b2b": "B2B"
+      "b2b": "B2B",
+      "ads": "Google Ads"
     },
     "codes": {
       "mirrorStale": {
@@ -8244,6 +8245,30 @@
       "offerBacklog": {
         "title": "{{count}} alte Angebotsanfragen stehen noch auf „Angefragt von Kunde“",
         "message": "{{count}} Angebotsanfragen über zusammen {{net}} netto sind älter als 4 Wochen und stehen noch auf „Angefragt von Kunde“, die älteste ({{oldestNumber}}) seit {{oldestSince}}. Meist sind sie anderswo beantwortet worden: Status in B2Bsellers pflegen (Offen, Abgelehnt oder Archiviert)."
+      },
+      "adsCostNoResult": {
+        "title": "Google Ads: {{cost}} ohne Bestellung in „{{adGroup}}“",
+        "message": "Die Anzeigengruppe „{{adGroup}}“ (Kampagne „{{campaign}}“) hat in {{days}} Tagen {{cost}} gekostet ({{clicks}} Klicks) und laut Google Ads keine einzige Bestellung gebracht. Vorschlag: prüfen und bei Bedarf an Smarketer zum Pausieren oder Umbauen geben."
+      },
+      "adsCostAboveMargin": {
+        "title": "Google Ads: „{{campaign}}“ kostet mehr je Bestellung als sie einbringt",
+        "message": "Die Kampagne „{{campaign}}“ kostete in 28 Tagen {{cost}} bei {{conversions}} Conversions, also {{costPerConversion}} je Bestellung. Eine Shop-Bestellung bringt im Schnitt {{avgDb1}} Deckungsbeitrag. Vorschlag: Gebote bzw. Ziel-CPA mit Smarketer besprechen."
+      },
+      "adsShoppingUnbuyable": {
+        "title": "Google Shopping wirbt für {{count}} nicht kaufbare Artikel",
+        "message": "In den letzten 7 Tagen kosteten Shopping-Anzeigen für {{count}} Artikel, die im Shop nicht kaufbar sind (fehlen, inaktiv, nicht im Kanal, Preis 0 oder ausverkauft), zusammen {{cost}}. Beispiele: {{examples}}. Vorschlag: Artikel im Shop prüfen oder Smarketer bitten, sie aus Shopping auszuschließen."
+      },
+      "adsSearchTermsWaste": {
+        "title": "Google Ads: {{count}} teure Suchbegriffe ohne Bestellung",
+        "message": "{{count}} Suchbegriffe haben in 28 Tagen zusammen {{cost}} gekostet, ohne Bestellung, z. B. {{terms}}. Die Liste mit Vorschlägen zum Ausschließen steht im Wochenbericht; erst prüfen, dann an Smarketer geben."
+      },
+      "adsMeasurementDrop": {
+        "title": "Google Ads zählt kaum noch Bestellungen",
+        "message": "Vom {{from}} bis {{to}} zählte Google Ads Conversions für {{current}} der {{orders}} Shop-Bestellungen, üblich sind {{expected}}. Vermutlich ist die Conversion-Messung gestört (Tag, Einwilligung, Shop-Änderung). Ohne Messung steuert Google Gebote blind: mit Smarketer und der Agentur prüfen."
+      },
+      "adsBudgetLimited": {
+        "title": "Google Ads: mehr Budget für „{{campaign}}“ lohnt vermutlich",
+        "message": "Die Kampagne „{{campaign}}“ verliert {{lost}} der Impressionen wegen des Budgets. In 28 Tagen kostete sie {{cost}} bei {{conversions}} Conversions, geschätzt {{estDb1}} Deckungsbeitrag (Conversions × Ø Deckungsbeitrag je Bestellung). Vorschlag: Budget-Erhöhung mit Smarketer besprechen."
       }
     },
     "detectors": {
@@ -8268,11 +8293,13 @@
         "ga4LandingPages": "GA4 Einstiegsseiten und „Seite nicht gefunden“",
         "ga4SearchTerms": "GA4 Suchbegriffe ohne Treffer",
         "ga4Measurement": "GA4 Messung (Käufe je MO-Bestellung)",
-        "offerWatch": "Angebotsanfragen (B2Bsellers, stündlich)"
+        "offerWatch": "Angebotsanfragen (B2Bsellers, stündlich)",
+        "googleAds": "Google Ads (täglich ab 7 Uhr, nur lesend)"
       },
       "skipped": "ausgesetzt, solange der Bestellabgleich hängt",
       "skippedBusy": "ausgesetzt, der Shop-Wächter fragt den Shop gerade ab",
-      "skippedGa4": "ausgesetzt, GA4 nicht eingerichtet"
+      "skippedGa4": "ausgesetzt, GA4 nicht eingerichtet",
+      "skippedAds": "ausgesetzt: Google Ads nicht eingerichtet"
     },
     "notify": {
       "since": "Seit",
@@ -8395,7 +8422,10 @@
         "notFound": "Kaputte Links bzw. fehlende Weiterleitungen an die Agentur geben.",
         "offer": "Anfrage beantworten bzw. an den Zuständigen geben (Außendienst laut Zuordnung, sonst Standard-Bearbeiter).",
         "offerEmpty": "Kundenkonto prüfen (Händler-Kennzeichen, Stamm-Kanal) und beim Kunden die gewünschten Positionen erfragen.",
-        "offerBacklog": "Status der alten Anfragen in B2Bsellers pflegen."
+        "offerBacklog": "Status der alten Anfragen in B2Bsellers pflegen.",
+        "ads": "Prüfen und bei Bedarf als Vorschlag an Smarketer geben (METAorder ändert keine Kampagnen).",
+        "adsShopping": "Artikel im Shop prüfen (Jana/Agentur) oder Smarketer bitten, sie aus Shopping auszuschließen.",
+        "adsMeasurement": "Conversion-Messung mit Smarketer und der Agentur prüfen."
       },
       "scope": {
         "shop": "ganzer Shop",
@@ -8424,7 +8454,14 @@
         "db1": "Deckungsbeitrag",
         "revenue": "Umsatz netto"
       },
-      "effectsBell": "Gesicherte Wirkung: {{count}} Maßnahme(n)"
+      "effectsBell": "Gesicherte Wirkung: {{count}} Maßnahme(n)",
+      "adsTitle": "Google Ads",
+      "adsNone": "Google Ads nicht eingerichtet: {{problem}}",
+      "adsLine": "Kosten {{cost}}, {{clicks}} Klicks, {{conversions}} Conversions, Kosten je Conversion {{cpa}} (Ø Deckungsbeitrag je Shop-Bestellung {{db1}})",
+      "adsNotRead": "Kosten der Woche nicht gelesen.",
+      "adsOpen": "Offene Ads-Meldungen: {{count}}",
+      "adsSuggestions": "Vorschläge zum Ausschließen (28 Tage ohne Bestellung): {{terms}}",
+      "adsHint": "Vorschläge sind für dich zur Prüfung, nicht direkt an Smarketer. Conversions zählt Google Ads selbst."
     },
     "weeklyPage": {
       "title": "Wochenberichte",
@@ -8525,7 +8562,19 @@
       "effectsTitle": "Gesicherte Wirkung",
       "effectsNotComputed": "Wirkung für diesen Bericht nicht berechnet (Bestellabgleich hing oder Fehler).",
       "effectsNone": "Keine Maßnahme, deren 28 Tage in dieser Woche zu Ende gingen, hat eine gesicherte Wirkung.",
-      "effectsHint": "Nur „sicher“ eingestufte Maßnahmen (28 Tage, Bereich gegen übrigen Shop). Alle Einstufungen stehen im Maßnahmen-Protokoll."
+      "effectsHint": "Nur „sicher“ eingestufte Maßnahmen (28 Tage, Bereich gegen übrigen Shop). Alle Einstufungen stehen im Maßnahmen-Protokoll.",
+      "adsTitle": "Google Ads",
+      "adsNone": "Google Ads nicht eingerichtet: {{problem}}",
+      "adsCost": "Kosten der Woche",
+      "adsClicks": "Klicks",
+      "adsConversions": "Conversions (laut Ads)",
+      "adsCpa": "Kosten je Conversion",
+      "adsDb1": "Ø Deckungsbeitrag je Shop-Bestellung",
+      "adsNotRead": "Kosten der Woche konnten nicht gelesen werden.",
+      "adsOpen": "Offene Ads-Meldungen: {{count}} (unter „Meldungen“)",
+      "adsSuggestions": "Vorschläge zum Ausschließen (exakt, 28 Tage ohne Bestellung):",
+      "adsSuggestionCost": "{{cost}} · {{clicks}} Klicks",
+      "adsHint": "Nur Vorschläge zur Prüfung durch dich; METAorder ändert keine Kampagnen und schreibt Smarketer nicht an."
     },
     "actions": {
       "title": "Maßnahmen-Protokoll",
@@ -8744,6 +8793,15 @@
       "alarmedTo": "Alarm {{date}} an {{to}}",
       "mailed": "per E-Mail",
       "orderedAt": "bestellt {{date}} ({{order}})"
+    },
+    "adsSetup": {
+      "title": "Google Ads nicht eingerichtet",
+      "hint": "Einrichten unter Einstellungen → Google Ads: Kunden-ID des Shop-Kontos, Developer-Token (von Google freigegeben), OAuth-Client und Refresh-Token mit Leserechten (bzw. MCC von Smarketer). Bis dahin liefert die Ads-Prüfung keine Funde. METAorder liest nur und ändert keine Kampagnen.",
+      "problems": {
+        "disabled": "Google Ads ist in den Einstellungen ausgeschaltet.",
+        "noCustomer": "Es ist keine Kunden-ID eingetragen.",
+        "noCredentials": "Developer-Token, OAuth-Client oder Refresh-Token fehlen."
+      }
     }
   },
   "mondu": {

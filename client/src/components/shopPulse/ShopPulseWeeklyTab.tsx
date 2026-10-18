@@ -20,6 +20,7 @@ import {
   type ShopPulseWeekFigures,
   type ShopPulseWeeklyOverview,
   type ShopPulseWeeklyReport,
+  type ShopPulseWeeklyAds,
 } from "@shared/shopPulseWeekly";
 import { ShopPulseWeeklyEffectsCard } from "./ShopPulseEffects";
 
@@ -252,6 +253,7 @@ export function ShopPulseWeeklyTab({ initialWeek }: { initialWeek: string | null
 
           {report.data.offers ? <OffersCard offers={report.data.offers} /> : null}
           {report.data.b2b !== undefined ? <B2bCard b2b={report.data.b2b} /> : null}
+          {report.data.ads ? <AdsCard ads={report.data.ads} /> : null}
 
           <Card className="p-4 space-y-2" data-testid="shop-pulse-weekly-done">
             <h4 className="font-medium">{t("shopPulse.weeklyPage.doneTitle", { count: report.data.done.length })}</h4>
@@ -312,6 +314,53 @@ export function ShopPulseWeeklyTab({ initialWeek }: { initialWeek: string | null
 }
 
 /** Unbeantwortete Angebotsanfragen (S2-2): Zusammenfassung und die größten Anfragen */
+/** Google Ads der Woche (S2-4): Kosten gegen Ø Deckungsbeitrag und Vorschläge auszuschließender Suchbegriffe */
+function AdsCard({ ads }: { ads: ShopPulseWeeklyAds }) {
+  const { t } = useTranslation();
+  const fmt = useLocaleFormat();
+  return (
+    <Card className="p-4 space-y-3" data-testid="shop-pulse-weekly-ads">
+      <h4 className="font-medium">{t("shopPulse.weeklyPage.adsTitle")}</h4>
+      {!ads.configured ? (
+        <p className="text-sm text-amber-700 dark:text-amber-300">{t("shopPulse.weeklyPage.adsNone", { problem: t(`shopPulse.adsSetup.problems.${ads.problem}`) })}</p>
+      ) : (
+        <>
+          {ads.cost != null ? (
+            <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-sm">
+              <dt className="text-muted-foreground">{t("shopPulse.weeklyPage.adsCost")}</dt>
+              <dd>{fmt.currencyWhole(ads.cost)}</dd>
+              <dt className="text-muted-foreground">{t("shopPulse.weeklyPage.adsClicks")}</dt>
+              <dd>{fmt.integer(ads.clicks ?? 0)}</dd>
+              <dt className="text-muted-foreground">{t("shopPulse.weeklyPage.adsConversions")}</dt>
+              <dd>{fmt.decimal(ads.conversions ?? 0, 1)}</dd>
+              <dt className="text-muted-foreground">{t("shopPulse.weeklyPage.adsCpa")}</dt>
+              <dd>{ads.costPerConversion != null ? fmt.currencyWhole(ads.costPerConversion) : "–"}</dd>
+              <dt className="text-muted-foreground">{t("shopPulse.weeklyPage.adsDb1")}</dt>
+              <dd>{ads.avgDb1PerOrder != null ? fmt.currencyWhole(ads.avgDb1PerOrder) : "–"}</dd>
+            </dl>
+          ) : (
+            <p className="text-sm text-amber-700 dark:text-amber-300">{t("shopPulse.weeklyPage.adsNotRead")}</p>
+          )}
+          {ads.openCount ? <p className="text-sm">{t("shopPulse.weeklyPage.adsOpen", { count: ads.openCount })}</p> : null}
+          {ads.suggestions.length ? (
+            <div className="space-y-1">
+              <p className="text-sm font-medium">{t("shopPulse.weeklyPage.adsSuggestions")}</p>
+              <ul className="text-sm space-y-0.5">
+                {ads.suggestions.map((x) => (
+                  <li key={x.negative}>
+                    <code className="text-xs">{x.negative}</code> <span className="text-muted-foreground">{t("shopPulse.weeklyPage.adsSuggestionCost", { cost: fmt.currencyWhole(x.cost), clicks: fmt.integer(x.clicks) })}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </>
+      )}
+      <p className="text-xs text-muted-foreground">{t("shopPulse.weeklyPage.adsHint")}</p>
+    </Card>
+  );
+}
+
 function OffersCard({ offers }: { offers: ShopPulseOfferSummary }) {
   const { t } = useTranslation();
   const fmt = useLocaleFormat();
