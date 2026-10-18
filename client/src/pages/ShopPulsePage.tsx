@@ -378,7 +378,7 @@ export default function ShopPulsePage() {
                       <span className="text-muted-foreground">{fmt.dateTime(d.at)} ·</span>
                       <span className="text-muted-foreground">
                         {d.skipped
-                          ? t("shopPulse.detectors.skipped")
+                          ? t(d.skipped === "busy" ? "shopPulse.detectors.skippedBusy" : "shopPulse.detectors.skipped")
                           : d.ok
                             ? `${t("shopPulse.detectors.ok")} · ${t("shopPulse.detectors.findings", { count: d.findings })}`
                             : t("shopPulse.detectors.failed", { error: d.error ?? "" })}

@@ -8109,6 +8109,46 @@
       "shippingMethodGone": {
         "title": "La forma de envío «{{name}}» ya no está disponible en la tienda",
         "message": "La forma de envío ya no está asignada al canal de venta META Regalbau DE o está inactiva. ¿Retirada a propósito? Entonces usa «Aceptar como referencia» en la página."
+      },
+      "productPageStatus": {
+        "title": "Página de producto no accesible: {{name}}",
+        "message": "La página de {{number}} en la tienda responde con el estado {{status}} (0 = sin respuesta), también tras repetir. Los clientes no pueden abrir el artículo. Ventas en la tienda en los últimos 365 días: {{revenue}} (neto)."
+      },
+      "productPageNoBuyButton": {
+        "title": "Sin botón de compra en la página de producto: {{name}}",
+        "message": "La página de {{number}} en la tienda no muestra el botón «Añadir al carrito»; los clientes no pueden comprar el artículo. Ventas en la tienda en los últimos 365 días: {{revenue}} (neto)."
+      },
+      "productPageUnavailable": {
+        "title": "La página de producto muestra «no disponible»: {{name}}",
+        "message": "La página de {{number}} en la tienda indica que el artículo no está disponible o está agotado. Ventas en la tienda en los últimos 365 días: {{revenue}} (neto)."
+      },
+      "productPagePrice": {
+        "title": "Precio incorrecto en la página de producto: {{name}}",
+        "message": "La página de {{number}} en la tienda muestra {{shown}}; según Shopware el precio es {{expected}}. Revisa el precio o las reglas de precio. Ventas en la tienda en los últimos 365 días: {{revenue}} (neto)."
+      },
+      "cartProbeHome": {
+        "title": "Prueba del carrito: página de inicio no accesible",
+        "message": "La prueba del carrito falla {{failures}} veces seguidas ya en la página de inicio ({{response}}). Probablemente la tienda no es accesible para los clientes."
+      },
+      "cartProbeSearch": {
+        "title": "Prueba del carrito: búsqueda sin resultados",
+        "message": "La prueba del carrito falla {{failures}} veces seguidas en la búsqueda de «{{term}}» ({{response}}). Los clientes no encuentran artículos con la búsqueda."
+      },
+      "cartProbeAdd": {
+        "title": "Prueba del carrito: el artículo no se puede añadir al carrito",
+        "message": "La prueba del carrito falla {{failures}} veces seguidas al añadir {{number}} al carrito ({{response}}). Probablemente los clientes no pueden comprar nada."
+      },
+      "cartProbeCart": {
+        "title": "Prueba del carrito: el carrito no muestra el artículo",
+        "message": "La prueba del carrito falla {{failures}} veces seguidas en el carrito: {{number}} no aparece o aparece sin precio ({{response}}). Probablemente los clientes no pueden comprar nada."
+      },
+      "cartProbeCheckout": {
+        "title": "Prueba del carrito: la caja no se abre",
+        "message": "La prueba del carrito falla {{failures}} veces seguidas en la caja: no lleva al inicio de sesión ni al registro ({{response}}). Probablemente los clientes no pueden hacer pedidos."
+      },
+      "orderGapConfirmed": {
+        "title": "Hoy ningún pedido en la tienda y la prueba del carrito falla",
+        "message": "Hasta ahora no ha entrado ningún pedido en la tienda online hoy (normalmente de media {{expected}} hasta las 15:00) y la prueba del carrito también falla. Probablemente la tienda o la caja están averiadas."
       }
     },
     "detectors": {
@@ -8124,9 +8164,12 @@
         "paymentGone": "Métodos de pago (7 días sin pedidos)",
         "weekComparison": "Semana frente a semanas anteriores y año pasado",
         "channelMethods": "Formas de pago y envío (referencia)",
-        "buyability": "Disponibilidad de compra de los artículos (de noche)"
+        "buyability": "Disponibilidad de compra de los artículos (de noche)",
+        "productPages": "Páginas de producto de los más vendidos (por turnos, 20 por hora)",
+        "cartProbe": "Prueba del carrito (cada 30 minutos, 6–22 h)"
       },
-      "skipped": "en pausa mientras la sincronización de pedidos esté parada"
+      "skipped": "en pausa mientras la sincronización de pedidos esté parada",
+      "skippedBusy": "en pausa, el vigilante de la tienda está consultando la tienda"
     },
     "notify": {
       "since": "Desde",

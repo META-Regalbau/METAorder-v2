@@ -43,8 +43,8 @@ export type BuyabilityBaseline = {
 
 const round = (x: number) => Math.round(x);
 /** Grober Verlust eines nicht kaufbaren Artikels: Jahresumsatz brutto je Geschäftsstunde (12 h, 365 Tage) */
-const lossPerHourOf = (net: number) => Math.round((net * 1.19) / 365 / 12) || null;
-const shortName = (s: string) => (s.length > 40 ? `${s.slice(0, 39)}…` : s);
+export const lossPerHourOf = (net: number) => Math.round((net * 1.19) / 365 / 12) || null;
+export const shortName = (s: string) => (s.length > 40 ? `${s.slice(0, 39)}…` : s);
 const examplesOf = (list: BuyabilityProduct[]) =>
   list
     .slice(0, EXAMPLES)

@@ -41,6 +41,16 @@ export const SHOP_PULSE_CODES = [
   "topsellersLongRestock",
   "paymentMethodGone",
   "shippingMethodGone",
+  "productPageStatus",
+  "productPageNoBuyButton",
+  "productPageUnavailable",
+  "productPagePrice",
+  "cartProbeHome",
+  "cartProbeSearch",
+  "cartProbeAdd",
+  "cartProbeCart",
+  "cartProbeCheckout",
+  "orderGapConfirmed",
 ] as const;
 export type ShopPulseCode = (typeof SHOP_PULSE_CODES)[number];
 
@@ -51,7 +61,16 @@ export type ShopPulseCode = (typeof SHOP_PULSE_CODES)[number];
 export const SHOP_PULSE_EVENT_CODES: readonly ShopPulseCode[] = ["priceJump"];
 
 /** Prüfungen in Lauf-Reihenfolge (server/shopPulse/detectors); die Seite zeigt sie so an */
-export const SHOP_PULSE_DETECTOR_IDS = ["mirrorFreshness", "orderGap", "paymentGone", "weekComparison", "channelMethods", "buyability"] as const;
+export const SHOP_PULSE_DETECTOR_IDS = [
+  "mirrorFreshness",
+  "orderGap",
+  "paymentGone",
+  "weekComparison",
+  "channelMethods",
+  "buyability",
+  "productPages",
+  "cartProbe",
+] as const;
 
 export const SEVERITY_RANK: Record<ShopPulseSeverity, number> = { warning: 1, critical: 2 };
 
@@ -131,8 +150,8 @@ export type ShopPulseState = {
   lastTickAt?: string;
   /** Kalendertag (Berlin) des letzten Tagesberichts */
   lastDailyReportDay?: string;
-  /** skipped "mirror": ausgesetzt, weil der Bestellabgleich hängt */
-  detectors?: Record<string, { at: string; ok: boolean; error?: string; skipped?: "mirror"; findings: number }>;
+  /** skipped "mirror": ausgesetzt, weil der Bestellabgleich hängt; "busy": der Shop-Wächter fragt den Shop gerade ab */
+  detectors?: Record<string, { at: string; ok: boolean; error?: string; skipped?: "mirror" | "busy"; findings: number }>;
 };
 
 /**
@@ -173,6 +192,7 @@ export type ShopPulseOverview = {
 /** Parameter, die vor dem Einsetzen formatiert werden (Seite in der Sprache der Oberfläche, Teams deutsch) */
 const PARAM_KINDS: Partial<Record<ShopPulseCode, Record<string, "money" | "date" | "number">>> = {
   orderGap: { expected: "number" },
+  orderGapConfirmed: { expected: "number" },
   paymentGone: { perWeek: "number" },
   weekOrdersDown: { from: "date", to: "date", current: "number", expected: "number", yearOrders: "number" },
   weekRevenueDown: { from: "date", to: "date", current: "money", expected: "money", yearRevenue: "money" },
@@ -183,6 +203,10 @@ const PARAM_KINDS: Partial<Record<ShopPulseCode, Record<string, "money" | "date"
   topsellerHidden: { revenue: "money" },
   topsellerMissing: { revenue: "money" },
   topsellerSoldOut: { revenue: "money" },
+  productPageStatus: { revenue: "money" },
+  productPageNoBuyButton: { revenue: "money" },
+  productPageUnavailable: { revenue: "money" },
+  productPagePrice: { revenue: "money", shown: "money", expected: "money" },
 };
 
 export type ShopPulseParamFormatters = {

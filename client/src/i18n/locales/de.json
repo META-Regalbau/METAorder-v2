@@ -8109,6 +8109,46 @@
       "shippingMethodGone": {
         "title": "Versandart „{{name}}“ im Shop nicht mehr verfügbar",
         "message": "Die Versandart ist im Verkaufskanal META Regalbau DE nicht mehr zugeordnet oder inaktiv. Bewusst entfernt? Dann auf der Seite „Als Soll übernehmen“."
+      },
+      "productPageStatus": {
+        "title": "Produktseite nicht erreichbar: {{name}}",
+        "message": "Die Shop-Seite von {{number}} antwortet mit Status {{status}} (0 = keine Antwort), auch nach einer Wiederholung. Kunden können den Artikel nicht aufrufen. Shop-Umsatz der letzten 365 Tage: {{revenue}} (netto)."
+      },
+      "productPageNoBuyButton": {
+        "title": "Kein Kaufknopf auf der Produktseite: {{name}}",
+        "message": "Die Shop-Seite von {{number}} zeigt keinen Knopf „In den Warenkorb“, Kunden können den Artikel nicht kaufen. Shop-Umsatz der letzten 365 Tage: {{revenue}} (netto)."
+      },
+      "productPageUnavailable": {
+        "title": "Produktseite zeigt „nicht verfügbar“: {{name}}",
+        "message": "Die Shop-Seite von {{number}} meldet den Artikel als nicht verfügbar bzw. ausverkauft. Shop-Umsatz der letzten 365 Tage: {{revenue}} (netto)."
+      },
+      "productPagePrice": {
+        "title": "Falscher Preis auf der Produktseite: {{name}}",
+        "message": "Die Shop-Seite von {{number}} zeigt {{shown}}, laut Shopware gilt {{expected}}. Bitte Preis bzw. Preisregeln prüfen. Shop-Umsatz der letzten 365 Tage: {{revenue}} (netto)."
+      },
+      "cartProbeHome": {
+        "title": "Warenkorb-Probe: Startseite nicht erreichbar",
+        "message": "Die Warenkorb-Probe scheitert seit {{failures}} Versuchen in Folge schon an der Startseite ({{response}}). Der Shop ist für Kunden vermutlich nicht erreichbar."
+      },
+      "cartProbeSearch": {
+        "title": "Warenkorb-Probe: Suche ohne Treffer",
+        "message": "Die Warenkorb-Probe scheitert seit {{failures}} Versuchen in Folge an der Suche nach „{{term}}“ ({{response}}). Kunden finden über die Suche keine Artikel."
+      },
+      "cartProbeAdd": {
+        "title": "Warenkorb-Probe: Artikel lässt sich nicht in den Warenkorb legen",
+        "message": "Die Warenkorb-Probe scheitert seit {{failures}} Versuchen in Folge beim Hinzufügen von {{number}} zum Warenkorb ({{response}}). Kunden können vermutlich nichts kaufen."
+      },
+      "cartProbeCart": {
+        "title": "Warenkorb-Probe: Warenkorb zeigt den Artikel nicht",
+        "message": "Die Warenkorb-Probe scheitert seit {{failures}} Versuchen in Folge am Warenkorb: {{number}} erscheint dort nicht oder ohne Preis ({{response}}). Kunden können vermutlich nichts kaufen."
+      },
+      "cartProbeCheckout": {
+        "title": "Warenkorb-Probe: Kasse öffnet nicht",
+        "message": "Die Warenkorb-Probe scheitert seit {{failures}} Versuchen in Folge an der Kasse: Sie führt nicht zur Anmeldung bzw. Registrierung ({{response}}). Kunden können vermutlich nicht bestellen."
+      },
+      "orderGapConfirmed": {
+        "title": "Heute keine Shop-Bestellung, Warenkorb-Probe scheitert",
+        "message": "Bis jetzt ist heute keine Bestellung im Onlineshop eingegangen (sonst bis 15 Uhr im Schnitt {{expected}}), und die Warenkorb-Probe scheitert ebenfalls. Der Shop oder die Kasse ist vermutlich gestört."
       }
     },
     "detectors": {
@@ -8124,9 +8164,12 @@
         "paymentGone": "Zahlarten (7 Tage ohne Bestellung)",
         "weekComparison": "Woche gegen Vorwochen und Vorjahr",
         "channelMethods": "Zahl- und Versandarten (Soll-Stand)",
-        "buyability": "Kaufbarkeit der Artikel (nachts)"
+        "buyability": "Kaufbarkeit der Artikel (nachts)",
+        "productPages": "Produktseiten der Topseller (reihum, 20 je Stunde)",
+        "cartProbe": "Warenkorb-Probe (30 Minuten, 6–22 Uhr)"
       },
-      "skipped": "ausgesetzt, solange der Bestellabgleich hängt"
+      "skipped": "ausgesetzt, solange der Bestellabgleich hängt",
+      "skippedBusy": "ausgesetzt, der Shop-Wächter fragt den Shop gerade ab"
     },
     "notify": {
       "since": "Seit",

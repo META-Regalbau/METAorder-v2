@@ -25,8 +25,8 @@ const log = logger.child({ component: "shopContent/shopWatch" });
 export const SHOP_WATCH_STATE_KEY = "shop_watch_state";
 export const SHOP_WATCH_BASELINE_KEY = "shop_watch_baseline";
 const HISTORY_LENGTH = 30;
-const FETCH_TIMEOUT_MS = 30_000;
-const USER_AGENT = "Mozilla/5.0 (compatible; METAorder-Shopwaechter/1.0)";
+export const FETCH_TIMEOUT_MS = 30_000;
+export const USER_AGENT = "Mozilla/5.0 (compatible; METAorder-Shopwaechter/1.0)";
 const SNIPPET_DIR = path.resolve(process.cwd(), "shopware", "storefront-snippets");
 
 type SettingsStore = {
@@ -92,7 +92,7 @@ export function themeAssetUrls(html: string): { js: string | null; css: string |
   return { js, css, key: m ? `${m[1]}${m[2] ? `?${m[2]}` : ""}` : null };
 }
 
-type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
+export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
 /** Kontext für einen Lauf: Seiten- und Asset-Abrufe gemerkt, Plugins einmal geladen */
 export function createShopWatchContext(opts: {
@@ -211,6 +211,29 @@ export function isShopWatchRunning(tenantId: string | null): boolean {
   return running.has(tenantKey(tenantId));
 }
 
+/** Der Shop des Mandanten wird gerade abgefragt (Wächter-Lauf oder Storefront-Prüfung des Shop-Puls) */
+export class ShopBusyError extends Error {
+  constructor() {
+    super("Shop watch run already in progress");
+    this.name = "ShopBusyError";
+  }
+}
+
+/**
+ * Sperre je Mandant: nie zwei Abfragen gegen denselben Shop gleichzeitig. Gilt für Wächter-Läufe, den
+ * Deploy-Abgleich und die Storefront-Prüfungen des Shop-Puls; ist sie belegt, wirft sie ShopBusyError.
+ */
+export async function withShopLock<T>(tenantId: string | null, fn: () => Promise<T>): Promise<T> {
+  const key = tenantKey(tenantId);
+  if (running.has(key)) throw new ShopBusyError();
+  running.add(key);
+  try {
+    return await fn();
+  } finally {
+    running.delete(key);
+  }
+}
+
 /**
  * Leichter Deploy-Abgleich (alle 15 Minuten): nur Shopware-Version, Plugins und Theme-Dateien der
  * Startseite, verglichen mit dem Fingerabdruck des letzten Laufs. Unter derselben Sperre wie ein Lauf.
@@ -220,10 +243,7 @@ export async function checkShopWatchFingerprint(
   tenantId: string | null,
   opts: { fetchImpl?: FetchLike } = {},
 ): Promise<{ complete: boolean; changes: ShopWatchDeployChange[]; fingerprint: ShopWatchDeployFingerprint }> {
-  const key = tenantKey(tenantId);
-  if (running.has(key)) throw new Error("Shop watch run already in progress");
-  running.add(key);
-  try {
+  return withShopLock(tenantId, async () => {
     const settings = await store.getShopwareSettings(tenantId);
     if (!settings) throw new Error("Shopware settings not configured");
     const { api, base } = shopApi(settings);
@@ -233,9 +253,7 @@ export async function checkShopWatchFingerprint(
     const fingerprint = await deployFingerprint(ctx);
     const complete = fingerprintComplete(fingerprint);
     return { complete, changes: complete ? diffFingerprint(state.lastRun?.fingerprint, fingerprint) : [], fingerprint };
-  } finally {
-    running.delete(key);
-  }
+  });
 }
 
 /**
@@ -253,10 +271,7 @@ export async function runShopWatch(
     afterRun?: (run: ShopWatchRun) => Promise<void>;
   } = { trigger: "manual" },
 ): Promise<ShopWatchRun> {
-  const key = tenantKey(tenantId);
-  if (running.has(key)) throw new Error("Shop watch run already in progress");
-  running.add(key);
-  try {
+  return withShopLock(tenantId, async () => {
     const settings = await store.getShopwareSettings(tenantId);
     if (!settings) throw new Error("Shopware settings not configured");
     const { api, base, isTest } = shopApi(settings);
@@ -309,7 +324,5 @@ export async function runShopWatch(
       }
     }
     return run;
-  } finally {
-    running.delete(key);
-  }
+  });
 }
