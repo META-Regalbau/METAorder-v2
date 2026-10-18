@@ -14,6 +14,7 @@
  */
 import {
   SEVERITY_RANK,
+  SHOP_PULSE_EVENT_CODES,
   type ShopPulseDetection,
   type ShopPulseSeverity,
   type ShopPulseSignal,
@@ -37,6 +38,11 @@ export type ReconcileOptions = {
   learning: boolean;
   /** Quellen, deren Prüfung vollständig lief (nur diese erledigen verschwundene Funde) */
   completeSources: ShopPulseSource[];
+  /**
+   * Schlüssel-Anfänge von Prüfungen, die in diesem Lauf vollständig liefen, auch wenn ihre Quelle sonst
+   * unvollständig ist (z. B. Zahlarten jeden Takt, Artikel nur nachts): diese Meldungen dürfen erledigt werden.
+   */
+  completeKeyPrefixes?: string[];
   newId: () => string;
 };
 
@@ -146,11 +152,15 @@ export function reconcileSignals(existing: ShopPulseSignal[], detections: ShopPu
   }
 
   const complete = new Set(opts.completeSources);
+  const prefixes = opts.completeKeyPrefixes ?? [];
+  const resolvable = (s: ShopPulseSignal) => complete.has(s.source) || prefixes.some((p) => s.key.startsWith(p));
   for (const prev of existing) {
-    if (prev.status !== "open" || seen.has(prev.key) || !complete.has(prev.source)) continue;
+    if (prev.status !== "open" || seen.has(prev.key) || !resolvable(prev)) continue;
     const signal: ShopPulseSignal = { ...prev, status: "resolved", resolvedAt: now, resolvedBy: null };
     result.updates.push({ id: prev.id, patch: { status: "resolved", resolvedAt: now, resolvedBy: null } });
-    if (prev.notifiedAt && prev.severity === "critical" && !opts.learning && !isMuted(prev, opts.now)) {
+    // Ereignisse (Preissprung) laufen einfach aus, das ist keine Entwarnung
+    const event = SHOP_PULSE_EVENT_CODES.includes(prev.code);
+    if (!event && prev.notifiedAt && prev.severity === "critical" && !opts.learning && !isMuted(prev, opts.now)) {
       result.notices.push({ kind: "resolved", signal });
     }
   }

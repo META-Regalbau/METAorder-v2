@@ -11,6 +11,9 @@
  * Hängt der Bestellabgleich (Fund der Spiegel-Frische), setzen die Umsatz-Prüfungen aus; ihre offenen
  * Meldungen bleiben offen, und der Tagesbericht lässt die Zahlen weg.
  *
+ * Prüfungen mit cadence "nightly" (Kaufbarkeit der Artikel) laufen einmal je Nacht zwischen 5 und 7 Uhr
+ * (Berlin), „Jetzt prüfen“ startet sie immer.
+ *
  * In der Lernwoche wird alles gesammelt, aber nichts gesendet. Mandanten nacheinander, nie zwei Läufe
  * für denselben Mandanten gleichzeitig.
  */
@@ -28,7 +31,9 @@ import { SHOP_PULSE_DETECTORS } from "./detectors";
 import { MIRROR_SIGNAL_KEY } from "./detectors/mirrorFreshness";
 import { dailyNumbers, type DailyNumbers } from "./detectors/revenue";
 import { loadPulseOrders, type PulseOrder } from "./pulseOrders";
-import type { ShopPulseDetector } from "./detectors/types";
+import type { BuyabilitySources, ChannelMethods, ShopPulseDetector } from "./detectors/types";
+import { loadBuyabilityProducts, loadPriceChanges, loadProductRevenue } from "./buyabilityData";
+import { findDeChannel, shopApi } from "../shopContent/shopProducts";
 import * as repo from "./shopPulseRepository";
 import { dailyReportSignals, reconcileSignals, type ReconcileResult, type ShopPulseNotice } from "./shopPulseSignals";
 import {
@@ -48,6 +53,10 @@ const DAILY_FROM_HOUR = 8;
 const DAILY_TO_HOUR = 12;
 /** So weit zurück lesen die Umsatz-Prüfungen den Spiegel (Vorjahreswoche + Puffer) */
 const ORDERS_LOOKBACK_DAYS = 400;
+/** Gewichtung der Kaufbarkeit: Umsatz der letzten 365 Tage */
+const REVENUE_LOOKBACK_DAYS = 365;
+const NIGHTLY_FROM_HOUR = 5;
+const NIGHTLY_TO_HOUR = 7;
 
 export type ShopPulseRepo = Pick<typeof repo, "listSignalsBySources" | "applyReconcile" | "listOpenSignals">;
 
@@ -56,6 +65,8 @@ export type ShopPulseDeps = {
   repo: ShopPulseRepo;
   detectors: ShopPulseDetector[];
   loadOrders: (tenantId: string | null, since: Date) => Promise<PulseOrder[]>;
+  /** Datenquellen der Kaufbarkeit (Spiegel, Preis-Historie, Admin-API); fehlt sie, scheitern deren Prüfungen */
+  loadBuyability?: (tenantId: string | null, now: Date) => BuyabilitySources;
   onNotificationCreated: (n: Notification) => void;
   baseUrl: string | null;
   now?: () => Date;
@@ -70,6 +81,21 @@ export function isShopPulseRunning(tenantId: string | null): boolean {
 }
 
 const WEEKDAY = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Berlin", weekday: "short" });
+
+type DetectorState = NonNullable<ShopPulseState["detectors"]>[string];
+
+/** Nachtlauf fällig: noch nie gelaufen, oder 5–7 Uhr Berlin und heute noch nicht */
+export function isNightlyDue(prev: DetectorState | undefined, now: Date): boolean {
+  if (!prev) return true;
+  const { day, hour } = berlinDayHour(now);
+  return hour >= NIGHTLY_FROM_HOUR && hour < NIGHTLY_TO_HOUR && berlinDayHour(new Date(prev.at)).day !== day;
+}
+
+/** Daten nur einmal je Lauf laden */
+function once<T>(load: () => Promise<T>): () => Promise<T> {
+  let p: Promise<T> | null = null;
+  return () => (p ??= load());
+}
 
 /** Tagesbericht fällig: Montag bis Samstag, 8 bis 12 Uhr Berlin, heute noch keiner */
 export function isDailyReportDue(state: ShopPulseState, now: Date): boolean {
@@ -109,8 +135,8 @@ export type ShopPulseRunResult = {
   dailyReport: { sent: boolean; signals: number; numbers: boolean } | null;
 };
 
-/** Ein Lauf für einen Mandanten (Zeitplan und „Jetzt prüfen“) */
-export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: string | null): Promise<ShopPulseRunResult | null> {
+/** Ein Lauf für einen Mandanten (Zeitplan und „Jetzt prüfen“; force: auch die Nachtläufe) */
+export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: string | null, opts: { force?: boolean } = {}): Promise<ShopPulseRunResult | null> {
   const key = lockKey(tenantId);
   if (running.has(key)) return null;
   running.add(key);
@@ -120,16 +146,33 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
     // Ausgeschaltet („Jetzt prüfen“) oder Lernwoche: sammeln, nichts senden
     const silent = !settings.enabled || isLearning(settings, now);
 
-    // Bestellungen höchstens einmal je Lauf aus dem Spiegel lesen
-    let ordersPromise: Promise<PulseOrder[]> | null = null;
-    const orders = () => (ordersPromise ??= deps.loadOrders(tenantId, new Date(now.getTime() - ORDERS_LOOKBACK_DAYS * 24 * 60 * 60 * 1000)));
+    const state = await getShopPulseState(deps.storage, tenantId);
+
+    // Bestellungen und Kaufbarkeits-Daten höchstens einmal je Lauf lesen
+    const orders = once(() => deps.loadOrders(tenantId, new Date(now.getTime() - ORDERS_LOOKBACK_DAYS * 24 * 60 * 60 * 1000)));
+    const sources = deps.loadBuyability?.(tenantId, now);
+    const missing = () => Promise.reject(new Error("Kaufbarkeits-Daten nicht verfügbar"));
+    const buyability: BuyabilitySources = {
+      products: once(sources?.products ?? missing),
+      revenue: once(sources?.revenue ?? missing),
+      priceChanges: (since) => (sources ? sources.priceChanges(since) : missing()),
+      channelMethods: once(sources?.channelMethods ?? missing),
+    };
 
     // 1. Prüfungen nacheinander; eine Quelle ist vollständig, wenn alle ihre Prüfungen liefen
     const detections: ShopPulseDetection[] = [];
     const detectorState: NonNullable<ShopPulseState["detectors"]> = {};
     const failedSources = new Set<ShopPulseSource>();
+    const completePrefixes: string[] = [];
     const mirrorStale = () => detections.some((d) => d.key === MIRROR_SIGNAL_KEY) || detectorState.mirrorFreshness?.ok === false;
     for (const d of deps.detectors) {
+      const prev = state.detectors?.[d.id];
+      if (d.cadence === "nightly" && !opts.force && !isNightlyDue(prev, now)) {
+        // nicht fällig: Stand des letzten Nachtlaufs behalten, Meldungen bleiben wie sie sind
+        failedSources.add(d.source);
+        if (prev) detectorState[d.id] = prev;
+        continue;
+      }
       if (d.needsFreshMirror && mirrorStale()) {
         // ausgesetzt: zählt als unvollständig, damit offene Meldungen nicht still erledigt werden
         failedSources.add(d.source);
@@ -137,21 +180,28 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
         continue;
       }
       try {
-        const found = await d.run({ storage: deps.storage, tenantId, now, orders });
+        const found = await d.run({ storage: deps.storage, tenantId, now, orders, buyability, lastRunAt: prev?.ok ? prev.at : null });
         detections.push(...found);
         detectorState[d.id] = { at: now.toISOString(), ok: true, findings: found.length };
+        if (d.keyPrefix) completePrefixes.push(d.keyPrefix);
       } catch (err) {
         failedSources.add(d.source);
         detectorState[d.id] = { at: now.toISOString(), ok: false, error: err instanceof Error ? err.message.slice(0, 300) : String(err), findings: 0 };
         log.warn({ err, tenantId, detector: d.id }, "Shop-Puls: Prüfung fehlgeschlagen");
       }
     }
-    const sources = Array.from(new Set(deps.detectors.map((d) => d.source)));
-    const completeSources = sources.filter((s) => !failedSources.has(s));
+    const allSources = Array.from(new Set(deps.detectors.map((d) => d.source)));
+    const completeSources = allSources.filter((s) => !failedSources.has(s));
 
     // 2. Abgleich mit den gespeicherten Meldungen
-    const existing = await deps.repo.listSignalsBySources(tenantId, sources);
-    const result = reconcileSignals(existing, detections, { now, learning: silent, completeSources, newId: deps.newId ?? randomUUID });
+    const existing = await deps.repo.listSignalsBySources(tenantId, allSources);
+    const result = reconcileSignals(existing, detections, {
+      now,
+      learning: silent,
+      completeSources,
+      completeKeyPrefixes: completePrefixes,
+      newId: deps.newId ?? randomUUID,
+    });
     await deps.repo.applyReconcile(tenantId, result);
 
     // 3. Sofort-Meldungen und Entwarnungen
@@ -163,7 +213,6 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
     }
 
     // 4. Tagesbericht
-    const state = await getShopPulseState(deps.storage, tenantId);
     let dailyReport: ShopPulseRunResult["dailyReport"] = null;
     const patch: Partial<ShopPulseState> = { lastTickAt: now.toISOString(), detectors: detectorState };
     if (settings.enabled && isDailyReportDue(state, now)) {
@@ -218,9 +267,39 @@ export function shopPulseDeps(storage: IStorage): ShopPulseDeps {
     repo,
     detectors: SHOP_PULSE_DETECTORS,
     loadOrders: loadPulseOrders,
+    loadBuyability: (tenantId, now) => ({
+      products: () => loadBuyabilityProducts(tenantId),
+      revenue: () => loadProductRevenue(tenantId, new Date(now.getTime() - REVENUE_LOOKBACK_DAYS * 24 * 60 * 60 * 1000)),
+      priceChanges: (since) => loadPriceChanges(tenantId, since),
+      channelMethods: async () => {
+        const settings = await storage.getShopwareSettings(tenantId);
+        if (!settings) throw new Error("Shopware settings not configured");
+        return loadChannelMethods(settings);
+      },
+    }),
     onNotificationCreated: (n) => notificationEvents.emitNotificationCreated(n),
     baseUrl: publicAppBaseUrl(process.env.APP_URL?.trim() || null),
   };
+}
+
+/** Zahl- und Versandarten des Kanals META Regalbau DE mit Aktiv-Kennzeichen (zwei Abfragen, nacheinander) */
+export async function loadChannelMethods(settings: Parameters<typeof shopApi>[0]): Promise<ChannelMethods> {
+  const { api, base } = shopApi(settings);
+  const de = await findDeChannel(api, base);
+  const res = await api("POST", "search/sales-channel", {
+    ids: [de.id],
+    associations: { paymentMethods: {}, shippingMethods: {} },
+    includes: {
+      sales_channel: ["id", "paymentMethods", "shippingMethods"],
+      payment_method: ["id", "name", "translated", "active"],
+      shipping_method: ["id", "name", "translated", "active"],
+    },
+  });
+  const channel = res?.data?.[0];
+  if (!channel) throw new Error("Verkaufskanal META Regalbau DE nicht gelesen");
+  const map = (list: any[] | undefined) =>
+    (list ?? []).map((m) => ({ id: String(m.id), name: String(m.translated?.name ?? m.name ?? m.id), active: m.active === true }));
+  return { payment: map(channel.paymentMethods), shipping: map(channel.shippingMethods) };
 }
 
 /** Beim Serverstart: erster Takt nach 3 Minuten, danach alle 15 Minuten; Takte überlappen nie */

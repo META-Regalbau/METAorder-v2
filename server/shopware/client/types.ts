@@ -63,6 +63,17 @@ export interface ShopwareProductOverview {
   hasDeliveryTime: boolean;
   /** Wiederauffüllzeit in Tagen (Shopware restockTime). */
   restockTime: number | null;
+  /** Abverkauf: ohne Bestand nicht bestellbar (Shopware isCloseout). Ab Spiegel-Payload v3. */
+  isCloseout?: boolean | null;
+  /** Von Shopware berechnete Bestellbarkeit (available). Ab Spiegel-Payload v3. */
+  available?: boolean | null;
+  /** Mindestabnahme (minPurchase). Ab Spiegel-Payload v3. */
+  minPurchase?: number | null;
+  /** Titelbild (product_media.id); null = kein Bild. Ab Spiegel-Payload v3. */
+  coverId?: string | null;
+  /** Verkaufseinheit und Grundeinheit (purchaseUnit, referenceUnit). Ab Spiegel-Payload v3. */
+  purchaseUnit?: number | null;
+  referenceUnit?: number | null;
   /** Varianten-Optionen (Größe/Farbe) — bei Child-Varianten gesetzt. */
   options?: Array<{ group: string; option: string }>;
   /** Eigenschaften (Fallback für Größe/Farbe bei einfachen Produkten). */

@@ -1,9 +1,17 @@
 import { mirrorFreshnessDetector } from "./mirrorFreshness";
 import { orderGapDetector, paymentGoneDetector, weekComparisonDetector } from "./revenue";
+import { channelMethodsDetector, productBuyabilityDetector } from "./buyability";
 import type { ShopPulseDetector } from "./types";
 
 /**
  * Alle Prüfungen, in dieser Reihenfolge nacheinander. Die Spiegel-Frische steht vorn: hängt der
- * Bestellabgleich, setzen die Umsatz-Prüfungen aus (Kaufbarkeit und GA4 folgen in PR C–E).
+ * Bestellabgleich, setzen die Umsatz-Prüfungen aus (GA4 folgt in PR E). Zahl- und Versandarten prüft jeder Takt, die Artikel nur der Nachtlauf.
  */
-export const SHOP_PULSE_DETECTORS: ShopPulseDetector[] = [mirrorFreshnessDetector, orderGapDetector, paymentGoneDetector, weekComparisonDetector];
+export const SHOP_PULSE_DETECTORS: ShopPulseDetector[] = [
+  mirrorFreshnessDetector,
+  orderGapDetector,
+  paymentGoneDetector,
+  weekComparisonDetector,
+  channelMethodsDetector,
+  productBuyabilityDetector,
+];

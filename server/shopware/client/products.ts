@@ -797,6 +797,9 @@ export async function fetchProductsOverviewPage(
  * Produkte mit updatedAt >= since (ASC), fuer Delta-Sync in den lokalen Spiegel.
  * Nutzt dieselbe Payload-Struktur wie fetchProductsOverviewPage.
  */
+const optionalBool = (v: unknown): boolean | null => (typeof v === "boolean" ? v : null);
+const optionalNumber = (v: unknown): number | null => (v == null || v === "" || Number.isNaN(Number(v)) ? null : Number(v));
+
 export async function fetchProductsChangedSince(
   this: ShopwareClient,
   since: string | Date | null,
@@ -846,6 +849,11 @@ export async function fetchProductsChangedSince(
         "updatedAt",
         "deliveryTimeId",
         "restockTime",
+        "isCloseout",
+        "minPurchase",
+        "coverId",
+        "purchaseUnit",
+        "referenceUnit",
       ],
       product_manufacturer: ["name", "translated"],
       category: ["id", "name", "translated"],
@@ -1026,6 +1034,12 @@ export async function fetchProductsChangedSince(
       tags,
       ...deliveryTime,
       restockTime: parseProductRestockTime(sp),
+      isCloseout: optionalBool(sp.isCloseout ?? attributes?.isCloseout),
+      available: optionalBool(sp.available ?? attributes?.available),
+      minPurchase: optionalNumber(sp.minPurchase ?? attributes?.minPurchase),
+      coverId: (sp.coverId ?? attributes?.coverId) ? String(sp.coverId ?? attributes?.coverId) : null,
+      purchaseUnit: optionalNumber(sp.purchaseUnit ?? attributes?.purchaseUnit),
+      referenceUnit: optionalNumber(sp.referenceUnit ?? attributes?.referenceUnit),
       options: variantOptions.length ? variantOptions : undefined,
       properties: propertyLabels.length ? propertyLabels : undefined,
       customFields: customFields && typeof customFields === "object" ? customFields : undefined,

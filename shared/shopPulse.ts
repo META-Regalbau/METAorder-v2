@@ -8,7 +8,7 @@
  */
 import { isAllowedTeamsWebhookUrl } from "./emailIntake";
 
-/** Woher ein Fund kommt; Kaufbarkeit und GA4 folgen (PR C–E) */
+/** Woher ein Fund kommt; GA4 folgt (PR E) */
 export const SHOP_PULSE_SOURCES = ["system", "revenue", "buyability", "ga4"] as const;
 export type ShopPulseSource = (typeof SHOP_PULSE_SOURCES)[number];
 
@@ -20,11 +20,38 @@ export const SHOP_PULSE_STATUSES = ["open", "resolved"] as const;
 export type ShopPulseStatus = (typeof SHOP_PULSE_STATUSES)[number];
 
 /** Fund-Arten (je eine Übersetzung shopPulse.codes.<code>) */
-export const SHOP_PULSE_CODES = ["mirrorStale", "mirrorError", "orderGap", "paymentGone", "weekOrdersDown", "weekRevenueDown", "weekAovDown"] as const;
+export const SHOP_PULSE_CODES = [
+  "mirrorStale",
+  "mirrorError",
+  "orderGap",
+  "paymentGone",
+  "weekOrdersDown",
+  "weekRevenueDown",
+  "weekAovDown",
+  "topsellerInactive",
+  "topsellerHidden",
+  "topsellerMissing",
+  "productsUnavailable",
+  "topsellerPriceZero",
+  "productsPriceZero",
+  "priceJump",
+  "topsellerSoldOut",
+  "productsSoldOut",
+  "topsellersNoDeliveryTime",
+  "topsellersLongRestock",
+  "paymentMethodGone",
+  "shippingMethodGone",
+] as const;
 export type ShopPulseCode = (typeof SHOP_PULSE_CODES)[number];
 
+/**
+ * Ereignisse statt Zustände: der Fund gilt nur für den Lauf nach der Änderung (Preissprung). Verschwindet
+ * er danach, ist nichts „behoben“ – es gibt deshalb keine Entwarnung.
+ */
+export const SHOP_PULSE_EVENT_CODES: readonly ShopPulseCode[] = ["priceJump"];
+
 /** Prüfungen in Lauf-Reihenfolge (server/shopPulse/detectors); die Seite zeigt sie so an */
-export const SHOP_PULSE_DETECTOR_IDS = ["mirrorFreshness", "orderGap", "paymentGone", "weekComparison"] as const;
+export const SHOP_PULSE_DETECTOR_IDS = ["mirrorFreshness", "orderGap", "paymentGone", "weekComparison", "channelMethods", "buyability"] as const;
 
 export const SEVERITY_RANK: Record<ShopPulseSeverity, number> = { warning: 1, critical: 2 };
 
@@ -108,6 +135,27 @@ export type ShopPulseState = {
   detectors?: Record<string, { at: string; ok: boolean; error?: string; skipped?: "mirror"; findings: number }>;
 };
 
+/**
+ * Datenlücken der Artikel für die PIM-Sammlung (Jana): werden nicht gemeldet und nicht im Shop
+ * korrigiert, sondern als CSV ausgegeben (Format wie Datenfehler-PIM-Artikel.csv).
+ */
+export const SHOP_PULSE_DATA_GAP_CODES = ["noImage", "noCategory", "salesUnit"] as const;
+export type ShopPulseDataGapCode = (typeof SHOP_PULSE_DATA_GAP_CODES)[number];
+
+export type ShopPulseDataGap = {
+  code: ShopPulseDataGapCode;
+  productNumber: string;
+  name: string;
+  active: boolean;
+  /** Wert im Shop (z. B. Verkaufseinheit „1“) */
+  value: string;
+  /** Soll / Hinweis */
+  hint: string;
+};
+
+/** Settings-Key shop_pulse_data_gaps: Ergebnis des letzten Nachtlaufs */
+export type ShopPulseDataGaps = { at: string; items: ShopPulseDataGap[] };
+
 /** Antwort von GET /api/shop-pulse */
 export type ShopPulseOverview = {
   settings: Omit<ShopPulseSettings, "teamsWebhookUrl"> & { teamsConfigured: boolean };
@@ -116,6 +164,10 @@ export type ShopPulseOverview = {
   signals: ShopPulseSignal[];
   teamsPending: number;
   running: boolean;
+  /** Soll-Stand der Kaufbarkeit (kaufbare Artikel mit Umsatz, Zahl- und Versandarten) */
+  buyabilityBaseline: { takenAt: string; products: number; paymentMethods: number; shippingMethods: number } | null;
+  /** Datenlücken für die PIM-Sammlung: Anzahl je Art, Stand des letzten Nachtlaufs */
+  dataGaps: { at: string; counts: Partial<Record<ShopPulseDataGapCode, number>> } | null;
 };
 
 /** Parameter, die vor dem Einsetzen formatiert werden (Seite in der Sprache der Oberfläche, Teams deutsch) */
@@ -125,6 +177,12 @@ const PARAM_KINDS: Partial<Record<ShopPulseCode, Record<string, "money" | "date"
   weekOrdersDown: { from: "date", to: "date", current: "number", expected: "number", yearOrders: "number" },
   weekRevenueDown: { from: "date", to: "date", current: "money", expected: "money", yearRevenue: "money" },
   weekAovDown: { from: "date", to: "date", current: "money", expected: "money" },
+  priceJump: { oldPrice: "money", newPrice: "money" },
+  topsellerPriceZero: { revenue: "money" },
+  topsellerInactive: { revenue: "money" },
+  topsellerHidden: { revenue: "money" },
+  topsellerMissing: { revenue: "money" },
+  topsellerSoldOut: { revenue: "money" },
 };
 
 export type ShopPulseParamFormatters = {
