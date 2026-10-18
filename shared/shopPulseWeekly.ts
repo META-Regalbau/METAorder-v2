@@ -19,13 +19,13 @@ import type { ShopPulseWeeklyEffect } from "./shopPulseEffects";
 /**
  * Art eines Eintrags: Shop-Inhalt live veröffentlicht bzw. zurückgenommen, Shop-Puls-Meldung von Hand
  * erledigt, vom Shop-Wächter erkannter Deploy, Preisänderungen eines Tages, Live-Schreiblauf aus den
- * importierten Protokollen, von Hand eingetragen
+ * importierten Protokollen, Bestellung nach einem Warenkorb-Alarm (S2-3), von Hand eingetragen
  */
-export const SHOP_PULSE_ACTION_KINDS = ["contentPublish", "contentRevert", "signalResolved", "deploy", "priceChanges", "liveRun", "manual"] as const;
+export const SHOP_PULSE_ACTION_KINDS = ["contentPublish", "contentRevert", "signalResolved", "deploy", "priceChanges", "liveRun", "cartAlarmWon", "manual"] as const;
 export type ShopPulseActionKind = (typeof SHOP_PULSE_ACTION_KINDS)[number];
 
 /** Woher der Eintrag kommt */
-export const SHOP_PULSE_ACTION_SOURCES = ["shopContent", "shopPulse", "shopWatch", "priceHistory", "import", "manual"] as const;
+export const SHOP_PULSE_ACTION_SOURCES = ["shopContent", "shopPulse", "shopWatch", "priceHistory", "import", "cartAlarm", "manual"] as const;
 export type ShopPulseActionSource = (typeof SHOP_PULSE_ACTION_SOURCES)[number];
 
 /** Betroffener Bereich: ganzer Shop, Artikelnummern, Seiten (Pfade/URLs) oder Verkaufskanal */

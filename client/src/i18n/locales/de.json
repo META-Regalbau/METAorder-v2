@@ -6667,7 +6667,16 @@
       "failed_to_load_shop_pulse_weekly_reports": "Wochenberichte konnten nicht geladen werden",
       "failed_to_build_shop_pulse_weekly_report": "Wochenbericht konnte nicht erstellt werden",
       "failed_to_load_shop_pulse_effects": "Wirkung konnte nicht geladen werden",
-      "failed_to_compute_shop_pulse_effects": "Wirkung konnte nicht berechnet werden"
+      "failed_to_compute_shop_pulse_effects": "Wirkung konnte nicht berechnet werden",
+      "invalid_cart_signal": "Ungültige Warenkorb-Meldung",
+      "too_many_cart_signals": "Zu viele Warenkorb-Meldungen",
+      "invalid_cart_signal_signature": "Signatur der Warenkorb-Meldung ungültig",
+      "failed_to_store_cart_signal": "Warenkorb-Meldung konnte nicht gespeichert werden",
+      "failed_to_load_cart_alarm": "Warenkorb-Alarm konnte nicht geladen werden",
+      "invalid_cart_alarm_settings": "Ungültige Einstellungen des Warenkorb-Alarms",
+      "failed_to_save_cart_alarm_settings": "Einstellungen des Warenkorb-Alarms konnten nicht gespeichert werden",
+      "failed_to_create_cart_alarm_secret": "Schlüssel konnte nicht erzeugt werden",
+      "failed_to_delete_stored_carts": "Gespeicherte Warenkörbe konnten nicht gelöscht werden"
     }
   },
   "roomPlanner": {
@@ -8332,7 +8341,8 @@
     "tabs": {
       "signals": "Meldungen",
       "weekly": "Wochenberichte",
-      "actions": "Maßnahmen-Protokoll"
+      "actions": "Maßnahmen-Protokoll",
+      "cart": "Warenkorb-Alarm"
     },
     "weekly": {
       "title": "Shop-Puls: Wochenbericht KW {{week}} ({{from}} bis {{to}})",
@@ -8582,7 +8592,8 @@
         "deploy": "Deploy",
         "priceChanges": "Preisänderungen",
         "liveRun": "Live-Schreiblauf",
-        "manual": "Von Hand"
+        "manual": "Von Hand",
+        "cartAlarmWon": "Warenkorb-Alarm erfolgreich"
       },
       "sources": {
         "shopContent": "Shop-Inhalte",
@@ -8590,7 +8601,8 @@
         "shopWatch": "Shop-Wächter",
         "priceHistory": "Preis-Historie",
         "import": "Import Live-Protokoll",
-        "manual": "von Hand"
+        "manual": "von Hand",
+        "cartAlarm": "Warenkorb-Alarm"
       }
     },
     "effects": {
@@ -8673,6 +8685,65 @@
         "conversionPercent": "Conversion in %"
       },
       "computedAt": "Berechnet: {{date}}"
+    },
+    "cart": {
+      "title": "B2B-Warenkorb-Alarm",
+      "hint": "Das Shopware-Plugin „META Warenkorb-Signal“ meldet gespeicherte Warenkörbe angemeldeter Geschäftskunden. Liegt ein Warenkorb ab der Schwelle seit der Wartezeit unverändert und hat der Kunde seitdem nicht bestellt, geht ein Alarm an den Außendienst laut Zuordnung, sonst an den Ersatz-Empfänger bzw. an Oliver. Je Kunde höchstens ein Alarm in {{alarmEveryDays}} Tagen; eine Bestellung binnen {{successDays}} Tagen danach zählt als Erfolg (Maßnahmen-Protokoll). Gespeichert werden nur Kennzahlen und der Ansprechpartner, höchstens {{retentionDays}} Tage.",
+      "enable": "Warenkorb-Alarm",
+      "privacy": "Erst nach Freigabe durch den Datenschutzbeauftragten einschalten. Solange der Schalter aus ist, nimmt METAorder Meldungen an, speichert aber nichts; Ausschalten löscht alle gespeicherten Warenkörbe.",
+      "threshold": "Schwelle (netto, €)",
+      "wait": "Wartezeit (Stunden unverändert)",
+      "fallbackEmail": "Ersatz-Empfänger (E-Mail)",
+      "fallbackName": "Ersatz-Empfänger (Name)",
+      "fallbackPlaceholder": "leer = Oliver (Teams-Direktnachricht und Glocke)",
+      "recipientHint": "Empfänger: Außendienst laut Zuordnung (Kundennummer), sonst Ersatz-Empfänger, sonst Oliver. Jeder Alarm geht außerdem als Teams-Karte mit @Erwähnung in die Shop-Puls-Direktnachricht und in die Glocke.",
+      "mailOn": "Der E-Mail-Versand ist eingerichtet: Der Empfänger bekommt eine interne E-Mail.",
+      "mailOff": "Der E-Mail-Versand ist nicht eingerichtet: nur Teams und Glocke.",
+      "save": "Speichern",
+      "saved": "Einstellungen gespeichert",
+      "saveFailed": "Einstellungen konnten nicht gespeichert werden",
+      "pluginTitle": "Angaben für das Plugin (Agentur wirduzen)",
+      "pluginHint": "Diese Werte trägt die Agentur in der Plugin-Konfiguration ein. Der Schlüssel signiert jede Meldung; ein neuer Schlüssel macht den alten sofort ungültig.",
+      "endpoint": "METAorder-Adresse",
+      "tenant": "Mandanten-ID",
+      "secret": "Geheimer Schlüssel",
+      "secretSet": "erzeugt (wird nicht wieder angezeigt)",
+      "secretNone": "noch keiner",
+      "secretCreate": "Schlüssel erzeugen",
+      "secretRotate": "Neuen Schlüssel erzeugen",
+      "secretFailed": "Schlüssel konnte nicht erzeugt werden",
+      "secretOnce": "Neuer Schlüssel – nur jetzt sichtbar. Sicher an die Agentur übergeben (nicht per offener E-Mail).",
+      "copy": "Kopieren",
+      "copied": "Kopiert",
+      "copyFailed": "Kopieren nicht möglich",
+      "lastSignal": "Letzte Meldung",
+      "lastSignalNone": "noch keine",
+      "listTitle": "Gemeldete Warenkörbe ({{count}})",
+      "empty": "Noch keine Warenkörbe gemeldet.",
+      "emptyOff": "Schalter aus: Es werden keine Warenkörbe gespeichert.",
+      "delete": "Alle löschen",
+      "confirmDelete": "Alle gespeicherten Warenkörbe löschen?",
+      "deleted": "Gespeicherte Warenkörbe gelöscht",
+      "deleteFailed": "Löschen fehlgeschlagen",
+      "loadError": "Warenkorb-Alarm konnte nicht geladen werden.",
+      "columns": {
+        "customer": "Kunde",
+        "contact": "Ansprechpartner",
+        "net": "Wert netto",
+        "updated": "Zuletzt geändert",
+        "state": "Stand"
+      },
+      "positions": "{{count}} Position(en)",
+      "states": {
+        "waiting": "wartet",
+        "alarmed": "Alarm gesendet",
+        "ordered": "bestellt",
+        "won": "bestellt nach Alarm",
+        "below": "unter Schwelle"
+      },
+      "alarmedTo": "Alarm {{date}} an {{to}}",
+      "mailed": "per E-Mail",
+      "orderedAt": "bestellt {{date}} ({{order}})"
     }
   },
   "mondu": {

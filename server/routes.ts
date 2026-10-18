@@ -23,6 +23,7 @@ import { registerShopContentRoutes } from "./routes/shopContentRoutes";
 import { registerShopWatchRoutes } from "./routes/shopWatchRoutes";
 import { registerShopPulseRoutes } from "./routes/shopPulseRoutes";
 import { registerShopPulseWeeklyRoutes } from "./routes/shopPulseWeeklyRoutes";
+import { registerShopPulseCartRoutes } from "./routes/shopPulseCartRoutes";
 import { registerOrderRoutes } from "./routes/orderRoutes";
 import { registerMonduRoutes } from "./routes/monduRoutes";
 import { registerCrossSellingRoutes } from "./routes/crossSellingRoutes";
@@ -57,7 +58,7 @@ const moduleLog = logger.child({ component: "routes" });
  * Module teilen sich nur diese Praefixe: /api/settings (settings, sftp, b2bAdmin), /api/auth
  * (auth, integration: M365), /api/b2b (masterData, b2bAdmin), /api/cpq (cpq, integration),
  * /api/order-drafts (draft, sftp), /api/erp (erp, erpProductLabels) und /api/public
- * (publicOffer, commercialAcknowledgement, portalPasswordRequest). Beim Umstellen der Aufrufe hier darauf achten.
+ * (publicOffer, commercialAcknowledgement, portalPasswordRequest, shopPulseCart). Beim Umstellen der Aufrufe hier darauf achten.
  */
 export async function registerRoutes(app: Express): Promise<Server> {
   registerOpenApi(app, requireAuth);
@@ -93,6 +94,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Shop-Puls: Meldungen zu Umsatz, Kaufbarkeit, GA4 (nur Administratoren)
   registerShopPulseRoutes(app);
   registerShopPulseWeeklyRoutes(app);
+  // Warenkorb-Alarm: Meldungen des Shopware-Plugins (öffentlich, signiert) und Einstellungen
+  registerShopPulseCartRoutes(app);
 
   // Mahnwesen und Buchhaltungs-Import
   registerInvoicingRoutes(app);

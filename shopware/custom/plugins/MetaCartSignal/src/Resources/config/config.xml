@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/shopware/shopware/trunk/src/Core/System/SystemConfig/Schema/config.xsd">
+    <card>
+        <title>META Warenkorb-Signal (METAorder)</title>
+        <title lang="de-DE">META Warenkorb-Signal (METAorder)</title>
+
+        <input-field type="bool">
+            <name>active</name>
+            <label>Aktiv</label>
+            <label lang="de-DE">Aktiv</label>
+            <defaultValue>false</defaultValue>
+            <helpText>Erst einschalten, wenn METAorder den Warenkorb-Alarm freigegeben hat (Datenschutz).</helpText>
+            <helpText lang="de-DE">Erst einschalten, wenn METAorder den Warenkorb-Alarm freigegeben hat (Datenschutz).</helpText>
+        </input-field>
+
+        <input-field type="text">
+            <name>endpointUrl</name>
+            <label>METAorder-Adresse</label>
+            <label lang="de-DE">METAorder-Adresse</label>
+            <helpText>z. B. https://p-bbpye5.project.space – ohne Schrägstrich am Ende, nur https.</helpText>
+            <helpText lang="de-DE">z. B. https://p-bbpye5.project.space – ohne Schrägstrich am Ende, nur https.</helpText>
+        </input-field>
+
+        <input-field type="text">
+            <name>tenantId</name>
+            <label>METAorder-Mandanten-ID</label>
+            <label lang="de-DE">METAorder-Mandanten-ID</label>
+            <helpText>Steht in METAorder unter Shop-Puls → Warenkorb-Alarm.</helpText>
+            <helpText lang="de-DE">Steht in METAorder unter Shop-Puls → Warenkorb-Alarm.</helpText>
+        </input-field>
+
+        <input-field type="password">
+            <name>secret</name>
+            <label>Geheimer Schlüssel</label>
+            <label lang="de-DE">Geheimer Schlüssel</label>
+            <helpText>In METAorder unter Shop-Puls → Warenkorb-Alarm erzeugt. Signiert jede Meldung (HMAC-SHA256).</helpText>
+            <helpText lang="de-DE">In METAorder unter Shop-Puls → Warenkorb-Alarm erzeugt. Signiert jede Meldung (HMAC-SHA256).</helpText>
+        </input-field>
+
+        <input-field type="float">
+            <name>minNetTotal</name>
+            <label>Nur Warenkörbe ab (netto, €)</label>
+            <label lang="de-DE">Nur Warenkörbe ab (netto, €)</label>
+            <defaultValue>500</defaultValue>
+            <helpText>Kleinere Warenkörbe werden gar nicht gesendet. Die eigentliche Alarm-Schwelle stellt METAorder ein.</helpText>
+            <helpText lang="de-DE">Kleinere Warenkörbe werden gar nicht gesendet. Die eigentliche Alarm-Schwelle stellt METAorder ein.</helpText>
+        </input-field>
+
+        <input-field type="single-select">
+            <name>delivery</name>
+            <label>Versand</label>
+            <label lang="de-DE">Versand</label>
+            <defaultValue>queue</defaultValue>
+            <options>
+                <option>
+                    <id>queue</id>
+                    <name>Message Queue (Worker nötig)</name>
+                    <name lang="de-DE">Message Queue (Worker nötig)</name>
+                </option>
+                <option>
+                    <id>terminate</id>
+                    <name>Nach dem Ausliefern der Seite (kernel.terminate)</name>
+                    <name lang="de-DE">Nach dem Ausliefern der Seite (kernel.terminate)</name>
+                </option>
+            </options>
+        </input-field>
+
+        <input-field type="float">
+            <name>timeoutSeconds</name>
+            <label>Timeout (Sekunden)</label>
+            <label lang="de-DE">Timeout (Sekunden)</label>
+            <defaultValue>3</defaultValue>
+            <helpText>0,5 bis 10 Sekunden. Kein Wiederholen bei Fehlern.</helpText>
+            <helpText lang="de-DE">0,5 bis 10 Sekunden. Kein Wiederholen bei Fehlern.</helpText>
+        </input-field>
+
+        <input-field type="text">
+            <name>b2bFlagField</name>
+            <label>Zusatzfeld B2B-Kennzeichen (Kunde)</label>
+            <label lang="de-DE">Zusatzfeld B2B-Kennzeichen (Kunde)</label>
+            <defaultValue>wdu_b2b_dealer</defaultValue>
+            <helpText>Geschäftskunde = Firma gesetzt oder dieses Zusatzfeld wahr.</helpText>
+            <helpText lang="de-DE">Geschäftskunde = Firma gesetzt oder dieses Zusatzfeld wahr.</helpText>
+        </input-field>
+    </card>
+</config>

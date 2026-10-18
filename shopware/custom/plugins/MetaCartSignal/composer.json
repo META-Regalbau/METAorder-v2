@@ -1,0 +1,35 @@
+{
+    "name": "meta/cart-signal",
+    "description": "Shopware 6.6/6.7: meldet gespeicherte Warenkörbe angemeldeter Geschäftskunden signiert an METAorder (Shop-Puls, Warenkorb-Alarm).",
+    "type": "shopware-platform-plugin",
+    "license": "proprietary",
+    "version": "1.0.0",
+    "require": {
+        "php": ">=8.2",
+        "shopware/core": "~6.6.0 || ~6.7.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "Meta\\CartSignal\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Meta\\CartSignal\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "shopware-plugin-class": "Meta\\CartSignal\\MetaCartSignal",
+        "label": {
+            "de-DE": "META Warenkorb-Signal (METAorder)",
+            "en-GB": "META cart signal (METAorder)"
+        },
+        "description": {
+            "de-DE": "Meldet gespeicherte Warenkörbe angemeldeter Geschäftskunden signiert an METAorder.",
+            "en-GB": "Reports saved carts of logged-in business customers to METAorder (signed)."
+        }
+    }
+}

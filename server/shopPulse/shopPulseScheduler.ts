@@ -36,6 +36,9 @@
  * B2B-Angebotsanfragen; der Tagesbericht nennt sie zusammengefasst, der Wochenbericht zusätzlich den
  * B2B-Anteil der Shop-Bestellungen.
  *
+ * Stufe 2 (S2-3): Ist der Schalter „Warenkorb-Alarm“ an (Standard aus), prüft jeder Takt die vom Plugin
+ * gemeldeten Warenkörbe (cartAlarmRun.ts) und schickt Alarme an den Außendienst; in der Lernwoche nicht.
+ *
  * Stufe 2 (S2-6): Einmal am Tag ab 5 Uhr rechnet effectsRun.ts die Wirkung der Maßnahmen neu (nicht, wenn
  * der Bestellabgleich hängt); der Wochenbericht nennt die gesicherten Wirkungen.
  *
@@ -95,6 +98,9 @@ import { isWeeklyReportDue, reportedWeekStart } from "./weeklyReport";
 import { buildWeeklyReport, shopPulseWeeklyDeps, type ShopPulseWeeklyDeps } from "./weeklyReportRun";
 import { syncActionLog } from "./actionSync";
 import { isEffectsDue, refreshEffects, shopPulseEffectsDeps } from "./effectsRun";
+import { getCartSettings, listCarts, loadSalesReps, markCartAlarmed, markCartOrdered, purgeCarts, rowToCart, runCartAlarm, type CartAlarmDeps } from "./cartAlarmRun";
+import { insertCandidates } from "./actionLogRepository";
+import { sendEmail } from "../email/emailOutbound";
 import type { OfferWatchSources } from "./detectors/offers";
 import { offerWatchSources } from "./offerRequests";
 import { offerSummary } from "./weeklyReport";
@@ -138,6 +144,8 @@ export type ShopPulseDeps = {
   syncActions?: (tenantId: string | null, now: Date) => Promise<unknown>;
   /** Wirkung der Maßnahmen neu rechnen (Stufe 2, S2-6); fehlt sie, ruht die Wirkungsmessung */
   refreshEffects?: (tenantId: string | null, now: Date) => Promise<unknown>;
+  /** B2B-Warenkorb-Alarm (Stufe 2, S2-3); fehlt er, ruht der Alarm */
+  cartAlarm?: CartAlarmDeps;
   onNotificationCreated: (n: Notification) => void;
   baseUrl: string | null;
   now?: () => Date;
@@ -311,6 +319,16 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
         await deps.syncActions(tenantId, now);
       } catch (err) {
         log.warn({ err, tenantId }, "Shop-Puls: Maßnahmen-Protokoll nicht abgeglichen");
+      }
+    }
+
+    // Warenkorb-Alarm (eigener Schalter, Standard aus); in der Lernwoche nichts senden
+    if (deps.cartAlarm) {
+      try {
+        const cart = await runCartAlarm(deps.cartAlarm, tenantId, now, { silent, pageUrl: deps.baseUrl ? `${deps.baseUrl}${SHOP_PULSE_PAGE_PATH}?tab=cart` : null });
+        if (cart && (cart.alarms || cart.won)) log.info({ tenantId, ...cart }, "Shop-Puls: Warenkorb-Alarm");
+      } catch (err) {
+        log.warn({ err, tenantId }, "Shop-Puls: Warenkorb-Alarm fehlgeschlagen");
       }
     }
 
@@ -505,8 +523,44 @@ export function shopPulseDeps(storage: IStorage): ShopPulseDeps {
     weekly: { ...shopPulseWeeklyDeps(storage), effects: (tenantId, now) => refreshEffects(effectsDeps, tenantId, now) },
     syncActions: (tenantId, now) => syncActionLog(storage, tenantId, now),
     refreshEffects: (tenantId, now) => refreshEffects(effectsDeps, tenantId, now),
+    cartAlarm: cartAlarmDeps(storage),
     onNotificationCreated: (n) => notificationEvents.emitNotificationCreated(n),
     baseUrl: publicAppBaseUrl(process.env.APP_URL?.trim() || null),
+  };
+}
+
+/** Echte Quellen des Warenkorb-Alarms (Spiegel, Zuordnung, interne E-Mail, Teams-Warteschlange, Glocke) */
+export function cartAlarmDeps(storage: IStorage): CartAlarmDeps {
+  const glocke = { storage, onNotificationCreated: (n: Notification) => notificationEvents.emitNotificationCreated(n) };
+  return {
+    settings: (tenantId) => getCartSettings(storage, tenantId),
+    listCarts: async (tenantId) => {
+      const settings = await getCartSettings(storage, tenantId);
+      return (await listCarts(tenantId)).map((r) => rowToCart(r, settings));
+    },
+    purge: purgeCarts,
+    loadOrders: async (tenantId, since) =>
+      (await loadPulseOrders(tenantId, since, { customer: true }))
+        .filter((o) => o.customer?.customerNumber)
+        .map((o) => ({ customerNumber: o.customer!.customerNumber, orderNumber: o.orderNumber, createdAt: o.createdAt })),
+    salesReps: loadSalesReps,
+    markAlarmed: markCartAlarmed,
+    markOrdered: markCartOrdered,
+    sendMail: (_tenantId, to, subject, text) => sendEmail(storage, { to, subject, text }).then(() => undefined),
+    enqueueTeams: async (tenantId, message, now) => {
+      if ((await getShopPulseSettings(storage, tenantId)).teamsWebhookUrl) await enqueueTeamsMessage(storage, SHOP_PULSE_TEAMS_OUTBOX_KEY, tenantId, message, now);
+    },
+    notify: async (tenantId, email, text) => {
+      const link = `${SHOP_PULSE_PAGE_PATH}?tab=cart`;
+      const user = email ? (await storage.getAllUsers()).find((u) => u.email?.trim().toLowerCase() === email.trim().toLowerCase()) : undefined;
+      if (!user) {
+        await notifyAdmins(glocke, tenantId, text, link);
+        return;
+      }
+      const n: InsertNotification = { userId: user.id, type: "shop_pulse", title: text.title, message: text.message, link, ticketId: null, ticketNumber: null, read: 0 };
+      glocke.onNotificationCreated(await storage.createNotification(n, tenantId));
+    },
+    insertActions: insertCandidates,
   };
 }
 

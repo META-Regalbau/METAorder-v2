@@ -3966,3 +3966,35 @@ export const shopPulseActionEffects = pgTable(
 );
 
 export type ShopPulseActionEffectRow = typeof shopPulseActionEffects.$inferSelect;
+
+/** Shop-Puls Stufe 2 (S2-3): letzter Warenkorb je Geschäftskunde aus dem Plugin MetaCartSignal (Migration 0059). */
+export const shopPulseCarts = pgTable(
+  "shop_pulse_carts",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id"),
+    customerNumber: text("customer_number").notNull(),
+    customerId: text("customer_id").notNull().default(""),
+    company: text("company").notNull().default(""),
+    contactName: text("contact_name").notNull().default(""),
+    contactEmail: text("contact_email").notNull().default(""),
+    contactPhone: text("contact_phone"),
+    netTotal: doublePrecision("net_total").notNull().default(0),
+    currency: text("currency").notNull().default("EUR"),
+    positionCount: integer("position_count").notNull().default(0),
+    positions: jsonb("positions").$type<Array<{ productNumber: string; label: string; quantity: number; netTotal: number }>>().notNull().default(sql`'[]'::jsonb`),
+    cartUpdatedAt: timestamp("cart_updated_at").notNull(),
+    receivedAt: timestamp("received_at").notNull().defaultNow(),
+    alarmedAt: timestamp("alarmed_at"),
+    alarmRecipient: text("alarm_recipient"),
+    alarmRecipientSource: text("alarm_recipient_source"),
+    alarmMailed: boolean("alarm_mailed").notNull().default(false),
+    orderedAt: timestamp("ordered_at"),
+    orderNumber: text("order_number"),
+  },
+  (table) => ({
+    tenantCustomerIdx: uniqueIndex("shop_pulse_carts_tenant_customer_idx").on(table.tenantId, table.customerNumber),
+  }),
+);
+
+export type ShopPulseCartRow = typeof shopPulseCarts.$inferSelect;

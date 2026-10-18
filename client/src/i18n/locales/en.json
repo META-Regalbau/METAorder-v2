@@ -6670,7 +6670,16 @@
       "failed_to_load_shop_pulse_weekly_reports": "Weekly reports could not be loaded",
       "failed_to_build_shop_pulse_weekly_report": "Weekly report could not be created",
       "failed_to_load_shop_pulse_effects": "Failed to load the impact",
-      "failed_to_compute_shop_pulse_effects": "Failed to calculate the impact"
+      "failed_to_compute_shop_pulse_effects": "Failed to calculate the impact",
+      "invalid_cart_signal": "Invalid cart report",
+      "too_many_cart_signals": "Too many cart reports",
+      "invalid_cart_signal_signature": "Invalid cart report signature",
+      "failed_to_store_cart_signal": "Failed to store the cart report",
+      "failed_to_load_cart_alarm": "Failed to load the cart alert",
+      "invalid_cart_alarm_settings": "Invalid cart alert settings",
+      "failed_to_save_cart_alarm_settings": "Failed to save the cart alert settings",
+      "failed_to_create_cart_alarm_secret": "Failed to create the key",
+      "failed_to_delete_stored_carts": "Failed to delete the stored carts"
     }
   },
   "roomPlanner": {
@@ -8335,7 +8344,8 @@
     "tabs": {
       "signals": "Signals",
       "weekly": "Weekly reports",
-      "actions": "Action log"
+      "actions": "Action log",
+      "cart": "Cart alert"
     },
     "weekly": {
       "title": "Shop pulse: weekly report CW {{week}} ({{from}} to {{to}})",
@@ -8585,7 +8595,8 @@
         "deploy": "Deploy",
         "priceChanges": "Price changes",
         "liveRun": "Live write run",
-        "manual": "By hand"
+        "manual": "By hand",
+        "cartAlarmWon": "Cart alert successful"
       },
       "sources": {
         "shopContent": "Shop content",
@@ -8593,7 +8604,8 @@
         "shopWatch": "Shop watchdog",
         "priceHistory": "Price history",
         "import": "Live protocol import",
-        "manual": "by hand"
+        "manual": "by hand",
+        "cartAlarm": "Cart alert"
       }
     },
     "effects": {
@@ -8676,6 +8688,65 @@
         "conversionPercent": "Conversion in %"
       },
       "computedAt": "Calculated: {{date}}"
+    },
+    "cart": {
+      "title": "B2B cart alert",
+      "hint": "The Shopware plugin “META cart signal” reports saved carts of logged-in business customers. If a cart above the threshold stays unchanged for the waiting time and the customer has not ordered since, an alert goes to the sales rep from the assignment list, otherwise to the fallback recipient or to Oliver. At most one alert per customer in {{alarmEveryDays}} days; an order within {{successDays}} days counts as success (action log). Only figures and the contact person are stored, for at most {{retentionDays}} days.",
+      "enable": "Cart alert",
+      "privacy": "Only switch on after approval by the data protection officer. While switched off, METAorder accepts reports but stores nothing; switching off deletes all stored carts.",
+      "threshold": "Threshold (net, €)",
+      "wait": "Waiting time (hours unchanged)",
+      "fallbackEmail": "Fallback recipient (email)",
+      "fallbackName": "Fallback recipient (name)",
+      "fallbackPlaceholder": "empty = Oliver (Teams direct message and bell)",
+      "recipientHint": "Recipient: sales rep from the assignment list (customer number), otherwise fallback recipient, otherwise Oliver. Every alert also goes as a Teams card with @mention to the shop pulse direct message and to the bell.",
+      "mailOn": "Outgoing email is set up: the recipient gets an internal email.",
+      "mailOff": "Outgoing email is not set up: Teams and bell only.",
+      "save": "Save",
+      "saved": "Settings saved",
+      "saveFailed": "Settings could not be saved",
+      "pluginTitle": "Plugin settings (agency wirduzen)",
+      "pluginHint": "The agency enters these values in the plugin configuration. The key signs every report; a new key invalidates the old one immediately.",
+      "endpoint": "METAorder address",
+      "tenant": "Tenant ID",
+      "secret": "Secret key",
+      "secretSet": "created (will not be shown again)",
+      "secretNone": "none yet",
+      "secretCreate": "Create key",
+      "secretRotate": "Create new key",
+      "secretFailed": "Key could not be created",
+      "secretOnce": "New key – visible only now. Hand it over to the agency securely (not by plain email).",
+      "copy": "Copy",
+      "copied": "Copied",
+      "copyFailed": "Copying not possible",
+      "lastSignal": "Last report",
+      "lastSignalNone": "none yet",
+      "listTitle": "Reported carts ({{count}})",
+      "empty": "No carts reported yet.",
+      "emptyOff": "Switched off: no carts are stored.",
+      "delete": "Delete all",
+      "confirmDelete": "Delete all stored carts?",
+      "deleted": "Stored carts deleted",
+      "deleteFailed": "Deleting failed",
+      "loadError": "Cart alert could not be loaded.",
+      "columns": {
+        "customer": "Customer",
+        "contact": "Contact person",
+        "net": "Net value",
+        "updated": "Last changed",
+        "state": "Status"
+      },
+      "positions": "{{count}} item(s)",
+      "states": {
+        "waiting": "waiting",
+        "alarmed": "alert sent",
+        "ordered": "ordered",
+        "won": "ordered after alert",
+        "below": "below threshold"
+      },
+      "alarmedTo": "Alert {{date}} to {{to}}",
+      "mailed": "by email",
+      "orderedAt": "ordered {{date}} ({{order}})"
     }
   },
   "mondu": {
