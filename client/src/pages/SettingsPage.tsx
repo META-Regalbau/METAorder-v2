@@ -11,6 +11,7 @@ import WebhooksSettingsSection from "@/components/WebhooksSettingsSection";
 import N8nSettingsSection from "@/components/N8nSettingsSection";
 import OrderFieldMappingSection from "@/components/OrderFieldMappingSection";
 import N8nConnectionSection from "@/components/N8nConnectionSection";
+import PimcoreConnectionSection from "@/components/PimcoreConnectionSection";
 import EmailIntakeSection from "@/components/EmailIntakeSection";
 import CommercialCustomerTokensSection from "@/components/CommercialCustomerTokensSection";
 import SftpServersSection from "@/components/SftpServersSection";
@@ -3859,6 +3860,8 @@ function AiTab() {
         <TabsContent value="integration" className="mt-0 space-y-6">
           {/* n8n-API: welche Workflows Mails abrufen und an METAorder liefern */}
           <N8nConnectionSection />
+          {/* Pimcore-Datahub: Stammdaten und Preise direkt aus dem PIM (Verbindung + Test) */}
+          <PimcoreConnectionSection />
           {/* E-Mail-Eingang: Postfach, Weiterleitung „Sonstiges“, Problem-Tickets (liest der n8n-Workflow) */}
           <EmailIntakeSection />
           <N8nSettingsSection />
