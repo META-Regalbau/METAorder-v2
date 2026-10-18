@@ -1752,7 +1752,7 @@ export type DiscountRequest = typeof discountRequests.$inferSelect;
 export type InsertDiscountRequest = z.infer<typeof insertDiscountRequestSchema>;
 
 // Notifications for real-time user alerts
-export type NotificationType = "ticket_assigned" | "ticket_updated" | "comment_added" | "due_date_warning" | "ticket_status_changed" | "cross_selling_review" | "draft_margin_approval" | "shop_watch" | "shop_pulse";
+export type NotificationType = "ticket_assigned" | "ticket_updated" | "comment_added" | "due_date_warning" | "ticket_status_changed" | "cross_selling_review" | "draft_margin_approval" | "shop_watch" | "shop_pulse" | "mondu";
 
 export const notifications = pgTable("notifications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1773,7 +1773,7 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
   id: true,
   createdAt: true,
 }).extend({
-  type: z.enum(["ticket_assigned", "ticket_updated", "comment_added", "due_date_warning", "ticket_status_changed", "cross_selling_review", "draft_margin_approval", "shop_watch", "shop_pulse"]),
+  type: z.enum(["ticket_assigned", "ticket_updated", "comment_added", "due_date_warning", "ticket_status_changed", "cross_selling_review", "draft_margin_approval", "shop_watch", "shop_pulse", "mondu"]),
 });
 
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
@@ -3855,3 +3855,44 @@ export const shopPulseSignals = pgTable(
 
 export type ShopPulseSignalRow = typeof shopPulseSignals.$inferSelect;
 export type InsertShopPulseSignalRow = typeof shopPulseSignals.$inferInsert;
+
+/**
+ * Mondu an Bestellungen (Migration 0055): kind "sell" = MonduSell-Bestellung aus METAorder,
+ * kind "shop" = Verlauf „Mondu-Zahlung erneut gesendet“ einer Shop-Bestellung (shared/mondu.ts).
+ */
+export const monduOrders = pgTable(
+  "mondu_orders",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id"),
+    shopwareOrderId: text("shopware_order_id").notNull(),
+    orderNumber: text("order_number"),
+    kind: text("kind").notNull(),
+    monduOrderUuid: text("mondu_order_uuid"),
+    externalReferenceId: text("external_reference_id"),
+    state: text("state"),
+    stateReason: text("state_reason"),
+    grossAmountCents: integer("gross_amount_cents"),
+    currency: text("currency"),
+    buyerEmail: text("buyer_email"),
+    netTerm: integer("net_term"),
+    attempt: integer("attempt").notNull().default(1),
+    invoicePending: boolean("invoice_pending").notNull().default(false),
+    invoiceUuid: text("invoice_uuid"),
+    invoiceNumber: text("invoice_number"),
+    invoiceState: text("invoice_state"),
+    lastError: text("last_error"),
+    history: jsonb("history").notNull().default([]),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    lastCheckedAt: timestamp("last_checked_at"),
+  },
+  (table) => ({
+    tenantOrderKindIdx: uniqueIndex("mondu_orders_tenant_order_kind_idx").on(table.tenantId, table.shopwareOrderId, table.kind),
+    tenantKindStateIdx: index("mondu_orders_tenant_kind_state_idx").on(table.tenantId, table.kind, table.state),
+  }),
+);
+
+export type MonduOrderRow = typeof monduOrders.$inferSelect;
+export type InsertMonduOrderRow = typeof monduOrders.$inferInsert;

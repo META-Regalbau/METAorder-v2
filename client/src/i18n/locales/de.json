@@ -1784,6 +1784,21 @@
         "filterSubjectKeywordsHint": "Ein Stichwort je Zeile, Groß- und Kleinschreibung egal.",
         "filterInternalDomains": "Weitere interne Domains",
         "filterInternalDomainsHint": "Die Domains der Postfächer zählen automatisch als intern."
+      },
+      "mondu": {
+        "title": "Mondu",
+        "description": "API-Schlüssel für Mondu Sell: METAorder legt die Mondu-Bestellung an, gleicht den Status ab und übergibt die Rechnung. Die Shop-Zahlart mit Mondu läuft weiter über das Shopware-Plugin.",
+        "connectedLive": "Verbunden (Live)",
+        "connectedSandbox": "Verbunden (Testumgebung)",
+        "notConnected": "Nicht verbunden",
+        "keyLabel": "API-Schlüssel",
+        "keyPlaceholderStored": "gespeichert – leer lassen, um ihn zu behalten",
+        "keyPlaceholderNew": "API-Schlüssel aus dem Mondu-Portal",
+        "sandbox": "Testumgebung (Sandbox)",
+        "keyHint": "Live- und Testschlüssel unterscheiden sich. Der Schlüssel wird verschlüsselt gespeichert.",
+        "saved": "Mondu-Einstellungen gespeichert",
+        "test": "Verbindung testen",
+        "testOk": "Mondu hat den Schlüssel angenommen."
       }
     },
     "semanticRanking": {
@@ -5746,7 +5761,28 @@
       "portal_registration_upload_type": "Bitte eine .eml- oder .msg-Datei hochladen.",
       "portal_registration_no_original": "Die Originalmail ist nicht gespeichert.",
       "shopware_not_configured": "Shopware ist für diesen Mandanten nicht eingerichtet.",
-      "sales_rep_import_empty": "Keine gültigen Zeilen gefunden – Spalten Kundennummer und E-Mail prüfen."
+      "sales_rep_import_empty": "Keine gültigen Zeilen gefunden – Spalten Kundennummer und E-Mail prüfen.",
+      "mondu_not_configured": "Mondu ist nicht eingerichtet (Einstellungen → Integration).",
+      "mondu_order_not_found": "Bestellung nicht gefunden.",
+      "mondu_resend_not_possible": "Für diese Bestellung kann die Mondu-Zahlung nicht erneut gesendet werden",
+      "mondu_sell_invalid_email": "Ungültige E-Mail-Adresse.",
+      "mondu_sell_missing_name": "Vor- und Nachname des Käufers fehlen in der Bestellung.",
+      "mondu_sell_invalid_input": "Ungültige Eingabe",
+      "mondu_sell_owner_required": "Bei Einzelunternehmen braucht Mondu Inhaber und Geburtsdatum.",
+      "mondu_sell_incomplete_address": "Die Adresse der Bestellung ist unvollständig.",
+      "mondu_mail_failed": "Die Mail konnte nicht gesendet werden",
+      "mondu_forbidden": "Mondu verweigert den Zugriff (API-Schlüssel oder Freischaltung prüfen)",
+      "mondu_rejected": "Mondu hat die Anfrage abgelehnt",
+      "mondu_unreachable": "Mondu ist nicht erreichbar",
+      "mondu_sell_not_possible": "Diese Bestellung kann nicht an Mondu Sell übergeben werden",
+      "mondu_sell_not_found": "Keine Mondu-Sell-Bestellung vorhanden.",
+      "mondu_sell_has_invoice": "Mondu hat schon eine Rechnung – bitte im Mondu-Portal stornieren.",
+      "mondu_overview_failed": "Mondu-Angaben konnten nicht geladen werden",
+      "mondu_resend_failed": "Mondu-Zahlung konnte nicht erneut gesendet werden",
+      "mondu_sell_create_failed": "Mondu-Sell-Bestellung konnte nicht angelegt werden",
+      "mondu_sell_refresh_failed": "Mondu-Status konnte nicht aktualisiert werden",
+      "mondu_sell_cancel_failed": "Mondu-Sell-Bestellung konnte nicht storniert werden",
+      "mondu_sell_invoice_failed": "Rechnung konnte nicht an Mondu übergeben werden"
     },
     "client": {
       "notModified": "API-Antwort unverändert (304) – bitte Seite neu laden.",
@@ -8060,6 +8096,141 @@
       "numbersYear": "Vorjahr: {{orders}} Bestellung(en) · {{revenue}}",
       "numbersNoYear": "Vorjahr: keine Daten",
       "dailyNone": "Keine offenen Meldungen."
+    }
+  },
+  "mondu": {
+    "title": "Mondu",
+    "sandbox": "Testumgebung",
+    "actionFailed": "Mondu-Aktion fehlgeschlagen",
+    "blocked": {
+      "not_configured": "Mondu ist nicht eingerichtet (Einstellungen → Integration)",
+      "plugin_payment": "die Bestellung läuft schon über die Mondu-Zahlart im Shop",
+      "order_cancelled": "die Bestellung ist storniert",
+      "paid": "die Bestellung ist schon bezahlt",
+      "zero_amount": "die Bestellung hat keinen Betrag",
+      "currency": "Mondu nimmt nur Euro und Pfund an",
+      "country": "Mondu nimmt das Land der Rechnungsadresse nicht an",
+      "active_exists": "es gibt schon eine aktive Mondu-Sell-Bestellung",
+      "payment_state": "die Zahlung ist nicht mehr offen",
+      "no_recipient": "keine E-Mail-Adresse des Kunden",
+      "no_domain": "keine Shop-Adresse für den Link",
+      "no_mondu_payment": "die Bestellung hat keine Mondu-Zahlart"
+    },
+    "paymentState": {
+      "open": "offen",
+      "failed": "fehlgeschlagen",
+      "reminded": "erinnert",
+      "unconfirmed": "unbestätigt",
+      "in_progress": "in Bearbeitung",
+      "authorized": "autorisiert",
+      "paid": "bezahlt",
+      "paid_partially": "teilweise bezahlt",
+      "cancelled": "storniert",
+      "refunded": "erstattet",
+      "refunded_partially": "teilweise erstattet",
+      "chargeback": "Rückbuchung",
+      "unknown": "unbekannt"
+    },
+    "shop": {
+      "paymentState": "Zahlart im Shop: {{method}} – Zahlung {{state}}",
+      "notCompleted": "Der Kunde hat die Mondu-Zahlung nicht abgeschlossen. Sie können ihm den Link zur Zahlung erneut schicken.",
+      "resend": "Mondu-Zahlung erneut senden",
+      "resendTitle": "Mondu-Zahlung erneut senden",
+      "resendDescription": "Der Kunde bekommt eine Mail mit dem Link zu seiner Bestellung im Shop. Dort startet er die Zahlung neu oder wählt eine andere Zahlungsart.",
+      "recipient": "Empfänger",
+      "send": "Mail senden",
+      "sent": "Mail an {{email}} gesendet",
+      "blocked": {
+        "order_cancelled": "Die Bestellung ist storniert.",
+        "no_recipient": "Für den Kunden ist keine E-Mail-Adresse hinterlegt.",
+        "no_domain": "Für den Verkaufskanal ist keine Shop-Adresse hinterlegt."
+      }
+    },
+    "history": {
+      "title": "Verlauf ({{count}})",
+      "created": "bei Mondu angelegt, Bestätigungslink an {{to}}",
+      "state": "Status: {{state}}",
+      "invoice_submitted": "Rechnung {{detail}} an Mondu übergeben",
+      "invoice_waiting": "Rechnung vorgemerkt, wartet auf die Bestätigung",
+      "invoice_failed": "Rechnung nicht übergeben: {{detail}}",
+      "payment_link_sent": "Link zur Zahlung an {{to}} gesendet",
+      "canceled": "bei Mondu storniert",
+      "error": "Fehler: {{detail}}"
+    },
+    "state": {
+      "processing": "in Prüfung",
+      "pending": "manuelle Prüfung",
+      "authorized": "vom Kunden bestätigt",
+      "confirmed": "bestätigt",
+      "partially_shipped": "teilweise abgerechnet",
+      "shipped": "abgerechnet",
+      "partially_complete": "teilweise bezahlt",
+      "complete": "bezahlt",
+      "declined": "abgelehnt",
+      "canceled": "storniert"
+    },
+    "invoiceState": {
+      "created": "offen",
+      "late": "überfällig",
+      "canceled": "storniert",
+      "complete": "bezahlt"
+    },
+    "legalForm": {
+      "auto": "Mondu ermittelt selbst",
+      "kapital_und_personen_gesellschaft": "Firma (GmbH, AG, KG, OHG …)",
+      "einzelunternehmen": "Einzelunternehmen",
+      "offentliche_auftraggeber_einrichtung": "Öffentliche Einrichtung",
+      "andere_gesellschaftsform": "Andere Rechtsform"
+    },
+    "sell": {
+      "title": "Mondu Sell",
+      "intro": "Mondu prüft den Kunden und schickt ihm einen Link, mit dem er den Kauf auf Rechnung bestätigt.",
+      "create": "An Mondu Sell übergeben",
+      "createAgain": "Erneut an Mondu Sell übergeben",
+      "createTitle": "An Mondu Sell übergeben",
+      "createDescription": "Mondu prüft die Bestellung und schickt dem Käufer einen Link zur Bestätigung. Übertragen wird der Gesamtbetrag, wie bisher im Mondu-Portal.",
+      "createConfirm": "Bei Mondu anlegen",
+      "created": "Bei Mondu angelegt",
+      "createdDescription": "Mondu prüft die Bestellung und schickt dem Käufer den Bestätigungslink.",
+      "company": "Firma",
+      "amount": "Betrag",
+      "netTerm": "Zahlungsziel",
+      "netTermDays": "Zahlungsziel (Tage)",
+      "days": "{{count}} Tage",
+      "buyerEmail": "E-Mail des Käufers",
+      "buyerEmailHint": "An diese Adresse schickt Mondu den Bestätigungslink.",
+      "legalForm": "Rechtsform",
+      "ownerFirstName": "Inhaber Vorname",
+      "ownerLastName": "Inhaber Nachname",
+      "ownerBirthDate": "Geburtsdatum",
+      "reference": "Mondu-Referenz",
+      "invoice": "Rechnung",
+      "invoiceSubmitted": "{{number}} an Mondu übergeben ({{state}})",
+      "invoicePending": "vorgemerkt – geht nach der Bestätigung an Mondu",
+      "invoiceNone": "geht beim Rechnungsversand automatisch an Mondu",
+      "waiting": {
+        "processing": "Mondu prüft die Bestellung bzw. wartet auf die Bestätigung des Kunden. Ware erst nach der Bestätigung versenden.",
+        "pending": "Mondu prüft die Bestellung von Hand (bis zu 24 Stunden). Ware erst nach der Bestätigung versenden.",
+        "authorized": "Der Kunde hat bestätigt, Mondu schließt die Prüfung ab. Ware erst nach der Bestätigung versenden."
+      },
+      "confirmedHint": "Mondu hat bestätigt – die Ware kann raus.",
+      "closed": {
+        "declined": "Mondu hat die Bestellung abgelehnt.",
+        "canceled": "Die Mondu-Bestellung ist storniert."
+      },
+      "refresh": "Status aktualisieren",
+      "retryInvoice": "Rechnung erneut an Mondu",
+      "cancel": "Bei Mondu stornieren",
+      "cancelTitle": "Mondu-Bestellung stornieren?",
+      "cancelDescription": "Die Bestellung wird bei Mondu storniert, der Kauf auf Rechnung über Mondu entfällt. Danach kann sie neu übergeben werden.",
+      "canceled": "Bei Mondu storniert",
+      "lastChecked": "Zuletzt bei Mondu abgefragt: {{when}}",
+      "invoiceResult": {
+        "submitted": "Rechnung an Mondu übergeben",
+        "waiting": "Rechnung für Mondu vorgemerkt",
+        "failed": "Rechnung nicht an Mondu übergeben",
+        "skipped": "Keine Rechnung an Mondu übergeben"
+      }
     }
   }
 }

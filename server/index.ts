@@ -21,6 +21,7 @@ import { startProductImageTextsScheduler } from "./products/productImageTextsJob
 import { startProductMetaTextsScheduler } from "./products/productMetaTextsJobs";
 import { startShopWatchScheduler } from "./shopContent/shopWatchScheduler";
 import { startShopPulseScheduler } from "./shopPulse/shopPulseScheduler";
+import { startMonduScheduler } from "./invoicing/monduScheduler";
 import { runOfferLearning } from "./offers/offerLearning";
 import { pollInboundEmails } from "./email/emailInbound";
 import { runDunningJob } from "./invoicing/dunningJob";
@@ -232,6 +233,8 @@ function startSystemLog() {
   startShopWatchScheduler(storage);
   // Shop-Puls: Prüfungen alle 15 Min., Sofort-Meldungen und Tagesbericht, wenn eingeschaltet
   startShopPulseScheduler(storage);
+  // Mondu Sell: Status offener Mondu-Bestellungen alle 15 Min., vorgemerkte Rechnungen nachreichen
+  startMonduScheduler(storage);
 
   const runOfferLearningJob = async () => {
     try {

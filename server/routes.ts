@@ -23,6 +23,7 @@ import { registerShopContentRoutes } from "./routes/shopContentRoutes";
 import { registerShopWatchRoutes } from "./routes/shopWatchRoutes";
 import { registerShopPulseRoutes } from "./routes/shopPulseRoutes";
 import { registerOrderRoutes } from "./routes/orderRoutes";
+import { registerMonduRoutes } from "./routes/monduRoutes";
 import { registerCrossSellingRoutes } from "./routes/crossSellingRoutes";
 import { registerCrossSellAutomationRoutes } from "./routes/crossSellAutomationRoutes";
 import { registerProductRoutes } from "./routes/productRoutes";
@@ -93,6 +94,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mahnwesen und Buchhaltungs-Import
   registerInvoicingRoutes(app);
+  // Mondu an Bestellungen: Zahlung erneut senden, MonduSell anlegen und abgleichen
+  registerMonduRoutes(app);
 
   // Integrationen: E-Mail, M365, Webhooks, oeffentliche CPQ-Anfrage
   registerIntegrationRoutes(app);

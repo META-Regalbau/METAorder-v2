@@ -1102,21 +1102,17 @@ export function registerSettingsRoutes(app: Express): void {
   app.post("/api/settings/mondu/test", requireAuth, requireManageSettings, async (req, res) => {
     try {
       const validated = monduSettingsSchema.parse(req.body);
-      if (!validated.apiKey) {
+      // Ohne neuen Schlüssel den gespeicherten testen
+      const apiKey = validated.apiKey?.trim() || (await storage.getMonduSettings())?.apiKey;
+      if (!apiKey) {
         return res.status(400).json({ success: false, error: "API key is required for testing" });
       }
       const { MonduClient } = await import("../invoicing/mondu");
-      const client = new MonduClient({
-        apiKey: validated.apiKey,
-        sandboxMode: validated.sandboxMode,
-      });
-      
-      // Try to make a simple API call to test connectivity
-      // We'll just check if we can reach the API without errors
+      await new MonduClient({ apiKey, sandboxMode: validated.sandboxMode }).ping();
       res.json({ success: true, message: "Mondu API key validated" });
     } catch (error: any) {
       log.error({ err: error }, "Error testing Mondu connection:");
-      res.status(500).json({ success: false, error: error.message || "Connection test failed" });
+      res.status(502).json({ success: false, error: "Connection test failed", message: error.detail || error.message });
     }
   });
 

@@ -15,6 +15,7 @@ import {
   type Order,
 } from "@shared/schema";
 import { logger } from "../lib/logger";
+import { hasActiveMonduSell, submitMonduSellInvoice, type MonduSellInvoiceResult } from "./monduSell";
 
 const moduleLog = logger.child({ component: "invoicing/invoiceSending" });
 
@@ -46,6 +47,11 @@ export interface SendInvoiceResult {
    * wurde.
    */
   mondu?: boolean;
+  /**
+   * Bestellung mit MonduSell-Bestellung aus METAorder: Ergebnis der Rechnungsübergabe an Mondu
+   * (übergeben, vorgemerkt bis zur Käuferbestätigung oder fehlgeschlagen).
+   */
+  monduSell?: MonduSellInvoiceResult;
 }
 
 export interface SendOrderInvoiceOptions {
@@ -294,11 +300,27 @@ export async function sendOrderInvoice(
 
     await logRun("success", { invoiceId: invoice.id, emailSent: true });
 
+    // MonduSell aus METAorder: Rechnung gleich an Mondu (der Versand an den Kunden ist schon erledigt)
+    let monduSell: MonduSellInvoiceResult | undefined;
+    try {
+      if (await hasActiveMonduSell(options.tenantId ?? null, order.id)) {
+        monduSell = await submitMonduSellInvoice(options.tenantId ?? null, order.id, {
+          by: null,
+          invoiceId: invoice.id,
+          client,
+        });
+      }
+    } catch (err) {
+      moduleLog.warn({ err }, `[sendOrderInvoice] Rechnung verschickt, Mondu-Sell-Übergabe fehlgeschlagen (${order.id}):`);
+      monduSell = { status: "failed", message: err instanceof Error ? err.message : String(err) };
+    }
+
     return {
       status: "sent",
       invoiceId: invoice.id,
       invoiceNumber: invoice.number,
       message: "Rechnung verschickt und in Shopware als verschickt verifiziert",
+      ...(monduSell ? { monduSell } : {}),
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
