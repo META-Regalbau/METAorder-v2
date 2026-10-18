@@ -1,10 +1,11 @@
 /**
- * Pimcore-Verbindung in den Einstellungen (Datahub GraphQL): Adresse, Konfiguration, Artikelklasse,
- * Nummernfeld und API-Key je Mandant (Key verschluesselt, nie in Antworten), Verbindungstest mit
- * Introspection und Beispiel-Artikel.
- * Geprueft: Eingabepruefung, Client gegen einen nachgebauten Datahub (Header statt Adresse, Fehlercodes
- * inkl. fehlendem Datahub-Pfad), Test mit und ohne Introspection, echte Routen mit gemockter Anmeldung
- * und gemocktem Speicher, Systemprotokoll-Bereich, Einbindung in der Einstellungsseite.
+ * Pimcore-Verbindung in den Einstellungen ueber die REST-Exporte des Blackbit Data Director:
+ * Adresse, API-Key (verschluesselt, nie in Antworten, nur im Header), Dataports (Artikel vollstaendig,
+ * Artikel-Aenderungen, Preise) und Nummernfeld je Mandant; Verbindungstest mit Anzahl, Feldern, Beispiel.
+ * Geprueft: Eingabepruefung, Client gegen einen nachgebauten Data Director (Header statt Adresse,
+ * Fehlercodes inkl. fehlender REST-Route und HTML statt JSON), Formen der JSON-Antwort, Test ruft den
+ * Aenderungs-Dataport nie ab, echte Routen mit gemockter Anmeldung und gemocktem Speicher,
+ * Systemprotokoll-Bereich, Einbindung in der Einstellungsseite.
  * Ausführung: npm test
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -31,7 +32,9 @@ import { areaForComponent, areaForPath } from "../../server/lib/logAreas";
 import {
   PimcoreApiError,
   PimcoreClient,
-  classesFromQueryFields,
+  dataportExportUrl,
+  exportFields,
+  exportRecords,
   normalizePimcoreTarget,
   testPimcoreConnection,
   type StoredPimcoreConnection,
@@ -39,187 +42,175 @@ import {
 
 const ROOT = path.resolve(__dirname, "../..");
 const PIM = "https://pim.example.com";
-const ENDPOINT_URL = `${PIM}/pimcore-graphql-webservices/metaorder`;
 const KEY = "pimcore-key-0123456789";
 const OTHER_KEY = "pimcore-key-zweiter";
 
-const scalar = (name: string) => ({ name, kind: "SCALAR", ofType: null });
-const ARTIKEL_FIELDS = [
-  { name: "id", type: { kind: "NON_NULL", name: null, ofType: scalar("ID") } },
-  { name: "GTIN", type: scalar("String") },
-  { name: "hoehe", type: scalar("Float") },
-  { name: "bilder", type: { kind: "LIST", name: null, ofType: { name: "asset", kind: "OBJECT", ofType: null } } },
+const ARTICLES = [
+  { GTIN: "4026212138719", name: "Sicherungsstift", hoehe: 12, montagezeit: 0 },
+  { GTIN: "4026212348231", name: "Einzelholm", hoehe: 50, montagezeit: 2, serie: "CLIP" },
 ];
+const PRICES = [{ GTIN: "4026212138719", basePrice: 0.43, onlinepiceDE: 0.6 }];
 
-type FakeOptions = { key?: string; status?: number; html404?: boolean; noIntrospection?: boolean; classes?: string[] };
+type FakeOptions = { key?: string; noRoute?: boolean; html?: boolean; status?: number; articlesBody?: unknown };
 
-/** Nachgebauter Datahub-Endpunkt: Introspection (Schema + Typen) und Listen-Abfrage */
-function fakeDatahub(options: FakeOptions = {}) {
-  const calls: Array<{ url: string; key: string | null; query: string; variables?: any }> = [];
-  const classes = options.classes ?? ["Artikel", "basePrice", "onlinepiceDE"];
+/** Nachgebauter Data Director: GET /api/rest/export/<dataport>, Key im Header oder als apikey */
+function fakeDataDirector(options: FakeOptions = {}) {
+  const calls: Array<{ url: URL; key: string | null }> = [];
   const handler = async (input: string, init?: RequestInit) => {
-    const headers = new Headers(init?.headers);
-    const body = JSON.parse(String(init?.body ?? "{}"));
-    calls.push({ url: input, key: headers.get("X-API-Key"), query: body.query, variables: body.variables });
+    const url = new URL(input);
+    const key = new Headers(init?.headers).get("X-API-Key") ?? url.searchParams.get("apikey");
+    calls.push({ url, key });
     const json = (data: unknown, status = 200) =>
       new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json" } });
-    if (options.html404) return new Response("<!-- No route found --><html></html>", { status: 404, headers: { "content-type": "text/html" } });
-    if (input !== ENDPOINT_URL) return json({ success: false, message: "configuration not found" }, 403);
-    if (options.status) return json({ success: false, message: "boom" }, options.status);
-    if (headers.get("X-API-Key") !== (options.key ?? KEY)) return json({ success: false, message: "Permission denied, apikey not valid" }, 403);
-    if (body.query.includes("__schema") || body.query.includes("__type")) {
-      if (options.noIntrospection) return json({ errors: [{ message: "GraphQL introspection is not allowed" }] });
-      if (body.query.includes("__schema")) {
-        return json({
-          data: {
-            __schema: {
-              queryType: {
-                fields: [
-                  ...classes.flatMap((c) => [{ name: `get${c}` }, { name: `get${c}Listing` }]),
-                  { name: "getAsset" },
-                ],
-              },
-            },
-          },
-        });
-      }
-      const typeName = body.variables?.name;
-      return json({ data: { __type: typeName === "object_Artikel" ? { name: typeName, fields: ARTIKEL_FIELDS } : { name: typeName, fields: [{ name: "id", type: scalar("ID") }] } } });
-    }
-    if (body.query.includes("getArtikelListing")) {
-      if (body.query.includes("Unbekannt")) return json({ errors: [{ message: 'Cannot query field "Unbekannt"' }] });
-      const node: Record<string, unknown> = { id: "4711" };
-      if (body.query.includes("GTIN")) node.GTIN = "4026212138719";
-      return json({ data: { getArtikelListing: { totalCount: 12873, edges: [{ node }] } } });
-    }
-    return json({ errors: [{ message: "unknown query" }] });
+    const html = (title: string, status: number) =>
+      new Response(`<!-- ${title} --><html><head><title>${title}</title></head></html>`, { status, headers: { "content-type": "text/html" } });
+    if (options.noRoute) return html(`No route found for "GET ${input}" (404 Not Found)`, 404);
+    if (key !== (options.key ?? KEY)) return html("Access Denied. (403 Forbidden)", 403);
+    if (options.status) return json({ message: "Dataport kaputt" }, options.status);
+    const dataport = decodeURIComponent(url.pathname.replace(/^\/api\/rest\/export\//, ""));
+    if (options.html) return html("Export", 200);
+    if (dataport === "metaorder-artikel") return json(options.articlesBody ?? ARTICLES);
+    if (dataport === "metaorder-preise") return json({ data: PRICES });
+    if (dataport === "metaorder-artikel-aenderungen") return json([ARTICLES[1]]);
+    return html("Dataport not found", 404);
   };
   return { calls, handler };
 }
 
 const connection = (overrides: Partial<StoredPimcoreConnection> = {}): StoredPimcoreConnection => ({
   baseUrl: PIM,
-  endpoint: "metaorder",
   apiKey: KEY,
-  productClass: "Artikel",
+  articlesFullDataport: "metaorder-artikel",
+  articlesChangesDataport: "metaorder-artikel-aenderungen",
+  pricesDataport: "metaorder-preise",
   productNumberField: "GTIN",
   ...overrides,
 });
 
 describe("Pimcore-Eingaben", () => {
-  it("Adresse: HTTPS Pflicht, ohne Zugangsdaten/Parameter; kompletter Endpunkt wird zerlegt", () => {
+  it("Adresse: HTTPS Pflicht, ohne Zugangsdaten/Parameter; Export-Adresse wird zerlegt", () => {
     expect(normalizePimcoreTarget({ baseUrl: "" })).toEqual({ ok: false, code: "pimcore_url_missing" });
     expect(normalizePimcoreTarget({ baseUrl: "pim" })).toEqual({ ok: false, code: "pimcore_url_invalid" });
     expect(normalizePimcoreTarget({ baseUrl: "http://pim.example.com" })).toEqual({ ok: false, code: "pimcore_url_https" });
-    expect(normalizePimcoreTarget({ baseUrl: `${PIM}?apikey=x` })).toEqual({ ok: false, code: "pimcore_url_invalid" });
-    expect(normalizePimcoreTarget({ baseUrl: "https://u:p@pim.example.com" })).toEqual({ ok: false, code: "pimcore_url_invalid" });
+    // apikey in der Adresse landet in Zugriffsprotokollen
+    expect(normalizePimcoreTarget({ baseUrl: `${PIM}/api/rest/export/x?apikey=geheim` })).toEqual({ ok: false, code: "pimcore_url_invalid" });
     expect(normalizePimcoreTarget({ baseUrl: " https://pim.example.com/ " })).toEqual({
       ok: true,
-      target: { baseUrl: PIM, endpoint: "metaorder", productClass: "Artikel", productNumberField: "GTIN" },
+      target: {
+        baseUrl: PIM,
+        articlesFullDataport: "metaorder-artikel",
+        articlesChangesDataport: "metaorder-artikel-aenderungen",
+        pricesDataport: "metaorder-preise",
+        productNumberField: "GTIN",
+      },
     });
-    expect(normalizePimcoreTarget({ baseUrl: `${PIM}/pimcore-graphql-webservices/produkte/` })).toMatchObject({
+    expect(normalizePimcoreTarget({ baseUrl: `${PIM}/api/rest/export/Artikel%20Export/` })).toMatchObject({
       ok: true,
-      target: { baseUrl: PIM, endpoint: "produkte" },
+      target: { baseUrl: PIM, articlesFullDataport: "Artikel Export" },
     });
     expect(normalizePimcoreTarget({ baseUrl: "http://localhost:8080" })).toMatchObject({ ok: true, target: { baseUrl: "http://localhost:8080" } });
   });
 
-  it("Namen gehen in Abfragen ein: nur Buchstaben, Ziffern, _ (Konfiguration auch -)", () => {
-    expect(normalizePimcoreTarget({ baseUrl: PIM, endpoint: "meta order" })).toEqual({ ok: false, code: "pimcore_endpoint_invalid" });
-    expect(normalizePimcoreTarget({ baseUrl: PIM, endpoint: "meta-order" })).toMatchObject({ ok: true });
-    expect(normalizePimcoreTarget({ baseUrl: PIM, productClass: "Artikel{ x }" })).toEqual({ ok: false, code: "pimcore_class_invalid" });
-    expect(normalizePimcoreTarget({ baseUrl: PIM, productNumberField: "GTIN }" })).toEqual({ ok: false, code: "pimcore_field_invalid" });
+  it("leere Aenderungs-/Preis-Dataports bleiben leer (nicht genutzt); Namen werden geprueft", () => {
+    expect(normalizePimcoreTarget({ baseUrl: PIM, articlesChangesDataport: "", pricesDataport: " " })).toMatchObject({
+      ok: true,
+      target: { articlesChangesDataport: "", pricesDataport: "" },
+    });
+    expect(normalizePimcoreTarget({ baseUrl: PIM, articlesFullDataport: "" })).toMatchObject({ ok: true, target: { articlesFullDataport: "metaorder-artikel" } });
+    expect(normalizePimcoreTarget({ baseUrl: PIM, pricesDataport: "../admin" })).toEqual({ ok: false, code: "pimcore_dataport_invalid" });
+    expect(normalizePimcoreTarget({ baseUrl: PIM, articlesFullDataport: "42" })).toMatchObject({ ok: true });
+    expect(normalizePimcoreTarget({ baseUrl: PIM, productNumberField: "GTIN{x}" })).toEqual({ ok: false, code: "pimcore_field_invalid" });
+    expect(normalizePimcoreTarget({ baseUrl: PIM, productNumberField: "Artikel-Nr." })).toMatchObject({ ok: true });
   });
 
-  it("Klassen aus den Listen-Abfragen", () => {
-    expect(classesFromQueryFields([{ name: "getArtikel" }, { name: "getArtikelListing" }, { name: "getbasePriceListing" }, { name: "getAsset" }])).toEqual([
-      { name: "Artikel", listingField: "getArtikelListing", typeName: "object_Artikel" },
-      { name: "basePrice", listingField: "getbasePriceListing", typeName: "object_basePrice" },
-    ]);
+  it("Export-Adresse mit kodiertem Dataport-Namen", () => {
+    expect(dataportExportUrl(PIM, "Artikel Export", { locale: "de" })).toBe(`${PIM}/api/rest/export/Artikel%20Export?locale=de`);
+  });
+});
+
+describe("JSON-Antworten des Data Director", () => {
+  it("Liste, Objekt mit einer Liste, Objekt von Objekten, Einzelobjekt", () => {
+    expect(exportRecords(ARTICLES)).toHaveLength(2);
+    expect(exportRecords({ data: PRICES, total: 1 })).toEqual(PRICES);
+    expect(exportRecords({ "11": { GTIN: "1" }, "12": { GTIN: "2" } })).toEqual([{ GTIN: "1" }, { GTIN: "2" }]);
+    expect(exportRecords({ GTIN: "1", name: "x" })).toEqual([{ GTIN: "1", name: "x" }]);
+    expect(exportRecords([1, "x", null, { GTIN: "1" }])).toEqual([{ GTIN: "1" }]);
+    expect(exportRecords(null)).toEqual([]);
+    expect(exportFields(ARTICLES)).toEqual(["GTIN", "name", "hoehe", "montagezeit", "serie"]);
   });
 });
 
 describe("Pimcore-Client", () => {
   it("Key nur im Header X-API-Key, nie in der Adresse", async () => {
-    const fake = fakeDatahub();
-    await new PimcoreClient(connection(), fake.handler).query("{ getArtikelListing(first: 1) { totalCount } }");
-    expect(fake.calls[0].url).toBe(ENDPOINT_URL);
-    expect(fake.calls[0].url).not.toContain(KEY);
+    const fake = fakeDataDirector();
+    await new PimcoreClient(connection(), fake.handler).exportDataport("metaorder-artikel");
+    expect(fake.calls[0].url.toString()).toBe(`${PIM}/api/rest/export/metaorder-artikel`);
+    expect(fake.calls[0].url.toString()).not.toContain(KEY);
     expect(fake.calls[0].key).toBe(KEY);
   });
 
-  it("Fehler als Code: falscher Key, unbekannte Konfiguration, kein Datahub, nicht erreichbar, Abfragefehler", async () => {
-    const run = async (conn: StoredPimcoreConnection, fake = fakeDatahub(), query = "{ getArtikelListing { totalCount } }") => {
+  it("Fehler als Code: Key abgelehnt, keine REST-Route, unbekannter Dataport, kein JSON, Serverfehler, nicht erreichbar", async () => {
+    const run = async (conn: StoredPimcoreConnection, fake = fakeDataDirector(), dataport = "metaorder-artikel") => {
       try {
-        await new PimcoreClient(conn, fake.handler).query(query);
+        await new PimcoreClient(conn, fake.handler).exportDataport(dataport);
         return null;
       } catch (error) {
         expect(error).toBeInstanceOf(PimcoreApiError);
-        return { code: (error as PimcoreApiError).code, status: (error as PimcoreApiError).status, detail: (error as PimcoreApiError).detail };
+        const e = error as PimcoreApiError;
+        return { code: e.code, status: e.status, detail: e.detail };
       }
     };
-    expect(await run(connection({ apiKey: OTHER_KEY }))).toMatchObject({ code: "pimcore_unauthorized", status: 403 });
-    expect(await run(connection({ endpoint: "andere" }))).toMatchObject({ code: "pimcore_endpoint_unknown", status: 403 });
-    expect(await run(connection(), fakeDatahub({ html404: true }))).toMatchObject({ code: "pimcore_no_datahub", status: 404 });
-    expect(await run(connection(), fakeDatahub({ status: 500 }))).toMatchObject({ code: "pimcore_failed", status: 500, detail: "boom" });
-    expect(await run(connection(), fakeDatahub(), "{ getArtikelListing { Unbekannt } }")).toMatchObject({
-      code: "pimcore_graphql_error",
-      detail: 'Cannot query field "Unbekannt"',
-    });
+    expect(await run(connection({ apiKey: OTHER_KEY }))).toEqual({ code: "pimcore_unauthorized", status: 403, detail: "Access Denied. (403 Forbidden)" });
+    expect(await run(connection(), fakeDataDirector({ noRoute: true }))).toMatchObject({ code: "pimcore_no_rest", status: 404 });
+    expect(await run(connection(), fakeDataDirector(), "gibts-nicht")).toEqual({ code: "pimcore_dataport_unknown", status: 404, detail: "gibts-nicht" });
+    expect(await run(connection(), fakeDataDirector({ html: true }))).toMatchObject({ code: "pimcore_not_json", status: 200 });
+    expect(await run(connection(), fakeDataDirector({ status: 500 }))).toEqual({ code: "pimcore_failed", status: 500, detail: "Dataport kaputt" });
     const offline = { handler: async () => { throw new TypeError("fetch failed"); } } as any;
     expect(await run(connection(), offline)).toMatchObject({ code: "pimcore_unreachable", status: null });
   });
 });
 
 describe("Pimcore-Verbindungstest", () => {
-  it("zeigt freigegebene Klassen mit Feldern und einen Beispiel-Artikel", async () => {
-    const fake = fakeDatahub();
+  it("Artikel und Preise mit Anzahl, Feldern, Beispiel; Aenderungs-Dataport wird NICHT abgerufen", async () => {
+    const fake = fakeDataDirector();
     const result = await testPimcoreConnection(new PimcoreClient(connection(), fake.handler), connection());
-    expect(result.introspection).toBe(true);
-    expect(result.classes.map((c) => c.name)).toEqual(["Artikel", "basePrice", "onlinepiceDE"]);
-    expect(result.classes[0].fields).toEqual([
-      { name: "id", type: "ID!" },
-      { name: "GTIN", type: "String" },
-      { name: "hoehe", type: "Float" },
-      { name: "bilder", type: "[asset]" },
-    ]);
-    expect(result.product).toEqual({
-      className: "Artikel",
-      numberField: "GTIN",
-      numberFieldFound: true,
-      totalCount: 12873,
-      sample: { id: "4711", number: "4026212138719" },
+    expect(result).toEqual({
+      baseUrl: PIM,
+      articles: {
+        dataport: "metaorder-artikel",
+        count: 2,
+        fields: ["GTIN", "name", "hoehe", "montagezeit", "serie"],
+        numberFieldFound: true,
+        sample: "4026212138719",
+      },
+      prices: { dataport: "metaorder-preise", count: 1, fields: ["GTIN", "basePrice", "onlinepiceDE"], sample: JSON.stringify(PRICES[0]) },
+      changesDataport: "metaorder-artikel-aenderungen",
     });
-    // nacheinander: Schema, je Klasse ein Typ, dann der Beispiel-Artikel
-    expect(fake.calls).toHaveLength(5);
+    expect(fake.calls.map((c) => c.url.pathname)).toEqual(["/api/rest/export/metaorder-artikel", "/api/rest/export/metaorder-preise"]);
   });
 
-  it("Nummernfeld nicht freigegeben: Hinweis statt Fehler, Beispiel nur mit id", async () => {
-    const result = await testPimcoreConnection(
-      new PimcoreClient(connection({ productNumberField: "Artikelnummer" }), fakeDatahub().handler),
-      connection({ productNumberField: "Artikelnummer" }),
-    );
-    expect(result.product.numberFieldFound).toBe(false);
-    expect(result.product.sample).toEqual({ id: "4711", number: null });
+  it("Nummernfeld fehlt: Hinweis statt Fehler; ohne Preis-Dataport nur Artikel", async () => {
+    const conn = connection({ productNumberField: "Artikelnummer", pricesDataport: "", articlesChangesDataport: "" });
+    const result = await testPimcoreConnection(new PimcoreClient(conn, fakeDataDirector().handler), conn);
+    expect(result.articles.numberFieldFound).toBe(false);
+    expect(result.articles.sample).toBe(JSON.stringify(ARTICLES[0]));
+    expect(result.prices).toBeNull();
+    expect(result.changesDataport).toBeNull();
   });
 
-  it("Klasse nicht freigegeben: Fehler pimcore_class_missing mit Klassenname", async () => {
+  it("Fehler nennt den betroffenen Dataport", async () => {
     await expect(
-      testPimcoreConnection(new PimcoreClient(connection(), fakeDatahub({ classes: ["basePrice"] }).handler), connection()),
-    ).rejects.toMatchObject({ code: "pimcore_class_missing", detail: "Artikel" });
-  });
-
-  it("ohne Introspection: nur der Beispiel-Artikel", async () => {
-    const result = await testPimcoreConnection(new PimcoreClient(connection(), fakeDatahub({ noIntrospection: true }).handler), connection());
-    expect(result.introspection).toBe(false);
-    expect(result.classes).toEqual([]);
-    expect(result.product).toMatchObject({ numberFieldFound: true, totalCount: 12873, sample: { number: "4026212138719" } });
+      testPimcoreConnection(new PimcoreClient(connection({ apiKey: OTHER_KEY }), fakeDataDirector().handler), connection({ apiKey: OTHER_KEY })),
+    ).rejects.toMatchObject({ code: "pimcore_unauthorized", detail: "metaorder-artikel: Access Denied. (403 Forbidden)" });
+    await expect(
+      testPimcoreConnection(new PimcoreClient(connection(), fakeDataDirector().handler), connection({ pricesDataport: "preise-alt" })),
+    ).rejects.toMatchObject({ code: "pimcore_dataport_unknown", detail: "preise-alt" });
   });
 });
 
 describe("Einstellungen: Pimcore-Verbindung (Routen)", () => {
   const settings = new Map<string, any>();
-  let pim = fakeDatahub();
+  let pim = fakeDataDirector();
   let server: Server;
   let base = "";
   const realFetch = globalThis.fetch;
@@ -247,7 +238,7 @@ describe("Einstellungen: Pimcore-Verbindung (Routen)", () => {
   });
   beforeEach(() => {
     settings.clear();
-    pim = fakeDatahub();
+    pim = fakeDataDirector();
   });
 
   const call = async (method: string, url: string, body?: unknown) => {
@@ -265,7 +256,15 @@ describe("Einstellungen: Pimcore-Verbindung (Routen)", () => {
     return { status: res.status, body: JSON.parse(text) };
   };
 
-  const empty = { configured: false, baseUrl: "", endpoint: "metaorder", productClass: "Artikel", productNumberField: "GTIN", hasApiKey: false };
+  const empty = {
+    configured: false,
+    baseUrl: "",
+    articlesFullDataport: "metaorder-artikel",
+    articlesChangesDataport: "metaorder-artikel-aenderungen",
+    pricesDataport: "metaorder-preise",
+    productNumberField: "GTIN",
+    hasApiKey: false,
+  };
 
   it("speichern: Key verschluesselt; GET zeigt nur, dass einer gespeichert ist", async () => {
     expect(await call("GET", "/api/settings/pimcore-connection")).toEqual({ status: 200, body: empty });
@@ -279,19 +278,19 @@ describe("Einstellungen: Pimcore-Verbindung (Routen)", () => {
     });
     expect(settings.has("pimcore_connection")).toBe(false);
 
-    const saved = await call("POST", "/api/settings/pimcore-connection", { baseUrl: `${PIM}/pimcore-graphql-webservices/metaorder`, apiKey: ` ${KEY} ` });
-    expect(saved).toEqual({ status: 200, body: { ...empty, configured: true, baseUrl: PIM, hasApiKey: true } });
+    const saved = await call("POST", "/api/settings/pimcore-connection", { baseUrl: `${PIM}/`, pricesDataport: "", apiKey: ` ${KEY} ` });
+    expect(saved).toEqual({ status: 200, body: { ...empty, configured: true, baseUrl: PIM, pricesDataport: "", hasApiKey: true } });
     const stored = settings.get("pimcore_connection");
-    expect(stored).toMatchObject({ baseUrl: PIM, endpoint: "metaorder", productClass: "Artikel", productNumberField: "GTIN" });
+    expect(stored).toMatchObject({ baseUrl: PIM, articlesFullDataport: "metaorder-artikel", pricesDataport: "" });
     expect(stored.apiKey).not.toBe(KEY);
     expect(decrypt(stored.apiKey)).toBe(KEY);
-    expect(await call("GET", "/api/settings/pimcore-connection")).toEqual({ status: 200, body: { ...empty, configured: true, baseUrl: PIM, hasApiKey: true } });
+    expect(await call("GET", "/api/settings/pimcore-connection")).toMatchObject({ body: { configured: true, pricesDataport: "", hasApiKey: true } });
   });
 
   it("leerer Key behaelt den gespeicherten; neuer Key ersetzt ihn", async () => {
     await call("POST", "/api/settings/pimcore-connection", { baseUrl: PIM, apiKey: KEY });
-    await call("POST", "/api/settings/pimcore-connection", { baseUrl: PIM, productClass: "Produkt", apiKey: "" });
-    expect(settings.get("pimcore_connection").productClass).toBe("Produkt");
+    await call("POST", "/api/settings/pimcore-connection", { baseUrl: PIM, articlesFullDataport: "artikel-voll", apiKey: "" });
+    expect(settings.get("pimcore_connection").articlesFullDataport).toBe("artikel-voll");
     expect(decrypt(settings.get("pimcore_connection").apiKey)).toBe(KEY);
     await call("POST", "/api/settings/pimcore-connection", { baseUrl: PIM, apiKey: OTHER_KEY });
     expect(decrypt(settings.get("pimcore_connection").apiKey)).toBe(OTHER_KEY);
@@ -301,8 +300,9 @@ describe("Einstellungen: Pimcore-Verbindung (Routen)", () => {
     expect(await call("POST", "/api/settings/pimcore-connection/test", { baseUrl: PIM })).toMatchObject({ status: 400, body: { code: "pimcore_key_missing" } });
     const ok = await call("POST", "/api/settings/pimcore-connection/test", { baseUrl: PIM, apiKey: KEY });
     expect(ok.status).toBe(200);
-    expect(ok.body).toMatchObject({ success: true, endpointUrl: ENDPOINT_URL, product: { totalCount: 12873, sample: { number: "4026212138719" } } });
+    expect(ok.body).toMatchObject({ success: true, articles: { count: 2, sample: "4026212138719" }, prices: { count: 1 } });
     expect(settings.has("pimcore_connection")).toBe(false);
+    expect(pim.calls.some((c) => c.url.pathname.endsWith("aenderungen"))).toBe(false);
 
     await call("POST", "/api/settings/pimcore-connection", { baseUrl: PIM, apiKey: KEY });
     expect(await call("POST", "/api/settings/pimcore-connection/test", {})).toMatchObject({ status: 200 });
@@ -310,10 +310,15 @@ describe("Einstellungen: Pimcore-Verbindung (Routen)", () => {
 
     expect(await call("POST", "/api/settings/pimcore-connection/test", { apiKey: OTHER_KEY })).toEqual({
       status: 502,
-      body: { error: "Pimcore-Anfrage fehlgeschlagen", code: "pimcore_unauthorized", pimcoreStatus: 403, detail: "Permission denied, apikey not valid" },
+      body: {
+        error: "Pimcore-Anfrage fehlgeschlagen",
+        code: "pimcore_unauthorized",
+        pimcoreStatus: 403,
+        detail: "metaorder-artikel: Access Denied. (403 Forbidden)",
+      },
     });
-    pim = fakeDatahub({ html404: true });
-    expect(await call("POST", "/api/settings/pimcore-connection/test", {})).toMatchObject({ status: 502, body: { code: "pimcore_no_datahub", pimcoreStatus: 404 } });
+    pim = fakeDataDirector({ noRoute: true });
+    expect(await call("POST", "/api/settings/pimcore-connection/test", {})).toMatchObject({ status: 502, body: { code: "pimcore_no_rest", pimcoreStatus: 404 } });
   });
 
   it("entfernen", async () => {
@@ -325,12 +330,12 @@ describe("Einstellungen: Pimcore-Verbindung (Routen)", () => {
 
 describe("Systemprotokoll und Einstellungsseite", () => {
   it("eigener Bereich Pimcore fuer Modul und API-Pfad", () => {
-    expect(areaForComponent("integration/pimcoreSync")).toBe("pimcore");
+    expect(areaForComponent("integration/pimcoreConnection")).toBe("pimcore");
     expect(areaForComponent("integration/n8nConnection")).toBe("integration");
     expect(areaForPath("/api/settings/pimcore-connection/test")).toBe("pimcore");
   });
 
-  it("Abschnitt im Reiter Integration; Key als Passwortfeld, nie vorbelegt", () => {
+  it("Abschnitt im Reiter Integration; Key als Passwortfeld, nie vorbelegt; keine Datahub-Reste", () => {
     const page = readFileSync(path.join(ROOT, "client/src/pages/SettingsPage.tsx"), "utf8");
     expect(page).toMatch(/<TabsContent value="integration"[^>]*>[\s\S]*?<PimcoreConnectionSection \/>/);
     const section = readFileSync(path.join(ROOT, "client/src/components/PimcoreConnectionSection.tsx"), "utf8");
@@ -340,5 +345,7 @@ describe("Systemprotokoll und Einstellungsseite", () => {
     expect(section).toMatch(/apiRequest\("POST", "\/api\/settings\/pimcore-connection\/test", \{ \.\.\.form, apiKey \}\)/);
     expect(section).toMatch(/apiRequest\("DELETE", "\/api\/settings\/pimcore-connection"\)/);
     expect(section).not.toMatch(/setApiKey\((connection|saved|data|result)/);
+    const module = readFileSync(path.join(ROOT, "server/integration/pimcoreConnection.ts"), "utf8");
+    expect(module).not.toMatch(/graphql|introspection/i);
   });
 });

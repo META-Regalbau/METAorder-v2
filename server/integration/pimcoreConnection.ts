@@ -1,59 +1,73 @@
 import { decrypt, encrypt } from "../lib/encryption";
 
 /**
- * Verbindung METAorder -> Pimcore (Datahub, GraphQL). Pimcore fuehrt bei Stammdaten und Preisen;
- * METAorder liest darueber direkt statt auf den Pimcore-Export in den Shop zu warten
- * (Konzept Pimcore-Anbindung-Konzept-2026-10-17.html). Dieser Teil: Adresse, Endpunkt der
- * Datahub-Konfiguration und API-Key je Mandant in settings ("pimcore_connection"), Key verschluesselt
- * wie die uebrigen Zugangsdaten; die Oberflaeche bekommt ihn nie zurueck.
- * Der Key geht nur im Header X-API-Key mit, nie in der Adresse (sonst stuende er in Zugriffsprotokollen).
- * Der Verbindungstest liest per Introspection, welche Klassen und Felder die Konfiguration freigibt,
- * und holt einen Beispiel-Artikel. Fehler tragen einen Code (pimcore_*), die Oberflaeche uebersetzt ihn.
+ * Verbindung METAorder -> Pimcore ueber die REST-Schnittstelle des Blackbit Data Director
+ * (GET <pimcore>/api/rest/export/<Dataport>). Pimcore fuehrt bei Stammdaten und Preisen; METAorder liest
+ * darueber direkt statt auf den Pimcore-Export in den Shop zu warten (Konzept Pimcore-Anbindung).
+ * Je Mandant in settings ("pimcore_connection"): Adresse, API-Key (verschluesselt, nie in Antworten,
+ * nur im Header X-API-Key) und die Namen der Dataports:
+ * - Artikel vollstaendig (nachts, Abgleich aller Artikel)
+ * - Artikel-Aenderungen (automatischer Export mit "Incremental Export": jeder Abruf liefert nur, was
+ *   sich seit dem letzten Abruf geaendert hat, und leert danach den Vorrat) - den ruft der
+ *   Verbindungstest deshalb NIE ab, sonst gingen dem Abgleich Aenderungen verloren
+ * - Preise (basePrice, Onlineshop-Preis)
+ * Exporte muessen JSON liefern. Fehler tragen einen Code (pimcore_*), die Oberflaeche uebersetzt ihn.
  */
 
 export const PIMCORE_SETTING_KEY = "pimcore_connection";
-/** Pfad der Datahub-GraphQL-Endpunkte; dahinter steht der Name der Konfiguration */
-export const PIMCORE_GRAPHQL_PATH = "/pimcore-graphql-webservices";
+/** REST-Pfad der Data-Director-Exporte; dahinter steht der Name (oder die ID) des Dataports */
+export const DATA_DIRECTOR_EXPORT_PATH = "/api/rest/export";
 
-export const PIMCORE_DEFAULTS = { endpoint: "metaorder", productClass: "Artikel", productNumberField: "GTIN" } as const;
+export const PIMCORE_DEFAULTS = {
+  articlesFullDataport: "metaorder-artikel",
+  articlesChangesDataport: "metaorder-artikel-aenderungen",
+  pricesDataport: "metaorder-preise",
+  productNumberField: "GTIN",
+} as const;
 
-export type StoredPimcoreConnection = {
+export type PimcoreDataports = {
+  /** Alle Artikel (ohne "Incremental Export") */
+  articlesFullDataport: string;
+  /** Nur Aenderungen ("Incremental Export"); leer = nicht genutzt */
+  articlesChangesDataport: string;
+  /** Basis- und Onlineshop-Preise; leer = nicht genutzt */
+  pricesDataport: string;
+};
+
+export type StoredPimcoreConnection = PimcoreDataports & {
   baseUrl: string;
-  /** Name der Datahub-Konfiguration */
-  endpoint: string;
   apiKey: string;
-  /** Pimcore-Klasse der Artikel */
-  productClass: string;
-  /** Feld mit der Artikelnummer (= Shop-Artikelnummer) */
+  /** Feld des Exports mit der Artikelnummer (= Shop-Artikelnummer) */
   productNumberField: string;
 };
+
+export type PimcoreTarget = Omit<StoredPimcoreConnection, "apiKey">;
 
 /** Hosts, die auch ohne HTTPS erlaubt sind (lokale Entwicklung, Docker) */
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "host.docker.internal"]);
 
-/** Namen von Konfiguration, Klasse und Feld: wie in Pimcore, ohne Sonderzeichen (gehen in Abfragen ein) */
-const NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_-]{0,79}$/;
-const GRAPHQL_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]{0,79}$/;
+/** Dataport-Name oder -ID wie in Pimcore; geht in die Adresse ein */
+const DATAPORT_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 _.-]{0,99}$/;
+/** Feldname im Export (Spaltenname im Dataport) */
+const FIELD_PATTERN = /^[^\s{}"'<>][^{}"'<>]{0,99}$/;
 
 export type PimcoreInputErrorCode =
   | "pimcore_url_missing"
   | "pimcore_url_invalid"
   | "pimcore_url_https"
-  | "pimcore_endpoint_invalid"
-  | "pimcore_class_invalid"
+  | "pimcore_dataport_invalid"
   | "pimcore_field_invalid";
 
-export type PimcoreTarget = Omit<StoredPimcoreConnection, "apiKey">;
-
 /**
- * Eingaben vereinheitlichen. Die Adresse darf auch der komplette Endpunkt sein
- * (".../pimcore-graphql-webservices/metaorder"): dann gilt der Name daraus, wenn kein eigener angegeben ist.
- * HTTPS Pflicht, ausser fuer lokale Hosts; keine Zugangsdaten oder Parameter in der Adresse.
+ * Eingaben vereinheitlichen. Die Adresse darf auch eine komplette Export-Adresse sein
+ * (".../api/rest/export/metaorder-artikel"): dann gilt der Dataport daraus, wenn keiner angegeben ist.
+ * HTTPS Pflicht, ausser fuer lokale Hosts; keine Zugangsdaten oder Parameter (apikey!) in der Adresse.
  */
 export function normalizePimcoreTarget(input: {
   baseUrl?: unknown;
-  endpoint?: unknown;
-  productClass?: unknown;
+  articlesFullDataport?: unknown;
+  articlesChangesDataport?: unknown;
+  pricesDataport?: unknown;
   productNumberField?: unknown;
 }): { ok: true; target: PimcoreTarget } | { ok: false; code: PimcoreInputErrorCode } {
   const text = typeof input.baseUrl === "string" ? input.baseUrl.trim() : "";
@@ -70,25 +84,41 @@ export function normalizePimcoreTarget(input: {
     return { ok: false, code: "pimcore_url_https" };
   }
   let path = url.pathname.replace(/\/+$/, "");
-  let endpointFromUrl = "";
-  const graphqlAt = path.indexOf(PIMCORE_GRAPHQL_PATH);
-  if (graphqlAt >= 0) {
-    endpointFromUrl = path.slice(graphqlAt + PIMCORE_GRAPHQL_PATH.length).replace(/^\/+/, "").split("/")[0] ?? "";
-    path = path.slice(0, graphqlAt);
+  let dataportFromUrl = "";
+  const exportAt = path.indexOf(DATA_DIRECTOR_EXPORT_PATH);
+  if (exportAt >= 0) {
+    dataportFromUrl = decodeURIComponent(path.slice(exportAt + DATA_DIRECTOR_EXPORT_PATH.length).replace(/^\/+/, "").split("/")[0] ?? "");
+    path = path.slice(0, exportAt);
   }
-  const pick = (value: unknown, fallback: string) => (typeof value === "string" && value.trim() ? value.trim() : fallback);
-  const endpoint = pick(input.endpoint, endpointFromUrl || PIMCORE_DEFAULTS.endpoint);
-  if (!NAME_PATTERN.test(endpoint)) return { ok: false, code: "pimcore_endpoint_invalid" };
-  const productClass = pick(input.productClass, PIMCORE_DEFAULTS.productClass);
-  if (!GRAPHQL_NAME_PATTERN.test(productClass)) return { ok: false, code: "pimcore_class_invalid" };
-  const productNumberField = pick(input.productNumberField, PIMCORE_DEFAULTS.productNumberField);
-  if (!GRAPHQL_NAME_PATTERN.test(productNumberField)) return { ok: false, code: "pimcore_field_invalid" };
-  return { ok: true, target: { baseUrl: `${url.origin}${path}`, endpoint, productClass, productNumberField } };
+  const text2 = (value: unknown) => (typeof value === "string" ? value.trim() : undefined);
+  // undefined = nicht angegeben -> Standard; "" = bewusst leer (Aenderungen/Preise nicht genutzt)
+  const full = text2(input.articlesFullDataport) || dataportFromUrl || PIMCORE_DEFAULTS.articlesFullDataport;
+  const changes = text2(input.articlesChangesDataport) ?? PIMCORE_DEFAULTS.articlesChangesDataport;
+  const prices = text2(input.pricesDataport) ?? PIMCORE_DEFAULTS.pricesDataport;
+  for (const name of [full, changes, prices]) {
+    if (name && !DATAPORT_PATTERN.test(name)) return { ok: false, code: "pimcore_dataport_invalid" };
+  }
+  const productNumberField = text2(input.productNumberField) || PIMCORE_DEFAULTS.productNumberField;
+  if (!FIELD_PATTERN.test(productNumberField)) return { ok: false, code: "pimcore_field_invalid" };
+  return {
+    ok: true,
+    target: {
+      baseUrl: `${url.origin}${path}`,
+      articlesFullDataport: full,
+      articlesChangesDataport: changes,
+      pricesDataport: prices,
+      productNumberField,
+    },
+  };
 }
 
-export function pimcoreEndpointUrl(connection: Pick<StoredPimcoreConnection, "baseUrl" | "endpoint">): string {
-  return `${connection.baseUrl}${PIMCORE_GRAPHQL_PATH}/${encodeURIComponent(connection.endpoint)}`;
+export function dataportExportUrl(baseUrl: string, dataport: string, params: Record<string, string> = {}): string {
+  const url = new URL(`${baseUrl}${DATA_DIRECTOR_EXPORT_PATH}/${encodeURIComponent(dataport)}`);
+  for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
+  return url.toString();
 }
+
+const textOr = (value: unknown, fallback: string) => (typeof value === "string" ? value : fallback);
 
 export async function loadPimcoreConnection(
   getSetting: (key: string) => Promise<any>,
@@ -97,13 +127,11 @@ export async function loadPimcoreConnection(
   if (!stored || typeof stored.baseUrl !== "string" || typeof stored.apiKey !== "string" || !stored.apiKey) return null;
   return {
     baseUrl: stored.baseUrl,
-    endpoint: typeof stored.endpoint === "string" && stored.endpoint ? stored.endpoint : PIMCORE_DEFAULTS.endpoint,
     apiKey: decrypt(stored.apiKey),
-    productClass: typeof stored.productClass === "string" && stored.productClass ? stored.productClass : PIMCORE_DEFAULTS.productClass,
-    productNumberField:
-      typeof stored.productNumberField === "string" && stored.productNumberField
-        ? stored.productNumberField
-        : PIMCORE_DEFAULTS.productNumberField,
+    articlesFullDataport: textOr(stored.articlesFullDataport, "") || PIMCORE_DEFAULTS.articlesFullDataport,
+    articlesChangesDataport: textOr(stored.articlesChangesDataport, PIMCORE_DEFAULTS.articlesChangesDataport),
+    pricesDataport: textOr(stored.pricesDataport, PIMCORE_DEFAULTS.pricesDataport),
+    productNumberField: textOr(stored.productNumberField, "") || PIMCORE_DEFAULTS.productNumberField,
   };
 }
 
@@ -114,13 +142,13 @@ export function pimcoreConnectionSettingValue(connection: StoredPimcoreConnectio
 
 /** Antwort fuer die Oberflaeche: alles ausser dem Key */
 export function describePimcoreConnection(stored: any) {
-  const text = (value: unknown) => (typeof value === "string" ? value : "");
   return {
     configured: Boolean(stored?.baseUrl && stored?.apiKey),
-    baseUrl: text(stored?.baseUrl),
-    endpoint: text(stored?.endpoint) || PIMCORE_DEFAULTS.endpoint,
-    productClass: text(stored?.productClass) || PIMCORE_DEFAULTS.productClass,
-    productNumberField: text(stored?.productNumberField) || PIMCORE_DEFAULTS.productNumberField,
+    baseUrl: textOr(stored?.baseUrl, ""),
+    articlesFullDataport: textOr(stored?.articlesFullDataport, "") || PIMCORE_DEFAULTS.articlesFullDataport,
+    articlesChangesDataport: textOr(stored?.articlesChangesDataport, PIMCORE_DEFAULTS.articlesChangesDataport),
+    pricesDataport: textOr(stored?.pricesDataport, PIMCORE_DEFAULTS.pricesDataport),
+    productNumberField: textOr(stored?.productNumberField, "") || PIMCORE_DEFAULTS.productNumberField,
     hasApiKey: Boolean(stored?.apiKey),
   };
 }
@@ -128,11 +156,9 @@ export function describePimcoreConnection(stored: any) {
 export type PimcoreApiErrorCode =
   | "pimcore_unreachable"
   | "pimcore_unauthorized"
-  | "pimcore_no_datahub"
-  | "pimcore_endpoint_unknown"
-  | "pimcore_not_graphql"
-  | "pimcore_graphql_error"
-  | "pimcore_class_missing"
+  | "pimcore_no_rest"
+  | "pimcore_dataport_unknown"
+  | "pimcore_not_json"
   | "pimcore_failed";
 
 export class PimcoreApiError extends Error {
@@ -140,7 +166,7 @@ export class PimcoreApiError extends Error {
     readonly code: PimcoreApiErrorCode,
     /** HTTP-Status von Pimcore (null = keine Antwort) */
     readonly status: number | null,
-    /** Meldung von Pimcore/GraphQL (gekuerzt), nur fuer Admins in den Einstellungen */
+    /** Meldung von Pimcore (gekuerzt) bzw. betroffener Dataport, nur fuer Admins in den Einstellungen */
     readonly detail?: string,
   ) {
     super(`${code}${status ? ` (${status})` : ""}${detail ? `: ${detail}` : ""}`);
@@ -150,166 +176,139 @@ export class PimcoreApiError extends Error {
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
-const TIMEOUT_MS = 20_000;
+/** Ein Vollexport aller Artikel kann dauern */
+const TIMEOUT_MS = 180_000;
 const DETAIL_MAX = 300;
-/** Klassen, deren Felder der Test zeigt, hoechstens */
-const MAX_CLASSES = 40;
 
 const shorten = (text: string) => (text.length > DETAIL_MAX ? `${text.slice(0, DETAIL_MAX)}…` : text);
 
-function messageOf(body: any): string {
-  if (Array.isArray(body?.errors) && body.errors.length > 0) {
-    return body.errors.map((e: any) => (typeof e?.message === "string" ? e.message : "")).filter(Boolean).join("; ");
-  }
+/** Meldung aus JSON ({message}/{error}) oder Titel einer HTML-Fehlerseite ("Access Denied.") */
+function messageOf(body: any, text: string): string {
   if (typeof body?.message === "string") return body.message;
   if (typeof body?.error === "string") return body.error;
-  return "";
+  const title = /<title>([^<]{1,200})<\/title>/i.exec(text)?.[1]?.trim();
+  return title ?? "";
 }
 
 export class PimcoreClient {
   constructor(
-    private readonly connection: StoredPimcoreConnection,
+    private readonly connection: Pick<StoredPimcoreConnection, "baseUrl" | "apiKey">,
     private readonly fetchImpl: FetchLike = fetch,
   ) {}
 
-  /** GraphQL-Abfrage; Fehler der Abfrage (errors) werfen pimcore_graphql_error */
-  async query<T = any>(query: string, variables?: Record<string, unknown>): Promise<T> {
+  /** Export eines Dataports als JSON abrufen (Achtung: bei "Incremental Export" leert der Abruf den Vorrat) */
+  async exportDataport(dataport: string, params: Record<string, string> = {}): Promise<unknown> {
     let res: Response;
     try {
-      res = await this.fetchImpl(pimcoreEndpointUrl(this.connection), {
-        method: "POST",
-        headers: { "X-API-Key": this.connection.apiKey, "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify(variables ? { query, variables } : { query }),
+      res = await this.fetchImpl(dataportExportUrl(this.connection.baseUrl, dataport, params), {
+        headers: { "X-API-Key": this.connection.apiKey, Accept: "application/json" },
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
     } catch {
       throw new PimcoreApiError("pimcore_unreachable", null);
     }
     const text = await res.text().catch(() => "");
-    let body: any = null;
+    let body: any;
+    let isJson = false;
     try {
-      body = text ? JSON.parse(text) : null;
+      body = text.trim() ? JSON.parse(text) : null;
+      isJson = body !== null;
     } catch {
       body = null;
     }
-    if (res.status === 401 || res.status === 403) {
-      // Datahub antwortet auch bei unbekannter Konfiguration mit 403 – an der Meldung unterscheiden
-      const message = messageOf(body);
-      if (/configuration|not found|nicht gefunden/i.test(message)) {
-        throw new PimcoreApiError("pimcore_endpoint_unknown", res.status, shorten(message));
-      }
-      throw new PimcoreApiError("pimcore_unauthorized", res.status, message ? shorten(message) : undefined);
+    const message = shorten(messageOf(body, text));
+    if (res.status === 401 || res.status === 403) throw new PimcoreApiError("pimcore_unauthorized", res.status, message || undefined);
+    if (res.status === 404) {
+      // Symfony "No route found": REST-Schnittstelle des Data Director fehlt; sonst unbekannter Dataport
+      if (/no route found/i.test(text)) throw new PimcoreApiError("pimcore_no_rest", res.status);
+      throw new PimcoreApiError("pimcore_dataport_unknown", res.status, dataport);
     }
-    if (!body || typeof body !== "object") {
-      // HTML statt JSON: auf 404 ist der Datahub-Pfad gar nicht vorhanden (Datahub fehlt oder ist aus)
-      throw new PimcoreApiError(res.status === 404 ? "pimcore_no_datahub" : "pimcore_not_graphql", res.status);
-    }
-    if (res.status === 404) throw new PimcoreApiError("pimcore_endpoint_unknown", res.status, shorten(messageOf(body)) || undefined);
-    if (Array.isArray(body.errors) && body.errors.length > 0) {
-      throw new PimcoreApiError("pimcore_graphql_error", res.status, shorten(messageOf(body)));
-    }
-    if (!res.ok) throw new PimcoreApiError("pimcore_failed", res.status, shorten(messageOf(body)) || undefined);
-    if (!("data" in body)) throw new PimcoreApiError("pimcore_not_graphql", res.status);
-    return body.data as T;
+    if (!res.ok) throw new PimcoreApiError("pimcore_failed", res.status, message || undefined);
+    if (!isJson) throw new PimcoreApiError("pimcore_not_json", res.status, dataport);
+    return body;
   }
-}
-
-export type PimcoreFieldInfo = { name: string; type: string };
-export type PimcoreClassInfo = { name: string; listingField: string; fields: PimcoreFieldInfo[] };
-export type PimcoreTestResult = {
-  endpointUrl: string;
-  /** false = Introspection in der Datahub-Konfiguration abgeschaltet */
-  introspection: boolean;
-  classes: PimcoreClassInfo[];
-  product: {
-    className: string;
-    numberField: string;
-    /** Feld gibt es in der Klasse (bzw. unbekannt ohne Introspection) */
-    numberFieldFound: boolean | null;
-    totalCount: number | null;
-    sample: { id: string; number: string | null } | null;
-  };
-};
-
-/** Typname aus der Introspection lesbar machen: [String]!, object_Artikel … */
-function typeLabel(type: any): string {
-  if (!type) return "";
-  if (type.kind === "NON_NULL") return `${typeLabel(type.ofType)}!`;
-  if (type.kind === "LIST") return `[${typeLabel(type.ofType)}]`;
-  return String(type.name ?? "");
-}
-
-const SCHEMA_QUERY = `query MetaorderSchema { __schema { queryType { fields { name type { name kind } } } } }`;
-const TYPE_QUERY = `query MetaorderType($name: String!) {
-  __type(name: $name) { name fields { name type { name kind ofType { name kind ofType { name kind ofType { name kind } } } } } }
-}`;
-
-/** Klassen aus den Listen-Abfragen der Konfiguration: getArtikelListing -> Artikel */
-export function classesFromQueryFields(fields: Array<{ name?: unknown; type?: any }>): Array<{ name: string; listingField: string; typeName: string | null }> {
-  const classes: Array<{ name: string; listingField: string; typeName: string | null }> = [];
-  for (const field of fields) {
-    const match = typeof field?.name === "string" ? /^get(.+)Listing$/.exec(field.name) : null;
-    if (!match) continue;
-    // Listen-Typ heisst "<Klasse>Connection" bzw. "object_<Klasse>Connection"; Objekt-Typ "object_<Klasse>"
-    classes.push({ name: match[1], listingField: field.name as string, typeName: `object_${match[1]}` });
-  }
-  return classes.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /**
- * Verbindungstest: Schema per Introspection (welche Klassen/Felder freigegeben sind) und ein
- * Beispiel-Artikel der eingestellten Klasse. Ohne Introspection nur der Beispiel-Artikel.
+ * Datensaetze aus einer JSON-Antwort des Data Director: Liste, Objekt mit einer Liste (data/items/…)
+ * oder Objekt von Objekten (Schluessel = ID). Alles andere: keine Datensaetze.
+ */
+export function exportRecords(body: unknown): Array<Record<string, unknown>> {
+  const isRecord = (value: unknown): value is Record<string, unknown> =>
+    Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  if (Array.isArray(body)) return body.filter(isRecord);
+  if (!isRecord(body)) return [];
+  const lists = Object.values(body).filter(Array.isArray) as unknown[][];
+  if (lists.length === 1) return lists[0].filter(isRecord);
+  const values = Object.values(body);
+  if (values.length > 0 && values.every(isRecord)) return values as Array<Record<string, unknown>>;
+  return [body];
+}
+
+/** Felder der ersten Datensaetze (Reihenfolge wie geliefert) */
+export function exportFields(records: Array<Record<string, unknown>>, sample = 50): string[] {
+  const fields = new Set<string>();
+  for (const record of records.slice(0, sample)) for (const key of Object.keys(record)) fields.add(key);
+  return [...fields];
+}
+
+export type PimcoreDataportCheck = {
+  dataport: string;
+  count: number;
+  fields: string[];
+  /** Nummernfeld vorhanden (nur Artikel) */
+  numberFieldFound?: boolean;
+  /** erste Artikelnummer bzw. erster Datensatz gekuerzt */
+  sample: string | null;
+};
+
+export type PimcoreTestResult = {
+  baseUrl: string;
+  articles: PimcoreDataportCheck;
+  prices: PimcoreDataportCheck | null;
+  /** Aenderungs-Dataport wird nicht abgerufen (wuerde den Vorrat leeren) */
+  changesDataport: string | null;
+};
+
+function sampleText(record: Record<string, unknown> | undefined): string | null {
+  if (!record) return null;
+  const text = JSON.stringify(record);
+  return text.length > 200 ? `${text.slice(0, 200)}…` : text;
+}
+
+/**
+ * Verbindungstest: Vollexport der Artikel und (falls eingestellt) Preise abrufen, Anzahl, Felder und
+ * Beispiel zeigen. Nacheinander, nicht parallel. Den Aenderungs-Dataport nie (siehe oben).
  */
 export async function testPimcoreConnection(client: PimcoreClient, connection: StoredPimcoreConnection): Promise<PimcoreTestResult> {
-  let introspection = true;
-  let classes: PimcoreClassInfo[] = [];
-  try {
-    const schema = await client.query<any>(SCHEMA_QUERY);
-    const found = classesFromQueryFields(schema?.__schema?.queryType?.fields ?? []).slice(0, MAX_CLASSES);
-    classes = [];
-    for (const cls of found) {
-      // nacheinander, nicht parallel: Pimcore nicht mit vielen Abfragen auf einmal belasten
-      const type = await client.query<any>(TYPE_QUERY, { name: cls.typeName });
-      const fields: PimcoreFieldInfo[] = Array.isArray(type?.__type?.fields)
-        ? type.__type.fields
-            .map((f: any) => ({ name: String(f?.name ?? ""), type: typeLabel(f?.type) }))
-            .filter((f: PimcoreFieldInfo) => f.name)
-        : [];
-      classes.push({ name: cls.name, listingField: cls.listingField, fields });
+  const check = async (dataport: string, numberField?: string): Promise<PimcoreDataportCheck> => {
+    let records: Array<Record<string, unknown>>;
+    try {
+      records = exportRecords(await client.exportDataport(dataport));
+    } catch (error) {
+      // welcher Dataport betroffen ist, steht bei unbekannt/kein JSON schon im Detail
+      if (error instanceof PimcoreApiError && error.code !== "pimcore_dataport_unknown" && error.code !== "pimcore_not_json") {
+        throw new PimcoreApiError(error.code, error.status, error.detail ? `${dataport}: ${error.detail}` : dataport);
+      }
+      throw error;
     }
-  } catch (error) {
-    // abgeschaltete Introspection meldet GraphQL als Fehler der Abfrage; alles andere weiterreichen
-    if (!(error instanceof PimcoreApiError) || error.code !== "pimcore_graphql_error") throw error;
-    introspection = false;
-  }
-
-  const className = connection.productClass;
-  const numberField = connection.productNumberField;
-  const productClass = classes.find((cls) => cls.name === className);
-  if (introspection && !productClass) {
-    throw new PimcoreApiError("pimcore_class_missing", null, className);
-  }
-  // ohne Felder (Typ unter anderem Namen) bleibt offen, ob es das Feld gibt: dann einfach abfragen
-  const numberFieldFound =
-    productClass && productClass.fields.length > 0 ? productClass.fields.some((f) => f.name === numberField) : null;
-  // Namen sind geprueft (normalizePimcoreTarget), duerfen also in die Abfrage
-  const sampleSelection = numberFieldFound === false ? "id" : `id ${numberField}`;
-  const listing = await client.query<any>(
-    `query MetaorderSample { get${className}Listing(first: 1) { totalCount edges { node { ${sampleSelection} } } } }`,
-  );
-  const result = listing?.[`get${className}Listing`];
-  const node = Array.isArray(result?.edges) ? result.edges[0]?.node : null;
-  const rawNumber = node && numberFieldFound !== false ? node[numberField] : null;
+    const fields = exportFields(records);
+    if (!numberField) return { dataport, count: records.length, fields, sample: sampleText(records[0]) };
+    const withNumber = records.find((record) => record[numberField] != null && record[numberField] !== "");
+    return {
+      dataport,
+      count: records.length,
+      fields,
+      numberFieldFound: fields.includes(numberField),
+      sample: withNumber ? String(withNumber[numberField]) : sampleText(records[0]),
+    };
+  };
+  const articles = await check(connection.articlesFullDataport, connection.productNumberField);
+  const prices = connection.pricesDataport ? await check(connection.pricesDataport) : null;
   return {
-    endpointUrl: pimcoreEndpointUrl(connection),
-    introspection,
-    classes,
-    product: {
-      className,
-      numberField,
-      numberFieldFound: numberFieldFound ?? (node && rawNumber !== undefined ? true : null),
-      totalCount: typeof result?.totalCount === "number" ? result.totalCount : null,
-      sample: node ? { id: String(node.id ?? ""), number: rawNumber == null ? null : String(rawNumber) } : null,
-    },
+    baseUrl: connection.baseUrl,
+    articles,
+    prices,
+    changesDataport: connection.articlesChangesDataport || null,
   };
 }
