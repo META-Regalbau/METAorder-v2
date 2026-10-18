@@ -40,6 +40,7 @@ const COMPONENT_RULES: Rule[] = [
   [/^erp\//, "erp"],
   [/^(invoicing\/|invoice-watcher$)/, "invoicing"],
   [/^email\//, "email"],
+  [/^integration\/pimcore/, "pimcore"],
   [/^(integration\/|sftp\/|lib\/webhookService$)/, "integration"],
   [/^automation\b/, "automation"],
   [/^tickets\//, "tickets"],
@@ -50,6 +51,7 @@ const COMPONENT_RULES: Rule[] = [
 
 /** Pfad ohne /api/ -> Bereich */
 const PATH_RULES: Rule[] = [
+  [/^settings\/pimcore-connection\b/, "pimcore"],
   [/^settings\/(integration-api-keys|n8n-connection|webhooks|sftp-servers|commercial-customer-tokens)\b/, "integration"],
   [/^settings\/(email-inbound|email-outbound|email-routing|email-intake|m365)\b/, "email"],
   [/^settings\/(ai|ai-prompts|semantic-ranking)\b/, "ai"],
@@ -92,6 +94,7 @@ const PREFIX_RULES: Rule[] = [
   [/dunning|invoice|mondu|faktur/, "invoicing"],
   [/sendcloud|shipping|versand/, "shipping"],
   [/e-?mail|m365/, "email"],
+  [/pimcore/, "pimcore"],
   [/sftp|webhook|n8n/, "integration"],
   [/automation|automatisierung/, "automation"],
   [/erp|stock|lager/, "erp"],

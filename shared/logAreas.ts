@@ -18,6 +18,7 @@ export const LOG_AREAS = [
   "invoicing",
   "email",
   "integration",
+  "pimcore",
   "automation",
   "tickets",
   "ai",

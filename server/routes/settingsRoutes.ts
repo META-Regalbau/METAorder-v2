@@ -33,8 +33,20 @@ import {
   n8nConnectionSettingValue,
   normalizeN8nBaseUrl,
 } from "../integration/n8nConnection";
+import {
+  describePimcoreConnection,
+  loadPimcoreConnection,
+  normalizePimcoreTarget,
+  PIMCORE_SETTING_KEY,
+  PimcoreApiError,
+  PimcoreClient,
+  pimcoreConnectionSettingValue,
+  testPimcoreConnection,
+} from "../integration/pimcoreConnection";
 
 const log = logger.child({ component: "routes/settingsRoutes" });
+// eigener Bereich "pimcore" im Systemprotokoll
+const pimcoreLog = logger.child({ component: "integration/pimcoreConnection" });
 
 export function registerSettingsRoutes(app: Express): void {
   
@@ -414,6 +426,95 @@ export function registerSettingsRoutes(app: Express): void {
       res.json({ workflows: await loadN8nOverview(new N8nClient(connection), origin), ownOrigin: origin });
     } catch (error) {
       respondN8nError(res, error, "Workflows konnten nicht geladen werden");
+    }
+  });
+
+  // Pimcore-Verbindung (Datahub GraphQL): Adresse, Konfiguration, Artikelklasse + Nummernfeld und
+  // API-Key je Mandant, Key verschluesselt, nie in Antworten (server/integration/pimcoreConnection.ts)
+  const respondPimcoreError = (res: Response, error: unknown, context: string) => {
+    if (error instanceof PimcoreApiError) {
+      pimcoreLog.warn({ code: error.code, status: error.status }, `Pimcore: ${context}`);
+      return res.status(502).json({
+        error: "Pimcore-Anfrage fehlgeschlagen",
+        code: error.code,
+        pimcoreStatus: error.status,
+        detail: error.detail ?? null,
+      });
+    }
+    pimcoreLog.error({ err: error }, `Pimcore: ${context}`);
+    return res.status(500).json({ error: "Pimcore-Anfrage fehlgeschlagen" });
+  };
+
+  app.get("/api/settings/pimcore-connection", requireAuth, requireManageSettings, async (_req, res) => {
+    try {
+      res.json(describePimcoreConnection(await storage.getSetting(PIMCORE_SETTING_KEY)));
+    } catch (error: any) {
+      pimcoreLog.error({ err: error }, "Error fetching Pimcore connection:");
+      res.status(500).json({ error: "Failed to fetch settings" });
+    }
+  });
+
+  // Speichern: leerer Key = gespeicherten behalten (wie bei den anderen Zugangsdaten)
+  app.post("/api/settings/pimcore-connection", requireAuth, requireManageSettings, requireCsrf, async (req, res) => {
+    try {
+      const normalized = normalizePimcoreTarget(req.body ?? {});
+      if (!normalized.ok) {
+        return res.status(400).json({ error: "Ungültige Pimcore-Angaben", code: normalized.code });
+      }
+      const newKey = typeof req.body?.apiKey === "string" ? req.body.apiKey.trim() : "";
+      const existing = await loadPimcoreConnection((key) => storage.getSetting(key));
+      const apiKey = newKey || existing?.apiKey || "";
+      if (!apiKey) {
+        return res.status(400).json({ error: "Pimcore-API-Key fehlt", code: "pimcore_key_missing" });
+      }
+      const value = pimcoreConnectionSettingValue({ ...normalized.target, apiKey });
+      await storage.saveSetting(PIMCORE_SETTING_KEY, value);
+      res.json(describePimcoreConnection(value));
+    } catch (error: any) {
+      pimcoreLog.error({ err: error }, "Error saving Pimcore connection:");
+      res.status(500).json({ error: "Failed to save settings" });
+    }
+  });
+
+  app.delete("/api/settings/pimcore-connection", requireAuth, requireManageSettings, requireCsrf, async (_req, res) => {
+    try {
+      // value ist NOT NULL: leeres Objekt = nicht verbunden
+      await storage.saveSetting(PIMCORE_SETTING_KEY, {});
+      res.json(describePimcoreConnection({}));
+    } catch (error: any) {
+      pimcoreLog.error({ err: error }, "Error deleting Pimcore connection:");
+      res.status(500).json({ error: "Failed to save settings" });
+    }
+  });
+
+  // Testen mit den Eingaben (Key leer = gespeicherter Key), ohne zu speichern
+  app.post("/api/settings/pimcore-connection/test", requireAuth, requireManageSettings, requireCsrf, async (req, res) => {
+    try {
+      const existing = await loadPimcoreConnection((key) => storage.getSetting(key));
+      const body = req.body ?? {};
+      const normalized = normalizePimcoreTarget({
+        baseUrl: body.baseUrl ?? existing?.baseUrl,
+        endpoint: body.endpoint ?? existing?.endpoint,
+        productClass: body.productClass ?? existing?.productClass,
+        productNumberField: body.productNumberField ?? existing?.productNumberField,
+      });
+      if (!normalized.ok) {
+        return res.status(400).json({ error: "Ungültige Pimcore-Angaben", code: normalized.code });
+      }
+      const newKey = typeof body.apiKey === "string" ? body.apiKey.trim() : "";
+      const apiKey = newKey || existing?.apiKey || "";
+      if (!apiKey) {
+        return res.status(400).json({ error: "Pimcore-API-Key fehlt", code: "pimcore_key_missing" });
+      }
+      const connection = { ...normalized.target, apiKey };
+      const result = await testPimcoreConnection(new PimcoreClient(connection), connection);
+      pimcoreLog.info(
+        { classes: result.classes.length, introspection: result.introspection, totalCount: result.product.totalCount },
+        "Pimcore: Verbindungstest erfolgreich",
+      );
+      res.json({ success: true, ...result });
+    } catch (error) {
+      respondPimcoreError(res, error, "Verbindungstest fehlgeschlagen");
     }
   });
 
