@@ -16,7 +16,10 @@
  * startet sie immer. Die Storefront-Prüfungen fragen den Shop unter der Sperre des Shop-Wächters ab; ist
  * sie belegt, setzen sie in diesem Takt aus.
  *
- * Ist die Warenkorb-Probe rot, wird eine gleichzeitig offene Bestell-Lücke kritisch (bestätigt).
+ * Ist die Warenkorb-Probe rot, wird eine gleichzeitig offene Bestell-Lücke kritisch (bestätigt). Sonst
+ * gleicht der Live-Trichter aus GA4 sie ab: Trichter bis zur Kasse normal ohne Käufe → „Zahlung/Abschluss
+ * gestört“ (kritisch), deutlich weniger Besucher → „Besucherproblem“. Ist GA4 nicht eingerichtet, setzen
+ * die GA4-Prüfungen aus (Hinweis unter „Prüfungen“).
  *
  * In der Lernwoche wird alles gesammelt, aber nichts gesendet. Mandanten nacheinander, nie zwei Läufe
  * für denselben Mandanten gleichzeitig.
@@ -40,6 +43,8 @@ import { loadBuyabilityProducts, loadPriceChanges, loadProductRevenue } from "./
 import { findDeChannel, shopApi } from "../shopContent/shopProducts";
 import { ShopBusyError, withShopLock } from "../shopContent/shopWatch";
 import { CART_PROBE_KEY, cartProbeDetector, confirmOrderGap } from "./detectors/storefront";
+import { getGa4State, linkOrderGapWithGa4 } from "./detectors/ga4";
+import { ga4Access, Ga4NotConfiguredError, type Ga4Access } from "./ga4Client";
 import * as repo from "./shopPulseRepository";
 import { dailyReportSignals, reconcileSignals, type ReconcileResult, type ShopPulseNotice } from "./shopPulseSignals";
 import {
@@ -77,6 +82,8 @@ export type ShopPulseDeps = {
   loadBuyability?: (tenantId: string | null, now: Date) => BuyabilitySources;
   /** Storefront des Shops (unter der Sperre des Shop-Wächters); fehlt sie, scheitern deren Prüfungen */
   loadStorefront?: (tenantId: string | null) => StorefrontAccess;
+  /** GA4-Property des Mandanten; fehlt sie, gilt GA4 als nicht eingerichtet */
+  loadGa4?: (tenantId: string | null) => Ga4Access;
   onNotificationCreated: (n: Notification) => void;
   baseUrl: string | null;
   now?: () => Date;
@@ -169,6 +176,7 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
       channelMethods: once(sources?.channelMethods ?? missing),
     };
     const storefront: StorefrontAccess = deps.loadStorefront?.(tenantId) ?? { withShop: () => Promise.reject(new Error("Storefront nicht verfügbar")) };
+    const ga4: Ga4Access = deps.loadGa4?.(tenantId) ?? { property: () => Promise.reject(new Ga4NotConfiguredError("disabled")) };
 
     // 1. Prüfungen nacheinander; eine Quelle ist vollständig, wenn alle ihre Prüfungen liefen
     const detections: ShopPulseDetection[] = [];
@@ -193,7 +201,7 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
         continue;
       }
       try {
-        const found = await d.run({ storage: deps.storage, tenantId, now, orders, buyability, storefront, lastRunAt: prev?.ok ? prev.at : null });
+        const found = await d.run({ storage: deps.storage, tenantId, now, orders, buyability, storefront, ga4, lastRunAt: prev?.ok ? prev.at : null });
         detections.push(...found);
         detectorState[d.id] = { at: now.toISOString(), ok: true, findings: found.length };
         ran.add(d.id);
@@ -203,6 +211,12 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
           // Shop-Wächter fragt den Shop gerade ab: aussetzen, im nächsten Takt wieder
           failedSources.add(d.source);
           detectorState[d.id] = { at: now.toISOString(), ok: true, skipped: "busy", findings: 0 };
+          continue;
+        }
+        if (err instanceof Ga4NotConfiguredError) {
+          // GA4 nicht eingerichtet: keine Funde, offene GA4-Meldungen bleiben (kein „alles gut“)
+          failedSources.add(d.source);
+          detectorState[d.id] = { at: now.toISOString(), ok: true, skipped: "ga4", ga4Problem: err.reason, findings: 0 };
           continue;
         }
         failedSources.add(d.source);
@@ -219,7 +233,13 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
     const cartRed =
       detections.some((d) => d.key === CART_PROBE_KEY && d.severity === "critical") ||
       (!ran.has(cartProbeDetector.id) && existing.some((s) => s.key === CART_PROBE_KEY && s.status === "open" && s.severity === "critical"));
-    const result = reconcileSignals(existing, confirmOrderGap(detections, cartRed), {
+    let linked = confirmOrderGap(detections, cartRed);
+    if (!cartRed && linked.some((d) => d.code === "orderGap")) {
+      // Live-Trichter (Stand des GA4-Live-Laufs) zur Bestell-Lücke; ohne Stand bleibt sie, wie sie ist
+      const ga4State = await getGa4State({ storage: deps.storage, tenantId }).catch(() => null);
+      linked = linkOrderGapWithGa4(linked, ga4State, now);
+    }
+    const result = reconcileSignals(existing, linked, {
       now,
       learning: silent,
       completeSources,
@@ -302,6 +322,7 @@ export function shopPulseDeps(storage: IStorage): ShopPulseDeps {
       },
     }),
     loadStorefront: (tenantId) => storefrontAccess(storage, tenantId),
+    loadGa4: (tenantId) => ga4Access(storage, tenantId),
     onNotificationCreated: (n) => notificationEvents.emitNotificationCreated(n),
     baseUrl: publicAppBaseUrl(process.env.APP_URL?.trim() || null),
   };

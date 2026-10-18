@@ -8,7 +8,7 @@
  */
 import { isAllowedTeamsWebhookUrl } from "./emailIntake";
 
-/** Woher ein Fund kommt; GA4 folgt (PR E) */
+/** Woher ein Fund kommt */
 export const SHOP_PULSE_SOURCES = ["system", "revenue", "buyability", "ga4"] as const;
 export type ShopPulseSource = (typeof SHOP_PULSE_SOURCES)[number];
 
@@ -51,6 +51,18 @@ export const SHOP_PULSE_CODES = [
   "cartProbeCart",
   "cartProbeCheckout",
   "orderGapConfirmed",
+  "orderGapCheckout",
+  "orderGapVisitors",
+  "ga4LiveNoAddToCart",
+  "ga4LiveNoCheckout",
+  "ga4FunnelCart",
+  "ga4FunnelCheckout",
+  "ga4FunnelPurchase",
+  "ga4ChannelDrop",
+  "ga4LandingDrop",
+  "ga4NotFoundUp",
+  "ga4SearchNoHits",
+  "ga4MeasurementDrop",
 ] as const;
 export type ShopPulseCode = (typeof SHOP_PULSE_CODES)[number];
 
@@ -70,7 +82,20 @@ export const SHOP_PULSE_DETECTOR_IDS = [
   "buyability",
   "productPages",
   "cartProbe",
+  "ga4Live",
+  "ga4Funnel",
+  "ga4Channels",
+  "ga4LandingPages",
+  "ga4SearchTerms",
+  "ga4Measurement",
 ] as const;
+
+/**
+ * Warum GA4 nicht eingerichtet ist (Einstellungen → Google Analytics): ausgeschaltet, keine Property-ID,
+ * Mess-ID „G-…“ statt numerischer Property-ID, Property-ID keine Zahl, kein bzw. ungültiges Dienstkonto-JSON
+ */
+export const GA4_SETUP_PROBLEMS = ["disabled", "noProperty", "measurementId", "invalidProperty", "noServiceAccount", "invalidServiceAccount"] as const;
+export type Ga4SetupProblem = (typeof GA4_SETUP_PROBLEMS)[number];
 
 export const SEVERITY_RANK: Record<ShopPulseSeverity, number> = { warning: 1, critical: 2 };
 
@@ -150,8 +175,14 @@ export type ShopPulseState = {
   lastTickAt?: string;
   /** Kalendertag (Berlin) des letzten Tagesberichts */
   lastDailyReportDay?: string;
-  /** skipped "mirror": ausgesetzt, weil der Bestellabgleich hängt; "busy": der Shop-Wächter fragt den Shop gerade ab */
-  detectors?: Record<string, { at: string; ok: boolean; error?: string; skipped?: "mirror" | "busy"; findings: number }>;
+  /**
+   * skipped "mirror": ausgesetzt, weil der Bestellabgleich hängt; "busy": der Shop-Wächter fragt den Shop
+   * gerade ab; "ga4": GA4 nicht eingerichtet (ga4Problem sagt, was fehlt)
+   */
+  detectors?: Record<
+    string,
+    { at: string; ok: boolean; error?: string; skipped?: "mirror" | "busy" | "ga4"; ga4Problem?: Ga4SetupProblem; findings: number }
+  >;
 };
 
 /**
@@ -190,7 +221,7 @@ export type ShopPulseOverview = {
 };
 
 /** Parameter, die vor dem Einsetzen formatiert werden (Seite in der Sprache der Oberfläche, Teams deutsch) */
-const PARAM_KINDS: Partial<Record<ShopPulseCode, Record<string, "money" | "date" | "number">>> = {
+const PARAM_KINDS: Partial<Record<ShopPulseCode, Record<string, "money" | "date" | "number" | "percent">>> = {
   orderGap: { expected: "number" },
   orderGapConfirmed: { expected: "number" },
   paymentGone: { perWeek: "number" },
@@ -207,12 +238,26 @@ const PARAM_KINDS: Partial<Record<ShopPulseCode, Record<string, "money" | "date"
   productPageNoBuyButton: { revenue: "money" },
   productPageUnavailable: { revenue: "money" },
   productPagePrice: { revenue: "money", shown: "money", expected: "money" },
+  orderGapCheckout: { expected: "number" },
+  orderGapVisitors: { expected: "number" },
+  ga4LiveNoAddToCart: { pageViews: "number", expected: "number" },
+  ga4LiveNoCheckout: { pageViews: "number", expected: "number" },
+  ga4FunnelCart: { date: "date", current: "percent", expected: "percent" },
+  ga4FunnelCheckout: { date: "date", current: "percent", expected: "percent" },
+  ga4FunnelPurchase: { date: "date", current: "percent", expected: "percent" },
+  ga4ChannelDrop: { date: "date", share: "percent", expectedShare: "percent" },
+  ga4LandingDrop: { date: "date", share: "percent", expectedShare: "percent" },
+  ga4NotFoundUp: { date: "date", current: "number", expected: "number", share: "percent", expectedShare: "percent" },
+  ga4SearchNoHits: { date: "date", count: "number", searches: "number" },
+  ga4MeasurementDrop: { from: "date", to: "date", current: "percent", expected: "percent", orders: "number" },
 };
 
 export type ShopPulseParamFormatters = {
   money: (v: number) => string;
   date: (isoDay: string) => string;
   number: (v: number) => string;
+  /** Wert schon in Prozent, eine Nachkommastelle (3.2 → „3,2 %“) */
+  percent: (v: number) => string;
 };
 
 export function formatShopPulseParams(
@@ -227,7 +272,7 @@ export function formatShopPulseParams(
     const v = params[name];
     if (v === undefined || v === null || v === "") continue;
     if (kind === "date") out[name] = f.date(String(v));
-    else if (typeof v === "number") out[name] = kind === "money" ? f.money(v) : f.number(v);
+    else if (typeof v === "number") out[name] = kind === "money" ? f.money(v) : kind === "percent" ? f.percent(v) : f.number(v);
   }
   return out;
 }

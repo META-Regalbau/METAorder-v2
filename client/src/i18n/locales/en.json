@@ -8152,6 +8152,54 @@
       "orderGapConfirmed": {
         "title": "No shop order today, cart probe failing",
         "message": "No online shop order has come in today so far (usually {{expected}} on average by 3 pm), and the cart probe is failing as well. The shop or checkout is probably broken."
+      },
+      "orderGapCheckout": {
+        "title": "No shop order today: payment or checkout broken",
+        "message": "No online shop order has come in today so far (usually {{expected}} on average by 3 pm). According to GA4, visitors reach the checkout normally ({{pct}} % of the usual page views), but no purchase is completed. Please check payment methods, payment provider and order completion."
+      },
+      "orderGapVisitors": {
+        "title": "No shop order today: far fewer visitors",
+        "message": "No online shop order has come in today so far (usually {{expected}} on average by 3 pm). According to GA4, only {{pct}} % of the usual page views arrive. Rather a visitor problem: check ads, search engine, availability or tracking."
+      },
+      "ga4LiveNoAddToCart": {
+        "title": "Nothing added to the cart for {{hours}} hours",
+        "message": "GA4 counts {{pageViews}} page views in the last {{hours}} hours but no add to cart (expected from the last 28 days: about {{expected}}). The cart button, the cart or the tracking is probably broken."
+      },
+      "ga4LiveNoCheckout": {
+        "title": "Nobody went to checkout for {{hours}} hours",
+        "message": "GA4 counts {{pageViews}} page views in the last {{hours}} hours but no begin checkout (expected from the last 28 days: about {{expected}}). The cart, the checkout or the tracking is probably broken."
+      },
+      "ga4FunnelCart": {
+        "title": "Fewer products added to the cart ({{device}}, −{{pct}} %)",
+        "message": "{{date}}: {{current}} of users who viewed a product added something to the cart, on the same weekdays before {{expected}} (device: {{device}})."
+      },
+      "ga4FunnelCheckout": {
+        "title": "Fewer carts go to checkout ({{device}}, −{{pct}} %)",
+        "message": "{{date}}: {{current}} of users with a cart went to checkout, on the same weekdays before {{expected}} (device: {{device}})."
+      },
+      "ga4FunnelPurchase": {
+        "title": "Fewer purchases at checkout ({{device}}, −{{pct}} %)",
+        "message": "{{date}}: {{current}} of users at checkout made a purchase, on the same weekdays before {{expected}} (device: {{device}}). Check payment methods and order completion."
+      },
+      "ga4ChannelDrop": {
+        "title": "Traffic source “{{channel}}” dropped (−{{pct}} %)",
+        "message": "{{date}}: The source “{{channel}}” brought {{pct}} % fewer sessions than on the same weekdays before. Its share of all sessions fell from {{expectedShare}} to {{share}}. Check campaigns, search engine or referrals."
+      },
+      "ga4LandingDrop": {
+        "title": "Landing page dropped: {{page}} (−{{pct}} %)",
+        "message": "{{date}}: {{pct}} % fewer visitors entered the shop via {{page}} than on the same weekdays before (share {{share}} instead of {{expectedShare}}). Check the page, redirects and the search engine listing."
+      },
+      "ga4NotFoundUp": {
+        "title": "More “page not found” ({{current}} views)",
+        "message": "{{date}}: The error page “Seite nicht gefunden” was viewed {{current}} times (share {{share}} instead of the usual {{expectedShare}}, expected about {{expected}}). The affected addresses are in the evidence; check for missing redirects."
+      },
+      "ga4SearchNoHits": {
+        "title": "Search terms without results: {{terms}}",
+        "message": "{{date}}: {{count}} of the most frequent search terms ({{searches}} searches) find nothing in the shop: {{terms}}. Check synonyms, search keywords on products or missing products."
+      },
+      "ga4MeasurementDrop": {
+        "title": "GA4 hardly tracks purchases any more ({{current}} instead of {{expected}})",
+        "message": "{{from}} to {{to}}: GA4 saw purchases for {{current}} of the {{orders}} MO orders, in the 4 weeks before for {{expected}}. Purchase tracking is probably broken (order confirmation page, tag manager, return from the payment provider)."
       }
     },
     "detectors": {
@@ -8169,10 +8217,17 @@
         "channelMethods": "Payment and shipping methods (baseline)",
         "buyability": "Item buyability (nightly)",
         "productPages": "Top seller product pages (in rotation, 20 per hour)",
-        "cartProbe": "Cart probe (every 30 minutes, 6 am–10 pm)"
+        "cartProbe": "Cart probe (every 30 minutes, 6 am–10 pm)",
+        "ga4Live": "GA4 live funnel (30 minutes, 6 am–10 pm)",
+        "ga4Funnel": "GA4 funnel yesterday by device",
+        "ga4Channels": "GA4 traffic sources",
+        "ga4LandingPages": "GA4 landing pages and “page not found”",
+        "ga4SearchTerms": "GA4 search terms without results",
+        "ga4Measurement": "GA4 tracking (purchases per MO order)"
       },
       "skipped": "paused while the order sync is stuck",
-      "skippedBusy": "paused, the shop watch is querying the shop right now"
+      "skippedBusy": "paused, the shop watch is querying the shop right now",
+      "skippedGa4": "paused, GA4 not set up"
     },
     "notify": {
       "since": "Since",
@@ -8214,6 +8269,18 @@
       "gapsNone": "No nightly run yet.",
       "gapsDownload": "Download CSV",
       "gapsHint": "Only buyable items in the channel META Regalbau DE. Not reported and not corrected in the shop, but collected for Jana (same format as the data error collection)."
+    },
+    "ga4Setup": {
+      "title": "GA4 not set up",
+      "hint": "Set it up under Settings → Google Analytics: a service account with read access (Viewer) in the shop's GA4 property and the numeric property ID (e.g. 123456789), not the measurement ID G-QVEF735DQF. Until then the GA4 checks report nothing.",
+      "problems": {
+        "disabled": "Google Analytics is switched off in the settings.",
+        "noProperty": "No property ID has been entered.",
+        "measurementId": "A measurement ID (G-…) has been entered. The numeric property ID from the GA4 admin (property details) is required.",
+        "invalidProperty": "The property ID is not a number.",
+        "noServiceAccount": "No service account (JSON key) has been stored.",
+        "invalidServiceAccount": "The stored service account key is not valid JSON with client_email and private_key."
+      }
     }
   },
   "mondu": {
