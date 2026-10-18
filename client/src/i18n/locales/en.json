@@ -8112,6 +8112,46 @@
       "shippingMethodGone": {
         "title": "Shipping method “{{name}}” no longer available in the shop",
         "message": "The shipping method is no longer assigned to the sales channel META Regalbau DE or is inactive. Removed on purpose? Then use “Accept as baseline” on the page."
+      },
+      "productPageStatus": {
+        "title": "Product page not reachable: {{name}}",
+        "message": "The shop page of {{number}} responds with status {{status}} (0 = no response), even after a retry. Customers cannot open the item. Shop revenue in the last 365 days: {{revenue}} (net)."
+      },
+      "productPageNoBuyButton": {
+        "title": "No buy button on the product page: {{name}}",
+        "message": "The shop page of {{number}} shows no \"Add to cart\" button, customers cannot buy the item. Shop revenue in the last 365 days: {{revenue}} (net)."
+      },
+      "productPageUnavailable": {
+        "title": "Product page shows \"not available\": {{name}}",
+        "message": "The shop page of {{number}} reports the item as not available or sold out. Shop revenue in the last 365 days: {{revenue}} (net)."
+      },
+      "productPagePrice": {
+        "title": "Wrong price on the product page: {{name}}",
+        "message": "The shop page of {{number}} shows {{shown}}, Shopware says {{expected}}. Please check the price or price rules. Shop revenue in the last 365 days: {{revenue}} (net)."
+      },
+      "cartProbeHome": {
+        "title": "Cart probe: home page not reachable",
+        "message": "The cart probe has failed {{failures}} times in a row already at the home page ({{response}}). The shop is probably not reachable for customers."
+      },
+      "cartProbeSearch": {
+        "title": "Cart probe: search without results",
+        "message": "The cart probe has failed {{failures}} times in a row at the search for \"{{term}}\" ({{response}}). Customers find no items via search."
+      },
+      "cartProbeAdd": {
+        "title": "Cart probe: item cannot be added to the cart",
+        "message": "The cart probe has failed {{failures}} times in a row when adding {{number}} to the cart ({{response}}). Customers probably cannot buy anything."
+      },
+      "cartProbeCart": {
+        "title": "Cart probe: cart does not show the item",
+        "message": "The cart probe has failed {{failures}} times in a row at the cart: {{number}} does not appear there or has no price ({{response}}). Customers probably cannot buy anything."
+      },
+      "cartProbeCheckout": {
+        "title": "Cart probe: checkout does not open",
+        "message": "The cart probe has failed {{failures}} times in a row at the checkout: it does not lead to login or registration ({{response}}). Customers probably cannot order."
+      },
+      "orderGapConfirmed": {
+        "title": "No shop order today, cart probe failing",
+        "message": "No online shop order has come in today so far (usually {{expected}} on average by 3 pm), and the cart probe is failing as well. The shop or checkout is probably broken."
       }
     },
     "detectors": {
@@ -8127,9 +8167,12 @@
         "paymentGone": "Payment methods (7 days without orders)",
         "weekComparison": "Week vs. previous weeks and last year",
         "channelMethods": "Payment and shipping methods (baseline)",
-        "buyability": "Item buyability (nightly)"
+        "buyability": "Item buyability (nightly)",
+        "productPages": "Top seller product pages (in rotation, 20 per hour)",
+        "cartProbe": "Cart probe (every 30 minutes, 6 am–10 pm)"
       },
-      "skipped": "paused while the order sync is stuck"
+      "skipped": "paused while the order sync is stuck",
+      "skippedBusy": "paused, the shop watch is querying the shop right now"
     },
     "notify": {
       "since": "Since",

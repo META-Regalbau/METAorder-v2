@@ -1,5 +1,7 @@
 import type { IStorage } from "../../storage";
-import type { ShopPulseDetection, ShopPulseSource } from "@shared/shopPulse";
+import type { ShopPulseDetection, ShopPulseSource, ShopPulseState } from "@shared/shopPulse";
+import type { FetchLike } from "../../shopContent/shopWatch";
+import type { ShopApi } from "../../shopContent/shopProducts";
 import type { PulseOrder } from "../pulseOrders";
 import type { BuyabilityProduct, PriceChange } from "../buyabilityData";
 
@@ -17,6 +19,28 @@ export type BuyabilitySources = {
   channelMethods: () => Promise<ChannelMethods>;
 };
 
+/** Storefront des Kanals META Regalbau DE für die Prüfungen wie ein Kunde */
+export type StorefrontShop = {
+  /** Storefront-Adresse ohne Schrägstrich am Ende */
+  storefront: string;
+  channelId: string;
+  /** Admin-API (Preis gegenprüfen, SEO-Adressen) */
+  api: ShopApi;
+  fetchImpl?: FetchLike;
+  /** Pause zwischen zwei Abrufen (Live schonen); in Tests 0 */
+  pauseMs: number;
+};
+
+export type StorefrontAccess = {
+  /**
+   * Shop unter der Sperre des Shop-Wächters abfragen (nie parallel zu dessen Läufen). Ist sie belegt,
+   * wirft es ShopBusyError; der Lauf setzt die Prüfung dann aus.
+   */
+  withShop<T>(fn: (shop: StorefrontShop) => Promise<T>): Promise<T>;
+};
+
+export type ShopPulseDetectorState = NonNullable<ShopPulseState["detectors"]>[string];
+
 export type ShopPulseDetectorContext = {
   storage: Pick<IStorage, "getShopwareSyncState" | "getSetting" | "saveSetting">;
   tenantId: string | null;
@@ -24,6 +48,7 @@ export type ShopPulseDetectorContext = {
   /** Shop-Bestellungen der letzten gut 13 Monate aus dem Spiegel; je Lauf nur einmal geladen */
   orders: () => Promise<PulseOrder[]>;
   buyability: BuyabilitySources;
+  storefront: StorefrontAccess;
   /** Zeitpunkt des vorigen Laufs dieser Prüfung (null = noch nie) */
   lastRunAt: string | null;
 };
@@ -39,6 +64,8 @@ export type ShopPulseDetector = {
   needsFreshMirror?: boolean;
   /** "nightly": einmal je Nacht (5–7 Uhr Berlin) statt in jedem Takt; „Jetzt prüfen“ läuft immer */
   cadence?: "nightly";
+  /** Eigener Takt: nur laufen, wenn fällig (prev = Stand des vorigen Laufs); „Jetzt prüfen“ läuft immer */
+  due?: (prev: ShopPulseDetectorState | undefined, now: Date) => boolean;
   /**
    * Schlüssel-Anfang der eigenen Funde. Damit darf die Prüfung ihre Meldungen auch dann erledigen, wenn
    * eine andere Prüfung derselben Quelle in diesem Lauf nicht lief (z. B. Nachtlauf noch nicht fällig).

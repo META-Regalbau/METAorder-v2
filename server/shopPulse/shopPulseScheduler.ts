@@ -12,7 +12,11 @@
  * Meldungen bleiben offen, und der Tagesbericht lässt die Zahlen weg.
  *
  * Prüfungen mit cadence "nightly" (Kaufbarkeit der Artikel) laufen einmal je Nacht zwischen 5 und 7 Uhr
- * (Berlin), „Jetzt prüfen“ startet sie immer.
+ * (Berlin), Prüfungen mit eigenem Takt (due, z. B. Warenkorb-Probe) nur wenn fällig; „Jetzt prüfen“
+ * startet sie immer. Die Storefront-Prüfungen fragen den Shop unter der Sperre des Shop-Wächters ab; ist
+ * sie belegt, setzen sie in diesem Takt aus.
+ *
+ * Ist die Warenkorb-Probe rot, wird eine gleichzeitig offene Bestell-Lücke kritisch (bestätigt).
  *
  * In der Lernwoche wird alles gesammelt, aber nichts gesendet. Mandanten nacheinander, nie zwei Läufe
  * für denselben Mandanten gleichzeitig.
@@ -31,9 +35,11 @@ import { SHOP_PULSE_DETECTORS } from "./detectors";
 import { MIRROR_SIGNAL_KEY } from "./detectors/mirrorFreshness";
 import { dailyNumbers, type DailyNumbers } from "./detectors/revenue";
 import { loadPulseOrders, type PulseOrder } from "./pulseOrders";
-import type { BuyabilitySources, ChannelMethods, ShopPulseDetector } from "./detectors/types";
+import type { BuyabilitySources, ChannelMethods, ShopPulseDetector, StorefrontAccess, StorefrontShop } from "./detectors/types";
 import { loadBuyabilityProducts, loadPriceChanges, loadProductRevenue } from "./buyabilityData";
 import { findDeChannel, shopApi } from "../shopContent/shopProducts";
+import { ShopBusyError, withShopLock } from "../shopContent/shopWatch";
+import { CART_PROBE_KEY, cartProbeDetector, confirmOrderGap } from "./detectors/storefront";
 import * as repo from "./shopPulseRepository";
 import { dailyReportSignals, reconcileSignals, type ReconcileResult, type ShopPulseNotice } from "./shopPulseSignals";
 import {
@@ -57,6 +63,8 @@ const ORDERS_LOOKBACK_DAYS = 400;
 const REVENUE_LOOKBACK_DAYS = 365;
 const NIGHTLY_FROM_HOUR = 5;
 const NIGHTLY_TO_HOUR = 7;
+/** Pause zwischen zwei Storefront-Abrufen (Live schonen) */
+const STOREFRONT_PAUSE_MS = 1000;
 
 export type ShopPulseRepo = Pick<typeof repo, "listSignalsBySources" | "applyReconcile" | "listOpenSignals">;
 
@@ -67,6 +75,8 @@ export type ShopPulseDeps = {
   loadOrders: (tenantId: string | null, since: Date) => Promise<PulseOrder[]>;
   /** Datenquellen der Kaufbarkeit (Spiegel, Preis-Historie, Admin-API); fehlt sie, scheitern deren Prüfungen */
   loadBuyability?: (tenantId: string | null, now: Date) => BuyabilitySources;
+  /** Storefront des Shops (unter der Sperre des Shop-Wächters); fehlt sie, scheitern deren Prüfungen */
+  loadStorefront?: (tenantId: string | null) => StorefrontAccess;
   onNotificationCreated: (n: Notification) => void;
   baseUrl: string | null;
   now?: () => Date;
@@ -158,17 +168,20 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
       priceChanges: (since) => (sources ? sources.priceChanges(since) : missing()),
       channelMethods: once(sources?.channelMethods ?? missing),
     };
+    const storefront: StorefrontAccess = deps.loadStorefront?.(tenantId) ?? { withShop: () => Promise.reject(new Error("Storefront nicht verfügbar")) };
 
     // 1. Prüfungen nacheinander; eine Quelle ist vollständig, wenn alle ihre Prüfungen liefen
     const detections: ShopPulseDetection[] = [];
     const detectorState: NonNullable<ShopPulseState["detectors"]> = {};
     const failedSources = new Set<ShopPulseSource>();
     const completePrefixes: string[] = [];
+    const ran = new Set<string>();
     const mirrorStale = () => detections.some((d) => d.key === MIRROR_SIGNAL_KEY) || detectorState.mirrorFreshness?.ok === false;
     for (const d of deps.detectors) {
       const prev = state.detectors?.[d.id];
-      if (d.cadence === "nightly" && !opts.force && !isNightlyDue(prev, now)) {
-        // nicht fällig: Stand des letzten Nachtlaufs behalten, Meldungen bleiben wie sie sind
+      const notDue = (d.cadence === "nightly" && !isNightlyDue(prev, now)) || (d.due !== undefined && !d.due(prev, now));
+      if (notDue && !opts.force) {
+        // nicht fällig: Stand des letzten Laufs behalten, Meldungen bleiben wie sie sind
         failedSources.add(d.source);
         if (prev) detectorState[d.id] = prev;
         continue;
@@ -180,11 +193,18 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
         continue;
       }
       try {
-        const found = await d.run({ storage: deps.storage, tenantId, now, orders, buyability, lastRunAt: prev?.ok ? prev.at : null });
+        const found = await d.run({ storage: deps.storage, tenantId, now, orders, buyability, storefront, lastRunAt: prev?.ok ? prev.at : null });
         detections.push(...found);
         detectorState[d.id] = { at: now.toISOString(), ok: true, findings: found.length };
+        ran.add(d.id);
         if (d.keyPrefix) completePrefixes.push(d.keyPrefix);
       } catch (err) {
+        if (err instanceof ShopBusyError) {
+          // Shop-Wächter fragt den Shop gerade ab: aussetzen, im nächsten Takt wieder
+          failedSources.add(d.source);
+          detectorState[d.id] = { at: now.toISOString(), ok: true, skipped: "busy", findings: 0 };
+          continue;
+        }
         failedSources.add(d.source);
         detectorState[d.id] = { at: now.toISOString(), ok: false, error: err instanceof Error ? err.message.slice(0, 300) : String(err), findings: 0 };
         log.warn({ err, tenantId, detector: d.id }, "Shop-Puls: Prüfung fehlgeschlagen");
@@ -193,9 +213,13 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
     const allSources = Array.from(new Set(deps.detectors.map((d) => d.source)));
     const completeSources = allSources.filter((s) => !failedSources.has(s));
 
-    // 2. Abgleich mit den gespeicherten Meldungen
+    // 2. Abgleich mit den gespeicherten Meldungen; Warenkorb-Probe rot (jetzt, oder nicht gelaufen und
+    //    noch offen) bestätigt eine Bestell-Lücke
     const existing = await deps.repo.listSignalsBySources(tenantId, allSources);
-    const result = reconcileSignals(existing, detections, {
+    const cartRed =
+      detections.some((d) => d.key === CART_PROBE_KEY && d.severity === "critical") ||
+      (!ran.has(cartProbeDetector.id) && existing.some((s) => s.key === CART_PROBE_KEY && s.status === "open" && s.severity === "critical"));
+    const result = reconcileSignals(existing, confirmOrderGap(detections, cartRed), {
       now,
       learning: silent,
       completeSources,
@@ -277,8 +301,31 @@ export function shopPulseDeps(storage: IStorage): ShopPulseDeps {
         return loadChannelMethods(settings);
       },
     }),
+    loadStorefront: (tenantId) => storefrontAccess(storage, tenantId),
     onNotificationCreated: (n) => notificationEvents.emitNotificationCreated(n),
     baseUrl: publicAppBaseUrl(process.env.APP_URL?.trim() || null),
+  };
+}
+
+/** Storefront des Kanals META Regalbau DE, je Zugriff unter der Sperre des Shop-Wächters */
+export function storefrontAccess(storage: Pick<IStorage, "getShopwareSettings">, tenantId: string | null): StorefrontAccess {
+  let shop: Promise<StorefrontShop> | null = null;
+  const load = async (): Promise<StorefrontShop> => {
+    const settings = await storage.getShopwareSettings(tenantId);
+    if (!settings) throw new Error("Shopware settings not configured");
+    const { api, base } = shopApi(settings);
+    const channel = await findDeChannel(api, base);
+    return { storefront: channel.domain, channelId: channel.id, api, pauseMs: STOREFRONT_PAUSE_MS };
+  };
+  return {
+    withShop: (fn) =>
+      withShopLock(tenantId, async () => {
+        shop ??= load().catch((err) => {
+          shop = null;
+          throw err;
+        });
+        return fn(await shop);
+      }),
   };
 }
 

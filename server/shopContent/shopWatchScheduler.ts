@@ -8,7 +8,7 @@
  * 3. sonst stündlich die stündlichen Prüfpunkte.
  *
  * Mandanten nacheinander, nie zwei Abfragen gegen denselben Shop gleichzeitig (Sperre je Mandant in
- * shopWatch.ts, Takt überlappt nicht). Nach jedem Lauf – auch von Hand – entscheidet
+ * shopWatch.ts, auch für die Storefront-Prüfungen des Shop-Puls; Takt überlappt nicht). Nach jedem Lauf – auch von Hand – entscheidet
  * shopWatchNotify.ts über Teams-Nachricht und Glocke.
  */
 import type { IStorage } from "../storage";
@@ -24,7 +24,7 @@ import { notificationEvents } from "../lib/events";
 import { logger } from "../lib/logger";
 import { shopWatchTeamsWebhookUrl } from "../shopPulse/shopPulseSettings";
 import { publicAppBaseUrl } from "../commercial/emailIntakeTeams";
-import { checkShopWatchFingerprint, getShopWatchState, isShopWatchRunning, runShopWatch } from "./shopWatch";
+import { checkShopWatchFingerprint, getShopWatchState, isShopWatchRunning, runShopWatch, ShopBusyError } from "./shopWatch";
 import {
   buildShopWatchNotification,
   buildShopWatchTeamsMessage,
@@ -162,8 +162,17 @@ export function runShopWatchWithNotices(
 
 export type ShopWatchTickOutcome = "disabled" | "busy" | "deploy" | "all" | "hourly" | "idle";
 
-/** Ein Takt für einen Mandanten */
+/** Ein Takt für einen Mandanten; fragt gerade eine andere Prüfung den Shop ab (Sperre belegt): "busy" */
 export async function shopWatchTickForTenant(deps: ShopWatchDeps, tenantId: string | null): Promise<ShopWatchTickOutcome> {
+  try {
+    return await shopWatchTick(deps, tenantId);
+  } catch (err) {
+    if (err instanceof ShopBusyError) return "busy";
+    throw err;
+  }
+}
+
+async function shopWatchTick(deps: ShopWatchDeps, tenantId: string | null): Promise<ShopWatchTickOutcome> {
   const store = deps.storage;
   if (!(await getShopWatchSettings(store, tenantId)).enabled) return "disabled";
   if (isShopWatchRunning(tenantId)) return "busy";

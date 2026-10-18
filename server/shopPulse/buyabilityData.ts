@@ -10,11 +10,14 @@ import { db } from "../db";
 
 /** Ein Artikel, wie ihn die Kaufbarkeits-Prüfung braucht (Felder ab Spiegel-Payload v3 können fehlen) */
 export type BuyabilityProduct = {
+  /** Shopware-ID (für die Produktseite und den Warenkorb der Storefront-Prüfungen) */
+  id?: string;
   productNumber: string;
   name: string;
   active: boolean;
   salesChannelIds: string[];
   priceGross: number | null;
+  priceNet?: number | null;
   stock: number | null;
   /** undefined = Spiegel noch ohne das Feld (vor dem ersten Abgleich mit Payload v3) */
   isCloseout?: boolean | null;
@@ -26,6 +29,8 @@ export type BuyabilityProduct = {
   categoryCount: number;
   /** Variante (parentId gesetzt): erbt Felder vom Hauptartikel, wird nicht einzeln bewertet */
   isVariant: boolean;
+  /** Hauptartikel mit Varianten: ohne Variantenwahl nicht in den Warenkorb legbar */
+  childCount?: number;
   /**
    * Technischer Artikel ohne Lieferzeit und Kategorie: Service-Artikel (Zusatzfeld wdu_service_type) und
    * Shopware-eigene SW-Nummern (Konfigurator-Artikel SW10001, Platzhalter SW10000). Nur „nicht mehr
@@ -50,11 +55,13 @@ export function toBuyabilityProduct(r: ProductRow): BuyabilityProduct {
   const p = r.payload ?? {};
   const has = (k: string) => Object.prototype.hasOwnProperty.call(p, k);
   return {
+    id: p.id ? String(p.id) : undefined,
     productNumber: r.productNumber,
     name: String(r.name ?? p.name ?? ""),
     active: r.active === true,
     salesChannelIds: Array.isArray(p.salesChannelIds) ? (p.salesChannelIds as unknown[]).map(String) : [],
     priceGross: num(p.priceGross),
+    priceNet: num(p.priceNet),
     stock: num(p.stock),
     isCloseout: has("isCloseout") ? (typeof p.isCloseout === "boolean" ? p.isCloseout : null) : undefined,
     minPurchase: has("minPurchase") ? num(p.minPurchase) : undefined,
@@ -64,6 +71,7 @@ export function toBuyabilityProduct(r: ProductRow): BuyabilityProduct {
     restockTime: num(p.restockTime),
     categoryCount: Array.isArray(p.categories) ? (p.categories as unknown[]).length : 0,
     isVariant: !!p.parentId,
+    childCount: num(p.childCount) ?? 0,
     isTechnical: !!p.serviceType || /^SW\d+$/i.test(r.productNumber),
   };
 }
