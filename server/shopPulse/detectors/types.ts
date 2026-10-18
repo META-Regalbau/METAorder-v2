@@ -7,6 +7,7 @@ import type { BuyabilityProduct, PriceChange } from "../buyabilityData";
 import type { Ga4Access } from "../ga4Client";
 import type { OfferWatchSources } from "./offers";
 import type { AdsSources } from "./ads";
+import type { GscSources } from "./gsc";
 
 /** Zahl- bzw. Versandart des Verkaufskanals */
 export type ChannelMethod = { id: string; name: string; active: boolean };
@@ -58,6 +59,8 @@ export type ShopPulseDetectorContext = {
   b2b: OfferWatchSources;
   /** Google Ads (S2-4); nicht eingerichtet → AdsNotConfiguredError (die Prüfung setzt aus) */
   ads: AdsSources;
+  /** Search Console (S2-5); nicht eingerichtet → GscNotConfiguredError (die Prüfungen setzen aus) */
+  gsc: GscSources;
   /** Zeitpunkt des vorigen Laufs dieser Prüfung (null = noch nie) */
   lastRunAt: string | null;
   /** Diese Prüfung lief noch nie (kein Stand), auch nicht fehlgeschlagen */

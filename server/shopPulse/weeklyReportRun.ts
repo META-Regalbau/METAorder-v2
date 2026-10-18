@@ -11,7 +11,7 @@ import { and, eq, inArray, isNull, sql, type AnyColumn } from "drizzle-orm";
 import { shopwareB2bCompanies, shopwareProducts } from "@shared/schema";
 import type { ShopPulseLossEstimate, ShopPulseSignal } from "@shared/shopPulse";
 import type { ShopPulseActionEffect, ShopPulseWeeklyEffect } from "@shared/shopPulseEffects";
-import type { ShopPulseWeeklyAds } from "@shared/shopPulseWeekly";
+import type { ShopPulseWeeklyAds, ShopPulseWeeklyGsc } from "@shared/shopPulseWeekly";
 import type { ShopPulseAction, ShopPulseB2bShare, ShopPulseWeeklyNumbers, ShopPulseWeeklyReport, ShopPulseWeeklyReportData } from "@shared/shopPulseWeekly";
 import type { IStorage } from "../storage";
 import { db } from "../db";
@@ -24,7 +24,9 @@ import { syncActionLog } from "./actionSync";
 import type { ShopPulseAiDeps } from "./shopPulseAi";
 import { weeklyEffects } from "./effects";
 import { adsAccess, AdsNotConfiguredError, loadAdsWeek } from "./adsClient";
-import { adsWeekly, avgDb1PerOrder, b2bShare, berlinMidnight, ga4WeekFrom, reportedWeekStart, weeklyAiText, weeklyNumbers, weeklyReportData } from "./weeklyReport";
+import { gscAccess, GscNotConfiguredError } from "./gscClient";
+import { gscDataEnd } from "./detectors/gsc";
+import { adsWeekly, gscWeekly, avgDb1PerOrder, b2bShare, berlinMidnight, ga4WeekFrom, reportedWeekStart, weeklyAiText, weeklyNumbers, weeklyReportData } from "./weeklyReport";
 
 const log = logger.child({ component: "shopPulse/weeklyReportRun" });
 
@@ -46,6 +48,8 @@ export type ShopPulseWeeklyDeps = {
   effects?(tenantId: string | null, now: Date): Promise<{ effects: ShopPulseActionEffect[]; actions: ShopPulseAction[] }>;
   /** Google-Ads-Kosten der Woche (S2-4); wirft AdsNotConfiguredError, wenn nicht eingerichtet; fehlt es, kein Ads-Abschnitt */
   adsWeek?(tenantId: string | null, from: string, to: string): Promise<{ cost: number; clicks: number; conversions: number }>;
+  /** Google-Klicks (S2-5) von bis und die 7 Tage davor; wirft GscNotConfiguredError, wenn nicht eingerichtet */
+  gscWeek?(tenantId: string | null, from: string, to: string): Promise<{ from: string; to: string; clicks: number; impressions: number; previousClicks: number }>;
   saveReport(
     tenantId: string | null,
     report: { weekStart: string; data: ShopPulseWeeklyReportData; ai: ShopPulseWeeklyReport["ai"]; sentAt: Date | null },
@@ -127,7 +131,21 @@ export async function buildWeeklyReport(deps: ShopPulseWeeklyDeps, input: Weekly
       }
     }
   }
-  const data = weeklyReportData({ numbers: figures?.numbers ?? null, signals: input.openSignals, estimates, actions, now, b2b: figures?.b2b ?? null, effects, ads });
+  let gsc: ShopPulseWeeklyGsc | undefined;
+  if (deps.gscWeek) {
+    const to = gscDataEnd(now);
+    const range = { from: addDays(to, -6), to };
+    try {
+      gsc = gscWeekly(await deps.gscWeek(tenantId, range.from, range.to), range, input.openSignals);
+    } catch (err) {
+      if (err instanceof GscNotConfiguredError) gsc = gscWeekly(null, range, [], err.reason);
+      else {
+        log.warn({ err: err instanceof Error ? err.message : String(err), tenantId }, "Wochenbericht: Search Console nicht gelesen");
+        gsc = gscWeekly(null, range, input.openSignals);
+      }
+    }
+  }
+  const data = weeklyReportData({ numbers: figures?.numbers ?? null, signals: input.openSignals, estimates, actions, now, b2b: figures?.b2b ?? null, effects, ads, gsc });
 
   let ai: ShopPulseWeeklyReport["ai"] = null;
   if (input.ai) {
@@ -200,6 +218,16 @@ export function shopPulseWeeklyDeps(storage: IStorage): ShopPulseWeeklyDeps {
     syncActions: (tenantId, now) => syncActionLog(storage, tenantId, now),
     listActions: (tenantId, from, to) => listActions(tenantId, { from, to, limit: 500 }),
     adsWeek: async (tenantId, from, to) => loadAdsWeek(await adsAccess(storage, tenantId).account(), from, to),
+    gscWeek: async (tenantId, from, to) => {
+      const property = await gscAccess(storage, tenantId).property();
+      const total = async (a: string, b: string) => {
+        const rows = await property.searchAnalytics({ startDate: a, endDate: b, dimensions: [] });
+        return { clicks: rows.reduce((s, r) => s + r.clicks, 0), impressions: rows.reduce((s, r) => s + r.impressions, 0) };
+      };
+      const current = await total(from, to);
+      const previous = await total(addDays(from, -7), addDays(from, -1));
+      return { from, to, clicks: current.clicks, impressions: current.impressions, previousClicks: previous.clicks };
+    },
     saveReport: saveWeeklyReport,
   };
 }

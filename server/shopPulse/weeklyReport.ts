@@ -24,6 +24,8 @@
  *    Warenkorb-Alarms (S2-3, Vorschlag 1.000 € netto).
  * 7. Google Ads (S2-4): Kosten der Woche, Kosten je Conversion gegen Ø Deckungsbeitrag, Vorschläge für
  *    auszuschließende Suchbegriffe (zuerst an Oliver, nicht direkt an Smarketer).
+ * 8. Search Console (S2-5): Google-Klicks der letzten 7 Tage mit Daten (Verzögerung 3 Tage), Suchanfragen fast
+ *    auf Seite 1, zwei Seiten für eine Suche, nicht indexierte eigene Seiten.
  */
 import { summarizeOrderItems } from "../analytics/orderProfitabilityAnalysis";
 import {
@@ -46,9 +48,10 @@ import {
   type ShopPulseWeeklyNumbers,
   type ShopPulseWeeklyReportData,
   type ShopPulseWeeklyAds,
+  type ShopPulseWeeklyGsc,
 } from "@shared/shopPulseWeekly";
 import type { ShopPulseWeeklyEffect } from "@shared/shopPulseEffects";
-import type { AdsSetupProblem } from "@shared/shopPulse";
+import type { AdsSetupProblem, GscSetupProblem } from "@shared/shopPulse";
 import type { ShopPulseLossEstimate, ShopPulseSignal, ShopPulseState } from "@shared/shopPulse";
 import { addDays, berlinTime, weekdayOfDay, type PulseOrder, type PulseOrderCustomer } from "./pulseOrders";
 import { compareSignals, isMuted } from "./shopPulseSignals";
@@ -370,6 +373,47 @@ export function adsWeekly(
   };
 }
 
+// ---------------------------------------------------------------------------------------------
+// Search Console (S2-5)
+
+const GSC_LISTED = 10;
+
+/**
+ * Search-Console-Abschnitt: Google-Klicks der letzten 7 Tage mit Daten gegen die 7 Tage davor, dazu die Listen
+ * aus den offenen Meldungen (fast Seite 1, zwei Seiten für eine Suche, nicht indexiert). problem gesetzt = nicht
+ * eingerichtet.
+ */
+export function gscWeekly(
+  week: { from: string; to: string; clicks: number; impressions: number; previousClicks: number } | null,
+  range: { from: string; to: string },
+  signals: ShopPulseSignal[],
+  problem?: GscSetupProblem,
+): ShopPulseWeeklyGsc {
+  if (problem) return { configured: false, problem };
+  const open = signals.filter((s) => s.status === "open" && s.key.startsWith("gsc:"));
+  const list = (code: string, field: string) => {
+    const s = open.find((x) => x.code === code);
+    const v = s?.evidence[field];
+    return Array.isArray(v) ? (v as Array<Record<string, unknown>>) : [];
+  };
+  return {
+    configured: true,
+    from: week?.from ?? range.from,
+    to: week?.to ?? range.to,
+    clicks: week?.clicks ?? null,
+    impressions: week?.impressions ?? null,
+    previousClicks: week?.previousClicks ?? null,
+    nearPageOne: list("gscNearPageOne", "queries")
+      .slice(0, GSC_LISTED)
+      .map((q) => ({ query: String(q.query ?? ""), impressions: Number(q.impressions) || 0, clicks: Number(q.clicks) || 0, position: Number(q.position) || 0 })),
+    cannibalization: list("gscCannibalization", "queries")
+      .slice(0, GSC_LISTED)
+      .map((q) => ({ query: String(q.query ?? ""), impressions: Number(q.impressions) || 0, pages: (Array.isArray(q.pages) ? (q.pages as Array<Record<string, unknown>>) : []).map((p) => String(p.page ?? "")) })),
+    notIndexed: open.filter((s) => s.code === "gscNotIndexed").length,
+    openCount: open.length,
+  };
+}
+
 export function weeklyReportData(input: {
   numbers: ShopPulseWeeklyNumbers | null;
   signals: ShopPulseSignal[];
@@ -379,6 +423,7 @@ export function weeklyReportData(input: {
   b2b?: ShopPulseB2bShare | null;
   effects?: ShopPulseWeeklyEffect[] | null;
   ads?: ShopPulseWeeklyAds;
+  gsc?: ShopPulseWeeklyGsc;
 }): ShopPulseWeeklyReportData {
   const all = rankLevers(input.signals, input.estimates, input.now);
   const levers = all.slice(0, LEVERS_MAX);
@@ -393,6 +438,7 @@ export function weeklyReportData(input: {
     b2b: input.b2b ?? null,
     effects: input.effects ?? null,
     ...(input.ads ? { ads: input.ads } : {}),
+    ...(input.gsc ? { gsc: input.gsc } : {}),
   };
 }
 
@@ -455,6 +501,20 @@ export function weeklyPayload(data: ShopPulseWeeklyReportData, now: Date): Recor
             durchschnittDeckungsbeitragJeBestellung: data.ads.avgDb1PerOrder,
             offeneAdsMeldungen: data.ads.openCount,
             vorschlaegeAuszuschliessen: data.ads.suggestions.map((x) => ({ begriff: x.term, kosten28Tage: x.cost })),
+          }
+        : "nicht eingerichtet",
+    searchConsole: !data.gsc
+      ? "nicht erfasst"
+      : data.gsc.configured
+        ? {
+            von: data.gsc.from,
+            bis: data.gsc.to,
+            googleKlicks: data.gsc.clicks,
+            googleKlicksDavor: data.gsc.previousClicks,
+            impressionen: data.gsc.impressions,
+            fastSeiteEins: data.gsc.nearPageOne.map((q) => ({ suchanfrage: q.query, impressionen: q.impressions, position: q.position })),
+            zweiSeitenEineSuche: data.gsc.cannibalization.map((q) => ({ suchanfrage: q.query, seiten: q.pages })),
+            nichtIndexiert: data.gsc.notIndexed,
           }
         : "nicht eingerichtet",
     angebotsanfragen: data.offers

@@ -9,7 +9,7 @@
 import { isAllowedTeamsWebhookUrl } from "./emailIntake";
 
 /** Woher ein Fund kommt */
-export const SHOP_PULSE_SOURCES = ["system", "revenue", "buyability", "ga4", "b2b", "ads"] as const;
+export const SHOP_PULSE_SOURCES = ["system", "revenue", "buyability", "ga4", "b2b", "ads", "gsc"] as const;
 export type ShopPulseSource = (typeof SHOP_PULSE_SOURCES)[number];
 
 /** critical = sofort melden, warning = Tagesbericht */
@@ -72,6 +72,12 @@ export const SHOP_PULSE_CODES = [
   "adsSearchTermsWaste",
   "adsMeasurementDrop",
   "adsBudgetLimited",
+  "gscClickDrop",
+  "gscLowCtr",
+  "gscNearPageOne",
+  "gscNotIndexed",
+  "gscSitemapIssues",
+  "gscCannibalization",
 ] as const;
 export type ShopPulseCode = (typeof SHOP_PULSE_CODES)[number];
 
@@ -106,6 +112,8 @@ export const SHOP_PULSE_DETECTOR_IDS = [
   "ga4Measurement",
   "offerWatch",
   "googleAds",
+  "gscSearch",
+  "gscIndex",
 ] as const;
 
 /**
@@ -121,6 +129,33 @@ export type Ga4SetupProblem = (typeof GA4_SETUP_PROBLEMS)[number];
  */
 export const ADS_SETUP_PROBLEMS = ["disabled", "noCustomer", "noCredentials"] as const;
 export type AdsSetupProblem = (typeof ADS_SETUP_PROBLEMS)[number];
+
+/**
+ * Warum die Search Console nicht eingerichtet ist (Shop-Puls → Search Console, Stufe 2 S2-5): ausgeschaltet,
+ * keine Property, Property weder „sc-domain:…“ noch URL-Präfix, kein bzw. ungültiges Dienstkonto-JSON
+ */
+export const GSC_SETUP_PROBLEMS = ["disabled", "noProperty", "invalidProperty", "noServiceAccount", "invalidServiceAccount"] as const;
+export type GscSetupProblem = (typeof GSC_SETUP_PROBLEMS)[number];
+
+/** Antwort von GET /api/shop-pulse/search-console (das Dienstkonto-JSON wird nie zurückgegeben) */
+export type ShopPulseGscOverview = {
+  enabled: boolean;
+  property: string;
+  hasServiceAccount: boolean;
+  serviceAccountEmail: string | null;
+  /** null = eingerichtet */
+  problem: GscSetupProblem | null;
+};
+
+/** KI-Vorschlag für Meta-Title/-Description (nur zur Freigabe, nichts wird geschrieben) */
+export type ShopPulseMetaSuggestionResult = {
+  page: string;
+  current: { title: string; description: string };
+  queries: string[];
+  /** null = beide Versuche durchgefallen (rejected sagt warum) */
+  suggestion: { metaTitle: string; metaDescription: string } | null;
+  rejected: string | null;
+};
 
 export const SEVERITY_RANK: Record<ShopPulseSeverity, number> = { warning: 1, critical: 2 };
 
@@ -267,11 +302,20 @@ export type ShopPulseState = {
   /**
    * skipped "mirror": ausgesetzt, weil der Bestellabgleich hängt; "busy": der Shop-Wächter fragt den Shop
    * gerade ab; "ga4": GA4 nicht eingerichtet (ga4Problem sagt, was fehlt); "ads": Google Ads nicht
-   * eingerichtet (adsProblem)
+   * eingerichtet (adsProblem); "gsc": Search Console nicht eingerichtet (gscProblem)
    */
   detectors?: Record<
     string,
-    { at: string; ok: boolean; error?: string; skipped?: "mirror" | "busy" | "ga4" | "ads"; ga4Problem?: Ga4SetupProblem; adsProblem?: AdsSetupProblem; findings: number }
+    {
+      at: string;
+      ok: boolean;
+      error?: string;
+      skipped?: "mirror" | "busy" | "ga4" | "ads" | "gsc";
+      ga4Problem?: Ga4SetupProblem;
+      adsProblem?: AdsSetupProblem;
+      gscProblem?: GscSetupProblem;
+      findings: number;
+    }
   >;
 };
 
@@ -351,6 +395,12 @@ const PARAM_KINDS: Partial<Record<ShopPulseCode, Record<string, "money" | "date"
   adsSearchTermsWaste: { count: "number", cost: "money" },
   adsMeasurementDrop: { from: "date", to: "date", current: "percent", expected: "percent", orders: "number" },
   adsBudgetLimited: { lost: "percent", cost: "money", estDb1: "money", conversions: "number" },
+  gscClickDrop: { current: "number", expected: "number", from: "date", to: "date" },
+  gscLowCtr: { impressions: "number", ctr: "percent", expected: "percent", lostClicks: "number", to: "date" },
+  gscNearPageOne: { count: "number", to: "date" },
+  gscNotIndexed: { since: "date" },
+  gscSitemapIssues: { errors: "number", warnings: "number" },
+  gscCannibalization: { count: "number", to: "date" },
 };
 
 export type ShopPulseParamFormatters = {
