@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertTriangle, CalendarRange, Copy, Loader2, RefreshCw, Sparkles, XCircle } from "lucide-react";
+import { AlertTriangle, Briefcase, CalendarRange, Copy, FileQuestion, Loader2, RefreshCw, Sparkles, XCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,13 +12,23 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatShopPulseParams, type ShopPulseSignal } from "@shared/shopPulse";
-import { changePercent, type ShopPulseWeekFigures, type ShopPulseWeeklyOverview, type ShopPulseWeeklyReport } from "@shared/shopPulseWeekly";
+import {
+  changePercent,
+  type ShopPulseB2bPeriod,
+  type ShopPulseB2bShare,
+  type ShopPulseOfferSummary,
+  type ShopPulseWeekFigures,
+  type ShopPulseWeeklyOverview,
+  type ShopPulseWeeklyReport,
+} from "@shared/shopPulseWeekly";
 
 /**
  * Shop-Puls, Reiter „Wochenberichte“ (Stufe 2, S2-1): Archiv aller Wochenberichte. Je Bericht die Woche in
  * Zahlen gegen Vorwoche und Vorjahr, KI-Zusammenfassung (deutsch, wie in Teams), Top 5 Hebel nach €, Erledigt
  * letzte Woche aus dem Maßnahmen-Protokoll und offen je Zuständigem (Liste zum Weiterleiten, deutsch).
- * „Jetzt erstellen“ baut den Bericht der abgeschlossenen Woche ohne Senden. Server: shopPulseWeeklyRoutes.ts.
+ * Seit S2-2 außerdem die unbeantworteten Angebotsanfragen und der B2B-Anteil mit Verteilung der Bestellwerte
+ * (fehlen in älteren Berichten). „Jetzt erstellen“ baut den Bericht der abgeschlossenen Woche ohne Senden.
+ * Server: shopPulseWeeklyRoutes.ts.
  */
 
 const QUERY_KEY = ["/api/shop-pulse/weekly-reports"];
@@ -239,6 +249,9 @@ export function ShopPulseWeeklyTab({ initialWeek }: { initialWeek: string | null
             <p className="text-xs text-muted-foreground">{t("shopPulse.weeklyPage.leversHint")}</p>
           </Card>
 
+          {report.data.offers ? <OffersCard offers={report.data.offers} /> : null}
+          {report.data.b2b !== undefined ? <B2bCard b2b={report.data.b2b} /> : null}
+
           <Card className="p-4 space-y-2" data-testid="shop-pulse-weekly-done">
             <h4 className="font-medium">{t("shopPulse.weeklyPage.doneTitle", { count: report.data.done.length })}</h4>
             {report.data.done.length === 0 ? (
@@ -292,5 +305,169 @@ export function ShopPulseWeeklyTab({ initialWeek }: { initialWeek: string | null
         </div>
       )}
     </div>
+  );
+}
+
+/** Unbeantwortete Angebotsanfragen (S2-2): Zusammenfassung und die größten Anfragen */
+function OffersCard({ offers }: { offers: ShopPulseOfferSummary }) {
+  const { t } = useTranslation();
+  const fmt = useLocaleFormat();
+  const nothing = !offers.unanswered && !offers.empty && !offers.backlog;
+  return (
+    <Card className="p-4 space-y-3" data-testid="shop-pulse-weekly-offers">
+      <h4 className="font-medium flex items-center gap-2">
+        <FileQuestion className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        {t("shopPulse.weeklyPage.offersTitle")}
+      </h4>
+      {nothing ? (
+        <p className="text-sm text-muted-foreground">{t("shopPulse.weeklyPage.offersNone")}</p>
+      ) : (
+        <ul className="text-sm space-y-1">
+          {offers.unanswered ? (
+            <li>{t("shopPulse.weeklyPage.offersSummary", { count: offers.unanswered, net: fmt.currencyWhole(offers.net), critical: offers.critical })}</li>
+          ) : null}
+          {offers.empty ? <li>{t("shopPulse.weeklyPage.offersEmpty", { count: offers.empty })}</li> : null}
+          {offers.backlog ? <li>{t("shopPulse.weeklyPage.offersBacklog", { count: offers.backlog, net: fmt.currencyWhole(offers.backlogNet) })}</li> : null}
+        </ul>
+      )}
+      {offers.items.length ? (
+        <div className="overflow-x-auto">
+          <Table data-testid="shop-pulse-weekly-offers-table">
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t("shopPulse.weeklyPage.offersColumns.number")}</TableHead>
+                <TableHead>{t("shopPulse.weeklyPage.offersColumns.customer")}</TableHead>
+                <TableHead className="text-right">{t("shopPulse.weeklyPage.offersColumns.net")}</TableHead>
+                <TableHead className="text-right">{t("shopPulse.weeklyPage.offersColumns.age")}</TableHead>
+                <TableHead>{t("shopPulse.weeklyPage.offersColumns.assignee")}</TableHead>
+                <TableHead>{t("shopPulse.weeklyPage.offersColumns.channel")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {offers.items.map((i) => (
+                <TableRow key={i.signalId} data-testid={`row-shop-pulse-offer-${i.offerNumber}`}>
+                  <TableCell className="whitespace-nowrap">
+                    <span className="inline-flex items-center gap-1">
+                      {i.severity === "critical" ? <XCircle className="h-4 w-4 text-destructive" aria-label={t("shopPulse.severity.critical")} /> : <AlertTriangle className="h-4 w-4 text-amber-600" aria-label={t("shopPulse.severity.warning")} />}
+                      {i.offerNumber}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    {i.customer}
+                    {i.customerNumber && i.customerNumber !== "–" ? <div className="text-xs text-muted-foreground">{i.customerNumber}</div> : null}
+                  </TableCell>
+                  <TableCell className="text-right">{i.empty ? <Badge variant="outline">{t("shopPulse.weeklyPage.offersEmptyBadge")}</Badge> : fmt.currencyWhole(i.net)}</TableCell>
+                  <TableCell className="text-right whitespace-nowrap">
+                    {t("shopPulse.weeklyPage.offersAge", { count: i.businessDays })}
+                    {i.since ? <div className="text-xs text-muted-foreground">{fmt.date(`${i.since}T12:00:00`)}</div> : null}
+                  </TableCell>
+                  <TableCell>
+                    {i.assignee}
+                    <div className="text-xs text-muted-foreground">{t(`shopPulse.weeklyPage.assigneeSources.${i.assigneeSource}`)}</div>
+                  </TableCell>
+                  <TableCell className="text-sm">{i.channel}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : null}
+      <p className="text-xs text-muted-foreground">{t("shopPulse.weeklyPage.offersHint")}</p>
+    </Card>
+  );
+}
+
+/** B2B-Anteil (S2-2): Woche und 13 Wochen, Verteilung der Bestellwerte, Schwellen für den Warenkorb-Alarm */
+function B2bCard({ b2b }: { b2b: ShopPulseB2bShare | null }) {
+  const { t } = useTranslation();
+  const fmt = useLocaleFormat();
+  const share = (v: number | null) => (v == null ? "–" : fmt.percentValue(v, 1));
+  const row = (label: string, p: ShopPulseB2bPeriod, testId: string) => (
+    <TableRow data-testid={testId}>
+      <TableCell className="font-medium whitespace-nowrap">
+        {label}
+        <div className="text-xs text-muted-foreground font-normal">{`${fmt.date(`${p.from}T12:00:00`)} – ${fmt.date(`${p.to}T12:00:00`)}`}</div>
+      </TableCell>
+      <TableCell className="text-right">{fmt.integer(p.orders)}</TableCell>
+      <TableCell className="text-right">
+        {fmt.integer(p.b2bOrders)}
+        <div className="text-xs text-muted-foreground">{share(p.ordersPercent)}</div>
+      </TableCell>
+      <TableCell className="text-right">{fmt.currencyWhole(p.net)}</TableCell>
+      <TableCell className="text-right">
+        {fmt.currencyWhole(p.b2bNet)}
+        <div className="text-xs text-muted-foreground">{share(p.netPercent)}</div>
+      </TableCell>
+    </TableRow>
+  );
+  return (
+    <Card className="p-4 space-y-3" data-testid="shop-pulse-weekly-b2b">
+      <h4 className="font-medium flex items-center gap-2">
+        <Briefcase className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        {t("shopPulse.weeklyPage.b2bTitle")}
+      </h4>
+      {!b2b ? (
+        <p className="text-sm text-amber-700 dark:text-amber-300">{t("shopPulse.weeklyPage.b2bNone")}</p>
+      ) : (
+        <>
+          <div className="overflow-x-auto">
+            <Table data-testid="shop-pulse-weekly-b2b-share">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("shopPulse.weeklyPage.b2bColumns.period")}</TableHead>
+                  <TableHead className="text-right">{t("shopPulse.weeklyPage.b2bColumns.orders")}</TableHead>
+                  <TableHead className="text-right">{t("shopPulse.weeklyPage.b2bColumns.b2bOrders")}</TableHead>
+                  <TableHead className="text-right">{t("shopPulse.weeklyPage.b2bColumns.net")}</TableHead>
+                  <TableHead className="text-right">{t("shopPulse.weeklyPage.b2bColumns.b2bNet")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {row(t("shopPulse.weeklyPage.b2bRows.week"), b2b.week, "row-shop-pulse-b2b-week")}
+                {row(t("shopPulse.weeklyPage.b2bRows.quarter"), b2b.quarter, "row-shop-pulse-b2b-quarter")}
+              </TableBody>
+            </Table>
+          </div>
+          <h5 className="text-sm font-medium">{t("shopPulse.weeklyPage.bucketsTitle")}</h5>
+          <div className="overflow-x-auto">
+            <Table data-testid="shop-pulse-weekly-b2b-buckets">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("shopPulse.weeklyPage.bucketColumns.range")}</TableHead>
+                  <TableHead className="text-right">{t("shopPulse.weeklyPage.bucketColumns.b2b")}</TableHead>
+                  <TableHead className="text-right">{t("shopPulse.weeklyPage.bucketColumns.private")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {b2b.buckets.map((b) => (
+                  <TableRow key={b.from}>
+                    <TableCell className="whitespace-nowrap">
+                      {b.to == null
+                        ? t("shopPulse.weeklyPage.bucketOpen", { from: fmt.currencyWhole(b.from) })
+                        : t("shopPulse.weeklyPage.bucketRange", { from: fmt.currencyWhole(b.from), to: fmt.currencyWhole(b.to) })}
+                    </TableCell>
+                    <TableCell className="text-right">{fmt.integer(b.b2b)}</TableCell>
+                    <TableCell className="text-right">{fmt.integer(b.private)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          {b2b.b2bQuantiles ? (
+            <p className="text-sm">
+              {t("shopPulse.weeklyPage.quantiles", { p50: fmt.currencyWhole(b2b.b2bQuantiles.p50), p75: fmt.currencyWhole(b2b.b2bQuantiles.p75), p90: fmt.currencyWhole(b2b.b2bQuantiles.p90) })}
+            </p>
+          ) : null}
+          <ul className="text-sm list-disc pl-5 space-y-0.5">
+            {b2b.atLeast.map((a) => (
+              <li key={a.threshold}>
+                {t("shopPulse.weeklyPage.atLeast", { threshold: fmt.currencyWhole(a.threshold), orders: fmt.integer(a.orders), percent: share(a.percent), perWeek: fmt.decimal(a.perWeek, 1) })}
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-muted-foreground">{t("shopPulse.weeklyPage.basis", { company: fmt.integer(b2b.basis.company), flagOnly: fmt.integer(b2b.basis.flagOnly) })}</p>
+        </>
+      )}
+      <p className="text-xs text-muted-foreground">{t("shopPulse.weeklyPage.b2bHint")}</p>
+    </Card>
   );
 }

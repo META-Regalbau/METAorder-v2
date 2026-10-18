@@ -5,6 +5,7 @@ import type { ShopApi } from "../../shopContent/shopProducts";
 import type { PulseOrder } from "../pulseOrders";
 import type { BuyabilityProduct, PriceChange } from "../buyabilityData";
 import type { Ga4Access } from "../ga4Client";
+import type { OfferWatchSources } from "./offers";
 
 /** Zahl- bzw. Versandart des Verkaufskanals */
 export type ChannelMethod = { id: string; name: string; active: boolean };
@@ -52,8 +53,12 @@ export type ShopPulseDetectorContext = {
   storefront: StorefrontAccess;
   /** GA4-Property des Mandanten; nicht eingerichtet → Ga4NotConfiguredError (die Prüfung setzt aus) */
   ga4: Ga4Access;
+  /** B2B-Angebotsanfragen (B2Bsellers), Außendienst-Zuordnung und Standard-Bearbeiter */
+  b2b: OfferWatchSources;
   /** Zeitpunkt des vorigen Laufs dieser Prüfung (null = noch nie) */
   lastRunAt: string | null;
+  /** Diese Prüfung lief noch nie (kein Stand), auch nicht fehlgeschlagen */
+  firstRun: boolean;
 };
 
 /**

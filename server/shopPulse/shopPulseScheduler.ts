@@ -32,6 +32,10 @@
  * Woche raus (weeklyReport.ts, weeklyReportRun.ts) und landet im Archiv; scheitert er, kommt wie bisher der
  * Tagesbericht. In der Lernwoche wird er nur archiviert.
  *
+ * Stufe 2 (S2-2): Die Angebotsanfragen-Wache (detectors/offers.ts) liest einmal je Stunde die offenen
+ * B2B-Angebotsanfragen; der Tagesbericht nennt sie zusammengefasst, der Wochenbericht zusätzlich den
+ * B2B-Anteil der Shop-Bestellungen.
+ *
  * In der Lernwoche wird alles gesammelt, aber nichts gesendet. Mandanten nacheinander, nie zwei Läufe
  * für denselben Mandanten gleichzeitig.
  */
@@ -87,6 +91,9 @@ import { buildShopPulseWeeklyBellText, buildShopPulseWeeklyCard } from "./shopPu
 import { isWeeklyReportDue, reportedWeekStart } from "./weeklyReport";
 import { buildWeeklyReport, shopPulseWeeklyDeps, type ShopPulseWeeklyDeps } from "./weeklyReportRun";
 import { syncActionLog } from "./actionSync";
+import type { OfferWatchSources } from "./detectors/offers";
+import { offerWatchSources } from "./offerRequests";
+import { offerSummary } from "./weeklyReport";
 import type { ShopPulseWeeklyReport } from "@shared/shopPulseWeekly";
 
 const log = logger.child({ component: "shopPulse/shopPulseScheduler" });
@@ -117,6 +124,8 @@ export type ShopPulseDeps = {
   loadStorefront?: (tenantId: string | null) => StorefrontAccess;
   /** GA4-Property des Mandanten; fehlt sie, gilt GA4 als nicht eingerichtet */
   loadGa4?: (tenantId: string | null) => Ga4Access;
+  /** B2B-Angebotsanfragen (S2-2); fehlt sie, scheitert die Angebotsanfragen-Wache */
+  loadOfferWatch?: (tenantId: string | null, now: Date) => OfferWatchSources;
   /** KI-Texte (PR F); fehlt sie, gehen immer die festen Vorlagen raus */
   ai?: ShopPulseAiDeps;
   /** Wochenbericht (Stufe 2); fehlt er, kommt auch montags der Tagesbericht */
@@ -217,6 +226,8 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
     };
     const storefront: StorefrontAccess = deps.loadStorefront?.(tenantId) ?? { withShop: () => Promise.reject(new Error("Storefront nicht verfügbar")) };
     const ga4: Ga4Access = deps.loadGa4?.(tenantId) ?? { property: () => Promise.reject(new Ga4NotConfiguredError("disabled")) };
+    const noOffers = () => Promise.reject(new Error("Angebotsanfragen nicht verfügbar"));
+    const b2b: OfferWatchSources = deps.loadOfferWatch?.(tenantId, now) ?? { requests: noOffers, salesReps: noOffers, defaultAssignee: noOffers, channelNames: noOffers };
 
     // 1. Prüfungen nacheinander; eine Quelle ist vollständig, wenn alle ihre Prüfungen liefen
     const detections: ShopPulseDetection[] = [];
@@ -241,7 +252,7 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
         continue;
       }
       try {
-        const found = await d.run({ storage: deps.storage, tenantId, now, orders, buyability, storefront, ga4, lastRunAt: prev?.ok ? prev.at : null });
+        const found = await d.run({ storage: deps.storage, tenantId, now, orders, buyability, storefront, ga4, b2b, lastRunAt: prev?.ok ? prev.at : null, firstRun: !prev });
         detections.push(...found);
         detectorState[d.id] = { at: now.toISOString(), ok: true, findings: found.length };
         ran.add(d.id);
@@ -380,8 +391,9 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
           aiSummary = daily.text;
           patch.lastDailyAi = daily;
         }
-        if (webhook) await enqueueTeamsMessage(deps.storage, SHOP_PULSE_TEAMS_OUTBOX_KEY, tenantId, buildShopPulseDailyCard(open, now, deps.baseUrl, numbers, aiSummary), now);
-        await notifyAdmins(deps, tenantId, buildShopPulseDailyBellText(open, now, numbers, aiSummary), SHOP_PULSE_PAGE_PATH);
+        const offers = offerSummary(open);
+        if (webhook) await enqueueTeamsMessage(deps.storage, SHOP_PULSE_TEAMS_OUTBOX_KEY, tenantId, buildShopPulseDailyCard(open, now, deps.baseUrl, numbers, aiSummary, offers), now);
+        await notifyAdmins(deps, tenantId, buildShopPulseDailyBellText(open, now, numbers, aiSummary, offers), SHOP_PULSE_PAGE_PATH);
       }
       dailyReport = { sent: send, signals: open.length, numbers: numbers !== null };
     }
@@ -470,6 +482,7 @@ export function shopPulseDeps(storage: IStorage): ShopPulseDeps {
     }),
     loadStorefront: (tenantId) => storefrontAccess(storage, tenantId),
     loadGa4: (tenantId) => ga4Access(storage, tenantId),
+    loadOfferWatch: (tenantId, now) => offerWatchSources(storage, tenantId, now),
     ai: shopPulseAiDeps(storage),
     weekly: shopPulseWeeklyDeps(storage),
     syncActions: (tenantId, now) => syncActionLog(storage, tenantId, now),

@@ -13,7 +13,9 @@ import {
   changePercent,
   SHOP_PULSE_OWNER_NAMES,
   type ShopPulseActionScope,
+  type ShopPulseB2bShare,
   type ShopPulseLever,
+  type ShopPulseOfferSummary,
   type ShopPulseNextStep,
   type ShopPulseOwnerId,
   type ShopPulseWeekFigures,
@@ -74,6 +76,47 @@ export function dailyNumbersLines(n: DailyNumbers): string[] {
 
 const ICON = { critical: "🔴", warning: "🟡", resolved: "✅" } as const;
 
+const percentOrDash = (v: number | null) => (v == null ? t("weekly.noChange") : PERCENT1.format(v / 100));
+
+/** Angebotsanfragen-Wache kurz (Tages- und Wochenbericht); leer = nichts offen */
+export function offerSummaryLines(o: ShopPulseOfferSummary | null | undefined): string[] {
+  if (!o || (!o.unanswered && !o.empty && !o.backlog)) return [];
+  const lines: string[] = [];
+  if (o.unanswered) lines.push(t("notify.offersLine", { count: INTEGER.format(o.unanswered), net: EURO.format(o.net), critical: INTEGER.format(o.critical) }));
+  if (o.empty) lines.push(t("notify.offersEmpty", { count: INTEGER.format(o.empty) }));
+  if (o.backlog) lines.push(t("notify.offersBacklog", { count: INTEGER.format(o.backlog), net: EURO.format(o.backlogNet) }));
+  return lines;
+}
+
+/** Eine Anfrage als Zeile (Wochenbericht) */
+export function offerItemLine(i: ShopPulseOfferSummary["items"][number]): string {
+  return i.empty
+    ? t("weekly.offerEmptyItem", { number: i.offerNumber, customer: i.customer, since: dayDate(i.since), assignee: i.assignee })
+    : t("weekly.offerItem", { number: i.offerNumber, customer: i.customer, net: EURO.format(i.net), days: INTEGER.format(i.businessDays), assignee: i.assignee });
+}
+
+/** B2B-Anteil, je Zeile ein Text (Wochenbericht) */
+export function b2bShareLines(b: ShopPulseB2bShare): string[] {
+  const period = (key: string, p: ShopPulseB2bShare["week"]) =>
+    t(key, {
+      from: dayDate(p.from),
+      to: dayDate(p.to),
+      b2b: INTEGER.format(p.b2bOrders),
+      orders: INTEGER.format(p.orders),
+      ordersPercent: percentOrDash(p.ordersPercent),
+      b2bNet: EURO.format(p.b2bNet),
+      net: EURO.format(p.net),
+      netPercent: percentOrDash(p.netPercent),
+    });
+  const lines = [period("weekly.b2bWeek", b.week), period("weekly.b2bQuarter", b.quarter)];
+  if (b.b2bQuantiles) lines.push(t("weekly.b2bValues", { p50: EURO.format(b.b2bQuantiles.p50), p75: EURO.format(b.b2bQuantiles.p75), p90: EURO.format(b.b2bQuantiles.p90) }));
+  for (const a of b.atLeast) {
+    lines.push(t("weekly.b2bAtLeast", { threshold: EURO.format(a.threshold), orders: INTEGER.format(a.orders), percent: percentOrDash(a.percent), perWeek: DECIMAL1.format(a.perWeek) }));
+  }
+  lines.push(t("weekly.b2bBasis", { company: INTEGER.format(b.basis.company), flagOnly: INTEGER.format(b.basis.flagOnly) }));
+  return lines;
+}
+
 function pageUrl(baseUrl: string | null, query = ""): string | null {
   return baseUrl ? `${baseUrl.replace(/\/$/, "")}${SHOP_PULSE_PAGE_PATH}${query}` : null;
 }
@@ -131,6 +174,7 @@ export function buildShopPulseDailyCard(
   baseUrl: string | null,
   numbers: DailyNumbers | null = null,
   aiSummary: string | null = null,
+  offers: ShopPulseOfferSummary | null = null,
 ): Record<string, unknown> {
   const critical = signals.filter((s) => s.severity === "critical").length;
   const body: Record<string, unknown>[] = [
@@ -149,6 +193,7 @@ export function buildShopPulseDailyCard(
     wrap: true,
     spacing: "Medium",
   });
+  offerSummaryLines(offers).forEach((line, i) => body.push({ type: "TextBlock", text: line, wrap: true, spacing: i ? "None" : "Small" }));
   for (const s of signals.slice(0, MAX_LISTED)) {
     const loss = s.lossPerHour ? ` (${t("notify.lossValue", { amount: EURO.format(s.lossPerHour) })})` : "";
     body.push({ type: "TextBlock", text: `${ICON[s.severity]} ${teamsPlain(signalTitle(s), 200)}${loss}`, wrap: true, spacing: "Small" });
@@ -183,6 +228,7 @@ export function buildShopPulseDailyBellText(
   now: Date,
   numbers: DailyNumbers | null = null,
   aiSummary: string | null = null,
+  offers: ShopPulseOfferSummary | null = null,
 ): { title: string; message: string } {
   const critical = signals.filter((s) => s.severity === "critical").length;
   return {
@@ -191,6 +237,7 @@ export function buildShopPulseDailyBellText(
       ...(numbers ? dailyNumbersLines(numbers).slice(0, 1) : []),
       ...(aiSummary ? [aiSummary] : []),
       signals.length ? t("notify.dailySummary", { count: signals.length, critical }) : t("notify.dailyNone"),
+      ...offerSummaryLines(offers).slice(0, 1),
       ...signals.slice(0, 3).map((s) => `- ${signalTitle(s)}`),
     ]
       .join("\n")
@@ -284,6 +331,22 @@ export function buildShopPulseWeeklyCard(report: ShopPulseWeeklyReport, baseUrl:
   });
   if (d.leversPerWeek > 0) body.push(text(t("weekly.leversSum", { amount: EURO.format(d.leversPerWeek) }), { spacing: "Small" }));
 
+  if (d.offers) {
+    body.push(heading(t("weekly.offersTitle")));
+    const lines = offerSummaryLines(d.offers);
+    if (!lines.length) body.push(text(t("weekly.offersNone"), { spacing: "Small" }));
+    lines.forEach((line, i) => body.push(text(line, { spacing: i ? "None" : "Small" })));
+    for (const item of d.offers.items.slice(0, 5)) body.push(text(`- ${teamsPlain(offerItemLine(item), 300)}`, { spacing: "None", isSubtle: true }));
+    if (d.offers.items.length > 5) body.push(text(t("weekly.more", { count: d.offers.items.length - 5 }), { spacing: "None" }));
+  }
+
+  if (d.b2b !== undefined) {
+    body.push(heading(t("weekly.b2bTitle")));
+    if (d.b2b) b2bShareLines(d.b2b).forEach((line, i) => body.push(text(line, { spacing: i ? "None" : "Small", ...(i > 1 ? { isSubtle: true } : {}) })));
+    else body.push(text(t("weekly.b2bNone"), { spacing: "Small" }));
+    body.push(text(t("weekly.b2bHint"), { isSubtle: true, size: "Small", spacing: "Small" }));
+  }
+
   body.push(heading(t("weekly.doneTitle", { count: d.done.length })));
   if (!d.done.length) body.push(text(t("weekly.doneNone"), { spacing: "Small" }));
   for (const a of d.done.slice(0, MAX_LISTED)) {
@@ -312,6 +375,7 @@ export function buildShopPulseWeeklyBellText(report: ShopPulseWeeklyReport): { t
     message: [
       ...(d.numbers ? weeklyNumbersLines(d.numbers).slice(0, 1) : [t("weekly.numbersNone")]),
       ...(report.ai?.text ? [report.ai.text] : []),
+      ...offerSummaryLines(d.offers).slice(0, 1),
       ...d.levers.slice(0, 3).map((l) => `- ${signalTitle(l)}: ${leverAmountText(l)}`),
     ]
       .join("\n")

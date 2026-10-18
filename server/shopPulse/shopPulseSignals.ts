@@ -9,12 +9,14 @@
  * - Sofort gemeldet wird nur „critical“, und nur einmal je Schwere: notifiedSeverity merkt sich, was
  *   schon berücksichtigt ist. In der Lernwoche und bei „ruhig gestellt“ wird die Schwere still
  *   berücksichtigt (kein Nachholen danach, die Meldung steht im Tagesbericht). Warnungen gehen nur in den
- *   Tagesbericht.
- * - Entwarnung nur für Meldungen, die wirklich per Nachricht rausgingen.
+ *   Tagesbericht. Funde mit quiet (Altbestand beim ersten Lauf einer Prüfung) werden ebenso still
+ *   berücksichtigt.
+ * - Entwarnung nur für Meldungen, die wirklich per Nachricht rausgingen (nicht für Ereignisse und
+ *   Angebotsanfragen, SHOP_PULSE_NO_RESOLVE_NOTICE_CODES).
  */
 import {
   SEVERITY_RANK,
-  SHOP_PULSE_EVENT_CODES,
+  SHOP_PULSE_NO_RESOLVE_NOTICE_CODES,
   type ShopPulseDetection,
   type ShopPulseSeverity,
   type ShopPulseSignal,
@@ -54,14 +56,15 @@ export function isMuted(signal: Pick<ShopPulseSignal, "mutedUntil">, now: Date):
 
 /**
  * Ob ein Fund jetzt eine Nachricht auslöst: kritisch und schlimmer als bisher berücksichtigt, nicht in der
- * Lernwoche, nicht ruhig gestellt. Liefert außerdem die neu berücksichtigte Schwere.
+ * Lernwoche, nicht ruhig gestellt, nicht still (quiet). Liefert außerdem die neu berücksichtigte Schwere.
  */
 function noticeFor(
   signal: ShopPulseSignal,
   opts: ReconcileOptions,
+  quiet = false,
 ): { notify: boolean; notifiedSeverity: ShopPulseSeverity | null } {
   if (rank(signal.severity) <= rank(signal.notifiedSeverity)) return { notify: false, notifiedSeverity: signal.notifiedSeverity };
-  const silent = opts.learning || isMuted(signal, opts.now) || signal.severity !== "critical";
+  const silent = quiet || opts.learning || isMuted(signal, opts.now) || signal.severity !== "critical";
   return { notify: !silent, notifiedSeverity: signal.severity };
 }
 
@@ -98,7 +101,7 @@ export function reconcileSignals(existing: ShopPulseSignal[], detections: ShopPu
         notifiedSeverity: null,
         ...fresh,
       };
-      const n = noticeFor(signal, opts);
+      const n = noticeFor(signal, opts, d.quiet);
       signal.notifiedSeverity = n.notifiedSeverity;
       if (n.notify) signal.notifiedAt = now;
       result.inserts.push(signal);
@@ -118,7 +121,7 @@ export function reconcileSignals(existing: ShopPulseSignal[], detections: ShopPu
         notifiedAt: null,
         notifiedSeverity: null,
       };
-      const n = noticeFor(signal, opts);
+      const n = noticeFor(signal, opts, d.quiet);
       signal.notifiedSeverity = n.notifiedSeverity;
       if (n.notify) signal.notifiedAt = now;
       result.updates.push({
@@ -139,7 +142,7 @@ export function reconcileSignals(existing: ShopPulseSignal[], detections: ShopPu
     }
 
     const signal: ShopPulseSignal = { ...prev, ...fresh };
-    const n = noticeFor(signal, opts);
+    const n = noticeFor(signal, opts, d.quiet);
     const patch: Partial<ShopPulseSignal> = { ...fresh };
     if (n.notifiedSeverity !== prev.notifiedSeverity) patch.notifiedSeverity = n.notifiedSeverity;
     if (n.notify) {
@@ -158,8 +161,8 @@ export function reconcileSignals(existing: ShopPulseSignal[], detections: ShopPu
     if (prev.status !== "open" || seen.has(prev.key) || !resolvable(prev)) continue;
     const signal: ShopPulseSignal = { ...prev, status: "resolved", resolvedAt: now, resolvedBy: null };
     result.updates.push({ id: prev.id, patch: { status: "resolved", resolvedAt: now, resolvedBy: null } });
-    // Ereignisse (Preissprung) laufen einfach aus, das ist keine Entwarnung
-    const event = SHOP_PULSE_EVENT_CODES.includes(prev.code);
+    // Ereignisse (Preissprung) laufen einfach aus, das ist keine Entwarnung; Angebotsanfragen ebenso
+    const event = SHOP_PULSE_NO_RESOLVE_NOTICE_CODES.includes(prev.code);
     if (!event && prev.notifiedAt && prev.severity === "critical" && !opts.learning && !isMuted(prev, opts.now)) {
       result.notices.push({ kind: "resolved", signal });
     }

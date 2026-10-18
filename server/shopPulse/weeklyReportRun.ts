@@ -3,13 +3,13 @@
  * montags statt des Tagesberichts auf und schickt ihn danach über Teams und die Glocke; „Jetzt erstellen“ auf
  * der Seite baut ihn ohne zu senden. Datenquellen sind austauschbar (Tests in tests/unit/shopPulseWeekly.test.ts).
  *
- * Nur lesend aus der eigenen Datenbank: Bestell- und Produktspiegel, Herstellpreise, Maßnahmen-Protokoll; GA4
- * nur, wenn eingerichtet (zwei Abfragen nacheinander).
+ * Nur lesend aus der eigenen Datenbank: Bestell- und Produktspiegel, Herstellpreise, Maßnahmen-Protokoll,
+ * B2B-Firmen-Spiegel (B2B-Anteil, S2-2); GA4 nur, wenn eingerichtet (zwei Abfragen nacheinander).
  */
 import { and, eq, inArray, isNull, sql, type AnyColumn } from "drizzle-orm";
-import { shopwareProducts } from "@shared/schema";
+import { shopwareB2bCompanies, shopwareProducts } from "@shared/schema";
 import type { ShopPulseLossEstimate, ShopPulseSignal } from "@shared/shopPulse";
-import type { ShopPulseAction, ShopPulseWeeklyNumbers, ShopPulseWeeklyReport, ShopPulseWeeklyReportData } from "@shared/shopPulseWeekly";
+import type { ShopPulseAction, ShopPulseB2bShare, ShopPulseWeeklyNumbers, ShopPulseWeeklyReport, ShopPulseWeeklyReportData } from "@shared/shopPulseWeekly";
 import type { IStorage } from "../storage";
 import { db } from "../db";
 import { logger } from "../lib/logger";
@@ -19,7 +19,7 @@ import { ga4Access, Ga4NotConfiguredError } from "./ga4Client";
 import { listActions, saveWeeklyReport } from "./actionLogRepository";
 import { syncActionLog } from "./actionSync";
 import type { ShopPulseAiDeps } from "./shopPulseAi";
-import { berlinMidnight, ga4WeekFrom, reportedWeekStart, weeklyAiText, weeklyNumbers, weeklyReportData } from "./weeklyReport";
+import { b2bShare, berlinMidnight, ga4WeekFrom, reportedWeekStart, weeklyAiText, weeklyNumbers, weeklyReportData } from "./weeklyReport";
 
 const log = logger.child({ component: "shopPulse/weeklyReportRun" });
 
@@ -27,8 +27,10 @@ const log = logger.child({ component: "shopPulse/weeklyReportRun" });
 const ESTIMATE_MAX = 60;
 
 export type ShopPulseWeeklyDeps = {
-  /** Shop-Bestellungen mit Positionen ab dem Zeitpunkt */
+  /** Shop-Bestellungen mit Positionen und Kunde (Netto-Betrag, Firma, Kundennummer) ab dem Zeitpunkt */
   loadOrders(tenantId: string | null, since: Date): Promise<PulseOrder[]>;
+  /** Kundennummern der B2B-Firmen (B2Bsellers, Firmen-Spiegel) */
+  b2bCustomerNumbers(tenantId: string | null): Promise<Set<string>>;
   /** Herstellpreis netto je Artikelnummer (nur die gefundenen) */
   herstellpreise(tenantId: string | null, productNumbers: string[]): Promise<Map<string, number>>;
   /** GA4 der Woche und der Vorwoche; null = nicht eingerichtet */
@@ -52,9 +54,15 @@ export type WeeklyBuildInput = {
   ai: ShopPulseAiDeps | null;
 };
 
-/** Zahlen der Woche; fehlende Herstellpreise oder GA4 sind kein Fehler, nur Lücken */
-async function numbersFor(deps: ShopPulseWeeklyDeps, tenantId: string | null, weekStart: string): Promise<ShopPulseWeeklyNumbers> {
+/** Zahlen der Woche und B2B-Anteil; fehlende Herstellpreise, B2B-Firmen oder GA4 sind kein Fehler, nur Lücken */
+async function numbersFor(deps: ShopPulseWeeklyDeps, tenantId: string | null, weekStart: string): Promise<{ numbers: ShopPulseWeeklyNumbers; b2b: ShopPulseB2bShare | null }> {
   const orders = await deps.loadOrders(tenantId, berlinMidnight(addDays(weekStart, -364)));
+  let flagged = new Set<string>();
+  try {
+    flagged = await deps.b2bCustomerNumbers(tenantId);
+  } catch (err) {
+    log.warn({ err, tenantId }, "Wochenbericht: B2B-Firmen nicht gelesen, Geschäftskunden nur über die Firma");
+  }
   const numbers = Array.from(new Set(orders.flatMap((o) => (o.items ?? []).map((i) => i.productNumber))));
   let hk: Map<string, number> | null = null;
   try {
@@ -68,7 +76,7 @@ async function numbersFor(deps: ShopPulseWeeklyDeps, tenantId: string | null, we
   } catch (err) {
     log.warn({ err: err instanceof Error ? err.message : String(err), tenantId }, "Wochenbericht: GA4 nicht gelesen");
   }
-  return weeklyNumbers(orders, weekStart, hk ? (pn) => hk!.get(pn) ?? null : null, ga4);
+  return { numbers: weeklyNumbers(orders, weekStart, hk ? (pn) => hk!.get(pn) ?? null : null, ga4), b2b: b2bShare(orders, weekStart, flagged) };
 }
 
 /** Bericht der abgeschlossenen Woche bauen (ohne speichern und senden) */
@@ -80,11 +88,11 @@ export async function buildWeeklyReport(deps: ShopPulseWeeklyDeps, input: Weekly
   } catch (err) {
     log.warn({ err, tenantId }, "Wochenbericht: Maßnahmen-Protokoll nicht abgeglichen");
   }
-  const numbers = input.mirrorStale ? null : await numbersFor(deps, tenantId, weekStart);
+  const figures = input.mirrorStale ? null : await numbersFor(deps, tenantId, weekStart);
   const estimates = new Map<string, ShopPulseLossEstimate | null>();
   for (const s of input.openSignals.slice(0, ESTIMATE_MAX)) estimates.set(s.id, await input.estimateFor(s).catch(() => null));
   const actions = await deps.listActions(tenantId, berlinMidnight(weekStart), berlinMidnight(addDays(weekStart, 7)));
-  const data = weeklyReportData({ numbers, signals: input.openSignals, estimates, actions, now });
+  const data = weeklyReportData({ numbers: figures?.numbers ?? null, signals: input.openSignals, estimates, actions, now, b2b: figures?.b2b ?? null });
 
   let ai: ShopPulseWeeklyReport["ai"] = null;
   if (input.ai) {
@@ -123,9 +131,19 @@ export async function loadHerstellpreiseForNumbers(storage: Pick<IStorage, "getP
   return out;
 }
 
+/** Kundennummern aller B2B-Firmen aus dem Firmen-Spiegel (B2B-Kennzeichen für den B2B-Anteil) */
+export async function loadB2bCustomerNumbers(tenantId: string | null): Promise<Set<string>> {
+  const rows = await db
+    .select({ customerNumber: shopwareB2bCompanies.customerNumber })
+    .from(shopwareB2bCompanies)
+    .where(tenantIs(shopwareB2bCompanies.tenantId, tenantId));
+  return new Set(rows.map((r) => r.customerNumber?.trim() ?? "").filter(Boolean));
+}
+
 export function shopPulseWeeklyDeps(storage: IStorage): ShopPulseWeeklyDeps {
   return {
-    loadOrders: (tenantId, since) => loadPulseOrders(tenantId, since, { items: true }),
+    loadOrders: (tenantId, since) => loadPulseOrders(tenantId, since, { items: true, customer: true }),
+    b2bCustomerNumbers: (tenantId) => loadB2bCustomerNumbers(tenantId),
     herstellpreise: (tenantId, numbers) => loadHerstellpreiseForNumbers(storage, tenantId, numbers),
     ga4: async (tenantId, weekStart) => {
       let property;
