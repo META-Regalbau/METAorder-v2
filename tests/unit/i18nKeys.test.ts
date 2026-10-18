@@ -40,6 +40,14 @@ import {
   SHOP_PULSE_STATUSES,
 } from "../../shared/shopPulse";
 import { SHOP_PULSE_DETECTORS } from "../../server/shopPulse/detectors";
+import {
+  SHOP_PULSE_ACTION_KINDS,
+  SHOP_PULSE_ACTION_SCOPES,
+  SHOP_PULSE_ACTION_SOURCES,
+  SHOP_PULSE_IMPORT_SKIPS,
+  SHOP_PULSE_NEXT_STEPS,
+  SHOP_PULSE_OWNER_IDS,
+} from "../../shared/shopPulseWeekly";
 
 const ROOT = path.resolve(__dirname, "../..");
 const flatten = (obj: Record<string, unknown>, prefix = ""): Record<string, unknown> =>
@@ -155,6 +163,19 @@ describe("Uebersetzungsschluessel (Deutsch)", () => {
       ...SHOP_PULSE_DETECTORS.map((d) => `shopPulse.detectors.names.${d.id}`),
       ...SHOP_PULSE_LOSS_BASES.map((v) => `shopPulse.lossBasis.${v}`),
       ...SHOP_PULSE_AI_REJECTIONS.map((v) => `shopPulse.signals.aiRejections.${v}`),
+    ])).toEqual([]);
+  });
+
+  it("Shop-Puls Stufe 2: Reiter, Maßnahmen-Protokoll (Arten, Quellen, Bereiche, Import), Zuständige, nächste Schritte", () => {
+    expect(missingIn([
+      ...["signals", "weekly", "actions"].map((v) => `shopPulse.tabs.${v}`),
+      ...SHOP_PULSE_ACTION_KINDS.map((v) => `shopPulse.actions.kinds.${v}`),
+      ...SHOP_PULSE_ACTION_SOURCES.map((v) => `shopPulse.actions.sources.${v}`),
+      ...SHOP_PULSE_ACTION_SCOPES.flatMap((v) => [`shopPulse.actions.scopeTypes.${v}`, `shopPulse.weekly.scope.${v}`]),
+      ...SHOP_PULSE_ACTION_SCOPES.filter((v) => v !== "shop").map((v) => `shopPulse.actions.scopeValues.${v}`),
+      ...SHOP_PULSE_IMPORT_SKIPS.map((v) => `shopPulse.actions.skip.${v}`),
+      ...SHOP_PULSE_OWNER_IDS.map((v) => `shopPulse.weekly.owners.${v}`),
+      ...SHOP_PULSE_NEXT_STEPS.map((v) => `shopPulse.weekly.nextSteps.${v}`),
     ])).toEqual([]);
   });
 

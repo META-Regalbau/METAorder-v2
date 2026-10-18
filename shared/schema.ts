@@ -3898,3 +3898,53 @@ export const monduOrders = pgTable(
 
 export type MonduOrderRow = typeof monduOrders.$inferSelect;
 export type InsertMonduOrderRow = typeof monduOrders.$inferInsert;
+
+/**
+ * Shop-Puls Stufe 2 (S2-1): Maßnahmen-Protokoll. Je Änderung am Shop ein Eintrag mit Bereich (Grundlage der
+ * Wirkungsmessung S2-6). Automatische Einträge haben einen festen Schlüssel je Quelle (source_key), von Hand
+ * eingetragene keinen. Form: shared/shopPulseWeekly.ts, Migration 0057.
+ */
+export const shopPulseActions = pgTable(
+  "shop_pulse_actions",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id"),
+    occurredAt: timestamp("occurred_at").notNull(),
+    kind: text("kind").notNull(),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    scopeType: text("scope_type").notNull().default("shop"),
+    scopeValues: jsonb("scope_values").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    source: text("source").notNull(),
+    sourceKey: text("source_key"),
+    actor: text("actor"),
+    createdBy: text("created_by"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    tenantSourceKeyIdx: uniqueIndex("shop_pulse_actions_tenant_source_key_idx").on(table.tenantId, table.sourceKey),
+    tenantOccurredIdx: index("shop_pulse_actions_tenant_occurred_idx").on(table.tenantId, table.occurredAt),
+  }),
+);
+
+export type ShopPulseActionRow = typeof shopPulseActions.$inferSelect;
+
+/** Shop-Puls Stufe 2 (S2-1): Archiv der Wochenberichte, je Mandant und Woche einer (Migration 0057). */
+export const shopPulseWeeklyReports = pgTable(
+  "shop_pulse_weekly_reports",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id"),
+    weekStart: text("week_start").notNull(),
+    data: jsonb("data").notNull(),
+    ai: jsonb("ai"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    sentAt: timestamp("sent_at"),
+  },
+  (table) => ({
+    tenantWeekIdx: uniqueIndex("shop_pulse_weekly_reports_tenant_week_idx").on(table.tenantId, table.weekStart),
+  }),
+);
+
+export type ShopPulseWeeklyReportRow = typeof shopPulseWeeklyReports.$inferSelect;

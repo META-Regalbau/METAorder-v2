@@ -53,7 +53,7 @@ const MAX_STRING = 300;
 
 /** Wer handeln muss (Antwort der KI muss einer davon sein) */
 export const SHOP_PULSE_OWNERS = ["Agentur wirduzen", "Jana (PIM)", "Vertrieb", "Marketing/Smarketer", "Oliver"] as const;
-const OWNER_HINTS: Record<(typeof SHOP_PULSE_OWNERS)[number], string> = {
+export const OWNER_HINTS: Record<(typeof SHOP_PULSE_OWNERS)[number], string> = {
   "Agentur wirduzen": "Shopware, Plugins, Theme, Storefront, Warenkorb, Kasse, Zahl- und Versandarten technisch",
   "Jana (PIM)": "Artikeldaten aus Pimcore: Preise, Aktiv-Status, Lieferzeiten, Bilder, Kategorien",
   Vertrieb: "Bestellrückgang oder Umsatzrückgang ohne technischen Befund, Kunden, Konditionen",
@@ -206,7 +206,7 @@ export type NoticeAiInput = {
   priceChanges: PriceChange[];
 };
 
-const ESTIMATE_BASIS: Record<ShopPulseLossEstimate["basis"], string> = {
+export const ESTIMATE_BASIS: Record<ShopPulseLossEstimate["basis"], string> = {
   detector: "von der Prüfung selbst geschätzt",
   products: "Shop-Umsatz der betroffenen Artikel (365 Tage, je Geschäftsstunde 7–19 Uhr)",
   paymentShare: "Anteil der Zahlart an den Shop-Bestellungen der letzten 8 Wochen × üblicher Umsatz dieser Tageszeit",
@@ -248,7 +248,7 @@ export function noticePayload(input: NoticeAiInput): Record<string, unknown> {
   }) as Record<string, unknown>;
 }
 
-const RULES = [
+export const SHOP_PULSE_AI_RULES = [
   "Verwende ausschließlich Zahlen, Datumsangaben und Uhrzeiten, die genau so in den Eingabedaten stehen. Rechne nichts aus, erfinde keine Zahlen. Deutsches Format (1.234 €, 12,5 %, 18.10.2026, 14:05).",
   "Erfinde keine Ursachen. Nenne eine Ursache nur, wenn die Eingabedaten sie nahelegen (z. B. Deploy kurz vor dem Fund, Preisänderung des Artikels, andere offene Meldung). Sonst schreibe „unklar“.",
   "Kein Markdown, keine Aufzählungen, keine Kundendaten, keine Anrede.",
@@ -256,7 +256,7 @@ const RULES = [
 
 const NOTICE_SYSTEM = [
   "Du schreibst kurze Meldungen des Shop-Puls für den Onlineshop von META Regalbau (shop.meta-online.com). Leser ist Oliver, der Shop-Verantwortliche.",
-  ...RULES,
+  ...SHOP_PULSE_AI_RULES,
   "verlust: nur verlustProStunde aus den Eingabedaten, als Euro pro Stunde (es ist eine Schätzung). Ist er null, schreibe „nicht abschätzbar“.",
   `zustaendig: genau einer von: ${SHOP_PULSE_OWNERS.map((o) => `„${o}“ (${OWNER_HINTS[o]})`).join("; ")}.`,
   "Jedes Feld ein kurzer Satz, höchstens zwei.",
@@ -265,7 +265,7 @@ const NOTICE_SYSTEM = [
 
 const DAILY_SYSTEM = [
   "Du schreibst die Zusammenfassung des Shop-Puls-Tagesberichts für den Onlineshop von META Regalbau (shop.meta-online.com). Leser ist Oliver, der Shop-Verantwortliche.",
-  ...RULES,
+  ...SHOP_PULSE_AI_RULES,
   "Verluste nur aus verlustProStunde der Meldungen und immer als Schätzung kennzeichnen („geschätzt“).",
   `Wer handeln muss: ${SHOP_PULSE_OWNERS.map((o) => `„${o}“ (${OWNER_HINTS[o]})`).join("; ")}.`,
   "zusammenfassung: zwei bis vier kurze Sätze zu Zahlen von gestern und den wichtigsten offenen Meldungen. naechsterSchritt: der eine wichtigste nächste Schritt mit Zuständigem.",
@@ -308,7 +308,8 @@ const ownerOf = (v: string) => {
   return hits.length === 1 ? hits[0] : undefined;
 };
 
-async function askChecked(
+/** KI fragen, JSON-Antwort zusammensetzen und jede Zahl gegen die Eingabedaten prüfen (auch Wochenbericht) */
+export async function askChecked(
   ask: AiAsk,
   system: string,
   payload: Record<string, unknown>,

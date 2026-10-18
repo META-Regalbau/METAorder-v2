@@ -21,7 +21,11 @@ export type PulseOrder = {
   /** Bruttobetrag */
   total: number;
   paymentMethod: string | null;
+  /** Positionen (nur mit loadPulseOrders(…, { items: true }), für den Deckungsbeitrag im Wochenbericht) */
+  items?: PulseOrderItem[];
 };
+
+export type PulseOrderItem = { productNumber: string; quantity: number; netTotal: number };
 
 const BERLIN = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Europe/Berlin",
@@ -60,7 +64,15 @@ export type MirrorOrderRow = {
   total: string | number | null;
   paymentMethod: string | null;
   status: string | null;
+  items?: unknown;
 };
+
+/** Positionen aus dem Spiegel (Order.items): Artikelnummer, Menge, Netto-Summe; ohne Nummer weggelassen */
+export function toPulseOrderItems(items: unknown): PulseOrderItem[] {
+  return (Array.isArray(items) ? items : [])
+    .map((i: any) => ({ productNumber: String(i?.productNumber ?? "").trim(), quantity: Number(i?.quantity ?? 0), netTotal: Number(i?.netTotal ?? 0) }))
+    .filter((i) => i.productNumber && Number.isFinite(i.quantity) && Number.isFinite(i.netTotal));
+}
 
 /** Spiegel-Zeilen → Shop-Bestellungen (MO, nicht storniert, je Nummer die zuletzt geänderte) */
 export function toPulseOrders(rows: MirrorOrderRow[]): PulseOrder[] {
@@ -85,6 +97,7 @@ export function toPulseOrders(rows: MirrorOrderRow[]): PulseOrder[] {
       hour,
       total: Number.isFinite(total) ? total : 0,
       paymentMethod: r.paymentMethod?.trim() || null,
+      ...(r.items !== undefined ? { items: toPulseOrderItems(r.items) } : {}),
     });
   }
   return out.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
@@ -93,7 +106,7 @@ export function toPulseOrders(rows: MirrorOrderRow[]): PulseOrder[] {
 const tenantIs = (column: AnyColumn, tenantId: string | null) => (tenantId ? eq(column, tenantId) : isNull(column));
 
 /** Shop-Bestellungen ab einem Zeitpunkt aus dem Spiegel (Live 2026: rund 2.100 MO-Zeilen insgesamt) */
-export async function loadPulseOrders(tenantId: string | null, since: Date): Promise<PulseOrder[]> {
+export async function loadPulseOrders(tenantId: string | null, since: Date, opts: { items?: boolean } = {}): Promise<PulseOrder[]> {
   const p = shopwareOrders.payload;
   const rows = await db
     .select({
@@ -103,6 +116,7 @@ export async function loadPulseOrders(tenantId: string | null, since: Date): Pro
       total: sql<string | null>`${p}->>'totalAmount'`,
       paymentMethod: sql<string | null>`${p}->>'paymentMethod'`,
       status: sql<string | null>`${p}->>'status'`,
+      ...(opts.items ? { items: sql<unknown>`${p}->'items'` } : {}),
     })
     .from(shopwareOrders)
     .where(and(tenantIs(shopwareOrders.tenantId, tenantId), sql`upper(${shopwareOrders.orderNumber}) like 'MO%'`));
