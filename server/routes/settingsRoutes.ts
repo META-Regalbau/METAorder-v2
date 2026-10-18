@@ -429,7 +429,7 @@ export function registerSettingsRoutes(app: Express): void {
     }
   });
 
-  // Pimcore-Verbindung (Datahub GraphQL): Adresse, Konfiguration, Artikelklasse + Nummernfeld und
+  // Pimcore-Verbindung (REST-Exporte des Blackbit Data Director): Adresse, Dataports, Nummernfeld und
   // API-Key je Mandant, Key verschluesselt, nie in Antworten (server/integration/pimcoreConnection.ts)
   const respondPimcoreError = (res: Response, error: unknown, context: string) => {
     if (error instanceof PimcoreApiError) {
@@ -494,8 +494,9 @@ export function registerSettingsRoutes(app: Express): void {
       const body = req.body ?? {};
       const normalized = normalizePimcoreTarget({
         baseUrl: body.baseUrl ?? existing?.baseUrl,
-        endpoint: body.endpoint ?? existing?.endpoint,
-        productClass: body.productClass ?? existing?.productClass,
+        articlesFullDataport: body.articlesFullDataport ?? existing?.articlesFullDataport,
+        articlesChangesDataport: body.articlesChangesDataport ?? existing?.articlesChangesDataport,
+        pricesDataport: body.pricesDataport ?? existing?.pricesDataport,
         productNumberField: body.productNumberField ?? existing?.productNumberField,
       });
       if (!normalized.ok) {
@@ -509,7 +510,7 @@ export function registerSettingsRoutes(app: Express): void {
       const connection = { ...normalized.target, apiKey };
       const result = await testPimcoreConnection(new PimcoreClient(connection), connection);
       pimcoreLog.info(
-        { classes: result.classes.length, introspection: result.introspection, totalCount: result.product.totalCount },
+        { articles: result.articles.count, prices: result.prices?.count ?? null },
         "Pimcore: Verbindungstest erfolgreich",
       );
       res.json({ success: true, ...result });

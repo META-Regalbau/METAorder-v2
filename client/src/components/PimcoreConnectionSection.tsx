@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle2, Database, Loader2, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Database, Info, Loader2, XCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -22,35 +22,29 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ApiError } from "@/lib/apiError";
 
 /**
- * Pimcore-Verbindung (Einstellungen -> Integration): Adresse, Datahub-Konfiguration, Artikelklasse,
- * Feld der Artikelnummer und API-Key. Der Key wird verschluesselt gespeichert und nie zurueckgegeben.
- * Der Test zeigt, welche Klassen und Felder die Konfiguration freigibt, und einen Beispiel-Artikel
- * (server/integration/pimcoreConnection.ts).
+ * Pimcore-Verbindung (Einstellungen -> Integration) ueber die REST-Exporte des Blackbit Data Director:
+ * Adresse, API-Key, Dataports (Artikel vollstaendig, Artikel-Aenderungen, Preise) und Feld der
+ * Artikelnummer. Der Key wird verschluesselt gespeichert und nie zurueckgegeben. Der Test ruft den
+ * Vollexport und die Preise ab, nie den Aenderungs-Dataport (server/integration/pimcoreConnection.ts).
  */
 
 type ConnectionResponse = {
   configured: boolean;
   baseUrl: string;
-  endpoint: string;
-  productClass: string;
+  articlesFullDataport: string;
+  articlesChangesDataport: string;
+  pricesDataport: string;
   productNumberField: string;
   hasApiKey: boolean;
 };
 
-type TestResult = {
-  endpointUrl: string;
-  introspection: boolean;
-  classes: Array<{ name: string; listingField: string; fields: Array<{ name: string; type: string }> }>;
-  product: {
-    className: string;
-    numberField: string;
-    numberFieldFound: boolean | null;
-    totalCount: number | null;
-    sample: { id: string; number: string | null } | null;
-  };
-};
+type DataportCheck = { dataport: string; count: number; fields: string[]; numberFieldFound?: boolean; sample: string | null };
+type TestResult = { baseUrl: string; articles: DataportCheck; prices: DataportCheck | null; changesDataport: string | null };
+
+type Form = Omit<ConnectionResponse, "configured" | "hasApiKey">;
 
 const CONNECTION_KEY = ["/api/settings/pimcore-connection"] as const;
+const EMPTY_FORM: Form = { baseUrl: "", articlesFullDataport: "", articlesChangesDataport: "", pricesDataport: "", productNumberField: "" };
 
 export default function PimcoreConnectionSection() {
   const { t } = useTranslation();
@@ -60,7 +54,7 @@ export default function PimcoreConnectionSection() {
   const { data: connection } = useQuery<ConnectionResponse>({ queryKey: CONNECTION_KEY });
   const configured = Boolean(connection?.configured);
 
-  const [form, setForm] = useState({ baseUrl: "", endpoint: "", productClass: "", productNumberField: "" });
+  const [form, setForm] = useState<Form>(EMPTY_FORM);
   const [apiKey, setApiKey] = useState("");
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
@@ -69,14 +63,21 @@ export default function PimcoreConnectionSection() {
     if (connection) {
       setForm({
         baseUrl: connection.baseUrl,
-        endpoint: connection.endpoint,
-        productClass: connection.productClass,
+        articlesFullDataport: connection.articlesFullDataport,
+        articlesChangesDataport: connection.articlesChangesDataport,
+        pricesDataport: connection.pricesDataport,
         productNumberField: connection.productNumberField,
       });
     }
-  }, [connection?.baseUrl, connection?.endpoint, connection?.productClass, connection?.productNumberField]);
+  }, [
+    connection?.baseUrl,
+    connection?.articlesFullDataport,
+    connection?.articlesChangesDataport,
+    connection?.pricesDataport,
+    connection?.productNumberField,
+  ]);
 
-  const setField = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
+  const setField = (field: keyof Form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
   const onError = (e: Error) => toast({ title: t("common.error"), description: e.message, variant: "destructive" });
@@ -130,9 +131,8 @@ export default function PimcoreConnectionSection() {
   });
 
   const canSubmit = form.baseUrl.trim().length > 0 && (apiKey.trim().length > 0 || Boolean(connection?.hasApiKey));
-  const product = testResult?.product;
 
-  const textField = (field: keyof typeof form, id: string, placeholder: string) => (
+  const textField = (field: keyof Form, id: string, placeholder: string, hint?: string) => (
     <div>
       <Label className="text-xs" htmlFor={id}>{t(`settings.integration.pimcore.${field}Label`)}</Label>
       <Input
@@ -143,6 +143,45 @@ export default function PimcoreConnectionSection() {
         onChange={setField(field)}
         data-testid={`input-${id}`}
       />
+      {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
+    </div>
+  );
+
+  const dataportResult = (check: DataportCheck, kind: "articles" | "prices") => (
+    <div className="rounded-lg border p-3" data-testid={`pimcore-result-${kind}`}>
+      <p className="font-medium">
+        {t(`settings.integration.pimcore.result.${kind}`, { dataport: check.dataport })}
+      </p>
+      <p className="text-xs text-muted-foreground" data-testid={`text-pimcore-count-${kind}`}>
+        {t("settings.integration.pimcore.result.count", { count: check.count, formatted: fmt.integer(check.count) })}
+      </p>
+      {check.sample ? (
+        <p className="text-xs text-muted-foreground break-all" data-testid={`text-pimcore-sample-${kind}`}>
+          {kind === "articles" && check.numberFieldFound
+            ? t("settings.integration.pimcore.result.sampleNumber", { field: form.productNumberField, number: check.sample })
+            : t("settings.integration.pimcore.result.sample", { sample: check.sample })}
+        </p>
+      ) : null}
+      {kind === "articles" && check.count > 0 && check.numberFieldFound === false ? (
+        <p className="mt-1 flex items-start gap-1 text-xs text-amber-700 dark:text-amber-400" data-testid="text-pimcore-field-missing">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          {t("settings.integration.pimcore.result.fieldMissing", { field: form.productNumberField, dataport: check.dataport })}
+        </p>
+      ) : null}
+      {check.count === 0 ? (
+        <p className="mt-1 flex items-start gap-1 text-xs text-amber-700 dark:text-amber-400">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          {t("settings.integration.pimcore.result.empty")}
+        </p>
+      ) : null}
+      {check.fields.length > 0 ? (
+        <details className="mt-1 text-xs">
+          <summary className="cursor-pointer text-muted-foreground">
+            {t("settings.integration.pimcore.result.fields", { count: check.fields.length })}
+          </summary>
+          <p className="mt-1 break-words">{check.fields.join(", ")}</p>
+        </details>
+      ) : null}
     </div>
   );
 
@@ -157,7 +196,7 @@ export default function PimcoreConnectionSection() {
         {configured ? (
           <>
             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-            {t("settings.integration.pimcore.connectedTo", { url: connection?.baseUrl, endpoint: connection?.endpoint })}
+            {t("settings.integration.pimcore.connectedTo", { url: connection?.baseUrl })}
           </>
         ) : (
           <span className="text-muted-foreground">{t("settings.integration.pimcore.notConnected")}</span>
@@ -177,10 +216,7 @@ export default function PimcoreConnectionSection() {
             data-testid="input-pimcore-base-url"
           />
         </div>
-        {textField("endpoint", "pimcore-endpoint", "metaorder")}
-        {textField("productClass", "pimcore-product-class", "Artikel")}
-        {textField("productNumberField", "pimcore-number-field", "GTIN")}
-        <div className="md:col-span-2">
+        <div>
           <Label className="text-xs" htmlFor="pimcore-api-key">{t("settings.integration.pimcore.keyLabel")}</Label>
           <Input
             id="pimcore-api-key"
@@ -197,6 +233,15 @@ export default function PimcoreConnectionSection() {
             data-testid="input-pimcore-api-key"
           />
         </div>
+        {textField("articlesFullDataport", "pimcore-dataport-full", "metaorder-artikel", t("settings.integration.pimcore.articlesFullDataportHint"))}
+        {textField(
+          "articlesChangesDataport",
+          "pimcore-dataport-changes",
+          "metaorder-artikel-aenderungen",
+          t("settings.integration.pimcore.articlesChangesDataportHint"),
+        )}
+        {textField("pricesDataport", "pimcore-dataport-prices", "metaorder-preise", t("settings.integration.pimcore.pricesDataportHint"))}
+        {textField("productNumberField", "pimcore-number-field", "GTIN", t("settings.integration.pimcore.productNumberFieldHint"))}
       </div>
       <p className="text-xs text-muted-foreground mb-4">{t("settings.integration.pimcore.keyHint")}</p>
 
@@ -221,6 +266,9 @@ export default function PimcoreConnectionSection() {
           </Button>
         ) : null}
       </div>
+      {testMutation.isPending ? (
+        <p className="text-xs text-muted-foreground">{t("settings.integration.pimcore.testRunning")}</p>
+      ) : null}
 
       {testError ? (
         <div className="mt-4 text-sm text-destructive" role="alert" data-testid="text-pimcore-test-error">
@@ -236,64 +284,16 @@ export default function PimcoreConnectionSection() {
         </div>
       ) : null}
 
-      {testResult && product ? (
+      {testResult ? (
         <div className="mt-6 border-t pt-4 text-sm space-y-2" data-testid="pimcore-test-result">
-          <p className="text-xs text-muted-foreground break-all">{testResult.endpointUrl}</p>
-          <p data-testid="text-pimcore-product-count">
-            {product.totalCount !== null
-              ? t("settings.integration.pimcore.productCount", {
-                  className: product.className,
-                  count: product.totalCount,
-                  formatted: fmt.integer(product.totalCount),
-                })
-              : t("settings.integration.pimcore.productCountUnknown", { className: product.className })}
-          </p>
-          {product.sample ? (
-            <p className="text-xs text-muted-foreground" data-testid="text-pimcore-sample">
-              {t("settings.integration.pimcore.sample", {
-                id: product.sample.id,
-                field: product.numberField,
-                number: product.sample.number ?? "–",
-              })}
+          {dataportResult(testResult.articles, "articles")}
+          {testResult.prices ? dataportResult(testResult.prices, "prices") : null}
+          {testResult.changesDataport ? (
+            <p className="flex items-start gap-1 text-xs text-muted-foreground" data-testid="text-pimcore-changes-not-tested">
+              <Info className="h-3.5 w-3.5 shrink-0" />
+              {t("settings.integration.pimcore.result.changesNotTested", { dataport: testResult.changesDataport })}
             </p>
           ) : null}
-          {product.numberFieldFound === false ? (
-            <p className="flex items-start gap-1 text-xs text-amber-700 dark:text-amber-400" data-testid="text-pimcore-field-missing">
-              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-              {t("settings.integration.pimcore.fieldMissing", { field: product.numberField, className: product.className })}
-            </p>
-          ) : null}
-          {!testResult.introspection ? (
-            <p className="flex items-start gap-1 text-xs text-amber-700 dark:text-amber-400" data-testid="text-pimcore-no-introspection">
-              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-              {t("settings.integration.pimcore.noIntrospection")}
-            </p>
-          ) : (
-            <div>
-              <h3 className="text-sm font-medium mb-1">
-                {t("settings.integration.pimcore.classesTitle", { count: testResult.classes.length })}
-              </h3>
-              <div className="space-y-1">
-                {testResult.classes.map((cls) => (
-                  <details key={cls.name} className="text-xs" data-testid={`pimcore-class-${cls.name}`}>
-                    <summary className="cursor-pointer">
-                      <span className="font-medium">{cls.name}</span>{" "}
-                      <span className="text-muted-foreground">
-                        {t("settings.integration.pimcore.fieldsCount", { count: cls.fields.length })}
-                      </span>
-                    </summary>
-                    <ul className="mt-1 pl-5 columns-1 sm:columns-2 gap-6">
-                      {cls.fields.map((field) => (
-                        <li key={field.name} className="break-words">
-                          {field.name} <span className="text-muted-foreground">{field.type}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       ) : null}
 
