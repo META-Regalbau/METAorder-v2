@@ -98,4 +98,4 @@ vendor/bin/phpunit
 ```
 
 Die Signatur-Vorlage `tests/Fixtures/signature.json` prüft auch METAorder (`tests/unit/shopPulseCartAlarm.test.ts`).
-ZIP bauen: `./build-zip.sh` (legt `MetaCartSignal-<Version>.zip` in `shopware/dist/` ab).
+ZIP bauen: `./build-zip.sh` (legt `MetaCartSignal-<Version>.zip` in `shopware/plugin-zips/` ab).

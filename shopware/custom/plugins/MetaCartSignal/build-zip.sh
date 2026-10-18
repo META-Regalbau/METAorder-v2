@@ -3,8 +3,8 @@
 set -e
 cd "$(dirname "$0")/.."
 VERSION=$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' MetaCartSignal/composer.json | head -1)
-OUT="../../dist/MetaCartSignal-$VERSION.zip"
-mkdir -p ../../dist
+OUT="../../plugin-zips/MetaCartSignal-$VERSION.zip"
+mkdir -p ../../plugin-zips
 rm -f "$OUT"
 zip -q -r -X "$OUT" MetaCartSignal/composer.json MetaCartSignal/README.md MetaCartSignal/src
 echo "$OUT"
