@@ -16730,6 +16730,137 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/shop-pulse/actions": {
+    "get": {
+      "tags": [
+        "shop-pulse"
+      ],
+      "summary": "GET /api/shop-pulse/actions",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    },
+    "post": {
+      "tags": [
+        "shop-pulse"
+      ],
+      "summary": "POST /api/shop-pulse/actions",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/shop-pulse/actions/{id}": {
+    "delete": {
+      "tags": [
+        "shop-pulse"
+      ],
+      "summary": "DELETE /api/shop-pulse/actions/{id}",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    },
+    "put": {
+      "tags": [
+        "shop-pulse"
+      ],
+      "summary": "PUT /api/shop-pulse/actions/{id}",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/shop-pulse/actions/import": {
+    "post": {
+      "tags": [
+        "shop-pulse"
+      ],
+      "summary": "POST /api/shop-pulse/actions/import",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/shop-pulse/buyability/baseline": {
     "post": {
       "tags": [
@@ -16952,6 +17083,60 @@ export const openApiPaths = {
         "shop-pulse"
       ],
       "summary": "POST /api/shop-pulse/test-message",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/shop-pulse/weekly-reports": {
+    "get": {
+      "tags": [
+        "shop-pulse"
+      ],
+      "summary": "GET /api/shop-pulse/weekly-reports",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/shop-pulse/weekly-reports/build": {
+    "post": {
+      "tags": [
+        "shop-pulse"
+      ],
+      "summary": "POST /api/shop-pulse/weekly-reports/build",
       "responses": {
         "200": {
           "description": "OK",

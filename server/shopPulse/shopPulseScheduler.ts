@@ -27,6 +27,11 @@
  * drei offene Meldungen ohne Text einen (Warnungen, Lernwoche). Wo eine Prüfung keinen Verlust schätzt,
  * schätzt lossEstimate.ts ihn aus dem Spiegel.
  *
+ * Stufe 2 (S2-1): Jeder Takt zieht das Maßnahmen-Protokoll aus den automatischen Quellen nach
+ * (actionSync.ts). Montags ab 8 Uhr geht statt des Tagesberichts der Wochenbericht der abgeschlossenen
+ * Woche raus (weeklyReport.ts, weeklyReportRun.ts) und landet im Archiv; scheitert er, kommt wie bisher der
+ * Tagesbericht. In der Lernwoche wird er nur archiviert.
+ *
  * In der Lernwoche wird alles gesammelt, aber nichts gesendet. Mandanten nacheinander, nie zwei Läufe
  * für denselben Mandanten gleichzeitig.
  */
@@ -78,6 +83,11 @@ import {
   SHOP_PULSE_PAGE_PATH,
 } from "./shopPulseNotify";
 import { getShopPulseSettings, getShopPulseState, patchShopPulseState, SHOP_PULSE_TEAMS_OUTBOX_KEY } from "./shopPulseSettings";
+import { buildShopPulseWeeklyBellText, buildShopPulseWeeklyCard } from "./shopPulseNotify";
+import { isWeeklyReportDue, reportedWeekStart } from "./weeklyReport";
+import { buildWeeklyReport, shopPulseWeeklyDeps, type ShopPulseWeeklyDeps } from "./weeklyReportRun";
+import { syncActionLog } from "./actionSync";
+import type { ShopPulseWeeklyReport } from "@shared/shopPulseWeekly";
 
 const log = logger.child({ component: "shopPulse/shopPulseScheduler" });
 
@@ -109,6 +119,10 @@ export type ShopPulseDeps = {
   loadGa4?: (tenantId: string | null) => Ga4Access;
   /** KI-Texte (PR F); fehlt sie, gehen immer die festen Vorlagen raus */
   ai?: ShopPulseAiDeps;
+  /** Wochenbericht (Stufe 2); fehlt er, kommt auch montags der Tagesbericht */
+  weekly?: ShopPulseWeeklyDeps;
+  /** Maßnahmen-Protokoll nachziehen (Stufe 2); fehlt es, ruht die Übernahme */
+  syncActions?: (tenantId: string | null, now: Date) => Promise<unknown>;
   onNotificationCreated: (n: Notification) => void;
   baseUrl: string | null;
   now?: () => Date;
@@ -147,7 +161,7 @@ export function isDailyReportDue(state: ShopPulseState, now: Date): boolean {
   return state.lastDailyReportDay !== day;
 }
 
-async function notifyAdmins(deps: ShopPulseDeps, tenantId: string | null, text: { title: string; message: string }, link: string): Promise<number> {
+async function notifyAdmins(deps: Pick<ShopPulseDeps, "storage" | "onNotificationCreated">, tenantId: string | null, text: { title: string; message: string }, link: string): Promise<number> {
   // Seite nur für Administratoren; ein eigenes Recht gibt es (noch) nicht
   const recipients = await deps.storage.getUsersWithPermissionInTenant("viewShopPulse", tenantId, { includeAdministrators: true });
   for (const u of recipients) {
@@ -175,6 +189,7 @@ export type ShopPulseRunResult = {
   result: ReconcileResult;
   notices: ShopPulseNotice[];
   dailyReport: { sent: boolean; signals: number; numbers: boolean } | null;
+  weeklyReport: { sent: boolean; weekStart: string; levers: number; numbers: boolean } | null;
 };
 
 /** Ein Lauf für einen Mandanten (Zeitplan und „Jetzt prüfen“; force: auch die Nachtläufe) */
@@ -273,6 +288,15 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
     });
     await deps.repo.applyReconcile(tenantId, result);
 
+    // Maßnahmen-Protokoll: neue Live-Veröffentlichungen, erledigte Meldungen, Deploys, Preisänderungen
+    if (deps.syncActions) {
+      try {
+        await deps.syncActions(tenantId, now);
+      } catch (err) {
+        log.warn({ err, tenantId }, "Shop-Puls: Maßnahmen-Protokoll nicht abgeglichen");
+      }
+    }
+
     // KI nur bei eingeschaltetem Shop-Puls, Schalter „KI-Texte“ und eingerichtetem Anbieter
     const aiOn = !!deps.ai && settings.enabled && settings.aiTexts && (await deps.ai.configured(tenantId).catch(() => false));
     const aiRun: ShopPulseAiRun = {
@@ -314,10 +338,30 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
       }
     }
 
-    // 4. Tagesbericht
+    // 4. Wochenbericht (montags) bzw. Tagesbericht
     let dailyReport: ShopPulseRunResult["dailyReport"] = null;
+    let weeklyReport: ShopPulseRunResult["weeklyReport"] = null;
     const patch: Partial<ShopPulseState> = { lastTickAt: now.toISOString(), detectors: detectorState };
-    if (settings.enabled && isDailyReportDue(state, now)) {
+    if (settings.enabled && deps.weekly && isWeeklyReportDue(state, now)) {
+      try {
+        const report = await buildAndSaveWeeklyReport(deps, deps.weekly, {
+          tenantId,
+          now,
+          mirrorStale: mirrorStale(),
+          send: !silent,
+          ai: silent ? null : (withAi?.ai ?? null),
+          aiRun,
+        });
+        patch.lastWeeklyReportWeek = report.weekStart;
+        // ersetzt den Tagesbericht dieses Montags
+        patch.lastDailyReportDay = berlinDayHour(now).day;
+        weeklyReport = { sent: !!report.sentAt && !silent, weekStart: report.weekStart, levers: report.data.levers.length, numbers: report.data.numbers !== null };
+      } catch (err) {
+        log.error({ err, tenantId }, "Shop-Puls: Wochenbericht fehlgeschlagen, Tagesbericht statt dessen");
+        patch.lastWeeklyReportWeek = reportedWeekStart(now);
+      }
+    }
+    if (settings.enabled && !weeklyReport && isDailyReportDue(state, now)) {
       patch.lastDailyReportDay = berlinDayHour(now).day;
       const open: ShopPulseSignal[] = dailyReportSignals(await deps.repo.listOpenSignals(tenantId), now);
       let numbers: DailyNumbers | null = null;
@@ -343,10 +387,39 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
     }
     await patchShopPulseState(deps.storage, tenantId, patch);
 
-    return { detectors: detectorState, result, notices: result.notices, dailyReport };
+    return { detectors: detectorState, result, notices: result.notices, dailyReport, weeklyReport };
   } finally {
     running.delete(key);
   }
+}
+
+/**
+ * Wochenbericht der abgeschlossenen Woche bauen, im Archiv speichern und (send) über Teams und die Glocke
+ * schicken. Auch für „Jetzt erstellen“ auf der Seite (send false).
+ */
+export async function buildAndSaveWeeklyReport(
+  deps: Pick<ShopPulseDeps, "storage" | "repo" | "onNotificationCreated" | "baseUrl">,
+  weekly: ShopPulseWeeklyDeps,
+  opts: { tenantId: string | null; now: Date; mirrorStale: boolean; send: boolean; ai: ShopPulseAiDeps | null; aiRun: Pick<ShopPulseAiRun, "now" | "orders" | "productRevenue"> },
+): Promise<ShopPulseWeeklyReport> {
+  const { tenantId, now } = opts;
+  const open = dailyReportSignals(await deps.repo.listOpenSignals(tenantId), now);
+  const built = await buildWeeklyReport(weekly, {
+    tenantId,
+    now,
+    mirrorStale: opts.mirrorStale,
+    openSignals: open,
+    estimateFor: (s) => lossEstimateFor(s, opts.aiRun),
+    ai: opts.ai,
+  });
+  const report = await weekly.saveReport(tenantId, { ...built, sentAt: opts.send ? now : null });
+  if (opts.send) {
+    const settings = await getShopPulseSettings(deps.storage, tenantId);
+    if (settings.teamsWebhookUrl) await enqueueTeamsMessage(deps.storage, SHOP_PULSE_TEAMS_OUTBOX_KEY, tenantId, buildShopPulseWeeklyCard(report, deps.baseUrl), now);
+    await notifyAdmins(deps, tenantId, buildShopPulseWeeklyBellText(report), `${SHOP_PULSE_PAGE_PATH}?tab=weekly&week=${encodeURIComponent(report.weekStart)}`);
+    log.info({ tenantId, weekStart: report.weekStart, levers: report.data.levers.length, ai: report.ai?.text ? "text" : (report.ai?.rejected ?? null) }, "Shop-Puls: Wochenbericht gesendet");
+  }
+  return report;
 }
 
 /** KI-Zusammenfassung des Tagesberichts (geprüft); null-Text = Vorlage */
@@ -369,8 +442,8 @@ export async function runShopPulseTick(deps: ShopPulseDeps): Promise<void> {
         if (!(await deps.storage.getShopwareSettings(tenantId))) return;
         if (!(await getShopPulseSettings(deps.storage, tenantId)).enabled) return;
         const run = await runShopPulseForTenant(deps, tenantId);
-        if (run && (run.result.inserts.length || run.notices.length || run.dailyReport?.sent)) {
-          log.info({ tenantId, new: run.result.inserts.length, notices: run.notices.length, daily: run.dailyReport }, "Shop-Puls: Takt");
+        if (run && (run.result.inserts.length || run.notices.length || run.dailyReport?.sent || run.weeklyReport)) {
+          log.info({ tenantId, new: run.result.inserts.length, notices: run.notices.length, daily: run.dailyReport, weekly: run.weeklyReport }, "Shop-Puls: Takt");
         }
       } catch (err) {
         log.error({ err, tenantId }, "Shop-Puls: Takt fehlgeschlagen");
@@ -398,6 +471,8 @@ export function shopPulseDeps(storage: IStorage): ShopPulseDeps {
     loadStorefront: (tenantId) => storefrontAccess(storage, tenantId),
     loadGa4: (tenantId) => ga4Access(storage, tenantId),
     ai: shopPulseAiDeps(storage),
+    weekly: shopPulseWeeklyDeps(storage),
+    syncActions: (tenantId, now) => syncActionLog(storage, tenantId, now),
     onNotificationCreated: (n) => notificationEvents.emitNotificationCreated(n),
     baseUrl: publicAppBaseUrl(process.env.APP_URL?.trim() || null),
   };

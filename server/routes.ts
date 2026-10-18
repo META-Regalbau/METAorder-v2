@@ -22,6 +22,7 @@ import { registerLogRoutes } from "./routes/logRoutes";
 import { registerShopContentRoutes } from "./routes/shopContentRoutes";
 import { registerShopWatchRoutes } from "./routes/shopWatchRoutes";
 import { registerShopPulseRoutes } from "./routes/shopPulseRoutes";
+import { registerShopPulseWeeklyRoutes } from "./routes/shopPulseWeeklyRoutes";
 import { registerOrderRoutes } from "./routes/orderRoutes";
 import { registerMonduRoutes } from "./routes/monduRoutes";
 import { registerCrossSellingRoutes } from "./routes/crossSellingRoutes";
@@ -91,6 +92,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerShopContentRoutes(app);
   // Shop-Puls: Meldungen zu Umsatz, Kaufbarkeit, GA4 (nur Administratoren)
   registerShopPulseRoutes(app);
+  registerShopPulseWeeklyRoutes(app);
 
   // Mahnwesen und Buchhaltungs-Import
   registerInvoicingRoutes(app);

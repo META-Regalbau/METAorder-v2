@@ -22,7 +22,7 @@ const COMPONENT_RULES: Rule[] = [
   [/^routes\/emailIntakeRoutes$/, "email"],
   [/^routes\/(invoicingRoutes|monduRoutes)$/, "invoicing"],
   [/^routes\/(masterDataRoutes|productRoutes|productImageTextRoutes|productMetaTextRoutes)$/, "products"],
-  [/^(routes\/(shopContentRoutes|shopWatchRoutes|shopPulseRoutes)|shopContent\/|shopPulse\/)/, "shopContent"],
+  [/^(routes\/(shopContentRoutes|shopWatchRoutes|shopPulseRoutes|shopPulseWeeklyRoutes)|shopContent\/|shopPulse\/)/, "shopContent"],
   [/^routes\/offerRoutes$/, "offers"],
   [/^routes\/(orderRoutes|operationsRoutes|routeHelpers)$/, "orders"],
   [/^routes\/(settingsRoutes|orderFieldMappingRoutes)$/, "settings"],

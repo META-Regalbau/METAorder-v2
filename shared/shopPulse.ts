@@ -228,6 +228,8 @@ export type ShopPulseState = {
   lastTickAt?: string;
   /** Kalendertag (Berlin) des letzten Tagesberichts */
   lastDailyReportDay?: string;
+  /** Montag der zuletzt berichteten Woche (Wochenbericht, Stufe 2 S2-1) */
+  lastWeeklyReportWeek?: string;
   /** KI-Zusammenfassung des letzten Tagesberichts (null-Text = verworfen, Vorlage ging raus) */
   lastDailyAi?: { at: string; text: string | null; rejected?: ShopPulseAiRejection };
   /**
