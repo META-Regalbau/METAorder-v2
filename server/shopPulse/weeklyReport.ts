@@ -11,7 +11,8 @@
  *    lossEstimate.ts), je Woche = pro Stunde × 84 Geschäftsstunden (12 × 7, dieselbe Grundlage wie die
  *    Topseller-Schätzung). Nicht kaufbare Topseller und Suchbegriffe ohne Treffer sind solche Meldungen.
  *    Ohne Schätzung stehen Meldungen hinten („nicht abschätzbar“).
- * 3. Erledigt letzte Woche: Einträge des Maßnahmen-Protokolls (Wirkung kommt erst mit S2-6).
+ * 3. Erledigt letzte Woche: Einträge des Maßnahmen-Protokolls; gesicherte Wirkungen früherer Maßnahmen
+ *    (S2-6, effects.ts), deren 28 Tage danach in der Berichtswoche zu Ende gingen.
  * 4. Offen je Zuständigem: alle offenen Meldungen, als Liste zum Weiterleiten.
  * Zuständiger und nächster Schritt kommen fest aus SHOP_PULSE_RESPONSIBILITY.
  *
@@ -43,6 +44,7 @@ import {
   type ShopPulseWeeklyNumbers,
   type ShopPulseWeeklyReportData,
 } from "@shared/shopPulseWeekly";
+import type { ShopPulseWeeklyEffect } from "@shared/shopPulseEffects";
 import type { ShopPulseLossEstimate, ShopPulseSignal, ShopPulseState } from "@shared/shopPulse";
 import { addDays, berlinTime, weekdayOfDay, type PulseOrder, type PulseOrderCustomer } from "./pulseOrders";
 import { compareSignals, isMuted } from "./shopPulseSignals";
@@ -318,6 +320,7 @@ export function weeklyReportData(input: {
   actions: ShopPulseAction[];
   now: Date;
   b2b?: ShopPulseB2bShare | null;
+  effects?: ShopPulseWeeklyEffect[] | null;
 }): ShopPulseWeeklyReportData {
   const all = rankLevers(input.signals, input.estimates, input.now);
   const levers = all.slice(0, LEVERS_MAX);
@@ -330,6 +333,7 @@ export function weeklyReportData(input: {
     openByOwner: openByOwner(all),
     offers: offerSummary(input.signals.filter((s) => !isMuted(s, input.now))),
     b2b: input.b2b ?? null,
+    effects: input.effects ?? null,
   };
 }
 
@@ -372,6 +376,16 @@ export function weeklyPayload(data: ShopPulseWeeklyReportData, now: Date): Recor
     })),
     summeTop5JeWoche: data.leversPerWeek,
     erledigtLetzteWoche: data.done.map((d) => ({ am: d.occurredAt, was: d.title })),
+    wirkungGesichert: data.effects?.length
+      ? data.effects.map((e) => ({
+          massnahme: e.title,
+          am: e.occurredAt,
+          kennzahl: e.main === "db1" ? "Deckungsbeitrag netto" : "Umsatz netto",
+          wirkungIn28Tagen: e.effect,
+          wirkungProzent: e.effectPercent,
+          umsatzNettoIn28Tagen: e.revenueEffect,
+        }))
+      : "keine gesicherte Wirkung",
     angebotsanfragen: data.offers
       ? {
           unbeantwortet: data.offers.unanswered,
@@ -398,7 +412,7 @@ const WEEKLY_SYSTEM = [
   "Du schreibst die Zusammenfassung des Shop-Puls-Wochenberichts für den Onlineshop von META Regalbau (shop.meta-online.com). Leser ist Oliver, der Shop-Verantwortliche.",
   ...SHOP_PULSE_AI_RULES,
   "Beträge der Hebel sind Schätzungen: immer als „geschätzt“ kennzeichnen. Veränderungen nur aus veraenderungProzent.",
-  "Die Wirkung erledigter Maßnahmen wird noch nicht gemessen: nichts über ihre Wirkung behaupten.",
+  "Wirkung von Maßnahmen nur aus wirkungGesichert (28 Tage danach, gegen den übrigen Shop gerechnet), sonst nichts über Wirkung behaupten.",
   `Wer handeln muss: ${SHOP_PULSE_OWNERS.map((o) => `„${o}“ (${OWNER_HINTS[o]})`).join("; ")}.`,
   "zusammenfassung: drei bis fünf kurze Sätze: die Woche in Zahlen gegen Vorwoche und Vorjahr, die größten Hebel, was erledigt wurde. naechsterSchritt: der eine wichtigste nächste Schritt mit Zuständigem.",
   'Antworte nur mit JSON: {"zusammenfassung": "…", "naechsterSchritt": "…"}',

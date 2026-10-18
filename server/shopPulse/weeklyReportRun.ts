@@ -9,6 +9,7 @@
 import { and, eq, inArray, isNull, sql, type AnyColumn } from "drizzle-orm";
 import { shopwareB2bCompanies, shopwareProducts } from "@shared/schema";
 import type { ShopPulseLossEstimate, ShopPulseSignal } from "@shared/shopPulse";
+import type { ShopPulseActionEffect, ShopPulseWeeklyEffect } from "@shared/shopPulseEffects";
 import type { ShopPulseAction, ShopPulseB2bShare, ShopPulseWeeklyNumbers, ShopPulseWeeklyReport, ShopPulseWeeklyReportData } from "@shared/shopPulseWeekly";
 import type { IStorage } from "../storage";
 import { db } from "../db";
@@ -19,6 +20,7 @@ import { ga4Access, Ga4NotConfiguredError } from "./ga4Client";
 import { listActions, saveWeeklyReport } from "./actionLogRepository";
 import { syncActionLog } from "./actionSync";
 import type { ShopPulseAiDeps } from "./shopPulseAi";
+import { weeklyEffects } from "./effects";
 import { b2bShare, berlinMidnight, ga4WeekFrom, reportedWeekStart, weeklyAiText, weeklyNumbers, weeklyReportData } from "./weeklyReport";
 
 const log = logger.child({ component: "shopPulse/weeklyReportRun" });
@@ -37,6 +39,8 @@ export type ShopPulseWeeklyDeps = {
   ga4(tenantId: string | null, weekStart: string): Promise<ShopPulseWeeklyNumbers["ga4"]>;
   syncActions(tenantId: string | null, now: Date): Promise<unknown>;
   listActions(tenantId: string | null, from: Date, to: Date): Promise<ShopPulseAction[]>;
+  /** Wirkung der Maßnahmen neu rechnen (S2-6); fehlt sie, steht im Bericht keine gesicherte Wirkung */
+  effects?(tenantId: string | null, now: Date): Promise<{ effects: ShopPulseActionEffect[]; actions: ShopPulseAction[] }>;
   saveReport(
     tenantId: string | null,
     report: { weekStart: string; data: ShopPulseWeeklyReportData; ai: ShopPulseWeeklyReport["ai"]; sentAt: Date | null },
@@ -92,7 +96,16 @@ export async function buildWeeklyReport(deps: ShopPulseWeeklyDeps, input: Weekly
   const estimates = new Map<string, ShopPulseLossEstimate | null>();
   for (const s of input.openSignals.slice(0, ESTIMATE_MAX)) estimates.set(s.id, await input.estimateFor(s).catch(() => null));
   const actions = await deps.listActions(tenantId, berlinMidnight(weekStart), berlinMidnight(addDays(weekStart, 7)));
-  const data = weeklyReportData({ numbers: figures?.numbers ?? null, signals: input.openSignals, estimates, actions, now, b2b: figures?.b2b ?? null });
+  let effects: ShopPulseWeeklyEffect[] | null = null;
+  if (deps.effects && !input.mirrorStale) {
+    try {
+      const r = await deps.effects(tenantId, now);
+      effects = weeklyEffects(r.effects, r.actions, weekStart);
+    } catch (err) {
+      log.warn({ err, tenantId }, "Wochenbericht: Wirkung nicht berechnet");
+    }
+  }
+  const data = weeklyReportData({ numbers: figures?.numbers ?? null, signals: input.openSignals, estimates, actions, now, b2b: figures?.b2b ?? null, effects });
 
   let ai: ShopPulseWeeklyReport["ai"] = null;
   if (input.ai) {

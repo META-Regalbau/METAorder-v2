@@ -1,7 +1,7 @@
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ClipboardList, Loader2, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { ChevronDown, ChevronRight, ClipboardList, Loader2, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,12 +21,14 @@ import {
   type ShopPulseActionsOverview,
   type ShopPulseImportResult,
 } from "@shared/shopPulseWeekly";
+import { ShopPulseEffectBadge, ShopPulseEffectDetails, ShopPulseEffectsHead, useShopPulseEffects } from "./ShopPulseEffects";
 
 /**
  * Shop-Puls, Reiter „Maßnahmen-Protokoll“ (Stufe 2, S2-1): jede Änderung am Shop mit Zeitpunkt, Bereich und
  * wer. Automatische Einträge übernimmt der Server beim Laden; von Hand eintragen, bearbeiten, löschen;
  * Live-Protokolle (`*-Protokoll-Live-*.json`) einmalig hochladen. Texte der Einträge sind deutsch (Fakten wie
- * in den Protokollen). Server: server/routes/shopPulseWeeklyRoutes.ts.
+ * in den Protokollen). Seit S2-6 je Eintrag die Wirkung (Einstufung, aufklappbar mit Vergleich vorher/nachher).
+ * Server: server/routes/shopPulseWeeklyRoutes.ts.
  */
 
 const QUERY_KEY = ["/api/shop-pulse/actions"];
@@ -53,6 +55,9 @@ export function ShopPulseActionsTab() {
   const [importResult, setImportResult] = useState<ShopPulseImportResult | null>(null);
 
   const query = useQuery<ShopPulseActionsOverview>({ queryKey: QUERY_KEY });
+  const effectsQuery = useShopPulseEffects();
+  const effectOf = new Map((effectsQuery.data?.effects ?? []).map((e) => [e.actionId, e]));
+  const [openEffect, setOpenEffect] = useState<string | null>(null);
   const setData = (next: ShopPulseActionsOverview) => queryClient.setQueryData(QUERY_KEY, { actions: next.actions });
 
   const saveMutation = useMutation({
@@ -159,6 +164,8 @@ export function ShopPulseActionsTab() {
           </div>
         ) : null}
       </Card>
+
+      <ShopPulseEffectsHead />
 
       {draft ? (
         <Card className="p-4 space-y-3" data-testid="shop-pulse-action-form">
@@ -279,56 +286,82 @@ export function ShopPulseActionsTab() {
                 <TableHead>{t("shopPulse.actions.columns.what")}</TableHead>
                 <TableHead>{t("shopPulse.actions.columns.scope")}</TableHead>
                 <TableHead>{t("shopPulse.actions.columns.who")}</TableHead>
+                <TableHead>{t("shopPulse.actions.columns.effect")}</TableHead>
                 <TableHead>{t("shopPulse.actions.columns.actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {actions.map((a) => (
-                <TableRow key={a.id} data-testid={`row-shop-pulse-action-${a.id}`}>
-                  <TableCell className="align-top text-sm whitespace-nowrap">{fmt.dateTime(a.occurredAt)}</TableCell>
-                  <TableCell className="align-top">
-                    <Badge variant="outline" className="mb-1">
-                      {t(`shopPulse.actions.kinds.${a.kind}`)}
-                    </Badge>
-                    <div className="font-medium break-words max-w-xl" lang="de">
-                      {a.title}
-                    </div>
-                    {a.description ? (
-                      <div className="text-xs text-muted-foreground whitespace-pre-line break-words max-w-xl line-clamp-4" lang="de">
-                        {a.description}
+                <Fragment key={a.id}>
+                  <TableRow data-testid={`row-shop-pulse-action-${a.id}`}>
+                    <TableCell className="align-top text-sm whitespace-nowrap">{fmt.dateTime(a.occurredAt)}</TableCell>
+                    <TableCell className="align-top">
+                      <Badge variant="outline" className="mb-1">
+                        {t(`shopPulse.actions.kinds.${a.kind}`)}
+                      </Badge>
+                      <div className="font-medium break-words max-w-xl" lang="de">
+                        {a.title}
                       </div>
-                    ) : null}
-                  </TableCell>
-                  <TableCell className="align-top text-sm max-w-xs break-words" title={a.scope.values.slice(0, 50).join("\n") || undefined}>
-                    {scopeText(a)}
-                  </TableCell>
-                  <TableCell className="align-top text-sm">
-                    <div>{a.actor ?? "–"}</div>
-                    <div className="text-xs text-muted-foreground">{t(`shopPulse.actions.sources.${a.source}`)}</div>
-                  </TableCell>
-                  <TableCell className="align-top">
-                    {confirmDelete === a.id ? (
-                      <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("shopPulse.actions.confirmDelete")}>
-                        <span className="text-xs">{t("shopPulse.actions.confirmDelete")}</span>
-                        <Button size="sm" variant="destructive" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate(a.id)} data-testid={`button-shop-pulse-action-delete-confirm-${a.id}`}>
-                          {t("shopPulse.actions.delete")}
+                      {a.description ? (
+                        <div className="text-xs text-muted-foreground whitespace-pre-line break-words max-w-xl line-clamp-4" lang="de">
+                          {a.description}
+                        </div>
+                      ) : null}
+                    </TableCell>
+                    <TableCell className="align-top text-sm max-w-xs break-words" title={a.scope.values.slice(0, 50).join("\n") || undefined}>
+                      {scopeText(a)}
+                    </TableCell>
+                    <TableCell className="align-top text-sm">
+                      <div>{a.actor ?? "–"}</div>
+                      <div className="text-xs text-muted-foreground">{t(`shopPulse.actions.sources.${a.source}`)}</div>
+                    </TableCell>
+                    <TableCell className="align-top text-sm">
+                      <ShopPulseEffectBadge effect={effectOf.get(a.id)} />
+                      {effectOf.get(a.id) ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-1 text-xs"
+                          aria-expanded={openEffect === a.id}
+                          onClick={() => setOpenEffect(openEffect === a.id ? null : a.id)}
+                          data-testid={`button-shop-pulse-effect-toggle-${a.id}`}
+                        >
+                          {openEffect === a.id ? <ChevronDown className="h-3 w-3 mr-1" aria-hidden="true" /> : <ChevronRight className="h-3 w-3 mr-1" aria-hidden="true" />}
+                          {t("shopPulse.effects.details")}
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(null)}>
-                          {t("shopPulse.signals.cancel")}
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => edit(a)} aria-label={t("shopPulse.actions.edit")} data-testid={`button-shop-pulse-action-edit-${a.id}`}>
-                          <Pencil className="h-4 w-4" aria-hidden="true" />
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(a.id)} aria-label={t("shopPulse.actions.delete")} data-testid={`button-shop-pulse-action-delete-${a.id}`}>
-                          <Trash2 className="h-4 w-4" aria-hidden="true" />
-                        </Button>
-                      </div>
-                    )}
-                  </TableCell>
-                </TableRow>
+                      ) : null}
+                    </TableCell>
+                    <TableCell className="align-top">
+                      {confirmDelete === a.id ? (
+                        <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("shopPulse.actions.confirmDelete")}>
+                          <span className="text-xs">{t("shopPulse.actions.confirmDelete")}</span>
+                          <Button size="sm" variant="destructive" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate(a.id)} data-testid={`button-shop-pulse-action-delete-confirm-${a.id}`}>
+                            {t("shopPulse.actions.delete")}
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(null)}>
+                            {t("shopPulse.signals.cancel")}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-1">
+                          <Button size="sm" variant="ghost" onClick={() => edit(a)} aria-label={t("shopPulse.actions.edit")} data-testid={`button-shop-pulse-action-edit-${a.id}`}>
+                            <Pencil className="h-4 w-4" aria-hidden="true" />
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(a.id)} aria-label={t("shopPulse.actions.delete")} data-testid={`button-shop-pulse-action-delete-${a.id}`}>
+                            <Trash2 className="h-4 w-4" aria-hidden="true" />
+                          </Button>
+                        </div>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                  {openEffect === a.id && effectOf.get(a.id) ? (
+                    <TableRow>
+                      <TableCell colSpan={6}>
+                        <ShopPulseEffectDetails effect={effectOf.get(a.id)!} />
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </Fragment>
               ))}
             </TableBody>
           </Table>

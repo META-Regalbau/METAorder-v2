@@ -6665,7 +6665,9 @@
       "invalid_shop_pulse_protocol_upload": "Ungültiger Upload der Live-Protokolle",
       "failed_to_import_shop_pulse_protocols": "Live-Protokolle konnten nicht importiert werden",
       "failed_to_load_shop_pulse_weekly_reports": "Wochenberichte konnten nicht geladen werden",
-      "failed_to_build_shop_pulse_weekly_report": "Wochenbericht konnte nicht erstellt werden"
+      "failed_to_build_shop_pulse_weekly_report": "Wochenbericht konnte nicht erstellt werden",
+      "failed_to_load_shop_pulse_effects": "Wirkung konnte nicht geladen werden",
+      "failed_to_compute_shop_pulse_effects": "Wirkung konnte nicht berechnet werden"
     }
   },
   "roomPlanner": {
@@ -8356,7 +8358,7 @@
       "leversSum": "Zusammen rund {{amount}} je Woche (Schätzung).",
       "doneTitle": "Erledigt letzte Woche ({{count}})",
       "doneNone": "Keine Einträge im Maßnahmen-Protokoll.",
-      "doneHint": "Ob es gewirkt hat, misst der Shop-Puls später (Stufe 2, Wirkungsmessung).",
+      "doneHint": "Ob es gewirkt hat, steht 28 Tage danach unter „Gesicherte Wirkung“ bzw. im Maßnahmen-Protokoll.",
       "ownersTitle": "Offen je Zuständigem",
       "ownerHeading": "{{owner}} ({{count}})",
       "more": "… und {{count}} weitere",
@@ -8402,7 +8404,17 @@
       "b2bAtLeast": "ab {{threshold}} netto: {{orders}} Bestellung(en) ({{percent}} der Geschäftskunden-Bestellungen), rund {{perWeek}} je Woche",
       "b2bBasis": "Erkannt an der Firma in der Rechnungsadresse: {{company}}, nur am B2B-Kennzeichen (B2Bsellers-Firma): {{flagOnly}}",
       "b2bNone": "Kein B2B-Anteil: Der Bestellabgleich hängt.",
-      "b2bHint": "Grundlage für die Schwelle des B2B-Warenkorb-Alarms (Vorschlag 1.000 € netto)."
+      "b2bHint": "Grundlage für die Schwelle des B2B-Warenkorb-Alarms (Vorschlag 1.000 € netto).",
+      "effectsTitle": "Gesicherte Wirkung",
+      "effectsNotComputed": "Wirkung diesmal nicht berechnet (Bestellabgleich hängt oder Fehler).",
+      "effectsNone": "Keine Maßnahme mit gesicherter Wirkung in dieser Woche.",
+      "effectsHint": "Maßnahmen, deren 28 Tage danach in dieser Woche zu Ende gingen: Bereich gegen den übrigen Shop, MO-Bestellungen netto. Bei rund 4,7 Bestellungen am Werktag sind nur große Wirkungen sicher.",
+      "effectItem": "{{date}} {{title}}: {{amount}} {{metric}} ({{percent}}) in 28 Tagen",
+      "effectMetrics": {
+        "db1": "Deckungsbeitrag",
+        "revenue": "Umsatz netto"
+      },
+      "effectsBell": "Gesicherte Wirkung: {{count}} Maßnahme(n)"
     },
     "weeklyPage": {
       "title": "Wochenberichte",
@@ -8447,7 +8459,7 @@
       "leversHint": "Beträge sind Schätzungen: geschätzter Verlust pro Stunde × 84 Geschäftsstunden (12 je Tag, 7 Tage). Meldungen ohne Schätzung stehen hinten.",
       "doneTitle": "Erledigt letzte Woche ({{count}})",
       "doneNone": "Keine Einträge im Maßnahmen-Protokoll für diese Woche.",
-      "doneHint": "Aus dem Maßnahmen-Protokoll. Die Wirkung misst der Shop-Puls erst mit der Wirkungsmessung (Stufe 2).",
+      "doneHint": "Aus dem Maßnahmen-Protokoll. Die Wirkung steht 28 Tage danach unter „Gesicherte Wirkung“ und im Maßnahmen-Protokoll.",
       "ownersTitle": "Offen je Zuständigem",
       "ownerHeading": "{{owner}} ({{count}})",
       "copy": "Liste kopieren",
@@ -8499,7 +8511,11 @@
       "bucketOpen": "ab {{from}}",
       "quantiles": "Geschäftskunden: Median {{p50}}, 75 % der Bestellungen bis {{p75}}, 90 % bis {{p90}}.",
       "atLeast": "ab {{threshold}}: {{orders}} Bestellung(en) ({{percent}}), rund {{perWeek}} je Woche",
-      "basis": "Erkannt an der Firma: {{company}}, nur am B2B-Kennzeichen: {{flagOnly}}."
+      "basis": "Erkannt an der Firma: {{company}}, nur am B2B-Kennzeichen: {{flagOnly}}.",
+      "effectsTitle": "Gesicherte Wirkung",
+      "effectsNotComputed": "Wirkung für diesen Bericht nicht berechnet (Bestellabgleich hing oder Fehler).",
+      "effectsNone": "Keine Maßnahme, deren 28 Tage in dieser Woche zu Ende gingen, hat eine gesicherte Wirkung.",
+      "effectsHint": "Nur „sicher“ eingestufte Maßnahmen (28 Tage, Bereich gegen übrigen Shop). Alle Einstufungen stehen im Maßnahmen-Protokoll."
     },
     "actions": {
       "title": "Maßnahmen-Protokoll",
@@ -8556,7 +8572,8 @@
         "what": "Was",
         "scope": "Bereich",
         "who": "Wer / Quelle",
-        "actions": "Aktionen"
+        "actions": "Aktionen",
+        "effect": "Wirkung"
       },
       "kinds": {
         "contentPublish": "Shop-Inhalt live",
@@ -8575,6 +8592,87 @@
         "import": "Import Live-Protokoll",
         "manual": "von Hand"
       }
+    },
+    "effects": {
+      "title": "Wirkung messen",
+      "hint": "Je Maßnahme vergleicht METAorder 14 und 28 Tage davor und danach (gleiche Wochentage) für den betroffenen Bereich, gerechnet gegen den übrigen Shop. Hauptwert ist der Deckungsbeitrag, Umsatz und Bestellungen stehen daneben (MO-Bestellungen, netto).",
+      "refresh": "Neu berechnen",
+      "refreshed": "Wirkung von {{count}} Maßnahme(n) berechnet",
+      "refreshFailed": "Wirkung konnte nicht berechnet werden",
+      "loadError": "Wirkung konnte nicht geladen werden.",
+      "lastComputed": "Zuletzt berechnet: {{date}} (sonst täglich ab 5 Uhr)",
+      "rulesTitle": "Wie wird eingestuft?",
+      "rules": {
+        "windows": "Zeiträume: 14 und 28 Tage vor und nach dem Tag der Maßnahme; der Tag selbst zählt nicht mit.",
+        "control": "Vergleich: erwartet wäre „vorher × Entwicklung des übrigen Shops“; die Wirkung ist die Abweichung davon. Betrifft die Maßnahme den ganzen Shop, sind die gleichen Tage ein Jahr davor der Vergleich.",
+        "main": "Hauptwert ist der Deckungsbeitrag; ist er für weniger als {{minDb1CoveragePercent}} % des Umsatzes bekannt, der Umsatz.",
+        "sure": "„Sicher“: 28 Tage vorbei, je mindestens {{minOrdersSure}} Bestellungen im Bereich vorher und nachher, ein Vergleich, keine andere Maßnahme im selben Bereich, und die Abweichung ist mindestens {{zSure}}-mal so groß wie die übliche Schwankung.",
+        "notMeasurable": "„Nicht messbar“: Seiten (lassen sich Bestellungen nicht zuordnen), keine Daten vorher oder zusammen weniger als {{minOrdersMeasurable}} Bestellungen im Bereich. Sonst „unsicher“.",
+        "honest": "Bei rund 4,7 Shop-Bestellungen am Werktag sind nur große Wirkungen sicher. Jede Auswertung nennt, ab welcher Größe eine Wirkung erkennbar wäre. Frühe Signale aus GA4 sind nur eine Tendenz."
+      },
+      "notComputed": "noch nicht berechnet",
+      "details": "Einzelheiten",
+      "verdicts": {
+        "sure": "Wirkung sicher",
+        "unsure": "Wirkung unsicher",
+        "notMeasurable": "nicht messbar",
+        "pending": "läuft noch"
+      },
+      "headline": "{{amount}} {{metric}} ({{percent}}) in {{days}} Tagen",
+      "pendingUntil": "erstes Ergebnis nach dem {{date}}",
+      "windowTitle": "{{days}} Tage",
+      "windowRange": "vorher {{preFrom}}–{{preTo}}, nachher {{postFrom}}–{{postTo}}",
+      "controls": {
+        "rest": "Vergleich: übriger Shop",
+        "yearAgo": "Vergleich: gleiche Tage ein Jahr davor",
+        "none": "kein Vergleich"
+      },
+      "controlChange": "({{percent}})",
+      "mainMetric": "Hauptwert: {{metric}}",
+      "coverage": "Herstellpreis für {{percent}} des Umsatzes",
+      "columns": {
+        "metric": "Kennzahl",
+        "pre": "vorher",
+        "post": "nachher",
+        "expected": "erwartet",
+        "effect": "Wirkung",
+        "z": "z",
+        "detectable": "erkennbar ab"
+      },
+      "metrics": {
+        "db1": "Deckungsbeitrag",
+        "revenue": "Umsatz netto",
+        "orders": "Bestellungen"
+      },
+      "reasons": {
+        "pagesNotAttributable": "Seiten lassen sich Bestellungen nicht zuordnen; nur frühe Signale.",
+        "channelNoOrders": "Keine MO-Bestellungen in diesem Kanal.",
+        "noHistory": "Der Bestellspiegel reicht nicht so weit zurück.",
+        "tooFewOrders": "Zusammen weniger als {{minOrdersMeasurable}} Bestellungen im Bereich.",
+        "fewOrders": "Weniger als {{minOrdersSure}} Bestellungen im Bereich vorher oder nachher.",
+        "noControl": "Kein Vergleich (kein übriger Shop, Spiegel reicht kein Jahr zurück).",
+        "overlap": "Andere Maßnahme im selben Bereich in diesem Zeitraum.",
+        "windowShort": "Sicher erst nach 28 Tagen.",
+        "weak": "Abweichung kleiner als die übliche Schwankung (z unter {{zSure}}).",
+        "db1Coverage": "Deckungsbeitrag zu lückenhaft, Umsatz als Hauptwert."
+      },
+      "overlapsTitle": "Andere Maßnahmen im selben Bereich ({{count}})",
+      "more": "… und {{count}} weitere",
+      "earlyTitle": "Frühe Signale (GA4)",
+      "earlyPending": "Kommen, sobald die ersten 14 Tage vorbei sind.",
+      "earlyNotConfigured": "GA4 nicht eingerichtet (Einstellungen → Google Analytics).",
+      "earlyError": "GA4 nicht gelesen: {{error}}",
+      "earlyLine": "{{metric}} ({{days}} Tage): {{pre}} → {{post}} ({{change}})",
+      "earlyRelative": "gegenüber übrigem Shop {{percent}}",
+      "earlyHint": "Nur Tendenz, keine Einstufung.",
+      "earlyMetrics": {
+        "itemsViewed": "Artikelaufrufe",
+        "itemsAddedToCart": "in den Warenkorb",
+        "sessions": "Sitzungen",
+        "ecommercePurchases": "Käufe",
+        "conversionPercent": "Conversion in %"
+      },
+      "computedAt": "Berechnet: {{date}}"
     }
   },
   "mondu": {

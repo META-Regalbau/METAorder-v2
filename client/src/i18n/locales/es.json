@@ -6665,7 +6665,9 @@
       "invalid_shop_pulse_protocol_upload": "Subida no válida de los protocolos en vivo",
       "failed_to_import_shop_pulse_protocols": "No se pudieron importar los protocolos en vivo",
       "failed_to_load_shop_pulse_weekly_reports": "No se pudieron cargar los informes semanales",
-      "failed_to_build_shop_pulse_weekly_report": "No se pudo crear el informe semanal"
+      "failed_to_build_shop_pulse_weekly_report": "No se pudo crear el informe semanal",
+      "failed_to_load_shop_pulse_effects": "No se pudo cargar el impacto",
+      "failed_to_compute_shop_pulse_effects": "No se pudo calcular el impacto"
     }
   },
   "roomPlanner": {
@@ -8356,7 +8358,7 @@
       "leversSum": "En total unos {{amount}} por semana (estimación).",
       "doneTitle": "Hecho la semana pasada ({{count}})",
       "doneNone": "No hay entradas en el registro de medidas.",
-      "doneHint": "Si ha funcionado lo medirá el pulso de la tienda más adelante (fase 2, medición del efecto).",
+      "doneHint": "Si ha funcionado se ve 28 días después en «Impacto confirmado» y en el registro de medidas.",
       "ownersTitle": "Pendiente por responsable",
       "ownerHeading": "{{owner}} ({{count}})",
       "more": "… y {{count}} más",
@@ -8402,7 +8404,17 @@
       "b2bAtLeast": "desde {{threshold}} netos: {{orders}} pedido(s) ({{percent}} de los pedidos de empresas), unos {{perWeek}} por semana",
       "b2bBasis": "Reconocidos por la empresa en la dirección de facturación: {{company}}, solo por la marca B2B (empresa de B2Bsellers): {{flagOnly}}",
       "b2bNone": "Sin cuota B2B: la sincronización de pedidos está detenida.",
-      "b2bHint": "Base para el umbral de la alerta de carrito B2B (propuesta 1.000 € netos)."
+      "b2bHint": "Base para el umbral de la alerta de carrito B2B (propuesta 1.000 € netos).",
+      "effectsTitle": "Impacto confirmado",
+      "effectsNotComputed": "Impacto no calculado esta vez (sincronización de pedidos detenida o error).",
+      "effectsNone": "Ninguna medida con impacto confirmado esta semana.",
+      "effectsHint": "Medidas cuyos 28 días posteriores terminaron esta semana: ámbito frente al resto de la tienda, pedidos MO netos. Con unos 4,7 pedidos por día laborable solo los efectos grandes son seguros.",
+      "effectItem": "{{date}} {{title}}: {{amount}} {{metric}} ({{percent}}) en 28 días",
+      "effectMetrics": {
+        "db1": "margen de contribución",
+        "revenue": "facturación neta"
+      },
+      "effectsBell": "Impacto confirmado: {{count}} medida(s)"
     },
     "weeklyPage": {
       "title": "Informes semanales",
@@ -8447,7 +8459,7 @@
       "leversHint": "Los importes son estimaciones: pérdida estimada por hora × 84 horas comerciales (12 al día, 7 días). Los avisos sin estimación figuran al final.",
       "doneTitle": "Hecho la semana pasada ({{count}})",
       "doneNone": "No hay entradas en el registro de medidas para esta semana.",
-      "doneHint": "Del registro de medidas. El pulso de la tienda solo medirá el efecto con la medición del efecto (fase 2).",
+      "doneHint": "Del registro de medidas. El impacto se muestra 28 días después en «Impacto confirmado» y en el registro de medidas.",
       "ownersTitle": "Pendiente por responsable",
       "ownerHeading": "{{owner}} ({{count}})",
       "copy": "Copiar lista",
@@ -8499,7 +8511,11 @@
       "bucketOpen": "desde {{from}}",
       "quantiles": "Clientes empresariales: mediana {{p50}}, el 75 % de los pedidos hasta {{p75}}, el 90 % hasta {{p90}}.",
       "atLeast": "desde {{threshold}}: {{orders}} pedido(s) ({{percent}}), unos {{perWeek}} por semana",
-      "basis": "Reconocidos por la empresa: {{company}}, solo por la marca B2B: {{flagOnly}}."
+      "basis": "Reconocidos por la empresa: {{company}}, solo por la marca B2B: {{flagOnly}}.",
+      "effectsTitle": "Impacto confirmado",
+      "effectsNotComputed": "Impacto no calculado para este informe (sincronización de pedidos detenida o error).",
+      "effectsNone": "Ninguna medida cuyos 28 días terminaron esta semana tiene un impacto confirmado.",
+      "effectsHint": "Solo medidas clasificadas como «seguro» (28 días, ámbito frente al resto de la tienda). Todas las clasificaciones están en el registro de medidas."
     },
     "actions": {
       "title": "Registro de medidas",
@@ -8556,7 +8572,8 @@
         "what": "Qué",
         "scope": "Ámbito",
         "who": "Quién / origen",
-        "actions": "Acciones"
+        "actions": "Acciones",
+        "effect": "Impacto"
       },
       "kinds": {
         "contentPublish": "Contenido de la tienda en vivo",
@@ -8575,6 +8592,87 @@
         "import": "Importación de protocolo en vivo",
         "manual": "a mano"
       }
+    },
+    "effects": {
+      "title": "Medir el impacto",
+      "hint": "Para cada medida METAorder compara 14 y 28 días antes y después (mismos días de la semana) para el ámbito afectado, frente al resto de la tienda. El valor principal es el margen de contribución; facturación y pedidos se muestran al lado (pedidos MO, netos).",
+      "refresh": "Recalcular",
+      "refreshed": "Impacto de {{count}} medida(s) calculado",
+      "refreshFailed": "No se pudo calcular el impacto",
+      "loadError": "No se pudo cargar el impacto.",
+      "lastComputed": "Último cálculo: {{date}} (si no, a diario desde las 5)",
+      "rulesTitle": "¿Cómo se clasifica?",
+      "rules": {
+        "windows": "Periodos: 14 y 28 días antes y después del día de la medida; el propio día no cuenta.",
+        "control": "Comparación: lo esperado sería «antes × evolución del resto de la tienda»; el impacto es la desviación respecto a ello. Si la medida afecta a toda la tienda, la comparación son los mismos días un año antes.",
+        "main": "El valor principal es el margen de contribución; si se conoce para menos del {{minDb1CoveragePercent}} % de la facturación, la facturación.",
+        "sure": "«Seguro»: 28 días transcurridos, al menos {{minOrdersSure}} pedidos en el ámbito antes y después, una comparación, ninguna otra medida en el mismo ámbito y la desviación es al menos {{zSure}} veces la fluctuación habitual.",
+        "notMeasurable": "«No medible»: páginas (no se pueden asignar a pedidos), sin datos anteriores o menos de {{minOrdersMeasurable}} pedidos en el ámbito en total. Si no, «incierto».",
+        "honest": "Con unos 4,7 pedidos por día laborable solo los efectos grandes son seguros. Cada evaluación indica a partir de qué tamaño sería detectable un efecto. Las señales tempranas de GA4 son solo una tendencia."
+      },
+      "notComputed": "aún no calculado",
+      "details": "Detalles",
+      "verdicts": {
+        "sure": "Impacto seguro",
+        "unsure": "Impacto incierto",
+        "notMeasurable": "no medible",
+        "pending": "en curso"
+      },
+      "headline": "{{amount}} {{metric}} ({{percent}}) en {{days}} días",
+      "pendingUntil": "primer resultado después del {{date}}",
+      "windowTitle": "{{days}} días",
+      "windowRange": "antes {{preFrom}}–{{preTo}}, después {{postFrom}}–{{postTo}}",
+      "controls": {
+        "rest": "Comparación: resto de la tienda",
+        "yearAgo": "Comparación: mismos días un año antes",
+        "none": "sin comparación"
+      },
+      "controlChange": "({{percent}})",
+      "mainMetric": "Valor principal: {{metric}}",
+      "coverage": "precio de fabricación para el {{percent}} de la facturación",
+      "columns": {
+        "metric": "Indicador",
+        "pre": "antes",
+        "post": "después",
+        "expected": "esperado",
+        "effect": "Impacto",
+        "z": "z",
+        "detectable": "detectable desde"
+      },
+      "metrics": {
+        "db1": "Margen de contribución",
+        "revenue": "Facturación neta",
+        "orders": "Pedidos"
+      },
+      "reasons": {
+        "pagesNotAttributable": "Las páginas no se pueden asignar a pedidos; solo señales tempranas.",
+        "channelNoOrders": "No hay pedidos MO en este canal.",
+        "noHistory": "El espejo de pedidos no llega tan atrás.",
+        "tooFewOrders": "Menos de {{minOrdersMeasurable}} pedidos en el ámbito en total.",
+        "fewOrders": "Menos de {{minOrdersSure}} pedidos en el ámbito antes o después.",
+        "noControl": "Sin comparación (sin resto de la tienda, el espejo no llega a un año atrás).",
+        "overlap": "Otra medida en el mismo ámbito en este periodo.",
+        "windowShort": "Seguro solo después de 28 días.",
+        "weak": "Desviación menor que la fluctuación habitual (z inferior a {{zSure}}).",
+        "db1Coverage": "Margen de contribución demasiado incompleto, facturación como valor principal."
+      },
+      "overlapsTitle": "Otras medidas en el mismo ámbito ({{count}})",
+      "more": "… y {{count}} más",
+      "earlyTitle": "Señales tempranas (GA4)",
+      "earlyPending": "Disponibles cuando hayan pasado los primeros 14 días.",
+      "earlyNotConfigured": "GA4 no configurado (Ajustes → Google Analytics).",
+      "earlyError": "GA4 no leído: {{error}}",
+      "earlyLine": "{{metric}} ({{days}} días): {{pre}} → {{post}} ({{change}})",
+      "earlyRelative": "frente al resto de la tienda {{percent}}",
+      "earlyHint": "Solo tendencia, sin clasificación.",
+      "earlyMetrics": {
+        "itemsViewed": "Vistas de artículo",
+        "itemsAddedToCart": "Añadidos al carrito",
+        "sessions": "Sesiones",
+        "ecommercePurchases": "Compras",
+        "conversionPercent": "Conversión en %"
+      },
+      "computedAt": "Calculado: {{date}}"
     }
   },
   "mondu": {

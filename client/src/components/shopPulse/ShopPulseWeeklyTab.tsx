@@ -21,13 +21,14 @@ import {
   type ShopPulseWeeklyOverview,
   type ShopPulseWeeklyReport,
 } from "@shared/shopPulseWeekly";
+import { ShopPulseWeeklyEffectsCard } from "./ShopPulseEffects";
 
 /**
  * Shop-Puls, Reiter „Wochenberichte“ (Stufe 2, S2-1): Archiv aller Wochenberichte. Je Bericht die Woche in
  * Zahlen gegen Vorwoche und Vorjahr, KI-Zusammenfassung (deutsch, wie in Teams), Top 5 Hebel nach €, Erledigt
  * letzte Woche aus dem Maßnahmen-Protokoll und offen je Zuständigem (Liste zum Weiterleiten, deutsch).
  * Seit S2-2 außerdem die unbeantworteten Angebotsanfragen und der B2B-Anteil mit Verteilung der Bestellwerte
- * (fehlen in älteren Berichten). „Jetzt erstellen“ baut den Bericht der abgeschlossenen Woche ohne Senden.
+ * (fehlen in älteren Berichten), seit S2-6 die gesicherten Wirkungen früherer Maßnahmen. „Jetzt erstellen“ baut den Bericht der abgeschlossenen Woche ohne Senden.
  * Server: shopPulseWeeklyRoutes.ts.
  */
 
@@ -272,6 +273,8 @@ export function ShopPulseWeeklyTab({ initialWeek }: { initialWeek: string | null
             )}
             <p className="text-xs text-muted-foreground">{t("shopPulse.weeklyPage.doneHint")}</p>
           </Card>
+
+          {report.data.effects !== undefined ? <ShopPulseWeeklyEffectsCard effects={report.data.effects} /> : null}
 
           <Card className="p-4 space-y-3" data-testid="shop-pulse-weekly-owners">
             <h4 className="font-medium">{t("shopPulse.weeklyPage.ownersTitle")}</h4>

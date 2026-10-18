@@ -11,6 +11,7 @@
  */
 import { z } from "zod";
 import type { ShopPulseAiRejection, ShopPulseCode, ShopPulseLossBasis, ShopPulseSeverity } from "./shopPulse";
+import type { ShopPulseWeeklyEffect } from "./shopPulseEffects";
 
 // ---------------------------------------------------------------------------------------------
 // Maßnahmen-Protokoll
@@ -308,6 +309,11 @@ export type ShopPulseWeeklyReportData = {
   offers?: ShopPulseOfferSummary;
   /** B2B-Anteil (S2-2); null = Bestellabgleich hängt bzw. nicht gelesen; fehlt in älteren Berichten */
   b2b?: ShopPulseB2bShare | null;
+  /**
+   * Gesicherte Wirkungen (S2-6): Maßnahmen, deren 28 Tage danach in der Berichtswoche zu Ende gingen und deren
+   * Wirkung „sicher“ ist; null = nicht berechnet; fehlt in älteren Berichten
+   */
+  effects?: ShopPulseWeeklyEffect[] | null;
 };
 
 export type ShopPulseWeeklyReport = {
