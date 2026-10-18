@@ -8149,6 +8149,54 @@
       "orderGapConfirmed": {
         "title": "Hoy ningún pedido en la tienda y la prueba del carrito falla",
         "message": "Hasta ahora no ha entrado ningún pedido en la tienda online hoy (normalmente de media {{expected}} hasta las 15:00) y la prueba del carrito también falla. Probablemente la tienda o la caja están averiadas."
+      },
+      "orderGapCheckout": {
+        "title": "Hoy ningún pedido en la tienda: pago o cierre averiado",
+        "message": "Hoy todavía no ha entrado ningún pedido en la tienda online (normalmente {{expected}} de media hasta las 15 h). Según GA4, los visitantes llegan con normalidad a la caja ({{pct}} % de las páginas vistas habituales), pero no se completa ninguna compra. Revise las formas de pago, el proveedor de pagos y el cierre del pedido."
+      },
+      "orderGapVisitors": {
+        "title": "Hoy ningún pedido en la tienda: muchos menos visitantes",
+        "message": "Hoy todavía no ha entrado ningún pedido en la tienda online (normalmente {{expected}} de media hasta las 15 h). Según GA4, solo llega el {{pct}} % de las páginas vistas habituales. Más bien un problema de visitantes: revise publicidad, buscador, disponibilidad o medición."
+      },
+      "ga4LiveNoAddToCart": {
+        "title": "Nada añadido al carrito desde hace {{hours}} horas",
+        "message": "GA4 cuenta {{pageViews}} páginas vistas en las últimas {{hours}} horas, pero ningún «añadir al carrito» (esperado según los últimos 28 días: unos {{expected}}). Probablemente falla el botón del carrito, el carrito o la medición."
+      },
+      "ga4LiveNoCheckout": {
+        "title": "Nadie ha ido a la caja desde hace {{hours}} horas",
+        "message": "GA4 cuenta {{pageViews}} páginas vistas en las últimas {{hours}} horas, pero ningún paso a la caja (esperado según los últimos 28 días: unos {{expected}}). Probablemente falla el carrito, la caja o la medición."
+      },
+      "ga4FunnelCart": {
+        "title": "Menos artículos al carrito ({{device}}, −{{pct}} %)",
+        "message": "{{date}}: el {{current}} de los usuarios que vieron un artículo añadió algo al carrito; en los mismos días de la semana anteriores, el {{expected}} (dispositivo: {{device}})."
+      },
+      "ga4FunnelCheckout": {
+        "title": "Menos carritos pasan a la caja ({{device}}, −{{pct}} %)",
+        "message": "{{date}}: el {{current}} de los usuarios con carrito pasó a la caja; en los mismos días de la semana anteriores, el {{expected}} (dispositivo: {{device}})."
+      },
+      "ga4FunnelPurchase": {
+        "title": "Menos compras en la caja ({{device}}, −{{pct}} %)",
+        "message": "{{date}}: el {{current}} de los usuarios en la caja compró; en los mismos días de la semana anteriores, el {{expected}} (dispositivo: {{device}}). Revise las formas de pago y el cierre del pedido."
+      },
+      "ga4ChannelDrop": {
+        "title": "Caída de la fuente de visitas «{{channel}}» (−{{pct}} %)",
+        "message": "{{date}}: la fuente «{{channel}}» trajo un {{pct}} % menos de sesiones que en los mismos días de la semana anteriores. Su cuota de todas las sesiones bajó del {{expectedShare}} al {{share}}. Revise campañas, buscador o referencias."
+      },
+      "ga4LandingDrop": {
+        "title": "Caída de la página de entrada: {{page}} (−{{pct}} %)",
+        "message": "{{date}}: a través de {{page}} entraron en la tienda un {{pct}} % menos de visitantes que en los mismos días de la semana anteriores (cuota {{share}} en lugar de {{expectedShare}}). Revise la página, las redirecciones y la entrada en el buscador."
+      },
+      "ga4NotFoundUp": {
+        "title": "Más «página no encontrada» ({{current}} visitas)",
+        "message": "{{date}}: la página de error «Seite nicht gefunden» se abrió {{current}} veces (cuota {{share}} en lugar del habitual {{expectedShare}}, esperado unos {{expected}}). Las direcciones afectadas están en las pruebas; revise las redirecciones que faltan."
+      },
+      "ga4SearchNoHits": {
+        "title": "Términos de búsqueda sin resultados: {{terms}}",
+        "message": "{{date}}: {{count}} de los términos de búsqueda más frecuentes ({{searches}} búsquedas) no encuentran nada en la tienda: {{terms}}. Revise sinónimos, palabras clave de los artículos o artículos que faltan."
+      },
+      "ga4MeasurementDrop": {
+        "title": "GA4 apenas mide compras ({{current}} en lugar de {{expected}})",
+        "message": "Del {{from}} al {{to}}: GA4 vio compras para el {{current}} de los {{orders}} pedidos MO; en las 4 semanas anteriores, para el {{expected}}. Probablemente falla la medición de compras (página de confirmación, gestor de etiquetas, retorno del proveedor de pagos)."
       }
     },
     "detectors": {
@@ -8166,10 +8214,17 @@
         "channelMethods": "Formas de pago y envío (referencia)",
         "buyability": "Disponibilidad de compra de los artículos (de noche)",
         "productPages": "Páginas de producto de los más vendidos (por turnos, 20 por hora)",
-        "cartProbe": "Prueba del carrito (cada 30 minutos, 6–22 h)"
+        "cartProbe": "Prueba del carrito (cada 30 minutos, 6–22 h)",
+        "ga4Live": "GA4 embudo en directo (30 minutos, 6–22 h)",
+        "ga4Funnel": "GA4 embudo de ayer por dispositivo",
+        "ga4Channels": "GA4 fuentes de visitas",
+        "ga4LandingPages": "GA4 páginas de entrada y «página no encontrada»",
+        "ga4SearchTerms": "GA4 términos de búsqueda sin resultados",
+        "ga4Measurement": "GA4 medición (compras por pedido MO)"
       },
       "skipped": "en pausa mientras la sincronización de pedidos esté parada",
-      "skippedBusy": "en pausa, el vigilante de la tienda está consultando la tienda"
+      "skippedBusy": "en pausa, el vigilante de la tienda está consultando la tienda",
+      "skippedGa4": "en pausa, GA4 no está configurado"
     },
     "notify": {
       "since": "Desde",
@@ -8211,6 +8266,18 @@
       "gapsNone": "Todavía no hay ejecución nocturna.",
       "gapsDownload": "Descargar CSV",
       "gapsHint": "Solo artículos disponibles en el canal META Regalbau DE. No se avisa ni se corrige en la tienda; se recopila para Jana (mismo formato que la colección de errores de datos)."
+    },
+    "ga4Setup": {
+      "title": "GA4 no está configurado",
+      "hint": "Configúrelo en Ajustes → Google Analytics: una cuenta de servicio con permiso de lectura (lector) en la propiedad GA4 de la tienda y el ID numérico de la propiedad (p. ej. 123456789), no el ID de medición G-QVEF735DQF. Hasta entonces, las comprobaciones de GA4 no dan resultados.",
+      "problems": {
+        "disabled": "Google Analytics está desactivado en los ajustes.",
+        "noProperty": "No se ha introducido ningún ID de propiedad.",
+        "measurementId": "Se ha introducido un ID de medición (G-…). Se necesita el ID numérico de la propiedad de la administración de GA4 (detalles de la propiedad).",
+        "invalidProperty": "El ID de propiedad no es un número.",
+        "noServiceAccount": "No hay ninguna cuenta de servicio (clave JSON) guardada.",
+        "invalidServiceAccount": "La clave de cuenta de servicio guardada no es un JSON válido con client_email y private_key."
+      }
     }
   },
   "mondu": {

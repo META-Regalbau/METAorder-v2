@@ -49,7 +49,7 @@ const MONDAY = (hh: number, mm = 0) => new Date(`2026-10-19T${String(hh).padStar
 describe("Prüfungen", () => {
   it("Lauf-Reihenfolge für die Seite: Spiegel-Frische zuerst, dann Umsatz", () => {
     expect(SHOP_PULSE_DETECTORS.map((d) => d.id)).toEqual([...SHOP_PULSE_DETECTOR_IDS]);
-    expect(SHOP_PULSE_DETECTORS.filter((d) => d.needsFreshMirror).map((d) => d.source)).toEqual(["revenue", "revenue", "revenue"]);
+    expect(SHOP_PULSE_DETECTORS.filter((d) => d.needsFreshMirror).map((d) => d.id)).toEqual(["orderGap", "paymentGone", "weekComparison", "ga4Measurement"]);
   });
 });
 
@@ -232,7 +232,7 @@ describe("Texte", () => {
   });
 
   it("Formatierung je Art; unbekannte Parameter bleiben", () => {
-    const f = { money: (v: number) => `€${v}`, date: (d: string) => `D:${d}`, number: (v: number) => `#${v}` };
+    const f = { money: (v: number) => `€${v}`, date: (d: string) => `D:${d}`, number: (v: number) => `#${v}`, percent: (v: number) => `${v}%` };
     expect(formatShopPulseParams("weekAovDown", { from: "2026-10-12", to: "2026-10-18", current: 400, expected: 800, pct: 50 }, f)).toEqual({
       from: "D:2026-10-12",
       to: "D:2026-10-18",

@@ -36,8 +36,9 @@ function parseServiceAccountJson(raw?: string) {
   }
 }
 
-export async function getGoogleAnalyticsSettings(storage: IStorage) {
-  const stored = await storage.getSetting("ga4_settings");
+/** tenantId: ohne Angabe gilt der Mandant des Aufrufs (Kontext); der Shop-Puls übergibt ihn ausdrücklich */
+export async function getGoogleAnalyticsSettings(storage: Pick<IStorage, "getSetting">, tenantId?: string | null) {
+  const stored = await storage.getSetting("ga4_settings", tenantId);
   return {
     ...DEFAULT_GA_SETTINGS,
     ...stored,

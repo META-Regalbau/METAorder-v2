@@ -8149,6 +8149,54 @@
       "orderGapConfirmed": {
         "title": "Heute keine Shop-Bestellung, Warenkorb-Probe scheitert",
         "message": "Bis jetzt ist heute keine Bestellung im Onlineshop eingegangen (sonst bis 15 Uhr im Schnitt {{expected}}), und die Warenkorb-Probe scheitert ebenfalls. Der Shop oder die Kasse ist vermutlich gestört."
+      },
+      "orderGapCheckout": {
+        "title": "Heute keine Shop-Bestellung: Zahlung oder Abschluss gestört",
+        "message": "Bis jetzt ist heute keine Bestellung im Onlineshop eingegangen (sonst bis 15 Uhr im Schnitt {{expected}}). Laut GA4 kommen Besucher normal bis zur Kasse ({{pct}} % der üblichen Seitenaufrufe), aber kein Kauf wird abgeschlossen. Bitte Zahlarten, Zahlungsanbieter und Bestellabschluss prüfen."
+      },
+      "orderGapVisitors": {
+        "title": "Heute keine Shop-Bestellung: deutlich weniger Besucher",
+        "message": "Bis jetzt ist heute keine Bestellung im Onlineshop eingegangen (sonst bis 15 Uhr im Schnitt {{expected}}). Laut GA4 kommen nur {{pct}} % der üblichen Seitenaufrufe. Eher ein Besucherproblem: Werbung, Suchmaschine, Erreichbarkeit oder Messung prüfen."
+      },
+      "ga4LiveNoAddToCart": {
+        "title": "Seit {{hours}} Stunden nichts in den Warenkorb gelegt",
+        "message": "GA4 zählt in den letzten {{hours}} Stunden {{pageViews}} Seitenaufrufe, aber kein „In den Warenkorb“ (erwartet nach den letzten 28 Tagen: rund {{expected}}). Warenkorb-Knopf, Warenkorb oder die Messung sind vermutlich gestört."
+      },
+      "ga4LiveNoCheckout": {
+        "title": "Seit {{hours}} Stunden niemand zur Kasse gegangen",
+        "message": "GA4 zählt in den letzten {{hours}} Stunden {{pageViews}} Seitenaufrufe, aber keinen Schritt zur Kasse (erwartet nach den letzten 28 Tagen: rund {{expected}}). Warenkorb, Kasse oder die Messung sind vermutlich gestört."
+      },
+      "ga4FunnelCart": {
+        "title": "Weniger Artikel in den Warenkorb ({{device}}, −{{pct}} %)",
+        "message": "{{date}}: {{current}} der Nutzer mit Artikelansicht haben etwas in den Warenkorb gelegt, an den gleichen Wochentagen davor {{expected}} (Gerät: {{device}})."
+      },
+      "ga4FunnelCheckout": {
+        "title": "Weniger Warenkörbe gehen zur Kasse ({{device}}, −{{pct}} %)",
+        "message": "{{date}}: {{current}} der Nutzer mit Warenkorb sind zur Kasse gegangen, an den gleichen Wochentagen davor {{expected}} (Gerät: {{device}})."
+      },
+      "ga4FunnelPurchase": {
+        "title": "Weniger Käufe an der Kasse ({{device}}, −{{pct}} %)",
+        "message": "{{date}}: {{current}} der Nutzer an der Kasse haben gekauft, an den gleichen Wochentagen davor {{expected}} (Gerät: {{device}}). Zahlarten und Bestellabschluss prüfen."
+      },
+      "ga4ChannelDrop": {
+        "title": "Besucherquelle „{{channel}}“ eingebrochen (−{{pct}} %)",
+        "message": "{{date}}: Die Quelle „{{channel}}“ brachte {{pct}} % weniger Sitzungen als an den gleichen Wochentagen davor. Ihr Anteil an allen Sitzungen fiel von {{expectedShare}} auf {{share}}. Kampagnen, Suchmaschine bzw. Verweise prüfen."
+      },
+      "ga4LandingDrop": {
+        "title": "Einstiegsseite eingebrochen: {{page}} (−{{pct}} %)",
+        "message": "{{date}}: Über {{page}} kamen {{pct}} % weniger Besucher in den Shop als an den gleichen Wochentagen davor (Anteil {{share}} statt {{expectedShare}}). Seite, Weiterleitung und Suchmaschinen-Eintrag prüfen."
+      },
+      "ga4NotFoundUp": {
+        "title": "Häufiger „Seite nicht gefunden“ ({{current}} Aufrufe)",
+        "message": "{{date}}: Die Fehlerseite „Seite nicht gefunden“ wurde {{current}}-mal aufgerufen (Anteil {{share}} statt sonst {{expectedShare}}, erwartet rund {{expected}}). Die betroffenen Adressen stehen in den Belegen; fehlende Weiterleitungen prüfen."
+      },
+      "ga4SearchNoHits": {
+        "title": "Suchbegriffe ohne Treffer: {{terms}}",
+        "message": "{{date}}: {{count}} der häufigsten Suchbegriffe ({{searches}} Suchen) finden im Shop nichts: {{terms}}. Synonyme, Suchbegriffe am Artikel oder fehlende Artikel prüfen."
+      },
+      "ga4MeasurementDrop": {
+        "title": "GA4 misst kaum noch Käufe ({{current}} statt {{expected}})",
+        "message": "{{from}} bis {{to}}: GA4 sah Käufe zu {{current}} der {{orders}} MO-Bestellungen, in den 4 Wochen davor zu {{expected}}. Vermutlich ist die Kauf-Messung gestört (Bestellabschluss-Seite, Tag-Manager, Rücksprung vom Zahlungsanbieter)."
       }
     },
     "detectors": {
@@ -8166,10 +8214,17 @@
         "channelMethods": "Zahl- und Versandarten (Soll-Stand)",
         "buyability": "Kaufbarkeit der Artikel (nachts)",
         "productPages": "Produktseiten der Topseller (reihum, 20 je Stunde)",
-        "cartProbe": "Warenkorb-Probe (30 Minuten, 6–22 Uhr)"
+        "cartProbe": "Warenkorb-Probe (30 Minuten, 6–22 Uhr)",
+        "ga4Live": "GA4 Live-Trichter (30 Minuten, 6–22 Uhr)",
+        "ga4Funnel": "GA4 Trichter gestern je Gerät",
+        "ga4Channels": "GA4 Besucherquellen",
+        "ga4LandingPages": "GA4 Einstiegsseiten und „Seite nicht gefunden“",
+        "ga4SearchTerms": "GA4 Suchbegriffe ohne Treffer",
+        "ga4Measurement": "GA4 Messung (Käufe je MO-Bestellung)"
       },
       "skipped": "ausgesetzt, solange der Bestellabgleich hängt",
-      "skippedBusy": "ausgesetzt, der Shop-Wächter fragt den Shop gerade ab"
+      "skippedBusy": "ausgesetzt, der Shop-Wächter fragt den Shop gerade ab",
+      "skippedGa4": "ausgesetzt, GA4 nicht eingerichtet"
     },
     "notify": {
       "since": "Seit",
@@ -8211,6 +8266,18 @@
       "gapsNone": "Noch kein Nachtlauf.",
       "gapsDownload": "CSV herunterladen",
       "gapsHint": "Nur kaufbare Artikel im Kanal META Regalbau DE. Wird nicht gemeldet und nicht im Shop korrigiert, sondern gesammelt an Jana gegeben (Format wie die Datenfehler-Sammlung)."
+    },
+    "ga4Setup": {
+      "title": "GA4 nicht eingerichtet",
+      "hint": "Einrichten unter Einstellungen → Google Analytics: ein Dienstkonto mit Leserechten (Betrachter) in der GA4-Property des Shops und die numerische Property-ID (z. B. 123456789), nicht die Mess-ID G-QVEF735DQF. Bis dahin liefern die GA4-Prüfungen keine Funde.",
+      "problems": {
+        "disabled": "Google Analytics ist in den Einstellungen ausgeschaltet.",
+        "noProperty": "Es ist keine Property-ID eingetragen.",
+        "measurementId": "Eingetragen ist eine Mess-ID (G-…). Nötig ist die numerische Property-ID aus der GA4-Verwaltung (Property-Details).",
+        "invalidProperty": "Die Property-ID ist keine Zahl.",
+        "noServiceAccount": "Es ist kein Dienstkonto (JSON-Schlüssel) hinterlegt.",
+        "invalidServiceAccount": "Der hinterlegte Dienstkonto-Schlüssel ist kein gültiges JSON mit client_email und private_key."
+      }
     }
   },
   "mondu": {

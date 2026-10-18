@@ -114,7 +114,7 @@ export default function ShopPulsePage() {
   });
 
   const signalParams = (s: ShopPulseSignal) =>
-    formatShopPulseParams(s.code, s.params, { money: (v) => fmt.currencyWhole(v), date: (d) => fmt.date(`${d}T12:00:00`), number: (v) => fmt.integer(v) });
+    formatShopPulseParams(s.code, s.params, { money: (v) => fmt.currencyWhole(v), date: (d) => fmt.date(`${d}T12:00:00`), number: (v) => fmt.integer(v), percent: (v) => fmt.percentValue(v, 1) });
   const title = (s: ShopPulseSignal) => t(`shopPulse.codes.${s.code}.title`, signalParams(s));
   const message = (s: ShopPulseSignal) => t(`shopPulse.codes.${s.code}.message`, signalParams(s));
   // Die Datenbank (jsonb) sortiert die Schlüssel um; angezeigt wird in Lauf-Reihenfolge
@@ -122,6 +122,8 @@ export default function ShopPulsePage() {
     const i = (SHOP_PULSE_DETECTOR_IDS as readonly string[]).indexOf(id);
     return i === -1 ? SHOP_PULSE_DETECTOR_IDS.length : i;
   };
+  // GA4 nicht eingerichtet: Grund aus dem letzten Lauf einer GA4-Prüfung
+  const ga4Problem = Object.values(data?.state.detectors ?? {}).find((d) => d.skipped === "ga4")?.ga4Problem;
   const muted = (s: ShopPulseSignal) => !!s.mutedUntil && Date.parse(s.mutedUntil) > Date.now();
   const webhookValid = webhook.trim() !== "" && isAllowedTeamsWebhookUrl(webhook.trim());
   const busy = settingsMutation.isPending;
@@ -377,7 +379,9 @@ export default function ShopPulsePage() {
                       <span>{t(`shopPulse.detectors.names.${id}`, { defaultValue: id })}</span>
                       <span className="text-muted-foreground">{fmt.dateTime(d.at)} ·</span>
                       <span className="text-muted-foreground">
-                        {d.skipped
+                        {d.skipped === "ga4"
+                          ? t("shopPulse.detectors.skippedGa4")
+                          : d.skipped
                           ? t(d.skipped === "busy" ? "shopPulse.detectors.skippedBusy" : "shopPulse.detectors.skipped")
                           : d.ok
                             ? `${t("shopPulse.detectors.ok")} · ${t("shopPulse.detectors.findings", { count: d.findings })}`
@@ -389,6 +393,13 @@ export default function ShopPulsePage() {
             ) : (
               <p className="text-sm text-muted-foreground">{t("shopPulse.detectors.none")}</p>
             )}
+            {ga4Problem ? (
+              <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-950/40" role="note" data-testid="shop-pulse-ga4-setup">
+                <p className="font-medium">{t("shopPulse.ga4Setup.title")}</p>
+                <p>{t(`shopPulse.ga4Setup.problems.${ga4Problem}`)}</p>
+                <p className="text-xs text-muted-foreground mt-1">{t("shopPulse.ga4Setup.hint")}</p>
+              </div>
+            ) : null}
           </Card>
 
           <Card className="p-4 space-y-3" data-testid="shop-pulse-buyability">

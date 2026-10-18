@@ -38,10 +38,11 @@ const EURO = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR"
 
 const INTEGER = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 });
 const DECIMAL1 = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 });
+const PERCENT1 = new Intl.NumberFormat("de-DE", { style: "percent", maximumFractionDigits: 1 });
 const dayDate = (isoDay: string) => BERLIN_DATE.format(new Date(`${isoDay}T12:00:00Z`));
 
 const params = (s: Pick<ShopPulseSignal, "code" | "params">) =>
-  formatShopPulseParams(s.code, s.params, { money: (v) => EURO.format(v), date: dayDate, number: (v) => INTEGER.format(v) });
+  formatShopPulseParams(s.code, s.params, { money: (v) => EURO.format(v), date: dayDate, number: (v) => INTEGER.format(v), percent: (v) => PERCENT1.format(v / 100) });
 
 export const signalTitle = (s: Pick<ShopPulseSignal, "code" | "params">) => t(`codes.${s.code}.title`, params(s));
 export const signalMessage = (s: Pick<ShopPulseSignal, "code" | "params">) => t(`codes.${s.code}.message`, params(s));
