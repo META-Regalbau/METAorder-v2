@@ -12,6 +12,7 @@ import N8nSettingsSection from "@/components/N8nSettingsSection";
 import OrderFieldMappingSection from "@/components/OrderFieldMappingSection";
 import N8nConnectionSection from "@/components/N8nConnectionSection";
 import PimcoreConnectionSection from "@/components/PimcoreConnectionSection";
+import MonduConnectionSection from "@/components/MonduConnectionSection";
 import EmailIntakeSection from "@/components/EmailIntakeSection";
 import CommercialCustomerTokensSection from "@/components/CommercialCustomerTokensSection";
 import SftpServersSection from "@/components/SftpServersSection";
@@ -3862,6 +3863,8 @@ function AiTab() {
           <N8nConnectionSection />
           {/* Pimcore-Datahub: Stammdaten und Preise direkt aus dem PIM (Verbindung + Test) */}
           <PimcoreConnectionSection />
+          {/* Mondu: API-Schlüssel für MonduSell (Anlage, Statusabgleich, Rechnungsübergabe) */}
+          <MonduConnectionSection />
           {/* E-Mail-Eingang: Postfach, Weiterleitung „Sonstiges“, Problem-Tickets (liest der n8n-Workflow) */}
           <EmailIntakeSection />
           <N8nSettingsSection />

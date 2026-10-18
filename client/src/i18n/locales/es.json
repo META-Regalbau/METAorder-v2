@@ -1633,6 +1633,21 @@
         "filterSubjectKeywordsHint": "Una palabra clave por línea, sin distinguir mayúsculas.",
         "filterInternalDomains": "Otros dominios internos",
         "filterInternalDomainsHint": "Los dominios de los buzones cuentan automáticamente como internos."
+      },
+      "mondu": {
+        "title": "Mondu",
+        "description": "Clave API para Mondu Sell: METAorder crea el pedido en Mondu, sincroniza el estado y envía la factura. El método de pago de Mondu en la tienda sigue funcionando con el plugin de Shopware.",
+        "connectedLive": "Conectado (producción)",
+        "connectedSandbox": "Conectado (entorno de prueba)",
+        "notConnected": "No conectado",
+        "keyLabel": "Clave API",
+        "keyPlaceholderStored": "guardada – dejar vacío para conservarla",
+        "keyPlaceholderNew": "Clave API del portal de Mondu",
+        "sandbox": "Entorno de prueba (sandbox)",
+        "keyHint": "Las claves de producción y de prueba son distintas. La clave se guarda cifrada.",
+        "saved": "Ajustes de Mondu guardados",
+        "test": "Probar conexión",
+        "testOk": "Mondu ha aceptado la clave."
       }
     },
     "shopwareConfig": "Configuración de Shopware",
@@ -5746,7 +5761,28 @@
       "portal_registration_upload_type": "Suba un archivo .eml o .msg.",
       "portal_registration_no_original": "El correo original no está guardado.",
       "shopware_not_configured": "Shopware no está configurado para este cliente.",
-      "sales_rep_import_empty": "No se encontraron filas válidas: compruebe las columnas número de cliente y correo."
+      "sales_rep_import_empty": "No se encontraron filas válidas: compruebe las columnas número de cliente y correo.",
+      "mondu_not_configured": "Mondu no está configurado (Ajustes → Integración).",
+      "mondu_order_not_found": "Pedido no encontrado.",
+      "mondu_resend_not_possible": "No se puede reenviar el pago de Mondu para este pedido",
+      "mondu_sell_invalid_email": "Dirección de correo no válida.",
+      "mondu_sell_missing_name": "Faltan el nombre y el apellido del comprador en el pedido.",
+      "mondu_sell_invalid_input": "Entrada no válida",
+      "mondu_sell_owner_required": "Para empresarios individuales, Mondu necesita el titular y la fecha de nacimiento.",
+      "mondu_sell_incomplete_address": "La dirección del pedido está incompleta.",
+      "mondu_mail_failed": "No se pudo enviar el correo",
+      "mondu_forbidden": "Mondu deniega el acceso (revisar la clave API o la activación)",
+      "mondu_rejected": "Mondu ha rechazado la solicitud",
+      "mondu_unreachable": "Mondu no está disponible",
+      "mondu_sell_not_possible": "Este pedido no se puede enviar a Mondu Sell",
+      "mondu_sell_not_found": "No existe ningún pedido de Mondu Sell.",
+      "mondu_sell_has_invoice": "Mondu ya tiene una factura – cancelar en el portal de Mondu.",
+      "mondu_overview_failed": "No se pudieron cargar los datos de Mondu",
+      "mondu_resend_failed": "No se pudo reenviar el pago de Mondu",
+      "mondu_sell_create_failed": "No se pudo crear el pedido de Mondu Sell",
+      "mondu_sell_refresh_failed": "No se pudo actualizar el estado de Mondu",
+      "mondu_sell_cancel_failed": "No se pudo cancelar el pedido de Mondu Sell",
+      "mondu_sell_invoice_failed": "No se pudo enviar la factura a Mondu"
     },
     "client": {
       "notModified": "Respuesta de la API sin cambios (304): vuelva a cargar la página.",
@@ -8060,6 +8096,141 @@
       "numbersYear": "Año pasado: {{orders}} pedido(s) · {{revenue}}",
       "numbersNoYear": "Año pasado: sin datos",
       "dailyNone": "No hay avisos abiertos."
+    }
+  },
+  "mondu": {
+    "title": "Mondu",
+    "sandbox": "Entorno de prueba",
+    "actionFailed": "La acción de Mondu ha fallado",
+    "blocked": {
+      "not_configured": "Mondu no está configurado (Ajustes → Integración)",
+      "plugin_payment": "el pedido ya usa el método de pago de Mondu en la tienda",
+      "order_cancelled": "el pedido está cancelado",
+      "paid": "el pedido ya está pagado",
+      "zero_amount": "el pedido no tiene importe",
+      "currency": "Mondu solo acepta euros y libras",
+      "country": "Mondu no acepta el país de la dirección de facturación",
+      "active_exists": "ya existe un pedido activo de Mondu Sell",
+      "payment_state": "el pago ya no está abierto",
+      "no_recipient": "no hay dirección de correo del cliente",
+      "no_domain": "no hay dirección de la tienda para el enlace",
+      "no_mondu_payment": "el pedido no tiene método de pago de Mondu"
+    },
+    "paymentState": {
+      "open": "abierto",
+      "failed": "fallido",
+      "reminded": "recordado",
+      "unconfirmed": "sin confirmar",
+      "in_progress": "en curso",
+      "authorized": "autorizado",
+      "paid": "pagado",
+      "paid_partially": "pagado parcialmente",
+      "cancelled": "cancelado",
+      "refunded": "reembolsado",
+      "refunded_partially": "reembolsado parcialmente",
+      "chargeback": "devolución",
+      "unknown": "desconocido"
+    },
+    "shop": {
+      "paymentState": "Método de pago en la tienda: {{method}} – pago {{state}}",
+      "notCompleted": "El cliente no completó el pago con Mondu. Puede enviarle de nuevo el enlace de pago.",
+      "resend": "Reenviar pago de Mondu",
+      "resendTitle": "Reenviar pago de Mondu",
+      "resendDescription": "El cliente recibe un correo con el enlace a su pedido en la tienda, donde puede reiniciar el pago o elegir otro método de pago.",
+      "recipient": "Destinatario",
+      "send": "Enviar correo",
+      "sent": "Correo enviado a {{email}}",
+      "blocked": {
+        "order_cancelled": "El pedido está cancelado.",
+        "no_recipient": "No hay dirección de correo del cliente.",
+        "no_domain": "No hay dirección de tienda para el canal de venta."
+      }
+    },
+    "history": {
+      "title": "Historial ({{count}})",
+      "created": "creado en Mondu, enlace de confirmación a {{to}}",
+      "state": "Estado: {{state}}",
+      "invoice_submitted": "Factura {{detail}} enviada a Mondu",
+      "invoice_waiting": "Factura en espera de la confirmación",
+      "invoice_failed": "Factura no enviada: {{detail}}",
+      "payment_link_sent": "Enlace de pago enviado a {{to}}",
+      "canceled": "cancelado en Mondu",
+      "error": "Error: {{detail}}"
+    },
+    "state": {
+      "processing": "en revisión",
+      "pending": "revisión manual",
+      "authorized": "confirmado por el cliente",
+      "confirmed": "confirmado",
+      "partially_shipped": "facturado parcialmente",
+      "shipped": "facturado",
+      "partially_complete": "pagado parcialmente",
+      "complete": "pagado",
+      "declined": "rechazado",
+      "canceled": "cancelado"
+    },
+    "invoiceState": {
+      "created": "abierta",
+      "late": "vencida",
+      "canceled": "cancelada",
+      "complete": "pagada"
+    },
+    "legalForm": {
+      "auto": "Lo determina Mondu",
+      "kapital_und_personen_gesellschaft": "Empresa (GmbH, AG, KG, OHG …)",
+      "einzelunternehmen": "Empresario individual",
+      "offentliche_auftraggeber_einrichtung": "Institución pública",
+      "andere_gesellschaftsform": "Otra forma jurídica"
+    },
+    "sell": {
+      "title": "Mondu Sell",
+      "intro": "Mondu revisa al cliente y le envía un enlace para confirmar la compra a crédito.",
+      "create": "Enviar a Mondu Sell",
+      "createAgain": "Enviar de nuevo a Mondu Sell",
+      "createTitle": "Enviar a Mondu Sell",
+      "createDescription": "Mondu revisa el pedido y envía al comprador un enlace de confirmación. Se transmite el importe total, como hasta ahora en el portal de Mondu.",
+      "createConfirm": "Crear en Mondu",
+      "created": "Creado en Mondu",
+      "createdDescription": "Mondu revisa el pedido y envía al comprador el enlace de confirmación.",
+      "company": "Empresa",
+      "amount": "Importe",
+      "netTerm": "Plazo de pago",
+      "netTermDays": "Plazo de pago (días)",
+      "days": "{{count}} días",
+      "buyerEmail": "Correo del comprador",
+      "buyerEmailHint": "Mondu envía el enlace de confirmación a esta dirección.",
+      "legalForm": "Forma jurídica",
+      "ownerFirstName": "Nombre del titular",
+      "ownerLastName": "Apellido del titular",
+      "ownerBirthDate": "Fecha de nacimiento",
+      "reference": "Referencia de Mondu",
+      "invoice": "Factura",
+      "invoiceSubmitted": "{{number}} enviada a Mondu ({{state}})",
+      "invoicePending": "en espera – se envía a Mondu tras la confirmación",
+      "invoiceNone": "se envía a Mondu automáticamente al enviar la factura",
+      "waiting": {
+        "processing": "Mondu revisa el pedido o espera la confirmación del cliente. Enviar la mercancía solo tras la confirmación.",
+        "pending": "Mondu revisa el pedido manualmente (hasta 24 horas). Enviar la mercancía solo tras la confirmación.",
+        "authorized": "El cliente ha confirmado; Mondu termina la revisión. Enviar la mercancía solo tras la confirmación."
+      },
+      "confirmedHint": "Mondu ha confirmado – la mercancía puede salir.",
+      "closed": {
+        "declined": "Mondu ha rechazado el pedido.",
+        "canceled": "El pedido de Mondu está cancelado."
+      },
+      "refresh": "Actualizar estado",
+      "retryInvoice": "Enviar factura a Mondu de nuevo",
+      "cancel": "Cancelar en Mondu",
+      "cancelTitle": "¿Cancelar el pedido de Mondu?",
+      "cancelDescription": "El pedido se cancela en Mondu y se anula la compra a crédito con Mondu. Después se puede enviar de nuevo.",
+      "canceled": "Cancelado en Mondu",
+      "lastChecked": "Última consulta en Mondu: {{when}}",
+      "invoiceResult": {
+        "submitted": "Factura enviada a Mondu",
+        "waiting": "Factura en espera para Mondu",
+        "failed": "Factura no enviada a Mondu",
+        "skipped": "No se envió ninguna factura a Mondu"
+      }
     }
   }
 }

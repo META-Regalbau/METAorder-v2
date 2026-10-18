@@ -1787,6 +1787,21 @@
         "filterSubjectKeywordsHint": "One keyword per line, case-insensitive.",
         "filterInternalDomains": "Additional internal domains",
         "filterInternalDomainsHint": "The domains of the mailboxes count as internal automatically."
+      },
+      "mondu": {
+        "title": "Mondu",
+        "description": "API key for Mondu Sell: METAorder creates the Mondu order, syncs its status and submits the invoice. The Mondu payment method in the shop keeps running through the Shopware plugin.",
+        "connectedLive": "Connected (live)",
+        "connectedSandbox": "Connected (test environment)",
+        "notConnected": "Not connected",
+        "keyLabel": "API key",
+        "keyPlaceholderStored": "saved – leave empty to keep it",
+        "keyPlaceholderNew": "API key from the Mondu portal",
+        "sandbox": "Test environment (sandbox)",
+        "keyHint": "Live and test keys differ. The key is stored encrypted.",
+        "saved": "Mondu settings saved",
+        "test": "Test connection",
+        "testOk": "Mondu accepted the key."
       }
     },
     "semanticRanking": {
@@ -5749,7 +5764,28 @@
       "portal_registration_upload_type": "Please upload an .eml or .msg file.",
       "portal_registration_no_original": "The original email is not stored.",
       "shopware_not_configured": "Shopware is not set up for this tenant.",
-      "sales_rep_import_empty": "No valid rows found – check the customer number and email columns."
+      "sales_rep_import_empty": "No valid rows found – check the customer number and email columns.",
+      "mondu_not_configured": "Mondu is not set up (Settings → Integration).",
+      "mondu_order_not_found": "Order not found.",
+      "mondu_resend_not_possible": "The Mondu payment cannot be resent for this order",
+      "mondu_sell_invalid_email": "Invalid email address.",
+      "mondu_sell_missing_name": "The buyer's first and last name are missing in the order.",
+      "mondu_sell_invalid_input": "Invalid input",
+      "mondu_sell_owner_required": "For sole traders, Mondu needs the owner and date of birth.",
+      "mondu_sell_incomplete_address": "The order address is incomplete.",
+      "mondu_mail_failed": "The email could not be sent",
+      "mondu_forbidden": "Mondu denies access (check API key or activation)",
+      "mondu_rejected": "Mondu rejected the request",
+      "mondu_unreachable": "Mondu is not reachable",
+      "mondu_sell_not_possible": "This order cannot be submitted to Mondu Sell",
+      "mondu_sell_not_found": "No Mondu Sell order exists.",
+      "mondu_sell_has_invoice": "Mondu already has an invoice – please cancel in the Mondu portal.",
+      "mondu_overview_failed": "Mondu details could not be loaded",
+      "mondu_resend_failed": "The Mondu payment could not be resent",
+      "mondu_sell_create_failed": "The Mondu Sell order could not be created",
+      "mondu_sell_refresh_failed": "The Mondu status could not be refreshed",
+      "mondu_sell_cancel_failed": "The Mondu Sell order could not be cancelled",
+      "mondu_sell_invoice_failed": "The invoice could not be submitted to Mondu"
     },
     "client": {
       "notModified": "API response unchanged (304) – please reload the page.",
@@ -8063,6 +8099,141 @@
       "numbersYear": "Last year: {{orders}} order(s) · {{revenue}}",
       "numbersNoYear": "Last year: no data",
       "dailyNone": "No open alerts."
+    }
+  },
+  "mondu": {
+    "title": "Mondu",
+    "sandbox": "Test environment",
+    "actionFailed": "Mondu action failed",
+    "blocked": {
+      "not_configured": "Mondu is not set up (Settings → Integration)",
+      "plugin_payment": "the order already uses the Mondu payment method in the shop",
+      "order_cancelled": "the order is cancelled",
+      "paid": "the order is already paid",
+      "zero_amount": "the order has no amount",
+      "currency": "Mondu only accepts euros and pounds",
+      "country": "Mondu does not accept the billing address country",
+      "active_exists": "there is already an active Mondu Sell order",
+      "payment_state": "the payment is no longer open",
+      "no_recipient": "no customer email address",
+      "no_domain": "no shop address for the link",
+      "no_mondu_payment": "the order has no Mondu payment method"
+    },
+    "paymentState": {
+      "open": "open",
+      "failed": "failed",
+      "reminded": "reminded",
+      "unconfirmed": "unconfirmed",
+      "in_progress": "in progress",
+      "authorized": "authorized",
+      "paid": "paid",
+      "paid_partially": "partially paid",
+      "cancelled": "cancelled",
+      "refunded": "refunded",
+      "refunded_partially": "partially refunded",
+      "chargeback": "chargeback",
+      "unknown": "unknown"
+    },
+    "shop": {
+      "paymentState": "Payment method in the shop: {{method}} – payment {{state}}",
+      "notCompleted": "The customer did not complete the Mondu payment. You can send them the payment link again.",
+      "resend": "Resend Mondu payment",
+      "resendTitle": "Resend Mondu payment",
+      "resendDescription": "The customer receives an email with a link to their order in the shop, where they can restart the payment or choose another payment method.",
+      "recipient": "Recipient",
+      "send": "Send email",
+      "sent": "Email sent to {{email}}",
+      "blocked": {
+        "order_cancelled": "The order is cancelled.",
+        "no_recipient": "There is no email address for the customer.",
+        "no_domain": "There is no shop address for the sales channel."
+      }
+    },
+    "history": {
+      "title": "History ({{count}})",
+      "created": "created at Mondu, confirmation link to {{to}}",
+      "state": "Status: {{state}}",
+      "invoice_submitted": "Invoice {{detail}} submitted to Mondu",
+      "invoice_waiting": "Invoice queued, waiting for confirmation",
+      "invoice_failed": "Invoice not submitted: {{detail}}",
+      "payment_link_sent": "Payment link sent to {{to}}",
+      "canceled": "cancelled at Mondu",
+      "error": "Error: {{detail}}"
+    },
+    "state": {
+      "processing": "being checked",
+      "pending": "manual review",
+      "authorized": "confirmed by customer",
+      "confirmed": "confirmed",
+      "partially_shipped": "partially invoiced",
+      "shipped": "invoiced",
+      "partially_complete": "partially paid",
+      "complete": "paid",
+      "declined": "declined",
+      "canceled": "cancelled"
+    },
+    "invoiceState": {
+      "created": "open",
+      "late": "overdue",
+      "canceled": "cancelled",
+      "complete": "paid"
+    },
+    "legalForm": {
+      "auto": "Let Mondu determine",
+      "kapital_und_personen_gesellschaft": "Company (GmbH, AG, KG, OHG …)",
+      "einzelunternehmen": "Sole trader",
+      "offentliche_auftraggeber_einrichtung": "Public institution",
+      "andere_gesellschaftsform": "Other legal form"
+    },
+    "sell": {
+      "title": "Mondu Sell",
+      "intro": "Mondu checks the customer and sends them a link to confirm the purchase on invoice.",
+      "create": "Submit to Mondu Sell",
+      "createAgain": "Submit to Mondu Sell again",
+      "createTitle": "Submit to Mondu Sell",
+      "createDescription": "Mondu checks the order and sends the buyer a confirmation link. The total amount is transferred, as previously in the Mondu portal.",
+      "createConfirm": "Create at Mondu",
+      "created": "Created at Mondu",
+      "createdDescription": "Mondu checks the order and sends the buyer the confirmation link.",
+      "company": "Company",
+      "amount": "Amount",
+      "netTerm": "Payment term",
+      "netTermDays": "Payment term (days)",
+      "days": "{{count}} days",
+      "buyerEmail": "Buyer email",
+      "buyerEmailHint": "Mondu sends the confirmation link to this address.",
+      "legalForm": "Legal form",
+      "ownerFirstName": "Owner first name",
+      "ownerLastName": "Owner last name",
+      "ownerBirthDate": "Date of birth",
+      "reference": "Mondu reference",
+      "invoice": "Invoice",
+      "invoiceSubmitted": "{{number}} submitted to Mondu ({{state}})",
+      "invoicePending": "queued – sent to Mondu after confirmation",
+      "invoiceNone": "sent to Mondu automatically when the invoice is sent",
+      "waiting": {
+        "processing": "Mondu is checking the order or waiting for the customer's confirmation. Ship only after confirmation.",
+        "pending": "Mondu is reviewing the order manually (up to 24 hours). Ship only after confirmation.",
+        "authorized": "The customer has confirmed; Mondu is completing the check. Ship only after confirmation."
+      },
+      "confirmedHint": "Mondu has confirmed – the goods can be shipped.",
+      "closed": {
+        "declined": "Mondu declined the order.",
+        "canceled": "The Mondu order is cancelled."
+      },
+      "refresh": "Refresh status",
+      "retryInvoice": "Send invoice to Mondu again",
+      "cancel": "Cancel at Mondu",
+      "cancelTitle": "Cancel Mondu order?",
+      "cancelDescription": "The order is cancelled at Mondu and the purchase on invoice via Mondu is dropped. It can be submitted again afterwards.",
+      "canceled": "Cancelled at Mondu",
+      "lastChecked": "Last checked at Mondu: {{when}}",
+      "invoiceResult": {
+        "submitted": "Invoice submitted to Mondu",
+        "waiting": "Invoice queued for Mondu",
+        "failed": "Invoice not submitted to Mondu",
+        "skipped": "No invoice submitted to Mondu"
+      }
     }
   }
 }

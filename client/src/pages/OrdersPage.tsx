@@ -462,6 +462,14 @@ export default function OrdersPage({ userRole, userSalesChannelIds }: OrdersPage
             ? t('orders.invoiceSentMonduDesc', { number: data?.invoiceNumber ?? '' })
             : t('orders.invoiceSentDesc', { number: data?.invoiceNumber ?? '' }),
         });
+        // MonduSell aus METAorder: Ergebnis der Rechnungsübergabe an Mondu
+        if (data?.monduSell && data.monduSell.status !== 'skipped') {
+          toast({
+            title: t(`mondu.sell.invoiceResult.${data.monduSell.status}`),
+            description: data.monduSell.message,
+            variant: data.monduSell.status === 'failed' ? 'destructive' : undefined,
+          });
+        }
       }
     },
     onError: (error: Error) => {

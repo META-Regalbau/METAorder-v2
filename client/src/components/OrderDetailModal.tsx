@@ -20,6 +20,7 @@ import TrackingCodes from "@/components/TrackingCodes";
 import AdminDocumentForm from "./AdminDocumentForm";
 import InstallmentPlanSection from "./InstallmentPlanSection";
 import InstallmentPlanDialog from "./InstallmentPlanDialog";
+import MonduSection from "./MonduSection";
 import CreateTicketDialog from "./CreateTicketDialog";
 import TicketDetailModal from "./TicketDetailModal";
 import { useToast } from "@/hooks/use-toast";
@@ -807,6 +808,9 @@ export default function OrderDetailModal({
                 </div>
               </Card>
             )}
+
+            {/* Mondu: abgebrochene Shop-Zahlung erneut senden, MonduSell anlegen und verfolgen */}
+            <MonduSection orderId={order.id} canManage={canEditShipping} />
 
             {order.billingAddress && (
               <Card className="p-6">

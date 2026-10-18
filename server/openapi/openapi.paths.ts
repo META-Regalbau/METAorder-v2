@@ -12166,6 +12166,168 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/orders/{orderId}/mondu": {
+    "get": {
+      "tags": [
+        "orders"
+      ],
+      "summary": "GET /api/orders/{orderId}/mondu",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/orders/{orderId}/mondu/resend-payment": {
+    "post": {
+      "tags": [
+        "orders"
+      ],
+      "summary": "POST /api/orders/{orderId}/mondu/resend-payment",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/orders/{orderId}/mondu/sell": {
+    "post": {
+      "tags": [
+        "orders"
+      ],
+      "summary": "POST /api/orders/{orderId}/mondu/sell",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/orders/{orderId}/mondu/sell/cancel": {
+    "post": {
+      "tags": [
+        "orders"
+      ],
+      "summary": "POST /api/orders/{orderId}/mondu/sell/cancel",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/orders/{orderId}/mondu/sell/invoice": {
+    "post": {
+      "tags": [
+        "orders"
+      ],
+      "summary": "POST /api/orders/{orderId}/mondu/sell/invoice",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/orders/{orderId}/mondu/sell/refresh": {
+    "post": {
+      "tags": [
+        "orders"
+      ],
+      "summary": "POST /api/orders/{orderId}/mondu/sell/refresh",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/orders/{orderId}/proforma": {
     "post": {
       "tags": [

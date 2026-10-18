@@ -1,4 +1,4 @@
-import { Bell, Ticket, FileEdit, MessageSquare, Clock, RefreshCw, ListChecks, Calculator, ShieldCheck, Activity } from "lucide-react";
+import { Bell, Ticket, FileEdit, MessageSquare, Clock, RefreshCw, ListChecks, Calculator, ShieldCheck, Activity, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -73,6 +73,8 @@ export function NotificationBell() {
         return <ShieldCheck className={iconClass} />;
       case "shop_pulse":
         return <Activity className={iconClass} />;
+      case "mondu":
+        return <CreditCard className={iconClass} />;
       default:
         return <Bell className={iconClass} />;
     }
