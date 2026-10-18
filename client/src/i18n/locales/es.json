@@ -6653,7 +6653,10 @@
       "failed_to_acknowledge_shop_pulse_teams_outbox": "No se pudo confirmar la cola de Teams",
       "ungultige_pimcore_angaben": "Datos de Pimcore no válidos",
       "pimcore_api_key_fehlt": "Falta la clave API de Pimcore",
-      "pimcore_anfrage_fehlgeschlagen": "La solicitud a Pimcore ha fallado"
+      "pimcore_anfrage_fehlgeschlagen": "La solicitud a Pimcore ha fallado",
+      "failed_to_save_buyability_baseline": "No se pudo guardar la referencia de disponibilidad de compra",
+      "no_data_gaps_yet": "Aún no hay datos incompletos: solo tras la primera ejecución nocturna",
+      "failed_to_load_data_gaps": "No se pudieron cargar los datos incompletos"
     }
   },
   "roomPlanner": {
@@ -7951,7 +7954,7 @@
   },
   "shopPulse": {
     "title": "Pulso de la tienda",
-    "subtitle": "Avisa de lo que no va bien en la tienda online: lo crítico al instante como mensaje directo de Teams, lo demás en el informe diario a partir de las 8. Por ahora comprueba la sincronización de pedidos y las ventas; la disponibilidad de compra y GA4 vendrán después.",
+    "subtitle": "Avisa de lo que no va bien en la tienda online: lo crítico al instante como mensaje directo de Teams, lo demás en el informe diario a partir de las 8. Comprueba la sincronización de pedidos, las ventas y la disponibilidad de compra (formas de pago y envío de forma continua, artículos de noche); GA4 vendrá después.",
     "runNow": "Comprobar ahora",
     "running": "Comprobando …",
     "runDone": "Comprobación terminada",
@@ -8054,6 +8057,58 @@
       "weekAovDown": {
         "title": "Valor medio del pedido claramente más bajo (−{{pct}} %)",
         "message": "Del {{from}} al {{to}}: {{current}} por pedido de media, {{expected}} en las 4 semanas anteriores."
+      },
+      "topsellerInactive": {
+        "title": "Artículo más vendido ya no disponible: {{name}}",
+        "message": "{{number}} está inactivo. El artículo se podía comprar según el estado de referencia y tuvo {{revenue}} de ventas en la tienda (neto) en los últimos 365 días. Comprueba si es intencionado; si no, haz que lo reactiven."
+      },
+      "topsellerHidden": {
+        "title": "Artículo más vendido ya no está en la tienda: {{name}}",
+        "message": "{{number}} ya no es visible en el canal de venta META Regalbau DE. El artículo se podía comprar según el estado de referencia y tuvo {{revenue}} de ventas en la tienda (neto) en los últimos 365 días."
+      },
+      "topsellerMissing": {
+        "title": "Artículo más vendido eliminado: {{number}}",
+        "message": "{{number}} falta en la tienda. El artículo se podía comprar según el estado de referencia y tuvo {{revenue}} de ventas en la tienda (neto) en los últimos 365 días."
+      },
+      "productsUnavailable": {
+        "title": "{{count}} artículos con ventas ya no se pueden comprar",
+        "message": "Disponibles según el estado de referencia, ahora inactivos, fuera del canal o eliminados, p. ej. {{examples}}. ¿Retirados a propósito? Entonces usa «Aceptar como referencia» en la página."
+      },
+      "topsellerPriceZero": {
+        "title": "Artículo más vendido sin precio: {{name}}",
+        "message": "{{number}} aparece en la tienda con 0 €. Ventas en la tienda en los últimos 365 días: {{revenue}} (neto)."
+      },
+      "productsPriceZero": {
+        "title": "{{count}} artículos con precio 0 €",
+        "message": "Se pueden comprar pero no tienen precio, p. ej. {{examples}}."
+      },
+      "priceJump": {
+        "title": "Salto de precio en {{name}} ({{percent}} %)",
+        "message": "{{number}}: precio cambiado de {{oldPrice}} a {{newPrice}} (bruto). Comprueba si es intencionado."
+      },
+      "topsellerSoldOut": {
+        "title": "Artículo más vendido agotado (liquidación): {{name}}",
+        "message": "{{number}} está marcado como liquidación y no tiene existencias; los clientes no pueden pedirlo. Ventas en la tienda en los últimos 365 días: {{revenue}} (neto)."
+      },
+      "productsSoldOut": {
+        "title": "{{count}} artículos en liquidación sin existencias",
+        "message": "No se pueden pedir porque están marcados como liquidación y no tienen existencias, p. ej. {{examples}}."
+      },
+      "topsellersNoDeliveryTime": {
+        "title": "{{count}} artículos más vendidos sin plazo de entrega",
+        "message": "Los clientes no ven plazo de entrega, p. ej. {{examples}}."
+      },
+      "topsellersLongRestock": {
+        "title": "{{count}} artículos más vendidos con reposición de más de {{days}} días",
+        "message": "Plazo largo para cantidades superiores a las existencias, p. ej. {{examples}}."
+      },
+      "paymentMethodGone": {
+        "title": "La forma de pago «{{name}}» ya no está disponible en la tienda",
+        "message": "La forma de pago ya no está asignada al canal de venta META Regalbau DE o está inactiva. Los clientes ya no pueden pagar con ella. ¿Retirada a propósito? Entonces usa «Aceptar como referencia» en la página."
+      },
+      "shippingMethodGone": {
+        "title": "La forma de envío «{{name}}» ya no está disponible en la tienda",
+        "message": "La forma de envío ya no está asignada al canal de venta META Regalbau DE o está inactiva. ¿Retirada a propósito? Entonces usa «Aceptar como referencia» en la página."
       }
     },
     "detectors": {
@@ -8067,7 +8122,9 @@
         "mirrorFreshness": "Sincronización de pedidos (actualidad del espejo)",
         "orderGap": "Hueco de pedidos (hoy hasta las 15:00)",
         "paymentGone": "Métodos de pago (7 días sin pedidos)",
-        "weekComparison": "Semana frente a semanas anteriores y año pasado"
+        "weekComparison": "Semana frente a semanas anteriores y año pasado",
+        "channelMethods": "Formas de pago y envío (referencia)",
+        "buyability": "Disponibilidad de compra de los artículos (de noche)"
       },
       "skipped": "en pausa mientras la sincronización de pedidos esté parada"
     },
@@ -8096,6 +8153,21 @@
       "numbersYear": "Año pasado: {{orders}} pedido(s) · {{revenue}}",
       "numbersNoYear": "Año pasado: sin datos",
       "dailyNone": "No hay avisos abiertos."
+    },
+    "buyability": {
+      "title": "Disponibilidad de compra: estado de referencia",
+      "baseline": "Referencia del {{at}}: {{products}} artículos disponibles con ventas, {{payment}} formas de pago, {{shipping}} formas de envío.",
+      "noBaseline": "Todavía no hay referencia. La primera ejecución la crea a partir de la tienda actual.",
+      "baselineHint": "Se avisa de lo que se podía comprar según la referencia y ahora ya no. Los artículos y las formas de pago o envío nuevos se añaden solos. Si retiraste algo a propósito, acepta el estado actual como referencia.",
+      "takeBaseline": "Aceptar como referencia",
+      "confirm": "¿Aceptar el estado actual como referencia? Los avisos abiertos sobre artículos y formas retirados se darán por resueltos.",
+      "baselineSaved": "Referencia aceptada",
+      "baselineFailed": "No se pudo aceptar la referencia",
+      "gapsTitle": "Datos incompletos para el PIM (Jana)",
+      "gaps": "Estado {{at}}: {{noImage}} sin imagen principal, {{noCategory}} sin categoría, {{salesUnit}} artículos de varias piezas con unidad de venta 1.",
+      "gapsNone": "Todavía no hay ejecución nocturna.",
+      "gapsDownload": "Descargar CSV",
+      "gapsHint": "Solo artículos disponibles en el canal META Regalbau DE. No se avisa ni se corrige en la tienda; se recopila para Jana (mismo formato que la colección de errores de datos)."
     }
   },
   "mondu": {

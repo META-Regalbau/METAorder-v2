@@ -18,8 +18,9 @@ const PRODUCT_BATCH = 500;
  * Version des Produkt-Spiegel-Payloads. Wird beim Fingerprint mitgespeichert;
  * aendert sich die Version (neue Payload-Felder, z. B. salesChannelVisibilities),
  * laeuft einmalig ein Voll-Resync statt eines Cursor-Deltas.
+ * v3: Abverkauf, Bestellbarkeit, Mindestabnahme, Titelbild, Verkaufs-/Grundeinheit (Shop-Puls, Kaufbarkeit).
  */
-const PRODUCT_PAYLOAD_VERSION = "v2";
+const PRODUCT_PAYLOAD_VERSION = "v3";
 /**
  * Version des Bestell-Spiegel-Payloads, Mechanik wie bei den Produkten.
  * v2: Versandangaben (shippingInfo: Sendungsnummer, Versanddatum) aus den Lieferungen.

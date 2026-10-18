@@ -6656,7 +6656,10 @@
       "failed_to_acknowledge_shop_pulse_teams_outbox": "Teams outbox could not be acknowledged",
       "ungultige_pimcore_angaben": "Invalid Pimcore settings",
       "pimcore_api_key_fehlt": "Pimcore API key missing",
-      "pimcore_anfrage_fehlgeschlagen": "Pimcore request failed"
+      "pimcore_anfrage_fehlgeschlagen": "Pimcore request failed",
+      "failed_to_save_buyability_baseline": "Buyability baseline could not be saved",
+      "no_data_gaps_yet": "No data gaps yet – only after the first nightly run",
+      "failed_to_load_data_gaps": "Data gaps could not be loaded"
     }
   },
   "roomPlanner": {
@@ -7954,7 +7957,7 @@
   },
   "shopPulse": {
     "title": "Shop pulse",
-    "subtitle": "Reports what is not going well in the online shop: critical issues immediately as a Teams direct message, everything else in the daily report from 8 am. So far it checks the order sync and revenue; buyability and GA4 follow.",
+    "subtitle": "Reports what is not going well in the online shop: critical issues immediately as a Teams direct message, everything else in the daily report from 8 am. It checks the order sync, revenue and buyability (payment and shipping methods continuously, items nightly); GA4 follows.",
     "runNow": "Check now",
     "running": "Checking …",
     "runDone": "Check finished",
@@ -8057,6 +8060,58 @@
       "weekAovDown": {
         "title": "Average order value clearly lower (−{{pct}} %)",
         "message": "{{from}} to {{to}}: {{current}} per order on average, {{expected}} in the 4 weeks before."
+      },
+      "topsellerInactive": {
+        "title": "Top seller no longer buyable: {{name}}",
+        "message": "{{number}} is inactive. The item was buyable in the baseline and had {{revenue}} shop revenue (net) in the last 365 days. Please check whether this is intended; otherwise have it reactivated."
+      },
+      "topsellerHidden": {
+        "title": "Top seller no longer in the shop: {{name}}",
+        "message": "{{number}} is no longer visible in the sales channel META Regalbau DE. The item was buyable in the baseline and had {{revenue}} shop revenue (net) in the last 365 days."
+      },
+      "topsellerMissing": {
+        "title": "Top seller deleted: {{number}}",
+        "message": "{{number}} is missing in the shop. The item was buyable in the baseline and had {{revenue}} shop revenue (net) in the last 365 days."
+      },
+      "productsUnavailable": {
+        "title": "{{count}} items with revenue no longer buyable",
+        "message": "Buyable in the baseline, now inactive, not in the channel or deleted, e.g. {{examples}}. Removed on purpose? Then use “Accept as baseline” on the page."
+      },
+      "topsellerPriceZero": {
+        "title": "Top seller without price: {{name}}",
+        "message": "{{number}} is listed at €0 in the shop. Shop revenue in the last 365 days: {{revenue}} (net)."
+      },
+      "productsPriceZero": {
+        "title": "{{count}} items priced at €0",
+        "message": "Buyable but without a price, e.g. {{examples}}."
+      },
+      "priceJump": {
+        "title": "Price jump for {{name}} ({{percent}} %)",
+        "message": "{{number}}: price changed from {{oldPrice}} to {{newPrice}} (gross). Please check whether this is intended."
+      },
+      "topsellerSoldOut": {
+        "title": "Top seller sold out (closeout): {{name}}",
+        "message": "{{number}} is marked as closeout and has no stock left, customers cannot order it. Shop revenue in the last 365 days: {{revenue}} (net)."
+      },
+      "productsSoldOut": {
+        "title": "{{count}} closeout items without stock",
+        "message": "Cannot be ordered because they are marked as closeout and have no stock, e.g. {{examples}}."
+      },
+      "topsellersNoDeliveryTime": {
+        "title": "{{count}} top sellers without delivery time",
+        "message": "Customers see no delivery time, e.g. {{examples}}."
+      },
+      "topsellersLongRestock": {
+        "title": "{{count}} top sellers with restock time over {{days}} days",
+        "message": "Long delivery time for quantities above stock, e.g. {{examples}}."
+      },
+      "paymentMethodGone": {
+        "title": "Payment method “{{name}}” no longer available in the shop",
+        "message": "The payment method is no longer assigned to the sales channel META Regalbau DE or is inactive. Customers can no longer pay with it. Removed on purpose? Then use “Accept as baseline” on the page."
+      },
+      "shippingMethodGone": {
+        "title": "Shipping method “{{name}}” no longer available in the shop",
+        "message": "The shipping method is no longer assigned to the sales channel META Regalbau DE or is inactive. Removed on purpose? Then use “Accept as baseline” on the page."
       }
     },
     "detectors": {
@@ -8070,7 +8125,9 @@
         "mirrorFreshness": "Order sync (mirror freshness)",
         "orderGap": "Order gap (today until 3 pm)",
         "paymentGone": "Payment methods (7 days without orders)",
-        "weekComparison": "Week vs. previous weeks and last year"
+        "weekComparison": "Week vs. previous weeks and last year",
+        "channelMethods": "Payment and shipping methods (baseline)",
+        "buyability": "Item buyability (nightly)"
       },
       "skipped": "paused while the order sync is stuck"
     },
@@ -8099,6 +8156,21 @@
       "numbersYear": "Last year: {{orders}} order(s) · {{revenue}}",
       "numbersNoYear": "Last year: no data",
       "dailyNone": "No open alerts."
+    },
+    "buyability": {
+      "title": "Buyability: baseline",
+      "baseline": "Baseline of {{at}}: {{products}} buyable items with revenue, {{payment}} payment methods, {{shipping}} shipping methods.",
+      "noBaseline": "No baseline yet. The first run creates it from the current shop.",
+      "baselineHint": "Reported is what was buyable in the baseline and no longer is. New buyable items and payment or shipping methods are added automatically. If you removed something on purpose, accept the current state as the baseline.",
+      "takeBaseline": "Accept as baseline",
+      "confirm": "Accept the current state as the baseline? Open alerts about removed items and methods will then be resolved.",
+      "baselineSaved": "Baseline accepted",
+      "baselineFailed": "Baseline could not be accepted",
+      "gapsTitle": "Data gaps for the PIM (Jana)",
+      "gaps": "As of {{at}}: {{noImage}} without cover image, {{noCategory}} without category, {{salesUnit}} multi-piece items with sales unit 1.",
+      "gapsNone": "No nightly run yet.",
+      "gapsDownload": "Download CSV",
+      "gapsHint": "Only buyable items in the channel META Regalbau DE. Not reported and not corrected in the shop, but collected for Jana (same format as the data error collection)."
     }
   },
   "mondu": {

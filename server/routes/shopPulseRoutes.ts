@@ -1,17 +1,19 @@
 // Shop-Puls: Meldungen und Einstellungen (nur Administratoren), Prüfung von Hand starten, Testnachricht,
-// Meldung erledigen oder ruhig stellen; Teams-Warteschlange für n8n (auch per Integration-Key).
+// Meldung erledigen oder ruhig stellen, Soll-Stand der Kaufbarkeit übernehmen, Datenlücken als CSV für die
+// PIM-Sammlung; Teams-Warteschlange für n8n (auch per Integration-Key).
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
 import { isAdministrator, requireAdministrator, requireAuth, requireAuthOrIntegrationKey, requireCsrf } from "../auth/auth";
 import { logger } from "../lib/logger";
 import { storage } from "../storage";
 import { isAllowedTeamsWebhookUrl } from "@shared/emailIntake";
-import { isLearning, type ShopPulseOverview } from "@shared/shopPulse";
+import { isLearning, type ShopPulseDataGaps, type ShopPulseOverview } from "@shared/shopPulse";
 import { ackTeamsOutbox, enqueueTeamsMessage, getTeamsOutbox } from "../lib/teamsOutbox";
 import { getSignal, listSignalsForOverview, muteSignal, resolveSignalManually } from "../shopPulse/shopPulseRepository";
 import { compareSignals } from "../shopPulse/shopPulseSignals";
 import { buildShopPulseTestCard } from "../shopPulse/shopPulseNotify";
 import { isShopPulseRunning, runShopPulseForTenant, shopPulseDeps } from "../shopPulse/shopPulseScheduler";
+import { acceptBuyabilityBaseline, dataGapsCsv, DATA_GAPS_KEY, getBuyabilityBaseline } from "../shopPulse/detectors/buyability";
 import {
   applyShopPulseSettingsUpdate,
   getShopPulseSettings,
@@ -44,12 +46,16 @@ function requireIntegrationOrAdministrator(req: any, res: Response, next: () => 
 }
 
 async function overview(tenantId: string | null): Promise<ShopPulseOverview> {
-  const [settings, state, signals, outbox] = await Promise.all([
+  const [settings, state, signals, outbox, baseline, gaps] = await Promise.all([
     getShopPulseSettings(storage, tenantId),
     getShopPulseState(storage, tenantId),
     listSignalsForOverview(tenantId),
     getTeamsOutbox(storage, SHOP_PULSE_TEAMS_OUTBOX_KEY, tenantId),
+    getBuyabilityBaseline(storage, tenantId),
+    getDataGaps(tenantId),
   ]);
+  const gapCounts: NonNullable<ShopPulseOverview["dataGaps"]>["counts"] = {};
+  for (const g of gaps?.items ?? []) gapCounts[g.code] = (gapCounts[g.code] ?? 0) + 1;
   const { teamsWebhookUrl, ...rest } = settings;
   return {
     settings: { ...rest, teamsConfigured: !!teamsWebhookUrl },
@@ -58,7 +64,16 @@ async function overview(tenantId: string | null): Promise<ShopPulseOverview> {
     signals: signals.sort((a, b) => Number(a.status === "resolved") - Number(b.status === "resolved") || compareSignals(a, b)),
     teamsPending: teamsWebhookUrl ? outbox.length : 0,
     running: isShopPulseRunning(tenantId),
+    buyabilityBaseline: baseline
+      ? { takenAt: baseline.takenAt, products: baseline.products?.length ?? 0, paymentMethods: baseline.payment?.length ?? 0, shippingMethods: baseline.shipping?.length ?? 0 }
+      : null,
+    dataGaps: gaps ? { at: gaps.at, counts: gapCounts } : null,
   };
+}
+
+async function getDataGaps(tenantId: string | null): Promise<ShopPulseDataGaps | null> {
+  const raw = await storage.getSetting(DATA_GAPS_KEY, tenantId);
+  return raw && typeof raw === "object" && Array.isArray((raw as ShopPulseDataGaps).items) ? (raw as ShopPulseDataGaps) : null;
 }
 
 export function registerShopPulseRoutes(app: Express): void {
@@ -91,16 +106,54 @@ export function registerShopPulseRoutes(app: Express): void {
     }
   });
 
-  /** Prüfung jetzt (auch ausgeschaltet; dann ohne Tagesbericht-Zeitplan, Meldungen nur bei eingeschaltetem Shop-Puls) */
+  /** Prüfung jetzt, auch die Nachtläufe (auch ausgeschaltet; Meldungen nur bei eingeschaltetem Shop-Puls) */
   app.post("/api/shop-pulse/run", requireAuth, requireAdministrator, requireCsrf, async (req: Request, res: Response) => {
     const tenantId = tenantOf(req);
     if (isShopPulseRunning(tenantId)) return res.status(409).json({ error: "Shop pulse run already in progress" });
     try {
-      await runShopPulseForTenant(shopPulseDeps(storage), tenantId);
+      await runShopPulseForTenant(shopPulseDeps(storage), tenantId, { force: true });
       res.json(await overview(tenantId));
     } catch (error) {
       moduleLog.error({ err: error, tenantId }, "Shop-Puls: Lauf fehlgeschlagen");
       res.status(500).json({ error: "Shop pulse run failed" });
+    }
+  });
+
+  /**
+   * Kaufbarkeit: jetzigen Stand als Soll übernehmen (kaufbare Artikel mit Umsatz, aktive Zahl- und
+   * Versandarten). Danach meldet der nächste Lauf bewusst entfernte Artikel und Arten nicht mehr.
+   */
+  app.post("/api/shop-pulse/buyability/baseline", requireAuth, requireAdministrator, requireCsrf, async (req: Request, res: Response) => {
+    const tenantId = tenantOf(req);
+    if (isShopPulseRunning(tenantId)) return res.status(409).json({ error: "Shop pulse run already in progress" });
+    try {
+      const deps = shopPulseDeps(storage);
+      const now = new Date();
+      const sources = deps.loadBuyability!(tenantId, now);
+      const baseline = await acceptBuyabilityBaseline({ storage, tenantId, now, buyability: sources });
+      moduleLog.info(
+        { tenantId, products: baseline.products?.length, payment: baseline.payment?.length, shipping: baseline.shipping?.length },
+        "Shop-Puls: Soll-Stand der Kaufbarkeit übernommen",
+      );
+      await runShopPulseForTenant(deps, tenantId, { force: true });
+      res.json(await overview(tenantId));
+    } catch (error) {
+      moduleLog.error({ err: error, tenantId }, "Shop-Puls: Soll-Stand übernehmen fehlgeschlagen");
+      res.status(500).json({ error: "Failed to save buyability baseline" });
+    }
+  });
+
+  /** Datenlücken des letzten Nachtlaufs als CSV für die PIM-Sammlung (Format wie Datenfehler-PIM-Artikel.csv) */
+  app.get("/api/shop-pulse/data-gaps.csv", requireAuth, requireAdministrator, async (req: Request, res: Response) => {
+    try {
+      const gaps = await getDataGaps(tenantOf(req));
+      if (!gaps) return res.status(404).json({ error: "No data gaps yet" });
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="Datenluecken-Shop-Puls-${gaps.at.slice(0, 10)}.csv"`);
+      res.send(dataGapsCsv(gaps));
+    } catch (error) {
+      moduleLog.error({ err: error }, "Shop-Puls: Datenlücken laden fehlgeschlagen");
+      res.status(500).json({ error: "Failed to load data gaps" });
     }
   });
 

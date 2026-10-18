@@ -6653,7 +6653,10 @@
       "failed_to_acknowledge_shop_pulse_teams_outbox": "Teams-Warteschlange konnte nicht quittiert werden",
       "ungultige_pimcore_angaben": "Ungültige Pimcore-Angaben",
       "pimcore_api_key_fehlt": "Pimcore-API-Key fehlt",
-      "pimcore_anfrage_fehlgeschlagen": "Pimcore-Anfrage fehlgeschlagen"
+      "pimcore_anfrage_fehlgeschlagen": "Pimcore-Anfrage fehlgeschlagen",
+      "failed_to_save_buyability_baseline": "Soll-Stand der Kaufbarkeit konnte nicht gespeichert werden",
+      "no_data_gaps_yet": "Noch keine Datenlücken ermittelt – erst nach dem ersten Nachtlauf",
+      "failed_to_load_data_gaps": "Datenlücken konnten nicht geladen werden"
     }
   },
   "roomPlanner": {
@@ -7951,7 +7954,7 @@
   },
   "shopPulse": {
     "title": "Shop-Puls",
-    "subtitle": "Meldet, was im Onlineshop nicht gut läuft: Kritisches sofort als Teams-Direktnachricht, alles andere im Tagesbericht ab 8 Uhr. Bisher prüft er Bestellabgleich und Umsatz; Kaufbarkeit und GA4 folgen.",
+    "subtitle": "Meldet, was im Onlineshop nicht gut läuft: Kritisches sofort als Teams-Direktnachricht, alles andere im Tagesbericht ab 8 Uhr. Er prüft Bestellabgleich, Umsatz und Kaufbarkeit (Zahl- und Versandarten laufend, Artikel nachts); GA4 folgt.",
     "runNow": "Jetzt prüfen",
     "running": "Prüft …",
     "runDone": "Prüfung abgeschlossen",
@@ -8054,6 +8057,58 @@
       "weekAovDown": {
         "title": "Ø-Bestellwert deutlich gesunken (−{{pct}} %)",
         "message": "{{from}} bis {{to}}: im Schnitt {{current}} pro Bestellung, in den 4 Wochen davor {{expected}}."
+      },
+      "topsellerInactive": {
+        "title": "Topseller nicht mehr kaufbar: {{name}}",
+        "message": "{{number}} ist inaktiv. Der Artikel war im Soll-Stand kaufbar und hatte in den letzten 365 Tagen {{revenue}} Shop-Umsatz (netto). Bitte prüfen, ob das gewollt ist; sonst wieder aktivieren lassen."
+      },
+      "topsellerHidden": {
+        "title": "Topseller nicht mehr im Shop: {{name}}",
+        "message": "{{number}} ist im Verkaufskanal META Regalbau DE nicht mehr sichtbar. Der Artikel war im Soll-Stand kaufbar und hatte in den letzten 365 Tagen {{revenue}} Shop-Umsatz (netto)."
+      },
+      "topsellerMissing": {
+        "title": "Topseller gelöscht: {{number}}",
+        "message": "{{number}} fehlt im Shop. Der Artikel war im Soll-Stand kaufbar und hatte in den letzten 365 Tagen {{revenue}} Shop-Umsatz (netto)."
+      },
+      "productsUnavailable": {
+        "title": "{{count}} Artikel mit Umsatz nicht mehr kaufbar",
+        "message": "Im Soll-Stand kaufbar, jetzt inaktiv, nicht im Kanal oder gelöscht, z. B. {{examples}}. Bewusst entfernt? Dann auf der Seite „Als Soll übernehmen“."
+      },
+      "topsellerPriceZero": {
+        "title": "Topseller ohne Preis: {{name}}",
+        "message": "{{number}} steht im Shop mit 0 €. Shop-Umsatz der letzten 365 Tage: {{revenue}} (netto)."
+      },
+      "productsPriceZero": {
+        "title": "{{count}} Artikel mit Preis 0 €",
+        "message": "Kaufbar, aber ohne Preis, z. B. {{examples}}."
+      },
+      "priceJump": {
+        "title": "Preissprung bei {{name}} ({{percent}} %)",
+        "message": "{{number}}: Preis von {{oldPrice}} auf {{newPrice}} (brutto) geändert. Bitte prüfen, ob das gewollt ist."
+      },
+      "topsellerSoldOut": {
+        "title": "Topseller ausverkauft (Abverkauf): {{name}}",
+        "message": "{{number}} ist als Abverkauf markiert und hat keinen Bestand mehr, Kunden können ihn nicht bestellen. Shop-Umsatz der letzten 365 Tage: {{revenue}} (netto)."
+      },
+      "productsSoldOut": {
+        "title": "{{count}} Artikel im Abverkauf ohne Bestand",
+        "message": "Nicht bestellbar, weil als Abverkauf markiert und ohne Bestand, z. B. {{examples}}."
+      },
+      "topsellersNoDeliveryTime": {
+        "title": "{{count}} Topseller ohne Lieferzeit",
+        "message": "Kunden sehen keine Lieferzeit, z. B. {{examples}}."
+      },
+      "topsellersLongRestock": {
+        "title": "{{count}} Topseller mit Wiederauffüllzeit über {{days}} Tage",
+        "message": "Lange Lieferzeit bei mehr als dem Lagerbestand, z. B. {{examples}}."
+      },
+      "paymentMethodGone": {
+        "title": "Zahlart „{{name}}“ im Shop nicht mehr verfügbar",
+        "message": "Die Zahlart ist im Verkaufskanal META Regalbau DE nicht mehr zugeordnet oder inaktiv. Kunden können damit nicht mehr bezahlen. Bewusst entfernt? Dann auf der Seite „Als Soll übernehmen“."
+      },
+      "shippingMethodGone": {
+        "title": "Versandart „{{name}}“ im Shop nicht mehr verfügbar",
+        "message": "Die Versandart ist im Verkaufskanal META Regalbau DE nicht mehr zugeordnet oder inaktiv. Bewusst entfernt? Dann auf der Seite „Als Soll übernehmen“."
       }
     },
     "detectors": {
@@ -8067,7 +8122,9 @@
         "mirrorFreshness": "Bestellabgleich (Spiegel-Frische)",
         "orderGap": "Bestell-Lücke (heute bis 15 Uhr)",
         "paymentGone": "Zahlarten (7 Tage ohne Bestellung)",
-        "weekComparison": "Woche gegen Vorwochen und Vorjahr"
+        "weekComparison": "Woche gegen Vorwochen und Vorjahr",
+        "channelMethods": "Zahl- und Versandarten (Soll-Stand)",
+        "buyability": "Kaufbarkeit der Artikel (nachts)"
       },
       "skipped": "ausgesetzt, solange der Bestellabgleich hängt"
     },
@@ -8096,6 +8153,21 @@
       "numbersYear": "Vorjahr: {{orders}} Bestellung(en) · {{revenue}}",
       "numbersNoYear": "Vorjahr: keine Daten",
       "dailyNone": "Keine offenen Meldungen."
+    },
+    "buyability": {
+      "title": "Kaufbarkeit: Soll-Stand",
+      "baseline": "Soll-Stand vom {{at}}: {{products}} kaufbare Artikel mit Umsatz, {{payment}} Zahlarten, {{shipping}} Versandarten.",
+      "noBaseline": "Noch kein Soll-Stand. Der erste Lauf legt ihn aus dem jetzigen Shop an.",
+      "baselineHint": "Gemeldet wird, was im Soll-Stand kaufbar war und es jetzt nicht mehr ist. Neue kaufbare Artikel und Zahl- oder Versandarten kommen von selbst dazu. Hast du etwas bewusst entfernt, übernimm den jetzigen Stand als Soll.",
+      "takeBaseline": "Als Soll übernehmen",
+      "confirm": "Jetzigen Stand als Soll übernehmen? Offene Meldungen zu entfernten Artikeln und Arten werden danach erledigt.",
+      "baselineSaved": "Soll-Stand übernommen",
+      "baselineFailed": "Soll-Stand konnte nicht übernommen werden",
+      "gapsTitle": "Datenlücken für die PIM (Jana)",
+      "gaps": "Stand {{at}}: {{noImage}} ohne Titelbild, {{noCategory}} ohne Kategorie, {{salesUnit}} Mehrstück-Artikel mit Verkaufseinheit 1.",
+      "gapsNone": "Noch kein Nachtlauf.",
+      "gapsDownload": "CSV herunterladen",
+      "gapsHint": "Nur kaufbare Artikel im Kanal META Regalbau DE. Wird nicht gemeldet und nicht im Shop korrigiert, sondern gesammelt an Jana gegeben (Format wie die Datenfehler-Sammlung)."
     }
   },
   "mondu": {

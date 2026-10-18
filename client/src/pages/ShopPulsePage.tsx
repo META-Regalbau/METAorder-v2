@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useSearch } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Activity, AlertTriangle, BellOff, BellRing, CheckCircle2, Loader2, MessageSquare, PauseCircle, Play, Send, XCircle } from "lucide-react";
+import { Activity, AlertTriangle, BellOff, BellRing, CheckCircle2, Download, Loader2, MessageSquare, PauseCircle, Play, Send, ShoppingCart, Target, XCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -91,6 +91,16 @@ export default function ShopPulsePage() {
       toast({ title: t("shopPulse.settings.testQueued") });
     },
     onError: (error: Error) => toast({ title: t("shopPulse.settings.testFailed"), description: error.message, variant: "destructive" }),
+  });
+  const [confirmBaseline, setConfirmBaseline] = useState(false);
+  const baselineMutation = useMutation({
+    mutationFn: async () => (await apiRequest("POST", "/api/shop-pulse/buyability/baseline")).json() as Promise<ShopPulseOverview>,
+    onSuccess: (next) => {
+      refresh(next);
+      setConfirmBaseline(false);
+      toast({ title: t("shopPulse.buyability.baselineSaved") });
+    },
+    onError: (error: Error) => toast({ title: t("shopPulse.buyability.baselineFailed"), description: error.message, variant: "destructive" }),
   });
   const signalMutation = useMutation({
     mutationFn: async (a: { id: string; action: "resolve" } | { id: string; action: "mute"; days: number }) =>
@@ -365,6 +375,7 @@ export default function ShopPulsePage() {
                         <XCircle className="h-4 w-4 text-destructive" aria-hidden="true" />
                       )}
                       <span>{t(`shopPulse.detectors.names.${id}`, { defaultValue: id })}</span>
+                      <span className="text-muted-foreground">{fmt.dateTime(d.at)} ·</span>
                       <span className="text-muted-foreground">
                         {d.skipped
                           ? t("shopPulse.detectors.skipped")
@@ -378,6 +389,68 @@ export default function ShopPulsePage() {
             ) : (
               <p className="text-sm text-muted-foreground">{t("shopPulse.detectors.none")}</p>
             )}
+          </Card>
+
+          <Card className="p-4 space-y-3" data-testid="shop-pulse-buyability">
+            <h2 className="font-semibold flex items-center gap-2">
+              <ShoppingCart className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              {t("shopPulse.buyability.title")}
+            </h2>
+            <p className="text-sm" data-testid="text-shop-pulse-baseline">
+              {data.buyabilityBaseline
+                ? t("shopPulse.buyability.baseline", {
+                    at: fmt.dateTime(data.buyabilityBaseline.takenAt),
+                    products: fmt.integer(data.buyabilityBaseline.products),
+                    payment: data.buyabilityBaseline.paymentMethods,
+                    shipping: data.buyabilityBaseline.shippingMethods,
+                  })
+                : t("shopPulse.buyability.noBaseline")}
+            </p>
+            <p className="text-xs text-muted-foreground max-w-3xl">{t("shopPulse.buyability.baselineHint")}</p>
+            {confirmBaseline ? (
+              <div className="flex flex-wrap items-center gap-2" role="group" aria-labelledby="shop-pulse-baseline-confirm">
+                <span id="shop-pulse-baseline-confirm" className="text-sm font-medium">
+                  {t("shopPulse.buyability.confirm")}
+                </span>
+                <Button size="sm" disabled={baselineMutation.isPending} onClick={() => baselineMutation.mutate()} data-testid="button-shop-pulse-baseline-confirm">
+                  {baselineMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Target className="h-4 w-4 mr-2" aria-hidden="true" />}
+                  {t("shopPulse.buyability.takeBaseline")}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setConfirmBaseline(false)} data-testid="button-shop-pulse-baseline-cancel">
+                  {t("shopPulse.signals.cancel")}
+                </Button>
+              </div>
+            ) : (
+              <Button size="sm" variant="outline" disabled={data.running} onClick={() => setConfirmBaseline(true)} data-testid="button-shop-pulse-baseline">
+                <Target className="h-4 w-4 mr-2" aria-hidden="true" />
+                {t("shopPulse.buyability.takeBaseline")}
+              </Button>
+            )}
+
+            <div className="border-t pt-3 space-y-2">
+              <h3 className="font-medium">{t("shopPulse.buyability.gapsTitle")}</h3>
+              {data.dataGaps ? (
+                <>
+                  <p className="text-sm" data-testid="text-shop-pulse-gaps">
+                    {t("shopPulse.buyability.gaps", {
+                      at: fmt.dateTime(data.dataGaps.at),
+                      noImage: fmt.integer(data.dataGaps.counts.noImage ?? 0),
+                      noCategory: fmt.integer(data.dataGaps.counts.noCategory ?? 0),
+                      salesUnit: fmt.integer(data.dataGaps.counts.salesUnit ?? 0),
+                    })}
+                  </p>
+                  <Button size="sm" variant="outline" asChild>
+                    <a href="/api/shop-pulse/data-gaps.csv" download data-testid="link-shop-pulse-gaps-csv">
+                      <Download className="h-4 w-4 mr-2" aria-hidden="true" />
+                      {t("shopPulse.buyability.gapsDownload")}
+                    </a>
+                  </Button>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">{t("shopPulse.buyability.gapsNone")}</p>
+              )}
+              <p className="text-xs text-muted-foreground max-w-3xl">{t("shopPulse.buyability.gapsHint")}</p>
+            </div>
           </Card>
         </>
       )}
