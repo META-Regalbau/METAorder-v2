@@ -1,0 +1,7 @@
+{
+    "secret": "test-secret-0123456789abcdef",
+    "tenantId": "11111111-2222-3333-4444-555555555555",
+    "timestamp": 1792360000,
+    "body": "{\"version\":1,\"event\":\"cart.saved\",\"occurredAt\":\"2026-10-18T10:00:00+02:00\",\"salesChannelId\":\"sc1\",\"customer\":{\"id\":\"c1\",\"customerNumber\":\"20001\",\"company\":\"Muster GmbH\",\"contactName\":\"Erika Muster\",\"email\":\"erika@example.org\",\"phone\":null},\"cart\":{\"netTotal\":1250.5,\"currency\":\"EUR\",\"positionCount\":1,\"positions\":[{\"productNumber\":\"SW10001\",\"label\":\"Fachbodenregal\",\"quantity\":5,\"netTotal\":1250.5}]}}",
+    "signature": "8910ea4f3478d92f37a930c84a3a317747e6d08cb43e134a23af228812808056"
+}

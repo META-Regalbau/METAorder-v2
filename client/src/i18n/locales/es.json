@@ -6667,7 +6667,16 @@
       "failed_to_load_shop_pulse_weekly_reports": "No se pudieron cargar los informes semanales",
       "failed_to_build_shop_pulse_weekly_report": "No se pudo crear el informe semanal",
       "failed_to_load_shop_pulse_effects": "No se pudo cargar el impacto",
-      "failed_to_compute_shop_pulse_effects": "No se pudo calcular el impacto"
+      "failed_to_compute_shop_pulse_effects": "No se pudo calcular el impacto",
+      "invalid_cart_signal": "Aviso de carrito no válido",
+      "too_many_cart_signals": "Demasiados avisos de carrito",
+      "invalid_cart_signal_signature": "Firma del aviso de carrito no válida",
+      "failed_to_store_cart_signal": "No se pudo guardar el aviso de carrito",
+      "failed_to_load_cart_alarm": "No se pudo cargar la alerta de carrito",
+      "invalid_cart_alarm_settings": "Ajustes de la alerta de carrito no válidos",
+      "failed_to_save_cart_alarm_settings": "No se pudieron guardar los ajustes de la alerta de carrito",
+      "failed_to_create_cart_alarm_secret": "No se pudo crear la clave",
+      "failed_to_delete_stored_carts": "No se pudieron borrar los carritos guardados"
     }
   },
   "roomPlanner": {
@@ -8332,7 +8341,8 @@
     "tabs": {
       "signals": "Avisos",
       "weekly": "Informes semanales",
-      "actions": "Registro de medidas"
+      "actions": "Registro de medidas",
+      "cart": "Alerta de carrito"
     },
     "weekly": {
       "title": "Pulso de la tienda: informe semanal S{{week}} ({{from}} a {{to}})",
@@ -8582,7 +8592,8 @@
         "deploy": "Despliegue",
         "priceChanges": "Cambios de precio",
         "liveRun": "Escritura en vivo",
-        "manual": "A mano"
+        "manual": "A mano",
+        "cartAlarmWon": "Alerta de carrito con éxito"
       },
       "sources": {
         "shopContent": "Contenidos de la tienda",
@@ -8590,7 +8601,8 @@
         "shopWatch": "Vigilante de la tienda",
         "priceHistory": "Historial de precios",
         "import": "Importación de protocolo en vivo",
-        "manual": "a mano"
+        "manual": "a mano",
+        "cartAlarm": "Alerta de carrito"
       }
     },
     "effects": {
@@ -8673,6 +8685,65 @@
         "conversionPercent": "Conversión en %"
       },
       "computedAt": "Calculado: {{date}}"
+    },
+    "cart": {
+      "title": "Alerta de carrito B2B",
+      "hint": "El plugin de Shopware «META cart signal» notifica los carritos guardados de clientes empresariales con sesión iniciada. Si un carrito por encima del umbral sigue sin cambios durante el tiempo de espera y el cliente no ha pedido desde entonces, se envía una alerta al comercial asignado; si no, al destinatario sustituto o a Oliver. Como máximo una alerta por cliente en {{alarmEveryDays}} días; un pedido en los {{successDays}} días siguientes cuenta como éxito (registro de medidas). Solo se guardan cifras y la persona de contacto, como máximo {{retentionDays}} días.",
+      "enable": "Alerta de carrito",
+      "privacy": "Activar solo tras la aprobación del delegado de protección de datos. Mientras esté desactivado, METAorder acepta los avisos pero no guarda nada; al desactivarlo se borran todos los carritos guardados.",
+      "threshold": "Umbral (neto, €)",
+      "wait": "Tiempo de espera (horas sin cambios)",
+      "fallbackEmail": "Destinatario sustituto (correo)",
+      "fallbackName": "Destinatario sustituto (nombre)",
+      "fallbackPlaceholder": "vacío = Oliver (mensaje directo de Teams y campana)",
+      "recipientHint": "Destinatario: comercial según la asignación (número de cliente), si no el destinatario sustituto, si no Oliver. Cada alerta se envía además como tarjeta de Teams con @mención al mensaje directo del pulso de la tienda y a la campana.",
+      "mailOn": "El envío de correo está configurado: el destinatario recibe un correo interno.",
+      "mailOff": "El envío de correo no está configurado: solo Teams y campana.",
+      "save": "Guardar",
+      "saved": "Ajustes guardados",
+      "saveFailed": "No se pudieron guardar los ajustes",
+      "pluginTitle": "Datos para el plugin (agencia wirduzen)",
+      "pluginHint": "La agencia introduce estos valores en la configuración del plugin. La clave firma cada aviso; una clave nueva invalida la anterior de inmediato.",
+      "endpoint": "Dirección de METAorder",
+      "tenant": "ID de cliente (tenant)",
+      "secret": "Clave secreta",
+      "secretSet": "creada (no se vuelve a mostrar)",
+      "secretNone": "ninguna todavía",
+      "secretCreate": "Crear clave",
+      "secretRotate": "Crear clave nueva",
+      "secretFailed": "No se pudo crear la clave",
+      "secretOnce": "Clave nueva: solo visible ahora. Entregarla a la agencia de forma segura (no por correo abierto).",
+      "copy": "Copiar",
+      "copied": "Copiado",
+      "copyFailed": "No se pudo copiar",
+      "lastSignal": "Último aviso",
+      "lastSignalNone": "ninguno todavía",
+      "listTitle": "Carritos notificados ({{count}})",
+      "empty": "Todavía no hay carritos notificados.",
+      "emptyOff": "Desactivado: no se guardan carritos.",
+      "delete": "Borrar todo",
+      "confirmDelete": "¿Borrar todos los carritos guardados?",
+      "deleted": "Carritos guardados borrados",
+      "deleteFailed": "Error al borrar",
+      "loadError": "No se pudo cargar la alerta de carrito.",
+      "columns": {
+        "customer": "Cliente",
+        "contact": "Persona de contacto",
+        "net": "Valor neto",
+        "updated": "Último cambio",
+        "state": "Estado"
+      },
+      "positions": "{{count}} posición(es)",
+      "states": {
+        "waiting": "en espera",
+        "alarmed": "alerta enviada",
+        "ordered": "pedido",
+        "won": "pedido tras la alerta",
+        "below": "bajo el umbral"
+      },
+      "alarmedTo": "Alerta {{date}} a {{to}}",
+      "mailed": "por correo",
+      "orderedAt": "pedido {{date}} ({{order}})"
     }
   },
   "mondu": {

@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ShopPulseCartTab } from "@/components/shopPulse/ShopPulseCartTab";
 import { ShopPulseActionsTab } from "@/components/shopPulse/ShopPulseActionsTab";
 import { ShopPulseWeeklyTab } from "@/components/shopPulse/ShopPulseWeeklyTab";
 import { useToast } from "@/hooks/use-toast";
@@ -27,10 +28,11 @@ import { formatShopPulseParams, needsAiNote, SHOP_PULSE_DETECTOR_IDS, type ShopP
  * Server: server/routes/shopPulseRoutes.ts, Konzept Shop-Puls Stufe 1 (17.10.2026).
  *
  * Stufe 2 (S2-1): Reiter „Wochenberichte“ (Archiv, ?tab=weekly&week=<Montag> aus Teams) und
- * „Maßnahmen-Protokoll“ (?tab=actions), components/shopPulse/.
+ * „Maßnahmen-Protokoll“ (?tab=actions), components/shopPulse/. Stufe 2 (S2-3): Reiter „Warenkorb-Alarm“
+ * (?tab=cart).
  */
 
-const TABS = ["signals", "weekly", "actions"] as const;
+const TABS = ["signals", "weekly", "actions", "cart"] as const;
 type Tab = (typeof TABS)[number];
 
 const QUERY_KEY = ["/api/shop-pulse"];
@@ -280,6 +282,9 @@ export default function ShopPulsePage() {
         </TabsContent>
         <TabsContent value="actions" className="mt-4">
           {tab === "actions" ? <ShopPulseActionsTab /> : null}
+        </TabsContent>
+        <TabsContent value="cart" className="mt-4">
+          {tab === "cart" ? <ShopPulseCartTab /> : null}
         </TabsContent>
         <TabsContent value="signals" className="mt-4 space-y-4">
           {query.isLoading ? (

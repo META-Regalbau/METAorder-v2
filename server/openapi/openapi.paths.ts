@@ -13940,6 +13940,34 @@ export const openApiPaths = {
       "security": []
     }
   },
+  "/api/public/shop-pulse/cart-signal": {
+    "post": {
+      "tags": [
+        "public"
+      ],
+      "summary": "POST /api/public/shop-pulse/cart-signal",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      },
+      "security": []
+    }
+  },
   "/api/roles": {
     "get": {
       "tags": [
@@ -16867,6 +16895,114 @@ export const openApiPaths = {
         "shop-pulse"
       ],
       "summary": "POST /api/shop-pulse/buyability/baseline",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/shop-pulse/cart-alarm": {
+    "get": {
+      "tags": [
+        "shop-pulse"
+      ],
+      "summary": "GET /api/shop-pulse/cart-alarm",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/shop-pulse/cart-alarm/carts": {
+    "delete": {
+      "tags": [
+        "shop-pulse"
+      ],
+      "summary": "DELETE /api/shop-pulse/cart-alarm/carts",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/shop-pulse/cart-alarm/secret": {
+    "post": {
+      "tags": [
+        "shop-pulse"
+      ],
+      "summary": "POST /api/shop-pulse/cart-alarm/secret",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/shop-pulse/cart-alarm/settings": {
+    "put": {
+      "tags": [
+        "shop-pulse"
+      ],
+      "summary": "PUT /api/shop-pulse/cart-alarm/settings",
       "responses": {
         "200": {
           "description": "OK",
