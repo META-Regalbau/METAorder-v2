@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ShopPulseCartTab } from "@/components/shopPulse/ShopPulseCartTab";
+import { ShopPulseGscSettings, ShopPulseMetaSuggestion } from "@/components/shopPulse/ShopPulseGsc";
 import { ShopPulseActionsTab } from "@/components/shopPulse/ShopPulseActionsTab";
 import { ShopPulseWeeklyTab } from "@/components/shopPulse/ShopPulseWeeklyTab";
 import { useToast } from "@/hooks/use-toast";
@@ -144,6 +145,8 @@ export default function ShopPulsePage() {
   const ga4Problem = Object.values(data?.state.detectors ?? {}).find((d) => d.skipped === "ga4")?.ga4Problem;
   // Google Ads nicht eingerichtet (Stufe 2, S2-4)
   const adsProblem = Object.values(data?.state.detectors ?? {}).find((d) => d.skipped === "ads")?.adsProblem;
+  // Search Console nicht eingerichtet (Stufe 2, S2-5)
+  const gscProblem = Object.values(data?.state.detectors ?? {}).find((d) => d.skipped === "gsc")?.gscProblem;
   const muted = (s: ShopPulseSignal) => !!s.mutedUntil && Date.parse(s.mutedUntil) > Date.now();
   const webhookValid = webhook.trim() !== "" && isAllowedTeamsWebhookUrl(webhook.trim());
   const busy = settingsMutation.isPending;
@@ -183,6 +186,7 @@ export default function ShopPulsePage() {
             {t("shopPulse.signals.aiRejected", { at: fmt.dateTime(aiNoteOf(s)!.at), reason: t(`shopPulse.signals.aiRejections.${aiNoteOf(s)!.rejected}`) })}
           </div>
         ) : null}
+        {s.code === "gscLowCtr" && s.status === "open" ? <ShopPulseMetaSuggestion signalId={s.id} /> : null}
         <div className="mt-1 flex flex-wrap gap-x-4 text-xs text-muted-foreground">
           <span>{t(`shopPulse.source.${s.source}`)}</span>
           {lossLine(s) ? <span>{lossLine(s)}</span> : null}
@@ -468,6 +472,8 @@ export default function ShopPulsePage() {
                               ? t("shopPulse.detectors.skippedGa4")
                               : d.skipped === "ads"
                               ? t("shopPulse.detectors.skippedAds")
+                              : d.skipped === "gsc"
+                              ? t("shopPulse.detectors.skippedGsc")
                               : d.skipped
                               ? t(d.skipped === "busy" ? "shopPulse.detectors.skippedBusy" : "shopPulse.detectors.skipped")
                               : d.ok
@@ -494,7 +500,16 @@ export default function ShopPulsePage() {
                     <p className="text-xs text-muted-foreground mt-1">{t("shopPulse.adsSetup.hint")}</p>
                   </div>
                 ) : null}
+                {gscProblem ? (
+                  <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-950/40" role="note" data-testid="shop-pulse-gsc-setup">
+                    <p className="font-medium">{t("shopPulse.gscSetup.title")}</p>
+                    <p>{t(`shopPulse.gscSetup.problems.${gscProblem}`)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{t("shopPulse.gscSetup.hint")}</p>
+                  </div>
+                ) : null}
               </Card>
+
+              <ShopPulseGscSettings />
 
               <Card className="p-4 space-y-3" data-testid="shop-pulse-buyability">
                 <h2 className="font-semibold flex items-center gap-2">

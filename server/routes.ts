@@ -24,6 +24,7 @@ import { registerShopWatchRoutes } from "./routes/shopWatchRoutes";
 import { registerShopPulseRoutes } from "./routes/shopPulseRoutes";
 import { registerShopPulseWeeklyRoutes } from "./routes/shopPulseWeeklyRoutes";
 import { registerShopPulseCartRoutes } from "./routes/shopPulseCartRoutes";
+import { registerShopPulseGscRoutes } from "./routes/shopPulseGscRoutes";
 import { registerOrderRoutes } from "./routes/orderRoutes";
 import { registerMonduRoutes } from "./routes/monduRoutes";
 import { registerCrossSellingRoutes } from "./routes/crossSellingRoutes";
@@ -96,6 +97,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerShopPulseWeeklyRoutes(app);
   // Warenkorb-Alarm: Meldungen des Shopware-Plugins (öffentlich, signiert) und Einstellungen
   registerShopPulseCartRoutes(app);
+  // Search Console: Einstellungen und KI-Vorschlag für Meta-Texte (nur Administratoren)
+  registerShopPulseGscRoutes(app);
 
   // Mahnwesen und Buchhaltungs-Import
   registerInvoicingRoutes(app);

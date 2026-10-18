@@ -10,7 +10,7 @@
  * Wochenbericht (Tabelle shop_pulse_weekly_reports): montags statt des Tagesberichts, je Woche einer.
  */
 import { z } from "zod";
-import type { AdsSetupProblem, ShopPulseAiRejection, ShopPulseCode, ShopPulseLossBasis, ShopPulseSeverity } from "./shopPulse";
+import type { AdsSetupProblem, GscSetupProblem, ShopPulseAiRejection, ShopPulseCode, ShopPulseLossBasis, ShopPulseSeverity } from "./shopPulse";
 import type { ShopPulseWeeklyEffect } from "./shopPulseEffects";
 
 // ---------------------------------------------------------------------------------------------
@@ -114,7 +114,7 @@ export const SHOP_PULSE_OWNER_NAMES: Record<ShopPulseOwnerId, string> = {
 };
 
 /** Nächster Schritt je Art von Meldung (Texte shopPulse.weekly.nextSteps.<step>) */
-export const SHOP_PULSE_NEXT_STEPS = ["mirror", "orderGap", "storefront", "payment", "product", "delivery", "price", "demand", "traffic", "search", "notFound", "offer", "offerEmpty", "offerBacklog", "ads", "adsShopping", "adsMeasurement"] as const;
+export const SHOP_PULSE_NEXT_STEPS = ["mirror", "orderGap", "storefront", "payment", "product", "delivery", "price", "demand", "traffic", "search", "notFound", "offer", "offerEmpty", "offerBacklog", "ads", "adsShopping", "adsMeasurement", "gscDrop", "gscMeta", "gscContent", "gscIndex", "gscSitemap", "gscCanonical"] as const;
 export type ShopPulseNextStep = (typeof SHOP_PULSE_NEXT_STEPS)[number];
 
 /** Zuständiger und nächster Schritt je Fund-Art (fest, damit Seite, Teams und KI dasselbe sagen) */
@@ -171,6 +171,13 @@ export const SHOP_PULSE_RESPONSIBILITY: Record<ShopPulseCode, { owner: ShopPulse
   adsSearchTermsWaste: { owner: "oliver", step: "ads" },
   adsMeasurementDrop: { owner: "oliver", step: "adsMeasurement" },
   adsBudgetLimited: { owner: "oliver", step: "ads" },
+  // Search Console (S2-5)
+  gscClickDrop: { owner: "oliver", step: "gscDrop" },
+  gscLowCtr: { owner: "oliver", step: "gscMeta" },
+  gscNearPageOne: { owner: "oliver", step: "gscContent" },
+  gscNotIndexed: { owner: "agency", step: "gscIndex" },
+  gscSitemapIssues: { owner: "agency", step: "gscSitemap" },
+  gscCannibalization: { owner: "oliver", step: "gscCanonical" },
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -323,7 +330,29 @@ export type ShopPulseWeeklyReportData = {
   effects?: ShopPulseWeeklyEffect[] | null;
   /** Google Ads der Woche (S2-4); fehlt in älteren Berichten */
   ads?: ShopPulseWeeklyAds;
+  /** Search Console (S2-5); fehlt in älteren Berichten */
+  gsc?: ShopPulseWeeklyGsc;
 };
+
+/** Search Console im Wochenbericht: Google-Klicks der letzten 7 Tage mit Daten (Verzögerung 3 Tage) und Listen */
+export type ShopPulseWeeklyGsc =
+  | {
+      configured: true;
+      /** Zeitraum der Zahlen (endet 3 Tage vor dem Bericht) */
+      from: string;
+      to: string;
+      /** null = nicht gelesen */
+      clicks: number | null;
+      impressions: number | null;
+      previousClicks: number | null;
+      /** Suchanfragen auf Position 5–15 mit viel Volumen (aus der offenen Meldung) */
+      nearPageOne: Array<{ query: string; impressions: number; clicks: number; position: number }>;
+      /** Suchanfragen, für die sich zwei eigene Seiten abwechseln */
+      cannibalization: Array<{ query: string; impressions: number; pages: string[] }>;
+      notIndexed: number;
+      openCount: number;
+    }
+  | { configured: false; problem: GscSetupProblem };
 
 /** Vorschlag zum Ausschließen eines Suchbegriffs (aus der Meldung „teure Suchbegriffe“, 28 Tage) */
 export type ShopPulseAdsSuggestion = { term: string; cost: number; clicks: number; negative: string };

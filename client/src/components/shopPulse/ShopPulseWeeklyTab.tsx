@@ -23,6 +23,7 @@ import {
   type ShopPulseWeeklyAds,
 } from "@shared/shopPulseWeekly";
 import { ShopPulseWeeklyEffectsCard } from "./ShopPulseEffects";
+import { ShopPulseWeeklyGscCard } from "./ShopPulseGsc";
 
 /**
  * Shop-Puls, Reiter „Wochenberichte“ (Stufe 2, S2-1): Archiv aller Wochenberichte. Je Bericht die Woche in
@@ -254,6 +255,7 @@ export function ShopPulseWeeklyTab({ initialWeek }: { initialWeek: string | null
           {report.data.offers ? <OffersCard offers={report.data.offers} /> : null}
           {report.data.b2b !== undefined ? <B2bCard b2b={report.data.b2b} /> : null}
           {report.data.ads ? <AdsCard ads={report.data.ads} /> : null}
+          {report.data.gsc ? <ShopPulseWeeklyGscCard gsc={report.data.gsc} /> : null}
 
           <Card className="p-4 space-y-2" data-testid="shop-pulse-weekly-done">
             <h4 className="font-medium">{t("shopPulse.weeklyPage.doneTitle", { count: report.data.done.length })}</h4>

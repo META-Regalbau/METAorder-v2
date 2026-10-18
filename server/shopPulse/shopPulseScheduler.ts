@@ -42,6 +42,9 @@
  * Stufe 2 (S2-4): Google Ads einmal am Tag (detectors/ads.ts), nur lesend; ohne Einrichtung setzt die
  * Prüfung aus wie GA4 (skipped "ads").
  *
+ * Stufe 2 (S2-5): Search Console einmal am Tag ab 9 Uhr (detectors/gsc.ts), nur lesend; ohne Einrichtung setzt
+ * sie aus (skipped "gsc"). Die URL-Prüfung fragt die Storefront-Adresse unter der Sperre des Shop-Wächters ab.
+ *
  * Stufe 2 (S2-6): Einmal am Tag ab 5 Uhr rechnet effectsRun.ts die Wirkung der Maßnahmen neu (nicht, wenn
  * der Bestellabgleich hängt); der Wochenbericht nennt die gesicherten Wirkungen.
  *
@@ -102,6 +105,9 @@ import { buildWeeklyReport, shopPulseWeeklyDeps, type ShopPulseWeeklyDeps } from
 import { syncActionLog } from "./actionSync";
 import { isEffectsDue, refreshEffects, shopPulseEffectsDeps } from "./effectsRun";
 import { adsAccess, AdsNotConfiguredError } from "./adsClient";
+import { gscAccess, GscNotConfiguredError } from "./gscClient";
+import { GSC_INDEX_STATE_KEY, gscCatalogPaths, type GscIndexState, type GscSources } from "./detectors/gsc";
+import { listActions } from "./actionLogRepository";
 import type { AdsSources } from "./detectors/ads";
 import { avgDb1PerOrder } from "./weeklyReport";
 import { loadHerstellpreiseForNumbers } from "./weeklyReportRun";
@@ -141,6 +147,8 @@ export type ShopPulseDeps = {
   loadStorefront?: (tenantId: string | null) => StorefrontAccess;
   /** GA4-Property des Mandanten; fehlt sie, gilt GA4 als nicht eingerichtet */
   loadGa4?: (tenantId: string | null) => Ga4Access;
+  /** Search Console (S2-5); fehlt sie, gilt sie als nicht eingerichtet */
+  loadGsc?: (tenantId: string | null, storefront: StorefrontAccess) => GscSources;
   /** Google Ads (S2-4); fehlt es, gilt Ads als nicht eingerichtet */
   loadAds?: (tenantId: string | null) => AdsSources;
   /** B2B-Angebotsanfragen (S2-2); fehlt sie, scheitert die Angebotsanfragen-Wache */
@@ -250,6 +258,7 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
     const storefront: StorefrontAccess = deps.loadStorefront?.(tenantId) ?? { withShop: () => Promise.reject(new Error("Storefront nicht verfügbar")) };
     const ga4: Ga4Access = deps.loadGa4?.(tenantId) ?? { property: () => Promise.reject(new Ga4NotConfiguredError("disabled")) };
     const ads: AdsSources = deps.loadAds?.(tenantId) ?? { account: () => Promise.reject(new AdsNotConfiguredError("disabled")), avgDb1PerOrder: async () => null };
+    const gsc: GscSources = deps.loadGsc?.(tenantId, storefront) ?? noGsc;
     const noOffers = () => Promise.reject(new Error("Angebotsanfragen nicht verfügbar"));
     const b2b: OfferWatchSources = deps.loadOfferWatch?.(tenantId, now) ?? { requests: noOffers, salesReps: noOffers, defaultAssignee: noOffers, channelNames: noOffers };
 
@@ -276,7 +285,7 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
         continue;
       }
       try {
-        const found = await d.run({ storage: deps.storage, tenantId, now, orders, buyability, storefront, ga4, b2b, ads, lastRunAt: prev?.ok ? prev.at : null, firstRun: !prev });
+        const found = await d.run({ storage: deps.storage, tenantId, now, orders, buyability, storefront, ga4, b2b, ads, gsc, lastRunAt: prev?.ok ? prev.at : null, firstRun: !prev });
         detections.push(...found);
         detectorState[d.id] = { at: now.toISOString(), ok: true, findings: found.length };
         ran.add(d.id);
@@ -286,6 +295,12 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
           // Shop-Wächter fragt den Shop gerade ab: aussetzen, im nächsten Takt wieder
           failedSources.add(d.source);
           detectorState[d.id] = { at: now.toISOString(), ok: true, skipped: "busy", findings: 0 };
+          continue;
+        }
+        if (err instanceof GscNotConfiguredError) {
+          // Search Console nicht eingerichtet: aussetzen, offene Meldungen bleiben
+          failedSources.add(d.source);
+          detectorState[d.id] = { at: now.toISOString(), ok: true, skipped: "gsc", gscProblem: err.reason, findings: 0 };
           continue;
         }
         if (err instanceof AdsNotConfiguredError) {
@@ -535,6 +550,7 @@ export function shopPulseDeps(storage: IStorage): ShopPulseDeps {
     loadStorefront: (tenantId) => storefrontAccess(storage, tenantId),
     loadGa4: (tenantId) => ga4Access(storage, tenantId),
     loadAds: (tenantId) => adsSources(storage, tenantId),
+    loadGsc: (tenantId, storefront) => gscSources(storage, tenantId, storefront),
     loadOfferWatch: (tenantId, now) => offerWatchSources(storage, tenantId, now),
     ai: shopPulseAiDeps(storage),
     weekly: { ...shopPulseWeeklyDeps(storage), effects: (tenantId, now) => refreshEffects(effectsDeps, tenantId, now) },
@@ -557,6 +573,31 @@ export function adsSources(storage: IStorage, tenantId: string | null): AdsSourc
       const hk = await loadHerstellpreiseForNumbers(storage, tenantId, numbers);
       return avgDb1PerOrder(orders, from, to, (pn) => hk.get(pn) ?? null);
     },
+  };
+}
+
+const noGsc: GscSources = {
+  property: () => Promise.reject(new GscNotConfiguredError("disabled")),
+  actions: async () => [],
+  catalogPaths: () => [],
+  shopBaseUrl: () => Promise.reject(new Error("Storefront nicht verfügbar")),
+  indexState: async () => ({}),
+  saveIndexState: async () => undefined,
+};
+
+/** Search Console des Mandanten, eigene Seiten aus dem Wächter-Katalog, Storefront-Adresse für die URL-Prüfung */
+export function gscSources(storage: IStorage, tenantId: string | null, storefront: StorefrontAccess): GscSources {
+  const access = gscAccess(storage, tenantId);
+  return {
+    property: () => access.property(),
+    actions: (since) => listActions(tenantId, { from: since, limit: 2000 }),
+    catalogPaths: gscCatalogPaths,
+    shopBaseUrl: () => storefront.withShop(async (shop) => shop.storefront.replace(/\/+$/, "")),
+    indexState: async () => {
+      const raw = await storage.getSetting(GSC_INDEX_STATE_KEY, tenantId);
+      return raw && typeof raw === "object" ? (raw as GscIndexState) : {};
+    },
+    saveIndexState: (state) => storage.saveSetting(GSC_INDEX_STATE_KEY, state, tenantId).then(() => undefined),
   };
 }
 

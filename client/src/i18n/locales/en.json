@@ -6679,7 +6679,15 @@
       "invalid_cart_alarm_settings": "Invalid cart alert settings",
       "failed_to_save_cart_alarm_settings": "Failed to save the cart alert settings",
       "failed_to_create_cart_alarm_secret": "Failed to create the key",
-      "failed_to_delete_stored_carts": "Failed to delete the stored carts"
+      "failed_to_delete_stored_carts": "Failed to delete the stored carts",
+      "failed_to_load_search_console_settings": "Failed to load the Search Console settings",
+      "invalid_search_console_settings": "Invalid Search Console settings",
+      "invalid_service_account_json": "Invalid service account JSON",
+      "failed_to_save_search_console_settings": "Failed to save the Search Console settings",
+      "invalid_meta_suggestion_request": "Invalid meta suggestion request",
+      "search_console_not_configured": "Search Console is not set up",
+      "shop_is_busy_try_again_shortly": "The shop is being checked right now, please try again shortly",
+      "failed_to_create_meta_suggestion": "Failed to create the meta suggestion"
     }
   },
   "roomPlanner": {
@@ -8066,7 +8074,8 @@
       "buyability": "Buyability",
       "ga4": "GA4",
       "b2b": "B2B",
-      "ads": "Google Ads"
+      "ads": "Google Ads",
+      "gsc": "Search Console"
     },
     "codes": {
       "mirrorStale": {
@@ -8272,6 +8281,30 @@
       "adsBudgetLimited": {
         "title": "Google Ads: more budget for “{{campaign}}” probably pays off",
         "message": "The campaign “{{campaign}}” loses {{lost}} of impressions due to budget. In 28 days it cost {{cost}} with {{conversions}} conversions, an estimated {{estDb1}} contribution margin (conversions × average margin per order). Suggestion: discuss a budget increase with Smarketer."
+      },
+      "gscClickDrop": {
+        "title": "Google clicks on {{page}} dropped",
+        "message": "{{page}} got {{current}} clicks from Google search from {{from}} to {{to}}; usual is about {{expected}} per week (weekly average of the 4 weeks before). Suspects from the action log: {{suspects}}. Check: page reachable, text or title changed, ranking lost."
+      },
+      "gscLowCtr": {
+        "title": "{{page}}: many impressions, few clicks",
+        "message": "{{page}} had {{impressions}} impressions at position {{position}} in the 28 days to {{to}}, but only {{ctr}} click-through rate; usual for this position is {{expected}} (own pages). About {{lostClicks}} more clicks would be possible. Suggestion: generate a new meta title and description and approve after review."
+      },
+      "gscNearPageOne": {
+        "title": "{{count}} search queries just short of page 1",
+        "message": "{{count}} high-volume search queries are at position 5–15 in the 28 days to {{to}}, e.g. {{examples}}. Better content (landing page, glossary, FAQ, only documented META content) often gets them onto page 1. List in the weekly report."
+      },
+      "gscNotIndexed": {
+        "title": "{{page}} is not indexed by Google",
+        "message": "Search Console URL inspection reports for {{page}} since the first check on {{since}}: {{coverage}}. A new page should be indexed after 14 days. Pass to the agency (robots, canonical, sitemap, internal links)."
+      },
+      "gscSitemapIssues": {
+        "title": "Sitemap with errors or warnings",
+        "message": "The submitted sitemap {{sitemap}} has {{errors}} errors and {{warnings}} warnings according to Search Console. Pass to the agency."
+      },
+      "gscCannibalization": {
+        "title": "{{count}} search queries: two own pages alternate",
+        "message": "For {{count}} search queries Google shows at least two own pages alternately in the 28 days to {{to}}, e.g. {{examples}}. Suggestion: set one page as the main page (canonical) or merge content. List in the weekly report."
       }
     },
     "detectors": {
@@ -8297,12 +8330,15 @@
         "ga4SearchTerms": "GA4 search terms without results",
         "ga4Measurement": "GA4 tracking (purchases per MO order)",
         "offerWatch": "Quote requests (B2Bsellers, hourly)",
-        "googleAds": "Google Ads (daily from 7 am, read-only)"
+        "googleAds": "Google Ads (daily from 7 am, read-only)",
+        "gscSearch": "Search Console: clicks, CTR, search queries (daily from 9 am)",
+        "gscIndex": "Search Console: sitemaps and indexing of own pages (daily from 9 am)"
       },
       "skipped": "paused while the order sync is stuck",
       "skippedBusy": "paused, the shop watch is querying the shop right now",
       "skippedGa4": "paused, GA4 not set up",
-      "skippedAds": "paused: Google Ads not set up"
+      "skippedAds": "paused: Google Ads not set up",
+      "skippedGsc": "paused: Search Console not set up"
     },
     "notify": {
       "since": "Since",
@@ -8428,7 +8464,13 @@
         "offerBacklog": "Update the status of the old requests in B2Bsellers.",
         "ads": "Review and, if needed, pass to Smarketer as a suggestion (METAorder changes no campaigns).",
         "adsShopping": "Check the items in the shop (Jana/agency) or ask Smarketer to exclude them from Shopping.",
-        "adsMeasurement": "Check conversion tracking with Smarketer and the agency."
+        "adsMeasurement": "Check conversion tracking with Smarketer and the agency.",
+        "gscDrop": "Check the page and recent changes; pass technical errors to the agency.",
+        "gscMeta": "Generate a meta suggestion, review and approve it (Shopware or agency).",
+        "gscContent": "Expand content for these queries, only with documented META content.",
+        "gscIndex": "Pass to the agency: check robots, canonical, sitemap, internal links.",
+        "gscSitemap": "Pass sitemap errors to the agency.",
+        "gscCanonical": "Set the main page (canonical) or merge content."
       },
       "scope": {
         "shop": "whole shop",
@@ -8464,7 +8506,15 @@
       "adsNotRead": "Cost of the week not read.",
       "adsOpen": "Open Ads findings: {{count}}",
       "adsSuggestions": "Suggested negative keywords (28 days without an order): {{terms}}",
-      "adsHint": "Suggestions are for your review, not sent to Smarketer directly. Conversions are counted by Google Ads itself."
+      "adsHint": "Suggestions are for your review, not sent to Smarketer directly. Conversions are counted by Google Ads itself.",
+      "gscTitle": "Search Console",
+      "gscNone": "Search Console not set up: {{problem}}",
+      "gscLine": "Google clicks {{from}} to {{to}}: {{clicks}} ({{change}} vs. the 7 days before), {{impressions}} impressions",
+      "gscNotRead": "Google clicks not read.",
+      "gscNear": "Almost on page 1: {{queries}}",
+      "gscCannibal": "Two pages for one search: {{queries}}",
+      "gscNotIndexed": "Own pages not indexed: {{count}}",
+      "gscHint": "Search Console data arrives 2–3 days late; the week therefore ends 3 days before the report."
     },
     "weeklyPage": {
       "title": "Weekly reports",
@@ -8577,7 +8627,16 @@
       "adsOpen": "Open Ads findings: {{count}} (under “Findings”)",
       "adsSuggestions": "Suggested negative keywords (exact, 28 days without an order):",
       "adsSuggestionCost": "{{cost}} · {{clicks}} clicks",
-      "adsHint": "Suggestions for your review only; METAorder changes no campaigns and does not write to Smarketer."
+      "adsHint": "Suggestions for your review only; METAorder changes no campaigns and does not write to Smarketer.",
+      "gscTitle": "Search Console",
+      "gscNone": "Search Console not set up: {{problem}}",
+      "gscLine": "Google clicks from {{from}} to {{to}}: {{clicks}} (7 days before: {{previous}}), {{impressions}} impressions.",
+      "gscNotRead": "Google clicks could not be read.",
+      "gscNear": "Almost on page 1 (position 5–15, 28 days):",
+      "gscNearItem": "position {{position}}, {{impressions}} impressions",
+      "gscCannibal": "Two own pages for one search:",
+      "gscNotIndexed": "Own pages not indexed: {{count}} (under “Findings”)",
+      "gscHint": "Search Console delivers data 2–3 days late. Expand content only with documented META content."
     },
     "actions": {
       "title": "Action log",
@@ -8805,6 +8864,42 @@
         "noCustomer": "No customer ID entered.",
         "noCredentials": "Developer token, OAuth client or refresh token missing."
       }
+    },
+    "gscSetup": {
+      "title": "Search Console not set up",
+      "hint": "Set up below under “Search Console”: the shop’s property and a service account added in Search Console as a restricted user. Until then the Search Console checks find nothing. METAorder only reads.",
+      "problems": {
+        "disabled": "Search Console is switched off.",
+        "noProperty": "No property entered.",
+        "invalidProperty": "The property must be “sc-domain:…” or an address with https://.",
+        "noServiceAccount": "No service account stored.",
+        "invalidServiceAccount": "The service account JSON is invalid (client_email or private_key missing)."
+      }
+    },
+    "gsc": {
+      "title": "Search Console",
+      "hint": "Reads Google clicks, positions, sitemaps and the indexing of own pages (read-only). Requires a service account added to the shop’s property as a restricted user.",
+      "enable": "Use Search Console",
+      "property": "Property",
+      "propertyHint": "“sc-domain:meta-online.com” (domain property) or a URL prefix such as “https://shop.meta-online.com/”.",
+      "serviceAccount": "Service account JSON (stored encrypted)",
+      "serviceAccountSet": "stored: {{email}} – paste new JSON to replace",
+      "serviceAccountNone": "Paste the service account JSON key",
+      "save": "Save",
+      "saved": "Search Console saved",
+      "saveFailed": "Search Console could not be saved",
+      "removeServiceAccount": "Remove service account",
+      "ready": "Set up.",
+      "suggest": "Generate meta suggestion",
+      "suggestFailed": "Suggestion could not be generated",
+      "current": "Now: “{{title}}” – “{{description}}”",
+      "fields": {
+        "metaTitle": "Meta title",
+        "metaDescription": "Meta description"
+      },
+      "rejected": "No usable suggestion (check: {{reason}}).",
+      "queries": "Search queries: {{queries}}",
+      "suggestHint": "Only a suggestion (AI, checked like the product meta texts). METAorder writes nothing to the shop."
     }
   },
   "mondu": {

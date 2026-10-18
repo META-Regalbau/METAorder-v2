@@ -22,6 +22,7 @@ import {
   type ShopPulseWeeklyNumbers,
   type ShopPulseWeeklyReport,
   type ShopPulseWeeklyAds,
+  type ShopPulseWeeklyGsc,
 } from "@shared/shopPulseWeekly";
 import type { ShopPulseWeeklyEffect } from "@shared/shopPulseEffects";
 
@@ -335,6 +336,28 @@ export function adsWeeklyLines(a: ShopPulseWeeklyAds): string[] {
   return lines;
 }
 
+/** Zeilen des Search-Console-Abschnitts (deutsch, Teams und Glocke) */
+export function gscWeeklyLines(g: ShopPulseWeeklyGsc): string[] {
+  if (!g.configured) return [t("weekly.gscNone", { problem: t(`gscSetup.problems.${g.problem}`) })];
+  const lines: string[] = [];
+  if (g.clicks != null) {
+    const change = changePercent(g.clicks, g.previousClicks);
+    lines.push(
+      t("weekly.gscLine", {
+        from: dayDate(g.from),
+        to: dayDate(g.to),
+        clicks: INTEGER.format(g.clicks),
+        impressions: INTEGER.format(g.impressions ?? 0),
+        change: change == null ? "–" : `${change > 0 ? "+" : ""}${change} %`,
+      }),
+    );
+  } else lines.push(t("weekly.gscNotRead"));
+  if (g.nearPageOne.length) lines.push(t("weekly.gscNear", { queries: g.nearPageOne.slice(0, 6).map((q) => `„${q.query}“ (${DECIMAL1.format(q.position)})`).join(", ") }));
+  if (g.cannibalization.length) lines.push(t("weekly.gscCannibal", { queries: g.cannibalization.slice(0, 4).map((q) => `„${q.query}“: ${q.pages.join(" / ")}`).join("; ") }));
+  if (g.notIndexed) lines.push(t("weekly.gscNotIndexed", { count: g.notIndexed }));
+  return lines;
+}
+
 export function buildShopPulseWeeklyCard(report: ShopPulseWeeklyReport, baseUrl: string | null): Record<string, unknown> {
   const d = report.data;
   const text = (s: string, extra: Record<string, unknown> = {}) => ({ type: "TextBlock", text: s, wrap: true, ...extra });
@@ -396,6 +419,12 @@ export function buildShopPulseWeeklyCard(report: ShopPulseWeeklyReport, baseUrl:
     body.push(heading(t("weekly.adsTitle")));
     adsWeeklyLines(d.ads).forEach((line, i) => body.push(text(teamsPlain(line, 900), { spacing: i ? "None" : "Small" })));
     body.push(text(t("weekly.adsHint"), { isSubtle: true, size: "Small", spacing: "Small" }));
+  }
+
+  if (d.gsc) {
+    body.push(heading(t("weekly.gscTitle")));
+    gscWeeklyLines(d.gsc).forEach((line, i) => body.push(text(teamsPlain(line, 900), { spacing: i ? "None" : "Small" })));
+    body.push(text(t("weekly.gscHint"), { isSubtle: true, size: "Small", spacing: "Small" }));
   }
 
   if (d.effects !== undefined) {
