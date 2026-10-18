@@ -8050,7 +8050,8 @@
       "system": "Sistema",
       "revenue": "Ventas",
       "buyability": "Disponibilidad de compra",
-      "ga4": "GA4"
+      "ga4": "GA4",
+      "b2b": "B2B"
     },
     "codes": {
       "mirrorStale": {
@@ -8220,6 +8221,18 @@
       "ga4MeasurementDrop": {
         "title": "GA4 apenas mide compras ({{current}} en lugar de {{expected}})",
         "message": "Del {{from}} al {{to}}: GA4 vio compras para el {{current}} de los {{orders}} pedidos MO; en las 4 semanas anteriores, para el {{expected}}. Probablemente falla la medición de compras (página de confirmación, gestor de etiquetas, retorno del proveedor de pagos)."
+      },
+      "offerUnanswered": {
+        "title": "Solicitud de oferta {{offerNumber}} de {{customer}} sin respuesta",
+        "message": "La solicitud de oferta {{offerNumber}} de {{customer}} (n.º de cliente {{customerNumber}}, {{channel}}) por {{net}} netos lleva {{businessDays}} día(s) laborable(s) sin respuesta (recibida el {{since}}). Responsable: {{assignee}}."
+      },
+      "offerEmpty": {
+        "title": "Solicitud de oferta {{offerNumber}} de {{customer}} sin posiciones",
+        "message": "La solicitud de oferta {{offerNumber}} de {{customer}} (n.º de cliente {{customerNumber}}, {{channel}}) del {{since}} no tiene posiciones. Es un error de datos: revisa la cuenta del cliente (marca de distribuidor, canal principal) y pregunta al cliente. Responsable: {{assignee}}."
+      },
+      "offerBacklog": {
+        "title": "{{count}} solicitudes de oferta antiguas siguen en «Solicitado por el cliente»",
+        "message": "{{count}} solicitudes de oferta por un total de {{net}} netos tienen más de 4 semanas y siguen en «Solicitado por el cliente», la más antigua ({{oldestNumber}}) desde el {{oldestSince}}. Normalmente se respondieron por otra vía: actualiza el estado en B2Bsellers (Abierta, Rechazada o Archivada)."
       }
     },
     "detectors": {
@@ -8243,7 +8256,8 @@
         "ga4Channels": "GA4 fuentes de visitas",
         "ga4LandingPages": "GA4 páginas de entrada y «página no encontrada»",
         "ga4SearchTerms": "GA4 términos de búsqueda sin resultados",
-        "ga4Measurement": "GA4 medición (compras por pedido MO)"
+        "ga4Measurement": "GA4 medición (compras por pedido MO)",
+        "offerWatch": "Solicitudes de oferta (B2Bsellers, cada hora)"
       },
       "skipped": "en pausa mientras la sincronización de pedidos esté parada",
       "skippedBusy": "en pausa, el vigilante de la tienda está consultando la tienda",
@@ -8275,7 +8289,10 @@
       "numbersNoYear": "Año pasado: sin datos",
       "dailyNone": "No hay avisos abiertos.",
       "aiNote": "Texto redactado por la IA, cifras comprobadas con las mediciones.",
-      "lossEstimateValue": "unos {{amount}} por hora (estimación: {{basis}})"
+      "lossEstimateValue": "unos {{amount}} por hora (estimación: {{basis}})",
+      "offersLine": "Solicitudes de oferta: {{count}} sin respuesta ({{net}} netos), {{critical}} de ellas críticas",
+      "offersEmpty": "Solicitudes de oferta sin posiciones: {{count}} (error de datos)",
+      "offersBacklog": "Con más de 4 semanas, estado aún «Solicitado por el cliente»: {{count}} ({{net}} netos)"
     },
     "buyability": {
       "title": "Disponibilidad de compra: estado de referencia",
@@ -8363,14 +8380,29 @@
         "demand": "Contrastar el descenso con clientes y condiciones.",
         "traffic": "Comprobar canales, campañas y medición en GA4.",
         "search": "Revisar los términos de búsqueda y pasar artículos o palabras de búsqueda que falten a Jana (PIM).",
-        "notFound": "Pasar enlaces rotos o redirecciones que faltan a la agencia."
+        "notFound": "Pasar enlaces rotos o redirecciones que faltan a la agencia.",
+        "offer": "Responder a la solicitud o pasarla al responsable (comercial según la asignación, si no el responsable por defecto).",
+        "offerEmpty": "Revisar la cuenta del cliente (marca de distribuidor, canal principal) y preguntar al cliente por las posiciones deseadas.",
+        "offerBacklog": "Actualizar el estado de las solicitudes antiguas en B2Bsellers."
       },
       "scope": {
         "shop": "toda la tienda",
         "products": "{{count}} artículo(s)",
         "pages": "Páginas: {{values}}",
         "channel": "Canal: {{values}}"
-      }
+      },
+      "offersTitle": "Solicitudes de oferta",
+      "offersNone": "No hay solicitudes de oferta sin respuesta.",
+      "offerItem": "{{number}} · {{customer}} · {{net}} netos · {{days}} día(s) laborable(s) · Responsable: {{assignee}}",
+      "offerEmptyItem": "{{number}} · {{customer}} · vacía desde el {{since}} · Responsable: {{assignee}}",
+      "b2bTitle": "Cuota B2B (clientes empresariales)",
+      "b2bWeek": "Semana: {{b2b}} de {{orders}} pedidos ({{ordersPercent}}) · {{b2bNet}} de {{net}} netos ({{netPercent}})",
+      "b2bQuarter": "13 semanas ({{from}} a {{to}}): {{b2b}} de {{orders}} pedidos ({{ordersPercent}}) · {{b2bNet}} de {{net}} netos ({{netPercent}})",
+      "b2bValues": "Valores de pedido de clientes empresariales (13 semanas, netos): mediana {{p50}} · 75 % hasta {{p75}} · 90 % hasta {{p90}}",
+      "b2bAtLeast": "desde {{threshold}} netos: {{orders}} pedido(s) ({{percent}} de los pedidos de empresas), unos {{perWeek}} por semana",
+      "b2bBasis": "Reconocidos por la empresa en la dirección de facturación: {{company}}, solo por la marca B2B (empresa de B2Bsellers): {{flagOnly}}",
+      "b2bNone": "Sin cuota B2B: la sincronización de pedidos está detenida.",
+      "b2bHint": "Base para el umbral de la alerta de carrito B2B (propuesta 1.000 € netos)."
     },
     "weeklyPage": {
       "title": "Informes semanales",
@@ -8421,7 +8453,53 @@
       "copy": "Copiar lista",
       "copied": "Lista copiada",
       "copyFailed": "No se puede copiar",
-      "copyHint": "La lista copiada está en alemán y pensada para reenviar (Teams, correo)."
+      "copyHint": "La lista copiada está en alemán y pensada para reenviar (Teams, correo).",
+      "offersTitle": "Solicitudes de oferta",
+      "offersHint": "Solicitudes de oferta B2B de la tienda y el portal (estado «Solicitado por el cliente») sin respuesta desde al menos un día laborable. Críticas a partir de 3 días laborables o de 2.500 € netos. Responsable es el comercial según la asignación; si no, el responsable por defecto de la entrada de correo.",
+      "offersNone": "No hay solicitudes de oferta sin respuesta.",
+      "offersSummary": "{{count}} sin respuesta por un total de {{net}} netos, {{critical}} de ellas críticas.",
+      "offersEmpty": "{{count}} solicitud(es) sin posiciones (error de datos).",
+      "offersBacklog": "{{count}} solicitud(es) con más de 4 semanas siguen en «Solicitado por el cliente» ({{net}} netos).",
+      "offersColumns": {
+        "number": "Solicitud",
+        "customer": "Cliente",
+        "net": "Valor (neto)",
+        "age": "Antigüedad",
+        "assignee": "Responsable",
+        "channel": "Canal"
+      },
+      "offersAge": "{{count}} día(s) laborable(s)",
+      "offersEmptyBadge": "vacía",
+      "assigneeSources": {
+        "rep": "Comercial",
+        "default": "Responsable por defecto",
+        "none": "nadie asignado"
+      },
+      "b2bTitle": "Cuota B2B (clientes empresariales)",
+      "b2bHint": "Cliente empresarial = empresa en la dirección de facturación o número de cliente de una empresa de B2Bsellers. Solo pedidos de la tienda (MO), sin los cancelados, importes netos. Base para el umbral de la alerta de carrito B2B (propuesta 1.000 € netos).",
+      "b2bNone": "Sin cuota B2B: la sincronización de pedidos está detenida.",
+      "b2bColumns": {
+        "period": "Periodo",
+        "orders": "Pedidos",
+        "b2bOrders": "de ellos empresas",
+        "net": "Facturación neta",
+        "b2bNet": "de ella empresas"
+      },
+      "b2bRows": {
+        "week": "Semana",
+        "quarter": "13 semanas"
+      },
+      "bucketsTitle": "Valores de pedido (13 semanas, netos)",
+      "bucketColumns": {
+        "range": "Valor del pedido",
+        "b2b": "Clientes empresariales",
+        "private": "Clientes particulares"
+      },
+      "bucketRange": "{{from}} a menos de {{to}}",
+      "bucketOpen": "desde {{from}}",
+      "quantiles": "Clientes empresariales: mediana {{p50}}, el 75 % de los pedidos hasta {{p75}}, el 90 % hasta {{p90}}.",
+      "atLeast": "desde {{threshold}}: {{orders}} pedido(s) ({{percent}}), unos {{perWeek}} por semana",
+      "basis": "Reconocidos por la empresa: {{company}}, solo por la marca B2B: {{flagOnly}}."
     },
     "actions": {
       "title": "Registro de medidas",

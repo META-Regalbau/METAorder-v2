@@ -9,7 +9,7 @@
 import { isAllowedTeamsWebhookUrl } from "./emailIntake";
 
 /** Woher ein Fund kommt */
-export const SHOP_PULSE_SOURCES = ["system", "revenue", "buyability", "ga4"] as const;
+export const SHOP_PULSE_SOURCES = ["system", "revenue", "buyability", "ga4", "b2b"] as const;
 export type ShopPulseSource = (typeof SHOP_PULSE_SOURCES)[number];
 
 /** critical = sofort melden, warning = Tagesbericht */
@@ -63,6 +63,9 @@ export const SHOP_PULSE_CODES = [
   "ga4NotFoundUp",
   "ga4SearchNoHits",
   "ga4MeasurementDrop",
+  "offerUnanswered",
+  "offerEmpty",
+  "offerBacklog",
 ] as const;
 export type ShopPulseCode = (typeof SHOP_PULSE_CODES)[number];
 
@@ -71,6 +74,13 @@ export type ShopPulseCode = (typeof SHOP_PULSE_CODES)[number];
  * er danach, ist nichts „behoben“ – es gibt deshalb keine Entwarnung.
  */
 export const SHOP_PULSE_EVENT_CODES: readonly ShopPulseCode[] = ["priceJump"];
+
+/**
+ * Ohne Entwarnung, auch wenn die Meldung per Nachricht rausging: Angebotsanfragen verschwinden, wenn sie
+ * beantwortet sind oder älter als 4 Wochen werden (dann zählt sie die Sammelmeldung). Ein „Behoben“ wäre im
+ * zweiten Fall falsch; offene Anfragen stehen ohnehin im Tagesbericht.
+ */
+export const SHOP_PULSE_NO_RESOLVE_NOTICE_CODES: readonly ShopPulseCode[] = [...SHOP_PULSE_EVENT_CODES, "offerUnanswered", "offerEmpty", "offerBacklog"];
 
 /** Prüfungen in Lauf-Reihenfolge (server/shopPulse/detectors); die Seite zeigt sie so an */
 export const SHOP_PULSE_DETECTOR_IDS = [
@@ -88,6 +98,7 @@ export const SHOP_PULSE_DETECTOR_IDS = [
   "ga4LandingPages",
   "ga4SearchTerms",
   "ga4Measurement",
+  "offerWatch",
 ] as const;
 
 /**
@@ -111,6 +122,11 @@ export type ShopPulseDetection = {
   evidence?: Record<string, unknown>;
   /** geschätzter Umsatzverlust pro Stunde in Euro brutto, falls abschätzbar */
   lossPerHour?: number | null;
+  /**
+   * Schwere still berücksichtigen (keine Sofort-Meldung, steht im Tagesbericht), z. B. der Altbestand beim
+   * ersten Lauf einer neuen Prüfung, damit nach dem Deploy nicht Dutzende Nachrichten auf einmal kommen
+   */
+  quiet?: boolean;
 };
 
 /**
@@ -309,6 +325,9 @@ const PARAM_KINDS: Partial<Record<ShopPulseCode, Record<string, "money" | "date"
   ga4NotFoundUp: { date: "date", current: "number", expected: "number", share: "percent", expectedShare: "percent" },
   ga4SearchNoHits: { date: "date", count: "number", searches: "number" },
   ga4MeasurementDrop: { from: "date", to: "date", current: "percent", expected: "percent", orders: "number" },
+  offerUnanswered: { net: "money", since: "date", businessDays: "number" },
+  offerEmpty: { since: "date", businessDays: "number" },
+  offerBacklog: { count: "number", net: "money", oldestSince: "date" },
 };
 
 export type ShopPulseParamFormatters = {

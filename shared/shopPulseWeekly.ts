@@ -113,7 +113,7 @@ export const SHOP_PULSE_OWNER_NAMES: Record<ShopPulseOwnerId, string> = {
 };
 
 /** Nächster Schritt je Art von Meldung (Texte shopPulse.weekly.nextSteps.<step>) */
-export const SHOP_PULSE_NEXT_STEPS = ["mirror", "orderGap", "storefront", "payment", "product", "delivery", "price", "demand", "traffic", "search", "notFound"] as const;
+export const SHOP_PULSE_NEXT_STEPS = ["mirror", "orderGap", "storefront", "payment", "product", "delivery", "price", "demand", "traffic", "search", "notFound", "offer", "offerEmpty", "offerBacklog"] as const;
 export type ShopPulseNextStep = (typeof SHOP_PULSE_NEXT_STEPS)[number];
 
 /** Zuständiger und nächster Schritt je Fund-Art (fest, damit Seite, Teams und KI dasselbe sagen) */
@@ -160,6 +160,9 @@ export const SHOP_PULSE_RESPONSIBILITY: Record<ShopPulseCode, { owner: ShopPulse
   ga4NotFoundUp: { owner: "agency", step: "notFound" },
   ga4SearchNoHits: { owner: "marketing", step: "search" },
   ga4MeasurementDrop: { owner: "marketing", step: "traffic" },
+  offerUnanswered: { owner: "sales", step: "offer" },
+  offerEmpty: { owner: "sales", step: "offerEmpty" },
+  offerBacklog: { owner: "sales", step: "offerBacklog" },
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -220,6 +223,79 @@ export type ShopPulseOwnerList = {
 
 export type ShopPulseWeeklyDone = Pick<ShopPulseAction, "id" | "occurredAt" | "kind" | "title" | "scope" | "actor" | "source">;
 
+// ---------------------------------------------------------------------------------------------
+// Angebotsanfragen und B2B-Anteil (Stufe 2, S2-2)
+
+/** Wer eine Angebotsanfrage bearbeiten soll: Außendienst laut Zuordnung, sonst Standard-Bearbeiter, sonst niemand */
+export const SHOP_PULSE_ASSIGNEE_SOURCES = ["rep", "default", "none"] as const;
+export type ShopPulseAssigneeSource = (typeof SHOP_PULSE_ASSIGNEE_SOURCES)[number];
+
+/** Eine offene Angebotsanfrage im Bericht (aus der Meldung) */
+export type ShopPulseOfferItem = {
+  signalId: string;
+  offerNumber: string;
+  customer: string;
+  customerNumber: string;
+  /** Wert netto */
+  net: number;
+  businessDays: number;
+  /** Kalendertag (Berlin) des Eingangs */
+  since: string;
+  assignee: string;
+  assigneeSource: ShopPulseAssigneeSource;
+  channel: string;
+  severity: ShopPulseSeverity;
+  /** 0 Positionen (Datenfehler) */
+  empty: boolean;
+};
+
+/** Angebotsanfragen-Wache im Tages- und Wochenbericht: Stand der offenen Meldungen */
+export type ShopPulseOfferSummary = {
+  /** seit mindestens einem Werktag unbeantwortet (mit Positionen) */
+  unanswered: number;
+  critical: number;
+  /** Wert der unbeantworteten netto */
+  net: number;
+  /** leere Anfragen (0 Positionen, Datenfehler) */
+  empty: number;
+  /** älter als 4 Wochen, noch „Angefragt von Kunde“ (Sammelmeldung) */
+  backlog: number;
+  backlogNet: number;
+  /** größter Wert zuerst, höchstens 10 */
+  items: ShopPulseOfferItem[];
+};
+
+/** Anteil der Geschäftskunden in einem Zeitraum (MO-Bestellungen ohne stornierte, netto) */
+export type ShopPulseB2bPeriod = {
+  from: string;
+  to: string;
+  orders: number;
+  b2bOrders: number;
+  net: number;
+  b2bNet: number;
+  /** 0–100, eine Nachkommastelle; null ohne Bestellungen */
+  ordersPercent: number | null;
+  netPercent: number | null;
+};
+
+/** Bestellwert-Stufe (netto, von einschließlich bis ausschließlich; to null = offen) */
+export type ShopPulseValueBucket = { from: number; to: number | null; b2b: number; private: number };
+
+/** Messung B2B-Anteil im Wochenbericht: Grundlage der Schwelle des Warenkorb-Alarms (S2-3) */
+export type ShopPulseB2bShare = {
+  week: ShopPulseB2bPeriod;
+  /** 13 Wochen bis einschließlich der Berichtswoche (ein Quartal), damit die Verteilung trägt */
+  quarter: ShopPulseB2bPeriod;
+  /** Woran die Geschäftskunden im Quartal erkannt wurden: Firma in der Rechnungsadresse bzw. nur B2B-Kennzeichen */
+  basis: { company: number; flagOnly: number };
+  /** Verteilung der Bestellwerte im Quartal */
+  buckets: ShopPulseValueBucket[];
+  /** Bestellwerte der Geschäftskunden im Quartal (netto): Median, 75 % und 90 %; null ohne Bestellungen */
+  b2bQuantiles: { p50: number; p75: number; p90: number } | null;
+  /** Geschäftskunden-Bestellungen ab Schwelle im Quartal: Anzahl, Anteil, je Woche */
+  atLeast: Array<{ threshold: number; orders: number; percent: number | null; perWeek: number }>;
+};
+
 export type ShopPulseWeeklyReportData = {
   numbers: ShopPulseWeeklyNumbers | null;
   levers: ShopPulseLever[];
@@ -228,6 +304,10 @@ export type ShopPulseWeeklyReportData = {
   openCount: number;
   done: ShopPulseWeeklyDone[];
   openByOwner: ShopPulseOwnerList[];
+  /** Angebotsanfragen (S2-2); fehlt in älteren Berichten */
+  offers?: ShopPulseOfferSummary;
+  /** B2B-Anteil (S2-2); null = Bestellabgleich hängt bzw. nicht gelesen; fehlt in älteren Berichten */
+  b2b?: ShopPulseB2bShare | null;
 };
 
 export type ShopPulseWeeklyReport = {

@@ -8053,7 +8053,8 @@
       "system": "System",
       "revenue": "Revenue",
       "buyability": "Buyability",
-      "ga4": "GA4"
+      "ga4": "GA4",
+      "b2b": "B2B"
     },
     "codes": {
       "mirrorStale": {
@@ -8223,6 +8224,18 @@
       "ga4MeasurementDrop": {
         "title": "GA4 hardly tracks purchases any more ({{current}} instead of {{expected}})",
         "message": "{{from}} to {{to}}: GA4 saw purchases for {{current}} of the {{orders}} MO orders, in the 4 weeks before for {{expected}}. Purchase tracking is probably broken (order confirmation page, tag manager, return from the payment provider)."
+      },
+      "offerUnanswered": {
+        "title": "Quote request {{offerNumber}} from {{customer}} unanswered",
+        "message": "Quote request {{offerNumber}} from {{customer}} (customer no. {{customerNumber}}, {{channel}}) worth {{net}} net has been unanswered for {{businessDays}} business day(s) (received on {{since}}). Responsible: {{assignee}}."
+      },
+      "offerEmpty": {
+        "title": "Quote request {{offerNumber}} from {{customer}} without items",
+        "message": "Quote request {{offerNumber}} from {{customer}} (customer no. {{customerNumber}}, {{channel}}) of {{since}} has no items. This is a data error: check the customer account (dealer flag, home channel) and ask the customer. Responsible: {{assignee}}."
+      },
+      "offerBacklog": {
+        "title": "{{count}} old quote requests are still “Requested by customer”",
+        "message": "{{count}} quote requests worth {{net}} net in total are older than 4 weeks and still have the status “Requested by customer”, the oldest ({{oldestNumber}}) since {{oldestSince}}. Usually they were answered elsewhere: update the status in B2Bsellers (Open, Declined or Archived)."
       }
     },
     "detectors": {
@@ -8246,7 +8259,8 @@
         "ga4Channels": "GA4 traffic sources",
         "ga4LandingPages": "GA4 landing pages and “page not found”",
         "ga4SearchTerms": "GA4 search terms without results",
-        "ga4Measurement": "GA4 tracking (purchases per MO order)"
+        "ga4Measurement": "GA4 tracking (purchases per MO order)",
+        "offerWatch": "Quote requests (B2Bsellers, hourly)"
       },
       "skipped": "paused while the order sync is stuck",
       "skippedBusy": "paused, the shop watch is querying the shop right now",
@@ -8278,7 +8292,10 @@
       "numbersNoYear": "Last year: no data",
       "dailyNone": "No open alerts.",
       "aiNote": "Text written by AI, numbers checked against the measurements.",
-      "lossEstimateValue": "about {{amount}} per hour (estimate: {{basis}})"
+      "lossEstimateValue": "about {{amount}} per hour (estimate: {{basis}})",
+      "offersLine": "Quote requests: {{count}} unanswered ({{net}} net), {{critical}} of them critical",
+      "offersEmpty": "Quote requests without items: {{count}} (data error)",
+      "offersBacklog": "Older than 4 weeks, status still “Requested by customer”: {{count}} ({{net}} net)"
     },
     "buyability": {
       "title": "Buyability: baseline",
@@ -8366,14 +8383,29 @@
         "demand": "Compare the decline with customers and conditions.",
         "traffic": "Check channels, campaigns and measurement in GA4.",
         "search": "Check the search terms and pass missing items or search words to Jana (PIM).",
-        "notFound": "Pass broken links or missing redirects to the agency."
+        "notFound": "Pass broken links or missing redirects to the agency.",
+        "offer": "Answer the request or pass it to the person responsible (sales rep per assignment, otherwise the default assignee).",
+        "offerEmpty": "Check the customer account (dealer flag, home channel) and ask the customer for the requested items.",
+        "offerBacklog": "Update the status of the old requests in B2Bsellers."
       },
       "scope": {
         "shop": "whole shop",
         "products": "{{count}} item(s)",
         "pages": "Pages: {{values}}",
         "channel": "Channel: {{values}}"
-      }
+      },
+      "offersTitle": "Quote requests",
+      "offersNone": "No unanswered quote requests.",
+      "offerItem": "{{number}} · {{customer}} · {{net}} net · {{days}} business day(s) · Responsible: {{assignee}}",
+      "offerEmptyItem": "{{number}} · {{customer}} · empty since {{since}} · Responsible: {{assignee}}",
+      "b2bTitle": "B2B share (business customers)",
+      "b2bWeek": "Week: {{b2b}} of {{orders}} orders ({{ordersPercent}}) · {{b2bNet}} of {{net}} net ({{netPercent}})",
+      "b2bQuarter": "13 weeks ({{from}} to {{to}}): {{b2b}} of {{orders}} orders ({{ordersPercent}}) · {{b2bNet}} of {{net}} net ({{netPercent}})",
+      "b2bValues": "Order values of business customers (13 weeks, net): median {{p50}} · 75 % up to {{p75}} · 90 % up to {{p90}}",
+      "b2bAtLeast": "from {{threshold}} net: {{orders}} order(s) ({{percent}} of business customer orders), about {{perWeek}} per week",
+      "b2bBasis": "Recognised by the company in the billing address: {{company}}, only by the B2B flag (B2Bsellers company): {{flagOnly}}",
+      "b2bNone": "No B2B share: the order sync is stuck.",
+      "b2bHint": "Basis for the threshold of the B2B cart alert (proposal €1,000 net)."
     },
     "weeklyPage": {
       "title": "Weekly reports",
@@ -8424,7 +8456,53 @@
       "copy": "Copy list",
       "copied": "List copied",
       "copyFailed": "Copying not possible",
-      "copyHint": "The copied list is in German and meant for forwarding (Teams, email)."
+      "copyHint": "The copied list is in German and meant for forwarding (Teams, email).",
+      "offersTitle": "Quote requests",
+      "offersHint": "B2B quote requests from shop and portal (status “Requested by customer”) unanswered for at least one business day. Critical from 3 business days or from €2,500 net. Responsible is the sales rep per assignment, otherwise the default assignee of the email intake.",
+      "offersNone": "No unanswered quote requests.",
+      "offersSummary": "{{count}} unanswered worth {{net}} net in total, {{critical}} of them critical.",
+      "offersEmpty": "{{count}} request(s) without items (data error).",
+      "offersBacklog": "{{count}} request(s) older than 4 weeks still have the status “Requested by customer” ({{net}} net).",
+      "offersColumns": {
+        "number": "Request",
+        "customer": "Customer",
+        "net": "Value (net)",
+        "age": "Age",
+        "assignee": "Responsible",
+        "channel": "Channel"
+      },
+      "offersAge": "{{count}} business day(s)",
+      "offersEmptyBadge": "empty",
+      "assigneeSources": {
+        "rep": "Sales rep",
+        "default": "Default assignee",
+        "none": "nobody assigned"
+      },
+      "b2bTitle": "B2B share (business customers)",
+      "b2bHint": "Business customer = company in the billing address or customer number of a B2Bsellers company. Shop orders (MO) only, without cancelled ones, amounts net. Basis for the threshold of the B2B cart alert (proposal €1,000 net).",
+      "b2bNone": "No B2B share: the order sync is stuck.",
+      "b2bColumns": {
+        "period": "Period",
+        "orders": "Orders",
+        "b2bOrders": "of which business customers",
+        "net": "Revenue net",
+        "b2bNet": "of which business customers"
+      },
+      "b2bRows": {
+        "week": "Week",
+        "quarter": "13 weeks"
+      },
+      "bucketsTitle": "Order values (13 weeks, net)",
+      "bucketColumns": {
+        "range": "Order value",
+        "b2b": "Business customers",
+        "private": "Private customers"
+      },
+      "bucketRange": "{{from}} to under {{to}}",
+      "bucketOpen": "from {{from}}",
+      "quantiles": "Business customers: median {{p50}}, 75 % of orders up to {{p75}}, 90 % up to {{p90}}.",
+      "atLeast": "from {{threshold}}: {{orders}} order(s) ({{percent}}), about {{perWeek}} per week",
+      "basis": "Recognised by the company: {{company}}, only by the B2B flag: {{flagOnly}}."
     },
     "actions": {
       "title": "Action log",

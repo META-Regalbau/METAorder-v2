@@ -8050,7 +8050,8 @@
       "system": "System",
       "revenue": "Umsatz",
       "buyability": "Kaufbarkeit",
-      "ga4": "GA4"
+      "ga4": "GA4",
+      "b2b": "B2B"
     },
     "codes": {
       "mirrorStale": {
@@ -8220,6 +8221,18 @@
       "ga4MeasurementDrop": {
         "title": "GA4 misst kaum noch Käufe ({{current}} statt {{expected}})",
         "message": "{{from}} bis {{to}}: GA4 sah Käufe zu {{current}} der {{orders}} MO-Bestellungen, in den 4 Wochen davor zu {{expected}}. Vermutlich ist die Kauf-Messung gestört (Bestellabschluss-Seite, Tag-Manager, Rücksprung vom Zahlungsanbieter)."
+      },
+      "offerUnanswered": {
+        "title": "Angebotsanfrage {{offerNumber}} von {{customer}} unbeantwortet",
+        "message": "Die Angebotsanfrage {{offerNumber}} von {{customer}} (Kd.-Nr. {{customerNumber}}, {{channel}}) über {{net}} netto ist seit {{businessDays}} Werktag(en) unbeantwortet (eingegangen am {{since}}). Zuständig: {{assignee}}."
+      },
+      "offerEmpty": {
+        "title": "Angebotsanfrage {{offerNumber}} von {{customer}} ohne Positionen",
+        "message": "Die Angebotsanfrage {{offerNumber}} von {{customer}} (Kd.-Nr. {{customerNumber}}, {{channel}}) vom {{since}} hat keine Positionen. Das ist ein Datenfehler: Kundenkonto prüfen (Händler-Kennzeichen, Stamm-Kanal) und beim Kunden nachfragen. Zuständig: {{assignee}}."
+      },
+      "offerBacklog": {
+        "title": "{{count}} alte Angebotsanfragen stehen noch auf „Angefragt von Kunde“",
+        "message": "{{count}} Angebotsanfragen über zusammen {{net}} netto sind älter als 4 Wochen und stehen noch auf „Angefragt von Kunde“, die älteste ({{oldestNumber}}) seit {{oldestSince}}. Meist sind sie anderswo beantwortet worden: Status in B2Bsellers pflegen (Offen, Abgelehnt oder Archiviert)."
       }
     },
     "detectors": {
@@ -8243,7 +8256,8 @@
         "ga4Channels": "GA4 Besucherquellen",
         "ga4LandingPages": "GA4 Einstiegsseiten und „Seite nicht gefunden“",
         "ga4SearchTerms": "GA4 Suchbegriffe ohne Treffer",
-        "ga4Measurement": "GA4 Messung (Käufe je MO-Bestellung)"
+        "ga4Measurement": "GA4 Messung (Käufe je MO-Bestellung)",
+        "offerWatch": "Angebotsanfragen (B2Bsellers, stündlich)"
       },
       "skipped": "ausgesetzt, solange der Bestellabgleich hängt",
       "skippedBusy": "ausgesetzt, der Shop-Wächter fragt den Shop gerade ab",
@@ -8275,7 +8289,10 @@
       "numbersNoYear": "Vorjahr: keine Daten",
       "dailyNone": "Keine offenen Meldungen.",
       "aiNote": "Text von der KI formuliert, Zahlen gegen die Messwerte geprüft.",
-      "lossEstimateValue": "rund {{amount}} pro Stunde (Schätzung: {{basis}})"
+      "lossEstimateValue": "rund {{amount}} pro Stunde (Schätzung: {{basis}})",
+      "offersLine": "Angebotsanfragen: {{count}} unbeantwortet ({{net}} netto), davon {{critical}} kritisch",
+      "offersEmpty": "Angebotsanfragen ohne Positionen: {{count}} (Datenfehler)",
+      "offersBacklog": "Älter als 4 Wochen, Status noch „Angefragt von Kunde“: {{count}} ({{net}} netto)"
     },
     "buyability": {
       "title": "Kaufbarkeit: Soll-Stand",
@@ -8363,14 +8380,29 @@
         "demand": "Rückgang mit Kunden und Konditionen abgleichen.",
         "traffic": "Kanäle, Kampagnen und Messung in GA4 prüfen.",
         "search": "Suchbegriffe prüfen und fehlende Artikel oder Suchwörter an Jana (PIM) geben.",
-        "notFound": "Kaputte Links bzw. fehlende Weiterleitungen an die Agentur geben."
+        "notFound": "Kaputte Links bzw. fehlende Weiterleitungen an die Agentur geben.",
+        "offer": "Anfrage beantworten bzw. an den Zuständigen geben (Außendienst laut Zuordnung, sonst Standard-Bearbeiter).",
+        "offerEmpty": "Kundenkonto prüfen (Händler-Kennzeichen, Stamm-Kanal) und beim Kunden die gewünschten Positionen erfragen.",
+        "offerBacklog": "Status der alten Anfragen in B2Bsellers pflegen."
       },
       "scope": {
         "shop": "ganzer Shop",
         "products": "{{count}} Artikel",
         "pages": "Seiten: {{values}}",
         "channel": "Kanal: {{values}}"
-      }
+      },
+      "offersTitle": "Angebotsanfragen",
+      "offersNone": "Keine unbeantworteten Angebotsanfragen.",
+      "offerItem": "{{number}} · {{customer}} · {{net}} netto · {{days}} Werktag(e) · Zuständig: {{assignee}}",
+      "offerEmptyItem": "{{number}} · {{customer}} · leer seit {{since}} · Zuständig: {{assignee}}",
+      "b2bTitle": "B2B-Anteil (Geschäftskunden)",
+      "b2bWeek": "Woche: {{b2b}} von {{orders}} Bestellungen ({{ordersPercent}}) · {{b2bNet}} von {{net}} netto ({{netPercent}})",
+      "b2bQuarter": "13 Wochen ({{from}} bis {{to}}): {{b2b}} von {{orders}} Bestellungen ({{ordersPercent}}) · {{b2bNet}} von {{net}} netto ({{netPercent}})",
+      "b2bValues": "Bestellwerte der Geschäftskunden (13 Wochen, netto): Median {{p50}} · 75 % bis {{p75}} · 90 % bis {{p90}}",
+      "b2bAtLeast": "ab {{threshold}} netto: {{orders}} Bestellung(en) ({{percent}} der Geschäftskunden-Bestellungen), rund {{perWeek}} je Woche",
+      "b2bBasis": "Erkannt an der Firma in der Rechnungsadresse: {{company}}, nur am B2B-Kennzeichen (B2Bsellers-Firma): {{flagOnly}}",
+      "b2bNone": "Kein B2B-Anteil: Der Bestellabgleich hängt.",
+      "b2bHint": "Grundlage für die Schwelle des B2B-Warenkorb-Alarms (Vorschlag 1.000 € netto)."
     },
     "weeklyPage": {
       "title": "Wochenberichte",
@@ -8421,7 +8453,53 @@
       "copy": "Liste kopieren",
       "copied": "Liste kopiert",
       "copyFailed": "Kopieren nicht möglich",
-      "copyHint": "Die kopierte Liste ist deutsch und zum Weiterleiten gedacht (Teams, E-Mail)."
+      "copyHint": "Die kopierte Liste ist deutsch und zum Weiterleiten gedacht (Teams, E-Mail).",
+      "offersTitle": "Angebotsanfragen",
+      "offersHint": "B2B-Angebotsanfragen aus Shop und Portal (Status „Angefragt von Kunde“), seit mindestens einem Werktag unbeantwortet. Kritisch ab 3 Werktagen oder ab 2.500 € netto. Zuständig ist der Außendienst laut Zuordnung, sonst der Standard-Bearbeiter des E-Mail-Eingangs.",
+      "offersNone": "Keine unbeantworteten Angebotsanfragen.",
+      "offersSummary": "{{count}} unbeantwortet über zusammen {{net}} netto, davon {{critical}} kritisch.",
+      "offersEmpty": "{{count}} Anfrage(n) ohne Positionen (Datenfehler).",
+      "offersBacklog": "{{count}} Anfrage(n) älter als 4 Wochen stehen noch auf „Angefragt von Kunde“ ({{net}} netto).",
+      "offersColumns": {
+        "number": "Anfrage",
+        "customer": "Kunde",
+        "net": "Wert (netto)",
+        "age": "Alter",
+        "assignee": "Zuständig",
+        "channel": "Kanal"
+      },
+      "offersAge": "{{count}} Werktag(e)",
+      "offersEmptyBadge": "leer",
+      "assigneeSources": {
+        "rep": "Außendienst",
+        "default": "Standard-Bearbeiter",
+        "none": "niemand zugeordnet"
+      },
+      "b2bTitle": "B2B-Anteil (Geschäftskunden)",
+      "b2bHint": "Geschäftskunde = Firma in der Rechnungsadresse oder Kundennummer einer B2Bsellers-Firma. Nur MO-Bestellungen ohne stornierte, Beträge netto. Grundlage für die Schwelle des B2B-Warenkorb-Alarms (Vorschlag 1.000 € netto).",
+      "b2bNone": "Kein B2B-Anteil: Der Bestellabgleich hängt.",
+      "b2bColumns": {
+        "period": "Zeitraum",
+        "orders": "Bestellungen",
+        "b2bOrders": "davon Geschäftskunden",
+        "net": "Umsatz netto",
+        "b2bNet": "davon Geschäftskunden"
+      },
+      "b2bRows": {
+        "week": "Woche",
+        "quarter": "13 Wochen"
+      },
+      "bucketsTitle": "Bestellwerte (13 Wochen, netto)",
+      "bucketColumns": {
+        "range": "Bestellwert",
+        "b2b": "Geschäftskunden",
+        "private": "Privatkunden"
+      },
+      "bucketRange": "{{from}} bis unter {{to}}",
+      "bucketOpen": "ab {{from}}",
+      "quantiles": "Geschäftskunden: Median {{p50}}, 75 % der Bestellungen bis {{p75}}, 90 % bis {{p90}}.",
+      "atLeast": "ab {{threshold}}: {{orders}} Bestellung(en) ({{percent}}), rund {{perWeek}} je Woche",
+      "basis": "Erkannt an der Firma: {{company}}, nur am B2B-Kennzeichen: {{flagOnly}}."
     },
     "actions": {
       "title": "Maßnahmen-Protokoll",

@@ -242,6 +242,7 @@ function weeklyDeps(over: Partial<ShopPulseWeeklyDeps> = {}) {
   const deps: ShopPulseWeeklyDeps = {
     loadOrders: async () => [order("2026-10-13", 595, [["A1", 1, 500]])],
     herstellpreise: async () => new Map([["A1", 400]]),
+    b2bCustomerNumbers: async () => new Set<string>(),
     ga4: async () => null,
     syncActions: async () => void calls.sync++,
     listActions: async (_t, from, to) => {
