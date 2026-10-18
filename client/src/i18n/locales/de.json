@@ -7985,7 +7985,11 @@
       "testQueued": "Testnachricht liegt bereit. n8n holt sie in spätestens 5 Minuten ab.",
       "testFailed": "Testnachricht fehlgeschlagen",
       "shopWatchDirect": "Meldungen des Shop-Wächters ebenfalls als Direktnachricht",
-      "shopWatchDirectHint": "Statt in den Teams-Kanal aus dem E-Mail-Eingang."
+      "shopWatchDirectHint": "Statt in den Teams-Kanal aus dem E-Mail-Eingang.",
+      "aiTitle": "KI-Texte",
+      "aiEnable": "Meldungen und Tagesbericht von der KI formulieren lassen",
+      "aiHint": "Die KI des Mandanten schreibt je Meldung kurz, was los ist, die wahrscheinliche Ursache, den geschätzten Verlust, wer handeln muss und den nächsten Schritt. Jede Zahl wird gegen die Messwerte geprüft; passt etwas nicht, geht die feste Vorlage raus. Höchstens ein KI-Aufruf je Meldung und Schwere.",
+      "aiNoProvider": "Kein KI-Anbieter eingerichtet (Einstellungen → KI). Bis dahin gehen die festen Vorlagen raus."
     },
     "signals": {
       "title": "Meldungen",
@@ -8013,7 +8017,17 @@
       "resolveHint": "Kommt ein Fund wieder, öffnet sich seine Meldung erneut.",
       "confirmMute": "Diese Meldung 7 Tage ruhig stellen?",
       "confirmMuteButton": "7 Tage ruhig stellen",
-      "cancel": "Abbrechen"
+      "cancel": "Abbrechen",
+      "aiText": "KI-Einschätzung vom {{at}}",
+      "aiRejected": "KI-Text vom {{at}} verworfen ({{reason}}), die feste Vorlage ging raus.",
+      "lossEstimate": "geschätzt {{amount}} pro Stunde ({{basis}})",
+      "aiRejections": {
+        "number": "Zahl nicht in den Messwerten",
+        "empty": "leer oder unbrauchbar",
+        "tooLong": "zu lang",
+        "error": "Fehler des KI-Anbieters",
+        "timeout": "keine Antwort in 20 Sekunden"
+      }
     },
     "severity": {
       "warning": "Warnung",
@@ -8250,7 +8264,9 @@
       "numbersPrev": "Schnitt der 4 Wochen davor: {{orders}} Bestellung(en) · {{revenue}}",
       "numbersYear": "Vorjahr: {{orders}} Bestellung(en) · {{revenue}}",
       "numbersNoYear": "Vorjahr: keine Daten",
-      "dailyNone": "Keine offenen Meldungen."
+      "dailyNone": "Keine offenen Meldungen.",
+      "aiNote": "Text von der KI formuliert, Zahlen gegen die Messwerte geprüft.",
+      "lossEstimateValue": "rund {{amount}} pro Stunde (Schätzung: {{basis}})"
     },
     "buyability": {
       "title": "Kaufbarkeit: Soll-Stand",
@@ -8278,6 +8294,12 @@
         "noServiceAccount": "Es ist kein Dienstkonto (JSON-Schlüssel) hinterlegt.",
         "invalidServiceAccount": "Der hinterlegte Dienstkonto-Schlüssel ist kein gültiges JSON mit client_email und private_key."
       }
+    },
+    "lossBasis": {
+      "detector": "von der Prüfung",
+      "products": "Shop-Umsatz der betroffenen Artikel",
+      "paymentShare": "Anteil der Zahlart am üblichen Umsatz dieser Tageszeit",
+      "hourOfDay": "üblicher Umsatz dieser Tageszeit"
     }
   },
   "mondu": {

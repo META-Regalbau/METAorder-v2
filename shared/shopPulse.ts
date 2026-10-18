@@ -113,6 +113,39 @@ export type ShopPulseDetection = {
   lossPerHour?: number | null;
 };
 
+/**
+ * Geschätzter Verlust pro Stunde (Euro brutto) und woher die Schätzung kommt: detector = vom Fund selbst,
+ * products = Shop-Umsatz der betroffenen Artikel (365 Tage, je Geschäftsstunde), paymentShare = Anteil
+ * der Zahlart an den Bestellungen × üblicher Umsatz dieser Tageszeit, hourOfDay = üblicher Umsatz dieser
+ * Tageszeit (server/shopPulse/lossEstimate.ts)
+ */
+export const SHOP_PULSE_LOSS_BASES = ["detector", "products", "paymentShare", "hourOfDay"] as const;
+export type ShopPulseLossBasis = (typeof SHOP_PULSE_LOSS_BASES)[number];
+export type ShopPulseLossEstimate = { perHour: number; basis: ShopPulseLossBasis };
+
+/**
+ * Warum ein KI-Text nicht verwendet wurde (dann ging die feste Vorlage raus): Zahl nicht in den
+ * Eingabedaten, leer bzw. unbrauchbar, zu lang, Fehler des Anbieters, Zeitüberschreitung
+ */
+export const SHOP_PULSE_AI_REJECTIONS = ["number", "empty", "tooLong", "error", "timeout"] as const;
+export type ShopPulseAiRejection = (typeof SHOP_PULSE_AI_REJECTIONS)[number];
+
+/**
+ * KI-Text an einer Meldung (Spalte ai_note): höchstens ein Aufruf je Schwere und Vorfall. Auch ein
+ * verworfener Versuch wird gespeichert, damit der nächste Takt nicht erneut fragt.
+ */
+export type ShopPulseAiNote = {
+  /** Schwere, für die der Text geschrieben wurde */
+  severity: ShopPulseSeverity;
+  at: string;
+  /** deutscher Text; null = verworfen (siehe rejected) */
+  text: string | null;
+  rejected?: ShopPulseAiRejection;
+  /** bei rejected "number": die Zahlen, die nicht in den Eingabedaten standen */
+  badNumbers?: string[];
+  lossEstimate: ShopPulseLossEstimate | null;
+};
+
 /** Meldung, wie sie Seite und Teams sehen */
 export type ShopPulseSignal = {
   id: string;
@@ -132,7 +165,23 @@ export type ShopPulseSignal = {
   mutedUntil: string | null;
   notifiedAt: string | null;
   notifiedSeverity: ShopPulseSeverity | null;
+  /** KI-Text (PR F); fehlt bei Meldungen ohne KI-Versuch */
+  aiNote?: ShopPulseAiNote | null;
 };
+
+/**
+ * Braucht die Meldung (noch) einen KI-Text? Ja, wenn es keinen gibt, er für eine andere Schwere geschrieben
+ * wurde oder für einen früheren Vorfall (Meldung inzwischen erledigt und wieder offen).
+ */
+export function needsAiNote(s: Pick<ShopPulseSignal, "aiNote" | "severity" | "firstSeenAt">): boolean {
+  const n = s.aiNote;
+  return !n || n.severity !== s.severity || Date.parse(n.at) < Date.parse(s.firstSeenAt);
+}
+
+/** KI-Text, der zum jetzigen Stand der Meldung passt; null = keiner (dann gilt die Vorlage) */
+export function currentAiText(s: Pick<ShopPulseSignal, "aiNote" | "severity" | "firstSeenAt">): string | null {
+  return !needsAiNote(s) ? (s.aiNote?.text ?? null) : null;
+}
 
 /** Einstellungen je Mandant (Settings-Key shop_pulse_settings) */
 export type ShopPulseSettings = {
@@ -143,6 +192,8 @@ export type ShopPulseSettings = {
   teamsWebhookUrl: string;
   /** Meldungen des Shop-Wächters ebenfalls an diese Direktnachricht statt an den Kanal des E-Mail-Eingangs */
   shopWatchDirect: boolean;
+  /** Meldungen und Tagesbericht formuliert die KI des Mandanten (nur wenn ein Anbieter eingerichtet ist) */
+  aiTexts: boolean;
 };
 
 export const DEFAULT_SHOP_PULSE_SETTINGS: ShopPulseSettings = {
@@ -150,6 +201,7 @@ export const DEFAULT_SHOP_PULSE_SETTINGS: ShopPulseSettings = {
   learningUntil: null,
   teamsWebhookUrl: "",
   shopWatchDirect: false,
+  aiTexts: true,
 };
 
 export const SHOP_PULSE_LEARNING_DAYS = 7;
@@ -163,6 +215,7 @@ export function normalizeShopPulseSettings(raw: unknown): ShopPulseSettings {
     learningUntil: learning,
     teamsWebhookUrl: url && isAllowedTeamsWebhookUrl(url) ? url : "",
     shopWatchDirect: r.shopWatchDirect === true,
+    aiTexts: r.aiTexts !== false,
   };
 }
 
@@ -175,6 +228,8 @@ export type ShopPulseState = {
   lastTickAt?: string;
   /** Kalendertag (Berlin) des letzten Tagesberichts */
   lastDailyReportDay?: string;
+  /** KI-Zusammenfassung des letzten Tagesberichts (null-Text = verworfen, Vorlage ging raus) */
+  lastDailyAi?: { at: string; text: string | null; rejected?: ShopPulseAiRejection };
   /**
    * skipped "mirror": ausgesetzt, weil der Bestellabgleich hängt; "busy": der Shop-Wächter fragt den Shop
    * gerade ab; "ga4": GA4 nicht eingerichtet (ga4Problem sagt, was fehlt)
@@ -209,6 +264,8 @@ export type ShopPulseDataGaps = { at: string; items: ShopPulseDataGap[] };
 /** Antwort von GET /api/shop-pulse */
 export type ShopPulseOverview = {
   settings: Omit<ShopPulseSettings, "teamsWebhookUrl"> & { teamsConfigured: boolean };
+  /** KI-Anbieter des Mandanten eingerichtet (Voraussetzung für KI-Texte) */
+  aiConfigured: boolean;
   learning: boolean;
   state: ShopPulseState;
   signals: ShopPulseSignal[];

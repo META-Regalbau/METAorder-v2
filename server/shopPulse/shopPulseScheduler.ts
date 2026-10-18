@@ -21,13 +21,27 @@
  * gestört“ (kritisch), deutlich weniger Besucher → „Besucherproblem“. Ist GA4 nicht eingerichtet, setzen
  * die GA4-Prüfungen aus (Hinweis unter „Prüfungen“).
  *
+ * KI-Texte (PR F, Einstellung „KI-Texte“, nur mit eingerichtetem KI-Anbieter): Sofort-Meldungen und die
+ * Zusammenfassung des Tagesberichts formuliert die KI, geprüft gegen die Eingabedaten (shopPulseAi.ts);
+ * sonst die feste Vorlage. Je Meldung höchstens ein Aufruf je Schwere; je Lauf bekommen außerdem bis zu
+ * drei offene Meldungen ohne Text einen (Warnungen, Lernwoche). Wo eine Prüfung keinen Verlust schätzt,
+ * schätzt lossEstimate.ts ihn aus dem Spiegel.
+ *
  * In der Lernwoche wird alles gesammelt, aber nichts gesendet. Mandanten nacheinander, nie zwei Läufe
  * für denselben Mandanten gleichzeitig.
  */
 import { randomUUID } from "crypto";
 import type { IStorage } from "../storage";
 import type { InsertNotification, Notification } from "@shared/schema";
-import { isLearning, type ShopPulseDetection, type ShopPulseSignal, type ShopPulseSource, type ShopPulseState } from "@shared/shopPulse";
+import {
+  isLearning,
+  needsAiNote,
+  type ShopPulseDetection,
+  type ShopPulseLossEstimate,
+  type ShopPulseSignal,
+  type ShopPulseSource,
+  type ShopPulseState,
+} from "@shared/shopPulse";
 import { runWithTenantContext } from "../lib/tenantContext";
 import { notificationEvents } from "../lib/events";
 import { logger } from "../lib/logger";
@@ -47,6 +61,15 @@ import { getGa4State, linkOrderGapWithGa4 } from "./detectors/ga4";
 import { ga4Access, Ga4NotConfiguredError, type Ga4Access } from "./ga4Client";
 import * as repo from "./shopPulseRepository";
 import { dailyReportSignals, reconcileSignals, type ReconcileResult, type ShopPulseNotice } from "./shopPulseSignals";
+import {
+  dailyAiText,
+  lossEstimateFor,
+  shopPulseAiDeps,
+  writeBacklogNotes,
+  writeSignalNote,
+  type ShopPulseAiDeps,
+  type ShopPulseAiRun,
+} from "./shopPulseAi";
 import {
   buildShopPulseBellText,
   buildShopPulseDailyBellText,
@@ -84,6 +107,8 @@ export type ShopPulseDeps = {
   loadStorefront?: (tenantId: string | null) => StorefrontAccess;
   /** GA4-Property des Mandanten; fehlt sie, gilt GA4 als nicht eingerichtet */
   loadGa4?: (tenantId: string | null) => Ga4Access;
+  /** KI-Texte (PR F); fehlt sie, gehen immer die festen Vorlagen raus */
+  ai?: ShopPulseAiDeps;
   onNotificationCreated: (n: Notification) => void;
   baseUrl: string | null;
   now?: () => Date;
@@ -248,12 +273,45 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
     });
     await deps.repo.applyReconcile(tenantId, result);
 
-    // 3. Sofort-Meldungen und Entwarnungen
+    // KI nur bei eingeschaltetem Shop-Puls, Schalter „KI-Texte“ und eingerichtetem Anbieter
+    const aiOn = !!deps.ai && settings.enabled && settings.aiTexts && (await deps.ai.configured(tenantId).catch(() => false));
+    const aiRun: ShopPulseAiRun = {
+      tenantId,
+      now,
+      ai: aiOn ? deps.ai! : null,
+      // Hängt der Bestellabgleich, keine Schätzung aus dem Spiegel
+      orders: () => (mirrorStale() ? Promise.reject(new Error("Bestellabgleich hängt")) : orders()),
+      productRevenue: buyability.revenue,
+      openSignals: once(() => deps.repo.listOpenSignals(tenantId)),
+    };
+    const withAi = aiRun.ai ? { ...aiRun, ai: aiRun.ai } : null;
+
+    // 3. Sofort-Meldungen und Entwarnungen (KI-Text, sonst Vorlage)
     const webhook = settings.teamsWebhookUrl;
+    const written = new Set<string>();
     for (const notice of result.notices) {
-      if (webhook) await enqueueTeamsMessage(deps.storage, SHOP_PULSE_TEAMS_OUTBOX_KEY, tenantId, buildShopPulseNoticeCard(notice, deps.baseUrl), now);
+      let estimate: ShopPulseLossEstimate | null = null;
+      if (notice.kind !== "resolved") {
+        estimate = await lossEstimateFor(notice.signal, aiRun);
+        if (withAi && needsAiNote(notice.signal)) {
+          notice.signal.aiNote = await writeSignalNote(notice.signal, estimate, withAi);
+          written.add(notice.signal.id);
+        }
+      }
+      if (webhook) await enqueueTeamsMessage(deps.storage, SHOP_PULSE_TEAMS_OUTBOX_KEY, tenantId, buildShopPulseNoticeCard(notice, deps.baseUrl, estimate), now);
       await notifyAdmins(deps, tenantId, buildShopPulseBellText(notice), `${SHOP_PULSE_PAGE_PATH}?signal=${encodeURIComponent(notice.signal.id)}`);
-      log.warn({ tenantId, kind: notice.kind, key: notice.signal.key, severity: notice.signal.severity, teams: !!webhook }, "Shop-Puls: Meldung");
+      log.warn(
+        { tenantId, kind: notice.kind, key: notice.signal.key, severity: notice.signal.severity, teams: !!webhook, ai: notice.signal.aiNote?.text ? "text" : (notice.signal.aiNote?.rejected ?? null) },
+        "Shop-Puls: Meldung",
+      );
+    }
+    // Offene Meldungen ohne KI-Text nachziehen (begrenzt), damit die Seite sie zeigt
+    if (withAi) {
+      try {
+        await writeBacklogNotes(withAi, written);
+      } catch (err) {
+        log.warn({ err, tenantId }, "Shop-Puls: KI-Texte für offene Meldungen nicht geschrieben");
+      }
     }
 
     // 4. Tagesbericht
@@ -272,8 +330,14 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
       }
       const send = !silent && (open.length > 0 || numbers !== null);
       if (send) {
-        if (webhook) await enqueueTeamsMessage(deps.storage, SHOP_PULSE_TEAMS_OUTBOX_KEY, tenantId, buildShopPulseDailyCard(open, now, deps.baseUrl, numbers), now);
-        await notifyAdmins(deps, tenantId, buildShopPulseDailyBellText(open, now, numbers), SHOP_PULSE_PAGE_PATH);
+        let aiSummary: string | null = null;
+        if (withAi) {
+          const daily = await dailySummary(withAi, open, numbers);
+          aiSummary = daily.text;
+          patch.lastDailyAi = daily;
+        }
+        if (webhook) await enqueueTeamsMessage(deps.storage, SHOP_PULSE_TEAMS_OUTBOX_KEY, tenantId, buildShopPulseDailyCard(open, now, deps.baseUrl, numbers, aiSummary), now);
+        await notifyAdmins(deps, tenantId, buildShopPulseDailyBellText(open, now, numbers, aiSummary), SHOP_PULSE_PAGE_PATH);
       }
       dailyReport = { sent: send, signals: open.length, numbers: numbers !== null };
     }
@@ -283,6 +347,16 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
   } finally {
     running.delete(key);
   }
+}
+
+/** KI-Zusammenfassung des Tagesberichts (geprüft); null-Text = Vorlage */
+async function dailySummary(run: ShopPulseAiRun & { ai: ShopPulseAiDeps }, open: ShopPulseSignal[], numbers: DailyNumbers | null): Promise<NonNullable<ShopPulseState["lastDailyAi"]>> {
+  const estimates = new Map<string, ShopPulseLossEstimate | null>();
+  for (const s of open.slice(0, 12)) estimates.set(s.id, await lossEstimateFor(s, run));
+  const deploys = await run.ai.deploys(run.tenantId, new Date(run.now.getTime() - 48 * 60 * 60 * 1000)).catch(() => []);
+  const r = await dailyAiText({ now: run.now, signals: open, numbers, estimates, deploys }, (m) => run.ai.ask(run.tenantId, m), run.ai.timeoutMs);
+  if (r.rejected) log.warn({ tenantId: run.tenantId, rejected: r.rejected, badNumbers: r.badNumbers }, "Shop-Puls: KI-Tagesbericht verworfen, Vorlage");
+  return { at: run.now.toISOString(), text: r.text, ...(r.rejected ? { rejected: r.rejected } : {}) };
 }
 
 /** Ein Takt über alle Mandanten mit Shopware-Anbindung und eingeschaltetem Shop-Puls, nacheinander */
@@ -323,6 +397,7 @@ export function shopPulseDeps(storage: IStorage): ShopPulseDeps {
     }),
     loadStorefront: (tenantId) => storefrontAccess(storage, tenantId),
     loadGa4: (tenantId) => ga4Access(storage, tenantId),
+    ai: shopPulseAiDeps(storage),
     onNotificationCreated: (n) => notificationEvents.emitNotificationCreated(n),
     baseUrl: publicAppBaseUrl(process.env.APP_URL?.trim() || null),
   };

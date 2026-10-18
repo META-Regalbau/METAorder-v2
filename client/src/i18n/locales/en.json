@@ -7988,7 +7988,11 @@
       "testQueued": "Test message is ready. n8n picks it up within 5 minutes.",
       "testFailed": "Test message failed",
       "shopWatchDirect": "Also send shop watch alerts as a direct message",
-      "shopWatchDirectHint": "Instead of the Teams channel from the email intake."
+      "shopWatchDirectHint": "Instead of the Teams channel from the email intake.",
+      "aiTitle": "AI texts",
+      "aiEnable": "Let AI write alerts and the daily report",
+      "aiHint": "The tenant's AI briefly writes for each alert what is going on, the likely cause, the estimated loss, who has to act and the next step. Every number is checked against the measurements; if anything does not match, the fixed template is sent. At most one AI call per alert and severity.",
+      "aiNoProvider": "No AI provider set up (Settings → AI). Until then the fixed templates are sent."
     },
     "signals": {
       "title": "Alerts",
@@ -8016,7 +8020,17 @@
       "resolveHint": "If a finding comes back, its alert opens again.",
       "confirmMute": "Mute this alert for 7 days?",
       "confirmMuteButton": "Mute for 7 days",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "aiText": "AI assessment from {{at}}",
+      "aiRejected": "AI text from {{at}} discarded ({{reason}}), the fixed template was sent.",
+      "lossEstimate": "estimated {{amount}} per hour ({{basis}})",
+      "aiRejections": {
+        "number": "number not in the measurements",
+        "empty": "empty or unusable",
+        "tooLong": "too long",
+        "error": "AI provider error",
+        "timeout": "no answer within 20 seconds"
+      }
     },
     "severity": {
       "warning": "Warning",
@@ -8253,7 +8267,9 @@
       "numbersPrev": "Average of the 4 weeks before: {{orders}} order(s) · {{revenue}}",
       "numbersYear": "Last year: {{orders}} order(s) · {{revenue}}",
       "numbersNoYear": "Last year: no data",
-      "dailyNone": "No open alerts."
+      "dailyNone": "No open alerts.",
+      "aiNote": "Text written by AI, numbers checked against the measurements.",
+      "lossEstimateValue": "about {{amount}} per hour (estimate: {{basis}})"
     },
     "buyability": {
       "title": "Buyability: baseline",
@@ -8281,6 +8297,12 @@
         "noServiceAccount": "No service account (JSON key) has been stored.",
         "invalidServiceAccount": "The stored service account key is not valid JSON with client_email and private_key."
       }
+    },
+    "lossBasis": {
+      "detector": "from the check",
+      "products": "shop revenue of the affected products",
+      "paymentShare": "share of the payment method in the usual revenue at this time of day",
+      "hourOfDay": "usual revenue at this time of day"
     }
   },
   "mondu": {

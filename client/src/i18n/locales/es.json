@@ -7985,7 +7985,11 @@
       "testQueued": "El mensaje de prueba está listo. n8n lo recoge en 5 minutos como máximo.",
       "testFailed": "El mensaje de prueba ha fallado",
       "shopWatchDirect": "Enviar también los avisos del vigilante de la tienda como mensaje directo",
-      "shopWatchDirectHint": "En lugar del canal de Teams de la entrada de correo."
+      "shopWatchDirectHint": "En lugar del canal de Teams de la entrada de correo.",
+      "aiTitle": "Textos de IA",
+      "aiEnable": "Dejar que la IA redacte los avisos y el informe diario",
+      "aiHint": "La IA del cliente escribe brevemente para cada aviso qué ocurre, la causa probable, la pérdida estimada, quién debe actuar y el siguiente paso. Cada cifra se comprueba con las mediciones; si algo no coincide, se envía la plantilla fija. Como máximo una llamada a la IA por aviso y gravedad.",
+      "aiNoProvider": "No hay ningún proveedor de IA configurado (Ajustes → IA). Hasta entonces se envían las plantillas fijas."
     },
     "signals": {
       "title": "Avisos",
@@ -8013,7 +8017,17 @@
       "resolveHint": "Si un hallazgo vuelve, su aviso se abre de nuevo.",
       "confirmMute": "¿Silenciar este aviso 7 días?",
       "confirmMuteButton": "Silenciar 7 días",
-      "cancel": "Cancelar"
+      "cancel": "Cancelar",
+      "aiText": "Evaluación de la IA del {{at}}",
+      "aiRejected": "Texto de la IA del {{at}} descartado ({{reason}}), se envió la plantilla fija.",
+      "lossEstimate": "estimado {{amount}} por hora ({{basis}})",
+      "aiRejections": {
+        "number": "cifra que no está en las mediciones",
+        "empty": "vacío o inutilizable",
+        "tooLong": "demasiado largo",
+        "error": "error del proveedor de IA",
+        "timeout": "sin respuesta en 20 segundos"
+      }
     },
     "severity": {
       "warning": "Advertencia",
@@ -8250,7 +8264,9 @@
       "numbersPrev": "Media de las 4 semanas anteriores: {{orders}} pedido(s) · {{revenue}}",
       "numbersYear": "Año pasado: {{orders}} pedido(s) · {{revenue}}",
       "numbersNoYear": "Año pasado: sin datos",
-      "dailyNone": "No hay avisos abiertos."
+      "dailyNone": "No hay avisos abiertos.",
+      "aiNote": "Texto redactado por la IA, cifras comprobadas con las mediciones.",
+      "lossEstimateValue": "unos {{amount}} por hora (estimación: {{basis}})"
     },
     "buyability": {
       "title": "Disponibilidad de compra: estado de referencia",
@@ -8278,6 +8294,12 @@
         "noServiceAccount": "No hay ninguna cuenta de servicio (clave JSON) guardada.",
         "invalidServiceAccount": "La clave de cuenta de servicio guardada no es un JSON válido con client_email y private_key."
       }
+    },
+    "lossBasis": {
+      "detector": "de la comprobación",
+      "products": "facturación de la tienda de los artículos afectados",
+      "paymentShare": "cuota del método de pago en la facturación habitual a esta hora",
+      "hourOfDay": "facturación habitual a esta hora"
     }
   },
   "mondu": {

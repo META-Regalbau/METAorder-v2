@@ -4,6 +4,7 @@ import {
   SHOP_PULSE_CODES,
   SHOP_PULSE_SEVERITIES,
   SHOP_PULSE_SOURCES,
+  type ShopPulseAiNote,
   type ShopPulseCode,
   type ShopPulseSeverity,
   type ShopPulseSignal,
@@ -40,6 +41,7 @@ export function rowToSignal(row: ShopPulseSignalRow): ShopPulseSignal {
     mutedUntil: iso(row.mutedUntil),
     notifiedAt: iso(row.notifiedAt),
     notifiedSeverity: row.notifiedSeverity ? oneOf<ShopPulseSeverity>(SHOP_PULSE_SEVERITIES, row.notifiedSeverity, "warning") : null,
+    aiNote: row.aiNote && typeof row.aiNote === "object" ? (row.aiNote as ShopPulseAiNote) : null,
   };
 }
 
@@ -59,6 +61,7 @@ function toColumns(patch: Partial<ShopPulseSignal>) {
   if (patch.mutedUntil !== undefined) out.mutedUntil = date(patch.mutedUntil);
   if (patch.notifiedAt !== undefined) out.notifiedAt = date(patch.notifiedAt);
   if (patch.notifiedSeverity !== undefined) out.notifiedSeverity = patch.notifiedSeverity;
+  if (patch.aiNote !== undefined) out.aiNote = patch.aiNote;
   return out;
 }
 
@@ -134,4 +137,12 @@ export async function muteSignal(tenantId: string | null, id: string, until: Dat
     .where(and(eq(shopPulseSignals.id, id), tenantIs(shopPulseSignals.tenantId, tenantId)))
     .returning();
   return rows[0] ? rowToSignal(rows[0]) : undefined;
+}
+
+/** KI-Text an der Meldung speichern (auch verworfene Versuche, siehe ShopPulseAiNote) */
+export async function saveAiNote(tenantId: string | null, id: string, note: ShopPulseAiNote): Promise<void> {
+  await db
+    .update(shopPulseSignals)
+    .set({ aiNote: note })
+    .where(and(eq(shopPulseSignals.id, id), tenantIs(shopPulseSignals.tenantId, tenantId)));
 }
