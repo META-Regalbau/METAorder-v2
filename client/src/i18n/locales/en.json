@@ -8065,7 +8065,8 @@
       "revenue": "Revenue",
       "buyability": "Buyability",
       "ga4": "GA4",
-      "b2b": "B2B"
+      "b2b": "B2B",
+      "ads": "Google Ads"
     },
     "codes": {
       "mirrorStale": {
@@ -8247,6 +8248,30 @@
       "offerBacklog": {
         "title": "{{count}} old quote requests are still “Requested by customer”",
         "message": "{{count}} quote requests worth {{net}} net in total are older than 4 weeks and still have the status “Requested by customer”, the oldest ({{oldestNumber}}) since {{oldestSince}}. Usually they were answered elsewhere: update the status in B2Bsellers (Open, Declined or Archived)."
+      },
+      "adsCostNoResult": {
+        "title": "Google Ads: {{cost}} without an order in “{{adGroup}}”",
+        "message": "The ad group “{{adGroup}}” (campaign “{{campaign}}”) cost {{cost}} in {{days}} days ({{clicks}} clicks) and brought not a single order according to Google Ads. Suggestion: review and, if needed, pass to Smarketer to pause or rebuild."
+      },
+      "adsCostAboveMargin": {
+        "title": "Google Ads: “{{campaign}}” costs more per order than it earns",
+        "message": "The campaign “{{campaign}}” cost {{cost}} in 28 days with {{conversions}} conversions, i.e. {{costPerConversion}} per order. A shop order brings on average {{avgDb1}} contribution margin. Suggestion: discuss bids or target CPA with Smarketer."
+      },
+      "adsShoppingUnbuyable": {
+        "title": "Google Shopping advertises {{count}} items that cannot be bought",
+        "message": "In the last 7 days Shopping ads for {{count}} items that cannot be bought in the shop (missing, inactive, not in the channel, price 0 or sold out) cost {{cost}} in total. Examples: {{examples}}. Suggestion: check the items in the shop or ask Smarketer to exclude them from Shopping."
+      },
+      "adsSearchTermsWaste": {
+        "title": "Google Ads: {{count}} expensive search terms without an order",
+        "message": "{{count}} search terms cost {{cost}} in total in 28 days without an order, e.g. {{terms}}. The list of suggested negative keywords is in the weekly report; review first, then pass to Smarketer."
+      },
+      "adsMeasurementDrop": {
+        "title": "Google Ads hardly counts orders any more",
+        "message": "From {{from}} to {{to}} Google Ads counted conversions for {{current}} of the {{orders}} shop orders; usual is {{expected}}. Conversion tracking is probably broken (tag, consent, shop change). Without tracking Google bids blindly: check with Smarketer and the agency."
+      },
+      "adsBudgetLimited": {
+        "title": "Google Ads: more budget for “{{campaign}}” probably pays off",
+        "message": "The campaign “{{campaign}}” loses {{lost}} of impressions due to budget. In 28 days it cost {{cost}} with {{conversions}} conversions, an estimated {{estDb1}} contribution margin (conversions × average margin per order). Suggestion: discuss a budget increase with Smarketer."
       }
     },
     "detectors": {
@@ -8271,11 +8296,13 @@
         "ga4LandingPages": "GA4 landing pages and “page not found”",
         "ga4SearchTerms": "GA4 search terms without results",
         "ga4Measurement": "GA4 tracking (purchases per MO order)",
-        "offerWatch": "Quote requests (B2Bsellers, hourly)"
+        "offerWatch": "Quote requests (B2Bsellers, hourly)",
+        "googleAds": "Google Ads (daily from 7 am, read-only)"
       },
       "skipped": "paused while the order sync is stuck",
       "skippedBusy": "paused, the shop watch is querying the shop right now",
-      "skippedGa4": "paused, GA4 not set up"
+      "skippedGa4": "paused, GA4 not set up",
+      "skippedAds": "paused: Google Ads not set up"
     },
     "notify": {
       "since": "Since",
@@ -8398,7 +8425,10 @@
         "notFound": "Pass broken links or missing redirects to the agency.",
         "offer": "Answer the request or pass it to the person responsible (sales rep per assignment, otherwise the default assignee).",
         "offerEmpty": "Check the customer account (dealer flag, home channel) and ask the customer for the requested items.",
-        "offerBacklog": "Update the status of the old requests in B2Bsellers."
+        "offerBacklog": "Update the status of the old requests in B2Bsellers.",
+        "ads": "Review and, if needed, pass to Smarketer as a suggestion (METAorder changes no campaigns).",
+        "adsShopping": "Check the items in the shop (Jana/agency) or ask Smarketer to exclude them from Shopping.",
+        "adsMeasurement": "Check conversion tracking with Smarketer and the agency."
       },
       "scope": {
         "shop": "whole shop",
@@ -8427,7 +8457,14 @@
         "db1": "contribution margin",
         "revenue": "net revenue"
       },
-      "effectsBell": "Confirmed impact: {{count}} action(s)"
+      "effectsBell": "Confirmed impact: {{count}} action(s)",
+      "adsTitle": "Google Ads",
+      "adsNone": "Google Ads not set up: {{problem}}",
+      "adsLine": "Cost {{cost}}, {{clicks}} clicks, {{conversions}} conversions, cost per conversion {{cpa}} (average contribution margin per shop order {{db1}})",
+      "adsNotRead": "Cost of the week not read.",
+      "adsOpen": "Open Ads findings: {{count}}",
+      "adsSuggestions": "Suggested negative keywords (28 days without an order): {{terms}}",
+      "adsHint": "Suggestions are for your review, not sent to Smarketer directly. Conversions are counted by Google Ads itself."
     },
     "weeklyPage": {
       "title": "Weekly reports",
@@ -8528,7 +8565,19 @@
       "effectsTitle": "Confirmed impact",
       "effectsNotComputed": "Impact not calculated for this report (order sync stalled or error).",
       "effectsNone": "No action whose 28 days ended this week has a confirmed impact.",
-      "effectsHint": "Only actions rated “certain” (28 days, scope against the rest of the shop). All ratings are in the action log."
+      "effectsHint": "Only actions rated “certain” (28 days, scope against the rest of the shop). All ratings are in the action log.",
+      "adsTitle": "Google Ads",
+      "adsNone": "Google Ads not set up: {{problem}}",
+      "adsCost": "Cost of the week",
+      "adsClicks": "Clicks",
+      "adsConversions": "Conversions (per Ads)",
+      "adsCpa": "Cost per conversion",
+      "adsDb1": "Average contribution margin per shop order",
+      "adsNotRead": "The cost of the week could not be read.",
+      "adsOpen": "Open Ads findings: {{count}} (under “Findings”)",
+      "adsSuggestions": "Suggested negative keywords (exact, 28 days without an order):",
+      "adsSuggestionCost": "{{cost}} · {{clicks}} clicks",
+      "adsHint": "Suggestions for your review only; METAorder changes no campaigns and does not write to Smarketer."
     },
     "actions": {
       "title": "Action log",
@@ -8747,6 +8796,15 @@
       "alarmedTo": "Alert {{date}} to {{to}}",
       "mailed": "by email",
       "orderedAt": "ordered {{date}} ({{order}})"
+    },
+    "adsSetup": {
+      "title": "Google Ads not set up",
+      "hint": "Set up under Settings → Google Ads: customer ID of the shop account, developer token (approved by Google), OAuth client and refresh token with read access (or Smarketer’s MCC). Until then the Ads check finds nothing. METAorder only reads and changes no campaigns.",
+      "problems": {
+        "disabled": "Google Ads is switched off in the settings.",
+        "noCustomer": "No customer ID entered.",
+        "noCredentials": "Developer token, OAuth client or refresh token missing."
+      }
     }
   },
   "mondu": {

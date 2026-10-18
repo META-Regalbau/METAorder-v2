@@ -21,6 +21,7 @@ import {
   type ShopPulseWeekFigures,
   type ShopPulseWeeklyNumbers,
   type ShopPulseWeeklyReport,
+  type ShopPulseWeeklyAds,
 } from "@shared/shopPulseWeekly";
 import type { ShopPulseWeeklyEffect } from "@shared/shopPulseEffects";
 
@@ -314,6 +315,26 @@ export function weeklyEffectLine(e: ShopPulseWeeklyEffect): string {
   });
 }
 
+/** Zeilen des Ads-Abschnitts (deutsch, Teams und Glocke) */
+export function adsWeeklyLines(a: ShopPulseWeeklyAds): string[] {
+  if (!a.configured) return [t("weekly.adsNone", { problem: t(`adsSetup.problems.${a.problem}`) })];
+  const lines: string[] = [];
+  if (a.cost != null) {
+    lines.push(
+      t("weekly.adsLine", {
+        cost: EURO.format(a.cost),
+        clicks: INTEGER.format(a.clicks ?? 0),
+        conversions: DECIMAL1.format(a.conversions ?? 0),
+        cpa: a.costPerConversion != null ? EURO.format(a.costPerConversion) : "–",
+        db1: a.avgDb1PerOrder != null ? EURO.format(a.avgDb1PerOrder) : "–",
+      }),
+    );
+  } else lines.push(t("weekly.adsNotRead"));
+  if (a.openCount) lines.push(t("weekly.adsOpen", { count: a.openCount }));
+  if (a.suggestions.length) lines.push(t("weekly.adsSuggestions", { terms: a.suggestions.slice(0, 8).map((x) => `${x.negative} (${EURO.format(x.cost)})`).join(", ") }));
+  return lines;
+}
+
 export function buildShopPulseWeeklyCard(report: ShopPulseWeeklyReport, baseUrl: string | null): Record<string, unknown> {
   const d = report.data;
   const text = (s: string, extra: Record<string, unknown> = {}) => ({ type: "TextBlock", text: s, wrap: true, ...extra });
@@ -370,6 +391,12 @@ export function buildShopPulseWeeklyCard(report: ShopPulseWeeklyReport, baseUrl:
   }
   if (d.done.length > MAX_LISTED) body.push(text(t("weekly.more", { count: d.done.length - MAX_LISTED }), { spacing: "None" }));
   body.push(text(t("weekly.doneHint"), { isSubtle: true, size: "Small", spacing: "Small" }));
+
+  if (d.ads) {
+    body.push(heading(t("weekly.adsTitle")));
+    adsWeeklyLines(d.ads).forEach((line, i) => body.push(text(teamsPlain(line, 900), { spacing: i ? "None" : "Small" })));
+    body.push(text(t("weekly.adsHint"), { isSubtle: true, size: "Small", spacing: "Small" }));
+  }
 
   if (d.effects !== undefined) {
     body.push(heading(t("weekly.effectsTitle")));

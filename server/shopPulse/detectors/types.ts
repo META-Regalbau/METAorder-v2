@@ -6,6 +6,7 @@ import type { PulseOrder } from "../pulseOrders";
 import type { BuyabilityProduct, PriceChange } from "../buyabilityData";
 import type { Ga4Access } from "../ga4Client";
 import type { OfferWatchSources } from "./offers";
+import type { AdsSources } from "./ads";
 
 /** Zahl- bzw. Versandart des Verkaufskanals */
 export type ChannelMethod = { id: string; name: string; active: boolean };
@@ -55,6 +56,8 @@ export type ShopPulseDetectorContext = {
   ga4: Ga4Access;
   /** B2B-Angebotsanfragen (B2Bsellers), Außendienst-Zuordnung und Standard-Bearbeiter */
   b2b: OfferWatchSources;
+  /** Google Ads (S2-4); nicht eingerichtet → AdsNotConfiguredError (die Prüfung setzt aus) */
+  ads: AdsSources;
   /** Zeitpunkt des vorigen Laufs dieser Prüfung (null = noch nie) */
   lastRunAt: string | null;
   /** Diese Prüfung lief noch nie (kein Stand), auch nicht fehlgeschlagen */

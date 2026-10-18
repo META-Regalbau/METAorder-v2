@@ -39,6 +39,9 @@
  * Stufe 2 (S2-3): Ist der Schalter „Warenkorb-Alarm“ an (Standard aus), prüft jeder Takt die vom Plugin
  * gemeldeten Warenkörbe (cartAlarmRun.ts) und schickt Alarme an den Außendienst; in der Lernwoche nicht.
  *
+ * Stufe 2 (S2-4): Google Ads einmal am Tag (detectors/ads.ts), nur lesend; ohne Einrichtung setzt die
+ * Prüfung aus wie GA4 (skipped "ads").
+ *
  * Stufe 2 (S2-6): Einmal am Tag ab 5 Uhr rechnet effectsRun.ts die Wirkung der Maßnahmen neu (nicht, wenn
  * der Bestellabgleich hängt); der Wochenbericht nennt die gesicherten Wirkungen.
  *
@@ -98,6 +101,10 @@ import { isWeeklyReportDue, reportedWeekStart } from "./weeklyReport";
 import { buildWeeklyReport, shopPulseWeeklyDeps, type ShopPulseWeeklyDeps } from "./weeklyReportRun";
 import { syncActionLog } from "./actionSync";
 import { isEffectsDue, refreshEffects, shopPulseEffectsDeps } from "./effectsRun";
+import { adsAccess, AdsNotConfiguredError } from "./adsClient";
+import type { AdsSources } from "./detectors/ads";
+import { avgDb1PerOrder } from "./weeklyReport";
+import { loadHerstellpreiseForNumbers } from "./weeklyReportRun";
 import { getCartSettings, listCarts, loadSalesReps, markCartAlarmed, markCartOrdered, purgeCarts, rowToCart, runCartAlarm, type CartAlarmDeps } from "./cartAlarmRun";
 import { insertCandidates } from "./actionLogRepository";
 import { sendEmail } from "../email/emailOutbound";
@@ -134,6 +141,8 @@ export type ShopPulseDeps = {
   loadStorefront?: (tenantId: string | null) => StorefrontAccess;
   /** GA4-Property des Mandanten; fehlt sie, gilt GA4 als nicht eingerichtet */
   loadGa4?: (tenantId: string | null) => Ga4Access;
+  /** Google Ads (S2-4); fehlt es, gilt Ads als nicht eingerichtet */
+  loadAds?: (tenantId: string | null) => AdsSources;
   /** B2B-Angebotsanfragen (S2-2); fehlt sie, scheitert die Angebotsanfragen-Wache */
   loadOfferWatch?: (tenantId: string | null, now: Date) => OfferWatchSources;
   /** KI-Texte (PR F); fehlt sie, gehen immer die festen Vorlagen raus */
@@ -240,6 +249,7 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
     };
     const storefront: StorefrontAccess = deps.loadStorefront?.(tenantId) ?? { withShop: () => Promise.reject(new Error("Storefront nicht verfügbar")) };
     const ga4: Ga4Access = deps.loadGa4?.(tenantId) ?? { property: () => Promise.reject(new Ga4NotConfiguredError("disabled")) };
+    const ads: AdsSources = deps.loadAds?.(tenantId) ?? { account: () => Promise.reject(new AdsNotConfiguredError("disabled")), avgDb1PerOrder: async () => null };
     const noOffers = () => Promise.reject(new Error("Angebotsanfragen nicht verfügbar"));
     const b2b: OfferWatchSources = deps.loadOfferWatch?.(tenantId, now) ?? { requests: noOffers, salesReps: noOffers, defaultAssignee: noOffers, channelNames: noOffers };
 
@@ -266,7 +276,7 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
         continue;
       }
       try {
-        const found = await d.run({ storage: deps.storage, tenantId, now, orders, buyability, storefront, ga4, b2b, lastRunAt: prev?.ok ? prev.at : null, firstRun: !prev });
+        const found = await d.run({ storage: deps.storage, tenantId, now, orders, buyability, storefront, ga4, b2b, ads, lastRunAt: prev?.ok ? prev.at : null, firstRun: !prev });
         detections.push(...found);
         detectorState[d.id] = { at: now.toISOString(), ok: true, findings: found.length };
         ran.add(d.id);
@@ -276,6 +286,12 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
           // Shop-Wächter fragt den Shop gerade ab: aussetzen, im nächsten Takt wieder
           failedSources.add(d.source);
           detectorState[d.id] = { at: now.toISOString(), ok: true, skipped: "busy", findings: 0 };
+          continue;
+        }
+        if (err instanceof AdsNotConfiguredError) {
+          // Google Ads nicht eingerichtet: wie GA4 aussetzen, offene Ads-Meldungen bleiben
+          failedSources.add(d.source);
+          detectorState[d.id] = { at: now.toISOString(), ok: true, skipped: "ads", adsProblem: err.reason, findings: 0 };
           continue;
         }
         if (err instanceof Ga4NotConfiguredError) {
@@ -518,6 +534,7 @@ export function shopPulseDeps(storage: IStorage): ShopPulseDeps {
     }),
     loadStorefront: (tenantId) => storefrontAccess(storage, tenantId),
     loadGa4: (tenantId) => ga4Access(storage, tenantId),
+    loadAds: (tenantId) => adsSources(storage, tenantId),
     loadOfferWatch: (tenantId, now) => offerWatchSources(storage, tenantId, now),
     ai: shopPulseAiDeps(storage),
     weekly: { ...shopPulseWeeklyDeps(storage), effects: (tenantId, now) => refreshEffects(effectsDeps, tenantId, now) },
@@ -526,6 +543,20 @@ export function shopPulseDeps(storage: IStorage): ShopPulseDeps {
     cartAlarm: cartAlarmDeps(storage),
     onNotificationCreated: (n) => notificationEvents.emitNotificationCreated(n),
     baseUrl: publicAppBaseUrl(process.env.APP_URL?.trim() || null),
+  };
+}
+
+/** Google Ads des Mandanten und Ø Deckungsbeitrag je MO-Bestellung (Spiegel, Herstellpreise) */
+export function adsSources(storage: IStorage, tenantId: string | null): AdsSources {
+  const access = adsAccess(storage, tenantId);
+  return {
+    account: () => access.account(),
+    avgDb1PerOrder: async (from, to) => {
+      const orders = await loadPulseOrders(tenantId, new Date(Date.parse(`${from}T00:00:00Z`) - 2 * 60 * 60 * 1000), { items: true });
+      const numbers = Array.from(new Set(orders.flatMap((o) => (o.items ?? []).map((i) => i.productNumber))));
+      const hk = await loadHerstellpreiseForNumbers(storage, tenantId, numbers);
+      return avgDb1PerOrder(orders, from, to, (pn) => hk.get(pn) ?? null);
+    },
   };
 }
 

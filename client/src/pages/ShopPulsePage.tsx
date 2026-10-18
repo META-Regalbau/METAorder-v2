@@ -142,6 +142,8 @@ export default function ShopPulsePage() {
   };
   // GA4 nicht eingerichtet: Grund aus dem letzten Lauf einer GA4-Prüfung
   const ga4Problem = Object.values(data?.state.detectors ?? {}).find((d) => d.skipped === "ga4")?.ga4Problem;
+  // Google Ads nicht eingerichtet (Stufe 2, S2-4)
+  const adsProblem = Object.values(data?.state.detectors ?? {}).find((d) => d.skipped === "ads")?.adsProblem;
   const muted = (s: ShopPulseSignal) => !!s.mutedUntil && Date.parse(s.mutedUntil) > Date.now();
   const webhookValid = webhook.trim() !== "" && isAllowedTeamsWebhookUrl(webhook.trim());
   const busy = settingsMutation.isPending;
@@ -464,6 +466,8 @@ export default function ShopPulsePage() {
                           <span className="text-muted-foreground">
                             {d.skipped === "ga4"
                               ? t("shopPulse.detectors.skippedGa4")
+                              : d.skipped === "ads"
+                              ? t("shopPulse.detectors.skippedAds")
                               : d.skipped
                               ? t(d.skipped === "busy" ? "shopPulse.detectors.skippedBusy" : "shopPulse.detectors.skipped")
                               : d.ok
@@ -481,6 +485,13 @@ export default function ShopPulsePage() {
                     <p className="font-medium">{t("shopPulse.ga4Setup.title")}</p>
                     <p>{t(`shopPulse.ga4Setup.problems.${ga4Problem}`)}</p>
                     <p className="text-xs text-muted-foreground mt-1">{t("shopPulse.ga4Setup.hint")}</p>
+                  </div>
+                ) : null}
+                {adsProblem ? (
+                  <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-950/40" role="note" data-testid="shop-pulse-ads-setup">
+                    <p className="font-medium">{t("shopPulse.adsSetup.title")}</p>
+                    <p>{t(`shopPulse.adsSetup.problems.${adsProblem}`)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{t("shopPulse.adsSetup.hint")}</p>
                   </div>
                 ) : null}
               </Card>

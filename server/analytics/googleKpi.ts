@@ -55,8 +55,9 @@ export async function saveGoogleAnalyticsSettings(storage: IStorage, settings: G
   await storage.saveSetting("ga4_settings", payload);
 }
 
-export async function getGoogleAdsSettings(storage: IStorage) {
-  const stored = await storage.getSetting("google_ads_settings");
+/** tenantId: ohne Angabe gilt der Mandant des Aufrufs (Kontext); der Shop-Puls übergibt ihn ausdrücklich */
+export async function getGoogleAdsSettings(storage: Pick<IStorage, "getSetting">, tenantId?: string | null) {
+  const stored = await storage.getSetting("google_ads_settings", tenantId);
   return {
     ...DEFAULT_ADS_SETTINGS,
     ...stored,

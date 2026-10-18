@@ -49,7 +49,7 @@ const MONDAY = (hh: number, mm = 0) => new Date(`2026-10-19T${String(hh).padStar
 describe("Prüfungen", () => {
   it("Lauf-Reihenfolge für die Seite: Spiegel-Frische zuerst, dann Umsatz", () => {
     expect(SHOP_PULSE_DETECTORS.map((d) => d.id)).toEqual([...SHOP_PULSE_DETECTOR_IDS]);
-    expect(SHOP_PULSE_DETECTORS.filter((d) => d.needsFreshMirror).map((d) => d.id)).toEqual(["orderGap", "paymentGone", "weekComparison", "ga4Measurement"]);
+    expect(SHOP_PULSE_DETECTORS.filter((d) => d.needsFreshMirror).map((d) => d.id)).toEqual(["orderGap", "paymentGone", "weekComparison", "ga4Measurement", "googleAds"]);
   });
 });
 
