@@ -7810,6 +7810,7 @@
       "crossSelling": "Pestañas de venta cruzada",
       "montageTag": "Etiqueta de montaje",
       "promotion": "Promoción con código de descuento",
+      "newsletterOptIn": "Casilla del boletín en el checkout",
       "plugins": "Plugins necesarios"
     },
     "findings": {

@@ -21,6 +21,12 @@ import { CATEGORY_CONTENT_FIELDS } from "../products/categoryPageHtml";
 import { DEFAULT_MANAGED_CROSS_SELLING_GROUP_NAME } from "@shared/schema";
 import { industryEntityId, quickConfigId, snippetEntryId, STOREFRONT_SNIPPETS, type StorefrontSnippetDef } from "./shopEntityIds";
 import { EXIT_INTENT_CODE, EXIT_INTENT_IDS, EXIT_INTENT_PROMOTION_NAME, EXIT_INTENT_RULE_NAME } from "./exitIntentPromotion";
+import {
+  CHECKOUT_NEWSLETTER_LABEL,
+  CHECKOUT_NEWSLETTER_SETTINGS,
+  deSnippetSetId,
+  loadCheckoutNewsletterSnippet,
+} from "./checkoutNewsletter";
 import { DE_LANG, type ShopApi } from "./shopProducts";
 
 export type ShopPage = { status: number; html: string; location: string | null };
@@ -555,10 +561,41 @@ const exitIntentPromotion: ShopWatchCheckDef = {
   },
 };
 
+/** Newsletter-Checkbox auf „Bestellung abschließen“ (Brevo-Plugin) und ihr Text aus scripts/writeCheckoutNewsletterLabel.ts */
+const checkoutNewsletter: ShopWatchCheckDef = {
+  id: "checkout-newsletter:opt-in",
+  group: "own",
+  kind: "newsletterOptIn",
+  label: "Newsletter-Checkbox im Checkout",
+  cadence: "hourly",
+  repair: (o) => ({
+    mode: "auto",
+    command: cmd("writeCheckoutNewsletterLabel.ts", "--apply", o),
+    hint: "Ist die Checkbox aus oder vorausgewählt: Shop-Admin → Brevo → Einstellungen „Opt-in anzeigen“",
+  }),
+  async run(ctx) {
+    const findings: ShopWatchFinding[] = [];
+    const plugin = (await ctx.plugins()).find((p) => p.name === "NewsletterSendinblue");
+    if (!plugin) return { findings: [fail("pluginMissing", { name: "NewsletterSendinblue" })] };
+    if (!plugin.active) return { findings: [fail("pluginInactive", { name: "NewsletterSendinblue" })] };
+    const config = await ctx.api("GET", "_action/system-config?domain=Sendinblue.config");
+    const enabled = config?.[CHECKOUT_NEWSLETTER_SETTINGS.enabled];
+    if (enabled !== true) findings.push(fail("settingChanged", { setting: CHECKOUT_NEWSLETTER_SETTINGS.enabled, value: String(enabled ?? "–") }));
+    if (config?.[CHECKOUT_NEWSLETTER_SETTINGS.preChecked] === true) {
+      findings.push(fail("settingChanged", { setting: CHECKOUT_NEWSLETTER_SETTINGS.preChecked, value: "true" }));
+    }
+    const snippet = await loadCheckoutNewsletterSnippet(ctx.api, await deSnippetSetId(ctx.api, ctx.channelId, ctx.storefront));
+    if (!snippet) findings.push(fail("entityMissing", { entity: "Textbaustein", name: "Newsletter-Checkbox" }));
+    else if (snippet.value !== CHECKOUT_NEWSLETTER_LABEL) findings.push(warn("differsFromRepo", { name: "Newsletter-Checkbox" }));
+    return { findings };
+  },
+};
+
 export const SHOP_WATCH_CHECKS: ShopWatchCheckDef[] = [
   plugins,
   ...STOREFRONT_SNIPPETS.map(snippetCheck),
   exitIntentPromotion,
+  checkoutNewsletter,
   quickConfigPage,
   quickConfigHome,
   ...industryPageChecks,
