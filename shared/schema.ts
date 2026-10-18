@@ -3948,3 +3948,21 @@ export const shopPulseWeeklyReports = pgTable(
 );
 
 export type ShopPulseWeeklyReportRow = typeof shopPulseWeeklyReports.$inferSelect;
+
+/** Shop-Puls Stufe 2 (S2-6): zuletzt berechnete Wirkung je Maßnahme (Migration 0058). */
+export const shopPulseActionEffects = pgTable(
+  "shop_pulse_action_effects",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id"),
+    actionId: varchar("action_id").notNull(),
+    verdict: text("verdict").notNull(),
+    data: jsonb("data").notNull(),
+    computedAt: timestamp("computed_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    tenantActionIdx: uniqueIndex("shop_pulse_action_effects_tenant_action_idx").on(table.tenantId, table.actionId),
+  }),
+);
+
+export type ShopPulseActionEffectRow = typeof shopPulseActionEffects.$inferSelect;

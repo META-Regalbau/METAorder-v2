@@ -22,6 +22,7 @@ import {
   type ShopPulseWeeklyNumbers,
   type ShopPulseWeeklyReport,
 } from "@shared/shopPulseWeekly";
+import type { ShopPulseWeeklyEffect } from "@shared/shopPulseEffects";
 
 export const SHOP_PULSE_PAGE_PATH = "/admin/shop-puls";
 /** So viele Meldungen stehen höchstens im Tagesbericht */
@@ -299,6 +300,20 @@ const leverAmountText = (l: ShopPulseLever) =>
   l.perWeek != null && l.basis ? t("weekly.leverAmount", { amount: EURO.format(l.perWeek), basis: t(`lossBasis.${l.basis}`) }) : t("weekly.leverNoAmount");
 
 /** Teams-Karte des Wochenberichts: Zahlen, KI-Zusammenfassung, Top 5 Hebel, Erledigt, Offen je Zuständigem */
+const signedEuro = (v: number) => `${v > 0 ? "+" : ""}${EURO.format(v)}`;
+const signedPercent = (v: number | null) => (v == null ? "–" : `${v > 0 ? "+" : ""}${DECIMAL1.format(v)} %`);
+
+/** Eine gesicherte Wirkung, z. B. „12.10.2026 Preise gesenkt: +1.800 € Deckungsbeitrag (+12 %) in 28 Tagen“ */
+export function weeklyEffectLine(e: ShopPulseWeeklyEffect): string {
+  return t("weekly.effectItem", {
+    date: BERLIN_DATE.format(new Date(e.occurredAt)),
+    title: e.title,
+    amount: signedEuro(e.effect),
+    metric: t(`weekly.effectMetrics.${e.main}`),
+    percent: signedPercent(e.effectPercent),
+  });
+}
+
 export function buildShopPulseWeeklyCard(report: ShopPulseWeeklyReport, baseUrl: string | null): Record<string, unknown> {
   const d = report.data;
   const text = (s: string, extra: Record<string, unknown> = {}) => ({ type: "TextBlock", text: s, wrap: true, ...extra });
@@ -356,6 +371,14 @@ export function buildShopPulseWeeklyCard(report: ShopPulseWeeklyReport, baseUrl:
   if (d.done.length > MAX_LISTED) body.push(text(t("weekly.more", { count: d.done.length - MAX_LISTED }), { spacing: "None" }));
   body.push(text(t("weekly.doneHint"), { isSubtle: true, size: "Small", spacing: "Small" }));
 
+  if (d.effects !== undefined) {
+    body.push(heading(t("weekly.effectsTitle")));
+    if (d.effects === null) body.push(text(t("weekly.effectsNotComputed"), { spacing: "Small" }));
+    else if (!d.effects.length) body.push(text(t("weekly.effectsNone"), { spacing: "Small" }));
+    for (const e of (d.effects ?? []).slice(0, MAX_LISTED)) body.push(text(`- ${teamsPlain(weeklyEffectLine(e), 400)}`, { spacing: "None" }));
+    body.push(text(t("weekly.effectsHint"), { isSubtle: true, size: "Small", spacing: "Small" }));
+  }
+
   if (d.openByOwner.length) {
     body.push(heading(t("weekly.ownersTitle")));
     for (const o of d.openByOwner) {
@@ -376,6 +399,7 @@ export function buildShopPulseWeeklyBellText(report: ShopPulseWeeklyReport): { t
       ...(d.numbers ? weeklyNumbersLines(d.numbers).slice(0, 1) : [t("weekly.numbersNone")]),
       ...(report.ai?.text ? [report.ai.text] : []),
       ...offerSummaryLines(d.offers).slice(0, 1),
+      ...(d.effects?.length ? [t("weekly.effectsBell", { count: d.effects.length })] : []),
       ...d.levers.slice(0, 3).map((l) => `- ${signalTitle(l)}: ${leverAmountText(l)}`),
     ]
       .join("\n")

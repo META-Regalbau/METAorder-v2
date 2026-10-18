@@ -6668,7 +6668,9 @@
       "invalid_shop_pulse_protocol_upload": "Invalid upload of the live protocols",
       "failed_to_import_shop_pulse_protocols": "Live protocols could not be imported",
       "failed_to_load_shop_pulse_weekly_reports": "Weekly reports could not be loaded",
-      "failed_to_build_shop_pulse_weekly_report": "Weekly report could not be created"
+      "failed_to_build_shop_pulse_weekly_report": "Weekly report could not be created",
+      "failed_to_load_shop_pulse_effects": "Failed to load the impact",
+      "failed_to_compute_shop_pulse_effects": "Failed to calculate the impact"
     }
   },
   "roomPlanner": {
@@ -8359,7 +8361,7 @@
       "leversSum": "Together about {{amount}} per week (estimate).",
       "doneTitle": "Done last week ({{count}})",
       "doneNone": "No entries in the action log.",
-      "doneHint": "Whether it worked will be measured later by the shop pulse (stage 2, impact measurement).",
+      "doneHint": "Whether it worked is shown 28 days later under “Confirmed impact” and in the action log.",
       "ownersTitle": "Open per responsible party",
       "ownerHeading": "{{owner}} ({{count}})",
       "more": "… and {{count}} more",
@@ -8405,7 +8407,17 @@
       "b2bAtLeast": "from {{threshold}} net: {{orders}} order(s) ({{percent}} of business customer orders), about {{perWeek}} per week",
       "b2bBasis": "Recognised by the company in the billing address: {{company}}, only by the B2B flag (B2Bsellers company): {{flagOnly}}",
       "b2bNone": "No B2B share: the order sync is stuck.",
-      "b2bHint": "Basis for the threshold of the B2B cart alert (proposal €1,000 net)."
+      "b2bHint": "Basis for the threshold of the B2B cart alert (proposal €1,000 net).",
+      "effectsTitle": "Confirmed impact",
+      "effectsNotComputed": "Impact not calculated this time (order sync stalled or error).",
+      "effectsNone": "No action with a confirmed impact this week.",
+      "effectsHint": "Actions whose 28 days afterwards ended this week: scope against the rest of the shop, MO orders net. With about 4.7 orders per working day only large effects are certain.",
+      "effectItem": "{{date}} {{title}}: {{amount}} {{metric}} ({{percent}}) in 28 days",
+      "effectMetrics": {
+        "db1": "contribution margin",
+        "revenue": "net revenue"
+      },
+      "effectsBell": "Confirmed impact: {{count}} action(s)"
     },
     "weeklyPage": {
       "title": "Weekly reports",
@@ -8450,7 +8462,7 @@
       "leversHint": "Amounts are estimates: estimated loss per hour × 84 business hours (12 per day, 7 days). Signals without an estimate are listed last.",
       "doneTitle": "Done last week ({{count}})",
       "doneNone": "No entries in the action log for this week.",
-      "doneHint": "From the action log. The shop pulse will only measure the impact with the impact measurement (stage 2).",
+      "doneHint": "From the action log. The impact is shown 28 days later under “Confirmed impact” and in the action log.",
       "ownersTitle": "Open per responsible party",
       "ownerHeading": "{{owner}} ({{count}})",
       "copy": "Copy list",
@@ -8502,7 +8514,11 @@
       "bucketOpen": "from {{from}}",
       "quantiles": "Business customers: median {{p50}}, 75 % of orders up to {{p75}}, 90 % up to {{p90}}.",
       "atLeast": "from {{threshold}}: {{orders}} order(s) ({{percent}}), about {{perWeek}} per week",
-      "basis": "Recognised by the company: {{company}}, only by the B2B flag: {{flagOnly}}."
+      "basis": "Recognised by the company: {{company}}, only by the B2B flag: {{flagOnly}}.",
+      "effectsTitle": "Confirmed impact",
+      "effectsNotComputed": "Impact not calculated for this report (order sync stalled or error).",
+      "effectsNone": "No action whose 28 days ended this week has a confirmed impact.",
+      "effectsHint": "Only actions rated “certain” (28 days, scope against the rest of the shop). All ratings are in the action log."
     },
     "actions": {
       "title": "Action log",
@@ -8559,7 +8575,8 @@
         "what": "What",
         "scope": "Scope",
         "who": "Who / source",
-        "actions": "Actions"
+        "actions": "Actions",
+        "effect": "Impact"
       },
       "kinds": {
         "contentPublish": "Shop content live",
@@ -8578,6 +8595,87 @@
         "import": "Live protocol import",
         "manual": "by hand"
       }
+    },
+    "effects": {
+      "title": "Measure impact",
+      "hint": "For each action METAorder compares 14 and 28 days before and after (same weekdays) for the affected scope, against the rest of the shop. The main figure is the contribution margin, revenue and orders are shown alongside (MO orders, net).",
+      "refresh": "Recalculate",
+      "refreshed": "Impact of {{count}} action(s) calculated",
+      "refreshFailed": "Impact could not be calculated",
+      "loadError": "Impact could not be loaded.",
+      "lastComputed": "Last calculated: {{date}} (otherwise daily from 5 am)",
+      "rulesTitle": "How is it rated?",
+      "rules": {
+        "windows": "Periods: 14 and 28 days before and after the day of the action; the day itself is not counted.",
+        "control": "Comparison: expected would be “before × development of the rest of the shop”; the impact is the deviation from that. If the action affects the whole shop, the same days one year earlier are the comparison.",
+        "main": "The main figure is the contribution margin; if it is known for less than {{minDb1CoveragePercent}} % of revenue, revenue.",
+        "sure": "“Certain”: 28 days over, at least {{minOrdersSure}} orders in scope before and after each, a comparison, no other action in the same scope, and the deviation is at least {{zSure}} times the usual fluctuation.",
+        "notMeasurable": "“Not measurable”: pages (cannot be attributed to orders), no data before, or fewer than {{minOrdersMeasurable}} orders in scope in total. Otherwise “uncertain”.",
+        "honest": "With about 4.7 shop orders per working day only large effects are certain. Each evaluation states from which size an effect would be detectable. Early signals from GA4 are only a trend."
+      },
+      "notComputed": "not calculated yet",
+      "details": "Details",
+      "verdicts": {
+        "sure": "Impact certain",
+        "unsure": "Impact uncertain",
+        "notMeasurable": "not measurable",
+        "pending": "running"
+      },
+      "headline": "{{amount}} {{metric}} ({{percent}}) in {{days}} days",
+      "pendingUntil": "first result after {{date}}",
+      "windowTitle": "{{days}} days",
+      "windowRange": "before {{preFrom}}–{{preTo}}, after {{postFrom}}–{{postTo}}",
+      "controls": {
+        "rest": "Comparison: rest of the shop",
+        "yearAgo": "Comparison: same days one year earlier",
+        "none": "no comparison"
+      },
+      "controlChange": "({{percent}})",
+      "mainMetric": "Main figure: {{metric}}",
+      "coverage": "manufacturing price for {{percent}} of revenue",
+      "columns": {
+        "metric": "Figure",
+        "pre": "before",
+        "post": "after",
+        "expected": "expected",
+        "effect": "Impact",
+        "z": "z",
+        "detectable": "detectable from"
+      },
+      "metrics": {
+        "db1": "Contribution margin",
+        "revenue": "Net revenue",
+        "orders": "Orders"
+      },
+      "reasons": {
+        "pagesNotAttributable": "Pages cannot be attributed to orders; early signals only.",
+        "channelNoOrders": "No MO orders in this channel.",
+        "noHistory": "The order mirror does not reach back that far.",
+        "tooFewOrders": "Fewer than {{minOrdersMeasurable}} orders in scope in total.",
+        "fewOrders": "Fewer than {{minOrdersSure}} orders in scope before or after.",
+        "noControl": "No comparison (no rest of the shop, mirror does not reach back a year).",
+        "overlap": "Another action in the same scope during this period.",
+        "windowShort": "Certain only after 28 days.",
+        "weak": "Deviation smaller than the usual fluctuation (z below {{zSure}}).",
+        "db1Coverage": "Contribution margin too incomplete, revenue as main figure."
+      },
+      "overlapsTitle": "Other actions in the same scope ({{count}})",
+      "more": "… and {{count}} more",
+      "earlyTitle": "Early signals (GA4)",
+      "earlyPending": "Available once the first 14 days are over.",
+      "earlyNotConfigured": "GA4 not set up (Settings → Google Analytics).",
+      "earlyError": "GA4 not read: {{error}}",
+      "earlyLine": "{{metric}} ({{days}} days): {{pre}} → {{post}} ({{change}})",
+      "earlyRelative": "versus rest of the shop {{percent}}",
+      "earlyHint": "Trend only, no rating.",
+      "earlyMetrics": {
+        "itemsViewed": "Item views",
+        "itemsAddedToCart": "Added to cart",
+        "sessions": "Sessions",
+        "ecommercePurchases": "Purchases",
+        "conversionPercent": "Conversion in %"
+      },
+      "computedAt": "Calculated: {{date}}"
     }
   },
   "mondu": {

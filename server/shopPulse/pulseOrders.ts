@@ -25,6 +25,8 @@ export type PulseOrder = {
   items?: PulseOrderItem[];
   /** Kunde (nur mit loadPulseOrders(…, { customer: true }), für den B2B-Anteil im Wochenbericht) */
   customer?: PulseOrderCustomer;
+  /** Verkaufskanal (nur mit loadPulseOrders(…, { channel: true }), für die Wirkungsmessung) */
+  channel?: string | null;
 };
 
 /** Netto-Betrag, Firma der Rechnungsadresse und Kundennummer einer Bestellung */
@@ -73,6 +75,7 @@ export type MirrorOrderRow = {
   net?: string | number | null;
   company?: string | null;
   customerNumber?: string | null;
+  channel?: string | null;
 };
 
 /** Positionen aus dem Spiegel (Order.items): Artikelnummer, Menge, Netto-Summe; ohne Nummer weggelassen */
@@ -109,6 +112,7 @@ export function toPulseOrders(rows: MirrorOrderRow[]): PulseOrder[] {
       ...(r.net !== undefined
         ? { customer: { net: Number.isFinite(Number(r.net ?? 0)) ? Number(r.net ?? 0) : 0, company: r.company?.trim() ?? "", customerNumber: r.customerNumber?.trim() ?? "" } }
         : {}),
+      ...(r.channel !== undefined ? { channel: r.channel?.trim() || null } : {}),
     });
   }
   return out.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
@@ -117,7 +121,7 @@ export function toPulseOrders(rows: MirrorOrderRow[]): PulseOrder[] {
 const tenantIs = (column: AnyColumn, tenantId: string | null) => (tenantId ? eq(column, tenantId) : isNull(column));
 
 /** Shop-Bestellungen ab einem Zeitpunkt aus dem Spiegel (Live 2026: rund 2.100 MO-Zeilen insgesamt) */
-export async function loadPulseOrders(tenantId: string | null, since: Date, opts: { items?: boolean; customer?: boolean } = {}): Promise<PulseOrder[]> {
+export async function loadPulseOrders(tenantId: string | null, since: Date, opts: { items?: boolean; customer?: boolean; channel?: boolean } = {}): Promise<PulseOrder[]> {
   const p = shopwareOrders.payload;
   const rows = await db
     .select({
@@ -135,6 +139,7 @@ export async function loadPulseOrders(tenantId: string | null, since: Date, opts
             customerNumber: sql<string | null>`${p}->>'customerNumber'`,
           }
         : {}),
+      ...(opts.channel ? { channel: sql<string | null>`${p}->>'salesChannelName'` } : {}),
     })
     .from(shopwareOrders)
     .where(and(tenantIs(shopwareOrders.tenantId, tenantId), sql`upper(${shopwareOrders.orderNumber}) like 'MO%'`));

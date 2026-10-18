@@ -1,6 +1,6 @@
 // Shop-Puls Stufe 2 (S2-1, nur Administratoren): Maßnahmen-Protokoll ansehen, von Hand eintragen, bearbeiten
 // und löschen, Live-Protokolle hochladen (einmaliger Import), Archiv der Wochenberichte und „Jetzt erstellen“
-// (ohne Senden).
+// (ohne Senden). Stufe 2 (S2-6): Wirkung je Maßnahme ansehen und neu berechnen.
 import type { Express, Request, Response } from "express";
 import { requireAdministrator, requireAuth, requireCsrf } from "../auth/auth";
 import { logger } from "../lib/logger";
@@ -20,6 +20,8 @@ import { buildAndSaveWeeklyReport, isShopPulseRunning, shopPulseDeps } from "../
 import { getShopPulseSettings } from "../shopPulse/shopPulseSettings";
 import { MIRROR_SIGNAL_KEY } from "../shopPulse/detectors/mirrorFreshness";
 import { loadProductRevenue } from "../shopPulse/buyabilityData";
+import type { ShopPulseEffectsOverview } from "@shared/shopPulseEffects";
+import { listEffects, refreshEffects, shopPulseEffectsDeps } from "../shopPulse/effectsRun";
 
 const moduleLog = logger.child({ component: "routes/shopPulseWeeklyRoutes" });
 
@@ -33,7 +35,41 @@ async function actionsOverview(tenantId: string | null): Promise<ShopPulseAction
   return { actions: await listActions(tenantId, { limit: ACTIONS_LIMIT }) };
 }
 
+/** Wirkungen der Maßnahmen, die die Seite zeigt (gelöschte und ältere fallen weg) */
+async function effectsOverview(tenantId: string | null): Promise<ShopPulseEffectsOverview> {
+  const listed = new Set((await listActions(tenantId, { limit: ACTIONS_LIMIT })).map((a) => a.id));
+  const shown = (await listEffects(tenantId)).filter((e) => listed.has(e.actionId));
+  const computedAt = shown.reduce<string | null>((m, e) => (!m || e.computedAt > m ? e.computedAt : m), null);
+  return { effects: shown, computedAt };
+}
+
 export function registerShopPulseWeeklyRoutes(app: Express): void {
+  /** Zuletzt berechnete Wirkung je Maßnahme (S2-6) */
+  app.get("/api/shop-pulse/effects", requireAuth, requireAdministrator, async (req: Request, res: Response) => {
+    const tenantId = tenantOf(req);
+    try {
+      res.json(await effectsOverview(tenantId));
+    } catch (error) {
+      moduleLog.error({ err: error, tenantId }, "Wirkung: Laden fehlgeschlagen");
+      res.status(500).json({ error: "Failed to load shop pulse effects" });
+    }
+  });
+
+  /** Wirkung jetzt neu berechnen (Bestellspiegel, Herstellpreise; GA4 nur, wenn eingerichtet) */
+  app.post("/api/shop-pulse/effects/refresh", requireAuth, requireAdministrator, requireCsrf, async (req: Request, res: Response) => {
+    const tenantId = tenantOf(req);
+    if (isShopPulseRunning(tenantId)) return res.status(409).json({ error: "Shop pulse run already in progress" });
+    try {
+      await syncActionLog(storage, tenantId, new Date()).catch((err) => moduleLog.warn({ err, tenantId }, "Wirkung: Maßnahmen-Protokoll nicht abgeglichen"));
+      const run = await refreshEffects(shopPulseEffectsDeps(storage), tenantId, new Date());
+      moduleLog.info({ tenantId, effects: run.effects.length, ga4: run.ga4Read, by: userName(req) }, "Wirkung: von Hand neu berechnet");
+      res.json(await effectsOverview(tenantId));
+    } catch (error) {
+      moduleLog.error({ err: error, tenantId }, "Wirkung: Berechnen fehlgeschlagen");
+      res.status(500).json({ error: "Failed to compute shop pulse effects" });
+    }
+  });
+
   /** Maßnahmen-Protokoll; zieht vorher die automatischen Quellen nach (Fehler dabei halten die Liste nicht auf) */
   app.get("/api/shop-pulse/actions", requireAuth, requireAdministrator, async (req: Request, res: Response) => {
     const tenantId = tenantOf(req);

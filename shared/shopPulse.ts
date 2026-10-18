@@ -246,6 +246,8 @@ export type ShopPulseState = {
   lastDailyReportDay?: string;
   /** Montag der zuletzt berichteten Woche (Wochenbericht, Stufe 2 S2-1) */
   lastWeeklyReportWeek?: string;
+  /** Kalendertag (Berlin) der letzten Wirkungsmessung (Stufe 2 S2-6, einmal am Tag) */
+  lastEffectsDay?: string;
   /** KI-Zusammenfassung des letzten Tagesberichts (null-Text = verworfen, Vorlage ging raus) */
   lastDailyAi?: { at: string; text: string | null; rejected?: ShopPulseAiRejection };
   /**

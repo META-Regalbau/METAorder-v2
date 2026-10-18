@@ -36,6 +36,9 @@
  * B2B-Angebotsanfragen; der Tagesbericht nennt sie zusammengefasst, der Wochenbericht zusätzlich den
  * B2B-Anteil der Shop-Bestellungen.
  *
+ * Stufe 2 (S2-6): Einmal am Tag ab 5 Uhr rechnet effectsRun.ts die Wirkung der Maßnahmen neu (nicht, wenn
+ * der Bestellabgleich hängt); der Wochenbericht nennt die gesicherten Wirkungen.
+ *
  * In der Lernwoche wird alles gesammelt, aber nichts gesendet. Mandanten nacheinander, nie zwei Läufe
  * für denselben Mandanten gleichzeitig.
  */
@@ -91,6 +94,7 @@ import { buildShopPulseWeeklyBellText, buildShopPulseWeeklyCard } from "./shopPu
 import { isWeeklyReportDue, reportedWeekStart } from "./weeklyReport";
 import { buildWeeklyReport, shopPulseWeeklyDeps, type ShopPulseWeeklyDeps } from "./weeklyReportRun";
 import { syncActionLog } from "./actionSync";
+import { isEffectsDue, refreshEffects, shopPulseEffectsDeps } from "./effectsRun";
 import type { OfferWatchSources } from "./detectors/offers";
 import { offerWatchSources } from "./offerRequests";
 import { offerSummary } from "./weeklyReport";
@@ -132,6 +136,8 @@ export type ShopPulseDeps = {
   weekly?: ShopPulseWeeklyDeps;
   /** Maßnahmen-Protokoll nachziehen (Stufe 2); fehlt es, ruht die Übernahme */
   syncActions?: (tenantId: string | null, now: Date) => Promise<unknown>;
+  /** Wirkung der Maßnahmen neu rechnen (Stufe 2, S2-6); fehlt sie, ruht die Wirkungsmessung */
+  refreshEffects?: (tenantId: string | null, now: Date) => Promise<unknown>;
   onNotificationCreated: (n: Notification) => void;
   baseUrl: string | null;
   now?: () => Date;
@@ -308,6 +314,17 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
       }
     }
 
+    // Wirkung der Maßnahmen: einmal am Tag, nur mit frischem Bestellspiegel
+    const patchEffects: Partial<ShopPulseState> = {};
+    if (deps.refreshEffects && !mirrorStale() && isEffectsDue(state.lastEffectsDay, now)) {
+      patchEffects.lastEffectsDay = berlinDayHour(now).day;
+      try {
+        await deps.refreshEffects(tenantId, now);
+      } catch (err) {
+        log.warn({ err, tenantId }, "Shop-Puls: Wirkung nicht berechnet");
+      }
+    }
+
     // KI nur bei eingeschaltetem Shop-Puls, Schalter „KI-Texte“ und eingerichtetem Anbieter
     const aiOn = !!deps.ai && settings.enabled && settings.aiTexts && (await deps.ai.configured(tenantId).catch(() => false));
     const aiRun: ShopPulseAiRun = {
@@ -352,7 +369,7 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
     // 4. Wochenbericht (montags) bzw. Tagesbericht
     let dailyReport: ShopPulseRunResult["dailyReport"] = null;
     let weeklyReport: ShopPulseRunResult["weeklyReport"] = null;
-    const patch: Partial<ShopPulseState> = { lastTickAt: now.toISOString(), detectors: detectorState };
+    const patch: Partial<ShopPulseState> = { lastTickAt: now.toISOString(), detectors: detectorState, ...patchEffects };
     if (settings.enabled && deps.weekly && isWeeklyReportDue(state, now)) {
       try {
         const report = await buildAndSaveWeeklyReport(deps, deps.weekly, {
@@ -465,6 +482,7 @@ export async function runShopPulseTick(deps: ShopPulseDeps): Promise<void> {
 }
 
 export function shopPulseDeps(storage: IStorage): ShopPulseDeps {
+  const effectsDeps = shopPulseEffectsDeps(storage);
   return {
     storage,
     repo,
@@ -484,8 +502,9 @@ export function shopPulseDeps(storage: IStorage): ShopPulseDeps {
     loadGa4: (tenantId) => ga4Access(storage, tenantId),
     loadOfferWatch: (tenantId, now) => offerWatchSources(storage, tenantId, now),
     ai: shopPulseAiDeps(storage),
-    weekly: shopPulseWeeklyDeps(storage),
+    weekly: { ...shopPulseWeeklyDeps(storage), effects: (tenantId, now) => refreshEffects(effectsDeps, tenantId, now) },
     syncActions: (tenantId, now) => syncActionLog(storage, tenantId, now),
+    refreshEffects: (tenantId, now) => refreshEffects(effectsDeps, tenantId, now),
     onNotificationCreated: (n) => notificationEvents.emitNotificationCreated(n),
     baseUrl: publicAppBaseUrl(process.env.APP_URL?.trim() || null),
   };
