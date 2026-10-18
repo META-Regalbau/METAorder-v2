@@ -1,10 +1,11 @@
 /**
  * Shop-Puls, Nachrichten: Teams-Karten (Direktnachricht über n8n) und Texte für die Glocke. Texte kommen
  * aus dem deutschen Übersetzungskatalog der Oberfläche (shopPulse.codes.*, shopPulse.notify.*), damit Seite
- * und Teams dasselbe sagen.
+ * und Teams dasselbe sagen. Hat die KI einen geprüften Text geschrieben (shopPulseAi.ts, PR F), steht er
+ * an Stelle der Vorlage; die Fakten (seit, zuletzt, Verlust) bleiben aus der Vorlage.
  */
 import deLocale from "../../client/src/i18n/locales/de.json";
-import { formatShopPulseParams, type ShopPulseSignal } from "@shared/shopPulse";
+import { currentAiText, formatShopPulseParams, type ShopPulseLossEstimate, type ShopPulseSignal } from "@shared/shopPulse";
 import { adaptiveCardMessage, teamsPlain } from "../lib/teamsOutbox";
 import type { ShopPulseNotice } from "./shopPulseSignals";
 import type { DailyNumbers } from "./detectors/revenue";
@@ -73,17 +74,34 @@ function noticeHeading(notice: ShopPulseNotice): string {
   return `${ICON[notice.signal.severity]} ${title}`;
 }
 
-/** Karte für eine Sofort-Meldung oder Entwarnung */
-export function buildShopPulseNoticeCard(notice: ShopPulseNotice, baseUrl: string | null): Record<string, unknown> {
+/** Geschätzter Verlust als Text: von der Prüfung wie bisher, sonst mit der Grundlage der Schätzung */
+function lossText(s: ShopPulseSignal, estimate: ShopPulseLossEstimate | null): string | null {
+  if (s.lossPerHour) return t("notify.lossValue", { amount: EURO.format(s.lossPerHour) });
+  if (estimate) return t("notify.lossEstimateValue", { amount: EURO.format(estimate.perHour), basis: t(`lossBasis.${estimate.basis}`) });
+  return null;
+}
+
+/** KI-Text der Meldung, falls er zur jetzigen Schwere gehört (Entwarnungen immer aus der Vorlage) */
+const aiTextOf = (notice: ShopPulseNotice) => (notice.kind === "resolved" ? null : currentAiText(notice.signal));
+
+/** Karte für eine Sofort-Meldung oder Entwarnung; estimate = geschätzter Verlust, wo die Prüfung keinen liefert */
+export function buildShopPulseNoticeCard(notice: ShopPulseNotice, baseUrl: string | null, estimate: ShopPulseLossEstimate | null = null): Record<string, unknown> {
   const s = notice.signal;
   const facts = [{ title: t("notify.since"), value: BERLIN_TIME.format(new Date(s.firstSeenAt)) }];
   if (notice.kind === "resolved" && s.resolvedAt) facts.push({ title: t("notify.resolvedAt"), value: BERLIN_TIME.format(new Date(s.resolvedAt)) });
   else facts.push({ title: t("notify.lastSeen"), value: BERLIN_TIME.format(new Date(s.lastSeenAt)) });
-  if (s.lossPerHour && notice.kind !== "resolved") facts.push({ title: t("notify.loss"), value: t("notify.lossValue", { amount: EURO.format(s.lossPerHour) }) });
+  const loss = notice.kind !== "resolved" ? lossText(s, estimate) : null;
+  if (loss) facts.push({ title: t("notify.loss"), value: loss });
 
+  const ai = aiTextOf(notice);
   const body: Record<string, unknown>[] = [
     { type: "TextBlock", text: teamsPlain(noticeHeading(notice), 300), weight: "Bolder", size: "Medium", wrap: true },
-    { type: "TextBlock", text: teamsPlain(notice.kind === "resolved" ? t("notify.resolvedText") : signalMessage(s), 1200), wrap: true },
+    ...(ai
+      ? [
+          ...ai.split("\n").map((line, i) => ({ type: "TextBlock", text: teamsPlain(line, 500), wrap: true, spacing: i ? "None" : "Default" })),
+          { type: "TextBlock", text: t("notify.aiNote"), wrap: true, isSubtle: true, size: "Small", spacing: "Small" },
+        ]
+      : [{ type: "TextBlock", text: teamsPlain(notice.kind === "resolved" ? t("notify.resolvedText") : signalMessage(s), 1200), wrap: true }]),
     { type: "FactSet", facts },
   ];
   const open = pageUrl(baseUrl, `?signal=${encodeURIComponent(s.id)}`);
@@ -95,12 +113,13 @@ export function buildShopPulseNoticeCard(notice: ShopPulseNotice, baseUrl: strin
   return adaptiveCardMessage(body, actions);
 }
 
-/** Tagesbericht: offene Meldungen, kritisch zuerst (Reihenfolge kommt sortiert an) */
+/** Tagesbericht: offene Meldungen, kritisch zuerst (Reihenfolge kommt sortiert an); aiSummary = geprüfter KI-Text */
 export function buildShopPulseDailyCard(
   signals: ShopPulseSignal[],
   now: Date,
   baseUrl: string | null,
   numbers: DailyNumbers | null = null,
+  aiSummary: string | null = null,
 ): Record<string, unknown> {
   const critical = signals.filter((s) => s.severity === "critical").length;
   const body: Record<string, unknown>[] = [
@@ -108,6 +127,10 @@ export function buildShopPulseDailyCard(
   ];
   if (numbers) {
     dailyNumbersLines(numbers).forEach((line, i) => body.push({ type: "TextBlock", text: line, wrap: true, spacing: i ? "None" : "Small", ...(i ? { isSubtle: true } : {}) }));
+  }
+  if (aiSummary) {
+    aiSummary.split("\n").forEach((line, i) => body.push({ type: "TextBlock", text: teamsPlain(line, 1200), wrap: true, spacing: i ? "None" : "Medium" }));
+    body.push({ type: "TextBlock", text: t("notify.aiNote"), wrap: true, isSubtle: true, size: "Small", spacing: "Small" });
   }
   body.push({
     type: "TextBlock",
@@ -140,16 +163,22 @@ export function buildShopPulseTestCard(baseUrl: string | null, now: Date): Recor
 export function buildShopPulseBellText(notice: ShopPulseNotice): { title: string; message: string } {
   return {
     title: teamsPlain(noticeHeading(notice).replace(/^\S+\s/, `${t("notify.bellPrefix")}: `), 200),
-    message: (notice.kind === "resolved" ? t("notify.resolvedText") : signalMessage(notice.signal)).slice(0, 1000),
+    message: (aiTextOf(notice) ?? (notice.kind === "resolved" ? t("notify.resolvedText") : signalMessage(notice.signal))).slice(0, 1000),
   };
 }
 
-export function buildShopPulseDailyBellText(signals: ShopPulseSignal[], now: Date, numbers: DailyNumbers | null = null): { title: string; message: string } {
+export function buildShopPulseDailyBellText(
+  signals: ShopPulseSignal[],
+  now: Date,
+  numbers: DailyNumbers | null = null,
+  aiSummary: string | null = null,
+): { title: string; message: string } {
   const critical = signals.filter((s) => s.severity === "critical").length;
   return {
     title: t("notify.dailyTitle", { date: BERLIN_DATE.format(now) }),
     message: [
       ...(numbers ? dailyNumbersLines(numbers).slice(0, 1) : []),
+      ...(aiSummary ? [aiSummary] : []),
       signals.length ? t("notify.dailySummary", { count: signals.length, critical }) : t("notify.dailyNone"),
       ...signals.slice(0, 3).map((s) => `- ${signalTitle(s)}`),
     ]

@@ -3846,6 +3846,8 @@ export const shopPulseSignals = pgTable(
     notifiedAt: timestamp("notified_at"),
     notifiedSeverity: text("notified_severity"),
     reopenCount: integer("reopen_count").notNull().default(0),
+    /** KI-Text zur Meldung (Migration 0056, shared/shopPulse.ts ShopPulseAiNote) */
+    aiNote: jsonb("ai_note"),
   },
   (table) => ({
     tenantKeyIdx: uniqueIndex("shop_pulse_signals_tenant_key_idx").on(table.tenantId, table.key),

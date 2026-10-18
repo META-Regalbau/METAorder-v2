@@ -17,7 +17,7 @@ export async function getShopPulseSettings(store: Pick<IStorage, "getSetting">, 
   return normalizeShopPulseSettings(await store.getSetting(SHOP_PULSE_SETTINGS_KEY, tenantId));
 }
 
-export type ShopPulseSettingsUpdate = Partial<Pick<ShopPulseSettings, "enabled" | "teamsWebhookUrl" | "shopWatchDirect">> & {
+export type ShopPulseSettingsUpdate = Partial<Pick<ShopPulseSettings, "enabled" | "teamsWebhookUrl" | "shopWatchDirect" | "aiTexts">> & {
   /** Lernwoche jetzt beenden */
   endLearning?: boolean;
 };
@@ -31,6 +31,7 @@ export function applyShopPulseSettingsUpdate(current: ShopPulseSettings, update:
   if (update.enabled !== undefined) next.enabled = update.enabled;
   if (update.teamsWebhookUrl !== undefined) next.teamsWebhookUrl = update.teamsWebhookUrl.trim();
   if (update.shopWatchDirect !== undefined) next.shopWatchDirect = update.shopWatchDirect;
+  if (update.aiTexts !== undefined) next.aiTexts = update.aiTexts;
   if (next.enabled && !current.enabled && !current.learningUntil) {
     next.learningUntil = new Date(now.getTime() + SHOP_PULSE_LEARNING_DAYS * 24 * 60 * 60 * 1000).toISOString();
   }

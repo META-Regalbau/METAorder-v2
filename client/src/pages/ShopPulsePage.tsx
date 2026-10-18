@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useSearch } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Activity, AlertTriangle, BellOff, BellRing, CheckCircle2, Download, Loader2, MessageSquare, PauseCircle, Play, Send, ShoppingCart, Target, XCircle } from "lucide-react";
+import { Activity, AlertTriangle, BellOff, BellRing, CheckCircle2, Download, Loader2, MessageSquare, PauseCircle, Play, Send, ShoppingCart, Sparkles, Target, XCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,11 +14,12 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isAllowedTeamsWebhookUrl } from "@shared/emailIntake";
-import { formatShopPulseParams, SHOP_PULSE_DETECTOR_IDS, type ShopPulseOverview, type ShopPulseSeverity, type ShopPulseSignal } from "@shared/shopPulse";
+import { formatShopPulseParams, needsAiNote, SHOP_PULSE_DETECTOR_IDS, type ShopPulseOverview, type ShopPulseSeverity, type ShopPulseSignal } from "@shared/shopPulse";
 
 /**
  * Shop-Puls (nur Administratoren): Meldungen zu dem, was im Onlineshop nicht gut läuft, Einstellungen
- * (Ein/Aus, Lernwoche, Teams-Direktnachricht), Prüfungen. Links aus Teams öffnen die Seite mit
+ * (Ein/Aus, Lernwoche, Teams-Direktnachricht, KI-Texte), Prüfungen. Je Meldung der KI-Text (deutsch, wie in
+ * Teams), falls einer zur jetzigen Schwere vorliegt, sonst der Vorlagentext. Links aus Teams öffnen die Seite mit
  * ?signal=<id> (Zeile hervorgehoben) und &action=mute (Rückfrage zum Ruhigstellen).
  * Server: server/routes/shopPulseRoutes.ts, Konzept Shop-Puls Stufe 1 (17.10.2026).
  */
@@ -134,6 +135,14 @@ export default function ShopPulsePage() {
   };
   const confirmSignal = confirmMuteId ? data?.signals.find((s) => s.id === confirmMuteId) : undefined;
 
+  /** KI-Notiz zur jetzigen Schwere (Text oder verworfener Versuch); ältere Notizen gelten nicht mehr */
+  const aiNoteOf = (s: ShopPulseSignal) => (s.aiNote && !needsAiNote(s) ? s.aiNote : null);
+  const lossLine = (s: ShopPulseSignal) => {
+    if (s.lossPerHour) return t("shopPulse.signals.loss", { amount: fmt.currencyWhole(s.lossPerHour) });
+    const e = aiNoteOf(s)?.lossEstimate;
+    return e ? t("shopPulse.signals.lossEstimate", { amount: fmt.currencyWhole(e.perHour), basis: t(`shopPulse.lossBasis.${e.basis}`) }) : null;
+  };
+
   const signalRow = (s: ShopPulseSignal) => (
     <TableRow key={s.id} id={`shop-pulse-signal-${s.id}`} className={s.id === focusId ? "bg-muted/60" : ""} data-testid={`row-shop-pulse-${s.id}`}>
       <TableCell className="align-top">
@@ -142,9 +151,22 @@ export default function ShopPulsePage() {
       <TableCell className="align-top">
         <div className="font-medium">{title(s)}</div>
         <div className="text-sm text-muted-foreground break-words max-w-2xl">{message(s)}</div>
+        {aiNoteOf(s)?.text ? (
+          <div className="mt-2 max-w-2xl rounded-md border bg-muted/40 p-2 text-sm" lang="de" data-testid={`text-shop-pulse-ai-${s.id}`}>
+            <div className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
+              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+              {t("shopPulse.signals.aiText", { at: fmt.dateTime(aiNoteOf(s)!.at) })}
+            </div>
+            <p className="whitespace-pre-line break-words">{aiNoteOf(s)!.text}</p>
+          </div>
+        ) : aiNoteOf(s)?.rejected ? (
+          <div className="mt-1 text-xs text-muted-foreground" data-testid={`text-shop-pulse-ai-rejected-${s.id}`}>
+            {t("shopPulse.signals.aiRejected", { at: fmt.dateTime(aiNoteOf(s)!.at), reason: t(`shopPulse.signals.aiRejections.${aiNoteOf(s)!.rejected}`) })}
+          </div>
+        ) : null}
         <div className="mt-1 flex flex-wrap gap-x-4 text-xs text-muted-foreground">
           <span>{t(`shopPulse.source.${s.source}`)}</span>
-          {s.lossPerHour ? <span>{t("shopPulse.signals.loss", { amount: fmt.currencyWhole(s.lossPerHour) })}</span> : null}
+          {lossLine(s) ? <span>{lossLine(s)}</span> : null}
         </div>
       </TableCell>
       <TableCell className="align-top text-sm whitespace-nowrap">
@@ -332,6 +354,32 @@ export default function ShopPulsePage() {
                 <Label htmlFor="shop-pulse-watch-direct">{t("shopPulse.settings.shopWatchDirect")}</Label>
               </div>
               <p className="text-xs text-muted-foreground">{t("shopPulse.settings.shopWatchDirectHint")}</p>
+            </div>
+
+            <div className="space-y-2 border-t pt-4" data-testid="shop-pulse-ai">
+              <h3 className="font-medium flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                {t("shopPulse.settings.aiTitle")}
+              </h3>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="shop-pulse-ai-texts"
+                  checked={data.aiConfigured && data.settings.aiTexts}
+                  disabled={busy || !data.aiConfigured}
+                  onCheckedChange={(aiTexts) => settingsMutation.mutate({ aiTexts })}
+                  aria-describedby="shop-pulse-ai-hint"
+                  data-testid="switch-shop-pulse-ai-texts"
+                />
+                <Label htmlFor="shop-pulse-ai-texts">{t("shopPulse.settings.aiEnable")}</Label>
+              </div>
+              {!data.aiConfigured ? (
+                <p className="text-sm text-amber-700 dark:text-amber-300" data-testid="text-shop-pulse-ai-missing">
+                  {t("shopPulse.settings.aiNoProvider")}
+                </p>
+              ) : null}
+              <p id="shop-pulse-ai-hint" className="text-xs text-muted-foreground max-w-3xl">
+                {t("shopPulse.settings.aiHint")}
+              </p>
             </div>
           </Card>
 

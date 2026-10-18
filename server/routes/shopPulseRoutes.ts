@@ -9,6 +9,7 @@ import { storage } from "../storage";
 import { isAllowedTeamsWebhookUrl } from "@shared/emailIntake";
 import { isLearning, type ShopPulseDataGaps, type ShopPulseOverview } from "@shared/shopPulse";
 import { ackTeamsOutbox, enqueueTeamsMessage, getTeamsOutbox } from "../lib/teamsOutbox";
+import { isChatLlmConfigured } from "../ai/llmChat";
 import { getSignal, listSignalsForOverview, muteSignal, resolveSignalManually } from "../shopPulse/shopPulseRepository";
 import { compareSignals } from "../shopPulse/shopPulseSignals";
 import { buildShopPulseTestCard } from "../shopPulse/shopPulseNotify";
@@ -33,6 +34,7 @@ const settingsSchema = z
       .union([z.literal(""), z.string().trim().max(2000).url().refine((v) => isAllowedTeamsWebhookUrl(v))])
       .optional(),
     shopWatchDirect: z.boolean().optional(),
+    aiTexts: z.boolean().optional(),
     endLearning: z.literal(true).optional(),
   })
   .strict();
@@ -46,19 +48,21 @@ function requireIntegrationOrAdministrator(req: any, res: Response, next: () => 
 }
 
 async function overview(tenantId: string | null): Promise<ShopPulseOverview> {
-  const [settings, state, signals, outbox, baseline, gaps] = await Promise.all([
+  const [settings, state, signals, outbox, baseline, gaps, aiConfigured] = await Promise.all([
     getShopPulseSettings(storage, tenantId),
     getShopPulseState(storage, tenantId),
     listSignalsForOverview(tenantId),
     getTeamsOutbox(storage, SHOP_PULSE_TEAMS_OUTBOX_KEY, tenantId),
     getBuyabilityBaseline(storage, tenantId),
     getDataGaps(tenantId),
+    isChatLlmConfigured((key) => storage.getSetting(key, tenantId)),
   ]);
   const gapCounts: NonNullable<ShopPulseOverview["dataGaps"]>["counts"] = {};
   for (const g of gaps?.items ?? []) gapCounts[g.code] = (gapCounts[g.code] ?? 0) + 1;
   const { teamsWebhookUrl, ...rest } = settings;
   return {
     settings: { ...rest, teamsConfigured: !!teamsWebhookUrl },
+    aiConfigured,
     learning: isLearning(settings, new Date()),
     state,
     signals: signals.sort((a, b) => Number(a.status === "resolved") - Number(b.status === "resolved") || compareSignals(a, b)),
@@ -86,7 +90,7 @@ export function registerShopPulseRoutes(app: Express): void {
     }
   });
 
-  /** Ein-/Ausschalten, Teams-Direktnachricht, Wächter direkt, Lernwoche beenden. Die Webhook-Adresse wird nie zurückgegeben. */
+  /** Ein-/Ausschalten, Teams-Direktnachricht, Wächter direkt, KI-Texte, Lernwoche beenden. Die Webhook-Adresse wird nie zurückgegeben. */
   app.put("/api/shop-pulse/settings", requireAuth, requireAdministrator, requireCsrf, async (req: Request, res: Response) => {
     const parsed = settingsSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid shop pulse settings" });
@@ -96,7 +100,7 @@ export function registerShopPulseRoutes(app: Express): void {
       const next = applyShopPulseSettingsUpdate(current, parsed.data, new Date());
       await saveShopPulseSettings(storage, tenantId, next);
       moduleLog.info(
-        { tenantId, enabled: next.enabled, teams: !!next.teamsWebhookUrl, shopWatchDirect: next.shopWatchDirect, learningUntil: next.learningUntil },
+        { tenantId, enabled: next.enabled, teams: !!next.teamsWebhookUrl, shopWatchDirect: next.shopWatchDirect, aiTexts: next.aiTexts, learningUntil: next.learningUntil },
         "Shop-Puls: Einstellungen gespeichert",
       );
       res.json(await overview(tenantId));
