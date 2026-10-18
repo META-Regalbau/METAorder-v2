@@ -7,7 +7,7 @@
  *
  * Vier Stellen im Shop:
  * - Seite /regal-schnellkonfigurator (Erlebniswelt aus scripts/writeQuickConfiguratorPage.ts):
- *   Regalart, Maße, Last und verfügbare Länge eingeben. Das Skript stellt die Regalzeile aus
+ *   Regalart, Maße, Last und maximale Regallänge (verfügbarer Platz) eingeben. Das Skript stellt die Regalzeile aus
  *   1 Grundregal und n Anbauregalen zusammen (so lang wie möglich, nie länger als angegeben), zeigt bei
  *   Bedarf eine Zeile mit gemischten Feldbreiten, holt die Preise in der Sitzung des Kunden von den
  *   Produktseiten (Händler- und Kundenpreise stimmen) und legt alles mit einem Klick in den Warenkorb.
@@ -655,7 +655,7 @@ var MetaQuickConfigurator = (function () {
     var summary = el('p', 'meta-qc__summary');
     var strong = el('strong', null, plan.fields + (plan.fields === 1 ? ' Feld' : ' Felder') + ' · Gesamtlänge ca. ' + formatMm(plan.length));
     summary.appendChild(strong);
-    var extra = ' (' + widthsText(plan.widths) + ', Rest ' + formatMm(q.length - plan.length);
+    var extra = ' (' + widthsText(plan.widths) + ', ' + formatMm(q.length - plan.length) + ' Platz übrig';
     var places = plan.positions.reduce(function (n, p) { return n + (p.item.pallets || 0) * p.qty; }, 0);
     if (places) extra += ', ' + formatNumber(places) + ' Palettenplätze';
     summary.appendChild(document.createTextNode(extra + ')'));
@@ -787,6 +787,48 @@ var MetaQuickConfigurator = (function () {
     return formatMm(v);
   }
 
+  var LENGTH_TEXT = {
+    label: 'Maximale Regallänge',
+    hint: '= Ihr verfügbarer Platz, z. B. die Wandlänge. Die Regalzeile wird höchstens so lang.',
+    missing: 'Bitte die maximale Regallänge eingeben – also wie viel Platz Sie für das Regal haben.'
+  };
+
+  // Hervorgehobenes Feld für die maximale Regallänge (verfügbarer Platz), auf Seite und Startseite gleich.
+  function lengthField(id, value) {
+    var box = el('div', 'meta-qc-length');
+    var lab = el('label', 'meta-qc-length__label', LENGTH_TEXT.label);
+    lab.htmlFor = id;
+    box.appendChild(lab);
+    var hint = el('p', 'meta-qc-length__hint', LENGTH_TEXT.hint);
+    hint.id = id + '-hint';
+    box.appendChild(hint);
+    var wrap = el('div', 'meta-qc-length__input');
+    var input = el('input', 'form-control');
+    input.id = id;
+    input.type = 'text';
+    input.inputMode = 'decimal';
+    input.autocomplete = 'off';
+    input.placeholder = 'z. B. 5000';
+    input.setAttribute('aria-describedby', hint.id);
+    if (value) input.value = String(value);
+    wrap.appendChild(input);
+    var unit = el('span', 'meta-qc-length__unit', 'mm');
+    unit.setAttribute('aria-hidden', 'true');
+    wrap.appendChild(unit);
+    // Wer selbst eine Einheit schreibt („5,2 m"), braucht das „mm" dahinter nicht
+    var syncUnit = function () { unit.hidden = /[a-z]\s*$/i.test(input.value); };
+    input.addEventListener('input', syncUnit);
+    syncUnit();
+    box.appendChild(wrap);
+    return { box: box, input: input };
+  }
+
+  function markLength(box, input, empty) {
+    box.classList.toggle('is-empty', !!empty);
+    if (empty) input.setAttribute('aria-invalid', 'true');
+    else input.removeAttribute('aria-invalid');
+  }
+
   function mount(root, items) {
     var q = normalizeQuery(items, readQuery(window.location.search));
     root.innerHTML = '';
@@ -806,6 +848,7 @@ var MetaQuickConfigurator = (function () {
 
     var fields = {};
     var lengthInput = null;
+    var lengthBox = null;
     var weightInput = null;
 
     function field(key, text, control, hint) {
@@ -853,6 +896,12 @@ var MetaQuickConfigurator = (function () {
       var typed = lengthInput ? lengthInput.value : (q.length ? String(q.length) : '');
       form.innerHTML = '';
       fields = {};
+      // Länge zuerst und hervorgehoben: ohne sie gibt es kein Ergebnis
+      var len = lengthField('meta-qc-length', typed);
+      lengthBox = len.box;
+      lengthInput = len.input;
+      form.appendChild(lengthBox);
+      lengthInput.addEventListener('input', onTyping);
       var kindSelect = el('select', 'form-select');
       availableKinds(items).forEach(function (k) {
         var opt = el('option', null, KINDS[k].label);
@@ -872,8 +921,6 @@ var MetaQuickConfigurator = (function () {
       }
       if (c.surface.length > 1) field('surface', 'Farbe', select('surface', c.surface));
       if (c.board.length > 1) field('board', 'Böden', select('board', c.board));
-      lengthInput = field('length', 'Verfügbare Länge in mm', textInput('z. B. 5000', typed), 'Die Regalzeile wird so lang wie möglich, aber nie länger.');
-      lengthInput.addEventListener('input', onTyping);
       if (weightInput) weightInput.addEventListener('input', onTyping);
     }
 
@@ -941,18 +988,19 @@ var MetaQuickConfigurator = (function () {
         }
         return;
       }
+      markLength(lengthBox, lengthInput, !q.length);
       if (!q.length) {
-        status.textContent = 'Bitte die verfügbare Länge eingeben.';
+        status.textContent = LENGTH_TEXT.missing;
         return;
       }
       var planned = lines.slice(0, CONFIG.maxLines).map(function (line) { return planLine(items, line, q, q.length); }).filter(Boolean);
       if (!planned.length) {
         var single = rowLength([q.b], lines[0].rule);
-        status.textContent = 'Ein Grundregal mit ' + formatMm(q.b) + ' ' + kind.width + ' ist ca. ' + formatMm(single) + ' lang, also länger als ' + formatMm(q.length) + '.';
+        status.textContent = 'Ein Grundregal mit ' + formatMm(q.b) + ' ' + kind.width + ' ist ca. ' + formatMm(single) + ' lang, also länger als die maximale Regallänge von ' + formatMm(q.length) + '.';
         return;
       }
       var first = planned[0];
-      status.textContent = 'Für ' + formatMm(q.length) + ': ' + first.main.fields + (first.main.fields === 1 ? ' Feld' : ' Felder') +
+      status.textContent = 'Für max. ' + formatMm(q.length) + ' Regallänge: ' + first.main.fields + (first.main.fields === 1 ? ' Feld' : ' Felder') +
         ' mit ' + formatMm(q.b) + ' ' + kind.width + ', Gesamtlänge ca. ' + formatMm(first.main.length) + '.' +
         (planned.length > 1 ? ' ' + planned.length + ' Ausführungen zur Auswahl.' : '');
       if (kind.tipping && !q.double && q.h / q.t > 4) {
@@ -1025,7 +1073,7 @@ var MetaQuickConfigurator = (function () {
     var state = { kind: kinds[0] };
 
     function control(key, text, node, wide) {
-      var wrap = el('div', 'meta-qc__field meta-qc-home__field' + (wide ? ' meta-qc-home__field--wide' : ''));
+      var wrap = el('div', 'meta-qc__field meta-qc-home__field meta-qc-home__field--' + key + (wide ? ' meta-qc-home__field--wide' : ''));
       var id = 'meta-qc-home-' + key;
       var lab = el('label', 'meta-qc__label', text);
       lab.htmlFor = id;
@@ -1060,8 +1108,18 @@ var MetaQuickConfigurator = (function () {
       });
       kindSelect.value = state.kind;
       kindSelect.addEventListener('change', function () { state.kind = kindSelect.value; build(); });
-      form.appendChild(control('kind', 'Regalart', kindSelect));
       refs = {};
+      // Länge als eigene Zeile über den übrigen Feldern: ohne sie gibt es kein Ergebnis
+      var len = lengthField('meta-qc-home-length', keep);
+      refs.length = len.input;
+      refs.lengthBox = len.box;
+      refs.length.addEventListener('input', function () {
+        markLength(refs.lengthBox, refs.length, false);
+        var error = refs.lengthBox.querySelector('.meta-qc-length__error');
+        if (error) error.parentNode.removeChild(error);
+      });
+      form.appendChild(len.box);
+      form.appendChild(control('kind', 'Regalart', kindSelect));
       refs.h = selectOf(o.h, kind.defaults.h, formatMm);
       refs.b = selectOf(o.b, kind.defaults.b, formatMm);
       refs.t = selectOf(o.t, kind.defaults.t, formatMm);
@@ -1078,12 +1136,6 @@ var MetaQuickConfigurator = (function () {
         refs.load = selectOf(o.load, kind.defaults.load, function (v) { return formatNumber(v) + ' kg'; });
         form.appendChild(control('load', kind.load, refs.load));
       }
-      refs.length = el('input', 'form-control');
-      refs.length.type = 'text';
-      refs.length.inputMode = 'decimal';
-      refs.length.placeholder = 'z. B. 5000';
-      refs.length.value = keep;
-      form.appendChild(control('length', 'Verfügbare Länge (mm)', refs.length));
       var button = el('button', 'btn btn-primary meta-qc-home__submit', 'Regalzeile berechnen');
       button.type = 'submit';
       var actions = el('div', 'meta-qc-home__actions');
@@ -1093,6 +1145,18 @@ var MetaQuickConfigurator = (function () {
 
     form.addEventListener('submit', function (e) {
       e.preventDefault();
+      // Ohne Länge gibt es kein Ergebnis: Feld markieren statt leer weiterleiten
+      if (!parseLength(refs.length.value)) {
+        markLength(refs.lengthBox, refs.length, true);
+        var error = refs.lengthBox.querySelector('.meta-qc-length__error');
+        if (!error) {
+          error = el('p', 'meta-qc-length__error', LENGTH_TEXT.missing);
+          error.setAttribute('role', 'alert');
+          refs.lengthBox.appendChild(error);
+        }
+        refs.length.focus();
+        return;
+      }
       var q = {
         kind: state.kind,
         h: Number(refs.h.value),
@@ -1122,7 +1186,7 @@ var MetaQuickConfigurator = (function () {
     var text = el('div', 'meta-qc-teaser__text');
     text.appendChild(el('p', 'meta-qc-teaser__title', k.label + '-Zeile in einer Minute berechnen'));
     text.appendChild(el('p', 'meta-qc-teaser__body', 'Höhe, ' + k.width + ', ' + k.depth + ', ' + (k.pallet ? 'Gewicht je Palette' : k.load) +
-      ' und verfügbare Länge eingeben – der Schnellkonfigurator stellt Grund- und Anbauregale zusammen und legt sie in den Warenkorb.'));
+      ' und maximale Regallänge eingeben – der Schnellkonfigurator stellt Grund- und Anbauregale zusammen und legt sie in den Warenkorb.'));
     box.appendChild(text);
     var link = el('a', 'btn btn-primary meta-qc-teaser__link', 'Zum Schnellkonfigurator');
     link.href = CONFIG.pagePath + toQuery({ kind: kind });

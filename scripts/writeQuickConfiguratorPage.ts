@@ -83,7 +83,7 @@ function pageHtml(catalogUrl: string, count: number): string {
 </style>
 <div class="meta-qc-page">
 <h1>Regal-Schnellkonfigurator</h1>
-<p class="meta-qc-page__lead">Regalzeile berechnen für Fachboden-, Paletten-, Weitspann-, Kragarm-, Großfach- und Büroregale: Regalart wählen, Höhe, Breite, Tiefe, Last und die verfügbare Länge eingeben. Der Schnellkonfigurator stellt Grund- und Anbauregale zusammen, zeigt Gesamtlänge und Preis und legt die ganze Zeile mit einem Klick in den Warenkorb.</p>
+<p class="meta-qc-page__lead">Regalzeile berechnen für Fachboden-, Paletten-, Weitspann-, Kragarm-, Großfach- und Büroregale: Regalart wählen, Höhe, Breite, Tiefe, Last und die maximale Regallänge – also Ihren verfügbaren Platz – eingeben. Der Schnellkonfigurator stellt Grund- und Anbauregale zusammen, zeigt Gesamtlänge und Preis und legt die ganze Zeile mit einem Klick in den Warenkorb.</p>
 <div class="meta-qc" data-meta-quick-config data-catalog="${esc(catalogUrl)}" data-count="${count}">
 <p>Der Schnellkonfigurator wird geladen …</p>
 <noscript><p>Für den Schnellkonfigurator bitte JavaScript einschalten. Alle Regale finden Sie über das Menü.</p></noscript>
@@ -91,7 +91,7 @@ function pageHtml(catalogUrl: string, count: number): string {
 <h2>So wird gerechnet</h2>
 <ul>
 <li>Eine Regalzeile beginnt mit einem Grundregal. Jedes weitere Feld ist ein Anbauregal, das am vorhandenen Regal angebaut wird.</li>
-<li>Die Gesamtlänge ergibt sich aus den Feldbreiten und den Ständern bzw. Rahmen des jeweiligen Systems; die Zeile wird nie länger als die angegebene Länge.</li>
+<li>Die Gesamtlänge ergibt sich aus den Feldbreiten und den Ständern bzw. Rahmen des jeweiligen Systems; die Zeile wird nie länger als die maximale Regallänge.</li>
 <li>Passt die Länge mit gemischten Feldbreiten besser, zeigt der Schnellkonfigurator diese Zeile zusätzlich an.</li>
 <li>Gibt es eine Last in Ihrer Kombination nicht, wird die nächsthöhere angeboten.</li>
 <li>Bei Palettenregalen geben Sie das Gewicht je Palette ein; angeboten werden Ausführungen, deren Last je Palettenplatz dafür reicht.</li>
@@ -116,7 +116,7 @@ function homeHtml(catalog: QuickConfigCatalog): string {
 <div class="meta-qc-home__inner">
 <div class="meta-qc-home__intro">
 <h2 id="meta-qc-home-heading">Regal in einer Minute konfigurieren</h2>
-<p>Regalart, Maße und verfügbare Länge eingeben – der Schnellkonfigurator stellt Grund- und Anbauregale zusammen, zeigt Ihren Preis und legt die ganze Regalzeile direkt in den Warenkorb.</p>
+<p>Regalart, Maße und maximale Regallänge (Ihren verfügbaren Platz) eingeben – der Schnellkonfigurator stellt Grund- und Anbauregale zusammen, zeigt Ihren Preis und legt die ganze Regalzeile direkt in den Warenkorb.</p>
 </div>
 <form class="meta-qc-home__form" action="/${PAGE_URL}" method="get"><a class="btn btn-primary" href="/${PAGE_URL}">Zum Schnellkonfigurator</a></form>
 </div>
