@@ -6717,7 +6717,10 @@
       "regular_customer_not_found": "Stammkunde nicht gefunden (Schwellen nicht erfüllt)",
       "customer_is_not_overdue": "Der Kunde ist nicht überfällig",
       "customer_was_already_reported_in_the_last_90_days": "Der Kunde wurde in den letzten 90 Tagen schon gemeldet",
-      "failed_to_report_regular_customer": "Meldung zum Stammkunden fehlgeschlagen"
+      "failed_to_report_regular_customer": "Meldung zum Stammkunden fehlgeschlagen",
+      "failed_to_load_page_speed": "Ladezeit konnte nicht geladen werden",
+      "invalid_page_speed_settings": "Ungültige Einstellungen für die Ladezeit (Pfade mit / am Anfang)",
+      "failed_to_save_page_speed_settings": "Einstellungen für die Ladezeit konnten nicht gespeichert werden"
     }
   },
   "roomPlanner": {
@@ -8366,6 +8369,14 @@
       "paymentsPending": {
         "title": "{{count}} Online-Zahlungen hängen seit über 24 Stunden",
         "message": "Offene Online-Zahlungen über zusammen {{total}} ({{orders}}), davon {{mondu}} mit Mondu. Bei Mondu kann der Innendienst in der Bestellung „Mondu-Zahlung erneut senden“ nutzen; sonst den Kunden ansprechen."
+      },
+      "speedAfterDeploy": {
+        "title": "Seite {{path}} nach dem Deploy deutlich langsamer",
+        "message": "Nach dem Deploy vom {{deployDay}} ist der mobile Leistungswert von {{scoreBefore}} auf {{scoreAfter}} gefallen, der LCP von {{lcpBefore}} s auf {{lcpAfter}} s gestiegen (Median der Messungen vorher/nachher, PageSpeed Insights). Bitte die Agentur prüfen lassen."
+      },
+      "speedHtmlComments": {
+        "title": "{{commentsKb}} KB Template-Kommentare auf {{path}}",
+        "message": "Von {{totalKb}} KB HTML der Seite {{path}} sind {{share}} Kommentare aus den Templates. Sie verlangsamen das Laden ohne Nutzen und gehören in die Liste für die Agentur."
       }
     },
     "detectors": {
@@ -8394,13 +8405,16 @@
         "googleAds": "Google Ads (täglich ab 7 Uhr, nur lesend)",
         "gscSearch": "Search Console: Klicks, Klickrate, Suchanfragen (täglich ab 9 Uhr)",
         "gscIndex": "Search Console: Sitemaps und Indexierung eigener Seiten (täglich ab 9 Uhr)",
-        "paymentWatch": "Zahlungsanbieter (Fehlschläge, hängende Zahlungen)"
+        "paymentWatch": "Zahlungsanbieter (Fehlschläge, hängende Zahlungen)",
+        "pageWeight": "Seitengewicht (Template-Kommentare)",
+        "pageSpeed": "Ladezeit (PageSpeed Insights)"
       },
       "skipped": "ausgesetzt, solange der Bestellabgleich hängt",
       "skippedBusy": "ausgesetzt, der Shop-Wächter fragt den Shop gerade ab",
       "skippedGa4": "ausgesetzt, GA4 nicht eingerichtet",
       "skippedAds": "ausgesetzt: Google Ads nicht eingerichtet",
-      "skippedGsc": "ausgesetzt: Search Console nicht eingerichtet"
+      "skippedGsc": "ausgesetzt: Search Console nicht eingerichtet",
+      "skippedSpeed": "ausgesetzt: PageSpeed nicht eingerichtet"
     },
     "notify": {
       "since": "Seit",
@@ -8535,7 +8549,9 @@
         "gscIndex": "An die Agentur geben: robots, canonical, Sitemap, interne Links prüfen.",
         "gscSitemap": "Sitemap-Fehler an die Agentur geben.",
         "gscCanonical": "Hauptseite festlegen (canonical) oder Inhalte zusammenführen.",
-        "paymentPending": "Hängende Zahlungen nachfassen, bei Mondu „Mondu-Zahlung erneut senden“."
+        "paymentPending": "Hängende Zahlungen nachfassen, bei Mondu „Mondu-Zahlung erneut senden“.",
+        "speed": "Agentur: Ursache der langsameren Seite nach dem Deploy suchen (Theme, Plugins, Skripte).",
+        "htmlComments": "Agentur: Template-Kommentare in der Storefront abschalten (Twig-Debug/Kommentare im Produktivmodus)."
       },
       "scope": {
         "shop": "ganzer Shop",
@@ -9141,6 +9157,49 @@
       "alertNow": "Jetzt melden",
       "alerted": "Meldung verschickt",
       "alertFailed": "Meldung fehlgeschlagen"
+    },
+    "speed": {
+      "title": "Ladezeit",
+      "hint": "Einmal am Tag je Seitentyp eine PageSpeed-Insights-Messung (mobil) mit Felddaten echter Nutzer aus dem Chrome UX Report. Wird eine Seite nach einem Deploy deutlich langsamer, kommt eine Meldung mit Vorher/Nachher. Die Template-Kommentare der Startseite misst der Shop-Puls auch ohne Schlüssel.",
+      "enable": "Messen",
+      "problems": {
+        "disabled": "Nicht eingerichtet: Messung ausgeschaltet.",
+        "noKey": "Nicht eingerichtet: Es fehlt der API-Schlüssel für PageSpeed Insights."
+      },
+      "keyLabel": "API-Schlüssel (PageSpeed Insights)",
+      "keyPlaceholder": "Schlüssel eintragen",
+      "keySet": "Schlüssel gespeichert – zum Ersetzen neu eintragen",
+      "keyRemove": "Schlüssel entfernen",
+      "keyHelp": "Kostenloser Schlüssel aus der Google Cloud Console (API „PageSpeed Insights“ aktivieren, Zugangsdaten → API-Schlüssel, auf diese API beschränken). Er wird verschlüsselt gespeichert.",
+      "productLabel": "Produktseite (Pfad, optional)",
+      "productPlaceholder": "leer = umsatzstärkster Artikel",
+      "save": "Speichern",
+      "saved": "Gespeichert",
+      "saveFailed": "Speichern fehlgeschlagen",
+      "measuredAt": "Letzte Messung am {{at}}",
+      "none": "Noch keine Messung.",
+      "columns": {
+        "page": "Seite",
+        "score": "Leistung",
+        "lcp": "LCP",
+        "tbt": "TBT",
+        "cls": "CLS",
+        "field": "Echte Nutzer (75. Perzentil)"
+      },
+      "pages": {
+        "home": "Startseite",
+        "landing": "Kategorie-Landingpage",
+        "listing": "Listing",
+        "product": "Produktseite",
+        "cart": "Warenkorb",
+        "search": "Suche"
+      },
+      "previous": "vorher {{value}}",
+      "seconds": "{{value}} s",
+      "ms": "{{value}} ms",
+      "fieldUrl": "LCP {{lcp}}, INP {{inp}}, CLS {{cls}}",
+      "fieldOrigin": "Domain: LCP {{lcp}}, INP {{inp}}, CLS {{cls}}",
+      "noField": "keine Felddaten"
     }
   },
   "mondu": {

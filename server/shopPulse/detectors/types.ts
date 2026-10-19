@@ -9,6 +9,7 @@ import type { OfferWatchSources } from "./offers";
 import type { AdsSources } from "./ads";
 import type { GscSources } from "./gsc";
 import type { PaymentSources } from "./payments";
+import type { SpeedSources } from "./speed";
 
 /** Zahl- bzw. Versandart des Verkaufskanals */
 export type ChannelMethod = { id: string; name: string; active: boolean };
@@ -64,6 +65,8 @@ export type ShopPulseDetectorContext = {
   gsc: GscSources;
   /** Zahlungsstatus der Shop-Bestellungen inkl. stornierter (S3-3) */
   payments: PaymentSources;
+  /** PageSpeed-Insights (S3-5); nicht eingerichtet → SpeedNotConfiguredError (die Prüfung setzt aus) */
+  speed: SpeedSources;
   /** Zeitpunkt des vorigen Laufs dieser Prüfung (null = noch nie) */
   lastRunAt: string | null;
   /** Diese Prüfung lief noch nie (kein Stand), auch nicht fehlgeschlagen */

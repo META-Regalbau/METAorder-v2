@@ -6717,7 +6717,10 @@
       "regular_customer_not_found": "Cliente habitual no encontrado (no cumple los umbrales)",
       "customer_is_not_overdue": "El cliente no está retrasado",
       "customer_was_already_reported_in_the_last_90_days": "El cliente ya se notificó en los últimos 90 días",
-      "failed_to_report_regular_customer": "No se pudo notificar al cliente habitual"
+      "failed_to_report_regular_customer": "No se pudo notificar al cliente habitual",
+      "failed_to_load_page_speed": "No se pudo cargar el tiempo de carga",
+      "invalid_page_speed_settings": "Ajustes de tiempo de carga no válidos (las rutas deben empezar por /)",
+      "failed_to_save_page_speed_settings": "No se pudieron guardar los ajustes de tiempo de carga"
     }
   },
   "roomPlanner": {
@@ -8366,6 +8369,14 @@
       "paymentsPending": {
         "title": "{{count}} pagos en línea bloqueados desde hace más de 24 horas",
         "message": "Pagos en línea abiertos por un total de {{total}} ({{orders}}), {{mondu}} de ellos con Mondu. Para Mondu, el servicio interno puede usar «Reenviar pago de Mondu» en el pedido; si no, contactar al cliente."
+      },
+      "speedAfterDeploy": {
+        "title": "La página {{path}} es mucho más lenta tras el despliegue",
+        "message": "Tras el despliegue del {{deployDay}}, la puntuación de rendimiento móvil bajó de {{scoreBefore}} a {{scoreAfter}} y el LCP subió de {{lcpBefore}} s a {{lcpAfter}} s (mediana de las mediciones antes/después, PageSpeed Insights). Pida a la agencia que lo revise."
+      },
+      "speedHtmlComments": {
+        "title": "{{commentsKb}} KB de comentarios de plantilla en {{path}}",
+        "message": "De los {{totalKb}} KB de HTML de la página {{path}}, el {{share}} son comentarios de las plantillas. Ralentizan la carga sin ningún beneficio y van a la lista de la agencia."
       }
     },
     "detectors": {
@@ -8394,13 +8405,16 @@
         "googleAds": "Google Ads (a diario desde las 7, solo lectura)",
         "gscSearch": "Search Console: clics, tasa de clics, búsquedas (a diario desde las 9)",
         "gscIndex": "Search Console: sitemaps e indexación de páginas propias (a diario desde las 9)",
-        "paymentWatch": "Proveedores de pago (fallos, pagos bloqueados)"
+        "paymentWatch": "Proveedores de pago (fallos, pagos bloqueados)",
+        "pageWeight": "Peso de la página (comentarios de plantilla)",
+        "pageSpeed": "Tiempo de carga (PageSpeed Insights)"
       },
       "skipped": "en pausa mientras la sincronización de pedidos esté parada",
       "skippedBusy": "en pausa, el vigilante de la tienda está consultando la tienda",
       "skippedGa4": "en pausa, GA4 no está configurado",
       "skippedAds": "en pausa: Google Ads no configurado",
-      "skippedGsc": "en pausa: Search Console no configurado"
+      "skippedGsc": "en pausa: Search Console no configurado",
+      "skippedSpeed": "en pausa: PageSpeed no configurado"
     },
     "notify": {
       "since": "Desde",
@@ -8535,7 +8549,9 @@
         "gscIndex": "Pasarlo a la agencia: revisar robots, canonical, sitemap, enlaces internos.",
         "gscSitemap": "Pasar los errores del sitemap a la agencia.",
         "gscCanonical": "Fijar la página principal (canonical) o unir contenidos.",
-        "paymentPending": "Hacer seguimiento de los pagos bloqueados; con Mondu, «Reenviar pago de Mondu»."
+        "paymentPending": "Hacer seguimiento de los pagos bloqueados; con Mondu, «Reenviar pago de Mondu».",
+        "speed": "Agencia: buscar la causa de la página más lenta tras el despliegue (tema, plugins, scripts).",
+        "htmlComments": "Agencia: desactivar los comentarios de plantilla en el storefront (depuración de Twig/comentarios en producción)."
       },
       "scope": {
         "shop": "toda la tienda",
@@ -9141,6 +9157,49 @@
       "alertNow": "Notificar ahora",
       "alerted": "Aviso enviado",
       "alertFailed": "El aviso ha fallado"
+    },
+    "speed": {
+      "title": "Tiempo de carga",
+      "hint": "Una vez al día, una medición de PageSpeed Insights (móvil) por tipo de página, con datos de campo de usuarios reales del Chrome UX Report. Si una página se vuelve mucho más lenta tras un despliegue, llega un aviso con antes/después. Shop-Puls mide los comentarios de plantilla de la página de inicio incluso sin clave.",
+      "enable": "Medir",
+      "problems": {
+        "disabled": "No configurado: la medición está desactivada.",
+        "noKey": "No configurado: falta la clave de API de PageSpeed Insights."
+      },
+      "keyLabel": "Clave de API (PageSpeed Insights)",
+      "keyPlaceholder": "Introducir clave",
+      "keySet": "Clave guardada: introduzca una nueva para sustituirla",
+      "keyRemove": "Eliminar clave",
+      "keyHelp": "Clave gratuita de la Google Cloud Console (activar la API «PageSpeed Insights», Credenciales → Clave de API, restringirla a esta API). Se guarda cifrada.",
+      "productLabel": "Página de producto (ruta, opcional)",
+      "productPlaceholder": "vacío = artículo más vendido",
+      "save": "Guardar",
+      "saved": "Guardado",
+      "saveFailed": "No se pudo guardar",
+      "measuredAt": "Última medición el {{at}}",
+      "none": "Todavía no hay mediciones.",
+      "columns": {
+        "page": "Página",
+        "score": "Rendimiento",
+        "lcp": "LCP",
+        "tbt": "TBT",
+        "cls": "CLS",
+        "field": "Usuarios reales (percentil 75)"
+      },
+      "pages": {
+        "home": "Página de inicio",
+        "landing": "Página de categoría",
+        "listing": "Listado",
+        "product": "Página de producto",
+        "cart": "Carrito",
+        "search": "Búsqueda"
+      },
+      "previous": "antes {{value}}",
+      "seconds": "{{value}} s",
+      "ms": "{{value}} ms",
+      "fieldUrl": "LCP {{lcp}}, INP {{inp}}, CLS {{cls}}",
+      "fieldOrigin": "Dominio: LCP {{lcp}}, INP {{inp}}, CLS {{cls}}",
+      "noField": "sin datos de campo"
     }
   },
   "mondu": {

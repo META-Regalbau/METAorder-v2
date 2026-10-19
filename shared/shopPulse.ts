@@ -83,6 +83,9 @@ export const SHOP_PULSE_CODES = [
   "paymentFailStreak",
   "paymentFailRate",
   "paymentsPending",
+  // Stufe 3 (S3-5): Ladezeit
+  "speedAfterDeploy",
+  "speedHtmlComments",
 ] as const;
 export type ShopPulseCode = (typeof SHOP_PULSE_CODES)[number];
 
@@ -120,6 +123,8 @@ export const SHOP_PULSE_DETECTOR_IDS = [
   "googleAds",
   "gscSearch",
   "gscIndex",
+  "pageWeight",
+  "pageSpeed",
 ] as const;
 
 /**
@@ -142,6 +147,27 @@ export type AdsSetupProblem = (typeof ADS_SETUP_PROBLEMS)[number];
  */
 export const GSC_SETUP_PROBLEMS = ["disabled", "noProperty", "invalidProperty", "noServiceAccount", "invalidServiceAccount"] as const;
 export type GscSetupProblem = (typeof GSC_SETUP_PROBLEMS)[number];
+
+/** Warum PageSpeed nicht eingerichtet ist (Shop-Puls → Ladezeit, Stufe 3 S3-5): ausgeschaltet, kein API-Schlüssel */
+export const SPEED_SETUP_PROBLEMS = ["disabled", "noKey"] as const;
+export type SpeedSetupProblem = (typeof SPEED_SETUP_PROBLEMS)[number];
+
+export const PAGE_SPEED_TYPES = ["home", "landing", "listing", "product", "cart", "search"] as const;
+export type PageSpeedType = (typeof PAGE_SPEED_TYPES)[number];
+
+/** Antwort von GET /api/shop-pulse/speed (der Schlüssel wird nie zurückgegeben) */
+export type ShopPulseSpeedOverview = {
+  enabled: boolean;
+  hasKey: boolean;
+  problem: SpeedSetupProblem | null;
+  paths: Record<PageSpeedType, string>;
+  /** Messungen der letzten Tage, neueste zuerst */
+  days: Array<{
+    day: string;
+    at: string;
+    results: Array<{ type: PageSpeedType; url: string; score: number | null; lcpMs: number | null; cls: number | null; tbtMs: number | null; field: { source: "url" | "origin"; lcpMs: number | null; inpMs: number | null; cls: number | null } | null; error?: string }>;
+  }>;
+};
 
 /** Antwort von GET /api/shop-pulse/search-console (das Dienstkonto-JSON wird nie zurückgegeben) */
 export type ShopPulseGscOverview = {
@@ -316,7 +342,9 @@ export type ShopPulseState = {
       at: string;
       ok: boolean;
       error?: string;
-      skipped?: "mirror" | "busy" | "ga4" | "ads" | "gsc";
+      skipped?: "mirror" | "busy" | "ga4" | "ads" | "gsc" | "speed";
+      /** PageSpeed nicht eingerichtet (Stufe 3, S3-5) */
+      speedProblem?: SpeedSetupProblem;
       ga4Problem?: Ga4SetupProblem;
       adsProblem?: AdsSetupProblem;
       gscProblem?: GscSetupProblem;
@@ -414,6 +442,8 @@ const PARAM_KINDS: Partial<Record<ShopPulseCode, Record<string, "money" | "date"
   paymentFailStreak: { count: "number", since: "date", lastSuccess: "date" },
   paymentFailRate: { fails: "number", attempts: "number", share: "percent", expected: "percent" },
   paymentsPending: { count: "number", total: "money", mondu: "number" },
+  speedAfterDeploy: { deployDay: "date", scoreBefore: "number", scoreAfter: "number" },
+  speedHtmlComments: { commentsKb: "number", totalKb: "number", share: "percent" },
 };
 
 export type ShopPulseParamFormatters = {
