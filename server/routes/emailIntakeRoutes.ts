@@ -14,6 +14,7 @@ import { getCommercialAgentSettings } from "../ai/aiConfig";
 import {
   EMAIL_INTAKE_CATEGORIES,
   findIntakeMailbox,
+  isForwardTargetIntakeMailbox,
   emailIntakeSettingsSchema,
   isValidIntakeEmail,
   type EmailIntakeResponse,
@@ -96,6 +97,13 @@ export function registerEmailIntakeRoutes(app: Express): void {
       }
       if (settings.mailboxes.some((m) => m.address && !isValidIntakeEmail(m.address))) {
         return res.status(400).json({ error: "Ungültige Postfach-Adresse", code: "email_intake_mailbox_invalid" });
+      }
+      // Weiterleitungsziel = angebundenes Postfach: die Mail käme wieder an und würde erneut weitergeleitet
+      if (isForwardTargetIntakeMailbox(settings)) {
+        return res.status(400).json({
+          error: "Die Weiterleitungsadresse ist selbst ein angebundenes Postfach",
+          code: "email_intake_forward_is_mailbox",
+        });
       }
       const tenantId = req.tenantId ?? null;
       if (settings.defaultAssigneeUserId) {

@@ -291,7 +291,32 @@ export type EmailIntakeResponse = {
   filter?: { rule: EmailIntakeFilterRule; reason: string } | null;
 };
 
-export type EmailIntakeFilterRule = "allow_list" | "block_list" | "subject_keyword" | "internal" | "bulk";
+export type EmailIntakeFilterRule = "allow_list" | "block_list" | "subject_keyword" | "internal" | "bulk" | "metaorder_forward";
+
+/**
+ * Anfang des Hinweises, den METAorder beim Weiterleiten von „Sonstiges“ über die Mail setzt. Kommt eine
+ * solche Mail wieder im Eingang an (Weiterleitungsziel ist selbst angebunden), wird sie nicht erneut
+ * verarbeitet, sonst entsteht eine Schleife.
+ */
+export const METAORDER_FORWARD_MARKER = "METAorder hat diese E-Mail weder als Bestellung noch als Angebotsanfrage erkannt";
+
+/** Enthält der Mailtext (Text oder HTML) den Weiterleitungshinweis von METAorder? */
+export function isMetaorderForwardedMail(...texts: Array<string | null | undefined>): boolean {
+  return texts.some((text) => {
+    if (!text) return false;
+    const plain = text
+      .replace(/<[^>]*>/g, " ")
+      .replace(/&nbsp;|&#160;|\u00a0/gi, " ")
+      .replace(/\s+/g, " ");
+    return plain.includes(METAORDER_FORWARD_MARKER);
+  });
+}
+
+/** Weiterleitungsziel ist selbst ein angebundenes Postfach (Schleife)? */
+export function isForwardTargetIntakeMailbox(settings: Pick<EmailIntakeSettings, "forwardOtherTo" | "mailboxes">): boolean {
+  const target = settings.forwardOtherTo.trim().toLowerCase();
+  return Boolean(target) && settings.mailboxes.some((m) => m.address.trim().toLowerCase() === target);
+}
 
 /** Ein Postfach im Lauf: alles, was n8n für Abruf und Ablage braucht */
 export type EmailIntakeWorkflowMailbox = {

@@ -5,7 +5,9 @@
 import {
   EMAIL_INTAKE_CATEGORIES,
   EMAIL_INTAKE_OTHER_TYPE_LABELS,
+  isForwardTargetIntakeMailbox,
   isValidIntakeEmail,
+  METAORDER_FORWARD_MARKER,
   type EmailIntakeOtherType,
   type EmailIntakeOutcome,
   type EmailIntakeProblemReason,
@@ -47,7 +49,7 @@ export function buildForwardComment(triage: Extract<EmailTriageResult, { kind: "
   const text = triage.reason.trim();
   const reason = text ? ` Begründung: ${text}${/[.!?]$/.test(text) ? "" : "."}` : "";
   return (
-    `METAorder hat diese E-Mail weder als Bestellung noch als Angebotsanfrage erkannt ` +
+    `${METAORDER_FORWARD_MARKER} ` +
     `(Einordnung: ${label}, Sicherheit ${Math.round(triage.confidence * 100)} %).${reason} ` +
     `Sie wurde automatisch weitergeleitet. Antworten gehen direkt an den ursprünglichen Absender.`
   );
@@ -63,7 +65,10 @@ export function planEmailIntake(input: {
   outcomes: Array<{ filename: string; outcome: CommercialAgentProcessOutcome }>;
   /** Bei Wiederholung: Art des vorhandenen Entwurfs */
   existingDraftKind: "order" | "offer" | null;
-  settings: Pick<EmailIntakeSettings, "forwardOtherTo" | "ticketOnFailure" | "ticketOnShopwareError" | "ticketOnMarginRed">;
+  settings: Pick<EmailIntakeSettings, "forwardOtherTo" | "ticketOnFailure" | "ticketOnShopwareError" | "ticketOnMarginRed"> & {
+    /** Angebundene Postfächer: dorthin wird nie weitergeleitet (Schleife) */
+    mailboxes?: EmailIntakeSettings["mailboxes"];
+  };
 }): EmailIntakePlan {
   const plan = planByOutcome(input);
   const personal = input.mailboxMode === "personal";
@@ -92,8 +97,11 @@ function planByOutcome(input: Parameters<typeof planEmailIntake>[0]): Omit<Email
 
   if (input.skippedAsOther && input.triage?.kind === "other") {
     const to = settings.forwardOtherTo.trim();
-    // Abwesenheitsnotizen und Spam nur markieren und verschieben (Entscheidung 10.10.2026)
-    const forwardable = !NOT_FORWARDED.includes(input.triage.otherType);
+    // Abwesenheitsnotizen und Spam nur markieren und verschieben (Entscheidung 10.10.2026).
+    // Nie an ein angebundenes Postfach: dort käme die Mail wieder an und würde erneut weitergeleitet.
+    const forwardable =
+      !NOT_FORWARDED.includes(input.triage.otherType) &&
+      !isForwardTargetIntakeMailbox({ forwardOtherTo: to, mailboxes: settings.mailboxes ?? [] });
     return {
       outcome: "other",
       categories: [EMAIL_INTAKE_CATEGORIES.other],

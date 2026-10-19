@@ -34,7 +34,7 @@ import {
 } from "./commercialAgentOrchestrator";
 import { triageInboundEmail, type EmailTriageResult, type TriageLlm } from "./emailIntakeTriage";
 import { evaluateEmailIntakeFilter } from "./emailIntakeFilter";
-import type { EmailIntakeFilterRule, EmailIntakeFilterSettings } from "@shared/emailIntake";
+import { isMetaorderForwardedMail, type EmailIntakeFilterRule, type EmailIntakeFilterSettings } from "@shared/emailIntake";
 import { attachSupportingDocumentsToDrafts, partitionCommercialParts } from "./commercialDraftAttachments";
 import { unwrapInternalForward } from "../email/emailForwardUnwrap";
 import { logger } from "../lib/logger";
@@ -139,6 +139,11 @@ export type IngestCommercialEmailUploadParams = {
    * nicht ausgewertet. Beim manuellen Upload aus.
    */
   filter?: { settings: EmailIntakeFilterSettings; internalDomains: string[] } | null;
+  /**
+   * E-Mail-Eingang über n8n: Mails, die METAorder selbst als „Sonstiges“ weitergeleitet hat, nicht erneut
+   * verarbeiten (Schleifenschutz). Gilt auch für ältere Workflows ohne Postfach-Feld, also ohne Filter.
+   */
+  skipMetaorderForwards?: boolean;
 };
 
 export type IngestMailEnvelope = {
@@ -199,6 +204,7 @@ export async function ingestCommercialEmailUpload(
     forceReprocess = false,
     triage: triageOptions = null,
     filter: filterOptions = null,
+    skipMetaorderForwards = false,
   } = params;
 
   const parsed = await parseEmailBufferAutodetect(fileBuffer);
@@ -228,6 +234,28 @@ export async function ingestCommercialEmailUpload(
     ccAddresses: parsed.ccAddresses ?? [],
     internalForward: unwrapped.strippedForwardLevels > 0,
   };
+
+  // Schleifenschutz vor allem anderen: eigene Weiterleitung von METAorder → nur Kategorie „ignoriert“
+  if (skipMetaorderForwards && isMetaorderForwardedMail(parsed.body, parsed.html)) {
+    const reason = "Weiterleitung von METAorder (wird nicht erneut verarbeitet)";
+    moduleLog.info(
+      { event: "email_intake.filter", messageId, action: "ignore", rule: "metaorder_forward", reason },
+      `[EmailIngest] Filter: ignoriert — ${reason}`,
+    );
+    return {
+      results: [],
+      attachmentsProcessed: 0,
+      usedEmailOnlyFallback: false,
+      messageId,
+      subject,
+      draftPartFileNames: [],
+      outcomes: [],
+      triage: null,
+      skippedAsOther: false,
+      ignoredByFilter: { rule: "metaorder_forward", reason },
+      envelope,
+    };
+  }
 
   // Filter vor jeder Auswertung: Newsletter, interne Post, Sperrliste → nur Kategorie „ignoriert“
   if (filterOptions) {
