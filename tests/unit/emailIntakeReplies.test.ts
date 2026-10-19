@@ -10,7 +10,9 @@ import type { Order } from "../../shared/schema";
 import { DEFAULT_EMAIL_INTAKE_SETTINGS, normalizeEmailIntakeSettings, replyPlaceholders } from "../../shared/emailIntake";
 import {
   buildReplyPrompt,
+  ensureGreeting,
   findOrderNumbers,
+  isPlausibleTrackingCode,
   interpretReplyResponse,
   orderFactsFor,
   pickOrderForSender,
@@ -113,6 +115,23 @@ describe("Kundenantworten: Mailart und Bestellbezug", () => {
     assert.match(prompt, /\[Liefertermin eintragen\]/);
   });
 
+  it("Storniert: keine Versandangaben; Test-Sendungsnummern zählen nicht (Live-Test T-1078)", () => {
+    const cancelled = orderFactsFor(
+      order({ status: "cancelled", paymentStatus: "cancelled", shippingMethod: "Spedition", shippingInfo: { carrier: "Spedition", trackingCodes: ["00340434161234567890"] } }),
+    );
+    assert.equal(cancelled.status, "storniert");
+    assert.equal(cancelled.shipped, false);
+    assert.deepEqual(cancelled.trackingCodes, []);
+    assert.equal(cancelled.carrier, null);
+    const fake = orderFactsFor(order({ shippingInfo: { trackingCodes: ["1234567890", "0000000000", "123", "TEST12345"] } }));
+    assert.equal(fake.shipped, false);
+    assert.deepEqual(fake.trackingCodes, []);
+    assert.equal(isPlausibleTrackingCode("00340434161234567890"), true);
+    assert.equal(isPlausibleTrackingCode("JJD000390007000123456"), true);
+    assert.equal(isPlausibleTrackingCode("9876543210"), false);
+    assert.match(buildReplyPrompt({ kind: "order_status", facts: facts({ orderNumbers: ["MO102925"], order: cancelled }) }), /Versendet: nein/);
+  });
+
   it("ohne Bestelldaten: Hinweis auf fehlenden Stand", () => {
     const prompt = buildReplyPrompt({ kind: "order_status", facts: facts({ orderNumbers: ["MO999999"] }) });
     assert.match(prompt, /MO999999 \(Stand liegt nicht vor\)/);
@@ -125,7 +144,11 @@ describe("Kundenantworten: Entwurf", () => {
     assert.equal(interpretReplyResponse('{"needsReply":true,"reply":""}'), null);
     assert.deepEqual(interpretReplyResponse('{"needsReply":false,"reason":"Dank"}'), { needsReply: false, reason: "Dank", reply: "" });
     assert.equal(withSignature("Guten Tag,\n\nText.", ""), "Guten Tag,\n\nText.\n\nMit freundlichen Grüßen\n[Name eintragen]");
-    assert.equal(withSignature("Text.", "Ihr META-Shop-Team"), "Text.\n\nMit freundlichen Grüßen\nIhr META-Shop-Team");
+    assert.equal(withSignature("Guten Tag,\n\nText.", "Ihr META-Shop-Team"), "Guten Tag,\n\nText.\n\nMit freundlichen Grüßen\nIhr META-Shop-Team");
+    // Anrede vergessen (Live-Test T-1078): „Guten Tag,“ davor
+    assert.equal(withSignature("vielen Dank für Ihre Nachricht.", "Team"), "Guten Tag,\n\nVielen Dank für Ihre Nachricht.\n\nMit freundlichen Grüßen\nTeam");
+    assert.equal(ensureGreeting("Sehr geehrte Frau Muster,\n\nText"), "Sehr geehrte Frau Muster,\n\nText");
+    assert.equal(ensureGreeting("Hallo Herr Steiling,\nText"), "Hallo Herr Steiling,\nText");
   });
 
   it("Platzhalter werden erkannt", () => {
