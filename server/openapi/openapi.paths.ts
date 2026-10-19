@@ -16812,6 +16812,33 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/shop-content/watch/test-message": {
+    "post": {
+      "tags": [
+        "shop-content"
+      ],
+      "summary": "POST /api/shop-content/watch/test-message",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/shop-pulse": {
     "get": {
       "tags": [
