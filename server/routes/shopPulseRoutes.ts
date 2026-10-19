@@ -12,6 +12,7 @@ import { ackTeamsOutbox, enqueueTeamsMessage, getTeamsOutbox } from "../lib/team
 import { isChatLlmConfigured } from "../ai/llmChat";
 import { getSignal, listSignalsForOverview, muteSignal, resolveSignalManually } from "../shopPulse/shopPulseRepository";
 import { compareSignals } from "../shopPulse/shopPulseSignals";
+import { getJanaState, listHandoffs } from "../shopPulse/handoffRun";
 import { buildShopPulseTestCard } from "../shopPulse/shopPulseNotify";
 import { isShopPulseRunning, runShopPulseForTenant, shopPulseDeps } from "../shopPulse/shopPulseScheduler";
 import { acceptBuyabilityBaseline, dataGapsCsv, DATA_GAPS_KEY, getBuyabilityBaseline } from "../shopPulse/detectors/buyability";
@@ -48,7 +49,7 @@ function requireIntegrationOrAdministrator(req: any, res: Response, next: () => 
 }
 
 async function overview(tenantId: string | null): Promise<ShopPulseOverview> {
-  const [settings, state, signals, outbox, baseline, gaps, aiConfigured] = await Promise.all([
+  const [settings, state, signals, outbox, baseline, gaps, aiConfigured, handoffs, jana] = await Promise.all([
     getShopPulseSettings(storage, tenantId),
     getShopPulseState(storage, tenantId),
     listSignalsForOverview(tenantId),
@@ -56,6 +57,8 @@ async function overview(tenantId: string | null): Promise<ShopPulseOverview> {
     getBuyabilityBaseline(storage, tenantId),
     getDataGaps(tenantId),
     isChatLlmConfigured((key) => storage.getSetting(key, tenantId)),
+    listHandoffs(tenantId),
+    getJanaState(storage, tenantId),
   ]);
   const gapCounts: NonNullable<ShopPulseOverview["dataGaps"]>["counts"] = {};
   for (const g of gaps?.items ?? []) gapCounts[g.code] = (gapCounts[g.code] ?? 0) + 1;
@@ -72,6 +75,8 @@ async function overview(tenantId: string | null): Promise<ShopPulseOverview> {
       ? { takenAt: baseline.takenAt, products: baseline.products?.length ?? 0, paymentMethods: baseline.payment?.length ?? 0, shippingMethods: baseline.shipping?.length ?? 0 }
       : null,
     dataGaps: gaps ? { at: gaps.at, counts: gapCounts } : null,
+    handoffs,
+    janaList: jana ? { week: jana.week, sentAt: jana.sentAt, total: jana.total, added: jana.added, fixed: jana.fixed } : null,
   };
 }
 

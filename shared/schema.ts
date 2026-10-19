@@ -3998,3 +3998,58 @@ export const shopPulseCarts = pgTable(
 );
 
 export type ShopPulseCartRow = typeof shopPulseCarts.$inferSelect;
+
+/** Shop-Puls Stufe 3 (S3-1): Weitergaben einer Meldung an Oliver bzw. als Ticket (Migration 0060, shared/shopPulseHandoff.ts). */
+export const shopPulseHandoffs = pgTable(
+  "shop_pulse_handoffs",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id"),
+    signalId: varchar("signal_id").notNull(),
+    signalKey: text("signal_key").notNull(),
+    kind: text("kind").notNull(),
+    recipient: text("recipient").notNull().default(""),
+    text: text("text").notNull().default(""),
+    ticketId: varchar("ticket_id"),
+    ticketNumber: text("ticket_number"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    createdBy: text("created_by"),
+    doneAt: timestamp("done_at"),
+    doneBy: text("done_by"),
+    remindedAt: timestamp("reminded_at"),
+  },
+  (table) => ({
+    tenantSignalIdx: index("shop_pulse_handoffs_tenant_signal_idx").on(table.tenantId, table.signalId),
+  }),
+);
+
+export type ShopPulseHandoffRow = typeof shopPulseHandoffs.$inferSelect;
+
+/** Shop-Puls Stufe 3 (S3-1): Suchbegriffe ohne Treffer, gefundene Artikel und eingetragene Suchwörter (Migration 0060). */
+export const shopPulseSearchKeywords = pgTable(
+  "shop_pulse_search_keywords",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id"),
+    term: text("term").notNull(),
+    termKey: text("term_key").notNull(),
+    source: text("source").notNull().default("ga4"),
+    searches: integer("searches").notNull().default(0),
+    status: text("status").notNull().default("suggested"),
+    matchKind: text("match_kind").notNull().default("none"),
+    candidates: jsonb("candidates").notNull().default(sql`'[]'::jsonb`),
+    applied: jsonb("applied").notNull().default(sql`'[]'::jsonb`),
+    appliedAt: timestamp("applied_at"),
+    appliedBy: text("applied_by"),
+    revertedAt: timestamp("reverted_at"),
+    revertedBy: text("reverted_by"),
+    error: text("error"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    tenantTermIdx: uniqueIndex("shop_pulse_search_keywords_tenant_term_idx").on(table.tenantId, table.termKey),
+  }),
+);
+
+export type ShopPulseSearchKeywordRow = typeof shopPulseSearchKeywords.$inferSelect;

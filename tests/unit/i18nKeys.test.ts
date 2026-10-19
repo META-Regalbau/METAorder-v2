@@ -41,6 +41,12 @@ import {
 } from "../../shared/shopPulse";
 import { SHOP_PULSE_DETECTORS } from "../../server/shopPulse/detectors";
 import {
+  SHOP_PULSE_KEYWORD_MATCH_KINDS,
+  SHOP_PULSE_KEYWORD_REASONS,
+  SHOP_PULSE_KEYWORD_STATUSES,
+  SHOP_PULSE_TICKET_PRIORITIES,
+} from "../../shared/shopPulseHandoff";
+import {
   SHOP_PULSE_ACTION_KINDS,
   SHOP_PULSE_ACTION_SCOPES,
   SHOP_PULSE_ACTION_SOURCES,
@@ -176,6 +182,16 @@ describe("Uebersetzungsschluessel (Deutsch)", () => {
       ...SHOP_PULSE_IMPORT_SKIPS.map((v) => `shopPulse.actions.skip.${v}`),
       ...SHOP_PULSE_OWNER_IDS.map((v) => `shopPulse.weekly.owners.${v}`),
       ...SHOP_PULSE_NEXT_STEPS.map((v) => `shopPulse.weekly.nextSteps.${v}`),
+    ])).toEqual([]);
+  });
+
+  it("Shop-Puls Stufe 3 (S3-1): Reiter, Ticket-Prioritäten, Suchwörter (Status, Zuordnung, Grund)", () => {
+    expect(missingIn([
+      ...["cart", "keywords"].map((v) => `shopPulse.tabs.${v}`),
+      ...SHOP_PULSE_TICKET_PRIORITIES.map((v) => `shopPulse.handoff.priorities.${v}`),
+      ...SHOP_PULSE_KEYWORD_STATUSES.map((v) => `shopPulse.keywords.statuses.${v}`),
+      ...SHOP_PULSE_KEYWORD_MATCH_KINDS.flatMap((v) => [`shopPulse.keywords.match.${v}`, `shopPulse.keywords.checked.${v}`]),
+      ...SHOP_PULSE_KEYWORD_REASONS.map((v) => `shopPulse.keywords.reasons.${v}`),
     ])).toEqual([]);
   });
 

@@ -12,7 +12,7 @@
  * kaufbar war und es jetzt nicht mehr ist. Neue kaufbare Artikel kommen von selbst in den Soll-Stand;
  * bewusst entfernte bestätigt man auf der Seite mit „Als Soll übernehmen“. Ebenso Zahl- und Versandarten.
  *
- * Datenlücken (kein Bild, keine Kategorie, Mehrstück-Artikel mit Verkaufseinheit 1) werden nicht gemeldet
+ * Datenlücken (kein Bild, keine Kategorie, Mehrstück-Artikel mit Verkaufseinheit 1, keine Lieferzeit) werden nicht gemeldet
  * und nicht im Shop korrigiert, sondern für die PIM-Sammlung (Jana) als Liste gespeichert.
  */
 import type { ShopPulseDataGap, ShopPulseDataGaps, ShopPulseDetection } from "@shared/shopPulse";
@@ -212,6 +212,8 @@ export function dataGapsOf(sellable: BuyabilityProduct[]): ShopPulseDataGap[] {
     if (pieces && pieces > 1 && p.purchaseUnit !== undefined && (p.purchaseUnit ?? 0) <= 1) {
       gaps.push({ ...base, code: "salesUnit", value: `Verkaufseinheit ${p.purchaseUnit ?? "leer"}`, hint: `Mehrstück-Artikel laut Name: Verkaufseinheit ${pieces}, Einheit Stück, Grundeinheit 1` });
     }
+    // Stufe 3 (S3-1): Lieferzeit gehört zur Jana-Liste (Konzept Abschnitt 1)
+    if (!p.deliveryTimeId) gaps.push({ ...base, code: "noDeliveryTime", value: "keine Lieferzeit", hint: "Lieferzeit zuordnen" });
   }
   return gaps;
 }
@@ -221,6 +223,7 @@ const GAP_LABEL: Record<ShopPulseDataGap["code"], { fund: string; property: stri
   noImage: { fund: "Shop-Puls: Bild", property: "Titelbild" },
   noCategory: { fund: "Shop-Puls: Kategorie", property: "Kategorie" },
   salesUnit: { fund: "Shop-Puls: Verkaufseinheit", property: "Verkaufseinheit" },
+  noDeliveryTime: { fund: "Shop-Puls: Lieferzeit", property: "Lieferzeit" },
 };
 
 /** CSV wie Datenfehler-PIM-Artikel.csv: Semikolon, UTF-8 mit BOM, eine Zeile je Artikel und Fund */

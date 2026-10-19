@@ -6684,7 +6684,26 @@
       "invalid_meta_suggestion_request": "Solicitud de propuesta de meta no válida",
       "search_console_not_configured": "Search Console no está configurado",
       "shop_is_busy_try_again_shortly": "La tienda se está comprobando ahora mismo, inténtalo de nuevo en un momento",
-      "failed_to_create_meta_suggestion": "No se pudo crear la propuesta de meta"
+      "failed_to_create_meta_suggestion": "No se pudo crear la propuesta de meta",
+      "search_keyword_not_found": "Término de búsqueda no encontrado",
+      "product_is_not_a_suggestion_for_this_search_term": "El artículo no es una propuesta para este término de búsqueda",
+      "search_keyword_is_not_applied": "La palabra de búsqueda no está añadida",
+      "shop_is_busy_please_try_again_in_a_minute": "La tienda se está revisando, inténtelo de nuevo dentro de un minuto",
+      "failed_to_update_search_keyword": "No se pudo modificar la palabra de búsqueda",
+      "invalid_shop_pulse_handoff": "Reenvío no válido",
+      "failed_to_forward_shop_pulse_signal": "No se pudo reenviar el aviso",
+      "invalid_shop_pulse_ticket": "Datos del ticket no válidos",
+      "assignee_not_found": "Responsable no encontrado",
+      "failed_to_create_ticket_from_shop_pulse_signal": "No se pudo crear el ticket a partir del aviso",
+      "shop_pulse_handoff_not_found": "Reenvío no encontrado",
+      "failed_to_update_shop_pulse_handoff": "No se pudo modificar el reenvío",
+      "failed_to_send_jana_list": "No se pudo enviar la lista para Jana",
+      "failed_to_load_search_keywords": "No se pudieron cargar las palabras de búsqueda",
+      "invalid_search_term": "Término de búsqueda no válido (mínimo 3 caracteres)",
+      "failed_to_check_search_term": "No se pudo revisar el término de búsqueda",
+      "invalid_search_keyword_settings": "Ajuste de palabras de búsqueda no válido",
+      "failed_to_save_search_keyword_settings": "No se pudo guardar el ajuste de palabras de búsqueda",
+      "invalid_search_keyword_products": "Selección de artículos no válida"
     }
   },
   "roomPlanner": {
@@ -8378,7 +8397,7 @@
       "baselineSaved": "Referencia aceptada",
       "baselineFailed": "No se pudo aceptar la referencia",
       "gapsTitle": "Datos incompletos para el PIM (Jana)",
-      "gaps": "Estado {{at}}: {{noImage}} sin imagen principal, {{noCategory}} sin categoría, {{salesUnit}} artículos de varias piezas con unidad de venta 1.",
+      "gaps": "Estado {{at}}: {{noImage}} sin imagen de portada, {{noCategory}} sin categoría, {{salesUnit}} artículos de varias piezas con unidad de venta 1, {{noDeliveryTime}} sin plazo de entrega.",
       "gapsNone": "Todavía no hay ejecución nocturna.",
       "gapsDownload": "Descargar CSV",
       "gapsHint": "Solo artículos disponibles en el canal META Regalbau DE. No se avisa ni se corrige en la tienda; se recopila para Jana (mismo formato que la colección de errores de datos)."
@@ -8405,7 +8424,8 @@
       "signals": "Avisos",
       "weekly": "Informes semanales",
       "actions": "Registro de medidas",
-      "cart": "Alerta de carrito"
+      "cart": "Alerta de carrito",
+      "keywords": "Palabras de búsqueda"
     },
     "weekly": {
       "title": "Pulso de la tienda: informe semanal S{{week}} ({{from}} a {{to}})",
@@ -8701,7 +8721,12 @@
         "priceChanges": "Cambios de precio",
         "liveRun": "Escritura en vivo",
         "manual": "A mano",
-        "cartAlarmWon": "Alerta de carrito con éxito"
+        "cartAlarmWon": "Alerta de carrito con éxito",
+        "handoff": "Reenviado",
+        "ticket": "Ticket creado",
+        "janaList": "Lista para Jana",
+        "searchKeyword": "Palabra de búsqueda añadida",
+        "searchKeywordRevert": "Palabra de búsqueda retirada"
       },
       "sources": {
         "shopContent": "Contenidos de la tienda",
@@ -8897,6 +8922,117 @@
       "rejected": "Ninguna propuesta utilizable (comprobación: {{reason}}).",
       "queries": "Búsquedas: {{queries}}",
       "suggestHint": "Solo una propuesta (IA, revisada como los meta textos de los artículos). METAorder no escribe nada en la tienda."
+    },
+    "handoff": {
+      "forward": "Reenviar",
+      "forAgency": "Para la agencia (wirduzen)",
+      "forMarketing": "Para Smarketer",
+      "forwarded": "Texto enviado a Oliver (Teams y campana)",
+      "forwardFailed": "No se pudo reenviar",
+      "textTitle": "Texto para reenviar a {{recipient}}",
+      "textHint": "Este texto se envió a Oliver (mensaje directo de Teams). Cópielo para reenviarlo.",
+      "textLabel": "Texto para reenviar",
+      "copy": "Copiar",
+      "copied": "Texto copiado",
+      "copyFailed": "No se puede copiar, seleccione el texto a mano",
+      "showText": "Texto",
+      "status": "reenviado el {{at}} a {{recipient}}",
+      "ticketStatus": "Ticket creado el {{at}}:",
+      "reminded": "recordado el {{at}}",
+      "done": "resuelto el {{at}}",
+      "markDone": "Resuelto",
+      "doneToast": "Reenvío marcado como resuelto",
+      "ticket": "Ticket",
+      "ticketTitle": "Ticket a partir del aviso",
+      "ticketHint": "Para tareas internas (ventas, servicio interno). El aviso se enlaza en el ticket y se anota en el registro de medidas.",
+      "ticketCreate": "Crear ticket",
+      "ticketCreated": "Ticket {{number}} creado",
+      "ticketFailed": "No se pudo crear el ticket",
+      "fields": {
+        "title": "Título",
+        "description": "Descripción",
+        "dueDate": "Vence el",
+        "priority": "Prioridad",
+        "assignee": "Responsable"
+      },
+      "priorities": {
+        "low": "Baja",
+        "normal": "Normal",
+        "high": "Alta",
+        "urgent": "Urgente"
+      },
+      "noAssignee": "Nadie (asignación automática)",
+      "janaTitle": "Lista para Jana",
+      "janaLast": "Enviada por última vez el {{at}}: {{total}} puntos (nuevos {{added}}, resueltos {{fixed}}).",
+      "janaNever": "Todavía no se ha enviado ninguna lista para Jana.",
+      "janaHint": "Cada lunes la lista de datos faltantes (imagen, categoría, unidad de venta, plazo de entrega) en el formato de Jana se envía a Oliver, mientras no se decida si va directamente a Jana. Lo que Pimcore haya corregido desaparece solo de la siguiente lista.",
+      "janaSend": "Enviar ahora a Oliver",
+      "janaSent": "Lista para Jana enviada a Oliver",
+      "janaFailed": "No se pudo enviar la lista para Jana"
+    },
+    "keywords": {
+      "title": "Palabras de búsqueda para búsquedas sin resultados",
+      "hint": "Para los términos que los clientes buscan sin encontrar nada (control de GA4 «búsqueda sin resultados» o introducidos a mano), Shop-Puls busca artículos adecuados. Si coincide exactamente un artículo, añade el término directamente en el campo «palabras de búsqueda» del producto (las existentes se mantienen) y envía a Oliver un aviso con «Deshacer». Los casos dudosos quedan aquí como propuesta.",
+      "autoApply": "Añadir automáticamente las coincidencias inequívocas",
+      "autoApplyHint": "Como máximo 5 términos por ejecución, solo con Shop-Puls activado y fuera de la semana de aprendizaje. Cada cambio figura en el registro de medidas.",
+      "lastRun": "Términos de GA4 revisados por última vez el {{at}}",
+      "termLabel": "Revisar un término a mano",
+      "termPlaceholder": "p. ej. 313422 o Schwerlastregl",
+      "check": "Revisar",
+      "checkHint": "Los términos revisados a mano no se añaden automáticamente; elija los artículos y pulse «Añadir».",
+      "empty": "Todavía no hay términos de búsqueda.",
+      "loadError": "No se pudieron cargar las palabras de búsqueda.",
+      "saved": "Ajuste guardado",
+      "actionFailed": "La acción ha fallado",
+      "columns": {
+        "term": "Término",
+        "match": "Coincidencia",
+        "products": "Artículos",
+        "status": "Estado",
+        "actions": "Acciones"
+      },
+      "fromGa4": "buscado {{count}}× (GA4)",
+      "fromManual": "a mano",
+      "match": {
+        "number": "Inequívoco: número de artículo, EAN o de fabricante",
+        "name": "Inequívoco: un artículo, escritura parecida",
+        "ambiguous": "Coinciden varios artículos (propuesta)",
+        "exact": "Un artículo contiene todas las palabras tal cual – revisar el índice de búsqueda (propuesta)",
+        "none": "Ningún artículo adecuado"
+      },
+      "checked": {
+        "number": "«{{term}}»: artículo inequívoco encontrado",
+        "name": "«{{term}}»: artículo inequívoco encontrado",
+        "ambiguous": "«{{term}}»: coinciden varios artículos",
+        "exact": "«{{term}}»: el artículo ya contiene el término",
+        "none": "«{{term}}»: ningún artículo adecuado"
+      },
+      "reasons": {
+        "productNumber": "Número de artículo",
+        "ean": "EAN",
+        "manufacturerNumber": "Número de fabricante",
+        "name": "Nombre"
+      },
+      "revenue": "Ventas 12 meses {{amount}}",
+      "pickLegend": "Artículos para «{{term}}»",
+      "beforeAfter": "antes: {{before}} · después: {{after}}",
+      "emptyValue": "vacío",
+      "statuses": {
+        "suggested": "Propuesta",
+        "applied": "Añadido",
+        "reverted": "Deshecho",
+        "failed": "Fallido",
+        "dismissed": "Descartado"
+      },
+      "appliedBy": "por {{name}} el {{at}}",
+      "revertedBy": "por {{name}} el {{at}}",
+      "apply": "Añadir ({{count}})",
+      "applyDone": "Palabra de búsqueda añadida, Oliver ha recibido un aviso",
+      "revert": "Deshacer",
+      "revertDone": "Palabra de búsqueda retirada",
+      "confirmRevert": "¿Quitar de nuevo la palabra de búsqueda «{{term}}» de estos artículos?",
+      "dismiss": "Descartar",
+      "dismissDone": "Propuesta descartada"
     }
   },
   "mondu": {

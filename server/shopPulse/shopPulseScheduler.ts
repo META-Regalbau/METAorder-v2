@@ -48,6 +48,11 @@
  * Stufe 2 (S2-6): Einmal am Tag ab 5 Uhr rechnet effectsRun.ts die Wirkung der Maßnahmen neu (nicht, wenn
  * der Bestellabgleich hängt); der Wochenbericht nennt die gesicherten Wirkungen.
  *
+ * Stufe 3 (S3-1): Jeder Takt erledigt Weitergaben, deren Meldung erledigt ist, und erinnert nach 2 Werktagen
+ * (handoffRun.ts); montags ab 8 Uhr geht die Jana-Liste an Oliver. Neue Suchbegriffe ohne Treffer aus der
+ * GA4-Meldung werden geprüft und eindeutige (außerhalb der Lernwoche) am Produkt eingetragen
+ * (searchKeywordsRun.ts).
+ *
  * In der Lernwoche wird alles gesammelt, aber nichts gesendet. Mandanten nacheinander, nie zwei Läufe
  * für denselben Mandanten gleichzeitig.
  */
@@ -118,6 +123,8 @@ import type { OfferWatchSources } from "./detectors/offers";
 import { offerWatchSources } from "./offerRequests";
 import { offerSummary } from "./weeklyReport";
 import type { ShopPulseWeeklyReport } from "@shared/shopPulseWeekly";
+import { handoffDeps, runHandoffReminders, sendJanaList } from "./handoffRun";
+import { keywordDeps, runKeywordSuggestions, type KeywordRunResult } from "./searchKeywordsRun";
 
 const log = logger.child({ component: "shopPulse/shopPulseScheduler" });
 
@@ -163,6 +170,12 @@ export type ShopPulseDeps = {
   refreshEffects?: (tenantId: string | null, now: Date) => Promise<unknown>;
   /** B2B-Warenkorb-Alarm (Stufe 2, S2-3); fehlt er, ruht der Alarm */
   cartAlarm?: CartAlarmDeps;
+  /** Stufe 3 (S3-1): Erinnerungen an Weitergaben, Jana-Liste, Suchwörter; fehlt es, ruht das */
+  followUp?: {
+    reminders: (tenantId: string | null, now: Date) => Promise<{ done: number; reminded: number }>;
+    janaList: (tenantId: string | null, now: Date) => Promise<unknown>;
+    keywords: (tenantId: string | null, signals: ShopPulseSignal[], now: Date, opts: { allowApply: boolean }) => Promise<KeywordRunResult>;
+  };
   onNotificationCreated: (n: Notification) => void;
   baseUrl: string | null;
   now?: () => Date;
@@ -363,6 +376,31 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
       }
     }
 
+    // Stufe 3 (S3-1): Weitergaben erledigen bzw. erinnern, Jana-Liste (montags), Suchwörter aus der GA4-Meldung.
+    // Erinnerungen und Jana-Liste nur bei eingeschaltetem Shop-Puls; Suchwörter werden immer geprüft, aber nur
+    // bei eingeschaltetem Shop-Puls außerhalb der Lernwoche eingetragen.
+    if (deps.followUp && settings.enabled) {
+      try {
+        const r = await deps.followUp.reminders(tenantId, now);
+        if (r.done || r.reminded) log.info({ tenantId, ...r }, "Shop-Puls: Weitergaben");
+      } catch (err) {
+        log.warn({ err, tenantId }, "Shop-Puls: Erinnerungen an Weitergaben fehlgeschlagen");
+      }
+      try {
+        await deps.followUp.janaList(tenantId, now);
+      } catch (err) {
+        log.warn({ err, tenantId }, "Shop-Puls: Jana-Liste fehlgeschlagen");
+      }
+    }
+    if (deps.followUp) {
+      try {
+        const k = await deps.followUp.keywords(tenantId, await deps.repo.listOpenSignals(tenantId), now, { allowApply: !silent });
+        if (k.checked || k.applied) log.info({ tenantId, ...k }, "Shop-Puls: Suchwörter");
+      } catch (err) {
+        log.warn({ err, tenantId }, "Shop-Puls: Suchwörter fehlgeschlagen");
+      }
+    }
+
     // Wirkung der Maßnahmen: einmal am Tag, nur mit frischem Bestellspiegel
     const patchEffects: Partial<ShopPulseState> = {};
     if (deps.refreshEffects && !mirrorStale() && isEffectsDue(state.lastEffectsDay, now)) {
@@ -557,6 +595,7 @@ export function shopPulseDeps(storage: IStorage): ShopPulseDeps {
     syncActions: (tenantId, now) => syncActionLog(storage, tenantId, now),
     refreshEffects: (tenantId, now) => refreshEffects(effectsDeps, tenantId, now),
     cartAlarm: cartAlarmDeps(storage),
+    followUp: followUpDeps(storage),
     onNotificationCreated: (n) => notificationEvents.emitNotificationCreated(n),
     baseUrl: publicAppBaseUrl(process.env.APP_URL?.trim() || null),
   };
@@ -598,6 +637,19 @@ export function gscSources(storage: IStorage, tenantId: string | null, storefron
       return raw && typeof raw === "object" ? (raw as GscIndexState) : {};
     },
     saveIndexState: (state) => storage.saveSetting(GSC_INDEX_STATE_KEY, state, tenantId).then(() => undefined),
+  };
+}
+
+/** Stufe 3 (S3-1): Weitergaben, Jana-Liste und Suchwörter mit echter Datenbank, Teams und Shopware */
+export function followUpDeps(storage: IStorage): NonNullable<ShopPulseDeps["followUp"]> {
+  const onNotificationCreated = (n: Notification) => notificationEvents.emitNotificationCreated(n);
+  const baseUrl = publicAppBaseUrl(process.env.APP_URL?.trim() || null);
+  const handoff = handoffDeps(storage, onNotificationCreated, baseUrl);
+  const keywords = keywordDeps(storage, { onNotificationCreated, baseUrl }, insertCandidates);
+  return {
+    reminders: (tenantId, now) => runHandoffReminders(handoff, tenantId, now),
+    janaList: (tenantId, now) => sendJanaList(handoff, tenantId, now),
+    keywords: (tenantId, signals, now, opts) => runKeywordSuggestions(keywords, tenantId, signals, now, opts),
   };
 }
 
