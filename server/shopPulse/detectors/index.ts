@@ -8,6 +8,7 @@ import { adsDetector } from "./ads";
 import { GSC_DETECTORS } from "./gsc";
 import { paymentWatchDetector } from "./payments";
 import { pageSpeedDetector, pageWeightDetector } from "./speed";
+import { merchantDetector } from "./merchant";
 import type { ShopPulseDetector } from "./types";
 
 /**
@@ -16,7 +17,8 @@ import type { ShopPulseDetector } from "./types";
  * Produktseiten (5 je Takt) und Warenkorb-Probe (30 Minuten, 6–22 Uhr) fragen die Storefront ab, unter der Sperre des Shop-Wächters.
  * GA4: Live-Trichter alle 30 Minuten (6–22 Uhr), die übrigen einmal am Tag ab 7 Uhr; ohne GA4-Einrichtung setzen sie aus.
  * Zahlungsanbieter-Wache (S3-3) jeden Takt aus dem Bestellspiegel. Ladezeit (S3-5) einmal am Tag ab 7 Uhr
- * (Seitengewicht ohne, PageSpeed nur mit API-Schlüssel). Angebotsanfragen (B2Bsellers) einmal je Stunde. Google Ads einmal am Tag ab 7 Uhr, Search Console ab 9 Uhr; ohne Einrichtung setzen sie aus.
+ * (Seitengewicht ohne, PageSpeed nur mit API-Schlüssel). Merchant Center (S3-6) einmal am Tag ab 7 Uhr, nur
+ * lesend; ohne Einrichtung setzt es aus. Angebotsanfragen (B2Bsellers) einmal je Stunde. Google Ads einmal am Tag ab 7 Uhr, Search Console ab 9 Uhr; ohne Einrichtung setzen sie aus.
  */
 export const SHOP_PULSE_DETECTORS: ShopPulseDetector[] = [
   mirrorFreshnessDetector,
@@ -34,4 +36,5 @@ export const SHOP_PULSE_DETECTORS: ShopPulseDetector[] = [
   ...GSC_DETECTORS,
   pageWeightDetector,
   pageSpeedDetector,
+  merchantDetector,
 ];

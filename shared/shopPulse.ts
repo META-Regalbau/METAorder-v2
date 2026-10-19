@@ -10,7 +10,7 @@ import { isAllowedTeamsWebhookUrl } from "./emailIntake";
 import type { ShopPulseHandoff, ShopPulseJanaState } from "./shopPulseHandoff";
 
 /** Woher ein Fund kommt */
-export const SHOP_PULSE_SOURCES = ["system", "revenue", "buyability", "ga4", "b2b", "ads", "gsc"] as const;
+export const SHOP_PULSE_SOURCES = ["system", "revenue", "buyability", "ga4", "b2b", "ads", "gsc", "merchant"] as const;
 export type ShopPulseSource = (typeof SHOP_PULSE_SOURCES)[number];
 
 /** critical = sofort melden, warning = Tagesbericht */
@@ -86,6 +86,10 @@ export const SHOP_PULSE_CODES = [
   // Stufe 3 (S3-5): Ladezeit
   "speedAfterDeploy",
   "speedHtmlComments",
+  // Stufe 3 (S3-6): Google Merchant Center
+  "merchantDisapproved",
+  "merchantMismatch",
+  "merchantTopsellersMissing",
 ] as const;
 export type ShopPulseCode = (typeof SHOP_PULSE_CODES)[number];
 
@@ -125,6 +129,7 @@ export const SHOP_PULSE_DETECTOR_IDS = [
   "gscIndex",
   "pageWeight",
   "pageSpeed",
+  "merchantCenter",
 ] as const;
 
 /**
@@ -147,6 +152,22 @@ export type AdsSetupProblem = (typeof ADS_SETUP_PROBLEMS)[number];
  */
 export const GSC_SETUP_PROBLEMS = ["disabled", "noProperty", "invalidProperty", "noServiceAccount", "invalidServiceAccount"] as const;
 export type GscSetupProblem = (typeof GSC_SETUP_PROBLEMS)[number];
+
+/**
+ * Warum das Merchant Center nicht eingerichtet ist (Shop-Puls → Merchant Center, Stufe 3 S3-6): ausgeschaltet,
+ * keine bzw. ungültige Händler-ID, kein bzw. ungültiges Dienstkonto-JSON
+ */
+export const MERCHANT_SETUP_PROBLEMS = ["disabled", "noMerchant", "invalidMerchant", "noServiceAccount", "invalidServiceAccount"] as const;
+export type MerchantSetupProblem = (typeof MERCHANT_SETUP_PROBLEMS)[number];
+
+/** Antwort von GET /api/shop-pulse/merchant-center (das Dienstkonto-JSON wird nie zurückgegeben) */
+export type ShopPulseMerchantOverview = {
+  enabled: boolean;
+  merchantId: string;
+  hasServiceAccount: boolean;
+  serviceAccountEmail: string | null;
+  problem: MerchantSetupProblem | null;
+};
 
 /** Warum PageSpeed nicht eingerichtet ist (Shop-Puls → Ladezeit, Stufe 3 S3-5): ausgeschaltet, kein API-Schlüssel */
 export const SPEED_SETUP_PROBLEMS = ["disabled", "noKey"] as const;
@@ -342,7 +363,9 @@ export type ShopPulseState = {
       at: string;
       ok: boolean;
       error?: string;
-      skipped?: "mirror" | "busy" | "ga4" | "ads" | "gsc" | "speed";
+      skipped?: "mirror" | "busy" | "ga4" | "ads" | "gsc" | "speed" | "merchant";
+      /** Merchant Center nicht eingerichtet (Stufe 3, S3-6) */
+      merchantProblem?: MerchantSetupProblem;
       /** PageSpeed nicht eingerichtet (Stufe 3, S3-5) */
       speedProblem?: SpeedSetupProblem;
       ga4Problem?: Ga4SetupProblem;
@@ -444,6 +467,9 @@ const PARAM_KINDS: Partial<Record<ShopPulseCode, Record<string, "money" | "date"
   paymentsPending: { count: "number", total: "money", mondu: "number" },
   speedAfterDeploy: { deployDay: "date", scoreBefore: "number", scoreAfter: "number" },
   speedHtmlComments: { commentsKb: "number", totalKb: "number", share: "percent" },
+  merchantDisapproved: { count: "number", top: "number", revenue: "money" },
+  merchantMismatch: { count: "number", price: "number", availability: "number" },
+  merchantTopsellersMissing: { count: "number", revenue: "money" },
 };
 
 export type ShopPulseParamFormatters = {

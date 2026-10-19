@@ -10,6 +10,7 @@ import type { AdsSources } from "./ads";
 import type { GscSources } from "./gsc";
 import type { PaymentSources } from "./payments";
 import type { SpeedSources } from "./speed";
+import type { MerchantSources } from "./merchant";
 
 /** Zahl- bzw. Versandart des Verkaufskanals */
 export type ChannelMethod = { id: string; name: string; active: boolean };
@@ -67,6 +68,8 @@ export type ShopPulseDetectorContext = {
   payments: PaymentSources;
   /** PageSpeed-Insights (S3-5); nicht eingerichtet → SpeedNotConfiguredError (die Prüfung setzt aus) */
   speed: SpeedSources;
+  /** Google Merchant Center (S3-6); nicht eingerichtet → MerchantNotConfiguredError (die Prüfung setzt aus) */
+  merchant: MerchantSources;
   /** Zeitpunkt des vorigen Laufs dieser Prüfung (null = noch nie) */
   lastRunAt: string | null;
   /** Diese Prüfung lief noch nie (kein Stand), auch nicht fehlgeschlagen */

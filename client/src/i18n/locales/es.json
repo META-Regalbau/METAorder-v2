@@ -6720,7 +6720,10 @@
       "failed_to_report_regular_customer": "No se pudo notificar al cliente habitual",
       "failed_to_load_page_speed": "No se pudo cargar el tiempo de carga",
       "invalid_page_speed_settings": "Ajustes de tiempo de carga no válidos (las rutas deben empezar por /)",
-      "failed_to_save_page_speed_settings": "No se pudieron guardar los ajustes de tiempo de carga"
+      "failed_to_save_page_speed_settings": "No se pudieron guardar los ajustes de tiempo de carga",
+      "failed_to_load_merchant_center_settings": "No se pudieron cargar los ajustes de Merchant Center",
+      "invalid_merchant_center_settings": "Ajustes de Merchant Center no válidos",
+      "failed_to_save_merchant_center_settings": "No se pudieron guardar los ajustes de Merchant Center"
     }
   },
   "roomPlanner": {
@@ -8127,7 +8130,8 @@
       "ga4": "GA4",
       "b2b": "B2B",
       "ads": "Google Ads",
-      "gsc": "Search Console"
+      "gsc": "Search Console",
+      "merchant": "Merchant Center"
     },
     "codes": {
       "mirrorStale": {
@@ -8377,6 +8381,18 @@
       "speedHtmlComments": {
         "title": "{{commentsKb}} KB de comentarios de plantilla en {{path}}",
         "message": "De los {{totalKb}} KB de HTML de la página {{path}}, el {{share}} son comentarios de las plantillas. Ralentizan la carga sin ningún beneficio y van a la lista de la agencia."
+      },
+      "merchantDisapproved": {
+        "title": "{{count}} artículos de Shopping rechazados, {{top}} de ellos superventas",
+        "message": "En Google Merchant Center hay {{count}} artículos rechazados para Alemania (ventas de la tienda en 12 meses {{revenue}}). Motivos más frecuentes: {{reasons}}. Ejemplos: {{examples}}."
+      },
+      "merchantMismatch": {
+        "title": "{{count}} artículos de Shopping difieren de la tienda",
+        "message": "En {{price}} artículos el precio del feed no coincide con la tienda, en {{availability}} la disponibilidad. Ejemplos: {{examples}}."
+      },
+      "merchantTopsellersMissing": {
+        "title": "Faltan {{count}} superventas en el feed de Shopping",
+        "message": "Estos superventas comprables (ventas de la tienda en 12 meses {{revenue}}) no están en Google Merchant Center: {{examples}}."
       }
     },
     "detectors": {
@@ -8407,14 +8423,16 @@
         "gscIndex": "Search Console: sitemaps e indexación de páginas propias (a diario desde las 9)",
         "paymentWatch": "Proveedores de pago (fallos, pagos bloqueados)",
         "pageWeight": "Peso de la página (comentarios de plantilla)",
-        "pageSpeed": "Tiempo de carga (PageSpeed Insights)"
+        "pageSpeed": "Tiempo de carga (PageSpeed Insights)",
+        "merchantCenter": "Google Merchant Center (solo lectura)"
       },
       "skipped": "en pausa mientras la sincronización de pedidos esté parada",
       "skippedBusy": "en pausa, el vigilante de la tienda está consultando la tienda",
       "skippedGa4": "en pausa, GA4 no está configurado",
       "skippedAds": "en pausa: Google Ads no configurado",
       "skippedGsc": "en pausa: Search Console no configurado",
-      "skippedSpeed": "en pausa: PageSpeed no configurado"
+      "skippedSpeed": "en pausa: PageSpeed no configurado",
+      "skippedMerchant": "en pausa: Merchant Center no configurado"
     },
     "notify": {
       "since": "Desde",
@@ -8551,7 +8569,9 @@
         "gscCanonical": "Fijar la página principal (canonical) o unir contenidos.",
         "paymentPending": "Hacer seguimiento de los pagos bloqueados; con Mondu, «Reenviar pago de Mondu».",
         "speed": "Agencia: buscar la causa de la página más lenta tras el despliegue (tema, plugins, scripts).",
-        "htmlComments": "Agencia: desactivar los comentarios de plantilla en el storefront (depuración de Twig/comentarios en producción)."
+        "htmlComments": "Agencia: desactivar los comentarios de plantilla en el storefront (depuración de Twig/comentarios en producción).",
+        "merchant": "Smarketer: corregir los motivos de rechazo en Merchant Center (datos en el origen, si no reglas del feed).",
+        "merchantFeed": "Smarketer: revisar la exportación del feed (actualización, precios, disponibilidad, artículos que faltan)."
       },
       "scope": {
         "shop": "toda la tienda",
@@ -9200,6 +9220,28 @@
       "fieldUrl": "LCP {{lcp}}, INP {{inp}}, CLS {{cls}}",
       "fieldOrigin": "Dominio: LCP {{lcp}}, INP {{inp}}, CLS {{cls}}",
       "noField": "sin datos de campo"
+    },
+    "merchant": {
+      "title": "Google Merchant Center",
+      "hint": "Lee una vez al día los artículos de Shopping (solo lectura): artículos rechazados con motivo, precio o disponibilidad distintos de la tienda, superventas sin entrada en el feed. Necesita el ID de comerciante y una cuenta de servicio con acceso de lectura en Merchant Center.",
+      "enable": "Usar Merchant Center",
+      "merchantId": "ID de comerciante",
+      "merchantIdHint": "El número arriba a la derecha en Merchant Center.",
+      "serviceAccount": "JSON de la cuenta de servicio (se guarda cifrado)",
+      "serviceAccountSet": "Guardado para {{email}}: pegue un JSON nuevo para sustituirlo",
+      "serviceAccountNone": "Pegue la clave JSON de la cuenta de servicio",
+      "removeServiceAccount": "Eliminar cuenta de servicio",
+      "save": "Guardar",
+      "saved": "Guardado",
+      "saveFailed": "No se pudo guardar",
+      "ready": "Configurado: la próxima revisión lee el feed.",
+      "problems": {
+        "disabled": "No configurado: desactivado.",
+        "noMerchant": "No configurado: falta el ID de comerciante.",
+        "invalidMerchant": "El ID de comerciante no es un número.",
+        "noServiceAccount": "No configurado: falta la cuenta de servicio.",
+        "invalidServiceAccount": "El JSON de la cuenta de servicio no es válido."
+      }
     }
   },
   "mondu": {

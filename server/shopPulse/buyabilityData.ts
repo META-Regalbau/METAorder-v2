@@ -93,6 +93,17 @@ export async function loadBuyabilityProducts(tenantId: string | null): Promise<B
   return rows.map(toBuyabilityProduct);
 }
 
+/** EAN → Artikelnummer aus dem Produktspiegel (Zuordnung der Merchant-Center-Artikel, S3-6) */
+export async function loadEanMap(tenantId: string | null): Promise<Map<string, string>> {
+  const rows = await db
+    .select({ productNumber: shopwareProducts.productNumber, ean: sql<string | null>`${shopwareProducts.payload}->>'ean'` })
+    .from(shopwareProducts)
+    .where(tenantIs(shopwareProducts.tenantId, tenantId));
+  const out = new Map<string, string>();
+  for (const r of rows) if (r.ean?.trim()) out.set(r.ean.trim(), r.productNumber);
+  return out;
+}
+
 type RevenueOrderRow = { orderNumber: string | null; swUpdatedAt: Date | null; createdAt: string | null; status: string | null; items: unknown };
 
 /**

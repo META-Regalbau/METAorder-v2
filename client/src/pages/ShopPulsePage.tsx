@@ -19,6 +19,7 @@ import { ShopPulseJanaList, SignalHandoffActions, SignalHandoffStatus } from "@/
 import { ShopPulseKeywordsTab } from "@/components/shopPulse/ShopPulseKeywordsTab";
 import { ShopPulseRegularsTab } from "@/components/shopPulse/ShopPulseRegularsTab";
 import { ShopPulseSpeed } from "@/components/shopPulse/ShopPulseSpeed";
+import { ShopPulseMerchantSettings } from "@/components/shopPulse/ShopPulseMerchant";
 import { ShopPulsePendingPayments } from "@/components/shopPulse/ShopPulsePendingPayments";
 import { useToast } from "@/hooks/use-toast";
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
@@ -492,6 +493,8 @@ export default function ShopPulsePage() {
                               ? t("shopPulse.detectors.skippedGsc")
                               : d.skipped === "speed"
                               ? t("shopPulse.detectors.skippedSpeed")
+                              : d.skipped === "merchant"
+                              ? t("shopPulse.detectors.skippedMerchant")
                               : d.skipped
                               ? t(d.skipped === "busy" ? "shopPulse.detectors.skippedBusy" : "shopPulse.detectors.skipped")
                               : d.ok
@@ -530,6 +533,8 @@ export default function ShopPulsePage() {
               <ShopPulseGscSettings />
 
               <ShopPulseSpeed />
+
+              <ShopPulseMerchantSettings />
 
               <Card className="p-4 space-y-3" data-testid="shop-pulse-buyability">
                 <h2 className="font-semibold flex items-center gap-2">
