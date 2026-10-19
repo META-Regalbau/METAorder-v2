@@ -19,7 +19,7 @@ const COMPONENT_RULES: Rule[] = [
   [/^routes\/(crossSellingRoutes|crossSellAutomationRoutes)$/, "crossSelling"],
   [/^routes\/draftRoutes$/, "drafts"],
   [/^routes\/integrationRoutes$/, "integration"],
-  [/^routes\/emailIntakeRoutes$/, "email"],
+  [/^routes\/(emailIntakeRoutes|emailIntakeReplyRoutes)$/, "email"],
   [/^routes\/(invoicingRoutes|monduRoutes)$/, "invoicing"],
   [/^routes\/(masterDataRoutes|productRoutes|productImageTextRoutes|productMetaTextRoutes)$/, "products"],
   [/^(routes\/(shopContentRoutes|shopWatchRoutes|shopPulseRoutes|shopPulseWeeklyRoutes|shopPulseCartRoutes|shopPulseGscRoutes|shopPulseHandoffRoutes|shopPulseRegularRoutes|shopPulseSpeedRoutes|shopPulseMerchantRoutes)|shopContent\/|shopPulse\/)/, "shopContent"],

@@ -18724,6 +18724,60 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/tickets/{ticketId}/reply-draft": {
+    "get": {
+      "tags": [
+        "tickets"
+      ],
+      "summary": "GET /api/tickets/{ticketId}/reply-draft",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/tickets/{ticketId}/reply-draft/regenerate": {
+    "post": {
+      "tags": [
+        "tickets"
+      ],
+      "summary": "POST /api/tickets/{ticketId}/reply-draft/regenerate",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/tickets/{ticketId}/unread-counts": {
     "get": {
       "tags": [

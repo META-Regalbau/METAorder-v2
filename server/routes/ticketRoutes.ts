@@ -24,6 +24,7 @@ import { parseEmailFile } from "../email/emailParser";
 import * as XLSX from "xlsx";
 import { DEFAULT_TICKET_SLA_SETTINGS, assignTicketAutomatically, filterTicketsBySalesChannels, getMirrorOrdersLikeLive, getSalesChannelFilter, getTicketSlaSettings, resolveAttachmentPath, sanitizeFilename, uploadRateLimiter } from "./routeHelpers";
 import { logger } from "../lib/logger";
+import { getReplyByTicket } from "../commercial/emailIntakeReplies";
 
 const moduleLog = logger.child({ component: "routes/ticketRoutes" });
 
@@ -1167,7 +1168,10 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
           });
         }
 
-        const shouldSendEmail = req.body.sendEmail !== false;
+        // Kundenanfrage aus dem E-Mail-Eingang: Antwort geht über n8n aus dem Postfach der Mail, nie über
+        // den Mailversand von METAorder (anderer Absender)
+        const intakeReply = await getReplyByTicket(ticket.id).catch(() => null);
+        const shouldSendEmail = req.body.sendEmail !== false && !intakeReply;
         const recipient = ticket.customerEmail || ticket.emailFrom || null;
         if (!comment.isInternal && shouldSendEmail && recipient) {
           try {
