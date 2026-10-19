@@ -6706,7 +6706,14 @@
       "failed_to_check_search_term": "Search term could not be checked",
       "invalid_search_keyword_settings": "Invalid search keyword setting",
       "failed_to_save_search_keyword_settings": "Search keyword setting could not be saved",
-      "invalid_search_keyword_products": "Invalid product selection"
+      "invalid_search_keyword_products": "Invalid product selection",
+      "this_check_cannot_be_repaired_by_button": "This check cannot be repaired by button",
+      "no_target_state_for_this_check_yet": "No target state saved for this check yet",
+      "already_repaired_since_the_last_deploy": "Already repaired once since the last deploy",
+      "repair_not_found": "Repair not found",
+      "repair_already_reverted": "Repair has already been undone",
+      "shop_watch_repair_failed": "Repair failed",
+      "target_state_incomplete_entries_missing_in_the_shop": "Target state incomplete: entries are missing in the shop"
     }
   },
   "roomPlanner": {
@@ -7874,7 +7881,7 @@
   },
   "shopWatch": {
     "title": "Shop watch",
-    "subtitle": "Checks whether everything METAorder has written to the shop is still there and displayed – for example after an agency deploy. Checks run against the Shopware API and the live shop pages. Read-only.",
+    "subtitle": "Checks whether everything METAorder has written to the shop is still there and displayed – for example after an agency deploy. Checks run against the Shopware API and the live shop pages. It only writes via “Repair”: that restores the saved target state, with a log and a way back.",
     "loading": "Loading status …",
     "loadError": "Status could not be loaded.",
     "empty": "No check yet. Start with “Check now” – the first run becomes the target state.",
@@ -8000,6 +8007,25 @@
         "allClear": "All clear",
         "deploy": "Deploy detected"
       }
+    },
+    "repairs": {
+      "target": "Target state saved on {{at}} ({{n}} entries)",
+      "noTarget": "No target state saved yet (saved with the next green run).",
+      "last": "Repaired on {{at}} by {{name}}, check afterwards: {{status}}",
+      "lastFailed": "Repair on {{at}} failed: {{error}}",
+      "lastReverted": "Repair undone on {{at}} by {{name}}",
+      "blocked": "Already repaired once since the last deploy. If the change comes back, it is probably intended by the agency – please clarify instead of overwriting again.",
+      "repair": "Repair",
+      "revert": "Undo",
+      "cancel": "Cancel",
+      "saveTarget": "Save as target",
+      "confirmRepair": "Write the saved target state back to the shop?",
+      "confirmRevert": "Restore the state from before the repair?",
+      "doneOk": "Repaired, check afterwards is green",
+      "doneCheck": "Repaired, check afterwards: {{status}}",
+      "reverted": "Repair undone",
+      "targetSaved": "Target state saved",
+      "failed": "Action failed"
     }
   },
   "shopPulse": {
@@ -8729,7 +8755,9 @@
         "ticket": "Ticket created",
         "janaList": "Jana list",
         "searchKeyword": "Search keyword added",
-        "searchKeywordRevert": "Search keyword removed"
+        "searchKeywordRevert": "Search keyword removed",
+        "watchRepair": "Watch repair",
+        "watchRepairRevert": "Watch repair undone"
       },
       "sources": {
         "shopContent": "Shop content",

@@ -6703,7 +6703,14 @@
       "failed_to_check_search_term": "No se pudo revisar el término de búsqueda",
       "invalid_search_keyword_settings": "Ajuste de palabras de búsqueda no válido",
       "failed_to_save_search_keyword_settings": "No se pudo guardar el ajuste de palabras de búsqueda",
-      "invalid_search_keyword_products": "Selección de artículos no válida"
+      "invalid_search_keyword_products": "Selección de artículos no válida",
+      "this_check_cannot_be_repaired_by_button": "Este punto de control no se puede reparar con el botón",
+      "no_target_state_for_this_check_yet": "Todavía no hay un estado objetivo guardado para este punto de control",
+      "already_repaired_since_the_last_deploy": "Ya se reparó una vez desde el último despliegue",
+      "repair_not_found": "Reparación no encontrada",
+      "repair_already_reverted": "La reparación ya se ha deshecho",
+      "shop_watch_repair_failed": "La reparación ha fallado",
+      "target_state_incomplete_entries_missing_in_the_shop": "Estado objetivo incompleto: faltan entradas en la tienda"
     }
   },
   "roomPlanner": {
@@ -7871,7 +7878,7 @@
   },
   "shopWatch": {
     "title": "Vigilante de la tienda",
-    "subtitle": "Comprueba si todo lo que METAorder ha escrito en la tienda sigue ahí y se muestra, por ejemplo tras un despliegue de la agencia. Se comprueba mediante la API de Shopware y las páginas reales de la tienda. Solo lectura.",
+    "subtitle": "Comprueba si todo lo que METAorder ha escrito en la tienda sigue ahí y se muestra, por ejemplo tras un despliegue de la agencia. Se comprueba mediante la API de Shopware y las páginas reales de la tienda. Solo escribe mediante «Reparar», que restablece el estado objetivo guardado, con registro y vuelta atrás.",
     "loading": "Cargando estado …",
     "loadError": "No se pudo cargar el estado.",
     "empty": "Aún no hay comprobación. Empiece con «Comprobar ahora»: la primera ejecución será el estado objetivo.",
@@ -7997,6 +8004,25 @@
         "allClear": "Todo en orden",
         "deploy": "Despliegue detectado"
       }
+    },
+    "repairs": {
+      "target": "Estado objetivo guardado el {{at}} ({{n}} entradas)",
+      "noTarget": "Todavía no hay estado objetivo (se guarda en la próxima revisión en verde).",
+      "last": "Reparado el {{at}} por {{name}}, revisión después: {{status}}",
+      "lastFailed": "La reparación del {{at}} ha fallado: {{error}}",
+      "lastReverted": "Reparación deshecha el {{at}} por {{name}}",
+      "blocked": "Ya se reparó una vez desde el último despliegue. Si el cambio vuelve, probablemente es intencionado por la agencia: aclárelo en lugar de sobrescribir de nuevo.",
+      "repair": "Reparar",
+      "revert": "Deshacer",
+      "cancel": "Cancelar",
+      "saveTarget": "Guardar como objetivo",
+      "confirmRepair": "¿Volver a escribir en la tienda el estado objetivo guardado?",
+      "confirmRevert": "¿Restaurar el estado anterior a la reparación?",
+      "doneOk": "Reparado, revisión posterior en verde",
+      "doneCheck": "Reparado, revisión posterior: {{status}}",
+      "reverted": "Reparación deshecha",
+      "targetSaved": "Estado objetivo guardado",
+      "failed": "La acción ha fallado"
     }
   },
   "shopPulse": {
@@ -8726,7 +8752,9 @@
         "ticket": "Ticket creado",
         "janaList": "Lista para Jana",
         "searchKeyword": "Palabra de búsqueda añadida",
-        "searchKeywordRevert": "Palabra de búsqueda retirada"
+        "searchKeywordRevert": "Palabra de búsqueda retirada",
+        "watchRepair": "Reparación del vigilante",
+        "watchRepairRevert": "Reparación del vigilante deshecha"
       },
       "sources": {
         "shopContent": "Contenidos de la tienda",

@@ -36,6 +36,9 @@ export const SHOP_PULSE_ACTION_KINDS = [
   "janaList",
   "searchKeyword",
   "searchKeywordRevert",
+  // Stufe 3 (S3-2): Reparatur des Shop-Wächters per Knopf und ihre Rücknahme
+  "watchRepair",
+  "watchRepairRevert",
 ] as const;
 export type ShopPulseActionKind = (typeof SHOP_PULSE_ACTION_KINDS)[number];
 

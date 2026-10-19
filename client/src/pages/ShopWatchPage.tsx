@@ -20,14 +20,17 @@ import {
   type ShopWatchNotice,
   type ShopWatchRun,
   type ShopWatchSettings,
+  type ShopWatchRepairOverview,
   type ShopWatchStatus,
 } from "@shared/shopWatch";
+import { ShopWatchRepairCell } from "@/components/shopWatch/ShopWatchRepair";
 
 /**
  * Shop-Wächter (nur Administratoren): sind die Inhalte, die METAorder in den Shop geschrieben hat, noch da
  * und sichtbar (z. B. nach einem Deploy der Agentur)? Ampel je Prüfpunkt, Befunde, Reparatur-Weg.
- * Schritte 1–2 von 4 (Konzept 17.10.2026): prüfen, Zeitplan und Meldungen (Teams über n8n, Glocke);
- * Reparatur folgt.
+ * Schritte 1–3 von 4 (Konzept 17.10.2026): prüfen, Zeitplan und Meldungen (Teams über n8n, Glocke), Reparatur
+ * per Knopf mit Soll-Stand aus der Datenbank und Rückweg (Shop-Puls Stufe 3, S3-2). Selbst-Reparatur folgt
+ * erst, wenn sich der Knopf bewährt hat (Entscheidung 19.10.2026).
  * Server: server/routes/shopWatchRoutes.ts, Prüfkatalog server/shopContent/shopWatchChecks.ts.
  */
 
@@ -45,6 +48,8 @@ type WatchResponse = {
     teamsConfigured: boolean;
     teamsPending: number;
   };
+  /** Reparatur per Knopf je reparierbarem Prüfpunkt */
+  repairs?: Record<string, ShopWatchRepairOverview>;
 };
 
 const QUERY_KEY = ["/api/shop-content/watch"];
@@ -159,6 +164,7 @@ export default function ShopWatchPage() {
             <code className="block mt-1 text-xs text-muted-foreground break-all select-all">{r.repair.command}</code>
           </details>
         ) : null}
+        <ShopWatchRepairCell result={r} repair={data?.repairs?.[r.id]} running={!!data?.running} />
       </TableCell>
     </TableRow>
   );
