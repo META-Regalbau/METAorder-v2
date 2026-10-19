@@ -8350,6 +8350,18 @@
       "gscCannibalization": {
         "title": "{{count}} search queries: two own pages alternate",
         "message": "For {{count}} search queries Google shows at least two own pages alternately in the 28 days to {{to}}, e.g. {{examples}}. Suggestion: set one page as the main page (canonical) or merge content. List in the weekly report."
+      },
+      "paymentFailStreak": {
+        "title": "Payment method “{{method}}” failing: {{count}} failures in a row",
+        "message": "Since {{since}} every payment with “{{method}}” has failed or is stuck ({{orders}}). The last successful payment was on {{lastSuccess}}; this method usually works. Please have the payment provider or the agency check it."
+      },
+      "paymentFailRate": {
+        "title": "Payment method “{{method}}”: {{fails}} of {{attempts}} payments failed",
+        "message": "In the last {{days}} days {{share}} of payments with “{{method}}” failed, usually {{expected}}. Please check whether the provider is declining payments."
+      },
+      "paymentsPending": {
+        "title": "{{count}} online payments stuck for more than 24 hours",
+        "message": "Open online payments totalling {{total}} ({{orders}}), {{mondu}} of them with Mondu. For Mondu, the back office can use “Resend Mondu payment” in the order; otherwise contact the customer."
       }
     },
     "detectors": {
@@ -8377,7 +8389,8 @@
         "offerWatch": "Quote requests (B2Bsellers, hourly)",
         "googleAds": "Google Ads (daily from 7 am, read-only)",
         "gscSearch": "Search Console: clicks, CTR, search queries (daily from 9 am)",
-        "gscIndex": "Search Console: sitemaps and indexing of own pages (daily from 9 am)"
+        "gscIndex": "Search Console: sitemaps and indexing of own pages (daily from 9 am)",
+        "paymentWatch": "Payment providers (failures, stuck payments)"
       },
       "skipped": "paused while the order sync is stuck",
       "skippedBusy": "paused, the shop watch is querying the shop right now",
@@ -8516,7 +8529,8 @@
         "gscContent": "Expand content for these queries, only with documented META content.",
         "gscIndex": "Pass to the agency: check robots, canonical, sitemap, internal links.",
         "gscSitemap": "Pass sitemap errors to the agency.",
-        "gscCanonical": "Set the main page (canonical) or merge content."
+        "gscCanonical": "Set the main page (canonical) or merge content.",
+        "paymentPending": "Follow up stuck payments; for Mondu use “Resend Mondu payment”."
       },
       "scope": {
         "shop": "whole shop",
@@ -9064,6 +9078,12 @@
       "confirmRevert": "Remove the search keyword “{{term}}” from these products again?",
       "dismiss": "Dismiss",
       "dismissDone": "Suggestion dismissed"
+    },
+    "payments": {
+      "pendingTitle": "Stuck payments",
+      "since": "since {{at}}",
+      "monduHint": "In the order: “Resend Mondu payment”",
+      "more": "… and {{count}} more"
     }
   },
   "mondu": {

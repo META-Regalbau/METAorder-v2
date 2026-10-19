@@ -17,6 +17,7 @@ import { ShopPulseActionsTab } from "@/components/shopPulse/ShopPulseActionsTab"
 import { ShopPulseWeeklyTab } from "@/components/shopPulse/ShopPulseWeeklyTab";
 import { ShopPulseJanaList, SignalHandoffActions, SignalHandoffStatus } from "@/components/shopPulse/ShopPulseHandoff";
 import { ShopPulseKeywordsTab } from "@/components/shopPulse/ShopPulseKeywordsTab";
+import { ShopPulsePendingPayments } from "@/components/shopPulse/ShopPulsePendingPayments";
 import { useToast } from "@/hooks/use-toast";
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -190,6 +191,7 @@ export default function ShopPulsePage() {
           </div>
         ) : null}
         {s.code === "gscLowCtr" && s.status === "open" ? <ShopPulseMetaSuggestion signalId={s.id} /> : null}
+        {s.code === "paymentsPending" && s.status === "open" ? <ShopPulsePendingPayments signal={s} /> : null}
         <div className="mt-1 flex flex-wrap gap-x-4 text-xs text-muted-foreground">
           <span>{t(`shopPulse.source.${s.source}`)}</span>
           {lossLine(s) ? <span>{lossLine(s)}</span> : null}

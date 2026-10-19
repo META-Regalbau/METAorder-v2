@@ -10,6 +10,7 @@ import { and, isNull, eq, sql, type AnyColumn } from "drizzle-orm";
 import { shopwareOrders } from "@shared/schema";
 import { isMoOrderNumber } from "@shared/orderNumberFilter";
 import { db } from "../db";
+import type { PaymentOrder } from "./detectors/payments";
 
 export type PulseOrder = {
   orderNumber: string;
@@ -119,6 +120,47 @@ export function toPulseOrders(rows: MirrorOrderRow[]): PulseOrder[] {
 }
 
 const tenantIs = (column: AnyColumn, tenantId: string | null) => (tenantId ? eq(column, tenantId) : isNull(column));
+
+export type MirrorPaymentRow = { orderNumber: string | null; swUpdatedAt: Date | null; createdAt: string | null; total: string | number | null; paymentMethod: string | null; paymentStatus: string | null; status: string | null };
+
+/**
+ * Shop-Bestellungen mit Zahlungsstatus für die Zahlungsanbieter-Wache (S3-3): MO, je Nummer die zuletzt
+ * geänderte Zeile, **auch stornierte** (eine gescheiterte Zahlung endet oft in einer stornierten Bestellung).
+ */
+export function toPaymentOrders(rows: MirrorPaymentRow[]): PaymentOrder[] {
+  const latest = new Map<string, MirrorPaymentRow>();
+  for (const r of rows) {
+    const number = String(r.orderNumber ?? "").trim();
+    if (!isMoOrderNumber(number)) continue;
+    const prev = latest.get(number);
+    if (!prev || (r.swUpdatedAt?.getTime() ?? 0) > (prev.swUpdatedAt?.getTime() ?? 0)) latest.set(number, r);
+  }
+  const out: PaymentOrder[] = [];
+  for (const [orderNumber, r] of Array.from(latest.entries())) {
+    const createdAt = r.createdAt ? new Date(r.createdAt) : null;
+    if (!createdAt || Number.isNaN(createdAt.getTime())) continue;
+    const total = Number(r.total ?? 0);
+    out.push({ orderNumber, createdAt, method: r.paymentMethod?.trim() || null, paymentStatus: r.paymentStatus?.trim() || null, orderStatus: r.status?.trim() || null, total: Number.isFinite(total) ? total : 0 });
+  }
+  return out.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+}
+
+export async function loadPaymentOrders(tenantId: string | null, since: Date): Promise<PaymentOrder[]> {
+  const p = shopwareOrders.payload;
+  const rows = await db
+    .select({
+      orderNumber: shopwareOrders.orderNumber,
+      swUpdatedAt: shopwareOrders.swUpdatedAt,
+      createdAt: sql<string | null>`${p}->>'createdAt'`,
+      total: sql<string | null>`${p}->>'totalAmount'`,
+      paymentMethod: sql<string | null>`${p}->>'paymentMethod'`,
+      paymentStatus: sql<string | null>`${p}->>'paymentStatus'`,
+      status: sql<string | null>`${p}->>'status'`,
+    })
+    .from(shopwareOrders)
+    .where(and(tenantIs(shopwareOrders.tenantId, tenantId), sql`upper(${shopwareOrders.orderNumber}) like 'MO%'`));
+  return toPaymentOrders(rows).filter((o) => o.createdAt.getTime() >= since.getTime());
+}
 
 /** Shop-Bestellungen ab einem Zeitpunkt aus dem Spiegel (Live 2026: rund 2.100 MO-Zeilen insgesamt) */
 export async function loadPulseOrders(tenantId: string | null, since: Date, opts: { items?: boolean; customer?: boolean; channel?: boolean } = {}): Promise<PulseOrder[]> {
