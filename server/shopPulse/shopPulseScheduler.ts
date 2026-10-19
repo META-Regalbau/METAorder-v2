@@ -63,6 +63,9 @@
  * Stufe 3 (S3-5): Ladezeit einmal am Tag ab 7 Uhr (detectors/speed.ts): Template-Kommentare der Startseite
  * immer, PageSpeed-Messungen je Seitentyp nur mit API-Schlüssel (sonst skipped "speed").
  *
+ * Stufe 3 (S3-6): Google Merchant Center einmal am Tag ab 7 Uhr (detectors/merchant.ts), nur lesend; ohne
+ * Einrichtung setzt es aus (skipped "merchant").
+ *
  * In der Lernwoche wird alles gesammelt, aber nichts gesendet. Mandanten nacheinander, nie zwei Läufe
  * für denselben Mandanten gleichzeitig.
  */
@@ -90,6 +93,9 @@ import { dailyNumbers, type DailyNumbers } from "./detectors/revenue";
 import { loadPaymentOrders, loadPulseOrders, type PulseOrder } from "./pulseOrders";
 import type { PaymentOrder, PaymentSources } from "./detectors/payments";
 import type { SpeedSources } from "./detectors/speed";
+import type { MerchantSources } from "./detectors/merchant";
+import { merchantAccess, MerchantNotConfiguredError } from "./merchantClient";
+import { loadEanMap } from "./buyabilityData";
 import { DEFAULT_PAGE_PATHS, getPageSpeedSettings, measurePage, PAGE_SPEED_HISTORY_KEY, SpeedNotConfiguredError, type SpeedHistory } from "./pageSpeed";
 import { getShopWatchState } from "../shopContent/shopWatch";
 import { classifyDeployChanges } from "@shared/shopWatch";
@@ -174,6 +180,8 @@ export type ShopPulseDeps = {
   loadGsc?: (tenantId: string | null, storefront: StorefrontAccess) => GscSources;
   /** Google Ads (S2-4); fehlt es, gilt Ads als nicht eingerichtet */
   loadAds?: (tenantId: string | null) => AdsSources;
+  /** Google Merchant Center (S3-6); fehlt es, gilt es als nicht eingerichtet */
+  loadMerchant?: (tenantId: string | null) => MerchantSources;
   /** PageSpeed-Insights (S3-5); fehlt es, gilt PageSpeed als nicht eingerichtet */
   loadSpeed?: (tenantId: string | null) => SpeedSources;
   /** Zahlungsstatus der Shop-Bestellungen (S3-3); fehlt er, scheitert die Zahlungsanbieter-Wache */
@@ -297,6 +305,7 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
     const noOffers = () => Promise.reject(new Error("Angebotsanfragen nicht verfügbar"));
     const b2b: OfferWatchSources = deps.loadOfferWatch?.(tenantId, now) ?? { requests: noOffers, salesReps: noOffers, defaultAssignee: noOffers, channelNames: noOffers };
     const speed: SpeedSources = deps.loadSpeed?.(tenantId) ?? noSpeed;
+    const merchant: MerchantSources = deps.loadMerchant?.(tenantId) ?? { account: () => Promise.reject(new MerchantNotConfiguredError("disabled")), eans: async () => new Map() };
     const payments: PaymentSources = { orders: (since) => (deps.loadPayments ? deps.loadPayments(tenantId, since) : Promise.reject(new Error("Zahlungsdaten nicht verfügbar"))) };
 
     // 1. Prüfungen nacheinander; eine Quelle ist vollständig, wenn alle ihre Prüfungen liefen
@@ -322,7 +331,7 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
         continue;
       }
       try {
-        const found = await d.run({ storage: deps.storage, tenantId, now, orders, buyability, storefront, ga4, b2b, ads, gsc, payments, speed, lastRunAt: prev?.ok ? prev.at : null, firstRun: !prev });
+        const found = await d.run({ storage: deps.storage, tenantId, now, orders, buyability, storefront, ga4, b2b, ads, gsc, payments, speed, merchant, lastRunAt: prev?.ok ? prev.at : null, firstRun: !prev });
         detections.push(...found);
         detectorState[d.id] = { at: now.toISOString(), ok: true, findings: found.length };
         ran.add(d.id);
@@ -332,6 +341,12 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
           // Shop-Wächter fragt den Shop gerade ab: aussetzen, im nächsten Takt wieder
           failedSources.add(d.source);
           detectorState[d.id] = { at: now.toISOString(), ok: true, skipped: "busy", findings: 0 };
+          continue;
+        }
+        if (err instanceof MerchantNotConfiguredError) {
+          // Merchant Center nicht eingerichtet: aussetzen, Hinweis auf der Seite
+          failedSources.add(d.source);
+          detectorState[d.id] = { at: now.toISOString(), ok: true, skipped: "merchant", merchantProblem: err.reason, findings: 0 };
           continue;
         }
         if (err instanceof SpeedNotConfiguredError) {
@@ -617,6 +632,7 @@ export function shopPulseDeps(storage: IStorage): ShopPulseDeps {
     loadOrders: loadPulseOrders,
     loadPayments: loadPaymentOrders,
     loadSpeed: (tenantId) => speedSources(storage, tenantId),
+    loadMerchant: (tenantId) => ({ ...merchantAccess(storage, tenantId), eans: () => loadEanMap(tenantId) }),
     loadBuyability: (tenantId, now) => ({
       products: () => loadBuyabilityProducts(tenantId),
       revenue: () => loadProductRevenue(tenantId, new Date(now.getTime() - REVENUE_LOOKBACK_DAYS * 24 * 60 * 60 * 1000)),

@@ -28,6 +28,7 @@ import { registerShopPulseGscRoutes } from "./routes/shopPulseGscRoutes";
 import { registerShopPulseHandoffRoutes } from "./routes/shopPulseHandoffRoutes";
 import { registerShopPulseRegularRoutes } from "./routes/shopPulseRegularRoutes";
 import { registerShopPulseSpeedRoutes } from "./routes/shopPulseSpeedRoutes";
+import { registerShopPulseMerchantRoutes } from "./routes/shopPulseMerchantRoutes";
 import { registerOrderRoutes } from "./routes/orderRoutes";
 import { registerMonduRoutes } from "./routes/monduRoutes";
 import { registerCrossSellingRoutes } from "./routes/crossSellingRoutes";
@@ -105,6 +106,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerShopPulseHandoffRoutes(app);
   registerShopPulseRegularRoutes(app);
   registerShopPulseSpeedRoutes(app);
+  registerShopPulseMerchantRoutes(app);
 
   // Mahnwesen und Buchhaltungs-Import
   registerInvoicingRoutes(app);

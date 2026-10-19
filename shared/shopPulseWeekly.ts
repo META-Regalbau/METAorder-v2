@@ -135,7 +135,7 @@ export const SHOP_PULSE_OWNER_NAMES: Record<ShopPulseOwnerId, string> = {
 };
 
 /** Nächster Schritt je Art von Meldung (Texte shopPulse.weekly.nextSteps.<step>) */
-export const SHOP_PULSE_NEXT_STEPS = ["mirror", "orderGap", "storefront", "payment", "product", "delivery", "price", "demand", "traffic", "search", "notFound", "offer", "offerEmpty", "offerBacklog", "ads", "adsShopping", "adsMeasurement", "gscDrop", "gscMeta", "gscContent", "gscIndex", "gscSitemap", "gscCanonical", "paymentPending", "speed", "htmlComments"] as const;
+export const SHOP_PULSE_NEXT_STEPS = ["mirror", "orderGap", "storefront", "payment", "product", "delivery", "price", "demand", "traffic", "search", "notFound", "offer", "offerEmpty", "offerBacklog", "ads", "adsShopping", "adsMeasurement", "gscDrop", "gscMeta", "gscContent", "gscIndex", "gscSitemap", "gscCanonical", "paymentPending", "speed", "htmlComments", "merchant", "merchantFeed"] as const;
 export type ShopPulseNextStep = (typeof SHOP_PULSE_NEXT_STEPS)[number];
 
 /** Zuständiger und nächster Schritt je Fund-Art (fest, damit Seite, Teams und KI dasselbe sagen) */
@@ -206,6 +206,10 @@ export const SHOP_PULSE_RESPONSIBILITY: Record<ShopPulseCode, { owner: ShopPulse
   // Ladezeit (S3-5): Theme/Plugins liegen bei der Agentur
   speedAfterDeploy: { owner: "agency", step: "speed" },
   speedHtmlComments: { owner: "agency", step: "htmlComments" },
+  // Merchant Center (S3-6): Kampagnen und Feed-Einstellungen bei Smarketer, Artikeldaten aus dem Feed-Export
+  merchantDisapproved: { owner: "marketing", step: "merchant" },
+  merchantMismatch: { owner: "marketing", step: "merchantFeed" },
+  merchantTopsellersMissing: { owner: "marketing", step: "merchantFeed" },
 };
 
 // ---------------------------------------------------------------------------------------------

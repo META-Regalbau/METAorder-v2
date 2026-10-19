@@ -6723,7 +6723,10 @@
       "failed_to_report_regular_customer": "Reporting the regular customer failed",
       "failed_to_load_page_speed": "Load time could not be loaded",
       "invalid_page_speed_settings": "Invalid load time settings (paths must start with /)",
-      "failed_to_save_page_speed_settings": "Load time settings could not be saved"
+      "failed_to_save_page_speed_settings": "Load time settings could not be saved",
+      "failed_to_load_merchant_center_settings": "Merchant Center settings could not be loaded",
+      "invalid_merchant_center_settings": "Invalid Merchant Center settings",
+      "failed_to_save_merchant_center_settings": "Merchant Center settings could not be saved"
     }
   },
   "roomPlanner": {
@@ -8130,7 +8133,8 @@
       "ga4": "GA4",
       "b2b": "B2B",
       "ads": "Google Ads",
-      "gsc": "Search Console"
+      "gsc": "Search Console",
+      "merchant": "Merchant Center"
     },
     "codes": {
       "mirrorStale": {
@@ -8380,6 +8384,18 @@
       "speedHtmlComments": {
         "title": "{{commentsKb}} KB of template comments on {{path}}",
         "message": "Of the {{totalKb}} KB HTML of page {{path}}, {{share}} are template comments. They slow down loading without any benefit and belong on the agency list."
+      },
+      "merchantDisapproved": {
+        "title": "{{count}} Shopping products disapproved, {{top}} of them top sellers",
+        "message": "In Google Merchant Center {{count}} products are disapproved for Germany (shop revenue 12 months {{revenue}}). Most frequent reasons: {{reasons}}. Examples: {{examples}}."
+      },
+      "merchantMismatch": {
+        "title": "{{count}} Shopping products differ from the shop",
+        "message": "For {{price}} products the price in the feed does not match the shop, for {{availability}} the availability. Examples: {{examples}}."
+      },
+      "merchantTopsellersMissing": {
+        "title": "{{count}} top sellers missing from the Shopping feed",
+        "message": "These purchasable top sellers (shop revenue 12 months {{revenue}}) are not in Google Merchant Center: {{examples}}."
       }
     },
     "detectors": {
@@ -8410,14 +8426,16 @@
         "gscIndex": "Search Console: sitemaps and indexing of own pages (daily from 9 am)",
         "paymentWatch": "Payment providers (failures, stuck payments)",
         "pageWeight": "Page weight (template comments)",
-        "pageSpeed": "Load time (PageSpeed Insights)"
+        "pageSpeed": "Load time (PageSpeed Insights)",
+        "merchantCenter": "Google Merchant Center (read-only)"
       },
       "skipped": "paused while the order sync is stuck",
       "skippedBusy": "paused, the shop watch is querying the shop right now",
       "skippedGa4": "paused, GA4 not set up",
       "skippedAds": "paused: Google Ads not set up",
       "skippedGsc": "paused: Search Console not set up",
-      "skippedSpeed": "paused: PageSpeed not set up"
+      "skippedSpeed": "paused: PageSpeed not set up",
+      "skippedMerchant": "paused: Merchant Center not set up"
     },
     "notify": {
       "since": "Since",
@@ -8554,7 +8572,9 @@
         "gscCanonical": "Set the main page (canonical) or merge content.",
         "paymentPending": "Follow up stuck payments; for Mondu use “Resend Mondu payment”.",
         "speed": "Agency: find the cause of the slower page after the deploy (theme, plugins, scripts).",
-        "htmlComments": "Agency: switch off template comments in the storefront (Twig debug/comments in production mode)."
+        "htmlComments": "Agency: switch off template comments in the storefront (Twig debug/comments in production mode).",
+        "merchant": "Smarketer: fix the disapproval reasons in Merchant Center (data at the source, otherwise feed rules).",
+        "merchantFeed": "Smarketer: check the feed export (updates, prices, availability, missing products)."
       },
       "scope": {
         "shop": "whole shop",
@@ -9203,6 +9223,28 @@
       "fieldUrl": "LCP {{lcp}}, INP {{inp}}, CLS {{cls}}",
       "fieldOrigin": "Domain: LCP {{lcp}}, INP {{inp}}, CLS {{cls}}",
       "noField": "no field data"
+    },
+    "merchant": {
+      "title": "Google Merchant Center",
+      "hint": "Reads the Shopping products once a day (read-only): disapproved products with reason, price or availability different from the shop, top sellers without a feed entry. It needs the merchant ID and a service account with read access in Merchant Center.",
+      "enable": "Use Merchant Center",
+      "merchantId": "Merchant ID",
+      "merchantIdHint": "The number at the top right in Merchant Center.",
+      "serviceAccount": "Service account JSON (stored encrypted)",
+      "serviceAccountSet": "Saved for {{email}} – paste new JSON to replace it",
+      "serviceAccountNone": "Paste the service account JSON key",
+      "removeServiceAccount": "Remove service account",
+      "save": "Save",
+      "saved": "Saved",
+      "saveFailed": "Saving failed",
+      "ready": "Set up – the next check reads the feed.",
+      "problems": {
+        "disabled": "Not set up: switched off.",
+        "noMerchant": "Not set up: merchant ID missing.",
+        "invalidMerchant": "The merchant ID is not a number.",
+        "noServiceAccount": "Not set up: service account missing.",
+        "invalidServiceAccount": "The service account JSON is invalid."
+      }
     }
   },
   "mondu": {

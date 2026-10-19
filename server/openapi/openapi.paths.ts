@@ -17400,6 +17400,60 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/shop-pulse/merchant-center": {
+    "get": {
+      "tags": [
+        "shop-pulse"
+      ],
+      "summary": "GET /api/shop-pulse/merchant-center",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/shop-pulse/merchant-center/settings": {
+    "put": {
+      "tags": [
+        "shop-pulse"
+      ],
+      "summary": "PUT /api/shop-pulse/merchant-center/settings",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/shop-pulse/regulars": {
     "get": {
       "tags": [

@@ -6720,7 +6720,10 @@
       "failed_to_report_regular_customer": "Meldung zum Stammkunden fehlgeschlagen",
       "failed_to_load_page_speed": "Ladezeit konnte nicht geladen werden",
       "invalid_page_speed_settings": "Ungültige Einstellungen für die Ladezeit (Pfade mit / am Anfang)",
-      "failed_to_save_page_speed_settings": "Einstellungen für die Ladezeit konnten nicht gespeichert werden"
+      "failed_to_save_page_speed_settings": "Einstellungen für die Ladezeit konnten nicht gespeichert werden",
+      "failed_to_load_merchant_center_settings": "Merchant-Center-Einstellungen konnten nicht geladen werden",
+      "invalid_merchant_center_settings": "Ungültige Merchant-Center-Einstellungen",
+      "failed_to_save_merchant_center_settings": "Merchant-Center-Einstellungen konnten nicht gespeichert werden"
     }
   },
   "roomPlanner": {
@@ -8127,7 +8130,8 @@
       "ga4": "GA4",
       "b2b": "B2B",
       "ads": "Google Ads",
-      "gsc": "Search Console"
+      "gsc": "Search Console",
+      "merchant": "Merchant Center"
     },
     "codes": {
       "mirrorStale": {
@@ -8377,6 +8381,18 @@
       "speedHtmlComments": {
         "title": "{{commentsKb}} KB Template-Kommentare auf {{path}}",
         "message": "Von {{totalKb}} KB HTML der Seite {{path}} sind {{share}} Kommentare aus den Templates. Sie verlangsamen das Laden ohne Nutzen und gehören in die Liste für die Agentur."
+      },
+      "merchantDisapproved": {
+        "title": "{{count}} Shopping-Artikel abgelehnt, davon {{top}} Topseller",
+        "message": "Im Google Merchant Center sind {{count}} Artikel für Deutschland abgelehnt (Shop-Umsatz 12 Monate {{revenue}}). Häufigste Gründe: {{reasons}}. Beispiele: {{examples}}."
+      },
+      "merchantMismatch": {
+        "title": "{{count}} Shopping-Artikel weichen vom Shop ab",
+        "message": "Bei {{price}} Artikeln stimmt der Preis im Feed nicht mit dem Shop überein, bei {{availability}} die Verfügbarkeit. Beispiele: {{examples}}."
+      },
+      "merchantTopsellersMissing": {
+        "title": "{{count}} Topseller fehlen im Shopping-Feed",
+        "message": "Diese kaufbaren Topseller (Shop-Umsatz 12 Monate {{revenue}}) stehen nicht im Google Merchant Center: {{examples}}."
       }
     },
     "detectors": {
@@ -8407,14 +8423,16 @@
         "gscIndex": "Search Console: Sitemaps und Indexierung eigener Seiten (täglich ab 9 Uhr)",
         "paymentWatch": "Zahlungsanbieter (Fehlschläge, hängende Zahlungen)",
         "pageWeight": "Seitengewicht (Template-Kommentare)",
-        "pageSpeed": "Ladezeit (PageSpeed Insights)"
+        "pageSpeed": "Ladezeit (PageSpeed Insights)",
+        "merchantCenter": "Google Merchant Center (nur lesend)"
       },
       "skipped": "ausgesetzt, solange der Bestellabgleich hängt",
       "skippedBusy": "ausgesetzt, der Shop-Wächter fragt den Shop gerade ab",
       "skippedGa4": "ausgesetzt, GA4 nicht eingerichtet",
       "skippedAds": "ausgesetzt: Google Ads nicht eingerichtet",
       "skippedGsc": "ausgesetzt: Search Console nicht eingerichtet",
-      "skippedSpeed": "ausgesetzt: PageSpeed nicht eingerichtet"
+      "skippedSpeed": "ausgesetzt: PageSpeed nicht eingerichtet",
+      "skippedMerchant": "ausgesetzt: Merchant Center nicht eingerichtet"
     },
     "notify": {
       "since": "Seit",
@@ -8551,7 +8569,9 @@
         "gscCanonical": "Hauptseite festlegen (canonical) oder Inhalte zusammenführen.",
         "paymentPending": "Hängende Zahlungen nachfassen, bei Mondu „Mondu-Zahlung erneut senden“.",
         "speed": "Agentur: Ursache der langsameren Seite nach dem Deploy suchen (Theme, Plugins, Skripte).",
-        "htmlComments": "Agentur: Template-Kommentare in der Storefront abschalten (Twig-Debug/Kommentare im Produktivmodus)."
+        "htmlComments": "Agentur: Template-Kommentare in der Storefront abschalten (Twig-Debug/Kommentare im Produktivmodus).",
+        "merchant": "Smarketer: Ablehnungsgründe im Merchant Center beheben (Daten an der Quelle, sonst Feed-Regeln).",
+        "merchantFeed": "Smarketer: Feed-Export prüfen (Aktualisierung, Preise, Verfügbarkeit, fehlende Artikel)."
       },
       "scope": {
         "shop": "ganzer Shop",
@@ -9200,6 +9220,28 @@
       "fieldUrl": "LCP {{lcp}}, INP {{inp}}, CLS {{cls}}",
       "fieldOrigin": "Domain: LCP {{lcp}}, INP {{inp}}, CLS {{cls}}",
       "noField": "keine Felddaten"
+    },
+    "merchant": {
+      "title": "Google Merchant Center",
+      "hint": "Liest einmal am Tag die Shopping-Artikel (nur lesend): abgelehnte Artikel mit Grund, Preis oder Verfügbarkeit anders als im Shop, Topseller ohne Feed-Eintrag. Nötig sind die Händler-ID und ein Dienstkonto mit Lesezugriff im Merchant Center.",
+      "enable": "Merchant Center nutzen",
+      "merchantId": "Händler-ID",
+      "merchantIdHint": "Die Zahl oben rechts im Merchant Center.",
+      "serviceAccount": "Dienstkonto-JSON (wird verschlüsselt gespeichert)",
+      "serviceAccountSet": "Gespeichert für {{email}} – zum Ersetzen neues JSON einfügen",
+      "serviceAccountNone": "JSON-Schlüssel des Dienstkontos einfügen",
+      "removeServiceAccount": "Dienstkonto entfernen",
+      "save": "Speichern",
+      "saved": "Gespeichert",
+      "saveFailed": "Speichern fehlgeschlagen",
+      "ready": "Eingerichtet – die nächste Prüfung liest den Feed.",
+      "problems": {
+        "disabled": "Nicht eingerichtet: ausgeschaltet.",
+        "noMerchant": "Nicht eingerichtet: Händler-ID fehlt.",
+        "invalidMerchant": "Die Händler-ID ist keine Zahl.",
+        "noServiceAccount": "Nicht eingerichtet: Dienstkonto fehlt.",
+        "invalidServiceAccount": "Das Dienstkonto-JSON ist ungültig."
+      }
     }
   },
   "mondu": {
