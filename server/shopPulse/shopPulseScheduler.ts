@@ -53,6 +53,10 @@
  * GA4-Meldung werden geprüft und eindeutige (außerhalb der Lernwoche) am Produkt eingetragen
  * (searchKeywordsRun.ts).
  *
+ * Stufe 3 (S3-3): Die Zahlungsanbieter-Wache (detectors/payments.ts) liest jeden Takt den Zahlungsstatus der
+ * Shop-Bestellungen aus dem Spiegel (auch stornierte): zwei Fehlschläge in Folge bei einer Zahlart, die sonst
+ * klappt, sind kritisch; hängende Online-Zahlungen nach 24 Stunden stehen als Liste im Tagesbericht.
+ *
  * In der Lernwoche wird alles gesammelt, aber nichts gesendet. Mandanten nacheinander, nie zwei Läufe
  * für denselben Mandanten gleichzeitig.
  */
@@ -77,7 +81,8 @@ import { berlinDayHour } from "../shopContent/shopWatchScheduler";
 import { SHOP_PULSE_DETECTORS } from "./detectors";
 import { MIRROR_SIGNAL_KEY } from "./detectors/mirrorFreshness";
 import { dailyNumbers, type DailyNumbers } from "./detectors/revenue";
-import { loadPulseOrders, type PulseOrder } from "./pulseOrders";
+import { loadPaymentOrders, loadPulseOrders, type PulseOrder } from "./pulseOrders";
+import type { PaymentOrder, PaymentSources } from "./detectors/payments";
 import type { BuyabilitySources, ChannelMethods, ShopPulseDetector, StorefrontAccess, StorefrontShop } from "./detectors/types";
 import { loadBuyabilityProducts, loadPriceChanges, loadProductRevenue } from "./buyabilityData";
 import { findDeChannel, shopApi } from "../shopContent/shopProducts";
@@ -158,6 +163,8 @@ export type ShopPulseDeps = {
   loadGsc?: (tenantId: string | null, storefront: StorefrontAccess) => GscSources;
   /** Google Ads (S2-4); fehlt es, gilt Ads als nicht eingerichtet */
   loadAds?: (tenantId: string | null) => AdsSources;
+  /** Zahlungsstatus der Shop-Bestellungen (S3-3); fehlt er, scheitert die Zahlungsanbieter-Wache */
+  loadPayments?: (tenantId: string | null, since: Date) => Promise<PaymentOrder[]>;
   /** B2B-Angebotsanfragen (S2-2); fehlt sie, scheitert die Angebotsanfragen-Wache */
   loadOfferWatch?: (tenantId: string | null, now: Date) => OfferWatchSources;
   /** KI-Texte (PR F); fehlt sie, gehen immer die festen Vorlagen raus */
@@ -274,6 +281,7 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
     const gsc: GscSources = deps.loadGsc?.(tenantId, storefront) ?? noGsc;
     const noOffers = () => Promise.reject(new Error("Angebotsanfragen nicht verfügbar"));
     const b2b: OfferWatchSources = deps.loadOfferWatch?.(tenantId, now) ?? { requests: noOffers, salesReps: noOffers, defaultAssignee: noOffers, channelNames: noOffers };
+    const payments: PaymentSources = { orders: (since) => (deps.loadPayments ? deps.loadPayments(tenantId, since) : Promise.reject(new Error("Zahlungsdaten nicht verfügbar"))) };
 
     // 1. Prüfungen nacheinander; eine Quelle ist vollständig, wenn alle ihre Prüfungen liefen
     const detections: ShopPulseDetection[] = [];
@@ -298,7 +306,7 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
         continue;
       }
       try {
-        const found = await d.run({ storage: deps.storage, tenantId, now, orders, buyability, storefront, ga4, b2b, ads, gsc, lastRunAt: prev?.ok ? prev.at : null, firstRun: !prev });
+        const found = await d.run({ storage: deps.storage, tenantId, now, orders, buyability, storefront, ga4, b2b, ads, gsc, payments, lastRunAt: prev?.ok ? prev.at : null, firstRun: !prev });
         detections.push(...found);
         detectorState[d.id] = { at: now.toISOString(), ok: true, findings: found.length };
         ran.add(d.id);
@@ -575,6 +583,7 @@ export function shopPulseDeps(storage: IStorage): ShopPulseDeps {
     repo,
     detectors: SHOP_PULSE_DETECTORS,
     loadOrders: loadPulseOrders,
+    loadPayments: loadPaymentOrders,
     loadBuyability: (tenantId, now) => ({
       products: () => loadBuyabilityProducts(tenantId),
       revenue: () => loadProductRevenue(tenantId, new Date(now.getTime() - REVENUE_LOOKBACK_DAYS * 24 * 60 * 60 * 1000)),

@@ -8347,6 +8347,18 @@
       "gscCannibalization": {
         "title": "{{count}} Suchanfragen: zwei eigene Seiten wechseln sich ab",
         "message": "Für {{count}} Suchanfragen zeigt Google in den 28 Tagen bis {{to}} mindestens zwei eigene Seiten im Wechsel, z. B. {{examples}}. Vorschlag: eine Seite als Hauptseite festlegen (canonical) oder Inhalte zusammenführen. Liste im Wochenbericht."
+      },
+      "paymentFailStreak": {
+        "title": "Zahlart „{{method}}“ scheitert: {{count}} Fehlschläge in Folge",
+        "message": "Seit {{since}} ist jede Zahlung mit „{{method}}“ gescheitert oder hängt ({{orders}}). Die letzte erfolgreiche Zahlung war am {{lastSuccess}}, sonst klappt diese Zahlart. Bitte beim Zahlungsanbieter bzw. der Agentur prüfen lassen."
+      },
+      "paymentFailRate": {
+        "title": "Zahlart „{{method}}“: {{fails}} von {{attempts}} Zahlungen gescheitert",
+        "message": "In den letzten {{days}} Tagen sind {{share}} der Zahlungen mit „{{method}}“ gescheitert, sonst {{expected}}. Bitte prüfen, ob der Anbieter Zahlungen ablehnt."
+      },
+      "paymentsPending": {
+        "title": "{{count}} Online-Zahlungen hängen seit über 24 Stunden",
+        "message": "Offene Online-Zahlungen über zusammen {{total}} ({{orders}}), davon {{mondu}} mit Mondu. Bei Mondu kann der Innendienst in der Bestellung „Mondu-Zahlung erneut senden“ nutzen; sonst den Kunden ansprechen."
       }
     },
     "detectors": {
@@ -8374,7 +8386,8 @@
         "offerWatch": "Angebotsanfragen (B2Bsellers, stündlich)",
         "googleAds": "Google Ads (täglich ab 7 Uhr, nur lesend)",
         "gscSearch": "Search Console: Klicks, Klickrate, Suchanfragen (täglich ab 9 Uhr)",
-        "gscIndex": "Search Console: Sitemaps und Indexierung eigener Seiten (täglich ab 9 Uhr)"
+        "gscIndex": "Search Console: Sitemaps und Indexierung eigener Seiten (täglich ab 9 Uhr)",
+        "paymentWatch": "Zahlungsanbieter (Fehlschläge, hängende Zahlungen)"
       },
       "skipped": "ausgesetzt, solange der Bestellabgleich hängt",
       "skippedBusy": "ausgesetzt, der Shop-Wächter fragt den Shop gerade ab",
@@ -8513,7 +8526,8 @@
         "gscContent": "Inhalte zu diesen Suchanfragen ausbauen, nur mit belegten META-Inhalten.",
         "gscIndex": "An die Agentur geben: robots, canonical, Sitemap, interne Links prüfen.",
         "gscSitemap": "Sitemap-Fehler an die Agentur geben.",
-        "gscCanonical": "Hauptseite festlegen (canonical) oder Inhalte zusammenführen."
+        "gscCanonical": "Hauptseite festlegen (canonical) oder Inhalte zusammenführen.",
+        "paymentPending": "Hängende Zahlungen nachfassen, bei Mondu „Mondu-Zahlung erneut senden“."
       },
       "scope": {
         "shop": "ganzer Shop",
@@ -9061,6 +9075,12 @@
       "confirmRevert": "Suchwort „{{term}}“ wieder aus diesen Artikeln entfernen?",
       "dismiss": "Verwerfen",
       "dismissDone": "Vorschlag verworfen"
+    },
+    "payments": {
+      "pendingTitle": "Hängende Zahlungen",
+      "since": "seit {{at}}",
+      "monduHint": "In der Bestellung: „Mondu-Zahlung erneut senden“",
+      "more": "… und {{count}} weitere"
     }
   },
   "mondu": {

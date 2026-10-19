@@ -8347,6 +8347,18 @@
       "gscCannibalization": {
         "title": "{{count}} búsquedas: dos páginas propias se alternan",
         "message": "Para {{count}} búsquedas, Google muestra en los 28 días hasta el {{to}} al menos dos páginas propias alternándose, p. ej. {{examples}}. Propuesta: fijar una página principal (canonical) o unir contenidos. Lista en el informe semanal."
+      },
+      "paymentFailStreak": {
+        "title": "El método de pago «{{method}}» falla: {{count}} fallos seguidos",
+        "message": "Desde el {{since}} todos los pagos con «{{method}}» han fallado o están bloqueados ({{orders}}). El último pago correcto fue el {{lastSuccess}}; normalmente este método funciona. Pida al proveedor de pagos o a la agencia que lo revise."
+      },
+      "paymentFailRate": {
+        "title": "Método de pago «{{method}}»: {{fails}} de {{attempts}} pagos fallidos",
+        "message": "En los últimos {{days}} días ha fallado el {{share}} de los pagos con «{{method}}», normalmente el {{expected}}. Compruebe si el proveedor rechaza pagos."
+      },
+      "paymentsPending": {
+        "title": "{{count}} pagos en línea bloqueados desde hace más de 24 horas",
+        "message": "Pagos en línea abiertos por un total de {{total}} ({{orders}}), {{mondu}} de ellos con Mondu. Para Mondu, el servicio interno puede usar «Reenviar pago de Mondu» en el pedido; si no, contactar al cliente."
       }
     },
     "detectors": {
@@ -8374,7 +8386,8 @@
         "offerWatch": "Solicitudes de oferta (B2Bsellers, cada hora)",
         "googleAds": "Google Ads (a diario desde las 7, solo lectura)",
         "gscSearch": "Search Console: clics, tasa de clics, búsquedas (a diario desde las 9)",
-        "gscIndex": "Search Console: sitemaps e indexación de páginas propias (a diario desde las 9)"
+        "gscIndex": "Search Console: sitemaps e indexación de páginas propias (a diario desde las 9)",
+        "paymentWatch": "Proveedores de pago (fallos, pagos bloqueados)"
       },
       "skipped": "en pausa mientras la sincronización de pedidos esté parada",
       "skippedBusy": "en pausa, el vigilante de la tienda está consultando la tienda",
@@ -8513,7 +8526,8 @@
         "gscContent": "Ampliar contenidos para estas búsquedas, solo con contenidos META documentados.",
         "gscIndex": "Pasarlo a la agencia: revisar robots, canonical, sitemap, enlaces internos.",
         "gscSitemap": "Pasar los errores del sitemap a la agencia.",
-        "gscCanonical": "Fijar la página principal (canonical) o unir contenidos."
+        "gscCanonical": "Fijar la página principal (canonical) o unir contenidos.",
+        "paymentPending": "Hacer seguimiento de los pagos bloqueados; con Mondu, «Reenviar pago de Mondu»."
       },
       "scope": {
         "shop": "toda la tienda",
@@ -9061,6 +9075,12 @@
       "confirmRevert": "¿Quitar de nuevo la palabra de búsqueda «{{term}}» de estos artículos?",
       "dismiss": "Descartar",
       "dismissDone": "Propuesta descartada"
+    },
+    "payments": {
+      "pendingTitle": "Pagos bloqueados",
+      "since": "desde el {{at}}",
+      "monduHint": "En el pedido: «Reenviar pago de Mondu»",
+      "more": "… y {{count}} más"
     }
   },
   "mondu": {

@@ -6,6 +6,7 @@ import { GA4_DETECTORS } from "./ga4";
 import { offerWatchDetector } from "./offers";
 import { adsDetector } from "./ads";
 import { GSC_DETECTORS } from "./gsc";
+import { paymentWatchDetector } from "./payments";
 import type { ShopPulseDetector } from "./types";
 
 /**
@@ -13,12 +14,13 @@ import type { ShopPulseDetector } from "./types";
  * Bestellabgleich, setzen die Umsatz-Prüfungen aus. Zahl- und Versandarten prüft jeder Takt, die Artikel nur der Nachtlauf.
  * Produktseiten (5 je Takt) und Warenkorb-Probe (30 Minuten, 6–22 Uhr) fragen die Storefront ab, unter der Sperre des Shop-Wächters.
  * GA4: Live-Trichter alle 30 Minuten (6–22 Uhr), die übrigen einmal am Tag ab 7 Uhr; ohne GA4-Einrichtung setzen sie aus.
- * Angebotsanfragen (B2Bsellers) einmal je Stunde. Google Ads einmal am Tag ab 7 Uhr, Search Console ab 9 Uhr; ohne Einrichtung setzen sie aus.
+ * Zahlungsanbieter-Wache (S3-3) jeden Takt aus dem Bestellspiegel. Angebotsanfragen (B2Bsellers) einmal je Stunde. Google Ads einmal am Tag ab 7 Uhr, Search Console ab 9 Uhr; ohne Einrichtung setzen sie aus.
  */
 export const SHOP_PULSE_DETECTORS: ShopPulseDetector[] = [
   mirrorFreshnessDetector,
   orderGapDetector,
   paymentGoneDetector,
+  paymentWatchDetector,
   weekComparisonDetector,
   channelMethodsDetector,
   productBuyabilityDetector,

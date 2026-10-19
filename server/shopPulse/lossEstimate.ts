@@ -28,7 +28,7 @@ const PAYMENT_WEEKS = 8;
 
 /** Sammelmeldungen mit Artikelliste (evidence.products), bei denen die Artikel nicht kaufbar sind */
 const PRODUCT_CODES: readonly ShopPulseCode[] = ["productsUnavailable", "productsPriceZero", "productsSoldOut"];
-const PAYMENT_CODES: readonly ShopPulseCode[] = ["paymentGone", "paymentMethodGone"];
+const PAYMENT_CODES: readonly ShopPulseCode[] = ["paymentGone", "paymentMethodGone", "paymentFailStreak"];
 /** Funde, bei denen der Shop insgesamt nichts verkauft */
 const SHOP_WIDE_CODES: readonly ShopPulseCode[] = [
   "orderGap",

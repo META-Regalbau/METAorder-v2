@@ -132,7 +132,7 @@ export const SHOP_PULSE_OWNER_NAMES: Record<ShopPulseOwnerId, string> = {
 };
 
 /** Nächster Schritt je Art von Meldung (Texte shopPulse.weekly.nextSteps.<step>) */
-export const SHOP_PULSE_NEXT_STEPS = ["mirror", "orderGap", "storefront", "payment", "product", "delivery", "price", "demand", "traffic", "search", "notFound", "offer", "offerEmpty", "offerBacklog", "ads", "adsShopping", "adsMeasurement", "gscDrop", "gscMeta", "gscContent", "gscIndex", "gscSitemap", "gscCanonical"] as const;
+export const SHOP_PULSE_NEXT_STEPS = ["mirror", "orderGap", "storefront", "payment", "product", "delivery", "price", "demand", "traffic", "search", "notFound", "offer", "offerEmpty", "offerBacklog", "ads", "adsShopping", "adsMeasurement", "gscDrop", "gscMeta", "gscContent", "gscIndex", "gscSitemap", "gscCanonical", "paymentPending"] as const;
 export type ShopPulseNextStep = (typeof SHOP_PULSE_NEXT_STEPS)[number];
 
 /** Zuständiger und nächster Schritt je Fund-Art (fest, damit Seite, Teams und KI dasselbe sagen) */
@@ -196,6 +196,10 @@ export const SHOP_PULSE_RESPONSIBILITY: Record<ShopPulseCode, { owner: ShopPulse
   gscNotIndexed: { owner: "agency", step: "gscIndex" },
   gscSitemapIssues: { owner: "agency", step: "gscSitemap" },
   gscCannibalization: { owner: "oliver", step: "gscCanonical" },
+  // Zahlungsanbieter-Wache (S3-3): Ausfall einer Zahlart klärt die Agentur mit dem Anbieter; hängende Zahlungen der Innendienst
+  paymentFailStreak: { owner: "agency", step: "payment" },
+  paymentFailRate: { owner: "agency", step: "payment" },
+  paymentsPending: { owner: "sales", step: "paymentPending" },
 };
 
 // ---------------------------------------------------------------------------------------------

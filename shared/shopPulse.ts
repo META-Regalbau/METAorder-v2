@@ -79,6 +79,10 @@ export const SHOP_PULSE_CODES = [
   "gscNotIndexed",
   "gscSitemapIssues",
   "gscCannibalization",
+  // Stufe 3 (S3-3): Zahlungsanbieter-Wache
+  "paymentFailStreak",
+  "paymentFailRate",
+  "paymentsPending",
 ] as const;
 export type ShopPulseCode = (typeof SHOP_PULSE_CODES)[number];
 
@@ -100,6 +104,7 @@ export const SHOP_PULSE_DETECTOR_IDS = [
   "mirrorFreshness",
   "orderGap",
   "paymentGone",
+  "paymentWatch",
   "weekComparison",
   "channelMethods",
   "buyability",
@@ -406,6 +411,9 @@ const PARAM_KINDS: Partial<Record<ShopPulseCode, Record<string, "money" | "date"
   gscNotIndexed: { since: "date" },
   gscSitemapIssues: { errors: "number", warnings: "number" },
   gscCannibalization: { count: "number", to: "date" },
+  paymentFailStreak: { count: "number", since: "date", lastSuccess: "date" },
+  paymentFailRate: { fails: "number", attempts: "number", share: "percent", expected: "percent" },
+  paymentsPending: { count: "number", total: "money", mondu: "number" },
 };
 
 export type ShopPulseParamFormatters = {
