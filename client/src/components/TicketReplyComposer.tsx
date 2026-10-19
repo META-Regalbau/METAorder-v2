@@ -19,6 +19,10 @@ type ReplyDraft = {
   customerEmail: string;
   draft: string | null;
   draftError: string | null;
+  sentText: string | null;
+  sentAt: string | null;
+  lastError: string | null;
+  attempts: number;
   order: { orderNumber: string; status: string; shipped: boolean; trackingCodes: string[] } | null;
   orderNumbers: string[];
   orderNote: string | null;
@@ -45,7 +49,7 @@ export default function TicketReplyComposer({
   compact = false,
   onCommentAdded,
 }: TicketReplyComposerProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const [commentText, setCommentText] = useState("");
   const [isInternalComment, setIsInternalComment] = useState(false);
@@ -79,7 +83,7 @@ export default function TicketReplyComposer({
   });
 
   // Kundenanfrage aus dem E-Mail-Eingang: Entwurf vorbelegen. Verschickt wird dort nicht über den
-  // Mailversand von METAorder, sondern über n8n aus dem Postfach der Mail (Postausgang folgt).
+  // Mailversand von METAorder, sondern über n8n aus dem Postfach der Mail (Freigeben & senden).
   const { data: replyDraft } = useQuery<ReplyDraft | null>({
     queryKey: ["/api/tickets", ticketId, "reply-draft"],
     queryFn: async () => {
@@ -92,9 +96,11 @@ export default function TicketReplyComposer({
   });
   const prefilled = useRef(false);
   useEffect(() => {
-    if (prefilled.current || !replyDraft?.draft || replyDraft.status !== "draft") return;
+    if (prefilled.current || !replyDraft) return;
+    const text = replyDraft.status === "failed" ? replyDraft.sentText : replyDraft.status === "draft" ? replyDraft.draft : null;
+    if (!text) return;
     prefilled.current = true;
-    setCommentText((current) => (current.trim() ? current : replyDraft.draft ?? ""));
+    setCommentText((current) => (current.trim() ? current : text));
   }, [replyDraft]);
 
   const regenerateMutation = useMutation({
@@ -112,7 +118,27 @@ export default function TicketReplyComposer({
     },
   });
 
+  const sendReplyMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/tickets/${ticketId}/reply-draft/send`, { text: commentText });
+      return (await response.json()) as ReplyDraft;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["/api/tickets", ticketId, "reply-draft"], data);
+      queryClient.invalidateQueries({ queryKey: ["/api/tickets", ticketId, "comments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tickets", ticketId, "activity"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tickets", ticketId] });
+      setCommentText("");
+      toast({ title: t("tickets.replyDraft.queued") });
+      onCommentAdded?.();
+    },
+    onError: (error: Error) => {
+      toast({ title: t("tickets.replyDraft.sendFailed"), description: error.message, variant: "destructive" });
+    },
+  });
+
   const isIntakeReply = Boolean(replyDraft);
+  const replySendable = replyDraft?.status === "draft" || replyDraft?.status === "failed";
   const placeholders = isIntakeReply && !isInternalComment ? replyPlaceholders(commentText) : [];
   const canSendEmail = !isIntakeReply && Boolean(outboundStatus?.enabled && (ticket?.customerEmail || ticket?.emailFrom));
 
@@ -295,7 +321,16 @@ export default function TicketReplyComposer({
               <p>{t("tickets.replyDraft.orderMissing", { numbers: replyDraft.orderNumbers.join(", "), note: replyDraft.orderNote ?? "" })}</p>
             ) : null}
             {replyDraft.draftError && <p className="text-destructive">{replyDraft.draftError}</p>}
-            <p>{t("tickets.replyDraft.sendLater")}</p>
+            {replyDraft.status === "draft" && <p>{t("tickets.replyDraft.sendHint")}</p>}
+            {replyDraft.status === "queued" && <p className="font-medium">{t("tickets.replyDraft.statusQueued")}</p>}
+            {replyDraft.status === "sent" && (
+              <p className="font-medium text-green-700 dark:text-green-400">
+                {t("tickets.replyDraft.statusSent", { date: replyDraft.sentAt ? new Date(replyDraft.sentAt).toLocaleString(i18n.language, { dateStyle: "short", timeStyle: "short" }) : "" })}
+              </p>
+            )}
+            {replyDraft.status === "failed" && (
+              <p className="font-medium text-destructive">{t("tickets.replyDraft.statusFailed", { error: replyDraft.lastError ?? "" })}</p>
+            )}
           </div>
         </div>
       )}
@@ -354,14 +389,25 @@ export default function TicketReplyComposer({
           </Label>
         </div>
       )}
-      <Button
-        onClick={() => addCommentMutation.mutate()}
-        disabled={!commentText.trim() || addCommentMutation.isPending}
-        data-testid="button-add-comment"
-      >
-        <Send className="h-4 w-4 mr-2" />
-        {t("tickets.addComment")}
-      </Button>
+      {isIntakeReply && !isInternalComment ? (
+        <Button
+          onClick={() => sendReplyMutation.mutate()}
+          disabled={!replySendable || !commentText.trim() || placeholders.length > 0 || sendReplyMutation.isPending}
+          data-testid="button-reply-draft-send"
+        >
+          {sendReplyMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+          {replyDraft?.status === "failed" ? t("tickets.replyDraft.resend") : t("tickets.replyDraft.send")}
+        </Button>
+      ) : (
+        <Button
+          onClick={() => addCommentMutation.mutate()}
+          disabled={!commentText.trim() || addCommentMutation.isPending}
+          data-testid="button-add-comment"
+        >
+          <Send className="h-4 w-4 mr-2" />
+          {t("tickets.addComment")}
+        </Button>
+      )}
     </div>
   );
 }

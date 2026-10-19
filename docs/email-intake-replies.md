@@ -1,6 +1,6 @@
 # Kundenantworten aus dem E-Mail-Eingang
 
-Entscheidung 19.10.2026: Beantwortbare Kundenmails aus dem n8n-E-Mail-Eingang werden zu Tickets „Kundenanfrage“ mit einem KI-Antwortentwurf. Verschickt wird erst nach Freigabe im Ticket, und zwar über n8n aus dem Postfach, in dem die Mail ankam (Postausgang: zweiter Schritt). Eine Automatik ohne Freigabe kommt später.
+Entscheidung 19.10.2026: Beantwortbare Kundenmails aus dem n8n-E-Mail-Eingang werden zu Tickets „Kundenanfrage“ mit einem KI-Antwortentwurf. Verschickt wird erst nach Freigabe im Ticket, und zwar über n8n aus dem Postfach, in dem die Mail ankam. Eine Automatik ohne Freigabe kommt später.
 
 ## Wann entsteht ein Ticket?
 
@@ -33,7 +33,17 @@ Je Mail gibt es höchstens ein Ticket (Tabelle `email_intake_replies`, eindeutig
 - „Neu erstellen“ liest die Bestelldaten neu und schreibt einen neuen Entwurf (`POST /api/tickets/:id/reply-draft/regenerate`).
 - Platzhalter in `[eckigen Klammern]` werden angezeigt. Mit Platzhaltern wird nicht verschickt.
 - Der Gruß kommt aus der Einstellung „Gruß unter jeder Antwort“. Ist sie leer, steht `[Name eintragen]` im Text.
-- Bis der Postausgang über n8n fertig ist, verschickt das Ticket bei Kundenanfragen keine Mail über den Mailversand von METAorder. Die Antwort wird nur gespeichert.
+
+## Versand („Freigeben & senden“)
+
+1. **Freigeben & senden** im Ticket. Mit Platzhaltern oder ohne Text ist der Knopf gesperrt, und der Server lehnt ab. Der Text wird als öffentliche Antwort im Ticket gespeichert, das Ticket wechselt auf „Wartet auf Kunde“, und die Antwort geht in den Postausgang (`status = queued`).
+2. Der n8n-Workflow **„METAorder Kundenantworten → Microsoft 365“** (`n8n-workflows/m365-customer-replies.json`) holt alle 2 Minuten ab (`GET /api/email-intake/replies/outbox`, höchstens 10).
+3. Je Antwort sucht er die Originalmail im Postfach über die Message-ID (`$filter=internetMessageId eq '…'`, über alle Ordner). Gefunden: `createReply` → unseren Text vor das Zitat setzen (`PATCH`) → `send`. So geht die Antwort im Mailverlauf raus und landet in „Gesendete Elemente“ des Postfachs.
+4. Originalmail nicht gefunden (gelöscht) oder keine Message-ID: neue Mail mit „Re: Betreff“ (`sendMail`). Das Ticket bekommt dazu eine interne Notiz.
+5. Scheitert das Einsetzen des Textes, wird **nicht** gesendet, sonst ginge nur das Zitat raus. Der leere Entwurf bleibt im Ordner „Entwürfe“ des Postfachs.
+6. Rückmeldung an METAorder (`POST …/outbox/:id/ack`): verschickt → `sent`. Fehler → erneuter Versuch beim nächsten Lauf. Nach 3 Fehlversuchen `failed`: interne Notiz im Ticket, Ticket auf „Wartet auf intern“, und im Ticket erscheint „Erneut senden“. Nicht quittierte Antworten holt n8n nach 15 Minuten erneut.
+
+**Einrichtung in n8n:** Vorlage importieren. Den Knoten „METAorder: …“ das Credential „METAorder Integration-Key“ zuordnen, den Graph-Knoten „Microsoft Outlook account“. Dann aktivieren. Der Benutzer `n8n` braucht „Tickets verwalten“ (hat er). Das Outlook-Konto braucht Zugriff auf das Postfach, für freigegebene Postfächer „Vollzugriff“ und „Senden als“.
 
 ## Technik
 

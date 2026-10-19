@@ -1,11 +1,20 @@
-// Kundenantworten aus dem E-Mail-Eingang: Antwortentwurf eines Tickets lesen und neu erstellen
-// (server/commercial/emailIntakeReplies.ts). Sichtbar wie das Ticket selbst.
+// Kundenantworten aus dem E-Mail-Eingang (server/commercial/emailIntakeReplies.ts): Antwortentwurf eines
+// Tickets lesen, neu erstellen und freigeben (sichtbar wie das Ticket selbst) sowie der Postausgang, den
+// n8n abholt und quittiert (n8n-workflows/m365-customer-replies.json).
 import type { Express, Request, Response } from "express";
-import { requireAuth, requireCsrf, requireViewTickets } from "../auth/auth";
+import { z } from "zod";
+import { requireAuth, requireAuthOrIntegrationKey, requireCsrf, requireManageTickets, requireViewTickets } from "../auth/auth";
 import { storage } from "../storage";
 import { replyPlaceholders, type EmailIntakeReplyKind } from "@shared/emailIntake";
 import type { EmailIntakeReplyRow } from "@shared/schema";
-import { getReplyByTicket, regenerateReply } from "../commercial/emailIntakeReplies";
+import {
+  ReplySendError,
+  ackReplyOutbox,
+  claimReplyOutbox,
+  getReplyByTicket,
+  queueReply,
+  regenerateReply,
+} from "../commercial/emailIntakeReplies";
 import { getEmailIntakeSettings } from "../commercial/emailIntakeSettings";
 import { getSalesChannelFilter } from "./routeHelpers";
 import { logger } from "../lib/logger";
@@ -44,6 +53,8 @@ function toResponse(row: EmailIntakeReplyRow) {
     subject: row.subject,
     draft: row.draft,
     draftError: row.draftError,
+    sentText: row.sentText,
+    attempts: row.attempts,
     placeholders: replyPlaceholders(row.draft ?? ""),
     order: facts.order ?? null,
     orderNumbers: Array.isArray(facts.orderNumbers) ? facts.orderNumbers : [],
@@ -85,6 +96,63 @@ export function registerEmailIntakeReplyRoutes(app: Express) {
       } catch (error) {
         log.error({ err: error }, "Antwortentwurf nicht neu erstellt");
         res.status(500).json({ error: "Antwortentwurf konnte nicht neu erstellt werden" });
+      }
+    },
+  );
+
+  // Freigeben & senden: öffentliche Antwort im Ticket, n8n verschickt aus dem Postfach der Mail
+  app.post("/api/tickets/:ticketId/reply-draft/send", requireAuth, requireViewTickets, requireCsrf, async (req: Request, res: Response) => {
+    try {
+      const body = z.object({ text: z.string().max(20000) }).safeParse(req.body);
+      if (!body.success) return res.status(400).json({ error: "Ungültige Antwort", code: "email_intake_reply_invalid" });
+      const reply = await loadAccessibleReply(req, res);
+      if (!reply) return;
+      const userId = (req.user as { id: string }).id;
+      res.json(toResponse(await queueReply(storage, reply, { text: body.data.text, userId })));
+    } catch (error) {
+      if (error instanceof ReplySendError) return res.status(error.status).json({ error: error.message, code: error.code });
+      log.error({ err: error }, "Antwort nicht freigegeben");
+      res.status(500).json({ error: "Antwort konnte nicht freigegeben werden" });
+    }
+  });
+
+  // ---------- n8n ----------
+  app.get("/api/email-intake/replies/outbox", requireAuthOrIntegrationKey, requireManageTickets, async (req: Request, res: Response) => {
+    try {
+      res.json({ replies: await claimReplyOutbox(req.tenantId ?? null) });
+    } catch (error) {
+      log.error({ err: error }, "Postausgang Kundenantworten nicht geladen");
+      res.status(500).json({ error: "Postausgang konnte nicht geladen werden" });
+    }
+  });
+
+  app.post(
+    "/api/email-intake/replies/outbox/:id/ack",
+    requireAuthOrIntegrationKey,
+    requireManageTickets,
+    requireCsrf,
+    async (req: Request, res: Response) => {
+      try {
+        const body = z
+          .object({
+            ok: z.boolean(),
+            statusCode: z.number().int().optional().nullable(),
+            error: z.string().max(4000).optional().nullable(),
+            mode: z.enum(["reply", "new_mail"]).optional().nullable(),
+          })
+          .safeParse(req.body);
+        if (!body.success) return res.status(400).json({ error: "Ungültige Rückmeldung", code: "email_intake_reply_ack_invalid" });
+        const { ok, statusCode, error, mode } = body.data;
+        const row = await ackReplyOutbox(storage, req.tenantId ?? null, req.params.id, {
+          ok,
+          mode: mode ?? null,
+          error: error ?? (statusCode ? `HTTP ${statusCode}` : null),
+        });
+        if (!row) return res.status(404).json({ error: "Antwort nicht gefunden", code: "email_intake_reply_not_found" });
+        res.json({ success: true, status: row.status });
+      } catch (error) {
+        log.error({ err: error }, "Rückmeldung Kundenantwort nicht gespeichert");
+        res.status(500).json({ error: "Rückmeldung konnte nicht gespeichert werden" });
       }
     },
   );

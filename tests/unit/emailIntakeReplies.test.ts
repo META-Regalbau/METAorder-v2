@@ -18,7 +18,15 @@ import {
   withSignature,
   type ReplyFacts,
 } from "../../server/commercial/emailIntakeReplyDraft";
-import { generateReplyDraft, internetMessageIdOf, replyPlanFor } from "../../server/commercial/emailIntakeReplies";
+import {
+  ReplySendError,
+  generateReplyDraft,
+  internetMessageIdOf,
+  queueReply,
+  replyPlanFor,
+  replySubject,
+  replyTextToHtml,
+} from "../../server/commercial/emailIntakeReplies";
 
 function order(partial: Partial<Order>): Order {
   return {
@@ -175,5 +183,51 @@ describe("Kundenantworten: wann ein Ticket entsteht", () => {
     const s = normalizeEmailIntakeSettings({ enabled: true, replyDrafts: { complaint: true, general: "ja" } });
     assert.deepEqual(s.replyDrafts, { order_status: false, complaint: true, general: false, offer_request: false });
     assert.equal(s.replySignature, "");
+  });
+});
+
+describe("Kundenantworten: Freigabe und Postausgang", () => {
+  it("Text wird zu HTML mit Absätzen, Umbrüchen und Links, ohne fremdes HTML", () => {
+    assert.equal(
+      replyTextToHtml("Guten Tag <Herr> Müller,\n\nSendung: https://dhl.de/t?x=1&y=2\nDanke."),
+      '<p>Guten Tag &lt;Herr&gt; Müller,</p>\n<p>Sendung: <a href="https://dhl.de/t?x=1&amp;y=2">https://dhl.de/t?x=1&amp;y=2</a><br>Danke.</p>',
+    );
+  });
+
+  it("Betreff mit einem „Re:“", () => {
+    assert.equal(replySubject("Lieferstatus MO102925"), "Re: Lieferstatus MO102925");
+    assert.equal(replySubject("AW: Lieferstatus"), "AW: Lieferstatus");
+    assert.equal(replySubject(""), "Re: Ihre Anfrage");
+  });
+
+  it("Freigabe lehnt leere Texte, Platzhalter und schon verschickte Antworten ab", async () => {
+    const storage = {} as never;
+    const row = { id: "r1", status: "draft", ticketId: "t1" } as never;
+    await assert.rejects(queueReply(storage, row, { text: "  ", userId: "u" }), (e: ReplySendError) => e.code === "email_intake_reply_empty");
+    await assert.rejects(
+      queueReply(storage, row, { text: "Lieferung am [Liefertermin eintragen].", userId: "u" }),
+      (e: ReplySendError) => e.code === "email_intake_reply_placeholders" && /Liefertermin/.test(e.message),
+    );
+    await assert.rejects(
+      queueReply(storage, { ...(row as object), status: "sent" } as never, { text: "Fertig.", userId: "u" }),
+      (e: ReplySendError) => e.code === "email_intake_reply_already_sent" && e.status === 409,
+    );
+  });
+
+  it("n8n-Vorlage: alle Verbindungen gültig, METAorder-Aufrufe mit Integration-Key", async () => {
+    const fs = await import("node:fs");
+    const wf = JSON.parse(fs.readFileSync("n8n-workflows/m365-customer-replies.json", "utf8"));
+    const names = new Set(wf.nodes.map((n: { name: string }) => n.name));
+    for (const [from, value] of Object.entries(wf.connections as Record<string, { main: Array<Array<{ node: string }>> }>)) {
+      assert.ok(names.has(from), from);
+      for (const out of value.main) for (const target of out) assert.ok(names.has(target.node), `${from} → ${target.node}`);
+    }
+    const urls = wf.nodes.map((n: { parameters: { url?: string } }) => n.parameters.url ?? "").join("\n");
+    assert.match(urls, /\/api\/email-intake\/replies\/outbox\n/);
+    assert.match(urls, /\/api\/email-intake\/replies\/outbox\/\{\{ \$json\.id \}\}\/ack/);
+    assert.match(urls, /createReply/);
+    for (const n of wf.nodes.filter((x: { parameters: { url?: string } }) => (x.parameters.url ?? "").includes("/api/"))) {
+      assert.ok(n.credentials?.httpHeaderAuth, n.name);
+    }
   });
 });
