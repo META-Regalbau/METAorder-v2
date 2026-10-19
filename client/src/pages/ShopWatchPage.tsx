@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertTriangle, BellRing, CheckCircle2, ExternalLink, Loader2, Paintbrush, Play, Rocket, ShieldCheck, Target, XCircle } from "lucide-react";
+import { AlertTriangle, BellRing, CheckCircle2, ExternalLink, Loader2, Paintbrush, Play, Rocket, Send, ShieldCheck, Target, XCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -72,7 +72,8 @@ export default function ShopWatchPage() {
 
   const query = useQuery<WatchResponse>({
     queryKey: QUERY_KEY,
-    refetchInterval: (q) => (q.state.data?.running ? 3000 : false),
+    // Läuft eine Prüfung: schnell nachsehen; wartet etwas auf n8n: alle 30 s, damit man das Abholen sieht
+    refetchInterval: (q) => (q.state.data?.running ? 3000 : q.state.data?.schedule.teamsPending ? 30000 : false),
   });
   const data = query.data;
   const run = data?.lastRun ?? null;
@@ -101,6 +102,14 @@ export default function ShopWatchPage() {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY });
     },
     onError: (error: Error) => toast({ title: t("shopWatch.schedule.saveFailed"), description: error.message, variant: "destructive" }),
+  });
+  const testMutation = useMutation({
+    mutationFn: async () => apiRequest("POST", "/api/shop-content/watch/test-message"),
+    onSuccess: () => {
+      toast({ title: t("shopWatch.schedule.testQueued"), description: t("shopWatch.schedule.testQueuedHint") });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+    },
+    onError: (error: Error) => toast({ title: t("shopWatch.schedule.testFailed"), description: error.message, variant: "destructive" }),
   });
 
   const statusText = (s: ShopWatchStatus) => t(`shopWatch.status.${s}`);
@@ -218,12 +227,33 @@ export default function ShopWatchPage() {
             </div>
           </div>
           <ul className="text-sm space-y-1">
-            <li className={data.schedule.teamsConfigured ? "" : "text-amber-700 dark:text-amber-300"} data-testid="text-shop-watch-teams">
-              {data.schedule.teamsConfigured ? t("shopWatch.schedule.teamsOn") : t("shopWatch.schedule.teamsOff")}
-              {data.schedule.teamsConfigured && data.schedule.teamsPending > 0
-                ? ` ${t("shopWatch.schedule.teamsPending", { count: data.schedule.teamsPending })}`
-                : null}
+            <li className="flex flex-wrap items-start justify-between gap-3">
+              <span className={data.schedule.teamsConfigured ? "" : "text-amber-700 dark:text-amber-300"} data-testid="text-shop-watch-teams">
+                {data.schedule.teamsConfigured ? t("shopWatch.schedule.teamsOn") : t("shopWatch.schedule.teamsOff")}
+              </span>
+              {data.schedule.teamsConfigured ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => testMutation.mutate()}
+                  disabled={testMutation.isPending}
+                  data-testid="button-shop-watch-test-message"
+                >
+                  {testMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+                  {t("shopWatch.schedule.testMessage")}
+                </Button>
+              ) : null}
             </li>
+            {data.schedule.teamsConfigured ? (
+              <li className="text-xs text-muted-foreground space-y-0.5">
+                <p>{t("shopWatch.schedule.testHint")}</p>
+                <p data-testid="text-shop-watch-teams-pending">
+                  {data.schedule.teamsPending > 0
+                    ? t("shopWatch.schedule.teamsPending", { count: data.schedule.teamsPending })
+                    : t("shopWatch.schedule.teamsPendingNone")}
+                </p>
+              </li>
+            ) : null}
             {data.settings.enabled ? (
               <li className="flex flex-wrap gap-x-6 gap-y-1 text-muted-foreground">
                 <span>{t("shopWatch.schedule.lastFingerprint", { at: orNever(data.schedule.lastFingerprintAt) })}</span>

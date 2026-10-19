@@ -20,7 +20,12 @@ import {
   SHOP_WATCH_SETTINGS_KEY,
   shopWatchDeps,
 } from "../shopContent/shopWatchScheduler";
-import { ackShopWatchTeamsOutbox, getShopWatchTeamsOutbox } from "../shopContent/shopWatchNotify";
+import {
+  ackShopWatchTeamsOutbox,
+  buildShopWatchTestTeamsMessage,
+  enqueueShopWatchTeamsMessage,
+  getShopWatchTeamsOutbox,
+} from "../shopContent/shopWatchNotify";
 import { shopWatchTeamsWebhookUrl } from "../shopPulse/shopPulseSettings";
 import { insertCandidates } from "../shopPulse/actionLogRepository";
 import { REPAIR_SPECS } from "../shopContent/shopWatchRepair";
@@ -174,6 +179,27 @@ export function registerShopWatchRoutes(app: Express): void {
     } catch (error) {
       moduleLog.error({ err: error }, "Shop-Wächter: Einstellungen speichern fehlgeschlagen");
       res.status(500).json({ error: "Failed to save shop watch settings" });
+    }
+  });
+
+  /**
+   * Testnachricht an Teams: legt eine als Test gekennzeichnete Karte in die Warteschlange, die n8n wie jede
+   * Meldung abholt. Webhook wie beim Zeitplan (E-Mail-Eingang oder Direktnachricht des Shop-Puls).
+   */
+  app.post("/api/shop-content/watch/test-message", requireAuth, requireAdministrator, requireCsrf, async (req: Request, res: Response) => {
+    try {
+      const tenantId = tenantOf(req);
+      const webhookUrl = await shopWatchTeamsWebhookUrl(storage, tenantId);
+      if (!webhookUrl) return res.status(400).json({ error: "Teams webhook not configured", code: "shop_watch_teams_webhook_missing" });
+      const now = new Date();
+      const message = buildShopWatchTestTeamsMessage({ baseUrl: shopWatchDeps(storage).baseUrl, requestedBy: userName(req), now });
+      await enqueueShopWatchTeamsMessage(storage, tenantId, message, now);
+      const teamsPending = (await getShopWatchTeamsOutbox(storage, tenantId, now)).length;
+      moduleLog.info({ tenantId, teamsPending }, "Shop-Wächter: Testnachricht in die Teams-Warteschlange gelegt");
+      res.json({ queued: true, teamsPending });
+    } catch (error) {
+      moduleLog.error({ err: error }, "Shop-Wächter: Testnachricht fehlgeschlagen");
+      res.status(500).json({ error: "Failed to queue shop watch test message" });
     }
   });
 

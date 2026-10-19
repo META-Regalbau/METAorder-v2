@@ -13,7 +13,7 @@
  * n8n-workflows/shop-watch-teams.json holt sie ab, postet sie an den Teams-Webhook aus den
  * E-Mail-Eingang-Einstellungen und quittiert. Ohne Webhook nur die Glocke.
  */
-import { ackTeamsOutbox, enqueueTeamsMessage, getTeamsOutbox, type SettingsRW, type TeamsOutboxItem } from "../lib/teamsOutbox";
+import { ackTeamsOutbox, adaptiveCardMessage, enqueueTeamsMessage, getTeamsOutbox, type SettingsRW, type TeamsOutboxItem } from "../lib/teamsOutbox";
 import deLocale from "../../client/src/i18n/locales/de.json";
 import {
   classifyDeployChanges,
@@ -197,6 +197,32 @@ export function buildShopWatchTeamsMessage(
       },
     ],
   };
+}
+
+/**
+ * Testnachricht per Knopf auf /admin/shop-waechter: prüft den Weg Warteschlange → n8n → Teams, ohne dass
+ * der Shop einen Befund haben muss. Deutlich als Test gekennzeichnet, damit niemand im Kanal reagiert.
+ */
+export function buildShopWatchTestTeamsMessage(opts: { baseUrl: string | null; requestedBy: string; now: Date }): Record<string, unknown> {
+  const url = opts.baseUrl ? `${opts.baseUrl.replace(/\/$/, "")}${SHOP_WATCH_PAGE_PATH}` : null;
+  return adaptiveCardMessage(
+    [
+      { type: "TextBlock", text: "🧪 TEST – Shop-Wächter: Testnachricht", weight: "Bolder", size: "Medium", wrap: true },
+      {
+        type: "TextBlock",
+        text: "Das ist nur ein Test der Verbindung METAorder → n8n → Teams. Im Shop ist nichts passiert, bitte nichts unternehmen.",
+        wrap: true,
+      },
+      {
+        type: "FactSet",
+        facts: [
+          { title: "Ausgelöst", value: BERLIN_TIME.format(opts.now) },
+          { title: "Von", value: plain(opts.requestedBy, 120) || "admin" },
+        ],
+      },
+    ],
+    url ? [{ title: "Shop-Wächter öffnen", url }] : [],
+  );
 }
 
 // ---------------------------------------------------------------------------------------------
