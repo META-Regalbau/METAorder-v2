@@ -5821,7 +5821,9 @@
       "mondu_sell_create_failed": "Mondu-Sell-Bestellung konnte nicht angelegt werden",
       "mondu_sell_refresh_failed": "Mondu-Status konnte nicht aktualisiert werden",
       "mondu_sell_cancel_failed": "Mondu-Sell-Bestellung konnte nicht storniert werden",
-      "mondu_sell_invoice_failed": "Rechnung konnte nicht an Mondu übergeben werden"
+      "mondu_sell_invoice_failed": "Rechnung konnte nicht an Mondu übergeben werden",
+      "email_intake_mail_too_large": "Die Mail ist größer als 36 MB und kann nicht automatisch verarbeitet werden. Bitte die Mail im Postfach öffnen und die Anhänge einzeln hochladen.",
+      "upload_file_too_large": "Die Datei ist größer als 10 MB."
     },
     "client": {
       "notModified": "API-Antwort unverändert (304) – bitte Seite neu laden.",
@@ -6774,7 +6776,9 @@
       "failed_to_save_page_speed_settings": "Einstellungen für die Ladezeit konnten nicht gespeichert werden",
       "failed_to_load_merchant_center_settings": "Merchant-Center-Einstellungen konnten nicht geladen werden",
       "invalid_merchant_center_settings": "Ungültige Merchant-Center-Einstellungen",
-      "failed_to_save_merchant_center_settings": "Merchant-Center-Einstellungen konnten nicht gespeichert werden"
+      "failed_to_save_merchant_center_settings": "Merchant-Center-Einstellungen konnten nicht gespeichert werden",
+      "die_mail_ist_grosser_als_36_mb_und_kann_nicht_automatisch_verarbeitet_werden_bit": "Die Mail ist größer als 36 MB und kann nicht automatisch verarbeitet werden. Bitte die Mail im Postfach öffnen und die Anhänge einzeln hochladen.",
+      "die_datei_ist_grosser_als_10_mb": "Die Datei ist größer als 10 MB."
     }
   },
   "roomPlanner": {
