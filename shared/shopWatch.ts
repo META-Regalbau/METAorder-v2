@@ -178,3 +178,34 @@ export type ShopWatchScheduleState = {
   notified?: Record<string, ShopWatchStatus>;
   lastNotice?: ShopWatchNotice;
 };
+
+/**
+ * Reparatur per Knopf (Shop-Puls Stufe 3, S3-2): Protokoll einer Reparatur. Höchstens eine je Deploy und
+ * Prüfpunkt; deployKey = Beginn des Laufs, der den letzten Deploy erkannt hat ("none" = keiner bekannt).
+ */
+export type ShopWatchRepairRecord = {
+  id: string;
+  checkId: string;
+  deployKey: string;
+  status: "ok" | "failed";
+  error: string | null;
+  /** Anzahl zurückgeschriebener Einträge */
+  entities: number;
+  targetTakenAt: string | null;
+  checkStatusBefore: ShopWatchStatus | null;
+  checkStatusAfter: ShopWatchStatus | null;
+  repairedAt: string;
+  repairedBy: string | null;
+  revertedAt: string | null;
+  revertedBy: string | null;
+};
+
+/** Stand der Reparatur je Prüfpunkt für die Seite (nur reparierbare Prüfpunkte) */
+export type ShopWatchRepairOverview = {
+  /** null = noch kein Soll-Stand gesichert */
+  targetTakenAt: string | null;
+  targetEntities: number;
+  lastRepair: ShopWatchRepairRecord | null;
+  /** Seit dem letzten Deploy schon repariert: kein zweites Mal, nur melden */
+  blocked: boolean;
+};

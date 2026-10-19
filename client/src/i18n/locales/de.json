@@ -6703,7 +6703,14 @@
       "failed_to_check_search_term": "Suchbegriff konnte nicht geprüft werden",
       "invalid_search_keyword_settings": "Ungültige Einstellung für Suchwörter",
       "failed_to_save_search_keyword_settings": "Einstellung für Suchwörter konnte nicht gespeichert werden",
-      "invalid_search_keyword_products": "Ungültige Artikelauswahl"
+      "invalid_search_keyword_products": "Ungültige Artikelauswahl",
+      "this_check_cannot_be_repaired_by_button": "Dieser Prüfpunkt lässt sich nicht per Knopf reparieren",
+      "no_target_state_for_this_check_yet": "Für diesen Prüfpunkt ist noch kein Soll-Stand gesichert",
+      "already_repaired_since_the_last_deploy": "Seit dem letzten Deploy schon einmal repariert",
+      "repair_not_found": "Reparatur nicht gefunden",
+      "repair_already_reverted": "Reparatur ist schon zurückgenommen",
+      "shop_watch_repair_failed": "Reparatur fehlgeschlagen",
+      "target_state_incomplete_entries_missing_in_the_shop": "Soll-Stand unvollständig: Einträge fehlen im Shop"
     }
   },
   "roomPlanner": {
@@ -7871,7 +7878,7 @@
   },
   "shopWatch": {
     "title": "Shop-Wächter",
-    "subtitle": "Prüft, ob alles, was METAorder in den Shop geschrieben hat, noch da ist und angezeigt wird – zum Beispiel nach einem Deploy der Agentur. Geprüft wird über die Shopware-API und über die echten Shop-Seiten. Nur lesend.",
+    "subtitle": "Prüft, ob alles, was METAorder in den Shop geschrieben hat, noch da ist und angezeigt wird – zum Beispiel nach einem Deploy der Agentur. Geprüft wird über die Shopware-API und über die echten Shop-Seiten. Geschrieben wird nur über „Reparieren“: Das spielt den gesicherten Soll-Stand wieder ein, mit Protokoll und Rückweg.",
     "loading": "Stand wird geladen …",
     "loadError": "Stand konnte nicht geladen werden.",
     "empty": "Noch keine Prüfung. Mit „Jetzt prüfen“ starten – der erste Lauf wird zum Soll-Stand.",
@@ -7997,6 +8004,25 @@
         "allClear": "Entwarnung",
         "deploy": "Deploy erkannt"
       }
+    },
+    "repairs": {
+      "target": "Soll-Stand gesichert am {{at}} ({{n}} Einträge)",
+      "noTarget": "Noch kein Soll-Stand gesichert (wird beim nächsten grünen Lauf gesichert).",
+      "last": "Repariert am {{at}} von {{name}}, Prüfung danach: {{status}}",
+      "lastFailed": "Reparatur am {{at}} fehlgeschlagen: {{error}}",
+      "lastReverted": "Reparatur zurückgenommen am {{at}} von {{name}}",
+      "blocked": "Seit dem letzten Deploy schon einmal repariert. Kommt die Änderung wieder, ist das vermutlich Absicht der Agentur – bitte klären statt erneut überschreiben.",
+      "repair": "Reparieren",
+      "revert": "Zurücknehmen",
+      "cancel": "Abbrechen",
+      "saveTarget": "Als Soll sichern",
+      "confirmRepair": "Gesicherten Soll-Stand in den Shop zurückschreiben?",
+      "confirmRevert": "Stand vor der Reparatur wiederherstellen?",
+      "doneOk": "Repariert, Prüfung danach grün",
+      "doneCheck": "Repariert, Prüfung danach: {{status}}",
+      "reverted": "Reparatur zurückgenommen",
+      "targetSaved": "Soll-Stand gesichert",
+      "failed": "Aktion fehlgeschlagen"
     }
   },
   "shopPulse": {
@@ -8726,7 +8752,9 @@
         "ticket": "Ticket angelegt",
         "janaList": "Jana-Liste",
         "searchKeyword": "Suchwort eingetragen",
-        "searchKeywordRevert": "Suchwort zurückgenommen"
+        "searchKeywordRevert": "Suchwort zurückgenommen",
+        "watchRepair": "Wächter-Reparatur",
+        "watchRepairRevert": "Wächter-Reparatur zurückgenommen"
       },
       "sources": {
         "shopContent": "Shop-Inhalte",

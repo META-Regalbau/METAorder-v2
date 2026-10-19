@@ -16623,6 +16623,87 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/shop-content/watch/checks/{id}/repair": {
+    "post": {
+      "tags": [
+        "shop-content"
+      ],
+      "summary": "POST /api/shop-content/watch/checks/{id}/repair",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/shop-content/watch/checks/{id}/target": {
+    "post": {
+      "tags": [
+        "shop-content"
+      ],
+      "summary": "POST /api/shop-content/watch/checks/{id}/target",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/shop-content/watch/repairs/{id}/revert": {
+    "post": {
+      "tags": [
+        "shop-content"
+      ],
+      "summary": "POST /api/shop-content/watch/repairs/{id}/revert",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/shop-content/watch/run": {
     "post": {
       "tags": [

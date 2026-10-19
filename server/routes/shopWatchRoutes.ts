@@ -1,6 +1,6 @@
 // Shop-Wächter: letzter Lauf, Verlauf, Soll-Stand; Prüfung starten, aktuellen Stand als Soll übernehmen;
 // Zeitplan an/aus; Teams-Warteschlange für n8n. Nur Administratoren (Warteschlange auch per
-// Integration-Key), nur lesend gegenüber dem Shop. Vor registerShopContentRoutes registrieren
+// Integration-Key). Schreibt nur über die Reparatur per Knopf (Shop-Puls Stufe 3, S3-2) in den Shop. Vor registerShopContentRoutes registrieren
 // (dort fängt /api/shop-content/:id sonst /api/shop-content/watch ab).
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
@@ -22,12 +22,50 @@ import {
 } from "../shopContent/shopWatchScheduler";
 import { ackShopWatchTeamsOutbox, getShopWatchTeamsOutbox } from "../shopContent/shopWatchNotify";
 import { shopWatchTeamsWebhookUrl } from "../shopPulse/shopPulseSettings";
+import { insertCandidates } from "../shopPulse/actionLogRepository";
+import { REPAIR_SPECS } from "../shopContent/shopWatchRepair";
+import { alreadyRepaired, captureTargetNow, currentDeployKey, listRepairs, listTargets, repairCheck, RepairError, revertRepair } from "../shopContent/shopWatchRepairRun";
+import { ShopBusyError } from "../shopContent/shopWatch";
+import type { ShopWatchRepairOverview } from "@shared/shopWatch";
 
 const moduleLog = logger.child({ component: "routes/shopWatchRoutes" });
 
 const tenantOf = (req: Request) => ((req as any).tenantId as string | undefined) ?? null;
 
 const settingsSchema = z.object({ enabled: z.boolean() }).strict();
+const userName = (req: Request) => String((req as any).user?.username ?? "admin").slice(0, 120);
+const repairDeps = () => ({ store: storage, insertActions: insertCandidates });
+
+/** Stand der Reparatur je reparierbarem Prüfpunkt: Soll-Stand, letzte Reparatur, schon seit dem letzten Deploy repariert */
+async function repairOverview(tenantId: string | null, history: Parameters<typeof currentDeployKey>[0]): Promise<Record<string, ShopWatchRepairOverview>> {
+  const [targets, repairs] = await Promise.all([listTargets(tenantId), listRepairs(tenantId, 500)]);
+  const deployKey = currentDeployKey(history);
+  const out: Record<string, ShopWatchRepairOverview> = {};
+  for (const checkId of Object.keys(REPAIR_SPECS)) {
+    const target = targets.find((t) => t.checkId === checkId);
+    out[checkId] = {
+      targetTakenAt: target?.takenAt ?? null,
+      targetEntities: target?.entities.length ?? 0,
+      lastRepair: repairs.find((r) => r.checkId === checkId) ?? null,
+      blocked: alreadyRepaired(repairs, checkId, deployKey),
+    };
+  }
+  return out;
+}
+
+function repairFailure(res: Response, error: unknown, text: string) {
+  if (error instanceof RepairError) {
+    if (error.reason === "notRepairable") return res.status(400).json({ error: "This check cannot be repaired by button" });
+    if (error.reason === "noTarget") return res.status(400).json({ error: "No target state for this check yet" });
+    if (error.reason === "alreadyRepaired") return res.status(409).json({ error: "Already repaired since the last deploy" });
+    if (error.reason === "notFound") return res.status(404).json({ error: "Repair not found" });
+    if (error.reason === "alreadyReverted") return res.status(409).json({ error: "Repair already reverted" });
+    return res.status(400).json({ error: "Shopware settings not configured" });
+  }
+  if (error instanceof ShopBusyError) return res.status(409).json({ error: "Shop is busy, please try again in a minute" });
+  moduleLog.error({ err: error }, text);
+  return res.status(500).json({ error: error instanceof Error ? error.message : "Shop watch repair failed" });
+}
 const ackSchema = z.object({ ids: z.array(z.string().min(1).max(64)).max(100) });
 
 /** Warteschlange: n8n mit Integration-Key oder ein Administrator */
@@ -48,6 +86,7 @@ export function registerShopWatchRoutes(app: Express): void {
         shopWatchTeamsWebhookUrl(storage, tenantId),
         getShopWatchTeamsOutbox(storage, tenantId),
       ]);
+      const repairs = await repairOverview(tenantId, state);
       const { categoryFields: _fields, ...lastRun } = state.lastRun ?? ({} as NonNullable<typeof state.lastRun>);
       res.json({
         lastRun: state.lastRun ? lastRun : null,
@@ -62,6 +101,7 @@ export function registerShopWatchRoutes(app: Express): void {
           teamsConfigured: !!teamsWebhook,
           teamsPending: outbox.length,
         },
+        repairs,
       });
     } catch (error) {
       moduleLog.error({ err: error }, "Shop-Wächter: Stand laden fehlgeschlagen");
@@ -88,6 +128,37 @@ export function registerShopWatchRoutes(app: Express): void {
       if (error instanceof Error && error.message === "No shop watch run yet") return res.status(400).json({ error: "No shop watch run yet" });
       moduleLog.error({ err: error }, "Shop-Wächter: Soll-Stand speichern fehlgeschlagen");
       res.status(500).json({ error: error instanceof Error ? error.message : "Failed to save shop watch baseline" });
+    }
+  });
+
+  /** Reparieren per Knopf: gesicherten Soll-Stand zurückschreiben, danach erneut prüfen (höchstens einmal je Deploy) */
+  app.post("/api/shop-content/watch/checks/:id/repair", requireAuth, requireAdministrator, requireCsrf, async (req: Request, res: Response) => {
+    try {
+      const repair = await repairCheck(repairDeps(), tenantOf(req), String(req.params.id), userName(req));
+      res.json({ repair });
+    } catch (error) {
+      repairFailure(res, error, "Shop-Wächter: Reparatur fehlgeschlagen");
+    }
+  });
+
+  /** Reparatur zurücknehmen (Stand von vorher) */
+  app.post("/api/shop-content/watch/repairs/:id/revert", requireAuth, requireAdministrator, requireCsrf, async (req: Request, res: Response) => {
+    try {
+      const repair = await revertRepair(repairDeps(), tenantOf(req), String(req.params.id), userName(req));
+      res.json({ repair });
+    } catch (error) {
+      repairFailure(res, error, "Shop-Wächter: Rücknahme fehlgeschlagen");
+    }
+  });
+
+  /** Soll-Stand eines Prüfpunkts jetzt sichern (nach gewollter Änderung) */
+  app.post("/api/shop-content/watch/checks/:id/target", requireAuth, requireAdministrator, requireCsrf, async (req: Request, res: Response) => {
+    try {
+      const saved = await captureTargetNow(repairDeps(), tenantOf(req), String(req.params.id), userName(req));
+      if (!saved) return res.status(409).json({ error: "Target state incomplete, entries missing in the shop" });
+      res.json({ saved });
+    } catch (error) {
+      repairFailure(res, error, "Shop-Wächter: Soll-Stand sichern fehlgeschlagen");
     }
   });
 

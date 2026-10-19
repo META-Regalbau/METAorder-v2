@@ -4053,3 +4053,49 @@ export const shopPulseSearchKeywords = pgTable(
 );
 
 export type ShopPulseSearchKeywordRow = typeof shopPulseSearchKeywords.$inferSelect;
+
+/** Shop-Puls Stufe 3 (S3-2): Soll-Stand je Prüfpunkt des Shop-Wächters (Migration 0061, server/shopContent/shopWatchRepair.ts). */
+export const shopWatchTargets = pgTable(
+  "shop_watch_targets",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id"),
+    checkId: text("check_id").notNull(),
+    entities: jsonb("entities").notNull().default(sql`'[]'::jsonb`),
+    hash: text("hash").notNull().default(""),
+    takenAt: timestamp("taken_at").notNull().defaultNow(),
+    takenBy: text("taken_by"),
+  },
+  (table) => ({
+    tenantCheckIdx: uniqueIndex("shop_watch_targets_tenant_check_idx").on(table.tenantId, table.checkId),
+  }),
+);
+
+export type ShopWatchTargetRow = typeof shopWatchTargets.$inferSelect;
+
+/** Shop-Puls Stufe 3 (S3-2): Protokoll der Reparaturen per Knopf mit Rückweg (Migration 0061). */
+export const shopWatchRepairs = pgTable(
+  "shop_watch_repairs",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id"),
+    checkId: text("check_id").notNull(),
+    deployKey: text("deploy_key").notNull().default("none"),
+    status: text("status").notNull().default("ok"),
+    error: text("error"),
+    before: jsonb("before").notNull().default(sql`'[]'::jsonb`),
+    target: jsonb("target").notNull().default(sql`'[]'::jsonb`),
+    targetTakenAt: timestamp("target_taken_at"),
+    checkStatusBefore: text("check_status_before"),
+    checkStatusAfter: text("check_status_after"),
+    repairedAt: timestamp("repaired_at").notNull().defaultNow(),
+    repairedBy: text("repaired_by"),
+    revertedAt: timestamp("reverted_at"),
+    revertedBy: text("reverted_by"),
+  },
+  (table) => ({
+    tenantCheckIdx: index("shop_watch_repairs_tenant_check_idx").on(table.tenantId, table.checkId, table.repairedAt),
+  }),
+);
+
+export type ShopWatchRepairRow = typeof shopWatchRepairs.$inferSelect;

@@ -10,6 +10,9 @@
  * Mandanten nacheinander, nie zwei Abfragen gegen denselben Shop gleichzeitig (Sperre je Mandant in
  * shopWatch.ts, auch für die Storefront-Prüfungen des Shop-Puls; Takt überlappt nicht). Nach jedem Lauf – auch von Hand – entscheidet
  * shopWatchNotify.ts über Teams-Nachricht und Glocke.
+ *
+ * Shop-Puls Stufe 3 (S3-2): Nach jedem Lauf sichert shopWatchRepairRun.ts den Soll-Stand der grünen,
+ * reparierbaren Prüfpunkte (Vollprüfung immer, stündlich nur ohne Soll-Stand). Repariert wird nur per Knopf.
  */
 import type { IStorage } from "../storage";
 import type { InsertNotification, Notification } from "@shared/schema";
@@ -25,6 +28,7 @@ import { logger } from "../lib/logger";
 import { shopWatchTeamsWebhookUrl } from "../shopPulse/shopPulseSettings";
 import { publicAppBaseUrl } from "../commercial/emailIntakeTeams";
 import { checkShopWatchFingerprint, getShopWatchState, isShopWatchRunning, runShopWatch, ShopBusyError } from "./shopWatch";
+import { captureTargets } from "./shopWatchRepairRun";
 import {
   buildShopWatchNotification,
   buildShopWatchTeamsMessage,
@@ -157,6 +161,8 @@ export function runShopWatchWithNotices(
     cadence: opts.cadence,
     fetchImpl: deps.fetchImpl,
     afterRun: (run) => afterShopWatchRun(deps, tenantId, run, opts.cadence),
+    // Stufe 3 (S3-2): Soll-Stand grüner Prüfpunkte für die Reparatur per Knopf sichern
+    afterResults: (env) => captureTargets(deps.storage, tenantId, env, env.results, env.cadence).then(() => undefined),
   });
 }
 

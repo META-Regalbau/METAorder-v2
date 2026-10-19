@@ -269,6 +269,8 @@ export async function runShopWatch(
     fetchImpl?: FetchLike;
     /** Läuft noch unter der Sperre des Mandanten (Meldungen, Zeitplan-Stand) */
     afterRun?: (run: ShopWatchRun) => Promise<void>;
+    /** Läuft unter der Sperre mit der Admin-API des Laufs (Soll-Stände für die Reparatur sichern, S3-2) */
+    afterResults?: (env: { api: ShopApi; channel: { id: string; domain: string }; results: ShopWatchCheckResult[]; cadence: "all" | "hourly" }) => Promise<void>;
   } = { trigger: "manual" },
 ): Promise<ShopWatchRun> {
   return withShopLock(tenantId, async () => {
@@ -316,6 +318,13 @@ export async function runShopWatch(
     if (run.deployChanges.length) log.warn({ tenantId, changes: run.deployChanges }, "Shop-Wächter: Änderung an Shopware, Plugins oder Theme erkannt");
     if (!fingerprintComplete(read)) log.warn({ tenantId, fingerprint: read }, "Shop-Wächter: Deploy-Merkmale unvollständig gelesen, kein Vergleich");
     log.info({ tenantId, status: run.status, checks: results.length, ms: Date.parse(run.finishedAt) - Date.parse(startedAt) }, "Shop-Wächter: Lauf beendet");
+    if (opts.afterResults) {
+      try {
+        await opts.afterResults({ api, channel: { id: channel.id, domain: channel.domain }, results, cadence: opts.cadence === "hourly" ? "hourly" : "all" });
+      } catch (err) {
+        log.error({ err, tenantId }, "Shop-Wächter: Soll-Stände nicht gesichert");
+      }
+    }
     if (opts.afterRun) {
       try {
         await opts.afterRun(run);
