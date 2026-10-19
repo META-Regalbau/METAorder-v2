@@ -46,6 +46,10 @@ type Tab = (typeof TABS)[number];
 
 const QUERY_KEY = ["/api/shop-pulse"];
 
+/** Filter der Meldungsliste: Standard nur offene; erledigte erscheinen nur über den Filter */
+const SIGNAL_FILTERS = ["open", "resolved", "all"] as const;
+type SignalFilter = (typeof SIGNAL_FILTERS)[number];
+
 function SeverityBadge({ severity, label }: { severity: ShopPulseSeverity; label: string }) {
   return severity === "critical" ? (
     <Badge variant="destructive" className="gap-1">
@@ -70,6 +74,8 @@ export default function ShopPulsePage() {
   const focusId = params.get("signal");
   const [confirmMuteId, setConfirmMuteId] = useState<string | null>(params.get("action") === "mute" ? focusId : null);
   const [webhook, setWebhook] = useState("");
+  const filterParam = params.get("filter");
+  const [signalFilter, setSignalFilter] = useState<SignalFilter>((SIGNAL_FILTERS as readonly string[]).includes(filterParam ?? "") ? (filterParam as SignalFilter) : "open");
   const tabParam = params.get("tab");
   const [tab, setTab] = useState<Tab>((TABS as readonly string[]).includes(tabParam ?? "") ? (tabParam as Tab) : "signals");
   const changeTab = (next: string) => {
@@ -80,8 +86,14 @@ export default function ShopPulsePage() {
   const query = useQuery<ShopPulseOverview>({ queryKey: QUERY_KEY });
   const data = query.data;
 
-  // Aus Teams: zur Rückfrage (ruhig stellen) bzw. zur Meldung springen, einmal nach dem Laden
+  // Aus Teams: zur Rückfrage (ruhig stellen) bzw. zur Meldung springen, einmal nach dem Laden. Ist die
+  // Meldung inzwischen erledigt, zeigt der Filter „Alle“, damit sie zu sehen ist.
   const loaded = !!data;
+  useEffect(() => {
+    if (!focusId || !data || filterParam) return;
+    if (data.signals.find((s) => s.id === focusId)?.status === "resolved") setSignalFilter("all");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusId, loaded]);
   useEffect(() => {
     if (!focusId || !loaded) return;
     const target = confirmMuteId ? "shop-pulse-confirm-mute-card" : `shop-pulse-signal-${focusId}`;
@@ -164,6 +176,7 @@ export default function ShopPulsePage() {
     if (params.get("action")) navigate(`/admin/shop-puls${focusId ? `?signal=${encodeURIComponent(focusId)}` : ""}`, { replace: true });
   };
   const confirmSignal = confirmMuteId ? data?.signals.find((s) => s.id === confirmMuteId) : undefined;
+  const visibleSignals = (data?.signals ?? []).filter((s) => signalFilter === "all" || s.status === signalFilter);
 
   /** KI-Notiz zur jetzigen Schwere (Text oder verworfener Versuch); ältere Notizen gelten nicht mehr */
   const aiNoteOf = (s: ShopPulseSignal) => (s.aiNote && !needsAiNote(s) ? s.aiNote : null);
@@ -442,13 +455,29 @@ export default function ShopPulsePage() {
               </Card>
 
               <Card className="overflow-x-auto">
-                <div className="px-4 pt-4">
-                  <h2 className="font-semibold">{t("shopPulse.signals.title")}</h2>
-                  <p className="text-xs text-muted-foreground">{t("shopPulse.signals.resolveHint")}</p>
+                <div className="px-4 pt-4 flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h2 className="font-semibold">{t("shopPulse.signals.title")}</h2>
+                    <p className="text-xs text-muted-foreground">{t("shopPulse.signals.resolveHint")}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-1" role="group" aria-label={t("shopPulse.signals.filter.label")} data-testid="shop-pulse-signal-filter">
+                    {SIGNAL_FILTERS.map((f) => (
+                      <Button
+                        key={f}
+                        size="sm"
+                        variant={signalFilter === f ? "default" : "outline"}
+                        aria-pressed={signalFilter === f}
+                        onClick={() => setSignalFilter(f)}
+                        data-testid={`button-shop-pulse-filter-${f}`}
+                      >
+                        {t(`shopPulse.signals.filter.${f}`, { count: f === "all" ? data.signals.length : data.signals.filter((s) => s.status === f).length })}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
-                {data.signals.length === 0 ? (
+                {visibleSignals.length === 0 ? (
                   <p className="p-4 text-sm text-muted-foreground" data-testid="shop-pulse-empty">
-                    {t("shopPulse.signals.empty")}
+                    {signalFilter === "open" ? t("shopPulse.signals.emptyOpen") : t("shopPulse.signals.empty")}
                   </p>
                 ) : (
                   <Table data-testid="shop-pulse-signals">
@@ -461,7 +490,7 @@ export default function ShopPulsePage() {
                         <TableHead>{t("shopPulse.signals.columns.actions")}</TableHead>
                       </TableRow>
                     </TableHeader>
-                    <TableBody>{data.signals.map(signalRow)}</TableBody>
+                    <TableBody>{visibleSignals.map(signalRow)}</TableBody>
                   </Table>
                 )}
               </Card>
