@@ -523,6 +523,7 @@ export function registerDraftRoutes(app: Express): void {
                 intakeSettings && intakeMailboxField !== null
                   ? { settings: intakeSettings.filter, internalDomains: internalDomainsFor(intakeSettings) }
                   : null,
+              skipMetaorderForwards: Boolean(intakeSettings),
             };
             let ingest: Awaited<ReturnType<typeof ingestCommercialEmailUpload>>;
             try {

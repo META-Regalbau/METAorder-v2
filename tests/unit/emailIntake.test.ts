@@ -12,6 +12,8 @@ import {
   DEFAULT_EMAIL_INTAKE_SETTINGS,
   EMAIL_INTAKE_CATEGORIES,
   graphBaseForMailbox,
+  isForwardTargetIntakeMailbox,
+  isMetaorderForwardedMail,
   normalizeEmailIntakeSettings,
   receivedAfterFor,
 } from "../../shared/emailIntake";
@@ -21,7 +23,7 @@ import {
   triageInboundEmail,
   type EmailTriageInput,
 } from "../../server/commercial/emailIntakeTriage";
-import { planEmailIntake } from "../../server/commercial/emailIntakeOutcome";
+import { buildForwardComment, planEmailIntake } from "../../server/commercial/emailIntakeOutcome";
 import {
   pickInvolvedColleague,
   pickLastDraftCreator,
@@ -172,6 +174,50 @@ describe("E-Mail-Eingang: Vorprüfung", () => {
   });
 });
 
+describe("E-Mail-Eingang: Schleifenschutz beim Abruf", () => {
+  it("Von METAorder weitergeleitete Mail wird nicht erneut eingeordnet", async () => {
+    const eml = Buffer.from(
+      [
+        "From: Shop <shop@meta-online.com>",
+        "To: digitaler-vertrieb@meta-online.com",
+        "Message-ID: <fw-1@meta-online.com>",
+        "Subject: WG: Newsletter",
+        "Content-Type: text/plain; charset=utf-8",
+        "",
+        "METAorder hat diese E-Mail weder als Bestellung noch als Angebotsanfrage erkannt (Einordnung: Newsletter, Sicherheit 95 %).",
+        "",
+        "Von: Werbung <news@example.com>",
+        "Betreff: Newsletter",
+      ].join("\r\n"),
+    );
+    let triageCalls = 0;
+    const result = await ingestCommercialEmailUpload({
+      storage: { getSetting: async () => undefined } as never,
+      tenantId: "t1",
+      fileBuffer: eml,
+      fileName: "mail.eml",
+      createdByUserId: "n8n",
+      ocrEnabled: false,
+      skipMetaorderForwards: true,
+      triage: { otherMinConfidence: 0.7, llm: async () => { triageCalls++; return '{"category":"other","otherType":"newsletter","confidence":0.95}'; } },
+    });
+    assert.equal(result.ignoredByFilter?.rule, "metaorder_forward");
+    assert.equal(result.outcomes.length, 0);
+    assert.equal(triageCalls, 0);
+    const plan = planEmailIntake({
+      ignoredByFilter: result.ignoredByFilter,
+      skippedAsOther: false,
+      triage: null,
+      outcomes: [],
+      existingDraftKind: null,
+      settings: settingsAll,
+    });
+    assert.equal(plan.outcome, "ignored");
+    assert.equal(plan.forward, null);
+    assert.equal(plan.move, false);
+  });
+});
+
 describe("E-Mail-Eingang: Mail lesen", () => {
   it("Mails mit beliebiger erster Kopfzeile werden als .eml gelesen (früher als .msg verschluckt)", async () => {
     for (const first of ["From: A <a@b.de>", "Delivered-To: bestellung@meta-online.com", "Message-ID: <x@y>"]) {
@@ -215,6 +261,42 @@ describe("E-Mail-Eingang: Entscheidung je Mail", () => {
       assert.deepEqual(plan.categories, [EMAIL_INTAKE_CATEGORIES.other]);
       assert.equal(plan.forward, null, otherType);
     }
+  });
+
+  it("Schleifenschutz: nie an ein angebundenes Postfach weiterleiten", () => {
+    const mailboxes = [
+      { address: "Shop@Meta-Online.com", mode: "personal" as const, enabled: true },
+      { address: "", mode: "order" as const, enabled: true },
+    ];
+    const triage = { kind: "other" as const, otherType: "newsletter" as const, confidence: 0.99, reason: "", source: "llm" as const };
+    const blocked = planEmailIntake({
+      skippedAsOther: true,
+      triage,
+      outcomes: [],
+      existingDraftKind: null,
+      settings: { ...settingsAll, forwardOtherTo: "shop@meta-online.com", mailboxes },
+    });
+    assert.equal(blocked.outcome, "other");
+    assert.equal(blocked.forward, null);
+    assert.equal(blocked.move, true);
+    const allowed = planEmailIntake({
+      skippedAsOther: true,
+      triage,
+      outcomes: [],
+      existingDraftKind: null,
+      settings: { ...settingsAll, forwardOtherTo: "info@meta-online.com", mailboxes },
+    });
+    assert.equal(allowed.forward?.to, "info@meta-online.com");
+    assert.equal(isForwardTargetIntakeMailbox({ forwardOtherTo: " SHOP@meta-online.com ", mailboxes }), true);
+    assert.equal(isForwardTargetIntakeMailbox({ forwardOtherTo: "", mailboxes }), false);
+  });
+
+  it("Schleifenschutz: eigener Weiterleitungshinweis wird erkannt (Text und HTML)", () => {
+    const comment = buildForwardComment({ kind: "other", otherType: "newsletter", confidence: 0.95, reason: "Werbung", source: "llm" });
+    assert.equal(isMetaorderForwardedMail(`${comment}\n\n-----Original Message-----\nHallo`), true);
+    const html = `<div>METAorder hat diese E-Mail weder als&nbsp;Bestellung noch als\r\n Angebotsanfrage <b>erkannt</b> (Einordnung …)</div>`;
+    assert.equal(isMetaorderForwardedMail(null, html), true);
+    assert.equal(isMetaorderForwardedMail("Bitte um ein Angebot für 3 Regale", null), false);
   });
 
   it("Sonstiges ohne Weiterleitungsadresse: nur Kategorie", () => {
