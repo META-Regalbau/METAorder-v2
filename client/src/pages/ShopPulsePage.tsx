@@ -18,6 +18,7 @@ import { ShopPulseWeeklyTab } from "@/components/shopPulse/ShopPulseWeeklyTab";
 import { ShopPulseJanaList, SignalHandoffActions, SignalHandoffStatus } from "@/components/shopPulse/ShopPulseHandoff";
 import { ShopPulseKeywordsTab } from "@/components/shopPulse/ShopPulseKeywordsTab";
 import { ShopPulseRegularsTab } from "@/components/shopPulse/ShopPulseRegularsTab";
+import { ShopPulseSpeed } from "@/components/shopPulse/ShopPulseSpeed";
 import { ShopPulsePendingPayments } from "@/components/shopPulse/ShopPulsePendingPayments";
 import { useToast } from "@/hooks/use-toast";
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
@@ -489,6 +490,8 @@ export default function ShopPulsePage() {
                               ? t("shopPulse.detectors.skippedAds")
                               : d.skipped === "gsc"
                               ? t("shopPulse.detectors.skippedGsc")
+                              : d.skipped === "speed"
+                              ? t("shopPulse.detectors.skippedSpeed")
                               : d.skipped
                               ? t(d.skipped === "busy" ? "shopPulse.detectors.skippedBusy" : "shopPulse.detectors.skipped")
                               : d.ok
@@ -525,6 +528,8 @@ export default function ShopPulsePage() {
               </Card>
 
               <ShopPulseGscSettings />
+
+              <ShopPulseSpeed />
 
               <Card className="p-4 space-y-3" data-testid="shop-pulse-buyability">
                 <h2 className="font-semibold flex items-center gap-2">

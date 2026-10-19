@@ -6720,7 +6720,10 @@
       "regular_customer_not_found": "Regular customer not found (thresholds not met)",
       "customer_is_not_overdue": "The customer is not overdue",
       "customer_was_already_reported_in_the_last_90_days": "The customer was already reported in the last 90 days",
-      "failed_to_report_regular_customer": "Reporting the regular customer failed"
+      "failed_to_report_regular_customer": "Reporting the regular customer failed",
+      "failed_to_load_page_speed": "Load time could not be loaded",
+      "invalid_page_speed_settings": "Invalid load time settings (paths must start with /)",
+      "failed_to_save_page_speed_settings": "Load time settings could not be saved"
     }
   },
   "roomPlanner": {
@@ -8369,6 +8372,14 @@
       "paymentsPending": {
         "title": "{{count}} online payments stuck for more than 24 hours",
         "message": "Open online payments totalling {{total}} ({{orders}}), {{mondu}} of them with Mondu. For Mondu, the back office can use “Resend Mondu payment” in the order; otherwise contact the customer."
+      },
+      "speedAfterDeploy": {
+        "title": "Page {{path}} much slower after the deploy",
+        "message": "After the deploy on {{deployDay}} the mobile performance score dropped from {{scoreBefore}} to {{scoreAfter}} and the LCP rose from {{lcpBefore}} s to {{lcpAfter}} s (median of measurements before/after, PageSpeed Insights). Please have the agency check it."
+      },
+      "speedHtmlComments": {
+        "title": "{{commentsKb}} KB of template comments on {{path}}",
+        "message": "Of the {{totalKb}} KB HTML of page {{path}}, {{share}} are template comments. They slow down loading without any benefit and belong on the agency list."
       }
     },
     "detectors": {
@@ -8397,13 +8408,16 @@
         "googleAds": "Google Ads (daily from 7 am, read-only)",
         "gscSearch": "Search Console: clicks, CTR, search queries (daily from 9 am)",
         "gscIndex": "Search Console: sitemaps and indexing of own pages (daily from 9 am)",
-        "paymentWatch": "Payment providers (failures, stuck payments)"
+        "paymentWatch": "Payment providers (failures, stuck payments)",
+        "pageWeight": "Page weight (template comments)",
+        "pageSpeed": "Load time (PageSpeed Insights)"
       },
       "skipped": "paused while the order sync is stuck",
       "skippedBusy": "paused, the shop watch is querying the shop right now",
       "skippedGa4": "paused, GA4 not set up",
       "skippedAds": "paused: Google Ads not set up",
-      "skippedGsc": "paused: Search Console not set up"
+      "skippedGsc": "paused: Search Console not set up",
+      "skippedSpeed": "paused: PageSpeed not set up"
     },
     "notify": {
       "since": "Since",
@@ -8538,7 +8552,9 @@
         "gscIndex": "Pass to the agency: check robots, canonical, sitemap, internal links.",
         "gscSitemap": "Pass sitemap errors to the agency.",
         "gscCanonical": "Set the main page (canonical) or merge content.",
-        "paymentPending": "Follow up stuck payments; for Mondu use “Resend Mondu payment”."
+        "paymentPending": "Follow up stuck payments; for Mondu use “Resend Mondu payment”.",
+        "speed": "Agency: find the cause of the slower page after the deploy (theme, plugins, scripts).",
+        "htmlComments": "Agency: switch off template comments in the storefront (Twig debug/comments in production mode)."
       },
       "scope": {
         "shop": "whole shop",
@@ -9144,6 +9160,49 @@
       "alertNow": "Report now",
       "alerted": "Notice sent",
       "alertFailed": "Notice failed"
+    },
+    "speed": {
+      "title": "Load time",
+      "hint": "Once a day one PageSpeed Insights measurement (mobile) per page type, with field data of real users from the Chrome UX Report. If a page becomes much slower after a deploy, a notice with before/after follows. Shop Pulse measures the template comments of the home page even without a key.",
+      "enable": "Measure",
+      "problems": {
+        "disabled": "Not set up: measuring is switched off.",
+        "noKey": "Not set up: the API key for PageSpeed Insights is missing."
+      },
+      "keyLabel": "API key (PageSpeed Insights)",
+      "keyPlaceholder": "Enter key",
+      "keySet": "Key saved – enter a new one to replace it",
+      "keyRemove": "Remove key",
+      "keyHelp": "Free key from the Google Cloud Console (enable the “PageSpeed Insights” API, Credentials → API key, restrict it to this API). It is stored encrypted.",
+      "productLabel": "Product page (path, optional)",
+      "productPlaceholder": "empty = top-selling product",
+      "save": "Save",
+      "saved": "Saved",
+      "saveFailed": "Saving failed",
+      "measuredAt": "Last measured on {{at}}",
+      "none": "No measurement yet.",
+      "columns": {
+        "page": "Page",
+        "score": "Performance",
+        "lcp": "LCP",
+        "tbt": "TBT",
+        "cls": "CLS",
+        "field": "Real users (75th percentile)"
+      },
+      "pages": {
+        "home": "Home page",
+        "landing": "Category landing page",
+        "listing": "Listing",
+        "product": "Product page",
+        "cart": "Cart",
+        "search": "Search"
+      },
+      "previous": "before {{value}}",
+      "seconds": "{{value}} s",
+      "ms": "{{value}} ms",
+      "fieldUrl": "LCP {{lcp}}, INP {{inp}}, CLS {{cls}}",
+      "fieldOrigin": "Domain: LCP {{lcp}}, INP {{inp}}, CLS {{cls}}",
+      "noField": "no field data"
     }
   },
   "mondu": {
