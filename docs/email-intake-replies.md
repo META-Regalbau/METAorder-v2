@@ -8,7 +8,7 @@ Einstellungen → Integration → E-Mail-Eingang → „Kundenantworten“. Ab W
 
 | Mailart | Auslöser im Eingang | Inhalt des Entwurfs |
 |---|---|---|
-| Lieferstatus | Sonstiges, Art „Rückfrage zu einem Vorgang“ | Status, Zahlung, Versandart, versendet ja/nein, Sendungsnummer mit Link. Der Liefertermin ist immer der Platzhalter `[Liefertermin eintragen]`. |
+| Lieferstatus | Sonstiges, Art „Rückfrage zu einem Vorgang“ | Status, Zahlung, Versandart, versendet ja/nein, Sendungsnummer mit Link. Der Liefertermin ist immer der Platzhalter `[Liefertermin eintragen]`. Bei stornierten Bestellungen gibt es keine Versandangaben, und Test-Sendungsnummern wie „1234567890“ werden nicht verwendet. |
 | Reklamation | Sonstiges, Art „Reklamation“ | Eingangsbestätigung, Bitte um Bestellnummer und Fotos, keine Zusagen, `[nächster Schritt eintragen]` |
 | Kundenfrage | Sonstiges, Art „Allgemeine Nachricht“ | Fachliches nur als Platzhalter `[Antwort zur Frage eintragen]` |
 | Angebotsanfrage | Angebotsentwurf entstanden | Eingangsbestätigung „Angebot folgt“, ohne Preise oder Lieferzeiten. Entfällt, wenn die automatische Eingangsbestätigung der Entwurfs-Automatik aktiv ist. |
@@ -32,6 +32,7 @@ Je Mail gibt es höchstens ein Ticket (Tabelle `email_intake_replies`, eindeutig
 - Über dem Antwortfeld steht der Kasten „KI-Antwortentwurf“ mit Empfänger, Postfach, Bestellung und Sendung. Der Entwurf steht schon im Antwortfeld.
 - „Neu erstellen“ liest die Bestelldaten neu und schreibt einen neuen Entwurf (`POST /api/tickets/:id/reply-draft/regenerate`).
 - Platzhalter in `[eckigen Klammern]` werden angezeigt. Mit Platzhaltern wird nicht verschickt.
+- Fehlt die Anrede im KI-Text, setzt METAorder „Guten Tag,“ davor.
 - Der Gruß kommt aus der Einstellung „Gruß unter jeder Antwort“. Ist sie leer, steht `[Name eintragen]` im Text.
 
 ## Versand („Freigeben & senden“)

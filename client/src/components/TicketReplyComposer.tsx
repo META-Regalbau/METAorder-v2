@@ -339,7 +339,7 @@ export default function TicketReplyComposer({
           placeholder={t("tickets.addComment")}
           value={commentText}
           onChange={(e) => setCommentText(e.target.value)}
-          rows={compact ? 3 : 4}
+          rows={replyDraft ? 12 : compact ? 3 : 4}
           data-testid="input-comment"
         />
         {aiSettings?.enabled && (

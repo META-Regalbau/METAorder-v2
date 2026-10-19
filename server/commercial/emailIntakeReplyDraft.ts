@@ -98,20 +98,38 @@ function isoDay(value: string | undefined | null): string | null {
 }
 
 /** Fakten einer Bestellung für die Antwort (ohne Shopware-Liefertermine, siehe Kopf). */
+/**
+ * Sendungsnummern, die keine sind: Testwerte aus Shopware („1234567890“), eine Ziffer wiederholt oder zu
+ * kurz. Sie würden dem Kunden eine falsche Sendungsverfolgung nennen.
+ */
+export function isPlausibleTrackingCode(code: string): boolean {
+  const value = code.trim();
+  if (value.length < 8) return false;
+  if (/^(.)\1+$/.test(value)) return false;
+  if (/test|dummy|xxx/i.test(value)) return false;
+  if (/^\d+$/.test(value) && ("01234567890123456789".includes(value) || "98765432109876543210".includes(value))) return false;
+  return true;
+}
+
+/** Fakten einer Bestellung für die Antwort (ohne Shopware-Liefertermine, siehe Kopf). */
 export function orderFactsFor(order: Order): ReplyOrderFacts {
   const info = order.shippingInfo ?? {};
-  const codes = info.trackingCodes?.length ? info.trackingCodes : info.trackingNumber ? info.trackingNumber.split(/,\s*/) : [];
+  const cancelled = order.status === "cancelled";
+  const raw = info.trackingCodes?.length ? info.trackingCodes : info.trackingNumber ? info.trackingNumber.split(/,\s*/) : [];
+  // Storniert: keine Versandangaben, auch wenn in Shopware noch eine Nummer steht
+  const codes = cancelled ? [] : raw.filter((c) => c && isPlausibleTrackingCode(c)).slice(0, 5);
+  const links = cancelled ? [] : (info.trackingLinks ?? []).filter((l) => l.url && codes.includes(l.code)).map((l) => l.url);
   return {
     orderNumber: order.orderNumber,
     orderDate: isoDay(order.orderDate || order.createdAt),
     status: ORDER_STATUS_TEXT[order.status] ?? order.status,
     paymentStatus: PAYMENT_STATUS_TEXT[order.paymentStatus] ?? null,
     shippingMethod: order.shippingMethod || null,
-    shipped: Boolean(info.shippedDate || codes.length > 0),
-    shippedDate: isoDay(info.shippedDate),
-    carrier: info.carrier || null,
-    trackingCodes: codes.filter(Boolean).slice(0, 5),
-    trackingLinks: (info.trackingLinks ?? []).map((l) => l.url).filter(Boolean).slice(0, 5),
+    shipped: !cancelled && Boolean(info.shippedDate || codes.length > 0),
+    shippedDate: cancelled ? null : isoDay(info.shippedDate),
+    carrier: cancelled ? null : info.carrier || null,
+    trackingCodes: codes,
+    trackingLinks: links.slice(0, 5),
     items: (order.items ?? []).slice(0, 10).map((i) => `${i.quantity} × ${i.name}`),
   };
 }
@@ -138,6 +156,7 @@ export function pickOrderForSender(
 const KIND_TASK: Record<EmailIntakeReplyKind, string> = {
   order_status:
     "Der Kunde fragt nach dem Stand seiner Bestellung oder Lieferung. Nenne den Stand aus den FAKTEN (Status, versendet ja/nein, Versandart, Sendungsnummer mit Link). " +
+    "Ist die Bestellung storniert: teile das mit, nenne keine Versandangaben und biete an, Fragen zur Stornierung zu klären. " +
     "Einen Liefertermin kennst du nicht: Ist die Bestellung nicht versendet, schreibe den Satz zum voraussichtlichen Liefertermin mit dem Platzhalter [Liefertermin eintragen]. " +
     "Ist eine Bestellnummer genannt, die Bestellung fehlt aber in den FAKTEN: schreibe, dass wir den Stand prüfen, und setze [Stand der Bestellung eintragen]. " +
     "Ist keine Bestellnummer genannt: bitte nur höflich um die Bestellnummer, ohne Platzhalter.",
@@ -203,9 +222,18 @@ export function interpretReplyResponse(raw: string): ReplyLlmResult | null {
   return { needsReply, reason: typeof parsed.reason === "string" ? parsed.reason.trim().slice(0, 300) : "", reply };
 }
 
+const GREETING_RE = /^(guten\s+(tag|morgen|abend)|hallo|sehr\s+geehrte|liebe[rs]?\s|moin|grüß\s*gott|servus)/i;
+
+/** Die KI lässt die Anrede manchmal weg: dann „Guten Tag,“ davor. */
+export function ensureGreeting(reply: string): string {
+  const body = reply.trim();
+  if (GREETING_RE.test(body)) return body;
+  return `Guten Tag,\n\n${body.charAt(0).toUpperCase()}${body.slice(1)}`;
+}
+
 /** Gruß anhängen; ohne eingestellte Signatur bleibt ein Platzhalter, damit niemand ohne Namen verschickt. */
 export function withSignature(reply: string, signature: string): string {
-  const body = reply.trim().replace(/\n{3,}/g, "\n\n");
+  const body = ensureGreeting(reply).replace(/\n{3,}/g, "\n\n");
   return `${body}\n\nMit freundlichen Grüßen\n${signature.trim() || "[Name eintragen]"}`;
 }
 
