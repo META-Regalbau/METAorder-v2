@@ -8100,7 +8100,7 @@
       "mutedToast": "Silenciado",
       "unmutedToast": "Se volverá a avisar",
       "actionFailed": "La acción ha fallado",
-      "resolveHint": "Si un hallazgo vuelve, su aviso se abre de nuevo.",
+      "resolveHint": "Los avisos resueltos desaparecen de la lista y figuran en «Resueltos». Si el hallazgo sigue existiendo en la siguiente revisión, el aviso se vuelve a abrir.",
       "confirmMute": "¿Silenciar este aviso 7 días?",
       "confirmMuteButton": "Silenciar 7 días",
       "cancel": "Cancelar",
@@ -8113,6 +8113,13 @@
         "tooLong": "demasiado largo",
         "error": "error del proveedor de IA",
         "timeout": "sin respuesta en 20 segundos"
+      },
+      "emptyOpen": "No hay avisos abiertos.",
+      "filter": {
+        "label": "Filtrar avisos",
+        "open": "Abiertos ({{count}})",
+        "resolved": "Resueltos ({{count}})",
+        "all": "Todos ({{count}})"
       }
     },
     "severity": {

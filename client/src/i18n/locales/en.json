@@ -8103,7 +8103,7 @@
       "mutedToast": "Muted",
       "unmutedToast": "Will be reported again",
       "actionFailed": "Action failed",
-      "resolveHint": "If a finding comes back, its alert opens again.",
+      "resolveHint": "Resolved alerts disappear from the list and are listed under “Resolved”. If the finding still exists in the next run, the alert opens again.",
       "confirmMute": "Mute this alert for 7 days?",
       "confirmMuteButton": "Mute for 7 days",
       "cancel": "Cancel",
@@ -8116,6 +8116,13 @@
         "tooLong": "too long",
         "error": "AI provider error",
         "timeout": "no answer within 20 seconds"
+      },
+      "emptyOpen": "No open alerts.",
+      "filter": {
+        "label": "Filter alerts",
+        "open": "Open ({{count}})",
+        "resolved": "Resolved ({{count}})",
+        "all": "All ({{count}})"
       }
     },
     "severity": {
