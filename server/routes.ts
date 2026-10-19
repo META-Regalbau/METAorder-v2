@@ -25,6 +25,7 @@ import { registerShopPulseRoutes } from "./routes/shopPulseRoutes";
 import { registerShopPulseWeeklyRoutes } from "./routes/shopPulseWeeklyRoutes";
 import { registerShopPulseCartRoutes } from "./routes/shopPulseCartRoutes";
 import { registerShopPulseGscRoutes } from "./routes/shopPulseGscRoutes";
+import { registerShopPulseHandoffRoutes } from "./routes/shopPulseHandoffRoutes";
 import { registerOrderRoutes } from "./routes/orderRoutes";
 import { registerMonduRoutes } from "./routes/monduRoutes";
 import { registerCrossSellingRoutes } from "./routes/crossSellingRoutes";
@@ -99,6 +100,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerShopPulseCartRoutes(app);
   // Search Console: Einstellungen und KI-Vorschlag für Meta-Texte (nur Administratoren)
   registerShopPulseGscRoutes(app);
+  registerShopPulseHandoffRoutes(app);
 
   // Mahnwesen und Buchhaltungs-Import
   registerInvoicingRoutes(app);

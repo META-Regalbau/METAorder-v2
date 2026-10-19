@@ -6687,7 +6687,26 @@
       "invalid_meta_suggestion_request": "Invalid meta suggestion request",
       "search_console_not_configured": "Search Console is not set up",
       "shop_is_busy_try_again_shortly": "The shop is being checked right now, please try again shortly",
-      "failed_to_create_meta_suggestion": "Failed to create the meta suggestion"
+      "failed_to_create_meta_suggestion": "Failed to create the meta suggestion",
+      "search_keyword_not_found": "Search term not found",
+      "product_is_not_a_suggestion_for_this_search_term": "The product is not a suggestion for this search term",
+      "search_keyword_is_not_applied": "The search keyword has not been added",
+      "shop_is_busy_please_try_again_in_a_minute": "The shop is being checked right now, please try again in a minute",
+      "failed_to_update_search_keyword": "Search keyword could not be updated",
+      "invalid_shop_pulse_handoff": "Invalid handoff",
+      "failed_to_forward_shop_pulse_signal": "Alert could not be forwarded",
+      "invalid_shop_pulse_ticket": "Invalid ticket details",
+      "assignee_not_found": "Assignee not found",
+      "failed_to_create_ticket_from_shop_pulse_signal": "Ticket could not be created from the alert",
+      "shop_pulse_handoff_not_found": "Handoff not found",
+      "failed_to_update_shop_pulse_handoff": "Handoff could not be updated",
+      "failed_to_send_jana_list": "Jana list could not be sent",
+      "failed_to_load_search_keywords": "Search keywords could not be loaded",
+      "invalid_search_term": "Invalid search term (at least 3 characters)",
+      "failed_to_check_search_term": "Search term could not be checked",
+      "invalid_search_keyword_settings": "Invalid search keyword setting",
+      "failed_to_save_search_keyword_settings": "Search keyword setting could not be saved",
+      "invalid_search_keyword_products": "Invalid product selection"
     }
   },
   "roomPlanner": {
@@ -8381,7 +8400,7 @@
       "baselineSaved": "Baseline accepted",
       "baselineFailed": "Baseline could not be accepted",
       "gapsTitle": "Data gaps for the PIM (Jana)",
-      "gaps": "As of {{at}}: {{noImage}} without cover image, {{noCategory}} without category, {{salesUnit}} multi-piece items with sales unit 1.",
+      "gaps": "As of {{at}}: {{noImage}} without cover image, {{noCategory}} without category, {{salesUnit}} multi-piece items with sales unit 1, {{noDeliveryTime}} without delivery time.",
       "gapsNone": "No nightly run yet.",
       "gapsDownload": "Download CSV",
       "gapsHint": "Only buyable items in the channel META Regalbau DE. Not reported and not corrected in the shop, but collected for Jana (same format as the data error collection)."
@@ -8408,7 +8427,8 @@
       "signals": "Signals",
       "weekly": "Weekly reports",
       "actions": "Action log",
-      "cart": "Cart alert"
+      "cart": "Cart alert",
+      "keywords": "Search keywords"
     },
     "weekly": {
       "title": "Shop pulse: weekly report CW {{week}} ({{from}} to {{to}})",
@@ -8704,7 +8724,12 @@
         "priceChanges": "Price changes",
         "liveRun": "Live write run",
         "manual": "By hand",
-        "cartAlarmWon": "Cart alert successful"
+        "cartAlarmWon": "Cart alert successful",
+        "handoff": "Forwarded",
+        "ticket": "Ticket created",
+        "janaList": "Jana list",
+        "searchKeyword": "Search keyword added",
+        "searchKeywordRevert": "Search keyword removed"
       },
       "sources": {
         "shopContent": "Shop content",
@@ -8900,6 +8925,117 @@
       "rejected": "No usable suggestion (check: {{reason}}).",
       "queries": "Search queries: {{queries}}",
       "suggestHint": "Only a suggestion (AI, checked like the product meta texts). METAorder writes nothing to the shop."
+    },
+    "handoff": {
+      "forward": "Forward",
+      "forAgency": "For the agency (wirduzen)",
+      "forMarketing": "For Smarketer",
+      "forwarded": "Text sent to Oliver (Teams and bell)",
+      "forwardFailed": "Forwarding failed",
+      "textTitle": "Text to forward to {{recipient}}",
+      "textHint": "This text was sent to Oliver (Teams direct message). Copy it to forward.",
+      "textLabel": "Text to forward",
+      "copy": "Copy",
+      "copied": "Text copied",
+      "copyFailed": "Copying not possible, please select the text manually",
+      "showText": "Text",
+      "status": "forwarded on {{at}} to {{recipient}}",
+      "ticketStatus": "Ticket created on {{at}}:",
+      "reminded": "reminded on {{at}}",
+      "done": "done on {{at}}",
+      "markDone": "Done",
+      "doneToast": "Handoff marked as done",
+      "ticket": "Ticket",
+      "ticketTitle": "Ticket from this alert",
+      "ticketHint": "For internal tasks (sales, back office). The alert is linked in the ticket and added to the action log.",
+      "ticketCreate": "Create ticket",
+      "ticketCreated": "Ticket {{number}} created",
+      "ticketFailed": "Ticket could not be created",
+      "fields": {
+        "title": "Title",
+        "description": "Description",
+        "dueDate": "Due on",
+        "priority": "Priority",
+        "assignee": "Assignee"
+      },
+      "priorities": {
+        "low": "Low",
+        "normal": "Normal",
+        "high": "High",
+        "urgent": "Urgent"
+      },
+      "noAssignee": "Nobody (automatic assignment)",
+      "janaTitle": "Jana list",
+      "janaLast": "Last sent on {{at}}: {{total}} items (new {{added}}, fixed {{fixed}}).",
+      "janaNever": "No Jana list sent yet.",
+      "janaHint": "Every Monday the list of data gaps (image, category, sales unit, delivery time) in Jana's format goes to Oliver, as long as it is undecided whether it goes to Jana directly. Whatever Pimcore has corrected drops out of the next list by itself.",
+      "janaSend": "Send to Oliver now",
+      "janaSent": "Jana list sent to Oliver",
+      "janaFailed": "Jana list could not be sent"
+    },
+    "keywords": {
+      "title": "Search keywords for searches without results",
+      "hint": "For terms customers search for without finding anything (GA4 check “search without results” or entered manually), Shop Pulse looks for matching products. If exactly one product matches, it adds the term directly to the product's “search keywords” field (existing ones stay) and sends Oliver a notice with “Undo”. Unclear cases stay here as suggestions.",
+      "autoApply": "Add unambiguous matches automatically",
+      "autoApplyHint": "At most 5 terms per run, only while Shop Pulse is on and not during the learning week. Every change is listed in the action log.",
+      "lastRun": "Terms from GA4 last checked on {{at}}",
+      "termLabel": "Check a term manually",
+      "termPlaceholder": "e.g. 313422 or Schwerlastregl",
+      "check": "Check",
+      "checkHint": "Manually checked terms are not added automatically; pick the products and press “Add”.",
+      "empty": "No search terms yet.",
+      "loadError": "Search keywords could not be loaded.",
+      "saved": "Setting saved",
+      "actionFailed": "Action failed",
+      "columns": {
+        "term": "Term",
+        "match": "Match",
+        "products": "Products",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "fromGa4": "searched {{count}}× (GA4)",
+      "fromManual": "manual",
+      "match": {
+        "number": "Unambiguous: product, EAN or manufacturer number",
+        "name": "Unambiguous: one product, similar spelling",
+        "ambiguous": "Several products match (suggestion)",
+        "exact": "One product contains all words exactly – check the search index (suggestion)",
+        "none": "No matching product"
+      },
+      "checked": {
+        "number": "“{{term}}”: unambiguous product found",
+        "name": "“{{term}}”: unambiguous product found",
+        "ambiguous": "“{{term}}”: several products match",
+        "exact": "“{{term}}”: product already contains the term",
+        "none": "“{{term}}”: no matching product"
+      },
+      "reasons": {
+        "productNumber": "Product number",
+        "ean": "EAN",
+        "manufacturerNumber": "Manufacturer number",
+        "name": "Name"
+      },
+      "revenue": "Revenue 12 months {{amount}}",
+      "pickLegend": "Products for “{{term}}”",
+      "beforeAfter": "before: {{before}} · after: {{after}}",
+      "emptyValue": "empty",
+      "statuses": {
+        "suggested": "Suggestion",
+        "applied": "Added",
+        "reverted": "Undone",
+        "failed": "Failed",
+        "dismissed": "Dismissed"
+      },
+      "appliedBy": "by {{name}} on {{at}}",
+      "revertedBy": "by {{name}} on {{at}}",
+      "apply": "Add ({{count}})",
+      "applyDone": "Search keyword added, Oliver has been notified",
+      "revert": "Undo",
+      "revertDone": "Search keyword removed",
+      "confirmRevert": "Remove the search keyword “{{term}}” from these products again?",
+      "dismiss": "Dismiss",
+      "dismissDone": "Suggestion dismissed"
     }
   },
   "mondu": {

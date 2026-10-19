@@ -6684,7 +6684,26 @@
       "invalid_meta_suggestion_request": "Ungültige Anfrage für einen Meta-Vorschlag",
       "search_console_not_configured": "Search Console ist nicht eingerichtet",
       "shop_is_busy_try_again_shortly": "Der Shop wird gerade geprüft, bitte gleich noch einmal versuchen",
-      "failed_to_create_meta_suggestion": "Meta-Vorschlag konnte nicht erzeugt werden"
+      "failed_to_create_meta_suggestion": "Meta-Vorschlag konnte nicht erzeugt werden",
+      "search_keyword_not_found": "Suchbegriff nicht gefunden",
+      "product_is_not_a_suggestion_for_this_search_term": "Der Artikel ist kein Vorschlag für diesen Suchbegriff",
+      "search_keyword_is_not_applied": "Das Suchwort ist nicht eingetragen",
+      "shop_is_busy_please_try_again_in_a_minute": "Der Shop wird gerade geprüft, bitte in einer Minute erneut versuchen",
+      "failed_to_update_search_keyword": "Suchwort konnte nicht geändert werden",
+      "invalid_shop_pulse_handoff": "Ungültige Weitergabe",
+      "failed_to_forward_shop_pulse_signal": "Meldung konnte nicht weitergegeben werden",
+      "invalid_shop_pulse_ticket": "Ungültige Angaben für das Ticket",
+      "assignee_not_found": "Zuständige Person nicht gefunden",
+      "failed_to_create_ticket_from_shop_pulse_signal": "Ticket aus der Meldung konnte nicht angelegt werden",
+      "shop_pulse_handoff_not_found": "Weitergabe nicht gefunden",
+      "failed_to_update_shop_pulse_handoff": "Weitergabe konnte nicht geändert werden",
+      "failed_to_send_jana_list": "Jana-Liste konnte nicht gesendet werden",
+      "failed_to_load_search_keywords": "Suchwörter konnten nicht geladen werden",
+      "invalid_search_term": "Ungültiger Suchbegriff (mindestens 3 Zeichen)",
+      "failed_to_check_search_term": "Suchbegriff konnte nicht geprüft werden",
+      "invalid_search_keyword_settings": "Ungültige Einstellung für Suchwörter",
+      "failed_to_save_search_keyword_settings": "Einstellung für Suchwörter konnte nicht gespeichert werden",
+      "invalid_search_keyword_products": "Ungültige Artikelauswahl"
     }
   },
   "roomPlanner": {
@@ -8378,7 +8397,7 @@
       "baselineSaved": "Soll-Stand übernommen",
       "baselineFailed": "Soll-Stand konnte nicht übernommen werden",
       "gapsTitle": "Datenlücken für die PIM (Jana)",
-      "gaps": "Stand {{at}}: {{noImage}} ohne Titelbild, {{noCategory}} ohne Kategorie, {{salesUnit}} Mehrstück-Artikel mit Verkaufseinheit 1.",
+      "gaps": "Stand {{at}}: {{noImage}} ohne Titelbild, {{noCategory}} ohne Kategorie, {{salesUnit}} Mehrstück-Artikel mit Verkaufseinheit 1, {{noDeliveryTime}} ohne Lieferzeit.",
       "gapsNone": "Noch kein Nachtlauf.",
       "gapsDownload": "CSV herunterladen",
       "gapsHint": "Nur kaufbare Artikel im Kanal META Regalbau DE. Wird nicht gemeldet und nicht im Shop korrigiert, sondern gesammelt an Jana gegeben (Format wie die Datenfehler-Sammlung)."
@@ -8405,7 +8424,8 @@
       "signals": "Meldungen",
       "weekly": "Wochenberichte",
       "actions": "Maßnahmen-Protokoll",
-      "cart": "Warenkorb-Alarm"
+      "cart": "Warenkorb-Alarm",
+      "keywords": "Suchwörter"
     },
     "weekly": {
       "title": "Shop-Puls: Wochenbericht KW {{week}} ({{from}} bis {{to}})",
@@ -8701,7 +8721,12 @@
         "priceChanges": "Preisänderungen",
         "liveRun": "Live-Schreiblauf",
         "manual": "Von Hand",
-        "cartAlarmWon": "Warenkorb-Alarm erfolgreich"
+        "cartAlarmWon": "Warenkorb-Alarm erfolgreich",
+        "handoff": "Weitergegeben",
+        "ticket": "Ticket angelegt",
+        "janaList": "Jana-Liste",
+        "searchKeyword": "Suchwort eingetragen",
+        "searchKeywordRevert": "Suchwort zurückgenommen"
       },
       "sources": {
         "shopContent": "Shop-Inhalte",
@@ -8897,6 +8922,117 @@
       "rejected": "Kein brauchbarer Vorschlag (Prüfung: {{reason}}).",
       "queries": "Suchanfragen: {{queries}}",
       "suggestHint": "Nur ein Vorschlag (KI, geprüft wie die Artikel-Meta-Texte). METAorder schreibt nichts in den Shop."
+    },
+    "handoff": {
+      "forward": "Weitergeben",
+      "forAgency": "Für Agentur (wirduzen)",
+      "forMarketing": "Für Smarketer",
+      "forwarded": "Text an Oliver geschickt (Teams und Glocke)",
+      "forwardFailed": "Weitergeben fehlgeschlagen",
+      "textTitle": "Text zum Weiterleiten an {{recipient}}",
+      "textHint": "Dieser Text ging an Oliver (Teams-Direktnachricht). Zum Weiterleiten kopieren.",
+      "textLabel": "Text zum Weiterleiten",
+      "copy": "Kopieren",
+      "copied": "Text kopiert",
+      "copyFailed": "Kopieren nicht möglich, bitte von Hand markieren",
+      "showText": "Text",
+      "status": "weitergegeben am {{at}} an {{recipient}}",
+      "ticketStatus": "Ticket angelegt am {{at}}:",
+      "reminded": "erinnert am {{at}}",
+      "done": "erledigt am {{at}}",
+      "markDone": "Erledigt",
+      "doneToast": "Weitergabe erledigt",
+      "ticket": "Ticket",
+      "ticketTitle": "Ticket aus der Meldung",
+      "ticketHint": "Für interne Aufgaben (Vertrieb, Innendienst). Die Meldung wird im Ticket verlinkt und ins Maßnahmen-Protokoll eingetragen.",
+      "ticketCreate": "Ticket anlegen",
+      "ticketCreated": "Ticket {{number}} angelegt",
+      "ticketFailed": "Ticket konnte nicht angelegt werden",
+      "fields": {
+        "title": "Titel",
+        "description": "Beschreibung",
+        "dueDate": "Fällig am",
+        "priority": "Priorität",
+        "assignee": "Zuständig"
+      },
+      "priorities": {
+        "low": "Niedrig",
+        "normal": "Normal",
+        "high": "Hoch",
+        "urgent": "Dringend"
+      },
+      "noAssignee": "Niemand (automatische Zuweisung)",
+      "janaTitle": "Jana-Liste",
+      "janaLast": "Zuletzt gesendet am {{at}}: {{total}} Punkte (neu {{added}}, erledigt {{fixed}}).",
+      "janaNever": "Noch keine Jana-Liste gesendet.",
+      "janaHint": "Montags geht die Liste der Datenlücken (Bild, Kategorie, Verkaufseinheit, Lieferzeit) im Jana-Format an Oliver, solange offen ist, ob sie direkt an Jana geht. Was Pimcore korrigiert hat, fehlt in der nächsten Liste von selbst.",
+      "janaSend": "Jetzt an Oliver senden",
+      "janaSent": "Jana-Liste an Oliver geschickt",
+      "janaFailed": "Jana-Liste konnte nicht gesendet werden"
+    },
+    "keywords": {
+      "title": "Suchwörter für Suchen ohne Treffer",
+      "hint": "Für Begriffe, die Kunden suchen und nicht finden (GA4-Prüfung „Suche ohne Treffer“ oder von Hand), sucht der Shop-Puls passende Artikel. Passt genau ein Artikel, trägt er den Begriff direkt am Produkt im Feld „Suchbegriffe“ ein (vorhandene bleiben) und schickt Oliver einen Hinweis mit „Rückgängig“. Unklare Fälle bleiben hier als Vorschlag.",
+      "autoApply": "Eindeutige Zuordnungen automatisch eintragen",
+      "autoApplyHint": "Höchstens 5 Begriffe je Durchlauf, nur bei eingeschaltetem Shop-Puls und nicht in der Lernwoche. Jede Eintragung steht im Maßnahmen-Protokoll.",
+      "lastRun": "Begriffe aus GA4 zuletzt geprüft am {{at}}",
+      "termLabel": "Begriff von Hand prüfen",
+      "termPlaceholder": "z. B. 313422 oder Schwerlastregl",
+      "check": "Prüfen",
+      "checkHint": "Von Hand geprüfte Begriffe werden nicht automatisch eingetragen; Artikel wählen und „Eintragen“ drücken.",
+      "empty": "Noch keine Suchbegriffe.",
+      "loadError": "Suchwörter konnten nicht geladen werden.",
+      "saved": "Einstellung gespeichert",
+      "actionFailed": "Aktion fehlgeschlagen",
+      "columns": {
+        "term": "Begriff",
+        "match": "Zuordnung",
+        "products": "Artikel",
+        "status": "Status",
+        "actions": "Aktionen"
+      },
+      "fromGa4": "{{count}}× gesucht (GA4)",
+      "fromManual": "von Hand",
+      "match": {
+        "number": "Eindeutig: Artikel-, EAN- oder Herstellernummer",
+        "name": "Eindeutig: ein Artikel, Schreibweise ähnlich",
+        "ambiguous": "Mehrere Artikel passen (Vorschlag)",
+        "exact": "Ein Artikel enthält alle Wörter genau so – Suchindex prüfen (Vorschlag)",
+        "none": "Kein passender Artikel"
+      },
+      "checked": {
+        "number": "„{{term}}“: eindeutiger Artikel gefunden",
+        "name": "„{{term}}“: eindeutiger Artikel gefunden",
+        "ambiguous": "„{{term}}“: mehrere Artikel passen",
+        "exact": "„{{term}}“: Artikel enthält den Begriff schon",
+        "none": "„{{term}}“: kein passender Artikel"
+      },
+      "reasons": {
+        "productNumber": "Artikelnummer",
+        "ean": "EAN",
+        "manufacturerNumber": "Herstellernummer",
+        "name": "Name"
+      },
+      "revenue": "Umsatz 12 Monate {{amount}}",
+      "pickLegend": "Artikel für „{{term}}“",
+      "beforeAfter": "vorher: {{before}} · nachher: {{after}}",
+      "emptyValue": "leer",
+      "statuses": {
+        "suggested": "Vorschlag",
+        "applied": "Eingetragen",
+        "reverted": "Zurückgenommen",
+        "failed": "Fehlgeschlagen",
+        "dismissed": "Verworfen"
+      },
+      "appliedBy": "von {{name}} am {{at}}",
+      "revertedBy": "von {{name}} am {{at}}",
+      "apply": "Eintragen ({{count}})",
+      "applyDone": "Suchwort eingetragen, Oliver hat einen Hinweis bekommen",
+      "revert": "Rückgängig",
+      "revertDone": "Suchwort zurückgenommen",
+      "confirmRevert": "Suchwort „{{term}}“ wieder aus diesen Artikeln entfernen?",
+      "dismiss": "Verwerfen",
+      "dismissDone": "Vorschlag verworfen"
     }
   },
   "mondu": {

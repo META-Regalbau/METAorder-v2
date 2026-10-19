@@ -21,7 +21,22 @@ import type { ShopPulseWeeklyEffect } from "./shopPulseEffects";
  * erledigt, vom Shop-Wächter erkannter Deploy, Preisänderungen eines Tages, Live-Schreiblauf aus den
  * importierten Protokollen, Bestellung nach einem Warenkorb-Alarm (S2-3), von Hand eingetragen
  */
-export const SHOP_PULSE_ACTION_KINDS = ["contentPublish", "contentRevert", "signalResolved", "deploy", "priceChanges", "liveRun", "cartAlarmWon", "manual"] as const;
+export const SHOP_PULSE_ACTION_KINDS = [
+  "contentPublish",
+  "contentRevert",
+  "signalResolved",
+  "deploy",
+  "priceChanges",
+  "liveRun",
+  "cartAlarmWon",
+  "manual",
+  // Stufe 3 (S3-1): Weitergabe an Oliver (für Agentur/Smarketer), Ticket, Jana-Liste, Suchwort eingetragen/zurückgenommen
+  "handoff",
+  "ticket",
+  "janaList",
+  "searchKeyword",
+  "searchKeywordRevert",
+] as const;
 export type ShopPulseActionKind = (typeof SHOP_PULSE_ACTION_KINDS)[number];
 
 /** Woher der Eintrag kommt */

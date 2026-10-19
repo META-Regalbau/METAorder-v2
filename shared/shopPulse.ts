@@ -7,6 +7,7 @@
  * Texte übersetzt der Client: shopPulse.codes.<code>.title / .message mit den params des Funds.
  */
 import { isAllowedTeamsWebhookUrl } from "./emailIntake";
+import type { ShopPulseHandoff, ShopPulseJanaState } from "./shopPulseHandoff";
 
 /** Woher ein Fund kommt */
 export const SHOP_PULSE_SOURCES = ["system", "revenue", "buyability", "ga4", "b2b", "ads", "gsc"] as const;
@@ -323,7 +324,7 @@ export type ShopPulseState = {
  * Datenlücken der Artikel für die PIM-Sammlung (Jana): werden nicht gemeldet und nicht im Shop
  * korrigiert, sondern als CSV ausgegeben (Format wie Datenfehler-PIM-Artikel.csv).
  */
-export const SHOP_PULSE_DATA_GAP_CODES = ["noImage", "noCategory", "salesUnit"] as const;
+export const SHOP_PULSE_DATA_GAP_CODES = ["noImage", "noCategory", "salesUnit", "noDeliveryTime"] as const;
 export type ShopPulseDataGapCode = (typeof SHOP_PULSE_DATA_GAP_CODES)[number];
 
 export type ShopPulseDataGap = {
@@ -354,6 +355,10 @@ export type ShopPulseOverview = {
   buyabilityBaseline: { takenAt: string; products: number; paymentMethods: number; shippingMethods: number } | null;
   /** Datenlücken für die PIM-Sammlung: Anzahl je Art, Stand des letzten Nachtlaufs */
   dataGaps: { at: string; counts: Partial<Record<ShopPulseDataGapCode, number>> } | null;
+  /** Stufe 3 (S3-1): Weitergaben (offen und in den letzten 30 Tagen erledigt), neueste zuerst */
+  handoffs: ShopPulseHandoff[];
+  /** Stufe 3 (S3-1): zuletzt gesendete Jana-Liste (ohne die Schlüssel) */
+  janaList: Omit<ShopPulseJanaState, "keys"> | null;
 };
 
 /** Parameter, die vor dem Einsetzen formatiert werden (Seite in der Sprache der Oberfläche, Teams deutsch) */

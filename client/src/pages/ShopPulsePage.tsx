@@ -15,6 +15,8 @@ import { ShopPulseCartTab } from "@/components/shopPulse/ShopPulseCartTab";
 import { ShopPulseGscSettings, ShopPulseMetaSuggestion } from "@/components/shopPulse/ShopPulseGsc";
 import { ShopPulseActionsTab } from "@/components/shopPulse/ShopPulseActionsTab";
 import { ShopPulseWeeklyTab } from "@/components/shopPulse/ShopPulseWeeklyTab";
+import { ShopPulseJanaList, SignalHandoffActions, SignalHandoffStatus } from "@/components/shopPulse/ShopPulseHandoff";
+import { ShopPulseKeywordsTab } from "@/components/shopPulse/ShopPulseKeywordsTab";
 import { useToast } from "@/hooks/use-toast";
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -30,10 +32,11 @@ import { formatShopPulseParams, needsAiNote, SHOP_PULSE_DETECTOR_IDS, type ShopP
  *
  * Stufe 2 (S2-1): Reiter „Wochenberichte“ (Archiv, ?tab=weekly&week=<Montag> aus Teams) und
  * „Maßnahmen-Protokoll“ (?tab=actions), components/shopPulse/. Stufe 2 (S2-3): Reiter „Warenkorb-Alarm“
- * (?tab=cart).
+ * (?tab=cart). Stufe 3 (S3-1): an jeder Meldung „Weitergeben“ (für Agentur/Smarketer, Text an Oliver) und
+ * „Ticket“ mit Stand der Weitergaben, Karte „Jana-Liste“, Reiter „Suchwörter“ (?tab=keywords&keyword=<id>).
  */
 
-const TABS = ["signals", "weekly", "actions", "cart"] as const;
+const TABS = ["signals", "weekly", "actions", "cart", "keywords"] as const;
 type Tab = (typeof TABS)[number];
 
 const QUERY_KEY = ["/api/shop-pulse"];
@@ -206,6 +209,7 @@ export default function ShopPulsePage() {
           </div>
         ) : null}
         {muted(s) ? <div className="text-xs text-muted-foreground">{t("shopPulse.signals.mutedUntil", { at: fmt.dateTime(s.mutedUntil) })}</div> : null}
+        <SignalHandoffStatus handoffs={(data?.handoffs ?? []).filter((h) => h.signalId === s.id)} />
       </TableCell>
       <TableCell className="align-top">
         <div className="flex flex-wrap gap-2">
@@ -232,6 +236,7 @@ export default function ShopPulsePage() {
               </Button>
             </>
           ) : null}
+          <SignalHandoffActions signal={s} title={title(s)} message={message(s)} />
         </div>
       </TableCell>
     </TableRow>
@@ -291,6 +296,9 @@ export default function ShopPulsePage() {
         </TabsContent>
         <TabsContent value="cart" className="mt-4">
           {tab === "cart" ? <ShopPulseCartTab /> : null}
+        </TabsContent>
+        <TabsContent value="keywords" className="mt-4">
+          {tab === "keywords" ? <ShopPulseKeywordsTab focusId={params.get("keyword")} confirmRevert={params.get("action") === "revert"} /> : null}
         </TabsContent>
         <TabsContent value="signals" className="mt-4 space-y-4">
           {query.isLoading ? (
@@ -557,6 +565,7 @@ export default function ShopPulsePage() {
                           noImage: fmt.integer(data.dataGaps.counts.noImage ?? 0),
                           noCategory: fmt.integer(data.dataGaps.counts.noCategory ?? 0),
                           salesUnit: fmt.integer(data.dataGaps.counts.salesUnit ?? 0),
+                          noDeliveryTime: fmt.integer(data.dataGaps.counts.noDeliveryTime ?? 0),
                         })}
                       </p>
                       <Button size="sm" variant="outline" asChild>
@@ -571,6 +580,7 @@ export default function ShopPulsePage() {
                   )}
                   <p className="text-xs text-muted-foreground max-w-3xl">{t("shopPulse.buyability.gapsHint")}</p>
                 </div>
+                <ShopPulseJanaList data={data} />
               </Card>
             </>
           )}
