@@ -6710,7 +6710,14 @@
       "repair_not_found": "Reparación no encontrada",
       "repair_already_reverted": "La reparación ya se ha deshecho",
       "shop_watch_repair_failed": "La reparación ha fallado",
-      "target_state_incomplete_entries_missing_in_the_shop": "Estado objetivo incompleto: faltan entradas en la tienda"
+      "target_state_incomplete_entries_missing_in_the_shop": "Estado objetivo incompleto: faltan entradas en la tienda",
+      "failed_to_load_regular_customers": "No se pudieron cargar los clientes habituales",
+      "invalid_regular_customer_settings": "Ajustes de clientes habituales no válidos",
+      "failed_to_save_regular_customer_settings": "No se pudieron guardar los ajustes de clientes habituales",
+      "regular_customer_not_found": "Cliente habitual no encontrado (no cumple los umbrales)",
+      "customer_is_not_overdue": "El cliente no está retrasado",
+      "customer_was_already_reported_in_the_last_90_days": "El cliente ya se notificó en los últimos 90 días",
+      "failed_to_report_regular_customer": "No se pudo notificar al cliente habitual"
     }
   },
   "roomPlanner": {
@@ -8464,7 +8471,8 @@
       "weekly": "Informes semanales",
       "actions": "Registro de medidas",
       "cart": "Alerta de carrito",
-      "keywords": "Palabras de búsqueda"
+      "keywords": "Palabras de búsqueda",
+      "regulars": "Clientes habituales"
     },
     "weekly": {
       "title": "Pulso de la tienda: informe semanal S{{week}} ({{from}} a {{to}})",
@@ -8768,7 +8776,9 @@
         "searchKeyword": "Palabra de búsqueda añadida",
         "searchKeywordRevert": "Palabra de búsqueda retirada",
         "watchRepair": "Reparación del vigilante",
-        "watchRepairRevert": "Reparación del vigilante deshecha"
+        "watchRepairRevert": "Reparación del vigilante deshecha",
+        "regularAlert": "Cliente habitual notificado",
+        "regularWon": "Cliente habitual vuelve a pedir"
       },
       "sources": {
         "shopContent": "Contenidos de la tienda",
@@ -9081,6 +9091,56 @@
       "since": "desde el {{at}}",
       "monduHint": "En el pedido: «Reenviar pago de Mondu»",
       "more": "… y {{count}} más"
+    },
+    "regulars": {
+      "title": "Vigilancia de clientes habituales",
+      "hint": "Para cada cliente, el intervalo habitual entre pedidos de la tienda y del portal (sin pedidos de paso). Si un cliente habitual se retrasa, se envía una vez al día (lun–vie desde las 8) un aviso al comercial responsable, si no a Oliver; como máximo una vez cada 90 días por cliente. METAorder nunca escribe a los clientes.",
+      "enable": "Vigilancia de clientes habituales",
+      "fields": {
+        "minOrders": "Mínimo de días con pedido",
+        "minAnnualRevenue": "Ventas mínimas 12 meses (€ netos)",
+        "overdueFactor": "Retrasado desde × intervalo habitual",
+        "minDaysSinceLast": "No antes de (días)"
+      },
+      "save": "Guardar",
+      "saved": "Ajustes guardados",
+      "saveFailed": "No se pudieron guardar los ajustes",
+      "lastRun": "Revisado por última vez el {{at}}",
+      "neverRun": "Todavía no revisado. En la primera revisión, los clientes ya retrasados se marcan como pendientes antiguos y solo se notifican con el botón.",
+      "empty": "No hay clientes habituales con estos umbrales.",
+      "loadError": "No se pudieron cargar los clientes habituales.",
+      "columns": {
+        "customer": "Cliente",
+        "rhythm": "Ritmo de pedidos",
+        "revenue": "Ventas 12 meses",
+        "state": "Estado",
+        "details": "Última compra, posible causa",
+        "actions": "Acciones"
+      },
+      "customerNumber": "N.º cliente {{number}}",
+      "rhythm": "aprox. cada {{days}} días ({{orders}} días con pedido)",
+      "last": "último {{at}}, hace {{days}} días",
+      "states": {
+        "ok": "Al ritmo",
+        "overdue": "Retrasado",
+        "backlog": "Retrasado (antiguo)",
+        "alerted": "Notificado",
+        "won": "Vuelve a pedir"
+      },
+      "alertedAt": "notificado el {{at}}",
+      "wonAt": "volvió a pedir el {{at}}",
+      "toRep": "a {{name}}",
+      "toOliver": "sin comercial asignado – a Oliver",
+      "lastItems": "Último: {{items}}",
+      "causes": {
+        "price": "{{name}}: precio {{old}} → {{new}} (+{{percent}})",
+        "notSellable": "{{name}} ya no está activo",
+        "longRestock": "{{name}}: plazo de reposición {{days}} días",
+        "longDelivery": "{{name}}: plazo de entrega hasta {{days}} días"
+      },
+      "alertNow": "Notificar ahora",
+      "alerted": "Aviso enviado",
+      "alertFailed": "El aviso ha fallado"
     }
   },
   "mondu": {

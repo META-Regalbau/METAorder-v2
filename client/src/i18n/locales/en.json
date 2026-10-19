@@ -6713,7 +6713,14 @@
       "repair_not_found": "Repair not found",
       "repair_already_reverted": "Repair has already been undone",
       "shop_watch_repair_failed": "Repair failed",
-      "target_state_incomplete_entries_missing_in_the_shop": "Target state incomplete: entries are missing in the shop"
+      "target_state_incomplete_entries_missing_in_the_shop": "Target state incomplete: entries are missing in the shop",
+      "failed_to_load_regular_customers": "Regular customers could not be loaded",
+      "invalid_regular_customer_settings": "Invalid regular customer settings",
+      "failed_to_save_regular_customer_settings": "Regular customer settings could not be saved",
+      "regular_customer_not_found": "Regular customer not found (thresholds not met)",
+      "customer_is_not_overdue": "The customer is not overdue",
+      "customer_was_already_reported_in_the_last_90_days": "The customer was already reported in the last 90 days",
+      "failed_to_report_regular_customer": "Reporting the regular customer failed"
     }
   },
   "roomPlanner": {
@@ -8467,7 +8474,8 @@
       "weekly": "Weekly reports",
       "actions": "Action log",
       "cart": "Cart alert",
-      "keywords": "Search keywords"
+      "keywords": "Search keywords",
+      "regulars": "Regular customers"
     },
     "weekly": {
       "title": "Shop pulse: weekly report CW {{week}} ({{from}} to {{to}})",
@@ -8771,7 +8779,9 @@
         "searchKeyword": "Search keyword added",
         "searchKeywordRevert": "Search keyword removed",
         "watchRepair": "Watch repair",
-        "watchRepairRevert": "Watch repair undone"
+        "watchRepairRevert": "Watch repair undone",
+        "regularAlert": "Regular customer reported",
+        "regularWon": "Regular customer ordered again"
       },
       "sources": {
         "shopContent": "Shop content",
@@ -9084,6 +9094,56 @@
       "since": "since {{at}}",
       "monduHint": "In the order: “Resend Mondu payment”",
       "more": "… and {{count}} more"
+    },
+    "regulars": {
+      "title": "Regular customer watch",
+      "hint": "For each customer the usual ordering interval from shop and portal orders (without pass-through orders). If a regular customer is overdue, a notice goes once a day (Mon–Fri from 8 am) to the responsible field sales rep, otherwise to Oliver – at most once in 90 days per customer. METAorder never writes to customers.",
+      "enable": "Regular customer watch",
+      "fields": {
+        "minOrders": "Minimum order days",
+        "minAnnualRevenue": "Minimum revenue 12 months (€ net)",
+        "overdueFactor": "Overdue from × usual interval",
+        "minDaysSinceLast": "Not before (days)"
+      },
+      "save": "Save",
+      "saved": "Settings saved",
+      "saveFailed": "Settings could not be saved",
+      "lastRun": "Last checked on {{at}}",
+      "neverRun": "Not checked yet. On the first run, customers who are already overdue are marked as backlog and only reported by button.",
+      "empty": "No regular customers with these thresholds.",
+      "loadError": "Regular customers could not be loaded.",
+      "columns": {
+        "customer": "Customer",
+        "rhythm": "Ordering rhythm",
+        "revenue": "Revenue 12 months",
+        "state": "Status",
+        "details": "Last bought, possible cause",
+        "actions": "Actions"
+      },
+      "customerNumber": "Cust. no. {{number}}",
+      "rhythm": "about every {{days}} days ({{orders}} order days)",
+      "last": "last {{at}}, {{days}} days ago",
+      "states": {
+        "ok": "On rhythm",
+        "overdue": "Overdue",
+        "backlog": "Overdue (backlog)",
+        "alerted": "Reported",
+        "won": "Ordering again"
+      },
+      "alertedAt": "reported on {{at}}",
+      "wonAt": "ordered again on {{at}}",
+      "toRep": "to {{name}}",
+      "toOliver": "no field sales rep assigned – to Oliver",
+      "lastItems": "Last: {{items}}",
+      "causes": {
+        "price": "{{name}}: price {{old}} → {{new}} (+{{percent}})",
+        "notSellable": "{{name}} is no longer active",
+        "longRestock": "{{name}}: restock time {{days}} days",
+        "longDelivery": "{{name}}: delivery time up to {{days}} days"
+      },
+      "alertNow": "Report now",
+      "alerted": "Notice sent",
+      "alertFailed": "Notice failed"
     }
   },
   "mondu": {

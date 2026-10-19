@@ -4099,3 +4099,26 @@ export const shopWatchRepairs = pgTable(
 );
 
 export type ShopWatchRepairRow = typeof shopWatchRepairs.$inferSelect;
+
+/** Shop-Puls Stufe 3 (S3-4): Stand der Stammkunden-Wache je Kunde (Migration 0063, shared/shopPulseRegulars.ts). */
+export const shopPulseRegulars = pgTable(
+  "shop_pulse_regulars",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id"),
+    customerNumber: text("customer_number").notNull(),
+    backlog: boolean("backlog").notNull().default(false),
+    alertedAt: timestamp("alerted_at"),
+    alertLastOrderAt: timestamp("alert_last_order_at"),
+    recipient: text("recipient"),
+    recipientSource: text("recipient_source"),
+    alertMailed: boolean("alert_mailed").notNull().default(false),
+    alertText: text("alert_text"),
+    wonAt: timestamp("won_at"),
+    wonOrderNumber: text("won_order_number"),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    tenantCustomerIdx: uniqueIndex("shop_pulse_regulars_tenant_customer_idx").on(table.tenantId, table.customerNumber),
+  }),
+);

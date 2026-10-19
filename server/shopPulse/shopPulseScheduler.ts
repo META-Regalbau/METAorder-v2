@@ -57,6 +57,9 @@
  * Shop-Bestellungen aus dem Spiegel (auch stornierte): zwei Fehlschläge in Folge bei einer Zahlart, die sonst
  * klappt, sind kritisch; hängende Online-Zahlungen nach 24 Stunden stehen als Liste im Tagesbericht.
  *
+ * Stufe 3 (S3-4): Einmal am Tag (Mo–Fr ab 8 Uhr) prüft die Stammkunden-Wache (regularsRun.ts), welche Kunden
+ * überfällig sind, und meldet sie an den Außendienst bzw. Oliver (höchstens einmal in 90 Tagen je Kunde).
+ *
  * In der Lernwoche wird alles gesammelt, aber nichts gesendet. Mandanten nacheinander, nie zwei Läufe
  * für denselben Mandanten gleichzeitig.
  */
@@ -129,6 +132,7 @@ import { offerWatchSources } from "./offerRequests";
 import { offerSummary } from "./weeklyReport";
 import type { ShopPulseWeeklyReport } from "@shared/shopPulseWeekly";
 import { handoffDeps, runHandoffReminders, sendJanaList } from "./handoffRun";
+import { getRegularState, isRegularsDue, listRegularRows, loadRegularOrders, loadRegularPriceChanges, loadRegularProducts, runRegulars, saveRegularRow, type RegularDeps } from "./regularsRun";
 import { keywordDeps, runKeywordSuggestions, type KeywordRunResult } from "./searchKeywordsRun";
 
 const log = logger.child({ component: "shopPulse/shopPulseScheduler" });
@@ -177,6 +181,8 @@ export type ShopPulseDeps = {
   refreshEffects?: (tenantId: string | null, now: Date) => Promise<unknown>;
   /** B2B-Warenkorb-Alarm (Stufe 2, S2-3); fehlt er, ruht der Alarm */
   cartAlarm?: CartAlarmDeps;
+  /** Stufe 3 (S3-4): Stammkunden-Wache (einmal am Tag); fehlt sie, ruht sie */
+  regulars?: RegularDeps;
   /** Stufe 3 (S3-1): Erinnerungen an Weitergaben, Jana-Liste, Suchwörter; fehlt es, ruht das */
   followUp?: {
     reminders: (tenantId: string | null, now: Date) => Promise<{ done: number; reminded: number }>;
@@ -409,6 +415,16 @@ export async function runShopPulseForTenant(deps: ShopPulseDeps, tenantId: strin
       }
     }
 
+    // Stammkunden-Wache (S3-4): einmal am Tag Mo–Fr ab 8 Uhr, nur mit frischem Bestellspiegel; senden nicht in der Lernwoche
+    if (deps.regulars && !mirrorStale() && isRegularsDue(await getRegularState(deps.storage, tenantId), now)) {
+      try {
+        const r = await runRegulars(deps.regulars, tenantId, now, { silent });
+        if (r && (r.alerts || r.won || r.backlog)) log.info({ tenantId, ...r }, "Shop-Puls: Stammkunden");
+      } catch (err) {
+        log.warn({ err, tenantId }, "Shop-Puls: Stammkunden-Wache fehlgeschlagen");
+      }
+    }
+
     // Wirkung der Maßnahmen: einmal am Tag, nur mit frischem Bestellspiegel
     const patchEffects: Partial<ShopPulseState> = {};
     if (deps.refreshEffects && !mirrorStale() && isEffectsDue(state.lastEffectsDay, now)) {
@@ -605,6 +621,7 @@ export function shopPulseDeps(storage: IStorage): ShopPulseDeps {
     refreshEffects: (tenantId, now) => refreshEffects(effectsDeps, tenantId, now),
     cartAlarm: cartAlarmDeps(storage),
     followUp: followUpDeps(storage),
+    regulars: regularDeps(storage),
     onNotificationCreated: (n) => notificationEvents.emitNotificationCreated(n),
     baseUrl: publicAppBaseUrl(process.env.APP_URL?.trim() || null),
   };
@@ -646,6 +663,35 @@ export function gscSources(storage: IStorage, tenantId: string | null, storefron
       return raw && typeof raw === "object" ? (raw as GscIndexState) : {};
     },
     saveIndexState: (state) => storage.saveSetting(GSC_INDEX_STATE_KEY, state, tenantId).then(() => undefined),
+  };
+}
+
+/** Stufe 3 (S3-4): Stammkunden-Wache mit Spiegel, Zuordnung, interner E-Mail, Teams-Warteschlange und Glocke */
+export function regularDeps(storage: IStorage): RegularDeps {
+  const cart = cartAlarmDeps(storage);
+  const baseUrl = publicAppBaseUrl(process.env.APP_URL?.trim() || null);
+  return {
+    storage,
+    loadOrders: loadRegularOrders,
+    products: loadRegularProducts,
+    priceChanges: loadRegularPriceChanges,
+    salesReps: loadSalesReps,
+    rows: listRegularRows,
+    saveRow: saveRegularRow,
+    sendMail: cart.sendMail,
+    enqueueTeams: cart.enqueueTeams,
+    notify: async (tenantId, email, text) => {
+      const link = `${SHOP_PULSE_PAGE_PATH}?tab=regulars`;
+      const user = email ? (await storage.getAllUsers()).find((u) => u.email?.trim().toLowerCase() === email.trim().toLowerCase()) : undefined;
+      if (!user) {
+        await notifyAdmins({ storage, onNotificationCreated: (n) => notificationEvents.emitNotificationCreated(n) }, tenantId, text, link);
+        return;
+      }
+      const n: InsertNotification = { userId: user.id, type: "shop_pulse", title: text.title, message: text.message, link, ticketId: null, ticketNumber: null, read: 0 };
+      notificationEvents.emitNotificationCreated(await storage.createNotification(n, tenantId));
+    },
+    insertActions: insertCandidates,
+    pageUrl: baseUrl ? `${baseUrl}${SHOP_PULSE_PAGE_PATH}` : null,
   };
 }
 
