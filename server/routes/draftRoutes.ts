@@ -32,6 +32,7 @@ import { processCommercialPdfFromEmail } from "../commercial/commercialAgentOrch
 import { z } from "zod";
 import path from "path";
 import { getUploadsRoot } from "../uploadsRoot";
+import { commercialDraftSingleUpload } from "./commercialDraftUploadLimit";
 import fs from "fs/promises";
 import crypto from "crypto";
 import { isEmailContainerUpload, ingestCommercialEmailUpload, deriveUploadMessageId } from "../commercial/commercialEmailUploadIngest";
@@ -397,11 +398,12 @@ export function registerDraftRoutes(app: Express): void {
     },
   });
 
-  const commercialUnifiedDraftUpload = multer({
-    storage: commercialUnifiedDraftStorage,
-    limits: { fileSize: 10 * 1024 * 1024 },
-    fileFilter: commercialManualDraftFileFilter,
-  });
+  // n8n-E-Mail-Eingang 36 MB, Browser 10 MB; zu groß → 413 (commercialDraftUploadLimit.ts).
+  // Auf der Platte statt im Speicher; die Route liest die Datei danach einmal ein.
+  const commercialUnifiedDraftUpload = commercialDraftSingleUpload(
+    { storage: commercialUnifiedDraftStorage, fileFilter: commercialManualDraftFileFilter },
+    "file",
+  );
 
   app.post(
     "/api/commercial-drafts/upload",
@@ -409,7 +411,7 @@ export function registerDraftRoutes(app: Express): void {
     requireManageCommercialDraftUpload,
     requireCsrf,
     uploadRateLimiter,
-    commercialUnifiedDraftUpload.single("file"), restoreTenantContext,
+    commercialUnifiedDraftUpload, restoreTenantContext,
     async (req: Request, res: Response) => {
       try {
         if (!req.file) {

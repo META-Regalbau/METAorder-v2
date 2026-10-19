@@ -5821,7 +5821,9 @@
       "mondu_sell_create_failed": "No se pudo crear el pedido de Mondu Sell",
       "mondu_sell_refresh_failed": "No se pudo actualizar el estado de Mondu",
       "mondu_sell_cancel_failed": "No se pudo cancelar el pedido de Mondu Sell",
-      "mondu_sell_invoice_failed": "No se pudo enviar la factura a Mondu"
+      "mondu_sell_invoice_failed": "No se pudo enviar la factura a Mondu",
+      "email_intake_mail_too_large": "El correo supera los 36 MB y no se puede procesar automáticamente. Abra el correo en el buzón y suba los adjuntos uno por uno.",
+      "upload_file_too_large": "El archivo supera los 10 MB."
     },
     "client": {
       "notModified": "Respuesta de la API sin cambios (304): vuelva a cargar la página.",
@@ -6774,7 +6776,9 @@
       "failed_to_save_page_speed_settings": "No se pudieron guardar los ajustes de tiempo de carga",
       "failed_to_load_merchant_center_settings": "No se pudieron cargar los ajustes de Merchant Center",
       "invalid_merchant_center_settings": "Ajustes de Merchant Center no válidos",
-      "failed_to_save_merchant_center_settings": "No se pudieron guardar los ajustes de Merchant Center"
+      "failed_to_save_merchant_center_settings": "No se pudieron guardar los ajustes de Merchant Center",
+      "die_mail_ist_grosser_als_36_mb_und_kann_nicht_automatisch_verarbeitet_werden_bit": "El correo supera los 36 MB y no se puede procesar automáticamente. Abra el correo en el buzón y suba los adjuntos uno por uno.",
+      "die_datei_ist_grosser_als_10_mb": "El archivo supera los 10 MB."
     }
   },
   "roomPlanner": {

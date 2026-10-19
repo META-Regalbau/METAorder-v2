@@ -664,4 +664,20 @@ describe("E-Mail-Eingang: n8n-Workflow", () => {
     assert.equal(third[1].json.errorText, "kaputt");
     assert.equal(store.failures["c:upload"], undefined, "Zähler nach dem Melden zurückgesetzt");
   });
+
+  it("Ergebnis auswerten: 413 (Mail zu groß) sofort melden, mit Servertext oder verständlichem Ersatz", () => {
+    const ctx = (id: string) => ({ json: { cfg: {}, message: { id } } });
+    const refs = { "Mail vorbereiten": [ctx("a"), ctx("b")] };
+    const input = [
+      { json: { statusCode: 413, body: { error: "Die Mail ist größer als 36 MB.", code: "email_intake_mail_too_large" } } },
+      // 413 vom Proxy vor METAorder: HTML statt JSON
+      { json: { statusCode: 413, body: "<html><body>413 Request Entity Too Large</body></html>" } },
+    ];
+    const store: Record<string, any> = { failures: { "a:upload": 2 } };
+    const out = runCode("Ergebnis auswerten", input, refs, store);
+    assert.deepEqual(out.map((o: any) => [o.json.message.id, o.json.action, o.json.statusCode]), [["a", "report", 413], ["b", "report", 413]]);
+    assert.equal(out[0].json.errorText, "Die Mail ist größer als 36 MB.");
+    assert.match(out[1].json.errorText, /zu groß.*Anhänge einzeln hochladen/);
+    assert.deepEqual(store.failures, {}, "kein Fehlversuchs-Zähler");
+  });
 });
