@@ -140,7 +140,7 @@ function ticketRefDetails(problem: IntakeProblem): Pick<EmailIntakeTicketRef, "s
   };
 }
 
-async function attachRawEmail(
+export async function attachRawEmail(
   storage: IStorage,
   ticketId: string,
   tenantId: string | null,

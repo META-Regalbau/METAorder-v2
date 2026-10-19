@@ -112,7 +112,37 @@ export const emailIntakeSettingsSchema = z.object({
       .url()
       .refine((v) => isAllowedTeamsWebhookUrl(v), "Nur https-Adressen von Microsoft (Power Automate / Logic Apps / Teams)"),
   ]),
+  /**
+   * Kundenantworten (Entscheidung 19.10.2026): je Mailart ein Ticket „Kundenanfrage“ mit KI-Antwortentwurf.
+   * Verschickt wird erst nach Freigabe im Ticket, über n8n aus dem Postfach der Mail. Ab Werk aus.
+   */
+  replyDrafts: z.object({
+    order_status: z.boolean(),
+    complaint: z.boolean(),
+    general: z.boolean(),
+    offer_request: z.boolean(),
+  }),
+  /** Gruß unter jedem Antwortentwurf (z. B. „Ihr META-Shop-Team“) */
+  replySignature: z.string().trim().max(1000),
 });
+
+/** Mailarten mit Antwortentwurf */
+export const EMAIL_INTAKE_REPLY_KINDS = ["order_status", "complaint", "general", "offer_request"] as const;
+export type EmailIntakeReplyKind = (typeof EMAIL_INTAKE_REPLY_KINDS)[number];
+
+export const EMAIL_INTAKE_REPLY_KIND_LABELS: Record<EmailIntakeReplyKind, string> = {
+  order_status: "Lieferstatus / Rückfrage zur Bestellung",
+  complaint: "Reklamation",
+  general: "Kundenfrage",
+  offer_request: "Angebotsanfrage",
+};
+
+/** Platzhalter im Entwurf („[Liefertermin eintragen]“): solange einer drinsteht, wird nicht verschickt */
+export const REPLY_PLACEHOLDER_RE = /\[[^\[\]\n]{2,80}\]/g;
+
+export function replyPlaceholders(text: string): string[] {
+  return [...new Set(text.match(REPLY_PLACEHOLDER_RE) ?? [])];
+}
 
 const TEAMS_WEBHOOK_HOST_RE = /(^|\.)(logic\.azure\.com|powerplatform\.com|powerautomate\.com|webhook\.office\.com)$/i;
 
@@ -143,6 +173,8 @@ export const DEFAULT_EMAIL_INTAKE_SETTINGS: EmailIntakeSettings = {
   ticketOnShopwareError: true,
   ticketOnMarginRed: true,
   teamsWebhookUrl: "",
+  replyDrafts: { order_status: false, complaint: false, general: false, offer_request: false },
+  replySignature: "",
 };
 
 const SIMPLE_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -163,6 +195,12 @@ export function normalizeEmailIntakeSettings(stored: unknown): EmailIntakeSettin
     if (!(key in raw)) continue;
     if (key === "filter") {
       out.filter = normalizeFilter(raw.filter);
+      continue;
+    }
+    if (key === "replyDrafts") {
+      const stored = raw.replyDrafts && typeof raw.replyDrafts === "object" ? (raw.replyDrafts as Record<string, unknown>) : {};
+      out.replyDrafts = { ...DEFAULT_EMAIL_INTAKE_SETTINGS.replyDrafts };
+      for (const kind of EMAIL_INTAKE_REPLY_KINDS) if (typeof stored[kind] === "boolean") out.replyDrafts[kind] = stored[kind] as boolean;
       continue;
     }
     const field = emailIntakeSettingsSchema.shape[key].safeParse(raw[key]);

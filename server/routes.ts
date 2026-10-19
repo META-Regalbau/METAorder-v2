@@ -38,6 +38,7 @@ import { registerProductImageTextRoutes } from "./routes/productImageTextRoutes"
 import { registerProductMetaTextRoutes } from "./routes/productMetaTextRoutes";
 import { registerDraftRoutes } from "./routes/draftRoutes";
 import { registerEmailIntakeRoutes } from "./routes/emailIntakeRoutes";
+import { registerEmailIntakeReplyRoutes } from "./routes/emailIntakeReplyRoutes";
 import { registerPricingDiagnosticsRoutes } from "./routes/pricingDiagnosticsRoutes";
 import { registerOrderFieldMappingRoutes } from "./routes/orderFieldMappingRoutes";
 import { registerOfferRoutes } from "./routes/offerRoutes";
@@ -135,6 +136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerDraftRoutes(app);
   // E-Mail-Eingang über n8n: Einstellungen, Workflow-Konfiguration, Problem-Meldungen
   registerEmailIntakeRoutes(app);
+  registerEmailIntakeReplyRoutes(app);
   // Preis-Diagnose je Händler (nur lesend, Admin)
   registerPricingDiagnosticsRoutes(app);
   registerOrderFieldMappingRoutes(app);

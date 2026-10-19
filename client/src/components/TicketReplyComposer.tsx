@@ -1,5 +1,6 @@
-import { Send, Sparkles, Star } from "lucide-react";
-import { useState } from "react";
+import { AlertTriangle, Bot, Loader2, RefreshCw, Send, Sparkles, Star } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { replyPlaceholders } from "@shared/emailIntake";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,6 +10,20 @@ import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+
+/** KI-Antwortentwurf zu einer Kundenanfrage aus dem E-Mail-Eingang (GET /api/tickets/:id/reply-draft) */
+type ReplyDraft = {
+  kind: "order_status" | "complaint" | "general" | "offer_request";
+  status: string;
+  mailbox: string | null;
+  customerEmail: string;
+  draft: string | null;
+  draftError: string | null;
+  order: { orderNumber: string; status: string; shipped: boolean; trackingCodes: string[] } | null;
+  orderNumbers: string[];
+  orderNote: string | null;
+  reason: string | null;
+};
 
 interface Template {
   id: string;
@@ -63,7 +78,43 @@ export default function TicketReplyComposer({
     retry: false,
   });
 
-  const canSendEmail = Boolean(outboundStatus?.enabled && (ticket?.customerEmail || ticket?.emailFrom));
+  // Kundenanfrage aus dem E-Mail-Eingang: Entwurf vorbelegen. Verschickt wird dort nicht über den
+  // Mailversand von METAorder, sondern über n8n aus dem Postfach der Mail (Postausgang folgt).
+  const { data: replyDraft } = useQuery<ReplyDraft | null>({
+    queryKey: ["/api/tickets", ticketId, "reply-draft"],
+    queryFn: async () => {
+      const res = await fetch(`/api/tickets/${ticketId}/reply-draft`, { credentials: "include", cache: "no-store" });
+      if (res.status === 404) return null;
+      if (!res.ok) throw new Error(`${res.status}`);
+      return res.json();
+    },
+    retry: false,
+  });
+  const prefilled = useRef(false);
+  useEffect(() => {
+    if (prefilled.current || !replyDraft?.draft || replyDraft.status !== "draft") return;
+    prefilled.current = true;
+    setCommentText((current) => (current.trim() ? current : replyDraft.draft ?? ""));
+  }, [replyDraft]);
+
+  const regenerateMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/tickets/${ticketId}/reply-draft/regenerate`, {});
+      return (await response.json()) as ReplyDraft;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["/api/tickets", ticketId, "reply-draft"], data);
+      if (data.draft) setCommentText(data.draft);
+      toast({ title: t("tickets.replyDraft.regenerated") });
+    },
+    onError: (error: Error) => {
+      toast({ title: t("tickets.replyDraft.regenerateFailed"), description: error.message, variant: "destructive" });
+    },
+  });
+
+  const isIntakeReply = Boolean(replyDraft);
+  const placeholders = isIntakeReply && !isInternalComment ? replyPlaceholders(commentText) : [];
+  const canSendEmail = !isIntakeReply && Boolean(outboundStatus?.enabled && (ticket?.customerEmail || ticket?.emailFrom));
 
   const improveTextMutation = useMutation({
     mutationFn: async (text: string) => {
@@ -205,6 +256,49 @@ export default function TicketReplyComposer({
           </div>
         </div>
       )}
+      {replyDraft && (
+        <div className="rounded-md border border-primary/30 bg-primary/5 p-3 space-y-2" data-testid="panel-reply-draft">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Bot className="h-4 w-4" />
+              {t("tickets.replyDraft.title", { kind: t(`settings.integration.emailIntake.replyKind.${replyDraft.kind}`) })}
+            </div>
+            {replyDraft.status === "draft" && (
+              <div className="flex gap-2">
+                {replyDraft.draft && (
+                  <Button type="button" variant="outline" size="sm" onClick={() => setCommentText(replyDraft.draft ?? "")} data-testid="button-reply-draft-use">
+                    {t("tickets.replyDraft.use")}
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => regenerateMutation.mutate()}
+                  disabled={regenerateMutation.isPending}
+                  data-testid="button-reply-draft-regenerate"
+                >
+                  {regenerateMutation.isPending ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                  {t("tickets.replyDraft.regenerate")}
+                </Button>
+              </div>
+            )}
+          </div>
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p>{t("tickets.replyDraft.recipient", { email: replyDraft.customerEmail, mailbox: replyDraft.mailbox || t("tickets.replyDraft.defaultMailbox") })}</p>
+            {replyDraft.order ? (
+              <p>
+                {t("tickets.replyDraft.order", { number: replyDraft.order.orderNumber, status: replyDraft.order.status })}
+                {replyDraft.order.trackingCodes.length > 0 ? ` · ${t("tickets.replyDraft.tracking", { codes: replyDraft.order.trackingCodes.join(", ") })}` : ""}
+              </p>
+            ) : replyDraft.orderNumbers.length > 0 ? (
+              <p>{t("tickets.replyDraft.orderMissing", { numbers: replyDraft.orderNumbers.join(", "), note: replyDraft.orderNote ?? "" })}</p>
+            ) : null}
+            {replyDraft.draftError && <p className="text-destructive">{replyDraft.draftError}</p>}
+            <p>{t("tickets.replyDraft.sendLater")}</p>
+          </div>
+        </div>
+      )}
       <div className="relative">
         <Textarea
           placeholder={t("tickets.addComment")}
@@ -228,6 +322,12 @@ export default function TicketReplyComposer({
           </Button>
         )}
       </div>
+      {placeholders.length > 0 && (
+        <div className="flex items-start gap-2 text-xs text-amber-700 dark:text-amber-400" data-testid="text-reply-placeholders">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>{t("tickets.replyDraft.placeholders", { list: placeholders.join(", ") })}</span>
+        </div>
+      )}
       {canManageTickets && (
         <div className="flex items-center gap-2">
           <Switch

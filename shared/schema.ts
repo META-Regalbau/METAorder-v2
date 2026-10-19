@@ -4122,3 +4122,45 @@ export const shopPulseRegulars = pgTable(
     tenantCustomerIdx: uniqueIndex("shop_pulse_regulars_tenant_customer_idx").on(table.tenantId, table.customerNumber),
   }),
 );
+
+/**
+ * Kundenantworten aus dem E-Mail-Eingang (Migration 0064, server/commercial/emailIntakeReplies.ts): je
+ * beantwortbarer Kundenmail ein Ticket mit KI-Antwortentwurf und der Versandstand über n8n.
+ */
+export const emailIntakeReplies = pgTable(
+  "email_intake_replies",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id"),
+    ticketId: varchar("ticket_id").references(() => tickets.id, { onDelete: "cascade" }),
+    /** Kennung der Mail wie im Eingang (mail:<Message-ID> bzw. sha256:…) */
+    messageKey: text("message_key").notNull(),
+    /** Message-ID-Kopfzeile mit spitzen Klammern; darüber findet n8n die Mail im Postfach */
+    internetMessageId: text("internet_message_id"),
+    /** Postfach, in dem die Mail ankam ("" bzw. null = Konto des n8n-Zugangs) */
+    mailbox: text("mailbox"),
+    kind: text("kind").notNull(),
+    customerEmail: text("customer_email").notNull(),
+    subject: text("subject"),
+    draft: text("draft"),
+    facts: jsonb("facts").notNull().default({}),
+    draftError: text("draft_error"),
+    /** draft | queued | sent | failed */
+    status: text("status").notNull().default("draft"),
+    sentText: text("sent_text"),
+    sentCommentId: varchar("sent_comment_id"),
+    attempts: integer("attempts").notNull().default(0),
+    claimedAt: timestamp("claimed_at"),
+    lastError: text("last_error"),
+    sentAt: timestamp("sent_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    tenantMessageIdx: uniqueIndex("email_intake_replies_tenant_message_idx").on(table.tenantId, table.messageKey),
+    ticketIdx: index("email_intake_replies_ticket_idx").on(table.ticketId),
+    statusIdx: index("email_intake_replies_status_idx").on(table.status),
+  }),
+);
+
+export type EmailIntakeReplyRow = typeof emailIntakeReplies.$inferSelect;

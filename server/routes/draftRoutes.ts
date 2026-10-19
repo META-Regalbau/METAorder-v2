@@ -39,6 +39,7 @@ import { acquireIntakeLock, failEmailIntake, finalizeEmailIntake, releaseIntakeL
 import { publicAppBaseUrl } from "../commercial/emailIntakeTeams";
 import { getEmailIntakeSettings } from "../commercial/emailIntakeSettings";
 import { findIntakeMailbox, internalDomainsFor } from "@shared/emailIntake";
+import { startIntakeReply } from "../commercial/emailIntakeReplies";
 import { parseEmailBufferAutodetect } from "../email/emailParser";
 import { unwrapInternalForward } from "../email/emailForwardUnwrap";
 import { extractDocumentTextPreviewForIntent } from "../extraction/documentTextExtraction";
@@ -622,6 +623,23 @@ export function registerDraftRoutes(app: Express): void {
                   mailboxMode: intakeMailboxMode,
                 })
               : undefined;
+            if (intake && intakeSettings) {
+              // Kundenantwort (Ticket mit KI-Entwurf) im Hintergrund: n8n wartet nicht darauf
+              startIntakeReply({
+                storage,
+                tenantId: req.tenantId ?? null,
+                settings: intakeSettings,
+                outcome: intake.outcome,
+                otherType: intake.other?.type ?? null,
+                messageKey: ingest.messageId,
+                subject: ingest.subject,
+                envelope: ingest.envelope,
+                offerDraftId: ingest.results.find((r) => r.draftKind === "offer")?.draftId ?? null,
+                mailbox: intakeMailboxField,
+                rawEmail: { buffer: fileBuffer, fileName: file.originalname },
+                integrationUser: { id: userId, email: user?.email ?? null },
+              });
+            }
             return res.json({
               // Rückwärtskompatible Felder für UI und bestehende Clients (erster Entwurf).
               // Bei Dedupe: der bereits vorhandene Entwurf — nie ein erfundenes „offer".

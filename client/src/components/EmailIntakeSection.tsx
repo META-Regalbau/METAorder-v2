@@ -14,6 +14,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Textarea } from "@/components/ui/textarea";
 import {
   DEFAULT_EMAIL_INTAKE_SETTINGS,
+  EMAIL_INTAKE_REPLY_KINDS,
   type EmailIntakeFilterSettings,
   type EmailIntakeMailbox,
   type EmailIntakeSettings,
@@ -435,6 +436,37 @@ export default function EmailIntakeSection() {
                   ? t("settings.integration.emailIntake.teamsWebhookHint")
                   : t("settings.integration.emailIntake.teamsWebhookEmpty")}
               </p>
+            </div>
+          </fieldset>
+
+          <fieldset className="space-y-3" data-testid="fieldset-email-intake-replies">
+            <legend className="text-xs font-medium mb-2">{t("settings.integration.emailIntake.replySection")}</legend>
+            <p className="text-xs text-muted-foreground">{t("settings.integration.emailIntake.replySectionHint")}</p>
+            {EMAIL_INTAKE_REPLY_KINDS.map((kind) => (
+              <div key={kind} className="flex items-center justify-between gap-4">
+                <Label htmlFor={`email-intake-reply-${kind}`} className="text-sm font-normal">
+                  {t(`settings.integration.emailIntake.replyKind.${kind}`)}
+                </Label>
+                <Switch
+                  id={`email-intake-reply-${kind}`}
+                  checked={form.replyDrafts[kind]}
+                  onCheckedChange={(checked) => set("replyDrafts", { ...form.replyDrafts, [kind]: checked })}
+                  data-testid={`switch-email-intake-reply-${kind}`}
+                />
+              </div>
+            ))}
+            <div>
+              <Label className="text-xs" htmlFor="email-intake-reply-signature">{t("settings.integration.emailIntake.replySignature")}</Label>
+              <Textarea
+                id="email-intake-reply-signature"
+                className="mt-1"
+                rows={3}
+                placeholder={t("settings.integration.emailIntake.replySignaturePlaceholder")}
+                value={form.replySignature}
+                onChange={(e) => set("replySignature", e.target.value)}
+                data-testid="input-email-intake-reply-signature"
+              />
+              <p className="text-xs text-muted-foreground mt-1">{t("settings.integration.emailIntake.replySignatureHint")}</p>
             </div>
           </fieldset>
 
