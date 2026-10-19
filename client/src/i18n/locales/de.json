@@ -6710,7 +6710,14 @@
       "repair_not_found": "Reparatur nicht gefunden",
       "repair_already_reverted": "Reparatur ist schon zurückgenommen",
       "shop_watch_repair_failed": "Reparatur fehlgeschlagen",
-      "target_state_incomplete_entries_missing_in_the_shop": "Soll-Stand unvollständig: Einträge fehlen im Shop"
+      "target_state_incomplete_entries_missing_in_the_shop": "Soll-Stand unvollständig: Einträge fehlen im Shop",
+      "failed_to_load_regular_customers": "Stammkunden konnten nicht geladen werden",
+      "invalid_regular_customer_settings": "Ungültige Einstellungen der Stammkunden-Wache",
+      "failed_to_save_regular_customer_settings": "Einstellungen der Stammkunden-Wache konnten nicht gespeichert werden",
+      "regular_customer_not_found": "Stammkunde nicht gefunden (Schwellen nicht erfüllt)",
+      "customer_is_not_overdue": "Der Kunde ist nicht überfällig",
+      "customer_was_already_reported_in_the_last_90_days": "Der Kunde wurde in den letzten 90 Tagen schon gemeldet",
+      "failed_to_report_regular_customer": "Meldung zum Stammkunden fehlgeschlagen"
     }
   },
   "roomPlanner": {
@@ -8464,7 +8471,8 @@
       "weekly": "Wochenberichte",
       "actions": "Maßnahmen-Protokoll",
       "cart": "Warenkorb-Alarm",
-      "keywords": "Suchwörter"
+      "keywords": "Suchwörter",
+      "regulars": "Stammkunden"
     },
     "weekly": {
       "title": "Shop-Puls: Wochenbericht KW {{week}} ({{from}} bis {{to}})",
@@ -8768,7 +8776,9 @@
         "searchKeyword": "Suchwort eingetragen",
         "searchKeywordRevert": "Suchwort zurückgenommen",
         "watchRepair": "Wächter-Reparatur",
-        "watchRepairRevert": "Wächter-Reparatur zurückgenommen"
+        "watchRepairRevert": "Wächter-Reparatur zurückgenommen",
+        "regularAlert": "Stammkunde gemeldet",
+        "regularWon": "Stammkunde bestellt wieder"
       },
       "sources": {
         "shopContent": "Shop-Inhalte",
@@ -9081,6 +9091,56 @@
       "since": "seit {{at}}",
       "monduHint": "In der Bestellung: „Mondu-Zahlung erneut senden“",
       "more": "… und {{count}} weitere"
+    },
+    "regulars": {
+      "title": "Stammkunden-Wache",
+      "hint": "Je Kunde der übliche Bestellabstand aus Shop- und Portal-Bestellungen (ohne durchgeschleuste Bestellungen). Ist ein Stammkunde überfällig, geht einmal am Tag (Mo–Fr ab 8 Uhr) eine Meldung an den zuständigen Außendienst, sonst an Oliver – höchstens einmal in 90 Tagen je Kunde. Kunden schreibt METAorder nie an.",
+      "enable": "Stammkunden-Wache",
+      "fields": {
+        "minOrders": "Mindestens Bestelltage",
+        "minAnnualRevenue": "Mindestumsatz 12 Monate (€ netto)",
+        "overdueFactor": "Überfällig ab × üblicher Abstand",
+        "minDaysSinceLast": "Frühestens nach Tagen"
+      },
+      "save": "Speichern",
+      "saved": "Einstellungen gespeichert",
+      "saveFailed": "Einstellungen konnten nicht gespeichert werden",
+      "lastRun": "Zuletzt geprüft am {{at}}",
+      "neverRun": "Noch nicht geprüft. Beim ersten Lauf werden schon überfällige Kunden als Altbestand markiert und nur per Knopf gemeldet.",
+      "empty": "Keine Stammkunden mit diesen Schwellen.",
+      "loadError": "Stammkunden konnten nicht geladen werden.",
+      "columns": {
+        "customer": "Kunde",
+        "rhythm": "Bestellrhythmus",
+        "revenue": "Umsatz 12 Monate",
+        "state": "Stand",
+        "details": "Zuletzt gekauft, mögliche Ursache",
+        "actions": "Aktionen"
+      },
+      "customerNumber": "Kd.-Nr. {{number}}",
+      "rhythm": "etwa alle {{days}} Tage ({{orders}} Bestelltage)",
+      "last": "zuletzt {{at}}, vor {{days}} Tagen",
+      "states": {
+        "ok": "Im Takt",
+        "overdue": "Überfällig",
+        "backlog": "Überfällig (Altbestand)",
+        "alerted": "Gemeldet",
+        "won": "Bestellt wieder"
+      },
+      "alertedAt": "gemeldet am {{at}}",
+      "wonAt": "wieder bestellt am {{at}}",
+      "toRep": "an {{name}}",
+      "toOliver": "kein Außendienst zugeordnet – an Oliver",
+      "lastItems": "Zuletzt: {{items}}",
+      "causes": {
+        "price": "{{name}}: Preis {{old}} → {{new}} (+{{percent}})",
+        "notSellable": "{{name}} ist nicht mehr aktiv",
+        "longRestock": "{{name}}: Wiederauffüllzeit {{days}} Tage",
+        "longDelivery": "{{name}}: Lieferzeit bis {{days}} Tage"
+      },
+      "alertNow": "Jetzt melden",
+      "alerted": "Meldung verschickt",
+      "alertFailed": "Meldung fehlgeschlagen"
     }
   },
   "mondu": {

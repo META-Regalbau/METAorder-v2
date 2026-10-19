@@ -17,6 +17,7 @@ import { ShopPulseActionsTab } from "@/components/shopPulse/ShopPulseActionsTab"
 import { ShopPulseWeeklyTab } from "@/components/shopPulse/ShopPulseWeeklyTab";
 import { ShopPulseJanaList, SignalHandoffActions, SignalHandoffStatus } from "@/components/shopPulse/ShopPulseHandoff";
 import { ShopPulseKeywordsTab } from "@/components/shopPulse/ShopPulseKeywordsTab";
+import { ShopPulseRegularsTab } from "@/components/shopPulse/ShopPulseRegularsTab";
 import { ShopPulsePendingPayments } from "@/components/shopPulse/ShopPulsePendingPayments";
 import { useToast } from "@/hooks/use-toast";
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
@@ -35,9 +36,10 @@ import { formatShopPulseParams, needsAiNote, SHOP_PULSE_DETECTOR_IDS, type ShopP
  * „Maßnahmen-Protokoll“ (?tab=actions), components/shopPulse/. Stufe 2 (S2-3): Reiter „Warenkorb-Alarm“
  * (?tab=cart). Stufe 3 (S3-1): an jeder Meldung „Weitergeben“ (für Agentur/Smarketer, Text an Oliver) und
  * „Ticket“ mit Stand der Weitergaben, Karte „Jana-Liste“, Reiter „Suchwörter“ (?tab=keywords&keyword=<id>).
+ * Stufe 3 (S3-4): Reiter „Stammkunden“ (?tab=regulars).
  */
 
-const TABS = ["signals", "weekly", "actions", "cart", "keywords"] as const;
+const TABS = ["signals", "weekly", "actions", "cart", "keywords", "regulars"] as const;
 type Tab = (typeof TABS)[number];
 
 const QUERY_KEY = ["/api/shop-pulse"];
@@ -283,7 +285,7 @@ export default function ShopPulsePage() {
       ) : null}
 
       <Tabs value={tab} onValueChange={changeTab}>
-        <TabsList>
+        <TabsList className="h-auto flex-wrap justify-start">
           {TABS.map((id) => (
             <TabsTrigger key={id} value={id} data-testid={`tab-shop-pulse-${id}`}>
               {t(`shopPulse.tabs.${id}`)}
@@ -298,6 +300,9 @@ export default function ShopPulsePage() {
         </TabsContent>
         <TabsContent value="cart" className="mt-4">
           {tab === "cart" ? <ShopPulseCartTab /> : null}
+        </TabsContent>
+        <TabsContent value="regulars" className="mt-4">
+          {tab === "regulars" ? <ShopPulseRegularsTab /> : null}
         </TabsContent>
         <TabsContent value="keywords" className="mt-4">
           {tab === "keywords" ? <ShopPulseKeywordsTab focusId={params.get("keyword")} confirmRevert={params.get("action") === "revert"} /> : null}

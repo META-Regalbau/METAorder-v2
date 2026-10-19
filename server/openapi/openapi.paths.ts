@@ -17400,6 +17400,87 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/shop-pulse/regulars": {
+    "get": {
+      "tags": [
+        "shop-pulse"
+      ],
+      "summary": "GET /api/shop-pulse/regulars",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/shop-pulse/regulars/{customerNumber}/alert": {
+    "post": {
+      "tags": [
+        "shop-pulse"
+      ],
+      "summary": "POST /api/shop-pulse/regulars/{customerNumber}/alert",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/shop-pulse/regulars/settings": {
+    "put": {
+      "tags": [
+        "shop-pulse"
+      ],
+      "summary": "PUT /api/shop-pulse/regulars/settings",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/shop-pulse/run": {
     "post": {
       "tags": [

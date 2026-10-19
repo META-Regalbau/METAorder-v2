@@ -46,6 +46,7 @@ import {
   SHOP_PULSE_KEYWORD_STATUSES,
   SHOP_PULSE_TICKET_PRIORITIES,
 } from "../../shared/shopPulseHandoff";
+import { SHOP_PULSE_REGULAR_STATES } from "../../shared/shopPulseRegulars";
 import {
   SHOP_PULSE_ACTION_KINDS,
   SHOP_PULSE_ACTION_SCOPES,
@@ -187,7 +188,9 @@ describe("Uebersetzungsschluessel (Deutsch)", () => {
 
   it("Shop-Puls Stufe 3 (S3-1): Reiter, Ticket-Prioritäten, Suchwörter (Status, Zuordnung, Grund)", () => {
     expect(missingIn([
-      ...["cart", "keywords"].map((v) => `shopPulse.tabs.${v}`),
+      ...["cart", "keywords", "regulars"].map((v) => `shopPulse.tabs.${v}`),
+      ...SHOP_PULSE_REGULAR_STATES.map((v) => `shopPulse.regulars.states.${v}`),
+      ...["notSellable", "longRestock", "longDelivery", "price"].map((v) => `shopPulse.regulars.causes.${v}`),
       ...SHOP_PULSE_TICKET_PRIORITIES.map((v) => `shopPulse.handoff.priorities.${v}`),
       ...SHOP_PULSE_KEYWORD_STATUSES.map((v) => `shopPulse.keywords.statuses.${v}`),
       ...SHOP_PULSE_KEYWORD_MATCH_KINDS.flatMap((v) => [`shopPulse.keywords.match.${v}`, `shopPulse.keywords.checked.${v}`]),

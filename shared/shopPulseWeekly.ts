@@ -39,6 +39,9 @@ export const SHOP_PULSE_ACTION_KINDS = [
   // Stufe 3 (S3-2): Reparatur des Shop-Wächters per Knopf und ihre Rücknahme
   "watchRepair",
   "watchRepairRevert",
+  // Stufe 3 (S3-4): Stammkunde überfällig gemeldet bzw. danach wieder bestellt
+  "regularAlert",
+  "regularWon",
 ] as const;
 export type ShopPulseActionKind = (typeof SHOP_PULSE_ACTION_KINDS)[number];
 
