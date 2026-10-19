@@ -10,7 +10,9 @@ import { and, eq, inArray, isNull, type AnyColumn } from "drizzle-orm";
 import { emailIntakeReplies, shopwareOrders, type EmailIntakeReplyRow, type Order, type TicketCategory } from "@shared/schema";
 import {
   EMAIL_INTAKE_REPLY_KIND_LABELS,
+  graphBaseForMailbox,
   internalDomainsFor,
+  replyPlaceholders,
   type EmailIntakeOtherType,
   type EmailIntakeOutcome,
   type EmailIntakeReplyKind,
@@ -350,4 +352,169 @@ export async function regenerateReply(
     draftError: generated.needsReply ? generated.error : `KI hält keine Antwort für nötig: ${generated.reason ?? ""}`.trim(),
     facts: { ...facts, reason: generated.reason },
   });
+}
+
+// ---------- Postausgang über n8n (Teil B) ----------
+
+/** Nach so vielen gescheiterten Versuchen bleibt die Antwort „fehlgeschlagen“ (Ticket bekommt eine Notiz) */
+export const MAX_REPLY_SEND_ATTEMPTS = 3;
+/** Abgeholt, aber nicht quittiert: nach dieser Zeit holt n8n die Antwort erneut */
+const CLAIM_TIMEOUT_MS = 15 * 60 * 1000;
+
+export class ReplySendError extends Error {
+  constructor(
+    message: string,
+    readonly code: string,
+    readonly status = 400,
+  ) {
+    super(message);
+  }
+}
+
+/** Freitext als HTML-Mailtext (Absätze und Zeilenumbrüche bleiben) */
+export function replyTextToHtml(text: string): string {
+  const escape = (value: string) =>
+    value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const linkify = (value: string) => value.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>');
+  return text
+    .trim()
+    .split(/\n{2,}/)
+    .map((para) => `<p>${linkify(escape(para)).replace(/\n/g, "<br>")}</p>`)
+    .join("\n");
+}
+
+/**
+ * Freigeben: Text als öffentliche Antwort ins Ticket und in den Postausgang. Mit Platzhaltern oder ohne
+ * Text wird nichts verschickt; eine schon verschickte Antwort nicht noch einmal.
+ */
+export async function queueReply(
+  storage: IStorage,
+  row: EmailIntakeReplyRow,
+  input: { text: string; userId: string },
+): Promise<EmailIntakeReplyRow> {
+  const text = input.text.trim();
+  if (!text) throw new ReplySendError("Die Antwort ist leer", "email_intake_reply_empty");
+  const open = replyPlaceholders(text);
+  if (open.length > 0) {
+    throw new ReplySendError(`Noch auszufüllen: ${open.join(", ")}`, "email_intake_reply_placeholders");
+  }
+  if (row.status === "queued" || row.status === "sent") {
+    throw new ReplySendError("Die Antwort ist schon verschickt", "email_intake_reply_already_sent", 409);
+  }
+  if (!row.ticketId) throw new ReplySendError("Kein Ticket zu dieser Antwort", "email_intake_reply_not_found", 404);
+  const comment = await storage.createTicketComment({
+    ticketId: row.ticketId,
+    userId: input.userId,
+    comment: text,
+    isInternal: 0,
+    authorType: "user",
+  });
+  const ticket = await storage.getTicket(row.ticketId);
+  if (ticket && ticket.status !== "resolved" && ticket.status !== "closed") {
+    await storage.updateTicket(ticket.id, { status: "waiting_for_customer" });
+  }
+  const updated = await updateReply(row.id, {
+    status: "queued",
+    sentText: text,
+    sentCommentId: comment.id,
+    attempts: 0,
+    claimedAt: null,
+    lastError: null,
+  });
+  log.info({ event: "email_intake.reply_queued", replyId: row.id, ticketId: row.ticketId }, "[EmailIntakeReply] Antwort freigegeben");
+  return updated ?? row;
+}
+
+export type ReplyOutboxItem = {
+  id: string;
+  /** Graph-Basis des Postfachs, in dem die Kundenmail ankam */
+  graphBase: string;
+  /** Originalmail suchen und im Verlauf antworten; null = neue Mail mit „Re:“ */
+  internetMessageId: string | null;
+  to: string;
+  subject: string;
+  html: string;
+};
+
+export function replySubject(subject: string | null): string {
+  const base = (subject ?? "").trim() || "Ihre Anfrage";
+  return /^(re|aw|antw)\s*:/i.test(base) ? base : `Re: ${base}`;
+}
+
+/** n8n holt freigegebene Antworten ab (höchstens 10 je Lauf) */
+export async function claimReplyOutbox(tenantId: string | null, limit = 10, now = new Date()): Promise<ReplyOutboxItem[]> {
+  const rows = await db
+    .select()
+    .from(emailIntakeReplies)
+    .where(and(tenantIs(emailIntakeReplies.tenantId, tenantId), eq(emailIntakeReplies.status, "queued")))
+    .limit(50);
+  const due = rows
+    .filter((r) => !r.claimedAt || now.getTime() - r.claimedAt.getTime() > CLAIM_TIMEOUT_MS)
+    .sort((a, b) => a.updatedAt.getTime() - b.updatedAt.getTime())
+    .slice(0, limit);
+  const out: ReplyOutboxItem[] = [];
+  for (const row of due) {
+    await updateReply(row.id, { claimedAt: now, attempts: row.attempts + 1 });
+    out.push({
+      id: row.id,
+      graphBase: graphBaseForMailbox(row.mailbox ?? ""),
+      internetMessageId: row.internetMessageId,
+      to: row.customerEmail,
+      subject: replySubject(row.subject),
+      html: replyTextToHtml(row.sentText ?? ""),
+    });
+  }
+  return out;
+}
+
+/** Rückmeldung von n8n: verschickt oder Fehler (nach 3 Versuchen „fehlgeschlagen“ mit Notiz im Ticket) */
+export async function ackReplyOutbox(
+  storage: IStorage,
+  tenantId: string | null,
+  id: string,
+  result: { ok: boolean; error?: string | null; mode?: string | null },
+  now = new Date(),
+): Promise<EmailIntakeReplyRow | null> {
+  const [row] = await db
+    .select()
+    .from(emailIntakeReplies)
+    .where(and(eq(emailIntakeReplies.id, id), tenantIs(emailIntakeReplies.tenantId, tenantId)))
+    .limit(1);
+  if (!row) return null;
+  if (row.status === "sent") return row;
+  if (result.ok) {
+    const sent = await updateReply(row.id, { status: "sent", sentAt: now, claimedAt: null, lastError: null });
+    log.info(
+      { event: "email_intake.reply_sent", replyId: row.id, ticketId: row.ticketId, mode: result.mode ?? null },
+      "[EmailIntakeReply] Antwort verschickt",
+    );
+    if (row.ticketId && result.mode === "new_mail") {
+      await storage
+        .createTicketComment({
+          ticketId: row.ticketId,
+          comment: "Hinweis: Die Originalmail war im Postfach nicht mehr auffindbar. Die Antwort ging als neue Mail mit „Re:“ raus, nicht im Mailverlauf.",
+          isInternal: 1,
+          authorType: "user",
+        })
+        .catch(() => {});
+    }
+    return sent;
+  }
+  const error = (result.error ?? "unbekannter Fehler").slice(0, 1000);
+  const giveUp = row.attempts >= MAX_REPLY_SEND_ATTEMPTS;
+  const updated = await updateReply(row.id, { status: giveUp ? "failed" : "queued", claimedAt: null, lastError: error });
+  log.warn({ event: "email_intake.reply_failed", replyId: row.id, attempts: row.attempts, giveUp, error }, "[EmailIntakeReply] Versand gescheitert");
+  if (giveUp && row.ticketId) {
+    await storage
+      .createTicketComment({
+        ticketId: row.ticketId,
+        comment: `Die Antwort an ${row.customerEmail} konnte nicht verschickt werden (${error}). Im Ticket „Erneut senden“ wählen oder die Mail von Hand beantworten.`,
+        isInternal: 1,
+        authorType: "user",
+      })
+      .catch(() => {});
+    const ticket = await storage.getTicket(row.ticketId);
+    if (ticket) await storage.updateTicket(ticket.id, { status: "waiting_for_internal" }).catch(() => {});
+  }
+  return updated;
 }

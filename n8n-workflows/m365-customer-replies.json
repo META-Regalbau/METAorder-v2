@@ -1,0 +1,711 @@
+{
+  "name": "METAorder Kundenantworten → Microsoft 365",
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Alle 2 Minuten",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 2
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "settings",
+      "name": "Einstellungen",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "metaorder-url",
+              "name": "metaorderUrl",
+              "value": "https://p-bbpye5.project.space",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "outbox",
+      "name": "METAorder: Antworten abholen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.metaorderUrl }}/api/email-intake/replies/outbox",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "METAORDER_INTEGRATION_KEY_CREDENTIAL_ID",
+          "name": "METAorder Integration-Key"
+        }
+      },
+      "onError": "stopWorkflow",
+      "retryOnFail": true
+    },
+    {
+      "id": "each",
+      "name": "Antworten einzeln",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Je freigegebener Antwort ein Eintrag; nichts freigegeben → Lauf endet hier\nconst replies = ($input.first().json && $input.first().json.replies) || [];\nreturn replies.map((reply) => ({ json: reply }));\n"
+      }
+    },
+    {
+      "id": "find",
+      "name": "Originalmail suchen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.graphBase }}/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOutlookOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "$filter",
+              "value": "=internetMessageId eq '{{ ($json.internetMessageId || '').replace(/'/g, \"''\") }}'"
+            },
+            {
+              "name": "$select",
+              "value": "id"
+            },
+            {
+              "name": "$top",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "OUTLOOK_OAUTH_CREDENTIAL_ID",
+          "name": "Microsoft Outlook account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": true
+    },
+    {
+      "id": "found",
+      "name": "Treffer auswerten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Originalmail gefunden → Antwort im Verlauf, sonst neue Mail mit „Re:“\nconst out = [];\nconst items = $input.all();\nfor (let i = 0; i < items.length; i++) {\n  const reply = $('Antworten einzeln').itemMatching(i).json;\n  const list = (items[i].json && items[i].json.value) || [];\n  const messageId = reply.internetMessageId && list[0] && list[0].id ? list[0].id : null;\n  out.push({ json: { ...reply, messageId }, pairedItem: { item: i } });\n}\nreturn out;\n"
+      }
+    },
+    {
+      "id": "in-thread",
+      "name": "Original gefunden?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "Original gefunden?",
+              "leftValue": "={{ !!$json.messageId }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "create-reply",
+      "name": "Antwort anlegen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        -200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.graphBase }}/messages/{{ $json.messageId }}/createReply",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOutlookOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "OUTLOOK_OAUTH_CREDENTIAL_ID",
+          "name": "Microsoft Outlook account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": true
+    },
+    {
+      "id": "compose",
+      "name": "Text einsetzen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        -200
+      ],
+      "parameters": {
+        "jsCode": "// Unseren Text vor das zitierte Original setzen (Graph legt den Entwurf mit Zitat an)\nconst out = [];\nconst items = $input.all();\nfor (let i = 0; i < items.length; i++) {\n  const reply = $('Original gefunden?').itemMatching(i).json;\n  const r = items[i].json || {};\n  const draft = r.body && typeof r.body === 'object' ? r.body : {};\n  const ok = typeof r.statusCode === 'number' && r.statusCode >= 200 && r.statusCode < 300 && draft.id;\n  if (!ok) {\n    const e = draft.error;\n    out.push({ json: { id: reply.id, failed: true, error: (e && (e.message || JSON.stringify(e))) || ('createReply: HTTP ' + (r.statusCode || '?')) }, pairedItem: { item: i } });\n    continue;\n  }\n  const quoted = (draft.body && draft.body.content) || '';\n  const html = /<body[^>]*>/i.test(quoted)\n    ? quoted.replace(/<body[^>]*>/i, (tag) => tag + reply.html + '<br>')\n    : reply.html + '<br>' + quoted;\n  out.push({ json: { id: reply.id, failed: false, graphBase: reply.graphBase, draftId: draft.id, patchBody: { body: { contentType: 'HTML', content: html } } }, pairedItem: { item: i } });\n}\nreturn out;\n"
+      }
+    },
+    {
+      "id": "composed",
+      "name": "Entwurf bereit?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        -200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "Entwurf bereit?",
+              "leftValue": "={{ $json.failed !== true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "patch",
+      "name": "Entwurf füllen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2200,
+        -300
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $json.graphBase }}/messages/{{ $json.draftId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOutlookOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.patchBody) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "OUTLOOK_OAUTH_CREDENTIAL_ID",
+          "name": "Microsoft Outlook account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": true
+    },
+    {
+      "id": "patched",
+      "name": "Gefüllt?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2420,
+        -300
+      ],
+      "parameters": {
+        "jsCode": "// Nur abschicken, wenn unser Text im Entwurf steht (sonst ginge nur das Zitat raus)\nconst out = [];\nconst items = $input.all();\nfor (let i = 0; i < items.length; i++) {\n  const ctx = $('Entwurf bereit?').itemMatching(i).json;\n  const r = items[i].json || {};\n  const ok = typeof r.statusCode === 'number' && r.statusCode >= 200 && r.statusCode < 300;\n  const e = r.body && r.body.error;\n  out.push({ json: { ...ctx, failed: !ok, error: ok ? null : ((e && e.message) || ('PATCH: HTTP ' + (r.statusCode || '?'))) }, pairedItem: { item: i } });\n}\nreturn out;\n"
+      }
+    },
+    {
+      "id": "patched-ok",
+      "name": "Text drin?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        -300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "Text drin?",
+              "leftValue": "={{ $json.failed !== true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "send",
+      "name": "Antwort senden",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2860,
+        -400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.graphBase }}/messages/{{ $json.draftId }}/send",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOutlookOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "OUTLOOK_OAUTH_CREDENTIAL_ID",
+          "name": "Microsoft Outlook account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": true
+    },
+    {
+      "id": "eval-thread",
+      "name": "Versand auswerten (Verlauf)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3080,
+        -400
+      ],
+      "parameters": {
+        "jsCode": "// Graph antwortet mit 202 ohne Inhalt\nconst out = [];\nconst items = $input.all();\nfor (let i = 0; i < items.length; i++) {\n  const ctx = $('Text drin?').itemMatching(i).json;\n  const r = items[i].json || {};\n  const status = typeof r.statusCode === 'number' ? r.statusCode : null;\n  const ok = status !== null && status >= 200 && status < 300;\n  const e = r.body && r.body.error;\n  out.push({ json: { id: ctx.id, ok, statusCode: status, error: ok ? null : ((e && e.message) || 'send: HTTP ' + (status || '?')), mode: 'reply' }, pairedItem: { item: i } });\n}\nreturn out;\n"
+      }
+    },
+    {
+      "id": "eval-failed",
+      "name": "Fehler vor dem Senden",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2860,
+        -100
+      ],
+      "parameters": {
+        "jsCode": "// createReply oder PATCH gescheitert: METAorder melden (nach 3 Versuchen „fehlgeschlagen“)\nreturn $input.all().map((item, i) => ({ json: { id: item.json.id, ok: false, statusCode: null, error: item.json.error || 'Antwort nicht vorbereitet', mode: 'reply' }, pairedItem: { item: i } }));\n"
+      }
+    },
+    {
+      "id": "new-mail",
+      "name": "Neue Mail senden",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.graphBase }}/sendMail",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOutlookOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ message: { subject: $json.subject, body: { contentType: 'HTML', content: $json.html }, toRecipients: [{ emailAddress: { address: $json.to } }] }, saveToSentItems: true }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "OUTLOOK_OAUTH_CREDENTIAL_ID",
+          "name": "Microsoft Outlook account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": true
+    },
+    {
+      "id": "eval-new",
+      "name": "Versand auswerten (neu)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        200
+      ],
+      "parameters": {
+        "jsCode": "// Originalmail nicht gefunden: neue Mail mit „Re:“ (METAorder vermerkt das im Ticket)\nconst out = [];\nconst items = $input.all();\nfor (let i = 0; i < items.length; i++) {\n  const ctx = $('Original gefunden?').itemMatching(i).json;\n  const r = items[i].json || {};\n  const status = typeof r.statusCode === 'number' ? r.statusCode : null;\n  const ok = status !== null && status >= 200 && status < 300;\n  const e = r.body && r.body.error;\n  out.push({ json: { id: ctx.id, ok, statusCode: status, error: ok ? null : ((e && e.message) || 'sendMail: HTTP ' + (status || '?')), mode: 'new_mail' }, pairedItem: { item: i } });\n}\nreturn out;\n"
+      }
+    },
+    {
+      "id": "ack",
+      "name": "METAorder: Versand melden",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3300,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Einstellungen').first().json.metaorderUrl }}/api/email-intake/replies/outbox/{{ $json.id }}/ack",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ ok: $json.ok, statusCode: $json.statusCode, error: $json.error, mode: $json.mode }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "METAORDER_INTEGRATION_KEY_CREDENTIAL_ID",
+          "name": "METAorder Integration-Key"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": true
+    }
+  ],
+  "connections": {
+    "Alle 2 Minuten": {
+      "main": [
+        [
+          {
+            "node": "Einstellungen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Einstellungen": {
+      "main": [
+        [
+          {
+            "node": "METAorder: Antworten abholen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "METAorder: Antworten abholen": {
+      "main": [
+        [
+          {
+            "node": "Antworten einzeln",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Antworten einzeln": {
+      "main": [
+        [
+          {
+            "node": "Originalmail suchen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Originalmail suchen": {
+      "main": [
+        [
+          {
+            "node": "Treffer auswerten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Treffer auswerten": {
+      "main": [
+        [
+          {
+            "node": "Original gefunden?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Original gefunden?": {
+      "main": [
+        [
+          {
+            "node": "Antwort anlegen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Neue Mail senden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Antwort anlegen": {
+      "main": [
+        [
+          {
+            "node": "Text einsetzen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text einsetzen": {
+      "main": [
+        [
+          {
+            "node": "Entwurf bereit?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Entwurf bereit?": {
+      "main": [
+        [
+          {
+            "node": "Entwurf füllen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fehler vor dem Senden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Entwurf füllen": {
+      "main": [
+        [
+          {
+            "node": "Gefüllt?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gefüllt?": {
+      "main": [
+        [
+          {
+            "node": "Text drin?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text drin?": {
+      "main": [
+        [
+          {
+            "node": "Antwort senden",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fehler vor dem Senden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Antwort senden": {
+      "main": [
+        [
+          {
+            "node": "Versand auswerten (Verlauf)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Versand auswerten (Verlauf)": {
+      "main": [
+        [
+          {
+            "node": "METAorder: Versand melden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fehler vor dem Senden": {
+      "main": [
+        [
+          {
+            "node": "METAorder: Versand melden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Neue Mail senden": {
+      "main": [
+        [
+          {
+            "node": "Versand auswerten (neu)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Versand auswerten (neu)": {
+      "main": [
+        [
+          {
+            "node": "METAorder: Versand melden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

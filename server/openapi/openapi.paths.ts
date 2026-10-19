@@ -7127,6 +7127,60 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/email-intake/replies/outbox": {
+    "get": {
+      "tags": [
+        "email-intake"
+      ],
+      "summary": "GET /api/email-intake/replies/outbox",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/email-intake/replies/outbox/{id}/ack": {
+    "post": {
+      "tags": [
+        "email-intake"
+      ],
+      "summary": "POST /api/email-intake/replies/outbox/{id}/ack",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/email/outbound-status": {
     "get": {
       "tags": [
@@ -18757,6 +18811,33 @@ export const openApiPaths = {
         "tickets"
       ],
       "summary": "POST /api/tickets/{ticketId}/reply-draft/regenerate",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/tickets/{ticketId}/reply-draft/send": {
+    "post": {
+      "tags": [
+        "tickets"
+      ],
+      "summary": "POST /api/tickets/{ticketId}/reply-draft/send",
       "responses": {
         "200": {
           "description": "OK",
