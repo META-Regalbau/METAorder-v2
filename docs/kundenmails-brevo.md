@@ -22,7 +22,7 @@ Je Mailart gilt eine Liste zulässiger Grundlagen (`CUSTOMER_MAIL_TYPE_RULES` in
 ## Abläufe
 
 - **Abgleich** (stündlich, nur bei eingeschaltetem Schalter und hinterlegtem Schlüssel; auch per Knopf): Kaufdaten aus dem Bestell-Spiegel (nur MO, ohne Storno und durchgeschleuste Bestellungen), Newsletter-Empfänger aus Shopware, Brevo-Kontakte seit dem letzten Abgleich (Sperrliste). Danach gehen offene Widersprüche auf die Brevo-Sperrliste. Wenn es einen Newsletter-Eintrag gibt, wird er in Shopware auf `optOut` gesetzt (**schreibt in den Shop**).
-- **Aussendung**: Entwurf mit geplanten und ausgelassenen Empfängern (mit Grund). Beim Senden prüft METAorder Widersprüche und Bounces erneut. Danach legt es in Brevo die Liste an, importiert die Kontakte mit `MO_`-Feldern, erstellt die Kampagne (Vorlage, Absender, Antwortadresse, Tag `metaorder-<art>`, UTM) und verschickt sie sofort. Ein Lauf kommt nur einmal aus „Entwurf“ bzw. „Fehler“ in den Versand.
+- **Aussendung**: Entwurf mit geplanten und ausgelassenen Empfängern (mit Grund). Beim Senden prüft METAorder Widersprüche und Bounces erneut. Danach legt es in Brevo die Liste an, importiert die Kontakte mit `MO_`-Feldern, erstellt die Kampagne (Vorlage, Absender, Antwortadresse, UTM; kein Tag, das lehnt der Brevo-Tarif ab) und verschickt sie sofort. Ein Lauf kommt nur einmal aus „Entwurf“ bzw. „Fehler“ in den Versand.
 - **Webhook** `POST /api/public/customer-mails/brevo`: Wird per Knopf in Brevo eingerichtet (Marketing: `unsubscribed`, `spam`, `hardBounce`, `click`). Brevo schickt dabei die Kopfzeilen `X-Meta-Tenant` und `X-Meta-Token` mit. Das Token liegt verschlüsselt in den Einstellungen und wird beim Neu-Einrichten erneuert.
 
 ## Kontaktfelder in Brevo

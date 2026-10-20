@@ -146,6 +146,10 @@ export function brevoClient(apiKey: string, fetchImpl: FetchLike = fetch, base =
       return String(r?.status ?? "");
     },
 
+    /**
+     * Kampagne anlegen. Kein Tag: Kleinere Brevo-Tarife lehnen Kampagnen-Tags mit 405 ab (live 20.10.2026).
+     * Lehnt Brevo die UTM-Kennung ab, geht es einmal ohne sie weiter.
+     */
     async createCampaign(input: {
       name: string;
       subject: string;
@@ -153,20 +157,25 @@ export function brevoClient(apiKey: string, fetchImpl: FetchLike = fetch, base =
       templateId: number;
       listId: number;
       replyTo?: string;
-      tag: string;
-      utmCampaign: string;
+      utmCampaign?: string;
     }): Promise<number> {
-      const r = await call("POST", "/emailCampaigns", {
+      const body = (withUtm: boolean) => ({
         name: input.name,
         subject: input.subject,
         sender: { id: input.senderId },
         templateId: input.templateId,
         recipients: { listIds: [input.listId] },
         ...(input.replyTo ? { replyTo: input.replyTo } : {}),
-        tag: input.tag,
-        utmCampaign: input.utmCampaign,
+        ...(withUtm && input.utmCampaign ? { utmCampaign: input.utmCampaign } : {}),
       });
-      return Number(r?.id);
+      try {
+        const r = await call("POST", "/emailCampaigns", body(true));
+        return Number(r?.id);
+      } catch (err) {
+        if (!input.utmCampaign || !(err instanceof BrevoApiError) || ![400, 403, 405].includes(err.status) || !/utm/i.test(err.message)) throw err;
+        const r = await call("POST", "/emailCampaigns", body(false));
+        return Number(r?.id);
+      }
     },
 
     async sendCampaignNow(campaignId: number): Promise<void> {
