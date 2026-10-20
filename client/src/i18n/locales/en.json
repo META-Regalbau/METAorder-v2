@@ -315,7 +315,8 @@
     "systemLog": "System log",
     "shopContent": "Shop content",
     "shopWatch": "Shop watch",
-    "shopPulse": "Shop pulse"
+    "shopPulse": "Shop pulse",
+    "customerMails": "Customer mails"
   },
   "shopFakturen": {
     "title": "SAP Invoice Import",
@@ -6781,7 +6782,37 @@
       "invalid_merchant_center_settings": "Invalid Merchant Center settings",
       "failed_to_save_merchant_center_settings": "Merchant Center settings could not be saved",
       "die_mail_ist_grosser_als_36_mb_und_kann_nicht_automatisch_verarbeitet_werden_bit": "The e-mail is larger than 36 MB and cannot be processed automatically. Please open the e-mail in the mailbox and upload the attachments individually.",
-      "die_datei_ist_grosser_als_10_mb": "The file is larger than 10 MB."
+      "die_datei_ist_grosser_als_10_mb": "The file is larger than 10 MB.",
+      "invalid_brevo_event": "Invalid Brevo event",
+      "too_many_brevo_events": "Too many Brevo events",
+      "invalid_brevo_event_token": "Invalid Brevo event token",
+      "failed_to_store_brevo_event": "Failed to store Brevo event",
+      "failed_to_load_customer_mails": "Failed to load customer mails",
+      "invalid_customer_mail_settings": "Invalid customer mail settings",
+      "failed_to_save_customer_mail_settings": "Failed to save customer mail settings",
+      "failed_to_load_brevo_account": "Failed to load Brevo account",
+      "brevo_api_key_missing": "Brevo API key missing",
+      "customer_mail_sync_already_running": "Customer mail sync already running",
+      "customer_mail_sync_failed": "Customer mail sync failed (Brevo or Shopware unreachable)",
+      "brevo_webhook_needs_a_tenant_and_public_url": "The Brevo webhook needs a tenant and a public URL",
+      "failed_to_set_up_brevo_webhook": "Failed to set up Brevo webhook",
+      "failed_to_load_customer_mail_contacts": "Failed to load contacts",
+      "invalid_consent": "Consent incomplete (email and note required)",
+      "failed_to_record_consent": "Failed to record consent",
+      "invalid_objection": "Objection incomplete (valid email required)",
+      "failed_to_record_objection": "Failed to record objection",
+      "invalid_email_address": "Invalid email address",
+      "failed_to_load_customer_mail_status": "Failed to load marketing status",
+      "invalid_test_mail": "Test mail incomplete (template, sender and subject required)",
+      "failed_to_create_test_mail": "Failed to create test mail",
+      "failed_to_load_customer_mail_run": "Failed to load mailing",
+      "failed_to_send_customer_mail_run": "Failed to send mailing",
+      "failed_to_cancel_customer_mail_run": "Failed to discard mailing",
+      "customer_mails_are_switched_off": "Customer mails are switched off",
+      "customer_mail_run_not_found": "Mailing not found",
+      "customer_mail_run_is_not_a_draft": "The mailing is no longer a draft",
+      "no_recipients_with_a_legal_basis": "No recipients with a legal basis",
+      "no_test_recipients_configured": "No test recipients configured (settings)"
     }
   },
   "roomPlanner": {
@@ -9448,6 +9479,218 @@
         "failed": "Invoice not submitted to Mondu",
         "skipped": "No invoice submitted to Mondu"
       }
+    }
+  },
+  "customerMails": {
+    "title": "Customer mails",
+    "hint": "Newsletters, regular-customer and after-sales emails via Brevo. METAorder selects recipients with a legal basis; Brevo sends and manages unsubscribes.",
+    "enabled": "Customer mails switched on",
+    "switchedOn": "Customer mails switched on",
+    "switchedOff": "Customer mails switched off: no sync, no sending",
+    "saveFailed": "Saving failed",
+    "syncNow": "Sync now",
+    "syncDone": "Contacts synced",
+    "syncFailed": "Sync failed",
+    "syncError": "Last sync failed: {{error}}",
+    "lastSync": "Last sync {{at}}",
+    "neverSynced": "Not synced yet",
+    "syncStats": "{{mirror}} buyers, {{newsletter}} newsletter entries, {{blocked}} blocked in Brevo, {{upserted}} contacts changed",
+    "adminOnly": "Administrators only.",
+    "loading": "Loading …",
+    "noKey": "No Brevo API key stored yet.",
+    "toSettings": "Go to settings",
+    "brevoError": "Brevo reports an error: {{error}}",
+    "tabs": {
+      "overview": "Overview",
+      "contacts": "Contacts",
+      "settings": "Settings"
+    },
+    "basis": {
+      "consent": "Consent",
+      "existingCustomer": "Existing customer",
+      "none": "No legal basis",
+      "objected": "Objection",
+      "test": "Test address"
+    },
+    "channelKinds": {
+      "shop": "Online shop",
+      "portal": "Portal"
+    },
+    "consentSources": {
+      "shopNewsletter": "Newsletter sign-up",
+      "crm": "Sales rep/CRM",
+      "manual": "Manual"
+    },
+    "objectionSources": {
+      "brevoUnsubscribe": "Unsubscribe link",
+      "brevoSpam": "Spam report",
+      "brevoBlocklist": "Brevo blocklist",
+      "shopNewsletterOptOut": "Newsletter unsubscribe",
+      "manual": "Manual"
+    },
+    "types": {
+      "test": "Test mailing",
+      "newsletter": "Newsletter",
+      "regularLetter": "Regular customer letter",
+      "regularOverdue": "Overdue reminder",
+      "afterSalesService": "After-sales service",
+      "afterSalesAccessories": "After-sales accessories",
+      "reactivation": "Reactivation"
+    },
+    "runStatus": {
+      "draft": "Draft",
+      "sending": "Sending",
+      "sent": "Sent",
+      "failed": "Failed",
+      "cancelled": "Discarded"
+    },
+    "recipientStatus": {
+      "planned": "planned",
+      "skipped": "skipped",
+      "sent": "sent"
+    },
+    "skipReasons": {
+      "objected": "objection",
+      "bounced": "undeliverable",
+      "noBasis": "no legal basis",
+      "frequency": "frequency cap",
+      "invalidEmail": "invalid address",
+      "duplicate": "duplicate",
+      "channelOff": "channel switched off"
+    },
+    "counts": {
+      "title": "Contacts by legal basis",
+      "consent": "Consent",
+      "existingCustomer": "Existing customer",
+      "none": "No legal basis",
+      "objected": "Objection",
+      "bounced": "Undeliverable",
+      "total": "Total contacts",
+      "cutoffSet": "Existing-customer rule applies to orders from {{date}}.",
+      "cutoffMissing": "Existing-customer rule is off: cut-off date missing (settings). Until then only contacts with consent.",
+      "unconfirmed": "{{count}} newsletter entries without confirmed sign-up do not count as consent."
+    },
+    "test": {
+      "title": "Test mailing",
+      "hint": "Goes only to the test addresses: {{recipients}}. Checks template, sender, contact fields and unsubscribe link.",
+      "noRecipients": "Add test addresses in the settings first.",
+      "template": "Brevo template",
+      "templatePlaceholder": "Choose template",
+      "sender": "Sender",
+      "senderPlaceholder": "Choose sender",
+      "subject": "Subject",
+      "create": "Create draft",
+      "created": "Draft with {{count}} recipients created",
+      "createFailed": "Draft could not be created"
+    },
+    "runs": {
+      "title": "Mailings",
+      "none": "No mailings yet.",
+      "columns": {
+        "created": "Created",
+        "type": "Type",
+        "subject": "Subject",
+        "status": "Status",
+        "recipients": "Recipients"
+      },
+      "counts": "{{planned}} / {{skipped}} skipped",
+      "campaign": "Brevo campaign #{{id}}",
+      "show": "Recipients",
+      "hide": "Hide",
+      "send": "Send",
+      "confirmSend": "Send to {{count}} recipients now",
+      "keep": "Cancel",
+      "cancel": "Discard",
+      "sent": "Sent to {{count}} recipients",
+      "sendFailed": "Sending failed",
+      "cancelled": "Mailing discarded",
+      "cancelFailed": "Discarding failed",
+      "switchedOff": "Sending is only possible while customer mails are switched on."
+    },
+    "recipients": {
+      "email": "Email",
+      "customer": "Customer",
+      "basis": "Basis",
+      "status": "Status"
+    },
+    "contacts": {
+      "search": "Search",
+      "searchPlaceholder": "Email, company or customer number",
+      "filter": "Legal basis",
+      "all": "All",
+      "shown": "{{shown}} of {{total}} contacts",
+      "none": "No contacts found. The first sync creates them from orders and newsletter sign-ups.",
+      "columns": {
+        "email": "Email",
+        "customer": "Customer",
+        "orders": "Orders",
+        "lastOrder": "Last order",
+        "basis": "Basis"
+      },
+      "consentFrom": "{{source}} on {{date}}",
+      "objectionFrom": "Objection: {{source}} on {{date}}",
+      "bounced": "undeliverable",
+      "consentTitle": "Record consent",
+      "consentHint": "For example when the sales rep asked during a conversation. The note (contact person, occasion) serves as proof. An objection still takes precedence.",
+      "email": "Email address",
+      "source": "Source",
+      "date": "Date (empty = today)",
+      "note": "Note",
+      "notePlaceholder": "e.g. phone call with Mr Sample, trade fair",
+      "consentSave": "Save consent",
+      "consentSaved": "Consent saved",
+      "consentButObjected": "Consent saved, but there is an objection: no marketing emails",
+      "consentFailed": "Consent could not be saved",
+      "objectionTitle": "Record objection",
+      "objectionHint": "The customer then receives no more marketing emails. The address is added to the Brevo blocklist and unsubscribed from the shop newsletter. An objection cannot be withdrawn here.",
+      "objectionSave": "Save objection",
+      "objectionSaved": "Objection saved",
+      "objectionFailed": "Objection could not be saved"
+    },
+    "settings": {
+      "brevoTitle": "Brevo access",
+      "keyLabel": "API key",
+      "keyPlaceholder": "xkeysib-…",
+      "keySet": "Key stored (enter a new one to change it)",
+      "keySave": "Save key",
+      "keyRemove": "Remove key",
+      "keyHelp": "Create a dedicated key for METAorder in Brevo under “SMTP & API”. It is stored encrypted and never shown again.",
+      "checking": "Checking connection …",
+      "account": "Connected to {{company}}: {{senders}} senders, {{templates}} templates",
+      "rulesTitle": "Rules",
+      "since": "Existing-customer notice cut-off",
+      "sinceHelp": "The day the notice about email marketing to existing customers went live in checkout and privacy policy (B0). Only orders from this day count as existing customer. Empty = rule off.",
+      "perWeek": "Marketing emails per week",
+      "perMonth": "Marketing emails per month",
+      "replyTo": "Reply-to address",
+      "testRecipients": "Test addresses",
+      "testRecipientsHelp": "Internal addresses, one per line. Only they receive test mailings.",
+      "save": "Save rules",
+      "saved": "Settings saved",
+      "channelsTitle": "Sales channels and senders",
+      "channelsHint": "Only enabled channels receive emails. Shop customers are addressed by “META Regalbau”, portal customers later by their sales rep.",
+      "noChannels": "No channels with orders in the mirror yet.",
+      "channelColumns": {
+        "channel": "Channel",
+        "kind": "Type",
+        "sender": "Sender",
+        "enabled": "Active"
+      },
+      "senderNone": "No sender",
+      "senderRep": "Sales rep (coming)",
+      "saveChannels": "Save channels",
+      "webhookTitle": "Unsubscribes from Brevo",
+      "webhookHint": "Brevo reports unsubscribes, spam reports, undeliverable addresses and clicks to METAorder immediately. The sync also fetches the Brevo blocklist every hour.",
+      "webhookActive": "Webhook set up (Brevo ID {{id}})",
+      "webhookMissing": "Webhook not set up yet",
+      "webhookSetup": "Set up webhook in Brevo",
+      "webhookRenew": "Set up webhook again",
+      "webhookDone": "Webhook set up in Brevo",
+      "webhookFailed": "Webhook could not be set up"
+    },
+    "crmBadge": {
+      "label": "Marketing: {{basis}}",
+      "noBasisHint": "No consent and no order since the existing-customer notice cut-off"
     }
   }
 }

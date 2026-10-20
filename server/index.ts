@@ -21,6 +21,7 @@ import { startProductImageTextsScheduler } from "./products/productImageTextsJob
 import { startProductMetaTextsScheduler } from "./products/productMetaTextsJobs";
 import { startShopWatchScheduler } from "./shopContent/shopWatchScheduler";
 import { startShopPulseScheduler } from "./shopPulse/shopPulseScheduler";
+import { startCustomerMailScheduler } from "./customerMails/customerMailsScheduler";
 import { startMonduScheduler } from "./invoicing/monduScheduler";
 import { runOfferLearning } from "./offers/offerLearning";
 import { pollInboundEmails } from "./email/emailInbound";
@@ -235,6 +236,8 @@ function startSystemLog() {
   startShopPulseScheduler(storage);
   // Mondu Sell: Status offener Mondu-Bestellungen alle 15 Min., vorgemerkte Rechnungen nachreichen
   startMonduScheduler(storage);
+  // Kundenmails (Brevo): Kontaktabgleich stündlich, wenn eingeschaltet und Schlüssel hinterlegt
+  startCustomerMailScheduler(storage);
 
   const runOfferLearningJob = async () => {
     try {

@@ -47,6 +47,7 @@ const SystemLogPage = lazy(() => import("@/pages/SystemLogPage"));
 const ShopContentPage = lazy(() => import("@/pages/ShopContentPage"));
 const ShopWatchPage = lazy(() => import("@/pages/ShopWatchPage"));
 const ShopPulsePage = lazy(() => import("@/pages/ShopPulsePage"));
+const CustomerMailsPage = lazy(() => import("@/pages/CustomerMailsPage"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
 const AccountingPage = lazy(() => import("@/pages/AccountingPage"));
 const B2BAccountsPage = lazy(() => import("@/pages/B2BAccountsPage"));
@@ -156,6 +157,7 @@ function Router({
       <Route path="/admin/shop-inhalte" component={ShopContentPage} />
       <Route path="/admin/shop-waechter" component={ShopWatchPage} />
       <Route path="/admin/shop-puls" component={ShopPulsePage} />
+      <Route path="/admin/kundenmails" component={CustomerMailsPage} />
       <Route path="/profile" component={ProfilePage} />
       <Route component={NotFound} />
     </Switch>
