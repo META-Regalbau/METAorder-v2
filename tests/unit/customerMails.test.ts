@@ -291,7 +291,23 @@ describe("Kundenmails: Brevo-Client", () => {
     });
     expect(await client.createWebhook("https://app/api/public/customer-mails/brevo", { "X-Meta-Tenant": "t1", "X-Meta-Token": "tok" }, ["unsubscribed"])).toBe(77);
     expect(bodies[0]).toMatchObject({ type: "marketing", events: ["unsubscribed"], headers: [{ key: "X-Meta-Tenant", value: "t1" }, { key: "X-Meta-Token", value: "tok" }] });
-    expect(await client.createCampaign({ name: "n", subject: "s", senderId: 3, templateId: 9, listId: 4, tag: "metaorder-test", utmCampaign: "u" })).toBe(77);
-    expect(bodies[1]).toEqual({ name: "n", subject: "s", sender: { id: 3 }, templateId: 9, recipients: { listIds: [4] }, tag: "metaorder-test", utmCampaign: "u" });
+    expect(await client.createCampaign({ name: "n", subject: "s", senderId: 3, templateId: 9, listId: 4, utmCampaign: "u" })).toBe(77);
+    // kein Tag: kleinere Brevo-Tarife lehnen Kampagnen-Tags ab
+    expect(bodies[1]).toEqual({ name: "n", subject: "s", sender: { id: 3 }, templateId: 9, recipients: { listIds: [4] }, utmCampaign: "u" });
+  });
+
+  it("Kampagne: lehnt Brevo die UTM-Kennung ab, zweiter Versuch ohne", async () => {
+    const bodies: any[] = [];
+    const client = brevoClient("KEY", async (_url, init) => {
+      const body = JSON.parse(String(init?.body ?? "null"));
+      bodies.push(body);
+      if (body.utmCampaign) return new Response(JSON.stringify({ code: "method_not_allowed", message: "You are not allowed to avail utm option for your campaign" }), { status: 405 });
+      return new Response(JSON.stringify({ id: 88 }), { status: 201 });
+    });
+    expect(await client.createCampaign({ name: "n", subject: "s", senderId: 3, templateId: 9, listId: 4, utmCampaign: "u" })).toBe(88);
+    expect(bodies.map((b) => "utmCampaign" in b)).toEqual([true, false]);
+    // andere Fehler werden nicht verschluckt
+    const failing = brevoClient("KEY", async () => new Response(JSON.stringify({ message: "Template not found" }), { status: 400 }));
+    await expect(failing.createCampaign({ name: "n", subject: "s", senderId: 3, templateId: 9, listId: 4, utmCampaign: "u" })).rejects.toMatchObject({ status: 400 });
   });
 });

@@ -776,7 +776,6 @@ export async function sendRun(deps: CustomerMailDeps, tenantId: string | null, r
         templateId: run.templateId,
         listId,
         replyTo: settings.replyTo || undefined,
-        tag: `metaorder-${run.mailType}`,
         utmCampaign: `metaorder-${run.mailType}-${day}`,
       });
       await db.update(marketingMailRuns).set({ brevoCampaignId: campaignId, updatedAt: deps.now() }).where(eq(marketingMailRuns.id, runId));
