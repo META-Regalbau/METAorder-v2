@@ -63,7 +63,14 @@ export function frequencyOk(sentAdvertising: Date[], now: Date, maxPerWeek: numb
   return week < maxPerWeek && month < maxPerMonth;
 }
 
-export type PlanCandidate = { email: string; customerNumber?: string | null; salesChannelId?: string | null; attributes?: Record<string, string | number | null> };
+export type PlanCandidate = {
+  email: string;
+  customerNumber?: string | null;
+  salesChannelId?: string | null;
+  attributes?: Record<string, string | number | null>;
+  /** Ausschluss der Mailart selbst (z. B. offene Reklamation); schlägt alles außer Widerspruch */
+  skipReason?: CustomerMailSkipReason | null;
+};
 export type PlannedRecipient = {
   email: string;
   customerNumber: string | null;
@@ -115,6 +122,7 @@ export function planRecipients(
     const channelId = cand.salesChannelId ?? contact?.salesChannelId ?? null;
     let skipReason: CustomerMailSkipReason | null = null;
     if (basis === "objected") skipReason = "objected";
+    else if (cand.skipReason) skipReason = cand.skipReason;
     else if (contact?.bouncedAt) skipReason = "bounced";
     // In Brevo gesperrt (meist vom Shop-Plugin, weil kein Newsletter): Brevo würde die Mail stillschweigend
     // auslassen. Entsperren gehört bewusst in den jeweiligen Baustein (B2 ff.), nicht hierher.

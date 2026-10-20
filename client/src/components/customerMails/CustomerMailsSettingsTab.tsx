@@ -234,6 +234,30 @@ export function CustomerMailsSettingsTab({ data }: { data: CustomerMailOverview 
         </Button>
       </Card>
 
+      <Card className="p-4 space-y-3" data-testid="customer-mails-live-types">
+        <div className="space-y-1">
+          <h2 className="font-semibold">{t("customerMails.settings.liveTitle")}</h2>
+          <p className="text-xs text-muted-foreground">{t("customerMails.settings.liveHint")}</p>
+        </div>
+        {(["regularLetter"] as const).map((type) => {
+          const on = data.settings.liveTypes.includes(type);
+          return (
+            <div key={type} className="flex items-center gap-2">
+              <Switch
+                id={`customer-mails-live-${type}`}
+                checked={on}
+                disabled={save.isPending}
+                onCheckedChange={(checked) =>
+                  save.mutate({ liveTypes: checked ? Array.from(new Set([...data.settings.liveTypes, type])) : data.settings.liveTypes.filter((x) => x !== type) })
+                }
+                data-testid={`switch-customer-mails-live-${type}`}
+              />
+              <Label htmlFor={`customer-mails-live-${type}`}>{t("customerMails.settings.liveLabel", { type: t(`customerMails.types.${type}`) })}</Label>
+            </div>
+          );
+        })}
+      </Card>
+
       <Card className="p-4 space-y-3">
         <div className="space-y-1">
           <h2 className="font-semibold">{t("customerMails.settings.webhookTitle")}</h2>

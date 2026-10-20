@@ -216,6 +216,18 @@ export function brevoClient(apiKey: string, fetchImpl: FetchLike = fetch, base =
       }
     },
 
+    /** Vorlage anlegen (Marketing-Kampagnen nutzen dieselben Vorlagen); liefert die ID */
+    async createTemplate(input: { name: string; subject: string; html: string; senderId: number }): Promise<number> {
+      const r = await call("POST", "/smtp/templates", {
+        templateName: input.name,
+        subject: input.subject,
+        htmlContent: input.html,
+        sender: { id: input.senderId },
+        isActive: true,
+      });
+      return Number(r?.id);
+    },
+
     async sendCampaignNow(campaignId: number): Promise<void> {
       await call("POST", `/emailCampaigns/${campaignId}/sendNow`);
     },

@@ -37,10 +37,13 @@ import {
   webhookTokenOk,
 } from "../customerMails/customerMailsRun";
 import { runCustomerMailSync } from "../customerMails/customerMailsScheduler";
+import { createRegularLetterRun, createRegularLetterTemplate } from "../customerMails/regularLetterRun";
 import {
   customerMailConsentSchema,
   customerMailObjectionSchema,
+  customerMailRegularLetterRunSchema,
   customerMailSettingsSchema,
+  customerMailTemplateSchema,
   customerMailTestRunSchema,
   CUSTOMER_MAIL_BASES,
   type CustomerMailBasis,
@@ -98,6 +101,9 @@ function sendMailError(res: Response, error: unknown): boolean {
       return true;
     case "invalidEmail":
       res.status(400).json({ error: "Invalid email address" });
+      return true;
+    case "customerSendingOff":
+      res.status(409).json({ error: "Customer sending is switched off for this mail type" });
       return true;
   }
   return false;
@@ -281,6 +287,36 @@ export function registerCustomerMailRoutes(app: Express): void {
     } catch (error) {
       if (!(error instanceof CustomerMailError)) moduleLog.error({ err: error, tenantId }, "Kundenmails: Testaussendung anlegen fehlgeschlagen");
       if (!sendMailError(res, error)) res.status(500).json({ error: "Failed to create test mail" });
+    }
+  });
+
+  /** Stammkunden-Brief (B2): Vorschau an die Testadressen oder Entwurf für Kunden */
+  app.post("/api/customer-mails/runs/regular-letter", requireAuth, requireAdministrator, requireCsrf, async (req: Request, res: Response) => {
+    const parsed = customerMailRegularLetterRunSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid regular customer letter" });
+    const tenantId = tenantOf(req);
+    try {
+      res.json(await createRegularLetterRun(customerMailDeps(storage), tenantId, parsed.data, userName(req)));
+    } catch (error) {
+      if (sendMailError(res, error)) return;
+      moduleLog.error({ err: error, tenantId }, "Kundenmails: Stammkunden-Brief anlegen fehlgeschlagen");
+      res.status(500).json({ error: "Failed to create regular customer letter" });
+    }
+  });
+
+  /** Startvorlage „Stammkunden-Brief“ in Brevo anlegen */
+  app.post("/api/customer-mails/templates/regular-letter", requireAuth, requireAdministrator, requireCsrf, async (req: Request, res: Response) => {
+    const parsed = customerMailTemplateSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid Brevo template request" });
+    const tenantId = tenantOf(req);
+    try {
+      const templateId = await createRegularLetterTemplate(customerMailDeps(storage), tenantId, parsed.data.senderId);
+      moduleLog.info({ tenantId, by: userName(req), templateId }, "Kundenmails: Vorlage Stammkunden-Brief angelegt");
+      res.json({ templateId });
+    } catch (error) {
+      if (sendMailError(res, error)) return;
+      moduleLog.error({ err: error, tenantId }, "Kundenmails: Brevo-Vorlage anlegen fehlgeschlagen");
+      res.status(502).json({ error: "Failed to create Brevo template" });
     }
   });
 

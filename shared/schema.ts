@@ -4223,6 +4223,8 @@ export const marketingMailRuns = pgTable(
     id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
     tenantId: varchar("tenant_id"),
     mailType: text("mail_type").notNull(),
+    /** Testaussendung mit Inhalten dieser Mailart (Migration 0067) */
+    previewOf: text("preview_of"),
     /** draft | sending | sent | failed | cancelled */
     status: text("status").notNull().default("draft"),
     subject: text("subject").notNull(),
