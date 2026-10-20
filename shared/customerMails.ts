@@ -33,7 +33,7 @@ export type CustomerMailBasis = (typeof CUSTOMER_MAIL_BASES)[number];
 export const CUSTOMER_MAIL_TYPE_RULES: Record<CustomerMailType, { advertising: boolean; bases: CustomerMailBasis[]; available: boolean }> = {
   test: { advertising: false, bases: [], available: true },
   newsletter: { advertising: true, bases: ["consent"], available: false },
-  regularLetter: { advertising: true, bases: ["consent", "existingCustomer"], available: false },
+  regularLetter: { advertising: true, bases: ["consent", "existingCustomer"], available: true },
   regularOverdue: { advertising: true, bases: ["consent", "existingCustomer"], available: false },
   afterSalesService: { advertising: false, bases: ["consent", "existingCustomer", "none"], available: false },
   afterSalesAccessories: { advertising: true, bases: ["consent", "existingCustomer"], available: false },
@@ -47,7 +47,7 @@ export type CustomerMailConsentSource = (typeof CUSTOMER_MAIL_CONSENT_SOURCES)[n
 export const CUSTOMER_MAIL_OBJECTION_SOURCES = ["brevoUnsubscribe", "brevoSpam", "brevoBlocklist", "shopNewsletterOptOut", "manual"] as const;
 export type CustomerMailObjectionSource = (typeof CUSTOMER_MAIL_OBJECTION_SOURCES)[number];
 
-export const CUSTOMER_MAIL_SKIP_REASONS = ["objected", "bounced", "noBasis", "frequency", "invalidEmail", "duplicate", "channelOff", "brevoBlocked"] as const;
+export const CUSTOMER_MAIL_SKIP_REASONS = ["objected", "bounced", "noBasis", "frequency", "invalidEmail", "duplicate", "channelOff", "brevoBlocked", "complaint", "paymentOverdue"] as const;
 export type CustomerMailSkipReason = (typeof CUSTOMER_MAIL_SKIP_REASONS)[number];
 
 export const CUSTOMER_MAIL_RUN_STATUSES = ["draft", "sending", "sent", "failed", "cancelled"] as const;
@@ -91,6 +91,11 @@ export type CustomerMailSettings = {
   /** Antwortadresse (überwachtes Postfach); leer = Absender */
   replyTo: string;
   channels: CustomerMailChannel[];
+  /**
+   * Mailarten, die an Kunden gehen dürfen (Entscheidung 20.10.2026: zuerst nur testen). Ab Werk leer: dann gibt es je
+   * Mailart nur die Vorschau an die Testadressen.
+   */
+  liveTypes: CustomerMailType[];
 };
 
 export const DEFAULT_CUSTOMER_MAIL_SETTINGS: CustomerMailSettings = {
@@ -101,6 +106,7 @@ export const DEFAULT_CUSTOMER_MAIL_SETTINGS: CustomerMailSettings = {
   testRecipients: [],
   replyTo: "",
   channels: [],
+  liveTypes: [],
 };
 
 const emailSchema = z.string().trim().toLowerCase().email().max(254);
@@ -128,6 +134,7 @@ export const customerMailSettingsSchema = z
     testRecipients: z.array(emailSchema).max(20),
     replyTo: z.union([emailSchema, z.literal("")]),
     channels: z.array(customerMailChannelSchema).max(50),
+    liveTypes: z.array(z.enum(CUSTOMER_MAIL_TYPES).refine((t) => t !== "test")).max(CUSTOMER_MAIL_TYPES.length),
     /** Brevo-API-Schlüssel: undefined = unverändert, "" = löschen */
     apiKey: z.string().trim().max(200),
   })
@@ -164,6 +171,18 @@ export const customerMailObjectionSchema = z
   })
   .strict();
 
+/** Stammkunden-Brief: „preview“ = echte Briefe von Beispielkunden an die Testadressen, „customers“ = Entwurf für Kunden */
+export const customerMailRegularLetterRunSchema = z
+  .object({
+    templateId: z.number().int().positive(),
+    senderId: z.number().int().positive(),
+    subject: z.string().trim().min(1).max(200),
+    mode: z.enum(["preview", "customers"]),
+  })
+  .strict();
+
+export const customerMailTemplateSchema = z.object({ senderId: z.number().int().positive() }).strict();
+
 export const customerMailTestRunSchema = z
   .object({
     templateId: z.number().int().positive(),
@@ -198,6 +217,8 @@ export type CustomerMailCounts = Record<CustomerMailBasis, number> & { total: nu
 export type CustomerMailRun = {
   id: string;
   mailType: CustomerMailType;
+  /** Testaussendung mit echten Inhalten dieser Mailart (Vorschau an die Testadressen) */
+  previewOf: CustomerMailType | null;
   status: CustomerMailRunStatus;
   subject: string;
   templateId: number | null;
@@ -220,9 +241,15 @@ export type CustomerMailRunRecipient = {
   basis: CustomerMailBasis | "test";
   status: "planned" | "skipped" | "sent";
   skipReason: CustomerMailSkipReason | null;
+  /** Brevo-Felder dieses Empfängers (MO_…), für die Vorschau */
+  attributes: Record<string, string | number | null>;
 };
 
-export type CustomerMailRunDetail = CustomerMailRun & { recipients: CustomerMailRunRecipient[] };
+export type CustomerMailRunDetail = CustomerMailRun & {
+  recipients: CustomerMailRunRecipient[];
+  /** nur beim Anlegen eines Stammkunden-Briefs: Kandidaten, davon mit Inhalt, ausgeschlossen */
+  build?: { candidates: number; withContent: number; excluded: number } | null;
+};
 
 export type CustomerMailState = {
   lastSyncAt: string | null;

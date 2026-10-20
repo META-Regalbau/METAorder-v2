@@ -14,6 +14,7 @@ import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { CustomerMailBrevoInfo, CustomerMailOverview, CustomerMailRun, CustomerMailRunDetail } from "@shared/customerMails";
 import { CUSTOMER_MAILS_BREVO_QUERY_KEY, CUSTOMER_MAILS_QUERY_KEY } from "./customerMailsQuery";
+import { CustomerMailsRegularLetterCard } from "./CustomerMailsRegularLetterCard";
 
 /**
  * Reiter „Übersicht“: Kontakte je Rechtsgrundlage, Testaussendung (Vorlage + Absender + Betreff an die
@@ -164,6 +165,8 @@ export function CustomerMailsOverviewTab({ data }: { data: CustomerMailOverview 
         </form>
       </Card>
 
+      <CustomerMailsRegularLetterCard data={data} onRun={afterRun} />
+
       <Card className="p-4 space-y-3">
         <h2 className="font-semibold">{t("customerMails.runs.title")}</h2>
         {data.runs.length === 0 ? (
@@ -188,7 +191,10 @@ export function CustomerMailsOverviewTab({ data }: { data: CustomerMailOverview 
                       {fmt.dateTime(run.createdAt)}
                       {run.createdBy ? <div className="text-xs text-muted-foreground">{run.createdBy}</div> : null}
                     </TableCell>
-                    <TableCell className="text-sm">{t(`customerMails.types.${run.mailType}`)}</TableCell>
+                    <TableCell className="text-sm">
+                      {t(`customerMails.types.${run.mailType}`)}
+                      {run.previewOf ? <div className="text-xs text-muted-foreground">{t("customerMails.runs.previewOf", { type: t(`customerMails.types.${run.previewOf}`) })}</div> : null}
+                    </TableCell>
                     <TableCell className="text-sm">
                       {run.subject}
                       {run.error ? <div className="text-xs text-destructive break-all">{run.error}</div> : null}
@@ -252,6 +258,7 @@ export function CustomerMailsOverviewTab({ data }: { data: CustomerMailOverview 
                   <TableHead>{t("customerMails.recipients.email")}</TableHead>
                   <TableHead>{t("customerMails.recipients.customer")}</TableHead>
                   <TableHead>{t("customerMails.recipients.basis")}</TableHead>
+                  <TableHead>{t("customerMails.recipients.content")}</TableHead>
                   <TableHead>{t("customerMails.recipients.status")}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -261,6 +268,10 @@ export function CustomerMailsOverviewTab({ data }: { data: CustomerMailOverview 
                     <TableCell className="text-sm break-all">{r.email}</TableCell>
                     <TableCell className="text-sm">{r.customerNumber ?? "–"}</TableCell>
                     <TableCell className="text-sm">{t(`customerMails.basis.${r.basis}`)}</TableCell>
+                    <TableCell className="text-xs">
+                      {[r.attributes.MO_FIRMA, r.attributes.MO_STAMM_1_NAME, r.attributes.MO_STAMM_2_NAME, r.attributes.MO_STAMM_3_NAME].filter(Boolean).join(" · ") || "–"}
+                      {r.attributes.MO_ZUB_1_NAME ? <div className="text-muted-foreground">{t("customerMails.recipients.accessories", { names: [r.attributes.MO_ZUB_1_NAME, r.attributes.MO_ZUB_2_NAME, r.attributes.MO_ZUB_3_NAME].filter(Boolean).join(", ") })}</div> : null}
+                    </TableCell>
                     <TableCell className="text-sm">
                       {t(`customerMails.recipientStatus.${r.status}`)}
                       {r.skipReason ? <span className="text-xs text-muted-foreground"> · {t(`customerMails.skipReasons.${r.skipReason}`)}</span> : null}

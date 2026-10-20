@@ -25,9 +25,23 @@ Je Mailart gilt eine Liste zulässiger Grundlagen (`CUSTOMER_MAIL_TYPE_RULES` in
 - **Aussendung**: Entwurf mit geplanten und ausgelassenen Empfängern (mit Grund). Beim Senden prüft METAorder Widersprüche und Bounces erneut. Danach legt es in Brevo die Liste an, importiert die Kontakte mit `MO_`-Feldern, erstellt die Kampagne (Vorlage, Absender, Antwortadresse, UTM; kein Tag, das lehnt der Brevo-Tarif ab) und verschickt sie sofort. Ein Lauf kommt nur einmal aus „Entwurf“ bzw. „Fehler“ in den Versand.
 - **Webhook** `POST /api/public/customer-mails/brevo`: Wird per Knopf in Brevo eingerichtet (Marketing: `unsubscribed`, `spam`, `hardBounce`, `click`). Brevo schickt dabei die Kopfzeilen `X-Meta-Tenant` und `X-Meta-Token` mit. Das Token liegt verschlüsselt in den Einstellungen und wird beim Neu-Einrichten erneuert.
 
+## B2 Stammkunden-Brief
+
+- **Kandidaten:** Kunden mit mindestens 2 Bestelltagen (MO, 730 Tage). Lokal mit Live-Spiegel am 20.10.2026: 256 Kunden, 254 mit kaufbaren Stammartikeln, 98 mit Zubehör.
+- **Inhalt:**
+  - Bis zu 3 Stammartikel. Zuerst die, die an mehreren Tagen gekauft wurden, dann nach Umsatz. Service-Artikel (SW…) sind ausgenommen.
+  - Je Artikel der **Listenpreis netto**, die Lieferzeit und der Link. Die Daten kommen live aus dem Shop (DE-Kanal, unter der Shop-Sperre). Nicht aktive Artikel und Artikel ohne Preis fallen weg.
+  - Bis zu 3 Zubehörartikel aus im Shop aktiven Crossselling-Paaren (`cross_sell_pair_state.status = applied`), ohne bereits gekaufte Artikel.
+- **Ausschlüsse:** offene Reklamation (Ticket-Kategorie `complaint`, nicht erledigt) und überfällige Zahlung (`isPaymentOverdue` bei noch offener Zahlung).
+- **Vorschau:** Echte Briefe von Beispielkunden gehen an die Testadressen, abwechselnd mit beiden Fußzeilen. Bevorzugt werden Kunden mit Zubehör.
+- **Kundenversand:** Ab Werk aus. Der Schalter „Stammkunden-Brief an Kunden erlauben“ in den Einstellungen schaltet ihn frei. Senden prüft das noch einmal.
+- **Startvorlage:** Ein Knopf legt sie in Brevo an (`regularLetterTemplate.ts`). Danach lässt sie sich in Brevo gestalten.
+- **Hinweis:** Das Brevo-Plugin sperrt alle Kunden ohne Newsletter. Diese werden ausgelassen (`brevoBlocked`). METAorder entsperrt sie nie selbst, denn das Plugin würde sie wieder sperren und gleicht den Status in beide Richtungen ab.
+- **Offen:** Portal-Kunden brauchen Portalpreise und den Außendienst als Absender. Der Stammkundenrabatt ist nicht abgebildet.
+
 ## Kontaktfelder in Brevo
 
-`MO_FIRMA`, `MO_NAME`, `MO_KUNDENNR`, `MO_KANAL`, `MO_GRUNDLAGE` (`einwilligung` | `bestandskunde` | `test`), `MO_LETZTE_BESTELLUNG` (Datum). Fehlende Felder legt METAorder beim ersten Senden an. Die Vorlage wählt die Fußzeile über `MO_GRUNDLAGE`, zum Beispiel:
+`MO_FIRMA`, `MO_NAME`, `MO_KUNDENNR`, `MO_KANAL`, `MO_GRUNDLAGE` (`einwilligung` | `bestandskunde` | `test`), `MO_LETZTE_BESTELLUNG` (Datum). Stammkunden-Brief: `MO_STAMM_ANZAHL`, `MO_STAMM_{1..3}_NAME|NR|PREIS|LIEFERZEIT|URL`, `MO_ZUB_ANZAHL`, `MO_ZUB_{1..3}_NAME|PREIS|URL`. Fehlende Felder legt METAorder beim ersten Senden an. Die Vorlage wählt die Fußzeile über `MO_GRUNDLAGE`, zum Beispiel:
 
 ```
 {% if contact.MO_GRUNDLAGE == "bestandskunde" %} … Sie erhalten diese E-Mail, weil Sie bei META bestellt haben … {% else %} … Newsletter abonniert … {% endif %}

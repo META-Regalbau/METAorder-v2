@@ -6809,7 +6809,12 @@
       "customer_mail_run_not_found": "Aussendung nicht gefunden",
       "customer_mail_run_is_not_a_draft": "Die Aussendung ist kein Entwurf mehr",
       "no_recipients_with_a_legal_basis": "Keine Empfänger mit Rechtsgrundlage",
-      "no_test_recipients_configured": "Keine Testadressen hinterlegt (Einstellungen)"
+      "no_test_recipients_configured": "Keine Testadressen hinterlegt (Einstellungen)",
+      "customer_sending_is_switched_off_for_this_mail_type": "Kundenversand für diese Mailart ist ausgeschaltet (Einstellungen)",
+      "invalid_regular_customer_letter": "Stammkunden-Brief unvollständig (Vorlage, Absender und Betreff nötig)",
+      "failed_to_create_regular_customer_letter": "Stammkunden-Brief konnte nicht angelegt werden",
+      "invalid_brevo_template_request": "Für die Vorlage fehlt der Absender",
+      "failed_to_create_brevo_template": "Vorlage konnte in Brevo nicht angelegt werden"
     }
   },
   "roomPlanner": {
@@ -9554,7 +9559,9 @@
       "invalidEmail": "ungültige Adresse",
       "duplicate": "doppelt",
       "channelOff": "Kanal ausgeschaltet",
-      "brevoBlocked": "in Brevo gesperrt"
+      "brevoBlocked": "in Brevo gesperrt",
+      "complaint": "offene Reklamation",
+      "paymentOverdue": "Zahlung überfällig"
     },
     "counts": {
       "title": "Kontakte nach Rechtsgrundlage",
@@ -9603,13 +9610,16 @@
       "sendFailed": "Versand fehlgeschlagen",
       "cancelled": "Aussendung verworfen",
       "cancelFailed": "Verwerfen fehlgeschlagen",
-      "switchedOff": "Senden geht erst, wenn Kundenmails eingeschaltet sind."
+      "switchedOff": "Senden geht erst, wenn Kundenmails eingeschaltet sind.",
+      "previewOf": "Vorschau: {{type}}"
     },
     "recipients": {
       "email": "E-Mail",
       "customer": "Kunde",
       "basis": "Grundlage",
-      "status": "Stand"
+      "status": "Stand",
+      "content": "Inhalt",
+      "accessories": "Zubehör: {{names}}"
     },
     "contacts": {
       "search": "Suche",
@@ -9685,12 +9695,32 @@
       "webhookSetup": "Webhook in Brevo einrichten",
       "webhookRenew": "Webhook neu einrichten",
       "webhookDone": "Webhook in Brevo eingerichtet",
-      "webhookFailed": "Webhook konnte nicht eingerichtet werden"
+      "webhookFailed": "Webhook konnte nicht eingerichtet werden",
+      "liveTitle": "Kundenversand",
+      "liveHint": "Ab Werk geht jede Mailart nur als Vorschau an die Testadressen. Erst mit diesem Schalter darf METAorder Entwürfe für Kunden anlegen und senden.",
+      "liveLabel": "{{type}} an Kunden erlauben"
     },
     "crmBadge": {
       "label": "Werbung: {{basis}}",
       "noBasisHint": "Keine Einwilligung und keine Bestellung ab dem Stichtag des Bestandskunden-Hinweises"
     },
-    "syncBlockReasons": "Brevo-Sperrgründe: {{checked}} geprüft, {{open}} offen, davon {{unsubscribed}} echte Abmeldungen"
+    "syncBlockReasons": "Brevo-Sperrgründe: {{checked}} geprüft, {{open}} offen, davon {{unsubscribed}} echte Abmeldungen",
+    "letter": {
+      "defaultSubject": "Ihre Artikel bei META: aktuelle Preise und Lieferzeiten",
+      "title": "Stammkunden-Brief",
+      "hint": "Für Kunden mit mindestens 2 Bestelltagen: bis zu 3 Stammartikel mit aktuellem Preis, Lieferzeit und Link aus dem Shop, dazu passendes Zubehör aus „Das passt dazu“. Ohne Kunden mit offener Reklamation oder überfälliger Zahlung. Rechtsgrundlage, Brevo-Sperre und Kontaktbremse gelten wie immer.",
+      "createTemplate": "Startvorlage in Brevo anlegen",
+      "senderFirst": "Zuerst einen Absender wählen",
+      "templateCreated": "Vorlage #{{id}} in Brevo angelegt – dort kannst du sie gestalten",
+      "templateFailed": "Vorlage konnte nicht angelegt werden",
+      "preview": "Vorschau an Testadressen",
+      "customers": "Entwurf für Kunden",
+      "customersOff": "Kundenversand für den Stammkunden-Brief ist ausgeschaltet (Einstellungen). Es gibt nur die Vorschau an die Testadressen.",
+      "customersOnHint": "Kundenversand ist freigeschaltet. Der Entwurf geht erst nach „Senden“ und Bestätigung raus.",
+      "previewCreated": "Vorschau mit {{count}} Testadressen angelegt – unter „Aussendungen“ senden",
+      "draftCreated": "Entwurf mit {{count}} Empfängern angelegt – Empfänger prüfen, dann senden",
+      "buildStats": "{{candidates}} Stammkunden, {{withContent}} mit kaufbaren Stammartikeln, {{excluded}} ausgeschlossen",
+      "createFailed": "Stammkunden-Brief konnte nicht angelegt werden"
+    }
   }
 }

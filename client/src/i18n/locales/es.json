@@ -6809,7 +6809,12 @@
       "customer_mail_run_not_found": "Envío no encontrado",
       "customer_mail_run_is_not_a_draft": "El envío ya no es un borrador",
       "no_recipients_with_a_legal_basis": "No hay destinatarios con base legal",
-      "no_test_recipients_configured": "No hay destinatarios de prueba configurados (ajustes)"
+      "no_test_recipients_configured": "No hay destinatarios de prueba configurados (ajustes)",
+      "customer_sending_is_switched_off_for_this_mail_type": "El envío a clientes está desactivado para este tipo de correo (ajustes)",
+      "invalid_regular_customer_letter": "Carta a clientes habituales incompleta (plantilla, remitente y asunto obligatorios)",
+      "failed_to_create_regular_customer_letter": "No se pudo crear la carta a clientes habituales",
+      "invalid_brevo_template_request": "Falta el remitente para la plantilla",
+      "failed_to_create_brevo_template": "No se pudo crear la plantilla en Brevo"
     }
   },
   "roomPlanner": {
@@ -9554,7 +9559,9 @@
       "invalidEmail": "dirección no válida",
       "duplicate": "duplicado",
       "channelOff": "canal desactivado",
-      "brevoBlocked": "bloqueado en Brevo"
+      "brevoBlocked": "bloqueado en Brevo",
+      "complaint": "reclamación abierta",
+      "paymentOverdue": "pago vencido"
     },
     "counts": {
       "title": "Contactos por base legal",
@@ -9603,13 +9610,16 @@
       "sendFailed": "Falló el envío",
       "cancelled": "Envío descartado",
       "cancelFailed": "No se pudo descartar",
-      "switchedOff": "Solo se puede enviar con los correos a clientes activados."
+      "switchedOff": "Solo se puede enviar con los correos a clientes activados.",
+      "previewOf": "Vista previa: {{type}}"
     },
     "recipients": {
       "email": "Correo",
       "customer": "Cliente",
       "basis": "Base",
-      "status": "Estado"
+      "status": "Estado",
+      "content": "Contenido",
+      "accessories": "Accesorios: {{names}}"
     },
     "contacts": {
       "search": "Buscar",
@@ -9685,12 +9695,32 @@
       "webhookSetup": "Configurar webhook en Brevo",
       "webhookRenew": "Volver a configurar el webhook",
       "webhookDone": "Webhook configurado en Brevo",
-      "webhookFailed": "No se pudo configurar el webhook"
+      "webhookFailed": "No se pudo configurar el webhook",
+      "liveTitle": "Envío a clientes",
+      "liveHint": "Por defecto cada tipo de correo solo va como vista previa a las direcciones de prueba. Solo con este interruptor METAorder puede crear y enviar borradores para clientes.",
+      "liveLabel": "Permitir {{type}} a clientes"
     },
     "crmBadge": {
       "label": "Publicidad: {{basis}}",
       "noBasisHint": "Sin consentimiento y sin pedidos desde la fecha de corte del aviso a clientes existentes"
     },
-    "syncBlockReasons": "Motivos de bloqueo en Brevo: {{checked}} comprobados, {{open}} pendientes, {{unsubscribed}} bajas reales"
+    "syncBlockReasons": "Motivos de bloqueo en Brevo: {{checked}} comprobados, {{open}} pendientes, {{unsubscribed}} bajas reales",
+    "letter": {
+      "defaultSubject": "Sus artículos en META: precios y plazos de entrega actuales",
+      "title": "Carta a clientes habituales",
+      "hint": "Para clientes con al menos 2 días de pedido: hasta 3 artículos habituales con precio actual, plazo de entrega y enlace de la tienda, además de accesorios de «Das passt dazu». Se excluyen clientes con reclamación abierta o pago vencido. Base legal, bloqueo de Brevo y límite de frecuencia se aplican como siempre.",
+      "createTemplate": "Crear plantilla inicial en Brevo",
+      "senderFirst": "Primero elija un remitente",
+      "templateCreated": "Plantilla #{{id}} creada en Brevo – puede diseñarla allí",
+      "templateFailed": "No se pudo crear la plantilla",
+      "preview": "Vista previa a direcciones de prueba",
+      "customers": "Borrador para clientes",
+      "customersOff": "El envío a clientes de la carta a clientes habituales está desactivado (ajustes). Solo existe la vista previa a las direcciones de prueba.",
+      "customersOnHint": "El envío a clientes está activado. El borrador solo sale tras «Enviar» y confirmación.",
+      "previewCreated": "Vista previa con {{count}} direcciones de prueba creada – envíela en «Envíos»",
+      "draftCreated": "Borrador con {{count}} destinatarios creado – revise los destinatarios y envíe",
+      "buildStats": "{{candidates}} clientes habituales, {{withContent}} con artículos comprables, {{excluded}} excluidos",
+      "createFailed": "No se pudo crear la carta a clientes habituales"
+    }
   }
 }

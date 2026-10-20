@@ -6992,6 +6992,33 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/customer-mails/runs/regular-letter": {
+    "post": {
+      "tags": [
+        "customer-mails"
+      ],
+      "summary": "POST /api/customer-mails/runs/regular-letter",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/customer-mails/runs/test": {
     "post": {
       "tags": [
@@ -7052,6 +7079,33 @@ export const openApiPaths = {
         "customer-mails"
       ],
       "summary": "POST /api/customer-mails/sync",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/customer-mails/templates/regular-letter": {
+    "post": {
+      "tags": [
+        "customer-mails"
+      ],
+      "summary": "POST /api/customer-mails/templates/regular-letter",
       "responses": {
         "200": {
           "description": "OK",

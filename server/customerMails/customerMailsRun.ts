@@ -73,7 +73,7 @@ const tenantIs = (column: AnyColumn, tenantId: string | null) => (tenantId ? eq(
 /** Zeitpunkt für SQL-Ausdrücke als UTC (ein roher Date-Parameter würde in der Zeitzone des Servers geschrieben) */
 const utc = (d: Date) => sql`${d.toISOString()}::timestamptz AT TIME ZONE 'UTC'`;
 
-export type CustomerMailErrorReason = "keyMissing" | "disabled" | "runNotFound" | "notDraft" | "noRecipients" | "noTestRecipients" | "invalidEmail";
+export type CustomerMailErrorReason = "keyMissing" | "disabled" | "runNotFound" | "notDraft" | "noRecipients" | "noTestRecipients" | "invalidEmail" | "customerSendingOff";
 
 /** Fachlicher Fehler; die Routen übersetzen reason in einen festen Text (server/routes/customerMailRoutes.ts) */
 export class CustomerMailError extends Error {
@@ -623,6 +623,7 @@ export function toRun(r: MarketingMailRunRow): CustomerMailRun {
   return {
     id: r.id,
     mailType: r.mailType as CustomerMailType,
+    previewOf: (r.previewOf as CustomerMailType | null) ?? null,
     status: r.status as CustomerMailRun["status"],
     subject: r.subject,
     templateId: r.templateId,
@@ -658,6 +659,7 @@ export async function getRun(tenantId: string | null, id: string): Promise<Custo
         basis: r.basis as CustomerMailBasis | "test",
         status: r.status as "planned" | "skipped" | "sent",
         skipReason: (r.skipReason as CustomerMailRunDetail["recipients"][number]["skipReason"]) ?? null,
+        attributes: (r.attributes as Record<string, string | number | null>) ?? {},
       }))
       .sort((a, b) => a.status.localeCompare(b.status) || a.email.localeCompare(b.email)),
   };
@@ -693,7 +695,7 @@ async function sentAdvertisingByEmail(tenantId: string | null, emails: string[],
 export async function createRun(
   deps: CustomerMailDeps,
   tenantId: string | null,
-  input: { mailType: CustomerMailType; subject: string; templateId: number; senderId: number; candidates: PlanCandidate[] },
+  input: { mailType: CustomerMailType; subject: string; templateId: number; senderId: number; candidates: PlanCandidate[]; previewOf?: CustomerMailType | null },
   by: string,
 ): Promise<CustomerMailRunDetail> {
   const now = deps.now();
@@ -716,6 +718,7 @@ export async function createRun(
       .values({
         tenantId,
         mailType: input.mailType,
+        previewOf: input.previewOf ?? null,
         subject: input.subject,
         templateId: input.templateId,
         senderId: input.senderId,
@@ -765,7 +768,7 @@ async function ensureFolder(deps: CustomerMailDeps, tenantId: string | null, bre
   return id;
 }
 
-async function ensureAttributes(brevo: BrevoClient, names: Record<string, "text" | "date" | "float" | "boolean">): Promise<void> {
+export async function ensureAttributes(brevo: BrevoClient, names: Record<string, "text" | "date" | "float" | "boolean">): Promise<void> {
   const have = new Set((await brevo.attributes()).map((a) => a.name.toUpperCase()));
   for (const [name, type] of Object.entries(names)) if (!have.has(name)) await brevo.createAttribute(name, type);
 }
@@ -784,6 +787,9 @@ async function waitForImport(deps: CustomerMailDeps, brevo: BrevoClient, process
 export async function sendRun(deps: CustomerMailDeps, tenantId: string | null, runId: string, by: string): Promise<CustomerMailRunDetail> {
   const { settings } = await getCustomerMailSettings(deps.storage, tenantId);
   if (!settings.enabled) throw new CustomerMailError("disabled");
+  const [pending] = await db.select({ mailType: marketingMailRuns.mailType }).from(marketingMailRuns).where(and(eq(marketingMailRuns.id, runId), tenantIs(marketingMailRuns.tenantId, tenantId)));
+  // Kundenversand je Mailart nur, wenn in den Einstellungen freigeschaltet (Testaussendungen immer)
+  if (pending && pending.mailType !== "test" && !settings.liveTypes.includes(pending.mailType as CustomerMailType)) throw new CustomerMailError("customerSendingOff");
   const brevo = await brevoFor(deps, tenantId);
   const now = deps.now();
   const claimed = await db
@@ -820,10 +826,10 @@ export async function sendRun(deps: CustomerMailDeps, tenantId: string | null, r
     let listId = run.brevoListId;
     if (!campaignId) {
       if (!run.templateId || !run.senderId) throw new Error("Template or sender missing");
-      const extraNames = new Set<string>();
-      for (const r of toSend) for (const k of Object.keys((r.attributes as Record<string, unknown>) ?? {})) extraNames.add(k);
-      const attrTypes: Record<string, "text" | "date"> = { ...CUSTOMER_MAIL_BASE_ATTRIBUTES };
-      for (const k of Array.from(extraNames)) if (!(k in attrTypes)) attrTypes[k] = "text";
+      // Felder des Laufs: Zahlen als Zahl (für Bedingungen in der Vorlage), sonst Text
+      const attrTypes: Record<string, "text" | "date" | "float"> = { ...CUSTOMER_MAIL_BASE_ATTRIBUTES };
+      for (const r of toSend)
+        for (const [k, v] of Object.entries((r.attributes as Record<string, unknown>) ?? {})) if (!(k in attrTypes)) attrTypes[k] = typeof v === "number" ? "float" : "text";
       await ensureAttributes(brevo, attrTypes);
       const folderId = await ensureFolder(deps, tenantId, brevo);
       const day = now.toISOString().slice(0, 10);
