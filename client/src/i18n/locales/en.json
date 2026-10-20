@@ -6817,7 +6817,11 @@
       "invalid_regular_customer_letter": "Regular customer letter incomplete (template, sender and subject required)",
       "failed_to_create_regular_customer_letter": "Failed to create regular customer letter",
       "invalid_brevo_template_request": "The template needs a sender",
-      "failed_to_create_brevo_template": "Failed to create Brevo template"
+      "failed_to_create_brevo_template": "Failed to create Brevo template",
+      "the_brevo_template_still_contains_a_placeholder_to_fill_in": "The Brevo template still contains a placeholder (⟦…⟧) – fill it in in Brevo first",
+      "invalid_customer_mail_run": "Mailing incomplete (mail type, template, sender and subject required)",
+      "failed_to_create_customer_mail_run": "Failed to create mailing",
+      "failed_to_load_customer_mail_effect": "Failed to load effect"
     }
   },
   "roomPlanner": {
@@ -8722,7 +8726,9 @@
       "gscNear": "Almost on page 1: {{queries}}",
       "gscCannibal": "Two pages for one search: {{queries}}",
       "gscNotIndexed": "Own pages not indexed: {{count}}",
-      "gscHint": "Search Console data arrives 2–3 days late; the week therefore ends 3 days before the report."
+      "gscHint": "Search Console data arrives 2–3 days late; the week therefore ends 3 days before the report.",
+      "customerMailsTitle": "Customer mails of the week",
+      "customerMailsLine": "{{runs}} mailings to {{sent}} recipients. Afterwards {{customers}} recipients ordered ({{orders}} orders, {{net}} net, 14 days after each mailing). Unsubscribes/spam: {{objections}}."
     },
     "weeklyPage": {
       "title": "Weekly reports",
@@ -8844,7 +8850,8 @@
       "gscNearItem": "position {{position}}, {{impressions}} impressions",
       "gscCannibal": "Two own pages for one search:",
       "gscNotIndexed": "Own pages not indexed: {{count}} (under “Findings”)",
-      "gscHint": "Search Console delivers data 2–3 days late. Expand content only with documented META content."
+      "gscHint": "Search Console delivers data 2–3 days late. Expand content only with documented META content.",
+      "customerMailsTitle": "Customer mails of the week"
     },
     "actions": {
       "title": "Action log",
@@ -9564,7 +9571,9 @@
       "channelOff": "channel switched off",
       "brevoBlocked": "blocked in Brevo",
       "complaint": "open complaint",
-      "paymentOverdue": "payment overdue"
+      "paymentOverdue": "payment overdue",
+      "controlGroup": "control group",
+      "alreadySent": "already sent"
     },
     "counts": {
       "title": "Contacts by legal basis",
@@ -9657,7 +9666,11 @@
       "objectionSave": "Save objection",
       "objectionSaved": "Objection saved",
       "objectionFailed": "Objection could not be saved",
-      "brevoBlocked": "blocked in Brevo (no unsubscribe, e.g. by the shop plugin)"
+      "brevoBlocked": "blocked in Brevo (no unsubscribe, e.g. by the shop plugin)",
+      "doiRequest": "Request confirmation email",
+      "doiRequested": "Confirmation email requested for {{email}} – consent applies after the link is clicked",
+      "doiPending": "Confirmation requested on {{date}}",
+      "doiHint": "METAorder triggers the newsletter sign-up in the shop; the customer receives the shop's confirmation email. Consent applies only after the link is clicked; then the Brevo plugin also lifts the block. The note (contact person, occasion) remains as proof."
     },
     "settings": {
       "brevoTitle": "Brevo access",
@@ -9701,7 +9714,8 @@
       "webhookFailed": "Webhook could not be set up",
       "liveTitle": "Customer sending",
       "liveHint": "By default every mail type only goes to the test addresses as a preview. Only with this switch may METAorder create and send drafts for customers.",
-      "liveLabel": "Allow {{type}} to customers"
+      "liveLabel": "Allow {{type}} to customers",
+      "unsaved": "Unsaved changes – please “Save rules”"
     },
     "crmBadge": {
       "label": "Marketing: {{basis}}",
@@ -9709,21 +9723,54 @@
     },
     "syncBlockReasons": "Brevo block reasons: {{checked}} checked, {{open}} open, {{unsubscribed}} real unsubscribes",
     "letter": {
-      "defaultSubject": "Your items at META: current prices and delivery times",
-      "title": "Regular customer letter",
-      "hint": "For customers with at least 2 order days: up to 3 regularly bought items with current shop price, delivery time and link, plus matching accessories from “Das passt dazu”. Customers with an open complaint or overdue payment are excluded. Legal basis, Brevo block and frequency cap apply as always.",
       "createTemplate": "Create starter template in Brevo",
       "senderFirst": "Choose a sender first",
       "templateCreated": "Template #{{id}} created in Brevo – you can design it there",
       "templateFailed": "Template could not be created",
       "preview": "Preview to test addresses",
       "customers": "Draft for customers",
-      "customersOff": "Customer sending for the regular customer letter is switched off (settings). Only the preview to the test addresses is available.",
       "customersOnHint": "Customer sending is enabled. The draft only goes out after “Send” and confirmation.",
       "previewCreated": "Preview with {{count}} test addresses created – send it under “Mailings”",
       "draftCreated": "Draft with {{count}} recipients created – check recipients, then send",
       "buildStats": "{{candidates}} regular customers, {{withContent}} with buyable items, {{excluded}} excluded",
       "createFailed": "Regular customer letter could not be created"
+    },
+    "kinds": {
+      "title": "Mail types",
+      "hint": "Per mail type: create a starter template in Brevo, send a preview with real content to the test addresses, and only after enabling it in the settings create a draft for customers.",
+      "type": "Mail type",
+      "customersOff": "Customer sending for this mail type is switched off (settings). Only the preview to the test addresses is available.",
+      "regularLetter": {
+        "subject": "Your items at META: current prices and delivery times",
+        "hint": "Customers with at least 2 order days: up to 3 regular items with net list price, delivery time and link, plus accessories from “Das passt dazu”. Without open complaints or overdue payments."
+      },
+      "regularOverdue": {
+        "subject": "Your items at META: current prices and delivery times",
+        "hint": "Regular customers reported by the regular-customer watch: at the earliest 7 days after the alert, only without a CRM call since, without price or delivery cause, at most every 90 days. Content like the regular customer letter."
+      },
+      "newsletter": {
+        "subject": "META newsletter",
+        "hint": "Everyone with consent (newsletter sign-up). METAorder fills the “New in the shop” block (newest buyable items of the last 45 days); you design the text in Brevo. As long as ⟦…⟧ is in the template, nothing goes to customers."
+      },
+      "afterSalesService": {
+        "subject": "Information about your META order",
+        "hint": "3–10 days after shipping: order number, items with link and tracking, no advertising. Sent individually via Brevo's transactional channel (the plugin block does not apply there). Once per order."
+      },
+      "afterSalesAccessories": {
+        "subject": "Matching accessories for your order",
+        "hint": "30–45 days after shipping: matching accessories for the ordered items (active “Das passt dazu” pairs), excluding items already bought. Advertising, once per order."
+      },
+      "reactivation": {
+        "subject": "Your items at META: current prices",
+        "hint": "One-time buyers with an order 6–12 months ago: their items with current price and accessories. Once per address; 20 % form a control group that receives nothing (for measuring effect)."
+      }
+    },
+    "effect": {
+      "title": "Effect (orders within {{days}} days after sending)",
+      "brevo": "Brevo: {{delivered}} delivered, {{views}} opened, {{clicks}} clicked, {{unsubscribed}} unsubscribed, {{bounces}} undeliverable",
+      "noBrevo": "No campaign figures (individual transactional emails)",
+      "orders": "Recipients: {{sent}}, {{customers}} ordered ({{rate}}), {{orders}} orders, {{net}} net",
+      "control": "Control group: {{size}}, {{customers}} ordered ({{rate}}), {{net}} net"
     }
   }
 }

@@ -256,6 +256,24 @@ export function ShopPulseWeeklyTab({ initialWeek }: { initialWeek: string | null
           {report.data.b2b !== undefined ? <B2bCard b2b={report.data.b2b} /> : null}
           {report.data.ads ? <AdsCard ads={report.data.ads} /> : null}
           {report.data.gsc ? <ShopPulseWeeklyGscCard gsc={report.data.gsc} /> : null}
+          {report.data.customerMails ? (
+            <Card className="p-4 space-y-1" data-testid="shop-pulse-weekly-customer-mails">
+              <h4 className="font-medium">{t("shopPulse.weeklyPage.customerMailsTitle")}</h4>
+              <p className="text-sm">
+                {t("shopPulse.weekly.customerMailsLine", {
+                  runs: fmt.integer(report.data.customerMails.runs),
+                  sent: fmt.integer(report.data.customerMails.sent),
+                  customers: fmt.integer(report.data.customerMails.orders.customers),
+                  orders: fmt.integer(report.data.customerMails.orders.orders),
+                  net: fmt.currencyWhole(report.data.customerMails.orders.net),
+                  objections: fmt.integer(report.data.customerMails.objections),
+                })}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {report.data.customerMails.byType.map((x) => `${t(`customerMails.types.${x.mailType}`)}: ${fmt.integer(x.sent)}`).join(" · ")}
+              </p>
+            </Card>
+          ) : null}
 
           <Card className="p-4 space-y-2" data-testid="shop-pulse-weekly-done">
             <h4 className="font-medium">{t("shopPulse.weeklyPage.doneTitle", { count: report.data.done.length })}</h4>

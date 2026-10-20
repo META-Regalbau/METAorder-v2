@@ -9,29 +9,29 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { CustomerMailBrevoInfo, CustomerMailOverview, CustomerMailRunDetail } from "@shared/customerMails";
-import { CUSTOMER_MAILS_BREVO_QUERY_KEY, CUSTOMER_MAILS_QUERY_KEY } from "./customerMailsQuery";
+import { CUSTOMER_MAIL_BUILD_TYPES, type CustomerMailBrevoInfo, type CustomerMailBuildType, type CustomerMailOverview, type CustomerMailRunDetail } from "@shared/customerMails";
+import { CUSTOMER_MAILS_BREVO_QUERY_KEY } from "./customerMailsQuery";
 
 /**
- * Karte „Stammkunden-Brief“ (B2): Startvorlage in Brevo anlegen, Vorschau mit echten Briefen von Beispielkunden an
- * die Testadressen, Entwurf für Kunden (nur wenn der Kundenversand in den Einstellungen freigeschaltet ist).
- * Angelegte Läufe erscheinen in der Liste „Aussendungen“ und werden dort gesendet.
+ * Karte „Mailarten“ (B2–B5): Mailart wählen, Startvorlage in Brevo anlegen, Vorschau mit echten Inhalten von
+ * Beispielkunden an die Testadressen, Entwurf für Kunden (nur wenn der Kundenversand der Mailart in den
+ * Einstellungen freigeschaltet ist). Angelegte Läufe erscheinen unter „Aussendungen“ und werden dort gesendet.
  */
-
-const DEFAULT_SUBJECT_KEY = "customerMails.letter.defaultSubject";
-
-export function CustomerMailsRegularLetterCard({ data, onRun }: { data: CustomerMailOverview; onRun: (run: CustomerMailRunDetail) => void }) {
+export function CustomerMailsTypeCard({ data, onRun }: { data: CustomerMailOverview; onRun: (run: CustomerMailRunDetail) => void }) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const brevo = useQuery<CustomerMailBrevoInfo>({ queryKey: CUSTOMER_MAILS_BREVO_QUERY_KEY, enabled: data.hasKey });
   const shopSender = data.settings.channels.find((c) => c.enabled && c.kind === "shop" && c.senderId)?.senderId ?? null;
+  const [mailType, setMailType] = useState<CustomerMailBuildType>("regularLetter");
   const [templateId, setTemplateId] = useState("");
   const [senderId, setSenderId] = useState(shopSender ? String(shopSender) : "");
-  const [subject, setSubject] = useState(() => t(DEFAULT_SUBJECT_KEY));
-  const customersAllowed = data.settings.liveTypes.includes("regularLetter");
+  const [subjects, setSubjects] = useState<Partial<Record<CustomerMailBuildType, string>>>({});
+  const subject = subjects[mailType] ?? t(`customerMails.kinds.${mailType}.subject`);
+  const customersAllowed = data.settings.liveTypes.includes(mailType);
 
   const createTemplate = useMutation({
-    mutationFn: async () => (await apiRequest("POST", "/api/customer-mails/templates/regular-letter", { senderId: Number(senderId) })).json() as Promise<{ templateId: number }>,
+    mutationFn: async () =>
+      (await apiRequest("POST", "/api/customer-mails/templates/regular-letter", { senderId: Number(senderId), mailType })).json() as Promise<{ templateId: number }>,
     onSuccess: async ({ templateId: id }) => {
       await queryClient.invalidateQueries({ queryKey: CUSTOMER_MAILS_BREVO_QUERY_KEY });
       setTemplateId(String(id));
@@ -41,7 +41,7 @@ export function CustomerMailsRegularLetterCard({ data, onRun }: { data: Customer
   });
   const create = useMutation({
     mutationFn: async (mode: "preview" | "customers") =>
-      (await apiRequest("POST", "/api/customer-mails/runs/regular-letter", { templateId: Number(templateId), senderId: Number(senderId), subject: subject.trim(), mode })).json() as Promise<CustomerMailRunDetail>,
+      (await apiRequest("POST", "/api/customer-mails/runs/typed", { mailType, templateId: Number(templateId), senderId: Number(senderId), subject: subject.trim(), mode })).json() as Promise<CustomerMailRunDetail>,
     onSuccess: (run) => {
       onRun(run);
       toast({
@@ -54,16 +54,36 @@ export function CustomerMailsRegularLetterCard({ data, onRun }: { data: Customer
 
   const ready = !!templateId && !!senderId && !!subject.trim();
   return (
-    <Card className="p-4 space-y-3" data-testid="customer-mails-regular-letter">
+    <Card className="p-4 space-y-3" data-testid="customer-mails-types">
       <div className="space-y-1">
-        <h2 className="font-semibold">{t("customerMails.letter.title")}</h2>
-        <p className="text-xs text-muted-foreground">{t("customerMails.letter.hint")}</p>
+        <h2 className="font-semibold">{t("customerMails.kinds.title")}</h2>
+        <p className="text-xs text-muted-foreground">{t("customerMails.kinds.hint")}</p>
       </div>
       <div className="flex flex-wrap items-end gap-2">
         <div className="space-y-1 min-w-0 flex-1 basis-56">
-          <Label htmlFor="customer-mails-letter-template">{t("customerMails.test.template")}</Label>
+          <Label htmlFor="customer-mails-kind">{t("customerMails.kinds.type")}</Label>
+          <Select value={mailType} onValueChange={(v) => setMailType(v as CustomerMailBuildType)}>
+            <SelectTrigger id="customer-mails-kind" data-testid="select-customer-mails-kind">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CUSTOMER_MAIL_BUILD_TYPES.map((k) => (
+                <SelectItem key={k} value={k}>
+                  {t(`customerMails.types.${k}`)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <p className="text-sm" data-testid="text-customer-mails-kind-hint">
+        {t(`customerMails.kinds.${mailType}.hint`)}
+      </p>
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="space-y-1 min-w-0 flex-1 basis-56">
+          <Label htmlFor="customer-mails-kind-template">{t("customerMails.test.template")}</Label>
           <Select value={templateId} onValueChange={setTemplateId}>
-            <SelectTrigger id="customer-mails-letter-template" data-testid="select-customer-mails-letter-template">
+            <SelectTrigger id="customer-mails-kind-template" data-testid="select-customer-mails-kind-template">
               <SelectValue placeholder={t("customerMails.test.templatePlaceholder")} />
             </SelectTrigger>
             <SelectContent>
@@ -81,7 +101,7 @@ export function CustomerMailsRegularLetterCard({ data, onRun }: { data: Customer
           disabled={createTemplate.isPending || !senderId}
           onClick={() => createTemplate.mutate()}
           title={senderId ? undefined : t("customerMails.letter.senderFirst")}
-          data-testid="button-customer-mails-letter-template"
+          data-testid="button-customer-mails-kind-template"
         >
           {createTemplate.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
           {t("customerMails.letter.createTemplate")}
@@ -89,9 +109,9 @@ export function CustomerMailsRegularLetterCard({ data, onRun }: { data: Customer
       </div>
       <div className="flex flex-wrap items-end gap-2">
         <div className="space-y-1 min-w-0 flex-1 basis-56">
-          <Label htmlFor="customer-mails-letter-sender">{t("customerMails.test.sender")}</Label>
+          <Label htmlFor="customer-mails-kind-sender">{t("customerMails.test.sender")}</Label>
           <Select value={senderId} onValueChange={setSenderId}>
-            <SelectTrigger id="customer-mails-letter-sender">
+            <SelectTrigger id="customer-mails-kind-sender">
               <SelectValue placeholder={t("customerMails.test.senderPlaceholder")} />
             </SelectTrigger>
             <SelectContent>
@@ -106,12 +126,12 @@ export function CustomerMailsRegularLetterCard({ data, onRun }: { data: Customer
           </Select>
         </div>
         <div className="space-y-1 min-w-0 flex-1 basis-72">
-          <Label htmlFor="customer-mails-letter-subject">{t("customerMails.test.subject")}</Label>
-          <Input id="customer-mails-letter-subject" value={subject} maxLength={200} onChange={(e) => setSubject(e.target.value)} />
+          <Label htmlFor="customer-mails-kind-subject">{t("customerMails.test.subject")}</Label>
+          <Input id="customer-mails-kind-subject" value={subject} maxLength={200} onChange={(e) => setSubjects((s) => ({ ...s, [mailType]: e.target.value }))} />
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Button disabled={!ready || create.isPending || data.settings.testRecipients.length === 0} onClick={() => create.mutate("preview")} data-testid="button-customer-mails-letter-preview">
+        <Button disabled={!ready || create.isPending || data.settings.testRecipients.length === 0} onClick={() => create.mutate("preview")} data-testid="button-customer-mails-kind-preview">
           {create.isPending && create.variables === "preview" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
           {t("customerMails.letter.preview")}
         </Button>
@@ -119,14 +139,14 @@ export function CustomerMailsRegularLetterCard({ data, onRun }: { data: Customer
           variant="outline"
           disabled={!ready || create.isPending || !customersAllowed}
           onClick={() => create.mutate("customers")}
-          title={customersAllowed ? undefined : t("customerMails.letter.customersOff")}
-          data-testid="button-customer-mails-letter-customers"
+          title={customersAllowed ? undefined : t("customerMails.kinds.customersOff")}
+          data-testid="button-customer-mails-kind-customers"
         >
           {create.isPending && create.variables === "customers" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
           {t("customerMails.letter.customers")}
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground">{customersAllowed ? t("customerMails.letter.customersOnHint") : t("customerMails.letter.customersOff")}</p>
+      <p className="text-xs text-muted-foreground">{customersAllowed ? t("customerMails.letter.customersOnHint") : t("customerMails.kinds.customersOff")}</p>
     </Card>
   );
 }

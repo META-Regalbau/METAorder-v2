@@ -427,6 +427,26 @@ export function buildShopPulseWeeklyCard(report: ShopPulseWeeklyReport, baseUrl:
     body.push(text(t("weekly.gscHint"), { isSubtle: true, size: "Small", spacing: "Small" }));
   }
 
+  if (d.customerMails) {
+    body.push(heading(t("weekly.customerMailsTitle")));
+    body.push(
+      text(
+        teamsPlain(
+          t("weekly.customerMailsLine", {
+            runs: INTEGER.format(d.customerMails.runs),
+            sent: INTEGER.format(d.customerMails.sent),
+            customers: INTEGER.format(d.customerMails.orders.customers),
+            orders: INTEGER.format(d.customerMails.orders.orders),
+            net: EURO.format(d.customerMails.orders.net),
+            objections: INTEGER.format(d.customerMails.objections),
+          }),
+          900,
+        ),
+        { spacing: "Small" },
+      ),
+    );
+  }
+
   if (d.effects !== undefined) {
     body.push(heading(t("weekly.effectsTitle")));
     if (d.effects === null) body.push(text(t("weekly.effectsNotComputed"), { spacing: "Small" }));

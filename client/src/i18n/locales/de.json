@@ -6814,7 +6814,11 @@
       "invalid_regular_customer_letter": "Stammkunden-Brief unvollständig (Vorlage, Absender und Betreff nötig)",
       "failed_to_create_regular_customer_letter": "Stammkunden-Brief konnte nicht angelegt werden",
       "invalid_brevo_template_request": "Für die Vorlage fehlt der Absender",
-      "failed_to_create_brevo_template": "Vorlage konnte in Brevo nicht angelegt werden"
+      "failed_to_create_brevo_template": "Vorlage konnte in Brevo nicht angelegt werden",
+      "the_brevo_template_still_contains_a_placeholder_to_fill_in": "In der Brevo-Vorlage steht noch ein Platzhalter (⟦…⟧) – erst in Brevo ausfüllen",
+      "invalid_customer_mail_run": "Aussendung unvollständig (Mailart, Vorlage, Absender und Betreff nötig)",
+      "failed_to_create_customer_mail_run": "Aussendung konnte nicht angelegt werden",
+      "failed_to_load_customer_mail_effect": "Wirkung konnte nicht geladen werden"
     }
   },
   "roomPlanner": {
@@ -8719,7 +8723,9 @@
       "gscNear": "Fast auf Seite 1: {{queries}}",
       "gscCannibal": "Zwei Seiten für eine Suche: {{queries}}",
       "gscNotIndexed": "Nicht indexierte eigene Seiten: {{count}}",
-      "gscHint": "Daten der Search Console kommen 2–3 Tage verzögert; die Woche endet deshalb 3 Tage vor dem Bericht."
+      "gscHint": "Daten der Search Console kommen 2–3 Tage verzögert; die Woche endet deshalb 3 Tage vor dem Bericht.",
+      "customerMailsTitle": "Kundenmails der Woche",
+      "customerMailsLine": "{{runs}} Aussendungen an {{sent}} Empfänger. Danach haben {{customers}} Empfänger bestellt ({{orders}} Bestellungen, {{net}} netto, je 14 Tage nach dem Versand). Abmeldungen/Spam: {{objections}}."
     },
     "weeklyPage": {
       "title": "Wochenberichte",
@@ -8841,7 +8847,8 @@
       "gscNearItem": "Position {{position}}, {{impressions}} Impressionen",
       "gscCannibal": "Zwei eigene Seiten für eine Suche:",
       "gscNotIndexed": "Nicht indexierte eigene Seiten: {{count}} (unter „Meldungen“)",
-      "gscHint": "Die Search Console liefert Daten 2–3 Tage verzögert. Inhalte nur mit belegten META-Inhalten ausbauen."
+      "gscHint": "Die Search Console liefert Daten 2–3 Tage verzögert. Inhalte nur mit belegten META-Inhalten ausbauen.",
+      "customerMailsTitle": "Kundenmails der Woche"
     },
     "actions": {
       "title": "Maßnahmen-Protokoll",
@@ -9561,7 +9568,9 @@
       "channelOff": "Kanal ausgeschaltet",
       "brevoBlocked": "in Brevo gesperrt",
       "complaint": "offene Reklamation",
-      "paymentOverdue": "Zahlung überfällig"
+      "paymentOverdue": "Zahlung überfällig",
+      "controlGroup": "Kontrollgruppe",
+      "alreadySent": "schon verschickt"
     },
     "counts": {
       "title": "Kontakte nach Rechtsgrundlage",
@@ -9654,7 +9663,11 @@
       "objectionSave": "Widerspruch speichern",
       "objectionSaved": "Widerspruch gespeichert",
       "objectionFailed": "Widerspruch konnte nicht gespeichert werden",
-      "brevoBlocked": "in Brevo gesperrt (ohne Abmeldung, z. B. vom Shop-Plugin)"
+      "brevoBlocked": "in Brevo gesperrt (ohne Abmeldung, z. B. vom Shop-Plugin)",
+      "doiRequest": "Bestätigungsmail anfordern",
+      "doiRequested": "Bestätigungsmail an {{email}} angefordert – die Einwilligung gilt nach dem Klick auf den Link",
+      "doiPending": "Bestätigung angefordert am {{date}}",
+      "doiHint": "METAorder löst im Shop die Newsletter-Anmeldung aus; der Kunde bekommt die Bestätigungsmail des Shops. Erst nach dem Klick auf den Link gilt die Einwilligung, dann hebt auch das Brevo-Plugin die Sperre auf. Der Vermerk (Gesprächspartner, Anlass) bleibt als Nachweis."
     },
     "settings": {
       "brevoTitle": "Brevo-Zugang",
@@ -9698,7 +9711,8 @@
       "webhookFailed": "Webhook konnte nicht eingerichtet werden",
       "liveTitle": "Kundenversand",
       "liveHint": "Ab Werk geht jede Mailart nur als Vorschau an die Testadressen. Erst mit diesem Schalter darf METAorder Entwürfe für Kunden anlegen und senden.",
-      "liveLabel": "{{type}} an Kunden erlauben"
+      "liveLabel": "{{type}} an Kunden erlauben",
+      "unsaved": "Ungespeicherte Änderungen – bitte „Regeln speichern“"
     },
     "crmBadge": {
       "label": "Werbung: {{basis}}",
@@ -9706,21 +9720,54 @@
     },
     "syncBlockReasons": "Brevo-Sperrgründe: {{checked}} geprüft, {{open}} offen, davon {{unsubscribed}} echte Abmeldungen",
     "letter": {
-      "defaultSubject": "Ihre Artikel bei META: aktuelle Preise und Lieferzeiten",
-      "title": "Stammkunden-Brief",
-      "hint": "Für Kunden mit mindestens 2 Bestelltagen: bis zu 3 Stammartikel mit aktuellem Preis, Lieferzeit und Link aus dem Shop, dazu passendes Zubehör aus „Das passt dazu“. Ohne Kunden mit offener Reklamation oder überfälliger Zahlung. Rechtsgrundlage, Brevo-Sperre und Kontaktbremse gelten wie immer.",
       "createTemplate": "Startvorlage in Brevo anlegen",
       "senderFirst": "Zuerst einen Absender wählen",
       "templateCreated": "Vorlage #{{id}} in Brevo angelegt – dort kannst du sie gestalten",
       "templateFailed": "Vorlage konnte nicht angelegt werden",
       "preview": "Vorschau an Testadressen",
       "customers": "Entwurf für Kunden",
-      "customersOff": "Kundenversand für den Stammkunden-Brief ist ausgeschaltet (Einstellungen). Es gibt nur die Vorschau an die Testadressen.",
       "customersOnHint": "Kundenversand ist freigeschaltet. Der Entwurf geht erst nach „Senden“ und Bestätigung raus.",
       "previewCreated": "Vorschau mit {{count}} Testadressen angelegt – unter „Aussendungen“ senden",
       "draftCreated": "Entwurf mit {{count}} Empfängern angelegt – Empfänger prüfen, dann senden",
       "buildStats": "{{candidates}} Stammkunden, {{withContent}} mit kaufbaren Stammartikeln, {{excluded}} ausgeschlossen",
       "createFailed": "Stammkunden-Brief konnte nicht angelegt werden"
+    },
+    "kinds": {
+      "title": "Mailarten",
+      "hint": "Je Mailart: Startvorlage in Brevo anlegen, Vorschau mit echten Inhalten an die Testadressen schicken und erst nach Freischaltung in den Einstellungen einen Entwurf für Kunden anlegen.",
+      "type": "Mailart",
+      "customersOff": "Kundenversand für diese Mailart ist ausgeschaltet (Einstellungen). Es gibt nur die Vorschau an die Testadressen.",
+      "regularLetter": {
+        "subject": "Ihre Artikel bei META: aktuelle Preise und Lieferzeiten",
+        "hint": "Kunden mit mindestens 2 Bestelltagen: bis zu 3 Stammartikel mit Listenpreis netto, Lieferzeit und Link, dazu Zubehör aus „Das passt dazu“. Ohne offene Reklamation oder überfällige Zahlung."
+      },
+      "regularOverdue": {
+        "subject": "Ihre Artikel bei META: aktuelle Preise und Lieferzeiten",
+        "hint": "Stammkunden, die die Stammkunden-Wache gemeldet hat: frühestens 7 Tage nach der Meldung, nur ohne CRM-Anruf seither, ohne Preis- oder Lieferzeit-Ursache, höchstens alle 90 Tage. Inhalt wie der Stammkunden-Brief."
+      },
+      "newsletter": {
+        "subject": "META Newsletter",
+        "hint": "Alle mit Einwilligung (Newsletter-Anmeldung). METAorder füllt den Block „Neu im Shop“ (neueste kaufbare Artikel der letzten 45 Tage); den Text gestaltest du in Brevo. Solange ⟦…⟧ in der Vorlage steht, geht nichts an Kunden."
+      },
+      "afterSalesService": {
+        "subject": "Informationen zu Ihrer META-Bestellung",
+        "hint": "3–10 Tage nach dem Versand: Bestellnummer, Artikel mit Link und Sendungsverfolgung, ohne Werbung. Geht einzeln über den Transaktionsweg von Brevo (die Plugin-Sperre gilt dort nicht). Je Bestellung einmal."
+      },
+      "afterSalesAccessories": {
+        "subject": "Passendes Zubehör zu Ihrer Bestellung",
+        "hint": "30–45 Tage nach dem Versand: passendes Zubehör zu den bestellten Artikeln (aktive „Das passt dazu“-Paare), ohne bereits Gekauftes. Werbung, je Bestellung einmal."
+      },
+      "reactivation": {
+        "subject": "Ihre Artikel bei META: aktuelle Preise",
+        "hint": "Einmalkäufer mit Bestellung vor 6–12 Monaten: ihre damaligen Artikel mit aktuellem Preis und Zubehör. Je Adresse einmal; 20 % bilden eine Kontrollgruppe, die nichts bekommt (für die Wirkung)."
+      }
+    },
+    "effect": {
+      "title": "Wirkung (Bestellungen in {{days}} Tagen nach dem Versand)",
+      "brevo": "Brevo: {{delivered}} zugestellt, {{views}} geöffnet, {{clicks}} geklickt, {{unsubscribed}} abgemeldet, {{bounces}} unzustellbar",
+      "noBrevo": "Keine Kampagnenzahlen (Einzelmails über den Transaktionsweg)",
+      "orders": "Empfänger: {{sent}}, davon {{customers}} bestellt ({{rate}}), {{orders}} Bestellungen, {{net}} netto",
+      "control": "Kontrollgruppe: {{size}}, davon {{customers}} bestellt ({{rate}}), {{net}} netto"
     }
   }
 }

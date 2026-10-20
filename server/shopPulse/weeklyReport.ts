@@ -48,8 +48,7 @@ import {
   type ShopPulseWeeklyNumbers,
   type ShopPulseWeeklyReportData,
   type ShopPulseWeeklyAds,
-  type ShopPulseWeeklyGsc,
-} from "@shared/shopPulseWeekly";
+  type ShopPulseWeeklyGsc, ShopPulseWeeklyCustomerMails } from "@shared/shopPulseWeekly";
 import type { ShopPulseWeeklyEffect } from "@shared/shopPulseEffects";
 import type { AdsSetupProblem, GscSetupProblem } from "@shared/shopPulse";
 import type { ShopPulseLossEstimate, ShopPulseSignal, ShopPulseState } from "@shared/shopPulse";
@@ -424,6 +423,7 @@ export function weeklyReportData(input: {
   effects?: ShopPulseWeeklyEffect[] | null;
   ads?: ShopPulseWeeklyAds;
   gsc?: ShopPulseWeeklyGsc;
+  customerMails?: ShopPulseWeeklyCustomerMails;
 }): ShopPulseWeeklyReportData {
   const all = rankLevers(input.signals, input.estimates, input.now);
   const levers = all.slice(0, LEVERS_MAX);
@@ -439,6 +439,7 @@ export function weeklyReportData(input: {
     effects: input.effects ?? null,
     ...(input.ads ? { ads: input.ads } : {}),
     ...(input.gsc ? { gsc: input.gsc } : {}),
+    ...(input.customerMails ? { customerMails: input.customerMails } : {}),
   };
 }
 
@@ -503,6 +504,17 @@ export function weeklyPayload(data: ShopPulseWeeklyReportData, now: Date): Recor
             vorschlaegeAuszuschliessen: data.ads.suggestions.map((x) => ({ begriff: x.term, kosten28Tage: x.cost })),
           }
         : "nicht eingerichtet",
+    kundenmails: data.customerMails
+      ? {
+          aussendungen: data.customerMails.runs,
+          empfaenger: data.customerMails.sent,
+          jeArt: data.customerMails.byType.map((x) => ({ art: x.mailType, aussendungen: x.runs, empfaenger: x.sent })),
+          bestellendeEmpfaenger: data.customerMails.orders.customers,
+          bestellungen: data.customerMails.orders.orders,
+          umsatzNetto: data.customerMails.orders.net,
+          abmeldungen: data.customerMails.objections,
+        }
+      : "keine",
     searchConsole: !data.gsc
       ? "nicht erfasst"
       : data.gsc.configured

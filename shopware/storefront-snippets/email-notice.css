@@ -1,0 +1,11 @@
+/* METAorder: Hinweis auf E-Mail-Werbung an Bestandskunden (email-notice.js) */
+.meta-mail-notice {
+  margin: 0.4rem 0 1rem;
+  font-size: 1.3rem;
+  line-height: 1.45;
+  color: #5f5f5c;
+}
+.meta-mail-notice a {
+  color: inherit;
+  text-decoration: underline;
+}

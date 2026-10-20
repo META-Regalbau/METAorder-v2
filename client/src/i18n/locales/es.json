@@ -6814,7 +6814,11 @@
       "invalid_regular_customer_letter": "Carta a clientes habituales incompleta (plantilla, remitente y asunto obligatorios)",
       "failed_to_create_regular_customer_letter": "No se pudo crear la carta a clientes habituales",
       "invalid_brevo_template_request": "Falta el remitente para la plantilla",
-      "failed_to_create_brevo_template": "No se pudo crear la plantilla en Brevo"
+      "failed_to_create_brevo_template": "No se pudo crear la plantilla en Brevo",
+      "the_brevo_template_still_contains_a_placeholder_to_fill_in": "La plantilla de Brevo aún contiene un marcador (⟦…⟧): complételo primero en Brevo",
+      "invalid_customer_mail_run": "Envío incompleto (tipo, plantilla, remitente y asunto obligatorios)",
+      "failed_to_create_customer_mail_run": "No se pudo crear el envío",
+      "failed_to_load_customer_mail_effect": "No se pudo cargar el efecto"
     }
   },
   "roomPlanner": {
@@ -8719,7 +8723,9 @@
       "gscNear": "Casi en la página 1: {{queries}}",
       "gscCannibal": "Dos páginas para una búsqueda: {{queries}}",
       "gscNotIndexed": "Páginas propias no indexadas: {{count}}",
-      "gscHint": "Los datos de Search Console llegan con 2–3 días de retraso; por eso la semana termina 3 días antes del informe."
+      "gscHint": "Los datos de Search Console llegan con 2–3 días de retraso; por eso la semana termina 3 días antes del informe.",
+      "customerMailsTitle": "Correos a clientes de la semana",
+      "customerMailsLine": "{{runs}} envíos a {{sent}} destinatarios. Después pidieron {{customers}} destinatarios ({{orders}} pedidos, {{net}} netos, 14 días tras cada envío). Bajas/spam: {{objections}}."
     },
     "weeklyPage": {
       "title": "Informes semanales",
@@ -8841,7 +8847,8 @@
       "gscNearItem": "posición {{position}}, {{impressions}} impresiones",
       "gscCannibal": "Dos páginas propias para una búsqueda:",
       "gscNotIndexed": "Páginas propias no indexadas: {{count}} (en «Avisos»)",
-      "gscHint": "Search Console entrega los datos con 2–3 días de retraso. Ampliar contenidos solo con contenidos META documentados."
+      "gscHint": "Search Console entrega los datos con 2–3 días de retraso. Ampliar contenidos solo con contenidos META documentados.",
+      "customerMailsTitle": "Correos a clientes de la semana"
     },
     "actions": {
       "title": "Registro de medidas",
@@ -9561,7 +9568,9 @@
       "channelOff": "canal desactivado",
       "brevoBlocked": "bloqueado en Brevo",
       "complaint": "reclamación abierta",
-      "paymentOverdue": "pago vencido"
+      "paymentOverdue": "pago vencido",
+      "controlGroup": "grupo de control",
+      "alreadySent": "ya enviado"
     },
     "counts": {
       "title": "Contactos por base legal",
@@ -9654,7 +9663,11 @@
       "objectionSave": "Guardar oposición",
       "objectionSaved": "Oposición guardada",
       "objectionFailed": "No se pudo guardar la oposición",
-      "brevoBlocked": "bloqueado en Brevo (sin baja, p. ej. por el plugin de la tienda)"
+      "brevoBlocked": "bloqueado en Brevo (sin baja, p. ej. por el plugin de la tienda)",
+      "doiRequest": "Solicitar correo de confirmación",
+      "doiRequested": "Correo de confirmación solicitado para {{email}}: el consentimiento vale tras hacer clic en el enlace",
+      "doiPending": "Confirmación solicitada el {{date}}",
+      "doiHint": "METAorder inicia el alta en el boletín de la tienda; el cliente recibe el correo de confirmación de la tienda. El consentimiento vale solo tras hacer clic en el enlace; entonces el plugin de Brevo también quita el bloqueo. La nota (interlocutor, motivo) queda como prueba."
     },
     "settings": {
       "brevoTitle": "Acceso a Brevo",
@@ -9698,7 +9711,8 @@
       "webhookFailed": "No se pudo configurar el webhook",
       "liveTitle": "Envío a clientes",
       "liveHint": "Por defecto cada tipo de correo solo va como vista previa a las direcciones de prueba. Solo con este interruptor METAorder puede crear y enviar borradores para clientes.",
-      "liveLabel": "Permitir {{type}} a clientes"
+      "liveLabel": "Permitir {{type}} a clientes",
+      "unsaved": "Cambios sin guardar: pulse «Guardar reglas»"
     },
     "crmBadge": {
       "label": "Publicidad: {{basis}}",
@@ -9706,21 +9720,54 @@
     },
     "syncBlockReasons": "Motivos de bloqueo en Brevo: {{checked}} comprobados, {{open}} pendientes, {{unsubscribed}} bajas reales",
     "letter": {
-      "defaultSubject": "Sus artículos en META: precios y plazos de entrega actuales",
-      "title": "Carta a clientes habituales",
-      "hint": "Para clientes con al menos 2 días de pedido: hasta 3 artículos habituales con precio actual, plazo de entrega y enlace de la tienda, además de accesorios de «Das passt dazu». Se excluyen clientes con reclamación abierta o pago vencido. Base legal, bloqueo de Brevo y límite de frecuencia se aplican como siempre.",
       "createTemplate": "Crear plantilla inicial en Brevo",
       "senderFirst": "Primero elija un remitente",
       "templateCreated": "Plantilla #{{id}} creada en Brevo – puede diseñarla allí",
       "templateFailed": "No se pudo crear la plantilla",
       "preview": "Vista previa a direcciones de prueba",
       "customers": "Borrador para clientes",
-      "customersOff": "El envío a clientes de la carta a clientes habituales está desactivado (ajustes). Solo existe la vista previa a las direcciones de prueba.",
       "customersOnHint": "El envío a clientes está activado. El borrador solo sale tras «Enviar» y confirmación.",
       "previewCreated": "Vista previa con {{count}} direcciones de prueba creada – envíela en «Envíos»",
       "draftCreated": "Borrador con {{count}} destinatarios creado – revise los destinatarios y envíe",
       "buildStats": "{{candidates}} clientes habituales, {{withContent}} con artículos comprables, {{excluded}} excluidos",
       "createFailed": "No se pudo crear la carta a clientes habituales"
+    },
+    "kinds": {
+      "title": "Tipos de correo",
+      "hint": "Por tipo: cree una plantilla inicial en Brevo, envíe una vista previa con contenido real a las direcciones de prueba y solo tras activarlo en los ajustes cree un borrador para clientes.",
+      "type": "Tipo de correo",
+      "customersOff": "El envío a clientes de este tipo está desactivado (ajustes). Solo existe la vista previa a las direcciones de prueba.",
+      "regularLetter": {
+        "subject": "Sus artículos en META: precios y plazos de entrega actuales",
+        "hint": "Clientes con al menos 2 días de pedido: hasta 3 artículos habituales con precio de lista neto, plazo de entrega y enlace, más accesorios de «Das passt dazu». Sin reclamaciones abiertas ni pagos vencidos."
+      },
+      "regularOverdue": {
+        "subject": "Sus artículos en META: precios y plazos de entrega actuales",
+        "hint": "Clientes habituales avisados por la vigilancia de clientes habituales: como pronto 7 días tras el aviso, solo sin llamada en el CRM desde entonces, sin causa de precio o plazo, como máximo cada 90 días. Contenido como la carta a clientes habituales."
+      },
+      "newsletter": {
+        "subject": "Boletín META",
+        "hint": "Todos con consentimiento (alta en el boletín). METAorder rellena el bloque «Nuevo en la tienda» (artículos comprables más recientes de los últimos 45 días); el texto lo diseña en Brevo. Mientras ⟦…⟧ esté en la plantilla, no sale nada a clientes."
+      },
+      "afterSalesService": {
+        "subject": "Información sobre su pedido META",
+        "hint": "3–10 días tras el envío: número de pedido, artículos con enlace y seguimiento, sin publicidad. Se envía individualmente por el canal transaccional de Brevo (allí no aplica el bloqueo del plugin). Una vez por pedido."
+      },
+      "afterSalesAccessories": {
+        "subject": "Accesorios para su pedido",
+        "hint": "30–45 días tras el envío: accesorios para los artículos pedidos (pares activos de «Das passt dazu»), sin lo ya comprado. Publicidad, una vez por pedido."
+      },
+      "reactivation": {
+        "subject": "Sus artículos en META: precios actuales",
+        "hint": "Compradores únicos con pedido hace 6–12 meses: sus artículos con precio actual y accesorios. Una vez por dirección; el 20 % forma un grupo de control que no recibe nada (para medir el efecto)."
+      }
+    },
+    "effect": {
+      "title": "Efecto (pedidos en {{days}} días tras el envío)",
+      "brevo": "Brevo: {{delivered}} entregados, {{views}} abiertos, {{clicks}} clics, {{unsubscribed}} bajas, {{bounces}} no entregables",
+      "noBrevo": "Sin cifras de campaña (correos individuales por canal transaccional)",
+      "orders": "Destinatarios: {{sent}}, {{customers}} pidieron ({{rate}}), {{orders}} pedidos, {{net}} netos",
+      "control": "Grupo de control: {{size}}, {{customers}} pidieron ({{rate}}), {{net}} netos"
     }
   }
 }

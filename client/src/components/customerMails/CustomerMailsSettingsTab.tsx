@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { CustomerMailBrevoInfo, CustomerMailChannel, CustomerMailOverview } from "@shared/customerMails";
+import { CUSTOMER_MAIL_BUILD_TYPES, type CustomerMailBrevoInfo, type CustomerMailChannel, type CustomerMailOverview } from "@shared/customerMails";
 import { CUSTOMER_MAILS_BREVO_QUERY_KEY, CUSTOMER_MAILS_QUERY_KEY } from "./customerMailsQuery";
 
 /**
@@ -67,6 +67,16 @@ export function CustomerMailsSettingsTab({ data }: { data: CustomerMailOverview 
 
   const senders = brevo.data?.senders ?? [];
   const setChannel = (id: string, patch: Partial<CustomerMailChannel>) => setChannels((list) => list.map((c) => (c.salesChannelId === id ? { ...c, ...patch } : c)));
+  const rulesDirty =
+    since !== (data.settings.existingCustomerSince ?? "") ||
+    perWeek !== String(data.settings.maxPerWeek) ||
+    perMonth !== String(data.settings.maxPerMonth) ||
+    replyTo.trim().toLowerCase() !== data.settings.replyTo ||
+    tests
+      .split(/[\s,;]+/)
+      .map((x) => x.trim().toLowerCase())
+      .filter(Boolean)
+      .join(",") !== data.settings.testRecipients.join(",");
   const testList = tests
     .split(/[\s,;]+/)
     .map((s) => s.trim().toLowerCase())
@@ -165,10 +175,17 @@ export function CustomerMailsSettingsTab({ data }: { data: CustomerMailOverview 
             <Textarea id="customer-mails-tests" rows={3} value={tests} onChange={(e) => setTests(e.target.value)} data-testid="input-customer-mails-tests" />
             <p className="text-xs text-muted-foreground">{t("customerMails.settings.testRecipientsHelp")}</p>
           </div>
-          <Button type="submit" disabled={save.isPending} data-testid="button-customer-mails-rules-save">
-            {save.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-            {t("customerMails.settings.save")}
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="submit" disabled={save.isPending} data-testid="button-customer-mails-rules-save">
+              {save.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              {t("customerMails.settings.save")}
+            </Button>
+            {rulesDirty ? (
+              <span className="text-sm text-amber-700 dark:text-amber-300" role="status" data-testid="text-customer-mails-rules-dirty">
+                {t("customerMails.settings.unsaved")}
+              </span>
+            ) : null}
+          </div>
         </form>
       </Card>
 
@@ -239,7 +256,7 @@ export function CustomerMailsSettingsTab({ data }: { data: CustomerMailOverview 
           <h2 className="font-semibold">{t("customerMails.settings.liveTitle")}</h2>
           <p className="text-xs text-muted-foreground">{t("customerMails.settings.liveHint")}</p>
         </div>
-        {(["regularLetter"] as const).map((type) => {
+        {CUSTOMER_MAIL_BUILD_TYPES.map((type) => {
           const on = data.settings.liveTypes.includes(type);
           return (
             <div key={type} className="flex items-center gap-2">

@@ -28,6 +28,11 @@ export type LetterOrder = {
   createdAt: Date;
   paymentOverdue: boolean;
   passthrough: boolean;
+  /** Netto-Bestellwert (für die Wirkung je Aussendung) */
+  net?: number;
+  /** Versanddatum laut Lieferung (shippingInfo.shippedDate), null = noch nicht versandt */
+  shippedAt?: Date | null;
+  trackingUrl?: string | null;
   items: Array<{ productNumber: string; name: string; netTotal: number }>;
 };
 
@@ -51,8 +56,17 @@ export function isLetterItem(productNumber: string, netTotal: number): boolean {
 
 const dayKey = (d: Date) => d.toISOString().slice(0, 10);
 
-export function letterCandidates(orders: LetterOrder[], now: Date): LetterCustomer[] {
-  const since = now.getTime() - REGULAR_LETTER_LOOKBACK_DAYS * DAY_MS;
+export type CandidateOptions = {
+  minDays?: number;
+  maxDays?: number;
+  lookbackDays?: number;
+  /** letzte Bestellung frühestens/spätestens so viele Tage zurück */
+  lastOrderMinAgeDays?: number;
+  lastOrderMaxAgeDays?: number;
+};
+
+/** Gültige MO-Bestellungen (ohne Storno und durchgeschleuste) je E-Mail */
+export function ordersByEmail(orders: LetterOrder[], since = 0): Map<string, LetterOrder[]> {
   const byEmail = new Map<string, LetterOrder[]>();
   for (const o of orders) {
     if (!/^MO/i.test(o.orderNumber) || o.status === "cancelled" || o.passthrough || o.createdAt.getTime() < since) continue;
@@ -60,11 +74,22 @@ export function letterCandidates(orders: LetterOrder[], now: Date): LetterCustom
     if (!email) continue;
     byEmail.set(email, [...(byEmail.get(email) ?? []), o]);
   }
+  return byEmail;
+}
+
+export function letterCandidates(orders: LetterOrder[], now: Date, opts: CandidateOptions = {}): LetterCustomer[] {
+  const minDays = opts.minDays ?? REGULAR_LETTER_MIN_ORDER_DAYS;
+  const maxDays = opts.maxDays ?? Number.POSITIVE_INFINITY;
+  const since = now.getTime() - (opts.lookbackDays ?? REGULAR_LETTER_LOOKBACK_DAYS) * DAY_MS;
+  const byEmail = ordersByEmail(orders, since);
   const out: LetterCustomer[] = [];
   for (const [email, list] of Array.from(byEmail.entries())) {
     const days = new Set(list.map((o) => dayKey(o.createdAt)));
-    if (days.size < REGULAR_LETTER_MIN_ORDER_DAYS) continue;
+    if (days.size < minDays || days.size > maxDays) continue;
     const latest = list.reduce((a, b) => (b.createdAt > a.createdAt ? b : a));
+    const age = (now.getTime() - latest.createdAt.getTime()) / DAY_MS;
+    if (opts.lastOrderMinAgeDays !== undefined && age < opts.lastOrderMinAgeDays) continue;
+    if (opts.lastOrderMaxAgeDays !== undefined && age > opts.lastOrderMaxAgeDays) continue;
     const stats = new Map<string, { days: Set<string>; net: number }>();
     for (const o of list)
       for (const i of o.items) {

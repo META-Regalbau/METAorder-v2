@@ -39,6 +39,40 @@ Je Mailart gilt eine Liste zulässiger Grundlagen (`CUSTOMER_MAIL_TYPE_RULES` in
 - **Hinweis:** Das Brevo-Plugin sperrt alle Kunden ohne Newsletter. Diese werden ausgelassen (`brevoBlocked`). METAorder entsperrt sie nie selbst, denn das Plugin würde sie wieder sperren und gleicht den Status in beide Richtungen ab.
 - **Offen:** Portal-Kunden brauchen Portalpreise und den Außendienst als Absender. Der Stammkundenrabatt ist nicht abgebildet.
 
+## Weitere Mailarten (B2b–B5)
+
+Alle Mailarten laufen über denselben Weg (`server/customerMails/mailTypeRuns.ts`):
+- Startvorlage per Knopf (`mailTemplates.ts`)
+- „Vorschau an Testadressen“ mit echten Inhalten von Beispielkunden
+- „Entwurf für Kunden“ nur, wenn die Mailart unter Einstellungen → Kundenversand freigeschaltet ist
+
+| Mailart | Wer | Inhalt | Weg |
+|---|---|---|---|
+| Überfällig-Erinnerung (`regularOverdue`) | Von der Stammkunden-Wache gemeldet (Zustand „gemeldet“), Meldung ≥ 7 Tage alt, seither kein CRM-Anruf (Interaktion „call“), keine Preis- oder Lieferzeit-Ursache, höchstens alle 90 Tage | wie der Stammkunden-Brief, zusätzlich `MO_TAGE_SEIT` | Kampagne |
+| Newsletter (`newsletter`) | alle mit Einwilligung | Block „Neu im Shop“ (`MO_NEU_1..4_*`, neueste kaufbare Artikel der letzten 45 Tage laut Shopware-Anlagedatum), sonst Text der Vorlage | Kampagne |
+| Service nach dem Versand (`afterSalesService`) | Bestellungen 3–10 Tage nach dem Versand (`shippingInfo.shippedDate`), je Bestellung einmal | `MO_BESTELLNR`, Datum, Sendungsverfolgung, bis 5 Positionen mit Link | **Transaktionsweg** (einzeln, `{{ params.… }}`, ohne Werbung und ohne Abmeldelink; die Plugin-Sperre gilt hier nicht) |
+| Zubehör nach dem Kauf (`afterSalesAccessories`) | Bestellungen 30–45 Tage nach dem Versand, je Bestellung einmal, nur mit passendem Zubehör | `MO_BESTELLNR`, `MO_ZUB_1..3_*` | Kampagne |
+| Reaktivierung (`reactivation`) | Einmalkäufer (1 Bestelltag in 730 Tagen), letzte Bestellung vor 180–365 Tagen, je Adresse einmal; 20 % feste Kontrollgruppe (`controlGroup`) | damalige Artikel + Zubehör | Kampagne |
+
+- **Platzhalter-Sperre:** Steht in der Brevo-Vorlage noch `⟦`, verweigert METAorder den Kundenversand. Die Newsletter-Startvorlage hat bewusst so einen Absatz.
+- **Gleichzeitige Läufe:** Kampagnen lesen die Kontaktfelder beim Versand. Zwei Aussendungen verschiedener Arten deshalb nacheinander senden, nicht gleichzeitig.
+
+## Wirkung (B6)
+
+- **Je Aussendung** (Knopf „Empfänger“ bei verschickten Läufen): Brevo-Zahlen (zugestellt, geöffnet, geklickt, abgemeldet, unzustellbar), Klicks aus dem Webhook und Bestellungen der Empfänger in 14 Tagen nach dem Versand (MO, netto). Bei der Reaktivierung kommt der Vergleich mit der Kontrollgruppe dazu.
+- **Shop-Puls-Wochenbericht:** Abschnitt „Kundenmails der Woche“ (Aussendungen, Empfänger, Bestellungen danach, Abmeldungen).
+
+## Einwilligung über den Außendienst
+
+„Einwilligung erfassen“ mit Quelle Außendienst/CRM löst im Shop die Newsletter-Anmeldung mit Bestätigungsmail aus (Store-API `newsletter/subscribe`, Kanal META Regalbau DE). Der Vermerk und `doi_requested_at` stehen am Kontakt. Die Einwilligung setzt erst der Abgleich, sobald die Anmeldung bestätigt ist. Danach hebt auch das Brevo-Plugin die Sperre auf. Die Quelle „von Hand“ setzt die Einwilligung direkt (etwa bei schriftlicher Einwilligung) und gehört zu Frage 3 an den DSB.
+
+## B0 vorbereitet
+
+Der Hinweis für Kasse und Registrierung ist als Storefront-Baustein angelegt (`shopware/storefront-snippets/email-notice.js`, Einspielen mit `scripts/writeEmailNotice.ts`).
+- **Nicht eingespielt**, erst nach Freigabe durch den DSB.
+- Der Tag des Live-Einspielens ist der Stichtag.
+- Danach `EMAIL_NOTICE_SNIPPET` in `STOREFRONT_SNIPPETS` übernehmen, damit der Shop-Wächter ihn prüft.
+
 ## Kontaktfelder in Brevo
 
 `MO_FIRMA`, `MO_NAME`, `MO_KUNDENNR`, `MO_KANAL`, `MO_GRUNDLAGE` (`einwilligung` | `bestandskunde` | `test`), `MO_LETZTE_BESTELLUNG` (Datum). Stammkunden-Brief: `MO_STAMM_ANZAHL`, `MO_STAMM_{1..3}_NAME|NR|PREIS|LIEFERZEIT|URL`, `MO_ZUB_ANZAHL`, `MO_ZUB_{1..3}_NAME|PREIS|URL`. Fehlende Felder legt METAorder beim ersten Senden an. Die Vorlage wählt die Fußzeile über `MO_GRUNDLAGE`, zum Beispiel:

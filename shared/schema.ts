@@ -4206,6 +4206,8 @@ export const marketingContacts = pgTable(
     brevoCheckedAt: timestamp("brevo_checked_at"),
     /** In Brevo gesperrt ohne Abmeldung durch den Kunden (Admin bzw. Shop-Plugin) – kein Widerspruch */
     brevoAdminBlocked: boolean("brevo_admin_blocked").notNull().default(false),
+    /** Newsletter-Anmeldung mit Bestätigungsmail im Shop ausgelöst (Migration 0068) */
+    doiRequestedAt: timestamp("doi_requested_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

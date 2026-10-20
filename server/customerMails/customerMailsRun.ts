@@ -43,6 +43,7 @@ import {
   type CustomerMailType,
 } from "@shared/customerMails";
 import { brevoClient, brevoErrorText, type BrevoClient, type FetchLike } from "./brevoClient";
+import { TEMPLATE_TODO_MARK } from "./mailTemplates";
 import {
   basisOf,
   brevoAttributes,
@@ -73,7 +74,7 @@ const tenantIs = (column: AnyColumn, tenantId: string | null) => (tenantId ? eq(
 /** Zeitpunkt für SQL-Ausdrücke als UTC (ein roher Date-Parameter würde in der Zeitzone des Servers geschrieben) */
 const utc = (d: Date) => sql`${d.toISOString()}::timestamptz AT TIME ZONE 'UTC'`;
 
-export type CustomerMailErrorReason = "keyMissing" | "disabled" | "runNotFound" | "notDraft" | "noRecipients" | "noTestRecipients" | "invalidEmail" | "customerSendingOff";
+export type CustomerMailErrorReason = "keyMissing" | "disabled" | "runNotFound" | "notDraft" | "noRecipients" | "noTestRecipients" | "invalidEmail" | "customerSendingOff" | "templatePlaceholder";
 
 /** Fachlicher Fehler; die Routen übersetzen reason in einen festen Text (server/routes/customerMailRoutes.ts) */
 export class CustomerMailError extends Error {
@@ -241,6 +242,7 @@ export function toContact(r: MarketingContactRow, settings: Pick<CustomerMailSet
     bouncedAt: iso(r.bouncedAt),
     newsletterStatus: r.newsletterStatus,
     brevoBlocklisted: r.brevoBlocklisted,
+    doiRequestedAt: iso(r.doiRequestedAt),
   };
 }
 
@@ -821,11 +823,45 @@ export async function sendRun(deps: CustomerMailDeps, tenantId: string | null, r
     }
     const toSend = recipients.filter((r) => !blockedSet.has(r.email));
     if (!toSend.length) throw new CustomerMailError("noRecipients");
+    if (!run.templateId || !run.senderId) throw new Error("Template or sender missing");
+
+    // Kundenversand nie mit Vorlagen, in denen noch ein auszufüllender Platzhalter steht
+    if (run.mailType !== "test" && (await brevo.templateHtml(run.templateId)).includes(TEMPLATE_TODO_MARK)) throw new CustomerMailError("templatePlaceholder");
+
+    // Service-Mails (ohne Werbung) einzeln über den Transaktionsweg; die Vorschau davon ebenso
+    const kind = (run.previewOf ?? run.mailType) as CustomerMailType;
+    if (CUSTOMER_MAIL_TYPE_RULES[kind]?.transactional) {
+      let sentCount = 0;
+      let lastError: string | null = null;
+      for (const r of toSend) {
+        try {
+          await brevo.sendTransactional({
+            templateId: run.templateId,
+            senderId: run.senderId,
+            to: r.email,
+            subject: run.subject,
+            params: (r.attributes as Record<string, string | number | null>) ?? {},
+            replyTo: settings.replyTo || undefined,
+          });
+          await db.update(marketingMailRecipients).set({ status: "sent", sentAt: deps.now() }).where(eq(marketingMailRecipients.id, r.id));
+          sentCount += 1;
+        } catch (err) {
+          lastError = brevoErrorText(err);
+          log.warn({ err, tenantId, runId }, "Kundenmails: Einzelmail nicht verschickt");
+        }
+      }
+      const doneAt = deps.now();
+      await db
+        .update(marketingMailRuns)
+        .set({ status: sentCount === toSend.length ? "sent" : "failed", error: lastError, sentAt: sentCount ? doneAt : null, sentCount: run.sentCount + sentCount, skippedCount: run.skippedCount + blockedSet.size, updatedAt: doneAt })
+        .where(eq(marketingMailRuns.id, runId));
+      log.info({ tenantId, runId, mailType: run.mailType, sent: sentCount, of: toSend.length, by }, "Kundenmails: Einzelmails verschickt");
+      return getRun(tenantId, runId);
+    }
 
     let campaignId = run.brevoCampaignId;
     let listId = run.brevoListId;
     if (!campaignId) {
-      if (!run.templateId || !run.senderId) throw new Error("Template or sender missing");
       // Felder des Laufs: Zahlen als Zahl (für Bedingungen in der Vorlage), sonst Text
       const attrTypes: Record<string, "text" | "date" | "float"> = { ...CUSTOMER_MAIL_BASE_ATTRIBUTES };
       for (const r of toSend)
