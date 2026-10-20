@@ -8,6 +8,7 @@ import {
 import { logger } from "../lib/logger";
 import { repairUtf8Mojibake } from "../email/mojibake";
 import { orderXmlToReadableText, parseOrderXml, xmlToPlainText } from "./orderXmlParser";
+import { readImageDimensions } from "./imageDimensions";
 
 const log = logger.child({ component: "extraction/documentTextExtraction" });
 
@@ -142,12 +143,50 @@ function isDocxMime(mime: string): boolean {
   );
 }
 
-async function extractTextFromImage(fileBuffer: Buffer): Promise<string> {
-  const { createWorker } = await import("tesseract.js");
-  const worker = await createWorker("deu+eng");
-  const { data } = await worker.recognize(fileBuffer);
-  await worker.terminate();
-  return data.text || "";
+/**
+ * Größtes Bild (Pixel), das in die Texterkennung geht. Tesseract hält das Bild dekodiert im
+ * WASM-Speicher: 9992×9992 (T-1086) kostete +640 MB bis +1 GB und brachte den 1-GB-Container
+ * zum Absturz; 5000×5000 kostet gemessen +363 MB (~15 Byte je Pixel). 20 Mpx (~+290 MB) deckt
+ * A4 mit 400 dpi (15,5 Mpx) und 12-Mpx-Handyfotos ab.
+ * Größere Bilder gehen ohne OCR-Text weiter (Vision bekommt sie trotzdem).
+ */
+export const MAX_OCR_IMAGE_PIXELS = 20_000_000;
+
+/** Grund, warum das Bild nicht in die Texterkennung darf; null = erkennen. */
+export function ocrImageSkipReason(fileBuffer: Buffer): string | null {
+  const dims = readImageDimensions(fileBuffer);
+  if (!dims) return "Bildformat/Bildmaße nicht lesbar";
+  if (dims.width * dims.height > MAX_OCR_IMAGE_PIXELS) {
+    return `${dims.width}×${dims.height} px (${Math.round((dims.width * dims.height) / 1e6)} Mpx, Grenze ${MAX_OCR_IMAGE_PIXELS / 1e6} Mpx)`;
+  }
+  return null;
+}
+
+// Eine Texterkennung zur Zeit je Prozess: zwei parallele Mails dürfen den Speicher nicht verdoppeln.
+let ocrQueue: Promise<unknown> = Promise.resolve();
+
+async function extractTextFromImage(fileBuffer: Buffer, fileName: string): Promise<string> {
+  const skipReason = ocrImageSkipReason(fileBuffer);
+  if (skipReason) {
+    log.warn(
+      { event: "ocr.skipped", fileName, reason: skipReason },
+      `[documentTextExtraction] Texterkennung für ${fileName} übersprungen: ${skipReason}`,
+    );
+    return "";
+  }
+  const run = ocrQueue.then(async () => {
+    const { createWorker } = await import("tesseract.js");
+    const worker = await createWorker("deu+eng");
+    try {
+      const { data } = await worker.recognize(fileBuffer);
+      return data.text || "";
+    } finally {
+      // Auch bei Fehlern beenden – sonst bleibt der Worker-Thread mit dem dekodierten Bild liegen.
+      await worker.terminate();
+    }
+  });
+  ocrQueue = run.catch(() => undefined);
+  return run;
 }
 
 /**
@@ -190,7 +229,7 @@ export async function extractPlainTextForDraft(options: {
 
   if (mimeType.startsWith("image/")) {
     if (!ocrEnabled) return "";
-    return extractTextFromImage(fileBuffer);
+    return extractTextFromImage(fileBuffer, fileName);
   }
 
   if (isDocxMime(mimeType) || ext === "docx") {
