@@ -23,6 +23,27 @@ export const GENERAL_CATALOG_FACTS: CatalogFact[] = [
   { text: "Die Regale sind für eine reine Innenaufstellung konzipiert.", page: 17 },
   { text: "Regale unterliegen nach § 14 Betriebssicherheitsverordnung der Prüfpflicht; Inspektionen sind im Abstand von höchstens 12 Monaten durch eine fachkundige Person durchzuführen.", page: 16 },
   { text: "Fach- und Feldlasten gelten bei gleichmäßig verteilter Last.", page: 25 },
+  { text: "Die Regale werden grundsätzlich zerlegt angeliefert.", page: 17 },
+  { text: "Wer die Regale nicht selbst durch fachkundiges Personal aufbauen kann, kann den META-Montageservice nutzen: Geschulte Montageteams installieren die Lagereinrichtung.", page: 11 },
+];
+
+/**
+ * META-Sicherheitshinweise (Heft 9900006907, Stand 02.2024, liegt jeder Lieferung bei) – Teil Deutsch, S. 2–3.
+ * Das Heft nennt noch die DGUV Regel 108-007; die ist zurückgezogen (ersetzt durch DGUV Information 208-061)
+ * und wird deshalb nicht übernommen.
+ */
+export const SAFETY_SOURCE = "META Sicherheitshinweise 02.2024";
+export const SAFETY_FACTS: CatalogFact[] = [
+  { text: "Montage-, Inspektions- und Demontagearbeiten nur durch Personal, das mit dem Produkt, den Sicherheitshinweisen und den Unfallverhütungsvorschriften vertraut ist.", page: 2 },
+  { text: "Vor der Montage den Lieferumfang anhand des Lieferscheins auf Vollständigkeit prüfen.", page: 2 },
+  { text: "Während der Montage auf die Kippgefahr des Regals und einzelner Elemente achten und sie vor dem nächsten Arbeitsschritt sichern.", page: 2 },
+  { text: "Das Regal erst nach vollständig abgeschlossener Montage und Sicherung beladen.", page: 2 },
+  { text: "Regale gut sichtbar mit dem entsprechenden Typenschild kennzeichnen.", page: 2 },
+  { text: "Regal und Bauteile wie Fachböden, Holme oder Rahmen niemals besteigen.", page: 3 },
+  { text: "Beim Beladen auf gleichmäßige Lastverteilung achten, Stoß-, Anprall- und Schiebelasten vermeiden und die Fach- und Feldlasten nie überschreiten.", page: 3 },
+  { text: "Beschädigte oder verformte Bauteile sofort ersetzen.", page: 3 },
+  { text: "Umbauen oder Umstellen nur in unbeladenem Zustand und nach Rücksprache mit META.", page: 3 },
+  { text: "Neben der Inspektion durch eine Fachkraft mindestens alle 12 Monate sind wöchentliche Sichtprüfungen durchzuführen.", page: 3 },
 ];
 
 export const CATALOG_SYSTEMS: CatalogSystem[] = [
@@ -60,6 +81,10 @@ export const CATALOG_SYSTEMS: CatalogSystem[] = [
       { text: "Fachboden-Kantenhöhe 40 mm; Abdeckboden höchstens 200 kg.", page: 25 },
       { text: "Regale mit einem Höhen-/Tiefenverhältnis über 4 : 1 mit Wand- oder Fußverankerung gegen Kippen sichern; Feldlastangaben gelten für Regalzeilen mit 3 und mehr Feldern; Reifenregale und Regale mit Schubladen immer mit Fußverankerung sichern; nur für Handbedienung.", page: 25 },
       { text: "Schranktüren und Schubladen sind nicht durch das GS-Zeichen abgedeckt.", page: 14 },
+      { text: "Planmaße einzeilig: Grundregal Nennlänge + 56 mm, Anbauregal Nennlänge + 6 mm, Tiefe Nenntiefe + 36 mm; doppelzeilig Tiefe 2 x Nenntiefe + 75 mm.", page: 25 },
+      { text: "Außenmaß an den Fußplatten in Längsrichtung: Grundregal Nennlänge + 82 mm, Anbauregal Nennlänge + 41 mm; Nennlänge = Fachbodenlänge, Nenntiefe = Fachbodentiefe.", page: 26 },
+      { text: "Wandbefestigungssets und Fußverdübelungssets gibt es jeweils für Grundregal und Anbauregal.", page: 81 },
+      { text: "Die Rammschutzwand (300 mm hoch, inklusive Bodenanker) schützt die stirnseitigen Rahmen und ist nachrüstbar.", page: 81 },
     ],
   },
   {
