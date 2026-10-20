@@ -120,7 +120,7 @@ export async function loadLetterProducts(deps: CustomerMailDeps, tenantId: strin
       const { products, problems } = await loadIndustryShopProducts(api, chunk, de);
       const blocked = new Set(problems.filter((p) => p.problem !== "missing").map((p) => p.number));
       for (const [n, p] of Object.entries(products)) {
-        out.set(n, { name: p.name, priceNet: typeof p.priceNet === "number" ? p.priceNet : null, deliveryTime: p.deliveryTime ?? null, url: p.url ?? "", sellable: !blocked.has(n) });
+        out.set(n, { name: p.name, priceNet: typeof p.priceNet === "number" ? p.priceNet : null, deliveryTime: p.deliveryTime ?? null, url: p.url ?? "", sellable: !blocked.has(n), image: p.image ?? null });
       }
     }
     return out;

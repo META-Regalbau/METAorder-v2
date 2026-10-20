@@ -114,7 +114,7 @@ export function letterCandidates(orders: LetterOrder[], now: Date, opts: Candida
   return out.sort((a, b) => b.orderDays - a.orderDays || b.lastOrderAt.getTime() - a.lastOrderAt.getTime());
 }
 
-export type LetterProduct = { name: string; priceNet: number | null; deliveryTime: string | null; url: string; sellable: boolean };
+export type LetterProduct = { name: string; priceNet: number | null; deliveryTime: string | null; url: string; sellable: boolean; image?: string | null };
 
 /** Preis wie im Shop für Firmenkunden: netto mit Hinweis */
 export function formatNetPrice(net: number): string {
@@ -160,12 +160,14 @@ export function letterContent(
     attributes[`MO_STAMM_${i + 1}_PREIS`] = it ? formatNetPrice(it.priceNet as number) : "";
     attributes[`MO_STAMM_${i + 1}_LIEFERZEIT`] = it?.deliveryTime ?? "";
     attributes[`MO_STAMM_${i + 1}_URL`] = it?.url ?? "";
+    attributes[`MO_STAMM_${i + 1}_BILD`] = it?.image ?? "";
   }
   for (let i = 0; i < REGULAR_LETTER_MAX_ACCESSORIES; i += 1) {
     const a = accessories[i];
     attributes[`MO_ZUB_${i + 1}_NAME`] = a?.name ?? "";
     attributes[`MO_ZUB_${i + 1}_PREIS`] = a ? formatNetPrice(a.priceNet as number) : "";
     attributes[`MO_ZUB_${i + 1}_URL`] = a?.url ?? "";
+    attributes[`MO_ZUB_${i + 1}_BILD`] = a?.image ?? "";
   }
   return { items, accessories, attributes };
 }
@@ -180,7 +182,7 @@ export function letterExclusion(c: Pick<LetterCustomer, "email" | "paymentOverdu
 /** Brevo-Feldtypen der Brief-Felder (alles Text bis auf die Anzahlen) */
 export function letterAttributeTypes(): Record<string, "text" | "float"> {
   const t: Record<string, "text" | "float"> = { MO_STAMM_ANZAHL: "float", MO_ZUB_ANZAHL: "float" };
-  for (let i = 1; i <= REGULAR_LETTER_MAX_ITEMS; i += 1) for (const f of ["NAME", "NR", "PREIS", "LIEFERZEIT", "URL"]) t[`MO_STAMM_${i}_${f}`] = "text";
-  for (let i = 1; i <= REGULAR_LETTER_MAX_ACCESSORIES; i += 1) for (const f of ["NAME", "PREIS", "URL"]) t[`MO_ZUB_${i}_${f}`] = "text";
+  for (let i = 1; i <= REGULAR_LETTER_MAX_ITEMS; i += 1) for (const f of ["NAME", "NR", "PREIS", "LIEFERZEIT", "URL", "BILD"]) t[`MO_STAMM_${i}_${f}`] = "text";
+  for (let i = 1; i <= REGULAR_LETTER_MAX_ACCESSORIES; i += 1) for (const f of ["NAME", "PREIS", "URL", "BILD"]) t[`MO_ZUB_${i}_${f}`] = "text";
   return t;
 }

@@ -163,6 +163,17 @@ describe("Vorlagen, Regeln und Brevo-Transaktionsweg", () => {
       expect(html.includes("{{ unsubscribe }}")).toBe(!transactional);
       expect(CUSTOMER_MAIL_TYPE_RULES[type].available).toBe(true);
     }
+    // Design des META-Master-Templates (Brevo #10), ohne dessen Platzhalter
+    for (const type of CUSTOMER_MAIL_BUILD_TYPES) {
+      const html = MAIL_TEMPLATES[type].html();
+      expect(html).toContain("border-top:3px solid #ff0002");
+      expect(html).toContain("at all levels");
+      expect(html).toContain("META-Logo-Red-on-Transparent-RGB.png");
+      expect(html).not.toContain("[UNSUBSCRIBE]");
+      expect(html).not.toContain("REPLACE-WITH-YOUR-HOSTED-URL");
+      expect(html).not.toContain("example.com");
+      expect(html).toContain("+49 2932 957-0");
+    }
     // nur der Newsletter braucht eigenen Text in Brevo
     expect(CUSTOMER_MAIL_BUILD_TYPES.filter((t) => MAIL_TEMPLATES[t].html().includes(TEMPLATE_TODO_MARK))).toEqual(["newsletter"]);
     expect(customerMailTypedRunSchema.safeParse({ mailType: "test", templateId: 1, senderId: 1, subject: "s", mode: "preview" }).success).toBe(false);
