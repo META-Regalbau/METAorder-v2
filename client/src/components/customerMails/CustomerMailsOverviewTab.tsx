@@ -14,7 +14,8 @@ import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { CustomerMailBrevoInfo, CustomerMailOverview, CustomerMailRun, CustomerMailRunDetail } from "@shared/customerMails";
 import { CUSTOMER_MAILS_BREVO_QUERY_KEY, CUSTOMER_MAILS_QUERY_KEY } from "./customerMailsQuery";
-import { CustomerMailsRegularLetterCard } from "./CustomerMailsRegularLetterCard";
+import { CustomerMailsTypeCard } from "./CustomerMailsTypeCard";
+import { CustomerMailsRunEffect } from "./CustomerMailsRunEffect";
 
 /**
  * Reiter „Übersicht“: Kontakte je Rechtsgrundlage, Testaussendung (Vorlage + Absender + Betreff an die
@@ -165,7 +166,7 @@ export function CustomerMailsOverviewTab({ data }: { data: CustomerMailOverview 
         </form>
       </Card>
 
-      <CustomerMailsRegularLetterCard data={data} onRun={afterRun} />
+      <CustomerMailsTypeCard data={data} onRun={afterRun} />
 
       <Card className="p-4 space-y-3">
         <h2 className="font-semibold">{t("customerMails.runs.title")}</h2>
@@ -250,6 +251,7 @@ export function CustomerMailsOverviewTab({ data }: { data: CustomerMailOverview 
           </div>
         )}
         {!data.settings.enabled && data.runs.some((r) => r.status === "draft") ? <p className="text-xs text-muted-foreground">{t("customerMails.runs.switchedOff")}</p> : null}
+        {openRunId && detail.data?.status === "sent" ? <CustomerMailsRunEffect runId={openRunId} /> : null}
         {openRunId && detail.data ? (
           <div className="overflow-x-auto border-t pt-3" data-testid="customer-mails-run-detail">
             <Table>
@@ -269,7 +271,9 @@ export function CustomerMailsOverviewTab({ data }: { data: CustomerMailOverview 
                     <TableCell className="text-sm">{r.customerNumber ?? "–"}</TableCell>
                     <TableCell className="text-sm">{t(`customerMails.basis.${r.basis}`)}</TableCell>
                     <TableCell className="text-xs">
-                      {[r.attributes.MO_FIRMA, r.attributes.MO_STAMM_1_NAME, r.attributes.MO_STAMM_2_NAME, r.attributes.MO_STAMM_3_NAME].filter(Boolean).join(" · ") || "–"}
+                      {[r.attributes.MO_FIRMA, r.attributes.MO_BESTELLNR, r.attributes.MO_STAMM_1_NAME, r.attributes.MO_STAMM_2_NAME, r.attributes.MO_STAMM_3_NAME, r.attributes.MO_POS_1_NAME, r.attributes.MO_NEU_1_NAME]
+                        .filter(Boolean)
+                        .join(" · ") || "–"}
                       {r.attributes.MO_ZUB_1_NAME ? <div className="text-muted-foreground">{t("customerMails.recipients.accessories", { names: [r.attributes.MO_ZUB_1_NAME, r.attributes.MO_ZUB_2_NAME, r.attributes.MO_ZUB_3_NAME].filter(Boolean).join(", ") })}</div> : null}
                     </TableCell>
                     <TableCell className="text-sm">

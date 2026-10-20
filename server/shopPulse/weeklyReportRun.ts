@@ -11,7 +11,7 @@ import { and, eq, inArray, isNull, sql, type AnyColumn } from "drizzle-orm";
 import { shopwareB2bCompanies, shopwareProducts } from "@shared/schema";
 import type { ShopPulseLossEstimate, ShopPulseSignal } from "@shared/shopPulse";
 import type { ShopPulseActionEffect, ShopPulseWeeklyEffect } from "@shared/shopPulseEffects";
-import type { ShopPulseWeeklyAds, ShopPulseWeeklyGsc } from "@shared/shopPulseWeekly";
+import type { ShopPulseWeeklyAds, ShopPulseWeeklyGsc, ShopPulseWeeklyCustomerMails } from "@shared/shopPulseWeekly";
 import type { ShopPulseAction, ShopPulseB2bShare, ShopPulseWeeklyNumbers, ShopPulseWeeklyReport, ShopPulseWeeklyReportData } from "@shared/shopPulseWeekly";
 import type { IStorage } from "../storage";
 import { db } from "../db";
@@ -50,6 +50,8 @@ export type ShopPulseWeeklyDeps = {
   adsWeek?(tenantId: string | null, from: string, to: string): Promise<{ cost: number; clicks: number; conversions: number }>;
   /** Google-Klicks (S2-5) von bis und die 7 Tage davor; wirft GscNotConfiguredError, wenn nicht eingerichtet */
   gscWeek?(tenantId: string | null, from: string, to: string): Promise<{ from: string; to: string; clicks: number; impressions: number; previousClicks: number }>;
+  /** Kundenmails der Woche (B6); fehlt es oder gibt es keine Aussendung, kein Abschnitt */
+  customerMailsWeek?(tenantId: string | null, from: Date, to: Date): Promise<ShopPulseWeeklyCustomerMails | null>;
   saveReport(
     tenantId: string | null,
     report: { weekStart: string; data: ShopPulseWeeklyReportData; ai: ShopPulseWeeklyReport["ai"]; sentAt: Date | null },
@@ -145,7 +147,15 @@ export async function buildWeeklyReport(deps: ShopPulseWeeklyDeps, input: Weekly
       }
     }
   }
-  const data = weeklyReportData({ numbers: figures?.numbers ?? null, signals: input.openSignals, estimates, actions, now, b2b: figures?.b2b ?? null, effects, ads, gsc });
+  let customerMails: ShopPulseWeeklyCustomerMails | undefined;
+  if (deps.customerMailsWeek) {
+    try {
+      customerMails = (await deps.customerMailsWeek(tenantId, berlinMidnight(weekStart), berlinMidnight(addDays(weekStart, 7)))) ?? undefined;
+    } catch (err) {
+      log.warn({ err, tenantId }, "Wochenbericht: Kundenmails nicht gelesen");
+    }
+  }
+  const data = weeklyReportData({ numbers: figures?.numbers ?? null, signals: input.openSignals, estimates, actions, now, b2b: figures?.b2b ?? null, effects, ads, gsc, customerMails });
 
   let ai: ShopPulseWeeklyReport["ai"] = null;
   if (input.ai) {
@@ -195,6 +205,7 @@ export async function loadB2bCustomerNumbers(tenantId: string | null): Promise<S
 
 export function shopPulseWeeklyDeps(storage: IStorage): ShopPulseWeeklyDeps {
   return {
+    customerMailsWeek: async (tenantId, from, to) => (await import("../customerMails/weekly")).customerMailsWeek(tenantId, from, to),
     loadOrders: (tenantId, since) => loadPulseOrders(tenantId, since, { items: true, customer: true }),
     b2bCustomerNumbers: (tenantId) => loadB2bCustomerNumbers(tenantId),
     herstellpreise: (tenantId, numbers) => loadHerstellpreiseForNumbers(storage, tenantId, numbers),

@@ -30,15 +30,20 @@ export type CustomerMailBasis = (typeof CUSTOMER_MAIL_BASES)[number];
  * test geht nur an die internen Testadressen aus den Einstellungen. Nur „test“ ist in B1 schon nutzbar,
  * die übrigen Mailarten kommen mit B2–B5.
  */
-export const CUSTOMER_MAIL_TYPE_RULES: Record<CustomerMailType, { advertising: boolean; bases: CustomerMailBasis[]; available: boolean }> = {
-  test: { advertising: false, bases: [], available: true },
-  newsletter: { advertising: true, bases: ["consent"], available: false },
-  regularLetter: { advertising: true, bases: ["consent", "existingCustomer"], available: true },
-  regularOverdue: { advertising: true, bases: ["consent", "existingCustomer"], available: false },
-  afterSalesService: { advertising: false, bases: ["consent", "existingCustomer", "none"], available: false },
-  afterSalesAccessories: { advertising: true, bases: ["consent", "existingCustomer"], available: false },
-  reactivation: { advertising: true, bases: ["consent", "existingCustomer"], available: false },
+export const CUSTOMER_MAIL_TYPE_RULES: Record<CustomerMailType, { advertising: boolean; bases: CustomerMailBasis[]; available: boolean; transactional: boolean }> = {
+  test: { advertising: false, bases: [], available: true, transactional: false },
+  newsletter: { advertising: true, bases: ["consent"], available: true, transactional: false },
+  regularLetter: { advertising: true, bases: ["consent", "existingCustomer"], available: true, transactional: false },
+  regularOverdue: { advertising: true, bases: ["consent", "existingCustomer"], available: true, transactional: false },
+  // Service-Mail ohne Werbung: Transaktionsweg (die Plugin-Sperre in Brevo gilt nur für Marketing)
+  afterSalesService: { advertising: false, bases: ["consent", "existingCustomer", "none"], available: true, transactional: true },
+  afterSalesAccessories: { advertising: true, bases: ["consent", "existingCustomer"], available: true, transactional: false },
+  reactivation: { advertising: true, bases: ["consent", "existingCustomer"], available: true, transactional: false },
 };
+
+/** Mailarten mit eigenem Baustein (ohne „test“), in der Reihenfolge der Oberfläche */
+export const CUSTOMER_MAIL_BUILD_TYPES = ["regularLetter", "regularOverdue", "newsletter", "afterSalesService", "afterSalesAccessories", "reactivation"] as const;
+export type CustomerMailBuildType = (typeof CUSTOMER_MAIL_BUILD_TYPES)[number];
 
 export const CUSTOMER_MAIL_CONSENT_SOURCES = ["shopNewsletter", "crm", "manual"] as const;
 export type CustomerMailConsentSource = (typeof CUSTOMER_MAIL_CONSENT_SOURCES)[number];
@@ -47,7 +52,7 @@ export type CustomerMailConsentSource = (typeof CUSTOMER_MAIL_CONSENT_SOURCES)[n
 export const CUSTOMER_MAIL_OBJECTION_SOURCES = ["brevoUnsubscribe", "brevoSpam", "brevoBlocklist", "shopNewsletterOptOut", "manual"] as const;
 export type CustomerMailObjectionSource = (typeof CUSTOMER_MAIL_OBJECTION_SOURCES)[number];
 
-export const CUSTOMER_MAIL_SKIP_REASONS = ["objected", "bounced", "noBasis", "frequency", "invalidEmail", "duplicate", "channelOff", "brevoBlocked", "complaint", "paymentOverdue"] as const;
+export const CUSTOMER_MAIL_SKIP_REASONS = ["objected", "bounced", "noBasis", "frequency", "invalidEmail", "duplicate", "channelOff", "brevoBlocked", "complaint", "paymentOverdue", "controlGroup", "alreadySent"] as const;
 export type CustomerMailSkipReason = (typeof CUSTOMER_MAIL_SKIP_REASONS)[number];
 
 export const CUSTOMER_MAIL_RUN_STATUSES = ["draft", "sending", "sent", "failed", "cancelled"] as const;
@@ -171,7 +176,18 @@ export const customerMailObjectionSchema = z
   })
   .strict();
 
-/** Stammkunden-Brief: „preview“ = echte Briefe von Beispielkunden an die Testadressen, „customers“ = Entwurf für Kunden */
+/** Lauf einer Mailart: „preview“ = echte Inhalte von Beispielkunden an die Testadressen, „customers“ = Entwurf für Kunden */
+export const customerMailTypedRunSchema = z
+  .object({
+    mailType: z.enum(CUSTOMER_MAIL_BUILD_TYPES),
+    templateId: z.number().int().positive(),
+    senderId: z.number().int().positive(),
+    subject: z.string().trim().min(1).max(200),
+    mode: z.enum(["preview", "customers"]),
+  })
+  .strict();
+
+/** Stammkunden-Brief (B2, bleibt für ältere Oberflächen): wie customerMailTypedRunSchema ohne mailType */
 export const customerMailRegularLetterRunSchema = z
   .object({
     templateId: z.number().int().positive(),
@@ -181,7 +197,9 @@ export const customerMailRegularLetterRunSchema = z
   })
   .strict();
 
-export const customerMailTemplateSchema = z.object({ senderId: z.number().int().positive() }).strict();
+export const customerMailTemplateSchema = z
+  .object({ senderId: z.number().int().positive(), mailType: z.enum(CUSTOMER_MAIL_BUILD_TYPES).optional() })
+  .strict();
 
 export const customerMailTestRunSchema = z
   .object({
@@ -210,6 +228,8 @@ export type CustomerMailContact = {
   bouncedAt: string | null;
   newsletterStatus: string | null;
   brevoBlocklisted: boolean;
+  /** Bestätigungsmail (Double-Opt-in) über den Shop angefordert, Einwilligung gilt erst nach Bestätigung */
+  doiRequestedAt: string | null;
 };
 
 export type CustomerMailCounts = Record<CustomerMailBasis, number> & { total: number; bounced: number; newsletterUnconfirmed: number };
@@ -247,7 +267,7 @@ export type CustomerMailRunRecipient = {
 
 export type CustomerMailRunDetail = CustomerMailRun & {
   recipients: CustomerMailRunRecipient[];
-  /** nur beim Anlegen eines Stammkunden-Briefs: Kandidaten, davon mit Inhalt, ausgeschlossen */
+  /** nur beim Anlegen eines Laufs: Kandidaten, davon mit Inhalt, ausgeschlossen */
   build?: { candidates: number; withContent: number; excluded: number } | null;
 };
 
@@ -302,4 +322,21 @@ export type CustomerMailContactStatus = {
   objectionAt: string | null;
   objectionSource: CustomerMailObjectionSource | null;
   bouncedAt: string | null;
+};
+
+/** Antwort von GET /api/customer-mails/runs/:id/effect (B6) */
+export type CustomerMailRunEffect = {
+  runId: string;
+  sentAt: string | null;
+  sent: number;
+  /** Brevo-Kampagnenstatistik (null = Transaktionsweg oder nicht abrufbar) */
+  brevo: { delivered: number; uniqueViews: number; uniqueClicks: number; unsubscriptions: number; hardBounces: number } | null;
+  brevoError: string | null;
+  /** Klicks aus dem Webhook (eindeutige Empfänger) */
+  clickers: number;
+  /** Bestellungen der Empfänger in WINDOW Tagen nach dem Versand */
+  windowDays: number;
+  orders: { customers: number; orders: number; net: number };
+  /** Kontrollgruppe (bewusst nicht angeschrieben), gleicher Zeitraum; null = keine */
+  control: { size: number; customers: number; orders: number; net: number } | null;
 };

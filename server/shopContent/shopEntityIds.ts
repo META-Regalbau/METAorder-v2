@@ -79,3 +79,17 @@ export function storefrontSnippet(key: string): StorefrontSnippetDef {
   if (!snippet) throw new Error(`Unbekannter Storefront-Baustein ${key}`);
   return snippet;
 }
+
+/**
+ * Kundenmails B0: Hinweis auf E-Mail-Werbung an Bestandskunden (Kasse und Registrierung). Bewusst NICHT in
+ * STOREFRONT_SNIPPETS, solange er nicht live ist (sonst meldet der Shop-Wächter einen fehlenden Baustein). Nach dem
+ * Einspielen (scripts/writeEmailNotice.ts, erst nach Freigabe durch den DSB) in die Liste oben übernehmen.
+ */
+export const EMAIL_NOTICE_SNIPPET: StorefrontSnippetDef = {
+  key: "metaorder-email-notice",
+  name: "METAorder: Hinweis E-Mail-Werbung an Bestandskunden (Kasse, Registrierung)",
+  file: "email-notice",
+  script: "writeEmailNotice.ts",
+  protocolPrefix: "E-Mail-Hinweis-Protokoll",
+  marker: "meta-mail-notice",
+};

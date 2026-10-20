@@ -216,6 +216,33 @@ export function brevoClient(apiKey: string, fetchImpl: FetchLike = fetch, base =
       }
     },
 
+    /** HTML einer Vorlage (für die Prüfung auf offene Platzhalter vor dem Kundenversand) */
+    async templateHtml(id: number): Promise<string> {
+      const r = await call("GET", `/smtp/templates/${id}`);
+      return String(r?.htmlContent ?? "");
+    },
+
+    /** Einzelmail über den Transaktionsweg (Service-Mails ohne Werbung); Platzhalter {{ params.… }} */
+    async sendTransactional(input: { templateId: number; senderId: number; to: string; subject: string; params: Record<string, string | number | null>; replyTo?: string }): Promise<string> {
+      const r = await call("POST", "/smtp/email", {
+        templateId: input.templateId,
+        sender: { id: input.senderId },
+        to: [{ email: input.to }],
+        subject: input.subject,
+        params: input.params,
+        ...(input.replyTo ? { replyTo: { email: input.replyTo } } : {}),
+      });
+      return String(r?.messageId ?? "");
+    },
+
+    /** Kennzahlen einer Kampagne (globalStats) */
+    async campaignStats(id: number): Promise<{ delivered: number; uniqueViews: number; uniqueClicks: number; unsubscriptions: number; hardBounces: number }> {
+      const r = await call("GET", `/emailCampaigns/${id}?statistics=globalStats`);
+      const g = r?.statistics?.globalStats ?? {};
+      const n = (v: unknown) => Number(v ?? 0) || 0;
+      return { delivered: n(g.delivered), uniqueViews: n(g.uniqueViews), uniqueClicks: n(g.uniqueClicks), unsubscriptions: n(g.unsubscriptions), hardBounces: n(g.hardBounces) };
+    },
+
     /** Vorlage anlegen (Marketing-Kampagnen nutzen dieselben Vorlagen); liefert die ID */
     async createTemplate(input: { name: string; subject: string; html: string; senderId: number }): Promise<number> {
       const r = await call("POST", "/smtp/templates", {

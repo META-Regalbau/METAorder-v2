@@ -364,6 +364,19 @@ export type ShopPulseWeeklyReportData = {
   ads?: ShopPulseWeeklyAds;
   /** Search Console (S2-5); fehlt in älteren Berichten */
   gsc?: ShopPulseWeeklyGsc;
+  /** Kundenmails der Woche (B6); fehlt in älteren Berichten und ohne Kundenmails */
+  customerMails?: ShopPulseWeeklyCustomerMails;
+};
+
+/** Kundenmails im Wochenbericht: verschickte Aussendungen der Woche und Bestellungen der Empfänger danach */
+export type ShopPulseWeeklyCustomerMails = {
+  runs: number;
+  sent: number;
+  byType: Array<{ mailType: string; runs: number; sent: number }>;
+  /** Bestellungen der Empfänger in 14 Tagen nach dem jeweiligen Versand (bis heute) */
+  orders: { customers: number; orders: number; net: number };
+  /** Abmeldungen und Spam-Meldungen aus Brevo in der Woche */
+  objections: number;
 };
 
 /** Search Console im Wochenbericht: Google-Klicks der letzten 7 Tage mit Daten (Verzögerung 3 Tage) und Listen */

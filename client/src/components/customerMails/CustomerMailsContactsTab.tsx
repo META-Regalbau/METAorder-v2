@@ -69,7 +69,14 @@ export function CustomerMailsContactsTab() {
       setConsentEmail("");
       setConsentNote("");
       setConsentDate("");
-      toast({ title: c.basis === "objected" ? t("customerMails.contacts.consentButObjected") : t("customerMails.contacts.consentSaved") });
+      toast({
+        title:
+          c.basis === "objected"
+            ? t("customerMails.contacts.consentButObjected")
+            : consentSource === "crm"
+              ? t("customerMails.contacts.doiRequested", { email: c.email })
+              : t("customerMails.contacts.consentSaved"),
+      });
     },
     onError: (error: Error) => toast({ title: t("customerMails.contacts.consentFailed"), description: error.message, variant: "destructive" }),
   });
@@ -151,6 +158,7 @@ export function CustomerMailsContactsTab() {
                               : null}
                           {c.bouncedAt ? ` · ${t("customerMails.contacts.bounced")}` : ""}
                           {c.brevoBlocklisted && c.basis !== "objected" ? ` · ${t("customerMails.contacts.brevoBlocked")}` : ""}
+                          {c.doiRequestedAt && !c.consentAt ? ` · ${t("customerMails.contacts.doiPending", { date: fmt.date(c.doiRequestedAt) })}` : ""}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -168,7 +176,7 @@ export function CustomerMailsContactsTab() {
         <Card className="p-4 space-y-3">
           <div className="space-y-1">
             <h2 className="font-semibold">{t("customerMails.contacts.consentTitle")}</h2>
-            <p className="text-xs text-muted-foreground">{t("customerMails.contacts.consentHint")}</p>
+            <p className="text-xs text-muted-foreground">{consentSource === "crm" ? t("customerMails.contacts.doiHint") : t("customerMails.contacts.consentHint")}</p>
           </div>
           <form
             className="space-y-2"
@@ -205,7 +213,7 @@ export function CustomerMailsContactsTab() {
             </div>
             <Button type="submit" disabled={consent.isPending || !consentEmail.trim() || consentNote.trim().length < 3} data-testid="button-customer-mails-consent-save">
               {consent.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-              {t("customerMails.contacts.consentSave")}
+              {consentSource === "crm" ? t("customerMails.contacts.doiRequest") : t("customerMails.contacts.consentSave")}
             </Button>
           </form>
         </Card>
