@@ -24,7 +24,7 @@ import { processCommercialDocumentFromEmail, isLikelyCommercialInquiry } from ".
 import type { CommercialAgentProcessResult } from "../commercial/commercialAgentOrchestrator";
 import { attachSupportingDocumentsToDrafts, partitionCommercialParts } from "../commercial/commercialDraftAttachments";
 import { unwrapInternalForward } from "./emailForwardUnwrap";
-import { collectSignatureImageCandidates, isMailDecorationImage } from "../commercial/commercialSignatureImageCandidates";
+import { collectMailDecorationBuffers, collectSignatureImageCandidates } from "../commercial/commercialSignatureImageCandidates";
 import { logger } from "../lib/logger";
 
 const moduleLog = logger.child({ component: "email/emailInbound" });
@@ -245,10 +245,11 @@ async function processInboundMailAttachments(options: {
 
   const signatureImageBuffers = collectSignatureImageCandidates(attachments, mailHtml ?? undefined);
 
-  const decorationBuffers = new Set<Buffer>();
-  for (const att of attachments) {
-    if (Buffer.isBuffer(att.content) && isMailDecorationImage(att, mailHtml ?? null)) decorationBuffers.add(att.content);
-  }
+  // Eingebettete Bilder nur bei fotografierten Bestellungen als Dokument (siehe collectMailDecorationBuffers)
+  const decorationBuffers = collectMailDecorationBuffers(attachments, mailHtml ?? null, {
+    subject,
+    internalForward: unwrapped.strippedForwardLevels > 0,
+  });
   const allCommercialParts = filterCommercialDocumentPartsFromMailparserAttachments(attachments).filter(
     (part) => !decorationBuffers.has(part.buffer)
   );

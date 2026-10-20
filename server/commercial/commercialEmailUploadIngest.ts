@@ -24,8 +24,8 @@ import {
   type InboundCommercialDocPart,
 } from "./commercialInboundPdfContext";
 import {
-  collectSignatureImageCandidates, isMailDecorationImage,
-  type SignatureImageCandidate,
+  collectMailDecorationBuffers, collectSignatureImageCandidates,
+  type MailDecorationContext, type SignatureImageCandidate,
 } from "./commercialSignatureImageCandidates";
 import {
   processCommercialDocumentDetailed,
@@ -86,6 +86,9 @@ export type CommercialEmailParts = {
  *
  * Der Abgleich läuft über Buffer-Identität: `collectSignatureImageCandidates` reicht
  * die Original-Buffer der Anhänge durch, ohne sie zu kopieren.
+ *
+ * Eingebettete Bilder (cid) sind grundsätzlich Teil des Mailtextes; nur fotografierte
+ * Bestellungen ohne anderes Dokument bleiben Entwurfsquelle (`collectMailDecorationBuffers`).
  */
 export function splitCommercialEmailParts(parsed: {
   attachments: Array<{
@@ -97,17 +100,15 @@ export function splitCommercialEmailParts(parsed: {
     related?: boolean;
   }>;
   html?: string | null;
-}): CommercialEmailParts {
+}, context: MailDecorationContext = {}): CommercialEmailParts {
   const signatureImageBuffers = collectSignatureImageCandidates(
     parsed.attachments,
     parsed.html ?? undefined
   );
   const signatureBuffers = new Set(signatureImageBuffers.map((s) => s.buffer));
   // ALLE Dekorationsbilder ausschließen, nicht nur die bis zu drei Vision-Kandidaten.
-  for (const att of parsed.attachments) {
-    if (Buffer.isBuffer(att.content) && isMailDecorationImage(att, parsed.html ?? null)) {
-      signatureBuffers.add(att.content);
-    }
+  for (const buf of collectMailDecorationBuffers(parsed.attachments, parsed.html ?? null, context)) {
+    signatureBuffers.add(buf);
   }
   const commercialParts = filterCommercialDocumentPartsFromMailparserAttachments(
     parsed.attachments
@@ -294,7 +295,10 @@ export async function ingestCommercialEmailUpload(
     }
   }
 
-  const { commercialParts: allCommercialParts, signatureImageBuffers } = splitCommercialEmailParts(parsed);
+  const { commercialParts: allCommercialParts, signatureImageBuffers } = splitCommercialEmailParts(parsed, {
+    subject,
+    internalForward: envelope.internalForward,
+  });
 
   // Belegart je Anhang: Lieferschein/AB/Rechnung werden NICHT extrahiert, sondern als
   // Beilage an den Entwurf gehängt. Sonst würde z. B. der Kundenlieferschein zur
