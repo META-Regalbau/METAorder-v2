@@ -68,6 +68,7 @@ export function newProductAttributes(candidates: NewProduct[], products: Map<str
     attrs[`MO_NEU_${i + 1}_NAME`] = x?.p?.name ?? "";
     attrs[`MO_NEU_${i + 1}_PREIS`] = x?.p ? formatNetPrice(x.p.priceNet as number) : "";
     attrs[`MO_NEU_${i + 1}_URL`] = x?.p?.url ?? "";
+    attrs[`MO_NEU_${i + 1}_BILD`] = x?.p?.image ?? "";
   }
   return attrs;
 }
@@ -100,6 +101,7 @@ export function serviceMailAttributes(order: LetterOrder, products: Map<string, 
     attrs[`MO_POS_${i + 1}_NAME`] = it ? p?.name || it.name : "";
     // Link nur zu Artikeln, die es im Shop noch gibt
     attrs[`MO_POS_${i + 1}_URL`] = it && p?.sellable && p.url ? p.url : "";
+    attrs[`MO_POS_${i + 1}_BILD`] = it ? (p?.image ?? "") : "";
   }
   return attrs;
 }
@@ -129,6 +131,7 @@ export function accessoryMailAttributes(
     attrs[`MO_ZUB_${i + 1}_NAME`] = a?.name ?? "";
     attrs[`MO_ZUB_${i + 1}_PREIS`] = a ? formatNetPrice(a.priceNet as number) : "";
     attrs[`MO_ZUB_${i + 1}_URL`] = a?.url ?? "";
+    attrs[`MO_ZUB_${i + 1}_BILD`] = a?.image ?? "";
   }
   return attrs;
 }
