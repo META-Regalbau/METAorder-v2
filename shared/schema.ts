@@ -4202,6 +4202,10 @@ export const marketingContacts = pgTable(
     /** Widerspruch muss noch als Newsletter-Abmeldung nach Shopware */
     shopOptOutPending: boolean("shop_opt_out_pending").notNull().default(false),
     brevoBlocklisted: boolean("brevo_blocklisted").notNull().default(false),
+    /** Grund der Brevo-Sperre geprüft (Migration 0066); null = noch offen */
+    brevoCheckedAt: timestamp("brevo_checked_at"),
+    /** In Brevo gesperrt ohne Abmeldung durch den Kunden (Admin bzw. Shop-Plugin) – kein Widerspruch */
+    brevoAdminBlocked: boolean("brevo_admin_blocked").notNull().default(false),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

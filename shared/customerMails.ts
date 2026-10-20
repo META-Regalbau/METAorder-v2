@@ -43,10 +43,11 @@ export const CUSTOMER_MAIL_TYPE_RULES: Record<CustomerMailType, { advertising: b
 export const CUSTOMER_MAIL_CONSENT_SOURCES = ["shopNewsletter", "crm", "manual"] as const;
 export type CustomerMailConsentSource = (typeof CUSTOMER_MAIL_CONSENT_SOURCES)[number];
 
+/** brevoBlocklist entsteht seit Migration 0066 nicht mehr (Sperre ≠ Widerspruch), bleibt für alte Zeilen lesbar */
 export const CUSTOMER_MAIL_OBJECTION_SOURCES = ["brevoUnsubscribe", "brevoSpam", "brevoBlocklist", "shopNewsletterOptOut", "manual"] as const;
 export type CustomerMailObjectionSource = (typeof CUSTOMER_MAIL_OBJECTION_SOURCES)[number];
 
-export const CUSTOMER_MAIL_SKIP_REASONS = ["objected", "bounced", "noBasis", "frequency", "invalidEmail", "duplicate", "channelOff"] as const;
+export const CUSTOMER_MAIL_SKIP_REASONS = ["objected", "bounced", "noBasis", "frequency", "invalidEmail", "duplicate", "channelOff", "brevoBlocked"] as const;
 export type CustomerMailSkipReason = (typeof CUSTOMER_MAIL_SKIP_REASONS)[number];
 
 export const CUSTOMER_MAIL_RUN_STATUSES = ["draft", "sending", "sent", "failed", "cancelled"] as const;
@@ -226,7 +227,17 @@ export type CustomerMailRunDetail = CustomerMailRun & { recipients: CustomerMail
 export type CustomerMailState = {
   lastSyncAt: string | null;
   lastSyncError: string | null;
-  lastSyncStats: { mirror: number; newsletter: number; brevoBlocked: number; upserted: number; pushedObjections: number } | null;
+  lastSyncStats: {
+    mirror: number;
+    newsletter: number;
+    brevoBlocked: number;
+    upserted: number;
+    pushedObjections: number;
+    /** Gründe der Brevo-Sperre in diesem Abgleich nachgelesen / noch offen / davon echte Abmeldungen */
+    blockReasonsChecked?: number;
+    blockReasonsOpen?: number;
+    brevoUnsubscribes?: number;
+  } | null;
   /** Brevo-Kontakte bis hierhin abgeglichen (modifiedSince) */
   brevoModifiedSince: string | null;
   brevoFolderId: number | null;

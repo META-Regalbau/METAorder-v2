@@ -115,6 +115,9 @@ export default function CustomerMailsPage() {
       <p className="text-xs text-muted-foreground" data-testid="text-customer-mails-sync">
         {data.state.lastSyncAt ? t("customerMails.lastSync", { at: fmt.dateTime(data.state.lastSyncAt) }) : t("customerMails.neverSynced")}
         {stats ? ` · ${t("customerMails.syncStats", { mirror: stats.mirror, newsletter: stats.newsletter, blocked: stats.brevoBlocked, upserted: stats.upserted })}` : ""}
+        {stats && typeof stats.blockReasonsOpen === "number"
+          ? ` · ${t("customerMails.syncBlockReasons", { checked: stats.blockReasonsChecked ?? 0, open: stats.blockReasonsOpen, unsubscribed: stats.brevoUnsubscribes ?? 0 })}`
+          : ""}
       </p>
       {data.state.lastSyncError ? (
         <p className="text-sm text-destructive" role="alert" data-testid="text-customer-mails-sync-error">

@@ -46,6 +46,7 @@ import { brevoClient, brevoErrorText, type BrevoClient, type FetchLike } from ".
 import {
   basisOf,
   brevoAttributes,
+  brevoBlockEffect,
   channelKindOf,
   eventEffect,
   mergeContacts,
@@ -69,6 +70,8 @@ export const CUSTOMER_MAIL_WEBHOOK_EVENTS = ["unsubscribed", "spam", "hardBounce
 
 type Store = Pick<IStorage, "getSetting" | "saveSetting">;
 const tenantIs = (column: AnyColumn, tenantId: string | null) => (tenantId ? eq(column, tenantId) : isNull(column));
+/** Zeitpunkt für SQL-Ausdrücke als UTC (ein roher Date-Parameter würde in der Zeitzone des Servers geschrieben) */
+const utc = (d: Date) => sql`${d.toISOString()}::timestamptz AT TIME ZONE 'UTC'`;
 
 export type CustomerMailErrorReason = "keyMissing" | "disabled" | "runNotFound" | "notDraft" | "noRecipients" | "noTestRecipients" | "invalidEmail";
 
@@ -396,8 +399,18 @@ export async function syncCustomerMailContacts(deps: CustomerMailDeps, tenantId:
     const { changed } = mergeContacts(existing, mirror, newsletter, blocked, now);
     await upsertContactRows(tenantId, changed, now);
 
+    const blockChecks = await checkBrevoBlockReasons(deps, tenantId, brevo);
     const pushed = await pushPendingObjections(deps, tenantId, brevo, api);
-    const stats = { mirror: mirror.size, newsletter: newsletter.length, brevoBlocked: blocked.size, upserted: changed.length, pushedObjections: pushed };
+    const stats = {
+      mirror: mirror.size,
+      newsletter: newsletter.length,
+      brevoBlocked: blocked.size,
+      upserted: changed.length,
+      pushedObjections: pushed,
+      blockReasonsChecked: blockChecks.checked,
+      blockReasonsOpen: blockChecks.open,
+      brevoUnsubscribes: blockChecks.objections,
+    };
     log.info({ tenantId, ...stats }, "Kundenmails: Kontakte abgeglichen");
     return await patchState(deps.storage, tenantId, { lastSyncAt: now.toISOString(), lastSyncError: null, lastSyncStats: stats, brevoModifiedSince: maxModified });
   } catch (err) {
@@ -405,6 +418,60 @@ export async function syncCustomerMailContacts(deps: CustomerMailDeps, tenantId:
     await patchState(deps.storage, tenantId, { lastSyncAt: now.toISOString(), lastSyncError: brevoErrorText(err) });
     throw err;
   }
+}
+
+/** Gesperrte Kontakte, deren Grund je Abgleich nachgelesen wird (Brevo-API, nacheinander) */
+export const BREVO_BLOCK_CHECKS_PER_SYNC = 300;
+
+/**
+ * Grund der Brevo-Sperre je Kontakt nachlesen: Abmeldelink bzw. Spam-Meldung = Widerspruch (dann auch
+ * Newsletter-Abmeldung im Shop), harter Bounce = unzustellbar, sonst Sperre durch Admin/Plugin (kein Widerspruch).
+ */
+async function checkBrevoBlockReasons(deps: CustomerMailDeps, tenantId: string | null, brevo: BrevoClient): Promise<{ checked: number; open: number; objections: number }> {
+  const pending = () =>
+    and(tenantIs(marketingContacts.tenantId, tenantId), eq(marketingContacts.brevoBlocklisted, true), isNull(marketingContacts.brevoCheckedAt));
+  const rows = await db
+    .select({ id: marketingContacts.id, email: marketingContacts.email })
+    .from(marketingContacts)
+    .where(pending())
+    // Käufer zuerst: für sie zählt der Grund am meisten
+    .orderBy(desc(marketingContacts.orderCount))
+    .limit(BREVO_BLOCK_CHECKS_PER_SYNC);
+  let checked = 0;
+  let objections = 0;
+  for (const r of rows) {
+    const now = deps.now();
+    let history;
+    try {
+      history = await brevo.contactHistory(r.email, now);
+    } catch (err) {
+      log.warn({ err, tenantId }, "Kundenmails: Sperrgrund in Brevo nicht lesbar, weiter beim nächsten Abgleich");
+      break;
+    }
+    if (history) {
+      const effect = brevoBlockEffect(history);
+      if (effect.objection) {
+        objections += 1;
+        await recordObjection(tenantId, { email: r.email, source: effect.objection.source, at: effect.objection.at, note: "Brevo-Verlauf" }, now);
+      }
+      await db
+        .update(marketingContacts)
+        .set({
+          brevoCheckedAt: now,
+          brevoAdminBlocked: effect.adminBlocked,
+          brevoBlocklisted: history.emailBlacklisted,
+          ...(effect.bouncedAt ? { bouncedAt: sql`COALESCE(${marketingContacts.bouncedAt}, ${utc(effect.bouncedAt)})` } : {}),
+          updatedAt: now,
+        })
+        .where(eq(marketingContacts.id, r.id));
+    } else {
+      await db.update(marketingContacts).set({ brevoCheckedAt: now, brevoBlocklisted: false, updatedAt: now }).where(eq(marketingContacts.id, r.id));
+    }
+    checked += 1;
+  }
+  const [{ open }] = await db.select({ open: sql<number>`count(*)::int` }).from(marketingContacts).where(pending());
+  if (checked) log.info({ tenantId, checked, objections, open }, "Kundenmails: Gründe der Brevo-Sperre nachgelesen");
+  return { checked, open: Number(open) || 0, objections };
 }
 
 /** Widersprüche, die noch nicht in Brevo bzw. Shopware stehen, nachtragen */
@@ -471,7 +538,7 @@ export async function recordObjection(
     .onConflictDoUpdate({
       target: [marketingContacts.tenantId, marketingContacts.email],
       set: {
-        objectionAt: sql`COALESCE(${marketingContacts.objectionAt}, ${at})`,
+        objectionAt: sql`COALESCE(${marketingContacts.objectionAt}, ${utc(at)})`,
         objectionSource: sql`COALESCE(${marketingContacts.objectionSource}, ${input.source})`,
         objectionNote: sql`COALESCE(${marketingContacts.objectionNote}, ${input.note ?? null})`,
         brevoBlocklisted: fromBrevo ? true : sql`${marketingContacts.brevoBlocklisted}`,
@@ -528,7 +595,7 @@ export async function handleBrevoWebhook(tenantId: string, body: unknown, now: D
       await db
         .insert(marketingContacts)
         .values({ tenantId, email: e.email, bouncedAt: e.occurredAt, updatedAt: now })
-        .onConflictDoUpdate({ target: [marketingContacts.tenantId, marketingContacts.email], set: { bouncedAt: sql`COALESCE(${marketingContacts.bouncedAt}, ${e.occurredAt})`, updatedAt: now } });
+        .onConflictDoUpdate({ target: [marketingContacts.tenantId, marketingContacts.email], set: { bouncedAt: sql`COALESCE(${marketingContacts.bouncedAt}, ${utc(e.occurredAt)})`, updatedAt: now } });
     } else if (effect) {
       objections += 1;
       await recordObjection(tenantId, { email: e.email, source: effect === "objection:brevoSpam" ? "brevoSpam" : "brevoUnsubscribe", at: e.occurredAt }, now);
