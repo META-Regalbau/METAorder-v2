@@ -5,7 +5,8 @@
  *   Bestellung ab dem Stichtag des Hinweises (vorher wurde beim Erheben der Adresse nicht auf Werbung hingewiesen).
  * - Kontaktbremse: gesendete Werbemails der letzten 7 bzw. 30 Tage je Empfänger.
  * - Empfängerplanung einer Aussendung: Rechtsgrundlage der Mailart, Bounce, Kanal, Bremse, doppelte Adressen.
- * - Abgleich: Kaufdaten aus dem Spiegel + Newsletter-Empfänger aus Shopware + Brevo-Sperrliste -> Kontaktzeilen.
+ * - Abgleich: Kaufdaten aus dem Spiegel + Newsletter-Empfänger aus Shopware + Brevo-Sperrkennzeichen -> Kontaktzeilen.
+ * - Grund einer Brevo-Sperre: nur Abmeldelink und Spam-Meldung sind ein Widerspruch (brevoBlockEffect).
  */
 import {
   CUSTOMER_MAIL_TYPE_RULES,
@@ -80,7 +81,7 @@ export type PlannedRecipient = {
 export function planRecipients(
   mailType: CustomerMailType,
   candidates: PlanCandidate[],
-  contacts: Map<string, ContactFacts & { customerNumber?: string | null; salesChannelId?: string | null }>,
+  contacts: Map<string, ContactFacts & { customerNumber?: string | null; salesChannelId?: string | null; brevoBlocklisted?: boolean }>,
   sentAdvertising: Map<string, Date[]>,
   settings: Pick<CustomerMailSettings, "existingCustomerSince" | "maxPerWeek" | "maxPerMonth" | "channels" | "testRecipients">,
   now: Date,
@@ -115,6 +116,9 @@ export function planRecipients(
     let skipReason: CustomerMailSkipReason | null = null;
     if (basis === "objected") skipReason = "objected";
     else if (contact?.bouncedAt) skipReason = "bounced";
+    // In Brevo gesperrt (meist vom Shop-Plugin, weil kein Newsletter): Brevo würde die Mail stillschweigend
+    // auslassen. Entsperren gehört bewusst in den jeweiligen Baustein (B2 ff.), nicht hierher.
+    else if (contact?.brevoBlocklisted) skipReason = "brevoBlocked";
     else if (!rule.bases.includes(basis)) skipReason = "noBasis";
     else if (channelId && enabledChannels.size > 0 && enabledChannels.get(channelId)?.enabled !== true) skipReason = "channelOff";
     else if (rule.advertising && !frequencyOk(sentAdvertising.get(email) ?? [], now, settings.maxPerWeek, settings.maxPerMonth)) skipReason = "frequency";
@@ -292,10 +296,11 @@ export function mergeContacts(
     }
   }
 
-  for (const [email, at] of Array.from(brevoBlocked.entries())) {
+  // In Brevo gesperrt heißt nicht „widersprochen“: Das Shop-Plugin sperrt jeden ohne Newsletter-Anmeldung. Der Grund
+  // wird je Kontakt nachgelesen (brevoBlockEffect); hier nur das Kennzeichen.
+  for (const email of Array.from(brevoBlocked.keys())) {
     const row = get(email);
     row.brevoBlocklisted = true;
-    object(row, at, "brevoBlocklist");
   }
 
   const changed: ContactRowState[] = [];
@@ -352,6 +357,31 @@ export function parseBrevoEvents(body: unknown, now: Date): BrevoEvent[] {
     out.push({ email, event, campaignId: Number.isInteger(campaignId) && campaignId > 0 ? campaignId : null, url, occurredAt, payload: r });
   }
   return out;
+}
+
+export type BrevoContactHistory = {
+  emailBlacklisted: boolean;
+  userUnsubscriptions: Date[];
+  adminUnsubscriptions: Date[];
+  complaints: Date[];
+  hardBounces: Date[];
+};
+
+/**
+ * Grund einer Brevo-Sperre (Live-Befund 20.10.2026: das Shop-Plugin sperrt alle Kunden ohne Newsletter-Anmeldung).
+ * Widerspruch nur bei Abmeldung über den Link in einer Kampagne oder Spam-Meldung (jeweils der früheste Zeitpunkt).
+ * Sperre durch Admin/Plugin ist kein Widerspruch, wird aber vermerkt (vor einem Entsperren von Hand prüfen).
+ */
+export function brevoBlockEffect(h: BrevoContactHistory): {
+  objection: { source: "brevoUnsubscribe" | "brevoSpam"; at: Date } | null;
+  bouncedAt: Date | null;
+  adminBlocked: boolean;
+} {
+  const earliest = (ds: Date[]) => (ds.length ? new Date(Math.min(...ds.map((d) => d.getTime()))) : null);
+  const unsub = earliest(h.userUnsubscriptions);
+  const spam = earliest(h.complaints);
+  const objection = unsub ? { source: "brevoUnsubscribe" as const, at: unsub } : spam ? { source: "brevoSpam" as const, at: spam } : null;
+  return { objection, bouncedAt: earliest(h.hardBounces), adminBlocked: h.emailBlacklisted && !objection };
 }
 
 /** Ereignis -> Folge für den Kontakt */

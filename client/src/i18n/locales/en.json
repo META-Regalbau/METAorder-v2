@@ -9524,7 +9524,7 @@
     "objectionSources": {
       "brevoUnsubscribe": "Unsubscribe link",
       "brevoSpam": "Spam report",
-      "brevoBlocklist": "Brevo blocklist",
+      "brevoBlocklist": "Brevo blocklist (old)",
       "shopNewsletterOptOut": "Newsletter unsubscribe",
       "manual": "Manual"
     },
@@ -9556,7 +9556,8 @@
       "frequency": "frequency cap",
       "invalidEmail": "invalid address",
       "duplicate": "duplicate",
-      "channelOff": "channel switched off"
+      "channelOff": "channel switched off",
+      "brevoBlocked": "blocked in Brevo"
     },
     "counts": {
       "title": "Contacts by legal basis",
@@ -9645,7 +9646,8 @@
       "objectionHint": "The customer then receives no more marketing emails. The address is added to the Brevo blocklist and unsubscribed from the shop newsletter. An objection cannot be withdrawn here.",
       "objectionSave": "Save objection",
       "objectionSaved": "Objection saved",
-      "objectionFailed": "Objection could not be saved"
+      "objectionFailed": "Objection could not be saved",
+      "brevoBlocked": "blocked in Brevo (no unsubscribe, e.g. by the shop plugin)"
     },
     "settings": {
       "brevoTitle": "Brevo access",
@@ -9691,6 +9693,7 @@
     "crmBadge": {
       "label": "Marketing: {{basis}}",
       "noBasisHint": "No consent and no order since the existing-customer notice cut-off"
-    }
+    },
+    "syncBlockReasons": "Brevo block reasons: {{checked}} checked, {{open}} open, {{unsubscribed}} real unsubscribes"
   }
 }

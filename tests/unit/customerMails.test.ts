@@ -5,6 +5,7 @@ vi.mock("../../server/db", () => ({ db: {} }));
 import {
   basisOf,
   brevoAttributes,
+  brevoBlockEffect,
   cutoffDate,
   eventEffect,
   frequencyOk,
@@ -160,7 +161,7 @@ describe("Kundenmails: Abgleich", () => {
   });
   const now = d("2026-10-20T10:00:00Z");
 
-  it("bestätigte Anmeldung = Einwilligung, Abmeldung und Brevo-Sperre = Widerspruch, „direct“ nicht", () => {
+  it("bestätigte Anmeldung = Einwilligung, Newsletter-Abmeldung = Widerspruch, Brevo-Sperre nur Kennzeichen, „direct“ nicht", () => {
     const { changed, newObjections } = mergeContacts(
       new Map(),
       new Map(),
@@ -176,8 +177,9 @@ describe("Kundenmails: Abgleich", () => {
     expect(by.get("ja@x.de")).toMatchObject({ consentSource: "shopNewsletter", objectionAt: null });
     expect(by.get("direkt@x.de")).toMatchObject({ consentAt: null, newsletterStatus: "direct" });
     expect(by.get("ab@x.de")).toMatchObject({ objectionSource: "shopNewsletterOptOut", objectionAt: d("2026-06-01") });
-    expect(by.get("gesperrt@x.de")).toMatchObject({ objectionSource: "brevoBlocklist", brevoBlocklisted: true });
-    expect(newObjections.sort()).toEqual(["ab@x.de", "gesperrt@x.de"]);
+    // Live-Befund 20.10.2026: das Shop-Plugin sperrt jeden ohne Newsletter → kein Widerspruch
+    expect(by.get("gesperrt@x.de")).toMatchObject({ objectionAt: null, objectionSource: null, brevoBlocklisted: true });
+    expect(newObjections.sort()).toEqual(["ab@x.de"]);
   });
 
   it("erfasste Einwilligung und Widerspruch bleiben; unveränderte Kontakte werden nicht geschrieben", () => {
@@ -196,6 +198,52 @@ describe("Kundenmails: Abgleich", () => {
     expect(changed.map((c) => c.email)).toEqual(["obj@x.de"]);
     expect(changed[0]).toMatchObject({ objectionSource: "manual", consentSource: "shopNewsletter" });
     expect(basisOf({ ...changed[0], bouncedAt: null }, null)).toBe("objected");
+  });
+});
+
+describe("Kundenmails: Grund der Brevo-Sperre", () => {
+  const h = (over: Partial<Parameters<typeof brevoBlockEffect>[0]>) => ({ emailBlacklisted: true, userUnsubscriptions: [], adminUnsubscriptions: [], complaints: [], hardBounces: [], ...over });
+  it("nur Abmeldelink oder Spam-Meldung sind ein Widerspruch", () => {
+    expect(brevoBlockEffect(h({}))).toEqual({ objection: null, bouncedAt: null, adminBlocked: true });
+    expect(brevoBlockEffect(h({ adminUnsubscriptions: [d("2026-08-01")] }))).toMatchObject({ objection: null, adminBlocked: true });
+    expect(brevoBlockEffect(h({ userUnsubscriptions: [d("2026-09-02"), d("2026-08-02")] }))).toEqual({
+      objection: { source: "brevoUnsubscribe", at: d("2026-08-02") },
+      bouncedAt: null,
+      adminBlocked: false,
+    });
+    expect(brevoBlockEffect(h({ complaints: [d("2026-07-01")] })).objection).toEqual({ source: "brevoSpam", at: d("2026-07-01") });
+    expect(brevoBlockEffect(h({ emailBlacklisted: false, hardBounces: [d("2026-06-01")] }))).toEqual({ objection: null, bouncedAt: d("2026-06-01"), adminBlocked: false });
+  });
+
+  it("Brevo-Client liest den Verlauf mit Zeitraum, ohne Zeitraum als Rückfall, 404 = unbekannt", async () => {
+    const urls: string[] = [];
+    const client = brevoClient("KEY", async (url) => {
+      urls.push(url.replace("https://api.brevo.com/v3", ""));
+      if (url.includes("startDate")) return new Response(JSON.stringify({ message: "invalid date" }), { status: 400 });
+      if (url.includes("weg%40x.de")) return new Response(JSON.stringify({ message: "Contact does not exist" }), { status: 404 });
+      return new Response(
+        JSON.stringify({
+          emailBlacklisted: true,
+          statistics: { unsubscriptions: { userUnsubscription: [{ campaignId: 3, eventTime: "2026-05-01T10:00:00.000+02:00" }], adminUnsubscription: [] }, complaints: [{ campaignId: 3, eventTime: "kaputt" }] },
+        }),
+      );
+    });
+    const today = d("2026-10-20T10:00:00Z");
+    expect(await client.contactHistory("a@x.de", today)).toEqual({
+      emailBlacklisted: true,
+      userUnsubscriptions: [d("2026-05-01T08:00:00Z")],
+      adminUnsubscriptions: [],
+      complaints: [],
+      hardBounces: [],
+    });
+    expect(urls[0]).toBe("/contacts/a%40x.de?identifierType=email_id&startDate=2015-01-01&endDate=2026-10-20");
+    expect(urls[1]).toBe("/contacts/a%40x.de?identifierType=email_id");
+    expect(await client.contactHistory("weg@x.de", today)).toBeNull();
+  });
+
+  it("in Brevo gesperrte Kontakte werden für Kundenmails ausgelassen", () => {
+    const contacts = new Map([["a@x.de", { ...contact({ email: "a@x.de", consentAt: d("2026-05-01") }), brevoBlocklisted: true }]]);
+    expect(planRecipients("newsletter", [{ email: "a@x.de" }], contacts, new Map(), DEFAULT_CUSTOMER_MAIL_SETTINGS, d("2026-10-20T10:00:00Z"))[0].skipReason).toBe("brevoBlocked");
   });
 });
 

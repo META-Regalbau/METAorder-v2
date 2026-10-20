@@ -12,7 +12,7 @@ Konzept: `Kundenmails-Brevo-Konzept-2026-10-19.html` (Entscheidungen 20.10.2026)
 
 | Grundlage | Quelle |
 |---|---|
-| Widerspruch (schlägt alles, bleibt dauerhaft) | Brevo-Abmeldung oder Spam-Meldung (Webhook), Brevo-Sperrliste (Abgleich), Newsletter-Abmeldung in Shopware (`optOut`), von Hand erfasst |
+| Widerspruch (schlägt alles, bleibt dauerhaft) | Brevo-Abmeldung über den Link oder Spam-Meldung (Webhook bzw. Verlauf je gesperrtem Kontakt), Newsletter-Abmeldung in Shopware (`optOut`), von Hand erfasst. **Nicht**: bloße Brevo-Sperre (das Shop-Plugin sperrt jeden ohne Newsletter-Anmeldung, Live-Befund 20.10.2026) |
 | Einwilligung | bestätigte Newsletter-Anmeldung in Shopware (`optIn` mit `confirmedAt`), von Hand bzw. vom Außendienst erfasst (mit Vermerk) |
 | Bestandskunde | Bestellung **ab dem Stichtag** des Bestandskunden-Hinweises (Einstellung, B0). Ohne Stichtag ist die Regel aus. |
 | keine | alles andere, auch Shopware-Status `direct` (ohne Double-Opt-in) |
@@ -21,7 +21,7 @@ Je Mailart gilt eine Liste zulässiger Grundlagen (`CUSTOMER_MAIL_TYPE_RULES` in
 
 ## Abläufe
 
-- **Abgleich** (stündlich, nur bei eingeschaltetem Schalter und hinterlegtem Schlüssel; auch per Knopf): Kaufdaten aus dem Bestell-Spiegel (nur MO, ohne Storno und durchgeschleuste Bestellungen), Newsletter-Empfänger aus Shopware, Brevo-Kontakte seit dem letzten Abgleich (Sperrliste). Danach gehen offene Widersprüche auf die Brevo-Sperrliste. Wenn es einen Newsletter-Eintrag gibt, wird er in Shopware auf `optOut` gesetzt (**schreibt in den Shop**).
+- **Abgleich** (stündlich, nur bei eingeschaltetem Schalter und hinterlegtem Schlüssel; auch per Knopf): Kaufdaten aus dem Bestell-Spiegel (nur MO, ohne Storno und durchgeschleuste Bestellungen), Newsletter-Empfänger aus Shopware, Brevo-Kontakte seit dem letzten Abgleich (Sperrkennzeichen). Für gesperrte Kontakte liest METAorder je Abgleich bis zu 300 Verläufe nach (Käufer zuerst): Abmeldelink oder Spam-Meldung → Widerspruch, harter Bounce → unzustellbar, sonst „von Admin/Plugin gesperrt“. In Brevo gesperrte Kontakte werden bei Aussendungen ausgelassen (`brevoBlocked`); ob und wen METAorder für Bestandskunden-Mails in Brevo entsperrt, entscheidet B2. Danach gehen offene Widersprüche auf die Brevo-Sperrliste. Wenn es einen Newsletter-Eintrag gibt, wird er in Shopware auf `optOut` gesetzt (**schreibt in den Shop**).
 - **Aussendung**: Entwurf mit geplanten und ausgelassenen Empfängern (mit Grund). Beim Senden prüft METAorder Widersprüche und Bounces erneut. Danach legt es in Brevo die Liste an, importiert die Kontakte mit `MO_`-Feldern, erstellt die Kampagne (Vorlage, Absender, Antwortadresse, UTM; kein Tag, das lehnt der Brevo-Tarif ab) und verschickt sie sofort. Ein Lauf kommt nur einmal aus „Entwurf“ bzw. „Fehler“ in den Versand.
 - **Webhook** `POST /api/public/customer-mails/brevo`: Wird per Knopf in Brevo eingerichtet (Marketing: `unsubscribed`, `spam`, `hardBounce`, `click`). Brevo schickt dabei die Kopfzeilen `X-Meta-Tenant` und `X-Meta-Token` mit. Das Token liegt verschlüsselt in den Einstellungen und wird beim Neu-Einrichten erneuert.
 

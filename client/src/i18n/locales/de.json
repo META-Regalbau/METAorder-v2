@@ -9521,7 +9521,7 @@
     "objectionSources": {
       "brevoUnsubscribe": "Abmeldelink",
       "brevoSpam": "Spam-Meldung",
-      "brevoBlocklist": "Brevo-Sperrliste",
+      "brevoBlocklist": "Brevo-Sperrliste (alt)",
       "shopNewsletterOptOut": "Newsletter-Abmeldung",
       "manual": "von Hand"
     },
@@ -9553,7 +9553,8 @@
       "frequency": "Kontaktbremse",
       "invalidEmail": "ungültige Adresse",
       "duplicate": "doppelt",
-      "channelOff": "Kanal ausgeschaltet"
+      "channelOff": "Kanal ausgeschaltet",
+      "brevoBlocked": "in Brevo gesperrt"
     },
     "counts": {
       "title": "Kontakte nach Rechtsgrundlage",
@@ -9642,7 +9643,8 @@
       "objectionHint": "Der Kunde bekommt danach keine Werbemails mehr. Die Adresse kommt auf die Brevo-Sperrliste und wird im Shop vom Newsletter abgemeldet. Ein Widerspruch lässt sich nicht zurücknehmen.",
       "objectionSave": "Widerspruch speichern",
       "objectionSaved": "Widerspruch gespeichert",
-      "objectionFailed": "Widerspruch konnte nicht gespeichert werden"
+      "objectionFailed": "Widerspruch konnte nicht gespeichert werden",
+      "brevoBlocked": "in Brevo gesperrt (ohne Abmeldung, z. B. vom Shop-Plugin)"
     },
     "settings": {
       "brevoTitle": "Brevo-Zugang",
@@ -9688,6 +9690,7 @@
     "crmBadge": {
       "label": "Werbung: {{basis}}",
       "noBasisHint": "Keine Einwilligung und keine Bestellung ab dem Stichtag des Bestandskunden-Hinweises"
-    }
+    },
+    "syncBlockReasons": "Brevo-Sperrgründe: {{checked}} geprüft, {{open}} offen, davon {{unsubscribed}} echte Abmeldungen"
   }
 }

@@ -150,6 +150,7 @@ export function CustomerMailsContactsTab() {
                               ? t("customerMails.contacts.consentFrom", { source: t(`customerMails.consentSources.${c.consentSource ?? "manual"}`), date: fmt.date(c.consentAt) })
                               : null}
                           {c.bouncedAt ? ` · ${t("customerMails.contacts.bounced")}` : ""}
+                          {c.brevoBlocklisted && c.basis !== "objected" ? ` · ${t("customerMails.contacts.brevoBlocked")}` : ""}
                         </div>
                       </TableCell>
                     </TableRow>

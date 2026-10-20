@@ -89,6 +89,44 @@ export function brevoClient(apiKey: string, fetchImpl: FetchLike = fetch, base =
       };
     },
 
+    /**
+     * Sperr- und Abmeldeverlauf eines Kontakts (GET /contacts/{email}). Brevo liefert Statistik standardmäßig nur
+     * für 90 Tage, deshalb mit Zeitraum ab 2015. null = Kontakt gibt es nicht.
+     */
+    async contactHistory(email: string, today: Date): Promise<{
+      emailBlacklisted: boolean;
+      userUnsubscriptions: Date[];
+      adminUnsubscriptions: Date[];
+      complaints: Date[];
+      hardBounces: Date[];
+    } | null> {
+      const base = `/contacts/${encodeURIComponent(email)}?identifierType=email_id`;
+      let r: any;
+      try {
+        try {
+          r = await call("GET", `${base}&startDate=2015-01-01&endDate=${today.toISOString().slice(0, 10)}`);
+        } catch (err) {
+          if (!(err instanceof BrevoApiError) || err.status !== 400) throw err;
+          r = await call("GET", base); // Zeitraum abgelehnt: dann die letzten 90 Tage
+        }
+      } catch (err) {
+        if (err instanceof BrevoApiError && err.status === 404) return null;
+        throw err;
+      }
+      const times = (list: unknown) =>
+        (Array.isArray(list) ? list : [])
+          .map((e: any) => new Date(String(e?.eventTime ?? "")))
+          .filter((d) => !Number.isNaN(d.getTime()));
+      const st = r?.statistics ?? {};
+      return {
+        emailBlacklisted: r?.emailBlacklisted === true,
+        userUnsubscriptions: times(st?.unsubscriptions?.userUnsubscription),
+        adminUnsubscriptions: times(st?.unsubscriptions?.adminUnsubscription),
+        complaints: times(st?.complaints),
+        hardBounces: times(st?.hardBounces),
+      };
+    },
+
     /** Kontakt auf die Sperrliste (legt ihn an, falls es ihn noch nicht gibt) */
     async blocklist(email: string): Promise<void> {
       try {

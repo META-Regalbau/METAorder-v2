@@ -9521,7 +9521,7 @@
     "objectionSources": {
       "brevoUnsubscribe": "Enlace de baja",
       "brevoSpam": "Denuncia de spam",
-      "brevoBlocklist": "Lista de bloqueo de Brevo",
+      "brevoBlocklist": "Lista de bloqueo de Brevo (antigua)",
       "shopNewsletterOptOut": "Baja del boletín",
       "manual": "Manual"
     },
@@ -9553,7 +9553,8 @@
       "frequency": "límite de frecuencia",
       "invalidEmail": "dirección no válida",
       "duplicate": "duplicado",
-      "channelOff": "canal desactivado"
+      "channelOff": "canal desactivado",
+      "brevoBlocked": "bloqueado en Brevo"
     },
     "counts": {
       "title": "Contactos por base legal",
@@ -9642,7 +9643,8 @@
       "objectionHint": "El cliente ya no recibirá correos publicitarios. La dirección pasa a la lista de bloqueo de Brevo y se da de baja del boletín de la tienda. Una oposición no se puede retirar aquí.",
       "objectionSave": "Guardar oposición",
       "objectionSaved": "Oposición guardada",
-      "objectionFailed": "No se pudo guardar la oposición"
+      "objectionFailed": "No se pudo guardar la oposición",
+      "brevoBlocked": "bloqueado en Brevo (sin baja, p. ej. por el plugin de la tienda)"
     },
     "settings": {
       "brevoTitle": "Acceso a Brevo",
@@ -9688,6 +9690,7 @@
     "crmBadge": {
       "label": "Publicidad: {{basis}}",
       "noBasisHint": "Sin consentimiento y sin pedidos desde la fecha de corte del aviso a clientes existentes"
-    }
+    },
+    "syncBlockReasons": "Motivos de bloqueo en Brevo: {{checked}} comprobados, {{open}} pendientes, {{unsubscribed}} bajas reales"
   }
 }
