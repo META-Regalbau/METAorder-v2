@@ -244,7 +244,8 @@
     "systemLog": "Registro del sistema",
     "shopContent": "Contenidos de la tienda",
     "shopWatch": "Vigilante de la tienda",
-    "shopPulse": "Pulso de la tienda"
+    "shopPulse": "Pulso de la tienda",
+    "customerMails": "Correos a clientes"
   },
   "shopFakturen": {
     "title": "Importación de facturas SAP",
@@ -6778,7 +6779,37 @@
       "invalid_merchant_center_settings": "Ajustes de Merchant Center no válidos",
       "failed_to_save_merchant_center_settings": "No se pudieron guardar los ajustes de Merchant Center",
       "die_mail_ist_grosser_als_36_mb_und_kann_nicht_automatisch_verarbeitet_werden_bit": "El correo supera los 36 MB y no se puede procesar automáticamente. Abra el correo en el buzón y suba los adjuntos uno por uno.",
-      "die_datei_ist_grosser_als_10_mb": "El archivo supera los 10 MB."
+      "die_datei_ist_grosser_als_10_mb": "El archivo supera los 10 MB.",
+      "invalid_brevo_event": "Evento de Brevo no válido",
+      "too_many_brevo_events": "Demasiados eventos de Brevo",
+      "invalid_brevo_event_token": "Token del evento de Brevo no válido",
+      "failed_to_store_brevo_event": "No se pudo guardar el evento de Brevo",
+      "failed_to_load_customer_mails": "No se pudieron cargar los correos a clientes",
+      "invalid_customer_mail_settings": "Ajustes de correos a clientes no válidos",
+      "failed_to_save_customer_mail_settings": "No se pudieron guardar los ajustes de correos a clientes",
+      "failed_to_load_brevo_account": "No se pudo cargar la cuenta de Brevo",
+      "brevo_api_key_missing": "Falta la clave API de Brevo",
+      "customer_mail_sync_already_running": "La sincronización ya está en curso",
+      "customer_mail_sync_failed": "Falló la sincronización (Brevo o Shopware no disponibles)",
+      "brevo_webhook_needs_a_tenant_and_public_url": "Al webhook de Brevo le falta el cliente o la URL pública",
+      "failed_to_set_up_brevo_webhook": "No se pudo configurar el webhook de Brevo",
+      "failed_to_load_customer_mail_contacts": "No se pudieron cargar los contactos",
+      "invalid_consent": "Consentimiento incompleto (correo y nota obligatorios)",
+      "failed_to_record_consent": "No se pudo guardar el consentimiento",
+      "invalid_objection": "Oposición incompleta (se necesita un correo válido)",
+      "failed_to_record_objection": "No se pudo guardar la oposición",
+      "invalid_email_address": "Dirección de correo no válida",
+      "failed_to_load_customer_mail_status": "No se pudo cargar el estado de marketing",
+      "invalid_test_mail": "Envío de prueba incompleto (plantilla, remitente y asunto obligatorios)",
+      "failed_to_create_test_mail": "No se pudo crear el envío de prueba",
+      "failed_to_load_customer_mail_run": "No se pudo cargar el envío",
+      "failed_to_send_customer_mail_run": "No se pudo enviar el envío",
+      "failed_to_cancel_customer_mail_run": "No se pudo descartar el envío",
+      "customer_mails_are_switched_off": "Los correos a clientes están desactivados",
+      "customer_mail_run_not_found": "Envío no encontrado",
+      "customer_mail_run_is_not_a_draft": "El envío ya no es un borrador",
+      "no_recipients_with_a_legal_basis": "No hay destinatarios con base legal",
+      "no_test_recipients_configured": "No hay destinatarios de prueba configurados (ajustes)"
     }
   },
   "roomPlanner": {
@@ -9445,6 +9476,218 @@
         "failed": "Factura no enviada a Mondu",
         "skipped": "No se envió ninguna factura a Mondu"
       }
+    }
+  },
+  "customerMails": {
+    "title": "Correos a clientes",
+    "hint": "Boletines, correos a clientes habituales y posventa a través de Brevo. METAorder elige los destinatarios con base legal; Brevo envía y gestiona las bajas.",
+    "enabled": "Correos a clientes activados",
+    "switchedOn": "Correos a clientes activados",
+    "switchedOff": "Correos a clientes desactivados: sin sincronización ni envíos",
+    "saveFailed": "Error al guardar",
+    "syncNow": "Sincronizar ahora",
+    "syncDone": "Contactos sincronizados",
+    "syncFailed": "Falló la sincronización",
+    "syncError": "La última sincronización falló: {{error}}",
+    "lastSync": "Última sincronización {{at}}",
+    "neverSynced": "Aún sin sincronizar",
+    "syncStats": "{{mirror}} compradores, {{newsletter}} entradas de boletín, {{blocked}} bloqueados en Brevo, {{upserted}} contactos modificados",
+    "adminOnly": "Solo para administradores.",
+    "loading": "Cargando …",
+    "noKey": "Aún no hay clave API de Brevo.",
+    "toSettings": "Ir a los ajustes",
+    "brevoError": "Brevo informa de un error: {{error}}",
+    "tabs": {
+      "overview": "Resumen",
+      "contacts": "Contactos",
+      "settings": "Ajustes"
+    },
+    "basis": {
+      "consent": "Consentimiento",
+      "existingCustomer": "Cliente existente",
+      "none": "Sin base legal",
+      "objected": "Oposición",
+      "test": "Dirección de prueba"
+    },
+    "channelKinds": {
+      "shop": "Tienda online",
+      "portal": "Portal"
+    },
+    "consentSources": {
+      "shopNewsletter": "Alta en el boletín",
+      "crm": "Comercial/CRM",
+      "manual": "Manual"
+    },
+    "objectionSources": {
+      "brevoUnsubscribe": "Enlace de baja",
+      "brevoSpam": "Denuncia de spam",
+      "brevoBlocklist": "Lista de bloqueo de Brevo",
+      "shopNewsletterOptOut": "Baja del boletín",
+      "manual": "Manual"
+    },
+    "types": {
+      "test": "Envío de prueba",
+      "newsletter": "Boletín",
+      "regularLetter": "Carta a clientes habituales",
+      "regularOverdue": "Recordatorio de pedido atrasado",
+      "afterSalesService": "Servicio posventa",
+      "afterSalesAccessories": "Accesorios posventa",
+      "reactivation": "Reactivación"
+    },
+    "runStatus": {
+      "draft": "Borrador",
+      "sending": "Enviando",
+      "sent": "Enviado",
+      "failed": "Error",
+      "cancelled": "Descartado"
+    },
+    "recipientStatus": {
+      "planned": "previsto",
+      "skipped": "omitido",
+      "sent": "enviado"
+    },
+    "skipReasons": {
+      "objected": "oposición",
+      "bounced": "no entregable",
+      "noBasis": "sin base legal",
+      "frequency": "límite de frecuencia",
+      "invalidEmail": "dirección no válida",
+      "duplicate": "duplicado",
+      "channelOff": "canal desactivado"
+    },
+    "counts": {
+      "title": "Contactos por base legal",
+      "consent": "Consentimiento",
+      "existingCustomer": "Cliente existente",
+      "none": "Sin base legal",
+      "objected": "Oposición",
+      "bounced": "No entregable",
+      "total": "Contactos en total",
+      "cutoffSet": "La regla de cliente existente se aplica a pedidos desde el {{date}}.",
+      "cutoffMissing": "La regla de cliente existente está desactivada: falta la fecha de corte (ajustes). Hasta entonces, solo contactos con consentimiento.",
+      "unconfirmed": "{{count}} entradas del boletín sin alta confirmada no cuentan como consentimiento."
+    },
+    "test": {
+      "title": "Envío de prueba",
+      "hint": "Solo va a las direcciones de prueba: {{recipients}}. Comprueba plantilla, remitente, campos de contacto y enlace de baja.",
+      "noRecipients": "Primero añada direcciones de prueba en los ajustes.",
+      "template": "Plantilla de Brevo",
+      "templatePlaceholder": "Elegir plantilla",
+      "sender": "Remitente",
+      "senderPlaceholder": "Elegir remitente",
+      "subject": "Asunto",
+      "create": "Crear borrador",
+      "created": "Borrador con {{count}} destinatarios creado",
+      "createFailed": "No se pudo crear el borrador"
+    },
+    "runs": {
+      "title": "Envíos",
+      "none": "Aún no hay envíos.",
+      "columns": {
+        "created": "Creado",
+        "type": "Tipo",
+        "subject": "Asunto",
+        "status": "Estado",
+        "recipients": "Destinatarios"
+      },
+      "counts": "{{planned}} / {{skipped}} omitidos",
+      "campaign": "Campaña de Brevo #{{id}}",
+      "show": "Destinatarios",
+      "hide": "Ocultar",
+      "send": "Enviar",
+      "confirmSend": "Enviar ahora a {{count}} destinatarios",
+      "keep": "Cancelar",
+      "cancel": "Descartar",
+      "sent": "Enviado a {{count}} destinatarios",
+      "sendFailed": "Falló el envío",
+      "cancelled": "Envío descartado",
+      "cancelFailed": "No se pudo descartar",
+      "switchedOff": "Solo se puede enviar con los correos a clientes activados."
+    },
+    "recipients": {
+      "email": "Correo",
+      "customer": "Cliente",
+      "basis": "Base",
+      "status": "Estado"
+    },
+    "contacts": {
+      "search": "Buscar",
+      "searchPlaceholder": "Correo, empresa o número de cliente",
+      "filter": "Base legal",
+      "all": "Todos",
+      "shown": "{{shown}} de {{total}} contactos",
+      "none": "No se encontraron contactos. La primera sincronización los crea a partir de pedidos y altas en el boletín.",
+      "columns": {
+        "email": "Correo",
+        "customer": "Cliente",
+        "orders": "Pedidos",
+        "lastOrder": "Último pedido",
+        "basis": "Base"
+      },
+      "consentFrom": "{{source}} del {{date}}",
+      "objectionFrom": "Oposición: {{source}} del {{date}}",
+      "bounced": "no entregable",
+      "consentTitle": "Registrar consentimiento",
+      "consentHint": "Por ejemplo, cuando el comercial lo preguntó en una conversación. La nota (interlocutor, motivo) sirve de prueba. Una oposición sigue prevaleciendo.",
+      "email": "Dirección de correo",
+      "source": "Origen",
+      "date": "Fecha (vacío = hoy)",
+      "note": "Nota",
+      "notePlaceholder": "p. ej. llamada con el Sr. Ejemplo, feria",
+      "consentSave": "Guardar consentimiento",
+      "consentSaved": "Consentimiento guardado",
+      "consentButObjected": "Consentimiento guardado, pero existe una oposición: sin correos publicitarios",
+      "consentFailed": "No se pudo guardar el consentimiento",
+      "objectionTitle": "Registrar oposición",
+      "objectionHint": "El cliente ya no recibirá correos publicitarios. La dirección pasa a la lista de bloqueo de Brevo y se da de baja del boletín de la tienda. Una oposición no se puede retirar aquí.",
+      "objectionSave": "Guardar oposición",
+      "objectionSaved": "Oposición guardada",
+      "objectionFailed": "No se pudo guardar la oposición"
+    },
+    "settings": {
+      "brevoTitle": "Acceso a Brevo",
+      "keyLabel": "Clave API",
+      "keyPlaceholder": "xkeysib-…",
+      "keySet": "Clave guardada (introduzca una nueva para cambiarla)",
+      "keySave": "Guardar clave",
+      "keyRemove": "Eliminar clave",
+      "keyHelp": "Cree en Brevo, en «SMTP & API», una clave propia para METAorder. Se guarda cifrada y no se vuelve a mostrar.",
+      "checking": "Comprobando la conexión …",
+      "account": "Conectado con {{company}}: {{senders}} remitentes, {{templates}} plantillas",
+      "rulesTitle": "Reglas",
+      "since": "Fecha de corte del aviso a clientes existentes",
+      "sinceHelp": "El día en que el aviso sobre publicidad por correo a clientes existentes se publicó en la caja y la política de privacidad (B0). Solo los pedidos desde ese día cuentan como cliente existente. Vacío = regla desactivada.",
+      "perWeek": "Correos publicitarios por semana",
+      "perMonth": "Correos publicitarios por mes",
+      "replyTo": "Dirección de respuesta",
+      "testRecipients": "Direcciones de prueba",
+      "testRecipientsHelp": "Direcciones internas, una por línea. Solo ellas reciben envíos de prueba.",
+      "save": "Guardar reglas",
+      "saved": "Ajustes guardados",
+      "channelsTitle": "Canales de venta y remitentes",
+      "channelsHint": "Solo los canales activados reciben correos. A los clientes de la tienda les escribe «META Regalbau», a los del portal más adelante su comercial.",
+      "noChannels": "Aún no hay canales con pedidos en el espejo.",
+      "channelColumns": {
+        "channel": "Canal",
+        "kind": "Tipo",
+        "sender": "Remitente",
+        "enabled": "Activo"
+      },
+      "senderNone": "Sin remitente",
+      "senderRep": "Comercial (próximamente)",
+      "saveChannels": "Guardar canales",
+      "webhookTitle": "Bajas desde Brevo",
+      "webhookHint": "Brevo comunica al instante a METAorder las bajas, denuncias de spam, direcciones no entregables y clics. La sincronización también recupera cada hora la lista de bloqueo de Brevo.",
+      "webhookActive": "Webhook configurado (ID de Brevo {{id}})",
+      "webhookMissing": "Webhook aún no configurado",
+      "webhookSetup": "Configurar webhook en Brevo",
+      "webhookRenew": "Volver a configurar el webhook",
+      "webhookDone": "Webhook configurado en Brevo",
+      "webhookFailed": "No se pudo configurar el webhook"
+    },
+    "crmBadge": {
+      "label": "Publicidad: {{basis}}",
+      "noBasisHint": "Sin consentimiento y sin pedidos desde la fecha de corte del aviso a clientes existentes"
     }
   }
 }

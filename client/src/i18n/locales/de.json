@@ -315,7 +315,8 @@
     "systemLog": "Systemprotokoll",
     "shopContent": "Shop-Inhalte",
     "shopWatch": "Shop-Wächter",
-    "shopPulse": "Shop-Puls"
+    "shopPulse": "Shop-Puls",
+    "customerMails": "Kundenmails"
   },
   "shopFakturen": {
     "title": "SAP-Rechnungsimport",
@@ -6778,7 +6779,37 @@
       "invalid_merchant_center_settings": "Ungültige Merchant-Center-Einstellungen",
       "failed_to_save_merchant_center_settings": "Merchant-Center-Einstellungen konnten nicht gespeichert werden",
       "die_mail_ist_grosser_als_36_mb_und_kann_nicht_automatisch_verarbeitet_werden_bit": "Die Mail ist größer als 36 MB und kann nicht automatisch verarbeitet werden. Bitte die Mail im Postfach öffnen und die Anhänge einzeln hochladen.",
-      "die_datei_ist_grosser_als_10_mb": "Die Datei ist größer als 10 MB."
+      "die_datei_ist_grosser_als_10_mb": "Die Datei ist größer als 10 MB.",
+      "invalid_brevo_event": "Ungültiges Brevo-Ereignis",
+      "too_many_brevo_events": "Zu viele Brevo-Ereignisse",
+      "invalid_brevo_event_token": "Ungültiges Token im Brevo-Ereignis",
+      "failed_to_store_brevo_event": "Brevo-Ereignis konnte nicht gespeichert werden",
+      "failed_to_load_customer_mails": "Kundenmails konnten nicht geladen werden",
+      "invalid_customer_mail_settings": "Ungültige Einstellungen für Kundenmails",
+      "failed_to_save_customer_mail_settings": "Einstellungen für Kundenmails konnten nicht gespeichert werden",
+      "failed_to_load_brevo_account": "Brevo-Konto konnte nicht geladen werden",
+      "brevo_api_key_missing": "Kein Brevo-API-Schlüssel hinterlegt",
+      "customer_mail_sync_already_running": "Der Abgleich läuft bereits",
+      "customer_mail_sync_failed": "Abgleich fehlgeschlagen (Brevo oder Shopware nicht erreichbar)",
+      "brevo_webhook_needs_a_tenant_and_public_url": "Für den Brevo-Webhook fehlen Mandant oder öffentliche Adresse",
+      "failed_to_set_up_brevo_webhook": "Brevo-Webhook konnte nicht eingerichtet werden",
+      "failed_to_load_customer_mail_contacts": "Kontakte konnten nicht geladen werden",
+      "invalid_consent": "Einwilligung unvollständig (E-Mail und Vermerk nötig)",
+      "failed_to_record_consent": "Einwilligung konnte nicht gespeichert werden",
+      "invalid_objection": "Widerspruch unvollständig (gültige E-Mail nötig)",
+      "failed_to_record_objection": "Widerspruch konnte nicht gespeichert werden",
+      "invalid_email_address": "Ungültige E-Mail-Adresse",
+      "failed_to_load_customer_mail_status": "Werbe-Status konnte nicht geladen werden",
+      "invalid_test_mail": "Testaussendung unvollständig (Vorlage, Absender und Betreff nötig)",
+      "failed_to_create_test_mail": "Testaussendung konnte nicht angelegt werden",
+      "failed_to_load_customer_mail_run": "Aussendung konnte nicht geladen werden",
+      "failed_to_send_customer_mail_run": "Aussendung konnte nicht verschickt werden",
+      "failed_to_cancel_customer_mail_run": "Aussendung konnte nicht verworfen werden",
+      "customer_mails_are_switched_off": "Kundenmails sind ausgeschaltet",
+      "customer_mail_run_not_found": "Aussendung nicht gefunden",
+      "customer_mail_run_is_not_a_draft": "Die Aussendung ist kein Entwurf mehr",
+      "no_recipients_with_a_legal_basis": "Keine Empfänger mit Rechtsgrundlage",
+      "no_test_recipients_configured": "Keine Testadressen hinterlegt (Einstellungen)"
     }
   },
   "roomPlanner": {
@@ -9445,6 +9476,218 @@
         "failed": "Rechnung nicht an Mondu übergeben",
         "skipped": "Keine Rechnung an Mondu übergeben"
       }
+    }
+  },
+  "customerMails": {
+    "title": "Kundenmails",
+    "hint": "Newsletter, Stammkunden- und After-Sales-Mails über Brevo. METAorder wählt die Empfänger mit Rechtsgrundlage aus, Brevo verschickt und verwaltet Abmeldungen.",
+    "enabled": "Kundenmails eingeschaltet",
+    "switchedOn": "Kundenmails eingeschaltet",
+    "switchedOff": "Kundenmails ausgeschaltet: kein Abgleich, kein Versand",
+    "saveFailed": "Speichern fehlgeschlagen",
+    "syncNow": "Jetzt abgleichen",
+    "syncDone": "Kontakte abgeglichen",
+    "syncFailed": "Abgleich fehlgeschlagen",
+    "syncError": "Letzter Abgleich fehlgeschlagen: {{error}}",
+    "lastSync": "Letzter Abgleich {{at}}",
+    "neverSynced": "Noch kein Abgleich",
+    "syncStats": "{{mirror}} Käufer, {{newsletter}} Newsletter-Einträge, {{blocked}} gesperrt in Brevo, {{upserted}} Kontakte geändert",
+    "adminOnly": "Nur für Administratoren.",
+    "loading": "Wird geladen …",
+    "noKey": "Noch kein Brevo-API-Schlüssel hinterlegt.",
+    "toSettings": "Zu den Einstellungen",
+    "brevoError": "Brevo meldet einen Fehler: {{error}}",
+    "tabs": {
+      "overview": "Übersicht",
+      "contacts": "Kontakte",
+      "settings": "Einstellungen"
+    },
+    "basis": {
+      "consent": "Einwilligung",
+      "existingCustomer": "Bestandskunde",
+      "none": "Keine Grundlage",
+      "objected": "Widerspruch",
+      "test": "Testadresse"
+    },
+    "channelKinds": {
+      "shop": "Onlineshop",
+      "portal": "Portal"
+    },
+    "consentSources": {
+      "shopNewsletter": "Newsletter-Anmeldung",
+      "crm": "Außendienst/CRM",
+      "manual": "von Hand"
+    },
+    "objectionSources": {
+      "brevoUnsubscribe": "Abmeldelink",
+      "brevoSpam": "Spam-Meldung",
+      "brevoBlocklist": "Brevo-Sperrliste",
+      "shopNewsletterOptOut": "Newsletter-Abmeldung",
+      "manual": "von Hand"
+    },
+    "types": {
+      "test": "Testaussendung",
+      "newsletter": "Newsletter",
+      "regularLetter": "Stammkunden-Brief",
+      "regularOverdue": "Überfällig-Erinnerung",
+      "afterSalesService": "Service nach dem Kauf",
+      "afterSalesAccessories": "Zubehör nach dem Kauf",
+      "reactivation": "Reaktivierung"
+    },
+    "runStatus": {
+      "draft": "Entwurf",
+      "sending": "Wird verschickt",
+      "sent": "Verschickt",
+      "failed": "Fehler",
+      "cancelled": "Verworfen"
+    },
+    "recipientStatus": {
+      "planned": "geplant",
+      "skipped": "ausgelassen",
+      "sent": "verschickt"
+    },
+    "skipReasons": {
+      "objected": "Widerspruch",
+      "bounced": "Adresse unzustellbar",
+      "noBasis": "keine Rechtsgrundlage",
+      "frequency": "Kontaktbremse",
+      "invalidEmail": "ungültige Adresse",
+      "duplicate": "doppelt",
+      "channelOff": "Kanal ausgeschaltet"
+    },
+    "counts": {
+      "title": "Kontakte nach Rechtsgrundlage",
+      "consent": "Einwilligung",
+      "existingCustomer": "Bestandskunde",
+      "none": "Keine Grundlage",
+      "objected": "Widerspruch",
+      "bounced": "Unzustellbar",
+      "total": "Kontakte gesamt",
+      "cutoffSet": "Bestandskunden-Regel gilt für Bestellungen ab {{date}}.",
+      "cutoffMissing": "Bestandskunden-Regel noch aus: Stichtag fehlt (Einstellungen). Bis dahin nur Kontakte mit Einwilligung.",
+      "unconfirmed": "{{count}} Newsletter-Einträge ohne bestätigte Anmeldung zählen nicht als Einwilligung."
+    },
+    "test": {
+      "title": "Testaussendung",
+      "hint": "Geht nur an die Testadressen: {{recipients}}. Prüft Vorlage, Absender, Kontaktfelder und Abmeldelink.",
+      "noRecipients": "Zuerst Testadressen in den Einstellungen eintragen.",
+      "template": "Brevo-Vorlage",
+      "templatePlaceholder": "Vorlage wählen",
+      "sender": "Absender",
+      "senderPlaceholder": "Absender wählen",
+      "subject": "Betreff",
+      "create": "Entwurf anlegen",
+      "created": "Entwurf mit {{count}} Empfängern angelegt",
+      "createFailed": "Entwurf konnte nicht angelegt werden"
+    },
+    "runs": {
+      "title": "Aussendungen",
+      "none": "Noch keine Aussendungen.",
+      "columns": {
+        "created": "Angelegt",
+        "type": "Art",
+        "subject": "Betreff",
+        "status": "Stand",
+        "recipients": "Empfänger"
+      },
+      "counts": "{{planned}} / {{skipped}} ausgelassen",
+      "campaign": "Brevo-Kampagne #{{id}}",
+      "show": "Empfänger",
+      "hide": "Ausblenden",
+      "send": "Senden",
+      "confirmSend": "Jetzt an {{count}} Empfänger senden",
+      "keep": "Abbrechen",
+      "cancel": "Verwerfen",
+      "sent": "An {{count}} Empfänger verschickt",
+      "sendFailed": "Versand fehlgeschlagen",
+      "cancelled": "Aussendung verworfen",
+      "cancelFailed": "Verwerfen fehlgeschlagen",
+      "switchedOff": "Senden geht erst, wenn Kundenmails eingeschaltet sind."
+    },
+    "recipients": {
+      "email": "E-Mail",
+      "customer": "Kunde",
+      "basis": "Grundlage",
+      "status": "Stand"
+    },
+    "contacts": {
+      "search": "Suche",
+      "searchPlaceholder": "E-Mail, Firma oder Kundennummer",
+      "filter": "Rechtsgrundlage",
+      "all": "Alle",
+      "shown": "{{shown}} von {{total}} Kontakten",
+      "none": "Keine Kontakte gefunden. Der erste Abgleich legt sie aus Bestellungen und Newsletter-Anmeldungen an.",
+      "columns": {
+        "email": "E-Mail",
+        "customer": "Kunde",
+        "orders": "Bestellungen",
+        "lastOrder": "Letzte Bestellung",
+        "basis": "Grundlage"
+      },
+      "consentFrom": "{{source}} vom {{date}}",
+      "objectionFrom": "Widerspruch: {{source}} vom {{date}}",
+      "bounced": "unzustellbar",
+      "consentTitle": "Einwilligung erfassen",
+      "consentHint": "Zum Beispiel, wenn der Außendienst im Gespräch gefragt hat. Der Vermerk (Gesprächspartner, Anlass) dient als Nachweis. Ein Widerspruch bleibt trotzdem bestehen.",
+      "email": "E-Mail-Adresse",
+      "source": "Quelle",
+      "date": "Datum (leer = heute)",
+      "note": "Vermerk",
+      "notePlaceholder": "z. B. Telefonat mit Herrn Muster, Messe",
+      "consentSave": "Einwilligung speichern",
+      "consentSaved": "Einwilligung gespeichert",
+      "consentButObjected": "Einwilligung gespeichert, aber es liegt ein Widerspruch vor: keine Werbemails",
+      "consentFailed": "Einwilligung konnte nicht gespeichert werden",
+      "objectionTitle": "Widerspruch erfassen",
+      "objectionHint": "Der Kunde bekommt danach keine Werbemails mehr. Die Adresse kommt auf die Brevo-Sperrliste und wird im Shop vom Newsletter abgemeldet. Ein Widerspruch lässt sich nicht zurücknehmen.",
+      "objectionSave": "Widerspruch speichern",
+      "objectionSaved": "Widerspruch gespeichert",
+      "objectionFailed": "Widerspruch konnte nicht gespeichert werden"
+    },
+    "settings": {
+      "brevoTitle": "Brevo-Zugang",
+      "keyLabel": "API-Schlüssel",
+      "keyPlaceholder": "xkeysib-…",
+      "keySet": "Schlüssel hinterlegt (zum Ändern neu eingeben)",
+      "keySave": "Schlüssel speichern",
+      "keyRemove": "Schlüssel entfernen",
+      "keyHelp": "In Brevo unter „SMTP & API“ einen eigenen Schlüssel für METAorder anlegen. Er wird verschlüsselt gespeichert und nie wieder angezeigt.",
+      "checking": "Verbindung wird geprüft …",
+      "account": "Verbunden mit {{company}}: {{senders}} Absender, {{templates}} Vorlagen",
+      "rulesTitle": "Regeln",
+      "since": "Stichtag Bestandskunden-Hinweis",
+      "sinceHelp": "Der Tag, an dem der Hinweis auf E-Mail-Werbung an Bestandskunden in Kasse und Datenschutzerklärung live ging (B0). Nur Bestellungen ab diesem Tag zählen als Bestandskunde. Leer = Regel aus.",
+      "perWeek": "Werbemails je Woche",
+      "perMonth": "Werbemails je Monat",
+      "replyTo": "Antwortadresse",
+      "testRecipients": "Testadressen",
+      "testRecipientsHelp": "Interne Adressen, eine je Zeile. Nur sie bekommen Testaussendungen.",
+      "save": "Regeln speichern",
+      "saved": "Einstellungen gespeichert",
+      "channelsTitle": "Verkaufskanäle und Absender",
+      "channelsHint": "Nur eingeschaltete Kanäle bekommen Mails. Shop-Kunden schreibt „META Regalbau“ an, Portal-Kunden später ihr Außendienst.",
+      "noChannels": "Noch keine Kanäle mit Bestellungen im Spiegel.",
+      "channelColumns": {
+        "channel": "Kanal",
+        "kind": "Art",
+        "sender": "Absender",
+        "enabled": "Aktiv"
+      },
+      "senderNone": "Kein Absender",
+      "senderRep": "Außendienst (folgt)",
+      "saveChannels": "Kanäle speichern",
+      "webhookTitle": "Abmeldungen aus Brevo",
+      "webhookHint": "Brevo meldet Abmeldungen, Spam-Meldungen, unzustellbare Adressen und Klicks sofort an METAorder. Der Abgleich holt die Brevo-Sperrliste zusätzlich stündlich.",
+      "webhookActive": "Webhook eingerichtet (Brevo-ID {{id}})",
+      "webhookMissing": "Webhook noch nicht eingerichtet",
+      "webhookSetup": "Webhook in Brevo einrichten",
+      "webhookRenew": "Webhook neu einrichten",
+      "webhookDone": "Webhook in Brevo eingerichtet",
+      "webhookFailed": "Webhook konnte nicht eingerichtet werden"
+    },
+    "crmBadge": {
+      "label": "Werbung: {{basis}}",
+      "noBasisHint": "Keine Einwilligung und keine Bestellung ab dem Stichtag des Bestandskunden-Hinweises"
     }
   }
 }

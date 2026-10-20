@@ -4164,3 +4164,131 @@ export const emailIntakeReplies = pgTable(
 );
 
 export type EmailIntakeReplyRow = typeof emailIntakeReplies.$inferSelect;
+
+/**
+ * Kundenmails über Brevo (Migration 0065, server/customerMails/*): Kontakte mit Kaufdaten, Einwilligung und
+ * Widerspruch je E-Mail-Adresse; Rechtsgrundlage berechnet server/customerMails/legalBasis.ts.
+ */
+export const marketingContacts = pgTable(
+  "marketing_contacts",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id"),
+    /** klein geschrieben */
+    email: text("email").notNull(),
+    customerNumber: text("customer_number"),
+    company: text("company"),
+    contactName: text("contact_name"),
+    salesChannelId: varchar("sales_channel_id"),
+    salesChannelName: text("sales_channel_name"),
+    language: text("language").notNull().default("de"),
+    orderCount: integer("order_count").notNull().default(0),
+    firstOrderAt: timestamp("first_order_at"),
+    lastOrderAt: timestamp("last_order_at"),
+    lastOrderNumber: text("last_order_number"),
+    consentAt: timestamp("consent_at"),
+    /** shopNewsletter | crm | manual */
+    consentSource: text("consent_source"),
+    consentNote: text("consent_note"),
+    consentBy: text("consent_by"),
+    objectionAt: timestamp("objection_at"),
+    /** brevoUnsubscribe | brevoSpam | brevoBlocklist | shopNewsletterOptOut | manual */
+    objectionSource: text("objection_source"),
+    objectionNote: text("objection_note"),
+    bouncedAt: timestamp("bounced_at"),
+    newsletterRecipientId: varchar("newsletter_recipient_id"),
+    /** Shopware newsletter_recipient.status (optIn, notSet, direct, optOut …) */
+    newsletterStatus: text("newsletter_status"),
+    /** Widerspruch muss noch als Newsletter-Abmeldung nach Shopware */
+    shopOptOutPending: boolean("shop_opt_out_pending").notNull().default(false),
+    brevoBlocklisted: boolean("brevo_blocklisted").notNull().default(false),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    tenantEmailIdx: uniqueIndex("marketing_contacts_tenant_email_idx").on(table.tenantId, table.email),
+    customerIdx: index("marketing_contacts_customer_idx").on(table.tenantId, table.customerNumber),
+  }),
+);
+export type MarketingContactRow = typeof marketingContacts.$inferSelect;
+
+/** Aussendungen der Kundenmails (Migration 0065): Entwurf -> Versand als Brevo-Kampagne */
+export const marketingMailRuns = pgTable(
+  "marketing_mail_runs",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id"),
+    mailType: text("mail_type").notNull(),
+    /** draft | sending | sent | failed | cancelled */
+    status: text("status").notNull().default("draft"),
+    subject: text("subject").notNull(),
+    templateId: integer("template_id"),
+    senderId: integer("sender_id"),
+    plannedCount: integer("planned_count").notNull().default(0),
+    skippedCount: integer("skipped_count").notNull().default(0),
+    sentCount: integer("sent_count").notNull().default(0),
+    brevoListId: integer("brevo_list_id"),
+    brevoCampaignId: integer("brevo_campaign_id"),
+    error: text("error"),
+    createdBy: text("created_by"),
+    sentBy: text("sent_by"),
+    sentAt: timestamp("sent_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    tenantCreatedIdx: index("marketing_mail_runs_tenant_created_idx").on(table.tenantId, table.createdAt),
+  }),
+);
+export type MarketingMailRunRow = typeof marketingMailRuns.$inferSelect;
+
+/** Empfänger je Aussendung (Migration 0065); gesendete Werbemails zählen für die Kontaktbremse */
+export const marketingMailRecipients = pgTable(
+  "marketing_mail_recipients",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id"),
+    runId: varchar("run_id")
+      .notNull()
+      .references(() => marketingMailRuns.id, { onDelete: "cascade" }),
+    mailType: text("mail_type").notNull(),
+    advertising: boolean("advertising").notNull().default(true),
+    email: text("email").notNull(),
+    customerNumber: text("customer_number"),
+    /** consent | existingCustomer | none | objected | test */
+    basis: text("basis").notNull(),
+    /** planned | skipped | sent */
+    status: text("status").notNull().default("planned"),
+    skipReason: text("skip_reason"),
+    /** zusätzliche Brevo-Kontaktfelder (MO_…) für diese Aussendung */
+    attributes: jsonb("attributes").notNull().default({}),
+    sentAt: timestamp("sent_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    runIdx: index("marketing_mail_recipients_run_idx").on(table.runId),
+    emailSentIdx: index("marketing_mail_recipients_email_sent_idx").on(table.tenantId, table.email, table.sentAt),
+  }),
+);
+export type MarketingMailRecipientRow = typeof marketingMailRecipients.$inferSelect;
+
+/** Ereignisse aus dem Brevo-Webhook (Migration 0065) */
+export const marketingEvents = pgTable(
+  "marketing_events",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id"),
+    email: text("email").notNull(),
+    /** unsubscribe | spam | hard_bounce | click | … wie von Brevo geliefert */
+    event: text("event").notNull(),
+    campaignId: integer("campaign_id"),
+    url: text("url"),
+    occurredAt: timestamp("occurred_at").notNull(),
+    payload: jsonb("payload").notNull().default({}),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    tenantEmailIdx: index("marketing_events_tenant_email_idx").on(table.tenantId, table.email, table.occurredAt),
+    campaignIdx: index("marketing_events_campaign_idx").on(table.tenantId, table.campaignId),
+  }),
+);

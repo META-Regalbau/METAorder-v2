@@ -25,6 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import type { Customer, CustomerInteraction, Order, Ticket } from "@shared/schema";
 import HerstellMarginIndicator from "@/components/HerstellMarginIndicator";
+import { CustomerMailStatusBadge } from "@/components/customerMails/CustomerMailStatusBadge";
 
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
 type CustomerOverview = {
@@ -449,6 +450,7 @@ export default function CustomerDetailModal({
         <DialogHeader>
           <DialogTitle>
             {overview?.customer?.name || customerName || customerEmail}
+            <CustomerMailStatusBadge email={overview?.customer?.email || customerEmail} />
           </DialogTitle>
           <DialogDescription className="sr-only">
             {t("crm.customer.tabs.overview")}
