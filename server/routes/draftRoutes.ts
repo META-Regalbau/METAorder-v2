@@ -36,7 +36,16 @@ import { commercialDraftSingleUpload } from "./commercialDraftUploadLimit";
 import fs from "fs/promises";
 import crypto from "crypto";
 import { isEmailContainerUpload, ingestCommercialEmailUpload, deriveUploadMessageId } from "../commercial/commercialEmailUploadIngest";
-import { acquireIntakeLock, failEmailIntake, finalizeEmailIntake, releaseIntakeLock } from "../commercial/emailIntakeUpload";
+import {
+  acquireIntakeLock,
+  acquireIntakeSlot,
+  failEmailIntake,
+  finalizeEmailIntake,
+  finishIntakeAttempt,
+  INTAKE_MAX_ATTEMPTS,
+  releaseIntakeLock,
+  startIntakeAttempt,
+} from "../commercial/emailIntakeUpload";
 import { publicAppBaseUrl } from "../commercial/emailIntakeTeams";
 import { getEmailIntakeSettings } from "../commercial/emailIntakeSettings";
 import { findIntakeMailbox, internalDomainsFor } from "@shared/emailIntake";
@@ -510,7 +519,12 @@ export function registerDraftRoutes(app: Express): void {
               code: "email_intake_in_progress",
             });
           }
+          const attemptKey = deriveUploadMessageId(fileBuffer);
+          let releaseSlot: (() => void) | null = null;
+          let attemptStarted = false;
           try {
+            // Höchstens zwei Mails aus dem Eingang gleichzeitig (Speicher); weitere warten hier
+            if (intakeMode) releaseSlot = await acquireIntakeSlot();
             const ingestParams = {
               storage,
               tenantId: req.tenantId ?? null,
@@ -528,21 +542,16 @@ export function registerDraftRoutes(app: Express): void {
                   : null,
               skipMetaorderForwards: Boolean(intakeSettings),
             };
-            let ingest: Awaited<ReturnType<typeof ingestCommercialEmailUpload>>;
-            try {
-              ingest = await ingestCommercialEmailUpload(ingestParams);
-            } catch (error) {
-              if (!intakeSettings) throw error;
-              // n8n-Abruf: Absturz → Ticket mit der Originalmail statt 500 (sonst nur ein n8n-Fehler ohne Mail)
-              moduleLog.error({ err: error }, "[EmailIntake] Verarbeitung abgestürzt");
+            // n8n-Abruf: Problem-Ticket mit der Originalmail statt 500 (sonst nur ein n8n-Fehler ohne Mail)
+            const failIntake = async (errorText: string, settings: NonNullable<typeof intakeSettings>) => {
               const parsed = await parseEmailBufferAutodetect(fileBuffer).catch(() => null);
               const unwrapped = unwrapInternalForward({ from: parsed?.from, subject: parsed?.subject || subject, body: parsed?.body || bodyNote });
               await fs.unlink(file.path).catch(() => {});
               const intake = await failEmailIntake({
                 storage,
                 tenantId: req.tenantId ?? null,
-                settings: intakeSettings,
-                messageId: deriveUploadMessageId(fileBuffer),
+                settings,
+                messageId: attemptKey,
                 subject: unwrapped.subject,
                 envelope: {
                   headerFrom: parsed?.from ?? "",
@@ -551,13 +560,36 @@ export function registerDraftRoutes(app: Express): void {
                   toAddresses: parsed?.toAddresses ?? [],
                   ccAddresses: parsed?.ccAddresses ?? [],
                 },
-                error: error instanceof Error ? error.message : String(error),
+                error: errorText,
                 rawEmail: { buffer: fileBuffer, fileName: file.originalname },
                 integrationUser: { id: userId, email: user?.email ?? null },
                 appBaseUrl: publicAppBaseUrl(`${req.protocol}://${req.get("host") || ""}`),
                 mailboxMode: intakeMailboxMode,
               });
               return res.json({ source: "email_container" as const, drafts: [], draftCount: 0, deduplicated: false, intake });
+            };
+
+            // Absturzschutz: Ist die Verarbeitung dieser Mail schon mehrfach ohne Abschluss abgebrochen (Prozess
+            // beendet, z. B. Speichergrenze), nicht noch einmal versuchen, sondern Problem-Ticket und n8n quittieren.
+            if (intakeMode && intakeSettings) {
+              const previous = await startIntakeAttempt(storage, req.tenantId ?? null, attemptKey);
+              attemptStarted = true;
+              if (previous >= INTAKE_MAX_ATTEMPTS) {
+                moduleLog.error({ messageId: attemptKey, previous }, "[EmailIntake] Verarbeitung mehrfach abgebrochen – Problem-Ticket statt neuem Versuch");
+                return await failIntake(
+                  `Die Verarbeitung dieser Mail ist ${previous}-mal ohne Abschluss abgebrochen (vermutlich zu große oder zu aufwendige Anhänge). Bitte von Hand bearbeiten.`,
+                  intakeSettings,
+                );
+              }
+            }
+
+            let ingest: Awaited<ReturnType<typeof ingestCommercialEmailUpload>>;
+            try {
+              ingest = await ingestCommercialEmailUpload(ingestParams);
+            } catch (error) {
+              if (!intakeSettings) throw error;
+              moduleLog.error({ err: error }, "[EmailIntake] Verarbeitung abgestürzt");
+              return await failIntake(error instanceof Error ? error.message : String(error), intakeSettings);
             }
 
             // Bereits verarbeitete Mail: vorhandenen Entwurf zurückgeben statt „kein Entwurf".
@@ -666,6 +698,12 @@ export function registerDraftRoutes(app: Express): void {
             });
           } finally {
             if (intakeMode) releaseIntakeLock(lockKey);
+            releaseSlot?.();
+            if (attemptStarted) {
+              await finishIntakeAttempt(storage, req.tenantId ?? null, attemptKey).catch((err) =>
+                moduleLog.warn({ err, messageId: attemptKey }, "[EmailIntake] Versuchszähler konnte nicht gelöscht werden"),
+              );
+            }
           }
         }
 

@@ -35,6 +35,89 @@ export function releaseIntakeLock(key: string): void {
   inFlight.delete(key);
 }
 
+// ---------------------------------------------------------------------------------------------
+// Gleichzeitigkeit und Absturzschutz (Vorfall 20.10.2026: ein Stapel aus 5 Mails mit Anhängen ließ den
+// Container wiederholt über die Speichergrenze laufen; n8n schickte die unerledigten Mails alle 2 Minuten neu)
+
+/** Höchstens so viele Mails aus dem E-Mail-Eingang gleichzeitig in Verarbeitung */
+export const INTAKE_MAX_PARALLEL = 2;
+let intakeActive = 0;
+const intakeWaiting: Array<() => void> = [];
+
+/** Platz in der Verarbeitung belegen; die zurückgegebene Funktion gibt ihn genau einmal wieder frei */
+export async function acquireIntakeSlot(max = INTAKE_MAX_PARALLEL): Promise<() => void> {
+  if (intakeActive >= max) await new Promise<void>((resolve) => intakeWaiting.push(resolve));
+  else intakeActive += 1;
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    const next = intakeWaiting.shift();
+    if (next) next(); // Platz geht direkt an den Nächsten, intakeActive bleibt gleich
+    else intakeActive -= 1;
+  };
+}
+
+/** Settings-Schlüssel je Mandant: begonnene, noch nicht abgeschlossene Verarbeitungen je Mail */
+export const INTAKE_ATTEMPTS_KEY = "email_intake_attempts";
+/** So oft darf die Verarbeitung einer Mail ohne Abschluss abbrechen; danach Problem-Ticket statt neuem Versuch */
+export const INTAKE_MAX_ATTEMPTS = 2;
+const ATTEMPT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const ATTEMPT_MAX_ENTRIES = 500;
+
+export type IntakeAttempts = Record<string, { count: number; at: string }>;
+
+/** Alte Einträge (älter als 24 h) und Überschuss (höchstens 500, die neuesten) entfernen */
+export function pruneIntakeAttempts(attempts: IntakeAttempts, now: Date): IntakeAttempts {
+  const fresh = Object.entries(attempts).filter(([, v]) => v && typeof v.count === "number" && now.getTime() - new Date(v.at).getTime() < ATTEMPT_MAX_AGE_MS);
+  fresh.sort((a, b) => b[1].at.localeCompare(a[1].at));
+  return Object.fromEntries(fresh.slice(0, ATTEMPT_MAX_ENTRIES));
+}
+
+type AttemptStore = Pick<IStorage, "getSetting" | "saveSetting">;
+let attemptChain: Promise<unknown> = Promise.resolve();
+/** Lesen-Ändern-Schreiben nacheinander, damit parallele Mails sich nicht überschreiben */
+function withAttempts<T>(store: AttemptStore, tenantId: string | null, fn: (a: IntakeAttempts) => { next: IntakeAttempts; result: T }, now: Date): Promise<T> {
+  const run = attemptChain.then(async () => {
+    const raw = await store.getSetting(INTAKE_ATTEMPTS_KEY, tenantId);
+    const current = pruneIntakeAttempts(raw && typeof raw === "object" ? (raw as IntakeAttempts) : {}, now);
+    const { next, result } = fn(current);
+    await store.saveSetting(INTAKE_ATTEMPTS_KEY, next, tenantId);
+    return result;
+  });
+  attemptChain = run.catch(() => undefined);
+  return run;
+}
+
+/**
+ * Verarbeitung einer Mail beginnt: Zähler erhöhen (in der Datenbank, übersteht den Absturz) und die Zahl der
+ * bisherigen, nicht abgeschlossenen Versuche liefern.
+ */
+export function startIntakeAttempt(store: AttemptStore, tenantId: string | null, messageKey: string, now = new Date()): Promise<number> {
+  return withAttempts(
+    store,
+    tenantId,
+    (a) => {
+      const previous = a[messageKey]?.count ?? 0;
+      return { next: { ...a, [messageKey]: { count: previous + 1, at: now.toISOString() } }, result: previous };
+    },
+    now,
+  );
+}
+
+/** Verarbeitung abgeschlossen (auch mit Fehler-Ticket): Zähler löschen */
+export function finishIntakeAttempt(store: AttemptStore, tenantId: string | null, messageKey: string, now = new Date()): Promise<void> {
+  return withAttempts(
+    store,
+    tenantId,
+    (a) => {
+      const { [messageKey]: _done, ...rest } = a;
+      return { next: rest, result: undefined };
+    },
+    now,
+  );
+}
+
 type DraftInfo = { shopwareCustomerId: string | null; fileName: string | null; company: string | null };
 
 export async function finalizeEmailIntake(params: {
