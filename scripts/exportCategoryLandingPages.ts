@@ -12,7 +12,9 @@ import { readFileSync, writeFileSync } from "fs";
 import path from "path";
 import { CATEGORY_LANDING_PAGES, landingProductNumbers, rowFigures } from "../server/products/categoryLandingPages";
 import { categoryLandingDraftHtml } from "../server/products/categoryLandingDraft";
-import type { IndustryShopProduct } from "../server/products/industryPageHtml";
+import { esc, type IndustryShopProduct } from "../server/products/industryPageHtml";
+import { SERVICE_PAGES, type ServicePage } from "../server/products/servicePages";
+import { instructionsPageHtml, montageServiceBottomHtml, montageServiceTopHtml, servicePageCss, servicePageScript } from "../server/products/servicePageHtml";
 
 type ShopSnapshot = { asOf: string; source: string; products: Record<string, IndustryShopProduct> };
 
@@ -50,4 +52,37 @@ function main(): void {
   }
 }
 
+/** Entwurf einer Service-Seite; das Shopware-Kontaktformular ist nachgebaut (im Shop: Standard-Formularelement) */
+function serviceDraft(p: ServicePage): string {
+  let n = 0;
+  const note = (k: keyof ServicePage["notes"]) => {
+    const x = p.notes[k];
+    if (!x) return "";
+    n += 1;
+    return `<div class="wrap"><aside class="note"><span class="n">${n}</span>${esc(x.text)} ${(x.checks ?? []).map((c) => `<span class="chk">prüfen: ${esc(c)}</span>`).join(" ")}<span class="src">Quelle: ${esc(x.src ?? "")}</span></aside></div>`;
+  };
+  const form = `<section><div class="wrap" style="max-width:860px;padding-bottom:40px"><form onsubmit="return false" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:14px">
+    ${["Anrede", "Vorname*", "Nachname*", "E-Mail-Adresse*", "Telefonnummer", "Betreff*"].map((l, i) => `<label style="display:flex;flex-direction:column;gap:4px${i === 0 ? ";grid-column:1/-1;max-width:50%" : ""}">${l}<input ${l === "Betreff*" ? 'id="form-subject" name="subject"' : ""} style="border:1px solid #ccc;padding:10px;font:inherit"></label>`).join("")}
+    <label style="grid-column:1/-1;display:flex;flex-direction:column;gap:4px">Ihre Nachricht*<textarea id="form-comment" name="comment" rows="8" style="border:1px solid #ccc;padding:10px;font:inherit"></textarea></label>
+    <button class="btn" style="grid-column:1/-1;justify-self:start">Absenden</button></form>
+    <p class="tcap">Nachbau des Shopware-Kontaktformulars (im Shop mit Datenschutzhinweis und Captcha wie das bestehende Kontaktformular).</p></div></section>`;
+  const body =
+    p.key === "anleitungen"
+      ? instructionsPageHtml(note)
+      : montageServiceTopHtml(note) + form + montageServiceBottomHtml(note);
+  return `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(p.name)} – Entwurf</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><style>${servicePageCss()}</style></head>
+<body class="notes"><div class="draft"><div class="wrap"><span><b>ENTWURF</b> · Service-Seite „${esc(p.name)}“ (/${esc(p.url)}) · nicht im Shop</span><button onclick="document.body.classList.toggle('notes')">Erklärungen ein/aus</button></div></div>
+<main>${body}</main>${servicePageScript()}</body></html>`;
+}
+
+function exportServiceDrafts(outDir: string): void {
+  for (const p of SERVICE_PAGES) {
+    const file = path.join(outDir, `Entwurf-Service-${p.key === "anleitungen" ? "Montageanleitungen" : "Montageservice"}.html`);
+    writeFileSync(file, serviceDraft(p));
+    console.log("Entwurf:", file);
+  }
+}
+
 main();
+exportServiceDrafts(process.argv[3]);

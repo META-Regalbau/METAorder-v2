@@ -135,3 +135,38 @@ describe("System-Landingpages", () => {
     expect(categoryLandingCss(".mbp")).toContain(".mbp .steps");
   });
 });
+
+describe("Service-Seiten (Montageanleitungen, Montageservice)", () => {
+  it("hat eindeutige Dokumente und Videos in bekannten Gruppen", async () => {
+    const { SERVICE_DOCUMENTS, SERVICE_VIDEOS, SERVICE_GROUPS, SERVICE_PAGES } = await import("../../server/products/servicePages");
+    const groups = new Set(SERVICE_GROUPS.map((g) => g.key));
+    expect(new Set(SERVICE_DOCUMENTS.map((d) => d.id)).size).toBe(SERVICE_DOCUMENTS.length);
+    expect(new Set(SERVICE_VIDEOS.map((v) => v.id)).size).toBe(SERVICE_VIDEOS.length);
+    for (const d of [...SERVICE_DOCUMENTS, ...SERVICE_VIDEOS]) expect(groups.has(d.group), d.title).toBe(true);
+    for (const v of SERVICE_VIDEOS) expect(v.mp4, v.title).toMatch(/^https:\/\/video\.oxomi\.com\/.+\.mp4$/);
+    expect(SERVICE_DOCUMENTS.filter((d) => d.group === "sicherheit")).toHaveLength(1);
+    expect(SERVICE_PAGES.map((p) => p.url)).toEqual(["service/montageanleitungen", "service/montageservice"]);
+  });
+
+  it("die Landingpages verlinken auf vorhandene Service-Seiten und Anker", async () => {
+    const { SERVICE_GROUPS, SERVICE_PAGES } = await import("../../server/products/servicePages");
+    const anchors = new Set(SERVICE_GROUPS.map((g) => g.anchor));
+    for (const p of CATEGORY_LANDING_PAGES) {
+      const [pathPart, anchor] = p.guide.instructions.href.split("#");
+      expect(`/${SERVICE_PAGES[0].url}`, p.key).toBe(pathPart);
+      expect(anchors.has(anchor), `${p.key}#${anchor}`).toBe(true);
+      expect(p.guide.service.href, p.key).toBe(`/${SERVICE_PAGES[1].url}`);
+    }
+  });
+
+  it("baut beide Seiten mit Video-Klick, Formular-Vorlage und ohne fremde Bilder", async () => {
+    const { instructionsPageHtml, montageServiceTopHtml, servicePageScript, servicePageCss } = await import("../../server/products/servicePageHtml");
+    const html = instructionsPageHtml();
+    expect(html).toContain('id="sicherheit"');
+    expect(html).toContain("documents/download?portal=1129890&amp;document=10575109");
+    expect(html).not.toMatch(/<img|<video/); // nichts von oxomi.com beim Seitenaufruf
+    expect(montageServiceTopHtml()).toContain('id="anfrage"');
+    expect(servicePageScript()).toContain("Anfrage Montageservice");
+    expect(servicePageCss(".mbp")).toContain(".mbp .vid-play");
+  });
+});

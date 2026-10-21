@@ -25,6 +25,8 @@ export type LandingHtmlOptions = {
 };
 
 const fmt = (n: number) => n.toLocaleString("de-DE");
+/** Externe Links in neuem Tab, Shop-Links im selben */
+const ext = (href: string) => (/^https?:/.test(href) ? ' target="_blank" rel="noopener"' : "");
 const TERM_NAMES = new Map(GLOSSARY_TERMS.map((t) => [t.key, t.term]));
 
 /** Text mit Lexikon-Verweisen [[schluessel]] / [[schluessel|Text]] als HTML; unbekannte Schluessel werfen. */
@@ -303,8 +305,8 @@ export class CategoryLandingHtml {
   </div>
   <div class="cta-row build-cta">
     <a class="btn" href="${esc(conf)}">Regal konfigurieren</a>
-    <a class="btn ghost" href="${esc(g.instructions.href)}" target="_blank" rel="noopener">${esc(g.instructions.label)}</a>
-    <a class="btn ghost" href="${esc(g.service.href)}" target="_blank" rel="noopener">${esc(g.service.label)}</a>
+    <a class="btn ghost" href="${esc(g.instructions.href)}"${ext(g.instructions.href)}>${esc(g.instructions.label)}</a>
+    <a class="btn ghost" href="${esc(g.service.href)}"${ext(g.service.href)}>${esc(g.service.label)}</a>
   </div>
 </div></section>`;
   }

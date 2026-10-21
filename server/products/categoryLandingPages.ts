@@ -120,12 +120,9 @@ export type CategoryLandingPage = {
 };
 
 export const LEXIKON = "/regal-lexikon";
-/** Montageanleitungen und -videos auf meta-online.com (Filter Anleitung, Deutsch) – feste PDF-Adressen gibt es dort nicht */
-export const INSTRUCTIONS_HREF =
-  "https://www.meta-online.com/de-DE/service/kataloge-und-montageanleitungen?oxDeeplink=eyJ1bml2ZXJzYWxTZWFyY2h8MSI6eyJ2aWV3IjoiZmlsdGVyZWQiLCJmaWx0ZXJzIjp7ImNvbnRlbnRUeXBlIjpbImluc3RydWN0aW9uIl0sImNvbnRlbnRMYW5ndWFnZSI6WyJkZSJdfSwicXVlcnkiOiIiLCJoaWRkZW5GaWx0ZXJzIjp7ImJyYW5kIjpbIjZESFRTUTg0UlZWSzFQQkNFQ0NONkFSQzMwIl19fX0%3D";
-export const SERVICE_HREF = "https://www.meta-online.com/de-DE/service/montage";
-const INSTRUCTIONS = { label: "Montageanleitungen und Videos", href: INSTRUCTIONS_HREF };
-const SERVICE = { label: "Montageservice anfragen", href: SERVICE_HREF };
+/** Service-Seiten im Shop (servicePages.ts): Anleitungen/Videos mit Sprung zur Regalart, Montageservice-Anfrage */
+const INSTRUCTIONS = (anchor: string) => ({ label: "Montageanleitungen und Videos", href: `/service/montageanleitungen#${anchor}` });
+const SERVICE = { label: "Montageservice anfragen", href: "/service/montageservice" };
 
 /** Für alle Seiten gleich: sicher im Betrieb (Sicherheitshinweise 02.2024, Katalog S. 16) */
 export const OPERATION_COMMON = [
@@ -152,7 +149,7 @@ export const ADVICE_COMMON = {
 const ADVICE_NOTE: IndustryNote = { text: "Gemeinsamer Beratungsblock aller fünf Seiten.", src: "Katalog S. 11; Shop-Footer" };
 const GUIDE_NOTE_COMMON =
   "Neuer Abschnitt F. Sechs feste Schritte auf allen fünf Seiten; Fachbegriffe verlinken ins Regal-Lexikon. Schritt 6 und „Sicher im Betrieb“ stammen aus den Sicherheitshinweisen, die jeder Lieferung beiliegen (DGUV Regel 108-007 bewusst nicht genannt, zurückgezogen).";
-const INSTRUCTIONS_CHECK = "Montageanleitungen: meta-online.com hat keine festen PDF-Adressen, Link führt auf die gefilterte Liste (Anleitungen + Videos)";
+const INSTRUCTIONS_CHECK = "Montageanleitungen und Montageservice verlinken auf die neuen Service-Seiten im Shop (/service/montageanleitungen, /service/montageservice)";
 
 const LEXIKON_LINK = { label: "Regal-Lexikon: Fachlast, Feldlast und mehr", href: LEXIKON };
 const BRANCHE = {
@@ -292,7 +289,7 @@ export const CATEGORY_LANDING_PAGES: CategoryLandingPage[] = [
       avoidSrc: "Katalog S. 25, 210; Sicherheitshinweise 02.2024 S. 2–3",
       operation: OPERATION_COMMON,
       operationSrc: OPERATION_SRC,
-      instructions: INSTRUCTIONS,
+      instructions: INSTRUCTIONS("fachbodenregale"),
       service: SERVICE,
     },
     planImages: [
@@ -496,7 +493,7 @@ export const CATEGORY_LANDING_PAGES: CategoryLandingPage[] = [
       avoidSrc: "Katalog S. 100; Sicherheitshinweise 02.2024 S. 2–3",
       operation: OPERATION_COMMON,
       operationSrc: OPERATION_SRC,
-      instructions: INSTRUCTIONS,
+      instructions: INSTRUCTIONS("fachbodenregale"),
       service: SERVICE,
     },
     planImages: [],
@@ -695,7 +692,7 @@ export const CATEGORY_LANDING_PAGES: CategoryLandingPage[] = [
       avoidSrc: "Katalog S. 125, 135, 136, 138, 139, 143",
       operation: OPERATION_COMMON,
       operationSrc: OPERATION_SRC,
-      instructions: INSTRUCTIONS,
+      instructions: INSTRUCTIONS("palettenregale"),
       service: SERVICE,
     },
     planImages: [],
@@ -877,7 +874,7 @@ export const CATEGORY_LANDING_PAGES: CategoryLandingPage[] = [
       avoidSrc: "Katalog S. 163, 168, 210; Sicherheitshinweise 02.2024 S. 2–3",
       operation: OPERATION_COMMON,
       operationSrc: OPERATION_SRC,
-      instructions: INSTRUCTIONS,
+      instructions: INSTRUCTIONS("kragarmregale"),
       service: SERVICE,
     },
     planImages: [],
@@ -1049,7 +1046,7 @@ export const CATEGORY_LANDING_PAGES: CategoryLandingPage[] = [
       avoidSrc: "Katalog S. 114, 118; Sicherheitshinweise 02.2024 S. 2–3",
       operation: OPERATION_COMMON,
       operationSrc: OPERATION_SRC,
-      instructions: INSTRUCTIONS,
+      instructions: INSTRUCTIONS("weitspannregale"),
       service: SERVICE,
     },
     planImages: [],
