@@ -156,6 +156,7 @@ const portalUserPayloadSchema = z.object({
   address: portalAddressSchema,
   metaCompanyCustomerId: z.string().optional(),
   supervisorRoleId: z.string().optional(),
+  customerNumber: z.string().trim().max(255).optional(),
   sendEmails: z.boolean().optional(),
 });
 
@@ -694,6 +695,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
           address: body.address,
           metaCompanyCustomerId: body.metaCompanyCustomerId,
           supervisorRoleId: body.supervisorRoleId,
+          customerNumber: body.customerNumber || undefined,
         },
         { apply: true, verifyLogin: true, sendEmails },
       );
@@ -756,6 +758,7 @@ export function registerB2BAdminRoutes(app: Express, options: B2BAdminRouteOptio
           address: body.address,
           metaCompanyCustomerId: body.metaCompanyCustomerId,
           supervisorRoleId: body.supervisorRoleId,
+          customerNumber: body.customerNumber || undefined,
         },
         { id: existingCustomer.id },
         { apply: true, verifyLogin: true, sendEmails },

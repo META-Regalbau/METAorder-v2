@@ -52,6 +52,8 @@ export type CreateB2BPortalUserInput = {
   address: B2BPortalAddress;
   metaCompanyCustomerId?: string;
   supervisorRoleId?: string;
+  /** Vorgegebene Kundennummer für den neuen Shopware-Kunden; leer = Nummernkreis */
+  customerNumber?: string;
 };
 
 export type CreateB2BPortalUserRowResult = {
@@ -148,7 +150,33 @@ function validatePortalUserInput(
   if (input.type === "sales_rep" && input.isSupervisor && !input.supervisorRoleId?.trim()) {
     return "Supervisor-Rolle fehlt";
   }
+  if (input.customerNumber && input.customerNumber.trim().length > 255) {
+    return "Kundennummer ist zu lang (höchstens 255 Zeichen)";
+  }
   return null;
+}
+
+function normalizeShopwareId(id: string | null | undefined): string {
+  return String(id ?? "").replace(/-/g, "").toLowerCase();
+}
+
+/**
+ * Vorgegebene Kundennummer gegen Shopware prüfen. Im selben Verkaufskanal darf sie
+ * nicht schon an einem anderen Kunden hängen; in anderen Kanälen ist das normal
+ * (Händler mit Shop- und Portal-Konto unter derselben Nummer).
+ */
+async function findCustomerNumberConflict(
+  shopwareClient: ShopwareClient,
+  input: CreateB2BPortalUserInput,
+): Promise<string | null> {
+  const customerNumber = input.customerNumber?.trim();
+  if (!customerNumber) return null;
+  const email = input.email.trim().toLowerCase();
+  const channelId = normalizeShopwareId(input.salesChannelId);
+  const hits = await shopwareClient.findCustomersByNumber(customerNumber);
+  const clash = hits.find((hit) => normalizeShopwareId(hit.salesChannelId) === channelId && hit.email !== email);
+  if (!clash) return null;
+  return `Kundennummer ${customerNumber} ist in diesem Verkaufskanal bereits vergeben (${clash.email ?? clash.id})`;
 }
 
 function portalEmployeeLinkCustomerId(input: CreateB2BPortalUserInput, customerId: string): string {
@@ -286,6 +314,11 @@ async function ensurePortalCustomerRecord(
     return { id: existing.id, created: false };
   }
 
+  const numberConflict = await findCustomerNumberConflict(deps.shopwareClient, input);
+  if (numberConflict) {
+    throw new Error(numberConflict);
+  }
+
   const customer = await deps.shopwareClient.createB2BPortalCustomer(
     {
       email: input.email,
@@ -306,6 +339,7 @@ async function ensurePortalCustomerRecord(
         company: input.address.company,
       },
       active: true,
+      customerNumber: input.customerNumber,
     },
     { sendEmails: options.sendEmails },
   );
@@ -634,6 +668,16 @@ export async function createB2BPortalUser(
     };
   }
 
+  try {
+    const numberConflict = await findCustomerNumberConflict(deps.shopwareClient, input);
+    if (numberConflict) {
+      return { ...baseResult, status: "error", message: numberConflict };
+    }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { ...baseResult, status: "error", message };
+  }
+
   if (!options.apply) {
     return { ...baseResult, status: "would_create", message: "Würde angelegt werden" };
   }
@@ -658,6 +702,7 @@ export async function createB2BPortalUser(
         company: input.address.company,
       },
       active: true,
+      customerNumber: input.customerNumber,
     }, { sendEmails: options.sendEmails });
 
     const employee = await syncPortalEmployee(deps.b2bClient, deps.shopwareClient, input, {

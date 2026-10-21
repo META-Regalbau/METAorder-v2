@@ -311,6 +311,41 @@ export async function findCustomersByEmail(
 }
 
 /**
+ * Alle Shopware-Kunden mit genau dieser Kundennummer (über alle Verkaufskanäle).
+ * Kundennummern sind in Shopware nicht eindeutig — derselbe Händler hat oft ein
+ * Shop- und ein Portal-Konto mit gleicher Nummer.
+ */
+export async function findCustomersByNumber(
+  this: ShopwareClient,
+  customerNumber: string,
+  limit: number = 25,
+): Promise<Array<{ id: string; email: string | null; salesChannelId: string | null }>> {
+  const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/search/customer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      limit,
+      filter: [{ type: 'equals', field: 'customerNumber', value: customerNumber.trim() }],
+      includes: { customer: ['id', 'email', 'salesChannelId'] },
+    }),
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Kundennummer-Suche fehlgeschlagen: ${response.statusText} - ${errorText}`);
+  }
+  const data = await response.json();
+  const list: any[] = Array.isArray(data.data) ? data.data : [];
+  return list.map((raw) => {
+    const attrs = raw.attributes || raw;
+    return {
+      id: String(raw.id ?? attrs.id),
+      email: attrs.email ? String(attrs.email).toLowerCase() : null,
+      salesChannelId: attrs.salesChannelId ? String(attrs.salesChannelId) : null,
+    };
+  });
+}
+
+/**
  * Search customers by term (email, firstName, lastName) for picker/UI.
  * Returns array of { id, email, firstName?, lastName?, company? }.
  */
@@ -928,6 +963,8 @@ export async function createB2BPortalCustomer(
     };
     active?: boolean;
     customFields?: Record<string, unknown>;
+    /** Vorgegebene Kundennummer (z. B. aus SAP); leer = nächste aus dem Nummernkreis */
+    customerNumber?: string;
   },
   options?: { sendEmails?: boolean },
 ): Promise<{ id: string; email: string; customerNumber?: string }> {
@@ -949,9 +986,9 @@ export async function createB2BPortalCustomer(
     accountType: "business",
     active: customerData.active ?? true,
     salutationId,
-    // Kundennummer aus dem Shopware-Nummernkreis (wie bei einer Registrierung
-    // im Storefront), nicht mehr als Zeitstempel-Kunstnummer.
-    customerNumber: await this.nextCustomerNumber(salesChannelId),
+    // Vorgegebene Kundennummer, sonst aus dem Shopware-Nummernkreis (wie bei
+    // einer Registrierung im Storefront), nicht mehr als Zeitstempel-Kunstnummer.
+    customerNumber: customerData.customerNumber?.trim() || (await this.nextCustomerNumber(salesChannelId)),
     defaultPaymentMethodId: await this.getDefaultPaymentMethodId(),
     groupId: customerData.groupId,
     salesChannelId,
