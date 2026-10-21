@@ -298,6 +298,7 @@
     "b2bAccounts": "B2B Unternehmen",
     "b2bUsers": "B2B Nutzer",
     "portalRegistrations": "Portal-Registrierungen",
+    "portalNews": "Portal-Neuigkeiten",
     "b2bBudgets": "B2B Budgets",
     "b2bAssortments": "B2B Sortimente",
     "b2bOrderLists": "B2B Bestelllisten",
@@ -5824,7 +5825,14 @@
       "mondu_sell_cancel_failed": "Mondu-Sell-Bestellung konnte nicht storniert werden",
       "mondu_sell_invoice_failed": "Rechnung konnte nicht an Mondu übergeben werden",
       "email_intake_mail_too_large": "Die Mail ist größer als 36 MB und kann nicht automatisch verarbeitet werden. Bitte die Mail im Postfach öffnen und die Anhänge einzeln hochladen.",
-      "upload_file_too_large": "Die Datei ist größer als 10 MB."
+      "upload_file_too_large": "Die Datei ist größer als 10 MB.",
+      "portal_news_in_progress": "Diese Mail wird gerade schon verarbeitet.",
+      "portal_news_not_found": "Beitrag nicht gefunden.",
+      "portal_news_incomplete": "Beitrag braucht Überschrift und mindestens einen Punkt.",
+      "portal_news_no_text": "Kein Mailtext vorhanden.",
+      "portal_news_insert_failed": "Beitrag konnte nicht angelegt werden.",
+      "portal_news_page_failed": "Seite konnte nicht in den Shop geschrieben werden.",
+      "portal_news_mailbox_invalid": "Ungültige Postfach-Adresse."
     },
     "client": {
       "notModified": "API-Antwort unverändert (304) – bitte Seite neu laden.",
@@ -6818,7 +6826,8 @@
       "the_brevo_template_still_contains_a_placeholder_to_fill_in": "In der Brevo-Vorlage steht noch ein Platzhalter (⟦…⟧) – erst in Brevo ausfüllen",
       "invalid_customer_mail_run": "Aussendung unvollständig (Mailart, Vorlage, Absender und Betreff nötig)",
       "failed_to_create_customer_mail_run": "Aussendung konnte nicht angelegt werden",
-      "failed_to_load_customer_mail_effect": "Wirkung konnte nicht geladen werden"
+      "failed_to_load_customer_mail_effect": "Wirkung konnte nicht geladen werden",
+      "beitrag_nicht_gefunden": "Beitrag nicht gefunden"
     }
   },
   "roomPlanner": {
@@ -7343,6 +7352,103 @@
       "save": "Speichern",
       "saved": "Einstellungen gespeichert",
       "saveFailed": "Einstellungen nicht gespeichert"
+    }
+  },
+  "portalNews": {
+    "title": "Portal-Neuigkeiten",
+    "subtitle": "Changelog-Mails werden zu Beiträgen für die interne Seite „Neuigkeiten“ im Portal. METAorder schreibt nur den Inhalt der Seite – die Zuordnung zur Portal-Kategorie erfolgt von Hand im Shop.",
+    "tabs": {
+      "posts": "Beiträge",
+      "settings": "Einstellungen"
+    },
+    "empty": "Noch keine Beiträge. Sie entstehen aus den Mails im Postfach-Ordner oder über „Text einfügen“.",
+    "columns": {
+      "date": "Datum",
+      "title": "Beitrag",
+      "from": "Quelle",
+      "status": "Status"
+    },
+    "statuses": {
+      "published": "Veröffentlicht",
+      "draft": "Entwurf",
+      "hidden": "Ausgeblendet",
+      "failed": "Fehler"
+    },
+    "sources": {
+      "ai": "Mail, KI",
+      "rules": "Mail, ohne KI",
+      "manual": "Von Hand"
+    },
+    "page": {
+      "heading": "Seite im Shop",
+      "exists": "Erlebniswelt „METAorder Portal – Neuigkeiten“ ist angelegt",
+      "missing": "Erlebniswelt noch nicht angelegt – entsteht beim ersten Veröffentlichen",
+      "writtenAt": "zuletzt geschrieben {{date}} ({{count}} Beiträge)",
+      "assigned": "Zugeordnet: {{categories}}",
+      "notAssigned": "Noch keiner Kategorie zugeordnet – im Shop-Admin die Erlebniswelt „METAorder Portal – Neuigkeiten“ der Portal-Kategorie zuweisen.",
+      "write": "Seite neu schreiben",
+      "written": "Seite geschrieben ({{count}} Beiträge)",
+      "writeFailed": "Seite konnte nicht geschrieben werden",
+      "previewTitle": "Vorschau der Seite",
+      "previewDescription": "So steht die Seite im Portal (nur veröffentlichte Beiträge). Schrift und Rahmen kommen im Portal vom Theme."
+    },
+    "paste": {
+      "open": "Text einfügen",
+      "title": "Beitrag aus Mailtext",
+      "description": "Changelog-Text einfügen – die KI macht daraus einen Entwurf zum Prüfen und Veröffentlichen.",
+      "subject": "Betreff",
+      "text": "Mailtext",
+      "create": "Entwurf erstellen",
+      "failed": "Beitrag konnte nicht erstellt werden"
+    },
+    "edit": {
+      "title": "Beitrag",
+      "postDate": "Datum",
+      "postTitle": "Überschrift",
+      "summary": "Kurzfassung",
+      "tags": "Bereiche",
+      "tagsPlaceholder": "z. B. Händlerportal, Onlineshop",
+      "sectionHeading": "Zwischenüberschrift",
+      "items": "Punkte (eine Zeile je Punkt)",
+      "addSection": "Abschnitt hinzufügen",
+      "removeSection": "Abschnitt entfernen",
+      "original": "Originalmail: {{subject}}",
+      "rewrite": "KI neu schreiben",
+      "publish": "Veröffentlichen",
+      "hide": "Ausblenden",
+      "saveFirst": "Erst speichern",
+      "saved": "Gespeichert",
+      "savedPublished": "Gespeichert, Seite aktualisiert",
+      "published": "Veröffentlicht, Seite aktualisiert",
+      "hidden": "Ausgeblendet, Seite aktualisiert",
+      "rewritten": "Neu geschrieben – als Entwurf prüfen",
+      "deleted": "Beitrag gelöscht",
+      "failed": "Aktion fehlgeschlagen",
+      "deleteTitle": "Beitrag löschen?",
+      "deleteText": "Der Beitrag wird endgültig gelöscht. Die Mail bleibt im Postfach.",
+      "deleteTextPublished": "Der Beitrag wird endgültig gelöscht und verschwindet von der Portalseite. Die Mail bleibt im Postfach."
+    },
+    "settings": {
+      "enabled": "Mails abholen",
+      "enabledHint": "n8n holt neue Mails aus dem Ordner und schickt sie an METAorder.",
+      "autoPublish": "Automatisch veröffentlichen",
+      "autoPublishHint": "Sichere KI-Beiträge kommen sofort auf die Seite. Unsichere, Mails ohne Changelog und Texte ohne KI bleiben Entwurf.",
+      "mailbox": "Postfach",
+      "mailboxHint": "Postfach mit dem Ordner; leer = Postfach des Outlook-Zugangs in n8n.",
+      "sourceFolderName": "Ordner",
+      "sourceFolderNameHint": "Unterordner des Posteingangs; n8n legt ihn an, falls er fehlt.",
+      "processSince": "Mails ab",
+      "processSinceHint": "Ältere Mails im Ordner bleiben liegen; leer = die letzten 2 Tage.",
+      "maxPerRun": "Mails je Lauf",
+      "pageTitle": "Überschrift der Seite",
+      "pageIntro": "Einleitung",
+      "pageIntroHint": "Änderungen an Überschrift oder Einleitung schreibt METAorder beim Speichern gleich auf die Seite.",
+      "outlookRuleHint": "Outlook-Regel: Mails von Carolin und Sebastian mit dem Changelog in den Ordner „{{folder}}“ verschieben. Erledigte Mails bleiben dort und bekommen eine Kategorie.",
+      "n8nHint": "Vorlage n8n-workflows/m365-portal-news.json importieren, Outlook-Zugang (mit Zugriff auf das Postfach) und METAorder-Zugang zuordnen und aktivieren. Der METAorder-Benutzer von n8n braucht das Recht „B2B verwalten“.",
+      "categoriesHint": "Kategorien in Outlook: {{categories}}",
+      "saved": "Einstellungen gespeichert",
+      "savedPageFailed": "Gespeichert, aber die Seite konnte nicht aktualisiert werden",
+      "saveFailed": "Einstellungen konnten nicht gespeichert werden"
     }
   },
   "systemLog": {

@@ -11,6 +11,7 @@ import { registerCommercialAcknowledgementRoutes } from "./commercial/commercial
 import { registerPortalPasswordRequestRoutes } from "./b2b/portalPasswordRequestRoutes";
 import { registerB2BAdminRoutes } from "./b2b/b2bAdminRoutes";
 import { registerPortalRegistrationRoutes } from "./b2b/portalRegistrationRoutes";
+import { registerPortalNewsRoutes } from "./b2b/portalNewsRoutes";
 import { registerSftpRoutes } from "./sftp/sftpRoutes";
 import { registerErpRoutes } from "./erp/erpRoutes";
 import { registerErpProductLabelRoutes } from "./erp/erpProductLabels";
@@ -175,6 +176,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerB2BAdminRoutes(app, { getSalesChannelFilter });
   // Portal-Registrierungen: Anmelde-Mails über n8n, Abgleich, Admin-Mitarbeiter, Postausgang
   registerPortalRegistrationRoutes(app);
+  // Portal-Neuigkeiten: Changelog-Mails über n8n → KI-Beitrag → Erlebniswelt im Shop
+  registerPortalNewsRoutes(app);
   registerSftpRoutes(app);
 
   const httpServer = createServer(app);
