@@ -23,6 +23,27 @@ export const GENERAL_CATALOG_FACTS: CatalogFact[] = [
   { text: "Die Regale sind für eine reine Innenaufstellung konzipiert.", page: 17 },
   { text: "Regale unterliegen nach § 14 Betriebssicherheitsverordnung der Prüfpflicht; Inspektionen sind im Abstand von höchstens 12 Monaten durch eine fachkundige Person durchzuführen.", page: 16 },
   { text: "Fach- und Feldlasten gelten bei gleichmäßig verteilter Last.", page: 25 },
+  { text: "Die Regale werden grundsätzlich zerlegt angeliefert.", page: 17 },
+  { text: "Wer die Regale nicht selbst durch fachkundiges Personal aufbauen kann, kann den META-Montageservice nutzen: Geschulte Montageteams installieren die Lagereinrichtung.", page: 11 },
+];
+
+/**
+ * META-Sicherheitshinweise (Heft 9900006907, Stand 02.2024, liegt jeder Lieferung bei) – Teil Deutsch, S. 2–3.
+ * Das Heft nennt noch die DGUV Regel 108-007; die ist zurückgezogen (ersetzt durch DGUV Information 208-061)
+ * und wird deshalb nicht übernommen.
+ */
+export const SAFETY_SOURCE = "META Sicherheitshinweise 02.2024";
+export const SAFETY_FACTS: CatalogFact[] = [
+  { text: "Montage-, Inspektions- und Demontagearbeiten nur durch Personal, das mit dem Produkt, den Sicherheitshinweisen und den Unfallverhütungsvorschriften vertraut ist.", page: 2 },
+  { text: "Vor der Montage den Lieferumfang anhand des Lieferscheins auf Vollständigkeit prüfen.", page: 2 },
+  { text: "Während der Montage auf die Kippgefahr des Regals und einzelner Elemente achten und sie vor dem nächsten Arbeitsschritt sichern.", page: 2 },
+  { text: "Das Regal erst nach vollständig abgeschlossener Montage und Sicherung beladen.", page: 2 },
+  { text: "Regale gut sichtbar mit dem entsprechenden Typenschild kennzeichnen.", page: 2 },
+  { text: "Regal und Bauteile wie Fachböden, Holme oder Rahmen niemals besteigen.", page: 3 },
+  { text: "Beim Beladen auf gleichmäßige Lastverteilung achten, Stoß-, Anprall- und Schiebelasten vermeiden und die Fach- und Feldlasten nie überschreiten.", page: 3 },
+  { text: "Beschädigte oder verformte Bauteile sofort ersetzen.", page: 3 },
+  { text: "Umbauen oder Umstellen nur in unbeladenem Zustand und nach Rücksprache mit META.", page: 3 },
+  { text: "Neben der Inspektion durch eine Fachkraft mindestens alle 12 Monate sind wöchentliche Sichtprüfungen durchzuführen.", page: 3 },
 ];
 
 export const CATALOG_SYSTEMS: CatalogSystem[] = [
@@ -60,6 +81,10 @@ export const CATALOG_SYSTEMS: CatalogSystem[] = [
       { text: "Fachboden-Kantenhöhe 40 mm; Abdeckboden höchstens 200 kg.", page: 25 },
       { text: "Regale mit einem Höhen-/Tiefenverhältnis über 4 : 1 mit Wand- oder Fußverankerung gegen Kippen sichern; Feldlastangaben gelten für Regalzeilen mit 3 und mehr Feldern; Reifenregale und Regale mit Schubladen immer mit Fußverankerung sichern; nur für Handbedienung.", page: 25 },
       { text: "Schranktüren und Schubladen sind nicht durch das GS-Zeichen abgedeckt.", page: 14 },
+      { text: "Planmaße einzeilig: Grundregal Nennlänge + 56 mm, Anbauregal Nennlänge + 6 mm, Tiefe Nenntiefe + 36 mm; doppelzeilig Tiefe 2 x Nenntiefe + 75 mm.", page: 25 },
+      { text: "Außenmaß an den Fußplatten in Längsrichtung: Grundregal Nennlänge + 82 mm, Anbauregal Nennlänge + 41 mm; Nennlänge = Fachbodenlänge, Nenntiefe = Fachbodentiefe.", page: 26 },
+      { text: "Wandbefestigungssets und Fußverdübelungssets gibt es jeweils für Grundregal und Anbauregal.", page: 81 },
+      { text: "Die Rammschutzwand (300 mm hoch, inklusive Bodenanker) schützt die stirnseitigen Rahmen und ist nachrüstbar.", page: 81 },
     ],
   },
   {
@@ -89,6 +114,7 @@ export const CATALOG_SYSTEMS: CatalogSystem[] = [
       { text: "Das einseitige Regal muss gegen Kippen gesichert werden, da die Regalhöhe mehr als das 4-Fache der Regaltiefe beträgt; Wandbefestigungs- und Fußverdübelungssets sind erhältlich.", page: 100 },
       { text: "Fach- und Feldlasten gelten bei gleichmäßig verteilter Last und mindestens 3 Feldern; nur für Handbedienung.", page: 100 },
       { text: "Grundregal: 2 Rahmen mit Stahlfüßen, Fachböden und Montagezubehör; Anbauregal mit 1 Rahmen.", page: 100 },
+      { text: "Planmaße: Grundregal Nennlänge + 56 mm, Anbauregal Nennlänge + 6 mm, Tiefe Nenntiefe + 36 mm.", page: 100 },
     ],
   },
   {
@@ -123,6 +149,16 @@ export const CATALOG_SYSTEMS: CatalogSystem[] = [
       { text: "Gitterboxpaletten lassen sich wegen ihrer Winkelfüße nur schlecht direkt einlagern; Winkelauflagen führen die Füße sicher auf die Holme.", page: 210 },
       { text: "Lastangaben dienen der Orientierung und ersetzen keine statische Auslegung im Einzelfall.", page: 135 },
       { text: "Permanente Werksprüfung nach DIN EN ISO 9001; Qualitätsmerkmale entsprechend DGUV Information 208-061.", page: 125 },
+      { text: "Planmaße: Grundregal Nennlänge + 170 mm (Ständer 85/20), + 200 mm (100/20) bzw. + 240 mm (120/20 und 120/25); Anbauregal Nennlänge + 85, + 100 bzw. + 120 mm; Gesamttiefe = Rahmentiefe.", page: 128 },
+      { text: "Planungsweg: erforderliche Fachlast ermitteln, Fachhöhe und Anzahl Ebenen festlegen, nutzbare Fachlast aus der Tabelle wählen, Holm-/Ständerkombination ablesen, Artikel auswählen.", page: 128 },
+      { text: "Ladungsmaße können die Nennmaße überschreiten; Hubhöhe des Bediengeräts = Oberkante oberster Holm plus 200 mm; stirnseitige Rahmen mindestens 500 mm höher als die oberste Ablage wählen.", page: 128 },
+      { text: "Längseinlagerung von Europaletten: 1.200 mm Palettentiefe auf 1.100 mm tiefem Rahmen, 50 mm Überstand je Seite; 3 Paletten à 800 mm nebeneinander.", page: 128 },
+      { text: "Für die Quereinlagerung von Europaletten sind Tiefenauflagen erforderlich (Tragkraft je Paar 1.100 bzw. 1.500 kg).", page: 143 },
+      { text: "Stahlpaneel-Böden sind für Kartonware und Kleingebinde gedacht, nicht für Palettenlagerung und Staplerbedienung.", page: 143 },
+      { text: "Ständerrahmen werden zerlegt und inklusive 4 Bodenanker geliefert; pro Holm müssen zwei Sicherungsstifte eingesetzt werden.", page: 134 },
+      { text: "Maßgebend ist der kleinere Wert aus Fach- und Feldlast; vorausgesetzt werden gleichmäßige Lastverteilung und gleichmäßige Bauweise.", page: 132 },
+      { text: "Palettenregale sind generell mit 2 Ankern pro Fußplatte zu sichern.", page: 211 },
+      { text: "An Verkehrswegen und Arbeitsbereichen sind Regale nach DGUV Information 208-061 mit Rückwandgittern gegen das Herabfallen von Lagergut zu sichern.", page: 136 },
     ],
     ignoreShopFeatures: ["Aufbauart"], // Holme eingehaengt, Rahmen verschraubt – kein reines Schraubregal
   },
@@ -153,6 +189,9 @@ export const CATALOG_SYSTEMS: CatalogSystem[] = [
       { text: "Abrolldorne werden in die Kragarme gesteckt; bei Rundmaterial verhindern sie ein unbeabsichtigtes Herausrollen.", page: 161 },
       { text: "Wenn das Höhen-/Tiefenverhältnis über 4 : 1 liegt oder die betrieblichen Bedingungen es erfordern, sind Fußverankerungen zu verwenden; nur für Handbedienung.", page: 162 },
       { text: "Gütesicherung RAL-RG 614/5 für Kragarmregale LIGHT und MEDIUM.", page: 14 },
+      { text: "Länge Grundregal: LIGHT Achsmaß + 64 mm, MEDIUM Achsmaß + 73 mm; Tiefe einseitig Nenntiefe + 210 mm (LIGHT) bzw. + 230 mm (MEDIUM).", page: 162 },
+      { text: "Fachböden erhöhen die Tragkraft der Kragarme nicht.", page: 168 },
+      { text: "Abrolldorne sind bei der Einlagerung von Rundmaterial Vorschrift (DGUV Information 208-061).", page: 210 },
     ],
     ignoreShopFeatures: ["Aufbauart"], // Kragarme eingesteckt mit Feststellschraube
   },
@@ -197,6 +236,7 @@ export const CATALOG_SYSTEMS: CatalogSystem[] = [
       { text: "SPEED-RACK: umlaufender Kantenschutz der Böden durch Versenkung im Stufenholm, zwei Unterzüge je Fachebene, Böden aus 19-mm-Spanplatte oder Stahlpaneel, Profile und Holme verzinkt.", page: 106 },
       { text: "Die SPEED-RACK-Länge 1.700 mm eignet sich besonders für Stapelkästen.", page: 106 },
       { text: "Fachebenen im Raster von 50 mm höhenverstellbar; SPEED-RACK nur für Handbedienung; Regale mit einem Höhen-/Tiefenverhältnis über 4 : 1 gegen Kippen sichern.", page: 106 },
+      { text: "Mehrere SPEED-RACK-Regale werden mit Profilverbindern verbunden; Verdübelungsset 4 Stück je Regal.", page: 109 },
     ],
   },
   {
@@ -220,6 +260,9 @@ export const CATALOG_SYSTEMS: CatalogSystem[] = [
       { text: "MINI-RACK: Böden aus Spanplatte natur oder Stahlpaneel, Stufenholme im 200-mm-Raster gelocht für Trennbügel, Oberfläche sendzimirverzinkt.", page: 114 },
       { text: "MINI-RACK: Fach- und Feldlasten gelten ab Regalzeilen mit 4 und mehr Feldern; pro Rahmen werden 2 Bodenanker benötigt; Regale mit einem Höhen-/Tiefenverhältnis über 4 : 1 gegen Kippen sichern; nur für Handbedienung.", page: 114 },
       { text: "MINI-RACK Planmaße: Grundregal = Nennlänge + 107 mm, Anbauregal = Nennlänge + 51 mm.", page: 114 },
+      { text: "MINI-RACK Grundregal: 2 Rahmen (zerlegt), 3 Einlegeböden, Montagezubehör; Anbauregal mit 1 Rahmen.", page: 112 },
+      { text: "MINI-RACK Stufenholme sind 70 mm hoch, haben eine 19 mm hohe Stufe für die Einlegeböden und kommen mit Sicherungsstiften; Unterzüge werden in die Holmpaare eingeschoben und haben eine statische Funktion.", page: 118 },
+      { text: "Bei MINI-RACK-Doppelzeilen werden 100 mm lange Distanzstücke eingebaut.", page: 118 },
     ],
   },
 ];
