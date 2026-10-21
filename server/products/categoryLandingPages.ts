@@ -180,8 +180,8 @@ export const CATEGORY_LANDING_PAGES: CategoryLandingPage[] = [
     eyebrow: "META CLIP Fachbodenregale",
     h1: "Fachbodenregale für Kleinteile, Ersatzteile und Kartons",
     lead:
-      "META CLIP besteht aus zwei Bausteinen: Rahmen und Fachböden. Daraus entstehen Regalzeilen mit beliebig vielen Feldern, gesteckt ohne Werkzeug, mit Fachböden im 25-mm-Raster und Systemzubehör für Ihr Lagergut. Hier bestellen Sie die Regale direkt und sehen Schritt für Schritt, worauf es beim Aufbau ankommt.",
-    proof: ["Gefertigt in Arnsberg", "Steckmontage ohne Werkzeug", "Fachböden im 25-mm-Raster", "Kostenloser Versand"],
+      "META CLIP besteht aus zwei Bausteinen: Rahmen und Fachböden. Daraus entstehen Regalzeilen mit beliebig vielen Feldern, gesteckt ohne Werkzeug. Die Fachböden hängen Sie in der Höhe in 25-mm-Schritten ein, so passt jedes Fach zu Ihrem Lagergut; Systemzubehör ergänzt das Regal. Hier bestellen Sie die Regale direkt und sehen Schritt für Schritt, worauf es beim Aufbau ankommt.",
+    proof: ["Gefertigt in Arnsberg", "Steckmontage ohne Werkzeug", "Böden in 25-mm-Schritten höhenverstellbar", "Kostenloser Versand"],
     ctaPrimary: { label: "Regal konfigurieren", href: "/regal-schnellkonfigurator?regalart=fachboden" },
     ctaSecondary: { label: "So bauen Sie Ihr Regal", href: "#aufbau" },
     heroImage: {
@@ -218,7 +218,7 @@ export const CATEGORY_LANDING_PAGES: CategoryLandingPage[] = [
         {
           key: "masse",
           title: "Maße wählen",
-          text: "Höhe 1.500 bis 3.000 mm (1.000 und bis 4.500 mm auf Anfrage), Tiefe 300 bis 800 mm, Fachbodenlänge 750 bis 1.700 mm. Die [[fachhoehe]] richtet sich nach Ihrem Lagergut; die Fachböden lassen sich im 25-mm-Raster versetzen.",
+          text: "Höhe 1.500 bis 3.000 mm (1.000 und bis 4.500 mm auf Anfrage), Tiefe 300 bis 800 mm, Fachbodenlänge 750 bis 1.700 mm. Die [[fachhoehe]] richtet sich nach Ihrem Lagergut; die Fachböden lassen sich in 25-mm-Schritten höher oder tiefer einhängen.",
           src: "Katalog S. 21, 26",
         },
         {
@@ -388,8 +388,8 @@ export const CATEGORY_LANDING_PAGES: CategoryLandingPage[] = [
     eyebrow: "META COMPACT Büroregale",
     h1: "Büroregale für Ordner, Akten und Archiv",
     lead:
-      "META COMPACT ist das Büro-Steckregal für Büro, Meisterbüro und Archiv: ohne Werkzeug montiert, Fachböden im 25-mm-Raster, verzinkt oder in RAL 7035 lichtgrau. Ein Regal mit 1.000 mm Länge und 2.200 mm Höhe nimmt bei 300 mm Tiefe 72 Ordner auf.",
-    proof: ["Steckmontage ohne Werkzeug", "Fachböden im 25-mm-Raster", "Verzinkt oder lichtgrau", "Kostenloser Versand"],
+      "META COMPACT ist das Büro-Steckregal für Büro, Meisterbüro und Archiv: ohne Werkzeug montiert, die Fachböden in der Höhe in 25-mm-Schritten einhängbar, verzinkt oder in RAL 7035 lichtgrau. Ein Regal mit 1.000 mm Länge und 2.200 mm Höhe nimmt bei 300 mm Tiefe 72 Ordner auf.",
+    proof: ["Steckmontage ohne Werkzeug", "Böden in 25-mm-Schritten höhenverstellbar", "Verzinkt oder lichtgrau", "Kostenloser Versand"],
     ctaPrimary: { label: "Regal konfigurieren", href: "/regal-schnellkonfigurator?regalart=buero" },
     ctaSecondary: { label: "So bauen Sie Ihr Regal", href: "#aufbau" },
     heroImage: { src: "https://shop.meta-online.com/media/e2/5e/d8/1739475639/05_META_COMPACT_Steckregale-1024x1024.webp", alt: "META COMPACT Büroregal mit Ordnern" },
@@ -423,7 +423,7 @@ export const CATEGORY_LANDING_PAGES: CategoryLandingPage[] = [
         {
           key: "masse",
           title: "Maße wählen",
-          text: "Höhen 1.850, 2.200 und 2.500 mm mit 5, 6 oder 7 Böden, Längen 750, 1.000 und 1.250 mm, Tiefen 300 und 600 mm. Die Fachböden lassen sich im 25-mm-Raster versetzen.",
+          text: "Höhen 1.850, 2.200 und 2.500 mm mit 5, 6 oder 7 Böden, Längen 750, 1.000 und 1.250 mm, Tiefen 300 und 600 mm. Die Fachböden lassen sich in 25-mm-Schritten höher oder tiefer einhängen.",
           src: "Katalog S. 99–101",
         },
         {
@@ -507,7 +507,7 @@ export const CATEGORY_LANDING_PAGES: CategoryLandingPage[] = [
     seo: {
       title: "META COMPACT: das Büro-Steckregal",
       paragraphs: [
-        "META COMPACT ist ein Büro-Steckregal für Büro, Meisterbüro und Archiv. Die Fachböden haben End- und Mittelanschlag (der Abdeckboden ohne) und lassen sich im 25-mm-Raster versetzen; die Stahlfüße sind dübelfähig.",
+        "META COMPACT ist ein Büro-Steckregal für Büro, Meisterbüro und Archiv. Die Fachböden haben End- und Mittelanschlag (der Abdeckboden ohne) und lassen sich in der Höhe in 25-mm-Schritten versetzen; die Stahlfüße sind dübelfähig.",
         "Verzinkt kommt META COMPACT mit zerlegten S3-Rahmen, in RAL 7035 lichtgrau mit vorgefertigten, geclinchten Rahmen.",
       ],
       links: [LEXIKON_LINK, BRANCHE.buero, { label: "Fachbodenregale für schwerere Lasten", href: "/fachbodenregale/" }],
