@@ -101,7 +101,7 @@
         },
         "options": {}
       },
-      "notes": "Aus (METAorder → Portal-Neuigkeiten → Einstellungen): Mails bleiben ungelesen im Ordner liegen.",
+      "notes": "Aus (METAorder → Portal-Neuigkeiten → Einstellungen): Mails bleiben unverarbeitet im Ordner liegen.",
       "notesInFlow": true
     },
     {
