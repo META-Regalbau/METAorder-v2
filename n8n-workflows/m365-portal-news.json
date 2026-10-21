@@ -1,0 +1,596 @@
+{
+  "name": "Microsoft 365 → METAorder Portal-Neuigkeiten",
+  "nodes": [
+    {
+      "id": "news-zeitplan",
+      "name": "Alle 5 Minuten",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "news-einstellungen",
+      "name": "Einstellungen",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "metaorder-url",
+              "name": "metaorderUrl",
+              "value": "https://p-bbpye5.project.space",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "notes": "Adresse von METAorder (lokal: http://host.docker.internal:5001)",
+      "notesInFlow": true
+    },
+    {
+      "id": "news-konfiguration",
+      "name": "METAorder: Konfiguration",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Einstellungen').first().json.metaorderUrl }}/api/b2b/news/n8n/config",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "METAORDER_INTEGRATION_KEY_CREDENTIAL_ID",
+          "name": "METAorder Integration-Key"
+        }
+      }
+    },
+    {
+      "id": "news-aktiv",
+      "name": "Neuigkeiten aktiv?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "Neuigkeiten aktiv?",
+              "leftValue": "={{ $json.enabled === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "notes": "Aus: Mails bleiben im Posteingang, es wird nichts verschickt.",
+      "notesInFlow": true
+    },
+    {
+      "id": "news-zielordner-suchen",
+      "name": "Quellordner suchen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        -200
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.graphBase }}/mailFolders/inbox/childFolders",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOutlookOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "$filter",
+              "value": "=displayName eq '{{ $json.sourceFolderName.replace(/'/g, \"''\") }}'"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "OUTLOOK_OAUTH_CREDENTIAL_ID",
+          "name": "Microsoft Outlook account"
+        }
+      }
+    },
+    {
+      "id": "news-zielordner-da",
+      "name": "Quellordner da?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        -200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "Quellordner da?",
+              "leftValue": "={{ Array.isArray($json.value) && $json.value.length > 0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "news-zielordner-anlegen",
+      "name": "Quellordner anlegen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        -100
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('METAorder: Konfiguration').first().json.graphBase }}/mailFolders/inbox/childFolders",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOutlookOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ displayName: $('METAorder: Konfiguration').first().json.sourceFolderName }) }}",
+        "options": {}
+      },
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "OUTLOOK_OAUTH_CREDENTIAL_ID",
+          "name": "Microsoft Outlook account"
+        }
+      }
+    },
+    {
+      "id": "news-ordner-id",
+      "name": "Ordner-ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        -200
+      ],
+      "parameters": {
+        "jsCode": "// Quellordner (dorthin verschiebt die Outlook-Regel die Changelog-Mails) aus „suchen“ (value[]) oder „anlegen“ (Ordner direkt)\nconst cfg = $('METAorder: Konfiguration').first().json;\nconst j = $input.first().json || {};\nconst folderId = Array.isArray(j.value) ? (j.value[0] && j.value[0].id) : j.id;\nif (!folderId) return [];\nreturn [{ json: { ...cfg, folderId } }];\n"
+      }
+    },
+    {
+      "id": "news-mails-abrufen",
+      "name": "Mails abrufen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        -200
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.graphBase }}/mailFolders/{{ $json.folderId }}/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOutlookOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "$filter",
+              "value": "={{ $json.messageFilter }}"
+            },
+            {
+              "name": "$orderby",
+              "value": "receivedDateTime asc"
+            },
+            {
+              "name": "$top",
+              "value": "={{ $json.maxPerRun }}"
+            },
+            {
+              "name": "$select",
+              "value": "id,subject,from,receivedDateTime,internetMessageId,categories"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "OUTLOOK_OAUTH_CREDENTIAL_ID",
+          "name": "Microsoft Outlook account"
+        }
+      }
+    },
+    {
+      "id": "news-mails-einzeln",
+      "name": "Mails einzeln",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        -200
+      ],
+      "parameters": {
+        "jsCode": "// Je Mail ein Eintrag; keine Mail → dieser Zweig endet hier\nconst cfg = $('Ordner-ID').first().json;\nconst list = ($input.first().json && $input.first().json.value) || [];\nreturn list.filter((m) => m && m.id).map((message) => ({ json: { cfg, message } }));\n"
+      }
+    },
+    {
+      "id": "news-mail-holen",
+      "name": "Mail holen (MIME)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2200,
+        -200
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.cfg.graphBase }}/messages/{{ $json.message.id }}/$value",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOutlookOAuth2Api",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "OUTLOOK_OAUTH_CREDENTIAL_ID",
+          "name": "Microsoft Outlook account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "news-mail-vorbereiten",
+      "name": "Mail vorbereiten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2420,
+        -200
+      ],
+      "parameters": {
+        "jsCode": "// .eml + message/rfc822, sonst packt METAorder die Mail nicht aus. Ohne Inhalt: nächster Lauf.\nconst out = [];\nconst items = $input.all();\nfor (let i = 0; i < items.length; i++) {\n  const ctx = $('Mails einzeln').itemMatching(i).json;\n  const item = items[i];\n  if (!item.binary || !item.binary.data) continue;\n  const binary = item.binary.data;\n  binary.mimeType = 'message/rfc822';\n  binary.fileName = 'neuigkeit-' + String(ctx.message.id).slice(-32).replace(/[^A-Za-z0-9_-]/g, '_') + '.eml';\n  out.push({ json: ctx, binary: { data: binary }, pairedItem: { item: i } });\n}\nreturn out;\n"
+      }
+    },
+    {
+      "id": "news-an-metaorder",
+      "name": "An METAorder senden",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2640,
+        -200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Einstellungen').first().json.metaorderUrl }}/api/b2b/news/n8n/intake",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "subject",
+              "value": "={{ $json.message.subject || '' }}"
+            },
+            {
+              "name": "graph_message_id",
+              "value": "={{ $json.message.id }}"
+            },
+            {
+              "name": "mailbox",
+              "value": "={{ $json.cfg.mailbox || '' }}"
+            },
+            {
+              "name": "received_at",
+              "value": "={{ $json.message.receivedDateTime || '' }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 300000,
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 0
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "METAORDER_INTEGRATION_KEY_CREDENTIAL_ID",
+          "name": "METAorder Integration-Key"
+        }
+      }
+    },
+    {
+      "id": "news-ergebnis",
+      "name": "Ergebnis auswerten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2860,
+        -200
+      ],
+      "parameters": {
+        "jsCode": "// 2xx → Kategorie setzen (Mail bleibt im Ordner). Alles andere (409 läuft schon, 503, METAorder nicht\n// erreichbar): ohne Kategorie, kommt im nächsten Lauf wieder.\nconst out = [];\nconst items = $input.all();\nfor (let i = 0; i < items.length; i++) {\n  const ctx = $('Mail vorbereiten').itemMatching(i).json;\n  const r = items[i].json || {};\n  const status = typeof r.statusCode === 'number' ? r.statusCode : null;\n  let body = r.body;\n  if (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { body = {}; } }\n  if (status === null || status < 200 || status >= 300 || !body || !body.intake) continue;\n  const current = Array.isArray(ctx.message.categories) ? ctx.message.categories : [];\n  const categories = [...new Set([...current, ...(body.intake.categories || [])])];\n  out.push({ json: { ...ctx, intake: body.intake, patchBody: { categories } }, pairedItem: { item: i } });\n}\nreturn out;\n"
+      }
+    },
+    {
+      "id": "news-kategorien",
+      "name": "Kategorien setzen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3080,
+        -200
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $json.cfg.graphBase }}/messages/{{ $json.message.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOutlookOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.patchBody) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "OUTLOOK_OAUTH_CREDENTIAL_ID",
+          "name": "Microsoft Outlook account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Alle 5 Minuten": {
+      "main": [
+        [
+          {
+            "node": "Einstellungen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Einstellungen": {
+      "main": [
+        [
+          {
+            "node": "METAorder: Konfiguration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "METAorder: Konfiguration": {
+      "main": [
+        [
+          {
+            "node": "Neuigkeiten aktiv?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Neuigkeiten aktiv?": {
+      "main": [
+        [
+          {
+            "node": "Quellordner suchen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quellordner suchen": {
+      "main": [
+        [
+          {
+            "node": "Quellordner da?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quellordner da?": {
+      "main": [
+        [
+          {
+            "node": "Ordner-ID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Quellordner anlegen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quellordner anlegen": {
+      "main": [
+        [
+          {
+            "node": "Ordner-ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ordner-ID": {
+      "main": [
+        [
+          {
+            "node": "Mails abrufen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mails abrufen": {
+      "main": [
+        [
+          {
+            "node": "Mails einzeln",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mails einzeln": {
+      "main": [
+        [
+          {
+            "node": "Mail holen (MIME)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mail holen (MIME)": {
+      "main": [
+        [
+          {
+            "node": "Mail vorbereiten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mail vorbereiten": {
+      "main": [
+        [
+          {
+            "node": "An METAorder senden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "An METAorder senden": {
+      "main": [
+        [
+          {
+            "node": "Ergebnis auswerten",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ergebnis auswerten": {
+      "main": [
+        [
+          {
+            "node": "Kategorien setzen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

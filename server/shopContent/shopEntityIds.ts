@@ -19,6 +19,9 @@ export const serviceEntityId = (key: string, part: string) => md5(`metaorder-ser
 /** Seite und Startseiten-Abschnitt des Schnellkonfigurators (scripts/writeQuickConfiguratorPage.ts) */
 export const quickConfigId = (part: string) => md5(`metaorder-quick-config:${part}`);
 
+/** Erlebniswelt „Portal – Neuigkeiten“ (server/b2b/portalNewsShop.ts): Teil "cms", "section", "block", "slot" */
+export const portalNewsEntityId = (part: string) => md5(`metaorder-portal-news:${part}`);
+
 /** Aktion und Regel des Newsletter-Willkommensrabatts (scripts/writeExitIntentPromotion.ts) */
 export const exitIntentPromotionId = (part: string) => md5(`metaorder-exit-intent-promotion:${part}`);
 

@@ -3803,6 +3803,44 @@ export const portalRegistrationOutbox = pgTable(
 
 export type PortalRegistrationOutboxRow = typeof portalRegistrationOutbox.$inferSelect;
 
+/** Portal-Neuigkeiten: Beiträge aus Changelog-Mails (über n8n) oder von Hand eingefügt */
+export const portalNewsPosts = pgTable(
+  "portal_news_posts",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: varchar("tenant_id").references(() => tenants.id),
+    /** Message-ID der Mail; von Hand eingefügte Texte: "manual:<uuid>" */
+    messageId: text("message_id").notNull(),
+    graphMessageId: text("graph_message_id"),
+    mailbox: text("mailbox"),
+    subject: text("subject").notNull().default(""),
+    fromEmail: text("from_email"),
+    fromName: text("from_name"),
+    receivedAt: timestamp("received_at").notNull().defaultNow(),
+    bodyText: text("body_text").notNull().default(""),
+    status: text("status").notNull(),
+    /** ai | rules | manual */
+    source: text("source").notNull(),
+    postDate: date("post_date").notNull(),
+    title: text("title").notNull().default(""),
+    summary: text("summary").notNull().default(""),
+    sections: jsonb("sections").notNull().default(sql`'[]'::jsonb`),
+    tags: jsonb("tags").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    note: text("note"),
+    events: jsonb("events").notNull().default(sql`'[]'::jsonb`),
+    publishedAt: timestamp("published_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    tenantMessageIdx: uniqueIndex("portal_news_posts_tenant_message_idx").on(table.tenantId, table.messageId),
+    tenantStatusIdx: index("portal_news_posts_tenant_status_idx").on(table.tenantId, table.status, table.postDate),
+  }),
+);
+
+export type PortalNewsPostRow = typeof portalNewsPosts.$inferSelect;
+export type InsertPortalNewsPostRow = typeof portalNewsPosts.$inferInsert;
+
 /** Zuordnung Kundennummer → META-Außendienst (Liste aus dem Vertrieb, per Import gepflegt) */
 export const salesRepAssignments = pgTable(
   "sales_rep_assignments",

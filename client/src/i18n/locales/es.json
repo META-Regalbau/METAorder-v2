@@ -241,6 +241,7 @@
     "mobilePicking": "Picking móvil",
     "b2bUsers": "Usuarios B2B",
     "portalRegistrations": "Registros del portal",
+    "portalNews": "Novedades del portal",
     "systemLog": "Registro del sistema",
     "shopContent": "Contenidos de la tienda",
     "shopWatch": "Vigilante de la tienda",
@@ -5824,7 +5825,14 @@
       "mondu_sell_cancel_failed": "No se pudo cancelar el pedido de Mondu Sell",
       "mondu_sell_invoice_failed": "No se pudo enviar la factura a Mondu",
       "email_intake_mail_too_large": "El correo supera los 36 MB y no se puede procesar automáticamente. Abra el correo en el buzón y suba los adjuntos uno por uno.",
-      "upload_file_too_large": "El archivo supera los 10 MB."
+      "upload_file_too_large": "El archivo supera los 10 MB.",
+      "portal_news_in_progress": "Este correo ya se está procesando.",
+      "portal_news_not_found": "Entrada no encontrada.",
+      "portal_news_incomplete": "La entrada necesita un título y al menos un punto.",
+      "portal_news_no_text": "No hay texto de correo.",
+      "portal_news_insert_failed": "No se pudo crear la entrada.",
+      "portal_news_page_failed": "No se pudo escribir la página en la tienda.",
+      "portal_news_mailbox_invalid": "Dirección de buzón no válida."
     },
     "client": {
       "notModified": "Respuesta de la API sin cambios (304): vuelva a cargar la página.",
@@ -6818,7 +6826,8 @@
       "the_brevo_template_still_contains_a_placeholder_to_fill_in": "La plantilla de Brevo aún contiene un marcador (⟦…⟧): complételo primero en Brevo",
       "invalid_customer_mail_run": "Envío incompleto (tipo, plantilla, remitente y asunto obligatorios)",
       "failed_to_create_customer_mail_run": "No se pudo crear el envío",
-      "failed_to_load_customer_mail_effect": "No se pudo cargar el efecto"
+      "failed_to_load_customer_mail_effect": "No se pudo cargar el efecto",
+      "beitrag_nicht_gefunden": "Entrada no encontrada"
     }
   },
   "roomPlanner": {
@@ -7343,6 +7352,103 @@
       "save": "Guardar",
       "saved": "Configuración guardada",
       "saveFailed": "Configuración no guardada"
+    }
+  },
+  "portalNews": {
+    "title": "Novedades del portal",
+    "subtitle": "Los correos de changelog se convierten en entradas para la página interna «Novedades» del portal. METAorder solo escribe el contenido de la página; la asignación a la categoría del portal se hace a mano en la tienda.",
+    "tabs": {
+      "posts": "Entradas",
+      "settings": "Ajustes"
+    },
+    "empty": "Aún no hay entradas. Se crean a partir de los correos de la carpeta o con «Pegar texto».",
+    "columns": {
+      "date": "Fecha",
+      "title": "Entrada",
+      "from": "Origen",
+      "status": "Estado"
+    },
+    "statuses": {
+      "published": "Publicada",
+      "draft": "Borrador",
+      "hidden": "Oculta",
+      "failed": "Error"
+    },
+    "sources": {
+      "ai": "Correo, IA",
+      "rules": "Correo, sin IA",
+      "manual": "Manual"
+    },
+    "page": {
+      "heading": "Página en la tienda",
+      "exists": "El diseño «METAorder Portal – Neuigkeiten» existe",
+      "missing": "Diseño aún no creado; se crea al publicar por primera vez",
+      "writtenAt": "escrita por última vez {{date}} ({{count}} entradas)",
+      "assigned": "Asignada: {{categories}}",
+      "notAssigned": "Aún sin categoría: asigna el diseño «METAorder Portal – Neuigkeiten» a la categoría del portal en el admin de la tienda.",
+      "write": "Reescribir página",
+      "written": "Página escrita ({{count}} entradas)",
+      "writeFailed": "No se pudo escribir la página",
+      "previewTitle": "Vista previa de la página",
+      "previewDescription": "Así aparece la página en el portal (solo entradas publicadas). La tipografía y el marco los pone el tema del portal."
+    },
+    "paste": {
+      "open": "Pegar texto",
+      "title": "Entrada a partir del texto del correo",
+      "description": "Pega el texto del changelog: la IA crea un borrador para revisar y publicar.",
+      "subject": "Asunto",
+      "text": "Texto del correo",
+      "create": "Crear borrador",
+      "failed": "No se pudo crear la entrada"
+    },
+    "edit": {
+      "title": "Entrada",
+      "postDate": "Fecha",
+      "postTitle": "Título",
+      "summary": "Resumen",
+      "tags": "Áreas",
+      "tagsPlaceholder": "p. ej. Portal de distribuidores, Tienda online",
+      "sectionHeading": "Subtítulo",
+      "items": "Puntos (una línea por punto)",
+      "addSection": "Añadir sección",
+      "removeSection": "Quitar sección",
+      "original": "Correo original: {{subject}}",
+      "rewrite": "Reescribir con IA",
+      "publish": "Publicar",
+      "hide": "Ocultar",
+      "saveFirst": "Guarda primero",
+      "saved": "Guardado",
+      "savedPublished": "Guardado, página actualizada",
+      "published": "Publicada, página actualizada",
+      "hidden": "Oculta, página actualizada",
+      "rewritten": "Reescrita: revisar como borrador",
+      "deleted": "Entrada eliminada",
+      "failed": "La acción ha fallado",
+      "deleteTitle": "¿Eliminar entrada?",
+      "deleteText": "La entrada se eliminará definitivamente. El correo se queda en el buzón.",
+      "deleteTextPublished": "La entrada se eliminará definitivamente y desaparecerá de la página del portal. El correo se queda en el buzón."
+    },
+    "settings": {
+      "enabled": "Recoger correos",
+      "enabledHint": "n8n recoge los correos nuevos de la carpeta y los envía a METAorder.",
+      "autoPublish": "Publicar automáticamente",
+      "autoPublishHint": "Las entradas fiables de la IA se publican al momento. Las dudosas, los correos sin changelog y los textos sin IA quedan como borrador.",
+      "mailbox": "Buzón",
+      "mailboxHint": "Buzón con la carpeta; vacío = buzón de la cuenta de Outlook en n8n.",
+      "sourceFolderName": "Carpeta",
+      "sourceFolderNameHint": "Subcarpeta de la bandeja de entrada; n8n la crea si falta.",
+      "processSince": "Correos desde",
+      "processSinceHint": "Los correos anteriores de la carpeta no se tocan; vacío = los últimos 2 días.",
+      "maxPerRun": "Correos por ejecución",
+      "pageTitle": "Título de la página",
+      "pageIntro": "Introducción",
+      "pageIntroHint": "Los cambios en el título o la introducción se escriben en la página al guardar.",
+      "outlookRuleHint": "Regla de Outlook: mover los correos de changelog de Carolin y Sebastian a la carpeta «{{folder}}». Los correos procesados se quedan allí con una categoría.",
+      "n8nHint": "Importar la plantilla n8n-workflows/m365-portal-news.json, asignar la cuenta de Outlook (con acceso al buzón) y la de METAorder, y activarla. El usuario de METAorder en n8n necesita el permiso «Gestionar B2B».",
+      "categoriesHint": "Categorías en Outlook: {{categories}}",
+      "saved": "Ajustes guardados",
+      "savedPageFailed": "Guardado, pero no se pudo actualizar la página",
+      "saveFailed": "No se pudieron guardar los ajustes"
     }
   },
   "systemLog": {

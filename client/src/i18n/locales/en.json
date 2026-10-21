@@ -298,6 +298,7 @@
     "b2bAccounts": "B2B Accounts",
     "b2bUsers": "B2B Users",
     "portalRegistrations": "Portal registrations",
+    "portalNews": "Portal news",
     "b2bBudgets": "B2B Budgets",
     "b2bAssortments": "B2B Assortments",
     "b2bOrderLists": "B2B Order Lists",
@@ -5827,7 +5828,14 @@
       "mondu_sell_cancel_failed": "The Mondu Sell order could not be cancelled",
       "mondu_sell_invoice_failed": "The invoice could not be submitted to Mondu",
       "email_intake_mail_too_large": "The e-mail is larger than 36 MB and cannot be processed automatically. Please open the e-mail in the mailbox and upload the attachments individually.",
-      "upload_file_too_large": "The file is larger than 10 MB."
+      "upload_file_too_large": "The file is larger than 10 MB.",
+      "portal_news_in_progress": "This email is already being processed.",
+      "portal_news_not_found": "Post not found.",
+      "portal_news_incomplete": "The post needs a headline and at least one item.",
+      "portal_news_no_text": "No email text available.",
+      "portal_news_insert_failed": "Post could not be created.",
+      "portal_news_page_failed": "The page could not be written to the shop.",
+      "portal_news_mailbox_invalid": "Invalid mailbox address."
     },
     "client": {
       "notModified": "API response unchanged (304) – please reload the page.",
@@ -6821,7 +6829,8 @@
       "the_brevo_template_still_contains_a_placeholder_to_fill_in": "The Brevo template still contains a placeholder (⟦…⟧) – fill it in in Brevo first",
       "invalid_customer_mail_run": "Mailing incomplete (mail type, template, sender and subject required)",
       "failed_to_create_customer_mail_run": "Failed to create mailing",
-      "failed_to_load_customer_mail_effect": "Failed to load effect"
+      "failed_to_load_customer_mail_effect": "Failed to load effect",
+      "beitrag_nicht_gefunden": "Post not found"
     }
   },
   "roomPlanner": {
@@ -7346,6 +7355,103 @@
       "save": "Save",
       "saved": "Settings saved",
       "saveFailed": "Settings not saved"
+    }
+  },
+  "portalNews": {
+    "title": "Portal news",
+    "subtitle": "Changelog emails become posts for the internal “News” page in the portal. METAorder only writes the page content – assigning it to the portal category is done manually in the shop.",
+    "tabs": {
+      "posts": "Posts",
+      "settings": "Settings"
+    },
+    "empty": "No posts yet. They are created from the emails in the mailbox folder or via “Paste text”.",
+    "columns": {
+      "date": "Date",
+      "title": "Post",
+      "from": "Source",
+      "status": "Status"
+    },
+    "statuses": {
+      "published": "Published",
+      "draft": "Draft",
+      "hidden": "Hidden",
+      "failed": "Error"
+    },
+    "sources": {
+      "ai": "Email, AI",
+      "rules": "Email, without AI",
+      "manual": "Manual"
+    },
+    "page": {
+      "heading": "Page in the shop",
+      "exists": "Layout “METAorder Portal – Neuigkeiten” exists",
+      "missing": "Layout not created yet – it is created on the first publish",
+      "writtenAt": "last written {{date}} ({{count}} posts)",
+      "assigned": "Assigned: {{categories}}",
+      "notAssigned": "Not assigned to a category yet – assign the layout “METAorder Portal – Neuigkeiten” to the portal category in the shop admin.",
+      "write": "Rewrite page",
+      "written": "Page written ({{count}} posts)",
+      "writeFailed": "Page could not be written",
+      "previewTitle": "Page preview",
+      "previewDescription": "This is how the page appears in the portal (published posts only). Fonts and frame come from the portal theme."
+    },
+    "paste": {
+      "open": "Paste text",
+      "title": "Post from email text",
+      "description": "Paste the changelog text – the AI turns it into a draft to review and publish.",
+      "subject": "Subject",
+      "text": "Email text",
+      "create": "Create draft",
+      "failed": "Post could not be created"
+    },
+    "edit": {
+      "title": "Post",
+      "postDate": "Date",
+      "postTitle": "Headline",
+      "summary": "Summary",
+      "tags": "Areas",
+      "tagsPlaceholder": "e.g. Dealer portal, Online shop",
+      "sectionHeading": "Subheading",
+      "items": "Items (one line per item)",
+      "addSection": "Add section",
+      "removeSection": "Remove section",
+      "original": "Original email: {{subject}}",
+      "rewrite": "Rewrite with AI",
+      "publish": "Publish",
+      "hide": "Hide",
+      "saveFirst": "Save first",
+      "saved": "Saved",
+      "savedPublished": "Saved, page updated",
+      "published": "Published, page updated",
+      "hidden": "Hidden, page updated",
+      "rewritten": "Rewritten – review as draft",
+      "deleted": "Post deleted",
+      "failed": "Action failed",
+      "deleteTitle": "Delete post?",
+      "deleteText": "The post will be deleted permanently. The email stays in the mailbox.",
+      "deleteTextPublished": "The post will be deleted permanently and removed from the portal page. The email stays in the mailbox."
+    },
+    "settings": {
+      "enabled": "Fetch emails",
+      "enabledHint": "n8n fetches new emails from the folder and sends them to METAorder.",
+      "autoPublish": "Publish automatically",
+      "autoPublishHint": "Confident AI posts go onto the page right away. Uncertain ones, emails without a changelog and texts without AI stay drafts.",
+      "mailbox": "Mailbox",
+      "mailboxHint": "Mailbox containing the folder; empty = mailbox of the Outlook account in n8n.",
+      "sourceFolderName": "Folder",
+      "sourceFolderNameHint": "Subfolder of the inbox; n8n creates it if missing.",
+      "processSince": "Emails from",
+      "processSinceHint": "Older emails in the folder are left alone; empty = the last 2 days.",
+      "maxPerRun": "Emails per run",
+      "pageTitle": "Page headline",
+      "pageIntro": "Introduction",
+      "pageIntroHint": "Changes to headline or introduction are written to the page when saving.",
+      "outlookRuleHint": "Outlook rule: move the changelog emails from Carolin and Sebastian into the folder “{{folder}}”. Processed emails stay there and get a category.",
+      "n8nHint": "Import the template n8n-workflows/m365-portal-news.json, assign the Outlook account (with access to the mailbox) and the METAorder account, and activate it. The METAorder user of n8n needs the “Manage B2B” permission.",
+      "categoriesHint": "Outlook categories: {{categories}}",
+      "saved": "Settings saved",
+      "savedPageFailed": "Saved, but the page could not be updated",
+      "saveFailed": "Settings could not be saved"
     }
   },
   "systemLog": {

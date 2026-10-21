@@ -53,6 +53,7 @@ const AccountingPage = lazy(() => import("@/pages/AccountingPage"));
 const B2BAccountsPage = lazy(() => import("@/pages/B2BAccountsPage"));
 const B2BUsersPage = lazy(() => import("@/pages/B2BUsersPage"));
 const PortalRegistrationsPage = lazy(() => import("@/pages/PortalRegistrationsPage"));
+const PortalNewsPage = lazy(() => import("@/pages/PortalNewsPage"));
 const B2BBudgetsPage = lazy(() => import("@/pages/B2BBudgetsPage"));
 const B2BAssortmentsPage = lazy(() => import("@/pages/B2BAssortmentsPage"));
 const B2BOrderListsPage = lazy(() => import("@/pages/B2BOrderListsPage"));
@@ -117,6 +118,7 @@ function Router({
       <Route path="/b2b/accounts" component={() => <B2BAccountsPage userPermissions={userPermissions} userRole={userRole} userSalesChannelIds={userSalesChannelIds} />} />
       <Route path="/b2b/users" component={() => <B2BUsersPage userPermissions={userPermissions} userRole={userRole} userSalesChannelIds={userSalesChannelIds} />} />
       <Route path="/b2b/registrations" component={() => <PortalRegistrationsPage userPermissions={userPermissions} userRole={userRole} />} />
+      <Route path="/b2b/news" component={() => <PortalNewsPage userPermissions={userPermissions} userRole={userRole} />} />
       <Route path="/b2b/budgets" component={() => <B2BBudgetsPage userPermissions={userPermissions} />} />
       <Route path="/b2b/assortments" component={() => <B2BAssortmentsPage userPermissions={userPermissions} />} />
       <Route path="/b2b/order-lists" component={() => <B2BOrderListsPage userPermissions={userPermissions} />} />
