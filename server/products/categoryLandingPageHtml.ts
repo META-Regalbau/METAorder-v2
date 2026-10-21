@@ -385,6 +385,14 @@ ${this.page.productNumbers
   }
 }
 
+/**
+ * Die Landingpages haengen auch am AT-Kanal; Branchenseiten, Schnellkonfigurator und die Beispielrechnung
+ * (DE-Preise, Warenkorb) gibt es nur im DE-Shop. Ausserhalb von DE entfernt dieses Script die Verweise.
+ */
+export function landingChannelScript(deChannelId: string): string {
+  return `<script>(function(){if(!window.salesChannelId||window.salesChannelId==='${deChannelId}')return;document.querySelectorAll('.mbp a[href^="/branchen/"],.mbp a[href^="/regal-schnellkonfigurator"],.mbp .calc').forEach(function(e){(e.closest('li')||e).remove();});})();</script>`;
+}
+
 /** Bausteine der System-Landingpages zusaetzlich zum Branchen-Stylesheet */
 const LANDING_CSS = `
 .stage.photo{aspect-ratio:1/1}

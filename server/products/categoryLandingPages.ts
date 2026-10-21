@@ -86,6 +86,10 @@ export type CategoryLandingPage = {
   key: string;
   /** Bestehende Landingpage im Shop (URL und Meta-Texte bleiben dort) */
   landingPageId: string;
+  /** Bisherige Erlebniswelt der Landingpage (Agentur); bleibt erhalten und kommt mit --revert zurück */
+  agencyCmsPageId: string;
+  /** Bestehende FAQ-Gruppe der Seite (bekommt die Fragen aus dem Code); ohne Angabe legt das Skript eine eigene an */
+  faqGroupId?: string;
   url: string;
   name: string;
   /** Katalogsysteme für die Maßtabellen (catalogFacts.ts) */
@@ -168,6 +172,8 @@ export const CATEGORY_LANDING_PAGES: CategoryLandingPage[] = [
   {
     key: "fachboden",
     landingPageId: "0194e59da2b67a3cb89838ad5800d8a4",
+    agencyCmsPageId: "0194e574b4ac7285a215a414de3f8bf4",
+    faqGroupId: "01948db5b1d076d1afa0f97a8c87a7c6", // Agentur-Gruppe „Fachbodenregale“, auch auf /faq
     url: "/fachbodenregale/",
     name: "Fachbodenregale",
     catalogSystems: ["clip"],
@@ -375,6 +381,7 @@ export const CATEGORY_LANDING_PAGES: CategoryLandingPage[] = [
   {
     key: "buero",
     landingPageId: "0194e5cb677f72008c0b8b581dc2ac4c",
+    agencyCmsPageId: "0194f90cc31670c4ae41b165f94945b9",
     url: "/bueroregale",
     name: "Büroregale",
     catalogSystems: ["compact"],
@@ -548,6 +555,7 @@ export const CATEGORY_LANDING_PAGES: CategoryLandingPage[] = [
   {
     key: "paletten",
     landingPageId: "018fcfe0689776c3a5dd4d6cc9068494",
+    agencyCmsPageId: "019546f2850d7019ad025f86b7cd2be0",
     url: "/palettenregale/",
     name: "Palettenregale",
     catalogSystems: ["multipal"],
@@ -756,6 +764,7 @@ export const CATEGORY_LANDING_PAGES: CategoryLandingPage[] = [
   {
     key: "kragarm",
     landingPageId: "0194e5cc241378798eac2ccd90978e33",
+    agencyCmsPageId: "0194f90d1f80728cb401e73f6a95c8be",
     url: "/kragarmregale/",
     name: "Kragarmregale",
     catalogSystems: ["multistrong", "atlas"],
@@ -926,6 +935,7 @@ export const CATEGORY_LANDING_PAGES: CategoryLandingPage[] = [
   {
     key: "weitspann",
     landingPageId: "0194e5ccf088794b81760e98653464be",
+    agencyCmsPageId: "0194f90dd7b3716a8524f49e9db3bccb",
     url: "/weitspannregale/",
     name: "Weitspannregale",
     catalogSystems: ["minirack", "speedrack"],

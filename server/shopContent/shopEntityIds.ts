@@ -10,6 +10,9 @@ const md5 = (text: string) => createHash("md5").update(text).digest("hex");
 /** Branchenseiten (scripts/writeIndustryPages.ts): Teil z. B. "lp", "cms", "faq", "faq-0"; Startseite key "home" */
 export const industryEntityId = (key: string, part: string) => md5(`metaorder-industry:${key}:${part}`);
 
+/** System-Landingpages Vorlage A–K (scripts/writeCategoryLandingPages.ts): Teil z. B. "cms", "faq-0" */
+export const landingEntityId = (key: string, part: string) => md5(`metaorder-landing:${key}:${part}`);
+
 /** Seite und Startseiten-Abschnitt des Schnellkonfigurators (scripts/writeQuickConfiguratorPage.ts) */
 export const quickConfigId = (part: string) => md5(`metaorder-quick-config:${part}`);
 
