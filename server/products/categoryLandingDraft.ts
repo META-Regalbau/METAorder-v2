@@ -4,7 +4,11 @@ import type { CategoryLandingPage } from "./categoryLandingPages";
 import { CategoryLandingHtml, categoryLandingCss } from "./categoryLandingPageHtml";
 import { esc, type IndustryShopProduct } from "./industryPageHtml";
 
-export function categoryLandingDraftHtml(p: CategoryLandingPage, products: Record<string, IndustryShopProduct>, opts: { asOf: string; notes?: boolean }): string {
+export function categoryLandingDraftHtml(
+  p: CategoryLandingPage,
+  products: Record<string, IndustryShopProduct>,
+  opts: { asOf: string; notes?: boolean; /** Menüpunkt → Entwurfsdatei der anderen Seiten */ menuHref?: (menuName: string) => string | undefined },
+): string {
   const notes = opts.notes ?? true;
   const h = new CategoryLandingHtml(p, products, { notes, cartForm: false });
   const menu = ["Fachbodenregale", "Büroregale", "Palettenregale", "Kragarmregale", "Weitspannregale", "Zubehör", "Regal-Lexikon", "Service"];
@@ -34,7 +38,7 @@ ${categoryLandingCss()}
   <div class="hdr-ic"><span>Ihr Konto</span><span>Warenkorb</span></div>
 </div></header>
 <nav class="main" aria-label="Hauptnavigation"><div class="wrap">
-  <a href="#">Home</a>${menu.map((m) => `<a${m === p.name ? ' class="on"' : ""} href="#">${esc(m)}</a>`).join("")}
+  <a href="#">Home</a>${menu.map((m) => `<a${m === p.name ? ' class="on"' : ""} href="${esc(opts.menuHref?.(m) ?? "#")}">${esc(m)}</a>`).join("")}
 </div></nav>
 
 <main>

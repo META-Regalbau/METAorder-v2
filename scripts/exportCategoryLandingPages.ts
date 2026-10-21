@@ -39,9 +39,13 @@ function main(): void {
 
   for (const p of pages) {
     const f = rowFigures(p.guide.example.row);
-    if (!f.fits || !f.loadOk) throw new Error(`${p.key}: Rechenbeispiel geht nicht auf (Länge ${f.footLength} mm, Last ${f.sumLoad} kg)`);
+    if (!f.fits || !f.loadOk || !f.itemOk) throw new Error(`${p.key}: Rechenbeispiel geht nicht auf (Länge ${f.length} mm, Last ${f.sumLoad} kg)`);
     const file = path.join(outDir, `Entwurf-Landingpage-${draftName(p.key)}.html`);
-    writeFileSync(file, categoryLandingDraftHtml(p, shop.products, { asOf: shop.asOf }));
+    const menuHref = (menuName: string) => {
+      const other = CATEGORY_LANDING_PAGES.find((o) => o.name === menuName);
+      return other ? `Entwurf-Landingpage-${draftName(other.key)}.html` : undefined;
+    };
+    writeFileSync(file, categoryLandingDraftHtml(p, shop.products, { asOf: shop.asOf, menuHref }));
     console.log("Entwurf:", file);
   }
 }

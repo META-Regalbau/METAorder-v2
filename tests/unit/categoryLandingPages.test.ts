@@ -4,6 +4,7 @@ import {
   CATEGORY_LANDING_PAGES,
   catalogSpans,
   exampleTexts,
+  fillExample,
   landingProductNumbers,
   rowFigures,
   type CategoryLandingPage,
@@ -13,8 +14,11 @@ import { CATALOG_SYSTEMS, GENERAL_CATALOG_FACTS, SAFETY_FACTS } from "../../serv
 import { GLOSSARY_COMPARISONS } from "../../server/products/glossary";
 import { COMPETITOR_NAMES } from "../../shared/competitorNames";
 
-/** Alle von Hand geschriebenen Texte einer Seite (ohne Rechenbeispiel, das wird errechnet) */
+const page = (key: string) => CATEGORY_LANDING_PAGES.find((p) => p.key === key)!;
+
+/** Alle von Hand geschriebenen Texte einer Seite (ohne Rechenbeispiel, dessen Zahlen werden errechnet) */
 function pageTexts(p: CategoryLandingPage): string[] {
+  const own = (p.systems.extraComparisons ?? []).flatMap((c) => [c.title, c.intro, ...c.sides.flatMap((s) => [s.name, ...s.plus, ...s.minus, s.fit])]);
   return [
     p.eyebrow,
     p.h1,
@@ -23,11 +27,12 @@ function pageTexts(p: CategoryLandingPage): string[] {
     ...p.facts.flatMap((f) => [f.value, f.label]),
     p.systems.title,
     p.systems.intro,
+    ...own,
     ...p.tiles.flatMap((t) => [t.label, t.text]),
     p.guide.title,
     p.guide.intro,
     ...p.guide.steps.flatMap((s) => [s.title, s.text]),
-    ...p.guide.drawing.parts,
+    ...p.guide.parts,
     ...p.guide.avoid,
     ...p.guide.operation,
     p.planNote,
@@ -42,14 +47,17 @@ function pageTexts(p: CategoryLandingPage): string[] {
 }
 
 const products = (p: CategoryLandingPage) =>
-  Object.fromEntries(landingProductNumbers(p).map((n, i) => [n, { id: `id${i}`, name: `META CLIP S3 | Fachbodenregal | Grundregal | 2000 x 1000 x 400 mm | Fachlast 150 kg`, priceNet: 100 + i, url: "/x", image: null }]));
+  Object.fromEntries(landingProductNumbers(p).map((n, i) => [n, { id: `id${i}`, name: `META TEST | Regal | Grundregal | 2000 x 1000 x 400 mm`, priceNet: 100 + i, url: "/x", image: null }]));
 
 describe("System-Landingpages", () => {
-  it("hat auf jeder Seite die sechs Aufbau-Schritte in fester Reihenfolge mit Quelle", () => {
+  it("hat fünf Seiten mit den sechs Aufbau-Schritten in fester Reihenfolge und Quellen", () => {
+    expect(CATEGORY_LANDING_PAGES.map((p) => p.key)).toEqual(["fachboden", "buero", "paletten", "kragarm", "weitspann"]);
     for (const p of CATEGORY_LANDING_PAGES) {
       expect(p.guide.steps.map((s) => s.key), p.key).toEqual([...BUILD_STEP_KEYS]);
       for (const s of p.guide.steps) expect(s.src.trim(), `${p.key}/${s.key}`).not.toBe("");
       for (const k of Object.keys(p.notes)) expect(p.notes[k as keyof typeof p.notes]?.src?.trim(), `${p.key}/${k}`).toBeTruthy();
+      expect(p.facts, p.key).toHaveLength(4);
+      expect(new Set(p.productNumbers).size, p.key).toBe(p.productNumbers.length);
     }
   });
 
@@ -67,49 +75,62 @@ describe("System-Landingpages", () => {
     expect(unknown).toEqual([]);
   });
 
-  it("nennt keine Wettbewerber, kein „Schwerlastregal“ und keine zurückgezogene DGUV-Regel", () => {
+  it("nennt keine Wettbewerber, kein „Schwerlastregal“, keine Garantie und keine zurückgezogene DGUV-Regel", () => {
     const competitor = new RegExp(`\\b(${COMPETITOR_NAMES.join("|")})\\b`, "i");
     for (const p of CATEGORY_LANDING_PAGES)
       for (const t of pageTexts(p)) {
         expect(t, t).not.toMatch(competitor);
-        expect(t, t).not.toMatch(/Schwerlast|SPLIT|108-007|Garantie/i);
+        expect(t, t).not.toMatch(/Schwerlast|SPLIT|108-007|Garantie|Stecksystem/i);
       }
+    // Arnsberg nennt der Katalog nur für CLIP, FIX, MINI-RACK, SPEED-RACK und MULTIPAL (S. 11)
+    for (const k of ["buero", "kragarm"]) expect(pageTexts(page(k)).join(" "), k).not.toMatch(/Arnsberg/);
   });
 
-  it("rechnet das Beispiel nach den Katalog-Planmaßen (CLIP S. 25/26)", () => {
-    const fach = CATEGORY_LANDING_PAGES.find((p) => p.key === "fachboden")!;
-    const f = rowFigures(fach.guide.example.row);
-    expect([f.footBase, f.footAddOn, f.footLength]).toEqual([1082, 1041, 3164]);
-    expect([f.planBase, f.planAddOn, f.planLength]).toEqual([1056, 1006, 3068]);
-    expect([f.frames, f.sumLoad, f.fits, f.loadOk, f.anchor]).toEqual([4, 750, true, true, true]);
-    const ex = exampleTexts(fach.guide.example.row);
-    expect(ex.zeile).toContain("1.082 + 2 × 1.041 = 3.164 mm");
-    expect(ex.kippen).toContain("mehr als 4 : 1");
-    // Beispielzeile = 1 Grundregal + (Felder − 1) Anbauregale
-    const regale = fach.guide.example.lines.filter((l) => /Grundregal|Anbauregal/.test(l.label) && !/Wandbefestigung/.test(l.label));
-    expect(regale.reduce((s, l) => s + l.qty, 0)).toBe(fach.guide.example.row.fields);
-    // Systemwerte im Kopf passen zur Maßtabelle
-    expect(catalogSpans(fach).rows.map((r) => r[1]).join(" ")).toContain("330 kg");
-    expect(fach.guide.example.configuratorHref).toContain(`laenge=${fach.guide.example.row.space}`);
-  });
-
-  it("verweist nur auf vorhandene Lexikon-Begriffe und Vergleiche", () => {
+  it("rechnet die Beispiele nach den Katalog-Planmaßen", () => {
+    const fig = (k: string) => rowFigures(page(k).guide.example.row);
+    // CLIP S. 25/26
+    expect([fig("fachboden").baseLen, fig("fachboden").addOnLen, fig("fachboden").length]).toEqual([1082, 1041, 3164]);
+    expect(fig("fachboden").secondary?.total).toBe(3068);
+    // COMPACT S. 100/101
+    expect([fig("buero").length, fig("buero").units, fig("buero").anchor]).toEqual([3068, 216, true]);
+    // MULTIPAL S. 128/131/134
+    expect([fig("paletten").baseLen, fig("paletten").addOnLen, fig("paletten").length, fig("paletten").units, fig("paletten").anchors, fig("paletten").sumLoad]).toEqual([2870, 2785, 11225, 36, 20, 5940]);
+    // MULTISTRONG LIGHT S. 162
+    expect([fig("kragarm").baseLen, fig("kragarm").length, fig("kragarm").sumLoad, fig("kragarm").anchor]).toEqual([1094, 3154, 875, false]);
+    // MINI-RACK S. 114
+    expect([fig("weitspann").baseLen, fig("weitspann").length, fig("weitspann").anchor]).toEqual([1907, 7460, false]);
     for (const p of CATEGORY_LANDING_PAGES) {
-      for (const t of [...p.guide.steps.map((s) => s.text), ...p.guide.avoid, ...p.guide.operation, ...p.seo.paragraphs]) expect(() => landingTextHtml(t)).not.toThrow();
-      for (const k of p.systems.comparisons) expect(GLOSSARY_COMPARISONS.some((c) => c.key === k), k).toBe(true);
+      const f = rowFigures(p.guide.example.row);
+      expect([f.fits, f.loadOk, f.itemOk], p.key).toEqual([true, true, true]);
+      // Beispielzeile = 1 Grundregal + (Felder − 1) Anbauregale
+      const regale = p.guide.example.lines.filter((l) => /Grundregal|Anbauregal/.test(l.label) && !/Wandbefestigung/.test(l.label));
+      expect(regale.reduce((s, l) => s + l.qty, 0), p.key).toBe(p.guide.example.row.fields);
+      expect(p.guide.example.configuratorHref, p.key).toContain(`laenge=${p.guide.example.row.space}`);
+      expect(() => [fillExample(p.guide.example.title, p.guide.example), fillExample(p.guide.example.sub, p.guide.example), exampleTexts(p.guide.example)], p.key).not.toThrow();
+    }
+    expect(exampleTexts(page("fachboden").guide.example).zeile).toContain("1.082 + 2 × 1.041 = 3.164 mm bis zu den Fußplatten – passt");
+    expect(exampleTexts(page("paletten").guide.example).zeile).toContain("36 Europalettenplätze");
+  });
+
+  it("verweist nur auf vorhandene Lexikon-Begriffe, Vergleiche und Maßtabellen", () => {
+    for (const p of CATEGORY_LANDING_PAGES) {
+      for (const t of [...p.guide.steps.map((s) => s.text), ...p.guide.avoid, ...p.guide.operation, ...p.seo.paragraphs]) expect(() => landingTextHtml(t), t).not.toThrow();
+      for (const k of p.systems.comparisons) expect(GLOSSARY_COMPARISONS.some((c) => c.key === k) || p.systems.extraComparisons?.some((c) => c.key === k), k).toBe(true);
+      expect(catalogSpans(p).length, p.key).toBe(p.catalogSystems.length);
     }
     expect(landingTextHtml("Die [[feldlast]] & [[fachlast|Last]]")).toBe('Die <a class="lex" href="/regal-lexikon#feldlast">Feldlast</a> &amp; <a class="lex" href="/regal-lexikon#fachlast">Last</a>');
     expect(() => landingTextHtml("[[gibtsnicht]]")).toThrow();
   });
 
-  it("baut alle Abschnitte und ein Warenkorb-Formular mit allen Beispielartikeln", () => {
+  it("baut alle Abschnitte, Zeichnung und ein Warenkorb-Formular mit allen Beispielartikeln", () => {
     for (const p of CATEGORY_LANDING_PAGES) {
       const h = new CategoryLandingHtml(p, products(p), { notes: false, cartForm: true });
-      const html = [h.hero(), h.jump(), h.systems(), h.tiles(), h.guide(), h.plan(), h.productsHead(), h.seo(), h.faqHead(), h.advice()].join("\n");
-      for (const id of ["ausfuehrung", "sortiment", "aufbau", "masse", "produkte"]) expect(html, id).toContain(`id="${id}"`);
+      const html = [h.hero(), h.jump(), h.systems(), h.tiles(), h.guide(), h.plan(), h.productsHead(), h.productCards(), h.seo(), h.faqHead(), h.advice()].join("\n");
+      for (const id of ["ausfuehrung", "sortiment", "aufbau", "masse", "produkte"]) expect(html, `${p.key}/${id}`).toContain(`id="${id}"`);
       for (const l of p.guide.example.lines) expect(html).toContain(`[quantity]" value="${l.qty}"`);
       expect(html).not.toContain('class="note"');
-      expect(rowDrawingSvg(p.guide.example.row, p.guide.drawing.parts, p.guide.drawing.bracing)).toContain(`${rowFigures(p.guide.example.row).footLength.toLocaleString("de-DE")} mm bis zu den Fußplatten`);
+      const f = rowFigures(p.guide.example.row);
+      expect(rowDrawingSvg(p.guide.example.row, p.guide.parts), p.key).toContain(`${f.length.toLocaleString("de-DE")} mm ${p.guide.example.row.length.label}`);
     }
     expect(categoryLandingCss(".mbp")).toContain(".mbp .steps");
   });
