@@ -29,15 +29,18 @@ export type NewsLlm = (system: string, user: string) => Promise<string>;
 
 const SYSTEM_PROMPT = `Du schreibst Beiträge für die interne Seite „Neuigkeiten“ im Händlerportal von META (Regalbau). Leser sind META-Mitarbeiter aus Vertrieb, Innendienst und Kundenservice – keine Entwickler.
 
-Grundlage ist eine Changelog-Mail der Shop-Entwickler. Regeln:
+Grundlage ist eine Changelog-Mail der Entwickler (Shop/Portal, Regalplaner bzw. Konfigurator und andere Systeme), oft von Kollegen weitergeleitet. Regeln:
+- Die ganze Mail lesen, auch weitergeleitete und zitierte Teile. Enthält sie mehrere Changelogs (z. B. Regalplaner-Version und Shop-Release), gehören ALLE in den Beitrag – keinen auslassen.
 - Nur Inhalte aus der Mail. Nichts erfinden, nichts ergänzen, keine Vermutungen über Gründe oder Folgen, die nicht in der Mail stehen.
-- Verständlich umschreiben: was ist neu, was hat sich geändert, was wurde behoben – aus Sicht der Nutzer (Shop, Portal, Bestellungen, Kunden).
-- Technik-Details weglassen: Ticket-/Issue-Nummern, Versionsnummern, Plugin-, Klassen- oder Dateinamen, Commit-Hashes, Server, Deployments, Cache, Code-Begriffe. Steht in einem Punkt nur Technik ohne erkennbare Wirkung für Nutzer, lass ihn weg.
-- Anrede, Grüße, Signaturen und interne Absprachen (Rechnung, Aufwand, Termine der Entwickler) weglassen.
-- Deutsch, sachlich, kurze Sätze, kein Marketing, keine Emojis. Fachbegriffe aus dem META-Alltag (Händlerportal, Angebot, Warenkorb, Konfigurator, Artikelnummer) bleiben.
+- Verständlich umschreiben: was ist neu, was hat sich geändert, was wurde behoben – aus Sicht der Nutzer (Shop, Portal, Regalplaner, Bestellungen, Kunden).
+- Ticketlisten („MC40-1164 – Einbindung des Konfigurators …“) sind Änderungen: jeden Eintrag ohne Nummer in einen verständlichen Satz fassen. Nur so viel sagen, wie der Titel hergibt; bei knappen Titeln knapp bleiben („Fehler bei Türen im CLIP behoben.“).
+- Punkte, die laut Mail ausdrücklich noch nicht im Release sind (z. B. „noch nicht enthalten“, „bleiben zunächst beim Dienstleister“), weglassen.
+- Technik-Details weglassen: Ticket-/Issue-Nummern, Versionsnummern, Plugin-, Klassen- oder Dateinamen, Commit-Hashes, Server, Testsysteme, Zertifikate, Deployments, Cache, Code-Begriffe. Steht in einem Punkt nur Technik ohne erkennbare Wirkung für Nutzer, lass ihn weg.
+- Anrede, Grüße, Signaturen, Weiterleitungsköpfe und interne Absprachen (Rechnung, Aufwand, Meetings, Termine der Entwickler) weglassen.
+- Deutsch, sachlich, kurze Sätze, kein Marketing, keine Emojis. Fachbegriffe aus dem META-Alltag (Händlerportal, Angebot, Warenkorb, Konfigurator, Regalplaner, Raumplaner, Artikelnummer, Systemnamen wie CLIP oder MULTIPAL) bleiben.
 - title: kurze Überschrift, die das Wichtigste nennt (höchstens 80 Zeichen, kein Datum).
-- summary: 1–2 Sätze, worum es geht.
-- sections: Gruppen mit kurzer Überschrift, z. B. „Neu“, „Verbessert“, „Behoben“ – oder nach Bereich („Händlerportal“, „Onlineshop“), wenn die Mail so gegliedert ist. Je Punkt ein Satz oder zwei. Leere Gruppen weglassen.
+- summary: 1–2 Sätze, worum es geht (bei mehreren Changelogs alle Systeme nennen).
+- sections: Ein System → Gruppen „Neu“, „Verbessert“, „Behoben“. Mehrere Systeme → je System Gruppen mit Überschrift „<System>: Neu“, „<System>: Behoben“ usw. (z. B. „Regalplaner: Behoben“, „Händlerportal und Onlineshop: Neu“). Je Punkt ein Satz oder zwei. Leere Gruppen weglassen.
 - tags: 1–3 Bereiche, die betroffen sind, z. B. „Onlineshop“, „Händlerportal“, „Regalplaner“, „Bestellungen“.
 - postDate: Datum der Änderung (JJJJ-MM-TT) nur, wenn die Mail es ausdrücklich nennt (z. B. „Release vom 20.10.2026“), sonst null.
 - isChangelog: true, wenn die Mail Änderungen an Shop, Portal oder Systemen beschreibt. Rückfragen, Angebote, Rechnungen, Terminabsprachen ohne Änderungsliste: false.
@@ -162,7 +165,8 @@ export async function extractPortalNews(
             tier: "smart",
             temperature: 0.2,
             response_json: true,
-            max_tokens: 3000,
+            // Ticketlisten mit 20–30 Einträgen brauchen Platz
+            max_tokens: 5000,
             messages: [
               { role: "system", content: system },
               { role: "user", content: user },

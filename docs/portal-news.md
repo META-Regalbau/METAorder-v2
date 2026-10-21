@@ -18,7 +18,7 @@ Bearbeiten und für die Einstellungen.
    wieder; Duplikate erkennt METAorder an der Message-ID.
 2. **Umschreiben** (`server/b2b/portalNewsExtraction.ts`, KI-Stufe `smart`): Überschrift, Kurzfassung,
    Abschnitte (Neu / Verbessert / Behoben oder nach Bereich), Bereiche als Schlagwörter. Nur Inhalte aus
-   der Mail; Ticket- und Versionsnummern, Plugin-/Klassennamen, Deployments, Rechnungen fallen weg.
+   der Mail, auch weitergeleitete Teile und mehrere Changelogs in einer Mail (je System eigene Abschnitte); Ticketlisten ohne Nummern umgeschrieben, „noch nicht enthalten“ fällt weg; Ticket- und Versionsnummern, Plugin-/Klassennamen, Deployments, Rechnungen fallen weg.
    Datum = Eingangstag (deutsche Zeit), außer die Mail nennt ausdrücklich ein Release-Datum (± 60 Tage).
 3. **Veröffentlichen**: mit „Automatisch veröffentlichen“ sofort, wenn die KI sicher ist (Changelog,
    ≥ 60 %). Entwurf bleibt es bei Automatik aus, unsicherer KI, „kein Changelog“ und ohne KI (dann nur

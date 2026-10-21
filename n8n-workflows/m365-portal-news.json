@@ -371,7 +371,10 @@
           "id": "METAORDER_INTEGRATION_KEY_CREDENTIAL_ID",
           "name": "METAorder Integration-Key"
         }
-      }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Verbindungsabbruch (z. B. Proxy-Zeitlimit, während die KI noch schreibt) ist kein Fehler: die Mail bekommt keine Kategorie und kommt im nächsten Lauf wieder; METAorder erkennt sie dann als schon verarbeitet.",
+      "notesInFlow": false
     },
     {
       "id": "news-ergebnis",

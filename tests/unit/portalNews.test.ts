@@ -308,6 +308,14 @@ describe("Portal-Neuigkeiten: Ablauf", () => {
     assert.equal(written.length, 1);
   });
 
+  it("weitergeleiteter Changelog: Absender ist, wer geschickt hat, nicht der Dienstleister darin", async () => {
+    const body = "Hallo zusammen,\n\nanbei der Changelog.\n\nVon: Anton von WIRDUZEN <anton@wirduzen.de>\nGesendet: Freitag, 16. Oktober 2026 09:36\nAn: Sebastian Fehd <sfehd@meta-online.com>\nBetreff: Report\n\n- Montagekosten in Tagessätzen";
+    await ingestNewsMail(ctx(), { buffer: eml("fw@x", "WG: Report", body, "Sebastian Fehd <sfehd@meta-online.com>") });
+    assert.equal(mem.rows[0].fromName, "Sebastian Fehd");
+    assert.equal(mem.rows[0].fromEmail, "sfehd@meta-online.com");
+    assert.ok(mem.rows[0].bodyText.includes("Montagekosten"), "ganzer Text geht an die KI");
+  });
+
   it("Automatik aus, unsicher oder kein Changelog: Entwurf, Seite bleibt", async () => {
     const off = await ingestNewsMail(ctx({ autoPublish: false }), { buffer: eml("a@x", "Changelog", "- a") });
     assert.equal(off.outcome, "draft");
@@ -363,5 +371,8 @@ describe("Portal-Neuigkeiten: n8n-Vorlage", () => {
       for (const list of conn.main) for (const t of list) assert.ok(names.has(t.node), t.node);
     }
     assert.ok(JSON.stringify(wf).includes("received_at"));
+    // Proxy bricht lange KI-Läufe ab (ECONNRESET): kein Fehlerlauf, die Mail kommt im nächsten Lauf als Duplikat
+    const send = wf.nodes.find((n: { name: string }) => n.name === "An METAorder senden");
+    assert.equal(send.onError, "continueRegularOutput");
   });
 });
