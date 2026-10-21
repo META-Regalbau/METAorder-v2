@@ -556,6 +556,7 @@ export const CATEGORY_LANDING_PAGES: CategoryLandingPage[] = [
     key: "paletten",
     landingPageId: "018fcfe0689776c3a5dd4d6cc9068494",
     agencyCmsPageId: "019546f2850d7019ad025f86b7cd2be0",
+    faqGroupId: "01948db6257f7c278c34d4779b8edfb2", // Agentur-Gruppe „Palettenregale“, auch auf /faq
     url: "/palettenregale/",
     name: "Palettenregale",
     catalogSystems: ["multipal"],
