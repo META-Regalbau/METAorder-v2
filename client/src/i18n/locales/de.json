@@ -4615,7 +4615,10 @@
         "addressStreet": "Straße",
         "addressZipCode": "PLZ",
         "addressCity": "Ort",
-        "addressCountry": "Land"
+        "addressCountry": "Land",
+        "customerNumber": "Kundennummer (optional)",
+        "customerNumberPlaceholder": "z. B. 12345",
+        "customerNumberHint": "Leer lassen = nächste Nummer aus dem Shopware-Nummernkreis. Wird nur bei Neuanlage des Kunden übernommen."
       },
       "single": {
         "title": "Einzelnen Nutzer anlegen",
@@ -4629,7 +4632,7 @@
       },
       "import": {
         "title": "Excel-Import",
-        "description": "Spalten: Vorname, Nachname, E-Mail, optional Typ und Supervisor. Passwort und Adresse gelten für alle Zeilen.",
+        "description": "Spalten: Vorname, Nachname, E-Mail, optional Typ, Supervisor und Kundennummer (leer = Nummernkreis). Passwort und Adresse gelten für alle Zeilen.",
         "updateExisting": "Bestehende Nutzer aktualisieren",
         "updateExistingHint": "Bekannte E-Mails werden korrigiert (Verkaufskanal, Kundengruppe, Adresse). Neue E-Mails werden angelegt.",
         "downloadTemplate": "Vorlage herunterladen",

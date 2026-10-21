@@ -415,6 +415,7 @@ export interface ShopwareClient {
   fetchBestandskundenIndex: typeof customersApi.fetchBestandskundenIndex;
   findCustomerByEmail: typeof customersApi.findCustomerByEmail;
   findCustomersByEmail: typeof customersApi.findCustomersByEmail;
+  findCustomersByNumber: typeof customersApi.findCustomersByNumber;
   searchCustomers: typeof customersApi.searchCustomers;
   fetchCustomerSalesChannelId: typeof customersApi.fetchCustomerSalesChannelId;
   searchExistingCustomers: typeof customersApi.searchExistingCustomers;

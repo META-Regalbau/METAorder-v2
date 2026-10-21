@@ -4515,7 +4515,10 @@
         "addressStreet": "Calle",
         "addressZipCode": "C. P.",
         "addressCity": "Localidad",
-        "addressCountry": "País"
+        "addressCountry": "País",
+        "customerNumber": "Número de cliente (opcional)",
+        "customerNumberPlaceholder": "p. ej. 12345",
+        "customerNumberHint": "Déjelo vacío para usar el siguiente número del rango de numeración de Shopware. Solo se aplica cuando el cliente se crea nuevo."
       },
       "single": {
         "title": "Crear usuario individual",
@@ -4529,7 +4532,7 @@
       },
       "import": {
         "title": "Importación de Excel",
-        "description": "Columnas: nombre, apellidos, correo electrónico y, opcionalmente, tipo y supervisor. La contraseña y la dirección se aplican a todas las filas.",
+        "description": "Columnas: nombre, apellidos, correo electrónico y, opcionalmente, tipo, supervisor y número de cliente (vacío = rango de numeración). La contraseña y la dirección se aplican a todas las filas.",
         "updateExisting": "Actualizar usuarios existentes",
         "updateExistingHint": "Los correos electrónicos conocidos se corrigen (canal de venta, grupo de clientes, dirección). Los nuevos se crean.",
         "downloadTemplate": "Descargar plantilla",

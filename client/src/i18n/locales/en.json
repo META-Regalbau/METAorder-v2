@@ -4618,7 +4618,10 @@
         "addressStreet": "Street",
         "addressZipCode": "ZIP code",
         "addressCity": "City",
-        "addressCountry": "Country"
+        "addressCountry": "Country",
+        "customerNumber": "Customer number (optional)",
+        "customerNumberPlaceholder": "e.g. 12345",
+        "customerNumberHint": "Leave empty to use the next number from the Shopware number range. Only applied when the customer is newly created."
       },
       "single": {
         "title": "Create single user",
@@ -4632,7 +4635,7 @@
       },
       "import": {
         "title": "Excel import",
-        "description": "Columns: first name, last name, email, optional type and supervisor. Password and address apply to all rows.",
+        "description": "Columns: first name, last name, email, optional type, supervisor and customer number (empty = number range). Password and address apply to all rows.",
         "updateExisting": "Update existing users",
         "updateExistingHint": "Known emails are corrected (sales channel, customer group, address). New emails are created.",
         "downloadTemplate": "Download template",

@@ -14,6 +14,7 @@ export type ParsedB2BPortalUserImportRow = {
   email: string;
   type?: B2BPortalUserType;
   isSupervisor?: boolean;
+  customerNumber?: string;
 };
 
 export type ParsedB2BPortalUserImport = {
@@ -42,6 +43,7 @@ export function parseB2BPortalUserRowsFromBuffer(buffer: Buffer): ParsedB2BPorta
   const rows: ParsedB2BPortalUserImportRow[] = [];
   const parseErrors: Array<{ rowNumber: number; message: string }> = [];
   const seenEmails = new Set<string>();
+  const seenCustomerNumbers = new Set<string>();
 
   rawRows.forEach((row, index) => {
     const rowNumber = index + 2;
@@ -50,6 +52,15 @@ export function parseB2BPortalUserRowsFromBuffer(buffer: Buffer): ParsedB2BPorta
     const email = readCell(row, ["E-Mail", "Email", "email", "E-Mailadresse"]).toLowerCase();
     const typeRaw = readCell(row, ["Typ", "Type", "type", "Kontotyp"]);
     const supervisorRaw = readCell(row, ["Supervisor", "supervisor", "Ist Supervisor", "isSupervisor"]);
+    const customerNumber = readCell(row, [
+      "Kundennummer",
+      "Kundennr.",
+      "Kundennr",
+      "Kd.-Nr.",
+      "Customer Number",
+      "customerNumber",
+      "customer_number",
+    ]);
 
     if (!firstName && !lastName && !email) {
       return;
@@ -73,7 +84,13 @@ export function parseB2BPortalUserRowsFromBuffer(buffer: Buffer): ParsedB2BPorta
       parseErrors.push({ rowNumber, message: "E-Mail ist in der Datei doppelt vorhanden" });
       return;
     }
+
+    if (customerNumber && seenCustomerNumbers.has(customerNumber)) {
+      parseErrors.push({ rowNumber, message: "Kundennummer ist in der Datei doppelt vorhanden" });
+      return;
+    }
     seenEmails.add(email);
+    if (customerNumber) seenCustomerNumbers.add(customerNumber);
 
     const parsedType = typeRaw ? parsePortalUserType(typeRaw) : undefined;
     if (typeRaw && !parsedType) {
@@ -91,6 +108,7 @@ export function parseB2BPortalUserRowsFromBuffer(buffer: Buffer): ParsedB2BPorta
       email,
       type: parsedType ?? undefined,
       isSupervisor: supervisorRaw ? parseSupervisorFlag(supervisorRaw) : undefined,
+      customerNumber: customerNumber || undefined,
     });
   });
 
@@ -125,18 +143,19 @@ export function buildPortalUserInputsFromImport(
       address: defaults.address,
       metaCompanyCustomerId: type === "sales_rep" ? defaults.metaCompanyCustomerId : undefined,
       supervisorRoleId: type === "sales_rep" && isSupervisor ? defaults.supervisorRoleId : undefined,
+      customerNumber: row.customerNumber,
     };
   });
 }
 
 export function buildB2BPortalUserTemplateBuffer(): Buffer {
   const worksheet = XLSX.utils.aoa_to_sheet([
-    ["Vorname", "Nachname", "E-Mail", "Typ", "Supervisor"],
-    ["Max", "Mustermann", "max.mustermann@example.com", "Vertriebsmitarbeiter", "Nein"],
-    ["Erika", "Musterfrau", "erika.musterfrau@example.com", "Unternehmen", ""],
-    ["Hans", "Haendler", "hans.haendler@example.com", "Händler", ""],
+    ["Vorname", "Nachname", "E-Mail", "Typ", "Supervisor", "Kundennummer"],
+    ["Max", "Mustermann", "max.mustermann@example.com", "Vertriebsmitarbeiter", "Nein", ""],
+    ["Erika", "Musterfrau", "erika.musterfrau@example.com", "Unternehmen", "", "12345"],
+    ["Hans", "Haendler", "hans.haendler@example.com", "Händler", "", ""],
   ]);
-  worksheet["!cols"] = [{ wch: 16 }, { wch: 16 }, { wch: 32 }, { wch: 22 }, { wch: 12 }];
+  worksheet["!cols"] = [{ wch: 16 }, { wch: 16 }, { wch: 32 }, { wch: 22 }, { wch: 12 }, { wch: 16 }];
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "B2B Nutzer");
   return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;

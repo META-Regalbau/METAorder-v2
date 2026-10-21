@@ -24,6 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -125,6 +126,7 @@ const singleUserSchema = z
     salesChannelId: z.string().min(1),
     metaCompanyCustomerId: z.string().optional(),
     supervisorRoleId: z.string().optional(),
+    customerNumber: z.string().max(255).optional(),
     addressCompany: z.string().optional(),
     addressStreet: z.string().min(1),
     addressZipCode: z.string().min(1),
@@ -268,6 +270,7 @@ export default function B2BUsersPage({ userPermissions, userRole, userSalesChann
       salesChannelId: "",
       metaCompanyCustomerId: "",
       supervisorRoleId: "",
+      customerNumber: "",
       addressCompany: DEFAULT_ADDRESS.company,
       addressStreet: DEFAULT_ADDRESS.street,
       addressZipCode: DEFAULT_ADDRESS.zipCode,
@@ -379,6 +382,7 @@ export default function B2BUsersPage({ userPermissions, userRole, userSalesChann
         metaCompanyCustomerId: values.type === "sales_rep" ? values.metaCompanyCustomerId : undefined,
         supervisorRoleId:
           values.type === "sales_rep" && values.isSupervisor ? values.supervisorRoleId : undefined,
+        customerNumber: values.customerNumber?.trim() || undefined,
         address: {
           company: values.addressCompany,
           street: values.addressStreet,
@@ -412,6 +416,7 @@ export default function B2BUsersPage({ userPermissions, userRole, userSalesChann
         password: "",
         confirmPassword: "",
         isSupervisor: false,
+        customerNumber: "",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/b2b/companies"] });
     },
@@ -452,6 +457,7 @@ export default function B2BUsersPage({ userPermissions, userRole, userSalesChann
         metaCompanyCustomerId: values.type === "sales_rep" ? values.metaCompanyCustomerId : undefined,
         supervisorRoleId:
           values.type === "sales_rep" && values.isSupervisor ? values.supervisorRoleId : undefined,
+        customerNumber: values.customerNumber?.trim() || undefined,
         address: {
           company: values.addressCompany,
           street: values.addressStreet,
@@ -692,6 +698,24 @@ export default function B2BUsersPage({ userPermissions, userRole, userSalesChann
                         <FormControl>
                           <Input type="email" {...field} />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="customerNumber"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>{t("b2b.users.fields.customerNumber")}</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder={t("b2b.users.fields.customerNumberPlaceholder")}
+                            autoComplete="off"
+                          />
+                        </FormControl>
+                        <FormDescription>{t("b2b.users.fields.customerNumberHint")}</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
