@@ -9,7 +9,6 @@ import { randomUUID } from "crypto";
 import type { IStorage } from "../storage";
 import { storage as defaultStorage } from "../storage";
 import { parseEmailBufferAutodetect } from "../email/emailParser";
-import { unwrapInternalForward } from "../email/emailForwardUnwrap";
 import { deriveUploadMessageId } from "../commercial/commercialEmailUploadIngest";
 import { acquireIntakeLock, releaseIntakeLock } from "../commercial/emailIntakeUpload";
 import { graphBaseForMailbox, receivedAfterFor } from "@shared/emailIntake";
@@ -278,11 +277,10 @@ export async function ingestNewsMail(
     const parsed = await parseEmailBufferAutodetect(input.buffer);
     const subject = (parsed.subject || input.subjectHint || "").trim();
     const body = (parsed.body || "").trim();
-    const headerFrom = (parsed.from || "").trim();
-    // Von Hand in den Ordner weitergeleitet: der ursprüngliche Absender zählt
-    const unwrapped = unwrapInternalForward({ from: headerFrom, subject, body });
-    const from = unwrapped.strippedForwardLevels > 0 ? unwrapped.from : headerFrom;
-    const fromEmail = (unwrapped.strippedForwardLevels > 0 ? unwrapped.fromEmail : null) ?? headerFrom.match(/[^\s<>"]+@[^\s<>"]+/)?.[0]?.toLowerCase() ?? null;
+    // Absender = wer die Mail geschickt hat (Carolin/Sebastian). Nicht auspacken: Changelogs kommen meist
+    // weitergeleitet, der innerste Absender ist dann der Dienstleister (Version 662: „Anton von WIRDUZEN“).
+    const from = (parsed.from || "").trim();
+    const fromEmail = from.match(/[^\s<>"]+@[^\s<>"]+/)?.[0]?.toLowerCase() ?? null;
     const receivedAt = input.receivedAt && !Number.isNaN(input.receivedAt.getTime()) ? input.receivedAt : new Date();
 
     const row = await repoOf(ctx).insert({
