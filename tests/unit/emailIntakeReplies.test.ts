@@ -253,4 +253,26 @@ describe("Kundenantworten: Freigabe und Postausgang", () => {
       assert.ok(n.credentials?.httpHeaderAuth, n.name);
     }
   });
+
+  it("n8n-Vorlage: Antwort im Verlauf geht an den Kunden, nicht an den Weiterleitenden", async () => {
+    const fs = await import("node:fs");
+    const wf = JSON.parse(fs.readFileSync("n8n-workflows/m365-customer-replies.json", "utf8"));
+    const js = wf.nodes.find((n: { name: string }) => n.name === "Text einsetzen").parameters.jsCode as string;
+    const run = (reply: Record<string, unknown>) => {
+      const input = [{ json: { statusCode: 201, body: { id: "draft1", body: { content: "<html><body><p>Zitat</p></body></html>" } } } }];
+      const $input = { all: () => input };
+      const $ = (name: string) => ({ itemMatching: () => (name === "Original gefunden?" ? { json: reply } : undefined) });
+      return new Function("$input", "$", js)($input, $)[0].json;
+    };
+    const base = { id: "r1", graphBase: "users/shop@meta-online.com", html: "<p>Guten Tag</p>", messageId: "m1" };
+
+    const out = run({ ...base, to: "kunde@example.de" });
+    assert.deepEqual(out.patchBody.toRecipients, [{ emailAddress: { address: "kunde@example.de" } }]);
+    assert.equal(out.patchBody.ccRecipients, undefined, "CC wird nicht übernommen");
+    assert.match(out.patchBody.body.content, /<body><p>Guten Tag<\/p><br><p>Zitat/);
+
+    assert.equal(run(base).patchBody.toRecipients, undefined, "ohne Adresse bleibt der Empfänger von Graph");
+    const patch = wf.nodes.find((n: { name: string }) => n.name === "Entwurf füllen").parameters.jsonBody as string;
+    assert.match(patch, /\$json\.patchBody/);
+  });
 });
