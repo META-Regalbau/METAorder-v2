@@ -19,7 +19,7 @@ export type HomeHero = {
   eyebrow: string;
   title: string;
   lead: string;
-  primary: { label: string; href: string; hint: string };
+  primary: { label: string; href: string };
   secondary: { label: string };
   categories: { label: string; intro: string; links: Array<{ label: string; href: string }> };
   more: { label: string; href: string };
@@ -32,7 +32,6 @@ export const HOME_HERO: HomeHero = {
   primary: {
     label: "Regal konfigurieren",
     href: "/regal-schnellkonfigurator",
-    hint: "Maße und verfügbaren Platz eingeben – die ganze Regalzeile mit Preis in den Warenkorb.",
   },
   secondary: { label: "Beratung" },
   categories: {
@@ -54,8 +53,8 @@ const HERO_CSS = `
 .hh{position:relative;background:#fcfcfc;overflow:hidden;border-bottom:1px solid var(--line)}
 .hh-bg{position:absolute;inset:0;width:100%;height:100%!important;max-width:none!important;object-fit:cover;object-position:right center}
 .hh::before{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(90deg,#fcfcfc 0,#fcfcfc 38%,rgba(252,252,252,.85) 52%,rgba(252,252,252,0) 68%)}
-.hh-inner{position:relative;z-index:2;min-height:420px;display:flex;flex-direction:column;justify-content:center;padding-top:48px;padding-bottom:40px}
-.hh-text{max-width:600px}
+.hh-inner{position:relative;z-index:2;min-height:420px;display:flex;flex-direction:column;justify-content:center}
+.hh-text{max-width:600px;padding:48px 0 40px}
 .hh-title{font-size:46px;font-weight:800;letter-spacing:-.02em;line-height:1.08;margin:12px 0 16px}
 .hh-lead{font-size:17px;line-height:1.55;color:#3a3a3a;margin:0 0 26px;max-width:52ch}
 .hh-cta{display:flex;flex-wrap:wrap;gap:12px;align-items:stretch}
@@ -66,7 +65,6 @@ const HERO_CSS = `
 .hh-tel span{display:flex;flex-direction:column}
 .hh-tel strong{font-size:15px;font-weight:700}
 .hh-tel small{font-size:12px;opacity:.75}
-.hh-hint{font-size:13px;color:var(--muted);margin:12px 0 0;max-width:52ch}
 .hh-cats{position:relative;z-index:2;background:#fff;border-top:1px solid var(--line)}
 .hh-cats .wrap{display:flex;align-items:center;gap:8px 10px;flex-wrap:wrap;padding-top:14px;padding-bottom:14px}
 .hh-cats b{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-right:6px}
@@ -76,9 +74,10 @@ const HERO_CSS = `
 .hh-cats a.hh-more:hover{color:var(--red)}
 @media (max-width:1100px){.hh::before{background:linear-gradient(90deg,#fcfcfc 0,#fcfcfc 50%,rgba(252,252,252,.7) 70%,rgba(252,252,252,.2) 100%)}.hh-title{font-size:38px}.hh-cats b{display:none}}
 @media (max-width:760px){
-.hh-bg{position:static;display:block;height:120px!important;object-position:78% center}
-.hh::before{display:none}
-.hh-inner{min-height:0;padding-top:20px;padding-bottom:24px}
+.hh-bg{object-position:70% center}
+.hh::before{background:rgba(252,252,252,.86)}
+.hh-inner{min-height:0}
+.hh-text{padding:28px 0}
 .hh-title{font-size:29px;margin:8px 0 10px}
 .hh-lead{font-size:15.5px;margin-bottom:18px}
 .hh-cta{flex-direction:column}
@@ -110,7 +109,6 @@ export function homeHeroHtml(image: string | null, scope = ".mbp", h: HomeHero =
       <a class="btn" href="${esc(h.primary.href)}">${ICON_CONFIG}${esc(h.primary.label)}</a>
       <a class="hh-tel" href="tel:${esc(contact.tel)}">${ICON_PHONE}<span><strong>${esc(h.secondary.label)} ${esc(contact.phone)}</strong><small>Mo–Fr ${esc(contact.hours.replace(/ bis /, "–"))}</small></span></a>
     </div>
-    <p class="hh-hint">${esc(h.primary.hint)}</p>
   </div></div>
   <nav class="hh-cats" aria-label="${esc(h.categories.label)}"><div class="wrap"><b>${esc(h.categories.intro)}</b>${cats}<a class="hh-more" href="${esc(h.more.href)}">${esc(h.more.label)} →</a></div></nav>
 </section></div>`;
