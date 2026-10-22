@@ -39,7 +39,7 @@ describe("homeHero", () => {
     expect(html).toContain(HOME_HERO_MARKER);
     const css = html.match(/<style>([\s\S]*?)<\/style>/)![1];
     for (const rule of css.split("\n").filter((l) => l.includes("{") && !l.startsWith("@media") && !l.startsWith("/*"))) {
-      expect(rule.startsWith(".mbp") || rule.startsWith(".cms-block-container-row"), rule).toBe(true);
+      expect(rule.startsWith(".mbp") || rule.startsWith(".cms-block-container-row") || rule.startsWith(".cms-section-default.boxed .mbp"), rule).toBe(true);
     }
     const noImage = homeHeroHtml(null);
     expect(noImage).not.toContain("<img");

@@ -38,7 +38,7 @@ describe("industryPages", () => {
     const css = industryPageCss(".mbp");
     // jede Regel ausserhalb von @media beginnt mit dem Rahmen (oder ist die Theme-Korrektur der Bootstrap-Zeile)
     for (const rule of css.split("\n").filter((l) => l.includes("{") && !l.startsWith("@media") && !l.startsWith("/*"))) {
-      expect(rule.startsWith(".mbp") || rule.startsWith(".cms-block-container-row"), rule).toBe(true);
+      expect(rule.startsWith(".mbp") || rule.startsWith(".cms-block-container-row") || rule.startsWith(".cms-section-default.boxed .mbp"), rule).toBe(true);
     }
   });
 
