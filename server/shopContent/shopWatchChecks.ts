@@ -17,9 +17,10 @@ import type {
 } from "@shared/shopWatch";
 import { INDUSTRY_PAGES } from "../products/industryPages";
 import { HOME_SECTION_IDS, HOME_SECTION_MARKERS } from "../products/homeSections";
+import { HOME_HERO_MARKER } from "../products/homeHero";
 import { CATEGORY_CONTENT_FIELDS } from "../products/categoryPageHtml";
 import { DEFAULT_MANAGED_CROSS_SELLING_GROUP_NAME } from "@shared/schema";
-import { industryEntityId, quickConfigId, snippetEntryId, STOREFRONT_SNIPPETS, type StorefrontSnippetDef } from "./shopEntityIds";
+import { homeHeroId, industryEntityId, quickConfigId, snippetEntryId, STOREFRONT_SNIPPETS, type StorefrontSnippetDef } from "./shopEntityIds";
 import { EXIT_INTENT_CODE, EXIT_INTENT_IDS, EXIT_INTENT_PROMOTION_NAME, EXIT_INTENT_RULE_NAME } from "./exitIntentPromotion";
 import {
   CHECKOUT_NEWSLETTER_LABEL,
@@ -272,6 +273,24 @@ const industryHome: ShopWatchCheckDef = {
       findings: [
         ...(await entityFindings(ctx.api, "cms-section", "Abschnitt", industryEntityId("home", "section"), "Branchen-Teaser")),
         ...(await checkPage(ctx, "/", ["ht-grid"])),
+      ],
+    };
+  },
+};
+
+const homeHero: ShopWatchCheckDef = {
+  id: "home:hero",
+  group: "own",
+  kind: "homeHero",
+  label: "Startseite",
+  url: "/",
+  cadence: "hourly",
+  repair: (o) => ({ mode: "auto", command: cmd("writeHomeHero.ts", "--apply", o) }),
+  async run(ctx) {
+    return {
+      findings: [
+        ...(await entityFindings(ctx.api, "cms-section", "Abschnitt", homeHeroId("section"), "Header Startseite")),
+        ...(await checkPage(ctx, "/", [HOME_HERO_MARKER])),
       ],
     };
   },
@@ -600,6 +619,7 @@ export const SHOP_WATCH_CHECKS: ShopWatchCheckDef[] = [
   quickConfigHome,
   ...industryPageChecks,
   industryHome,
+  homeHero,
   ...homeSectionChecks,
   categoryFields,
   listingDefaults,

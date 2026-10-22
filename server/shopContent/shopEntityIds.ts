@@ -19,6 +19,9 @@ export const serviceEntityId = (key: string, part: string) => md5(`metaorder-ser
 /** Seite und Startseiten-Abschnitt des Schnellkonfigurators (scripts/writeQuickConfiguratorPage.ts) */
 export const quickConfigId = (part: string) => md5(`metaorder-quick-config:${part}`);
 
+/** Header der Startseite (scripts/writeHomeHero.ts): Teil "section", "block", "slot" */
+export const homeHeroId = (part: string) => md5(`metaorder-home-hero:${part}`);
+
 /** Erlebniswelt „Portal – Neuigkeiten“ (server/b2b/portalNewsShop.ts): Teil "cms", "section", "block", "slot" */
 export const portalNewsEntityId = (part: string) => md5(`metaorder-portal-news:${part}`);
 

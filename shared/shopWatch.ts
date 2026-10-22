@@ -15,6 +15,7 @@ export const SHOP_WATCH_KINDS = [
   "quickConfigHome",
   "industryPage",
   "industryHome",
+  "homeHero",
   "homeSection",
   "categoryFields",
   "listingDefaults",
