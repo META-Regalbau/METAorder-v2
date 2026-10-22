@@ -9,7 +9,7 @@ import {
   rowFigures,
   type CategoryLandingPage,
 } from "../../server/products/categoryLandingPages";
-import { CategoryLandingHtml, categoryLandingCss, landingPlain, landingTextHtml, rowDrawingSvg } from "../../server/products/categoryLandingPageHtml";
+import { CategoryLandingHtml, categoryLandingCss, landingPlain, landingTextHtml, productAlt, rowDrawingSvg } from "../../server/products/categoryLandingPageHtml";
 import { CATALOG_SYSTEMS, GENERAL_CATALOG_FACTS, SAFETY_FACTS } from "../../server/products/catalogFacts";
 import { GLOSSARY_COMPARISONS } from "../../server/products/glossary";
 import { COMPETITOR_NAMES } from "../../shared/competitorNames";
@@ -50,6 +50,22 @@ const products = (p: CategoryLandingPage) =>
   Object.fromEntries(landingProductNumbers(p).map((n, i) => [n, { id: `id${i}`, name: `META TEST | Regal | Grundregal | 2000 x 1000 x 400 mm`, priceNet: 100 + i, url: "/x", image: null }]));
 
 describe("System-Landingpages", () => {
+  it("zeigt in jeder Kachel „Direkt bestellen“ ein Produktbild, ohne Knopf im Link (Platz für 3D-Knopf)", () => {
+    for (const p of CATEGORY_LANDING_PAGES) {
+      expect(p.tiles.every((t) => /^\d{13}$/.test(t.image)), p.key).toBe(true);
+      const withImages = Object.fromEntries(Object.entries(products(p)).map(([n, x]) => [n, { ...x, image: `https://shop.example/${n}.png` }]));
+      const html = new CategoryLandingHtml(p, withImages, { notes: false, cartForm: true }).tiles();
+      expect(html.match(/<div class="tile"><div class="t-img"><img /g), p.key).toHaveLength(p.tiles.length);
+      expect(html).not.toMatch(/<a [^>]*>(?:(?!<\/a>)[\s\S])*<(?:a|button)\b/);
+    }
+  });
+
+  it("bildet den Alt-Text aus System, Art und Rolle", () => {
+    expect(productAlt("META CLIP | Fachbodenregal | Grundregal | 2000 x 1000 x 500 mm | Fachlast 230 kg")).toBe("META CLIP Fachbodenregal, Grundregal");
+    expect(productAlt("META CLIP | Fachteiler durchgehend | 600 x 500 mm | verzinkt")).toBe("META CLIP Fachteiler durchgehend");
+    expect(productAlt("META ATLAS ST | Kragarmregal | 2 Felder | 2000 x 2700 x 500 mm")).toBe("META ATLAS ST Kragarmregal");
+  });
+
   it("hat fünf Seiten mit den sechs Aufbau-Schritten in fester Reihenfolge und Quellen", () => {
     expect(CATEGORY_LANDING_PAGES.map((p) => p.key)).toEqual(["fachboden", "buero", "paletten", "kragarm", "weitspann"]);
     for (const p of CATEGORY_LANDING_PAGES) {
