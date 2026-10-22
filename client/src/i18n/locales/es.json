@@ -7451,7 +7451,11 @@
       "categoriesHint": "Categorías en Outlook: {{categories}}",
       "saved": "Ajustes guardados",
       "savedPageFailed": "Guardado, pero no se pudo actualizar la página",
-      "saveFailed": "No se pudieron guardar los ajustes"
+      "saveFailed": "No se pudieron guardar los ajustes",
+      "fromIntake": "Tomar también de la entrada de correo",
+      "fromIntakeHint": "Sin regla de Outlook: la IA revisa en segundo plano los correos de los remitentes de abajo que parecen un changelog. Sin changelog no hay entrada; la clasificación de la entrada de correo se mantiene.",
+      "intakeSenders": "Remitentes (una dirección por línea)",
+      "intakeSendersHint": "Solo correos enviados directamente desde estas direcciones (p. ej. Carolin y Sebastian cuando reenvían changelogs)."
     }
   },
   "systemLog": {

@@ -24,6 +24,14 @@ Bearbeiten und für die Einstellungen.
    ≥ 60 %). Entwurf bleibt es bei Automatik aus, unsicherer KI, „kein Changelog“ und ohne KI (dann nur
    grob gegliedert: Betreff als Titel, Aufzählungszeilen bis zur Signatur).
 
+**Ohne Outlook-Regel – aus dem E-Mail-Eingang** (`startPortalNewsFromIntake`, Einstellung „Auch aus dem
+E-Mail-Eingang übernehmen“): Nach jeder Mail, die der normale E-Mail-Eingang verarbeitet hat, prüft METAorder im
+Hintergrund (n8n wartet nicht): Absender im Mailkopf steht in der Absender-Liste (Standard Carolin und Sebastian),
+kein Termin-Betreff („Abgesagt:“, „Einladung:“ …) und ein Changelog-Hinweis im Text (Release, Version, behoben,
+Tickets …). Dann läuft dieselbe Verarbeitung wie aus dem Ordner – nur entsteht ohne sicheres „Changelog“ der KI
+(oder ohne KI) **kein** Beitrag, auch kein Entwurf. Die Einordnung des E-Mail-Eingangs (Outlook-Kategorie) bleibt
+unverändert. Liegt dieselbe Mail auch im Ordner, verhindert die Message-ID einen zweiten Beitrag.
+
 Ohne n8n: **Text einfügen** macht aus eingefügtem Mailtext einen Entwurf.
 
 ## Die Seite im Shop

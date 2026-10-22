@@ -50,6 +50,7 @@ import { publicAppBaseUrl } from "../commercial/emailIntakeTeams";
 import { getEmailIntakeSettings } from "../commercial/emailIntakeSettings";
 import { findIntakeMailbox, internalDomainsFor } from "@shared/emailIntake";
 import { startIntakeReply } from "../commercial/emailIntakeReplies";
+import { startPortalNewsFromIntake } from "../b2b/portalNewsService";
 import { parseEmailBufferAutodetect } from "../email/emailParser";
 import { unwrapInternalForward } from "../email/emailForwardUnwrap";
 import { extractDocumentTextPreviewForIntent } from "../extraction/documentTextExtraction";
@@ -673,6 +674,8 @@ export function registerDraftRoutes(app: Express): void {
                 rawEmail: { buffer: fileBuffer, fileName: file.originalname },
                 integrationUser: { id: userId, email: user?.email ?? null },
               });
+              // Changelog-Mails (Carolin/Sebastian) zusätzlich an die Portal-Neuigkeiten, ebenfalls im Hintergrund
+              startPortalNewsFromIntake({ tenantId: req.tenantId ?? null, buffer: fileBuffer, mailbox: intakeMailboxField });
             }
             return res.json({
               // Rückwärtskompatible Felder für UI und bestehende Clients (erster Entwurf).

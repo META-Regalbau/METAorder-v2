@@ -11,6 +11,7 @@ import path from "node:path";
 import {
   DEFAULT_PORTAL_NEWS_SETTINGS,
   PORTAL_NEWS_CATEGORIES,
+  isPortalNewsIntakeCandidate,
   normalizePortalNewsSettings,
   portalNewsMessageFilter,
   type PortalNewsSettings,
@@ -79,6 +80,7 @@ import {
   berlinDate,
   deleteNews,
   ingestNewsMail,
+  mailHeaderDate,
   portalNewsWorkflowConfig,
   setNewsStatus,
   updateNewsContent,
@@ -104,6 +106,31 @@ describe("Portal-Neuigkeiten: Einstellungen", () => {
     const cfg = portalNewsWorkflowConfig({ ...DEFAULT_PORTAL_NEWS_SETTINGS, mailbox: "o@meta-online.com", processSince: "2026-10-01" });
     assert.equal(cfg.graphBase, "https://graph.microsoft.com/v1.0/users/o%40meta-online.com");
     assert.equal(cfg.sourceFolderName, "METAorder Neuigkeiten");
+  });
+});
+
+describe("Portal-Neuigkeiten: aus dem E-Mail-Eingang", () => {
+  const on = { ...DEFAULT_PORTAL_NEWS_SETTINGS, enabled: true };
+  const mail = (fromEmail: string | null, subject: string, body = "") => ({ fromEmail, subject, body });
+
+  it("nur eingestellte Absender, nur mit Changelog-Hinweis, keine Termin-Antworten", () => {
+    assert.equal(isPortalNewsIntakeCandidate(mail("SFehd@meta-online.com", "Regalplaner; Changelog Version 1.0.50"), on), true);
+    assert.equal(isPortalNewsIntakeCandidate(mail("cwanzkeboomers@meta-online.com", "WG: Statusmeeting META Kundenportal", "Alles ist heute in zwei Releases live gegangen"), on), true);
+    assert.equal(isPortalNewsIntakeCandidate(mail("cwanzkeboomers@meta-online.com", "Gitterrost vzk - Absprache Ablauf", "Wie gehen wir vor?"), on), false);
+    assert.equal(isPortalNewsIntakeCandidate(mail("cwanzkeboomers@meta-online.com", "Abgesagt: Release-Planung"), on), false);
+    assert.equal(isPortalNewsIntakeCandidate(mail("anton@wirduzen.de", "Changelog 3.2.79"), on), false);
+    assert.equal(isPortalNewsIntakeCandidate(mail("sfehd@meta-online.com", "Changelog"), { ...on, fromIntake: false }), false);
+    assert.equal(isPortalNewsIntakeCandidate(mail("sfehd@meta-online.com", "Changelog"), DEFAULT_PORTAL_NEWS_SETTINGS), false, "Abholen aus");
+  });
+
+  it("Absender-Liste: klein geschrieben, ungültige Adressen fallen auf den Standard zurück", () => {
+    assert.deepEqual(normalizePortalNewsSettings({ intakeSenders: ["A@Meta-Online.com"] }).intakeSenders, ["a@meta-online.com"]);
+    assert.deepEqual(normalizePortalNewsSettings({ intakeSenders: ["kein-mail"] }).intakeSenders, DEFAULT_PORTAL_NEWS_SETTINGS.intakeSenders);
+  });
+
+  it("Datum aus dem Mailkopf", () => {
+    assert.equal(mailHeaderDate(Buffer.from("Date: Thu, 22 Oct 2026 12:21:56 +0200\r\n\r\nx"))?.toISOString(), "2026-10-22T10:21:56.000Z");
+    assert.equal(mailHeaderDate(Buffer.from("Subject: x\r\n\r\n")), null);
   });
 });
 
@@ -328,6 +355,28 @@ describe("Portal-Neuigkeiten: Ablauf", () => {
     assert.deepEqual(none.categories, [PORTAL_NEWS_CATEGORIES.draft]);
     assert.ok(String(mem.rows[2].note).includes("Kein Changelog"));
     assert.equal(written.length, 0);
+  });
+
+  it("aus dem E-Mail-Eingang: ohne Changelog kein Beitrag (auch kein Entwurf), mit Changelog veröffentlicht", async () => {
+    llmAnswer = { isChangelog: false, confidence: 0.9, reason: "Rückfrage", title: "", sections: [], tags: [] };
+    const none = await ingestNewsMail(ctx(), { buffer: eml("i1@x", "Release-Termin?", "Wann kommt das Release?") }, { dropIfNotChangelog: true });
+    assert.equal(none.outcome, "not_changelog");
+    assert.equal(mem.rows.length, 0);
+    assert.equal(written.length, 0);
+    llmAnswer = { isChangelog: true, confidence: 0.9, title: "Neu", summary: "", sections: [{ heading: "Neu", items: ["x"] }], tags: [] };
+    const yes = await ingestNewsMail(ctx(), { buffer: eml("i2@x", "Changelog", "- x") }, { dropIfNotChangelog: true });
+    assert.equal(yes.outcome, "published");
+    assert.equal(written.length, 1);
+  });
+
+  it("aus dem E-Mail-Eingang ohne KI: kein grob gegliederter Entwurf", async () => {
+    const r = await ingestNewsMail(
+      { ...ctx(), llm: async () => { throw new Error("KI weg"); } },
+      { buffer: eml("i3@x", "Changelog", "- a\n- b") },
+      { dropIfNotChangelog: true },
+    );
+    assert.equal(r.outcome, "not_changelog");
+    assert.equal(mem.rows.length, 0);
   });
 
   it("Shop-Fehler: Beitrag bleibt veröffentlicht, Fehler im Seitenstand und Verlauf", async () => {

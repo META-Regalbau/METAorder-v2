@@ -7454,7 +7454,11 @@
       "categoriesHint": "Outlook categories: {{categories}}",
       "saved": "Settings saved",
       "savedPageFailed": "Saved, but the page could not be updated",
-      "saveFailed": "Settings could not be saved"
+      "saveFailed": "Settings could not be saved",
+      "fromIntake": "Also take over from the email intake",
+      "fromIntakeHint": "Without an Outlook rule: emails from the senders below that look like a changelog are checked by the AI in the background. No changelog, no post; the email intake classification stays.",
+      "intakeSenders": "Senders (one address per line)",
+      "intakeSendersHint": "Only emails sent directly from these addresses (e.g. Carolin and Sebastian when they forward changelogs)."
     }
   },
   "systemLog": {

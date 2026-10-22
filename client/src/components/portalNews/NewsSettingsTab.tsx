@@ -19,9 +19,14 @@ export default function NewsSettingsTab({ canManage }: { canManage: boolean }) {
   const { toast } = useToast();
   const query = useQuery<{ settings: PortalNewsSettings }>({ queryKey: QUERY_KEY });
   const [form, setForm] = useState<PortalNewsSettings | null>(null);
+  // Absender als Text (eine Adresse je Zeile), damit Tippen und Zeilenumbrüche nicht verloren gehen
+  const [sendersText, setSendersText] = useState("");
 
   useEffect(() => {
-    if (query.data?.settings) setForm(query.data.settings);
+    if (query.data?.settings) {
+      setForm(query.data.settings);
+      setSendersText(query.data.settings.intakeSenders.join("\n"));
+    }
   }, [query.data]);
 
   const save = useMutation({
@@ -49,7 +54,7 @@ export default function NewsSettingsTab({ canManage }: { canManage: boolean }) {
 
   const set = <K extends keyof PortalNewsSettings>(key: K, value: PortalNewsSettings[K]) => setForm((f) => (f ? { ...f, [key]: value } : f));
   const disabled = !canManage || save.isPending;
-  const toggle = (key: "enabled" | "autoPublish") => (
+  const toggle = (key: "enabled" | "autoPublish" | "fromIntake") => (
     <div className="flex items-start gap-3">
       <Switch id={`news-setting-${key}`} checked={form[key]} disabled={disabled} onCheckedChange={(v) => set(key, v)} className="mt-0.5" />
       <div>
@@ -64,6 +69,7 @@ export default function NewsSettingsTab({ canManage }: { canManage: boolean }) {
       <div className="space-y-3">
         {toggle("enabled")}
         {toggle("autoPublish")}
+        {toggle("fromIntake")}
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -94,6 +100,21 @@ export default function NewsSettingsTab({ canManage }: { canManage: boolean }) {
             disabled={disabled}
             onChange={(e) => set("maxPerRun", Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
           />
+        </div>
+        <div className="md:col-span-2">
+          <Label htmlFor="news-setting-senders">{t("portalNews.settings.intakeSenders")}</Label>
+          <Textarea
+            id="news-setting-senders"
+            className="mt-1"
+            rows={2}
+            value={sendersText}
+            disabled={disabled || !form.fromIntake}
+            onChange={(e) => {
+              setSendersText(e.target.value);
+              set("intakeSenders", [...new Set(e.target.value.split(/[\s,;]+/).map((x) => x.trim().toLowerCase()).filter(Boolean))]);
+            }}
+          />
+          <p className="text-xs text-muted-foreground mt-1">{t("portalNews.settings.intakeSendersHint")}</p>
         </div>
         <div className="md:col-span-2">
           <Label htmlFor="news-setting-title">{t("portalNews.settings.pageTitle")}</Label>

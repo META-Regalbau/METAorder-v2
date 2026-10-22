@@ -16,6 +16,7 @@ import {
   PORTAL_NEWS_CATEGORIES,
   PORTAL_NEWS_PAGE_STATE_KEY,
   PORTAL_NEWS_SETTING_KEY,
+  isPortalNewsIntakeCandidate,
   normalizePortalNewsSettings,
   portalNewsMessageFilter,
   type PortalNewsContent,
@@ -221,12 +222,25 @@ const categoryFor = (status: PortalNewsStatus) =>
   status === "published" ? PORTAL_NEWS_CATEGORIES.published : status === "failed" ? PORTAL_NEWS_CATEGORIES.failed : PORTAL_NEWS_CATEGORIES.draft;
 
 /** KI-Beitrag aus der Mail; veröffentlicht, wenn die Automatik an ist und das Ergebnis sicher ist */
-async function evaluate(ctx: ServiceContext, row: PortalNewsPostRow, opts: { allowAutoPublish: boolean }): Promise<PortalNewsPostRow> {
+async function evaluate(
+  ctx: ServiceContext,
+  row: PortalNewsPostRow,
+  opts: { allowAutoPublish: boolean; dropIfNotChangelog?: boolean },
+): Promise<PortalNewsPostRow | null> {
   const extraction = await extractPortalNews(
     storageOf(ctx),
     { from: row.fromName || row.fromEmail || "", subject: row.subject, body: row.bodyText, receivedDate: berlinDate(row.receivedAt) },
     ctx.llm,
   );
+  // Aus dem E-Mail-Eingang (jede Mail der Absender): ohne sicheres „Changelog“ der KI kein Beitrag
+  if (opts.dropIfNotChangelog && (extraction.source !== "ai" || !extraction.isChangelog)) {
+    await repoOf(ctx).remove(ctx.tenantId, row.id);
+    log.info(
+      { event: "portal_news.not_changelog", subject: row.subject, source: extraction.source, tenantId: ctx.tenantId },
+      `[PortalNews] kein Changelog, kein Beitrag: ${row.subject}`,
+    );
+    return null;
+  }
   const sure = extraction.source === "ai" && extraction.isChangelog && extraction.confidence >= SURE_CHANGELOG_CONFIDENCE;
   const publish = opts.allowAutoPublish && ctx.settings.autoPublish && sure;
   const note = publish
@@ -267,6 +281,7 @@ async function writePageQuietly(ctx: ServiceContext, postId: string): Promise<vo
 export async function ingestNewsMail(
   ctx: ServiceContext,
   input: { buffer: Buffer; graphMessageId?: string | null; mailbox?: string | null; subjectHint?: string | null; receivedAt?: Date | null },
+  opts: { dropIfNotChangelog?: boolean } = {},
 ): Promise<PortalNewsIntakeResponse> {
   const messageId = deriveUploadMessageId(input.buffer);
   const existing = await repoOf(ctx).findByMessageId(ctx.tenantId, messageId);
@@ -304,7 +319,8 @@ export async function ingestNewsMail(
       return { outcome: "duplicate", postId: again?.id ?? null, categories: [categoryFor((again?.status ?? "draft") as PortalNewsStatus)] };
     }
     try {
-      const done = await evaluate(ctx, row, { allowAutoPublish: true });
+      const done = await evaluate(ctx, row, { allowAutoPublish: true, dropIfNotChangelog: opts.dropIfNotChangelog });
+      if (!done) return { outcome: "not_changelog", postId: null, categories: [] };
       if (done.status === "published") await writePageQuietly(ctx, done.id);
       log.info({ event: "portal_news.received", postId: row.id, status: done.status, tenantId: ctx.tenantId }, `[PortalNews] ${done.status}: ${subject}`);
       return { outcome: done.status === "published" ? "published" : "draft", postId: row.id, categories: [categoryFor(done.status as PortalNewsStatus)] };
@@ -317,6 +333,44 @@ export async function ingestNewsMail(
   } finally {
     releaseIntakeLock(lockKey);
   }
+}
+
+/** Datum aus dem Mailkopf (Date:); null = fehlt oder unlesbar */
+export function mailHeaderDate(buffer: Buffer): Date | null {
+  const head = buffer.subarray(0, 64 * 1024).toString("latin1");
+  const raw = head.match(/^date:\s*(.+)$/im)?.[1]?.trim();
+  if (!raw) return null;
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Aus dem normalen E-Mail-Eingang (n8n → /api/commercial-drafts/upload): Changelog-Mails der eingestellten
+ * Absender ohne Outlook-Regel übernehmen. Läuft im Hintergrund – n8n wartet nicht auf die KI, und die Einordnung
+ * des E-Mail-Eingangs (Kategorie in Outlook) bleibt unverändert. Ohne Changelog laut KI entsteht kein Beitrag.
+ */
+export function startPortalNewsFromIntake(params: {
+  tenantId: string | null;
+  buffer: Buffer;
+  mailbox?: string | null;
+  storage?: Pick<IStorage, "getSetting" | "saveSetting">;
+}): void {
+  void (async () => {
+    const settings = await getPortalNewsSettings(params.storage ?? defaultStorage, params.tenantId);
+    if (!settings.enabled || !settings.fromIntake || !settings.intakeSenders.length) return;
+    const parsed = await parseEmailBufferAutodetect(params.buffer);
+    const fromEmail = (parsed.from || "").match(/[^\s<>"]+@[^\s<>"]+/)?.[0]?.toLowerCase() ?? null;
+    if (!isPortalNewsIntakeCandidate({ fromEmail, subject: parsed.subject || "", body: parsed.body || "" }, settings)) return;
+    const result = await ingestNewsMail(
+      { tenantId: params.tenantId, settings, userName: "E-Mail-Eingang", storage: params.storage },
+      { buffer: params.buffer, mailbox: params.mailbox ?? null, receivedAt: mailHeaderDate(params.buffer) },
+      { dropIfNotChangelog: true },
+    );
+    log.info(
+      { event: "portal_news.from_intake", outcome: result.outcome, postId: result.postId, tenantId: params.tenantId },
+      `[PortalNews] aus dem E-Mail-Eingang: ${result.outcome} – ${parsed.subject ?? ""}`,
+    );
+  })().catch((err) => log.warn({ err, tenantId: params.tenantId }, "[PortalNews] Übernahme aus dem E-Mail-Eingang gescheitert"));
 }
 
 /** Mailtext von Hand einfügen (ohne n8n); wird immer ein Entwurf, der Admin veröffentlicht selbst */
@@ -335,7 +389,7 @@ export async function createNewsFromText(ctx: ServiceContext, input: { subject: 
     events: [event("received", "Text von Hand eingefügt", ctx.userName)],
   });
   if (!row) throw new PortalNewsError("Beitrag konnte nicht angelegt werden", "portal_news_insert_failed", 500);
-  return evaluate(ctx, row, { allowAutoPublish: false });
+  return (await evaluate(ctx, row, { allowAutoPublish: false }))!;
 }
 
 // ---------- Bearbeiten ----------
@@ -384,7 +438,7 @@ export async function rewriteNews(ctx: ServiceContext, id: string): Promise<Port
   const row = await mustGet(ctx, id);
   if (!row.bodyText.trim()) throw new PortalNewsError("Kein Mailtext vorhanden", "portal_news_no_text");
   const wasPublished = row.status === "published";
-  const updated = await evaluate(ctx, row, { allowAutoPublish: false });
+  const updated = (await evaluate(ctx, row, { allowAutoPublish: false }))!;
   if (wasPublished) await writePortalNewsPage(ctx);
   return updated;
 }
