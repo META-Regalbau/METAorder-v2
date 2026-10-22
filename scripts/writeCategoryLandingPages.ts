@@ -234,12 +234,26 @@ async function main(): Promise<void> {
     for (const q of await questionsOf(p.faqGroupId)) await api("DELETE", `hueb-seo-faq-questions/${q.id}`);
     for (const q of p.questions) await api("POST", "hueb-seo-faq-questions", q);
     if (p.replace) {
-      // Landingpage kurz auf die Agentur-Fassung, dann eigene Erlebniswelt neu anlegen
-      await api("PATCH", `landing-page/${p.page.landingPageId}`, { cmsPageId: p.page.agencyCmsPageId });
-      await api("DELETE", `cms-page/${p.cms.id}`);
+      // Eigene Erlebniswelt an Ort und Stelle aktualisieren (feste IDs): sie kann im Shop zusätzlich an einer
+      // Kategorie hängen (Live: „Alles zu META Büroregalen“), dann verweigert Shopware das Löschen. Danach
+      // Abschnitte und Blöcke entfernen, die es im neuen Stand nicht mehr gibt.
+      await api("PATCH", `cms-page/${p.cms.id}`, p.cms);
+      const keepSections = new Set(p.cms.sections.map((x: any) => x.id));
+      const keepBlocks = new Set(p.cms.sections.flatMap((x: any) => x.blocks.map((b: any) => b.id)));
+      const current = (await api("POST", "search/cms-section", {
+        limit: 100,
+        filter: [{ type: "equals", field: "pageId", value: p.cms.id }],
+        associations: { blocks: {} },
+        includes: { cms_section: ["id", "blocks"], cms_block: ["id"] },
+      }))?.data ?? [];
+      for (const sec of current) {
+        if (!keepSections.has(sec.id)) await api("DELETE", `cms-section/${sec.id}`);
+        else for (const b of sec.blocks ?? []) if (!keepBlocks.has(b.id)) await api("DELETE", `cms-block/${b.id}`);
+      }
+    } else {
+      await api("POST", "cms-page", p.cms);
+      await api("PATCH", `landing-page/${p.page.landingPageId}`, { cmsPageId: p.cms.id });
     }
-    await api("POST", "cms-page", p.cms);
-    await api("PATCH", `landing-page/${p.page.landingPageId}`, { cmsPageId: p.cms.id });
     console.log(`${p.page.key}: Erlebniswelt ${p.cms.id} an Landingpage ${p.page.landingPageId} gehängt`);
   }
   console.log(`Protokoll: ${file}`);
